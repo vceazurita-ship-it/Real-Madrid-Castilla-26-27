@@ -221,7 +221,10 @@ export function medida(jugador: JugadorDuelo, columna: string, referencias: Map<
   if (valor === null) return null;
   const metrica = METRICA_JUGADOR_POR_COLUMNA.get(columna);
   const puesto = puestoDe(fila.posicion);
-  const contra = (referencias.get(puesto) ?? []).map((c) => valorDe(c, columna)).filter((v): v is number => v !== null);
+  const contra = (referencias.get(puesto) ?? [])
+    .filter((c) => volumenDelPorcentaje(c, columna).fiable)
+    .map((c) => valorDe(c, columna))
+    .filter((v): v is number => v !== null);
   if (contra.length < 5) return null;
   const percentil = percentilEnPlantilla(valor, contra, metrica?.mejorAlto ?? true);
   return percentil === null ? null : { jugador, valor, percentil };
@@ -304,6 +307,9 @@ const apellido = (nombre: string) => {
 
 const nombres = (lista: JugadorDuelo[]) => lista.map((j) => apellido(j.nombre)).join(" y ");
 
+/** «ataca» / «atacan», según sean uno o dos. */
+const verbo = (lista: JugadorDuelo[], singular: string) => (lista.length > 1 ? singular + "n" : singular);
+
 function fraseDe(f: Omit<ResultadoFaceta, "frase">): string {
   if (f.veredicto === "sin-datos") {
     const falta = f.nuestro === null && f.suyo === null ? "ninguno de los dos" : f.nuestro === null ? "los nuestros" : "los suyos";
@@ -360,8 +366,8 @@ export function mideDuelo(
   const quienS = nombres(suyos) || "los suyos";
 
   const bloques: BloqueDuelo[] = [
-    bloque("con", `Con balón nuestro: ${quienN} ataca, ${quienS} defiende`, CON_BALON[`${rolN}>${rolS}`]),
-    bloque("sin", `Con balón suyo: ${quienS} ataca, ${quienN} defiende`, CON_BALON[`${rolS}>${rolN}`]),
+    bloque("con", `Con balón nuestro: ${quienN} ${verbo(nuestros, "ataca")}, ${quienS} ${verbo(suyos, "defiende")}`, CON_BALON[`${rolN}>${rolS}`]),
+    bloque("sin", `Con balón suyo: ${quienS} ${verbo(suyos, "ataca")}, ${quienN} ${verbo(nuestros, "defiende")}`, CON_BALON[`${rolS}>${rolN}`]),
     ...(CON_AEREO.has(def.tipo) ? [bloque("aire", "Por arriba", [AEREO])] : []),
   ];
 
@@ -445,6 +451,9 @@ export const ROTULO_HUECO = new Map(HUECOS.map((h) => [h.clave, h.rotulo]));
 export type DuelosDoc = { nuestro: Record<string, string>; suyo: Record<string, string> };
 
 export const DUELOS_VACIO: DuelosDoc = { nuestro: {}, suyo: {} };
+
+/** Lo que se guarda en un hueco que se ha dejado vacío a mano (no es la clave de nadie). */
+export const HUECO_VACIO = "∅";
 
 export function normalizaDuelos(valor: unknown): DuelosDoc {
   const v = (valor ?? {}) as Partial<DuelosDoc>;

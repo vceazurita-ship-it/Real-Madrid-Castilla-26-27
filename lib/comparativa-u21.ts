@@ -66,7 +66,10 @@ export function percentilesDe(jugador: FilaJugador, contra: FilaJugador[], puest
       if (valor === null) return null;
       const percentil = percentilEnPlantilla(
         valor,
-        contra.map((c) => valorDe(c, m.columna)).filter((v): v is number => v !== null),
+        contra
+          .filter((c) => volumenDelPorcentaje(c, m.columna).fiable)
+          .map((c) => valorDe(c, m.columna))
+          .filter((v): v is number => v !== null),
         m.mejorAlto,
       );
       return percentil === null ? null : { metrica: m, valor, percentil };
@@ -123,7 +126,7 @@ export function comparativa(jugadores: FilaJugador[], ref: Referencia): FilaComp
   return nuestros.map((jugador) => {
     const puesto = puestoDe(jugador.posicion);
     const { referencia, indices } = delPuesto(puesto);
-    const percentiles = percentilesDe(jugador, referencia, puesto);
+    const percentiles = jugador.minutos >= MINUTOS_MINIMOS ? percentilesDe(jugador, referencia, puesto) : [];
     const indice = indiceDe(percentiles);
 
     /* Si él no entra en la referencia (más mayor, o pocos minutos), se le coloca igualmente. */
@@ -183,7 +186,15 @@ export const FASES: { key: Fase; label: string }[] = [
   { key: "por", label: "Porteros" },
 ];
 
-export type Pregunta = { fase: Fase; pregunta: string; x: string; y: string; lectura: string };
+export type Pregunta = {
+  fase: Fase;
+  pregunta: string;
+  x: string;
+  y: string;
+  lectura: string;
+  /** Cuando la pregunta lee el eje X al revés que la métrica (más remates en contra = más trabajo, no peor). */
+  mejorX?: boolean;
+};
 
 export const PREGUNTAS: Pregunta[] = [
   { fase: "con", pregunta: "¿Quién hace avanzar el balón?", x: "Pases progresivos/90", y: "Carreras en progresión/90", lectura: "Arriba a la derecha, los que progresan pasando y conduciendo." },
@@ -206,7 +217,7 @@ export const PREGUNTAS: Pregunta[] = [
   { fase: "por", pregunta: "¿Qué portero juega con los pies?", x: "Pases largos/90", y: "Precisión pases largos, %", lectura: "Volumen de juego en largo contra acierto." },
   { fase: "por", pregunta: "¿Qué portero juega corto?", x: "Pases cortos / medios /90", y: "Precisión pases cortos / medios, %", lectura: "Cuánto inicia en corto y con qué seguridad." },
   { fase: "por", pregunta: "¿Qué portero sale más?", x: "Salidas/90", y: "Duelos aéreos ganados, %", lectura: "Salidas de su línea contra balones por alto ganados." },
-  { fase: "por", pregunta: "¿Cuánto trabajo le dan?", x: "Remates en contra/90", y: "Goles recibidos/90", lectura: "Lo que le tiran contra lo que le entra: abajo a la derecha, mucho trabajo y pocos goles." },
+  { fase: "por", pregunta: "¿Cuánto trabajo le dan?", x: "Remates en contra/90", y: "Goles recibidos/90", mejorX: true, lectura: "Lo que le tiran contra lo que le entra: abajo a la derecha, mucho trabajo y pocos goles." },
 ];
 
 export type PuntoJugador = { jugador: FilaJugador; x: number; y: number; nuestro: boolean; comparado: boolean };

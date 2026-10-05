@@ -500,21 +500,28 @@ export function casaNombre<T>(
 
   if (exacto) return exacto;
 
-  /* Por apellido: el trozo más largo, que es el que nadie abrevia. */
-  const trozos = limpio.split(" ").filter((t) => t.length > 2);
+  /*
+  | Por apellido: primero el último trozo y luego los demás apellidos (del más
+  | largo al más corto), y vale el primero que deja UN solo candidato. Con sólo
+  | el último, «Oscar Naasei Oppong» no casaba con «O. Naasei» (06/10/2026).
+  | El primer trozo —el nombre de pila— no se prueba: casaría a un Alejandro
+  | con otro.
+  */
+  const palabras = limpio.split(" ");
+  const ultimo = palabras[palabras.length - 1];
+  const trozos = [
+    ultimo,
+    ...palabras.slice(1, -1).sort((a, b) => b.length - a.length),
+  ].filter((t) => t && t.length > 2);
 
-  const apellido = trozos[trozos.length - 1];
+  for (const apellido of trozos) {
+    const porApellido = candidatos.filter((uno) => normalizePlayerName(nombreDe(uno)).split(" ").includes(apellido));
 
-  if (!apellido) return null;
+    /* Sólo si no hay duda: dos «Martínez» no se resuelven solos. */
+    if (porApellido.length === 1) return porApellido[0];
+  }
 
-  const porApellido = candidatos.filter((uno) => {
-    const suyos = normalizePlayerName(nombreDe(uno)).split(" ");
-
-    return suyos.includes(apellido);
-  });
-
-  /* Sólo si no hay duda: dos «Martínez» no se resuelven solos. */
-  return porApellido.length === 1 ? porApellido[0] : null;
+  return null;
 }
 
 /* ------------------------------------------------------------------ */

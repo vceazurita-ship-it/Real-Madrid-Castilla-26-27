@@ -661,6 +661,8 @@ export function InformePartidoDialog({
     return () => {
       vivo = false;
       window.clearTimeout(t);
+      /* Si se corta a mitad (se pulsa Enviar), el rótulo no se puede quedar puesto: lo que siga lo dice el envío. */
+      setPreparando(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claveDiapos, claveCompleto, abpCargando, trabajando]);
@@ -1233,10 +1235,10 @@ export function InformePartidoDialog({
             ) : null}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button icon={FileText} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPdf()} title="Las diapositivas elegidas, en PDF">
+            <Button icon={FileText} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaPdf()} title="Las diapositivas elegidas, en PDF">
               Resumen PDF
             </Button>
-            <Button icon={Presentation} disabled={!informe || Boolean(trabajando)} onClick={() => void bajaPptx()} title="Las diapositivas elegidas, en PowerPoint">
+            <Button icon={Presentation} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaPptx()} title="Las diapositivas elegidas, en PowerPoint">
               Resumen PPT
             </Button>
             <Button icon={BookOpen} disabled={!informe || Boolean(trabajando) || abpCargando} onClick={() => void bajaCompleto()} title="El informe extenso en PDF, con los capítulos elegidos">

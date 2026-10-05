@@ -123,6 +123,8 @@ export type MetricaEquipo = {
   percentil: number | null;
   /** 1 = el primero de la competición en el sentido bueno (o el que más, si es un estilo). */
   puesto: number;
+  /** Su puesto contando siempre de más a menos (para las de estilo: 1º = el que más). */
+  puestoDeMas: number;
   de: number;
   mediana: number;
 };
@@ -171,6 +173,7 @@ export function perfilDe(equipo: string, liga: FilaPartido[]): PerfilColectivo |
       valor,
       percentil: m.mejorAlto === null ? null : percentilDe(valor, valores, m.mejorAlto),
       puesto: orden.findIndex((v) => v === valor) + 1,
+      puestoDeMas: [...valores].sort((a, b) => b - a).findIndex((v) => v === valor) + 1,
       de: valores.length,
       mediana: mediana(valores),
     });

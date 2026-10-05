@@ -251,6 +251,8 @@ export default function ComparativaCategoria() {
   );
 
   const abreFicha = (nombre: string) => {
+    const suyo = conFicha.find((x) => x.f.jugador.jugador === nombre);
+    if (suyo && filtroPuesto !== "todos" && suyo.f.puesto !== filtroPuesto) setFiltroPuesto(suyo.f.puesto);
     setElegido(nombre);
     setPestana("ficha");
   };
@@ -652,20 +654,22 @@ function Graficos({
   | portero: sus preguntas y, para elegir los ejes, sus métricas. Las de
   | jugador de campo —regates, centros, presión— no dicen nada de él.
   */
-  const esPortero = puesto === "POR";
+  const esPorteroArriba = puesto === "POR";
   const primeraDePortero = PREGUNTAS.findIndex((q) => q.fase === "por");
-  const preguntaVista = esPortero && PREGUNTAS[pregunta].fase !== "por" ? primeraDePortero : pregunta;
+  const preguntaVista = esPorteroArriba && PREGUNTAS[pregunta].fase !== "por" ? primeraDePortero : pregunta;
 
   const p = PREGUNTAS[preguntaVista];
   const [faseVista, setFaseVista] = useState(p.fase);
-  const fase = esPortero ? "por" : faseVista;
+  const fase = esPorteroArriba ? "por" : faseVista;
+  /* En la fase de porteros, todo es de porteros: los puntos y las métricas que se ofrecen para los ejes. */
+  const esPortero = fase === "por";
   const metricasEjes = METRICAS_JUGADOR.filter((m) => !esPortero || aplicaA(m, "POR"));
   const valeEje = (c?: string) => Boolean(c) && metricasEjes.some((m) => m.columna === c);
   const x = valeEje(ejes?.x) ? ejes!.x : p.x;
   const y = valeEje(ejes?.y) ? ejes!.y : p.y;
 
   /* Las de porteros, sólo con porteros; el resto, con el puesto de arriba. */
-  const puestoGrafico: Puesto | "todos" = !ejes && p.fase === "por" ? "POR" : puesto;
+  const puestoGrafico: Puesto | "todos" = esPortero ? "POR" : puesto;
   const todos = useMemo(
     () => puntosDe(jugadores, refe, puestoGrafico, x, y, equiposSel),
     [jugadores, refe, puestoGrafico, x, y, equiposSel],
@@ -675,14 +679,14 @@ function Graficos({
 
   const mx = mediana(todos.filter((q) => !q.nuestro).map((q) => q.x));
   const my = mediana(todos.filter((q) => !q.nuestro).map((q) => q.y));
-  const mejorX = METRICA_JUGADOR_POR_COLUMNA.get(x)?.mejorAlto;
+  const mejorX = !ejes && p.mejorX !== undefined ? p.mejorX : METRICA_JUGADOR_POR_COLUMNA.get(x)?.mejorAlto;
   const mejorY = METRICA_JUGADOR_POR_COLUMNA.get(y)?.mejorAlto;
   const porEncima = (v: number, m: number, mejor: boolean | null | undefined) => (mejor === false ? v < m : v > m);
   const destacan = puntos.filter((q) => q.nuestro && porEncima(q.x, mx, mejorX) && porEncima(q.y, my, mejorY));
   const destacanSuyos = puntos.filter((q) => q.comparado && porEncima(q.x, mx, mejorX) && porEncima(q.y, my, mejorY));
 
   const puestoTexto = puestoGrafico === "todos" ? "jugadores de campo" : PUESTOS.find((q) => q.key === puestoGrafico)?.label.toLowerCase();
-  const fasesVisibles = FASES.filter((f) => (esPortero ? f.key === "por" : true));
+  const fasesVisibles = FASES.filter((f) => (esPorteroArriba ? f.key === "por" : true));
 
   return (
     <div className="mt-5 space-y-3">
@@ -1276,7 +1280,10 @@ function CaraACara({
     const percentil = fiable
       ? percentilEnPlantilla(
           valor,
-          categoria.map((c) => valorDe(c, columna)).filter((v): v is number => v !== null),
+          categoria
+            .filter((c) => volumenDelPorcentaje(c, columna).fiable)
+            .map((c) => valorDe(c, columna))
+            .filter((v): v is number => v !== null),
           m?.mejorAlto ?? true,
         )
       : null;

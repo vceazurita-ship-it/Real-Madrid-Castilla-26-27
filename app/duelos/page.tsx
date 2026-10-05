@@ -34,6 +34,7 @@ import { HUECOS, casaNombre, proponeOnce, sitioDe } from "@/lib/data-analisis/on
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import {
   DUELOS_VACIO,
+  HUECO_VACIO,
   UMBRAL_DUELO,
   ZONAS,
   alturaEnCm,
@@ -111,7 +112,8 @@ export default function DuelosPage() {
   const escudoDe = useEscudos();
 
   const [jugadores, setJugadores] = useState<FilaJugador[] | null>(null);
-  const [plantillas, setPlantillas] = useState<Fila[]>([]);
+  const [plantillasLeidas, setPlantillas] = useState<Fila[] | null>(null);
+  const plantillas = useMemo(() => plantillasLeidas ?? [], [plantillasLeidas]);
   const [informes, setInformes] = useState<InformeDoc | null>(null);
   const [proximo, setProximo] = useState<{ rival: string; cuando: string; jornada?: number } | null>(null);
   const [equipo, setEquipo] = useState("");
@@ -283,19 +285,37 @@ export default function DuelosPage() {
     minutos: j.minutos,
   });
 
-  const onceNuestro = useMemo(() => {
-    const huecos = proponeOnce(nuestros.filter((j) => j.wyscout).map(candidato), {});
-    /* Lo puesto a mano manda, aunque sea alguien sin Wyscout. */
-    const final = { ...huecos, ...aMano.nuestro };
-    const porClave = new Map(nuestros.map((j) => [j.clave, j]));
-    return Object.fromEntries(HUECOS.map((h) => [h.clave, porClave.get(final[h.clave])]));
-  }, [nuestros, aMano.nuestro]);
+  /*
+  | Lo puesto a mano se le pasa a `proponeOnce`, que lo reserva y rellena
+  | alrededor (06/10/2026): antes se ponía encima de la propuesta y el mismo
+  | jugador podía quedar en dos huecos —el pivote propuesto en `piv-d` y
+  | elegido a mano en `piv-i`—. Un hueco vaciado a mano (`HUECO_VACIO`) se
+  | queda vacío.
+  */
+  const armaOnce = (candidatos: JugadorDuelo[], todos: JugadorDuelo[], manual: Record<string, string>) => {
+    const elegidos = Object.fromEntries(Object.entries(manual).filter(([, c]) => c !== HUECO_VACIO));
+    const conElegidos = [...candidatos, ...todos.filter((j) => Object.values(elegidos).includes(j.clave) && !candidatos.includes(j))];
+    const huecos = proponeOnce(conElegidos.map(candidato), elegidos);
+    const porClave = new Map(todos.map((j) => [j.clave, j]));
+    return Object.fromEntries(
+      HUECOS.map((h) => [h.clave, manual[h.clave] === HUECO_VACIO ? undefined : porClave.get(huecos[h.clave])]),
+    ) as Record<string, JugadorDuelo | undefined>;
+  };
 
+  const onceNuestro = useMemo(
+    () => armaOnce(nuestros.filter((j) => j.wyscout), nuestros, aMano.nuestro),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- armaOnce y candidato son puros
+    [nuestros, aMano.nuestro],
+  );
+
+  /* Su base va primero (le sobran minutos) y el resto de la plantilla completa los huecos que falten. */
   const onceSuyo = useMemo(() => {
-    const huecos = proponeOnce(baseSuya.lista.map(candidato), {});
-    const final = { ...huecos, ...aMano.suyo };
+    const enBase = new Set(baseSuya.lista.map((j) => j.clave));
+    const ordenados = suyos.map((j) => (enBase.has(j.clave) ? { ...j, minutos: j.minutos + 1e6 } : j));
+    const resultado = armaOnce(ordenados, ordenados, aMano.suyo);
     const porClave = new Map(suyos.map((j) => [j.clave, j]));
-    return Object.fromEntries(HUECOS.map((h) => [h.clave, porClave.get(final[h.clave])]));
+    return Object.fromEntries(Object.entries(resultado).map(([h, j]) => [h, j ? porClave.get(j.clave) : undefined]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- armaOnce y candidato son puros
   }, [baseSuya, suyos, aMano.suyo]);
 
   const duelos = useMemo(() => mideDuelos(onceNuestro, onceSuyo, referencias), [onceNuestro, onceSuyo, referencias]);
@@ -303,7 +323,7 @@ export default function DuelosPage() {
   const cambia = (lado: "nuestro" | "suyo", hueco: string, clave: string) =>
     setGuardado((actual) => {
       const n = normalizaDuelos(actual);
-      const otro = Object.fromEntries(Object.entries(n[lado]).filter(([h, c]) => h !== hueco && c !== clave));
+      const otro = Object.fromEntries(Object.entries(n[lado]).filter(([h, c]) => h !== hueco && (c !== clave || clave === HUECO_VACIO)));
       return { ...n, [lado]: clave ? { ...otro, [hueco]: clave } : otro };
     });
   const deshaz = (lado: "nuestro" | "suyo") => setGuardado((actual) => ({ ...normalizaDuelos(actual), [lado]: {} }));
@@ -318,7 +338,7 @@ export default function DuelosPage() {
   const atacar = duelos.filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO).sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0));
   const vigilar = duelos.filter((d) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO).sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
 
-  const cargando = jugadores === null || (plantillas.length === 0 && !error);
+  const cargando = jugadores === null || plantillasLeidas === null;
   const escudo = equipoVisto ? escudoDe(equipoVisto) : null;
 
   return (
@@ -367,15 +387,25 @@ export default function DuelosPage() {
                 </span>
               )}
               <span className="ml-auto flex items-center gap-3 text-xs">
-                <span style={{ color: MEJOR }}>● {atacar.length} a favor</span>
-                <span style={{ color: "#C8A96B" }}>● {conDato.filter((d) => d.veredicto === "parejo").length} {conDato.filter((d) => d.veredicto === "parejo").length === 1 ? "parejo" : "parejos"}</span>
-                <span style={{ color: PEOR }}>● {vigilar.length} en contra</span>
+                <span style={{ color: MEJOR }} title="Duelos en los que, con el balón nuestro, les sacamos ventaja">
+                  ● {atacar.length} para atacar
+                </span>
+                <span style={{ color: PEOR }} title="Duelos en los que, con el balón suyo, nos sacan ventaja">
+                  ● {vigilar.length} para vigilar
+                </span>
+                <span className="text-white/40" title="Duelos medidos (con datos en los dos lados)">
+                  de {conDato.length} medidos
+                </span>
               </span>
             </div>
 
             {cargando ? (
               <p className="mt-10 flex items-center gap-2 text-sm text-white/50">
                 <Loader2 className="h-4 w-4 animate-spin" /> Cargando Wyscout y las plantillas rivales…
+              </p>
+            ) : plantillas.length === 0 ? (
+              <p className="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                No se han podido leer las plantillas rivales (la hoja RIVALES no ha contestado). Prueba a recargar en un minuto.
               </p>
             ) : error && !jugadores?.length ? (
               <p className="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</p>
@@ -695,14 +725,17 @@ function LadoOnce({
               <label key={h.clave} className="flex items-center gap-2 text-xs">
                 <span className="w-28 shrink-0 text-white/45">{h.rotulo}</span>
                 <select
-                  value={j?.clave ?? ""}
+                  value={aMano[lado][h.clave] === HUECO_VACIO ? HUECO_VACIO : j?.clave ?? ""}
                   onChange={(e) => cambia(lado, h.clave, e.target.value)}
                   className={`min-w-0 flex-1 rounded-lg border bg-white/[0.04] px-2 py-1.5 text-white ${
                     aMano[lado][h.clave] ? "border-[#C8A96B]/60" : "border-white/10"
                   }`}
                 >
                   <option value="" className="bg-[#11161C]">
-                    —
+                    {aMano[lado][h.clave] ? "↺ Volver a la propuesta" : "Propuesta automática"}
+                  </option>
+                  <option value={HUECO_VACIO} className="bg-[#11161C]">
+                    Nadie (hueco vacío)
                   </option>
                   {porPuesto.map(({ p, gente }) =>
                     gente.length ? (

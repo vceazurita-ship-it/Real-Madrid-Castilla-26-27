@@ -290,7 +290,7 @@ export function escribeMensaje(correo: Correo, remitente?: string | null) {
 
   return [
     `To: ${remitente || "undisclosed-recipients:;"}`,
-    `Bcc: ${correo.para.join(", ")}`,
+    `Bcc: ${correo.para.join(",\r\n ")}`,
     `Subject: ${cabecera(correo.asunto)}`,
     `Date: ${new Date().toUTCString().replace("GMT", "+0000")}`,
     "MIME-Version: 1.0",

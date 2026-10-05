@@ -372,14 +372,24 @@ export function vistaProgreso(tarea: Tarea, vivo: ProgresoVivo | null | undefine
 
     let etapa = etapas.length - 1;
 
+    let encontrada = false;
+
     for (let i = 0; i < esperado.length; i += 1) {
       if (lleva < acumulado + esperado[i]) {
         etapa = i;
+        encontrada = true;
         break;
       }
 
       acumulado += esperado[i];
     }
+
+    /*
+    | Pasado el tiempo previsto se queda en la última etapa, y ésta empezó
+    | cuando acabó la penúltima: sin esto, «etapaDesde» saltaba al final y el
+    | porcentaje retrocedía (06/10/2026).
+    */
+    if (!encontrada) acumulado -= esperado[etapas.length - 1];
 
     vista = {
       etapa,

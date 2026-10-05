@@ -1198,7 +1198,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
             */}
             <BarraFiltros
               className="-mt-4 mb-6"
-              previo={hayPretemporada ? <PastillaPretemporada incluida={incluirPretemporada} onCambiar={setIncluirPretemporada} /> : undefined}
+              previo={hayPretemporada ? <PastillaPretemporada incluida={pretemporadaDentro} onCambiar={setIncluirPretemporada} /> : undefined}
               cuenta={{ vistas: filtered.length, total: rows.length, unidad: "saques" }}
               onQuitarTodo={() => setFilters({})}
               pastillas={activos.map(({ key, label }) => ({ clave: key, rotulo: label, valor: String(filters[key]), onQuitar: () => quitar([key]) }))}

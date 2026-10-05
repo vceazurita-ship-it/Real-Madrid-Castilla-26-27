@@ -297,12 +297,12 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                     <b className="text-white/90">{formatea(x.valor, x.metrica.unidad)}</b>
                     <span className="text-white/40">
                       {" "}
-                      · mediana {formatea(x.mediana, x.metrica.unidad)} · {ordinal(x.puesto)}
+                      · mediana {formatea(x.mediana, x.metrica.unidad)} · {ordinal(x.puestoDeMas)}
                     </span>
                   </span>
                 </div>
               ))}
-              <p className="pt-1 text-[11px] text-white/35">Cómo juega, no si lo hace bien: el puesto va de más a menos.</p>
+              <p className="pt-1 text-[11px] text-white/35">Cómo juega, no si lo hace bien: 1º = el que más (en PPDA, el que menos presiona; el que más aprieta es el último).</p>
             </div>
           </Tarjeta>
         </div>
