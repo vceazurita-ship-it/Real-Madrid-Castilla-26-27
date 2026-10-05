@@ -440,12 +440,19 @@ export const AYUDAS: AyudaDePagina[] = [
   {
     ruta: "/comparative_ind",
     titulo: "Comparativa con la categoría",
-    resumen: "Cada jugador frente a los de su puesto en la categoría: sub-21, sub-23 o todos. Ranking, gráficos por fase del juego (con preguntas o dos métricas a elegir) y ficha.",
+    resumen: "Cada jugador frente a los de su puesto en la categoría: sub-21, sub-23 o todos. Ranking, gráficos por fase del juego (con preguntas o dos métricas a elegir), ficha y «Contra otros equipos»: uno de los nuestros frente a los de su puesto de los equipos que elijas. El filtro de puesto de arriba manda también sobre el jugador abierto.",
     origen: "Descarga de jugadores de Wyscout de toda la categoría, nuestras valoraciones de partido y los seguimientos.",
     bloques: [{ titulo: "Cómo se lee", filas: [PERCENTIL] }],
   },
 
   /* ==================== COMPETICIÓN ==================== */
+  {
+    ruta: "/duelos",
+    titulo: "Duelos",
+    resumen: "Nuestro once contra el once probable del rival, duelo a duelo: centrales contra su nueve, laterales contra extremos, extremos contra laterales, la medular y nuestro nueve contra sus centrales. Dice dónde les podemos hacer daño y dónde nos lo pueden hacer.",
+    origen: "Su once: el marcado en Plantillas rivales (si no, su último once de BeSoccer). El nuestro: los minutos de Wyscout en 4-2-3-1. Las métricas: descarga de jugadores de Wyscout de toda la categoría. Los dos onces se cambian hueco a hueco y se guardan por rival.",
+    bloques: [{ titulo: "Cómo se lee", filas: [PERCENTIL] }],
+  },
   {
     ruta: "/collective_history",
     titulo: "Histórico Competición",

@@ -209,7 +209,7 @@ export const PREGUNTAS: Pregunta[] = [
   { fase: "por", pregunta: "¿Cuánto trabajo le dan?", x: "Remates en contra/90", y: "Goles recibidos/90", lectura: "Lo que le tiran contra lo que le entra: abajo a la derecha, mucho trabajo y pocos goles." },
 ];
 
-export type PuntoJugador = { jugador: FilaJugador; x: number; y: number; nuestro: boolean };
+export type PuntoJugador = { jugador: FilaJugador; x: number; y: number; nuestro: boolean; comparado: boolean };
 
 /**
  * Los puntos de un par de métricas: la referencia (edad y puesto) más los
@@ -222,18 +222,20 @@ export function puntosDe(
   puesto: Puesto | "todos",
   x: string,
   y: string,
+  /** Equipos elegidos para comparar: entran todos los suyos del puesto, tengan la edad que tengan. */
+  equipos: string[] = [],
 ): PuntoJugador[] {
   const edad = edadMaxima(ref);
   const valen = (j: FilaJugador) =>
     j.temporada === "actual" &&
     j.minutos >= MINUTOS_MINIMOS &&
     (puesto === "todos" ? puestoDe(j.posicion) !== "POR" : puestoDe(j.posicion) === puesto) &&
-    (esNuestro(j) || (j.edad > 0 && j.edad <= edad));
+    (esNuestro(j) || equipos.includes(j.equipo) || (j.edad > 0 && j.edad <= edad));
 
   return jugadores
     .filter(valen)
     .filter((j) => volumenDelPorcentaje(j, x).fiable && volumenDelPorcentaje(j, y).fiable)
-    .map((j) => ({ jugador: j, x: valorDe(j, x), y: valorDe(j, y), nuestro: esNuestro(j) }))
+    .map((j) => ({ jugador: j, x: valorDe(j, x), y: valorDe(j, y), nuestro: esNuestro(j), comparado: !esNuestro(j) && equipos.includes(j.equipo) }))
     .filter((p): p is PuntoJugador => p.x !== null && p.y !== null);
 }
 

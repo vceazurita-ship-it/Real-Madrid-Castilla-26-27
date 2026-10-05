@@ -20,7 +20,7 @@
  * de porcentajes de una acción y el portero sólo contra porteros.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   ArrowDownRight,
   ArrowDownUp,
@@ -29,13 +29,16 @@ import {
   Loader2,
   Minus,
   ScatterChart,
+  Search,
+  Swords,
   UserRound,
   Users,
+  X,
 } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
+import { COMPARADO, MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { traeJson } from "@/lib/hojaCsv";
@@ -44,9 +47,17 @@ import { summarizeAll } from "@/lib/ratings/compute";
 import { casaNombre } from "@/lib/data-analisis/once";
 import {
   aplicaA,
+  esNuestro,
+  gruposDe,
+  MINUTOS_MINIMOS,
   METRICAS_JUGADOR,
   METRICA_JUGADOR_POR_COLUMNA,
+  metricasDe,
+  percentilEnPlantilla,
   PUESTOS,
+  puestoDe,
+  valorDe,
+  volumenDelPorcentaje,
   type Puesto,
 } from "@/lib/data-analisis/individual";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
@@ -55,10 +66,13 @@ import {
   PREGUNTAS,
   REFERENCIAS,
   comparativa,
+  indiceDe,
   mediana,
   mejoresDe,
   nubeDe,
+  percentilesDe,
   puntosDe,
+  referenciaDe,
   type FilaComparativa,
   type PuntoJugador,
   type Referencia,
@@ -66,7 +80,7 @@ import {
 
 type Respuesta = { ok: boolean; jugadores?: FilaJugador[]; error?: string };
 type RegistroSeguimiento = { ID_JUGADOR: string; NOMBRE?: string; FECHA?: string };
-type Pestana = "ranking" | "graficos" | "ficha";
+type Pestana = "ranking" | "graficos" | "ficha" | "cara";
 type Orden = "nombre" | "edad" | "minutos" | "nota" | "indice" | "ranking" | "evolucion" | "seguimientos";
 
 const colorIndice = (i: number | null) => (i === null ? tinta(0.2) : i >= 60 ? MEJOR : i < 45 ? PEOR : ORO);
@@ -219,11 +233,22 @@ export default function ComparativaCategoria() {
       });
   }, [conFicha, filtroPuesto, orden]);
 
-  const activo =
-    conFicha.find((x) => x.f.jugador.jugador === elegido) ??
-    visibles[0] ??
-    conFicha[0] ??
-    null;
+  /*
+  | El jugador abierto obedece a los filtros de arriba (06/10/2026): antes, con
+  | uno ya elegido, cambiar el puesto no hacía nada en la ficha. Si el elegido
+  | no es del puesto filtrado, se abre el primero que sí lo es.
+  */
+  const activo = visibles.find((x) => x.f.jugador.jugador === elegido) ?? visibles[0] ?? null;
+
+  /* Los equipos de la categoría, para compararse con los suyos. */
+  const [equiposSel, setEquiposSel] = useState<string[]>([]);
+  const equipos = useMemo(
+    () =>
+      [...new Set(jugadores.filter((j) => j.temporada === "actual" && !esNuestro(j)).map((j) => j.equipo))]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "es")),
+    [jugadores],
+  );
 
   const abreFicha = (nombre: string) => {
     setElegido(nombre);
@@ -247,6 +272,7 @@ export default function ComparativaCategoria() {
     { key: "ranking", label: "Ranking de la plantilla", icono: <Users size={15} /> },
     { key: "graficos", label: "Gráficos por fase", icono: <ScatterChart size={15} /> },
     { key: "ficha", label: "Ficha del jugador", icono: <UserRound size={15} /> },
+    { key: "cara", label: "Contra otros equipos", icono: <Swords size={15} /> },
   ];
 
   return (
@@ -427,7 +453,29 @@ export default function ComparativaCategoria() {
                     elegido={activo?.f.jugador.jugador ?? null}
                     nombreDe={(j) => fichaDe(j)?.nombre ?? j.jugador}
                     onElige={abreFicha}
+                    equipos={equipos}
+                    equiposSel={equiposSel}
+                    setEquiposSel={setEquiposSel}
+                    escudoDe={escudoDe}
                   />
+                )}
+
+                {pestana === "cara" && activo && (
+                  <CaraACara
+                    fila={activo.f}
+                    ficha={activo.ficha}
+                    jugadores={jugadores}
+                    opciones={visibles}
+                    onElige={setElegido}
+                    equipos={equipos}
+                    equiposSel={equiposSel}
+                    setEquiposSel={setEquiposSel}
+                    escudoDe={escudoDe}
+                  />
+                )}
+
+                {(pestana === "ficha" || pestana === "cara") && !activo && (
+                  <p className="mt-8 text-sm text-white/50">Ningún jugador nuestro con minutos en ese puesto.</p>
                 )}
 
                 {pestana === "ficha" && activo && (
@@ -439,7 +487,7 @@ export default function ComparativaCategoria() {
                         onChange={(e) => setElegido(e.target.value)}
                         className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm normal-case tracking-normal text-white"
                       >
-                        {[...conFicha]
+                        {[...visibles]
                           .sort((a, b) => (a.ficha?.nombre ?? a.f.jugador.jugador).localeCompare(b.ficha?.nombre ?? b.f.jugador.jugador, "es"))
                           .map((x) => (
                             <option key={x.f.jugador.jugador} value={x.f.jugador.jugador} className="bg-[#11161C]">
@@ -487,6 +535,89 @@ const etiquetaDe = (columna: string) => {
   return `${m.nombre}${m.unidad === "porcentaje" ? "" : " /90"}${m.mejorAlto === false ? " (menos es mejor)" : ""}`;
 };
 
+/**
+ * Los equipos de la categoría para compararse con los suyos.
+ *
+ * Son más de cincuenta (Wyscout trae los dos grupos), así que se busca por
+ * nombre y los elegidos quedan arriba como chapas que se quitan de un toque.
+ */
+function SelectorEquipos({
+  equipos,
+  sel,
+  setSel,
+  escudoDe,
+  compacto,
+}: {
+  equipos: string[];
+  sel: string[];
+  setSel: (s: string[]) => void;
+  escudoDe: (equipo: string) => string | null;
+  compacto?: boolean;
+}) {
+  const [busca, setBusca] = useState("");
+  const limpio = (t: string) => t.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const lista = equipos.filter((e) => !sel.includes(e) && limpio(e).includes(limpio(busca)));
+  const alterna = (e: string) => setSel(sel.includes(e) ? sel.filter((x) => x !== e) : [...sel, e]);
+  const escudo = (e: string) => {
+    const src = escudoDe(e);
+    return src ? (
+      // eslint-disable-next-line @next/next/no-img-element -- escudo pequeño por el proxy propio
+      <img src={src} alt="" className="h-4 w-4 shrink-0 object-contain" />
+    ) : (
+      <span className="h-4 w-4 shrink-0" />
+    );
+  };
+
+  return (
+    <div>
+      {sel.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {sel.map((e) => (
+            <button
+              key={e}
+              type="button"
+              onClick={() => alterna(e)}
+              className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+              style={{ borderColor: COMPARADO, color: COMPARADO }}
+              title="Quitar"
+            >
+              {escudo(e)}
+              {e}
+              <X size={12} />
+            </button>
+          ))}
+          <button type="button" onClick={() => setSel([])} className="px-1 text-[11px] text-white/40 hover:text-white/70">
+            Quitar todos
+          </button>
+        </div>
+      )}
+      <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5">
+        <Search size={13} className="text-white/35" />
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Busca un equipo…"
+          className="w-full bg-transparent text-sm text-white outline-none placeholder:text-white/30"
+        />
+      </label>
+      <div className={`mt-2 flex flex-wrap gap-1.5 overflow-y-auto ${compacto ? "max-h-28" : "max-h-44"}`}>
+        {lista.map((e) => (
+          <button
+            key={e}
+            type="button"
+            onClick={() => alterna(e)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-xs text-white/65 transition hover:border-white/30 hover:text-white"
+          >
+            {escudo(e)}
+            {e}
+          </button>
+        ))}
+        {lista.length === 0 && <span className="text-xs text-white/35">Ningún equipo con ese nombre.</span>}
+      </div>
+    </div>
+  );
+}
+
 function Graficos({
   jugadores,
   refe,
@@ -495,6 +626,10 @@ function Graficos({
   elegido,
   nombreDe,
   onElige,
+  equipos,
+  equiposSel,
+  setEquiposSel,
+  escudoDe,
 }: {
   jugadores: FilaJugador[];
   refe: Referencia;
@@ -503,9 +638,14 @@ function Graficos({
   elegido: string | null;
   nombreDe: (j: FilaJugador) => string;
   onElige: (nombre: string) => void;
+  equipos: string[];
+  equiposSel: string[];
+  setEquiposSel: (s: string[]) => void;
+  escudoDe: (equipo: string) => string | null;
 }) {
   const [pregunta, setPregunta] = useState(0);
   const [ejes, setEjes] = useState<{ x: string; y: string } | null>(null);
+  const [soloElegidos, setSoloElegidos] = useState(false);
 
   /*
   | Con porteros elegidos arriba (05/10/2026), sólo lo que le compete a un
@@ -517,6 +657,8 @@ function Graficos({
   const preguntaVista = esPortero && PREGUNTAS[pregunta].fase !== "por" ? primeraDePortero : pregunta;
 
   const p = PREGUNTAS[preguntaVista];
+  const [faseVista, setFaseVista] = useState(p.fase);
+  const fase = esPortero ? "por" : faseVista;
   const metricasEjes = METRICAS_JUGADOR.filter((m) => !esPortero || aplicaA(m, "POR"));
   const valeEje = (c?: string) => Boolean(c) && metricasEjes.some((m) => m.columna === c);
   const x = valeEje(ejes?.x) ? ejes!.x : p.x;
@@ -524,102 +666,156 @@ function Graficos({
 
   /* Las de porteros, sólo con porteros; el resto, con el puesto de arriba. */
   const puestoGrafico: Puesto | "todos" = !ejes && p.fase === "por" ? "POR" : puesto;
-  const puntos = useMemo(() => puntosDe(jugadores, refe, puestoGrafico, x, y), [jugadores, refe, puestoGrafico, x, y]);
+  const todos = useMemo(
+    () => puntosDe(jugadores, refe, puestoGrafico, x, y, equiposSel),
+    [jugadores, refe, puestoGrafico, x, y, equiposSel],
+  );
+  /* «Sólo los equipos elegidos»: los nuestros y los suyos; las medianas siguen siendo las de la categoría. */
+  const puntos = soloElegidos && equiposSel.length ? todos.filter((q) => q.nuestro || q.comparado) : todos;
 
-  const mx = mediana(puntos.filter((q) => !q.nuestro).map((q) => q.x));
-  const my = mediana(puntos.filter((q) => !q.nuestro).map((q) => q.y));
+  const mx = mediana(todos.filter((q) => !q.nuestro).map((q) => q.x));
+  const my = mediana(todos.filter((q) => !q.nuestro).map((q) => q.y));
   const mejorX = METRICA_JUGADOR_POR_COLUMNA.get(x)?.mejorAlto;
   const mejorY = METRICA_JUGADOR_POR_COLUMNA.get(y)?.mejorAlto;
   const porEncima = (v: number, m: number, mejor: boolean | null | undefined) => (mejor === false ? v < m : v > m);
   const destacan = puntos.filter((q) => q.nuestro && porEncima(q.x, mx, mejorX) && porEncima(q.y, my, mejorY));
+  const destacanSuyos = puntos.filter((q) => q.comparado && porEncima(q.x, mx, mejorX) && porEncima(q.y, my, mejorY));
 
   const puestoTexto = puestoGrafico === "todos" ? "jugadores de campo" : PUESTOS.find((q) => q.key === puestoGrafico)?.label.toLowerCase();
+  const fasesVisibles = FASES.filter((f) => (esPortero ? f.key === "por" : true));
 
   return (
-    <div className="mt-6 grid gap-4 lg:grid-cols-[300px_1fr]">
-      <aside className="space-y-4">
-        {FASES.filter((fase) => !esPortero || fase.key === "por").map((fase) => (
-          <div key={fase.key}>
-            <p className="mb-1.5 text-[11px] uppercase tracking-wider text-white/40">{fase.label}</p>
-            <div className="space-y-1">
-              {PREGUNTAS.map((q, i) =>
-                q.fase === fase.key ? (
-                  <button
-                    key={q.pregunta}
-                    type="button"
-                    onClick={() => {
-                      setPregunta(i);
-                      setEjes(null);
-                    }}
-                    className={`block w-full rounded-lg px-3 py-1.5 text-left text-sm transition ${
-                      !ejes && preguntaVista === i ? "bg-[#C8A96B]/15 text-[#C8A96B]" : "text-white/70 hover:bg-white/[0.05]"
-                    }`}
-                  >
-                    {q.pregunta}
-                  </button>
-                ) : null,
+    <div className="mt-5 space-y-3">
+      {/* ---- la pregunta: fase y luego pregunta, en dos filas cortas ---- */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {fasesVisibles.map((f) => (
+          <Chip
+            key={f.key}
+            activo={fase === f.key}
+            onClick={() => {
+              setFaseVista(f.key);
+              const primera = PREGUNTAS.findIndex((q) => q.fase === f.key);
+              if (primera >= 0) {
+                setPregunta(primera);
+                setEjes(null);
+              }
+            }}
+          >
+            {f.label}
+          </Chip>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {PREGUNTAS.map((q, i) =>
+          q.fase === fase ? (
+            <button
+              key={q.pregunta}
+              type="button"
+              onClick={() => {
+                setPregunta(i);
+                setEjes(null);
+              }}
+              className={`rounded-lg px-3 py-1.5 text-left text-sm transition ${
+                !ejes && preguntaVista === i ? "bg-[#C8A96B]/15 text-[#C8A96B]" : "bg-white/[0.03] text-white/70 hover:bg-white/[0.07]"
+              }`}
+            >
+              {q.pregunta}
+            </button>
+          ) : null,
+        )}
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-[1fr_280px]">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <p className="text-base font-semibold">{ejes ? `${etiquetaDe(x)} frente a ${etiquetaDe(y)}` : p.pregunta}</p>
+            <p className="text-[11px] text-white/40">
+              {puntos.length} {puestoTexto} · líneas = mediana de la categoría
+            </p>
+          </div>
+          <p className="mt-0.5 text-xs text-white/45">{ejes ? "Las dos métricas elegidas." : p.lectura}</p>
+
+          {puntos.length < 3 ? (
+            <p className="mt-6 text-sm text-white/45">No hay bastantes jugadores con esas dos métricas para dibujarlas.</p>
+          ) : (
+            <Dispersion puntos={puntos} x={x} y={y} mx={mx} my={my} elegido={elegido} nombreDe={nombreDe} onElige={onElige} />
+          )}
+
+          <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] text-white/45">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: ORO }} /> Castilla (pincha para abrir su ficha)
+            </span>
+            {equiposSel.length > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: COMPARADO }} /> Equipos elegidos (todas las edades)
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: tinta(0.3) }} /> {refLabel}
+            </span>
+          </div>
+        </div>
+
+        <aside className="space-y-3">
+          {(destacan.length > 0 || destacanSuyos.length > 0) && (
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-sm text-white/70">
+              <p className="text-[11px] uppercase tracking-wider text-white/40">Por encima de la mediana en las dos</p>
+              {destacan.length > 0 && <p className="mt-1.5 text-[#C8A96B]">{destacan.map((q) => nombreDe(q.jugador)).join(", ")}</p>}
+              {destacanSuyos.length > 0 && (
+                <p className="mt-1.5" style={{ color: COMPARADO }}>
+                  {destacanSuyos.map((q) => `${q.jugador.jugador} (${q.jugador.equipo})`).join(", ")}
+                </p>
               )}
             </div>
+          )}
+
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+            <p className="text-[11px] uppercase tracking-wider text-white/40">Compararse con equipos</p>
+            <div className="mt-2">
+              <SelectorEquipos equipos={equipos} sel={equiposSel} setSel={setEquiposSel} escudoDe={escudoDe} compacto />
+            </div>
+            {equiposSel.length > 0 && (
+              <label className="mt-2 flex items-center gap-2 text-xs text-white/60">
+                <input type="checkbox" checked={soloElegidos} onChange={(e) => setSoloElegidos(e.target.checked)} />
+                Ver sólo los nuestros y los de esos equipos
+              </label>
+            )}
           </div>
-        ))}
 
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-          <p className="text-[11px] uppercase tracking-wider text-white/40">O elige tú las dos métricas</p>
-          {(["x", "y"] as const).map((eje) => (
-            <label key={eje} className="mt-2 block text-[11px] text-white/45">
-              {eje === "x" ? "Eje horizontal" : "Eje vertical"}
-              <select
-                value={eje === "x" ? x : y}
-                onChange={(e) => setEjes({ x: eje === "x" ? e.target.value : x, y: eje === "y" ? e.target.value : y })}
-                className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-sm text-white"
-              >
-                {[
-                  ["con", "Con balón"],
-                  ["sin", "Sin balón"],
-                  ["abp", "Balón parado"],
-                  ["general", "General"],
-                ].map(([fase, rotulo]) => (
-                  <optgroup key={fase} label={rotulo} className="bg-[#11161C]">
-                    {metricasEjes.filter((m) => m.fase === fase).map((m) => (
-                      <option key={m.columna} value={m.columna} className="bg-[#11161C]">
-                        {m.nombre}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-          ))}
-        </div>
-      </aside>
-
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <p className="text-base font-semibold">{ejes ? `${etiquetaDe(x)} frente a ${etiquetaDe(y)}` : p.pregunta}</p>
-        <p className="mt-1 text-xs text-white/45">
-          {ejes ? "Las dos métricas elegidas." : p.lectura} {puntos.length} {puestoTexto} ({refLabel.toLowerCase()} y todos los
-          nuestros), con al menos 90′. Las líneas son la mediana de la categoría.
-        </p>
-
-        {puntos.length < 3 ? (
-          <p className="mt-6 text-sm text-white/45">No hay bastantes jugadores con esas dos métricas para dibujarlas.</p>
-        ) : (
-          <Dispersion puntos={puntos} x={x} y={y} mx={mx} my={my} elegido={elegido} nombreDe={nombreDe} onElige={onElige} />
-        )}
-
-        <div className="mt-3 flex flex-wrap items-center gap-4 text-[11px] text-white/45">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: ORO }} /> Castilla (pincha para abrir su ficha)
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: tinta(0.3) }} /> Resto de la categoría
-          </span>
-        </div>
-        {destacan.length > 0 && (
-          <p className="mt-3 text-sm text-white/70">
-            <b className="text-[#C8A96B]">Por encima de la mediana en las dos:</b>{" "}
-            {destacan.map((q) => nombreDe(q.jugador)).join(", ")}.
-          </p>
-        )}
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+            <p className="text-[11px] uppercase tracking-wider text-white/40">O elige tú las dos métricas</p>
+            {(["x", "y"] as const).map((eje) => (
+              <label key={eje} className="mt-2 block text-[11px] text-white/45">
+                {eje === "x" ? "Eje horizontal" : "Eje vertical"}
+                <select
+                  value={eje === "x" ? x : y}
+                  onChange={(e) => setEjes({ x: eje === "x" ? e.target.value : x, y: eje === "y" ? e.target.value : y })}
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-sm text-white"
+                >
+                  {[
+                    ["con", "Con balón"],
+                    ["sin", "Sin balón"],
+                    ["abp", "Balón parado"],
+                    ["general", "General"],
+                  ].map(([f, rotulo]) => (
+                    <optgroup key={f} label={rotulo} className="bg-[#11161C]">
+                      {metricasEjes.filter((m) => m.fase === f).map((m) => (
+                        <option key={m.columna} value={m.columna} className="bg-[#11161C]">
+                          {m.nombre}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
+            ))}
+            {ejes && (
+              <button type="button" onClick={() => setEjes(null)} className="mt-2 text-[11px] text-[#C8A96B] hover:underline">
+                Volver a la pregunta
+              </button>
+            )}
+          </div>
+        </aside>
       </div>
     </div>
   );
@@ -645,7 +841,7 @@ function Dispersion({
   onElige: (nombre: string) => void;
 }) {
   const W = 640;
-  const H = 420;
+  const H = 360;
   const M = { l: 48, r: 16, t: 14, b: 40 };
   const xs = puntos.map((p) => p.x);
   const ys = puntos.map((p) => p.y);
@@ -674,7 +870,7 @@ function Dispersion({
     const puestos: { x: number; y: number; w: number; h: number }[] = [];
     const salida = new Map<string, { x: number; y: number; ancla: "start" | "end" }>();
     const nuestros = puntos
-      .filter((p) => p.nuestro)
+      .filter((p) => p.nuestro || p.comparado)
       .sort((a, b) => Number(b.jugador.jugador === elegido) - Number(a.jugador.jugador === elegido));
     const choca = (r: { x: number; y: number; w: number; h: number }) =>
       puestos.some((o) => r.x < o.x + o.w && r.x + r.w > o.x && r.y < o.y + o.h && r.y + r.h > o.y) ||
@@ -684,7 +880,7 @@ function Dispersion({
         return cx > r.x - 3 && cx < r.x + r.w + 3 && cy > r.y - 3 && cy < r.y + r.h + 3;
       });
     for (const p of nuestros) {
-      const texto = apellido(nombreDe(p.jugador));
+      const texto = p.nuestro ? apellido(nombreDe(p.jugador)) : apellido(p.jugador.jugador);
       const w = texto.length * 5.8;
       const h = 11;
       const cx = sx(p.x);
@@ -700,7 +896,7 @@ function Dispersion({
         if (caja.x < 0 || caja.x + w > W || !choca(caja)) {
           if (caja.x >= 0 && caja.x + w <= W) {
             puestos.push(caja);
-            salida.set(p.jugador.jugador, t);
+            salida.set(`${p.jugador.jugador}|${p.jugador.equipo}`, t);
             break;
           }
         }
@@ -710,7 +906,13 @@ function Dispersion({
   })();
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" role="img" aria-label={`${etiquetaDe(x)} frente a ${etiquetaDe(y)}`}>
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="mt-2 w-full"
+      style={{ maxHeight: "max(260px, calc(100vh - 470px))" }}
+      role="img"
+      aria-label={`${etiquetaDe(x)} frente a ${etiquetaDe(y)}`}
+    >
       {ticks(x0, x1).map((t) => (
         <g key={`x${t}`}>
           <line x1={sx(t)} x2={sx(t)} y1={M.t} y2={H - M.b} stroke={tinta(0.06)} />
@@ -737,12 +939,29 @@ function Dispersion({
       </text>
 
       {puntos
-        .filter((p) => !p.nuestro)
+        .filter((p) => !p.nuestro && !p.comparado)
         .map((p) => (
           <circle key={`${p.jugador.jugador}-${p.jugador.equipo}`} cx={sx(p.x)} cy={sy(p.y)} r={3.4} fill={tinta(0.28)}>
             <title>{`${p.jugador.jugador} (${p.jugador.equipo}), ${p.jugador.edad} años · ${formatea(p.x)} · ${formatea(p.y)}`}</title>
           </circle>
         ))}
+      {puntos
+        .filter((p) => p.comparado)
+        .map((p) => {
+          const r = rotulos.get(`${p.jugador.jugador}|${p.jugador.equipo}`);
+          return (
+            <g key={`c-${p.jugador.jugador}-${p.jugador.equipo}`}>
+              <circle cx={sx(p.x)} cy={sy(p.y)} r={4.4} fill={COMPARADO}>
+                <title>{`${p.jugador.jugador} (${p.jugador.equipo}), ${p.jugador.edad} años · ${formatea(p.x)} · ${formatea(p.y)}`}</title>
+              </circle>
+              {r && (
+                <text x={r.x} y={r.y} textAnchor={r.ancla} fontSize={9.5} fill={COMPARADO}>
+                  {apellido(p.jugador.jugador)}
+                </text>
+              )}
+            </g>
+          );
+        })}
       {puntos
         .filter((p) => p.nuestro)
         .map((p) => {
@@ -752,11 +971,11 @@ function Dispersion({
               <circle cx={sx(p.x)} cy={sy(p.y)} r={es ? 6.5 : 5} fill={ORO} stroke={es ? "white" : "rgba(0,0,0,.35)"} strokeWidth={es ? 1.5 : 0.8}>
                 <title>{`${nombreDe(p.jugador)}, ${p.jugador.edad} años · ${formatea(p.x)} · ${formatea(p.y)}`}</title>
               </circle>
-              {rotulos.has(p.jugador.jugador) && (
+              {rotulos.has(`${p.jugador.jugador}|${p.jugador.equipo}`) && (
                 <text
-                  x={rotulos.get(p.jugador.jugador)!.x}
-                  y={rotulos.get(p.jugador.jugador)!.y}
-                  textAnchor={rotulos.get(p.jugador.jugador)!.ancla}
+                  x={rotulos.get(`${p.jugador.jugador}|${p.jugador.equipo}`)!.x}
+                  y={rotulos.get(`${p.jugador.jugador}|${p.jugador.equipo}`)!.y}
+                  textAnchor={rotulos.get(`${p.jugador.jugador}|${p.jugador.equipo}`)!.ancla}
                   fontSize={10}
                   fill={ORO}
                   fontWeight={es ? 700 : 500}
@@ -979,5 +1198,262 @@ function Nube({
           );
         })}
     </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  CONTRA OTROS EQUIPOS                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Uno de los nuestros contra los de su puesto de los equipos que se elijan,
+ * métrica a métrica (06/10/2026).
+ *
+ * Todos se leen en percentil contra **toda la categoría del puesto** —no
+ * contra los sub-21—: aquí la pregunta es «¿es mejor o peor que el lateral
+ * del Ibiza?», y para eso los dos tienen que estar medidos con la misma vara.
+ * En cada fila se marca el mejor y, arriba, en cuántas le gana el nuestro a
+ * cada uno.
+ */
+function CaraACara({
+  fila,
+  ficha,
+  jugadores,
+  opciones,
+  onElige,
+  equipos,
+  equiposSel,
+  setEquiposSel,
+  escudoDe,
+}: {
+  fila: FilaComparativa;
+  ficha: { id: string; nombre: string; foto?: string } | null | undefined;
+  jugadores: FilaJugador[];
+  opciones: { f: FilaComparativa; ficha: { nombre: string } | null | undefined }[];
+  onElige: (nombre: string) => void;
+  equipos: string[];
+  equiposSel: string[];
+  setEquiposSel: (s: string[]) => void;
+  escudoDe: (equipo: string) => string | null;
+}) {
+  const [todas, setTodas] = useState(false);
+  const puesto = fila.puesto;
+  const nuestro = fila.jugador;
+
+  const categoria = useMemo(() => referenciaDe(jugadores, puesto, "todos"), [jugadores, puesto]);
+
+  const rivales = useMemo(
+    () =>
+      jugadores
+        .filter(
+          (j) =>
+            j.temporada === "actual" &&
+            j.minutos >= MINUTOS_MINIMOS &&
+            equiposSel.includes(j.equipo) &&
+            puestoDe(j.posicion) === puesto,
+        )
+        .sort((a, b) => b.minutos - a.minutos)
+        .slice(0, 12),
+    [jugadores, equiposSel, puesto],
+  );
+
+  /* Las métricas del puesto, por grupos; «las clave» son las tres primeras de cada grupo. */
+  const metricas = useMemo(() => {
+    const delPuesto = metricasDe(puesto).filter((m) => m.mejorAlto !== null);
+    return gruposDe(puesto).flatMap((g) => {
+      const suyas = delPuesto.filter((m) => m.grupo === g);
+      return (todas ? suyas : suyas.slice(0, 3)).map((m) => ({ ...m, grupoRotulo: g }));
+    });
+  }, [puesto, todas]);
+
+  const columnas = [nuestro, ...rivales];
+
+  const celda = (j: FilaJugador, columna: string) => {
+    const valor = valorDe(j, columna);
+    if (valor === null) return null;
+    const fiable = volumenDelPorcentaje(j, columna).fiable;
+    const m = METRICA_JUGADOR_POR_COLUMNA.get(columna);
+    const percentil = fiable
+      ? percentilEnPlantilla(
+          valor,
+          categoria.map((c) => valorDe(c, columna)).filter((v): v is number => v !== null),
+          m?.mejorAlto ?? true,
+        )
+      : null;
+    return { valor, percentil };
+  };
+
+  const tabla = metricas.map((m) => ({ m, celdas: columnas.map((j) => celda(j, m.columna)) }));
+
+  /* En cuántas le gana el nuestro a cada uno (sólo donde los dos tienen percentil). */
+  const marcador = rivales.map((_, i) => {
+    let gana = 0;
+    let de = 0;
+    for (const t of tabla) {
+      const a = t.celdas[0]?.percentil;
+      const b = t.celdas[i + 1]?.percentil;
+      if (a == null || b == null) continue;
+      de++;
+      if (a > b) gana++;
+    }
+    return { gana, de };
+  });
+
+  const indices = columnas.map((j) => indiceDe(percentilesDe(j, categoria, puesto)));
+  const puestoLabel = PUESTOS.find((p) => p.key === puesto)?.label.toLowerCase() ?? "";
+
+  return (
+    <div className="mt-6 grid gap-4 xl:grid-cols-[300px_1fr]">
+      <aside className="space-y-4">
+        <label className="flex flex-col gap-1 text-[11px] uppercase tracking-wider text-white/40">
+          Nuestro jugador
+          <select
+            value={nuestro.jugador}
+            onChange={(e) => onElige(e.target.value)}
+            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm normal-case tracking-normal text-white"
+          >
+            {[...opciones]
+              .sort((a, b) => (a.ficha?.nombre ?? a.f.jugador.jugador).localeCompare(b.ficha?.nombre ?? b.f.jugador.jugador, "es"))
+              .map((x) => (
+                <option key={x.f.jugador.jugador} value={x.f.jugador.jugador} className="bg-[#11161C]">
+                  {x.ficha?.nombre ?? x.f.jugador.jugador} · {PUESTOS.find((p) => p.key === x.f.puesto)?.label}
+                </option>
+              ))}
+          </select>
+        </label>
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <p className="text-[11px] uppercase tracking-wider text-white/40">Contra los {puestoLabel} de</p>
+          <div className="mt-2">
+            <SelectorEquipos equipos={equipos} sel={equiposSel} setSel={setEquiposSel} escudoDe={escudoDe} />
+          </div>
+        </div>
+        <p className="text-[11px] leading-relaxed text-white/35">
+          Percentil de cada uno contra todos los {puestoLabel} de la categoría con al menos 90′ (P100 = el mejor). Entran los
+          de su puesto de esos equipos con 90′ o más, de más a menos minutos. Los porcentajes de muy pocas acciones se enseñan sin
+          percentil.
+        </p>
+      </aside>
+
+      <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        {equiposSel.length === 0 ? (
+          <p className="py-10 text-center text-sm text-white/45">
+            Elige uno o varios equipos a la izquierda para poner a {ficha?.nombre ?? nuestro.jugador} frente a sus {puestoLabel}.
+          </p>
+        ) : rivales.length === 0 ? (
+          <p className="py-10 text-center text-sm text-white/45">
+            Esos equipos no tienen {puestoLabel} con 90′ o más esta temporada.
+          </p>
+        ) : (
+          <>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold">
+                {ficha?.nombre ?? nuestro.jugador} frente a {rivales.length} {puestoLabel}
+              </p>
+              <div className="flex gap-1.5">
+                <Chip activo={!todas} onClick={() => setTodas(false)}>
+                  Las clave
+                </Chip>
+                <Chip activo={todas} onClick={() => setTodas(true)}>
+                  Todas las de su puesto
+                </Chip>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="align-bottom">
+                    <th className="sticky left-0 z-10 min-w-[170px] bg-[#0f1419] py-2 pr-3 text-left font-normal text-white/40">Métrica</th>
+                    {columnas.map((j, i) => {
+                      const escudo = escudoDe(j.equipo);
+                      return (
+                        <th key={`${j.jugador}-${j.equipo}`} className="min-w-[92px] px-1.5 py-2 text-center font-normal">
+                          <div className="flex flex-col items-center gap-1">
+                            {i === 0 ? (
+                              <Foto src={ficha?.foto} nombre={j.jugador} size={28} />
+                            ) : escudo ? (
+                              // eslint-disable-next-line @next/next/no-img-element -- escudo pequeño por el proxy propio
+                              <img src={escudo} alt="" className="h-6 w-6 object-contain" />
+                            ) : (
+                              <span className="h-6 w-6" />
+                            )}
+                            <span className={`leading-tight ${i === 0 ? "font-semibold text-[#C8A96B]" : "text-white/80"}`}>
+                              {i === 0 ? ficha?.nombre ?? j.jugador : j.jugador}
+                            </span>
+                            <span className="text-[10px] text-white/35">
+                              {j.edad} años · {j.minutos}′
+                            </span>
+                            {i > 0 && marcador[i - 1].de > 0 && (
+                              <span
+                                className="rounded-full px-1.5 py-0.5 text-[10px]"
+                                style={{
+                                  background: `${marcador[i - 1].gana * 2 >= marcador[i - 1].de ? MEJOR : PEOR}22`,
+                                  color: marcador[i - 1].gana * 2 >= marcador[i - 1].de ? MEJOR : PEOR,
+                                }}
+                                title={`El nuestro es mejor en ${marcador[i - 1].gana} de ${marcador[i - 1].de} métricas`}
+                              >
+                                le gana {marcador[i - 1].gana}/{marcador[i - 1].de}
+                              </span>
+                            )}
+                          </div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t border-white/[0.08]">
+                    <td className="sticky left-0 z-10 bg-[#0f1419] py-2 pr-3 font-medium text-white/80">Índice del puesto</td>
+                    {indices.map((v, i) => (
+                      <td key={i} className="px-1.5 text-center text-sm font-semibold tabular-nums" style={{ color: colorIndice(v) }}>
+                        {v ?? "—"}
+                      </td>
+                    ))}
+                  </tr>
+                  {tabla.map(({ m, celdas }, k) => {
+                    const mejor = Math.max(...celdas.map((c) => c?.percentil ?? -1));
+                    const nuevoGrupo = k === 0 || tabla[k - 1].m.grupoRotulo !== m.grupoRotulo;
+                    return (
+                      <Fragment key={m.columna}>
+                        {nuevoGrupo && (
+                          <tr>
+                            <td colSpan={columnas.length + 1} className="pb-1 pt-3 text-[10px] uppercase tracking-wider text-white/35">
+                              {m.grupoRotulo}
+                            </td>
+                          </tr>
+                        )}
+                        <tr className="border-t border-white/[0.05]" title={m.comoLeer}>
+                          <td className="sticky left-0 z-10 bg-[#0f1419] py-1.5 pr-3 text-white/70">{m.nombre}</td>
+                          {celdas.map((c, i) => (
+                            <td key={i} className={`px-1.5 py-1.5 text-center ${i === 0 ? "bg-[#C8A96B]/[0.06]" : ""}`}>
+                              {c ? (
+                                <div className="flex flex-col items-center leading-tight">
+                                  <span
+                                    className="tabular-nums"
+                                    style={{
+                                      color: c.percentil === null ? tinta(0.45) : c.percentil === mejor ? MEJOR : tinta(0.85),
+                                      fontWeight: c.percentil !== null && c.percentil === mejor ? 700 : 400,
+                                    }}
+                                  >
+                                    {formatea(c.valor)}
+                                  </span>
+                                  <span className="text-[10px] text-white/35">{c.percentil === null ? "poca muestra" : `P${c.percentil}`}</span>
+                                </div>
+                              ) : (
+                                <span className="text-white/25">—</span>
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-[11px] text-white/35">En verde, el mejor de cada fila. «Le gana» cuenta las métricas con percentil de los dos.</p>
+          </>
+        )}
+      </div>
+    </div>
   );
 }

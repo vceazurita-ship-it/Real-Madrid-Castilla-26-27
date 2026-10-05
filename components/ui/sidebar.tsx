@@ -60,6 +60,7 @@ import {
   Users,
   UsersRound,
   X,
+  Swords,
 } from "lucide-react"
 import type { ReactNode } from "react"
 
@@ -396,6 +397,12 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "Preparación de Partido",
                 <ClipboardCheck size={18} />,
               )}
+
+              {/*
+                Duelos (06/10/2026): nuestro once contra el once probable del
+                rival, duelo a duelo. Va con la preparación del partido.
+              */}
+              {navLink("/duelos", "Duelos", <Swords size={18} />)}
 
               {navLink("/pizarra-tactica", "Pizarra Táctica", <PenTool size={18} />)}
 
