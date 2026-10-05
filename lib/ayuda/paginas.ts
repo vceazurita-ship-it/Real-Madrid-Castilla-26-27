@@ -65,7 +65,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/data-analisis",
     titulo: "Data Análisis",
     resumen:
-      "Lo que dicen los informes de Wyscout y Opta, más nuestro balón parado y el cruce con los entrenamientos.",
+      "Lo que dicen los informes de Wyscout y Opta, más nuestro balón parado y el cruce con los entrenamientos. «Un equipo de un vistazo» resume cualquier equipo de la categoría —resultados, forma, sistema, fases, estilo, once tipo y plantilla— y abre con el próximo rival.",
     origen:
       "public/data — wys/ son los informes de Wyscout (un .xlsx por equipo) y opta/ sus descargas. El balón parado sale de nuestras cuatro hojas y los entrenamientos, de la hoja de microciclos.",
     bloques: [

@@ -48,6 +48,7 @@ import {
   Percent,
   RefreshCw,
   Scale,
+  Shield,
   ShieldCheck,
   Swords,
   Target,
@@ -109,6 +110,7 @@ import { BateriaDePreguntas } from "@/components/data/preguntas";
 import { PanelAbpPropio } from "@/components/data/PanelAbpPropio";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
 import { PanelDestacados } from "@/components/data/PanelDestacados";
+import { PanelEquipo } from "@/components/data/PanelEquipo";
 import { PanelGolesAbp } from "@/components/data/PanelGolesAbp";
 import { PanelIndividual } from "@/components/data/PanelIndividual";
 import { PanelOnce } from "@/components/data/PanelOnce";
@@ -166,6 +168,7 @@ type Respuesta = {
 };
 
 type Area =
+  | "equipo"
   | "campo"
   | "historia"
   | "liga"
@@ -182,6 +185,17 @@ type Area =
 const AREAS_CON_EQUIPO: Area[] = ["campo", "liga", "todos", "destacados", "golesAbp"];
 
 const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string }[] = [
+  /*
+    UN EQUIPO DE UN VISTAZO (06/10/2026): cualquier equipo de la categoría,
+    colectivo e individual, resumido en una pantalla. Va primero porque es la
+    pregunta rápida —«¿qué equipo es éste?»— y abre con el próximo rival.
+  */
+  {
+    key: "equipo",
+    label: "Un equipo de un vistazo",
+    icono: Shield,
+    pregunta: "¿Qué equipo es éste: cómo le va, cómo juega y quién lo hace?",
+  },
   /*
     El campograma abre la pantalla a propósito: es la forma en la que se mira
     un partido el lunes por la mañana —por momentos y sobre el campo— y no
@@ -1102,7 +1116,7 @@ export default function DataAnalisisPage() {
                     peor de la liga presionando» en vez de compararnos con
                     nosotros mismos.
                   */}
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && nuestrosPartidos.length > 1 && (
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "equipo" && nuestrosPartidos.length > 1 && (
                     <label className="flex items-center gap-2">
                       <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
                         Partido
@@ -1233,7 +1247,7 @@ export default function DataAnalisisPage() {
                     </label>
                   )}
 
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && (
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "equipo" && (
                     <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
                       {[
                         { valor: "promedio" as ModoValor, rotulo: "Por partido" },
@@ -1859,6 +1873,8 @@ export default function DataAnalisisPage() {
                 )}
 
                 {/* ============= 5 · JUGADOR A JUGADOR ============ */}
+
+                {area === "equipo" && <PanelEquipo liga={deLaLiga} jugadores={datos.jugadores ?? []} />}
 
                 {area === "individual" && (
                   <PanelIndividual jugadores={datos.jugadores ?? []} />
