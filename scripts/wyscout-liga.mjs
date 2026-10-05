@@ -67,7 +67,7 @@
 | una sesión vale más que abrir una ventana de Wyscout.
 */
 
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -604,6 +604,20 @@ async function estaDentro(nav) {
 
   if (!enLaApp) return false;
 
+  /*
+  | Y la aplicación pintada (05/10/2026): con una sesión de Hudl ya caducada,
+  | Wyscout abre un instante /app/ —con las cookies puestas— antes de mandar a
+  | la página de entrar, y se daba por dentro. Hace falta ver su barra de
+  | arriba o la lista de países.
+  */
+  const pintada = await nav.js(`
+    if (document.querySelector("span.ae-home-1")) return true;
+
+    return /Albania|PAÍSES|Advanced Search/.test((document.body || {}).innerText || "");
+  `);
+
+  if (!pintada) return false;
+
   try {
     const { cookies } = await nav.manda("Network.getAllCookies");
 
@@ -613,15 +627,135 @@ async function estaDentro(nav) {
   }
 }
 
+/* ------------------------------------------------------------------ */
+/*  ENTRAR SOLO (05/10/2026)                                           */
+/* ------------------------------------------------------------------ */
+
+/*
+| La sesión de Hudl caduca en pocas horas: reponer las cookies vale el mismo
+| día, no de un día para otro, y el botón de Ajustes se encontraba la página
+| de «Iniciar sesión». Si hay cuenta guardada (scripts\guardar-clave-wys.cmd,
+| cifrada con DPAPI para este usuario de Windows), se escribe aquí el correo y
+| la contraseña. La contraseña se descifra en el momento, no se escribe en
+| ningún registro y no sale de este proceso.
+*/
+const FICHERO_CREDENCIAL = path.join(CACHE, "credencial.json");
+
+function leeCredencial() {
+  if (!fs.existsSync(FICHERO_CREDENCIAL)) return null;
+
+  try {
+    const datos = JSON.parse(fs.readFileSync(FICHERO_CREDENCIAL, "utf8").replace(/^\uFEFF/, ""));
+
+    const clave = execFileSync(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-Command",
+        "$s = ConvertTo-SecureString ([Console]::In.ReadToEnd().Trim()); [Runtime.InteropServices.Marshal]::PtrToStringBSTR([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s))",
+      ],
+      { input: datos.clave, encoding: "utf8", windowsHide: true, timeout: 30_000 },
+    ).replace(/\r?\n$/, "");
+
+    return datos.correo && clave ? { correo: String(datos.correo), clave } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Escribe en el campo que encaje, como si se tecleara. */
+async function escribeEn(nav, selector, texto) {
+  const hay = await nav.js(`
+    const i = document.querySelector(${JSON.stringify(selector)});
+    if (!i) return false;
+    const poner = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set;
+    poner.call(i, "");
+    i.dispatchEvent(new Event("input", { bubbles: true }));
+    i.focus();
+    return true;
+  `);
+
+  if (!hay) return false;
+
+  await nav.manda("Input.insertText", { text: texto });
+
+  await espera(300);
+
+  await nav.js(`
+    const i = document.querySelector(${JSON.stringify(selector)});
+    const f = i && i.form;
+    const b = (f && f.querySelector('button[type=submit]')) || document.querySelector('button[type=submit]');
+    if (b) b.click(); else if (f) f.requestSubmit ? f.requestSubmit() : f.submit();
+    return true;
+  `);
+
+  return true;
+}
+
+/** En la página de Hudl: correo, continuar, contraseña, continuar. */
+async function entraSolo(nav, cuenta) {
+  console.log("  La sesión de Hudl ha caducado: se entra con la cuenta guardada…");
+
+  await escribeEn(nav, "input[type=email], input[name=username], input#username", cuenta.correo);
+
+  /* La contraseña sale en una segunda pantalla. */
+  const hayClave = await nav.esperaValor(`return document.querySelector("input[type=password]") ? 1 : 0;`, (v) => v === 1, 25);
+
+  if (!hayClave) return false;
+
+  await escribeEn(nav, "input[type=password]", cuenta.clave);
+
+  return true;
+}
+
 async function esperaLogin(nav) {
   /* La primera comprobación, con la página todavía cargando, dice que no
      estamos dentro aunque lo estemos: se le da un momento a que pinte algo. */
   await nav.esperaA("Albania|Mikelats|Contraseña|Password|Log In", 20);
 
-  if (await estaDentro(nav)) {
-    console.log("  Sesión ya iniciada en este perfil.\n");
+  /*
+  | Con la sesión repuesta, Wyscout no entra a la primera (05/10/2026): pasa
+  | unos segundos por la página de Hudl, renueva la sesión y vuelve solo. Se
+  | miraba UNA vez, justo en medio, y en desatendido se daba por caducada una
+  | sesión buena —el botón de Ajustes falló así tres veces seguidas el
+  | 05/10—. Ahora se mira cada 3 s durante un minuto; sólo si en todo ese rato
+  | no entra, es que de verdad hay que escribir la contraseña.
+  */
+  const cuenta = leeCredencial();
 
-    return true;
+  let intentada = false;
+
+  for (let i = 0; i < 30; i++) {
+    if (await estaDentro(nav)) {
+      console.log(intentada ? "  Dentro con la cuenta guardada.\n" : "  Sesión ya iniciada en este perfil.\n");
+
+      return true;
+    }
+
+    const pideEntrar = await nav
+      .js(`return /identity\\.hudl\\.com|\\/login/i.test(location.href) && !!document.querySelector("input[type=email], input[name=username], input#username, input[type=password]");`)
+      .catch(() => false);
+
+    if (pideEntrar && cuenta && !intentada) {
+      intentada = true;
+
+      await entraSolo(nav, cuenta).catch(() => false);
+
+      await espera(5000);
+
+      continue;
+    }
+
+    /* Sin cuenta guardada y en la página de entrar: no hay nada que esperar. */
+    if (pideEntrar && !cuenta && i >= 3) break;
+
+    await espera(3000);
+  }
+
+  if (!cuenta) {
+    console.log("  (No hay cuenta guardada: con scripts\\guardar-clave-wys.cmd entraría solo.)");
+  } else if (intentada) {
+    console.log("  La cuenta guardada no ha entrado: ¿ha cambiado la contraseña? Vuelve a guardarla con scripts\\guardar-clave-wys.cmd.");
   }
 
   /*
@@ -1930,7 +2064,7 @@ async function principal() {
      Si a la hora y media sigue ocupado, se sigue igual, como antes. */
   await esperaTurno("Wyscout (descarga de la liga)");
 
-  const chrome = abreChrome();
+  let chrome = abreChrome();
 
   const nav = await conecta();
 
@@ -2077,7 +2211,68 @@ async function principal() {
 
     const resultados = [];
 
+    /*
+    | Chrome colgado (05/10/2026). A las 6:07 la pestaña dejó de contestar en
+    | los 20 equipos y la pasada siguió UNA HORA para bajar cero: cada equipo
+    | gastaba sus dos intentos esperando a una pestaña muerta. Ahora, con dos
+    | equipos seguidos sin respuesta, se reinicia Chrome entero una vez (con la
+    | misma sesión); si vuelve a pasar, se corta con el código 7 y un motivo
+    | que se entiende en Ajustes.
+    */
+    let colgadosSeguidos = 0;
+    let reiniciado = false;
+    let colgado = false;
+
     for (const equipo of bandera("solo-jugadores") ? [] : lista) {
+      if (colgado) break;
+
+      if (colgadosSeguidos >= 2) {
+        if (reiniciado) {
+          console.log("\n  CHROME NO RESPONDE: se corta la descarga (el ordenador del club, bloqueado o sin red).\n");
+
+          colgado = true;
+
+          break;
+        }
+
+        reiniciado = true;
+        colgadosSeguidos = 0;
+
+        console.log("\n    (Chrome no contesta: se reinicia una vez, con la misma sesión)");
+
+        try {
+          nav.cierra();
+        } catch {
+          /* ya estaba roto */
+        }
+
+        try {
+          chrome.kill();
+        } catch {
+          /* ya no estaba */
+        }
+
+        await espera(4000);
+
+        chrome = abreChrome();
+
+        Object.assign(nav, await conecta());
+
+        if (await reponeLasCookies(nav)) {
+          await nav.manda("Page.navigate", { url: "https://wyscout.hudl.com/app/" }).catch(() => {});
+
+          await espera(4000);
+        }
+
+        if (!(await esperaLogin(nav))) {
+          process.exitCode = 2;
+
+          return;
+        }
+
+        await vaAlGrupo(nav).catch(() => {});
+      }
+
       process.stdout.write(`  ${equipo.padEnd(26)}`);
 
       /*
@@ -2113,6 +2308,8 @@ async function principal() {
       }
 
       resultados.push(resultado);
+
+      colgadosSeguidos = resultado && resultado.estado !== "ok" && atasco(resultado.estado) ? colgadosSeguidos + 1 : 0;
 
       console.log(
         resultado.estado !== "ok"
@@ -2167,6 +2364,13 @@ async function principal() {
       | decía «publicado». Ahora sale con su código y dice con qué cuenta está,
       | que es lo único que hay que cambiar.
       */
+      /* Chrome colgado incluso tras reiniciarlo: su código, sin publicar nada. */
+      if (colgado && bien === 0) {
+        process.exitCode = 7;
+
+        return;
+      }
+
       if (bien === 0 && lista.length && !bandera("parar")) {
         const porLaCuenta = resultados.filter((r) => /layout ALL/i.test(r?.estado ?? "")).length;
 

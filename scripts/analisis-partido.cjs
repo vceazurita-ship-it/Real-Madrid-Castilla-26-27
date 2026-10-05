@@ -388,9 +388,10 @@ async function principal() {
     const MOTIVO = {
       0: [true, "bajado y publicado"],
       3: [true, "bajado; no había nada nuevo"],
-      2: [false, "la sesión de Wyscout ha caducado: hay que entrar una vez a mano (scripts\\actualizar-wys.cmd)"],
+      2: [false, "la sesión de Wyscout ha caducado y no ha podido entrar sola: guarda la cuenta con scripts\\guardar-clave-wys.cmd"],
       4: [false, "bajado, pero la subida (git push) ha fallado"],
       5: [false, "bajado, pero no se ha podido releer la carpeta"],
+      7: [false, "el Chrome de Wyscout se quedó colgado incluso tras reiniciarlo: no se ha bajado nada"],
       6: [false, "Wyscout está con otra cuenta (la del juvenil, sin el layout ALL): no se ha bajado nada; hay que entrar con la del Castilla (scripts\\actualizar-wys.cmd)"],
     };
 

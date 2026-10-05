@@ -111,6 +111,14 @@ if "%SALIDA%"=="2" (
   goto :limpieza
 )
 
+if "%SALIDA%"=="7" (
+  echo. >> "%LOG%"
+  echo CHROME NO RESPONDE: la pestana de Wyscout se colgo incluso tras reiniciarlo. No se ha bajado nada. >> "%LOG%"
+  echo CHROME NO RESPONDE. Se reintentara.
+  set "CODIGO=7"
+  goto :limpieza
+)
+
 if "%SALIDA%"=="6" (
   echo. >> "%LOG%"
   echo WYSCOUT ESTA CON OTRA CUENTA, SIN EL LAYOUT ALL: no se ha bajado nada. >> "%LOG%"

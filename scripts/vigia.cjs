@@ -550,9 +550,10 @@ async function haceQuiniela() {
 const MOTIVO_WYSCOUT = {
   0: [true, "publicado: la plataforma lo tiene en un par de minutos"],
   3: [true, "bajado, pero no había nada nuevo que publicar"],
-  2: [false, "la sesión de Wyscout ha caducado: hay que entrar una vez a mano en el ordenador del club (scripts\\actualizar-wys.cmd)"],
+  2: [false, "la sesión de Wyscout ha caducado y no ha podido entrar sola: guarda una vez la cuenta del Castilla con doble clic en scripts\\guardar-clave-wys.cmd (o, si ya está, ha cambiado la contraseña) y vuelve a pedirlo"],
   4: [false, "bajado y guardado, pero la subida (git push) ha fallado: queda sin publicar"],
   5: [false, "bajado, pero no se ha podido releer la carpeta: no se publica"],
+  7: [false, "el Chrome de Wyscout se quedó colgado incluso tras reiniciarlo (el ordenador del club, bloqueado o sin red): no se ha bajado nada; vuelve a pedirlo"],
   6: [false, "Wyscout está abierto con otra cuenta (la del juvenil), que no tiene el layout ALL: no se ha bajado nada. Hay que entrar una vez con la cuenta del Castilla (scripts\\actualizar-wys.cmd)"],
 };
 
