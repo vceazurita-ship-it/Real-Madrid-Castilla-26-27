@@ -43,6 +43,7 @@ import { alineaSeguimiento } from "@/lib/seguimiento";
 import { summarizeAll } from "@/lib/ratings/compute";
 import { casaNombre } from "@/lib/data-analisis/once";
 import {
+  aplicaA,
   METRICAS_JUGADOR,
   METRICA_JUGADOR_POR_COLUMNA,
   PUESTOS,
@@ -506,9 +507,20 @@ function Graficos({
   const [pregunta, setPregunta] = useState(0);
   const [ejes, setEjes] = useState<{ x: string; y: string } | null>(null);
 
-  const p = PREGUNTAS[pregunta];
-  const x = ejes?.x ?? p.x;
-  const y = ejes?.y ?? p.y;
+  /*
+  | Con porteros elegidos arriba (05/10/2026), sólo lo que le compete a un
+  | portero: sus preguntas y, para elegir los ejes, sus métricas. Las de
+  | jugador de campo —regates, centros, presión— no dicen nada de él.
+  */
+  const esPortero = puesto === "POR";
+  const primeraDePortero = PREGUNTAS.findIndex((q) => q.fase === "por");
+  const preguntaVista = esPortero && PREGUNTAS[pregunta].fase !== "por" ? primeraDePortero : pregunta;
+
+  const p = PREGUNTAS[preguntaVista];
+  const metricasEjes = METRICAS_JUGADOR.filter((m) => !esPortero || aplicaA(m, "POR"));
+  const valeEje = (c?: string) => Boolean(c) && metricasEjes.some((m) => m.columna === c);
+  const x = valeEje(ejes?.x) ? ejes!.x : p.x;
+  const y = valeEje(ejes?.y) ? ejes!.y : p.y;
 
   /* Las de porteros, sólo con porteros; el resto, con el puesto de arriba. */
   const puestoGrafico: Puesto | "todos" = !ejes && p.fase === "por" ? "POR" : puesto;
@@ -526,7 +538,7 @@ function Graficos({
   return (
     <div className="mt-6 grid gap-4 lg:grid-cols-[300px_1fr]">
       <aside className="space-y-4">
-        {FASES.map((fase) => (
+        {FASES.filter((fase) => !esPortero || fase.key === "por").map((fase) => (
           <div key={fase.key}>
             <p className="mb-1.5 text-[11px] uppercase tracking-wider text-white/40">{fase.label}</p>
             <div className="space-y-1">
@@ -540,7 +552,7 @@ function Graficos({
                       setEjes(null);
                     }}
                     className={`block w-full rounded-lg px-3 py-1.5 text-left text-sm transition ${
-                      !ejes && pregunta === i ? "bg-[#C8A96B]/15 text-[#C8A96B]" : "text-white/70 hover:bg-white/[0.05]"
+                      !ejes && preguntaVista === i ? "bg-[#C8A96B]/15 text-[#C8A96B]" : "text-white/70 hover:bg-white/[0.05]"
                     }`}
                   >
                     {q.pregunta}
@@ -568,7 +580,7 @@ function Graficos({
                   ["general", "General"],
                 ].map(([fase, rotulo]) => (
                   <optgroup key={fase} label={rotulo} className="bg-[#11161C]">
-                    {METRICAS_JUGADOR.filter((m) => m.fase === fase).map((m) => (
+                    {metricasEjes.filter((m) => m.fase === fase).map((m) => (
                       <option key={m.columna} value={m.columna} className="bg-[#11161C]">
                         {m.nombre}
                       </option>

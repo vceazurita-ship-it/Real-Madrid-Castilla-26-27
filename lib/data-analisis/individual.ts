@@ -1042,9 +1042,50 @@ export function comparablesDe(
     : { lista: deCampo, contra: "solo", ambito };
 }
 
+/*
+| LO QUE LE COMPETE A UN PORTERO (05/10/2026).
+|
+| Las métricas sin `puestos` valían para todos, y al elegir porteros salían
+| comparados en goles, regates, centros o presión: ruido que tapaba lo suyo.
+| Un portero ve su portería —paradas, goles evitados, salidas…—, su juego con
+| el pie (que es la otra mitad del puesto hoy), el juego aéreo y las tarjetas.
+| Nada más.
+*/
+const PARA_PORTERO = new Set([
+  /* Con el pie: cuánto juega, cómo y hacia dónde. */
+  "Pases/90",
+  "Precisión pases, %",
+  "Pases cortos / medios /90",
+  "Precisión pases cortos / medios, %",
+  "Pases largos/90",
+  "Precisión pases largos, %",
+  "Longitud media pases, m",
+  "Pases progresivos/90",
+  "Precisión pases progresivos, %",
+  "Pases hacia adelante/90",
+  "Precisión pases hacia adelante, %",
+  "Pases recibidos /90",
+  /* Por alto. */
+  "Duelos aéreos en los 90",
+  "Duelos aéreos ganados, %",
+  /* Disciplina. */
+  "Tarjetas amarillas/90",
+  "Tarjetas rojas/90",
+]);
+
+/** ¿Le dice algo esta métrica a este puesto? */
+export function aplicaA(metrica: MetricaJugador, puesto: Puesto) {
+  if (puesto === "POR") return Boolean(metrica.puestos?.includes("POR")) || PARA_PORTERO.has(metrica.columna);
+
+  return !metrica.puestos || metrica.puestos.includes(puesto);
+}
+
+/** Los grupos en el orden en que se leen para ese puesto: un portero, primero su portería. */
+export const gruposDe = (puesto: Puesto) =>
+  puesto === "POR" ? ["Portería", ...GRUPOS_JUGADOR.filter((g) => g !== "Portería")] : GRUPOS_JUGADOR;
+
 /** Las métricas que le dicen algo a un puesto. */
-export const metricasDe = (puesto: Puesto) =>
-  METRICAS_JUGADOR.filter((m) => !m.puestos || m.puestos.includes(puesto));
+export const metricasDe = (puesto: Puesto) => METRICAS_JUGADOR.filter((m) => aplicaA(m, puesto));
 
 /* ------------------------------------------------------------------ */
 /*  UN PORCENTAJE DE UNA ACCIÓN NO ES UN PORCENTAJE                    */

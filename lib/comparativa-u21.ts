@@ -204,6 +204,9 @@ export const PREGUNTAS: Pregunta[] = [
   { fase: "abp", pregunta: "¿Quién lanza?", x: "Córneres/90", y: "Tiros libres/90", lectura: "Quién se encarga de córners y faltas." },
   { fase: "por", pregunta: "¿Qué portero para más de lo esperado?", x: "Paradas, %", y: "Goles evitados/90", lectura: "Porcentaje de paradas contra goles evitados sobre el xG recibido." },
   { fase: "por", pregunta: "¿Qué portero juega con los pies?", x: "Pases largos/90", y: "Precisión pases largos, %", lectura: "Volumen de juego en largo contra acierto." },
+  { fase: "por", pregunta: "¿Qué portero juega corto?", x: "Pases cortos / medios /90", y: "Precisión pases cortos / medios, %", lectura: "Cuánto inicia en corto y con qué seguridad." },
+  { fase: "por", pregunta: "¿Qué portero sale más?", x: "Salidas/90", y: "Duelos aéreos ganados, %", lectura: "Salidas de su línea contra balones por alto ganados." },
+  { fase: "por", pregunta: "¿Cuánto trabajo le dan?", x: "Remates en contra/90", y: "Goles recibidos/90", lectura: "Lo que le tiran contra lo que le entra: abajo a la derecha, mucho trabajo y pocos goles." },
 ];
 
 export type PuntoJugador = { jugador: FilaJugador; x: number; y: number; nuestro: boolean };

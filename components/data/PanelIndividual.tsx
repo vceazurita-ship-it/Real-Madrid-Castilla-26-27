@@ -9,7 +9,7 @@ import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { formatea } from "@/lib/data-analisis/metricas";
 import {
   AMBITOS,
-  GRUPOS_JUGADOR,
+  gruposDe,
   MINUTOS_MINIMOS,
   MINUTOS_MINIMOS_ANTERIOR,
   PUESTOS,
@@ -108,7 +108,7 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
 
   const corto = jugador.minutos < MINUTOS_MINIMOS;
 
-  const gruposConMetricas = GRUPOS_JUGADOR.filter((g) =>
+  const gruposConMetricas = gruposDe(puesto).filter((g) =>
     metricasDe(puesto).some((m) => m.grupo === g),
   );
 
@@ -531,7 +531,7 @@ function TablaPlantilla({
             onChange={(e) => setColumna(e.target.value)}
             className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50"
           >
-            {GRUPOS_JUGADOR.filter((g) => disponibles.some((m) => m.grupo === g)).map(
+            {gruposDe(puesto).filter((g) => disponibles.some((m) => m.grupo === g)).map(
               (g) => (
                 <optgroup key={g} label={g}>
                   {disponibles

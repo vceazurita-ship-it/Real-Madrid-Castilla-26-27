@@ -1,6 +1,7 @@
 import { normalizePlayerName } from "@/lib/playerImages";
 import { FAMILIAS, porJugador, type PartidoEventos } from "./eventos";
 import {
+  aplicaA,
   METRICAS_JUGADOR,
   PUESTOS,
   comparablesDe,
@@ -650,7 +651,7 @@ export function rejillaWyscout(
       for (const { columna, jugadores: suyosTodos } of grupos) {
         /* Sólo aquellos a los que la métrica les dice algo. */
         const suyos = suyosTodos.filter(
-          (uno) => uno.wyscout && (!metrica.puestos || metrica.puestos.includes(uno.puesto)),
+          (uno) => uno.wyscout && aplicaA(metrica, uno.puesto),
         );
 
         const medidos = suyos
