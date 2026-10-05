@@ -963,6 +963,72 @@ function columnasDe(fichero) {
   }
 }
 
+/**
+ * «Todas las columnas», cuando la cuenta no tiene el layout ALL (05/10/2026).
+ *
+ * La cuenta con la que entra el ordenador del club (la del juvenil) no tiene
+ * ALL, pero la tabla tiene su propio selector: el icono de tabla junto a
+ * «MOSTRAR» abre «Elegir las columnas para mostrar», con una casilla «Todas
+ * las columnas». Se marca y se aplica en cada equipo —«Guardar como
+ * predeterminado» no se queda guardado— y se espera a que la tabla vuelva
+ * a estar llena. El fichero exportado se sigue contando (MIN_COLUMNAS).
+ */
+async function todasLasColumnas(nav) {
+  const icono = await nav.js(`
+    const b = document.querySelector('[class*="ColumnsSettings__custom-btn"]');
+    if (!b) return null;
+    const r = b.getBoundingClientRect();
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+  `);
+
+  if (!icono) return false;
+
+  await nav.manda("Input.dispatchMouseEvent", { type: "mouseMoved", x: icono.x, y: icono.y, button: "none" });
+  await espera(200);
+
+  for (const type of ["mousePressed", "mouseReleased"]) {
+    await nav.manda("Input.dispatchMouseEvent", { type, x: icono.x, y: icono.y, button: "left", clickCount: 1 });
+  }
+
+  if (!(await nav.esperaA("Elegir las columnas", 10))) return false;
+
+  /* La casilla, sólo si no está ya marcada (pulsarla otra vez la quitaría). */
+  await nav.js(`
+    const rotulo = [...document.querySelectorAll("label, span, div")]
+      .filter((x) => x.childElementCount < 4 && (x.textContent || "").trim() === "Todas las columnas")
+      .pop();
+    const casilla = rotulo && (rotulo.querySelector("input") || rotulo.parentElement.querySelector("input"));
+    if (casilla && !casilla.checked) (rotulo.tagName === "LABEL" ? rotulo : casilla).click();
+    return true;
+  `);
+
+  await espera(600);
+
+  /* «Aplicar»: con el ratón no reacciona; con el clic del DOM, sí. */
+  await nav.js(`
+    const b = [...document.querySelectorAll("button, a, div, span")]
+      .filter((x) => (x.textContent || "").trim().toUpperCase() === "APLICAR" && x.getClientRects().length)
+      .pop();
+    if (b) b.click();
+    return Boolean(b);
+  `);
+
+  const cerrado = await nav.esperaValor(
+    `return (document.body.innerText || "").includes("Elegir las columnas") ? 0 : 1;`,
+    (v) => v === 1,
+    15,
+  );
+
+  if (!cerrado) return false;
+
+  /* La tabla se recarga entera: hasta que vuelva a tener filas de partido. */
+  const llena = await nav.esperaValor(`return document.querySelectorAll("table tr").length;`, (filas) => filas >= 6, 60);
+
+  const columnas = await nav.js(`return document.querySelectorAll("th").length;`);
+
+  return Boolean(llena) && columnas >= 30;
+}
+
 async function bajaEquipo(nav, equipo) {
   if (!(await nav.clicHasta(equipo, "Estadísticas|Vista general"))) {
     return { equipo, estado: "no se abre la ficha del equipo" };
@@ -1041,7 +1107,10 @@ async function bajaEquipo(nav, equipo) {
     return /MOSTRAR: ?ALL/i.test(t);
   `);
 
-  if (!quedoEnAll && !bandera("parar")) {
+  /* Sin ALL (la cuenta del juvenil): todas las columnas desde su selector. */
+  const conTodas = quedoEnAll || (await todasLasColumnas(nav).catch(() => false));
+
+  if (!conTodas && !bandera("parar")) {
     return {
       equipo,
       estado:
@@ -1690,7 +1759,48 @@ async function preparaBuscador(buscador) {
       return pulsa(e);
     `);
 
-    if (!all) throw new Error("No encuentro el layout ALL en MOSTRAR.");
+    /*
+    | Sin ALL (la cuenta del juvenil, 05/10/2026): el buscador tiene el mismo
+    | selector de columnas que la tabla de equipos —el botón junto a
+    | «Mostrar»— con «Todas las columnas». Se marca y se aplica.
+    */
+    if (!all) {
+      await buscador.js(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); return true;`);
+
+      await espera(600);
+
+      const abierto = await buscador.js(`
+        const b = document.querySelector('[class*="custom-btn"]');
+        if (!b) return false;
+        ["mousedown", "mouseup", "click"].forEach((t) => b.dispatchEvent(new MouseEvent(t, { bubbles: true })));
+        return true;
+      `);
+
+      await espera(2000);
+
+      const aplicado =
+        abierto &&
+        (await buscador.js(`
+          if (!(document.body.innerText || "").includes("Elegir las columnas")) return false;
+          const rotulo = [...document.querySelectorAll("label, span, div")]
+            .filter((x) => x.childElementCount < 4 && (x.textContent || "").trim() === "Todas las columnas")
+            .pop();
+          const casilla = rotulo && (rotulo.querySelector("input") || rotulo.parentElement.querySelector("input"));
+          if (casilla && !casilla.checked) (rotulo.tagName === "LABEL" ? rotulo : casilla).click();
+          const boton = [...document.querySelectorAll("button, a, div, span")]
+            .filter((x) => (x.textContent || "").trim().toUpperCase() === "APLICAR" && x.getClientRects().length)
+            .pop();
+          if (!boton) return false;
+          boton.click();
+          return true;
+        `));
+
+      await espera(2500);
+
+      const cerrado = await buscador.js(`return !(document.body.innerText || "").includes("Elegir las columnas");`);
+
+      if (!aplicado || !cerrado) throw new Error("No encuentro el layout ALL ni se pueden marcar todas las columnas en MOSTRAR.");
+    }
 
     await espera(6000);
   }
