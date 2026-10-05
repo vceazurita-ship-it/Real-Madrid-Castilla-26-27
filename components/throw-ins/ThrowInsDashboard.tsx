@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BarraFiltros, ESTILO_ELEGIDO, PastillaPretemporada } from "@/components/filtros/BarraFiltros";
 import type { CSSProperties, ReactNode } from "react";
 import Papa from "papaparse";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -588,7 +589,7 @@ function DistributionChart({
                     fill={colorFor ? colorFor(item.name, index) : COLORS[index % COLORS.length]}
                     /* Filtrando por esta columna se siguen pintando todas: la
                        elegida entera y con borde oro, las demás apagadas. */
-                    fillOpacity={seleccionado && seleccionado !== item.name ? 0.25 : 1}
+                    fillOpacity={seleccionado && seleccionado !== item.name ? ESTILO_ELEGIDO.apagado : 1}
                     stroke={seleccionado === item.name ? "#C8A96B" : undefined}
                     strokeWidth={seleccionado === item.name ? 2 : 0}
                   />
@@ -1195,69 +1196,15 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
             | mientras haya filtros, para que nadie lea una gráfica filtrada
             | creyendo que la ve completa, y cada filtro se quita desde ella.
             */}
-            {activos.length || soloLiga || (hayPretemporada && incluirPretemporada) ? (
-              <div className="sticky top-[81px] z-20 -mt-4 mb-6 md:top-[97px]">
-                <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-[#C8A96B]/30 bg-[#0B0F14]/90 px-3 py-2 text-xs backdrop-blur-xl">
-                  <span className="mr-0.5 text-[10px] uppercase tracking-[0.16em] text-slate-500">
-                    Filtrando
-                  </span>
-
-                  {/* El filtro de partida: se ve como uno más, pero al
-                      pulsarlo no se quita, se abre —mete la pretemporada—. */}
-                  {soloLiga ? (
-                    <button
-                      type="button"
-                      onClick={() => setIncluirPretemporada(true)}
-                      title="Pulsa para incluir la pretemporada"
-                      className="flex max-w-full items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-white/70 transition hover:border-[#C8A96B]/40 hover:text-[#E7D2A0]"
-                    >
-                      Sólo liga · <span className="text-[#E7D2A0]">incluir pretemporada</span>
-                    </button>
-                  ) : hayPretemporada && incluirPretemporada ? (
-                    <button
-                      type="button"
-                      onClick={() => setIncluirPretemporada(false)}
-                      title="Volver a dejar fuera la pretemporada"
-                      className="flex max-w-full items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 text-[#E7D2A0] transition hover:bg-[#C8A96B]/20"
-                    >
-                      Con pretemporada
-                      <span aria-hidden className="shrink-0">✕</span>
-                    </button>
-                  ) : null}
-
-                  {activos.map(({ key, label }) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => quitar([key])}
-                      title="Quitar este filtro"
-                      className="flex max-w-full items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 text-[#E7D2A0] transition hover:bg-[#C8A96B]/20"
-                    >
-                      <span className="truncate">
-                        <span className="text-slate-400">{label}:</span> {filters[key]}
-                      </span>
-                      <span aria-hidden className="shrink-0">✕</span>
-                    </button>
-                  ))}
-
-                  <span className="ml-auto flex items-center gap-2">
-                    <span className="tabular-nums text-white/40">
-                      {filtered.length} de {rows.length}
-                    </span>
-                    {activos.length ? (
-                      <button
-                        type="button"
-                        onClick={() => setFilters({})}
-                        className="rounded-full border border-white/10 px-2.5 py-1 text-white/70 transition hover:border-white/25 hover:text-white"
-                      >
-                        Quitar filtros
-                      </button>
-                    ) : null}
-                  </span>
-                </div>
-
-                {/* Sólo liga y nada que enseñar: que no parezca un fallo. */}
-                {soloLiga && !filtered.length ? (
+            <BarraFiltros
+              className="-mt-4 mb-6"
+              previo={hayPretemporada ? <PastillaPretemporada incluida={incluirPretemporada} onCambiar={setIncluirPretemporada} /> : undefined}
+              cuenta={{ vistas: filtered.length, total: rows.length, unidad: "saques" }}
+              onQuitarTodo={() => setFilters({})}
+              pastillas={activos.map(({ key, label }) => ({ clave: key, rotulo: label, valor: String(filters[key]), onQuitar: () => quitar([key]) }))}
+              pie={
+                /* Sólo liga y nada que enseñar: que no parezca un fallo. */
+                soloLiga && !filtered.length ? (
                   <button
                     type="button"
                     onClick={() => setIncluirPretemporada(true)}
@@ -1266,9 +1213,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     No hay acciones de liga con estos filtros ·{" "}
                     <span className="text-[#E7D2A0] underline underline-offset-2">incluir pretemporada</span>
                   </button>
-                ) : null}
-              </div>
-            ) : null}
+                ) : null
+              }
+            />
 
             {error ? (
               <p className="mb-5 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{error}</p>

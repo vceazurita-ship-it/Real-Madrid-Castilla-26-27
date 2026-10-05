@@ -511,6 +511,7 @@ export default function FaltasPage() {
             <BarraFiltros
               chips={chips}
               onLimpiar={quitaTodo}
+              cuenta={{ vistas: faltas.length, total: partido?.faltas.length ?? 0, unidad: "faltas" }}
               pretemporada={
                 HAY_PRETEMPORADA
                   ? { incluida: conPretemporada, onCambiar: setConPretemporada }

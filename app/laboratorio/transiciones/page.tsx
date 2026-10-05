@@ -791,6 +791,7 @@ export default function TransicionesPage() {
             <BarraFiltros
               chips={chips}
               onLimpiar={quitaTodo}
+              cuenta={{ vistas: robos.length, total: base.length, unidad: "robos" }}
               pretemporada={
                 HAY_PRETEMPORADA
                   ? { incluida: conPretemporada, onCambiar: setConPretemporada }

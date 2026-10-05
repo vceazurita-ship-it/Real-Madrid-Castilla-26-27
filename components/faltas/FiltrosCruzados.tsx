@@ -24,7 +24,8 @@
  */
 
 import { useCallback, useState, type CSSProperties, type ReactNode } from "react";
-import { X } from "lucide-react";
+import { BarraFiltros as BarraComun, ESTILO_ELEGIDO, PastillaPretemporada } from "@/components/filtros/BarraFiltros";
+
 
 const ORO = "#C8A96B";
 
@@ -116,17 +117,17 @@ export const hayFiltro = (filtros: Filtros, dimension: string) =>
  * entera; las demás de esa misma gráfica, apagadas, sólo si hay algo marcado.
  */
 export function marcaPieza(activo: boolean, hayAlgo: boolean): CSSProperties {
-  if (activo) return { outline: `2px solid ${ORO}`, outlineOffset: 2, opacity: 1 };
+  if (activo) return { outline: `${ESTILO_ELEGIDO.grosor}px solid ${ORO}`, outlineOffset: 2, opacity: 1 };
 
-  return { opacity: hayAlgo ? 0.4 : 1 };
+  return { opacity: hayAlgo ? ESTILO_ELEGIDO.apagado : 1 };
 }
 
 /** Lo mismo para un trozo de SVG (barras de recharts, cajones del campo). */
 export function marcaSvg(activo: boolean, hayAlgo: boolean) {
   return {
     stroke: activo ? ORO : undefined,
-    strokeWidth: activo ? 2.5 : undefined,
-    fillOpacity: activo || !hayAlgo ? 1 : 0.32,
+    strokeWidth: activo ? ESTILO_ELEGIDO.grosor : undefined,
+    fillOpacity: activo || !hayAlgo ? 1 : ESTILO_ELEGIDO.apagado,
     cursor: "pointer",
   } as const;
 }
@@ -159,7 +160,7 @@ export function Filtrable({
   const marca =
     variante === "pieza"
       ? marcaPieza(activo, atenuado)
-      : { opacity: atenuado && !activo ? 0.4 : 1 };
+      : { opacity: atenuado && !activo ? ESTILO_ELEGIDO.apagado : 1 };
 
   return (
     <button
@@ -210,13 +211,15 @@ export type ChipFiltro = {
 };
 
 /**
- * La barra de «Filtrando: …». Sin filtros no ocupa sitio. Envuelve en varias
- * líneas en el móvil: los chips son cortos a propósito.
+ * La barra de «Filtrando: …»: la común a todas las pantallas de análisis
+ * (components/filtros/BarraFiltros.tsx, 05/10/2026). Ésta traduce los nombres
+ * de aquí a los de allí y pone la pastilla de la pretemporada si hay.
  */
 export function BarraFiltros({
   chips,
   onLimpiar,
   pretemporada,
+  cuenta,
   className = "",
 }: {
   chips: ChipFiltro[];
@@ -226,61 +229,16 @@ export function BarraFiltros({
    * defecto, y aquí se meten o se sacan. Sin ellos la barra ni lo menciona.
    */
   pretemporada?: { incluida: boolean; onCambiar: (incluir: boolean) => void };
+  cuenta?: { vistas: number; total: number; unidad?: string };
   className?: string;
 }) {
-  if (chips.length === 0 && !pretemporada) return null;
-
   return (
-    <div
-      role="status"
-      aria-label="Filtros activos"
-      className={`flex flex-wrap items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] ${className}`}
-    >
-      {pretemporada && (
-        <span className="inline-flex flex-wrap items-center gap-1.5 text-white/55">
-          {pretemporada.incluida ? "Liga y pretemporada" : "Sólo liga"}
-          {" · "}
-          <button
-            type="button"
-            onClick={() => pretemporada.onCambiar(!pretemporada.incluida)}
-            aria-pressed={pretemporada.incluida}
-            className="rounded-full px-1.5 py-0.5 text-[#C8A96B] underline-offset-2 transition hover:underline"
-          >
-            {pretemporada.incluida ? "quitar pretemporada" : "incluir pretemporada"}
-          </button>
-          {chips.length > 0 && <span className="mx-1 h-3 w-px bg-white/10" aria-hidden />}
-        </span>
-      )}
-
-      {chips.length > 0 && (
-        <span className="font-semibold uppercase tracking-[0.14em] text-[#C8A96B]">
-          Filtrando:
-        </span>
-      )}
-
-      {chips.map((chip) => (
-        <button
-          key={chip.clave}
-          type="button"
-          onClick={chip.onQuitar}
-          title="Quitar este filtro"
-          className="inline-flex items-center gap-1 rounded-full bg-[#C8A96B]/15 px-2 py-0.5 text-white/80 transition hover:text-white"
-        >
-          <span className="text-white/45">{chip.rotulo}:</span>
-          <span className="max-w-[14rem] truncate">{chip.valor}</span>
-          <X size={11} aria-hidden className="text-white/45" />
-        </button>
-      ))}
-
-      {chips.length > 0 && (
-        <button
-          type="button"
-          onClick={onLimpiar}
-          className="ml-1 rounded-full px-2 py-0.5 text-white/50 underline-offset-2 transition hover:text-white hover:underline"
-        >
-          Quitar filtros
-        </button>
-      )}
-    </div>
+    <BarraComun
+      className={className}
+      cuenta={cuenta}
+      onQuitarTodo={onLimpiar}
+      previo={pretemporada ? <PastillaPretemporada incluida={pretemporada.incluida} onCambiar={pretemporada.onCambiar} /> : undefined}
+      pastillas={chips.map((c) => ({ clave: c.clave, rotulo: c.rotulo, valor: c.valor, onQuitar: c.onQuitar }))}
+    />
   );
 }

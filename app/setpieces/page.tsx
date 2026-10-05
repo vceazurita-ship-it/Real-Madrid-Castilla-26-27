@@ -664,6 +664,9 @@ const sin = (...claves: string[]) => filtraFilas(rows, dimensiones, claves);
 
 const filtered = sin();
 
+/* El total de la barra: las acciones de la competición elegida, sin lo pinchado. */
+const totalCompeticion = sin(...dimensiones.map((d) => d.clave).filter((c) => c !== "competicion")).length;
+
 /* Cada gráfico se pinta sin su propia dimensión: lo elegido sale resaltado
    y el resto atenuado, en vez de quedarse en una sola barra. */
 const filasSacador = sin("sacador");
@@ -2513,6 +2516,7 @@ const pie = (
 <BarraFiltros
   chips={chips}
   onQuitarTodo={quitaFiltros}
+  cuenta={{ vistas: filtered.length, total: totalCompeticion, unidad: "acciones" }}
   antes={
     competicionFilter === SIN_PRETEMPORADA || competicionFilter === "ALL" ? (
       <AvisoPretemporada

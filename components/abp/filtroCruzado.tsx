@@ -20,6 +20,7 @@
 */
 
 import type { ReactNode } from "react";
+import { BarraFiltros as BarraComun, ESTILO_ELEGIDO, PastillaPretemporada } from "@/components/filtros/BarraFiltros";
 
 export const ORO = "#C8A96B";
 export const TODO = "ALL";
@@ -127,9 +128,9 @@ export function marca(
   const es = hay && coincide;
 
   return {
-    fillOpacity: !hay || es ? 1 : 0.3,
+    fillOpacity: !hay || es ? 1 : ESTILO_ELEGIDO.apagado,
     stroke: es ? ORO : "transparent",
-    strokeWidth: es ? 2 : 0,
+    strokeWidth: es ? ESTILO_ELEGIDO.grosor : 0,
     cursor: "pointer",
   };
 }
@@ -142,68 +143,34 @@ export type Chip = {
 };
 
 /**
- * La tira de filtros activos.
- *
- * Va pegada debajo de la cabecera (`sticky`) porque los gráficos que filtran
- * están muy abajo: sin ella se pulsaba un sector al final de la página y no
- * se veía qué había cambiado arriba. El hueco de la derecha es el del botón
- * flotante del PDF.
+ * La tira de filtros activos: la común a todas las pantallas de análisis
+ * (components/filtros/BarraFiltros.tsx, 05/10/2026). Ésta sólo traduce los
+ * nombres de aquí a los de allí.
  */
 export function BarraFiltros({
   chips,
   onQuitarTodo,
   antes,
+  cuenta,
 }: {
   chips: Chip[];
   onQuitarTodo: () => void;
   /** Lo que va delante de los filtros (el aviso de la pretemporada). */
   antes?: ReactNode;
+  cuenta?: { vistas: number; total: number; unidad?: string };
 }) {
   return (
-    <div className="sticky top-[80px] z-20 -mx-1 mt-4 rounded-2xl border border-white/10 bg-[#0B0F14]/85 px-3 py-2 pr-16 backdrop-blur-xl md:top-[96px]">
-      <div className="flex flex-wrap items-center gap-1.5 text-xs">
-        <span className="mr-1 text-white/60">
-          {chips.length ? "Filtrando:" : "Sin filtros ·"}
-        </span>
-
-        {antes}
-
-        {chips.map((chip) => (
-          <button
-            key={chip.clave}
-            type="button"
-            onClick={chip.quitar}
-            title="Quitar este filtro"
-            className="max-w-full truncate rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
-          >
-            <span className="text-white/60">{chip.etiqueta}:</span>{" "}
-            {chip.texto} ✕
-          </button>
-        ))}
-
-        {chips.length > 0 ? (
-          <button
-            type="button"
-            onClick={onQuitarTodo}
-            className="rounded-full px-2 py-1 text-white/60 underline-offset-2 transition hover:text-white hover:underline"
-          >
-            Quitar filtros
-          </button>
-        ) : (
-          <span className="text-white/40">
-            pulsa cualquier barra, sector, zona o fila para filtrar
-          </span>
-        )}
-      </div>
-    </div>
+    <BarraComun
+      className="mt-4"
+      previo={antes}
+      cuenta={cuenta}
+      onQuitarTodo={onQuitarTodo}
+      pastillas={chips.map((c) => ({ clave: c.clave, rotulo: c.etiqueta, valor: c.texto, onQuitar: c.quitar }))}
+    />
   );
 }
 
-/**
- * El aviso de la pretemporada dentro de la tira: cuando está fuera dice
- * «Sólo liga · incluir pretemporada» y al pulsarlo la mete; cuando está dentro
- * ofrece volver a sacarla.
- */
+/** El aviso de la pretemporada: la pastilla común. */
 export function AvisoPretemporada({
   fuera,
   hayPretemporada,
@@ -218,23 +185,5 @@ export function AvisoPretemporada({
 }) {
   if (!hayPretemporada) return null;
 
-  return fuera ? (
-    <button
-      type="button"
-      onClick={() => onCambia(true)}
-      title="La pretemporada está fuera de todos los datos. Pulsa para incluirla."
-      className="rounded-full border border-dashed border-white/10 bg-white/[0.03] px-2.5 py-1 text-white/60 transition hover:bg-white/[0.06] hover:text-white"
-    >
-      {rotulo} · <span className="text-[#C8A96B]">incluir pretemporada</span>
-    </button>
-  ) : (
-    <button
-      type="button"
-      onClick={() => onCambia(false)}
-      title="Vuelve a dejar fuera la pretemporada"
-      className="rounded-full border border-dashed border-white/10 bg-white/[0.03] px-2.5 py-1 text-white/60 transition hover:bg-white/[0.06] hover:text-white"
-    >
-      Con pretemporada · <span className="text-[#C8A96B]">quitarla</span>
-    </button>
-  );
+  return <PastillaPretemporada incluida={!fuera} rotuloSolo={rotulo} onCambiar={onCambia} />;
 }
