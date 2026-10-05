@@ -2042,6 +2042,19 @@ async function bajaLote(nav, buscador, equipos, numero) {
 
   const kb = Math.round(fs.statSync(origen).size / 1024);
 
+  /*
+  | Las columnas, como en los equipos (05/10/2026): con todas son 115. Si la
+  | selección de columnas falla en silencio salen las doce de «General», y
+  | ese fichero no puede sustituir al bueno de la semana pasada.
+  */
+  const columnas = columnasDe(origen);
+
+  if (columnas !== null && columnas < MIN_COLUMNAS) {
+    fs.unlinkSync(origen);
+
+    throw new Error(`el Excel de jugadores sólo trae ${columnas} columnas (con todas son 115): se deja el de antes`);
+  }
+
   /* Si faltan equipos, el lote no sustituye al de la semana pasada: va
      aparte como «(parcial)» y el lector coge de él sólo lo más nuevo. */
   const destino = path.join(
