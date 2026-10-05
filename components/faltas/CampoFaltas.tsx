@@ -15,11 +15,19 @@
  * faltas en el mismo cajón no se tapen. El reparto es siempre el mismo para el
  * mismo orden de faltas: no hay azar, y el campo de hoy es el de mañana.
  *
- * **Hacia dónde se mira.** El campo va en el sentido en que ataca QUIEN SACA la
- * falta: su portería a la izquierda, la que ataca a la derecha. De ahí que
- * «campo propio» sea el del que saca y no el nuestro, que es la confusión que
- * se lleva todo el mundo la primera vez. Y el carril izquierdo es el de arriba,
- * porque es el que queda a la izquierda de quien ataca hacia la derecha.
+ * **Hacia dónde se mira (05/10/2026).** Siempre igual: el Castilla ataca hacia
+ * la derecha, nuestra portería a la izquierda y la rival a la derecha. Antes el
+ * campo iba en el sentido de QUIEN SACA, y como en el mismo campo van las
+ * nuestras y las del rival, un punto en «campo propio» era nuestro campo o el
+ * suyo según el color: dos puntos juntos estaban en los dos extremos del campo
+ * de verdad. Ahora cada falta se coloca donde se cometió (`sitioEnCampo`): las
+ * del rival se dan la vuelta, tercio y carril. El carril izquierdo es el de
+ * arriba, el que queda a la izquierda del Castilla atacando hacia la derecha.
+ *
+ * **Qué lleva cada punto.** Su color dice de quién es la falta; el anillo, que
+ * es frontal (cerca del área que se ataca). El número de defensores y la nota
+ * van en el detalle al pasar por encima, no dentro del punto: un número sin
+ * rótulo dentro de cada bola era lo que más dudas traía.
  *
  * **Todo se pincha.** Una casilla (o un punto, que es su casilla) filtra por
  * su tercio y su carril a la vez; el rótulo de arriba, sólo por el tercio; el
@@ -30,6 +38,45 @@
 
 import type { Falta, LadoFalta } from "@/lib/faltas/datos";
 import { TITULO_FILTRO, marcaPieza } from "@/components/faltas/FiltrosCruzados";
+
+/* ------------------------------------------------------------------ */
+/*  DÓNDE ESTÁ CADA FALTA EN EL CAMPO DE VERDAD (05/10/2026)           */
+/* ------------------------------------------------------------------ */
+
+/** Los tercios, vistos con el Castilla atacando hacia la derecha. */
+export const ZONAS_CAMPO = ["nuestro campo", "medio campo", "campo rival"];
+
+/** Los carriles del Castilla atacando hacia la derecha: la izquierda, arriba. */
+export const CARRILES_CAMPO = ["izquierda", "centro", "derecha"];
+
+/**
+ * El tercio y el carril de una falta en el campo de verdad.
+ *
+ * El etiquetado los guarda hacia la portería que ataca QUIEN SACA. Si la
+ * sacamos nosotros, coinciden con nuestro campo. Si la saca el rival, ataca
+ * hacia nuestra portería: su «campo propio» es nuestro campo rival, y su
+ * izquierda, nuestra derecha.
+ */
+export function sitioEnCampo(f: Pick<Falta, "lado" | "zona" | "carril">): { zona: string; carril: string } {
+  const nuestra = f.lado === "ofensivo";
+
+  const zona =
+    f.zona === "medio campo"
+      ? "medio campo"
+      : f.zona === "campo propio"
+        ? nuestra
+          ? "nuestro campo"
+          : "campo rival"
+        : f.zona === "campo rival"
+          ? nuestra
+            ? "campo rival"
+            : "nuestro campo"
+          : "";
+
+  const carril = nuestra || f.carril === "centro" ? f.carril : f.carril === "izquierda" ? "derecha" : f.carril === "derecha" ? "izquierda" : "";
+
+  return { zona, carril };
+}
 
 /* El campo en decímetros: 105 × 68 m. Todo lo demás sale de ahí. */
 const ANCHO = 1050;
@@ -85,8 +132,9 @@ function coloca(faltas: Falta[], zonas: string[], carriles: string[]): Punto[] {
   const cajones = new Map<string, Falta[]>();
 
   for (const falta of faltas) {
-    const zi = zonas.indexOf(falta.zona);
-    const ci = carriles.indexOf(falta.carril);
+    const sitio = sitioEnCampo(falta);
+    const zi = zonas.indexOf(sitio.zona);
+    const ci = carriles.indexOf(sitio.carril);
 
     if (zi < 0 || ci < 0) continue;
 
@@ -152,18 +200,26 @@ export function CampoFaltas({
     (zonasMarcadas.length === 0 || zonasMarcadas.includes(zona)) &&
     (carrilesMarcados.length === 0 || carrilesMarcados.includes(carril));
 
-  /* Cuántas hay en cada cajón, para el velo del fondo. */
+  /* Cuántas hay en cada cajón, en total y por lado: el velo y la cuenta de la esquina. */
   const porCajon = new Map<string, number>();
+  const porLado = new Map<string, { ofensivo: number; defensivo: number }>();
 
   for (const falta of faltas) {
-    const zi = zonas.indexOf(falta.zona);
-    const ci = carriles.indexOf(falta.carril);
+    const sitio = sitioEnCampo(falta);
+    const zi = zonas.indexOf(sitio.zona);
+    const ci = carriles.indexOf(sitio.carril);
 
     if (zi < 0 || ci < 0) continue;
 
     const clave = `${zi}|${ci}`;
 
     porCajon.set(clave, (porCajon.get(clave) ?? 0) + 1);
+
+    const cuenta = porLado.get(clave) ?? { ofensivo: 0, defensivo: 0 };
+
+    cuenta[falta.lado] += 1;
+
+    porLado.set(clave, cuenta);
   }
 
   const tope = Math.max(1, ...porCajon.values());
@@ -239,6 +295,28 @@ export function CampoFaltas({
             );
           }),
         )}
+
+        {/* Cuántas hay en cada zona, por lado, en la esquina de abajo: se lee sin contar puntos. */}
+        <g fontSize={19} fontWeight={700} style={{ pointerEvents: "none" }}>
+          {zonas.map((_, zi) =>
+            carriles.map((__, ci) => {
+              const cuenta = porLado.get(`${zi}|${ci}`);
+
+              if (!cuenta) return null;
+
+              const x = TERCIO * (zi + 1) - 14;
+              const y = BANDA * (ci + 1) - 14;
+
+              return (
+                <text key={`${zi}|${ci}`} x={x} y={y} textAnchor="end">
+                  {cuenta.ofensivo ? <tspan fill={tinta.ofensivo}>{cuenta.ofensivo}</tspan> : null}
+                  {cuenta.ofensivo && cuenta.defensivo ? <tspan fill="rgba(255,255,255,0.35)"> · </tspan> : null}
+                  {cuenta.defensivo ? <tspan fill={tinta.defensivo}>{cuenta.defensivo}</tspan> : null}
+                </text>
+              );
+            }),
+          )}
+        </g>
 
         {/* Las divisiones del etiquetado, muy tenues: son ayuda, no campo. */}
         <g
@@ -395,9 +473,15 @@ export function CampoFaltas({
           })}
         </g>
 
-        <g fill="rgba(200,169,107,0.55)" fontSize={19} letterSpacing={2}>
-          <text x={ANCHO} y={ALTO + 26} textAnchor="end">
-            ataca quien saca la falta →
+        <g fill="rgba(255,255,255,0.45)" fontSize={18} letterSpacing={1.5}>
+          <text x={0} y={ALTO + 28} textAnchor="start">
+            ← nuestra portería
+          </text>
+          <text x={ANCHO / 2} y={ALTO + 28} textAnchor="middle" fill="rgba(200,169,107,0.75)">
+            el Castilla ataca hacia la derecha →
+          </text>
+          <text x={ANCHO} y={ALTO + 28} textAnchor="end">
+            portería rival →
           </text>
         </g>
 
@@ -407,48 +491,36 @@ export function CampoFaltas({
           const suya = resaltada === falta.clip;
           const color = tinta[falta.lado];
           /* Fuera de la casilla elegida, el punto se apaga pero se queda. */
-          const fuera = hayFiltroSitio && !cajonElegido(falta.zona, falta.carril);
+          const sitio = sitioEnCampo(falta);
+          const fuera = hayFiltroSitio && !cajonElegido(sitio.zona, sitio.carril);
+          const frontal = falta.distancia === "frontal";
 
           return (
             <g
               key={falta.clip}
               onMouseEnter={() => onResaltar(falta.clip)}
               onMouseLeave={() => onResaltar(null)}
-              onClick={onCajon ? () => onCajon(falta.zona, falta.carril) : undefined}
+              onClick={onCajon ? () => onCajon(sitio.zona, sitio.carril) : undefined}
               opacity={fuera && !suya ? 0.3 : 1}
               style={{ cursor: "pointer" }}
             >
-              <title>{`${falta.minuto || "—"} · ${falta.lado === "ofensivo" ? "A favor" : "En contra"} · ${falta.zona} · ${falta.carril} · ${falta.distancia} · ${falta.entre ?? "?"} defendiendo\n${falta.nota}${onCajon ? `\n${TITULO_FILTRO}` : ""}`}</title>
+              <title>{`${falta.minuto || "—"} · ${falta.lado === "ofensivo" ? "A favor (la sacamos nosotros)" : "En contra (la saca el rival)"}\n${sitio.zona} · ${sitio.carril === "centro" ? "por el centro" : `por la ${sitio.carril}`} · ${falta.distancia === "frontal" ? "frontal, cerca del área" : `distancia ${falta.distancia}`}\n${falta.entre === null ? "Defensores sin contar" : `${falta.entre} defendiendo entre la falta y la portería`}\n${falta.nota}${onCajon ? `\n${TITULO_FILTRO}` : ""}`}</title>
 
               {/* El halo sólo en la resaltada: con veintitrés, un halo por
                   punto deja el campo hecho una nube. */}
               {suya && <circle cx={x} cy={y} r={30} fill={`${color}33`} />}
 
+              {/* El anillo: frontal, cerca del área que se ataca. Es la que más peligro trae. */}
+              {frontal && <circle cx={x} cy={y} r={suya ? 24 : 20} fill="none" stroke="#FFFFFF" strokeWidth={2.5} strokeOpacity={0.85} />}
+
               <circle
                 cx={x}
                 cy={y}
-                r={suya ? 17 : 13}
+                r={suya ? 15 : 12}
                 fill={color}
                 stroke="rgba(8,11,15,0.8)"
                 strokeWidth={3}
               />
-
-              {/*
-                Dentro del punto, cuánta gente defendía entre la falta y la
-                portería que se ataca. Es el número que manda en este análisis,
-                y ponerlo aquí ahorra cruzar el campo con la tabla falta a falta.
-              */}
-              <text
-                x={x}
-                y={y + 5.5}
-                textAnchor="middle"
-                fontSize={15}
-                fontWeight={700}
-                fill="#0B0F14"
-                style={{ pointerEvents: "none" }}
-              >
-                {falta.entre ?? "?"}
-              </text>
             </g>
           );
         })}
@@ -475,11 +547,15 @@ export function CampoFaltas({
               className="h-2.5 w-2.5 rounded-full"
               style={{ background: tinta[lado] }}
             />
-            {nombre}
+            {nombre === "A favor" ? "A favor (la sacamos)" : "En contra (la saca el rival)"}
           </button>
         ))}
 
-        <span>Número: defensores hasta la portería</span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-full border-2 border-white/80" /> frontal, cerca del área
+        </span>
+        <span>Cifras de cada zona: a favor · en contra</span>
+        <span className="text-white/30">Pasa por un punto para ver minuto, defensores y qué pasó</span>
       </div>
     </div>
   );

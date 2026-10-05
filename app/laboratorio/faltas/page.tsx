@@ -44,7 +44,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
-import { CampoFaltas } from "@/components/faltas/CampoFaltas";
+import { CampoFaltas, CARRILES_CAMPO, sitioEnCampo, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
 import {
   BarraFiltros,
@@ -64,8 +64,6 @@ import {
   useTextosExplicativos,
 } from "@/components/ui/textos-analisis";
 
-const ZONAS = ["campo propio", "medio campo", "campo rival"];
-const CARRILES = ["izquierda", "centro", "derecha"];
 const DISTANCIAS = ["frontal", "media", "lejana"];
 
 const TINTA_LADO: Record<LadoFalta, string> = {
@@ -91,16 +89,22 @@ const CORTE_TRANSICION = 3;
 type Filtro = "todas" | LadoFalta;
 
 /** Cómo se lee cada dimensión pinchable de una falta. */
+/*
+| La zona y el carril se leen en el campo de verdad, con el Castilla atacando
+| hacia la derecha (05/10/2026), igual que los dibuja el campo: así «campo
+| rival» quiere decir lo mismo en una falta nuestra que en una del rival.
+| El etiquetado los guarda hacia la portería de quien saca (`sitioEnCampo`).
+*/
 const LECTORES: Record<string, (f: Falta) => string> = {
-  zona: (f) => f.zona,
-  carril: (f) => f.carril,
+  zona: (f) => sitioEnCampo(f).zona,
+  carril: (f) => sitioEnCampo(f).carril,
   distancia: (f) => f.distancia,
   entre: (f) => (f.entre === null ? "?" : String(f.entre)),
 };
 
 /** El rótulo de cada dimensión en la barra de «Filtrando». */
 const ROTULO: Record<string, string> = {
-  zona: "Zona",
+  zona: "Zona del campo",
   carril: "Carril",
   distancia: "Distancia",
   entre: "Defendían",
@@ -199,7 +203,7 @@ export default function FaltasPage() {
 
   /* El campo ignora su propio filtro de sitio: lo que no sale es de ahí. */
   const paraCampo = filtradas(["zona", "carril"]);
-  const sinSitio = paraCampo.filter((f) => !f.zona || !f.carril).length;
+  const sinSitio = paraCampo.filter((f) => !sitioEnCampo(f).zona || !sitioEnCampo(f).carril).length;
 
   /** Cuántas hay de cada lado con los demás filtros, para los mandos y el encabezado. */
   const porLado = useMemo(() => {
@@ -333,17 +337,11 @@ export default function FaltasPage() {
         : `${total} ${total === 1 ? "falta" : "faltas"} ${filtro === "ofensivo" ? "a favor" : "en contra"}${conFiltro}.`,
     );
 
-    const zona = laQueMas(faltas.map((f) => f.zona));
-    const carril = laQueMas(faltas.map((f) => f.carril));
+    /* La zona y el carril, en el campo de verdad (el Castilla atacando hacia la derecha). */
+    const zona = laQueMas(faltas.map((f) => sitioEnCampo(f).zona));
+    const carril = laQueMas(faltas.map((f) => sitioEnCampo(f).carril));
 
-    /* La zona, dicha desde el lado del Castilla cuando se puede. */
-    const nombreZona = (z: string) => {
-      if (z === "medio campo") return z;
-      const propio = z === "campo propio";
-      if (filtro === "ofensivo") return propio ? "nuestro campo" : "campo rival";
-      if (filtro === "defensivo") return propio ? "campo rival" : "nuestro campo";
-      return propio ? "campo de quien saca" : "último tercio";
-    };
+    const nombreZona = (z: string) => z;
 
     if (zona && carril) {
       frases.push(
@@ -540,15 +538,15 @@ export default function FaltasPage() {
                 title="Dónde se cometen"
                 subtitle={
                   explicativos
-                    ? "Cada punto es una falta, en su tercio y su carril. El campo va en el sentido en que ataca quien la saca"
+                    ? "Cada punto es una falta, en su tercio y su carril del campo de verdad: el Castilla ataca hacia la derecha, también en las faltas que saca el rival. El etiquetado guarda zonas, no metros: dentro de cada zona los puntos se reparten para no taparse"
                     : undefined
                 }
                 icon={Crosshair}
               >
                 <CampoFaltas
                   faltas={paraCampo}
-                  zonas={ZONAS}
-                  carriles={CARRILES}
+                  zonas={ZONAS_CAMPO}
+                  carriles={CARRILES_CAMPO}
                   tinta={TINTA_LADO}
                   resaltada={resaltada}
                   onResaltar={setResaltada}
@@ -684,8 +682,8 @@ export default function FaltasPage() {
                               {NOMBRE_LADO[f.lado]}
                             </Filtrable>
                             {" · "}
-                            {celda("zona", f.zona)}
-                            {f.carril ? <> · {celda("carril", f.carril)}</> : null}
+                            {celda("zona", sitioEnCampo(f).zona)}
+                            {f.carril ? <> · {celda("carril", sitioEnCampo(f).carril)}</> : null}
                             {f.distancia ? <> · {celda("distancia", f.distancia)}</> : null}
                           </span>
                         </li>
@@ -694,7 +692,7 @@ export default function FaltasPage() {
                   )}
                 </Panel>
 
-                <Panel title="A qué distancia" icon={Swords}>
+                <Panel title="A qué distancia" subtitle="De la portería que ataca quien la saca" icon={Swords}>
                   <div className="space-y-2">
                     {porDistancia.map((d) => (
                       <button
@@ -792,8 +790,8 @@ export default function FaltasPage() {
                             </td>
 
                             <td className="py-2 pr-3 text-white/70">
-                              {celda("zona", f.zona)}
-                              {f.carril ? <> · {celda("carril", f.carril)}</> : null}
+                              {celda("zona", sitioEnCampo(f).zona)}
+                              {f.carril ? <> · {celda("carril", sitioEnCampo(f).carril)}</> : null}
                             </td>
 
                             <td className="py-2 pr-3 text-white/60">
