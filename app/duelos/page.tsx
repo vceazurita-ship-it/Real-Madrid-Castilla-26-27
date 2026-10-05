@@ -34,10 +34,12 @@ import { HUECOS, casaNombre, proponeOnce, sitioDe } from "@/lib/data-analisis/on
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import {
   DUELOS_VACIO,
+  UMBRAL_DUELO,
   ZONAS,
   alturaEnCm,
   mideDuelos,
   normalizaDuelos,
+  rotuloColumna,
   referenciasPorPuesto,
   type DuelosDoc,
   type JugadorDuelo,
@@ -307,8 +309,14 @@ export default function DuelosPage() {
   const deshaz = (lado: "nuestro" | "suyo") => setGuardado((actual) => ({ ...normalizaDuelos(actual), [lado]: {} }));
 
   const conDato = duelos.filter((d) => d.veredicto !== "sin-datos");
-  const atacar = [...conDato].filter((d) => d.veredicto === "ventaja").sort((a, b) => (b.balance ?? 0) - (a.balance ?? 0));
-  const vigilar = [...conDato].filter((d) => d.veredicto === "desventaja").sort((a, b) => (a.balance ?? 0) - (b.balance ?? 0));
+  /*
+  | Las dos cajas leen cada duelo por su lado (06/10/2026): «dónde les podemos
+  | hacer daño» es nuestro con balón contra su sin balón; «dónde nos lo pueden
+  | hacer», su con balón contra nuestro sin balón. Un duelo puede estar en las
+  | dos: el lateral que les desborda y al que también le desbordan.
+  */
+  const atacar = duelos.filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO).sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0));
+  const vigilar = duelos.filter((d) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO).sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
 
   const cargando = jugadores === null || (plantillas.length === 0 && !error);
   const escudo = equipoVisto ? escudoDe(equipoVisto) : null;
@@ -405,8 +413,8 @@ export default function DuelosPage() {
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                    <Claves titulo="Dónde les podemos hacer daño" lista={atacar} color={MEJOR} vacio="Ningún duelo claramente a favor." onElige={setElegido} />
-                    <Claves titulo="Dónde nos pueden hacer daño" lista={vigilar} color={PEOR} vacio="Ningún duelo claramente en contra." onElige={setElegido} />
+                    <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" lista={atacar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo claramente a favor." onElige={setElegido} />
+                    <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" lista={vigilar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo claramente en contra." onElige={setElegido} />
                   </div>
                 </div>
 
@@ -436,10 +444,11 @@ export default function DuelosPage() {
                 ))}
 
                 <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
-                  Cada faceta pone frente a frente la métrica del que ataca y la del que defiende, cada una en percentil contra los de
-                  su puesto en toda la categoría con al menos 90′ (P100 = el mejor): no se compara el % aéreo de un central con el de
-                  un nueve en bruto, sino quién es mejor en lo suyo. Diferencia de 15 puntos o más = ventaja en la faceta; el duelo es
-                  la media de sus facetas (en los duelos por arriba pesa también la altura, 3 puntos por centímetro con un tope de
+                  Cada duelo se mira en los dos sentidos: con el balón nuestro (lo que hace con balón el nuestro contra lo que hace sin
+                  balón el suyo: regate contra entrada, desmarque contra anticipación, pase que rompe líneas contra corte, centro
+                  contra juego aéreo, remate contra bloqueo…) y con el balón suyo (al revés). Cada métrica va en percentil contra los
+                  de su puesto en toda la categoría con al menos 90′ (P100 = el mejor): no se compara en bruto, sino quién es mejor en
+                  lo suyo. Diferencia de 15 puntos o más = ventaja en ese enfrentamiento; el duelo es la media de todos (en los duelos por arriba pesa también la altura, 3 puntos por centímetro con un tope de
                   20). Los porcentajes sacados de muy pocas acciones no cuentan. Es una guía para preparar el partido, no un
                   pronóstico.
                 </p>
@@ -586,12 +595,14 @@ function Campo({
 function Claves({
   titulo,
   lista,
+  sentido,
   color,
   vacio,
   onElige,
 }: {
   titulo: string;
   lista: ResultadoDuelo[];
+  sentido: "con" | "sin";
   color: string;
   vacio: string;
   onElige: (clave: string) => void;
@@ -605,7 +616,11 @@ function Claves({
         <p className="mt-2 text-sm text-white/45">{vacio}</p>
       ) : (
         <ul className="mt-2 space-y-2.5">
-          {lista.slice(0, 4).map((d) => (
+          {lista.slice(0, 4).map((d) => {
+            const bloque = d.bloques.find((b) => b.sentido === sentido);
+            const valor = bloque?.balance ?? null;
+            const marcadas = (bloque?.facetas ?? []).filter((f) => f.veredicto === (sentido === "con" ? "ventaja" : "desventaja"));
+            return (
             <li key={d.def.clave}>
               <button
                 type="button"
@@ -618,14 +633,19 @@ function Claves({
                 <span className="flex items-baseline justify-between gap-2 text-sm text-white/85">
                   <span>{d.def.titulo}</span>
                   <b className="shrink-0 tabular-nums" style={{ color }}>
-                    {d.balance !== null && d.balance > 0 ? "+" : ""}
-                    {d.balance}
+                    {valor !== null && valor > 0 ? "+" : ""}
+                    {valor}
                   </b>
                 </span>
-                <span className="mt-0.5 block text-xs text-white/50">{d.resumen}</span>
+                <span className="mt-0.5 block text-xs text-white/50">
+                  {marcadas.length
+                    ? marcadas.map((f) => `${f.titulo} (P${f.nuestro} contra P${f.suyo})`).join(" · ")
+                    : "Ventaja repartida, sin un enfrentamiento que se despegue."}
+                </span>
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>
@@ -796,16 +816,34 @@ function Tarjeta({ d, activo, onElige, equipo }: { d: ResultadoDuelo; activo: bo
         {gente(d.suyos, false)}
       </div>
 
-      <div className="mt-4 space-y-2.5">
-        {d.facetas.map((f) => (
+      <div className="mt-4 space-y-4">
+        {d.bloques.map((b) => (
+          <div key={b.sentido}>
+            <div className="mb-1.5 flex items-baseline justify-between gap-2 border-b border-white/[0.06] pb-1">
+              <p className="text-[10px] uppercase tracking-wider text-white/45">{b.titulo}</p>
+              {b.balance !== null && (
+                <b className="shrink-0 text-[11px] tabular-nums" style={{ color: COLOR[b.veredicto] }}>
+                  {b.balance > 0 ? "+" : ""}
+                  {b.balance}
+                </b>
+              )}
+            </div>
+            <div className="space-y-2.5">
+        {b.facetas.map((f) => (
           <div key={f.titulo} title={`${f.explica}\n${f.frase}`}>
             <div className="flex items-baseline justify-between text-[11px]">
               <span className="tabular-nums" style={{ color: f.nuestro === null ? tinta(0.3) : ORO }}>
                 {f.nuestro === null ? "—" : `P${f.nuestro}`}
               </span>
-              <span className="text-white/60">{f.titulo}</span>
+              <span className="text-center text-white/70">{f.titulo}</span>
               <span className="tabular-nums text-white/70">{f.suyo === null ? "—" : `P${f.suyo}`}</span>
             </div>
+            {f.sentido !== "aire" && (
+              <div className="flex justify-between gap-2 text-[9.5px] text-white/35">
+                <span className="truncate">{rotuloColumna(f.columnaNuestra)}</span>
+                <span className="truncate text-right">{rotuloColumna(f.columnaSuya)}</span>
+              </div>
+            )}
             <div className="mt-1 flex h-1.5 gap-1">
               <div className="flex flex-1 justify-end overflow-hidden rounded-l-full bg-white/[0.06]">
                 <div className="h-full" style={{ width: `${f.nuestro ?? 0}%`, background: f.veredicto === "ventaja" ? MEJOR : ORO }} />
@@ -813,6 +851,9 @@ function Tarjeta({ d, activo, onElige, equipo }: { d: ResultadoDuelo; activo: bo
               <div className="flex-1 overflow-hidden rounded-r-full bg-white/[0.06]">
                 <div className="h-full" style={{ width: `${f.suyo ?? 0}%`, background: f.veredicto === "desventaja" ? PEOR : "rgba(255,255,255,0.6)" }} />
               </div>
+            </div>
+          </div>
+        ))}
             </div>
           </div>
         ))}
@@ -827,13 +868,13 @@ function Tarjeta({ d, activo, onElige, equipo }: { d: ResultadoDuelo; activo: bo
       {activo && (
         <ul className="mt-2 space-y-1 border-t border-white/[0.06] pt-2 text-[11px] leading-relaxed text-white/50">
           {d.facetas.map((f) => (
-            <li key={f.titulo}>{f.frase}</li>
+            <li key={f.sentido + f.titulo}>{f.frase}</li>
           ))}
         </ul>
       )}
       {d.cobertura.con < d.cobertura.de && d.veredicto !== "sin-datos" && (
         <p className="mt-2 text-[10px] text-white/35">
-          Medido en {d.cobertura.con} de {d.cobertura.de} facetas: en el resto falta muestra de alguno.
+          Medido en {d.cobertura.con} de {d.cobertura.de} enfrentamientos: en el resto falta muestra de alguno.
         </p>
       )}
     </div>
