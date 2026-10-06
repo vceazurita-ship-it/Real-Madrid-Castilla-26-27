@@ -6,7 +6,7 @@
  * sitio) y para la lámina exportada (grande, sin tocar). Todo en estilos en
  * línea con hex/rgba: la lámina se captura con `html-to-image`.
  */
-import type { CSSProperties } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
 import type { Hueco } from "@/lib/sesion-equipos/estructura";
 import { tintaSobre } from "@/lib/sesion-equipos/modelo";
@@ -21,6 +21,9 @@ export function CampoEstructura({
   claro = false,
   elegido = null,
   onToca,
+  destinoDe,
+  sobre = null,
+  onArrastra,
   style,
 }: {
   huecos: Hueco[];
@@ -32,6 +35,12 @@ export function CampoEstructura({
   /** El hueco tocado, a la espera del segundo para cambiarlos. */
   elegido?: number | null;
   onToca?: (indice: number) => void;
+  /** El destino de cada hueco para soltar ahí a alguien que se arrastra («hueco:<equipo>:<n>»). */
+  destinoDe?: (indice: number) => string;
+  /** El destino que hay debajo del arrastre ahora mismo. */
+  sobre?: string | null;
+  /** Empieza a arrastrar al jugador de un hueco. */
+  onArrastra?: (indice: number, e: ReactPointerEvent) => void;
   style?: CSSProperties;
 }) {
   const alto = ancho * 1.08;
@@ -66,6 +75,8 @@ export function CampoEstructura({
 
       {huecos.map((h, i) => {
         const es = elegido === i;
+        const destino = destinoDe?.(i);
+        const debajo = Boolean(destino && sobre === destino);
         /* Cada nombre cabe en su trozo de línea: con cuatro en fila, la cuarta parte del campo. */
         const enSuLinea = huecos.filter((x) => x.linea === h.linea).length;
         const anchoNombre = Math.min(ancho / 3.2, (ancho / (enSuLinea + 1)) * 0.98);
@@ -73,6 +84,8 @@ export function CampoEstructura({
           <div
             key={i}
             onClick={onToca ? () => onToca(i) : undefined}
+            data-destino={destino}
+            onPointerDown={onArrastra && h.jugador ? (e) => onArrastra(i, e) : undefined}
             style={{
               position: "absolute",
               left: `${h.x * 100}%`,
@@ -82,7 +95,9 @@ export function CampoEstructura({
               flexDirection: "column",
               alignItems: "center",
               width: anchoNombre,
-              cursor: onToca ? "pointer" : "default",
+              cursor: onArrastra && h.jugador ? "grab" : onToca ? "pointer" : "default",
+              touchAction: onArrastra ? "none" : undefined,
+              userSelect: "none",
             }}
             title={h.jugador ? `${h.jugador.nombre}${onToca ? " · toca otro para cambiarlos de sitio" : ""}` : onToca ? "Hueco libre: toca a un jugador para traerlo" : "Hueco libre"}
           >
@@ -93,7 +108,9 @@ export function CampoEstructura({
                 borderRadius: 999,
                 background: h.jugador ? color : "transparent",
                 border: h.jugador ? `2px solid ${es ? "#C8A96B" : "rgba(0,0,0,0.35)"}` : `2px dashed ${claro ? "rgba(20,83,45,0.45)" : "rgba(255,255,255,0.45)"}`,
-                boxShadow: es ? "0 0 0 3px #C8A96B" : "0 2px 6px rgba(0,0,0,0.25)",
+                boxShadow: es || debajo ? "0 0 0 3px #C8A96B" : "0 2px 6px rgba(0,0,0,0.25)",
+                transform: debajo ? "scale(1.25)" : undefined,
+                transition: "transform 120ms",
                 color: tinta,
                 fontSize: ficha * 0.42,
                 fontWeight: 700,

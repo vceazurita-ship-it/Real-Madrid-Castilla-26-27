@@ -19,7 +19,7 @@
  * `components/sesion-equipos/LaminaEquipos.tsx`.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -44,6 +44,7 @@ import {
   Users,
   Wand2,
   X,
+  Eraser,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -52,6 +53,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { LAMINA_H, LAMINA_W, LaminaEquipos, LaminaEscalada } from "@/components/sesion-equipos/LaminaEquipos";
 import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { ESTRUCTURAS, colocaEnEstructura, estructuraPara, intercambia, type Hueco } from "@/lib/sesion-equipos/estructura";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { apodo, capturaLienzos, descarga, pintado } from "@/lib/export/lienzos";
@@ -128,32 +130,55 @@ function useAncho<T extends HTMLElement>() {
 /*  PIEZAS                                                             */
 /* ------------------------------------------------------------------ */
 
+/*
+| ARRASTRAR CON EL DEDO Y CON EL RATÓN (06/10/2026).
+|
+| El arrastre nativo del navegador (`draggable`) sólo va con ratón: en la
+| tableta y en el móvil no se podía arrastrar a nadie. Ahora la ficha se
+| arrastra con eventos de puntero, que valen para los dos, y lo que hay debajo
+| al soltar dice dónde va (`data-destino`). Tocar sin mover sigue siendo
+| elegir.
+*/
 function Chip({
   jugador,
   color,
   puesto,
   seleccionado,
+  arrastrando,
   onClick,
-  onDragStart,
+  onPointerDown,
+  onQuitar,
 }: {
   jugador: JugadorSesion;
   color?: string;
   puesto?: Puesto;
   seleccionado: boolean;
+  arrastrando?: boolean;
   onClick: () => void;
-  onDragStart: (e: DragEvent) => void;
+  onPointerDown: (e: ReactPointerEvent) => void;
+  /** Sacarlo de su equipo en un toque (sólo si está en uno). */
+  onQuitar?: () => void;
 }) {
   return (
-    <button
-      type="button"
-      draggable
-      onDragStart={onDragStart}
+    <div
+      role="button"
+      tabIndex={0}
+      onPointerDown={onPointerDown}
       onClick={onClick}
-      title="Tócalo y luego toca dónde va (o arrástralo). Con él elegido: 1-6 equipo, C comodín, F fuera"
-      className={`group flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide transition active:cursor-grabbing ${
-        seleccionado
-          ? "border-[#C8A96B] bg-[#C8A96B]/20 text-white ring-2 ring-[#C8A96B]/40"
-          : "border-white/10 bg-white/[0.04] text-white/85 hover:border-white/25 hover:bg-white/[0.07]"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      title="Arrástralo a otro equipo, o tócalo y luego toca dónde va. Con él elegido: 1-6 equipo, C comodín, F fuera"
+      style={{ touchAction: "none" }}
+      className={`group flex min-w-0 cursor-grab select-none items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide transition active:cursor-grabbing ${
+        arrastrando
+          ? "opacity-35"
+          : seleccionado
+            ? "border-[#C8A96B] bg-[#C8A96B]/20 text-white ring-2 ring-[#C8A96B]/40"
+            : "border-white/10 bg-white/[0.04] text-white/85 hover:border-white/25 hover:bg-white/[0.07]"
       }`}
     >
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color ?? "rgba(255,255,255,0.25)" }} />
@@ -177,7 +202,23 @@ function Chip({
           {jugador.baja.replace(/s$/i, "").toUpperCase()}
         </span>
       )}
-    </button>
+      {onQuitar && (
+        <span
+          role="button"
+          tabIndex={-1}
+          aria-label={`Quitar a ${jugador.nombre} del equipo`}
+          title="Quitar del equipo"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onQuitar();
+          }}
+          className="-mr-1 ml-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded text-white/35 transition hover:bg-red-400/20 hover:text-red-300"
+        >
+          <X size={12} />
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -195,6 +236,8 @@ function Caja({
   children,
   vacio,
   atajo,
+  destino,
+  encima = false,
 }: {
   titulo: ReactNode;
   color?: string;
@@ -208,23 +251,16 @@ function Caja({
   children: ReactNode;
   vacio: string;
   atajo?: string;
+  /** Lo que significa soltar aquí a alguien que se arrastra («eq:<id>», «comodin», «fuera», «sin»). */
+  destino: string;
+  /** Hay alguien arrastrándose justo encima. */
+  encima?: boolean;
 }) {
-  const [encima, setEncima] = useState(false);
-
   const tinta = color ? tintaSobre(color) : "#FFFFFF";
 
   return (
     <div
-      onDragOver={(e) => {
-        e.preventDefault();
-        setEncima(true);
-      }}
-      onDragLeave={() => setEncima(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setEncima(false);
-        onSoltar();
-      }}
+      data-destino={destino}
       onClick={(e) => {
         /* Tocar el fondo de la caja suelta ahí al elegido. */
         if (activa && e.target === e.currentTarget) onSoltar();
@@ -299,14 +335,19 @@ function EstructuraEquipo({
   jugadores,
   puestoDe,
   elegido,
+  sobre,
   onToca,
+  onArrastra,
   onEstructura,
 }: {
   equipo: EquipoTarea;
   jugadores: JugadorSesion[];
   puestoDe: PuestoDe;
   elegido: number | null;
+  /** El destino que hay debajo del arrastre, para iluminar el hueco. */
+  sobre: string | null;
   onToca: (hueco: number, huecos: Hueco[]) => void;
+  onArrastra: (jugador: JugadorSesion, e: ReactPointerEvent) => void;
   onEstructura: (estructura: string) => void;
 }) {
   const { huecos, sobran } = colocaEnEstructura(jugadores, equipo.estructura, puestoDe, equipo.orden);
@@ -346,7 +387,19 @@ function EstructuraEquipo({
       </div>
       {total > 0 ? (
         <div className="flex justify-center">
-          <CampoEstructura huecos={huecos} color={equipo.color} ancho={232} elegido={elegido} onToca={(i) => onToca(i, huecos)} />
+          <CampoEstructura
+            huecos={huecos}
+            color={equipo.color}
+            ancho={232}
+            elegido={elegido}
+            onToca={(i) => onToca(i, huecos)}
+            destinoDe={(i) => `hueco:${equipo.id}:${i}`}
+            sobre={sobre}
+            onArrastra={(i, e) => {
+              const j = huecos[i]?.jugador;
+              if (j) onArrastra(j, e);
+            }}
+          />
         </div>
       ) : (
         <p className="text-[11px] text-white/40">Escribe la estructura con guiones: 1-3-3-1.</p>
@@ -354,7 +407,11 @@ function EstructuraEquipo({
       {sobran.length > 0 && (
         <p className="text-[11px] text-amber-300/90">Fuera del dibujo: {sobran.map((j) => j.nombre).join(", ")}</p>
       )}
-      {elegido !== null && <p className="text-[11px] text-[#C8A96B]">Toca otro jugador o un hueco libre para cambiarlos.</p>}
+      {elegido !== null ? (
+        <p className="text-[11px] text-[#C8A96B]">Toca otro jugador o un hueco libre para cambiarlos.</p>
+      ) : (
+        <p className="text-[11px] text-white/35">Arrastra a un jugador a otro hueco o a otro equipo; o toca dos para cambiarlos.</p>
+      )}
     </div>
   );
 }
@@ -537,6 +594,14 @@ export default function JugadoresSesionPage() {
 
   const [elegido, setElegido] = useState<string | null>(null);
 
+  /* El arrastre en curso (con el dedo o el ratón) y la caja que hay debajo. */
+  const [arrastre, setArrastre] = useState<{ id: string; nombre: string; color?: string; x: number; y: number } | null>(null);
+
+  const [sobre, setSobre] = useState<string | null>(null);
+
+  /* Al soltar tras arrastrar, el navegador manda además un clic: no es elegir. */
+  const acabaDeArrastrar = useRef(false);
+
   /* En el campograma: el hueco tocado, a la espera del segundo. */
   const [huecoTocado, setHuecoTocado] = useState<{ equipo: string; hueco: number } | null>(null);
 
@@ -584,6 +649,104 @@ export default function JugadoresSesionPage() {
       });
     },
     [cambiaTarea],
+  );
+
+  /**
+   * Lleva a un jugador al destino de una caja o de un hueco del campograma.
+   *
+   * «hueco:<equipo>:<n>» lo mete en ese equipo y en ese hueco: si el hueco
+   * estaba ocupado por un compañero, se cambian de sitio; si lo ocupaba alguien
+   * y el que llega es de otro equipo, el de antes pasa al primer hueco libre.
+   */
+  const aplicaDestino = useCallback(
+    (jugadorId: string, destino: string) => {
+      if (destino === "sin") return coloca(jugadorId, null);
+      if (destino === COMODIN || destino === FUERA) return coloca(jugadorId, destino);
+      if (destino.startsWith("eq:")) return coloca(jugadorId, destino.slice(3));
+
+      if (destino.startsWith("hueco:") && sesion) {
+        const [, equipoId, n] = destino.split(":");
+        const indice = Number(n);
+
+        cambiaTarea((t) => {
+          const equipo = t.equipos.find((e) => e.id === equipoId);
+
+          if (!equipo) return t;
+
+          const suyos = repartoDe(t, sesion.jugadores).porEquipo[equipoId] ?? [];
+          const { huecos } = colocaEnEstructura(suyos, equipo.estructura, puestoDe, equipo.orden);
+          const ids = huecos.map((h) => h.jugador?.id ?? "");
+          const antes = ids.indexOf(jugadorId);
+          const desplazado = ids[indice] ?? "";
+
+          if (antes >= 0) ids[antes] = desplazado;
+          else if (desplazado) {
+            const libre = ids.indexOf("");
+            if (libre >= 0 && libre !== indice) ids[libre] = desplazado;
+            else ids.push(desplazado);
+          }
+
+          ids[indice] = jugadorId;
+
+          return {
+            ...t,
+            sitio: { ...t.sitio, [jugadorId]: equipoId },
+            equipos: t.equipos.map((e) => (e.id === equipoId ? { ...e, orden: ids } : e)),
+          };
+        });
+      }
+    },
+    [cambiaTarea, coloca, puestoDe, sesion],
+  );
+
+  /** Empieza a arrastrar a un jugador (ficha o campograma). Sin moverse, es un toque normal. */
+  const empiezaArrastre = useCallback(
+    (jugador: JugadorSesion, color: string | undefined, e: ReactPointerEvent) => {
+      if (e.button !== 0) return;
+
+      const x0 = e.clientX;
+      const y0 = e.clientY;
+      let activo = false;
+
+      const destinoEn = (x: number, y: number) =>
+        (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>("[data-destino]")?.dataset.destino ?? null;
+
+      const mueve = (ev: PointerEvent) => {
+        if (!activo && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
+
+        activo = true;
+        ev.preventDefault();
+        setElegido(null);
+        setArrastre({ id: jugador.id, nombre: jugador.nombre, color, x: ev.clientX, y: ev.clientY });
+        setSobre(destinoEn(ev.clientX, ev.clientY));
+      };
+
+      const termina = (ev: PointerEvent, cancelado: boolean) => {
+        window.removeEventListener("pointermove", mueve);
+        window.removeEventListener("pointerup", alSoltar);
+        window.removeEventListener("pointercancel", alCancelar);
+
+        if (activo) {
+          acabaDeArrastrar.current = true;
+          window.setTimeout(() => (acabaDeArrastrar.current = false), 50);
+
+          const destino = cancelado ? null : destinoEn(ev.clientX, ev.clientY);
+
+          if (destino) aplicaDestino(jugador.id, destino);
+        }
+
+        setArrastre(null);
+        setSobre(null);
+      };
+
+      const alSoltar = (ev: PointerEvent) => termina(ev, false);
+      const alCancelar = (ev: PointerEvent) => termina(ev, true);
+
+      window.addEventListener("pointermove", mueve, { passive: false });
+      window.addEventListener("pointerup", alSoltar);
+      window.addEventListener("pointercancel", alCancelar);
+    },
+    [aplicaDestino],
   );
 
   /** Suelta al elegido (o al arrastrado) en un sitio. */
@@ -910,21 +1073,27 @@ export default function JugadoresSesionPage() {
     return tarea.equipos.find((e) => e.id === sitio)?.color;
   };
 
-  const chip = (j: JugadorSesion) => (
-    <Chip
-      key={j.id}
-      jugador={j}
-      color={colorDe(tarea?.sitio[j.id])}
-      puesto={puestoDe(j)}
-      seleccionado={elegido === j.id}
-      onClick={() => setElegido((actual) => (actual === j.id ? null : j.id))}
-      onDragStart={(e) => {
-        arrastrado.current = j.id;
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", j.id);
-      }}
-    />
-  );
+  const chip = (j: JugadorSesion) => {
+    const donde = tarea?.sitio[j.id];
+    const enEquipo = Boolean(donde && donde !== FUERA);
+
+    return (
+      <Chip
+        key={j.id}
+        jugador={j}
+        color={colorDe(donde)}
+        puesto={puestoDe(j)}
+        seleccionado={elegido === j.id}
+        arrastrando={arrastre?.id === j.id}
+        onClick={() => {
+          if (acabaDeArrastrar.current) return;
+          setElegido((actual) => (actual === j.id ? null : j.id));
+        }}
+        onPointerDown={(e) => empiezaArrastre(j, colorDe(donde), e)}
+        onQuitar={enEquipo ? () => coloca(j.id, null) : undefined}
+      />
+    );
+  };
 
   const enTarea = reparto
     ? Object.values(reparto.porEquipo).reduce((s, l) => s + l.length, 0) + reparto.comodines.length
@@ -1211,6 +1380,20 @@ export default function JugadoresSesionPage() {
                         >
                           Sortear
                         </Button>
+                        <Button
+                          icon={Eraser}
+                          disabled={enTarea === 0}
+                          onClick={() =>
+                            cambiaTarea((t) => ({
+                              ...t,
+                              sitio: Object.fromEntries(Object.entries(t.sitio).filter(([, d]) => d === FUERA)),
+                              equipos: t.equipos.map((e) => ({ ...e, orden: undefined })),
+                            }))
+                          }
+                          title="Saca a todos de los equipos y los comodines de esta tarea (se puede deshacer)"
+                        >
+                          Vaciar
+                        </Button>
                         <Button icon={Copy} disabled={activa === 0} onClick={copiaAnterior} title="Mismos equipos, colores y comodines que la tarea anterior">
                           Como la anterior
                         </Button>
@@ -1223,6 +1406,8 @@ export default function JugadoresSesionPage() {
 
                     {/* --- sin colocar --- */}
                     <Caja
+                      destino="sin"
+                      encima={sobre === "sin"}
                       titulo={reparto.sinSitio.length ? "Sin colocar" : "Todos colocados"}
                       cuenta={reparto.sinSitio.length}
                       activa={Boolean(elegido)}
@@ -1230,7 +1415,7 @@ export default function JugadoresSesionPage() {
                       tenue={reparto.sinSitio.length === 0}
                       atajo="0"
                       onSoltar={() => suelta(null)}
-                      vacio="Nadie pendiente. Toca a un jugador para cambiarlo de sitio."
+                      vacio="Nadie pendiente. Arrastra a un jugador para cambiarlo de sitio, o tócalo y toca su sitio."
                     >
                       {ordenPorPuesto(reparto.sinSitio, puestoDe).map(chip)}
                     </Caja>
@@ -1253,6 +1438,8 @@ export default function JugadoresSesionPage() {
                       {tarea.equipos.map((equipo, i) => (
                         <Caja
                           key={equipo.id}
+                          destino={`eq:${equipo.id}`}
+                          encima={sobre === `eq:${equipo.id}` || Boolean(sobre?.startsWith(`hueco:${equipo.id}:`))}
                           titulo={equipo.nombre}
                           color={equipo.color}
                           cuenta={reparto.porEquipo[equipo.id]?.length ?? 0}
@@ -1306,6 +1493,8 @@ export default function JugadoresSesionPage() {
                               jugadores={reparto.porEquipo[equipo.id] ?? []}
                               puestoDe={puestoDe}
                               elegido={huecoTocado?.equipo === equipo.id ? huecoTocado.hueco : null}
+                              sobre={sobre}
+                              onArrastra={(j, e) => empiezaArrastre(j, equipo.color, e)}
                               onEstructura={(estructura) =>
                                 cambiaTarea((t) => ({
                                   ...t,
@@ -1314,6 +1503,7 @@ export default function JugadoresSesionPage() {
                                 }))
                               }
                               onToca={(hueco, huecos) => {
+                                if (acabaDeArrastrar.current) return;
                                 if (!huecoTocado || huecoTocado.equipo !== equipo.id) {
                                   if (huecos[hueco]?.jugador) setHuecoTocado({ equipo: equipo.id, hueco });
                                   return;
@@ -1332,6 +1522,8 @@ export default function JugadoresSesionPage() {
 
                       {tarea.comodines > 0 && (
                         <Caja
+                          destino={COMODIN}
+                          encima={sobre === COMODIN}
                           titulo={tarea.comodines === 1 ? "Comodín" : "Comodines"}
                           color={tarea.colorComodin}
                           cuenta={reparto.comodines.length}
@@ -1355,6 +1547,8 @@ export default function JugadoresSesionPage() {
 
                     {/* --- fuera --- */}
                     <Caja
+                      destino={FUERA}
+                      encima={sobre === FUERA}
                       titulo="No hacen esta tarea"
                       cuenta={reparto.fuera.length}
                       activa={Boolean(elegido)}
@@ -1576,6 +1770,40 @@ export default function JugadoresSesionPage() {
             <LaminaEquipos key={sesion.tareas[i].id} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} indice={i} total={sesion.tareas.length} />
           ))}
         </div>
+      )}
+
+      {/* ---------------- EL ARRASTRE EN CURSO ---------------- */}
+
+      {arrastre && (
+        <>
+          <div
+            aria-hidden
+            className="pointer-events-none fixed z-[90] flex items-center gap-2 rounded-lg border border-[#C8A96B] bg-[#11161C]/95 px-3 py-1.5 text-[12px] font-bold uppercase tracking-wide text-white shadow-2xl"
+            style={{ left: arrastre.x + 12, top: arrastre.y - 18 }}
+          >
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: arrastre.color ?? "rgba(255,255,255,0.3)" }} />
+            {arrastre.nombre}
+          </div>
+
+          {/* Abajo, siempre a mano: quitarlo del equipo o dejarlo fuera de la tarea. */}
+          <div className="fixed inset-x-0 bottom-4 z-[80] flex justify-center gap-3 px-4">
+            {[
+              { destino: "sin", rotulo: "Quitar del equipo", pie: "queda sin colocar" },
+              { destino: FUERA, rotulo: "No hace esta tarea", pie: "descansa o va aparte" },
+            ].map((z) => (
+              <div
+                key={z.destino}
+                data-destino={z.destino}
+                className={`flex min-w-[170px] flex-col items-center rounded-2xl border-2 border-dashed px-5 py-3 text-center shadow-2xl backdrop-blur transition ${
+                  sobre === z.destino ? "scale-105 border-red-300 bg-red-500/30 text-white" : "border-white/30 bg-[#0B0F14]/90 text-white/80"
+                }`}
+              >
+                <span className="text-sm font-bold">{z.rotulo}</span>
+                <span className="text-[11px] text-white/50">{z.pie}</span>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </main>
   );
