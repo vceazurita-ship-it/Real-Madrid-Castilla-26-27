@@ -447,13 +447,27 @@ export function casaJugador(nombre: string, plantilla: FilaPlantilla[]): FilaPla
 /*  LA SECCIÓN                                                         */
 /* ------------------------------------------------------------------ */
 
-export function seccionDeTitulo(titulo: string): SeccionId | null {
+/**
+ * La sección de una diapositiva por su título.
+ *
+ * `archivo` es el nombre del PDF, como pista (06/10/2026): el informe de
+ * centros del Ibiza (J7) titula sus diapositivas «PERFIL DERECHO» y «PERFIL
+ * IZQUIERDO», sin la palabra «centro», y se saltaban las cuatro páginas. Ahora
+ * «PERFIL» y «CENTRADOR» también son centros, y si el título no dice nada pero
+ * el archivo se llama «…CENTROS LATERALES…», manda el archivo.
+ */
+export function seccionDeTitulo(titulo: string, archivo = ""): SeccionId | null {
   const t = normaliza(titulo);
-  const defiende = /\bDEF/.test(t);
+  const a = normaliza(archivo);
+  const defiende = /\bDEF/.test(t) || /\bDEF/.test(a);
 
-  if (/CENTRO/.test(t)) return defiende ? "centros-def" : "centros-of";
+  if (/CENTRO|CENTRADOR|PERFIL/.test(t)) return defiende ? "centros-def" : "centros-of";
   if (/CORNER/.test(t)) return defiende ? "corner-def" : "corner-of";
   if (/FALTA|LIBRE DIRECTO|LIBRE INDIRECTO/.test(t)) return defiende ? "falta-def" : "falta-of";
+
+  /* El título no lo dice: el nombre del archivo, con la misma regla que el vigía (CENTRO, CEN LAT, LATERAL, ÁREA). */
+  if (/CENTRO|CEN LAT|LATERAL|\bAREA\b/.test(a)) return defiende ? "centros-def" : "centros-of";
+  if (/CORNER/.test(a)) return defiende ? "corner-def" : "corner-of";
 
   return null;
 }
@@ -466,6 +480,8 @@ export async function importaPdfAnalisis(
   pdfjs: PdfLib,
   datos: ArrayBuffer | Uint8Array,
   plantilla: FilaPlantilla[],
+  /** El nombre del PDF: pista para la sección cuando el título no la dice. */
+  archivo = "",
 ): Promise<ResultadoImportacion> {
   const documento = await pdfjs.getDocument({
     data: datos instanceof Uint8Array ? datos : new Uint8Array(datos),
@@ -520,7 +536,7 @@ export async function importaPdfAnalisis(
       .replace(/\s+/g, " ")
       .trim();
 
-    const seccion = seccionDeTitulo(titulo);
+    const seccion = seccionDeTitulo(titulo, archivo);
 
     if (!seccion) {
       saltadas.push(n);

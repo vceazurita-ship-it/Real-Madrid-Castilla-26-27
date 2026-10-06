@@ -517,7 +517,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
       pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
-      const resultado = await importaPdfAnalisis(pdfjs as unknown as PdfLib, await obtener(), delEquipo);
+      const resultado = await importaPdfAnalisis(pdfjs as unknown as PdfLib, await obtener(), delEquipo, origen);
 
       if (!resultado.laminas.length) {
         toast.error(

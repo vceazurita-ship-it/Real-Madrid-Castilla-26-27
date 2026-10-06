@@ -95,7 +95,7 @@ const yaHay = [
 
 for (const d of docs) {
   const datos = new Uint8Array(await fetch(d.url).then((r) => r.arrayBuffer()));
-  const { laminas, saltadas } = await importaPdfAnalisis(pdfjs, datos, filas);
+  const { laminas, saltadas } = await importaPdfAnalisis(pdfjs, datos, filas, d.nombre || d.origen || "");
   const suyas = laminas
     .map((p) => p.lamina)
     .filter((l) => !yaHay.some((y) => y.seccion === l.seccion && y.titulo === l.titulo))
