@@ -20,8 +20,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const extension = file.name.split(".").pop();
-
     const fileName = file.name
   .normalize("NFD")
   .replace(/[\u0300-\u036f]/g, "")

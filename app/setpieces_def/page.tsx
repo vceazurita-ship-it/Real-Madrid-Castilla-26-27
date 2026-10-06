@@ -64,7 +64,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  LineChart,
   Line,
   Label,
   CartesianGrid,

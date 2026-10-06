@@ -47,7 +47,8 @@ interface CsvPlayer {
 let plantillaEnMemoria: Player[] | null = null;
 let descargaEnVuelo: Promise<Player[]> | null = null;
 
-function cargaPlantilla(): Promise<Player[]> {
+/** También la usa el informe del partido para armar nuestro once de los duelos. */
+export function cargaPlantilla(): Promise<Player[]> {
   if (plantillaEnMemoria) return Promise.resolve(plantillaEnMemoria);
 
   descargaEnVuelo ??= traeCsv(CSV_URL)

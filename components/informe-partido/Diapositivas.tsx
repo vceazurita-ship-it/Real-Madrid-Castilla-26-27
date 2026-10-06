@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * EL RESUMEN DEL PARTIDO EN DOS DIAPOSITIVAS (03/10/2026).
+ * EL RESUMEN DEL PARTIDO EN TRES DIAPOSITIVAS (03/10/2026; la tercera, 06/10/2026).
  *
  * Lo que se lee en el móvil antes de entrar al vestuario: dos láminas de
  * 1920×1080, iguales en pantalla, en el correo y en el PDF.
@@ -12,6 +12,9 @@
  *   POST   · 1 «El resultado»: marcador y el partido en datos, nosotros y ellos.
  *   POST   · 2 «Lo que nos deja»: lo que se salió de lo habitual, el plan a
  *               revisión y la semana que lo preparó.
+ *   LAS DOS · 3 «Duelos y rival»: dónde les hacemos daño con balón y dónde
+ *               nos lo pueden hacer sin él (Competición → Duelos), y el rival
+ *               de un vistazo (DATA).
  *
  * Todo en estilos en línea (hex y rgba): `html-to-image` serializa el estilo
  * calculado y ni `oklch` ni `backdrop-filter` sobreviven al JPEG.
@@ -19,7 +22,7 @@
 
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 
-import { apellido, cifra, conDato, fraseUtil, ordinal, pct, revisaPalancas, contrastePronostico, type GolCronica, type InformePartido, type JugadorRival, type MetricaDuelo, type Probabilidades } from "@/lib/informe-partido/modelo";
+import { apellido, cifra, conDato, duelosParaAtacar, duelosParaVigilar, fraseUtil, ordinal, pct, revisaPalancas, contrastePronostico, type DueloJugadores, type GolCronica, type InformePartido, type JugadorRival, type MetricaDuelo, type Probabilidades } from "@/lib/informe-partido/modelo";
 
 export const DIAPO_W = 1920;
 export const DIAPO_H = 1080;
@@ -506,7 +509,7 @@ function PreviaPartido({ inf }: { inf: InformePartido }) {
   const [local, visitante] = inf.partido.lado === "fuera" ? [ellos, nosotros] : [nosotros, ellos];
 
   return (
-    <Marco pagina={1} total={2} etiqueta="EL PARTIDO" inf={inf}>
+    <Marco pagina={1} total={3} etiqueta="EL PARTIDO" inf={inf}>
       {/* El cartel */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 40 }}>
         <Escudo src={inf.partido.lado === "fuera" ? ctx?.escudo ?? "" : ctx?.escudoNuestro ?? ""} size={84} />
@@ -706,7 +709,7 @@ function Palancas({ inf }: { inf: InformePartido }) {
 
 function PreviaPlan({ inf }: { inf: InformePartido }) {
   return (
-    <Marco pagina={2} total={2} etiqueta="EL PLAN" inf={inf}>
+    <Marco pagina={2} total={3} etiqueta="EL PLAN" inf={inf}>
       {inf.pronostico?.idea ? (
         <div style={{ display: "flex", alignItems: "center", gap: 22, padding: "14px 26px", marginBottom: 18, borderRadius: 18, background: "linear-gradient(90deg, rgba(200,169,107,0.22), rgba(200,169,107,0.04))", border: "2px solid rgba(200,169,107,0.45)" }}>
           <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.24em", color: C.oro, whiteSpace: "nowrap" }}>LA IDEA</span>
@@ -754,7 +757,7 @@ function PostResultado({ inf }: { inf: InformePartido }) {
   const [local, visitante] = p.lado === "fuera" ? [p.rival.toUpperCase(), "RM CASTILLA"] : ["RM CASTILLA", p.rival.toUpperCase()];
 
   return (
-    <Marco pagina={1} total={2} etiqueta="EL RESULTADO" inf={inf}>
+    <Marco pagina={1} total={3} etiqueta="EL RESULTADO" inf={inf}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 40 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 22, minWidth: 600 }}>
           <span style={{ fontSize: 58, fontWeight: 700 }}>{local}</span>
@@ -952,7 +955,7 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
   const palancas = revisaPalancas(inf);
 
   return (
-    <Marco pagina={2} total={2} etiqueta="LO QUE NOS DEJA" inf={inf}>
+    <Marco pagina={2} total={3} etiqueta="LO QUE NOS DEJA" inf={inf}>
       <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.15fr 1fr 0.95fr", gap: 22 }}>
         <Panel titulo="EL PLAN, A REVISIÓN">
           {pr ? (
@@ -1053,16 +1056,188 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
   );
 }
 
+
+/* ------------------------------------------------------------------ */
+/*  3 · LOS DUELOS Y EL RIVAL DE UN VISTAZO (06/10/2026)               */
+/* ------------------------------------------------------------------ */
+
+const LUGAR_CORTO: Record<string, string> = {
+  "cen-del": "POR DENTRO",
+  "latd-bani": "BANDA DERECHA",
+  "lati-band": "BANDA IZQUIERDA",
+  "piv-media": "ENTRE LÍNEAS",
+  medio: "LA MEDULAR",
+  "media-piv": "ENTRE LÍNEAS",
+  "band-lati": "BANDA DERECHA",
+  "bani-latd": "BANDA IZQUIERDA",
+  "del-cen": "POR DENTRO",
+};
+
+/** Un duelo en una fila: la cifra grande, quién contra quién, dónde y por qué. */
+function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin" }) {
+  const valor = lado === "con" ? x.conBalon : x.sinBalon;
+  const color = lado === "con" ? C.bien : C.mal;
+  const [a, b] = lado === "con" ? [x.nuestros, x.suyos] : [x.suyos, x.nuestros];
+  const claves = x.destacados.filter((e) => e.sentido === lado && e.veredicto === (lado === "con" ? "ventaja" : "desventaja")).slice(0, 2);
+
+  return (
+    <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "10px 14px", borderRadius: 14, background: `${color}12`, border: `2px solid ${color}33` }}>
+      <div style={{ width: 78, flexShrink: 0, textAlign: "center" }}>
+        <div style={{ fontSize: 40, fontWeight: 700, lineHeight: 1, color }}>
+          {valor !== null && valor > 0 ? "+" : ""}
+          {valor}
+        </div>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", color: C.tenue }}>{LUGAR_CORTO[x.clave] ?? ""}</div>
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span style={{ color: lado === "con" ? C.oro : C.crema }}>{a.map(apellido).join(" y ")}</span>
+          <span style={{ color: C.tenue, fontWeight: 600 }}> ante </span>
+          <span style={{ color: lado === "con" ? C.crema : C.oro }}>{b.map(apellido).join(" y ")}</span>
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.suave, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {claves.length
+            ? claves.map((e) => `${e.titulo} P${lado === "con" ? e.nuestro : e.suyo}–P${lado === "con" ? e.suyo : e.nuestro}`).join(" · ")
+            : "Ventaja repartida en varios enfrentamientos"}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
+  const d = inf.duelosJugadores;
+  const atacar = duelosParaAtacar(d).slice(0, 3);
+  const vigilar = duelosParaVigilar(d).slice(0, 3);
+  const medidos = (d?.lista ?? []).filter((x) => x.veredicto !== "sin-datos").length;
+
+  return (
+    <Panel titulo={post ? "LOS DUELOS QUE PLANTEAMOS" : "LOS DUELOS"}>
+      {!d ? (
+        <span style={{ fontSize: 22, color: C.tenue }}>Sin duelos: falta Wyscout o la plantilla del rival.</span>
+      ) : (
+        <>
+          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.bien, marginBottom: 8 }}>
+            {post ? "DÓNDE ESPERÁBAMOS HACERLES DAÑO · CON BALÓN" : "DÓNDE LES HACEMOS DAÑO · CON BALÓN"}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {atacar.length ? atacar.map((x) => <FilaDueloJugadores key={x.clave} x={x} lado="con" />) : <span style={{ fontSize: 20, color: C.tenue }}>Ningún duelo claramente a favor con balón.</span>}
+          </div>
+          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.mal, margin: "18px 0 8px" }}>
+            {post ? "DÓNDE NOS PODÍAN HACER DAÑO · SIN BALÓN" : "DÓNDE NOS PUEDEN HACER DAÑO · SIN BALÓN"}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {vigilar.length ? vigilar.map((x) => <FilaDueloJugadores key={x.clave} x={x} lado="sin" />) : <span style={{ fontSize: 20, color: C.tenue }}>Ningún duelo claramente en contra sin balón.</span>}
+          </div>
+          <div style={{ marginTop: "auto", paddingTop: 12, fontSize: 15, color: C.tenue }}>
+            {medidos} de {d.lista.length} duelos medidos · con balón de uno contra sin balón del otro, en percentil contra su puesto · {recorta(d.fuenteSuya, 70)}
+          </div>
+        </>
+      )}
+    </Panel>
+  );
+}
+
+function PanelVistazo({ inf }: { inf: InformePartido }) {
+  const v = inf.vistazo;
+  const color = (p: number | null) => (p === null ? C.neutro : p >= 60 ? C.bien : p <= 40 ? C.mal : C.oro);
+
+  return (
+    <Panel titulo={`${(inf.partido.rival || "EL RIVAL").toUpperCase()} DE UN VISTAZO`} acento={C.rival}>
+      {!v ? (
+        <span style={{ fontSize: 22, color: C.tenue }}>Wyscout no tiene partidos suyos esta temporada.</span>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+            <Cifra rotulo="G · E · P" valor={`${v.g}-${v.e}-${v.p}`} pie={`${v.partidos} partidos`} />
+            <Cifra rotulo="GOLES" valor={`${v.gf}-${v.gc}`} pie="a favor · en contra" />
+            <Cifra rotulo="TABLA" valor={v.tabla ? ordinal(v.tabla.puesto) : "—"} pie={v.tabla ? `de ${v.tabla.de} · pts/partido` : ""} color={C.oro} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: C.tenue, marginRight: 6 }}>FORMA</span>
+            {v.forma.map((f, i) => (
+              <span
+                key={i}
+                style={{ width: 34, height: 34, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: C.fondo, background: f.resultado === "G" ? C.bien : f.resultado === "P" ? C.mal : C.oro }}
+              >
+                {f.resultado}
+              </span>
+            ))}
+            <span style={{ marginLeft: "auto", fontSize: 18, fontWeight: 600, color: C.suave }}>{v.sistemas.slice(0, 2).map((s) => s.sistema).join(" · ")}</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 18px", marginTop: 14 }}>
+            {v.fases.map((f) => (
+              <div key={f.label}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 17, fontWeight: 600 }}>
+                  <span style={{ color: C.suave }}>{f.label}</span>
+                  <span style={{ color: color(f.percentil) }}>{f.percentil === null ? "—" : `P${f.percentil}`}</span>
+                </div>
+                <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <div style={{ width: `${f.percentil ?? 0}%`, height: "100%", background: color(f.percentil) }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 14 }}>
+            {[
+              { t: "DESTACA EN", l: v.fuertes, c: C.bien },
+              { t: "SUFRE EN", l: v.flojos, c: C.mal },
+            ].map((g) => (
+              <div key={g.t}>
+                <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: g.c }}>{g.t}</div>
+                {g.l.slice(0, 3).map((m) => (
+                  <div key={m.nombre} style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.25, color: C.crema, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {m.nombre} <span style={{ color: C.tenue }}>{ordinal(m.puesto)}</span>
+                  </div>
+                ))}
+                {!g.l.length && <div style={{ fontSize: 17, color: C.tenue }}>Nada que se salga.</div>}
+              </div>
+            ))}
+          </div>
+          {v.figuras.length ? (
+            <div style={{ marginTop: "auto", paddingTop: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: C.rival, marginBottom: 6 }}>LOS QUE MÁS RINDEN PARA SU PUESTO</div>
+              {v.figuras.slice(0, 3).map((f) => (
+                <div key={f.nombre} style={{ display: "flex", gap: 10, alignItems: "baseline", fontSize: 19, fontWeight: 600, lineHeight: 1.25 }}>
+                  <span style={{ width: 42, color: color(f.indice), fontWeight: 700 }}>{f.indice}</span>
+                  <span style={{ color: C.crema, whiteSpace: "nowrap" }}>{f.nombre}</span>
+                  <span style={{ color: C.tenue, fontSize: 16, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.posicion} · {f.destaca.join(" · ")}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {v.alcance ? <div style={{ marginTop: 8, fontSize: 14, color: C.tenue }}>{v.alcance} · percentil contra su competición</div> : null}
+        </>
+      )}
+    </Panel>
+  );
+}
+
+function DuelosYRival({ inf }: { inf: InformePartido }) {
+  const post = inf.momento === "post";
+
+  return (
+    <Marco pagina={3} total={3} etiqueta={post ? "LOS DUELOS" : "DUELOS Y RIVAL"} inf={inf}>
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 22 }}>
+        <PanelDuelos inf={inf} post={post} />
+        <PanelVistazo inf={inf} />
+      </div>
+    </Marco>
+  );
+}
+
 export function Diapositivas({ inf }: { inf: InformePartido }) {
   return inf.momento === "post" ? (
     <>
       <PostResultado inf={inf} />
       <PostLecciones inf={inf} />
+      <DuelosYRival inf={inf} />
     </>
   ) : (
     <>
       <PreviaPartido inf={inf} />
       <PreviaPlan inf={inf} />
+      <DuelosYRival inf={inf} />
     </>
   );
 }
@@ -1079,6 +1254,6 @@ export function Escalada({ ancho, children }: { ancho: number; children: ReactNo
 }
 
 export const DIAPOSITIVAS = {
-  previa: [PreviaPartido, PreviaPlan],
-  post: [PostResultado, PostLecciones],
+  previa: [PreviaPartido, PreviaPlan, DuelosYRival],
+  post: [PostResultado, PostLecciones, DuelosYRival],
 } as const;

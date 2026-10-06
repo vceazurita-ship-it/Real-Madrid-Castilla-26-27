@@ -27,17 +27,17 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { traeJson } from "@/lib/hojaCsv";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { slugClave } from "@/lib/rivals/media";
-import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
+import { normalizarOnce, rivalOnceKey } from "@/lib/rivals/once";
 import { findInforme, type InformeDoc } from "@/lib/rivals/informe";
-import { PUESTOS, esNuestro } from "@/lib/data-analisis/individual";
-import { HUECOS, casaNombre, proponeOnce, sitioDe } from "@/lib/data-analisis/once";
+import { PUESTOS } from "@/lib/data-analisis/individual";
+import { HUECOS } from "@/lib/data-analisis/once";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
+import { baseSuyaDe, nuestrosDe, onceNuestroDe, onceSuyoDe, suyosDe } from "@/lib/duelos-onces";
 import {
   DUELOS_VACIO,
   HUECO_VACIO,
   UMBRAL_DUELO,
   ZONAS,
-  alturaEnCm,
   mideDuelos,
   normalizaDuelos,
   rotuloColumna,
@@ -52,10 +52,6 @@ type Fila = Record<string, unknown>;
 type PartidoCal = { jornada?: number; cuando: string; local: string; visitante: string };
 
 const texto = (v: unknown) => String(v ?? "").trim();
-
-/* La hoja escribe muchos nombres en mayúsculas («CARLOS LAZO»): en pantalla, como los nuestros. */
-const comoNombre = (t: string) =>
-  t === t.toUpperCase() ? t.toLowerCase().replace(/(^|[\s\-'.])(\p{L})/gu, (_, a: string, b: string) => a + b.toUpperCase()) : t;
 
 const COLOR: Record<Veredicto, string> = {
   ventaja: MEJOR,
@@ -182,141 +178,15 @@ export default function DuelosPage() {
 
   const referencias = useMemo(() => referenciasPorPuesto(jugadores ?? []), [jugadores]);
 
-  /* ---------------- los nuestros ---------------- */
-  const nuestros = useMemo<JugadorDuelo[]>(() => {
-    const filas = (jugadores ?? []).filter((j) => esNuestro(j) && j.temporada === "actual" && j.minutos > 0);
-    /* Wyscout repite a alguno (dos filas con nombres distintos): manda la de más minutos. */
-    const porNombre = new Map<string, FilaJugador>();
-    for (const f of filas) {
-      const previo = porNombre.get(f.jugador);
-      if (!previo || f.minutos > previo.minutos) porNombre.set(f.jugador, f);
-    }
-    const deWyscout = [...porNombre.values()].map((f) => {
-      const ficha = casaNombre(f.jugador, players, (p) => p.nombre) ?? casaNombre(f.jugador, players, (p) => p.apodo ?? "");
-      const sitio = sitioDe(ficha?.posicion ?? "", f.posicion);
-      return {
-        clave: f.jugador,
-        nombre: ficha?.nombre ?? f.jugador,
-        foto: ficha?.foto,
-        puesto: sitio.puesto,
-        lado: sitio.lado,
-        posicion: f.posicion.split(",")[0],
-        altura: alturaEnCm(f.altura),
-        pie: f.pie,
-        minutos: f.minutos,
-        wyscout: f,
-        fichaId: ficha?.id,
-      };
-    });
-    const conFicha = new Set(deWyscout.map((j) => j.fichaId).filter(Boolean));
-    /* Y los de la plantilla sin fila de Wyscout (un fichaje, uno sin minutos): se pueden poner, sin datos. */
-    const sinWyscout = players
-      .filter((p) => !conFicha.has(p.id))
-      .map((p) => {
-        const sitio = sitioDe(p.posicion, null);
-        return {
-          clave: `plantilla:${p.id}`,
-          nombre: p.nombre,
-          foto: p.foto,
-          puesto: sitio.puesto,
-          lado: sitio.lado,
-          posicion: p.posicion,
-          altura: null,
-          pie: "",
-          minutos: 0,
-          wyscout: null,
-          fichaId: p.id,
-        };
-      });
-    return [...deWyscout, ...sinWyscout].map((j) => {
-      const limpio: JugadorDuelo & { fichaId?: string } = { ...j };
-      delete limpio.fichaId;
-      return limpio;
-    });
-  }, [jugadores, players]);
-
-  /* ---------------- los suyos ---------------- */
-  const suyos = useMemo<JugadorDuelo[]>(() => {
-    const filasWy = (jugadores ?? []).filter((j) => j.temporada === "actual" && mismoClub(j.equipo, equipoVisto));
-    return plantillas
-      .filter((f) => texto(f.NOMBRE_EQUIPO) === equipoVisto)
-      .map((f) => {
-        const nombre = comoNombre(texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR));
-        const wy =
-          casaNombre(nombre, filasWy, (r) => r.jugador) ??
-          (texto(f.JUGADOR) && texto(f.JUGADOR) !== nombre ? casaNombre(comoNombre(texto(f.JUGADOR)), filasWy, (r) => r.jugador) : null);
-        const sitio = sitioDe(texto(f["POSICIÓN"]), wy?.posicion ?? null);
-        return {
-          clave: playerKey(f as never),
-          nombre,
-          foto: texto(f.FOTO) || undefined,
-          dorsal: texto(f.DORSAL),
-          puesto: sitio.puesto,
-          lado: sitio.lado,
-          posicion: wy?.posicion.split(",")[0] || texto(f["POSICIÓN"]),
-          altura: alturaEnCm(wy?.altura || f.ALTURA),
-          pie: wy?.pie || texto(f["PIE DOMINANTE"]),
-          minutos: wy?.minutos ?? 0,
-          wyscout: wy,
-        };
-      });
-  }, [plantillas, equipoVisto, jugadores]);
-
-  /* Su once de partida: el marcado, su último once o los de más minutos. */
-  const baseSuya = useMemo(() => {
-    const porClave = new Map(suyos.map((j) => [j.clave, j]));
-    const marcados = (onceMarcado ?? []).map((k) => porClave.get(k)).filter((j): j is JugadorDuelo => Boolean(j));
-    if (marcados.length >= 7) return { lista: marcados, fuente: "Once probable marcado en Plantillas rivales" };
-    const informe = findInforme(informes, equipoVisto);
-    const ultimo = informe?.onces?.find((o) => o.jugadores.length > 0);
-    if (ultimo) {
-      const lista = ultimo.jugadores
-        .map((u) => casaNombre(u.nombre, suyos, (j) => j.nombre))
-        .filter((j): j is JugadorDuelo => Boolean(j));
-      if (lista.length >= 7)
-        return { lista, fuente: `Su último once en BeSoccer (${ultimo.estructura || "sin dibujo"}): nadie ha marcado el once probable` };
-    }
-    return { lista: suyos, fuente: "Los de más minutos: no hay once marcado ni alineaciones de BeSoccer" };
-  }, [suyos, onceMarcado, informes, equipoVisto]);
-
-  const candidato = (j: JugadorDuelo) => ({
-    id: j.clave,
-    sitio: { puesto: j.puesto, lado: j.lado, segun: "wyscout" as const, wyscout: "", hoja: "" },
-    minutos: j.minutos,
-  });
-
-  /*
-  | Lo puesto a mano se le pasa a `proponeOnce`, que lo reserva y rellena
-  | alrededor (06/10/2026): antes se ponía encima de la propuesta y el mismo
-  | jugador podía quedar en dos huecos —el pivote propuesto en `piv-d` y
-  | elegido a mano en `piv-i`—. Un hueco vaciado a mano (`HUECO_VACIO`) se
-  | queda vacío.
-  */
-  const armaOnce = (candidatos: JugadorDuelo[], todos: JugadorDuelo[], manual: Record<string, string>) => {
-    const elegidos = Object.fromEntries(Object.entries(manual).filter(([, c]) => c !== HUECO_VACIO));
-    const conElegidos = [...candidatos, ...todos.filter((j) => Object.values(elegidos).includes(j.clave) && !candidatos.includes(j))];
-    const huecos = proponeOnce(conElegidos.map(candidato), elegidos);
-    const porClave = new Map(todos.map((j) => [j.clave, j]));
-    return Object.fromEntries(
-      HUECOS.map((h) => [h.clave, manual[h.clave] === HUECO_VACIO ? undefined : porClave.get(huecos[h.clave])]),
-    ) as Record<string, JugadorDuelo | undefined>;
-  };
-
-  const onceNuestro = useMemo(
-    () => armaOnce(nuestros.filter((j) => j.wyscout), nuestros, aMano.nuestro),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- armaOnce y candidato son puros
-    [nuestros, aMano.nuestro],
+  /* Los dos onces se arman en lib/duelos-onces.ts, el mismo código que usa el informe del partido. */
+  const nuestros = useMemo(() => nuestrosDe(jugadores ?? [], players), [jugadores, players]);
+  const suyos = useMemo(() => suyosDe(plantillas, equipoVisto, jugadores ?? []), [plantillas, equipoVisto, jugadores]);
+  const baseSuya = useMemo(
+    () => baseSuyaDe(suyos, onceMarcado, findInforme(informes, equipoVisto)),
+    [suyos, onceMarcado, informes, equipoVisto],
   );
-
-  /* Su base va primero (le sobran minutos) y el resto de la plantilla completa los huecos que falten. */
-  const onceSuyo = useMemo(() => {
-    const enBase = new Set(baseSuya.lista.map((j) => j.clave));
-    const ordenados = suyos.map((j) => (enBase.has(j.clave) ? { ...j, minutos: j.minutos + 1e6 } : j));
-    const resultado = armaOnce(ordenados, ordenados, aMano.suyo);
-    const porClave = new Map(suyos.map((j) => [j.clave, j]));
-    return Object.fromEntries(Object.entries(resultado).map(([h, j]) => [h, j ? porClave.get(j.clave) : undefined]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- armaOnce y candidato son puros
-  }, [baseSuya, suyos, aMano.suyo]);
+  const onceNuestro = useMemo(() => onceNuestroDe(nuestros, aMano.nuestro), [nuestros, aMano.nuestro]);
+  const onceSuyo = useMemo(() => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo), [suyos, baseSuya, aMano.suyo]);
 
   const duelos = useMemo(() => mideDuelos(onceNuestro, onceSuyo, referencias), [onceNuestro, onceSuyo, referencias]);
 

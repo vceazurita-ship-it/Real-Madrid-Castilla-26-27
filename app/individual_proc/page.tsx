@@ -1,7 +1,8 @@
 "use client";
 import { traeJson } from "@/lib/hojaCsv";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import type { LucideIcon } from "lucide-react";
 import { chipInk } from "@/lib/theme";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -180,6 +181,31 @@ function pct(part: number, total: number) {
   return total ? +((part / total) * 100).toFixed(1) : 0;
 }
 
+/** Cuántos registros hay de cada valor de una columna, de más a menos. */
+function countBy(
+  registros: TrackingRecord[],
+  key: keyof TrackingRecord,
+  totalSessions: number,
+) {
+  const map: Record<string, number> = {};
+
+  registros.forEach((s) => {
+    const raw = String(s[key] ?? "").trim();
+
+    if (!raw) return;
+
+    map[raw] = (map[raw] ?? 0) + 1;
+  });
+
+  return Object.entries(map)
+    .map(([name, value]) => ({
+      name,
+      value,
+      percentage: pct(value, totalSessions),
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
 /** Trims boilerplate text so the feed stays readable */
 function clean(text?: string) {
   const t = (text || "").trim();
@@ -231,7 +257,7 @@ function esDeSeguimiento(jugador: Player) {
 
 type TabKey = "resumen" | "jugadores" | "contenidos" | "registros";
 
-const TABS: { key: TabKey; label: string; icon: any }[] = [
+const TABS: { key: TabKey; label: string; icon: LucideIcon }[] = [
   { key: "resumen", label: "Resumen", icon: Sparkles },
   { key: "jugadores", label: "Jugadores", icon: Users },
   { key: "contenidos", label: "Metodología", icon: Layers },
@@ -312,9 +338,30 @@ export default function DashboardSeguimiento() {
   const [tab, setTab] = useState<TabKey>("resumen");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [feedLimit, setFeedLimit] = useState(20);
-
   const [filters, setFilters] = useState<Filters>(emptyFilters);
+
+  /*
+  | Cuántos registros enseña el listado. Vuelve a 20 en cuanto cambian los
+  | filtros, la búsqueda o la pestaña: se guarda junto a lo que había cuando
+  | se pidió «ver más» y, si ya no coincide, vale 20. Se deriva al pintar en
+  | vez de reiniciarlo con un efecto.
+  */
+  const [feedPaginado, setFeedPaginado] = useState({
+    filters,
+    search,
+    tab,
+    limite: 20,
+  });
+
+  const feedLimit =
+    feedPaginado.filters === filters &&
+    feedPaginado.search === search &&
+    feedPaginado.tab === tab
+      ? feedPaginado.limite
+      : 20;
+
+  const verMasFeed = () =>
+    setFeedPaginado({ filters, search, tab, limite: feedLimit + 20 });
 
   useEffect(() => {
     traeJson<unknown>("/api/rivals?action=seguimiento")
@@ -333,8 +380,11 @@ export default function DashboardSeguimiento() {
     [players]
   );
 
-  const nameOf = (r: TrackingRecord) =>
-    playerMap[r.ID_JUGADOR]?.nombre ?? r.NOMBRE ?? r.ID_JUGADOR;
+  const nameOf = useCallback(
+    (r: TrackingRecord) =>
+      playerMap[r.ID_JUGADOR]?.nombre ?? r.NOMBRE ?? r.ID_JUGADOR,
+    [playerMap],
+  );
 
   /* ---------------- filtering ---------------- */
 
@@ -366,7 +416,7 @@ export default function DashboardSeguimiento() {
 
       return true;
     });
-  }, [tracking, playerMap, filters, search]);
+  }, [tracking, playerMap, filters, search, nameOf]);
 
   const activeFilterCount =
     Object.values(filters).filter(Boolean).length + (search ? 1 : 0);
@@ -504,7 +554,7 @@ export default function DashboardSeguimiento() {
         dorsal: playerMap[v.id]?.dorsal,
       }))
       .sort((a, b) => b.value - a.value);
-  }, [filteredTracking, playerMap, totalSessions]);
+  }, [filteredTracking, playerMap, totalSessions, nameOf]);
 
   const mostTrackedPlayer = playerChart[0] ?? { name: "—", value: 0 };
 
@@ -530,43 +580,23 @@ export default function DashboardSeguimiento() {
 
   /* ---------------- categorical breakdowns ---------------- */
 
-  const countBy = (key: keyof TrackingRecord) => {
-    const map: Record<string, number> = {};
-
-    filteredTracking.forEach((s) => {
-      const raw = String(s[key] ?? "").trim();
-
-      if (!raw) return;
-
-      map[raw] = (map[raw] ?? 0) + 1;
-    });
-
-    return Object.entries(map)
-      .map(([name, value]) => ({
-        name,
-        value,
-        percentage: pct(value, totalSessions),
-      }))
-      .sort((a, b) => b.value - a.value);
-  };
-
   const strategyData = useMemo(
-    () => countBy("ESTRATEGIA"),
+    () => countBy(filteredTracking, "ESTRATEGIA", totalSessions),
     [filteredTracking, totalSessions]
   );
 
   const modalityData = useMemo(
-    () => countBy("MODALIDAD"),
+    () => countBy(filteredTracking, "MODALIDAD", totalSessions),
     [filteredTracking, totalSessions]
   );
 
   const momentData = useMemo(
-    () => countBy("MOMENTO"),
+    () => countBy(filteredTracking, "MOMENTO", totalSessions),
     [filteredTracking, totalSessions]
   );
 
   const coachData = useMemo(
-    () => countBy("QUIEN"),
+    () => countBy(filteredTracking, "QUIEN", totalSessions),
     [filteredTracking, totalSessions]
   );
 
@@ -744,14 +774,10 @@ export default function DashboardSeguimiento() {
     [filteredTracking]
   );
 
-  useEffect(() => {
-    setFeedLimit(20);
-  }, [filters, search, tab]);
-
   /* ---------------- insights ---------------- */
 
   const insights = useMemo(() => {
-    const out: { icon: any; tone: string; text: string }[] = [];
+    const out: { icon: LucideIcon; tone: string; text: string }[] = [];
 
     if (!totalSessions) return out;
 
@@ -813,6 +839,7 @@ export default function DashboardSeguimiento() {
     return out;
   }, [
     totalSessions,
+    cubiertos,
     squadSize,
     coverage,
     untrackedPlayers,
@@ -822,6 +849,7 @@ export default function DashboardSeguimiento() {
     weeklyMean,
     sinceLast,
     lastRecord,
+    nameOf,
   ]);
 
   /* ---------------- filter options ---------------- */
@@ -1259,7 +1287,7 @@ export default function DashboardSeguimiento() {
                     <ChartBox>
                       <AreaChart
                         data={weeklyData}
-                        onClick={(state: any) => {
+                        onClick={(state) => {
                           if (!state?.activeLabel) return;
 
                           updateFilter(
@@ -1643,7 +1671,7 @@ export default function DashboardSeguimiento() {
                           radius={[0, 10, 10, 0]}
                           barSize={16}
                           cursor="pointer"
-                          onClick={(d: any) => {
+                          onClick={(d) => {
                             const pos = d?.payload?.name;
 
                             if (pos)
@@ -1806,7 +1834,7 @@ export default function DashboardSeguimiento() {
                           radius={[0, 10, 10, 0]}
                           barSize={18}
                           cursor="pointer"
-                          onClick={(d: any) => {
+                          onClick={(d) => {
                             const c = d?.payload?.name;
 
                             if (c)
@@ -1895,8 +1923,14 @@ export default function DashboardSeguimiento() {
                     <ChartBox>
                       <BarChart
                         data={monthlyData}
-                        onClick={(state: any) => {
-                          const m = state?.activePayload?.[0]?.payload?.month;
+                        onClick={(state) => {
+                          /* `activePayload` era de Recharts 2; se lee igual
+                             que antes, sin cambiar lo que hace el clic. */
+                          const m = (
+                            state as {
+                              activePayload?: { payload?: { month?: number } }[];
+                            } | null
+                          )?.activePayload?.[0]?.payload?.month;
 
                           if (m)
                             updateFilter(
@@ -2100,7 +2134,7 @@ export default function DashboardSeguimiento() {
 
                   {feed.length > feedLimit && (
                     <button
-                      onClick={() => setFeedLimit((n) => n + 20)}
+                      onClick={verMasFeed}
                       className="mt-5 w-full rounded-2xl border border-white/10 py-3 text-sm text-white/60 transition hover:border-[#C8A96B]/40 hover:text-white"
                     >
                       Ver más ({feed.length - feedLimit} restantes)
@@ -2120,7 +2154,28 @@ export default function DashboardSeguimiento() {
 /* UI pieces                                                           */
 /* ------------------------------------------------------------------ */
 
-function Panel({ title, subtitle, action, children }: any) {
+/** Una fila de los recuentos por categoría (modalidad, entrenador…). */
+type Recuento = { name: string; value: number; percentage: number };
+
+/** Lo que Recharts le pasa al contenido del tooltip, en lo que aquí se usa. */
+type EntradaTooltip = {
+  name?: string | number;
+  value?: ReactNode;
+  color?: string;
+  payload?: Record<string, ReactNode>;
+};
+
+function Panel({
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  action?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <div className="rounded-3xl border border-white/10 bg-[#121922] p-4 md:p-6">
       <div className="mb-5 flex items-start justify-between gap-3">
@@ -2142,7 +2197,13 @@ function Panel({ title, subtitle, action, children }: any) {
   );
 }
 
-function ChartBox({ children, height }: any) {
+function ChartBox({
+  children,
+  height,
+}: {
+  children: ReactNode;
+  height?: number;
+}) {
   return (
     <div className="w-full" style={{ height: height ?? 320 }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -2160,7 +2221,15 @@ function StatCard({
   accent = GOLD,
   progress,
   delta,
-}: any) {
+}: {
+  icon: LucideIcon;
+  title: string;
+  value: ReactNode;
+  hint?: string;
+  accent?: string;
+  progress?: number;
+  delta?: number;
+}) {
   const showDelta = typeof delta === "number" && delta !== 0;
 
   const DeltaIcon = !showDelta ? Minus : delta > 0 ? ArrowUp : ArrowDown;
@@ -2219,7 +2288,17 @@ function StatCard({
   );
 }
 
-function Select({ label, value, onChange, options }: any) {
+function Select({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-[10px] uppercase tracking-wider text-white/35">
@@ -2231,7 +2310,7 @@ function Select({ label, value, onChange, options }: any) {
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-2xl border border-white/10 bg-[#11161C] px-3 py-2.5 text-sm text-white outline-none focus:border-[#C8A96B]/50"
       >
-        {options.map((o: any) => (
+        {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
@@ -2241,8 +2320,16 @@ function Select({ label, value, onChange, options }: any) {
   );
 }
 
-function DonutWithLegend({ data, active, onSelect }: any) {
-  const total = data.reduce((a: number, b: any) => a + b.value, 0);
+function DonutWithLegend({
+  data,
+  active,
+  onSelect,
+}: {
+  data: Recuento[];
+  active: string;
+  onSelect: (name: string) => void;
+}) {
+  const total = data.reduce((a, b) => a + b.value, 0);
 
   return (
     <div className="flex flex-col lg:flex-row items-center gap-4">
@@ -2257,13 +2344,13 @@ function DonutWithLegend({ data, active, onSelect }: any) {
               outerRadius={100}
               paddingAngle={2}
               cursor="pointer"
-              onClick={(d: any) => {
+              onClick={(d) => {
                 const name = d?.payload?.name ?? d?.name;
 
                 if (name) onSelect(name);
               }}
             >
-              {data.map((item: any, i: number) => (
+              {data.map((item, i) => (
                 <Cell
                   key={item.name}
                   fill={COLORS[i % COLORS.length]}
@@ -2286,7 +2373,7 @@ function DonutWithLegend({ data, active, onSelect }: any) {
       </div>
 
       <div className="w-full space-y-1.5 lg:w-1/2">
-        {data.map((item: any, i: number) => (
+        {data.map((item, i) => (
           <button
             key={item.name}
             onClick={() => onSelect(item.name)}
@@ -2313,10 +2400,20 @@ function DonutWithLegend({ data, active, onSelect }: any) {
   );
 }
 
-function DarkTooltip({ active, payload, label, rows }: any) {
+function DarkTooltip({
+  active,
+  payload,
+  label,
+  rows,
+}: {
+  active?: boolean;
+  payload?: EntradaTooltip[];
+  label?: ReactNode;
+  rows?: [string, string][];
+}) {
   if (!active || !payload?.length) return null;
 
-  const d = payload[0].payload ?? {};
+  const d: Record<string, ReactNode> = payload[0].payload ?? {};
 
   return (
     <div className="rounded-xl border border-white/10 bg-[#141A22] p-3 shadow-2xl">
@@ -2331,7 +2428,7 @@ function DarkTooltip({ active, payload, label, rows }: any) {
       )}
 
       <div className="space-y-0.5">
-        {payload.map((p: any, i: number) => (
+        {payload.map((p, i) => (
           <p
             key={i}
             className="text-xs"
@@ -2341,7 +2438,7 @@ function DarkTooltip({ active, payload, label, rows }: any) {
           </p>
         ))}
 
-        {rows?.map(([rowLabel, key]: [string, string]) =>
+        {rows?.map(([rowLabel, key]) =>
           d[key] !== undefined && d[key] !== "" ? (
             <p key={key} className="text-xs text-white/50">
               {rowLabel}: <span className="font-semibold">{d[key]}</span>
@@ -2353,7 +2450,19 @@ function DarkTooltip({ active, payload, label, rows }: any) {
   );
 }
 
-function HeatRow({ row, max, selected, onSelectPlayer, onSelectCell }: any) {
+function HeatRow({
+  row,
+  max,
+  selected,
+  onSelectPlayer,
+  onSelectCell,
+}: {
+  row: { name: string; total: number; cells: { week: number; count: number }[] };
+  max: number;
+  selected: boolean;
+  onSelectPlayer: () => void;
+  onSelectCell: (week: number) => void;
+}) {
   return (
     <>
       <button
@@ -2368,7 +2477,7 @@ function HeatRow({ row, max, selected, onSelectPlayer, onSelectCell }: any) {
         {row.name}
       </button>
 
-      {row.cells.map((c: any) => {
+      {row.cells.map((c) => {
         const t = max ? c.count / max : 0;
 
         return (
@@ -2399,7 +2508,23 @@ function HeatRow({ row, max, selected, onSelectPlayer, onSelectCell }: any) {
   );
 }
 
-function MatrixRow({ row, max, selected, onSelectCoach, onSelectCell }: any) {
+function MatrixRow({
+  row,
+  max,
+  selected,
+  onSelectCoach,
+  onSelectCell,
+}: {
+  row: {
+    coach: string;
+    total: number;
+    cells: { strategy: string; count: number }[];
+  };
+  max: number;
+  selected: boolean;
+  onSelectCoach: () => void;
+  onSelectCell: (strategy: string) => void;
+}) {
   return (
     <>
       <button
@@ -2415,7 +2540,7 @@ function MatrixRow({ row, max, selected, onSelectCoach, onSelectCell }: any) {
         <span className="text-[10px] text-white/35">{row.total} registros</span>
       </button>
 
-      {row.cells.map((c: any) => {
+      {row.cells.map((c) => {
         const t = max ? c.count / max : 0;
 
         return (
@@ -2439,7 +2564,13 @@ function MatrixRow({ row, max, selected, onSelectCoach, onSelectCell }: any) {
   );
 }
 
-function Tag({ icon: Icon, children }: any) {
+function Tag({
+  icon: Icon,
+  children,
+}: {
+  icon: LucideIcon;
+  children?: ReactNode;
+}) {
   if (!children) return null;
 
   return (
@@ -2450,7 +2581,15 @@ function Tag({ icon: Icon, children }: any) {
   );
 }
 
-function Objective({ label, color, text }: any) {
+function Objective({
+  label,
+  color,
+  text,
+}: {
+  label: string;
+  color: string;
+  text?: string;
+}) {
   const value = clean(text);
 
   return (
@@ -2472,7 +2611,17 @@ function Objective({ label, color, text }: any) {
   );
 }
 
-function MiniCard({ title, name, value, tone }: any) {
+function MiniCard({
+  title,
+  name,
+  value,
+  tone,
+}: {
+  title: string;
+  name: string;
+  value: string;
+  tone: string;
+}) {
   const tones: Record<string, string> = {
     emerald: "border-emerald-400/20 bg-emerald-400/[0.06] text-emerald-400",
     rose: "border-rose-400/20 bg-rose-400/[0.06] text-rose-400",

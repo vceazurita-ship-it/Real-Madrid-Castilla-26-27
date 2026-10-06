@@ -24,6 +24,8 @@ import { normalizaDocumentos, rivalDocumentosKey, ROTULO_DOCUMENTO } from "@/lib
 import { normalizarMedia, rivalMediaKey } from "@/lib/rivals/media";
 import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import { reparteCampo, type OnceLinea } from "@/lib/rivals/once-campo";
+import { cargaPlantilla } from "@/hooks/usePlayers";
+import { duelosYVistazo } from "@/lib/informe-partido/rival-datos";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
 import { fraseUtil, mismoJugador, pronostica, type Cronica } from "./modelo";
@@ -651,6 +653,25 @@ export async function cargaInforme(entrada: {
 
   const marcado = normalizarOnce(onceDoc);
 
+  /*
+  | Los duelos y el rival de un vistazo (06/10/2026): se lanzan ya y se
+  | recogen al final, mientras se arma lo demás. Si fallan, el informe sale
+  | sin esos dos bloques y lo avisa.
+  */
+  const extrasRival = cargaPlantilla()
+    .then((fichas) =>
+      duelosYVistazo({
+        rival,
+        equipoHoja,
+        filasHoja: Array.isArray(plantillas) ? plantillas : [],
+        informeRival,
+        marcados: marcado.titulares,
+        calendario: calendario?.partidos ?? [],
+        fichas: fichas.map((f) => ({ id: f.id, nombre: f.nombre, apodo: f.apodo, foto: f.foto, posicion: f.posicion })),
+      }),
+    )
+    .catch(() => ({ duelos: null, vistazo: null, avisos: ["No se han podido calcular los duelos ni el rival de un vistazo."] }));
+
   if (marcado.titulares.length) {
     const porClave = new Map(plantilla.map((j) => [j.clave, j]));
 
@@ -707,6 +728,10 @@ export async function cargaInforme(entrada: {
 
   if (momento === "post" && partido?.jugado && !cronica) avisos.push("BeSoccer aún no tiene la ficha del partido (goles, su once): se baja cada noche.");
 
+  const delRival = await extrasRival;
+
+  avisos.push(...delRival.avisos);
+
   const sinSintesis: Omit<InformePartido, "sintesis"> = {
     momento,
     generado: new Date().toISOString(),
@@ -739,6 +764,8 @@ export async function cargaInforme(entrada: {
       ? { minutosSemana: microciclo?.totales.abpMinutos ?? 0, laminasRival, documentosRival: docsRival }
       : null,
     avisos,
+    duelosJugadores: delRival.duelos,
+    vistazo: delRival.vistazo,
   };
 
   if (momento === "post" && !partido?.jugado) avisos.push("El partido aún no tiene resultado: el post saldrá completo cuando se juegue.");

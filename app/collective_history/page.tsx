@@ -17,22 +17,11 @@ export default function IndividualPage() {
     console.error(error);
   }
 };
-  const [isDesktop, setIsDesktop] = useState(false);
 const [isFullscreen, setIsFullscreen] = useState(false);
 
 const videoRef = useRef<HTMLDivElement | null>(null);
 const dashboardRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const onResize = () => {
-      setIsDesktop(window.innerWidth >= 1024);
-    };
-
-    onResize();
-    window.addEventListener("resize", onResize);
-
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
   useEffect(() => {
   const handleFullscreen = () => {
     setIsFullscreen(!!document.fullscreenElement);
@@ -90,15 +79,6 @@ useEffect(() => {
       block: "start",
     });
   };
-  const openDashboardFullscreen = async () => {
-  if (!dashboardRef.current) return;
-
-  try {
-    await dashboardRef.current.requestFullscreen();
-  } catch (error) {
-    console.error(error);
-  }
-};
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">

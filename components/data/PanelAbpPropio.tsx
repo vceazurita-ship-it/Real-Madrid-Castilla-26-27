@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+
+import { SelloJornada, useCalendarioCastilla } from "@/components/data/SelloJornada";
+import { alcanceDeJornadas } from "@/lib/data-analisis/alcance";
 import { ClipboardList, Flag, Loader2, Target, Timer, Users } from "lucide-react";
 
 import { Notice, Panel } from "@/components/abp/ui";
@@ -36,6 +39,9 @@ import {
  */
 export function PanelAbpPropio() {
   const [acciones, setAcciones] = useState<AccionAbp[] | null>(null);
+
+  /* El calendario, para decir hasta qué jornada llega el registro (arriba: es un hook). */
+  const calendario = useCalendarioCastilla();
   const [error, setError] = useState<string | null>(null);
 
   const [bloque, setBloque] = useState<BloqueAbp>("piezasOf");
@@ -179,8 +185,22 @@ export function PanelAbpPropio() {
   const rematadores = porJugadorAbp(suyas, (a) => a.rematador).slice(0, 8);
   const sacadores = porJugadorAbp(suyas, (a) => a.sacador).slice(0, 8);
 
+  /* Hasta qué jornada de liga está registrado el balón parado. */
+  const alcance =
+    calendario && acciones
+      ? alcanceDeJornadas(
+          "Registro propio de ABP",
+          acciones.filter((a) => a.jornada.competicion === "liga" && a.jornada.numero).map((a) => a.jornada.numero as number),
+          calendario.partidos,
+          calendario.hoy,
+          "acciones registradas",
+        )
+      : null;
+
   return (
     <>
+      {alcance && <SelloJornada alcances={[alcance]} />}
+
       {/*
         EL AVISO QUE NO SE PUEDE QUITAR
 

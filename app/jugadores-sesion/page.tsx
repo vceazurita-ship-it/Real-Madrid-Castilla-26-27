@@ -51,6 +51,8 @@ import { AbpHeader, Button, Dialog, Panel, SaveState, Segmented } from "@/compon
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { LAMINA_H, LAMINA_W, LaminaEquipos, LaminaEscalada } from "@/components/sesion-equipos/LaminaEquipos";
+import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
+import { ESTRUCTURAS, colocaEnEstructura, estructuraPara, intercambia, type Hueco } from "@/lib/sesion-equipos/estructura";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { apodo, capturaLienzos, descarga, pintado } from "@/lib/export/lienzos";
 import { bytesDeDataUrl, creaZip } from "@/lib/export/zip";
@@ -79,6 +81,7 @@ import {
   tintaSobre,
   valida,
   type AlmacenEquipos,
+  type EquipoTarea,
   type JugadorSesion,
   type Puesto,
   type PuestoDe,
@@ -287,6 +290,75 @@ function Caja({
   );
 }
 
+/**
+ * El dibujo de un equipo (06/10/2026): su estructura y el mini campograma.
+ * Se toca a un jugador y luego a otro (o a un hueco libre) para cambiarlos.
+ */
+function EstructuraEquipo({
+  equipo,
+  jugadores,
+  puestoDe,
+  elegido,
+  onToca,
+  onEstructura,
+}: {
+  equipo: EquipoTarea;
+  jugadores: JugadorSesion[];
+  puestoDe: PuestoDe;
+  elegido: number | null;
+  onToca: (hueco: number, huecos: Hueco[]) => void;
+  onEstructura: (estructura: string) => void;
+}) {
+  const { huecos, sobran } = colocaEnEstructura(jugadores, equipo.estructura, puestoDe, equipo.orden);
+  const total = huecos.length;
+  const esPreset = ESTRUCTURAS.some((e) => e.valor === equipo.estructura);
+
+  return (
+    <div className="basis-full space-y-2" onClick={(e) => e.stopPropagation()}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <select
+          value={esPreset ? equipo.estructura : "otra"}
+          onChange={(e) => onEstructura(e.target.value === "otra" ? "" : e.target.value)}
+          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[12px] font-semibold text-white outline-none focus:border-[#C8A96B]/50"
+          aria-label={`Estructura de ${equipo.nombre}`}
+        >
+          {ESTRUCTURAS.map((e) => (
+            <option key={e.valor} value={e.valor} className="bg-[#11161C]">
+              {e.rotulo}
+            </option>
+          ))}
+          <option value="otra" className="bg-[#11161C]">
+            Otra…
+          </option>
+        </select>
+        {!esPreset && (
+          <input
+            value={equipo.estructura ?? ""}
+            onChange={(e) => onEstructura(e.target.value)}
+            placeholder="1-3-3-1"
+            className="w-24 rounded-lg border border-[#C8A96B]/50 bg-white/[0.04] px-2 py-1 text-[12px] font-semibold text-white outline-none"
+            aria-label="Estructura a mano"
+          />
+        )}
+        <span className={`text-[11px] ${jugadores.length === total ? "text-emerald-300/80" : "text-amber-300/90"}`}>
+          {jugadores.length}/{total}
+        </span>
+      </div>
+      {total > 0 ? (
+        <div className="flex justify-center">
+          <CampoEstructura huecos={huecos} color={equipo.color} ancho={232} elegido={elegido} onToca={(i) => onToca(i, huecos)} />
+        </div>
+      ) : (
+        <p className="text-[11px] text-white/40">Escribe la estructura con guiones: 1-3-3-1.</p>
+      )}
+      {sobran.length > 0 && (
+        <p className="text-[11px] text-amber-300/90">Fuera del dibujo: {sobran.map((j) => j.nombre).join(", ")}</p>
+      )}
+      {elegido !== null && <p className="text-[11px] text-[#C8A96B]">Toca otro jugador o un hueco libre para cambiarlos.</p>}
+    </div>
+  );
+}
+
 /** Los petos: una fila de muestras. */
 function Paleta({ valor, onElige, onCierra }: { valor: string; onElige: (c: string) => void; onCierra: () => void }) {
   return (
@@ -464,6 +536,9 @@ export default function JugadoresSesionPage() {
   const puestoDe: PuestoDe = useCallback((j) => j.puesto ?? puestosAuto[j.id], [puestosAuto]);
 
   const [elegido, setElegido] = useState<string | null>(null);
+
+  /* En el campograma: el hueco tocado, a la espera del segundo. */
+  const [huecoTocado, setHuecoTocado] = useState<{ equipo: string; hueco: number } | null>(null);
 
   const arrastrado = useRef<string | null>(null);
 
@@ -1051,6 +1126,32 @@ export default function JugadoresSesionPage() {
                       </div>
 
                       <div>
+                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Formato</span>
+                        <Segmented
+                          ariaLabel="Sólo equipos o con estructura"
+                          value={tarea.conEstructura ? "estructura" : "equipos"}
+                          options={[
+                            { key: "equipos", label: "Sólo equipos" },
+                            { key: "estructura", label: "Con estructura" },
+                          ]}
+                          onChange={(v) =>
+                            cambiaTarea((t) => ({
+                              ...t,
+                              conEstructura: v === "estructura",
+                              /* Al encenderla, cada equipo sin dibujo recibe el que pega con los que tiene. */
+                              equipos:
+                                v === "estructura"
+                                  ? t.equipos.map((e) => ({
+                                      ...e,
+                                      estructura: e.estructura || estructuraPara(Object.values(t.sitio).filter((d) => d === e.id).length || 7),
+                                    }))
+                                  : t.equipos,
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div>
                         <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Comodines</span>
                         <div className="flex items-center gap-2">
                           <Segmented
@@ -1199,6 +1300,32 @@ export default function JugadoresSesionPage() {
                             </>
                           }
                         >
+                          {tarea.conEstructura && (
+                            <EstructuraEquipo
+                              equipo={equipo}
+                              jugadores={reparto.porEquipo[equipo.id] ?? []}
+                              puestoDe={puestoDe}
+                              elegido={huecoTocado?.equipo === equipo.id ? huecoTocado.hueco : null}
+                              onEstructura={(estructura) =>
+                                cambiaTarea((t) => ({
+                                  ...t,
+                                  /* Otro dibujo, otros huecos: el orden a mano ya no vale. */
+                                  equipos: t.equipos.map((x) => (x.id === equipo.id ? { ...x, estructura, orden: undefined } : x)),
+                                }))
+                              }
+                              onToca={(hueco, huecos) => {
+                                if (!huecoTocado || huecoTocado.equipo !== equipo.id) {
+                                  if (huecos[hueco]?.jugador) setHuecoTocado({ equipo: equipo.id, hueco });
+                                  return;
+                                }
+                                if (huecoTocado.hueco !== hueco) {
+                                  const orden = intercambia(huecos, huecoTocado.hueco, hueco);
+                                  cambiaTarea((t) => ({ ...t, equipos: t.equipos.map((x) => (x.id === equipo.id ? { ...x, orden } : x)) }));
+                                }
+                                setHuecoTocado(null);
+                              }}
+                            />
+                          )}
                           {ordenPorPuesto(reparto.porEquipo[equipo.id] ?? [], puestoDe).map(chip)}
                         </Caja>
                       ))}

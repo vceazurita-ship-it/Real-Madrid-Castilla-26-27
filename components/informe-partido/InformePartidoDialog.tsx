@@ -5,7 +5,7 @@
  *
  * Se abre desde Microciclos. Elige el microciclo (por defecto el que se esté
  * mirando) y si es la previa o el post (por defecto lo dice el calendario).
- * Enseña el resumen —dos diapositivas— y el informe extenso tal y como van a
+ * Enseña el resumen —tres diapositivas— y el informe extenso tal y como van a
  * llegar, y manda **dos correos**: el resumen con las diapositivas dentro y en
  * PDF adjunto, y el extenso con el informe de ABP entero y los documentos del
  * rival adjuntos.
@@ -170,7 +170,7 @@ export function InformePartidoDialog({
 
   /* Qué correos salen y qué lleva cada uno. Los dos por defecto: es para lo que existe el botón. */
   const [envio, setEnvio] = useState<OpcionesEnvio>(() => ({
-    resumen: { activo: true, asunto: null, mensaje: "", diapos: [true, true], pdf: true, ppt: false },
+    resumen: { activo: true, asunto: null, mensaje: "", diapos: [true, true, true], pdf: true, ppt: false },
     completo: { activo: true, asunto: null, mensaje: "", capitulos: null, pdfCompleto: true, pdfResumen: false, pptResumen: false, sacarDocs: true },
   }));
 
@@ -571,7 +571,7 @@ export function InformePartidoDialog({
 
   const [preparando, setPreparando] = useState<string | null>(null);
 
-  /** Las dos diapositivas en JPEG, dibujadas fuera de pantalla a su tamaño real. */
+  /** Las diapositivas en JPEG, dibujadas fuera de pantalla a su tamaño real. */
   const dameDiapos = () => {
     const clave = claveDiapos;
 
@@ -671,10 +671,16 @@ export function InformePartidoDialog({
 
   /* ---------------- PDF y PPT del resumen ---------------- */
 
-  /* Las diapositivas que van: la 1, la 2 o las dos. */
-  const indicesDiapos = [0, 1].filter((i) => envio.resumen.diapos[i]);
+  /*
+  | Las diapositivas que van. Una preferencia guardada de antes de la tercera
+  | (06/10/2026) sólo trae dos casillas: la que falta cuenta como marcada.
+  */
+  const TODAS_DIAPOS = [0, 1, 2];
+  const diapoMarcada = (i: number) => envio.resumen.diapos[i] ?? true;
+  const indicesDiapos = TODAS_DIAPOS.filter(diapoMarcada);
 
-  const rotuloDiapo = (i: number) => (i === 0 ? (esPost ? "El resultado" : "El partido") : esPost ? "Lo que nos deja" : "El plan");
+  const rotuloDiapo = (i: number) =>
+    i === 0 ? (esPost ? "El resultado" : "El partido") : i === 1 ? (esPost ? "Lo que nos deja" : "El plan") : esPost ? "Los duelos" : "Duelos y rival";
 
   const pdfDe = async (imagenes: string[]) =>
     (await pdfDeLienzos(imagenes, { ancho: DIAPO_W, alto: DIAPO_H, orientacion: "landscape", margen: 0 })).output("blob") as Blob;
@@ -688,7 +694,7 @@ export function InformePartidoDialog({
   const elegidas = async () => {
     const todas = await dameDiapos();
 
-    const indices = indicesDiapos.length ? indicesDiapos : [0, 1];
+    const indices = indicesDiapos.length ? indicesDiapos : TODAS_DIAPOS;
 
     return { imagenes: indices.map((i) => todas[i]).filter(Boolean), indices };
   };
@@ -1154,7 +1160,7 @@ export function InformePartidoDialog({
   /* Lo que se ve mientras carga es lo pedido, no lo que había. */
   const momento = momentoPedido ?? informe?.momento ?? "previa";
 
-  const [Uno, Dos] = DIAPOSITIVAS[informeVisto?.momento ?? "previa"];
+  const [Uno, Dos, Tres] = DIAPOSITIVAS[informeVisto?.momento ?? "previa"];
 
   /* Mandar el completo sin esperar a ABP dejaría fuera su informe: se espera,
      salvo que sólo se mande el resumen (que ya lleva su pincelada si llegó). */
@@ -1217,7 +1223,7 @@ export function InformePartidoDialog({
   return (
     <Dialog
       title="Informe del partido"
-      subtitle="Resumen en dos diapositivas e informe completo: la semana, los dos en datos, el rival, el pronóstico, el plan y el balón parado"
+      subtitle="Resumen en tres diapositivas e informe completo: la semana, los dos en datos, el rival de un vistazo, los duelos, el pronóstico, el plan y el balón parado"
       onClose={onClose}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1311,7 +1317,7 @@ export function InformePartidoDialog({
               ariaLabel="Qué ver"
               value={vista}
               options={[
-                { key: "resumen", label: "Resumen · 2 diapositivas" },
+                { key: "resumen", label: "Resumen · 3 diapositivas" },
                 { key: "completo", label: "Informe completo" },
               ]}
               onChange={(v) => setVista(v as "resumen" | "completo")}
@@ -1370,8 +1376,8 @@ export function InformePartidoDialog({
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <span className={rotuloCaja}>Diapositivas</span>
-                      {[0, 1].map((i) =>
-                        casilla(envio.resumen.diapos[i], (v) => cambia("resumen", { diapos: envio.resumen.diapos.map((x, k) => (k === i ? v : x)) }), `${i + 1} · ${rotuloDiapo(i)}`),
+                      {TODAS_DIAPOS.map((i) =>
+                        casilla(diapoMarcada(i), (v) => cambia("resumen", { diapos: TODAS_DIAPOS.map((k) => (k === i ? v : diapoMarcada(k))) }), `${i + 1} · ${rotuloDiapo(i)}`),
                       )}
                     </div>
                     <div className="space-y-1.5">
@@ -1572,14 +1578,19 @@ export function InformePartidoDialog({
           ) : vista === "resumen" ? (
             anchoVista > 0 && (
               <div className="space-y-3">
-                {envio.resumen.diapos[0] && (
+                {diapoMarcada(0) && (
                   <Escalada ancho={anchoVista}>
                     <Uno inf={informeVisto} />
                   </Escalada>
                 )}
-                {envio.resumen.diapos[1] && (
+                {diapoMarcada(1) && (
                   <Escalada ancho={anchoVista}>
                     <Dos inf={informeVisto} />
+                  </Escalada>
+                )}
+                {diapoMarcada(2) && (
+                  <Escalada ancho={anchoVista}>
+                    <Tres inf={informeVisto} />
                   </Escalada>
                 )}
               </div>
@@ -1630,6 +1641,7 @@ export function InformePartidoDialog({
         >
           <Uno inf={informeVisto} />
           <Dos inf={informeVisto} />
+          <Tres inf={informeVisto} />
         </div>
       )}
     </Dialog>

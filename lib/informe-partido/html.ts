@@ -11,7 +11,21 @@
  * la semana → balón parado. Lo que el informe no sabe NO va: se avisa antes de mandar.
  */
 
-import { cifra, conDato, ordinal, pct, revisaPalancas, contrastePronostico, type InformePartido, type JugadorRival } from "./modelo";
+import {
+  LUGAR_DUELO,
+  apellido,
+  cifra,
+  conDato,
+  contrastePronostico,
+  duelosParaAtacar,
+  duelosParaVigilar,
+  fraseDuelo,
+  ordinal,
+  pct,
+  revisaPalancas,
+  type InformePartido,
+  type JugadorRival,
+} from "./modelo";
 
 const NAVY = "#0F1E3D";
 const ORO = "#A8874A";
@@ -223,9 +237,20 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
       : ""
   }`;
 
-  const esencial = esPost ? esencialPost : `<p style="margin:0 0 12px;font:700 20px/1.3 Arial,sans-serif;color:${NAVY}">${esc(inf.sintesis.titular)}</p>${
-    inf.sintesis.claves.length
-      ? `<p style="margin:0 0 4px;font:700 12px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esPost ? "Lo que nos deja" : "Claves del partido"}</p>${lista(inf.sintesis.claves)}`
+  const atacarEsencial = duelosParaAtacar(inf.duelosJugadores).slice(0, 2);
+
+  const vigilarEsencial = duelosParaVigilar(inf.duelosJugadores).slice(0, 2);
+
+  const clavesSinDuelos = inf.sintesis.claves.filter((c) => !/^(Atacar|Vigilar) · /.test(c));
+
+  const duelosEsencial = `${atacarEsencial.length ? `${etiqueta("Dónde atacar", VERDE)}${lista(atacarEsencial.map((x) => fraseDuelo(x, "con")))}` : ""}${
+    vigilarEsencial.length ? `${etiqueta("Qué vigilar", ROJO)}${lista(vigilarEsencial.map((x) => fraseDuelo(x, "sin")))}` : ""
+  }`;
+
+  const esencial = esPost ? esencialPost : `<p style="margin:0 0 12px;font:700 20px/1.3 Arial,sans-serif;color:${NAVY}">${esc(inf.sintesis.titular)}</p>${duelosEsencial}${
+    /* «Atacar · …» y «Vigilar · …» ya van arriba en sus bloques: aquí, el resto de claves. */
+    clavesSinDuelos.length
+      ? `<p style="margin:12px 0 4px;font:700 12px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esPost ? "Lo que nos deja" : "Claves del partido"}</p>${lista(clavesSinDuelos)}`
       : ""
   }${
     inf.sintesis.ventajas.length
@@ -611,9 +636,9 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
       : ""
   }`;
 
-  /* Las dos diapositivas del resumen, arriba: lo primero que se ve. */
+  /* Las diapositivas del resumen, arriba: lo primero que se ve. */
   const diapositivas = extras.diapositivas?.length
-    ? `<tr><td style="padding:22px 32px 0"><p style="margin:0 0 8px;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:${ORO}">EL RESUMEN EN DOS DIAPOSITIVAS</p>${extras.diapositivas
+    ? `<tr><td style="padding:22px 32px 0"><p style="margin:0 0 8px;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:${ORO}">EL RESUMEN EN DIAPOSITIVAS</p>${extras.diapositivas
         .map((cid, i) => `<img src="cid:${esc(cid)}" alt="Diapositiva ${i + 1}" width="696" style="display:block;width:100%;max-width:696px;height:auto;border-radius:8px;margin:0 0 10px">`)
         .join("")}</td></tr>`
     : "";
@@ -623,13 +648,93 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
     ? `<tr><td style="padding:22px 32px 0">${bloqueDescargas(extras.adjuntos, extras.adjuntos.some((d) => d.adjunto) ? "Adjuntos y descargas" : "Documentos")}</td></tr>`
     : "";
 
+
+  /* ---------------- los duelos (06/10/2026) ---------------- */
+
+  const dj = inf.duelosJugadores;
+
+  const colorVeredicto = (v: string) => (v === "ventaja" ? VERDE : v === "desventaja" ? ROJO : v === "parejo" ? ORO : SUAVE);
+
+  const rotuloVeredicto = (v: string) => (v === "ventaja" ? "A favor" : v === "desventaja" ? "En contra" : v === "parejo" ? "Parejo" : "Sin datos");
+
+  const signo = (n: number | null) => (n === null ? "—" : `${n > 0 ? "+" : ""}${n}`);
+
+  const atacarD = duelosParaAtacar(dj);
+
+  const vigilarD = duelosParaVigilar(dj);
+
+  const duelosCap = dj
+    ? `<p style="margin:0 0 10px;font:400 14px/1.6 Arial,sans-serif;color:${NAVY}">${
+        esPost
+          ? "Lo que esperábamos de cada duelo antes del partido. La última columna es para cerrarlo en la reunión: ¿se dio lo que preveíamos?"
+          : "Cada duelo enfrenta lo que hace <b>con balón</b> el que ataca con lo que hace <b>sin balón</b> el que defiende (regate contra entrada, desmarque contra anticipación, pase que rompe líneas contra corte…), en los dos sentidos. Cada jugador va en percentil contra los de su puesto en la categoría."
+      }</p>${
+        atacarD.length
+          ? `${etiqueta(esPost ? "Dónde esperábamos hacerles daño · con balón" : "Dónde les hacemos daño · con balón", VERDE)}${lista(atacarD.slice(0, 4).map((x) => `${fraseDuelo(x, "con")} (${signo(x.conBalon)})`))}`
+          : ""
+      }${
+        vigilarD.length
+          ? `${etiqueta(esPost ? "Dónde nos podían hacer daño · sin balón" : "Dónde nos pueden hacer daño · sin balón", ROJO)}${lista(vigilarD.slice(0, 4).map((x) => `${fraseDuelo(x, "sin")} (${signo(x.sinBalon)})`))}`
+          : ""
+      }<div style="height:10px"></div>${tabla(
+        esPost ? ["Duelo", "Con balón", "Sin balón", "Lo previsto", "¿Se cumplió?"] : ["Duelo", "Con balón", "Sin balón", "Balance"],
+        dj.lista.map((x) => {
+          const fila = [
+            `<b>${esc(x.nuestros.map(apellido).join(" y ") || "—")}</b> <span style="color:${SUAVE}">ante</span> <b>${esc(x.suyos.map(apellido).join(" y ") || "—")}</b><br><span style="color:${SUAVE};font-size:11px">${esc(LUGAR_DUELO[x.clave] ?? x.titulo)}</span>`,
+            `<b style="color:${(x.conBalon ?? 0) >= 10 ? VERDE : (x.conBalon ?? 0) <= -10 ? ROJO : NAVY}">${signo(x.conBalon)}</b>`,
+            `<b style="color:${(x.sinBalon ?? 0) >= 10 ? VERDE : (x.sinBalon ?? 0) <= -10 ? ROJO : NAVY}">${signo(x.sinBalon)}</b>`,
+            `<b style="color:${colorVeredicto(x.veredicto)}">${rotuloVeredicto(x.veredicto)} ${signo(x.balance)}</b>`,
+          ];
+          return esPost ? [...fila, `<div style="min-width:110px;height:30px;border:1px dashed #D6D0C2;border-radius:6px"></div>`] : fila;
+        }),
+      )}<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">Con balón: + = les sacamos ventaja cuando la tenemos nosotros. Sin balón: − = nos la sacan cuando la tienen ellos. Su once: ${esc(dj.fuenteSuya.toLowerCase())}.</p>`
+    : "";
+
+  /* ---------------- el rival de un vistazo (06/10/2026) ---------------- */
+
+  const vz = inf.vistazo;
+
+  const colorPct = (n: number | null) => (n === null ? SUAVE : n >= 60 ? VERDE : n <= 40 ? ROJO : ORO);
+
+  const vistazoCap = vz
+    ? `${tarjetas([
+        { rotulo: "G · E · P", valor: `${vz.g}-${vz.e}-${vz.p}`, pie: `${vz.partidos} partidos` },
+        { rotulo: "Goles", valor: `${vz.gf}-${vz.gc}`, pie: "a favor · en contra" },
+        { rotulo: "En la tabla", valor: vz.tabla ? ordinal(vz.tabla.puesto) : "—", pie: vz.tabla ? `de ${vz.tabla.de}, por puntos por partido` : "" },
+        { rotulo: "Forma", valor: vz.forma.map((f) => f.resultado).join(" ") || "—", pie: vz.sistemas[0] ? `sistema: ${vz.sistemas[0].sistema}` : "" },
+      ])}${vz.frases.length ? `${etiqueta("En pocas palabras")}${lista(vz.frases)}` : ""}${
+        vz.fases.length
+          ? `${etiqueta("Por fases · percentil contra su competición")}${tabla(
+              ["Fase", "Percentil", ""],
+              vz.fases.map((f) => [esc(f.label), `<b style="color:${colorPct(f.percentil)}">${f.percentil === null ? "—" : `P${f.percentil}`}</b>`, barra(f.percentil, colorPct(f.percentil))]),
+            )}`
+          : ""
+      }${vz.fuertes.length ? `${etiqueta("Donde destaca", VERDE)}${lista(vz.fuertes.map((m) => `${m.nombre}: ${m.valor} (${ordinal(m.puesto)} de ${m.de})`))}` : ""}${
+        vz.flojos.length ? `${etiqueta("Donde sufre", ROJO)}${lista(vz.flojos.map((m) => `${m.nombre}: ${m.valor} (${ordinal(m.puesto)} de ${m.de})`))}` : ""
+      }${
+        vz.estilo.length
+          ? `${etiqueta("Su estilo · 1.º = el que más")}${tabla(
+              ["", "Suyo", "Mediana", "Puesto"],
+              vz.estilo.map((m) => [esc(m.nombre), `<b>${esc(m.valor)}</b>`, esc(m.mediana), `${ordinal(m.puesto)} de ${m.de}`]),
+            )}`
+          : ""
+      }${
+        vz.figuras.length
+          ? `${etiqueta("Los que más rinden para su puesto", ROJO)}${tabla(
+              ["Índice", "Jugador", "Destaca en"],
+              vz.figuras.map((f) => [`<b style="color:${colorPct(f.indice)}">${f.indice}</b>`, `<b>${esc(f.nombre)}</b><br><span style="color:${SUAVE};font-size:11px">${esc(f.posicion)} · ${f.minutos}′</span>`, esc(f.destaca.join(" · ") || "—")]),
+            )}`
+          : ""
+      }${vz.alcance ? `<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(vz.alcance)}.</p>` : ""}`
+    : "";
+
   /* Los capítulos, cada uno con su clave: se pueden elegir al mandar. */
   const capitulos: Capitulo[] = (
     esPost
       ? /* El post cuenta el partido y lo cruza con lo que se preparó. El scouting
            entero del rival ya fue en la previa: aquí sólo lo que lo contrasta. */
         [
-          { id: "esencial", titulo: "Lo esencial", html: seccion("Lo esencial", "Lo mismo que el resumen de dos diapositivas, en texto.", esencial) },
+          { id: "esencial", titulo: "Lo esencial", html: seccion("Lo esencial", "Lo mismo que el resumen en diapositivas, en texto.", esencial) },
           { id: "cronica", titulo: "El partido", html: seccion("El partido", "Goles, cambios y tarjetas (BeSoccer).", cronica) },
           { id: "datos", titulo: "El partido en datos", html: seccion("El partido en datos", "Wyscout: lo nuestro, lo suyo y nuestra media de la temporada.", partidoDatos) },
           { id: "pronostico", titulo: "El pronóstico, frente al resultado", html: seccion("El pronóstico, frente al resultado", "Lo que daban los números de los dos antes del partido.", veredicto) },
@@ -639,8 +744,10 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
             html: seccion(`Su once${cr?.estructura ? ` · ${cr.estructura}` : ""}`, cr?.acierto ? "El que sacaron, frente al que habíamos previsto en Plantillas." : "El que sacaron (BeSoccer).", onceReal),
           },
           { id: "plan", titulo: "El plan, a revisión", html: seccion("El plan, a revisión", "Lo que nos propusimos en Preparación de Partido; la columna de la derecha es para cerrarlo en la reunión.", revision) },
+          { id: "duelos", titulo: "Los duelos que planteamos", html: seccion("Los duelos que planteamos", "Competición → Duelos: lo previsto, para contrastarlo con lo que pasó.", duelosCap) },
           { id: "semana", titulo: "La semana que lo preparó", html: seccion("La semana que lo preparó", "El microciclo de la hoja de registro de tareas.", semana) },
           { id: "contexto", titulo: "Dónde quedamos", html: seccion("Dónde quedamos", "Clasificación y racha (BeSoccer).", contexto) },
+          { id: "vistazo", titulo: `${rival}, actualizado`, html: seccion(`${rival}, actualizado`, "DATA → Un equipo de un vistazo, ya con este partido si Wyscout lo tiene.", vistazoCap) },
           {
             id: "duelo",
             titulo: "Los dos en la temporada",
@@ -650,9 +757,11 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           { id: "material", titulo: "Material del partido", html: seccion("Material del partido", "", adjuntosTexto) },
         ]
       : [
-          { id: "esencial", titulo: "Lo esencial", html: seccion("Lo esencial", "Lo mismo que el resumen de dos diapositivas, en texto.", esencial) },
+          { id: "esencial", titulo: "Lo esencial", html: seccion("Lo esencial", "Lo mismo que el resumen en diapositivas, en texto.", esencial) },
           { id: "contexto", titulo: `${rival}: su momento`, html: seccion(`${rival}: su momento`, "Clasificación, racha y quién marca (BeSoccer).", contexto) },
+          { id: "vistazo", titulo: `${rival} de un vistazo`, html: seccion(`${rival} de un vistazo`, "DATA → Un equipo de un vistazo: cómo le va, cómo juega y quién lo hace.", vistazoCap) },
           { id: "pronostico", titulo: "El pronóstico y cómo lo inclinamos", html: seccion("El pronóstico y cómo lo inclinamos", "Lo que vienen siendo los dos, y lo que mueve cada parte del plan.", pronostico) },
+          { id: "duelos", titulo: "Los duelos: dónde se gana el partido", html: seccion("Los duelos: dónde se gana el partido", "Competición → Duelos: nuestro once contra su once probable, jugador a jugador.", duelosCap) },
           {
             id: "duelo",
             titulo: "El duelo en datos",
@@ -815,6 +924,11 @@ export function informeTexto(inf: InformePartido) {
   if (inf.momento !== "post" && inf.sintesis.amenazas.length) l.push("", "DONDE SON FUERTES ELLOS", ...inf.sintesis.amenazas.map((v) => `- ${v}`));
   if (inf.momento !== "post" && inf.sintesis.vigilar.length) l.push("", "A VIGILAR", ...inf.sintesis.vigilar.map((j) => `- ${j.dorsal} ${j.nombre} (${j.posicion})`));
   if (inf.sintesis.partido.length) l.push("", "EL PARTIDO EN DATOS", ...inf.sintesis.partido.map((v) => `- ${v}`));
+  const atacarTxt = duelosParaAtacar(inf.duelosJugadores).slice(0, 3);
+  const vigilarTxt = duelosParaVigilar(inf.duelosJugadores).slice(0, 3);
+  if (atacarTxt.length) l.push("", inf.momento === "post" ? "DÓNDE ESPERÁBAMOS HACERLES DAÑO" : "DÓNDE LES HACEMOS DAÑO (CON BALÓN)", ...atacarTxt.map((x) => `- ${fraseDuelo(x, "con")}`));
+  if (vigilarTxt.length) l.push("", inf.momento === "post" ? "DÓNDE NOS PODÍAN HACER DAÑO" : "DÓNDE NOS PUEDEN HACER DAÑO (SIN BALÓN)", ...vigilarTxt.map((x) => `- ${fraseDuelo(x, "sin")}`));
+  if (inf.vistazo?.frases.length) l.push("", `${(p.rival || "EL RIVAL").toUpperCase()} DE UN VISTAZO`, ...inf.vistazo.frases.map((v) => `- ${v}`));
   if (inf.microciclo) l.push("", `LA SEMANA: ${inf.microciclo.totales.tareas} tareas · ${inf.microciclo.totales.minutos}′${inf.microciclo.totales.abpMinutos ? ` · ${inf.microciclo.totales.abpMinutos}′ de ABP` : ""}`);
 
   return l.join("\n");

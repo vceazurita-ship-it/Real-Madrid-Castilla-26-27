@@ -111,6 +111,8 @@ import { PanelAbpPropio } from "@/components/data/PanelAbpPropio";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
 import { PanelDestacados } from "@/components/data/PanelDestacados";
 import { PanelEquipo } from "@/components/data/PanelEquipo";
+import { SelloJornada, useCalendarioCastilla } from "@/components/data/SelloJornada";
+import { alcanceDeFechas, alcanceWyscout } from "@/lib/data-analisis/alcance";
 import { PanelGolesAbp } from "@/components/data/PanelGolesAbp";
 import { PanelIndividual } from "@/components/data/PanelIndividual";
 import { PanelOnce } from "@/components/data/PanelOnce";
@@ -926,6 +928,20 @@ export default function DataAnalisisPage() {
   */
   const logs = useMemo(() => datos?.eventos ?? [], [datos]);
 
+  /*
+  | HASTA QUÉ JORNADA (06/10/2026): cada área dice de qué jornada son sus
+  | datos y si esa jornada está completa, como el resto de páginas de análisis.
+  | El balón parado propio lo dice dentro de su panel, que es quien lo lee.
+  */
+  const calendario = useCalendarioCastilla();
+  const alcances = useMemo(() => {
+    if (!calendario) return null;
+    return {
+      wyscout: alcanceWyscout(partidos, calendario.partidos, calendario.hoy),
+      opta: alcanceDeFechas("Opta (log de eventos)", logs.map((l) => l.fecha), calendario.partidos, calendario.hoy, "log de eventos"),
+    };
+  }, [calendario, partidos, logs]);
+
   const evento = useMemo(() => {
     if (logs.length === 0) return null;
 
@@ -1291,6 +1307,17 @@ export default function DataAnalisisPage() {
                 <p className="mt-2 text-[12px] text-white/40">
                   {AREAS.find((a) => a.key === area)?.pregunta}
                 </p>
+
+                {alcances && area !== "abp" && (
+                  <SelloJornada
+                    alcances={area === "eventos" ? [alcances.opta] : [alcances.wyscout]}
+                    nota={
+                      area === "individual" || area === "once" || area === "equipo"
+                        ? "Las cifras de jugadores son el acumulado de la temporada de la última descarga de jugadores de Wyscout."
+                        : undefined
+                    }
+                  />
+                )}
 
                 {/* =============== 0 · EL CAMPOGRAMA =============== */}
 

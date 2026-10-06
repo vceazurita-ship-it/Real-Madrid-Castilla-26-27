@@ -238,7 +238,12 @@ const [lineup, setLineup] =
   /* =======================================
      MOVER / INTERCAMBIAR JUGADORES
   ======================================= */
-  function countNoCastilla(lineup: LineupSlot[]) {
+  /*
+  | Memorizadas con `players` como dependencia: van dentro del valor del
+  | contexto, y sin ella la pizarra se quedaba con la lista de jugadores del
+  | primer render (vacía, mientras carga) hasta que cambiara otra cosa.
+  */
+  const countNoCastilla = useCallback((lineup: LineupSlot[]) => {
   return lineup.filter((slot) => {
     if (!slot.playerId) return false;
 
@@ -248,11 +253,11 @@ const [lineup, setLineup] =
 
     return player && !player.esCastilla;
   }).length;
-}
-function assignPlayer(
+}, [players]);
+const assignPlayer = useCallback((
   positionId: string,
   player: Player
-) {
+) => {
 
   console.log("ASSIGN PLAYER");
   console.log("positionId:", positionId);
@@ -368,7 +373,7 @@ return current;
 
 
   setSelectedPlayer(null);
-}
+}, [players, countNoCastilla, removeFromBench]);
 
   /* =======================================
      ELIMINAR JUGADOR
@@ -386,12 +391,12 @@ return current;
      LIMPIAR PIZARRA
   ======================================= */
 
-  function clearLineup() {
+  const clearLineup = useCallback(() => {
   setLineup(createLineup(formation));
 
   setLoadedLineupId(null);
   setLoadedLineupName(null);
-}
+}, [formation]);
 
 
 function loadLineup(
@@ -411,15 +416,15 @@ function loadLineup(
      BUSCAR POSICIÓN
   ======================================= */
 
-  function getPlayerPosition(
+  const getPlayerPosition = useCallback((
     positionId: string
-  ) {
+  ) => {
     return lineup.find(
       (slot) =>
         slot.positionId ===
         positionId
     );
-  }
+  }, [lineup]);
 
 const value = useMemo(
   () => ({
@@ -456,7 +461,10 @@ const value = useMemo(
     loadedLineupName,
     selectedPlayer,
     cambiaFormacion,
+    assignPlayer,
     removePlayer,
+    clearLineup,
+    getPlayerPosition,
     removeFromBench,
   ]
 );

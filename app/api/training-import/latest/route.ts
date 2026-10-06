@@ -27,13 +27,13 @@ console.log(jugadores);
 
     return NextResponse.json({ imageUrl });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error(error);
 
     return NextResponse.json(
       {
         imageUrl: "",
-        error: error.message,
+        error: (error as Error).message,
       },
       {
         status: 500,

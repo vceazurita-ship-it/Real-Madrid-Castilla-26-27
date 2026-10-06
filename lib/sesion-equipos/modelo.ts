@@ -119,6 +119,10 @@ export type EquipoTarea = {
   nombre: string;
   /** «#F97316». */
   color: string;
+  /** Su dibujo, si la tarea va «con estructura» («1-4-3-3»). Ver lib/sesion-equipos/estructura.ts. */
+  estructura?: string;
+  /** Ids de jugador por hueco del dibujo, tal y como se dejaron a mano («» = hueco vacío). */
+  orden?: string[];
 };
 
 /** Dónde está cada jugador en una tarea. Sin entrada = todavía sin sitio. */
@@ -137,6 +141,8 @@ export type TareaEquipos = {
   comodines: number;
   colorComodin: string;
   sitio: Record<string, Sitio>;
+  /** Cada equipo con su dibujo en un mini campograma, o sólo los equipos (06/10/2026). */
+  conEstructura?: boolean;
 };
 
 export type SesionEquipos = {
@@ -753,9 +759,12 @@ export function textoDeTarea(tarea: TareaEquipos, sesion: SesionEquipos, numero:
   const linea = (titulo: string, lista: JugadorSesion[]) =>
     `*${titulo}* (${lista.length}): ${lista.map((j) => j.nombre).join(", ") || "—"}`;
 
+  /* Con estructura, el dibujo va junto al nombre del equipo: «*AZUL · 1-4-3-3* (11)». */
+  const titulo = (e: EquipoTarea) => (tarea.conEstructura && e.estructura ? `${e.nombre} · ${e.estructura}` : e.nombre);
+
   return [
     `*${numero}. ${tarea.nombre.toUpperCase()}*`,
-    ...tarea.equipos.map((e) => linea(e.nombre, r.porEquipo[e.id] ?? [])),
+    ...tarea.equipos.map((e) => linea(titulo(e), r.porEquipo[e.id] ?? [])),
     ...(tarea.comodines > 0 || r.comodines.length ? [linea("COMODINES", r.comodines)] : []),
     ...(r.fuera.length ? [`_No participan: ${r.fuera.map((j) => j.nombre).join(", ")}_`] : []),
   ].join("\n");

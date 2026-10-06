@@ -308,7 +308,108 @@ export type InformePartido = {
   };
   sintesis: Sintesis;
   avisos: string[];
+  /** Los duelos jugador a jugador (Competición → Duelos), resumidos. */
+  duelosJugadores: DuelosInforme | null;
+  /** El rival de un vistazo (DATA → Un equipo de un vistazo), resumido. */
+  vistazo: VistazoRival | null;
 };
+
+/* ------------------------------------------------------------------ */
+/*  DUELOS Y EL RIVAL DE UN VISTAZO (06/10/2026)                       */
+/* ------------------------------------------------------------------ */
+
+export type VeredictoDuelo = "ventaja" | "parejo" | "desventaja" | "sin-datos";
+
+/** Un enfrentamiento de un duelo: con balón de uno contra sin balón del otro. */
+export type EnfrentamientoInforme = {
+  sentido: "con" | "sin" | "aire";
+  titulo: string;
+  nuestro: number;
+  suyo: number;
+  veredicto: VeredictoDuelo;
+};
+
+export type DueloJugadores = {
+  clave: string;
+  titulo: string;
+  zona: "defensa" | "medio" | "ataque";
+  nuestros: string[];
+  suyos: string[];
+  veredicto: VeredictoDuelo;
+  balance: number | null;
+  /** Con el balón nuestro (+ = les hacemos daño) y con el suyo (− = nos lo hacen). */
+  conBalon: number | null;
+  sinBalon: number | null;
+  resumen: string;
+  /** Los enfrentamientos que se despegan (ventaja o desventaja), del más claro al menos. */
+  destacados: EnfrentamientoInforme[];
+};
+
+export type DuelosInforme = {
+  lista: DueloJugadores[];
+  /** De dónde sale su once («Once probable marcado en Plantillas rivales»…). */
+  fuenteSuya: string;
+};
+
+export type VistazoRival = {
+  equipo: string;
+  competicion: string;
+  /** «Datos hasta la J6 · jornada completa». */
+  alcance: string;
+  partidos: number;
+  g: number;
+  e: number;
+  p: number;
+  gf: number;
+  gc: number;
+  tabla: { puesto: number; de: number } | null;
+  forma: { resultado: "G" | "E" | "P"; rival: string; marcador: string; casa: boolean }[];
+  sistemas: { sistema: string; partidos: number }[];
+  fases: { label: string; percentil: number | null }[];
+  fuertes: { nombre: string; valor: string; puesto: number; de: number }[];
+  flojos: { nombre: string; valor: string; puesto: number; de: number }[];
+  estilo: { nombre: string; valor: string; mediana: string; puesto: number; de: number }[];
+  frases: string[];
+  /** Los que más rinden para su puesto, con lo que destacan. */
+  figuras: { nombre: string; posicion: string; indice: number; minutos: number; destaca: string[] }[];
+};
+
+const apellidos = (lista: string[]) => lista.map((n) => apellido(n)).join(" y ");
+
+/** «Dónde atacar»: los duelos en los que, con el balón nuestro, les sacamos ventaja. */
+export function duelosParaAtacar(d: DuelosInforme | null, umbral = 10) {
+  return (d?.lista ?? [])
+    .filter((x) => (x.conBalon ?? 0) >= umbral)
+    .sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0));
+}
+
+/** «Qué vigilar»: los duelos en los que, con el balón suyo, nos sacan ventaja. */
+export function duelosParaVigilar(d: DuelosInforme | null, umbral = 10) {
+  return (d?.lista ?? [])
+    .filter((x) => (x.sinBalon ?? 0) <= -umbral)
+    .sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
+}
+
+/** Dónde se juega cada duelo, dicho desde nuestro campo (las claves son las de `DUELOS`). */
+export const LUGAR_DUELO: Record<string, string> = {
+  "cen-del": "por dentro, ante nuestros centrales",
+  "latd-bani": "nuestra banda derecha",
+  "lati-band": "nuestra banda izquierda",
+  "piv-media": "entre líneas, en nuestra medular",
+  medio: "la medular",
+  "media-piv": "entre líneas, en su medular",
+  "band-lati": "nuestra banda derecha",
+  "bani-latd": "nuestra banda izquierda",
+  "del-cen": "por dentro, ante sus centrales",
+};
+
+/** Una línea de caseta para un duelo, por el lado que se pida. */
+export function fraseDuelo(x: DueloJugadores, lado: "con" | "sin") {
+  const clave = x.destacados.find((e) => e.sentido === lado && e.veredicto === (lado === "con" ? "ventaja" : "desventaja"));
+  const quien = lado === "con" ? `${apellidos(x.nuestros)} ante ${apellidos(x.suyos)}` : `${apellidos(x.suyos)} ante ${apellidos(x.nuestros)}`;
+  const donde = LUGAR_DUELO[x.clave] ?? x.titulo.replace(/^Nuestr[oa]s? /, "").replace(/ vs .*/, "");
+  return `${quien} (${donde})${clave ? `: ${clave.titulo.toLowerCase()}, P${lado === "con" ? clave.nuestro : clave.suyo} contra P${lado === "con" ? clave.suyo : clave.nuestro}` : ""}`;
+}
 
 export type Sintesis = {
   /** Una frase que encabeza el resumen. */
@@ -904,6 +1005,9 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
              paneles: aquí entran las siguientes, para no repetir. */
           [
             ...delPlan,
+            /* Los duelos dicen DÓNDE, que es lo que se entrena el jueves: van antes que las cifras de equipo. */
+            ...duelosParaAtacar(inf.duelosJugadores).slice(0, 1).map((x) => `Atacar · ${fraseDuelo(x, "con")}`),
+            ...duelosParaVigilar(inf.duelosJugadores).slice(0, 1).map((x) => `Vigilar · ${fraseDuelo(x, "sin")}`),
             ...[1, 2].flatMap((i) => [
               ventajas[i] ? `Aprovechar · ${ventajas[i]}` : "",
               amenazas[i] ? `Neutralizar · ${amenazas[i]}` : "",

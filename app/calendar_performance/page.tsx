@@ -691,6 +691,7 @@ function FilesSection({
                 onClick={() => onOpenImage(i)}
                 className="cursor-zoom-in overflow-hidden rounded-xl border border-white/10 bg-[#10151C] transition hover:border-[#C8A96B]/40"
               >
+                {/* eslint-disable-next-line @next/next/no-img-element -- archivo subido a Supabase, URL externa */}
                 <img
                   src={img.url}
                   alt={img.name}
@@ -811,6 +812,7 @@ function ImageViewer({
         </>
       )}
 
+      {/* eslint-disable-next-line @next/next/no-img-element -- archivo subido a Supabase, URL externa */}
       <img
         src={image.url}
         alt={image.name}

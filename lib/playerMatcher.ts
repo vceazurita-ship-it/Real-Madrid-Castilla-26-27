@@ -243,8 +243,6 @@ function scorePlayer(
 
   return detected.map((original) => {
 
-    const detectedNorm = normalize(original);
-
     // Si Gemini detecta comillas ("Beto"), no usar el nombre
     // para hacer match automático. Solo aceptar alias exacto.
     const quotedAlias = original.match(/"([^"]+)"/);

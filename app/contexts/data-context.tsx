@@ -5,75 +5,87 @@ import {
   useContext,
   useState,
   useEffect,
+  useMemo,
+  useSyncExternalStore,
 } from "react";
 
+/** Una fila de un CSV subido: columna → valor, tal y como lo deja Papa. */
+export type FilaDatos = Record<string, unknown>;
+
 type DataContextType = {
-  playersData: any[];
-  setPlayersData: (data: any[]) => void;
+  playersData: FilaDatos[];
+  setPlayersData: (data: FilaDatos[]) => void;
 
-  teamData: any[];
-  setTeamData: (data: any[]) => void;
+  teamData: FilaDatos[];
+  setTeamData: (data: FilaDatos[]) => void;
 
-  scoutData: any[];
-  setScoutData: (data: any[]) => void;
+  scoutData: FilaDatos[];
+  setScoutData: (data: FilaDatos[]) => void;
 };
 
 const DataContext = createContext<DataContextType | null>(null);
+
+/*
+| Los datos guardados se leen de `localStorage` con `useSyncExternalStore` y no
+| con un efecto que hace `setState`: el servidor pinta la lista vacía, el
+| cliente la guardada, y React no protesta al hidratar. Sin suscripción: como
+| antes, lo que cambie otra pestaña no se ve aquí hasta recargar.
+*/
+const SIN_SUSCRIPCION = () => () => {};
+const enServidor = () => null;
+
+function useFilasGuardadas(clave: string): FilaDatos[] {
+  const crudo = useSyncExternalStore(
+    SIN_SUSCRIPCION,
+    () => {
+      try {
+        return localStorage.getItem(clave);
+      } catch (error) {
+        console.error("Error cargando datos guardados:", error);
+        return null;
+      }
+    },
+    enServidor,
+  );
+
+  return useMemo(() => {
+    if (!crudo) return [];
+
+    try {
+      return JSON.parse(crudo) as FilaDatos[];
+    } catch (error) {
+      console.error("Error cargando datos guardados:", error);
+      return [];
+    }
+  }, [crudo]);
+}
+
+/*
+| Lo que se sube en esta sesión manda sobre lo guardado (`null` = aún no se ha
+| subido nada) y se guarda solo en cuanto cambia.
+*/
+function useFilas(clave: string) {
+  const guardadas = useFilasGuardadas(clave);
+  const [subidas, setSubidas] = useState<FilaDatos[] | null>(null);
+
+  useEffect(() => {
+    if (subidas === null) return;
+
+    localStorage.setItem(clave, JSON.stringify(subidas));
+  }, [clave, subidas]);
+
+  return [subidas ?? guardadas, setSubidas] as const;
+}
 
 export function DataProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [playersData, setPlayersData] = useState<any[]>([]);
-  const [teamData, setTeamData] = useState<any[]>([]);
-  const [scoutData, setScoutData] = useState<any[]>([]);
-  // Cargar datos guardados al iniciar la aplicación
-useEffect(() => {
-  if (typeof window === "undefined") return;
+  const [playersData, setPlayersData] = useFilas("playersData");
+  const [teamData, setTeamData] = useFilas("teamData");
+  const [scoutData, setScoutData] = useFilas("scoutData");
 
-  try {
-    const players = localStorage.getItem("playersData");
-    const team = localStorage.getItem("teamData");
-    const scout = localStorage.getItem("scoutData");
-
-    if (players) setPlayersData(JSON.parse(players));
-    if (team) setTeamData(JSON.parse(team));
-    if (scout) setScoutData(JSON.parse(scout));
-  } catch (error) {
-    console.error("Error cargando datos guardados:", error);
-  }
-}, []);
-
-// Guardar automáticamente cambios en jugadores
-useEffect(() => {
-  if (typeof window === "undefined") return;
-
-  localStorage.setItem(
-    "playersData",
-    JSON.stringify(playersData)
-  );
-}, [playersData]);
-
-// Guardar automáticamente cambios en equipo
-useEffect(() => {
-  if (typeof window === "undefined") return;
-
-  localStorage.setItem(
-    "teamData",
-    JSON.stringify(teamData)
-  );
-}, [teamData]);
-
-// Guardar automáticamente cambios en scout
-useEffect(() => {
-  if (typeof window === "undefined") return;
-
-  localStorage.setItem(
-    "scoutData",
-    JSON.stringify(scoutData)
-  );
-}, [scoutData]);
   return (
     <DataContext.Provider
       value={{

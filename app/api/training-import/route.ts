@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, type GenerateContentParameters } from "@google/genai";
 import { matchPlayers, type Player } from "@/lib/playerMatcher";
 import { getPlayerImage } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
@@ -9,16 +9,33 @@ const ai = new GoogleGenAI({
 });
 
 const APPS_SCRIPT = process.env.APPS_SCRIPT_URL!;
-async function generarConReintento(config: any) {
+
+/** Una fila de `jugadoresSesion`: lo que usa el emparejador y lo que se guarda. */
+type FilaJugador = Player & {
+  POSICION?: unknown;
+  DORSAL?: unknown;
+  ACTIVO?: unknown;
+  LICENCIA?: unknown;
+};
+
+/** Lo que se lee de un error de Gemini o de `fetch`, si lo trae. */
+type ErrorConEstado = {
+  status?: number;
+  message?: string;
+  stack?: string;
+  cause?: unknown;
+};
+
+async function generarConReintento(config: GenerateContentParameters) {
 
   for (let i = 0; i < 3; i++) {
 
     try {
       return await ai.models.generateContent(config);
 
-    } catch (e: any) {
+    } catch (e) {
 
-      if (e.status !== 503) throw e;
+      if ((e as ErrorConEstado).status !== 503) throw e;
 
       console.log("Gemini saturado. Reintentando...");
 
@@ -163,7 +180,7 @@ const jugadoresRaw = await jugadoresResponse.text();
 
 // Fuera los jugadores ocultos: ni se emparejan con lo que detecta Gemini ni
 // llegan a la sesión que se guarda.
-const jugadores = (JSON.parse(jugadoresRaw) as Player[]).filter(
+const jugadores = (JSON.parse(jugadoresRaw) as FilaJugador[]).filter(
   (j) => !isHiddenPlayer(j?.NOMBRE, j?.APODO)
 );
     const raw =
@@ -287,7 +304,7 @@ const nationalTeam = replaceNames(result.nationalTeam);
     const estados: Record<string, string> = {};
     // Todos los jugadores que NO pertenecen a la plantilla activa
 // comienzan como NO CONVOCADO.
-jugadores.forEach((j: any) => {
+jugadores.forEach((j) => {
   if (String(j.ACTIVO ?? "").toUpperCase() === "FALSE") {
     estados[j.ID_JUGADOR] = "NO CONVOCADO";
   }
@@ -323,7 +340,7 @@ asignarEstado(promotion, ESTADOS.promotion);
 asignarEstado(injury, ESTADOS.injury);
 asignarEstado(others, ESTADOS.others);
 asignarEstado(nationalTeam, ESTADOS.nationalTeam);
-const playersForSession = jugadores.map((j:any)=>({
+const playersForSession = jugadores.map((j)=>({
 
   id: j.ID_JUGADOR,
 
@@ -453,7 +470,9 @@ const sessionPlayers = [
   sessionPlayers,
 });
 
-  } catch (error: any) {
+  } catch (fallo) {
+
+  const error = fallo as ErrorConEstado | null | undefined;
 
   console.error("========== ERROR TRAINING ==========");
   console.error(error);

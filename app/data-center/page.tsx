@@ -3,8 +3,29 @@
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import Papa from "papaparse";
-import { useData } from "@/app/contexts/data-context";
-import { useState, useEffect } from "react";
+import { useData, type FilaDatos } from "@/app/contexts/data-context";
+import { useMemo, useState, useSyncExternalStore } from "react";
+
+type InfoArchivo = {
+  fileName: string;
+  records: number;
+  updatedAt: string;
+};
+
+const TIPOS_CON_INFO = ["players", "team", "scout"] as const;
+
+/*
+| La ficha del último archivo de cada bloque vive en `localStorage`; se lee con
+| `useSyncExternalStore` (en el servidor no hay nada) en vez de con un efecto
+| que hace `setState`. Se lee junta, como un solo texto, para que la foto sea
+| estable entre renders.
+*/
+const SIN_SUSCRIPCION = () => () => {};
+const leeInfoGuardada = () =>
+  JSON.stringify(
+    TIPOS_CON_INFO.map((tipo) => localStorage.getItem(`fileInfo_${tipo}`)),
+  );
+const sinInfoEnServidor = () => "[]";
 
 const blocks = [
   {
@@ -43,16 +64,24 @@ const {
   setTeamData,
   setScoutData,
 } = useData();
-const [fileInfo, setFileInfo] = useState<
-  Record<
-    string,
-    {
-      fileName: string;
-      records: number;
-      updatedAt: string;
-    }
-  >
->({});
+// Lo subido en esta sesión; manda sobre lo guardado.
+const [infoSubida, setFileInfo] = useState<Record<string, InfoArchivo>>({});
+const infoGuardadaCruda = useSyncExternalStore(
+  SIN_SUSCRIPCION,
+  leeInfoGuardada,
+  sinInfoEnServidor,
+);
+const fileInfo = useMemo(() => {
+  const guardadas = JSON.parse(infoGuardadaCruda) as (string | null)[];
+  const loaded: Record<string, InfoArchivo> = {};
+
+  TIPOS_CON_INFO.forEach((tipo, i) => {
+    const cruda = guardadas[i];
+    if (cruda) loaded[tipo] = JSON.parse(cruda) as InfoArchivo;
+  });
+
+  return { ...loaded, ...infoSubida };
+}, [infoGuardadaCruda, infoSubida]);
 
 const handleFileUpload = (
   event: React.ChangeEvent<HTMLInputElement>,
@@ -62,7 +91,7 @@ const handleFileUpload = (
 
   if (!file) return;
 
-  Papa.parse(file, {
+  Papa.parse<FilaDatos>(file, {
     header: true,
     skipEmptyLines: true,
 
@@ -101,19 +130,6 @@ const handleFileUpload = (
     },
   });
 };
-useEffect(() => {
-  const players = localStorage.getItem("fileInfo_players");
-  const team = localStorage.getItem("fileInfo_team");
-  const scout = localStorage.getItem("fileInfo_scout");
-
-  const loaded: any = {};
-
-  if (players) loaded.players = JSON.parse(players);
-  if (team) loaded.team = JSON.parse(team);
-  if (scout) loaded.scout = JSON.parse(scout);
-
-  setFileInfo(loaded);
-}, []);
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />

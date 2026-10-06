@@ -5,8 +5,15 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { chipInk } from "@/lib/theme";
 import { Topbar } from "@/components/ui/topbar";
 import { InformePartidoDialog } from "@/components/informe-partido/InformePartidoDialog";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import {
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import Papa from "papaparse";
+import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   ArrowDown,
@@ -583,7 +590,7 @@ type TabKey =
   | "cognitivo"
   | "tareas";
 
-const TABS: { key: TabKey; label: string; icon: any }[] = [
+const TABS: { key: TabKey; label: string; icon: LucideIcon }[] = [
   { key: "resumen", label: "Resumen", icon: Sparkles },
   { key: "cargas", label: "Cargas", icon: Flame },
   { key: "contenidos", label: "Contenidos", icon: Layers },
@@ -604,6 +611,76 @@ type ContentMetricKey = (typeof CONTENT_METRICS)[number]["key"];
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
+
+/** Los valores distintos de una columna, sin vacíos y en orden. */
+function uniqueSorted(rows: Row[], key: keyof Row) {
+  return [
+    ...new Set(rows.map((r) => String(r[key] ?? "").trim()).filter(Boolean)),
+  ].sort();
+}
+
+/** Suma las tareas por el valor de una columna (contenido, fase, tipo…). */
+function groupBy(key: keyof Row, source: Row[]) {
+  const grouped: Record<
+    string,
+    {
+      tareas: number;
+      tiempo: number;
+      carga: number;
+      cargaCog: number;
+      ponderada: number;
+      evals: number[];
+      intens: number[];
+    }
+  > = {};
+
+  source.forEach((r) => {
+    const raw = String(r[key] ?? "").trim();
+
+    if (!raw) return;
+
+    if (!grouped[raw]) {
+      grouped[raw] = {
+        tareas: 0,
+        tiempo: 0,
+        carga: 0,
+        cargaCog: 0,
+        ponderada: 0,
+        evals: [],
+        intens: [],
+      };
+    }
+
+    const g = grouped[raw];
+
+    g.tareas += 1;
+    g.tiempo += r.tiempo;
+    g.carga += r.carga;
+    g.cargaCog += r.cargaCog;
+    g.ponderada += r.carga * r.cargaCog;
+
+    if (r.evaluacion > 0) g.evals.push(r.evaluacion);
+    if (r.intensidad > 0) g.intens.push(r.intensidad);
+  });
+
+  const totalTareas = source.length || 1;
+  const totalTiempo = sum(source.map((r) => r.tiempo)) || 1;
+
+  return Object.entries(grouped)
+    .map(([name, v]) => ({
+      name,
+      tareas: v.tareas,
+      tiempo: Math.round(v.tiempo),
+      carga: Math.round(v.carga),
+      cargaCog: Math.round(v.cargaCog),
+      ponderada: Math.round(v.ponderada),
+      eval: avg(v.evals),
+      intensidad: avg(v.intens),
+      pctTareas: +((v.tareas / totalTareas) * 100).toFixed(1),
+      pctTiempo: +((v.tiempo / totalTiempo) * 100).toFixed(1),
+    }))
+    .sort((a, b) => b.tareas - a.tareas);
+}
 
 export default function Page() {
   const [isMobile, setIsMobile] = useState(false);
@@ -972,90 +1049,28 @@ export default function Page() {
 
   /* ---------------- grouped aggregations ---------------- */
 
-  const groupBy = (key: keyof Row, source: Row[] = work) => {
-    const grouped: Record<
-      string,
-      {
-        tareas: number;
-        tiempo: number;
-        carga: number;
-        cargaCog: number;
-        ponderada: number;
-        evals: number[];
-        intens: number[];
-      }
-    > = {};
-
-    source.forEach((r) => {
-      const raw = String(r[key] ?? "").trim();
-
-      if (!raw) return;
-
-      if (!grouped[raw]) {
-        grouped[raw] = {
-          tareas: 0,
-          tiempo: 0,
-          carga: 0,
-          cargaCog: 0,
-          ponderada: 0,
-          evals: [],
-          intens: [],
-        };
-      }
-
-      const g = grouped[raw];
-
-      g.tareas += 1;
-      g.tiempo += r.tiempo;
-      g.carga += r.carga;
-      g.cargaCog += r.cargaCog;
-      g.ponderada += r.carga * r.cargaCog;
-
-      if (r.evaluacion > 0) g.evals.push(r.evaluacion);
-      if (r.intensidad > 0) g.intens.push(r.intensidad);
-    });
-
-    const totalTareas = source.length || 1;
-    const totalTiempo = sum(source.map((r) => r.tiempo)) || 1;
-
-    return Object.entries(grouped)
-      .map(([name, v]) => ({
-        name,
-        tareas: v.tareas,
-        tiempo: Math.round(v.tiempo),
-        carga: Math.round(v.carga),
-        cargaCog: Math.round(v.cargaCog),
-        ponderada: Math.round(v.ponderada),
-        eval: avg(v.evals),
-        intensidad: avg(v.intens),
-        pctTareas: +((v.tareas / totalTareas) * 100).toFixed(1),
-        pctTiempo: +((v.tiempo / totalTiempo) * 100).toFixed(1),
-      }))
-      .sort((a, b) => b.tareas - a.tareas);
-  };
-
   const contenidoPrincipalMetrics = useMemo(
-    () => groupBy("contenidoPrincipal"),
+    () => groupBy("contenidoPrincipal", work),
     [work]
   );
 
   const contenidoSecundarioMetrics = useMemo(
-    () => groupBy("contenidoSecundario"),
+    () => groupBy("contenidoSecundario", work),
     [work]
   );
 
   const faseMetrics = useMemo(() => groupBy("fase", filtered), [filtered]);
 
-  const tipoMetrics = useMemo(() => groupBy("tipo"), [work]);
+  const tipoMetrics = useMemo(() => groupBy("tipo", work), [work]);
 
-  const formatoMetrics = useMemo(() => groupBy("formato"), [work]);
+  const formatoMetrics = useMemo(() => groupBy("formato", work), [work]);
 
-  const analisisMetrics = useMemo(() => groupBy("analisisPost"), [work]);
+  const analisisMetrics = useMemo(() => groupBy("analisisPost", work), [work]);
 
   const sortedByMetric = (
     data: ReturnType<typeof groupBy>,
     key: ContentMetricKey
-  ) => [...data].sort((a, b) => (b as any)[key] - (a as any)[key]);
+  ) => [...data].sort((a, b) => b[key] - a[key]);
 
   /* ---------------- cognitive ---------------- */
 
@@ -1262,7 +1277,7 @@ export default function Page() {
   /* ---------------- insights ---------------- */
 
   const insights = useMemo(() => {
-    const out: { icon: any; text: string; tone: string }[] = [];
+    const out: { icon: LucideIcon; text: string; tone: string }[] = [];
 
     if (!filtered.length) return out;
 
@@ -1362,18 +1377,13 @@ export default function Page() {
     [micros, rows]
   );
 
-  const uniqueSorted = (key: keyof Row) =>
-    [
-      ...new Set(rows.map((r) => String(r[key] ?? "").trim()).filter(Boolean)),
-    ].sort();
-
   const contenidoPrincipalOptions = useMemo(
-    () => uniqueSorted("contenidoPrincipal"),
+    () => uniqueSorted(rows, "contenidoPrincipal"),
     [rows]
   );
 
-  const tipoOptions = useMemo(() => uniqueSorted("tipo"), [rows]);
-  const faseOptions = useMemo(() => uniqueSorted("fase"), [rows]);
+  const tipoOptions = useMemo(() => uniqueSorted(rows, "tipo"), [rows]);
+  const faseOptions = useMemo(() => uniqueSorted(rows, "fase"), [rows]);
 
   const selectedMicroStat =
     micro === "ALL"
@@ -1479,7 +1489,7 @@ export default function Page() {
                 <button
                   onClick={() => setInformeAbierto(true)}
                   className="inline-flex items-center gap-2 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
-                  title="Previa o post del partido: resumen en dos diapositivas e informe completo, por correo"
+                  title="Previa o post del partido: resumen en tres diapositivas (con los duelos y el rival de un vistazo) e informe completo, por correo"
                 >
                   <FileText className="h-4 w-4" />
                   Informe del partido
@@ -2107,7 +2117,7 @@ export default function Page() {
                               outerRadius={100}
                               paddingAngle={2}
                               cursor="pointer"
-                              onClick={(d: any) => {
+                              onClick={(d) => {
                                 const name = d?.payload?.name ?? d?.name;
                                 if (name) setFaseFilter(name);
                               }}
@@ -2338,7 +2348,7 @@ export default function Page() {
 
                         <Tooltip
                           cursor={{ strokeDasharray: "3 3" }}
-                          content={({ active, payload }: any) => {
+                          content={({ active, payload }) => {
                             if (!active || !payload?.length) return null;
 
                             const d = payload[0].payload;
@@ -2589,7 +2599,7 @@ export default function Page() {
                             radius={[0, 10, 10, 0]}
                             barSize={16}
                             cursor="pointer"
-                            onClick={(d: any) => {
+                            onClick={(d) => {
                               const name = d?.payload?.name;
                               if (name)
                                 setContenidoPrincipalFilter(
@@ -2624,7 +2634,7 @@ export default function Page() {
                             <LabelList
                               dataKey={contentMetric}
                               position="right"
-                              formatter={(v: any) =>
+                              formatter={(v) =>
                                 typeof v === "number"
                                   ? contentMetric === "eval"
                                     ? v.toFixed(1)
@@ -2710,7 +2720,7 @@ export default function Page() {
                             <LabelList
                               dataKey={contentMetric}
                               position="right"
-                              formatter={(v: any) =>
+                              formatter={(v) =>
                                 typeof v === "number"
                                   ? contentMetric === "eval"
                                     ? v.toFixed(1)
@@ -2892,7 +2902,7 @@ export default function Page() {
                             radius={[0, 10, 10, 0]}
                             barSize={isMobile ? 15 : 17}
                             cursor="pointer"
-                            onClick={(d: any) => {
+                            onClick={(d) => {
                               const name = d?.payload?.name;
                               if (name)
                                 setTipoFilter(
@@ -2918,7 +2928,7 @@ export default function Page() {
                             <LabelList
                               dataKey="eval"
                               position="right"
-                              formatter={(v: any) =>
+                              formatter={(v) =>
                                 typeof v === "number" ? v.toFixed(1) : v ?? ""
                               }
                               style={{
@@ -3175,7 +3185,7 @@ export default function Page() {
 
                         <Tooltip
                           cursor={{ strokeDasharray: "3 3" }}
-                          content={({ active, payload }: any) => {
+                          content={({ active, payload }) => {
                             if (!active || !payload?.length) return null;
 
                             const d = payload[0].payload;
@@ -3601,7 +3611,21 @@ export default function Page() {
 /* UI pieces                                                           */
 /* ------------------------------------------------------------------ */
 
-function Chart({ children, height }: any) {
+/** Lo que Recharts le pasa al contenido del tooltip, en lo que aquí se usa. */
+type EntradaTooltip = {
+  name?: string | number;
+  value?: ReactNode;
+  color?: string;
+  payload?: Record<string, ReactNode>;
+};
+
+function Chart({
+  children,
+  height,
+}: {
+  children: ReactNode;
+  height?: number;
+}) {
   return (
     <div className="w-full" style={{ height: height ?? 380 }}>
       <ResponsiveContainer width="100%" height="100%">
@@ -3611,7 +3635,17 @@ function Chart({ children, height }: any) {
   );
 }
 
-function Panel({ title, subtitle, action, children }: any) {
+function Panel({
+  title,
+  subtitle,
+  action,
+  children,
+}: {
+  title: ReactNode;
+  subtitle?: ReactNode;
+  action?: ReactNode;
+  children?: ReactNode;
+}) {
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-6 shadow-xl">
       <div className="mb-5 flex items-start justify-between gap-3">
@@ -3642,7 +3676,16 @@ function StatCard({
   delta,
   deltaSuffix = "",
   decimals = 0,
-}: any) {
+}: {
+  icon: LucideIcon;
+  title: string;
+  value: ReactNode;
+  hint?: string;
+  accent?: string;
+  delta?: number;
+  deltaSuffix?: string;
+  decimals?: number;
+}) {
   const showDelta = typeof delta === "number" && delta !== 0;
 
   const DeltaIcon = !showDelta ? Minus : delta > 0 ? ArrowUp : ArrowDown;
@@ -3688,7 +3731,17 @@ function StatCard({
   );
 }
 
-function Select({ value, onChange, label, options }: any) {
+function Select({
+  value,
+  onChange,
+  label,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+  options: { value: string; label: string }[];
+}) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-[10px] uppercase tracking-wider text-white/35">
@@ -3700,7 +3753,7 @@ function Select({ value, onChange, label, options }: any) {
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-2xl border border-white/10 bg-[#11161C] px-3.5 py-2.5 text-sm text-white outline-none focus:border-[#C8A96B]/50"
       >
-        {options.map((o: any) => (
+        {options.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>
@@ -3718,7 +3771,15 @@ const CHIP_STYLES: Record<string, string> = {
   orange: "border-orange-400/40 bg-orange-400/10 text-orange-300",
 };
 
-function FilterChip({ label, color, onClear }: any) {
+function FilterChip({
+  label,
+  color,
+  onClear,
+}: {
+  label: ReactNode;
+  color: string;
+  onClear: () => void;
+}) {
   return (
     <button
       onClick={onClear}
@@ -3729,7 +3790,21 @@ function FilterChip({ label, color, onClear }: any) {
   );
 }
 
-function Th({ label, k, sortKey, sortDir, onSort, align = "left" }: any) {
+function Th({
+  label,
+  k,
+  sortKey,
+  sortDir,
+  onSort,
+  align = "left",
+}: {
+  label: string;
+  k: keyof Row;
+  sortKey: keyof Row;
+  sortDir: "asc" | "desc";
+  onSort: (key: keyof Row) => void;
+  align?: "left" | "right" | "center";
+}) {
   const active = sortKey === k;
 
   return (
@@ -3751,10 +3826,20 @@ function Th({ label, k, sortKey, sortDir, onSort, align = "left" }: any) {
   );
 }
 
-function DarkTooltip({ active, payload, label, rows }: any) {
+function DarkTooltip({
+  active,
+  payload,
+  label,
+  rows,
+}: {
+  active?: boolean;
+  payload?: EntradaTooltip[];
+  label?: ReactNode;
+  rows?: [string, string][];
+}) {
   if (!active || !payload?.length) return null;
 
-  const d = payload[0].payload ?? {};
+  const d: Record<string, ReactNode> = payload[0].payload ?? {};
 
   return (
     <div className="rounded-xl border border-white/10 bg-[#141A22] p-3 shadow-2xl">
@@ -3763,7 +3848,7 @@ function DarkTooltip({ active, payload, label, rows }: any) {
       )}
 
       <div className="space-y-0.5">
-        {payload.map((p: any, i: number) => (
+        {payload.map((p, i) => (
           <p
             key={i}
             className="text-xs"
@@ -3773,7 +3858,7 @@ function DarkTooltip({ active, payload, label, rows }: any) {
           </p>
         ))}
 
-        {rows?.map(([rowLabel, key]: [string, string]) =>
+        {rows?.map(([rowLabel, key]) =>
           d[key] !== undefined && d[key] !== "" ? (
             <p key={key} className="text-xs text-white/50">
               {rowLabel}: <span className="font-semibold">{d[key]}</span>
@@ -3803,7 +3888,30 @@ function CogCell({ value, max }: { value: number; max: number }) {
   );
 }
 
-function FragmentRow({ row, max, selected, onSelectMicro, onSelectCell }: any) {
+function FragmentRow({
+  row,
+  max,
+  selected,
+  onSelectMicro,
+  onSelectCell,
+}: {
+  row: {
+    micro: number;
+    rival: string;
+    values: {
+      md: string;
+      carga: number;
+      cog: number;
+      tiempo: number;
+      tareas: number;
+      eval: number;
+    }[];
+  };
+  max: number;
+  selected: boolean;
+  onSelectMicro: () => void;
+  onSelectCell: (md: string) => void;
+}) {
   return (
     <>
       <button
@@ -3821,7 +3929,7 @@ function FragmentRow({ row, max, selected, onSelectMicro, onSelectCell }: any) {
         </span>
       </button>
 
-      {row.values.map((v: any) => {
+      {row.values.map((v) => {
         const t = max ? v.carga / max : 0;
 
         return (

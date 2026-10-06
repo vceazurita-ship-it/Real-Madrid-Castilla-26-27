@@ -28,7 +28,6 @@ import {
   QUINIELA_VACIA,
   comoLaVe,
   type DocumentoQuiniela,
-  type JornadaQuiniela,
 } from "@/lib/quiniela/modelo";
 import { COOKIE, leeSesion } from "@/lib/quiniela/sesion";
 

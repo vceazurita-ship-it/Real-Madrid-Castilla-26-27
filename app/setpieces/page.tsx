@@ -405,9 +405,6 @@ const [rematadorFilter, setRematadorFilter] =
 const [resultadoFilter, setResultadoFilter] =
   useState("ALL");
 
-const [tipoAccionChartFilter, setTipoAccionChartFilter] =
-  useState("ALL");
-
 /*
 | Los tres filtros de contexto, los mismos en las cinco páginas de ABP.
 |
@@ -826,45 +823,6 @@ const metrics = {
       }));
     }, [filasSacador]);
 
-  const tipoRemateData =
-    useMemo(() => {
-      const grouped:
-        Record<
-          string,
-          number
-        > = {};
-
-      filtered
-        .filter(
-          (r) =>
-            r.tipoRemate &&
-            ![
-              "",
-              "No Remate",
-              "No aplica",
-            ].includes(
-              r.tipoRemate
-            )
-        )
-        .forEach((r) => {
-          grouped[
-            r.tipoRemate
-          ] =
-            (grouped[
-              r.tipoRemate
-            ] || 0) + r.xg;
-        });
-
-      return Object.entries(
-        grouped
-      ).map(
-        ([name, total]) => ({
-          name,
-          total:
-            +total.toFixed(2),
-        })
-      );
-    }, [filtered]);
   const xgByTipoAccion =
   useMemo(() => {
     const grouped: Record<
@@ -1047,32 +1005,6 @@ const xgZonaCaida =
           b.total - a.total
       );
   }, [filasZonaCaida]);
-
-const abpFlow = useMemo(() => {
-  const nodes: Record<string, number> = {};
-  const links: Record<string, number> = {};
-
-  filtered.forEach((r) => {
-    const chain = [
-      r.zonaCaida,
-      r.tipoAccion,
-      r.tipoCarrera,
-      r.zonaRemate,
-    ].filter(Boolean) as string[];
-
-    chain.forEach((k) => {
-      nodes[k] = (nodes[k] || 0) + 1;
-    });
-
-    for (let i = 0; i < chain.length - 1; i++) {
-      const key = `${chain[i]}->${chain[i + 1]}`;
-      links[key] = (links[key] || 0) + 1;
-    }
-  });
-
-  return { nodes, links };
-}, [filtered]);
-
 
 // Desglose completo del resultado final (Gol / Ocasión / ABP / Nada / Transición Rival)
 const resultadoData = useMemo(() => {
