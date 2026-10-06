@@ -5,6 +5,9 @@ import {
   olvidaLectura,
 } from "@/lib/appsScript";
 
+/* El refresco de la copia va por detrás con `after` y el Apps Script en frío pasa del minuto: 300 s como /api/rivals. */
+export const maxDuration = 300;
+
 /**
  * Tareas con alerta: listar, guardar y borrar.
  *

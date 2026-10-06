@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { descargarJson } from "@/lib/save-guard/exportar";
+import { mismoDocumento } from "@/lib/igualdad";
 
 export type DocStatus = "loading" | "saved" | "saving" | "offline" | "error";
 
@@ -51,10 +52,25 @@ const REINTENTO_MAX = 60000;
  */
 const TOPE_ENVIO_AL_VUELO = 60_000;
 
+/**
+ * Lo último que este navegador ha mandado de cada documento, por clave
+ * (06/10/2026).
+ *
+ * Al esconder la pestaña salen dos envíos: el de despedida (sin versión, que
+ * el servidor escribe sin preguntar) y el normal (con versión). Si el de
+ * despedida llega antes, el normal choca con él: el servidor ve otra versión y
+ * contesta «alguien ha guardado esto»… y ese alguien era esta misma pantalla.
+ * Con esto se reconoce el caso: si lo que hay en el servidor es lo último que
+ * mandamos nosotros, no es un conflicto, es nuestra propia versión.
+ */
+const ultimoEnviado = new Map<string, unknown>();
+
 interface Trabajo<T> {
   key: string;
   kind: string;
   data: T;
+  /** Ya se adoptó una vez nuestra propia versión del servidor: si vuelve a chocar, es de verdad otro. */
+  adoptado?: boolean;
   /** Cuándo se escribió, para poder ordenar los avisos. */
   at: string;
   /**
@@ -123,6 +139,8 @@ async function envia<T>(
   trabajo: Trabajo<T>,
   opciones: { keepalive?: boolean; forzar?: boolean } = {},
 ): Promise<{ updatedAt: string | null; missingTable: boolean }> {
+  ultimoEnviado.set(trabajo.key, trabajo.data);
+
   const response = await fetch("/api/docs", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -201,6 +219,8 @@ function despide<T>(trabajo: Trabajo<T>): boolean {
   });
 
   if (cuerpo.length > TOPE_ENVIO_AL_VUELO) return false;
+
+  ultimoEnviado.set(trabajo.key, trabajo.data);
 
   try {
     return navigator.sendBeacon(
@@ -395,6 +415,40 @@ export function useRemoteDoc<T>({
       | quien está delante, que es el único que sabe cuál de las dos versiones
       | vale.
       */
+      /*
+      | ¿«Alguien» somos nosotros? Si lo que hay en el servidor es exactamente
+      | lo último que mandó esta pantalla (el envío de despedida ganó la
+      | carrera), se adopta esa versión y se reintenta sin molestar a nadie.
+      | Una sola vez por trabajo: si vuelve a chocar, sí es otro.
+      */
+      if (
+        error instanceof ConflictoDeVersion &&
+        !trabajo.adoptado &&
+        mismoDocumento(error.actual, ultimoEnviado.get(trabajo.key))
+      ) {
+        versionServidor.current = error.updatedAt;
+        setLastSavedAt(error.updatedAt);
+
+        const sigue = pendiente.current;
+
+        if (sigue && sigue.key === trabajo.key) {
+          sigue.basadaEn = error.updatedAt;
+          sigue.adoptado = true;
+          escribeLocal(claveCola(sigue.key), sigue);
+        }
+
+        /* Si lo pendiente ya es justo eso, está guardado: se vacía la cola. */
+        if (sigue === trabajo && mismoDocumento(error.actual, trabajo.data)) {
+          pendiente.current = null;
+          borraLocal(claveCola(trabajo.key));
+          setSinGuardar(false);
+          setStatus("saved");
+          return true;
+        }
+
+        return (await flushRef.current?.()) ?? false;
+      }
+
       if (error instanceof ConflictoDeVersion) {
         setStatus("error");
         setSinGuardar(true);

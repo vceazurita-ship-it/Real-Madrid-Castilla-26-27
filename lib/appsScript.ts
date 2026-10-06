@@ -14,6 +14,7 @@
  */
 
 import { explicaErrorScript } from "@/lib/appsScriptErrors";
+import { after } from "next/server";
 import { readDoc, writeDoc } from "@/lib/docStore";
 
 /** El despliegue principal (hoja RIVALES): el mismo que `lib/hojaRivales.ts`. */
@@ -229,7 +230,8 @@ export async function leeDeLaHoja(
   }
 
   if (guardada) {
-    void pregunta(accion, datos).catch(() => undefined);
+    /* Con `after`: un `void` suelto se congela con la función y la copia no se renovaba nunca. */
+    after(() => pregunta(accion, datos).catch(() => undefined));
 
     return Response.json(guardada.data);
   }
@@ -241,7 +243,8 @@ export async function leeDeLaHoja(
     if (data && data.data != null && Date.now() - data.hecha < VIDA_GUARDADA) {
       enMemoria.set(accion, data);
 
-      void pregunta(accion, datos).catch(() => undefined);
+      /* Con `after`: un `void` suelto se congela con la función y la copia no se renovaba nunca. */
+    after(() => pregunta(accion, datos).catch(() => undefined));
 
       return Response.json(data.data);
     }

@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
+import { mismoDocumento } from "@/lib/igualdad";
+
 /**
  * Almacén genérico de documentos JSON (tabla `app_documents`).
  *
@@ -113,6 +115,18 @@ export async function writeDoc(
       (enServidor != null &&
         esperado != null &&
         Date.parse(enServidor) === Date.parse(esperado));
+
+    /*
+    | Si lo que llega es EXACTAMENTE lo que ya hay, no hay nada que proteger:
+    | es la misma pantalla que ya lo escribió (el envío de despedida al
+    | esconder la pestaña sale sin versión y gana la carrera al guardado
+    | normal, 06/10/2026). Antes eso era un conflicto falso —«alguien ha
+    | guardado esto»— y el documento se quedaba en error sin que nadie más
+    | hubiera tocado nada. Se contesta como guardado, sin escribir.
+    */
+    if (!mismoMomento && mismoDocumento(previo.data, data)) {
+      return { data, updatedAt: enServidor };
+    }
 
     if (!mismoMomento) {
       return {

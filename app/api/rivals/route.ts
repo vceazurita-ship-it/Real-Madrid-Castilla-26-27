@@ -89,6 +89,15 @@ let generacion = 0;
 */
 const VIDA_GUARDADA = 3 * 24 * 60 * 60_000;
 
+/*
+| 300 s, no los 60 por defecto (06/10/2026). El arranque en frío del Apps
+| Script pasa a veces del minuto: con 60 s la función se cortaba —medido:
+| `seguimiento` 500 a los 60,3 s, `jugadores` 500 a los 31 s— y, peor, el
+| refresco por detrás (`after`) también moría a medias, así que la copia de
+| Supabase nunca se renovaba. Otras rutas ya van a 300 s en este plan.
+*/
+export const maxDuration = 300;
+
 const PREFIJO_GUARDADO = "cache:apps-script:";
 
 const TIPO_GUARDADO = "cache-apps-script";
@@ -102,6 +111,8 @@ const SE_GUARDAN = new Set([
   "microciclo",
   "condicional",
   "alineaciones",
+  /* 06/10/2026: sin copia de fuera, cada servidor nuevo esperaba a Google (15 s y error, medido). Su pantalla relee con `fresco=1` tras guardar. */
+  "getIdentidadPosicional",
 ]);
 
 function seGuarda(consulta: string) {
@@ -129,7 +140,7 @@ function guardaFuera(consulta: string, data: unknown) {
 /** La copia de Supabase, si la hay y todavía vale. */
 async function buscaFuera(
   consulta: string,
-  { aceptaSucia = false } = {},
+  { aceptaSucia = false, aceptaVieja = false } = {},
 ): Promise<Guardado | null> {
   if (!seGuarda(consulta)) return null;
 
@@ -140,7 +151,7 @@ async function buscaFuera(
 
     if (data.sucia && !aceptaSucia) return null;
 
-    if (Date.now() - data.hecha > VIDA_GUARDADA) return null;
+    if (!aceptaVieja && Date.now() - data.hecha > VIDA_GUARDADA) return null;
 
     return data;
   } catch {
@@ -307,15 +318,32 @@ async function lee(consulta: string, fresco: boolean, rancia = false) {
   | servidor recién levantado— de los treinta a setenta segundos del arranque
   | en frío. Se contesta con ella y se pide la nueva por detrás.
   */
-  const deFuera = await buscaFuera(consulta, { aceptaSucia: rancia });
+  /*
+  | LA COPIA «SUCIA» TAMBIÉN SE SIRVE (06/10/2026).
+  |
+  | Cualquier guardado en la hoja —y el autoguardado del plan de partido
+  | guarda cada pocos segundos— marcaba sucias TODAS las copias, y para el
+  | resto una sucia era «no hay copia»: a esperar los 30-70 s de Google, que a
+  | veces acababan en error. Medido en la web: plantillas rivales 38-57 s y
+  | 500, la portada 60 s y 500. Ahora la sucia se contesta al momento y se
+  | renueva por detrás, como una copia rancia más; las pantallas que necesitan
+  | la verdad justo después de guardar ya piden `fresco=1`, que no pasa por
+  | aquí.
+  */
+  const deFuera = await buscaFuera(consulta, { aceptaSucia: true });
 
   if (deFuera) {
     /*
-    | Una sucia no entra en la memoria —la verían los que no la aceptan— ni
-    | se renueva desde aquí: quien la acepta pide justo después `fresco=1`,
-    | y esa lectura ya deja la copia limpia.
+    | Una sucia no entra en la memoria —los demás tendrían una vieja sin saber
+    | que lo es—; se contesta con ella y se pide la buena por detrás, que al
+    | llegar deja la copia limpia. Quien pidió `rancia=1` ya hace su propio
+    | `fresco=1` después: no hace falta pedirla dos veces.
     */
-    if (deFuera.sucia) return deFuera.data;
+    if (deFuera.sucia) {
+      if (!rancia) renueva(consulta);
+
+      return deFuera.data;
+    }
 
     cache.set(consulta, deFuera);
 
@@ -337,6 +365,11 @@ async function lee(consulta: string, fresco: boolean, rancia = false) {
     return await pide(consulta);
   } catch (error) {
     if (guardado) return guardado.data;
+
+    /* Ni en memoria: la de Supabase, aunque pase de los tres días. */
+    const deEmergencia = await buscaFuera(consulta, { aceptaSucia: true, aceptaVieja: true });
+
+    if (deEmergencia) return deEmergencia.data;
 
     throw error;
   }
@@ -441,6 +474,8 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error: "Error cargando datos de rivales",
+        /* El motivo, para poder diagnosticarlo sin los registros de Vercel (06/10/2026). */
+        motivo: error instanceof Error ? error.message.slice(0, 160) : String(error).slice(0, 160),
       },
       { status: 500 }
     );

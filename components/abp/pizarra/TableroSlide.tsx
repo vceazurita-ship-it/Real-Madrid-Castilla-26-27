@@ -156,7 +156,7 @@ function Ficha({
 
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={player?.foto ?? "/players/placeholder.png"}
+        src={player?.foto ?? "/players/placeholder.webp"}
         alt={player?.apodo ?? ""}
         draggable={false}
         className="relative block h-[120px] w-[96px] object-contain object-bottom"
