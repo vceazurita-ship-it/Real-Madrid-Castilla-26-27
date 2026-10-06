@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, RotateCcw, Swords } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleDot, Loader2, RotateCcw, Swords } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -190,6 +190,31 @@ export default function DuelosPage() {
 
   const duelos = useMemo(() => mideDuelos(onceNuestro, onceSuyo, referencias), [onceNuestro, onceSuyo, referencias]);
 
+  /*
+  | QUIÉN TIENE EL BALÓN (06/10/2026). Se puede mirar cada duelo con el balón
+  | nuestro, con el suyo o con los dos: el campo, las cajas y las tarjetas se
+  | pintan con la cifra de ese momento, y cada bloque dice arriba quién lo tiene.
+  */
+  const [modo, setModo] = useState<Modo>("ambos");
+
+  const duelosVistos = useMemo(() => {
+    const enModo = (d: ResultadoDuelo): ResultadoDuelo => {
+      const parejas = d.parejas.map(enModo);
+      if (modo === "ambos") return { ...d, parejas };
+      const balance = modo === "nuestro" ? d.conBalon : d.sinBalon;
+      const veredicto: Veredicto =
+        !d.nuestros.length || !d.suyos.length || balance === null
+          ? "sin-datos"
+          : balance >= UMBRAL_DUELO
+            ? "ventaja"
+            : balance <= -UMBRAL_DUELO
+              ? "desventaja"
+              : "parejo";
+      return { ...d, balance, veredicto, parejas };
+    };
+    return duelos.map(enModo);
+  }, [duelos, modo]);
+
   const cambia = (lado: "nuestro" | "suyo", hueco: string, clave: string) =>
     setGuardado((actual) => {
       const n = normalizaDuelos(actual);
@@ -256,6 +281,27 @@ export default function DuelosPage() {
                   {new Date(proximo.cuando).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
                 </span>
               )}
+              <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-0.5" role="group" aria-label="Quién tiene el balón">
+                {(
+                  [
+                    { key: "nuestro", label: "Balón: Castilla", color: "#C8A96B" },
+                    { key: "suyo", label: `Balón: ${equipoVisto || "rival"}`, color: "#F29A8C" },
+                    { key: "ambos", label: "Los dos", color: "#FFFFFF" },
+                  ] as const
+                ).map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    aria-pressed={modo === o.key}
+                    onClick={() => setModo(o.key)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${modo === o.key ? "bg-white/10" : "text-white/50 hover:text-white"}`}
+                    style={modo === o.key ? { color: o.color } : undefined}
+                  >
+                    <CircleDot size={12} />
+                    {o.label}
+                  </button>
+                ))}
+              </div>
               <span className="ml-auto flex items-center gap-3 text-xs">
                 <span style={{ color: MEJOR }} title="Duelos en los que, con el balón nuestro, les sacamos ventaja">
                   ● {atacar.length} para atacar
@@ -284,13 +330,18 @@ export default function DuelosPage() {
                 <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <p className="text-sm font-semibold">El campo: nosotros atacamos hacia la derecha</p>
+                      <p className="text-sm font-semibold">
+                        El campo: nosotros atacamos hacia la derecha
+                        <span className="ml-2 text-xs font-normal" style={{ color: modo === "nuestro" ? "#C8A96B" : modo === "suyo" ? "#F29A8C" : "rgba(255,255,255,0.45)" }}>
+                          {modo === "nuestro" ? "· con el balón nuestro" : modo === "suyo" ? `· con el balón de ${equipoVisto}` : "· balance de los dos momentos"}
+                        </span>
+                      </p>
                       <p className="text-[11px] text-white/40">Pincha en un duelo para verlo abajo</p>
                     </div>
                     <Campo
                       once={onceNuestro}
                       suyo={onceSuyo}
-                      duelos={duelos}
+                      duelos={duelosVistos}
                       elegido={elegido}
                       onElige={(c) => {
                         setElegido(c);
@@ -313,8 +364,8 @@ export default function DuelosPage() {
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                    <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" lista={atacar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo claramente a favor." onElige={setElegido} />
-                    <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" lista={vigilar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo claramente en contra." onElige={setElegido} />
+                    {modo !== "suyo" && <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" lista={atacar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo claramente a favor." onElige={setElegido} />}
+                    {modo !== "nuestro" && <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" lista={vigilar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo claramente en contra." onElige={setElegido} />}
                   </div>
                 </div>
 
@@ -334,10 +385,10 @@ export default function DuelosPage() {
                   <div key={z.key} className="mt-8">
                     <p className="mb-3 text-[11px] uppercase tracking-[0.25em] text-white/40">{z.label}</p>
                     <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-                      {duelos
+                      {duelosVistos
                         .filter((d) => d.def.zona === z.key)
                         .map((d) => (
-                          <Tarjeta key={d.def.clave} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} />
+                          <Tarjeta key={d.def.clave} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} />
                         ))}
                     </div>
                   </div>
@@ -674,8 +725,140 @@ function Alineaciones({
 /*  UN DUELO                                                           */
 /* ------------------------------------------------------------------ */
 
-function Tarjeta({ d, activo, onElige, equipo }: { d: ResultadoDuelo; activo: boolean; onElige: () => void; equipo: string }) {
+/** Qué se mira: con el balón nuestro, con el suyo, o los dos. */
+type Modo = "nuestro" | "suyo" | "ambos";
+
+const nombresDe = (lista: JugadorDuelo[]) => lista.map((j) => apellido(j.nombre)).join(" y ") || "—";
+
+const verbo = (lista: JugadorDuelo[], singular: string) => (lista.length > 1 ? `${singular}n` : singular);
+
+/**
+ * Los bloques de un duelo (06/10/2026): cada uno dice arriba, sin tener que
+ * pensarlo, QUIÉN TIENE EL BALÓN y quién ataca y quién defiende, y cada
+ * enfrentamiento dice quién lo gana.
+ */
+function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
+  const visibles = d.bloques.filter(
+    (b) => modo === "ambos" || b.sentido === "aire" || (modo === "nuestro" ? b.sentido === "con" : b.sentido === "sin"),
+  );
+
+  return (
+    <div className="space-y-4">
+      {visibles.map((b) => {
+        const nuestroBalon = b.sentido === "con";
+        const aire = b.sentido === "aire";
+        const fondo = aire ? "rgba(255,255,255,0.08)" : nuestroBalon ? "rgba(200,169,107,0.16)" : "rgba(232,106,90,0.16)";
+        const tono = aire ? "rgba(255,255,255,0.7)" : nuestroBalon ? "#C8A96B" : "#F29A8C";
+
+        return (
+          <div key={b.sentido} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider" style={{ background: fondo, color: tono }}>
+                <CircleDot size={11} />
+                {aire ? "Balón dividido · por arriba" : nuestroBalon ? "Balón: Castilla" : `Balón: ${equipo}`}
+              </span>
+              {b.balance !== null && (
+                <span className="text-[11px] font-semibold tabular-nums" style={{ color: COLOR[b.veredicto] }}>
+                  {ROTULO_CORTO[b.veredicto]} {b.balance > 0 ? "+" : ""}
+                  {b.balance}
+                </span>
+              )}
+            </div>
+            {!aire && (
+              <p className="mt-1.5 text-[11px] text-white/55">
+                {nuestroBalon ? (
+                  <>
+                    <b className="text-[#C8A96B]">{nombresDe(d.nuestros)}</b> {verbo(d.nuestros, "ataca")} con el balón ·{" "}
+                    <b className="text-white/85">{nombresDe(d.suyos)}</b> {verbo(d.suyos, "defiende")}
+                  </>
+                ) : (
+                  <>
+                    <b className="text-white/85">{nombresDe(d.suyos)}</b> {verbo(d.suyos, "ataca")} con el balón ·{" "}
+                    <b className="text-[#C8A96B]">{nombresDe(d.nuestros)}</b> {verbo(d.nuestros, "defiende")}
+                  </>
+                )}
+              </p>
+            )}
+
+            <div className="mt-2 flex justify-between text-[9.5px] font-semibold uppercase tracking-wider text-white/35">
+              <span>Castilla · {aire ? "por arriba" : nuestroBalon ? "con balón" : "sin balón"}</span>
+              <span>{equipo} · {aire ? "por arriba" : nuestroBalon ? "sin balón" : "con balón"}</span>
+            </div>
+
+            <div className="mt-1.5 space-y-2.5">
+              {b.facetas.map((f) => {
+                const gana =
+                  f.veredicto === "ventaja"
+                    ? { texto: `gana ${nombresDe(d.nuestros)}`, color: MEJOR }
+                    : f.veredicto === "desventaja"
+                      ? { texto: `gana ${nombresDe(d.suyos)}`, color: PEOR }
+                      : f.veredicto === "parejo"
+                        ? { texto: "igualado", color: "rgba(255,255,255,0.45)" }
+                        : { texto: "sin datos", color: "rgba(255,255,255,0.3)" };
+
+                return (
+                  <div key={f.titulo} title={`${f.explica}\n${f.frase}`}>
+                    <div className="flex items-baseline justify-between gap-2 text-[11px]">
+                      <span className="w-10 tabular-nums" style={{ color: f.nuestro === null ? tinta(0.3) : ORO }}>
+                        {f.nuestro === null ? "—" : `P${f.nuestro}`}
+                      </span>
+                      <span className="min-w-0 flex-1 text-center">
+                        <span className="text-white/80">{f.titulo}</span>
+                        <span className="ml-1.5 text-[10px] font-semibold" style={{ color: gana.color }}>
+                          {gana.texto}
+                        </span>
+                      </span>
+                      <span className="w-10 text-right tabular-nums text-white/70">{f.suyo === null ? "—" : `P${f.suyo}`}</span>
+                    </div>
+                    {f.sentido !== "aire" && (
+                      <div className="flex justify-between gap-2 text-[9.5px] text-white/35">
+                        <span className="truncate">{rotuloColumna(f.columnaNuestra)}</span>
+                        <span className="truncate text-right">{rotuloColumna(f.columnaSuya)}</span>
+                      </div>
+                    )}
+                    <div className="mt-1 flex h-1.5 gap-1">
+                      <div className="flex flex-1 justify-end overflow-hidden rounded-l-full bg-white/[0.06]">
+                        <div className="h-full" style={{ width: `${f.nuestro ?? 0}%`, background: f.veredicto === "ventaja" ? MEJOR : ORO }} />
+                      </div>
+                      <div className="flex-1 overflow-hidden rounded-r-full bg-white/[0.06]">
+                        <div className="h-full" style={{ width: `${f.suyo ?? 0}%`, background: f.veredicto === "desventaja" ? PEOR : "rgba(255,255,255,0.6)" }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const ROTULO_CORTO: Record<Veredicto, string> = {
+  ventaja: "A favor",
+  desventaja: "En contra",
+  parejo: "Parejo",
+  "sin-datos": "Sin datos",
+};
+
+function Tarjeta({
+  d,
+  activo,
+  onElige,
+  equipo,
+  modo,
+}: {
+  d: ResultadoDuelo;
+  activo: boolean;
+  onElige: () => void;
+  equipo: string;
+  modo: Modo;
+}) {
+  const [verParejas, setVerParejas] = useState(false);
+  const [pareja, setPareja] = useState<number | null>(null);
   const color = COLOR[d.veredicto];
+
   const gente = (lista: JugadorDuelo[], nuestro: boolean) => (
     <div className={`flex min-w-0 flex-1 flex-col gap-1.5 ${nuestro ? "items-start" : "items-end text-right"}`}>
       {lista.length === 0 && <span className="text-xs text-white/35">Sin nadie en el hueco</span>}
@@ -694,6 +877,9 @@ function Tarjeta({ d, activo, onElige, equipo }: { d: ResultadoDuelo; activo: bo
       ))}
     </div>
   );
+
+  /* La cifra de una pareja en lo que se está mirando. */
+  const cifra = (p: ResultadoDuelo) => (modo === "nuestro" ? p.conBalon : modo === "suyo" ? p.sinBalon : p.balance);
 
   return (
     <div
@@ -719,53 +905,65 @@ function Tarjeta({ d, activo, onElige, equipo }: { d: ResultadoDuelo; activo: bo
         {gente(d.suyos, false)}
       </div>
 
-      <div className="mt-4 space-y-4">
-        {d.bloques.map((b) => (
-          <div key={b.sentido}>
-            <div className="mb-1.5 flex items-baseline justify-between gap-2 border-b border-white/[0.06] pb-1">
-              <p className="text-[10px] uppercase tracking-wider text-white/45">{b.titulo}</p>
-              {b.balance !== null && (
-                <b className="shrink-0 text-[11px] tabular-nums" style={{ color: COLOR[b.veredicto] }}>
-                  {b.balance > 0 ? "+" : ""}
-                  {b.balance}
-                </b>
-              )}
+      <div className="mt-4">{bloquesDe(d, modo, equipo)}</div>
+
+      {d.altura && (
+        <p className="mt-3 text-[11px] text-white/45">
+          Altura media: <span className="text-[#C8A96B]">{d.altura.nuestra} cm</span> frente a {d.altura.suya} cm de {equipo}.
+        </p>
+      )}
+
+      {/* ---- uno contra uno ---- */}
+      {d.parejas.length > 0 && (
+        <div className="mt-3 rounded-xl border border-white/[0.08] bg-white/[0.02]" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            onClick={() => {
+              setVerParejas((v) => !v);
+              setPareja(null);
+            }}
+            className="flex w-full items-center justify-between px-3 py-2 text-left text-[12px] font-semibold text-white/75"
+          >
+            <span>
+              Uno contra uno <span className="font-normal text-white/40">({d.parejas.length} parejas)</span>
+            </span>
+            {verParejas ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
+          {verParejas && (
+            <div className="space-y-1 border-t border-white/[0.06] p-2">
+              {d.parejas.map((p, i) => {
+                const v = cifra(p);
+                const c = COLOR[p.veredicto];
+                return (
+                  <div key={i}>
+                    <button
+                      type="button"
+                      onClick={() => setPareja((x) => (x === i ? null : i))}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition ${pareja === i ? "bg-white/[0.07]" : "hover:bg-white/[0.04]"}`}
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        <b className="text-[#C8A96B]">{nombresDe(p.nuestros)}</b> <span className="text-white/35">vs</span> <b className="text-white/85">{nombresDe(p.suyos)}</b>
+                      </span>
+                      {modo === "ambos" && (
+                        <span className="shrink-0 text-[10px] tabular-nums text-white/45">
+                          con balón {p.conBalon === null ? "—" : `${p.conBalon > 0 ? "+" : ""}${p.conBalon}`} · sin balón{" "}
+                          {p.sinBalon === null ? "—" : `${p.sinBalon > 0 ? "+" : ""}${p.sinBalon}`}
+                        </span>
+                      )}
+                      <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${c}22`, color: c }}>
+                        {ROTULO_CORTO[p.veredicto]}
+                        {v !== null ? ` ${v > 0 ? "+" : ""}${v}` : ""}
+                      </span>
+                    </button>
+                    {pareja === i && <div className="px-1 pb-2 pt-1">{bloquesDe(p, modo, equipo)}</div>}
+                  </div>
+                );
+              })}
+              <p className="px-2 pt-1 text-[10px] text-white/35">Cada pareja por separado: así se ve si la ventaja es de los dos o de uno solo.</p>
             </div>
-            <div className="space-y-2.5">
-        {b.facetas.map((f) => (
-          <div key={f.titulo} title={`${f.explica}\n${f.frase}`}>
-            <div className="flex items-baseline justify-between text-[11px]">
-              <span className="tabular-nums" style={{ color: f.nuestro === null ? tinta(0.3) : ORO }}>
-                {f.nuestro === null ? "—" : `P${f.nuestro}`}
-              </span>
-              <span className="text-center text-white/70">{f.titulo}</span>
-              <span className="tabular-nums text-white/70">{f.suyo === null ? "—" : `P${f.suyo}`}</span>
-            </div>
-            {f.sentido !== "aire" && (
-              <div className="flex justify-between gap-2 text-[9.5px] text-white/35">
-                <span className="truncate">{rotuloColumna(f.columnaNuestra)}</span>
-                <span className="truncate text-right">{rotuloColumna(f.columnaSuya)}</span>
-              </div>
-            )}
-            <div className="mt-1 flex h-1.5 gap-1">
-              <div className="flex flex-1 justify-end overflow-hidden rounded-l-full bg-white/[0.06]">
-                <div className="h-full" style={{ width: `${f.nuestro ?? 0}%`, background: f.veredicto === "ventaja" ? MEJOR : ORO }} />
-              </div>
-              <div className="flex-1 overflow-hidden rounded-r-full bg-white/[0.06]">
-                <div className="h-full" style={{ width: `${f.suyo ?? 0}%`, background: f.veredicto === "desventaja" ? PEOR : "rgba(255,255,255,0.6)" }} />
-              </div>
-            </div>
-          </div>
-        ))}
-            </div>
-          </div>
-        ))}
-        {d.altura && (
-          <p className="text-[11px] text-white/45">
-            Altura media: <span className="text-[#C8A96B]">{d.altura.nuestra} cm</span> frente a {d.altura.suya} cm de {equipo}.
-          </p>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       <p className="mt-3 text-xs leading-relaxed text-white/70">{d.resumen}</p>
       {activo && (
@@ -783,4 +981,3 @@ function Tarjeta({ d, activo, onElige, equipo }: { d: ResultadoDuelo; activo: bo
     </div>
   );
 }
-

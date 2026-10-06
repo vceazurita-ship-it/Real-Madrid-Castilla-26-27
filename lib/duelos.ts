@@ -284,6 +284,12 @@ export type ResultadoDuelo = {
   resumen: string;
   /** Facetas con dato sobre el total. */
   cobertura: { con: number; de: number };
+  /**
+   * El mismo duelo desglosado en uno contra uno (06/10/2026): con dos de un
+   * lado —los dos centrales contra su nueve, los dos pivotes…— cada pareja por
+   * separado, para ver si la ventaja es de los dos o de uno solo.
+   */
+  parejas: ResultadoDuelo[];
 };
 
 const media = (v: number[]) => (v.length ? v.reduce((a, b) => a + b, 0) / v.length : null);
@@ -327,6 +333,8 @@ export function mideDuelo(
   nuestros: JugadorDuelo[],
   suyos: JugadorDuelo[],
   referencias: Map<Puesto, FilaJugador[]>,
+  /** Para las parejas: no se vuelven a desglosar. */
+  sinParejas = false,
 ): ResultadoDuelo {
   const { nuestro: rolN, suyo: rolS } = ROLES[def.tipo];
 
@@ -422,6 +430,10 @@ export function mideDuelo(
     veredicto,
     resumen,
     cobertura: { con: conDato.length, de: facetas.length },
+    parejas:
+      sinParejas || (nuestros.length < 2 && suyos.length < 2)
+        ? []
+        : nuestros.flatMap((n) => suyos.map((x) => mideDuelo(def, [n], [x], referencias, true))),
   };
 }
 
