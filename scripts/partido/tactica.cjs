@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: corre
-   en el ordenador del club, no lo empaqueta nadie. */
 /**
  * LA CÁMARA TÁCTICA DEL CLUB: BUSCAR UNA JUGADA Y CORTARLA.
  *

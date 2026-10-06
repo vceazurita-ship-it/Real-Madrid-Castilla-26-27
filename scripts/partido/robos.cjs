@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: corre
-   en el ordenador del club, no lo empaqueta nadie. */
 /**
  * Robos y transiciones de un partido SACADOS DEL TIMELINE DE HUDL (Sportscode/
  * Wyscout), no mirando imagen a imagen.

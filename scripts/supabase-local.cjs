@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: lo
-   cargan los scripts del ordenador del club, no lo empaqueta nadie. */
 /**
  * Las llaves de Supabase y la salida limpia, para los scripts del ordenador
  * del club.

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: corre
-   en el ordenador del club, no lo empaqueta nadie. */
 /**
  * ¿ESTÁ EL PARTIDO EN TODAS LAS SECCIONES? MIRADO, NO SUPUESTO.
  *

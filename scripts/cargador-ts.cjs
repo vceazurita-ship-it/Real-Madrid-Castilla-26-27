@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: se
-   carga con `node`, no lo empaqueta nadie, y el cargador de TypeScript necesita
-   los ganchos de CommonJS. */
 /*
   Carga módulos .ts del repo en Node, con los alias `@/` resueltos.
 

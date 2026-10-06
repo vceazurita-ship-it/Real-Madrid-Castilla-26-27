@@ -218,10 +218,6 @@ function curlConEstado(url) {
   };
 }
 
-function curl(url) {
-  return curlConEstado(url).cuerpo;
-}
-
 /**
  * Una página, con reintentos.
  *
@@ -427,8 +423,6 @@ export function leePartidos(html, slug) {
     const competicion = limpia(
       enlace.match(/<div class="middle-info ta-c">([^<]*)<\/div>/)?.[1] ?? ""
     );
-
-    const equipos = trozos(enlace, '<div class="team-info', "</div>\n        </div>");
 
     /* El marcador va en `<span class='r1'>` y `<span class='r2'>`; sin ellos
        el partido no se ha jugado y no hay nada que leer. */

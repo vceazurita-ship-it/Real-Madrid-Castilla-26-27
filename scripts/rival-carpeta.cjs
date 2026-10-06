@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: corre
-   en el ordenador del club con `node`, no lo empaqueta nadie. */
 /**
  * RECOGE LA CARPETA DE ANÁLISIS DE UNA JORNADA Y PREPARA AL RIVAL.
  *

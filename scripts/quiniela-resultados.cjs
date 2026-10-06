@@ -1,7 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: se
-   ejecuta con `node` desde el .cmd de la tarea nocturna, no lo empaqueta nadie,
-   y el cargador de TypeScript necesita los ganchos de CommonJS. */
-
 /**
  * LOS RESULTADOS DE LA QUINIELA, DE BESOCCER Y SOLOS.
  *

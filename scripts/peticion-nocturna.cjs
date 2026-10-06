@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: se
-   ejecuta con `node` desde el .cmd de la tarea nocturna, no lo empaqueta nadie. */
 /**
  * LOS ENCARGOS DESDE LA APP, VISTOS DESDE EL ORDENADOR DEL CLUB.
  *

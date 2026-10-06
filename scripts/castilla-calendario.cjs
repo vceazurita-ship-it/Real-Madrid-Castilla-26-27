@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: corre
-   en el ordenador del club desde el .cmd nocturno, no lo empaqueta nadie. */
 /**
  * NUESTRO CALENDARIO, DE BESOCCER.
  *

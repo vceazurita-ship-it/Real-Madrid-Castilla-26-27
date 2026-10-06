@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: corre
-   en el ordenador del club con `node`, no lo empaqueta nadie. */
 /**
  * EL VIGÍA: LOS BOTONES DE AJUSTES, ATENDIDOS AL MOMENTO.
  *

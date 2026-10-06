@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: corre
-   en el ordenador del club, no lo empaqueta nadie. */
 /**
  * METE EL PARTIDO EN LAS CUATRO HOJAS DE ABP.
  *

@@ -47,7 +47,7 @@ function nuevoEntorno() {
 
   const estado = { red: true, llamadas: 0 };
 
-  const fetchFalso = async (pet) => {
+  const fetchFalso = async () => {
     estado.llamadas += 1;
     if (!estado.red) throw new TypeError("Failed to fetch");
     const r = new Response("ok", { status: 200 });

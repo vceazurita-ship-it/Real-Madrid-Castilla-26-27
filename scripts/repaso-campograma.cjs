@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: se
-   carga con `node`, no lo empaqueta nadie, y el cargador de TypeScript necesita
-   los ganchos de CommonJS. */
 /*
   Repaso a fondo de lo tocado estos días, contra los módulos de verdad.
 

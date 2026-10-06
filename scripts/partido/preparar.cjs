@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: corre
-   en el ordenador del club, no lo empaqueta nadie. */
 /**
  * LA BASE DEL ANÁLISIS, SACADA DEL TIMELINE DE HUDL.
  *

@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- arnés de Node: corre
-   en el ordenador del club, no lo empaqueta nadie. */
 /**
  * ACTUALIZAR EL ANÁLISIS DEL PARTIDO: EL BOTÓN DE AJUSTES, DE PRINCIPIO A FIN.
  *
