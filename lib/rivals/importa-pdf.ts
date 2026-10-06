@@ -459,11 +459,14 @@ export function casaJugador(nombre: string, plantilla: FilaPlantilla[]): FilaPla
 export function seccionDeTitulo(titulo: string, archivo = ""): SeccionId | null {
   const t = normaliza(titulo);
   const a = normaliza(archivo);
-  const defiende = /\bDEF/.test(t) || /\bDEF/.test(a);
+  /* El «DEF» del archivo sólo cuenta si el título no dice ya que es ofensivo («J7 CORNER OFF Y DEF.pdf»). */
+  const defiende = /\bDEF/.test(t) || (!/\bOF/.test(t) && /\bDEF/.test(a));
 
-  if (/CENTRO|CENTRADOR|PERFIL/.test(t)) return defiende ? "centros-def" : "centros-of";
+  /* «PERFIL» va después de córner y falta: «CÓRNER PERFIL DERECHO» es un córner. */
+  if (/CENTRO/.test(t)) return defiende ? "centros-def" : "centros-of";
   if (/CORNER/.test(t)) return defiende ? "corner-def" : "corner-of";
   if (/FALTA|LIBRE DIRECTO|LIBRE INDIRECTO/.test(t)) return defiende ? "falta-def" : "falta-of";
+  if (/CENTRADOR|PERFIL/.test(t)) return defiende ? "centros-def" : "centros-of";
 
   /* El título no lo dice: el nombre del archivo, con la misma regla que el vigía (CENTRO, CEN LAT, LATERAL, ÁREA). */
   if (/CENTRO|CEN LAT|LATERAL|\bAREA\b/.test(a)) return defiende ? "centros-def" : "centros-of";

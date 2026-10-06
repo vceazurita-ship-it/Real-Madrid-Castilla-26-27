@@ -96,7 +96,7 @@ export function CampoEstructura({
               alignItems: "center",
               width: anchoNombre,
               cursor: onArrastra && h.jugador ? "grab" : onToca ? "pointer" : "default",
-              touchAction: onArrastra ? "none" : undefined,
+              touchAction: onArrastra && h.jugador ? "pan-y" : undefined,
               userSelect: "none",
             }}
             title={h.jugador ? `${h.jugador.nombre}${onToca ? " · toca otro para cambiarlos de sitio" : ""}` : onToca ? "Hueco libre: toca a un jugador para traerlo" : "Hueco libre"}

@@ -169,7 +169,9 @@ export function LaminaEquipos({
       (anchoColumna - 70) /
         Math.max(
           8,
-          ...columnas.flatMap((c) =>
+          ...columnas
+            .filter((c) => !c.estructura)
+            .flatMap((c) =>
             c.jugadores.map((j) => j.nombre.length * 0.37 + 0.8 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0) + (porPuesto(j) === "POR" ? 2.4 : 0)),
           ),
         ),

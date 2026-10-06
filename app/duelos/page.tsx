@@ -210,7 +210,34 @@ export default function DuelosPage() {
             : balance <= -UMBRAL_DUELO
               ? "desventaja"
               : "parejo";
-      return { ...d, balance, veredicto, parejas };
+      /* Lo de la tarjeta tiene que decir lo mismo que su etiqueta: las frases, la cobertura y el resumen, del momento que se mira. */
+      const sentido = modo === "nuestro" ? "con" : "sin";
+      const facetas = d.facetas.filter((f) => f.sentido === sentido || f.sentido === "aire");
+      const delMomento = facetas.filter((f) => f.sentido === sentido);
+      const ganadas = delMomento.filter((f) => f.veredicto === "ventaja").map((f) => f.titulo.toLowerCase());
+      const perdidas = delMomento.filter((f) => f.veredicto === "desventaja").map((f) => f.titulo.toLowerCase());
+      const cabeza =
+        veredicto === "ventaja"
+          ? `Ventaja para ${nombresDe(d.nuestros)}`
+          : veredicto === "desventaja"
+            ? `Ventaja para ${nombresDe(d.suyos)}`
+            : veredicto === "parejo"
+              ? "Duelo parejo"
+              : "Sin datos suficientes";
+      const partes = [ganadas.length ? `a favor ${ganadas.join(", ")}` : "", perdidas.length ? `en contra ${perdidas.join(", ")}` : ""].filter(Boolean);
+      const resumen =
+        veredicto === "sin-datos"
+          ? d.resumen
+          : `${cabeza} ${modo === "nuestro" ? "con el balón nuestro" : "con el balón suyo"}: ${partes.length ? partes.join("; ") : "ningún enfrentamiento se despega"}.`;
+      return {
+        ...d,
+        balance,
+        veredicto,
+        parejas,
+        facetas,
+        resumen,
+        cobertura: { con: facetas.filter((f) => f.diferencia !== null).length, de: facetas.length },
+      };
     };
     return duelos.map(enModo);
   }, [duelos, modo]);
@@ -223,7 +250,7 @@ export default function DuelosPage() {
     });
   const deshaz = (lado: "nuestro" | "suyo") => setGuardado((actual) => ({ ...normalizaDuelos(actual), [lado]: {} }));
 
-  const conDato = duelos.filter((d) => d.veredicto !== "sin-datos");
+  const conDato = duelosVistos.filter((d) => d.veredicto !== "sin-datos");
   /*
   | Las dos cajas leen cada duelo por su lado (06/10/2026): «dónde les podemos
   | hacer daño» es nuestro con balón contra su sin balón; «dónde nos lo pueden
@@ -388,7 +415,7 @@ export default function DuelosPage() {
                       {duelosVistos
                         .filter((d) => d.def.zona === z.key)
                         .map((d) => (
-                          <Tarjeta key={d.def.clave} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} />
+                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} />
                         ))}
                     </div>
                   </div>

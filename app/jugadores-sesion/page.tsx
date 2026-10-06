@@ -54,7 +54,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { LAMINA_H, LAMINA_W, LaminaEquipos, LaminaEscalada } from "@/components/sesion-equipos/LaminaEquipos";
 import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { ESTRUCTURAS, colocaEnEstructura, estructuraPara, intercambia, type Hueco } from "@/lib/sesion-equipos/estructura";
+import { ESTRUCTURAS, colocaEnEstructura, estructuraPara, intercambia, lineasDe, type Hueco } from "@/lib/sesion-equipos/estructura";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { apodo, capturaLienzos, descarga, pintado } from "@/lib/export/lienzos";
 import { bytesDeDataUrl, creaZip } from "@/lib/export/zip";
@@ -172,7 +172,7 @@ function Chip({
         }
       }}
       title="Arrástralo a otro equipo, o tócalo y luego toca dónde va. Con él elegido: 1-6 equipo, C comodín, F fuera"
-      style={{ touchAction: "none" }}
+      style={{ touchAction: "pan-y" }}
       className={`group flex min-w-0 cursor-grab select-none items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide transition active:cursor-grabbing ${
         arrastrando
           ? "opacity-35"
@@ -374,8 +374,12 @@ function EstructuraEquipo({
         </select>
         {!esPreset && (
           <input
-            value={equipo.estructura ?? ""}
-            onChange={(e) => onEstructura(e.target.value)}
+            key={equipo.estructura ?? ""}
+            defaultValue={equipo.estructura ?? ""}
+            onBlur={(e) => onEstructura(e.target.value.trim())}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
             placeholder="1-3-3-1"
             className="w-24 rounded-lg border border-[#C8A96B]/50 bg-white/[0.04] px-2 py-1 text-[12px] font-semibold text-white outline-none"
             aria-label="Estructura a mano"
@@ -699,38 +703,108 @@ export default function JugadoresSesionPage() {
     [cambiaTarea, coloca, puestoDe, sesion],
   );
 
-  /** Empieza a arrastrar a un jugador (ficha o campograma). Sin moverse, es un toque normal. */
+  /** Quita los escuchadores del arrastre en curso (también si la pantalla se va a mitad). */
+  const limpiaArrastre = useRef<(() => void) | null>(null);
+
+  useEffect(() => () => limpiaArrastre.current?.(), []);
+
+  /** La ficha que sigue al dedo: se mueve con `transform`, sin volver a pintar la página. */
+  const fantasma = useRef<HTMLDivElement | null>(null);
+
+  const posFantasma = useRef({ x: 0, y: 0 });
+
+  /**
+   * Empieza a arrastrar a un jugador (ficha o campograma). Sin moverse, es un toque normal.
+   *
+   * Con el dedo (06/10/2026) el arrastre no puede arrancar con cualquier
+   * movimiento: deslizar hacia abajo para bajar la página empezaba a arrastrar
+   * al jugador que hubiera debajo. Ahora con el dedo arranca con una pulsación
+   * de un cuarto de segundo o con un deslizamiento de lado; hacia arriba o
+   * abajo, la página se desplaza. Con el ratón, como siempre.
+   */
   const empiezaArrastre = useCallback(
     (jugador: JugadorSesion, color: string | undefined, e: ReactPointerEvent) => {
       if (e.button !== 0) return;
 
+      /* Un arrastre cada vez: un segundo dedo no abre otro. */
+      if (limpiaArrastre.current) return;
+
+      const puntero = e.pointerId;
+      const tactil = e.pointerType !== "mouse";
       const x0 = e.clientX;
       const y0 = e.clientY;
       let activo = false;
+      let ultimo = { x: x0, y: y0 };
+      let destinoActual: string | null = null;
 
       const destinoEn = (x: number, y: number) =>
         (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>("[data-destino]")?.dataset.destino ?? null;
 
-      const mueve = (ev: PointerEvent) => {
-        if (!activo && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
-
-        activo = true;
-        ev.preventDefault();
-        setElegido(null);
-        setArrastre({ id: jugador.id, nombre: jugador.nombre, color, x: ev.clientX, y: ev.clientY });
-        setSobre(destinoEn(ev.clientX, ev.clientY));
+      const coloca = (x: number, y: number) => {
+        ultimo = { x, y };
+        posFantasma.current = { x, y };
+        if (fantasma.current) fantasma.current.style.transform = `translate(${x + 12}px, ${y - 18}px)`;
+        const d = destinoEn(x, y);
+        if (d !== destinoActual) {
+          destinoActual = d;
+          setSobre(d);
+        }
       };
 
-      const termina = (ev: PointerEvent, cancelado: boolean) => {
+      const activa = () => {
+        if (activo) return;
+        activo = true;
+        setElegido(null);
+        setArrastre({ id: jugador.id, nombre: jugador.nombre, color, x: ultimo.x, y: ultimo.y });
+        coloca(ultimo.x, ultimo.y);
+      };
+
+      /* Con el dedo, mantenerlo quieto un momento también lo coge. */
+      const pulsacion = tactil ? window.setTimeout(activa, 250) : null;
+
+      const mueve = (ev: PointerEvent) => {
+        if (ev.pointerId !== puntero) return;
+
+        if (!activo) {
+          const dx = ev.clientX - x0;
+          const dy = ev.clientY - y0;
+
+          if (Math.hypot(dx, dy) < 6) return;
+
+          /* Con el dedo, un movimiento vertical antes de cogerlo es desplazar la página. */
+          if (tactil && Math.abs(dy) > Math.abs(dx)) {
+            termina(null, true);
+            return;
+          }
+
+          ultimo = { x: ev.clientX, y: ev.clientY };
+          activa();
+        }
+
+        ev.preventDefault();
+        coloca(ev.clientX, ev.clientY);
+      };
+
+      /* Ya cogido, el dedo no desplaza la página. */
+      const sinDesplazar = (ev: TouchEvent) => {
+        if (activo) ev.preventDefault();
+      };
+
+      const termina = (ev: PointerEvent | null, cancelado: boolean) => {
+        if (ev && ev.pointerId !== puntero) return;
+
+        if (pulsacion) window.clearTimeout(pulsacion);
         window.removeEventListener("pointermove", mueve);
         window.removeEventListener("pointerup", alSoltar);
         window.removeEventListener("pointercancel", alCancelar);
+        window.removeEventListener("touchmove", sinDesplazar);
+        limpiaArrastre.current = null;
 
         if (activo) {
           acabaDeArrastrar.current = true;
           window.setTimeout(() => (acabaDeArrastrar.current = false), 50);
 
-          const destino = cancelado ? null : destinoEn(ev.clientX, ev.clientY);
+          const destino = cancelado || !ev ? null : destinoEn(ev.clientX, ev.clientY);
 
           if (destino) aplicaDestino(jugador.id, destino);
         }
@@ -745,9 +819,21 @@ export default function JugadoresSesionPage() {
       window.addEventListener("pointermove", mueve, { passive: false });
       window.addEventListener("pointerup", alSoltar);
       window.addEventListener("pointercancel", alCancelar);
+      window.addEventListener("touchmove", sinDesplazar, { passive: false });
+
+      /* Si la pantalla se desmonta a mitad, se suelta sin aplicar nada. */
+      limpiaArrastre.current = () => {
+        if (pulsacion) window.clearTimeout(pulsacion);
+        window.removeEventListener("pointermove", mueve);
+        window.removeEventListener("pointerup", alSoltar);
+        window.removeEventListener("pointercancel", alCancelar);
+        window.removeEventListener("touchmove", sinDesplazar);
+        limpiaArrastre.current = null;
+      };
     },
     [aplicaDestino],
   );
+
 
   /** Suelta al elegido (o al arrastrado) en un sitio. */
   const suelta = useCallback(
@@ -1498,8 +1584,16 @@ export default function JugadoresSesionPage() {
                               onEstructura={(estructura) =>
                                 cambiaTarea((t) => ({
                                   ...t,
-                                  /* Otro dibujo, otros huecos: el orden a mano ya no vale. */
-                                  equipos: t.equipos.map((x) => (x.id === equipo.id ? { ...x, estructura, orden: undefined } : x)),
+                                  /* Otro dibujo, otros huecos: el orden a mano ya no vale (sólo si cambian las líneas de verdad). */
+                                  equipos: t.equipos.map((x) =>
+                                    x.id === equipo.id
+                                      ? {
+                                          ...x,
+                                          estructura,
+                                          orden: lineasDe(x.estructura).join("-") === lineasDe(estructura).join("-") ? x.orden : undefined,
+                                        }
+                                      : x,
+                                  ),
                                 }))
                               }
                               onToca={(hueco, huecos) => {
@@ -1778,8 +1872,12 @@ export default function JugadoresSesionPage() {
         <>
           <div
             aria-hidden
-            className="pointer-events-none fixed z-[90] flex items-center gap-2 rounded-lg border border-[#C8A96B] bg-[#11161C]/95 px-3 py-1.5 text-[12px] font-bold uppercase tracking-wide text-white shadow-2xl"
-            style={{ left: arrastre.x + 12, top: arrastre.y - 18 }}
+            ref={(el) => {
+              /* La posición la pone el arrastre, nunca el render: si no, cada repintado la devolvía al principio. */
+              fantasma.current = el;
+              if (el) el.style.transform = `translate(${posFantasma.current.x + 12}px, ${posFantasma.current.y - 18}px)`;
+            }}
+            className="pointer-events-none fixed left-0 top-0 z-[90] flex items-center gap-2 rounded-lg border border-[#C8A96B] bg-[#11161C]/95 px-3 py-1.5 text-[12px] font-bold uppercase tracking-wide text-white shadow-2xl"
           >
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: arrastre.color ?? "rgba(255,255,255,0.3)" }} />
             {arrastre.nombre}

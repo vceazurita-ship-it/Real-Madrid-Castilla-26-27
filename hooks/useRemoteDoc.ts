@@ -216,6 +216,13 @@ function despide<T>(trabajo: Trabajo<T>): boolean {
     key: trabajo.key,
     kind: trabajo.kind,
     data: trabajo.data,
+    /*
+    | Con su versión también (06/10/2026): si el guardado normal llega antes con
+    | lo mismo, el servidor ve los mismos datos y no crea otra versión; sin ella,
+    | el de despedida escribía una versión nueva que la pantalla no conocía y el
+    | siguiente cambio chocaba con «alguien ha guardado esto».
+    */
+    ...(trabajo.basadaEn === undefined ? {} : { basadaEn: trabajo.basadaEn }),
   });
 
   if (cuerpo.length > TOPE_ENVIO_AL_VUELO) return false;
@@ -426,8 +433,11 @@ export function useRemoteDoc<T>({
         !trabajo.adoptado &&
         mismoDocumento(error.actual, ultimoEnviado.get(trabajo.key))
       ) {
-        versionServidor.current = error.updatedAt;
-        setLastSavedAt(error.updatedAt);
+        /* Sólo si la pantalla sigue en este documento: si ya cambió, la versión sería de otro. */
+        if (claveDelValor.current === trabajo.key) {
+          versionServidor.current = error.updatedAt;
+          setLastSavedAt(error.updatedAt);
+        }
 
         const sigue = pendiente.current;
 

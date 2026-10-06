@@ -177,13 +177,31 @@ const enMemoria = new Map<string, Copia>();
 
 const enVuelo = new Map<string, Promise<unknown>>();
 
-/** Pregunta a la hoja de verdad y guarda lo que llegue. */
-function pregunta(accion: string, datos: Record<string, unknown>) {
-  const yaVa = enVuelo.get(accion);
+/**
+ * Cuántas veces se ha escrito: lo que salió antes de una escritura no se guarda
+ * como copia (06/10/2026). Con el refresco por detrás vivo, una lectura lanzada
+ * antes de crear una alerta podía llegar después y dejar como buena la lista
+ * sin ella.
+ */
+let generacion = 0;
+
+/**
+ * Pregunta a la hoja de verdad y guarda lo que llegue.
+ *
+ * `propia`: no se engancha a la lectura que ya iba (que puede ser de antes de
+ * escribir). La usa la relectura fresca que comprueba un guardado.
+ */
+function pregunta(accion: string, datos: Record<string, unknown>, { propia = false } = {}) {
+  const yaVa = propia ? null : enVuelo.get(accion);
 
   if (yaVa) return yaVa;
 
-  const peticion = (async () => {
+  const nacida = generacion;
+
+  /* Declarada antes: el `finally` de dentro la compara para no quitar del mapa una lectura más nueva. */
+  let peticion: Promise<unknown> | null = null;
+
+  peticion = (async () => {
     try {
       const respuesta = await llamaScript(accion, datos);
 
@@ -192,19 +210,21 @@ function pregunta(accion: string, datos: Record<string, unknown>) {
       /* Un fallo no se guarda: sería enseñar el error durante doce horas. */
       if (!respuesta.ok || (leido && leido.ok === false)) return leido;
 
-      const copia: Copia = { data: leido, hecha: Date.now() };
+      if (nacida === generacion) {
+        const copia: Copia = { data: leido, hecha: Date.now() };
 
-      enMemoria.set(accion, copia);
+        enMemoria.set(accion, copia);
 
-      void writeDoc(`${PREFIJO}${accion}`, TIPO, copia).catch(() => undefined);
+        void writeDoc(`${PREFIJO}${accion}`, TIPO, copia).catch(() => undefined);
+      }
 
       return leido;
     } finally {
-      enVuelo.delete(accion);
+      if (!propia && enVuelo.get(accion) === peticion) enVuelo.delete(accion);
     }
   })();
 
-  enVuelo.set(accion, peticion);
+  if (!propia) enVuelo.set(accion, peticion);
 
   return peticion;
 }
@@ -221,7 +241,7 @@ export async function leeDeLaHoja(
 ) {
   const datos = opciones.datos ?? {};
 
-  if (opciones.fresco) return Response.json(await pregunta(accion, datos));
+  if (opciones.fresco) return Response.json(await pregunta(accion, datos, { propia: true }));
 
   const guardada = enMemoria.get(accion);
 
@@ -257,7 +277,12 @@ export async function leeDeLaHoja(
 
 /** Después de escribir, la copia miente: se tira. */
 export function olvidaLectura(accion: string) {
+  generacion += 1;
+
   enMemoria.delete(accion);
+
+  /* Nadie debe engancharse a una lectura que salió antes de escribir. */
+  enVuelo.delete(accion);
 
   void writeDoc(`${PREFIJO}${accion}`, TIPO, { data: null, hecha: 0 }).catch(
     () => undefined,
