@@ -110,7 +110,7 @@ export function colocaEnEstructura(
 
   lineas.forEach((n, linea) => {
     /* De atrás (abajo) adelante (arriba), con aire en los dos fondos. */
-    const y = L === 1 ? 0.5 : 0.88 - (linea / (L - 1)) * 0.76;
+    const y = L === 1 ? 0.5 : 0.82 - (linea / (L - 1)) * 0.68;
     let deLaLinea = enOrden.slice(k, k + n);
     k += n;
 

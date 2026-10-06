@@ -8,14 +8,11 @@
  */
 import type { CSSProperties } from "react";
 
-import { MarcasCamiseta } from "@/components/sesion-equipos/Marcas";
 import type { Hueco } from "@/lib/sesion-equipos/estructura";
 import { tintaSobre } from "@/lib/sesion-equipos/modelo";
 
-const apellido = (nombre: string) => {
-  const t = nombre.trim().split(/\s+/);
-  return t.length > 1 ? t.slice(1).join(" ") : nombre;
-};
+/** Lo que mide la palabra más larga de un nombre, en letras: el nombre se parte sólo entre palabras. */
+const palabraMasLarga = (nombre: string) => Math.max(3, ...nombre.split(/ +/).map((t) => t.length));
 
 export function CampoEstructura({
   huecos,
@@ -24,7 +21,6 @@ export function CampoEstructura({
   claro = false,
   elegido = null,
   onToca,
-  marcas = false,
   style,
 }: {
   huecos: Hueco[];
@@ -36,13 +32,11 @@ export function CampoEstructura({
   /** El hueco tocado, a la espera del segundo para cambiarlos. */
   elegido?: number | null;
   onToca?: (indice: number) => void;
-  /** El escudo y las tres barras junto a cada nombre (la lámina exportada). */
-  marcas?: boolean;
   style?: CSSProperties;
 }) {
   const alto = ancho * 1.08;
   const ficha = Math.max(16, Math.min(46, ancho / 9));
-  const letra = Math.max(9, Math.min(26, ancho / 15));
+  const letra = Math.max(10, Math.min(32, ancho / 11));
   const tinta = tintaSobre(color);
   const linea = claro ? "rgba(20,83,45,0.35)" : "rgba(255,255,255,0.22)";
 
@@ -59,6 +53,8 @@ export function CampoEstructura({
           : "repeating-linear-gradient(180deg, #14532D 0px, #14532D 12.5%, #166534 12.5%, #166534 25%)",
         border: `2px solid ${claro ? "rgba(20,83,45,0.25)" : "rgba(255,255,255,0.12)"}`,
         flexShrink: 0,
+        /* La letra estrecha de la lámina, también en la pantalla: caben nombres más grandes. */
+        fontFamily: "var(--fuente-sesion, inherit)",
         ...style,
       }}
     >
@@ -72,7 +68,7 @@ export function CampoEstructura({
         const es = elegido === i;
         /* Cada nombre cabe en su trozo de línea: con cuatro en fila, la cuarta parte del campo. */
         const enSuLinea = huecos.filter((x) => x.linea === h.linea).length;
-        const anchoNombre = Math.min(ancho / 3.2, (ancho / (enSuLinea + 1)) * 0.94);
+        const anchoNombre = Math.min(ancho / 3.2, (ancho / (enSuLinea + 1)) * 0.98);
         return (
           <div
             key={i}
@@ -112,14 +108,15 @@ export function CampoEstructura({
               style={{
                 marginTop: 2,
                 maxWidth: "100%",
-                fontSize: Math.min(letra, anchoNombre / 5.2),
+                /* Que la palabra más larga del nombre quepa entera en su línea (≈0,6 em por mayúscula). */
+                fontSize: Math.max(7, Math.min(letra, anchoNombre / (palabraMasLarga(h.jugador?.nombre ?? "—") * 0.5 + 0.4))),
                 fontWeight: 700,
-                lineHeight: 1.05,
+                lineHeight: 1,
                 textTransform: "uppercase",
                 textAlign: "center",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
+                /* El nombre entero, en dos líneas si hace falta: «JORGE / CESTERO». */
+                whiteSpace: "normal",
+                overflowWrap: "normal",
                 color: claro ? "#0B0F14" : "#FFFFFF",
                 textShadow: claro ? "none" : "0 1px 2px rgba(0,0,0,0.6)",
                 background: claro ? "rgba(255,255,255,0.85)" : "transparent",
@@ -127,13 +124,9 @@ export function CampoEstructura({
                 padding: claro ? "0 4px" : 0,
               }}
             >
-              {h.jugador ? apellido(h.jugador.nombre) : "—"}
+              {h.jugador ? h.jugador.nombre : "—"}
             </span>
-            {marcas && h.jugador && (
-              <span style={{ marginTop: 3, background: "rgba(255,255,255,0.92)", borderRadius: 6, padding: "2px 5px", display: "inline-flex" }}>
-                <MarcasCamiseta alto={letra * 0.85} color="#0B1A33" />
-              </span>
-            )}
+
           </div>
         );
       })}

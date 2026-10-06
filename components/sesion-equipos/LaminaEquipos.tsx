@@ -9,16 +9,16 @@
  * el estilo calculado y los colores `oklch` de Tailwind no sobreviven al JPEG
  * (lo mismo que la pizarra de ABP).
  *
- * FONDO BLANCO Y EQUIPACIÓN (06/10/2026): la lámina va siempre en blanco, con
- * los colores de cada equipo, y cada jugador lleva el escudo del club y las
- * tres barras de Adidas, como en el pecho de la camiseta. Si la tarea va «con
- * estructura», cada equipo se pinta en su mini campograma.
+ * FONDO BLANCO (06/10/2026): la lámina va siempre en blanco, con los colores de
+ * cada equipo y los nombres lo más grandes que quepan, enteros (si no caben en
+ * una línea, en dos; nunca cortados). Sin escudo ni marcas: se quitaron a
+ * petición. Si la tarea va «con estructura», cada equipo sale en su mini
+ * campograma.
  */
 
 import type { CSSProperties } from "react";
 
 import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
-import { Adidas, EscudoRM, MarcasCamiseta } from "@/components/sesion-equipos/Marcas";
 import { colocaEnEstructura } from "@/lib/sesion-equipos/estructura";
 import {
   ordenPorPuesto,
@@ -85,10 +85,11 @@ function Nombre({
           fontSize: tamano,
           fontWeight: 700,
           letterSpacing: "0.01em",
+          lineHeight: 1,
           color: TINTA,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
+          /* Entero siempre: si no cabe en una línea, en dos. */
+          whiteSpace: "normal",
+          overflowWrap: "normal",
           textTransform: "uppercase",
         }}
       >
@@ -109,7 +110,6 @@ function Nombre({
           {jugador.baja.replace(/s$/i, "")}
         </span>
       )}
-      <MarcasCamiseta alto={tamano * 0.78} color={TINTA} />
     </div>
   );
 }
@@ -155,22 +155,22 @@ export function LaminaEquipos({
   /* Cuanto más larga la columna más larga, más pequeña la letra. */
   const filas = Math.max(4, ...columnas.filter((c) => !c.estructura).map((c) => c.jugadores.length));
 
-  const ALTO_LISTA = 600;
+  const ALTO_LISTA = 640;
 
   const anchoColumna = (LAMINA_W - 120 - (columnas.length - 1) * 28) / Math.max(1, columnas.length);
 
   const tamano = Math.max(
-    24,
+    28,
     Math.min(
-      52,
-      (ALTO_LISTA / filas) * 0.5,
-      /* Que quepa entero el nombre más largo, con su etiqueta y las dos marcas:
+      68,
+      (ALTO_LISTA / filas) * 0.6,
+      /* Que quepa entero el nombre más largo, con su etiqueta:
          en Barlow Condensed una mayúscula mide ~0,34 em (algo de margen). */
       (anchoColumna - 70) /
         Math.max(
           8,
           ...columnas.flatMap((c) =>
-            c.jugadores.map((j) => j.nombre.length * 0.37 + 2.6 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0) + (porPuesto(j) === "POR" ? 2.4 : 0)),
+            c.jugadores.map((j) => j.nombre.length * 0.37 + 0.8 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0) + (porPuesto(j) === "POR" ? 2.4 : 0)),
           ),
         ),
     ),
@@ -207,7 +207,6 @@ export function LaminaEquipos({
       {/* ---------------- CABECERA ---------------- */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 40 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 28, minWidth: 0 }}>
-          <EscudoRM alto={120} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0.22em", color: ORO, textTransform: "uppercase" }}>
               Real Madrid Castilla · Equipos de la sesión
@@ -233,7 +232,6 @@ export function LaminaEquipos({
         </div>
 
         <div style={{ textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 12 }}>
-          <Adidas alto={46} color={TINTA} />
           <div style={{ display: "inline-block", fontSize: 28, fontWeight: 700, letterSpacing: "0.14em", color: "#FFFFFF", background: TINTA, borderRadius: 999, padding: "6px 22px" }}>
             TAREA {indice + 1} / {total}
           </div>
@@ -312,7 +310,7 @@ export function LaminaEquipos({
 
               {colocados ? (
                 <div style={{ padding: "18px 18px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, minWidth: 0 }}>
-                  <CampoEstructura huecos={colocados.huecos} color={c.color} ancho={anchoCampo} claro marcas />
+                  <CampoEstructura huecos={colocados.huecos} color={c.color} ancho={anchoCampo} claro />
                   {colocados.sobran.length > 0 && (
                     <div style={{ fontSize: 22, fontWeight: 600, color: SUAVE, textAlign: "center", textTransform: "uppercase" }}>
                       Fuera del dibujo: {colocados.sobran.map((j) => j.nombre).join(" · ")}
