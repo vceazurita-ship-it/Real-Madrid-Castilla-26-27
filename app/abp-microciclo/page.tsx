@@ -28,6 +28,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import {
   Brain,
   CalendarDays,
+  ClipboardCopy,
   Flag,
   Dumbbell,
   Flame,
@@ -66,6 +67,8 @@ import {
   type Importacion,
 } from "@/components/abp/microciclo/ImportarRegistro";
 import { CruceTabla } from "@/components/abp/microciclo/CruceTabla";
+import { CopiarMicro } from "@/components/abp/microciclo/CopiarMicro";
+import { copiaPlan, type MdPorDia, type ModoCopia } from "@/lib/abp/copia-micro";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -841,6 +844,103 @@ export default function AbpMicrocicloPage() {
     [mutaPlan],
   );
 
+  /* ----------------------- COPIAR OTRO MICROCICLO ---------------------- */
+
+  const [copiando, setCopiando] = useState(false);
+
+  /** El MD de cada día de una ventana, por su letra. */
+  const mdDeVentana = useCallback((dias: { clave: DiaKey; rotulo: string; md: number | null }[]) => {
+    const mapa: MdPorDia = {};
+
+    for (const dia of dias) {
+      mapa[dia.clave] = dia.rotulo || (dia.md === null ? "" : dia.md === 0 ? "MD" : `MD-${dia.md}`);
+    }
+
+    return mapa;
+  }, []);
+
+  /* Las semanas de las que se puede copiar: las que tienen algún bloque. */
+  const opcionesCopia = useMemo(
+    () =>
+      micros
+        .filter((uno) => uno.clave !== claveActiva)
+        .map((uno) => ({
+          clave: uno.clave,
+          etiqueta: `Micro ${uno.micro} · ${store.micros?.[uno.clave]?.rival || uno.rival || "sin rival"}`,
+          trabajos: trabajosDelPlan(store.micros?.[uno.clave]).length,
+        }))
+        .filter((uno) => uno.trabajos > 0)
+        .reverse(),
+    [micros, claveActiva, store.micros],
+  );
+
+  /** La copia de otra semana sobre ésta, sin aplicarla todavía. */
+  const copiaDe = useCallback(
+    (clave: string, modo: ModoCopia) => {
+      const origen = store.micros?.[clave];
+      const suyo = micros.find((uno) => uno.clave === clave);
+
+      if (!origen || !suyo) return null;
+
+      /* Los días del otro micro salen de su propia ventana: su MD-1 no tiene
+         por qué caer en la misma letra que el de ésta. */
+      const ventanaOrigen = ventanaDelMicro({
+        tareas: (registro?.tareas ?? []).filter(
+          (tarea) => tarea.micro === suyo.micro && tarea.temporada === suyo.temporada,
+        ),
+        rival: suyo.rival,
+        partidos: calendario,
+        diasEntrenados: origen.diasEntrenados,
+      });
+
+      return copiaPlan(origen, plan, {
+        modo,
+        mdOrigen: mdDeVentana(ventanaOrigen.dias),
+        mdDestino: mdDeVentana(ventana.dias),
+        diasDestino: ordenDias,
+      });
+    },
+    [store.micros, micros, registro, calendario, plan, mdDeVentana, ventana, ordenDias],
+  );
+
+  const aplicaCopia = useCallback(
+    (clave: string, modo: ModoCopia) => {
+      const hecho = copiaDe(clave, modo);
+
+      if (!hecho || !claveActiva) return;
+
+      /* El deshacer vuelve a ESTA semana aunque entretanto se haya cambiado de micro. */
+      const destino = claveActiva;
+      const antes = store.micros?.[destino];
+
+      mutaPlan(() => hecho.plan);
+
+      setCopiando(false);
+
+      const nombre = opcionesCopia.find((uno) => uno.clave === clave)?.etiqueta ?? "el otro micro";
+
+      toast.success(`Copiado de ${nombre}`, {
+        description:
+          `${hecho.puestas} bloque(s) atados por MD.` +
+          (hecho.sinPareja > 0 ? ` ${hecho.sinPareja} sin su MD en esta semana se han quedado fuera.` : "") +
+          " Repasa minutos y aspectos.",
+        action: {
+          label: "Deshacer",
+          onClick: () =>
+            setStore((actual) => {
+              const lista = { ...(actual.micros ?? {}) };
+
+              if (antes) lista[destino] = antes;
+              else delete lista[destino];
+
+              return { ...actual, micros: lista };
+            }),
+        },
+      });
+    },
+    [copiaDe, claveActiva, store.micros, mutaPlan, opcionesCopia, setStore],
+  );
+
   /* ------------------------------ TOTALES ------------------------------ */
 
   const entradas = useMemo(() => trabajosDelPlan(plan), [plan]);
@@ -1221,6 +1321,15 @@ export default function AbpMicrocicloPage() {
             >
               Importar del registro
               {tareasAbpDelMicro.length ? ` (${tareasAbpDelMicro.length})` : ""}
+            </Button>
+
+            <Button
+              icon={ClipboardCopy}
+              onClick={() => setCopiando(true)}
+              disabled={!claveActiva}
+              title="Traer a esta semana los bloques de otro microciclo, atados por MD"
+            >
+              Copiar de otro micro
             </Button>
 
             <Button
@@ -1644,6 +1753,17 @@ export default function AbpMicrocicloPage() {
           }}
           onAplicar={aplicaBoceto}
           onCerrar={() => setBocetoAbierto(false)}
+        />
+      )}
+
+      {copiando && (
+        <CopiarMicro
+          destino={`Micro ${plan.micro || microActivo?.micro || ""}${plan.rival ? ` · ${plan.rival}` : ""}`}
+          opciones={opcionesCopia}
+          trabajosDestino={entradas.length}
+          previa={copiaDe}
+          onCopiar={aplicaCopia}
+          onCerrar={() => setCopiando(false)}
         />
       )}
 

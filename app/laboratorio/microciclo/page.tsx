@@ -577,6 +577,18 @@ export default function EditorMicrocicloPage() {
   /* De qué microciclo se parte al crear: por defecto, el último con tareas. */
   const [partirDe, setPartirDe] = useState<string>("ultimo");
 
+  /*
+  | Al copiar otra semana, ¿viajan también el tiempo y la intensidad?
+  | (07/10/2026). Por defecto no —los rellena quien dirige la sesión—, pero
+  | cuando se repite una semana tal cual, teclearlos otra vez es el trabajo
+  | entero.
+  */
+  const [conTiempos, setConTiempos] = useState(false);
+
+  /* «Copiar un microciclo en otro» desde la entrada: de cuál y a cuál. */
+  const [copiaOrigen, setCopiaOrigen] = useState("");
+  const [copiaDestino, setCopiaDestino] = useState("");
+
   /* El día que se quiere añadir a mano. */
   const [diaNuevo, setDiaNuevo] = useState("");
 
@@ -833,13 +845,13 @@ export default function EditorMicrocicloPage() {
   | cognitiva y va minutos por detrás). Si la hoja no contesta, no se abre:
   | editar con datos incompletos y reescribir borraría lo que falta.
   */
-  const abreParaEditar = async (numero: number) => {
+  const abreParaEditar = async (numero: number): Promise<MicroNuevo | null> => {
     if (
       micro &&
       micro.sesiones.some((sesion) => sesion.tareas.some((tarea) => !tareaEnBlanco(tarea) && !/-COMP$/i.test(tarea.tarea))) &&
       !window.confirm("Tienes un microciclo a medias en pantalla. ¿Dejarlo y abrir el otro?")
     ) {
-      return;
+      return null;
     }
 
     const suyo = registro?.micros.find((uno) => uno.micro === numero);
@@ -863,13 +875,13 @@ export default function EditorMicrocicloPage() {
 
       if (datos.filas.length === 0) throw new Error("La hoja no tiene filas de ese microciclo.");
 
-      setMicro(
-        microDeFilas(datos.filas, {
-          temporada: suyo?.temporada ?? temporadaHoja,
-          micro: numero,
-          rival: suyo?.rival ?? "",
-        }),
-      );
+      const abierto = microDeFilas(datos.filas, {
+        temporada: suyo?.temporada ?? temporadaHoja,
+        micro: numero,
+        rival: suyo?.rival ?? "",
+      });
+
+      setMicro(abierto);
 
       setEditando(numero);
       setReemplazar(true);
@@ -879,6 +891,8 @@ export default function EditorMicrocicloPage() {
         id: aviso,
         description: `${datos.filas.length} fila(s). Al escribir se sustituyen en el mismo sitio de la hoja.`,
       });
+
+      return abierto;
     } catch (error) {
       const dice = error instanceof Error ? error.message : "Inténtalo otra vez";
 
@@ -891,6 +905,8 @@ export default function EditorMicrocicloPage() {
     } finally {
       setAbriendo(false);
     }
+
+    return null;
   };
 
   /** Añade un día a mano, en su sitio del calendario. */
@@ -1075,7 +1091,7 @@ export default function EditorMicrocicloPage() {
    * La semana de otro microciclo puesta sobre `base`, atando por MD. Pura:
    * la usan el botón de copiar y la creación del siguiente.
    */
-  const copiaSobre = (base: MicroNuevo, numero: number) => {
+  const copiaSobre = (base: MicroNuevo, numero: number, tiempos = conTiempos) => {
     if (!registro) return null;
 
     const suyas = registro.tareas.filter((tarea) => tarea.micro === numero);
@@ -1097,9 +1113,9 @@ export default function EditorMicrocicloPage() {
         grupo: tarea.grupo,
         contenidoPrincipal: tarea.contenidoPrincipal,
         contenidoSecundario: tarea.contenidoSecundario,
-        /* Tiempo e intensidad no viajan: los rellena otra persona. */
-        tiempo: 0,
-        intensidad: 0,
+        /* Tiempo e intensidad sólo si se pide: normalmente los rellena otra persona. */
+        tiempo: tiempos ? tarea.tiempo : 0,
+        intensidad: tiempos ? tarea.intensidad : 0,
         exigCog: Math.round(tarea.exigCog),
         jugadores: tarea.jugadores,
         densidad: tarea.densidad,
@@ -1160,6 +1176,86 @@ export default function EditorMicrocicloPage() {
           ? ` ${sinPareja} no tenían MD equivalente en esta semana y se han quedado fuera.`
           : "") +
         " Repasa tiempos y contenidos.",
+    });
+  };
+
+  /*
+  | COPIAR UN MICROCICLO EN OTRO (07/10/2026)
+  |
+  | Desde la entrada, sin tener que abrir primero el destino y buscar luego el
+  | desplegable de copiar. Si el destino ya está en la hoja se abre (con todas
+  | sus columnas) y se le pone encima la semana del otro; si es el siguiente,
+  | se crea partiendo del otro. Nada se escribe hasta «Escribir en la hoja».
+  */
+  const copiaMicroEnOtro = async () => {
+    const origen = Number(copiaOrigen);
+
+    if (!origen) return;
+
+    if (copiaDestino === "nuevo") {
+      setPartirDe(String(origen));
+
+      if (!proximo) {
+        toast.error("No sé cuándo es el próximo partido", {
+          description: "Sin calendario no se puede crear la semana nueva.",
+        });
+
+        return;
+      }
+
+      const vacio: MicroNuevo = {
+        temporada: temporadaHoja,
+        micro: ultimoMicro + 1,
+        rival: proximo.rival.toUpperCase(),
+        sesiones: armaSesiones(proximo, anterior, [...libresMarcados]),
+      };
+
+      const hecho = copiaSobre(vacio, origen);
+
+      if (!hecho) {
+        toast.error("Ese microciclo no tiene tareas en la hoja");
+
+        return;
+      }
+
+      setMicro(hecho.micro);
+      setEditando(null);
+      setReemplazar(false);
+      setEscrito(null);
+
+      toast.success(`Microciclo ${ultimoMicro + 1} creado desde el ${origen}`, {
+        description:
+          `${hecho.puestas} tarea(s) atadas por MD.` +
+          (hecho.sinPareja > 0 ? ` ${hecho.sinPareja} sin MD equivalente se han quedado fuera.` : "") +
+          " Revisa y pulsa «Escribir en la hoja».",
+      });
+
+      return;
+    }
+
+    const destino = Number(copiaDestino);
+
+    if (!destino || destino === origen) return;
+
+    const abierto = await abreParaEditar(destino);
+
+    if (!abierto) return;
+
+    const hecho = copiaSobre(abierto, origen);
+
+    if (!hecho) {
+      toast.error("Ese microciclo no tiene tareas en la hoja");
+
+      return;
+    }
+
+    setMicro(hecho.micro);
+
+    toast.success(`Semana del ${origen} copiada sobre el ${destino}`, {
+      description:
+        `${hecho.puestas} tarea(s) atadas por MD.` +
+        (hecho.sinPareja > 0 ? ` ${hecho.sinPareja} sin MD equivalente se han quedado fuera.` : "") +
+        " Al escribir se sustituyen las filas del " + destino + " en su sitio.",
     });
   };
 
@@ -1348,6 +1444,16 @@ export default function EditorMicrocicloPage() {
                   <p className="mt-1 text-[11px] text-white/35">
                     Sus tareas entran atadas por MD —el MD-2 de aquella semana al MD-2 de ésta— y luego se cambia lo que toque.
                   </p>
+
+                  <label className="mt-2 flex items-center gap-2 text-[11px] text-white/55">
+                    <input
+                      type="checkbox"
+                      checked={conTiempos}
+                      onChange={(event) => setConTiempos(event.target.checked)}
+                      className="h-3.5 w-3.5 accent-[#C8A96B]"
+                    />
+                    Copiar también el tiempo y la intensidad de cada tarea
+                  </label>
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -1381,6 +1487,77 @@ export default function EditorMicrocicloPage() {
                   abriendo={abriendo}
                   onAbrir={(numero) => void abreParaEditar(numero)}
                 />
+              </Panel>
+            )}
+
+            {!micro && !cargando && microsDeLaHoja.some((uno) => uno.tareas > 0) && (
+              <Panel
+                title="O copia un microciclo en otro"
+                subtitle="La semana de uno, atada por MD, sobre otro que ya está en la hoja o sobre el siguiente. Se revisa en pantalla y no se escribe nada hasta «Escribir en la hoja»."
+                icon={ClipboardCopy}
+              >
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="min-w-[220px] flex-1">
+                    <Select
+                      label="Copiar de"
+                      value={copiaOrigen}
+                      options={[
+                        { value: "", label: "Elige uno…" },
+                        ...microsDeLaHoja
+                          .filter((uno) => uno.tareas > 0)
+                          .map((uno) => ({
+                            value: String(uno.micro),
+                            label: `Micro ${uno.micro} · ${uno.rival || "sin rival"} (${uno.tareas} tareas)`,
+                          })),
+                      ]}
+                      onChange={setCopiaOrigen}
+                    />
+                  </div>
+
+                  <div className="min-w-[220px] flex-1">
+                    <Select
+                      label="Sobre"
+                      value={copiaDestino}
+                      options={[
+                        { value: "", label: "Elige uno…" },
+                        ...(proximo
+                          ? [{ value: "nuevo", label: `El siguiente: micro ${ultimoMicro + 1} · ${proximo.rival} (nuevo)` }]
+                          : []),
+                        ...microsDeLaHoja
+                          .filter((uno) => String(uno.micro) !== copiaOrigen)
+                          .map((uno) => ({
+                            value: String(uno.micro),
+                            label: `Micro ${uno.micro} · ${uno.rival || "sin rival"}`,
+                          })),
+                      ]}
+                      onChange={setCopiaDestino}
+                    />
+                  </div>
+
+                  <Button
+                    tone="primary"
+                    icon={ClipboardCopy}
+                    disabled={!copiaOrigen || !copiaDestino || copiaOrigen === copiaDestino || abriendo}
+                    onClick={() => void copiaMicroEnOtro()}
+                  >
+                    {abriendo ? "Leyendo la hoja…" : "Copiar"}
+                  </Button>
+                </div>
+
+                <label className="mt-2 flex items-center gap-2 text-[11px] text-white/55">
+                  <input
+                    type="checkbox"
+                    checked={conTiempos}
+                    onChange={(event) => setConTiempos(event.target.checked)}
+                    className="h-3.5 w-3.5 accent-[#C8A96B]"
+                  />
+                  Copiar también el tiempo y la intensidad de cada tarea
+                </label>
+
+                <p className="mt-2 text-[11px] leading-relaxed text-white/35">
+                  Copiar sobre uno que ya está sustituye las tareas de los días que encuentran pareja; lo que no la
+                  encuentra se queda como estaba, y la evaluación y el análisis post de sus filas no se tocan.
+                </p>
               </Panel>
             )}
 
@@ -1563,11 +1740,23 @@ export default function EditorMicrocicloPage() {
                       />
                     </div>
 
-                    <p className="mb-2 min-w-[240px] flex-[2] text-[11px] leading-relaxed text-white/35">
-                      Trae sus tareas atadas por MD —el MD-2 de aquella semana al MD-2 de ésta— con
-                      su tipo, sus contenidos y sus tiempos. Lo que no encuentre pareja se queda
-                      como está, y los días libres siguen libres.
-                    </p>
+                    <div className="mb-1 min-w-[240px] flex-[2]">
+                      <p className="text-[11px] leading-relaxed text-white/35">
+                        Trae sus tareas atadas por MD —el MD-2 de aquella semana al MD-2 de ésta— con
+                        su tipo y sus contenidos. Lo que no encuentre pareja se queda como está, y los
+                        días libres siguen libres.
+                      </p>
+
+                      <label className="mt-2 flex items-center gap-2 text-[11px] text-white/55">
+                        <input
+                          type="checkbox"
+                          checked={conTiempos}
+                          onChange={(event) => setConTiempos(event.target.checked)}
+                          className="h-3.5 w-3.5 accent-[#C8A96B]"
+                        />
+                        Copiar también el tiempo y la intensidad de cada tarea
+                      </label>
+                    </div>
                   </div>
 
                   {yaEnLaHoja && editando === null && (
