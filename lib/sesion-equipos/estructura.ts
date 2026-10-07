@@ -129,6 +129,43 @@ const puntoValido = (p: Punto | null | undefined): p is Punto =>
   Boolean(p) && Number.isFinite(p!.x) && Number.isFinite(p!.y) && p!.x >= 0 && p!.x <= 1 && p!.y >= 0 && p!.y <= 1;
 
 /**
+ * SIN PORTEROS EN EL CAMPO (07/10/2026). El campograma dibuja sólo a los de
+ * campo: los porteros del equipo se nombran aparte (`porteros`) y la línea
+ * del portero de la estructura («1-» de «1-4-3-3») no se pinta. El dibujo se
+ * sigue escribiendo entero, como se dice en el campo.
+ *
+ * Lo guardado conserva su forma: el índice 0 de `orden`/`posiciones` es el
+ * hueco del portero cuando la estructura lo lleva (así lo guardado antes sigue
+ * valiendo) y `paraGuardar` lo pone delante al escribir.
+ */
+export function colocaEnEstructura(
+  jugadores: JugadorSesion[],
+  estructura: string | undefined,
+  puestoDe: (j: JugadorSesion) => Puesto | undefined,
+  orden?: string[],
+  posiciones?: (Punto | null)[],
+): { huecos: Hueco[]; sobran: JugadorSesion[]; porteros: JugadorSesion[] } {
+  const lleva = conPortero(estructura);
+  const porteros = jugadores.filter((j) => puestoDe(j) === "POR");
+  const deCampo = jugadores.filter((j) => puestoDe(j) !== "POR");
+  const lineas = lleva ? lineasDe(estructura).slice(1).join("-") : estructura;
+
+  return { ...colocaDeCampo(deCampo, lineas, puestoDe, lleva ? orden?.slice(1) : orden, lleva ? posiciones?.slice(1) : posiciones), porteros };
+}
+
+/** Lo que se guarda, con el hueco del portero delante si la estructura lo lleva. */
+export function paraGuardar(estructura: string | undefined, guardado: { orden: string[]; posiciones?: (Punto | null)[] }) {
+  if (!conPortero(estructura)) return guardado;
+  return {
+    orden: ["", ...guardado.orden],
+    posiciones: guardado.posiciones ? [null, ...guardado.posiciones] : undefined,
+  };
+}
+
+/** Los huecos de campo de un dibujo: lo que pide sin contar al portero. */
+export const huecosDeCampo = (estructura: string | undefined) => jugadoresDe(estructura) - (conPortero(estructura) ? 1 : 0);
+
+/**
  * Coloca a los jugadores de un equipo en los huecos de su dibujo.
  *
  * Con `orden` (lo cambiado a mano) manda ese orden; los que no están en él
@@ -136,7 +173,7 @@ const puntoValido = (p: Punto | null | undefined): p is Punto =>
  * dice —salvo que tengan un punto puesto a mano: entonces son un hueco más—;
  * si faltan, el hueco queda vacío.
  */
-export function colocaEnEstructura(
+function colocaDeCampo(
   jugadores: JugadorSesion[],
   estructura: string | undefined,
   puestoDe: (j: JugadorSesion) => Puesto | undefined,

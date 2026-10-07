@@ -315,6 +315,12 @@ export function LaminaEquipos({
               {colocados ? (
                 <div style={{ padding: "18px 18px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, minWidth: 0 }}>
                   <CampoEstructura huecos={colocados.huecos} color={c.color} ancho={anchoCampo} claro />
+                  {colocados.porteros.length > 0 && (
+                    <div style={{ fontSize: 24, fontWeight: 700, color: TINTA, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      <span style={{ color: SUAVE }}>{colocados.porteros.length === 1 ? "Portero" : "Porteros"} · </span>
+                      {colocados.porteros.map((j) => j.nombre).join(" · ")}
+                    </div>
+                  )}
                   {colocados.sobran.length > 0 && (
                     <div style={{ fontSize: 22, fontWeight: 600, color: SUAVE, textAlign: "center", textTransform: "uppercase" }}>
                       Fuera del dibujo: {colocados.sobran.map((j) => j.nombre).join(" · ")}

@@ -130,7 +130,6 @@ export function CampoEstructura({
         const anchoNombre = Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 1.1);
         const nombre = h.jugador?.nombre ?? "";
         const tamanoNombre = Math.max(8, Math.min(letra, anchoNombre / (palabraMasLarga(nombre || "—") * 0.5 + 0.9)));
-        const esPortero = h.linea === 0 && huecos.filter((x) => x.linea === 0).length === 1;
         return (
           <div
             key={i}
@@ -186,7 +185,6 @@ export function CampoEstructura({
                 justifyContent: "center",
               }}
             >
-              {esPortero && h.jugador ? "POR" : ""}
             </span>
             <span
               style={{

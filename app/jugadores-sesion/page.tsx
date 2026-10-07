@@ -66,6 +66,8 @@ import {
   jugadoresDe,
   lineasDe,
   normalizaEstructura,
+  huecosDeCampo,
+  paraGuardar,
   type Hueco,
   type Punto,
 } from "@/lib/sesion-equipos/estructura";
@@ -383,8 +385,10 @@ function EstructuraEquipo({
   onGuardaMia: (estructura: string) => void;
   onBorraMia: (estructura: string) => void;
 }) {
-  const { huecos, sobran } = colocaEnEstructura(jugadores, equipo.estructura, puestoDe, equipo.orden, equipo.posiciones);
-  const total = jugadoresDe(equipo.estructura);
+  const { huecos, sobran, porteros } = colocaEnEstructura(jugadores, equipo.estructura, puestoDe, equipo.orden, equipo.posiciones);
+  /* Los porteros no se dibujan: la cuenta es de los de campo contra los huecos de campo. */
+  const total = huecosDeCampo(equipo.estructura);
+  const deCampo = jugadores.length - porteros.length;
   const actual = normalizaEstructura(equipo.estructura ?? "");
   const enLista = ESTRUCTURAS.some((e) => e.valor === actual) || mias.includes(actual);
   const grupos = gruposDeEstructuras(jugadores.length);
@@ -458,10 +462,10 @@ function EstructuraEquipo({
           {creando ? "Cerrar" : "Crear"}
         </button>
         <span
-          className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${jugadores.length === total ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
-          title="Jugadores del equipo / huecos del dibujo"
+          className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${deCampo === total ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
+          title="Jugadores de campo del equipo / huecos del dibujo (el portero no se dibuja)"
         >
-          {jugadores.length}/{total}
+          {deCampo}/{total}
         </span>
       </div>
 
@@ -475,7 +479,7 @@ function EstructuraEquipo({
                 onChange={(e) => setCreando({ ...creando, portero: e.target.checked })}
                 className="h-3.5 w-3.5 accent-[#C8A96B]"
               />
-              Portero
+              Con portero (no se dibuja)
             </label>
             {creando.lineas.map((n, i) => (
               <span key={i} className="inline-flex items-center rounded-lg border border-white/10 bg-black/20">
@@ -515,7 +519,7 @@ function EstructuraEquipo({
           </div>
           <p className="text-[11px] text-white/50">
             De atrás adelante: <b className="text-white/85">{textoCreado || "—"}</b> · {cuentaCreado} jugador{cuentaCreado === 1 ? "" : "es"}
-            {jugadores.length !== cuentaCreado ? ` (el equipo tiene ${jugadores.length})` : ""}
+            {deCampo !== cuentaCreado - (creando.portero ? 1 : 0) ? ` (el equipo tiene ${deCampo} de campo)` : ""}
           </p>
           <div className="flex flex-wrap gap-1.5">
             <Button tone="primary" disabled={!creando.lineas.length} onClick={() => onEstructura(textoCreado)}>
@@ -554,6 +558,11 @@ function EstructuraEquipo({
         </div>
       ) : (
         <p className="text-[11px] text-white/40">Elige una estructura o créala con «Crear».</p>
+      )}
+      {porteros.length > 0 && (
+        <p className="text-[11px] text-white/55">
+          {porteros.length === 1 ? "Portero" : "Porteros"} (fuera del campograma): <b className="text-white/80">{porteros.map((j) => j.nombre).join(", ")}</b>
+        </p>
       )}
       {sobran.length > 0 && (
         <p className="text-[11px] text-amber-300/90">
@@ -861,7 +870,7 @@ export default function JugadoresSesionPage() {
 
           const suyos = repartoDe(t, sesion.jugadores).porEquipo[equipoId] ?? [];
           const { huecos } = colocaEnEstructura(suyos, equipo.estructura, puestoDe, equipo.orden, equipo.posiciones);
-          const guardado = colocaEnPunto(huecos, jugador, punto);
+          const guardado = paraGuardar(equipo.estructura, colocaEnPunto(huecos, jugador, punto));
 
           return {
             ...t,
@@ -903,7 +912,7 @@ export default function JugadoresSesionPage() {
 
           nuevos[indice].jugador = jugador;
 
-          const guardado = guardaHuecos(nuevos);
+          const guardado = paraGuardar(equipo.estructura, guardaHuecos(nuevos));
 
           /* Sin hueco libre, el desplazado sigue en el equipo, fuera del dibujo. */
           if (antes < 0 && desplazado && !nuevos.some((h) => h.jugador?.id === desplazado.id)) guardado.orden.push(desplazado.id);
@@ -1874,7 +1883,7 @@ export default function JugadoresSesionPage() {
                                   return;
                                 }
                                 if (huecoTocado.hueco !== hueco) {
-                                  const { orden, posiciones } = intercambia(huecos, huecoTocado.hueco, hueco);
+                                  const { orden, posiciones } = paraGuardar(equipo.estructura, intercambia(huecos, huecoTocado.hueco, hueco));
                                   cambiaTarea((t) => ({ ...t, equipos: t.equipos.map((x) => (x.id === equipo.id ? { ...x, orden, posiciones } : x)) }));
                                 }
                                 setHuecoTocado(null);
@@ -1883,7 +1892,7 @@ export default function JugadoresSesionPage() {
                           )}
                           {ordenPorPuesto(
                             tarea.conEstructura
-                              ? colocaEnEstructura(reparto.porEquipo[equipo.id] ?? [], equipo.estructura, puestoDe, equipo.orden, equipo.posiciones).sobran
+                              ? (({ sobran, porteros }) => [...porteros, ...sobran])(colocaEnEstructura(reparto.porEquipo[equipo.id] ?? [], equipo.estructura, puestoDe, equipo.orden, equipo.posiciones))
                               : (reparto.porEquipo[equipo.id] ?? []),
                             puestoDe,
                           ).map(chip)}
