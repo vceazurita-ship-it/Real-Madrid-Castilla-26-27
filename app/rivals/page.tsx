@@ -3082,6 +3082,65 @@ export default function RivalPlayersPage() {
   /* Qué forma tenía lo último que se comprobó bien, por jugador. */
   const formaComprobada = useRef(new Map<string, string>());
 
+  /*
+  | Las columnas de la hoja: las que traen las filas de la plantilla (07/10/2026).
+  | La ficha ya no espera a la hoja (va a una cola y se escribe por detrás), así
+  | que la comprobación de «columna sin cabecera» se hace contra éstas, al
+  | momento, en vez de releer la hoja (14-18 s cada vez).
+  */
+  const columnasHoja = useMemo(() => {
+    const todas = new Set<string>();
+    for (const p of players) for (const k of Object.keys(p)) todas.add(k);
+    return todas;
+  }, [players]);
+
+  /* Mientras haya fichas en la cola, se mira cada poco si han llegado a la hoja o si algo falla. */
+  const [colaPendiente, setColaPendiente] = useState(false);
+
+  const avisadosCola = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!colaPendiente) return;
+
+    let vivo = true;
+
+    const mira = async () => {
+      try {
+        const lista = (await fetch(`${RIVALS_API_URL}?action=estadoColaRivales`, { cache: "no-store" }).then((r) => r.json())) as {
+          id: string;
+          nombre: string;
+          intentos: number;
+          error: string;
+        }[];
+
+        if (!vivo || !Array.isArray(lista)) return;
+
+        for (const item of lista) {
+          if (item.intentos >= 2 && item.error && !avisadosCola.current.has(item.id)) {
+            avisadosCola.current.add(item.id);
+
+            toast.error(`La ficha de ${item.nombre || item.id} no ha entrado en la hoja`, {
+              id: `cola-${item.id}`,
+              duration: 20000,
+              description: `Está guardada aquí y se sigue reintentando sola. La hoja dice: ${explicaErrorScript(item.error)}`,
+            });
+          }
+        }
+
+        if (!lista.length) setColaPendiente(false);
+      } catch {
+        /* sin red: se mira en la siguiente vuelta */
+      }
+    };
+
+    const reloj = window.setInterval(() => void mira(), 15_000);
+
+    return () => {
+      vivo = false;
+      window.clearInterval(reloj);
+    };
+  }, [colaPendiente]);
+
   const escribirJugador = useCallback(
     async (form: RivalPlayer | null) => {
       if (!form) return true;
@@ -3118,6 +3177,18 @@ export default function RivalPlayersPage() {
         /* El error de la hoja, traducido a algo accionable. */
         throw new Error(explicaErrorScript(result.error));
       }
+
+      if (result.encolado) setColaPendiente(true);
+
+      /*
+      | Con la cola, «releer» es lo que la hoja va a guardar: lo enviado menos
+      | lo que no tiene columna. El save-guard compara igual que antes y avisa
+      | igual de las columnas perdidas, pero sin esperar a Google.
+      */
+      const releerAhora =
+        result.encolado && columnasHoja.size
+          ? async () => Object.fromEntries(Object.entries(form).filter(([k]) => columnasHoja.has(k))) as Record<string, unknown>
+          : () => releerJugador(form.ID_JUGADOR);
 
       /*
       | La comprobación sólo cuando puede decir algo nuevo.
@@ -3158,7 +3229,7 @@ export default function RivalPlayersPage() {
         }`,
         enviado: form as unknown as Record<string, unknown>,
         modoAuto: true,
-        releer: () => releerJugador(form.ID_JUGADOR),
+        releer: releerAhora,
       });
 
       /*
@@ -3183,7 +3254,7 @@ export default function RivalPlayersPage() {
 
       return verificacion.ok;
     },
-    [verificarGuardado, releerJugador],
+    [verificarGuardado, releerJugador, columnasHoja],
   );
 
   const autoFicha = useAutoSave<RivalPlayer | null>({

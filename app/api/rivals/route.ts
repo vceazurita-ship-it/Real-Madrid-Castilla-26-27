@@ -425,6 +425,164 @@ function olvida() {
 | igual que con un `POST`. Es una llamada suelta y sin cuerpo: no vale nada
 | dejarla caer si falla —lo peor que pasa es servir la copia un rato más—.
 */
+
+/*
+|--------------------------------------------------------------------------
+| LA FICHA DEL JUGADOR RIVAL SE GUARDA YA; LA HOJA, POR DETRÁS (07/10/2026)
+|--------------------------------------------------------------------------
+|
+| Cada pausa al escribir en una ficha mandaba la ficha entera al Apps Script
+| y la pantalla esperaba su respuesta (de unos segundos a más de un minuto en
+| frío), y luego la comprobaba releyendo la hoja (14-18 s medidos). Se
+| guardaba poco y tarde, y cerrar o cambiar de jugador a mitad dejaba cosas
+| en el aire.
+|
+| Ahora el guardado entra en una COLA en Supabase —un documento por jugador,
+| el último manda— y se contesta al momento. Por detrás (`after`) la cola se
+| escribe en la hoja, en orden, y lo que falle se queda para el siguiente
+| intento, que lo dispara cualquier lectura o guardado. Mientras tanto, toda
+| lectura de la plantilla aplica encima lo que hay en la cola: la ficha se ve
+| al día aunque la hoja todavía no lo tenga.
+*/
+const PREFIJO_COLA = "cola:rival-jugador:";
+
+const TIPO_COLA = "cola-rival-jugador";
+
+type EnCola = { player: Record<string, unknown> | null; at: number; intentos?: number; error?: string };
+
+const claveCola = (id: string) => `${PREFIJO_COLA}${id}`;
+
+/* Lo pendiente, con unos segundos de memoria: cada lectura de la plantilla lo mira. */
+let pendientesEnMemoria: { at: number; lista: EnCola[] } | null = null;
+
+async function pendientes(): Promise<EnCola[]> {
+  if (pendientesEnMemoria && Date.now() - pendientesEnMemoria.at < 5_000) return pendientesEnMemoria.lista;
+
+  try {
+    const filas = await listDocs(PREFIJO_COLA);
+    const lista = filas
+      .map((f) => f.data as EnCola | null)
+      .filter((d): d is EnCola => Boolean(d?.player))
+      .sort((a, b) => a.at - b.at);
+
+    pendientesEnMemoria = { at: Date.now(), lista };
+
+    return lista;
+  } catch {
+    return pendientesEnMemoria?.lista ?? [];
+  }
+}
+
+/** La plantilla con lo de la cola encima (por ID_JUGADOR). */
+async function conLaCola(data: unknown) {
+  if (!Array.isArray(data)) return data;
+
+  const cola = await pendientes();
+
+  if (!cola.length) return data;
+
+  const porId = new Map(cola.map((c) => [String(c.player?.ID_JUGADOR ?? ""), c.player as Record<string, unknown>]));
+
+  return data.map((fila) => {
+    const encima = porId.get(String((fila as Record<string, unknown>)?.ID_JUGADOR ?? ""));
+
+    return encima ? { ...(fila as Record<string, unknown>), ...encima } : fila;
+  });
+}
+
+/** Mete a un jugador en la cola y pone su fila al día en la copia de memoria. */
+async function encola(player: Record<string, unknown>) {
+  const id = String(player.ID_JUGADOR ?? "");
+
+  await writeDoc(claveCola(id), TIPO_COLA, { player, at: Date.now(), intentos: 0 } satisfies EnCola);
+
+  pendientesEnMemoria = null;
+}
+
+let procesando = false;
+
+/** Escribe en la hoja lo que haya en la cola, de uno en uno. */
+async function procesaCola() {
+  if (procesando) return;
+
+  procesando = true;
+
+  try {
+    pendientesEnMemoria = null;
+
+    for (const item of await pendientes()) {
+      const id = String(item.player?.ID_JUGADOR ?? "");
+
+      if (!id) continue;
+
+      let ok = false;
+      let error = "";
+
+      try {
+        const respuesta = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: "guardarRivalJugador", player: item.player }),
+        });
+
+        const texto = await respuesta.text();
+
+        try {
+          const r = JSON.parse(texto) as { success?: boolean; error?: string };
+
+          ok = Boolean(r.success);
+          error = r.error ?? "";
+        } catch {
+          error = texto.slice(0, 160);
+        }
+      } catch (e) {
+        error = e instanceof Error ? e.message : String(e);
+      }
+
+      /* Sólo se saca de la cola si nadie ha vuelto a guardar ese jugador mientras tanto. */
+      const actual = (await readDoc<EnCola>(claveCola(id)).catch(() => ({ data: null }))).data;
+
+      if (!actual?.player || actual.at !== item.at) continue;
+
+      if (ok) {
+        await writeDoc(claveCola(id), TIPO_COLA, { player: null, at: Date.now() } satisfies EnCola);
+
+        /* Lo que estuviera leyéndose de la hoja salió antes de esta escritura: que no quede como copia. */
+        generacion += 1;
+        enVuelo.clear();
+
+        const ponAlDia = (filas: unknown[]) =>
+          filas.map((fila) =>
+            String((fila as Record<string, unknown>)?.ID_JUGADOR ?? "") === id ? { ...(fila as Record<string, unknown>), ...item.player } : fila,
+          );
+
+        /* La fila de la copia de memoria, ya con lo escrito. */
+        const copia = cache.get("action=rivalesPlantillas");
+
+        if (copia && Array.isArray(copia.data)) copia.data = ponAlDia(copia.data);
+
+        /*
+        | Y la de Supabase, que es la que leen los demás servidores: sin esto,
+        | al vaciarse la cola volvían a enseñar la fila de antes de guardar.
+        */
+        try {
+          const clave = claveGuardada("action=rivalesPlantillas");
+          const { data: fuera } = await readDoc<Guardado>(clave);
+
+          if (fuera && Array.isArray(fuera.data)) await writeDoc(clave, TIPO_GUARDADO, { ...fuera, data: ponAlDia(fuera.data) });
+        } catch {
+          /* Lo peor: esa copia enseña la fila vieja hasta su próximo refresco. */
+        }
+      } else {
+        await writeDoc(claveCola(id), TIPO_COLA, { ...actual, intentos: (actual.intentos ?? 0) + 1, error: error.slice(0, 200) } satisfies EnCola);
+      }
+    }
+  } finally {
+    procesando = false;
+    pendientesEnMemoria = null;
+  }
+}
+
 export async function DELETE() {
   olvida();
 
@@ -434,6 +592,25 @@ export async function DELETE() {
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
+
+    /* El estado de la cola de fichas: lo que falta por llegar a la hoja y si algo está fallando. */
+    if (searchParams.get("action") === "estadoColaRivales") {
+      pendientesEnMemoria = null;
+
+      const lista = await pendientes();
+
+      if (lista.length) after(procesaCola);
+
+      return NextResponse.json(
+        lista.map((c) => ({
+          id: String(c.player?.ID_JUGADOR ?? ""),
+          nombre: String(c.player?.["NOMBRE DEPORTIVO"] || c.player?.JUGADOR || ""),
+          desde: c.at,
+          intentos: c.intentos ?? 0,
+          error: c.error ?? "",
+        })),
+      );
+    }
 
     /*
     | Se reenvía lo que venga —`getAlineacion` necesita su `id`—, quitando
@@ -454,11 +631,18 @@ export async function GET(request: NextRequest) {
     | guardado. Lo pide el plan de partido, que abre con ella y se pone al día
     | él solo con un `fresco=1` por detrás.
     */
-    const data = await lee(
+    let data = await lee(
       parametros.toString(),
       searchParams.get("fresco") === "1",
       searchParams.get("rancia") === "1",
     );
+
+    /* La plantilla, con las fichas guardadas que todavía no han llegado a la hoja; y la cola, empujada. */
+    if (parametros.toString() === "action=rivalesPlantillas") {
+      data = await conLaCola(data);
+
+      if ((await pendientes()).length) after(procesaCola);
+    }
 
     /*
     | `?jugador=<ID_JUGADOR>` devuelve **una fila**, no las mil.
@@ -506,6 +690,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+
+    /* La ficha de un jugador que ya existe: a la cola y contestado ya; la hoja, por detrás. */
+    if (body?.action === "guardarRivalJugador" && body?.player?.ID_JUGADOR) {
+      await encola(body.player as Record<string, unknown>);
+
+      after(procesaCola);
+
+      return NextResponse.json({ success: true, encolado: true });
+    }
 
     olvida();
 
