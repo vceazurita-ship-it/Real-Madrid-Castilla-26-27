@@ -123,6 +123,8 @@ export type EquipoTarea = {
   estructura?: string;
   /** Ids de jugador por hueco del dibujo, tal y como se dejaron a mano («» = hueco vacío). */
   orden?: string[];
+  /** El punto de cada hueco puesto a mano (mismo índice que `orden`; null = el del dibujo). */
+  posiciones?: ({ x: number; y: number } | null)[];
 };
 
 /** Dónde está cada jugador en una tarea. Sin entrada = todavía sin sitio. */
@@ -158,7 +160,11 @@ export type SesionEquipos = {
   creadaEn: string;
 };
 
-export type AlmacenEquipos = { sesiones: SesionEquipos[] };
+export type AlmacenEquipos = {
+  sesiones: SesionEquipos[];
+  /** Las estructuras que ha creado el cuerpo técnico (07/10/2026): salen arriba en el desplegable. */
+  estructuras?: string[];
+};
 
 export const ALMACEN_VACIO: AlmacenEquipos = { sesiones: [] };
 

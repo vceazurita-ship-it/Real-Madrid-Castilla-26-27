@@ -2,9 +2,16 @@
  * El mini campograma de un equipo con estructura (06/10/2026).
  *
  * Medio campo vertical, su portería abajo, cada jugador en su hueco con el
- * color del equipo. Sirve para la pantalla (pequeño, se toca para cambiar de
- * sitio) y para la lámina exportada (grande, sin tocar). Todo en estilos en
- * línea con hex/rgba: la lámina se captura con `html-to-image`.
+ * color del equipo. Sirve para la pantalla (se toca o se arrastra para cambiar
+ * de sitio) y para la lámina exportada (grande, sin tocar). Todo en estilos en
+ * línea con hex/rgba y las líneas en SVG: la lámina se captura con
+ * `html-to-image`.
+ *
+ * REDISEÑO (07/10/2026): las líneas son las de un campo de verdad (área,
+ * área pequeña, punto y semicírculo de penalti, portería y el medio círculo
+ * central arriba), las fichas son más grandes y el nombre va en una etiqueta
+ * que se lee sobre el césped. Y el césped entero es un sitio donde soltar
+ * (`campoDestino`): quien se suelta en un punto vacío se queda en ese punto.
  */
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 
@@ -13,6 +20,39 @@ import { tintaSobre } from "@/lib/sesion-equipos/modelo";
 
 /** Lo que mide la palabra más larga de un nombre, en letras: el nombre se parte sólo entre palabras. */
 const palabraMasLarga = (nombre: string) => Math.max(3, ...nombre.split(/ +/).map((t) => t.length));
+
+/** Proporción del medio campo que se dibuja: alto = ancho × esto. */
+export const PROPORCION_CAMPO = 1.08;
+
+/** Las líneas del medio campo, en un lienzo de 100 × 108. */
+function Lineas({ trazo, grosor }: { trazo: string; grosor: number }) {
+  const g = { fill: "none", stroke: trazo, strokeWidth: grosor, vectorEffect: "non-scaling-stroke" as const };
+  return (
+    <svg
+      viewBox="0 0 100 108"
+      preserveAspectRatio="none"
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+      aria-hidden
+    >
+      {/* banda, fondo y la línea de medio campo arriba */}
+      <rect x="4" y="3" width="92" height="101" {...g} strokeWidth={grosor} />
+      {/* medio círculo central */}
+      <path d="M 36 3 A 14 14 0 0 0 64 3" {...g} strokeWidth={grosor} />
+      <circle cx="50" cy="3" r="0.9" fill={trazo} />
+      {/* área grande y pequeña */}
+      <rect x="22.5" y="72" width="55" height="32" {...g} strokeWidth={grosor} />
+      <rect x="37.5" y="93.3" width="25" height="10.7" {...g} strokeWidth={grosor} />
+      {/* punto y semicírculo de penalti */}
+      <circle cx="50" cy="82.5" r="0.9" fill={trazo} />
+      <path d="M 39.5 72 A 14.5 14.5 0 0 1 60.5 72" {...g} strokeWidth={grosor} />
+      {/* portería */}
+      <rect x="44.5" y="104" width="11" height="2.6" {...g} strokeWidth={grosor} />
+      {/* córners */}
+      <path d="M 4 101 A 3 3 0 0 1 7 104" {...g} strokeWidth={grosor} />
+      <path d="M 93 104 A 3 3 0 0 1 96 101" {...g} strokeWidth={grosor} />
+    </svg>
+  );
+}
 
 export function CampoEstructura({
   huecos,
@@ -24,6 +64,7 @@ export function CampoEstructura({
   destinoDe,
   sobre = null,
   onArrastra,
+  campoDestino,
   style,
 }: {
   huecos: Hueco[];
@@ -41,45 +82,55 @@ export function CampoEstructura({
   sobre?: string | null;
   /** Empieza a arrastrar al jugador de un hueco. */
   onArrastra?: (indice: number, e: ReactPointerEvent) => void;
+  /** El destino del césped entero: soltar en un punto vacío deja al jugador ahí («campo:<equipo>»). */
+  campoDestino?: string;
   style?: CSSProperties;
 }) {
-  const alto = ancho * 1.08;
-  const ficha = Math.max(16, Math.min(46, ancho / 9));
-  const letra = Math.max(10, Math.min(32, ancho / 11));
+  const alto = ancho * PROPORCION_CAMPO;
+  const ficha = Math.max(16, Math.min(50, ancho / 10));
+  const letra = Math.max(9, Math.min(28, ancho / 21));
   const tinta = tintaSobre(color);
-  const linea = claro ? "rgba(20,83,45,0.35)" : "rgba(255,255,255,0.22)";
+  const trazo = claro ? "rgba(20,83,45,0.42)" : "rgba(255,255,255,0.5)";
+  const encimaCampo = Boolean(campoDestino && sobre === campoDestino);
 
   return (
     <div
+      data-destino={campoDestino}
+      data-campo-estructura={campoDestino ? "" : undefined}
       style={{
         position: "relative",
         width: ancho,
         height: alto,
-        borderRadius: Math.max(8, ancho / 28),
+        borderRadius: Math.max(10, ancho / 26),
         overflow: "hidden",
         background: claro
-          ? "repeating-linear-gradient(180deg, #E7F3EA 0px, #E7F3EA 12.5%, #DCEEE1 12.5%, #DCEEE1 25%)"
-          : "repeating-linear-gradient(180deg, #14532D 0px, #14532D 12.5%, #166534 12.5%, #166534 25%)",
-        border: `2px solid ${claro ? "rgba(20,83,45,0.25)" : "rgba(255,255,255,0.12)"}`,
+          ? "repeating-linear-gradient(180deg, #E9F5EC 0px, #E9F5EC 10%, #DDEFE2 10%, #DDEFE2 20%)"
+          : "radial-gradient(120% 80% at 50% 100%, rgba(255,255,255,0.07), rgba(0,0,0,0) 60%), repeating-linear-gradient(180deg, #17663A 0px, #17663A 10%, #1B7543 10%, #1B7543 20%)",
+        border: `2px solid ${encimaCampo ? "#C8A96B" : claro ? "rgba(20,83,45,0.25)" : "rgba(255,255,255,0.14)"}`,
+        boxShadow: encimaCampo
+          ? "0 0 0 4px rgba(200,169,107,0.35), inset 0 0 40px rgba(0,0,0,0.25)"
+          : claro
+            ? "none"
+            : "inset 0 0 40px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.25)",
         flexShrink: 0,
         /* La letra estrecha de la lámina, también en la pantalla: caben nombres más grandes. */
         fontFamily: "var(--fuente-sesion, inherit)",
+        transition: "box-shadow 120ms, border-color 120ms",
         ...style,
       }}
     >
-      {/* Las líneas: medio campo con su área y su portería abajo. */}
-      <div style={{ position: "absolute", left: "4%", right: "4%", top: "3%", bottom: "3%", border: `2px solid ${linea}`, borderRadius: 4 }} />
-      <div style={{ position: "absolute", left: "50%", top: "3%", width: "28%", height: "14%", transform: "translate(-50%,-50%)", border: `2px solid ${linea}`, borderRadius: "50%" }} />
-      <div style={{ position: "absolute", left: "22%", right: "22%", bottom: "3%", height: "17%", border: `2px solid ${linea}`, borderBottom: "none" }} />
-      <div style={{ position: "absolute", left: "37%", right: "37%", bottom: "3%", height: "6%", border: `2px solid ${linea}`, borderBottom: "none" }} />
+      <Lineas trazo={trazo} grosor={Math.max(1.5, ancho / 220)} />
 
       {huecos.map((h, i) => {
         const es = elegido === i;
         const destino = destinoDe?.(i);
         const debajo = Boolean(destino && sobre === destino);
         /* Cada nombre cabe en su trozo de línea: con cuatro en fila, la cuarta parte del campo. */
-        const enSuLinea = huecos.filter((x) => x.linea === h.linea).length;
-        const anchoNombre = Math.min(ancho / 3.2, (ancho / (enSuLinea + 1)) * 0.98);
+        const enSuLinea = h.linea < 0 ? 3 : huecos.filter((x) => x.linea === h.linea && !x.aMano).length || 3;
+        const anchoNombre = Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 1.1);
+        const nombre = h.jugador?.nombre ?? "";
+        const tamanoNombre = Math.max(8, Math.min(letra, anchoNombre / (palabraMasLarga(nombre || "—") * 0.5 + 0.9)));
+        const esPortero = h.linea === 0 && huecos.filter((x) => x.linea === 0).length === 1;
         return (
           <div
             key={i}
@@ -90,60 +141,75 @@ export function CampoEstructura({
               position: "absolute",
               left: `${h.x * 100}%`,
               top: `${h.y * 100}%`,
-              transform: "translate(-50%,-50%)",
+              transform: "translate(-50%, -50%)",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               width: anchoNombre,
+              /* Un blanco generoso para el dedo, aunque la ficha sea pequeña. */
+              padding: onToca ? 4 : 0,
               cursor: onArrastra && h.jugador ? "grab" : onToca ? "pointer" : "default",
               touchAction: onArrastra && h.jugador ? "pan-y" : undefined,
               userSelect: "none",
+              zIndex: es || debajo ? 3 : h.aMano ? 2 : 1,
             }}
-            title={h.jugador ? `${h.jugador.nombre}${onToca ? " · toca otro para cambiarlos de sitio" : ""}` : onToca ? "Hueco libre: toca a un jugador para traerlo" : "Hueco libre"}
+            title={
+              h.jugador
+                ? `${h.jugador.nombre}${onToca ? " · arrástralo a cualquier punto, o toca otro para cambiarlos" : ""}`
+                : onToca
+                  ? "Hueco libre: suelta aquí a un jugador"
+                  : "Hueco libre"
+            }
           >
             <span
               style={{
                 width: ficha,
                 height: ficha,
                 borderRadius: 999,
-                background: h.jugador ? color : "transparent",
-                border: h.jugador ? `2px solid ${es ? "#C8A96B" : "rgba(0,0,0,0.35)"}` : `2px dashed ${claro ? "rgba(20,83,45,0.45)" : "rgba(255,255,255,0.45)"}`,
-                boxShadow: es || debajo ? "0 0 0 3px #C8A96B" : "0 2px 6px rgba(0,0,0,0.25)",
-                transform: debajo ? "scale(1.25)" : undefined,
-                transition: "transform 120ms",
+                background: h.jugador
+                  ? `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.35), rgba(255,255,255,0) 55%), ${color}`
+                  : claro
+                    ? "rgba(20,83,45,0.06)"
+                    : "rgba(255,255,255,0.08)",
+                border: h.jugador
+                  ? `${Math.max(2, ficha / 16)}px solid ${es ? "#C8A96B" : claro ? "rgba(11,15,20,0.35)" : "#FFFFFF"}`
+                  : `2px dashed ${claro ? "rgba(20,83,45,0.5)" : "rgba(255,255,255,0.6)"}`,
+                boxShadow: es || debajo ? "0 0 0 4px #C8A96B" : h.jugador ? "0 3px 8px rgba(0,0,0,0.35)" : "none",
+                transform: debajo ? "scale(1.22)" : undefined,
+                transition: "transform 120ms, box-shadow 120ms",
                 color: tinta,
-                fontSize: ficha * 0.42,
+                fontSize: ficha * 0.36,
                 fontWeight: 700,
+                letterSpacing: "0.04em",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
-              {h.linea === 0 && h.jugador && huecos.filter((x) => x.linea === 0).length === 1 ? "POR" : ""}
+              {esPortero && h.jugador ? "POR" : ""}
             </span>
             <span
               style={{
-                marginTop: 2,
+                marginTop: Math.max(2, ficha / 12),
                 maxWidth: "100%",
-                /* Que la palabra más larga del nombre quepa entera en su línea (≈0,6 em por mayúscula). */
-                fontSize: Math.max(7, Math.min(letra, anchoNombre / (palabraMasLarga(h.jugador?.nombre ?? "—") * 0.5 + 0.4))),
+                /* Que la palabra más larga del nombre quepa entera en su línea. */
+                fontSize: tamanoNombre,
                 fontWeight: 700,
-                lineHeight: 1,
+                lineHeight: 1.02,
                 textTransform: "uppercase",
                 textAlign: "center",
                 /* El nombre entero, en dos líneas si hace falta: «JORGE / CESTERO». */
                 whiteSpace: "normal",
                 overflowWrap: "normal",
-                color: claro ? "#0B0F14" : "#FFFFFF",
-                textShadow: claro ? "none" : "0 1px 2px rgba(0,0,0,0.6)",
-                background: claro ? "rgba(255,255,255,0.85)" : "transparent",
-                borderRadius: 4,
-                padding: claro ? "0 4px" : 0,
+                color: h.jugador ? (claro ? "#0B0F14" : "#FFFFFF") : claro ? "rgba(11,15,20,0.4)" : "rgba(255,255,255,0.55)",
+                background: h.jugador ? (claro ? "rgba(255,255,255,0.92)" : "rgba(6,12,9,0.62)") : "transparent",
+                boxShadow: h.jugador && claro ? "0 1px 3px rgba(11,26,51,0.12)" : "none",
+                borderRadius: Math.max(4, tamanoNombre / 3),
+                padding: h.jugador ? `${Math.max(1, tamanoNombre / 8)}px ${Math.max(3, tamanoNombre / 3)}px` : 0,
               }}
             >
-              {h.jugador ? h.jugador.nombre : "—"}
+              {h.jugador ? nombre : onToca ? "libre" : "—"}
             </span>
-
           </div>
         );
       })}

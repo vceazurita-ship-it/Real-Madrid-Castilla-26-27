@@ -47,6 +47,7 @@ type Columna = {
   jugadores: JugadorSesion[];
   estructura?: string;
   orden?: string[];
+  posiciones?: ({ x: number; y: number } | null)[];
 };
 
 /** Un borde que se vea aunque el color del equipo sea casi blanco (el de los comodines). */
@@ -139,6 +140,7 @@ export function LaminaEquipos({
     jugadores: ordenPorPuesto(r.porEquipo[e.id] ?? [], porPuesto),
     estructura: tarea.conEstructura ? e.estructura : undefined,
     orden: e.orden,
+    posiciones: e.posiciones,
   }));
 
   if (tarea.comodines > 0 || r.comodines.length > 0) {
@@ -184,7 +186,7 @@ export function LaminaEquipos({
   const fuera = [...r.fuera, ...r.sinSitio];
 
   /* El campograma, lo más grande que quepa en la columna y en el alto que queda. */
-  const anchoCampo = Math.min(anchoColumna - 40, (LAMINA_H - 430) / 1.08);
+  const anchoCampo = Math.min(anchoColumna - 40, (LAMINA_H - 520) / 1.08);
 
   return (
     <div
@@ -258,7 +260,7 @@ export function LaminaEquipos({
       >
         {columnas.map((c) => {
           const tinta = tintaSobre(c.color);
-          const colocados = c.estructura ? colocaEnEstructura(c.jugadores, c.estructura, porPuesto, c.orden) : null;
+          const colocados = c.estructura ? colocaEnEstructura(c.jugadores, c.estructura, porPuesto, c.orden, c.posiciones) : null;
 
           return (
             <div
