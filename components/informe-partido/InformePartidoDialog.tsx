@@ -162,7 +162,7 @@ export function InformePartidoDialog({
 
   const lienzos = useRef<HTMLDivElement | null>(null);
 
-  const { value: ajustes, setValue: setAjustes } = useRemoteDoc<AjustesCorreo>({
+  const { value: ajustes, setValue: setAjustes, status: estadoAjustes } = useRemoteDoc<AjustesCorreo>({
     key: "partido:informe-correo",
     kind: "informe-partido",
     fallback: { destinatarios: "" },
@@ -1186,11 +1186,19 @@ export function InformePartidoDialog({
 
   /* Los interruptores se recuerdan de una vez para otra (no el texto, que es de cada partido). */
   useEffect(() => {
+    /*
+    | Mientras carga, no (07/10/2026). Al abrir, este efecto corre con los
+    | interruptores por defecto y el documento todavía vacío: escribía esos
+    | valores encima de los recordados antes de que llegaran. Y se escribe
+    | sobre lo último que haya (actualizador), no sobre el `ajustes` del render.
+    */
+    if (estadoAjustes === "loading") return;
+
     const { resumen: r, completo: c } = envio;
 
     const preferencias = { resumenPdf: r.pdf, resumenPpt: r.ppt, completoPdf: c.pdfCompleto, completoResumenPdf: c.pdfResumen, completoResumenPpt: c.pptResumen };
 
-    if (JSON.stringify(preferencias) !== JSON.stringify(ajustes.preferencias ?? {})) setAjustes({ ...ajustes, preferencias });
+    setAjustes((a) => (JSON.stringify(preferencias) !== JSON.stringify(a.preferencias ?? {}) ? { ...a, preferencias } : a));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [envio.resumen.pdf, envio.resumen.ppt, envio.completo.pdfCompleto, envio.completo.pdfResumen, envio.completo.pptResumen]);
 
@@ -1335,13 +1343,13 @@ export function InformePartidoDialog({
           <TextArea
             label="A quién se le manda (los dos correos)"
             value={ajustes.destinatarios}
-            onChange={(destinatarios) => setAjustes({ ...ajustes, destinatarios })}
+            onChange={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
             placeholder="correo@ejemplo.com, otro@ejemplo.com"
             rows={2}
           />
           <label>
             <span className={rotuloCaja}>Firma</span>
-            <input className={campo} value={ajustes.firma ?? ""} onChange={(e) => setAjustes({ ...ajustes, firma: e.target.value })} placeholder="Cuerpo técnico" />
+            <input className={campo} value={ajustes.firma ?? ""} onChange={(e) => setAjustes((a) => ({ ...a, firma: e.target.value }))} placeholder="Cuerpo técnico" />
             <span className="mt-1 block text-[10px] text-white/30">Va bajo el mensaje, si escribes uno.</span>
           </label>
         </div>
@@ -1391,7 +1399,7 @@ export function InformePartidoDialog({
                     <input
                       className={campo}
                       value={ajustes.paraResumen ?? ""}
-                      onChange={(e) => setAjustes({ ...ajustes, paraResumen: e.target.value })}
+                      onChange={(e) => setAjustes((a) => ({ ...a, paraResumen: e.target.value }))}
                       placeholder="vacío = los de arriba"
                     />
                   </label>
@@ -1524,7 +1532,7 @@ export function InformePartidoDialog({
                     <input
                       className={campo}
                       value={ajustes.paraCompleto ?? ""}
-                      onChange={(e) => setAjustes({ ...ajustes, paraCompleto: e.target.value })}
+                      onChange={(e) => setAjustes((a) => ({ ...a, paraCompleto: e.target.value }))}
                       placeholder="vacío = los de arriba"
                     />
                   </label>

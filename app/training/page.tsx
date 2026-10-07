@@ -179,8 +179,14 @@ export default function JugadoresSesionPage() {
     setEstados((current) => ({ ...current, [id]: estado }));
   };
 
+  /* Si el último guardado llegó al servidor. Lo lee `cambiarFecha` tras el
+     `flush`: el estado del hook todavía no se ha repintado en ese momento. */
+  const ultimoGuardadoOk = useRef(true);
+
   const escribirDisponibilidad = useCallback(
     async (actual: Record<string, string>) => {
+      ultimoGuardadoOk.current = false;
+
       const response = await fetch("/api/training-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -200,6 +206,7 @@ export default function JugadoresSesionPage() {
 
       if (!response.ok || !body.success) throw new Error(body.error);
 
+      ultimoGuardadoOk.current = true;
 
       return true;
     },
@@ -234,6 +241,29 @@ export default function JugadoresSesionPage() {
 
     auto.sync();
   }, [estados, auto]);
+
+  /*
+  | Cambiar de fecha con un guardado a medias (07/10/2026): el autoguardado lee
+  | la fecha en el momento de escribir, así que lo tocado para un día acababa
+  | escrito —la sesión entera— en el día nuevo. Primero se consolida lo
+  | pendiente en su día; si no llega, no se cambia.
+  */
+  const cambiarFecha = async (nueva: string) => {
+    ultimoGuardadoOk.current = true;
+
+    await auto.flush();
+
+    if (!ultimoGuardadoOk.current) {
+      toast.error("No se ha podido guardar la disponibilidad de este día", {
+        description:
+          "No se cambia de fecha hasta que llegue: se sigue reintentando solo.",
+      });
+
+      return;
+    }
+
+    setFecha(nueva);
+  };
 
   const createPlayer = async (name: string, licencia: string) => {
     setCreating(name);
@@ -542,7 +572,7 @@ export default function JugadoresSesionPage() {
                       type="date"
                       value={fecha}
                       onChange={(event) =>
-                        setFecha(event.target.value || todayKey())
+                        void cambiarFecha(event.target.value || todayKey())
                       }
                       className="rounded-xl border border-white/10 bg-[#11161D] px-3 py-2 text-sm outline-none transition focus:border-[#C8A96B]/60"
                     />

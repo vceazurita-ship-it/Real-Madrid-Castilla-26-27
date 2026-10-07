@@ -294,6 +294,15 @@ export function useAutoSave<T>({
   /* Ha entrado un cambio mientras se guardaba: hay que repetir al terminar. */
   const repetir = useRef(false);
 
+  /*
+  | Cuántas veces se ha tomado una base nueva con `sync()` (07/10/2026). Un
+  | guardado que sale antes y termina después —el Apps Script tarda hasta un
+  | minuto— apuntaba como «guardado» lo que mandó, encima de la base que la
+  | pantalla acababa de cargar; y el siguiente cambio reescribía la fila
+  | entera con los valores viejos.
+  */
+  const generacion = useRef(0);
+
   const cancelarTemporizador = useCallback(() => {
     if (timer.current) {
       clearTimeout(timer.current);
@@ -349,8 +358,15 @@ export function useAutoSave<T>({
 
         const actual = valueRef.current;
         const huella = huellaRef.current(actual);
+        const nacida = generacion.current;
 
-        if (huella === guardado.current) break;
+        if (huella === guardado.current) {
+          /* Nada que escribir (se volvió a lo guardado): el estado no se queda en «error» o «sin guardar». */
+          cancelarReintento();
+          setStatus((antes) => (antes === "idle" ? antes : "saved"));
+
+          break;
+        }
 
         setStatus("saving");
 
@@ -376,8 +392,9 @@ export function useAutoSave<T>({
         }
 
         /* Se da por guardada la huella que se envió, no la de ahora: si el
-           usuario ha seguido escribiendo, eso sigue contando como pendiente. */
-        guardado.current = huella;
+           usuario ha seguido escribiendo, eso sigue contando como pendiente.
+           Salvo que mientras volaba la pantalla haya tomado otra base. */
+        if (nacida === generacion.current) guardado.current = huella;
 
         cancelarReintento();
 
@@ -423,15 +440,20 @@ export function useAutoSave<T>({
 
   const sync = useCallback(() => {
     cancelarTemporizador();
+    cancelarReintento();
 
+    generacion.current += 1;
     guardado.current = huellaRef.current(valueRef.current);
     repetir.current = false;
 
     setStatus("idle");
-  }, [cancelarTemporizador]);
+  }, [cancelarTemporizador, cancelarReintento]);
 
   /* Programa el guardado cuando el contenido cambia de verdad. */
   const huella = fingerprint(value);
+
+  /* La clave de respaldo que se vio la última vez: cambia con el registro. */
+  const claveVista = useRef(clave);
 
   useEffect(() => {
     if (!enabled) {
@@ -454,12 +476,34 @@ export function useAutoSave<T>({
 
       if (!hayPendiente) guardado.current = huella;
 
+      claveVista.current = clave;
+
+      return;
+    }
+
+    /*
+    | Cambio de registro (otro rival, otro jugador): lo que acaba de entrar es
+    | lo cargado, no una edición (07/10/2026). Este efecto corre antes que el
+    | `sync()` de la pantalla, y antes se tomaba por cambio: guardaba una copia
+    | de respaldo con la fila recién cargada que luego se ofrecía «recuperar»
+    | y, si se aceptaba, escribía datos viejos.
+    */
+    if (claveVista.current !== clave) {
+      claveVista.current = clave;
+      cancelarTemporizador();
+      guardado.current = huella;
+
       return;
     }
 
     if (huella === guardado.current) {
       /* Se ha vuelto a lo guardado: el envío programado ya no hace falta. */
       cancelarTemporizador();
+
+      if (!enVuelo.current) {
+        cancelarReintento();
+        setStatus((antes) => (antes === "idle" ? antes : "saved"));
+      }
 
       return;
     }
@@ -494,7 +538,9 @@ export function useAutoSave<T>({
     debounce,
     escribir,
     cancelarTemporizador,
+    cancelarReintento,
     copiaAparte,
+    clave,
   ]);
 
   /* Al salir del modo edición se escribe lo que quede sin esperar al retardo. */
@@ -554,6 +600,9 @@ export function useAutoSave<T>({
       if (reintento.current) {
         clearTimeout(reintento.current);
         reintento.current = null;
+
+        /* Un guardado que había fallado no se abandona al salir: un último intento. */
+        void escribir();
       }
     },
     [escribir]

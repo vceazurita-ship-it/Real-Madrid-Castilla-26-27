@@ -791,6 +791,15 @@ export function useRemoteDoc<T>({
     if (!ready.current) return;
     if (value === delServidor.current) return;
 
+    /*
+    | A partir del primer cambio del usuario, «lo que puso la carga» deja de
+    | servir para saltarse guardados (07/10/2026). Si no, deshacer hasta el
+    | objeto cargado —Jugadores sesión— o «limpiar» con el mismo vacío de
+    | partida —el once del rival— era el mismo objeto que puso la carga y no se
+    | guardaba: la pantalla enseñaba una cosa y el servidor tenía otra.
+    */
+    delServidor.current = null;
+
     escribeLocal(claveCache(key), value);
 
     const trabajo: Trabajo<T> = {

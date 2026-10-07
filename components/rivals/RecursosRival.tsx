@@ -483,6 +483,7 @@ export function RecursosRival({
   editando,
   fijos = [],
   onCampoFijo,
+  onSubiendo,
 }: {
   /** ID del rival en la hoja: da nombre al documento y a la carpeta. */
   idRival: string;
@@ -490,6 +491,15 @@ export function RecursosRival({
   /** Columnas de la hoja que se pintan dentro de la lista. */
   fijos?: RecursoFijo[];
   onCampoFijo?: (campo: string, valor: string) => void;
+  /**
+   * Avisa de que hay una subida en marcha (07/10/2026).
+   *
+   * Las pantallas montan esto con `key={idRival}`: cambiar de rival a media
+   * subida desmontaba el componente, el archivo llegaba al bucket y nunca
+   * entraba en la lista de nadie —huérfano, y con el aviso de «subido»—.
+   * Con esto la pantalla no deja cambiar de rival hasta que acabe.
+   */
+  onSubiendo?: (subiendo: boolean) => void;
 }) {
   const { value, setValue, status, localOnly } = useRemoteDoc<RivalMediaDoc>({
     key: rivalMediaKey(idRival),
@@ -543,6 +553,7 @@ export function RecursosRival({
       }
 
       setSubiendo(tipo);
+      onSubiendo?.(true);
 
       const idToast = toast.loading(`Subiendo ${archivo.name}…`);
 
@@ -591,9 +602,10 @@ export function RecursosRival({
         });
       } finally {
         setSubiendo(null);
+        onSubiendo?.(false);
       }
     },
-    [actualizar, idRival]
+    [actualizar, idRival, onSubiendo]
   );
 
   const borrar = useCallback(

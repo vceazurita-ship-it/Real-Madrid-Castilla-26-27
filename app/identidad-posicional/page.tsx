@@ -347,6 +347,13 @@ export default function IdentidadPosicionalPage() {
     baseRef.current = originalData;
   });
 
+  /* Si el último guardado llegó a la hoja. Lo lee `terminarEdicion` tras el
+     `flush`: el estado del hook todavía no se ha repintado en ese momento. */
+  const ultimoGuardadoOk = useRef(true);
+
+  /* Huella del último fallo que ya se enseñó; se borra con un guardado bueno. */
+  const rechazoAvisado = useRef<string | null>(null);
+
   const escribirCambios = useCallback(
     async (actual: PosicionItem[]) => {
       const pendientes = actual.filter((item) => {
@@ -377,18 +384,34 @@ export default function IdentidadPosicionalPage() {
       });
 
       if (fallidos.length > 0) {
-        reportarRechazo({
-          titulo: "Identidad posicional · cambios sin guardar",
-          campos: Object.fromEntries(
-            fallidos.map((p) => [
-              `${p.POSICION} · ${p.BLOQUE} · ${p.TITULO || p.ID}`,
-              p.CONTENIDO,
-            ]),
-          ),
-        });
+        const campos = Object.fromEntries(
+          fallidos.map((p) => [
+            `${p.POSICION} · ${p.BLOQUE} · ${p.TITULO || p.ID}`,
+            p.CONTENIDO,
+          ]),
+        );
+
+        /* El autoguardado reintenta solo: el aviso sale una vez por fallo
+           distinto, no en cada reintento ni en cada tecla (07/10/2026). Se
+           mira qué contenidos fallan, no lo que dicen. */
+        const huella = JSON.stringify(Object.keys(campos).sort());
+
+        if (rechazoAvisado.current !== huella) {
+          rechazoAvisado.current = huella;
+
+          reportarRechazo({
+            titulo: "Identidad posicional · cambios sin guardar",
+            campos,
+          });
+        }
+
+        ultimoGuardadoOk.current = false;
 
         return false;
       }
+
+      ultimoGuardadoOk.current = true;
+      rechazoAvisado.current = null;
 
       /* Estos guardados van por `GET` directos al script, así que la caché
          del servidor no se entera sola: si no, otro vería lo de antes hasta
@@ -433,10 +456,31 @@ export default function IdentidadPosicionalPage() {
   const terminarEdicion = useCallback(async () => {
     setSaving(true);
 
+    /* Si no hay nada pendiente, `flush` no llega a guardar y esto se queda
+       en `true`, que es lo que es. */
+    ultimoGuardadoOk.current = true;
+
     try {
       await auto.flush();
+    } catch {
+      ultimoGuardadoOk.current = false;
     } finally {
       setSaving(false);
+    }
+
+    /*
+    | Si no ha llegado a la hoja, se sigue en edición (07/10/2026). Salir era
+    | releer la hoja y pintar encima lo que había antes: lo escrito
+    | desaparecía de la pantalla con el aviso de error todavía puesto. Así se
+    | queda a la vista y el autoguardado lo sigue reintentando.
+    */
+    if (!ultimoGuardadoOk.current) {
+      toast.error("No se han podido guardar todos los cambios", {
+        description:
+          "Se sigue en edición hasta que lleguen a la hoja: se reintenta solo.",
+      });
+
+      return;
     }
 
     setEditing(false);

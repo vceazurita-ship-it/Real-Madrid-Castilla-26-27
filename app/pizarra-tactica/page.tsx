@@ -512,8 +512,11 @@ function BoardEditor({
     if (!conOnces || yaSeIntento.current) return;
 
     /* Esperar a que llegue lo guardado: pintar sobre el respaldo vacío
-       machacaría el tablero en cuanto el servidor contestara. */
-    if (status === "loading") return;
+       machacaría el tablero en cuanto el servidor contestara. Sin servidor
+       (07/10/2026), tampoco: lo que hay delante puede ser el vacío de
+       partida o una copia vieja, y los onces irían a la cola encima del
+       tablero de verdad. Se intenta cuando vuelva. */
+    if (status === "loading" || localOnly) return;
 
     yaSeIntento.current = true;
 
@@ -568,7 +571,7 @@ function BoardEditor({
         })),
       };
     });
-  }, [conOnces, doc, nombre, setValue, status]);
+  }, [conOnces, doc, localOnly, nombre, setValue, status]);
 
   /*
   | A pantalla completa se lleva **el tablero con su título y su estado**, no

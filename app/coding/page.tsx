@@ -693,6 +693,18 @@ function Coding() {
 
   const { ponFuente, añadeVideos, ponCortesCompletos, quitaVideo } = sesion;
 
+  /*
+  | La sesión que hay delante AHORA, para lo que termina tras un `await`
+  | (07/10/2026). Medir los vídeos tarda: si en medio se cambia de partido o
+  | de rival, los cortes caían en la sesión nueva —y normalizados como la
+  | vieja—. Quien espera apunta la sesión antes y la compara al volver.
+  */
+  const sesionDelante = useRef(`${ambito}|${refId}`);
+
+  useEffect(() => {
+    sesionDelante.current = `${ambito}|${refId}`;
+  }, [ambito, refId]);
+
   /* Las teclas de quien todavía no tenga: se reparten con la lista delante,
      y sin pisar las que ya se llevan las categorías. */
   const teclas = useMemo(
@@ -842,6 +854,8 @@ function Coding() {
       | lo que ya hace el montaje. Antes ese vídeo se quedaba sin su corte y
       | sin que nadie lo dijera.
       */
+      const sesionDeLosVideos = sesionDelante.current;
+
       void (async () => {
         const medidas = await Promise.all(
           elegidos.map(async (uno) => {
@@ -858,6 +872,22 @@ function Coding() {
             return { fuente: uno.fuente, duracionMs };
           }),
         );
+
+        /*
+        | Se ha cambiado de sesión mientras se medían: los cortes NO van a la
+        | que hay delante, que es de otro partido. La sesión de los vídeos ya
+        | los tiene apuntados (`añadeVideos`, antes de esperar); su corte
+        | completo se marca a mano o al volver a elegirlos.
+        */
+        if (sesionDelante.current !== sesionDeLosVideos) {
+          toast.warning("Los cortes completos no han entrado", {
+            description:
+              "Has cambiado de sesión mientras se medían los vídeos. Vuelve a la anterior y elígelos otra vez, o márcales el inicio y el final con la I y la O.",
+            duration: 15000,
+          });
+
+          return;
+        }
 
         ponCortesCompletos(medidas, { forzar });
 

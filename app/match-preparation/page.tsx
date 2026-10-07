@@ -1146,13 +1146,45 @@ export default function MatchPreparation() {
 
   /* ------------------------------------------------------------- ACCIONES */
 
-  /* Puente hacia el `flush` del autoguardado, que se declara más abajo. */
-  const flushPendiente = useRef<() => Promise<void>>(async () => {});
+  /* Puente hacia el `flush` del autoguardado, que se declara más abajo. Dice
+     si lo pendiente ha llegado a la hoja. */
+  const flushPendiente = useRef<() => Promise<boolean>>(async () => true);
+
+  /* Hay un archivo subiéndose a los recursos de este rival (ver `RecursosRival`). */
+  const subiendoRecursos = useRef(false);
 
   const seleccionarRival = useCallback((rival: Rival) => {
+    /*
+    | A media subida no se cambia (07/10/2026): el archivo llegaría al bucket
+    | pero no a la lista del rival, que se desmonta con el cambio.
+    */
+    if (subiendoRecursos.current) {
+      toast.warning("Espera a que termine la subida", {
+        description:
+          "Se está subiendo un archivo a los recursos de este rival. En cuanto acabe, puedes cambiar.",
+      });
+
+      return;
+    }
+
     /* Con el retardo del autoguardado a medias, cambiar de partido se llevaría
        por delante lo último escrito: primero se consolida. */
-    void flushPendiente.current().then(() => {
+    void flushPendiente.current().then((guardado) => {
+      /*
+      | Y si no ha llegado a la hoja, no se cambia (07/10/2026), igual que en
+      | el informe de scouting. Cambiar era darlo por perdido: el autoguardado
+      | toma el partido nuevo como base y lo que fallaba del anterior ya no lo
+      | reintentaba nadie.
+      */
+      if (!guardado) {
+        toast.error("No se ha podido guardar el plan de este partido", {
+          description:
+            "No se cambia de partido hasta que llegue a la hoja: se sigue reintentando solo. Si no hay conexión, espera a que vuelva.",
+        });
+
+        return;
+      }
+
       setRivalActivo(rival);
     });
   }, []);
@@ -1278,6 +1310,14 @@ export default function MatchPreparation() {
   | sale una vez por columna nueva y después vive en la banda roja de arriba.
   */
 
+  /*
+  | La base contra la que se mira qué campos ha tocado el usuario (07/10/2026):
+  | la fila tal y como se cargó —o como se ve fuera de edición— y, después,
+  | lo último que llegó a la hoja. En edición sólo la mueve un guardado bueno
+  | o el cambio de partido (ver el efecto tras `useAutoSave`).
+  */
+  const baseGuardado = useRef<Rival | null>(rivalActivo);
+
   const guardarEnLaHoja = useCallback(
     async (rival: Rival | null) => {
       if (!rival) return true;
@@ -1298,10 +1338,25 @@ export default function MatchPreparation() {
 
       const fresca = filas.find((r) => String(r.ID) === String(rival.ID));
 
+      /*
+      | Y de esos, sólo los que han cambiado respecto a la base (07/10/2026):
+      | lo cargado o lo último que llegó a la hoja. Mandar los quince campos
+      | del plan devolvía a la hoja los que no se habían tocado tal y como se
+      | leyeron al abrir, encima de lo que otro hubiera escrito en ellos.
+      */
+      const base = baseGuardado.current;
+      const mismaBase = String(base?.ID ?? "") === String(rival.ID ?? "");
+
       const editados: Rival = { ID: String(rival.ID ?? "") };
 
       for (const campo of CAMPOS_DE_ESTA_PANTALLA) {
-        if (campo in rival) editados[campo] = String(rival[campo] ?? "");
+        if (!(campo in rival)) continue;
+
+        const valor = String(rival[campo] ?? "");
+
+        if (mismaBase && fresca && valor === String(base?.[campo] ?? "")) continue;
+
+        editados[campo] = valor;
       }
 
       const aMandar: Rival = fresca
@@ -1335,33 +1390,96 @@ export default function MatchPreparation() {
         },
       });
 
-      if (verificacion.ok) {
+      /*
+      | Una columna que la hoja no tiene no va a aparecer en el intento
+      | siguiente (07/10/2026): devolver `false` hacía que el autoguardado
+      | reescribiera la fila sin fin. Si el envío llegó y sólo faltan columnas,
+      | está guardado todo lo que se puede guardar; la pérdida se sigue
+      | enseñando en la banda roja de la cabecera (`columnasPerdidas`). Igual
+      | que en el informe de scouting.
+      */
+      const soloColumnas =
+        !verificacion.ok &&
+        verificacion.perdidos.every((p) => p.motivo === "columna-inexistente");
+
+      const bueno = verificacion.ok || soloColumnas;
+
+      if (bueno) {
         ultimoGuardadoVerificado.current = Date.now();
+
+        /* Lo enviado pasa a ser la base, salvo que mientras volaba se haya
+           cambiado de partido. */
+        if (String(baseGuardado.current?.ID ?? "") === String(rival.ID ?? "")) {
+          baseGuardado.current = rival;
+        }
 
         setRivales((previo) =>
           previo.map((r) => (String(r.ID) === String(rival.ID) ? aMandar : r))
         );
       }
 
-      return verificacion.ok;
+      return bueno;
     },
     [verificarGuardado]
+  );
+
+  /* Si el último guardado llegó a la hoja. Lo lee `seleccionarRival` tras el
+     `flush`: el estado del hook todavía no se ha repintado en ese momento. */
+  const ultimoGuardadoOk = useRef(true);
+
+  const guardarYAnotar = useCallback(
+    async (rival: Rival | null) => {
+      try {
+        const bueno = await guardarEnLaHoja(rival);
+
+        ultimoGuardadoOk.current = bueno;
+
+        return bueno;
+      } catch (error) {
+        ultimoGuardadoOk.current = false;
+
+        throw error;
+      }
+    },
+    [guardarEnLaHoja]
   );
 
   const auto = useAutoSave<Rival | null>({
     value: rivalActivo,
     enabled: modoEdicion,
     debounce: 1800,
-    save: guardarEnLaHoja,
+    save: guardarYAnotar,
     /* Una copia por partido: lo pendiente del Águilas no puede salir al abrir
        el Teruel. Sin `ID` no hay respaldo, que es lo correcto: no se sabría a
        qué fila devolverlo. */
     respaldo: rivalActivo?.ID ? `match-prep:${rivalActivo.ID}` : undefined,
   });
 
+  const { flush: flushAuto, pending: hayPendiente } = auto;
+
+  /* Fuera de edición lo que se ve es la base, salvo que quede algo sin llegar
+     a la hoja: entonces la base sigue siendo la de antes y el reintento manda
+     lo que falta. */
   useEffect(() => {
-    flushPendiente.current = auto.flush;
-  }, [auto.flush]);
+    const otroPartido =
+      String(baseGuardado.current?.ID ?? "") !== String(rivalActivo?.ID ?? "");
+
+    if (otroPartido || (!modoEdicion && !hayPendiente)) {
+      baseGuardado.current = rivalActivo;
+    }
+  }, [modoEdicion, rivalActivo, hayPendiente]);
+
+  useEffect(() => {
+    flushPendiente.current = async () => {
+      /* Si no hay nada pendiente, `flush` no llega a guardar y esto se queda
+         en `true`, que es lo que es. */
+      ultimoGuardadoOk.current = true;
+
+      await flushAuto();
+
+      return ultimoGuardadoOk.current;
+    };
+  }, [flushAuto]);
 
   /*
   |--------------------------------------------------------------------------
@@ -2348,6 +2466,9 @@ export default function MatchPreparation() {
                   editando={editando}
                   fijos={recursosFijos}
                   onCampoFijo={setCampo}
+                  onSubiendo={(si) => {
+                    subiendoRecursos.current = si;
+                  }}
                 />
               </section>
             </div>

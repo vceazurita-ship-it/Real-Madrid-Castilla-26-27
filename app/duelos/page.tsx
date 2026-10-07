@@ -112,6 +112,8 @@ export default function DuelosPage() {
   const plantillas = useMemo(() => plantillasLeidas ?? [], [plantillasLeidas]);
   const [informes, setInformes] = useState<InformeDoc | null>(null);
   const [proximo, setProximo] = useState<{ rival: string; cuando: string; jornada?: number } | null>(null);
+  /* Ya se sabe cuál es el próximo partido (o que no hay). */
+  const [proximoListo, setProximoListo] = useState(false);
   const [equipo, setEquipo] = useState("");
   const [onceMarcado, setOnceMarcado] = useState<string[] | null>(null);
   const [elegido, setElegido] = useState<string | null>(null);
@@ -144,6 +146,7 @@ export default function DuelosPage() {
         const rival = /castilla/i.test(siguiente.local) ? siguiente.visitante : siguiente.local;
         setProximo({ rival, cuando: siguiente.cuando, jornada: siguiente.jornada });
       }
+      setProximoListo(true);
     });
     return () => control.abort();
   }, []);
@@ -153,7 +156,13 @@ export default function DuelosPage() {
     () => [...new Set(plantillas.map((f) => texto(f.NOMBRE_EQUIPO)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es")),
     [plantillas],
   );
-  const equipoVisto = equipo || (proximo ? equipos.find((e) => mismoClub(e, proximo.rival)) ?? "" : "") || equipos[0] || "";
+  /*
+  | Sin elegir a mano, nada hasta saber el próximo partido (07/10/2026). Antes
+  | caía un momento en `equipos[0]`: el documento de duelos de ESE equipo se
+  | cargaba —y se podía escribir— hasta que llegaba el calendario y cambiaba.
+  */
+  const equipoVisto =
+    equipo || (proximoListo ? (proximo ? equipos.find((e) => mismoClub(e, proximo.rival)) ?? "" : "") || equipos[0] || "" : "");
 
   /* El once marcado en Plantillas rivales (sólo se lee). */
   useEffect(() => {
@@ -242,13 +251,19 @@ export default function DuelosPage() {
     return duelos.map(enModo);
   }, [duelos, modo]);
 
-  const cambia = (lado: "nuestro" | "suyo", hueco: string, clave: string) =>
+  /* Sin equipo, la clave es la de «sin-equipo»: ahí no se escribe nada. */
+  const cambia = (lado: "nuestro" | "suyo", hueco: string, clave: string) => {
+    if (!equipoVisto) return;
     setGuardado((actual) => {
       const n = normalizaDuelos(actual);
       const otro = Object.fromEntries(Object.entries(n[lado]).filter(([h, c]) => h !== hueco && (c !== clave || clave === HUECO_VACIO)));
       return { ...n, [lado]: clave ? { ...otro, [hueco]: clave } : otro };
     });
-  const deshaz = (lado: "nuestro" | "suyo") => setGuardado((actual) => ({ ...normalizaDuelos(actual), [lado]: {} }));
+  };
+  const deshaz = (lado: "nuestro" | "suyo") => {
+    if (!equipoVisto) return;
+    setGuardado((actual) => ({ ...normalizaDuelos(actual), [lado]: {} }));
+  };
 
   const conDato = duelosVistos.filter((d) => d.veredicto !== "sin-datos");
   /*
@@ -260,7 +275,7 @@ export default function DuelosPage() {
   const atacar = duelos.filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO).sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0));
   const vigilar = duelos.filter((d) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO).sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
 
-  const cargando = jugadores === null || plantillasLeidas === null;
+  const cargando = jugadores === null || plantillasLeidas === null || (!equipoVisto && !proximoListo);
   const escudo = equipoVisto ? escudoDe(equipoVisto) : null;
 
   return (

@@ -8,6 +8,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createPortal } from "react-dom";
@@ -2524,44 +2525,67 @@ export default function IndividualPage() {
 
   const idSel = selected?.idJugador ?? "";
 
+  /*
+  | El último registro abierto de cada formulario, que NO se vacía al cerrar
+  | (07/10/2026). Al cerrar la ventana, `editingTracking`/`editingVideo` pasan
+  | a null y el último guardado —lo escrito en los tres segundos anteriores, o
+  | uno que esperaba reintento— salía con «no hay registro», se daba por bueno
+  | y nunca llegaba a la hoja. Abrir otro registro llama a `sync()` antes, así
+  | que no hay mezcla.
+  */
+  const ultimoTracking = useRef("");
+  const ultimoVideo = useRef("");
+  const ultimoJugador = useRef("");
+
+  useEffect(() => {
+    if (editingTracking?.ID_REGISTRO) ultimoTracking.current = editingTracking.ID_REGISTRO;
+  }, [editingTracking]);
+
+  useEffect(() => {
+    if (editingVideo?.ID_VIDEO) ultimoVideo.current = editingVideo.ID_VIDEO;
+  }, [editingVideo]);
+
+  useEffect(() => {
+    if (idSel) ultimoJugador.current = idSel;
+  }, [idSel]);
+
   const autoguardaTracking = async (valor: typeof trackingForm) => {
-    if (!editingTracking) return;
+    const id = editingTracking?.ID_REGISTRO || ultimoTracking.current;
+
+    /* Sin registro no se da por guardado: false deja el aviso y el reintento. */
+    if (!id) return false;
 
     const result = await postToScript({
       action: "editarSeguimiento",
-      ID_REGISTRO: editingTracking.ID_REGISTRO,
+      ID_REGISTRO: id,
       ...valor,
     });
 
     if (!result?.success) return false;
 
-    setTrackingData((prev) =>
-      prev.map((r) =>
-        r.ID_REGISTRO === editingTracking.ID_REGISTRO ? { ...r, ...valor } : r,
-      ),
-    );
+    setTrackingData((prev) => prev.map((r) => (r.ID_REGISTRO === id ? { ...r, ...valor } : r)));
   };
 
   const autoguardaVideo = async (valor: typeof videoForm) => {
-    if (!editingVideo) return;
+    const id = editingVideo?.ID_VIDEO || ultimoVideo.current;
+
+    if (!id) return false;
 
     const result = await postToScript({
       action: "editarVideo",
-      ID_VIDEO: editingVideo.ID_VIDEO,
+      ID_VIDEO: id,
       ...valor,
     });
 
     if (!result?.success) return false;
 
-    setVideoData((prev) =>
-      prev.map((v) =>
-        v.ID_VIDEO === editingVideo.ID_VIDEO ? { ...v, ...valor } : v,
-      ),
-    );
+    setVideoData((prev) => prev.map((v) => (v.ID_VIDEO === id ? { ...v, ...valor } : v)));
   };
 
   const autoguardaPerfil = async (valor: typeof profileForm) => {
-    if (!idSel) return;
+    const idSel = ultimoJugador.current;
+
+    if (!idSel) return false;
 
     const result = await postToScript({
       action: "editarPerfil",
@@ -2575,7 +2599,9 @@ export default function IndividualPage() {
   };
 
   const autoguardaInforme = async (valor: typeof reportForm) => {
-    if (!idSel) return;
+    const idSel = ultimoJugador.current;
+
+    if (!idSel) return false;
 
     const result = await postToScript({
       action: "editarInforme",

@@ -236,9 +236,25 @@ export default function ScoutRivalCollective() {
     rivalActivoRef.current = rivalActivo;
   }, [rivalActivo]);
 
+  /* Hay un archivo subiéndose a los recursos de este rival (ver `RecursosRival`). */
+  const subiendoRecursos = useRef(false);
+
   const cambiarRival = useCallback(
     (rival: Rival | undefined) => {
       if (!rival) return;
+
+      /*
+      | A media subida no se cambia (07/10/2026): el archivo llegaría al
+      | bucket pero no a la lista del rival, que se desmonta con el cambio.
+      */
+      if (subiendoRecursos.current) {
+        toast.warning("Espera a que termine la subida", {
+          description:
+            "Se está subiendo un archivo a los recursos de este rival. En cuanto acabe, puedes cambiar.",
+        });
+
+        return;
+      }
 
       /* Cambiar de rival con el retardo del autoguardado a medias se llevaría
          por delante lo último escrito: primero se consolida, luego se cambia. */
@@ -318,6 +334,14 @@ export default function ScoutRivalCollective() {
      `flush`: el estado del hook todavía no se ha repintado en ese momento. */
   const ultimoGuardadoOk = useRef(true);
 
+  /*
+  | La base contra la que se mira qué campos ha tocado el usuario (07/10/2026):
+  | la fila tal y como se cargó —o como se ve fuera de edición— y, después,
+  | lo último que llegó a la hoja. En edición sólo la mueve un guardado bueno
+  | o el cambio de rival (ver el efecto tras `useAutoSave`).
+  */
+  const baseGuardado = useRef<Rival | null>(rivalActivo);
+
   const escribirEnLaHoja = useCallback(
     async (rival: Rival) => {
       /*
@@ -336,10 +360,25 @@ export default function ScoutRivalCollective() {
 
       const fresca = filas.find((r) => String(r.ID) === String(rival.ID));
 
+      /*
+      | Y de esos, sólo los que han cambiado respecto a la base (07/10/2026):
+      | lo cargado o lo último que llegó a la hoja. Los campos sin tocar se
+      | mandaban tal y como se leyeron al abrir, encima de lo que otro hubiera
+      | escrito en ellos desde entonces.
+      */
+      const base = baseGuardado.current;
+      const mismaBase = String(base?.ID ?? "") === String(rival.ID ?? "");
+
       const editados: Rival = { ID: String(rival.ID ?? "") };
 
       for (const campo of CAMPOS_DE_ESTA_PANTALLA) {
-        if (campo in rival) editados[campo] = String(rival[campo] ?? "");
+        if (!(campo in rival)) continue;
+
+        const valor = String(rival[campo] ?? "");
+
+        if (mismaBase && fresca && valor === String(base?.[campo] ?? "")) continue;
+
+        editados[campo] = valor;
       }
 
       const aMandar: Rival = fresca
@@ -385,6 +424,12 @@ export default function ScoutRivalCollective() {
       const bueno = verificacion.ok || soloColumnas;
 
       if (bueno) {
+        /* Lo enviado pasa a ser la base, salvo que mientras volaba se haya
+           cambiado de rival. */
+        if (String(baseGuardado.current?.ID ?? "") === String(rival.ID ?? "")) {
+          baseGuardado.current = rival;
+        }
+
         setRivales((previo) =>
           previo.map((r) => (String(r.ID) === String(rival.ID) ? aMandar : r))
         );
@@ -425,7 +470,19 @@ export default function ScoutRivalCollective() {
     respaldo: rivalActivo?.ID ? `scout-rival:${rivalActivo.ID}` : undefined,
   });
 
-  const { flush: flushAuto } = auto;
+  const { flush: flushAuto, pending: hayPendiente } = auto;
+
+  /* Fuera de edición lo que se ve es la base, salvo que quede algo sin llegar
+     a la hoja: entonces la base sigue siendo la de antes y el reintento manda
+     lo que falta. */
+  useEffect(() => {
+    const otroRival =
+      String(baseGuardado.current?.ID ?? "") !== String(rivalActivo?.ID ?? "");
+
+    if (otroRival || (!modoEdicion && !hayPendiente)) {
+      baseGuardado.current = rivalActivo;
+    }
+  }, [modoEdicion, rivalActivo, hayPendiente]);
 
   useEffect(() => {
     flushPendiente.current = async () => {
@@ -758,6 +815,9 @@ export default function ScoutRivalCollective() {
                 editando={modoEdicion}
                 fijos={recursosFijos}
                 onCampoFijo={setCampo}
+                onSubiendo={(si) => {
+                  subiendoRecursos.current = si;
+                }}
               />
             </div>
           </section>

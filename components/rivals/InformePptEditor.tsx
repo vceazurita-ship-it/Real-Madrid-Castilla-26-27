@@ -294,6 +294,18 @@ export default function InformePptEditor({
   useEffect(() => {
     if (repuesto || ajustes.status === "loading") return;
 
+    /*
+    | Sin servidor y sin nada en este navegador, no se repone (07/10/2026).
+    | Lo que hay es el vacío de partida, no el repaso: darlo por puesto dejaba
+    | guardar encima y, al volver la red, la cola pisaba el repaso de verdad.
+    */
+    if (
+      ajustes.localOnly &&
+      Object.keys(ajustes.value.porEquipo ?? {}).length === 0
+    ) {
+      return;
+    }
+
     let cancelado = false;
 
     (async () => {
@@ -325,9 +337,20 @@ export default function InformePptEditor({
 
         siguienteId.current = Math.max(0, ...usados) + 1;
 
-        if (guardado && Object.keys(guardado).length > 0) {
+        const hayGuardado = Boolean(guardado && Object.keys(guardado).length > 0);
+
+        if (hayGuardado) {
           setHojas(conRetoques);
         }
+
+        /*
+        | Lo repuesto no es un cambio (07/10/2026). Sin apuntar su firma, el
+        | efecto de guardado la veía nueva y escribía el documento —con otro
+        | `actualizado`— cada vez que se abría el editor, sin tocar nada.
+        */
+        ultimaFirma.current = JSON.stringify(
+          extraeAjustes(hojasIniciales, hayGuardado ? conRetoques : hojasIniciales),
+        );
       } catch (error) {
         console.error("[informe] reponer el repaso", error);
       } finally {
@@ -338,7 +361,7 @@ export default function InformePptEditor({
     return () => {
       cancelado = true;
     };
-  }, [ajustes.status, ajustes.value, equipo, hojasIniciales, repuesto]);
+  }, [ajustes.localOnly, ajustes.status, ajustes.value, equipo, hojasIniciales, repuesto]);
 
   /*
   | Y después: guardar cada cambio, sin que nadie pulse nada.

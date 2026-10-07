@@ -17,6 +17,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useAutoSave } from "@/hooks/useAutoSave";
+import { anotaEscritas, aplicaEscritas } from "@/lib/escriturasRecientes";
 import {
   AutoTextarea,
   EditToolbar,
@@ -79,6 +80,9 @@ async function escritoEnLaHoja(res: Response): Promise<boolean> {
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv";
 
+/** Nombre de las notas de lo recién escrito en `localStorage`. */
+const ESPACIO_ESCRITAS = "team-values";
+
 /** Descripción de cada etapa del roadmap. Las secciones nuevas caen al texto por defecto. */
 const DESCRIPCIONES: Record<string, string> = {
   MARCO: "Fundamentos conceptuales sobre identidad, propósito y cultura.",
@@ -137,7 +141,13 @@ export default function TeamValuesPage() {
           skipEmptyLines: true,
         });
 
-        const rows = parsed.data.filter((r) => r?.SECCION);
+        /* Lo guardado hace poco va encima: el CSV publicado tarda minutos en
+           enterarse (`lib/escriturasRecientes.ts`). */
+        const rows = aplicaEscritas(
+          ESPACIO_ESCRITAS,
+          parsed.data.filter((r) => r?.SECCION),
+          "CONTENIDO",
+        );
 
         if (cancelado) return;
 
@@ -290,6 +300,9 @@ export default function TeamValuesPage() {
     baseRef.current = originalData;
   });
 
+  /* Huella del último fallo que ya se enseñó; se borra con un guardado bueno. */
+  const rechazoAvisado = useRef<string | null>(null);
+
   const escribirCambios = useCallback(
     async (actual: CulturaItem[]) => {
       const pendientes = actual.filter((item) => {
@@ -319,19 +332,43 @@ export default function TeamValuesPage() {
         return resultado.status === "rejected" || !resultado.value;
       });
 
+      /* Lo que sí ha llegado se apunta, para que una recarga no enseñe el
+         CSV de antes. */
+      anotaEscritas(
+        ESPACIO_ESCRITAS,
+        Object.fromEntries(
+          pendientes
+            .filter((p) => !fallidos.includes(p))
+            .map((p) => [String(p.ID), p.CONTENIDO]),
+        ),
+      );
+
       if (fallidos.length > 0) {
-        reportarRechazo({
-          titulo: "Valores de equipo · cambios sin guardar",
-          campos: Object.fromEntries(
-            fallidos.map((p) => [
-              `${p.SECCION} · ${p.TITULO || p.ID}`,
-              p.CONTENIDO,
-            ]),
-          ),
-        });
+        const campos = Object.fromEntries(
+          fallidos.map((p) => [
+            `${p.SECCION} · ${p.TITULO || p.ID}`,
+            p.CONTENIDO,
+          ]),
+        );
+
+        /* El autoguardado reintenta solo: el aviso sale una vez por fallo
+           distinto, no en cada reintento ni en cada tecla (07/10/2026). Se
+           mira qué contenidos fallan, no lo que dicen. */
+        const huella = JSON.stringify(Object.keys(campos).sort());
+
+        if (rechazoAvisado.current !== huella) {
+          rechazoAvisado.current = huella;
+
+          reportarRechazo({
+            titulo: "Valores de equipo · cambios sin guardar",
+            campos,
+          });
+        }
 
         return false;
       }
+
+      rechazoAvisado.current = null;
 
       /* La copia de la hoja en esta pestaña ya no vale: sin tirarla, al
          volver a la pantalla se leía el texto de antes, y la siguiente
