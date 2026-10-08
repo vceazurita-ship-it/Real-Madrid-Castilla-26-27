@@ -86,6 +86,10 @@ import {
   completaReparto,
   conEquipos,
   limpiaJugador,
+  anadeJugador,
+  quitaJugador,
+  reemplazaJugador,
+  yaEnLaSesion,
   duplicaTarea,
   nombreDeColor,
   nuevaSesion,
@@ -1532,6 +1536,69 @@ export default function JugadoresSesionPage() {
     }
   };
 
+  /*
+  | AÑADIR, QUITAR O REEMPLAZAR A UN JUGADOR DE LA SESIÓN (08/10/2026).
+  |
+  | Sin volver a pegar la lista: llega uno tarde, se cae otro o se cambia
+  | uno por otro. Reemplazar conserva el identificador, así que el nuevo
+  | hereda el sitio del que se va en todas las tareas.
+  */
+  const [nuevoNombre, setNuevoNombre] = useState("");
+
+  const [reemplazando, setReemplazando] = useState<{ id: string; texto: string } | null>(null);
+
+  const anade = () => {
+    const nombre = nuevoNombre.trim();
+
+    if (!sesion || !nombre) return;
+
+    if (yaEnLaSesion(sesion, nombre)) {
+      toast.error("Ese jugador ya está en la sesión");
+      return;
+    }
+
+    cambiaSesion(sesion.id, (s) => anadeJugador(s, nombre));
+    setNuevoNombre("");
+    toast.success(`${nombre.toUpperCase()} añadido a la sesión`, { description: "Queda sin colocar en cada tarea: arrástralo a su equipo." });
+  };
+
+  const reemplaza = () => {
+    if (!sesion || !reemplazando) return;
+
+    const nombre = reemplazando.texto.trim();
+    const antes = sesion.jugadores.find((j) => j.id === reemplazando.id);
+
+    if (!nombre || !antes) return setReemplazando(null);
+
+    if (yaEnLaSesion(sesion, nombre, reemplazando.id)) {
+      toast.error("Ese jugador ya está en la sesión", { description: "Para cambiarlo por otro de la lista, quita a uno de los dos." });
+      return;
+    }
+
+    cambiaSesion(sesion.id, (s) => reemplazaJugador(s, reemplazando.id, nombre));
+    setReemplazando(null);
+    toast.success(`${antes.nombre} → ${nombre.toUpperCase()}`, { description: "Ocupa su sitio en todas las tareas.", action: { label: "Deshacer", onClick: deshaz } });
+  };
+
+  const quita = (j: JugadorSesion) => {
+    if (!sesion) return;
+
+    if (!window.confirm(`¿Quitar a ${j.nombre} de la sesión? Sale de todas las tareas.`)) return;
+
+    cambiaSesion(sesion.id, (s) => quitaJugador(s, j.id));
+    if (elegido === j.id) setElegido(null);
+    toast.success(`${j.nombre} fuera de la sesión`, { action: { label: "Deshacer", onClick: deshaz } });
+  };
+
+  /* Los nombres de la plantilla del club que aún no están en la sesión: sugerencias al añadir o reemplazar. */
+  const sugerenciasPlantilla = useMemo(
+    () =>
+      sesion
+        ? [...new Set(plantilla.map((pl) => (pl.nombre ?? "").toUpperCase()).filter(Boolean))].filter((n) => !yaEnLaSesion(sesion, n)).sort()
+        : [],
+    [plantilla, sesion],
+  );
+
   const ponPuesto = (jugadorId: string, puesto: Puesto | "") => {
     if (!sesion) return;
 
@@ -2426,10 +2493,34 @@ export default function JugadoresSesionPage() {
                     {/* --- plantilla del día: puestos y rotación --- */}
                     <Panel
                       title="Plantilla del día"
-                      subtitle="Puesto (para que el sorteo reparta porteros y líneas) y cuántas veces ha sido comodín o ha descansado"
+                      subtitle="Puesto (para que el sorteo reparta porteros y líneas), cuántas veces ha sido comodín o ha descansado, y añadir, reemplazar o quitar jugadores"
                       icon={Repeat2}
                       bodyClassName="p-0"
                     >
+                      <form
+                        className="flex flex-wrap items-center gap-2 border-b border-white/[0.06] px-3 py-2.5 md:px-4"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          anade();
+                        }}
+                      >
+                        <input
+                          value={nuevoNombre}
+                          onChange={(e) => setNuevoNombre(e.target.value)}
+                          list="plantilla-club"
+                          placeholder="Añadir jugador (nombre, y la etiqueta entre paréntesis si la lleva)"
+                          aria-label="Nombre del jugador que se añade"
+                          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[12px] uppercase text-white outline-none placeholder:normal-case placeholder:text-white/30 focus:border-[#C8A96B]/50"
+                        />
+                        <Button tone="primary" icon={Plus} disabled={!nuevoNombre.trim()} onClick={anade}>
+                          Añadir
+                        </Button>
+                        <datalist id="plantilla-club">
+                          {sugerenciasPlantilla.map((n) => (
+                            <option key={n} value={n} />
+                          ))}
+                        </datalist>
+                      </form>
                       <div className="max-h-[420px] overflow-y-auto">
                         <table className="w-full text-[12px]">
                           <thead className="sticky top-0 bg-[#11161C] text-[10px] uppercase tracking-[0.14em] text-white/35">
@@ -2438,6 +2529,9 @@ export default function JugadoresSesionPage() {
                               <th className="px-2 py-2 text-left font-medium">Puesto</th>
                               <th className="px-2 py-2 text-center font-medium" title="Tareas como comodín">Com.</th>
                               <th className="px-2 py-2 text-center font-medium" title="Tareas sin participar">Fuera</th>
+                              <th className="px-2 py-2 text-right font-medium">
+                                <span className="sr-only">Reemplazar o quitar</span>
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
@@ -2452,11 +2546,40 @@ export default function JugadoresSesionPage() {
                               return (
                                 <tr key={j.id} className="border-t border-white/[0.05]">
                                   <td className="min-w-[128px] px-3 py-1.5 md:px-4">
-                                    <span className="block font-semibold uppercase leading-tight text-white/80">
-                                      {j.nombre}
-                                      {j.etiqueta && <span className="ml-1.5 text-[10px] text-[#C8A96B]">{j.etiqueta}</span>}
-                                      {j.baja && <span className="ml-1.5 text-[10px] text-red-300">{j.baja.toLowerCase()}</span>}
-                                    </span>
+                                    {reemplazando?.id === j.id ? (
+                                      <form
+                                        className="flex items-center gap-1"
+                                        onSubmit={(e) => {
+                                          e.preventDefault();
+                                          reemplaza();
+                                        }}
+                                      >
+                                        <input
+                                          autoFocus
+                                          value={reemplazando.texto}
+                                          onChange={(e) => setReemplazando({ id: j.id, texto: e.target.value })}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Escape") setReemplazando(null);
+                                          }}
+                                          list="plantilla-club"
+                                          placeholder={`En lugar de ${j.nombre}`}
+                                          aria-label={`Quién entra en lugar de ${j.nombre}`}
+                                          className="min-w-0 flex-1 rounded-md border border-[#C8A96B]/50 bg-white/[0.04] px-2 py-1 text-[12px] uppercase text-white outline-none placeholder:normal-case placeholder:text-white/30"
+                                        />
+                                        <button type="submit" className="rounded-md p-1 text-emerald-300 hover:bg-emerald-400/15" aria-label="Confirmar el reemplazo" title="Reemplazar">
+                                          <Check size={14} />
+                                        </button>
+                                        <button type="button" onClick={() => setReemplazando(null)} className="rounded-md p-1 text-white/45 hover:bg-white/10" aria-label="Cancelar" title="Cancelar">
+                                          <X size={14} />
+                                        </button>
+                                      </form>
+                                    ) : (
+                                      <span className="block font-semibold uppercase leading-tight text-white/80">
+                                        {j.nombre}
+                                        {j.etiqueta && <span className="ml-1.5 text-[10px] text-[#C8A96B]">{j.etiqueta}</span>}
+                                        {j.baja && <span className="ml-1.5 text-[10px] text-red-300">{j.baja.toLowerCase()}</span>}
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="px-2 py-1">
                                     <select
@@ -2482,6 +2605,26 @@ export default function JugadoresSesionPage() {
                                   </td>
                                   <td className={`px-2 py-1 text-center tabular-nums ${r.fuera >= 2 && !j.baja ? "font-bold text-amber-300" : "text-white/55"}`}>
                                     {r.fuera || "·"}
+                                  </td>
+                                  <td className="whitespace-nowrap px-2 py-1 text-right">
+                                    <button
+                                      type="button"
+                                      onClick={() => setReemplazando({ id: j.id, texto: "" })}
+                                      className="rounded-md p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white"
+                                      title="Reemplazar: otro jugador ocupa su sitio en todas las tareas"
+                                      aria-label={`Reemplazar a ${j.nombre}`}
+                                    >
+                                      <Repeat2 size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => quita(j)}
+                                      className="rounded-md p-1.5 text-white/40 transition hover:bg-red-400/15 hover:text-red-300"
+                                      title="Quitar de la sesión (sale de todas las tareas)"
+                                      aria-label={`Quitar a ${j.nombre} de la sesión`}
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
                                   </td>
                                 </tr>
                               );

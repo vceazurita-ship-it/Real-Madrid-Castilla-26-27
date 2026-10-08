@@ -860,3 +860,88 @@ export function rotacionDe(sesion: SesionEquipos): Rotacion[] {
     return fila;
   });
 }
+
+/* ------------------------------------------------------------------ */
+/*  AÑADIR, QUITAR O REEMPLAZAR A UN JUGADOR (08/10/2026)              */
+/* ------------------------------------------------------------------ */
+
+/** Ya está en la sesión alguien con ese nombre (sin acentos ni mayúsculas). */
+export function yaEnLaSesion(sesion: SesionEquipos, nombre: string, salvo?: string) {
+  const clave = claveNombre(separaNombre(nombre).nombre);
+  return sesion.jugadores.some((j) => j.id !== salvo && claveNombre(limpiaJugador(j).nombre) === clave);
+}
+
+/** Un jugador nuevo, disponible y sin sitio en ninguna tarea. */
+export function anadeJugador(sesion: SesionEquipos, crudo: string): SesionEquipos {
+  const { nombre, etiqueta } = separaNombre(crudo);
+  if (!nombre) return sesion;
+  const jugador: JugadorSesion = { id: nuevoId("ju"), nombre: nombre.toUpperCase(), ...(etiqueta ? { etiqueta: etiqueta.toUpperCase() } : {}) };
+  return { ...sesion, jugadores: [...sesion.jugadores, jugador] };
+}
+
+/**
+ * Otro jugador en lugar de uno: mismo identificador, así que hereda su sitio
+ * en todas las tareas —equipo, hueco del campo, pareja y el cambio a mitad—.
+ * El puesto a mano y la baja eran del que se va: no se heredan.
+ */
+export function reemplazaJugador(sesion: SesionEquipos, id: string, crudo: string): SesionEquipos {
+  const { nombre, etiqueta } = separaNombre(crudo);
+  if (!nombre) return sesion;
+  return {
+    ...sesion,
+    jugadores: sesion.jugadores.map((j) =>
+      j.id === id ? { id: j.id, nombre: nombre.toUpperCase(), ...(etiqueta ? { etiqueta: etiqueta.toUpperCase() } : {}) } : j,
+    ),
+  };
+}
+
+/** Saca a un jugador de un equipo: su hueco queda libre y, si era titular de una pareja, su compañero se queda el hueco. */
+function sinJugador<E extends { orden?: string[]; pares?: Record<string, string> }>(e: E, id: string): E {
+  let orden = e.orden;
+  let pares = e.pares;
+
+  if (pares) {
+    const quedan: Record<string, string> = {};
+    for (const [titular, companero] of Object.entries(pares)) {
+      if (companero === id) continue;
+      if (titular === id) {
+        if (orden) orden = orden.map((x) => (x === id ? companero : x));
+        continue;
+      }
+      quedan[titular] = companero;
+    }
+    pares = quedan;
+  }
+
+  if (orden?.includes(id)) orden = orden.map((x) => (x === id ? "" : x));
+
+  return orden === e.orden && pares === e.pares ? e : { ...e, orden, pares };
+}
+
+/** Fuera de la sesión: de la lista y de todas sus tareas (también del cambio a mitad). */
+export function quitaJugador(sesion: SesionEquipos, id: string): SesionEquipos {
+  const sinSitio = (sitio: Record<string, Sitio>) => {
+    if (!(id in sitio)) return sitio;
+    const resto = { ...sitio };
+    delete resto[id];
+    return resto;
+  };
+
+  return {
+    ...sesion,
+    jugadores: sesion.jugadores.filter((j) => j.id !== id),
+    tareas: sesion.tareas.map((t) => ({
+      ...t,
+      sitio: sinSitio(t.sitio),
+      equipos: t.equipos.map((e) => sinJugador(e, id)),
+      ...(t.cambio
+        ? {
+            cambio: {
+              sitio: sinSitio(t.cambio.sitio),
+              equipos: Object.fromEntries(Object.entries(t.cambio.equipos).map(([k, e]) => [k, sinJugador(e, id)])),
+            },
+          }
+        : {}),
+    })),
+  };
+}
