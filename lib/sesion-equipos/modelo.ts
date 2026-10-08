@@ -256,6 +256,42 @@ function fechaDe(texto: string) {
 }
 
 /**
+ * El nombre limpio y su etiqueta entre paréntesis (08/10/2026).
+ *
+ * WhatsApp marca la cursiva con guiones bajos y la negrita con asteriscos, y
+ * al copiar la lista se vienen pegados: «_POL DURÁN (RMC)_». Con ellos el
+ * paréntesis ya no estaba al final, la etiqueta no se separaba y el nombre
+ * salía con las rayas en la pantalla y en la diapositiva.
+ */
+export function separaNombre(crudo: string): { nombre: string; etiqueta?: string } {
+  let nombre = crudo
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/^[_*~]+|[_*~]+$/g, "")
+    .trim();
+
+  let etiqueta: string | undefined;
+
+  const parentesis = nombre.match(/\(([^)]+)\)\s*$/);
+
+  if (parentesis) {
+    etiqueta = parentesis[1].replace(/[_*~]/g, "").trim() || undefined;
+    nombre = nombre.slice(0, parentesis.index).replace(/[_*~]+$/g, "").trim();
+  }
+
+  return etiqueta ? { nombre, etiqueta } : { nombre };
+}
+
+/** Un jugador guardado antes de limpiar los nombres: se limpia al leer, sin tocar su id. */
+export function limpiaJugador(j: JugadorSesion): JugadorSesion {
+  if (!/^[_*~]|[_*~]$/.test(j.nombre) && !/\)\s*$/.test(j.nombre)) return j;
+
+  const { nombre, etiqueta } = separaNombre(j.nombre);
+
+  return { ...j, nombre, ...(etiqueta && !j.etiqueta ? { etiqueta } : {}) };
+}
+
+/**
  * Lee el texto del delegado.
  *
  * Es tolerante a propósito: la primera línea con letras es el título; una
@@ -274,18 +310,9 @@ export function leeLista(texto: string): ListaLeida {
   const vistos = new Map<string, number>();
 
   const anota = (crudo: string) => {
-    let nombre = crudo.trim().replace(/\s+/g, " ");
+    const { nombre, etiqueta } = separaNombre(crudo);
 
     if (!nombre) return;
-
-    let etiqueta: string | undefined;
-
-    const parentesis = nombre.match(/\(([^)]+)\)\s*$/);
-
-    if (parentesis) {
-      etiqueta = parentesis[1].trim();
-      nombre = nombre.slice(0, parentesis.index).trim();
-    }
 
     const clave = claveNombre(nombre);
 
@@ -400,7 +427,8 @@ export function actualizaLista(sesion: SesionEquipos, texto: string): SesionEqui
   const eraBaja = new Set<string>();
 
   for (const j of sesion.jugadores) {
-    const clave = claveNombre(j.nombre);
+    /* Limpio: uno guardado como «_POL DURÁN (RMC)_» es el «POL DURÁN» de la lista nueva. */
+    const clave = claveNombre(limpiaJugador(j).nombre);
 
     antes.set(clave, [...(antes.get(clave) ?? []), j]);
   }

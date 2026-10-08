@@ -155,17 +155,23 @@ export function LaminaEquipos({
   const enJuego = columnas.reduce((s, c) => s + c.jugadores.length, 0);
 
   /* Cuanto más larga la columna más larga, más pequeña la letra. */
-  const filas = Math.max(4, ...columnas.filter((c) => !c.estructura).map((c) => c.jugadores.length));
+  const filasTotal = Math.max(4, ...columnas.filter((c) => !c.estructura).map((c) => c.jugadores.length));
 
-  const ALTO_LISTA = 640;
+  /* El alto que de verdad queda para la lista (08/10/2026): con 640 la fila once se cortaba. Cada fila mide ~1,62 × la letra (letra + relleno + hueco). */
+  const ALTO_LISTA = 575;
 
-  const anchoColumna = (LAMINA_W - 120 - (columnas.length - 1) * 28) / Math.max(1, columnas.length);
+  const anchoEquipo = (LAMINA_W - 120 - (columnas.length - 1) * 28) / Math.max(1, columnas.length);
+
+  /* Un equipo largo en una columna ancha (uno o dos equipos) va en dos columnas de nombres: si no, no cabe. */
+  const dosColumnas = filasTotal > 13 && anchoEquipo > 700;
+  const filas = dosColumnas ? Math.ceil(filasTotal / 2) : filasTotal;
+  const anchoColumna = dosColumnas ? (anchoEquipo - 20) / 2 : anchoEquipo;
 
   const tamano = Math.max(
-    28,
+    20,
     Math.min(
       68,
-      (ALTO_LISTA / filas) * 0.6,
+      ALTO_LISTA / (filas * 1.62),
       /* Que quepa entero el nombre más largo, con su etiqueta:
          en Barlow Condensed una mayúscula mide ~0,34 em (algo de margen). */
       (anchoColumna - 70) /
@@ -181,12 +187,12 @@ export function LaminaEquipos({
   );
 
   /* El rótulo de cada columna, lo más grande que quepa junto a la cuenta. */
-  const tamanoTitulo = (texto: string) => Math.min(50, (anchoColumna - 150) / Math.max(4, texto.length * 0.52));
+  const tamanoTitulo = (texto: string) => Math.min(50, (anchoEquipo - 150) / Math.max(4, texto.length * 0.52));
 
   const fuera = [...r.fuera, ...r.sinSitio];
 
   /* El campograma, lo más grande que quepa en la columna y en el alto que queda. */
-  const anchoCampo = Math.min(anchoColumna - 40, (LAMINA_H - 520) / 1.08);
+  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - 520) / 1.08);
 
   return (
     <div
@@ -328,7 +334,7 @@ export function LaminaEquipos({
                   )}
                 </div>
               ) : (
-                <div style={{ padding: "22px 22px 18px", display: "flex", flexDirection: "column", gap: tamano * 0.26, minWidth: 0 }}>
+                <div style={{ padding: "22px 22px 18px", display: "grid", gridTemplateColumns: dosColumnas ? "1fr 1fr" : "1fr", gridAutoFlow: dosColumnas ? "column" : "row", gridTemplateRows: dosColumnas ? `repeat(${filas}, auto)` : undefined, columnGap: 20, rowGap: tamano * 0.26, alignContent: "start", minWidth: 0 }}>
                   {c.jugadores.map((j) => (
                     <Nombre key={j.id} jugador={j} color={c.color} tamano={tamano} portero={porPuesto(j) === "POR"} />
                   ))}

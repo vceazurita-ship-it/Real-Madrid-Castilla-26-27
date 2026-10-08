@@ -84,6 +84,7 @@ import {
   actualizaLista,
   completaReparto,
   conEquipos,
+  limpiaJugador,
   duplicaTarea,
   nombreDeColor,
   nuevaSesion,
@@ -254,6 +255,8 @@ function Caja({
   atajo,
   destino,
   encima = false,
+  compacta = false,
+  resumen,
 }: {
   titulo: ReactNode;
   color?: string;
@@ -271,6 +274,10 @@ function Caja({
   destino: string;
   /** Hay alguien arrastrándose justo encima. */
   encima?: boolean;
+  /** Vacía y sin nada que hacer: una franja fina en vez de una caja (08/10/2026). */
+  compacta?: boolean;
+  /** Una franja bajo la cabecera (el reparto por puestos del equipo). */
+  resumen?: ReactNode;
 }) {
   const tinta = color ? tintaSobre(color) : "#FFFFFF";
 
@@ -327,8 +334,10 @@ function Caja({
         </span>
       </div>
 
+      {resumen}
+
       <div
-        className="flex min-h-[64px] flex-1 flex-wrap content-start gap-1.5 p-2"
+        className={`flex flex-1 flex-wrap content-start gap-1.5 ${compacta ? "min-h-[36px] px-2 py-1.5" : "min-h-[64px] p-2"}`}
         onClick={(e) => {
           if (activa && e.target === e.currentTarget) onSoltar();
         }}
@@ -337,6 +346,84 @@ function Caja({
         {cuenta === 0 && (
           <span className="pointer-events-none self-center px-1 text-[11px] text-white/25">{vacio}</span>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Las siglas cortas de cada puesto, en el orden en que se lee un equipo. */
+const ORDEN_PUESTOS: Puesto[] = ["POR", "DEF", "MED", "EXT", "DEL"];
+
+/**
+ * Cuántos hay de cada puesto en un equipo (08/10/2026): de un vistazo se ve
+ * si un equipo se ha quedado sin defensas o con todos los delanteros.
+ */
+function ResumenPuestos({ jugadores, puestoDe, color }: { jugadores: JugadorSesion[]; puestoDe: PuestoDe; color: string }) {
+  if (!jugadores.length) return null;
+
+  const cuenta = new Map<string, number>();
+
+  for (const j of jugadores) {
+    const p = puestoDe(j) ?? "?";
+    cuenta.set(p, (cuenta.get(p) ?? 0) + 1);
+  }
+
+  const partes = [...ORDEN_PUESTOS.filter((p) => cuenta.has(p)), ...(cuenta.has("?") ? ["?"] : [])];
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 border-b border-white/[0.06] px-3 py-1.5" style={{ background: `${color}14` }}>
+      {partes.map((p) => (
+        <span
+          key={p}
+          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${p === "POR" ? "bg-[#C8A96B]/20 text-[#E9D5A8]" : p === "?" ? "bg-white/[0.04] text-white/35" : "bg-white/[0.06] text-white/70"}`}
+          title={p === "?" ? "Sin puesto: ponlo en «Plantilla del día»" : PUESTOS.find((x) => x.clave === p)?.nombre}
+        >
+          {p === "?" ? "SIN PUESTO" : p}
+          <span className="tabular-nums text-white">{cuenta.get(p)}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Cómo se reparte la tarea, en una barra (08/10/2026): un tramo por equipo
+ * con su color, los comodines y lo que queda sin colocar.
+ */
+function BarraReparto({
+  tramos,
+  total,
+}: {
+  tramos: { clave: string; nombre: string; color: string; n: number; rayado?: boolean }[];
+  total: number;
+}) {
+  const visibles = tramos.filter((t) => t.n > 0);
+
+  if (total === 0) return null;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-white/[0.05]">
+        {visibles.map((t) => (
+          <div
+            key={t.clave}
+            title={`${t.nombre}: ${t.n}`}
+            style={{
+              width: `${(t.n / total) * 100}%`,
+              background: t.rayado ? `repeating-linear-gradient(45deg, ${t.color} 0 4px, transparent 4px 8px)` : t.color,
+            }}
+            className="h-full border-r border-[#0B0F14]/60 last:border-r-0"
+          />
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/55">
+        {visibles.map((t) => (
+          <span key={t.clave} className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ background: t.color }} />
+            <span className="uppercase tracking-wide">{t.nombre}</span>
+            <b className="tabular-nums text-white/85">{t.n}</b>
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -744,9 +831,10 @@ export default function JugadoresSesionPage() {
 
   const sesiones = useMemo(
     () =>
-      [...(almacen.sesiones ?? [])].sort((a, b) =>
-        (b.fecha ?? b.creadaEn).localeCompare(a.fecha ?? a.creadaEn),
-      ),
+      [...(almacen.sesiones ?? [])]
+        /* Los nombres pegados de WhatsApp con «_…_» se ven limpios (el id no cambia). */
+        .map((s) => (s.jugadores.some((j) => limpiaJugador(j) !== j) ? { ...s, jugadores: s.jugadores.map(limpiaJugador) } : s))
+        .sort((a, b) => (b.fecha ?? b.creadaEn).localeCompare(a.fecha ?? a.creadaEn)),
     [almacen.sesiones],
   );
 
@@ -1766,6 +1854,7 @@ export default function JugadoresSesionPage() {
                       activa={Boolean(elegido)}
                       alerta={reparto.sinSitio.length > 0}
                       tenue={reparto.sinSitio.length === 0}
+                      compacta={reparto.sinSitio.length === 0}
                       atajo="0"
                       onSoltar={() => suelta(null)}
                       vacio="Nadie pendiente. Arrastra a un jugador para cambiarlo de sitio, o tócalo y toca su sitio."
@@ -1797,6 +1886,7 @@ export default function JugadoresSesionPage() {
                           encima={sobre === `eq:${equipo.id}` || Boolean(sobre?.startsWith(`hueco:${equipo.id}:`))}
                           titulo={equipo.nombre}
                           color={equipo.color}
+                          resumen={<ResumenPuestos jugadores={reparto.porEquipo[equipo.id] ?? []} puestoDe={puestoDe} color={equipo.color} />}
                           cuenta={reparto.porEquipo[equipo.id]?.length ?? 0}
                           activa={Boolean(elegido)}
                           atajo={String(i + 1)}
@@ -1917,11 +2007,17 @@ export default function JugadoresSesionPage() {
                       )}
                     </div>
 
-                    <p className="-mt-1 text-[11px] text-white/40">
-                      {tarea.equipos.map((e) => reparto.porEquipo[e.id]?.length ?? 0).join(" · ")}
-                      {tarea.comodines > 0 ? ` + ${reparto.comodines.length} comodín${reparto.comodines.length === 1 ? "" : "es"}` : ""}
-                      {" "}= {enTarea} en la tarea
-                      {reparto.fuera.length ? ` · ${reparto.fuera.length} fuera` : ""}
+                    <BarraReparto
+                      total={enTarea + reparto.sinSitio.length}
+                      tramos={[
+                        ...tarea.equipos.map((e) => ({ clave: e.id, nombre: e.nombre, color: e.color, n: reparto.porEquipo[e.id]?.length ?? 0 })),
+                        { clave: "comodin", nombre: reparto.comodines.length === 1 ? "Comodín" : "Comodines", color: tarea.colorComodin, n: reparto.comodines.length },
+                        { clave: "sin", nombre: "Sin colocar", color: "#F59E0B", n: reparto.sinSitio.length, rayado: true },
+                      ]}
+                    />
+                    <p className="-mt-2 text-[11px] text-white/40">
+                      {enTarea} en la tarea
+                      {reparto.fuera.length ? ` · ${reparto.fuera.length} no la hacen` : ""}
                     </p>
 
                     {/* --- fuera --- */}
@@ -1932,6 +2028,7 @@ export default function JugadoresSesionPage() {
                       cuenta={reparto.fuera.length}
                       activa={Boolean(elegido)}
                       tenue
+                      compacta={reparto.fuera.length === 0}
                       atajo="F"
                       onSoltar={() => suelta(FUERA)}
                       vacio="Los lesionados empiezan aquí; si alguno hace la tarea, muévelo a un equipo."
@@ -2044,8 +2141,8 @@ export default function JugadoresSesionPage() {
 
                               return (
                                 <tr key={j.id} className="border-t border-white/[0.05]">
-                                  <td className="max-w-0 px-4 py-1.5">
-                                    <span className="block truncate font-semibold uppercase text-white/80">
+                                  <td className="min-w-[128px] px-3 py-1.5 md:px-4">
+                                    <span className="block font-semibold uppercase leading-tight text-white/80">
                                       {j.nombre}
                                       {j.etiqueta && <span className="ml-1.5 text-[10px] text-[#C8A96B]">{j.etiqueta}</span>}
                                       {j.baja && <span className="ml-1.5 text-[10px] text-red-300">{j.baja.toLowerCase()}</span>}
