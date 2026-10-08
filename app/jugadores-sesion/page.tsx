@@ -75,7 +75,6 @@ import {
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { cambiosDe, creaCambio, guardaVistaCambio, quitaCambio, vistaCambio, type Fase } from "@/lib/sesion-equipos/cambio";
 import { apodo, capturaLienzos, descarga, pintado } from "@/lib/export/lienzos";
-import { bytesDeDataUrl, creaZip } from "@/lib/export/zip";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import {
   ALMACEN_VACIO,
@@ -1609,17 +1608,25 @@ export default function JugadoresSesionPage() {
       const nombreDe = ({ i, fase: f }: { i: number; fase: Fase }) =>
         `${String(i + 1).padStart(2, "0")}${f === "cambio" ? "b" : ""}-${apodo(sesion.tareas[i].nombre, "tarea")}${f === "cambio" ? "-tras-el-cambio" : ""}.jpg`;
 
-      if (imagenes.length === 1) {
-        const blob = await fetch(imagenes[0]).then((r) => r.blob());
+      /*
+      | Una a una, sin .zip (08/10/2026): cada imagen se descarga suelta, de
+      | seguido. Con un respiro entre una y otra, porque el navegador ignora
+      | descargas disparadas en el mismo instante (la primera vez puede
+      | preguntar si se permiten varias: hay que decir que sí).
+      */
+      for (let k = 0; k < imagenes.length; k += 1) {
+        if (k > 0) await new Promise((listo) => window.setTimeout(listo, 450));
 
-        descarga(blob, `${apodo(sesion.titulo, "sesion")}-${nombreDe(laminas[0])}`);
-      } else {
-        const zip = creaZip(imagenes.map((img, k) => ({ nombre: nombreDe(laminas[k]), datos: bytesDeDataUrl(img) })));
+        setExportando({ laminas, paso: `Descargando ${k + 1} de ${imagenes.length}…` });
 
-        descarga(zip, `equipos-${apodo(sesion.titulo, "sesion")}.zip`);
+        const blob = await fetch(imagenes[k]).then((r) => r.blob());
+
+        descarga(blob, `${apodo(sesion.titulo, "sesion")}-${nombreDe(laminas[k])}`);
       }
 
-      toast.success(imagenes.length === 1 ? "Imagen descargada" : `${imagenes.length} imágenes descargadas en un .zip`);
+      toast.success(imagenes.length === 1 ? "Imagen descargada" : `${imagenes.length} imágenes descargadas, una a una`, {
+        description: imagenes.length > 1 ? "Si el navegador pregunta si permite varias descargas, di que sí." : undefined,
+      });
     } catch (error) {
       toast.error("No se ha podido exportar", {
         description: error instanceof Error ? error.message : "Inténtalo otra vez",
@@ -2384,7 +2391,7 @@ export default function JugadoresSesionPage() {
                             icon={exportando ? Loader2 : Download}
                             disabled={Boolean(exportando)}
                             onClick={() => void exporta(laminasDe(sesion.tareas.map((_, i) => i)))}
-                            title="Todas las tareas, una imagen cada una (dos si hay cambio a mitad), en un .zip"
+                            title="Todas las tareas, una imagen cada una (dos si hay cambio a mitad), descargadas una a una"
                           >
                             {exportando ? exportando.paso : "Todas"}
                           </Button>

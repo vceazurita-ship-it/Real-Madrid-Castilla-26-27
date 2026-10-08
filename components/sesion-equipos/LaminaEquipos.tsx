@@ -197,7 +197,7 @@ export function LaminaEquipos({
   const filasTotal = Math.max(4, ...columnas.filter((c) => !c.estructura).map((c) => c.jugadores.length));
 
   /* El alto que de verdad queda para la lista (08/10/2026): con 640 la fila once se cortaba. Cada fila mide ~1,62 × la letra (letra + relleno + hueco). */
-  const ALTO_LISTA = (cabecera ? 575 : 800) - (cambios.length ? 55 : 0);
+  const ALTO_LISTA = (cabecera ? 575 : 770) - (cambios.length ? 55 : 0);
 
   const anchoEquipo = (LAMINA_W - 120 - (columnas.length - 1) * 28) / Math.max(1, columnas.length);
 
@@ -231,7 +231,7 @@ export function LaminaEquipos({
   const fuera = [...r.fuera, ...r.sinSitio];
 
   /* El campograma, lo más grande que quepa en la columna y en el alto que queda. */
-  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 300) - (cambios.length ? 60 : 0)) / 1.08);
+  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 335) - (cambios.length ? 60 : 0)) / 1.08);
 
   return (
     <div
@@ -342,11 +342,20 @@ export function LaminaEquipos({
                   borderBottom: `2px solid ${bordeDe(c.color)}`,
                 }}
               >
-                <span style={{ minWidth: 0, display: "flex", alignItems: "baseline", gap: 14 }}>
-                  <span style={{ fontSize: tamanoTitulo(c.titulo), fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {c.titulo}
+                <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+                  {/* Sin cabecera, el título de la tarea va en la franja de cada equipo (08/10/2026). */}
+                  {!cabecera && (
+                    <span style={{ fontSize: 24, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", opacity: 0.85, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {tareaBase.nombre || `Tarea ${indice + 1}`}
+                      {fase === "cambio" ? " · tras el cambio" : ""}
+                    </span>
+                  )}
+                  <span style={{ minWidth: 0, display: "flex", alignItems: "baseline", gap: 14 }}>
+                    <span style={{ fontSize: tamanoTitulo(c.titulo), fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {c.titulo}
+                    </span>
+                    {c.estructura && <span style={{ fontSize: 28, fontWeight: 700, opacity: 0.8, whiteSpace: "nowrap" }}>{c.estructura}</span>}
                   </span>
-                  {c.estructura && <span style={{ fontSize: 28, fontWeight: 700, opacity: 0.8, whiteSpace: "nowrap" }}>{c.estructura}</span>}
                 </span>
                 <span
                   style={{
