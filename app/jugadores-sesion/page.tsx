@@ -66,12 +66,14 @@ import {
   jugadoresDe,
   lineasDe,
   normalizaEstructura,
+  parejasDe,
   huecosDeCampo,
   paraGuardar,
   type Hueco,
   type Punto,
 } from "@/lib/sesion-equipos/estructura";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { cambiosDe, creaCambio, guardaVistaCambio, quitaCambio, vistaCambio, type Fase } from "@/lib/sesion-equipos/cambio";
 import { apodo, capturaLienzos, descarga, pintado } from "@/lib/export/lienzos";
 import { bytesDeDataUrl, creaZip } from "@/lib/export/zip";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
@@ -165,12 +167,20 @@ function Chip({
   onClick,
   onPointerDown,
   onQuitar,
+  destino,
+  encima = false,
+  conQuien,
 }: {
   jugador: JugadorSesion;
   color?: string;
   puesto?: Puesto;
   seleccionado: boolean;
   arrastrando?: boolean;
+  /** Soltar encima de él (08/10/2026): «jug:<id>». */
+  destino?: string;
+  encima?: boolean;
+  /** Con quién comparte puesto. */
+  conQuien?: string;
   onClick: () => void;
   onPointerDown: (e: ReactPointerEvent) => void;
   /** Sacarlo de su equipo en un toque (sólo si está en uno). */
@@ -180,6 +190,7 @@ function Chip({
     <div
       role="button"
       tabIndex={0}
+      data-destino={destino}
       onPointerDown={onPointerDown}
       onClick={onClick}
       onKeyDown={(e) => {
@@ -193,7 +204,9 @@ function Chip({
       className={`group flex min-w-0 cursor-grab select-none items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide transition active:cursor-grabbing ${
         arrastrando
           ? "opacity-35"
-          : seleccionado
+          : encima
+            ? "scale-[1.04] border-[#C8A96B] bg-[#C8A96B]/25 text-white ring-2 ring-[#C8A96B]/50"
+            : seleccionado
             ? "border-[#C8A96B] bg-[#C8A96B]/20 text-white ring-2 ring-[#C8A96B]/40"
             : "border-white/10 bg-white/[0.04] text-white/85 hover:border-white/25 hover:bg-white/[0.07]"
       }`}
@@ -207,6 +220,11 @@ function Chip({
           }`}
         >
           {puesto}
+        </span>
+      )}
+      {conQuien && (
+        <span className="shrink-0 rounded bg-[#C8A96B]/15 px-1 text-[9px] font-bold text-[#E9D5A8]" title="Comparten puesto">
+          = {conQuien}
         </span>
       )}
       {jugador.etiqueta && (
@@ -351,6 +369,51 @@ function Caja({
   );
 }
 
+/**
+ * Saca a un jugador de las parejas de la tarea (08/10/2026). Si era titular,
+ * su compañero se queda con su hueco del dibujo.
+ */
+function sueltaPareja(t: TareaEquipos, id: string): TareaEquipos {
+  let tocada = false;
+
+  const equipos = t.equipos.map((e) => {
+    if (!e.pares) return e;
+
+    let esta = false;
+    const pares = { ...e.pares };
+    let orden = e.orden;
+
+    for (const [titular, companero] of Object.entries(e.pares)) {
+      if (companero === id) {
+        delete pares[titular];
+        esta = true;
+      } else if (titular === id) {
+        delete pares[titular];
+        esta = true;
+        if (orden) orden = orden.map((x) => (x === id ? companero : x));
+      }
+    }
+
+    if (!esta) return e;
+    tocada = true;
+    return { ...e, pares, orden };
+  });
+
+  return tocada ? { ...t, equipos } : t;
+}
+
+/** El titular con el que comparte puesto un jugador, si es compañero de alguien. */
+function titularDe(t: TareaEquipos, id: string): string | null {
+  for (const e of t.equipos) for (const [titular, companero] of Object.entries(e.pares ?? {})) if (companero === id) return titular;
+  return null;
+}
+
+/** Su compañero, si es titular de una pareja. */
+function companeroDe(t: TareaEquipos, id: string): string | null {
+  for (const e of t.equipos) if (e.pares?.[id]) return e.pares[id];
+  return null;
+}
+
 /** Las siglas cortas de cada puesto, en el orden en que se lee un equipo. */
 const ORDEN_PUESTOS: Puesto[] = ["POR", "DEF", "MED", "EXT", "DEL"];
 
@@ -472,10 +535,12 @@ function EstructuraEquipo({
   onGuardaMia: (estructura: string) => void;
   onBorraMia: (estructura: string) => void;
 }) {
-  const { huecos, sobran, porteros } = colocaEnEstructura(jugadores, equipo.estructura, puestoDe, equipo.orden, equipo.posiciones);
+  const { huecos, sobran, porteros, parejas } = colocaEnEstructura(jugadores, equipo.estructura, puestoDe, equipo.orden, equipo.posiciones, equipo.pares);
   /* Los porteros no se dibujan: la cuenta es de los de campo contra los huecos de campo. */
   const total = huecosDeCampo(equipo.estructura);
-  const deCampo = jugadores.length - porteros.length;
+  /* Los que comparten puesto ocupan un solo hueco: el compañero no cuenta. */
+  const companerosFuera = sobran.filter((j) => [...parejas.values()].some((c) => c.id === j.id)).length;
+  const deCampo = jugadores.length - porteros.length - huecos.filter((h) => h.pareja).length - companerosFuera;
   const actual = normalizaEstructura(equipo.estructura ?? "");
   const enLista = ESTRUCTURAS.some((e) => e.valor === actual) || mias.includes(actual);
   const grupos = gruposDeEstructuras(jugadores.length);
@@ -846,7 +911,22 @@ export default function JugadoresSesionPage() {
 
   const activa = sesion ? Math.min(pedida, Math.max(0, sesion.tareas.length - 1)) : 0;
 
-  const tarea = sesion?.tareas[activa] ?? null;
+  const tareaBase = sesion?.tareas[activa] ?? null;
+
+  /*
+  | EL MOMENTO QUE SE EDITA (08/10/2026): el inicio o «tras el cambio», si la
+  | tarea lo tiene. Todo lo de abajo trabaja sobre `tarea`, que es la tarea
+  | tal y como está en ese momento; `cambiaTarea` devuelve lo editado a su
+  | sitio (ver lib/sesion-equipos/cambio.ts).
+  */
+  const [faseElegida, setFase] = useState<Fase>("inicio");
+
+  const fase: Fase = tareaBase?.cambio ? faseElegida : "inicio";
+
+  const tarea = useMemo(() => (tareaBase && fase === "cambio" ? vistaCambio(tareaBase) : tareaBase), [tareaBase, fase]);
+
+  /* Al soltar a un jugador encima de otro: se cambian de sitio o comparten puesto. */
+  const [modoSoltar, setModoSoltar] = useState<"cambiar" | "compartir">("cambiar");
 
   const puestosAuto = useMemo(
     () =>
@@ -888,7 +968,10 @@ export default function JugadoresSesionPage() {
 
   const [presentando, setPresentando] = useState(false);
 
-  const [exportando, setExportando] = useState<null | { indices: number[]; paso: string }>(null);
+  const [exportando, setExportando] = useState<null | { laminas: { i: number; fase: Fase }[]; paso: string }>(null);
+
+  /* Al exportar, sólo los equipos (lo de por defecto) o con la cabecera de la tarea (08/10/2026). */
+  const [conCabecera, setConCabecera] = useState(false);
 
   /* ---------------- escribir ---------------- */
 
@@ -907,15 +990,32 @@ export default function JugadoresSesionPage() {
 
       cambiaSesion(sesion.id, (s) => ({
         ...s,
-        tareas: s.tareas.map((t) => (t.id === tarea.id ? cambio(t) : t)),
+        tareas: s.tareas.map((t) => {
+          if (t.id !== tarea.id) return t;
+
+          /* Tras el cambio: se edita la vista y se guarda en su sitio, sin tocar el inicio. */
+          return fase === "cambio" && t.cambio ? guardaVistaCambio(t, cambio(vistaCambio(t))) : cambio(t);
+        }),
       }));
     },
-    [cambiaSesion, sesion, tarea],
+    [cambiaSesion, sesion, tarea, fase],
+  );
+
+  /** Cambia la tarea guardada tal cual, sin pasar por el momento (marcar o quitar el cambio). */
+  const cambiaTareaBase = useCallback(
+    (cambio: (t: TareaEquipos) => TareaEquipos) => {
+      if (!sesion || !tareaBase) return;
+
+      cambiaSesion(sesion.id, (s) => ({ ...s, tareas: s.tareas.map((t) => (t.id === tareaBase.id ? cambio(t) : t)) }));
+    },
+    [cambiaSesion, sesion, tareaBase],
   );
 
   const coloca = useCallback(
     (jugadorId: string, sitio: Sitio | null) => {
-      cambiaTarea((t) => {
+      cambiaTarea((t0) => {
+        /* Cambiar de sitio deshace su pareja (el compañero se queda con el hueco). */
+        const t = t0.sitio[jugadorId] === (sitio ?? undefined) ? t0 : sueltaPareja(t0, jugadorId);
         const nuevo = { ...t.sitio };
 
         if (sitio === null) delete nuevo[jugadorId];
@@ -934,9 +1034,66 @@ export default function JugadoresSesionPage() {
    * estaba ocupado por un compañero, se cambian de sitio; si lo ocupaba alguien
    * y el que llega es de otro equipo, el de antes pasa al primer hueco libre.
    */
+  /**
+   * Dos en el mismo puesto (08/10/2026): `jugadorId` pasa a compartir el de
+   * `otroId` en su equipo. Sale de su pareja anterior y de su hueco.
+   */
+  const emparejaCon = useCallback(
+    (jugadorId: string, otroId: string) => {
+      if (!tarea || jugadorId === otroId) return;
+
+      const equipoId = tarea.sitio[otroId];
+
+      if (!equipoId || equipoId === COMODIN || equipoId === FUERA) {
+        toast.error("Para compartir puesto, el otro tiene que estar en un equipo");
+        return;
+      }
+
+      /* Si el otro ya es compañero de alguien, se comparte con su titular… si está libre. */
+      const titular = titularDe(tarea, otroId) ?? otroId;
+
+      if (companeroDe(tarea, titular) && companeroDe(tarea, titular) !== jugadorId) {
+        const nombre = sesion?.jugadores.find((j) => j.id === companeroDe(tarea, titular))?.nombre;
+        toast.error(`Ese puesto ya lo comparten dos${nombre ? ` (con ${nombre})` : ""}`);
+        return;
+      }
+
+      cambiaTarea((t0) => {
+        const t = sueltaPareja(t0, jugadorId);
+
+        return {
+          ...t,
+          sitio: { ...t.sitio, [jugadorId]: equipoId },
+          equipos: t.equipos.map((e) => {
+            /* Fuera de cualquier hueco: va en el de su titular. */
+            const orden = e.orden?.includes(jugadorId) ? e.orden.map((x) => (x === jugadorId ? "" : x)) : e.orden;
+
+            return e.id === equipoId ? { ...e, orden, pares: { ...(e.pares ?? {}), [titular]: jugadorId } } : orden === e.orden ? e : { ...e, orden };
+          }),
+        };
+      });
+
+      const a = sesion?.jugadores.find((j) => j.id === jugadorId)?.nombre;
+      const b = sesion?.jugadores.find((j) => j.id === titular)?.nombre;
+
+      toast.success(`${a} y ${b} comparten puesto`, { description: "Arrastra a cualquiera de los dos a otro sitio para separarlos." });
+    },
+    [cambiaTarea, sesion, tarea],
+  );
+
   const aplicaDestino = useCallback(
     (jugadorId: string, destino: string, punto?: Punto) => {
       if (destino === "sin") return coloca(jugadorId, null);
+
+      /* Encima de otro jugador (en las fichas): comparte su puesto, o va a su sitio. */
+      if (destino.startsWith("jug:")) {
+        const otro = destino.slice(4);
+
+        if (otro === jugadorId) return;
+        if (modoSoltar === "compartir") return emparejaCon(jugadorId, otro);
+
+        return coloca(jugadorId, tarea?.sitio[otro] ?? null);
+      }
       if (destino === COMODIN || destino === FUERA) return coloca(jugadorId, destino);
       if (destino.startsWith("eq:")) return coloca(jugadorId, destino.slice(3));
 
@@ -951,13 +1108,14 @@ export default function JugadoresSesionPage() {
 
         if (!jugador) return;
 
-        cambiaTarea((t) => {
+        cambiaTarea((t1) => {
+          const t = titularDe(t1, jugadorId) || t1.sitio[jugadorId] !== equipoId ? sueltaPareja(t1, jugadorId) : t1;
           const equipo = t.equipos.find((e) => e.id === equipoId);
 
           if (!equipo) return t;
 
           const suyos = repartoDe(t, sesion.jugadores).porEquipo[equipoId] ?? [];
-          const { huecos } = colocaEnEstructura(suyos, equipo.estructura, puestoDe, equipo.orden, equipo.posiciones);
+          const { huecos } = colocaEnEstructura(suyos, equipo.estructura, puestoDe, equipo.orden, equipo.posiciones, equipo.pares);
           const guardado = paraGuardar(equipo.estructura, colocaEnPunto(huecos, jugador, punto));
 
           return {
@@ -977,13 +1135,24 @@ export default function JugadoresSesionPage() {
 
         if (!jugador) return;
 
-        cambiaTarea((t) => {
+        /* Compartir puesto: encima del que ocupa el hueco. */
+        if (modoSoltar === "compartir" && tarea) {
+          const equipo = tarea.equipos.find((e) => e.id === equipoId);
+          const suyos = repartoDe(tarea, sesion.jugadores).porEquipo[equipoId] ?? [];
+          const ocupante = equipo ? colocaEnEstructura(suyos, equipo.estructura, puestoDe, equipo.orden, equipo.posiciones, equipo.pares).huecos[indice]?.jugador : null;
+
+          if (ocupante && ocupante.id !== jugadorId) return emparejaCon(jugadorId, ocupante.id);
+        }
+
+        cambiaTarea((t1) => {
+          /* Un compañero, o uno que llega de otro equipo, deja su pareja. */
+          const t = titularDe(t1, jugadorId) || t1.sitio[jugadorId] !== equipoId ? sueltaPareja(t1, jugadorId) : t1;
           const equipo = t.equipos.find((e) => e.id === equipoId);
 
           if (!equipo) return t;
 
           const suyos = repartoDe(t, sesion.jugadores).porEquipo[equipoId] ?? [];
-          const { huecos } = colocaEnEstructura(suyos, equipo.estructura, puestoDe, equipo.orden, equipo.posiciones);
+          const { huecos } = colocaEnEstructura(suyos, equipo.estructura, puestoDe, equipo.orden, equipo.posiciones, equipo.pares);
 
           if (!huecos[indice]) return t;
 
@@ -1013,7 +1182,7 @@ export default function JugadoresSesionPage() {
         });
       }
     },
-    [cambiaTarea, coloca, puestoDe, sesion],
+    [cambiaTarea, coloca, puestoDe, sesion, modoSoltar, emparejaCon, tarea],
   );
 
   /** Quita los escuchadores del arrastre en curso (también si la pantalla se va a mitad). */
@@ -1412,10 +1581,14 @@ export default function JugadoresSesionPage() {
 
   const lienzos = useRef<HTMLDivElement | null>(null);
 
-  const exporta = async (indices: number[]) => {
-    if (!sesion || exportando) return;
+  /** Las diapositivas de unas tareas: con cambio a mitad, dos (inicio y tras el cambio). */
+  const laminasDe = (indices: number[]) =>
+    indices.flatMap((i) => (sesion?.tareas[i]?.cambio ? [{ i, fase: "inicio" as Fase }, { i, fase: "cambio" as Fase }] : [{ i, fase: "inicio" as Fase }]));
 
-    setExportando({ indices, paso: "Preparando…" });
+  const exporta = async (laminas: { i: number; fase: Fase }[]) => {
+    if (!sesion || exportando || !laminas.length) return;
+
+    setExportando({ laminas, paso: "Preparando…" });
 
     try {
       await pintado();
@@ -1430,18 +1603,18 @@ export default function JugadoresSesionPage() {
         ancho: LAMINA_W,
         alto: LAMINA_H,
         fondo: "#0B0F14",
-        alPaso: (hechas, total) => setExportando({ indices, paso: `Imagen ${hechas} de ${total}…` }),
+        alPaso: (hechas, total) => setExportando({ laminas, paso: `Imagen ${hechas} de ${total}…` }),
       });
 
-      const nombreDe = (i: number) =>
-        `${String(i + 1).padStart(2, "0")}-${apodo(sesion.tareas[i].nombre, "tarea")}.jpg`;
+      const nombreDe = ({ i, fase: f }: { i: number; fase: Fase }) =>
+        `${String(i + 1).padStart(2, "0")}${f === "cambio" ? "b" : ""}-${apodo(sesion.tareas[i].nombre, "tarea")}${f === "cambio" ? "-tras-el-cambio" : ""}.jpg`;
 
       if (imagenes.length === 1) {
         const blob = await fetch(imagenes[0]).then((r) => r.blob());
 
-        descarga(blob, `${apodo(sesion.titulo, "sesion")}-${nombreDe(indices[0])}`);
+        descarga(blob, `${apodo(sesion.titulo, "sesion")}-${nombreDe(laminas[0])}`);
       } else {
-        const zip = creaZip(imagenes.map((img, k) => ({ nombre: nombreDe(indices[k]), datos: bytesDeDataUrl(img) })));
+        const zip = creaZip(imagenes.map((img, k) => ({ nombre: nombreDe(laminas[k]), datos: bytesDeDataUrl(img) })));
 
         descarga(zip, `equipos-${apodo(sesion.titulo, "sesion")}.zip`);
       }
@@ -1517,8 +1690,23 @@ export default function JugadoresSesionPage() {
         }}
         onPointerDown={(e) => empiezaArrastre(j, colorDe(donde), e)}
         onQuitar={enEquipo ? () => coloca(j.id, null) : undefined}
+        destino={`jug:${j.id}`}
+        encima={sobre === `jug:${j.id}`}
+        conQuien={(() => {
+          if (!tarea) return undefined;
+          const otro = titularDe(tarea, j.id) ?? companeroDe(tarea, j.id);
+          return otro ? sesion?.jugadores.find((x) => x.id === otro)?.nombre : undefined;
+        })()}
       />
     );
+  };
+
+  /** Una lista de equipo con cada compañero justo detrás de su titular. */
+  const conParejasJuntas = (lista: JugadorSesion[], pares?: Record<string, string>) => {
+    const parejas = parejasDe(lista, pares);
+    const companeros = new Set([...parejas.values()].map((j) => j.id));
+
+    return ordenPorPuesto(lista.filter((j) => !companeros.has(j.id)), puestoDe).flatMap((j) => (parejas.has(j.id) ? [j, parejas.get(j.id)!] : [j]));
   };
 
   const enTarea = reparto
@@ -1746,6 +1934,67 @@ export default function JugadoresSesionPage() {
                         />
                       </div>
 
+                      <div>
+                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Cambio a mitad</span>
+                        {tareaBase?.cambio ? (
+                          <div className="flex items-center gap-1.5">
+                            <Segmented
+                              ariaLabel="Qué momento de la tarea se edita"
+                              value={fase}
+                              options={[
+                                { key: "inicio", label: "Inicio" },
+                                { key: "cambio", label: "Tras el cambio" },
+                              ]}
+                              onChange={(v) => {
+                                setFase(v);
+                                setElegido(null);
+                                setHuecoTocado(null);
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!window.confirm("¿Quitar el cambio a mitad de tarea? Se queda sólo el inicio.")) return;
+                                cambiaTareaBase(quitaCambio);
+                                setFase("inicio");
+                              }}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-white/45 transition hover:border-red-300/40 hover:text-red-300"
+                              title="Quitar el cambio a mitad de tarea"
+                              aria-label="Quitar el cambio a mitad de tarea"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        ) : (
+                          <Button
+                            icon={Repeat2}
+                            onClick={() => {
+                              cambiaTareaBase(creaCambio);
+                              setFase("cambio");
+                              toast.success("Marcado el cambio a mitad de tarea", {
+                                description: "Ahora estás en «Tras el cambio»: mueve a quien cambie de equipo o de sitio. El inicio no se toca.",
+                              });
+                            }}
+                            title="Marcar qué jugadores cambian de equipo o de sitio a mitad de tarea"
+                          >
+                            Marcar cambio
+                          </Button>
+                        )}
+                      </div>
+
+                      <div>
+                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Al soltar encima de otro</span>
+                        <Segmented
+                          ariaLabel="Qué pasa al soltar a un jugador encima de otro"
+                          value={modoSoltar}
+                          options={[
+                            { key: "cambiar", label: "Cambiar" },
+                            { key: "compartir", label: "Compartir puesto" },
+                          ]}
+                          onChange={setModoSoltar}
+                        />
+                      </div>
+
                       {tarea.conEstructura && (
                         <div>
                           <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Tamaño del campo</span>
@@ -1835,7 +2084,7 @@ export default function JugadoresSesionPage() {
                         >
                           Vaciar
                         </Button>
-                        <Button icon={Copy} disabled={activa === 0} onClick={copiaAnterior} title="Mismos equipos, colores y comodines que la tarea anterior">
+                        <Button icon={Copy} disabled={activa === 0 || fase === "cambio"} onClick={copiaAnterior} title="Mismos equipos, colores y comodines que la tarea anterior">
                           Como la anterior
                         </Button>
                         <Button icon={Plus} onClick={duplica} title="Duplicar esta tarea con sus equipos">
@@ -1868,6 +2117,51 @@ export default function JugadoresSesionPage() {
                         {tarea.equipos.length > 1 ? ` (o pulsa 1-${tarea.equipos.length}` : " (o pulsa 1"}
                         {tarea.comodines > 0 ? ", C comodín" : ""}, F fuera, Esc cancelar)
                       </p>
+                    )}
+
+                    {/* --- el cambio a mitad de tarea --- */}
+                    {tareaBase?.cambio && sesion && (
+                      <div
+                        className={`rounded-2xl border px-4 py-3 ${fase === "cambio" ? "border-[#C8A96B]/60 bg-[#C8A96B]/[0.08]" : "border-white/10 bg-white/[0.02]"}`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em] text-[#E9D5A8]">
+                            <Repeat2 size={14} />
+                            {fase === "cambio" ? "Editando: tras el cambio" : "Inicio de la tarea"}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFase(fase === "cambio" ? "inicio" : "cambio");
+                              setElegido(null);
+                              setHuecoTocado(null);
+                            }}
+                            className="text-[11px] font-semibold text-white/60 underline-offset-2 hover:text-white hover:underline"
+                          >
+                            {fase === "cambio" ? "Ver el inicio" : "Ir a «Tras el cambio»"}
+                          </button>
+                        </div>
+                        {(() => {
+                          const lista = cambiosDe(tareaBase, sesion.jugadores, puestoDe);
+
+                          return lista.length ? (
+                            <ul className="mt-2 grid gap-1 text-[12px] text-white/75 sm:grid-cols-2">
+                              {lista.map((c) => (
+                                <li key={c.jugador.id} className="flex min-w-0 items-baseline gap-2">
+                                  <ArrowRight size={12} className="shrink-0 translate-y-0.5 text-[#C8A96B]" />
+                                  <span className="min-w-0">
+                                    <b className="uppercase text-white">{c.jugador.nombre}</b> · {c.texto}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-1.5 text-[12px] text-white/50">
+                              Todavía no cambia nadie. En «Tras el cambio», mueve a quien cambie de equipo, de sitio en el campo o de pareja.
+                            </p>
+                          );
+                        })()}
+                      </div>
                     )}
 
                     {/* --- equipos --- */}
@@ -1980,11 +2274,11 @@ export default function JugadoresSesionPage() {
                               }}
                             />
                           )}
-                          {ordenPorPuesto(
-                            tarea.conEstructura
-                              ? (({ sobran, porteros }) => [...porteros, ...sobran])(colocaEnEstructura(reparto.porEquipo[equipo.id] ?? [], equipo.estructura, puestoDe, equipo.orden, equipo.posiciones))
-                              : (reparto.porEquipo[equipo.id] ?? []),
-                            puestoDe,
+                          {(tarea.conEstructura
+                            ? (({ sobran, porteros, huecos }) => [...porteros, ...sobran, ...huecos.flatMap((h) => (h.pareja ? [h.pareja] : []))])(
+                                colocaEnEstructura(reparto.porEquipo[equipo.id] ?? [], equipo.estructura, puestoDe, equipo.orden, equipo.posiciones, equipo.pares),
+                              )
+                            : conParejasJuntas(reparto.porEquipo[equipo.id] ?? [], equipo.pares)
                           ).map(chip)}
                         </Caja>
                       ))}
@@ -2082,15 +2376,15 @@ export default function JugadoresSesionPage() {
                           <Button icon={MessageSquareText} onClick={() => void copiaTexto(false)} title="Los equipos de esta tarea en texto, para el grupo">
                             Texto
                           </Button>
-                          <Button icon={Download} disabled={Boolean(exportando)} onClick={() => void exporta([activa])} title="Esta tarea en imagen (.jpg)">
+                          <Button icon={Download} disabled={Boolean(exportando)} onClick={() => void exporta([{ i: activa, fase }])} title="Esta tarea en imagen (.jpg), en el momento que estás viendo">
                             Esta
                           </Button>
                           <Button
                             tone="primary"
                             icon={exportando ? Loader2 : Download}
                             disabled={Boolean(exportando)}
-                            onClick={() => void exporta(sesion.tareas.map((_, i) => i))}
-                            title="Todas las tareas, una imagen cada una, en un .zip"
+                            onClick={() => void exporta(laminasDe(sesion.tareas.map((_, i) => i)))}
+                            title="Todas las tareas, una imagen cada una (dos si hay cambio a mitad), en un .zip"
                           >
                             {exportando ? exportando.paso : "Todas"}
                           </Button>
@@ -2099,9 +2393,18 @@ export default function JugadoresSesionPage() {
                     >
                       <div ref={refPrevia} className="min-w-0 overflow-hidden rounded-xl">
                         {anchoPrevia > 0 && (
-                          <LaminaEscalada ancho={anchoPrevia} puestoDe={puestoDe} sesion={sesion} tarea={tarea} indice={activa} total={sesion.tareas.length} />
+                          <LaminaEscalada ancho={anchoPrevia} puestoDe={puestoDe} sesion={sesion} tarea={tareaBase ?? tarea} fase={fase} cabecera={conCabecera} indice={activa} total={sesion.tareas.length} />
                         )}
                       </div>
+                      <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[12px] text-white/75 transition hover:border-white/25">
+                        <input
+                          type="checkbox"
+                          checked={conCabecera}
+                          onChange={(e) => setConCabecera(e.target.checked)}
+                          className="h-3.5 w-3.5 accent-[#C8A96B]"
+                        />
+                        Con cabecera <span className="text-white/40">(título de la tarea, sesión y pie). Sin marcar, la imagen lleva sólo los equipos.</span>
+                      </label>
                       <div className="mt-2 flex items-center justify-between text-[11px] text-white/40">
                         <button type="button" disabled={activa === 0} onClick={() => { setPedida(activa - 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
                           <ChevronLeft size={13} /> Anterior
@@ -2242,8 +2545,8 @@ export default function JugadoresSesionPage() {
           aria-hidden
           style={{ position: "fixed", left: -30000, top: 0, width: LAMINA_W, pointerEvents: "none" }}
         >
-          {exportando.indices.map((i) => (
-            <LaminaEquipos key={sesion.tareas[i].id} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} indice={i} total={sesion.tareas.length} />
+          {exportando.laminas.map(({ i, fase: f }) => (
+            <LaminaEquipos key={`${sesion.tareas[i].id}-${f}`} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} fase={f} cabecera={conCabecera} indice={i} total={sesion.tareas.length} />
           ))}
         </div>
       )}
@@ -2304,7 +2607,13 @@ function Presentacion({
   onCierra: (ultima: number) => void;
   puestoDe: PuestoDe;
 }) {
-  const [i, setI] = useState(inicial);
+  /* Cada tarea es una diapositiva; con cambio a mitad, dos. */
+  const pasos = useMemo(
+    () => sesion.tareas.flatMap((t, k) => (t.cambio ? [{ k, fase: "inicio" as Fase }, { k, fase: "cambio" as Fase }] : [{ k, fase: "inicio" as Fase }])),
+    [sesion.tareas],
+  );
+
+  const [i, setI] = useState(() => Math.max(0, pasos.findIndex((p) => p.k === inicial)));
 
   const [hueco, setHueco] = useState({ w: 0, h: 0 });
 
@@ -2327,14 +2636,14 @@ function Presentacion({
   /* En pantalla completa, Esc lo consume el navegador para salir de ella y la
      página no recibe la tecla: la capa negra se quedaba puesta. Salir de la
      pantalla completa es salir de la presentación. */
-  const ultima = useRef(i);
+  const ultima = useRef(pasos[i]?.k ?? 0);
 
   /* `onCierra` llega nuevo en cada render: en una ref, para no volver a
      enganchar el oyente (y perder el «entró») cada vez. */
   const cierra = useRef(onCierra);
 
   useEffect(() => {
-    ultima.current = i;
+    ultima.current = pasos[i]?.k ?? 0;
     cierra.current = onCierra;
   });
 
@@ -2353,9 +2662,9 @@ function Presentacion({
 
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") setI((n) => Math.min(sesion.tareas.length - 1, n + 1));
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") setI((n) => Math.min(pasos.length - 1, n + 1));
       else if (e.key === "ArrowLeft" || e.key === "PageUp") setI((n) => Math.max(0, n - 1));
-      else if (e.key === "Escape") onCierra(i);
+      else if (e.key === "Escape") onCierra(pasos[i]?.k ?? 0);
       else return;
 
       e.preventDefault();
@@ -2364,22 +2673,24 @@ function Presentacion({
     window.addEventListener("keydown", tecla);
 
     return () => window.removeEventListener("keydown", tecla);
-  }, [i, onCierra, sesion.tareas.length]);
+  }, [i, onCierra, pasos]);
 
   const ancho = Math.min(hueco.w, (hueco.h * 16) / 9);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black" onClick={() => setI((n) => Math.min(sesion.tareas.length - 1, n + 1))}>
-      {ancho > 0 && <LaminaEscalada ancho={ancho} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} indice={i} total={sesion.tareas.length} />}
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black" onClick={() => setI((n) => Math.min(pasos.length - 1, n + 1))}>
+      {ancho > 0 && pasos[i] && (
+        <LaminaEscalada ancho={ancho} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[pasos[i].k]} fase={pasos[i].fase} indice={pasos[i].k} total={sesion.tareas.length} />
+      )}
 
       <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/10 px-2 py-1 text-white/80 opacity-30 transition hover:opacity-100" onClick={(e) => e.stopPropagation()}>
         <button type="button" aria-label="Anterior" onClick={() => setI((n) => Math.max(0, n - 1))} className="rounded-full p-1.5 hover:bg-white/15">
           <ArrowLeft size={16} />
         </button>
         <span className="text-xs tabular-nums">
-          {i + 1} / {sesion.tareas.length}
+          {i + 1} / {pasos.length}
         </span>
-        <button type="button" aria-label="Siguiente" onClick={() => setI((n) => Math.min(sesion.tareas.length - 1, n + 1))} className="rounded-full p-1.5 hover:bg-white/15">
+        <button type="button" aria-label="Siguiente" onClick={() => setI((n) => Math.min(pasos.length - 1, n + 1))} className="rounded-full p-1.5 hover:bg-white/15">
           <ArrowRight size={16} />
         </button>
         <button type="button" aria-label="Salir" onClick={() => onCierra(i)} className="rounded-full p-1.5 hover:bg-white/15">

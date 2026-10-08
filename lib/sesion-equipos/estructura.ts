@@ -120,7 +120,30 @@ export type Hueco = {
   jugador: JugadorSesion | null;
   /** El punto lo puso alguien a mano: se guarda y se respeta. */
   aMano?: boolean;
+  /** Comparte el puesto con el jugador del hueco (08/10/2026): se turnan o hacen el puesto a la vez. */
+  pareja?: JugadorSesion | null;
 };
+
+/**
+ * Las parejas válidas de un equipo (08/10/2026): titular → compañero, los dos
+ * en el equipo, sin cadenas (un compañero no puede tener a su vez compañero).
+ */
+export function parejasDe(jugadores: JugadorSesion[], pares?: Record<string, string>) {
+  const companeros = new Map<string, JugadorSesion>();
+  if (!pares) return companeros;
+
+  const usados = new Set<string>();
+  for (const [titular, companero] of Object.entries(pares)) {
+    if (!companero || titular === companero || usados.has(titular) || usados.has(companero)) continue;
+    const t = jugadores.find((j) => j.id === titular);
+    const c = jugadores.find((j) => j.id === companero);
+    if (!t || !c) continue;
+    companeros.set(titular, c);
+    usados.add(titular);
+    usados.add(companero);
+  }
+  return companeros;
+}
 
 const ORDEN: (Puesto | undefined)[] = ["POR", "DEF", "MED", "EXT", "DEL", undefined];
 
@@ -144,13 +167,27 @@ export function colocaEnEstructura(
   puestoDe: (j: JugadorSesion) => Puesto | undefined,
   orden?: string[],
   posiciones?: (Punto | null)[],
-): { huecos: Hueco[]; sobran: JugadorSesion[]; porteros: JugadorSesion[] } {
+  pares?: Record<string, string>,
+): { huecos: Hueco[]; sobran: JugadorSesion[]; porteros: JugadorSesion[]; parejas: Map<string, JugadorSesion> } {
   const lleva = conPortero(estructura);
-  const porteros = jugadores.filter((j) => puestoDe(j) === "POR");
-  const deCampo = jugadores.filter((j) => puestoDe(j) !== "POR");
+
+  /* El compañero no ocupa hueco: va en el de su titular. */
+  const parejas = parejasDe(jugadores, pares);
+  const ocultos = new Set([...parejas.values()].map((j) => j.id));
+  const visibles = jugadores.filter((j) => !ocultos.has(j.id));
+
+  const porteros = visibles.filter((j) => puestoDe(j) === "POR");
+  const deCampo = visibles.filter((j) => puestoDe(j) !== "POR");
   const lineas = lleva ? lineasDe(estructura).slice(1).join("-") : estructura;
 
-  return { ...colocaDeCampo(deCampo, lineas, puestoDe, lleva ? orden?.slice(1) : orden, lleva ? posiciones?.slice(1) : posiciones), porteros };
+  const r = colocaDeCampo(deCampo, lineas, puestoDe, lleva ? orden?.slice(1) : orden, lleva ? posiciones?.slice(1) : posiciones);
+
+  const huecos = r.huecos.map((h) => (h.jugador && parejas.has(h.jugador.id) ? { ...h, pareja: parejas.get(h.jugador.id) } : h));
+
+  /* Un titular fuera del dibujo (o portero) arrastra a su compañero con él. */
+  const conSuPareja = (lista: JugadorSesion[]) => lista.flatMap((j) => (parejas.has(j.id) ? [j, parejas.get(j.id)!] : [j]));
+
+  return { huecos, sobran: conSuPareja(r.sobran), porteros: conSuPareja(porteros), parejas };
 }
 
 /** Lo que se guarda, con el hueco del portero delante si la estructura lo lleva. */

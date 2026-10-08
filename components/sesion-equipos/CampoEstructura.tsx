@@ -129,7 +129,9 @@ export function CampoEstructura({
         const enSuLinea = h.linea < 0 ? 3 : huecos.filter((x) => x.linea === h.linea && !x.aMano).length || 3;
         const anchoNombre = Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 1.1);
         const nombre = h.jugador?.nombre ?? "";
-        const tamanoNombre = Math.max(8, Math.min(letra, anchoNombre / (palabraMasLarga(nombre || "—") * 0.5 + 0.9)));
+        /* Con pareja, los dos nombres; la letra la manda el más largo. */
+        const largo = Math.max(palabraMasLarga(nombre || "—"), h.pareja ? palabraMasLarga(h.pareja.nombre) : 0);
+        const tamanoNombre = Math.max(8, Math.min(letra * (h.pareja ? 0.88 : 1), anchoNombre / (largo * 0.5 + 0.9)));
         return (
           <div
             key={i}
@@ -154,7 +156,7 @@ export function CampoEstructura({
             }}
             title={
               h.jugador
-                ? `${h.jugador.nombre}${onToca ? " · arrástralo a cualquier punto, o toca otro para cambiarlos" : ""}`
+                ? `${h.jugador.nombre}${h.pareja ? ` y ${h.pareja.nombre} (comparten puesto)` : ""}${onToca ? " · arrástralo a cualquier punto, o toca otro para cambiarlos" : ""}`
                 : onToca
                   ? "Hueco libre: suelta aquí a un jugador"
                   : "Hueco libre"
@@ -183,8 +185,32 @@ export function CampoEstructura({
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                position: "relative",
               }}
             >
+              {/* Comparte puesto: una segunda ficha asomando detrás, con un «2». */}
+              {h.pareja && (
+                <span
+                  style={{
+                    position: "absolute",
+                    right: -ficha * 0.38,
+                    top: -ficha * 0.18,
+                    width: ficha * 0.62,
+                    height: ficha * 0.62,
+                    borderRadius: 999,
+                    background: color,
+                    border: `${Math.max(2, ficha / 18)}px solid ${claro ? "#FFFFFF" : "#0B0F14"}`,
+                    color: tinta,
+                    fontSize: ficha * 0.3,
+                    fontWeight: 800,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  2
+                </span>
+              )}
             </span>
             <span
               style={{
@@ -207,6 +233,11 @@ export function CampoEstructura({
               }}
             >
               {h.jugador ? nombre : onToca ? "libre" : "—"}
+              {h.jugador && h.pareja && (
+                <span style={{ display: "block", marginTop: Math.max(1, tamanoNombre / 6), paddingTop: Math.max(1, tamanoNombre / 6), borderTop: `1px solid ${claro ? "rgba(11,15,20,0.18)" : "rgba(255,255,255,0.25)"}` }}>
+                  {h.pareja.nombre}
+                </span>
+              )}
             </span>
           </div>
         );

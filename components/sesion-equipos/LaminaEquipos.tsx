@@ -19,7 +19,8 @@
 import type { CSSProperties } from "react";
 
 import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
-import { colocaEnEstructura } from "@/lib/sesion-equipos/estructura";
+import { colocaEnEstructura, parejasDe } from "@/lib/sesion-equipos/estructura";
+import { cambiosDe, vistaCambio, type Fase } from "@/lib/sesion-equipos/cambio";
 import {
   ordenPorPuesto,
   repartoDe,
@@ -48,6 +49,11 @@ type Columna = {
   estructura?: string;
   orden?: string[];
   posiciones?: ({ x: number; y: number } | null)[];
+  pares?: Record<string, string>;
+  /** Titular → compañero, ya resuelto: el compañero va en la fila de su titular. */
+  parejas?: Map<string, JugadorSesion>;
+  /** Los del equipo, compañeros incluidos (en la lista el compañero no tiene fila propia). */
+  cuenta?: number;
 };
 
 /** Un borde que se vea aunque el color del equipo sea casi blanco (el de los comodines). */
@@ -58,11 +64,14 @@ function Nombre({
   color,
   tamano,
   portero,
+  pareja,
 }: {
   jugador: JugadorSesion;
   color: string;
   tamano: number;
   portero?: boolean;
+  /** Comparte puesto con él (08/10/2026): los dos en la misma fila. */
+  pareja?: JugadorSesion;
 }) {
   return (
     <div
@@ -95,6 +104,12 @@ function Nombre({
         }}
       >
         {jugador.nombre}
+        {pareja && (
+          <>
+            <span style={{ color: ORO, margin: `0 ${tamano * 0.18}px` }}>/</span>
+            {pareja.nombre}
+          </>
+        )}
       </span>
       {portero && (
         <span style={{ fontSize: tamano * 0.42, fontWeight: 700, letterSpacing: "0.08em", color: "#FFFFFF", background: ORO, borderRadius: 8, padding: `${tamano * 0.04}px ${tamano * 0.14}px`, flexShrink: 0 }}>
@@ -117,7 +132,9 @@ function Nombre({
 
 export function LaminaEquipos({
   sesion,
-  tarea,
+  tarea: tareaBase,
+  fase = "inicio",
+  cabecera = true,
   indice,
   total,
   puestoDe,
@@ -128,20 +145,42 @@ export function LaminaEquipos({
   total: number;
   /** El puesto de cada uno: los porteros van los primeros y con su marca. */
   puestoDe?: (j: JugadorSesion) => Puesto | undefined;
+  /** Con cambio a mitad de tarea: qué momento se dibuja (08/10/2026). */
+  fase?: Fase;
+  /**
+   * Con cabecera (título, tarea y sesión) y pie, o sólo los equipos (08/10/2026).
+   * Al exportar, por defecto va sin: la imagen es para enseñar los equipos.
+   */
+  cabecera?: boolean;
 }) {
+  const porPuestoCambio = puestoDe ?? ((j: JugadorSesion) => j.puesto);
+  /* El inicio lleva al pie quién cambia; «tras el cambio», el reparto de después. */
+  const cambios = tareaBase.cambio ? cambiosDe(tareaBase, sesion.jugadores, porPuestoCambio) : [];
+  const tarea = fase === "cambio" ? vistaCambio(tareaBase) : tareaBase;
+
   const r = repartoDe(tarea, sesion.jugadores);
 
   const porPuesto = puestoDe ?? ((j: JugadorSesion) => j.puesto);
 
-  const columnas: Columna[] = tarea.equipos.map((e) => ({
-    clave: e.id,
-    titulo: e.nombre,
-    color: e.color,
-    jugadores: ordenPorPuesto(r.porEquipo[e.id] ?? [], porPuesto),
-    estructura: tarea.conEstructura ? e.estructura : undefined,
-    orden: e.orden,
-    posiciones: e.posiciones,
-  }));
+  const columnas: Columna[] = tarea.equipos.map((e) => {
+    const suyos = r.porEquipo[e.id] ?? [];
+    const parejas = parejasDe(suyos, e.pares);
+    const companeros = new Set([...parejas.values()].map((j) => j.id));
+    const estructura = tarea.conEstructura ? e.estructura : undefined;
+    return {
+      clave: e.id,
+      titulo: e.nombre,
+      color: e.color,
+      /* Con dibujo, el campograma ya pone a cada compañero con su titular. */
+      jugadores: estructura ? ordenPorPuesto(suyos, porPuesto) : ordenPorPuesto(suyos.filter((j) => !companeros.has(j.id)), porPuesto),
+      estructura,
+      orden: e.orden,
+      posiciones: e.posiciones,
+      pares: e.pares,
+      parejas,
+      cuenta: suyos.length,
+    };
+  });
 
   if (tarea.comodines > 0 || r.comodines.length > 0) {
     columnas.push({
@@ -152,13 +191,13 @@ export function LaminaEquipos({
     });
   }
 
-  const enJuego = columnas.reduce((s, c) => s + c.jugadores.length, 0);
+  const enJuego = columnas.reduce((s, c) => s + (c.cuenta ?? c.jugadores.length), 0);
 
   /* Cuanto más larga la columna más larga, más pequeña la letra. */
   const filasTotal = Math.max(4, ...columnas.filter((c) => !c.estructura).map((c) => c.jugadores.length));
 
   /* El alto que de verdad queda para la lista (08/10/2026): con 640 la fila once se cortaba. Cada fila mide ~1,62 × la letra (letra + relleno + hueco). */
-  const ALTO_LISTA = 575;
+  const ALTO_LISTA = (cabecera ? 575 : 800) - (cambios.length ? 55 : 0);
 
   const anchoEquipo = (LAMINA_W - 120 - (columnas.length - 1) * 28) / Math.max(1, columnas.length);
 
@@ -180,7 +219,7 @@ export function LaminaEquipos({
           ...columnas
             .filter((c) => !c.estructura)
             .flatMap((c) =>
-            c.jugadores.map((j) => j.nombre.length * 0.37 + 0.8 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0) + (porPuesto(j) === "POR" ? 2.4 : 0)),
+            c.jugadores.map((j) => (j.nombre.length + (c.parejas?.get(j.id) ? c.parejas.get(j.id)!.nombre.length + 3 : 0)) * 0.37 + 0.8 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0) + (porPuesto(j) === "POR" ? 2.4 : 0)),
           ),
         ),
     ),
@@ -192,7 +231,7 @@ export function LaminaEquipos({
   const fuera = [...r.fuera, ...r.sinSitio];
 
   /* El campograma, lo más grande que quepa en la columna y en el alto que queda. */
-  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - 520) / 1.08);
+  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 300) - (cambios.length ? 60 : 0)) / 1.08);
 
   return (
     <div
@@ -205,12 +244,14 @@ export function LaminaEquipos({
         overflow: "hidden",
         background: FONDO,
         color: TINTA,
-        padding: "48px 60px 40px",
+        padding: cabecera ? "48px 60px 40px" : "40px 60px",
         boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
       }}
     >
+      {cabecera && (
+      <>
       {/* Una franja fina con el oro del club arriba del todo. */}
       <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 10, background: `linear-gradient(90deg, ${TINTA} 0%, ${TINTA} 62%, ${ORO} 62%, ${ORO} 100%)` }} />
 
@@ -245,6 +286,11 @@ export function LaminaEquipos({
           <div style={{ display: "inline-block", fontSize: 28, fontWeight: 700, letterSpacing: "0.14em", color: "#FFFFFF", background: TINTA, borderRadius: 999, padding: "6px 22px" }}>
             TAREA {indice + 1} / {total}
           </div>
+          {tareaBase.cambio && (
+            <div style={{ display: "inline-block", fontSize: 24, fontWeight: 700, letterSpacing: "0.14em", color: fase === "cambio" ? "#FFFFFF" : ORO, background: fase === "cambio" ? ORO : "transparent", border: `2px solid ${ORO}`, borderRadius: 999, padding: "4px 18px", textTransform: "uppercase" }}>
+              {fase === "cambio" ? "Tras el cambio" : "Inicio · hay cambio a mitad"}
+            </div>
+          )}
           <div style={{ fontSize: 24, fontWeight: 600, letterSpacing: "0.06em", color: SUAVE, textTransform: "uppercase", maxWidth: 480, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {sesion.titulo}
           </div>
@@ -252,11 +298,13 @@ export function LaminaEquipos({
       </div>
 
       <div style={{ marginTop: 22, height: 3, background: `linear-gradient(90deg, ${ORO} 0%, rgba(168,135,74,0.2) 70%, rgba(168,135,74,0) 100%)` }} />
+      </>
+      )}
 
       {/* ---------------- EQUIPOS ---------------- */}
       <div
         style={{
-          marginTop: 28,
+          marginTop: cabecera ? 28 : 0,
           flex: 1,
           display: "grid",
           gridTemplateColumns: `repeat(${Math.max(1, columnas.length)}, minmax(0, 1fr))`,
@@ -266,7 +314,7 @@ export function LaminaEquipos({
       >
         {columnas.map((c) => {
           const tinta = tintaSobre(c.color);
-          const colocados = c.estructura ? colocaEnEstructura(c.jugadores, c.estructura, porPuesto, c.orden, c.posiciones) : null;
+          const colocados = c.estructura ? colocaEnEstructura(c.jugadores, c.estructura, porPuesto, c.orden, c.posiciones, c.pares) : null;
 
           return (
             <div
@@ -314,7 +362,7 @@ export function LaminaEquipos({
                     flexShrink: 0,
                   }}
                 >
-                  {c.jugadores.length}
+                  {c.cuenta ?? c.jugadores.length}
                 </span>
               </div>
 
@@ -336,7 +384,7 @@ export function LaminaEquipos({
               ) : (
                 <div style={{ padding: "22px 22px 18px", display: "grid", gridTemplateColumns: dosColumnas ? "1fr 1fr" : "1fr", gridAutoFlow: dosColumnas ? "column" : "row", gridTemplateRows: dosColumnas ? `repeat(${filas}, auto)` : undefined, columnGap: 20, rowGap: tamano * 0.26, alignContent: "start", minWidth: 0 }}>
                   {c.jugadores.map((j) => (
-                    <Nombre key={j.id} jugador={j} color={c.color} tamano={tamano} portero={porPuesto(j) === "POR"} />
+                    <Nombre key={j.id} jugador={j} color={c.color} tamano={tamano} portero={porPuesto(j) === "POR"} pareja={c.parejas?.get(j.id)} />
                   ))}
                   {c.jugadores.length === 0 && <span style={{ fontSize: 30, color: "#B6BCC8", fontWeight: 600 }}>—</span>}
                 </div>
@@ -346,7 +394,33 @@ export function LaminaEquipos({
         })}
       </div>
 
+      {/* ---------------- CAMBIO A MITAD DE TAREA ---------------- */}
+      {cambios.length > 0 && (
+        <div
+          style={{
+            marginTop: 18,
+            display: "flex",
+            alignItems: "baseline",
+            gap: 16,
+            fontSize: 24,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: "0.03em",
+            color: TINTA,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
+        >
+          <span style={{ color: ORO, letterSpacing: "0.14em", flexShrink: 0 }}>{fase === "cambio" ? "Han cambiado ·" : "Cambio a mitad ·"}</span>
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
+            {cambios.map((c) => `${c.jugador.nombre}: ${c.texto}`).join("  ·  ")}
+          </span>
+        </div>
+      )}
+
       {/* ---------------- PIE ---------------- */}
+      {cabecera && (
       <div
         style={{
           marginTop: 22,
@@ -373,6 +447,7 @@ export function LaminaEquipos({
         </span>
         <span style={{ flexShrink: 0, color: TINTA }}>{enJuego} en la tarea</span>
       </div>
+      )}
     </div>
   );
 }

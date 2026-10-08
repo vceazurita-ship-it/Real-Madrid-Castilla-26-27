@@ -125,6 +125,14 @@ export type EquipoTarea = {
   orden?: string[];
   /** El punto de cada hueco puesto a mano (mismo índice que `orden`; null = el del dibujo). */
   posiciones?: ({ x: number; y: number } | null)[];
+  /** Dos en el mismo puesto (08/10/2026): titular → compañero. Ver lib/sesion-equipos/estructura.ts. */
+  pares?: Record<string, string>;
+};
+
+/** Lo que cambia a mitad de tarea (08/10/2026): dónde está cada uno y cómo se colocan los equipos. Ver lib/sesion-equipos/cambio.ts. */
+export type FaseCambio = {
+  sitio: Record<string, Sitio>;
+  equipos: Record<string, Pick<EquipoTarea, "orden" | "posiciones" | "pares">>;
 };
 
 /** Dónde está cada jugador en una tarea. Sin entrada = todavía sin sitio. */
@@ -145,6 +153,8 @@ export type TareaEquipos = {
   sitio: Record<string, Sitio>;
   /** Cada equipo con su dibujo en un mini campograma, o sólo los equipos (06/10/2026). */
   conEstructura?: boolean;
+  /** Cómo queda la tarea tras el cambio a mitad (08/10/2026). */
+  cambio?: FaseCambio;
 };
 
 export type SesionEquipos = {
@@ -483,7 +493,17 @@ export function conEquipos(tarea: TareaEquipos, n: number): TareaEquipos {
     if (donde === COMODIN || donde === FUERA || vivos.has(donde)) sitio[id] = donde;
   }
 
-  return { ...tarea, equipos, sitio };
+  /* Y lo mismo tras el cambio a mitad de tarea. */
+  const cambio: FaseCambio | undefined = tarea.cambio
+    ? {
+        sitio: Object.fromEntries(
+          Object.entries(tarea.cambio.sitio).filter(([, donde]) => donde === COMODIN || donde === FUERA || vivos.has(donde)),
+        ),
+        equipos: tarea.cambio.equipos,
+      }
+    : undefined;
+
+  return { ...tarea, equipos, sitio, ...(cambio ? { cambio } : {}) };
 }
 
 /** Copia de una tarea: mismos equipos y colores, mismo reparto. */
@@ -494,12 +514,21 @@ export function duplicaTarea(tarea: TareaEquipos, nombre: string): TareaEquipos 
 
   for (const [id, donde] of Object.entries(tarea.sitio)) sitio[id] = ids.get(donde) ?? donde;
 
+  /* El cambio a mitad viaja con la tarea, con los equipos nuevos. */
+  const cambio: FaseCambio | undefined = tarea.cambio
+    ? {
+        sitio: Object.fromEntries(Object.entries(tarea.cambio.sitio).map(([id, donde]) => [id, ids.get(donde) ?? donde])),
+        equipos: Object.fromEntries(Object.entries(tarea.cambio.equipos).map(([id, e]) => [ids.get(id) ?? id, e])),
+      }
+    : undefined;
+
   return {
     ...tarea,
     id: nuevoId("ta"),
     nombre,
     equipos: tarea.equipos.map((e) => ({ ...e, id: ids.get(e.id)! })),
     sitio,
+    ...(cambio ? { cambio } : {}),
   };
 }
 
