@@ -39,6 +39,8 @@ export type Encargo = {
   hechoEn?: string;
   resultado?: string;
   ok?: boolean;
+  /** La última vez que salió bien: tras un fallo, dice de cuándo es lo publicado. */
+  bienEn?: string;
   /** Por dónde va un trabajo largo («3/6 · Timeline de Hudl»); sólo `partido`. */
   paso?: string;
   /**
@@ -100,8 +102,12 @@ export const VIGIA_VIVO_MS = 2 * 60_000;
  */
 export const LIMITE_MIN: Record<Tarea, number> = {
   quiniela: 10,
-  rivales: 100,
-  wyscout: 60,
+  /* Medido (09/10/2026): la jornada llega a 150 min y Wyscout a 65, más
+     hasta 90 de espera si el análisis del partido tiene el Chrome. Con los
+     plazos de antes (100 y 60) el botón se soltaba con la pasada viva y un
+     segundo pedido quedaba contestado con el resultado de la vieja. */
+  rivales: 180,
+  wyscout: 120,
   carpeta: 45,
   /* Wyscout, Hudl y mirar en vídeo cada jugada a balón parado: horas. Más
      allá de esto, el ordenador se apagó a media pasada. */

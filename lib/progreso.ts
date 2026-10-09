@@ -542,8 +542,12 @@ export function obligadas(tarea: Tarea, marcadas: number[]): Map<number, "siempr
 }
 
 /** A qué etapa del partido pertenece una sección que la comprobación da por mala. */
-function etapaDeSeccion(nombre: string) {
+function etapaDeSeccion(nombre: string, detalle = "") {
   if (/^(Wyscout|Data Análisis)/i.test(nombre)) return 1;
+  /* Lo que deja el análisis de vídeo aunque lo cuente otra sección (09/10/2026):
+     el desfase de la táctica, las faltas decididas y las filas de banda. Antes
+     iba a «escribir», que no lo arregla, y «Repetir» se repetía sin fin. */
+  if (/SIN medir|candidatas decididas|no dejó las filas/i.test(detalle)) return 4;
   if (/Hudl/i.test(nombre)) return 2;
   if (/base del timeline/i.test(nombre)) return 3;
   if (/análisis de vídeo|análisis de cada jugada/i.test(nombre)) return 4;
@@ -578,7 +582,7 @@ export function planRecomendado(
          no se arregla repitiendo hoy: no se propone, aunque se puede marcar. */
       if (/todavía no trae el partido|no hay foto de Wyscout posterior/i.test(s.detalle ?? "")) continue;
 
-      const etapa = etapaDeSeccion(s.nombre);
+      const etapa = etapaDeSeccion(s.nombre, s.detalle);
 
       if (etapa !== null) malas.add(etapa);
     }

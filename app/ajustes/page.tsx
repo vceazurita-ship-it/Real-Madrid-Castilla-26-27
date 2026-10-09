@@ -98,7 +98,7 @@ const NOMBRE: Record<Tarea, string> = {
 const TARDA: Record<Tarea, string> = {
   quiniela: "suele tardar menos de un minuto",
   rivales: "suele tardar unos cuarenta minutos",
-  wyscout: "suele tardar unos diez minutos",
+  wyscout: "suele tardar unos veinte minutos",
   carpeta: "unos cuatro segundos por vídeo",
   partido: "unas horas: mira en vídeo cada jugada a balón parado",
 };
@@ -124,6 +124,15 @@ function EstadoLinea({
 }) {
   const vivo = vigiaVivo(vigia, ahora);
 
+  /* Wyscout y el análisis del partido comparten el Chrome: el pedido de uno
+     espera, sin decir nada, a que acabe el otro (puede ser horas). */
+  const esperaA =
+    tarea === "wyscout" && vigia?.ocupado?.includes("partido")
+      ? "el análisis del partido"
+      : tarea === "partido" && vigia?.ocupado?.includes("wyscout")
+        ? "la descarga de Wyscout"
+        : null;
+
   /* Si la última pasada no acabó bien, lo que se puede aprovechar de ella. */
   const recomendado = onPide && estado !== "en-marcha" && estado !== "pedido" ? planRecomendado(tarea, encargo) : null;
 
@@ -135,9 +144,11 @@ function EstadoLinea({
             <Loader2 size={12} className="mt-0.5 shrink-0 animate-spin" aria-hidden />
             <span>
               Pedido {hace(encargo?.pedidoEn, ahora)}.{" "}
-              {vivo
-                ? "El ordenador del club lo coge en unos segundos…"
-                : "El ordenador del club está apagado: lo hará en cuanto se encienda."}
+              {!vivo
+                ? "El ordenador del club está apagado: lo hará en cuanto se encienda."
+                : esperaA
+                  ? `Espera a que acabe ${esperaA} (comparten el Chrome de Wyscout); luego empieza solo.`
+                  : "El ordenador del club lo coge en unos segundos…"}
             </span>
           </p>
           <ProgresoEncargo tarea={tarea} vivo={null} enCola />
@@ -146,10 +157,23 @@ function EstadoLinea({
 
       {estado === "en-marcha" && (
         <>
-          <p className="text-white/45">
-            En marcha{encargo?.empezadoEn ? ` desde ${hace(encargo.empezadoEn, ahora)}` : ""} · {TARDA[tarea]}. Puedes cerrar esta
-            página: sigue igual.
-          </p>
+          {vivo ? (
+            <p className="text-white/45">
+              En marcha{encargo?.empezadoEn ? ` desde ${hace(encargo.empezadoEn, ahora)}` : ""} · {TARDA[tarea]}. Puedes cerrar esta
+              página: sigue igual.
+            </p>
+          ) : (
+            /* Sin latido, la barra de abajo es una estimación por el reloj y
+               no avanza de verdad: se dice (09/10/2026). */
+            <p className="flex items-start gap-1.5 text-amber-300">
+              <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden />
+              <span>
+                En marcha{encargo?.empezadoEn ? ` desde ${hace(encargo.empezadoEn, ahora)}` : ""}, pero el ordenador del club no da
+                señal {vigia?.vistoEn ? hace(vigia.vistoEn, ahora) : "desde hace rato"}: sin red o apagado. Lo de abajo es una estimación;
+                al volver, sigue o apunta dónde se cortó.
+              </span>
+            </p>
+          )}
           {/* Lo que cuenta el vigía; uno anterior a esto sólo da el paso del
               partido, y si no hay nada se estima con el reloj. */}
           <ProgresoEncargo
@@ -180,6 +204,10 @@ function EstadoLinea({
           <span>
             Última vez: <span className="text-white/65">{hace(encargo.hechoEn, ahora)}</span>
             {encargo.resultado ? ` · ${encargo.resultado}` : ""}
+            {/* Tras un fallo, de cuándo es lo que hay publicado. */}
+            {encargo.ok === false && encargo.bienEn ? (
+              <span className="text-white/65"> · Última que salió bien: {hace(encargo.bienEn, ahora)}</span>
+            ) : null}
           </span>
         </p>
       )}
@@ -282,7 +310,13 @@ export default function AjustesPage() {
           for (const [tarea, pedidoEn] of Object.entries(esperando.current) as [Tarea, string][]) {
             const suyo = nuevo[tarea];
 
-            if (suyo?.hechoEn && Date.parse(suyo.hechoEn) > Date.parse(pedidoEn)) {
+            /* Que la pasada que acaba sea la de ESTE pedido (empezó después),
+               no una que ya estaba en marcha cuando se pulsó. */
+            if (
+              suyo?.hechoEn &&
+              Date.parse(suyo.hechoEn) > Date.parse(pedidoEn) &&
+              Date.parse(suyo.empezadoEn ?? "") >= Date.parse(pedidoEn)
+            ) {
               delete esperando.current[tarea];
 
               const decir = suyo.ok === false ? toast.warning : toast.success;
@@ -294,7 +328,9 @@ export default function AjustesPage() {
           }
         })
         .catch(() => {
-          /* Sin esto la pantalla sigue: se reintenta en la siguiente vuelta. */
+          /* Sin red tampoco se congela el reloj: el aviso del vigía pasa a
+             «no da señal» en vez de quedarse en «hace 20 s» (09/10/2026). */
+          if (!cancelado) setAhora(Date.now());
         });
 
     void lee();
@@ -400,7 +436,9 @@ export default function AjustesPage() {
   const deTarea = (tarea: Tarea): EstadoEncargo => {
     const suyo = estadoEncargo(tarea, estado[tarea], ahora);
 
-    return suyo === "pedido" && vigiaVivo(vigia, ahora) && vigia?.ocupado?.includes(tarea)
+    /* Y uno «cortado» por el reloj que el vigía sigue haciendo, también: si
+       se soltaba el botón, el segundo pedido lo contestaba la pasada vieja. */
+    return (suyo === "pedido" || suyo === "cortado") && vigiaVivo(vigia, ahora) && vigia?.ocupado?.includes(tarea)
       ? "en-marcha"
       : suyo;
   };
@@ -613,9 +651,11 @@ export default function AjustesPage() {
 
                 <p className="mt-2 text-[11px] leading-relaxed text-white/30">
                   En el ordenador del club se abre un Chrome que se mueve solo:
-                  que nadie lo toque mientras trabaja. Si la sesión de Wyscout ha
-                  caducado, alguien tiene que entrar una vez a mano
-                  (<code className="text-white/50">scripts\actualizar-wys.cmd</code>).
+                  que nadie lo toque mientras trabaja. Entra solo con la cuenta
+                  guardada; si cambia la contraseña, se vuelve a guardar con{" "}
+                  <code className="text-white/50">scripts\guardar-clave-wys.cmd</code>.
+                  Después de cada partido del Castilla, el ordenador del club lo
+                  pide solo hasta que Wyscout publica el partido.
                 </p>
 
                 <EstadoLinea

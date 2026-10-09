@@ -166,7 +166,17 @@ function adapta(fila, cabecera, existentes) {
       return { enHoja: huecos.map((h) => h ?? quedan.shift()), resto: quedan };
     };
 
+    /*
+    | Lo escrito hace poco y que la hoja publicada aún no enseña (09/10/2026).
+    | El CSV publicado tarda minutos: con 0 filas a la vista se decidía AÑADIR
+    | otra vez y, con «Repetir», las filas salían dobles. Si este script dejó
+    | filas hace menos de una hora, se espera en vez de añadir.
+    */
+    const recienEscrito =
+      Array.isArray(escritas) && escritas.length > 0 && fs.existsSync(registro) && Date.now() - fs.statSync(registro).mtimeMs < 3_600_000;
+
     if (!filas.length) plan = { tipo: "nada" };
+    else if (!ya.length && recienEscrito) plan = { tipo: "espera" };
     else if (!ya.length) plan = { tipo: "anadir", filas };
     else if (ya.length === filas.length && firmasYa.join(",") === firmasNuevas.join(",")) plan = { tipo: "reescribir", filas };
     else if (nuestras && ya.length <= filas.length) {
@@ -189,6 +199,17 @@ function adapta(fila, cabecera, existentes) {
     */
     const quedara =
       plan.tipo === "completar" ? null : [...(plan.filas ?? []), ...(plan.mas ?? [])].map(firma);
+
+    if (plan.tipo === "espera") {
+      secciones.push({
+        clave,
+        nombre: hoja.nombre,
+        ok: false,
+        detalle: `lo escrito hace menos de una hora (${escritas.length} filas) aún no sale en la hoja publicada: no se vuelve a añadir para no duplicarlo; se mira en la próxima pasada`,
+      });
+
+      continue;
+    }
 
     if (plan.tipo === "choque") {
       secciones.push({
@@ -216,6 +237,11 @@ function adapta(fila, cabecera, existentes) {
       const anadir = plan.tipo === "anadir" || plan.tipo === "completar" ? plan.filas : plan.mas;
 
       if (ESCRIBE && anadir?.length) {
+        /* Se apunta ANTES de añadir: si el Apps Script escribe y la respuesta
+           se pierde, la próxima pasada sabe que esas filas ya van camino de
+           la hoja y no las duplica. */
+        if (plan.tipo === "anadir" && quedara) fs.writeFileSync(registro, JSON.stringify(quedara), "utf8");
+
         const r = await mandaHoja({ action: "anadirFilas", gid: hoja.gid, filas: anadir }, { reintenta: false });
 
         console.log(`  ✓ ${r.escritas} filas añadidas desde la fila ${r.desdeLaFila}`);

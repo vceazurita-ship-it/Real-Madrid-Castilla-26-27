@@ -92,14 +92,36 @@ const anota = (nombre, ok, detalle) => {
 };
 
 /** Ejecuta algo, deja su salida a la vista y devuelve el código y su RESUMEN. */
-function corre(orden, args, opciones = {}) {
+function corre(orden, args, { callado = false, plazoMs = 0, ...opciones } = {}) {
   return new Promise((resolve) => {
     let texto = "";
 
     const hijo = spawn(orden, args, { cwd: RAIZ, windowsHide: true, ...opciones });
 
+    /* Pasado el plazo, fuera con todos sus hijos (en Windows, taskkill /T). */
+    const plazo = plazoMs
+      ? setTimeout(() => {
+          texto += `\n(se ha pasado de ${Math.round(plazoMs / 3_600_000)} h: se corta)\n`;
+
+          try {
+            execFileSync("taskkill", ["/PID", String(hijo.pid), "/T", "/F"], { stdio: "ignore" });
+          } catch {
+            hijo.kill();
+          }
+        }, plazoMs)
+      : null;
+
+    hijo.on("exit", () => plazo && clearTimeout(plazo));
+
     const recoge = (trozo) => {
-      process.stdout.write(trozo);
+      /*
+      | El RESUMEN y las SECCIONES de un paso se reenvían con otra etiqueta
+      | (09/10/2026): el vigía se queda con el ÚLTIMO «RESUMEN:» de la salida,
+      | y cuando esta pasada murió en el paso 5 apuntó como resultado el de
+      | preparar.cjs —«base preparada — 32 saques…»—, que suena a éxito. El
+      | texto de aquí sigue sin tocar para leerlos.
+      */
+      if (!callado) process.stdout.write(trozo.toString().replace(/^(RESUMEN|SECCIONES):/gm, "  ($1 del paso)"));
 
       texto = (texto + trozo.toString()).slice(-200_000);
     };
@@ -210,6 +232,27 @@ async function nombreEnHoja(rival) {
   return rival.toUpperCase();
 }
 
+/** El rival tal y como se escribió en la hoja en una pasada anterior de este partido. */
+function rivalDeAntes(partido) {
+  const raiz = path.join(PARTIDOS, "ANALISIS");
+
+  if (!fs.existsSync(raiz)) return null;
+
+  const prefijo = `J${String(partido.jornada).padStart(2, "0")} `;
+
+  for (const carpeta of fs.readdirSync(raiz).filter((c) => c.startsWith(prefijo))) {
+    try {
+      const previo = JSON.parse(fs.readFileSync(path.join(raiz, carpeta, "partido.json"), "utf8"));
+
+      if (previo.fecha === partido.cuando.slice(0, 10) && previo.rivalHoja) return previo.rivalHoja;
+    } catch {
+      /* sin ficha, no cuenta */
+    }
+  }
+
+  return null;
+}
+
 /**
  * «J6 Atlético Madrileño» → «j06-atletico-madrileno».
  *
@@ -272,9 +315,11 @@ function publica(mensaje, rutas) {
   }
 
   /* Los commits propios de una pasada anterior que no llegó a subir, sí. */
+  /* Y los de Wyscout, que también son datos (09/10/2026): si cada proceso
+     dejaba un commit sin subir, se bloqueaban el uno al otro para siempre. */
   const ajenos = git("log", "origin/main..HEAD", "--format=%s")
     .split(/\r?\n/)
-    .filter((linea) => linea && !/^Análisis del partido: .+ \(faltas y robos\)$/.test(linea)).length;
+    .filter((linea) => linea && !/^Análisis del partido: .+ \(faltas y robos\)$/.test(linea) && !/^Los datos de Wyscout /.test(linea)).length;
 
   /* Los generadores reescriben siempre la línea «Generado: <fecha>»: si es lo
      único que cambia, no es un cambio y no se sube. */
@@ -335,7 +380,14 @@ async function principal() {
 
   const partido = await localiza();
 
-  const rivalHoja = await nombreEnHoja(partido.rival);
+  /*
+  | El nombre del rival en la hoja, el MISMO en todas las pasadas (09/10/2026).
+  | Se recalculaba cada vez y, si la hoja no contestaba, salía el de la
+  | quiniela: con otra grafía cambiaba la clave de escritura y en la pasada
+  | siguiente se volvían a añadir todas las filas. Si ya hay carpeta de este
+  | partido, manda lo que se decidió entonces.
+  */
+  const rivalHoja = rivalDeAntes(partido) ?? (await nombreEnHoja(partido.rival));
 
   const slug = slugDe(partido.jornada, partido.rival);
 
@@ -390,7 +442,9 @@ async function principal() {
       4: [false, "bajado, pero la subida (git push) ha fallado"],
       5: [false, "bajado, pero no se ha podido releer la carpeta"],
       7: [false, "el Chrome de Wyscout se quedó colgado incluso tras reiniciarlo: no se ha bajado nada"],
-      6: [false, "Wyscout está con otra cuenta (la del juvenil, sin el layout ALL): no se ha bajado nada; hay que entrar con la del Castilla (scripts\\actualizar-wys.cmd)"],
+      6: [false, "Wyscout está con una cuenta que no deja bajar todas las columnas: no se ha bajado nada; cambia de cuenta con scripts\\cambiar-cuenta-wys.cmd"],
+      8: [false, "bajado y publicado a medias: faltan equipos o jugadores (mira la línea INCOMPLETO en .cache\\wyscout)"],
+      9: [false, "bajado, pero hay commits sin subir que no son de datos: no se ha publicado"],
     };
 
     const [ok, dice] = MOTIVO[w.codigo] ?? [false, `la descarga ha fallado (código ${w.codigo})`];
@@ -434,9 +488,12 @@ async function principal() {
   let segundosTactica = null;
 
   if (tactico) {
-    const d = await node("scripts/partido/tactica.cjs", "dura", CARPETA);
+    const d = await corre(process.execPath, [path.join(RAIZ, "scripts/partido/tactica.cjs"), "dura", CARPETA], { callado: true });
 
     segundosTactica = Number(d.texto.trim().split(/\s+/).pop()) || null;
+
+    /* Con su rótulo: el número suelto («6424») acababa como detalle de la barra. */
+    console.log(`Cámara táctica: ${segundosTactica ? `${Math.round(segundosTactica / 60)} min` : "no se ha podido medir"}`);
   }
 
   const segundosVideo = segundosTactica ?? Math.round((video.duracionMs ?? 6_000_000) / 1000);
@@ -544,7 +601,15 @@ async function principal() {
 
     const progreso = path.join(CARPETA, "progreso.txt");
 
+    /* Lo que ya ponía de una pasada anterior no es avance de ésta: arrancaba
+       enseñando «TERMINADO 97/97» y la barra lo daba por hecho (09/10/2026). */
     let visto = "";
+
+    try {
+      visto = fs.readFileSync(progreso, "utf8").trim().split(/\r?\n/).pop() ?? "";
+    } catch {
+      /* primera pasada */
+    }
 
     const reloj = setInterval(() => {
       try {
@@ -585,7 +650,9 @@ async function principal() {
         "--output-format",
         "text",
       ],
-      { cwd: CARPETA, stdio: ["ignore", "pipe", "pipe"] },
+      /* Con plazo (09/10/2026): un Claude colgado retenía el Chrome y la
+         descarga de Wyscout hasta reiniciar el vigía. */
+      { cwd: CARPETA, stdio: ["ignore", "pipe", "pipe"], plazoMs: 8 * 3_600_000 },
     );
 
     clearInterval(reloj);
@@ -678,6 +745,37 @@ async function termina(carpeta, codigoForzado) {
   if (codigoForzado === null) codigo = fallos.length ? 1 : 0;
   else if (fallos.length && codigo === 0) codigo = 1;
 
+  /*
+  | Fallos del camino que la comprobación final ya desmiente (09/10/2026):
+  |   - «Hoja · X» que escribir dejó en ✗ porque el CSV tarda, cuando la
+  |     sección «ABP · …» equivalente ha salido ✓ al verificar;
+  |   - «Wyscout» (la descarga de hoy falló) cuando el partido y la foto ya
+  |     estaban de una descarga anterior.
+  | Sin esto, una pasada buena salía fallida y «Repetir» no arreglaba nada.
+  */
+  const okVerificado = (re) => secciones.some((s) => s.ok && re.test(s.nombre));
+
+  /* Qué secciones de la comprobación cubren cada pestaña de la hoja. */
+  const cubren = (pestana) =>
+    /^Saques de banda/i.test(pestana)
+      ? [new RegExp(`^ABP · ${pestana}$`, "i")]
+      : /a favor/i.test(pestana)
+        ? [/^ABP · córners a favor/, /^ABP · faltas a balón parado/]
+        : /en contra/i.test(pestana)
+          ? [/^ABP · córners en contra/, /^ABP · faltas a balón parado/]
+          : [/^$/];
+
+  const sobra = (s) =>
+    !s.ok &&
+    ((/^Hoja · /.test(s.nombre) && /puede tardar/.test(s.detalle ?? "") && cubren(s.nombre.replace(/^Hoja · /, "")).every(okVerificado)) ||
+      (s.nombre === "Wyscout" && okVerificado(/^Data Análisis · el partido/) && okVerificado(/^Data Análisis · foto/)));
+
+  for (let i = secciones.length - 1; i >= 0; i--) if (sobra(secciones[i])) secciones.splice(i, 1);
+
+  const fallosDe = secciones.filter((s) => !s.ok && !espera(s));
+
+  if (codigoForzado === null) codigo = fallosDe.length ? 1 : 0;
+
   const bien = secciones.filter((s) => s.ok).length;
 
   console.log(`SECCIONES: ${JSON.stringify(secciones)}`);
@@ -697,13 +795,19 @@ async function termina(carpeta, codigoForzado) {
       ? `RESUMEN: ${partido} al día en las ${bien} secciones${
           esperando.length ? `; a la espera de que Wyscout publique el partido (suele el martes): ${esperando.map((s) => s.nombre.replace(/^Data Análisis · /, "")).join(" y ")}` : ""
         }`
-      : `RESUMEN: ${partido} — ${bien} de ${secciones.length} secciones al día; falta: ${fallos.map((s) => s.nombre).join(", ")}`,
+      : `RESUMEN: ${partido} — ${bien} de ${secciones.length} secciones al día; falta: ${fallosDe.map((s) => s.nombre).join(", ")}${
+          /* Con la causa del primero: tres nombres para una sola causa no decían qué hacer. */
+          fallosDe[0]?.detalle ? ` (${fallosDe[0].nombre}: ${fallosDe[0].detalle})` : ""
+        }`,
   );
 
   process.exitCode = codigo;
 }
 
 principal().catch((error) => {
+  /* Sin el desglose del todo: si no, el vigía enseñaba las secciones de un
+     paso (las de escribir, «4 de 4») debajo de «se ha roto». */
+  console.log("SECCIONES: []");
   console.log(
     error.codigo === 3
       ? `RESUMEN: ${error.message}`

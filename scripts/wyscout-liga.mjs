@@ -315,18 +315,18 @@ async function recupera(nav) {
   }
 
   try {
-    const todas = await fetch(`http://127.0.0.1:${PUERTO}/json`).then((r) => r.json());
+    const todas = await fetch(`http://127.0.0.1:${PUERTO}/json`, { signal: AbortSignal.timeout(15_000) }).then((r) => r.json());
 
     for (const vieja of todas) {
       if (vieja.type === "page" && /wyscout|hudl/i.test(vieja.url)) {
-        await fetch(`http://127.0.0.1:${PUERTO}/json/close/${vieja.id}`);
+        await fetch(`http://127.0.0.1:${PUERTO}/json/close/${vieja.id}`, { signal: AbortSignal.timeout(15_000) });
       }
     }
   } catch {
     /* si no deja cerrar, se abre la nueva igualmente */
   }
 
-  await fetch(`http://127.0.0.1:${PUERTO}/json/new?https://wyscout.hudl.com/app/`, { method: "PUT" });
+  await fetch(`http://127.0.0.1:${PUERTO}/json/new?https://wyscout.hudl.com/app/`, { method: "PUT", signal: AbortSignal.timeout(15_000) });
 
   Object.assign(nav, await conecta());
 
@@ -340,7 +340,7 @@ async function conecta() {
     await espera(500);
 
     try {
-      const lista = await fetch(`http://127.0.0.1:${PUERTO}/json`).then((r) =>
+      const lista = await fetch(`http://127.0.0.1:${PUERTO}/json`, { signal: AbortSignal.timeout(15_000) }).then((r) =>
         r.json(),
       );
 
@@ -361,14 +361,14 @@ async function conecta() {
   | va a manejar y se cierran las demás.
   */
   try {
-    const todas = await fetch(`http://127.0.0.1:${PUERTO}/json`).then((r) => r.json());
+    const todas = await fetch(`http://127.0.0.1:${PUERTO}/json`, { signal: AbortSignal.timeout(15_000) }).then((r) => r.json());
 
     for (const otra of todas) {
       if (otra.type !== "page" || otra.id === pestana.id) continue;
 
       if (!/wyscout|hudl/i.test(otra.url)) continue;
 
-      await fetch(`http://127.0.0.1:${PUERTO}/json/close/${otra.id}`);
+      await fetch(`http://127.0.0.1:${PUERTO}/json/close/${otra.id}`, { signal: AbortSignal.timeout(15_000) });
     }
   } catch {
     /* si no se dejan cerrar, se sigue con la que hay */
@@ -407,7 +407,10 @@ async function conecta() {
 
       /* Corto a propósito: si la pestaña se atasca, mejor reintentar que
          quedarse dos minutos mirando. */
-      setTimeout(() => rej(new Error(`sin respuesta: ${metodo}`)), 30000);
+      const plazo = setTimeout(() => rej(new Error(`sin respuesta: ${metodo}`)), 30000);
+
+      /* Que el plazo no retenga al proceso 30 s después de acabar. */
+      plazo.unref?.();
     });
 
   const js = async (codigo) => {
@@ -768,11 +771,15 @@ async function esperaLogin(nav) {
   | vistazo en el registro, y ya lo reintenta la pasada siguiente.
   */
   if (bandera("desatendido")) {
+    /* Un solo remedio, el que toca (09/10/2026): decía «guarda la clave» y
+       dos líneas después «abre actualizar-wys.cmd». */
     console.log(
       "\n  LA SESIÓN DE WYSCOUT HA CADUCADO.\n" +
-        "  Nadie puede escribir la contraseña en una tarea programada: abre\n" +
-        "  scripts\\actualizar-wys.cmd a mano una vez, entra en la ventana que\n" +
-        "  sale, y a partir de ahí la tarea vuelve sola.\n",
+        (cuenta
+          ? "  La cuenta guardada no entra: vuelve a guardarla (doble clic en\n" +
+            "  scripts\\guardar-clave-wys.cmd) y la tarea vuelve sola.\n"
+          : "  No hay cuenta guardada: guárdala una vez con doble clic en\n" +
+            "  scripts\\guardar-clave-wys.cmd y a partir de ahí entra sola.\n"),
     );
 
     return false;
@@ -964,6 +971,64 @@ function columnasDe(fichero) {
 }
 
 /**
+ * Cuántas filas trae un Excel de jugadores de cada equipo (09/10/2026).
+ *
+ * La ficha del filtro no basta para saber que un equipo ha entrado: el
+ * Águilas salía puesto en «Equipo actual» y el fichero no traía ni un
+ * jugador suyo, semana tras semana, con un «✓» en el registro. Lo que manda
+ * es lo que trae el fichero: la columna «Equipo». Devuelve el mapa
+ * equipo-normalizado → filas, o null si no se puede leer.
+ */
+function equiposDe(fichero) {
+  try {
+    const zip = unzipSync(new Uint8Array(fs.readFileSync(fichero)));
+    const hoja = zip["xl/worksheets/sheet1.xml"];
+
+    if (!hoja) return null;
+
+    const desescapa = (t) =>
+      t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+
+    const compartidas = zip["xl/sharedStrings.xml"]
+      ? [...strFromU8(zip["xl/sharedStrings.xml"]).matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) =>
+          desescapa([...m[1].matchAll(/<t[^>]*>([\s\S]*?)<\/t>/g)].map((t) => t[1]).join("")),
+        )
+      : [];
+
+    const filas = [...strFromU8(hoja).matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g)].map((fila) => {
+      const celdas = {};
+
+      for (const c of fila[1].matchAll(/<c r="([A-Z]+)\d+"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+        const crudo = (c[3] || "").match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? (c[3] || "").match(/<t[^>]*>([\s\S]*?)<\/t>/)?.[1];
+
+        celdas[c[1]] = /t="s"/.test(c[2]) ? compartidas[Number(crudo)] : desescapa(crudo ?? "");
+      }
+
+      return celdas;
+    });
+
+    const cabecera = filas[0] ?? {};
+    const columna = Object.keys(cabecera).find((k) => /^equipo$/i.test((cabecera[k] ?? "").trim()));
+
+    if (!columna) return null;
+
+    const cuenta = new Map();
+
+    for (const fila of filas.slice(1)) {
+      const equipo = normalizaEquipo(fila[columna]);
+
+      if (equipo) cuenta.set(equipo, (cuenta.get(equipo) ?? 0) + 1);
+    }
+
+    return cuenta;
+  } catch {
+    return null;
+  }
+}
+
+const normalizaEquipo = (t) => (t || "").toLowerCase().normalize("NFD").replace(/[^a-z0-9]/g, "");
+
+/**
  * «Todas las columnas», cuando la cuenta no tiene el layout ALL (05/10/2026).
  *
  * La cuenta con la que entra el ordenador del club (la del juvenil) no tiene
@@ -1127,7 +1192,17 @@ async function bajaEquipo(nav, equipo) {
   if (bandera("parar")) return { equipo, estado: "parado en la tabla" };
 
   /* Por la hora y no por el nombre: un fichero a medias de una pasada
-     anterior se queda en la carpeta y ya no parece nuevo nunca. */
+     anterior se queda en la carpeta y ya no parece nuevo nunca. Y la
+     carpeta, vacía antes (09/10/2026): el Excel de un equipo que tardó más
+     de la cuenta llegaba durante el siguiente y se guardaba con su nombre. */
+  for (const viejo of fs.readdirSync(DESCARGAS).filter((f) => /\.xlsx$/i.test(f))) {
+    try {
+      fs.unlinkSync(path.join(DESCARGAS, viejo));
+    } catch {
+      /* si Chrome aún lo tiene abierto, la hora lo descarta */
+    }
+  }
+
   const desde = Date.now();
 
   if (!(await nav.clic("Exportar en Excel", { luego: 2000 }))) {
@@ -1162,12 +1237,15 @@ async function bajaEquipo(nav, equipo) {
   */
   const columnas = columnasDe(origen);
 
-  if (columnas !== null && columnas < MIN_COLUMNAS) {
+  if (columnas === null || columnas < MIN_COLUMNAS) {
     fs.unlinkSync(origen);
 
     return {
       equipo,
-      estado: `el Excel sólo trae ${columnas} columnas (con ALL son más de ${MIN_COLUMNAS}): se deja el fichero de antes`,
+      estado:
+        columnas === null
+          ? "el Excel bajado no se puede leer: se deja el fichero de antes"
+          : `el Excel sólo trae ${columnas} columnas (con ALL son más de ${MIN_COLUMNAS}): se deja el fichero de antes`,
     };
   }
 
@@ -1334,19 +1412,28 @@ const HERRAMIENTAS = `
     return f.querySelector(".Select-arrow-zone") || f.querySelector(".Select-control");
   };
 
-  const opcion = (rotulo, texto) => {
+  /* Las candidatas en orden: primero las exactas, luego las que contienen el
+     texto, de la más corta a la más larga. «cual» elige la n-ésima: con dos
+     equipos del mismo nombre, el rescate prueba la siguiente (09/10/2026). */
+  const opciones = (rotulo, texto) => {
     const dentro = rotulo ? filtro(rotulo) : document;
 
-    if (!dentro) return null;
+    if (!dentro) return [];
 
     const lista = [...dentro.querySelectorAll(".Select-option")];
 
     const q = norma(texto);
 
-    return lista.find((x) => norma(x.textContent) === q) ||
-      lista.filter((x) => norma(x.textContent).includes(q))
-        .sort((a, b) => a.textContent.length - b.textContent.length)[0] || null;
+    const exactas = lista.filter((x) => norma(x.textContent) === q);
+
+    const parecidas = lista
+      .filter((x) => !exactas.includes(x) && norma(x.textContent).includes(q))
+      .sort((a, b) => a.textContent.length - b.textContent.length);
+
+    return [...exactas, ...parecidas];
   };
+
+  const opcion = (rotulo, texto, cual = 0) => opciones(rotulo, texto)[cual] || null;
 
   const cuenta = () => (document.querySelector(".count--2cwld") || {}).innerText || "?";
 
@@ -1547,7 +1634,7 @@ async function abreBuscador(nav) {
   };
 
   /** Abrir un desplegable, escribir dentro si tiene buscador y elegir. */
-  const eligeEn = async (rotulo, texto, busca = texto) => {
+  const eligeEn = async (rotulo, texto, busca = texto, cual = 0) => {
     if (!(await abreDesplegable(rotulo))) {
       throw new Error(`No encuentro el desplegable «${rotulo}».`);
     }
@@ -1616,7 +1703,7 @@ async function abreBuscador(nav) {
 
     /* ¿Ha salido ya la opción? Se mira, no se da por hecho. */
     const hayOpcion = () =>
-      js(`return !!opcion(${JSON.stringify(rotulo)}, ${JSON.stringify(busca)});`);
+      js(`return !!opcion(${JSON.stringify(rotulo)}, ${JSON.stringify(busca)}, ${cual});`);
 
     /*
     | ESPERAR A LA OPCIÓN, NO UN TIEMPO FIJO (28/09/2026).
@@ -1660,17 +1747,29 @@ async function abreBuscador(nav) {
       await espera(1800);
     }
 
-    const elegido = await js(`
-      const e = opcion(${JSON.stringify(rotulo)}, ${JSON.stringify(busca)});
+    const eleccion = await js(`
+      const todas = opciones(${JSON.stringify(rotulo)}, ${JSON.stringify(busca)});
 
-      if (!e) return null;
+      const e = todas[${cual}];
+
+      const vistas = todas.map((x) => x.textContent.trim());
+
+      if (!e) return { puesto: null, vistas };
 
       const puesto = e.textContent.trim();
 
       pulsa(e);
 
-      return puesto;
+      return { puesto, vistas };
     `);
+
+    const elegido = eleccion?.puesto ?? null;
+
+    /* Con varias candidatas se apunta cuáles había y cuál se cogió: es lo
+       que explica un equipo que «entra» y no trae jugadores. */
+    if (texto && (eleccion?.vistas?.length ?? 0) > 1) {
+      console.log(`\n    («${busca}» en «${rotulo}»: ${eleccion.vistas.join(" · ")} → ${elegido ?? "ninguna"})`);
+    }
 
     if (!elegido && texto) {
       /* La prueba de lo que había, para el registro: sin esto, «SIN Huesca»
@@ -1850,7 +1949,7 @@ async function preparaBuscador(buscador) {
 }
 
 /** Un lote de equipos: se ponen en el filtro, se exporta y se guarda. */
-async function bajaLote(nav, buscador, equipos, numero) {
+async function bajaLote(nav, buscador, equipos, numero, { cual = 0 } = {}) {
   /* Fuera los del lote anterior. */
   await buscador.clicReal(`
     (() => {
@@ -1888,7 +1987,7 @@ async function bajaLote(nav, buscador, equipos, numero) {
 
     for (let i = 0; i < 2 && !elegido; i++) {
       try {
-        elegido = await buscador.eligeEn("Equipo actual", equipo);
+        elegido = await buscador.eligeEn("Equipo actual", equipo, equipo, cual);
       } catch {
         /* se reintenta */
       }
@@ -1941,7 +2040,7 @@ async function bajaLote(nav, buscador, equipos, numero) {
     let otra = null;
 
     try {
-      otra = await buscador.eligeEn("Equipo actual", equipo);
+      otra = await buscador.eligeEn("Equipo actual", equipo, equipo, cual);
     } catch {
       /* se queda en «faltan» */
     }
@@ -1989,6 +2088,19 @@ async function bajaLote(nav, buscador, equipos, numero) {
   | el nombre dejaba el lote esperando un minuto a un fichero que ya estaba en
   | la carpeta. Se apunta la hora y se coge el .xlsx recién escrito.
   */
+  /*
+  | Y la carpeta de descargas, vacía (09/10/2026). Un Excel del lote anterior
+  | que tardó más de la cuenta llegaba ahora, era «nuevo» por la hora y se
+  | guardaba con el número de este lote. La carpeta es sólo de este perfil.
+  */
+  for (const viejo of fs.readdirSync(DESCARGAS).filter((f) => /\.xlsx$/i.test(f))) {
+    try {
+      fs.unlinkSync(path.join(DESCARGAS, viejo));
+    } catch {
+      /* si Chrome aún lo tiene abierto, la hora lo descarta */
+    }
+  }
+
   const desde = Date.now();
 
   /*
@@ -2049,11 +2161,39 @@ async function bajaLote(nav, buscador, equipos, numero) {
   */
   const columnas = columnasDe(origen);
 
-  if (columnas !== null && columnas < MIN_COLUMNAS) {
+  if (columnas === null || columnas < MIN_COLUMNAS) {
     fs.unlinkSync(origen);
 
-    throw new Error(`el Excel de jugadores sólo trae ${columnas} columnas (con todas son 115): se deja el de antes`);
+    throw new Error(
+      columnas === null
+        ? "el Excel de jugadores no se puede leer: se deja el de antes"
+        : `el Excel de jugadores sólo trae ${columnas} columnas (con todas son 115): se deja el de antes`,
+    );
   }
+
+  /*
+  | LO QUE MANDA ES EL FICHERO, NO EL FILTRO (09/10/2026).
+  |
+  | El Águilas salía con su ficha en «Equipo actual» y ni un jugador suyo en
+  | el Excel, semana tras semana, con «✓» en el registro. Se cuentan las filas
+  | de cada equipo: el que no trae ninguna se da por perdido, y si no trae
+  | ninguno, el fichero no sustituye a nada.
+  */
+  const porEquipo = equiposDe(origen);
+
+  const sinFilas = porEquipo ? equipos.filter((equipo) => !porEquipo.get(normalizaEquipo(equipo))) : [];
+
+  if (porEquipo && sinFilas.length === equipos.length) {
+    fs.unlinkSync(origen);
+
+    return { numero, estado: `el Excel no trae jugadores de ${equipos.join(", ")}`, faltan: [...equipos] };
+  }
+
+  /* Leído el fichero, él decide quién falta (también al revés: una ficha mal
+     leída no da por perdido a un equipo que sí trae sus jugadores). */
+  if (porEquipo) faltan.splice(0, faltan.length, ...sinFilas);
+
+  const filas = porEquipo ? [...porEquipo.values()].reduce((a, b) => a + b, 0) : jugadores;
 
   /* Si faltan equipos, el lote no sustituye al de la semana pasada: va
      aparte como «(parcial)» y el lector coge de él sólo lo más nuevo. */
@@ -2070,7 +2210,7 @@ async function bajaLote(nav, buscador, equipos, numero) {
     estado: "ok",
     fichero: path.basename(destino),
     kb,
-    jugadores,
+    jugadores: filas,
     equipos: puestos,
     faltan,
     recortado,
@@ -2078,7 +2218,15 @@ async function bajaLote(nav, buscador, equipos, numero) {
 }
 
 /** Todos los jugadores de la categoría, por lotes de equipos. */
-async function bajaJugadores(nav, equipos) {
+async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
+  /*
+  | Con `--equipo=` o `--desde=` la lista no es el grupo entero (09/10/2026):
+  | su lote se llamaba «Player Stats 1» y PISABA el bueno de siete equipos, y
+  | la limpieza del final borraba los demás. Suelto, numera desde el 101 y no
+  | limpia nada; la próxima pasada entera ya lo quita.
+  */
+  const base = suelto ? 100 : 0;
+
   console.log(`\n  JUGADORES · ${COMPETICION} · ${TEMPORADA}\n`);
 
   let buscador = await abreBuscador(nav);
@@ -2119,9 +2267,9 @@ async function bajaJugadores(nav, equipos) {
 
     for (let intento = 0; intento < 2 && !resultado?.fichero; intento++) {
       try {
-        resultado = await bajaLote(nav, buscador, lote, i + 1);
+        resultado = await bajaLote(nav, buscador, lote, base + i + 1);
       } catch (error) {
-        resultado = { numero: i + 1, estado: error.message };
+        resultado = { numero: base + i + 1, estado: error.message };
 
         /*
         | Si la pestaña se ha colgado, se cambia por otra y se vuelve a abrir
@@ -2135,7 +2283,7 @@ async function bajaJugadores(nav, equipos) {
             buscador = await abreBuscador(nav);
             await preparaBuscador(buscador);
           } catch (otro) {
-            resultado = { numero: i + 1, estado: `${error.message} (y no se ha podido reabrir: ${otro.message})` };
+            resultado = { numero: base + i + 1, estado: `${error.message} (y no se ha podido reabrir: ${otro.message})` };
           }
         }
       }
@@ -2158,17 +2306,80 @@ async function bajaJugadores(nav, equipos) {
     if (bandera("parar")) break;
   }
 
-  /* Con todos los lotes bien, fuera los «Player Stats N» de números que ya no
-     se usan (de una semana con más lotes): esos sí son viejos seguro. */
-  if (!bandera("parar") && resultados.every((r) => r?.estado === "ok")) {
-    for (const viejo of fs.readdirSync(DESTINO)) {
-      const numero = Number(viejo.match(/^Player Stats (\d+)\.xlsx$/i)?.[1] ?? 0);
+  /*
+  | EL RESCATE (09/10/2026): cada equipo que se ha quedado fuera de su lote
+  | baja solo, en un lote suyo, probando las otras opciones del desplegable
+  | con su nombre (la primera es la que ya falló). Va con número detrás de
+  | los lotes normales; si sale, el lote del que faltaba ya está completo.
+  */
+  const rescatados = [];
 
-      if (numero > lotes.length) fs.unlinkSync(path.join(DESTINO, viejo));
+  /* Sólo los que faltan de un lote que sí bajó: un lote entero fallido ya se
+     ha intentado dos veces, y suele ser la pestaña colgada. */
+  const ausentes = [...new Set(resultados.flatMap((r) => (r?.estado === "ok" ? r.faltan ?? [] : [])))];
+
+  if (!bandera("parar") && ausentes.length) {
+    console.log(`\n  rescate de ${ausentes.length}: ${ausentes.join(", ")}`);
+
+    for (const equipo of ausentes) {
+      const numero = base + lotes.length + rescatados.length + 1;
+
+      process.stdout.write(`  solo      ${equipo.slice(0, 44).padEnd(46)}`);
+
+      let resultado = null;
+
+      for (let cual = 0; cual < 3 && !resultado?.fichero; cual++) {
+        try {
+          const prueba = await bajaLote(nav, buscador, [equipo], numero, { cual });
+
+          if (prueba.estado === "ok" && !prueba.faltan?.length) resultado = prueba;
+          else resultado = resultado ?? prueba;
+        } catch (error) {
+          resultado = { numero, estado: error.message };
+
+          if (atasco(error)) break;
+        }
+      }
+
+      if (resultado?.fichero && !resultado.faltan?.length) {
+        rescatados.push(equipo);
+
+        console.log(`✓ ${resultado.fichero} · ${resultado.jugadores} jugadores`);
+      } else {
+        console.log(`✗ ${resultado?.estado === "ok" ? "sigue sin jugadores" : resultado?.estado ?? "no ha bajado"}`);
+      }
     }
   }
 
-  return resultados;
+  /* Un lote «(parcial)» cuyos ausentes se han rescatado ya está entero: pasa
+     a ser el «Player Stats N» de siempre y sustituye al de la semana pasada. */
+  for (const r of resultados) {
+    if (r?.estado !== "ok" || !r.faltan?.length || !r.faltan.every((e) => rescatados.includes(e))) continue;
+
+    const entero = `Player Stats ${r.numero}.xlsx`;
+
+    fs.renameSync(path.join(DESTINO, r.fichero), path.join(DESTINO, entero));
+
+    r.fichero = entero;
+    r.faltan = [];
+  }
+
+  const sinBajar = ausentes.filter((e) => !rescatados.includes(e));
+
+  /* Con todo bien, fuera los «Player Stats N» de números que ya no se usan
+     (de una semana con más lotes o más rescates) y los «(parcial)» que han
+     quedado viejos: esos sí son viejos seguro. */
+  if (!suelto && !bandera("parar") && resultados.every((r) => r?.estado === "ok") && !sinBajar.length) {
+    for (const viejo of fs.readdirSync(DESTINO)) {
+      const numero = Number(viejo.match(/^Player Stats (\d+)\.xlsx$/i)?.[1] ?? 0);
+
+      if (numero > lotes.length + rescatados.length || /^Player Stats \d+ \(parcial\)\.xlsx$/i.test(viejo)) {
+        fs.unlinkSync(path.join(DESTINO, viejo));
+      }
+    }
+  }
+
+  return { resultados, sinBajar };
 }
 
 /* ------------------------------------------------------------------ */
@@ -2184,8 +2395,16 @@ async function principal() {
   fs.mkdirSync(DESTINO, { recursive: true });
 
   /* El Chrome lo comparte con Hudl (el análisis del partido): por turnos.
-     Si a la hora y media sigue ocupado, se sigue igual, como antes. */
-  await esperaTurno("Wyscout (descarga de la liga)");
+     Si a la hora y media sigue ocupado, NO se entra (09/10/2026): antes se
+     seguía igual, `conecta()` cerraba las pestañas del otro y los dos
+     escribían a la vez. Sale con el 7, el de Chrome ocupado o colgado. */
+  if (!(await esperaTurno("Wyscout (descarga de la liga)"))) {
+    console.log("\n  CHROME OCUPADO: el análisis del partido lleva hora y media con él; se deja para luego.\n");
+
+    process.exitCode = 7;
+
+    return;
+  }
 
   let chrome = abreChrome();
 
@@ -2473,7 +2692,9 @@ async function principal() {
 
       console.log(`\n  ${bien} de ${lista.length} bajados a public/data/wys\n`);
 
-      if (bien < lista.length) {
+      /* El consejo del diseño sólo cuando no es un cuelgue: el 05/10 a las
+         6:07 culpaba a Wyscout de una pestaña colgada. */
+      if (bien < lista.length && !colgado && !resultados.some((r) => atasco(r?.estado))) {
         console.log("  Los que fallan casi siempre son un cambio de diseño de");
         console.log("  Wyscout: abre la ventana, mira dónde está el botón y");
         console.log("  ajusta el texto que busca este script.\n");
@@ -2525,9 +2746,28 @@ async function principal() {
     | otra cuesta clics: primero se recorren los veinte equipos y al final se
     | entra en el buscador una sola vez.
     */
+    /*
+    | Lo que no ha bajado, para el final (09/10/2026). Antes la pasada salía
+    | con 0 —«publicado»— con 1 de 20 equipos o con los tres lotes de
+    | jugadores fallidos, y la semana quedaba hecha. Ahora sale con el 8: se
+    | publica lo que haya, pero la semana NO se da por hecha y Ajustes dice
+    | qué falta.
+    */
+    const incompleto = [];
+
+    if (!bandera("solo-jugadores")) {
+      /* Por la lista, no por los resultados: tras un cuelgue los que quedaban
+         ni siquiera tienen resultado. */
+      const malos = lista.filter((e) => !resultados.some((r) => r?.equipo === e && r.estado === "ok"));
+
+      if (malos.length) incompleto.push(`equipos sin bajar: ${malos.join(", ")}`);
+    }
+
     if (!bandera("sin-jugadores")) {
+      let jugadores = null;
+
       try {
-        await bajaJugadores(nav, lista);
+        jugadores = await bajaJugadores(nav, lista, { suelto: lista.length !== equipos.length });
       } catch (error) {
         /* Colgada a mitad: pestaña nueva y otra vuelta, que son cientos de
            jugadores. */
@@ -2535,7 +2775,7 @@ async function principal() {
           await recupera(nav).catch(() => {});
 
           try {
-            await bajaJugadores(nav, lista);
+            jugadores = await bajaJugadores(nav, lista, { suelto: lista.length !== equipos.length });
           } catch (otro) {
             console.log(`\n  ✗ jugadores: ${otro.message}\n`);
           }
@@ -2543,6 +2783,22 @@ async function principal() {
           console.log(`\n  ✗ jugadores: ${error.message}\n`);
         }
       }
+
+      if (!jugadores) {
+        incompleto.push("los jugadores no han bajado");
+      } else {
+        const lotesMal = jugadores.resultados.filter((r) => r?.estado !== "ok").length;
+
+        if (lotesMal) incompleto.push(`${lotesMal} lote(s) de jugadores sin bajar`);
+
+        if (jugadores.sinBajar.length) incompleto.push(`sin jugadores de ${jugadores.sinBajar.join(", ")}`);
+      }
+    }
+
+    if (incompleto.length && !bandera("parar") && !bandera("ver")) {
+      console.log(`\n  INCOMPLETO: ${incompleto.join(" · ")}\n`);
+
+      process.exitCode = 8;
     }
   } finally {
     if (!bandera("ver") && !bandera("parar")) {

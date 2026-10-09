@@ -22,6 +22,10 @@ rem
 rem  EL CODIGO DE SALIDA DICE COMO HA IDO (lo lee el vigia):
 rem    0 publicado        3 no habia nada nuevo     2 la sesion ha caducado
 rem    1 fallo al bajar   5 fallo al releer         4 fallo al subir (push)
+rem    6 otra cuenta      7 Chrome colgado u ocupado
+rem    8 incompleto: se publica lo que bajo, pero faltan equipos o jugadores
+rem      y la semana NO queda hecha (la siguiente pasada lo vuelve a intentar)
+rem    9 hay commits locales que no son de datos: no se sube nada
 rem
 rem  LO UNICO QUE NO PUEDE HACER SOLO
 rem
@@ -49,6 +53,7 @@ for /f %%i in ('powershell -NoProfile -Command "$c=(Get-Culture).Calendar; '{0}-
 
 set "LOG=%REGISTRO%\%SELLO%.log"
 set "CODIGO=1"
+set "INCOMPLETO=0"
 set "HECHO=%REGISTRO%\hecho-%SEMANA%.txt"
 
 rem ------------------------------------------------------------------
@@ -103,10 +108,10 @@ set "SALIDA=%errorlevel%"
 
 if "%SALIDA%"=="2" (
   echo. >> "%LOG%"
-  echo LA SESION DE WYSCOUT HA CADUCADO: hay que entrar una vez a mano. >> "%LOG%"
-  echo   Abre scripts\actualizar-wys.cmd, entra en la ventana que sale, y >> "%LOG%"
-  echo   la tarea vuelve sola la proxima vez. >> "%LOG%"
-  echo LA SESION DE WYSCOUT HA CADUCADO. Abre scripts\actualizar-wys.cmd y entra.
+  echo LA SESION DE WYSCOUT HA CADUCADO y la cuenta guardada no entra. >> "%LOG%"
+  echo   Guarda otra vez la cuenta con doble clic en scripts\guardar-clave-wys.cmd >> "%LOG%"
+  echo   y la tarea vuelve sola la proxima vez. >> "%LOG%"
+  echo LA SESION DE WYSCOUT HA CADUCADO. Guarda la cuenta con scripts\guardar-clave-wys.cmd.
   set "CODIGO=2"
   goto :limpieza
 )
@@ -129,6 +134,15 @@ if "%SALIDA%"=="6" (
   goto :limpieza
 )
 
+rem  8: ha bajado una parte (09/10/2026). Se sigue y se publica lo que haya,
+rem  pero sin dar la semana por hecha: antes salia 0 con 1 de 20 equipos.
+if "%SALIDA%"=="8" (
+  echo. >> "%LOG%"
+  echo INCOMPLETO: faltan equipos o jugadores ^(mira la linea INCOMPLETO de arriba^). Se publica lo bajado. >> "%LOG%"
+  set "INCOMPLETO=1"
+  set "SALIDA=0"
+)
+
 if not "%SALIDA%"=="0" (
   echo. >> "%LOG%"
   echo FALLO en la descarga ^(codigo %SALIDA%^). Se reintenta en la siguiente pasada. >> "%LOG%"
@@ -147,7 +161,10 @@ rem  su disco: sin este fichero la pantalla de DATA sale vacia desplegada.
 echo. >> "%LOG%"
 echo --- Releyendo la carpeta --- >> "%LOG%"
 
-call node scripts\data-analisis-indice.cjs >> "%LOG%" 2>&1
+rem  --estricto: si no se puede montar el indice, sale con 1. Sin el, avisa y
+rem  sale con 0 (para no tumbar la compilacion de Vercel), y aqui se publicaban
+rem  los .xlsx nuevos con el analisis.json viejo diciendo "Publicado".
+call node scripts\data-analisis-indice.cjs --estricto >> "%LOG%" 2>&1
 
 if errorlevel 1 (
   echo. >> "%LOG%"
@@ -185,9 +202,23 @@ echo --- Publicando --- >> "%LOG%"
 
 git add "public/data/wys" "public/data/analisis.json" >> "%LOG%" 2>&1
 
+rem  Habia algo que guardar? Se mira ANTES del commit (09/10/2026): si el
+rem  commit falla por otra cosa (un index.lock, un hook), no es "no habia nada
+rem  nuevo" y la semana no puede quedar hecha con los datos sin publicar.
+set "HAYCAMBIOS=0"
+git diff --cached --quiet -- "public/data/wys" "public/data/analisis.json" || set "HAYCAMBIOS=1"
+
 git commit -m "Los datos de Wyscout de la semana %SEMANA%" -- "public/data/wys" "public/data/analisis.json" >> "%LOG%" 2>&1
 
 if not errorlevel 1 goto :empuja
+
+if "%HAYCAMBIOS%"=="1" (
+  echo. >> "%LOG%"
+  echo EL COMMIT HA FALLADO con datos nuevos que guardar ^(mira el mensaje de git de arriba^): no se publica. >> "%LOG%"
+  echo El commit ha fallado: los datos estan bajados, sin publicar.
+  set "CODIGO=4"
+  goto :limpieza
+)
 
 rem  Nada que guardar NO es nada que publicar (04/10/2026). Si la pasada
 rem  anterior hizo el commit y el push fallo, repetir "solo publicar" (o una
@@ -200,13 +231,17 @@ rem  se sube nada, que publicar el trabajo de otro no lo decide esta tarea.
 set "PENDIENTES=0"
 set "AJENOS=0"
 for /f %%n in ('git rev-list --count "@{u}..HEAD" 2^>NUL') do set "PENDIENTES=%%n"
-for /f %%n in ('git log "@{u}..HEAD" "--format=%%s" 2^>NUL ^| findstr /v /b /c:"Los datos de Wyscout" ^| find /c /v ""') do set "AJENOS=%%n"
+rem  Los del analisis del partido tambien son datos: si cada proceso dejaba un
+rem  commit sin subir, se bloqueaban el uno al otro para siempre. (Sin la A
+rem  acentuada: findstr no casa la tilde de la salida de git.)
+for /f %%n in ('git log "@{u}..HEAD" "--format=%%s" 2^>NUL ^| findstr /v /b /c:"Los datos de Wyscout" ^| findstr /v /c:"lisis del partido: " ^| find /c /v ""') do set "AJENOS=%%n"
 
 if "%PENDIENTES%"=="0" (
   echo No habia nada nuevo que publicar. >> "%LOG%"
   echo No habia nada nuevo que publicar.
-  echo %DATE% %TIME% · sin cambios > "%HECHO%"
+  if "%INCOMPLETO%"=="0" echo %DATE% %TIME% · sin cambios > "%HECHO%"
   set "CODIGO=3"
+  if "%INCOMPLETO%"=="1" set "CODIGO=8"
   goto :limpieza
 )
 
@@ -215,7 +250,7 @@ if not "%AJENOS%"=="0" (
   echo HAY COMMITS SIN SUBIR QUE NO SON DE WYSCOUT: no se sube nada. El push ha fallado a proposito. >> "%LOG%"
   echo   Un "git push" a mano lo publica todo cuando se haya mirado. >> "%LOG%"
   echo Hay commits locales que no son de Wyscout: no se publica.
-  set "CODIGO=4"
+  set "CODIGO=9"
   goto :limpieza
 )
 
@@ -237,9 +272,15 @@ echo. >> "%LOG%"
 echo Publicado · %DATE% %TIME% >> "%LOG%"
 echo Publicado. Vercel tarda un par de minutos.
 
-rem La semana queda marcada: las repeticiones de hoy ya no haran nada.
-echo %DATE% %TIME% > "%HECHO%"
+rem La semana queda marcada: las repeticiones de hoy ya no haran nada. Si
+rem falto algo, NO: la siguiente pasada lo vuelve a intentar.
 set "CODIGO=0"
+if "%INCOMPLETO%"=="1" (
+  echo Publicado, pero INCOMPLETO: la semana no queda hecha. >> "%LOG%"
+  set "CODIGO=8"
+) else (
+  echo %DATE% %TIME% > "%HECHO%"
+)
 
 :limpieza
 

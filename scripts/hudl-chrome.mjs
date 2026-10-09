@@ -43,7 +43,7 @@ export const espera = (ms) => new Promise((listo) => setTimeout(listo, ms));
 
 async function pestanas() {
   try {
-    return await fetch(`http://127.0.0.1:${PUERTO}/json`).then((r) => r.json());
+    return await fetch(`http://127.0.0.1:${PUERTO}/json`, { signal: AbortSignal.timeout(15_000) }).then((r) => r.json());
   } catch {
     return null;
   }
@@ -86,7 +86,7 @@ export async function abreHudl() {
     if (!(await pestanas())) throw new Error("Chrome no ha abierto el puerto de mando.");
   }
 
-  const nueva = await fetch(`http://127.0.0.1:${PUERTO}/json/new?about:blank`, { method: "PUT" }).then(
+  const nueva = await fetch(`http://127.0.0.1:${PUERTO}/json/new?about:blank`, { method: "PUT", signal: AbortSignal.timeout(15_000) }).then(
     (r) => r.json(),
   );
 
@@ -182,7 +182,7 @@ export async function abreHudl() {
 
     try {
       if (loAbrimos) await manda("Browser.close", {}, 5000);
-      else await fetch(`http://127.0.0.1:${PUERTO}/json/close/${nueva.id}`);
+      else await fetch(`http://127.0.0.1:${PUERTO}/json/close/${nueva.id}`, { signal: AbortSignal.timeout(15_000) });
     } catch {
       /* ya cerrado */
     }

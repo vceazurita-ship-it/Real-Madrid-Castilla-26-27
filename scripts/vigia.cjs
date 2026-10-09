@@ -114,7 +114,7 @@ async function leeEncargos() {
     .eq("key", CLAVE_MANTENIMIENTO)
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(claro(error.message));
 
   return normalizaMantenimiento(data?.data);
 }
@@ -125,26 +125,73 @@ async function leeEncargos() {
  * El documento lo escribe también la app cuando alguien pulsa un botón: con
  * una copia de hace diez segundos se podría llevar por delante ese pedido.
  */
-async function marca(tarea, cambio) {
-  const estado = await leeEncargos();
+/*
+| En fila (09/10/2026). Quiniela, carpeta, Wyscout y el partido corren a la
+| vez y cada uno releía y reescribía el documento entero: el «empieza» de uno
+| podía llevarse el «hecho» que otro acababa de escribir, y ese encargo se
+| quedaba «en marcha» hasta agotar su plazo. Dentro de este vigía, una
+| escritura detrás de otra.
+*/
+let colaDeEscrituras = Promise.resolve();
 
-  const { error } = await supabase.from("app_documents").upsert(
-    {
-      key: CLAVE_MANTENIMIENTO,
-      kind: "mantenimiento",
-      data: { ...estado, [tarea]: { ...estado[tarea], ...cambio } },
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "key" },
-  );
+/** Un error de Supabase legible: un 5xx de Cloudflare llega como una página HTML entera. */
+function claro(mensaje) {
+  const texto = String(mensaje ?? "").trim();
 
-  if (error) throw new Error(error.message);
+  if (texto.startsWith("<")) return "Supabase no contesta (error del servidor)";
+
+  return texto.slice(0, 200);
+}
+
+function marca(tarea, cambio) {
+  const escribe = async () => {
+    const estado = await leeEncargos();
+
+    const { error } = await supabase.from("app_documents").upsert(
+      {
+        key: CLAVE_MANTENIMIENTO,
+        kind: "mantenimiento",
+        data: { ...estado, [tarea]: { ...estado[tarea], ...cambio } },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "key" },
+    );
+
+    if (error) throw new Error(claro(error.message));
+  };
+
+  const turno = colaDeEscrituras.then(escribe, escribe);
+
+  colaDeEscrituras = turno.catch(() => {});
+
+  return turno;
 }
 
 const empieza = (tarea) => marca(tarea, { empezadoEn: new Date().toISOString() });
 
-const acaba = (tarea, ok, resultado) =>
-  marca(tarea, { hechoEn: new Date().toISOString(), ok, resultado, ...cierraSeguimiento(tarea, ok) });
+/*
+| El final, sin rendirse (09/10/2026). Si al acabar no había red —el vigía
+| apunta «fetch failed» casi a diario—, el «hecho» se perdía: el encargo se
+| quedaba «en marcha» hasta su plazo (doce horas en el partido) y, si la red
+| volvía justo en el segundo intento, salía «se ha roto» aunque el trabajo
+| hubiera ido bien. Ahora se reintenta con esperas crecientes hasta que
+| entra, y la pantalla sabe además cuándo fue la última buena (`bienEn`).
+*/
+async function acaba(tarea, ok, resultado, extra = {}) {
+  const hechoEn = new Date().toISOString();
+
+  const cambio = { hechoEn, ok, resultado, ...extra, ...(ok ? { bienEn: hechoEn } : {}), ...cierraSeguimiento(tarea, ok) };
+
+  for (let intento = 0; ; intento++) {
+    try {
+      return await marca(tarea, cambio);
+    } catch (error) {
+      if (intento === 0) apunta(`${tarea}: no se puede apuntar cómo acabó (${claro(error.message)}); se reintenta hasta que haya red.`);
+
+      await new Promise((r) => setTimeout(r, Math.min(60_000, 5_000 * 2 ** intento)));
+    }
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /*  EL PROGRESO                                                        */
@@ -436,6 +483,83 @@ async function refrescaCalendario() {
   apunta(`Calendario: ${resumen(texto) || (codigo === 0 ? "al día" : `no ha salido (${codigo})`)}.`);
 }
 
+/*
+| WYSCOUT SIN QUE NADIE LO PIDA (09/10/2026).
+|
+| La tarea semanal de Wyscout no estaba instalada en el ordenador del club,
+| así que los datos sólo llegaban si alguien pulsaba el botón, y Wyscout
+| publica el partido uno o dos días después: había que acordarse de volver.
+| Ahora, desde el día siguiente a cada partido del Castilla y durante una
+| semana, si `public/data/analisis.json` sigue sin ese partido, el vigía deja
+| él mismo el pedido (como el botón: se ve en Ajustes, con su resultado). Como
+| mucho uno cada seis horas, de 9:00 a 22:00, y nunca con otro pedido o con el
+| análisis del partido en marcha.
+*/
+const WYSCOUT_SOLO_MIRA_MS = 30 * 60_000;
+
+const WYSCOUT_SOLO_CADA_MS = 6 * 3_600_000;
+
+let wyscoutSoloMirado = 0;
+
+const { alrededorDe } = require(path.join(RAIZ, "lib/castilla/calendario.ts"));
+
+function horaDeMadrid() {
+  return Number(new Date().toLocaleString("en-GB", { timeZone: "Europe/Madrid", hour: "2-digit", hour12: false }));
+}
+
+async function wyscoutSolo(encargos, estados) {
+  if (Date.now() - wyscoutSoloMirado < WYSCOUT_SOLO_MIRA_MS) return;
+
+  wyscoutSoloMirado = Date.now();
+
+  if (estados.wyscout !== "libre" || enMarcha.has("wyscout") || enMarcha.has("partido") || estados.partido === "pedido") return;
+
+  const hora = horaDeMadrid();
+
+  if (hora < 9 || hora >= 22) return;
+
+  const suyo = encargos.wyscout ?? {};
+
+  const ultimo = Math.max(Date.parse(suyo.pedidoEn ?? "") || 0, Date.parse(suyo.hechoEn ?? "") || 0);
+
+  if (Date.now() - ultimo < WYSCOUT_SOLO_CADA_MS) return;
+
+  const { data, error } = await supabase.from("app_documents").select("data").eq("key", "castilla:calendario").maybeSingle();
+
+  if (error) return;
+
+  const { anterior } = alrededorDe(data?.data?.partidos ?? [], Date.now());
+
+  if (!anterior?.cuando) return;
+
+  const desde = Date.now() - Date.parse(anterior.cuando);
+
+  if (!(desde > 20 * 3_600_000 && desde < 8 * 86_400_000)) return;
+
+  const fecha = anterior.cuando.slice(0, 10);
+
+  /* ±1 día: la fecha de Wyscout y la de BeSoccer pueden no coincidir por el huso. */
+  const cerca = (otra) => Math.abs(Date.parse(otra) - Date.parse(fecha)) <= 86_400_000;
+
+  try {
+    const indice = JSON.parse(fs.readFileSync(path.join(RAIZ, "public", "data", "analisis.json"), "utf8"));
+
+    const esta = (indice.partidos ?? []).some((p) => /castilla/i.test(p.equipo ?? "") && p.fecha && cerca(p.fecha));
+
+    if (esta) return;
+  } catch {
+    /* sin índice, con más razón */
+  }
+
+  await marca("wyscout", {
+    pedidoEn: new Date().toISOString(),
+    pedidoPor: `el ordenador del club, solo: falta el partido contra ${anterior.rival} (${fecha})`,
+    plan: [],
+  });
+
+  apunta(`Wyscout: pedido solo, falta el partido contra ${anterior.rival} del ${fecha}.`);
+}
+
 /** Cuándo se lanzó por última vez la tarea nocturna, para no insistir. */
 let tareaLanzadaEn = 0;
 
@@ -551,8 +675,10 @@ const MOTIVO_WYSCOUT = {
   2: [false, "la sesión de Wyscout ha caducado y no ha podido entrar sola: guarda una vez la cuenta del Castilla con doble clic en scripts\\guardar-clave-wys.cmd (o, si ya está, ha cambiado la contraseña) y vuelve a pedirlo"],
   4: [false, "bajado y guardado, pero la subida (git push) ha fallado: queda sin publicar"],
   5: [false, "bajado, pero no se ha podido releer la carpeta: no se publica"],
-  7: [false, "el Chrome de Wyscout se quedó colgado incluso tras reiniciarlo (el ordenador del club, bloqueado o sin red): no se ha bajado nada; vuelve a pedirlo"],
-  6: [false, "Wyscout está abierto con otra cuenta (la del juvenil), que no tiene el layout ALL: no se ha bajado nada. Hay que entrar una vez con la cuenta del Castilla (scripts\\actualizar-wys.cmd)"],
+  7: [false, "el Chrome de Wyscout se quedó colgado incluso tras reiniciarlo, o lo tenía ocupado el análisis del partido (el ordenador del club, bloqueado o sin red): no se ha bajado nada; vuelve a pedirlo"],
+  6: [false, "Wyscout está abierto con una cuenta que no deja bajar todas las columnas: no se ha bajado nada. Cambia de cuenta con doble clic en scripts\\cambiar-cuenta-wys.cmd"],
+  8: [false, "bajado y publicado A MEDIAS: faltan equipos o jugadores (lo que falta conserva lo de la semana pasada). La próxima pasada lo vuelve a intentar; el detalle, en la línea INCOMPLETO del registro de .cache\\wyscout"],
+  9: [false, "bajado y guardado, pero en el ordenador del club hay commits sin subir que no son de datos: no se ha publicado nada. Un «git push» a mano lo publica todo cuando se haya mirado"],
 };
 
 async function haceWyscout() {
@@ -576,7 +702,10 @@ async function haceWyscout() {
     { RMCF_DESDE: String(desde) },
   ).finally(deja);
 
-  const [ok, dice] = MOTIVO_WYSCOUT[codigo] ?? [false, `la descarga ha fallado (código ${codigo}); el registro está en .cache\\wyscout`];
+  const [ok, dice] = MOTIVO_WYSCOUT[codigo] ?? [
+    false,
+    `la descarga ha fallado (código ${codigo}); suele ser la red o un cambio en Wyscout. Vuelve a pedirlo; si se repite, el registro está en .cache\\wyscout`,
+  ];
 
   await acaba("wyscout", ok, dice);
 
@@ -675,14 +804,7 @@ async function haceAnalisisPartido() {
     resumen(texto) ||
     (codigo === 0 ? "hecho" : codigo === 3 ? "el partido aún no está en Hudl" : `ha fallado (código ${codigo})`);
 
-  await marca("partido", {
-    hechoEn: new Date().toISOString(),
-    ok: codigo === 0,
-    resultado: dice,
-    paso: "",
-    secciones: secciones ?? [],
-    ...cierraSeguimiento("partido", codigo === 0),
-  });
+  await acaba("partido", codigo === 0, dice, { paso: "", secciones: secciones ?? [] });
   apunta(`Partido: ${dice}.`);
 }
 
@@ -697,7 +819,10 @@ function estadoTareaNocturna() {
         `(Get-ScheduledTask -TaskName '${TAREA_NOCTURNA}' -ErrorAction SilentlyContinue).State`,
       ],
       { windowsHide: true, timeout: 30_000 },
-      (error, salida) => resolve(error ? "" : String(salida).trim()),
+      /* «?» si PowerShell falla o tarda: no es lo mismo que «no instalada»
+         (vacío), y tomarlo por eso lanzaba el .cmd a pelo con la tarea
+         quizá corriendo: dos pasadas sobre las mismas hojas (09/10/2026). */
+      (error, salida) => resolve(error ? "?" : String(salida).trim()),
     );
   });
 }
@@ -727,9 +852,10 @@ function dejaPlanRivales(plan) {
 async function lanzaRivales(plan) {
   const estado = await estadoTareaNocturna();
 
-  if (estado === "Running") {
-    /* Ya hay una pasada. Si empezó antes del pedido no lo contesta, y en
-       cuanto acabe este vigía lanzará otra. */
+  if (estado === "Running" || estado === "?") {
+    /* Ya hay una pasada (o no se ha podido saber: se mira en la siguiente
+       ronda). Si empezó antes del pedido no lo contesta, y en cuanto acabe
+       este vigía lanzará otra. */
     return;
   }
 
@@ -767,9 +893,9 @@ function arranca(tarea, trabajo) {
 
   trabajo()
     .catch(async (error) => {
-      apunta(`${tarea}: se ha roto (${error.message}).`);
+      apunta(`${tarea}: se ha roto (${claro(error.message)}).`);
 
-      await acaba(tarea, false, `se ha roto: ${error.message}`).catch(() => {});
+      await acaba(tarea, false, `se ha roto: ${claro(error.message)}`).catch(() => {});
     })
     .finally(() => {
       enMarcha.delete(tarea);
@@ -847,6 +973,9 @@ async function ronda() {
   if (estados.partido === "pedido" && !enMarcha.has("partido") && !enMarcha.has("wyscout")) {
     arranca("partido", haceAnalisisPartido);
   }
+
+  /* Y Wyscout por su cuenta tras cada partido, si nadie lo ha pedido. */
+  await wyscoutSolo(encargos, estados).catch((error) => apunta(`Wyscout solo: no se ha podido mirar (${claro(error.message)}).`));
 
   /* Los rivales: se mira la tarea sólo cuando hay algo que mirar, que cada
      consulta es un PowerShell. */

@@ -45,9 +45,20 @@ echo.
 
 call node scripts\wyscout-liga.mjs %*
 
-if errorlevel 1 (
+set "SALIDA=%errorlevel%"
+
+rem  8: ha bajado una parte (09/10/2026). Se sigue con lo bajado, avisando.
+if "%SALIDA%"=="8" (
   echo.
-  echo  La descarga ha fallado. No se toca el indice ni se publica nada.
+  echo  OJO: la descarga esta INCOMPLETA ^(mira la linea INCOMPLETO de arriba^).
+  echo  Se sigue con lo que ha bajado; lo que falta conserva lo de la semana pasada.
+  echo.
+  set "SALIDA=0"
+)
+
+if not "%SALIDA%"=="0" (
+  echo.
+  echo  La descarga ha fallado ^(codigo %SALIDA%^). No se toca el indice ni se publica nada.
   echo.
   pause
   exit /b 1
@@ -64,7 +75,7 @@ echo.
 echo  --- Releyendo la carpeta ---
 echo.
 
-call node scripts\data-analisis-indice.cjs
+call node scripts\data-analisis-indice.cjs --estricto
 
 if errorlevel 1 (
   echo.
@@ -128,17 +139,40 @@ git add public/data/wys public/data/analisis.json
 
 for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format dd/MM/yyyy"') do set "HOY=%%i"
 
-git commit -m "Los datos de Wyscout al %HOY%"
+rem  Solo los datos (09/10/2026): sin rutas, el commit se llevaba tambien lo
+rem  que hubiera preparado otra persona con "git add".
+set "HAYCAMBIOS=0"
+git diff --cached --quiet -- public/data/wys public/data/analisis.json || set "HAYCAMBIOS=1"
 
-if errorlevel 1 (
+if "%HAYCAMBIOS%"=="0" (
   echo.
   echo  No habia nada que publicar: los datos ya estaban al dia.
+  echo  ^(Si quedo un commit sin subir de otra vez, un "git push" lo sube.^)
   echo.
   pause
   exit /b 0
 )
 
+git commit -m "Los datos de Wyscout al %HOY%" -- public/data/wys public/data/analisis.json
+
+if errorlevel 1 (
+  echo.
+  echo  EL COMMIT HA FALLADO ^(mira el mensaje de git de arriba^): no se ha publicado.
+  echo.
+  pause
+  exit /b 4
+)
+
 git push
+
+if errorlevel 1 (
+  echo.
+  echo  EL PUSH HA FALLADO: los datos estan guardados aqui pero NO publicados.
+  echo  Con red, un "git push" a mano lo resuelve.
+  echo.
+  pause
+  exit /b 4
+)
 
 echo.
 echo  Publicado. Vercel tarda un par de minutos en tenerlo arriba.

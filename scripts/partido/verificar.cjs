@@ -81,7 +81,15 @@ function git(...args) {
 
   /* En hora de Madrid: una descarga a la 1 de la noche del partido, en UTC,
      caía el día anterior y salía «no está al día» (04/10/2026). */
-  const viejo = !bajadoEn || bajadoEn.toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" }) <= P.fecha;
+  /* Y con la hora cuando se sabe (09/10/2026): una descarga de esa misma
+     noche, ya acabado el partido, también es «después». */
+  const finDelPartido = P.cuando ? Date.parse(P.cuando) + 2 * 3_600_000 : NaN;
+
+  const viejo =
+    !bajadoEn ||
+    (Number.isFinite(finDelPartido)
+      ? bajadoEn.getTime() <= finDelPartido
+      : bajadoEn.toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" }) <= P.fecha);
 
   const dia = (d) => d.toLocaleDateString("es-ES", { day: "numeric", month: "numeric" });
 

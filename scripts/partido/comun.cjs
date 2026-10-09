@@ -43,9 +43,18 @@ function urlEscritura() {
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function publicada(clave) {
-  const texto = await fetch(`${LIBRO_ABP}?gid=${HOJAS[clave].gid}&single=true&output=csv&t=${Date.now()}`, {
+  const respuesta = await fetch(`${LIBRO_ABP}?gid=${HOJAS[clave].gid}&single=true&output=csv&t=${Date.now()}`, {
     cache: "no-store",
-  }).then((r) => r.text());
+  });
+
+  const texto = await respuesta.text();
+
+  /* Una página de error de Google se leía como «0 filas» (09/10/2026), y con
+     0 filas el escritor decidía AÑADIR: filas duplicadas. Si no es la hoja,
+     se dice. */
+  if (!respuesta.ok || !/JORNADA/i.test(texto.split(/\r?\n/, 1)[0] ?? "")) {
+    throw new Error(`la hoja publicada ${clave} no contesta bien (HTTP ${respuesta.status})`);
+  }
 
   return Papa.parse(texto, { header: true, skipEmptyLines: true }).data;
 }

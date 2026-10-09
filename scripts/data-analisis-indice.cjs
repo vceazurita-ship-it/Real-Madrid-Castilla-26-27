@@ -82,4 +82,9 @@ Module._resolveFilename = function (pedido, ...resto) {
     "[data-analisis] no se ha podido montar el índice, se sigue sin él:",
     error?.message ?? error,
   );
+
+  /* En la compilación no se tumba nada; desde la descarga de Wyscout
+     (`--estricto`) sí: publicar los .xlsx nuevos con el índice viejo
+     decía «Publicado» y la pantalla seguía con lo de antes (09/10/2026). */
+  if (process.argv.includes("--estricto")) process.exitCode = 1;
 });

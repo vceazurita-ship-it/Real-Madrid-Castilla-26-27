@@ -310,6 +310,10 @@ if (SOLO_VER) {
 
 const dir = path.join(AQUI, PARTIDO, "bloques");
 fs.mkdirSync(dir, { recursive: true });
+/* Fuera los bloques de una pasada anterior (09/10/2026): sin la táctica el
+   vídeo es más largo y sus bloques del final se quedaban, con robos en el
+   segundo de Hudl, contados dos veces por transiciones-datos. */
+for (const viejo of fs.readdirSync(dir).filter((f) => /^bd+.csv$/.test(f))) fs.rmSync(path.join(dir, viejo), { force: true });
 const porBloque = {};
 for (const r of robos) {
   const b = Math.floor(r.fila[0] / 300) * 300;
