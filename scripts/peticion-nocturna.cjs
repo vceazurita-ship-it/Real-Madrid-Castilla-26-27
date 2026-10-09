@@ -66,11 +66,9 @@ async function main() {
 
   const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-  const { data, error } = await supabase
-    .from("app_documents")
-    .select("data")
-    .eq("key", CLAVE_MANTENIMIENTO)
-    .maybeSingle();
+  const lee = () => supabase.from("app_documents").select("data, updated_at").eq("key", CLAVE_MANTENIMIENTO).maybeSingle();
+
+  let { data, error } = await lee();
 
   if (error) {
     console.log(`[peticion] no se ha podido leer: ${error.message}`);
@@ -101,15 +99,47 @@ async function main() {
       ? { empezadoEn: ahora }
       : { hechoEn: ahora, resultado: nota, ok: !fallo };
 
-  const { error: alEscribir } = await supabase.from("app_documents").upsert(
-    {
-      key: CLAVE_MANTENIMIENTO,
-      kind: "mantenimiento",
-      data: { ...estado, [tarea]: { ...suyo, ...cambio } },
-      updated_at: ahora,
-    },
-    { onConflict: "key" },
-  );
+  /* Condicional (09/10/2026): si la app apunta un pedido entre la lectura y
+     la escritura, se relee y se vuelve a aplicar en vez de pisarlo. */
+  let alEscribir = null;
+
+  for (let intento = 0; intento < 6; intento++) {
+    if (intento) {
+      ({ data, error } = await lee());
+
+      if (error) {
+        alEscribir = error;
+        break;
+      }
+    }
+
+    const actual = normalizaMantenimiento(data?.data);
+
+    const nuevo = { ...actual, [tarea]: { ...(actual[tarea] ?? {}), ...cambio } };
+
+    if (!data) {
+      ({ error: alEscribir } = await supabase
+        .from("app_documents")
+        .insert({ key: CLAVE_MANTENIMIENTO, kind: "mantenimiento", data: nuevo, updated_at: ahora }));
+
+      if (alEscribir?.code === "23505") continue;
+
+      break;
+    }
+
+    const { data: filas, error: alActualizar } = await supabase
+      .from("app_documents")
+      .update({ data: nuevo, updated_at: new Date().toISOString() })
+      .eq("key", CLAVE_MANTENIMIENTO)
+      .eq("updated_at", data.updated_at)
+      .select("key");
+
+    alEscribir = alActualizar ?? (filas?.length ? null : { message: "el documento cambia sin parar" });
+
+    if (alActualizar || filas?.length) break;
+
+    await new Promise((r) => setTimeout(r, 150 + Math.random() * 350));
+  }
 
   if (alEscribir) {
     console.log(`[peticion] no se ha podido marcar: ${alEscribir.message}`);

@@ -156,6 +156,56 @@ export async function writeDoc(
 }
 
 /**
+ * Leer, cambiar y escribir SIN perder lo que otro escriba en medio.
+ *
+ * La escritura sólo entra si `updated_at` sigue siendo el que se leyó (un
+ * UPDATE con esa condición, atómico en Postgres); si no, se relee y se vuelve
+ * a aplicar el cambio. Lo usan los encargos de Ajustes: el vigía del club
+ * escribe en el mismo documento, y un pedido que entrara entre su lectura y su
+ * escritura se perdía (09/10/2026).
+ */
+export async function cambiaDoc<T>(
+  key: string,
+  kind: string,
+  cambia: (actual: unknown) => T,
+  intentos = 6
+): Promise<T> {
+  for (let i = 0; i < intentos; i++) {
+    const previo = await readDoc(key);
+
+    const data = cambia(previo.data);
+
+    const updatedAt = new Date().toISOString();
+
+    if (!previo.updatedAt) {
+      /* No había documento: se crea; si otro lo crea a la vez, el insert falla y se repite. */
+      const { error } = await supabase.from(TABLE).insert({ key, kind, data, updated_at: updatedAt });
+
+      if (!error) return data;
+
+      if (error.code !== "23505") throw new Error(error.message);
+
+      continue;
+    }
+
+    const { data: filas, error } = await supabase
+      .from(TABLE)
+      .update({ data, updated_at: updatedAt })
+      .eq("key", key)
+      .eq("updated_at", previo.updatedAt)
+      .select("key");
+
+    if (error) throw new Error(error.message);
+
+    if (filas?.length) return data;
+
+    await new Promise((r) => setTimeout(r, 150 + Math.random() * 350));
+  }
+
+  throw new Error(`el documento ${key} cambia sin parar: no se ha podido escribir`);
+}
+
+/**
  * Los documentos cuya clave empieza por un prefijo.
  *
  * Lo pide el coding: los clips de un jugador están repartidos por todas las

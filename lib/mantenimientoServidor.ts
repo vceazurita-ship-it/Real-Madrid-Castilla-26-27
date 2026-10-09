@@ -5,7 +5,7 @@
  * llave de servicio de Supabase y no puede llegar nunca al navegador.
  */
 
-import { readDoc, writeDoc } from "@/lib/docStore";
+import { cambiaDoc, readDoc } from "@/lib/docStore";
 import {
   CLAVE_MANTENIMIENTO,
   CLAVE_VIGIA,
@@ -31,8 +31,8 @@ export async function leeMantenimiento(): Promise<{
 /**
  * Apunta el pedido de una tarea sin tocar las demás.
  *
- * Se relee el documento justo antes de escribir y sólo cambia el trozo de esa
- * tarea: el vigía escribe en el mismo documento cuando empieza y cuando acaba.
+ * Sólo cambia el trozo de esa tarea, y la escritura es condicional (`cambiaDoc`):
+ * el vigía escribe en el mismo documento cuando empieza y cuando acaba.
  */
 export async function pideEncargo(
   tarea: Tarea,
@@ -40,24 +40,22 @@ export async function pideEncargo(
   datos?: DatosCarpeta,
   plan?: number[],
 ): Promise<Mantenimiento> {
-  const { data } = await readDoc<unknown>(CLAVE_MANTENIMIENTO);
+  const pedidoEn = new Date().toISOString();
 
-  const estado = normalizaMantenimiento(data);
+  return cambiaDoc<Mantenimiento>(CLAVE_MANTENIMIENTO, "mantenimiento", (data) => {
+    const estado = normalizaMantenimiento(data);
 
-  const nuevo: Mantenimiento = {
-    ...estado,
-    [tarea]: {
-      ...estado[tarea],
-      pedidoEn: new Date().toISOString(),
-      pedidoPor: quien,
-      ...(datos ? { datos } : {}),
-      /* Cada pedido dice el suyo: uno sin plan es «todo», y no hereda el
-         plan de la vez anterior. */
-      plan: plan?.length ? plan : undefined,
-    },
-  };
-
-  await writeDoc(CLAVE_MANTENIMIENTO, "mantenimiento", nuevo);
-
-  return nuevo;
+    return {
+      ...estado,
+      [tarea]: {
+        ...estado[tarea],
+        pedidoEn,
+        pedidoPor: quien,
+        ...(datos ? { datos } : {}),
+        /* Cada pedido dice el suyo: uno sin plan es «todo», y no hereda el
+           plan de la vez anterior. */
+        plan: plan?.length ? plan : undefined,
+      },
+    };
+  });
 }

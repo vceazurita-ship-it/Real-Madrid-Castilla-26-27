@@ -75,6 +75,37 @@ function adapta(fila, cabecera, existentes) {
   return sale;
 }
 
+/*
+| Cuántas debería haber según el timeline de Hudl (`conteo.json`). Contar sólo
+| «las que se escribieron están» daba «4 de 4 al día» con una pestaña de
+| córners vacía porque el análisis aún no las había dejado (09/10/2026): 0 de
+| 0 cuadra. Con esto, faltar jugadas es un fallo aunque la escritura vaya bien.
+*/
+const CONTEO = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(CARPETA, "conteo.json"), "utf8"));
+  } catch {
+    return null;
+  }
+})();
+
+const esCorner = (f) => /c[oó]rner/i.test(f.Tipo_Accion ?? "");
+const esPenalti = (f) => /penalti/i.test(f.Tipo_Accion ?? "");
+
+/** [nombre, cuántas hay en las filas, cuántas dice Hudl] de cada cosa que se puede contar. */
+function cuentas(clave, filas) {
+  if (!CONTEO) return [];
+
+  const lado = /Of$/.test(clave) ? "nuestro" : "rival";
+
+  if (/^banda/.test(clave)) return [["saques de banda", filas.length, CONTEO.banda?.[lado]]];
+
+  return [
+    ["córners", filas.filter(esCorner).length, CONTEO.corners?.[lado]],
+    ["penaltis", filas.filter(esPenalti).length, CONTEO.penaltis?.[lado]],
+  ];
+}
+
 (async () => {
   const secciones = [];
   const avisos = [];
@@ -262,7 +293,11 @@ function adapta(fila, cabecera, existentes) {
       continue;
     }
 
-    secciones.push({ clave, nombre: hoja.nombre, esperadas: filas.length, ok: null, detalle: "" });
+    const faltan = cuentas(clave, filas)
+      .filter(([, hay, quiere]) => Number.isFinite(quiere) && hay < quiere)
+      .map(([que, hay, quiere]) => `${que}: ${hay} de ${quiere} analizados`);
+
+    secciones.push({ clave, nombre: hoja.nombre, esperadas: filas.length, ok: null, detalle: "", faltan });
   }
 
   for (const a of [...new Set(avisos)]) console.log(`  aviso: ${a}`);
@@ -291,6 +326,12 @@ function adapta(fila, cabecera, existentes) {
 
   for (const s of pendientes) {
     if (!s.ok) s.detalle += " (el CSV publicado puede tardar más; se vuelve a mirar al verificar)";
+
+    /* Escrito bien, pero incompleto respecto al timeline. */
+    if (s.faltan.length) {
+      s.ok = false;
+      s.detalle += ` · faltan jugadas por analizar (${s.faltan.join(", ")} según Hudl)`;
+    }
   }
 
   const bien = secciones.filter((s) => s.ok).length;

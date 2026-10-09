@@ -547,7 +547,7 @@ function etapaDeSeccion(nombre: string, detalle = "") {
   /* Lo que deja el análisis de vídeo aunque lo cuente otra sección (09/10/2026):
      el desfase de la táctica, las faltas decididas y las filas de banda. Antes
      iba a «escribir», que no lo arregla, y «Repetir» se repetía sin fin. */
-  if (/SIN medir|candidatas decididas|no dejó las filas/i.test(detalle)) return 4;
+  if (/SIN medir|candidatas decididas|no dejó las filas|faltan jugadas por analizar/i.test(detalle)) return 4;
   if (/Hudl/i.test(nombre)) return 2;
   if (/base del timeline/i.test(nombre)) return 3;
   if (/análisis de vídeo|análisis de cada jugada/i.test(nombre)) return 4;

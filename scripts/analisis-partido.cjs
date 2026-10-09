@@ -185,7 +185,21 @@ async function localiza() {
 
   const terminados = partidos.filter((p) => Date.parse(p.cuando) < corte);
 
-  const elegido = pedida ? partidos.find((p) => p.jornada === pedida) : terminados[terminados.length - 1];
+  let elegido = pedida ? partidos.find((p) => p.jornada === pedida) : terminados[terminados.length - 1];
+
+  /*
+  | Un aplazado se queda sin marcador para siempre y el botón no puede pasar
+  | `--jornada`: sin esto salía con código 3 hasta que se jugara. Pasadas 48 h
+  | sin marcador, se da por aplazado y vale el anterior que sí lo tenga.
+  */
+  if (!pedida && elegido && !elegido.jugado && Date.parse(elegido.cuando) < Date.now() - 48 * 3_600_000) {
+    const anterior = terminados.filter((p) => p.jugado).pop();
+
+    if (anterior) {
+      console.log(`La J${elegido.jornada} (${elegido.rival}) sigue sin marcador 48 h después: parece aplazada, va la J${anterior.jornada}.`);
+      elegido = anterior;
+    }
+  }
 
   if (!elegido) throw new Error(pedida ? `no hay jornada ${pedida} en el calendario` : "el calendario no tiene ningún partido jugado");
 
@@ -447,7 +461,7 @@ async function principal() {
       9: [false, "bajado, pero hay commits sin subir que no son de datos: no se ha publicado"],
     };
 
-    const [ok, dice] = MOTIVO[w.codigo] ?? [false, `la descarga ha fallado (código ${w.codigo})`];
+    const [ok, dice] = MOTIVO[w.codigo] ?? [false, `la descarga ha fallado (código ${w.codigo}): el detalle está en el último registro de .cache\\wyscout`];
 
     console.log(`Wyscout: ${dice}`);
 
@@ -625,6 +639,17 @@ async function principal() {
       }
     }, 30_000);
 
+    /* Lo copiado de la base en una pasada anterior no es análisis: fuera,
+       o Claude lo daría por hecho al «continuar donde se quedó». */
+    for (const clave of ["bandaOf", "bandaDef"]) {
+      const marca = path.join(CARPETA, "hoja", `.de-base-${clave}`);
+
+      if (fs.existsSync(marca)) {
+        fs.rmSync(path.join(CARPETA, "hoja", `${clave}.tsv`), { force: true });
+        fs.rmSync(marca, { force: true });
+      }
+    }
+
     const encargo = [
       `Analiza el partido de la carpeta ${CARPETA} siguiendo AL PIE DE LA LETRA ${path.join(RAIZ, "scripts", "partido", "MANUAL.md").replace(/\\/g, "/")}.`,
       "Trabajas solo y sin nadie delante: no preguntes nada, decide con el manual y apunta las dudas en informe.md.",
@@ -675,11 +700,15 @@ async function principal() {
     fs.mkdirSync(dirHoja, { recursive: true });
 
     for (const clave of ["bandaOf", "bandaDef"]) {
-      if (!fs.existsSync(path.join(dirHoja, `${clave}.tsv`))) {
-        anota(`ABP · ${clave}`, false, "el análisis de vídeo no dejó las filas: se escriben sólo las columnas del dato");
+      const marca = path.join(dirHoja, `.de-base-${clave}`);
 
+      if (!fs.existsSync(path.join(dirHoja, `${clave}.tsv`))) {
         fs.copyFileSync(path.join(CARPETA, "base", `${clave}.tsv`), path.join(dirHoja, `${clave}.tsv`));
+        fs.writeFileSync(marca, new Date().toISOString(), "utf8");
       }
+
+      /* Con la marca, la copia sigue sin análisis aunque sea de otra pasada. */
+      if (fs.existsSync(marca)) anota(`ABP · ${clave}`, false, "el análisis de vídeo no dejó las filas: se escriben sólo las columnas del dato");
     }
 
     const e = await node("scripts/partido/escribir.cjs", "--carpeta", CARPETA, "--hoja");

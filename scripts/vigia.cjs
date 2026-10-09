@@ -144,20 +144,50 @@ function claro(mensaje) {
 }
 
 function marca(tarea, cambio) {
+  /* Escritura condicional (09/10/2026): sólo entra si `updated_at` sigue
+     siendo el leído. Si la app ha apuntado un pedido en medio, se relee y se
+     vuelve a aplicar el cambio en vez de pisarlo. */
   const escribe = async () => {
-    const estado = await leeEncargos();
+    for (let intento = 0; intento < 6; intento++) {
+      const { data: fila, error: errorLectura } = await supabase
+        .from("app_documents")
+        .select("data, updated_at")
+        .eq("key", CLAVE_MANTENIMIENTO)
+        .maybeSingle();
 
-    const { error } = await supabase.from("app_documents").upsert(
-      {
-        key: CLAVE_MANTENIMIENTO,
-        kind: "mantenimiento",
-        data: { ...estado, [tarea]: { ...estado[tarea], ...cambio } },
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "key" },
-    );
+      if (errorLectura) throw new Error(claro(errorLectura.message));
 
-    if (error) throw new Error(claro(error.message));
+      const estado = normalizaMantenimiento(fila?.data);
+
+      const data = { ...estado, [tarea]: { ...estado[tarea], ...cambio } };
+
+      const updated_at = new Date().toISOString();
+
+      if (!fila) {
+        const { error } = await supabase.from("app_documents").insert({ key: CLAVE_MANTENIMIENTO, kind: "mantenimiento", data, updated_at });
+
+        if (!error) return;
+
+        if (error.code !== "23505") throw new Error(claro(error.message));
+
+        continue;
+      }
+
+      const { data: filas, error } = await supabase
+        .from("app_documents")
+        .update({ data, updated_at })
+        .eq("key", CLAVE_MANTENIMIENTO)
+        .eq("updated_at", fila.updated_at)
+        .select("key");
+
+      if (error) throw new Error(claro(error.message));
+
+      if (filas?.length) return;
+
+      await new Promise((r) => setTimeout(r, 150 + Math.random() * 350));
+    }
+
+    throw new Error("el documento de encargos cambia sin parar");
   };
 
   const turno = colaDeEscrituras.then(escribe, escribe);
