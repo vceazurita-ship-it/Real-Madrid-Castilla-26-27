@@ -1949,7 +1949,37 @@ async function preparaBuscador(buscador) {
 }
 
 /** Un lote de equipos: se ponen en el filtro, se exporta y se guarda. */
+/*
+| La opción del desplegable que de verdad trae jugadores, aprendida en el
+| rescate (09/10/2026). «Águilas» tiene nueve opciones y la nuestra es la
+| cuarta, «Águilas FC»: sin recordarla, cada semana eran cuatro exportaciones
+| de más. Si deja de valer, el rescate vuelve a probar y la cambia.
+*/
+const OPCIONES_EQUIPO = path.join(CACHE, "opciones-equipo.json");
+
+function leeAprendidas() {
+  try {
+    return JSON.parse(fs.readFileSync(OPCIONES_EQUIPO, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function aprende(equipo, opcion) {
+  if (!opcion) return;
+
+  const todas = leeAprendidas();
+
+  if (todas[equipo] === opcion) return;
+
+  fs.writeFileSync(OPCIONES_EQUIPO, JSON.stringify({ ...todas, [equipo]: opcion }, null, 2), "utf8");
+
+  console.log(`    (se recuerda «${opcion}» para ${equipo})`);
+}
+
 async function bajaLote(nav, buscador, equipos, numero, { cual = 0 } = {}) {
+  const aprendidas = leeAprendidas();
+
   /* Fuera los del lote anterior. */
   await buscador.clicReal(`
     (() => {
@@ -1987,7 +2017,7 @@ async function bajaLote(nav, buscador, equipos, numero, { cual = 0 } = {}) {
 
     for (let i = 0; i < 2 && !elegido; i++) {
       try {
-        elegido = await buscador.eligeEn("Equipo actual", equipo, equipo, cual);
+        elegido = await buscador.eligeEn("Equipo actual", equipo, (cual === 0 && aprendidas[equipo]) || equipo, cual);
       } catch {
         /* se reintenta */
       }
@@ -2040,7 +2070,7 @@ async function bajaLote(nav, buscador, equipos, numero, { cual = 0 } = {}) {
     let otra = null;
 
     try {
-      otra = await buscador.eligeEn("Equipo actual", equipo, equipo, cual);
+      otra = await buscador.eligeEn("Equipo actual", equipo, (cual === 0 && aprendidas[equipo]) || equipo, cual);
     } catch {
       /* se queda en «faltan» */
     }
@@ -2060,7 +2090,24 @@ async function bajaLote(nav, buscador, equipos, numero, { cual = 0 } = {}) {
     return { numero, estado: "ningún equipo del lote está en el buscador" };
   }
 
-  const jugadores = await buscador.js(`return cuenta();`);
+  /*
+  | Se espera a que la tabla deje de cambiar antes de exportar (09/10/2026):
+  | el Águilas bajaba unas veces sí y otras no con la MISMA opción, y lo que
+  | cambiaba era cuánto había tardado Wyscout en aplicar el filtro.
+  */
+  let jugadores = await buscador.js(`return cuenta();`);
+
+  for (let i = 0, iguales = 0; i < 20 && iguales < 3; i++) {
+    await espera(1000);
+
+    const ahora = await buscador.js(`return cuenta();`);
+
+    iguales = ahora === jugadores && ahora !== "?" ? iguales + 1 : 0;
+    jugadores = ahora;
+  }
+
+  /* Lo que de verdad hay puesto al exportar: si sale mal, se dice. */
+  const fichas = await buscador.puestosEn("Equipo actual").catch(() => []);
 
   if (bandera("parar")) {
     const fichas = await buscador.js(`
@@ -2184,9 +2231,20 @@ async function bajaLote(nav, buscador, equipos, numero, { cual = 0 } = {}) {
   const sinFilas = porEquipo ? equipos.filter((equipo) => !porEquipo.get(normalizaEquipo(equipo))) : [];
 
   if (porEquipo && sinFilas.length === equipos.length) {
+    /* Se guarda para poder mirarlo y se dice qué trae: borrarlo sin más
+       dejaba el fallo sin pista (09/10/2026). */
+    const rechazado = path.join(CACHE, `rechazado ${numero}.xlsx`);
+
+    fs.copyFileSync(origen, rechazado);
     fs.unlinkSync(origen);
 
-    return { numero, estado: `el Excel no trae jugadores de ${equipos.join(", ")}`, faltan: [...equipos] };
+    const trae = [...porEquipo.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([e, n]) => `${e} ${n}`);
+
+    return {
+      numero,
+      estado: `el Excel no trae jugadores de ${equipos.join(", ")} (trae ${trae.length ? trae.join(", ") : "0 filas"}; en el filtro: ${fichas.join(", ") || "nada"}; la tabla decía ${jugadores}; guardado en .cache\\wyscout\\${path.basename(rechazado)})`,
+      faltan: [...equipos],
+    };
   }
 
   /* Leído el fichero, él decide quién falta (también al revés: una ficha mal
@@ -2212,6 +2270,8 @@ async function bajaLote(nav, buscador, equipos, numero, { cual = 0 } = {}) {
     kb,
     jugadores: filas,
     equipos: puestos,
+    elegidos: Object.fromEntries(elegidoDe),
+    fichas,
     faltan,
     recortado,
   };
@@ -2314,9 +2374,10 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
   */
   const rescatados = [];
 
-  /* Sólo los que faltan de un lote que sí bajó: un lote entero fallido ya se
-     ha intentado dos veces, y suele ser la pestaña colgada. */
-  const ausentes = [...new Set(resultados.flatMap((r) => (r?.estado === "ok" ? r.faltan ?? [] : [])))];
+  /* Los que faltan de un lote que bajó, también si el Excel no traía a
+     ninguno (lote de un solo equipo). Un lote que falló sin fichero no lleva
+     `faltan`: ya se ha intentado dos veces y suele ser la pestaña colgada. */
+  const ausentes = [...new Set(resultados.flatMap((r) => r?.faltan ?? []))];
 
   if (!bandera("parar") && ausentes.length) {
     console.log(`\n  rescate de ${ausentes.length}: ${ausentes.join(", ")}`);
@@ -2328,7 +2389,7 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
 
       let resultado = null;
 
-      for (let cual = 0; cual < 3 && !resultado?.fichero; cual++) {
+      for (let cual = 0; cual < 6 && !resultado?.fichero; cual++) {
         try {
           const prueba = await bajaLote(nav, buscador, [equipo], numero, { cual });
 
@@ -2344,7 +2405,9 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
       if (resultado?.fichero && !resultado.faltan?.length) {
         rescatados.push(equipo);
 
-        console.log(`✓ ${resultado.fichero} · ${resultado.jugadores} jugadores`);
+        aprende(equipo, resultado.elegidos?.[equipo]);
+
+        console.log(`✓ ${resultado.fichero} · ${resultado.jugadores} jugadores (en el filtro: ${resultado.fichas?.join(", ") || "?"})`);
       } else {
         console.log(`✗ ${resultado?.estado === "ok" ? "sigue sin jugadores" : resultado?.estado ?? "no ha bajado"}`);
       }
@@ -2361,6 +2424,15 @@ async function bajaJugadores(nav, equipos, { suelto = false } = {}) {
     fs.renameSync(path.join(DESTINO, r.fichero), path.join(DESTINO, entero));
 
     r.fichero = entero;
+    r.faltan = [];
+  }
+
+  /* Un lote que salió sin jugadores y cuyos equipos han bajado todos solos
+     ya no está mal: lo suyo está en los ficheros del rescate. */
+  for (const r of resultados) {
+    if (r?.estado === "ok" || !r?.faltan?.length || !r.faltan.every((e) => rescatados.includes(e))) continue;
+
+    r.estado = "ok";
     r.faltan = [];
   }
 
