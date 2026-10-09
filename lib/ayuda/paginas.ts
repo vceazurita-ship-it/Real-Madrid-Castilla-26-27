@@ -793,6 +793,59 @@ export const AYUDAS: AyudaDePagina[] = [
     ],
   },
 
+  /* ==================== APUESTAS DEL STAFF ==================== */
+  {
+    ruta: "/laboratorio/apuestas",
+    titulo: "Apuestas del staff",
+    resumen:
+      "Uno lanza una predicción y dice qué se juega; los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón.",
+    origen:
+      "Las escribe el cuerpo técnico aquí mismo, con la misma cuenta que la quiniela. Viven en un documento propio de Supabase; no salen de ninguna hoja.",
+    bloques: [
+      {
+        titulo: "Cómo se juega",
+        filas: [
+          {
+            que: "Entrar",
+            es: "Con la cuenta de la quiniela. Ver las apuestas no necesita entrar; lanzar, mojarse o dar el veredicto, sí",
+          },
+          {
+            que: "Lanzar una apuesta",
+            es: "La predicción, qué te juegas y el día en que se comprueba. Quien la lanza va a favor de sí mismo",
+          },
+          {
+            que: "A favor · En contra",
+            es: "Hasta el día de comprobación, sin contarlo. Se puede cambiar de bando o quitarse las veces que haga falta",
+          },
+          {
+            que: "Toca comprobarla",
+            es: "Desde el día señalado se cierran las posturas y cualquiera que haya entrado dice si acertó o falló. Se puede deshacer",
+          },
+          {
+            que: "Retirarla",
+            es: "Sólo el autor, y sólo mientras nadie se haya puesto a favor ni en contra",
+          },
+        ],
+      },
+      {
+        titulo: "El marcador",
+        filas: [
+          { que: "Lanzadas", es: "Apuestas que ha tirado, resueltas o no" },
+          { que: "Seguidas", es: "Veces que se ha mojado en las de otros" },
+          {
+            que: "Aciertos y fallos",
+            es: "Sólo de las resueltas. Quien lanza acierta si se cumple; quien va a favor, con él; quien va en contra, si falla",
+          },
+          { que: "Balance", es: "Aciertos menos fallos", cuenta: "Ordena el marcador; a igual balance, más aciertos" },
+        ],
+      },
+    ],
+    ojo: [
+      "Lo que se juega es lo que diga el autor y lo pagan los que se equivocan: la pantalla sólo lleva la cuenta.",
+      "La fecha de comprobación es un tope, no una promesa: si la predicción ya se ha cumplido antes, hay que esperar a ese día para darla por acertada.",
+    ],
+  },
+
   /* ==================== LA PORTADA ==================== */
   {
     ruta: "/",

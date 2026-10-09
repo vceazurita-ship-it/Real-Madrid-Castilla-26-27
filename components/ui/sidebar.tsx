@@ -27,6 +27,7 @@ import {
   Clapperboard,
   ClipboardCheck,
   Database,
+  Dices,
   Dumbbell,
   Flag,
   FlaskConical,
@@ -542,6 +543,17 @@ const seccion = (titulo: string, hijos: ReactNode) => (
                 "/laboratorio/escudos",
                 "Escudos de la liga",
                 <Shield size={18} />,
+              )}
+
+              {/*
+                Las apuestas del staff: una predicción, los que van a favor y
+                en contra, y el día en que se comprueba. Mismas cuentas que la
+                quiniela.
+              */}
+              {navLink(
+                "/laboratorio/apuestas",
+                "Apuestas del staff",
+                <Dices size={18} />,
               )}
 
               {disabledLink("Pizarra Sesión", <PencilRuler size={18} />)}

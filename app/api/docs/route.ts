@@ -53,7 +53,7 @@ const vetada = (key: string) =>
  * vieja —o una copia de antes de la actualización guardada en el navegador—
  * podría pisar las apuestas de todos con lo que tenía al cargar.
  */
-const SOLO_LECTURA = new Set(["quiniela"]);
+const SOLO_LECTURA = new Set(["quiniela", "apuestas-staff"]);
 
 export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get("key") ?? "";
