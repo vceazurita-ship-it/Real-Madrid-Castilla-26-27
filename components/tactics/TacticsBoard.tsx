@@ -19,7 +19,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { toPng } from "html-to-image";
+import { capturaNodo } from "@/lib/export/captura";
+import { descargaDataUrl } from "@/lib/export/lienzos";
 import { toast } from "sonner";
 import {
   Building2,
@@ -817,7 +818,8 @@ export default function TacticsBoard({
         requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
       );
 
-      const dataUrl = await toPng(frameRef.current, {
+      /* `capturaNodo`: segundo dibujo en Safari y tope de lienzo en iPad. */
+      const { dataUrl } = await capturaNodo(frameRef.current, {
         pixelRatio: 2,
         backgroundColor: "#0B0F14",
         filter: (node) =>
@@ -825,10 +827,7 @@ export default function TacticsBoard({
           !node.hasAttribute("data-export-hide"),
       });
 
-      const link = document.createElement("a");
-      link.download = `${doc.titulo || "pizarra"}-${scene.nombre}.png`;
-      link.href = dataUrl;
-      link.click();
+      await descargaDataUrl(dataUrl, `${doc.titulo || "pizarra"}-${scene.nombre}.png`);
 
       toast.success("Imagen descargada");
     } catch (error) {

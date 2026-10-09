@@ -6,7 +6,7 @@ import { BotonAlertas } from "@/components/alertas/BotonAlertas";
 import { BotonAyuda } from "@/components/ayuda/BotonAyuda";
 import { PageExportButton } from "@/components/page-export-button";
 import { ThemeProvider } from "@/components/theme-provider";
-import { DEFAULT_THEME, THEME_STORAGE_KEY } from "@/lib/theme";
+import { DEFAULT_THEME, THEME_COLOR, THEME_STORAGE_KEY } from "@/lib/theme";
 import { MenuFlotante } from "@/components/ui/MenuFlotante";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemedToaster } from "@/components/themed-toaster";
@@ -38,7 +38,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   /* El proveedor de tema reescribe esta etiqueta al cambiar de modo. */
-  themeColor: "#0B0F14",
+  themeColor: THEME_COLOR[DEFAULT_THEME],
 };
 
 /**

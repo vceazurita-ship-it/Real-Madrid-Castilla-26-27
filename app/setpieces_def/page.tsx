@@ -1210,11 +1210,11 @@ const downloadPDF = async () => {
   | arriba viajaban en el paquete de la pantalla, y había que bajarlos y
   | compilarlos antes de poder pintar la primera tabla.
   */
-  const [{ default: jsPDF }, { default: autoTable }, htmlToImage] =
+  const [{ default: jsPDF }, { default: autoTable }, { capturaNodo }] =
     await Promise.all([
       import("jspdf"),
       import("jspdf-autotable"),
-      import("html-to-image"),
+      import("@/lib/export/captura"),
     ]);
 
   const doc = new jsPDF("l", "mm", "a4");
@@ -1768,8 +1768,10 @@ while (index < charts.length) {
     if (!element)
       continue;
 
-    const image =
-      await htmlToImage.toPng(
+    /* Por `capturaNodo`: en Safari la primera pasada salía sin la
+       gráfica y en un iPad el lienzo a 3× se pasaba del tope. */
+    const { dataUrl: image } =
+      await capturaNodo(
         element,
         {
           backgroundColor:

@@ -22,6 +22,8 @@
 
 import type { jsPDF } from "jspdf";
 
+import { capturaNodo } from "@/lib/export/captura";
+
 /** Un píxel transparente: lo que se pone donde una foto no se ha podido leer. */
 export const PIXEL_VACIO =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -60,6 +62,20 @@ export function descarga(blob: Blob, nombre: string) {
 
   /* El navegador todavía está leyendo el blob cuando vuelve el click. */
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/**
+ * Descarga una imagen que viene como `data:` URL.
+ *
+ * Pasa por `Blob` a propósito: en iOS un `<a download>` con un `data:` de
+ * varios megas abre la imagen en una pestaña o no hace nada, y en Safari de
+ * escritorio a veces la guarda como «desconocido». Con un `blob:` descarga en
+ * todos, y con su nombre.
+ */
+export async function descargaDataUrl(dataUrl: string, nombre: string) {
+  const blob = await (await fetch(dataUrl)).blob();
+
+  descarga(blob, nombre);
 }
 
 /* ------------------------------------------------------------------ */
@@ -161,15 +177,19 @@ export async function capturaLienzos(
 
   const imagenes: string[] = [];
 
+  /* La captura de verdad va por `capturaNodo`: es el mismo `toJpeg` abierto
+     en dos mitades, con el segundo dibujo y el tope de lienzo que Safari y
+     los iPad necesitan. Ver `lib/export/captura.ts`. */
   for (const nodo of nodos) {
-    const imagen = await htmlToImage.toJpeg(nodo, {
+    const { dataUrl } = await capturaNodo(nodo, {
       ...comunes,
+      formato: "jpeg",
       width: opciones.ancho,
       height: opciones.alto,
       pixelRatio: opciones.nitidez ?? NITIDEZ,
     });
 
-    imagenes.push(imagen);
+    imagenes.push(dataUrl);
 
     opciones.alPaso?.(imagenes.length, nodos.length);
   }

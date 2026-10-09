@@ -13,6 +13,8 @@ import {
 import { toast } from "sonner";
 
 import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
+import { capturaNodo } from "@/lib/export/captura";
+import { descargaDataUrl } from "@/lib/export/lienzos";
 import { usePortadaOfrecida } from "@/lib/rivals/portada-slot";
 
 /**
@@ -699,34 +701,17 @@ async function capturePage(): Promise<Capture> {
         .catch(() => undefined);
     }
 
-    /* Si el lienzo se pasa de tamaño el navegador devuelve una imagen en
-       blanco en lugar de fallar: bajamos la resolución y repetimos. Solo
-       tiene sentido vigilarlo en páginas grandes; en una corta un PNG
-       pequeño es simplemente un PNG pequeño. */
-    const risky = width * height * pixelRatio * pixelRatio > 12_000_000;
-
-    const looksEmpty = (url: string) => risky && url.length < 6000;
-
-    let dataUrl = "";
-    let used = pixelRatio;
-
-    for (const ratio of [pixelRatio, pixelRatio * 0.6, pixelRatio * 0.35]) {
-      used = Math.max(0.25, ratio);
-
-      dataUrl = await htmlToImage.toPng(root, { ...options, pixelRatio: used });
-
-      if (!looksEmpty(dataUrl)) break;
-    }
-
-    if (looksEmpty(dataUrl)) {
-      throw new Error("La captura ha salido vacía");
-    }
+    /* La captura de verdad va por `capturaNodo` (`lib/export/captura.ts`):
+       recorta la nitidez a lo que el aparato pinta —un iPad no pasa de 16,7 M
+       de píxeles—, repite más pequeño si el lienzo sale vacío y en Safari
+       dibuja dos veces, que la primera sale sin fotos. */
+    const captura = await capturaNodo(root, { ...options, pixelRatio });
 
     return {
-      dataUrl,
+      dataUrl: captura.dataUrl,
       width,
       height,
-      pixelRatio: used,
+      pixelRatio: captura.nitidez,
       boxes,
       dialog: Boolean(dialog),
     };
@@ -745,15 +730,10 @@ function loadImage(src: string) {
   });
 }
 
+/* Por `Blob`, no por `data:`: en iOS el `data:` abre la imagen en vez de
+   bajarla. Ver `descargaDataUrl`. */
 function downloadDataUrl(dataUrl: string, filename: string) {
-  const link = document.createElement("a");
-
-  link.href = dataUrl;
-  link.download = filename;
-
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+  return descargaDataUrl(dataUrl, filename);
 }
 
 /** Busca hacia arriba el primer corte que no parta una tarjeta. */

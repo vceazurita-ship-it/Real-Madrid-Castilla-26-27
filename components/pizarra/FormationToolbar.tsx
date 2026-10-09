@@ -3,7 +3,8 @@
 import { useLineup } from "@/context/LineupContext";
 import { saveLineup } from "@/lib/saveLineup";
 import { usePlayers } from "@/hooks/usePlayers";
-import { toPng } from "html-to-image";
+import { capturaNodo } from "@/lib/export/captura";
+import { descargaDataUrl } from "@/lib/export/lienzos";
 import { useState } from "react";
 import {
   Save,
@@ -197,7 +198,9 @@ clone.style.overflow = "hidden";
 
   document.body.appendChild(wrapper);
 
-  const dataUrl = await toPng(wrapper, {
+  /* `capturaNodo` y no `toPng`: en Safari la primera pasada sale sin las
+     caras, y en un iPad hay tope de lienzo. */
+  const { dataUrl } = await capturaNodo(wrapper, {
     cacheBust: true,
     pixelRatio: 2,
   });
@@ -214,11 +217,7 @@ async function exportPitch() {
 
   if (!dataUrl) return;
 
-  const link = document.createElement("a");
-
-  link.download = "alineacion.png";
-  link.href = dataUrl;
-  link.click();
+  await descargaDataUrl(dataUrl, "alineacion.png");
 }
 async function sharePitch() {
   try {

@@ -12,8 +12,12 @@ export type Theme = "dark" | "light";
 /** Cambiar esta clave invalida la preferencia guardada de todo el mundo. */
 export const THEME_STORAGE_KEY = "rmcf-theme";
 
-/** Sin preferencia guardada mandan el oscuro y el diseño original. */
-export const DEFAULT_THEME: Theme = "dark";
+/**
+ * Sin preferencia guardada manda el modo día (desde el 09/10/2026; antes era
+ * el oscuro, el diseño original). Quien haya pulsado el interruptor conserva
+ * lo suyo: la preferencia guardada gana siempre.
+ */
+export const DEFAULT_THEME: Theme = "light";
 
 /**
  * Color de la barra del navegador / PWA en cada tema.

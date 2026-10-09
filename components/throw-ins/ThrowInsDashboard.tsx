@@ -6,7 +6,8 @@ import type { CSSProperties, ReactNode } from "react";
 import Papa from "papaparse";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FileDown } from "lucide-react";
-import * as htmlToImage from "html-to-image";
+import { capturaNodo } from "@/lib/export/captura";
+import { descargaDataUrl } from "@/lib/export/lienzos";
 import { traeCsv } from "@/lib/hojaCsv";
 import {
   Conclusiones,
@@ -1000,18 +1001,18 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       // indistinguibles. Esperamos a que React pinte la cabecera de exportación.
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-      const dataUrl = await htmlToImage.toPng(contentRef.current, {
+      /* `capturaNodo`: el panel entero a 2× se pasa del lienzo de un iPad,
+         y en Safari la primera pasada sale sin los escudos. */
+      const { dataUrl } = await capturaNodo(contentRef.current, {
         backgroundColor: "#0B0F14",
         pixelRatio: 2,
         cacheBust: true,
       });
 
-      const link = document.createElement("a");
-      link.download = `saque-banda-${isOffensive ? "ofensivo" : "defensivo"}-${new Date()
-        .toISOString()
-        .slice(0, 10)}.png`;
-      link.href = dataUrl;
-      link.click();
+      await descargaDataUrl(
+        dataUrl,
+        `saque-banda-${isOffensive ? "ofensivo" : "defensivo"}-${new Date().toISOString().slice(0, 10)}.png`,
+      );
     } catch {
       setError("No se pudo generar la imagen del panel.");
     } finally {

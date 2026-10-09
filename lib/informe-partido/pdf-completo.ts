@@ -31,6 +31,7 @@
  * Se usa en el navegador.
  */
 
+import { cargaSvg, fuentesListas } from "@/lib/export/captura";
 import { PIXEL_VACIO, pdfDeLienzos } from "@/lib/export/lienzos";
 
 const FONDO = "#EEEAE0";
@@ -49,15 +50,6 @@ export type OpcionesCompleto = {
   /** «Post J6 · RM Castilla 3-2 Atlético Madrileño»: va en el pie y en las propiedades del PDF. */
   titulo?: string;
 };
-
-const cargaImagen = (src: string) =>
-  new Promise<HTMLImageElement>((resuelve, falla) => {
-    const img = new Image();
-
-    img.onload = () => resuelve(img);
-    img.onerror = () => falla(new Error("No se ha podido pintar el informe."));
-    img.src = src;
-  });
 
 export async function completoEnPdf(html: string, alPaso?: (hoja: number, total: number) => void, opciones: OpcionesCompleto = {}): Promise<Blob> {
   const documento = new DOMParser().parseFromString(html, "text/html");
@@ -117,6 +109,8 @@ export async function completoEnPdf(html: string, alPaso?: (hoja: number, total:
     /* La foto, UNA vez: el documento entero como SVG. */
     const { toSvg } = await import("html-to-image");
 
+    await fuentesListas();
+
     const svg = await toSvg(caja, {
       width: ANCHO,
       height: alto,
@@ -126,7 +120,9 @@ export async function completoEnPdf(html: string, alPaso?: (hoja: number, total:
       style: { position: "static", left: "0", top: "0", transform: "none" },
     });
 
-    const imagen = await cargaImagen(svg);
+    /* `cargaSvg` (y no la carga de siempre): en WebKit la imagen se da por
+       cargada antes de tener dentro las fotos, y sale el respiro que falta. */
+    const imagen = await cargaSvg(svg);
 
     const hojas: string[] = [];
 

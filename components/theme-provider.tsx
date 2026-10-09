@@ -70,7 +70,7 @@ function subscribe(onChange: () => void) {
   const onStorage = (event: StorageEvent) => {
     if (event.key !== THEME_STORAGE_KEY) return;
 
-    applyTheme(event.newValue === "light" ? "light" : "dark");
+    applyTheme(event.newValue === "light" || event.newValue === "dark" ? event.newValue : DEFAULT_THEME);
     notify();
   };
 
