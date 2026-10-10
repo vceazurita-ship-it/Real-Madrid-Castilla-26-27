@@ -67,7 +67,7 @@ export function claveFecha(raw: unknown) {
   return local.toISOString().slice(0, 10);
 }
 
-function aJornada(fila: FilaRival): JornadaRival {
+export function aJornada(fila: FilaRival): JornadaRival {
   return {
     id: texto(fila.ID),
     jornada: texto(fila.JORNADA),

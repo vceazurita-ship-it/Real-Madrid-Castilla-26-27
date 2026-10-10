@@ -29,6 +29,46 @@ import {
   normaliza,
   type JornadaRival,
 } from "@/lib/abp/jornada";
+import {
+  CLAVE_CALENDARIO,
+  alrededorDe,
+  type PartidoCastilla,
+} from "@/lib/castilla/calendario";
+
+/*
+|--------------------------------------------------------------------------
+| HASTA QUÉ JORNADA SE HA JUGADO, SEGÚN BESOCCER (10/10/2026)
+|--------------------------------------------------------------------------
+|
+| La hoja RIVALES se rellena a mano y sus fechas son las del calendario de
+| principio de temporada: el Ibiza (J7) figura el domingo 11/10 y se jugó el
+| viernes 9. Con la fecha de la hoja, el sábado 10 el «próximo» seguía siendo
+| el Ibiza en todas las pantallas de rival, mientras la portada —que lee
+| BeSoccer, con hora y adelantos— ya decía Antequera.
+|
+| Por eso la jornada ya jugada se pregunta al calendario de BeSoccer
+| (`castilla:calendario`, el mismo de la portada) y manda sobre la fecha de la
+| hoja: las filas con jornada menor o igual están jugadas, el resto por venir.
+| Sin ese calendario —o sin jornada en la fila— se cae en la fecha de siempre.
+*/
+export async function jornadaJugada(signal?: AbortSignal): Promise<number> {
+  try {
+    const respuesta = await fetch(`/api/docs?key=${encodeURIComponent(CLAVE_CALENDARIO)}`, {
+      cache: "no-store",
+      signal,
+    });
+
+    if (!respuesta.ok) return 0;
+
+    const leido = (await respuesta.json()) as { data?: { partidos?: PartidoCastilla[] } };
+
+    const partidos = Array.isArray(leido?.data?.partidos) ? leido.data.partidos : [];
+
+    return alrededorDe(partidos, Date.now()).anterior?.jornada ?? 0;
+  } catch {
+    return 0;
+  }
+}
 
 export type OrdenRivales = {
   /** Los rivales, tal y como los escribe la hoja, en el orden en que tocan. */
@@ -112,7 +152,22 @@ export type Enfrentamiento = {
 export function proximosEnfrentamientos(
   jornadas: JornadaRival[],
   hoy: string,
+  /** La última jornada jugada según BeSoccer; 0 si no se sabe. */
+  jugadaHasta = 0,
 ): Enfrentamiento[] {
+  /*
+  | ¿Está por venir? Con la jornada jugada de BeSoccer manda ella: una fila
+  | con jornada mayor está por jugar aunque la fecha de la hoja ya pasara (un
+  | partido movido), y una con jornada menor o igual ya se jugó aunque la
+  | hoja la fechara mañana. Sin jornada en la fila, o sin BeSoccer, la fecha.
+  */
+  const porVenir = (partido: JornadaRival) => {
+    const numero = Number(partido.jornada || 0);
+
+    if (jugadaHasta > 0 && numero > 0) return numero > jugadaHasta;
+
+    return Boolean(partido.fecha) && partido.fecha >= hoy;
+  };
   /* Un mismo rival aparece dos veces en la hoja: ida y vuelta. */
   const porEquipo = new Map<string, JornadaRival[]>();
 
@@ -138,11 +193,9 @@ export function proximosEnfrentamientos(
         grupo,
       });
 
-      const porVenir = ordenados.find(
-        (partido) => partido.fecha && partido.fecha >= hoy,
-      );
+      const siguiente = ordenados.find(porVenir);
 
-      if (porVenir) return como(porVenir, POR_VENIR);
+      if (siguiente) return como(siguiente, POR_VENIR);
 
       /* El último que se le jugó: por fecha, no por número de jornada, que en
          una hoja retocada a mano pueden no ir de la mano. */
@@ -164,10 +217,21 @@ export function proximosEnfrentamientos(
   return enfrentamientos.sort((a, b) => {
     if (a.grupo !== b.grupo) return a.grupo - b.grupo;
 
-    /* Sin fecha que comparar —una fila a medio rellenar— manda la jornada. */
+    /*
+    | Entre los que quedan por jugar manda la jornada cuando las dos filas la
+    | traen: las fechas de la hoja son las de principio de temporada y un
+    | partido adelantado las desordena. Sin jornada, la fecha; sin fecha, nada.
+    */
+    const jornadaA = Number(a.jornada || 0);
+    const jornadaB = Number(b.jornada || 0);
+
+    if (a.grupo === POR_VENIR && jornadaA > 0 && jornadaB > 0 && jornadaA !== jornadaB) {
+      return jornadaA - jornadaB;
+    }
+
     const fecha = (a.fecha || "").localeCompare(b.fecha || "");
 
-    return fecha !== 0 ? fecha : Number(a.jornada || 0) - Number(b.jornada || 0);
+    return fecha !== 0 ? fecha : jornadaA - jornadaB;
   });
 }
 
@@ -175,8 +239,9 @@ export function proximosEnfrentamientos(
 export function ordenaPorCalendario(
   jornadas: JornadaRival[],
   hoy: string,
+  jugadaHasta = 0,
 ): OrdenRivales {
-  const enfrentamientos = proximosEnfrentamientos(jornadas, hoy);
+  const enfrentamientos = proximosEnfrentamientos(jornadas, hoy, jugadaHasta);
 
   const primero = enfrentamientos[0];
 
@@ -288,7 +353,11 @@ export async function cargaOrdenRivales(
   signal?: AbortSignal,
 ): Promise<OrdenRivales> {
   try {
-    return ordenaPorCalendario(await cargaJornadas(signal), claveDeHoy());
+    /* Las dos a la vez: la hoja (quién y cuándo) y BeSoccer (hasta dónde se
+       ha jugado de verdad). `jornadaJugada` nunca lanza. */
+    const [jornadas, jugada] = await Promise.all([cargaJornadas(signal), jornadaJugada(signal)]);
+
+    return ordenaPorCalendario(jornadas, claveDeHoy(), jugada);
   } catch (error) {
     console.error("[orden-calendario] no se ha podido leer el calendario", error);
 

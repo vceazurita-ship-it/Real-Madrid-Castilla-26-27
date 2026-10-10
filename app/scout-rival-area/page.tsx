@@ -18,25 +18,24 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useEscudos } from "@/hooks/useEscudos";
+import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { traeJson } from "@/lib/hojaCsv";
-
-const ULTIMO_EQUIPO = "rmcf-area-rival:equipo";
 
 export default function AreaRivalPage() {
   const [plantilla, setPlantilla] = useState<unknown>([]);
   const [cargando, setCargando] = useState(true);
 
-  const [elegido, setElegido] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-
-    try {
-      return window.localStorage.getItem(ULTIMO_EQUIPO);
-    } catch {
-      return null;
-    }
-  });
+  /*
+  | El rival elegido a mano, sólo para esta visita. Antes se recordaba en
+  | `localStorage` y el lunes la pantalla abría con el rival del partido ya
+  | jugado; ahora abre con el del próximo (10/10/2026).
+  */
+  const [elegido, setElegido] = useState<string | null>(null);
 
   const escudoDe = useEscudos();
+
+  /* El orden del calendario y el rival de la semana: la regla de `/rivals`. */
+  const { ordena, proximoDe } = useOrdenRivales();
 
   useEffect(() => {
     let cancelado = false;
@@ -58,22 +57,17 @@ export default function AreaRivalPage() {
   const equipos = useMemo(() => {
     const filas = Array.isArray(plantilla) ? (plantilla as Record<string, unknown>[]) : [];
 
-    return [...new Set(filas.map((fila) => String(fila.NOMBRE_EQUIPO ?? "").trim()).filter(Boolean))].sort(
-      (a, b) => a.localeCompare(b, "es"),
+    /* Por calendario: el rival de la semana el primero. */
+    return ordena(
+      [...new Set(filas.map((fila) => String(fila.NOMBRE_EQUIPO ?? "").trim()).filter(Boolean))],
+      (nombre) => nombre,
     );
-  }, [plantilla]);
+  }, [plantilla, ordena]);
 
-  const equipo = elegido && equipos.includes(elegido) ? elegido : (equipos[0] ?? "");
+  const equipo =
+    elegido && equipos.includes(elegido) ? elegido : proximoDe(equipos) || (equipos[0] ?? "");
 
-  const elige = useCallback((nombre: string) => {
-    setElegido(nombre);
-
-    try {
-      window.localStorage.setItem(ULTIMO_EQUIPO, nombre);
-    } catch {
-      /* modo privado: la elección sólo dura la sesión */
-    }
-  }, []);
+  const elige = useCallback((nombre: string) => setElegido(nombre), []);
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">

@@ -51,6 +51,7 @@ import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
 import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
+import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { AbpFamily, FAMILY_LABEL, teamKey } from "@/lib/abp/model";
 import {
@@ -150,23 +151,19 @@ export default function ScoutRivalAbpPage() {
   const [familia, setFamilia] = useState(TODOS);
 
   /*
-   * El rival elegido a mano. Se lee de `localStorage` en el primer render del
-   * cliente y no rompe la hidratación porque la lista de equipos llega por
-   * fetch: hasta que responde, no hay ninguno seleccionable ni en servidor ni
-   * en cliente.
+   * El rival elegido a mano, sólo para esta visita.
+   *
+   * Antes se recordaba en `localStorage` y la pantalla abría con el último
+   * que se miró: el lunes, eso es el rival del partido ya jugado. Ahora abre
+   * con el del próximo partido (10/10/2026), que es lo que se viene a ver.
    */
-  const [equipoElegido, setEquipoElegido] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-
-    try {
-      return window.localStorage.getItem(LAST_TEAM_KEY);
-    } catch {
-      return null;
-    }
-  });
+  const [equipoElegido, setEquipoElegido] = useState<string | null>(null);
 
   /* Los escudos de los clubes, para el selector y para la cabecera. */
   const escudoDe = useEscudos();
+
+  /* El orden del calendario y el rival de la semana: la regla de `/rivals`. */
+  const { ordena, proximoDe } = useOrdenRivales();
 
   /* --------------------------- scouting ---------------------------- */
 
@@ -286,8 +283,9 @@ export default function ScoutRivalAbpPage() {
       if (nombre) nombres.add(nombre);
     });
 
-    return [...nombres].sort((a, b) => a.localeCompare(b, "es"));
-  }, [squad]);
+    /* Por calendario: el rival de la semana el primero. */
+    return ordena([...nombres], (nombre) => nombre);
+  }, [squad, ordena]);
 
   const clavesLiga = useMemo(
     () => new Set(equiposLiga.map(teamKey)),
@@ -318,15 +316,16 @@ export default function ScoutRivalAbpPage() {
     return counts;
   }, [scout.value]);
 
-  /* Rival efectivo: el elegido si sigue en la lista visible, si no el primero.
-     Derivarlo evita tener que reajustarlo cada vez que cambia la lista. */
+  /* Rival efectivo: el elegido si sigue en la lista visible; si no, el del
+     próximo partido; y si el calendario no lo dice, el primero. Derivarlo
+     evita tener que reajustarlo cada vez que cambia la lista. */
   const equipo = useMemo(() => {
     if (equipoElegido && equiposVisibles.includes(equipoElegido)) {
       return equipoElegido;
     }
 
-    return equiposVisibles[0] ?? "";
-  }, [equipoElegido, equiposVisibles]);
+    return proximoDe(equiposVisibles) || (equiposVisibles[0] ?? "");
+  }, [equipoElegido, equiposVisibles, proximoDe]);
 
   /* Al cambiar de grupo no hace falta reelegir equipo: como `equipo` es
      derivado, cae solo en el primero del grupo nuevo y recupera el anterior

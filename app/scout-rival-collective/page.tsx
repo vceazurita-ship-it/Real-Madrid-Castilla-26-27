@@ -8,6 +8,8 @@ import { useAutoSave } from "@/hooks/useAutoSave";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { guardaEnLaHoja, leeRivales } from "@/lib/hojaRivales";
 import { traeJson } from "@/lib/hojaCsv";
+import { aJornada } from "@/lib/abp/jornada";
+import { POR_VENIR, claveDeHoy, jornadaJugada, proximosEnfrentamientos } from "@/lib/rivals/orden-calendario";
 import { toast } from "sonner";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
@@ -143,14 +145,18 @@ export default function ScoutRivalCollective() {
 
     /* Por `/api/rivals` y su caché, no directa al Apps Script: directa eran
        30-70 s en frío cada vez que se abría la pantalla. */
-    traeJson<unknown>("/api/rivals?action=rivales")
-      .then((respuesta) => {
+    Promise.all([
+      traeJson<unknown>("/api/rivals?action=rivales").then((respuesta) => {
         /* Si Google falla, la ruta contesta `{ success: false }`. */
         if (!Array.isArray(respuesta)) throw new Error("Sin filas");
 
         return respuesta as Rival[];
-      })
-      .then((data: Rival[]) => {
+      }),
+      /* Hasta qué jornada se ha jugado, según BeSoccer: la hoja fecha los
+         partidos como estaban previstos y un adelanto la deja atrás. */
+      jornadaJugada(),
+    ])
+      .then(([data, jugada]: [Rival[], number]) => {
         if (cancelled) return;
 
         setRivales(data);
@@ -161,8 +167,26 @@ export default function ScoutRivalCollective() {
           "rival"
         );
 
+        /*
+        | Sin enlace, la fila del PRÓXIMO partido y no la primera jornada:
+        | abrir en Teruel en octubre obligaba a bajar la lista cada vez. Es la
+        | misma regla que ordena las plantillas (`proximosEnfrentamientos`), y
+        | sólo se fía de ella cuando la fila tiene fecha por delante.
+        */
+        const jornadas = data.map(aJornada);
+
+        const proximo = proximosEnfrentamientos(jornadas, claveDeHoy(), jugada)[0];
+
+        const filaProxima =
+          proximo && proximo.grupo === POR_VENIR
+            ? jornadas.find(
+                (j) => j.jornada === proximo.jornada && j.equipo === proximo.equipo,
+              )?.fila ?? null
+            : null;
+
         setRivalActivo(
           data.find((r) => String(r.ID) === String(enlazado)) ??
+            filaProxima ??
             (data.length ? data[0] : null)
         );
 

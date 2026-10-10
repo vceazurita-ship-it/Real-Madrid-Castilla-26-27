@@ -23,6 +23,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
 import { usePlayers } from "@/hooks/usePlayers";
+import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { traeJson } from "@/lib/hojaCsv";
 import { mismoClub } from "@/lib/rivals/mismoClub";
@@ -114,6 +115,9 @@ export default function DuelosPage() {
   const [proximo, setProximo] = useState<{ rival: string; cuando: string; jornada?: number } | null>(null);
   /* Ya se sabe cuál es el próximo partido (o que no hay). */
   const [proximoListo, setProximoListo] = useState(false);
+
+  /* El orden de los equipos en el selector: el del calendario. */
+  const { ordena } = useOrdenRivales();
   const [equipo, setEquipo] = useState("");
   const [onceMarcado, setOnceMarcado] = useState<string[] | null>(null);
   const [elegido, setElegido] = useState<string | null>(null);
@@ -153,8 +157,9 @@ export default function DuelosPage() {
 
   /* Los equipos de Plantillas rivales; por defecto, el del próximo partido. */
   const equipos = useMemo(
-    () => [...new Set(plantillas.map((f) => texto(f.NOMBRE_EQUIPO)).filter(Boolean))].sort((a, b) => a.localeCompare(b, "es")),
-    [plantillas],
+    /* Por calendario, con el rival de la semana el primero (10/10/2026). */
+    () => ordena([...new Set(plantillas.map((f) => texto(f.NOMBRE_EQUIPO)).filter(Boolean))], (e) => e),
+    [plantillas, ordena],
   );
   /*
   | Sin elegir a mano, nada hasta saber el próximo partido (07/10/2026). Antes

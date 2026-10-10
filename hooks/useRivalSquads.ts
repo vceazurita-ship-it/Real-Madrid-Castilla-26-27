@@ -4,6 +4,7 @@ import { traeJson } from "@/lib/hojaCsv";
 import { useEffect, useState } from "react";
 
 import { buildRivalSquads, RivalSquad } from "@/lib/tactics/rivals";
+import { cargaOrdenRivales, comparaPorCalendario } from "@/lib/rivals/orden-calendario";
 
 /**
  * Plantillas rivales agrupadas por equipo, listas para la pizarra táctica.
@@ -20,12 +21,19 @@ export function useRivalSquads() {
 
     async function load() {
       try {
-        /* Compartida con el resto de pantallas que piden lo mismo. */
-        const data = await traeJson("/api/rivals?action=rivalesPlantillas");
+        /* Compartida con el resto de pantallas que piden lo mismo. El orden
+           se pide a la vez: los equipos salen por calendario, con el rival
+           de la semana el primero, igual que en `/rivals`. */
+        const [data, orden] = await Promise.all([
+          traeJson("/api/rivals?action=rivalesPlantillas"),
+          cargaOrdenRivales(),
+        ]);
 
         if (cancelled) return;
 
-        setSquads(buildRivalSquads(data));
+        const compara = comparaPorCalendario(orden);
+
+        setSquads(buildRivalSquads(data).sort((a, b) => compara(a.equipo, b.equipo)));
       } catch (error) {
         if (cancelled) return;
 
