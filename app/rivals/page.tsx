@@ -44,6 +44,7 @@ import {
   type PortadaData,
 } from "@/lib/rivals/portada";
 import { ofrecePortada } from "@/lib/rivals/portada-slot";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 import { explicaErrorScript } from "@/lib/appsScriptErrors";
 import {
   ONCE_COLOR,
@@ -993,6 +994,19 @@ export default function RivalPlayersPage() {
           setSelectedTeam((current) => {
             if (current && data.some((p) => p.NOMBRE_EQUIPO === current)) {
               return current;
+            }
+
+            /*
+            | El enlace de la portada trae el nombre del calendario de BeSoccer
+            | («CD Teruel») y la hoja puede escribirlo a su manera («Teruel»).
+            | Antes de rendirse se busca con la regla de siempre.
+            */
+            if (current) {
+              const parecido = data.find((p) =>
+                mismoClub(String(p.NOMBRE_EQUIPO || ""), current),
+              );
+
+              if (parecido) return String(parecido.NOMBRE_EQUIPO);
             }
 
             /* Al entrar, el rival de esta semana: es el primero de la fila y

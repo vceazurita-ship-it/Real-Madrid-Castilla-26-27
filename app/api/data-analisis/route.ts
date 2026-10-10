@@ -14,6 +14,7 @@ import { proponeTipologia } from "@/lib/rivals/tipologia-wyscout";
 import { readDoc } from "@/lib/docStore";
 import { alertasDeFichajes, type CotejoRival } from "@/lib/portada/alertas-fichajes";
 import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
+import type { ClasificacionPortada, EquipoPortada } from "@/lib/portada/proximo-partido";
 import {
   ASPECTOS,
   ASPECTO_POR_KEY,
@@ -136,6 +137,80 @@ async function leeEscudos() {
   escudosGuardados = { lista, en: ahora };
 
   return lista;
+}
+
+/**
+ * Lo que la portada necesita del informe de rivales, en un paquete pequeño.
+ *
+ * La portada enseña el próximo partido —con el escudo del rival y, si se juega
+ * fuera, su campo— y cómo va el Castilla en la liga. Las dos cosas están en
+ * `rivals:informe`, que pesa demasiado para bajarlo al navegador en la pantalla
+ * que más se abre. Aquí se abre una vez en el servidor y salen:
+ *
+ * - `equipos`: cada rival con su escudo y su estadio (unos pocos kilobytes).
+ * - `clasificacion`: la fila del Castilla en la tabla del grupo. Cada informe
+ *   lleva la tabla entera tal y como estaba cuando se bajó, así que se toma
+ *   **la que más partidos nuestros cuenta**: es la más reciente.
+ */
+type Portada = { equipos: EquipoPortada[]; clasificacion: ClasificacionPortada | null };
+
+let portadaGuardada: { datos: Portada; en: number } | null = null;
+
+async function leePortada(): Promise<Portada> {
+  const ahora = Date.now();
+
+  if (portadaGuardada && ahora - portadaGuardada.en < VIDA) {
+    return portadaGuardada.datos;
+  }
+
+  const doc = (await readDoc(INFORME_KEY)).data as InformeDoc | null;
+
+  const equipos: EquipoPortada[] = [];
+
+  let clasificacion: ClasificacionPortada | null = null;
+
+  for (const informe of Object.values(doc?.porId ?? {})) {
+    if (informe.nombre || informe.nombreLargo) {
+      equipos.push({
+        nombre: informe.nombre ?? "",
+        nombreLargo: informe.nombreLargo ?? "",
+        escudo: informe.escudo ?? "",
+        estadio: informe.estadio?.nombre ?? "",
+        ciudad: informe.estadio?.ciudad ?? "",
+      });
+    }
+
+    const filas = informe.clasificacion?.total ?? [];
+
+    const nuestra = filas.find((fila) => /castilla/i.test(fila.equipo ?? ""));
+
+    if (!nuestra) continue;
+
+    const masNueva =
+      !clasificacion ||
+      nuestra.jugados > clasificacion.jugados ||
+      (nuestra.jugados === clasificacion.jugados && nuestra.puntos > clasificacion.puntos);
+
+    if (masNueva) {
+      clasificacion = {
+        puesto: nuestra.puesto,
+        deCuantos: filas.length,
+        puntos: nuestra.puntos,
+        jugados: nuestra.jugados,
+        ganados: nuestra.ganados,
+        empatados: nuestra.empatados,
+        perdidos: nuestra.perdidos,
+        favor: nuestra.favor,
+        contra: nuestra.contra,
+      };
+    }
+  }
+
+  const datos = { equipos, clasificacion };
+
+  portadaGuardada = { datos, en: ahora };
+
+  return datos;
 }
 
 /**
@@ -779,6 +854,18 @@ export async function GET(peticion: Request) {
 
       /* Sin escudos los gráficos pintan discos: no es motivo para un error. */
       return NextResponse.json({ ok: true, escudos: [] });
+    }
+  }
+
+  /* Lo mismo para la portada: escudos, campos y nuestra fila de la tabla. */
+  if (parametros.has("portada")) {
+    try {
+      return NextResponse.json({ ok: true, ...(await leePortada()) });
+    } catch (error) {
+      console.error("[data-analisis] portada", error);
+
+      /* La portada pinta el partido sin escudo y sin tabla: sigue valiendo. */
+      return NextResponse.json({ ok: true, equipos: [], clasificacion: null });
     }
   }
 

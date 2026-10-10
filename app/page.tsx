@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { chipInk } from "@/lib/theme";
 import { useEffect, useMemo, useState } from "react"
 import Papa from "papaparse"
 import {
@@ -11,7 +10,6 @@ import {
   ChevronRight,
   Handshake,
   LayoutGrid,
-  Maximize2,
   Shield,
   Sigma,
   Swords,
@@ -23,8 +21,9 @@ import { Topbar } from "@/components/ui/topbar"
 import ModulesExplorer from "@/components/ui/ModulesExplorer"
 import QuickAccess from "@/components/ui/QuickAccess"
 import { AlertasPortada } from "@/components/portada/AlertasPortada"
-import { trackModuleVisit, useModulosMasUsados } from "@/lib/module-usage"
-import { pantallaCompletaAlNavegar } from "@/hooks/usePantallaCompleta"
+import { Cifras } from "@/components/portada/Cifras"
+import { ProximoPartido } from "@/components/portada/ProximoPartido"
+import { trackModuleVisit } from "@/lib/module-usage"
 import { usePlayers } from "@/hooks/usePlayers"
 import { alineaSeguimiento } from "@/lib/seguimiento"
 import { traeCsv, traeJson } from "@/lib/hojaCsv"
@@ -86,156 +85,7 @@ function SectionHeader({
   )
 }
 
-function Metric({ value, loading }: { value: number; loading: boolean }) {
-  if (loading) {
-    return (
-      <span
-        aria-hidden
-        className="inline-block h-[0.8em] w-[2.2ch] animate-pulse rounded-md bg-white/10 align-baseline"
-      />
-    )
-  }
-
-  return <span className="tabular-nums">{value.toLocaleString("es-ES")}</span>
-}
-
-/**
- * Tarjeta de dato: el número manda y el resto acompaña.
- *
- * `destino` es el nombre de la pantalla a la que lleva, y no es opcional a
- * propósito. El rótulo de arriba nombra **la métrica** —«Seguimientos»,
- * «Promedio»— y eso no dice a dónde se va al pulsar: la tarjeta parecía un
- * dato y era un enlace. El nombre va al pie, con la flecha, igual en las seis.
- */
-function StatCard({
-  href,
-  label,
-  value,
-  caption,
-  destino,
-  loading,
-  icon: Icon,
-  suffix,
-}: {
-  href: string
-  label: string
-  value: number
-  caption: string
-  destino: string
-  loading: boolean
-  icon: React.ElementType
-  suffix?: string
-}) {
-  return (
-    <Link
-      href={href}
-      className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-[#07121F] to-[#040B14] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[#D8B45A]/40 hover:shadow-[0_18px_50px_-20px_rgba(216,180,90,.35)] sm:p-6"
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-[#D8B45A]/[0.08] opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-100"
-      />
-
-      <div className="relative flex items-start justify-between gap-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#D8B45A]">
-          {label}
-        </p>
-
-        <Icon className="h-5 w-5 shrink-0 text-[#D8B45A]/60 transition group-hover:text-[#D8B45A]" />
-      </div>
-
-      <div className="relative mt-8">
-        <p className="text-[40px] font-bold leading-none tracking-tight">
-          <Metric value={value} loading={loading} />
-
-          {suffix && (
-            <span className="ml-0.5 text-xl font-semibold text-white/40">
-              {suffix}
-            </span>
-          )}
-        </p>
-
-        <p className="mt-2.5 text-[13px] text-white/50">{caption}</p>
-
-        <p className="mt-4 flex items-center gap-1.5 border-t border-white/[0.07] pt-3 text-[12px] font-medium text-white/45 transition-colors duration-300 group-hover:text-[#D8B45A]">
-          {destino}
-          <ChevronRight className="h-3.5 w-3.5 transition-transform duration-300 group-hover:translate-x-0.5" />
-        </p>
-      </div>
-    </Link>
-  )
-}
-
-/**
- * Tarjeta de fase de juego: aquí el color sí identifica (ataque / defensa /
- * cultura). Como la de dato, dice al pie a qué pantalla lleva: «Ataque» es la
- * fase del juego, no el sitio al que se va.
- */
-function IdentityCard({
-  href,
-  title,
-  value,
-  caption,
-  destino,
-  loading,
-  color,
-  icon: Icon,
-}: {
-  href: string
-  title: string
-  value: number
-  caption: string
-  destino: string
-  loading: boolean
-  color: string
-  icon: React.ElementType
-}) {
-  return (
-    <Link
-      href={href}
-      style={{ ["--accent" as string]: chipInk(color) }}
-      className="group relative flex items-center gap-5 overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.02] p-5 transition-all duration-300 hover:-translate-y-1 hover:border-[color:var(--accent)]/45 hover:bg-white/[0.04] sm:p-6"
-    >
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-[3px] bg-[color:var(--accent)] opacity-50 transition-opacity duration-300 group-hover:opacity-100"
-      />
-
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-[color:var(--accent)] transition-colors duration-300 group-hover:border-[color:var(--accent)]/40 group-hover:bg-[color:var(--accent)]/10">
-        <Icon className="h-5 w-5" />
-      </span>
-
-      <span className="min-w-0 flex-1">
-        <span className="block text-[13px] font-semibold uppercase tracking-[0.22em] text-white/85">
-          {title}
-        </span>
-
-        <span className="mt-1 block text-[12px] text-white/40">{caption}</span>
-
-        <span className="mt-1.5 flex items-center gap-1 text-[11px] font-medium text-white/35 transition-colors duration-300 group-hover:text-[color:var(--accent)]">
-          {destino}
-          <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
-        </span>
-      </span>
-
-      <span className="text-[34px] font-bold leading-none text-[color:var(--accent)]">
-        <Metric value={value} loading={loading} />
-      </span>
-    </Link>
-  )
-}
-
 export default function Home() {
-  /*
-  | Los tres enlaces grandes de arriba llevaban destino fijo —el Área General y
-  | dos calendarios— y no tenían por qué ser lo que se abre a diario. Ahora los
-  | pone el propio uso de este dispositivo: el primero es lo que más se abre.
-  |
-  | Van con su nombre puesto, así que aunque cambien de sitio con el tiempo
-  | nunca sorprenden: la tarjeta dice a dónde lleva.
-  */
-  const [segundo, tercero] = useModulosMasUsados(2)
-
   /*
   |------------------------------------------------------------------------
   | DATA ANÁLISIS EN LA PORTADA
@@ -468,84 +318,14 @@ export default function Home() {
               />
 
               <div className="relative z-10 grid items-stretch gap-8 p-5 sm:p-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,480px)] xl:gap-10 xl:p-10">
-                {/* ---------- IZQUIERDA: mensaje y arranque ---------- */}
+                {/* ---------- IZQUIERDA: el próximo partido y la semana ---------- */}
 
-                <div className="flex flex-col justify-center">
-                  <div className="inline-flex w-fit items-center gap-3 rounded-full border border-[#D8B45A]/40 bg-[#D8B45A]/10 px-4 py-2">
-                    <span className="relative flex h-2 w-2">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#F7D98B] opacity-60" />
-                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#F7D98B]" />
-                    </span>
-
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#F7D98B]">
-                      Temporada 26/27 · en curso
-                    </span>
-                  </div>
-
-                  <h1 className="mt-6 text-[40px] font-bold leading-[0.95] tracking-[-0.035em] sm:text-[54px] xl:text-[64px] xl:leading-[0.92]">
-                    Plataforma Integral
-                    <br />
-                    <span className="bg-gradient-to-r from-[#2563EB] via-[#60A5FA] to-white bg-clip-text text-transparent">
-                      RMCF Castilla
-                    </span>
-                  </h1>
-
-                  <div className="mt-6 flex gap-4">
-                    <div className="w-[3px] shrink-0 rounded-full bg-gradient-to-b from-blue-400 via-blue-500 to-transparent" />
-
-                    <p className="max-w-[620px] text-base leading-relaxed text-white/70 sm:text-[17px]">
-                      Identidad, competición, desarrollo individual, rendimiento
-                      colectivo y análisis del rival, en un mismo sitio.
-                    </p>
-                  </div>
-
-                  <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                    <Link
-                      href={segundo.href}
-                      onClick={() => trackModuleVisit(segundo.href)}
-                      className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-6 py-3.5 text-[15px] font-medium shadow-[0_0_36px_rgba(37,99,235,.32)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_48px_rgba(37,99,235,.45)]"
-                    >
-                      <segundo.icon className="h-[18px] w-[18px]" />
-                      {segundo.title}
-                      <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                    </Link>
-
-                    <Link
-                      href={tercero.href}
-                      onClick={() => trackModuleVisit(tercero.href)}
-                      className="group inline-flex items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-6 py-3.5 text-[15px] font-medium text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-400/45 hover:bg-white/[0.07] hover:text-white"
-                    >
-                      <tercero.icon className="h-[18px] w-[18px] text-emerald-400" />
-                      {tercero.title}
-                      <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                    </Link>
-
-                    {/*
-                      La pizarra, a pantalla completa desde el primer clic.
-
-                      Es lo que se abre delante del grupo, y llegar con el menú
-                      y la barra de arriba puestos obliga a buscar el botón de
-                      agrandar mientras todos esperan. La pantalla completa se
-                      pide **aquí**, aprovechando este mismo clic: el navegador
-                      sólo la concede con un gesto de la persona y un efecto al
-                      cargar la otra página llegaría tarde. Como Next navega sin
-                      recargar el documento, se llega ya en grande.
-                    */}
-                    <Link
-                      href="/pizarra-tactica?once=1"
-                      onClick={() => {
-                        trackModuleVisit("/pizarra-tactica")
-                        pantallaCompletaAlNavegar()
-                      }}
-                      title="Abre la pizarra táctica a pantalla completa, con los dos onces puestos en 4-2-3-1"
-                      className="group inline-flex items-center justify-center gap-2 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-6 py-3.5 text-[15px] font-medium text-[#C8A96B] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20"
-                    >
-                      <Maximize2 className="h-[18px] w-[18px]" />
-                      Pizarra táctica
-                      <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-                    </Link>
-                  </div>
-                </div>
+                {/*
+                  Lo que antes era el nombre de la plataforma en grande —que ya
+                  está en la cabecera— ahora es el partido que viene, con sus
+                  accesos. Ver components/portada/ProximoPartido.tsx.
+                */}
+                <ProximoPartido />
 
                 {/* ---------- DERECHA: visión global ---------- */}
 
@@ -710,89 +490,81 @@ export default function Home() {
               </div>
             </div>
 
-            {/* ====================== DESARROLLO INDIVIDUAL ==================== */}
+            {/* ========================== CIFRAS =============================== */}
 
+            {/*
+              Seguimiento y modelo de juego en una sola fila. Antes eran dos
+              secciones de tres tarjetas y las áreas de trabajo quedaban a dos
+              pantallas de distancia. Cada celda sigue diciendo a dónde lleva.
+            */}
             <div>
               <SectionHeader
-                icon={Users}
-                title="Desarrollo individual"
-                caption="Datos en vivo de la hoja de seguimiento"
+                icon={BarChart3}
+                title="El equipo en cifras"
+                caption="Seguimiento individual y modelo de juego, en vivo de las hojas"
               />
 
-              <div className="mt-5 grid gap-4 md:grid-cols-3">
-                <StatCard
-                  href="/calendar"
-                  label="Seguimientos"
-                  value={seguimientos}
-                  caption={`Sesiones registradas · ${ultimos30Dias} en los últimos 30 días`}
-                  destino="Calendario Seguimiento"
-                  loading={loadingSeguimiento}
-                  icon={Activity}
-                />
-
-                <StatCard
-                  href="/individual"
-                  label="Jugadores"
-                  value={totalJugadores}
-                  caption={`Jugadores en plantilla · ${cobertura} % con seguimiento`}
-                  destino="Plantilla"
-                  loading={cargandoPlantilla}
-                  icon={Users}
-                />
-
-                <StatCard
-                  href="/individual_proc"
-                  label="Promedio"
-                  value={promedioSeguimientos}
-                  caption="Seguimientos por jugador"
-                  destino="Dashboard Seguimiento"
-                  loading={loadingSeguimiento}
-                  icon={BarChart3}
-                />
-              </div>
-            </div>
-
-            {/* ======================= IDENTIDAD DE JUEGO ====================== */}
-
-            <div>
-              <SectionHeader
-                icon={Swords}
-                title="Identidad de juego"
-                caption="Apartados definidos del modelo"
-              />
-
-              <div className="mt-5 grid gap-4 md:grid-cols-3">
-                <IdentityCard
-                  href="/game-model#ATAQUE"
-                  title="Ataque"
-                  value={ataqueApartados}
-                  caption="Apartados ofensivos"
-                  destino="Identidad de Juego"
-                  loading={loadingPrincipios}
-                  color="#22D3EE"
-                  icon={Swords}
-                />
-
-                <IdentityCard
-                  href="/game-model#DEFENSA"
-                  title="Defensa"
-                  value={defensaApartados}
-                  caption="Apartados defensivos"
-                  destino="Identidad de Juego"
-                  loading={loadingPrincipios}
-                  color="#60A5FA"
-                  icon={Shield}
-                />
-
-                <IdentityCard
-                  href="/team-values"
-                  title="Cultura"
-                  value={principiosCultura}
-                  caption="Elementos culturales"
-                  destino="Dinámicas y Valores"
-                  loading={loadingCultura}
-                  color="#34D399"
-                  icon={Handshake}
+              <div className="mt-5">
+                <Cifras
+                  cifras={[
+                    {
+                      href: "/calendar",
+                      label: "Seguimientos",
+                      value: seguimientos,
+                      caption: `${ultimos30Dias} en los últimos 30 días`,
+                      destino: "Calendario Seguimiento",
+                      loading: loadingSeguimiento,
+                      icon: Activity,
+                    },
+                    {
+                      href: "/individual",
+                      label: "Jugadores",
+                      value: totalJugadores,
+                      caption: `${cobertura} % con seguimiento`,
+                      destino: "Plantilla",
+                      loading: cargandoPlantilla,
+                      icon: Users,
+                    },
+                    {
+                      href: "/individual_proc",
+                      label: "Promedio",
+                      value: promedioSeguimientos,
+                      caption: "Seguimientos por jugador",
+                      destino: "Dashboard Seguimiento",
+                      loading: loadingSeguimiento,
+                      icon: BarChart3,
+                    },
+                    {
+                      href: "/game-model#ATAQUE",
+                      label: "Ataque",
+                      value: ataqueApartados,
+                      caption: "Apartados ofensivos del modelo",
+                      destino: "Identidad de Juego",
+                      loading: loadingPrincipios,
+                      icon: Swords,
+                      color: "#22D3EE",
+                    },
+                    {
+                      href: "/game-model#DEFENSA",
+                      label: "Defensa",
+                      value: defensaApartados,
+                      caption: "Apartados defensivos del modelo",
+                      destino: "Identidad de Juego",
+                      loading: loadingPrincipios,
+                      icon: Shield,
+                      color: "#60A5FA",
+                    },
+                    {
+                      href: "/team-values",
+                      label: "Cultura",
+                      value: principiosCultura,
+                      caption: "Elementos culturales definidos",
+                      destino: "Dinámicas y Valores",
+                      loading: loadingCultura,
+                      icon: Handshake,
+                      color: "#34D399",
+                    },
+                  ]}
                 />
               </div>
             </div>
