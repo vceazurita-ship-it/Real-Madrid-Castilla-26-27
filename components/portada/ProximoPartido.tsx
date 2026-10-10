@@ -21,10 +21,12 @@ import {
   alrededorDe,
   comoSeLlama,
   formaSemana,
+  soloDia,
   type PartidoCastilla,
   type PartidoNuestro,
 } from "@/lib/castilla/calendario";
 import { trackModuleVisit } from "@/lib/module-usage";
+import { leeLibresSemanas, type SemanaLibres } from "@/lib/portada/libres";
 import {
   cuantoFalta,
   diaEnMadrid,
@@ -77,6 +79,9 @@ export function ProximoPartido() {
   */
   const [conTarea, setConTarea] = useState<Set<string> | null>(null);
 
+  /* Y lo decidido a mano en el editor, por día de partido: manda sobre la hoja. */
+  const [decididos, setDecididos] = useState<Record<string, SemanaLibres> | null>(null);
+
   useEffect(() => {
     let vivo = true;
 
@@ -87,6 +92,10 @@ export function ProximoPartido() {
       .catch(() => {
         if (vivo) setConTarea(new Set());
       });
+
+    leeLibresSemanas().then((semanas) => {
+      if (vivo) setDecididos(semanas);
+    });
 
     return () => {
       vivo = false;
@@ -151,8 +160,13 @@ export function ProximoPartido() {
   const diaDeHoy = semana.find((dia) => dia.fecha === hoy) ?? null;
 
   const { libres, delMicro } = useMemo(
-    () => libresDeLaSemana(semana, conTarea),
-    [semana, conTarea],
+    () =>
+      libresDeLaSemana(
+        semana,
+        conTarea,
+        proximo && decididos ? (decididos[soloDia(proximo.cuando)]?.libres ?? null) : null,
+      ),
+    [semana, conTarea, decididos, proximo],
   );
 
   /* «sáb 10 y dom 11», para el pie de la tira. */
@@ -340,7 +354,7 @@ export function ProximoPartido() {
               Semana {comoSeLlama(semana, anterior?.cuando ?? null)}
               {/* Los libres, y de dónde salen: del microciclo escrito en la
                   hoja, o la propuesta de siempre mientras no se escriba. */}
-              {conTarea !== null && (
+              {conTarea !== null && decididos !== null && (
                 <>
                   {" "}
                   ·{" "}

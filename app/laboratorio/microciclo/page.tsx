@@ -98,6 +98,7 @@ import {
   type PartidoCastilla,
   type PartidoNuestro,
 } from "@/lib/castilla/calendario";
+import { guardaLibresSemana, leeLibresSemanas } from "@/lib/portada/libres";
 import { diaKeyDe, etiquetaDia } from "@/lib/abp/ventana";
 
 const DIA_MS = 86_400_000;
@@ -606,6 +607,9 @@ export default function EditorMicrocicloPage() {
   /* Para no guardar el borrador antes de haberlo leído. */
   const leido = useRef(false);
 
+  /* Lo último que se guardó en `microciclo:libres`, para no repetirlo. */
+  const ultimoLibresGuardado = useRef("");
+
   const sinCalendario = !cargando && calendario.length === 0;
 
   /* Las dos fuentes: la hoja (qué micros hay y qué se escribe en ella) y el
@@ -614,12 +618,14 @@ export default function EditorMicrocicloPage() {
     let cancelado = false;
 
     const cargar = async () => {
-      const [datos, partidos] = await Promise.all([
+      const [datos, partidos, semanasLibres] = await Promise.all([
         loadRegistro().catch(() => null),
         fetch("/api/docs?key=" + encodeURIComponent(CLAVE_CALENDARIO), { cache: "no-store" })
           .then((r) => r.json() as Promise<{ data?: { partidos?: PartidoCastilla[] } }>)
           .then((leidoDoc) => leidoDoc?.data?.partidos ?? [])
           .catch(() => [] as PartidoCastilla[]),
+        /* Los libres ya decididos para alguna semana (ver lib/portada/libres.ts). */
+        leeLibresSemanas(),
       ]);
 
       if (cancelado) return;
@@ -711,6 +717,23 @@ export default function EditorMicrocicloPage() {
       setRegistro(datos);
       setCalendario(partidos);
       setPartido({ proximo: objetivo, anterior: previo });
+
+      /*
+      | Los libres de esta semana, si ya se decidieron: el paso 1 arranca con
+      | ellos puestos y no con la propuesta. Y se apunta qué hay guardado para
+      | que el efecto de abajo no vuelva a escribir lo mismo al abrir.
+      */
+      const decididos = objetivo ? semanasLibres[soloDia(objetivo.cuando)] : undefined;
+
+      if (decididos) {
+        if (!guardado) setLibresPlan(decididos.libres);
+
+        ultimoLibresGuardado.current = JSON.stringify([...decididos.libres].sort());
+      } else if (objetivo) {
+        ultimoLibresGuardado.current = JSON.stringify(
+          [...libresPorDefecto(diasDeVentana(objetivo, previo))].sort(),
+        );
+      }
 
       /* Sin borrador, la semana NO se crea sola: primero se marcan los días
          libres (paso 1) y luego se crea con ellos. */
@@ -816,6 +839,35 @@ export default function EditorMicrocicloPage() {
     () => new Set(libresPlan ?? libresPorDefecto(diasPlan)),
     [libresPlan, diasPlan],
   );
+
+  /*
+  | LOS LIBRES SE GUARDAN EN CUANTO SE MARCAN (10/10/2026).
+  |
+  | El micro se escribe en la hoja al final, pero el día libre se decide el
+  | primer día de la semana, y la portada lo enseña desde ese momento. Va a
+  | `microciclo:libres`, por día de partido. Sólo al crear el siguiente: al
+  | editar uno viejo la semana de pantalla no es la de ese micro.
+  */
+  useEffect(() => {
+    if (!leido.current || !proximo || editando !== null) return;
+
+    const libres = micro
+      ? micro.sesiones.filter((sesion) => sesion.libre).map((sesion) => sesion.fecha)
+      : [...libresMarcados];
+
+    const clave = JSON.stringify([...libres].sort());
+
+    if (clave === ultimoLibresGuardado.current) return;
+
+    const id = setTimeout(() => {
+      guardaLibresSemana(soloDia(proximo.cuando), libres, ultimoMicro + 1).then((ok) => {
+        if (ok) ultimoLibresGuardado.current = clave;
+        else toast.error("No se han podido guardar los días libres", { description: "La portada seguirá enseñando la propuesta." });
+      });
+    }, 800);
+
+    return () => clearTimeout(id);
+  }, [proximo, micro, editando, libresMarcados, ultimoMicro]);
 
   const creaMicro = () => {
     if (!proximo) return;
