@@ -11,7 +11,84 @@
  * hora por su cuenta, que es lo que permite llamarlo desde el render.
  */
 
+import Papa from "papaparse";
+
+import { REGISTRO_GID } from "@/lib/abp/registro";
+import { sheetUrl } from "@/lib/abp/sheets";
+import type { DiaSemana } from "@/lib/castilla/calendario";
+import { traeCsv } from "@/lib/hojaCsv";
+import { fechaIsoDeHoja } from "@/lib/registro/hoja";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+
+/* ------------------------------------------------------------------ */
+/*  LOS DÍAS LIBRES DEL MICROCICLO                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Los días que tienen alguna tarea en la hoja de registro (10/10/2026).
+ *
+ * La tira de la semana de la portada proponía el descanso de siempre —el
+ * día después del partido— aunque el cuerpo técnico hubiera decidido otra
+ * cosa en el microciclo. En la hoja de registro un día libre **es un día sin
+ * filas** (`/laboratorio/microciclo` no escribe nada en los libres), así que
+ * basta con saber qué fechas tienen tareas.
+ *
+ * Va por `traeCsv` y no por `loadRegistro`: ésta es la pantalla que más se
+ * abre y aquí sólo hace falta la columna de la fecha, leída de la copia que
+ * ya tiene el navegador.
+ */
+export async function fechasConTarea(): Promise<Set<string>> {
+  const csv = await traeCsv(sheetUrl(REGISTRO_GID));
+
+  const filas = Papa.parse<string[]>(csv, { header: false, skipEmptyLines: true }).data;
+
+  /* La fila de cabeceras no es la primera: encima hay un título. */
+  const cabecera = filas.findIndex((fila) => String(fila?.[0] ?? "").trim().toLowerCase() === "temporada");
+
+  if (cabecera < 0) return new Set();
+
+  const columna = filas[cabecera].findIndex((valor) =>
+    String(valor ?? "").trim().toLowerCase().startsWith("fecha"),
+  );
+
+  if (columna < 0) return new Set();
+
+  const fechas = new Set<string>();
+
+  for (const fila of filas.slice(cabecera + 1)) {
+    const iso = fechaIsoDeHoja(fila?.[columna]);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) fechas.add(iso);
+  }
+
+  return fechas;
+}
+
+/**
+ * Qué días de la semana son libres.
+ *
+ * Si el microciclo ya está en la hoja —algún día de la semana, que no sea el
+ * del partido, tiene tareas— mandan sus filas: libre es el día sin ninguna.
+ * Si todavía no se ha escrito, se enseña la propuesta de siempre, y se dice
+ * que es una propuesta.
+ */
+export function libresDeLaSemana(
+  dias: DiaSemana[],
+  conTarea: Set<string> | null,
+): { libres: Set<string>; delMicro: boolean } {
+  const entrenables = dias.filter((dia) => dia.md > 0);
+
+  const escrito = conTarea !== null && entrenables.some((dia) => conTarea.has(dia.fecha));
+
+  if (!escrito) {
+    return { libres: new Set(dias.filter((dia) => dia.descanso).map((dia) => dia.fecha)), delMicro: false };
+  }
+
+  return {
+    libres: new Set(entrenables.filter((dia) => !conTarea.has(dia.fecha)).map((dia) => dia.fecha)),
+    delMicro: true,
+  };
+}
 
 export type EquipoPortada = {
   /** Como lo escribe la hoja ("Teruel"). */

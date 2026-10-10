@@ -30,7 +30,9 @@ import {
   diaEnMadrid,
   diaLargo,
   equipoDelInforme,
+  fechasConTarea,
   horaCorta,
+  libresDeLaSemana,
   signoResultado,
   type RespuestaPortada,
 } from "@/lib/portada/proximo-partido";
@@ -65,6 +67,30 @@ export function ProximoPartido() {
     const id = setTimeout(() => setAhora(Date.now()), 0);
 
     return () => clearTimeout(id);
+  }, []);
+
+  /*
+  | Los días con tareas en la hoja de registro: con ellos la tira enseña los
+  | libres que el microciclo tiene de verdad y no la propuesta de siempre.
+  | `null` mientras no ha contestado; si la hoja falla, un conjunto vacío,
+  | que vuelve a la propuesta.
+  */
+  const [conTarea, setConTarea] = useState<Set<string> | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+
+    fechasConTarea()
+      .then((fechas) => {
+        if (vivo) setConTarea(fechas);
+      })
+      .catch(() => {
+        if (vivo) setConTarea(new Set());
+      });
+
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -124,6 +150,17 @@ export function ProximoPartido() {
 
   const diaDeHoy = semana.find((dia) => dia.fecha === hoy) ?? null;
 
+  const { libres, delMicro } = useMemo(
+    () => libresDeLaSemana(semana, conTarea),
+    [semana, conTarea],
+  );
+
+  /* «sáb 10 y dom 11», para el pie de la tira. */
+  const libresEnTexto = semana
+    .filter((dia) => libres.has(dia.fecha))
+    .map((dia) => `${dia.nombre.slice(0, 3)} ${Number(dia.fecha.slice(8, 10))}`)
+    .join(" y ");
+
   const rival = proximo ? equipoDelInforme(informe?.equipos ?? [], proximo.rival) : null;
 
   /* Los cinco últimos, del más antiguo al más reciente: el de ayer, a la derecha. */
@@ -176,6 +213,7 @@ export function ProximoPartido() {
               Hoy {diaDeHoy.rotulo}
               <span className="font-medium normal-case tracking-normal opacity-80">
                 · {diaDeHoy.nombre}
+                {libres.has(diaDeHoy.fecha) ? " · libre" : ""}
               </span>
             </span>
           )}
@@ -247,12 +285,19 @@ export function ProximoPartido() {
                 const esHoy = dia.fecha === hoy;
                 const esPartido = dia.md === 0;
                 const pasado = dia.fecha < hoy;
+                const libre = libres.has(dia.fecha);
 
                 return (
                   <span
                     key={dia.fecha}
                     title={`${dia.nombre} ${Number(dia.fecha.slice(8, 10))} · ${dia.rotulo}${
-                      dia.descanso ? " · descanso" : esPartido ? " · partido" : ""
+                      libre
+                        ? delMicro
+                          ? " · libre (del microciclo)"
+                          : " · libre (propuesto)"
+                        : esPartido
+                          ? " · partido"
+                          : ""
                     }`}
                     className={`flex min-w-[46px] flex-1 flex-col items-center rounded-xl border px-1 py-2 transition ${
                       esHoy
@@ -284,7 +329,7 @@ export function ProximoPartido() {
                         esHoy ? "opacity-80" : "text-white/40"
                       }`}
                     >
-                      {dia.descanso ? "libre" : dia.nombre.slice(0, 3)}
+                      {libre ? "libre" : dia.nombre.slice(0, 3)}
                     </span>
                   </span>
                 );
@@ -293,6 +338,27 @@ export function ProximoPartido() {
 
             <p className="mt-2 text-[11px] text-white/40">
               Semana {comoSeLlama(semana, anterior?.cuando ?? null)}
+              {/* Los libres, y de dónde salen: del microciclo escrito en la
+                  hoja, o la propuesta de siempre mientras no se escriba. */}
+              {conTarea !== null && (
+                <>
+                  {" "}
+                  ·{" "}
+                  {libresEnTexto ? (
+                    <>
+                      libre {libresEnTexto}
+                      <span className="text-white/30">
+                        {delMicro ? " · del microciclo" : " · propuesto, sin microciclo aún"}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      sin día libre
+                      <span className="text-white/30">{delMicro ? " · del microciclo" : ""}</span>
+                    </>
+                  )}
+                </>
+              )}
               {anterior && (
                 <>
                   {" "}
