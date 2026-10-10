@@ -99,7 +99,25 @@ export function PanelJugadores({
                   : "border-white/10 bg-white/[0.02] hover:border-white/25"
               }`}
             >
-              <Tecla activa={seleccionado}>{tecla || "—"}</Tecla>
+              {/*
+              | Sin tecla libre —una convocatoria larga agota las del teclado—
+              | no se pinta una tecla con una raya dentro, que se lee como «la
+              | tecla guion»: se deja el hueco en blanco para que se vea que a
+              | éste se le elige con el ratón, el dedo o desde la barra.
+              */}
+              {tecla ? (
+                <Tecla activa={seleccionado}>{tecla}</Tecla>
+              ) : (
+                <span
+                  title="Sin tecla libre: se elige con el ratón o desde la barra de marcar"
+                  aria-label="Sin tecla"
+                  className={`inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-md border border-dashed text-[10px] ${
+                    seleccionado ? "border-[#C8A96B]/60 text-[#C8A96B]" : "border-white/10 text-white/25"
+                  }`}
+                >
+                  ·
+                </span>
+              )}
 
               {jugador.foto ? (
                 <Image

@@ -3208,6 +3208,26 @@ function Coding() {
                           ))}
                         </optgroup>
                       )}
+
+                      {/*
+                      | Un vídeo propio que no está en la lista —una sesión de
+                      | prueba, un rival añadido en otro ordenador— se sigue
+                      | codificando bajo su clave, pero el desplegable, al no
+                      | tener su opción, enseñaba el PRIMER partido del
+                      | calendario: la pantalla decía un partido y guardaba en
+                      | otro. Se le pone su opción para que diga la verdad.
+                      */}
+                      {rivalPropio &&
+                        !rivales.some((uno) => uno.clave === rivalPropio.clave) && (
+                          <optgroup label="Vídeo propio">
+                            <option
+                              value={`${PREFIJO_PROPIO}${rivalPropio.clave}`}
+                              className="bg-[#11161C]"
+                            >
+                              RMCF Castilla · {rivalPropio.nombre}
+                            </option>
+                          </optgroup>
+                        )}
                     </select>
 
                     <Button
@@ -3381,11 +3401,28 @@ function Coding() {
                     />
                   )}
 
+                  {/*
+                  | El hueco negro se puede pulsar: lleva al panel «El vídeo»,
+                  | que en un ordenador está al lado pero en un teléfono cae
+                  | DEBAJO, fuera de la vista. Antes era un texto quieto y no
+                  | se sabía por dónde se elegía el vídeo.
+                  */}
                   {!src && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/25">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        document
+                          .getElementById("coding-el-video")
+                          ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      }
+                      className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/35 transition hover:text-white/70"
+                    >
                       <Video size={26} />
-                      <p className="text-xs">Elige el vídeo del partido</p>
-                    </div>
+                      <span className="text-xs">Elige el vídeo del partido</span>
+                      <span className="text-[11px] text-white/25">
+                        de la carpeta, de un enlace o del ordenador
+                      </span>
+                    </button>
                   )}
 
                   {/*
@@ -4044,79 +4081,17 @@ function Coding() {
 
               <div className="min-w-0 space-y-4">
                 {(!src || cambiandoVideo) && (
-                  <Panel title="El vídeo" icon={Video}>
-                    <SelectorFuente
-                      fuente={sesion.sesion.fuente}
-                      videos={videosSesion}
-                      /* Elegidos a mano: entran siempre con su corte completo. */
-                      onElegir={(elegidos) => abreVideos(elegidos)}
-                    />
-                  </Panel>
+                  <div id="coding-el-video" className="scroll-mt-24">
+                    <Panel title="El vídeo" icon={Video}>
+                      <SelectorFuente
+                        fuente={sesion.sesion.fuente}
+                        videos={videosSesion}
+                        /* Elegidos a mano: entran siempre con su corte completo. */
+                        onElegir={(elegidos) => abreVideos(elegidos)}
+                      />
+                    </Panel>
+                  </div>
                 )}
-
-                {/* --------------------------- PIZARRAS ------------------ */}
-
-                <Panel
-                  title="Pizarras"
-                  subtitle={
-                    escenas.length > 0
-                      ? `${escenas.length} sobre el vídeo`
-                      : "Pinta sobre el fotograma y se guarda aquí"
-                  }
-                  icon={PenTool}
-                  action={
-                    <Button icon={PenTool} onClick={abrePizarra} disabled={!src}>
-                      Pintar aquí
-                    </Button>
-                  }
-                  bodyClassName="p-3 sm:p-3"
-                >
-                  {escenas.length === 0 ? (
-                    <p className="text-[11px] text-white/35">
-                      Para el vídeo donde quieras explicar algo y pulsa{" "}
-                      <b className="text-white/60">Pizarra</b>: focos sobre un
-                      jugador, flechas, zonas, mover a alguien a donde tenía que
-                      estar. Lo pintado vuelve a salir solo al pasar por ahí, y
-                      con <b className="text-white/60">⧉</b> la misma pizarra se
-                      reparte entre los cortes que quieras.
-                    </p>
-                  ) : (
-                    <div className="space-y-1.5">
-                      {escenas.map((escena, indice) => (
-                        <FilaPizarra
-                          key={escena.id}
-                          escena={escena}
-                          nombre={nombreEscena(escena, indice)}
-                          indice={indice}
-                          tiempoVideoMs={estado.tiempoMs}
-                          duracionVideoMs={estado.duracionMs}
-                          fps={sesion.sesion.fps}
-                          alMover={(tMs) => mueveEscena(escena.id, tMs)}
-                          alRenombrar={(nombre) =>
-                            renombraEscena(escena.id, nombre)
-                          }
-                          activa={escena.id === pizarraEditando}
-                          alAbrir={() => abreEscena(escena.id, false)}
-                          alEditar={() => abreEscena(escena.id, true)}
-                          alRepartir={
-                            clips.length > 0
-                              ? () => setPizarraRepartida(escena.id)
-                              : undefined
-                          }
-                          alBorrar={() => {
-                            sesion.borraEscena(escena.id);
-
-                            if (pizarraEditando === escena.id) {
-                              setPizarraEditando(null);
-                            }
-
-                            toast.success("Pizarra borrada");
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </Panel>
 
                 {/* Un rival sin plantilla cargada todavía se puede codificar. */}
                 {ambito === "rival" &&
@@ -4230,6 +4205,75 @@ function Coding() {
                     <p className="text-[11px] text-white/30">
                       Pulsa <b>?</b> para volver a verla.
                     </p>
+                  )}
+                </Panel>
+
+                {/*
+                | Las pizarras, DEBAJO de lo que se usa para marcar (10/10/2026).
+                | Iban las primeras de la columna y empujaban a los jugadores
+                | —el panel que se toca en cada corte— fuera de la vista.
+                */}
+                {/* --------------------------- PIZARRAS ------------------ */}
+
+                <Panel
+                  title="Pizarras"
+                  subtitle={
+                    escenas.length > 0
+                      ? `${escenas.length} sobre el vídeo`
+                      : "Pinta sobre el fotograma y se guarda aquí"
+                  }
+                  icon={PenTool}
+                  action={
+                    <Button icon={PenTool} onClick={abrePizarra} disabled={!src}>
+                      Pintar aquí
+                    </Button>
+                  }
+                  bodyClassName="p-3 sm:p-3"
+                >
+                  {escenas.length === 0 ? (
+                    <p className="text-[11px] text-white/35">
+                      Para el vídeo donde quieras explicar algo y pulsa{" "}
+                      <b className="text-white/60">Pizarra</b>: focos sobre un
+                      jugador, flechas, zonas, mover a alguien a donde tenía que
+                      estar. Lo pintado vuelve a salir solo al pasar por ahí, y
+                      con <b className="text-white/60">⧉</b> la misma pizarra se
+                      reparte entre los cortes que quieras.
+                    </p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {escenas.map((escena, indice) => (
+                        <FilaPizarra
+                          key={escena.id}
+                          escena={escena}
+                          nombre={nombreEscena(escena, indice)}
+                          indice={indice}
+                          tiempoVideoMs={estado.tiempoMs}
+                          duracionVideoMs={estado.duracionMs}
+                          fps={sesion.sesion.fps}
+                          alMover={(tMs) => mueveEscena(escena.id, tMs)}
+                          alRenombrar={(nombre) =>
+                            renombraEscena(escena.id, nombre)
+                          }
+                          activa={escena.id === pizarraEditando}
+                          alAbrir={() => abreEscena(escena.id, false)}
+                          alEditar={() => abreEscena(escena.id, true)}
+                          alRepartir={
+                            clips.length > 0
+                              ? () => setPizarraRepartida(escena.id)
+                              : undefined
+                          }
+                          alBorrar={() => {
+                            sesion.borraEscena(escena.id);
+
+                            if (pizarraEditando === escena.id) {
+                              setPizarraEditando(null);
+                            }
+
+                            toast.success("Pizarra borrada");
+                          }}
+                        />
+                      ))}
+                    </div>
                   )}
                 </Panel>
 
