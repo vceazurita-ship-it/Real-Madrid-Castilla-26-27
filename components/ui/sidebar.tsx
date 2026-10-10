@@ -67,7 +67,6 @@ import {
   Target,
   Trophy,
   User,
-  UserCheck,
   UserSearch,
   Users,
   UsersRound,
@@ -127,10 +126,23 @@ type Seccion = { titulo: string; entradas: Entrada[] }
 const EN_OBRAS = "Todavía estamos haciendo cambios"
 
 /*
-| El orden es el de la semana tal y como se trabaja: primero lo que se
-| prepara —la metodología, el rival y el jugador— y después el partido.
-| Balón parado va junto, lo que no es trabajo (la quiniela) al final, y lo que
-| está en obras detrás de todo, para que no se cruce con la semana.
+| EL ORDEN DEL MENÚ (reorganizado el 10/10/2026)
+|
+| Por **momentos de la semana**, que es como piensa un cuerpo técnico:
+|
+|   1. Entrenamiento — la semana: microciclos, contenidos y sesiones.
+|   2. Rival — lo que se mira del equipo de enfrente.
+|   3. Partido — lo que se prepara para el domingo: plan, duelos, pizarra, viaje.
+|   4. Balón Parado — junto, lo propio y la pizarra que se proyecta.
+|   5. Análisis — lo que se hace DESPUÉS del partido: coding, vídeo, datos.
+|   6. Jugador — todo lo del futbolista: plantilla, valoraciones, seguimiento,
+|      condicional y emocional. Antes el seguimiento estaba en Metodología y
+|      lo condicional y lo emocional en dos secciones de una y dos entradas.
+|   7. Identidad — la referencia: se consulta, no se trabaja a diario.
+|   8. Operativa — calendario del club, repositorio y lo que no es trabajo.
+|
+| Lo que está en obras va detrás de todo, y Ajustes lo último. Las secciones
+| de una sola entrada se han fundido: cada rótulo tiene que agrupar algo.
 */
 const SECCIONES: Seccion[] = [
   {
@@ -138,57 +150,33 @@ const SECCIONES: Seccion[] = [
     entradas: [{ href: "/", label: "Real Madrid Castilla", icon: Home }],
   },
   {
-    titulo: "Identidad",
+    titulo: "Entrenamiento",
     entradas: [
-      { href: "/team-values", label: "Dinámicas y Valores", icon: Handshake },
-      { href: "/identidad-cultura", label: "Identidad y Cultura", icon: BookOpen },
-      { href: "/game-model", label: "Identidad de Juego", icon: Network },
-      { href: "/identidad-posicional", label: "Identidad Posicional", icon: LayoutGrid },
-    ],
-  },
-  {
-    titulo: "Metodología",
-    entradas: [
-      { href: "/micro_calendar", label: "Contenidos Microciclo", icon: BookOpen },
       { href: "/microcycles", label: "Microciclos", icon: CalendarDays },
+      { href: "/micro_calendar", label: "Contenidos Microciclo", icon: BookOpen },
       { href: "/laboratorio/microciclo", label: "Crear o editar microciclo", icon: ClipboardPlus },
       { href: "/jugadores-sesion", label: "Jugadores Sesión", icon: UsersRound },
-      { href: "/calendar", label: "Calendario Seguimiento", icon: CalendarCheck },
-      { href: "/individual_proc", label: "Dashboard Seguimiento", icon: BarChart3 },
     ],
   },
   {
+    /* Con el nombre entero: «Individual» a secas chocaba con la sección del
+       jugador, y el buscador del menú los confundía. */
     titulo: "Rival",
     entradas: [
-      { href: "/rivals", label: "Plantillas", icon: Users },
-      { href: "/scout-rival-individual", label: "Individual", icon: UserSearch },
-      { href: "/scout-rival-collective", label: "Colectivo", icon: Binoculars },
+      { href: "/rivals", label: "Plantillas Rivales", icon: Users },
+      { href: "/scout-rival-collective", label: "Scout Colectivo", icon: Binoculars },
+      { href: "/scout-rival-individual", label: "Scout Individual", icon: UserSearch },
       { href: "/scout-rival-abp", label: "ABP del Rival", icon: Target },
       { href: "/scout-rival-area", label: "Área del Rival", icon: CircleDot },
     ],
   },
   {
-    titulo: "Individual",
+    titulo: "Partido",
     entradas: [
-      { href: "/individual", label: "Plantilla", icon: User },
-      { href: "/ratings", label: "Valoraciones", icon: Star },
-      { href: "/comparative_ind", label: "Comparativa categoría", icon: Scale },
-    ],
-  },
-  {
-    /* Todo lo que rodea al partido, de arriba abajo: se prepara, se dibuja,
-       se juega, se corta el vídeo y se lee lo que dejó. */
-    titulo: "Competición",
-    entradas: [
-      { href: "/match-preparation", label: "Preparación de Partido", icon: ClipboardCheck },
+      { href: "/match-preparation", label: "Plan de Partido", icon: ClipboardCheck },
       { href: "/duelos", label: "Duelos", icon: Swords },
       { href: "/pizarra-tactica", label: "Pizarra Táctica", icon: PenTool },
-      { href: "/match-plans", label: "Vídeo Análisis Partidos", icon: Clapperboard },
-      { href: "/coding", label: "Coding de Partido", icon: Scissors },
-      { href: "/collective_history", label: "Histórico Competición", icon: History },
-      { href: "/data-analisis", label: "Data Análisis", icon: Sigma },
-      { href: "/laboratorio/transiciones", label: "Robos y transiciones", icon: Crosshair },
-      { href: "/laboratorio/faltas", label: "Análisis de faltas", icon: Crosshair },
+      { href: "/desplazamiento", label: "Desplazamiento", icon: Bus },
     ],
   },
   {
@@ -203,38 +191,59 @@ const SECCIONES: Seccion[] = [
     ],
   },
   {
-    titulo: "Relacional",
-    entradas: [{ href: "/emotion", label: "Emocional", icon: HeartHandshake }],
-  },
-  {
-    titulo: "Rendimiento",
+    titulo: "Análisis",
     entradas: [
-      { href: "/calendar_performance", label: "Calendario Condicional", icon: CalendarClock },
-      { href: "/performance", label: "Área Condicional", icon: Dumbbell },
+      { href: "/coding", label: "Coding de Partido", icon: Scissors },
+      { href: "/match-plans", label: "Vídeo Análisis Partidos", icon: Clapperboard },
+      { href: "/laboratorio/transiciones", label: "Robos y transiciones", icon: Crosshair },
+      { href: "/laboratorio/faltas", label: "Análisis de faltas", icon: Crosshair },
+      { href: "/collective_history", label: "Histórico Competición", icon: History },
+      { href: "/data-analisis", label: "Data Análisis", icon: Sigma },
     ],
   },
   {
-    titulo: "Operativa General",
+    titulo: "Jugador",
+    entradas: [
+      { href: "/individual", label: "Plantilla", icon: User },
+      { href: "/dashboard-plantilla", label: "Dashboard de Plantilla", icon: Gauge },
+      { href: "/ratings", label: "Valoraciones", icon: Star },
+      { href: "/calendar", label: "Calendario Seguimiento", icon: CalendarCheck },
+      { href: "/individual_proc", label: "Dashboard Seguimiento", icon: BarChart3 },
+      { href: "/comparative_ind", label: "Comparativa categoría", icon: Scale },
+      { href: "/performance", label: "Área Condicional", icon: Dumbbell },
+      { href: "/calendar_performance", label: "Calendario Condicional", icon: CalendarClock },
+      { href: "/emotion", label: "Emocional", icon: HeartHandshake },
+    ],
+  },
+  {
+    titulo: "Identidad",
+    entradas: [
+      { href: "/game-model", label: "Identidad de Juego", icon: Network },
+      { href: "/identidad-posicional", label: "Identidad Posicional", icon: LayoutGrid },
+      { href: "/team-values", label: "Dinámicas y Valores", icon: Handshake },
+      { href: "/identidad-cultura", label: "Identidad y Cultura", icon: BookOpen },
+    ],
+  },
+  {
+    /* Lo del club y lo que no es trabajo: la quiniela y las apuestas se miran
+       el lunes, cuando ya está lo importante. */
+    titulo: "Operativa",
     entradas: [
       { href: "/calendar_general", label: "Calendario Operativa", icon: CalendarCog },
-      { href: "/desplazamiento", label: "Desplazamiento", icon: Bus },
       { href: "/general", label: "Repositorio", icon: Database },
+      { href: "/quiniela", label: "Quiniela de la Semana", icon: Trophy },
+      { href: "/laboratorio/apuestas", label: "Apuestas del staff", icon: Dices },
     ],
   },
   {
-    /* Lo único del menú que no es trabajo: se mira el lunes. */
-    titulo: "La Quiniela",
-    entradas: [{ href: "/quiniela", label: "Quiniela de la Semana", icon: Trophy }],
-  },
-  {
+    /* Lo que no está terminado, junto y al final: se ve, pero no se cruza con
+       la semana. «Jugadores Sesión» y «Dashboard Individual» ya no están aquí:
+       existen y van en su sección. */
     titulo: "En obras",
     entradas: [
       { href: "/laboratorio/escudos", label: "Escudos de la liga", icon: Shield },
-      { href: "/laboratorio/apuestas", label: "Apuestas del staff", icon: Dices },
       { href: "#pizarra-sesion", label: "Pizarra Sesión", icon: PencilRuler, obras: EN_OBRAS },
-      { href: "#jugadores-sesion", label: "Jugadores Sesión", icon: UserCheck, obras: EN_OBRAS },
       { href: "#pizarra-competicion", label: "Pizarra Competición", icon: Presentation, obras: EN_OBRAS },
-      { href: "#dashboard-individual", label: "Dashboard Individual", icon: Gauge, obras: EN_OBRAS },
       {
         href: "#laboratorio",
         label: "Laboratorio",
