@@ -3293,33 +3293,34 @@ function Coding() {
             </div>
 
             {/* Sesión que quedó a medias (FASE 19). */}
+            {/*
+            | En una sola línea (10/10/2026): salía casi cada vez que se abría
+            | la pantalla —toda sesión con cortes está «abierta»— y, con título,
+            | párrafo y dos botones, empujaba el vídeo media pantalla abajo.
+            */}
             {avisoSesion && sesion.sesion.abierta && clips.length > 0 && (
-              <div className="mt-4">
-                <Notice tone="warn" title="Esta sesión de coding quedó abierta">
-                  <p>
-                    Hay {clips.length} clips guardados de la última vez. Puedes
-                    seguir donde lo dejaste; si ya terminaste, ciérrala para que
-                    deje de avisar. <b>Cerrarla no borra ningún clip.</b>
-                  </p>
+              <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2.5">
+                <p className="min-w-0 flex-1 text-[12px] leading-snug text-white/75">
+                  <b className="text-white">Sesión abierta</b> · {clips.length}{" "}
+                  {clips.length === 1 ? "clip guardado" : "clips guardados"} de la última vez.
+                  Sigue donde lo dejaste o márcala como terminada:{" "}
+                  <span className="text-white/50">cerrarla no borra ningún clip.</span>
+                </p>
 
-                  <div className="mt-2 flex gap-2">
-                    <Button
-                      tone="primary"
-                      onClick={() => setAvisoSesion(false)}
-                    >
-                      Continuar
-                    </Button>
+                <div className="flex shrink-0 gap-2">
+                  <Button tone="primary" onClick={() => setAvisoSesion(false)}>
+                    Continuar
+                  </Button>
 
-                    <Button
-                      onClick={() => {
-                        sesion.cierra();
-                        setAvisoSesion(false);
-                      }}
-                    >
-                      Marcarla como terminada
-                    </Button>
-                  </div>
-                </Notice>
+                  <Button
+                    onClick={() => {
+                      sesion.cierra();
+                      setAvisoSesion(false);
+                    }}
+                  >
+                    Terminada
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -3806,6 +3807,30 @@ function Coding() {
                     }}
                     onElegirSujeto={() => setEligiendoMarca(true)}
                     onElegirCategoria={() => setEligiendoMarca(true)}
+                    /* El último que se CERRÓ: el de número más alto, que la
+                       lista va en orden de vídeo y no de creación. */
+                    ultimo={(() => {
+                      const ultimoClip = clips.reduce<(typeof clips)[number] | null>(
+                        (mayor, uno) => (!mayor || uno.numero > mayor.numero ? uno : mayor),
+                        null,
+                      );
+
+                      return ultimoClip && !/-COMP$|^Vídeo completo$/i.test(ultimoClip.jugadorNombre)
+                        ? {
+                            nombre: ultimoClip.jugadorNombre,
+                            /* La misma duración que enseña la lista: con márgenes. */
+                            largoMs: duracionClip(ultimoClip),
+                          }
+                        : null;
+                    })()}
+                    onVerUltimo={() => {
+                      const ultimoClip = clips.reduce<(typeof clips)[number] | null>(
+                        (mayor, uno) => (!mayor || uno.numero > mayor.numero ? uno : mayor),
+                        null,
+                      );
+
+                      if (ultimoClip) reproduceClip(ultimoClip);
+                    }}
                   />
 
                   <div className="mt-3">

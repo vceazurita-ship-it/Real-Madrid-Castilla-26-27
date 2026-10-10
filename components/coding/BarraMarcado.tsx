@@ -31,7 +31,7 @@
 | misma hoja: el aviso decía qué falta, pero no llevaba a ninguna parte.
 */
 
-import { CircleDot, Square, Undo2, X } from "lucide-react";
+import { CircleDot, Play, Square, Undo2, X } from "lucide-react";
 
 import type {
   CategoriaCoding,
@@ -63,6 +63,8 @@ export function BarraMarcado({
   onElegirSujeto,
   onElegirCategoria,
   listo,
+  ultimo = null,
+  onVerUltimo,
 }: {
   /** Milisegundo del IN, o `null` si no hay marca abierta. */
   inicioMs: number | null;
@@ -79,6 +81,15 @@ export function BarraMarcado({
   onElegirCategoria: () => void;
   /** Sin vídeo no hay nada que marcar. */
   listo: boolean;
+  /**
+   * El último corte que se cerró, para verlo al momento (10/10/2026).
+   *
+   * Codificando en directo la duda de siempre es «¿lo he cogido bien?», y
+   * comprobarlo obligaba a bajar a la lista, buscar la última fila y pulsar
+   * su play. Desde aquí es un toque, sin dejar de mirar el vídeo.
+   */
+  ultimo?: { nombre: string; largoMs: number } | null;
+  onVerUltimo?: () => void;
 }) {
   const abierta = inicioMs !== null;
 
@@ -86,7 +97,9 @@ export function BarraMarcado({
   const largoMs = abierta ? Math.max(0, tiempoMs - inicioMs) : 0;
 
   return (
-    <div className="mt-3 min-w-0 rounded-xl border border-white/10 bg-black/30 p-2.5">
+    /* Con el dorado de la casa y no un bloque negro translúcido: en modo día
+       salía un rectángulo gris que no casaba con nada de la pantalla. */
+    <div className="mt-3 min-w-0 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] p-2.5">
       {/* ------------------------- QUIÉN Y QUÉ ------------------------- */}
 
       <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -207,8 +220,25 @@ export function BarraMarcado({
           </b>
         </span>
 
-        <span className="ml-auto font-sans text-[11px] text-white/25">
-          o con las teclas I y O
+        <span className="ml-auto flex min-w-0 items-center gap-2 font-sans">
+          {ultimo && onVerUltimo && !abierta && (
+            <button
+              type="button"
+              onClick={onVerUltimo}
+              title="Reproducir el último corte que se ha cerrado"
+              className="flex min-w-0 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
+            >
+              <Play size={11} className="shrink-0" />
+              <span className="truncate">Ver el último · {ultimo.nombre}</span>
+              <span className="shrink-0 font-mono tabular-nums text-white/40">
+                {formatea(ultimo.largoMs)}
+              </span>
+            </button>
+          )}
+
+          <span className="hidden text-[11px] text-white/25 sm:inline">
+            o con las teclas I y O
+          </span>
         </span>
       </div>
     </div>

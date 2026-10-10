@@ -110,6 +110,50 @@ export function ListaClips({
     limpia();
   };
 
+  /*
+  | El vecino con el que se intercambia sitio.
+  |
+  | Aquí hubo un fallo que dejó el reordenar inservible: se exigía que el
+  | vecino fuera **del mismo vídeo**, y en la forma de trabajo más habitual
+  | —un corte por vídeo, los veintidós clips de un jugador— ningún clip tiene
+  | vecino de su vídeo. Resultado: las cuarenta flechas desactivadas y el
+  | arrastre rechazado, sin que nada dijera por qué.
+  |
+  | Sólo se restringe cuando de verdad importa: si el clip comparte vídeo con
+  | otros, su orden **dentro** de ese vídeo es lo que manda al exportar y
+  | moverlo fuera no significaría nada. Si es el único de su vídeo, moverlo es
+  | reordenar los vídeos, que es justo lo que se quiere poder hacer.
+  */
+  const compartenVideo = (clip: ClipCoding, otro: ClipCoding | undefined) => {
+    if (!otro) return undefined;
+
+    if (!videoDe) return otro;
+
+    const suyo = videoDe(clip);
+
+    /* ¿Hay algún otro corte en su mismo vídeo? */
+    const conHermanos = clips.some(
+      (uno) => uno.id !== clip.id && videoDe(uno) === suyo,
+    );
+
+    if (!conHermanos) return otro;
+
+    return videoDe(otro) === suyo ? otro : undefined;
+  };
+
+  /*
+  | Lo que cada fila necesita saber, calculado una vez: lo pintan la tabla
+  | (ordenador) y las tarjetas (teléfono), y no puede haber dos versiones de
+  | «cuál es el vecino» o «cuántas pizarras lleva».
+  */
+  const filas = clips.map((clip, indice) => ({
+    clip,
+    categoria: categorias.find((una) => una.id === clip.categoriaId),
+    anterior: compartenVideo(clip, clips[indice - 1]),
+    siguiente: compartenVideo(clip, clips[indice + 1]),
+    pizarras: pizarrasDe?.(clip) ?? 0,
+  }));
+
   if (clips.length === 0) {
     return (
       <p className="py-10 text-center text-xs text-white/30">
@@ -121,315 +165,347 @@ export function ListaClips({
     );
   }
 
+  /* Los botones de cada clip, los mismos en la tabla y en la tarjeta. */
+  const acciones = (fila: (typeof filas)[number]) => (
+    <>
+      <Icono
+        titulo="Subir: sale antes en el vídeo"
+        desactivado={!fila.anterior}
+        onClick={() =>
+          fila.anterior && onMover(fila.clip.id, fila.anterior.id, "antes")
+        }
+      >
+        <ChevronUp size={13} />
+      </Icono>
+
+      <Icono
+        titulo="Bajar: sale después en el vídeo"
+        desactivado={!fila.siguiente}
+        onClick={() =>
+          fila.siguiente && onMover(fila.clip.id, fila.siguiente.id, "despues")
+        }
+      >
+        <ChevronDown size={13} />
+      </Icono>
+
+      <Icono titulo="Reproducir el clip" onClick={() => onReproducir(fila.clip)}>
+        <Play size={13} />
+      </Icono>
+
+      <Icono titulo="Editar" onClick={() => onEditar(fila.clip)}>
+        <Pencil size={13} />
+      </Icono>
+
+      <Icono
+        titulo="Exportar este clip"
+        onClick={() => onExportar(fila.clip)}
+        desactivado={exportando}
+      >
+        <Scissors size={13} />
+      </Icono>
+
+      <Icono titulo="Duplicar" onClick={() => onDuplicar(fila.clip.id)}>
+        <Copy size={13} />
+      </Icono>
+
+      <Icono titulo="Eliminar" tono="peligro" onClick={() => onBorrar(fila.clip.id)}>
+        <Trash2 size={13} />
+      </Icono>
+    </>
+  );
+
+  /* Quién es el corte: lo colectivo se distingue de un vistazo, y en una
+     tabla de doscientas filas «Presión alta» entre nombres propios se lee
+     como si fuera un jugador más. */
+  const quien = (clip: ClipCoding) => (
+    <span className="flex min-w-0 items-center gap-2">
+      {clip.sujeto === "colectivo" ? (
+        <span className="shrink-0 rounded bg-white/[0.08] px-1 text-[9px] uppercase tracking-[0.12em] text-white/40">
+          Col
+        </span>
+      ) : (
+        clip.jugadorDorsal !== undefined && (
+          <span className="shrink-0 text-[10px] tabular-nums text-white/30">
+            {clip.jugadorDorsal}
+          </span>
+        )
+      )}
+
+      <span className="truncate text-[12px] font-medium text-white/80">
+        {clip.jugadorNombre}
+      </span>
+
+      {clip.estado === "revisar" && (
+        <span className="shrink-0 rounded-full bg-amber-400/15 px-1.5 text-[9px] uppercase tracking-[0.12em] text-amber-300">
+          Revisar
+        </span>
+      )}
+    </span>
+  );
+
+  const chapaCategoria = (categoria: CategoriaCoding | undefined) =>
+    categoria ? (
+      <span className="inline-flex items-center gap-1.5 text-[11px] text-white/60">
+        <span
+          aria-hidden
+          className="h-2 w-2 rounded-full"
+          style={{ backgroundColor: categoria.color }}
+        />
+        {categoria.nombre}
+      </span>
+    ) : (
+      <span className="text-[11px] text-white/20">—</span>
+    );
+
+  const chapaPizarras = (pizarras: number) =>
+    pizarras > 0 && (
+      <span
+        title={`${pizarras} ${pizarras === 1 ? "pizarra" : "pizarras"} en este corte`}
+        className="ml-1.5 rounded bg-[#C8A96B]/15 px-1 text-[9px] text-[#C8A96B]"
+      >
+        ✎{pizarras}
+      </span>
+    );
+
   return (
-    <div className="min-w-0 overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-left">
-        <thead>
-          <tr className="text-[10px] uppercase tracking-[0.16em] text-white/30">
-            <th className="w-6 px-1 py-1.5 font-medium" aria-label="Orden" />
-            <th className="px-2 py-1.5 font-medium">#</th>
-            {videoDe && <th className="px-2 py-1.5 font-medium">Vídeo</th>}
-            {/* Jugador o comportamiento colectivo: los dos son el sujeto. */}
-            <th className="px-2 py-1.5 font-medium">Quién</th>
-            <th className="px-2 py-1.5 font-medium">Categoría</th>
-            <th className="px-2 py-1.5 text-right font-medium">In</th>
-            <th className="px-2 py-1.5 text-right font-medium">Out</th>
-            <th className="px-2 py-1.5 text-right font-medium">Dur.</th>
-            <th className="px-2 py-1.5 text-right font-medium">Acciones</th>
-          </tr>
-        </thead>
+    <>
+      {/*
+      | EN UN TELÉFONO, TARJETAS (10/10/2026).
+      |
+      | La tabla mide 720 px y en un móvil de 390 se desplazaba a lo ancho sin
+      | que nada lo dijera: se veían el número y el nombre, y las acciones
+      | —reproducir, editar, borrar— quedaban fuera de la pantalla. Aquí cada
+      | clip es una tarjeta con todo a la vista; el orden se cambia con las
+      | flechas, que arrastrar con el dedo en una lista que también hace
+      | scroll es un gesto que falla.
+      */}
+      <ul className="space-y-1.5 sm:hidden">
+        {filas.map((fila) => {
+          const activo = fila.clip.id === seleccionado;
 
-        <tbody>
-          {clips.map((clip, indice) => {
-            const categoria = categorias.find(
-              (una) => una.id === clip.categoriaId,
-            );
+          return (
+            <li
+              key={fila.clip.id}
+              onClick={() => onSeleccionar(fila.clip.id)}
+              className={`rounded-xl border px-3 py-2 transition ${
+                activo
+                  ? "border-[#C8A96B]/60 bg-[#C8A96B]/[0.08]"
+                  : "border-white/[0.08] bg-white/[0.02]"
+              }`}
+            >
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 text-[11px] tabular-nums text-white/35">
+                  {String(fila.clip.numero).padStart(3, "0")}
+                </span>
 
-            const activo = clip.id === seleccionado;
+                <span className="min-w-0 flex-1">{quien(fila.clip)}</span>
 
-            /*
-            | El vecino con el que se intercambia sitio.
-            |
-            | Aquí hubo un fallo que dejó el reordenar inservible: se exigía
-            | que el vecino fuera **del mismo vídeo**, y en la forma de trabajo
-            | más habitual —un corte por vídeo, los veintidós clips de un
-            | jugador— ningún clip tiene vecino de su vídeo. Resultado: las
-            | cuarenta flechas desactivadas y el arrastre rechazado, sin que
-            | nada dijera por qué.
-            |
-            | Sólo se restringe cuando de verdad importa: si el clip comparte
-            | vídeo con otros, su orden **dentro** de ese vídeo es lo que manda
-            | al exportar y moverlo fuera no significaría nada. Si es el único
-            | de su vídeo, moverlo es reordenar los vídeos, que es justo lo que
-            | se quiere poder hacer.
-            */
-            const compartenVideo = (otro: ClipCoding | undefined) => {
-              if (!otro) return undefined;
+                <span className="shrink-0 text-[11px] tabular-nums text-white/50">
+                  {formateaDuracion(duracionClip(fila.clip))}
+                  {chapaPizarras(fila.pizarras)}
+                </span>
+              </div>
 
-              if (!videoDe) return otro;
+              <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5">
+                <span className="font-mono text-[11px] tabular-nums text-white/45">
+                  {formateaMs(fila.clip.codingInicioMs)}
+                  <span className="text-white/20"> → </span>
+                  {formateaMs(fila.clip.codingFinMs)}
+                </span>
 
-              const suyo = videoDe(clip);
-
-              /* ¿Hay algún otro corte en su mismo vídeo? */
-              const conHermanos = clips.some(
-                (uno) => uno.id !== clip.id && videoDe(uno) === suyo,
-              );
-
-              if (!conHermanos) return otro;
-
-              return videoDe(otro) === suyo ? otro : undefined;
-            };
-
-            const anterior = compartenVideo(clips[indice - 1]);
-            const siguiente = compartenVideo(clips[indice + 1]);
-
-            const marca =
-              destino && destino.id === clip.id && arrastrado !== clip.id
-                ? destino.donde
-                : null;
-
-            const pizarras = pizarrasDe?.(clip) ?? 0;
-
-            return (
-              <tr
-                key={clip.id}
-                onClick={() => onSeleccionar(clip.id)}
-                onDragOver={(evento) => {
-                  if (!arrastrado) return;
-
-                  /*
-                  | Sólo se impide soltar en otro vídeo cuando el clip que se
-                  | arrastra comparte vídeo con otros: entonces su orden dentro
-                  | de ese vídeo es lo que manda al exportar. Con un corte por
-                  | vídeo, arrastrar ES reordenar los vídeos, y bloquearlo
-                  | dejaba el arrastre muerto (ver `compartenVideo`).
-                  */
-                  if (videoDe) {
-                    const suyo = clips.find((uno) => uno.id === arrastrado);
-
-                    if (suyo) {
-                      const deEl = videoDe(suyo);
-
-                      const conHermanos = clips.some(
-                        (uno) => uno.id !== suyo.id && videoDe(uno) === deEl,
-                      );
-
-                      if (conHermanos && deEl !== videoDe(clip)) return;
-                    }
-                  }
-
-                  /* Sin esto el navegador no deja soltar: es la forma de decir
-                     que aquí sí se puede. */
-                  evento.preventDefault();
-
-                  const caja = evento.currentTarget.getBoundingClientRect();
-
-                  setDestino({
-                    id: clip.id,
-                    donde:
-                      evento.clientY - caja.top < caja.height / 2
-                        ? "antes"
-                        : "despues",
-                  });
-                }}
-                onDrop={(evento) => {
-                  evento.preventDefault();
-                  suelta();
-                }}
-                onDragLeave={(evento) => {
-                  if (destino?.id !== clip.id) return;
-
-                  /* `dragleave` salta también al entrar en una celda de la
-                     propia fila: sólo cuenta salirse de la fila entera. */
-                  const fuera = evento.relatedTarget as Node | null;
-
-                  if (fuera && evento.currentTarget.contains(fuera)) return;
-
-                  setDestino(null);
-                }}
-                className={`cursor-pointer border-t transition ${
-                  marca === "antes"
-                    ? "border-t-2 border-t-[#C8A96B]"
-                    : "border-white/[0.06]"
-                } ${
-                  marca === "despues" ? "border-b-2 border-b-[#C8A96B]" : ""
-                } ${arrastrado === clip.id ? "opacity-40" : ""} ${
-                  activo ? "bg-[#C8A96B]/[0.08]" : "hover:bg-white/[0.03]"
-                }`}
-              >
-                {/*
-                | El asa, y sólo el asa, arrastra.
-                |
-                | Con la fila entera arrastrable no se puede seleccionar texto
-                | de una nota ni pulsar un botón sin que el navegador crea que
-                | empieza un arrastre.
-                */}
-                <td className="w-6 px-1 py-1.5">
-                  <span
-                    draggable
-                    onDragStart={(evento) => {
-                      setArrastrado(clip.id);
-
-                      evento.dataTransfer.effectAllowed = "move";
-                      /* Firefox no arranca el arrastre sin datos dentro. */
-                      evento.dataTransfer.setData("text/plain", clip.id);
-                    }}
-                    /* Sólo limpia: mover es cosa de `onDrop`. */
-                    onDragEnd={limpia}
-                    onClick={(evento) => evento.stopPropagation()}
-                    title="Arrastra para cambiar el orden del vídeo"
-                    className="flex cursor-grab justify-center text-white/20 transition hover:text-white/60 active:cursor-grabbing"
-                  >
-                    <GripVertical size={13} />
-                  </span>
-                </td>
-
-                <td className="px-2 py-1.5 text-[11px] tabular-nums text-white/35">
-                  {String(clip.numero).padStart(3, "0")}
-                </td>
+                {chapaCategoria(fila.categoria)}
 
                 {videoDe && (
-                  <td className="max-w-[170px] px-2 py-1.5">
+                  <span
+                    className="min-w-0 max-w-full truncate text-[11px] text-white/35"
+                    title={videoDe(fila.clip)}
+                  >
+                    {videoDe(fila.clip).replace(/\.[^.]+$/, "")}
+                  </span>
+                )}
+              </div>
+
+              <div
+                className="mt-1.5 flex items-center justify-between"
+                onClick={(evento) => evento.stopPropagation()}
+              >
+                {acciones(fila)}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* EN UN ORDENADOR, LA TABLA DE SIEMPRE: densa, con arrastre. */}
+      <div className="hidden min-w-0 overflow-x-auto sm:block">
+        <table className="w-full min-w-[720px] border-collapse text-left">
+          <thead>
+            <tr className="text-[10px] uppercase tracking-[0.16em] text-white/30">
+              <th className="w-6 px-1 py-1.5 font-medium" aria-label="Orden" />
+              <th className="px-2 py-1.5 font-medium">#</th>
+              {videoDe && <th className="px-2 py-1.5 font-medium">Vídeo</th>}
+              {/* Jugador o comportamiento colectivo: los dos son el sujeto. */}
+              <th className="px-2 py-1.5 font-medium">Quién</th>
+              <th className="px-2 py-1.5 font-medium">Categoría</th>
+              <th className="px-2 py-1.5 text-right font-medium">In</th>
+              <th className="px-2 py-1.5 text-right font-medium">Out</th>
+              <th className="px-2 py-1.5 text-right font-medium">Dur.</th>
+              <th className="px-2 py-1.5 text-right font-medium">Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {filas.map((fila) => {
+              const { clip } = fila;
+
+              const activo = clip.id === seleccionado;
+
+              const marca =
+                destino && destino.id === clip.id && arrastrado !== clip.id
+                  ? destino.donde
+                  : null;
+
+              return (
+                <tr
+                  key={clip.id}
+                  onClick={() => onSeleccionar(clip.id)}
+                  onDragOver={(evento) => {
+                    if (!arrastrado) return;
+
+                    /*
+                    | Sólo se impide soltar en otro vídeo cuando el clip que se
+                    | arrastra comparte vídeo con otros: entonces su orden dentro
+                    | de ese vídeo es lo que manda al exportar. Con un corte por
+                    | vídeo, arrastrar ES reordenar los vídeos, y bloquearlo
+                    | dejaba el arrastre muerto (ver `compartenVideo`).
+                    */
+                    if (videoDe) {
+                      const suyo = clips.find((uno) => uno.id === arrastrado);
+
+                      if (suyo) {
+                        const deEl = videoDe(suyo);
+
+                        const conHermanos = clips.some(
+                          (uno) => uno.id !== suyo.id && videoDe(uno) === deEl,
+                        );
+
+                        if (conHermanos && deEl !== videoDe(clip)) return;
+                      }
+                    }
+
+                    /* Sin esto el navegador no deja soltar: es la forma de decir
+                       que aquí sí se puede. */
+                    evento.preventDefault();
+
+                    const caja = evento.currentTarget.getBoundingClientRect();
+
+                    setDestino({
+                      id: clip.id,
+                      donde:
+                        evento.clientY - caja.top < caja.height / 2
+                          ? "antes"
+                          : "despues",
+                    });
+                  }}
+                  onDrop={(evento) => {
+                    evento.preventDefault();
+                    suelta();
+                  }}
+                  onDragLeave={(evento) => {
+                    if (destino?.id !== clip.id) return;
+
+                    /* `dragleave` salta también al entrar en una celda de la
+                       propia fila: sólo cuenta salirse de la fila entera. */
+                    const fuera = evento.relatedTarget as Node | null;
+
+                    if (fuera && evento.currentTarget.contains(fuera)) return;
+
+                    setDestino(null);
+                  }}
+                  className={`cursor-pointer border-t transition ${
+                    marca === "antes"
+                      ? "border-t-2 border-t-[#C8A96B]"
+                      : "border-white/[0.06]"
+                  } ${
+                    marca === "despues" ? "border-b-2 border-b-[#C8A96B]" : ""
+                  } ${arrastrado === clip.id ? "opacity-40" : ""} ${
+                    activo ? "bg-[#C8A96B]/[0.08]" : "hover:bg-white/[0.03]"
+                  }`}
+                >
+                  {/*
+                  | El asa, y sólo el asa, arrastra.
+                  |
+                  | Con la fila entera arrastrable no se puede seleccionar texto
+                  | de una nota ni pulsar un botón sin que el navegador crea que
+                  | empieza un arrastre.
+                  */}
+                  <td className="w-6 px-1 py-1.5">
                     <span
-                      className="block truncate text-[11px] text-white/45"
-                      title={videoDe(clip)}
+                      draggable
+                      onDragStart={(evento) => {
+                        setArrastrado(clip.id);
+
+                        evento.dataTransfer.effectAllowed = "move";
+                        /* Firefox no arranca el arrastre sin datos dentro. */
+                        evento.dataTransfer.setData("text/plain", clip.id);
+                      }}
+                      /* Sólo limpia: mover es cosa de `onDrop`. */
+                      onDragEnd={limpia}
+                      onClick={(evento) => evento.stopPropagation()}
+                      title="Arrastra para cambiar el orden del vídeo"
+                      className="flex cursor-grab justify-center text-white/20 transition hover:text-white/60 active:cursor-grabbing"
                     >
-                      {videoDe(clip).replace(/\.[^.]+$/, "")}
+                      <GripVertical size={13} />
                     </span>
                   </td>
-                )}
 
-                <td className="max-w-[190px] px-2 py-1.5">
-                  <span className="flex min-w-0 items-center gap-2">
-                    {/*
-                    | Lo colectivo se distingue de un vistazo: en una tabla de
-                    | doscientas filas, «Presión alta» entre nombres propios se
-                    | lee como si fuera un jugador más.
-                    */}
-                    {clip.sujeto === "colectivo" ? (
-                      <span className="shrink-0 rounded bg-white/[0.08] px-1 text-[9px] uppercase tracking-[0.12em] text-white/40">
-                        Col
-                      </span>
-                    ) : (
-                      clip.jugadorDorsal !== undefined && (
-                        <span className="shrink-0 text-[10px] tabular-nums text-white/30">
-                          {clip.jugadorDorsal}
-                        </span>
-                      )
-                    )}
+                  <td className="px-2 py-1.5 text-[11px] tabular-nums text-white/35">
+                    {String(clip.numero).padStart(3, "0")}
+                  </td>
 
-                    <span className="truncate text-[12px] font-medium text-white/80">
-                      {clip.jugadorNombre}
-                    </span>
-
-                    {clip.estado === "revisar" && (
-                      <span className="shrink-0 rounded-full bg-amber-400/15 px-1.5 text-[9px] uppercase tracking-[0.12em] text-amber-300">
-                        Revisar
-                      </span>
-                    )}
-                  </span>
-                </td>
-
-                <td className="px-2 py-1.5">
-                  {categoria ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] text-white/60">
+                  {videoDe && (
+                    <td className="max-w-[170px] px-2 py-1.5">
                       <span
-                        aria-hidden
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: categoria.color }}
-                      />
-                      {categoria.nombre}
-                    </span>
-                  ) : (
-                    <span className="text-[11px] text-white/20">—</span>
+                        className="block truncate text-[11px] text-white/45"
+                        title={videoDe(clip)}
+                      >
+                        {videoDe(clip).replace(/\.[^.]+$/, "")}
+                      </span>
+                    </td>
                   )}
-                </td>
 
-                <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-white/50">
-                  {formateaMs(clip.codingInicioMs)}
-                </td>
+                  <td className="max-w-[190px] px-2 py-1.5">{quien(clip)}</td>
 
-                <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-white/50">
-                  {formateaMs(clip.codingFinMs)}
-                </td>
+                  <td className="px-2 py-1.5">{chapaCategoria(fila.categoria)}</td>
 
-                <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-white/40">
-                  {formateaDuracion(duracionClip(clip))}
+                  <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-white/50">
+                    {formateaMs(clip.codingInicioMs)}
+                  </td>
 
-                  {/* Cuántas pizarras se le van a quemar dentro. */}
-                  {pizarras > 0 && (
+                  <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-white/50">
+                    {formateaMs(clip.codingFinMs)}
+                  </td>
+
+                  <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-white/40">
+                    {formateaDuracion(duracionClip(clip))}
+                    {chapaPizarras(fila.pizarras)}
+                  </td>
+
+                  <td className="px-2 py-1.5">
                     <span
-                      title={`${pizarras} ${pizarras === 1 ? "pizarra" : "pizarras"} en este corte`}
-                      className="ml-1.5 rounded bg-[#C8A96B]/15 px-1 text-[9px] text-[#C8A96B]"
+                      className="flex items-center justify-end gap-0.5"
+                      onClick={(evento) => evento.stopPropagation()}
                     >
-                      ✎{pizarras}
+                      {acciones(fila)}
                     </span>
-                  )}
-                </td>
-
-                <td className="px-2 py-1.5">
-                  <span
-                    className="flex items-center justify-end gap-0.5"
-                    onClick={(evento) => evento.stopPropagation()}
-                  >
-                    <Icono
-                      titulo="Subir: sale antes en el vídeo"
-                      desactivado={!anterior}
-                      onClick={() =>
-                        anterior && onMover(clip.id, anterior.id, "antes")
-                      }
-                    >
-                      <ChevronUp size={13} />
-                    </Icono>
-
-                    <Icono
-                      titulo="Bajar: sale después en el vídeo"
-                      desactivado={!siguiente}
-                      onClick={() =>
-                        siguiente && onMover(clip.id, siguiente.id, "despues")
-                      }
-                    >
-                      <ChevronDown size={13} />
-                    </Icono>
-
-                    <Icono
-                      titulo="Reproducir el clip"
-                      onClick={() => onReproducir(clip)}
-                    >
-                      <Play size={13} />
-                    </Icono>
-
-                    <Icono titulo="Editar" onClick={() => onEditar(clip)}>
-                      <Pencil size={13} />
-                    </Icono>
-
-                    <Icono
-                      titulo="Exportar este clip"
-                      onClick={() => onExportar(clip)}
-                      desactivado={exportando}
-                    >
-                      <Scissors size={13} />
-                    </Icono>
-
-                    <Icono titulo="Duplicar" onClick={() => onDuplicar(clip.id)}>
-                      <Copy size={13} />
-                    </Icono>
-
-                    <Icono
-                      titulo="Eliminar"
-                      tono="peligro"
-                      onClick={() => onBorrar(clip.id)}
-                    >
-                      <Trash2 size={13} />
-                    </Icono>
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
