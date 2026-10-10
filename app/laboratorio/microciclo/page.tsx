@@ -138,9 +138,18 @@ function diasDeVentana(proximo: PartidoNuestro, anterior: PartidoNuestro | null)
     dias.push(new Date(momento).toISOString().slice(0, 10));
   }
 
-  /* Un microciclo largo no cabe en el plan de ABP —que guarda un día por
-     letra— así que se recortan los primeros: son los de descanso. */
-  const ultimos = dias.slice(-7);
+  /*
+  | TODOS los días que hay entre un partido y el siguiente (10/10/2026).
+  |
+  | Antes se recortaba a los últimos siete —«un microciclo largo no cabe en
+  | el plan de ABP»— y una semana de viernes a domingo, que son nueve días,
+  | perdía el sábado y el domingo de después del partido: justo los que hay
+  | que decidir si son libres. El plan de ABP sigue guardando un día por
+  | letra y se apaña con los siete últimos; aquí lo que importa es que la
+  | hoja de registro tenga cada día con su fecha. Sólo se acota un parón
+  | largo (selección, Navidad) a dos semanas.
+  */
+  const ultimos = dias.slice(-14);
 
   return ultimos.map((fecha, indice) => {
     const md = Math.round(
@@ -210,7 +219,9 @@ function TiraDias({
   onCambia: (fecha: string, libre: boolean) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+    /* Tantas casillas como días haya: nueve de viernes a domingo, siete de
+       domingo a domingo. En ancho se reparten; en móvil, de dos en dos. */
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-[repeat(auto-fit,minmax(118px,1fr))]">
       {dias.map((uno) => {
         const libre = libres.has(uno.fecha);
 
@@ -1031,7 +1042,21 @@ export default function EditorMicrocicloPage() {
   const filas = useMemo(() => (micro ? filasDelMicro(micro) : []), [micro]);
 
   const problemas = useMemo(
-    () => (micro ? revisaMicro(micro, { permitirRepetidas: editando !== null }) : []),
+    () => {
+      if (!micro) return [];
+
+      /*
+      | Una semana de nueve días tiene dos sábados y dos domingos: sus tareas
+      | se llaman igual («S-T1») y la hoja las distingue por la fecha. Las
+      | repetidas sólo se permiten en ese caso —o al editar uno que ya las
+      | traía—; en una semana normal siguen siendo un error.
+      */
+      const letras = micro.sesiones.filter((sesion) => sesion.tareas.length > 0).map((sesion) => sesion.dia);
+
+      const letrasRepetidas = new Set(letras).size < letras.length;
+
+      return revisaMicro(micro, { permitirRepetidas: editando !== null || letrasRepetidas });
+    },
     [micro, editando],
   );
 
