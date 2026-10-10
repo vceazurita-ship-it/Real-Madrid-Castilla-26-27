@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-10-04
+ * Generado: 2026-10-10
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -928,6 +928,361 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": 7,
         "nota": "Arnau Solà (22) derriba a Fortuny cuando este sale conduciendo por la derecha, a unos 25-30 m de la portería del Castilla (98:26 TV), tras robar el balón al borde del área. Táctica: principal (la alt no muestra la falta). Entre contados en el instante de la falta: 6 de campo más el portero. Uno más está a la altura del balón y no lo cuento.",
         "minuto": "90+8'25\" (táctica 104:16)"
+      }
+    ]
+  },
+  {
+    "jornada": "LIGA 07",
+    "rival": "UD Ibiza",
+    "local": false,
+    "fecha": "2026-10-09",
+    "resultado": "1-1",
+    "clips": "Hudl · Castilla · «2026-10-09 Ibiza - Real Madrid Castilla 1 - 1» (timeline de Sportscode) y la cámara táctica J 07 - UD IBIZA - RM CASTILLA.mp4",
+    "notas": [
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se mira después en la retransmisión y en la cámara táctica del club: zona, carril, distancia, defensores y la nota salen de la imagen.",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
+    ],
+    "id": "j07-ibiza",
+    "faltas": [
+      {
+        "clip": "of-c01",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 1. Falta de Théo Valls (del UD Ibiza) sobre Daniel Yáñez. Vídeo Hudl 0:24.",
+        "minuto": "0'27\" (táctica 0:30)"
+      },
+      {
+        "clip": "of-c02",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 3. Falta de Ander Yoldi (del UD Ibiza) sobre Jesús Fortea. Vídeo Hudl 2:13.",
+        "minuto": "2'15\" (táctica 2:19)"
+      },
+      {
+        "clip": "of-c03",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 9. Falta de Théo Valls (del UD Ibiza) sobre Jorge Cestero. Vídeo Hudl 8:42.",
+        "minuto": "8'44\" (táctica 8:48)"
+      },
+      {
+        "clip": "def-c01",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 11. Falta de Jorge Cestero (del Castilla) sobre Pedro Ortiz. Vídeo Hudl 10:48.",
+        "minuto": "10'50\" (táctica 10:54)"
+      },
+      {
+        "clip": "def-c02",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 12. Falta de Joan Martínez (del Castilla) sobre Manu Justo. Vídeo Hudl 11:49.",
+        "minuto": "11'52\" (táctica 11:55)"
+      },
+      {
+        "clip": "of-c04",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 15. Falta de Pablo Busto (del UD Ibiza) sobre Alexis Ciria. Vídeo Hudl 14:17.",
+        "minuto": "14'20\" (táctica 14:23)"
+      },
+      {
+        "clip": "of-c05",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 15. Falta de Víctor García (del UD Ibiza) sobre Daniel Yáñez. Amarilla. Vídeo Hudl 14:37.",
+        "minuto": "14'40\" (táctica 14:43)"
+      },
+      {
+        "clip": "of-c06",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 17. Falta de Erik Ruiz (del UD Ibiza) sobre Ángel Carvajal. Vídeo Hudl 16:26.",
+        "minuto": "16'29\" (táctica 16:32)"
+      },
+      {
+        "clip": "def-c03",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 24. Falta de Joan Martínez (del Castilla) sobre Ander Yoldi. Vídeo Hudl 23:55.",
+        "minuto": "23'58\" (táctica 24:01)"
+      },
+      {
+        "clip": "of-c07",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 25. Falta de Josep Calavera (del UD Ibiza) sobre Martínez. Vídeo Hudl 24:43.",
+        "minuto": "24'46\" (táctica 24:49)"
+      },
+      {
+        "clip": "of-c08",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 26. Falta de Ander Yoldi (del UD Ibiza) sobre Pol Fortuny. Vídeo Hudl 25:10.",
+        "minuto": "25'12\" (táctica 25:16)"
+      },
+      {
+        "clip": "def-c04",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 32. Falta de Joan Martínez (del Castilla) sobre Ander Yoldi. Vídeo Hudl 31:41.",
+        "minuto": "31'43\" (táctica 31:47)"
+      },
+      {
+        "clip": "of-c09",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 38. Mano de Ander Yoldi (del UD Ibiza). Vídeo Hudl 37:01.",
+        "minuto": "37'04\" (táctica 37:07)"
+      },
+      {
+        "clip": "of-c10",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 38. Falta de Víctor García (del UD Ibiza) sobre Daniel Yáñez. Vídeo Hudl 37:37.",
+        "minuto": "37'40\" (táctica 37:43)"
+      },
+      {
+        "clip": "of-c11",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 42. Falta de Manu Justo (del UD Ibiza) sobre Joan Martínez. Vídeo Hudl 41:14.",
+        "minuto": "41'17\" (táctica 41:20)"
+      },
+      {
+        "clip": "def-c05",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 51. Falta de Ángel Carvajal (del Castilla) sobre Josep Calavera. Vídeo Hudl 53:00.",
+        "minuto": "50'56\" (táctica 53:06)"
+      },
+      {
+        "clip": "of-c12",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 54. Falta de Ander Yoldi (del UD Ibiza) sobre Pol Fortuny. Vídeo Hudl 55:22.",
+        "minuto": "53'17\" (táctica 55:28)"
+      },
+      {
+        "clip": "of-c13",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 54. Falta de Gonzalo Almenara (del UD Ibiza) sobre Diego Aguado. Vídeo Hudl 55:50.",
+        "minuto": "53'46\" (táctica 55:56)"
+      },
+      {
+        "clip": "of-c14",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 56. Falta de Théo Valls (del UD Ibiza) sobre Jesús Fortea. Vídeo Hudl 57:21.",
+        "minuto": "55'16\" (táctica 57:27)"
+      },
+      {
+        "clip": "def-c06",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 61. Falta de Jorge Cestero (del Castilla) sobre Josep Calavera. Vídeo Hudl 63:06.",
+        "minuto": "61'02\" (táctica 63:12)"
+      },
+      {
+        "clip": "of-c15",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 63. Falta de Ander Yoldi (del UD Ibiza) sobre Jesús Fortea. Vídeo Hudl 64:35.",
+        "minuto": "62'30\" (táctica 64:41)"
+      },
+      {
+        "clip": "of-c16",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 66. Falta de Pedro Ortiz (del UD Ibiza) sobre Roberto Martín. Vídeo Hudl 67:55.",
+        "minuto": "65'50\" (táctica 68:01)"
+      },
+      {
+        "clip": "of-c17",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 69. Falta de Josep Calavera (del UD Ibiza) sobre Álvaro Leiva. Vídeo Hudl 70:20.",
+        "minuto": "68'16\" (táctica 70:26)"
+      },
+      {
+        "clip": "def-c07",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 72. Falta de Joan Martínez (del Castilla) sobre Javi Eslava. Vídeo Hudl 73:22.",
+        "minuto": "71'18\" (táctica 73:28)"
+      },
+      {
+        "clip": "def-c08",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 72. Falta de Jorge Cestero (del Castilla) sobre Ander Yoldi. Vídeo Hudl 74:00.",
+        "minuto": "71'56\" (táctica 74:06)"
+      },
+      {
+        "clip": "of-c18",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 84. Falta de José Carlos Lazo (del UD Ibiza) sobre Diego Aguado. Vídeo Hudl 85:43.",
+        "minuto": "83'39\" (táctica 85:49)"
+      },
+      {
+        "clip": "def-c09",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T2 min 85. Falta de Daniel Yáñez (del Castilla) sobre Ismael Fadel. Vídeo Hudl 86:38.",
+        "minuto": "84'33\" (táctica 86:44)"
+      },
+      {
+        "clip": "of-c19",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 86. Falta de José Carlos Lazo (del UD Ibiza) sobre Alexis Ciria. Vídeo Hudl 87:44.",
+        "minuto": "85'40\" (táctica 87:50)"
+      },
+      {
+        "clip": "def-c10",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 88. Falta de Álvaro Leiva (del Castilla) sobre David Astals. Vídeo Hudl 89:13.",
+        "minuto": "87'09\" (táctica 89:19)"
+      },
+      {
+        "clip": "def-c11",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 88. Falta de Ángel Carvajal (del Castilla) sobre Ismael Fadel. Vídeo Hudl 89:31.",
+        "minuto": "87'27\" (táctica 89:37)"
+      },
+      {
+        "clip": "of-c20",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 89. Falta de Ander Yoldi (del UD Ibiza) sobre Alexis Ciria. Vídeo Hudl 90:22.",
+        "minuto": "88'18\" (táctica 90:28)"
+      },
+      {
+        "clip": "of-c21",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 89. Falta de José Carlos Lazo (del UD Ibiza). Amarilla. Vídeo Hudl 90:25.",
+        "minuto": "88'18\" (táctica 90:28)"
+      },
+      {
+        "clip": "of-c22",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 91. Falta de Ismael Fadel (del UD Ibiza) sobre Roberto Martín. Vídeo Hudl 93:04.",
+        "minuto": "90+0'59\" (táctica 93:10)"
+      },
+      {
+        "clip": "of-c23",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 93. Falta de David Astals (del UD Ibiza) sobre Roberto Martín. Vídeo Hudl 95:03.",
+        "minuto": "90+2'58\" (táctica 95:09)"
       }
     ]
   }
