@@ -1130,8 +1130,8 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "derecha",
         "distancia": "lejana",
-        "entre": 9,
-        "nota": "Joan (5) abre a Fortea (2) en la banda lejana (carril derecho atacando hacia la izquierda) y, nada más controlar unos 5-8 m dentro del campo del Ibiza pegado a la línea de banda, Valls (17) le derriba (TV 55:16-55:17), Fortea queda dolorido y es atendido (TV 55:23), por eso el saque se retrasa más de un minuto. En la táctica (s_02 abajo, seg 3446) sólo Manu Justo (9) queda por delante del balón y Valls encima: los otros 9 del Ibiza (Prieto incluido) quedan entre el balón y su portería. La saca Fortea en corto a Cestero (6) (TV 56:28) y el Castilla sigue en posesión por atrás con Martín y Aguado (es abp-of-09, no va).",
+        "entre": 6,
+        "nota": "Joan (5) abre a Fortea (2) en la banda lejana (carril derecho atacando hacia la izquierda) y, nada más controlar junto a la línea de medio campo pegado a la banda (como mucho 3-5 m dentro del campo del Ibiza), Valls (17) le derriba (TV 55:16-55:17), Fortea queda dolorido y es atendido (TV 55:23), por eso el saque se retrasa más de un minuto. En la táctica (s_03, seg 3447-3448, se ve toda la mitad del Ibiza) quedan 5 del Ibiza de campo más Prieto entre el balón y su portería (entre = 6): Valls encima del balón, Manu Justo (9) a la altura y los otros 3 presionando en nuestro campo, fuera de cuadro. La saca Fortea en corto a Cestero (6) (TV 56:28) y el Castilla sigue en posesión por atrás con Martín y Aguado (es abp-of-09, no va).",
         "minuto": "55'16\" (táctica 57:27)"
       },
       {
@@ -1150,8 +1150,8 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "derecha",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T2 min 63. Falta de Ander Yoldi (del UD Ibiza) sobre Jesús Fortea. Vídeo Hudl 64:35.",
+        "entre": 6,
+        "nota": "Tras una llegada del Ibiza a nuestra área (TV 62:20-62:23), Fortea (2) conduce por la banda lejana (carril derecho atacando hacia la izquierda) desde nuestro campo y, al llegar a la línea de medio campo pegado a la banda, Yoldi (10) le agarra y le derriba (TV 62:30-62:31, con Valls y Víctor García al lado). En la táctica (s_03 abajo, seg 3882) se ven 5 del Ibiza entre el balón y su portería más Prieto fuera de cuadro (entre = 6), el resto venía de atacar y está a la altura del balón o detrás, fuera de cuadro por la derecha (4 s después, TV 62:35, ya hay 7 de campo por delante). El saque se retrasa unos 25 s y la TV está en repetición de otra jugada cuando se saca (Hudl 65:06, TV 62:55): en la táctica (abp-of-10, seg 3906) el golpeo que Hudl registra como saque de Fortea sale desde el centro-derecha del campo del Ibiza, a unos 35-40 m de portería (más adelantado que la falta, con 4 de campo más Prieto por delante), en diagonal larga a los pies de Leiva (11) en la banda izquierda, Leiva encara, Almenara (23) la saca y hay saque de banda para el Castilla (TV 63:03-63:07).",
         "minuto": "62'30\" (táctica 64:41)"
       },
       {
@@ -1160,18 +1160,18 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "izquierda",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T2 min 66. Falta de Pedro Ortiz (del UD Ibiza) sobre Roberto Martín. Vídeo Hudl 67:55.",
+        "entre": 8,
+        "nota": "Saque largo de Prieto (TV 65:45), Óscar (21) gana el balón dividido a Manu Justo (9) por alto (los dos acaban en el suelo) y se la deja a Martín (20), Ortiz (20) le agarra y le derriba cuando se gira con el balón, unos 8-10 m dentro de nuestro campo y a unos 15-20 m de la banda de los banquillos (lado izquierdo del Castilla en la 2ª parte), TV 65:50-65:51, el árbitro pita en 65:52 (táctica s_03 arriba seg 4081). Entre el balón y la portería del Ibiza quedan 7 de campo más Prieto fuera de cuadro (8), con Ortiz encima del balón y un delantero del Ibiza por delante. El saque se demora por un cambio del Ibiza (entran 7 y 5 en 65:58-66:00, se ven en la táctica junto al cuarto árbitro) y lo hace Martín unos 50 s después (Hudl 68:50 = abp-of-11): no sale ni en la TV ni en la táctica de esta jugada.",
         "minuto": "65'50\" (táctica 68:01)"
       },
       {
         "clip": "of-c17",
         "lado": "ofensivo",
-        "zona": "medio campo",
+        "zona": "campo propio",
         "carril": "izquierda",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T2 min 69. Falta de Josep Calavera (del UD Ibiza) sobre Álvaro Leiva. Vídeo Hudl 70:20.",
+        "entre": 8,
+        "nota": "Viene del saque de banda banda-of-18: Aguado (3) saca en corto desde la banda de los banquillos (lado izquierdo del Castilla) y Alexis (17) recibe de espaldas unos 10 m dentro del campo, se gira hacia dentro y Calavera (6) y otro jugador del Ibiza le cierran y le derriban junto a la línea de banda (TV 68:16-68:17, táctica s_03 abajo seg 4227), a unos 25 m de la línea de fondo de Mestre, a la altura del borde del área: campo propio aunque Hudl lo dé como tercio medio (Hudl apunta a Leiva como derribado, pero en la TV el que cae y queda en el suelo es el 17). El Ibiza sigue jugando con el balón suelto 4-5 s hasta que el árbitro para el juego y señala la falta (68:21-68:22). En la táctica (4227) quedan 7 del Ibiza de campo entre el balón y su portería más Prieto fuera de cuadro (8), Calavera encima del balón y un delantero del Ibiza por delante. La saca el Castilla en corto desde el mismo sitio en 68:24 (Martín/Cestero junto al balón) para seguir jugando: no es ABP.",
         "minuto": "68'16\" (táctica 70:26)"
       },
       {
@@ -1200,8 +1200,8 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo propio",
         "carril": "izquierda",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T2 min 84. Falta de José Carlos Lazo (del UD Ibiza) sobre Diego Aguado. Vídeo Hudl 85:43.",
+        "entre": 10,
+        "nota": "Pase perdido de Fadel (5) en nuestro tercio, Aguado (3) recoge y conduce pegado a la banda de los banquillos (lado izquierdo del Castilla en la 2ª parte) y Lazo (21) le entra por detrás y le derriba junto a la línea, a unos 20-25 m de la línea de fondo de Mestre, a la altura del borde del área (TV 83:38-83:39, táctica s_03 arriba seg 5149, Aguado queda dolorido fuera del campo hasta 83:46). Hudl la da en el tercio final del Ibiza (nuestro campo propio, carril izquierdo): falta lejana para salir jugando. En la táctica (5149) quedan 7 del Ibiza de campo entre el balón y su portería más Prieto fuera de cuadro (8), con Lazo encima del balón y otro jugador del Ibiza por delante. El saque no sale en las imágenes: según Hudl la saca Aguado en corto a los 17 s y Óscar da en lateral a Joan (no es ABP). Revisado en la táctica (5149): 7 del Ibiza de campo visibles entre el balón y su portería (a la izquierda del balón), Lazo sobre el balón y 2 de campo más Prieto fuera de cuadro por la izquierda, necesariamente entre: 10 sin contar a Lazo.",
         "minuto": "83'39\" (táctica 85:49)"
       },
       {
@@ -1230,18 +1230,18 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo propio",
         "carril": "derecha",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T2 min 88. Falta de Álvaro Leiva (del Castilla) sobre David Astals. Vídeo Hudl 89:13.",
+        "entre": 10,
+        "nota": "Óscar (21) abre a Leiva (11) en la banda izquierda del ataque del Castilla (la de los banquillos) y Leiva encara a Astals (18) junto al vértice del área del Ibiza, a unos 18 m de la línea de fondo y 5 m de la banda: en el regate le derriba y Astals cae (TV 87:09, táctica s_02 arriba seg 5357), Leiva también acaba en el suelo y protestan Almenara (23) y Astals. Como el balón está en nuestro último tercio, todo el Castilla queda entre el balón y nuestra portería (8 en cuadro con Leiva, Mestre y 2 más fuera de cuadro a la derecha): 11. La saca rápido Blasco (4) en corto hacia Erik Ruiz (24) (TV 87:24-87:26), que abre a Fadel (5) y en seguida llega la falta de Carvajal (falta-def-c11). Revisado: se cuenta sin Leiva (sobre el balón), 10 = todo el Castilla restante, Mestre y los de fuera de cuadro por la derecha incluidos (el balón está en el tercio del Ibiza).",
         "minuto": "87'09\" (táctica 89:19)"
       },
       {
         "clip": "def-c11",
         "lado": "defensivo",
-        "zona": "medio campo",
+        "zona": "campo propio",
         "carril": "centro",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T2 min 88. Falta de Ángel Carvajal (del Castilla) sobre Ismael Fadel. Vídeo Hudl 89:31.",
+        "entre": 9,
+        "nota": "Tras el saque rápido de la falta anterior, Erik Ruiz (24) mete el balón a Fadel (5), que conduce por el centro hacia el medio campo perseguido por Ciria (17) y Carvajal (19) y cae derribado a unos 30 m de la portería del Ibiza, unos 10 m antes del círculo central y en el carril central (TV 87:27, táctica s_02 arriba seg 5375). Hudl apunta la falta a Carvajal, en la TV el que está encima de Fadel al caer parece Ciria. Entre el balón y nuestra portería: el que comete la falta, 4 más en cuadro (Aguado 3, Cestero 6…), otros 3 fuera de cuadro ya en campo propio y Mestre: 10, sólo Leiva (11) queda por delante del balón. La saca Blasco (4) en corto para Almenara (23) unos 11 s después y el Ibiza sale jugando desde atrás (abp-def-11). Revisado: se cuenta sin el que comete la falta, como en el resto de filas: 9 (6-7 en cuadro, 2-3 fuera de cuadro en campo propio y Mestre, Leiva por delante del balón).",
         "minuto": "87'27\" (táctica 89:37)"
       },
       {
