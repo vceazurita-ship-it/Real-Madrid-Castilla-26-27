@@ -75,20 +75,8 @@ export async function fechasConTarea(): Promise<Set<string>> {
 export function libresDeLaSemana(
   dias: DiaSemana[],
   conTarea: Set<string> | null,
-  /** Lo decidido en el editor para esta semana (`lib/portada/libres.ts`). */
-  decididos?: string[] | null,
 ): { libres: Set<string>; delMicro: boolean } {
   const entrenables = dias.filter((dia) => dia.md > 0);
-
-  /* Lo decidido a mano manda, aunque la hoja todavía no tenga el micro. */
-  if (decididos) {
-    const enLaSemana = new Set(entrenables.map((dia) => dia.fecha));
-
-    return {
-      libres: new Set(decididos.filter((fecha) => enLaSemana.has(fecha))),
-      delMicro: true,
-    };
-  }
 
   const escrito = conTarea !== null && entrenables.some((dia) => conTarea.has(dia.fecha));
 
