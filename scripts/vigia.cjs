@@ -33,7 +33,7 @@
  * El registro queda en `.cache/vigia/`.
  */
 
-const { execFile, spawn } = require("node:child_process");
+const { execFile, execFileSync, spawn } = require("node:child_process");
 const fs = require("node:fs");
 const net = require("node:net");
 const os = require("node:os");
@@ -595,6 +595,34 @@ let tareaLanzadaEn = 0;
 
 let nocturnaCorriendo = false;
 
+/*
+| Los procesos que el vigía tiene en marcha, por tarea, para poder cortarlos.
+|
+| Hizo falta el 10/10/2026: el vigía pidió Wyscout por su cuenta (faltaba el
+| partido del Ibiza), su Chrome se colgó y la pasada siguió fallando equipo a
+| equipo media hora; mientras, el análisis del partido que pidió el usuario
+| desde Ajustes esperaba en cola —los dos comparten el Chrome— sin que la
+| pantalla dijera por qué. El análisis del partido vuelve a bajar Wyscout él
+| mismo, así que una pasada automática no tiene por qué cerrarle el paso.
+*/
+const hijos = new Map();
+
+let wyscoutCortadoPorPartido = false;
+
+function corta(tarea) {
+  const hijo = hijos.get(tarea);
+
+  if (!hijo || !hijo.pid) return false;
+
+  try {
+    execFileSync("taskkill", ["/PID", String(hijo.pid), "/T", "/F"], { stdio: "ignore" });
+  } catch {
+    /* Ya había terminado. */
+  }
+
+  return true;
+}
+
 /**
  * Ejecuta algo sin ventana y devuelve su código y lo que escribió.
  *
@@ -615,6 +643,8 @@ function ejecuta(tarea, orden, args, alLinea, variables) {
     let texto = "";
 
     const hijo = spawn(orden, args, { cwd: RAIZ, windowsHide: true, ...(variables ? { env: { ...process.env, ...variables } } : {}) });
+
+    hijos.set(tarea, hijo);
 
     let resto = "";
 
@@ -637,12 +667,14 @@ function ejecuta(tarea, orden, args, alLinea, variables) {
 
     hijo.on("error", (error) => {
       salida.end();
+      hijos.delete(tarea);
 
       resolve({ codigo: -1, texto: error.message });
     });
 
     hijo.on("close", (codigo) => {
       salida.end();
+      hijos.delete(tarea);
 
       resolve({ codigo: codigo ?? -1, texto });
     });
@@ -732,10 +764,14 @@ async function haceWyscout() {
     { RMCF_DESDE: String(desde) },
   ).finally(deja);
 
-  const [ok, dice] = MOTIVO_WYSCOUT[codigo] ?? [
-    false,
-    `la descarga ha fallado (código ${codigo}); suele ser la red o un cambio en Wyscout. Vuelve a pedirlo; si se repite, el registro está en .cache\\wyscout`,
-  ];
+  const [ok, dice] = wyscoutCortadoPorPartido
+    ? [false, "cortada por el vigía para dar paso al análisis del partido, que baja Wyscout él mismo"]
+    : (MOTIVO_WYSCOUT[codigo] ?? [
+        false,
+        `la descarga ha fallado (código ${codigo}); suele ser la red o un cambio en Wyscout. Vuelve a pedirlo; si se repite, el registro está en .cache\\wyscout`,
+      ]);
+
+  wyscoutCortadoPorPartido = false;
 
   await acaba("wyscout", ok, dice);
 
@@ -998,6 +1034,33 @@ async function ronda() {
      puerto): el segundo espera, pedido, a que acabe el primero. */
   if (estados.wyscout === "pedido" && !enMarcha.has("wyscout") && !enMarcha.has("partido")) {
     arranca("wyscout", haceWyscout);
+  }
+
+  /*
+  | El partido manda sobre la pasada de Wyscout que el vigía pidió POR SU
+  | CUENTA (10/10/2026): se corta y el partido arranca en la ronda siguiente,
+  | que él vuelve a bajar Wyscout. Si la pasada la pidió alguien desde
+  | Ajustes, se respeta y el partido espera, pero diciéndolo en la pantalla:
+  | antes quedaba «pedido» media hora sin explicación.
+  */
+  if (estados.partido === "pedido" && !enMarcha.has("partido") && enMarcha.has("wyscout")) {
+    const automatica = /^el ordenador del club, solo/.test(encargos.wyscout?.pedidoPor ?? "");
+
+    if (automatica && !wyscoutCortadoPorPartido && hijos.has("wyscout")) {
+      wyscoutCortadoPorPartido = true;
+
+      apunta("Partido: se corta la pasada de Wyscout que el vigía había pedido por su cuenta; el análisis del partido la incluye.");
+
+      corta("wyscout");
+    }
+
+    /* Con el «1/7» delante para que Ajustes lo pinte como la primera etapa
+       y enseñe el detalle (ver `progresoDePaso` en lib/progreso.ts). */
+    pasoPartido = automatica
+      ? "1/7 · cortando la pasada automática de Wyscout para empezar"
+      : "1/7 · esperando a que termine Wyscout, que comparte el Chrome";
+  } else if (!enMarcha.has("partido") && /^1\/7 · (esperando|cortando)/.test(pasoPartido)) {
+    pasoPartido = "";
   }
 
   if (estados.partido === "pedido" && !enMarcha.has("partido") && !enMarcha.has("wyscout")) {
