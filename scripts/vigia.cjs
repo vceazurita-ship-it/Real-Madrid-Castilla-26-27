@@ -590,6 +590,77 @@ async function wyscoutSolo(encargos, estados) {
   apunta(`Wyscout: pedido solo, falta el partido contra ${anterior.rival} del ${fecha}.`);
 }
 
+/*
+|--------------------------------------------------------------------------
+| LA REVISIÓN DIARIA DE LOS PARTIDOS QUE FALTAN EN WYSCOUT (11/10/2026)
+|--------------------------------------------------------------------------
+|
+| Un aplazado (el Algeciras - Villarreal B de la J2, el Nàstic - Sant Andreu
+| de la J5) deja una jornada incompleta semanas, y nadie se enteraba de cuándo
+| entraba. Cada mañana, a partir de las diez, `scripts/partidos-pendientes.cjs`
+| dice qué falta; si falta algo y Wyscout no se ha bajado en las últimas doce
+| horas, se pide una pasada —como las que el vigía pide solo tras cada
+| partido— y el correo sale cuando termina. Si no falta nada, el correo sale
+| directamente (y sólo si hay algo que contar: el script no repite el aviso
+| el mismo día ni avisa de nada cuando todo está al día).
+*/
+const REVISION_DESDE_HORA = 10;
+
+let revisionHechaEl = "";
+
+/** La pasada de Wyscout la pidió la revisión: al acabar, el correo. */
+let correoTrasWyscout = false;
+
+const SCRIPT_PENDIENTES = path.join(RAIZ, "scripts", "partidos-pendientes.cjs");
+
+async function revisionDiaria(encargos, estados) {
+  const hoyMadrid = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
+
+  if (revisionHechaEl === hoyMadrid) return;
+
+  const hora = horaDeMadrid();
+
+  if (hora < REVISION_DESDE_HORA || hora >= 22) return;
+
+  if (estados.wyscout !== "libre" || enMarcha.has("wyscout") || enMarcha.has("partido") || estados.partido === "pedido") return;
+
+  revisionHechaEl = hoyMadrid;
+
+  const { texto } = await ejecuta("pendientes", process.execPath, [SCRIPT_PENDIENTES, "--json"]);
+
+  let pendientes = [];
+
+  try {
+    pendientes = JSON.parse(texto.match(/^JSON: (.*)$/m)?.[1] ?? "[]");
+  } catch {
+    pendientes = [];
+  }
+
+  if (pendientes.length) {
+    const suyo = encargos.wyscout ?? {};
+
+    const ultimo = Math.max(Date.parse(suyo.pedidoEn ?? "") || 0, Date.parse(suyo.hechoEn ?? "") || 0);
+
+    if (Date.now() - ultimo > 12 * 3_600_000) {
+      correoTrasWyscout = true;
+
+      await marca("wyscout", {
+        pedidoEn: new Date().toISOString(),
+        pedidoPor: `el ordenador del club, solo: revisión diaria, falta ${pendientes.join(" · ")}`,
+        plan: [],
+      });
+
+      apunta(`Revisión diaria: falta ${pendientes.join(" · ")}; se pide Wyscout y el correo sale al terminar.`);
+
+      return;
+    }
+  }
+
+  const { texto: dicho } = await ejecuta("pendientes", process.execPath, [SCRIPT_PENDIENTES, "--correo"]);
+
+  apunta(`Revisión diaria: ${dicho.match(/^RESUMEN: (.*)$/m)?.[1] ?? "hecha"}.`);
+}
+
 /** Cuándo se lanzó por última vez la tarea nocturna, para no insistir. */
 let tareaLanzadaEn = 0;
 
@@ -696,7 +767,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -776,6 +847,15 @@ async function haceWyscout() {
   await acaba("wyscout", ok, dice);
 
   apunta(`Wyscout: ${dice}.`);
+
+  /* La pasada la pidió la revisión diaria: ahora, el correo de lo que falta o ya está. */
+  if (correoTrasWyscout) {
+    correoTrasWyscout = false;
+
+    const { texto } = await ejecuta("pendientes", process.execPath, [SCRIPT_PENDIENTES, "--correo"]);
+
+    apunta(`Revisión diaria: ${texto.match(/^RESUMEN: (.*)$/m)?.[1] ?? "hecha"}.`);
+  }
 }
 
 /**
@@ -1069,6 +1149,9 @@ async function ronda() {
 
   /* Y Wyscout por su cuenta tras cada partido, si nadie lo ha pedido. */
   await wyscoutSolo(encargos, estados).catch((error) => apunta(`Wyscout solo: no se ha podido mirar (${claro(error.message)}).`));
+
+  /* Y una vez al día, qué partidos faltan en Wyscout, con su correo. */
+  await revisionDiaria(encargos, estados).catch((error) => apunta(`Revisión diaria: no se ha podido hacer (${claro(error.message)}).`));
 
   /* Los rivales: se mira la tarea sólo cuando hay algo que mirar, que cada
      consulta es un PowerShell. */

@@ -10,7 +10,6 @@ import {
   ClipboardList,
   ClipboardPen,
   Database,
-  Dumbbell,
   Flag,
   CircleDot,
   Goal,
@@ -65,7 +64,6 @@ export const AREAS: Area[] = [
   { key: "RELACIONAL", label: "Relacional", color: "#F472B6" },
   { key: "COLECTIVO", label: "Colectivo", color: "#34D399" },
   { key: "RIVAL", label: "Rival", color: "#FB7185" },
-  { key: "RENDIMIENTO", label: "Rendimiento", color: "#FB923C" },
   { key: "OPERATIVA", label: "Operativa", color: "#94A3B8" },
 ];
 
@@ -380,24 +378,11 @@ export const MODULES: AppModule[] = [
     alias: ["area rival", "centros rival", "centros laterales", "remates rival"],
   },
 
-  /* -------------------------------------------------------------- RENDIMIENTO */
-  {
-    href: "/performance",
-    area: "RENDIMIENTO",
-    title: "Área Condicional",
-    desc: "Control del rendimiento físico",
-    icon: Dumbbell,
-    rank: 66,
-    alias: ["fisico", "gps", "cargas"],
-  },
-  {
-    href: "/calendar_performance",
-    area: "RENDIMIENTO",
-    title: "Calendario Condicional",
-    desc: "Planificación del trabajo físico",
-    icon: CalendarDays,
-    rank: 65,
-  },
+  /*
+    «Área Condicional» y «Calendario Condicional» pasaron a obras el
+    11/10/2026: fuera del menú y fuera de aquí, como «Pizarra Sesión». Las
+    páginas siguen en pie, por URL.
+  */
 
   /* ---------------------------------------------------------------- OPERATIVA */
   {

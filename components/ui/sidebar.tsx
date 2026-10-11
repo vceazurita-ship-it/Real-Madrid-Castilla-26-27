@@ -210,8 +210,6 @@ const SECCIONES: Seccion[] = [
       { href: "/calendar", label: "Calendario Seguimiento", icon: CalendarCheck },
       { href: "/individual_proc", label: "Dashboard Seguimiento", icon: BarChart3 },
       { href: "/comparative_ind", label: "Comparativa categoría", icon: Scale },
-      { href: "/performance", label: "Área Condicional", icon: Dumbbell },
-      { href: "/calendar_performance", label: "Calendario Condicional", icon: CalendarClock },
       { href: "/emotion", label: "Emocional", icon: HeartHandshake },
     ],
   },
@@ -231,6 +229,8 @@ const SECCIONES: Seccion[] = [
     entradas: [
       { href: "/calendar_general", label: "Calendario Operativa", icon: CalendarCog },
       { href: "/general", label: "Repositorio", icon: Database },
+      /* Los escudos son mantenimiento del club, no un laboratorio (11/10/2026). */
+      { href: "/laboratorio/escudos", label: "Escudos de la liga", icon: Shield },
       { href: "/quiniela", label: "Quiniela de la Semana", icon: Trophy },
       { href: "/laboratorio/apuestas", label: "Apuestas del staff", icon: Dices },
     ],
@@ -238,10 +238,13 @@ const SECCIONES: Seccion[] = [
   {
     /* Lo que no está terminado, junto y al final: se ve, pero no se cruza con
        la semana. «Jugadores Sesión» y «Dashboard Individual» ya no están aquí:
-       existen y van en su sección. */
+       existen y van en su sección. El área y el calendario condicional
+       vinieron aquí el 11/10/2026: el cuerpo técnico no los quiere usables
+       de momento. */
     titulo: "En obras",
     entradas: [
-      { href: "/laboratorio/escudos", label: "Escudos de la liga", icon: Shield },
+      { href: "#area-condicional", label: "Área Condicional", icon: Dumbbell, obras: EN_OBRAS },
+      { href: "#calendario-condicional", label: "Calendario Condicional", icon: CalendarClock, obras: EN_OBRAS },
       { href: "#pizarra-sesion", label: "Pizarra Sesión", icon: PencilRuler, obras: EN_OBRAS },
       { href: "#pizarra-competicion", label: "Pizarra Competición", icon: Presentation, obras: EN_OBRAS },
       {
