@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { olvidaCsv, traeJson } from "@/lib/hojaCsv";
 import { compareMatches, fetchMatches } from "@/lib/ratings/matches";
 import {
   MatchMeta,
@@ -11,6 +12,16 @@ import {
 } from "@/lib/ratings/types";
 
 type Status = "loading" | "ready" | "error";
+
+/*
+| El histórico pasa por `traeJson` (11/10/2026): la ficha abre al momento con
+| la copia del aparato y se renueva por detrás. Cada guardado tira esa copia,
+| porque la respuesta del guardado ya trae la temporada nueva y la copia
+| quedaría una versión atrás.
+*/
+const URL_HISTORICO = "/api/ratings/load";
+
+type CargaHistorico = { success?: boolean; season?: RatingsSeason };
 
 /**
  * Sólo el histórico, sin el calendario de partidos.
@@ -23,26 +34,26 @@ export function useRatingsSeason() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const controller = new AbortController();
+    let vivo = true;
 
-    fetch("/api/ratings/load", {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then((response) => response.json())
+    traeJson<CargaHistorico>(URL_HISTORICO)
       .then((payload) => {
-        if (payload?.success) setSeason(payload.season as RatingsSeason);
+        if (!vivo) return;
+
+        if (payload?.success && payload.season) setSeason(payload.season);
 
         setLoading(false);
       })
       .catch((error) => {
-        if (controller.signal.aborted) return;
+        if (!vivo) return;
 
         console.error("No se pudo cargar el histórico de valoraciones", error);
         setLoading(false);
       });
 
-    return () => controller.abort();
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   return { season, loading };
@@ -71,17 +82,15 @@ export function useRatings() {
       setError("");
 
       const [ratings, matches] = await Promise.allSettled([
-        fetch("/api/ratings/load", {
-          cache: "no-store",
-          signal: controller.signal,
-        }).then((response) => response.json()),
+        /* Recargar a mano (`reloadKey`) salta la copia del aparato. */
+        traeJson<CargaHistorico>(URL_HISTORICO, { forzar: reloadKey > 0 }),
         fetchMatches(controller.signal),
       ]);
 
       if (controller.signal.aborted) return;
 
-      if (ratings.status === "fulfilled" && ratings.value?.success) {
-        setSeason(ratings.value.season as RatingsSeason);
+      if (ratings.status === "fulfilled" && ratings.value?.success && ratings.value.season) {
+        setSeason(ratings.value.season);
       } else if (ratings.status === "rejected") {
         setError("No se ha podido cargar el histórico de valoraciones.");
       }
@@ -121,6 +130,7 @@ export function useRatings() {
           throw new Error(payload?.error || "Error guardando");
         }
 
+        olvidaCsv(URL_HISTORICO);
         setSeason(payload.season as RatingsSeason);
 
         return true;
@@ -147,6 +157,7 @@ export function useRatings() {
         throw new Error(payload?.error || "Error borrando");
       }
 
+      olvidaCsv(URL_HISTORICO);
       setSeason(payload.season as RatingsSeason);
 
       return true;
@@ -173,6 +184,7 @@ export function useRatings() {
           throw new Error(payload?.error || "Error guardando el partido");
         }
 
+        olvidaCsv(URL_HISTORICO);
         setSeason(payload.season as RatingsSeason);
 
         return true;

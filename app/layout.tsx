@@ -8,6 +8,7 @@ import { PageExportButton } from "@/components/page-export-button";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_THEME, THEME_COLOR, THEME_STORAGE_KEY } from "@/lib/theme";
 import { MenuFlotante } from "@/components/ui/MenuFlotante";
+import { Paleta } from "@/components/ui/Paleta";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemedToaster } from "@/components/themed-toaster";
 import { ServiceWorker } from "@/components/service-worker";
@@ -120,6 +121,9 @@ export default function RootLayout({
               <ThemeToggle />
               <PageExportButton />
             </MenuFlotante>
+
+            {/* Ctrl+K: ir a cualquier pantalla tecleando. Una vez para toda la app. */}
+            <Paleta />
             <ThemedToaster />
             <ServiceWorker />
             <SinConexion />

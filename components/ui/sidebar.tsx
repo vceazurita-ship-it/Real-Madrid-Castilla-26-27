@@ -74,7 +74,7 @@ import {
   Swords,
 } from "lucide-react"
 
-import { trackModuleVisit } from "@/lib/module-usage"
+import { trackModuleVisit, useRutasMasVisitadas } from "@/lib/module-usage"
 import { foldText } from "@/lib/modules"
 import { cn } from "@/lib/utils"
 import { useVolver } from "@/hooks/useVolver"
@@ -110,10 +110,16 @@ import { useBodyScrollLock } from "@/components/season/useBodyScrollLock"
 |   sección se ilumina, y al entrar en una página el listado se coloca solo
 |   para que la entrada activa quede a la vista.
 |
+| - **Recientes** (11/10/2026): arriba del todo, lo que más se abre en este
+|   dispositivo, para no bajar cada día hasta la misma entrada. Lo cuenta
+|   `lib/module-usage`, el mismo contador que ordena la portada.
+|
 | Las entradas son datos (`SECCIONES`), no JSX: es lo que permite filtrarlas.
+| Se exportan porque la paleta de Ctrl+K (`Paleta.tsx`) enseña lo mismo que el
+| menú: un solo sitio donde añadir una página.
 */
 
-type Entrada = {
+export type Entrada = {
   href: string
   label: string
   icon: ComponentType<{ size?: number; className?: string }>
@@ -121,7 +127,7 @@ type Entrada = {
   obras?: string
 }
 
-type Seccion = { titulo: string; entradas: Entrada[] }
+export type Seccion = { titulo: string; entradas: Entrada[] }
 
 const EN_OBRAS = "Todavía estamos haciendo cambios"
 
@@ -144,7 +150,7 @@ const EN_OBRAS = "Todavía estamos haciendo cambios"
 | Lo que está en obras va detrás de todo, y Ajustes lo último. Las secciones
 | de una sola entrada se han fundido: cada rótulo tiene que agrupar algo.
 */
-const SECCIONES: Seccion[] = [
+export const SECCIONES: Seccion[] = [
   {
     titulo: "Inicio",
     entradas: [{ href: "/", label: "Real Madrid Castilla", icon: Home }],
@@ -261,9 +267,27 @@ const SECCIONES: Seccion[] = [
 ]
 
 /* Lo último del menú: no se entra aquí a trabajar, se entra a poner algo al día. */
-const AJUSTES: Seccion = {
+export const AJUSTES: Seccion = {
   titulo: "Ajustes",
   entradas: [{ href: "/ajustes", label: "Poner al día", icon: Settings }],
+}
+
+/*
+| Lo que ve cada uno.
+|
+| «En obras» sólo lo ve el administrador (11/10/2026): al cuerpo técnico le
+| salían cinco entradas tachadas que no llevan a ningún sitio, y en un menú
+| que se desplaza eso es ruido. Quien las necesita ver para decidir qué pasa
+| a producción es quien entra en Ajustes. Y Ajustes, sólo quien puede tocarlo.
+|
+| Lo usan el menú y la paleta, para que los dos enseñen exactamente lo mismo.
+*/
+export function entradasDelMenu({ admin, ajustes }: { admin: boolean; ajustes: boolean }): Seccion[] {
+  const visibles = admin
+    ? SECCIONES
+    : SECCIONES.filter((seccion) => !seccion.entradas.every((entrada) => entrada.obras))
+
+  return ajustes ? [...visibles, AJUSTES] : visibles
 }
 
 /* ------------------------------------------------------------------ */
@@ -397,12 +421,38 @@ export function Sidebar() {
     lista.scrollTop = Math.max(0, destino)
   }, [pathname, open])
 
+  /*
+  | Recientes: las cinco entradas del menú que más se abren aquí, sin la
+  | página en la que ya se está ni la portada (que tiene su icono fijo
+  | arriba). Se piden más de cinco porque el contador también cuenta rutas
+  | que no están en el menú (lo que se abre desde las tarjetas de la portada).
+  */
+  const masVisitadas = useRutasMasVisitadas(12, [pathname, "/"])
+
+  const recientes = useMemo(() => {
+    const porHref = new Map(
+      SECCIONES.concat(AJUSTES).flatMap((seccion) =>
+        seccion.entradas.filter((entrada) => !entrada.obras).map((entrada) => [entrada.href, entrada] as const),
+      ),
+    )
+
+    return masVisitadas
+      .map((href) => porHref.get(href))
+      .filter((entrada): entrada is Entrada => Boolean(entrada))
+      .filter((entrada) => entrada.href !== "/ajustes" || veAjustes)
+      .slice(0, 5)
+  }, [masVisitadas, veAjustes])
+
   const secciones = useMemo(() => {
-    const todas = veAjustes ? [...SECCIONES, AJUSTES] : SECCIONES
+    const todas = entradasDelMenu({ admin: admin === true, ajustes: veAjustes })
 
     const clave = foldText(busca.trim())
 
-    if (!clave) return todas
+    /* Sin búsqueda, los recientes van delante; buscando, sólo el menú:
+       repetir la misma entrada dos veces en un resultado confunde. */
+    if (!clave) {
+      return recientes.length > 0 ? [{ titulo: "Recientes", entradas: recientes }, ...todas] : todas
+    }
 
     return todas
       .map((seccion) => ({
@@ -414,7 +464,7 @@ export function Sidebar() {
         ),
       }))
       .filter((seccion) => seccion.entradas.length > 0)
-  }, [busca, veAjustes])
+  }, [busca, admin, veAjustes, recientes])
 
   const seccionActiva = useMemo(
     () =>
@@ -673,6 +723,7 @@ export function Sidebar() {
                     !desplegado && "md:hidden",
                   )}
                 >
+                  {seccion.titulo === "Recientes" && <History size={11} className="text-[#C8A96B]" />}
                   {seccion.titulo}
                 </p>
 

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import type { Alerta } from "@/lib/data-analisis/alertas";
+import { traeJson } from "@/lib/hojaCsv";
 import {
   alertasDeSeguimiento,
   type FilaSeguimiento,
@@ -58,21 +59,23 @@ export function AlertasPortada({
   /* La hora a la que se abrió la pantalla: ver el efecto de abajo. */
   const [ahora, setAhora] = useState(0);
 
+  /* Por `traeJson`: la tira sale al momento con la copia del aparato y las
+     alertas nuevas llegan por detrás. Es la pantalla que más se abre. */
   useEffect(() => {
-    const control = new AbortController();
+    let vivo = true;
 
-    fetch("/api/data-analisis?alertas=1", { signal: control.signal })
-      .then((r) => r.json())
+    traeJson<{ alertas?: Alerta[] }>("/api/data-analisis?alertas=1")
       .then((r) => {
-        if (control.signal.aborted) return;
-
-        setDeData(Array.isArray(r?.alertas) ? (r.alertas as Alerta[]) : []);
+        if (vivo) setDeData(Array.isArray(r?.alertas) ? r.alertas : []);
       })
       .catch(() => {
-        if (!control.signal.aborted) setDeData([]);
+        /* Sin las de Data se pintan las del seguimiento, que se arman aquí. */
+        if (vivo) setDeData([]);
       });
 
-    return () => control.abort();
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   /*

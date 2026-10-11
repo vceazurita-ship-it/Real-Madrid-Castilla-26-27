@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, Users } from "lucide-react";
 
+import { EsqueletoPantalla, EstadoVacio } from "@/components/ui/estados";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
@@ -235,12 +236,10 @@ export default function ScoutRivalIndividual() {
                 equipo={equipo}
                 plantilla={plantilla}
               />
+            ) : loading ? (
+              <EsqueletoPantalla titulo="las plantillas rivales" cifras={0} paneles={1} />
             ) : (
-              <p className="rounded-3xl border border-white/10 bg-white/[0.02] px-4 py-10 text-center text-sm text-white/40">
-                {loading
-                  ? "Cargando las plantillas rivales…"
-                  : "No hay plantillas rivales en la hoja todavía."}
-              </p>
+              <EstadoVacio icon={Users} titulo="No hay plantillas rivales en la hoja todavía." />
             )}
           </div>
         </div>

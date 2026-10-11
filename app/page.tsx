@@ -27,6 +27,7 @@ import { trackModuleVisit } from "@/lib/module-usage"
 import { usePlayers } from "@/hooks/usePlayers"
 import { alineaSeguimiento, esDeSeguimiento, filasDeSeguimiento } from "@/lib/seguimiento"
 import { traeCsv, traeJson } from "@/lib/hojaCsv"
+import { EstadoError } from "@/components/ui/estados"
 
 type Principio = {
   FASE: string
@@ -232,23 +233,76 @@ export default function Home() {
   const [loadingPrincipios, setLoadingPrincipios] = useState(true)
   const [loadingSeguimiento, setLoadingSeguimiento] = useState(true)
 
+  /*
+  |------------------------------------------------------------------------
+  | UN FALLO NO ES UN CERO (11/10/2026)
+  |------------------------------------------------------------------------
+  |
+  | Cuando una hoja no contestaba, el error se tragaba y las cifras se
+  | quedaban en 0: «0 seguimientos», «0 % de cobertura», como si no hubiera
+  | nada registrado. Ahora cada carga apunta si falló; la cifra pinta «—» y
+  | debajo de la fila hay un «Reintentar» que vuelve a pedirlas saltándose
+  | la copia (`forzar`). Las que llegaron bien no se tocan.
+  |
+  | Todo entra por `traeCsv`/`traeJson`: la portada pinta al momento con la
+  | copia del aparato y lo nuevo llega por detrás.
+  */
+  const [errorCultura, setErrorCultura] = useState(false)
+  const [errorPrincipios, setErrorPrincipios] = useState(false)
+  const [errorSeguimiento, setErrorSeguimiento] = useState(false)
+  const [errorData, setErrorData] = useState(false)
+
+  const [intentos, setIntentos] = useState(0)
+
+  const reintentar = () => {
+    /* Sólo vuelven a «cargando» las que fallaron: las demás ya se ven. */
+    if (errorCultura) setLoadingCultura(true)
+    if (errorPrincipios) setLoadingPrincipios(true)
+    if (errorSeguimiento) setLoadingSeguimiento(true)
+    if (errorData) setCargandoData(true)
+
+    setErrorCultura(false)
+    setErrorPrincipios(false)
+    setErrorSeguimiento(false)
+    setErrorData(false)
+
+    setIntentos((n) => n + 1)
+  }
+
   useEffect(() => {
-    traeCsv(CSV_CULTURA)
+    let vivo = true
+
+    traeCsv(CSV_CULTURA, { forzar: intentos > 0 })
       .then((csv) => {
+        if (!vivo) return
+
         const parsed = Papa.parse(csv, {
           header: true,
           skipEmptyLines: true,
         })
 
         setPrincipiosCultura(parsed.data.length)
+        setErrorCultura(false)
       })
-      .catch(() => {})
-      .finally(() => setLoadingCultura(false))
-  }, [])
+      .catch(() => {
+        if (vivo) setErrorCultura(true)
+      })
+      .finally(() => {
+        if (vivo) setLoadingCultura(false)
+      })
+
+    return () => {
+      vivo = false
+    }
+  }, [intentos])
 
   useEffect(() => {
-    traeCsv(CSV_PRINCIPIOS)
+    let vivo = true
+
+    traeCsv(CSV_PRINCIPIOS, { forzar: intentos > 0 })
       .then((csv) => {
+        if (!vivo) return
+
         const parsed = Papa.parse<Principio>(csv, {
           header: true,
           skipEmptyLines: true,
@@ -270,40 +324,71 @@ export default function Home() {
 
         setAtaqueApartados(ataque.length)
         setDefensaApartados(defensa.length)
+        setErrorPrincipios(false)
       })
-      .catch(() => {})
-      .finally(() => setLoadingPrincipios(false))
-  }, [])
+      .catch(() => {
+        if (vivo) setErrorPrincipios(true)
+      })
+      .finally(() => {
+        if (vivo) setLoadingPrincipios(false)
+      })
+
+    return () => {
+      vivo = false
+    }
+  }, [intentos])
 
   useEffect(() => {
-    traeJson<unknown>(ENDPOINT_SEGUIMIENTO)
+    let vivo = true
+
+    traeJson<unknown>(ENDPOINT_SEGUIMIENTO, { forzar: intentos > 0 })
       .then((data) => {
+        if (!vivo) return
+
         const filas: Seguimiento[] = Array.isArray(data) ? data : []
 
         setFilasSeguimiento(filas)
-      })
-      .catch(() => {})
-      .finally(() => setLoadingSeguimiento(false))
-  }, [])
-
-  useEffect(() => {
-    const control = new AbortController()
-
-    fetch("/api/data-analisis?resumen=1", { signal: control.signal })
-      .then((r) => r.json())
-      .then((r) => {
-        if (control.signal.aborted) return
-
-        if (r?.ok && r.resumen) setResumenData(r.resumen as ResumenData)
-
-        setCargandoData(false)
+        setErrorSeguimiento(false)
       })
       .catch(() => {
-        if (!control.signal.aborted) setCargandoData(false)
+        if (vivo) setErrorSeguimiento(true)
+      })
+      .finally(() => {
+        if (vivo) setLoadingSeguimiento(false)
       })
 
-    return () => control.abort()
-  }, [])
+    return () => {
+      vivo = false
+    }
+  }, [intentos])
+
+  useEffect(() => {
+    let vivo = true
+
+    traeJson<{ ok?: boolean; resumen?: ResumenData }>("/api/data-analisis?resumen=1", { forzar: intentos > 0 })
+      .then((r) => {
+        if (!vivo) return
+
+        if (r?.ok && r.resumen) {
+          setResumenData(r.resumen)
+          setErrorData(false)
+        } else {
+          setErrorData(true)
+        }
+      })
+      .catch(() => {
+        if (vivo) setErrorData(true)
+      })
+      .finally(() => {
+        if (vivo) setCargandoData(false)
+      })
+
+    return () => {
+      vivo = false
+    }
+  }, [intentos])
+
+  const hayFallos = errorCultura || errorPrincipios || errorSeguimiento || errorData
 
   return (
     <main className="min-h-screen bg-[#02060D] text-white">
@@ -428,8 +513,11 @@ export default function Home() {
                       <p className="mt-2 text-3xl font-bold leading-none text-white">
                         {cargandoData ? (
                           <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
+                        ) : resumenData?.xg == null ? (
+                          /* Sin informes o sin respuesta: una raya, no un 0,00 que parezca medido. */
+                          <span className="text-white/40">—</span>
                         ) : (
-                          (resumenData?.xg ?? 0).toFixed(2)
+                          resumenData.xg.toFixed(2)
                         )}
                       </p>
 
@@ -449,7 +537,9 @@ export default function Home() {
                       <p className="mt-2 truncate text-[11px] text-white/45">
                         {resumenData?.puesto
                           ? `${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría`
-                          : "sin informes de esta temporada"}
+                          : errorData
+                            ? "sin datos: no se ha podido leer"
+                            : "sin informes de esta temporada"}
                       </p>
                     </div>
 
@@ -538,8 +628,8 @@ export default function Home() {
                     {
                       href: "/calendar",
                       label: "Seguimientos",
-                      value: seguimientos,
-                      caption: `${ultimos30Dias} en los últimos 30 días`,
+                      value: errorSeguimiento ? null : seguimientos,
+                      caption: errorSeguimiento ? "sin datos" : `${ultimos30Dias} en los últimos 30 días`,
                       destino: "Calendario Seguimiento",
                       loading: loadingSeguimiento,
                       icon: Activity,
@@ -548,7 +638,7 @@ export default function Home() {
                       href: "/individual",
                       label: "Del Castilla",
                       value: totalJugadores,
-                      caption: `${cobertura} % con seguimiento`,
+                      caption: errorSeguimiento ? "sin datos de seguimiento" : `${cobertura} % con seguimiento`,
                       destino: "Plantilla",
                       loading: cargandoPlantilla,
                       icon: Users,
@@ -556,8 +646,8 @@ export default function Home() {
                     {
                       href: "/individual_proc",
                       label: "Promedio",
-                      value: promedioSeguimientos,
-                      caption: "Seguimientos por jugador",
+                      value: errorSeguimiento ? null : promedioSeguimientos,
+                      caption: errorSeguimiento ? "sin datos" : "Seguimientos por jugador",
                       destino: "Dashboard Seguimiento",
                       loading: loadingSeguimiento,
                       icon: BarChart3,
@@ -565,8 +655,8 @@ export default function Home() {
                     {
                       href: "/game-model#ATAQUE",
                       label: "Ataque",
-                      value: ataqueApartados,
-                      caption: "Apartados ofensivos del modelo",
+                      value: errorPrincipios ? null : ataqueApartados,
+                      caption: errorPrincipios ? "sin datos" : "Apartados ofensivos del modelo",
                       destino: "Identidad de Juego",
                       loading: loadingPrincipios,
                       icon: Swords,
@@ -575,8 +665,8 @@ export default function Home() {
                     {
                       href: "/game-model#DEFENSA",
                       label: "Defensa",
-                      value: defensaApartados,
-                      caption: "Apartados defensivos del modelo",
+                      value: errorPrincipios ? null : defensaApartados,
+                      caption: errorPrincipios ? "sin datos" : "Apartados defensivos del modelo",
                       destino: "Identidad de Juego",
                       loading: loadingPrincipios,
                       icon: Shield,
@@ -585,8 +675,8 @@ export default function Home() {
                     {
                       href: "/team-values",
                       label: "Cultura",
-                      value: principiosCultura,
-                      caption: "Elementos culturales definidos",
+                      value: errorCultura ? null : principiosCultura,
+                      caption: errorCultura ? "sin datos" : "Elementos culturales definidos",
                       destino: "Dinámicas y Valores",
                       loading: loadingCultura,
                       icon: Handshake,
@@ -595,6 +685,17 @@ export default function Home() {
                   ]}
                 />
               </div>
+
+              {/* Sólo cuando algo no ha llegado: la fila ya enseña «—» donde
+                  falta, y esto es el botón para volver a pedirlo. */}
+              {hayFallos && (
+                <EstadoError
+                  className="mt-3"
+                  titulo="No se han podido cargar todas las cifras"
+                  onReintentar={reintentar}
+                  reintentando={loadingCultura || loadingPrincipios || loadingSeguimiento || cargandoData}
+                />
+              )}
             </div>
 
             {/* ======================== ÁREAS DE TRABAJO ======================= */}

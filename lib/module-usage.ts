@@ -68,6 +68,35 @@ export function useModuleUsage(): Record<string, number> {
   }, [raw]);
 }
 
+/**
+ * Las rutas que más se han abierto en este dispositivo, de más a menos, y
+ * SÓLO las que se han abierto de verdad: sin relleno.
+ *
+ * Es lo que necesita un bloque de «Recientes» —el del menú lateral y el de la
+ * paleta de Ctrl+K—: enseñar algo que nunca se ha abierto como «reciente»
+ * sería mentir. Para una lista que no puede quedarse corta (la portada) está
+ * `useModulosMasUsados`, que rellena con lo típico de la semana.
+ *
+ * Cuenta cualquier ruta, no sólo las del catálogo de la portada: en el menú
+ * hay entradas (los laboratorios, los duelos) que no están en `MODULES`.
+ */
+export function useRutasMasVisitadas(cuantos: number, excluir: string[] = []): string[] {
+  const usadas = useModuleUsage();
+
+  /* Como texto, para que la lista no cambie de identidad en cada render. */
+  const fuera = excluir.join("\n");
+
+  return useMemo(() => {
+    const noValen = new Set(fuera.split("\n"));
+
+    return Object.entries(usadas)
+      .filter(([href, veces]) => veces > 0 && !noValen.has(href))
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, cuantos)
+      .map(([href]) => href);
+  }, [usadas, cuantos, fuera]);
+}
+
 /*
 | El orden de salida en un dispositivo nuevo, mientras no hay historial.
 |

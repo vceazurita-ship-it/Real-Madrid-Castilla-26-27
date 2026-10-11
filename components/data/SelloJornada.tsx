@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, CircleAlert, CircleDashed } from "lucide-react";
 
+import { cargaCalendario } from "@/hooks/useCalendario";
 import type { Alcance, PartidoCalendario } from "@/lib/data-analisis/alcance";
 
 /** El calendario del Castilla (BeSoccer) y el día de hoy, leídos una vez. */
@@ -20,13 +21,11 @@ export function useCalendarioCastilla() {
 
   useEffect(() => {
     let vivo = true;
-    fetch(`/api/docs?key=${encodeURIComponent("castilla:calendario")}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: { data?: { partidos?: PartidoCalendario[] } }) => j?.data?.partidos ?? [])
-      .catch(() => [] as PartidoCalendario[])
-      .then((partidos) => {
-        if (vivo) setEstado({ partidos, hoy: new Date().toISOString().slice(0, 10) });
-      });
+    /* Por `cargaCalendario`: la misma descarga que el resto de paneles y la
+       copia del aparato; antes cada sello volvía a bajar el documento. */
+    void cargaCalendario().then((partidos) => {
+      if (vivo) setEstado({ partidos, hoy: new Date().toISOString().slice(0, 10) });
+    });
     return () => {
       vivo = false;
     };

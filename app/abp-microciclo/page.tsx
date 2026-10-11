@@ -48,6 +48,7 @@ import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { EsqueletoPantalla } from "@/components/ui/estados";
 import {
   AbpHeader,
   Button,
@@ -114,10 +115,10 @@ import {
 } from "@/lib/abp/registro";
 import { etiquetaDia, ventanaDelMicro } from "@/lib/abp/ventana";
 import {
-  CLAVE_CALENDARIO,
   soloDia,
   type PartidoCastilla,
 } from "@/lib/castilla/calendario";
+import { cargaCalendario } from "@/hooks/useCalendario";
 import {
   colorUrgencia,
   construyeCruce,
@@ -270,12 +271,8 @@ export default function AbpMicrocicloPage() {
       const [datosRegistro, datosCompeticion, partidos] = await Promise.all([
         loadRegistro().catch(() => null),
         loadCompeticion(),
-        fetch("/api/docs?key=" + encodeURIComponent(CLAVE_CALENDARIO), {
-          cache: "no-store",
-        })
-          .then((r) => r.json() as Promise<{ data?: { partidos?: PartidoCastilla[] } }>)
-          .then((datos) => datos?.data?.partidos ?? [])
-          .catch(() => [] as PartidoCastilla[]),
+        /* El calendario compartido: `[]` si no está o falla. */
+        cargaCalendario(),
       ]);
 
       if (cancelado) return;
@@ -1365,9 +1362,9 @@ export default function AbpMicrocicloPage() {
           </p>
 
           {cargando ? (
-            <p className="mt-10 text-sm text-white/45">
-              Cargando registro de tareas y hojas de ABP…
-            </p>
+            <div className="mt-8">
+              <EsqueletoPantalla titulo="el registro de tareas y las hojas de ABP" />
+            </div>
           ) : sinMicros ? (
             <div className="mt-8">
               <EmptyState

@@ -17,14 +17,16 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, CircleDot, Loader2, RotateCcw, Swords } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleDot, RotateCcw, Swords } from "lucide-react";
 
+import { EsqueletoPantalla } from "@/components/ui/estados";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { cargaCalendario } from "@/hooks/useCalendario";
 import { traeJson } from "@/lib/hojaCsv";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { slugClave } from "@/lib/rivals/media";
@@ -124,26 +126,35 @@ export default function DuelosPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const control = new AbortController();
-    fetch("/api/data-analisis", { signal: control.signal })
-      .then((r) => r.json())
-      .then((r: { ok: boolean; jugadores?: FilaJugador[]; error?: string }) => {
+    let vivo = true;
+    /* Por `traeJson`: los datos de Wyscout quedan en el aparato y la pantalla
+       abre al momento con lo de la última vez. */
+    traeJson<{ ok: boolean; jugadores?: FilaJugador[]; error?: string }>("/api/data-analisis")
+      .then((r) => {
+        if (!vivo) return;
         setJugadores(r.jugadores ?? []);
         if (!r.ok) setError(r.error ?? "No se han podido leer los datos de Wyscout.");
       })
       .catch(() => {
-        if (!control.signal.aborted) {
+        if (vivo) {
           setJugadores([]);
           setError("No se han podido leer los datos de Wyscout.");
         }
       });
     traeJson<Fila[]>("/api/rivals?action=rivalesPlantillas")
-      .then((d) => setPlantillas(Array.isArray(d) ? d : []))
-      .catch(() => setPlantillas([]));
-    leeDoc<InformeDoc>("rivals:informe").then(setInformes);
-    leeDoc<{ partidos?: PartidoCal[] }>("castilla:calendario").then((cal) => {
+      .then((d) => {
+        if (vivo) setPlantillas(Array.isArray(d) ? d : []);
+      })
+      .catch(() => {
+        if (vivo) setPlantillas([]);
+      });
+    leeDoc<InformeDoc>("rivals:informe").then((doc) => {
+      if (vivo) setInformes(doc);
+    });
+    void cargaCalendario().then((partidos: PartidoCal[]) => {
+      if (!vivo) return;
       const hoy = new Date().toISOString().slice(0, 10);
-      const siguiente = (cal?.partidos ?? [])
+      const siguiente = partidos
         .filter((p) => p.cuando && p.cuando.slice(0, 10) >= hoy)
         .sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
       if (siguiente) {
@@ -152,7 +163,9 @@ export default function DuelosPage() {
       }
       setProximoListo(true);
     });
-    return () => control.abort();
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   /* Los equipos de Plantillas rivales; por defecto, el del próximo partido. */
@@ -365,9 +378,9 @@ export default function DuelosPage() {
             </div>
 
             {cargando ? (
-              <p className="mt-10 flex items-center gap-2 text-sm text-white/50">
-                <Loader2 className="h-4 w-4 animate-spin" /> Cargando Wyscout y las plantillas rivales…
-              </p>
+              <div className="mt-6">
+                <EsqueletoPantalla titulo="Wyscout y las plantillas rivales" cifras={0} />
+              </div>
             ) : plantillas.length === 0 ? (
               <p className="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                 No se han podido leer las plantillas rivales (la hoja RIVALES no ha contestado). Prueba a recargar en un minuto.

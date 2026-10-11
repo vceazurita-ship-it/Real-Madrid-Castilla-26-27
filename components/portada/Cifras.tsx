@@ -21,7 +21,8 @@ import { trackModuleVisit } from "@/lib/module-usage";
 export type Cifra = {
   href: string;
   label: string;
-  value: number;
+  /** `null` cuando la hoja no ha contestado: se pinta «—», nunca un cero falso. */
+  value: number | null;
   caption: string;
   destino: string;
   loading: boolean;
@@ -31,13 +32,23 @@ export type Cifra = {
   suffix?: string;
 };
 
-function Numero({ value, loading }: { value: number; loading: boolean }) {
+function Numero({ value, loading }: { value: number | null; loading: boolean }) {
   if (loading) {
     return (
       <span
         aria-hidden
         className="inline-block h-[0.8em] w-[2.2ch] animate-pulse rounded-md bg-white/10 align-baseline"
       />
+    );
+  }
+
+  /* Un cero diría «no hay seguimientos» cuando lo que pasa es que la hoja
+     no ha llegado: la raya se lee como lo que es, un dato que falta. */
+  if (value === null) {
+    return (
+      <span className="text-white/45" title="Sin datos: la hoja no ha contestado">
+        —
+      </span>
     );
   }
 

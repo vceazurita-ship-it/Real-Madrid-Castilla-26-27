@@ -60,6 +60,7 @@ import {
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
+import { olvidaCsv, traeJson } from "@/lib/hojaCsv";
 import {
   BarraPercentil,
   BarrasEquipos,
@@ -330,21 +331,31 @@ export default function DataAnalisisPage() {
   const [elLog, setElLog] = useState<string>("todos");
 
   useEffect(() => {
-    const control = new AbortController();
+    let vivo = true;
 
     void (async () => {
       try {
-        const r = await fetch(
-          `/api/data-analisis${intento ? "?refrescar=1" : ""}`,
-          { signal: control.signal },
-        ).then((x) => x.json());
+        /*
+        | Por `traeJson`: la respuesta queda en el aparato y la pantalla abre
+        | al momento con lo de la última vez. «Releer la carpeta» (`intento`)
+        | salta la copia y además pide al servidor que vuelva a leer los
+        | ficheros (`?refrescar=1`), que es lo que el botón promete. Como esa
+        | URL es otra, se tira también la copia de la normal: si no, la próxima
+        | visita abriría con lo de antes de releer.
+        */
+        if (intento) olvidaCsv("/api/data-analisis");
 
-        if (control.signal.aborted) return;
+        const r = await traeJson<Respuesta>(
+          `/api/data-analisis${intento ? "?refrescar=1" : ""}`,
+          { forzar: intento > 0 },
+        );
+
+        if (!vivo) return;
 
         setDatos(r);
         setCargando(false);
       } catch (error) {
-        if (control.signal.aborted) return;
+        if (!vivo) return;
 
         console.error("[data-analisis]", error);
 
@@ -353,7 +364,9 @@ export default function DataAnalisisPage() {
       }
     })();
 
-    return () => control.abort();
+    return () => {
+      vivo = false;
+    };
   }, [intento]);
 
   const partidos = useMemo(() => datos?.partidos ?? [], [datos]);

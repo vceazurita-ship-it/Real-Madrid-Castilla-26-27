@@ -1,5 +1,6 @@
 "use client";
 import { traeJson } from "@/lib/hojaCsv";
+import { EsqueletoPantalla } from "@/components/ui/estados";
 
 /**
  * ABP del rival: qué hace y qué concede a balón parado.
@@ -680,7 +681,9 @@ export default function ScoutRivalAbpPage() {
           />
 
           {loading ? (
-            <p className="mt-10 text-sm text-white/45">Cargando datos de ABP…</p>
+            <div className="mt-8">
+              <EsqueletoPantalla titulo="los datos de ABP del rival" />
+            </div>
           ) : error ? (
             <div className="mt-8">
               <Notice tone="warn" title={error}>

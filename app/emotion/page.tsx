@@ -1,5 +1,6 @@
 "use client";
 import { traeCsv } from "@/lib/hojaCsv";
+import { EstadoError, Hueso } from "@/components/ui/estados";
 
 import { chipInk } from "@/lib/theme";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -388,19 +389,12 @@ export default function EmotionPage() {
             </div>
 
             {error && (
-              <div className="mb-5 flex flex-col items-start gap-3 rounded-2xl border border-[#FFB84D]/30 bg-[#FFB84D]/[0.07] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-white/80">
-                  No se han podido cargar los datos emocionales.
-                </p>
-
-                <button
-                  onClick={retry}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#FFB84D]/40 px-4 py-2 text-xs font-semibold uppercase tracking-[.15em] text-[#FFB84D] transition hover:bg-[#FFB84D]/10"
-                >
-                  <RefreshCw size={14} />
-                  Reintentar
-                </button>
-              </div>
+              <EstadoError
+                className="mb-5"
+                titulo="No se han podido cargar los datos emocionales"
+                onReintentar={retry}
+                reintentando={loading}
+              />
             )}
 
             {/* ---------------------------------------------- Escala */}
@@ -895,11 +889,11 @@ function RadarPanel({
 
         <div className="min-w-0 flex-1">
           <div className="h-[240px] w-full">
-            {series.length === 0 ? (
+            {series.length === 0 && loading ? (
+              <Hueso className="h-full w-full rounded-2xl" />
+            ) : series.length === 0 ? (
               <div className="flex h-full items-center justify-center rounded-2xl border border-dashed border-white/10 px-4 text-center text-[11px] text-white/40">
-                {loading
-                  ? "Cargando perfiles…"
-                  : "Selecciona jugadores para dibujar el perfil"}
+                Selecciona jugadores para dibujar el perfil
               </div>
             ) : (
               <ResponsiveContainer

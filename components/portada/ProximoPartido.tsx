@@ -15,15 +15,16 @@ import {
 } from "lucide-react";
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { useCalendario } from "@/hooks/useCalendario";
 import { pantallaCompletaAlNavegar } from "@/hooks/usePantallaCompleta";
+import { aJornada, buscaJornada, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
 import {
-  CLAVE_CALENDARIO,
   alrededorDe,
   comoSeLlama,
   formaSemana,
-  type PartidoCastilla,
   type PartidoNuestro,
 } from "@/lib/castilla/calendario";
+import { traeJson } from "@/lib/hojaCsv";
 import { trackModuleVisit } from "@/lib/module-usage";
 import {
   cuantoFalta,
@@ -47,8 +48,16 @@ import {
  * día de la semana de trabajo estamos**. Y desde aquí, a un clic, lo que se
  * prepara para ese partido: su plantilla, el plan, el balón parado y el viaje.
  *
- * Nada de esto abre una hoja: el calendario es un documento de Supabase y los
- * escudos y la tabla los sirve el servidor ya recortados.
+ * El calendario es un documento de Supabase (`useCalendario`, una descarga
+ * por pestaña) y los escudos y la tabla los sirve el servidor ya recortados.
+ * Todo entra por `traeJson`: la portada pinta al momento con la copia del
+ * aparato y lo nuevo llega por detrás.
+ *
+ * **Los accesos llevan el rival puesto (11/10/2026).** Sólo «Plantilla del
+ * rival» sabía contra quién se juega; el plan, el scouting y el balón parado
+ * abrían en blanco y había que volver a elegirlo. La hoja RIVALES es la que
+ * da el `ID` con el que abren el plan, el informe colectivo y la pizarra, y se
+ * busca su fila por la fecha del partido y por el nombre (`buscaJornada`).
  */
 
 const ORO = "#D8B45A";
@@ -57,8 +66,11 @@ const VERDE = "#1B9E77";
 const NARANJA = "#D95F02";
 
 export function ProximoPartido() {
-  const [partidos, setPartidos] = useState<PartidoCastilla[] | null>(null);
+  const { partidos, cargando: sinCalendario } = useCalendario();
   const [informe, setInforme] = useState<RespuestaPortada | null>(null);
+
+  /* Las jornadas de la hoja RIVALES, sólo para dar con el `ID` del rival. */
+  const [jornadas, setJornadas] = useState<JornadaRival[]>([]);
 
   /* El reloj se apunta una vez, fuera del render: ver AlertasPortada. */
   const [ahora, setAhora] = useState(0);
@@ -94,32 +106,11 @@ export function ProximoPartido() {
   }, []);
 
   useEffect(() => {
-    const control = new AbortController();
+    let vivo = true;
 
-    fetch(`/api/docs?key=${encodeURIComponent(CLAVE_CALENDARIO)}`, {
-      cache: "no-store",
-      signal: control.signal,
-    })
-      .then((r) => r.json())
-      .then((r: { data?: { partidos?: PartidoCastilla[] } }) => {
-        if (control.signal.aborted) return;
-
-        setPartidos(Array.isArray(r?.data?.partidos) ? r.data.partidos : []);
-      })
-      .catch(() => {
-        if (!control.signal.aborted) setPartidos([]);
-      });
-
-    return () => control.abort();
-  }, []);
-
-  useEffect(() => {
-    const control = new AbortController();
-
-    fetch("/api/data-analisis?portada=1", { signal: control.signal })
-      .then((r) => r.json())
-      .then((r: Partial<RespuestaPortada> & { ok?: boolean }) => {
-        if (control.signal.aborted) return;
+    traeJson<Partial<RespuestaPortada>>("/api/data-analisis?portada=1")
+      .then((r) => {
+        if (!vivo) return;
 
         setInforme({
           equipos: Array.isArray(r?.equipos) ? r.equipos : [],
@@ -127,15 +118,38 @@ export function ProximoPartido() {
         });
       })
       .catch(() => {
-        if (!control.signal.aborted) setInforme({ equipos: [], clasificacion: null });
+        /* Sin escudo ni tabla el partido se pinta igual: sigue valiendo. */
+        if (vivo) setInforme({ equipos: [], clasificacion: null });
       });
 
-    return () => control.abort();
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let vivo = true;
+
+    traeJson<unknown>("/api/rivals?action=rivales")
+      .then((data) => {
+        if (!vivo || !Array.isArray(data)) return;
+
+        setJornadas(
+          (data as FilaRival[]).filter((fila) => fila && typeof fila === "object").map(aJornada),
+        );
+      })
+      .catch(() => {
+        /* Sin la hoja, los accesos abren sin rival puesto: como hasta ahora. */
+      });
+
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   const alrededor = useMemo(
-    () => (partidos && ahora ? alrededorDe(partidos, ahora) : null),
-    [partidos, ahora],
+    () => (!sinCalendario && ahora ? alrededorDe(partidos, ahora) : null),
+    [partidos, sinCalendario, ahora],
   );
 
   const proximo = alrededor?.proximo ?? null;
@@ -175,12 +189,36 @@ export function ProximoPartido() {
     [alrededor],
   );
 
-  const cargando = partidos === null || ahora === 0;
+  const cargando = sinCalendario || ahora === 0;
 
-  /* Con el nombre de la hoja, la plantilla abre con el equipo puesto. */
-  const enlacePlantilla = proximo
-    ? `/rivals?equipo=${encodeURIComponent(rival?.nombre || proximo.rival)}`
-    : "/rivals";
+  /*
+  | El rival, de las dos maneras en que lo piden las pantallas:
+  | - por nombre (`?equipo=`), como lo escribe la hoja de plantillas: la
+  |   plantilla y el ABP del rival lo buscan así;
+  | - por `ID` de la hoja RIVALES (`?rival=`): el plan de partido, el informe
+  |   colectivo y la pizarra de balón parado abren por esa llave. La fila se
+  |   busca por la fecha antes que por el nombre: contra un mismo equipo se
+  |   juega dos veces.
+  | Sin rival (o sin la hoja todavía) los enlaces van pelados y la pantalla
+  | de destino abre en su próximo partido, que es lo que hacía siempre.
+  */
+  const nombreRival = proximo ? rival?.nombre || proximo.rival : "";
+
+  const idRival = useMemo(() => {
+    if (!proximo) return "";
+
+    return (
+      buscaJornada(jornadas, { rival: proximo.rival, fecha: proximo.cuando.slice(0, 10) })?.id ?? ""
+    );
+  }, [jornadas, proximo]);
+
+  const conEquipo = (ruta: string) =>
+    nombreRival ? `${ruta}?equipo=${encodeURIComponent(nombreRival)}` : ruta;
+
+  const conRival = (ruta: string) =>
+    idRival ? `${ruta}?rival=${encodeURIComponent(idRival)}` : ruta;
+
+  const enlacePlantilla = conEquipo("/rivals");
 
   return (
     /* `min-w-0`: es un hijo de un grid, y sin esto la tira de días —que es
@@ -384,6 +422,7 @@ export function ProximoPartido() {
         <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
           <Link
             href={enlacePlantilla}
+            title={nombreRival ? `La plantilla de ${nombreRival}` : undefined}
             onClick={() => trackModuleVisit("/rivals")}
             className="group inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-5 py-3 text-[14px] font-medium shadow-[0_0_36px_rgba(37,99,235,.32)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_0_48px_rgba(37,99,235,.45)]"
             style={{ color: "#fff" }}
@@ -393,8 +432,15 @@ export function ProximoPartido() {
             <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
           </Link>
 
-          <Accion href="/match-preparation" icono={ClipboardCheck} texto="Plan de partido" />
+          <Accion
+            href={conRival("/match-preparation")}
+            icono={ClipboardCheck}
+            texto="Plan de partido"
+            title={nombreRival ? `El plan de partido contra ${nombreRival}` : undefined}
+          />
 
+          {/* El microciclo ABP no se abre por rival: es la semana de trabajo
+              entera y él mismo sabe qué partido viene. */}
           <Accion href="/abp-microciclo" icono={Goal} texto="Microciclo ABP" />
 
           {proximo?.lado === "fuera" && (
@@ -419,6 +465,41 @@ export function ProximoPartido() {
             Pizarra táctica
           </Link>
         </div>
+
+        {/*
+          Lo que ya se sabe del rival, en una línea. Sólo van las pantallas
+          que saben abrirse con el rival puesto: el área, el individual y los
+          duelos no leen nada de la URL y aquí serían un enlace más del menú.
+        */}
+        {proximo && (
+          <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">
+              Del rival
+            </span>
+
+            <Atajo
+              href={conRival("/scout-rival-collective")}
+              texto="Scout colectivo"
+              title={`El informe colectivo de ${nombreRival}`}
+            />
+
+            <span className="text-white/20">·</span>
+
+            <Atajo
+              href={conEquipo("/scout-rival-abp")}
+              texto="ABP rival"
+              title={`El balón parado de ${nombreRival}, a favor y en contra`}
+            />
+
+            <span className="text-white/20">·</span>
+
+            <Atajo
+              href={conRival("/abp-pizarra")}
+              texto="Pizarra ABP"
+              title={`Las diapositivas de balón parado del partido contra ${nombreRival}`}
+            />
+          </p>
+        )}
       </div>
 
       {/* ---------- Cómo vamos: racha y clasificación ---------- */}
@@ -472,22 +553,42 @@ function Escudos({
   );
 }
 
+/** El módulo que se cuenta en el acceso rápido es la ruta, sin el rival. */
+const modulo = (href: string) => href.split("?")[0];
+
 function Accion({
   href,
   icono: Icono,
   texto,
+  title,
 }: {
   href: string;
   icono: typeof Users;
   texto: string;
+  title?: string;
 }) {
   return (
     <Link
       href={href}
-      onClick={() => trackModuleVisit(href)}
+      title={title}
+      onClick={() => trackModuleVisit(modulo(href))}
       className="group inline-flex items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-5 py-3 text-[14px] font-medium text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/[0.07] hover:text-white"
     >
       <Icono className="h-[17px] w-[17px] text-[#D8B45A]" />
+      {texto}
+    </Link>
+  );
+}
+
+/** Un acceso de texto, para la línea «Del rival». */
+function Atajo({ href, texto, title }: { href: string; texto: string; title?: string }) {
+  return (
+    <Link
+      href={href}
+      title={title}
+      onClick={() => trackModuleVisit(modulo(href))}
+      className="text-white/60 underline decoration-white/20 underline-offset-4 transition-colors hover:text-[#F7D98B] hover:decoration-[#D8B45A]/60"
+    >
       {texto}
     </Link>
   );

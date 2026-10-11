@@ -1,5 +1,8 @@
 import Image from "next/image";
 
+import { DatosEstado } from "@/components/ui/DatosEstado";
+import { BotonPaleta } from "@/components/ui/Paleta";
+
 /**
  * La cabecera: el escudo, el nombre de la plataforma y la temporada.
  *
@@ -48,6 +51,12 @@ export function Topbar() {
         </div>
 
         <div className="flex shrink-0 items-center gap-3">
+          {/* Ir a cualquier pantalla tecleando (Ctrl+K). En el móvil no sale. */}
+          <BotonPaleta />
+
+          {/* De cuándo son los datos que se ven, y «Recargar» cuando hay nuevos. */}
+          <DatosEstado />
+
           {/*
             La temporada no cabe en un teléfono y tampoco hace falta: no cambia
             en todo el año y está escrita en la portada. Desde una tableta para

@@ -1091,8 +1091,8 @@ export default function MatchPreparation() {
         const elegido =
           lista.find((r) => String(r.ID) === String(buscado)) ?? proximo ?? null;
 
-        if (enlazado) window.history.replaceState({}, "", "/match-preparation");
-
+        /* El `?rival=` se queda en la barra y se mantiene al día (ver el
+           efecto de abajo): un plan se puede guardar en marcadores y mandar. */
         setRivalActivo(elegido ?? null);
           } catch (e) {
         if (cancelado) return;
@@ -1115,6 +1115,30 @@ export default function MatchPreparation() {
       cancelado = true;
     };
   }, [recargas]);
+
+  /*
+  | LA URL DICE QUÉ PARTIDO SE ESTÁ VIENDO (11/10/2026).
+  |
+  | Hasta ahora el `?rival=<ID>` con el que llegaba el enlace del scouting se
+  | borraba nada más abrir, así que un plan no tenía dirección: no se podía
+  | guardar en marcadores ni pegar en un mensaje. Ahora la barra sigue al
+  | partido elegido, con `replaceState` para no apilar un paso del historial
+  | por cada cambio de rival. Se conserva `history.state`: Next guarda ahí
+  | el árbol de la ruta.
+  */
+  const idActivo = String(rivalActivo?.ID ?? "").trim();
+
+  useEffect(() => {
+    if (!idActivo) return;
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get("rival") === idActivo) return;
+
+    url.searchParams.set("rival", idActivo);
+
+    window.history.replaceState(window.history.state, "", url);
+  }, [idActivo]);
 
   /* --------------------------------------------------------------- ESTADO */
 

@@ -16,6 +16,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
+import { cargaCalendario } from "@/hooks/useCalendario";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { GRUPOS, formatea } from "@/lib/data-analisis/metricas";
 import { PUESTOS } from "@/lib/data-analisis/individual";
@@ -89,16 +90,13 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
   /* El próximo rival, del calendario de BeSoccer: con él se abre. */
   useEffect(() => {
     let vivo = true;
-    fetch(`/api/docs?key=${encodeURIComponent("castilla:calendario")}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j: { data?: { partidos?: { cuando: string; local: string; visitante: string }[] } }) => {
-        const hoy = new Date().toISOString().slice(0, 10);
-        const sig = (j?.data?.partidos ?? [])
-          .filter((p) => p.cuando && p.cuando.slice(0, 10) >= hoy)
-          .sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
-        if (vivo && sig) setProximo(/castilla/i.test(sig.local) ? sig.visitante : sig.local);
-      })
-      .catch(() => {});
+    void cargaCalendario().then((partidos) => {
+      const hoy = new Date().toISOString().slice(0, 10);
+      const sig = partidos
+        .filter((p) => p.cuando && p.cuando.slice(0, 10) >= hoy)
+        .sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
+      if (vivo && sig) setProximo(/castilla/i.test(sig.local) ? sig.visitante : sig.local);
+    });
     return () => {
       vivo = false;
     };

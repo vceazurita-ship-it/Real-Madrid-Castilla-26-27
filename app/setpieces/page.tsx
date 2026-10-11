@@ -1,5 +1,6 @@
 "use client";
 import { traeCsv } from "@/lib/hojaCsv";
+import { EsqueletoPantalla, EstadoError } from "@/components/ui/estados";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
@@ -452,21 +453,52 @@ const [competicionFilter, setCompeticionFilter] = useState(SIN_PRETEMPORADA);
 const [estadoFilter, setEstadoFilter] = useState("ALL");
 const [tramoFilter, setTramoFilter] = useState("ALL");
 const [rutinaFilter, setRutinaFilter] = useState("ALL");
+
+  /* Mientras llega la hoja, el esqueleto; si falla, se dice y se puede
+     reintentar (11/10/2026). Antes la página se quedaba en blanco y parecía
+     que no había córners. Cambiar `intento` relanza la descarga saltándose
+     la copia del aparato. */
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<unknown>(null);
+  const [intento, setIntento] = useState(0);
+
   useEffect(() => {
-    traeCsv(CSV_URL).then((t) => {
-      const filas = parseCSV(t);
+    let vivo = true;
 
-      setRows(filas);
+    traeCsv(CSV_URL, { forzar: intento > 0 })
+      .then((t) => {
+        if (!vivo) return;
 
-      /* La página abre en la última jornada analizada (11/10/2026): lo que se
-         mira el lunes es lo del domingo. Se decide una sola vez, al llegar la
-         hoja, y sólo si nadie ha tocado ya el filtro mientras cargaba:
-         «Todas» sigue a un toque en el cajón. */
-      const ultima = ultimaJornada(jornadasDe(filas));
+        const filas = parseCSV(t);
 
-      if (ultima) setJornada((actual) => (actual === "ALL" ? ultima : actual));
-    });
-  }, []);
+        setRows(filas);
+        setError(null);
+
+        /* La página abre en la última jornada analizada (11/10/2026): lo que se
+           mira el lunes es lo del domingo. Se decide una sola vez, al llegar la
+           hoja, y sólo si nadie ha tocado ya el filtro mientras cargaba:
+           «Todas» sigue a un toque en el cajón. */
+        const ultima = ultimaJornada(jornadasDe(filas));
+
+        if (ultima) setJornada((actual) => (actual === "ALL" ? ultima : actual));
+      })
+      .catch((e: unknown) => {
+        if (vivo) setError(e);
+      })
+      .finally(() => {
+        if (vivo) setCargando(false);
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [intento]);
+
+  const reintenta = () => {
+    setCargando(true);
+    setError(null);
+    setIntento((n) => n + 1);
+  };
 
   /* Las jornadas que hay, cada una con su competición: ver `jornadasDe`. */
   const jornadas = useMemo(() => jornadasDe(rows), [rows]);
@@ -2383,6 +2415,17 @@ const pie = (
     }
   />
 
+  {cargando ? (
+    <div className="mt-6">
+      <EsqueletoPantalla titulo="ABP Ofensivo" />
+    </div>
+  ) : error && rows.length === 0 ? (
+    <div className="mt-6">
+      <EstadoError titulo="No se ha podido cargar la hoja de ABP ofensivo" error={error} onReintentar={reintenta} />
+    </div>
+  ) : (
+    <>
+
   {/* Lo primero: este partido frente a la media de los anteriores. Antes iba
       debajo de la tarjeta de filtros y había que bajar para verlo. */}
   {comparativa && (
@@ -4293,6 +4336,8 @@ value={`${tasaPeligroResultado.toFixed(0)}%`}
 </Panel>
 
             </div>
+    </>
+  )}
 
           </section>
         </div>

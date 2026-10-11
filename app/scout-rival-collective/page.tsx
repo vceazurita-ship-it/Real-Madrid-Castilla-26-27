@@ -1,6 +1,7 @@
 "use client";
 
 import { Sidebar } from "@/components/ui/sidebar";
+import { EstadoError, Hueso } from "@/components/ui/estados";
 import { chipInk } from "@/lib/theme";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
@@ -129,6 +130,8 @@ export default function ScoutRivalCollective() {
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
+  /* «Reintentar» relanza la carga saltándose la copia del aparato. */
+  const [intento, setIntento] = useState(0);
 
   const escudoDe = useEscudos();
 
@@ -146,7 +149,7 @@ export default function ScoutRivalCollective() {
     /* Por `/api/rivals` y su caché, no directa al Apps Script: directa eran
        30-70 s en frío cada vez que se abría la pantalla. */
     Promise.all([
-      traeJson<unknown>("/api/rivals?action=rivales").then((respuesta) => {
+      traeJson<unknown>("/api/rivals?action=rivales", { forzar: intento > 0 }).then((respuesta) => {
         /* Si Google falla, la ruta contesta `{ success: false }`. */
         if (!Array.isArray(respuesta)) throw new Error("Sin filas");
 
@@ -205,6 +208,12 @@ export default function ScoutRivalCollective() {
     return () => {
       cancelled = true;
     };
+  }, [intento]);
+
+  const reintenta = useCallback(() => {
+    setCargando(true);
+    setError(false);
+    setIntento((n) => n + 1);
   }, []);
 
   /* Puente hacia el `flush` del autoguardado: `cambiarRival` se declara antes
@@ -638,9 +647,11 @@ export default function ScoutRivalCollective() {
                   />
                 )}
 
-                <span className="min-w-0 truncate">
-                  {cargando ? "Cargando…" : rivalActivo?.EQUIPO || "Sin rival"}
-                </span>
+                {cargando ? (
+                  <Hueso className="h-10 w-64" />
+                ) : (
+                  <span className="min-w-0 truncate">{rivalActivo?.EQUIPO || "Sin rival"}</span>
+                )}
               </h1>
 
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/45">
@@ -723,10 +734,13 @@ export default function ScoutRivalCollective() {
           </nav>
 
           {error && (
-            <div className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/[0.07] px-5 py-4 text-sm text-white/80">
-              No se ha podido cargar la lista de rivales. Comprueba la conexión
-              con la hoja de cálculo.
-            </div>
+            <EstadoError
+              className="mb-6"
+              titulo="No se ha podido cargar la lista de rivales"
+              error="Comprueba la conexión con la hoja de cálculo."
+              onReintentar={reintenta}
+              reintentando={cargando}
+            />
           )}
 
           <ColumnasPerdidas columnas={columnasPerdidas} />

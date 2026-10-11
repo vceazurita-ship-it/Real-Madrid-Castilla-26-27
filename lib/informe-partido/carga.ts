@@ -16,6 +16,7 @@
 
 import { esTareaAbp, loadRegistro, type RegistroTarea } from "@/lib/abp/registro";
 import { comoNuestro, soloDia, type PartidoNuestro } from "@/lib/castilla/calendario";
+import { cargaCalendario } from "@/hooks/useCalendario";
 import { traeJson } from "@/lib/hojaCsv";
 import { analisisKey, clipsKey, laminaVacia, normalizaAnalisis, ordenJornada } from "@/lib/rivals/analisis";
 import { esLiga, findInforme, type InformeDoc, type InformeEquipo, type OncePartido } from "@/lib/rivals/informe";
@@ -545,7 +546,8 @@ export async function cargaInforme(entrada: {
 
   const [registro, calendario, rivales, plantillas, stats, informes] = await Promise.all([
     loadRegistro().catch(() => null),
-    doc<{ partidos?: PartidoBeSoccer[] }>("castilla:calendario"),
+    /* El calendario compartido con el resto de pantallas: `[]` si falla. */
+    cargaCalendario(),
     traeJson<Fila[]>("/api/rivals?action=rivales").catch(() => [] as Fila[]),
     traeJson<Fila[]>("/api/rivals?action=rivalesPlantillas").catch(() => [] as Fila[]),
     doc<RivalStatsDoc>("rivals:stats"),
@@ -556,7 +558,7 @@ export async function cargaInforme(entrada: {
 
   const rivalHoja = registro?.micros.find((m) => m.temporada === entrada.temporada && m.micro === entrada.micro)?.rival ?? "";
 
-  const partido = partidoDelMicro(calendario?.partidos ?? [], tareasMicro, rivalHoja);
+  const partido = partidoDelMicro(calendario, tareasMicro, rivalHoja);
 
   /* El nombre bueno del rival: el del calendario; si no, el de la hoja. */
   const rival = partido?.rival || rivalHoja;
@@ -602,11 +604,10 @@ export async function cargaInforme(entrada: {
     doc<unknown>(rivalOnceKey(equipoHoja)),
     doc<unknown>(analisisKey(equipoHoja)),
     doc<{ jornadas?: Record<string, { docs?: { nombre: string; url: string }[] }> }>(clipsKey(equipoHoja)),
-    fetch(
+    traeJson<{ duelo?: Duelo }>(
       /* Las medias, de antes del partido (`corte`); en el post, además, el partido. */
       `/api/data-analisis?duelo=${encodeURIComponent(rival)}${partido ? `&corte=${soloDia(partido.cuando)}` : ""}${momento === "post" && partido ? `&fecha=${soloDia(partido.cuando)}` : ""}`,
     )
-      .then((r) => r.json() as Promise<{ duelo?: Duelo }>)
       .then((j) => j.duelo ?? null)
       .catch(() => null),
     filaRival ? doc<unknown>(rivalMediaKey(texto(filaRival.ID))) : Promise.resolve(null),
@@ -666,7 +667,7 @@ export async function cargaInforme(entrada: {
         filasHoja: Array.isArray(plantillas) ? plantillas : [],
         informeRival,
         marcados: marcado.titulares,
-        calendario: calendario?.partidos ?? [],
+        calendario,
         fichas: fichas.map((f) => ({ id: f.id, nombre: f.nombre, apodo: f.apodo, foto: f.foto, posicion: f.posicion })),
       }),
     )
@@ -754,7 +755,7 @@ export async function cargaInforme(entrada: {
     contexto: contextoDe(
       informeRival,
       rival,
-      (calendario?.partidos ?? []).map(comoNuestro).filter((p) => p.jornada),
+      calendario.map(comoNuestro).filter((p) => p.jornada),
       partido ? (momento === "post" ? soloDia(partido.cuando) : diaAnterior(soloDia(partido.cuando))) : "",
     ),
     cronica,

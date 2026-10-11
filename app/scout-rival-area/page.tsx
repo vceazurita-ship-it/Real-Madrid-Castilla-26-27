@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AbpHeader, EmptyState, TeamPicker } from "@/components/abp/ui";
 import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { EsqueletoPantalla, EstadoError } from "@/components/ui/estados";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useEscudos } from "@/hooks/useEscudos";
@@ -24,6 +25,11 @@ import { traeJson } from "@/lib/hojaCsv";
 export default function AreaRivalPage() {
   const [plantilla, setPlantilla] = useState<unknown>([]);
   const [cargando, setCargando] = useState(true);
+  /* Si la hoja falla se dice y se puede reintentar (11/10/2026): antes el
+     fallo se tragaba como «[]» y parecía que no había rivales. Cambiar
+     `intento` relanza la descarga saltándose la copia del aparato. */
+  const [error, setError] = useState<unknown>(null);
+  const [intento, setIntento] = useState(0);
 
   /*
   | El rival elegido a mano, sólo para esta visita. Antes se recordaba en
@@ -40,18 +46,32 @@ export default function AreaRivalPage() {
   useEffect(() => {
     let cancelado = false;
 
-    traeJson("/api/rivals?action=rivalesPlantillas")
-      .catch(() => [])
+    traeJson("/api/rivals?action=rivalesPlantillas", { forzar: intento > 0 })
       .then((filas) => {
         if (cancelado) return;
 
+        /* Si Google falla, la ruta contesta `{ success: false }`. */
+        if (!Array.isArray(filas)) throw new Error("La hoja de plantillas no ha contestado");
+
         setPlantilla(filas);
-        setCargando(false);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        if (!cancelado) setError(e);
+      })
+      .finally(() => {
+        if (!cancelado) setCargando(false);
       });
 
     return () => {
       cancelado = true;
     };
+  }, [intento]);
+
+  const reintenta = useCallback(() => {
+    setCargando(true);
+    setError(null);
+    setIntento((n) => n + 1);
   }, []);
 
   const equipos = useMemo(() => {
@@ -85,7 +105,13 @@ export default function AreaRivalPage() {
           />
 
           {cargando ? (
-            <p className="mt-10 text-sm text-white/45">Cargando rivales…</p>
+            <div className="mt-8">
+              <EsqueletoPantalla titulo="los rivales" cifras={0} />
+            </div>
+          ) : error ? (
+            <div className="mt-8">
+              <EstadoError titulo="No se ha podido cargar la hoja de plantillas rivales" error={error} onReintentar={reintenta} />
+            </div>
           ) : equipos.length === 0 ? (
             <div className="mt-8">
               <EmptyState

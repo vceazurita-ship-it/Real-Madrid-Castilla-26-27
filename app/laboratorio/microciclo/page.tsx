@@ -92,12 +92,12 @@ import {
   type TareaNueva,
 } from "@/lib/registro/hoja";
 import {
-  CLAVE_CALENDARIO,
   alrededorDe,
   soloDia,
   type PartidoCastilla,
   type PartidoNuestro,
 } from "@/lib/castilla/calendario";
+import { cargaCalendario } from "@/hooks/useCalendario";
 import { diaKeyDe, etiquetaDia } from "@/lib/abp/ventana";
 
 const DIA_MS = 86_400_000;
@@ -616,10 +616,8 @@ export default function EditorMicrocicloPage() {
     const cargar = async () => {
       const [datos, partidos] = await Promise.all([
         loadRegistro().catch(() => null),
-        fetch("/api/docs?key=" + encodeURIComponent(CLAVE_CALENDARIO), { cache: "no-store" })
-          .then((r) => r.json() as Promise<{ data?: { partidos?: PartidoCastilla[] } }>)
-          .then((leidoDoc) => leidoDoc?.data?.partidos ?? [])
-          .catch(() => [] as PartidoCastilla[]),
+        /* El calendario compartido: `[]` si no está o falla. */
+        cargaCalendario(),
       ]);
 
       if (cancelado) return;

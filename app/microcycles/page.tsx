@@ -1,5 +1,7 @@
 "use client";
 import { traeCsv } from "@/lib/hojaCsv";
+import { EstadoError } from "@/components/ui/estados";
+import { useFiltroPersistente } from "@/hooks/useFiltroPersistente";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { chipInk } from "@/lib/theme";
@@ -583,6 +585,50 @@ function etiquetaMicro(micro: number | string) {
   return extra > 0 ? `${entero}${String.fromCharCode(65 + extra)}` : String(entero);
 }
 
+/**
+ * El micro que toca hoy, para abrir la pantalla en él.
+ *
+ * El que tiene a hoy entre su primera y su última fecha; si hoy cae entre
+ * dos —el libre después del partido—, el último que ha empezado; y si la
+ * hoja no tiene fechas que se entiendan, el de número más alto. «ALL»
+ * mientras no haya filas o no se sepa el día.
+ */
+function microDeHoy(rows: Row[], hoy: Date | null): string {
+  if (!hoy || rows.length === 0) return "ALL";
+
+  const fechas = new Map<number, { desde: number; hasta: number }>();
+
+  for (const r of rows) {
+    const fecha = parseFecha(r.fecha);
+
+    if (!fecha) continue;
+
+    const t = fecha.getTime();
+    const actual = fechas.get(r.micro);
+
+    fechas.set(
+      r.micro,
+      actual
+        ? { desde: Math.min(actual.desde, t), hasta: Math.max(actual.hasta, t) }
+        : { desde: t, hasta: t },
+    );
+  }
+
+  const ahora = hoy.getTime();
+
+  let empezado: { micro: number; desde: number } | null = null;
+
+  for (const [micro, { desde, hasta }] of fechas) {
+    if (desde <= ahora && ahora <= hasta) return String(micro);
+
+    if (desde <= ahora && (!empezado || desde > empezado.desde)) empezado = { micro, desde };
+  }
+
+  if (empezado) return String(empezado.micro);
+
+  return String(Math.max(...rows.map((r) => r.micro)));
+}
+
 type TabKey =
   | "resumen"
   | "cargas"
@@ -691,7 +737,32 @@ export default function Page() {
 
   const [tab, setTab] = useState<TabKey>("resumen");
 
-  const [micro, setMicro] = useState("ALL");
+  /*
+  | EL MICRO DE HOY, DE ENTRADA (11/10/2026).
+  |
+  | La pantalla abría en «Todos los microciclos» —la temporada entera
+  | mezclada— y había que ir al desplegable cada vez. Ahora abre en el micro
+  | que toca hoy, calculado de las fechas de la hoja (`microDeHoy`), y lo que
+  | se elija después se queda en la URL y en la pestaña (`useFiltroPersistente`):
+  | volver del informe del partido no lo pierde y «?micro=13» se puede mandar.
+  | El día se apunta en un efecto, nunca en el render: el linter no deja
+  | mirar el reloj mientras se pinta.
+  */
+  const [hoy, setHoy] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const d = new Date();
+
+      setHoy(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
+  const microActual = useMemo(() => microDeHoy(rows, hoy), [rows, hoy]);
+
+  const [micro, setMicro] = useFiltroPersistente("micro", microActual);
   const [informeAbierto, setInformeAbierto] = useState(false);
   const [tipoFilter, setTipoFilter] = useState("ALL");
   const [contenidoPrincipalFilter, setContenidoPrincipalFilter] =
@@ -721,17 +792,41 @@ export default function Page() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  /* Si la hoja falla se dice y se puede reintentar (11/10/2026): antes el
+     fallo salía como «Sin resultados», que es otra cosa. Cambiar `intento`
+     relanza la descarga saltándose la copia del aparato. */
+  const [errorHoja, setErrorHoja] = useState<unknown>(null);
+  const [intento, setIntento] = useState(0);
+
   useEffect(() => {
-    traeCsv(CSV_URL)
+    let vivo = true;
+
+    traeCsv(CSV_URL, { forzar: intento > 0 })
       .then((t) => {
+        if (!vivo) return;
+
         setRows(parseCSV(t));
+        setErrorHoja(null);
         setLoading(false);
       })
-      .catch((e) => {
+      .catch((e: unknown) => {
+        if (!vivo) return;
+
         console.error(e);
+        setErrorHoja(e);
         setLoading(false);
       });
-  }, []);
+
+    return () => {
+      vivo = false;
+    };
+  }, [intento]);
+
+  const reintentaHoja = () => {
+    setLoading(true);
+    setErrorHoja(null);
+    setIntento((n) => n + 1);
+  };
 
   const micros = useMemo(
     () => [...new Set(rows.map((r) => r.micro))].sort((a, b) => a - b),
@@ -1850,7 +1945,16 @@ export default function Page() {
               </div>
             )}
 
-            {!loading && filtered.length === 0 && (
+            {!loading && errorHoja !== null && rows.length === 0 && (
+              <EstadoError
+                className="mt-10"
+                titulo="No se ha podido cargar la hoja de microciclos"
+                error={errorHoja}
+                onReintentar={reintentaHoja}
+              />
+            )}
+
+            {!loading && !(errorHoja !== null && rows.length === 0) && filtered.length === 0 && (
               <div className="mt-10 rounded-3xl border border-white/10 bg-white/[0.03] p-12 text-center">
                 <p className="text-lg font-semibold">Sin resultados</p>
 
