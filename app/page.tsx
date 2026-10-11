@@ -25,7 +25,7 @@ import { Cifras } from "@/components/portada/Cifras"
 import { ProximoPartido } from "@/components/portada/ProximoPartido"
 import { trackModuleVisit } from "@/lib/module-usage"
 import { usePlayers } from "@/hooks/usePlayers"
-import { alineaSeguimiento } from "@/lib/seguimiento"
+import { alineaSeguimiento, esDeSeguimiento, filasDeSeguimiento } from "@/lib/seguimiento"
 import { traeCsv, traeJson } from "@/lib/hojaCsv"
 
 type Principio = {
@@ -120,9 +120,18 @@ export default function Home() {
 
   const [filasSeguimiento, setFilasSeguimiento] = useState<Seguimiento[]>([])
 
+  /* La hora a la que se abrió la pantalla, apuntada en un efecto: el linter
+     de React no deja mirar el reloj dentro del render. */
+  const [ahora, setAhora] = useState(0)
+
+  useEffect(() => {
+    const id = setTimeout(() => setAhora(Date.now()), 0)
+
+    return () => clearTimeout(id)
+  }, [])
+
   /* La ventana de treinta días se cuenta al llegar los datos y no al pintar:
      mirar el reloj durante el render es impuro y el linter lo para. */
-  const [ultimos30Dias, setUltimos30Dias] = useState(0)
 
   /*
   |------------------------------------------------------------------------
@@ -140,41 +149,70 @@ export default function Home() {
   | seguimiento**, que es exactamente lo que cuenta la pantalla de
   | `/individual_proc`. Así los dos sitios dicen lo mismo.
   */
-  const { players: plantilla, loading: cargandoPlantilla } = usePlayers()
+  const { players: plantillaEntera, loading: cargandoPlantilla } = usePlayers()
+
+  /*
+  | SÓLO LOS JUGADORES DE CAMPO DEL CASTILLA (11/10/2026)
+  |
+  | Las alertas y las cifras de seguimiento de esta pantalla cuentan a los
+  | mismos que el Dashboard Seguimiento: licencia del Castilla y no portero
+  | (`esDeSeguimiento`, en `lib/seguimiento.ts`). Los del RMC y del juvenil
+  | que vienen a entrenar llevan su seguimiento en su equipo, y aquí sólo
+  | hacían ruido: avisos de «lleva 45 días sin seguimiento» sobre gente que
+  | no es nuestra y una cobertura hundida.
+  |
+  | El cruce por nombre se hace contra la plantilla ENTERA y se filtra
+  | después: un registro de un portero o de uno del RMC tiene que resolverse a
+  | su dueño, o se quedaría con un ID viejo que hoy puede ser de uno nuestro.
+  */
+  const plantilla = useMemo(
+    () => plantillaEntera.filter(esDeSeguimiento),
+    [plantillaEntera],
+  )
 
   const totalJugadores = plantilla.length
 
-  const { jugadoresSeguimiento, sesionesDeLaPlantilla } = useMemo(() => {
-    if (plantilla.length === 0) {
-      return { jugadoresSeguimiento: 0, sesionesDeLaPlantilla: 0 }
-    }
+  /* Los registros que son de los nuestros, ya atados a su jugador de ahora. */
+  const seguimientoCastilla = useMemo(() => {
+    if (plantillaEntera.length === 0) return []
 
     /* Por nombre, que es lo que manda: un ID viejo apunta hoy a otra persona. */
     const atados = alineaSeguimiento(
       filasSeguimiento.flatMap((fila) =>
         fila.ID_JUGADOR ? [{ ...fila, ID_JUGADOR: fila.ID_JUGADOR }] : [],
       ),
-      plantilla,
+      plantillaEntera,
     )
 
-    const deLaPlantilla = new Set(plantilla.map((jugador) => jugador.id))
+    return filasDeSeguimiento(atados, plantilla)
+  }, [filasSeguimiento, plantillaEntera, plantilla])
 
+  const { jugadoresSeguimiento, sesionesDeLaPlantilla } = useMemo(() => {
     const conRegistro = new Set<string>()
 
-    let sesiones = 0
+    for (const fila of seguimientoCastilla) conRegistro.add(fila.ID_JUGADOR)
 
-    for (const fila of atados) {
-      if (!deLaPlantilla.has(fila.ID_JUGADOR)) continue
-
-      conRegistro.add(fila.ID_JUGADOR)
-
-      sesiones += 1
+    return {
+      jugadoresSeguimiento: conRegistro.size,
+      sesionesDeLaPlantilla: seguimientoCastilla.length,
     }
+  }, [seguimientoCastilla])
 
-    return { jugadoresSeguimiento: conRegistro.size, sesionesDeLaPlantilla: sesiones }
-  }, [filasSeguimiento, plantilla])
+  const seguimientos = seguimientoCastilla.length
 
-  const seguimientos = filasSeguimiento.length
+  /* Y los de los últimos 30 días, de esos mismos registros. El reloj se mira
+     en un efecto (ver `ahora`), nunca en el render. */
+  const ultimos30Dias = useMemo(() => {
+    if (ahora === 0) return 0
+
+    const limite = ahora - 30 * 24 * 60 * 60 * 1000
+
+    return seguimientoCastilla.filter((fila) => {
+      const fecha = new Date(fila.FECHA ?? "").getTime()
+
+      return Number.isFinite(fecha) && fecha >= limite
+    }).length
+  }, [seguimientoCastilla, ahora])
 
   /* El promedio, sólo con lo de los que siguen aquí: las sesiones de quien se
      fue no se reparten entre los que están. Es el mismo cálculo que hace el
@@ -243,16 +281,6 @@ export default function Home() {
         const filas: Seguimiento[] = Array.isArray(data) ? data : []
 
         setFilasSeguimiento(filas)
-
-        const limite = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-
-        setUltimos30Dias(
-          filas.filter((fila) => {
-            const fecha = new Date(fila.FECHA ?? "")
-
-            return !isNaN(fecha.getTime()) && fecha >= limite
-          }).length
-        )
       })
       .catch(() => {})
       .finally(() => setLoadingSeguimiento(false))
@@ -474,7 +502,7 @@ export default function Home() {
               es lo que hace que abrir la aplicación sirva para algo aunque no
               se venga a nada concreto. Si no hay nada que avisar, no se pinta.
             */}
-            <AlertasPortada plantilla={plantilla} seguimiento={filasSeguimiento} />
+            <AlertasPortada plantilla={plantilla} seguimiento={seguimientoCastilla} />
 
             {/* ========================= ACCESO RÁPIDO ========================= */}
 
@@ -501,7 +529,7 @@ export default function Home() {
               <SectionHeader
                 icon={BarChart3}
                 title="El equipo en cifras"
-                caption="Seguimiento individual y modelo de juego, en vivo de las hojas"
+                caption="Seguimiento de los jugadores de campo del Castilla y modelo de juego, en vivo de las hojas"
               />
 
               <div className="mt-5">
@@ -518,7 +546,7 @@ export default function Home() {
                     },
                     {
                       href: "/individual",
-                      label: "Jugadores",
+                      label: "Del Castilla",
                       value: totalJugadores,
                       caption: `${cobertura} % con seguimiento`,
                       destino: "Plantilla",

@@ -49,3 +49,55 @@ export function alineaSeguimiento<T extends FilaSeguimiento>(
     return !id || id === fila.ID_JUGADOR ? fila : { ...fila, ID_JUGADOR: id };
   });
 }
+
+/*
+|--------------------------------------------------------------------------
+| A QUIÉN SE LE CUENTA EL SEGUIMIENTO
+|--------------------------------------------------------------------------
+|
+| Desde el 11/10/2026, **sólo a los jugadores de campo con licencia del
+| Castilla**. Lo pidió el cuerpo técnico para las alertas y para los
+| feedback: los de licencia RMC y juvenil que vienen a entrenar llevan su
+| seguimiento en su equipo, y los porteros tienen su entrenador y su propia
+| planificación, que no se registra en esta hoja. Contarlos hundía la
+| cobertura y la media por jugador —sumaban al denominador sin sumar
+| registros— y llenaba la portada de avisos sobre gente que no es nuestra.
+|
+| Antes había además una lista de cinco de fuera escrita a mano
+| (`DE_FUERA_CON_SEGUIMIENTO`, en el Dashboard Seguimiento). Se quitó ese
+| día: la regla ahora es la licencia y nada más.
+|
+| Es UNA función para la portada y para el Dashboard, así las dos pantallas
+| dicen el mismo número. El puesto lo escribe la hoja de dos maneras, con
+| palabra ("PORTERO") y con el número de rol (1), así que se miran las dos.
+| Ver `lib/posiciones.ts`.
+*/
+
+interface JugadorConLicencia {
+  esCastilla: boolean;
+  posicion: string;
+}
+
+export function esDeSeguimiento(jugador: JugadorConLicencia) {
+  const puesto = (jugador.posicion || "").trim();
+
+  if (puesto === "1" || /portero/i.test(puesto)) return false;
+
+  return jugador.esCastilla;
+}
+
+/**
+ * Los registros de la hoja que son de esos jugadores. Las filas tienen que
+ * venir ya pasadas por `alineaSeguimiento` **contra la plantilla entera**:
+ * si se alinean sólo contra los del Castilla, el registro de un portero o de
+ * uno del RMC se queda con su ID viejo, que hoy puede ser el de un jugador
+ * nuestro, y se le cuenta a quien no toca.
+ */
+export function filasDeSeguimiento<T extends FilaSeguimiento>(
+  filasAlineadas: T[],
+  jugadores: { id: string }[],
+): T[] {
+  const nuestros = new Set(jugadores.map((jugador) => jugador.id));
+
+  return filasAlineadas.filter((fila) => nuestros.has(fila.ID_JUGADOR));
+}

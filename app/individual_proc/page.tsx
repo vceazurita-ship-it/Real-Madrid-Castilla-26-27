@@ -8,9 +8,8 @@ import { chipInk } from "@/lib/theme";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
-import { alineaSeguimiento } from "@/lib/seguimiento";
-import { PLAYER_PHOTO_FALLBACK, normalizePlayerName } from "@/lib/playerImages";
-import type { Player } from "@/types/player";
+import { alineaSeguimiento, esDeSeguimiento } from "@/lib/seguimiento";
+import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 
 import {
   AlertTriangle,
@@ -213,48 +212,6 @@ function clean(text?: string) {
   return t && t !== "-" ? t : "";
 }
 
-/*
-| Los de fuera a los que SÍ se les hace seguimiento.
-|
-| La licencia no basta para decidirlo: hay juveniles y jugadores de licencia
-| RMC que entrenan con nosotros a diario y llevan su seguimiento individual
-| aquí, y hay otros que sólo vienen a completar entrenamientos. Lo dice el
-| cuerpo técnico, no la hoja, así que va escrito: los nombres **como los
-| escribe la hoja**, que es por donde se cruza (ver `lib/dorsales.ts`, misma
-| regla). Quitar a uno de aquí es quitarlo del panel.
-*/
-const DE_FUERA_CON_SEGUIMIENTO = [
-  "Alexis Ciria",
-  "Álvaro Lezcano",
-  "Diego Lacosta",
-  "M. Rezola",
-  "Izan Regueira",
-].map(normalizePlayerName);
-
-/**
- * Quién entra en este panel: los jugadores de campo a los que se les hace
- * seguimiento individual.
- *
- * Son los del Castilla más los cuatro de arriba. Los demás de licencia RMC o
- * juvenil vienen a entrenar y su seguimiento lo lleva su equipo, y los
- * porteros tienen su entrenador y su propia planificación, que no se registra
- * en esta hoja. Contarlos hundía los números que se miran —la cobertura y la
- * media por jugador—, porque sumaban al denominador sin sumar registros.
- *
- * El puesto lo escribe la hoja de dos maneras, con palabra ("PORTERO") y con
- * el número de rol (1), así que se miran las dos. Ver `lib/posiciones.ts`.
- */
-function esDeSeguimiento(jugador: Player) {
-  const puesto = (jugador.posicion || "").trim();
-
-  if (puesto === "1" || /portero/i.test(puesto)) return false;
-
-  return (
-    jugador.esCastilla ||
-    DE_FUERA_CON_SEGUIMIENTO.includes(normalizePlayerName(jugador.nombre))
-  );
-}
-
 type TabKey = "resumen" | "jugadores" | "contenidos" | "registros";
 
 const TABS: { key: TabKey; label: string; icon: LucideIcon }[] = [
@@ -288,7 +245,8 @@ export default function DashboardSeguimiento() {
 
   /*
   | La plantilla de este panel no es la plantilla entera: `esDeSeguimiento`
-  | deja fuera a los que no son del Castilla y a los porteros. Se filtra aquí,
+  | (`lib/seguimiento.ts`, la misma regla que usa la portada) deja fuera a
+  | los que no tienen licencia del Castilla y a los porteros. Se filtra aquí,
   | en un sitio, y de aquí cuelga todo lo demás —los KPI, las gráficas, los
   | filtros y la exportación—, así que ningún número de la pantalla los cuenta.
   */
@@ -959,10 +917,10 @@ export default function DashboardSeguimiento() {
               {/* Se dice a quién cuenta el panel: si no, la cobertura y la
                   media parecen de toda la plantilla y no lo son. */}
               <span
-                title="Los jugadores de campo del Castilla más los del juvenil y del RMC que entrenan con nosotros. Fuera los porteros, que llevan su propio seguimiento."
+                title="Sólo los jugadores de campo con licencia del Castilla. Fuera los del RMC y del juvenil que vienen a entrenar, que llevan su seguimiento en su equipo, y los porteros, que tienen el suyo."
                 className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B]"
               >
-                jugadores de campo con seguimiento
+                jugadores de campo del Castilla
               </span>
 
               {sinFecha > 0 && (

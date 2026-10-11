@@ -13,6 +13,12 @@ import { alineaSeguimiento } from "@/lib/seguimiento";
  * sale gratis. Todo lo que hay aquí se calcula con lo que ya está en memoria:
  * el día que una alerta necesite abrir una hoja, deja de ir en la portada y
  * pasa a su pantalla.
+ *
+ * La `plantilla` que entra son **sólo los jugadores de campo del Castilla**
+ * (`esDeSeguimiento`, en `lib/seguimiento.ts`) y las `filas` ya vienen
+ * atadas a su jugador contra la plantilla entera. Lo pidió el cuerpo técnico
+ * el 11/10/2026: los del RMC y del juvenil llevan su seguimiento en su equipo
+ * y aquí sólo generaban avisos sobre gente que no es nuestra.
  */
 
 export type JugadorPlantilla = { id: string; nombre: string };
@@ -98,7 +104,7 @@ export function alertasDeSeguimiento(
       clave: "seguimiento-cobertura",
       tono: "mala",
       area: "Individual · seguimiento",
-      titulo: `Sólo ${cobertura} % de la plantilla tiene seguimiento`,
+      titulo: `Sólo ${cobertura} % de los jugadores de campo del Castilla tiene seguimiento`,
       detalle:
         "El seguimiento que no llega a todos no compara: de los que faltan no hay con qué contrastar lo que se ve en el campo.",
       cifra: `${conRegistro.length} de ${plantilla.length} jugadores`,
@@ -113,7 +119,7 @@ export function alertasDeSeguimiento(
       clave: "seguimiento-al-dia",
       tono: "buena",
       area: "Individual · seguimiento",
-      titulo: `El seguimiento llega al ${cobertura} % de la plantilla`,
+      titulo: `El seguimiento llega al ${cobertura} % de los jugadores de campo del Castilla`,
       detalle:
         "Casi nadie se queda sin registro, así que lo que se dice en la charla individual se puede sostener con lo escrito.",
       cifra: `${conRegistro.length} de ${plantilla.length} jugadores`,
