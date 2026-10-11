@@ -23,6 +23,8 @@ import RecursosRival, {
   type RecursoFijo,
 } from "@/components/rivals/RecursosRival";
 import { BocetoPlanDialog } from "@/components/match-preparation/BocetoPlanDialog";
+import { PorQueDelBoceto } from "@/components/match-preparation/PorQueDelBoceto";
+import { KIND_MOTIVOS_PLAN, claveMotivosPlan, type BocetoPlan } from "@/lib/plan-partido/boceto";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 
@@ -1296,7 +1298,7 @@ export default function MatchPreparation() {
   const [bocetoAbierto, setBocetoAbierto] = useState(false);
 
   const aplicaBoceto = useCallback(
-    (campos: Record<string, string>) => {
+    (campos: Record<string, string>, boceto: BocetoPlan) => {
       if (!rivalActivo) return;
 
       if (!modoEdicion) setAlEntrar(rivalActivo);
@@ -1305,7 +1307,25 @@ export default function MatchPreparation() {
       setModoEdicion(true);
       setBocetoAbierto(false);
 
-      toast.success("Boceto aplicado: «?» a valorar cambiar, «*» a valorar incorporar. Edítalo: se guarda solo.");
+      /* Los porqués, aparte del plan: los lee la sección plegada del pie
+         (`PorQueDelBoceto`), sólo con sesión de administrador. */
+      void fetch("/api/docs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          key: claveMotivosPlan(String(rivalActivo.ID ?? "")),
+          kind: KIND_MOTIVOS_PLAN,
+          data: {
+            generadoEn: new Date().toISOString(),
+            origen: boceto.anterior,
+            rival: boceto.rival,
+            fuentes: boceto.fuentes,
+            campos: boceto.campos,
+          },
+        }),
+      }).catch(() => {});
+
+      toast.success("Boceto aplicado: «?» a valorar cambiar, «*» a valorar incorporar. Los porqués, abajo del todo. Edítalo: se guarda solo.");
     },
     [modoEdicion, rivalActivo]
   );
@@ -2568,6 +2588,13 @@ export default function MatchPreparation() {
               )}
               Hecho
             </button>
+          </div>
+        )}
+
+        {/* Los porqués del boceto, plegados y sólo para el administrador. */}
+        {rivalActivo && (
+          <div className="px-4 pb-10 sm:px-6 lg:px-10">
+            <PorQueDelBoceto key={String(rivalActivo.ID ?? "")} idRival={String(rivalActivo.ID ?? "")} />
           </div>
         )}
 

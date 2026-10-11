@@ -16,7 +16,9 @@ import {
 } from "@/components/ui/textos-analisis";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { AbpHeader, FilterDrawer } from "@/components/abp/ui";
+import { AbpHeader, FilterDrawer, Select, TeamPicker } from "@/components/abp/ui";
+import { useEscudos } from "@/hooks/useEscudos";
+import { rivalesPorJornadaDe } from "@/lib/abp/rivales-por-jornada";
 import {
   AnalisisSeccion,
   type LectorAnalisis,
@@ -155,12 +157,14 @@ function filtersFor(mode: Mode): { key: string; label: string }[] {
   const common = [
     /* La competición manda sobre todo lo demás: un saque de banda de un
        amistoso de julio y uno de la jornada 1 no son la misma muestra. */
+    /* El mismo orden que ABP ofensivo y defensivo (11/10/2026): el contexto
+       primero, el rival como chips por jornada, y después lo propio del saque. */
     { key: "__competicion", label: "Competición" },
     { key: "JORNADA", label: "Jornada" },
-    { key: "Rival", label: "Rival" },
-    { key: "__parte", label: "Parte" },
-    { key: "__tramo", label: "Tramo de 15'" },
     { key: "__marcador", label: "Marcador" },
+    { key: "__tramo", label: "Tramo de 15'" },
+    { key: "__parte", label: "Parte" },
+    { key: "Rival", label: "Rival" },
     { key: "Perfil", label: "Banda" },
     { key: "Zona_Saque", label: "Zona de saque" },
     { key: "Tipo_Envio", label: "Tipo de envío" },
@@ -476,28 +480,21 @@ function SelectFilter({
   /** Cómo se llama «sin filtro» en este desplegable. */
   allLabel?: string;
 }) {
+  /* El mismo desplegable que ABP ofensivo y defensivo (11/10/2026): un solo
+     formato de filtros en las cuatro pantallas de balón parado. Un valor
+     elegido pulsando un gráfico puede no estar en la lista —«Sin dato» no se
+     ofrece—: si no se añade, el desplegable enseñaba «Todos» con el filtro puesto. */
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-slate-500">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-white/10 bg-[#111827] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#C8A96B]/60"
-      >
-        <option value="ALL">{allLabel}</option>
-        {/* Un valor elegido pulsando un gráfico puede no estar en la lista
-            —«Sin dato» no se ofrece—: si no se añade, el desplegable
-            enseñaba «Todos» con el filtro puesto. */}
-        {value !== "ALL" && !options.includes(value) ? (
-          <option value={value}>{value}</option>
-        ) : null}
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Select
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={[
+        { value: "ALL", label: allLabel },
+        ...(value !== "ALL" && !options.includes(value) ? [value] : []),
+        ...options,
+      ]}
+    />
   );
 }
 
@@ -775,6 +772,21 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       active = false;
     };
   }, [csvUrl]);
+
+  /* Los rivales como chips con escudo, por la jornada en que se les jugó y
+     con ella puesta: igual que en ABP ofensivo y defensivo (11/10/2026). */
+  const escudoDe = useEscudos();
+
+  const rivalesPorJornada = useMemo(
+    () =>
+      rivalesPorJornadaDe(
+        rows.map((row) => ({
+          rival: valorDe(row, "Rival") === "Sin dato" ? "" : valorDe(row, "Rival"),
+          contexto: { jornada: parseJornada(read(row, "JORNADA")) },
+        })),
+      ),
+    [rows],
+  );
 
   const options = useMemo(() => {
     const map: Record<string, string[]> = {};
@@ -1133,6 +1145,29 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                           : options[key] ?? []
                       }
                     />
+                  ) : key === "Rival" ? (
+                    /* Los rivales como chips, con su escudo, por la jornada
+                       en que se les jugó y con ella puesta; pulsar el elegido
+                       lo quita. Ocupa la fila entera del cajón, como en ABP. */
+                    <div key={key} className="min-w-0 sm:col-span-2 lg:col-span-3 xl:col-span-4">
+                      <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                        Rival · por jornada
+                      </span>
+
+                      <TeamPicker
+                        teams={rivalesPorJornada.map((uno) => uno.rival)}
+                        value={filters[key] ?? ""}
+                        onChange={(elegido) =>
+                          !elegido || elegido === filters[key]
+                            ? quitar([key])
+                            : setFilters((prev) => ({ ...prev, [key]: elegido }))
+                        }
+                        todos="Todos los rivales"
+                        countOf={(nombre) => rivalesPorJornada.find((uno) => uno.rival === nombre)?.acciones ?? 0}
+                        escudoDe={escudoDe}
+                        jornadaDe={(nombre) => rivalesPorJornada.find((uno) => uno.rival === nombre)?.chapa}
+                      />
+                    </div>
                   ) : (
                   <SelectFilter
                     key={key}

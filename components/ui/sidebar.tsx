@@ -176,7 +176,6 @@ const SECCIONES: Seccion[] = [
       { href: "/match-preparation", label: "Plan de Partido", icon: ClipboardCheck },
       { href: "/duelos", label: "Duelos", icon: Swords },
       { href: "/pizarra-tactica", label: "Pizarra Táctica", icon: PenTool },
-      { href: "/desplazamiento", label: "Desplazamiento", icon: Bus },
     ],
   },
   {
@@ -229,6 +228,8 @@ const SECCIONES: Seccion[] = [
     titulo: "Operativa",
     entradas: [
       { href: "/calendar_general", label: "Calendario Operativa", icon: CalendarCog },
+      /* El viaje es logística, no partido (11/10/2026). */
+      { href: "/desplazamiento", label: "Desplazamiento", icon: Bus },
       { href: "/general", label: "Repositorio", icon: Database },
       /* Los escudos son mantenimiento del club, no un laboratorio (11/10/2026). */
       { href: "/laboratorio/escudos", label: "Escudos de la liga", icon: Shield },

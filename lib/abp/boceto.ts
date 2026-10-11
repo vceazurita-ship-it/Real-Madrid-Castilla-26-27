@@ -121,6 +121,8 @@ const normaliza = (valor: number, tope: number) =>
 export function ordenaCandidatos(
   filas: FilaCruce[],
   rival: RivalAbp | null,
+  /** Nosotros mismos en la liga (Wyscout y Opta), como se mira a un rival. */
+  nosotros: RivalAbp | null = null,
 ): Candidato[] {
   const urgencias = filas
     .map((fila) => fila.urgencia)
@@ -133,7 +135,23 @@ export function ordenaCandidatos(
   for (const fila of filas) {
     if (!fila.aspecto.reconocimiento) continue;
 
-    const nuestro = normaliza(fila.urgencia ?? 0, topeUrgencia);
+    /*
+    | Nuestra urgencia sale de nuestras hojas (lo que anotamos de nosotros).
+    | Desde el 11/10/2026 se cruza con DATA: nuestro sitio en la liga en esa
+    | familia según Wyscout y los goles de ABP calibrados con Opta. Atacando,
+    | cuanto más abajo estemos, más urge; defendiendo, cuanto más concedamos.
+    | Pesa el 40 % de lo nuestro: la hoja ve el aspecto, la liga sólo la familia.
+    */
+    const enLaLiga =
+      fila.lado === "ofensivo"
+        ? nosotros?.ataca[fila.aspecto.key] != null
+          ? 1 - (nosotros.ataca[fila.aspecto.key] as number)
+          : null
+        : (nosotros?.concede[fila.aspecto.key] ?? null);
+
+    const deLaHoja = normaliza(fila.urgencia ?? 0, topeUrgencia);
+
+    const nuestro = enLaLiga != null ? 0.6 * deLaHoja + 0.4 * enLaLiga : deLaHoja;
 
     const delRival =
       fila.lado === "defensivo"
@@ -153,14 +171,14 @@ export function ordenaCandidatos(
       /* Lo que pide el rival más que nosotros va pegado al partido. */
       esDelRival: PESOS_BOCETO.rival * delRival > PESOS_BOCETO.nuestro * nuestro,
       minutos: 0,
-      motivo: motivoDe(fila, rival, delRival),
+      motivo: motivoDe(fila, rival, delRival, nosotros),
     });
   }
 
   return candidatos.sort((a, b) => b.puntos - a.puntos);
 }
 
-function motivoDe(fila: FilaCruce, rival: RivalAbp | null, delRival: number) {
+function motivoDe(fila: FilaCruce, rival: RivalAbp | null, delRival: number, nosotros: RivalAbp | null = null) {
   const trozos: string[] = [];
 
   if (fila.urgencia != null) {
@@ -170,6 +188,12 @@ function motivoDe(fila: FilaCruce, rival: RivalAbp | null, delRival: number) {
       )} % de peligro contra ${Math.round(fila.referencia)} % de su familia)`,
     );
   }
+
+  /* Lo que dice la liga de nosotros en esa familia: atacando, lo que
+     sacamos y rematamos; defendiendo, lo que concedemos. */
+  const enLaLiga = nosotros?.motivos[claveAspecto(fila.aspecto.key, fila.lado === "ofensivo" ? "defensivo" : "ofensivo")];
+
+  if (enLaLiga) trozos.push(`en la liga ${enLaLiga.replace(/^[^ ]+ /, "")}`);
 
   const dicho = rival?.motivos[claveAspecto(fila.aspecto.key, fila.lado)];
 
@@ -236,6 +260,8 @@ export type EntradaBoceto = {
   ventana: VentanaMicro;
   filas: FilaCruce[];
   rival: RivalAbp | null;
+  /** Nosotros en la liga (DATA: Wyscout y Opta), para cruzar con nuestra urgencia. */
+  nosotros?: RivalAbp | null;
   /** El plan que ya hubiera, para no borrar lo escrito a mano. */
   plan?: MicroPlan;
 };
@@ -283,7 +309,7 @@ function sitioDe(md: number | null): Sitio {
 }
 
 export function construyeBoceto(entrada: EntradaBoceto): Boceto {
-  const { ventana, filas, rival } = entrada;
+  const { ventana, filas, rival, nosotros = null } = entrada;
 
   const avisos = [...ventana.avisos];
 
@@ -326,7 +352,7 @@ export function construyeBoceto(entrada: EntradaBoceto): Boceto {
   const donde = deTrabajo.length > 0 ? deTrabajo : entrenos;
 
   const candidatos = repartePorAspecto(
-    ordenaCandidatos(filas, rival),
+    ordenaCandidatos(filas, rival, nosotros),
     deCampo,
     Math.max(ASPECTOS_POR_SEMANA.minimo, Math.min(ASPECTOS_POR_SEMANA.maximo, donde.length + 1)),
   );

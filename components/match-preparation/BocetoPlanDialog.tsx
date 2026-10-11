@@ -53,7 +53,8 @@ export function BocetoPlanDialog({
   actual: Rival;
   /** Las otras jornadas con plan escrito, de la más reciente a la más antigua. */
   candidatas: Rival[];
-  onAplicar: (campos: Record<string, string>) => void;
+  /** Los textos para el plan y el boceto entero, para guardar los porqués aparte. */
+  onAplicar: (campos: Record<string, string>, boceto: BocetoPlan) => void;
   onCerrar: () => void;
 }) {
   /* De qué jornada se parte: la última anterior a ésta con algo escrito. */
@@ -118,7 +119,7 @@ export function BocetoPlanDialog({
     if (!boceto) return;
     const campos: Record<string, string> = {};
     for (const campo of CAMPOS_BOCETO) campos[campo] = textoDelBoceto(boceto.campos[campo]);
-    onAplicar(campos);
+    onAplicar(campos, boceto);
   };
 
   const yaEscritos = CAMPOS_BOCETO.filter((c) => relleno(actual[c])).length;
@@ -133,7 +134,7 @@ export function BocetoPlanDialog({
   return createPortal(
     <Dialog
       title="Proponer boceto del plan"
-      subtitle="Se replica el plan de otra jornada y se marca lo que los datos del rival y los nuestros dicen que hay que mirar. No escribe nada hasta «Aplicar al plan»."
+      subtitle="Se replica el plan de otra jornada y se marca lo que los datos del rival y los nuestros dicen que hay que mirar. Al plan van sólo las marcas; los porqués quedan en la sección plegada del pie, para ti. No escribe nada hasta «Aplicar al plan»."
       onClose={onCerrar}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">

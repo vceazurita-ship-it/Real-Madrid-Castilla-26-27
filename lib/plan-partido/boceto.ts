@@ -608,13 +608,33 @@ export function construyeBocetoPlan(entrada: EntradaBocetoPlan): BocetoPlan {
   };
 }
 
-/** Cómo se escribe el boceto en los campos del plan: «? …(dato: …)» y «* …». */
+/**
+ * Cómo se escribe el boceto en los campos del plan: «? …» y «* …», sin más.
+ *
+ * Los porqués NO van al plan (lo pidió el cuerpo técnico el 11/10/2026): el
+ * plan es lo que se lee el día de partido. Los motivos se guardan aparte
+ * (`plan-boceto:<ID>`) y se enseñan en una sección plegada al pie de la
+ * pantalla, sólo al administrador.
+ */
 export function textoDelBoceto(lineas: LineaBoceto[]) {
   return lineas
     .map((l) => {
-      if (l.marca === "?") return `? ${l.texto}${l.motivo ? ` (dato: ${l.motivo})` : ""}`;
+      if (l.marca === "?") return `? ${l.texto}`;
       if (l.marca === "*") return `* ${l.texto}`;
       return l.texto;
     })
     .join("\n");
 }
+
+/** El documento con los porqués, uno por partido de la hoja RIVALES. */
+export const claveMotivosPlan = (idRival: string) => `plan-boceto:${String(idRival).replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
+export const KIND_MOTIVOS_PLAN = "plan-boceto";
+
+export type MotivosPlan = {
+  generadoEn: string;
+  origen: { jornada: string; equipo: string };
+  rival: string;
+  fuentes: string[];
+  campos: Record<CampoBoceto, LineaBoceto[]>;
+};

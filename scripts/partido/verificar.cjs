@@ -334,6 +334,34 @@ function git(...args) {
         (tramos ? " · desfase de la cámara táctica medido" : " · SIN medir el desfase con la cámara táctica") +
         (enApp ? "" : " · FALTA en lib/transiciones/datos.ts"),
     );
+
+    /* ---------------- PÉRDIDAS Y TRANSICIONES DEFENSIVAS (11/10/2026) ---------------- */
+
+    const bloquesPerdidas = path.join(dirTrans, "bloques-perdidas");
+
+    if (!fs.existsSync(bloquesPerdidas)) {
+      apunta("Pérdidas y transiciones", false, `no hay bloques-perdidas en ANALISIS TRANSICIONES/${P.slug} (scripts/partido/perdidas.cjs)`);
+    } else {
+      const perdidas = fs
+        .readdirSync(bloquesPerdidas)
+        .filter((f) => f.endsWith(".csv"))
+        .reduce(
+          (s, f) =>
+            s + fs.readFileSync(path.join(bloquesPerdidas, f), "utf8").split(/\r?\n/).filter((l) => /^\d+;/.test(l)).length,
+          0,
+        );
+
+      /* En la app: el generador escribe `"perdidas": [` con filas en el partido. */
+      const enAppPerdidas = enApp && new RegExp(`"id": "${P.slug}"[\\s\\S]*?"perdidas": \\[\\s*\\{`).test(datos);
+
+      apunta(
+        "Pérdidas y transiciones",
+        perdidas > 0 && tramos && enAppPerdidas,
+        `${perdidas} pérdidas` +
+          (tramos ? " · desfase de la cámara táctica medido" : " · SIN medir el desfase con la cámara táctica") +
+          (enAppPerdidas ? "" : " · FALTA en lib/transiciones/datos.ts"),
+      );
+    }
   }
 
   /* ---------------- PUBLICADO ---------------- */

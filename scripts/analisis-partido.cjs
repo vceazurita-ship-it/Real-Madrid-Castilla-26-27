@@ -16,7 +16,7 @@
  * Tres fuentes, cada una en su sitio:
  *   - WYSCOUT: los datos del partido y de cada jugador → Data Análisis.
  *   - HUDL: la retransmisión de TV con todo el etiquetado (timeline de
- *     Sportscode) → saques de banda, córners, faltas, penaltis y robos.
+ *     Sportscode) → saques de banda, córners, faltas, penaltis, robos y pérdidas.
  *   - LA CÁMARA TÁCTICA del club, en `Downloads/RMCF CASTILLA/PARTIDOS`
  *     («J 06 - …mov») → lo que sólo se ve con los 22 en plano: ocupación,
  *     defensa, defensores entre la falta y la portería.
@@ -26,7 +26,7 @@
  *      (`PARTIDOS/ANALISIS/J06 <rival>/partido.json`).
  *   2. Wyscout: baja la liga, toma la foto de la jornada y lo publica.
  *   3. Hudl: el timeline del partido y la lista del vídeo.
- *   4. La base del dato: banda, córners, faltas y robos sacados del timeline.
+ *   4. La base del dato: banda, córners, faltas, robos y pérdidas sacados del timeline.
  *   5. El análisis de vídeo: Claude Code, sin ventana, sigue
  *      `scripts/partido/MANUAL.md` — mira cada jugada en la TV y en la táctica,
  *      rellena las columnas de criterio, cuenta defensores y mide el desfase
@@ -333,7 +333,7 @@ function publica(mensaje, rutas) {
      dejaba un commit sin subir, se bloqueaban el uno al otro para siempre. */
   const ajenos = git("log", "origin/main..HEAD", "--format=%s")
     .split(/\r?\n/)
-    .filter((linea) => linea && !/^Análisis del partido: .+ \(faltas y robos\)$/.test(linea) && !/^Los datos de Wyscout /.test(linea)).length;
+    .filter((linea) => linea && !/^Análisis del partido: .+ \(faltas(?:, robos)? y (?:robos|pérdidas)\)$/.test(linea) && !/^Los datos de Wyscout /.test(linea)).length;
 
   /* Los generadores reescriben siempre la línea «Generado: <fecha>»: si es lo
      único que cambia, no es un cambio y no se sube. */
@@ -578,7 +578,7 @@ async function principal() {
   if (!toca(4) && hayBase) {
     deAntes("La base del dato");
   } else {
-    paso(4, "la base del dato: banda, córners, faltas y robos");
+    paso(4, "la base del dato: banda, córners, faltas, robos y pérdidas");
 
     const pr = await node("scripts/partido/preparar.cjs", "--carpeta", CARPETA);
 
@@ -730,7 +730,7 @@ async function principal() {
     await node("scripts/faltas-datos.mjs");
 
     try {
-      const r = publica(`Análisis del partido: ${datos.etiqueta} ${partido.rival} (faltas y robos)`, [
+      const r = publica(`Análisis del partido: ${datos.etiqueta} ${partido.rival} (faltas, robos y pérdidas)`, [
         "lib/faltas/datos.ts",
         "lib/transiciones/datos.ts",
       ]);

@@ -62,6 +62,8 @@ type Estado =
       boceto: Boceto;
       ventana: VentanaMicro;
       rival: RivalAbp | null;
+      /** Nosotros en la liga, para decir de dónde sale lo nuestro. */
+      nosotros: RivalAbp | null;
     };
 
 export function BocetoDialog({
@@ -155,11 +157,15 @@ export function BocetoDialog({
             })
           : null;
 
+        /* Y nosotros en la liga (DATA), mirados como a un rival (11/10/2026). */
+        const nosotros = construyeRivalAbp({ equipo: "Real Madrid Castilla", comparativa, events: [] });
+
         setEstado({
           fase: "listo",
           ventana,
           rival,
-          boceto: construyeBoceto({ ventana, filas, rival, plan }),
+          nosotros,
+          boceto: construyeBoceto({ ventana, filas, rival, nosotros, plan }),
         });
       } catch (error) {
         if (cancelado) return;
@@ -394,9 +400,17 @@ export function BocetoDialog({
               </li>
 
               <li>
-                <strong className="text-white/65">Los aspectos</strong>, de nuestra urgencia (55 %)
-                y de lo que el rival ataca y concede (45 %).
+                <strong className="text-white/65">Los aspectos</strong>, de nuestra urgencia (55 %:
+                nuestras hojas cruzadas con nuestro sitio en la liga según DATA) y de lo que el
+                rival ataca y concede (45 %).
               </li>
+
+              {estado.nosotros && (
+                <li>
+                  <strong className="text-white/65">Nosotros en la liga</strong>:{" "}
+                  {estado.nosotros.fuentes.join(" · ")}
+                </li>
+              )}
 
               {estado.rival && (
                 <li>
