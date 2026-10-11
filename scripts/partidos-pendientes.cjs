@@ -97,7 +97,9 @@ async function manda(asunto, titulo, lineas, pie) {
   const cal = await calendario(env);
   const hoy = hoyMadrid();
 
-  const pendientes = pendientesWyscout(indice.partidos ?? [], cal, hoy);
+  /* La jornada que se está jugando este fin de semana no está pendiente: su
+     ventana sigue abierta y Wyscout la va cargando. Sólo las ya cerradas. */
+  const pendientes = pendientesWyscout(indice.partidos ?? [], cal, hoy).filter((p) => !p.abierta);
   const claves = pendientes.map(claveDe);
 
   for (const p of pendientes) {
