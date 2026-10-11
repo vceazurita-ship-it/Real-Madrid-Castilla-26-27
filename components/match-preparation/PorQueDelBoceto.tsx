@@ -128,7 +128,7 @@ function Linea({ linea }: { linea: LineaBoceto }) {
         <span className={duda ? "text-amber-100" : "text-emerald-100"}>{linea.texto}</span>
 
         <span className="block text-[11px] leading-snug text-white/45">
-          {duda ? linea.motivo || "a valorar" : "lo proponen los datos: la cifra va en la propia línea"}
+          {linea.motivo || (duda ? "a valorar" : "lo proponen los datos: la cifra va en la propia línea")}
         </span>
       </span>
     </li>

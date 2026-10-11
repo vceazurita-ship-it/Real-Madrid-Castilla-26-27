@@ -52,6 +52,7 @@ import type { ComparativaAbp } from "@/lib/abp/informe-graficos";
 import { groupPatterns, type RivalScoutStore } from "@/lib/abp/rivalScout";
 import { ASPECTO_BY_KEY, claveAspecto, type AspectoKey } from "@/lib/abp/microciclo";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { cuestionExperta, sugerenciasExpertas, type ContextoCriterio } from "./criterio";
 
 /* ------------------------------------------------------------------ */
 /*  QUÉ SE BOCETA                                                      */
@@ -566,6 +567,18 @@ export function construyeBocetoPlan(entrada: EntradaBocetoPlan): BocetoPlan {
       normaliza(anterior.LOCAL_VISITANTE ?? "") !== normaliza(actual.LOCAL_VISITANTE ?? ""),
   };
 
+  /* El criterio experto (lib/plan-partido/criterio.ts): principios de modelo
+     de juego, sistemas y gestión emocional, por encima del dato. */
+  const criterio: ContextoCriterio = {
+    rival: contexto.rival,
+    perfil,
+    resumen,
+    plantilla,
+    abp,
+    nosotros,
+    donde: String(actual.LOCAL_VISITANTE ?? "").trim(),
+  };
+
   const campos = {} as Record<CampoBoceto, LineaBoceto[]>;
   let dudas = 0;
 
@@ -586,17 +599,28 @@ export function construyeBocetoPlan(entrada: EntradaBocetoPlan): BocetoPlan {
         dudas += 1;
         return { texto, marca: "?" as const, motivo: `describe al ${contexto.anterior}: no hay dato que lo confirme para el ${contexto.rival}` };
       }
+      const cuestion = cuestionExperta(campo, texto, criterio, lineas.length);
+      if (cuestion) {
+        dudas += 1;
+        return { texto, marca: "?" as const, motivo: cuestion };
+      }
       return { texto, marca: "" as const, motivo: juicio.motivo };
     });
   }
 
   let sugerencias = 0;
-  for (const s of sugiere(contexto, plantilla, nosotros, patrones, actual)) {
-    const lista = campos[s.campo];
-    if (lista.some((l) => parecidas(l.texto, s.texto))) continue;
-    lista.push({ texto: s.texto, marca: "*", motivo: "" });
+  const propone = (campo: CampoBoceto, texto: string, motivo: string) => {
+    const lista = campos[campo];
+    if (lista.some((l) => parecidas(l.texto, texto))) return;
+    lista.push({ texto, marca: "*", motivo });
     sugerencias += 1;
-  }
+  };
+
+  for (const s of sugiere(contexto, plantilla, nosotros, patrones, actual)) propone(s.campo, s.texto, "lo dice el dato: la cifra va en la propia línea");
+
+  for (const s of sugerenciasExpertas(criterio)) propone(s.campo, s.texto, `${s.intencion} · ${s.motivo}`);
+
+  fuentes.push("Criterio experto: principios de modelo de juego, emparejamiento de sistemas y gestión emocional, aplicados al contexto de la semana");
 
   return {
     rival,
