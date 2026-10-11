@@ -24,7 +24,19 @@ import { CalendarClock, Check, Info, Wand2 } from "lucide-react";
 
 import { Button, Dialog, EmptyState, Notice } from "@/components/abp/ui";
 import { construyeBoceto, type Boceto } from "@/lib/abp/boceto";
-import { construyeRivalAbp, type RivalAbp } from "@/lib/abp/rivalAbp";
+import {
+  accionesDelScouting,
+  construyeRivalAbp,
+  eventosDelScouting,
+  type RivalAbp,
+} from "@/lib/abp/rivalAbp";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import {
+  EMPTY_SCOUT_STORE,
+  SCOUT_DOC_KEY,
+  SCOUT_DOC_KIND,
+  type RivalScoutStore,
+} from "@/lib/abp/rivalScout";
 import { ventanaDelMicro, type VentanaMicro } from "@/lib/abp/ventana";
 import { CLAVE_CALENDARIO, type PartidoCastilla } from "@/lib/castilla/calendario";
 import type { CompeticionEvent } from "@/lib/abp/competicion";
@@ -80,9 +92,25 @@ export function BocetoDialog({
 }) {
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
 
-  /* Las dos fuentes de fuera: nuestro calendario y el ABP de la liga. Van en
-     el propio efecto, que es la forma que pasa el linter de hooks. */
+  /*
+  | Y el scouting en vídeo del rival (lo registrado en «ABP del rival»,
+  | 11/10/2026): es la única fuente que distingue aspecto por aspecto a un
+  | rival al que no hemos jugado. Se espera a que llegue antes de proponer.
+  */
+  const scout = useRemoteDoc<RivalScoutStore>({
+    key: SCOUT_DOC_KEY,
+    kind: SCOUT_DOC_KIND,
+    fallback: EMPTY_SCOUT_STORE,
+  });
+
+  const scoutCargando = scout.status === "loading";
+  const scoutStore = scout.value;
+
+  /* Las fuentes de fuera: nuestro calendario, el ABP de la liga y el
+     scouting. Van en el propio efecto, que es la forma que pasa el linter de hooks. */
   useEffect(() => {
+    if (scoutCargando) return;
+
     let cancelado = false;
 
     const traer = async () => {
@@ -116,7 +144,15 @@ export function BocetoDialog({
         }
 
         const rival = ventana.partido
-          ? construyeRivalAbp({ equipo: ventana.partido.rival, comparativa, events })
+          ? construyeRivalAbp({
+              equipo: ventana.partido.rival,
+              comparativa,
+              events,
+              scouting: eventosDelScouting(
+                ventana.partido.rival,
+                accionesDelScouting(scoutStore, ventana.partido.rival),
+              ),
+            })
           : null;
 
         setEstado({
@@ -140,7 +176,7 @@ export function BocetoDialog({
     return () => {
       cancelado = true;
     };
-  }, [filas, plan, events, tareasDelMicro, rivalDelMicro]);
+  }, [filas, plan, events, tareasDelMicro, rivalDelMicro, scoutCargando, scoutStore]);
 
   const dentro = useMemo(() => {
     if (estado.fase !== "listo") return true;

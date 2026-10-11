@@ -33,6 +33,67 @@ import {
   type AspectoKey,
 } from "@/lib/abp/microciclo";
 import { encajaEnAspecto, type CompeticionEvent } from "@/lib/abp/competicion";
+import { contextoDeFila } from "@/lib/abp/partido";
+import {
+  esGolAccion,
+  esPeligroAccion,
+  scoutKey,
+  type RivalScoutAction,
+  type RivalScoutStore,
+} from "@/lib/abp/rivalScout";
+import { mismoClub } from "@/lib/rivals/mismoClub";
+
+/*
+|--------------------------------------------------------------------------
+| NUESTRO SCOUTING EN VÍDEO DEL RIVAL (11/10/2026)
+|--------------------------------------------------------------------------
+|
+| La cuarta fuente, y la única que sabe de un rival al que todavía no hemos
+| jugado aspecto por aspecto: lo que el cuerpo técnico registra en «ABP del
+| rival» viendo su vídeo (`lib/abp/rivalScout.ts`). Cada acción registrada se
+| convierte aquí en el mismo evento con el que se miran nuestras hojas, con
+| el lado dado la vuelta —«él ataca» es nuestro lado defensivo— y entra en el
+| boceto del microciclo como lo que le hemos visto.
+*/
+
+/** Las acciones registradas de un equipo, tolerando que el calendario y el scouting lo nombren distinto. */
+export function accionesDelScouting(store: RivalScoutStore | null | undefined, equipo: string): RivalScoutAction[] {
+  if (!store?.teams || !equipo) return [];
+
+  const directo = store.teams[scoutKey(equipo)];
+
+  if (directo?.length) return directo;
+
+  return Object.entries(store.teams).find(([clave]) => mismoClub(clave, equipo))?.[1] ?? [];
+}
+
+const envioDe = (texto: string) => {
+  const t = String(texto ?? "").toLowerCase();
+
+  if (!t) return null;
+  if (t.includes("corto")) return "corto" as const;
+  if (t.includes("bombead") || t.includes("tenso") || t.includes("largo")) return "largo" as const;
+
+  return null;
+};
+
+export function eventosDelScouting(equipo: string, acciones: RivalScoutAction[]): CompeticionEvent[] {
+  return acciones.map((accion) => ({
+    jornada: accion.jornada,
+    contexto: contextoDeFila({ JORNADA: accion.jornada, Minuto: accion.minuto, Tiempo: accion.tiempo }),
+    rival: equipo,
+    rivalKey: teamKey(equipo),
+    /* «Él ataca» (condición ofensiva del rival) es lo que nosotros defendemos. */
+    lado: accion.condicion === "ofensivo" ? "defensivo" : "ofensivo",
+    family: accion.family,
+    envio: envioDe(accion.tipoEnvio),
+    zonaSaque: Number(String(accion.zonaSaque ?? "").match(/([1-3])/)?.[1] ?? "") || null,
+    remate: /^s/i.test(String(accion.remate ?? "")),
+    xg: Number(String(accion.xg ?? "").replace(",", ".")) || 0,
+    peligro: esPeligroAccion(accion),
+    gol: esGolAccion(accion),
+  }));
+}
 
 export type RivalAbp = {
   equipo: string;
@@ -124,6 +185,8 @@ export type EntradaRival = {
   comparativa: ComparativaAbp | null;
   /** Nuestras acciones de competición: las de este rival son oro. */
   events?: CompeticionEvent[];
+  /** Lo que le hemos visto en vídeo: `eventosDelScouting`. */
+  scouting?: CompeticionEvent[];
   /** Los goles de ABP estimados que trae el propio paquete de Wyscout. */
   golesAbp?: FilaGolesAbp[];
 };
@@ -135,13 +198,16 @@ export type EntradaRival = {
  * diga «sin datos del rival» a que reparta ceros como si fueran medidas.
  */
 export function construyeRivalAbp(entrada: EntradaRival): RivalAbp | null {
-  const { equipo, comparativa, events = [] } = entrada;
+  const { equipo, comparativa, events = [], scouting = [] } = entrada;
 
   const golesAbp = entrada.golesAbp ?? comparativa?.golesAbp ?? [];
 
   const fila = buscaEnLaLiga(comparativa, equipo);
 
-  const suyos = events.filter((event) => event.rivalKey === teamKey(equipo));
+  const delPartido = events.filter((event) => event.rivalKey === teamKey(equipo));
+
+  /* Lo del partido que le jugamos y lo del scouting en vídeo, juntos. */
+  const suyos = [...delPartido, ...scouting];
 
   if (!fila && suyos.length === 0) return null;
 
@@ -268,7 +334,9 @@ export function construyeRivalAbp(entrada: EntradaRival): RivalAbp | null {
   | acciones, y por debajo de eso no se toca nada: tres córners no son un
   | patrón.
   */
-  const MINIMO = 5;
+  /* Con scouting en vídeo el listón baja: tres acciones vistas a propósito
+     dicen más que tres filas sueltas de una hoja. */
+  const MINIMO = scouting.length >= 3 ? 3 : 5;
 
   const vistos = new Map<string, { acciones: number; peligro: number }>();
 
@@ -292,7 +360,11 @@ export function construyeRivalAbp(entrada: EntradaRival): RivalAbp | null {
     }
 
     if ([...vistos.values()].some((uno) => uno.acciones >= MINIMO)) {
-      fuentes.push("nuestras hojas del partido que ya le jugamos");
+      if (delPartido.length > 0) fuentes.push("nuestras hojas del partido que ya le jugamos");
+
+      if (scouting.length > 0) {
+        fuentes.push(`nuestro scouting en vídeo (${scouting.length} ${scouting.length === 1 ? "acción registrada" : "acciones registradas"})`);
+      }
     }
   }
 
@@ -341,7 +413,7 @@ export function construyeRivalAbp(entrada: EntradaRival): RivalAbp | null {
 
       if (visto && visto.acciones >= MINIMO) {
         trozos.push(
-          `en nuestro partido: ${visto.acciones} ${ASPECTO_BY_KEY.get(aspecto.key)?.short ?? ""} con ${Math.round(
+          `${scouting.length ? "visto por nosotros" : "en nuestro partido"}: ${visto.acciones} ${ASPECTO_BY_KEY.get(aspecto.key)?.short ?? ""} con ${Math.round(
             visto.peligro * 100,
           )} % de peligro`,
         );

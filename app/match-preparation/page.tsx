@@ -22,6 +22,7 @@ import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import RecursosRival, {
   type RecursoFijo,
 } from "@/components/rivals/RecursosRival";
+import { BocetoPlanDialog } from "@/components/match-preparation/BocetoPlanDialog";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 
@@ -1281,6 +1282,34 @@ export default function MatchPreparation() {
     [modoEdicion, rivalActivo]
   );
 
+  /*
+  |--------------------------------------------------------------------------
+  | PROPONER BOCETO (11/10/2026)
+  |
+  | Como replicar, pero con criterio: el plan de la jornada anterior entra
+  | línea a línea con «?» donde los datos del rival que viene (y los nuestros)
+  | dicen que puede cambiar, y «*» en lo que proponen incorporar. El motor es
+  | `lib/plan-partido/boceto.ts`; aquí sólo se abre el diálogo y se aplica lo
+  | que vuelve, igual que una réplica: edición abierta, autoguardado y
+  | «Deshacer» a la foto de antes.
+  */
+  const [bocetoAbierto, setBocetoAbierto] = useState(false);
+
+  const aplicaBoceto = useCallback(
+    (campos: Record<string, string>) => {
+      if (!rivalActivo) return;
+
+      if (!modoEdicion) setAlEntrar(rivalActivo);
+
+      setRivalActivo({ ...rivalActivo, ...campos });
+      setModoEdicion(true);
+      setBocetoAbierto(false);
+
+      toast.success("Boceto aplicado: «?» a valorar cambiar, «*» a valorar incorporar. Edítalo: se guarda solo.");
+    },
+    [modoEdicion, rivalActivo]
+  );
+
   /* Las otras jornadas que tienen algo que copiar, la más reciente primero. */
   const jornadasReplicables = useMemo(
     () =>
@@ -1800,10 +1829,42 @@ export default function MatchPreparation() {
                 )}
 
                 {!cargando && rivalActivo && (
-                  <ReplicarPlan
-                    jornadas={jornadasReplicables}
-                    onElegir={replicarDe}
-                  />
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setBocetoAbierto(true)}
+                      disabled={jornadasReplicables.length === 0}
+                      title={
+                        jornadasReplicables.length === 0
+                          ? "Todavía no hay otra jornada con plan escrito de la que partir"
+                          : "Replicar el plan de la semana anterior con «?» en lo que los datos dicen que puede cambiar y «*» en lo que proponen incorporar"
+                      }
+                      className="
+                        flex items-center gap-2 rounded-xl border border-[#C8A96B]/40
+                        bg-[#C8A96B]/10 px-3.5 py-2.5 text-sm text-[#C8A96B] transition
+                        hover:bg-[#C8A96B]/20
+                        disabled:cursor-not-allowed disabled:opacity-40
+                      "
+                    >
+                      <Sparkles size={15} />
+
+                      <span className="hidden md:inline">Proponer boceto</span>
+                    </button>
+
+                    <ReplicarPlan
+                      jornadas={jornadasReplicables}
+                      onElegir={replicarDe}
+                    />
+
+                    {bocetoAbierto && (
+                      <BocetoPlanDialog
+                        actual={rivalActivo}
+                        candidatas={jornadasReplicables.map((j) => j.rival)}
+                        onAplicar={aplicaBoceto}
+                        onCerrar={() => setBocetoAbierto(false)}
+                      />
+                    )}
+                  </>
                 )}
 
                 {editando ? (
