@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, Sparkles } from "lucide-react";
 
 import { Button, Dialog, EmptyState, Notice } from "@/components/abp/ui";
@@ -122,7 +123,14 @@ export function BocetoPlanDialog({
 
   const yaEscritos = CAMPOS_BOCETO.filter((c) => relleno(actual[c])).length;
 
-  return (
+  /*
+  | Al cuerpo del documento, no donde se abre: el botón vive en la barra de
+  | acciones de la cabecera, que lleva transformaciones, y un `fixed` dentro de
+  | ella se queda del tamaño de la barra (el diálogo salía de 80 px de alto).
+  | Este diálogo sólo se monta tras un clic, nunca en el servidor, así que
+  | `document` siempre está.
+  */
+  return createPortal(
     <Dialog
       title="Proponer boceto del plan"
       subtitle="Se replica el plan de otra jornada y se marca lo que los datos del rival y los nuestros dicen que hay que mirar. No escribe nada hasta «Aplicar al plan»."
@@ -221,7 +229,8 @@ export function BocetoPlanDialog({
           </>
         )}
       </div>
-    </Dialog>
+    </Dialog>,
+    document.body,
   );
 }
 
