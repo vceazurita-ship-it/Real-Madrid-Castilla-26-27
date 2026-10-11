@@ -43,6 +43,8 @@ import { Crosshair, Shield, Swords, Zap } from "lucide-react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
+import { ComparativaPartido, mediaPorPartido, type MetricaComparada } from "@/components/abp/ComparativaPartido";
+import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
 import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
 import { CampoFaltas, CARRILES_CAMPO, sitioEnCampo, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
@@ -160,7 +162,18 @@ export default function FaltasPage() {
     [conPretemporada],
   );
 
-  const [partidoId, setPartidoId] = useState<string>(partidosVisibles[0]?.id ?? "");
+  /*
+  | Se abre por el último partido analizado: el lunes se quiere ver lo del
+  | domingo, no la primera jornada. Si al quitar la pretemporada el elegido
+  | desaparece, se vuelve al último de los que quedan.
+  */
+  const [partidoId, setPartidoId] = useState<string>(ultimoPorFecha(partidosVisibles)?.id ?? "");
+
+  /** El desplegable, del más reciente al más antiguo: el de arriba es el que se abre. */
+  const partidosRecientes = useMemo(
+    () => [...partidosVisibles].sort((a, b) => b.fecha.localeCompare(a.fecha)),
+    [partidosVisibles],
+  );
 
   /** La falta que está encendida, compartida entre el campo y la tabla. */
   const [resaltada, setResaltada] = useState<string | null>(null);
@@ -170,7 +183,7 @@ export default function FaltasPage() {
 
   const partido = useMemo(
     () =>
-      partidosVisibles.find((p) => p.id === partidoId) ?? partidosVisibles[0] ?? null,
+      partidosVisibles.find((p) => p.id === partidoId) ?? ultimoPorFecha(partidosVisibles),
     [partidoId, partidosVisibles],
   );
 
@@ -380,6 +393,76 @@ export default function FaltasPage() {
     return frases;
   }, [faltas, filtro, filtros, porLado, defensores, cortes]);
 
+  /*
+  | Este partido frente a la media de los anteriores (por fecha). Se calcula
+  | sobre el partido entero, sin el lado ni lo pinchado: así la cifra es la
+  | misma la mire quien la mire y no cambia al filtrar la pantalla. La zona
+  | va en el campo de verdad (`sitioEnCampo`), para que «campo rival» sea lo
+  | mismo en una falta nuestra que en una del rival.
+  */
+  const comparativa = useMemo(() => {
+    if (!partido) return null;
+
+    const anteriores = anterioresPorFecha(partidosVisibles, partido).map((p) => p.faltas);
+    const aFavor = (f: Falta) => f.lado === "ofensivo";
+    const enContra = (f: Falta) => f.lado === "defensivo";
+    const cuenta = (condicion: (f: Falta) => boolean) => (faltas: Falta[]) =>
+      faltas.filter(condicion).length;
+
+    /** Los defensores por delante en las faltas a favor, de media; `null` sin ninguna contada. */
+    const defensoresAFavor = (faltas: Falta[]) => {
+      const con = faltas.filter((f) => aFavor(f) && f.entre !== null).map((f) => f.entre as number);
+
+      return con.length === 0 ? null : con.reduce((a, b) => a + b, 0) / con.length;
+    };
+
+    const metrica = (
+      clave: string,
+      nombre: string,
+      condicion: (f: Falta) => boolean,
+      mejorAlto: boolean | null,
+      pie?: string,
+    ): MetricaComparada => ({
+      clave,
+      nombre,
+      actual: cuenta(condicion)(partido.faltas),
+      media: mediaPorPartido(anteriores, cuenta(condicion)),
+      mejorAlto,
+      pie,
+    });
+
+    const metricas: MetricaComparada[] = [
+      metrica("favor", "Faltas a favor", aFavor, null),
+      metrica("contra", "Faltas en contra", enContra, false),
+      metrica("favor-frontal", "A favor frontales", (f) => aFavor(f) && f.distancia === "frontal", true, "de cara a la portería rival"),
+      metrica("contra-frontal", "En contra frontales", (f) => enContra(f) && f.distancia === "frontal", false, "de cara a nuestra portería"),
+      metrica("contra-nuestro", "En contra en nuestro campo", (f) => enContra(f) && sitioEnCampo(f).zona === "nuestro campo", false),
+      metrica("favor-rival", "A favor en campo rival", (f) => aFavor(f) && sitioEnCampo(f).zona === "campo rival", true),
+    ];
+
+    /*
+    | La media de defensores sólo si hay alguna falta a favor contada. Entre
+    | partidos se promedian las medias (una por partido), que es lo que mide
+    | el panel: cómo fue este partido frente a uno típico.
+    */
+    const actualDefensores = defensoresAFavor(partido.faltas);
+    const conDefensores = anteriores.map(defensoresAFavor).filter((n): n is number => n !== null);
+
+    if (actualDefensores !== null || conDefensores.length > 0) {
+      metricas.push({
+        clave: "defensores",
+        nombre: "Defensores por delante (a favor)",
+        actual: actualDefensores,
+        media: conDefensores.length === 0 ? null : conDefensores.reduce((a, b) => a + b, 0) / conDefensores.length,
+        formato: decimal,
+        mejorAlto: false,
+        pie: "entre la falta y la portería, portero incluido",
+      });
+    }
+
+    return { partido: `${partido.jornada} · ${partido.rival}`, anteriores: anteriores.length, metricas };
+  }, [partido, partidosVisibles]);
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -456,6 +539,18 @@ export default function FaltasPage() {
               </div>
             )}
 
+            {/* ---------------- frente a los anteriores ---------------- */}
+
+            {comparativa && (
+              <ComparativaPartido
+                partido={comparativa.partido}
+                anteriores={{ n: comparativa.anteriores }}
+                metricas={comparativa.metricas}
+                nota={`Sobre el partido entero, sin el filtro de ${filtro === "todas" ? "lado" : `«${NOMBRE_LADO[filtro]}»`} ni lo pinchado abajo. La media es por partido. Verde: mejor que la media; naranja: peor; gris: no se juzga.`}
+                className="mt-3"
+              />
+            )}
+
             {/* ---------------- mandos ---------------- */}
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -468,7 +563,7 @@ export default function FaltasPage() {
                   }}
                   className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                 >
-                  {partidosVisibles.map((p) => (
+                  {partidosRecientes.map((p) => (
                     <option key={p.id} value={p.id} className="bg-[#11161C]">
                       {p.jornada} · {p.rival}
                     </option>

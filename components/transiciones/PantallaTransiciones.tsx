@@ -59,6 +59,17 @@ import { AbpHeader, Panel } from "@/components/abp/ui";
 import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
 import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
 import {
+  ComparativaPartido,
+  formatoPorcentaje,
+  mediaPorPartido,
+  porcentajeAgregado,
+  porcentajeDe,
+  type MetricaComparada,
+} from "@/components/abp/ComparativaPartido";
+import { CampoZonas, type PuntoCampo } from "@/components/campo/CampoZonas";
+import { CARRILES_CAMPO, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
+import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
+import {
   BarraFiltros,
   Filtrable,
   TITULO_FILTRO,
@@ -255,6 +266,24 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
 
 const ZONAS = ["campo propio", "medio campo", "campo rival"] as const;
 const CARRILES = ["izquierda", "centro", "derecha"] as const;
+
+/*
+| El campo dibujado habla de «nuestro campo»; el etiquetado, de «campo
+| propio». Robos y pérdidas son siempre acciones del Castilla, así que el
+| tercio y el carril ya están en el sentido del campo de verdad (el Castilla
+| ataca hacia la derecha) y sólo cambia el nombre del primer tercio.
+*/
+const ZONA_EN_CAMPO: Record<string, string> = {
+  "campo propio": "nuestro campo",
+  "medio campo": "medio campo",
+  "campo rival": "campo rival",
+};
+const ZONA_DEL_CAMPO: Record<string, string> = Object.fromEntries(
+  Object.entries(ZONA_EN_CAMPO).map(([interna, campo]) => [campo, interna]),
+);
+
+/** El id de una fila en pantalla: el que ya usa la tabla. */
+const idDe = (r: { partido: string; seg: number }) => `${r.partido}-${r.seg}`;
 
 /* ------------------------------------------------------------------ */
 /*  Utilidades                                                         */
@@ -501,7 +530,20 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     (ACCIONES_SERIE[serie] ?? []).every((a) => estaActivo(filtros, "accion", a));
 
   const explicativos = useTextosExplicativos();
-  const [quienElegido, setQuien] = useState<string>("todos");
+  /*
+  | Se abre en el último partido analizado, no en «todos»: lo que se quiere
+  | mirar el lunes es lo del domingo. «Todos los partidos» sigue a un toque.
+  */
+  const [quienElegido, setQuien] = useState<string>(
+    () =>
+      ultimoPorFecha(
+        PARTIDOS.filter(
+          (p) => (modo === "robos" ? p.robos : p.perdidas ?? []).length > 0 && !esPretemporada(p.jornada),
+        ),
+      )?.id ?? "todos",
+  );
+  /** La fila encendida, compartida entre el campo y la tabla. */
+  const [resaltado, setResaltado] = useState<string | null>(null);
   const [porcentajes, setPorcentajes] = useState(false);
   const [conDudosos, setConDudosos] = useState(true);
   /*
@@ -770,6 +812,154 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     (r) => r.desenlace === "REMATE" || r.desenlace === "AREA",
   ).length;
 
+  /* ------------------------------------------------------------------ */
+  /*  Este partido frente a la media de los anteriores                   */
+  /* ------------------------------------------------------------------ */
+
+  /*
+  | Se compara el partido que se está mirando (o el último, si se miran
+  | todos) con la media por partido de los que se jugaron antes, con los
+  | mismos filtros que lo de abajo: dudosos fuera si están fuera, y lo
+  | pinchado en las gráficas también.
+  */
+  const comparado = useMemo(
+    () => partidos.find((p) => p.id === quien) ?? ultimoPorFecha(partidos),
+    [partidos, quien],
+  );
+
+  const comparativa = useMemo(() => {
+    if (!comparado) return null;
+
+    const filasDe = (p: (typeof partidos)[number]): RoboVisto[] =>
+      p.robos
+        .map((r) => ({ ...r, partido: p.id, jornada: p.jornada, rival: p.rival }))
+        .filter((r) => conDudosos || r.confianza !== "baja")
+        .filter((r) => pasaFiltros(r, filtros, LECTORES));
+
+    const actuales = filasDe(comparado);
+    const anteriores = anterioresPorFecha(partidos, comparado).map(filasDe);
+
+    const jugadas = (f: RoboVisto[]) => f.filter((r) => r.accion === "ADELANTE" || r.accion === "HORIZONTAL_ATRAS");
+    const adelante = (f: RoboVisto[]) => f.filter((r) => r.accion === "ADELANTE").length;
+    const seguidas = (f: RoboVisto[]) => f.filter((r) => r.desenlace);
+    const llegan = (f: RoboVisto[]) => f.filter((r) => r.desenlace === "REMATE" || r.desenlace === "AREA").length;
+    const cortas = (f: RoboVisto[]) =>
+      f.filter((r) => (modo === "robos" ? r.desenlace === "PERDIDA" : r.desenlace === "RECUPERAMOS")).length;
+    const enCampo = (zona: string) => (f: RoboVisto[]) => f.filter((r) => zonaDe(r) === zona).length;
+    const duracion = (f: RoboVisto[]) => {
+      const t = seguidas(f).map((r) => r.duracion).filter((d): d is number => typeof d === "number");
+      return t.length ? t.reduce((a, b) => a + b, 0) / t.length : null;
+    };
+    const duracionMediaDe = (lista: RoboVisto[][]) => {
+      const valores = lista.map(duracion).filter((d): d is number => d !== null);
+      return valores.length ? valores.reduce((a, b) => a + b, 0) / valores.length : null;
+    };
+
+    const robosMode = modo === "robos";
+    const segundos = (n: number) => `${decimal(n)} s`;
+
+    const metricas: MetricaComparada[] = [
+      {
+        clave: "total",
+        nombre: T.serieTotal,
+        actual: actuales.length,
+        media: mediaPorPartido(anteriores, (f) => f.length),
+        mejorAlto: robosMode ? true : false,
+        pie: robosMode ? "cuantos más, mejor" : "cuantas menos, mejor",
+      },
+      {
+        clave: "adelante",
+        nombre: robosMode ? "Salen hacia delante" : "El rival sale hacia delante",
+        actual: porcentajeDe(actuales, (f) => adelante(jugadas(f)), (f) => jugadas(f).length),
+        media: porcentajeAgregado(anteriores, (f) => adelante(jugadas(f)), (f) => jugadas(f).length),
+        formato: formatoPorcentaje,
+        mejorAlto: robosMode ? true : false,
+        pie: "de las que se juegan con pase o conducción",
+      },
+      {
+        clave: "llegan",
+        nombre: robosMode ? "Acaban en remate o en el área" : "Acaban en remate o en nuestra área",
+        actual: porcentajeDe(actuales, (f) => llegan(seguidas(f)), (f) => seguidas(f).length),
+        media: porcentajeAgregado(anteriores, (f) => llegan(seguidas(f)), (f) => seguidas(f).length),
+        formato: formatoPorcentaje,
+        mejorAlto: robosMode ? true : false,
+        pie: "de las que tienen desenlace anotado",
+      },
+      {
+        clave: "cortas",
+        nombre: robosMode ? "La perdemos al momento" : "La recuperamos al momento",
+        actual: porcentajeDe(actuales, (f) => cortas(seguidas(f)), (f) => seguidas(f).length),
+        media: porcentajeAgregado(anteriores, (f) => cortas(seguidas(f)), (f) => seguidas(f).length),
+        formato: formatoPorcentaje,
+        mejorAlto: robosMode ? false : true,
+      },
+      {
+        clave: "campo",
+        nombre: robosMode ? "Robos en campo rival" : "Pérdidas en campo propio",
+        actual: enCampo(robosMode ? "campo rival" : "campo propio")(actuales),
+        media: mediaPorPartido(anteriores, enCampo(robosMode ? "campo rival" : "campo propio")),
+        mejorAlto: robosMode ? true : false,
+        pie: robosMode ? "la presión alta que funciona" : "las que más peligro traen",
+      },
+      {
+        clave: "duracion",
+        nombre: robosMode ? "Duración media de la posesión" : "Duración media de su posesión",
+        actual: duracion(actuales),
+        media: duracionMediaDe(anteriores),
+        formato: segundos,
+        mejorAlto: null,
+      },
+    ];
+
+    return {
+      partido: `${comparado.jornada} · ${comparado.rival}`,
+      anteriores: { n: anteriores.length },
+      metricas,
+      nota:
+        quien === "todos"
+          ? `Se compara el último partido (${comparado.jornada}) aunque abajo se vean todos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor.`
+          : undefined,
+    };
+  }, [comparado, partidos, conDudosos, filtros, modo, T, quien]);
+
+  /* ------------------------------------------------------------------ */
+  /*  El campo: cada robo o pérdida en su tercio y su carril              */
+  /* ------------------------------------------------------------------ */
+
+  /* El campo ignora su propio filtro de sitio: lo elegido se marca, lo demás se apaga. */
+  const paraCampo = filtrados(["zona", "carril"]);
+  const sinSitio = paraCampo.filter((r) => !r.carril || !ZONA_EN_CAMPO[zonaDe(r)]).length;
+
+  const puntosCampo: PuntoCampo[] = paraCampo.map((r) => {
+    const desenlace = DESENLACES.find((d) => d.clave === r.desenlace)?.nombre;
+    const quienLo = jugadorDe(r) ? `${tipoDe(r)} de ${jugadorDe(r)}` : tipoDe(r) || (modo === "robos" ? "Robo" : "Pérdida");
+
+    return {
+      id: idDe(r),
+      zona: ZONA_EN_CAMPO[zonaDe(r)] ?? "",
+      carril: r.carril,
+      color: COLOR_ACCION[r.accion] ?? ACERO,
+      anillo: r.desenlace === "REMATE" || r.desenlace === "AREA",
+      titulo: `${minutoDe(r) || reloj(r.seg)} · ${quienLo}\n${zonaDe(r)} · ${r.carril === "centro" ? "por el centro" : r.carril ? `por la ${r.carril}` : "carril sin anotar"}\n${T.paneles.rotuloSalida}: ${NOMBRE_ACCION[r.accion] ?? r.accion}${desenlace ? ` · acaba en ${desenlace.toLowerCase()}` : ""}${r.duracion !== null ? ` · ${r.duracion} s` : ""}${r.confianza === "baja" ? "\n(dudoso)" : ""}${textoDe(r) ? `\n${textoDe(r)}` : ""}`,
+    };
+  });
+
+  /* La cifra de cada cajón: las que salen hacia delante y el resto. */
+  const cuentaCajon = (lista: PuntoCampo[]) => {
+    const ids = new Set(lista.map((p) => p.id));
+    const dentro = paraCampo.filter((r) => ids.has(idDe(r)));
+    const ade = dentro.filter((r) => r.accion === "ADELANTE").length;
+    const resto = dentro.length - ade;
+
+    return (
+      <>
+        {ade ? <tspan fill={COLOR_ACCION.ADELANTE}>{ade}</tspan> : null}
+        {ade && resto ? <tspan fill="rgba(255,255,255,0.35)"> · </tspan> : null}
+        {resto ? <tspan fill="rgba(255,255,255,0.8)">{resto}</tspan> : null}
+      </>
+    );
+  };
+
   /** Lo que dicen las filas que se están viendo (partido y filtro), en pocas frases. */
   const conclusiones = useMemo(() => {
     const total = robos.length;
@@ -925,6 +1115,18 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               className="mt-3"
             />
 
+            {/* ---------------- este partido frente a los anteriores ---------------- */}
+
+            {comparativa && (
+              <ComparativaPartido
+                partido={comparativa.partido}
+                anteriores={comparativa.anteriores}
+                metricas={comparativa.metricas}
+                nota={comparativa.nota}
+                className="mt-5"
+              />
+            )}
+
             <Conclusiones items={conclusiones} className="mt-5" />
 
             {/* ---------------- cifras ---------------- */}
@@ -969,6 +1171,71 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 }
                 icono={Timer}
               />
+            </div>
+
+            {/* ---------------- dónde, en el campo ---------------- */}
+
+            <div className="mt-5">
+              <Panel
+                title={modo === "robos" ? "Dónde robamos" : "Dónde perdemos el balón"}
+                subtitle={
+                  explicativos
+                    ? `Cada ${T.unidadUna} en su tercio y su carril; el color dice cómo sale, el anillo que acaba en remate o en el área. Pincha una casilla, un tercio o un carril para filtrar.`
+                    : undefined
+                }
+                icon={MapIcon}
+                bodyClassName="p-0"
+              >
+                {paraCampo.length === 0 ? (
+                  <p className="p-4 text-sm text-white/45 sm:p-5">{base.length === 0 ? T.vacio : T.vacioFiltro}</p>
+                ) : (
+                  <CampoZonas
+                    puntos={puntosCampo}
+                    zonas={ZONAS_CAMPO}
+                    carriles={CARRILES_CAMPO}
+                    resaltado={resaltado}
+                    onResaltar={setResaltado}
+                    zonasMarcadas={(filtros.zona ?? []).map((z) => ZONA_EN_CAMPO[z] ?? z)}
+                    carrilesMarcados={filtros.carril ?? []}
+                    onCajon={(zona, carril) =>
+                      alternaVarios([
+                        ["zona", ZONA_DEL_CAMPO[zona] ?? zona],
+                        ["carril", carril],
+                      ])
+                    }
+                    onZona={(zona) => alterna("zona", ZONA_DEL_CAMPO[zona] ?? zona)}
+                    onCarril={(carril) => alterna("carril", carril)}
+                    cuenta={cuentaCajon}
+                    unidad={{ una: T.unidadUna, varias: T.unidad }}
+                    ariaLabel={`Campo con ${T.unidad} por tercio y carril`}
+                    leyenda={
+                      <>
+                        {T.acciones.map((a) => (
+                          <button
+                            key={a.clave}
+                            type="button"
+                            onClick={() => alterna("accion", a.clave)}
+                            aria-pressed={estaActivo(filtros, "accion", a.clave)}
+                            title={TITULO_FILTRO}
+                            style={marcaPieza(estaActivo(filtros, "accion", a.clave), hayFiltro(filtros, "accion"))}
+                            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 transition hover:opacity-100"
+                          >
+                            <span className="h-2.5 w-2.5 rounded-full" style={{ background: a.color }} />
+                            {a.nombre}
+                          </button>
+                        ))}
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-3 w-3 rounded-full border-2 border-white/80" /> acaba en remate o en el área
+                        </span>
+                        <span>Cifras de cada zona: hacia delante · el resto</span>
+                        {sinSitio > 0 && (
+                          <span className="text-white/30">{sinSitio} sin carril anotado, fuera del campo</span>
+                        )}
+                      </>
+                    }
+                  />
+                )}
+              </Panel>
             </div>
 
             {/* ---------------- qué pasa con el balón ---------------- */}
@@ -1387,8 +1654,12 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                     <tbody>
                       {robos.map((r) => (
                         <tr
-                          key={`${r.partido}-${r.seg}`}
-                          className="border-b border-white/5 align-top hover:bg-white/[0.02]"
+                          key={idDe(r)}
+                          onMouseEnter={() => setResaltado(idDe(r))}
+                          onMouseLeave={() => setResaltado(null)}
+                          className={`border-b border-white/5 align-top hover:bg-white/[0.02] ${
+                            resaltado === idDe(r) ? "bg-[#C8A96B]/10" : ""
+                          }`}
                         >
                           <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums text-white/80">
                             {minutoDe(r) || "—"}

@@ -50,7 +50,17 @@ import {
   competicionesPresentes,
   contextoDeFila,
   type ContextoAccion,
+  type JornadaAbp,
 } from "@/lib/abp/partido";
+import {
+  ComparativaPartido,
+  formatoPorcentaje,
+  mediaPorPartido,
+  porcentajeAgregado,
+  porcentajeDe,
+  type MetricaComparada,
+} from "@/components/abp/ComparativaPartido";
+import { jornadasAnteriores, ultimaJornada } from "@/lib/abp/ultimo-partido";
 
 
 import {
@@ -304,6 +314,31 @@ function countBy(rows: Row[], key: keyof Row) {
 }
 
 /**
+ * Las jornadas que hay en unas filas, cada una con su competición.
+ *
+ * Se indexan por `clave` («liga:1», «amistoso:1»): antes se convertía la
+ * celda a número y «PRETEMPORADA 01» y «LIGA 01» eran los dos la jornada 1,
+ * así que el filtro mezclaba un amistoso de julio con el primer partido de
+ * liga sin que nada lo dijera. Va fuera del componente porque hace falta
+ * nada más llegar la hoja, para abrir en la última.
+ */
+function jornadasDe(filas: Row[]): JornadaAbp[] {
+  const porClave = new Map<string, JornadaAbp>();
+
+  filas.forEach((r) => {
+    if (r.contexto.jornada.clave) {
+      porClave.set(r.contexto.jornada.clave, r.contexto.jornada);
+    }
+  });
+
+  return [...porClave.values()].sort(comparaJornadas);
+}
+
+/** El xG como en las tarjetas: siempre con dos decimales, con coma. */
+const dosDecimales = (n: number) =>
+  n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
  * Cómo lee el análisis una fila de esta hoja.
  *
  * Aquí el sujeto de la acción es **el rival**: «Ocasión» es ocasión suya y el
@@ -395,31 +430,23 @@ const [tramoFilter, setTramoFilter] = useState("ALL");
   const [calidadFilter, setCalidadFilter] = useState("ALL");
   const [atacantesFilter, setAtacantesFilter] = useState("ALL");
   useEffect(() => {
-    traeCsv(CSV_URL)
-      .then((t) =>
-        setRows(parseCSV(t))
-      );
+    traeCsv(CSV_URL).then((t) => {
+      const filas = parseCSV(t);
+
+      setRows(filas);
+
+      /* La página abre en la última jornada analizada (11/10/2026): lo que se
+         mira el lunes es lo del domingo. Se decide una sola vez, al llegar la
+         hoja, y sólo si nadie ha tocado ya el filtro mientras cargaba:
+         «Todas las jornadas» sigue a un toque en el cajón. */
+      const ultima = ultimaJornada(jornadasDe(filas));
+
+      if (ultima) setJornada((actual) => (actual === "ALL" ? ultima : actual));
+    });
   }, []);
 
-  /*
-  | Las jornadas, cada una con su competición.
-  |
-  | Se indexan por `clave` («liga:1», «amistoso:1»): antes se convertía la
-  | celda a número y «PRETEMPORADA 01» y «LIGA 01» eran los dos la jornada 1,
-  | así que el filtro mezclaba un amistoso de julio con el primer partido de
-  | liga sin que nada lo dijera.
-  */
-  const jornadas = useMemo(() => {
-    const porClave = new Map<string, Row["contexto"]["jornada"]>();
-
-    rows.forEach((r) => {
-      if (r.contexto.jornada.clave) {
-        porClave.set(r.contexto.jornada.clave, r.contexto.jornada);
-      }
-    });
-
-    return [...porClave.values()].sort(comparaJornadas);
-  }, [rows]);
+  /* Las jornadas, cada una con su competición: ver `jornadasDe`. */
+  const jornadas = useMemo(() => jornadasDe(rows), [rows]);
 
   const competiciones = useMemo(
     () => competicionesPresentes(jornadas),
@@ -699,6 +726,143 @@ const vacioSinPretemporada =
   filtered.length === 0 &&
   competicionFilter === SIN_PRETEMPORADA &&
   sin("competicion").length > 0;
+
+/*
+| Este partido frente a los anteriores (11/10/2026).
+|
+| La jornada elegida —o la última, si se está viendo «Todas»— al lado de la
+| media por partido de las anteriores de la misma competición. Entra todo lo
+| filtrado menos la propia jornada: con «sólo córners» puesto, la media es
+| también de córners. Una jornada anterior que con esos filtros se queda sin
+| acciones no entra en la media, o un rival pinchado la hundiría a cero.
+|
+| Aquí el sujeto es el rival: remates, xG, goles y ocasiones son lo que nos
+| hacen, así que menos es mejor. Sólo el «Gol RMCF» (tras transición) es
+| nuestro. Del número de acciones no se juzga nada: conceder córners no es
+| ni bueno ni malo por sí solo.
+*/
+const jornadaComparada = jornada === "ALL" ? ultimaJornada(jornadas) : jornada;
+const filasSinJornada = sin("jornada");
+const filasDeJornada = (clave: string) =>
+  filasSinJornada.filter((r) => r.contexto.jornada.clave === clave);
+
+const comparativa = (() => {
+  const elegida = jornadas.find((una) => una.clave === jornadaComparada);
+
+  if (!elegida) return null;
+
+  const actual = filasDeJornada(elegida.clave);
+  const anteriores = jornadasAnteriores(jornadas, elegida.clave)
+    .map((una) => filasDeJornada(una.clave))
+    .filter((filas) => filas.length > 0);
+  const rivalDe = rows.find((r) => r.contexto.jornada.clave === elegida.clave)?.rival;
+
+  /* Las mismas cuentas que las tarjetas y el análisis: las de `LECTOR`. */
+  const total = (filas: Row[]) => filas.length;
+  const remates = (filas: Row[]) => filas.filter(LECTOR.remate).length;
+  const golesRival = (filas: Row[]) => filas.filter(LECTOR.gol).length;
+  const golesRmcf = (filas: Row[]) =>
+    filas.filter((r) => normalizaResultado(r.resultadoFinal) === "Gol RMCF").length;
+  const peligro = (filas: Row[]) => filas.filter(LECTOR.peligro).length;
+  const xg = (filas: Row[]) => filas.reduce((a, r) => a + r.xg, 0);
+
+  const metricas: MetricaComparada[] = [
+    {
+      clave: "acciones",
+      nombre: "Acciones en contra",
+      actual: total(actual),
+      media: mediaPorPartido(anteriores, total),
+      mejorAlto: null,
+      pie: "córners y faltas defendidos",
+    },
+    {
+      clave: "remates",
+      nombre: "Remates concedidos",
+      actual: remates(actual),
+      media: mediaPorPartido(anteriores, remates),
+      mejorAlto: false,
+    },
+    {
+      clave: "conRemate",
+      nombre: "Acciones con remate",
+      actual: porcentajeDe(actual, remates, total),
+      media: porcentajeAgregado(anteriores, remates, total),
+      formato: formatoPorcentaje,
+      mejorAlto: false,
+    },
+    {
+      clave: "xg",
+      nombre: "xG concedido",
+      actual: xg(actual),
+      media: mediaPorPartido(anteriores, xg),
+      formato: dosDecimales,
+      mejorAlto: false,
+    },
+    {
+      clave: "golesRival",
+      nombre: "Goles encajados",
+      actual: golesRival(actual),
+      media: mediaPorPartido(anteriores, golesRival),
+      mejorAlto: false,
+    },
+    {
+      clave: "peligro",
+      nombre: "Gol u ocasión del rival",
+      actual: porcentajeDe(actual, peligro, total),
+      media: porcentajeAgregado(anteriores, peligro, total),
+      formato: formatoPorcentaje,
+      mejorAlto: false,
+      pie: "sobre las acciones",
+    },
+    {
+      clave: "golesRmcf",
+      nombre: "Goles RMCF",
+      actual: golesRmcf(actual),
+      media: mediaPorPartido(anteriores, golesRmcf),
+      mejorAlto: true,
+      pie: "tras transición",
+    },
+  ];
+
+  return {
+    partido: rivalDe ? `${elegida.etiqueta} · ${rivalDe}` : elegida.etiqueta,
+    anteriores: anteriores.length,
+    metricas,
+  };
+})();
+
+/* Con una jornada puesta, elegir un rival de otra dejaría la página vacía:
+   en ese caso se suelta la jornada, que lo que se quiere ver es el rival. */
+const elegirRival = (elegido: string) => {
+  if (!elegido || elegido === rival) {
+    setRival("ALL");
+
+    return;
+  }
+
+  setRival(elegido);
+
+  if (
+    jornada !== "ALL" &&
+    !rows.some((r) => r.rival === elegido && r.contexto.jornada.clave === jornada)
+  ) {
+    setJornada("ALL");
+  }
+};
+
+/* Lo mismo al cambiar de competición: si la jornada elegida no es de ésa
+   (un amistoso al quitar la pretemporada), la jornada se suelta. */
+const elegirCompeticion = (v: string) => {
+  setCompeticionFilter(v);
+
+  const elegida = jornadas.find((una) => una.clave === jornada);
+  const cabe =
+    !elegida ||
+    v === "ALL" ||
+    (v === SIN_PRETEMPORADA ? elegida.competicion !== "amistoso" : elegida.competicion === v);
+
+  if (!cabe) setJornada("ALL");
+};
 
 const equiposVisualizados = [...new Set(filasRival.map((r) => r.rival))]
   .filter(Boolean)
@@ -2092,6 +2256,22 @@ const pie = (
     }
   />
 
+  {/* Lo primero: este partido frente a la media de los anteriores. Antes iba
+      debajo de la tarjeta de filtros y había que bajar para verlo. */}
+  {comparativa && (
+    <ComparativaPartido
+      partido={comparativa.partido}
+      anteriores={{ n: comparativa.anteriores }}
+      metricas={comparativa.metricas}
+      nota={
+        jornada === "ALL"
+          ? "Con «Todas las jornadas» elegido, aquí se compara la última; el resto de la página suma todos los partidos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor; gris: no se juzga."
+          : "La media es por partido, con los mismos filtros que el resto de la página menos el de jornada. Verde: mejor que la media; naranja: peor; gris: no se juzga."
+      }
+      className="mb-6"
+    />
+  )}
+
   {/* Selector + KPIs */}
   <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
 
@@ -2107,7 +2287,7 @@ const pie = (
         <Select
           label="Competición"
           value={competicionFilter}
-          onChange={setCompeticionFilter}
+          onChange={elegirCompeticion}
           options={[
             { value: SIN_PRETEMPORADA, label: `${rotuloOficial} (sin pretemporada)` },
             ...COMPETICIONES.filter((una) =>
@@ -2163,7 +2343,7 @@ const pie = (
         <TeamPicker
           teams={rivales}
           value={rival === "ALL" ? "" : rival}
-          onChange={(elegido) => setRival(!elegido || elegido === rival ? "ALL" : elegido)}
+          onChange={elegirRival}
           todos="Todos los rivales"
           countOf={(nombre) => rivalesPorJornada.find((uno) => uno.rival === nombre)?.acciones ?? 0}
           escudoDe={escudoDe}
@@ -2372,7 +2552,7 @@ Mayor xG concedido  </p>
                     hayPretemporada={hayPretemporada}
                     rotulo={rotuloOficial}
                     onCambia={(incluir) =>
-                      setCompeticionFilter(incluir ? "ALL" : SIN_PRETEMPORADA)
+                      elegirCompeticion(incluir ? "ALL" : SIN_PRETEMPORADA)
                     }
                   />
                 ) : null
@@ -2392,7 +2572,9 @@ Mayor xG concedido  </p>
               </p>
             )}
 
-            {/* Las conclusiones en pocas frases, antes de cualquier panel. */}
+            {/* Lo primero: este partido frente a la media de los anteriores.
+                Con «Todas las jornadas» elegido se compara la última igualmente. */}
+            {/* Las conclusiones en pocas frases, antes de los gráficos. */}
             <Conclusiones items={conclusiones} className="mt-6" />
 
             {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos

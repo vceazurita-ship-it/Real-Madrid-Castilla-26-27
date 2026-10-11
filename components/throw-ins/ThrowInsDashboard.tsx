@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BarraFiltros, ESTILO_ELEGIDO, PastillaPretemporada } from "@/components/filtros/BarraFiltros";
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode, SetStateAction } from "react";
 import Papa from "papaparse";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FileDown } from "lucide-react";
@@ -19,6 +19,15 @@ import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, FilterDrawer, Select, TeamPicker } from "@/components/abp/ui";
 import { useEscudos } from "@/hooks/useEscudos";
 import { rivalesPorJornadaDe } from "@/lib/abp/rivales-por-jornada";
+import { jornadasAnteriores, ultimaJornada } from "@/lib/abp/ultimo-partido";
+import {
+  ComparativaPartido,
+  formatoPorcentaje,
+  mediaPorPartido,
+  type MetricaComparada,
+  porcentajeAgregado,
+  porcentajeDe,
+} from "@/components/abp/ComparativaPartido";
 import {
   AnalisisSeccion,
   type LectorAnalisis,
@@ -33,6 +42,7 @@ import {
   esFavorable,
   esProduccion,
   esProgresion,
+  esTransicion,
   type Mode,
   parseBanda,
   parseResultado,
@@ -48,6 +58,7 @@ import {
   ESTADOS,
   ESTADO_COLOR,
   ESTADO_LABEL,
+  type JornadaAbp,
   TRAMOS,
   TRAMO_LABEL,
   comparaJornadas,
@@ -466,6 +477,117 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
   return frases.slice(0, 5);
 }
 
+/*
+| LAS CIFRAS DE «ESTE PARTIDO FRENTE A LOS ANTERIORES».
+|
+| Cuántos saques, cuántos se conservan, cuántos progresan y en qué acaban:
+| lo mismo que miden los KPI, pero de un partido contra la media de los de
+| antes. Se leen con la regla de toda la página —sin sufijo es del RMCF,
+| «Rival» es del rival— y por eso el sentido de «mejor» cambia con la hoja:
+| en la ofensiva conservar es nuestro y es bueno; en la defensiva conservar
+| es del rival y es malo. El número de saques no se juzga: sacar más o menos
+| no es ni bueno ni malo.
+*/
+const cuentaDe = (criterio: (row: RecordRow) => boolean) => (filas: RecordRow[]) =>
+  filas.filter(criterio).length;
+
+function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode: Mode): MetricaComparada[] {
+  const ofensivo = mode === "offensive";
+  const dueno = ofensivo ? "rmcf" : "rival";
+  const resultadoDe = (row: RecordRow) => parseResultado(read(row, "Resultado_Final"));
+
+  /* Quien se queda el balón: nosotros en la hoja ofensiva, el rival en la defensiva. */
+  const conserva = (row: RecordRow) => {
+    const resultado = resultadoDe(row);
+
+    return ofensivo ? esFavorable(resultado) : resultado.owner === "rival" && resultado.rank > 0;
+  };
+  const produce = (row: RecordRow) => esProduccion(resultadoDe(row), mode);
+  const ocasion = (row: RecordRow) => {
+    const resultado = resultadoDe(row);
+
+    return resultado.owner === dueno && resultado.rank >= 4;
+  };
+  const gol = (row: RecordRow) => {
+    const resultado = resultadoDe(row);
+
+    return resultado.owner === dueno && resultado.rank === 5;
+  };
+  const total = (filas: RecordRow[]) => filas.length;
+
+  const cuenta = (
+    clave: string,
+    nombre: string,
+    criterio: (row: RecordRow) => boolean,
+    mejorAlto: boolean | null,
+    pie?: string,
+  ): MetricaComparada => ({
+    clave,
+    nombre,
+    actual: cuentaDe(criterio)(actual),
+    media: mediaPorPartido(anteriores, cuentaDe(criterio)),
+    mejorAlto,
+    pie,
+  });
+
+  /* Un porcentaje de los anteriores se saca sumando los dos lados de todos
+     los partidos: la media de porcentajes engaña con muestras desiguales. */
+  const porcentaje = (
+    clave: string,
+    nombre: string,
+    criterio: (row: RecordRow) => boolean,
+    mejorAlto: boolean,
+    pie?: string,
+  ): MetricaComparada => ({
+    clave,
+    nombre,
+    actual: porcentajeDe(actual, cuentaDe(criterio), total),
+    media: porcentajeAgregado(anteriores, cuentaDe(criterio), total),
+    formato: formatoPorcentaje,
+    mejorAlto,
+    pie,
+  });
+
+  return [
+    cuenta("saques", ofensivo ? "Saques" : "Saques del rival", () => true, null),
+    porcentaje(
+      "conserva",
+      ofensivo ? "% conservados" : "% que conserva el rival",
+      conserva,
+      ofensivo,
+      ofensivo ? "el balón sigue siendo nuestro" : "el rival no pierde el balón",
+    ),
+    porcentaje(
+      "progresion",
+      ofensivo ? "% progresión" : "% progresión concedida",
+      esProgresion,
+      ofensivo,
+      "envíos hacia delante o al área",
+    ),
+    cuenta(
+      "produccion",
+      ofensivo ? "Producción" : "Peligro concedido",
+      produce,
+      ofensivo,
+      "último tercio, ocasión o gol",
+    ),
+    cuenta("ocasiones", ofensivo ? "Ocasiones" : "Ocasiones del rival", ocasion, ofensivo, "ocasión o gol"),
+    cuenta("goles", ofensivo ? "Goles" : "Goles en contra", gol, ofensivo),
+    /* En defensa, lo que sí es nuestro: robar el saque y llegar arriba. */
+    ...(ofensivo
+      ? []
+      : [
+          cuenta(
+            "transiciones",
+            "Transiciones tras robo",
+            (row) => esTransicion(resultadoDe(row)),
+            true,
+            "robamos y llegamos a último tercio",
+          ),
+        ]),
+  ];
+}
+
 function SelectFilter({
   value,
   onChange,
@@ -686,7 +808,21 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   const [filasPendientes, setPendientes] = useState<RecordRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filters, setFilters] = useState<Record<string, string>>({});
+  /*
+  | LA ÚLTIMA JORNADA, PUESTA POR DEFECTO (11/10/2026).
+  |
+  | Al abrir, la página enseña el último partido analizado y no todos: lo
+  | que se quiere mirar el lunes es lo del domingo. No se escribe en el
+  | filtro —llegaría tarde, con las filas, y pisaría lo que ya se hubiera
+  | elegido—: `filters` se deduce de lo elegido y, mientras nadie toque la
+  | jornada, lleva puesta la última. Tocarla es elegir otra o quitarla
+  | («Todas», la pastilla o «Limpiar filtros»): desde ahí manda el usuario.
+  */
+  const [estadoFiltros, setEstadoFiltros] = useState<{
+    elegidos: Record<string, string>;
+    jornadaTocada: boolean;
+  }>({ elegidos: {}, jornadaTocada: false });
+  const filtrosElegidos = estadoFiltros.elegidos;
   const [exporting, setExporting] = useState(false);
 
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -706,8 +842,10 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
   /* Elegir «Pretemporada» en el desplegable ya es pedirla: no hace falta
      además el interruptor. */
+  /* De lo elegido a mano: la competición nunca se pone sola, y `filters`
+     (que sí lleva la jornada por defecto) sale de las filas que esto decide. */
   const pretemporadaDentro =
-    incluirPretemporada || filters.__competicion === PRETEMPORADA;
+    incluirPretemporada || filtrosElegidos.__competicion === PRETEMPORADA;
 
   const soloLiga = hayPretemporada && !pretemporadaDentro;
 
@@ -727,6 +865,59 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
         ? todasLasFilas.filter((row) => valorDe(row, "__competicion") !== PRETEMPORADA)
         : todasLasFilas,
     [todasLasFilas, soloLiga, PRETEMPORADA],
+  );
+
+  /* Las jornadas con saques codificados, una vez cada una y en su orden. */
+  const jornadasPresentes = useMemo<JornadaAbp[]>(() => {
+    const porClave = new Map<string, JornadaAbp>();
+
+    rows.forEach((row) => {
+      const jornada = parseJornada(read(row, "JORNADA"));
+
+      if (jornada.clave && !porClave.has(jornada.clave)) porClave.set(jornada.clave, jornada);
+    });
+
+    return [...porClave.values()].sort(comparaJornadas);
+  }, [rows]);
+
+  /* La etiqueta que lleva el filtro de jornada mientras nadie lo toque: la
+     última de liga (o copa); un amistoso sólo si no hay otra cosa. */
+  const jornadaPorDefecto = useMemo(() => {
+    const clave = ultimaJornada(jornadasPresentes);
+
+    return jornadasPresentes.find((una) => una.clave === clave)?.etiqueta;
+  }, [jornadasPresentes]);
+
+  const conJornadaPorDefecto = useCallback(
+    (estado: { elegidos: Record<string, string>; jornadaTocada: boolean }) =>
+      estado.jornadaTocada || !jornadaPorDefecto
+        ? estado.elegidos
+        : { ...estado.elegidos, JORNADA: jornadaPorDefecto },
+    [jornadaPorDefecto],
+  );
+
+  /* Lo que lee toda la página: lo elegido, más la jornada por defecto. */
+  const filters = useMemo(() => conJornadaPorDefecto(estadoFiltros), [conJornadaPorDefecto, estadoFiltros]);
+
+  /*
+  | Cambiar los filtros, con la misma firma que tenía `setFilters`.
+  |
+  | El cambio se aplica sobre lo que se ve (con la jornada por defecto
+  | dentro), y si después de aplicarlo la jornada es otra —o ya no está— es
+  | que el usuario la ha tocado: desde ese momento no se vuelve a poner sola.
+  */
+  const setFilters = useCallback(
+    (accion: SetStateAction<Record<string, string>>) =>
+      setEstadoFiltros((prev) => {
+        const antes = conJornadaPorDefecto(prev);
+        const despues = typeof accion === "function" ? accion(antes) : accion;
+
+        return {
+          elegidos: despues,
+          jornadaTocada: prev.jornadaTocada || despues.JORNADA !== antes.JORNADA,
+        };
+      }),
+    [conJornadaPorDefecto],
   );
 
   useEffect(() => {
@@ -865,6 +1056,77 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   const activos = FILTERS.filter(({ key }) => (filters[key] ?? "ALL") !== "ALL");
 
   /*
+  | ESTE PARTIDO FRENTE A LOS ANTERIORES.
+  |
+  | La jornada elegida contra la media por partido de las anteriores de su
+  | misma competición, con todos los demás filtros puestos —banda, marcador,
+  | tipo de envío…— pero sin el de jornada, que es justo lo que se compara.
+  | Con la jornada en «Todas» se compara igualmente la última analizada, y
+  | el pie del panel lo dice.
+  */
+  const comparativa = useMemo(() => {
+    const elegidaPorFiltro = filters.JORNADA
+      ? jornadasPresentes.find((una) => una.etiqueta === filters.JORNADA)
+      : undefined;
+    const clave = elegidaPorFiltro?.clave ?? ultimaJornada(jornadasPresentes);
+    const elegida = jornadasPresentes.find((una) => una.clave === clave);
+
+    if (!elegida) return null;
+
+    const porJornada = new Map<string, RecordRow[]>();
+
+    filtradoSin(["JORNADA"]).forEach((row) => {
+      const suya = parseJornada(read(row, "JORNADA")).clave;
+      const lista = porJornada.get(suya);
+
+      if (lista) lista.push(row);
+      else porJornada.set(suya, [row]);
+    });
+
+    const anteriores = jornadasAnteriores(jornadasPresentes, clave);
+
+    /* El rival sale de las filas sin filtrar de esa jornada: aunque un
+       filtro la deje vacía, se sigue sabiendo contra quién fue. */
+    const rival =
+      rows
+        .filter((row) => parseJornada(read(row, "JORNADA")).clave === clave)
+        .map((row) => read(row, "Rival"))
+        .find(Boolean) ?? "";
+
+    return {
+      elegida,
+      porDefecto: !elegidaPorFiltro,
+      rival,
+      anteriores,
+      metricas: metricasComparadas(
+        porJornada.get(clave) ?? [],
+        anteriores.map((una) => porJornada.get(una.clave) ?? []),
+        mode,
+      ),
+    };
+  }, [filters.JORNADA, jornadasPresentes, filtradoSin, rows, mode]);
+
+  /* Cómo se lee el pie de la comparativa, según la hoja y según si la
+     jornada la eligió el usuario o se tomó la última. */
+  const notaComparativa = useMemo(() => {
+    if (!comparativa) return undefined;
+
+    const n = comparativa.anteriores.length;
+    const competicion = COMPETICION_LABEL[comparativa.elegida.competicion].toLowerCase();
+    const cuales = n === 1 ? `la jornada anterior de ${competicion}` : `las ${n} jornadas anteriores de ${competicion}`;
+    const juicio = isOffensive
+      ? "Verde: mejor para nosotros que de costumbre; naranja: peor."
+      : "Verde: el rival saca menos partido que de costumbre; naranja: más.";
+    const aviso = comparativa.porDefecto
+      ? filters.JORNADA
+        ? `«${filters.JORNADA}» no tiene saques codificados: se compara la última jornada analizada. `
+        : `Jornada en «Todas»: se compara la última analizada, ${comparativa.elegida.etiqueta}. `
+      : "";
+
+    return `${aviso}Media por partido de ${cuales}, con los mismos filtros que el resto de la página salvo el de jornada. ${juicio}`;
+  }, [comparativa, filters.JORNADA, isOffensive]);
+
+  /*
   | Pulsar un elemento filtra; pulsarlo otra vez quita el filtro.
   |
   | Va por pares porque una celda del campo es dos columnas a la vez —banda y
@@ -890,18 +1152,21 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
         return next;
       });
     },
-    [FILTERS],
+    [FILTERS, setFilters],
   );
 
-  const quitar = useCallback((keys: string[]) => {
-    setFilters((prev) => {
-      const next = { ...prev };
+  const quitar = useCallback(
+    (keys: string[]) => {
+      setFilters((prev) => {
+        const next = { ...prev };
 
-      keys.forEach((key) => delete next[key]);
+        keys.forEach((key) => delete next[key]);
 
-      return next;
-    });
-  }, []);
+        return next;
+      });
+    },
+    [setFilters],
+  );
 
   /* Las columnas que pinta cada bloque: a cada uno le llegan sin esos filtros. */
   /*
@@ -1160,7 +1425,16 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                         onChange={(elegido) =>
                           !elegido || elegido === filters[key]
                             ? quitar([key])
-                            : setFilters((prev) => ({ ...prev, [key]: elegido }))
+                            : setFilters((prev) => {
+                                const next: Record<string, string> = { ...prev, [key]: elegido };
+
+                                /* Elegir un rival es elegir su partido: la
+                                   jornada puesta sola se quita para no dejar
+                                   la página vacía; una elegida a mano se queda. */
+                                if (!estadoFiltros.jornadaTocada) delete next.JORNADA;
+
+                                return next;
+                              })
                         }
                         todos="Todos los rivales"
                         countOf={(nombre) => rivalesPorJornada.find((uno) => uno.rival === nombre)?.acciones ?? 0}
@@ -1274,6 +1548,29 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     {filtered.length} de {rows.length} saques registrados
                   </p>
                 </div>
+
+                {/* Lo primero: si lo de este partido es lo de siempre o una
+                    excepción. Va antes que los KPI, que son del filtro entero. */}
+                {comparativa ? (
+                  <ComparativaPartido
+                    className="mb-7"
+                    title={
+                      isOffensive
+                        ? "Nuestros saques: este partido frente a los anteriores"
+                        : "Los saques del rival: este partido frente a los anteriores"
+                    }
+                    partido={`${comparativa.elegida.etiqueta}${comparativa.rival ? ` · ${comparativa.rival}` : ""}`}
+                    anteriores={{
+                      n: comparativa.anteriores.length,
+                      rotulo:
+                        comparativa.anteriores.length === 1
+                          ? "la jornada anterior"
+                          : `la media de las ${comparativa.anteriores.length} jornadas anteriores`,
+                    }}
+                    metricas={comparativa.metricas}
+                    nota={notaComparativa}
+                  />
+                ) : null}
 
                 <Conclusiones items={conclusiones} className="mb-7" />
 

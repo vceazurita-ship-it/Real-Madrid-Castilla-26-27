@@ -50,7 +50,17 @@ import {
   competicionesPresentes,
   contextoDeFila,
   type ContextoAccion,
+  type JornadaAbp,
 } from "@/lib/abp/partido";
+import {
+  ComparativaPartido,
+  formatoPorcentaje,
+  mediaPorPartido,
+  porcentajeAgregado,
+  porcentajeDe,
+  type MetricaComparada,
+} from "@/components/abp/ComparativaPartido";
+import { jornadasAnteriores, ultimaJornada } from "@/lib/abp/ultimo-partido";
 
 import {
   useEffect,
@@ -326,6 +336,29 @@ function countBy(rows: Row[], key: keyof Row) {
 }
 
 /**
+ * Las jornadas que hay en unas filas, cada una con su competición.
+ *
+ * Se indexan por `clave` («liga:1», «amistoso:1») y no por el número: son dos
+ * partidos distintos y antes compartían casilla. Va fuera del componente
+ * porque hace falta nada más llegar la hoja, para abrir en la última.
+ */
+function jornadasDe(filas: Row[]): JornadaAbp[] {
+  const porClave = new Map<string, JornadaAbp>();
+
+  filas.forEach((r) => {
+    if (r.contexto.jornada.clave) {
+      porClave.set(r.contexto.jornada.clave, r.contexto.jornada);
+    }
+  });
+
+  return [...porClave.values()].sort(comparaJornadas);
+}
+
+/** El xG como en las tarjetas: siempre con dos decimales, con coma. */
+const dosDecimales = (n: number) =>
+  n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
  * Cómo lee el análisis una fila de esta hoja.
  *
  * Va una sola vez y para toda la página: si cada panel decidiera por su cuenta
@@ -420,29 +453,23 @@ const [estadoFilter, setEstadoFilter] = useState("ALL");
 const [tramoFilter, setTramoFilter] = useState("ALL");
 const [rutinaFilter, setRutinaFilter] = useState("ALL");
   useEffect(() => {
-    traeCsv(CSV_URL)
-      .then((t) =>
-        setRows(parseCSV(t))
-      );
+    traeCsv(CSV_URL).then((t) => {
+      const filas = parseCSV(t);
+
+      setRows(filas);
+
+      /* La página abre en la última jornada analizada (11/10/2026): lo que se
+         mira el lunes es lo del domingo. Se decide una sola vez, al llegar la
+         hoja, y sólo si nadie ha tocado ya el filtro mientras cargaba:
+         «Todas» sigue a un toque en el cajón. */
+      const ultima = ultimaJornada(jornadasDe(filas));
+
+      if (ultima) setJornada((actual) => (actual === "ALL" ? ultima : actual));
+    });
   }, []);
 
-  /*
-  | Las jornadas que hay, cada una con su competición.
-  |
-  | Se indexan por `clave` («liga:1», «amistoso:1») y no por el número: son dos
-  | partidos distintos y antes compartían casilla.
-  */
-  const jornadas = useMemo(() => {
-    const porClave = new Map<string, Row["contexto"]["jornada"]>();
-
-    rows.forEach((r) => {
-      if (r.contexto.jornada.clave) {
-        porClave.set(r.contexto.jornada.clave, r.contexto.jornada);
-      }
-    });
-
-    return [...porClave.values()].sort(comparaJornadas);
-  }, [rows]);
+  /* Las jornadas que hay, cada una con su competición: ver `jornadasDe`. */
+  const jornadas = useMemo(() => jornadasDe(rows), [rows]);
 
   const competiciones = useMemo(
     () => competicionesPresentes(jornadas),
@@ -739,6 +766,128 @@ const vacioSinPretemporada =
   filtered.length === 0 &&
   competicionFilter === SIN_PRETEMPORADA &&
   sin("competicion").length > 0;
+
+/*
+| Este partido frente a los anteriores (11/10/2026).
+|
+| La jornada elegida —o la última, si se está viendo «Todas»— al lado de la
+| media por partido de las anteriores de la misma competición. Entra todo lo
+| filtrado menos la propia jornada: con «sólo córners» puesto, la media es
+| también de córners. Una jornada anterior que con esos filtros se queda sin
+| acciones no entra en la media, o un rival pinchado la hundiría a cero.
+*/
+const jornadaComparada = jornada === "ALL" ? ultimaJornada(jornadas) : jornada;
+const filasSinJornada = sin("jornada");
+const filasDeJornada = (clave: string) =>
+  filasSinJornada.filter((r) => r.contexto.jornada.clave === clave);
+
+const comparativa = (() => {
+  const elegida = jornadas.find((una) => una.clave === jornadaComparada);
+
+  if (!elegida) return null;
+
+  const actual = filasDeJornada(elegida.clave);
+  const anteriores = jornadasAnteriores(jornadas, elegida.clave)
+    .map((una) => filasDeJornada(una.clave))
+    .filter((filas) => filas.length > 0);
+  const rivalDe = rows.find((r) => r.contexto.jornada.clave === elegida.clave)?.rival;
+
+  /* Las mismas cuentas que las tarjetas y el análisis: las de `LECTOR`. */
+  const total = (filas: Row[]) => filas.length;
+  const remates = (filas: Row[]) => filas.filter(LECTOR.remate).length;
+  const goles = (filas: Row[]) => filas.filter(LECTOR.gol).length;
+  const peligro = (filas: Row[]) => filas.filter(LECTOR.peligro).length;
+  const xg = (filas: Row[]) => filas.reduce((a, r) => a + r.xg, 0);
+
+  const metricas: MetricaComparada[] = [
+    {
+      clave: "acciones",
+      nombre: "Acciones",
+      actual: total(actual),
+      media: mediaPorPartido(anteriores, total),
+      mejorAlto: true,
+      pie: "córners y faltas lanzados",
+    },
+    {
+      clave: "remates",
+      nombre: "Remates",
+      actual: remates(actual),
+      media: mediaPorPartido(anteriores, remates),
+      mejorAlto: true,
+    },
+    {
+      clave: "conRemate",
+      nombre: "Acciones con remate",
+      actual: porcentajeDe(actual, remates, total),
+      media: porcentajeAgregado(anteriores, remates, total),
+      formato: formatoPorcentaje,
+      mejorAlto: true,
+    },
+    {
+      clave: "xg",
+      nombre: "xG generado",
+      actual: xg(actual),
+      media: mediaPorPartido(anteriores, xg),
+      formato: dosDecimales,
+      mejorAlto: true,
+    },
+    {
+      clave: "goles",
+      nombre: "Goles",
+      actual: goles(actual),
+      media: mediaPorPartido(anteriores, goles),
+      mejorAlto: true,
+    },
+    {
+      clave: "peligro",
+      nombre: "Gol u ocasión",
+      actual: porcentajeDe(actual, peligro, total),
+      media: porcentajeAgregado(anteriores, peligro, total),
+      formato: formatoPorcentaje,
+      mejorAlto: true,
+      pie: "sobre las acciones",
+    },
+  ];
+
+  return {
+    partido: rivalDe ? `${elegida.etiqueta} · ${rivalDe}` : elegida.etiqueta,
+    anteriores: anteriores.length,
+    metricas,
+  };
+})();
+
+/* Con una jornada puesta, elegir un rival de otra dejaría la página vacía:
+   en ese caso se suelta la jornada, que lo que se quiere ver es el rival. */
+const elegirRival = (elegido: string) => {
+  if (!elegido || elegido === rival) {
+    setRival("ALL");
+
+    return;
+  }
+
+  setRival(elegido);
+
+  if (
+    jornada !== "ALL" &&
+    !rows.some((r) => r.rival === elegido && r.contexto.jornada.clave === jornada)
+  ) {
+    setJornada("ALL");
+  }
+};
+
+/* Lo mismo al cambiar de competición: si la jornada elegida no es de ésa
+   (un amistoso al quitar la pretemporada), la jornada se suelta. */
+const elegirCompeticion = (v: string) => {
+  setCompeticionFilter(v);
+
+  const elegida = jornadas.find((una) => una.clave === jornada);
+  const cabe =
+    !elegida ||
+    v === "ALL" ||
+    (v === SIN_PRETEMPORADA ? elegida.competicion !== "amistoso" : elegida.competicion === v);
+
+  if (!cabe) setJornada("ALL");
+};
 
   const shots = filtered.filter(
   (r) =>
@@ -2234,6 +2383,22 @@ const pie = (
     }
   />
 
+  {/* Lo primero: este partido frente a la media de los anteriores. Antes iba
+      debajo de la tarjeta de filtros y había que bajar para verlo. */}
+  {comparativa && (
+    <ComparativaPartido
+      partido={comparativa.partido}
+      anteriores={{ n: comparativa.anteriores }}
+      metricas={comparativa.metricas}
+      nota={
+        jornada === "ALL"
+          ? "Con «Todas» las jornadas elegidas, aquí se compara la última; el resto de la página suma todos los partidos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor."
+          : "La media es por partido, con los mismos filtros que el resto de la página menos el de jornada. Verde: mejor que la media; naranja: peor."
+      }
+      className="mt-6"
+    />
+  )}
+
   {/* Selector + KPIs */}
   <div className="mt-6 rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
 
@@ -2254,7 +2419,7 @@ const pie = (
         <Select
           label="Competición"
           value={competicionFilter}
-          onChange={setCompeticionFilter}
+          onChange={elegirCompeticion}
           options={[
             { value: SIN_PRETEMPORADA, label: `${rotuloOficial} (sin pretemporada)` },
             ...COMPETICIONES.filter((una) =>
@@ -2322,7 +2487,7 @@ const pie = (
         <TeamPicker
           teams={rivales}
           value={rival === "ALL" ? "" : rival}
-          onChange={(elegido) => setRival(!elegido || elegido === rival ? "ALL" : elegido)}
+          onChange={elegirRival}
           todos="Todos los rivales"
           countOf={(nombre) => rivalesPorJornada.find((uno) => uno.rival === nombre)?.acciones ?? 0}
           escudoDe={escudoDe}
@@ -2475,7 +2640,7 @@ const pie = (
         hayPretemporada={hayPretemporada}
         rotulo={rotuloOficial}
         onCambia={(incluir) =>
-          setCompeticionFilter(incluir ? "ALL" : SIN_PRETEMPORADA)
+          elegirCompeticion(incluir ? "ALL" : SIN_PRETEMPORADA)
         }
       />
     ) : null
@@ -2495,7 +2660,9 @@ const pie = (
   </p>
 )}
 
-            {/* Las conclusiones en pocas frases, antes de cualquier panel. */}
+            {/* Lo primero: este partido frente a la media de los anteriores.
+                Con «Todas» elegido se compara la última jornada igualmente. */}
+            {/* Las conclusiones en pocas frases, antes de los gráficos. */}
             <Conclusiones items={conclusiones} className="mt-6" />
 
             {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos
