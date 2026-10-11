@@ -117,7 +117,7 @@ export default function DuelosPage() {
   const [proximoListo, setProximoListo] = useState(false);
 
   /* El orden de los equipos en el selector: el del calendario. */
-  const { ordena } = useOrdenRivales();
+  const { ordena, jornadaDe } = useOrdenRivales();
   const [equipo, setEquipo] = useState("");
   const [onceMarcado, setOnceMarcado] = useState<string[] | null>(null);
   const [elegido, setElegido] = useState<string | null>(null);
@@ -317,6 +317,8 @@ export default function DuelosPage() {
               >
                 {equipos.map((e) => (
                   <option key={e} value={e} className="bg-[#11161C]">
+                    {/* La jornada delante: así el orden del desplegable se entiende. */}
+                    {jornadaDe(e)?.etiqueta ? `${jornadaDe(e)?.etiqueta} · ` : ""}
                     {e}
                     {proximo && mismoClub(e, proximo.rival) ? " · próximo partido" : ""}
                   </option>

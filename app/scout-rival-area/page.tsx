@@ -35,7 +35,7 @@ export default function AreaRivalPage() {
   const escudoDe = useEscudos();
 
   /* El orden del calendario y el rival de la semana: la regla de `/rivals`. */
-  const { ordena, proximoDe } = useOrdenRivales();
+  const { ordena, proximoDe, jornadaDe } = useOrdenRivales();
 
   useEffect(() => {
     let cancelado = false;
@@ -95,7 +95,14 @@ export default function AreaRivalPage() {
             </div>
           ) : (
             <div className="mt-6 space-y-5">
-              <TeamPicker teams={equipos} value={equipo} onChange={elige} escudoDe={escudoDe} />
+              <TeamPicker
+                teams={equipos}
+                value={equipo}
+                onChange={elige}
+                escudoDe={escudoDe}
+                jornadaDe={jornadaDe}
+                proximo={proximoDe(equipos)}
+              />
 
               {equipo && (
                 <AnalisisRival

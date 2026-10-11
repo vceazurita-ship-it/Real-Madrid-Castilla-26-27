@@ -5,7 +5,9 @@ import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
 import { FileDown } from "lucide-react";
 import ABPFlowField, { zonaRemateDelCampo } from '@/components/abp/ABPFlowField';
-import { AbpHeader, FilterDrawer, Select } from '@/components/abp/ui';
+import { AbpHeader, FilterDrawer, Select, TeamPicker } from '@/components/abp/ui';
+import { useEscudos } from "@/hooks/useEscudos";
+import { rivalesPorJornadaDe } from "@/lib/abp/rivales-por-jornada";
 import {
   Conclusiones,
   Explicativo,
@@ -423,13 +425,12 @@ const [tramoFilter, setTramoFilter] = useState("ALL");
     () => competicionesPresentes(jornadas),
     [jornadas],
   );
-  const rivales = useMemo(
-  () =>
-    [...new Set(rows.map(r => r.rival))]
-      .filter(Boolean)
-      .sort(),
-  [rows]
-);
+  const escudoDe = useEscudos();
+
+  /* Los rivales por la jornada en que se les jugó, con sus acciones y su
+     chapa de jornada: ver `lib/abp/rivales-por-jornada.ts`. */
+  const rivalesPorJornada = useMemo(() => rivalesPorJornadaDe(rows), [rows]);
+  const rivales = useMemo(() => rivalesPorJornada.map((uno) => uno.rival), [rivalesPorJornada]);
 
 const perfiles = useMemo(
   () =>
@@ -2151,12 +2152,24 @@ const pie = (
         ]}
       />
 
-      <Select
-        label="Rival"
-        value={rival}
-        onChange={setRival}
-        options={[{ value: "ALL", label: "Todos los rivales" }, ...rivales]}
-      />
+      {/* Los rivales como chips, con su escudo, por la jornada en que se les
+          jugó y con ella puesta; pulsar el elegido lo quita. Ocupa la fila
+          entera del cajón (11/10/2026). */}
+      <div className="min-w-0 sm:col-span-2 lg:col-span-3 xl:col-span-4">
+        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+          Rival · por jornada
+        </span>
+
+        <TeamPicker
+          teams={rivales}
+          value={rival === "ALL" ? "" : rival}
+          onChange={(elegido) => setRival(!elegido || elegido === rival ? "ALL" : elegido)}
+          todos="Todos los rivales"
+          countOf={(nombre) => rivalesPorJornada.find((uno) => uno.rival === nombre)?.acciones ?? 0}
+          escudoDe={escudoDe}
+          jornadaDe={(nombre) => rivalesPorJornada.find((uno) => uno.rival === nombre)?.chapa}
+        />
+      </div>
 
       {/* Es la columna «Perfil» (derecho / izquierdo), la misma que el chip
           «Perfil» de la tira; «Perfil de golpeo» (abierto / cerrado) es otro
@@ -2432,6 +2445,7 @@ Mayor xG concedido  </p>
     jornada: r.contexto.jornada.corto,
     rival: r.rival,
     tiempo: r.tiempo,
+    minuto: r.contexto.minuto.minuto ?? undefined,
     perfil: r.perfil,
 
     tipoAccion: r.tipoAccion,
@@ -2487,6 +2501,7 @@ Mayor xG concedido  </p>
     jornada: r.contexto.jornada.corto,
     rival: r.rival,
     tiempo: r.tiempo,
+    minuto: r.contexto.minuto.minuto ?? undefined,
     tipoAccion: r.tipoAccion,
     tipoEnvio: r.tipoEnvio,
     calidadEnvio: r.calidadEnvio,

@@ -22,6 +22,7 @@ import { Search, Users } from "lucide-react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import { VideosDelCanal } from "@/components/rivals/VideosDelCanal";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
@@ -31,6 +32,7 @@ import {
   comparaPorCalendario,
   esElProximo,
   etiquetaDelProximo,
+  jornadaDeEquipo,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
 
@@ -207,6 +209,8 @@ export default function ScoutRivalIndividual() {
                     >
                       {nombre}
                     </span>
+
+                    <ChapaJornada jornada={jornadaDeEquipo(orden, nombre)} activo={activo} />
                   </button>
                 );
               })}

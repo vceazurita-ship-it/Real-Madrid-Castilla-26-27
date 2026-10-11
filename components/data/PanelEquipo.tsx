@@ -29,6 +29,8 @@ import {
   type MetricaEquipo,
 } from "@/lib/data-analisis/equipo";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { comparaPorCalendario } from "@/lib/rivals/orden-calendario";
+import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 
 const NOSOTROS = "Real Madrid Castilla";
 
@@ -78,6 +80,8 @@ function Tarjeta({ titulo, children, extra }: { titulo: string; children: React.
 
 export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadores: FilaJugador[] }) {
   const escudoDe = useEscudos();
+  /* Nuestra competición por calendario y cada rival con su jornada (11/10/2026). */
+  const { orden, jornadaDe } = useOrdenRivales();
   const [elegido, setElegido] = useState("");
   const [proximo, setProximo] = useState("");
   const [todas, setTodas] = useState(false);
@@ -109,9 +113,15 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
     }
     const nuestra = liga.find((f) => f.equipo === NOSOTROS)?.competicion ?? "";
     return [...m.entries()]
-      .map(([c, s]) => ({ competicion: c, equipos: [...s].sort((a, b) => a.localeCompare(b, "es")) }))
+      .map(([c, s]) => ({
+        competicion: c,
+        /* La nuestra, por calendario: el próximo rival el primero. */
+        equipos: [...s].sort(
+          c === nuestra ? comparaPorCalendario(orden) : (a, b) => a.localeCompare(b, "es"),
+        ),
+      }))
       .sort((a, b) => Number(b.competicion === nuestra) - Number(a.competicion === nuestra) || a.competicion.localeCompare(b.competicion));
-  }, [liga]);
+  }, [liga, orden]);
 
   const todos = useMemo(() => [...new Set(porCompeticion.flatMap((c) => c.equipos))], [porCompeticion]);
   const delProximo = proximo ? todos.find((e) => mismoClub(e, proximo)) ?? "" : "";
@@ -177,6 +187,7 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                 <optgroup key={c.competicion} label={c.competicion} className="bg-[#11161C]">
                   {c.equipos.map((e) => (
                     <option key={e} value={e} className="bg-[#11161C]">
+                      {jornadaDe(e)?.etiqueta ? `${jornadaDe(e)?.etiqueta} · ` : ""}
                       {e}
                       {e === delProximo ? " · próximo rival" : ""}
                     </option>

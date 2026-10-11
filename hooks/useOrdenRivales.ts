@@ -7,6 +7,7 @@ import {
   cargaOrdenRivales,
   comparaPorCalendario,
   esElProximo,
+  jornadaDeEquipo,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
 
@@ -62,7 +63,13 @@ export function useOrdenRivales() {
     [orden],
   );
 
-  return { orden, listo, ordena, proximoDe };
+  /** La jornada de un equipo para pintarla a su lado (`ChapaJornada`), o null. */
+  const jornadaDe = useCallback(
+    (equipo: string) => jornadaDeEquipo(orden, equipo),
+    [orden],
+  );
+
+  return { orden, listo, ordena, proximoDe, jornadaDe };
 }
 
 export default useOrdenRivales;

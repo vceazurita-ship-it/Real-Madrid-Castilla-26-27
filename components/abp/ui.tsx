@@ -19,6 +19,8 @@ import {
   X,
 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
+import { ChapaJornada } from "@/components/rivals/ChapaJornada";
+import type { JornadaDeEquipo } from "@/lib/rivals/orden-calendario";
 import {
   useCallback,
   useEffect,
@@ -473,10 +475,25 @@ export function TeamPicker({
   onChange,
   countOf,
   escudoDe,
+  jornadaDe,
+  proximo,
+  todos,
 }: {
   teams: string[];
   value: string;
   onChange: (team: string) => void;
+  /**
+   * La jornada de cada equipo, pegada a su nombre: con la fila ya por
+   * calendario, es lo que hace que el orden se entienda (11/10/2026).
+   */
+  jornadaDe?: (team: string) => JornadaDeEquipo | null | undefined;
+  /** El rival del próximo partido: lleva la chapa «Próximo». */
+  proximo?: string;
+  /**
+   * Rótulo de un chip «todos» delante de la lista: para cuando el selector
+   * es un filtro y no elegir a nadie es una opción. Se elige con `""`.
+   */
+  todos?: string;
   /** Acciones ya registradas del equipo: marca en el chip los que tienen datos. */
   countOf?: (team: string) => number;
   /**
@@ -592,6 +609,21 @@ export function TeamPicker({
         ref={listRef}
         className="flex max-h-[10.5rem] min-w-0 flex-wrap content-start gap-2 overflow-y-auto rounded-xl border border-white/5 bg-white/[0.02] p-2"
       >
+        {todos && !query && (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            aria-pressed={!value}
+            className={`flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition ${
+              !value
+                ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]"
+                : "border-white/10 text-white/55 hover:border-white/25 hover:text-white"
+            }`}
+          >
+            {todos}
+          </button>
+        )}
+
         {visible.map((team) => {
           const active = team === value;
           const registradas = countOf?.(team) ?? 0;
@@ -614,6 +646,14 @@ export function TeamPicker({
               )}
 
               {team}
+
+              {jornadaDe && <ChapaJornada jornada={jornadaDe(team)} activo={active} />}
+
+              {proximo && team === proximo && (
+                <span className="rounded-full bg-[#C8A96B] px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-black">
+                  Próximo
+                </span>
+              )}
 
               {registradas > 0 && (
                 <span

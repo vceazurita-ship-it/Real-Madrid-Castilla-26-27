@@ -40,6 +40,9 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { COMPARADO, MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
 import { usePlayers } from "@/hooks/usePlayers";
+import { useOrdenRivales } from "@/hooks/useOrdenRivales";
+import { ChapaJornada } from "@/components/rivals/ChapaJornada";
+import type { JornadaDeEquipo } from "@/lib/rivals/orden-calendario";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { traeJson } from "@/lib/hojaCsv";
 import { alineaSeguimiento } from "@/lib/seguimiento";
@@ -133,6 +136,9 @@ export default function ComparativaCategoria() {
   const { players } = usePlayers();
   const { season } = useRatingsSeason();
   const escudoDe = useEscudos();
+  /* Los equipos por calendario y con su jornada: los de nuestro grupo
+     delante, en el orden en que tocan; los del otro grupo detrás, por nombre. */
+  const { ordena, jornadaDe } = useOrdenRivales();
 
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [seguimientos, setSeguimientos] = useState<RegistroSeguimiento[]>([]);
@@ -244,10 +250,11 @@ export default function ComparativaCategoria() {
   const [equiposSel, setEquiposSel] = useState<string[]>([]);
   const equipos = useMemo(
     () =>
-      [...new Set(jugadores.filter((j) => j.temporada === "actual" && !esNuestro(j)).map((j) => j.equipo))]
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b, "es")),
-    [jugadores],
+      ordena(
+        [...new Set(jugadores.filter((j) => j.temporada === "actual" && !esNuestro(j)).map((j) => j.equipo))].filter(Boolean),
+        (e) => e,
+      ),
+    [jugadores, ordena],
   );
 
   const abreFicha = (nombre: string) => {
@@ -459,6 +466,7 @@ export default function ComparativaCategoria() {
                     equiposSel={equiposSel}
                     setEquiposSel={setEquiposSel}
                     escudoDe={escudoDe}
+                    jornadaDe={jornadaDe}
                   />
                 )}
 
@@ -473,6 +481,7 @@ export default function ComparativaCategoria() {
                     equiposSel={equiposSel}
                     setEquiposSel={setEquiposSel}
                     escudoDe={escudoDe}
+                    jornadaDe={jornadaDe}
                   />
                 )}
 
@@ -548,12 +557,15 @@ function SelectorEquipos({
   sel,
   setSel,
   escudoDe,
+  jornadaDe,
   compacto,
 }: {
   equipos: string[];
   sel: string[];
   setSel: (s: string[]) => void;
   escudoDe: (equipo: string) => string | null;
+  /** La jornada en que se juega contra él, si es de nuestro grupo. */
+  jornadaDe?: (equipo: string) => JornadaDeEquipo | null | undefined;
   compacto?: boolean;
 }) {
   const [busca, setBusca] = useState("");
@@ -585,6 +597,7 @@ function SelectorEquipos({
             >
               {escudo(e)}
               {e}
+              <ChapaJornada jornada={jornadaDe?.(e)} />
               <X size={12} />
             </button>
           ))}
@@ -612,6 +625,7 @@ function SelectorEquipos({
           >
             {escudo(e)}
             {e}
+            <ChapaJornada jornada={jornadaDe?.(e)} />
           </button>
         ))}
         {lista.length === 0 && <span className="text-xs text-white/35">Ningún equipo con ese nombre.</span>}
@@ -632,6 +646,7 @@ function Graficos({
   equiposSel,
   setEquiposSel,
   escudoDe,
+  jornadaDe,
 }: {
   jugadores: FilaJugador[];
   refe: Referencia;
@@ -644,6 +659,7 @@ function Graficos({
   equiposSel: string[];
   setEquiposSel: (s: string[]) => void;
   escudoDe: (equipo: string) => string | null;
+  jornadaDe: (equipo: string) => JornadaDeEquipo | null;
 }) {
   const [pregunta, setPregunta] = useState(0);
   const [ejes, setEjes] = useState<{ x: string; y: string } | null>(null);
@@ -776,7 +792,7 @@ function Graficos({
           <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
             <p className="text-[11px] uppercase tracking-wider text-white/40">Compararse con equipos</p>
             <div className="mt-2">
-              <SelectorEquipos equipos={equipos} sel={equiposSel} setSel={setEquiposSel} escudoDe={escudoDe} compacto />
+              <SelectorEquipos equipos={equipos} sel={equiposSel} setSel={setEquiposSel} escudoDe={escudoDe} jornadaDe={jornadaDe} compacto />
             </div>
             {equiposSel.length > 0 && (
               <label className="mt-2 flex items-center gap-2 text-xs text-white/60">
@@ -1229,6 +1245,7 @@ function CaraACara({
   equiposSel,
   setEquiposSel,
   escudoDe,
+  jornadaDe,
 }: {
   fila: FilaComparativa;
   ficha: { id: string; nombre: string; foto?: string } | null | undefined;
@@ -1239,6 +1256,7 @@ function CaraACara({
   equiposSel: string[];
   setEquiposSel: (s: string[]) => void;
   escudoDe: (equipo: string) => string | null;
+  jornadaDe: (equipo: string) => JornadaDeEquipo | null;
 }) {
   const [todas, setTodas] = useState(false);
   const puesto = fila.puesto;
@@ -1331,7 +1349,7 @@ function CaraACara({
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
           <p className="text-[11px] uppercase tracking-wider text-white/40">Contra los {puestoLabel} de</p>
           <div className="mt-2">
-            <SelectorEquipos equipos={equipos} sel={equiposSel} setSel={setEquiposSel} escudoDe={escudoDe} />
+            <SelectorEquipos equipos={equipos} sel={equiposSel} setSel={setEquiposSel} escudoDe={escudoDe} jornadaDe={jornadaDe} />
           </div>
         </div>
         <p className="text-[11px] leading-relaxed text-white/35">

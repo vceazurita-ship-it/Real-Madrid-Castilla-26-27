@@ -364,3 +364,45 @@ export async function cargaOrdenRivales(
     return SIN_ORDEN;
   }
 }
+
+/*
+|--------------------------------------------------------------------------
+| LA JORNADA DE CADA EQUIPO, PARA PONERLA AL LADO DE SU NOMBRE (11/10/2026)
+|--------------------------------------------------------------------------
+|
+| Todos los selectores de rival salen ya por calendario, pero el cuerpo
+| técnico pidió que además se **vea** la jornada: una fila ordenada sin decir
+| por qué parece desordenada. Esto da, para cualquier equipo, lo que pinta
+| `components/rivals/ChapaJornada.tsx`: «J8» y, al pasar el ratón, la fecha y
+| si se juega en casa o fuera. Para un partido ya jugado lo dice.
+*/
+export type JornadaDeEquipo = {
+  /** «J8». */
+  etiqueta: string;
+  /** «Jornada 8 · 18/10/2026 · en casa», para el `title`. */
+  titulo: string;
+  /** El siguiente partido contra él ya se jugó: es el de la vuelta pasada. */
+  jugado: boolean;
+};
+
+export function jornadaDeEquipo(orden: OrdenRivales, equipo: string): JornadaDeEquipo | null {
+  const partido = enfrentamientoDe(orden, equipo);
+
+  if (!partido || !partido.jornada) return null;
+
+  const dia = partido.fecha.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const fecha = dia ? `${dia[3]}/${dia[2]}/${dia[1]}` : "";
+  const jugado = partido.grupo === JUGADO;
+
+  return {
+    etiqueta: `J${partido.jornada}`,
+    titulo: [
+      `Jornada ${partido.jornada}`,
+      fecha,
+      jugado ? "ya jugado" : partido.local ? "en casa" : "fuera",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    jugado,
+  };
+}

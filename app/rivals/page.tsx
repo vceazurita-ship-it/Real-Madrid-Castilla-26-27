@@ -36,6 +36,7 @@ import { useRivalOnce } from "@/hooks/useRivalOnce";
 import type { AlineacionJugador } from "@/lib/rivals/alineacion-ppt";
 import { findStats, findTeam, highlightSeason } from "@/lib/rivals/stats";
 import EscudoEquipo from "@/components/rivals/EscudoEquipo";
+import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import { EligeVideoDeLista } from "@/components/rivals/EligeVideoDeLista";
 import {
   exportPortadaPdf,
@@ -83,6 +84,7 @@ import {
   enfrentamientoDe,
   esElProximo,
   etiquetaDelProximo,
+  jornadaDeEquipo,
   SIN_ORDEN,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
@@ -3688,6 +3690,12 @@ export default function RivalPlayersPage() {
                     />
 
                     {team.name}
+
+                    {/* Y en qué jornada toca: así se entiende el orden de la fila. */}
+                    <ChapaJornada
+                      jornada={jornadaDeEquipo(ordenRivales, team.name)}
+                      activo={selectedTeam === team.name}
+                    />
 
                     {/*
                     | Contra quién se juega ya. La fila se reordena sola cada

@@ -163,7 +163,7 @@ export default function ScoutRivalAbpPage() {
   const escudoDe = useEscudos();
 
   /* El orden del calendario y el rival de la semana: la regla de `/rivals`. */
-  const { ordena, proximoDe } = useOrdenRivales();
+  const { ordena, proximoDe, jornadaDe } = useOrdenRivales();
 
   /* --------------------------- scouting ---------------------------- */
 
@@ -723,6 +723,8 @@ export default function ScoutRivalAbpPage() {
                     onChange={pickTeam}
                     countOf={(nombre) => registradas.get(scoutKey(nombre)) ?? 0}
                     escudoDe={escudoDe}
+                    jornadaDe={jornadaDe}
+                    proximo={proximoDe(equiposVisibles)}
                   />
                 )}
 
