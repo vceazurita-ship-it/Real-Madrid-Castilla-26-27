@@ -28,7 +28,8 @@ const DESTINO = join(RAIZ, "lib", "transiciones", "datos.ts");
 /** Cada bloque del etiquetado son cinco minutos de vídeo. */
 const SEGUNDOS_BLOQUE = 300;
 
-const ACCIONES = ["ADELANTE", "HORIZONTAL_ATRAS", "DESPEJE", "PERDIDA"];
+/* «RECUPERAMOS» es sólo de las pérdidas: el rival no llega a jugar el balón. */
+const ACCIONES = ["ADELANTE", "HORIZONTAL_ATRAS", "DESPEJE", "PERDIDA", "RECUPERAMOS"];
 const CONFIANZAS = ["alta", "media", "baja"];
 
 /** Cada partido, con lo que hay que saber para leer sus minutos. */
@@ -199,10 +200,34 @@ function parteLinea(linea) {
   };
 }
 
+/*
+| Las pérdidas (11/10/2026): el espejo de los robos, en `bloques-perdidas/`,
+| escritas por `scripts/partido/perdidas.cjs` desde el timeline de Hudl con el
+| mismo formato de fila. Se leen con el mismo parser; la cobertura del partido
+| es la de los robos, que es la del vídeo.
+*/
+function leePerdidas(partido) {
+  const dir = join(ORIGEN, partido.id, "bloques-perdidas");
+  if (!existsSync(dir)) return [];
+
+  const perdidas = [];
+  for (const f of readdirSync(dir).filter((x) => x.endsWith(".csv")).sort()) {
+    for (const linea of readFileSync(join(dir, f), "utf8").split(/\r?\n/)) {
+      const t = linea.trim();
+      if (!t || t.startsWith("segundo;") || t.startsWith("#")) continue;
+      const fila = parteLinea(t);
+      if (fila) perdidas.push({ ...fila, bloque: f.replace(".csv", "") });
+    }
+  }
+  perdidas.sort((a, b) => a.seg - b.seg);
+  return perdidas;
+}
+
 function leePartido(partido) {
   const dir = join(ORIGEN, partido.id, "bloques");
+  const perdidas = leePerdidas(partido);
   if (!existsSync(dir)) {
-    return { ...partido, bloquesCerrados: 0, segundosRevisados: 0, robos: [] };
+    return { ...partido, bloquesCerrados: 0, segundosRevisados: 0, robos: [], perdidas };
   }
 
   const ficheros = readdirSync(dir).filter((f) => f.endsWith(".csv")).sort();
@@ -245,7 +270,7 @@ function leePartido(partido) {
     limpio.push(r);
   }
 
-  return { ...partido, bloquesCerrados: cerrados, segundosRevisados, robos: limpio };
+  return { ...partido, bloquesCerrados: cerrados, segundosRevisados, robos: limpio, perdidas };
 }
 
 const datos = PARTIDOS.map(leePartido);
@@ -260,11 +285,17 @@ const cabecera = `/**
  * Generado: ${new Date().toISOString().slice(0, 10)}
  */
 
-export type Accion = "ADELANTE" | "HORIZONTAL_ATRAS" | "DESPEJE" | "PERDIDA";
+/** «PERDIDA» es de los robos (lo perdemos al momento); «RECUPERAMOS», de las pérdidas (lo recuperamos al momento). */
+export type Accion = "ADELANTE" | "HORIZONTAL_ATRAS" | "DESPEJE" | "PERDIDA" | "RECUPERAMOS";
 export type Confianza = "alta" | "media" | "baja";
 
+/**
+ * Un robo, o una pérdida: la misma fila. En la pérdida, «seg» es cuando el
+ * balón pasa a ser suyo, «accion» lo primero que hace EL RIVAL y «desenlace»
+ * en qué acaba SU posesión (scripts/partido/perdidas.cjs).
+ */
 export type Robo = {
-  /** Segundo del vídeo en que el balón pasa a ser nuestro. */
+  /** Segundo del vídeo en que el balón pasa a ser nuestro (o suyo, en una pérdida). */
   seg: number;
   zona: string;
   carril: string;
@@ -297,6 +328,8 @@ export type PartidoTransiciones = {
   notas: string[];
   goles: Gol[];
   robos: Robo[];
+  /** Nuestras pérdidas y la transición defensiva que nace de cada una (11/10/2026). */
+  perdidas: Robo[];
 };
 
 export const PARTIDOS: PartidoTransiciones[] = `;
@@ -306,7 +339,7 @@ writeFileSync(DESTINO, cabecera + JSON.stringify(datos, null, 2) + ";\n", "utf8"
 
 for (const p of datos) {
   console.log(
-    `${p.id}: ${p.bloquesCerrados}/${p.bloquesTotales} bloques, ${p.robos.length} robos`,
+    `${p.id}: ${p.bloquesCerrados}/${p.bloquesTotales} bloques, ${p.robos.length} robos, ${p.perdidas.length} pérdidas`,
   );
 }
 console.log("escrito", DESTINO);

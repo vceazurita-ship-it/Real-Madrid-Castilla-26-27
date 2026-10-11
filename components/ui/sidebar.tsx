@@ -196,6 +196,7 @@ const SECCIONES: Seccion[] = [
       { href: "/coding", label: "Coding de Partido", icon: Scissors },
       { href: "/match-plans", label: "Vídeo Análisis Partidos", icon: Clapperboard },
       { href: "/laboratorio/transiciones", label: "Robos y transiciones", icon: Crosshair },
+      { href: "/laboratorio/perdidas", label: "Pérdidas y transiciones", icon: Crosshair },
       { href: "/laboratorio/faltas", label: "Análisis de faltas", icon: Crosshair },
       { href: "/collective_history", label: "Histórico Competición", icon: History },
       { href: "/data-analisis", label: "Data Análisis", icon: Sigma },

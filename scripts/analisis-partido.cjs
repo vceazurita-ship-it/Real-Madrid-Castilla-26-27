@@ -590,6 +590,8 @@ async function principal() {
 
     /* Los robos salen ya; con los desfases de la táctica se rehacen en el paso 6. */
     await node("scripts/partido/robos.cjs", slug, "--segundos", String(segundosVideo));
+    /* Y las pérdidas, el espejo de los robos (11/10/2026): mismo timeline, misma táctica. */
+    await node("scripts/partido/perdidas.cjs", slug, "--segundos", String(segundosVideo));
   }
 
   /* La base de las faltas, por si el análisis de vídeo no llega a hacerse:
@@ -721,6 +723,8 @@ async function principal() {
 
     /* Con los desfases ya medidos, los robos van al segundo bueno de la táctica. */
     await node("scripts/partido/robos.cjs", slug, "--segundos", String(segundosVideo));
+    /* Y las pérdidas, el espejo de los robos (11/10/2026): mismo timeline, misma táctica. */
+    await node("scripts/partido/perdidas.cjs", slug, "--segundos", String(segundosVideo));
 
     await node("scripts/transiciones-datos.mjs");
     await node("scripts/faltas-datos.mjs");
