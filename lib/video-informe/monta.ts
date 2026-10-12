@@ -118,38 +118,112 @@ function remuestrea(pista: Float32Array, de: number, a: number): Float32Array {
   return salida;
 }
 
-async function pideVoz(guion: GuionVideo): Promise<Voz | null> {
+/**
+ * Los silencios de una pista: tramos de al menos `minimoMs` por debajo del
+ * umbral, como [inicio, fin] en muestras.
+ */
+function silenciosDe(pista: Float32Array, frecuencia: number, minimoMs = 220, umbral = 0.012) {
+  const ventana = Math.round(frecuencia * 0.02);
+  const minimo = Math.round(minimoMs / 20);
+  const silencios: [number, number][] = [];
+  let seguidas = 0;
+
+  for (let i = 0; i + ventana <= pista.length; i += ventana) {
+    let energia = 0;
+
+    for (let k = i; k < i + ventana; k += 1) energia += pista[k] * pista[k];
+
+    if (Math.sqrt(energia / ventana) < umbral) seguidas += 1;
+    else {
+      if (seguidas >= minimo) silencios.push([i - seguidas * ventana, i]);
+
+      seguidas = 0;
+    }
+  }
+
+  if (seguidas >= minimo) silencios.push([pista.length - seguidas * ventana, pista.length]);
+
+  return silencios;
+}
+
+/**
+ * La voz llega ENTERA en una sola petición (la cuota gratuita del TTS no da
+ * para una por escena) y aquí se parte: el corte de cada escena se predice
+ * por la fracción de texto que lleva y se ajusta al silencio más cercano
+ * (la pausa entre párrafos que se le pidió a la voz).
+ */
+async function pideVoz(guion: GuionVideo): Promise<{ voz: Voz | null; motivo?: string }> {
+  const textos = guion.escenas.map((e) => e.locucion.replace(/\s+/g, " ").trim());
+
   const r = await conPlazo(
-    fetch("/api/informe/voz", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ textos: guion.escenas.map((e) => e.locucion) }) })
-      .then((x) => (x.ok ? x.json() : null))
-      .catch(() => null),
-    55_000,
+    fetch("/api/informe/voz", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ textos }) }).catch(() => null),
+    58_000,
     null,
   );
 
-  const datos = r as { ok?: boolean; frecuencia?: number; pistas?: (string | null)[] } | null;
+  if (!r) return { voz: null, motivo: "La IA de voz no ha contestado a tiempo." };
 
-  if (!datos?.ok || !datos.pistas) return null;
+  if (!r.ok) {
+    const j = (await r.json().catch(() => null)) as { error?: string } | null;
 
-  return {
-    frecuencia: FRECUENCIA_AAC,
-    pistas: datos.pistas.map((b64) => {
-      if (!b64) return null;
+    return { voz: null, motivo: j?.error ?? `La IA de voz ha fallado (${r.status}).` };
+  }
 
-      const crudo = atob(b64);
-      const bytes = new Uint8Array(crudo.length);
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  const deFrecuencia = Number(r.headers.get("X-Voz-Frecuencia")) || 24_000;
 
-      for (let i = 0; i < crudo.length; i += 1) bytes[i] = crudo.charCodeAt(i);
+  /* PCM de 16 bits con signo, little-endian → flotante [-1, 1], ya a la frecuencia del AAC. */
+  const enteros = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
+  const crudo = new Float32Array(enteros.length);
 
-      /* PCM de 16 bits con signo, little-endian → flotante [-1, 1]. */
-      const enteros = new Int16Array(bytes.buffer, 0, Math.floor(bytes.length / 2));
-      const flot = new Float32Array(enteros.length);
+  for (let i = 0; i < enteros.length; i += 1) crudo[i] = enteros[i] / 32768;
 
-      for (let i = 0; i < enteros.length; i += 1) flot[i] = enteros[i] / 32768;
+  const entera = remuestrea(crudo, deFrecuencia, FRECUENCIA_AAC);
 
-      return remuestrea(flot, datos.frecuencia || 24_000, FRECUENCIA_AAC);
-    }),
-  };
+  if (entera.length < FRECUENCIA_AAC * 0.5) return { voz: null, motivo: "La IA de voz ha devuelto un audio vacío." };
+
+  return { voz: { frecuencia: FRECUENCIA_AAC, pistas: reparteVoz(entera, textos, FRECUENCIA_AAC) } };
+}
+
+/** Parte la voz entera por escenas: corte previsto por la fracción de texto, ajustado al silencio más cercano. Exportado para probarlo en Node. */
+export function reparteVoz(entera: Float32Array, textos: string[], frecuencia: number): (Float32Array | null)[] {
+  /* Dónde empieza y acaba lo hablado, sin el aire de los extremos. */
+  const silencios = silenciosDe(entera, frecuencia);
+  const primero = silencios[0]?.[0] === 0 ? silencios[0][1] : 0;
+  const ultimo = silencios.length && silencios[silencios.length - 1][1] === entera.length ? silencios[silencios.length - 1][0] : entera.length;
+  const hablado = Math.max(1, ultimo - primero);
+
+  const largos = textos.map((t) => t.length);
+  const totalTexto = largos.reduce((s, n) => s + n, 0) || 1;
+  const cortes: number[] = [primero];
+  let acumulado = 0;
+
+  for (let k = 0; k < textos.length - 1; k += 1) {
+    acumulado += largos[k];
+
+    const previsto = primero + Math.round((acumulado / totalTexto) * hablado);
+    const margen = frecuencia * 1.6;
+
+    /* El silencio más cercano al corte previsto, si hay uno a menos de 1,6 s; si no, el previsto tal cual. */
+    let mejor = previsto;
+    let distancia = Infinity;
+
+    for (const [a, b] of silencios) {
+      const centro = Math.round((a + b) / 2);
+      const d = Math.abs(centro - previsto);
+
+      if (centro > cortes[cortes.length - 1] && d < distancia && d <= margen) {
+        mejor = centro;
+        distancia = d;
+      }
+    }
+
+    cortes.push(Math.max(cortes[cortes.length - 1], mejor));
+  }
+
+  cortes.push(ultimo);
+
+  return textos.map((t, k) => (t && cortes[k + 1] > cortes[k] ? entera.slice(cortes[k], cortes[k + 1]) : null));
 }
 
 /* ------------------------------------------------------------------ */
@@ -1069,7 +1143,7 @@ function copia(fuente: AllowSharedBufferSource): Bytes {
 
 const respira = () => new Promise<void>((r) => setTimeout(r, 0));
 
-export type VideoMontado = { blob: Blob; segundos: number; conVoz: boolean; escenas: number };
+export type VideoMontado = { blob: Blob; segundos: number; conVoz: boolean; escenas: number; /** Por qué va sin voz, si va sin ella. */ motivoSinVoz?: string };
 
 /** Monta el vídeo resumen de un guion. `alPaso` recibe el texto de progreso para la pantalla. */
 export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: OpcionesVideo = {}): Promise<VideoMontado> {
@@ -1082,7 +1156,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   const guion = await puleLocucion(guionCrudo);
 
   alPaso("voz…");
-  const voz = await pideVoz(guion);
+  const { voz, motivo: motivoSinVoz } = await pideVoz(guion);
   const escenas = reparte(guion, voz);
   const total = escenas.reduce((s, x) => s + x.segundos, 0);
 
@@ -1290,5 +1364,5 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
 
   if (fallo) throw fallo;
 
-  return { blob: muxor.cierra(), segundos: Math.round(total), conVoz: Boolean(voz?.pistas.some(Boolean)), escenas: escenas.length };
+  return { blob: muxor.cierra(), segundos: Math.round(total), conVoz: Boolean(voz?.pistas.some(Boolean)), escenas: escenas.length, motivoSinVoz };
 }

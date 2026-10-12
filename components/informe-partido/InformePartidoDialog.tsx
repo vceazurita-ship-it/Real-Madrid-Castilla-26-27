@@ -990,7 +990,7 @@ export function InformePartidoDialog({
               fuente: barlowCondensed.style.fontFamily,
             });
 
-            if (!v.conVoz) toast.message("El vídeo va sin voz", { description: "La IA de voz no ha contestado; el texto sale escrito en pantalla." });
+            if (!v.conVoz) toast.message("El vídeo va sin voz", { description: `${v.motivoSinVoz ?? "La IA de voz no ha contestado."} El texto sale escrito en pantalla.` });
 
             return await subeUnaVez(nombreVideo, "video/mp4", () => v.blob);
           } catch (error) {

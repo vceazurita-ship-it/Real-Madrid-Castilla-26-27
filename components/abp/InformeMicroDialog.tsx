@@ -713,7 +713,7 @@ export function InformeMicroDialog({
 
           adjuntosUrl.push({ nombre, url: a.url, tipo: "video/mp4" });
 
-          if (!v.conVoz) toast.message("El vídeo va sin voz", { description: "La IA de voz no ha contestado; el texto sale escrito en pantalla." });
+          if (!v.conVoz) toast.message("El vídeo va sin voz", { description: `${v.motivoSinVoz ?? "La IA de voz no ha contestado."} El texto sale escrito en pantalla.` });
         } catch (error) {
           console.warn("[abp] el vídeo resumen no ha salido", error);
           toast.message("El correo va sin el vídeo resumen", { description: error instanceof Error ? error.message : "No se ha podido montar." });
