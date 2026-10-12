@@ -44,6 +44,9 @@ const apellido = (n: string) => {
 
 const COLOR_RES = { G: MEJOR, E: "#C8A96B", P: PEOR } as const;
 
+/** Líneas del campo: blancas en los dos temas (el césped no cambia con el modo día). */
+const LINEA = "rgba(255,255,255,.3)";
+
 /** Sitio de cada hueco en un campo vertical (atacando hacia arriba), en %. */
 const SITIO: Record<string, { x: number; y: number }> = {
   por: { x: 50, y: 90 },
@@ -320,22 +323,29 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
       {/* ---------------- quién lo hace ---------------- */}
       <div className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
         <Tarjeta titulo="Once tipo por minutos">
-          <div className="relative mx-auto aspect-[3/4] w-full max-w-[340px] overflow-hidden rounded-xl bg-[#12301f]">
-            <div className="absolute inset-2 rounded-lg border border-white/15" />
-            <div className="absolute left-2 right-2 top-1/2 border-t border-white/15" />
-            <div className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/15" />
+          {/* El césped se queda oscuro en los dos temas: la tinta va en `style`, que la tabla de equivalencias del modo día no toca. */}
+          <div className="relative mx-auto aspect-[3/4] w-full max-w-[340px] overflow-hidden rounded-xl" style={{ background: "#12301f" }}>
+            <div className="absolute inset-2 rounded-lg border" style={{ borderColor: LINEA }} />
+            <div className="absolute left-2 right-2 top-1/2 border-t" style={{ borderColor: LINEA }} />
+            <div className="absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border" style={{ borderColor: LINEA }} />
             {Object.entries(SITIO).map(([h, p]) => {
               const j = once[h];
               return (
-                <div key={h} className="absolute flex w-24 -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center" style={{ left: `${p.x}%`, top: `${p.y}%` }}>
+                <div key={h} className="absolute flex w-[88px] -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center" style={{ left: `${p.x}%`, top: `${p.y}%` }}>
                   <span
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold text-[#0B0F14]"
-                    style={{ background: j ? colorP(j.indice) : tinta(0.3) }}
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-bold"
+                    style={{ background: j ? colorP(j.indice) : "rgba(255,255,255,.25)", color: "#0B0F14" }}
                     title={j ? `${j.fila.jugador} · ${j.fila.posicion} · ${j.fila.minutos}′ · índice ${j.indice ?? "—"}` : "Sin jugador"}
                   >
                     {j?.indice ?? "–"}
                   </span>
-                  <span className="mt-0.5 max-w-full truncate text-[10px] font-medium text-white/90">{j ? apellido(j.fila.jugador) : "—"}</span>
+                  <span
+                    className="mt-1 max-w-full truncate rounded px-1.5 py-px text-[10px] font-semibold leading-tight"
+                    style={{ color: "#fff", background: "rgba(0,0,0,.55)", textShadow: "0 1px 2px rgba(0,0,0,.6)" }}
+                    title={j?.fila.jugador}
+                  >
+                    {j ? apellido(j.fila.jugador) : "—"}
+                  </span>
                 </div>
               );
             })}
