@@ -21,8 +21,9 @@ export function AvisoAntesDeMandar({
   onMandar: () => void;
   onRevisar: () => void;
 }) {
+  /* `.modal-veil`, no `bg-black/NN`: con ese velo la tabla del modo día ponía en blanco todo el texto del panel claro (ver tema-dia-noche). */
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Antes de mandar">
+    <div className="modal-veil fixed inset-0 z-[200] flex items-center justify-center p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Antes de mandar">
       <div className="w-full max-w-[560px] rounded-2xl border border-amber-300/30 bg-[#11161D] p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <p className="flex items-center gap-2 text-[15px] font-semibold text-white/90">
