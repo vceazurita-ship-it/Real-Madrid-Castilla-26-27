@@ -32,6 +32,8 @@ import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { TOPE_ADJUNTOS_CORREO, TOPE_PETICION_CORREO } from "@/lib/correo/limites";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
+import { guionDePartido } from "@/lib/video-informe/guion";
+import { montaVideoInforme, puedeMontarVideo } from "@/lib/video-informe/monta";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
 import { completoEnPdf } from "@/lib/informe-partido/pdf-completo";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
@@ -49,12 +51,12 @@ type AjustesCorreo = {
   paraResumen?: string;
   paraCompleto?: string;
   /** Los interruptores de adjuntos, recordados de una vez para otra. */
-  preferencias?: { resumenPdf?: boolean; resumenPpt?: boolean; completoPdf?: boolean; completoResumenPdf?: boolean; completoResumenPpt?: boolean };
+  preferencias?: { resumenPdf?: boolean; resumenPpt?: boolean; resumenVideo?: boolean; completoPdf?: boolean; completoResumenPdf?: boolean; completoResumenPpt?: boolean };
 };
 
 /** Qué lleva cada correo. `asunto` a `null` = el de siempre; `capitulos` a `null` = todos. */
 type OpcionesEnvio = {
-  resumen: { activo: boolean; asunto: string | null; mensaje: string; diapos: boolean[]; pdf: boolean; ppt: boolean };
+  resumen: { activo: boolean; asunto: string | null; mensaje: string; diapos: boolean[]; pdf: boolean; ppt: boolean; video: boolean };
   completo: { activo: boolean; asunto: string | null; mensaje: string; capitulos: string[] | null; pdfCompleto: boolean; pdfResumen: boolean; pptResumen: boolean; sacarDocs: boolean };
 };
 
@@ -170,7 +172,7 @@ export function InformePartidoDialog({
 
   /* Qué correos salen y qué lleva cada uno. Los dos por defecto: es para lo que existe el botón. */
   const [envio, setEnvio] = useState<OpcionesEnvio>(() => ({
-    resumen: { activo: true, asunto: null, mensaje: "", diapos: [true, true, true], pdf: true, ppt: false },
+    resumen: { activo: true, asunto: null, mensaje: "", diapos: [true, true, true], pdf: true, ppt: false, video: true },
     completo: { activo: true, asunto: null, mensaje: "", capitulos: null, pdfCompleto: true, pdfResumen: false, pptResumen: false, sacarDocs: true },
   }));
 
@@ -185,7 +187,7 @@ export function InformePartidoDialog({
     preferenciasPuestas.current = true;
 
     setEnvio((e) => ({
-      resumen: { ...e.resumen, pdf: pr.resumenPdf ?? e.resumen.pdf, ppt: pr.resumenPpt ?? e.resumen.ppt },
+      resumen: { ...e.resumen, pdf: pr.resumenPdf ?? e.resumen.pdf, ppt: pr.resumenPpt ?? e.resumen.ppt, video: pr.resumenVideo ?? e.resumen.video },
       completo: {
         ...e.completo,
         pdfCompleto: pr.completoPdf ?? e.completo.pdfCompleto,
@@ -964,11 +966,37 @@ export function InformePartidoDialog({
       | salía. Suben a Supabase como los del completo y el servidor los adjunta.
       | Dentro sólo va el HTML con sus dos diapositivas (~1-2 MB).
       */
+      /*
+      | El vídeo resumen (12/10/2026): lo mismo que el PDF en menos de un
+      | minuto, montado aquí en el navegador (lib/video-informe). Si algo falla
+      | —la IA, el códec, el corte del rival— el correo sale igual, sin él, y
+      | se dice en un aviso: el vídeo es un añadido, no una condición.
+      */
+      const nombreVideo = nombreDeArchivo(`${nombreLegible} - Resumen en vídeo`, "mp4");
+
+      const videoResumen = async () => {
+        try {
+          const v = await montaVideoInforme(guionDePartido(informeVisto), (t) => paso("resumen", `vídeo: ${t}`));
+
+          if (!v.conVoz) toast.message("El vídeo va sin voz", { description: "La IA de voz no ha contestado; el texto sale escrito en pantalla." });
+
+          return await subeUnaVez(nombreVideo, "video/mp4", () => v.blob);
+        } catch (error) {
+          console.warn("[informe] el vídeo resumen no ha salido", error);
+          toast.message("El correo va sin el vídeo resumen", { description: error instanceof Error ? error.message : "No se ha podido montar." });
+
+          return null;
+        }
+      };
+
       const correoResumen = async () => {
-        const archivos = await Promise.all([
-          ...(r.pdf ? [subeUnaVez(nombreResumenPdf, "application/pdf", pdfResumen)] : []),
-          ...(r.ppt ? [subeUnaVez(nombreResumenPpt, PPTX, pptDelResumen)] : []),
-        ]);
+        const archivos = (
+          await Promise.all([
+            ...(r.pdf ? [subeUnaVez(nombreResumenPdf, "application/pdf", pdfResumen)] : []),
+            ...(r.ppt ? [subeUnaVez(nombreResumenPpt, PPTX, pptDelResumen)] : []),
+            ...(r.video && puedeMontarVideo() ? [videoResumen()] : []),
+          ])
+        ).filter((a): a is NonNullable<typeof a> => a !== null);
 
         paso("resumen", "mandando…");
 
@@ -1196,11 +1224,11 @@ export function InformePartidoDialog({
 
     const { resumen: r, completo: c } = envio;
 
-    const preferencias = { resumenPdf: r.pdf, resumenPpt: r.ppt, completoPdf: c.pdfCompleto, completoResumenPdf: c.pdfResumen, completoResumenPpt: c.pptResumen };
+    const preferencias = { resumenPdf: r.pdf, resumenPpt: r.ppt, resumenVideo: r.video, completoPdf: c.pdfCompleto, completoResumenPdf: c.pdfResumen, completoResumenPpt: c.pptResumen };
 
     setAjustes((a) => (JSON.stringify(preferencias) !== JSON.stringify(a.preferencias ?? {}) ? { ...a, preferencias } : a));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [envio.resumen.pdf, envio.resumen.ppt, envio.completo.pdfCompleto, envio.completo.pdfResumen, envio.completo.pptResumen]);
+  }, [envio.resumen.pdf, envio.resumen.ppt, envio.resumen.video, envio.completo.pdfCompleto, envio.completo.pdfResumen, envio.completo.pptResumen]);
 
   const casilla = (checked: boolean, onChange: (v: boolean) => void, texto: ReactNode, pie?: string, disabled = false) => (
     <label className={`flex items-start gap-2 ${disabled ? "opacity-40" : "cursor-pointer"}`}>
@@ -1392,6 +1420,7 @@ export function InformePartidoDialog({
                       <span className={rotuloCaja}>Adjuntos</span>
                       {casilla(envio.resumen.pdf, (v) => cambia("resumen", { pdf: v }), "PDF de las diapositivas", "para imprimir o reenviar")}
                       {casilla(envio.resumen.ppt, (v) => cambia("resumen", { ppt: v }), "PowerPoint", "para proyectarlo en la charla")}
+                      {casilla(envio.resumen.video, (v) => cambia("resumen", { video: v }), "Vídeo resumen (menos de 1 min)", puedeMontarVideo() ? "lo mismo que el PDF, contado con voz, datos y un corte del rival" : "este navegador no puede montarlo", !puedeMontarVideo())}
                     </div>
                   </div>
                   <label className="block">

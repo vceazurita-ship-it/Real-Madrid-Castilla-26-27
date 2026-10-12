@@ -25,6 +25,8 @@ import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
 export const ADJUNTOS_PERMITIDOS = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  /* El vídeo resumen del informe (lib/video-informe), montado en el navegador. */
+  "video/mp4",
 ]);
 
 /** Tope de los adjuntos que llegan por URL, entre todos: Gmail admite 25 MB por correo. */

@@ -22,6 +22,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Mail, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
 
+import { subeAdjunto } from "@/lib/correo/subeAdjunto";
+import { guionDeAbp } from "@/lib/video-informe/guion";
+import { montaVideoInforme, puedeMontarVideo } from "@/lib/video-informe/monta";
+
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 
 import { Button, Dialog, Notice, TextArea } from "@/components/abp/ui";
@@ -299,6 +303,10 @@ export function InformeMicroDialog({
   );
 
   const [enviando, setEnviando] = useState(false);
+
+  /* El vídeo resumen (12/10/2026): se monta en el navegador y va adjunto con el correo. */
+  const [conVideo, setConVideo] = useState(true);
+  const [pasoVideo, setPasoVideo] = useState("");
 
   /*
   | Por qué el fallo del envío NO se queda en un aviso flotante.
@@ -678,11 +686,38 @@ export function InformeMicroDialog({
         });
       }
 
+      /*
+      | El vídeo resumen: se monta aquí (lib/video-informe) y sube a Supabase
+      | como los demás adjuntos; el servidor lo adjunta por su URL. Si no sale,
+      | el correo va sin él y se avisa: nunca para el envío.
+      */
+      const adjuntosUrl: { nombre: string; url: string; tipo: string }[] = [];
+
+      if (conVideo && puedeMontarVideo()) {
+        try {
+          const v = await montaVideoInforme(guionDeAbp(paraEnviar, pinceladaAbp(paraEnviar)), setPasoVideo);
+          const nombre = `${paraEnviar.titulo} - Balón parado en vídeo.mp4`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
+
+          setPasoVideo("subiendo…");
+          const a = await subeAdjunto(new File([v.blob], nombre, { type: "video/mp4" }));
+
+          adjuntosUrl.push({ nombre, url: a.url, tipo: "video/mp4" });
+
+          if (!v.conVoz) toast.message("El vídeo va sin voz", { description: "La IA de voz no ha contestado; el texto sale escrito en pantalla." });
+        } catch (error) {
+          console.warn("[abp] el vídeo resumen no ha salido", error);
+          toast.message("El correo va sin el vídeo resumen", { description: error instanceof Error ? error.message : "No se ha podido montar." });
+        } finally {
+          setPasoVideo("");
+        }
+      }
+
       const respuesta = await fetch("/api/abp/informe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           para,
+          adjuntosUrl,
           asunto: paraEnviar.asunto,
           /* En el correo las imágenes no van dentro del HTML: se llaman por su
              `cid` y viajan como partes aparte, que es lo único que Gmail pinta. */
@@ -825,10 +860,16 @@ export function InformeMicroDialog({
             </p>
           ) : null}
 
-          <p className="min-w-0 text-[11px] text-white/35">
-            Sale de la cuenta de Google del club, la misma que sube los vídeos
-            al canal.
-          </p>
+          <div className="min-w-0 space-y-1">
+            <label className={`flex items-center gap-2 text-[11px] ${puedeMontarVideo() ? "cursor-pointer text-white/70" : "opacity-40"}`}>
+              <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo && puedeMontarVideo()} disabled={!puedeMontarVideo() || enviando} onChange={(e) => setConVideo(e.target.checked)} />
+              Adjuntar el vídeo resumen (menos de 1 min, con voz y datos)
+            </label>
+            <p className="text-[11px] text-white/35">
+              Sale de la cuenta de Google del club, la misma que sube los vídeos
+              al canal.
+            </p>
+          </div>
 
           <div className="flex shrink-0 items-center gap-2">
             <Button onClick={onClose}>Cerrar</Button>
@@ -846,7 +887,7 @@ export function InformeMicroDialog({
                 rivalInforme.cargando
               }
             >
-              {enviando ? "Enviando…" : "Enviar por correo"}
+              {enviando ? (pasoVideo ? `Vídeo: ${pasoVideo}` : "Enviando…") : "Enviar por correo"}
             </Button>
           </div>
         </div>

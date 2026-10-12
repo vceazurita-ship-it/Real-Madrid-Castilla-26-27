@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
   if (!nombre) return mal("El archivo no tiene nombre.");
 
-  if (!ADJUNTOS_PERMITIDOS.has(tipo)) return mal("Sólo se pueden adjuntar PDF y PowerPoint (.pptx).");
+  if (!ADJUNTOS_PERMITIDOS.has(tipo)) return mal("Sólo se pueden adjuntar PDF, PowerPoint (.pptx) y el vídeo resumen (.mp4).");
 
   if (!Number.isFinite(tamano) || tamano <= 0) return mal("El archivo está vacío.");
 

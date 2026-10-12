@@ -24,6 +24,7 @@ export type DestinoSubida = { carpeta?: "informe" | "rival"; equipo?: string };
 const TIPOS: Record<string, string> = {
   pdf: "application/pdf",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  mp4: "video/mp4",
 };
 
 /** El tipo del archivo; Windows a veces no lo da y se saca de la extensión. */

@@ -152,6 +152,7 @@ const EXTENSION: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "text/html": "html",
+  "video/mp4": "mp4",
 };
 
 /**
