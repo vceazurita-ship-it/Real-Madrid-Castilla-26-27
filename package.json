@@ -28,6 +28,7 @@
     "papaparse": "^5.5.3",
     "pdfjs-dist": "^6.2.108",
     "powerbi-client": "^2.23.10",
+    "qrcode-generator": "^1.4.4",
     "radix-ui": "^1.4.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",

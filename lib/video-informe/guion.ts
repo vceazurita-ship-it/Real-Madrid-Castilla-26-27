@@ -31,6 +31,9 @@ export type Corte = {
   desde?: number;
   /** O una fracción de su duración (0,5 = la mitad), para vídeos largos de los que se enseña un trozo. */
   desdeFraccion?: number;
+  /** Repetición a cámara lenta (como en la tele): `velocidad` 0,5 y el rótulo «REPETICIÓN». */
+  repeticion?: boolean;
+  velocidad?: number;
 };
 
 /** Una celda del campo: tercio (0 propio → 2 rival, en el sentido del que ataca) y carril (0 izquierda → 2 derecha). */
@@ -93,9 +96,15 @@ export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosP
       id: g.id,
       tipo: "clips",
       titulo: g.titulo,
-      cortes: elegidos.map((c) => ({ ...c, minutoNum: c.minutoNum ?? minutoNumero(c.minuto) })),
+      /* Cada gol lleva su repetición a cámara lenta justo detrás: los 2 s alrededor del remate, a media velocidad. */
+      cortes: elegidos.flatMap((c) => {
+        const base = { ...c, minutoNum: c.minutoNum ?? minutoNumero(c.minuto) };
+        const esGol = c.tipo === "gol" || c.tipo === "gol-contra";
+
+        return esGol ? [base, { ...base, repeticion: true, velocidad: 0.5, desde: (c.desde ?? 0) + 4.3, segundos: 4.4 }] : [base];
+      }),
       /* Cada corte entero: lo que dure su fichero (el ordenador del club lo deja en `segundos`). */
-      segundos: elegidos.reduce((s, c) => s + (c.segundos || segundosPorCorte), 0),
+      segundos: elegidos.reduce((s, c) => s + (c.segundos || segundosPorCorte) + (c.tipo === "gol" || c.tipo === "gol-contra" ? 4.4 : 0), 0),
       locucion: g.locucion(elegidos.length),
       marcas,
     });

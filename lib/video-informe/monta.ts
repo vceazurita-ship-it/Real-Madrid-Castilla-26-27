@@ -27,6 +27,7 @@ import type { Bytes } from "@/lib/export/zip";
 import { ALTO, ANCHO, FPS, SEGUNDOS, corteEn, limitesDeCortes, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
 import { SEGUNDOS_MAXIMOS, type Corte, type GuionVideo, type JugadorEscena } from "./guion";
 import { FRECUENCIA_AAC, camaSintetica, pcm16aFlotante, remuestrea, reparteVoz } from "./voz";
+import { posterDeVideo } from "./portada-video";
 
 /** ~11 MB el minuto: cabe con el PDF dentro del tope de adjuntos del correo. */
 const CAUDAL = 1_500_000;
@@ -215,7 +216,16 @@ function copia(fuente: AllowSharedBufferSource): Bytes {
 
 const respira = () => new Promise<void>((r) => setTimeout(r, 0));
 
-export type VideoMontado = { blob: Blob; segundos: number; conVoz: boolean; escenas: number; /** Por qué va sin voz, si va sin ella. */ motivoSinVoz?: string };
+export type VideoMontado = {
+  blob: Blob;
+  segundos: number;
+  conVoz: boolean;
+  escenas: number;
+  /** Por qué va sin voz, si va sin ella. */
+  motivoSinVoz?: string;
+  /** El póster (JPEG en data URL): la portada con el botón de reproducir, para el correo y el PDF. */
+  poster?: string;
+};
 
 /** Monta el vídeo resumen de un guion. `alPaso` recibe el texto de progreso para la pantalla. */
 export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: OpcionesVideo = {}): Promise<VideoMontado> {
@@ -329,10 +339,10 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
 
     const limites = limitesDeCortes(x.escena, x.segundos);
 
-    x.escena.cortes.forEach((_, i) => {
+    x.escena.cortes.forEach((corte, i) => {
       const clip = clips.get(`${x.escena.id}:${i}`);
 
-      if (!clip?.sonido) return;
+      if (!clip?.sonido || corte.repeticion) return;
 
       const d0 = Math.floor((arranques[k] + limites[i].desde) * frecuencia);
       const salto = Math.floor(clip.desde * frecuencia);
@@ -373,6 +383,8 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   rellenaGrano(grano.getContext("2d")!);
   const totalFotogramas = Math.round(total * FPS);
   let fotograma = 0;
+  /* El fotograma del póster: la portada a los 2,4 s, con los escudos y el título ya dentro. */
+  let fotoPoster: HTMLCanvasElement | null = null;
 
   for (const [k, x] of escenas.entries()) {
     alPaso(`escena ${k + 1}/${escenas.length}…`);
@@ -391,12 +403,19 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
         const clip = clips.get(`${e.id}:${c}`);
 
         if (clip) {
-          await buscaFotograma(clip.video, clip.desde + tc);
+          await buscaFotograma(clip.video, clip.desde + tc * ((e.cortes[c] as { velocidad?: number }).velocidad ?? 1));
           cuadro = clip.video;
         }
       }
 
       pintaFotograma(ctx, grano, fuente, guion.titulo, rec, { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro });
+
+      if (k === 0 && i === Math.min(cuantos - 1, Math.round(2.4 * FPS))) {
+        fotoPoster = document.createElement("canvas");
+        fotoPoster.width = ANCHO;
+        fotoPoster.height = ALTO;
+        fotoPoster.getContext("2d")!.drawImage(lienzo, 0, 0);
+      }
 
       const marca = new VideoFrame(lienzo, { timestamp: Math.round((fotograma / FPS) * 1e6), duration: Math.round(1e6 / FPS) });
 
@@ -425,5 +444,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
 
   if (fallo) throw fallo;
 
-  return { blob: muxor.cierra(), segundos: Math.round(total), conVoz: Boolean(pistas?.some(Boolean)), escenas: escenas.length, motivoSinVoz };
+  const poster = await posterDeVideo(fotoPoster, { segundos: total, rotulo: guion.titulo }).catch(() => undefined);
+
+  return { blob: muxor.cierra(), segundos: Math.round(total), conVoz: Boolean(pistas?.some(Boolean)), escenas: escenas.length, motivoSinVoz, poster };
 }

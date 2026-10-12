@@ -135,6 +135,8 @@ export type Descarga = {
 
 /** Lo que el informe extenso lleva además de lo suyo. */
 export type ExtrasInforme = {
+  /** El bloque del vídeo (póster enlazado), ya en HTML: va bajo la cabecera. */
+  video?: string;
   /** El informe de ABP del microciclo, ya en HTML (sus imágenes van por `cid:abp-…`). */
   abpCuerpo?: string;
   /** Los documentos del correo, para nombrarlos y dar su enlace de descarga. */
@@ -813,6 +815,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   const html = numera(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">${preheader(extras.mensaje?.trim() ? extras.mensaje.trim().slice(0, 140) : `${inf.sintesis.titular}${pr?.idea && !esPost ? ` · ${pr.idea}` : ""}`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEAE0"><tr><td align="center" style="padding:24px 10px"><table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:100%;max-width:760px;background:#FFFFFF;border-radius:12px;overflow:hidden">
 ${cabecera}
 ${mensaje}
+${extras.video ?? ""}
 ${diapositivas}
 ${descargas}
 ${indice}
@@ -841,7 +844,7 @@ export function capitulosDe(inf: InformePartido, extras: ExtrasInforme = {}) {
  * debajo va lo esencial escrito (la idea o el titular y las claves), que es
  * lo que se lee de verdad en el vestuario o en el autobús.
  */
-export function resumenHtml(inf: InformePartido, cids: string[], opciones: { conCompleto?: boolean; descargas?: Descarga[]; mensaje?: string; firma?: string } = {}) {
+export function resumenHtml(inf: InformePartido, cids: string[], opciones: { conCompleto?: boolean; descargas?: Descarga[]; mensaje?: string; firma?: string; /** El bloque del vídeo (póster enlazado), ya en HTML. */ video?: string } = {}) {
   const p = inf.partido;
 
   const rival = p.rival || "el rival";
@@ -892,6 +895,7 @@ export function resumenHtml(inf: InformePartido, cids: string[], opciones: { con
     subtitulo ? `<p style="margin:4px 0 0;font:400 13px/1.4 Arial,sans-serif;color:#9AA3B2">${esc(subtitulo)}</p>` : ""
   }<p style="margin:10px 0 0;font:700 16px/1.4 Arial,sans-serif;color:#F2E6C9">${esc(titular)}.</p></td></tr>
 ${mensaje}
+${opciones.video ?? ""}
 ${cids.map((cid, i) => `<tr><td style="padding:6px 0"><img src="cid:${esc(cid)}" alt="Diapositiva ${i + 1}" width="960" style="display:block;width:100%;max-width:960px;height:auto;border-radius:10px"></td></tr>`).join("")}
 ${textoClaves}
 ${descargas}

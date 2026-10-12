@@ -2305,7 +2305,7 @@ ${secciones}
 /** El informe como correo: tablas y estilos en línea, que es lo que sobrevive. */
 export function informeHtml(
   informe: InformeMicro,
-  opciones: { imagenes?: ModoImagenes } = {},
+  opciones: { imagenes?: ModoImagenes; /** El bloque del vídeo (póster enlazado), ya en HTML: va bajo la cabecera. */ video?: string } = {},
 ) {
   const lineaPartido = [informe.partido, informe.vieneDe].filter(Boolean);
 
@@ -2321,7 +2321,7 @@ export function informeHtml(
   )}</p>
   ${lineaPartido.map((linea) => `<p style="margin:4px 0 0;font:400 12px/1.5 Arial,sans-serif;color:#9FB0C6">${esc(linea)}</p>`).join("")}
 </td></tr>
-
+${opciones.video ?? ""}
 <tr><td style="padding:0">${informeCuerpoHtml(informe, opciones)}</td></tr>
 
 <tr><td style="padding:18px 24px 24px;border-top:1px solid #E5E1D6">

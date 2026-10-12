@@ -35,6 +35,7 @@ import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { guionDePartido } from "@/lib/video-informe/guion";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { montaVideoInforme, puedeMontarVideo } from "@/lib/video-informe/monta";
+import { bloqueVideoHtml, diapositivaDelVideo } from "@/lib/video-informe/portada-video";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
 import { completoEnPdf } from "@/lib/informe-partido/pdf-completo";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
@@ -926,7 +927,20 @@ export function InformePartidoDialog({
       /* Se hacen sólo si alguno de los dos correos los lleva. */
       let pdfResumenP: Promise<Blob> | null = null;
 
-      const pdfResumen = () => (pdfResumenP ??= pdfDe(imagenes));
+      /*
+      | Con vídeo, el PDF del resumen lleva al final la diapositiva del vídeo
+      | (póster, QR y enlace): espera a que el vídeo esté subido.
+      */
+      const pdfResumen = () =>
+        (pdfResumenP ??= (async () => {
+          const v = (r.video || c.video) && puedeMontarVideo() ? await videoResumen("resumen") : null;
+
+          if (!v || !infoVideo) return pdfDe(imagenes);
+
+          const extra = await diapositivaDelVideo({ url: infoVideo.url, poster: infoVideo.poster, titulo: `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`, segundos: infoVideo.segundos }).catch(() => null);
+
+          return pdfDe(extra ? [...imagenes, extra] : imagenes);
+        })());
 
       let pptResumen: Blob | null = null;
 
@@ -976,6 +990,29 @@ export function InformePartidoDialog({
       */
       const nombreVideo = nombreDeArchivo(`${nombreLegible} - Resumen en vídeo`, "mp4");
 
+      /* El vídeo ya subido: su enlace, lo que dura y su póster (para el correo y el PDF). */
+      let infoVideo: { url: string; segundos: number; poster: string | null } | null = null;
+
+      const aDataUrl = async (url: string) => {
+        try {
+          const blob = await (await fetch(url)).blob();
+
+          return await new Promise<string>((ok, mal) => {
+            const lector = new FileReader();
+            lector.onload = () => ok(String(lector.result));
+            lector.onerror = mal;
+            lector.readAsDataURL(blob);
+          });
+        } catch {
+          return null;
+        }
+      };
+
+      /* El bloque del vídeo para un correo (con el póster por cid si lo hay). */
+      const bloqueVideo = (relleno?: string) => (infoVideo ? bloqueVideoHtml({ url: infoVideo.url, cid: infoVideo.poster ? "video-poster" : "", segundos: infoVideo.segundos, relleno }) : "");
+
+      const posterCid = () => (infoVideo?.poster ? [{ cid: "video-poster", tipo: "image/jpeg", base64: infoVideo.poster.replace(/^data:[^;]+;base64,/, "") }] : []);
+
       /* Se monta UNA vez aunque vaya en los dos correos: la promesa se comparte. */
       let videoP: Promise<{ nombre: string; url: string; tipo: string; tamano: number | null } | null> | null = null;
 
@@ -985,6 +1022,8 @@ export function InformePartidoDialog({
             /* Si el ordenador del club ya montó el vídeo de esta jornada (con los cortes de Hudl), va ése tal cual: está en el bucket. */
             if (informeVisto.videoListo?.url) {
               paso(correo, "vídeo: ya montado ✓");
+
+              infoVideo = { url: informeVisto.videoListo.url, segundos: informeVisto.videoListo.segundos, poster: informeVisto.videoListo.poster ? await aDataUrl(informeVisto.videoListo.poster) : null };
 
               return { nombre: nombreVideo, url: informeVisto.videoListo.url, tipo: "video/mp4", tamano: null as number | null };
             }
@@ -999,7 +1038,11 @@ export function InformePartidoDialog({
 
             if (!v.conVoz) toast.message("El vídeo va sin voz", { description: `${v.motivoSinVoz ?? "La IA de voz no ha contestado."} El texto sale escrito en pantalla.` });
 
-            return await subeUnaVez(nombreVideo, "video/mp4", () => v.blob);
+            const subido = await subeUnaVez(nombreVideo, "video/mp4", () => v.blob);
+
+            infoVideo = { url: subido.url, segundos: v.segundos, poster: v.poster ?? null };
+
+            return subido;
           } catch (error) {
             console.warn("[informe] el vídeo resumen no ha salido", error);
             toast.message("El correo va sin el vídeo resumen", { description: error instanceof Error ? error.message : "No se ha podido montar." });
@@ -1020,6 +1063,7 @@ export function InformePartidoDialog({
         paso("resumen", "mandando…");
 
         const html = resumenHtml(informeVisto, cids, {
+          video: bloqueVideo(),
           conCompleto: c.activo,
           mensaje: r.mensaje,
           firma,
@@ -1031,7 +1075,7 @@ export function InformePartidoDialog({
           asunto: asuntoResumen,
           html,
           texto: `${r.mensaje?.trim() ? `${r.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}`,
-          imagenes: usadas(html, diapositivasCid),
+          imagenes: usadas(html, [...diapositivasCid, ...posterCid()]),
           adjuntosUrl: archivos.map((a) => ({ nombre: a.nombre, url: a.url, tipo: a.tipo })),
         });
 
@@ -1117,6 +1161,7 @@ export function InformePartidoDialog({
           diapositivas: cids,
           adjuntos: descargas,
           capitulos: capitulosElegidos ?? undefined,
+          video: bloqueVideo("22px 32px 0"),
           mensaje: c.mensaje,
           firma,
         };
@@ -1137,7 +1182,7 @@ export function InformePartidoDialog({
 
           /* Sólo las imágenes que el cuerpo llama: con el capítulo de ABP
              quitado, o ABP resumido, sus gráficos no viajan. */
-          return { html, imagenes: usadas(html, [...diapositivasCid, ...imagenesAbp]) };
+          return { html, imagenes: usadas(html, [...diapositivasCid, ...imagenesAbp, ...posterCid()]) };
         };
 
         const pesa = (x: { html: string; imagenes: { base64: string }[] }) => bytesDe(x.html) + x.imagenes.reduce((s, i) => s + i.base64.length, 0);

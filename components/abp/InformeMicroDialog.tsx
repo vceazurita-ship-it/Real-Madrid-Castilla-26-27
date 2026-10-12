@@ -27,6 +27,7 @@ import { guionDeAbp, type CortePartido } from "@/lib/video-informe/guion";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { montaVideoInforme, puedeMontarVideo } from "@/lib/video-informe/monta";
+import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 
@@ -736,6 +737,8 @@ export function InformeMicroDialog({
       | el correo va sin él y se avisa: nunca para el envío.
       */
       const adjuntosUrl: { nombre: string; url: string; tipo: string }[] = [];
+      /* El vídeo en el cuerpo del correo: su póster enlazado (por cid). */
+      let infoVideo: { url: string; segundos: number; poster: string | null } | null = null;
 
       if (conVideo && puedeMontarVideo()) {
         try {
@@ -758,6 +761,7 @@ export function InformeMicroDialog({
           const a = await subeAdjunto(new File([v.blob], nombre, { type: "video/mp4" }));
 
           adjuntosUrl.push({ nombre, url: a.url, tipo: "video/mp4" });
+          infoVideo = { url: a.url, segundos: v.segundos, poster: v.poster ?? null };
 
           if (!v.conVoz) toast.message("El vídeo va sin voz", { description: `${v.motivoSinVoz ?? "La IA de voz no ha contestado."} El texto sale escrito en pantalla.` });
         } catch (error) {
@@ -777,14 +781,21 @@ export function InformeMicroDialog({
           asunto: paraEnviar.asunto,
           /* En el correo las imágenes no van dentro del HTML: se llaman por su
              `cid` y viajan como partes aparte, que es lo único que Gmail pinta. */
-          html: informeHtml(paraEnviar, { imagenes: "cid" }),
+          html: informeHtml(paraEnviar, {
+            imagenes: "cid",
+            video: infoVideo ? bloqueVideoHtml({ url: infoVideo.url, cid: infoVideo.poster ? "video-poster" : "", segundos: infoVideo.segundos, claro: true, relleno: "18px 24px 0" }) : undefined,
+          }),
           texto: informeTexto(paraEnviar),
-          imagenes: paraEnviar.graficos.map((grafico) => ({
-            cid: grafico.cid,
-            /* PNG o JPEG (las páginas de los PDF): cada una con su tipo. */
-            tipo: grafico.imagen.match(/^data:([^;]+);base64,/)?.[1] ?? "image/png",
-            base64: grafico.imagen.replace(/^data:[^;]+;base64,/, ""),
-          })),
+          imagenes: [
+            ...paraEnviar.graficos.map((grafico) => ({
+              cid: grafico.cid,
+              /* PNG o JPEG (las páginas de los PDF): cada una con su tipo. */
+              tipo: grafico.imagen.match(/^data:([^;]+);base64,/)?.[1] ?? "image/png",
+              base64: grafico.imagen.replace(/^data:[^;]+;base64,/, ""),
+            })),
+            /* El póster del vídeo, que el bloque llama por `cid:video-poster`. */
+            ...(infoVideo?.poster ? [{ cid: "video-poster", tipo: "image/jpeg", base64: infoVideo.poster.replace(/^data:[^;]+;base64,/, "") }] : []),
+          ],
         }),
       });
 

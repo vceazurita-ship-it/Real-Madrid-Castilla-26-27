@@ -46,6 +46,7 @@ const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
 
 const { escenasDeCortes, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
 const { ANCHO, ALTO, FPS, SEGUNDOS, corteEn, limitesDeCortes, pintaFotograma, rellenaGrano, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
+const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, camaSintetica, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
 
 const ejecuta = promisify(execFile);
@@ -597,7 +598,7 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
         const dir = path.join(carpetaVideo, "fotogramas", path.basename(c.fichero, ".mp4"));
 
         await extraeFotogramas(c.fichero, dir);
-        cortes.set(`${e.id}:${i}`, { dir, sonido: await extraeSonido(c.fichero), desde: arranques[k] + limites[i].desde, dura: limites[i].dura });
+        cortes.set(`${e.id}:${i}`, { dir, sonido: c.repeticion ? null : await extraeSonido(c.fichero), desde: arranques[k] + limites[i].desde, dura: limites[i].dura, desdeFichero: c.repeticion ? c.desde ?? 0 : 0, velocidad: c.velocidad ?? 1 });
       }
     }
   }
@@ -609,6 +610,8 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
   pista.set(camaSintetica(total, arranques.slice(1), FRECUENCIA_AAC).subarray(0, totalMuestras));
 
   for (const c of cortes.values()) {
+    if (!c.sonido) continue;
+
     const d0 = Math.floor(c.desde * FRECUENCIA_AAC);
     const n = Math.min(c.sonido.length, Math.floor(c.dura * FRECUENCIA_AAC), totalMuestras - d0);
 
@@ -668,7 +671,9 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
         const corte = cortes.get(`${e.id}:${c}`);
 
         if (corte) {
-          const ruta = path.join(corte.dir, `f_${String(Math.min(Math.round(tc * FPS) + 1, 9999)).padStart(4, "0")}.jpg`);
+          /* Desde dónde y a qué velocidad: la repetición vuelve al remate a media velocidad. */
+          const enFichero = (corte.desdeFichero ?? 0) + tc * (corte.velocidad ?? 1);
+          const ruta = path.join(corte.dir, `f_${String(Math.min(Math.round(enFichero * FPS) + 1, 9999)).padStart(4, "0")}.jpg`);
 
           if (ruta !== ultimoCuadro.ruta) {
             try {
@@ -683,6 +688,15 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
       }
 
       pintaFotograma(ctx, grano, fuente, guion.titulo, rec, { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro });
+
+      /* El póster: la portada a los 2,4 s con el botón de reproducir, para el correo y el PDF. */
+      if (k === 0 && i === Math.min(cuantos - 1, Math.round(2.4 * FPS))) {
+        const p = createCanvas(ANCHO, ALTO);
+
+        pintaPoster(p.getContext("2d"), lienzo, { segundos: total, rotulo: guion.titulo });
+        fs.writeFileSync(salida.replace(/.mp4$/, ".jpg"), await p.encode("jpeg", 85));
+      }
+
       await escribe(lienzo.data());
       fotograma += 1;
     }
@@ -1000,7 +1014,9 @@ async function principal() {
     url = previo.url;
   } else if (supabase) {
     url = await sube(supabase, salida, `2026/informes/video/${partido.slug}.mp4`, "video/mp4");
-    await guardaDoc(supabase, `informe-video:${clave}`, "informe-video", { url, creado: new Date().toISOString(), segundos, conVoz: Boolean(pistas), partido: { jornada: partido.jornada, rival: partido.rival } });
+    const fichPoster = salida.replace(/.mp4$/, ".jpg");
+    const poster = fs.existsSync(fichPoster) ? await sube(supabase, fichPoster, `2026/informes/video/${partido.slug}.jpg`, "image/jpeg") : null;
+    await guardaDoc(supabase, `informe-video:${clave}`, "informe-video", { url, poster, creado: new Date().toISOString(), segundos, conVoz: Boolean(pistas), partido: { jornada: partido.jornada, rival: partido.rival } });
   }
 
   const resumen = `${segundos} s, ${escenas} escenas, ${cortes.length} cortes de Hudl${pistas ? ", con voz" : ", sin voz"}, ${mb} MB`;

@@ -317,7 +317,7 @@ export type InformePartido = {
   /** El rival de un vistazo (DATA → Un equipo de un vistazo), resumido. */
   vistazo: VistazoRival | null;
   /** El vídeo resumen ya montado por el ordenador del club (`informe-video:jNN`): el diálogo lo adjunta tal cual, sin montar nada. */
-  videoListo?: { url: string; creado: string; segundos: number } | null;
+  videoListo?: { url: string; creado: string; segundos: number; /** El póster (JPEG en el bucket). */ poster?: string | null } | null;
 };
 
 /* ------------------------------------------------------------------ */

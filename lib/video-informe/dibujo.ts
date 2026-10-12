@@ -792,12 +792,29 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
   const corte = e.cortes[k] as Corte & Partial<CortePartido>;
   const [principal, ...resto] = corte.rotulo.split(" · ");
 
+  /* La repetición: viñeta más cerrada, una franja de oro arriba y el rótulo «REPETICIÓN» latiendo. */
+  if (corte.repeticion) {
+    const pulso = 0.75 + Math.sin(t * 7) * 0.25;
+
+    ctx.fillStyle = "rgba(200,169,107,0.9)";
+    ctx.fillRect(0, 0, ANCHO, 5);
+    ctx.globalAlpha = pulso;
+    ctx.fillStyle = ORO;
+    ctx.fillRect(ANCHO - 56 - 290, 96, 290, 40);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#0B0F14";
+    ctx.font = `700 22px ${fuente}`;
+    ctx.textAlign = "center";
+    ctx.fillText("REPETICIÓN · CÁMARA LENTA", ANCHO - 56 - 145, 123);
+    ctx.textAlign = "left";
+  }
+
   rotuloBajo(ctx, fuente, principal, resto.join(" · "), tc, corte.texto ? ALTO - 176 : ALTO - 140);
 
   /* La línea del partido (arriba, bajo el título) y el campo pequeño con la jugada (arriba a la derecha). */
   if (e.marcas?.length) lineaDelPartido(ctx, fuente, e.marcas, corte.minutoNum ?? 0, tc);
 
-  if (corte.zona) campoDeLaJugada(ctx, fuente, corte as CortePartido, tc);
+  if (corte.zona && !corte.repeticion) campoDeLaJugada(ctx, fuente, corte as CortePartido, tc);
 
   /* La lectura táctica del corte, debajo del rótulo. */
   if (corte.texto) {
