@@ -447,6 +447,24 @@ async function principal() {
   if (sinSitio.length) console.log(`Sin sección:\n  ${sinSitio.join("\n  ")}`);
   if (fallos.length) console.log(`Fallos:\n  ${fallos.join("\n  ")}`);
 
+  /*
+  | La lectura táctica de cada corte nuevo (12/10/2026): Gemini ve el vídeo y
+  | escribe una frase que el informe y el vídeo de la previa enseñan bajo el
+  | rótulo. Va aparte y no puede tumbar la recogida: si falla, sólo se dice.
+  */
+  if (subidos) {
+    const lecturas = await new Promise((resolve) => {
+      execFile(
+        process.execPath,
+        [path.join(RAIZ, "scripts/partido/video-informe.mjs"), "--lecturas-rival", equipo],
+        { windowsHide: true, maxBuffer: 8 * 1024 * 1024, timeout: 15 * 60 * 1000, env: { ...process.env, CLAUDECODE: "", CLAUDE_CODE_ENTRYPOINT: "" } },
+        (error, stdout) => resolve(String(stdout || "").match(/RESUMEN: (.*)/)?.[1] ?? (error ? `lecturas: ${error.message.split("\n")[0]}` : "")),
+      );
+    });
+
+    if (lecturas) partes.push(lecturas);
+  }
+
   termina(fallos.length && !subidos ? 1 : 0, partes.join(" · "));
 }
 

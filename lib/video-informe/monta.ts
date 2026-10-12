@@ -114,7 +114,7 @@ async function cargaImagen(src: string): Promise<ImageBitmap | null> {
   }
 }
 
-type Clip = { video: HTMLVideoElement; desde: number };
+type Clip = { video: HTMLVideoElement; desde: number; sonido?: Float32Array | null };
 
 /** Un `<video>` del bucket listo para pedirle fotogramas; `null` si no se puede abrir (CORS, códec, YouTube). */
 async function abreClip(url: string, segundos: number, desdeSegundo?: number): Promise<Clip | null> {
@@ -155,6 +155,34 @@ async function abreClip(url: string, segundos: number, desdeSegundo?: number): P
   }
 
   return { video, desde };
+}
+
+/**
+ * El sonido ambiente de un corte (el estadio, el golpeo), a 48 kHz mono: va
+ * bajo la voz. `null` si no se puede bajar o descodificar; el vídeo sigue.
+ */
+async function sonidoDelClip(url: string): Promise<Float32Array | null> {
+  if (typeof AudioContext === "undefined") return null;
+
+  try {
+    const r = await conPlazo(fetch(url), 12_000, null);
+
+    if (!r || !r.ok) return null;
+
+    const ac = new OfflineAudioContext(1, 1, FRECUENCIA_AAC);
+    const buffer = await ac.decodeAudioData(await r.arrayBuffer());
+    const salida = new Float32Array(buffer.length);
+
+    for (let c = 0; c < buffer.numberOfChannels; c += 1) {
+      const datos = buffer.getChannelData(c);
+
+      for (let i = 0; i < datos.length; i += 1) salida[i] += datos[i] / buffer.numberOfChannels;
+    }
+
+    return buffer.sampleRate === FRECUENCIA_AAC ? salida : remuestrea(salida, buffer.sampleRate, FRECUENCIA_AAC);
+  } catch {
+    return null;
+  }
 }
 
 async function buscaFotograma(video: HTMLVideoElement, segundo: number) {
@@ -215,7 +243,13 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
       } else if (e.tipo === "once" || e.tipo === "vigilar") {
         await Promise.all(e.jugadores.map(async (j: JugadorEscena, i: number) => rec.imagenes.set(`${e.id}:${i}`, await cargaImagen(j.foto))));
       } else if (e.tipo === "clips") {
-        await Promise.all(e.cortes.map(async (c: Corte, i: number) => clips.set(`${e.id}:${i}`, await abreClip(c.url, segundos / e.cortes.length, c.desde))));
+        await Promise.all(
+          e.cortes.map(async (c: Corte, i: number) => {
+            const [clip, sonido] = await Promise.all([abreClip(c.url, segundos / e.cortes.length, c.desde), sonidoDelClip(c.url)]);
+
+            clips.set(`${e.id}:${i}`, clip ? { ...clip, sonido } : null);
+          }),
+        );
       }
     }),
   );
@@ -286,6 +320,29 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   const pista = new Float32Array(totalMuestras);
 
   pista.set(camaSintetica(total, arranques.slice(1), frecuencia).subarray(0, totalMuestras));
+
+  /* El sonido ambiente de cada corte, bajo y con fundidos, en el sitio donde se ve. */
+  escenas.forEach((x, k) => {
+    if (x.escena.tipo !== "clips") return;
+
+    const porCorte = x.segundos / Math.max(1, x.escena.cortes.length);
+
+    x.escena.cortes.forEach((_, i) => {
+      const clip = clips.get(`${x.escena.id}:${i}`);
+
+      if (!clip?.sonido) return;
+
+      const d0 = Math.floor((arranques[k] + i * porCorte) * frecuencia);
+      const salto = Math.floor(clip.desde * frecuencia);
+      const n = Math.min(clip.sonido.length - salto, Math.floor(porCorte * frecuencia), totalMuestras - d0);
+
+      for (let j = 0; j < n; j += 1) {
+        const env = Math.min(1, j / (0.3 * frecuencia), (n - j) / (0.3 * frecuencia));
+
+        pista[d0 + j] += clip.sonido[salto + j] * 0.35 * env;
+      }
+    });
+  });
 
   escenas.forEach((x, k) => {
     if (!x.voz) return;

@@ -617,7 +617,7 @@ export async function cargaInforme(entrada: {
   const [onceDoc, analisisDoc, clipsDoc, duelo, mediaDoc, generadosDoc] = await Promise.all([
     doc<unknown>(rivalOnceKey(equipoHoja)),
     doc<unknown>(analisisKey(equipoHoja)),
-    doc<{ jornadas?: Record<string, { docs?: { nombre: string; url: string }[]; clips?: { seccion: string; partido: string; nombre: string; url: string }[] }> }>(clipsKey(equipoHoja)),
+    doc<{ jornadas?: Record<string, { docs?: { nombre: string; url: string }[]; clips?: { seccion: string; partido: string; nombre: string; url: string; texto?: string }[] }> }>(clipsKey(equipoHoja)),
     traeJson<{ duelo?: Duelo }>(
       /* Las medias, de antes del partido (`corte`); en el post, además, el partido. */
       `/api/data-analisis?duelo=${encodeURIComponent(rival)}${partido ? `&corte=${soloDia(partido.cuando)}` : ""}${momento === "post" && partido ? `&fecha=${soloDia(partido.cuando)}` : ""}`,
@@ -664,7 +664,7 @@ export async function cargaInforme(entrada: {
       ...Object.entries(clipsDoc?.jornadas ?? {})
         .sort(([a], [b]) => ordenJornada(b, a))
         .flatMap(([jornada, j]) =>
-          (j.clips ?? []).map((c) => ({ nombre: c.nombre, url: c.url, rotulo: [SECCION_POR_ID.get(c.seccion as never)?.titulo ?? c.seccion, c.partido, jornada].filter(Boolean).join(" · ") })),
+          (j.clips ?? []).map((c) => ({ nombre: c.nombre, url: c.url, texto: c.texto, rotulo: [SECCION_POR_ID.get(c.seccion as never)?.titulo ?? c.seccion, c.partido, jornada].filter(Boolean).join(" · ") })),
         ),
       ...media.videos.map((v) => ({ nombre: v.nombre, url: v.url })),
     ],

@@ -79,7 +79,7 @@ const toca = (n) => !SOLO || SOLO.has(n);
 
 const deAntes = (texto) => console.log(`(${texto}: de la pasada anterior)`);
 
-const TOTAL_PASOS = 7;
+const TOTAL_PASOS = 8;
 
 const paso = (n, texto) => console.log(`PASO: ${n}/${TOTAL_PASOS} · ${texto}`);
 
@@ -743,7 +743,25 @@ async function principal() {
 
   /* ---------------- 7 ---------------- */
 
-  paso(7, "comprobando sección por sección");
+  /*
+  | El vídeo del partido (12/10/2026): los cortes reales de Hudl con su lectura
+  | táctica, el campo 3D, los datos y la voz, montado aquí y subido al bucket
+  | (`informe-video:jNN`): el informe del navegador lo adjunta tal cual. No es
+  | una sección del dato: si falla, se apunta y el análisis sigue siendo bueno.
+  */
+  paso(7, "montando el vídeo del partido (cortes de Hudl, lectura táctica y voz)");
+
+  try {
+    const v = await node("scripts/partido/video-informe.mjs", "--carpeta", CARPETA);
+
+    anota("Vídeo del partido", v.codigo === 0, v.resumen || (v.codigo === 0 ? "montado y subido" : `código ${v.codigo}`));
+  } catch (error) {
+    anota("Vídeo del partido", false, String(error.message).split("\n")[0]);
+  }
+
+  /* ---------------- 8 ---------------- */
+
+  paso(8, "comprobando sección por sección");
 
   return termina(CARPETA, null);
 }

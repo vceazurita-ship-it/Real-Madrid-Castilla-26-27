@@ -61,11 +61,14 @@ export type MarcaPartido = { minuto: number; gol: boolean; de: "nosotros" | "riv
 export const minutoNumero = (m: string) => Number(m.match(/^(\d+)/)?.[1] ?? 0);
 
 /** Las escenas de cortes del partido, agrupadas por lo que cuentan; cada una de hasta 3 cortes. */
-export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosPorCorte = SEGUNDOS_POR_CORTE_PARTIDO): Escena[] {
+export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosPorCorte = SEGUNDOS_POR_CORTE_PARTIDO, opciones: { momento?: "previa" | "post"; rotuloPartido?: string } = {}): Escena[] {
+  const previa = opciones.momento === "previa";
+  /* En la previa los cortes son del ÚLTIMO partido, no de éste: se dice en el título y en la voz. */
+  const de = previa ? ` · ${opciones.rotuloPartido ?? "último partido"}` : "";
   const grupos: { id: string; titulo: string; tipos: CortePartido["tipo"][]; locucion: (n: number) => string }[] = [
-    { id: "clips-1", titulo: "Los goles", tipos: ["gol", "gol-contra"], locucion: () => "Los goles del partido." },
-    { id: "clips-2", titulo: "Nuestras llegadas", tipos: ["remate", "contra", "robo", "corner", "abp"], locucion: (n) => `${n === 1 ? "Una llegada nuestra" : `${n} llegadas nuestras`}: cómo generamos.` },
-    { id: "clips-3", titulo: `Lo que nos generó ${rival}`, tipos: ["remate-contra", "perdida"], locucion: (n) => `${n === 1 ? "Una llegada suya" : `${n} llegadas suyas`}: por dónde nos hicieron daño.` },
+    { id: "clips-1", titulo: previa ? `Cómo llegamos: los goles${de}` : "Los goles", tipos: ["gol", "gol-contra"], locucion: () => (previa ? `Cómo llegamos: los goles ${opciones.rotuloPartido ? `de ${opciones.rotuloPartido}` : "del último partido"}.` : "Los goles del partido.") },
+    { id: "clips-2", titulo: previa ? `Cómo llegamos: nuestras llegadas${de}` : "Nuestras llegadas", tipos: ["remate", "contra", "robo", "corner", "abp"], locucion: (n) => `${n === 1 ? "Una llegada nuestra" : `${n} llegadas nuestras`}${previa ? " del último partido" : ""}: cómo generamos.` },
+    { id: "clips-3", titulo: previa ? `Lo que concedimos${de}` : `Lo que nos generó ${rival}`, tipos: ["remate-contra", "perdida"], locucion: (n) => `${n === 1 ? "Una llegada suya" : `${n} llegadas suyas`}${previa ? " en el último partido" : ""}: por dónde nos hicieron daño.` },
   ];
 
   /* Por objeto, no por URL: en el ordenador del club los cortes aún no tienen URL cuando se arma el guion. */
@@ -197,8 +200,8 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     escenas.push({ id: "claves", tipo: "claves", titulo: previa ? "Las claves" : "Lo que dijo el partido", lineas: claves, locucion: claves.join(". ") });
   }
 
-  /* Los cortes del partido cortados por el ordenador del club desde Hudl (goles, llegadas, lo que concedimos), con su lectura. */
-  escenas.push(...escenasDeCortes(informe.recursos.cortes ?? [], partido.rival));
+  /* Los cortes del partido cortados por el ordenador del club desde Hudl (goles, llegadas, lo que concedimos), con su lectura. En la previa son del último partido jugado. */
+  escenas.push(...escenasDeCortes(informe.recursos.cortes ?? [], partido.rival, SEGUNDOS_POR_CORTE_PARTIDO, { momento, rotuloPartido: previa && partido.jornada ? `J${partido.jornada - 1}` : undefined }));
 
   /* Los cortes de acciones concretas del rival (Análisis visual, por jornada) y, si no, sus vídeos de Recursos. */
   const cortes: Corte[] = informe.recursos.videos.filter((v) => esClipLegible(v.url)).map((v) => ({ url: v.url, rotulo: v.rotulo ?? v.nombre }));

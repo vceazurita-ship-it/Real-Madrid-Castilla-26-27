@@ -302,7 +302,7 @@ export type InformePartido = {
    */
   recursos: {
     documentos: DocumentoRival[];
-    videos: { nombre: string; url: string; /** «Córner ofensivo · VS EUROPA»: de dónde sale el corte, para el vídeo resumen. */ rotulo?: string }[];
+    videos: { nombre: string; url: string; /** «Córner ofensivo · VS EUROPA»: de dónde sale el corte, para el vídeo resumen. */ rotulo?: string; /** La lectura táctica del corte (Gemini, la pone el ordenador del club). */ texto?: string }[];
     /** Los cortes del propio partido (Hudl → bucket, los corta el ordenador del club: `informe-clips:jNN`), con su lectura táctica. */
     cortes?: CortePartido[];
     /** El equipo como lo escribe la hoja de plantillas (para pedir sus documentos a Plantillas rivales). */

@@ -450,7 +450,7 @@ async function pideVoz(ai, guion) {
 /*  EL GUION DEL PARTIDO (CON LO QUE HAY EN NODE)                      */
 /* ------------------------------------------------------------------ */
 
-function guionDelPartido(partido, cortes, datos, transiciones) {
+function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = null) {
   const rival = partido.rival;
   const marcador = `${partido.gf}-${partido.gc}`;
   const fecha = new Date(partido.cuando ?? partido.fecha);
@@ -466,7 +466,7 @@ function guionDelPartido(partido, cortes, datos, transiciones) {
     subtitulo: [`Jornada ${partido.jornada}`, fechaTexto, partido.local ? "en casa" : "fuera"].join(" · "),
     sello: `POST · ${marcador}`,
     escudoNosotros: path.join(REPO, "public", "logo.png"),
-    escudoRival: null,
+    escudoRival,
     locucion: `${rival}, ${partido.local ? "en casa" : "fuera"}: ${resultado} ${marcador}. ${goles.map((g) => `${g.tipo === "gol" ? "Gol nuestro" : "Gol suyo"} en el ${g.minuto}`).join(", ")}.`,
   });
 
@@ -707,21 +707,144 @@ async function mandaCorreo(env, para, partido, video, url, resumen) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  EL ESCUDO DEL RIVAL Y LAS LECTURAS DE SUS CORTES                    */
+/* ------------------------------------------------------------------ */
+
+/** El escudo del rival, del documento `rivals:informe` (los baja BeSoccer), como fichero temporal para `loadImage`. */
+async function escudoDelRival(supabase, rival, destino) {
+  try {
+    const { mismoClub } = require("../../lib/rivals/mismoClub.ts");
+    const { data } = await supabase.from("app_documents").select("data").eq("key", "rivals:informe").maybeSingle();
+    const porNombre = new Map();
+
+    for (const informe of Object.values(data?.data?.porId ?? {})) {
+      if (informe?.nombre && informe?.escudo) porNombre.set(informe.nombre, informe.escudo);
+
+      for (const fila of informe?.clasificacion?.total ?? []) if (fila?.equipo && fila?.escudo && !porNombre.has(fila.equipo)) porNombre.set(fila.equipo, fila.escudo);
+    }
+
+    const nombre = [...porNombre.keys()].find((n) => n === rival) ?? [...porNombre.keys()].find((n) => mismoClub(n, rival));
+
+    if (!nombre) return null;
+
+    const r = await fetch(porNombre.get(nombre));
+
+    if (!r.ok) return null;
+
+    const fichero = path.join(destino, "escudo-rival.png");
+    fs.writeFileSync(fichero, Buffer.from(await r.arrayBuffer()));
+
+    return fichero;
+  } catch (error) {
+    console.log(`  (sin escudo del rival: ${String(error?.message ?? error).slice(0, 80)})`);
+
+    return null;
+  }
+}
+
+/**
+ * `--lecturas-rival "<equipo>"`: a los cortes del rival que el vigía subió
+ * desde la carpeta de Análisis visual (`rival-analisis-clips:<equipo>`, la
+ * jornada más reciente) les pone la lectura táctica de Gemini viendo cada
+ * vídeo, y la guarda en el mismo documento (`texto`). El informe del
+ * navegador la enseña bajo el rótulo del corte. Sólo pide las que faltan.
+ */
+async function lecturasDelRival(ai, supabase, equipo) {
+  const { clipsKey, SECCION_POR_ID, ordenJornada } = require("../../lib/rivals/analisis.ts");
+  const clave = clipsKey(equipo);
+  const { data, error } = await supabase.from("app_documents").select("data, kind").eq("key", clave).maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  const doc = data?.data;
+  const jornadas = Object.keys(doc?.jornadas ?? {}).sort(ordenJornada);
+  const jornada = jornadas.filter((j) => doc.jornadas[j]?.clips?.length).pop();
+
+  if (!jornada) return fin(0, `${equipo}: no hay cortes del rival a los que poner lectura`);
+
+  const clips = doc.jornadas[jornada].clips;
+  const tmp = path.join(CLUB, "PARTIDOS", "ANALISIS", "tmp-lecturas");
+  fs.mkdirSync(tmp, { recursive: true });
+  let hechas = 0;
+
+  for (const [i, c] of clips.slice(0, 10).entries()) {
+    if (c.texto || !ai) continue;
+
+    try {
+      const r = await fetch(c.url);
+
+      if (!r.ok) continue;
+
+      const bytes = Buffer.from(await r.arrayBuffer());
+
+      if (bytes.length > 19_000_000) continue;
+
+      const seccion = SECCION_POR_ID.get(c.seccion)?.titulo ?? c.seccion;
+      const respuesta = await conGemini(
+        (model) =>
+          ai.models.generateContent({
+            model,
+            contents: [
+              {
+                role: "user",
+                parts: [
+                  { inlineData: { mimeType: "video/mp4", data: bytes.toString("base64") } },
+                  { text: `Eres el analista táctico del Real Madrid Castilla y preparas el partido contra ${equipo}. Este corte es de ${equipo} (${seccion}${c.partido ? `, partido ${c.partido}` : ""}, ${jornada}). Mira el vídeo y escribe UNA frase (máximo 22 palabras, castellano de España, sin adornos) con lo que hay que saber de cómo lo hacen: colocación, movimientos, a quién buscan, dónde flojean. Sólo lo que se ve. Devuelve JSON {"texto": "..."}.` },
+                ],
+              },
+            ],
+            config: { temperature: 0.3, responseMimeType: "application/json", responseJsonSchema: { type: "object", properties: { texto: { type: "string" } }, required: ["texto"] } },
+          }),
+        ["gemini-2.5-flash"],
+      );
+
+      c.texto = String(JSON.parse(respuesta.text ?? "{}").texto ?? "").trim().slice(0, 160);
+      hechas += 1;
+      console.log(`  lectura ${i + 1}: ${c.texto}`);
+      await espera(6500);
+    } catch (e) {
+      console.log(`  (sin lectura del corte ${i + 1}: ${String(e?.message ?? e).slice(0, 80)})`);
+    }
+  }
+
+  fs.rmSync(tmp, { recursive: true, force: true });
+
+  if (hechas) {
+    const { error: e2 } = await supabase.from("app_documents").upsert({ key: clave, kind: data?.kind ?? "rival-analisis-clips", data: doc, updated_at: new Date().toISOString() }, { onConflict: "key" });
+
+    if (e2) throw new Error(e2.message);
+  }
+
+  return fin(0, `${equipo} (${jornada}): ${hechas} lecturas nuevas de ${clips.length} cortes`);
+}
+
+/* ------------------------------------------------------------------ */
 /*  PRINCIPAL                                                          */
 /* ------------------------------------------------------------------ */
 
 async function principal() {
-  if (!JORNADA) return fin(2, "falta --jornada N");
+  const env = entorno();
+  const geminiKey = env?.GEMINI_API_KEY ?? process.env.GEMINI_API_KEY;
+  const ai = geminiKey && !SIN_IA ? new GoogleGenAI({ apiKey: geminiKey }) : null;
+
+  /* --lecturas-rival "<equipo>": sólo pone lectura a los cortes del rival ya subidos, para la previa. */
+  if (valor("--lecturas-rival")) {
+    if (!env) return fin(2, "faltan las claves de Supabase en .env.local");
+
+    return lecturasDelRival(ai, supabaseDe(env), valor("--lecturas-rival"));
+  }
+
+  if (!JORNADA && !valor("--carpeta")) return fin(2, "falta --jornada N (o --carpeta)");
 
   /* --si-no-enviado: para la tarea programada que reintenta hasta que haya voz; una vez mandado, no vuelve a mandar. */
   const SI_NO_ENVIADO = bandera("--si-no-enviado");
 
-  const carpeta = carpetaDeJornada(JORNADA);
+  const carpeta = valor("--carpeta") || carpetaDeJornada(JORNADA);
 
   if (!carpeta) return fin(2, `no hay carpeta de análisis de la jornada ${JORNADA} en ${ANALISIS}`);
 
   const partido = leePartido(carpeta);
-  const clave = `j${String(JORNADA).padStart(2, "0")}`;
+  const clave = `j${String(partido.jornada).padStart(2, "0")}`;
   const carpetaVideo = path.join(carpeta, "video");
   const carpetaCortes = path.join(carpetaVideo, "cortes");
   fs.mkdirSync(carpetaCortes, { recursive: true });
@@ -734,10 +857,6 @@ async function principal() {
     return fin(2, "faltan timeline-hudl.json o hls.json: pasa antes scripts/hudl-partido.mjs");
   }
 
-  const env = entorno();
-  const geminiKey = env?.GEMINI_API_KEY ?? process.env.GEMINI_API_KEY;
-  const ai = geminiKey && !SIN_IA ? new GoogleGenAI({ apiKey: geminiKey }) : null;
-
   /* --solo-correo: el vídeo ya está montado; sólo se (re)sube y se manda. */
   if (bandera("--solo-correo")) {
     const hecho = path.join(carpetaVideo, `${partido.slug}.mp4`);
@@ -749,14 +868,14 @@ async function principal() {
 
     await mandaCorreo(env, CORREO, partido, hecho, url, `${(fs.statSync(hecho).size / 1048576).toFixed(1)} MB`);
 
-    return fin(0, `correo con el vídeo de LIGA ${String(JORNADA).padStart(2, "0")} ${partido.rival} a ${CORREO}`);
+    return fin(0, `correo con el vídeo de LIGA ${String(partido.jornada).padStart(2, "0")} ${partido.rival} a ${CORREO}`);
   }
 
   /* 1. Los momentos y los cortes. */
   const timeline = JSON.parse(fs.readFileSync(path.join(carpeta, "timeline-hudl.json"), "utf8"));
   const { elegidos, datos } = eligeMomentos(timeline);
 
-  console.log(`${partido.rival} (J${JORNADA}): ${elegidos.length} momentos elegidos · remates ${datos.remates.join("-")} · córners ${datos.corners.join("-")}`);
+  console.log(`${partido.rival} (J${partido.jornada}): ${elegidos.length} momentos elegidos · remates ${datos.remates.join("-")} · córners ${datos.corners.join("-")}`);
 
   const cacheCortes = path.join(carpetaVideo, "cortes.json");
   let momentos = elegidos;
@@ -808,7 +927,8 @@ async function principal() {
   /* 4. El guion, la locución y la voz. */
   const { PARTIDOS } = require("../../lib/transiciones/datos.ts");
   const transiciones = PARTIDOS.find((p) => p.id === partido.slug) ?? null;
-  let guion = guionDelPartido(partido, cortes, datos, transiciones);
+  const escudo = supabase ? await escudoDelRival(supabase, partido.rival, carpetaVideo) : null;
+  let guion = guionDelPartido(partido, cortes, datos, transiciones, escudo);
 
   if (ai) {
     try {
@@ -857,7 +977,7 @@ async function principal() {
     console.log(`  correo mandado a ${CORREO}`);
   }
 
-  return fin(0, `vídeo de LIGA ${String(JORNADA).padStart(2, "0")} ${partido.rival}: ${resumen}${url ? ` · ${url}` : ""}${CORREO ? ` · correo a ${CORREO}` : ""}`);
+  return fin(0, `vídeo de LIGA ${String(partido.jornada).padStart(2, "0")} ${partido.rival}: ${resumen}${url ? ` · ${url}` : ""}${CORREO ? ` · correo a ${CORREO}` : ""}`);
 }
 
 principal().catch((error) => {
