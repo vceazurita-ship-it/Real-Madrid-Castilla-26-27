@@ -23,6 +23,8 @@
 /*  LA FORMA                                                           */
 /* ------------------------------------------------------------------ */
 
+import type { CortePartido } from "@/lib/video-informe/guion";
+
 export type Momento = "previa" | "post";
 
 export type MetricaDuelo = {
@@ -301,6 +303,8 @@ export type InformePartido = {
   recursos: {
     documentos: DocumentoRival[];
     videos: { nombre: string; url: string; /** «Córner ofensivo · VS EUROPA»: de dónde sale el corte, para el vídeo resumen. */ rotulo?: string }[];
+    /** Los cortes del propio partido (Hudl → bucket, los corta el ordenador del club: `informe-clips:jNN`), con su lectura táctica. */
+    cortes?: CortePartido[];
     /** El equipo como lo escribe la hoja de plantillas (para pedir sus documentos a Plantillas rivales). */
     equipoPlantilla: string;
     /** Los que se sacaron en Plantillas rivales: de qué tipo y cuándo. */
@@ -312,6 +316,8 @@ export type InformePartido = {
   duelosJugadores: DuelosInforme | null;
   /** El rival de un vistazo (DATA → Un equipo de un vistazo), resumido. */
   vistazo: VistazoRival | null;
+  /** El vídeo resumen ya montado por el ordenador del club (`informe-video:jNN`): el diálogo lo adjunta tal cual, sin montar nada. */
+  videoListo?: { url: string; creado: string; segundos: number } | null;
 };
 
 /* ------------------------------------------------------------------ */

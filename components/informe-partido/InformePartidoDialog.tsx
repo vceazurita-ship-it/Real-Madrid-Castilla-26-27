@@ -982,6 +982,13 @@ export function InformePartidoDialog({
       const videoResumen = (correo: "resumen" | "completo") =>
         (videoP ??= (async () => {
           try {
+            /* Si el ordenador del club ya montó el vídeo de esta jornada (con los cortes de Hudl), va ése tal cual: está en el bucket. */
+            if (informeVisto.videoListo?.url) {
+              paso(correo, "vídeo: ya montado ✓");
+
+              return { nombre: nombreVideo, url: informeVisto.videoListo.url, tipo: "video/mp4", tamano: null as number | null };
+            }
+
             const escudos = await traeEscudos().catch(() => []);
             const escudo = buscadorDeEscudos(escudos)(informeVisto.partido.rival);
 

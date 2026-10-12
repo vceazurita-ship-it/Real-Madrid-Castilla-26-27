@@ -21,7 +21,52 @@ import type { InformeMicro } from "@/lib/abp/informe-micro";
 
 export type Cifra = { rotulo: string; valor: string; pie?: string };
 
-export type Corte = { url: string; rotulo: string };
+export type Corte = {
+  url: string;
+  /** «Córner ofensivo · VS EUROPA · J8» o «Gol · 23'»: lo que va en el rótulo bajo. */
+  rotulo: string;
+  /** La lectura táctica del corte (la escribe Gemini viendo el vídeo), en una frase. */
+  texto?: string;
+  /** Segundo del vídeo en el que empieza lo que hay que enseñar (un corte preparado empieza en 0). */
+  desde?: number;
+};
+
+/** Un corte del partido ya cortado por el ordenador del club (Hudl → bucket), con su lectura. */
+export type CortePartido = Corte & {
+  tipo: "gol" | "gol-contra" | "remate" | "remate-contra" | "contra" | "corner" | "abp" | "robo" | "perdida" | "otro";
+  /** «23'» o «45+2'». */
+  minuto: string;
+  segundos: number;
+  /** De qué equipo es la acción. */
+  de: "nosotros" | "rival";
+};
+
+/** Las escenas de cortes del partido, agrupadas por lo que cuentan; cada una de hasta 3 cortes. */
+export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosPorCorte = SEGUNDOS_POR_CORTE_PARTIDO): Escena[] {
+  const grupos: { id: string; titulo: string; tipos: CortePartido["tipo"][]; locucion: (n: number) => string }[] = [
+    { id: "clips-1", titulo: "Los goles", tipos: ["gol", "gol-contra"], locucion: () => "Los goles del partido." },
+    { id: "clips-2", titulo: "Nuestras llegadas", tipos: ["remate", "contra", "robo", "corner", "abp"], locucion: (n) => `${n === 1 ? "Una llegada nuestra" : `${n} llegadas nuestras`}: cómo generamos.` },
+    { id: "clips-3", titulo: `Lo que nos generó ${rival}`, tipos: ["remate-contra", "perdida"], locucion: (n) => `${n === 1 ? "Una llegada suya" : `${n} llegadas suyas`}: por dónde nos hicieron daño.` },
+  ];
+
+  /* Por objeto, no por URL: en el ordenador del club los cortes aún no tienen URL cuando se arma el guion. */
+  const usados = new Set<CortePartido>();
+  const escenas: Escena[] = [];
+
+  for (const g of grupos) {
+    const elegidos = cortes.filter((c) => g.tipos.includes(c.tipo) && !usados.has(c)).slice(0, 3);
+
+    if (!elegidos.length) continue;
+
+    elegidos.forEach((c) => usados.add(c));
+    escenas.push({ id: g.id, tipo: "clips", titulo: g.titulo, cortes: elegidos, segundos: elegidos.length * segundosPorCorte, locucion: g.locucion(elegidos.length) });
+  }
+
+  return escenas;
+}
+
+/** Lo que dura cada corte del partido en pantalla: la jugada entera cabe en seis segundos. */
+export const SEGUNDOS_POR_CORTE_PARTIDO = 6;
 
 export type JugadorEscena = { nombre: string; dorsal: string; posicion: string; foto: string; x: number; y: number; destacado: boolean; texto?: string };
 
@@ -42,8 +87,8 @@ export type GuionVideo = {
   escenas: Escena[];
 };
 
-/** Tope duro: el correo no debe llevar más de un minuto de vídeo. */
-export const SEGUNDOS_MAXIMOS = 58;
+/** Tope duro: minuto y medio (12/10/2026; antes 58 s), que es lo que caben los cortes del partido. */
+export const SEGUNDOS_MAXIMOS = 90;
 
 /** Cuántos cortes de acciones entran, y cuánto dura cada uno. */
 const CORTES = 3;
@@ -121,6 +166,9 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   if (claves.length) {
     escenas.push({ id: "claves", tipo: "claves", titulo: previa ? "Las claves" : "Lo que dijo el partido", lineas: claves, locucion: claves.join(". ") });
   }
+
+  /* Los cortes del partido cortados por el ordenador del club desde Hudl (goles, llegadas, lo que concedimos), con su lectura. */
+  escenas.push(...escenasDeCortes(informe.recursos.cortes ?? [], partido.rival));
 
   /* Los cortes de acciones concretas del rival (Análisis visual, por jornada) y, si no, sus vídeos de Recursos. */
   const cortes: Corte[] = informe.recursos.videos.filter((v) => esClipLegible(v.url)).map((v) => ({ url: v.url, rotulo: v.rotulo ?? v.nombre }));

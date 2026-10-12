@@ -35,7 +35,7 @@ const VOZ = "Kore";
 const FRECUENCIA = 24_000;
 
 /** Un minuto largo de locución; más no cabe en el vídeo ni en la respuesta. */
-const MAX_CARACTERES = 1400;
+const MAX_CARACTERES = 2200;
 
 export async function POST(request: NextRequest) {
   if (!puedeMandar(request)) return NextResponse.json({ ok: false, error: "Hace falta sesión del cuerpo técnico." }, { status: 401 });

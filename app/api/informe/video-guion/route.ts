@@ -21,7 +21,8 @@ import { puedeMandar } from "@/lib/correo/peticionInforme";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MODEL = "gemini-2.5-flash";
+/* El Flash y, si su cuota por minuto no da, el Lite (el 2.5 Pro ya no está para cuentas nuevas: 404). */
+const MODELOS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
 
 const ESQUEMA = {
   type: "object",
@@ -80,11 +81,22 @@ export async function POST(request: NextRequest) {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-    const respuesta = await ai.models.generateContent({
-      model: MODEL,
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      config: { temperature: 0.3, responseMimeType: "application/json", responseJsonSchema: ESQUEMA },
-    });
+    let respuesta: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
+
+    for (const model of MODELOS) {
+      try {
+        respuesta = await ai.models.generateContent({
+          model,
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          config: { temperature: 0.3, responseMimeType: "application/json", responseJsonSchema: ESQUEMA },
+        });
+        break;
+      } catch (error) {
+        console.warn(`[video-guion] ${model} no ha contestado`, (error as { status?: number })?.status ?? error);
+      }
+    }
+
+    if (!respuesta) throw new Error("Ningún modelo ha contestado.");
 
     const datos = JSON.parse(respuesta.text ?? "{}") as { locuciones?: { id: string; texto: string }[] };
 

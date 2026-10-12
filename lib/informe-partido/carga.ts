@@ -30,6 +30,7 @@ import { duelosYVistazo } from "@/lib/informe-partido/rival-datos";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
 import { fraseUtil, mismoJugador, pronostica, type Cronica } from "./modelo";
+import type { CortePartido } from "@/lib/video-informe/guion";
 import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
 
 import {
@@ -600,6 +601,19 @@ export async function cargaInforme(entrada: {
 
   const informeRival = findInforme(informes, equipoHoja);
 
+  /*
+  | Los cortes del propio partido y el vídeo ya montado (12/10/2026): los deja
+  | el ordenador del club (scripts/partido/video-informe.mjs) por jornada. En el
+  | post son los del partido; en la previa, los del último jugado.
+  */
+  const jornadaCortes = partido?.jornada ? (momento === "post" ? partido.jornada : partido.jornada - 1) : null;
+  const claveJornada = jornadaCortes && jornadaCortes > 0 ? `j${String(jornadaCortes).padStart(2, "0")}` : null;
+
+  const [cortesDoc, videoDoc] = await Promise.all([
+    claveJornada ? doc<{ cortes?: CortePartido[] }>(`informe-clips:${claveJornada}`) : Promise.resolve(null),
+    claveJornada ? doc<{ url?: string; creado?: string; segundos?: number }>(`informe-video:${claveJornada}`) : Promise.resolve(null),
+  ]);
+
   const [onceDoc, analisisDoc, clipsDoc, duelo, mediaDoc, generadosDoc] = await Promise.all([
     doc<unknown>(rivalOnceKey(equipoHoja)),
     doc<unknown>(analisisKey(equipoHoja)),
@@ -654,6 +668,7 @@ export async function cargaInforme(entrada: {
         ),
       ...media.videos.map((v) => ({ nombre: v.nombre, url: v.url })),
     ],
+    cortes: Array.isArray(cortesDoc?.cortes) ? cortesDoc!.cortes.filter((c) => c && typeof c.url === "string") : [],
     equipoPlantilla: equipoHoja,
     generados: normalizaDocumentos(generadosDoc).docs.map((d) => ({ tipo: d.tipo, creado: d.creado })),
   };
@@ -775,6 +790,7 @@ export async function cargaInforme(entrada: {
     avisos,
     duelosJugadores: delRival.duelos,
     vistazo: delRival.vistazo,
+    videoListo: videoDoc?.url ? { url: videoDoc.url, creado: videoDoc.creado ?? "", segundos: videoDoc.segundos ?? 0 } : null,
   };
 
   if (momento === "post" && !partido?.jugado) avisos.push("El partido aún no tiene resultado: el post saldrá completo cuando se juegue.");
