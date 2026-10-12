@@ -992,7 +992,13 @@ async function principal() {
   /* 6. Al bucket y, si se pide, por correo. */
   let url = "";
 
-  if (supabase) {
+  /* Un montaje SIN voz nunca pisa en el bucket a uno que la tenía (pasó el 12/10/2026 al remontar sin cuota del TTS). */
+  const previo = supabase ? (await supabase.from("app_documents").select("data").eq("key", `informe-video:${clave}`).maybeSingle()).data?.data : null;
+
+  if (supabase && !pistas && previo?.conVoz) {
+    console.log("  (el vídeo con voz que ya había se queda: éste va sin voz)");
+    url = previo.url;
+  } else if (supabase) {
     url = await sube(supabase, salida, `2026/informes/video/${partido.slug}.mp4`, "video/mp4");
     await guardaDoc(supabase, `informe-video:${clave}`, "informe-video", { url, creado: new Date().toISOString(), segundos, conVoz: Boolean(pistas), partido: { jornada: partido.jornada, rival: partido.rival } });
   }
