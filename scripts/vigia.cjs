@@ -920,13 +920,17 @@ async function haceAnalisisPartido() {
   apunta("Partido: empieza el análisis del último partido…");
 
   pasoPartido = "empezando";
-  const plan = planDe((await leeEncargos()).partido);
+  const encargoPartido = (await leeEncargos()).partido;
+  const plan = planDe(encargoPartido);
+  /* El partido elegido en Ajustes (12/10/2026); sin él, el último jugado. */
+  const jornadaElegida = Number(encargoPartido?.jornada) || 0;
+  if (jornadaElegida) apunta(`Partido: la jornada ${jornadaElegida}, elegida en Ajustes.`);
   if (plan) apunta(`Partido: sólo ${plan.map((i) => ETAPAS.partido[i]?.nombre).join(", ")}; lo demás, de la pasada anterior.`);
   const alSeguimiento = sigue("partido", plan);
   const { codigo, texto } = await ejecuta(
     "partido",
     process.execPath,
-    [path.join(RAIZ, "scripts/analisis-partido.cjs"), ...(plan ? ["--solo", plan.map((i) => i + 1).join(",")] : [])],
+    [path.join(RAIZ, "scripts/analisis-partido.cjs"), ...(jornadaElegida ? ["--jornada", String(jornadaElegida)] : []), ...(plan ? ["--solo", plan.map((i) => i + 1).join(",")] : [])],
     (linea) => {
       alSeguimiento(linea);
       const paso = linea.match(/^PASO:\s*(.+)$/)?.[1];
@@ -1137,8 +1141,8 @@ async function ronda() {
     /* Con el «1/7» delante para que Ajustes lo pinte como la primera etapa
        y enseñe el detalle (ver `progresoDePaso` en lib/progreso.ts). */
     pasoPartido = automatica
-      ? "1/7 · cortando la pasada automática de Wyscout para empezar"
-      : "1/7 · esperando a que termine Wyscout, que comparte el Chrome";
+      ? "1/8 · cortando la pasada automática de Wyscout para empezar"
+      : "1/8 · esperando a que termine Wyscout, que comparte el Chrome";
   } else if (!enMarcha.has("partido") && /^1\/7 · (esperando|cortando)/.test(pasoPartido)) {
     pasoPartido = "";
   }

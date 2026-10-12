@@ -187,7 +187,8 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
     if (!tipo) continue;
 
     /* Los eventos por jugador de ESE equipo dentro del momento (con un margen: el del rematador dura 20 s). */
-    const dentro = eventos.filter((e) => e.de === de && e.centro >= ini - 2 && e.centro <= fin + 2).sort((a, b) => a.centro - b.centro);
+    /* Por SOLAPAMIENTO de ventanas, no por el centro: el evento del que tira un penalti dura 20 s y su centro cae antes del momento del gol (Aguado, J06). */
+    const dentro = eventos.filter((e) => e.de === de && e.fin >= ini - 2 && e.ini <= fin + 2).sort((a, b) => a.centro - b.centro);
     const remates = dentro.filter((e) => e.tipos.some((t) => /^(Shot|Head shot|Free kick shot|Shot after corner|Shot after throw in)$/.test(t)) && !e.tipos.includes("Shot against"));
     const goles = remates.filter((e) => e.tipos.includes("Goal"));
     const rematador = goles[0] ?? remates[remates.length - 1] ?? null;
@@ -233,6 +234,7 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
       asiste: asistente?.jugador ?? "",
       resultado: goles.length ? "gol" : rematador?.resultado ?? "",
       peligro: Boolean(goles.length || rematador || conRemate(m)),
+      penalti: Boolean(dentro.some((e) => e.tipos.includes("Penalty"))),
       zona: rematador?.zona ?? null,
       desdeZona: asistente?.zona ?? null,
       jugadores: [rematador?.jugador, asistente?.jugador].filter(Boolean),
@@ -917,7 +919,7 @@ async function principal() {
     url: m.url ?? "",
     fichero: m.fichero,
     /* Quién remata y quién asiste, de la sesión por jugador: «Gol · 79' · Ángel Carvajal (asiste Diego Aguado)». */
-    rotulo: `${ROTULO[m.tipo]} · ${m.minuto}${m.remata ? ` · ${m.remata}${m.asiste ? ` (asiste ${m.asiste})` : ""}` : m.asiste ? ` · saca ${m.asiste}` : ""}`,
+    rotulo: `${ROTULO[m.tipo]}${m.penalti ? " tras penalti" : ""} · ${m.minuto}${m.remata ? ` · ${m.remata}${m.asiste ? ` (asiste ${m.asiste})` : ""}` : m.asiste ? ` · saca ${m.asiste}` : ""}`,
     texto: m.texto ?? "",
     tipo: m.tipo,
     minuto: m.minuto,

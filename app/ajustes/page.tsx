@@ -43,6 +43,8 @@ import { toast } from "sonner";
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { ProgresoEncargo, RecorridoEncargo, RepetirEncargo } from "@/components/ajustes/ProgresoEncargo";
 import { planRecomendado, progresoDePaso } from "@/lib/progreso";
+import { cargaCalendario } from "@/hooks/useCalendario";
+import { comoNuestro, type PartidoNuestro } from "@/lib/castilla/calendario";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -257,6 +259,24 @@ export default function AjustesPage() {
 
   const [pidiendo, setPidiendo] = useState<Tarea | null>(null);
 
+  /* El partido del análisis y de su vídeo (12/10/2026): el último jugado o el que se elija. */
+  const [jugados, setJugados] = useState<PartidoNuestro[]>([]);
+  const [jornadaElegida, setJornadaElegida] = useState<number>(0);
+
+  useEffect(() => {
+    let vivo = true;
+
+    cargaCalendario()
+      .then((lista) => {
+        if (vivo) setJugados(lista.map(comoNuestro).filter((x) => x.jugado).sort((a, b) => b.jornada - a.jornada));
+      })
+      .catch(() => {});
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
   const [parte, setParte] = useState<ParteJornada[] | null>(null);
 
   const [estado, setEstado] = useState<Mantenimiento>({});
@@ -346,14 +366,14 @@ export default function AjustesPage() {
 
   const recarga = useCallback(() => setTestigo((n) => n + 1), []);
 
-  const pide = async (tarea: Tarea, plan?: number[]) => {
+  const pide = async (tarea: Tarea, plan?: number[], jornada?: number) => {
     setPidiendo(tarea);
 
     try {
       const respuesta = await fetch("/api/mantenimiento", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tarea, ...(plan?.length ? { plan } : {}) }),
+        body: JSON.stringify({ tarea, ...(plan?.length ? { plan } : {}), ...(tarea === "partido" && jornada ? { jornada } : {}) }),
       });
 
       const datos = (await respuesta.json()) as {
@@ -681,17 +701,41 @@ export default function AjustesPage() {
             <div className="mt-5">
               <Panel
                 title="Análisis del partido"
-                subtitle="El último partido jugado, en todas las secciones que lo leen"
+                subtitle="El partido que elijas (por defecto, el último jugado), en todas las secciones que lo leen, y su vídeo"
                 icon={Clapperboard}
                 action={
-                  <Button
-                    tone="primary"
-                    icon={RefreshCw}
-                    disabled={!yo || pidiendo !== null || ocupada("partido")}
-                    onClick={() => void pide("partido")}
-                  >
-                    {rotulo("partido", "Actualizar análisis")}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      aria-label="Partido"
+                      className="rounded-lg border border-white/10 bg-[#11161C] px-2 py-1.5 text-[12px] text-white/80"
+                      value={jornadaElegida}
+                      disabled={!yo || pidiendo !== null || ocupada("partido")}
+                      onChange={(e) => setJornadaElegida(Number(e.target.value))}
+                    >
+                      <option value={0}>El último jugado</option>
+                      {jugados.map((x) => (
+                        <option key={x.jornada} value={x.jornada}>
+                          J{x.jornada} · {x.rival} ({x.golesFavor}-{x.golesContra})
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      icon={Clapperboard}
+                      disabled={!yo || pidiendo !== null || ocupada("partido")}
+                      title="Sólo el vídeo del partido (cortes de Hudl, lectura y voz); el partido tiene que estar analizado"
+                      onClick={() => void pide("partido", [6], jornadaElegida || undefined)}
+                    >
+                      Sólo el vídeo
+                    </Button>
+                    <Button
+                      tone="primary"
+                      icon={RefreshCw}
+                      disabled={!yo || pidiendo !== null || ocupada("partido")}
+                      onClick={() => void pide("partido", undefined, jornadaElegida || undefined)}
+                    >
+                      {rotulo("partido", "Actualizar análisis")}
+                    </Button>
+                  </div>
                 }
               >
                 <div className="grid gap-4 text-[12px] leading-relaxed text-white/45 lg:grid-cols-2">
@@ -752,7 +796,7 @@ export default function AjustesPage() {
                   vigia={vigia}
                   ahora={ahora}
                   ocupado={!yo || pidiendo !== null || ocupada("partido")}
-                  onPide={(plan) => void pide("partido", plan)}
+                  onPide={(plan) => void pide("partido", plan, jornadaElegida || undefined)}
                 />
               </Panel>
             </div>

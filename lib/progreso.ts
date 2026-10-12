@@ -68,7 +68,7 @@ export const ETAPAS: Record<Tarea, Etapa[]> = {
     { nombre: "Documentos y láminas", minutos: 0.3, marca: /^\s*documento:|^Láminas:/ },
   ],
 
-  /* Las siete líneas «PASO: n/7» de `scripts/analisis-partido.cjs`. */
+  /* Las ocho líneas «PASO: n/8» de `scripts/analisis-partido.cjs` (la 7, el vídeo del partido, desde el 12/10/2026). */
   partido: [
     { nombre: "Buscar el último partido", minutos: 0.5, marca: /^PASO:\s*1\// },
     { nombre: "Wyscout: la liga y el partido", minutos: 10, marca: /^PASO:\s*2\// },
@@ -76,7 +76,8 @@ export const ETAPAS: Record<Tarea, Etapa[]> = {
     { nombre: "La base del dato", minutos: 2, marca: /^PASO:\s*4\// },
     { nombre: "Vídeo: jugada a jugada", minutos: 150, marca: /^PASO:\s*5\// },
     { nombre: "Escribir en las hojas y publicar", minutos: 5, marca: /^PASO:\s*6\// },
-    { nombre: "Comprobar cada sección", minutos: 2, marca: /^PASO:\s*7\// },
+    { nombre: "Vídeo del partido", minutos: 8, marca: /^PASO:\s*7\// },
+    { nombre: "Comprobar cada sección", minutos: 2, marca: /^PASO:\s*8\// },
   ],
 };
 
@@ -490,11 +491,12 @@ export function duracion(minutos: number, corto = false) {
 export const REPETIBLE: Partial<Record<Tarea, true>> = { rivales: true, wyscout: true, partido: true };
 
 /** Las etapas que se hacen siempre. */
-const FIJAS: Partial<Record<Tarea, number[]>> = { rivales: [0], partido: [0, 6] };
+const FIJAS: Partial<Record<Tarea, number[]>> = { rivales: [0], partido: [0, 7] };
 
 /** Lo que obliga a rehacer cada etapa (sólo el partido tiene cadenas sueltas). */
 const ARRASTRA: Partial<Record<Tarea, Record<number, number[]>>> = {
-  partido: { 2: [3, 4, 5], 3: [4, 5], 4: [5] },
+  /* El vídeo (6) se rehace si cambia el timeline de Hudl o la base del dato. */
+  partido: { 2: [3, 4, 5, 6], 3: [4, 5, 6], 4: [5, 6] },
 };
 
 /** Las etapas marcadas, con lo que arrastran y lo que va siempre, en orden. */
@@ -544,6 +546,8 @@ export function obligadas(tarea: Tarea, marcadas: number[]): Map<number, "siempr
 /** A qué etapa del partido pertenece una sección que la comprobación da por mala. */
 function etapaDeSeccion(nombre: string, detalle = "") {
   if (/^(Wyscout|Data Análisis)/i.test(nombre)) return 1;
+  /* El vídeo del partido se repite solo, sin rehacer el análisis (12/10/2026). */
+  if (/^Vídeo del partido/i.test(nombre)) return 6;
   /* Lo que deja el análisis de vídeo aunque lo cuente otra sección (09/10/2026):
      el desfase de la táctica, las faltas decididas y las filas de banda. Antes
      iba a «escribir», que no lo arregla, y «Repetir» se repetía sin fin. */

@@ -63,6 +63,29 @@ export function reparteEscenas(guion: GuionVideo, pistas: (Float32Array | null)[
 
   const total = () => lista.reduce((s, x) => s + x.segundos, 0);
 
+  /*
+  | Antes de quitar escenas enteras, se quitan CORTES: el último de la escena
+  | de cortes más larga, hasta dejar uno por escena. Con cinco goles (J06) el
+  | vídeo perdía «nuestras llegadas» y «lo que nos generó» enteras; así queda
+  | algo de cada bloque. Los cortes del partido van en orden de minuto, y se
+  | conserva el primero.
+  */
+  while (total() > tope) {
+    const candidatas = lista
+      .map((x, i) => ({ x, i }))
+      .filter(({ x }) => x.escena.tipo === "clips" && x.escena.cortes.length > 1)
+      .sort((a, b) => b.x.segundos - a.x.segundos);
+
+    if (!candidatas.length) break;
+
+    const { x, i } = candidatas[0];
+    const e = x.escena as Extract<Escena, { tipo: "clips" }>;
+    const quitado = e.cortes[e.cortes.length - 1] as Corte & { segundos?: number };
+    const menos = quitado.segundos || x.segundos / e.cortes.length;
+
+    lista[i] = { ...x, escena: { ...e, cortes: e.cortes.slice(0, -1), segundos: Math.max(0, e.segundos - menos) }, segundos: Math.max(0, x.segundos - menos) };
+  }
+
   for (const id of PRESCINDIBLES) {
     if (total() <= tope) break;
 

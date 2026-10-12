@@ -110,7 +110,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const estado = await pideEncargo(tarea, slug, datos, plan);
+    /* El partido que se elige en Ajustes (12/10/2026); sin él, el último jugado. */
+    const jornadaPartido = tarea === "partido" ? Math.trunc(Number(cuerpo.jornada)) || undefined : undefined;
+    const estado = await pideEncargo(tarea, slug, datos, plan, jornadaPartido);
 
     return NextResponse.json({ ok: true, estado });
   } catch (error) {

@@ -749,9 +749,9 @@ async function principal() {
   | (`informe-video:jNN`): el informe del navegador lo adjunta tal cual. No es
   | una sección del dato: si falla, se apunta y el análisis sigue siendo bueno.
   */
-  paso(7, "montando el vídeo del partido (cortes de Hudl, lectura táctica y voz)");
+  if (toca(7)) try {
+    paso(7, "montando el vídeo del partido (cortes de Hudl, lectura táctica y voz)");
 
-  try {
     const v = await node("scripts/partido/video-informe.mjs", "--carpeta", CARPETA);
 
     anota("Vídeo del partido", v.codigo === 0, v.resumen || (v.codigo === 0 ? "montado y subido" : `código ${v.codigo}`));

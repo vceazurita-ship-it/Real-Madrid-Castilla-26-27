@@ -39,6 +39,7 @@ export async function pideEncargo(
   quien: string,
   datos?: DatosCarpeta,
   plan?: number[],
+  jornada?: number,
 ): Promise<Mantenimiento> {
   const pedidoEn = new Date().toISOString();
 
@@ -55,6 +56,8 @@ export async function pideEncargo(
         /* Cada pedido dice el suyo: uno sin plan es «todo», y no hereda el
            plan de la vez anterior. */
         plan: plan?.length ? plan : undefined,
+        /* El partido: el elegido o, sin elegir, el último (no hereda la jornada de la vez anterior). */
+        ...(tarea === "partido" ? { jornada: jornada && jornada > 0 ? jornada : undefined } : {}),
       },
     };
   });

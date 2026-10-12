@@ -55,6 +55,8 @@ export type Encargo = {
   secciones?: SeccionPartido[];
   /** Lo que necesita el encargo para hacerse; sólo lo usa `carpeta`. */
   datos?: DatosCarpeta;
+  /** El partido elegido (12/10/2026); sólo `partido`. Sin él, el último jugado. */
+  jornada?: number;
 };
 
 export type SeccionPartido = {
