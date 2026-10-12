@@ -937,7 +937,7 @@ export function InformeMicroDialog({
                 <span className="shrink-0">Tu vídeo de análisis previo:</span>
                 <input
                   type="file"
-                  accept="video/mp4,video/quicktime,.mp4,.mov"
+                  accept="video/mp4,.mp4"
                   disabled={!puedeMontarVideo() || enviando || !conVideo}
                   className="max-w-[260px] text-[11px] file:mr-2 file:rounded file:border-0 file:bg-white/10 file:px-2 file:py-0.5 file:text-[11px] file:text-white/80"
                   onChange={(e) => setVideoPrevio(e.target.files?.[0] ?? null)}

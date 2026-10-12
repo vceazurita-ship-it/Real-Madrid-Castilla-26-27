@@ -70,26 +70,67 @@ export function reparteEscenas(guion: GuionVideo, pistas: (Float32Array | null)[
   | algo de cada bloque. Los cortes del partido van en orden de minuto, y se
   | conserva el primero.
   */
+  /*
+  | Primero caen las REPETICIONES (la última primero) y sólo después cortes:
+  | con cinco goles, el recorte se llevaba los goles del 66' y del 71' y
+  | dejaba las repeticiones de los primeros (J06, 12/10/2026).
+  */
+  const esGol = (c: Corte) => /^gol/.test((c as Corte & { tipo?: string }).tipo ?? "");
+
+  const quita = (i: number, k: number) => {
+    const x = lista[i];
+    const e = x.escena as Extract<Escena, { tipo: "clips" }>;
+    const quitado = e.cortes[k] as Corte & { segundos?: number };
+    const menos = quitado.segundos || x.segundos / e.cortes.length;
+
+    lista[i] = { ...x, escena: { ...e, cortes: e.cortes.filter((_, j) => j !== k), segundos: Math.max(0, e.segundos - menos) }, segundos: Math.max(0, x.segundos - menos) };
+  };
+
   while (total() > tope) {
+    let hecho = false;
+
+    for (let i = lista.length - 1; i >= 0 && !hecho; i -= 1) {
+      const e = lista[i].escena;
+
+      if (e.tipo !== "clips") continue;
+
+      for (let k = e.cortes.length - 1; k >= 0; k -= 1) {
+        if (e.cortes[k].repeticion) {
+          quita(i, k);
+          hecho = true;
+          break;
+        }
+      }
+    }
+
+    if (hecho) continue;
+
+    /* Luego cortes que no sean goles, de la escena más larga, dejando uno por escena. Los goles no se tocan aquí. */
     const candidatas = lista
       .map((x, i) => ({ x, i }))
-      .filter(({ x }) => x.escena.tipo === "clips" && x.escena.cortes.length > 1)
+      .filter(({ x }) => x.escena.tipo === "clips" && x.escena.cortes.length > 1 && !x.escena.cortes.some(esGol))
       .sort((a, b) => b.x.segundos - a.x.segundos);
 
     if (!candidatas.length) break;
 
     const { x, i } = candidatas[0];
-    const e = x.escena as Extract<Escena, { tipo: "clips" }>;
-    const quitado = e.cortes[e.cortes.length - 1] as Corte & { segundos?: number };
-    const menos = quitado.segundos || x.segundos / e.cortes.length;
 
-    lista[i] = { ...x, escena: { ...e, cortes: e.cortes.slice(0, -1), segundos: Math.max(0, e.segundos - menos) }, segundos: Math.max(0, x.segundos - menos) };
+    quita(i, (x.escena as Extract<Escena, { tipo: "clips" }>).cortes.length - 1);
   }
 
   for (const id of PRESCINDIBLES) {
     if (total() <= tope) break;
 
     lista = lista.filter((x) => x.escena.id !== id);
+  }
+
+  /* Y sólo si aún no cabe, los últimos goles (el primero se queda siempre). */
+  for (let i = lista.findIndex((x) => x.escena.tipo === "clips" && x.escena.cortes.some(esGol)); i >= 0 && total() > tope; ) {
+    const e = lista[i].escena as Extract<Escena, { tipo: "clips" }>;
+
+    if (e.cortes.length <= 1) break;
+
+    quita(i, e.cortes.length - 1);
   }
 
   if (total() > tope) {

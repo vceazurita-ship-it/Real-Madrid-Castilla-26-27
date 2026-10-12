@@ -3,7 +3,7 @@
 | EL GUION DEL VÍDEO RESUMEN
 |--------------------------------------------------------------------------
 |
-| El vídeo cuenta lo mismo que el PDF del informe, en menos de un minuto, y
+| El vídeo cuenta lo mismo que el PDF del informe, en minuto y medio como mucho, y
 | con producción: portada con los dos escudos sobre un campo en 3D, el once
 | del rival colocado en ese campo, los cortes de acciones concretas que
 | preparó el analista (Análisis visual, por jornada), las fotos de los que
@@ -87,7 +87,7 @@ export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosP
 
   for (const g of grupos) {
     /* Con cortes de nueve segundos enteros, caben todos los goles y dos llegadas por bando dentro del minuto y medio. */
-    const elegidos = cortes.filter((c) => g.tipos.includes(c.tipo) && !usados.has(c)).slice(0, g.id === "clips-1" ? 4 : 2);
+    const elegidos = cortes.filter((c) => g.tipos.includes(c.tipo) && !usados.has(c)).slice(0, g.id === "clips-1" ? 6 : 2);
 
     if (!elegidos.length) continue;
 

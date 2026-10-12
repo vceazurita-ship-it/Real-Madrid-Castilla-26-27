@@ -933,7 +933,7 @@ export function InformePartidoDialog({
       */
       const pdfResumen = () =>
         (pdfResumenP ??= (async () => {
-          const v = (r.video || c.video) && puedeMontarVideo() ? await videoResumen("resumen") : null;
+          const v = ((r.activo && r.video) || (c.activo && c.video)) && puedeMontarVideo() ? await videoResumen("resumen") : null;
 
           if (!v || !infoVideo) return pdfDe(imagenes);
 
@@ -1489,7 +1489,7 @@ export function InformePartidoDialog({
                       <span className={rotuloCaja}>Adjuntos</span>
                       {casilla(envio.resumen.pdf, (v) => cambia("resumen", { pdf: v }), "PDF de las diapositivas", "para imprimir o reenviar")}
                       {casilla(envio.resumen.ppt, (v) => cambia("resumen", { ppt: v }), "PowerPoint", "para proyectarlo en la charla")}
-                      {casilla(envio.resumen.video, (v) => cambia("resumen", { video: v }), "Vídeo resumen (menos de 1 min)", puedeMontarVideo() ? "lo mismo que el PDF, contado con voz, datos y un corte del rival" : "este navegador no puede montarlo", !puedeMontarVideo())}
+                      {casilla(envio.resumen.video, (v) => cambia("resumen", { video: v }), "Vídeo del informe (hasta minuto y medio)", puedeMontarVideo() ? "lo mismo que el PDF, con cortes del partido, repeticiones, datos y voz" : "este navegador no puede montarlo", !puedeMontarVideo())}
                     </div>
                   </div>
                   <label className="block">
@@ -1554,7 +1554,7 @@ export function InformePartidoDialog({
                       <span className="text-[10px] text-white/30">hasta {mb(TOPE_ADJUNTOS)} adjunto; lo demás va como botón de descarga</span>
                     </div>
                     {casilla(envio.completo.pdfCompleto, (v) => cambia("completo", { pdfCompleto: v }), "El informe completo en PDF", "para leerlo sin conexión o imprimirlo")}
-                    {casilla(envio.completo.video, (v) => cambia("completo", { video: v }), "Vídeo resumen (menos de 1 min)", puedeMontarVideo() ? "el mismo que va en el resumen" : "este navegador no puede montarlo", !puedeMontarVideo())}
+                    {casilla(envio.completo.video, (v) => cambia("completo", { video: v }), "Vídeo del informe (hasta minuto y medio)", puedeMontarVideo() ? "el mismo que va en el resumen" : "este navegador no puede montarlo", !puedeMontarVideo())}
                     {casilla(envio.completo.pdfResumen, (v) => cambia("completo", { pdfResumen: v }), "El resumen en PDF", envio.resumen.activo && envio.resumen.pdf ? "ya va en el correo del resumen" : undefined)}
                     {casilla(envio.completo.pptResumen, (v) => cambia("completo", { pptResumen: v }), "El resumen en PowerPoint")}
 
