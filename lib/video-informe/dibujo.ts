@@ -14,7 +14,7 @@
 | cada escena según la voz y qué se sacrifica si no cabe.
 */
 
-import { SEGUNDOS_MAXIMOS, type Escena, type GuionVideo } from "./guion";
+import { SEGUNDOS_MAXIMOS, type Celda, type Corte, type CortePartido, type Escena, type GuionVideo, type MarcaPartido } from "./guion";
 
 export const ANCHO = 1280;
 export const ALTO = 720;
@@ -741,10 +741,15 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
 
   titular(ctx, fuente, e.titulo, t, 110, 34);
 
-  const corte = e.cortes[k];
+  const corte = e.cortes[k] as Corte & Partial<CortePartido>;
   const [principal, ...resto] = corte.rotulo.split(" · ");
 
   rotuloBajo(ctx, fuente, principal, resto.join(" · "), tc, corte.texto ? ALTO - 176 : ALTO - 140);
+
+  /* La línea del partido (arriba, bajo el título) y el campo pequeño con la jugada (arriba a la derecha). */
+  if (e.marcas?.length) lineaDelPartido(ctx, fuente, e.marcas, corte.minutoNum ?? 0, tc);
+
+  if (corte.zona) campoDeLaJugada(ctx, fuente, corte as CortePartido, tc);
 
   /* La lectura táctica del corte, debajo del rótulo. */
   if (corte.texto) {
@@ -766,6 +771,160 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
     ctx.arc(ANCHO - 70 - (e.cortes.length - 1 - i) * 18, ALTO - 36, 4, 0, Math.PI * 2);
     ctx.fill();
   });
+}
+
+/**
+ * La línea del partido: de 0' a 90', con una marca por cada acción cortada
+ * (las nuestras arriba, las suyas abajo; los goles en oro) y la actual
+ * latiendo. Sitúa el corte en el tiempo sin decir nada.
+ */
+function lineaDelPartido(ctx: Lienzo, fuente: string, marcas: MarcaPartido[], actual: number, t: number) {
+  const a = entra(t, 0.2, 0.5);
+
+  if (a <= 0) return;
+
+  const x0 = 56;
+  const x1 = ANCHO - 56 - 300;
+  const y = 150;
+  const tope = Math.max(90, ...marcas.map((m) => m.minuto));
+  const xDe = (m: number) => x0 + ((x1 - x0) * Math.min(m, tope)) / tope;
+
+  ctx.globalAlpha = a;
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x0, y);
+  ctx.lineTo(x1, y);
+  ctx.stroke();
+
+  /* El descanso. */
+  ctx.beginPath();
+  ctx.moveTo(xDe(45), y - 6);
+  ctx.lineTo(xDe(45), y + 6);
+  ctx.stroke();
+
+  ctx.font = `600 14px ${fuente}`;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.fillText("0'", x0, y + 24);
+  ctx.textAlign = "center";
+  ctx.fillText("45'", xDe(45), y + 24);
+  ctx.textAlign = "right";
+  ctx.fillText(`${tope}'`, x1, y + 24);
+  ctx.textAlign = "left";
+
+  for (const m of marcas) {
+    const x = xDe(m.minuto);
+    const esActual = m.minuto === actual;
+    const r = esActual ? 6 + Math.sin(t * 6) * 1.5 : m.gol ? 5 : 3.5;
+    const cy = m.de === "nosotros" ? y - 9 : y + 9;
+
+    ctx.fillStyle = m.gol ? ORO : esActual ? BLANCO : "rgba(255,255,255,0.6)";
+    ctx.beginPath();
+    ctx.arc(x, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (esActual) {
+      ctx.strokeStyle = ORO;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, cy, r + 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = ORO;
+      ctx.font = `700 15px ${fuente}`;
+      ctx.textAlign = "center";
+      ctx.fillText(`${actual}'`, x, m.de === "nosotros" ? y - 24 : y + 38);
+      ctx.textAlign = "left";
+    }
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * El campo pequeño de la jugada: nueve celdas (tercio × carril, en el sentido
+ * del que ataca, siempre hacia la derecha), de dónde sale el pase y dónde se
+ * remata, con la flecha entre las dos y el resultado del remate.
+ */
+function campoDeLaJugada(ctx: Lienzo, fuente: string, c: CortePartido, t: number) {
+  const a = entra(t, 0.35, 0.5);
+
+  if (a <= 0 || !c.zona) return;
+
+  const w = 250;
+  const h = 160;
+  const x = ANCHO - 56 - w;
+  const y = 96 + (1 - a) * 16;
+
+  ctx.globalAlpha = a;
+  ctx.fillStyle = "rgba(8,17,31,0.72)";
+  ctx.fillRect(x - 10, y - 10, w + 20, h + 46);
+  ctx.fillStyle = "rgba(22,70,42,0.9)";
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = "rgba(255,255,255,0.55)";
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, w, h);
+  ctx.beginPath();
+  ctx.moveTo(x + w / 2, y);
+  ctx.lineTo(x + w / 2, y + h);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x + w / 2, y + h / 2, h * 0.14, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeRect(x, y + h * 0.2, w * 0.16, h * 0.6);
+  ctx.strokeRect(x + w - w * 0.16, y + h * 0.2, w * 0.16, h * 0.6);
+
+  /* La celda: tercio 0-2 de izquierda a derecha, carril 0-2 de arriba abajo (visto desde la grada de enfrente, izquierda arriba). */
+  const celda = (z: Celda) => ({ cx: x + (w / 3) * (z.tercio + 0.5), cy: y + (h / 3) * (z.carril + 0.5) });
+
+  if (c.desdeZona && (c.desdeZona.tercio !== c.zona.tercio || c.desdeZona.carril !== c.zona.carril)) {
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.fillRect(x + (w / 3) * c.desdeZona.tercio, y + (h / 3) * c.desdeZona.carril, w / 3, h / 3);
+  }
+
+  ctx.fillStyle = "rgba(200,169,107,0.45)";
+  ctx.fillRect(x + (w / 3) * c.zona.tercio, y + (h / 3) * c.zona.carril, w / 3, h / 3);
+
+  const hasta = celda(c.zona);
+  const b = entra(t, 0.7, 0.6);
+
+  if (c.desdeZona && b > 0) {
+    const desde = celda(c.desdeZona);
+    const px = desde.cx + (hasta.cx - desde.cx) * b;
+    const py = desde.cy + (hasta.cy - desde.cy) * b;
+
+    ctx.strokeStyle = BLANCO;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(desde.cx, desde.cy);
+    ctx.lineTo(px, py);
+    ctx.stroke();
+    ctx.fillStyle = BLANCO;
+    ctx.beginPath();
+    ctx.arc(desde.cx, desde.cy, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = ORO;
+  ctx.beginPath();
+  ctx.arc(hasta.cx, hasta.cy, 7 + Math.sin(t * 5) * 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  /* El sentido del ataque y el pie. */
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
+  ctx.font = `600 13px ${fuente}`;
+  ctx.textAlign = "left";
+  ctx.fillText(`${c.de === "nosotros" ? "CASTILLA" : "RIVAL"} ATACA →`, x, y + h + 18);
+
+  if (c.resultado) {
+    ctx.textAlign = "right";
+    ctx.fillStyle = ORO;
+    ctx.font = `700 15px ${fuente}`;
+    ctx.fillText(c.resultado.toUpperCase(), x + w, y + h + 18);
+    ctx.textAlign = "left";
+  }
+
+  ctx.globalAlpha = 1;
 }
 
 function pintaCierre(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cierre" }>, t: number) {

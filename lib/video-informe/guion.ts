@@ -31,15 +31,34 @@ export type Corte = {
   desde?: number;
 };
 
+/** Una celda del campo: tercio (0 propio → 2 rival, en el sentido del que ataca) y carril (0 izquierda → 2 derecha). */
+export type Celda = { tercio: 0 | 1 | 2; carril: 0 | 1 | 2 };
+
 /** Un corte del partido ya cortado por el ordenador del club (Hudl → bucket), con su lectura. */
 export type CortePartido = Corte & {
   tipo: "gol" | "gol-contra" | "remate" | "remate-contra" | "contra" | "corner" | "abp" | "robo" | "perdida" | "otro";
   /** «23'» o «45+2'». */
   minuto: string;
+  /** El minuto en número, para la línea del partido. */
+  minutoNum?: number;
   segundos: number;
   /** De qué equipo es la acción. */
   de: "nosotros" | "rival";
+  /** Quién remata y quién asiste, tal y como lo etiqueta Hudl por jugador (fiable, a diferencia del momento de equipo). */
+  remata?: string;
+  asiste?: string;
+  /** «gol», «parada», «palo», «fuera», «bloqueado». */
+  resultado?: string;
+  /** De dónde sale el pase y dónde se remata, para el campo pequeño del corte. */
+  desdeZona?: Celda | null;
+  zona?: Celda | null;
 };
+
+/** Una marca en la línea del partido de una escena de cortes (todos los cortes del partido, no sólo los de la escena). */
+export type MarcaPartido = { minuto: number; gol: boolean; de: "nosotros" | "rival" };
+
+/** «45+2'» → 45; «79'» → 79. */
+export const minutoNumero = (m: string) => Number(m.match(/^(\d+)/)?.[1] ?? 0);
 
 /** Las escenas de cortes del partido, agrupadas por lo que cuentan; cada una de hasta 3 cortes. */
 export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosPorCorte = SEGUNDOS_POR_CORTE_PARTIDO): Escena[] {
@@ -53,13 +72,24 @@ export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosP
   const usados = new Set<CortePartido>();
   const escenas: Escena[] = [];
 
+  /* La línea del partido: todas las acciones cortadas, para situar cada corte en el tiempo. */
+  const marcas: MarcaPartido[] = cortes.map((c) => ({ minuto: c.minutoNum ?? minutoNumero(c.minuto), gol: c.tipo === "gol" || c.tipo === "gol-contra", de: c.de }));
+
   for (const g of grupos) {
     const elegidos = cortes.filter((c) => g.tipos.includes(c.tipo) && !usados.has(c)).slice(0, 3);
 
     if (!elegidos.length) continue;
 
     elegidos.forEach((c) => usados.add(c));
-    escenas.push({ id: g.id, tipo: "clips", titulo: g.titulo, cortes: elegidos, segundos: elegidos.length * segundosPorCorte, locucion: g.locucion(elegidos.length) });
+    escenas.push({
+      id: g.id,
+      tipo: "clips",
+      titulo: g.titulo,
+      cortes: elegidos.map((c) => ({ ...c, minutoNum: c.minutoNum ?? minutoNumero(c.minuto) })),
+      segundos: elegidos.length * segundosPorCorte,
+      locucion: g.locucion(elegidos.length),
+      marcas,
+    });
   }
 
   return escenas;
@@ -77,7 +107,7 @@ export type Escena =
   | { id: string; tipo: "barras"; titulo: string; barras: { rotulo: string; valor: number; texto: string }[]; locucion: string }
   | { id: string; tipo: "once"; titulo: string; jugadores: JugadorEscena[]; locucion: string }
   | { id: string; tipo: "vigilar"; titulo: string; jugadores: JugadorEscena[]; locucion: string }
-  | { id: string; tipo: "clips"; titulo: string; cortes: Corte[]; segundos: number; locucion: string }
+  | { id: string; tipo: "clips"; titulo: string; cortes: Corte[]; segundos: number; locucion: string; /** La línea del partido con todas sus acciones, si son cortes del partido. */ marcas?: MarcaPartido[] }
   | { id: string; tipo: "imagen"; titulo: string; src: string; pie: string; locucion: string }
   | { id: string; tipo: "cierre"; titulo: string; lineas: string[]; locucion: string };
 

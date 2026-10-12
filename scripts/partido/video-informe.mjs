@@ -67,8 +67,8 @@ const SIN_SUBIR = bandera("--sin-subir");
 const SOLO_CORTES = bandera("--solo-cortes");
 const DE_CACHE = bandera("--cortes-de-cache");
 /* Cuánto antes del final del momento de Hudl empieza el corte y cuánto dura (para medir desfases: --antes 5 --dura 30). */
-/* Medido en el J07 (gol de Carvajal): el remate cae 5-6 s ANTES de que acabe el momento de Hudl. */
-const ANTES = Number(valor("--antes")) || 10.5;
+/* El corte empieza 5 s antes del remate (que se ancla con el evento del portero o del rematador, ver eligeMomentos) y dura 7. */
+const ANTES = Number(valor("--antes")) || 5;
 const DURA = Number(valor("--dura")) || 7;
 
 function fin(codigo, texto) {
@@ -100,28 +100,76 @@ const minutoDe = (t, periodos) => {
 };
 
 /**
- * Los momentos del partido que merecen un corte, con su tiempo de Hudl.
- * Salen de la sesión por EQUIPO del timeline (goles, remates, contras,
- * córners…), que ya trae principio y fin de cada acción.
+ * Los momentos del partido que merecen un corte, con su tiempo de Hudl y sus
+ * protagonistas FIABLES.
+ *
+ * Los momentos de EQUIPO del timeline (goles, remates, contras, córners…)
+ * dicen cuándo y de quién es la acción, pero su etiqueta «Players» mezcla a
+ * los que atacan con los que defienden. Quién remata, quién asiste y cómo
+ * acaba sale de la sesión por JUGADOR: cada remate, gol y asistencia lleva su
+ * autor, su zona y su resultado («14 - Shot - Outcome»).
+ *
+ * Y el tiempo del remate, medido en el J07: el evento «Shot against» del
+ * portero (4 s) EMPIEZA en el remate; el evento del rematador son 20 s con el
+ * remate ~2 s después del centro; el momento de equipo acaba 4-6 s después.
  */
 function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
   const SES = timeline.data.taggingSessions.items;
   const cod = (m) => (m.tags.find((t) => t.key === "HUDL_CODE") || { values: [""] }).values[0];
+  const tag = (m, k) => (m.tags.find((t) => t.key === k) || { values: [] }).values;
   const EQ = SES.find((s) => s.moments.items.some((m) => / - Possessions$/.test(cod(m)))) || SES[0];
+  const JUG = SES.find((s) => s !== EQ) || SES[1];
   const items = EQ.moments.items;
   const periodos = items
     .filter((m) => cod(m) === "Periods")
     .map((m) => m.startTimeMs / 1000)
     .sort((a, b) => a - b);
+
+  /* De qué equipo es cada jugador: por los momentos de equipo en los que aparece. */
+  const equipo = {};
+
+  for (const m of items) {
+    const c = cod(m);
+
+    if (!/ - /.test(c)) continue;
+
+    for (const p of tag(m, "09 - Players")) equipo[p] ??= c.startsWith(nosotros) ? "nosotros" : "rival";
+  }
+
+  const sinDorsal = (j) => j.replace(/^\d+\.\s*/, "");
+  const TERCIO = { "Own third": 0, "Middle third": 1, "Final third": 2 };
+  const CARRIL = { "Left flank": 0, Center: 1, "Right flank": 2 };
+  const RESULTADO = { Goal: "gol", "Goalkeeper save": "parada", Post: "palo", Wide: "fuera", Blocked: "bloqueado", "Blocked shot": "bloqueado", Saved: "parada" };
+
+  const eventos = (JUG?.moments.items ?? [])
+    .filter((m) => cod(m) !== "Periods")
+    .map((m) => {
+      const ini = m.startTimeMs / 1000;
+      const fin = (m.endTimeMs ?? m.startTimeMs) / 1000;
+      const tercio = TERCIO[tag(m, "04 - Location - Third")[0]];
+      const carril = CARRIL[tag(m, "03 - Location - Flank")[0]];
+
+      return {
+        jugador: sinDorsal(cod(m)),
+        de: equipo[cod(m)],
+        ini,
+        fin,
+        centro: (ini + fin) / 2,
+        tipos: tag(m, "02 - Type"),
+        resultado: RESULTADO[tag(m, "14 - Shot - Outcome")[0]] ?? "",
+        zona: tercio !== undefined && carril !== undefined ? { tercio, carril } : null,
+      };
+    });
+
   const texto = (m) => JSON.stringify(m.tags).toLowerCase();
   const conRemate = (m) => /shot on goal|goal/.test(texto(m));
-  const aGol = (m) => /"goal"|=goal|goal"\]/.test(texto(m)) && !/no goal/.test(texto(m));
 
   const candidatos = [];
 
   for (const m of items) {
     const c = cod(m);
     const propio = c.startsWith(nosotros);
+    const de = propio ? "nosotros" : "rival";
     const ini = m.startTimeMs / 1000;
     const fin = (m.endTimeMs ?? m.startTimeMs) / 1000;
     let tipo = null;
@@ -135,15 +183,35 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
 
     if (!tipo) continue;
 
-    /*
-    | El momento de Hudl va desde que arranca la posesión hasta el remate: el
-    | gol del Ibiza (min 13) empieza en 733 s y acaba en 776. Lo que hay que
-    | ver es el FINAL: el remate a tres cuartos de un corte de seis segundos.
-    */
-    const desde = Math.max(0, ini - 1, fin - ANTES);
-    const jugadores = (m.tags.find((t) => t.key === "09 - Players")?.values ?? []).map((p) => p.replace(/^\d+\.\s*/, ""));
+    /* Los eventos por jugador de ESE equipo dentro del momento (con un margen: el del rematador dura 20 s). */
+    const dentro = eventos.filter((e) => e.de === de && e.centro >= ini - 2 && e.centro <= fin + 2);
+    const remates = dentro.filter((e) => e.tipos.some((t) => /^(Shot|Head shot|Free kick shot|Shot after corner|Shot after throw in)$/.test(t)) && !e.tipos.includes("Shot against"));
+    const goles = remates.filter((e) => e.tipos.includes("Goal"));
+    const rematador = goles[0] ?? remates[remates.length - 1] ?? null;
+    const asistente = dentro.filter((e) => e !== rematador && e.tipos.some((t) => /^(Assist|Shot assist|Second assist|Key pass|Corner)$/.test(t))).pop() ?? null;
 
-    candidatos.push({ t: fin, desde, dura: DURA, tipo, peso, de: propio ? "nosotros" : "rival", minuto: minutoDe(fin, periodos), jugadores, esGol: aGol(m) || /Goals$/.test(c) });
+    /* El remate del portero contrario (empieza en el remate) es la marca más fiable; si no, el centro del rematador + 2 s; si no, el final del momento − 5 s. */
+    const portero = eventos.filter((e) => e.de !== de && e.tipos.includes("Shot against") && e.ini >= ini - 2 && e.ini <= fin + 4).sort((a, b) => a.ini - b.ini);
+    const tRemate = portero.length ? portero[portero.length - 1].ini - 0.5 : rematador ? rematador.centro + 2 : fin - 5;
+    const desde = Math.max(0, tRemate - ANTES);
+
+    if (/ - Goals$/.test(c) && !goles.length && !rematador) peso = 90;
+
+    candidatos.push({
+      t: tRemate,
+      desde,
+      dura: DURA,
+      tipo,
+      peso,
+      de,
+      minuto: minutoDe(tRemate, periodos),
+      remata: rematador?.jugador ?? "",
+      asiste: asistente?.jugador ?? "",
+      resultado: goles.length ? "gol" : rematador?.resultado ?? "",
+      zona: rematador?.zona ?? null,
+      desdeZona: asistente?.zona ?? null,
+      jugadores: [rematador?.jugador, asistente?.jugador].filter(Boolean),
+    });
   }
 
   /* Por peso, y sin dos cortes de la misma jugada (a menos de 8 s). */
@@ -276,7 +344,7 @@ async function leeCortes(ai, partido, momentos) {
     if (m.texto) continue;
 
     const bytes = fs.readFileSync(m.fichero);
-    const contexto = `${partido.local ? "Real Madrid Castilla" : partido.rival} contra ${partido.local ? partido.rival : "Real Madrid Castilla"}, jornada ${partido.jornada} de Primera Federación, resultado final ${partido.gf}-${partido.gc} para el Castilla. En este corte: ${ROTULO[m.tipo].toLowerCase()} ${m.de === "nosotros" ? "del Real Madrid Castilla" : `del ${partido.rival}`} en el minuto ${m.minuto}${m.jugadores.length ? `, intervienen ${m.jugadores.join(" y ")}` : ""}.`;
+    const contexto = `${partido.local ? "Real Madrid Castilla" : partido.rival} contra ${partido.local ? partido.rival : "Real Madrid Castilla"}, jornada ${partido.jornada} de Primera Federación, resultado final ${partido.gf}-${partido.gc} para el Castilla. En este corte: ${ROTULO[m.tipo].toLowerCase()} ${m.de === "nosotros" ? "del Real Madrid Castilla" : `del ${partido.rival}`} en el minuto ${m.minuto}${m.remata ? `; remata ${m.remata}` : ""}${m.asiste ? ` tras pase de ${m.asiste}` : ""}${m.resultado ? ` (${m.resultado})` : ""}.`;
 
     try {
       const r = await conGemini(
@@ -704,14 +772,19 @@ async function principal() {
   const cortes = momentos.map((m) => ({
     url: m.url ?? "",
     fichero: m.fichero,
-    /* Los nombres sólo en lo nuestro: en una acción del rival, Hudl etiqueta a los nuestros que defienden y despista. */
-    rotulo: `${ROTULO[m.tipo]} · ${m.minuto}${m.de === "nosotros" && m.jugadores.length ? ` · ${m.jugadores.slice(0, 2).join(", ")}` : ""}`,
+    /* Quién remata y quién asiste, de la sesión por jugador: «Gol · 79' · Ángel Carvajal (asiste Diego Aguado)». */
+    rotulo: `${ROTULO[m.tipo]} · ${m.minuto}${m.remata ? ` · ${m.remata}` : ""}${m.asiste ? ` (asiste ${m.asiste})` : ""}`,
     texto: m.texto ?? "",
     tipo: m.tipo,
     minuto: m.minuto,
     segundos: m.dura,
     de: m.de,
     desde: 0,
+    remata: m.remata ?? "",
+    asiste: m.asiste ?? "",
+    resultado: m.resultado ?? "",
+    zona: m.zona ?? null,
+    desdeZona: m.desdeZona ?? null,
   }));
 
   /* 3. Al bucket, para que el navegador los use. */
