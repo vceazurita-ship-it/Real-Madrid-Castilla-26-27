@@ -79,6 +79,30 @@ async function puleLocucion(guion: GuionVideo): Promise<GuionVideo> {
 
 type Voz = { frecuencia: number; pistas: (Float32Array | null)[] };
 
+/** La única frecuencia que el codificador AAC de Chrome acepta sin protestar (además de 44,1 kHz). */
+const FRECUENCIA_AAC = 48_000;
+
+/** Remuestreo lineal: para voz a 24 kHz → 48 kHz sobra, y no hace falta nada más. */
+function remuestrea(pista: Float32Array, de: number, a: number): Float32Array {
+  if (de === a) return pista;
+
+  const n = Math.round((pista.length * a) / de);
+  const salida = new Float32Array(n);
+  const paso = de / a;
+
+  for (let i = 0; i < n; i += 1) {
+    const x = i * paso;
+    const k = Math.floor(x);
+    const f = x - k;
+    const a0 = pista[k] ?? 0;
+    const a1 = pista[k + 1] ?? a0;
+
+    salida[i] = a0 + (a1 - a0) * f;
+  }
+
+  return salida;
+}
+
 async function pideVoz(guion: GuionVideo): Promise<Voz | null> {
   const r = await conPlazo(
     fetch("/api/informe/voz", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ textos: guion.escenas.map((e) => e.locucion) }) })
@@ -93,7 +117,7 @@ async function pideVoz(guion: GuionVideo): Promise<Voz | null> {
   if (!datos?.ok || !datos.pistas) return null;
 
   return {
-    frecuencia: datos.frecuencia || 24_000,
+    frecuencia: FRECUENCIA_AAC,
     pistas: datos.pistas.map((b64) => {
       if (!b64) return null;
 
@@ -108,7 +132,7 @@ async function pideVoz(guion: GuionVideo): Promise<Voz | null> {
 
       for (let i = 0; i < enteros.length; i += 1) flot[i] = enteros[i] / 32768;
 
-      return flot;
+      return remuestrea(flot, datos.frecuencia || 24_000, FRECUENCIA_AAC);
     }),
   };
 }
@@ -549,7 +573,8 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, alPaso: PasoVide
 
   codificador.configure({ codec: CODEC, width: ANCHO, height: ALTO, bitrate: CAUDAL, framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
 
-  const frecuencia = voz?.frecuencia || 24_000;
+  /* El AAC del navegador sólo admite 44,1 y 48 kHz («Unsupported sample rate»): la voz de Gemini llega a 24 kHz y se remuestrea. */
+  const frecuencia = FRECUENCIA_AAC;
   let enMuestras = 0;
 
   const sonido = new AudioEncoder({
