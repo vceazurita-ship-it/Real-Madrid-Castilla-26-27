@@ -83,7 +83,8 @@ export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosP
   const marcas: MarcaPartido[] = cortes.map((c) => ({ minuto: c.minutoNum ?? minutoNumero(c.minuto), gol: c.tipo === "gol" || c.tipo === "gol-contra", de: c.de }));
 
   for (const g of grupos) {
-    const elegidos = cortes.filter((c) => g.tipos.includes(c.tipo) && !usados.has(c)).slice(0, 3);
+    /* Con cortes de nueve segundos enteros, caben todos los goles y dos llegadas por bando dentro del minuto y medio. */
+    const elegidos = cortes.filter((c) => g.tipos.includes(c.tipo) && !usados.has(c)).slice(0, g.id === "clips-1" ? 4 : 2);
 
     if (!elegidos.length) continue;
 
@@ -93,7 +94,8 @@ export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosP
       tipo: "clips",
       titulo: g.titulo,
       cortes: elegidos.map((c) => ({ ...c, minutoNum: c.minutoNum ?? minutoNumero(c.minuto) })),
-      segundos: elegidos.length * segundosPorCorte,
+      /* Cada corte entero: lo que dure su fichero (el ordenador del club lo deja en `segundos`). */
+      segundos: elegidos.reduce((s, c) => s + (c.segundos || segundosPorCorte), 0),
       locucion: g.locucion(elegidos.length),
       marcas,
     });
@@ -134,7 +136,7 @@ export function escenasDeCortesAbp(cortes: CortePartido[], rival: string, opcion
     if (!elegidos.length) continue;
 
     elegidos.forEach((c) => usados.add(c));
-    escenas.push({ id: g.id, tipo: "clips", titulo: g.titulo, cortes: elegidos.map((c) => ({ ...c, minutoNum: c.minutoNum ?? minutoNumero(c.minuto) })), segundos: elegidos.length * segundosPorCorte, locucion: g.locucion(elegidos.length), marcas });
+    escenas.push({ id: g.id, tipo: "clips", titulo: g.titulo, cortes: elegidos.map((c) => ({ ...c, minutoNum: c.minutoNum ?? minutoNumero(c.minuto) })), segundos: elegidos.reduce((s, c) => s + (c.segundos || segundosPorCorte), 0), locucion: g.locucion(elegidos.length), marcas });
   }
 
   return escenas;

@@ -693,12 +693,37 @@ function pintaVigilar(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "v
   });
 }
 
+/**
+ * Dónde empieza y cuánto dura cada corte dentro de su escena. Cada corte se
+ * ve ENTERO (lo que dure su fichero, `segundos`); si la escena se ha
+ * escalado para caber, todos se acortan en la misma proporción. Antes la
+ * escena repartía el tiempo a partes iguales y un corte de nueve segundos se
+ * cortaba a los siete, antes del remate.
+ */
+export function limitesDeCortes(e: Extract<Escena, { tipo: "clips" }>, dur: number): { desde: number; dura: number }[] {
+  const propios = e.cortes.map((c) => (c as Corte & { segundos?: number }).segundos || 0);
+  const suma = propios.reduce((s, x) => s + x, 0);
+  const n = Math.max(1, e.cortes.length);
+  const duras = suma > 0 ? propios.map((x) => (x || suma / n) * (dur / suma)) : e.cortes.map(() => dur / n);
+  const limites: { desde: number; dura: number }[] = [];
+  let desde = 0;
+
+  for (const d of duras) {
+    limites.push({ desde, dura: d });
+    desde += d;
+  }
+
+  return limites;
+}
+
 /** Qué corte toca en el segundo `t` de una escena de cortes, y cuánto lleva dentro de él. */
 export function corteEn(e: Extract<Escena, { tipo: "clips" }>, t: number, dur: number) {
-  const porCorte = dur / Math.max(1, e.cortes.length);
-  const k = Math.min(e.cortes.length - 1, Math.floor(t / porCorte));
+  const limites = limitesDeCortes(e, dur);
+  let k = limites.findIndex((l) => t < l.desde + l.dura);
 
-  return { k, tc: t - k * porCorte, porCorte };
+  if (k < 0) k = limites.length - 1;
+
+  return { k, tc: t - limites[k].desde, porCorte: limites[k].dura };
 }
 
 function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "clips" }>, cuadro: Dibujable | null, t: number, dur: number) {

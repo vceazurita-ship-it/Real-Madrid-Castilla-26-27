@@ -45,7 +45,7 @@ const { GoogleGenAI } = require("@google/genai");
 const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
 
 const { escenasDeCortes, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
-const { ANCHO, ALTO, FPS, SEGUNDOS, corteEn, pintaFotograma, rellenaGrano, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
+const { ANCHO, ALTO, FPS, SEGUNDOS, corteEn, limitesDeCortes, pintaFotograma, rellenaGrano, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
 const { FRECUENCIA_AAC, camaSintetica, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
 
 const ejecuta = promisify(execFile);
@@ -68,8 +68,8 @@ const SOLO_CORTES = bandera("--solo-cortes");
 const DE_CACHE = bandera("--cortes-de-cache");
 /* Cuánto antes del final del momento de Hudl empieza el corte y cuánto dura (para medir desfases: --antes 5 --dura 30). */
 /* El corte empieza 5 s antes del remate (que se ancla con el evento del portero o del rematador, ver eligeMomentos) y dura 7. */
-const ANTES = Number(valor("--antes")) || 5;
-const DURA = Number(valor("--dura")) || 7;
+const ANTES = Number(valor("--antes")) || 5.5;
+const DURA = Number(valor("--dura")) || 9;
 
 function fin(codigo, texto) {
   console.log(`RESUMEN: ${texto}`);
@@ -161,6 +161,7 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
       };
     });
 
+  const prioridad = (e) => (e.tipos.includes("Assist") ? 0 : e.tipos.includes("Shot assist") ? 1 : e.tipos.some((t) => /^(Key pass|Corner|Free kick|Throw in)$/.test(t)) ? 2 : 3);
   const texto = (m) => JSON.stringify(m.tags).toLowerCase();
   const conRemate = (m) => /shot on goal|goal/.test(texto(m));
 
@@ -186,16 +187,33 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
     if (!tipo) continue;
 
     /* Los eventos por jugador de ESE equipo dentro del momento (con un margen: el del rematador dura 20 s). */
-    const dentro = eventos.filter((e) => e.de === de && e.centro >= ini - 2 && e.centro <= fin + 2);
+    const dentro = eventos.filter((e) => e.de === de && e.centro >= ini - 2 && e.centro <= fin + 2).sort((a, b) => a.centro - b.centro);
     const remates = dentro.filter((e) => e.tipos.some((t) => /^(Shot|Head shot|Free kick shot|Shot after corner|Shot after throw in)$/.test(t)) && !e.tipos.includes("Shot against"));
     const goles = remates.filter((e) => e.tipos.includes("Goal"));
     const rematador = goles[0] ?? remates[remates.length - 1] ?? null;
-    const asistente = dentro.filter((e) => e !== rematador && e.tipos.some((t) => /^(Assist|Shot assist|Second assist|Key pass|Corner)$/.test(t))).pop() ?? null;
 
-    /* El remate del portero contrario (empieza en el remate) es la marca más fiable; si no, el centro del rematador + 2 s; si no, el final del momento − 5 s. */
+    /* El evento del portero contrario es la marca más fiable del remate (ver tRemate). */
     const portero = eventos.filter((e) => e.de !== de && e.tipos.includes("Shot against") && e.ini >= ini - 2 && e.ini <= fin + 4).sort((a, b) => a.ini - b.ini);
     const esAbp = /^(corner|abp|banda)/.test(tipo);
-    const tRemate = portero.length ? portero[portero.length - 1].ini - 0.5 : rematador ? rematador.centro + 2 : fin - 5;
+    /*
+    | Medido con los dos goles del J07 contra el reloj de la tele: el evento
+    | «Shot against» del portero (4 s) está CENTRADO en el remate (Prieto
+    | 4839-4843 → gol en 4841, 78:31); el del rematador acaba ~3,5 s después
+    | del remate. Anclar en el inicio del portero cortaba la acción 2 s antes.
+    */
+    const tRemate = portero.length ? portero[portero.length - 1].centro : rematador ? rematador.fin - 3.5 : fin - 5;
+
+    /*
+    | La asistencia: el evento de pase/saque cuya ventana pisa los 8 s anteriores
+    | al remate y queda más cerca de él. Las ventanas de Hudl cambian por tipo
+    | (el pase 5 s, el córner 15, el remate 20), así que ni el centro ni el
+    | orden sirven solos: Aguado (centro 4837) asiste a Carvajal (centro 4834).
+    */
+    const asistente =
+      dentro
+        .filter((e) => e !== rematador && e.ini <= tRemate + 1 && e.fin >= tRemate - 8 && e.tipos.some((t) => /^(Assist|Shot assist|Second assist|Key pass|Corner|Free kick|Throw in)$/.test(t)))
+        /* Primero la asistencia declarada, luego el pase clave o el saque, y al final la preasistencia (Leiva a Aguado, Aguado a Carvajal: el que asiste es Aguado). */
+        .sort((a, b) => prioridad(a) - prioridad(b) || Math.abs(a.centro - tRemate) - Math.abs(b.centro - tRemate))[0] ?? null;
     /* Un balón parado se enseña desde el saque: el momento empieza en el lanzamiento (2 s antes) y se deja hasta ver el desenlace. */
     /* Medido en el córner del 75' del J07: el momento empieza 3 s antes del saque; un segundo de margen y hasta ver el desenlace. */
     const desde = esAbp ? Math.max(0, ini - 1) : Math.max(0, tRemate - ANTES);
@@ -507,7 +525,7 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
     escenas.push({ id: "transiciones", tipo: "claves", titulo: "Robos y transiciones", lineas, locucion: lineas.slice(0, 3).join(". ") });
   }
 
-  escenas.push(...escenasDeCortes(cortes, rival, 7));
+  escenas.push(...escenasDeCortes(cortes, rival));
 
   escenas.push({
     id: "cierre",
@@ -571,13 +589,13 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
         }
       }
     } else if (e.tipo === "clips") {
-      const porCorte = segundos / e.cortes.length;
+      const limites = limitesDeCortes(e, segundos);
 
       for (const [i, c] of e.cortes.entries()) {
         const dir = path.join(carpetaVideo, "fotogramas", path.basename(c.fichero, ".mp4"));
 
         await extraeFotogramas(c.fichero, dir);
-        cortes.set(`${e.id}:${i}`, { dir, sonido: await extraeSonido(c.fichero), desde: arranques[k] + i * porCorte, dura: porCorte });
+        cortes.set(`${e.id}:${i}`, { dir, sonido: await extraeSonido(c.fichero), desde: arranques[k] + limites[i].desde, dura: limites[i].dura });
       }
     }
   }
@@ -899,7 +917,7 @@ async function principal() {
     url: m.url ?? "",
     fichero: m.fichero,
     /* Quién remata y quién asiste, de la sesión por jugador: «Gol · 79' · Ángel Carvajal (asiste Diego Aguado)». */
-    rotulo: `${ROTULO[m.tipo]} · ${m.minuto}${m.remata ? ` · ${m.remata}` : ""}${m.asiste ? ` (asiste ${m.asiste})` : ""}`,
+    rotulo: `${ROTULO[m.tipo]} · ${m.minuto}${m.remata ? ` · ${m.remata}${m.asiste ? ` (asiste ${m.asiste})` : ""}` : m.asiste ? ` · saca ${m.asiste}` : ""}`,
     texto: m.texto ?? "",
     tipo: m.tipo,
     minuto: m.minuto,

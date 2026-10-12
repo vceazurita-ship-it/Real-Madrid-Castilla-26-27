@@ -24,7 +24,7 @@
 import { MuxorMp4 } from "@/lib/coding/mp4";
 import type { Bytes } from "@/lib/export/zip";
 
-import { ALTO, ANCHO, FPS, SEGUNDOS, corteEn, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
+import { ALTO, ANCHO, FPS, SEGUNDOS, corteEn, limitesDeCortes, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
 import { SEGUNDOS_MAXIMOS, type Corte, type GuionVideo, type JugadorEscena } from "./guion";
 import { FRECUENCIA_AAC, camaSintetica, pcm16aFlotante, remuestrea, reparteVoz } from "./voz";
 
@@ -247,7 +247,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
       } else if (e.tipo === "clips") {
         await Promise.all(
           e.cortes.map(async (c: Corte, i: number) => {
-            const [clip, sonido] = await Promise.all([abreClip(c.url, segundos / e.cortes.length, c.desde, c.desdeFraccion), sonidoDelClip(c.url)]);
+            const [clip, sonido] = await Promise.all([abreClip(c.url, limitesDeCortes(e, segundos)[i].dura, c.desde, c.desdeFraccion), sonidoDelClip(c.url)]);
 
             clips.set(`${e.id}:${i}`, clip ? { ...clip, sonido } : null);
           }),
@@ -327,16 +327,16 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   escenas.forEach((x, k) => {
     if (x.escena.tipo !== "clips") return;
 
-    const porCorte = x.segundos / Math.max(1, x.escena.cortes.length);
+    const limites = limitesDeCortes(x.escena, x.segundos);
 
     x.escena.cortes.forEach((_, i) => {
       const clip = clips.get(`${x.escena.id}:${i}`);
 
       if (!clip?.sonido) return;
 
-      const d0 = Math.floor((arranques[k] + i * porCorte) * frecuencia);
+      const d0 = Math.floor((arranques[k] + limites[i].desde) * frecuencia);
       const salto = Math.floor(clip.desde * frecuencia);
-      const n = Math.min(clip.sonido.length - salto, Math.floor(porCorte * frecuencia), totalMuestras - d0);
+      const n = Math.min(clip.sonido.length - salto, Math.floor(limites[i].dura * frecuencia), totalMuestras - d0);
 
       for (let j = 0; j < n; j += 1) {
         const env = Math.min(1, j / (0.3 * frecuencia), (n - j) / (0.3 * frecuencia));
