@@ -29,7 +29,7 @@ export const SEGUNDOS: Record<Escena["tipo"], number> = { portada: 5.5, cifras: 
 const AIRE = 0.7;
 
 /** Las que se sacrifican primero si no cabe en el tiempo, por este orden. */
-const PRESCINDIBLES = ["abp", "duelo", "grafico-1", "lamina-1", "rival", "vigilar", "clips-3", "clips-2", "grafico-0", "lamina-0", "once", "cifras", "clips-1", "clips"];
+const PRESCINDIBLES = ["abp", "duelo", "grafico-1", "lamina-1", "rival", "clips-rival-2", "abp-banda", "vigilar", "clips-3", "clips-2", "grafico-0", "lamina-0", "abp-suyos", "once", "cifras", "clips-1", "clips", "abp-nuestros", "analisis-previo"];
 
 /* ------------------------------------------------------------------ */
 /*  TIPOS QUE COMPARTEN LOS DOS MOTORES                                */

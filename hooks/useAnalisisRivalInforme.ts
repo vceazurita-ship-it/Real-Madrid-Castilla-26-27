@@ -39,7 +39,7 @@ export type AnalisisRivalInforme = {
   graficos: GraficoInforme[];
   rivalAnalisis: RivalAnalisisInforme | null;
   /** Los cortes de vídeo de esa jornada (720p en el bucket), con su rótulo: para el vídeo resumen. */
-  clips: { nombre: string; url: string; rotulo: string }[];
+  clips: { nombre: string; url: string; rotulo: string; seccion: string; texto?: string }[];
   cargando: boolean;
 };
 
@@ -224,7 +224,7 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
 
       return {
         graficos,
-        clips: (clips[jornada]?.clips ?? []).map((c) => ({ nombre: c.nombre, url: c.url, rotulo: [SECCION_POR_ID.get(c.seccion)?.titulo ?? c.seccion, c.partido, jornada].filter(Boolean).join(" · ") })),
+        clips: (clips[jornada]?.clips ?? []).map((c) => ({ nombre: c.nombre, url: c.url, seccion: c.seccion, texto: (c as { texto?: string }).texto, rotulo: [SECCION_POR_ID.get(c.seccion)?.titulo ?? c.seccion, c.partido, jornada].filter(Boolean).join(" · ") })),
         rivalAnalisis: {
           equipo,
           jornada,

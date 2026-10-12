@@ -117,7 +117,7 @@ async function cargaImagen(src: string): Promise<ImageBitmap | null> {
 type Clip = { video: HTMLVideoElement; desde: number; sonido?: Float32Array | null };
 
 /** Un `<video>` del bucket listo para pedirle fotogramas; `null` si no se puede abrir (CORS, códec, YouTube). */
-async function abreClip(url: string, segundos: number, desdeSegundo?: number): Promise<Clip | null> {
+async function abreClip(url: string, segundos: number, desdeSegundo?: number, desdeFraccion?: number): Promise<Clip | null> {
   const video = document.createElement("video");
   video.crossOrigin = "anonymous";
   video.muted = true;
@@ -137,7 +137,9 @@ async function abreClip(url: string, segundos: number, desdeSegundo?: number): P
 
   /* Un corte preparado empieza donde debe; en un vídeo largo se busca la acción pasada la carátula. */
   const desde =
-    typeof desdeSegundo === "number"
+    typeof desdeFraccion === "number"
+      ? Math.max(0, Math.min(video.duration * desdeFraccion, video.duration - segundos))
+      : typeof desdeSegundo === "number"
       ? Math.max(0, Math.min(desdeSegundo, video.duration - segundos))
       : video.duration <= segundos + 1
         ? 0
@@ -245,7 +247,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
       } else if (e.tipo === "clips") {
         await Promise.all(
           e.cortes.map(async (c: Corte, i: number) => {
-            const [clip, sonido] = await Promise.all([abreClip(c.url, segundos / e.cortes.length, c.desde), sonidoDelClip(c.url)]);
+            const [clip, sonido] = await Promise.all([abreClip(c.url, segundos / e.cortes.length, c.desde, c.desdeFraccion), sonidoDelClip(c.url)]);
 
             clips.set(`${e.id}:${i}`, clip ? { ...clip, sonido } : null);
           }),

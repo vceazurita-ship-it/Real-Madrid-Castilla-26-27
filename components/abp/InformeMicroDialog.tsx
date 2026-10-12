@@ -23,7 +23,7 @@ import { Loader2, Mail, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
-import { guionDeAbp } from "@/lib/video-informe/guion";
+import { guionDeAbp, type CortePartido } from "@/lib/video-informe/guion";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { montaVideoInforme, puedeMontarVideo } from "@/lib/video-informe/monta";
@@ -309,6 +309,48 @@ export function InformeMicroDialog({
   /* El vídeo resumen (12/10/2026): se monta en el navegador y va adjunto con el correo. */
   const [conVideo, setConVideo] = useState(true);
   const [pasoVideo, setPasoVideo] = useState("");
+
+  /* El vídeo de análisis previo que sube el analista (sólo en la previa): tres trozos entran en el vídeo resumen. */
+  const [videoPrevio, setVideoPrevio] = useState<File | null>(null);
+
+  /*
+  | Los cortes de balón parado del partido, cortados de Hudl por el ordenador
+  | del club (`informe-clips:jNN`): en el post, los de ese partido; en la
+  | previa, los del último jugado («cómo lo hicimos»).
+  */
+  const jornadaPartido = datos.partidoCalendario?.jornada ?? null;
+  const jornadaCortes = jornadaPartido ? (datos.partidoCalendario?.jugado ? jornadaPartido : jornadaPartido - 1) : null;
+  const [cortesPartido, setCortesPartido] = useState<CortePartido[]>([]);
+
+  useEffect(() => {
+    if (!jornadaCortes || jornadaCortes < 1) return;
+
+    let cancelado = false;
+
+    fetch(`/api/docs?key=${encodeURIComponent(`informe-clips:j${String(jornadaCortes).padStart(2, "0")}`)}`, { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ data?: { cortes?: CortePartido[] } | null }>)
+      .then((d) => {
+        if (!cancelado) setCortesPartido((d?.data?.cortes ?? []).filter((c) => c && typeof c.url === "string"));
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelado = true;
+    };
+  }, [jornadaCortes]);
+
+  /** El vídeo de análisis previo sube al bucket como un adjunto más y el montaje lo lee de ahí. */
+  const subeVideoPrevio = async (file: File) => {
+    try {
+      const a = await subeAdjunto(file, (fraccion) => setPasoVideo(`subiendo tu análisis ${Math.round(fraccion * 100)} %`));
+
+      return { url: a.url, nombre: file.name };
+    } catch (error) {
+      toast.message("El vídeo de análisis previo no ha subido", { description: error instanceof Error ? error.message : "Se sigue sin él." });
+
+      return null;
+    }
+  };
 
   /*
   | Por qué el fallo del envío NO se queda en un aviso flotante.
@@ -701,7 +743,11 @@ export function InformeMicroDialog({
 
           const v = await montaVideoInforme(
             guionDeAbp(paraEnviar, pinceladaAbp(paraEnviar), {
-              cortes: rivalInforme.clips,
+              /* Sólo el balón parado del rival (córner y falta); los centros laterales son del informe de Área. */
+              cortes: rivalInforme.clips.filter((c) => /^(corner|falta)/.test(c.seccion)),
+              cortesPartido,
+              rotuloPartido: jornadaCortes && !datos.partidoCalendario?.jugado ? `J${jornadaCortes}` : undefined,
+              videoPrevio: videoPrevio && !datos.partidoCalendario?.jugado ? await subeVideoPrevio(videoPrevio) : null,
               escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null,
             }),
             { alPaso: setPasoVideo, fuente: barlowCondensed.style.fontFamily },
@@ -873,8 +919,21 @@ export function InformeMicroDialog({
           <div className="min-w-0 space-y-1">
             <label className={`flex items-center gap-2 text-[11px] ${puedeMontarVideo() ? "cursor-pointer text-white/70" : "opacity-40"}`}>
               <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo && puedeMontarVideo()} disabled={!puedeMontarVideo() || enviando} onChange={(e) => setConVideo(e.target.checked)} />
-              Adjuntar el vídeo resumen (menos de 1 min, con voz y datos)
+              Adjuntar el vídeo resumen (minuto y medio: cortes, voz y datos)
             </label>
+            {!datos.partidoCalendario?.jugado && (
+              <label className={`flex items-center gap-2 text-[11px] ${puedeMontarVideo() ? "text-white/60" : "opacity-40"}`}>
+                <span className="shrink-0">Tu vídeo de análisis previo:</span>
+                <input
+                  type="file"
+                  accept="video/mp4,video/quicktime,.mp4,.mov"
+                  disabled={!puedeMontarVideo() || enviando || !conVideo}
+                  className="max-w-[260px] text-[11px] file:mr-2 file:rounded file:border-0 file:bg-white/10 file:px-2 file:py-0.5 file:text-[11px] file:text-white/80"
+                  onChange={(e) => setVideoPrevio(e.target.files?.[0] ?? null)}
+                />
+                {videoPrevio ? <span className="text-white/40">{(videoPrevio.size / 1048576).toFixed(0)} MB · entran tres trozos</span> : null}
+              </label>
+            )}
             <p className="text-[11px] text-white/35">
               Sale de la cuenta de Google del club, la misma que sube los vídeos
               al canal.

@@ -178,7 +178,9 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
     if (/ - Goals$/.test(c)) [tipo, peso] = [propio ? "gol" : "gol-contra", 100];
     else if (/ - Shots$/.test(c)) [tipo, peso] = [propio ? "remate" : "remate-contra", conRemate(m) ? 60 : 40];
     else if (/ - Counterattacks$/.test(c)) [tipo, peso] = [propio ? "contra" : "remate-contra", 55];
-    else if (/ - Corners$/.test(c) && conRemate(m)) [tipo, peso] = [propio ? "corner" : "remate-contra", 50];
+    else if (/ - Corners$/.test(c)) [tipo, peso] = [propio ? "corner" : "corner-contra", conRemate(m) ? 50 : 30];
+    else if (/ - (Set Pieces|Free kicks)$/.test(c)) [tipo, peso] = [propio ? "abp" : "abp-contra", conRemate(m) ? 48 : 25];
+    else if (/ - Throw ins$/.test(c)) [tipo, peso] = [propio ? "banda" : "banda-contra", conRemate(m) ? 40 : 15];
     else if (/ - Highlights$/.test(c)) [tipo, peso] = [propio ? "remate" : "remate-contra", 45];
 
     if (!tipo) continue;
@@ -192,15 +194,19 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
 
     /* El remate del portero contrario (empieza en el remate) es la marca más fiable; si no, el centro del rematador + 2 s; si no, el final del momento − 5 s. */
     const portero = eventos.filter((e) => e.de !== de && e.tipos.includes("Shot against") && e.ini >= ini - 2 && e.ini <= fin + 4).sort((a, b) => a.ini - b.ini);
+    const esAbp = /^(corner|abp|banda)/.test(tipo);
     const tRemate = portero.length ? portero[portero.length - 1].ini - 0.5 : rematador ? rematador.centro + 2 : fin - 5;
-    const desde = Math.max(0, tRemate - ANTES);
+    /* Un balón parado se enseña desde el saque: el momento empieza en el lanzamiento (2 s antes) y se deja hasta ver el desenlace. */
+    /* Medido en el córner del 75' del J07: el momento empieza 3 s antes del saque; un segundo de margen y hasta ver el desenlace. */
+    const desde = esAbp ? Math.max(0, ini - 1) : Math.max(0, tRemate - ANTES);
+    const dura = esAbp ? (tipo.startsWith("banda") ? 6 : Math.min(10, Math.max(8, fin - ini + 3))) : DURA;
 
     if (/ - Goals$/.test(c) && !goles.length && !rematador) peso = 90;
 
     candidatos.push({
-      t: tRemate,
+      t: esAbp ? ini + 1 : tRemate,
       desde,
-      dura: DURA,
+      dura,
       tipo,
       peso,
       de,
@@ -208,6 +214,7 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
       remata: rematador?.jugador ?? "",
       asiste: asistente?.jugador ?? "",
       resultado: goles.length ? "gol" : rematador?.resultado ?? "",
+      peligro: Boolean(goles.length || rematador || conRemate(m)),
       zona: rematador?.zona ?? null,
       desdeZona: asistente?.zona ?? null,
       jugadores: [rematador?.jugador, asistente?.jugador].filter(Boolean),
@@ -218,7 +225,7 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
   candidatos.sort((a, b) => b.peso - a.peso || a.t - b.t);
 
   const elegidos = [];
-  const tope = { gol: 4, "gol-contra": 4, remate: 4, contra: 2, corner: 1, "remate-contra": 4 };
+  const tope = { gol: 4, "gol-contra": 4, remate: 4, contra: 2, corner: 3, "remate-contra": 4, "corner-contra": 3, abp: 2, "abp-contra": 2, banda: 2, "banda-contra": 2 };
   const cuenta = {};
 
   for (const c of candidatos) {
@@ -312,7 +319,7 @@ async function cortaDeHudl(carpeta, momentos, destino) {
 /*  GEMINI: LECTURA DE CADA CORTE, GUION Y VOZ                          */
 /* ------------------------------------------------------------------ */
 
-const ROTULO = { gol: "Gol", "gol-contra": "Gol en contra", remate: "Remate", "remate-contra": "Remate en contra", contra: "Contraataque", corner: "Córner", abp: "Balón parado", robo: "Robo", perdida: "Pérdida", otro: "Acción" };
+const ROTULO = { gol: "Gol", "gol-contra": "Gol en contra", remate: "Remate", "remate-contra": "Remate en contra", contra: "Contraataque", corner: "Córner", "corner-contra": "Córner en contra", abp: "Falta lateral", "abp-contra": "Falta en contra", banda: "Saque de banda", "banda-contra": "Saque de banda en contra", robo: "Robo", perdida: "Pérdida", otro: "Acción" };
 
 async function conGemini(fn, modelos) {
   let ultimo = null;
@@ -904,6 +911,7 @@ async function principal() {
     resultado: m.resultado ?? "",
     zona: m.zona ?? null,
     desdeZona: m.desdeZona ?? null,
+    peligro: Boolean(m.peligro),
   }));
 
   /* 3. Al bucket, para que el navegador los use. */
