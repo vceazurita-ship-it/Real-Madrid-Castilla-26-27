@@ -24,6 +24,8 @@ import { toast } from "sonner";
 
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { guionDeAbp } from "@/lib/video-informe/guion";
+import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
+import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { montaVideoInforme, puedeMontarVideo } from "@/lib/video-informe/monta";
 
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
@@ -695,7 +697,15 @@ export function InformeMicroDialog({
 
       if (conVideo && puedeMontarVideo()) {
         try {
-          const v = await montaVideoInforme(guionDeAbp(paraEnviar, pinceladaAbp(paraEnviar)), setPasoVideo);
+          const escudo = buscadorDeEscudos(await traeEscudos().catch(() => []))(datos.partidoCalendario?.rival || datos.rival);
+
+          const v = await montaVideoInforme(
+            guionDeAbp(paraEnviar, pinceladaAbp(paraEnviar), {
+              cortes: rivalInforme.clips,
+              escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null,
+            }),
+            { alPaso: setPasoVideo, fuente: barlowCondensed.style.fontFamily },
+          );
           const nombre = `${paraEnviar.titulo} - Balón parado en vídeo.mp4`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
 
           setPasoVideo("subiendo…");

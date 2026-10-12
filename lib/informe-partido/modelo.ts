@@ -300,7 +300,7 @@ export type InformePartido = {
    */
   recursos: {
     documentos: DocumentoRival[];
-    videos: { nombre: string; url: string }[];
+    videos: { nombre: string; url: string; /** «Córner ofensivo · VS EUROPA»: de dónde sale el corte, para el vídeo resumen. */ rotulo?: string }[];
     /** El equipo como lo escribe la hoja de plantillas (para pedir sus documentos a Plantillas rivales). */
     equipoPlantilla: string;
     /** Los que se sacaron en Plantillas rivales: de qué tipo y cuándo. */

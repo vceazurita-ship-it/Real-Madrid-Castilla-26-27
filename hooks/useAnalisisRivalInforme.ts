@@ -38,10 +38,12 @@ import { claveClub as clave, mismoClub as mismoEquipo } from "@/lib/rivals/mismo
 export type AnalisisRivalInforme = {
   graficos: GraficoInforme[];
   rivalAnalisis: RivalAnalisisInforme | null;
+  /** Los cortes de vídeo de esa jornada (720p en el bucket), con su rótulo: para el vídeo resumen. */
+  clips: { nombre: string; url: string; rotulo: string }[];
   cargando: boolean;
 };
 
-const NADA: AnalisisRivalInforme = { graficos: [], rivalAnalisis: null, cargando: false };
+const NADA: AnalisisRivalInforme = { graficos: [], rivalAnalisis: null, clips: [], cargando: false };
 
 export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
   const [resultado, setResultado] = useState<AnalisisRivalInforme>({ ...NADA, cargando: true });
@@ -222,6 +224,7 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
 
       return {
         graficos,
+        clips: (clips[jornada]?.clips ?? []).map((c) => ({ nombre: c.nombre, url: c.url, rotulo: [SECCION_POR_ID.get(c.seccion)?.titulo ?? c.seccion, c.partido, jornada].filter(Boolean).join(" · ") })),
         rivalAnalisis: {
           equipo,
           jornada,

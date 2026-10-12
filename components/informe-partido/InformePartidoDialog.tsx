@@ -33,6 +33,7 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { TOPE_ADJUNTOS_CORREO, TOPE_PETICION_CORREO } from "@/lib/correo/limites";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { guionDePartido } from "@/lib/video-informe/guion";
+import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { montaVideoInforme, puedeMontarVideo } from "@/lib/video-informe/monta";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
 import { completoEnPdf } from "@/lib/informe-partido/pdf-completo";
@@ -51,13 +52,13 @@ type AjustesCorreo = {
   paraResumen?: string;
   paraCompleto?: string;
   /** Los interruptores de adjuntos, recordados de una vez para otra. */
-  preferencias?: { resumenPdf?: boolean; resumenPpt?: boolean; resumenVideo?: boolean; completoPdf?: boolean; completoResumenPdf?: boolean; completoResumenPpt?: boolean };
+  preferencias?: { resumenPdf?: boolean; resumenPpt?: boolean; resumenVideo?: boolean; completoVideo?: boolean; completoPdf?: boolean; completoResumenPdf?: boolean; completoResumenPpt?: boolean };
 };
 
 /** Qué lleva cada correo. `asunto` a `null` = el de siempre; `capitulos` a `null` = todos. */
 type OpcionesEnvio = {
   resumen: { activo: boolean; asunto: string | null; mensaje: string; diapos: boolean[]; pdf: boolean; ppt: boolean; video: boolean };
-  completo: { activo: boolean; asunto: string | null; mensaje: string; capitulos: string[] | null; pdfCompleto: boolean; pdfResumen: boolean; pptResumen: boolean; sacarDocs: boolean };
+  completo: { activo: boolean; asunto: string | null; mensaje: string; capitulos: string[] | null; pdfCompleto: boolean; pdfResumen: boolean; pptResumen: boolean; sacarDocs: boolean; video: boolean };
 };
 
 /** Al cambiar de partido o de momento, el asunto y el mensaje dejan de valer. */
@@ -173,7 +174,7 @@ export function InformePartidoDialog({
   /* Qué correos salen y qué lleva cada uno. Los dos por defecto: es para lo que existe el botón. */
   const [envio, setEnvio] = useState<OpcionesEnvio>(() => ({
     resumen: { activo: true, asunto: null, mensaje: "", diapos: [true, true, true], pdf: true, ppt: false, video: true },
-    completo: { activo: true, asunto: null, mensaje: "", capitulos: null, pdfCompleto: true, pdfResumen: false, pptResumen: false, sacarDocs: true },
+    completo: { activo: true, asunto: null, mensaje: "", capitulos: null, pdfCompleto: true, pdfResumen: false, pptResumen: false, sacarDocs: true, video: true },
   }));
 
   /* Lo recordado, en cuanto llega de la nube (una vez). */
@@ -191,6 +192,7 @@ export function InformePartidoDialog({
       completo: {
         ...e.completo,
         pdfCompleto: pr.completoPdf ?? e.completo.pdfCompleto,
+        video: pr.completoVideo ?? e.completo.video,
         pdfResumen: pr.completoResumenPdf ?? e.completo.pdfResumen,
         pptResumen: pr.completoResumenPpt ?? e.completo.pptResumen,
       },
@@ -974,27 +976,37 @@ export function InformePartidoDialog({
       */
       const nombreVideo = nombreDeArchivo(`${nombreLegible} - Resumen en vídeo`, "mp4");
 
-      const videoResumen = async () => {
-        try {
-          const v = await montaVideoInforme(guionDePartido(informeVisto), (t) => paso("resumen", `vídeo: ${t}`));
+      /* Se monta UNA vez aunque vaya en los dos correos: la promesa se comparte. */
+      let videoP: Promise<{ nombre: string; url: string; tipo: string; tamano: number | null } | null> | null = null;
 
-          if (!v.conVoz) toast.message("El vídeo va sin voz", { description: "La IA de voz no ha contestado; el texto sale escrito en pantalla." });
+      const videoResumen = (correo: "resumen" | "completo") =>
+        (videoP ??= (async () => {
+          try {
+            const escudos = await traeEscudos().catch(() => []);
+            const escudo = buscadorDeEscudos(escudos)(informeVisto.partido.rival);
 
-          return await subeUnaVez(nombreVideo, "video/mp4", () => v.blob);
-        } catch (error) {
-          console.warn("[informe] el vídeo resumen no ha salido", error);
-          toast.message("El correo va sin el vídeo resumen", { description: error instanceof Error ? error.message : "No se ha podido montar." });
+            const v = await montaVideoInforme(guionDePartido(informeVisto, { escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null }), {
+              alPaso: (t) => paso(correo, `vídeo: ${t}`),
+              fuente: barlowCondensed.style.fontFamily,
+            });
 
-          return null;
-        }
-      };
+            if (!v.conVoz) toast.message("El vídeo va sin voz", { description: "La IA de voz no ha contestado; el texto sale escrito en pantalla." });
+
+            return await subeUnaVez(nombreVideo, "video/mp4", () => v.blob);
+          } catch (error) {
+            console.warn("[informe] el vídeo resumen no ha salido", error);
+            toast.message("El correo va sin el vídeo resumen", { description: error instanceof Error ? error.message : "No se ha podido montar." });
+
+            return null;
+          }
+        })());
 
       const correoResumen = async () => {
         const archivos = (
           await Promise.all([
             ...(r.pdf ? [subeUnaVez(nombreResumenPdf, "application/pdf", pdfResumen)] : []),
             ...(r.ppt ? [subeUnaVez(nombreResumenPpt, PPTX, pptDelResumen)] : []),
-            ...(r.video && puedeMontarVideo() ? [videoResumen()] : []),
+            ...(r.video && puedeMontarVideo() ? [videoResumen("resumen")] : []),
           ])
         ).filter((a): a is NonNullable<typeof a> => a !== null);
 
@@ -1044,6 +1056,11 @@ export function InformePartidoDialog({
             return subido;
           }),
         );
+
+        /* El vídeo resumen también va aquí (12/10/2026); si no sale, el completo sale sin él. */
+        const videoCompleto = c.video && puedeMontarVideo() ? await videoResumen("completo") : null;
+
+        if (videoCompleto) subidosAhora.push(videoCompleto);
 
         if (c.sacarDocs && faltanDocs && !docsActual?.ok) paso("completo", "esperando el PDF y el PPT del rival…");
 
@@ -1224,11 +1241,11 @@ export function InformePartidoDialog({
 
     const { resumen: r, completo: c } = envio;
 
-    const preferencias = { resumenPdf: r.pdf, resumenPpt: r.ppt, resumenVideo: r.video, completoPdf: c.pdfCompleto, completoResumenPdf: c.pdfResumen, completoResumenPpt: c.pptResumen };
+    const preferencias = { resumenPdf: r.pdf, resumenPpt: r.ppt, resumenVideo: r.video, completoPdf: c.pdfCompleto, completoVideo: c.video, completoResumenPdf: c.pdfResumen, completoResumenPpt: c.pptResumen };
 
     setAjustes((a) => (JSON.stringify(preferencias) !== JSON.stringify(a.preferencias ?? {}) ? { ...a, preferencias } : a));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [envio.resumen.pdf, envio.resumen.ppt, envio.resumen.video, envio.completo.pdfCompleto, envio.completo.pdfResumen, envio.completo.pptResumen]);
+  }, [envio.resumen.pdf, envio.resumen.ppt, envio.resumen.video, envio.completo.pdfCompleto, envio.completo.video, envio.completo.pdfResumen, envio.completo.pptResumen]);
 
   const casilla = (checked: boolean, onChange: (v: boolean) => void, texto: ReactNode, pie?: string, disabled = false) => (
     <label className={`flex items-start gap-2 ${disabled ? "opacity-40" : "cursor-pointer"}`}>
@@ -1485,6 +1502,7 @@ export function InformePartidoDialog({
                       <span className="text-[10px] text-white/30">hasta {mb(TOPE_ADJUNTOS)} adjunto; lo demás va como botón de descarga</span>
                     </div>
                     {casilla(envio.completo.pdfCompleto, (v) => cambia("completo", { pdfCompleto: v }), "El informe completo en PDF", "para leerlo sin conexión o imprimirlo")}
+                    {casilla(envio.completo.video, (v) => cambia("completo", { video: v }), "Vídeo resumen (menos de 1 min)", puedeMontarVideo() ? "el mismo que va en el resumen" : "este navegador no puede montarlo", !puedeMontarVideo())}
                     {casilla(envio.completo.pdfResumen, (v) => cambia("completo", { pdfResumen: v }), "El resumen en PDF", envio.resumen.activo && envio.resumen.pdf ? "ya va en el correo del resumen" : undefined)}
                     {casilla(envio.completo.pptResumen, (v) => cambia("completo", { pptResumen: v }), "El resumen en PowerPoint")}
 

@@ -18,7 +18,7 @@ import { esTareaAbp, loadRegistro, type RegistroTarea } from "@/lib/abp/registro
 import { comoNuestro, soloDia, type PartidoNuestro } from "@/lib/castilla/calendario";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { traeJson } from "@/lib/hojaCsv";
-import { analisisKey, clipsKey, laminaVacia, normalizaAnalisis, ordenJornada } from "@/lib/rivals/analisis";
+import { SECCION_POR_ID, analisisKey, clipsKey, laminaVacia, normalizaAnalisis, ordenJornada } from "@/lib/rivals/analisis";
 import { esLiga, findInforme, type InformeDoc, type InformeEquipo, type OncePartido } from "@/lib/rivals/informe";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { normalizaDocumentos, rivalDocumentosKey, ROTULO_DOCUMENTO } from "@/lib/rivals/documentos";
@@ -603,7 +603,7 @@ export async function cargaInforme(entrada: {
   const [onceDoc, analisisDoc, clipsDoc, duelo, mediaDoc, generadosDoc] = await Promise.all([
     doc<unknown>(rivalOnceKey(equipoHoja)),
     doc<unknown>(analisisKey(equipoHoja)),
-    doc<{ jornadas?: Record<string, { docs?: { nombre: string; url: string }[] }> }>(clipsKey(equipoHoja)),
+    doc<{ jornadas?: Record<string, { docs?: { nombre: string; url: string }[]; clips?: { seccion: string; partido: string; nombre: string; url: string }[] }> }>(clipsKey(equipoHoja)),
     traeJson<{ duelo?: Duelo }>(
       /* Las medias, de antes del partido (`corte`); en el post, además, el partido. */
       `/api/data-analisis?duelo=${encodeURIComponent(rival)}${partido ? `&corte=${soloDia(partido.cuando)}` : ""}${momento === "post" && partido ? `&fecha=${soloDia(partido.cuando)}` : ""}`,
@@ -645,7 +645,15 @@ export async function cargaInforme(entrada: {
       };
       }),
     ],
-    videos: media.videos.map((v) => ({ nombre: v.nombre, url: v.url })),
+    /* Los cortes preparados del rival (Análisis visual, por jornada, 720p en el bucket) van primero: son acciones concretas y el navegador los puede dibujar. */
+    videos: [
+      ...Object.entries(clipsDoc?.jornadas ?? {})
+        .sort(([a], [b]) => ordenJornada(b, a))
+        .flatMap(([jornada, j]) =>
+          (j.clips ?? []).map((c) => ({ nombre: c.nombre, url: c.url, rotulo: [SECCION_POR_ID.get(c.seccion as never)?.titulo ?? c.seccion, c.partido, jornada].filter(Boolean).join(" · ") })),
+        ),
+      ...media.videos.map((v) => ({ nombre: v.nombre, url: v.url })),
+    ],
     equipoPlantilla: equipoHoja,
     generados: normalizaDocumentos(generadosDoc).docs.map((d) => ({ tipo: d.tipo, creado: d.creado })),
   };
