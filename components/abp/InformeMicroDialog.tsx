@@ -930,7 +930,7 @@ export function InformeMicroDialog({
           <div className="min-w-0 space-y-1">
             <label className={`flex items-center gap-2 text-[11px] ${puedeMontarVideo() ? "cursor-pointer text-white/70" : "opacity-40"}`}>
               <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo && puedeMontarVideo()} disabled={!puedeMontarVideo() || enviando} onChange={(e) => setConVideo(e.target.checked)} />
-              Adjuntar el vídeo resumen (minuto y medio: cortes, voz y datos)
+              Adjuntar el vídeo resumen (de 1 a 2:30 min: cortes, voz y datos)
             </label>
             {!datos.partidoCalendario?.jugado && (
               <label className={`flex items-center gap-2 text-[11px] ${puedeMontarVideo() ? "text-white/60" : "opacity-40"}`}>

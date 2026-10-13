@@ -58,8 +58,9 @@ export async function POST(request: NextRequest) {
     ? cuerpo.escenas
         .map((e) => e as Partial<Entrada>)
         .filter((e) => typeof e.id === "string" && typeof e.texto === "string")
-        .map((e) => ({ id: e.id!, texto: e.texto!.slice(0, 600), palabras: Math.max(6, Math.min(40, Number(e.palabras) || 22)) }))
-        .slice(0, 10)
+        /* Hasta 24 escenas y 90 palabras por escena: un vídeo de 2:30 con tres bloques de cortes las pasa de largo (antes 10 y 40, y lo que sobraba se quedaba sin pulir). */
+        .map((e) => ({ id: e.id!, texto: e.texto!.slice(0, 700), palabras: Math.max(6, Math.min(90, Number(e.palabras) || 22)) }))
+        .slice(0, 24)
     : [];
 
   if (!escenas.length) return NextResponse.json({ ok: false, error: "Sin escenas." }, { status: 400 });
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
   const contexto = typeof cuerpo.contexto === "string" ? cuerpo.contexto.slice(0, 300) : "";
 
   const prompt = [
-    "Eres el analista del Real Madrid Castilla y locutas un vídeo resumen de menos de un minuto para el cuerpo técnico.",
+    "Eres el analista del Real Madrid Castilla y locutas un vídeo resumen (entre uno y dos minutos y medio) para el cuerpo técnico.",
     "Reescribe la locución de cada escena en castellano de España, directa y sin adornos, como se habla en un vestuario profesional.",
     "REGLAS: no inventes ni cambies ningún dato, cifra, nombre ni porcentaje; no añadas nada que no esté; cada escena no puede pasar de las palabras que se indican;",
     "las cifras se escriben en palabras cuando ayuden a leerlas en voz alta (\"cuarenta y dos por ciento\"); sin emojis, sin comillas, sin encabezados.",

@@ -24,13 +24,23 @@
 import { MuxorMp4 } from "@/lib/coding/mp4";
 import type { Bytes } from "@/lib/export/zip";
 
-import { ALTO, ANCHO, FPS, SEGUNDOS, corteEn, limitesDeCortes, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
+import { ALTO, ANCHO, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
 import { SEGUNDOS_MAXIMOS, type Corte, type GuionVideo, type JugadorEscena } from "./guion";
-import { FRECUENCIA_AAC, camaSintetica, pcm16aFlotante, remuestrea, reparteVoz } from "./voz";
+import { FRECUENCIA_AAC, camaSintetica, mulawAFlotante, pcm16aFlotante, remuestrea, reparteVoz } from "./voz";
 import { posterDeVideo } from "./portada-video";
 
-/** ~11 MB el minuto: cabe con el PDF dentro del tope de adjuntos del correo. */
+/**
+ * El caudal, según lo que dure: ~11 MB el minuto, y en los vídeos largos (hasta
+ * 2:30) lo justo para quedarse en ~13 MB, que caben con el PDF dentro de los
+ * 16 MB de adjuntos del correo. Nunca por debajo de 750 kb/s: si no cabe, el
+ * correo lo lleva por enlace con su póster.
+ */
 const CAUDAL = 1_500_000;
+const CAUDAL_MINIMO = 750_000;
+const BYTES_OBJETIVO = 13 * 1024 * 1024;
+const CAUDAL_SONIDO = 96_000;
+
+export const caudalPara = (segundos: number) => Math.round(Math.max(CAUDAL_MINIMO, Math.min(CAUDAL, (BYTES_OBJETIVO * 8) / Math.max(1, segundos) - CAUDAL_SONIDO)));
 const CODEC = "avc1.4d401f"; /* H.264 Main 3.1: 1280×720 a 30 fps en cualquier aparato. */
 
 export type PasoVideo = (texto: string) => void;
@@ -52,7 +62,8 @@ export function puedeMontarVideo() {
 const conPlazo = <T,>(p: Promise<T>, ms: number, siNo: T) => Promise.race([p, new Promise<T>((r) => setTimeout(() => r(siNo), ms))]);
 
 async function puleLocucion(guion: GuionVideo): Promise<GuionVideo> {
-  const escenas = guion.escenas.map((e) => ({ id: e.id, texto: e.locucion, palabras: Math.ceil((e.tipo === "clips" ? e.segundos : SEGUNDOS[e.tipo]) * 2.4) }));
+  const factor = estiramiento(guion);
+  const escenas = guion.escenas.map((e) => ({ id: e.id, texto: e.locucion, palabras: palabrasDeEscena(e, factor) }));
 
   const r = await conPlazo(
     fetch("/api/informe/video-guion", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contexto: guion.titulo, escenas }) })
@@ -76,7 +87,8 @@ async function pideVoz(guion: GuionVideo): Promise<{ pistas: (Float32Array | nul
 
   const r = await conPlazo(
     fetch("/api/informe/voz", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ textos }) }).catch(() => null),
-    58_000,
+    /* Dos minutos y medio de voz tardan en generarse: la función tiene 120 s. */
+    118_000,
     null,
   );
 
@@ -90,7 +102,9 @@ async function pideVoz(guion: GuionVideo): Promise<{ pistas: (Float32Array | nul
 
   const bytes = new Uint8Array(await r.arrayBuffer());
   const deFrecuencia = Number(r.headers.get("X-Voz-Frecuencia")) || 24_000;
-  const entera = remuestrea(pcm16aFlotante(bytes), deFrecuencia, FRECUENCIA_AAC);
+  /* Las voces largas llegan en μ-law (8 bits) para no pasar del tope de respuesta de Vercel. */
+  const muestras = r.headers.get("X-Voz-Formato") === "mulaw" ? mulawAFlotante(bytes) : pcm16aFlotante(bytes);
+  const entera = remuestrea(muestras, deFrecuencia, FRECUENCIA_AAC);
 
   if (entera.length < FRECUENCIA_AAC * 0.5) return { pistas: null, motivo: "La IA de voz ha devuelto un audio vacío." };
 
@@ -293,7 +307,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
     },
   });
 
-  codificador.configure({ codec: CODEC, width: ANCHO, height: ALTO, bitrate: CAUDAL, framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
+  codificador.configure({ codec: CODEC, width: ANCHO, height: ALTO, bitrate: caudalPara(total), framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
 
   const frecuencia = FRECUENCIA_AAC;
   let enMuestras = 0;
@@ -316,7 +330,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
     },
   });
 
-  sonido.configure({ codec: "mp4a.40.2", sampleRate: frecuencia, numberOfChannels: 1, bitrate: 96_000 });
+  sonido.configure({ codec: "mp4a.40.2", sampleRate: frecuencia, numberOfChannels: 1, bitrate: CAUDAL_SONIDO });
 
   /* ---- la pista de sonido entera: la cama debajo, la voz de cada escena en su sitio ---- */
   alPaso("sonido…");

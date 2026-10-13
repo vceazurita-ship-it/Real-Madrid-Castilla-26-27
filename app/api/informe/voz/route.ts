@@ -17,15 +17,19 @@
 |
 | Y en crudo, no en JSON: un minuto de voz son 2,9 MB de PCM, que en base64
 | serían 3,9 MB, pegados al tope de respuesta de una función de Vercel.
+| Desde que el vídeo dura hasta 2:30 (13/10/2026), la voz que pasa de ~3,8 MB
+| va en μ-law de 8 bits (cabecera `X-Voz-Formato: mulaw`): la mitad.
 */
 
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 
 import { puedeMandar } from "@/lib/correo/peticionInforme";
+import { pcm16aMulaw } from "@/lib/video-informe/voz";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+/* Dos minutos y medio de voz tardan en generarse. */
+export const maxDuration = 120;
 
 const MODEL = "gemini-2.5-flash-preview-tts";
 
@@ -34,8 +38,14 @@ const VOZ = "Kore";
 
 const FRECUENCIA = 24_000;
 
-/** Un minuto largo de locución; más no cabe en el vídeo ni en la respuesta. */
-const MAX_CARACTERES = 2200;
+/** Dos minutos y medio de locución (unas 360 palabras); más no cabe en el vídeo. */
+const MAX_CARACTERES = 3800;
+
+/** Lo que cabe en la respuesta en PCM de 16 bits; si pasa, μ-law. */
+const TOPE_PCM = 3_800_000;
+
+/** Las escenas que puede tener un vídeo. Tiene que ser el mismo número de párrafos que reparte el navegador. */
+const MAX_ESCENAS = 24;
 
 export async function POST(request: NextRequest) {
   if (!puedeMandar(request)) return NextResponse.json({ ok: false, error: "Hace falta sesión del cuerpo técnico." }, { status: 401 });
@@ -50,7 +60,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Cuerpo ilegible." }, { status: 400 });
   }
 
-  const textos = Array.isArray(cuerpo.textos) ? cuerpo.textos.filter((t): t is string => typeof t === "string").map((t) => t.replace(/\s+/g, " ").trim()).slice(0, 12) : [];
+  const textos = Array.isArray(cuerpo.textos) ? cuerpo.textos.filter((t): t is string => typeof t === "string").map((t) => t.replace(/\s+/g, " ").trim()).slice(0, MAX_ESCENAS) : [];
 
   if (!textos.some(Boolean)) return NextResponse.json({ ok: false, error: "Sin textos." }, { status: 400 });
 
@@ -80,11 +90,14 @@ export async function POST(request: NextRequest) {
       if (!parte?.inlineData?.data) throw new Error("Gemini no ha devuelto audio.");
 
       const frecuencia = Number(parte.inlineData.mimeType?.match(/rate=(\d+)/)?.[1]) || FRECUENCIA;
-      const bytes = Buffer.from(parte.inlineData.data, "base64");
+      const bytes = new Uint8Array(Buffer.from(parte.inlineData.data, "base64"));
+      const mulaw = bytes.byteLength > TOPE_PCM;
 
-      return new Response(new Uint8Array(bytes), {
+      const cuerpo = mulaw ? pcm16aMulaw(bytes) : bytes;
+
+      return new Response(new Blob([cuerpo as Uint8Array<ArrayBuffer>]), {
         status: 200,
-        headers: { "Content-Type": "application/octet-stream", "X-Voz-Frecuencia": String(frecuencia), "X-Voz-Canales": "1", "Cache-Control": "no-store" },
+        headers: { "Content-Type": "application/octet-stream", "X-Voz-Frecuencia": String(frecuencia), "X-Voz-Canales": "1", "X-Voz-Formato": mulaw ? "mulaw" : "pcm16", "Cache-Control": "no-store" },
       });
     } catch (error) {
       ultimo = error;

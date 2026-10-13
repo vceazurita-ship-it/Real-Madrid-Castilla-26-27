@@ -45,7 +45,7 @@ const { GoogleGenAI } = require("@google/genai");
 const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
 
 const { escenasDeCortes, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
-const { ANCHO, ALTO, FPS, SEGUNDOS, corteEn, limitesDeCortes, pintaFotograma, rellenaGrano, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
+const { ANCHO, ALTO, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
 const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, camaSintetica, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
 
@@ -246,7 +246,8 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
   candidatos.sort((a, b) => b.peso - a.peso || a.t - b.t);
 
   const elegidos = [];
-  const tope = { gol: 4, "gol-contra": 4, remate: 4, contra: 2, corner: 3, "remate-contra": 4, "corner-contra": 3, abp: 2, "abp-contra": 2, banda: 2, "banda-contra": 2 };
+  /* Con el vídeo de hasta 2:30 (13/10/2026) caben más: todos los goles, cuatro llegadas nuestras y tres suyas, y el balón parado de los dos. */
+  const tope = { gol: 8, "gol-contra": 8, remate: 5, contra: 3, corner: 4, "remate-contra": 5, "corner-contra": 4, abp: 3, "abp-contra": 3, banda: 2, "banda-contra": 2 };
   const cuenta = {};
 
   for (const c of candidatos) {
@@ -367,8 +368,13 @@ async function conGemini(fn, modelos) {
   throw ultimo ?? new Error("Gemini no ha contestado");
 }
 
+/* Primero lo que más enseña: si la cuota gratuita se acaba a mitad, que no sea en los goles. */
+const PRIORIDAD_LECTURA = { gol: 0, "gol-contra": 0, remate: 1, "remate-contra": 1, contra: 2, corner: 3, "corner-contra": 3, abp: 3, "abp-contra": 3 };
+
 async function leeCortes(ai, partido, momentos) {
-  for (const [i, m] of momentos.entries()) {
+  const orden = [...momentos.entries()].sort(([, a], [, b]) => (PRIORIDAD_LECTURA[a.tipo] ?? 4) - (PRIORIDAD_LECTURA[b.tipo] ?? 4) || Number(Boolean(b.resultado || b.peligro)) - Number(Boolean(a.resultado || a.peligro)));
+
+  for (const [i, m] of orden) {
     if (m.texto) continue;
 
     const bytes = fs.readFileSync(m.fichero);
@@ -407,9 +413,10 @@ async function leeCortes(ai, partido, momentos) {
 }
 
 async function escribeLocuciones(ai, guion) {
-  const escenas = guion.escenas.map((e) => ({ id: e.id, texto: e.locucion, palabras: Math.ceil((e.tipo === "clips" ? e.segundos : SEGUNDOS[e.tipo]) * 2.4) }));
+  const factor = estiramiento(guion);
+  const escenas = guion.escenas.map((e) => ({ id: e.id, texto: e.locucion, palabras: palabrasDeEscena(e, factor) }));
   const prompt = [
-    "Eres el analista del Real Madrid Castilla y locutas el vídeo del partido para el cuerpo técnico (minuto y medio).",
+    "Eres el analista del Real Madrid Castilla y locutas el vídeo del partido para el cuerpo técnico (entre uno y dos minutos y medio).",
     "Reescribe la locución de cada escena en castellano de España, directa, con criterio táctico y sin adornos, como se habla en un vestuario profesional.",
     "REGLAS: no inventes ni cambies ningún dato, cifra, nombre ni minuto; no añadas nada que no esté; cada escena no puede pasar de las palabras que se indican;",
     "las cifras en palabras cuando ayuden a leerlas en voz alta; sin emojis, sin comillas, sin encabezados.",
@@ -452,7 +459,7 @@ async function pideVoz(ai, guion) {
     .filter(Boolean)
     .map((t) => (/[.!?…]$/.test(t) ? t : `${t}.`))
     .join("\n\n")
-    .slice(0, 2200);
+    .slice(0, 3800);
 
   const r = await conGemini(
     (model) =>
@@ -636,13 +643,21 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
   fs.writeFileSync(mezcla, Buffer.from(pista.buffer, pista.byteOffset, pista.byteLength));
 
   /* ---- los fotogramas, a ffmpeg por la entrada estándar ---- */
+  const caudal = Math.round(Math.max(650, Math.min(1400, (13 * 1024 * 1024 * 8) / total / 1000 - 96)));
+  console.log(`  ${total.toFixed(1)} s · caudal ${caudal} kb/s${caudal < 1000 ? " · 960×540" : ""}`);
+
   const ff = spawn(FFMPEG, [
     "-y", "-loglevel", "error",
     "-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${ANCHO}x${ALTO}`, "-r", String(FPS), "-i", "pipe:0",
     "-f", "f32le", "-ar", String(FRECUENCIA_AAC), "-ac", "1", "-i", mezcla,
-    /* Con tope de caudal: 90 s tienen que quedar por debajo de los 16 MB que admite el correo del informe. */
-    "-c:v", "libx264", "-preset", "medium", "-crf", "22", "-maxrate", "1400k", "-bufsize", "2800k", "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.0",
-    "-c:a", "aac", "-b:a", "128k",
+    /*
+    | Con tope de caudal según lo que dure: hasta 2:30 tiene que quedar en
+    | ~13 MB, que caben con el PDF en los 16 MB de adjuntos del correo. Los
+    | largos se pasan a 960×540: a 700 kb/s se ven mejor que en 720p.
+    */
+    ...(caudal < 1000 ? ["-vf", "scale=960:540:flags=lanczos"] : []),
+    "-c:v", "libx264", "-preset", caudal < 1000 ? "slow" : "medium", "-crf", "22", "-maxrate", `${caudal}k`, "-bufsize", `${caudal * 2}k`, "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.0",
+    "-c:a", "aac", "-b:a", "96k",
     "-movflags", "+faststart", "-shortest",
     salida,
   ], { stdio: ["pipe", "inherit", "inherit"] });

@@ -44,6 +44,49 @@ export function pcm16aFlotante(bytes: Uint8Array): Float32Array {
   return flot;
 }
 
+/**
+ * μ-law (G.711) de 8 bits: la mitad de bytes que el PCM de 16 bits y, para voz,
+ * sin diferencia que se oiga. Lo usa `/api/informe/voz` cuando la locución
+ * pasa de ~85 s (dos minutos y medio en PCM serían 7,2 MB, y una función de
+ * Vercel no devuelve más de 4,5).
+ */
+export function pcm16aMulaw(bytes: Uint8Array): Uint8Array {
+  const enteros = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
+  const salida = new Uint8Array(enteros.length);
+
+  for (let i = 0; i < enteros.length; i += 1) {
+    let x = enteros[i];
+    const signo = x < 0 ? 0x80 : 0;
+
+    if (x < 0) x = -x;
+
+    x = Math.min(32635, x) + 0x84;
+
+    let exponente = 7;
+
+    for (let m = 0x4000; (x & m) === 0 && exponente > 0; m >>= 1) exponente -= 1;
+
+    salida[i] = ~(signo | (exponente << 4) | ((x >> (exponente + 3)) & 0x0f)) & 0xff;
+  }
+
+  return salida;
+}
+
+/** μ-law de 8 bits → flotante [-1, 1]. */
+export function mulawAFlotante(bytes: Uint8Array): Float32Array {
+  const flot = new Float32Array(bytes.length);
+
+  for (let i = 0; i < bytes.length; i += 1) {
+    const u = ~bytes[i] & 0xff;
+    const exponente = (u >> 4) & 0x07;
+    const magnitud = ((((u & 0x0f) << 3) + 0x84) << exponente) - 0x84;
+
+    flot[i] = (u & 0x80 ? -magnitud : magnitud) / 32768;
+  }
+
+  return flot;
+}
+
 /** Los silencios de una pista: tramos de al menos `minimoMs` por debajo del umbral, como [inicio, fin] en muestras. */
 export function silenciosDe(pista: Float32Array, frecuencia: number, minimoMs = 220, umbral = 0.012) {
   const ventana = Math.round(frecuencia * 0.02);

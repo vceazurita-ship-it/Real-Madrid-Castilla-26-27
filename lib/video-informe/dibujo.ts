@@ -14,7 +14,7 @@
 | cada escena según la voz y qué se sacrifica si no cabe.
 */
 
-import { SEGUNDOS_MAXIMOS, type Celda, type Corte, type CortePartido, type Escena, type GuionVideo, type MarcaPartido } from "./guion";
+import { SEGUNDOS_MAXIMOS, SEGUNDOS_MINIMOS, type Celda, type Corte, type CortePartido, type Escena, type GuionVideo, type MarcaPartido } from "./guion";
 
 export const ANCHO = 1280;
 export const ALTO = 720;
@@ -29,7 +29,7 @@ export const SEGUNDOS: Record<Escena["tipo"], number> = { portada: 5.5, cifras: 
 const AIRE = 0.7;
 
 /** Las que se sacrifican primero si no cabe en el tiempo, por este orden. */
-const PRESCINDIBLES = ["abp", "duelo", "grafico-1", "lamina-1", "rival", "clips-rival-2", "abp-banda", "vigilar", "clips-3", "clips-2", "grafico-0", "lamina-0", "abp-suyos", "once", "cifras", "clips-1", "clips", "abp-nuestros", "analisis-previo"];
+const PRESCINDIBLES = ["abp", "duelo", "grafico-2", "lamina-2", "grafico-1", "lamina-1", "rival", "clips-rival-2", "abp-banda", "vigilar", "clips-3", "clips-2", "grafico-0", "lamina-0", "abp-suyos", "once", "cifras", "clips-1", "clips", "abp-nuestros", "analisis-previo"];
 
 /* ------------------------------------------------------------------ */
 /*  TIPOS QUE COMPARTEN LOS DOS MOTORES                                */
@@ -49,7 +49,23 @@ export type EscenaMedida = { escena: Escena; segundos: number; voz: Float32Array
 /*  EL REPARTO DEL TIEMPO                                              */
 /* ------------------------------------------------------------------ */
 
-export function reparteEscenas(guion: GuionVideo, pistas: (Float32Array | null)[] | null, frecuencia: number, tope = SEGUNDOS_MAXIMOS): EscenaMedida[] {
+/**
+ * Cuánto aire se da a las escenas sin cortes si el vídeo no llega al mínimo:
+ * el factor por el que se estiran (como mucho ×1,8, que más ya se nota vacío).
+ */
+export function estiramiento(guion: GuionVideo, minimo = SEGUNDOS_MINIMOS) {
+  const cortes = guion.escenas.reduce((s, e) => s + (e.tipo === "clips" ? e.segundos : 0), 0);
+  const resto = guion.escenas.reduce((s, e) => s + (e.tipo === "clips" ? 0 : SEGUNDOS[e.tipo]), 0);
+
+  return resto > 0 && cortes + resto < minimo ? Math.min(1.8, (minimo - cortes) / resto) : 1;
+}
+
+/** Las palabras que caben en la locución de cada escena (2,4 por segundo), contando el aire que se le da si el vídeo es corto. */
+export function palabrasDeEscena(e: Escena, factor = 1) {
+  return Math.ceil((e.tipo === "clips" ? e.segundos : SEGUNDOS[e.tipo] * factor) * 2.4);
+}
+
+export function reparteEscenas(guion: GuionVideo, pistas: (Float32Array | null)[] | null, frecuencia: number, tope = SEGUNDOS_MAXIMOS, minimo = SEGUNDOS_MINIMOS): EscenaMedida[] {
   let lista: EscenaMedida[] = guion.escenas.map((escena, i) => {
     const pista = pistas?.[i] ?? null;
     const habla = pista ? pista.length / frecuencia : 0;
@@ -86,6 +102,30 @@ export function reparteEscenas(guion: GuionVideo, pistas: (Float32Array | null)[
     lista[i] = { ...x, escena: { ...e, cortes: e.cortes.filter((_, j) => j !== k), segundos: Math.max(0, e.segundos - menos) }, segundos: Math.max(0, x.segundos - menos) };
   };
 
+  /* Los cortes que no son gol, de la escena más larga, mientras alguna tenga más de `deja`. Los goles no se tocan aquí. */
+  const quitaNoGol = (deja: number) => {
+    const candidatas = lista
+      .map((x, i) => ({ x, i }))
+      .filter(({ x }) => x.escena.tipo === "clips" && x.escena.cortes.length > deja && !x.escena.cortes.some(esGol))
+      .sort((a, b) => b.x.segundos - a.x.segundos);
+
+    if (!candidatas.length) return false;
+
+    const { x, i } = candidatas[0];
+
+    quita(i, (x.escena as Extract<Escena, { tipo: "clips" }>).cortes.length - 1);
+
+    return true;
+  };
+
+  /*
+  | Con 2:30 de margen (13/10/2026), primero se deja cada bloque de llegadas
+  | en dos cortes, y sólo entonces caen las repeticiones: con cinco goles y
+  | todas las llegadas, se perdían todas las repeticiones antes que una
+  | llegada de sobra.
+  */
+  while (total() > tope && quitaNoGol(2));
+
   while (total() > tope) {
     let hecho = false;
 
@@ -105,17 +145,8 @@ export function reparteEscenas(guion: GuionVideo, pistas: (Float32Array | null)[
 
     if (hecho) continue;
 
-    /* Luego cortes que no sean goles, de la escena más larga, dejando uno por escena. Los goles no se tocan aquí. */
-    const candidatas = lista
-      .map((x, i) => ({ x, i }))
-      .filter(({ x }) => x.escena.tipo === "clips" && x.escena.cortes.length > 1 && !x.escena.cortes.some(esGol))
-      .sort((a, b) => b.x.segundos - a.x.segundos);
-
-    if (!candidatas.length) break;
-
-    const { x, i } = candidatas[0];
-
-    quita(i, (x.escena as Extract<Escena, { tipo: "clips" }>).cortes.length - 1);
+    /* Luego cortes que no sean goles, dejando uno por escena. */
+    if (!quitaNoGol(1)) break;
   }
 
   for (const id of PRESCINDIBLES) {
@@ -133,10 +164,37 @@ export function reparteEscenas(guion: GuionVideo, pistas: (Float32Array | null)[
     quita(i, e.cortes.length - 1);
   }
 
+  /*
+  | Si aún no cabe, se aprietan las escenas sin cortes, nunca por debajo de lo
+  | que dura su voz: los cortes se ven enteros siempre (13/10/2026; antes se
+  | escalaba todo, y un corte apretado se quedaba sin el remate).
+  */
+  if (total() > tope) {
+    const fijo = lista.reduce((s, x) => s + (x.escena.tipo === "clips" ? x.segundos : 0), 0);
+    const libre = total() - fijo;
+    const factor = libre > 0 ? Math.max(0, (tope - fijo) / libre) : 1;
+
+    lista = lista.map((x) => (x.escena.tipo === "clips" ? x : { ...x, segundos: Math.max(x.voz ? x.voz.length / frecuencia + 0.2 : 0, x.segundos * factor) }));
+  }
+
+  /* El último recurso: escalar todo (sólo pasa con guiones imposibles). */
   if (total() > tope) {
     const factor = tope / total();
 
     lista = lista.map((x) => ({ ...x, segundos: x.segundos * factor }));
+  }
+
+  /*
+  | Y si se queda corto (menos de un minuto), aire a las escenas sin cortes:
+  | la cámara sigue moviéndose y los números siguen contando, así que no se
+  | nota parado. Como mucho ×1,8; los cortes no se estiran nunca.
+  */
+  if (total() < minimo) {
+    const fijo = lista.reduce((s, x) => s + (x.escena.tipo === "clips" ? x.segundos : 0), 0);
+    const libre = total() - fijo;
+    const factor = libre > 0 ? Math.min(1.8, (minimo - fijo) / libre) : 1;
+
+    if (factor > 1) lista = lista.map((x) => (x.escena.tipo === "clips" ? x : { ...x, segundos: x.segundos * factor }));
   }
 
   return lista;

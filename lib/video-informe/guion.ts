@@ -3,7 +3,8 @@
 | EL GUION DEL VÍDEO RESUMEN
 |--------------------------------------------------------------------------
 |
-| El vídeo cuenta lo mismo que el PDF del informe, en minuto y medio como mucho, y
+| El vídeo cuenta lo mismo que el PDF del informe, entre uno y dos minutos y
+| medio según lo que haya que enseñar (13/10/2026), y
 | con producción: portada con los dos escudos sobre un campo en 3D, el once
 | del rival colocado en ese campo, los cortes de acciones concretas que
 | preparó el analista (Análisis visual, por jornada), las fotos de los que
@@ -67,7 +68,7 @@ export type MarcaPartido = { minuto: number; gol: boolean; de: "nosotros" | "riv
 /** «45+2'» → 45; «79'» → 79. */
 export const minutoNumero = (m: string) => Number(m.match(/^(\d+)/)?.[1] ?? 0);
 
-/** Las escenas de cortes del partido, agrupadas por lo que cuentan; cada una de hasta 3 cortes. */
+/** Las escenas de cortes del partido, agrupadas por lo que cuentan: todos los goles, y hasta 4 llegadas nuestras y 3 suyas. */
 export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosPorCorte = SEGUNDOS_POR_CORTE_PARTIDO, opciones: { momento?: "previa" | "post"; rotuloPartido?: string } = {}): Escena[] {
   const previa = opciones.momento === "previa";
   /* En la previa los cortes son del ÚLTIMO partido, no de éste: se dice en el título y en la voz. */
@@ -86,8 +87,19 @@ export function escenasDeCortes(cortes: CortePartido[], rival: string, segundosP
   const marcas: MarcaPartido[] = cortes.map((c) => ({ minuto: c.minutoNum ?? minutoNumero(c.minuto), gol: c.tipo === "gol" || c.tipo === "gol-contra", de: c.de }));
 
   for (const g of grupos) {
-    /* Con cortes de nueve segundos enteros, caben todos los goles y dos llegadas por bando dentro del minuto y medio. */
-    const elegidos = cortes.filter((c) => g.tipos.includes(c.tipo) && !usados.has(c)).slice(0, g.id === "clips-1" ? 6 : 2);
+    /*
+    | Con cortes de nueve segundos enteros y hasta dos minutos y medio, caben
+    | todos los goles con su repetición, cuatro llegadas nuestras y tres
+    | suyas. Si sobran, el reparto quita primero lo que menos enseña.
+    | Las llegadas, primero las que acabaron en remate o gol, y luego en orden de minuto.
+    */
+    const elegidos = cortes
+      .filter((c) => g.tipos.includes(c.tipo) && !usados.has(c))
+      .map((c, orden) => ({ c, orden }))
+      .sort((a, b) => (g.id === "clips-1" ? 0 : Number(Boolean(b.c.resultado || b.c.peligro)) - Number(Boolean(a.c.resultado || a.c.peligro))) || a.orden - b.orden)
+      .slice(0, g.id === "clips-1" ? 8 : g.id === "clips-2" ? 4 : 3)
+      .sort((a, b) => a.orden - b.orden)
+      .map((x) => x.c);
 
     if (!elegidos.length) continue;
 
@@ -118,7 +130,8 @@ export const SEGUNDOS_POR_CORTE_PARTIDO = 6;
 
 /**
  * Las escenas de balón parado del partido (para el informe de ABP): nuestros
- * córners y faltas, los suyos y los saques de banda; hasta 3 cortes cada una.
+ * córners y faltas, los suyos y los saques de banda; hasta 4 cortes cada una
+ * (3 de banda).
  * En la previa son del último partido y se dice.
  */
 export function escenasDeCortesAbp(cortes: CortePartido[], rival: string, opciones: { momento?: "previa" | "post"; rotuloPartido?: string } = {}, segundosPorCorte = 7): Escena[] {
@@ -139,7 +152,7 @@ export function escenasDeCortesAbp(cortes: CortePartido[], rival: string, opcion
     const elegidos = cortes
       .filter((c) => g.tipos.includes(c.tipo) && !usados.has(c))
       .sort((a, b) => Number(Boolean(b.peligro || b.resultado)) - Number(Boolean(a.peligro || a.resultado)))
-      .slice(0, 3)
+      .slice(0, g.id === "abp-banda" ? 3 : 4)
       .sort((a, b) => (a.minutoNum ?? minutoNumero(a.minuto)) - (b.minutoNum ?? minutoNumero(b.minuto)));
 
     if (!elegidos.length) continue;
@@ -170,12 +183,18 @@ export type GuionVideo = {
   escenas: Escena[];
 };
 
-/** Tope duro: minuto y medio (12/10/2026; antes 58 s), que es lo que caben los cortes del partido. */
-export const SEGUNDOS_MAXIMOS = 90;
+/**
+ * La duración: entre un minuto y dos y medio, según lo que haya que enseñar
+ * (13/10/2026; antes, tope de 90 s y antes aún 58 s). La manda el contenido
+ * —la voz y los cortes enteros—; si se pasa, `reparteEscenas` quita lo que
+ * menos enseña, y si se queda corto, da aire a las escenas sin cortes.
+ */
+export const SEGUNDOS_MAXIMOS = 150;
+export const SEGUNDOS_MINIMOS = 60;
 
-/** Cuántos cortes de acciones entran, y cuánto dura cada uno. */
-const CORTES = 3;
-const SEGUNDOS_POR_CORTE = 3.4;
+/** Cuántos cortes de acciones del rival entran (en dos escenas), y cuánto dura cada uno: la acción entera. */
+const CORTES = 6;
+const SEGUNDOS_POR_CORTE = 6;
 
 const corta = (t: string, n = 90) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
 
@@ -254,18 +273,19 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   escenas.push(...escenasDeCortes(informe.recursos.cortes ?? [], partido.rival, SEGUNDOS_POR_CORTE_PARTIDO, { momento, rotuloPartido: previa && partido.jornada ? `J${partido.jornada - 1}` : undefined }));
 
   /* Los cortes de acciones concretas del rival (Análisis visual, por jornada) y, si no, sus vídeos de Recursos. */
-  const cortes: Corte[] = informe.recursos.videos.filter((v) => esClipLegible(v.url)).map((v) => ({ url: v.url, rotulo: v.rotulo ?? v.nombre }));
+  const cortes: Corte[] = informe.recursos.videos.filter((v) => esClipLegible(v.url)).map((v) => ({ url: v.url, rotulo: v.rotulo ?? v.nombre, texto: v.texto }));
 
-  if (cortes.length) {
-    const elegidos = cortes.slice(0, CORTES);
+  /* Dos escenas de hasta tres: la segunda es la primera en caer si no cabe. */
+  for (const [i, trozo] of [cortes.slice(0, CORTES / 2), cortes.slice(CORTES / 2, CORTES)].entries()) {
+    if (!trozo.length) continue;
 
     escenas.push({
-      id: "clips",
+      id: i === 0 ? "clips" : "clips-rival-2",
       tipo: "clips",
-      titulo: "Cómo juegan: acciones",
-      cortes: elegidos,
-      segundos: elegidos.length * SEGUNDOS_POR_CORTE,
-      locucion: `${elegidos.length === 1 ? "Una acción suya" : `${elegidos.length} acciones suyas`} de lo preparado: ${elegidos.map((c) => c.rotulo.split(" · ")[0].toLowerCase()).join(", ")}.`,
+      titulo: i === 0 ? "Cómo juegan: acciones" : "Cómo juegan: más acciones",
+      cortes: trozo,
+      segundos: trozo.length * SEGUNDOS_POR_CORTE,
+      locucion: `${trozo.length === 1 ? "Una acción suya" : `${trozo.length} acciones suyas`}${i === 0 ? " de lo preparado" : " más"}: ${trozo.map((c) => c.rotulo.split(" · ")[0].toLowerCase()).join(", ")}.`,
     });
   }
 
@@ -360,7 +380,7 @@ export function guionDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, extra
 
   /* Las láminas dibujadas del rival, con movimiento de cámara; luego sus cortes; luego los dos gráficos que contestan la semana. */
   const esImagen = (g: InformeMicro["graficos"][number]) => g.imagen.startsWith("data:image/");
-  const laminas = informe.graficos.filter((g) => esImagen(g) && /^rival-\d+$/.test(g.cid)).slice(0, 2);
+  const laminas = informe.graficos.filter((g) => esImagen(g) && /^rival-\d+$/.test(g.cid)).slice(0, 3);
 
   for (const [i, g] of laminas.entries()) {
     escenas.push({ id: `lamina-${i}`, tipo: "imagen", titulo: g.titulo, src: g.imagen, pie: corta(limpia(g.leyenda), 110), locucion: corta(limpia(g.leyenda), 140) });
@@ -380,10 +400,10 @@ export function guionDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, extra
     });
   }
 
-  /* Los cortes del rival (Análisis visual): hasta dos escenas de tres, con la lectura de cada uno. */
-  const delRival = (extras.cortes ?? []).filter((c) => esClipLegible(c.url));
+  /* Los cortes del rival (Análisis visual): hasta dos escenas de cuatro, con la lectura de cada uno. Primero los que traen lectura. */
+  const delRival = (extras.cortes ?? []).filter((c) => esClipLegible(c.url)).sort((a, b) => Number(Boolean(b.texto)) - Number(Boolean(a.texto)));
 
-  for (const [i, trozo] of [delRival.slice(0, 3), delRival.slice(3, 6)].entries()) {
+  for (const [i, trozo] of [delRival.slice(0, 4), delRival.slice(4, 8)].entries()) {
     if (!trozo.length) continue;
 
     escenas.push({
@@ -401,7 +421,7 @@ export function guionDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, extra
 
   escenas.push(...escenasDeCortesAbp((extras.cortesPartido ?? []).filter((c) => /^(corner|abp|banda)/.test(c.tipo)), rivalNombre, { momento, rotuloPartido: extras.rotuloPartido }));
 
-  const graficos = informe.graficos.filter((g) => esImagen(g) && !g.cid.startsWith("rival-")).slice(0, 2);
+  const graficos = informe.graficos.filter((g) => esImagen(g) && !g.cid.startsWith("rival-")).slice(0, 3);
 
   for (const [i, g] of graficos.entries()) {
     escenas.push({ id: `grafico-${i}`, tipo: "imagen", titulo: g.titulo, src: g.imagen, pie: corta(limpia(g.leyenda), 110), locucion: corta(limpia(g.leyenda), 140) });
