@@ -168,8 +168,9 @@ async function principal() {
     const textos = { nuestro: (tactica?.goles ?? []).filter((g) => g.de === "castilla"), rival: (tactica?.goles ?? []).filter((g) => g.de !== "castilla") };
     const cuenta = { nuestro: 0, rival: 0 };
 
-    if (!t) sinTimeline.push(`J${p.jornada} ${p.local} - ${p.visitante}`);
-    else t.usado = true;
+    /* Un 0-0 sin timeline no deja nada por clasificar: no se lista. */
+    if (!t && p.goles.length) sinTimeline.push(`J${p.jornada} ${p.local} - ${p.visitante}`);
+    if (t) t.usado = true;
 
     const usadosHudl = new Set();
 
@@ -222,7 +223,7 @@ async function principal() {
 
   const clasificados = Object.values(tipologia).filter((x) => x.tipo).length;
 
-  console.log(`Hudl: ${nuestros.length - sinTimeline.length} de ${nuestros.length} partidos nuestros con timeline; ${clasificados} de ${Object.keys(tipologia).length} goles clasificados.`);
+  console.log(`Hudl: timeline de ${Object.keys(remates).length} de ${nuestros.length} partidos nuestros; ${clasificados} de ${Object.keys(tipologia).length} goles clasificados.`);
 
   for (const p of nuestros) {
     p.goles.forEach((g, i) => {

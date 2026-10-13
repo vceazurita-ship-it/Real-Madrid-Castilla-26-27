@@ -21,7 +21,7 @@ import { EsqueletoPantalla } from "@/components/ui/estados";
 import { AbpHeader, Notice, Panel, SaveState, Segmented, Select, StatCard, StatRow } from "@/components/abp/ui";
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { Lectura } from "@/components/data/formas";
-import { avisoMuestra, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia } from "@/lib/goles/lecturas";
+import { avisoMuestra, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import {
@@ -191,8 +191,10 @@ function Tabla({ cabeza, filas, pie }: { cabeza: string[]; filas: FilaTabla[]; p
  * si el color no se distingue (modo día, pantalla del vestuario).
  */
 function Contra({ valor, liga, mejorAlto, dec = 2, sufijo = "" }: { valor: number; liga: number; mejorAlto: boolean; dec?: number; sufijo?: string }) {
-  const mejor = mejorAlto ? valor > liga * 1.1 : valor < liga * 0.9;
-  const peor = mejorAlto ? valor < liga * 0.9 : valor > liga * 1.1;
+  /* Con valores que pueden ser negativos (goles menos xG) el 10 % no vale: se mira la diferencia. */
+  const margen = liga > 0 ? liga * 0.1 : 0.1;
+  const mejor = mejorAlto ? valor > liga + margen : valor < liga - margen;
+  const peor = mejorAlto ? valor < liga - margen : valor > liga + margen;
 
   return (
     <span style={{ color: mejor ? MEJOR : peor ? PEOR : undefined }} title={`Liga: ${fmt(liga, dec)}${sufijo}`}>
@@ -539,7 +541,8 @@ export function PantallaGoles() {
   const deTipologia = lecturaTipologia(tipologia.cuenta.favor, tipologia.cuenta.contra, tipologia.totalFavor, tipologia.totalContra);
   const dePrimero = lecturaPrimero(primero.eq, primero.lg);
   const aviso = avisoMuestra(delEquipo.length);
-  const importante = [balance, ...deFranjas.slice(0, 2), ...deCondicion, ...(esNuestro ? deTipologia : []), ...dePrimero.slice(0, 1)].filter(Boolean);
+  const tramos = tramosClave(filasFranja);
+  const importante = [balance, ...deFranjas.filter((f) => !f.startsWith("En los descuentos")), ...deCondicion, ...(esNuestro ? deTipologia : []), ...dePrimero.slice(0, 1)].filter(Boolean);
   const conLigaContra = condicion !== "todos";
 
   return (
@@ -618,8 +621,18 @@ export function PantallaGoles() {
             <StatCard label="Partidos" value={delEquipo.length} hint={condicion === "todos" ? "local y visitante" : condicion} />
             <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido · liga ${fmt(ligaGolesPP)}`} accent={ORO} />
             <StatCard label="Goles en contra" value={gc} hint={`${fmt(media(gc, delEquipo.length))} por partido · liga ${fmt(ligaContraPP)}`} accent={PEOR} />
-            <StatCard label="Franja en que más marca" value={masGoleadora ? masGoleadora.nombre : "—"} hint={masGoleadora ? `${masGoleadora.goles} goles${masGoleadora.empate ? " cada una" : ""}` : undefined} />
-            <StatCard label="Franja en que más encaja" value={masEncajada ? masEncajada.nombre : "—"} hint={masEncajada ? `${masEncajada.goles} goles${masEncajada.empate ? " cada una" : ""}` : undefined} />
+            <StatCard
+              label="Su mejor tramo"
+              value={tramos.fuerte ? tramos.fuerte.franja.nombre : "—"}
+              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor · más que la liga` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
+              accent={tramos.fuerte ? MEJOR : undefined}
+            />
+            <StatCard
+              label="Su tramo más débil"
+              value={tramos.flojo ? tramos.flojo.franja.nombre : "—"}
+              hint={tramos.flojo ? `${tramos.flojo.gc} en contra · más que la liga` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
+              accent={tramos.flojo ? PEOR : undefined}
+            />
           </StatRow>
 
           {/* ---------------- lo importante ---------------- */}

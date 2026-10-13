@@ -59,6 +59,16 @@ export function lecturaBalance(corto: string, partidos: number, gf: number, gc: 
   return `${corto} ${ataque} (${n2(media(gf, partidos))} por partido; la liga, ${n2(ligaGF)}) y ${defensa} (${n2(media(gc, partidos))}; la liga, ${n2(ligaGC)}).`;
 }
 
+/** El tramo en que más se aparta de la liga en ataque (para bien) y en defensa (para mal). */
+export function tramosClave(filas: FilaFranja[]) {
+  const partidos = filas[0]?.partidos ?? 0;
+  const conDif = filas.map((f) => ({ ...f, df: media(f.gf, partidos) - f.ligaPP, dc: media(f.gc, partidos) - f.ligaContraPP }));
+  const fuerte = [...conDif].filter((f) => f.gf > 0 && f.df > 0).sort((a, b) => b.df - a.df)[0];
+  const flojo = [...conDif].filter((f) => f.gc > 0 && f.dc > 0).sort((a, b) => b.dc - a.dc)[0];
+
+  return { fuerte, flojo };
+}
+
 /** Dónde marca y dónde sufre más que la liga, y cómo se reparten las partes. */
 export function lecturaFranjas(filas: FilaFranja[]) {
   const partidos = filas[0]?.partidos ?? 0;
@@ -119,7 +129,7 @@ export function lecturaCondicion(corto: string, cL: Condicion, cV: Condicion, lL
     frases.push(`${donde} suma ${n2(c.puntos)} puntos por partido, ${juicio} la media (${n2(l.puntos)}).${porque}`);
   };
 
-  una(cL, lL, `En casa, ${corto}`);
+  una(cL, lL, "En casa");
   una(cV, lV, "Fuera");
 
   return frases;
