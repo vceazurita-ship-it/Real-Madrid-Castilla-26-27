@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Bus,
   ChevronRight,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { DiaRapido } from "@/components/portada/DiaRapido";
 import { useCalendario } from "@/hooks/useCalendario";
 import { pantallaCompletaAlNavegar } from "@/hooks/usePantallaCompleta";
 import { aJornada, buscaJornada, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
@@ -88,6 +90,8 @@ export function ProximoPartido() {
   | que vuelve a la propuesta.
   */
   const [conTarea, setConTarea] = useState<Set<string> | null>(null);
+  /* El día que se ha pinchado en la tira: abre su sesión o un seguimiento (13/10/2026). */
+  const [diaAbierto, setDiaAbierto] = useState<{ fecha: string; nombre: string; rotulo: string } | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -332,7 +336,9 @@ export function ProximoPartido() {
                 const libre = libres.has(dia.fecha);
 
                 return (
-                  <span
+                  <button
+                    type="button"
+                    onClick={() => setDiaAbierto({ fecha: dia.fecha, nombre: dia.nombre, rotulo: dia.rotulo })}
                     key={dia.fecha}
                     title={`${dia.nombre} ${Number(dia.fecha.slice(8, 10))} · ${dia.rotulo}${
                       libre
@@ -342,8 +348,8 @@ export function ProximoPartido() {
                         : esPartido
                           ? " · partido"
                           : ""
-                    }`}
-                    className={`flex min-w-[46px] flex-1 flex-col items-center rounded-xl border px-1 py-2 transition ${
+                    } · pincha para la sesión o un seguimiento`}
+                    className={`flex min-w-[46px] flex-1 flex-col items-center rounded-xl border px-1 py-2 transition hover:-translate-y-0.5 hover:border-[#D8B45A]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#D8B45A] ${
                       esHoy
                         ? "border-transparent"
                         : esPartido
@@ -375,10 +381,21 @@ export function ProximoPartido() {
                     >
                       {libre ? "libre" : dia.nombre.slice(0, 3)}
                     </span>
-                  </span>
+                  </button>
                 );
               })}
             </div>
+
+            {diaAbierto &&
+              createPortal(
+                <DiaRapido
+                  fecha={diaAbierto.fecha}
+                  titulo={`${diaAbierto.nombre.charAt(0).toUpperCase()}${diaAbierto.nombre.slice(1)} ${Number(diaAbierto.fecha.slice(8, 10))}`}
+                  rotulo={diaAbierto.rotulo}
+                  onClose={() => setDiaAbierto(null)}
+                />,
+                document.body,
+              )}
 
             <p className="mt-2 text-[11px] text-white/40">
               Semana {comoSeLlama(semana, anterior?.cuando ?? null)}

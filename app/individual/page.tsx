@@ -64,6 +64,8 @@ import { getPlayerImage } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { idVigente } from "@/lib/fichajes";
 import { alineaSeguimiento } from "@/lib/seguimiento";
+import { creaSeguimientos } from "@/lib/seguimiento-escribir";
+import { SeleccionJugadores } from "@/components/seguimiento/SeleccionJugadores";
 
 import {
   RadarChart,
@@ -1578,6 +1580,8 @@ export default function IndividualPage() {
   const [editingTracking, setEditingTracking] = useState<TrackingRecord | null>(
     null,
   );
+  /* El seguimiento grupal (13/10/2026): los demás jugadores en los que se replica el que se está creando. */
+  const [replicarEn, setReplicarEn] = useState<string[]>([]);
   const [trackingForm, setTrackingForm] = useState({
     FECHA: "",
     OBJETIVO_OFENSIVO: "",
@@ -2081,6 +2085,7 @@ export default function IndividualPage() {
 
   const openTrackingForm = (record?: TrackingRecord) => {
     setEditingTracking(record || null);
+    setReplicarEn([]);
 
     const inicial = {
       FECHA: fechaParaInput(record?.FECHA),
@@ -2182,17 +2187,21 @@ export default function IndividualPage() {
 
     setSaving(true);
 
+    /* Con más jugadores marcados es grupal: la misma fila en cada uno. */
+    const otros = editingTracking ? [] : replicarEn.filter((id) => id !== selected.idJugador);
+    const formulario = otros.length ? { ...trackingForm, MODALIDAD: "GRUPAL" } : trackingForm;
+
     try {
       const payload = editingTracking
         ? {
             action: "editarSeguimiento",
             ID_REGISTRO: editingTracking.ID_REGISTRO,
-            ...trackingForm,
+            ...formulario,
           }
         : {
             action: "crearSeguimiento",
             ID_JUGADOR: selected.idJugador,
-            ...trackingForm,
+            ...formulario,
           };
 
       const result = await postToScript(payload);
@@ -2246,12 +2255,30 @@ export default function IndividualPage() {
           {
             ID_REGISTRO: result.id,
             ID_JUGADOR: selected.idJugador,
-            ...trackingForm,
+            ...formulario,
           },
           ...prev,
         ]);
 
-        toast.success("Seguimiento guardado");
+        if (otros.length) {
+          const r = await creaSeguimientos(otros, formulario);
+          const nombreDe = (id: string) => mergedPlayers.find((p) => p.idJugador === id)?.name ?? id;
+
+          setTrackingData((prev) => [
+            ...r.hechos.map((h) => ({ ID_REGISTRO: h.idRegistro, ID_JUGADOR: h.idJugador, ...formulario })),
+            ...prev,
+          ]);
+
+          if (r.fallidos.length) {
+            toast.error(`Guardado en ${1 + r.hechos.length}; faltan ${r.fallidos.length}`, {
+              description: r.fallidos.map((f) => `${nombreDe(f.idJugador)}: ${f.motivo}`).join(" · "),
+            });
+          } else {
+            toast.success(`Seguimiento grupal guardado en ${1 + r.hechos.length} jugadores`);
+          }
+        } else {
+          toast.success("Seguimiento guardado");
+        }
       }
 
       borradorTracking.descarta();
@@ -4090,6 +4117,33 @@ export default function IndividualPage() {
                   </select>
                 </Field>
               </div>
+
+              {/* Seguimiento grupal: el mismo registro en más jugadores (sólo al crear). */}
+              {!editingTracking && (
+                <div className="min-w-0 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
+                  <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/45">
+                    Replicar en más jugadores{" "}
+                    <span className="normal-case tracking-normal text-white/35">
+                      {replicarEn.filter((id) => id !== selected.idJugador).length
+                        ? `· grupal: se guarda también en ${replicarEn.filter((id) => id !== selected.idJugador).length}`
+                        : "· opcional, para un seguimiento grupal"}
+                    </span>
+                  </p>
+                  <SeleccionJugadores
+                    jugadores={mergedPlayers
+                      .filter((p) => !p.externo)
+                      .map((p) => ({ id: p.idJugador, nombre: p.name, foto: p.photoFace || p.photo, posicion: p.position }))}
+                    seleccion={replicarEn}
+                    onCambia={(ids) => {
+                      setReplicarEn(ids);
+
+                      if (ids.some((id) => id !== selected.idJugador)) setTrackingForm((f) => ({ ...f, MODALIDAD: "GRUPAL" }));
+                    }}
+                    bloqueados={[selected.idJugador]}
+                    alto="max-h-[180px]"
+                  />
+                </div>
+              )}
 
               <div className="grid min-w-0 gap-4 lg:grid-cols-3">
                 <Field label="Objetivo ofensivo">

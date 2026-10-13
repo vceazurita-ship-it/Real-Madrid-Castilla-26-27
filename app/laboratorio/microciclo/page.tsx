@@ -1316,6 +1316,28 @@ export default function EditorMicrocicloPage() {
     setEscrito(null);
   };
 
+  /*
+  | `?micro=N` abre ese microciclo para editarlo (13/10/2026): es a donde
+  | lleva «Editar la sesión completa» del pop-up del día de la portada.
+  */
+  const microDeLaUrl = useRef(false);
+
+  useEffect(() => {
+    if (!registro || microDeLaUrl.current) return;
+
+    /* En un `setTimeout`, como el reloj de la portada: abrir pone estado y el linter no lo quiere en el cuerpo del efecto. */
+    const espera = setTimeout(() => {
+      microDeLaUrl.current = true;
+
+      const numero = Number(new URLSearchParams(window.location.search).get("micro"));
+
+      if (numero > 0) void abreParaEditar(numero);
+    }, 0);
+
+    return () => clearTimeout(espera);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sólo una vez, cuando ya está el registro
+  }, [registro]);
+
   /* --------------------------- ESCRIBIR --------------------------- */
 
   const guarda = async () => {
