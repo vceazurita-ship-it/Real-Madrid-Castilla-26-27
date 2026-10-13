@@ -67,6 +67,8 @@ const SIN_IA = bandera("--sin-ia");
 const SIN_SUBIR = bandera("--sin-subir");
 const SOLO_CORTES = bandera("--solo-cortes");
 const DE_CACHE = bandera("--cortes-de-cache");
+/* Sube aunque el vídeo nuevo vaya sin voz y el que había la tuviera (p. ej. si el que había está roto). */
+const FORZAR_SUBIDA = bandera("--forzar-subida");
 /* Cuánto antes del final del momento de Hudl empieza el corte y cuánto dura (para medir desfases: --antes 5 --dura 30). */
 /* El corte empieza 5 s antes del remate (que se ancla con el evento del portero o del rematador, ver eligeMomentos) y dura 7. */
 const ANTES = Number(valor("--antes")) || 5.5;
@@ -909,6 +911,35 @@ async function principal() {
 
   if (SI_NO_ENVIADO && fs.existsSync(marcaEnviado)) return fin(0, `ya se mandó: ${fs.readFileSync(marcaEnviado, "utf8").slice(0, 120)}`);
 
+  /*
+  | Un montaje por partido a la vez (13/10/2026): la tarea programada y una
+  | prueba a mano escribieron el mismo mp4 a la vez, salió roto y se subió.
+  | El candado lleva el pid; si ese proceso ya no vive, el candado es viejo.
+  */
+  const candado = path.join(carpetaVideo, "montando.lock");
+
+  if (fs.existsSync(candado)) {
+    const pid = Number(fs.readFileSync(candado, "utf8"));
+    let vivo = false;
+
+    try {
+      vivo = pid > 0 && process.kill(pid, 0);
+    } catch {
+      vivo = false;
+    }
+
+    if (vivo) return fin(3, `ya hay un montaje de la jornada ${partido.jornada} en marcha (proceso ${pid}); se deja para la siguiente pasada`);
+  }
+
+  fs.writeFileSync(candado, String(process.pid));
+  process.on("exit", () => {
+    try {
+      if (fs.readFileSync(candado, "utf8") === String(process.pid)) fs.rmSync(candado);
+    } catch {
+      /* Ya no estaba. */
+    }
+  });
+
   if (!fs.existsSync(path.join(carpeta, "timeline-hudl.json")) || !fs.existsSync(path.join(carpeta, "hls.json"))) {
     return fin(2, "faltan timeline-hudl.json o hls.json: pasa antes scripts/hudl-partido.mjs");
   }
@@ -1018,13 +1049,18 @@ async function principal() {
 
   console.log(`  vídeo: ${salida} · ${segundos} s · ${escenas} escenas · ${mb} MB${pistas ? "" : " · SIN VOZ"}`);
 
+  /* Antes de subirlo o mandarlo, que se pueda ver entero: se decodifica y no puede dar errores. */
+  const { stderr: erroresMp4 } = await ejecuta(FFMPEG, ["-v", "error", "-i", salida, "-f", "null", "-"], { maxBuffer: 1 << 26 }).catch((e) => ({ stderr: String(e?.stderr ?? e?.message ?? e) }));
+
+  if (String(erroresMp4).trim()) return fin(1, `el vídeo ha salido roto (${String(erroresMp4).trim().split("\n")[0].slice(0, 120)}); no se sube ni se manda`);
+
   /* 6. Al bucket y, si se pide, por correo. */
   let url = "";
 
   /* Un montaje SIN voz nunca pisa en el bucket a uno que la tenía (pasó el 12/10/2026 al remontar sin cuota del TTS). */
   const previo = supabase ? (await supabase.from("app_documents").select("data").eq("key", `informe-video:${clave}`).maybeSingle()).data?.data : null;
 
-  if (supabase && !pistas && previo?.conVoz) {
+  if (supabase && !pistas && previo?.conVoz && !FORZAR_SUBIDA) {
     console.log("  (el vídeo con voz que ya había se queda: éste va sin voz)");
     url = previo.url;
   } else if (supabase) {
