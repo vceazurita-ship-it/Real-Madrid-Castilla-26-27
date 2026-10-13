@@ -234,6 +234,21 @@ export type MicroNuevo = {
  * estaban en ningún catálogo, y escribirlos distinto rompe los agrupados de
  * `/microcycles`.
  */
+/**
+ * Lo que se marca en «Análisis Post», tal y como lo escribe la lista
+ * desplegable de la hoja (con su errata: «COMPETCIÓN»). Escribirlo de otra
+ * forma lo deja fuera de la validación y de los agrupados.
+ */
+export const ANALISIS_POST = [
+  "ÚTIL TRANSFERENCIA COMPETCIÓN",
+  "SENSACIÓN JUGADOR",
+  "BUEN RITMO",
+  "CONCEPTUAL",
+  "MENTALIDAD",
+  "NO TRANSFERENCIA COMPETICIÓN",
+  "MAL STAFF",
+];
+
 export function sugerenciasDelRegistro(
   tareas: {
     tipoTarea: string;
@@ -242,6 +257,7 @@ export function sugerenciasDelRegistro(
     grupo: string;
     contenidoPrincipal: string;
     contenidoSecundario: string;
+    extra?: Record<string, string | number>;
   }[],
 ) {
   const porUso = (valores: string[], respaldo: string[] = []) => {
@@ -268,6 +284,7 @@ export function sugerenciasDelRegistro(
     grupos: porUso(tareas.map((t) => t.grupo), GRUPOS),
     principales: porUso(tareas.map((t) => t.contenidoPrincipal)),
     secundarios: porUso(tareas.map((t) => t.contenidoSecundario)),
+    analisis: porUso(tareas.map((t) => String(t.extra?.["Análisis Post"] ?? "")), ANALISIS_POST),
   };
 }
 

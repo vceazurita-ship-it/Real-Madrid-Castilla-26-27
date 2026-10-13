@@ -67,6 +67,7 @@ import {
 import { toast } from "sonner";
 
 import { AbpHeader, Button, Field, Notice, Panel, Select } from "@/components/abp/ui";
+import { ValoracionTarea } from "@/components/registro/ValoracionTarea";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
@@ -404,6 +405,11 @@ function FilaTarea({
           suggestions={sugerencias.secundarios}
           placeholder="Último tercio"
         />
+      </div>
+
+      {/* La valoración tras la sesión: la nota y el análisis post (columnas «Evaluación» y «Análisis Post»). */}
+      <div className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.015] p-2">
+        <ValoracionTarea extra={tarea.extra} opciones={sugerencias.analisis} onCambia={(extra) => onCambia({ extra })} />
       </div>
 
       <button
