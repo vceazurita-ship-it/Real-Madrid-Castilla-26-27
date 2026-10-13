@@ -132,6 +132,18 @@ async function leeEscudos() {
     }
   }
 
+  /*
+  | Y los de toda la categoría (los dos grupos), que deja
+  | `scripts/escudos-categoria.mjs`: la Comparativa compara con los cuarenta
+  | y los del grupo 1 salían sin escudo (13/10/2026). Los de nuestro grupo
+  | mandan si ya estaban.
+  */
+  const categoria = (await readDoc("escudos:categoria").catch(() => ({ data: null }))).data as { equipos?: { equipo: string; escudo: string }[] } | null;
+
+  for (const e of categoria?.equipos ?? []) {
+    if (e.equipo && e.escudo && !porNombre.has(e.equipo)) porNombre.set(e.equipo, e.escudo);
+  }
+
   const lista = [...porNombre].map(([equipo, escudo]) => ({ equipo, escudo }));
 
   escudosGuardados = { lista, en: ahora };

@@ -1038,7 +1038,11 @@ function Detalle({
   const cuantas = Math.min(5, Math.floor(orden.length / 2));
   const fuertes = orden.slice(0, cuantas);
   const flojos = cuantas ? orden.slice(-cuantas).reverse() : [];
-  const mejores = useMemo(() => mejoresDe(jugadores, fila.puesto, refe, 8), [jugadores, fila.puesto, refe]);
+  /* Todo el ranking del puesto; se enseñan los ocho primeros y «Ver todos» despliega el resto, con los nuestros marcados. */
+  const ranking = useMemo(() => mejoresDe(jugadores, fila.puesto, refe, Infinity), [jugadores, fila.puesto, refe]);
+  const [verTodos, setVerTodos] = useState(false);
+  const mejores = verTodos ? ranking : ranking.slice(0, 8);
+  const nuestrosFuera = ranking.slice(8).filter((m) => esNuestro(m.jugador)).length;
   const nube = useMemo(() => nubeDe(jugadores, fila.puesto), [jugadores, fila.puesto]);
   const puestoLabel = PUESTOS.find((p) => p.key === fila.puesto)?.label.toLowerCase() ?? "";
 
@@ -1123,25 +1127,31 @@ function Detalle({
       {/* ---- los mejores de su edad y la nube ---- */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
         <p className="text-sm font-semibold">Los mejores {refe === "todos" ? "" : refe.toUpperCase() + " "}del puesto en la categoría</p>
-        <ol className="mt-3 space-y-1.5">
+        <ol className={`mt-3 space-y-1.5 ${verTodos ? "max-h-[440px] overflow-y-auto pr-1" : ""}`}>
           {mejores.map((m, i) => {
             const suyo = m.jugador === j;
+            const nuestro = esNuestro(m.jugador);
             const escudo = escudoDe(m.jugador.equipo);
             return (
               <li
                 key={`${m.jugador.jugador}-${m.jugador.equipo}`}
-                className={`flex items-center gap-2 rounded-lg px-2 py-1 text-xs ${suyo ? "bg-[#C8A96B]/15" : ""}`}
+                title={m.jugador.equipo}
+                className={`flex items-center gap-2 rounded-lg border-l-2 px-2 py-1 text-xs ${
+                  suyo ? "border-[#C8A96B] bg-[#C8A96B]/20" : nuestro ? "border-[#C8A96B]/70 bg-[#C8A96B]/[0.08]" : "border-transparent"
+                }`}
               >
-                <span className="w-5 text-white/35">{i + 1}</span>
+                <span className={`w-6 tabular-nums ${nuestro ? "font-semibold text-[#C8A96B]" : "text-white/35"}`}>{i + 1}</span>
                 {escudo ? (
                   // eslint-disable-next-line @next/next/no-img-element -- escudo pequeño por el proxy propio
-                  <img src={escudo} alt="" className="h-4 w-4 object-contain" />
+                  <img src={escudo} alt="" className="h-4 w-4 shrink-0 object-contain" />
                 ) : (
-                  <span className="h-4 w-4" />
+                  <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-white/10 text-[8px] text-white/60">{m.jugador.equipo.slice(0, 1)}</span>
                 )}
-                <span className={`min-w-0 flex-1 truncate ${suyo ? "font-semibold text-[#C8A96B]" : "text-white/80"}`}>
+                <span className={`min-w-0 flex-1 truncate ${nuestro ? "font-semibold text-[#C8A96B]" : "text-white/80"}`}>
                   {m.jugador.jugador}
+                  {verTodos && !nuestro ? <span className="ml-1.5 text-[10px] font-normal text-white/35">{m.jugador.equipo}</span> : null}
                 </span>
+                {nuestro ? <span className="rounded bg-[#C8A96B]/20 px-1 text-[9px] font-semibold tracking-wider text-[#C8A96B]">RMC</span> : null}
                 <span className="text-white/40">{m.jugador.edad}</span>
                 <span className="w-7 text-right font-semibold tabular-nums" style={{ color: colorIndice(m.indice) }}>
                   {m.indice}
@@ -1150,6 +1160,17 @@ function Detalle({
             );
           })}
         </ol>
+        {ranking.length > 8 ? (
+          <button
+            type="button"
+            onClick={() => setVerTodos((v) => !v)}
+            className="mt-2 w-full rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B]"
+          >
+            {verTodos
+              ? "Ver sólo los 8 primeros"
+              : `Ver todos (${ranking.length})${nuestrosFuera ? ` · ${nuestrosFuera} ${nuestrosFuera === 1 ? "nuestro" : "nuestros"} más abajo` : ""}`}
+          </button>
+        ) : null}
 
         <p className="mt-5 text-sm font-semibold">Proyección: edad y nivel</p>
         <p className="mt-1 text-[11px] text-white/40">
