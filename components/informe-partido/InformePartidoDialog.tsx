@@ -1036,7 +1036,6 @@ export function InformePartidoDialog({
               fuente: barlowCondensed.style.fontFamily,
             });
 
-            if (!v.conVoz) toast.message("El vídeo va sin voz", { description: `${v.motivoSinVoz ?? "La IA de voz no ha contestado."} El texto sale escrito en pantalla.` });
 
             const subido = await subeUnaVez(nombreVideo, "video/mp4", () => v.blob);
 
@@ -1489,7 +1488,7 @@ export function InformePartidoDialog({
                       <span className={rotuloCaja}>Adjuntos</span>
                       {casilla(envio.resumen.pdf, (v) => cambia("resumen", { pdf: v }), "PDF de las diapositivas", "para imprimir o reenviar")}
                       {casilla(envio.resumen.ppt, (v) => cambia("resumen", { ppt: v }), "PowerPoint", "para proyectarlo en la charla")}
-                      {casilla(envio.resumen.video, (v) => cambia("resumen", { video: v }), "Vídeo del informe (de 1 a 2:30 min)", puedeMontarVideo() ? "lo mismo que el PDF, con cortes del partido, repeticiones, datos y voz" : "este navegador no puede montarlo", !puedeMontarVideo())}
+                      {casilla(envio.resumen.video, (v) => cambia("resumen", { video: v }), "Vídeo del informe (de 1 a 2:30 min)", puedeMontarVideo() ? "lo mismo que el PDF, con cortes del partido, repeticiones, datos y música" : "este navegador no puede montarlo", !puedeMontarVideo())}
                     </div>
                   </div>
                   <label className="block">

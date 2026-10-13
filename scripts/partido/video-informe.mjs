@@ -47,7 +47,8 @@ const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
 const { escenasDeCortes, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
 const { ANCHO, ALTO, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
 const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
-const { FRECUENCIA_AAC, camaSintetica, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
+const { FRECUENCIA_AAC, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
+const { bandaSonora, masteriza } = require("../../lib/video-informe/musica.ts");
 
 const ejecuta = promisify(execFile);
 
@@ -62,7 +63,8 @@ const valor = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : null);
 
 const JORNADA = Number(valor("--jornada"));
 const CORREO = valor("--correo");
-const SIN_VOZ = bandera("--sin-voz");
+/* Sin voz en off desde el 13/10/2026 (la pidió quitar el cuerpo técnico): música compuesta. `--con-voz` la vuelve a pedir. */
+const SIN_VOZ = !bandera("--con-voz");
 const SIN_IA = bandera("--sin-ia");
 const SIN_SUBIR = bandera("--sin-subir");
 const SOLO_CORTES = bandera("--solo-cortes");
@@ -616,7 +618,23 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
   const totalMuestras = Math.ceil(total * FRECUENCIA_AAC);
   const pista = new Float32Array(totalMuestras);
 
-  pista.set(camaSintetica(total, arranques.slice(1), FRECUENCIA_AAC).subarray(0, totalMuestras));
+  /* La música (musica.ts): se aparta bajo los cortes y marca cada gol (el remate cae a ~5,5 s del corte). */
+  const tramosConSonido = [];
+  const golpes = [];
+
+  escenas.forEach((x, k) => {
+    if (x.escena.tipo !== "clips") return;
+
+    tramosConSonido.push([arranques[k], arranques[k] + x.segundos]);
+
+    const limites = limitesDeCortes(x.escena, x.segundos);
+
+    x.escena.cortes.forEach((c, i) => {
+      if (!c.repeticion && /^gol/.test(c.tipo ?? "")) golpes.push(arranques[k] + limites[i].desde + Math.min(5.5, limites[i].dura * 0.6));
+    });
+  });
+
+  pista.set(bandaSonora({ total, cortes: arranques.slice(1), tramosConSonido, golpes, frecuencia: FRECUENCIA_AAC }).subarray(0, totalMuestras));
 
   for (const c of cortes.values()) {
     if (!c.sonido) continue;
@@ -627,7 +645,7 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
     for (let i = 0; i < n; i += 1) {
       const env = Math.min(1, i / (0.3 * FRECUENCIA_AAC), (n - i) / (0.3 * FRECUENCIA_AAC));
 
-      pista[d0 + i] += c.sonido[i] * 0.35 * env;
+      pista[d0 + i] += c.sonido[i] * 0.5 * env;
     }
   }
 
@@ -639,7 +657,7 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
     for (let i = 0; i < x.voz.length && desde + i < totalMuestras; i += 1) pista[desde + i] += x.voz[i] * 0.95;
   });
 
-  for (let i = 0; i < totalMuestras; i += 1) pista[i] = Math.max(-1, Math.min(1, pista[i]));
+  masteriza(pista);
 
   const mezcla = path.join(carpetaVideo, "mezcla.f32");
   fs.writeFileSync(mezcla, Buffer.from(pista.buffer, pista.byteOffset, pista.byteLength));
@@ -1040,14 +1058,14 @@ async function principal() {
     }
   }
 
-  if (!pistas && CORREO) return fin(7, `sin voz (${motivoSinVoz}); no se manda el correo, reintentar más tarde`);
+  if (!pistas && !SIN_VOZ && CORREO) return fin(7, `sin voz (${motivoSinVoz}); no se manda el correo, reintentar más tarde`);
 
   /* 5. El render. */
   const salida = path.join(carpetaVideo, `${partido.slug}.mp4`);
   const { segundos, escenas } = await renderiza(guion, pistas, carpetaVideo, salida);
   const mb = (fs.statSync(salida).size / 1048576).toFixed(1);
 
-  console.log(`  vídeo: ${salida} · ${segundos} s · ${escenas} escenas · ${mb} MB${pistas ? "" : " · SIN VOZ"}`);
+  console.log(`  vídeo: ${salida} · ${segundos} s · ${escenas} escenas · ${mb} MB${pistas ? " · con voz" : " · con música"}`);
 
   /* Antes de subirlo o mandarlo, que se pueda ver entero: se decodifica y no puede dar errores. */
   const { stderr: erroresMp4 } = await ejecuta(FFMPEG, ["-v", "error", "-i", salida, "-f", "null", "-"], { maxBuffer: 1 << 26 }).catch((e) => ({ stderr: String(e?.stderr ?? e?.message ?? e) }));
@@ -1060,7 +1078,8 @@ async function principal() {
   /* Un montaje SIN voz nunca pisa en el bucket a uno que la tenía (pasó el 12/10/2026 al remontar sin cuota del TTS). */
   const previo = supabase ? (await supabase.from("app_documents").select("data").eq("key", `informe-video:${clave}`).maybeSingle()).data?.data : null;
 
-  if (supabase && !pistas && previo?.conVoz && !FORZAR_SUBIDA) {
+  /* Con la voz pedida y sin ella (cuota), no se pisa uno que la tenía. Sin voz a propósito (lo normal), sí. */
+  if (supabase && !pistas && !SIN_VOZ && previo?.conVoz && !FORZAR_SUBIDA) {
     console.log("  (el vídeo con voz que ya había se queda: éste va sin voz)");
     url = previo.url;
   } else if (supabase) {
@@ -1070,7 +1089,7 @@ async function principal() {
     await guardaDoc(supabase, `informe-video:${clave}`, "informe-video", { url, poster, creado: new Date().toISOString(), segundos, conVoz: Boolean(pistas), partido: { jornada: partido.jornada, rival: partido.rival } });
   }
 
-  const resumen = `${segundos} s, ${escenas} escenas, ${cortes.length} cortes de Hudl${pistas ? ", con voz" : ", sin voz"}, ${mb} MB`;
+  const resumen = `${segundos} s, ${escenas} escenas, ${cortes.length} cortes de Hudl${pistas ? ", con voz" : ", con música"}, ${mb} MB`;
 
   if (CORREO) {
     await mandaCorreo(env, CORREO, partido, salida, url, resumen);

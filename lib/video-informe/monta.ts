@@ -14,10 +14,10 @@
 | monta el vídeo «grande» con los cortes reales de Hudl. Aquí sólo quedan
 | los recursos del navegador (ImageBitmap, `<video>`), la IA y WebCodecs.
 |
-| Tres pasos, y los dos primeros pueden fallar sin que el vídeo deje de salir:
-|   1. `/api/informe/video-guion` pule la locución (Gemini, sin coste).
-|   2. `/api/informe/voz` la lee entera (Gemini TTS, sin coste; 10 al día) y
-|      `reparteVoz` la parte por escenas.
+| Tres pasos, y el primero puede fallar sin que el vídeo deje de salir:
+|   1. `/api/informe/video-guion` pule los textos de pantalla (Gemini, sin coste).
+|   2. La banda sonora se compone aquí (`musica.ts`): desde el 13/10/2026 el
+|      vídeo no lleva voz en off.
 |   3. Cada escena se pinta fotograma a fotograma y se codifica.
 */
 
@@ -26,7 +26,8 @@ import type { Bytes } from "@/lib/export/zip";
 
 import { ALTO, ANCHO, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
 import { SEGUNDOS_MAXIMOS, type Corte, type GuionVideo, type JugadorEscena } from "./guion";
-import { FRECUENCIA_AAC, camaSintetica, mulawAFlotante, pcm16aFlotante, remuestrea, reparteVoz } from "./voz";
+import { FRECUENCIA_AAC } from "./voz";
+import { bandaSonora, masteriza } from "./musica";
 import { posterDeVideo } from "./portada-video";
 
 /**
@@ -80,35 +81,6 @@ async function puleLocucion(guion: GuionVideo): Promise<GuionVideo> {
   const porId = new Map(lista.map((l) => [l.id, l.texto]));
 
   return { ...guion, escenas: guion.escenas.map((e) => ({ ...e, locucion: porId.get(e.id)?.trim() || e.locucion })) };
-}
-
-async function pideVoz(guion: GuionVideo): Promise<{ pistas: (Float32Array | null)[] | null; motivo?: string }> {
-  const textos = guion.escenas.map((e) => e.locucion.replace(/\s+/g, " ").trim());
-
-  const r = await conPlazo(
-    fetch("/api/informe/voz", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ textos }) }).catch(() => null),
-    /* Dos minutos y medio de voz tardan en generarse: la función tiene 120 s. */
-    118_000,
-    null,
-  );
-
-  if (!r) return { pistas: null, motivo: "La IA de voz no ha contestado a tiempo." };
-
-  if (!r.ok) {
-    const j = (await r.json().catch(() => null)) as { error?: string } | null;
-
-    return { pistas: null, motivo: j?.error ?? `La IA de voz ha fallado (${r.status}).` };
-  }
-
-  const bytes = new Uint8Array(await r.arrayBuffer());
-  const deFrecuencia = Number(r.headers.get("X-Voz-Frecuencia")) || 24_000;
-  /* Las voces largas llegan en μ-law (8 bits) para no pasar del tope de respuesta de Vercel. */
-  const muestras = r.headers.get("X-Voz-Formato") === "mulaw" ? mulawAFlotante(bytes) : pcm16aFlotante(bytes);
-  const entera = remuestrea(muestras, deFrecuencia, FRECUENCIA_AAC);
-
-  if (entera.length < FRECUENCIA_AAC * 0.5) return { pistas: null, motivo: "La IA de voz ha devuelto un audio vacío." };
-
-  return { pistas: reparteVoz(entera, textos, FRECUENCIA_AAC) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -251,8 +223,8 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   alPaso("guion…");
   const guion = await puleLocucion(guionCrudo);
 
-  alPaso("voz…");
-  const { pistas, motivo: motivoSinVoz } = await pideVoz(guion);
+  /* Sin voz en off desde el 13/10/2026: música compuesta (musica.ts) y el texto en pantalla. */
+  const pistas = null;
   const escenas = reparteEscenas(guion, pistas, FRECUENCIA_AAC, SEGUNDOS_MAXIMOS);
   const total = escenas.reduce((s, x) => s + x.segundos, 0);
 
@@ -345,7 +317,23 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
 
   const pista = new Float32Array(totalMuestras);
 
-  pista.set(camaSintetica(total, arranques.slice(1), frecuencia).subarray(0, totalMuestras));
+  /* La música: se aparta bajo los cortes del partido y marca cada gol (el remate cae a ~5,5 s del corte). */
+  const tramosConSonido: [number, number][] = [];
+  const golpes: number[] = [];
+
+  escenas.forEach((x, k) => {
+    if (x.escena.tipo !== "clips") return;
+
+    tramosConSonido.push([arranques[k], arranques[k] + x.segundos]);
+
+    const limites = limitesDeCortes(x.escena, x.segundos);
+
+    x.escena.cortes.forEach((c, i) => {
+      if (!c.repeticion && /^gol/.test((c as Corte & { tipo?: string }).tipo ?? "")) golpes.push(arranques[k] + limites[i].desde + Math.min(5.5, limites[i].dura * 0.6));
+    });
+  });
+
+  pista.set(bandaSonora({ total, cortes: arranques.slice(1), tramosConSonido, golpes, frecuencia }).subarray(0, totalMuestras));
 
   /* El sonido ambiente de cada corte, bajo y con fundidos, en el sitio donde se ve. */
   escenas.forEach((x, k) => {
@@ -365,18 +353,12 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
       for (let j = 0; j < n; j += 1) {
         const env = Math.min(1, j / (0.3 * frecuencia), (n - j) / (0.3 * frecuencia));
 
-        pista[d0 + j] += clip.sonido[salto + j] * 0.35 * env;
+        pista[d0 + j] += clip.sonido[salto + j] * 0.5 * env;
       }
     });
   });
 
-  escenas.forEach((x, k) => {
-    if (!x.voz) return;
-
-    const desde = Math.floor(arranques[k] * frecuencia);
-
-    for (let i = 0; i < x.voz.length && desde + i < totalMuestras; i += 1) pista[desde + i] = Math.max(-1, Math.min(1, pista[desde + i] + x.voz[i] * 0.95));
-  });
+  masteriza(pista);
 
   for (let i = 0; i < totalMuestras; i += 1024) {
     const n = Math.min(1024, totalMuestras - i);
@@ -460,5 +442,5 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
 
   const poster = await posterDeVideo(fotoPoster, { segundos: total, rotulo: guion.titulo }).catch(() => undefined);
 
-  return { blob: muxor.cierra(), segundos: Math.round(total), conVoz: Boolean(pistas?.some(Boolean)), escenas: escenas.length, motivoSinVoz, poster };
+  return { blob: muxor.cierra(), segundos: Math.round(total), conVoz: false, escenas: escenas.length, poster };
 }

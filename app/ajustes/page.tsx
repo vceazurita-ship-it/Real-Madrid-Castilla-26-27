@@ -722,7 +722,7 @@ export default function AjustesPage() {
                     <Button
                       icon={Clapperboard}
                       disabled={!yo || pidiendo !== null || ocupada("partido")}
-                      title="Sólo el vídeo del partido (cortes de Hudl, lectura y voz); el partido tiene que estar analizado"
+                      title="Sólo el vídeo del partido (cortes de Hudl, lectura y música); el partido tiene que estar analizado"
                       onClick={() => void pide("partido", [6], jornadaElegida || undefined)}
                     >
                       Sólo el vídeo

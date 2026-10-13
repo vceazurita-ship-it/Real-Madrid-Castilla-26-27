@@ -145,7 +145,7 @@ export async function diapositivaDelVideo(opciones: { url: string; poster: strin
   ctx.fillText("Escanea para verlo", 1330, 840);
   ctx.font = `400 28px "Barlow Condensed", Arial, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.65)";
-  ctx.fillText(`${mmss(opciones.segundos)} · cortes, datos y voz`, 1330, 884);
+  ctx.fillText(`${mmss(opciones.segundos)} · cortes, datos y música`, 1330, 884);
   ctx.fillStyle = ORO;
   ctx.fillText("También va adjunto en el correo.", 1330, 924);
 
