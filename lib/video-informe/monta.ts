@@ -26,7 +26,7 @@ import type { Bytes } from "@/lib/export/zip";
 
 import { ALTO, ANCHO, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
 import { SEGUNDOS_MAXIMOS, type Corte, type GuionVideo, type JugadorEscena } from "./guion";
-import { FRECUENCIA_AAC } from "./voz";
+import { FRECUENCIA_AAC, remuestrea } from "./voz";
 import { bandaSonora, masteriza } from "./musica";
 import { posterDeVideo } from "./portada-video";
 
