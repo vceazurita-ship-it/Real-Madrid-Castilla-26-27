@@ -388,17 +388,16 @@ function clasifica(T, g, lado) {
   const tiposRemate = remate?.tipos ?? [];
   const inicio = valor(g, "Location third");
   const duracion = Number(valor(g, "Duration")) || 0;
-  const quien = remate ? remate.jug.replace(/^\d+\.\s*/, "") : "";
 
-  if (tiposRemate.includes("Penalty")) return { tipo: "penalti", motivo: `Penalti de ${quien}.` };
-  if (hay("Corners") || tiposRemate.includes("Shot after corner")) return { tipo: "corner", motivo: `Córner y remate de ${quien}.` };
-  if (hay("Throw ins") || tiposRemate.includes("Shot after throw in")) return { tipo: "banda", motivo: `Saque de banda y remate de ${quien}.` };
+  if (tiposRemate.includes("Penalty")) return { tipo: "penalti", motivo: "Penalti." };
+  if (hay("Corners") || tiposRemate.includes("Shot after corner")) return { tipo: "corner", motivo: "Córner." };
+  if (hay("Throw ins") || tiposRemate.includes("Shot after throw in")) return { tipo: "banda", motivo: "Saque de banda." };
 
   if (hay("Free kicks") || tiposRemate.some((t) => /free kick/i.test(t))) {
-    return tiposRemate.includes("Free kick shot") ? { tipo: "faltaDirecta", motivo: `Falta directa de ${quien}.` } : { tipo: "faltaLateral", motivo: `Falta botada y remate de ${quien}.` };
+    return tiposRemate.includes("Free kick shot") ? { tipo: "faltaDirecta", motivo: "Falta directa a puerta." } : { tipo: "faltaLateral", motivo: "Falta botada al área." };
   }
 
-  if (hay("Set Pieces")) return { tipo: "faltaLateral", motivo: `Jugada a balón parado y remate de ${quien}.` };
+  if (hay("Set Pieces")) return { tipo: "faltaLateral", motivo: "Jugada a balón parado." };
 
   const otrosRemates = remates.filter((a) => a !== remate && a.t >= fin - 30_000);
 
@@ -406,12 +405,12 @@ function clasifica(T, g, lado) {
     const previo = otrosRemates.at(-1);
     const fue = /Penalty/.test(previo.tipos.join()) ? "un penalti parado" : `un remate de ${previo.jug.replace(/^\d+\.\s*/, "")}`;
 
-    return { tipo: "caida", motivo: `Segunda acción tras ${fue}; marca ${quien}.` };
+    return { tipo: "caida", motivo: `Rechace: segunda acción tras ${fue}.` };
   }
 
   const perdidaRival = cerca.find((a) => !delEquipo(a) && a.tipos.includes("Loss") && valor(a.m, "Location - Third") === "Own third" && a.t >= fin - 25_000);
 
-  if (inicio === "Final third" && perdidaRival) return { tipo: "error", motivo: `Pérdida de ${perdidaRival.jug.replace(/^\d+\.\s*/, "")} en su tercio y gol de ${quien}.` };
+  if (inicio === "Final third" && perdidaRival) return { tipo: "error", motivo: `Pérdida de ${perdidaRival.jug.replace(/^\d+\.\s*/, "")} en su propio tercio.` };
 
   const robo = T.acciones.find((a) => delEquipo(a) && a.t >= g.startTimeMs - 2000 && a.t <= g.startTimeMs + 4000 && (a.tipos.includes("Recovery") || a.tipos.includes("Interception")));
   const transicion = hay("Counterattacks", false) || (duracion > 0 && duracion <= 12 && inicio !== "Final third" && robo);
@@ -419,10 +418,10 @@ function clasifica(T, g, lado) {
   if (transicion) {
     const propio = inicio !== "Final third";
 
-    return { tipo: propio ? "transPropio" : "transContrario", motivo: `Transición tras robo en el tercio ${inicio === "Own third" ? "propio" : inicio === "Middle third" ? "medio" : "final"} (${duracion} s); marca ${quien}.` };
+    return { tipo: propio ? "transPropio" : "transContrario", motivo: `Transición tras robo en el tercio ${inicio === "Own third" ? "propio" : inicio === "Middle third" ? "medio" : "final"} y gol a los ${duracion} s.` };
   }
 
-  if (inicio === "Final third" && duracion <= 8 && robo) return { tipo: "transContrario", motivo: `Robo en el último tercio y gol a los ${duracion} s; marca ${quien}.` };
+  if (inicio === "Final third" && duracion <= 8 && robo) return { tipo: "transContrario", motivo: `Robo en el último tercio y gol a los ${duracion} s.` };
 
   const pase = cerca.filter((a) => delEquipo(a) && a.tipos.includes("Assist")).at(-1);
 
@@ -431,14 +430,14 @@ function clasifica(T, g, lado) {
     const de = pase.jug.replace(/^\d+\.\s*/, "");
     const banda = flanco === "Right flank" ? "bandaD" : flanco === "Left flank" ? "bandaI" : null;
 
-    if (pase.tipos.includes("Cross") && banda) return { tipo: banda, motivo: `Centro de ${de} desde la ${banda === "bandaD" ? "derecha" : "izquierda"}; remata ${quien}.` };
-    if (pase.tipos.includes("Through pass") || (pase.tipos.includes("Long pass") && pase.tipos.includes("Forward pass"))) return { tipo: "espalda", motivo: `Pase a la espalda de ${de}; marca ${quien}.` };
-    if (banda && valor(pase.m, "Location - Third") === "Final third") return { tipo: banda, motivo: `Pase de ${de} desde la ${banda === "bandaD" ? "derecha" : "izquierda"}; marca ${quien}.` };
+    if (pase.tipos.includes("Cross") && banda) return { tipo: banda, motivo: `Centro de ${de} desde la ${banda === "bandaD" ? "derecha" : "izquierda"}.` };
+    if (pase.tipos.includes("Through pass") || (pase.tipos.includes("Long pass") && pase.tipos.includes("Forward pass"))) return { tipo: "espalda", motivo: `Pase a la espalda de ${de}.` };
+    if (banda && valor(pase.m, "Location - Third") === "Final third") return { tipo: banda, motivo: `Pase de ${de} desde la ${banda === "bandaD" ? "derecha" : "izquierda"}.` };
 
-    return { tipo: "dentro", motivo: `Pase de ${de} por dentro; marca ${quien}.` };
+    return { tipo: "dentro", motivo: `Pase de ${de} por dentro.` };
   }
 
-  return { tipo: "dentro", motivo: quien ? `Jugada individual de ${quien}.` : "Ataque organizado." };
+  return { tipo: "dentro", motivo: "Jugada individual, sin pase de gol." };
 }
 
 /** Los timelines de nuestros partidos de las dos últimas semanas que no estén ya bajados. */

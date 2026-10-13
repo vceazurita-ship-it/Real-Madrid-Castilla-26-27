@@ -174,9 +174,12 @@ export function franjas(tamano: number, descuentos: boolean): Franja[] {
  * 21-45, 46-70 y 71-90. El 45 se añade siempre (las partes no se mezclan).
  */
 export function franjasACortes(texto: string, descuentos: boolean): Franja[] | null {
-  const cortes = [...new Set(String(texto).split(/[^\d]+/).filter(Boolean).map(Number).filter((n) => n > 0 && n < 90).concat(45, 90))].sort((a, b) => a - b);
+  const escritos = String(texto).split(/[^\d]+/).filter(Boolean).map(Number).filter((n) => n > 0 && n < 90 && n !== 45);
 
-  if (cortes.length < 2) return null;
+  /* Sin cortes propios no hay franjas a medida (antes salían 1-45 y 46-90 y tapaban el «cada 15»). */
+  if (!escritos.length) return null;
+
+  const cortes = [...new Set(escritos.concat(45, 90))].sort((a, b) => a - b);
 
   const lista: Franja[] = [];
   let desde = 1;

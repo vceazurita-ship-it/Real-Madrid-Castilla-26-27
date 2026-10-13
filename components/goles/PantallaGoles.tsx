@@ -13,13 +13,15 @@
 */
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Clock, Crosshair, Goal, Home, ListOrdered, Shapes, Trophy } from "lucide-react";
+import { Clock, Crosshair, Goal, Home, Lightbulb, ListOrdered, Shapes, Trophy } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { EsqueletoPantalla } from "@/components/ui/estados";
 import { AbpHeader, Notice, Panel, SaveState, Segmented, Select, StatCard, StatRow } from "@/components/abp/ui";
-import { ORO, PEOR, tinta } from "@/components/data/graficas";
+import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
+import { Lectura } from "@/components/data/formas";
+import { avisoMuestra, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import {
@@ -57,66 +59,85 @@ const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)} %` 
 /*  Piezas                                                             */
 /* ------------------------------------------------------------------ */
 
-/** Dos barras por franja (a favor y en contra, por partido) y la media de la liga como raya. */
-function GraficaFranjas({
-  filas,
-}: {
-  filas: { franja: Franja; gf: number; gc: number; ligaPP: number; partidos: number }[];
-}) {
-  const max = Math.max(0.01, ...filas.flatMap((f) => [media(f.gf, f.partidos), media(f.gc, f.partidos), f.ligaPP]));
+/**
+ * Dos gráficas en espejo, una encima de otra: arriba los goles a favor y
+ * abajo los en contra, con el número encima de cada barra y la media de la
+ * liga como raya. Entre las dos partes, una línea de descanso. Antes iban las
+ * dos barras pegadas por franja y había que mirar la leyenda para saber cuál
+ * era cuál.
+ */
+function GraficaFranjas({ filas }: { filas: { franja: Franja; gf: number; gc: number; ligaPP: number; ligaContraPP: number; partidos: number }[] }) {
+  const max = Math.max(0.01, ...filas.flatMap((f) => [media(f.gf, f.partidos), media(f.gc, f.partidos), f.ligaPP, f.ligaContraPP]));
+  const alto = (v: number) => `${Math.max(0, Math.min(100, (v / max) * 100))}%`;
+
+  const fila = (aFavor: boolean) => (
+    <div className={`flex h-24 gap-1 sm:gap-2 ${aFavor ? "items-end" : "items-start"}`}>
+      {filas.map((f, i) => {
+        const goles = aFavor ? f.gf : f.gc;
+        const pp = media(goles, f.partidos);
+        const liga = aFavor ? f.ligaPP : f.ligaContraPP;
+        const color = aFavor ? ORO : PEOR;
+        const descanso = i > 0 && f.franja.parte === 2 && filas[i - 1].franja.parte === 1;
+
+        return (
+          <div key={f.franja.clave} className={`relative flex h-full min-w-0 flex-1 justify-center ${aFavor ? "items-end" : "items-start"} ${descanso ? "border-l border-dashed border-white/20 pl-1 sm:pl-2" : ""}`}>
+            <div
+              className={`relative w-3/5 max-w-[34px] transition-[height] duration-500 ${aFavor ? "rounded-t" : "rounded-b"}`}
+              style={{ height: alto(pp), backgroundColor: color, opacity: goles ? 1 : 0.25, minHeight: 2 }}
+              title={`${f.franja.nombre} · ${aFavor ? "a favor" : "en contra"}: ${goles} (${fmt(pp)} por partido; liga ${fmt(liga)})`}
+            >
+              <span className={`absolute left-1/2 -translate-x-1/2 text-[11px] font-semibold tabular-nums ${aFavor ? "-top-4" : "-bottom-4"}`} style={{ color: goles ? color : tinta(0.3) }}>
+                {goles}
+              </span>
+            </div>
+            <div
+              className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed"
+              style={{ [aFavor ? "bottom" : "top"]: alto(liga), borderColor: tinta(0.5) }}
+              title={`Liga: ${fmt(liga)} por equipo y partido`}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div className="min-w-0">
-      <div className="flex h-48 items-end gap-1.5 sm:gap-3">
-        {filas.map(({ franja, gf, gc, ligaPP, partidos }) => {
-          const alto = (v: number) => `${Math.max(0, (v / max) * 100)}%`;
-
-          return (
-            <div key={franja.clave} className="relative flex h-full min-w-0 flex-1 items-end justify-center gap-0.5 sm:gap-1">
-              <div
-                className="w-1/2 max-w-[22px] rounded-t transition-[height] duration-500"
-                style={{ height: alto(media(gf, partidos)), backgroundColor: ORO }}
-                title={`${franja.nombre} · a favor: ${gf} (${fmt(media(gf, partidos))} por partido)`}
-              />
-              <div
-                className="w-1/2 max-w-[22px] rounded-t transition-[height] duration-500"
-                style={{ height: alto(media(gc, partidos)), backgroundColor: PEOR }}
-                title={`${franja.nombre} · en contra: ${gc} (${fmt(media(gc, partidos))} por partido)`}
-              />
-              <div
-                className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed"
-                style={{ bottom: alto(ligaPP), borderColor: tinta(0.55) }}
-                title={`Media de la liga: ${fmt(ligaPP)} goles por equipo y partido`}
-              />
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-1.5 flex gap-1.5 sm:gap-3">
-        {filas.map(({ franja }) => (
-          <span key={franja.clave} className={`min-w-0 flex-1 truncate text-center text-[10px] tabular-nums ${franja.descuento ? "text-[#C8A96B]" : "text-white/45"}`}>
-            {franja.nombre}
+      <p className="mb-5 text-[10px] uppercase tracking-[0.16em]" style={{ color: ORO }}>
+        Goles a favor
+      </p>
+      {fila(true)}
+      <div className="my-1 flex gap-1 border-y border-white/10 py-1.5 sm:gap-2">
+        {filas.map((f, i) => (
+          <span
+            key={f.franja.clave}
+            className={`min-w-0 flex-1 truncate text-center text-[10px] tabular-nums ${f.franja.descuento ? "font-semibold text-[#C8A96B]" : "text-white/55"} ${i > 0 && f.franja.parte === 2 && filas[i - 1].franja.parte === 1 ? "border-l border-dashed border-white/20" : ""}`}
+          >
+            {f.franja.nombre}
           </span>
         ))}
       </div>
+      {fila(false)}
+      <p className="mt-5 text-[10px] uppercase tracking-[0.16em]" style={{ color: PEOR }}>
+        Goles en contra
+      </p>
 
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/50">
+        <span>La altura es por partido; el número, los goles.</span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: ORO }} /> A favor (por partido)
+          <span className="w-4 border-t-2 border-dashed" style={{ borderColor: tinta(0.5) }} /> Lo que marca (o encaja) un equipo medio de la liga
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: PEOR }} /> En contra (por partido)
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="w-4 border-t-2 border-dashed" style={{ borderColor: tinta(0.55) }} /> Media de la liga por equipo
+          <span className="h-3 border-l border-dashed border-white/40" /> Descanso
         </span>
       </div>
     </div>
   );
 }
 
-function Tabla({ cabeza, filas, pie }: { cabeza: string[]; filas: ReactNode[][]; pie?: ReactNode[] }) {
+type FilaTabla = ReactNode[] | { seccion: string };
+
+function Tabla({ cabeza, filas, pie }: { cabeza: string[]; filas: FilaTabla[]; pie?: ReactNode[] }) {
   return (
     <div className="min-w-0 overflow-x-auto">
       <table className="w-full min-w-[420px] text-sm">
@@ -130,15 +151,23 @@ function Tabla({ cabeza, filas, pie }: { cabeza: string[]; filas: ReactNode[][];
           </tr>
         </thead>
         <tbody>
-          {filas.map((fila, i) => (
-            <tr key={i} className="border-b border-white/[0.06] last:border-0">
-              {fila.map((celda, j) => (
-                <td key={j} className={`px-3 py-1.5 tabular-nums ${j === 0 ? "text-left text-white/75" : "text-right text-white/85"}`}>
-                  {celda}
+          {filas.map((fila, i) =>
+            Array.isArray(fila) ? (
+              <tr key={i} className="border-b border-white/[0.06] last:border-0">
+                {fila.map((celda, j) => (
+                  <td key={j} className={`px-3 py-1.5 tabular-nums ${j === 0 ? "text-left text-white/75" : "text-right text-white/85"}`}>
+                    {celda}
+                  </td>
+                ))}
+              </tr>
+            ) : (
+              <tr key={i} className="bg-white/[0.05]">
+                <td colSpan={cabeza.length} className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                  {fila.seccion}
                 </td>
-              ))}
-            </tr>
-          ))}
+              </tr>
+            ),
+          )}
         </tbody>
         {pie ? (
           <tfoot>
@@ -156,17 +185,33 @@ function Tabla({ cabeza, filas, pie }: { cabeza: string[]; filas: ReactNode[][];
   );
 }
 
-/** Un valor del equipo frente a la liga: verde si es mejor, naranja si es peor. */
+/**
+ * Un valor del equipo frente a la liga: verde y ▲ si es mejor, naranja y ▼
+ * si es peor (más de un 10 %), y nada si está en la media. La flecha va por
+ * si el color no se distingue (modo día, pantalla del vestuario).
+ */
 function Contra({ valor, liga, mejorAlto, dec = 2, sufijo = "" }: { valor: number; liga: number; mejorAlto: boolean; dec?: number; sufijo?: string }) {
-  const mejor = mejorAlto ? valor > liga * 1.05 : valor < liga * 0.95;
-  const peor = mejorAlto ? valor < liga * 0.95 : valor > liga * 1.05;
+  const mejor = mejorAlto ? valor > liga * 1.1 : valor < liga * 0.9;
+  const peor = mejorAlto ? valor < liga * 0.9 : valor > liga * 1.1;
 
   return (
-    <span style={{ color: mejor ? "#1B9E77" : peor ? PEOR : undefined }}>
+    <span style={{ color: mejor ? MEJOR : peor ? PEOR : undefined }} title={`Liga: ${fmt(liga, dec)}${sufijo}`}>
+      {mejor ? "▲ " : peor ? "▼ " : ""}
       {fmt(valor, dec)}
       {sufijo}
     </span>
   );
+}
+
+/** «1-15' y 16-30'»: las franjas empatadas en lo más alto. */
+function franjasTop(filas: { franja: Franja; gf: number; gc: number }[], k: "gf" | "gc") {
+  const max = Math.max(0, ...filas.map((f) => f[k]));
+
+  if (!max) return null;
+
+  const top = filas.filter((f) => f[k] === max).map((f) => f.franja.nombre);
+
+  return { nombre: top.length > 2 ? `${top.length} franjas` : top.join(" y "), goles: max, empate: top.length > 1 };
 }
 
 /* ------------------------------------------------------------------ */
@@ -278,8 +323,8 @@ export function PantallaGoles() {
     ligaPorFranja.equiposPartido,
   );
 
-  const masGoleadora = [...filasFranja].sort((a, b) => b.gf - a.gf)[0];
-  const masEncajada = [...filasFranja].sort((a, b) => b.gc - a.gc)[0];
+  const masGoleadora = franjasTop(filasFranja, "gf");
+  const masEncajada = franjasTop(filasFranja, "gc");
 
   /* ---------------- local y visitante ---------------- */
   const condiciones = useMemo(() => {
@@ -412,16 +457,28 @@ export function PantallaGoles() {
 
     if (!ids.length) return null;
 
+    const porFranja = lista.map((franja) => {
+      const en = rs.filter((r) => franjaDe(lista, r.min, r.extra, r.parte)?.clave === franja.clave);
+
+      return { franja, nuestros: en.filter((r) => r.nuestro), suyos: en.filter((r) => !r.nuestro) };
+    });
+
+    /* La lectura: el tramo en que más remata y en el que más le rematan (sin los descuentos, que duran menos). */
+    const normales = porFranja.filter((f) => !f.franja.descuento);
+    const masNuestro = [...normales].sort((a, b) => b.nuestros.length - a.nuestros.length)[0];
+    const masSuyo = [...normales].sort((a, b) => b.suyos.length - a.suyos.length)[0];
+    const nuestros = rs.filter((r) => r.nuestro);
+    const suyos = rs.filter((r) => !r.nuestro);
+    const lectura =
+      masNuestro && masSuyo
+        ? `Remata ${fmt(media(nuestros.length, ids.length), 1)} veces por partido y le rematan ${fmt(media(suyos.length, ids.length), 1)}. Donde más remata es en el ${masNuestro.franja.nombre} (${masNuestro.nuestros.length}); donde más le rematan, en el ${masSuyo.franja.nombre} (${masSuyo.suyos.length}). De cada 10 remates suyos van ${Math.round(media(nuestros.filter((r) => r.aPuerta).length, nuestros.length) * 10)} a puerta; de los del rival, ${Math.round(media(suyos.filter((r) => r.aPuerta).length, suyos.length) * 10)}.`
+        : "";
+
     return {
       n: ids.length,
-      filas: lista.map((franja) => {
-        const en = rs.filter((r) => franjaDe(lista, r.min, r.extra, r.parte)?.clave === franja.clave);
-        const nuestros = en.filter((r) => r.nuestro);
-        const suyos = en.filter((r) => !r.nuestro);
-
-        return [franja.nombre, nuestros.length, nuestros.filter((r) => r.aPuerta).length, nuestros.filter((r) => r.gol).length, suyos.length, suyos.filter((r) => r.aPuerta).length, suyos.filter((r) => r.gol).length];
-      }),
+      filas: porFranja.map(({ franja, nuestros: a, suyos: b }) => [franja.nombre, a.length, a.filter((r) => r.aPuerta).length, a.filter((r) => r.gol).length, b.length, b.filter((r) => r.aPuerta).length, b.filter((r) => r.gol).length]),
       total: rs,
+      lectura,
     };
   }, [esNuestro, delEquipo, doc.remates, lista]);
 
@@ -471,6 +528,19 @@ export function PantallaGoles() {
   const cV = condiciones.eqV;
   const lL = condiciones.ligaL;
   const lV = condiciones.ligaV;
+
+  /* Lo que dicen los números, en frases (`lib/goles/lecturas.ts`). */
+  const corto = esNuestro ? "El Castilla" : equipo;
+  const enCasa = esNuestro ? "Castilla en casa" : `${equipo} en casa`;
+  const fuera = esNuestro ? "Castilla fuera" : `${equipo} fuera`;
+  const balance = lecturaBalance(corto, delEquipo.length, gf, gc, ligaGolesPP, ligaContraPP);
+  const deFranjas = lecturaFranjas(filasFranja);
+  const deCondicion = lecturaCondicion(corto, cL, cV, lL, lV);
+  const deTipologia = lecturaTipologia(tipologia.cuenta.favor, tipologia.cuenta.contra, tipologia.totalFavor, tipologia.totalContra);
+  const dePrimero = lecturaPrimero(primero.eq, primero.lg);
+  const aviso = avisoMuestra(delEquipo.length);
+  const importante = [balance, ...deFranjas.slice(0, 2), ...deCondicion, ...(esNuestro ? deTipologia : []), ...dePrimero.slice(0, 1)].filter(Boolean);
+  const conLigaContra = condicion !== "todos";
 
   return (
     <Marco>
@@ -548,71 +618,104 @@ export function PantallaGoles() {
             <StatCard label="Partidos" value={delEquipo.length} hint={condicion === "todos" ? "local y visitante" : condicion} />
             <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido · liga ${fmt(ligaGolesPP)}`} accent={ORO} />
             <StatCard label="Goles en contra" value={gc} hint={`${fmt(media(gc, delEquipo.length))} por partido · liga ${fmt(ligaContraPP)}`} accent={PEOR} />
-            <StatCard label="Franja en que más marca" value={masGoleadora?.gf ? masGoleadora.franja.nombre : "—"} hint={masGoleadora?.gf ? `${masGoleadora.gf} goles` : undefined} />
-            <StatCard label="Franja en que más encaja" value={masEncajada?.gc ? masEncajada.franja.nombre : "—"} hint={masEncajada?.gc ? `${masEncajada.gc} goles` : undefined} />
+            <StatCard label="Franja en que más marca" value={masGoleadora ? masGoleadora.nombre : "—"} hint={masGoleadora ? `${masGoleadora.goles} goles${masGoleadora.empate ? " cada una" : ""}` : undefined} />
+            <StatCard label="Franja en que más encaja" value={masEncajada ? masEncajada.nombre : "—"} hint={masEncajada ? `${masEncajada.goles} goles${masEncajada.empate ? " cada una" : ""}` : undefined} />
           </StatRow>
 
+          {/* ---------------- lo importante ---------------- */}
+          <Panel title="Lo importante" subtitle={`${equipo} · jornadas ${jDesde} a ${jHasta}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}. Siempre comparado con la media de la liga.`} icon={Lightbulb}>
+            <ul className="space-y-2.5">
+              {importante.map((frase, i) => (
+                <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-white/80">
+                  <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
+                  <span>{frase}</span>
+                </li>
+              ))}
+            </ul>
+            {aviso ? <p className="mt-3 text-[11px] text-white/40">{aviso}</p> : null}
+          </Panel>
+
           {/* ---------------- franjas ---------------- */}
-          <Panel title="Goles por franja de minutos" subtitle="Por partido, para comparar con la liga aunque se hayan jugado partidos distintos. La raya es la media de un equipo de la liga." icon={Clock}>
+          <Panel
+            title="¿En qué minutos marca y en cuáles le marcan?"
+            subtitle="Arriba los goles a favor, abajo los en contra. La raya es lo que marca (o encaja) un equipo medio de la liga en ese tramo."
+            icon={Clock}
+            analisis={deFranjas.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deFranjas.join(" ")}</Lectura></div> : undefined}
+          >
             <GraficaFranjas filas={filasFranja} />
 
-            <div className="mt-5">
-              <Tabla
-                cabeza={["Franja", "A favor", "En contra", "Dif.", "A favor / partido", "Liga", "En contra / partido", "Liga"]}
-                filas={filasFranja.map((f) => [
-                  f.franja.nombre,
-                  f.gf,
-                  f.gc,
-                  f.gf - f.gc > 0 ? `+${f.gf - f.gc}` : f.gf - f.gc,
-                  <Contra key="a" valor={media(f.gf, f.partidos)} liga={f.ligaPP} mejorAlto />,
-                  fmt(f.ligaPP),
-                  <Contra key="b" valor={media(f.gc, f.partidos)} liga={f.ligaContraPP} mejorAlto={false} />,
-                  fmt(f.ligaContraPP),
-                ])}
-                pie={["Total", gf, gc, gf - gc > 0 ? `+${gf - gc}` : gf - gc, fmt(media(gf, delEquipo.length)), fmt(ligaGolesPP), fmt(media(gc, delEquipo.length)), fmt(ligaContraPP)]}
-              />
-            </div>
+            <details className="mt-5">
+              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 hover:text-white/70">Ver la tabla</summary>
+              <div className="mt-3">
+                <Tabla
+                  cabeza={conLigaContra ? ["Franja", "A favor", "En contra", "Balance", "A favor / partido", "Liga", "En contra / partido", "Liga"] : ["Franja", "A favor", "En contra", "Balance", "A favor / partido", "En contra / partido", "Media liga / partido"]}
+                  filas={filasFranja.map((f) => [
+                    f.franja.nombre,
+                    f.gf,
+                    f.gc,
+                    f.gf - f.gc > 0 ? `+${f.gf - f.gc}` : f.gf - f.gc,
+                    <Contra key="a" valor={media(f.gf, f.partidos)} liga={f.ligaPP} mejorAlto />,
+                    ...(conLigaContra
+                      ? [fmt(f.ligaPP), <Contra key="b" valor={media(f.gc, f.partidos)} liga={f.ligaContraPP} mejorAlto={false} />, fmt(f.ligaContraPP)]
+                      : [<Contra key="b" valor={media(f.gc, f.partidos)} liga={f.ligaContraPP} mejorAlto={false} />, fmt(f.ligaPP)]),
+                  ])}
+                  pie={
+                    conLigaContra
+                      ? ["Total", gf, gc, gf - gc > 0 ? `+${gf - gc}` : gf - gc, fmt(media(gf, delEquipo.length)), fmt(ligaGolesPP), fmt(media(gc, delEquipo.length)), fmt(ligaContraPP)]
+                      : ["Total", gf, gc, gf - gc > 0 ? `+${gf - gc}` : gf - gc, fmt(media(gf, delEquipo.length)), fmt(media(gc, delEquipo.length)), fmt(ligaGolesPP)]
+                  }
+                />
+              </div>
+            </details>
           </Panel>
 
           {/* ---------------- local y visitante ---------------- */}
           <Panel
-            title="Local y visitante"
-            subtitle={`Por partido. Goles y puntos de BeSoccer; remates y xG de Wyscout (${cL.nw + cV.nw} de ${cL.n + cV.n} partidos del equipo descargados). Verde: mejor que la liga en esa condición.`}
+            title="¿Rinde igual en casa que fuera?"
+            subtitle={`Por partido. ▲ mejor y ▼ peor que la liga en la misma condición (más de un 10 %). Remates y xG de Wyscout: ${cL.nw + cV.nw} de ${cL.n + cV.n} partidos.`}
             icon={Home}
+            analisis={deCondicion.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deCondicion.join(" ")}</Lectura></div> : undefined}
           >
             <Tabla
-              cabeza={["Por partido", `${equipo.split(" ").slice(-1)[0]} local`, "Liga local", `${equipo.split(" ").slice(-1)[0]} visitante`, "Liga visitante"]}
+              cabeza={["Por partido", enCasa, "Liga en casa", fuera, "Liga fuera"]}
               filas={[
-                ["Partidos", cL.n, lL.n, cV.n, lV.n],
+                { seccion: "Resultado" },
+                ["Partidos jugados", cL.n, "", cV.n, ""],
                 ["Puntos", <Contra key="1" valor={cL.puntos} liga={lL.puntos} mejorAlto />, fmt(lL.puntos), <Contra key="2" valor={cV.puntos} liga={lV.puntos} mejorAlto />, fmt(lV.puntos)],
                 ["Goles a favor", <Contra key="3" valor={cL.gf} liga={lL.gf} mejorAlto />, fmt(lL.gf), <Contra key="4" valor={cV.gf} liga={lV.gf} mejorAlto />, fmt(lV.gf)],
                 ["Goles en contra", <Contra key="5" valor={cL.gc} liga={lL.gc} mejorAlto={false} />, fmt(lL.gc), <Contra key="6" valor={cV.gc} liga={lV.gc} mejorAlto={false} />, fmt(lV.gc)],
+                { seccion: "Ataque: cuánto genera y cuánto acierta" },
                 ["Remates", <Contra key="7" valor={cL.tiros} liga={lL.tiros} mejorAlto dec={1} />, fmt(lL.tiros, 1), <Contra key="8" valor={cV.tiros} liga={lV.tiros} mejorAlto dec={1} />, fmt(lV.tiros, 1)],
                 ["Remates a puerta", <Contra key="9" valor={cL.aPuerta} liga={lL.aPuerta} mejorAlto dec={1} />, fmt(lL.aPuerta, 1), <Contra key="10" valor={cV.aPuerta} liga={lV.aPuerta} mejorAlto dec={1} />, fmt(lV.aPuerta, 1)],
-                ["xG", <Contra key="11" valor={cL.xg} liga={lL.xg} mejorAlto />, fmt(lL.xg), <Contra key="12" valor={cV.xg} liga={lV.xg} mejorAlto />, fmt(lV.xg)],
-                ["Goles − xG", <Contra key="13" valor={cL.golesMenosXg} liga={lL.golesMenosXg} mejorAlto />, fmt(lL.golesMenosXg), <Contra key="14" valor={cV.golesMenosXg} liga={lV.golesMenosXg} mejorAlto />, fmt(lV.golesMenosXg)],
-                ["Conversión (gol / remate)", <Contra key="15" valor={cL.conversion} liga={lL.conversion} mejorAlto dec={1} sufijo=" %" />, `${fmt(lL.conversion, 1)} %`, <Contra key="16" valor={cV.conversion} liga={lV.conversion} mejorAlto dec={1} sufijo=" %" />, `${fmt(lV.conversion, 1)} %`],
-                ["Precisión (a puerta / remate)", <Contra key="17" valor={cL.precision} liga={lL.precision} mejorAlto dec={1} sufijo=" %" />, `${fmt(lL.precision, 1)} %`, <Contra key="18" valor={cV.precision} liga={lV.precision} mejorAlto dec={1} sufijo=" %" />, `${fmt(lV.precision, 1)} %`],
-                ["Contraataques con remate", <Contra key="19" valor={cL.contraataques} liga={lL.contraataques} mejorAlto dec={1} />, fmt(lL.contraataques, 1), <Contra key="20" valor={cV.contraataques} liga={lV.contraataques} mejorAlto dec={1} />, fmt(lV.contraataques, 1)],
-                ["Balón parado con remate", <Contra key="21" valor={cL.abp} liga={lL.abp} mejorAlto dec={1} />, fmt(lL.abp, 1), <Contra key="22" valor={cV.abp} liga={lV.abp} mejorAlto dec={1} />, fmt(lV.abp, 1)],
+                ["% de remates a puerta", <Contra key="17" valor={cL.precision} liga={lL.precision} mejorAlto dec={0} sufijo=" %" />, `${fmt(lL.precision, 0)} %`, <Contra key="18" valor={cV.precision} liga={lV.precision} mejorAlto dec={0} sufijo=" %" />, `${fmt(lV.precision, 0)} %`],
+                ["% de remates que son gol", <Contra key="15" valor={cL.conversion} liga={lL.conversion} mejorAlto dec={0} sufijo=" %" />, `${fmt(lL.conversion, 0)} %`, <Contra key="16" valor={cV.conversion} liga={lV.conversion} mejorAlto dec={0} sufijo=" %" />, `${fmt(lV.conversion, 0)} %`],
+                ["Goles esperados (xG)", <Contra key="11" valor={cL.xg} liga={lL.xg} mejorAlto />, fmt(lL.xg), <Contra key="12" valor={cV.xg} liga={lV.xg} mejorAlto />, fmt(lV.xg)],
+                ["Goles por encima (+) o por debajo (−) del xG", <Contra key="13" valor={cL.golesMenosXg} liga={lL.golesMenosXg} mejorAlto />, fmt(lL.golesMenosXg), <Contra key="14" valor={cV.golesMenosXg} liga={lV.golesMenosXg} mejorAlto />, fmt(lV.golesMenosXg)],
+                ["Balón parado que acaba en remate", <Contra key="21" valor={cL.abp} liga={lL.abp} mejorAlto dec={1} />, fmt(lL.abp, 1), <Contra key="22" valor={cV.abp} liga={lV.abp} mejorAlto dec={1} />, fmt(lV.abp, 1)],
+                { seccion: "Defensa: lo que concede" },
                 ["Remates en contra", <Contra key="23" valor={cL.tirosContra} liga={lL.tirosContra} mejorAlto={false} dec={1} />, fmt(lL.tirosContra, 1), <Contra key="24" valor={cV.tirosContra} liga={lV.tirosContra} mejorAlto={false} dec={1} />, fmt(lV.tirosContra, 1)],
                 ["xG en contra", <Contra key="25" valor={cL.xgContra} liga={lL.xgContra} mejorAlto={false} />, fmt(lL.xgContra), <Contra key="26" valor={cV.xgContra} liga={lV.xgContra} mejorAlto={false} />, fmt(lV.xgContra)],
               ]}
             />
 
-            <p className="mb-2 mt-5 text-[10px] uppercase tracking-[0.16em] text-white/40">Goles por franja · local y visitante</p>
-            <Tabla cabeza={["Franja", "Local (favor - contra)", "Visitante (favor - contra)", "Liga: goles del local / partido", "Liga: goles del visitante / partido"]} filas={filasFranjaLado} />
+            <details className="mt-5">
+              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 hover:text-white/70">Goles por franja en casa y fuera</summary>
+              <div className="mt-3">
+                <Tabla cabeza={["Franja", "En casa (favor - contra)", "Fuera (favor - contra)", "Liga: goles del local / partido", "Liga: goles del visitante / partido"]} filas={filasFranjaLado} />
+              </div>
+            </details>
           </Panel>
 
           {/* ---------------- tipología ---------------- */}
           <Panel
-            title="Tipología de los goles"
+            title="¿Cómo llegan los goles?"
             subtitle={
               esNuestro
                 ? "De nuestros partidos, con el timeline de Hudl y las grabaciones tácticas. Es una propuesta: cada gol se corrige en la lista de abajo."
                 : "De este equipo sólo se clasifican los goles de sus partidos contra nosotros (Hudl). Del resto de la liga sólo se sabe si fue de penalti o en propia puerta."
             }
             icon={Shapes}
+            analisis={esNuestro && deTipologia.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deTipologia.join(" ")}</Lectura></div> : undefined}
             action={<SaveState status={manual.status} localOnly={manual.localOnly} savedAt={manual.lastSavedAt} sinGuardar={manual.sinGuardar} onGuardar={() => void manual.guardaYa()} />}
           >
             <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
@@ -620,11 +723,13 @@ export function PantallaGoles() {
                 <table className="w-full min-w-[360px] text-sm">
                   <thead>
                     <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.14em] text-white/40">
-                      <th className="px-3 py-2 text-left font-medium">Tipo</th>
-                      <th className="px-3 py-2 text-right font-medium">A favor</th>
-                      <th className="px-3 py-2 text-right font-medium">%</th>
-                      <th className="px-3 py-2 text-right font-medium">En contra</th>
-                      <th className="px-3 py-2 text-right font-medium">%</th>
+                      <th className="px-3 py-2 text-left font-medium">Cómo llega el gol</th>
+                      <th className="px-3 py-2 text-left font-medium" style={{ color: ORO }}>
+                        A favor ({tipologia.totalFavor})
+                      </th>
+                      <th className="px-3 py-2 text-left font-medium" style={{ color: PEOR }}>
+                        En contra ({tipologia.totalContra})
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -632,30 +737,37 @@ export function PantallaGoles() {
                       const sumaFase = (m: Map<string, number>) => fase.tipos.reduce((s, t) => s + (m.get(t.clave) ?? 0), 0);
                       const ff = sumaFase(tipologia.cuenta.favor);
                       const fc = sumaFase(tipologia.cuenta.contra);
+                      const maximo = Math.max(1, tipologia.totalFavor, tipologia.totalContra);
 
                       return [
                         <tr key={fase.fase} className="bg-white/[0.05] text-[11px] font-semibold uppercase tracking-[0.12em] text-white/80">
                           <td className="px-3 py-1.5">{fase.fase}</td>
-                          <td className="px-3 py-1.5 text-right tabular-nums">{ff}</td>
-                          <td className="px-3 py-1.5 text-right tabular-nums">{pct(ff, tipologia.totalFavor)}</td>
-                          <td className="px-3 py-1.5 text-right tabular-nums">{fc}</td>
-                          <td className="px-3 py-1.5 text-right tabular-nums">{pct(fc, tipologia.totalContra)}</td>
+                          <td className="px-3 py-1.5 tabular-nums">
+                            {ff} <span className="font-normal text-white/45">· {pct(ff, tipologia.totalFavor)}</span>
+                          </td>
+                          <td className="px-3 py-1.5 tabular-nums">
+                            {fc} <span className="font-normal text-white/45">· {pct(fc, tipologia.totalContra)}</span>
+                          </td>
                         </tr>,
                         ...fase.tipos.map((t) => {
                           const a = tipologia.cuenta.favor.get(t.clave) ?? 0;
                           const b = tipologia.cuenta.contra.get(t.clave) ?? 0;
+                          const celda = (n: number, color: string) => (
+                            <td className="px-3 py-1.5">
+                              <span className="flex items-center gap-2">
+                                <span className="h-2 rounded-full" style={{ width: `${(n / maximo) * 100}%`, maxWidth: 120, minWidth: n ? 6 : 0, backgroundColor: color }} />
+                                <span className="tabular-nums" style={{ color: n ? undefined : tinta(0.25) }}>
+                                  {n || "·"}
+                                </span>
+                              </span>
+                            </td>
+                          );
 
                           return (
                             <tr key={t.clave} className="border-b border-white/[0.06]">
-                              <td className="px-3 py-1.5 pl-5 text-white/75">{t.nombre}</td>
-                              <td className="px-3 py-1.5 text-right tabular-nums" style={{ color: a ? ORO : tinta(0.3) }}>
-                                {a}
-                              </td>
-                              <td className="px-3 py-1.5 text-right tabular-nums text-white/50">{a ? pct(a, tipologia.totalFavor) : ""}</td>
-                              <td className="px-3 py-1.5 text-right tabular-nums" style={{ color: b ? PEOR : tinta(0.3) }}>
-                                {b}
-                              </td>
-                              <td className="px-3 py-1.5 text-right tabular-nums text-white/50">{b ? pct(b, tipologia.totalContra) : ""}</td>
+                              <td className={`px-3 py-1.5 pl-5 ${a || b ? "text-white/80" : "text-white/35"}`}>{t.nombre}</td>
+                              {celda(a, ORO)}
+                              {celda(b, PEOR)}
                             </tr>
                           );
                         }),
@@ -663,11 +775,9 @@ export function PantallaGoles() {
                     })}
                     {tipologia.sinFavor + tipologia.sinContra > 0 ? (
                       <tr className="text-white/45">
-                        <td className="px-3 py-1.5">Sin clasificar</td>
-                        <td className="px-3 py-1.5 text-right tabular-nums">{tipologia.sinFavor}</td>
-                        <td />
-                        <td className="px-3 py-1.5 text-right tabular-nums">{tipologia.sinContra}</td>
-                        <td />
+                        <td className="px-3 py-1.5">Sin clasificar (elígelo abajo)</td>
+                        <td className="px-3 py-1.5 tabular-nums">{tipologia.sinFavor}</td>
+                        <td className="px-3 py-1.5 tabular-nums">{tipologia.sinContra}</td>
                       </tr>
                     ) : null}
                   </tbody>
@@ -695,9 +805,14 @@ export function PantallaGoles() {
 
           {/* ---------------- remates por franja ---------------- */}
           {rematesFranja ? (
-            <Panel title="Remates por franja" subtitle={`Del timeline de Hudl de ${rematesFranja.n} de nuestros partidos (Wyscout no da el minuto de los remates).`} icon={Crosshair}>
+            <Panel
+              title="¿Cuándo remata y cuándo le rematan?"
+              subtitle={`Del timeline de Hudl de ${rematesFranja.n} de nuestros partidos (Wyscout no da el minuto de los remates).`}
+              icon={Crosshair}
+              analisis={rematesFranja.lectura ? <div className="px-4 pb-4 sm:px-5"><Lectura>{rematesFranja.lectura}</Lectura></div> : undefined}
+            >
               <Tabla
-                cabeza={["Franja", "Remates", "A puerta", "Goles", "Remates en contra", "A puerta", "Goles"]}
+                cabeza={["Franja", "Remates nuestros", "A puerta", "Gol", "Remates del rival", "A puerta", "Gol"]}
                 filas={rematesFranja.filas}
                 pie={[
                   "Total",
@@ -713,7 +828,12 @@ export function PantallaGoles() {
           ) : null}
 
           {/* ---------------- marcar primero ---------------- */}
-          <Panel title="Quién marca primero" subtitle="Cómo acaban los partidos según quién abre el marcador, frente a la liga con la misma condición." icon={Trophy}>
+          <Panel
+            title="¿Qué pasa cuando marca primero?"
+            subtitle="Cómo acaban los partidos según quién abre el marcador, frente a la liga con la misma condición."
+            icon={Trophy}
+            analisis={dePrimero.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{dePrimero.join(" ")}</Lectura></div> : undefined}
+          >
             <Tabla
               cabeza={["", "Partidos", "Ganados", "Empatados", "Perdidos", "Puntos / partido", "Liga: puntos / partido"]}
               filas={(["propio", "rival", "nadie"] as const).map((k) => {
@@ -734,7 +854,7 @@ export function PantallaGoles() {
           </Panel>
 
           {/* ---------------- lista ---------------- */}
-          <Panel title="Todos los goles" subtitle={esNuestro ? "La tipología de cada gol se puede cambiar: lo que elijas manda sobre la propuesta de Hudl." : "Los de sus partidos contra nosotros llevan tipología."} icon={ListOrdered} bodyClassName="p-0">
+          <Panel title="Gol a gol" subtitle={esNuestro ? "La tipología de cada gol se puede cambiar: lo que elijas manda sobre la propuesta de Hudl." : "Los de sus partidos contra nosotros llevan tipología."} icon={ListOrdered} bodyClassName="p-0">
             <div className="min-w-0 overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
