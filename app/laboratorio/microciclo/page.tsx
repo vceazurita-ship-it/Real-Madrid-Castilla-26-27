@@ -68,6 +68,9 @@ import { toast } from "sonner";
 
 import { AbpHeader, Button, Field, Notice, Panel, Select } from "@/components/abp/ui";
 import { ValoracionTarea } from "@/components/registro/ValoracionTarea";
+import { CamposCognitivos } from "@/components/registro/CamposCognitivos";
+import { propuestaCognitiva } from "@/lib/registro/propuesta";
+import type { RegistroTarea } from "@/lib/abp/registro";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
@@ -282,6 +285,7 @@ function TiraDias({
 function FilaTarea({
   tarea,
   sugerencias,
+  historico,
   onCambia,
   onDuplicar,
   onQuitar,
@@ -290,6 +294,8 @@ function FilaTarea({
 }: {
   tarea: TareaNueva;
   sugerencias: Sugerencias;
+  /** Las tareas de la hoja: de ellas sale la propuesta de los campos de la demanda cognitiva. */
+  historico: RegistroTarea[];
   onCambia: (cambio: Partial<TareaNueva>) => void;
   onDuplicar: () => void;
   onQuitar: () => void;
@@ -302,6 +308,12 @@ function FilaTarea({
   const numero = (valor: string) => Math.max(0, Math.round(Number(valor) || 0));
 
   const esAbp = FASES_ABP.includes(tarea.fase);
+
+  /* La propuesta se rehace al cambiar lo que define la tarea, no con cada número que se teclea. */
+  const propuesta = useMemo(
+    () => propuestaCognitiva({ formato: tarea.formato, tipoTarea: tarea.tipoTarea, contenidoPrincipal: tarea.contenidoPrincipal, contenidoSecundario: tarea.contenidoSecundario, fase: tarea.fase }, historico),
+    [tarea.formato, tarea.tipoTarea, tarea.contenidoPrincipal, tarea.contenidoSecundario, tarea.fase, historico],
+  );
 
   return (
     <div
@@ -407,6 +419,11 @@ function FilaTarea({
         />
       </div>
 
+      {/* Los seis campos de la demanda cognitiva, a la vista y con la propuesta de la hoja en gris (13/10/2026). */}
+      <div className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.015] p-2">
+        <CamposCognitivos tarea={tarea} propuesta={propuesta} onCambia={onCambia} />
+      </div>
+
       {/* La valoración tras la sesión: la nota y el análisis post (columnas «Evaluación» y «Análisis Post»). */}
       <div className="mt-2 rounded-lg border border-white/[0.06] bg-white/[0.015] p-2">
         <ValoracionTarea extra={tarea.extra} opciones={sugerencias.analisis} onCambia={(extra) => onCambia({ extra })} />
@@ -418,7 +435,7 @@ function FilaTarea({
         className="mt-2 flex items-center gap-1 text-[10px] uppercase tracking-[0.16em] text-white/35 transition hover:text-white/60"
       >
         {abierta ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
-        Formato y lo que alimenta la demanda cognitiva
+        Formato, grupo, densidad y observaciones
       </button>
 
       {abierta && (
@@ -446,52 +463,10 @@ function FilaTarea({
           />
 
           <Field
-            label="Nº jugadores en la tarea"
-            type="number"
-            value={tarea.nJug ? String(tarea.nJug) : ""}
-            onChange={(v) => onCambia({ nJug: numero(v) })}
-          />
-
-          <Field
             label="Densidad"
             type="number"
             value={tarea.densidad ? String(tarea.densidad) : ""}
             onChange={(v) => onCambia({ densidad: numero(v) })}
-          />
-
-          <Field
-            label="Comodines"
-            type="number"
-            value={tarea.nComodines ? String(tarea.nComodines) : ""}
-            onChange={(v) => onCambia({ nComodines: numero(v) })}
-          />
-
-          <Field
-            label="Normativa"
-            type="number"
-            value={tarea.normativa ? String(tarea.normativa) : ""}
-            onChange={(v) => onCambia({ normativa: numero(v) })}
-          />
-
-          <Field
-            label="Incertidumbre"
-            type="number"
-            value={tarea.incertidumbre ? String(tarea.incertidumbre) : ""}
-            onChange={(v) => onCambia({ incertidumbre: numero(v) })}
-          />
-
-          <Field
-            label="Familiaridad"
-            type="number"
-            value={tarea.familiaridad ? String(tarea.familiaridad) : ""}
-            onChange={(v) => onCambia({ familiaridad: numero(v) })}
-          />
-
-          <Field
-            label="Motivación"
-            type="number"
-            value={tarea.motivacion ? String(tarea.motivacion) : ""}
-            onChange={(v) => onCambia({ motivacion: numero(v) })}
           />
 
           <div className="md:col-span-2">
@@ -1944,6 +1919,7 @@ export default function EditorMicrocicloPage() {
                               key={`${sesion.fecha}-${j}`}
                               tarea={tarea}
                               sugerencias={sugerencias}
+                              historico={registro?.tareas ?? []}
                               onCambia={(cambio) => cambiaTarea(indice, j, cambio)}
                               onDuplicar={() =>
                                 cambiaSesion(indice, {

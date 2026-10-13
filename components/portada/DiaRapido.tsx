@@ -27,6 +27,9 @@ import { toast } from "sonner";
 
 import { Dialog } from "@/components/abp/ui";
 import { ValoracionTarea } from "@/components/registro/ValoracionTarea";
+import { CamposCognitivos } from "@/components/registro/CamposCognitivos";
+import { aplicaPropuesta, propuestaCognitiva } from "@/lib/registro/propuesta";
+import type { RegistroTarea } from "@/lib/abp/registro";
 import { SeguimientoRapido } from "@/components/seguimiento/SeguimientoRapido";
 import { usePlayers } from "@/hooks/usePlayers";
 import { loadRegistro } from "@/lib/abp/registro";
@@ -47,6 +50,8 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [cambiado, setCambiado] = useState(false);
   const [guardando, setGuardando] = useState(false);
+  /* Las tareas de la hoja: de ellas sale la propuesta de la demanda cognitiva. */
+  const [historico, setHistorico] = useState<RegistroTarea[]>([]);
   const { players } = usePlayers();
 
   const jugadores = useMemo(
@@ -65,6 +70,9 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
     (async () => {
       try {
         const registro = await loadRegistro();
+
+        if (vivo) setHistorico(registro.tareas);
+
         const delDia = registro.tareas.filter((t) => fechaIsoDeHoja(t.fecha) === fecha);
 
         if (!delDia.length) {
@@ -99,17 +107,30 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
 
   const sesion = estado.fase === "lista" ? estado.micro.sesiones.find((s) => s.fecha === fecha) ?? null : null;
 
+  /* La propuesta de cada tarea del día, según lo que la define (formato, tipo, contenidos, fase). */
+  const rasgos = (sesion?.tareas ?? []).map((t) => [t.formato, t.tipoTarea, t.contenidoPrincipal, t.contenidoSecundario, t.fase].join("|")).join("~");
+  const propuestas = useMemo(
+    () => (sesion?.tareas ?? []).map((t) => (historico.length ? propuestaCognitiva(t, historico) : null)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- se rehace cuando cambian los rasgos, no con cada número
+    [rasgos, historico],
+  );
+
   const cambiaTarea = (indice: number, cambio: Partial<TareaNueva>) => {
     if (estado.fase !== "lista") return;
 
     setCambiado(true);
-    setEstado({
-      ...estado,
-      micro: {
-        ...estado.micro,
-        sesiones: estado.micro.sesiones.map((s) => (s.fecha !== fecha ? s : { ...s, tareas: s.tareas.map((t, i) => (i === indice ? { ...t, ...cambio } : t)) })),
-      },
-    });
+    /* Sobre el estado de ese momento: «Usar la propuesta en todas» cambia varias tareas seguidas. */
+    setEstado((actual) =>
+      actual.fase !== "lista"
+        ? actual
+        : {
+            ...actual,
+            micro: {
+              ...actual.micro,
+              sesiones: actual.micro.sesiones.map((s) => (s.fecha !== fecha ? s : { ...s, tareas: s.tareas.map((t, i) => (i === indice ? { ...t, ...cambio } : t)) })),
+            },
+          },
+    );
   };
 
   const guarda = async () => {
@@ -202,6 +223,18 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
         </div>
       ) : (
         <div className="space-y-2.5">
+          {propuestas.some(Boolean) && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => sesion.tareas.forEach((t, i) => propuestas[i] && !/-COMP$/i.test(t.tarea) && cambiaTarea(i, aplicaPropuesta(t, propuestas[i]!)))}
+                className="rounded-full border border-[#C8A96B]/40 px-3 py-1 text-[11px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15"
+                title="Rellena con la propuesta los campos de demanda cognitiva que estén vacíos, en todas las tareas del día"
+              >
+                Usar la propuesta en todas
+              </button>
+            </div>
+          )}
           {sesion.tareas.map((t, i) =>
             /-COMP$/i.test(t.tarea) ? null : (
               <div key={`${t.tarea}-${i}`} className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-3">
@@ -219,6 +252,9 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
                     Int.
                     <input type="number" min={0} max={10} value={t.intensidad || ""} onChange={(e) => cambiaTarea(i, { intensidad: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={CAMPO_NUM} />
                   </label>
+                </div>
+                <div className="mt-2.5">
+                  <CamposCognitivos tarea={t} propuesta={propuestas[i] ?? null} onCambia={(cambio) => cambiaTarea(i, cambio)} />
                 </div>
                 <div className="mt-2.5">
                   <ValoracionTarea extra={t.extra} onCambia={(extra) => cambiaTarea(i, { extra })} />
