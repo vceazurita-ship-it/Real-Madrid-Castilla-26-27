@@ -21,6 +21,7 @@ import { EsqueletoPantalla } from "@/components/ui/estados";
 import { AbpHeader, Notice, Panel, SaveState, Segmented, Select, StatCard, StatRow } from "@/components/abp/ui";
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { Lectura } from "@/components/data/formas";
+import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasTipologia";
 import { avisoMuestra, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
@@ -545,6 +546,9 @@ export function PantallaGoles() {
   const importante = [balance, ...deFranjas.filter((f) => !f.startsWith("En los descuentos")), ...deCondicion, ...(esNuestro ? deTipologia : []), ...dePrimero.slice(0, 1)].filter(Boolean);
   const conLigaContra = condicion !== "todos";
 
+  /* Los goles con tipología (los de nuestros partidos), con la corrección a mano encima de la de Hudl. */
+  const conTipo: GolConTipo[] = goles.filter((g) => g.clave in (doc.tipologia ?? {}) || manual.value[g.clave]).map((g) => ({ ...g, tipoFinal: tipoDe(g.clave) }));
+
   return (
     <Marco>
       <AbpHeader
@@ -731,7 +735,15 @@ export function PantallaGoles() {
             analisis={esNuestro && deTipologia.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deTipologia.join(" ")}</Lectura></div> : undefined}
             action={<SaveState status={manual.status} localOnly={manual.localOnly} savedAt={manual.lastSavedAt} sinGuardar={manual.sinGuardar} onGuardar={() => void manual.guardaYa()} />}
           >
-            <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+            {conTipo.length ? (
+              <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} />
+            ) : (
+              <p className="text-sm text-white/45">Ningún gol de este equipo tiene tipología en este tramo (sólo se clasifican los de los partidos contra nosotros).</p>
+            )}
+
+            <details className="mt-6">
+              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 hover:text-white/70">Ver la tabla y lo que se sabe del resto de la liga</summary>
+            <div className="mt-3 grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
               <div className="min-w-0 overflow-x-auto">
                 <table className="w-full min-w-[360px] text-sm">
                   <thead>
@@ -814,6 +826,7 @@ export function PantallaGoles() {
                 ) : null}
               </div>
             </div>
+            </details>
           </Panel>
 
           {/* ---------------- remates por franja ---------------- */}
