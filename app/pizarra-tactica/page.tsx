@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Check,
   CloudOff,
@@ -29,6 +29,7 @@ import {
   DIBUJO_DE_PARTIDA,
 } from "@/lib/tactics/dosOnces";
 import { emptyDoc, normalizeDoc, tacticId } from "@/lib/tactics/helpers";
+import { oncesDeLaSemana, semanaActual } from "@/lib/tactics/oncesSemana";
 import type { RivalSquad } from "@/lib/tactics/rivals";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
@@ -198,11 +199,29 @@ export default function PizarraTacticaPage() {
   const onceAtendido = useRef(false);
 
   useEffect(() => {
-    if (!conOnces || onceAtendido.current || !listaCargada) return;
-
-    onceAtendido.current = true;
+    if (onceAtendido.current || !listaCargada) return;
 
     const suyo = boards.find((board) => board.nombre === TABLERO_DE_ONCES);
+
+    /*
+    | Desde el 13/10/2026 el tablero de los onces existe siempre (se rellena
+    | solo cada semana): si no está, se crea aunque no se llegue desde la
+    | portada. Lo que se selecciona sólo cambia si se llega desde la portada.
+    */
+    if (!conOnces) {
+      if (suyo) return;
+
+      onceAtendido.current = true;
+      setIndex((actual) =>
+        (actual?.boards ?? []).some((b) => b.nombre === TABLERO_DE_ONCES)
+          ? actual
+          : { boards: [{ id: tacticId("board"), nombre: TABLERO_DE_ONCES }, ...(actual?.boards ?? [])] },
+      );
+
+      return;
+    }
+
+    onceAtendido.current = true;
 
     /* Igual que la selección de la primera pizarra de más arriba: esto no es
        una cascada de renders, es una intención de navegación que se atiende
@@ -427,6 +446,7 @@ export default function PizarraTacticaPage() {
                     roster={players}
                     rivalSquads={squads}
                     conOnces={conOnces && active.nombre === TABLERO_DE_ONCES}
+                    deLaSemana={active.nombre === TABLERO_DE_ONCES}
                     aPantallaCompleta={
                       pantallaNuestra && active.nombre === TABLERO_DE_ONCES
                     }
@@ -470,6 +490,7 @@ function BoardEditor({
   roster,
   rivalSquads,
   conOnces = false,
+  deLaSemana = false,
   aPantallaCompleta = false,
 }: {
   boardId: string;
@@ -478,6 +499,8 @@ function BoardEditor({
   rivalSquads: RivalSquad[];
   /** Se ha llegado desde la portada: si el campo está vacío, se puebla. */
   conOnces?: boolean;
+  /** Es el tablero de los onces: se rellena solo cada semana con los dos onces de verdad. */
+  deLaSemana?: boolean;
   /** El campo se abre ocupando la pantalla. Ver `PitchStage`. */
   aPantallaCompleta?: boolean;
 }) {
@@ -508,8 +531,72 @@ function BoardEditor({
   */
   const yaSeIntento = useRef(false);
 
+  /*
+  |--------------------------------------------------------------------------
+  | LOS ONCES DE LA SEMANA (13/10/2026)
+  |--------------------------------------------------------------------------
+  |
+  | El tablero de los onces se rellena solo con nuestro último once
+  | (Valoraciones) y el teórico del rival (Duelos → Plantillas → BeSoccer)
+  | cada vez que cambia el próximo partido: el documento guarda para qué
+  | semana se rellenó (`semanaOnces`). Dentro de la semana no se toca: lo
+  | movido o dibujado se queda. «Rehacer» lo vuelve a poner a mano.
+  */
+  const [fuentes, setFuentes] = useState<{ rival: string; nuestra: string; suya: string } | null>(null);
+  const [rellenando, setRellenando] = useState(false);
+  const semanaMirada = useRef(false);
+
+  const rellenaSemana = useCallback(
+    async (forzar: boolean) => {
+      setRellenando(true);
+
+      try {
+        const onces = await oncesDeLaSemana(roster);
+
+        if (!onces) {
+          if (forzar) toast.error("No encuentro el próximo partido en el calendario.");
+
+          return;
+        }
+
+        setFuentes({ rival: onces.rival, nuestra: onces.fuenteNuestra, suya: onces.fuenteSuya });
+
+        setValue((actual) => {
+          const base = normalizeDoc(actual, nombre);
+
+          if (!forzar && base.semanaOnces === onces.semana) return base;
+
+          return {
+            ...base,
+            semanaOnces: onces.semana,
+            scenes: [{ id: tacticId("scene"), nombre: `Onces · ${onces.rival}`, tokens: onces.tokens, shapes: [] }],
+          };
+        });
+
+        if (forzar) toast.success("Onces de la semana puestos", { description: `${onces.fuenteNuestra} · ${onces.fuenteSuya}` });
+      } catch (error) {
+        console.error("[pizarra] onces de la semana", error);
+
+        if (forzar) toast.error("No se han podido poner los onces");
+      } finally {
+        setRellenando(false);
+      }
+    },
+    [nombre, roster, setValue],
+  );
+
   useEffect(() => {
-    if (!conOnces || yaSeIntento.current) return;
+    if (!deLaSemana || semanaMirada.current || status === "loading" || localOnly || roster.length === 0) return;
+
+    semanaMirada.current = true;
+
+    void semanaActual().then((s) => {
+      if (s && s.semana !== doc.semanaOnces) void rellenaSemana(false);
+    });
+  }, [deLaSemana, status, localOnly, roster.length, doc.semanaOnces, rellenaSemana]);
+
+  useEffect(() => {
+    if (deLaSemana || !conOnces || yaSeIntento.current) return;
 
     /* Esperar a que llegue lo guardado: pintar sobre el respaldo vacío
        machacaría el tablero en cuanto el servidor contestara. Sin servidor
@@ -571,7 +658,7 @@ function BoardEditor({
         })),
       };
     });
-  }, [conOnces, doc, localOnly, nombre, setValue, status]);
+  }, [conOnces, deLaSemana, doc, localOnly, nombre, setValue, status]);
 
   /*
   | A pantalla completa se lleva **el tablero con su título y su estado**, no
@@ -648,6 +735,30 @@ function BoardEditor({
         </span>
         </div>
       </div>
+
+      {deLaSemana && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border border-[#C8A96B]/20 bg-[#C8A96B]/[0.05] px-3 py-2 text-[11px] text-white/60">
+          <span className="font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">Onces de la semana</span>
+          <span className="min-w-0 flex-1">
+            {fuentes
+              ? `${fuentes.nuestra} · vs ${fuentes.rival}: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}. Pincha una ficha para cambiar al jugador.`
+              : doc.semanaOnces
+                ? `Puestos para el partido del ${doc.semanaOnces.split("|")[0].split("-").reverse().join("/")} contra ${doc.semanaOnces.split("|")[1]}. Pincha una ficha para cambiar al jugador.`
+                : "Se rellenan solos cada semana con nuestro último once y el teórico del rival."}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm("¿Volver a poner los onces de la semana? Se borra lo movido y dibujado en este tablero.")) void rellenaSemana(true);
+            }}
+            disabled={rellenando}
+            className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 px-3 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15 disabled:opacity-50"
+          >
+            {rellenando ? <Loader2 size={12} className="animate-spin" /> : null}
+            Rehacer
+          </button>
+        </div>
+      )}
 
       <TacticsBoard
         doc={doc}

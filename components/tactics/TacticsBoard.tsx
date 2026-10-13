@@ -44,6 +44,7 @@ import PitchTimelineBar from "./PitchTimelineBar";
 import PlayerFigure from "./PlayerFigure";
 import BoardToolPalette from "./BoardToolPalette";
 import BoardStyleBar from "./BoardStyleBar";
+import { CambioJugador, type OpcionCambio } from "./CambioJugador";
 import { planeDepth, usePitchCamera } from "@/hooks/usePitchCamera";
 import { usePitchTimeline } from "@/hooks/usePitchTimeline";
 import {
@@ -204,6 +205,13 @@ export default function TacticsBoard({
   const [sceneIndex, setSceneIndex] = useState(0);
   const [draft, setDraft] = useState<TacticShape | null>(null);
   const [draggingToken, setDraggingToken] = useState<string | null>(null);
+  /*
+  | Pinchar una ficha sin arrastrarla ofrece cambiarla por otro de su equipo
+  | (13/10/2026). Se distingue del arrastre por lo poco que se ha movido y lo
+  | poco que ha durado la pulsación.
+  */
+  const pulsacion = useRef<{ id: string; x: number; y: number; t: number } | null>(null);
+  const [cambiando, setCambiando] = useState<string | null>(null);
   const [editingShape, setEditingShape] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [dictating, setDictating] = useState(false);
@@ -600,8 +608,26 @@ export default function TacticsBoard({
     svgRef.current?.releasePointerCapture(event.pointerId);
 
     if (draggingToken) {
+      const pulsada = pulsacion.current;
+      const ahora = scene.tokens.find((token) => token.id === draggingToken);
+
+      pulsacion.current = null;
       setDraggingToken(null);
       grabRef.current = null;
+
+      /* Un toque, no un arrastre: se ofrece el cambio de jugador. */
+      if (
+        pulsada &&
+        ahora &&
+        pulsada.id === ahora.id &&
+        (ahora.kind === "home" || ahora.kind === "away") &&
+        Math.hypot(ahora.x - pulsada.x, ahora.y - pulsada.y) < 0.8 &&
+        event.timeStamp - pulsada.t < 450
+      ) {
+        setCambiando(ahora.id);
+        return;
+      }
+
       // El arrastre ya escribió posiciones; guardamos un punto de deshacer.
       setPast((current) => [...current.slice(-40), doc]);
       return;
@@ -652,6 +678,108 @@ export default function TacticsBoard({
           ? { ...item, tokens: [...item.tokens, token] }
           : item
       ),
+    });
+  };
+
+  /* ---------------------------------------------------------------
+     Cambiar una ficha por otro jugador de su equipo
+     --------------------------------------------------------------- */
+
+  const claveNombreDe = (nombre?: string) => (nombre ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+  /** Su equipo: la plantilla del rival que tenga alguna de las fichas rivales del campo, o la fijada. */
+  const squadDelCampo = useMemo(() => {
+    const ids = new Set(scene.tokens.filter((t) => t.kind === "away").map((t) => t.id));
+
+    return (
+      rivalSquads.find((squad) => squad.players.some((p) => ids.has(rivalTokenId(p.id)))) ??
+      rivalSquads.find((squad) => squad.equipo === lockedRivalTeam) ??
+      null
+    );
+  }, [rivalSquads, scene.tokens, lockedRivalTeam]);
+
+  const cambio = useMemo(() => {
+    const ficha = cambiando ? scene.tokens.find((t) => t.id === cambiando) : null;
+
+    if (!ficha) return null;
+
+    if (ficha.kind === "home") {
+      const enCampo = new Set(scene.tokens.filter((t) => t.kind === "home").map((t) => claveNombreDe(t.nombre)));
+      const opciones: OpcionCambio[] = roster
+        .filter((p) => p.esCastilla !== false && p.activo !== false)
+        .map((p) => ({ id: p.id, nombre: p.apodo || p.nombre, dorsal: p.dorsal ? String(p.dorsal) : "", posicion: p.posicion, foto: p.foto, enCampo: enCampo.has(claveNombreDe(p.apodo || p.nombre)) }))
+        .filter((o) => claveNombreDe(o.nombre) !== claveNombreDe(ficha.nombre));
+
+      return { ficha, equipo: "Real Madrid Castilla", opciones };
+    }
+
+    if (!squadDelCampo) return { ficha, equipo: "Rival", opciones: [] as OpcionCambio[] };
+
+    const enCampo = new Set(scene.tokens.map((t) => t.id));
+    const opciones: OpcionCambio[] = squadDelCampo.players
+      .filter((p) => rivalTokenId(p.id) !== ficha.id)
+      .map((p) => ({ id: p.id, nombre: p.nombre, dorsal: p.dorsal, posicion: p.posicion, foto: p.foto, enCampo: enCampo.has(rivalTokenId(p.id)) }));
+
+    return { ficha, equipo: squadDelCampo.equipo, opciones };
+  }, [cambiando, scene.tokens, roster, squadDelCampo]);
+
+  /** Mete al elegido en el sitio de la ficha, en todas las escenas; si ya estaba en el campo, se intercambian los sitios. */
+  const aplicaCambio = (ficha: TacticToken, id: string) => {
+    if (ficha.kind === "home") {
+      const p = roster.find((x) => x.id === id);
+
+      if (!p) return;
+
+      const nombre = p.apodo || p.nombre;
+      const datos = { label: p.dorsal ? String(p.dorsal) : ficha.label, nombre, foto: p.foto, posicion: p.posicion, alturaCm: undefined, pesoKg: undefined };
+
+      commit({
+        ...doc,
+        scenes: doc.scenes.map((s) => {
+          const otra = s.tokens.find((t) => t.kind === "home" && t.id !== ficha.id && claveNombreDe(t.nombre) === claveNombreDe(nombre));
+          const actual = s.tokens.find((t) => t.id === ficha.id);
+
+          return {
+            ...s,
+            tokens: s.tokens.map((t) => {
+              if (t.id === ficha.id) return { ...t, ...datos };
+              if (otra && t.id === otra.id && actual) return { ...t, label: actual.label, nombre: actual.nombre, foto: actual.foto, posicion: actual.posicion, alturaCm: actual.alturaCm, pesoKg: actual.pesoKg };
+
+              return t;
+            }),
+          };
+        }),
+      });
+
+      return;
+    }
+
+    const p = squadDelCampo?.players.find((x) => x.id === id);
+
+    if (!p) return;
+
+    const nuevoId = rivalTokenId(p.id);
+
+    commit({
+      ...doc,
+      scenes: doc.scenes.map((s) => {
+        const actual = s.tokens.find((t) => t.id === ficha.id);
+        const otra = s.tokens.find((t) => t.id === nuevoId);
+
+        /* Ya estaba: se cambian de sitio. */
+        if (actual && otra) {
+          return { ...s, tokens: s.tokens.map((t) => (t.id === ficha.id ? { ...t, x: otra.x, y: otra.y } : t.id === nuevoId ? { ...t, x: actual.x, y: actual.y } : t)) };
+        }
+
+        return {
+          ...s,
+          tokens: s.tokens.map((t) =>
+            t.id === ficha.id
+              ? { ...t, id: nuevoId, label: p.dorsal || p.nombre.slice(0, 2).toUpperCase(), nombre: p.nombre, foto: p.foto, alturaCm: p.alturaCm, pesoKg: p.pesoKg, posicion: p.posicion }
+              : t,
+          ),
+        };
+      }),
     });
   };
 
@@ -965,6 +1093,21 @@ export default function TacticsBoard({
           </button>
         </div>
       </div>
+
+      {/* CAMBIO DE JUGADOR: al pinchar una ficha */}
+
+      {cambio && (
+        <CambioJugador
+          titulo={`Cambiar a ${cambio.ficha.nombre || `el ${cambio.ficha.label}`}`}
+          equipo={cambio.equipo}
+          opciones={cambio.opciones}
+          onElige={(id) => {
+            aplicaCambio(cambio.ficha, id);
+            setCambiando(null);
+          }}
+          onCierra={() => setCambiando(null)}
+        />
+      )}
 
       {/* DICTADO */}
 
@@ -1308,6 +1451,7 @@ export default function TacticsBoard({
                     };
 
                     svgRef.current?.setPointerCapture(event.pointerId);
+                    pulsacion.current = { id: token.id, x: token.x, y: token.y, t: event.timeStamp };
                     setDraggingToken(token.id);
                   }}
                   className={cn(

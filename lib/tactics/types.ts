@@ -103,6 +103,14 @@ export interface TacticsDoc {
    * repliegue quiere círculos limpios que no tapen las flechas.
    */
   figuras?: boolean;
+
+  /**
+   * La semana de los onces puestos solos (13/10/2026): «2026-10-18|UD Ibiza»,
+   * el próximo partido para el que se rellenó el tablero de los onces. Cuando
+   * cambia la semana, se vuelve a rellenar con el teórico del rival y nuestro
+   * último once.
+   */
+  semanaOnces?: string;
 }
 
 export const PITCH_WIDTH = 100;

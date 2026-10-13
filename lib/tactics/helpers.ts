@@ -63,6 +63,7 @@ export function normalizeDoc(raw: unknown, titulo?: string): TacticsDoc {
     campo: value.campo,
     entorno: value.entorno,
     figuras: value.figuras,
+    semanaOnces: value.semanaOnces,
   };
 }
 
