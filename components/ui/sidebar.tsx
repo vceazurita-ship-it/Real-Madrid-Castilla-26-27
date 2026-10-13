@@ -207,6 +207,7 @@ export const SECCIONES: Seccion[] = [
       { href: "/laboratorio/transiciones", label: "Robos y transiciones", icon: Magnet },
       { href: "/laboratorio/perdidas", label: "Pérdidas y transiciones", icon: CircleSlash },
       { href: "/laboratorio/faltas", label: "Análisis de faltas", icon: Crosshair },
+      { href: "/analisis-goles", label: "Análisis de goles", icon: Goal },
       { href: "/collective_history", label: "Histórico Competición", icon: History },
       { href: "/data-analisis", label: "Data Análisis", icon: Sigma },
     ],

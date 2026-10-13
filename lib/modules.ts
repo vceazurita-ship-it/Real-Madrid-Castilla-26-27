@@ -148,6 +148,15 @@ export const MODULES: AppModule[] = [
     rank: 78,
   },
   {
+    href: "/analisis-goles",
+    area: "COMPETICIÓN",
+    title: "Análisis de goles",
+    desc: "Nuestros goles y los de la liga por franjas, local y visitante, y su tipología",
+    icon: Goal,
+    rank: 79,
+    alias: ["goles", "minutos", "franjas", "tipologia", "tipología", "remates"],
+  },
+  {
     href: "/ratings",
     area: "COMPETICIÓN",
     title: "Valoraciones de Partido",

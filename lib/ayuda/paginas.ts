@@ -454,6 +454,35 @@ export const AYUDAS: AyudaDePagina[] = [
     bloques: [{ titulo: "Cómo se lee", filas: [PERCENTIL] }],
   },
   {
+    ruta: "/analisis-goles",
+    titulo: "Análisis de goles",
+    resumen: "Los goles de un equipo y de toda la liga por franjas de minutos (cada 15 y los descuentos aparte, o a medida), como local y como visitante, con los remates y el xG al lado, quién marca primero y la tipología de los goles de nuestros partidos.",
+    origen: "Goles y minutos: BeSoccer, todos los partidos de liga. Remates, a puerta y xG: Wyscout (sin minuto). Tipología y remates por minuto: el timeline de Hudl de nuestros partidos y las grabaciones tácticas. Se actualiza cada noche con la jornada nocturna del ordenador del club (scripts/goles-liga.mjs).",
+    bloques: [
+      {
+        titulo: "Cómo se lee",
+        filas: [
+          { que: "Por partido", es: "Las franjas se comparan por partido, porque el equipo y la liga no han jugado los mismos" },
+          { que: "La raya de la gráfica", es: "Lo que marca un equipo medio de la liga en esa franja, con la misma condición" },
+          { que: "Verde y naranja", es: "Mejor o peor que la liga en más de un 5 %" },
+          { que: "45+ y 90+", es: "Los descuentos; sin «Descuentos aparte», cuentan en la última franja de cada parte" },
+        ],
+      },
+      {
+        titulo: "La tipología",
+        filas: [
+          { que: "Propuesta de Hudl", es: "ABP, segunda acción, tras error, transición (robo y ataque de 12 s o menos) o ataque organizado según el pase de gol" },
+          { que: "Corregir", es: "Cada gol se cambia en la lista de abajo y lo elegido manda sobre la propuesta" },
+          { que: "Banda D e I", es: "Vistas desde el equipo que ataca" },
+        ],
+      },
+    ],
+    ojo: [
+      "Nadie publica de dónde viene cada gol del resto de la liga: de ellos sólo se sabe si fue de penalti o en propia puerta.",
+      "Los partidos sin timeline en Hudl (hoy, el J2) salen sin clasificar: se eligen a mano.",
+    ],
+  },
+  {
     ruta: "/collective_history",
     titulo: "Histórico Competición",
     resumen: "Cómo ha ido el rendimiento a lo largo del curso.",

@@ -157,6 +157,20 @@ if errorlevel 1 (
 )
 :tras_1
 
+rem --- 1b. los goles de la liga por minuto y la tipologia de los nuestros ---
+rem
+rem  (13/10/2026) Come del informe de rivales que acaba de bajar, de Wyscout
+rem  y del timeline de Hudl de nuestros partidos (con --hudl baja el de los
+rem  partidos de las dos ultimas semanas que falten). Deja goles:analisis,
+rem  que es lo que lee la pantalla "Analisis de goles". Si falla, solo se
+rem  avisa: la pantalla se queda con lo de la noche anterior.
+echo. >> "%LOG%"
+echo --- Goles de la liga --- >> "%LOG%"
+call node scripts\goles-liga.mjs --hudl >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo AVISO: goles-liga ha fallado ^(codigo !errorlevel!^); la pantalla de goles se queda como estaba >> "%LOG%"
+)
+
 rem --- 2. estadisticas de los jugadores rivales ---
 if defined SOLO if not defined HACER_2 (
   echo. >> "%LOG%"
