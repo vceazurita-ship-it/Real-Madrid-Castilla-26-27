@@ -3,14 +3,15 @@
 | EL BALÓN DE LA PIZARRA (14/10/2026)
 |--------------------------------------------------------------------------
 |
-| El de partido de Primera Federación, de Adidas: blanco, con las aspas
-| curvas de sus balones de liga en negro con filo de oro, las costuras de
-| los paneles y un brillo que le da volumen. Va en vectores (sin logotipo de
-| la marca), así que se ve nítido a cualquier zoom y sale igual en el PNG y
-| en el vídeo.
+| El Horizonte, balón oficial de partido de la RFEF (Adidas): blanco con tres
+| remolinos rojos de filo dorado y unas franjas doradas sueltas. Va en
+| vectores y sin los logotipos (Adidas y RFEF son marcas), así que se ve
+| nítido a cualquier zoom y sale igual en el PNG y en el vídeo.
 |
 | Se dibuja en un círculo de radio 1 y se escala con `r`: ocupa lo mismo que
-| la ficha amarilla de antes.
+| la ficha amarilla de antes. Cada remolino son cuatro trazos del mismo
+| camino, de ancho a estrecho: filo dorado, aire blanco, banda roja y su
+| línea interior.
 */
 
 interface Props {
@@ -22,9 +23,19 @@ interface Props {
 
 const GIROS = [0, 120, 240];
 
-const ASPA = "M 0.1 -0.06 C 0.35 -0.42 0.8 -0.6 1.12 -0.42 C 0.78 -0.44 0.42 -0.3 0.17 0.02 Z";
-const FILO = "M 0.22 0.03 C 0.47 -0.24 0.8 -0.36 1.1 -0.3";
-const COSTURA = "M -0.25 0.98 C 0.05 0.55 0.55 0.42 0.98 0.52";
+const REMOLINO = "M -1.0 -0.35 C -0.55 -0.95 0.3 -0.85 0.5 -0.35 C 0.62 -0.05 0.45 0.22 0.22 0.25";
+const FRANJA = "M -0.75 -0.05 C -0.45 -0.45 0.05 -0.5 0.25 -0.25";
+
+const ORO = "#D9B565";
+const ROJO = "#D3202A";
+const ROJO_OSCURO = "#A3121B";
+
+const CAPAS = [
+  { color: ORO, ancho: 0.27 },
+  { color: "#FFFFFF", ancho: 0.23 },
+  { color: ROJO, ancho: 0.18 },
+  { color: ROJO_OSCURO, ancho: 0.025 },
+];
 
 export function BalonOficial({ r, uid }: Props) {
   const luz = `balon-luz-${uid}`;
@@ -37,13 +48,13 @@ export function BalonOficial({ r, uid }: Props) {
         {/* La luz viene de arriba a la izquierda, como en el resto de la pizarra. */}
         <radialGradient id={luz} cx="0.35" cy="0.3" r="0.8">
           <stop offset="0" stopColor="#FFFFFF" />
-          <stop offset="0.65" stopColor="#F1F3F6" />
-          <stop offset="1" stopColor="#C9CED6" />
+          <stop offset="0.7" stopColor="#F6F3EE" />
+          <stop offset="1" stopColor="#D6D1C8" />
         </radialGradient>
 
         <radialGradient id={sombra} cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0.7" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity="0.28" />
+          <stop offset="0.68" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.3" />
         </radialGradient>
 
         <clipPath id={recorte}>
@@ -55,25 +66,30 @@ export function BalonOficial({ r, uid }: Props) {
 
       <g clipPath={`url(#${recorte})`}>
         {GIROS.map((giro) => (
-          <path key={`costura-${giro}`} transform={`rotate(${giro + 60})`} d={COSTURA} fill="none" stroke="#9AA3AE" strokeWidth={0.035} />
+          <path key={`franja-${giro}`} transform={`rotate(${giro})`} d={FRANJA} fill="none" stroke={ORO} strokeWidth={0.07} strokeLinecap="round" />
         ))}
 
-        {GIROS.map((giro) => (
-          <path key={`aspa-${giro}`} transform={`rotate(${giro})`} d={ASPA} fill="#12161C" />
-        ))}
+        {CAPAS.map(({ color, ancho }) =>
+          GIROS.map((giro) => (
+            <path
+              key={`${color}-${giro}`}
+              transform={`rotate(${giro})`}
+              d={REMOLINO}
+              fill="none"
+              stroke={color}
+              strokeWidth={ancho}
+              strokeLinecap="round"
+            />
+          )),
+        )}
 
-        {GIROS.map((giro) => (
-          <path key={`filo-${giro}`} transform={`rotate(${giro})`} d={FILO} fill="none" stroke="#C8A96B" strokeWidth={0.06} strokeLinecap="round" />
-        ))}
-
-        <circle r={0.11} fill="#12161C" />
         <circle r={1} fill={`url(#${sombra})`} />
       </g>
 
       {/* Brillo. */}
-      <ellipse cx={-0.4} cy={-0.45} rx={0.22} ry={0.12} transform="rotate(-35 -0.4 -0.45)" fill="#FFFFFF" opacity={0.8} />
+      <ellipse cx={-0.42} cy={-0.46} rx={0.2} ry={0.11} transform="rotate(-35 -0.42 -0.46)" fill="#FFFFFF" opacity={0.85} />
 
-      <circle r={1} fill="none" stroke="#0B0F14" strokeWidth={0.07} />
+      <circle r={1} fill="none" stroke="#0B0F14" strokeWidth={0.05} />
     </g>
   );
 }
