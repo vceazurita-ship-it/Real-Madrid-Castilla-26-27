@@ -17,7 +17,7 @@
 | Microciclos) y el de ABP (la semana de balón parado).
 */
 
-import type { InformePartido, PinceladaAbp } from "@/lib/informe-partido/modelo";
+import type { InformePartido, PinceladaAbp, VeredictoDuelo } from "@/lib/informe-partido/modelo";
 import type { InformeMicro } from "@/lib/abp/informe-micro";
 
 export type Cifra = { rotulo: string; valor: string; pie?: string };
@@ -175,7 +175,26 @@ export type Escena =
   | { id: string; tipo: "vigilar"; titulo: string; jugadores: JugadorEscena[]; locucion: string }
   | { id: string; tipo: "clips"; titulo: string; cortes: Corte[]; segundos: number; locucion: string; /** La línea del partido con todas sus acciones, si son cortes del partido. */ marcas?: MarcaPartido[] }
   | { id: string; tipo: "imagen"; titulo: string; src: string; pie: string; locucion: string }
-  | { id: string; tipo: "cierre"; titulo: string; lineas: string[]; locucion: string };
+  | { id: string; tipo: "cierre"; titulo: string; lineas: string[]; locucion: string }
+  /*
+  | Las escenas de datos (14/10/2026): lo que la app ya calcula y el vídeo no
+  | contaba. El gancho abre con el dato más llamativo antes de la portada; el
+  | resto sale de Duelos, de DATA (el rival de un vistazo), del colectivo y
+  | de la clasificación.
+  */
+  | { id: string; tipo: "gancho"; dato: string; rotulo: string; contexto: string; locucion: string }
+  | { id: string; tipo: "contexto"; titulo: string; equipos: EquipoContexto[]; locucion: string }
+  | { id: string; tipo: "versus"; titulo: string; pie: string; filas: FilaVersus[]; locucion: string }
+  | { id: string; tipo: "percentiles"; titulo: string; pie: string; filas: { nombre: string; percentil: number }[]; locucion: string }
+  | { id: string; tipo: "duelos"; titulo: string; duelos: DueloEscena[]; locucion: string }
+  | { id: string; tipo: "fases"; titulo: string; fases: { titulo: string; texto: string }[]; dano: string[]; locucion: string };
+
+export type EquipoContexto = { nombre: string; nuestro: boolean; puesto: number | null; puntos: number | null; racha: string[] };
+
+/** Una fila de la comparativa: los dos valores y, si la hay, la media de la liga. */
+export type FilaVersus = { nombre: string; nuestro: number; suyo: number; textoNuestro: string; textoSuyo: string; media: number | null; mejorAlto: boolean | null };
+
+export type DueloEscena = { titulo: string; nuestros: string; suyos: string; veredicto: VeredictoDuelo; texto: string };
 
 export type GuionVideo = {
   /** Para el nombre del archivo y el rótulo de la esquina. */
@@ -206,6 +225,167 @@ export const esClipLegible = (url: string) => /^https?:\/\/.+\.(mp4|m4v|mov|webm
 /** Las fotos de fuera pasan por el proxy, como en las diapositivas. */
 const fotoVia = (src: string) => (src ? (src.startsWith("/") || src.startsWith("data:") ? src : `/api/rivals/foto?url=${encodeURIComponent(src)}`) : "");
 
+/* ------------------------------------------------------------------ */
+/*  LAS ESCENAS DE DATOS (14/10/2026)                                  */
+/* ------------------------------------------------------------------ */
+
+/** Un número como se lee en castellano: «1,4», «12», «58 %». */
+const numero = (v: number, unidad = "") => {
+  const redondo = Math.abs(v) >= 10 ? Math.round(v) : Math.round(v * 10) / 10;
+  const texto = String(redondo).replace(".", ",");
+
+  return unidad === "%" ? `${texto} %` : texto;
+};
+
+/**
+ * El gancho: los primeros tres segundos, antes de la portada, con el dato
+ * que más llama la atención. En el post, el marcador y la cifra del partido
+ * en la que más ganamos; en la previa, el punto más fuerte del rival en la
+ * categoría (o los puestos de los dos).
+ */
+function escenaGancho(informe: InformePartido): Escena | null {
+  const { partido, duelo, vistazo, contexto, momento } = informe;
+
+  if (momento === "post" && partido.gf !== null && partido.gc !== null) {
+    const resultado = partido.gf > partido.gc ? "VICTORIA" : partido.gf < partido.gc ? "DERROTA" : "EMPATE";
+    const mejor = (duelo?.partido?.metricas ?? [])
+      .filter((m) => m.nuestro !== null && m.suyo !== null && m.mejorAlto !== null && Math.max(m.nuestro!, m.suyo!) > 0)
+      .map((m) => ({ m, ventaja: ((m.nuestro! - m.suyo!) / Math.max(m.nuestro!, m.suyo!)) * (m.mejorAlto ? 1 : -1) }))
+      .sort((a, b) => b.ventaja - a.ventaja)[0];
+    const dato = mejor && mejor.ventaja > 0.15 ? `${mejor.m.nombre}: ${numero(mejor.m.nuestro!, mejor.m.unidad)} contra ${numero(mejor.m.suyo!, mejor.m.unidad)}` : corta(limpia(informe.sintesis.titular), 70);
+
+    return { id: "gancho", tipo: "gancho", dato: `${partido.gf}-${partido.gc}`, rotulo: `${resultado} ANTE ${partido.rival.toUpperCase()}`, contexto: dato, locucion: `${resultado.toLowerCase()} ${partido.gf}-${partido.gc}. ${dato}.` };
+  }
+
+  const fuerte = vistazo?.fuertes[0];
+
+  if (fuerte) {
+    return {
+      id: "gancho",
+      tipo: "gancho",
+      dato: `${fuerte.puesto}º`,
+      rotulo: fuerte.nombre.toUpperCase(),
+      contexto: `${partido.rival}, de ${fuerte.de} equipos de la categoría: su mejor arma (${fuerte.valor}).`,
+      locucion: `${partido.rival} es ${fuerte.puesto}º de ${fuerte.de} en ${fuerte.nombre.toLowerCase()}.`,
+    };
+  }
+
+  if (contexto?.puesto && contexto.nuestroPuesto) {
+    return { id: "gancho", tipo: "gancho", dato: `${contexto.nuestroPuesto}º · ${contexto.puesto}º`, rotulo: `NOSOTROS CONTRA ${partido.rival.toUpperCase()}`, contexto: limpia(informe.sintesis.titular), locucion: `${contexto.nuestroPuesto}º contra ${contexto.puesto}º.` };
+  }
+
+  return null;
+}
+
+/** La clasificación y la racha de los dos, cara a cara. */
+function escenaContexto(informe: InformePartido): Escena | null {
+  const c = informe.contexto;
+
+  if (!c || (!c.puesto && !c.racha.length)) return null;
+
+  const equipos: EquipoContexto[] = [
+    { nombre: "Real Madrid Castilla", nuestro: true, puesto: c.nuestroPuesto, puntos: c.nuestrosPuntos, racha: c.nuestraRacha.slice(0, 5) },
+    { nombre: informe.partido.rival, nuestro: false, puesto: c.puesto, puntos: c.puntos, racha: c.racha.slice(0, 5) },
+  ];
+  const dice = (e: EquipoContexto) => `${e.nombre}${e.puesto ? `, ${e.puesto}º` : ""}${e.puntos !== null ? ` con ${e.puntos} puntos` : ""}${e.racha.length ? `; últimos: ${e.racha.join(" ")}` : ""}`;
+
+  return { id: "contexto", tipo: "contexto", titulo: "Cómo llegamos los dos", equipos, locucion: `${dice(equipos[0])}. ${dice(equipos[1])}.` };
+}
+
+/**
+ * La comparativa cara a cara. En el post, las cifras del propio partido con
+ * la media de la liga; en la previa, las medias de la temporada en las que
+ * más se separan los dos equipos (por percentil).
+ */
+function escenaVersus(informe: InformePartido): Escena | null {
+  const d = informe.duelo;
+
+  if (!d) return null;
+
+  if (informe.momento === "post" && d.partido) {
+    const filas: FilaVersus[] = d.partido.metricas
+      .filter((m) => m.nuestro !== null && m.suyo !== null)
+      .slice(0, 6)
+      .map((m) => ({ nombre: m.nombre, nuestro: m.nuestro!, suyo: m.suyo!, textoNuestro: numero(m.nuestro!, m.unidad), textoSuyo: numero(m.suyo!, m.unidad), media: m.media, mejorAlto: m.mejorAlto }));
+
+    if (filas.length < 3) return null;
+
+    return { id: "versus", tipo: "versus", titulo: "El partido en datos", pie: "La raya marca la media de la liga por partido", filas, locucion: filas.slice(0, 3).map((f) => `${f.nombre}: ${f.textoNuestro} contra ${f.textoSuyo}`).join(". ") };
+  }
+
+  const filas: FilaVersus[] = d.metricas
+    .filter((m) => m.nosotros && m.rival && m.nosotros.percentil !== null && m.rival.percentil !== null)
+    .map((m) => ({ m, separa: Math.abs(m.nosotros!.percentil! - m.rival!.percentil!) }))
+    .sort((a, b) => b.separa - a.separa)
+    .slice(0, 5)
+    .map(({ m }) => ({ nombre: m.nombre, nuestro: m.nosotros!.valor, suyo: m.rival!.valor, textoNuestro: numero(m.nosotros!.valor, m.unidad), textoSuyo: numero(m.rival!.valor, m.unidad), media: m.media ?? m.mediana, mejorAlto: m.mejorAlto }));
+
+  if (filas.length < 3) return null;
+
+  return { id: "versus", tipo: "versus", titulo: "Donde más nos separamos", pie: `Media por partido esta temporada · la raya, la mediana de los ${d.equipos} equipos`, filas, locucion: filas.slice(0, 3).map((f) => `${f.nombre}: ${f.textoNuestro} nosotros, ${f.textoSuyo} ellos`).join(". ") };
+}
+
+/** El rival por fases del juego, en percentil contra su categoría (DATA → Un equipo de un vistazo). */
+function escenaPercentiles(informe: InformePartido): Escena | null {
+  const v = informe.vistazo;
+  const filas = (v?.fases ?? []).filter((f): f is { label: string; percentil: number } => f.percentil !== null).slice(0, 6).map((f) => ({ nombre: f.label, percentil: f.percentil }));
+
+  if (!v || filas.length < 3) return null;
+
+  const mejor = [...filas].sort((a, b) => b.percentil - a.percentil)[0];
+  const peor = [...filas].sort((a, b) => a.percentil - b.percentil)[0];
+
+  return {
+    id: "percentiles",
+    tipo: "percentiles",
+    titulo: `${informe.partido.rival}, fase a fase`,
+    pie: `Percentil contra los equipos de ${v.competicion} · ${v.alcance}`,
+    filas,
+    locucion: `Donde más destacan: ${mejor.nombre.toLowerCase()}, percentil ${Math.round(mejor.percentil)}. Donde menos: ${peor.nombre.toLowerCase()}, percentil ${Math.round(peor.percentil)}.`,
+  };
+}
+
+/** Los duelos por zonas que más se despegan (Competición → Duelos). */
+function escenaDuelos(informe: InformePartido): Escena | null {
+  const lista = (informe.duelosJugadores?.lista ?? [])
+    .filter((d) => d.veredicto !== "sin-datos" && d.nuestros.length && d.suyos.length)
+    .sort((a, b) => Math.abs(b.balance ?? 0) - Math.abs(a.balance ?? 0))
+    .slice(0, 3);
+
+  if (lista.length < 2) return null;
+
+  const duelos: DueloEscena[] = lista.map((d) => ({ titulo: d.titulo, nuestros: d.nuestros.join(" · "), suyos: d.suyos.join(" · "), veredicto: d.veredicto, texto: corta(limpia(d.resumen), 90) }));
+
+  return { id: "duelos", tipo: "duelos", titulo: "Los duelos que deciden", duelos, locucion: duelos.map((d) => `${d.titulo}: ${d.veredicto === "ventaja" ? "ventaja nuestra" : d.veredicto === "desventaja" ? "ventaja suya" : "parejo"}`).join(". ") };
+}
+
+/** Cómo juegan, momento a momento, y dónde hacerles daño (Scouting colectivo). */
+function escenaFases(informe: InformePartido): Escena | null {
+  const r = informe.colectivo?.resumen;
+  const fases = (r?.fases ?? []).slice(0, 4).map((f) => ({ titulo: f.titulo, texto: corta(limpia(f.texto), 95) }));
+
+  if (fases.length < 3) return null;
+
+  const dano = (r?.dano ?? []).slice(0, 2).map((t) => corta(limpia(t), 80));
+
+  return { id: "fases", tipo: "fases", titulo: "Cómo juegan", fases, dano, locucion: `${fases.map((f) => `${f.titulo}: ${f.texto}`).join(". ")}${dano.length ? `. Dónde hacerles daño: ${dano.join("; ")}` : ""}.` };
+}
+
+/** El once previsto contra el que salió (post, si había uno marcado). */
+function escenaAcierto(informe: InformePartido): Escena | null {
+  const a = informe.cronica?.acierto;
+
+  if (!a || !a.total) return null;
+
+  const cifras: Cifra[] = [
+    { rotulo: "Once acertado", valor: `${a.acertados}/${a.total}`, pie: a.acertados === a.total ? "Salió el once previsto entero" : "Jugadores previstos que fueron titulares" },
+    ...(a.sorpresas.length ? [{ rotulo: "Sorpresas", valor: String(a.sorpresas.length), pie: corta(a.sorpresas.join(", "), 60) }] : []),
+    ...(informe.cronica?.estructura ? [{ rotulo: "Su dibujo", valor: informe.cronica.estructura }] : []),
+  ];
+
+  return { id: "acierto", tipo: "cifras", titulo: "El once que esperábamos", cifras, locucion: `Acertamos ${a.acertados} de ${a.total} de su once${a.sorpresas.length ? `; sorpresas: ${a.sorpresas.join(", ")}` : ""}.` };
+}
+
 export type ExtrasPartido = { escudoNosotros?: string | null; escudoRival?: string | null };
 
 /* ------------------------------------------------------------------ */
@@ -220,6 +400,20 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   const escenas: Escena[] = [];
   const vigilarClaves = new Set(sintesis.vigilar.map((j) => j.clave));
 
+  /*
+  | La historia (14/10/2026). Previa: gancho → portada → cómo llegamos →
+  | pronóstico → su once → cómo juegan → sus acciones → fase a fase → dónde
+  | nos separamos → a vigilar → duelos → claves → nuestros cortes → plan.
+  | Post: gancho → portada → lo que decía el dato → los cortes → el partido
+  | en datos → su once y si lo acertamos → claves → frenados → lo que deja.
+  | Cada escena de datos sale sólo si hay datos para ella.
+  */
+  const pon = (e: Escena | null) => {
+    if (e) escenas.push(e);
+  };
+
+  pon(escenaGancho(informe));
+
   escenas.push({
     id: "portada",
     tipo: "portada",
@@ -230,6 +424,8 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     escudoRival: extras.escudoRival ?? null,
     locucion: previa ? `${partido.rival}, ${lado || "próximo partido"}. ${limpia(sintesis.titular)}` : `${partido.rival}${marcador ? `, ${marcador}` : ""}. ${limpia(sintesis.titular)}`,
   });
+
+  if (previa) pon(escenaContexto(informe));
 
   if (pronostico) {
     const p = pronostico;
@@ -263,6 +459,8 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     });
   }
 
+  pon(previa ? escenaFases(informe) : escenaAcierto(informe));
+
   const claves = (previa ? sintesis.claves : sintesis.partido.length ? sintesis.partido : sintesis.claves).slice(0, 4).map((c) => corta(limpia(c)));
 
   if (claves.length) {
@@ -271,6 +469,8 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
 
   /* Los cortes del partido cortados por el ordenador del club desde Hudl (goles, llegadas, lo que concedimos), con su lectura. En la previa son del último partido jugado. */
   escenas.push(...escenasDeCortes(informe.recursos.cortes ?? [], partido.rival, SEGUNDOS_POR_CORTE_PARTIDO, { momento, rotuloPartido: previa && partido.jornada ? `J${partido.jornada - 1}` : undefined }));
+
+  if (!previa) pon(escenaVersus(informe));
 
   /* Los cortes de acciones concretas del rival (Análisis visual, por jornada) y, si no, sus vídeos de Recursos. */
   const cortes: Corte[] = informe.recursos.videos.filter((v) => esClipLegible(v.url)).map((v) => ({ url: v.url, rotulo: v.rotulo ?? v.nombre, texto: v.texto }));
@@ -287,6 +487,11 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
       segundos: trozo.length * SEGUNDOS_POR_CORTE,
       locucion: `${trozo.length === 1 ? "Una acción suya" : `${trozo.length} acciones suyas`}${i === 0 ? " de lo preparado" : " más"}: ${trozo.map((c) => c.rotulo.split(" · ")[0].toLowerCase()).join(", ")}.`,
     });
+  }
+
+  if (previa) {
+    pon(escenaPercentiles(informe));
+    pon(escenaVersus(informe));
   }
 
   const ventajas = sintesis.ventajas.slice(0, 2).map((v) => corta(limpia(v), 70));
@@ -315,6 +520,8 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
       locucion: `${previa ? "Sus hombres a vigilar" : "Los que había que frenar"}: ${vigilar.map((j) => `${j.nombre}${j.texto ? `, ${j.texto.toLowerCase()}` : ""}`).join("; ")}.`,
     });
   }
+
+  if (previa) pon(escenaDuelos(informe));
 
   const abp = informe.abp?.pincelada ?? null;
 
@@ -354,6 +561,13 @@ export type ExtrasAbp = {
 export function guionDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, extras: ExtrasAbp = {}): GuionVideo {
   const escenas: Escena[] = [];
   const momento = informe.modo === "post" ? "post" : "previa";
+
+  /* El gancho (14/10/2026): la primera cifra de la semana, enorme, antes de la portada. */
+  const primera = informe.resumen[0];
+
+  if (primera && primera.valor.length <= 8) {
+    escenas.push({ id: "gancho", tipo: "gancho", dato: primera.valor, rotulo: primera.rotulo.toUpperCase(), contexto: primera.pie ? limpia(primera.pie) : corta(limpia(pincelada.titular), 80), locucion: `${primera.rotulo}: ${primera.valor}.` });
+  }
 
   escenas.push({
     id: "portada",

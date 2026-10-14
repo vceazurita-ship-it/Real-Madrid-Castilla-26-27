@@ -1,0 +1,66 @@
+# Vídeo de muestra del informe (14/10/2026)
+#
+# Cada vez que se toca el vídeo de los informes (lib/video-informe), GitHub
+# monta un informe inventado con todos los tipos de escena
+# (scripts/video-muestra.cjs) y deja en la ejecución, como adjunto
+# «video-muestra», la hoja de fotogramas y el mp4. Así se ve cómo queda un
+# cambio de diseño sin mandar ningún informe ni tocar datos de verdad.
+#
+# Si el dibujo se rompe (una escena que lanza un error), sale en rojo.
+
+name: Vídeo de muestra
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/video-informe/**"
+      - "scripts/video-muestra.cjs"
+      - "public/fuentes/**"
+      - ".github/workflows/video-muestra.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: video-muestra
+  cancel-in-progress: true
+
+jobs:
+  montar:
+    name: Montar la muestra
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+
+      # Sin scripts de instalación (el ffmpeg de ffmpeg-static no se baja): el
+      # runner ya trae ffmpeg en el PATH.
+      - name: Instalar dependencias
+        run: npm ci --ignore-scripts
+
+      - name: Montar el vídeo
+        run: node scripts/video-muestra.cjs video-muestra --mp4
+
+      - name: Resumen
+        run: |
+          DURA=$(ffprobe -v error -show_entries format=duration -of csv=p=0 video-muestra/muestra.mp4)
+          PESO=$(du -h video-muestra/muestra.mp4 | cut -f1)
+          {
+            echo "## Vídeo de muestra"
+            echo ""
+            echo "Montado: ${DURA%.*} s, ${PESO}. La hoja de fotogramas y el mp4 van en el adjunto «video-muestra» de esta ejecución."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: video-muestra
+          path: video-muestra/
+          retention-days: 30

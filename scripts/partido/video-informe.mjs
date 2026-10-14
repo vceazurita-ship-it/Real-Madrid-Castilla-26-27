@@ -498,6 +498,31 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
   const goles = cortes.filter((c) => c.tipo === "gol" || c.tipo === "gol-contra");
   const escenas = [];
 
+  /*
+  | La historia (14/10/2026): gancho con el marcador y la cifra en la que más
+  | ganamos → portada → los goles → el partido en datos, cara a cara → robos
+  | y transiciones → el resto de cortes → lo que nos deja.
+  */
+  const cifrasPartido = [
+    { nombre: "Remates", par: datos.remates },
+    { nombre: "Ataques con llegada", par: datos.ataques },
+    { nombre: "Córners", par: datos.corners },
+    { nombre: "Acciones a balón parado", par: datos.abp },
+  ].filter((c) => Array.isArray(c.par) && c.par[0] + c.par[1] > 0);
+  const mejor = cifrasPartido
+    .map((c) => ({ c, ventaja: (c.par[0] - c.par[1]) / Math.max(c.par[0], c.par[1]) }))
+    .sort((a, b) => b.ventaja - a.ventaja)[0];
+  const golesTexto = goles.map((g) => `${g.tipo === "gol" ? (g.remata ?? "Gol") : "Gol suyo"} ${g.minuto}`).join(" · ");
+
+  escenas.push({
+    id: "gancho",
+    tipo: "gancho",
+    dato: marcador,
+    rotulo: `${resultado.toUpperCase()} ANTE ${rival.toUpperCase()}`,
+    contexto: mejor && mejor.ventaja > 0.15 ? `${mejor.c.nombre}: ${mejor.c.par[0]} contra ${mejor.c.par[1]}` : golesTexto || `Jornada ${partido.jornada}`,
+    locucion: `${resultado} ${marcador}.`,
+  });
+
   escenas.push({
     id: "portada",
     tipo: "portada",
@@ -509,18 +534,17 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
     locucion: `${rival}, ${partido.local ? "en casa" : "fuera"}: ${resultado} ${marcador}. ${goles.map((g) => `${g.tipo === "gol" ? "Gol nuestro" : "Gol suyo"} en el ${g.minuto}`).join(", ")}.`,
   });
 
-  const par = (a) => `${a[0]} – ${a[1]}`;
+  const deCortes = escenasDeCortes(cortes, rival);
 
-  escenas.push({
+  /* Los goles, justo después de la portada: es lo que se viene a ver. */
+  escenas.push(...deCortes.filter((e) => e.id === "clips-1"));
+
+  if (cifrasPartido.length >= 2) escenas.push({
     id: "datos",
-    tipo: "cifras",
+    tipo: "versus",
     titulo: "El partido en datos",
-    cifras: [
-      { rotulo: "Remates", valor: par(datos.remates), pie: `Castilla – ${rival}` },
-      { rotulo: "Ataques en juego", valor: par(datos.ataques), pie: "con llegada" },
-      { rotulo: "Córners", valor: par(datos.corners), pie: `Castilla – ${rival}` },
-      { rotulo: "Balón parado", valor: par(datos.abp), pie: "acciones" },
-    ],
+    pie: `Castilla a la izquierda, ${rival} a la derecha · del timeline de Hudl`,
+    filas: cifrasPartido.map((c) => ({ nombre: c.nombre, nuestro: c.par[0], suyo: c.par[1], textoNuestro: String(c.par[0]), textoSuyo: String(c.par[1]), media: null, mejorAlto: true })),
     locucion: `En datos: ${datos.remates[0]} remates nuestros por ${datos.remates[1]} suyos; ${datos.ataques[0]} ataques con llegada por ${datos.ataques[1]}; córners ${datos.corners[0]} a ${datos.corners[1]}.`,
   });
 
@@ -539,7 +563,7 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
     escenas.push({ id: "transiciones", tipo: "claves", titulo: "Robos y transiciones", lineas, locucion: lineas.slice(0, 3).join(". ") });
   }
 
-  escenas.push(...escenasDeCortes(cortes, rival));
+  escenas.push(...deCortes.filter((e) => e.id !== "clips-1"));
 
   escenas.push({
     id: "cierre",

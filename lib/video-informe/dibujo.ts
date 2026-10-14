@@ -26,11 +26,11 @@ const ORO = "#C8A96B";
 const BLANCO = "#FFFFFF";
 
 /** Lo que dura cada escena si la voz no manda otra cosa, y cuánto aire se deja tras la locución. */
-export const SEGUNDOS: Record<Escena["tipo"], number> = { portada: 5.5, cifras: 7, claves: 8, barras: 7, once: 8, vigilar: 7, clips: 10, imagen: 7, cierre: 5.5 };
+export const SEGUNDOS: Record<Escena["tipo"], number> = { portada: 5.5, cifras: 7, claves: 8, barras: 7, once: 8, vigilar: 7, clips: 10, imagen: 7, cierre: 5.5, gancho: 3.6, contexto: 7, versus: 8, percentiles: 7, duelos: 8, fases: 9 };
 const AIRE = 0.7;
 
 /** Las que se sacrifican primero si no cabe en el tiempo, por este orden. */
-const PRESCINDIBLES = ["abp", "duelo", "grafico-2", "lamina-2", "grafico-1", "lamina-1", "rival", "clips-rival-2", "abp-banda", "vigilar", "clips-3", "clips-2", "grafico-0", "lamina-0", "abp-suyos", "once", "cifras", "clips-1", "clips", "abp-nuestros", "analisis-previo"];
+const PRESCINDIBLES = ["abp", "duelo", "acierto", "percentiles", "contexto", "duelos", "fases", "grafico-2", "lamina-2", "grafico-1", "lamina-1", "rival", "clips-rival-2", "abp-banda", "vigilar", "clips-3", "clips-2", "grafico-0", "lamina-0", "abp-suyos", "once", "cifras", "clips-1", "clips", "abp-nuestros", "analisis-previo", "versus"];
 
 /* ------------------------------------------------------------------ */
 /*  TIPOS QUE COMPARTEN LOS DOS MOTORES                                */
@@ -1462,6 +1462,383 @@ export type Fotograma = {
 };
 
 /** Pinta un fotograma completo: plató, escena, acabado y fundidos. */
+/* ------------------------------------------------------------------ */
+/*  LAS ESCENAS DE DATOS (14/10/2026)                                  */
+/* ------------------------------------------------------------------ */
+
+const VERDE = "#2FB67C";
+const ROJO = "#E05252";
+const GRIS = "#8A94A6";
+
+const colorRacha = (r: string) => (r === "G" ? VERDE : r === "P" ? ROJO : GRIS);
+
+/** Una tarjeta oscura con degradado, como las de las claves. */
+function tarjeta(ctx: Lienzo, x: number, y: number, w: number, h: number, filo: string | null = ORO) {
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, "rgba(18,34,58,0.95)");
+  g.addColorStop(1, "rgba(8,17,31,0.78)");
+  ctx.fillStyle = g;
+  caja(ctx, x, y, w, h, 16);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  if (filo) {
+    ctx.fillStyle = filo;
+    caja(ctx, x, y, w, 5, 2.5);
+    ctx.fill();
+  }
+}
+
+/**
+ * El gancho: el dato, enorme y en oro, entra con un golpe de luz; encima lo
+ * que es y debajo por qué importa. Son los tres primeros segundos, los que
+ * deciden si se sigue mirando.
+ */
+function pintaGancho(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "gancho" }>, t: number) {
+  const golpe = Math.max(0, 1 - t / 0.5);
+
+  halo(ctx, ANCHO / 2, ALTO / 2 - 10, 520 + golpe * 120);
+
+  if (golpe > 0) {
+    ctx.fillStyle = `rgba(255,240,210,${golpe * 0.35})`;
+    ctx.fillRect(0, 0, ANCHO, ALTO);
+  }
+
+  const a = salta(t / 0.55);
+  const escala = 0.7 + 0.3 * Math.min(1, a);
+  const largo = e.dato.length > 6;
+  const tam = largo ? 150 : 230;
+
+  ctx.save();
+  ctx.translate(ANCHO / 2, ALTO / 2 + 50);
+  ctx.scale(escala, escala);
+  ctx.globalAlpha = Math.min(1, a);
+  ctx.font = `700 ${tam}px ${fuente}`;
+  ctx.textAlign = "center";
+
+  const g = ctx.createLinearGradient(0, -tam, 0, 0);
+  g.addColorStop(0, "#F6E3B4");
+  g.addColorStop(1, "#B8935A");
+  ctx.fillStyle = g;
+  ctx.fillText(e.dato, 0, 0);
+  ctx.restore();
+
+  ctx.globalAlpha = tramo(t, 0.25, 0.5);
+  ctx.fillStyle = BLANCO;
+  ctx.font = `700 34px ${fuente}`;
+  ctx.textAlign = "center";
+  espaciado(ctx, e.rotulo, ANCHO / 2, ALTO / 2 - (largo ? 110 : 160), 4, "center");
+
+  ctx.globalAlpha = tramo(t, 0.6, 0.6);
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.font = `500 30px ${fuente}`;
+  parteLineas(ctx, e.contexto, ANCHO - 260)
+    .slice(0, 2)
+    .forEach((l, i) => ctx.fillText(l, ANCHO / 2, ALTO / 2 + 120 + i * 38));
+
+  ctx.textAlign = "left";
+  ctx.globalAlpha = 1;
+}
+
+/** La clasificación y la racha de los dos, en dos tarjetas enfrentadas. */
+function pintaContexto(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "contexto" }>, t: number) {
+  titular(ctx, fuente, e.titulo, t);
+
+  const w = (ANCHO - 112 - 40) / 2;
+  const h = 330;
+  const y0 = 210;
+
+  e.equipos.slice(0, 2).forEach((eq, i) => {
+    const a = salta((t - (0.4 + i * 0.25)) / 0.6);
+
+    if (a <= 0) return;
+
+    const x = 56 + i * (w + 40) + (1 - Math.min(1, a)) * (i ? 60 : -60);
+    const conta = tramo(t, 0.55 + i * 0.25, 1.1);
+
+    ctx.globalAlpha = Math.min(1, a);
+    tarjeta(ctx, x, y0, w, h, eq.nuestro ? ORO : "rgba(255,255,255,0.7)");
+
+    ctx.fillStyle = eq.nuestro ? ORO : "rgba(255,255,255,0.75)";
+    ctx.font = `600 20px ${fuente}`;
+    espaciado(ctx, eq.nombre.toUpperCase(), x + 28, y0 + 50, 1.6);
+
+    ctx.fillStyle = BLANCO;
+    ctx.font = `700 120px ${fuente}`;
+    ctx.fillText(eq.puesto ? `${eq.puesto}º` : "–", x + 26, y0 + 172);
+
+    if (eq.puntos !== null) {
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.font = `500 26px ${fuente}`;
+      ctx.fillText(`${cuenta(String(eq.puntos), conta)} puntos`, x + 30, y0 + 214);
+    }
+
+    /* La racha: una ficha por partido, del más antiguo al último, entrando de una en una. */
+    const racha = [...eq.racha].reverse();
+
+    racha.forEach((r, k) => {
+      const ak = tramo(t, 0.9 + i * 0.25 + k * 0.1, 0.35);
+      const cx = x + 30 + k * 64;
+      const cy = y0 + h - 70;
+
+      ctx.globalAlpha = Math.min(1, a) * ak;
+      ctx.fillStyle = colorRacha(r);
+      caja(ctx, cx, cy, 52, 44, 10);
+      ctx.fill();
+      ctx.fillStyle = BLANCO;
+      ctx.font = `700 26px ${fuente}`;
+      ctx.textAlign = "center";
+      ctx.fillText(r, cx + 26, cy + 31);
+      ctx.textAlign = "left";
+    });
+
+    if (racha.length) {
+      ctx.globalAlpha = Math.min(1, a) * 0.5;
+      ctx.fillStyle = BLANCO;
+      ctx.font = `500 17px ${fuente}`;
+      ctx.fillText("ÚLTIMOS PARTIDOS →", x + 30, y0 + h - 84);
+    }
+
+    ctx.globalAlpha = 1;
+  });
+}
+
+/**
+ * Cara a cara: cada cifra con su barra hacia los dos lados desde el centro,
+ * la nuestra en oro y la suya en blanco. La que gana se ilumina y una raya
+ * fina marca la media de la liga.
+ */
+function pintaVersus(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "versus" }>, t: number) {
+  titular(ctx, fuente, e.titulo, t);
+
+  const filas = e.filas.slice(0, 6);
+  const cx = ANCHO / 2;
+  const mitad = 330;
+  const paso = filas.length > 5 ? 62 : 70;
+  const y0 = 262;
+
+  ctx.globalAlpha = tramo(t, 0.3, 0.4);
+  ctx.font = `700 22px ${fuente}`;
+  ctx.fillStyle = ORO;
+  espaciado(ctx, "CASTILLA", cx - mitad - 120, y0 - 50, 3);
+  ctx.fillStyle = BLANCO;
+  ctx.textAlign = "right";
+  ctx.fillText("RIVAL", cx + mitad + 120, y0 - 50);
+  ctx.textAlign = "left";
+
+  filas.forEach((f, i) => {
+    const a = tramo(t, 0.45 + i * 0.16, 1.0);
+    const y = y0 + i * paso;
+    const tope = Math.max(f.nuestro, f.suyo, f.media ?? 0, 0.0001);
+    const gana = f.mejorAlto === null || f.nuestro === f.suyo ? null : (f.nuestro > f.suyo) === f.mejorAlto ? "nosotros" : "rival";
+
+    ctx.globalAlpha = tramo(t, 0.35 + i * 0.16, 0.4);
+
+    /* El nombre de la cifra, centrado, sobre las barras. */
+    ctx.fillStyle = "rgba(255,255,255,0.78)";
+    ctx.font = `600 19px ${fuente}`;
+    ctx.textAlign = "center";
+    ctx.fillText(f.nombre.toUpperCase(), cx, y - 14);
+    ctx.textAlign = "left";
+
+    /* Las pistas. */
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    caja(ctx, cx - mitad, y - 4, mitad - 8, 22, 11);
+    ctx.fill();
+    caja(ctx, cx + 8, y - 4, mitad - 8, 22, 11);
+    ctx.fill();
+
+    const wn = Math.max(10, (mitad - 8) * (f.nuestro / tope) * a);
+    const ws = Math.max(10, (mitad - 8) * (f.suyo / tope) * a);
+
+    ctx.fillStyle = gana === "nosotros" ? ORO : "rgba(200,169,107,0.5)";
+    caja(ctx, cx - 8 - wn, y - 4, wn, 22, 11);
+    ctx.fill();
+    ctx.fillStyle = gana === "rival" ? BLANCO : "rgba(255,255,255,0.42)";
+    caja(ctx, cx + 8, y - 4, ws, 22, 11);
+    ctx.fill();
+
+    /* La media de la liga, una raya a cada lado. */
+    if (f.media !== null && f.media > 0) {
+      const wm = (mitad - 8) * (f.media / tope);
+
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillRect(cx - 8 - wm - 1, y - 9, 2, 32);
+      ctx.fillRect(cx + 8 + wm - 1, y - 9, 2, 32);
+    }
+
+    /* Los valores, en los extremos. */
+    ctx.font = `700 30px ${fuente}`;
+    ctx.fillStyle = gana === "nosotros" ? ORO : BLANCO;
+    ctx.textAlign = "right";
+    ctx.fillText(cuenta(f.textoNuestro, a), cx - mitad - 16, y + 17);
+    ctx.textAlign = "left";
+    ctx.fillStyle = gana === "rival" ? BLANCO : "rgba(255,255,255,0.75)";
+    ctx.fillText(cuenta(f.textoSuyo, a), cx + mitad + 16, y + 17);
+  });
+
+  ctx.globalAlpha = tramo(t, 1.2, 0.6) * 0.6;
+  ctx.fillStyle = BLANCO;
+  ctx.font = `400 19px ${fuente}`;
+  ctx.textAlign = "center";
+  ctx.fillText(e.pie, cx, ALTO - 40);
+  ctx.textAlign = "left";
+  ctx.globalAlpha = 1;
+}
+
+/** Fase a fase en percentil: la pista de 0 a 100 con la mediana marcada; arriba de 66 brilla, abajo de 33 se apaga. */
+function pintaPercentiles(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "percentiles" }>, t: number) {
+  titular(ctx, fuente, e.titulo, t);
+
+  const filas = e.filas.slice(0, 6);
+  const x0 = 380;
+  const largo = ANCHO - x0 - 160;
+  const paso = filas.length > 5 ? 66 : 76;
+
+  filas.forEach((f, i) => {
+    const a = tramo(t, 0.45 + i * 0.18, 1.1);
+    const y = 236 + i * paso;
+    const p = Math.max(0, Math.min(100, f.percentil));
+    const color = p >= 66 ? ORO : p >= 33 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.32)";
+
+    ctx.globalAlpha = tramo(t, 0.35 + i * 0.18, 0.4);
+    ctx.fillStyle = BLANCO;
+    ctx.font = `600 25px ${fuente}`;
+    parteLineas(ctx, f.nombre.toUpperCase(), x0 - 90).slice(0, 1).forEach((l) => ctx.fillText(l, 56, y + 9));
+
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    caja(ctx, x0, y - 13, largo, 26, 13);
+    ctx.fill();
+
+    ctx.fillStyle = color;
+    caja(ctx, x0, y - 13, Math.max(26, largo * (p / 100) * a), 26, 13);
+    ctx.fill();
+
+    /* La mediana (percentil 50). */
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.fillRect(x0 + largo / 2 - 1, y - 20, 2, 40);
+
+    ctx.font = `700 28px ${fuente}`;
+    ctx.fillStyle = p >= 66 ? ORO : BLANCO;
+    ctx.fillText(String(Math.round(p * a)), x0 + largo + 22, y + 10);
+  });
+
+  ctx.globalAlpha = tramo(t, 1.2, 0.6) * 0.6;
+  ctx.fillStyle = BLANCO;
+  ctx.font = `400 19px ${fuente}`;
+  ctx.fillText(`${e.pie} · la raya, la mediana`, 56, ALTO - 40);
+  ctx.globalAlpha = 1;
+}
+
+/** Los duelos: los nuestros a la izquierda, los suyos a la derecha y el veredicto en el centro. */
+function pintaDuelos(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "duelos" }>, t: number) {
+  titular(ctx, fuente, e.titulo, t);
+
+  const lista = e.duelos.slice(0, 3);
+  const h = 128;
+  const hueco = 18;
+
+  lista.forEach((d, i) => {
+    const a = salta((t - (0.45 + i * 0.3)) / 0.6);
+
+    if (a <= 0) return;
+
+    const y = 200 + i * (h + hueco);
+    const color = d.veredicto === "ventaja" ? VERDE : d.veredicto === "desventaja" ? ROJO : GRIS;
+    const veredicto = d.veredicto === "ventaja" ? "VENTAJA" : d.veredicto === "desventaja" ? "SUYA" : "PAREJO";
+
+    ctx.globalAlpha = Math.min(1, a);
+    tarjeta(ctx, 56, y, ANCHO - 112, h, null);
+
+    ctx.fillStyle = "rgba(255,255,255,0.55)";
+    ctx.font = `600 18px ${fuente}`;
+    espaciado(ctx, d.titulo.toUpperCase(), 84, y + 34, 1.4);
+
+    ctx.font = `700 30px ${fuente}`;
+    ctx.fillStyle = ORO;
+    parteLineas(ctx, d.nuestros, 420).slice(0, 1).forEach((l) => ctx.fillText(l, 84, y + 76));
+    ctx.fillStyle = BLANCO;
+    ctx.textAlign = "right";
+    parteLineas(ctx, d.suyos, 420).slice(0, 1).forEach((l) => ctx.fillText(l, ANCHO - 84, y + 76));
+    ctx.textAlign = "left";
+
+    /* El veredicto, en una píldora de color en el centro. */
+    ctx.font = `700 20px ${fuente}`;
+    const wv = ctx.measureText(veredicto).width + 34;
+
+    ctx.fillStyle = color;
+    caja(ctx, ANCHO / 2 - wv / 2, y + 52, wv, 34, 17);
+    ctx.fill();
+    ctx.fillStyle = BLANCO;
+    ctx.textAlign = "center";
+    ctx.fillText(veredicto, ANCHO / 2, y + 76);
+
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = `400 19px ${fuente}`;
+    ctx.fillText(d.texto, ANCHO / 2, y + h - 16);
+    ctx.textAlign = "left";
+    ctx.globalAlpha = 1;
+  });
+}
+
+/** Cómo juegan: cuatro baldosas, una por momento del juego, y debajo dónde hacerles daño. */
+function pintaFases(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "fases" }>, t: number) {
+  titular(ctx, fuente, e.titulo, t);
+
+  const fases = e.fases.slice(0, 4);
+  const n = fases.length;
+  const hueco = 18;
+  const w = (ANCHO - 112 - (n - 1) * hueco) / n;
+  const h = e.dano.length ? 300 : 380;
+  const y0 = 200;
+
+  fases.forEach((f, i) => {
+    const a = salta((t - (0.45 + i * 0.22)) / 0.6);
+
+    if (a <= 0) return;
+
+    const x = 56 + i * (w + hueco);
+    const y = y0 + (1 - Math.min(1, a)) * 40;
+
+    ctx.globalAlpha = Math.min(1, a);
+    tarjeta(ctx, x, y, w, h);
+
+    ctx.fillStyle = ORO;
+    ctx.font = `700 46px ${fuente}`;
+    ctx.fillText(String(i + 1).padStart(2, "0"), x + 22, y + 66);
+
+    ctx.fillStyle = BLANCO;
+    ctx.font = `700 24px ${fuente}`;
+    parteLineas(ctx, f.titulo.toUpperCase(), w - 44).slice(0, 2).forEach((l, k) => ctx.fillText(l, x + 22, y + 108 + k * 28));
+
+    ctx.fillStyle = "rgba(255,255,255,0.78)";
+    ctx.font = `400 21px ${fuente}`;
+    parteLineas(ctx, f.texto, w - 44)
+      .slice(0, e.dano.length ? 5 : 8)
+      .forEach((l, k) => ctx.fillText(l, x + 22, y + 160 + k * 26));
+    ctx.globalAlpha = 1;
+  });
+
+  if (e.dano.length) {
+    const a = tramo(t, 1.4, 0.6);
+    const y = y0 + h + 22;
+
+    ctx.globalAlpha = a;
+    ctx.fillStyle = "rgba(200,169,107,0.14)";
+    caja(ctx, 56, y, ANCHO - 112, 86, 14);
+    ctx.fill();
+    ctx.fillStyle = ORO;
+    ctx.font = `700 19px ${fuente}`;
+    espaciado(ctx, "DÓNDE HACERLES DAÑO", 80, y + 32, 2.2);
+    ctx.fillStyle = BLANCO;
+    ctx.font = `500 22px ${fuente}`;
+    ctx.fillText(e.dano.join("  ·  ").slice(0, 110), 80, y + 66);
+    ctx.globalAlpha = 1;
+  }
+}
+
 export function pintaFotograma(ctx: Lienzo, grano: Dibujable, fuente: string, titulo: string, rec: Recursos, f: Fotograma) {
   const e = f.medida.escena;
   const conCampo = e.tipo === "portada" || e.tipo === "cierre" || e.tipo === "once";
@@ -1495,6 +1872,12 @@ export function pintaFotograma(ctx: Lienzo, grano: Dibujable, fuente: string, ti
     else if (e.tipo === "imagen") pintaImagen(ctx, fuente, e, rec.imagenes.get(e.id) ?? null, f.t, f.medida.segundos);
     else if (e.tipo === "once") pintaOnce(ctx, fuente, P, e, rec, f.t);
     else if (e.tipo === "vigilar") pintaVigilar(ctx, fuente, e, rec, f.t);
+    else if (e.tipo === "gancho") pintaGancho(ctx, fuente, e, f.t);
+    else if (e.tipo === "contexto") pintaContexto(ctx, fuente, e, f.t);
+    else if (e.tipo === "versus") pintaVersus(ctx, fuente, e, f.t);
+    else if (e.tipo === "percentiles") pintaPercentiles(ctx, fuente, e, f.t);
+    else if (e.tipo === "duelos") pintaDuelos(ctx, fuente, e, f.t);
+    else if (e.tipo === "fases") pintaFases(ctx, fuente, e, f.t);
     else pintaCierre(ctx, fuente, e, rec, f.t);
 
     if (e.tipo === "claves" || e.tipo === "cifras" || e.tipo === "barras" || e.tipo === "imagen" || e.tipo === "vigilar") pieLocucion(ctx, fuente, e.locucion, f.t);
