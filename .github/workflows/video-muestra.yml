@@ -41,10 +41,13 @@ jobs:
           node-version: "22"
           cache: npm
 
-      # Sin scripts de instalación (el ffmpeg de ffmpeg-static no se baja): el
-      # runner ya trae ffmpeg en el PATH.
+      # Sin scripts de instalación: el ffmpeg de ffmpeg-static no se baja.
       - name: Instalar dependencias
         run: npm ci --ignore-scripts
+
+      # El runner de Ubuntu ya no trae ffmpeg (14/10/2026: «spawn ffmpeg ENOENT»).
+      - name: Instalar ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
 
       - name: Montar el vídeo
         run: node scripts/video-muestra.cjs video-muestra --mp4
