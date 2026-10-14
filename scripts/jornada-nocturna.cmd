@@ -171,6 +171,17 @@ if errorlevel 1 (
   echo AVISO: goles-liga ha fallado ^(codigo !errorlevel!^); la pantalla de goles se queda como estaba >> "%LOG%"
 )
 
+rem --- 1c. donde coloca el cuerpo tecnico a cada jugador (Jugadores sesion) ---
+rem
+rem  (14/10/2026) Lee las sesiones guardadas y deja el aprendizaje en
+rem  jugadores-sesion:aprendizaje. Es instantaneo; si falla, solo se avisa.
+echo. >> "%LOG%"
+echo --- Aprendizaje de Jugadores sesion --- >> "%LOG%"
+call node scripts\jugadores-sesion-aprendizaje.mjs >> "%LOG%" 2>&1
+if errorlevel 1 (
+  echo AVISO: jugadores-sesion-aprendizaje ha fallado ^(codigo !errorlevel!^) >> "%LOG%"
+)
+
 rem --- 2. estadisticas de los jugadores rivales ---
 if defined SOLO if not defined HACER_2 (
   echo. >> "%LOG%"

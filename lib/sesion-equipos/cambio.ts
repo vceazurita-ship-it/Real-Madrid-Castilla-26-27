@@ -31,7 +31,7 @@ export function creaCambio(t: TareaEquipos): TareaEquipos {
     ...t,
     cambio: {
       sitio: { ...t.sitio },
-      equipos: Object.fromEntries(t.equipos.map((e) => [e.id, { orden: e.orden, posiciones: e.posiciones, pares: e.pares }])),
+      equipos: Object.fromEntries(t.equipos.map((e) => [e.id, { orden: e.orden, posiciones: e.posiciones, pares: e.pares, autoOrden: e.autoOrden }])),
     },
   };
 }
@@ -52,7 +52,7 @@ export function vistaCambio(t: TareaEquipos): TareaEquipos {
     sitio: c.sitio,
     equipos: t.equipos.map((e) => {
       const f = c.equipos[e.id] ?? {};
-      return { ...e, orden: f.orden, posiciones: f.posiciones, pares: f.pares };
+      return { ...e, orden: f.orden, posiciones: f.posiciones, pares: f.pares, autoOrden: f.autoOrden };
     }),
   };
 }
@@ -80,7 +80,7 @@ export function guardaVistaCambio(base: TareaEquipos, vista: TareaEquipos): Tare
 export type CambioJugador = { jugador: JugadorSesion; texto: string };
 
 /** Dónde está cada uno dentro de su equipo: el hueco del dibujo y con quién comparte puesto. */
-function sitiosDe(t: TareaEquipos, jugadores: JugadorSesion[], puestoDe: PuestoDe) {
+function sitiosDe(t: TareaEquipos, jugadores: JugadorSesion[], puestoDe: PuestoDe, preferido?: (j: JugadorSesion) => { x: number; y: number }) {
   const reparto = repartoDe(t, jugadores);
   const porJugador = new Map<string, { hueco: number | null; con: JugadorSesion | null }>();
   /* Quién ocupa cada hueco de cada equipo. */
@@ -91,7 +91,7 @@ function sitiosDe(t: TareaEquipos, jugadores: JugadorSesion[], puestoDe: PuestoD
     const parejas = parejasDe(suyos, e.pares);
 
     if (t.conEstructura) {
-      const { huecos } = colocaEnEstructura(suyos, e.estructura, puestoDe, e.orden, e.posiciones, e.pares);
+      const { huecos } = colocaEnEstructura(suyos, e.estructura, puestoDe, e.orden, e.posiciones, e.pares, preferido);
       ocupantes.set(e.id, huecos.map((h) => h.jugador));
       huecos.forEach((h, i) => {
         if (h.jugador) porJugador.set(h.jugador.id, { hueco: i, con: h.pareja ?? null });
@@ -110,12 +110,12 @@ function sitiosDe(t: TareaEquipos, jugadores: JugadorSesion[], puestoDe: PuestoD
 }
 
 /** Quién se mueve en el cambio y a dónde, en una frase por jugador. */
-export function cambiosDe(t: TareaEquipos, jugadores: JugadorSesion[], puestoDe: PuestoDe): CambioJugador[] {
+export function cambiosDe(t: TareaEquipos, jugadores: JugadorSesion[], puestoDe: PuestoDe, preferido?: (j: JugadorSesion) => { x: number; y: number }): CambioJugador[] {
   if (!t.cambio) return [];
 
   const despues = vistaCambio(t);
-  const antes = sitiosDe(t, jugadores, puestoDe);
-  const luego = sitiosDe(despues, jugadores, puestoDe);
+  const antes = sitiosDe(t, jugadores, puestoDe, preferido);
+  const luego = sitiosDe(despues, jugadores, puestoDe, preferido);
 
   const nombreDe = (s: Sitio | undefined) =>
     !s ? "sin colocar" : s === COMODIN ? "comodín" : s === FUERA ? "fuera" : (t.equipos.find((e) => e.id === s)?.nombre ?? "otro equipo");

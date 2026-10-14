@@ -16,6 +16,7 @@
  * nuevo en ese punto en vez de echar a nadie. Así se dibuja cualquier
  * estructura, por rara que sea, sin tener que escribirla.
  */
+import { colocaPorAfinidad, puntosDeLineas, type Punto as PuntoAfinidad } from "@/lib/sesion-equipos/demarcacion";
 import type { JugadorSesion, Puesto } from "@/lib/sesion-equipos/modelo";
 
 /** Un punto del campo en tanto por uno: x de izquierda a derecha, y de la portería contraria (0) a la suya (1). */
@@ -168,6 +169,8 @@ export function colocaEnEstructura(
   orden?: string[],
   posiciones?: (Punto | null)[],
   pares?: Record<string, string>,
+  /** Dónde juega cada uno (14/10/2026, lib/sesion-equipos/demarcacion.ts). Sin él, por puesto como antes. */
+  preferido?: (j: JugadorSesion) => PuntoAfinidad,
 ): { huecos: Hueco[]; sobran: JugadorSesion[]; porteros: JugadorSesion[]; parejas: Map<string, JugadorSesion> } {
   const lleva = conPortero(estructura);
 
@@ -180,7 +183,8 @@ export function colocaEnEstructura(
   const deCampo = visibles.filter((j) => puestoDe(j) !== "POR");
   const lineas = lleva ? lineasDe(estructura).slice(1).join("-") : estructura;
 
-  const r = colocaDeCampo(deCampo, lineas, puestoDe, lleva ? orden?.slice(1) : orden, lleva ? posiciones?.slice(1) : posiciones);
+  const pref = preferido ?? (puestoDe as { preferido?: (j: JugadorSesion) => PuntoAfinidad }).preferido;
+  const r = colocaDeCampo(deCampo, lineas, puestoDe, lleva ? orden?.slice(1) : orden, lleva ? posiciones?.slice(1) : posiciones, pref);
 
   const huecos = r.huecos.map((h) => (h.jugador && parejas.has(h.jugador.id) ? { ...h, pareja: parejas.get(h.jugador.id) } : h));
 
@@ -216,6 +220,7 @@ function colocaDeCampo(
   puestoDe: (j: JugadorSesion) => Puesto | undefined,
   orden?: string[],
   posiciones?: (Punto | null)[],
+  preferido?: (j: JugadorSesion) => PuntoAfinidad,
 ): { huecos: Hueco[]; sobran: JugadorSesion[] } {
   const lineas = lineasDe(estructura);
   if (!lineas.length) return { huecos: [], sobran: jugadores };
@@ -237,6 +242,11 @@ function colocaDeCampo(
     enOrden = Array.from({ length: total }, (_, i) => fijados[i] ?? (orden[i] ? nuevos.shift() ?? null : null));
     for (let i = total; i < fijados.length; i += 1) enOrden.push(fijados[i]);
     enOrden.push(...nuevos);
+  } else if (preferido) {
+    const puntos = puntosDeLineas(lineas);
+    const { porHueco, sobran } = colocaPorAfinidad(porPuesto.map(preferido), puntos);
+
+    enOrden = [...porHueco.map((i) => (i >= 0 ? porPuesto[i] : null)), ...sobran.map((i) => porPuesto[i])];
   } else {
     enOrden = porPuesto;
   }
@@ -252,7 +262,7 @@ function colocaDeCampo(
     k += n;
 
     /* Sin orden a mano, los extremos a las bandas de su línea. */
-    if (!orden?.length && n >= 3) {
+    if (!orden?.length && !preferido && n >= 3) {
       const ext = deLaLinea.filter((j) => j && puestoDe(j) === "EXT");
       if (ext.length) {
         const resto = deLaLinea.filter((j) => !j || puestoDe(j) !== "EXT");

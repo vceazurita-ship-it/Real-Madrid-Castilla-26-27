@@ -41,6 +41,7 @@ import {
   Undo2,
   MessageSquareText,
   Repeat2,
+  UsersRound,
   Users,
   Wand2,
   X,
@@ -49,6 +50,7 @@ import {
 import { toast } from "sonner";
 
 import { AbpHeader, Button, Dialog, Panel, SaveState, Segmented } from "@/components/abp/ui";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { LAMINA_H, LAMINA_W, LaminaEquipos, LaminaEscalada } from "@/components/sesion-equipos/LaminaEquipos";
@@ -96,6 +98,7 @@ import {
   nuevaTarea,
   ordenPorPuesto,
   puestosDesdePlantilla,
+  claveNombre,
   repartoDe,
   rotacionDe,
   sorteaReparto,
@@ -114,6 +117,8 @@ import {
   type TareaEquipos,
 } from "@/lib/sesion-equipos/modelo";
 import { usePlayers } from "@/hooks/usePlayers";
+import { DEMARCACIONES, demarcacion, demarcacionCercana, demarcacionesDesdePlantilla, grupoDeDemarcacion, puntoPreferido, puntosDeLineas, reubicaEnDibujo, type Demarcacion } from "@/lib/sesion-equipos/demarcacion";
+import { aprendePosiciones } from "@/lib/sesion-equipos/aprendizaje";
 
 const EJEMPLO = `CASTILLA - SÁBADO 26/09/26
 ==========================
@@ -931,6 +936,13 @@ export default function JugadoresSesionPage() {
   /* Al soltar a un jugador encima de otro: se cambian de sitio o comparten puesto. */
   const [modoSoltar, setModoSoltar] = useState<"cambiar" | "compartir">("cambiar");
 
+  /*
+  | Tres vistas (14/10/2026): hacer los equipos, las diapositivas (ver,
+  | presentar, exportar) y la plantilla del día. Antes todo iba en un scroll
+  | y la plantilla quedaba al fondo, debajo de la diapositiva.
+  */
+  const [vista, setVista] = usePestanaUrl<"equipos" | "diapositivas" | "plantilla">("vista", ["equipos", "diapositivas", "plantilla"], "equipos");
+
   const puestosAuto = useMemo(
     () =>
       sesion
@@ -942,7 +954,38 @@ export default function JugadoresSesionPage() {
     [sesion, plantilla],
   );
 
-  const puestoDe: PuestoDe = useCallback((j) => j.puesto ?? puestosAuto[j.id], [puestosAuto]);
+  /* La demarcación de cada uno según la plantilla (LATERAL D., 6, 11…), y lo aprendido de todas las sesiones. */
+  const demarcacionesAuto = useMemo(
+    () => (sesion ? demarcacionesDesdePlantilla(sesion.jugadores, plantilla.map((p) => ({ nombre: p.nombre, apodo: p.apodo, posicion: p.posicion }))) : {}),
+    [sesion, plantilla],
+  );
+
+  const aprendido = useMemo(() => aprendePosiciones(almacen), [almacen]);
+
+  /* A mano, si no la plantilla y, si tampoco, la más cercana a donde lo coloca el cuerpo técnico (dos veces o más). */
+  const demarcacionDe = useCallback(
+    (j: JugadorSesion): Demarcacion | undefined => {
+      const ap = aprendido[claveNombre(j.nombre)];
+
+      return j.demarcacion ?? demarcacionesAuto[j.id] ?? (ap && ap.veces >= 2 ? demarcacionCercana(ap) : undefined);
+    },
+    [demarcacionesAuto, aprendido],
+  );
+
+  /*
+  | El puesto (la demarcación a mano manda, luego el puesto a mano, luego la
+  | plantilla) con lo que necesita la colocación colgado: dónde juega cada uno
+  | y su grupo fino para repartir parejo. Ver lib/sesion-equipos/demarcacion.ts.
+  */
+  const puestoDe: PuestoDe = useMemo(() => {
+    const base = (j: JugadorSesion) =>
+      (j.demarcacion ? demarcacion(j.demarcacion)?.puesto : undefined) ?? j.puesto ?? demarcacion(demarcacionesAuto[j.id])?.puesto ?? puestosAuto[j.id] ?? demarcacion(demarcacionDe(j))?.puesto;
+
+    return Object.assign((j: JugadorSesion) => base(j), {
+      preferido: (j: JugadorSesion) => puntoPreferido(j, demarcacionDe, base, aprendido[claveNombre(j.nombre)]),
+      grupo: (j: JugadorSesion) => grupoDeDemarcacion(demarcacionDe(j)),
+    });
+  }, [puestosAuto, demarcacionesAuto, demarcacionDe, aprendido]);
 
   const [elegido, setElegido] = useState<string | null>(null);
 
@@ -1124,7 +1167,7 @@ export default function JugadoresSesionPage() {
           return {
             ...t,
             sitio: { ...t.sitio, [jugadorId]: equipoId },
-            equipos: t.equipos.map((e) => (e.id === equipoId ? { ...e, orden: guardado.orden, posiciones: guardado.posiciones } : e)),
+            equipos: t.equipos.map((e) => (e.id === equipoId ? { ...e, orden: guardado.orden, posiciones: guardado.posiciones, autoOrden: undefined } : e)),
           };
         });
 
@@ -1180,7 +1223,7 @@ export default function JugadoresSesionPage() {
           return {
             ...t,
             sitio: { ...t.sitio, [jugadorId]: equipoId },
-            equipos: t.equipos.map((e) => (e.id === equipoId ? { ...e, orden: guardado.orden, posiciones: guardado.posiciones } : e)),
+            equipos: t.equipos.map((e) => (e.id === equipoId ? { ...e, orden: guardado.orden, posiciones: guardado.posiciones, autoOrden: undefined } : e)),
           };
         });
       }
@@ -1599,7 +1642,9 @@ export default function JugadoresSesionPage() {
     [plantilla, sesion],
   );
 
-  const ponPuesto = (jugadorId: string, puesto: Puesto | "") => {
+  /* La demarcación a mano (14/10/2026): fija también el puesto de cinco, que es el que usan el validador y el sorteo. */
+  const ponDemarcacion = (jugadorId: string, valor: string) => {
+    if (valor.startsWith("p:")) return;
     if (!sesion) return;
 
     cambiaSesion(sesion.id, (s) => ({
@@ -1607,14 +1652,18 @@ export default function JugadoresSesionPage() {
       jugadores: s.jugadores.map((j) => {
         if (j.id !== jugadorId) return j;
 
-        const { puesto: _quitado, ...resto } = j;
+        const { puesto: _p, demarcacion: _d, ...resto } = j;
 
-        void _quitado;
+        void _p;
+        void _d;
 
-        return puesto ? { ...resto, puesto } : resto;
+        const d = demarcacion(valor as Demarcacion);
+
+        return d ? { ...resto, demarcacion: d.clave, puesto: d.puesto } : resto;
       }),
     }));
   };
+
 
   const quitaTarea = () => {
     if (!sesion || !tarea || sesion.tareas.length <= 1) return;
@@ -1800,7 +1849,7 @@ export default function JugadoresSesionPage() {
 
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
-              area="RMCF Castilla · Metodología"
+              area="RMCF Castilla · Entrenamiento"
               title="Jugadores sesión"
               lead="Pega la lista del día y haz los equipos de cada tarea. Una diapositiva por tarea, lista para proyectar o mandar en imagen."
               aside={<SaveState status={status} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />}
@@ -1957,8 +2006,22 @@ export default function JugadoresSesionPage() {
                   </button>
                 </div>
 
-                <div className="mt-4 grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(0,560px)]">
+                <div className="mt-4">
+                  <Pestanas
+                    etiqueta="Vistas de la sesión"
+                    valor={vista}
+                    onCambia={setVista}
+                    opciones={[
+                      { clave: "equipos", label: "Equipos", icono: UsersRound },
+                      { clave: "diapositivas", label: "Diapositivas", icono: Expand, cuenta: sesion.tareas.length },
+                      { clave: "plantilla", label: "Plantilla del día", icono: Repeat2, cuenta: sesion.jugadores.length },
+                    ]}
+                  />
+                </div>
+
+                <div className={`mt-4 grid min-w-0 gap-5 ${vista === "equipos" ? "2xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]" : ""}`}>
                   {/* ================= EDITOR ================= */}
+                  {vista === "equipos" && (
                   <div className="min-w-0 space-y-4">
                     {/* --- configuración de la tarea --- */}
                     <div className="flex min-w-0 flex-wrap items-end gap-x-5 gap-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -2321,17 +2384,28 @@ export default function JugadoresSesionPage() {
                               onEstructura={(estructura) =>
                                 cambiaTarea((t) => ({
                                   ...t,
-                                  /* Otro dibujo, otros huecos: el orden a mano ya no vale (sólo si cambian las líneas de verdad). */
-                                  equipos: t.equipos.map((x) =>
-                                    x.id === equipo.id
-                                      ? {
-                                          ...x,
-                                          estructura,
-                                          orden: lineasDe(x.estructura).join("-") === lineasDe(estructura).join("-") ? x.orden : undefined,
-                                          posiciones: lineasDe(x.estructura).join("-") === lineasDe(estructura).join("-") ? x.posiciones : undefined,
-                                        }
-                                      : x,
-                                  ),
+                                  /*
+                                  | Otro dibujo (14/10/2026): si cambian las líneas, cada uno va al hueco
+                                  | nuevo más parecido al que tenía (el lateral sigue en su banda, el de
+                                  | atrás sigue atrás) en vez de borrar lo colocado. Es colocación de la
+                                  | herramienta (`autoOrden`): no se aprende de ella.
+                                  */
+                                  equipos: t.equipos.map((x) => {
+                                    if (x.id !== equipo.id) return x;
+                                    if (lineasDe(x.estructura).join("-") === lineasDe(estructura).join("-")) return { ...x, estructura };
+
+                                    const antes = colocaEnEstructura(reparto.porEquipo[equipo.id] ?? [], x.estructura, puestoDe, x.orden, x.posiciones, x.pares).huecos;
+                                    const viejos = antes.flatMap((h) => (h.jugador ? [{ id: h.jugador.id, punto: { x: h.x, y: h.y }, preferido: puestoDe.preferido?.(h.jugador) }] : []));
+
+                                    if (!viejos.length) return { ...x, estructura, orden: undefined, posiciones: undefined, autoOrden: undefined };
+
+                                    const lineasCampo = lineasDe(estructura).slice(conPortero(estructura) ? 1 : 0);
+                                    const orden = reubicaEnDibujo(viejos, puntosDeLineas(lineasCampo));
+                                    const fuera = viejos.filter((v) => !orden.includes(v.id)).map((v) => v.id);
+                                    const guardado = paraGuardar(estructura, { orden: [...orden, ...fuera] });
+
+                                    return { ...x, estructura, orden: guardado.orden, posiciones: undefined, autoOrden: true };
+                                  }),
                                 }))
                               }
                               onToca={(hueco, huecos) => {
@@ -2342,7 +2416,7 @@ export default function JugadoresSesionPage() {
                                 }
                                 if (huecoTocado.hueco !== hueco) {
                                   const { orden, posiciones } = paraGuardar(equipo.estructura, intercambia(huecos, huecoTocado.hueco, hueco));
-                                  cambiaTarea((t) => ({ ...t, equipos: t.equipos.map((x) => (x.id === equipo.id ? { ...x, orden, posiciones } : x)) }));
+                                  cambiaTarea((t) => ({ ...t, equipos: t.equipos.map((x) => (x.id === equipo.id ? { ...x, orden, posiciones, autoOrden: undefined } : x)) }));
                                 }
                                 setHuecoTocado(null);
                               }}
@@ -2404,9 +2478,11 @@ export default function JugadoresSesionPage() {
                       {ordenPorPuesto(reparto.fuera, puestoDe).map(chip)}
                     </Caja>
                   </div>
+                  )}
 
                   {/* ================= DERECHA ================= */}
                   <div className="min-w-0 space-y-4">
+                    {vista === "equipos" && (
                     <Panel
                       title="Validador"
                       subtitle={tareaLista(avisos) ? "Lista para presentar" : "Hay algo que corregir"}
@@ -2437,6 +2513,9 @@ export default function JugadoresSesionPage() {
                       )}
                     </Panel>
 
+                    )}
+
+                    {vista === "diapositivas" && (
                     <Panel
                       title="Diapositiva"
                       subtitle={`${activa + 1} de ${sesion.tareas.length} · ${enTarea} en la tarea`}
@@ -2490,10 +2569,13 @@ export default function JugadoresSesionPage() {
                       </div>
                     </Panel>
 
+                    )}
+
                     {/* --- plantilla del día: puestos y rotación --- */}
+                    {vista === "plantilla" && (
                     <Panel
                       title="Plantilla del día"
-                      subtitle="Puesto (para que el sorteo reparta porteros y líneas), cuántas veces ha sido comodín o ha descansado, y añadir, reemplazar o quitar jugadores"
+                      subtitle="Demarcación de cada uno (para colocarlos en el dibujo y repartir parejo), cuántas veces ha sido comodín o ha descansado, y añadir, reemplazar o quitar jugadores"
                       icon={Repeat2}
                       bodyClassName="p-0"
                     >
@@ -2583,21 +2665,30 @@ export default function JugadoresSesionPage() {
                                   </td>
                                   <td className="px-2 py-1">
                                     <select
-                                      value={j.puesto ?? ""}
-                                      onChange={(e) => ponPuesto(j.id, e.target.value as Puesto | "")}
-                                      aria-label={`Puesto de ${j.nombre}`}
+                                      value={j.demarcacion ?? (j.puesto ? `p:${j.puesto}` : "")}
+                                      onChange={(e) => ponDemarcacion(j.id, e.target.value)}
+                                      aria-label={`Demarcación de ${j.nombre}`}
                                       className={`rounded-lg border bg-transparent px-1.5 py-1 text-[11px] outline-none focus:border-[#C8A96B]/50 ${
-                                        j.puesto ? "border-[#C8A96B]/40 text-white" : "border-white/10 text-white/50"
+                                        j.puesto || j.demarcacion ? "border-[#C8A96B]/40 text-white" : "border-white/10 text-white/50"
                                       }`}
                                     >
                                       <option value="" className="bg-[#11161C]">
-                                        {auto ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)` : "Sin puesto"}
+                                        {demarcacionesAuto[j.id]
+                                          ? `${demarcacion(demarcacionesAuto[j.id])?.nombre} (plantilla)`
+                                          : auto
+                                            ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)`
+                                            : "Sin demarcación"}
                                       </option>
-                                      {PUESTOS.map((p) => (
-                                        <option key={p.clave} value={p.clave} className="bg-[#11161C]">
-                                          {p.nombre}
+                                      {DEMARCACIONES.map((d) => (
+                                        <option key={d.clave} value={d.clave} className="bg-[#11161C]">
+                                          {d.nombre}
                                         </option>
                                       ))}
+                                      {j.puesto && !j.demarcacion ? (
+                                        <option value={`p:${j.puesto}`} className="bg-[#11161C]">
+                                          {PUESTOS.find((p) => p.clave === j.puesto)?.nombre} (sin banda)
+                                        </option>
+                                      ) : null}
                                     </select>
                                   </td>
                                   <td className={`px-2 py-1 text-center tabular-nums ${r.comodin >= 2 ? "font-bold text-amber-300" : "text-white/55"}`}>
@@ -2633,6 +2724,7 @@ export default function JugadoresSesionPage() {
                         </table>
                       </div>
                     </Panel>
+                    )}
                   </div>
                 </div>
               </>

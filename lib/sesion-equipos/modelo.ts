@@ -45,6 +45,8 @@ export type JugadorSesion = {
    * se les pone aquí.
    */
   puesto?: Puesto;
+  /** La demarcación puesta a mano (14/10/2026): manda sobre la de la plantilla. Ver lib/sesion-equipos/demarcacion.ts. */
+  demarcacion?: import("@/lib/sesion-equipos/demarcacion").Demarcacion;
 };
 
 /* ------------------------------------------------------------------ */
@@ -127,12 +129,18 @@ export type EquipoTarea = {
   posiciones?: ({ x: number; y: number } | null)[];
   /** Dos en el mismo puesto (08/10/2026): titular → compañero. Ver lib/sesion-equipos/estructura.ts. */
   pares?: Record<string, string>;
+  /**
+   * El `orden` lo puso la herramienta, no una persona (14/10/2026): al cambiar
+   * de dibujo se reubica sola. No se aprende de él (lib/sesion-equipos/aprendizaje.ts)
+   * y deja de valer en cuanto alguien toca un hueco.
+   */
+  autoOrden?: boolean;
 };
 
 /** Lo que cambia a mitad de tarea (08/10/2026): dónde está cada uno y cómo se colocan los equipos. Ver lib/sesion-equipos/cambio.ts. */
 export type FaseCambio = {
   sitio: Record<string, Sitio>;
-  equipos: Record<string, Pick<EquipoTarea, "orden" | "posiciones" | "pares">>;
+  equipos: Record<string, Pick<EquipoTarea, "orden" | "posiciones" | "pares" | "autoOrden">>;
 };
 
 /** Dónde está cada jugador en una tarea. Sin entrada = todavía sin sitio. */
@@ -570,7 +578,16 @@ export type Aviso = {
 };
 
 /** El puesto de un jugador: el puesto a mano, si no el de la plantilla. */
-export type PuestoDe = (j: JugadorSesion) => Puesto | undefined;
+/**
+ * El puesto de un jugador. La pantalla le cuelga además (14/10/2026) dónde
+ * juega cada uno (`preferido`, para colocarlo en el dibujo) y su grupo fino
+ * (`grupo`: laterales, centrales, pivotes… para repartir parejo); así llega
+ * igual a la pantalla, a la lámina y al cambio sin pasarlo por veinte sitios.
+ */
+export type PuestoDe = ((j: JugadorSesion) => Puesto | undefined) & {
+  preferido?: (j: JugadorSesion) => { x: number; y: number };
+  grupo?: (j: JugadorSesion) => string | undefined;
+};
 
 const soloAMano: PuestoDe = (j) => j.puesto;
 
@@ -721,6 +738,9 @@ export function completaReparto(
 
   const linea = (j: JugadorSesion) => puestoDe(j) ?? "?";
 
+  /* Para repartir parejo: el grupo fino si se sabe (lateral, central, pivote…), si no la línea. */
+  const grupo = (j: JugadorSesion) => puestoDe.grupo?.(j) ?? linea(j);
+
   let cola = baraja(r.sinSitio, azar);
 
   /* Comodines: medios primero, después cualquiera que no sea portero. */
@@ -752,7 +772,7 @@ export function completaReparto(
     tamano[e.id] = r.porEquipo[e.id]?.length ?? 0;
     deLinea[e.id] = {};
 
-    for (const j of r.porEquipo[e.id] ?? []) deLinea[e.id][linea(j)] = (deLinea[e.id][linea(j)] ?? 0) + 1;
+    for (const j of r.porEquipo[e.id] ?? []) deLinea[e.id][grupo(j)] = (deLinea[e.id][grupo(j)] ?? 0) + 1;
   }
 
   cola.sort((a, b) => ORDEN_PUESTO.indexOf(linea(a)) - ORDEN_PUESTO.indexOf(linea(b)));
@@ -765,7 +785,7 @@ export function completaReparto(
   const llenos = tarea.equipos.length - (cupo * tarea.equipos.length - total);
 
   for (const j of cola) {
-    const l = linea(j);
+    const l = grupo(j);
 
     const destino = [...tarea.equipos].sort(
       (a, b) =>

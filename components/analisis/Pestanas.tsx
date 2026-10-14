@@ -70,7 +70,7 @@ export function Pestanas<K extends string>({
   pegada?: boolean;
 }) {
   return (
-    <div className={`${pegada ? "sticky top-0 z-20 -mx-4 bg-[#0B0F14]/90 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" : ""}`}>
+    <div className={`${pegada ? "sticky top-0 z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" : ""}`}>
       <div role="tablist" aria-label={etiqueta} className="flex min-w-0 gap-1 overflow-x-auto border-b border-white/10 scrollbar-none">
         {opciones.map(({ clave, label, icono: Icono, cuenta }) => {
           const activa = clave === valor;

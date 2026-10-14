@@ -85,7 +85,7 @@ function Nombre({
         border: "1px solid #E6E8EE",
         borderLeft: `${Math.max(8, tamano * 0.2)}px solid ${color}`,
         borderRadius: 12,
-        padding: `${tamano * 0.16}px ${tamano * 0.3}px`,
+        padding: `${tamano * 0.1}px ${tamano * 0.3}px`,
       }}
     >
       <span
@@ -196,7 +196,7 @@ export function LaminaEquipos({
   /* Cuanto más larga la columna más larga, más pequeña la letra. */
   const filasTotal = Math.max(4, ...columnas.filter((c) => !c.estructura).map((c) => c.jugadores.length));
 
-  /* El alto que de verdad queda para la lista (08/10/2026): con 640 la fila once se cortaba. Cada fila mide ~1,62 × la letra (letra + relleno + hueco). */
+  /* El alto que de verdad queda para la lista (08/10/2026): con 640 la fila once se cortaba. Cada fila mide ~1,47 × la letra (1,05 de letra + 0,2 de relleno + 0,22 de hueco; antes 1,62, 14/10/2026). */
   const ALTO_LISTA = (cabecera ? 575 : 770) - (cambios.length ? 55 : 0);
 
   const anchoEquipo = (LAMINA_W - 120 - (columnas.length - 1) * 28) / Math.max(1, columnas.length);
@@ -206,11 +206,12 @@ export function LaminaEquipos({
   const filas = dosColumnas ? Math.ceil(filasTotal / 2) : filasTotal;
   const anchoColumna = dosColumnas ? (anchoEquipo - 20) / 2 : anchoEquipo;
 
+  /* Nombres más grandes (14/10/2026): tope de 80 y filas algo más juntas. */
   const tamano = Math.max(
-    20,
+    22,
     Math.min(
-      68,
-      ALTO_LISTA / (filas * 1.62),
+      80,
+      ALTO_LISTA / (filas * 1.48),
       /* Que quepa entero el nombre más largo, con su etiqueta:
          en Barlow Condensed una mayúscula mide ~0,34 em (algo de margen). */
       (anchoColumna - 70) /
@@ -219,7 +220,7 @@ export function LaminaEquipos({
           ...columnas
             .filter((c) => !c.estructura)
             .flatMap((c) =>
-            c.jugadores.map((j) => (j.nombre.length + (c.parejas?.get(j.id) ? c.parejas.get(j.id)!.nombre.length + 3 : 0)) * 0.37 + 0.8 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0) + (porPuesto(j) === "POR" ? 2.4 : 0)),
+            c.jugadores.map((j) => (j.nombre.length + (c.parejas?.get(j.id) ? c.parejas.get(j.id)!.nombre.length + 3 : 0)) * 0.35 + 0.8 + (j.etiqueta ? 2.4 : 0) + (j.baja ? 5 : 0) + (porPuesto(j) === "POR" ? 2.4 : 0)),
           ),
         ),
     ),
@@ -391,7 +392,7 @@ export function LaminaEquipos({
                   )}
                 </div>
               ) : (
-                <div style={{ padding: "22px 22px 18px", display: "grid", gridTemplateColumns: dosColumnas ? "1fr 1fr" : "1fr", gridAutoFlow: dosColumnas ? "column" : "row", gridTemplateRows: dosColumnas ? `repeat(${filas}, auto)` : undefined, columnGap: 20, rowGap: tamano * 0.26, alignContent: "start", minWidth: 0 }}>
+                <div style={{ padding: "22px 22px 18px", display: "grid", gridTemplateColumns: dosColumnas ? "1fr 1fr" : "1fr", gridAutoFlow: dosColumnas ? "column" : "row", gridTemplateRows: dosColumnas ? `repeat(${filas}, auto)` : undefined, columnGap: 20, rowGap: tamano * 0.22, alignContent: "start", minWidth: 0 }}>
                   {c.jugadores.map((j) => (
                     <Nombre key={j.id} jugador={j} color={c.color} tamano={tamano} portero={porPuesto(j) === "POR"} pareja={c.parejas?.get(j.id)} />
                   ))}
