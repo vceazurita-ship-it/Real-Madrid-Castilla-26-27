@@ -49,10 +49,18 @@ jobs:
       - name: Instalar ffmpeg
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
 
+      # Primero la hoja de fotogramas, que es lo que se mira; el mp4 aparte, y
+      # si falla la hoja se sube igual.
+      - name: Hoja de fotogramas
+        run: node scripts/video-muestra.cjs video-muestra
+
       - name: Montar el vídeo
-        run: node scripts/video-muestra.cjs video-muestra --mp4
+        id: mp4
+        continue-on-error: true
+        run: node --max-old-space-size=4096 scripts/video-muestra.cjs video-muestra --mp4
 
       - name: Resumen
+        if: steps.mp4.outcome == 'success'
         run: |
           DURA=$(ffprobe -v error -show_entries format=duration -of csv=p=0 video-muestra/muestra.mp4)
           PESO=$(du -h video-muestra/muestra.mp4 | cut -f1)
@@ -63,6 +71,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: video-muestra
           path: video-muestra/

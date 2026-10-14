@@ -162,7 +162,8 @@ function cuadroDeMentira() {
 
     for (let i = 0; i < fotogramas; i++) {
       pinta(k, i / D.FPS);
-      await escribe(Buffer.from(ctx.getImageData(0, 0, D.ANCHO, D.ALTO).data.buffer));
+      /* Los píxeles del lienzo sin copiarlos (como el script del club): getImageData creaba 3,6 MB por fotograma. */
+      await escribe(lienzo.data());
     }
   }
 
