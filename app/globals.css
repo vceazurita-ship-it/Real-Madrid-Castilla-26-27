@@ -70,7 +70,8 @@
   --rmcf-surface-2: #F3F5F9;
   --rmcf-ink: #0B0F14;
   --rmcf-ink-rgb: 11 15 20;
-  --rmcf-gold-ink: #8A6A2C;
+  /* #8A6A2C se quedaba en 3,5-4,3:1 sobre los chips dorados (Lighthouse, 14/10/2026). */
+  --rmcf-gold-ink: #74561C;
 
   /* Sobre blanco, un canto al 10 % desaparece y las tarjetas se funden con el
      lienzo; sobre negro el mismo 8 % sí se ve. Es la misma asimetría que la de
@@ -85,8 +86,9 @@
     radial-gradient(circle at bottom right, rgba(79,107,255,0.10), transparent 25%),
     #EBEEF3;
 
-  /* Los pastel puros no llegan a 2:1 sobre blanco: se mezclan con negro. */
-  --rmcf-chip-keep: 62%;
+  /* Los pastel puros no llegan a 2:1 sobre blanco: se mezclan con negro.
+     Al 62 % los verdes y turquesas se quedaban en 3,8-4:1 (14/10/2026). */
+  --rmcf-chip-keep: 54%;
   --rmcf-chip-mix: #000;
 
   /* Los tonos 400 de la escala de notas se apagan sobre blanco (contraste
@@ -525,23 +527,25 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="text-white/60"] {
   color: rgb(var(--rmcf-ink-rgb) / .72);
 }
+/* Del /55 al /30, un poco más de tinta (14/10/2026): los rótulos de 10-12 px
+   se quedaban en 4,1-4,3:1 sobre las tarjetas grises y no llegaban al 4,5. */
 :root[data-theme="light"] [class~="text-white/55"] {
-  color: rgb(var(--rmcf-ink-rgb) / .69);
+  color: rgb(var(--rmcf-ink-rgb) / .70);
 }
 :root[data-theme="light"] [class~="text-white/50"] {
-  color: rgb(var(--rmcf-ink-rgb) / .66);
+  color: rgb(var(--rmcf-ink-rgb) / .68);
 }
 :root[data-theme="light"] [class~="text-white/45"] {
-  color: rgb(var(--rmcf-ink-rgb) / .63);
+  color: rgb(var(--rmcf-ink-rgb) / .66);
 }
 :root[data-theme="light"] [class~="text-white/40"] {
-  color: rgb(var(--rmcf-ink-rgb) / .6);
+  color: rgb(var(--rmcf-ink-rgb) / .64);
 }
 :root[data-theme="light"] [class~="text-white/35"] {
-  color: rgb(var(--rmcf-ink-rgb) / .57);
+  color: rgb(var(--rmcf-ink-rgb) / .62);
 }
 :root[data-theme="light"] [class~="text-white/30"] {
-  color: rgb(var(--rmcf-ink-rgb) / .54);
+  color: rgb(var(--rmcf-ink-rgb) / .6);
 }
 :root[data-theme="light"] [class~="text-white/25"] {
   color: rgb(var(--rmcf-ink-rgb) / .48);
@@ -1524,4 +1528,41 @@ scrollbar-width:none;
 
 @media (prefers-reduced-motion: reduce) {
   .progreso-rayas { animation: none; }
+}
+
+/* Texto de color que faltaba en la tabla (14/10/2026): lo encontró
+   Lighthouse en modo día (ámbar 500 sobre blanco, contraste 1,7:1). Mismo
+   criterio que arriba: los tonos claros bajan a 600-700; con opacidad baja,
+   un peldaño menos de tinta. Se genera con un script que busca en el código
+   cada `text-<color>-<100…500>` que no esté traducido. */
+:root[data-theme="light"] [class~="text-amber-100"],
+:root[data-theme="light"] [class~="text-amber-200/70"],
+:root[data-theme="light"] [class~="text-amber-200/90"],
+:root[data-theme="light"] [class~="text-amber-300/70"],
+:root[data-theme="light"] [class~="text-amber-300/90"],
+:root[data-theme="light"] [class~="text-amber-500/90"] {
+  color: rgb(180 83 9);
+}
+:root[data-theme="light"] [class~="text-emerald-300/70"],
+:root[data-theme="light"] [class~="text-emerald-300/90"],
+:root[data-theme="light"] [class~="text-emerald-400/70"] {
+  color: rgb(4 120 87);
+}
+:root[data-theme="light"] [class~="text-red-200/60"] {
+  color: rgb(185 28 28 / .85);
+}
+:root[data-theme="light"] [class~="text-red-200/80"],
+:root[data-theme="light"] [class~="text-red-300/70"],
+:root[data-theme="light"] [class~="text-red-300/80"],
+:root[data-theme="light"] [class~="text-red-400/80"] {
+  color: rgb(185 28 28);
+}
+:root[data-theme="light"] [class~="text-rose-200"],
+:root[data-theme="light"] [class~="text-rose-200/80"],
+:root[data-theme="light"] [class~="text-rose-300/70"],
+:root[data-theme="light"] [class~="text-rose-300/80"] {
+  color: rgb(190 18 60);
+}
+:root[data-theme="light"] [class~="text-sky-100"] {
+  color: rgb(3 105 161);
 }

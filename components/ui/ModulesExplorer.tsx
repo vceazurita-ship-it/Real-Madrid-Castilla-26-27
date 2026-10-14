@@ -13,6 +13,7 @@ import {
   type AreaKey,
   type AppModule,
 } from "@/lib/modules";
+import { chipInk } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 /**
@@ -31,7 +32,7 @@ function ModuleCard({ module }: { module: AppModule }) {
     <Link
       href={module.href}
       onClick={() => trackModuleVisit(module.href)}
-      style={{ ["--accent" as string]: area.color }}
+      style={{ ["--accent" as string]: chipInk(area.color) }}
       className="group relative flex items-start gap-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-[color:var(--accent)]/50 hover:bg-white/[0.05]"
     >
       {/* Filo de color: el área se reconoce antes de leer el texto. */}

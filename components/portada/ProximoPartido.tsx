@@ -326,6 +326,20 @@ export function ProximoPartido() {
 
         {/* ---------- La semana de trabajo ---------- */}
 
+        {/* Mientras llega el calendario, el hueco de la semana ya está: sin él,
+            los botones de abajo bajaban de golpe al cargar (Lighthouse medía
+            un salto de 0,2 en la portada, 14/10/2026). */}
+        {cargando && semana.length === 0 && (
+          <div aria-hidden className="mt-6">
+            <div className="flex gap-1.5 pb-1">
+              {Array.from({ length: 7 }, (_, i) => (
+                <div key={i} className="h-[69px] min-w-[46px] flex-1 animate-pulse rounded-xl border border-white/[0.08] bg-white/[0.03]" />
+              ))}
+            </div>
+            <div className="mt-2 h-[17px]" />
+          </div>
+        )}
+
         {semana.length > 0 && (
           <div className="mt-6">
             <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-none">

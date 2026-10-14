@@ -3614,6 +3614,7 @@ export default function RivalPlayersPage() {
 
               <div className="flex shrink-0 items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
                 <button
+                  aria-label="Plantilla" aria-pressed={view === "plantilla"}
                   onClick={() => setView("plantilla")}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition ${
                     view === "plantilla"
@@ -3626,6 +3627,7 @@ export default function RivalPlayersPage() {
                 </button>
 
                 <button
+                  aria-label="Pizarra" aria-pressed={view === "pizarra"}
                   onClick={() => setView("pizarra")}
                   className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition ${
                     view === "pizarra"
@@ -3718,6 +3720,7 @@ export default function RivalPlayersPage() {
               </div>
 
               <button
+                aria-label="Añadir jugador"
                 onClick={openCreatePlayer}
                 className="flex shrink-0 items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-3 text-sm text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
               >

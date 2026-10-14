@@ -3,6 +3,7 @@
 [![Comprobación](https://github.com/vceazurita-ship-it/Real-Madrid-Castilla-26-27/actions/workflows/ci.yml/badge.svg)](https://github.com/vceazurita-ship-it/Real-Madrid-Castilla-26-27/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/vceazurita-ship-it/Real-Madrid-Castilla-26-27/actions/workflows/codeql.yml/badge.svg)](https://github.com/vceazurita-ship-it/Real-Madrid-Castilla-26-27/actions/workflows/codeql.yml)
 [![Web en pie](https://github.com/vceazurita-ship-it/Real-Madrid-Castilla-26-27/actions/workflows/web-viva.yml/badge.svg)](https://github.com/vceazurita-ship-it/Real-Madrid-Castilla-26-27/actions/workflows/web-viva.yml)
+[![Calidad de la web](https://github.com/vceazurita-ship-it/Real-Madrid-Castilla-26-27/actions/workflows/calidad-web.yml/badge.svg)](https://github.com/vceazurita-ship-it/Real-Madrid-Castilla-26-27/actions/workflows/calidad-web.yml)
 
 La app del cuerpo técnico: rival, partido, balón parado, entrenamiento, jugador y datos.
 
@@ -39,3 +40,4 @@ npx eslint <ficheros tocados>
 | **Dependabot:** librerías al día | Una propuesta al mes; los avisos de seguridad, al momento | Pull requests |
 | **Revisión de librerías:** frena una librería con fallo grave | En cada propuesta | La propia propuesta |
 | **Web en pie:** las pantallas principales cargan | Cada día a las 7:00 | Actions → Web en pie, y correo si falla |
+| **Calidad de la web:** Lighthouse mide velocidad, accesibilidad, buenas prácticas y SEO, y dice qué falla en cada pantalla | Tras cada despliegue (las principales) y los lunes (todas) | Actions → Calidad de la web, en el resumen |

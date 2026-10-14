@@ -3399,6 +3399,7 @@ function SelectorMetrica({
       <select
         value={valor}
         onChange={(e) => onCambio(e.target.value)}
+        aria-label={rotulo ?? "Métrica"}
         className="rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50"
       >
         {GRUPOS.map((grupo) => (

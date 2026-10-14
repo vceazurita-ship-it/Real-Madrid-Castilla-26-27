@@ -1,0 +1,71 @@
+# Calidad de la web: diseño, accesibilidad y velocidad (14/10/2026)
+#
+# Pasa Lighthouse, el medidor de Google, por las pantallas de la web
+# publicada (scripts/calidad-web.mjs) y deja en el resumen de la ejecución
+# una tabla con cuatro notas por pantalla y, debajo, lo que falla en cada una:
+#
+#   Velocidad         lo que tarda en verse y en responder
+#   Accesibilidad     contraste, botones con nombre, tamaños para el dedo…
+#   Buenas prácticas  errores en la consola, imágenes deformadas…
+#   SEO               título, idioma, que se pueda leer en el móvil
+#
+# Cuándo:
+#   - tras cada despliegue de producción en Vercel, las pantallas principales
+#     (las marcadas con * en .github/lighthouse/pantallas.txt);
+#   - los lunes, todas;
+#   - a mano, desde Actions → Calidad de la web → Run workflow.
+#
+# No sale en rojo por una nota baja: es un termómetro, no un examen.
+
+name: Calidad de la web
+
+on:
+  deployment_status:
+  schedule:
+    - cron: "30 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      todas:
+        description: "Medir todas las pantallas (si no, sólo las principales)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: calidad-web
+  cancel-in-progress: true
+
+jobs:
+  medir:
+    name: Medir las pantallas
+    # Vercel avisa de cada despliegue, también de las vistas previas: sólo
+    # cuenta el de producción, y cuando ya ha terminado bien.
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Lighthouse
+        run: node scripts/calidad-web.mjs ${{ (github.event_name == 'schedule' || inputs.todas) && '--todas' || '' }}
+
+      - name: Resumen
+        if: always()
+        run: '[ -f calidad-web/informe.md ] && cat calidad-web/informe.md >> "$GITHUB_STEP_SUMMARY" || true'
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: calidad-web
+          path: calidad-web/
+          retention-days: 30

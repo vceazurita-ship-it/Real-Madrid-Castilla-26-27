@@ -1,0 +1,46 @@
+# Las pantallas que mide «Calidad de la web» (.github/workflows/calidad-web.yml).
+# Una por línea. Las marcadas con * se miden también en cada despliegue; el
+# resto, sólo en la pasada semanal de los lunes.
+* /
+* /rivals
+* /data-analisis
+* /analisis-goles
+* /abp-microciclo
+* /jugadores-sesion
+* /microcycles
+* /match-preparation
+/micro_calendar
+/laboratorio/microciclo
+/scout-rival-collective
+/scout-rival-individual
+/scout-rival-abp
+/scout-rival-area
+/duelos
+/pizarra-tactica
+/setpieces
+/setpieces_def
+/throw-ins
+/throw-ins-def
+/abp-pizarra
+/coding
+/match-plans
+/laboratorio/transiciones
+/laboratorio/perdidas
+/laboratorio/faltas
+/collective_history
+/individual
+/dashboard-plantilla
+/ratings
+/calendar
+/individual_proc
+/comparative_ind
+/emotion
+/game-model
+/identidad-posicional
+/team-values
+/identidad-cultura
+/calendar_general
+/desplazamiento
+/general
+/quiniela
+/laboratorio/apuestas

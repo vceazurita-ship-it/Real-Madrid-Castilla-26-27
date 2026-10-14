@@ -63,3 +63,6 @@ next-env.d.ts
 # y, como Next se lleva `public/` entero al trazar cada función, engordarían
 # todos los despliegues para nada. Se quedan en la carpeta de quien los baja.
 public/data/**/*.pdf
+
+# informes de Lighthouse (scripts/calidad-web.mjs)
+/calidad-web/

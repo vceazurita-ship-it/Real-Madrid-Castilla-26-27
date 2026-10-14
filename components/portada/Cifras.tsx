@@ -61,7 +61,7 @@ export function Cifras({ cifras }: { cifras: Cifra[] }) {
       {cifras.map((cifra) => {
         const Icon = cifra.icon;
 
-        const accent = cifra.color ? chipInk(cifra.color) : "#D8B45A";
+        const accent = chipInk(cifra.color ?? "#D8B45A");
 
         return (
           <Link

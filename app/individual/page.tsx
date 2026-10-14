@@ -2970,6 +2970,7 @@ export default function IndividualPage() {
                 )}
 
                 <button
+                  aria-label="Actualizar"
                   onClick={() => setReloadKey((k) => k + 1)}
                   className="flex shrink-0 items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs text-white/50 transition hover:border-[#C8A96B] hover:text-white"
                 >
