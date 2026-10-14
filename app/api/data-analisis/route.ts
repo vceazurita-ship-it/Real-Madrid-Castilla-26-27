@@ -851,7 +851,28 @@ function abpParaInforme(datos: Dataset) {
   };
 }
 
+/*
+| En la caché de Vercel (14/10/2026): la respuesta no depende de quién la pide
+| y sólo cambia cuando se suben ficheros, que es un despliegue nuevo (y un
+| despliegue vacía la caché). Diez minutos frescos, como la memoria de arriba,
+| y hasta un día sirviendo la anterior mientras se rehace por detrás: DATA
+| tardaba ~10 s en abrir porque cada visita rehacía 640 kB de JSON.
+| Los errores no se guardan.
+*/
+const CACHE_VERCEL = "public, s-maxage=600, stale-while-revalidate=86400";
+
 export async function GET(peticion: Request) {
+  const respuesta = await contesta(peticion);
+
+  /* «Volver a intentarlo» pide `?refrescar=1`: ése va siempre al servidor. */
+  const refresca = new URL(peticion.url).searchParams.has("refrescar");
+
+  if (respuesta.status === 200 && !refresca) respuesta.headers.set("Cache-Control", CACHE_VERCEL);
+
+  return respuesta;
+}
+
+async function contesta(peticion: Request) {
   const parametros = new URL(peticion.url).searchParams;
 
   /*
