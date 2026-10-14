@@ -1,0 +1,50 @@
+# ¿Está la web en pie? (14/10/2026)
+#
+# Cada mañana a las 7:00 (hora de Madrid en invierno) GitHub abre las
+# pantallas principales de la web publicada. Si alguna no contesta o da error,
+# la ejecución sale en rojo y GitHub manda un correo a la cuenta del repo:
+# te enteras antes del entrenamiento, no en mitad de una charla.
+#
+# Sólo mira que la página cargue (código 200). Para añadir una pantalla,
+# basta con ponerla en la lista de PANTALLAS.
+
+name: Web en pie
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mirar:
+    name: Mirar las pantallas
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Abrir cada pantalla
+        env:
+          WEB: https://real-madrid-castilla-26-27.vercel.app
+          PANTALLAS: >-
+            /
+            /rivals
+            /data-analisis
+            /analisis-goles
+            /abp-microciclo
+            /jugadores-sesion
+            /microcycles
+            /quiniela
+        run: |
+          FALLOS=0
+          for p in $PANTALLAS; do
+            ESTADO=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 --retry 2 --retry-delay 10 "$WEB$p" || echo "000")
+            if [ "$ESTADO" = "200" ]; then
+              echo "✓ $p"
+            else
+              echo "::error::$p contesta $ESTADO"
+              FALLOS=$((FALLOS + 1))
+            fi
+          done
+          [ "$FALLOS" -eq 0 ] || exit 1

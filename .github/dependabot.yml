@@ -1,0 +1,50 @@
+# Dependabot · las librerías al día sin tener que acordarse (14/10/2026)
+#
+# Una vez al mes abre UNA propuesta (pull request) con todas las subidas
+# menores de npm juntas, y otra con las de las acciones de GitHub. No se
+# publica nada solo: la propuesta pasa la comprobación (ci.yml), Vercel
+# monta una vista previa y se acepta o se cierra a mano.
+#
+# Los avisos de seguridad no esperan al mes: llegan cuando salen.
+#
+# Next, React y el lint de Next no suben de versión mayor por aquí: esta app
+# va sobre un Next con cambios propios (AGENTS.md) y eso se hace a propósito,
+# leyendo node_modules/next/dist/docs/ antes.
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+      timezone: Europe/Madrid
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "Librerías"
+    labels: [dependencias]
+    groups:
+      menores:
+        update-types: [minor, patch]
+    ignore:
+      - dependency-name: next
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: eslint-config-next
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+      timezone: Europe/Madrid
+    commit-message:
+      prefix: "Acciones"
+    labels: [dependencias]
+    groups:
+      acciones:
+        patterns: ["*"]

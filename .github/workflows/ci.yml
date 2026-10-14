@@ -1,0 +1,58 @@
+# Comprobación de cada cambio (14/10/2026)
+#
+# Lo mismo que se hace a mano antes de publicar, pero en GitHub y en cada
+# subida a main o propuesta: tipos (tsc) y lint (eslint). El build entero no,
+# que ya lo hace Vercel al desplegar.
+#
+# Si sale en rojo, la web sigue publicada igual (Vercel no espera a esto): es
+# un aviso de que algo se ha colado, con el fichero y la línea en el registro.
+#
+# Las subidas que sólo traen datos (public/, Wyscout de la semana) no lo
+# lanzan: no tocan código.
+
+name: Comprobación
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["public/**", "**/*.md", "videos/**"]
+  pull_request:
+    paths-ignore: ["public/**", "**/*.md", "videos/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tipos-y-lint:
+    name: Tipos y lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # Sin scripts de instalación: ffmpeg-static se bajaría 70 MB que aquí
+      # no hacen falta.
+      - name: Instalar dependencias
+        run: npm ci --ignore-scripts
+
+      # next-env.d.ts y los tipos de las rutas no están en el repo: los genera
+      # Next sin hacer el build.
+      - name: Tipos de las rutas
+        run: npx next typegen
+
+      - name: Tipos (tsc)
+        run: npx tsc --noEmit -p .
+
+      - name: Lint (eslint)
+        run: npx eslint .

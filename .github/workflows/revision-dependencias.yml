@@ -1,0 +1,27 @@
+# Revisión de librerías en cada propuesta (14/10/2026)
+#
+# Si una propuesta (pull request, por ejemplo las de Dependabot) mete una
+# librería con un fallo de seguridad alto conocido, lo marca en rojo antes de
+# aceptarla. Gratis en repositorio público; en privado se salta.
+
+name: Revisión de librerías
+
+on:
+  pull_request:
+    paths: ["package.json", "package-lock.json"]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  revisar:
+    name: Revisar
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
