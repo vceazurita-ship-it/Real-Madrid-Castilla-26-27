@@ -59,7 +59,6 @@ import {
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
-import { NavAnalisisPartido } from "@/components/analisis/NavAnalisisPartido";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
 import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
@@ -1051,8 +1050,6 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader area="RMCF Castilla · Análisis del partido" title={T.titulo} />
-
-            <NavAnalisisPartido className="mt-4" />
 
             {/* ---------------- mandos ---------------- */}
 

@@ -21,7 +21,6 @@ import { EsqueletoPantalla } from "@/components/ui/estados";
 import { AbpHeader, Notice, Panel, SaveState, Segmented, Select, StatCard, StatRow } from "@/components/abp/ui";
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { Lectura } from "@/components/data/formas";
-import { NavAnalisisPartido } from "@/components/analisis/NavAnalisisPartido";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasTipologia";
@@ -575,8 +574,6 @@ export function PantallaGoles() {
           </Explicativo>
         }
       />
-
-      <NavAnalisisPartido className="mt-4" />
 
       {/* ---------------- mandos ---------------- */}
       <div className="mt-6 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -2,6 +2,7 @@ import Image from "next/image";
 
 import { DatosEstado } from "@/components/ui/DatosEstado";
 import { BotonPaleta } from "@/components/ui/Paleta";
+import { NavSeccion } from "@/components/ui/NavSeccion";
 
 /**
  * La cabecera: el escudo, el nombre de la plataforma y la temporada.
@@ -73,6 +74,9 @@ export function Topbar() {
           </div>
         </div>
       </div>
+
+      {/* Las demás pantallas de la misma sección del menú (14/10/2026). */}
+      <NavSeccion />
     </header>
   );
 }

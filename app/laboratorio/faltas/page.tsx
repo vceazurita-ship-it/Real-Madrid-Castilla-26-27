@@ -43,7 +43,6 @@ import { BarChart3, Crosshair, LayoutDashboard, List, Map as MapIcon, Shield, Sw
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
-import { NavAnalisisPartido } from "@/components/analisis/NavAnalisisPartido";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { ComparativaPartido, mediaPorPartido, type MetricaComparada } from "@/components/abp/ComparativaPartido";
 import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
@@ -490,8 +489,6 @@ export default function FaltasPage() {
                   : undefined
               }
             />
-
-            <NavAnalisisPartido className="mt-4" />
 
             {PARTIDOS.length === 0 || (partido?.faltas.length ?? 0) === 0 ? (
               <div className="mt-5">
