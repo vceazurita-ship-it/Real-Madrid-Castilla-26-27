@@ -141,7 +141,7 @@ export function Composicion({
                       color: esLiga || esOtro
                         ? tinta(0.8)
                         : i === 0
-                          ? "#0B0F14"
+                          ? "var(--rmcf-on-gold)"
                           : tinta(0.85),
                     }}
                   >

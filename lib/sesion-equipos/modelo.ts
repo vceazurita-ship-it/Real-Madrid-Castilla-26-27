@@ -222,7 +222,10 @@ export function tintaSobre(hex: string) {
 
   const luz = 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
-  return luz > 0.4 ? "#0B0F14" : "#FFFFFF";
+  /* Con 0,4 el naranja llevaba letra blanca a 2,8:1 en vez de negra a 7:1
+     (Lighthouse, 14/10/2026). En 0,3: naranja, amarillo, verde, celeste y
+     blanco con letra oscura; azul, rojo, rosa, morado y gris siguen en blanco. */
+  return luz > 0.3 ? "#0B0F14" : "#FFFFFF";
 }
 
 /* ------------------------------------------------------------------ */

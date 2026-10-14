@@ -279,8 +279,11 @@ export function ProximoPartido() {
 
             {cargando ? (
               <>
-                <span className="mt-2 block h-10 w-64 max-w-full animate-pulse rounded-lg bg-white/10" />
-                <span className="mt-3 block h-4 w-80 max-w-full animate-pulse rounded bg-white/10" />
+                {/* Del alto del nombre y de la línea de debajo (que en el
+                    móvil ocupa dos renglones): si no, todo lo de abajo
+                    saltaba al llegar el calendario (14/10/2026). */}
+                <span className="mt-1.5 block h-[34px] w-64 max-w-full animate-pulse rounded-lg bg-white/10 sm:h-[42px] xl:h-[48px]" />
+                <span className="mt-3 block h-[46px] w-80 max-w-full animate-pulse rounded bg-white/10 sm:h-[23px]" />
               </>
             ) : proximo ? (
               <>

@@ -42,6 +42,8 @@
 
   /* Oro corporativo tal cual: en modo día se oscurece para poder leerlo. */
   --rmcf-gold-ink: #C8A96B;
+  /* Texto encima de un relleno de --rmcf-gold-ink (las barras de DATA). */
+  --rmcf-on-gold: #0B0F14;
 
   /* Mando para oscurecer colores pastel arbitrarios (etiquetas de rival, por
      ejemplo) sin tener que declarar una variable por color. En modo noche se
@@ -72,6 +74,7 @@
   --rmcf-ink-rgb: 11 15 20;
   /* #8A6A2C se quedaba en 3,5-4,3:1 sobre los chips dorados (Lighthouse, 14/10/2026). */
   --rmcf-gold-ink: #74561C;
+  --rmcf-on-gold: #FFFFFF;
 
   /* Sobre blanco, un canto al 10 % desaparece y las tarjetas se funden con el
      lienzo; sobre negro el mismo 8 % sí se ve. Es la misma asimetría que la de
@@ -512,46 +515,46 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="text-white/85"] {
   color: rgb(var(--rmcf-ink-rgb) / .88);
 }
+/* Del /80 al /20, más tinta (14/10/2026): Lighthouse medía los rótulos de 10-12 px
+   en 2,9-4,3:1 sobre el lienzo gris. Ahora el /20 ya pasa el 4,5 y la rampa sigue subiendo. */
 :root[data-theme="light"] [class~="text-white/80"] {
-  color: rgb(var(--rmcf-ink-rgb) / .84);
+  color: rgb(var(--rmcf-ink-rgb) / .85);
 }
 :root[data-theme="light"] [class~="text-white/75"] {
-  color: rgb(var(--rmcf-ink-rgb) / .8);
+  color: rgb(var(--rmcf-ink-rgb) / .82);
 }
 :root[data-theme="light"] [class~="text-white/70"] {
-  color: rgb(var(--rmcf-ink-rgb) / .76);
+  color: rgb(var(--rmcf-ink-rgb) / .8);
 }
 :root[data-theme="light"] [class~="text-white/65"] {
-  color: rgb(var(--rmcf-ink-rgb) / .74);
+  color: rgb(var(--rmcf-ink-rgb) / .78);
 }
 :root[data-theme="light"] [class~="text-white/60"] {
-  color: rgb(var(--rmcf-ink-rgb) / .72);
+  color: rgb(var(--rmcf-ink-rgb) / .76);
 }
-/* Del /55 al /30, un poco más de tinta (14/10/2026): los rótulos de 10-12 px
-   se quedaban en 4,1-4,3:1 sobre las tarjetas grises y no llegaban al 4,5. */
 :root[data-theme="light"] [class~="text-white/55"] {
-  color: rgb(var(--rmcf-ink-rgb) / .70);
+  color: rgb(var(--rmcf-ink-rgb) / .74);
 }
 :root[data-theme="light"] [class~="text-white/50"] {
-  color: rgb(var(--rmcf-ink-rgb) / .68);
+  color: rgb(var(--rmcf-ink-rgb) / .72);
 }
 :root[data-theme="light"] [class~="text-white/45"] {
-  color: rgb(var(--rmcf-ink-rgb) / .66);
+  color: rgb(var(--rmcf-ink-rgb) / .7);
 }
 :root[data-theme="light"] [class~="text-white/40"] {
-  color: rgb(var(--rmcf-ink-rgb) / .64);
+  color: rgb(var(--rmcf-ink-rgb) / .68);
 }
 :root[data-theme="light"] [class~="text-white/35"] {
-  color: rgb(var(--rmcf-ink-rgb) / .62);
+  color: rgb(var(--rmcf-ink-rgb) / .66);
 }
 :root[data-theme="light"] [class~="text-white/30"] {
-  color: rgb(var(--rmcf-ink-rgb) / .6);
+  color: rgb(var(--rmcf-ink-rgb) / .64);
 }
 :root[data-theme="light"] [class~="text-white/25"] {
-  color: rgb(var(--rmcf-ink-rgb) / .48);
+  color: rgb(var(--rmcf-ink-rgb) / .62);
 }
 :root[data-theme="light"] [class~="text-white/20"] {
-  color: rgb(var(--rmcf-ink-rgb) / .44);
+  color: rgb(var(--rmcf-ink-rgb) / .6);
 }
 
 /* Superficies: los velos blancos del tema oscuro se vuelven tarjetas
@@ -833,11 +836,12 @@ scrollbar-width:none;
   color: #BE123C;
 }
 :root[data-theme="light"] [class~="text-[#FFB84D]"] {
-  color: #B45309;
+  color: #9A3F07;
 }
 
 /* Texto de color: los tonos 100-400 estan calibrados para fondo
-   oscuro; sobre blanco necesitan bajar a 600-700. */
+   oscuro; sobre blanco necesitan bajar a 600-700. El ámbar, a 800: el 700
+   se quedaba en 4,3:1 sobre el lienzo gris (Lighthouse, 14/10/2026). */
 :root[data-theme="light"] [class~="text-red-100"],
 :root[data-theme="light"] [class~="text-red-200"],
 :root[data-theme="light"] [class~="text-red-300"],
@@ -864,13 +868,13 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="text-amber-300"],
 :root[data-theme="light"] [class~="text-amber-300/80"],
 :root[data-theme="light"] [class~="text-amber-400"] {
-  color: #B45309;
+  color: #9A3F07;
 }
 /* El ámbar apagado se usa para avisos de segunda fila: sobre blanco no puede
    quedarse en el 60 % o desaparece, pero sí baja un peldaño de tinta para no
    gritar más que el texto que lo rodea. */
 :root[data-theme="light"] [class~="text-amber-300/60"] {
-  color: rgb(180 83 9 / .85);
+  color: rgb(154 63 7 / .85);
 }
 :root[data-theme="light"] [class~="text-yellow-300"],
 :root[data-theme="light"] [class~="text-yellow-400"] {
@@ -1212,6 +1216,9 @@ scrollbar-width:none;
 /* Oro con opacidad usado como texto */
 :root[data-theme="light"] [class~="text-[#C8A96B]/80"],
 :root[data-theme="light"] [class~="text-[#C8A96B]/70"],
+:root[data-theme="light"] [class~="text-[#C8A96B]/90"],
+:root[data-theme="light"] [class~="text-[#C8A96B]/60"],
+:root[data-theme="light"] [class~="text-[#F7D98B]/70"],
 :root[data-theme="light"] [class~="text-[#D8B45A]/60"] {
   color: var(--rmcf-gold-ink);
 }
@@ -1541,7 +1548,7 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="text-amber-300/70"],
 :root[data-theme="light"] [class~="text-amber-300/90"],
 :root[data-theme="light"] [class~="text-amber-500/90"] {
-  color: rgb(180 83 9);
+  color: rgb(154 63 7);
 }
 :root[data-theme="light"] [class~="text-emerald-300/70"],
 :root[data-theme="light"] [class~="text-emerald-300/90"],

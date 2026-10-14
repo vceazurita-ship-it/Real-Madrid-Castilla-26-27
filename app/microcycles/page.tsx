@@ -1602,6 +1602,18 @@ export default function Page() {
 
             {/* ---------------- Micro rail ---------------- */}
 
+            {/* Su hueco mientras carga: al llegar empujaba los filtros y la
+                tabla hacia abajo (Lighthouse, salto de 0,2; 14/10/2026). */}
+            {loading && (
+              <div aria-hidden className="mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
+                <div className="flex gap-3 overflow-hidden pb-3">
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <div key={i} className={`h-[124px] shrink-0 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03] ${i ? "w-[190px]" : "w-[150px]"}`} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {!loading && microStats.length > 0 && (
               <div className="mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
                 <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-thin">
