@@ -133,3 +133,22 @@ El informe completo de cada pantalla va en el fichero adjunto «calidad-web» de
 
 writeFileSync(`${SALIDA}/informe.md`, md);
 console.log(md);
+
+/*
+| En GitHub, además, avisos (anotaciones) con las notas y lo que falla: se
+| leen desde la API pública sin iniciar sesión, cosa que el resumen no deja.
+| GitHub admite diez por paso, así que van varias pantallas en cada uno.
+*/
+if (process.env.GITHUB_ACTIONS) {
+  const trozos = Math.ceil(detalles.length / 9);
+  const limpia = (t) => t.replaceAll("%", "%25").replaceAll("\r", "").replaceAll("\n", "%0A");
+
+  for (let i = 0; i < detalles.length; i += trozos) {
+    const texto = filas
+      .slice(i, i + trozos)
+      .map((f, k) => `${f}\n${detalles[i + k]}`)
+      .join("\n");
+
+    console.log(`::notice title=Calidad de la web (${i / trozos + 1})::${limpia(texto)}`);
+  }
+}
