@@ -18,6 +18,15 @@
 | o el de ffmpeg-static.
 */
 
+/* Un fallo al cargar (una librería que falta) no pasa por el catch de abajo: también como aviso de GitHub. */
+process.on("uncaughtException", (e) => {
+  console.error(e);
+
+  if (process.env.GITHUB_ACTIONS) console.log(`::error title=Vídeo de muestra::${String(e?.stack ?? e).replaceAll("%", "%25").replaceAll("\n", "%0A")}`);
+
+  process.exit(1);
+});
+
 require("./cargador-ts.cjs");
 
 const fs = require("fs");
@@ -162,5 +171,9 @@ function cuadroDeMentira() {
   console.log(`→ ${destino}`);
 })().catch((e) => {
   console.error(e);
+
+  /* En GitHub, también como aviso: se lee por la API sin iniciar sesión, el registro no. */
+  if (process.env.GITHUB_ACTIONS) console.log(`::error title=Vídeo de muestra::${String(e?.stack ?? e).replaceAll("%", "%25").replaceAll("\n", "%0A")}`);
+
   process.exit(1);
 });
