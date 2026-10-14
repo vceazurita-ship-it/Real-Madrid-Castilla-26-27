@@ -128,11 +128,12 @@ export function CampoEstructura({
         const debajo = Boolean(destino && sobre === destino);
         /* Cada nombre cabe en su trozo de línea: con cuatro en fila, la cuarta parte del campo. */
         const enSuLinea = h.linea < 0 ? 3 : huecos.filter((x) => x.linea === h.linea && !x.aMano).length || 3;
-        const anchoNombre = claro ? Math.min(ancho / 2.2, (ancho / (enSuLinea + 1)) * 1.3) : Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 1.1);
+        /* El mismo ancho en la lámina: más ancho, los nombres de una línea se pisaban (14/10/2026). */
+        const anchoNombre = Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 1.1);
         const nombre = h.jugador?.nombre ?? "";
         /* Con pareja, los dos nombres; la letra la manda el más largo. */
         const largo = Math.max(palabraMasLarga(nombre || "—"), h.pareja ? palabraMasLarga(h.pareja.nombre) : 0);
-        const tamanoNombre = Math.max(8, Math.min(letra * (h.pareja ? 0.88 : 1), anchoNombre / (largo * (claro ? 0.46 : 0.5) + 0.9)));
+        const tamanoNombre = Math.max(8, Math.min(letra * (h.pareja ? 0.88 : 1), anchoNombre / (largo * 0.5 + 0.9)));
         return (
           <div
             key={i}
