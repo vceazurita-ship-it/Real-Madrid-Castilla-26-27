@@ -109,7 +109,9 @@ function nuestroUltimoOnce(temporada: RatingsSeason | null, plantilla: Player[])
 
   const ultimo = partidos[0];
   const anterior = partidos.find((x, i) => i > 0 && x.titulares.length >= 9) ?? partidos[1];
-  const delCastilla = plantilla.filter((p) => p.esCastilla !== false);
+  /* Toda la plantilla: un titular con licencia del RMC o del Juvenil A también cuenta (14/10/2026).
+     Para tapar un hueco, antes uno con ficha del Castilla (1 frente a 0). */
+  const delCastilla = plantilla.filter((p) => p.activo !== false);
   const porId = new Map(plantilla.map((p) => [p.id, p]));
 
   /*
@@ -122,7 +124,7 @@ function nuestroUltimoOnce(temporada: RatingsSeason | null, plantilla: Player[])
   for (const t of ultimo?.titulares ?? []) peso.set(t.playerId, 10_000);
 
   const completado = (ultimo?.titulares.length ?? 0) < 11 && anterior && anterior !== ultimo;
-  const candidatos: Candidato[] = delCastilla.map((p) => ({ id: p.id, sitio: sitioDe(String(p.posicion ?? ""), null), minutos: peso.get(p.id) ?? 0 }));
+  const candidatos: Candidato[] = delCastilla.map((p) => ({ id: p.id, sitio: sitioDe(String(p.posicion ?? ""), null), minutos: peso.get(p.id) ?? (p.esCastilla === false ? 0 : 1) }));
 
   const huecos = proponeOnce(candidatos);
 

@@ -13,6 +13,8 @@ import {
   PresentationIcon,
   Trash2,
   TriangleAlert,
+  Undo2,
+  Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -540,11 +542,22 @@ function BoardEditor({
   | (Valoraciones) y el teórico del rival (Duelos → Plantillas → BeSoccer)
   | cada vez que cambia el próximo partido: el documento guarda para qué
   | semana se rellenó (`semanaOnces`). Dentro de la semana no se toca: lo
-  | movido o dibujado se queda. «Rehacer» lo vuelve a poner a mano.
+  | movido o dibujado se queda. «Rellenar otra vez» lo vuelve a poner a mano.
+  |
+  | Cada relleno, el automático y el de a mano, se puede deshacer (14/10/2026):
+  | se guarda el tablero de antes y «Deshacer» lo devuelve. El deshacer de la
+  | barra de herramientas no llega aquí, porque el relleno escribe el documento
+  | por fuera de su historial.
   */
   const [fuentes, setFuentes] = useState<{ rival: string; nuestra: string; suya: string } | null>(null);
   const [rellenando, setRellenando] = useState(false);
+  const [antesDelRelleno, setAntesDelRelleno] = useState<TacticsDoc | null>(null);
   const semanaMirada = useRef(false);
+  const docVivo = useRef(doc);
+
+  useEffect(() => {
+    docVivo.current = doc;
+  }, [doc]);
 
   const rellenaSemana = useCallback(
     async (forzar: boolean) => {
@@ -560,6 +573,10 @@ function BoardEditor({
         }
 
         setFuentes({ rival: onces.rival, nuestra: onces.fuenteNuestra, suya: onces.fuenteSuya });
+
+        const previo = normalizeDoc(docVivo.current, nombre);
+
+        if (forzar || previo.semanaOnces !== onces.semana) setAntesDelRelleno(previo);
 
         setValue((actual) => {
           const base = normalizeDoc(actual, nombre);
@@ -746,16 +763,30 @@ function BoardEditor({
                 ? `Puestos para el partido del ${doc.semanaOnces.split("|")[0].split("-").reverse().join("/")} contra ${doc.semanaOnces.split("|")[1]}. Pincha una ficha para cambiar al jugador.`
                 : "Se rellenan solos cada semana con nuestro último once y el teórico del rival."}
           </span>
+          {antesDelRelleno && (
+            <button
+              type="button"
+              onClick={() => {
+                setValue(antesDelRelleno);
+                setAntesDelRelleno(null);
+                toast.success("Tablero como estaba antes del relleno");
+              }}
+              title="Vuelve a dejar el tablero como estaba antes de rellenarlo"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 font-semibold text-white/70 transition hover:bg-white/[0.06] hover:text-white"
+            >
+              <Undo2 size={12} />
+              Deshacer
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => {
-              if (window.confirm("¿Volver a poner los onces de la semana? Se borra lo movido y dibujado en este tablero.")) void rellenaSemana(true);
-            }}
+            onClick={() => void rellenaSemana(true)}
             disabled={rellenando}
+            title="Vuelve a poner solos nuestro último once y el del rival. Se puede deshacer."
             className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 px-3 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15 disabled:opacity-50"
           >
-            {rellenando ? <Loader2 size={12} className="animate-spin" /> : null}
-            Rehacer
+            {rellenando ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+            Rellenar otra vez
           </button>
         </div>
       )}

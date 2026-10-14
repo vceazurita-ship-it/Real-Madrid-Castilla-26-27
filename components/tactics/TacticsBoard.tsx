@@ -86,6 +86,7 @@ import {
   TokenKind,
   ToolId,
 } from "@/lib/tactics/types";
+import { BalonOficial } from "@/components/tactics/BalonOficial";
 import { CAMPOS, CAMPO_POR_DEFECTO } from "@/lib/tactics/campos";
 import { cn } from "@/lib/utils";
 
@@ -706,7 +707,8 @@ export default function TacticsBoard({
     if (ficha.kind === "home") {
       const enCampo = new Set(scene.tokens.filter((t) => t.kind === "home").map((t) => claveNombreDe(t.nombre)));
       const opciones: OpcionCambio[] = roster
-        .filter((p) => p.esCastilla !== false && p.activo !== false)
+        /* Toda la plantilla, también RMC y Juvenil A (14/10/2026): sólo con la licencia del Castilla faltaban 21. */
+        .filter((p) => p.activo !== false)
         .map((p) => ({ id: p.id, nombre: p.apodo || p.nombre, dorsal: p.dorsal ? String(p.dorsal) : "", posicion: p.posicion, foto: p.foto, enCampo: enCampo.has(claveNombreDe(p.apodo || p.nombre)) }))
         .filter((o) => claveNombreDe(o.nombre) !== claveNombreDe(ficha.nombre));
 
@@ -1526,6 +1528,8 @@ export default function TacticsBoard({
                       label={token.label}
                       foto={fotoFigura(perfil.foto)}
                     />
+                  ) : token.kind === "ball" ? (
+                    <BalonOficial r={style.radius} uid={token.id} />
                   ) : token.kind === "cone" ? (
                     <polygon
                       points={`0,${-style.radius} ${style.radius},${style.radius} ${-style.radius},${style.radius}`}
