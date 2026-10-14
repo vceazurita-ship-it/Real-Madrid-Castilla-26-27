@@ -88,13 +88,38 @@ function tarjetas(items: { rotulo: string; valor: string; pie?: string }[]) {
   const celdas = items
     .map(
       (d) =>
-        `<td style="padding:14px 16px;background:${CREMA};border:1px solid #E5E1D6;border-top:3px solid #C8A96B;border-radius:8px"><p style="margin:0;font:600 10px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(d.rotulo)}</p><p style="margin:4px 0 0;font:700 20px/1.2 Arial,sans-serif;color:${NAVY}">${esc(d.valor)}</p>${
+        `<td style="padding:14px 16px;background:${CREMA};border:1px solid #E5E1D6;border-top:3px solid #C8A96B;border-radius:8px"><p style="margin:0;font:600 10px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(d.rotulo)}</p><p style="margin:4px 0 0;font:700 26px/1.15 Arial,sans-serif;color:${NAVY}">${esc(d.valor)}</p>${
           d.pie ? `<p style="margin:2px 0 0;font:400 11px/1.4 Arial,sans-serif;color:${SUAVE}">${esc(d.pie)}</p>` : ""
         }</td>`,
     )
     .join('<td style="width:8px"></td>');
 
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${celdas}</tr></table>`;
+}
+
+/**
+ * El pronóstico en una barra de tres tramos (14/10/2026): victoria, empate y
+ * derrota con su porcentaje dentro. Tabla con anchos en %, que es lo único que
+ * Gmail y Outlook pintan igual; sobre fondo marino.
+ */
+function barraPronostico(pr: { victoria: number; empate: number; derrota: number }, rotulo: string) {
+  const tramos = [
+    { n: pr.victoria, texto: "Victoria", fondo: "#1F7A55" },
+    { n: pr.empate, texto: "Empate", fondo: "#5B6577" },
+    { n: pr.derrota, texto: "Derrota", fondo: "#B4483A" },
+  ].filter((t) => t.n > 0.005);
+
+  if (!tramos.length) return "";
+
+  const celdas = tramos
+    .map((t) => {
+      const ancho = Math.max(8, Math.round(t.n * 100));
+
+      return `<td width="${ancho}%" style="background:${t.fondo};padding:7px 8px;font:700 12px/1.2 Arial,sans-serif;color:#FFFFFF;white-space:nowrap;overflow:hidden">${t.n >= 0.12 ? `${esc(t.texto)} ` : ""}${Math.round(t.n * 100)}%</td>`;
+    })
+    .join("");
+
+  return `<p style="margin:18px 0 6px;font:700 10px/1.3 Arial,sans-serif;letter-spacing:.24em;color:#C8A96B">${esc(rotulo)}</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-radius:6px;overflow:hidden"><tr>${celdas}</tr></table>`;
 }
 
 /** Una barra en línea de 0 a 100: es lo único que pinta igual en todos los correos. */
@@ -630,6 +655,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 </tr></table>
 <p style="margin:20px 0 0;text-align:center;font:400 13px/1.4 Arial,sans-serif;color:#C9CFDA">${esc(p.fechaTexto)}</p>
 <p style="margin:6px 0 0;text-align:center;font:700 17px/1.35 Arial,sans-serif;color:#F2E6C9">${esc(inf.sintesis.titular)}</p>
+${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTICO") : ""}
 </td></tr>${
     cifrasCabecera.length ? `<tr><td style="padding:18px 32px 0">${tarjetas(cifrasCabecera)}</td></tr>` : ""
   }${
@@ -820,7 +846,7 @@ ${diapositivas}
 ${descargas}
 ${indice}
 ${elegidos.map((c) => c.html).join("\n")}
-<tr><td style="padding:18px 28px 26px;font:400 11px/1.5 Arial,sans-serif;color:${SUAVE}">Real Madrid Castilla · cuerpo técnico. Generado desde la plataforma el ${esc(new Date(inf.generado).toLocaleString("es-ES", { timeZone: "Europe/Madrid" }))}.</td></tr>
+<tr><td style="padding:18px 28px 26px;font:400 11px/1.5 Arial,sans-serif;color:${SUAVE}">Real Madrid Castilla · cuerpo técnico · ${esc(new Date(inf.generado).toLocaleString("es-ES", { timeZone: "Europe/Madrid" }))}.</td></tr>
 </table></td></tr></table></body></html>`);
 
   return { capitulos, html };
@@ -868,7 +894,7 @@ export function resumenHtml(inf: InformePartido, cids: string[], opciones: { con
         idea
           ? `<p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:#C8A96B">LA IDEA</p><p style="margin:4px 0 14px;font:700 17px/1.4 Arial,sans-serif;color:#F7F4EC">${esc(idea)}</p>`
           : ""
-      }<p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:#C8A96B">${esPost ? "LO QUE NOS DEJA" : "CLAVES DEL PARTIDO"}</p><ol style="margin:6px 0 0;padding-left:20px;font:400 15px/1.55 Arial,sans-serif;color:#E6E9EF">${claves
+      }${!esPost && inf.pronostico ? `${barraPronostico(inf.pronostico, "EL PRONÓSTICO")}<div style="height:14px"></div>` : ""}<p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:#C8A96B">${esPost ? "LO QUE NOS DEJA" : "CLAVES DEL PARTIDO"}</p><ol style="margin:6px 0 0;padding-left:20px;font:400 15px/1.55 Arial,sans-serif;color:#E6E9EF">${claves
         .map((c) => `<li style="margin:0 0 4px">${esc(c)}</li>`)
         .join("")}</ol></td></tr></table></td></tr>`
     : "";

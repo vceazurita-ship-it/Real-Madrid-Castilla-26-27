@@ -404,7 +404,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
         }
       }
 
-      pintaFotograma(ctx, grano, fuente, guion.titulo, rec, { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro });
+      pintaFotograma(ctx, grano, fuente, guion.titulo, rec, { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro, marcas: arranques.slice(1).map((a) => a / total) });
 
       if (k === 0 && i === Math.min(cuantos - 1, Math.round(2.4 * FPS))) {
         fotoPoster = document.createElement("canvas");

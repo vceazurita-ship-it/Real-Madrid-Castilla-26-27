@@ -2270,7 +2270,7 @@ export function informeCuerpoHtml(
   const resumen = conPrefijo.resumen
     .map(
       (dato) =>
-        `<td style="padding:10px 12px;background:${CREMA};border:1px solid #E5E1D6;border-radius:8px;width:33%"><p style="margin:0;font:600 10px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(dato.rotulo)}</p><p style="margin:4px 0 0;font:700 19px/1.2 Arial,sans-serif;color:${NAVY}">${esc(dato.valor)}</p><p style="margin:2px 0 0;font:400 11px/1.4 Arial,sans-serif;color:${SUAVE}">${esc(dato.pie)}</p></td>`,
+        `<td style="padding:12px 14px;background:${CREMA};border:1px solid #E5E1D6;border-top:3px solid #C8A96B;border-radius:8px;width:33%"><p style="margin:0;font:600 10px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(dato.rotulo)}</p><p style="margin:4px 0 0;font:700 24px/1.15 Arial,sans-serif;color:${NAVY}">${esc(dato.valor)}</p><p style="margin:2px 0 0;font:400 11px/1.4 Arial,sans-serif;color:${SUAVE}">${esc(dato.pie)}</p></td>`,
     )
     .reduce<string[][]>((filas, celda, indice) => {
       if (indice % 3 === 0) filas.push([]);
@@ -2309,6 +2309,28 @@ export function informeHtml(
 ) {
   const lineaPartido = [informe.partido, informe.vieneDe].filter(Boolean);
 
+  /*
+  | Lo esencial arriba (14/10/2026): el titular y las claves de la pincelada,
+  | y la barra de los minutos de la semana contra su objetivo, en la misma
+  | franja azul de la cabecera. Quien sólo lee el principio ya sabe cómo ha ido.
+  */
+  const esencia = pinceladaAbp(informe);
+  const obj = informe.objetivo;
+  const colorObjetivo = obj.veredicto === "corto" ? (obj.cumplido >= 0.95 ? "#D9A21B" : "#D97757") : "#4CC79F";
+  const relleno = Math.max(3, Math.min(100, Math.round((obj.hechos / Math.max(1, obj.maximo)) * 100)));
+  const barraObjetivo = obj.maximo
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px"><tr><td style="font:700 10px/1.3 Arial,sans-serif;color:${ORO};letter-spacing:.2em;text-transform:uppercase">Minutos de balón parado</td><td align="right" style="font:700 15px/1.3 Arial,sans-serif;color:#FFFFFF">${esc(fmtMin(obj.hechos))} <span style="font:400 12px Arial,sans-serif;color:#9FB0C6">de ${esc(fmtMin(obj.minimo))}-${esc(fmtMin(obj.maximo))}</span></td></tr><tr><td colspan="2" style="padding-top:6px"><div style="height:10px;background:rgba(255,255,255,0.12);border-radius:5px"><div style="height:10px;width:${relleno}%;background:${colorObjetivo};border-radius:5px"></div></div></td></tr></table>`
+    : "";
+  const bloqueEsencial = esencia.titular
+    ? `<tr><td style="padding:0 24px 22px;background:${NAVY}"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid rgba(200,169,107,0.35)"><tr><td style="padding-top:16px"><p style="margin:0;font:700 10px/1.3 Arial,sans-serif;color:${ORO};letter-spacing:.24em;text-transform:uppercase">Lo esencial</p><p style="margin:6px 0 0;font:700 19px/1.35 Arial,sans-serif;color:#F2E6C9">${esc(esencia.titular)}</p>${
+        esencia.claves.length
+          ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:10px">${esencia.claves
+              .map((c, i) => `<tr><td valign="top" style="padding:3px 12px 3px 0;font:700 18px/1.2 Georgia,'Times New Roman',serif;color:${ORO}">${String(i + 1).padStart(2, "0")}</td><td valign="top" style="padding:4px 0;font:400 14px/1.5 Arial,sans-serif;color:#E6E9EF">${esc(c)}</td></tr>`)
+              .join("")}</table>`
+          : ""
+      }${barraObjetivo}</td></tr></table></td></tr>`
+    : "";
+
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(`${informe.titulo} · ${informe.modoRotulo}`)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;background:#EEEAE0;padding:18px 0"><tr><td align="center">
 <table role="presentation" cellpadding="0" cellspacing="0" width="860" style="width:860px;max-width:96%;background:#FFFFFF;border-radius:12px;overflow:hidden">
@@ -2321,11 +2343,12 @@ export function informeHtml(
   )}</p>
   ${lineaPartido.map((linea) => `<p style="margin:4px 0 0;font:400 12px/1.5 Arial,sans-serif;color:#9FB0C6">${esc(linea)}</p>`).join("")}
 </td></tr>
+${bloqueEsencial}
 ${opciones.video ?? ""}
 <tr><td style="padding:0">${informeCuerpoHtml(informe, opciones)}</td></tr>
 
 <tr><td style="padding:18px 24px 24px;border-top:1px solid #E5E1D6">
-  <p style="margin:0;font:400 11px/1.6 Arial,sans-serif;color:${SUAVE}">Generado automáticamente por la plataforma del Real Madrid Castilla · ${esc(informe.generado)}</p>
+  <p style="margin:0;font:400 11px/1.6 Arial,sans-serif;color:${SUAVE}">Real Madrid Castilla · cuerpo técnico · ${esc(informe.generado)}</p>
 </td></tr>
 
 </table></td></tr></table></body></html>`;

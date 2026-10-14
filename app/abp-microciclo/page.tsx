@@ -1368,9 +1368,7 @@ export default function AbpMicrocicloPage() {
               </>
             ) : plan.rival ? (
               <>
-                Todavía no hay partido registrado contra{" "}
-                <span className="text-white/60">{plan.rival}</span> en las hojas
-                de ABP: este microciclo aún no puede medir transferencia.
+                Todavía no se ha jugado contra <span className="text-white/60">{plan.rival}</span>.
               </>
             ) : (
               "Escribe el rival de la semana para poder cruzar este microciclo con su partido."

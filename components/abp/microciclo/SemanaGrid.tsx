@@ -49,6 +49,8 @@ import {
 import { Copy, Monitor, Plus, Trash2 } from "lucide-react";
 
 import { chipInk } from "@/lib/theme";
+import { useTextosExplicativos } from "@/components/ui/textos-analisis";
+import { MARCA_BOCETO } from "@/lib/abp/boceto";
 
 import {
   DIAS,
@@ -124,6 +126,20 @@ function TrabajoCuerpo({
 }) {
   const lados = ladosDe(trabajo);
   const aspectos = aspectosDe(trabajo);
+
+  /*
+  | La nota que escribe el boceto («Boceto · urgencia 33/100…») cuenta cómo se
+  | propuso el trabajo: es método, sólo con los textos explicativos (14/10/2026).
+  | Lo escrito a mano en la nota se ve siempre.
+  */
+  const explicativos = useTextosExplicativos();
+  const notas = explicativos
+    ? trabajo.notas
+    : (trabajo.notas ?? "")
+        .split("\n")
+        .filter((l) => !l.trim().startsWith(MARCA_BOCETO))
+        .join("\n")
+        .trim();
 
   const desgaste = [
     trabajo.intensidad > 0 ? `intensidad ${trabajo.intensidad}/10` : "",
@@ -216,14 +232,14 @@ function TrabajoCuerpo({
         </p>
       )}
 
-      {trabajo.notas &&
+      {notas &&
         (detalle ? (
           <p className="mt-1 whitespace-pre-wrap break-words text-[10.5px] leading-snug text-white/60">
-            {trabajo.notas}
+            {notas}
           </p>
         ) : (
           <p className="mt-1 truncate text-[10px] text-white/35">
-            {trabajo.notas}
+            {notas}
           </p>
         ))}
 

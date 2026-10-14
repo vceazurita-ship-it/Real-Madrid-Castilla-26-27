@@ -722,7 +722,7 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
         }
       }
 
-      pintaFotograma(ctx, grano, fuente, guion.titulo, rec, { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro });
+      pintaFotograma(ctx, grano, fuente, guion.titulo, rec, { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro, marcas: arranques.slice(1).map((a) => a / total) });
 
       /* El póster: la portada a los 2,4 s con el botón de reproducir, para el correo y el PDF. */
       if (k === 0 && i === Math.min(cuantos - 1, Math.round(2.4 * FPS))) {

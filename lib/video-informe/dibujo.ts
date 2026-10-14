@@ -14,6 +14,7 @@
 | cada escena según la voz y qué se sacrifica si no cabe.
 */
 
+import { anillo, caja, cortinilla, cuenta, espaciado, fraccionDe, sale, salta, tramo } from "./movimiento";
 import { SEGUNDOS_MAXIMOS, SEGUNDOS_MINIMOS, type Celda, type Corte, type CortePartido, type Escena, type GuionVideo, type MarcaPartido } from "./guion";
 
 export const ANCHO = 1280;
@@ -401,7 +402,7 @@ export function rellenaGrano(ctx: Lienzo) {
   ctx.putImageData(img, 0, 0);
 }
 
-function acabado(ctx: Lienzo, grano: Dibujable, progreso: number, titulo: string, fuente: string) {
+function acabado(ctx: Lienzo, grano: Dibujable, progreso: number, titulo: string, fuente: string, marcas: number[] = []) {
   const v = ctx.createRadialGradient(ANCHO / 2, ALTO / 2, ALTO * 0.35, ANCHO / 2, ALTO / 2, ALTO * 0.95);
   v.addColorStop(0, "rgba(0,0,0,0)");
   v.addColorStop(1, "rgba(0,0,0,0.55)");
@@ -424,20 +425,30 @@ function acabado(ctx: Lienzo, grano: Dibujable, progreso: number, titulo: string
   ctx.textBaseline = "alphabetic";
   ctx.textAlign = "left";
   ctx.fillStyle = "rgba(255,255,255,0.6)";
-  ctx.fillText(`REAL MADRID CASTILLA · ${titulo.toUpperCase()}`, 110, 56);
+  espaciado(ctx, `REAL MADRID CASTILLA · ${titulo.toUpperCase()}`, 110, 56, 1.2);
+
+  /* La barra de progreso, con una muesca en cada cambio de escena (capítulos). */
   ctx.fillStyle = "rgba(255,255,255,0.12)";
   ctx.fillRect(0, ALTO - 6, ANCHO, 6);
-  ctx.fillStyle = ORO;
+  const g = ctx.createLinearGradient(0, 0, ANCHO * Math.max(0.01, progreso), 0);
+  g.addColorStop(0, "#9C7F45");
+  g.addColorStop(1, "#E3C98F");
+  ctx.fillStyle = g;
   ctx.fillRect(0, ALTO - 6, ANCHO * progreso, 6);
+
+  for (const m of marcas) {
+    ctx.fillStyle = m <= progreso ? "rgba(8,17,31,0.9)" : "rgba(255,255,255,0.35)";
+    ctx.fillRect(ANCHO * m - 1, ALTO - 6, 2, 6);
+  }
 }
 
 /* ------------------------------------------------------------------ */
 /*  LOS ELEMENTOS DE TEXTO                                             */
 /* ------------------------------------------------------------------ */
 
-const suave = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 - Math.pow(1 - t, 3));
+const suave = (t: number) => sale(t);
 
-const rebota = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : 1 + 2.2 * Math.pow(t - 1, 3) + 1.2 * Math.pow(t - 1, 2));
+const rebota = (t: number) => salta(t);
 
 const entra = (t: number, desde: number, cuanto = 0.45) => suave((t - desde) / cuanto);
 
@@ -462,31 +473,49 @@ function parteLineas(ctx: Lienzo, texto: string, anchoMax: number) {
 
 /** Título con barrido de luz: una banda clara que lo cruza una vez. */
 function titular(ctx: Lienzo, fuente: string, texto: string, t: number, y = 150, tam = 54) {
-  const a = entra(t, 0.05);
-  const x = 56 + (1 - a) * -30;
   const mayus = texto.toUpperCase();
+  const palabras = mayus.split(" ");
 
   ctx.font = `700 ${tam}px ${fuente}`;
   ctx.textAlign = "left";
-  ctx.globalAlpha = a;
-  ctx.fillStyle = BLANCO;
-  ctx.fillText(mayus, x, y);
 
-  const ancho = ctx.measureText(mayus).width;
-  const barrido = (t - 0.3) / 0.9;
+  const espacio = ctx.measureText(" ").width;
+  let x = 56;
+
+  /* Cada palabra entra desde abajo, una detrás de otra. */
+  palabras.forEach((p, i) => {
+    const a = tramo(t, 0.05 + i * 0.07, 0.55);
+
+    ctx.globalAlpha = a;
+    ctx.fillStyle = BLANCO;
+    ctx.fillText(p, x, y + (1 - a) * 22);
+    x += ctx.measureText(p).width + espacio;
+  });
+
+  const ancho = x - espacio - 56;
+
+  /* El subrayado de oro crece bajo el título. */
+  const u = tramo(t, 0.25 + palabras.length * 0.07, 0.7);
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = ORO;
+  ctx.fillRect(56, y + 16, Math.min(ancho, 140) * u, 4);
+
+  /* Y un barrido de luz lo cruza una vez. */
+  const barrido = (t - 0.5) / 0.9;
 
   if (barrido > 0 && barrido < 1) {
     ctx.save();
     ctx.beginPath();
-    ctx.rect(x, y - tam, ancho, tam * 1.25);
+    ctx.rect(56, y - tam, ancho, tam * 1.25);
     ctx.clip();
-    const bx = x - 160 + (ancho + 320) * barrido;
-    const g = ctx.createLinearGradient(bx - 120, 0, bx + 120, 0);
-    g.addColorStop(0, "rgba(200,169,107,0)");
-    g.addColorStop(0.5, "rgba(230,205,150,0.85)");
-    g.addColorStop(1, "rgba(200,169,107,0)");
-    ctx.fillStyle = g;
-    ctx.fillText(mayus, x, y);
+    const bx = 56 - 160 + (ancho + 320) * barrido;
+    const gr = ctx.createLinearGradient(bx - 120, 0, bx + 120, 0);
+    gr.addColorStop(0, "rgba(200,169,107,0)");
+    gr.addColorStop(0.5, "rgba(230,205,150,0.85)");
+    gr.addColorStop(1, "rgba(200,169,107,0)");
+    ctx.fillStyle = gr;
+    ctx.fillText(mayus, 56, y);
     ctx.restore();
   }
 
@@ -508,9 +537,13 @@ function pieLocucion(ctx: Lienzo, fuente: string, texto: string, t: number) {
   ctx.globalAlpha = 1;
 }
 
-/** Un rótulo bajo («lower third») con la barra de oro. */
+/**
+ * Un rótulo bajo («lower third») de retransmisión (14/10/2026): panel con el
+ * filo derecho en diagonal que se despliega con un rebote corto, bloque de
+ * oro, y los textos entrando un poco después.
+ */
 function rotuloBajo(ctx: Lienzo, fuente: string, principal: string, secundario: string, t: number, y = ALTO - 150) {
-  const a = entra(t, 0.15, 0.5);
+  const a = salta((t - 0.15) / 0.55);
 
   if (a <= 0) return;
 
@@ -519,25 +552,83 @@ function rotuloBajo(ctx: Lienzo, fuente: string, principal: string, secundario: 
   const w1 = ctx.measureText(principal).width;
   ctx.font = `500 22px ${fuente}`;
   const w2 = secundario ? ctx.measureText(secundario).width : 0;
-  const w = Math.min(Math.max(w1, w2) + 60, ANCHO - 112);
-  const alto = secundario ? 84 : 58;
+  const w = Math.min(Math.max(w1, w2) + 70, ANCHO - 112);
+  const alto = secundario ? 86 : 60;
+  const x = 56;
+  const sesgo = 18;
 
-  ctx.globalAlpha = a;
-  ctx.fillStyle = "rgba(8,17,31,0.75)";
-  ctx.fillRect(56, y - 40, w * a, alto);
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, a);
+  ctx.beginPath();
+  ctx.moveTo(x, y - 42);
+  ctx.lineTo(x + w * a + sesgo, y - 42);
+  ctx.lineTo(x + w * a, y - 42 + alto);
+  ctx.lineTo(x, y - 42 + alto);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(x, 0, x + w, 0);
+  g.addColorStop(0, "rgba(8,17,31,0.92)");
+  g.addColorStop(1, "rgba(16,30,52,0.82)");
+  ctx.fillStyle = g;
+  ctx.fill();
+
   ctx.fillStyle = ORO;
-  ctx.fillRect(56, y - 40, 8, alto);
+  ctx.fillRect(x, y - 42, 10, alto);
+  ctx.fillRect(x, y - 42, (w + sesgo) * Math.min(1, a), 2);
+
+  const b = tramo(t, 0.3, 0.45);
+
+  ctx.globalAlpha = b;
   ctx.fillStyle = BLANCO;
   ctx.font = `700 34px ${fuente}`;
-  ctx.fillText(principal, 84, y + 2 - (1 - a) * 10);
+  ctx.fillText(principal, x + 30 - (1 - b) * 16, y + 2);
 
   if (secundario) {
-    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    const c = tramo(t, 0.42, 0.45);
+
+    ctx.globalAlpha = c;
+    ctx.fillStyle = "rgba(227,201,143,0.95)";
     ctx.font = `500 22px ${fuente}`;
-    ctx.fillText(secundario, 84, y + 32 - (1 - a) * 10);
+    ctx.fillText(secundario, x + 30 - (1 - c) * 16, y + 33);
   }
 
-  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+/**
+ * «GOL» en grande cuando entra el balón (14/10/2026): coincide con el golpe de
+ * la banda sonora (inicio del corte + 5,5 s, `musica.ts`). Sólo en los goles
+ * nuestros y nunca en la repetición.
+ */
+function estallidoGol(ctx: Lienzo, fuente: string, tc: number) {
+  const d = tc - 5.4;
+
+  if (d < 0 || d > 1.6) return;
+
+  const llega = salta(d / 0.35);
+  const marcha = d > 1.1 ? 1 - (d - 1.1) / 0.5 : 1;
+  const alfa = Math.max(0, Math.min(1, llega) * marcha);
+
+  /* Un fogonazo de oro que se abre desde el centro. */
+  const r = 120 + d * 900;
+  const luz = ctx.createRadialGradient(ANCHO / 2, ALTO / 2, 0, ANCHO / 2, ALTO / 2, r);
+  luz.addColorStop(0, `rgba(227,201,143,${0.35 * alfa})`);
+  luz.addColorStop(1, "rgba(227,201,143,0)");
+  ctx.fillStyle = luz;
+  ctx.fillRect(0, 0, ANCHO, ALTO);
+
+  ctx.save();
+  ctx.globalAlpha = alfa;
+  ctx.translate(ANCHO / 2, ALTO / 2 - 20);
+  ctx.scale(0.6 + llega * 0.4, 0.6 + llega * 0.4);
+  ctx.font = `700 190px ${fuente}`;
+  ctx.textAlign = "center";
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = "rgba(8,17,31,0.85)";
+  ctx.strokeText("GOL", 0, 66);
+  ctx.fillStyle = ORO;
+  ctx.fillText("GOL", 0, 66);
+  ctx.restore();
+  ctx.textAlign = "left";
 }
 
 /** Una foto o escudo recortados en círculo, con un aro; sin imagen, el texto (dorsal o siglas). */
@@ -576,57 +667,201 @@ function medallon(ctx: Lienzo, fuente: string, img: Dibujable | null, cx: number
 /* ------------------------------------------------------------------ */
 
 function pintaPortada(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "portada" }>, rec: Recursos, t: number) {
-  const a = entra(t, 0.2, 0.7);
   const nos = rec.imagenes.get(`${e.id}:nosotros`) ?? null;
   const riv = rec.imagenes.get(`${e.id}:rival`) ?? null;
-  const cy = 250;
+  const cy = 236;
 
-  ctx.globalAlpha = a;
-  medallon(ctx, fuente, nos, ANCHO / 2 - 150 - (1 - a) * 60, cy, 76, "rgba(255,255,255,0.7)", "RM");
-  medallon(ctx, fuente, riv, ANCHO / 2 + 150 + (1 - a) * 60, cy, 76, ORO, e.titulo.slice(0, 3).toUpperCase());
-  ctx.fillStyle = ORO;
-  ctx.font = `700 40px ${fuente}`;
+  /* Un velo de abajo arriba: el título se lee encima del césped. */
+  const velo = ctx.createLinearGradient(0, ALTO * 0.38, 0, ALTO);
+  velo.addColorStop(0, "rgba(8,17,31,0)");
+  velo.addColorStop(0.45, "rgba(8,17,31,0.82)");
+  velo.addColorStop(1, "rgba(8,17,31,0.96)");
+  ctx.fillStyle = velo;
+  ctx.fillRect(0, 0, ANCHO, ALTO);
+
+  /* Rayos de luz detrás de los escudos. */
+  const rayos = tramo(t, 0.1, 1.2);
+
+  ctx.save();
+  ctx.globalAlpha = 0.16 * rayos;
+  ctx.translate(ANCHO / 2, cy);
+  ctx.rotate(t * 0.08);
+
+  /* Los doce rayos en un solo trazo con un solo degradado radial: barato en los dos motores. */
+  const luz = ctx.createRadialGradient(0, 0, 0, 0, 0, 520);
+  luz.addColorStop(0, "rgba(227,201,143,0.9)");
+  luz.addColorStop(1, "rgba(227,201,143,0)");
+  ctx.fillStyle = luz;
+  ctx.beginPath();
+
+  for (let i = 0; i < 12; i += 1) {
+    const ang = (i * Math.PI * 2) / 12;
+
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(ang - 0.065) * 520, Math.sin(ang - 0.065) * 520);
+    ctx.lineTo(Math.cos(ang + 0.065) * 520, Math.sin(ang + 0.065) * 520);
+    ctx.closePath();
+  }
+
+  ctx.fill();
+
+  ctx.restore();
+
+  /* Los escudos caen con un pequeño rebote, uno detrás de otro. */
+  const escudo = (img: Dibujable | null, lado: -1 | 1, desde: number, aro: string, siglas: string) => {
+    const a = salta((t - desde) / 0.7);
+
+    if (a <= 0) return;
+
+    const radio = 84 * Math.max(0.2, a);
+
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, a * 1.4);
+    halo(ctx, ANCHO / 2 + lado * 170, cy, radio * 1.55);
+    medallon(ctx, fuente, img, ANCHO / 2 + lado * 170, cy, radio, aro, siglas);
+    ctx.restore();
+  };
+
+  escudo(nos, -1, 0.2, "rgba(255,255,255,0.85)", "RM");
+  escudo(riv, 1, 0.45, ORO, e.titulo.slice(0, 3).toUpperCase());
+
+  /* El VS en un rombo de oro que late. */
+  const vs = tramo(t, 0.75, 0.5);
+
+  if (vs > 0) {
+    const late = 1 + Math.sin(t * 3.2) * 0.03;
+
+    ctx.save();
+    ctx.globalAlpha = vs;
+    ctx.translate(ANCHO / 2, cy);
+    ctx.scale(late * vs, late * vs);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = "rgba(8,17,31,0.92)";
+    ctx.fillRect(-34, -34, 68, 68);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = ORO;
+    ctx.strokeRect(-34, -34, 68, 68);
+    ctx.restore();
+    ctx.globalAlpha = vs;
+    ctx.fillStyle = ORO;
+    ctx.font = `700 34px ${fuente}`;
+    ctx.textAlign = "center";
+    ctx.fillText("VS", ANCHO / 2, cy + 12);
+    ctx.globalAlpha = 1;
+  }
+
+  /* El sello en una píldora de oro. */
+  const b = tramo(t, 0.9, 0.5);
+
   ctx.textAlign = "center";
-  ctx.fillText("VS", ANCHO / 2, cy + 14);
-  ctx.globalAlpha = 1;
+  ctx.font = `700 24px ${fuente}`;
 
-  const b = entra(t, 0.5, 0.6);
+  const sello = e.sello.toUpperCase();
+  const ws = espaciadoAncho(ctx, sello, 3) + 44;
 
   ctx.globalAlpha = b;
   ctx.fillStyle = ORO;
-  ctx.font = `700 26px ${fuente}`;
-  ctx.fillText(e.sello, ANCHO / 2, 392 + (1 - b) * 20);
+  caja(ctx, ANCHO / 2 - ws / 2, 384 + (1 - b) * 14, ws, 38, 19);
+  ctx.fill();
+  ctx.fillStyle = FONDO;
+  espaciado(ctx, sello, ANCHO / 2, 411 + (1 - b) * 14, 3, "center");
+
+  /* El título, letra a letra. */
   ctx.fillStyle = BLANCO;
-  ctx.font = `700 86px ${fuente}`;
+  ctx.font = `700 92px ${fuente}`;
 
   const lineas = parteLineas(ctx, e.titulo.toUpperCase(), ANCHO - 160).slice(0, 2);
 
-  lineas.forEach((l, i) => ctx.fillText(l, ANCHO / 2, 490 + i * 90 + (1 - b) * 30));
+  lineas.forEach((l, i) => {
+    const anchos = [...l].map((c) => ctx.measureText(c).width);
+    const total = anchos.reduce((sum, w) => sum + w, 0);
+    let x = ANCHO / 2 - total / 2;
 
-  const c = entra(t, 0.9, 0.6);
+    ctx.textAlign = "left";
+    [...l].forEach((c, k) => {
+      const a = tramo(t, 1.05 + i * 0.25 + k * 0.035, 0.45);
 
-  ctx.globalAlpha = c * 0.75;
-  ctx.font = `400 28px ${fuente}`;
-  ctx.fillText(e.subtitulo, ANCHO / 2, 500 + lineas.length * 90 - 40);
+      ctx.globalAlpha = a;
+      ctx.fillText(c, x, 506 + i * 92 + (1 - a) * 36);
+      x += anchos[k];
+    });
+  });
+
+  /* Dos filetes de oro que se abren desde el centro bajo el título. */
+  const f = tramo(t, 1.5, 0.8);
+  const yf = 530 + (lineas.length - 1) * 92;
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = ORO;
+  ctx.fillRect(ANCHO / 2 - 12 - 200 * f, yf, 200 * f, 3);
+  ctx.fillRect(ANCHO / 2 + 12, yf, 200 * f, 3);
+
+  const c = tramo(t, 1.7, 0.6);
+
+  ctx.globalAlpha = c * 0.8;
+  ctx.textAlign = "center";
+  ctx.font = `500 28px ${fuente}`;
+  ctx.fillStyle = BLANCO;
+  ctx.fillText(e.subtitulo, ANCHO / 2, yf + 44 + (1 - c) * 10);
   ctx.textAlign = "left";
   ctx.globalAlpha = 1;
+}
+
+/** Un resplandor de oro detrás de un escudo. */
+function halo(ctx: Lienzo, cx: number, cy: number, radio: number) {
+  const g = ctx.createRadialGradient(cx, cy, radio * 0.4, cx, cy, radio);
+  g.addColorStop(0, "rgba(200,169,107,0.45)");
+  g.addColorStop(1, "rgba(200,169,107,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - radio, cy - radio, radio * 2, radio * 2);
+}
+
+/** El ancho de un texto con espaciado entre letras (para medir antes de pintar). */
+function espaciadoAncho(ctx: Lienzo, texto: string, aire: number) {
+  return [...texto].reduce((s, c) => s + ctx.measureText(c).width, 0) + aire * Math.max(0, texto.length - 1);
 }
 
 function pintaClaves(ctx: Lienzo, fuente: string, titulo: string, lineas: string[], t: number) {
   titular(ctx, fuente, titulo, t);
 
+  const n = Math.min(4, lineas.length);
+  const alto = n <= 3 ? 104 : 86;
+  const hueco = 16;
+
   lineas.slice(0, 4).forEach((linea, i) => {
-    const a = entra(t, 0.4 + i * 0.35, 0.5);
+    const a = salta((t - (0.5 + i * 0.32)) / 0.6);
 
-    ctx.globalAlpha = a;
+    if (a <= 0) return;
+
+    const y = 205 + i * (alto + hueco);
+    const x = 56 + (1 - Math.min(1, a)) * -60;
+
+    ctx.globalAlpha = Math.min(1, a);
+
+    /* La tarjeta, con degradado y filo de oro. */
+    const g = ctx.createLinearGradient(x, 0, x + ANCHO - 112, 0);
+    g.addColorStop(0, "rgba(16,30,52,0.92)");
+    g.addColorStop(1, "rgba(8,17,31,0.55)");
+    ctx.fillStyle = g;
+    caja(ctx, x, y, ANCHO - 112, alto, 14);
+    ctx.fill();
     ctx.fillStyle = ORO;
-    ctx.fillRect(56, 215 + i * 92, 8, 48);
+    caja(ctx, x, y, 6, alto, 3);
+    ctx.fill();
+
+    /* El número, grande y en oro. */
+    ctx.font = `700 ${Math.round(alto * 0.62)}px ${fuente}`;
+    ctx.fillStyle = ORO;
+    ctx.textAlign = "left";
+    ctx.fillText(String(i + 1).padStart(2, "0"), x + 30, y + alto * 0.72);
+
     ctx.fillStyle = BLANCO;
-    ctx.font = `500 34px ${fuente}`;
+    ctx.font = `500 32px ${fuente}`;
 
-    const partes = parteLineas(ctx, linea, ANCHO - 170).slice(0, 2);
+    const partes = parteLineas(ctx, linea, ANCHO - 112 - 160).slice(0, 2);
+    const y0 = y + alto / 2 + 11 - (partes.length - 1) * 18;
 
-    partes.forEach((p, k) => ctx.fillText(p, 90 + (1 - a) * 30, 236 + i * 92 + k * 38 + (partes.length === 1 ? 10 : 0)));
+    partes.forEach((p, k) => ctx.fillText(p, x + 130, y0 + k * 36));
     ctx.globalAlpha = 1;
   });
 }
@@ -635,36 +870,70 @@ function pintaCifras(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ci
   titular(ctx, fuente, e.titulo, t);
 
   const n = Math.min(4, e.cifras.length);
-  const ancho = (ANCHO - 112 - (n - 1) * 20) / n;
+  const hueco = 22;
+  const ancho = (ANCHO - 112 - (n - 1) * hueco) / n;
+  const yTarjeta = 214;
+  const altoTarjeta = 316;
 
   e.cifras.slice(0, 4).forEach((c, i) => {
-    const a = entra(t, 0.4 + i * 0.3, 0.5);
-    const x = 56 + i * (ancho + 20);
-    const dy = (1 - a) * 30;
+    const a = salta((t - (0.45 + i * 0.22)) / 0.6);
 
-    ctx.globalAlpha = a;
-    ctx.fillStyle = "rgba(8,17,31,0.7)";
-    ctx.fillRect(x, 210 + dy, ancho, 300);
+    if (a <= 0) return;
+
+    const x = 56 + i * (ancho + hueco);
+    const y = yTarjeta + (1 - Math.min(1, a)) * 40;
+    const conta = tramo(t, 0.6 + i * 0.22, 1.3);
+
+    ctx.globalAlpha = Math.min(1, a);
+
+    const g = ctx.createLinearGradient(0, y, 0, y + altoTarjeta);
+    g.addColorStop(0, "rgba(18,34,58,0.95)");
+    g.addColorStop(1, "rgba(8,17,31,0.75)");
+    ctx.fillStyle = g;
+    caja(ctx, x, y, ancho, altoTarjeta, 16);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,0.08)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    /* El filo de oro crece de izquierda a derecha. */
     ctx.fillStyle = ORO;
-    ctx.fillRect(x, 210 + dy, ancho * a, 4);
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.font = `600 20px ${fuente}`;
-    ctx.fillText(c.rotulo.toUpperCase(), x + 20, 254 + dy);
-    ctx.fillStyle = BLANCO;
+    caja(ctx, x, y, ancho * conta, 5, 2.5);
+    ctx.fill();
 
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = `600 19px ${fuente}`;
+    espaciado(ctx, c.rotulo.toUpperCase(), x + 22, y + 44, 1.4);
+
+    const fraccion = fraccionDe(c.valor);
     const largo = c.valor.length > 12;
 
-    ctx.font = `700 ${largo ? 30 : 64}px ${fuente}`;
-    parteLineas(ctx, c.valor, ancho - 40)
-      .slice(0, largo ? 5 : 2)
-      .forEach((l, k) => ctx.fillText(l, x + 20, (largo ? 300 : 330) + k * (largo ? 36 : 66) + dy));
+    if (fraccion !== null && !largo) {
+      /* Porcentaje: un anillo que se llena con el número dentro. */
+      const radio = Math.min(ancho * 0.32, 82);
+      const cx = x + ancho / 2;
+      const cy = y + 150;
+
+      anillo(ctx, cx, cy, radio, 12, fraccion * conta, ORO);
+      ctx.fillStyle = BLANCO;
+      ctx.font = `700 ${Math.round(radio * 0.62)}px ${fuente}`;
+      ctx.textAlign = "center";
+      ctx.fillText(cuenta(c.valor, conta), cx, cy + radio * 0.22);
+      ctx.textAlign = "left";
+    } else {
+      ctx.fillStyle = BLANCO;
+      ctx.font = `700 ${largo ? 30 : 92}px ${fuente}`;
+      parteLineas(ctx, largo ? c.valor : cuenta(c.valor, conta), ancho - 44)
+        .slice(0, largo ? 5 : 2)
+        .forEach((l, k) => ctx.fillText(l, x + 22, (largo ? 100 : 160) + y + k * (largo ? 36 : 90)));
+    }
 
     if (c.pie) {
-      ctx.fillStyle = "rgba(255,255,255,0.5)";
-      ctx.font = `400 20px ${fuente}`;
-      parteLineas(ctx, c.pie, ancho - 40)
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.font = `500 21px ${fuente}`;
+      parteLineas(ctx, c.pie, ancho - 44)
         .slice(0, 2)
-        .forEach((l, k) => ctx.fillText(l, x + 20, 460 + k * 24 + dy));
+        .forEach((l, k) => ctx.fillText(l, x + 22, y + altoTarjeta - 52 + k * 25));
     }
 
     ctx.globalAlpha = 1;
@@ -674,30 +943,58 @@ function pintaCifras(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ci
 function pintaBarras(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "barras" }>, t: number) {
   titular(ctx, fuente, e.titulo, t);
 
-  const maximo = Math.max(0.01, ...e.barras.map((b) => b.valor));
-  const largo = ANCHO - 356 - 220;
+  const lista = e.barras.slice(0, 5);
+  const maximo = Math.max(0.01, ...lista.map((b) => b.valor));
+  const mayor = lista.reduce((m, b, i) => (b.valor > lista[m].valor ? i : m), 0);
+  const x0 = 300;
+  const largo = ANCHO - x0 - 56 - 170;
+  const paso = lista.length > 4 ? 76 : 88;
 
-  e.barras.slice(0, 5).forEach((b, i) => {
-    const a = entra(t, 0.4 + i * 0.25, 0.9);
-    const y = 220 + i * 80;
-    const destacada = i === e.barras.length - 1 && e.barras.length > 3;
+  lista.forEach((b, i) => {
+    const a = tramo(t, 0.45 + i * 0.22, 1.1);
+    const y = 228 + i * paso;
+    const destacada = i === mayor;
 
-    ctx.globalAlpha = entra(t, 0.3 + i * 0.25, 0.4);
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.globalAlpha = tramo(t, 0.35 + i * 0.22, 0.4);
+    ctx.fillStyle = destacada ? BLANCO : "rgba(255,255,255,0.72)";
     ctx.font = `600 26px ${fuente}`;
-    ctx.fillText(b.rotulo.toUpperCase(), 56, y + 8);
-    ctx.fillStyle = "rgba(8,17,31,0.6)";
-    ctx.fillRect(300, y - 18, largo, 36);
-    const g = ctx.createLinearGradient(300, 0, 300 + largo, 0);
-    g.addColorStop(0, destacada ? "#E3C98F" : "rgba(200,169,107,0.55)");
-    g.addColorStop(1, destacada ? ORO : "rgba(200,169,107,0.95)");
-    ctx.fillStyle = g;
-    ctx.fillRect(300, y - 18, largo * (b.valor / maximo) * a, 36);
+    ctx.textAlign = "left";
+    ctx.fillText(b.rotulo.toUpperCase(), 56, y + 9);
 
+    /* La pista y la barra, redondeadas. */
+    ctx.fillStyle = "rgba(255,255,255,0.07)";
+    caja(ctx, x0, y - 17, largo, 34, 17);
+    ctx.fill();
+
+    const w = Math.max(34, largo * (b.valor / maximo) * a);
+    const g = ctx.createLinearGradient(x0, 0, x0 + w, 0);
+    g.addColorStop(0, destacada ? "#B8935A" : "rgba(200,169,107,0.45)");
+    g.addColorStop(1, destacada ? "#F0D9A6" : "rgba(200,169,107,0.9)");
+
+    /* La destacada, con un resplandor (una banda más ancha y translúcida). */
+    if (destacada) {
+      ctx.fillStyle = "rgba(227,201,143,0.16)";
+      caja(ctx, x0 - 6, y - 25, w + 12, 50, 25);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = g;
+    caja(ctx, x0, y - 17, w, 34, 17);
+    ctx.fill();
+
+    /* El valor viaja en una píldora al final de la barra. */
     const num = b.texto.match(/^(\d+)(.*)$/);
-    ctx.fillStyle = BLANCO;
-    ctx.font = `700 30px ${fuente}`;
-    ctx.fillText(num ? `${Math.round(Number(num[1]) * a)}${num[2]}` : b.texto, ANCHO - 56 - 200, y + 10);
+    const texto = num ? `${Math.round(Number(num[1]) * a)}${num[2]}` : b.texto;
+
+    ctx.font = `700 26px ${fuente}`;
+    const wt = ctx.measureText(texto).width + 26;
+    const px = Math.min(x0 + w + 14, ANCHO - 56 - wt);
+
+    ctx.fillStyle = destacada ? ORO : "rgba(8,17,31,0.85)";
+    caja(ctx, px, y - 19, wt, 38, 19);
+    ctx.fill();
+    ctx.fillStyle = destacada ? FONDO : BLANCO;
+    ctx.fillText(texto, px + 13, y + 9);
     ctx.globalAlpha = 1;
   });
 }
@@ -910,6 +1207,8 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
 
   rotuloBajo(ctx, fuente, principal, resto.join(" · "), tc, corte.texto ? ALTO - 176 : ALTO - 140);
 
+  if (corte.tipo === "gol" && !corte.repeticion) estallidoGol(ctx, fuente, tc);
+
   /* La línea del partido (arriba, bajo el título) y el campo pequeño con la jugada (arriba a la derecha). */
   if (e.marcas?.length) lineaDelPartido(ctx, fuente, e.marcas, corte.minutoNum ?? 0, tc);
 
@@ -1091,37 +1390,55 @@ function campoDeLaJugada(ctx: Lienzo, fuente: string, c: CortePartido, t: number
   ctx.globalAlpha = 1;
 }
 
-function pintaCierre(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cierre" }>, t: number) {
-  const velo = ctx.createLinearGradient(0, 0, ANCHO * 0.8, 0);
-  velo.addColorStop(0, "rgba(8,17,31,0.85)");
-  velo.addColorStop(1, "rgba(8,17,31,0)");
+function pintaCierre(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cierre" }>, rec: Recursos, t: number) {
+  const velo = ctx.createRadialGradient(ANCHO / 2, ALTO * 0.45, 60, ANCHO / 2, ALTO * 0.45, ANCHO * 0.7);
+  velo.addColorStop(0, "rgba(8,17,31,0.72)");
+  velo.addColorStop(1, "rgba(8,17,31,0.96)");
   ctx.fillStyle = velo;
   ctx.fillRect(0, 0, ANCHO, ALTO);
 
-  const a = entra(t, 0.1, 0.6);
+  /* Nuestro escudo (el de la portada), con un anillo de oro que se cierra. */
+  const escudo = [...rec.imagenes.entries()].find(([k, v]) => k.endsWith(":nosotros") && v)?.[1] ?? null;
+  const cy = 210;
+  const a = salta((t - 0.1) / 0.8);
 
-  ctx.globalAlpha = a;
-  ctx.fillStyle = ORO;
-  ctx.font = `700 26px ${fuente}`;
-  ctx.textAlign = "left";
-  ctx.fillText(e.titulo.toUpperCase(), 56, 240);
-  ctx.globalAlpha = 1;
-
-  const b = entra(t, 0.4, 0.7);
-
-  ctx.globalAlpha = b;
-  ctx.fillStyle = BLANCO;
-  ctx.font = `700 54px ${fuente}`;
-
-  let y = 320;
-
-  for (const linea of e.lineas.slice(0, 2)) {
-    for (const l of parteLineas(ctx, linea, ANCHO - 112).slice(0, 2)) {
-      ctx.fillText(l, 56 + (1 - b) * -30, y);
-      y += 62;
-    }
+  if (a > 0) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, a);
+    halo(ctx, ANCHO / 2, cy, 150);
+    medallon(ctx, fuente, escudo, ANCHO / 2, cy, 78 * Math.max(0.3, a), "rgba(255,255,255,0.0)", "RM");
+    ctx.restore();
+    anillo(ctx, ANCHO / 2, cy, 98, 5, tramo(t, 0.3, 1.2), ORO, "rgba(255,255,255,0.08)");
   }
 
+  const b = tramo(t, 0.7, 0.6);
+
+  ctx.globalAlpha = b;
+  ctx.fillStyle = ORO;
+  ctx.font = `700 26px ${fuente}`;
+  espaciado(ctx, "REAL MADRID CASTILLA", ANCHO / 2, 352, 7, "center");
+  ctx.fillStyle = "rgba(255,255,255,0.75)";
+  ctx.font = `600 24px ${fuente}`;
+  espaciado(ctx, e.titulo.toUpperCase(), ANCHO / 2, 390, 3, "center");
+
+  ctx.fillStyle = BLANCO;
+  ctx.font = `700 52px ${fuente}`;
+  ctx.textAlign = "center";
+
+  let y = 470;
+
+  e.lineas.slice(0, 2).forEach((linea, i) => {
+    const c = tramo(t, 1 + i * 0.3, 0.6);
+
+    ctx.globalAlpha = c;
+
+    for (const l of parteLineas(ctx, linea, ANCHO - 200).slice(0, 2)) {
+      ctx.fillText(l, ANCHO / 2, y + (1 - c) * 20);
+      y += 60;
+    }
+  });
+
+  ctx.textAlign = "left";
   ctx.globalAlpha = 1;
 }
 
@@ -1140,6 +1457,8 @@ export type Fotograma = {
   restante: number;
   /** El fotograma del corte que toca, si la escena es de cortes. */
   cuadro: Dibujable | null;
+  /** Dónde empieza cada escena (0→1 del vídeo), para las muescas de la barra. */
+  marcas?: number[];
 };
 
 /** Pinta un fotograma completo: plató, escena, acabado y fundidos. */
@@ -1176,17 +1495,21 @@ export function pintaFotograma(ctx: Lienzo, grano: Dibujable, fuente: string, ti
     else if (e.tipo === "imagen") pintaImagen(ctx, fuente, e, rec.imagenes.get(e.id) ?? null, f.t, f.medida.segundos);
     else if (e.tipo === "once") pintaOnce(ctx, fuente, P, e, rec, f.t);
     else if (e.tipo === "vigilar") pintaVigilar(ctx, fuente, e, rec, f.t);
-    else pintaCierre(ctx, fuente, e, f.t);
+    else pintaCierre(ctx, fuente, e, rec, f.t);
 
     if (e.tipo === "claves" || e.tipo === "cifras" || e.tipo === "barras" || e.tipo === "imagen" || e.tipo === "vigilar") pieLocucion(ctx, fuente, e.locucion, f.t);
   }
 
-  acabado(ctx, grano, f.progreso, titulo, fuente);
+  acabado(ctx, grano, f.progreso, titulo, fuente, f.marcas);
 
-  const velo = Math.max(0, 1 - Math.min(f.t / 0.3, f.restante / 0.3));
+  /*
+  | Entre escenas, cortinilla en diagonal (14/10/2026; antes fundido a negro):
+  | entra en los últimos 0,4 s de una escena y sale en los primeros 0,45 de la
+  | siguiente. Los cortes de vídeo la llevan más corta para no comerse la jugada.
+  */
+  const entrada = e.tipo === "clips" ? 0.3 : 0.45;
+  const salida = e.tipo === "clips" ? 0.25 : 0.4;
 
-  if (velo > 0) {
-    ctx.fillStyle = `rgba(8,17,31,${velo})`;
-    ctx.fillRect(0, 0, ANCHO, ALTO);
-  }
+  if (f.t < entrada) cortinilla(ctx, ANCHO, ALTO, "sale", f.t / entrada, ORO, FONDO);
+  else if (f.restante < salida) cortinilla(ctx, ANCHO, ALTO, "entra", 1 - f.restante / salida, ORO, FONDO);
 }
