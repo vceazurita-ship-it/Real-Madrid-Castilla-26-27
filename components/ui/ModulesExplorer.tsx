@@ -46,7 +46,7 @@ function ModuleCard({ module }: { module: AppModule }) {
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block text-[9px] font-semibold uppercase tracking-[0.24em] text-[color:var(--accent)]/80">
+        <span className="block text-[9px] font-semibold uppercase tracking-[0.24em] text-[color:var(--accent)]">
           {area.label}
         </span>
 

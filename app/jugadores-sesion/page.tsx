@@ -370,7 +370,7 @@ function Caja({
       >
         {children}
         {cuenta === 0 && (
-          <span className="pointer-events-none self-center px-1 text-[11px] text-white/25">{vacio}</span>
+          <span className="pointer-events-none self-center px-1 text-[11px] text-white/40">{vacio}</span>
         )}
       </div>
     </div>

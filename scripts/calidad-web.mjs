@@ -96,9 +96,14 @@ for (const ruta of pantallas) {
 
       const ejemplos = (a.details?.items ?? [])
         .slice(0, 3)
-        .map((it) => it.node?.snippet ?? it.url ?? "")
-        .filter(Boolean)
-        .map((t) => `\`${String(t).slice(0, 110).replaceAll("`", "'")}\``);
+        .map((it) => {
+          const t = it.node?.snippet ?? it.url ?? "";
+          // El porqué (en contraste, los dos colores y la cifra), que sin él hay que adivinarlo.
+          const porque = (it.node?.explanation ?? "").split("\n")[1]?.trim().replace(/^Element has /, "");
+
+          return t ? `\`${String(t).slice(0, 110).replaceAll("`", "'")}\`${porque ? ` ${porque.slice(0, 120)}` : ""}` : "";
+        })
+        .filter(Boolean);
 
       fallos.push({ peso: ref.weight * (1 - a.score), linea: `- **${titulo}** · ${a.title}${a.displayValue ? ` (${a.displayValue})` : ""}${ejemplos.length ? `<br>${ejemplos.join("<br>")}` : ""}` });
     }
@@ -110,8 +115,13 @@ for (const ruta of pantallas) {
   const tbt = informe.audits["total-blocking-time"]?.displayValue;
   const cls = informe.audits["cumulative-layout-shift"]?.displayValue;
 
+  // Qué es lo grande que tarda y qué es lo que salta: sin el elemento no se sabe dónde mirar.
+  const corto = (t) => (t ? `\`${String(t).slice(0, 110).replaceAll("`", "'")}\`` : "");
+  const queCarga = corto(informe.audits["largest-contentful-paint-element"]?.details?.items?.[0]?.items?.[0]?.node?.snippet);
+  const queSalta = corto(informe.audits["layout-shifts"]?.details?.items?.[0]?.node?.snippet);
+
   detalles.push(
-    `### ${ruta}\n\nCarga ${lcp ?? "–"} · bloqueo ${tbt ?? "–"} · saltos ${cls ?? "–"}\n\n${fallos.length ? fallos.slice(0, 8).map((f) => f.linea).join("\n") : "Nada que arreglar."}\n`,
+    `### ${ruta}\n\nCarga ${lcp ?? "–"} · bloqueo ${tbt ?? "–"} · saltos ${cls ?? "–"}${queCarga ? `<br>Lo que más tarda: ${queCarga}` : ""}${queSalta ? `<br>Lo que salta: ${queSalta}` : ""}\n\n${fallos.length ? fallos.slice(0, 8).map((f) => f.linea).join("\n") : "Nada que arreglar."}\n`,
   );
 }
 

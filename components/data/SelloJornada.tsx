@@ -20,6 +20,7 @@ import { CheckCircle2, CircleAlert, CircleDashed } from "lucide-react";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import type { Alcance, PartidoCalendario } from "@/lib/data-analisis/alcance";
 import { useTextosExplicativos } from "@/components/ui/textos-analisis";
+import { chipInk } from "@/lib/theme";
 
 /** El calendario del Castilla (BeSoccer) y el día de hoy, leídos una vez. */
 export function useCalendarioCastilla() {
@@ -69,7 +70,7 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
               {a.fecha ? ` · ${fecha(a.fecha)}` : ""}
             </span>
             {!sin && (
-              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color, background: `${color}22` }}>
+              <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: chipInk(color), background: `${color}22` }}>
                 {completa ? "Jornada completa" : "Jornada incompleta"}
               </span>
             )}
