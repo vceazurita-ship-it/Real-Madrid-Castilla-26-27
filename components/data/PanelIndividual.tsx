@@ -28,6 +28,7 @@ import {
   type Puesto,
 } from "@/lib/data-analisis/individual";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 /**
  * EL JUGADOR.
@@ -126,7 +127,7 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
   return (
     <>
       <div className="mt-5">
-        <Notice title="Los jugadores, por noventa minutos">
+        <Explicativo><Notice title="Los jugadores, por noventa minutos">
           <p>
             Sale del <strong className="text-white/75">«Search results» de
             Wyscout</strong>: una fila por jugador con todo ya por noventa
@@ -159,7 +160,7 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
               que no jugó.
             </li>
           </ul>
-        </Notice>
+        </Notice></Explicativo>
       </div>
 
       {/* A quién se mira y contra quién. */}
@@ -581,14 +582,14 @@ function TablaPlantilla({
           ))}
         </div>
 
-        <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+        <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
           <strong className="text-white/60">{metrica.nombre}:</strong>{" "}
           {metrica.comoLeer}
           {metrica.mejorAlto === false && (
             <span className="text-white/35"> Aquí el primero es el que menos tiene.</span>
           )}{" "}
           Con asterisco y en gris, los que no llegan a {MINUTOS_MINIMOS} minutos.
-        </p>
+        </p></Explicativo>
       </Panel>
     </div>
   );
@@ -748,12 +749,12 @@ function PanelEvolucion({
           </div>
         )}
 
-        <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+        <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
           Se compara percentil contra percentil, cada año contra su propia
           categoría: así el cambio no depende de que el equipo juegue distinto
           ni de cuántos minutos lleve. Con {jugador.minutos}′ de esta temporada
           es un indicio temprano, no un veredicto.
-        </p>
+        </p></Explicativo>
       </Panel>
     </div>
   );

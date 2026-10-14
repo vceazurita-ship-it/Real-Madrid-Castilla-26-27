@@ -262,7 +262,7 @@ export function Campograma({
       <p className="mt-2 min-h-[32px] text-[11.5px] leading-relaxed text-white/45">
         {encima
           ? fichas.find((f) => `${id}-${f.ficha.rotulo}` === encima)?.ficha.nota
-          : "Pasa el ratón por una cifra para ver cómo se lee."}
+          : ""}
       </p>
     </div>
   );

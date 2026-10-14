@@ -20,6 +20,7 @@ import {
   type AccionAbp,
   type BloqueAbp,
 } from "@/lib/data-analisis/abp-propio";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 /**
  * NUESTRO BALÓN PARADO, REGISTRADO A MANO.
@@ -208,7 +209,7 @@ export function PanelAbpPropio() {
         los dos midieran lo mismo, y no es así: éste sale de una libreta.
       */}
       <div className="mt-5">
-        <Notice title="Análisis interno del cuerpo técnico">
+        <Explicativo><Notice title="Análisis interno del cuerpo técnico">
           <p>
             Estos números <strong className="text-white/75">no salen de
             Wyscout ni de Opta</strong>: son las acciones de balón parado
@@ -226,7 +227,7 @@ export function PanelAbpPropio() {
               de otra categoría. El conmutador de abajo los separa.
             </li>
           </ul>
-        </Notice>
+        </Notice></Explicativo>
       </div>
 
       {error && (
@@ -517,11 +518,11 @@ export function PanelAbpPropio() {
                   lectura={lecturaDelRechace(segundoBalon, meta.nuestro)}
                 />
 
-                <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+                <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
                   «Ganado» y «perdido» están escritos desde nuestro lado en las
                   cuatro hojas: ganar el rechace en una acción en contra es
                   bueno para nosotros.
-                </p>
+                </p></Explicativo>
               </Panel>
             )}
 
@@ -544,10 +545,10 @@ export function PanelAbpPropio() {
                 }
               />
 
-              <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+              <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
                 Con pocas acciones por partido, un solo córner mueve la línea
                 diez puntos: mira la forma, no el salto.
-              </p>
+              </p></Explicativo>
             </Panel>
           </div>
 
@@ -691,10 +692,10 @@ function RutinasEnsayadas({
           </table>
         </div>
 
-        <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+        <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
           Sólo salen las rutinas repetidas al menos dos veces: una jugada usada
           una vez y salida bien es un 100 % que no significa nada.
-        </p>
+        </p></Explicativo>
       </Panel>
     </div>
   );

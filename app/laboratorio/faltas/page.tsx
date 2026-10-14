@@ -38,11 +38,13 @@
  */
 
 import { useMemo, useState } from "react";
-import { Crosshair, Shield, Swords, Zap } from "lucide-react";
+import { BarChart3, Crosshair, LayoutDashboard, List, Map as MapIcon, Shield, Swords, Zap } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
+import { NavAnalisisPartido } from "@/components/analisis/NavAnalisisPartido";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { ComparativaPartido, mediaPorPartido, type MetricaComparada } from "@/components/abp/ComparativaPartido";
 import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
 import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
@@ -115,6 +117,12 @@ const ROTULO: Record<string, string> = {
 /** "12'03\" (táctica 12:58)" o «—» cuando no se sabe. */
 const minutoDe = (f: Falta) => f.minuto?.trim() || "—";
 
+/** Sin el segundo del vídeo táctico, que es del método: "12'03\" (táctica 12:58)" → "12'03\"". */
+const minutoCorto = (f: Falta) => minutoDe(f).replace(/\s*\(t[aá]ctica[^)]*\)/i, "");
+
+/* Las vistas de la pantalla: resumen, el campo, el detalle y la lista. */
+const VISTAS = ["resumen", "campo", "detalle", "lista"] as const;
+
 /** Si hay algún partido de pretemporada en los datos (hoy, ninguno). */
 const HAY_PRETEMPORADA = PARTIDOS.some((p) => esPretemporada(p.jornada));
 
@@ -150,6 +158,7 @@ function fechaCorta(iso: string) {
 
 export default function FaltasPage() {
   const explicativos = useTextosExplicativos();
+  const [vista, setVista] = usePestanaUrl("vista", VISTAS, "resumen");
   const [filtro, setFiltro] = useState<Filtro>("todas");
   /*
   | La pretemporada, fuera salvo que se pida: los amistosos no se leen igual
@@ -169,9 +178,9 @@ export default function FaltasPage() {
   */
   const [partidoId, setPartidoId] = useState<string>(ultimoPorFecha(partidosVisibles)?.id ?? "");
 
-  /** El desplegable, del más reciente al más antiguo: el de arriba es el que se abre. */
-  const partidosRecientes = useMemo(
-    () => [...partidosVisibles].sort((a, b) => b.fecha.localeCompare(a.fecha)),
+  /** Los botones de partido, en el orden en que se jugaron (como en Robos y Pérdidas). */
+  const partidosEnOrden = useMemo(
+    () => [...partidosVisibles].sort((a, b) => a.fecha.localeCompare(b.fecha)),
     [partidosVisibles],
   );
 
@@ -473,7 +482,7 @@ export default function FaltasPage() {
 
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
-              area="RMCF Castilla · Competición"
+              area="RMCF Castilla · Análisis del partido"
               title="Análisis de faltas"
               lead={
                 explicativos
@@ -481,6 +490,8 @@ export default function FaltasPage() {
                   : undefined
               }
             />
+
+            <NavAnalisisPartido className="mt-4" />
 
             {PARTIDOS.length === 0 || (partido?.faltas.length ?? 0) === 0 ? (
               <div className="mt-5">
@@ -495,10 +506,95 @@ export default function FaltasPage() {
               </div>
             ) : null}
 
+            {/* ---------------- mandos ---------------- */}
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              {partidosEnOrden.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setPartidoId(p.id);
+                    setResaltada(null);
+                  }}
+                  aria-pressed={partido?.id === p.id}
+                  className={`rounded-xl border px-3 py-2 text-sm transition ${
+                    partido?.id === p.id
+                      ? "border-[#C8A96B]/40 bg-[#C8A96B]/15 text-[#C8A96B]"
+                      : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20"
+                  }`}
+                >
+                  {p.jornada} · {p.rival}
+                </button>
+              ))}
+
+              <span className="mx-1 h-6 w-px bg-white/10" />
+
+
+              <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+                {(
+                  [
+                    { key: "todas" as const, label: "Todas" },
+                    { key: "ofensivo" as const, label: "A favor" },
+                    { key: "defensivo" as const, label: "En contra" },
+                  ] satisfies { key: Filtro; label: string }[]
+                ).map((uno) => (
+                  <button
+                    key={uno.key}
+                    type="button"
+                    onClick={() => {
+                      setFiltro(uno.key);
+                      setResaltada(null);
+                    }}
+                    aria-pressed={filtro === uno.key}
+                    className={`rounded-lg px-3 py-2 text-xs transition ${
+                      filtro === uno.key
+                        ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                        : "text-white/50 hover:text-white"
+                    }`}
+                  >
+                    {uno.label}
+                  </button>
+                ))}
+              </div>
+
+              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50">
+                {faltas.length} {faltas.length === 1 ? "falta" : "faltas"}
+              </span>
+            </div>
+
+            <BarraFiltros
+              chips={chips}
+              onLimpiar={quitaTodo}
+              cuenta={{ vistas: faltas.length, total: partido?.faltas.length ?? 0, unidad: "faltas" }}
+              pretemporada={
+                HAY_PRETEMPORADA
+                  ? { incluida: conPretemporada, onCambiar: setConPretemporada }
+                  : undefined
+              }
+              className="mt-3"
+            />
+
+            <div className="mt-4">
+              <Pestanas
+                etiqueta="Vistas"
+                valor={vista}
+                onCambia={setVista}
+                opciones={[
+                  { clave: "resumen", label: "Resumen", icono: LayoutDashboard },
+                  { clave: "campo", label: "En el campo", icono: MapIcon },
+                  { clave: "detalle", label: "Detalle", icono: BarChart3 },
+                  { clave: "lista", label: "Falta a falta", icono: List, cuenta: faltas.length },
+                ]}
+              />
+            </div>
+
+            {vista === "resumen" && (
+            <>
             {/* ---------------- el partido ---------------- */}
 
             {partido && (
-              <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
                   {partido.jornada}
                 </span>
@@ -551,70 +647,6 @@ export default function FaltasPage() {
               />
             )}
 
-            {/* ---------------- mandos ---------------- */}
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {partidosVisibles.length > 1 && (
-                <select
-                  value={partido?.id ?? ""}
-                  onChange={(e) => {
-                    setPartidoId(e.target.value);
-                    setResaltada(null);
-                  }}
-                  className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
-                >
-                  {partidosRecientes.map((p) => (
-                    <option key={p.id} value={p.id} className="bg-[#11161C]">
-                      {p.jornada} · {p.rival}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-                {(
-                  [
-                    { key: "todas" as const, label: "Todas" },
-                    { key: "ofensivo" as const, label: "A favor" },
-                    { key: "defensivo" as const, label: "En contra" },
-                  ] satisfies { key: Filtro; label: string }[]
-                ).map((uno) => (
-                  <button
-                    key={uno.key}
-                    type="button"
-                    onClick={() => {
-                      setFiltro(uno.key);
-                      setResaltada(null);
-                    }}
-                    aria-pressed={filtro === uno.key}
-                    className={`rounded-lg px-3 py-2 text-xs transition ${
-                      filtro === uno.key
-                        ? "bg-[#C8A96B]/15 text-[#C8A96B]"
-                        : "text-white/50 hover:text-white"
-                    }`}
-                  >
-                    {uno.label}
-                  </button>
-                ))}
-              </div>
-
-              <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50">
-                {faltas.length} {faltas.length === 1 ? "falta" : "faltas"}
-              </span>
-            </div>
-
-            <BarraFiltros
-              chips={chips}
-              onLimpiar={quitaTodo}
-              cuenta={{ vistas: faltas.length, total: partido?.faltas.length ?? 0, unidad: "faltas" }}
-              pretemporada={
-                HAY_PRETEMPORADA
-                  ? { incluida: conPretemporada, onCambiar: setConPretemporada }
-                  : undefined
-              }
-              className="mt-3"
-            />
-
             {partido?.notas.length ? (
               <Explicativo>
                 <ul className="mt-3 space-y-1 text-[12px] text-white/40">
@@ -626,10 +658,14 @@ export default function FaltasPage() {
             ) : null}
 
             <Conclusiones items={conclusiones} className="mt-4" />
+            </>
+            )}
 
+            {vista === "campo" && (
+            <>
             {/* ---------------- el campo ---------------- */}
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-[1.45fr_1fr]">
+            <div className="mt-5">
               <Panel
                 title="Dónde se cometen"
                 subtitle={
@@ -660,7 +696,7 @@ export default function FaltasPage() {
                   onLado={alternaLado}
                 />
 
-                {sinSitio > 0 && (
+                {sinSitio > 0 && explicativos && (
                   <p className="mt-3 text-[11px] text-white/35">
                     {sinSitio}{" "}
                     {sinSitio === 1
@@ -671,7 +707,13 @@ export default function FaltasPage() {
                 )}
               </Panel>
 
-              <div className="space-y-4">
+            </div>
+            </>
+            )}
+
+            {vista === "detalle" && (
+            <>
+              <div className="mt-5 grid gap-4 lg:grid-cols-3">
                 <Panel title="Cuánta gente defendía" icon={Shield}>
                   {defensores ? (
                     <>
@@ -688,7 +730,7 @@ export default function FaltasPage() {
                       <p className="mt-2 text-[12px] text-white/40">
                         Entre {defensores.minimo} y {defensores.maximo}, contados en{" "}
                         {defensores.contadas} de {faltas.length}
-                        {defensores.sinContar > 0
+                        {defensores.sinContar > 0 && explicativos
                           ? `. En ${defensores.sinContar} no se veía el campo entero.`
                           : "."}
                       </p>
@@ -768,7 +810,7 @@ export default function FaltasPage() {
                           </button>
 
                           <span className="min-w-0 text-[12px] leading-relaxed text-white/55">
-                            <span className="text-white/45">{minutoDe(f)}</span>
+                            <span className="text-white/45">{explicativos ? minutoDe(f) : minutoCorto(f)}</span>
                             {" · "}
                             <Filtrable
                               activo={filtro === f.lado}
@@ -824,8 +866,11 @@ export default function FaltasPage() {
                   </div>
                 </Panel>
               </div>
-            </div>
+            </>
+            )}
 
+            {vista === "lista" && (
+            <>
             {/* ---------------- una por una ---------------- */}
 
             {faltas.length > 0 && (
@@ -899,7 +944,7 @@ export default function FaltasPage() {
                             </td>
 
                             <td className="whitespace-nowrap py-2 pr-3 font-mono text-[12px] tabular-nums text-white/60">
-                              {minutoDe(f)}
+                              {explicativos ? minutoDe(f) : minutoCorto(f)}
                             </td>
 
                             {explicativos && <td className="py-2 text-white/45">{f.nota}</td>}
@@ -910,6 +955,9 @@ export default function FaltasPage() {
                   </div>
                 </Panel>
               </div>
+            )}
+
+            </>
             )}
 
             {/* ---------------- cómo se actualiza ---------------- */}

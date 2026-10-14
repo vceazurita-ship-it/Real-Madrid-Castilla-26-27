@@ -13,7 +13,7 @@
 */
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Clock, Crosshair, Goal, Home, Lightbulb, ListOrdered, Shapes, Trophy } from "lucide-react";
+import { Clock, Crosshair, Goal, Home, LayoutDashboard, Lightbulb, ListOrdered, Shapes, Trophy } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -21,6 +21,9 @@ import { EsqueletoPantalla } from "@/components/ui/estados";
 import { AbpHeader, Notice, Panel, SaveState, Segmented, Select, StatCard, StatRow } from "@/components/abp/ui";
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { Lectura } from "@/components/data/formas";
+import { NavAnalisisPartido } from "@/components/analisis/NavAnalisisPartido";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasTipologia";
 import { avisoMuestra, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -53,6 +56,12 @@ import {
 type Condicion = "todos" | Lado;
 
 const TAMANOS = [5, 10, 15, 30, 45];
+
+const VISTAS = ["resumen", "minutos", "casa", "tipo", "goles"] as const;
+type Vista = (typeof VISTAS)[number];
+
+/* Un motivo que habla de las fuentes (Hudl, timeline…) es método, no fútbol: sólo con los textos explicativos encendidos. */
+const esMetodo = (t: string) => /hudl|timeline|besoccer|wyscout|táctica/i.test(t);
 
 const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)} %` : "—");
 
@@ -239,6 +248,8 @@ export function PantallaGoles() {
   const [tamano, setTamano] = useState(15);
   const [cortes, setCortes] = useState("");
   const [descuentos, setDescuentos] = useState(true);
+  const [vista, setVista] = usePestanaUrl<Vista>("vista", VISTAS, "resumen");
+  const explicativos = useTextosExplicativos();
 
   const equipo = equipoElegido ?? nuestroNombre;
   const esNuestro = mismoEquipo(equipo, CASTILLA);
@@ -557,13 +568,15 @@ export function PantallaGoles() {
         // eslint-disable-next-line @next/next/no-img-element
         crest={escudo ? <img src={escudo} alt="" className="h-9 w-9 shrink-0 object-contain" /> : undefined}
         lead={
-          <>
+          <Explicativo>
             Goles de {equipo} y de toda la liga por franjas de minutos, como local y como visitante, con los remates de Wyscout y la tipología de los goles de nuestros
             partidos (Hudl). Jornadas {jDesde} a {jHasta}
             {doc.actualizado ? ` · actualizado el ${new Date(doc.actualizado).toLocaleDateString("es-ES", { day: "numeric", month: "long" })}` : ""}.
-          </>
+          </Explicativo>
         }
       />
+
+      <NavAnalisisPartido className="mt-4" />
 
       {/* ---------------- mandos ---------------- */}
       <div className="mt-6 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -621,6 +634,21 @@ export function PantallaGoles() {
         </div>
       ) : (
         <div className="mt-6 space-y-5">
+          <Pestanas<Vista>
+            etiqueta="Vistas del análisis de goles"
+            valor={vista}
+            onCambia={setVista}
+            opciones={[
+              { clave: "resumen", label: "Resumen", icono: LayoutDashboard },
+              { clave: "minutos", label: "Minutos", icono: Clock },
+              { clave: "casa", label: "Casa y fuera", icono: Home },
+              { clave: "tipo", label: "Cómo llegan", icono: Shapes },
+              { clave: "goles", label: "Gol a gol", icono: ListOrdered, cuenta: goles.length },
+            ]}
+          />
+
+          {vista === "resumen" ? (
+            <>
           <StatRow>
             <StatCard label="Partidos" value={delEquipo.length} hint={condicion === "todos" ? "local y visitante" : condicion} />
             <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido · liga ${fmt(ligaGolesPP)}`} accent={ORO} />
@@ -652,6 +680,36 @@ export function PantallaGoles() {
             {aviso ? <p className="mt-3 text-[11px] text-white/40">{aviso}</p> : null}
           </Panel>
 
+          {/* ---------------- marcar primero ---------------- */}
+          <Panel
+            title="¿Qué pasa cuando marca primero?"
+            subtitle="Cómo acaban los partidos según quién abre el marcador, frente a la liga con la misma condición."
+            icon={Trophy}
+            analisis={dePrimero.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{dePrimero.join(" ")}</Lectura></div> : undefined}
+          >
+            <Tabla
+              cabeza={["", "Partidos", "Ganados", "Empatados", "Perdidos", "Puntos / partido", "Liga: puntos / partido"]}
+              filas={(["propio", "rival", "nadie"] as const).map((k) => {
+                const e = primero.eq[k];
+                const l = primero.lg[k];
+
+                return [
+                  k === "propio" ? "Marca primero" : k === "rival" ? "Recibe primero" : "Sin goles",
+                  e.n,
+                  e.G,
+                  e.E,
+                  e.P,
+                  <Contra key={k} valor={media(e.G * 3 + e.E, e.n)} liga={media(l.G * 3 + l.E, l.n)} mejorAlto />,
+                  fmt(media(l.G * 3 + l.E, l.n)),
+                ];
+              })}
+            />
+          </Panel>
+            </>
+          ) : null}
+
+          {vista === "minutos" ? (
+            <>
           {/* ---------------- franjas ---------------- */}
           <Panel
             title="¿En qué minutos marca y en cuáles le marcan?"
@@ -686,10 +744,38 @@ export function PantallaGoles() {
             </details>
           </Panel>
 
+          {/* ---------------- remates por franja ---------------- */}
+          {rematesFranja ? (
+            <Panel
+              title="¿Cuándo remata y cuándo le rematan?"
+              subtitle={explicativos ? `Del timeline de Hudl de ${rematesFranja.n} de nuestros partidos (Wyscout no da el minuto de los remates).` : `En ${rematesFranja.n} de nuestros partidos.`}
+              icon={Crosshair}
+              analisis={rematesFranja.lectura ? <div className="px-4 pb-4 sm:px-5"><Lectura>{rematesFranja.lectura}</Lectura></div> : undefined}
+            >
+              <Tabla
+                cabeza={["Franja", "Remates nuestros", "A puerta", "Gol", "Remates del rival", "A puerta", "Gol"]}
+                filas={rematesFranja.filas}
+                pie={[
+                  "Total",
+                  rematesFranja.total.filter((r) => r.nuestro).length,
+                  rematesFranja.total.filter((r) => r.nuestro && r.aPuerta).length,
+                  rematesFranja.total.filter((r) => r.nuestro && r.gol).length,
+                  rematesFranja.total.filter((r) => !r.nuestro).length,
+                  rematesFranja.total.filter((r) => !r.nuestro && r.aPuerta).length,
+                  rematesFranja.total.filter((r) => !r.nuestro && r.gol).length,
+                ]}
+              />
+            </Panel>
+          ) : null}
+            </>
+          ) : null}
+
+          {vista === "casa" ? (
+            <>
           {/* ---------------- local y visitante ---------------- */}
           <Panel
             title="¿Rinde igual en casa que fuera?"
-            subtitle={`Por partido. ▲ mejor y ▼ peor que la liga en la misma condición (más de un 10 %). Remates y xG de Wyscout: ${cL.nw + cV.nw} de ${cL.n + cV.n} partidos.`}
+            subtitle={`Por partido. ▲ mejor y ▼ peor que la liga en la misma condición.${explicativos ? ` Remates y xG de Wyscout: ${cL.nw + cV.nw} de ${cL.n + cV.n} partidos; el umbral es un 10 %.` : ""}`}
             icon={Home}
             analisis={deCondicion.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deCondicion.join(" ")}</Lectura></div> : undefined}
           >
@@ -722,14 +808,20 @@ export function PantallaGoles() {
               </div>
             </details>
           </Panel>
+            </>
+          ) : null}
 
+          {vista === "tipo" ? (
+            <>
           {/* ---------------- tipología ---------------- */}
           <Panel
             title="¿Cómo llegan los goles?"
             subtitle={
               esNuestro
-                ? "De nuestros partidos, con el timeline de Hudl y las grabaciones tácticas. Es una propuesta: cada gol se corrige en la lista de abajo."
-                : "De este equipo sólo se clasifican los goles de sus partidos contra nosotros (Hudl). Del resto de la liga sólo se sabe si fue de penalti o en propia puerta."
+                ? explicativos
+                  ? "De nuestros partidos, con el timeline de Hudl y las grabaciones tácticas. Es una propuesta: cada gol se corrige en Gol a gol."
+                  : "Cada gol se puede cambiar en Gol a gol."
+                : "Sólo los goles de sus partidos contra nosotros. Del resto de la liga se sabe si fue de penalti o en propia puerta."
             }
             icon={Shapes}
             analisis={esNuestro && deTipologia.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deTipologia.join(" ")}</Lectura></div> : undefined}
@@ -810,7 +902,7 @@ export function PantallaGoles() {
               </div>
 
               <div className="min-w-0 space-y-3">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Lo que se sabe de toda la liga (BeSoccer)</p>
+                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Penaltis y goles en propia puerta: toda la liga</p>
                 <Tabla
                   cabeza={["", "Penalti", "Propia puerta", "Resto"]}
                   filas={[
@@ -819,7 +911,7 @@ export function PantallaGoles() {
                     ["Liga", pct(origenLiga.liga.penalti, origenLiga.liga.n), pct(origenLiga.liga.propia, origenLiga.liga.n), pct(origenLiga.liga.n - origenLiga.liga.penalti - origenLiga.liga.propia, origenLiga.liga.n)],
                   ]}
                 />
-                {doc.sinTimeline?.length ? (
+                {explicativos && doc.sinTimeline?.length ? (
                   <p className="text-[11px] leading-relaxed text-white/40">
                     Sin timeline de Hudl (no se pueden clasificar solos): {doc.sinTimeline.join(" · ")}. Se clasifican a mano en la lista.
                   </p>
@@ -828,59 +920,13 @@ export function PantallaGoles() {
             </div>
             </details>
           </Panel>
-
-          {/* ---------------- remates por franja ---------------- */}
-          {rematesFranja ? (
-            <Panel
-              title="¿Cuándo remata y cuándo le rematan?"
-              subtitle={`Del timeline de Hudl de ${rematesFranja.n} de nuestros partidos (Wyscout no da el minuto de los remates).`}
-              icon={Crosshair}
-              analisis={rematesFranja.lectura ? <div className="px-4 pb-4 sm:px-5"><Lectura>{rematesFranja.lectura}</Lectura></div> : undefined}
-            >
-              <Tabla
-                cabeza={["Franja", "Remates nuestros", "A puerta", "Gol", "Remates del rival", "A puerta", "Gol"]}
-                filas={rematesFranja.filas}
-                pie={[
-                  "Total",
-                  rematesFranja.total.filter((r) => r.nuestro).length,
-                  rematesFranja.total.filter((r) => r.nuestro && r.aPuerta).length,
-                  rematesFranja.total.filter((r) => r.nuestro && r.gol).length,
-                  rematesFranja.total.filter((r) => !r.nuestro).length,
-                  rematesFranja.total.filter((r) => !r.nuestro && r.aPuerta).length,
-                  rematesFranja.total.filter((r) => !r.nuestro && r.gol).length,
-                ]}
-              />
-            </Panel>
+            </>
           ) : null}
 
-          {/* ---------------- marcar primero ---------------- */}
-          <Panel
-            title="¿Qué pasa cuando marca primero?"
-            subtitle="Cómo acaban los partidos según quién abre el marcador, frente a la liga con la misma condición."
-            icon={Trophy}
-            analisis={dePrimero.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{dePrimero.join(" ")}</Lectura></div> : undefined}
-          >
-            <Tabla
-              cabeza={["", "Partidos", "Ganados", "Empatados", "Perdidos", "Puntos / partido", "Liga: puntos / partido"]}
-              filas={(["propio", "rival", "nadie"] as const).map((k) => {
-                const e = primero.eq[k];
-                const l = primero.lg[k];
-
-                return [
-                  k === "propio" ? "Marca primero" : k === "rival" ? "Recibe primero" : "Sin goles",
-                  e.n,
-                  e.G,
-                  e.E,
-                  e.P,
-                  <Contra key={k} valor={media(e.G * 3 + e.E, e.n)} liga={media(l.G * 3 + l.E, l.n)} mejorAlto />,
-                  fmt(media(l.G * 3 + l.E, l.n)),
-                ];
-              })}
-            />
-          </Panel>
-
+          {vista === "goles" ? (
+            <>
           {/* ---------------- lista ---------------- */}
-          <Panel title="Gol a gol" subtitle={esNuestro ? "La tipología de cada gol se puede cambiar: lo que elijas manda sobre la propuesta de Hudl." : "Los de sus partidos contra nosotros llevan tipología."} icon={ListOrdered} bodyClassName="p-0">
+          <Panel title="Gol a gol" subtitle={esNuestro ? "La tipología de cada gol se puede cambiar." : "Los de sus partidos contra nosotros llevan tipología."} icon={ListOrdered} bodyClassName="p-0">
             <div className="min-w-0 overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
@@ -939,7 +985,7 @@ export function PantallaGoles() {
                                 className={`w-full rounded-lg border bg-white/[0.04] px-2 py-1 text-xs text-white outline-none focus:border-[#C8A96B]/50 ${elegido ? "border-[#C8A96B]/50" : "border-white/10"}`}
                               >
                                 <option value="" className="bg-[#11161C]">
-                                  {info.tipo ? `Propuesta: ${NOMBRE_TIPO[info.tipo]}` : "Sin clasificar"}
+                                  {info.tipo ? NOMBRE_TIPO[info.tipo] : "Sin clasificar"}
                                 </option>
                                 {FASES.map((f) => (
                                   <optgroup key={f.fase} label={f.fase} className="bg-[#11161C]">
@@ -951,11 +997,13 @@ export function PantallaGoles() {
                                   </optgroup>
                                 ))}
                               </select>
-                              <p className="mt-1 text-[11px] leading-snug text-white/40">
-                                {elegido ? `Elegido a mano${t !== info.tipo && info.tipo ? ` (Hudl decía ${NOMBRE_TIPO[info.tipo]})` : ""}. ` : ""}
-                                {info.motivo}
-                              </p>
-                              {info.texto ? <p className="mt-0.5 text-[11px] leading-snug text-white/35">Táctica: {info.texto}</p> : null}
+                              {explicativos || !esMetodo(info.motivo) ? (
+                                <p className="mt-1 text-[11px] leading-snug text-white/40">
+                                  {explicativos && elegido ? `Elegido a mano${t !== info.tipo && info.tipo ? ` (Hudl decía ${NOMBRE_TIPO[info.tipo]})` : ""}. ` : ""}
+                                  {info.motivo}
+                                </p>
+                              ) : null}
+                              <Explicativo>{info.texto ? <p className="mt-0.5 text-[11px] leading-snug text-white/35">Táctica: {info.texto}</p> : null}</Explicativo>
                             </div>
                           ) : (
                             <span className="text-[11px] text-white/30">—</span>
@@ -969,6 +1017,9 @@ export function PantallaGoles() {
               {!goles.length ? <p className="px-4 py-6 text-center text-sm text-white/40">Sin goles en este tramo.</p> : null}
             </div>
           </Panel>
+            </>
+          ) : null}
+
         </div>
       )}
     </Marco>

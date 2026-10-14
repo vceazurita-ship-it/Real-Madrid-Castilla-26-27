@@ -58,6 +58,8 @@ import {
 } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
+import { Explicativo } from "@/components/ui/textos-analisis";
+import { Pestanas } from "@/components/analisis/Pestanas";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { olvidaCsv, traeJson } from "@/lib/hojaCsv";
@@ -289,6 +291,27 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     pregunta: "¿Lo que se entrena se ve el domingo?",
   },
 ];
+
+/*
+|--------------------------------------------------------------------------
+| LAS ÁREAS, EN CUATRO BLOQUES (14/10/2026)
+|--------------------------------------------------------------------------
+|
+| Trece botones en fila obligaban a leerlos todos para encontrar uno. Ahora
+| se elige primero el bloque (equipo, jugadores, balón parado, entrenamiento)
+| y dentro, el área. El bloque no se guarda aparte: es el del área elegida, y
+| así `?area=` de las alertas de la portada sigue abriendo donde promete.
+*/
+type Bloque = "equipo" | "jugadores" | "balonParado" | "entrenamiento";
+
+const BLOQUES: { clave: Bloque; label: string; icono: typeof History; areas: Area[] }[] = [
+  { clave: "equipo", label: "Equipo", icono: Shield, areas: ["equipo", "liga", "todos", "destacados", "historia", "campo"] },
+  { clave: "jugadores", label: "Jugadores", icono: Users, areas: ["individual", "once", "eventos"] },
+  { clave: "balonParado", label: "Balón parado", icono: Flag, areas: ["golesAbp", "abp"] },
+  { clave: "entrenamiento", label: "Entrenamiento", icono: Brain, areas: ["transferencia"] },
+];
+
+const bloqueDe = (area: Area) => BLOQUES.find((g) => g.areas.includes(area)) ?? BLOQUES[0];
 
 /** «06/09 · vs Teruel (2-1)», que es como se pide un partido de viva voz. */
 function etiquetaDePartido(fila: FilaPartido) {
@@ -994,7 +1017,11 @@ export default function DataAnalisisPage() {
             <AbpHeader
               area="RMCF Castilla · Data análisis"
               title="Data Análisis"
-              lead="Lo que dicen los informes de Wyscout y Opta que se dejan en la carpeta de datos: el Castilla contra su historia, contra la liga de este año y la liga entera comparada consigo misma. Cada número lleva escrito cómo se lee."
+              lead={
+                <Explicativo>
+                  Lo que dicen los informes de Wyscout y Opta que se dejan en la carpeta de datos: el Castilla contra su historia, contra la liga de este año y la liga entera comparada consigo misma. Cada número lleva escrito cómo se lee.
+                </Explicativo>
+              }
               aside={
                 <Button
                   icon={RefreshCw}
@@ -1061,26 +1088,43 @@ export default function DataAnalisisPage() {
               <>
                 {/* ===================== BARRA ===================== */}
 
-                <div className="mt-6 flex min-w-0 flex-wrap items-center gap-2">
-                  <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
-                    {AREAS.map((item) => (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => setArea(item.key)}
-                        aria-pressed={area === item.key}
-                        title={item.pregunta}
-                        className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs transition ${
-                          area === item.key
-                            ? "bg-[#C8A96B]/15 text-[#C8A96B]"
-                            : "text-white/50 hover:text-white"
-                        }`}
-                      >
-                        <item.icono size={13} />
-                        {item.label}
-                      </button>
-                    ))}
+                <div className="mt-4">
+                  <Pestanas<Bloque>
+                    etiqueta="Bloques de Data análisis"
+                    opciones={BLOQUES.map((g) => ({ clave: g.clave, label: g.label, icono: g.icono, cuenta: g.areas.length > 1 ? g.areas.length : undefined }))}
+                    valor={bloqueDe(area).clave}
+                    onCambia={(g) => setArea((BLOQUES.find((x) => x.clave === g) ?? BLOQUES[0]).areas[0])}
+                  />
+                </div>
+
+                {bloqueDe(area).areas.length > 1 && (
+                  <div className="mt-3 flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03] p-1 scrollbar-none sm:inline-flex sm:max-w-full">
+                    {bloqueDe(area).areas.map((clave) => {
+                      const item = AREAS.find((a) => a.key === clave)!;
+                      const activa = area === clave;
+
+                      return (
+                        <button
+                          key={clave}
+                          type="button"
+                          onClick={() => setArea(clave)}
+                          aria-pressed={activa}
+                          title={item.pregunta}
+                          className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                            activa ? "bg-[#C8A96B] text-black" : "text-white/55 hover:bg-white/[0.06] hover:text-white"
+                          }`}
+                        >
+                          <item.icono size={13} />
+                          {item.label}
+                        </button>
+                      );
+                    })}
                   </div>
+                )}
+
+                <p className="mt-2 text-[13px] font-medium text-white/70">{AREAS.find((a) => a.key === area)?.pregunta}</p>
+
+                <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2">
 
                   {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && (
                     <label className="flex items-center gap-2">
@@ -1304,6 +1348,7 @@ export default function DataAnalisisPage() {
                     </div>
                   )}
 
+                  <Explicativo>
                   <span className="text-[11px] text-white/30">
                     {area === "abp"
                       ? "Registro propio del cuerpo técnico, no de Wyscout ni de Opta"
@@ -1315,11 +1360,8 @@ export default function DataAnalisisPage() {
                             ? `${logs.length} ${logs.length === 1 ? "partido" : "partidos"} con log de eventos`
                             : `${equiposLiga.length} equipos · ${deLaLiga.length} informes de partido`}
                   </span>
+                  </Explicativo>
                 </div>
-
-                <p className="mt-2 text-[12px] text-white/40">
-                  {AREAS.find((a) => a.key === area)?.pregunta}
-                </p>
 
                 {alcances && area !== "abp" && (
                   <SelloJornada
@@ -1475,11 +1517,11 @@ export default function DataAnalisisPage() {
                           </table>
                         </div>
 
-                        <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+                        <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
                           «Goles − xG» es lo que se marcó por encima de lo que
                           valían las ocasiones. Sostenido en positivo es acierto;
                           en negativo, ocasiones que no se terminan.
-                        </p>
+                        </p></Explicativo>
                       </Panel>
                     </div>
 
@@ -1668,11 +1710,7 @@ export default function DataAnalisisPage() {
                         </div>
 
                         {avisoMuestra && (
-                          <div className="mt-3">
-                            <Notice tone="warn" title="Ojo con la muestra">
-                              {avisoMuestra}
-                            </Notice>
-                          </div>
+                          <p className="mt-3 text-[12px] text-amber-500/90">{avisoMuestra}</p>
                         )}
 
                         {/* Los gráficos propios de cada fase. */}
@@ -1722,7 +1760,7 @@ export default function DataAnalisisPage() {
                                 subtitle={
                                   otroEquipo
                                     ? `A la derecha, mejor. La raya del centro es la mediana de la liga y la marca azul, ${otroEquipo}.`
-                                    : "A la derecha, mejor. La raya del centro es la mediana de la liga; pulsa un nombre para ver cómo se lee."
+                                    : "A la derecha, mejor. La raya del centro es la mediana de la liga."
                                 }
                                 icon={Scale}
                               >
@@ -1963,13 +2001,13 @@ export default function DataAnalisisPage() {
                   sale el dato se explica ya donde hace falta, en el aviso de
                   carpeta vacía.
                 */}
-                <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
+                <Explicativo><p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
                   {area === "abp"
                     ? "Las cuatro hojas de balón parado del cuerpo técnico"
                     : area === "transferencia"
                       ? "La hoja de microciclos y los informes de Wyscout"
                       : `${datos.fuentes?.wyscout.length ?? 0} informes de Wyscout y ${datos.fuentes?.opta.length ?? 0} descargas de Opta`}
-                </p>
+                </p></Explicativo>
               </>
             )}
           </div>
@@ -2104,14 +2142,14 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
             ))}
           </div>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             El agregado de cien partidos <strong className="text-white/60">no
             es el Castilla</strong>: es la categoría entera. Se reconoce porque
             los duelos dan un 50,0 % clavado y los goles a favor igualan a los
             goles en contra —la aritmética de sumar a los dos equipos de cada
             partido—. Sirve de listón, que es justo lo que faltaba para leer
             estas columnas.
-          </p>
+          </p></Explicativo>
         </Panel>
       </div>
 
@@ -2198,12 +2236,12 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
             </>
           )}
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             Pulsa una métrica para ver cómo se lee y cuánto cambia en la
             categoría entre jugar en casa y jugar fuera. Con{" "}
             {rNuestro.partidos} partidos nuestros, esto son indicios: sirve para
             decidir qué mirar en el vídeo, no para cerrar una conclusión.
-          </p>
+          </p></Explicativo>
         </Panel>
       </div>
 
@@ -2229,18 +2267,18 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
                     {formatea(porPartidoOpta(liga, "TOTAL", m), m.unidad)}
                   </p>
 
-                  <p className="mt-1 text-[11px] leading-relaxed text-white/35">
+                  <Explicativo><p className="mt-1 text-[11px] leading-relaxed text-white/35">
                     {m.comoLeer}
-                  </p>
+                  </p></Explicativo>
                 </div>
               ))}
             </div>
 
-            <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+            <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
               Los valores que no son porcentaje van por partido. Es lo normal en
               esta categoría: un número nuestro sólo significa algo al lado de
               esto.
-            </p>
+            </p></Explicativo>
           </Panel>
         </div>
       )}
@@ -2289,11 +2327,11 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
             ))}
           </div>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             La posesión por tramos es sólo nuestra: en el agregado de la
             categoría da 50 % en los tres, porque suma a los dos equipos de cada
             partido y la posesión de uno es la del otro al revés.
-          </p>
+          </p></Explicativo>
         </Panel>
 
         <Panel
@@ -2351,11 +2389,11 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
             ))}
           </div>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             Sacar muchos córners y no sacarles xG es un problema de ensayo, no
             de volumen: la primera cifra la da el ataque y la segunda, el
             entrenamiento.
-          </p>
+          </p></Explicativo>
         </Panel>
       </div>
     </>
@@ -2614,15 +2652,15 @@ function ParDeMetricas({
         )}
 
         {(contraX || contraY) && (
-          <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-2 text-[11px] leading-relaxed text-white/40">
             Los ejes marcados «del rival» no son columnas del informe: salen de
             la fila del contrario de cada partido, que el informe también trae.
             Es la única manera de contestar a «cuánto concedemos».
-          </p>
+          </p></Explicativo>
         )}
 
         {nota && (
-          <p className="mt-2 text-[11px] leading-relaxed text-white/40">{nota}</p>
+          <Explicativo><p className="mt-2 text-[11px] leading-relaxed text-white/40">{nota}</p></Explicativo>
         )}
       </Panel>
     </div>
@@ -3398,7 +3436,7 @@ function PanelEventos({
   return (
     <>
       <div className="mt-5">
-        <Notice title={titulo}>
+        <Explicativo><Notice title={titulo}>
           Esta descarga de Opta son las{" "}
           <strong className="text-white/75">acciones defensivas</strong>, una
           por una, con su jugador y su minuto. Wyscout da el total —«74
@@ -3407,7 +3445,7 @@ function PanelEventos({
           <strong className="text-white/75">Del momento con balón no hay
           nada</strong>: ni un pase, ni un remate, ni una conducción. Es otra
           descarga distinta en Opta y hay que pedirla aparte.
-        </Notice>
+        </Notice></Explicativo>
       </div>
 
       {robo && (
@@ -3457,11 +3495,11 @@ function PanelEventos({
               ))}
             </div>
 
-            <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+            <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
               Se cuentan sólo los {robo.cuantos} robos de verdad —recuperación,
               intercepción, entrada—: un despeje no termina la posesión del
               rival, la alarga.
-            </p>
+            </p></Explicativo>
           </Panel>
         </div>
       )}
@@ -3496,10 +3534,10 @@ function PanelEventos({
             ))}
           </div>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             Un equipo que defiende mucho más en los últimos tramos no está
             presionando mejor: está metido atrás.
-          </p>
+          </p></Explicativo>
         </Panel>
 
         <Panel
@@ -3531,10 +3569,10 @@ function PanelEventos({
             ))}
           </div>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             En verde los robos, que devuelven el balón. El resto quita el peligro
             pero lo deja en disputa.
-          </p>
+          </p></Explicativo>
         </Panel>
       </div>
 
@@ -3573,11 +3611,11 @@ function PanelEventos({
             ))}
           </div>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             Los tipos de acción se agrupan en familias ({familiaDe("BallRecovery")},{" "}
             {familiaDe("Clearance")}, {familiaDe("Aerial")}…) para que la barra se
             lea. En verde, lo que es robo.
-          </p>
+          </p></Explicativo>
         </Panel>
       </div>
     </>

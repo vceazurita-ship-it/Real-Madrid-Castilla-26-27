@@ -32,6 +32,7 @@ import {
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { comparaPorCalendario } from "@/lib/rivals/orden-calendario";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 const NOSOTROS = "Real Madrid Castilla";
 
@@ -283,7 +284,7 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                   </div>
                 </div>
               ))}
-              <p className="text-[11px] text-white/35">Media de sus percentiles en cada fase (P50 = la media de su competición).</p>
+              <Explicativo><p className="text-[11px] text-white/35">Media de sus percentiles en cada fase (P50 = la media de su competición).</p></Explicativo>
             </div>
           ) : (
             <p className="text-sm text-white/45">No hay bastantes equipos de su competición para compararle.</p>
@@ -314,7 +315,7 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                   </span>
                 </div>
               ))}
-              <p className="pt-1 text-[11px] text-white/35">Cómo juega, no si lo hace bien: 1º = el que más (en PPDA, el que menos presiona; el que más aprieta es el último).</p>
+              <Explicativo><p className="pt-1 text-[11px] text-white/35">Cómo juega, no si lo hace bien: 1º = el que más (en PPDA, el que menos presiona; el que más aprieta es el último).</p></Explicativo>
             </div>
           </Tarjeta>
         </div>
@@ -350,9 +351,9 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
               );
             })}
           </div>
-          <p className="mt-2 text-[11px] text-white/35">
+          <Explicativo><p className="mt-2 text-[11px] text-white/35">
             Los de más minutos en 4-2-3-1. El número es su índice contra los de su puesto en la categoría.
-          </p>
+          </p></Explicativo>
         </Tarjeta>
 
         <div className="min-w-0 space-y-4">
@@ -448,12 +449,12 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
         </div>
       )}
 
-      <p className="text-[11px] leading-relaxed text-white/35">
+      <Explicativo><p className="text-[11px] leading-relaxed text-white/35">
         Equipo: media por partido de sus informes de Wyscout con los filtros de arriba, en percentil contra los equipos de su
         competición (P100 = el mejor; en las de estilo, el puesto va de más a menos). Jugadores: descarga de jugadores de Wyscout
         de esta temporada, cada uno contra los de su puesto en toda la categoría con al menos 90′; los porcentajes de muy pocas
         acciones no cuentan.
-      </p>
+      </p></Explicativo>
     </div>
   );
 }

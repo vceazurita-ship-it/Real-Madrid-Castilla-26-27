@@ -63,6 +63,7 @@ import { sinergiasDe } from "@/lib/data-analisis/sinergias";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import type { PartidoEventos } from "@/lib/data-analisis/eventos";
 import { idVigente } from "@/lib/fichajes";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 /**
  * Los atajos de la selección de partidos.
@@ -747,11 +748,11 @@ export function PanelOnce({
                 })}
               </div>
 
-              <p className="mt-2 text-[11px] leading-relaxed text-white/35">
+              <Explicativo><p className="mt-2 text-[11px] leading-relaxed text-white/35">
                 Recorta Opta, nuestra valoración y el peso en el equipo. Wyscout
                 da una fila por jugador y temporada, así que sus percentiles no
                 se pueden recortar por partido.
-              </p>
+              </p></Explicativo>
             </>
           )}
         </Panel>
@@ -849,11 +850,11 @@ export function PanelOnce({
             })}
           </div>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/35">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/35">
             El puesto y el lado salen de Wyscout —«LB» es lateral izquierdo,
             «RCB» central derecho— y de la hoja de plantilla cuando no hay fila
             suya. Es lo que ordena los desplegables.
-          </p>
+          </p></Explicativo>
         </Panel>
         </div>
 
@@ -862,7 +863,7 @@ export function PanelOnce({
         <div className="min-w-0">
           {discrepan.length > 0 && (
             <div className="mb-4">
-              <Notice tone="info" title="Wyscout y la hoja no dicen lo mismo">
+              <Explicativo><Notice tone="info" title="Wyscout y la hoja no dicen lo mismo">
                 <ul className="space-y-1">
                   {discrepan.map((uno) => (
                     <li key={uno.id}>
@@ -874,13 +875,13 @@ export function PanelOnce({
                     </li>
                   ))}
                 </ul>
-              </Notice>
+              </Notice></Explicativo>
             </div>
           )}
 
           {!enSinergias && avisos.length > 0 && (
             <div className="mb-4">
-              <Notice
+              <Explicativo><Notice
                 tone={
                   fuente === "opta" || (fuente === "wyscout" && recorte)
                     ? "warn"
@@ -899,7 +900,7 @@ export function PanelOnce({
                     <li key={aviso}>{aviso}</li>
                   ))}
                 </ul>
-              </Notice>
+              </Notice></Explicativo>
             </div>
           )}
 

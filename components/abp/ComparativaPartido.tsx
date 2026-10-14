@@ -19,6 +19,7 @@
 import { GitCompareArrows } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 const ORO = "#C8A96B";
 /** Los dos de las gráficas de datos: separan bien también para daltonismo. */
@@ -158,11 +159,16 @@ export function ComparativaPartido({
             })}
           </ul>
 
-          <p className="border-t border-white/10 px-4 py-2 text-[11px] text-white/35 sm:px-5">
-            {hayMedia
-              ? nota ?? "La media es por partido, con los mismos filtros que lo que se está viendo. Verde: mejor que la media; naranja: peor; gris: no se juzga."
-              : "Es el primer partido analizado: en cuanto haya otro saldrá aquí la media de los anteriores."}
-          </p>
+          {/* Cómo se calcula la media: método, sólo con los textos explicativos encendidos (14/10/2026). */}
+          {hayMedia ? (
+            <Explicativo>
+              <p className="border-t border-white/10 px-4 py-2 text-[11px] text-white/35 sm:px-5">
+                {nota ?? "La media es por partido, con los mismos filtros que lo que se está viendo. Verde: mejor que la media; naranja: peor; gris: no se juzga."}
+              </p>
+            </Explicativo>
+          ) : (
+            <p className="border-t border-white/10 px-4 py-2 text-[11px] text-white/35 sm:px-5">Es el primer partido: en cuanto haya otro saldrá aquí la media de los anteriores.</p>
+          )}
         </>
       )}
     </Panel>

@@ -45,7 +45,10 @@ import {
 import {
   ArrowUp,
   ArrowLeftRight,
+  BarChart3,
   Clock,
+  LayoutDashboard,
+  List,
   Crosshair,
   Eye,
   Map as MapIcon,
@@ -56,6 +59,8 @@ import {
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
+import { NavAnalisisPartido } from "@/components/analisis/NavAnalisisPartido";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
 import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
 import {
@@ -199,7 +204,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     },
     dudosos:
       "Los robos marcados con confianza baja son los que el etiquetado no puede defender fotograma a fotograma",
-    vacio: "Todavía no hay robos etiquetados.",
+    vacio: "Todavía no hay robos de este partido.",
     vacioFiltro: "Ningún robo con este filtro.",
     criterio:
       "Cuenta como robo la recuperación activa: entrada, interceptación o balón ganado por presión directa, con el balón en juego. No cuentan los rechaces sin disputa, los despejes del rival, las paradas del portero, lo que nace de balón parado ni los cambios de posesión por falta pitada. El criterio completo está en ANALISIS TRANSICIONES/MANUAL_ETIQUETADO.md.",
@@ -257,7 +262,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     },
     dudosos:
       "Las pérdidas marcadas con confianza media son las que Wyscout no clasifica como pase, conducción o duelo",
-    vacio: "Todavía no hay pérdidas: salen del timeline de Hudl con el análisis del partido.",
+    vacio: "Todavía no hay pérdidas de este partido.",
     vacioFiltro: "Ninguna pérdida con este filtro.",
     criterio:
       "Cuenta como pérdida la acción nuestra con el balón en juego que Wyscout marca como perdida: pase que no llega, conducción cortada, duelo o control perdido. No cuentan los remates y sus rechaces, los despejes a propósito, los balones parados que se pierden en el propio saque ni las jugadas con falta pitada. La salida y el desenlace son del rival: lo primero que hace con el balón y en qué acaba su posesión. Es el espejo del criterio de robo de ANALISIS TRANSICIONES/MANUAL_ETIQUETADO.md.",
@@ -479,6 +484,15 @@ function Pista({ active, payload, label }: PistaProps) {
 /*  Pantalla                                                           */
 /* ------------------------------------------------------------------ */
 
+const VISTAS = ["resumen", "campo", "detalle", "lista"] as const;
+
+/** «0-1 Pedro Ortiz (min 13): pase de… Hudl 772-776…» → «0-1 Pedro Ortiz (min 13)». */
+function textoGolCorto(texto: string) {
+  const corte = texto.indexOf(":");
+
+  return (corte > 0 ? texto.slice(0, corte) : texto.split(".")[0]).trim();
+}
+
 export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   const T = TEXTOS[modo];
 
@@ -530,6 +544,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     (ACCIONES_SERIE[serie] ?? []).every((a) => estaActivo(filtros, "accion", a));
 
   const explicativos = useTextosExplicativos();
+
+  /* Cuatro vistas en vez de un único scroll: el resumen, el campo, el detalle y la lista. */
+  const [vista, setVista] = usePestanaUrl("vista", VISTAS, "resumen");
   /*
   | Se abre en el último partido analizado, no en «todos»: lo que se quiere
   | mirar el lunes es lo del domingo. «Todos los partidos» sigue a un toque.
@@ -1033,11 +1050,13 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
           <Topbar />
 
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
-            <AbpHeader area="RMCF Castilla · Competición" title={T.titulo} />
+            <AbpHeader area="RMCF Castilla · Análisis del partido" title={T.titulo} />
+
+            <NavAnalisisPartido className="mt-4" />
 
             {/* ---------------- mandos ---------------- */}
 
-            <div className="mt-5 flex flex-wrap items-center gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setQuien("todos")}
@@ -1047,7 +1066,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                     : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20"
                 }`}
               >
-                Todos los partidos
+                Temporada
               </button>
 
               {partidos.map((p) => (
@@ -1061,8 +1080,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                       : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20"
                   }`}
                 >
-                  {p.jornada} · {p.local ? "" : "en "}
-                  {p.rival}
+                  {p.jornada} · {p.rival}
                 </button>
               ))}
 
@@ -1076,6 +1094,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 {porcentajes ? "Ver totales" : "Ver porcentajes"}
               </button>
 
+              <Explicativo>
               <button
                 type="button"
                 onClick={() => setConDudosos((v) => !v)}
@@ -1085,11 +1104,13 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 <Eye size={14} />
                 {conDudosos ? "Quitar los dudosos" : "Incluir los dudosos"}
               </button>
+              </Explicativo>
 
               {/*
                 Cuánto partido lleva revisado. Mientras falten bloques, los
                 totales son de esos minutos y no del partido.
               */}
+              <Explicativo>
               <span
                 className={`ml-auto rounded-xl border px-3 py-2 text-xs ${
                   cobertura.completo
@@ -1101,6 +1122,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                   ? `Revisado entero · ${cobertura.minutosVideo} min`
                   : `Revisado ${cobertura.minutosVistos} de ${cobertura.minutosVideo} min`}
               </span>
+              </Explicativo>
             </div>
 
             <BarraFiltros
@@ -1115,6 +1137,22 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               className="mt-3"
             />
 
+            <div className="mt-4">
+              <Pestanas
+                etiqueta="Vistas"
+                valor={vista}
+                onCambia={setVista}
+                opciones={[
+                  { clave: "resumen", label: "Resumen", icono: LayoutDashboard },
+                  { clave: "campo", label: "En el campo", icono: MapIcon },
+                  { clave: "detalle", label: "Detalle", icono: BarChart3 },
+                  { clave: "lista", label: modo === "robos" ? "Robo a robo" : "Pérdida a pérdida", icono: List, cuenta: robos.length },
+                ]}
+              />
+            </div>
+
+            {vista === "resumen" && (
+            <>
             {/* ---------------- este partido frente a los anteriores ---------------- */}
 
             {comparativa && (
@@ -1122,7 +1160,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 partido={comparativa.partido}
                 anteriores={comparativa.anteriores}
                 metricas={comparativa.metricas}
-                nota={comparativa.nota}
+                nota={explicativos ? comparativa.nota : undefined}
                 className="mt-5"
               />
             )}
@@ -1135,7 +1173,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               <Cifra
                 valor={String(robos.length)}
                 rotulo={T.serieTotal}
-                pie={`en ${cobertura.minutosVistos} min revisados`}
+                pie={explicativos ? `en ${cobertura.minutosVistos} min revisados` : `${elegidos.length} ${elegidos.length === 1 ? "partido" : "partidos"}`}
                 icono={Crosshair}
               />
 
@@ -1173,6 +1211,11 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               />
             </div>
 
+            </>
+            )}
+
+            {vista === "campo" && (
+            <>
             {/* ---------------- dónde, en el campo ---------------- */}
 
             <div className="mt-5">
@@ -1228,7 +1271,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                           <span className="h-3 w-3 rounded-full border-2 border-white/80" /> acaba en remate o en el área
                         </span>
                         <span>Cifras de cada zona: hacia delante · el resto</span>
-                        {sinSitio > 0 && (
+                        {sinSitio > 0 && explicativos && (
                           <span className="text-white/30">{sinSitio} sin carril anotado, fuera del campo</span>
                         )}
                       </>
@@ -1238,6 +1281,11 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               </Panel>
             </div>
 
+            </>
+            )}
+
+            {vista === "detalle" && (
+            <>
             {/* ---------------- qué pasa con el balón ---------------- */}
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -1625,6 +1673,11 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               </div>
             )}
 
+            </>
+            )}
+
+            {vista === "lista" && (
+            <>
             {/* ---------------- listado ---------------- */}
 
             <div className="mt-4">
@@ -1639,14 +1692,14 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                     <thead>
                       <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-[0.12em] text-white/40">
                         <th className="px-4 py-3">Min.</th>
-                        <th className="px-4 py-3">Vídeo</th>
+                        {explicativos && <th className="px-4 py-3">Vídeo</th>}
                         {quien === "todos" && <th className="px-4 py-3">Partido</th>}
                         <th className="px-4 py-3">{T.paneles.columnaTipo}</th>
                         <th className="px-4 py-3">Zona</th>
                         <th className="px-4 py-3">Carril</th>
                         <th className="px-4 py-3">{T.paneles.rotuloSalida}</th>
                         <th className="px-4 py-3">Acaba en</th>
-                        <th className="px-4 py-3">Fiabilidad</th>
+                        {explicativos && <th className="px-4 py-3">Fiabilidad</th>}
                         {explicativos && <th className="px-4 py-3">Qué pasó</th>}
                       </tr>
                     </thead>
@@ -1662,12 +1715,14 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                           }`}
                         >
                           <td className="whitespace-nowrap px-4 py-3 font-semibold tabular-nums text-white/80">
-                            {minutoDe(r) || "—"}
+                            {(explicativos ? minutoDe(r) : minutoDe(r).replace(/\s*\([^)]*\)/, "")) || "—"}
                           </td>
 
-                          <td className="whitespace-nowrap px-4 py-3 tabular-nums text-white/45">
-                            {reloj(r.seg)}
-                          </td>
+                          {explicativos && (
+                            <td className="whitespace-nowrap px-4 py-3 tabular-nums text-white/45">
+                              {reloj(r.seg)}
+                            </td>
+                          )}
 
                           {quien === "todos" && (
                             <td className="whitespace-nowrap px-4 py-3 text-white/50">
@@ -1729,6 +1784,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                             ) : null}
                           </td>
 
+                          {explicativos && (
                           <td className="whitespace-nowrap px-4 py-3 text-xs">
                             <span
                               className={
@@ -1742,6 +1798,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                               {celda("confianza", r.confianza)}
                             </span>
                           </td>
+                          )}
 
                           {explicativos && (
                             <td className="min-w-[280px] px-4 py-3 text-xs leading-relaxed text-white/45">
@@ -1754,7 +1811,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                       {robos.length === 0 && (
                         <tr>
                           <td
-                            colSpan={8 + (quien === "todos" ? 1 : 0) + (explicativos ? 1 : 0)}
+                            colSpan={6 + (quien === "todos" ? 1 : 0) + (explicativos ? 3 : 0)}
                             className="px-4 py-8 text-center text-white/40"
                           >
                             {base.length === 0 ? T.vacio : T.vacioFiltro}
@@ -1771,21 +1828,27 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
             {elegidos.some((p) => p.goles.length > 0) && (
               <div className="mt-4">
-                <Panel title="Goles del partido" subtitle={`Para situar ${modo === "robos" ? "los robos" : "las pérdidas"}`} icon={Target}>
+                <Panel title="Goles del partido" icon={Target}>
                   <ul className="space-y-1.5 text-sm text-white/60">
                     {elegidos.flatMap((p) =>
                       p.goles.map((g) => (
                         <li key={`${p.id}-${g.seg}`}>
-                          <span className="font-semibold tabular-nums text-white/80">
-                            {reloj(g.seg)}
-                          </span>{" "}
-                          · {g.texto}
+                          {explicativos ? (
+                            <>
+                              <span className="font-semibold tabular-nums text-white/80">{reloj(g.seg)}</span> · {g.texto}
+                            </>
+                          ) : (
+                            <span className="text-white/75">{textoGolCorto(g.texto)}</span>
+                          )}
                         </li>
                       )),
                     )}
                   </ul>
                 </Panel>
               </div>
+            )}
+
+            </>
             )}
 
             <Explicativo>

@@ -29,6 +29,7 @@ import {
 import { formatea, mediana, temporadaDe } from "@/lib/data-analisis/metricas";
 import { filasDe, valorOpta } from "@/lib/data-analisis/opta";
 import type { FilaPartido, HistoricoOpta } from "@/lib/data-analisis/leer";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 type Modo = "total" | "partido";
 
@@ -182,7 +183,7 @@ export function PanelGolesAbp({
   return (
     <>
       <div className="mt-5">
-        <Notice tone="warn" title="Aquí ya no se reparten los goles por tipo de jugada">
+        <Explicativo><Notice tone="warn" title="Aquí ya no se reparten los goles por tipo de jugada">
           <p>
             Los goles y los <strong className="text-white/75">penaltis</strong> son
             dato: los cuentan el marcador y Wyscout. Pero{" "}
@@ -223,7 +224,7 @@ export function PanelGolesAbp({
               </Button>
             </div>
           )}
-        </Notice>
+        </Notice></Explicativo>
       </div>
 
       {/* ============================ LA LIGA ============================ */}
@@ -388,13 +389,13 @@ export function PanelGolesAbp({
                 {comparado && ` ${lecturaCaraACara(filas, nosotros, comparado)}`}
               </Lectura>
 
-              <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+              <Explicativo><p className="mt-2 text-[11px] leading-relaxed text-white/40">
                 Las dos columnas son dato: el marcador y los penaltis que cuenta
                 Wyscout. De qué jugada nace cada gol no se enseña porque no se sabe
                 —ver el aviso de arriba—.
                 {muestraLiga.fuera > 0 &&
                   ` Fuera de la tabla, ${muestraLiga.fuera} equipos con menos de ${muestraLiga.suelo} partidos en los informes: son rivales de rivales, con un partido o dos.`}
-              </p>
+              </p></Explicativo>
             </Panel>
           </div>
 
@@ -435,12 +436,12 @@ export function PanelGolesAbp({
                   </div>
                 </div>
 
-                <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+                <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
                   Los porcentajes son sobre todos los goles; «balón parado» aquí es sin
                   penaltis, que van aparte. El agregado no dice de qué temporada ni de
                   cuántos equipos es, así que sirve de referencia de la categoría, no
                   para comparar equipos.
-                </p>
+                </p></Explicativo>
               </Panel>
             </div>
           )}
@@ -547,11 +548,11 @@ export function PanelGolesAbp({
 
           <Lectura>{lecturaDeLaHistoria(historia)}</Lectura>
 
-          <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-2 text-[11px] leading-relaxed text-white/40">
             {actual} va con los partidos que lleva y las demás con todos, así que los
             totales de una y otra no se comparan. De qué jugada nace cada gol sólo se
             sabe de lo que registra el cuerpo técnico, no de estos informes.
-          </p>
+          </p></Explicativo>
         </Panel>
       </div>
     </>

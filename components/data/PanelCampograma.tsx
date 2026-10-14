@@ -18,6 +18,7 @@ import {
 } from "@/lib/data-analisis/campograma";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
 import { formatea } from "@/lib/data-analisis/metricas";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 /**
  * PARTIDO A PARTIDO, PINTADO EN EL CAMPO.
@@ -300,9 +301,9 @@ export function PanelCampograma({
           {/* Lo que hay que saber de este momento antes de leer el dibujo. */}
           {meta.aviso && (
             <div className="mb-3">
-              <Notice tone="warn" title="El campo, aquí, es un reparto">
+              <Explicativo><Notice tone="warn" title="El campo, aquí, es un reparto">
                 {meta.aviso}
-              </Notice>
+              </Notice></Explicativo>
             </div>
           )}
 
@@ -346,7 +347,7 @@ export function PanelCampograma({
             {lecturaDeMomento(fichas, partido?.rival ?? "", referenciaUsada, otro?.nombre)}
           </Lectura>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             El tanto por ciento de encima de cada cifra es{" "}
             <strong className="text-white/60">cuánto cambia respecto a{" "}
             {nombreReferencia}, tal
@@ -382,7 +383,7 @@ export function PanelCampograma({
                 es corta, y un partido la mueve entera.
               </>
             )}
-          </p>
+          </p></Explicativo>
         </Panel>
       </div>
 

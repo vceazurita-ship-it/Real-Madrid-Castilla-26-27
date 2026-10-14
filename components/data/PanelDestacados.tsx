@@ -22,6 +22,7 @@ import {
 import { PUESTOS, type Puesto } from "@/lib/data-analisis/individual";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 /**
  * LOS MÁS DESTACADOS.
@@ -163,7 +164,7 @@ export function PanelDestacados({
   return (
     <>
       <div className="mt-5">
-        <Notice title="Lo que de verdad separa a un equipo del resto">
+        <Explicativo><Notice title="Lo que de verdad separa a un equipo del resto">
           <p>
             No es una métrica: es un <strong className="text-white/75">aspecto</strong>,
             dos o tres métricas que describen lo mismo. Todo se mide{" "}
@@ -187,7 +188,7 @@ export function PanelDestacados({
               positiva siempre se lee igual, sea la métrica que sea.
             </li>
           </ul>
-        </Notice>
+        </Notice></Explicativo>
       </div>
 
       {/* Qué se prioriza. */}

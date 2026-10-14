@@ -7,6 +7,11 @@
  * si está completa. Si no lo está, dice qué falta; y si ya se ha jugado una
  * jornada que todavía no ha entrado, también. El cálculo vive en
  * `lib/data-analisis/alcance.ts`.
+ *
+ * (14/10/2026) A la vista sólo queda «Datos hasta la J7 · rival · fecha» y si
+ * la jornada está completa. La fuente, el detalle de lo que falta y la nota
+ * cuentan cómo se ha montado el dato: van con los textos explicativos de
+ * Ajustes (`useTextosExplicativos`).
  */
 
 import { useEffect, useState } from "react";
@@ -14,6 +19,7 @@ import { CheckCircle2, CircleAlert, CircleDashed } from "lucide-react";
 
 import { cargaCalendario } from "@/hooks/useCalendario";
 import type { Alcance, PartidoCalendario } from "@/lib/data-analisis/alcance";
+import { useTextosExplicativos } from "@/components/ui/textos-analisis";
 
 /** El calendario del Castilla (BeSoccer) y el día de hoy, leídos una vez. */
 export function useCalendarioCastilla() {
@@ -37,6 +43,8 @@ export function useCalendarioCastilla() {
 const fecha = (iso: string) => iso.split("-").reverse().slice(0, 2).join("/");
 
 export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: string }) {
+  const explicativos = useTextosExplicativos();
+
   if (!alcances.length) return null;
 
   return (
@@ -55,7 +63,8 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
           >
             <Icono size={14} style={{ color }} className="shrink-0" />
             <span className="font-medium text-white/85">
-              {a.fuente}: {a.jornada ? `datos hasta la J${a.jornada}` : "sin jornada de liga"}
+              {explicativos ? `${a.fuente}: ` : ""}
+              {a.jornada ? `${explicativos ? "datos" : "Datos"} hasta la J${a.jornada}` : "Sin jornada de liga"}
               {a.rival ? ` · ${a.rival}` : ""}
               {a.fecha ? ` · ${fecha(a.fecha)}` : ""}
             </span>
@@ -64,8 +73,8 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
                 {completa ? "Jornada completa" : "Jornada incompleta"}
               </span>
             )}
-            <span className="text-white/55">{a.detalle}</span>
-            {a.pendientes.length > 0 && (
+            {explicativos && <span className="text-white/55">{a.detalle}</span>}
+            {explicativos && a.pendientes.length > 0 && (
               <span className="basis-full text-[11px]" style={{ color: "#E3A008" }}>
                 Ya jugada{a.pendientes.length > 1 ? "s" : ""} y sin datos todavía: {a.pendientes.join(" · ")}.
               </span>
@@ -73,7 +82,7 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
           </div>
         );
       })}
-      {nota && <p className="text-[11px] text-white/35">{nota}</p>}
+      {explicativos && nota && <p className="text-[11px] text-white/35">{nota}</p>}
     </div>
   );
 }

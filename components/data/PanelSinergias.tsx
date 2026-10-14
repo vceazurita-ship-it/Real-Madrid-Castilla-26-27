@@ -22,6 +22,7 @@ import {
   type EstadoRelacion,
   type Pareja,
 } from "@/lib/data-analisis/sinergias";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 const CHAPA: Record<
   Pareja["etiqueta"],
@@ -81,7 +82,7 @@ export function PanelSinergias({
 
   return (
     <div className="min-w-0">
-      <Notice tone="info" title="Qué es esto, y qué no">
+      <Explicativo><Notice tone="info" title="Qué es esto, y qué no">
         <ul className="space-y-1">
           <li>
             Compara <strong className="text-white/75">perfiles</strong>: si lo que
@@ -104,7 +105,7 @@ export function PanelSinergias({
             once no se cruza, así que no se inventa una tarjeta.
           </li>
         </ul>
-      </Notice>
+      </Notice></Explicativo>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {parejas.map((pareja) => (

@@ -26,6 +26,7 @@ import {
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { esNuestro, evolucionDe } from "@/lib/data-analisis/individual";
 import { traeJson } from "@/lib/hojaCsv";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 /**
  * ENTRENAMIENTO Y COMPETICIÓN, EN LA MISMA PANTALLA.
@@ -114,7 +115,7 @@ export function PanelTransferencia({
   return (
     <>
       <div className="mt-5">
-        <Notice title="Lo que se entrena contra lo que pasa el domingo">
+        <Explicativo><Notice title="Lo que se entrena contra lo que pasa el domingo">
           <p>
             Esto cruza <strong className="text-white/75">la hoja de
             microciclos</strong> —cada tarea con su fase, sus minutos y sus dos
@@ -134,7 +135,7 @@ export function PanelTransferencia({
             partido, que una tarea del martes explique un córner del domingo no
             se demuestra: se sospecha. Sirve para decidir dónde mirar el vídeo.
           </p>
-        </Notice>
+        </Notice></Explicativo>
       </div>
 
       {/* Los avisos, que es lo que se viene a buscar. */}
@@ -157,12 +158,12 @@ export function PanelTransferencia({
             </div>
           )}
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             Salta el aviso cuando una fase se lleva más de la quinta parte del
             tiempo y aun así queda por debajo de la categoría, o cuando queda
             por debajo y casi no se trabaja. Por debajo empieza en un 5 %, que
             es donde deja de ser ruido.
-          </p>
+          </p></Explicativo>
         </Panel>
       </div>
 
@@ -185,10 +186,10 @@ export function PanelTransferencia({
             </p>
           )}
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             Las tareas de competición y las globales no entran en ninguna fase:
             son partido, y el partido no es un contenido.
-          </p>
+          </p></Explicativo>
         </Panel>
 
         <Panel
@@ -198,10 +199,10 @@ export function PanelTransferencia({
         >
           <CargasPorFase semanas={semanas} />
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             La carga se pondera por los minutos de cada tarea: una tarea corta
             muy intensa no pesa lo mismo que media hora suave.
-          </p>
+          </p></Explicativo>
         </Panel>
       </div>
 
@@ -275,11 +276,11 @@ export function PanelTransferencia({
             </table>
           </div>
 
-          <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             En gris, las semanas cuyo partido todavía no tiene informe en la
             carpeta. El tanto por ciento es el nivel de esa fase en ese partido
             respecto a la mediana de la categoría.
-          </p>
+          </p></Explicativo>
         </Panel>
       </div>
 
@@ -646,12 +647,12 @@ function TrabajoIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
           )}
         </Lectura>
 
-        <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+        <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
           La evolución es el salto medio de percentil contra su puesto en la
           categoría, del año pasado a éste: no mide que haga más cosas, mide que
           haga más que sus iguales. Los seguimientos se atan por apellido,
           porque Wyscout abrevia el nombre de pila y la hoja no.
-        </p>
+        </p></Explicativo>
       </Panel>
     </div>
   );
