@@ -65,6 +65,7 @@ import { fichaDesdePlantilla, resolutorDeFichas } from "@/lib/rivals/analisis-fi
 import { laminaImagen } from "@/lib/rivals/analisis-svg";
 import { importaPdfAnalisis, type LaminaImportada, type PdfLib } from "@/lib/rivals/importa-pdf";
 import { playerKey } from "@/lib/rivals/once";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 type Props = {
   ambito: Ambito;
@@ -731,7 +732,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
             {ambito === "abp" ? "Balón parado" : "Área y centros laterales"} · {equipo}
           </h2>
           <p className="text-xs text-white/45">
-            Láminas que se dibujan aquí, los clips de la carpeta de la jornada y lo que se concluye.
+            Láminas, clips y conclusiones de la jornada.
             {estadoGuardado && (
               <span className={doc.status === "error" ? " text-red-300" : " text-white/60"}> · {estadoGuardado}</span>
             )}
@@ -833,6 +834,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
         </summary>
 
         <div className="mt-3 space-y-2">
+          <Explicativo>
           <p className="text-xs text-white/45">
             Pega la ruta tal y como se ve en el ordenador del club (en el Explorador: clic derecho → «Copiar como ruta
             de acceso»). Vale una carpeta entera o los PDF del informe sueltos, uno por línea; se puede hacer desde
@@ -842,6 +844,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
             LAT» o «ÁREA», y si no a ABP del Rival, y se pasa solo a láminas (las que ya estén no se repiten). Lo ya
             subido no se vuelve a subir.
           </p>
+          </Explicativo>
 
           <div className="flex flex-wrap gap-2">
             <textarea
@@ -871,10 +874,12 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
           </div>
 
           {material.rutas.length > 0 && (
+            <Explicativo>
             <p className="text-[11px] text-white/35">
               Ya recogido en la {jornada}: {material.rutas.join(" · ")}
               {material.importadoEn ? ` (última subida ${new Date(material.importadoEn).toLocaleString("es-ES")})` : ""}
             </p>
+            </Explicativo>
           )}
         </div>
       </details>

@@ -110,13 +110,13 @@ export default function AreaRivalPage() {
             </div>
           ) : error ? (
             <div className="mt-8">
-              <EstadoError titulo="No se ha podido cargar la hoja de plantillas rivales" error={error} onReintentar={reintenta} />
+              <EstadoError titulo="No se han podido cargar los rivales" error={error} onReintentar={reintenta} />
             </div>
           ) : equipos.length === 0 ? (
             <div className="mt-8">
               <EmptyState
                 title="No hay rivales cargados"
-                description="La hoja de plantillas rivales no ha devuelto ningún equipo."
+                description="Todavía no hay equipos para elegir."
               />
             </div>
           ) : (

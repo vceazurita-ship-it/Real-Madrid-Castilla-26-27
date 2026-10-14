@@ -925,7 +925,7 @@ export default function DashboardSeguimiento() {
 
               {sinFecha > 0 && (
                 <span
-                  title="La hoja los tiene sin fecha, así que no entran en las semanas, los meses ni el último registro."
+                  title="Registros sin fecha: no entran en las semanas, los meses ni el último registro."
                   className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-300"
                 >
                   {sinFecha} sin fecha

@@ -21,7 +21,11 @@ import {
   ChevronDown,
   CornerDownRight,
   Flag,
+  Images,
+  LayoutDashboard,
+  PenLine,
   Ruler,
+  Shapes,
   Target,
   Users,
 } from "lucide-react";
@@ -47,6 +51,8 @@ import {
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
 import { RivalPatterns } from "@/components/abp/RivalPatterns";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { Explicativo } from "@/components/ui/textos-analisis";
 import type { PatternCatalog } from "@/components/abp/PatternCombo";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
 import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
@@ -107,6 +113,13 @@ const FAMILY_ORDER: AbpFamily[] = [
 
 type Grupo = "liga" | "pretemporada";
 
+/*
+| Las vistas (14/10/2026): antes era un scroll de once paneles y el registro
+| editable quedaba al fondo. Ahora cada pregunta en su pestaña (?vista=).
+*/
+const VISTAS = ["resumen", "laminas", "patrones", "banda", "quien", "registrar"] as const;
+type Vista = (typeof VISTAS)[number];
+
 const GRUPOS: { key: Grupo; label: string }[] = [
   { key: "liga", label: "Liga" },
   { key: "pretemporada", label: "Pretemporada" },
@@ -135,6 +148,10 @@ export default function ScoutRivalAbpPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [grupo, setGrupo] = useState<Grupo>("liga");
+  const [vistaElegida, setVista] = usePestanaUrl<Vista>("vista", VISTAS, "resumen");
+
+  /* Las láminas sólo existen en Liga: en Pretemporada se vuelve al resumen en vez de enseñar una pestaña vacía. */
+  const vista: Vista = vistaElegida === "laminas" && grupo !== "liga" ? "resumen" : vistaElegida;
   const [side, setSide] = useState<AbpSide>("ofensivo");
   const [origen, setOrigen] = useState<Origen>("todo");
   const [jornada, setJornada] = useState(TODOS);
@@ -666,7 +683,7 @@ export default function ScoutRivalAbpPage() {
                 />
               ) : undefined
             }
-            lead="Cómo ataca y cómo defiende el rival a balón parado: córners, faltas, penaltis y saques de banda por zona, con sus lanzadores, sus rematadores y la estatura que meten al área."
+            lead="Córners, faltas, penaltis y saques de banda del rival: lanzadores, rematadores y amenaza aérea."
             aside={
               equipo ? (
                 <SourceBadge tone={hayScout ? "scout" : "derivado"}>
@@ -687,14 +704,14 @@ export default function ScoutRivalAbpPage() {
           ) : error ? (
             <div className="mt-8">
               <Notice tone="warn" title={error}>
-                Revisa que las hojas sigan publicadas en Google Sheets.
+                <Explicativo>Revisa que las hojas sigan publicadas en Google Sheets.</Explicativo>
               </Notice>
             </div>
           ) : sinEquipos ? (
             <div className="mt-8">
               <EmptyState
                 title="No hay rivales cargados"
-                description="La hoja de plantillas rivales no ha devuelto ningún equipo, así que no se puede elegir a quién analizar."
+                description="Todavía no hay equipos para elegir."
               />
             </div>
           ) : (
@@ -757,9 +774,23 @@ export default function ScoutRivalAbpPage() {
                 </div>
               </div>
 
+              <Pestanas<Vista>
+                etiqueta="Vistas del balón parado del rival"
+                valor={vista}
+                onCambia={setVista}
+                opciones={[
+                  { clave: "resumen", label: "¿Cuánto peligro tiene?", icono: LayoutDashboard },
+                  ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Láminas de la jornada", icono: Images }] : []),
+                  { clave: "patrones", label: "¿Qué repite?", icono: Shapes },
+                  { clave: "banda", label: "Saques de banda", icono: Flag },
+                  { clave: "quien", label: "¿Quién lo lanza y remata?", icono: Users },
+                  { clave: "registrar", label: "Registrar", icono: PenLine },
+                ]}
+              />
+
               {/* ----------- análisis visual de la jornada ----------- */}
 
-              {equipo && grupo === "liga" && (
+              {vista === "laminas" && equipo && grupo === "liga" && (
                 <AnalisisRival
                   ambito="abp"
                   equipo={equipo}
@@ -768,7 +799,7 @@ export default function ScoutRivalAbpPage() {
                 />
               )}
 
-              {delEquipo.length > 0 && (
+              {delEquipo.length > 0 && vista !== "laminas" && vista !== "registrar" && (
                 <FilterDrawer
                   activeCount={activeFilters}
                   summary={`${jornadas.length - 1} ${jornadas.length === 2 ? "jornada" : "jornadas"} con datos`}
@@ -800,7 +831,8 @@ export default function ScoutRivalAbpPage() {
 
               {/* ------------------- aviso de origen ---------------- */}
 
-              {!hayScout && hayDerivado && (
+              {!hayScout && hayDerivado && vista !== "laminas" && (
+                <Explicativo>
                 <Notice
                   tone="warn"
                   title="Datos deducidos de los partidos contra el Castilla"
@@ -812,17 +844,20 @@ export default function ScoutRivalAbpPage() {
                   nombres de lanzador ni de rematador. Regístralos abajo y esta
                   página pasa a leer de ahí.
                 </Notice>
+                </Explicativo>
               )}
 
               {/* ---------------------- totales --------------------- */}
 
-              {delEquipo.length === 0 ? (
+              {vista === "laminas" || vista === "registrar" ? null : delEquipo.length === 0 ? (
                 <EmptyState
                   title={`Todavía no hay ABP registrado del ${equipo}`}
-                  description="Las hojas de ABP sólo tienen los partidos del Castilla, y contra este rival aún no hemos jugado. Empieza registrando sus acciones abajo: en cuanto haya una, se llenan los totales, la tabla por tipo y los rankings."
+                  description="Todavía no hay acciones de este rival. Se registran en la pestaña «Registrar»."
                 />
               ) : (
                 <>
+                  {vista === "resumen" && (
+                  <>
                   <StatRow>
                     <StatCard
                       label="Acciones"
@@ -866,9 +901,12 @@ export default function ScoutRivalAbpPage() {
                     })}
                   </div>
 
+                  </>
+                  )}
+
                   {/* --------------------- patrones -------------------- */}
 
-                  {origenActivo !== "derivado" && (
+                  {vista === "patrones" && origenActivo !== "derivado" && (
                     <RivalPatterns
                       patrones={patrones}
                       side={side}
@@ -878,6 +916,8 @@ export default function ScoutRivalAbpPage() {
                   )}
 
                   {/* ------------- amenaza por tipo de ABP -------------- */}
+
+                  {vista === "resumen" && (
 
                   <Panel
                     title="Amenaza por tipo de balón parado"
@@ -969,7 +1009,11 @@ export default function ScoutRivalAbpPage() {
                     </div>
                   </Panel>
 
+                  )}
+
                   {/* --------------- saque de banda por zona ------------ */}
+
+                  {vista === "banda" && (
 
                   <Panel
                     title="Saque de banda por zona"
@@ -1018,8 +1062,11 @@ export default function ScoutRivalAbpPage() {
                     )}
                   </Panel>
 
+                  )}
+
                   {/* ------------- lanzadores y rematadores ------------- */}
 
+                  {vista === "quien" && (
                   <div className="grid gap-5 xl:grid-cols-2">
                     <Panel
                       title="Lanzadores"
@@ -1070,11 +1117,13 @@ export default function ScoutRivalAbpPage() {
                       )}
                     </Panel>
                   </div>
+                  )}
                 </>
               )}
 
               {/* -------------------- estaturas --------------------- */}
 
+              {vista === "quien" && (
               <Panel
                 title="Amenaza aérea"
                 subtitle={
@@ -1087,16 +1136,17 @@ export default function ScoutRivalAbpPage() {
                 {aereos.length === 0 ? (
                   <EmptyState
                     title={`No hay plantilla cargada para ${equipo}`}
-                    description="La hoja de plantillas rivales aún no incluye este equipo, así que no se pueden cruzar las estaturas con sus acciones de ABP."
+                    description="Todavía no hay plantilla de este equipo."
                   />
                 ) : (
                   <AerialList players={aereos} />
                 )}
               </Panel>
+              )}
 
               {/* ------------------ registro editable --------------- */}
 
-              {equipo && (
+              {vista === "registrar" && equipo && (
                 <RivalScoutEditor
                   equipo={equipo}
                   actions={acciones}
@@ -1111,7 +1161,11 @@ export default function ScoutRivalAbpPage() {
 
               {/* --------------- contrato de la hoja ---------------- */}
 
-              <ScoutSheetContract />
+              {vista === "registrar" && (
+                <Explicativo>
+                  <ScoutSheetContract />
+                </Explicativo>
+              )}
             </div>
           )}
         </div>

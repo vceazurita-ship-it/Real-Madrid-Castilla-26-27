@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, CircleDot, RotateCcw, Swords } from "lucide-react";
 
 import { EsqueletoPantalla } from "@/components/ui/estados";
+import { Explicativo } from "@/components/ui/textos-analisis";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
@@ -133,12 +134,12 @@ export default function DuelosPage() {
       .then((r) => {
         if (!vivo) return;
         setJugadores(r.jugadores ?? []);
-        if (!r.ok) setError(r.error ?? "No se han podido leer los datos de Wyscout.");
+        if (!r.ok) setError(r.error ?? "No se han podido leer los datos.");
       })
       .catch(() => {
         if (vivo) {
           setJugadores([]);
-          setError("No se han podido leer los datos de Wyscout.");
+          setError("No se han podido leer los datos.");
         }
       });
     traeJson<Fila[]>("/api/rivals?action=rivalesPlantillas")
@@ -311,7 +312,8 @@ export default function DuelosPage() {
             </div>
             <p className="mt-3 max-w-3xl text-sm text-white/55">
               Nuestro once contra el once probable del rival, duelo a duelo: dónde les podemos hacer daño y dónde nos lo pueden
-              hacer. Cada jugador se mide contra los de su puesto en la categoría (Wyscout, esta temporada).
+              hacer.
+              <Explicativo> Cada jugador se mide contra los de su puesto en la categoría (Wyscout, esta temporada).</Explicativo>
             </p>
 
             <div className="sticky top-[81px] z-20 -mx-4 mt-6 flex flex-wrap items-center gap-3 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-8 sm:px-8 md:top-[97px]">
@@ -379,11 +381,11 @@ export default function DuelosPage() {
 
             {cargando ? (
               <div className="mt-6">
-                <EsqueletoPantalla titulo="Wyscout y las plantillas rivales" cifras={0} />
+                <EsqueletoPantalla titulo="los duelos" cifras={0} />
               </div>
             ) : plantillas.length === 0 ? (
               <p className="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                No se han podido leer las plantillas rivales (la hoja RIVALES no ha contestado). Prueba a recargar en un minuto.
+                No se han podido leer las plantillas rivales. Prueba a recargar en un minuto.
               </p>
             ) : error && !jugadores?.length ? (
               <p className="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</p>
@@ -456,6 +458,7 @@ export default function DuelosPage() {
                   </div>
                 ))}
 
+                <Explicativo>
                 <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
                   Cada duelo se mira en los dos sentidos: con el balón nuestro (lo que hace con balón el nuestro contra lo que hace sin
                   balón el suyo: regate contra entrada, desmarque contra anticipación, pase que rompe líneas contra corte, centro
@@ -465,6 +468,7 @@ export default function DuelosPage() {
                   20). Los porcentajes sacados de muy pocas acciones no cuentan. Es una guía para preparar el partido, no un
                   pronóstico.
                 </p>
+                </Explicativo>
               </>
             )}
           </section>
@@ -700,7 +704,9 @@ function LadoOnce({
             </button>
           )}
         </div>
-        <p className="mt-0.5 text-[11px] text-white/40">{fuente}</p>
+        <Explicativo>
+          <p className="mt-0.5 text-[11px] text-white/40">{fuente}</p>
+        </Explicativo>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {HUECOS.map((h) => {
             const j = once[h.clave];
@@ -715,7 +721,7 @@ function LadoOnce({
                   }`}
                 >
                   <option value="" className="bg-[#11161C]">
-                    {aMano[lado][h.clave] ? "↺ Volver a la propuesta" : "Propuesta automática"}
+                    {aMano[lado][h.clave] ? "↺ Volver a la propuesta" : "Propuesta"}
                   </option>
                   <option value={HUECO_VACIO} className="bg-[#11161C]">
                     Nadie (hueco vacío)
@@ -726,7 +732,7 @@ function LadoOnce({
                         {gente.map((g) => (
                           <option key={g.clave} value={g.clave} className="bg-[#11161C]">
                             {g.dorsal ? `${g.dorsal}. ` : ""}
-                            {g.nombre} · {g.posicion || "—"} · {g.minutos ? `${g.minutos}′` : "sin Wyscout"}
+                            {g.nombre} · {g.posicion || "—"} · {g.minutos ? `${g.minutos}′` : "sin datos"}
                           </option>
                         ))}
                       </optgroup>
@@ -932,7 +938,7 @@ function Tarjeta({
             <p className="truncate text-[10px] text-white/40">
               {j.posicion || "—"}
               {j.altura ? ` · ${j.altura} cm` : ""}
-              {j.wyscout ? ` · ${j.minutos}′` : " · sin Wyscout"}
+              {j.wyscout ? ` · ${j.minutos}′` : " · sin datos"}
             </p>
           </div>
         </div>

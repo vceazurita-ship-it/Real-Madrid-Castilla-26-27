@@ -43,6 +43,7 @@ import {
   traePropuestaTipologia,
   type PropuestaTipologia,
 } from "@/lib/rivals/tipologia-wyscout";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 /** Un partido de los que tienen alineación bajada, que son los elegibles. */
 export type PartidoElegible = {
@@ -199,8 +200,8 @@ export default function InformePartidosDialog({
         >
           {partidos.length === 0 ? (
             <p className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-center text-sm text-white/40">
-              No hay alineaciones bajadas de este equipo. Se descargan con
-              «node scripts/rivals-informe.mjs».
+              Todavía no hay alineaciones de este equipo.
+              <Explicativo> Se descargan con «node scripts/rivals-informe.mjs».</Explicativo>
             </p>
           ) : (
             <ul className="space-y-1">
@@ -462,7 +463,7 @@ function TipologiaEditor({
         onChange={(evento) => pon(lado, fila, evento.target.value)}
         title={
           propuesto
-            ? "Sugerencia de Wyscout: no sale en el informe hasta que la escribes o pulsas «Usar la sugerencia»."
+            ? "Sugerencia: no sale en el informe hasta que la escribes o pulsas «Usar la sugerencia»."
             : undefined
         }
         /* La propuesta va en dorado y a medio tono: se ve de un vistazo qué
@@ -487,7 +488,7 @@ function TipologiaEditor({
           <button
             type="button"
             onClick={usaSugerencia}
-            title="Copia la sugerencia de Wyscout en las casillas vacías. Lo que ya has escrito no se toca."
+            title="Copia la sugerencia en las casillas vacías. Lo que ya has escrito no se toca."
             className="rounded-md border border-dashed border-[#C8A96B]/40 px-2 py-0.5 text-[11px] text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
           >
             Usar la sugerencia
@@ -581,6 +582,7 @@ function TipologiaEditor({
         tiene que saber cuál es cuál.
       */}
       {propuesta.base.partidos > 0 && (
+        <Explicativo>
         <p className="mt-2 text-[11px] leading-relaxed text-[#C8A96B]/70">
           Las cifras en dorado claro son una{" "}
           <strong className="font-semibold">sugerencia, no un dato</strong>:
@@ -595,6 +597,7 @@ function TipologiaEditor({
           hasta que la escribes o pulsas «Usar la sugerencia». Los penaltis y
           las propias puertas sí son dato: los cuenta el marcador.
         </p>
+        </Explicativo>
       )}
     </div>
   );

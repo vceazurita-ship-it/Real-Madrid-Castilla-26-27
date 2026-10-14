@@ -31,6 +31,7 @@ import {
   type CampoBoceto,
   type LineaBoceto,
 } from "@/lib/plan-partido/boceto";
+import { useTextosExplicativos } from "@/components/ui/textos-analisis";
 
 type Rival = Record<string, string>;
 
@@ -69,6 +70,7 @@ export function BocetoPlanDialog({
 
   const [datos, setDatos] = useState<Datos | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const explicativos = useTextosExplicativos();
 
   /* Las tres fuentes, una vez: lo que cambia después es sólo la jornada de origen. */
   useEffect(() => {
@@ -202,17 +204,17 @@ export function BocetoPlanDialog({
         {origen && !datos && !error && (
           <EmptyState
             title="Leyendo los datos…"
-            description={`Los informes de Wyscout del ${actual.EQUIPO ?? "rival"} y los nuestros, el balón parado de la liga y el scouting en vídeo.`}
+            description={explicativos ? `Los informes de Wyscout del ${actual.EQUIPO ?? "rival"} y los nuestros, el balón parado de la liga y el scouting en vídeo.` : undefined}
           />
         )}
 
         {boceto && (
           <>
-            {(boceto.fuentes.length > 0 || boceto.avisos.length > 0) && (
+            {((explicativos && boceto.fuentes.length > 0) || boceto.avisos.length > 0) && (
               <Notice
                 title={`Replicado de la J${boceto.anterior.jornada} (${boceto.anterior.equipo}) y contrastado con los datos del ${boceto.rival}`}
               >
-                {boceto.fuentes.length > 0 && <p>{boceto.fuentes.join(" · ")}.</p>}
+                {explicativos && boceto.fuentes.length > 0 && <p>{boceto.fuentes.join(" · ")}.</p>}
 
                 {boceto.avisos.map((aviso) => (
                   <p key={aviso} className="mt-1 text-amber-200/80">

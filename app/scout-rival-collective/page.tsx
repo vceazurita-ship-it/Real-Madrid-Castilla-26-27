@@ -718,15 +718,21 @@ export default function ScoutRivalCollective() {
           </header>
 
           {/* --------------------------------------- Navegación interna */}
+          {/*
+            Pegada arriba (14/10/2026), como las pestañas del resto de
+            análisis: se salta de sección desde el fondo del informe. Sigue
+            siendo un único documento —se exporta entero—, por eso son anclas
+            y no pestañas.
+          */}
           <nav
             data-export-hide
-            className="mb-6 flex flex-wrap gap-2 border-y border-white/5 py-3"
+            className="sticky top-0 z-20 -mx-4 mb-6 flex gap-2 overflow-x-auto border-b border-white/10 bg-[#0B0F14] px-4 py-3 scrollbar-none sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10"
           >
             {NAV.map((item) => (
               <a
                 key={item.id}
                 href={`#${item.id}`}
-                className="rounded-full border border-white/10 px-4 py-1.5 text-xs font-medium text-white/55 transition hover:border-[#C8A96B]/40 hover:text-white"
+                className="shrink-0 rounded-full border border-white/10 px-4 py-1.5 text-xs font-semibold text-white/60 transition hover:border-[#C8A96B]/40 hover:bg-[#C8A96B]/10 hover:text-white"
               >
                 {item.label}
               </a>
@@ -737,7 +743,7 @@ export default function ScoutRivalCollective() {
             <EstadoError
               className="mb-6"
               titulo="No se ha podido cargar la lista de rivales"
-              error="Comprueba la conexión con la hoja de cálculo."
+              error="Comprueba la conexión."
               onReintentar={reintenta}
               reintentando={cargando}
             />
@@ -757,7 +763,7 @@ export default function ScoutRivalCollective() {
           )}
 
           {/* ----------------------------------- Selector + datos clave */}
-          <section id="datos" className="scroll-mt-6">
+          <section id="datos" className="scroll-mt-20">
             <div className="mb-6 flex flex-col gap-3 sm:flex-row" data-export-hide>
               <button
                 aria-label="Rival anterior"
@@ -865,7 +871,7 @@ export default function ScoutRivalCollective() {
             <section
               key={section.id}
               id={section.id}
-              className="mt-12 scroll-mt-6"
+              className="mt-12 scroll-mt-20"
             >
               <div
                 className="flex flex-col gap-1 rounded-2xl border-l-4 bg-white/[0.03] px-5 py-4"
@@ -920,7 +926,7 @@ export default function ScoutRivalCollective() {
           ))}
 
           {/* ------------------------------------------- Conclusiones */}
-          <section id="conclusiones" className="mt-12 scroll-mt-6">
+          <section id="conclusiones" className="mt-12 scroll-mt-20">
             <div
               className="flex flex-col gap-1 rounded-2xl border-l-4 bg-white/[0.03] px-5 py-4"
               style={{

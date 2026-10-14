@@ -1837,8 +1837,7 @@ export default function RivalPlayersPage() {
 
       if (!sugerido) {
         toast.error("No hay de dónde sacar el once de este equipo.", {
-          description:
-            "Hacen falta alineaciones bajadas: «node scripts/rivals-informe.mjs».",
+          description: "Hacen falta alineaciones de sus últimos partidos.",
         });
 
         return;
@@ -1849,7 +1848,7 @@ export default function RivalPlayersPage() {
       toast.success(`Once probable propuesto · ${explicaSugerencia(sugerido)}`, {
         description:
           sugerido.sinFicha.length > 0
-            ? `Sin ficha en la hoja: ${sugerido.sinFicha.join(", ")}`
+            ? `Sin ficha: ${sugerido.sinFicha.join(", ")}`
             : "Cámbialo pulsando a cualquiera de la lista.",
       });
     } catch (error) {
@@ -1994,10 +1993,7 @@ export default function RivalPlayersPage() {
       const informe = findInforme(doc, selectedTeam);
 
       if (!informe) {
-        toast.error("Todavía no hay informe de este equipo.", {
-          description:
-            "Se descarga con «node scripts/rivals-informe.mjs» y se guarda en Supabase.",
-        });
+        toast.error("Todavía no hay informe de este equipo.");
 
         return;
       }
@@ -2290,7 +2286,7 @@ export default function RivalPlayersPage() {
     /* ---------------- el PPT del rival ---------------- */
 
     if (!informe) {
-      avisos.push("Informe del rival (PPT): todavía no hay informe de BeSoccer de este equipo.");
+      avisos.push("Informe del rival (PPT): todavía no hay informe de este equipo.");
     } else if (!sinSesion) {
       try {
         const { partidos, marcados: porDefecto } = partidosElegiblesDe(informe);

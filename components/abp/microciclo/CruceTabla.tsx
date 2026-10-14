@@ -229,7 +229,7 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                     className="px-2.5 py-2 text-[11px] italic text-white/40"
                   >
                     {fila.aspecto.sinDato ??
-                      "Ninguna hoja de ABP registra esta acción."}
+                      "Sin acciones registradas de este tipo."}
                   </td>
                 ) : (
                   <>

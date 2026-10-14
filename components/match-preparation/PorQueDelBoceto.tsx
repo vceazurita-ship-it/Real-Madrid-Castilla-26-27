@@ -24,6 +24,7 @@ import {
   type LineaBoceto,
   type MotivosPlan,
 } from "@/lib/plan-partido/boceto";
+import { useTextosExplicativos } from "@/components/ui/textos-analisis";
 
 export function PorQueDelBoceto({ idRival }: { idRival: string }) {
   const { admin } = useAdmin();
@@ -36,7 +37,10 @@ export function PorQueDelBoceto({ idRival }: { idRival: string }) {
 
   const [abierto, setAbierto] = useState(false);
 
-  if (admin !== true || !doc.value?.campos) return null;
+  /* Los porqués son el método del boceto: con sesión de administrador y, además, los textos explicativos encendidos. */
+  const explicativos = useTextosExplicativos();
+
+  if (admin !== true || !explicativos || !doc.value?.campos) return null;
 
   const motivos = doc.value;
 

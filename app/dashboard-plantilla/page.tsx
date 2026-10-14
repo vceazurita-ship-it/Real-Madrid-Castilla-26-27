@@ -43,6 +43,7 @@ import {
   YAxis,
   ZAxis,
 } from "recharts";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 
 const ESTADOS_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=1978494160&single=true&output=csv";
@@ -237,6 +238,14 @@ export default function DashboardPlantilla() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  /*
+  | Cuatro vistas (14/10/2026): la ficha del jugador, cómo está la plantilla
+  | (estado, puestos, licencias), las valoraciones y la evolución. Antes iba
+  | todo en un scroll de siete gráficos. Las cifras de arriba (que filtran)
+  | siguen siempre a la vista.
+  */
+  const [vista, setVista] = usePestanaUrl<"jugador" | "plantilla" | "valoracion" | "evolucion">("vista", ["jugador", "plantilla", "valoracion", "evolucion"], "jugador");
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [playerSearch, setPlayerSearch] = useState("");
@@ -962,12 +971,30 @@ export default function DashboardPlantilla() {
                 })}
               </div>
 
+              {/* Pegada arriba con el mismo margen que esta página (la tira común trae el de las de análisis). */}
+              <div className="sticky top-0 z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
+              <Pestanas
+                pegada={false}
+                etiqueta="Vistas del dashboard de plantilla"
+                valor={vista}
+                onCambia={setVista}
+                opciones={[
+                  { clave: "jugador", label: "¿Cómo está cada uno?" },
+                  { clave: "plantilla", label: "¿Cómo está la plantilla?" },
+                  { clave: "valoracion", label: "¿Quién rinde más?" },
+                  { clave: "evolucion", label: "¿Cómo evoluciona?" },
+                ]}
+              />
+              </div>
+
               {filteredPlayers.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
                   Ningún jugador coincide con los filtros seleccionados.
                 </div>
               ) : (
                 <>
+                  {vista === "jugador" && (
+                  <>
                   {/* FICHA + RADAR */}
 
                   <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
@@ -1039,10 +1066,13 @@ export default function DashboardPlantilla() {
                       )}
                     </ChartCard>
                   </div>
+                  </>
+                  )}
 
                   {/* GRÁFICOS */}
 
-                  <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+                  <div className={`grid min-w-0 gap-6 ${vista === "evolucion" ? "" : "lg:grid-cols-2"}`}>
+                    {vista === "plantilla" && (
                     <ChartCard
                       title="Estado de la plantilla"
                       subtitle="Click en un sector para filtrar"
@@ -1086,7 +1116,9 @@ export default function DashboardPlantilla() {
                         }))}
                       />
                     </ChartCard>
+                    )}
 
+                    {vista === "plantilla" && (
                     <ChartCard
                       title="Jugadores por posición"
                       subtitle="Click en una barra para filtrar"
@@ -1134,7 +1166,9 @@ export default function DashboardPlantilla() {
                         </BarChart>
                       </ResponsiveContainer>
                     </ChartCard>
+                    )}
 
+                    {vista === "valoracion" && (
                     <ChartCard
                       title="Top 10 valoración"
                       subtitle="Click en una barra para ver la ficha"
@@ -1207,7 +1241,9 @@ export default function DashboardPlantilla() {
                         <EmptyChart message="Sin jugadores valorados en el filtro actual." />
                       )}
                     </ChartCard>
+                    )}
 
+                    {vista === "valoracion" && (
                     <ChartCard
                       title="Mentalidad vs Física"
                       subtitle="El tamaño del punto indica la media global"
@@ -1326,7 +1362,9 @@ export default function DashboardPlantilla() {
                         <EmptyChart message="Sin jugadores valorados en el filtro actual." />
                       )}
                     </ChartCard>
+                    )}
 
+                    {vista === "evolucion" && (
                     <ChartCard
                       title="Evolución de registros"
                       subtitle="Controles de estado registrados por fecha"
@@ -1375,7 +1413,9 @@ export default function DashboardPlantilla() {
                         </LineChart>
                       </ResponsiveContainer>
                     </ChartCard>
+                    )}
 
+                    {vista === "plantilla" && (
                     <ChartCard
                       title="Distribución por licencias"
                       subtitle="Click en un sector para filtrar"
@@ -1416,6 +1456,7 @@ export default function DashboardPlantilla() {
                         </PieChart>
                       </ResponsiveContainer>
                     </ChartCard>
+                    )}
                   </div>
                 </>
               )}

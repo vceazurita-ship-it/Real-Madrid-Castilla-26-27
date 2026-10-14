@@ -13,6 +13,7 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 
 import { Button, Dialog, TextArea, sePuedeDescartar } from "@/components/abp/ui";
+import { Explicativo } from "@/components/ui/textos-analisis";
 import { chipInk } from "@/lib/theme";
 import {
   ASPECTOS_POR_GRUPO,
@@ -575,12 +576,15 @@ export function TrabajoDialog({
             />
           </div>
 
-          <p className="mt-2.5 text-[10px] leading-relaxed text-white/30">
-            {borrador.cargaRegistrada != null ||
-            borrador.cargaCogRegistrada != null
-              ? "Cargas medidas: vienen de la hoja de registro de tareas. Si tocas una escala, esa carga pasa a ser estimada."
-              : "Carga condicional = tiempo × intensidad, la misma cuenta que la hoja de registro. La cognitiva es una estimación (tiempo × exigencia); la de la hoja lleva más ingredientes."}
-          </p>
+          {/* Cómo se calcula la carga: método, sólo con los textos explicativos (14/10/2026). */}
+          <Explicativo>
+            <p className="mt-2.5 text-[10px] leading-relaxed text-white/30">
+              {borrador.cargaRegistrada != null ||
+              borrador.cargaCogRegistrada != null
+                ? "Cargas medidas: vienen de la hoja de registro de tareas. Si tocas una escala, esa carga pasa a ser estimada."
+                : "Carga condicional = tiempo × intensidad, la misma cuenta que la hoja de registro. La cognitiva es una estimación (tiempo × exigencia); la de la hoja lleva más ingredientes."}
+            </p>
+          </Explicativo>
         </div>
 
         <TextArea

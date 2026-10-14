@@ -1,10 +1,18 @@
 "use client";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { traeCsv } from "@/lib/hojaCsv";
 import { EsqueletoPantalla, EstadoError } from "@/components/ui/estados";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
-import { FileDown } from "lucide-react";
+import {
+  FileDown,
+  LayoutDashboard as PestanaLayoutDashboard,
+  Crosshair as PestanaCrosshair,
+  Workflow as PestanaWorkflow,
+  Users as PestanaUsers,
+  Clock as PestanaClock,
+} from "lucide-react";
 import ABPFlowField, { zonaRemateDelCampo } from '@/components/abp/ABPFlowField';
 import { AbpHeader, FilterDrawer, Select, TeamPicker } from '@/components/abp/ui';
 import { useEscudos } from "@/hooks/useEscudos";
@@ -1398,6 +1406,18 @@ const mayorPerfil = filtered
     return acc;
   }, [] as { name: string; xg: number }[])
   .sort((a, b) => b.xg - a.xg)[0]?.name;
+/* El PDF captura cada gráfico por su id: con las pestañas, se enseñan todos un momento. */
+const exportaPDF = async () => {
+  setTodoVisible(true);
+
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 1400));
+    await downloadPDF();
+  } finally {
+    setTodoVisible(false);
+  }
+};
+
 const downloadPDF = async () => {
   /*
   | El motor de PDF llega al pulsar, no al abrir la pantalla.
@@ -2170,6 +2190,16 @@ originalStyles.forEach(
 */
 const textosExplicativos = useTextosExplicativos();
 
+/*
+| Cinco vistas (14/10/2026), las mismas en ofensivo y defensivo: el resumen,
+| dónde cae y se remata, cómo se ejecuta, quién y contra quién, y cuándo. Los
+| paneles se esconden (no se desmontan): el filtro cruzado sigue valiendo y,
+| al descargar el PDF, se enseñan todos para que se capture cada gráfico.
+*/
+const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "quien" | "cuando">("vista", ["resumen", "donde", "como", "quien", "cuando"], "resumen");
+const [todoVisible, setTodoVisible] = useState(false);
+const oculto = (clave: string) => (todoVisible || vista === clave ? "" : "hidden");
+
 const conclusiones = useMemo(() => {
   if (!filtered.length) return [];
 
@@ -2301,19 +2331,7 @@ const pie = (
 
   {/* Lo primero: este partido frente a la media de los anteriores. Antes iba
       debajo de la tarjeta de filtros y había que bajar para verlo. */}
-  {comparativa && (
-    <ComparativaPartido
-      partido={comparativa.partido}
-      anteriores={{ n: comparativa.anteriores }}
-      metricas={comparativa.metricas}
-      nota={
-        jornada === "ALL"
-          ? "Con «Todas las jornadas» elegido, aquí se compara la última; el resto de la página suma todos los partidos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor; gris: no se juzga."
-          : "La media es por partido, con los mismos filtros que el resto de la página menos el de jornada. Verde: mejor que la media; naranja: peor; gris: no se juzga."
-      }
-      className="mb-6"
-    />
-  )}
+
 
   {/* Selector + KPIs */}
   <div className="rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm">
@@ -2618,6 +2636,35 @@ Mayor xG concedido  </p>
             {/* Lo primero: este partido frente a la media de los anteriores.
                 Con «Todas las jornadas» elegido se compara la última igualmente. */}
             {/* Las conclusiones en pocas frases, antes de los gráficos. */}
+            <div className="mt-6 lg:px-2">
+              <Pestanas
+                etiqueta="Vistas del balón parado defensivo"
+                valor={vista}
+                onCambia={setVista}
+                opciones={[
+                  { clave: "resumen", label: "Resumen", icono: PestanaLayoutDashboard },
+                  { clave: "donde", label: "Dónde cae", icono: PestanaCrosshair },
+                  { clave: "como", label: "Cómo nos atacan", icono: PestanaWorkflow },
+                  { clave: "quien", label: "Quién nos hace daño", icono: PestanaUsers },
+                  { clave: "cuando", label: "Cuándo", icono: PestanaClock },
+                ]}
+              />
+            </div>
+
+            <div className={oculto("resumen")}>
+            {comparativa && (
+    <ComparativaPartido
+      partido={comparativa.partido}
+      anteriores={{ n: comparativa.anteriores }}
+      metricas={comparativa.metricas}
+      nota={
+        jornada === "ALL"
+          ? "Con «Todas las jornadas» elegido, aquí se compara la última; el resto de la página suma todos los partidos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor; gris: no se juzga."
+          : "La media es por partido, con los mismos filtros que el resto de la página menos el de jornada. Verde: mejor que la media; naranja: peor; gris: no se juzga."
+      }
+      className="mb-6"
+    />
+  )}
             <Conclusiones items={conclusiones} className="mt-6" />
 
             {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos
@@ -2625,9 +2672,10 @@ Mayor xG concedido  </p>
             <div className="mt-6">
               {pie({ destacado: true, dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}
             </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6 mt-8 md:mt-10">
-<div className="md:col-span-2">
+<div className={`md:col-span-2 ${oculto("donde")}`}>
 <Panel title="Mapa de zonas del área" analisis={pie({ dimension: "zona de caída", categoria: (r) => r.zonaCaida })}>
   <div id="grafico-zone-map">
     <ABPZoneMap
@@ -2650,7 +2698,7 @@ Mayor xG concedido  </p>
 </Panel>
 </div>
 
-<div className="md:col-span-2">
+<div className={`md:col-span-2 ${oculto("resumen")}`}>
 <Panel title="Situación Global" analisis={pie({})}>
   <div id="grafico-abp-flow">
 <ABPFlowField
@@ -2701,7 +2749,7 @@ Mayor xG concedido  </p>
 </Panel>
 </div>
 
-<div className="md:col-span-2">
+<div className={`md:col-span-2 ${oculto("como")}`}>
 <Panel title="Flujo defensivo">
   <div id="grafico-abp-objective-flow">
    <ABPObjectiveFlow
@@ -2741,7 +2789,7 @@ Mayor xG concedido  </p>
 </Panel>
 </div>
 
-              <Panel title="Tipo de acción">
+              <Panel className={oculto("como")} title="Tipo de acción">
                 <div id="grafico-tipo-accion">
   <Chart>
     <BarChart
@@ -2808,7 +2856,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Zona caída">
+<Panel className={oculto("donde")} title="Zona caída">
   <div id="grafico-zona-caida">
   <Chart>
     <PieChart>
@@ -2869,7 +2917,7 @@ outerRadius={isMobile ? 90 : 120}
     </PieChart>
   </Chart></div>
 </Panel>
-<Panel title="Impacto sacador" analisis={pie({ metrica: "xg", dimension: "perfil de golpeo", categoria: (r) => r.perfilGolpeo })}>
+<Panel className={oculto("quien")} title="Impacto sacador" analisis={pie({ metrica: "xg", dimension: "perfil de golpeo", categoria: (r) => r.perfilGolpeo })}>
   <div id="grafico-impacto-sacador">
   <Chart>
     <BarChart
@@ -2944,7 +2992,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Impacto rematadores" analisis={pie({ dimension: "tipo de remate", categoria: (r) => r.tipoRemate })}><div id="grafico-impacto-rematadores">
+<Panel className={oculto("quien")} title="Impacto rematadores" analisis={pie({ dimension: "tipo de remate", categoria: (r) => r.tipoRemate })}><div id="grafico-impacto-rematadores">
   <Chart>
     <BarChart
       data={rematadoresData}
@@ -3008,7 +3056,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="xG por tipo envío" analisis={pie({ metrica: "xg", dimension: "tipo de envío", categoria: (r) => r.tipoEnvio })}><div id="grafico-tipo-envio">
+<Panel className={oculto("como")} title="xG por tipo envío" analisis={pie({ metrica: "xg", dimension: "tipo de envío", categoria: (r) => r.tipoEnvio })}><div id="grafico-tipo-envio">
   <Chart>
     <BarChart
       data={tipoEnvioData}
@@ -3072,7 +3120,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Zona remate" analisis={pie({ metrica: "xg", dimension: "zona de remate", categoria: (r) => r.zonaRemate })}><div id="grafico-zona-remate">
+<Panel className={oculto("donde")} title="Zona remate" analisis={pie({ metrica: "xg", dimension: "zona de remate", categoria: (r) => r.zonaRemate })}><div id="grafico-zona-remate">
   <Chart>
     <PieChart>
       <Pie
@@ -3136,7 +3184,7 @@ margin={{
     </PieChart>
   </Chart></div>
 </Panel>
-<Panel title="Segundo balón" analisis={pie({ dimension: "segundo balón", categoria: (r) => r.segundoBalon })}><div id="grafico-segundo-balon">
+<Panel className={oculto("donde")} title="Segundo balón" analisis={pie({ dimension: "segundo balón", categoria: (r) => r.segundoBalon })}><div id="grafico-segundo-balon">
   <Chart>
     <PieChart>
       <Pie
@@ -3201,7 +3249,7 @@ margin={{
   </Chart></div>
 </Panel>
 
-<Panel title="Tipo carrera" analisis={pie({ dimension: "tipo de carrera", categoria: (r) => r.tipoCarrera })}><div id="grafico-tipo-carrera">
+<Panel className={oculto("como")} title="Tipo carrera" analisis={pie({ dimension: "tipo de carrera", categoria: (r) => r.tipoCarrera })}><div id="grafico-tipo-carrera">
   <Chart>
     <PieChart>
       <Pie
@@ -3260,7 +3308,7 @@ margin={{
     </PieChart>
   </Chart></div>
 </Panel>
-<Panel title="Momento del partido" analisis={pie({ metrica: "volumen", dimension: "tramo", categoria: (r) => TRAMOS.find((uno) => uno.key === r.contexto.minuto.tramo)?.label ?? "" })}><div id="grafico-distribucion-periodo">
+<Panel className={oculto("cuando")} title="Momento del partido" analisis={pie({ metrica: "volumen", dimension: "tramo", categoria: (r) => TRAMOS.find((uno) => uno.key === r.contexto.minuto.tramo)?.label ?? "" })}><div id="grafico-distribucion-periodo">
   <Explicativo>
 
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
@@ -3337,7 +3385,7 @@ margin={{
   acción. Es la lectura que dice si el equipo se desordena a balón parado
   cuando se pone por delante, que es donde se pierden los partidos.
 */}
-<Panel title="Según el marcador" analisis={pie({ dimension: "marcador", categoria: (r) => ESTADOS.find((uno) => uno.key === r.contexto.marcador.estado)?.label ?? "" })}><div id="grafico-abp-marcador">
+<Panel className={oculto("cuando")} title="Según el marcador" analisis={pie({ dimension: "marcador", categoria: (r) => ESTADOS.find((uno) => uno.key === r.contexto.marcador.estado)?.label ?? "" })}><div id="grafico-abp-marcador">
   <Explicativo>
 
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
@@ -3418,7 +3466,7 @@ margin={{
     ))}
   </div>
 </Panel>
-<Panel title="xG por tipo de acción" analisis={pie({ metrica: "xg", dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}><div id="grafico-xg-tipo-accion">
+<Panel className={oculto("como")} title="xG por tipo de acción" analisis={pie({ metrica: "xg", dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}><div id="grafico-xg-tipo-accion">
   <Chart>
     <BarChart
       data={xgByTipoAccion}
@@ -3491,7 +3539,7 @@ margin={{
   </Chart></div>
 </Panel>
 
-<Panel title="Top rivales por xG concedido" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}><div id="grafico-rivales-xg-concedido">
+<Panel className={oculto("quien")} title="Top rivales por xG concedido" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}><div id="grafico-rivales-xg-concedido">
   <Chart>
     <BarChart
       data={rivalesData}
@@ -3541,7 +3589,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="xG por zona caida" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}><div id="grafico-xg-zona-caida">
+<Panel className={oculto("donde")} title="xG por zona caida" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}><div id="grafico-xg-zona-caida">
   <Chart>
     <BarChart
   data={xgZonaCaida}
@@ -3641,7 +3689,7 @@ const words =
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel title="Resultado final" analisis={pie({ dimension: "resultado", dimensionDerivada: true, categoria: (r) => normalizaResultado(r.resultadoFinal) })}>
+<Panel className={oculto("cuando")} title="Resultado final" analisis={pie({ dimension: "resultado", dimensionDerivada: true, categoria: (r) => normalizaResultado(r.resultadoFinal) })}>
   <Explicativo>
 
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
@@ -3704,7 +3752,7 @@ outerRadius={isMobile ? 90 : 120}
   </Chart></div>
 </Panel>
 
-<Panel title="Calidad del envío rival" analisis={pie({ metrica: "xg", dimension: "calidad de envío", categoria: (r) => (r.calidadEnvio ? "Calidad " + r.calidadEnvio : "") })}>
+<Panel className={oculto("como")} title="Calidad del envío rival" analisis={pie({ metrica: "xg", dimension: "calidad de envío", categoria: (r) => (r.calidadEnvio ? "Calidad " + r.calidadEnvio : "") })}>
   <Explicativo>
 
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
@@ -3786,7 +3834,7 @@ outerRadius={isMobile ? 90 : 120}
   </Chart></div>
 </Panel>
 
-<Panel title="Superioridad en corto" analisis={pie({ dimension: "superioridad", categoria: (r) => (esSuperioridad(r.zonaCaida) ? r.zonaCaida : "") })}>
+<Panel className={oculto("donde")} title="Superioridad en corto" analisis={pie({ dimension: "superioridad", categoria: (r) => (esSuperioridad(r.zonaCaida) ? r.zonaCaida : "") })}>
   <Explicativo>
 
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
@@ -3857,7 +3905,7 @@ outerRadius={isMobile ? 90 : 120}
   </Chart></div>
 </Panel>
 
-<Panel title="Estructura de la jugada" analisis={pie({ dimension: "atacantes en el área", categoria: (r) => (r.nAtacantes ? r.nAtacantes + " atacantes" : "") })}>
+<Panel className={oculto("como")} title="Estructura de la jugada" analisis={pie({ dimension: "atacantes en el área", categoria: (r) => (r.nAtacantes ? r.nAtacantes + " atacantes" : "") })}>
   <Explicativo>
 
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
@@ -3958,7 +4006,7 @@ outerRadius={isMobile ? 90 : 120}
         </div>
       </div>
       <button
-        onClick={downloadPDF}
+        onClick={() => void exportaPDF()}
         className="
           fixed
           top-24
@@ -4083,15 +4131,18 @@ function Card({
 function Panel({
   title,
   children,
+  className = "",
 }: {
   title: string;
   children: React.ReactNode;
+  /* Para esconderlo en las pestañas que no son la suya (14/10/2026). */
+  className?: string;
   /* Se recibe y no se pinta: así estaba ya, y el pie de cada sección se
      sigue pasando por si un día se vuelve a enseñar. */
   analisis?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-8 shadow-xl overflow-hidden">
+    <div className={`rounded-2xl md:rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-8 shadow-xl overflow-hidden ${className}`}>
       <h2 className="mb-5 md:mb-6 text-lg md:text-2xl font-semibold">
         {title}
       </h2>

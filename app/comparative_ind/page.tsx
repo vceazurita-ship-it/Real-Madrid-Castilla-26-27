@@ -80,6 +80,7 @@ import {
   type PuntoJugador,
   type Referencia,
 } from "@/lib/comparativa-u21";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 type Respuesta = { ok: boolean; jugadores?: FilaJugador[]; error?: string };
 type RegistroSeguimiento = { ID_JUGADOR: string; NOMBRE?: string; FECHA?: string };
@@ -154,7 +155,7 @@ export default function ComparativaCategoria() {
       .then((r) => r.json())
       .then((r: Respuesta) => setDatos(r))
       .catch(() => {
-        if (!control.signal.aborted) setDatos({ ok: false, error: "No se han podido leer los datos de Wyscout." });
+        if (!control.signal.aborted) setDatos({ ok: false, error: "No se han podido leer los datos." });
       });
     traeJson<unknown>("/api/rivals?action=seguimiento")
       .then((d) => setSeguimientos(Array.isArray(d) ? (d as RegistroSeguimiento[]) : []))
@@ -345,7 +346,7 @@ export default function ComparativaCategoria() {
               </p>
             ) : !datos?.ok || filas.length === 0 ? (
               <p className="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                {datos?.error ?? "No hay datos de jugadores de Wyscout de esta temporada."}
+                {datos?.error ?? "No hay datos de jugadores de esta temporada."}
               </p>
             ) : (
               <>
@@ -520,6 +521,7 @@ export default function ComparativaCategoria() {
                   </>
                 )}
 
+                <Explicativo>
                 <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
                   Índice = media de sus percentiles en las métricas de su puesto frente a {refLabel.toLowerCase()} con al
                   menos 90′ esta temporada (Wyscout, datos por 90′). Es un resumen para ordenar, no una nota: la ficha dice
@@ -527,6 +529,7 @@ export default function ComparativaCategoria() {
                   percentil de este año con el del año pasado, cada uno contra su categoría; si el año pasado jugó menos de
                   450′ sale atenuada.
                 </p>
+                </Explicativo>
               </>
             )}
           </section>
@@ -1070,7 +1073,7 @@ function Detalle({
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
           {[
-            ["Minutos Wyscout", `${j.minutos}′ en ${j.partidos} partidos`],
+            ["Minutos", `${j.minutos}′ en ${j.partidos} partidos`],
             ["Altura · peso", j.altura ? `${j.altura} cm · ${j.peso || "—"} kg` : "—"],
             ["Pie", j.pie || "—"],
             ["Contrato", j.contrato || "—"],
@@ -1373,11 +1376,13 @@ function CaraACara({
             <SelectorEquipos equipos={equipos} sel={equiposSel} setSel={setEquiposSel} escudoDe={escudoDe} jornadaDe={jornadaDe} />
           </div>
         </div>
+        <Explicativo>
         <p className="text-[11px] leading-relaxed text-white/35">
           Percentil de cada uno contra todos los {puestoLabel} de la categoría con al menos 90′ (P100 = el mejor). Entran los
           de su puesto de esos equipos con 90′ o más, de más a menos minutos. Los porcentajes de muy pocas acciones se enseñan sin
           percentil.
         </p>
+        </Explicativo>
       </aside>
 
       <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">

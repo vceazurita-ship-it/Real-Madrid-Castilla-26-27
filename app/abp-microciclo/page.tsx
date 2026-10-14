@@ -38,6 +38,9 @@ import {
   Sparkles,
   Target,
   TriangleAlert,
+  CalendarRange as PestanaCalendarRange,
+  PieChart as PestanaPieChart,
+  Trophy as PestanaTrophy,
 } from "lucide-react";
 
 import { BocetoDialog } from "@/components/abp/microciclo/BocetoDialog";
@@ -61,6 +64,8 @@ import {
   StatCard,
   StatRow,
 } from "@/components/abp/ui";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { SemanaGrid } from "@/components/abp/microciclo/SemanaGrid";
 import { TrabajoDialog } from "@/components/abp/microciclo/TrabajoDialog";
 import {
@@ -232,6 +237,13 @@ function entrega(resultado: ResultadoIncrustado) {
 }
 
 export default function AbpMicrocicloPage() {
+  /*
+  | Tres vistas (14/10/2026): la semana (cifras y plan, donde se trabaja), el
+  | reparto (lado, momento, rol) y el cruce con la competición.
+  */
+  const [vista, setVista] = usePestanaUrl<"semana" | "reparto" | "competicion">("vista", ["semana", "reparto", "competicion"], "semana");
+  const explicativos = useTextosExplicativos();
+
   const pedidoIncrustado = useSyncExternalStore(seSabraAlLlegar, parametroIncrustado, sinParametro);
 
   const modoIncrustado = useSyncExternalStore(seSabraAlLlegar, parametroModo, sinParametro) === "post" ? "post" : "previa";
@@ -1172,9 +1184,13 @@ export default function AbpMicrocicloPage() {
 
         <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 md:px-8 md:py-8">
           <AbpHeader
-            area="RMCF Castilla · Metodología"
+            area="RMCF Castilla · Balón Parado"
             title="Microciclo de Balón Parado"
-            lead="Qué se trabaja de ABP cada día de la semana —lado, aspecto, momento de la sesión, campo o vídeo, con qué roles y con cuánto desgaste— y si eso se está notando en el partido."
+            lead={
+              explicativos
+                ? "Qué se trabaja de ABP cada día de la semana —lado, aspecto, momento de la sesión, campo o vídeo, con qué roles y con cuánto desgaste— y si eso se está notando en el partido."
+                : undefined
+            }
             aside={
               <SaveState
                 status={status}
@@ -1374,6 +1390,21 @@ export default function AbpMicrocicloPage() {
             </div>
           ) : (
             <>
+              <div className="mt-6 sm:px-2 md:px-0 lg:px-2">
+                <Pestanas
+                  etiqueta="Vistas del microciclo de balón parado"
+                  valor={vista}
+                  onCambia={setVista}
+                  opciones={[
+                    { clave: "semana", label: "La semana", icono: PestanaCalendarRange },
+                    { clave: "reparto", label: "Reparto", icono: PestanaPieChart },
+                    { clave: "competicion", label: "Competición", icono: PestanaTrophy },
+                  ]}
+                />
+              </div>
+
+              {vista === "semana" && (
+                <>
               {/* ===================== RESUMEN ===================== */}
 
               <div className="mt-7">
@@ -1514,6 +1545,11 @@ export default function AbpMicrocicloPage() {
                 </Panel>
               </div>
 
+                </>
+              )}
+
+              {vista === "reparto" && (
+                <>
               {/* ====================== REPARTO ==================== */}
 
               <div className="mt-6 grid gap-5 lg:grid-cols-3">
@@ -1555,6 +1591,11 @@ export default function AbpMicrocicloPage() {
                 </Panel>
               </div>
 
+                </>
+              )}
+
+              {vista === "competicion" && (
+                <>
               {/* ==================== PRIORIDADES ================== */}
 
               <div className="mt-6">
@@ -1637,7 +1678,7 @@ export default function AbpMicrocicloPage() {
               <div className="mt-6">
                 <Panel
                   title="Cruce con la competición"
-                  subtitle={`${partidos.length} partido${partidos.length === 1 ? "" : "s"} en las hojas de ABP · minutos de todos los microciclos planificados`}
+                  subtitle={`${partidos.length} partido${partidos.length === 1 ? "" : "s"}${explicativos ? " en las hojas de ABP" : ""} · minutos de todos los microciclos planificados`}
                   icon={TriangleAlert}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
@@ -1709,6 +1750,8 @@ export default function AbpMicrocicloPage() {
                   </div>
                 </Panel>
               </div>
+                </>
+              )}
             </>
           )}
         </div>

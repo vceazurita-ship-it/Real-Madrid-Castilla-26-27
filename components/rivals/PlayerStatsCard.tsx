@@ -14,6 +14,7 @@ import {
   columnasTemporada,
   TEMPORADAS_VISIBLES,
 } from "@/lib/rivals/stats-table";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 /*
 |--------------------------------------------------------------------------
@@ -132,7 +133,7 @@ export function PlayerStatsCard({
         </h3>
 
         {stats?.url && (
-          <span className="text-[10px] text-white/25">BeSoccer</span>
+          <Explicativo><span className="text-[10px] text-white/25">BeSoccer</span></Explicativo>
         )}
       </header>
 
@@ -281,8 +282,8 @@ export function PlayerStatsCard({
           ) : (
             <div className="flex h-full min-h-[120px] items-center justify-center rounded-xl border border-dashed border-white/10 px-4 text-center text-xs text-white/35">
               {missing
-                ? "Todavía no se han descargado las estadísticas: ejecuta node scripts/rivals-stats.mjs."
-                : "Sin estadísticas de este jugador en BeSoccer."}
+                ? "Todavía no hay estadísticas."
+                : "Sin estadísticas de este jugador."}
             </div>
           )}
         </div>

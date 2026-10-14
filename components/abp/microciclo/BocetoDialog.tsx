@@ -23,6 +23,7 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, Check, Info, Wand2 } from "lucide-react";
 
 import { Button, Dialog, EmptyState, Notice } from "@/components/abp/ui";
+import { useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { construyeBoceto, type Boceto } from "@/lib/abp/boceto";
 import {
   accionesDelScouting,
@@ -92,6 +93,9 @@ export function BocetoDialog({
   ) => void;
   onCerrar: () => void;
 }) {
+  /* De dónde sale cada cosa (la hoja, el calendario, la liga) sólo con los textos explicativos (14/10/2026). */
+  const explicativos = useTextosExplicativos();
+
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
 
   /*
@@ -195,14 +199,18 @@ export function BocetoDialog({
   return (
     <Dialog
       title={`Boceto del microciclo ${micro.numero || ""}`.trim()}
-      subtitle="Los días salen de la hoja de registro; los aspectos, de nuestro rendimiento y del rival. Se aplica al plan y se cierra a mano."
+      subtitle={
+        explicativos
+          ? "Los días salen de la hoja de registro; los aspectos, de nuestro rendimiento y del rival. Se aplica al plan y se cierra a mano."
+          : "Se aplica al plan y se cierra a mano."
+      }
       onClose={onCerrar}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[11px] text-white/40">
             {estado.fase === "listo"
               ? `${fmtMin(estado.boceto.minutos)} en ${estado.boceto.diasEntrenados} entreno(s) · objetivo ${estado.boceto.objetivo.minimo}-${estado.boceto.objetivo.maximo}′`
-              : "Mirando la hoja, el calendario y los datos de la liga…"}
+              : "Preparando la propuesta…"}
           </p>
 
           <div className="flex gap-2">
@@ -231,7 +239,7 @@ export function BocetoDialog({
       {estado.fase === "cargando" && (
         <EmptyState
           title="Montando el boceto…"
-          description="Se está leyendo qué días entrenamos en la hoja y qué hace de balón parado el rival."
+          description={explicativos ? "Se está leyendo qué días entrenamos en la hoja y qué hace de balón parado el rival." : undefined}
         />
       )}
 
@@ -306,10 +314,10 @@ export function BocetoDialog({
               ) : (
                 <>
                   Microciclo {estado.ventana.comoSeLlama} · sin partido atado (
-                  {estado.ventana.rivalHoja || "sin rival en la hoja"})
+                  {estado.ventana.rivalHoja || "sin rival"})
                 </>
               )}
-              . {estado.boceto.diasEntrenados} día(s) de entrenamiento según la hoja.
+              . {estado.boceto.diasEntrenados} día(s) de entrenamiento{explicativos ? " según la hoja" : ""}.
             </p>
           </div>
 
@@ -342,7 +350,7 @@ export function BocetoDialog({
                       {dia.tipo === "partido"
                         ? `MD · ${estado.ventana.partido?.rival ?? ""}`
                         : dia.tipo === "descanso"
-                          ? "Sin sesión en la hoja"
+                          ? "Sin sesión"
                           : `${dia.rotulo}${minutos ? ` · ${fmtMin(minutos)}` : ""}`}
                     </span>
                   </p>
@@ -370,7 +378,7 @@ export function BocetoDialog({
 
                   {suyo.trabajos.length === 0 && dia.tipo === "entreno" && (
                     <p className="mt-2 text-[10px] text-white/30">
-                      Sin balón parado{dia.tareasHoja ? ` · ${dia.tareasHoja} tarea(s) en la hoja` : ""}.
+                      Sin balón parado{dia.tareasHoja ? ` · ${dia.tareasHoja} tarea(s)${explicativos ? " en la hoja" : ""}` : ""}.
                     </p>
                   )}
                 </div>

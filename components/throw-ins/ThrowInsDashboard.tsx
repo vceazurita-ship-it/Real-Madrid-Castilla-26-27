@@ -5,8 +5,9 @@ import { BarraFiltros, ESTILO_ELEGIDO, PastillaPretemporada } from "@/components
 import type { CSSProperties, ReactNode, SetStateAction } from "react";
 import Papa from "papaparse";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { FileDown } from "lucide-react";
+import { FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOrdered } from "lucide-react";
 import { capturaNodo } from "@/lib/export/captura";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { descargaDataUrl } from "@/lib/export/lienzos";
 import { traeCsv } from "@/lib/hojaCsv";
 import {
@@ -830,6 +831,13 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   const isOffensive = mode === "offensive";
   /* Lo que explica el método sólo sale si el administrador lo enciende. */
   const explicativos = useTextosExplicativos();
+
+  /*
+  | Cuatro vistas (14/10/2026), como ABP y el análisis del partido: el resumen,
+  | dónde se saca y adónde va, cómo acaba, y saque a saque. Al exportar el PNG
+  | se pintan todas, que la imagen es el informe entero.
+  */
+  const [vista, setVista] = usePestanaUrl<"resumen" | "donde" | "como" | "lista">("vista", ["resumen", "donde", "como", "lista"], "resumen");
   const FILTERS = useMemo(() => filtersFor(mode), [mode]);
   const CHARTS = useMemo(() => chartsFor(mode), [mode]);
 
@@ -1277,6 +1285,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       // El PNG salía sin título ni filtros: dos capturas del mismo panel eran
       // indistinguibles. Esperamos a que React pinte la cabecera de exportación.
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      /* Las pestañas que no se veían se montan ahora: sus gráficos tienen que medirse y acabar de dibujarse (14/10/2026). */
+      await new Promise((resolve) => setTimeout(resolve, 1300));
 
       /* `capturaNodo`: el panel entero a 2× se pasa del lienzo de un iPad,
          y en Safari la primera pasada sale sin los escudos. */
@@ -1549,6 +1559,24 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   </p>
                 </div>
 
+                {!exporting && (
+                  <div className="mb-6 sm:px-2 md:px-0 lg:px-2">
+                    <Pestanas
+                      etiqueta="Vistas de los saques de banda"
+                      valor={vista}
+                      onCambia={setVista}
+                      opciones={[
+                        { clave: "resumen", label: "Resumen", icono: LayoutDashboard },
+                        { clave: "donde", label: "Dónde", icono: MapaIcono },
+                        { clave: "como", label: "Cómo acaban", icono: Workflow },
+                        { clave: "lista", label: "Saque a saque", icono: ListOrdered, cuenta: filtered.length },
+                      ]}
+                    />
+                  </div>
+                )}
+
+                {(exporting || vista === "resumen") && (
+                  <>
                 {/* Lo primero: si lo de este partido es lo de siempre o una
                     excepción. Va antes que los KPI, que son del filtro entero. */}
                 {comparativa ? (
@@ -1629,6 +1657,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   })}
                 </div>
 
+                  </>
+                )}
+
+                {(exporting || vista === "donde") && (
+                  <>
                 <ThrowInField rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />
 
                 <div className="mb-7 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
@@ -1647,6 +1680,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   })}
                 </div>
 
+                  </>
+                )}
+
+                {(exporting || vista === "como") && (
+                  <>
                 <section className="mb-7 rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-xl md:p-7">
                   <div className="mb-5">
                     <p className="text-xs uppercase tracking-[0.2em] text-[#C8A96B]">Flujo</p>
@@ -1715,6 +1753,10 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   ))}
                 </div>
 
+                  </>
+                )}
+
+                {(exporting || vista === "lista") && (
                 <section className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
                   {pie({
                     dimension: "rival",
@@ -1831,6 +1873,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     </table>
                   </div>
                 </section>
+                )}
               </div>
             )}
           </div>

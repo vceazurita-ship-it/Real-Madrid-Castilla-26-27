@@ -2086,8 +2086,8 @@ export default function MatchPreparation() {
               </h2>
 
               <p className="mx-auto mt-2 max-w-md text-sm text-white/45">
-                Cuando se den de alta rivales en la hoja de cálculo aparecerán
-                aquí para preparar el plan.
+                Cuando se den de alta los rivales aparecerán aquí para preparar
+                el plan.
               </p>
             </div>
           )}

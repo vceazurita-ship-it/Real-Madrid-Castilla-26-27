@@ -36,6 +36,7 @@ import {
   jornadaDeEquipo,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 export default function ScoutRivalIndividual() {
   const escudoDe = useEscudos();
@@ -116,11 +117,14 @@ export default function ScoutRivalIndividual() {
               Vídeos del rival
             </h1>
 
+            <Explicativo>
             <p className="mt-3 max-w-2xl text-white/60">
               Los cortes que montamos en el coding, repartidos por jugador. Cada
               rival tiene su lista en nuestro canal y aquí se ve sin salir de la
               plataforma.
             </p>
+            </Explicativo>
+            <p className="mt-3 max-w-2xl text-white/60">Los cortes de cada rival, jugador a jugador.</p>
           </header>
 
           {/* ---------------------- A QUIÉN SE MIRA ------------------------ */}

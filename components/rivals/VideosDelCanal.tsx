@@ -56,6 +56,7 @@ import {
   type ListaCanal,
   type ListasRivales,
 } from "@/lib/rivals/youtube-listas";
+import { Explicativo } from "@/components/ui/textos-analisis";
 
 type Video = {
   id: string;
@@ -866,9 +867,11 @@ export function VideosDelCanal({
               </span>
 
               <span className="w-full text-[11px] leading-relaxed text-white/30 sm:w-auto">
-                Partidos enteros, balón parado, análisis de bloque: lo que no
-                habla de un jugador concreto. Si alguno sí es de uno, basta con
-                poner su nombre en el título del vídeo en YouTube.
+                Partidos enteros, balón parado, análisis de bloque.
+                <Explicativo>
+                  {" "}Lo que no habla de un jugador concreto. Si alguno sí es de uno, basta con
+                  poner su nombre en el título del vídeo en YouTube.
+                </Explicativo>
               </span>
             </header>
 
