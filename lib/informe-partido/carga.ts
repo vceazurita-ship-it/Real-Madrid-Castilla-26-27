@@ -611,7 +611,7 @@ export async function cargaInforme(entrada: {
 
   const [cortesDoc, videoDoc] = await Promise.all([
     claveJornada ? doc<{ cortes?: CortePartido[] }>(`informe-clips:${claveJornada}`) : Promise.resolve(null),
-    claveJornada ? doc<{ url?: string; creado?: string; segundos?: number; poster?: string | null }>(`informe-video:${claveJornada}`) : Promise.resolve(null),
+    claveJornada ? doc<{ url?: string; creado?: string; segundos?: number; poster?: string | null; ligero?: string | null }>(`informe-video:${claveJornada}`) : Promise.resolve(null),
   ]);
 
   const [onceDoc, analisisDoc, clipsDoc, duelo, mediaDoc, generadosDoc] = await Promise.all([
@@ -790,7 +790,7 @@ export async function cargaInforme(entrada: {
     avisos,
     duelosJugadores: delRival.duelos,
     vistazo: delRival.vistazo,
-    videoListo: videoDoc?.url ? { url: videoDoc.url, creado: videoDoc.creado ?? "", segundos: videoDoc.segundos ?? 0, poster: videoDoc.poster ?? null } : null,
+    videoListo: videoDoc?.url ? { url: videoDoc.url, creado: videoDoc.creado ?? "", segundos: videoDoc.segundos ?? 0, poster: videoDoc.poster ?? null, ligero: videoDoc.ligero ?? null } : null,
   };
 
   if (momento === "post" && !partido?.jugado) avisos.push("El partido aún no tiene resultado: el post saldrá completo cuando se juegue.");

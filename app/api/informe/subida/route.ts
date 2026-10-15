@@ -33,6 +33,9 @@ const BUCKET = "performance";
 
 const DIAS_INFORMES = 30;
 
+/** El tope del bucket `performance` por fichero (`file_size_limit`, medido el 15/10/2026). */
+const MAX_VIDEO = 50 * 1024 * 1024;
+
 const CARPETA_RIVALES = "2026/rivales-docs/";
 
 const mal = (mensaje: string, estado = 400) => NextResponse.json({ ok: false, error: mensaje }, { status: estado });
@@ -72,8 +75,15 @@ export async function POST(request: NextRequest) {
 
   if (!Number.isFinite(tamano) || tamano <= 0) return mal("El archivo está vacío.");
 
-  if (tamano > MAX_ADJUNTOS) {
-    return mal(`El archivo pesa ${(tamano / 1048576).toFixed(1)} MB: el correo admite ${MAX_ADJUNTOS / 1048576} MB de adjuntos.`);
+  /* El vídeo en Full HD no se adjunta (va enlazado): su tope es el del bucket, 50 MB por fichero. */
+  const tope = tipo === "video/mp4" ? MAX_VIDEO : MAX_ADJUNTOS;
+
+  if (tamano > tope) {
+    return mal(
+      tipo === "video/mp4"
+        ? `El vídeo pesa ${(tamano / 1048576).toFixed(1)} MB: el almacén admite ${MAX_VIDEO / 1048576} MB por fichero.`
+        : `El archivo pesa ${(tamano / 1048576).toFixed(1)} MB: el correo admite ${MAX_ADJUNTOS / 1048576} MB de adjuntos.`,
+    );
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

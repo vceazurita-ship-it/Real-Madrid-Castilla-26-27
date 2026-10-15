@@ -21,6 +21,7 @@ import {
   ChevronDown,
   CornerDownRight,
   Flag,
+  FolderInput,
   Images,
   LayoutDashboard,
   PenLine,
@@ -780,13 +781,28 @@ export default function ScoutRivalAbpPage() {
                 onCambia={setVista}
                 opciones={[
                   { clave: "resumen", label: "¿Cuánto peligro tiene?", icono: LayoutDashboard },
-                  ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Láminas de la jornada", icono: Images }] : []),
+                  ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Recoger y láminas", icono: Images }] : []),
                   { clave: "patrones", label: "¿Qué repite?", icono: Shapes },
                   { clave: "banda", label: "Saques de banda", icono: Flag },
                   { clave: "quien", label: "¿Quién lo lanza y remata?", icono: Users },
                   { clave: "registrar", label: "Registrar", icono: PenLine },
                 ]}
               />
+
+              {/*
+              | Recoger la carpeta (15/10/2026): con las pestañas quedó escondido
+              | dentro de «Láminas» y no se encontraba; en Área del Rival está a la
+              | vista. Desde cualquier otra vista de Liga, un botón lleva a él.
+              */}
+              {equipo && grupo === "liga" && vista !== "laminas" && (
+                <button
+                  type="button"
+                  onClick={() => setVista("laminas")}
+                  className="flex items-center gap-1.5 self-start rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1.5 text-sm text-[#C8A96B] hover:bg-[#C8A96B]/20"
+                >
+                  <FolderInput size={14} /> Recoger la carpeta de la jornada (PDF de ABP y de centros, vídeos)
+                </button>
+              )}
 
               {/* ----------- análisis visual de la jornada ----------- */}
 

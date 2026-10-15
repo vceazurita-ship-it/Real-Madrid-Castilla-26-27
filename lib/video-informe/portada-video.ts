@@ -147,7 +147,7 @@ export async function diapositivaDelVideo(opciones: { url: string; poster: strin
   ctx.fillStyle = "rgba(255,255,255,0.65)";
   ctx.fillText(`${mmss(opciones.segundos)} · cortes, datos y música`, 1330, 884);
   ctx.fillStyle = ORO;
-  ctx.fillText("También va adjunto en el correo.", 1330, 924);
+  ctx.fillText("En HD · copia ligera adjunta al correo.", 1330, 924);
 
   return lienzo.toDataURL("image/jpeg", 0.9);
 }
@@ -163,5 +163,5 @@ export function bloqueVideoHtml(opciones: { url: string; cid: string; segundos: 
     ? `<a href="${escHtml(opciones.url)}" target="_blank" style="text-decoration:none"><img src="cid:${escHtml(opciones.cid)}" alt="Ver el vídeo del informe" width="960" style="display:block;width:100%;max-width:960px;height:auto;border-radius:10px;border:0"></a>`
     : "";
 
-  return `<tr><td style="padding:${opciones.relleno ?? "10px 0 4px"}">${imagen}<p style="margin:8px 4px 0;font:400 13px/1.5 Arial,sans-serif;color:${color}">▶ <a href="${escHtml(opciones.url)}" target="_blank" style="color:#C8A96B;font-weight:700;text-decoration:none">Ver el vídeo (${mmss(opciones.segundos)})</a> · también va adjunto en este correo.</p></td></tr>`;
+  return `<tr><td style="padding:${opciones.relleno ?? "10px 0 4px"}">${imagen}<p style="margin:8px 4px 0;font:400 13px/1.5 Arial,sans-serif;color:${color}">▶ <a href="${escHtml(opciones.url)}" target="_blank" style="color:#C8A96B;font-weight:700;text-decoration:none">Ver el vídeo en HD (${mmss(opciones.segundos)})</a> · adjunta va una copia ligera para verla sin conexión.</p></td></tr>`;
 }

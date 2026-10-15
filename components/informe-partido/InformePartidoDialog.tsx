@@ -1025,7 +1025,8 @@ export function InformePartidoDialog({
 
               infoVideo = { url: informeVisto.videoListo.url, segundos: informeVisto.videoListo.segundos, poster: informeVisto.videoListo.poster ? await aDataUrl(informeVisto.videoListo.poster) : null };
 
-              return { nombre: nombreVideo, url: informeVisto.videoListo.url, tipo: "video/mp4", tamano: null as number | null };
+              /* Enlazado el de Full HD; adjunta, su copia ligera (los montajes de antes del 15/10 sólo tienen uno). */
+              return { nombre: nombreVideo, url: informeVisto.videoListo.ligero || informeVisto.videoListo.url, tipo: "video/mp4", tamano: null as number | null };
             }
 
             const escudos = await traeEscudos().catch(() => []);
@@ -1037,9 +1038,11 @@ export function InformePartidoDialog({
             });
 
 
-            const subido = await subeUnaVez(nombreVideo, "video/mp4", () => v.blob);
+            /* El de Full HD va enlazado (póster, botón y QR); el adjunto es la copia ligera en 720p. */
+            const hd = await subeAdjunto(new File([v.blob], nombreVideo, { type: "video/mp4" }), (f) => paso(correo, `vídeo: subiendo HD ${Math.round(f * 100)} %`));
+            const subido = v.ligero ? await subeUnaVez(nombreVideo, "video/mp4", () => v.ligero!) : { nombre: nombreVideo, url: hd.url, tipo: "video/mp4", tamano: v.blob.size as number | null };
 
-            infoVideo = { url: subido.url, segundos: v.segundos, poster: v.poster ?? null };
+            infoVideo = { url: hd.url, segundos: v.segundos, poster: v.poster ?? null };
 
             return subido;
           } catch (error) {

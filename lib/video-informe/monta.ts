@@ -3,7 +3,7 @@
 | EL VÍDEO RESUMEN DEL INFORME, MONTADO EN EL NAVEGADOR
 |--------------------------------------------------------------------------
 |
-| Convierte un `GuionVideo` en un MP4 (H.264 + AAC) en 1280×720 a 30 fps,
+| Convierte un `GuionVideo` en un MP4 (H.264 + AAC) en 1920×1080 a 30 fps,
 | sin servidor: la app vive en Vercel y una función no puede ni ver un vídeo
 | ni aguantar un montaje. Es el mismo camino que el montaje del coding
 | (`lib/coding/rapido.ts`): WebCodecs para codificar y el `MuxorMp4` propio
@@ -24,25 +24,52 @@
 import { MuxorMp4 } from "@/lib/coding/mp4";
 import type { Bytes } from "@/lib/export/zip";
 
-import { ALTO, ANCHO, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
+import { ALTO, ALTO_HD, ANCHO, ANCHO_HD, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
 import { SEGUNDOS_MAXIMOS, type Corte, type GuionVideo, type JugadorEscena } from "./guion";
 import { FRECUENCIA_AAC, remuestrea } from "./voz";
 import { bandaSonora, masteriza } from "./musica";
 import { posterDeVideo } from "./portada-video";
 
-/**
- * El caudal, según lo que dure: ~11 MB el minuto, y en los vídeos largos (hasta
- * 2:30) lo justo para quedarse en ~13 MB, que caben con el PDF dentro de los
- * 16 MB de adjuntos del correo. Nunca por debajo de 750 kb/s: si no cabe, el
- * correo lo lleva por enlace con su póster.
- */
+/*
+| DOS VÍDEOS EN UNA PASADA (15/10/2026):
+|   - El BUENO, en 1920×1080, va al bucket y el correo lo enlaza (póster, botón
+|     y QR). Su tope es el del bucket: 50 MB por fichero; se apunta a 44 MB.
+|     Hasta 6 Mb/s (un vídeo de un minuto); uno de 2:30 sale a ~2,4 Mb/s.
+|   - La copia LIGERA, en 1280×720 y ~13 MB, va adjunta para verla sin
+|     conexión: cabe con el PDF dentro de los 16 MB de adjuntos del correo.
+| Los fotogramas se pintan una vez (en HD) y la copia ligera es ese lienzo
+| reducido: cuesta una segunda codificación, no un segundo dibujo.
+*/
 const CAUDAL = 1_500_000;
 const CAUDAL_MINIMO = 750_000;
 const BYTES_OBJETIVO = 13 * 1024 * 1024;
 const CAUDAL_SONIDO = 96_000;
+const CAUDAL_HD = 6_000_000;
+const CAUDAL_HD_MINIMO = 2_000_000;
+const BYTES_OBJETIVO_HD = 44 * 1024 * 1024;
 
+/** El caudal de la copia ligera (la adjunta): ~11 MB el minuto y ~13 MB hasta 2:30. */
 export const caudalPara = (segundos: number) => Math.round(Math.max(CAUDAL_MINIMO, Math.min(CAUDAL, (BYTES_OBJETIVO * 8) / Math.max(1, segundos) - CAUDAL_SONIDO)));
+/** El caudal del vídeo en Full HD (el enlazado), para quedarse bajo los 50 MB del bucket. */
+export const caudalHdPara = (segundos: number) => Math.round(Math.max(CAUDAL_HD_MINIMO, Math.min(CAUDAL_HD, (BYTES_OBJETIVO_HD * 8) / Math.max(1, segundos) - CAUDAL_SONIDO)));
 const CODEC = "avc1.4d401f"; /* H.264 Main 3.1: 1280×720 a 30 fps en cualquier aparato. */
+/* H.264 High 4.0 (o Main 4.0 si el codificador no da High): 1920×1080 a 30 fps. */
+const CODECS_HD = ["avc1.640028", "avc1.4d4028"];
+
+/** El primer códec de HD que este navegador sabe codificar; `null` si ninguno (entonces sale sólo en 720p). */
+async function codecHd(caudal: number) {
+  for (const codec of CODECS_HD) {
+    try {
+      const r = await VideoEncoder.isConfigSupported({ codec, width: ANCHO_HD, height: ALTO_HD, bitrate: caudal, framerate: FPS, avc: { format: "avc" } });
+
+      if (r.supported) return codec;
+    } catch {
+      /* Probamos el siguiente. */
+    }
+  }
+
+  return null;
+}
 
 export type PasoVideo = (texto: string) => void;
 
@@ -203,7 +230,10 @@ function copia(fuente: AllowSharedBufferSource): Bytes {
 const respira = () => new Promise<void>((r) => setTimeout(r, 0));
 
 export type VideoMontado = {
+  /** El vídeo en Full HD (o en 720p si el navegador no codifica 1080): va al bucket y se enlaza. */
   blob: Blob;
+  /** La copia ligera en 720p para adjuntar; `null` si el vídeo ya sale en 720p (entonces el adjunto es `blob`). */
+  ligero: Blob | null;
   segundos: number;
   conVoz: boolean;
   escenas: number;
@@ -260,26 +290,38 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
     }
   }
 
-  /* ---- codificadores y muxor ---- */
-  const muxor = new MuxorMp4();
+  /* ---- codificadores y muxores: el de HD y el de la copia ligera ---- */
   let fallo: Error | null = null;
 
-  const codificador = new VideoEncoder({
-    output: (trozo, metadatos) => {
-      const descripcion = metadatos?.decoderConfig?.description;
+  const codificadorPara = (muxor: MuxorMp4, ancho: number, alto: number) =>
+    new VideoEncoder({
+      output: (trozo, metadatos) => {
+        const descripcion = metadatos?.decoderConfig?.description;
 
-      if (descripcion) muxor.configuraVideo({ ancho: ANCHO, alto: ALTO, descripcion: copia(descripcion) });
+        if (descripcion) muxor.configuraVideo({ ancho, alto, descripcion: copia(descripcion) });
 
-      const datos = new Uint8Array(trozo.byteLength) as Bytes;
-      trozo.copyTo(datos);
-      muxor.añadeVideo(datos, Math.max(0, trozo.timestamp), trozo.duration || 1_000_000 / FPS, trozo.type === "key");
-    },
-    error: (e) => {
-      fallo = e instanceof Error ? e : new Error(String(e));
-    },
-  });
+        const datos = new Uint8Array(trozo.byteLength) as Bytes;
+        trozo.copyTo(datos);
+        muxor.añadeVideo(datos, Math.max(0, trozo.timestamp), trozo.duration || 1_000_000 / FPS, trozo.type === "key");
+      },
+      error: (e) => {
+        fallo = e instanceof Error ? e : new Error(String(e));
+      },
+    });
+
+  const muxor = new MuxorMp4();
+  const codificador = codificadorPara(muxor, ANCHO, ALTO);
 
   codificador.configure({ codec: CODEC, width: ANCHO, height: ALTO, bitrate: caudalPara(total), framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
+
+  /* El de Full HD, si el navegador lo sabe hacer; si no, el vídeo sale en 720p como antes. */
+  const caudalHd = caudalHdPara(total);
+  const codec = await codecHd(caudalHd);
+  const muxorHd = codec ? new MuxorMp4() : null;
+  const codificadorHd = muxorHd ? codificadorPara(muxorHd, ANCHO_HD, ALTO_HD) : null;
+
+  codificadorHd?.configure({ codec: codec!, width: ANCHO_HD, height: ALTO_HD, bitrate: caudalHd, framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
+  const muxores = muxorHd ? [muxor, muxorHd] : [muxor];
 
   const frecuencia = FRECUENCIA_AAC;
   let enMuestras = 0;
@@ -288,13 +330,13 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
     output: (trozo, metadatos) => {
       const descripcion = metadatos?.decoderConfig?.description;
 
-      if (descripcion) muxor.configuraAudio({ frecuencia, canales: 1, descripcion: copia(descripcion) });
+      if (descripcion) for (const m of muxores) m.configuraAudio({ frecuencia, canales: 1, descripcion: copia(descripcion) });
 
       const datos = new Uint8Array(trozo.byteLength) as Bytes;
       trozo.copyTo(datos);
 
       const cuantas = Math.round(((trozo.duration || 0) * frecuencia) / 1e6) || 1024;
-      muxor.añadeAudio(datos, enMuestras, cuantas);
+      for (const m of muxores) m.añadeAudio(datos, enMuestras, cuantas);
       enMuestras += cuantas;
     },
     error: (e) => {
@@ -369,10 +411,19 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   }
 
   /* ---- los fotogramas ---- */
+  /* Se pinta en HD (dibujo.ts escala sus medidas de 1280 al lienzo) y la copia ligera es ese lienzo reducido. */
   const lienzo = document.createElement("canvas");
-  lienzo.width = ANCHO;
-  lienzo.height = ALTO;
+  lienzo.width = codificadorHd ? ANCHO_HD : ANCHO;
+  lienzo.height = codificadorHd ? ALTO_HD : ALTO;
   const ctx = lienzo.getContext("2d", { alpha: false })!;
+  const reducido = codificadorHd ? document.createElement("canvas") : null;
+  const ctxReducido = reducido?.getContext("2d", { alpha: false }) ?? null;
+
+  if (reducido && ctxReducido) {
+    reducido.width = ANCHO;
+    reducido.height = ALTO;
+    ctxReducido.imageSmoothingQuality = "high";
+  }
   const grano = document.createElement("canvas");
   grano.width = 256;
   grano.height = 256;
@@ -410,22 +461,34 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
         fotoPoster = document.createElement("canvas");
         fotoPoster.width = ANCHO;
         fotoPoster.height = ALTO;
-        fotoPoster.getContext("2d")!.drawImage(lienzo, 0, 0);
+        fotoPoster.getContext("2d")!.drawImage(lienzo, 0, 0, ANCHO, ALTO);
       }
 
-      const marca = new VideoFrame(lienzo, { timestamp: Math.round((fotograma / FPS) * 1e6), duration: Math.round(1e6 / FPS) });
+      const tiempo = { timestamp: Math.round((fotograma / FPS) * 1e6), duration: Math.round(1e6 / FPS) };
+      const clave = { keyFrame: fotograma % (FPS * 2) === 0 };
 
-      codificador.encode(marca, { keyFrame: fotograma % (FPS * 2) === 0 });
+      if (codificadorHd && reducido && ctxReducido) {
+        const hd = new VideoFrame(lienzo, tiempo);
+
+        codificadorHd.encode(hd, clave);
+        hd.close();
+        ctxReducido.drawImage(lienzo, 0, 0, ANCHO, ALTO);
+      }
+
+      const marca = new VideoFrame(reducido ?? lienzo, tiempo);
+
+      codificador.encode(marca, clave);
       marca.close();
       fotograma += 1;
 
-      while (codificador.encodeQueueSize > 8) await respira();
+      while (codificador.encodeQueueSize > 8 || (codificadorHd?.encodeQueueSize ?? 0) > 8) await respira();
     }
   }
 
   alPaso("cerrando el vídeo…");
-  await Promise.all([codificador.flush(), sonido.flush()]);
+  await Promise.all([codificador.flush(), codificadorHd?.flush(), sonido.flush()]);
   codificador.close();
+  codificadorHd?.close();
   sonido.close();
 
   for (const c of clips.values()) {
@@ -442,5 +505,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
 
   const poster = await posterDeVideo(fotoPoster, { segundos: total, rotulo: guion.titulo }).catch(() => undefined);
 
-  return { blob: muxor.cierra(), segundos: Math.round(total), conVoz: false, escenas: escenas.length, poster };
+  const ligero = muxor.cierra();
+
+  return { blob: muxorHd ? muxorHd.cierra() : ligero, ligero: muxorHd ? ligero : null, segundos: Math.round(total), conVoz: false, escenas: escenas.length, poster };
 }

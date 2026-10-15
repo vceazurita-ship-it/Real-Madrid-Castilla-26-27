@@ -187,7 +187,12 @@ export type Escena =
   | { id: string; tipo: "versus"; titulo: string; pie: string; filas: FilaVersus[]; locucion: string }
   | { id: string; tipo: "percentiles"; titulo: string; pie: string; filas: { nombre: string; percentil: number }[]; locucion: string }
   | { id: string; tipo: "duelos"; titulo: string; duelos: DueloEscena[]; locucion: string }
-  | { id: string; tipo: "fases"; titulo: string; fases: { titulo: string; texto: string }[]; dano: string[]; locucion: string };
+  | { id: string; tipo: "fases"; titulo: string; fases: { titulo: string; texto: string }[]; dano: string[]; locucion: string }
+  /* Post (15/10/2026): lo que buscábamos frente a lo que logramos, fila a fila y con el dato. */
+  | { id: string; tipo: "balance"; titulo: string; filas: FilaBalance[]; resumen: string; locucion: string };
+
+/** Una fila del balance del post: la meta del plan, lo que dio el partido y si se cumplió. */
+export type FilaBalance = { que: string; buscabamos: string; logramos: string; estado: "si" | "parcial" | "no" | "pendiente" };
 
 export type EquipoContexto = { nombre: string; nuestro: boolean; puesto: number | null; puntos: number | null; racha: string[] };
 
@@ -371,6 +376,100 @@ function escenaFases(informe: InformePartido): Escena | null {
   return { id: "fases", tipo: "fases", titulo: "Cómo juegan", fases, dano, locucion: `${fases.map((f) => `${f.titulo}: ${f.texto}`).join(". ")}${dano.length ? `. Dónde hacerles daño: ${dano.join("; ")}` : ""}.` };
 }
 
+/**
+ * El balance del post (15/10/2026, lo pidió el cuerpo técnico: «lo que nos
+ * deja» tenía que decir qué buscábamos y qué logramos, con datos). Lo usan los
+ * dos motores: el navegador con las metas del pronóstico y el ordenador del
+ * club con las claves del plan medidas en el timeline de Hudl.
+ * Devuelve la escena y las dos líneas del cierre; `null` si hay menos de dos filas.
+ */
+export function escenaBalance(filas: FilaBalance[]): { escena: Escena; cierre: string[] } | null {
+  const lista = filas.slice(0, 4);
+
+  if (lista.length < 2) return null;
+
+  /* En el cierre sólo el dato principal de cada fila (lo que va antes del primer «·»), sin cortar frases. */
+  const dato = (t: string) => t.split(" · ")[0];
+  const medidas = lista.filter((x) => x.estado !== "pendiente");
+  const cumplidas = medidas.filter((x) => x.estado === "si").length;
+  const medias = medidas.filter((x) => x.estado === "parcial").length;
+  const fallo = lista.find((x) => x.estado === "no" && x.que !== "El resultado") ?? lista.find((x) => x.estado === "parcial" && x.que !== "El resultado");
+  const acierto = lista.find((x) => x.estado === "si" && x.que !== "El resultado");
+
+  const resumen = medidas.length
+    ? `Cumplimos ${cumplidas} de ${medidas.length}${medias ? ` y ${medias} a medias` : ""}`
+    : "Pendiente de los datos de Wyscout";
+
+  const cierre = [
+    `${resumen}${acierto ? ` · bien: ${acierto.que.toLowerCase()} (${dato(acierto.logramos)})` : ""}`,
+    fallo ? `A mejorar: ${fallo.que.toLowerCase()} · ${dato(fallo.logramos)}` : "",
+  ].filter(Boolean);
+
+  return {
+    escena: {
+      id: "balance",
+      tipo: "balance",
+      titulo: "Lo que buscábamos y lo que logramos",
+      filas: lista,
+      resumen,
+      locucion: `${lista.map((x) => `${x.que}: buscábamos ${x.buscabamos.charAt(0).toLowerCase()}${x.buscabamos.slice(1)}; ${x.logramos.charAt(0).toLowerCase()}${x.logramos.slice(1)}`).join(". ")}. ${resumen}.`,
+    },
+    cierre,
+  };
+}
+
+const decimal = (n: number) => n.toFixed(2).replace(".", ",");
+const apellidoDe = (nombre: string) => nombre.trim().split(/\s+/).slice(-1)[0] ?? nombre;
+
+/** Las filas del balance con lo que sabe el informe del navegador: el resultado, las metas de xG del plan y los que había que frenar. */
+function filasDeBalance(informe: InformePartido): FilaBalance[] {
+  const p = informe.partido;
+  const pr = informe.pronostico;
+  const filas: FilaBalance[] = [];
+
+  if (p.jugado && p.gf !== null && p.gc !== null) {
+    const r = p.gf > p.gc ? "Victoria" : p.gf < p.gc ? "Derrota" : "Empate";
+
+    filas.push({
+      que: "El resultado",
+      buscabamos: pr ? `Ganar · el pronóstico daba un ${Math.round(pr.victoria * 100)} %` : "Ganar",
+      logramos: `${r} ${p.gf}-${p.gc}`,
+      estado: r === "Victoria" ? "si" : r === "Empate" ? "parcial" : "no",
+    });
+  }
+
+  const xg = informe.duelo?.partido?.metricas.find((m) => m.key === "xg");
+
+  for (const palanca of pr?.palancas ?? []) {
+    if (!palanca.revisa) continue;
+
+    const suyo = palanca.revisa === "xgSuyo";
+    const real = suyo ? (xg?.suyo ?? null) : (xg?.nuestro ?? null);
+
+    filas.push({
+      que: palanca.momento,
+      buscabamos: palanca.objetivo,
+      logramos: real === null ? "Pendiente de Wyscout (los martes)" : `${suyo ? "Su" : "Nuestro"} xG: ${decimal(real)}`,
+      estado: real === null ? "pendiente" : (suyo ? real <= palanca.meta : real >= palanca.meta) ? "si" : "no",
+    });
+  }
+
+  const frenados = informe.sintesis.frenados;
+
+  if (frenados.length) {
+    const malos = frenados.filter((x) => !x.bien);
+
+    filas.push({
+      que: "Sus peligrosos",
+      buscabamos: `Frenar a ${frenados.map((x) => apellidoDe(x.jugador.nombre)).join(", ")}`,
+      logramos: malos.length ? malos.map((x) => `${apellidoDe(x.jugador.nombre)} ${x.texto}`).join("; ") : "Ninguno marcó ni asistió",
+      estado: !malos.length ? "si" : malos.length < frenados.length ? "parcial" : "no",
+    });
+  }
+
+  return filas;
+}
+
 /** El once previsto contra el que salió (post, si había uno marcado). */
 function escenaAcierto(informe: InformePartido): Escena | null {
   const a = informe.cronica?.acierto;
@@ -529,7 +628,13 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     escenas.push({ id: "abp", tipo: "cifras", titulo: "Balón parado", cifras: abp.cifras.slice(0, 4), locucion: `Balón parado: ${limpia(abp.titular)}` });
   }
 
-  const cierre = previa ? sintesis.claves.slice(0, 1).map((c) => corta(limpia(c), 80)) : sintesis.relato.slice(0, 2).map((c) => corta(limpia(c), 80));
+  const balance = previa ? null : escenaBalance(filasDeBalance(informe));
+
+  if (balance) escenas.push(balance.escena);
+
+  const cierre = previa
+    ? sintesis.claves.slice(0, 1).map((c) => corta(limpia(c), 80))
+    : balance?.cierre ?? [...sintesis.partido.slice(0, 1), ...sintesis.relato.slice(0, 1)].map((c) => corta(limpia(c), 80));
 
   escenas.push({
     id: "cierre",

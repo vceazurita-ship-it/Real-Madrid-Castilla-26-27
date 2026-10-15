@@ -757,10 +757,12 @@ export function InformeMicroDialog({
           );
           const nombre = `${paraEnviar.titulo} - Balón parado en vídeo.mp4`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
 
+          /* El de Full HD va enlazado (póster y botón); adjunta, la copia ligera en 720p. */
           setPasoVideo("subiendo…");
-          const a = await subeAdjunto(new File([v.blob], nombre, { type: "video/mp4" }));
+          const a = await subeAdjunto(new File([v.blob], nombre, { type: "video/mp4" }), (f) => setPasoVideo(`subiendo el vídeo HD ${Math.round(f * 100)} %`));
+          const ligero = v.ligero ? await subeAdjunto(new File([v.ligero], nombre, { type: "video/mp4" })) : a;
 
-          adjuntosUrl.push({ nombre, url: a.url, tipo: "video/mp4" });
+          adjuntosUrl.push({ nombre, url: ligero.url, tipo: "video/mp4" });
           infoVideo = { url: a.url, segundos: v.segundos, poster: v.poster ?? null };
 
         } catch (error) {

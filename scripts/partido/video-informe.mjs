@@ -44,8 +44,8 @@ const { createClient } = require("@supabase/supabase-js");
 const { GoogleGenAI } = require("@google/genai");
 const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
 
-const { escenasDeCortes, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
-const { ANCHO, ALTO, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
+const { escenaBalance, escenasDeCortes, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
+const { ANCHO, ALTO, ANCHO_HD, ALTO_HD, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
 const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
 const { bandaSonora, masteriza } = require("../../lib/video-informe/musica.ts");
@@ -271,6 +271,9 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
     ataques: [n(/ - Open play attacks$/, true), n(/ - Open play attacks$/, false)],
     contras: [n(/ - Counterattacks$/, true), n(/ - Counterattacks$/, false)],
     abp: [n(/ - Set Pieces$/, true), n(/ - Set Pieces$/, false)],
+    /* Para el balance del post (15/10/2026): segundos con el balón y posesiones que acaban en el último tercio. */
+    posesionSeg: [true, false].map((propio) => Math.round(items.filter((m) => / - Possessions$/.test(cod(m)) && cod(m).startsWith(nosotros) === propio).reduce((s, m) => s + (m.endTimeMs - m.startTimeMs) / 1000, 0))),
+    ultimoTercio: [true, false].map((propio) => items.filter((m) => / - Possessions$/.test(cod(m)) && cod(m).startsWith(nosotros) === propio && tag(m, "03 - End location third")[0] === "Final third").length),
   };
 
   return { elegidos: elegidos.sort((a, b) => a.t - b.t), datos, periodos };
@@ -325,7 +328,7 @@ async function cortaDeHudl(carpeta, momentos, destino) {
         "-ss", String(Math.max(0, m.desde - acumulado[s0])),
         "-i", crudo,
         "-t", String(m.dura),
-        "-vf", "scale=1280:-2",
+        "-vf", `scale='min(${ANCHO_HD},iw)':-2`,
         "-c:v", "libx264", "-preset", "medium", "-crf", "21", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "96k", "-ac", "1",
         "-movflags", "+faststart",
@@ -489,7 +492,102 @@ async function pideVoz(ai, guion) {
 /*  EL GUION DEL PARTIDO (CON LO QUE HAY EN NODE)                      */
 /* ------------------------------------------------------------------ */
 
-function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = null) {
+/**
+ * Las claves del plan de esta jornada (hoja RIVALES, columna CLAVES_PARTIDO),
+ * de la copia que guarda /api/rivals en Supabase. `null` si no hay fila.
+ */
+async function planDelPartido(supabase, partido) {
+  try {
+    const { mismoClub } = require("../../lib/rivals/mismoClub.ts");
+    const { data } = await supabase.from("app_documents").select("data").eq("key", "cache:apps-script:rivales").maybeSingle();
+    const filas = Array.isArray(data?.data?.data) ? data.data.data : [];
+    const fila = filas.find((x) => Number(x.JORNADA) === Number(partido.jornada) && mismoClub(String(x.EQUIPO ?? ""), partido.rival));
+
+    if (!fila) return null;
+
+    const frases = (t) =>
+      String(t ?? "")
+        .split(/\n+/)
+        .map((x) => x.replace(/\s+/g, " ").trim())
+        .filter((x) => x.length > 12 && !/^[0-9]+\./.test(x) && x !== x.toUpperCase());
+
+    return { claves: frases(fila.CLAVES_PARTIDO || fila.PLAN_PARTIDO), defensa: frases(fila.DEFENSA) };
+  } catch (error) {
+    console.log(`  (sin el plan de la jornada: ${String(error?.message ?? error).slice(0, 80)})`);
+
+    return null;
+  }
+}
+
+/**
+ * Lo que buscábamos (las claves del plan) frente a lo que logramos, medido en
+ * el timeline de Hudl. Sólo entran las claves que se pueden medir con lo que
+ * hay aquí; los umbrales están a la vista en cada fila.
+ */
+function filasDeBalance(partido, datos, transiciones, plan) {
+  const r = partido.gf > partido.gc ? "Victoria" : partido.gf < partido.gc ? "Derrota" : "Empate";
+  const filas = [{ que: "El resultado", buscabamos: "Ganar", logramos: `${r} ${partido.gf}-${partido.gc}`, estado: r === "Victoria" ? "si" : r === "Empate" ? "parcial" : "no" }];
+  const corta = (t, n = 100) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
+  const usadas = new Set();
+
+  const medidas = [
+    {
+      que: "Con balón",
+      re: /posesi|control|dominio/i,
+      mide: () => {
+        const [a, b] = datos.posesionSeg ?? [0, 0];
+
+        if (!(a + b)) return null;
+
+        const pct = Math.round((100 * a) / (a + b));
+
+        return { logramos: `${pct} % de la posesión · ${datos.ultimoTercio[0]} llegadas al último tercio (${datos.ultimoTercio[1]} suyas)`, estado: pct >= 55 ? "si" : pct >= 48 ? "parcial" : "no" };
+      },
+    },
+    {
+      que: "Sin balón",
+      re: /sin bal[oó]n|defens|presi|verticalidad|someter/i,
+      mide: () => {
+        const [nos, ellos] = datos.remates;
+
+        return { logramos: `${ellos} remates suyos (${nos} nuestros) · ${datos.ataques[1]} ataques suyos con llegada`, estado: ellos <= nos ? "si" : ellos <= nos * 1.5 ? "parcial" : "no" };
+      },
+    },
+    {
+      que: "Transición",
+      re: /transici|contraata|robo/i,
+      mide: () => {
+        const robos = transiciones?.robos ?? [];
+        const conRemate = robos.filter((x) => /REMATE|GOL|OCASION/i.test(x.desenlace)).length;
+
+        return robos.length
+          ? { logramos: `${conRemate} de ${robos.length} robos acabaron en remate · ${datos.contras[0]} contras nuestras (${datos.contras[1]} suyas)`, estado: conRemate >= robos.length * 0.1 ? "si" : conRemate >= robos.length * 0.05 ? "parcial" : "no" }
+          : { logramos: `${datos.contras[0]} contras nuestras (${datos.contras[1]} suyas)`, estado: datos.contras[0] > datos.contras[1] ? "si" : datos.contras[0] === datos.contras[1] ? "parcial" : "no" };
+      },
+    },
+    {
+      que: "Balón parado",
+      re: /bal[oó]n parado|abp|c[oó]rner/i,
+      mide: () => ({ logramos: `${datos.corners[0]} córners y ${datos.abp[0]} ABP nuestras (${datos.corners[1]} y ${datos.abp[1]} suyas)`, estado: datos.abp[0] >= datos.abp[1] ? "si" : "no" }),
+    },
+  ];
+
+  for (const clave of [...(plan?.claves ?? []), ...(plan?.defensa ?? [])]) {
+    const m = medidas.find((x) => !usadas.has(x.que) && x.re.test(clave));
+    const hecho = m?.mide();
+
+    if (!m || !hecho) continue;
+
+    usadas.add(m.que);
+    filas.push({ que: m.que, buscabamos: corta(clave), ...hecho });
+
+    if (filas.length >= 4) break;
+  }
+
+  return filas;
+}
+
+function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = null, plan = null) {
   const rival = partido.rival;
   const marcador = `${partido.gf}-${partido.gc}`;
   const fecha = new Date(partido.cuando ?? partido.fecha);
@@ -565,12 +663,21 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
 
   escenas.push(...deCortes.filter((e) => e.id !== "clips-1"));
 
+  /* Lo que buscábamos (el plan) frente a lo que logramos (Hudl), y el cierre con el recuento y lo que hay que mejorar. */
+  const balance = escenaBalance(filasDeBalance(partido, datos, transiciones, plan));
+
+  if (balance) escenas.push(balance.escena);
+
+  const cierre = balance?.cierre ?? [
+    `${resultado[0].toUpperCase()}${resultado.slice(1)} ${marcador} · remates ${datos.remates[0]}-${datos.remates[1]} · llegadas ${datos.ataques[0]}-${datos.ataques[1]}`,
+  ];
+
   escenas.push({
     id: "cierre",
     tipo: "cierre",
     titulo: "Lo que nos deja",
-    lineas: [`${resultado[0].toUpperCase()}${resultado.slice(1)} ${marcador} ante ${rival}: ${datos.remates[0] >= datos.remates[1] ? "dominamos el remate" : "nos remataron más"} y ${datos.corners[0] >= datos.corners[1] ? "ganamos el balón parado" : "sufrimos a balón parado"}.`],
-    locucion: `Lo que nos deja: ${resultado} ${marcador}. ${datos.remates[0] >= datos.remates[1] ? "Dominamos el remate" : "Nos remataron más"} y ${datos.corners[0] >= datos.corners[1] ? "ganamos el balón parado" : "sufrimos a balón parado"}.`,
+    lineas: cierre,
+    locucion: `Lo que nos deja: ${cierre.join(". ")}.`,
   });
 
   return { titulo: `${rival} · J${partido.jornada} · post`, escenas };
@@ -585,7 +692,7 @@ async function extraeFotogramas(fichero, destino) {
 
   if (fs.existsSync(path.join(destino, "f_0001.jpg"))) return;
 
-  await ejecuta(FFMPEG, ["-y", "-loglevel", "error", "-i", fichero, "-vf", `fps=${FPS},scale=${ANCHO}:-2`, "-q:v", "4", path.join(destino, "f_%04d.jpg")], { maxBuffer: 1 << 24 });
+  await ejecuta(FFMPEG, ["-y", "-loglevel", "error", "-i", fichero, "-vf", `fps=${FPS},scale='min(${ANCHO_HD},iw)':-2`, "-q:v", "4", path.join(destino, "f_%04d.jpg")], { maxBuffer: 1 << 24 });
 }
 
 async function extraeSonido(fichero) {
@@ -593,6 +700,9 @@ async function extraeSonido(fichero) {
 
   return new Float32Array(stdout.buffer, stdout.byteOffset, Math.floor(stdout.byteLength / 4));
 }
+
+/** La copia ligera (720p, para adjuntar) que sale junto al vídeo en Full HD. */
+const ligeroDe = (salida) => salida.replace(/\.mp4$/, "-ligero.mp4");
 
 async function renderiza(guion, pistas, carpetaVideo, salida) {
   for (const [peso, fichero] of [["700", "BarlowCondensed-Bold.ttf"], ["600", "BarlowCondensed-SemiBold.ttf"], ["500", "BarlowCondensed-Medium.ttf"], ["400", "BarlowCondensed-Medium.ttf"]]) {
@@ -688,26 +798,34 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
 
   /* ---- los fotogramas, a ffmpeg por la entrada estándar ---- */
   const caudal = Math.round(Math.max(650, Math.min(1400, (13 * 1024 * 1024 * 8) / total / 1000 - 96)));
-  console.log(`  ${total.toFixed(1)} s · caudal ${caudal} kb/s${caudal < 1000 ? " · 960×540" : ""}`);
+  /* El de Full HD va enlazado: su tope es el del bucket (50 MB por fichero); se apunta a 44. */
+  const caudalHd = Math.round(Math.max(2000, Math.min(6000, (44 * 1024 * 1024 * 8) / total / 1000 - 96)));
+  console.log(`  ${total.toFixed(1)} s · HD a ${caudalHd} kb/s · copia ligera a ${caudal} kb/s${caudal < 1000 ? " (960×540)" : ""}`);
 
+  /*
+  | DOS SALIDAS EN UNA PASADA (15/10/2026): el vídeo bueno en 1920×1080, que se
+  | enlaza en el correo, y la copia ligera para adjuntar: hasta 2:30 tiene que
+  | quedar en ~13 MB, que caben con el PDF en los 16 MB de adjuntos. La ligera
+  | larga se pasa a 960×540: a 700 kb/s se ve mejor que en 720p.
+  */
   const ff = spawn(FFMPEG, [
     "-y", "-loglevel", "error",
-    "-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${ANCHO}x${ALTO}`, "-r", String(FPS), "-i", "pipe:0",
+    "-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${ANCHO_HD}x${ALTO_HD}`, "-r", String(FPS), "-i", "pipe:0",
     "-f", "f32le", "-ar", String(FRECUENCIA_AAC), "-ac", "1", "-i", mezcla,
-    /*
-    | Con tope de caudal según lo que dure: hasta 2:30 tiene que quedar en
-    | ~13 MB, que caben con el PDF en los 16 MB de adjuntos del correo. Los
-    | largos se pasan a 960×540: a 700 kb/s se ven mejor que en 720p.
-    */
-    ...(caudal < 1000 ? ["-vf", "scale=960:540:flags=lanczos"] : []),
+    "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-maxrate", `${caudalHd}k`, "-bufsize", `${caudalHd * 2}k`, "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1",
+    "-c:a", "aac", "-b:a", "128k",
+    "-movflags", "+faststart", "-shortest",
+    salida,
+    "-vf", caudal < 1000 ? "scale=960:540:flags=lanczos" : `scale=${ANCHO}:${ALTO}:flags=lanczos`,
     "-c:v", "libx264", "-preset", caudal < 1000 ? "slow" : "medium", "-crf", "22", "-maxrate", `${caudal}k`, "-bufsize", `${caudal * 2}k`, "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.0",
     "-c:a", "aac", "-b:a", "96k",
     "-movflags", "+faststart", "-shortest",
-    salida,
+    ligeroDe(salida),
   ], { stdio: ["pipe", "inherit", "inherit"] });
 
   const escribe = (buf) => new Promise((r) => (ff.stdin.write(buf) ? r() : ff.stdin.once("drain", r)));
-  const lienzo = createCanvas(ANCHO, ALTO);
+  /* Se pinta en HD: dibujo.ts escala sus medidas de 1280 al tamaño del lienzo. */
+  const lienzo = createCanvas(ANCHO_HD, ALTO_HD);
   const ctx = lienzo.getContext("2d");
   const grano = createCanvas(256, 256);
   rellenaGrano(grano.getContext("2d"));
@@ -795,7 +913,7 @@ async function mandaCorreo(env, para, partido, video, url, resumen) {
 
   const { envia } = require("../../lib/correo/gmail.ts");
   const asunto = `Vídeo del partido · LIGA ${String(partido.jornada).padStart(2, "0")} ${partido.rival} (${partido.gf}-${partido.gc})`;
-  const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111"><p>El vídeo del partido contra <b>${partido.rival}</b> (jornada ${partido.jornada}, ${partido.gf}-${partido.gc}), montado en el ordenador del club con los cortes reales de Hudl y la lectura táctica de cada acción.</p><p>${resumen}</p><p>Va adjunto y también se puede ver aquí: <a href="${url}">${url}</a></p></div>`;
+  const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111"><p>El vídeo del partido contra <b>${partido.rival}</b> (jornada ${partido.jornada}, ${partido.gf}-${partido.gc}), montado en el ordenador del club con los cortes reales de Hudl y la lectura táctica de cada acción.</p><p>${resumen}</p><p>Verlo en HD: <a href="${url}">${url}</a><br>Adjunta va una copia ligera para verla sin conexión.</p></div>`;
 
   await envia({
     para: [para],
@@ -995,7 +1113,9 @@ async function principal() {
 
     const url = await sube(supabaseDe(env), hecho, `2026/informes/video/${partido.slug}.mp4`, "video/mp4");
 
-    await mandaCorreo(env, CORREO, partido, hecho, url, `${(fs.statSync(hecho).size / 1048576).toFixed(1)} MB`);
+    const adjunto = fs.existsSync(ligeroDe(hecho)) ? ligeroDe(hecho) : hecho;
+
+    await mandaCorreo(env, CORREO, partido, adjunto, url, `${(fs.statSync(hecho).size / 1048576).toFixed(1)} MB en HD`);
 
     return fin(0, `correo con el vídeo de LIGA ${String(partido.jornada).padStart(2, "0")} ${partido.rival} a ${CORREO}`);
   }
@@ -1058,7 +1178,12 @@ async function principal() {
   const { PARTIDOS } = require("../../lib/transiciones/datos.ts");
   const transiciones = PARTIDOS.find((p) => p.id === partido.slug) ?? null;
   const escudo = supabase ? await escudoDelRival(supabase, partido.rival, carpetaVideo) : null;
-  let guion = guionDelPartido(partido, cortes, datos, transiciones, escudo);
+  /* El plan se lee aunque no se suba nada (--sin-subir): es sólo lectura. */
+  const plan = env ? await planDelPartido(supabaseDe(env), partido) : null;
+
+  console.log(plan ? `  plan de la jornada: ${plan.claves.length} claves` : "  (sin plan de la jornada en RIVALES: el balance va sólo con el resultado)");
+
+  let guion = guionDelPartido(partido, cortes, datos, transiciones, escudo, plan);
 
   if (ai) {
     try {
@@ -1088,13 +1213,18 @@ async function principal() {
   const salida = path.join(carpetaVideo, `${partido.slug}.mp4`);
   const { segundos, escenas } = await renderiza(guion, pistas, carpetaVideo, salida);
   const mb = (fs.statSync(salida).size / 1048576).toFixed(1);
+  const mbLigero = (fs.statSync(ligeroDe(salida)).size / 1048576).toFixed(1);
 
-  console.log(`  vídeo: ${salida} · ${segundos} s · ${escenas} escenas · ${mb} MB${pistas ? " · con voz" : " · con música"}`);
+  console.log(`  vídeo: ${salida} · ${segundos} s · ${escenas} escenas · ${mb} MB en HD (${mbLigero} MB la copia ligera)${pistas ? " · con voz" : " · con música"}`);
 
-  /* Antes de subirlo o mandarlo, que se pueda ver entero: se decodifica y no puede dar errores. */
-  const { stderr: erroresMp4 } = await ejecuta(FFMPEG, ["-v", "error", "-i", salida, "-f", "null", "-"], { maxBuffer: 1 << 26 }).catch((e) => ({ stderr: String(e?.stderr ?? e?.message ?? e) }));
+  /* Antes de subirlos o mandarlos, que se puedan ver enteros: se decodifican y no pueden dar errores. */
+  for (const fichero of [salida, ligeroDe(salida)]) {
+    const { stderr: erroresMp4 } = await ejecuta(FFMPEG, ["-v", "error", "-i", fichero, "-f", "null", "-"], { maxBuffer: 1 << 26 }).catch((e) => ({ stderr: String(e?.stderr ?? e?.message ?? e) }));
 
-  if (String(erroresMp4).trim()) return fin(1, `el vídeo ha salido roto (${String(erroresMp4).trim().split("\n")[0].slice(0, 120)}); no se sube ni se manda`);
+    if (String(erroresMp4).trim()) return fin(1, `el vídeo ha salido roto (${path.basename(fichero)}: ${String(erroresMp4).trim().split("\n")[0].slice(0, 120)}); no se sube ni se manda`);
+  }
+
+  if (fs.statSync(salida).size > 50 * 1024 * 1024) return fin(1, `el vídeo en HD pesa ${mb} MB y el bucket admite 50 MB por fichero; no se sube`);
 
   /* 6. Al bucket y, si se pide, por correo. */
   let url = "";
@@ -1108,15 +1238,16 @@ async function principal() {
     url = previo.url;
   } else if (supabase) {
     url = await sube(supabase, salida, `2026/informes/video/${partido.slug}.mp4`, "video/mp4");
+    const ligero = await sube(supabase, ligeroDe(salida), `2026/informes/video/${partido.slug}-ligero.mp4`, "video/mp4");
     const fichPoster = salida.replace(/.mp4$/, ".jpg");
     const poster = fs.existsSync(fichPoster) ? await sube(supabase, fichPoster, `2026/informes/video/${partido.slug}.jpg`, "image/jpeg") : null;
-    await guardaDoc(supabase, `informe-video:${clave}`, "informe-video", { url, poster, creado: new Date().toISOString(), segundos, conVoz: Boolean(pistas), partido: { jornada: partido.jornada, rival: partido.rival } });
+    await guardaDoc(supabase, `informe-video:${clave}`, "informe-video", { url, ligero, poster, creado: new Date().toISOString(), segundos, conVoz: Boolean(pistas), partido: { jornada: partido.jornada, rival: partido.rival } });
   }
 
-  const resumen = `${segundos} s, ${escenas} escenas, ${cortes.length} cortes de Hudl${pistas ? ", con voz" : ", con música"}, ${mb} MB`;
+  const resumen = `${segundos} s, ${escenas} escenas, ${cortes.length} cortes de Hudl${pistas ? ", con voz" : ", con música"}, ${mb} MB en HD`;
 
   if (CORREO) {
-    await mandaCorreo(env, CORREO, partido, salida, url, resumen);
+    await mandaCorreo(env, CORREO, partido, ligeroDe(salida), url, resumen);
     fs.writeFileSync(marcaEnviado, JSON.stringify({ a: CORREO, cuando: new Date().toISOString(), resumen }), "utf8");
     console.log(`  correo mandado a ${CORREO}`);
   }

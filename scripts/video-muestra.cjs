@@ -65,6 +65,8 @@ const guion = {
     { id: "vigilar", tipo: "vigilar", titulo: "A vigilar", jugadores: once.slice(9).map((j) => ({ ...j, texto: "Remate de cabeza · desmarque al primer palo" })), locucion: "Sus hombres a vigilar." },
     { id: "duelos", tipo: "duelos", titulo: "Los duelos que deciden", duelos: [{ titulo: "Banda derecha", nuestros: "Fortea · Mesonero", suyos: "Moi Parra · Zarzana", veredicto: "ventaja", texto: "Les ganamos en duelos y en llegadas por ese costado." }, { titulo: "Centro del campo", nuestros: "Cestero · Thiago", suyos: "Luismi · Gené", veredicto: "parejo", texto: "Igualados en pases progresivos." }, { titulo: "Área", nuestros: "Joan Martínez · Mario Rivas", suyos: "Destiny", veredicto: "desventaja", texto: "Su 9 gana el 61 % de los duelos aéreos." }], locucion: "Los duelos." },
     { id: "claves", tipo: "claves", titulo: "Las claves", lineas: ["Defender el segundo palo en los córners: 3 de sus 5 goles.", "Atacar la espalda del lateral derecho cuando sube.", "Cerrar el pasillo interior a su 10."], locucion: "Tres claves." },
+    /* La del post (15/10/2026): lo que buscábamos frente a lo que logramos. */
+    { id: "balance", tipo: "balance", titulo: "Lo que buscábamos y lo que logramos", resumen: "Cumplimos 2 de 4 y 1 a medias", locucion: "Balance.", filas: [{ que: "El resultado", buscabamos: "Ganar", logramos: "Empate 1-1", estado: "parcial" }, { que: "Con balón", buscabamos: "Control del partido desde el dominio de la posesión.", logramos: "57 % de la posesión · 66 llegadas al último tercio (62 suyas)", estado: "si" }, { que: "Sin balón", buscabamos: "Optimizar y ajustar nuestra fase sin balón ante un equipo que tendrá el objetivo de someternos.", logramos: "15 remates suyos (6 nuestros) · 30 ataques suyos con llegada", estado: "no" }, { que: "Transición", buscabamos: "Darle valor a la transición ante un rival que se expondrá en campo propio.", logramos: "3 de 21 robos acabaron en remate · 0 contras nuestras (2 suyas)", estado: "si" }] },
     { id: "cierre", tipo: "cierre", titulo: "El plan, en una frase", lineas: ["Cerrar sus centros y castigar la espalda de sus laterales."], locucion: "En una frase." },
   ],
 };
@@ -113,7 +115,8 @@ function cuadroDeMentira() {
 
   medidas.reduce((s, m) => (arranques.push(s), s + m.segundos), 0);
 
-  const lienzo = createCanvas(D.ANCHO, D.ALTO);
+  /* En Full HD, como sale el vídeo de verdad (15/10/2026). */
+  const lienzo = createCanvas(D.ANCHO_HD, D.ALTO_HD);
   const ctx = lienzo.getContext("2d");
   const grano = createCanvas(256, 256);
   const cuadro = cuadroDeMentira();
@@ -154,7 +157,7 @@ function cuadroDeMentira() {
   }
 
   const destino = path.join(salida, "muestra.mp4");
-  const proceso = spawn(ffmpeg, ["-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${D.ANCHO}x${D.ALTO}`, "-r", String(D.FPS), "-i", "-", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24", "-preset", "veryfast", destino], { stdio: ["pipe", "inherit", "inherit"] });
+  const proceso = spawn(ffmpeg, ["-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${D.ANCHO_HD}x${D.ALTO_HD}`, "-r", String(D.FPS), "-i", "-", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "24", "-preset", "veryfast", destino], { stdio: ["pipe", "inherit", "inherit"] });
   const escribe = (buf) => new Promise((ok) => (proceso.stdin.write(buf) ? ok() : proceso.stdin.once("drain", ok)));
 
   for (let k = 0; k < medidas.length; k++) {
