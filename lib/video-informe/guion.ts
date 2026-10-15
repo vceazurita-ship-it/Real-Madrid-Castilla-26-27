@@ -569,10 +569,11 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   /* Los cortes del partido cortados por el ordenador del club desde Hudl (goles, llegadas, lo que concedimos), con su lectura. En la previa son del último partido jugado. */
   escenas.push(...escenasDeCortes(informe.recursos.cortes ?? [], partido.rival, SEGUNDOS_POR_CORTE_PARTIDO, { momento, rotuloPartido: previa && partido.jornada ? `J${partido.jornada - 1}` : undefined }));
 
-  if (!previa) pon(escenaVersus(informe));
-
-  /* Los cortes de acciones concretas del rival (Análisis visual, por jornada) y, si no, sus vídeos de Recursos. */
-  const cortes: Corte[] = informe.recursos.videos.filter((v) => esClipLegible(v.url)).map((v) => ({ url: v.url, rotulo: v.rotulo ?? v.nombre, texto: v.texto }));
+  /*
+  | Los cortes de acciones concretas del rival (Análisis visual, por jornada) y, si no, sus vídeos de Recursos.
+  | Sólo en la previa (15/10/2026): en el post son de partidos anteriores y no cuentan el partido jugado.
+  */
+  const cortes: Corte[] = !previa ? [] : informe.recursos.videos.filter((v) => esClipLegible(v.url)).map((v) => ({ url: v.url, rotulo: v.rotulo ?? v.nombre, texto: v.texto }));
 
   /* Dos escenas de hasta tres: la segunda es la primera en caer si no cabe. */
   for (const [i, trozo] of [cortes.slice(0, CORTES / 2), cortes.slice(CORTES / 2, CORTES)].entries()) {
@@ -628,6 +629,9 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     escenas.push({ id: "abp", tipo: "cifras", titulo: "Balón parado", cifras: abp.cifras.slice(0, 4), locucion: `Balón parado: ${limpia(abp.titular)}` });
   }
 
+  /* Post (15/10/2026): antes de la conclusión, los datos más significativos del partido y el balance contra el plan. */
+  if (!previa) pon(escenaVersus(informe));
+
   const balance = previa ? null : escenaBalance(filasDeBalance(informe));
 
   if (balance) escenas.push(balance.escena);
@@ -643,6 +647,20 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     lineas: cierre.length ? cierre : [limpia(sintesis.titular)],
     locucion: previa ? `En una frase: ${cierre[0] ?? limpia(sintesis.titular)}` : `Lo que nos deja: ${cierre[0] ?? limpia(sintesis.titular)}`,
   });
+
+  /*
+  | El orden de la historia (15/10/2026), como se cuenta en la charla:
+  | previa → el rival (cómo llega, el pronóstico, su once, cómo juega y sus
+  | acciones), dónde nos separamos y a quién vigilar, cómo llegamos nosotros
+  | y, al final, el plan; post → los goles y las llegadas, su once y a quién
+  | frenamos, los datos, el balance contra el plan y lo que nos deja.
+  */
+  const ORDEN = previa
+    ? ["gancho", "portada", "contexto", "pronostico", "once", "fases", "clips", "clips-rival-2", "percentiles", "versus", "duelo", "duelos", "vigilar", "abp", "clips-1", "clips-2", "clips-3", "claves", "cierre"]
+    : ["gancho", "portada", "pronostico", "clips-1", "clips-2", "clips-3", "once", "acierto", "vigilar", "abp", "claves", "versus", "balance", "cierre"];
+  const lugar = (id: string) => (ORDEN.includes(id) ? ORDEN.indexOf(id) : ORDEN.length - 1.5);
+
+  escenas.sort((a, b) => lugar(a.id) - lugar(b.id));
 
   return { titulo: `${partido.rival} · ${previa ? "previa" : "post"}`, escenas };
 }

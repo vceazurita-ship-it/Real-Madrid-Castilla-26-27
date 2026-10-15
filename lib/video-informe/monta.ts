@@ -25,16 +25,18 @@ import { MuxorMp4 } from "@/lib/coding/mp4";
 import type { Bytes } from "@/lib/export/zip";
 
 import { ALTO, ALTO_HD, ANCHO, ANCHO_HD, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
-import { SEGUNDOS_MAXIMOS, type Corte, type GuionVideo, type JugadorEscena } from "./guion";
+import { SEGUNDOS_MAXIMOS, type Corte, type Escena, type GuionVideo, type JugadorEscena } from "./guion";
 import { FRECUENCIA_AAC, remuestrea } from "./voz";
 import { bandaSonora, masteriza } from "./musica";
 import { posterDeVideo } from "./portada-video";
+import { FotogramasCorte } from "./fotogramas-corte";
 
 /*
 | DOS VÍDEOS EN UNA PASADA (15/10/2026):
 |   - El BUENO, en 1920×1080, va al bucket y el correo lo enlaza (póster, botón
-|     y QR). Su tope es el del bucket: 50 MB por fichero; se apunta a 44 MB.
-|     Hasta 6 Mb/s (un vídeo de un minuto); uno de 2:30 sale a ~2,4 Mb/s.
+|     y QR). Su tope es el del bucket: 50 MB por fichero; se apunta a 40 MB
+|     (el codificador del navegador se pasa algo: 6 Mb/s en 60 s dieron 45,6 MB).
+|     Hasta 5 Mb/s (un vídeo de un minuto); uno de 2:30 sale a ~2,1 Mb/s.
 |   - La copia LIGERA, en 1280×720 y ~13 MB, va adjunta para verla sin
 |     conexión: cabe con el PDF dentro de los 16 MB de adjuntos del correo.
 | Los fotogramas se pintan una vez (en HD) y la copia ligera es ese lienzo
@@ -44,9 +46,9 @@ const CAUDAL = 1_500_000;
 const CAUDAL_MINIMO = 750_000;
 const BYTES_OBJETIVO = 13 * 1024 * 1024;
 const CAUDAL_SONIDO = 96_000;
-const CAUDAL_HD = 6_000_000;
+const CAUDAL_HD = 5_000_000;
 const CAUDAL_HD_MINIMO = 2_000_000;
-const BYTES_OBJETIVO_HD = 44 * 1024 * 1024;
+const BYTES_OBJETIVO_HD = 40 * 1024 * 1024;
 
 /** El caudal de la copia ligera (la adjunta): ~11 MB el minuto y ~13 MB hasta 2:30. */
 export const caudalPara = (segundos: number) => Math.round(Math.max(CAUDAL_MINIMO, Math.min(CAUDAL, (BYTES_OBJETIVO * 8) / Math.max(1, segundos) - CAUDAL_SONIDO)));
@@ -128,65 +130,90 @@ async function cargaImagen(src: string): Promise<ImageBitmap | null> {
   }
 }
 
-type Clip = { video: HTMLVideoElement; desde: number; sonido?: Float32Array | null };
+type Clip = { fuente: FotogramasCorte; desde: number; sonido?: Float32Array | null };
 
-/** Un `<video>` del bucket listo para pedirle fotogramas; `null` si no se puede abrir (CORS, códec, YouTube). */
-async function abreClip(url: string, segundos: number, desdeSegundo?: number, desdeFraccion?: number): Promise<Clip | null> {
-  const video = document.createElement("video");
-  video.crossOrigin = "anonymous";
-  video.muted = true;
-  video.preload = "auto";
-  video.src = url;
+/*
+| LOS CORTES, DESDE MEMORIA (15/10/2026). Antes cada corte se abría como un
+| `<video>` remoto y se le pedía cada fotograma con 0,6 s de plazo; con veinte
+| cortes a la vez Chrome no los bajaba todos (limita las descargas de vídeo
+| simultáneas) y, aunque llegaran, un `<video>` parado no siempre tiene la
+| imagen (con la pestaña en segundo plano, nunca): la escena salía con el
+| título y sin jugada. Ahora se baja el fichero entero —una vez por URL,
+| cuatro a la vez— y se descodifica con WebCodecs (`fotogramas-corte.ts`).
+| El sonido sale del mismo fichero.
+*/
+const bajados = new Map<string, Promise<Blob | null>>();
 
-  const listo = await conPlazo(
-    new Promise<boolean>((r) => {
-      video.addEventListener("loadeddata", () => r(true), { once: true });
-      video.addEventListener("error", () => r(false), { once: true });
+function bajaCorte(url: string) {
+  let p = bajados.get(url);
+
+  if (!p) {
+    p = conPlazo(
+      fetch(url)
+        .then((r) => (r.ok ? r.blob() : null))
+        .catch(() => null),
+      45_000,
+      null,
+    );
+    bajados.set(url, p);
+  }
+
+  return p;
+}
+
+/** Hace `trabajo` con cada elemento, `cuantos` a la vez. */
+async function enTandas<T>(lista: T[], cuantos: number, trabajo: (x: T) => Promise<void>) {
+  let i = 0;
+
+  await Promise.all(
+    Array.from({ length: Math.min(cuantos, lista.length) }, async () => {
+      while (i < lista.length) await trabajo(lista[i++]);
     }),
-    8000,
-    false,
   );
+}
 
-  if (!listo || !video.videoWidth || !Number.isFinite(video.duration)) return null;
+/** Un corte listo para pedirle fotogramas, con su sonido; `null` si no se puede bajar o abrir (YouTube, Hudl, HEVC…). */
+async function abreClip(url: string, segundos: number, desdeSegundo?: number, desdeFraccion?: number): Promise<Clip | null> {
+  const blob = await bajaCorte(url);
+
+  if (!blob || !blob.size) return null;
+
+  const fuente = await FotogramasCorte.abre(blob);
+
+  if (!fuente) return null;
+
+  const duracion = fuente.duracion;
 
   /* Un corte preparado empieza donde debe; en un vídeo largo se busca la acción pasada la carátula. */
   const desde =
     typeof desdeFraccion === "number"
-      ? Math.max(0, Math.min(video.duration * desdeFraccion, video.duration - segundos))
+      ? Math.max(0, Math.min(duracion * desdeFraccion, duracion - segundos))
       : typeof desdeSegundo === "number"
-      ? Math.max(0, Math.min(desdeSegundo, video.duration - segundos))
-      : video.duration <= segundos + 1
+      ? Math.max(0, Math.min(desdeSegundo, duracion - segundos))
+      : duracion <= segundos + 1
         ? 0
-        : Math.max(0, Math.min(video.duration - segundos, video.duration * (video.duration < 30 ? 0.5 : 0.35) - segundos / 2));
+        : Math.max(0, Math.min(duracion - segundos, duracion * (duracion < 30 ? 0.5 : 0.35) - segundos / 2));
 
-  try {
-    const c = document.createElement("canvas");
-    c.width = 2;
-    c.height = 2;
-    const prueba = c.getContext("2d")!;
-    prueba.drawImage(video, 0, 0, 2, 2);
-    prueba.getImageData(0, 0, 1, 1);
-  } catch {
-    return null;
-  }
+  /* Que de verdad salga imagen: si no se descodifica ni el primer fotograma, el corte no entra. */
+  const prueba = await conPlazo(fuente.en(desde), 15_000, null);
 
-  return { video, desde };
+  fuente.cierra();
+
+  if (!prueba) return null;
+
+  return { fuente, desde, sonido: await sonidoDelClip(blob) };
 }
 
 /**
  * El sonido ambiente de un corte (el estadio, el golpeo), a 48 kHz mono: va
- * bajo la voz. `null` si no se puede bajar o descodificar; el vídeo sigue.
+ * bajo la música. `null` si no se puede descodificar; el vídeo sigue.
  */
-async function sonidoDelClip(url: string): Promise<Float32Array | null> {
-  if (typeof AudioContext === "undefined") return null;
+async function sonidoDelClip(blob: Blob): Promise<Float32Array | null> {
+  if (typeof OfflineAudioContext === "undefined") return null;
 
   try {
-    const r = await conPlazo(fetch(url), 12_000, null);
-
-    if (!r || !r.ok) return null;
-
     const ac = new OfflineAudioContext(1, 1, FRECUENCIA_AAC);
-    const buffer = await ac.decodeAudioData(await r.arrayBuffer());
+    const buffer = await ac.decodeAudioData(await blob.arrayBuffer());
     const salida = new Float32Array(buffer.length);
 
     for (let c = 0; c < buffer.numberOfChannels; c += 1) {
@@ -201,17 +228,45 @@ async function sonidoDelClip(url: string): Promise<Float32Array | null> {
   }
 }
 
-async function buscaFotograma(video: HTMLVideoElement, segundo: number) {
-  if (Math.abs(video.currentTime - segundo) < 1 / FPS / 2) return;
+/**
+ * Abre todos los cortes del guion y quita los que no se pueden ver; una
+ * escena que se queda sin cortes no sale (el guion no anuncia jugadas que
+ * luego no están). Lo que dura cada escena se rehace con los que quedan.
+ */
+async function conCortesVisibles(guion: GuionVideo, alPaso: PasoVideo): Promise<{ guion: GuionVideo; abiertos: Map<Corte, Clip> }> {
+  const abiertos = new Map<Corte, Clip>();
+  const todos = guion.escenas.flatMap((e) => (e.tipo === "clips" ? e.cortes.map((c) => ({ c, e })) : []));
+  let hechos = 0;
 
-  await conPlazo(
-    new Promise<void>((r) => {
-      video.addEventListener("seeked", () => r(), { once: true });
-      video.currentTime = Math.min(segundo, Math.max(0, video.duration - 0.05));
-    }),
-    600,
-    undefined,
-  );
+  await enTandas(todos, 4, async ({ c, e }) => {
+    const dura = (c as Corte & { segundos?: number }).segundos || e.segundos / Math.max(1, e.cortes.length);
+    const clip = await abreClip(c.url, dura, c.desde, c.desdeFraccion);
+
+    if (clip) abiertos.set(c, clip);
+
+    hechos += 1;
+    alPaso(`cortes ${hechos}/${todos.length}…`);
+  });
+
+  const escenas = guion.escenas.flatMap((e): Escena[] => {
+    if (e.tipo !== "clips") return [e];
+
+    const quedan = e.cortes.filter((c) => abiertos.has(c));
+
+    if (!quedan.length) return [];
+
+    if (quedan.length === e.cortes.length) return [e];
+
+    const dura = (c: Corte) => (c as Corte & { segundos?: number }).segundos || e.segundos / e.cortes.length;
+
+    return [{ ...e, cortes: quedan, segundos: quedan.reduce((s, c) => s + dura(c), 0) }];
+  });
+
+  const fuera = todos.length - abiertos.size;
+
+  if (fuera) console.warn(`[vídeo] ${fuera} de ${todos.length} cortes no se han podido abrir: salen del vídeo`);
+
+  return { guion: { ...guion, escenas }, abiertos };
 }
 
 /* ------------------------------------------------------------------ */
@@ -250,8 +305,11 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   const alPaso = opciones.alPaso ?? (() => {});
   const fuente = `${opciones.fuente ? `${opciones.fuente}, ` : ""}"Barlow Condensed", "Segoe UI", Arial, sans-serif`;
 
+  alPaso("cortes…");
+  const { guion: conCortes, abiertos } = await conCortesVisibles(guionCrudo, alPaso);
+
   alPaso("guion…");
-  const guion = await puleLocucion(guionCrudo);
+  const guion = await puleLocucion(conCortes);
 
   /* Sin voz en off desde el 13/10/2026: música compuesta (musica.ts) y el texto en pantalla. */
   const pistas = null;
@@ -263,7 +321,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   const clips = new Map<string, Clip | null>();
 
   await Promise.all(
-    escenas.map(async ({ escena: e, segundos }) => {
+    escenas.map(async ({ escena: e }) => {
       if (e.tipo === "imagen") rec.imagenes.set(e.id, await cargaImagen(e.src));
       else if (e.tipo === "portada") {
         rec.imagenes.set(`${e.id}:nosotros`, await cargaImagen(e.escudoNosotros ?? ""));
@@ -271,13 +329,8 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
       } else if (e.tipo === "once" || e.tipo === "vigilar") {
         await Promise.all(e.jugadores.map(async (j: JugadorEscena, i: number) => rec.imagenes.set(`${e.id}:${i}`, await cargaImagen(j.foto))));
       } else if (e.tipo === "clips") {
-        await Promise.all(
-          e.cortes.map(async (c: Corte, i: number) => {
-            const [clip, sonido] = await Promise.all([abreClip(c.url, limitesDeCortes(e, segundos)[i].dura, c.desde, c.desdeFraccion), sonidoDelClip(c.url)]);
-
-            clips.set(`${e.id}:${i}`, clip ? { ...clip, sonido } : null);
-          }),
-        );
+        /* Ya abiertos (conCortesVisibles): el reparto y la IA copian las escenas pero no los cortes, así que se casan por el propio corte. */
+        e.cortes.forEach((c: Corte, i: number) => clips.set(`${e.id}:${i}`, abiertos.get(c) ?? null));
       }
     }),
   );
@@ -432,6 +485,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   let fotograma = 0;
   /* El fotograma del póster: la portada a los 2,4 s, con los escudos y el título ya dentro. */
   let fotoPoster: HTMLCanvasElement | null = null;
+  let clipEnCurso: Clip | null = null;
 
   for (const [k, x] of escenas.entries()) {
     alPaso(`escena ${k + 1}/${escenas.length}…`);
@@ -443,15 +497,18 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
       if (fallo) throw fallo;
 
       const t = i / FPS;
-      let cuadro: HTMLVideoElement | null = null;
+      let cuadro: VideoFrame | null = null;
 
       if (e.tipo === "clips") {
         const { k: c, tc } = corteEn(e, t, x.segundos);
         const clip = clips.get(`${e.id}:${c}`);
 
+        /* Al pasar de corte, el anterior suelta su descodificador. */
+        if (clip && clipEnCurso && clipEnCurso !== clip) clipEnCurso.fuente.cierra();
+
         if (clip) {
-          await buscaFotograma(clip.video, clip.desde + tc * ((e.cortes[c] as { velocidad?: number }).velocidad ?? 1));
-          cuadro = clip.video;
+          clipEnCurso = clip;
+          cuadro = await clip.fuente.en(clip.desde + tc * ((e.cortes[c] as { velocidad?: number }).velocidad ?? 1));
         }
       }
 
@@ -491,13 +548,9 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   codificadorHd?.close();
   sonido.close();
 
-  for (const c of clips.values()) {
-    if (c) {
-      c.video.pause();
-      c.video.removeAttribute("src");
-      c.video.load();
-    }
-  }
+  for (const c of abiertos.values()) c.fuente.cierra();
+
+  bajados.clear();
 
   for (const img of rec.imagenes.values()) img?.close();
 
@@ -506,6 +559,11 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   const poster = await posterDeVideo(fotoPoster, { segundos: total, rotulo: guion.titulo }).catch(() => undefined);
 
   const ligero = muxor.cierra();
+  const hd = muxorHd ? muxorHd.cierra() : null;
+  /* Si el HD se pasara del tope del bucket (50 MB), no se podría subir: va la copia ligera como vídeo único. */
+  const hdCabe = hd && hd.size < 49 * 1024 * 1024;
 
-  return { blob: muxorHd ? muxorHd.cierra() : ligero, ligero: muxorHd ? ligero : null, segundos: Math.round(total), conVoz: false, escenas: escenas.length, poster };
+  if (hd && !hdCabe) console.warn(`[vídeo] el HD pesa ${(hd.size / 1048576).toFixed(1)} MB y no cabe en el bucket: va el de 720p`);
+
+  return { blob: hdCabe ? hd : ligero, ligero: hdCabe ? ligero : null, segundos: Math.round(total), conVoz: false, escenas: escenas.length, poster };
 }

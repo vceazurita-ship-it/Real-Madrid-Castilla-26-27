@@ -610,7 +610,8 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
   const mejor = cifrasPartido
     .map((c) => ({ c, ventaja: (c.par[0] - c.par[1]) / Math.max(c.par[0], c.par[1]) }))
     .sort((a, b) => b.ventaja - a.ventaja)[0];
-  const golesTexto = goles.map((g) => `${g.tipo === "gol" ? (g.remata ?? "Gol") : "Gol suyo"} ${g.minuto}`).join(" · ");
+  /* Sin nombres (15/10/2026): salen de etiquetas de Hudl que a veces fallan; el minuto, no. */
+  const golesTexto = goles.map((g) => `${g.tipo === "gol" ? "Gol nuestro" : "Gol suyo"} ${g.minuto}`).join(" · ");
 
   escenas.push({
     id: "gancho",
@@ -637,31 +638,38 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
   /* Los goles, justo después de la portada: es lo que se viene a ver. */
   escenas.push(...deCortes.filter((e) => e.id === "clips-1"));
 
-  if (cifrasPartido.length >= 2) escenas.push({
-    id: "datos",
-    tipo: "versus",
-    titulo: "El partido en datos",
-    pie: `Castilla a la izquierda, ${rival} a la derecha · del timeline de Hudl`,
-    filas: cifrasPartido.map((c) => ({ nombre: c.nombre, nuestro: c.par[0], suyo: c.par[1], textoNuestro: String(c.par[0]), textoSuyo: String(c.par[1]), media: null, mejorAlto: true })),
-    locucion: `En datos: ${datos.remates[0]} remates nuestros por ${datos.remates[1]} suyos; ${datos.ataques[0]} ataques con llegada por ${datos.ataques[1]}; córners ${datos.corners[0]} a ${datos.corners[1]}.`,
-  });
-
-  if (transiciones) {
-    const r = transiciones.robos ?? [];
-    const p = transiciones.perdidas ?? [];
-    const adelante = r.filter((x) => x.accion === "ADELANTE").length;
-    const conRemate = r.filter((x) => /REMATE|GOL|OCASION/i.test(x.desenlace)).length;
-    const pRemate = p.filter((x) => /REMATE|GOL|OCASION/i.test(x.desenlace)).length;
-    const lineas = [
-      `${r.length} robos, ${adelante} hacia delante (${r.length ? Math.round((100 * adelante) / r.length) : 0} %)`,
-      `${conRemate} robos acabaron en remate`,
-      `${p.length} pérdidas, ${pRemate} nos costaron un remate`,
-    ];
-
-    escenas.push({ id: "transiciones", tipo: "claves", titulo: "Robos y transiciones", lineas, locucion: lineas.slice(0, 3).join(". ") });
-  }
-
   escenas.push(...deCortes.filter((e) => e.id !== "clips-1"));
+
+  /*
+  | Antes de la conclusión (15/10/2026, lo pidió el cuerpo técnico): los datos
+  | más significativos del partido, cara a cara. Del timeline de Hudl y del
+  | análisis de robos y pérdidas; cada fila sólo si hay dato.
+  */
+  const [posNos, posEllos] = datos.posesionSeg ?? [0, 0];
+  const pos = posNos + posEllos ? Math.round((100 * posNos) / (posNos + posEllos)) : null;
+  const robos = transiciones?.robos ?? [];
+  const perdidas = transiciones?.perdidas ?? [];
+  const alRemate = (x) => /REMATE|GOL|OCASION/i.test(x.desenlace ?? "");
+  const par = (nombre, [a, b]) => ({ nombre, nuestro: a, suyo: b, textoNuestro: String(a), textoSuyo: String(b), media: null, mejorAlto: true });
+  const filasDatos = [
+    ...(pos !== null ? [{ nombre: "Posesión", nuestro: pos, suyo: 100 - pos, textoNuestro: `${pos} %`, textoSuyo: `${100 - pos} %`, media: null, mejorAlto: true }] : []),
+    par("Remates", datos.remates),
+    ...(datos.ultimoTercio ? [par("Llegadas al último tercio", datos.ultimoTercio)] : []),
+    par("Ataques con llegada", datos.ataques),
+    ...(robos.length ? [par("Robos que acabaron en remate", [robos.filter(alRemate).length, perdidas.filter(alRemate).length])] : []),
+    par("Córners", datos.corners),
+  ].filter((x) => x.nuestro + x.suyo > 0);
+
+  if (filasDatos.length >= 3) {
+    escenas.push({
+      id: "datos",
+      tipo: "versus",
+      titulo: "El partido en datos",
+      pie: `Castilla a la izquierda, ${rival} a la derecha · timeline de Hudl${robos.length ? " y análisis de robos y pérdidas" : ""}`,
+      filas: filasDatos,
+      locucion: filasDatos.map((x) => `${x.nombre}: ${x.textoNuestro} contra ${x.textoSuyo}`).join(". "),
+    });
+  }
 
   /* Lo que buscábamos (el plan) frente a lo que logramos (Hudl), y el cierre con el recuento y lo que hay que mejorar. */
   const balance = escenaBalance(filasDeBalance(partido, datos, transiciones, plan));
@@ -798,8 +806,8 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
 
   /* ---- los fotogramas, a ffmpeg por la entrada estándar ---- */
   const caudal = Math.round(Math.max(650, Math.min(1400, (13 * 1024 * 1024 * 8) / total / 1000 - 96)));
-  /* El de Full HD va enlazado: su tope es el del bucket (50 MB por fichero); se apunta a 44. */
-  const caudalHd = Math.round(Math.max(2000, Math.min(6000, (44 * 1024 * 1024 * 8) / total / 1000 - 96)));
+  /* El de Full HD va enlazado: su tope es el del bucket (50 MB por fichero); se apunta a 40. */
+  const caudalHd = Math.round(Math.max(2000, Math.min(5000, (40 * 1024 * 1024 * 8) / total / 1000 - 96)));
   console.log(`  ${total.toFixed(1)} s · HD a ${caudalHd} kb/s · copia ligera a ${caudal} kb/s${caudal < 1000 ? " (960×540)" : ""}`);
 
   /*

@@ -15,7 +15,7 @@
 */
 
 import { anillo, caja, cortinilla, cuenta, espaciado, fraccionDe, sale, salta, tramo } from "./movimiento";
-import { SEGUNDOS_MAXIMOS, SEGUNDOS_MINIMOS, type Celda, type Corte, type CortePartido, type Escena, type GuionVideo, type MarcaPartido } from "./guion";
+import { SEGUNDOS_MAXIMOS, SEGUNDOS_MINIMOS, type Corte, type CortePartido, type Escena, type GuionVideo, type MarcaPartido } from "./guion";
 
 /*
 | ANCHO×ALTO es el lienzo LÓGICO: todas las medidas de este fichero (rótulos,
@@ -1157,9 +1157,11 @@ export function corteEn(e: Extract<Escena, { tipo: "clips" }>, t: number, dur: n
 function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "clips" }>, cuadro: Dibujable | null, t: number, dur: number) {
   const { k, tc, porCorte } = corteEn(e, t, dur);
 
-  if (cuadro && cuadro.width) {
-    const vw = cuadro.videoWidth || cuadro.width;
-    const vh = cuadro.videoHeight || cuadro.height;
+  /* Un VideoFrame (el navegador), una imagen de napi (el club) o un vídeo: cada uno dice su tamaño a su manera. */
+  const vw = cuadro ? cuadro.displayWidth || cuadro.videoWidth || cuadro.width : 0;
+  const vh = cuadro ? cuadro.displayHeight || cuadro.videoHeight || cuadro.height : 0;
+
+  if (cuadro && vw && vh) {
 
     /*
     | Un 12 % más grande y empujado hacia arriba: así el marcador y el reloj de
@@ -1185,17 +1187,24 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, ANCHO, ALTO);
 
-  const borde = Math.min(tc / 0.25, (porCorte - tc) / 0.25);
+  /* Entre corte y corte, un parpadeo corto (0,15 s, sin llegar a negro): con 0,25 s a fondo parecía que faltaba la jugada. */
+  const borde = Math.min(tc / 0.15, (porCorte - tc) / 0.15);
 
   if (borde < 1) {
-    ctx.fillStyle = `rgba(8,17,31,${1 - Math.max(0, borde)})`;
+    ctx.fillStyle = `rgba(8,17,31,${0.85 * (1 - Math.max(0, borde))})`;
     ctx.fillRect(0, 0, ANCHO, ALTO);
   }
 
   titular(ctx, fuente, e.titulo, t, 110, 34);
 
   const corte = e.cortes[k] as Corte & Partial<CortePartido>;
-  const [principal, ...resto] = corte.rotulo.split(" · ");
+  /*
+  | En los cortes del partido (los de Hudl, con `tipo`) sólo la acción y el
+  | minuto (15/10/2026): los nombres de rematador y asistente salen de
+  | etiquetas que a veces fallan, y la jugada se explica sola.
+  */
+  const partes = corte.rotulo.split(" · ");
+  const [principal, ...resto] = corte.tipo ? partes.slice(0, 2) : partes;
 
   /* La repetición: viñeta más cerrada, una franja de oro arriba y el rótulo «REPETICIÓN» latiendo. */
   if (corte.repeticion) {
@@ -1222,7 +1231,7 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
   /* La línea del partido (arriba, bajo el título) y el campo pequeño con la jugada (arriba a la derecha). */
   if (e.marcas?.length) lineaDelPartido(ctx, fuente, e.marcas, corte.minutoNum ?? 0, tc);
 
-  if (corte.zona && !corte.repeticion) campoDeLaJugada(ctx, fuente, corte as CortePartido, tc);
+  /* Sin el campo pequeño con la jugada (15/10/2026): se deducía de las zonas de Hudl y podía no ser lo que se ve. */
 
   e.cortes.forEach((_, i) => {
     ctx.fillStyle = i === k ? ORO : "rgba(255,255,255,0.35)";
@@ -1295,92 +1304,6 @@ function lineaDelPartido(ctx: Lienzo, fuente: string, marcas: MarcaPartido[], ac
       ctx.fillText(`${actual}'`, x, m.de === "nosotros" ? y - 24 : y + 38);
       ctx.textAlign = "left";
     }
-  }
-
-  ctx.globalAlpha = 1;
-}
-
-/**
- * El campo pequeño de la jugada: nueve celdas (tercio × carril, en el sentido
- * del que ataca, siempre hacia la derecha), de dónde sale el pase y dónde se
- * remata, con la flecha entre las dos y el resultado del remate.
- */
-function campoDeLaJugada(ctx: Lienzo, fuente: string, c: CortePartido, t: number) {
-  const a = entra(t, 0.35, 0.5);
-
-  if (a <= 0 || !c.zona) return;
-
-  const w = 250;
-  const h = 160;
-  const x = ANCHO - 56 - w;
-  const y = 96 + (1 - a) * 16;
-
-  ctx.globalAlpha = a;
-  ctx.fillStyle = "rgba(8,17,31,0.72)";
-  ctx.fillRect(x - 10, y - 10, w + 20, h + 46);
-  ctx.fillStyle = "rgba(22,70,42,0.9)";
-  ctx.fillRect(x, y, w, h);
-  ctx.strokeStyle = "rgba(255,255,255,0.55)";
-  ctx.lineWidth = 1.5;
-  ctx.strokeRect(x, y, w, h);
-  ctx.beginPath();
-  ctx.moveTo(x + w / 2, y);
-  ctx.lineTo(x + w / 2, y + h);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(x + w / 2, y + h / 2, h * 0.14, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.strokeRect(x, y + h * 0.2, w * 0.16, h * 0.6);
-  ctx.strokeRect(x + w - w * 0.16, y + h * 0.2, w * 0.16, h * 0.6);
-
-  /* La celda: tercio 0-2 de izquierda a derecha, carril 0-2 de arriba abajo (visto desde la grada de enfrente, izquierda arriba). */
-  const celda = (z: Celda) => ({ cx: x + (w / 3) * (z.tercio + 0.5), cy: y + (h / 3) * (z.carril + 0.5) });
-
-  if (c.desdeZona && (c.desdeZona.tercio !== c.zona.tercio || c.desdeZona.carril !== c.zona.carril)) {
-    ctx.fillStyle = "rgba(255,255,255,0.18)";
-    ctx.fillRect(x + (w / 3) * c.desdeZona.tercio, y + (h / 3) * c.desdeZona.carril, w / 3, h / 3);
-  }
-
-  ctx.fillStyle = "rgba(200,169,107,0.45)";
-  ctx.fillRect(x + (w / 3) * c.zona.tercio, y + (h / 3) * c.zona.carril, w / 3, h / 3);
-
-  const hasta = celda(c.zona);
-  const b = entra(t, 0.7, 0.6);
-
-  if (c.desdeZona && b > 0) {
-    const desde = celda(c.desdeZona);
-    const px = desde.cx + (hasta.cx - desde.cx) * b;
-    const py = desde.cy + (hasta.cy - desde.cy) * b;
-
-    ctx.strokeStyle = BLANCO;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(desde.cx, desde.cy);
-    ctx.lineTo(px, py);
-    ctx.stroke();
-    ctx.fillStyle = BLANCO;
-    ctx.beginPath();
-    ctx.arc(desde.cx, desde.cy, 4, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  ctx.fillStyle = ORO;
-  ctx.beginPath();
-  ctx.arc(hasta.cx, hasta.cy, 7 + Math.sin(t * 5) * 1.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  /* El sentido del ataque y el pie. */
-  ctx.fillStyle = "rgba(255,255,255,0.7)";
-  ctx.font = `600 13px ${fuente}`;
-  ctx.textAlign = "left";
-  ctx.fillText(`${c.de === "nosotros" ? "CASTILLA" : "RIVAL"} ATACA →`, x, y + h + 18);
-
-  if (c.resultado) {
-    ctx.textAlign = "right";
-    ctx.fillStyle = ORO;
-    ctx.font = `700 15px ${fuente}`;
-    ctx.fillText(c.resultado.toUpperCase(), x + w, y + h + 18);
-    ctx.textAlign = "left";
   }
 
   ctx.globalAlpha = 1;
