@@ -31,10 +31,14 @@ import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 
-import { Button, Dialog, Notice, TextArea } from "@/components/abp/ui";
+import { Button, Dialog, Notice } from "@/components/abp/ui";
 import { traeJson } from "@/lib/hojaCsv";
 import { useAnalisisRivalInforme } from "@/hooks/useAnalisisRivalInforme";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
+import { Destinatarios } from "@/components/correo/Destinatarios";
+import { PanelWhatsapp } from "@/components/correo/PanelWhatsapp";
+import { mensajeWhatsapp, telefonosDe, type CanalEnvio, type MensajeWhatsapp } from "@/lib/correo/whatsapp";
 import { usePlayers } from "@/hooks/usePlayers";
 import { alineaSeguimiento } from "@/lib/seguimiento";
 
@@ -80,7 +84,8 @@ export type DatosDelMicro = Omit<
   | "rivalAnalisis"
 >;
 
-type AjustesCorreo = { destinatarios: string };
+/** Los destinatarios y, desde el 15/10/2026, si va por correo o por WhatsApp (y a qué teléfonos). */
+type AjustesCorreo = { destinatarios: string; canal?: CanalEnvio; telefonos?: string };
 
 const VACIO: AjustesCorreo = { destinatarios: "" };
 
@@ -687,16 +692,28 @@ export function InformeMicroDialog({
   /* Lo que el informe no sabe: se enseña al pulsar «Enviar», no en el correo. */
   const [avisando, setAvisando] = useState(false);
 
+  /* Por WhatsApp (15/10/2026): se prepara igual y, en vez del correo, sale el mensaje con los enlaces. */
+  const canal: CanalEnvio = ajustes.canal ?? "correo";
+  const telefonosWa = telefonosDe(ajustes.telefonos ?? "");
+  const [mensajesWa, setMensajesWa] = useState<MensajeWhatsapp[]>([]);
+  const { apunta } = useAgendaEnvios();
+
   const envia = async () => {
     if (enviando) return;
 
-
     const para = ajustes.destinatarios.trim();
 
-    if (!para) {
+    if (canal === "correo" && !para) {
       toast.error("Escribe al menos una dirección de correo.");
       return;
     }
+
+    if (canal === "whatsapp" && telefonosWa.malos.length) {
+      toast.error("Hay teléfonos mal escritos", { description: telefonosWa.malos.join(", ") });
+      return;
+    }
+
+    setMensajesWa([]);
 
     setEnviando(true);
     setFallo("");
@@ -773,6 +790,19 @@ export function InformeMicroDialog({
         }
       }
 
+      if (canal === "whatsapp") {
+        setMensajesWa([
+          {
+            titulo: "Informe de balón parado",
+            texto: mensajeWhatsapp({ asunto: paraEnviar.asunto, resumen: informeTexto(paraEnviar), video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: adjuntosUrl }),
+          },
+        ]);
+        apunta("whatsapp", telefonosWa.buenos);
+        toast.success("Listo para WhatsApp", { description: "Debajo de los destinatarios, un botón por persona con el mensaje escrito." });
+
+        return;
+      }
+
       const respuesta = await fetch("/api/abp/informe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -821,6 +851,9 @@ export function InformeMicroDialog({
       }
 
       const cuantos = datosRespuesta.para?.length ?? 0;
+
+      /* A quién se ha mandado, a la agenda: la próxima vez se propone. */
+      apunta("correo", datosRespuesta.para ?? para.split(/[s,;]+/).filter(Boolean));
 
       toast.success(
         `Informe enviado a ${cuantos} dirección${cuantos === 1 ? "" : "es"}`,
@@ -968,7 +1001,7 @@ export function InformeMicroDialog({
                 rivalInforme.cargando
               }
             >
-              {enviando ? (pasoVideo ? `Vídeo: ${pasoVideo}` : "Enviando…") : "Enviar por correo"}
+              {enviando ? (pasoVideo ? `Vídeo: ${pasoVideo}` : "Enviando…") : canal === "whatsapp" ? "Preparar WhatsApp" : "Enviar por correo"}
             </Button>
           </div>
         </div>
@@ -1015,17 +1048,20 @@ export function InformeMicroDialog({
           </span>
         </div>
 
-        <TextArea
+        <Destinatarios
           label="A quién se le manda"
-          value={ajustes.destinatarios}
-          onChange={(destinatarios) => setAjustes({ destinatarios })}
-          placeholder="correo@ejemplo.com, otro@ejemplo.com"
-          rows={2}
+          canal={canal}
+          onCanal={(c) => setAjustes((a) => ({ ...a, canal: c }))}
+          correos={ajustes.destinatarios}
+          onCorreos={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
+          telefonos={ajustes.telefonos ?? ""}
+          onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
         />
 
+        <PanelWhatsapp mensajes={mensajesWa} telefonos={telefonosWa.buenos} onCierra={() => setMensajesWa([])} />
+
         <p className="text-[11px] leading-relaxed text-white/35">
-          Separadas por comas, por punto y coma o una por línea. Se guardan solas
-          y valen para todos los microciclos.
+          Se guardan solos y valen para todos los microciclos; los de otras veces se proponen debajo.
         </p>
 
         {/*

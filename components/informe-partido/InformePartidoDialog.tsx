@@ -26,9 +26,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BookOpen, Check, Download, ExternalLink, FileText, Loader2, Paperclip, Presentation, RefreshCw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button, Dialog, Notice, Segmented, TextArea } from "@/components/abp/ui";
+import { Button, Dialog, Notice, Segmented } from "@/components/abp/ui";
 import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada } from "@/components/informe-partido/Diapositivas";
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
+import { Destinatarios } from "@/components/correo/Destinatarios";
+import { PanelWhatsapp } from "@/components/correo/PanelWhatsapp";
+import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
+import { mensajeWhatsapp, telefonosDe, type CanalEnvio, type MensajeWhatsapp } from "@/lib/correo/whatsapp";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { TOPE_ADJUNTOS_CORREO, TOPE_PETICION_CORREO } from "@/lib/correo/limites";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
@@ -47,6 +51,9 @@ import { barlowCondensed } from "@/lib/rivals/portada-font";
 
 type AjustesCorreo = {
   destinatarios: string;
+  /** Correo o WhatsApp (15/10/2026), y los teléfonos de WhatsApp separados por comas. */
+  canal?: CanalEnvio;
+  telefonos?: string;
   /** Va bajo el mensaje de cada correo. */
   firma?: string;
   /** Si el resumen o el completo van a otras personas que los de arriba. */
@@ -752,7 +759,21 @@ export function InformePartidoDialog({
    * La petición pasa por Vercel, que corta hacia los 4,5 MB (04/10/2026): se
    * mide antes y, si no cabe, se dice qué pasa en vez de un «HTTP 413».
    */
-  const manda = async (cuerpo: Record<string, unknown>) => {
+  /* Por WhatsApp (15/10/2026): todo se prepara y se sube igual, pero en vez de mandar el correo se escribe el mensaje con los enlaces. */
+  const canal: CanalEnvio = ajustes.canal ?? "correo";
+  const telefonosWa = telefonosDe(ajustes.telefonos ?? "");
+  const [mensajesWa, setMensajesWa] = useState<MensajeWhatsapp[]>([]);
+  const { apunta } = useAgendaEnvios();
+
+  type ParaWhatsapp = { titulo: string; mensaje?: string; firma?: string; resumen?: string; video?: string | null; enlaces: { nombre: string; url: string }[] };
+
+  const manda = async (cuerpo: Record<string, unknown>, wa?: ParaWhatsapp) => {
+    if (canal === "whatsapp") {
+      if (wa) setMensajesWa((l) => [...l.filter((m) => m.titulo !== wa.titulo), { titulo: wa.titulo, texto: mensajeWhatsapp({ asunto: String(cuerpo.asunto ?? ""), ...wa }) }]);
+
+      return { enlazados: [] as string[] };
+    }
+
     const json = JSON.stringify(cuerpo);
 
     const peso = bytesDe(json);
@@ -825,8 +846,16 @@ export function InformePartidoDialog({
       return;
     }
 
-    /* Antes de dibujar nada: que haya a quién y bien escrito. */
-    for (const [activo, texto, nombre] of [
+    if (canal === "whatsapp" && telefonosWa.malos.length) {
+      toast.error("Hay teléfonos mal escritos", { description: telefonosWa.malos.join(", ") });
+
+      return;
+    }
+
+    setMensajesWa([]);
+
+    /* Antes de dibujar nada: que haya a quién y bien escrito. Por WhatsApp no hace falta: sin teléfonos se elige el chat. */
+    for (const [activo, texto, nombre] of canal === "whatsapp" ? [] : [
       [r.activo, paraResumen, "el resumen"],
       [c.activo, paraCompleto, "el completo"],
     ] as const) {
@@ -1079,7 +1108,7 @@ export function InformePartidoDialog({
           texto: `${r.mensaje?.trim() ? `${r.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}`,
           imagenes: usadas(html, [...diapositivasCid, ...posterCid()]),
           adjuntosUrl: archivos.map((a) => ({ nombre: a.nombre, url: a.url, tipo: a.tipo })),
-        });
+        }, { titulo: "Resumen", mensaje: r.mensaje, firma, resumen: informeTexto(informeVisto), video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: archivos });
 
         paso("resumen", "mandado ✓");
       };
@@ -1211,7 +1240,7 @@ export function InformePartidoDialog({
           texto: `${c.mensaje?.trim() ? `${c.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}\n\n— DOCUMENTOS —\n${descargas.map((d) => `${d.nombre}: ${d.url}`).join("\n")}`,
           imagenes: pieza.imagenes,
           adjuntosUrl: reparto.filter((d) => d.adjunto).map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
-        });
+        }, { titulo: "Informe completo", mensaje: c.mensaje, firma, video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: descargas.flatMap((d) => (d.url ? [{ nombre: d.nombre, url: d.url }] : [])) });
 
         paso("completo", "mandado ✓");
 
@@ -1229,7 +1258,15 @@ export function InformePartidoDialog({
 
       const salieron = [r.activo && resResumen.status === "fulfilled" && "el resumen", c.activo && resCompleto.status === "fulfilled" && "el informe completo"].filter(Boolean);
 
+      /* A quién se ha mandado, a la agenda: la próxima vez se propone. */
       if (salieron.length) {
+        if (canal === "whatsapp") apunta("whatsapp", telefonosWa.buenos);
+        else apunta("correo", [...(r.activo ? direccionesDe(paraResumen).buenas : []), ...(c.activo ? direccionesDe(paraCompleto).buenas : [])]);
+      }
+
+      if (salieron.length && canal === "whatsapp") {
+        toast.success("Listo para WhatsApp", { description: "Debajo de los destinatarios, un botón por persona con el mensaje escrito." });
+      } else if (salieron.length) {
         toast.success(salieron.length === 2 ? "Mandados los dos correos" : `Mandado ${salieron[0]}`, {
           description: `${salieron.join(" y ")}${fallos.length ? `. No ha salido: ${fallos.join(" · ")}` : ""}.`,
         });
@@ -1319,7 +1356,9 @@ export function InformePartidoDialog({
     ? trabajando
     : esperaAbp
       ? "Preparando ABP…"
-      : envio.resumen.activo && envio.completo.activo
+      : canal === "whatsapp"
+        ? "Preparar WhatsApp"
+        : envio.resumen.activo && envio.completo.activo
         ? "Enviar los dos"
         : envio.resumen.activo
           ? "Enviar el resumen"
@@ -1439,13 +1478,18 @@ export function InformePartidoDialog({
         {/* ---------------- A QUIÉN ---------------- */}
 
         <div className="grid gap-3 font-sans md:grid-cols-[1fr_220px]">
-          <TextArea
-            label="A quién se le manda (los dos correos)"
-            value={ajustes.destinatarios}
-            onChange={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
-            placeholder="correo@ejemplo.com, otro@ejemplo.com"
-            rows={2}
-          />
+          <div className="min-w-0 space-y-3">
+            <Destinatarios
+              label="A quién se le manda (los dos)"
+              canal={canal}
+              onCanal={(c) => setAjustes((a) => ({ ...a, canal: c }))}
+              correos={ajustes.destinatarios}
+              onCorreos={(destinatarios) => setAjustes((a) => ({ ...a, destinatarios }))}
+              telefonos={ajustes.telefonos ?? ""}
+              onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
+            />
+            <PanelWhatsapp mensajes={mensajesWa} telefonos={telefonosWa.buenos} onCierra={() => setMensajesWa([])} />
+          </div>
           <label>
             <span className={rotuloCaja}>Firma</span>
             <input className={campo} value={ajustes.firma ?? ""} onChange={(e) => setAjustes((a) => ({ ...a, firma: e.target.value }))} placeholder="Cuerpo técnico" />
