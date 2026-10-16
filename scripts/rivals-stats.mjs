@@ -90,6 +90,18 @@ const OVERRIDES = {
   "RIV-01|gregorio medina": "676931",
 };
 
+/*
+| Fichas cuya dirección en BeSoccer NO lleva el número (id de resfu -> slug).
+|
+| Lo normal es `nombre-274579`, y si no está en la plantilla se prueba
+| `x-<id>`; pero algunas fichas viejas son sólo el nombre y eso da 404 («sin
+| tabla de trayectoria»). Luismi del Antequera (16/10/2026): su foto es
+| 274579 y su ficha, `luis-miguel-gutierrez-ramirez`.
+*/
+const SLUGS = {
+  "274579": "luis-miguel-gutierrez-ramirez",
+};
+
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
@@ -597,7 +609,7 @@ function scrape(targets, cache) {
   for (const row of pending) {
     done += 1;
 
-    const url = `https://es.besoccer.com/jugador/${row.slug || `x-${row.id}`}`;
+    const url = `https://es.besoccer.com/jugador/${row.slug || SLUGS[row.id] || `x-${row.id}`}`;
 
     let parsed = null;
     let error = null;
