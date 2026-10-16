@@ -96,10 +96,39 @@ const OVERRIDES = {
 | Lo normal es `nombre-274579`, y si no está en la plantilla se prueba
 | `x-<id>`; pero algunas fichas viejas son sólo el nombre y eso da 404 («sin
 | tabla de trayectoria»). Luismi del Antequera (16/10/2026): su foto es
-| 274579 y su ficha, `luis-miguel-gutierrez-ramirez`.
+| 274579 y su ficha, `luis-miguel-gutierrez-ramirez`. El 16/10/2026 se
+| buscaron todos los que salían sin datos: cada dirección está comprobada (la
+| página existe, lleva la foto con ese id y tiene trayectoria).
 */
 const SLUGS = {
-  "274579": "luis-miguel-gutierrez-ramirez",
+  "274579": "luis-miguel-gutierrez-ramirez", /* Antequera · LUIS MIGUEL GUTIERREZ */
+  "282579": "emilio-lucas-vina", /* Sant Andreu · LUCAS VIÑA */
+  "282714": "pau-darbra-martinez", /* Sant Andreu · PAU DARBRA */
+  "274059": "jaume-tovar-segui", /* Sant Andreu · JAIME TOVAR */
+  "999797": "s-esquivel-999797", /* Atlético Madrileño · S. ESQUIVEL */
+  "904089": "j-bonar-904089", /* Atlético Madrileño · JAVIER BOÑAR */
+  "995379": "dani-martinez-995379", /* Atlético Madrileño · DANI MARTÍNEZ */
+  "3428987": "g-spina-3428987", /* Atlético Madrileño · GERO SPINA */
+  "3139032": "r-belaid-3139032", /* Atlético Madrileño · RAYANE BELAID */
+  "3189225": "i-luque-3189225", /* Atlético Madrileño · IKER LUQUE */
+  "3456967": "d-perez-3456967", /* Atlético Madrileño · DANIEL PÉREZ TRASMONTE */
+  "885928": "j-serrano-885928", /* Atlético Madrileño · JAVIER SERRANO MARTÍNEZ */
+  "861658": "j-lauture-861658", /* Antequera · J. LAUTURE */
+  "284015": "luis-alberto-garcia-pacheco", /* Cartagena · LUIS ALBERTO GARCIA */
+  "1002853": "p-moya-1002853", /* Cartagena · PABLO MOYÁ */
+  "3188388": "p-cid-3188388", /* Gimnàstic de Tarragona · POL CID */
+  "87900": "sergio-duenas-ruiz", /* Real Murcia · SERGIO DUEÑAS */
+  "986590": "morillas-gimenez-jaime", /* Real Jaén · JAIME MORILLAS */
+  "274493": "oscar-lozano-folgoso", /* Real Jaén · OSCAR LOZANO */
+  "295163": "e-hansson-295163", /* Real Zaragoza · EMIL HANSSON */
+  "276463": "luis-miguel-redondo-fernandez", /* Huesca · LUIS MIGUEL REDONDO */
+  "3189508": "d-budesca-3189508", /* Villarreal B · DANI BUDESCA */
+  "3240455": "p-arenzana-3240455", /* Villarreal B · PABLO ARENZANA */
+  "3451286": "g-gross-3451286", /* Atlético Madrileño · GONZALO GROSS SANTOS */
+  "3200896": "n-krivokapic-3200896", /* Cartagena · NENAD KRIVOKAPIĆ */
+  "169974": "agustin-rafael-alonso-cavallaro-169974", /* Real Jaén · AGUSTÍN RAFAEL ALONSO CAVALLARO */
+  "904086": "vicent-abril", /* Gimnàstic de Tarragona · VICENT ABRIL SANZ */
+  "3155716": "t-tamarit-3155716", /* Villarreal B · TONI TAMARIT TAMARIT */
 };
 
 const UA =
