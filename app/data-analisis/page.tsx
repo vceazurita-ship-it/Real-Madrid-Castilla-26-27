@@ -114,6 +114,7 @@ import { PanelAbpPropio } from "@/components/data/PanelAbpPropio";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
 import { PanelDestacados } from "@/components/data/PanelDestacados";
 import { PanelEquipo } from "@/components/data/PanelEquipo";
+import { PanelParecidos } from "@/components/data/PanelParecidos";
 import { SelloJornada, useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { alcanceDeFechas, alcanceWyscout } from "@/lib/data-analisis/alcance";
 import { PanelGolesAbp } from "@/components/data/PanelGolesAbp";
@@ -174,6 +175,7 @@ type Respuesta = {
 
 type Area =
   | "equipo"
+  | "parecidos"
   | "campo"
   | "historia"
   | "liga"
@@ -200,6 +202,17 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     label: "Un equipo de un vistazo",
     icono: Shield,
     pregunta: "¿Qué equipo es éste: cómo le va, cómo juega y quién lo hace?",
+  },
+  /*
+    PARECIDOS (16/10/2026): nuestros partidos y nuestras sesiones de la
+    2026/27 agrupados por cómo se juegan y cómo se entrenan (la idea de
+    Football Hacking, sólo con lo nuestro). lib/data-analisis/parecidos.ts.
+  */
+  {
+    key: "parecidos",
+    label: "Partidos y sesiones parecidos",
+    icono: Shield,
+    pregunta: "¿Qué partidos jugamos igual y qué sesiones se parecen?",
   },
   /*
     El campograma abre la pantalla a propósito: es la forma en la que se mira
@@ -305,7 +318,7 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
 type Bloque = "equipo" | "jugadores" | "balonParado" | "entrenamiento";
 
 const BLOQUES: { clave: Bloque; label: string; icono: typeof History; areas: Area[] }[] = [
-  { clave: "equipo", label: "Equipo", icono: Shield, areas: ["equipo", "liga", "todos", "destacados", "historia", "campo"] },
+  { clave: "equipo", label: "Equipo", icono: Shield, areas: ["equipo", "parecidos", "liga", "todos", "destacados", "historia", "campo"] },
   { clave: "jugadores", label: "Jugadores", icono: Users, areas: ["individual", "once", "eventos"] },
   { clave: "balonParado", label: "Balón parado", icono: Flag, areas: ["golesAbp", "abp"] },
   { clave: "entrenamiento", label: "Entrenamiento", icono: Brain, areas: ["transferencia"] },
@@ -1126,7 +1139,7 @@ export default function DataAnalisisPage() {
 
                 <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2">
 
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && (
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && (
                     <label className="flex items-center gap-2">
                       <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
                         Temporada
@@ -1156,7 +1169,7 @@ export default function DataAnalisisPage() {
                     hay más de una opción: un desplegable con un solo valor no
                     ayuda a nadie.
                   */}
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && competiciones.length > 1 && (
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && competiciones.length > 1 && (
                     <label className="flex items-center gap-2">
                       <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
                         Competición
@@ -1189,7 +1202,7 @@ export default function DataAnalisisPage() {
                     peor de la liga presionando» en vez de compararnos con
                     nosotros mismos.
                   */}
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "equipo" && nuestrosPartidos.length > 1 && (
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && area !== "equipo" && nuestrosPartidos.length > 1 && (
                     <label className="flex items-center gap-2">
                       <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
                         Partido
@@ -1295,7 +1308,7 @@ export default function DataAnalisisPage() {
                     </label>
                   )}
 
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && sistemas.length > 1 && (
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && sistemas.length > 1 && (
                     <label className="flex items-center gap-2">
                       <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
                         Sistema
@@ -1320,7 +1333,7 @@ export default function DataAnalisisPage() {
                     </label>
                   )}
 
-                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "equipo" && (
+                  {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && area !== "equipo" && (
                     <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
                       {[
                         { valor: "promedio" as ModoValor, rotulo: "Por partido" },
@@ -1953,6 +1966,8 @@ export default function DataAnalisisPage() {
                 {/* ============= 5 · JUGADOR A JUGADOR ============ */}
 
                 {area === "equipo" && <PanelEquipo liga={deLaLiga} jugadores={datos.jugadores ?? []} />}
+
+                {area === "parecidos" && <PanelParecidos partidos={datos.partidos ?? []} />}
 
                 {area === "individual" && (
                   <PanelIndividual jugadores={datos.jugadores ?? []} />
