@@ -102,6 +102,10 @@ const OVERRIDES = {
 */
 const SLUGS = {
   "274579": "luis-miguel-gutierrez-ramirez", /* Antequera · LUIS MIGUEL GUTIERREZ */
+  "3355810": "dani-gonzalez-3355810", /* Juventud de Torremolinos · DANIEL GONZALEZ */
+  "3312292": "luque-3312292", /* Villarreal B · PEDRO LUQUE GIMENO */
+  /* En BeSoccer su ficha lleva otro número (3532690) que su foto: nacido en 2009, central, como en la hoja. */
+  "3614060": "adrian-lis-zielinski-3532690", /* Atlético Madrileño · ADRIÁN LIS ZIELINSKI */
   "282579": "emilio-lucas-vina", /* Sant Andreu · LUCAS VIÑA */
   "282714": "pau-darbra-martinez", /* Sant Andreu · PAU DARBRA */
   "274059": "jaume-tovar-segui", /* Sant Andreu · JAIME TOVAR */
