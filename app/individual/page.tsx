@@ -2165,16 +2165,38 @@ export default function IndividualPage() {
   };
 
   /* Todas las escrituras van al mismo Apps Script con text/plain. */
+  /*
+  | El Apps Script contesta a veces con la página de error de Google («No se
+  | puede abrir el archivo en estos momentos») en vez de JSON (16/10/2026).
+  | Esto sólo se usa para editar y borrar, que se pueden repetir sin duplicar
+  | nada: se reintenta tres veces. Crear un seguimiento va por `creaSeguimientos`, que mira en
+  | la hoja antes de repetir.
+  */
   const postToScript = async (payload: Record<string, string>) => {
-    const response = await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
-    });
+    let ultimo = "";
 
-    const text = await response.text();
+    /* Sólo se repite lo que no duplica: editar y eliminar. Crear (un vídeo) va una vez. */
+    const intentos = /^(editar|eliminar)/.test(payload.action ?? "") ? 3 : 1;
 
-    return JSON.parse(text);
+    for (let intento = 0; intento < intentos; intento += 1) {
+      if (intento) await new Promise((r) => setTimeout(r, intento * 3000));
+
+      try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload),
+        });
+
+        const text = await response.text();
+
+        return JSON.parse(text);
+      } catch {
+        ultimo = "la hoja no ha contestado bien";
+      }
+    }
+
+    return { success: false, error: intentos > 1 ? `${ultimo} (probado ${intentos} veces)` : ultimo };
   };
 
   const saveTracking = async () => {
@@ -2204,10 +2226,15 @@ export default function IndividualPage() {
             ...formulario,
           };
 
-      const result = await postToScript(payload);
+      /* Crear, con reintentos que no duplican (lib/seguimiento-escribir.ts); editar, por postToScript. */
+      const result = editingTracking
+        ? await postToScript(payload)
+        : await creaSeguimientos([selected.idJugador], formulario).then((r) =>
+            r.hechos.length ? { success: true, id: r.hechos[0].idRegistro } : { success: false, error: r.fallidos[0]?.motivo },
+          );
 
       if (!result.success) {
-        toast.error("Error guardando el seguimiento");
+        toast.error("Error guardando el seguimiento", { description: result.error });
         return;
       }
 

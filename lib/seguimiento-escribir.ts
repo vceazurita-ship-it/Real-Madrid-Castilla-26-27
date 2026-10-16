@@ -58,18 +58,121 @@ export type ResultadoSeguimientos = {
   fallidos: { idJugador: string; motivo: string }[];
 };
 
+/*
+| POR QUÉ FALLABA «A VECES» (16/10/2026).
+|
+| El Apps Script tarda 30-70 s en frío y, cuando se le cruzan dos escrituras o
+| Google tiene un mal momento, contesta con SU página de error (HTML) en vez
+| de JSON: `JSON.parse` reventaba con «Unexpected token <» y el seguimiento no
+| se guardaba. Ahora cada intento tiene plazo, el error se dice en claro y se
+| reintenta hasta tres veces. Antes de reintentar se mira en la hoja si la
+| fila ya quedó escrita (la respuesta se pudo perder aunque la escritura
+| entrara): así un reintento nunca duplica el seguimiento.
+*/
+const PLAZO_INTENTO = 90_000;
+const ESPERAS = [3_000, 8_000];
+
+type RespuestaScript = { success?: boolean; id?: string; error?: string };
+
+/** Un error que merece otro intento (red, plazo, página de error de Google, cerrojo de la hoja). */
+class Pasajero extends Error {}
+
+async function llamaScript(cuerpo: Record<string, string>): Promise<RespuestaScript> {
+  const corta = new AbortController();
+  const reloj = setTimeout(() => corta.abort(), PLAZO_INTENTO);
+
+  try {
+    const respuesta = await fetch(SEGUIMIENTO_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(cuerpo),
+      signal: corta.signal,
+    });
+    const texto = await respuesta.text();
+
+    try {
+      return JSON.parse(texto) as RespuestaScript;
+    } catch {
+      throw new Pasajero(`la hoja ha contestado con un error (${respuesta.status})`);
+    }
+  } catch (error) {
+    if (error instanceof Pasajero) throw error;
+
+    throw new Pasajero(corta.signal.aborted ? "la hoja no ha contestado a tiempo" : "se ha cortado la conexión con la hoja");
+  } finally {
+    clearTimeout(reloj);
+  }
+}
+
+/** ¿Está ya en la hoja este seguimiento de este jugador? Devuelve su ID_REGISTRO, o `null`. */
+async function yaEscrito(idJugador: string, campos: CamposSeguimiento): Promise<string | null> {
+  /* La lectura también se topa a veces con «No se puede abrir el archivo en estos momentos» de Google: tres intentos. */
+  let filas: Record<string, unknown>[] | null = null;
+
+  for (let i = 0; i < 3 && !filas; i += 1) {
+    try {
+      const respuesta = await fetch(`${SEGUIMIENTO_SCRIPT_URL}?action=seguimiento`, { cache: "no-store" });
+      const datos = JSON.parse(await respuesta.text()) as unknown;
+
+      if (Array.isArray(datos)) filas = datos as Record<string, unknown>[];
+    } catch {
+      /* Otra vuelta. */
+    }
+
+    if (!filas) await new Promise((r) => setTimeout(r, 2_000));
+  }
+
+  try {
+    if (!filas) return null;
+
+    const igual = (a: unknown, b: string) => String(a ?? "").trim() === b.trim();
+    const fila = filas.find(
+      (f) =>
+        igual(f.ID_JUGADOR, idJugador) &&
+        igual(f.OBJETIVO_OFENSIVO, campos.OBJETIVO_OFENSIVO) &&
+        igual(f.OBJETIVO_DEFENSIVO, campos.OBJETIVO_DEFENSIVO) &&
+        igual(f.OBJETIVO_MENTAL, campos.OBJETIVO_MENTAL) &&
+        igual(f.FEEDBACK, campos.FEEDBACK),
+    );
+
+    return fila ? String(fila.ID_REGISTRO ?? "") : null;
+  } catch {
+    return null;
+  }
+}
+
 async function creaUno(idJugador: string, campos: CamposSeguimiento) {
-  const respuesta = await fetch(SEGUIMIENTO_SCRIPT_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "crearSeguimiento", ID_JUGADOR: idJugador, ...campos }),
-  });
+  let ultimo: Error | null = null;
 
-  const datos = JSON.parse(await respuesta.text()) as { success?: boolean; id?: string; error?: string };
+  for (let intento = 0; intento <= ESPERAS.length; intento += 1) {
+    if (intento > 0) {
+      await new Promise((r) => setTimeout(r, ESPERAS[intento - 1]));
 
-  if (!datos.success) throw new Error(datos.error || "la hoja no lo ha aceptado");
+      /* Si la escritura de antes entró aunque se perdiera la respuesta, no se repite. */
+      const ya = await yaEscrito(idJugador, campos);
 
-  return String(datos.id ?? "");
+      if (ya !== null) return ya;
+    }
+
+    try {
+      const datos = await llamaScript({ action: "crearSeguimiento", ID_JUGADOR: idJugador, ...campos });
+
+      if (datos.success) return String(datos.id ?? "");
+
+      /* Un «no» de la hoja por el cerrojo o un tropiezo de Google se reintenta; otro «no» es definitivo. */
+      const motivo = datos.error || "la hoja no lo ha aceptado";
+
+      if (!/lock|bloque|timeout|tiempo|service|servicio|too many|demasiad|exceed/i.test(motivo)) throw new Error(motivo);
+
+      ultimo = new Pasajero(motivo);
+    } catch (error) {
+      if (!(error instanceof Pasajero)) throw error;
+
+      ultimo = error;
+    }
+  }
+
+  throw new Error(`${ultimo?.message ?? "no se ha podido guardar"} (probado ${ESPERAS.length + 1} veces)`);
 }
 
 /**
