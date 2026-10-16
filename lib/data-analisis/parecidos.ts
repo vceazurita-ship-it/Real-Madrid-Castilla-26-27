@@ -241,6 +241,49 @@ export function partidosComoElementos(partidos: FilaPartido[], equipo = "Real Ma
   };
 }
 
+/**
+ * Los equipos de la liga entre sí (lo pidió el usuario el 16/10/2026, como el
+ * experimento original): cada equipo de la competición del Castilla en la
+ * 2026/27, resumido por la MEDIANA de sus partidos en las 13 de estilo.
+ */
+export function equiposComoElementos(partidos: FilaPartido[], equipo = "Real Madrid Castilla", minPartidos = 3): { elementos: Elemento[]; rasgos: Rasgo[] } {
+  const metricas = CLAVES_PARTIDO.map((k) => METRICAS.find((m) => m.key === k)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+  const delAno = partidos.filter((f) => f.fecha >= TEMPORADA_DESDE);
+  const nuestros = delAno.filter((f) => f.equipo === equipo);
+  const comp = [...nuestros.reduce((m, f) => m.set(f.competicion, (m.get(f.competicion) ?? 0) + 1), new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const deLaComp = delAno.filter((f) => f.competicion === comp);
+  const nombres = [...new Set(deLaComp.map((f) => f.equipo))].sort((a, b) => a.localeCompare(b, "es"));
+  const med = (v: number[]) => {
+    const o = [...v].sort((a, b) => a - b);
+    const m = Math.floor(o.length / 2);
+
+    return o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2;
+  };
+
+  return {
+    rasgos: metricas.map((m) => ({ key: m.key, label: m.nombre })),
+    elementos: nombres
+      .map((nombre) => {
+        const suyos = deLaComp.filter((f) => f.equipo === nombre);
+
+        return {
+          id: nombre,
+          etiqueta: nombre,
+          detalle: `${suyos.length} partidos · ${suyos.reduce((s, f) => s + (f.golesFavor ?? 0), 0)}-${suyos.reduce((s, f) => s + (f.golesContra ?? 0), 0)} en goles`,
+          fecha: nombre === equipo ? "9999" : nombre,
+          partidos: suyos.length,
+          valores: metricas.map((m) => {
+            const v = suyos.map((f) => valorEnGrupo(m, [f], "promedio")).filter((x): x is number => x !== null && Number.isFinite(x));
+
+            return v.length ? med(v) : null;
+          }),
+        };
+      })
+      .filter((e) => e.partidos >= minPartidos)
+      .map(({ partidos: _p, ...e }) => e),
+  };
+}
+
 export const RASGOS_SESION: Rasgo[] = [
   { key: "minutos", label: "Minutos de tarea", formato: "ent" },
   { key: "intensidad", label: "Intensidad media", formato: "dec" },

@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { loadRegistro, type RegistroTarea } from "@/lib/abp/registro";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
-import { colocaRed, partidosComoElementos, redDeParecidos, sesionesComoElementos, type RedParecidos } from "@/lib/data-analisis/parecidos";
+import { colocaRed, equiposComoElementos, partidosComoElementos, redDeParecidos, sesionesComoElementos, type RedParecidos } from "@/lib/data-analisis/parecidos";
 
 const OSCURO = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#9085e9"];
 const CLARO = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6"];
@@ -41,7 +41,7 @@ const describe = (red: RedParecidos, id: number) =>
     .join(", ") || "cerca de la media en todo";
 
 export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
-  const [modo, setModo] = useState<"partidos" | "sesiones">("partidos");
+  const [modo, setModo] = useState<"partidos" | "sesiones" | "equipos">("partidos");
   const [tareas, setTareas] = useState<RegistroTarea[] | null>(null);
   const [elegido, setElegido] = useState<string | null>(null);
 
@@ -66,6 +66,12 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
       return redDeParecidos(elementos, rasgos, 2);
     }
 
+    if (modo === "equipos") {
+      const { elementos, rasgos } = equiposComoElementos(partidos);
+
+      return redDeParecidos(elementos, rasgos, 3);
+    }
+
     if (!tareas) return null;
 
     const { elementos, rasgos } = sesionesComoElementos(tareas);
@@ -76,7 +82,8 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
   const pos = useMemo(() => (red ? colocaRed(red) : []), [red]);
 
   /* Sin elegir, el último (el partido o la sesión más reciente). */
-  const actual = red ? (red.elementos.find((e) => e.id === elegido) ?? red.elementos[red.elementos.length - 1]) : null;
+  /* Sin elegir: el último partido o sesión; en equipos, el Castilla. */
+  const actual = red ? (red.elementos.find((e) => e.id === elegido) ?? (modo === "equipos" ? red.elementos.find((e) => e.id === "Real Madrid Castilla") : null) ?? red.elementos[red.elementos.length - 1]) : null;
   const iActual = red && actual ? red.elementos.indexOf(actual) : -1;
   const parecidos =
     red && iActual >= 0
@@ -89,7 +96,8 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
 
   const W = 1000;
   const H = 560;
-  const nombre = modo === "partidos" ? "partido" : "sesión";
+  const nombre = modo === "partidos" ? "partido" : modo === "equipos" ? "equipo" : "sesión";
+  const plural = modo === "equipos" ? "Equipos" : modo === "partidos" ? "Partidos" : "Sesiones";
 
   return (
     <div className="space-y-4">
@@ -100,6 +108,7 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
           [
             ["partidos", "Nuestros partidos"],
             ["sesiones", "Nuestras sesiones"],
+            ["equipos", "Equipos de la liga"],
           ] as const
         ).map(([k, t]) => (
           <button
@@ -121,7 +130,9 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
         <p className="text-xs leading-relaxed text-white/45">
           {modo === "partidos"
             ? "Cada partido con 13 métricas de estilo de Wyscout (posesión, ritmo y longitud de pase, verticalidad, centros, contras, presión). "
-            : "Cada sesión con 13 rasgos de sus tareas en la hoja de registro (minutos, intensidad, cargas, densidad, jugadores por tarea, normativa, incertidumbre, familiaridad y en qué se fue el tiempo); el día de partido no cuenta. "}
+            : modo === "equipos"
+              ? "Cada equipo de nuestra competición en la 2026/27, resumido por la mediana de sus partidos en las mismas 13 métricas de estilo de Wyscout. "
+              : "Cada sesión con 13 rasgos de sus tareas en la hoja de registro (minutos, intensidad, cargas, densidad, jugadores por tarea, normativa, incertidumbre, familiaridad y en qué se fue el tiempo); el día de partido no cuenta. "}
           Se estandariza cada métrica, el parecido es la similitud del coseno, cada punto se une a sus más parecidos y las familias salen del algoritmo de Louvain (como el experimento de Football Hacking del 16/10/2026).
         </p>
       </Explicativo>
@@ -133,7 +144,7 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
           <Conclusiones
             items={red.familias.map(
               (f) =>
-                `${modo === "partidos" ? "Partidos" : "Sesiones"} de la familia ${f.id + 1} (${f.ids.length}): ${describe(red, f.id)} — ${f.ids
+                `${plural} de la familia ${f.id + 1} (${f.ids.length}): ${describe(red, f.id)} — ${f.ids
                   .slice(0, 6)
                   .map((id) => red.elementos.find((e) => e.id === id)?.etiqueta)
                   .join(", ")}${f.ids.length > 6 ? "…" : ""}.`,
@@ -171,7 +182,8 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
                       {/* La zona de toque, más grande que el punto. */}
                       <circle cx={p.x * W} cy={p.y * H} r={16} fill="transparent" stroke="none" />
                       <circle cx={p.x * W} cy={p.y * H} r={sel ? 10 : 7} className={claseFamilia(e.comunidad)} strokeWidth={sel ? 3 : 0} stroke="var(--rmcf-surface, #11161C)" />
-                      <text x={p.x * W + 11} y={p.y * H + 4} fontSize={modo === "partidos" ? 15 : 11} fontWeight={sel ? 700 : 500} fill="currentColor" className="text-white/80">
+                      {e.id === "Real Madrid Castilla" && <circle cx={p.x * W} cy={p.y * H} r={15} fill="none" stroke="#C8A96B" strokeWidth={2.5} />}
+                      <text x={p.x * W + 11} y={p.y * H + 4} fontSize={modo === "sesiones" ? 11 : modo === "equipos" ? 13 : 15} fontWeight={sel ? 700 : 500} fill="currentColor" className="text-white/80">
                         {e.etiqueta}
                       </text>
                     </g>
@@ -184,7 +196,7 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
             {actual && (
               <aside className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div>
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">{nombre} elegid{modo === "partidos" ? "o" : "a"}</p>
+                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">{nombre} elegid{modo === "sesiones" ? "a" : "o"}</p>
                   <p className="text-lg font-semibold text-white">{actual.etiqueta}</p>
                   {actual.detalle ? <p className="text-xs text-white/50">{actual.detalle}</p> : null}
                   <p className="mt-1 flex items-center gap-1.5 text-xs text-white/65">
