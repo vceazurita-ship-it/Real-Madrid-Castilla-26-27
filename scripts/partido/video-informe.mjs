@@ -42,10 +42,12 @@ const { REPO, leePartido } = require("./comun.cjs");
 const { entorno } = require("../supabase-local.cjs");
 const { createClient } = require("@supabase/supabase-js");
 const { GoogleGenAI } = require("@google/genai");
-const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
+const { createCanvas, GlobalFonts } = require("@napi-rs/canvas");
+const { Worker } = require("worker_threads");
+const os = require("os");
 
 const { escenaBalance, escenasDeCortes, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
-const { ANCHO, ALTO, ANCHO_HD, ALTO_HD, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
+const { ANCHO, ALTO, ANCHO_HD, ALTO_HD, FPS, estiramiento, limitesDeCortes, palabrasDeEscena, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
 const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
 const { bandaSonora, masteriza } = require("../../lib/video-informe/musica.ts");
@@ -712,13 +714,17 @@ async function extraeSonido(fichero) {
 /** La copia ligera (720p, para adjuntar) que sale junto al vídeo en Full HD. */
 const ligeroDe = (salida) => salida.replace(/\.mp4$/, "-ligero.mp4");
 
-async function renderiza(guion, pistas, carpetaVideo, salida) {
-  for (const [peso, fichero] of [["700", "BarlowCondensed-Bold.ttf"], ["600", "BarlowCondensed-SemiBold.ttf"], ["500", "BarlowCondensed-Medium.ttf"], ["400", "BarlowCondensed-Medium.ttf"]]) {
-    const ruta = path.join(REPO, "public", "fuentes", fichero);
+/**
+ * Cuántos hilos pintan fotogramas: `--hilos N`, o los núcleos menos dos (hasta
+ * cuatro; cada hilo lleva su lienzo de 1080 y sus fotogramas, ~300 MB, y el
+ * ordenador del club anda justo de memoria).
+ */
+const HILOS = Math.max(1, Number(valor("--hilos")) || Math.min(4, Math.max(1, os.cpus().length - 2)));
 
-    if (fs.existsSync(ruta)) GlobalFonts.registerFromPath(ruta, "Barlow Condensed");
-    void peso;
-  }
+async function renderiza(guion, pistas, carpetaVideo, salida) {
+  const fuentes = ["BarlowCondensed-Bold.ttf", "BarlowCondensed-SemiBold.ttf", "BarlowCondensed-Medium.ttf"].map((f) => path.join(REPO, "public", "fuentes", f));
+
+  for (const ruta of fuentes) if (fs.existsSync(ruta)) GlobalFonts.registerFromPath(ruta, "Barlow Condensed");
 
   const fuente = `"Barlow Condensed", "Segoe UI", Arial, sans-serif`;
   const escenas = reparteEscenas(guion, pistas, FRECUENCIA_AAC, SEGUNDOS_MAXIMOS);
@@ -732,18 +738,12 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
   }
 
   /* Recursos: escudos y los fotogramas y el sonido de cada corte. */
-  const rec = { imagenes: new Map() };
+  const imagenes = [];
   const cortes = new Map();
 
   for (const [k, { escena: e, segundos }] of escenas.entries()) {
     if (e.tipo === "portada") {
-      for (const [clave, src] of [["nosotros", e.escudoNosotros], ["rival", e.escudoRival]]) {
-        try {
-          rec.imagenes.set(`${e.id}:${clave}`, src ? await loadImage(src) : null);
-        } catch {
-          rec.imagenes.set(`${e.id}:${clave}`, null);
-        }
-      }
+      for (const [clave, src] of [["nosotros", e.escudoNosotros], ["rival", e.escudoRival]]) imagenes.push([`${e.id}:${clave}`, src ?? null]);
     } else if (e.tipo === "clips") {
       const limites = limitesDeCortes(e, segundos);
 
@@ -820,71 +820,126 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
     "-y", "-loglevel", "error",
     "-f", "rawvideo", "-pix_fmt", "rgba", "-s", `${ANCHO_HD}x${ALTO_HD}`, "-r", String(FPS), "-i", "pipe:0",
     "-f", "f32le", "-ar", String(FRECUENCIA_AAC), "-ac", "1", "-i", mezcla,
-    "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-maxrate", `${caudalHd}k`, "-bufsize", `${caudalHd * 2}k`, "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1",
+    /* «fast» y «medium» (16/10/2026): con la calidad fija por crf apenas cambia la imagen y codificar dejó de ser el cuello de botella (46 frente a 71 ms por fotograma con 4 hilos). */
+    "-c:v", "libx264", "-preset", "fast", "-crf", "19", "-maxrate", `${caudalHd}k`, "-bufsize", `${caudalHd * 2}k`, "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.1",
     "-c:a", "aac", "-b:a", "128k",
     "-movflags", "+faststart", "-shortest",
     salida,
     "-vf", caudal < 1000 ? "scale=960:540:flags=lanczos" : `scale=${ANCHO}:${ALTO}:flags=lanczos`,
-    "-c:v", "libx264", "-preset", caudal < 1000 ? "slow" : "medium", "-crf", "22", "-maxrate", `${caudal}k`, "-bufsize", `${caudal * 2}k`, "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.0",
+    "-c:v", "libx264", "-preset", "medium", "-crf", "22", "-maxrate", `${caudal}k`, "-bufsize", `${caudal * 2}k`, "-pix_fmt", "yuv420p", "-profile:v", "high", "-level", "4.0",
     "-c:a", "aac", "-b:a", "96k",
     "-movflags", "+faststart", "-shortest",
     ligeroDe(salida),
   ], { stdio: ["pipe", "inherit", "inherit"] });
 
   const escribe = (buf) => new Promise((r) => (ff.stdin.write(buf) ? r() : ff.stdin.once("drain", r)));
-  /* Se pinta en HD: dibujo.ts escala sus medidas de 1280 al tamaño del lienzo. */
-  const lienzo = createCanvas(ANCHO_HD, ALTO_HD);
-  const ctx = lienzo.getContext("2d");
-  const grano = createCanvas(256, 256);
-  rellenaGrano(grano.getContext("2d"));
   const totalFotogramas = Math.round(total * FPS);
-  let fotograma = 0;
-  let ultimoCuadro = { ruta: "", img: null };
 
-  for (const [k, x] of escenas.entries()) {
-    const cuantos = k === escenas.length - 1 ? totalFotogramas - fotograma : Math.round(x.segundos * FPS);
-    const e = x.escena;
+  /* Dónde empieza cada escena, en fotogramas (la última se queda con lo que sobre del redondeo). */
+  const tramos = [];
 
-    process.stdout.write(`  escena ${k + 1}/${escenas.length} (${e.id}, ${x.segundos.toFixed(1)} s)\n`);
+  escenas.reduce((desde, x, k) => {
+    const cuantos = k === escenas.length - 1 ? totalFotogramas - desde : Math.round(x.segundos * FPS);
 
-    for (let i = 0; i < cuantos; i += 1) {
-      const t = i / FPS;
-      let cuadro = null;
+    tramos.push({ desde, cuantos });
 
-      if (e.tipo === "clips") {
-        const { k: c, tc } = corteEn(e, t, x.segundos);
-        const corte = cortes.get(`${e.id}:${c}`);
+    return desde + cuantos;
+  }, 0);
 
-        if (corte) {
-          /* Desde dónde y a qué velocidad: la repetición vuelve al remate a media velocidad. */
-          const enFichero = (corte.desdeFichero ?? 0) + tc * (corte.velocidad ?? 1);
-          const ruta = path.join(corte.dir, `f_${String(Math.min(Math.round(enFichero * FPS) + 1, 9999)).padStart(4, "0")}.jpg`);
+  /*
+  | LOS FOTOGRAMAS, EN PARALELO (16/10/2026). Antes se pintaban de uno en uno
+  | en un solo núcleo (11 minutos para 2 minutos de vídeo). Ahora `HILOS`
+  | hilos (pinta-fotogramas.cjs) pintan tandas de seis y aquí se mandan a
+  | ffmpeg en orden. Nunca hay más de (HILOS + 1) tandas por delante de lo
+  | escrito, para no llenar la memoria (cada fotograma son 8 MB).
+  */
+  const TANDA = 6;
+  const datosHilo = {
+    escenas: escenas.map((x) => ({ ...x, voz: null })),
+    arranques,
+    tramos,
+    total,
+    titulo: guion.titulo,
+    fuente,
+    imagenes,
+    cortes: [...cortes.entries()].map(([clave, c]) => [clave, { dir: c.dir, desdeFichero: c.desdeFichero, velocidad: c.velocidad }]),
+    fuentes,
+  };
+  const hilos = Array.from({ length: HILOS }, () => ({ w: new Worker(path.join(REPO, "scripts", "partido", "pinta-fotogramas.cjs"), { workerData: datosHilo }), ocupado: false }));
+  const listos = new Map();
+  let aviso = null;
+  let falloHilo = null;
 
-          if (ruta !== ultimoCuadro.ruta) {
-            try {
-              ultimoCuadro = { ruta, img: fs.existsSync(ruta) ? await loadImage(ruta) : ultimoCuadro.img };
-            } catch {
-              ultimoCuadro = { ruta, img: ultimoCuadro.img };
-            }
-          }
+  for (const h of hilos) {
+    h.w.on("message", (m) => {
+      if (m.error) falloHilo = new Error(m.error);
+      else if (m.datos) listos.set(m.n, m.datos);
+      else if (m.hecho) h.ocupado = false;
 
-          cuadro = ultimoCuadro.img;
-        }
+      aviso?.();
+    });
+    h.w.on("error", (e) => {
+      falloHilo = e;
+      aviso?.();
+    });
+  }
+
+  console.log(`  pintando con ${HILOS} ${HILOS === 1 ? "hilo" : "hilos"}`);
+
+  const fotoPoster = Math.min(tramos[0].cuantos - 1, Math.round(2.4 * FPS));
+  let escrito = 0;
+  let pedido = 0;
+  let escenaDicha = -1;
+
+  try {
+    while (escrito < totalFotogramas) {
+      if (falloHilo) throw falloHilo;
+
+      for (const h of hilos) {
+        if (h.ocupado || pedido >= totalFotogramas || pedido - escrito >= TANDA * (HILOS + 1)) continue;
+
+        h.ocupado = true;
+        h.w.postMessage({ desde: pedido, hasta: Math.min(totalFotogramas, pedido + TANDA) });
+        pedido += TANDA;
       }
 
-      pintaFotograma(ctx, grano, fuente, guion.titulo, rec, { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro, marcas: arranques.slice(1).map((a) => a / total) });
+      const datos = listos.get(escrito);
+
+      if (!datos) {
+        await new Promise((r) => (aviso = r));
+        aviso = null;
+        continue;
+      }
+
+      listos.delete(escrito);
+
+      const k = tramos.findIndex((t) => escrito < t.desde + t.cuantos);
+
+      if (k !== escenaDicha) {
+        escenaDicha = k;
+        process.stdout.write(`  escena ${k + 1}/${escenas.length} (${escenas[k].escena.id}, ${escenas[k].segundos.toFixed(1)} s)\n`);
+      }
 
       /* El póster: la portada a los 2,4 s con el botón de reproducir, para el correo y el PDF. */
-      if (k === 0 && i === Math.min(cuantos - 1, Math.round(2.4 * FPS))) {
+      if (escrito === fotoPoster) {
+        const cuadro = createCanvas(ANCHO_HD, ALTO_HD);
+        const cctx = cuadro.getContext("2d");
+        const img = cctx.createImageData(ANCHO_HD, ALTO_HD);
+
+        img.data.set(datos);
+        cctx.putImageData(img, 0, 0);
+
         const p = createCanvas(ANCHO, ALTO);
 
-        pintaPoster(p.getContext("2d"), lienzo, { segundos: total, rotulo: guion.titulo });
+        pintaPoster(p.getContext("2d"), cuadro, { segundos: total, rotulo: guion.titulo });
         fs.writeFileSync(salida.replace(/.mp4$/, ".jpg"), await p.encode("jpeg", 85));
       }
 
-      await escribe(lienzo.data());
-      fotograma += 1;
+      await escribe(Buffer.from(datos.buffer, datos.byteOffset, datos.byteLength));
+      escrito += 1;
     }
+  } finally {
+    await Promise.all(hilos.map((h) => h.w.terminate()));
   }
 
   ff.stdin.end();

@@ -38,7 +38,7 @@ import { TOPE_ADJUNTOS_CORREO, TOPE_PETICION_CORREO } from "@/lib/correo/limites
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { guionDePartido } from "@/lib/video-informe/guion";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
-import { montaVideoInforme, puedeMontarVideo } from "@/lib/video-informe/monta";
+import { montaVideoInforme, puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { bloqueVideoHtml, diapositivaDelVideo } from "@/lib/video-informe/portada-video";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
 import { completoEnPdf } from "@/lib/informe-partido/pdf-completo";
@@ -577,7 +577,12 @@ export function InformePartidoDialog({
 
   const claveCompleto = claveDiapos ? `${claveDiapos}|${abpCargando ? "abp…" : "abp"}|${capitulosElegidos?.join(",") ?? "todos"}` : "";
 
-  const cache = useRef<{ diapos?: { clave: string; imagenes: Promise<string[]> }; completo?: { clave: string; pdf: Promise<Blob> } }>({});
+  const cache = useRef<{
+    diapos?: { clave: string; imagenes: Promise<string[]> };
+    completo?: { clave: string; pdf: Promise<Blob> };
+    /* El vídeo resumen, montado mientras se revisa (16/10/2026); `escucha` es quien enseña su avance ahora. */
+    video?: { clave: string; montado: Promise<VideoMontado>; escucha?: (texto: string) => void };
+  }>({});
 
   const [preparado, setPreparado] = useState<{ diapos: string; completo: string }>({ diapos: "", completo: "" });
 
@@ -642,11 +647,52 @@ export function InformePartidoDialog({
     return pdf;
   };
 
+  /*
+  | El vídeo resumen, montado UNA vez por informe (16/10/2026). Antes se
+  | montaba al pulsar «Enviar» y el envío esperaba minutos; ahora empieza solo
+  | en cuanto están las diapositivas y el PDF, y al enviar se usa el que haya
+  | (o se espera al que ya va por la mitad, sin empezar otro).
+  */
+  const claveVideo = claveDiapos ? `${claveDiapos}|video` : "";
+  const quiereVideo = (envio.resumen.activo && envio.resumen.video) || (envio.completo.activo && envio.completo.video);
+
+  const dameVideo = (escucha?: (texto: string) => void) => {
+    if (cache.current.video?.clave === claveVideo) {
+      if (escucha) cache.current.video.escucha = escucha;
+
+      return cache.current.video.montado;
+    }
+
+    const clave = claveVideo;
+    const entrada: NonNullable<typeof cache.current.video> = { clave, montado: Promise.resolve(null as unknown as VideoMontado), escucha };
+
+    entrada.montado = (async () => {
+      const escudos = await traeEscudos().catch(() => []);
+      const escudo = buscadorDeEscudos(escudos)(informeVisto!.partido.rival);
+
+      return montaVideoInforme(guionDePartido(informeVisto!, { escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null }), {
+        alPaso: (t) => entrada.escucha?.(t),
+        fuente: barlowCondensed.style.fontFamily,
+      });
+    })();
+
+    cache.current.video = entrada;
+
+    /* Si falla, se olvida: al enviar se intenta otra vez y, si vuelve a fallar, se dice. */
+    entrada.montado.catch(() => {
+      if (cache.current.video === entrada) cache.current.video = undefined;
+    });
+
+    return entrada.montado;
+  };
+
   /* En cuanto hay informe (y ABP), se prepara todo sin que nadie lo pida. */
   useEffect(() => {
     if (!claveDiapos || abpCargando || trabajando) return;
 
-    if (preparado.diapos === claveDiapos && preparado.completo === claveCompleto) return;
+    const videoHecho = !quiereVideo || !puedeMontarVideo() || Boolean(informeVisto?.videoListo?.url) || cache.current.video?.clave === claveVideo;
+
+    if (preparado.diapos === claveDiapos && preparado.completo === claveCompleto && videoHecho) return;
 
     let vivo = true;
 
@@ -663,6 +709,13 @@ export function InformePartidoDialog({
         setPreparando("Preparando el PDF del completo…");
 
         await damePdfCompleto((h, total) => vivo && setPreparando(`Preparando el PDF del completo · ${h} de ${total}…`));
+
+        /* Y el vídeo, si va en algún correo y no lo ha montado ya el ordenador del club. */
+        if (vivo && quiereVideo && puedeMontarVideo() && !informeVisto?.videoListo?.url) {
+          setPreparando("Preparando el vídeo…");
+
+          await dameVideo((t) => vivo && setPreparando(`Preparando el vídeo · ${t}`));
+        }
       } catch {
         /* Al enviar se vuelve a intentar y, si falla, lo dice. */
       } finally {
@@ -677,7 +730,7 @@ export function InformePartidoDialog({
       setPreparando(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claveDiapos, claveCompleto, abpCargando, trabajando]);
+  }, [claveDiapos, claveCompleto, abpCargando, trabajando, quiereVideo]);
 
   const listoTodo = Boolean(claveDiapos) && preparado.diapos === claveDiapos && preparado.completo === claveCompleto;
 
@@ -1058,13 +1111,8 @@ export function InformePartidoDialog({
               return { nombre: nombreVideo, url: informeVisto.videoListo.ligero || informeVisto.videoListo.url, tipo: "video/mp4", tamano: null as number | null };
             }
 
-            const escudos = await traeEscudos().catch(() => []);
-            const escudo = buscadorDeEscudos(escudos)(informeVisto.partido.rival);
-
-            const v = await montaVideoInforme(guionDePartido(informeVisto, { escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null }), {
-              alPaso: (t) => paso(correo, `vídeo: ${t}`),
-              fuente: barlowCondensed.style.fontFamily,
-            });
+            /* El montado mientras se revisaba, o el que va por la mitad: no se empieza otro. */
+            const v = await dameVideo((t) => paso(correo, `vídeo: ${t}`));
 
 
             /* El de Full HD va enlazado (póster, botón y QR); el adjunto es la copia ligera en 720p. */

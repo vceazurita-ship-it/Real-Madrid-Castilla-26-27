@@ -396,16 +396,25 @@ function camaraDe(tipo: Escena["tipo"], t: number, global: number): Camara {
 /*  EL ACABADO: GRANO, VIÑETA, BARRIDO                                 */
 /* ------------------------------------------------------------------ */
 
-/** La placa de grano: 256×256 de ruido gris. Se pinta con `rellenaGrano` sobre un lienzo que da el motor. */
+/**
+ * La placa de grano: 256×256 de puntos claros y oscuros casi transparentes.
+ * Se pinta con `rellenaGrano` sobre un lienzo que da el motor.
+ *
+ * Antes era ruido gris pintado en modo «overlay»: en el ordenador del club
+ * (@napi-rs/canvas) esa fusión en 1080p costaba ~190 ms POR FOTOGRAMA (medido
+ * el 16/10/2026: la portada pasaba de 100 a 890 ms). Puntos blancos y negros
+ * con alfa de hasta 0,09 en modo normal dan el mismo grano a coste de nada.
+ */
 export function rellenaGrano(ctx: Lienzo) {
   const img = ctx.createImageData(256, 256);
 
   for (let i = 0; i < img.data.length; i += 4) {
-    const v = 110 + Math.random() * 90;
-    img.data[i] = v;
-    img.data[i + 1] = v;
-    img.data[i + 2] = v;
-    img.data[i + 3] = 255;
+    const v = Math.random();
+    const claro = v > 0.5 ? 255 : 0;
+    img.data[i] = claro;
+    img.data[i + 1] = claro;
+    img.data[i + 2] = claro;
+    img.data[i + 3] = Math.round(Math.abs(v - 0.5) * 2 * 22);
   }
 
   ctx.putImageData(img, 0, 0);
@@ -418,13 +427,16 @@ function acabado(ctx: Lienzo, grano: Dibujable, progreso: number, titulo: string
   ctx.fillStyle = v;
   ctx.fillRect(0, 0, ANCHO, ALTO);
 
+  /* El grano en píxeles de verdad (sin la escala del lienzo lógico) y sin suavizar: es lo más barato de pintar. */
   ctx.save();
-  ctx.globalAlpha = 0.045;
-  ctx.globalCompositeOperation = "overlay";
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  const anchoReal = ctx.canvas?.width || ANCHO;
+  const altoReal = ctx.canvas?.height || ALTO;
   const ox = Math.floor(Math.random() * 256);
   const oy = Math.floor(Math.random() * 256);
 
-  for (let x = -ox; x < ANCHO; x += 256) for (let y = -oy; y < ALTO; y += 256) ctx.drawImage(grano, x, y);
+  for (let x = -ox; x < anchoReal; x += 256) for (let y = -oy; y < altoReal; y += 256) ctx.drawImage(grano, x, y);
 
   ctx.restore();
 

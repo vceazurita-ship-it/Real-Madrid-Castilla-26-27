@@ -305,11 +305,11 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   const alPaso = opciones.alPaso ?? (() => {});
   const fuente = `${opciones.fuente ? `${opciones.fuente}, ` : ""}"Barlow Condensed", "Segoe UI", Arial, sans-serif`;
 
+  /* Los cortes y el texto de la IA a la vez (16/10/2026): la IA puede tardar hasta 20 s y no depende de los cortes. */
   alPaso("cortes…");
-  const { guion: conCortes, abiertos } = await conCortesVisibles(guionCrudo, alPaso);
-
-  alPaso("guion…");
-  const guion = await puleLocucion(conCortes);
+  const [{ guion: conCortes, abiertos }, pulido] = await Promise.all([conCortesVisibles(guionCrudo, alPaso), puleLocucion(guionCrudo)]);
+  const pulidas = new Map(pulido.escenas.map((e) => [e.id, e.locucion]));
+  const guion: GuionVideo = { ...conCortes, escenas: conCortes.escenas.map((e) => ({ ...e, locucion: pulidas.get(e.id) ?? e.locucion })) };
 
   /* Sin voz en off desde el 13/10/2026: música compuesta (musica.ts) y el texto en pantalla. */
   const pistas = null;

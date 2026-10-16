@@ -26,7 +26,7 @@ import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { guionDeAbp, type CortePartido } from "@/lib/video-informe/guion";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
-import { montaVideoInforme, puedeMontarVideo } from "@/lib/video-informe/monta";
+import { montaVideoInforme, puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
@@ -759,19 +759,8 @@ export function InformeMicroDialog({
 
       if (conVideo && puedeMontarVideo()) {
         try {
-          const escudo = buscadorDeEscudos(await traeEscudos().catch(() => []))(datos.partidoCalendario?.rival || datos.rival);
-
-          const v = await montaVideoInforme(
-            guionDeAbp(paraEnviar, pinceladaAbp(paraEnviar), {
-              /* Sólo el balón parado del rival (córner y falta); los centros laterales son del informe de Área. */
-              cortes: rivalInforme.clips.filter((c) => /^(corner|falta)/.test(c.seccion)),
-              cortesPartido,
-              rotuloPartido: jornadaCortes && !datos.partidoCalendario?.jugado ? `J${jornadaCortes}` : undefined,
-              videoPrevio: videoPrevio && !datos.partidoCalendario?.jugado ? await subeVideoPrevio(videoPrevio) : null,
-              escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null,
-            }),
-            { alPaso: setPasoVideo, fuente: barlowCondensed.style.fontFamily },
-          );
+          /* El montado mientras se revisaba, o el que va por la mitad: no se empieza otro. */
+          const v = await dameVideo(setPasoVideo);
           const nombre = `${paraEnviar.titulo} - Balón parado en vídeo.mp4`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
 
           /* El de Full HD va enlazado (póster y botón); adjunta, la copia ligera en 720p. */
@@ -890,6 +879,75 @@ export function InformeMicroDialog({
 
   const listo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando;
 
+  /*
+  | El vídeo, montado mientras se revisa (16/10/2026): antes empezaba al
+  | pulsar «Enviar» y el envío esperaba minutos. Una vez por informe (cambiar
+  | el vídeo de análisis previo, o que lleguen más cortes, lo rehace); al
+  | enviar se usa el que haya o se espera al que va por la mitad.
+  */
+  const [preparandoVideo, setPreparandoVideo] = useState("");
+  const videoCache = useRef<{ clave: string; montado: Promise<VideoMontado>; escucha?: (texto: string) => void } | null>(null);
+  const claveVideo =
+    listo && !incrustado
+      ? [clave, modo, informe.titulo, informe.graficos.length, cortesPartido.length, rivalInforme.clips.length, videoPrevio ? `${videoPrevio.name}:${videoPrevio.size}` : ""].join("|")
+      : "";
+
+  const dameVideo = (escucha?: (texto: string) => void) => {
+    if (videoCache.current?.clave === claveVideo && claveVideo) {
+      if (escucha) videoCache.current.escucha = escucha;
+
+      return videoCache.current.montado;
+    }
+
+    const entrada: NonNullable<typeof videoCache.current> = { clave: claveVideo, montado: Promise.resolve(null as unknown as VideoMontado), escucha };
+
+    entrada.montado = (async () => {
+      const escudo = buscadorDeEscudos(await traeEscudos().catch(() => []))(datos.partidoCalendario?.rival || datos.rival);
+
+      return montaVideoInforme(
+        guionDeAbp(informe, pinceladaAbp(informe), {
+          /* Sólo el balón parado del rival (córner y falta); los centros laterales son del informe de Área. */
+          cortes: rivalInforme.clips.filter((c) => /^(corner|falta)/.test(c.seccion)),
+          cortesPartido,
+          rotuloPartido: jornadaCortes && !datos.partidoCalendario?.jugado ? `J${jornadaCortes}` : undefined,
+          videoPrevio: videoPrevio && !datos.partidoCalendario?.jugado ? await subeVideoPrevio(videoPrevio) : null,
+          escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null,
+        }),
+        { alPaso: (t) => entrada.escucha?.(t), fuente: barlowCondensed.style.fontFamily },
+      );
+    })();
+
+    videoCache.current = entrada;
+
+    /* Si falla, se olvida: al enviar se intenta otra vez y, si vuelve a fallar, se dice. */
+    entrada.montado.catch(() => {
+      if (videoCache.current === entrada) videoCache.current = null;
+    });
+
+    return entrada.montado;
+  };
+
+  useEffect(() => {
+    if (!claveVideo || !conVideo || !puedeMontarVideo() || enviando || videoCache.current?.clave === claveVideo) return;
+
+    let vivo = true;
+
+    /* Un respiro para que la pantalla termine de pintarse antes de ponerse a montar. */
+    const reloj = window.setTimeout(() => {
+      setPreparandoVideo("Preparando el vídeo…");
+      dameVideo((t) => vivo && setPreparandoVideo(`Preparando el vídeo · ${t}`))
+        .catch(() => undefined)
+        .finally(() => vivo && setPreparandoVideo(""));
+    }, 2000);
+
+    return () => {
+      vivo = false;
+      window.clearTimeout(reloj);
+      setPreparandoVideo("");
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveVideo, conVideo, enviando]);
+
   const alListo = incrustado?.alListo;
 
   useEffect(() => {
@@ -966,6 +1024,11 @@ export function InformeMicroDialog({
               <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo && puedeMontarVideo()} disabled={!puedeMontarVideo() || enviando} onChange={(e) => setConVideo(e.target.checked)} />
               Adjuntar el vídeo resumen (de 1 a 2:30 min: cortes, datos y música)
             </label>
+            {preparandoVideo && !enviando ? (
+              <p className="flex items-center gap-1.5 text-[11px] text-[#C8A96B]">
+                <Loader2 size={11} className="animate-spin" /> {preparandoVideo} (mientras lo revisas)
+              </p>
+            ) : null}
             {!datos.partidoCalendario?.jugado && (
               <label className={`flex items-center gap-2 text-[11px] ${puedeMontarVideo() ? "text-white/60" : "opacity-40"}`}>
                 <span className="shrink-0">Tu vídeo de análisis previo:</span>
