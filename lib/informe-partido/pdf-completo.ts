@@ -51,7 +51,32 @@ export type OpcionesCompleto = {
   titulo?: string;
 };
 
+/** Las hojas del completo ya pintadas (JPEG en data URL) y su tamaño en píxeles. */
+export type HojasCompleto = { hojas: string[]; ancho: number; alto: number };
+
+/** El completo en PDF, para bajarlo suelto. */
 export async function completoEnPdf(html: string, alPaso?: (hoja: number, total: number) => void, opciones: OpcionesCompleto = {}): Promise<Blob> {
+  const { hojas, ancho, alto } = await completoEnHojas(html, alPaso, opciones);
+
+  const pdf = await pdfDeLienzos(hojas, { ancho, alto, orientacion: "portrait", margen: 0 });
+
+  if (opciones.titulo) {
+    (pdf as { setProperties?: (p: Record<string, string>) => void }).setProperties?.({
+      title: `Real Madrid Castilla · ${opciones.titulo}`,
+      author: "Real Madrid Castilla · Cuerpo técnico",
+      creator: "Plataforma del Castilla",
+    });
+  }
+
+  return pdf.output("blob") as Blob;
+}
+
+/**
+ * Las hojas A4 del completo, sin hacer el PDF (16/10/2026): así se pueden
+ * juntar con las diapositivas del resumen en el PDF único del informe
+ * (`lib/informe-partido/pdf-unico.ts`).
+ */
+export async function completoEnHojas(html: string, alPaso?: (hoja: number, total: number) => void, opciones: OpcionesCompleto = {}): Promise<HojasCompleto> {
   const documento = new DOMParser().parseFromString(html, "text/html");
 
   const caja = document.createElement("div");
@@ -165,22 +190,7 @@ export async function completoEnPdf(html: string, alPaso?: (hoja: number, total:
       await new Promise((r) => setTimeout(r, 0));
     }
 
-    const pdf = await pdfDeLienzos(hojas, {
-      ancho: Math.round(ANCHO * NITIDEZ),
-      alto: Math.round(ALTO_HOJA * NITIDEZ),
-      orientacion: "portrait",
-      margen: 0,
-    });
-
-    if (opciones.titulo) {
-      (pdf as { setProperties?: (p: Record<string, string>) => void }).setProperties?.({
-        title: `Real Madrid Castilla · ${opciones.titulo}`,
-        author: "Real Madrid Castilla · Cuerpo técnico",
-        creator: "Plataforma del Castilla",
-      });
-    }
-
-    return pdf.output("blob") as Blob;
+    return { hojas, ancho: Math.round(ANCHO * NITIDEZ), alto: Math.round(ALTO_HOJA * NITIDEZ) };
   } finally {
     caja.remove();
   }

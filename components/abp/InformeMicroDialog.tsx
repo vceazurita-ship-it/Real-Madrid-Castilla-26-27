@@ -38,6 +38,8 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
 import { Destinatarios } from "@/components/correo/Destinatarios";
 import { PanelWhatsapp } from "@/components/correo/PanelWhatsapp";
+import { completoEnHojas } from "@/lib/informe-partido/pdf-completo";
+import { informeUnicoPdf, paginaDeEnlaces } from "@/lib/informe-partido/pdf-unico";
 import { mensajeWhatsapp, telefonosDe, type CanalEnvio, type MensajeWhatsapp } from "@/lib/correo/whatsapp";
 import { usePlayers } from "@/hooks/usePlayers";
 import { alineaSeguimiento } from "@/lib/seguimiento";
@@ -777,6 +779,32 @@ export function InformeMicroDialog({
         } finally {
           setPasoVideo("");
         }
+      }
+
+      /*
+      | UN PDF Y UN VÍDEO (16/10/2026): el informe entero en PDF —con la página
+      | «Vídeo y documentos» al final: el vídeo en HD y los PDF del rival— va
+      | adjunto delante del vídeo. Si no sale, el correo sigue sin él.
+      */
+      try {
+        setPasoVideo("armando el PDF…");
+
+        const hojas = await completoEnHojas(informeHtml(paraEnviar), (h, t) => setPasoVideo(`PDF ${h}/${t}…`), { titulo: paraEnviar.titulo });
+        const final = await paginaDeEnlaces({
+          titulo: paraEnviar.titulo,
+          video: infoVideo,
+          enlaces: (paraEnviar.rivalAnalisis?.documentos ?? []).map((d) => ({ nombre: d.nombre, url: d.url, detalle: "Informe del rival en PDF" })),
+        }).catch(() => null);
+        const blob = await informeUnicoPdf({ titulo: paraEnviar.titulo, diapos: [], hojas, final });
+        const nombrePdf = `${paraEnviar.titulo} - Balón parado.pdf`.replace(/[\/:*?"<>|]+/g, " ").replace(/s+/g, " ");
+        const subido = await subeAdjunto(new File([blob], nombrePdf, { type: "application/pdf" }), (f) => setPasoVideo(`subiendo el PDF ${Math.round(f * 100)} %`));
+
+        adjuntosUrl.unshift({ nombre: nombrePdf, url: subido.url, tipo: "application/pdf" });
+      } catch (error) {
+        console.warn("[abp] el PDF del informe no ha salido", error);
+        toast.message("El correo va sin el PDF del informe", { description: error instanceof Error ? error.message : "No se ha podido armar." });
+      } finally {
+        setPasoVideo("");
       }
 
       if (canal === "whatsapp") {

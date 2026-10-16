@@ -39,9 +39,10 @@ import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { guionDePartido } from "@/lib/video-informe/guion";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { montaVideoInforme, puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
-import { bloqueVideoHtml, diapositivaDelVideo } from "@/lib/video-informe/portada-video";
+import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
-import { completoEnPdf } from "@/lib/informe-partido/pdf-completo";
+import { completoEnHojas, type HojasCompleto } from "@/lib/informe-partido/pdf-completo";
+import { informeUnicoPdf, paginaDeEnlaces, type EnlaceInforme } from "@/lib/informe-partido/pdf-unico";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
 import { capitulosDe, informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
 import type { InformePartido, Momento, PinceladaAbp } from "@/lib/informe-partido/modelo";
@@ -579,7 +580,7 @@ export function InformePartidoDialog({
 
   const cache = useRef<{
     diapos?: { clave: string; imagenes: Promise<string[]> };
-    completo?: { clave: string; pdf: Promise<Blob> };
+    completo?: { clave: string; hojas: Promise<HojasCompleto> };
     /* El vídeo resumen, montado mientras se revisa (16/10/2026); `escucha` es quien enseña su avance ahora. */
     video?: { clave: string; montado: Promise<VideoMontado>; escucha?: (texto: string) => void };
   }>({});
@@ -622,20 +623,24 @@ export function InformePartidoDialog({
     return imagenes;
   };
 
-  /** El completo en PDF: entero (con los capítulos elegidos), sin la lista de adjuntos ni el mensaje, que son del correo. */
-  const damePdfCompleto = (alPaso?: (h: number, t: number) => void) => {
+  /**
+   * Las hojas A4 del completo (con los capítulos elegidos), sin la lista de
+   * adjuntos ni el mensaje, que son del correo. Se guardan una vez: de ellas
+   * salen el PDF suelto («Completo PDF») y el PDF único del correo.
+   */
+  const dameHojasCompleto = (alPaso?: (h: number, t: number) => void) => {
     const clave = claveCompleto;
 
-    if (cache.current.completo?.clave === clave) return cache.current.completo.pdf;
+    if (cache.current.completo?.clave === clave) return cache.current.completo.hojas;
 
-    const pdf = completoEnPdf(sinCid(informeHtml(informeVisto!, { abpCuerpo, capitulos: capitulosElegidos ?? undefined })), alPaso, { titulo: tituloPdf });
+    const hojas = completoEnHojas(sinCid(informeHtml(informeVisto!, { abpCuerpo, capitulos: capitulosElegidos ?? undefined })), alPaso, { titulo: tituloPdf });
 
-    cache.current.completo = { clave, pdf };
+    cache.current.completo = { clave, hojas };
 
-    /* Cambiando de capítulos deprisa, el PDF de antes podía acabar después
-       del nuevo y dejar «preparado» con su clave: no salía nunca «enviar es
+    /* Cambiando de capítulos deprisa, el de antes podía acabar después del
+       nuevo y dejar «preparado» con su clave: no salía nunca «enviar es
        inmediato». Sólo cuenta si sigue siendo el de la caché (04/10/2026). */
-    pdf.then(
+    hojas.then(
       () => {
         if (cache.current.completo?.clave === clave) setPreparado((x) => ({ ...x, completo: clave }));
       },
@@ -644,8 +649,11 @@ export function InformePartidoDialog({
       },
     );
 
-    return pdf;
+    return hojas;
   };
+
+  /** El completo suelto en PDF, para el botón «Completo PDF». */
+  const damePdfCompleto = async (alPaso?: (h: number, t: number) => void) => informeUnicoPdf({ titulo: tituloPdf, diapos: [], hojas: await dameHojasCompleto(alPaso) });
 
   /*
   | El vídeo resumen, montado UNA vez por informe (16/10/2026). Antes se
@@ -1004,7 +1012,6 @@ export function InformePartidoDialog({
 
       const nombreResumenPpt = nombreDeArchivo(`${nombreLegible} - Resumen`, "pptx");
 
-      const nombreCompletoPdf = nombreDeArchivo(`${nombreLegible} - Informe completo`, "pdf");
 
       /* Se hacen sólo si alguno de los dos correos los lleva. */
       let pdfResumenP: Promise<Blob> | null = null;
@@ -1013,20 +1020,27 @@ export function InformePartidoDialog({
       | Con vídeo, el PDF del resumen lleva al final la diapositiva del vídeo
       | (póster, QR y enlace): espera a que el vídeo esté subido.
       */
+      /* El PowerPoint del resumen ya no va adjunto (16/10/2026): sube y se enlaza desde el PDF y el correo. */
+      const pptEnlace = () => subeUnaVez(nombreResumenPpt, PPTX, pptDelResumen);
+
       const pdfResumen = () =>
         (pdfResumenP ??= (async () => {
           const v = ((r.activo && r.video) || (c.activo && c.video)) && puedeMontarVideo() ? await videoResumen("resumen") : null;
+          const enlaces: EnlaceInforme[] = r.ppt ? [{ nombre: (await pptEnlace()).nombre, url: (await pptEnlace()).url, detalle: "PowerPoint del resumen, para proyectarlo" }] : [];
+          const video = v && infoVideo ? (infoVideo as { url: string; segundos: number; poster: string | null }) : null;
 
-          if (!v || !infoVideo) return pdfDe(imagenes);
+          if (!video && !enlaces.length) return pdfDe(imagenes);
 
-          const extra = await diapositivaDelVideo({ url: infoVideo.url, poster: infoVideo.poster, titulo: `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`, segundos: infoVideo.segundos }).catch(() => null);
+          const final = await paginaDeEnlaces({ titulo: `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`, video, enlaces }).catch(() => null);
 
-          return pdfDe(extra ? [...imagenes, extra] : imagenes);
+          return informeUnicoPdf({ titulo: tituloPdf, diapos: imagenes, final });
         })());
 
       let pptResumen: Blob | null = null;
 
       const pptDelResumen = () => (pptResumen ??= pptDe(imagenes, indices));
+
+      const nombreInformePdf = nombreDeArchivo(`${nombreLegible} - Informe`, "pdf");
 
       /*
       | Cada archivo propio se sube UNA vez aunque vaya en los dos correos
@@ -1131,13 +1145,14 @@ export function InformePartidoDialog({
         })());
 
       const correoResumen = async () => {
+        /* Un PDF y un vídeo (16/10/2026): el PowerPoint, como enlace. */
         const archivos = (
           await Promise.all([
             ...(r.pdf ? [subeUnaVez(nombreResumenPdf, "application/pdf", pdfResumen)] : []),
-            ...(r.ppt ? [subeUnaVez(nombreResumenPpt, PPTX, pptDelResumen)] : []),
             ...(r.video && puedeMontarVideo() ? [videoResumen("resumen")] : []),
           ])
         ).filter((a): a is NonNullable<typeof a> => a !== null);
+        const pptSubido = r.ppt ? await pptEnlace() : null;
 
         paso("resumen", "mandando…");
 
@@ -1146,7 +1161,7 @@ export function InformePartidoDialog({
           conCompleto: c.activo,
           mensaje: r.mensaje,
           firma,
-          descargas: archivos.map((a) => ({ nombre: a.nombre, url: a.url, tamano: a.tamano, adjunto: true })),
+          descargas: [...archivos.map((a) => ({ nombre: a.nombre, url: a.url, tamano: a.tamano, adjunto: true })), ...(pptSubido ? [{ nombre: pptSubido.nombre, url: pptSubido.url, tamano: pptSubido.tamano, adjunto: false }] : [])],
         });
 
         await manda({
@@ -1156,7 +1171,7 @@ export function InformePartidoDialog({
           texto: `${r.mensaje?.trim() ? `${r.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}`,
           imagenes: usadas(html, [...diapositivasCid, ...posterCid()]),
           adjuntosUrl: archivos.map((a) => ({ nombre: a.nombre, url: a.url, tipo: a.tipo })),
-        }, { titulo: "Resumen", mensaje: r.mensaje, firma, resumen: informeTexto(informeVisto), video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: archivos });
+        }, { titulo: "Resumen", mensaje: r.mensaje, firma, resumen: informeTexto(informeVisto), video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: [...archivos, ...(pptSubido ? [pptSubido] : [])] });
 
         paso("resumen", "mandado ✓");
       };
@@ -1164,33 +1179,15 @@ export function InformePartidoDialog({
       /* ------------- el completo ------------- */
 
       const correoCompleto = async () => {
-        const propios = [
-          ...(c.pdfCompleto ? [{ nombre: nombreCompletoPdf, tipo: "application/pdf", blob: () => damePdfCompleto((h, t) => paso("completo", `PDF ${h}/${t}…`)) }] : []),
-          ...(c.pdfResumen ? [{ nombre: nombreResumenPdf, tipo: "application/pdf", blob: pdfResumen }] : []),
-          ...(c.pptResumen ? [{ nombre: nombreResumenPpt, tipo: PPTX, blob: pptDelResumen }] : []),
-        ];
-
-        /* Todo a la vez: cada archivo, en cuanto está, sube; no uno detrás de otro. */
-        let subidos = 0;
-
-        paso("completo", propios.length ? `subiendo 0/${propios.length}…` : "preparando…");
-
-        const subidosAhora = await Promise.all(
-          propios.map(async (archivo) => {
-            const subido = await subeUnaVez(archivo.nombre, archivo.tipo, archivo.blob);
-
-            subidos += 1;
-
-            paso("completo", `subiendo ${subidos}/${propios.length}…`);
-
-            return subido;
-          }),
-        );
-
-        /* El vídeo resumen también va aquí (12/10/2026); si no sale, el completo sale sin él. */
+        /*
+        | UN PDF Y UN VÍDEO (16/10/2026). Antes iban sueltos el PDF del completo,
+        | el del resumen, el PowerPoint, la plantilla y el informe del rival y
+        | el vídeo. Ahora: el vídeo (enlazado en HD, adjunta la copia ligera),
+        | el PowerPoint y los documentos del rival suben y se ENLAZAN; y un PDF
+        | junta las diapositivas, el completo y la página «Vídeo y documentos».
+        */
         const videoCompleto = c.video && puedeMontarVideo() ? await videoResumen("completo") : null;
-
-        if (videoCompleto) subidosAhora.push(videoCompleto);
+        const pptSubido = c.pptResumen ? await pptEnlace() : null;
 
         if (c.sacarDocs && faltanDocs && !docsActual?.ok) paso("completo", "esperando el PDF y el PPT del rival…");
 
@@ -1200,25 +1197,33 @@ export function InformePartidoDialog({
 
         const adjuntosRival = [...docsNuevos, ...marcados.filter((x) => !x.generado || !sustituidos.has(x.generado))];
 
-        /*
-        | Lo que pesa cada documento del rival que no lo dice (04/10/2026): se
-        | pregunta al almacén sin bajarlo. Contarlo a ojo (6 MB) dejaba pasar
-        | uno de 14 MB que luego no cabía en el servidor.
-        */
+        /* Lo que pesa cada documento del rival, preguntado al almacén sin bajarlo: va en la fila del enlace. */
         const conPeso = await Promise.all(adjuntosRival.map(async (d) => ({ ...d, tamano: d.tamano ?? (await pesoDeUrl(d.url)) })));
 
-        /*
-        | Qué va adjunto y qué sólo como enlace. Por orden de importancia —el
-        | completo, el resumen, la plantilla y el informe del rival, lo demás, y
-        | el PPT del resumen al final—, se adjunta mientras quepa. Todo lleva
-        | además su botón de descarga: si el cliente no enseña un adjunto, el
-        | enlace sigue valiendo (30 días).
-        */
-        const candidatos = [
-          ...subidosAhora.filter((d) => d.tipo === "application/pdf"),
-          ...conPeso.map((d) => ({ nombre: nombreEnCorreo(d), url: d.url, tipo: d.tipo, tamano: d.tamano })),
-          ...subidosAhora.filter((d) => d.tipo !== "application/pdf"),
+        const soloEnlace = [
+          ...(pptSubido ? [{ nombre: pptSubido.nombre, url: pptSubido.url, tipo: pptSubido.tipo, tamano: pptSubido.tamano, detalle: "PowerPoint del resumen, para proyectarlo" }] : []),
+          ...conPeso.map((d) => ({ nombre: nombreEnCorreo(d), url: d.url, tipo: d.tipo, tamano: d.tamano, detalle: d.tipo === PPTX ? "PowerPoint del rival" : "PDF del rival" })),
         ];
+
+        paso("completo", "armando el PDF…");
+
+        const video = videoCompleto && infoVideo ? (infoVideo as { url: string; segundos: number; poster: string | null }) : null;
+
+        const pdfUnico = await subeUnaVez(nombreInformePdf, "application/pdf", async () =>
+          informeUnicoPdf({
+            titulo: tituloPdf,
+            diapos: c.pdfResumen ? imagenes : [],
+            hojas: c.pdfCompleto ? await dameHojasCompleto((h, t) => paso("completo", `PDF ${h}/${t}…`)) : null,
+            final: await paginaDeEnlaces({
+              titulo: `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`,
+              video,
+              enlaces: soloEnlace.map((d) => ({ nombre: d.nombre, url: d.url, detalle: `${d.detalle}${d.tamano ? ` · ${mb(d.tamano)}` : ""}` })),
+            }).catch(() => null),
+          }),
+        );
+
+        /* Adjuntos: el PDF y el vídeo, mientras quepan; lo demás, enlace. */
+        const candidatos = [pdfUnico, ...(videoCompleto ? [videoCompleto] : [])];
 
         let ocupado = 0;
 
@@ -1230,7 +1235,7 @@ export function InformePartidoDialog({
           if (cabe) ocupado += bytes;
 
           return { ...d, adjunto: cabe };
-        });
+        }).concat(soloEnlace.map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo, tamano: d.tamano, adjunto: false })));
 
         const descargas: Descarga[] = reparto.map((d) => ({ nombre: d.nombre, url: d.url, tamano: d.tamano, adjunto: d.adjunto }));
 
@@ -1252,7 +1257,7 @@ export function InformePartidoDialog({
         | sitio. Sin PDF adjunto va entero, aunque Gmail lo recorte (el resto
         | se ve con «Ver todo el mensaje»).
         */
-        const pdfAdjunto = reparto.some((d) => d.nombre === nombreCompletoPdf && d.adjunto);
+        const pdfAdjunto = c.pdfCompleto && reparto.some((d) => d.nombre === nombreInformePdf && d.adjunto);
 
         const imagenesAbp = abpActual?.ok ? abpActual.imagenes : [];
 
@@ -1293,7 +1298,8 @@ export function InformePartidoDialog({
         paso("completo", "mandado ✓");
 
         /* Los que no cabían aquí más los que el servidor dejó como enlace. */
-        return reparto.filter((d) => !d.adjunto).length + enlazados.length;
+        /* Sólo los que debían ir adjuntos y no cupieron (los enlaces lo son a propósito), más los que el servidor dejó como enlace. */
+        return reparto.filter((d) => !d.adjunto && !soloEnlace.some((x) => x.url === d.url)).length + enlazados.length;
       };
 
       /* Los dos a la vez: el resumen no espera a que se suba el completo. */
@@ -1581,8 +1587,8 @@ export function InformePartidoDialog({
                     </div>
                     <div className="space-y-1.5">
                       <span className={rotuloCaja}>Adjuntos</span>
-                      {casilla(envio.resumen.pdf, (v) => cambia("resumen", { pdf: v }), "PDF de las diapositivas", "para imprimir o reenviar")}
-                      {casilla(envio.resumen.ppt, (v) => cambia("resumen", { ppt: v }), "PowerPoint", "para proyectarlo en la charla")}
+                      {casilla(envio.resumen.pdf, (v) => cambia("resumen", { pdf: v }), "PDF de las diapositivas", "adjunto; acaba en «Vídeo y documentos» con los enlaces")}
+                      {casilla(envio.resumen.ppt, (v) => cambia("resumen", { ppt: v }), "PowerPoint", "como enlace, para proyectarlo en la charla")}
                       {casilla(envio.resumen.video, (v) => cambia("resumen", { video: v }), "Vídeo del informe (de 1 a 2:30 min)", puedeMontarVideo() ? "lo mismo que el PDF, con cortes del partido, repeticiones, datos y música" : "este navegador no puede montarlo", !puedeMontarVideo())}
                     </div>
                   </div>
@@ -1647,10 +1653,10 @@ export function InformePartidoDialog({
                       <span className={rotuloCaja}>Adjuntos</span>
                       <span className="text-[10px] text-white/30">hasta {mb(TOPE_ADJUNTOS)} adjunto; lo demás va como botón de descarga</span>
                     </div>
-                    {casilla(envio.completo.pdfCompleto, (v) => cambia("completo", { pdfCompleto: v }), "El informe completo en PDF", "para leerlo sin conexión o imprimirlo")}
+                    {casilla(envio.completo.pdfCompleto, (v) => cambia("completo", { pdfCompleto: v }), "El informe completo, en el PDF", "un solo PDF adjunto: resumen, completo y la página de enlaces")}
                     {casilla(envio.completo.video, (v) => cambia("completo", { video: v }), "Vídeo del informe (de 1 a 2:30 min)", puedeMontarVideo() ? "el mismo que va en el resumen" : "este navegador no puede montarlo", !puedeMontarVideo())}
-                    {casilla(envio.completo.pdfResumen, (v) => cambia("completo", { pdfResumen: v }), "El resumen en PDF", envio.resumen.activo && envio.resumen.pdf ? "ya va en el correo del resumen" : undefined)}
-                    {casilla(envio.completo.pptResumen, (v) => cambia("completo", { pptResumen: v }), "El resumen en PowerPoint")}
+                    {casilla(envio.completo.pdfResumen, (v) => cambia("completo", { pdfResumen: v }), "Las diapositivas del resumen, al principio del PDF")}
+                    {casilla(envio.completo.pptResumen, (v) => cambia("completo", { pptResumen: v }), "El resumen en PowerPoint", "como enlace desde el PDF")}
 
                     {faltanDocs && !docsActual && !docsCargando
                       ? casilla(

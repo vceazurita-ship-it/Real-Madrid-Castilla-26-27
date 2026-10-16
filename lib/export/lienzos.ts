@@ -231,6 +231,8 @@ export type HojaPdf = {
   margen?: number;
   /** Ya resuelto: aquí no hay índice que valga, cada hoja trae el suyo. */
   pie?: { izquierda?: string; centro?: string; derecha?: string } | null;
+  /** Zonas que se pueden pulsar, en fracciones de la imagen (0-1): el póster del vídeo, una fila de documentos… */
+  enlaces?: { x: number; y: number; w: number; h: number; url: string }[];
 };
 
 /**
@@ -283,6 +285,8 @@ export async function pdfDeHojas(hojas: HojaPdf[]): Promise<jsPDF> {
       `lienzo${indice}`,
       "FAST",
     );
+
+    for (const e of hoja.enlaces ?? []) doc.link((anchoHoja - w) / 2 + e.x * w, (altoHoja - pie - h) / 2 + e.y * h, e.w * w, e.h * h, { url: e.url });
 
     if (!hoja.pie) return;
 
