@@ -71,6 +71,7 @@ import {
 } from "./informe-graficos";
 
 import type { AccionAbp } from "@/lib/data-analisis/abp-propio";
+import { agrupa, enlaceEnSegundo, rotuloRef, segundoEnVideo, type Apunte, type VideoApuntes } from "@/lib/abp/apuntes";
 
 /* ------------------------------------------------------------------ */
 /*  LO QUE RECIBE                                                      */
@@ -681,6 +682,8 @@ export type RivalAnalisisInforme = {
   conclusiones: { seccion: string; texto: string }[];
   /** Los PDF preparados de la jornada (ABP y centros), con su enlace. */
   documentos?: { nombre: string; url: string }[];
+  /** Los apuntes con vídeo (16/10/2026): el del rival y los nuestros (partido anterior y contra él). */
+  apuntes?: { titulo: string; deQuien: "rival" | "propio"; video: VideoApuntes | null; apuntes: Apunte[] }[];
 };
 
 /**
@@ -2111,6 +2114,46 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
         }
       : null;
 
+  /*
+  | ---------- los apuntes, con su vídeo (16/10/2026) ----------
+  | Lo que el analista escribe en «ABP del Rival → Apuntes y vídeo»: cada
+  | apunte con su minuto o su clip y, si el vídeo lo tiene localizado, el
+  | enlace que lo abre en ese segundo.
+  */
+  const cuadernos = (r?.apuntes ?? []).filter((c) => c.apuntes.length);
+
+  const apuntes: Seccion | null = cuadernos.length
+    ? {
+        titulo: "Los apuntes, con su vídeo",
+        pie: "Cada referencia abre el vídeo en ese momento cuando está localizado; «Clip» es el número del corte en el vídeo del analista.",
+        html: cuadernos
+          .map((c) => {
+            const filas = agrupa(c.apuntes).flatMap((g) =>
+              g.tipos.flatMap((t) =>
+                t.apuntes.map((a) => {
+                  const seg = segundoEnVideo(a, c.video);
+                  const ref = rotuloRef(a.ref) || (seg !== null ? "Ver" : "—");
+                  const enlace = c.video && seg !== null ? `<a href="${esc(enlaceEnSegundo(c.video, seg))}" style="color:#8A6A2C;font-weight:700">${esc(ref)}</a>` : esc(ref);
+
+                  return [esc(`${g.fase.deQuien[c.deQuien]} · ${t.tipo.titulo}`), enlace, esc(a.texto)];
+                }),
+              ),
+            );
+
+            return `${parrafo(`<b>${esc(c.titulo)}</b>${c.video ? ` · <a href="${esc(enlaceEnSegundo(c.video, c.video.inicio ?? 0))}" style="color:#8A6A2C;font-weight:600">ver el vídeo</a>` : ""}`)}${tabla(["Qué", "Dónde", "Apunte"], filas)}`;
+          })
+          .join(""),
+        texto: cuadernos.flatMap((c) => [
+          `${c.titulo}${c.video ? ` (vídeo: ${c.video.url})` : ""}`,
+          ...c.apuntes.map((a) => {
+            const seg = segundoEnVideo(a, c.video);
+
+            return `- ${rotuloRef(a.ref) ? `${rotuloRef(a.ref)}: ` : ""}${a.texto}${c.video && seg !== null ? ` · ${enlaceEnSegundo(c.video, seg)}` : ""}`;
+          }),
+        ]),
+      }
+    : null;
+
   /* ---------- la categoría ---------- */
 
   const c = informe.comparativa;
@@ -2226,8 +2269,8 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
   | apareció, cómo salieron las tareas, la semana, y después el acumulado.
   */
   const orden: (Seccion | null)[] = esPost
-    ? [claves, partido, cruce, valoracion, tiempo, semana, rival, acumulado, equipo, categoria, seguimiento]
-    : [claves, prioridades, tiempo, semana, valoracion, rival, categoria, acumulado, seguimiento];
+    ? [claves, partido, cruce, valoracion, tiempo, semana, rival, apuntes, acumulado, equipo, categoria, seguimiento]
+    : [claves, prioridades, tiempo, semana, valoracion, rival, apuntes, categoria, acumulado, seguimiento];
 
   orden.forEach((una) => {
     if (una) mete(una);

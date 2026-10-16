@@ -12,6 +12,7 @@
  * de club, como hace la quiniela con BeSoccer.
  */
 
+import { apuntesPropiosKey, apuntesRivalKey, normalizaCuaderno, type ApuntesRivalDoc } from "@/lib/abp/apuntes";
 import { useEffect, useState } from "react";
 
 import type { GraficoInforme } from "@/lib/abp/informe-graficos";
@@ -78,6 +79,12 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
         .then((d) => d?.data?.jornadas ?? {})
         .catch(() => ({}) as RivalClipsDoc["jornadas"]);
 
+      /* Los apuntes con vídeo del rival (16/10/2026), por jornada. */
+      const apuntesRival = await fetch(`/api/docs?key=${encodeURIComponent(apuntesRivalKey(equipo))}`, { cache: "no-store" })
+        .then((r) => r.json() as Promise<{ data?: ApuntesRivalDoc | null }>)
+        .then((d) => d?.data?.jornadas ?? {})
+        .catch(() => ({}) as ApuntesRivalDoc["jornadas"]);
+
       /*
       | TODO lo preparado del rival, no sólo el balón parado (02/10/2026): el
       | informe del microciclo 15 salía sin los centros laterales del
@@ -91,12 +98,13 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
         return Boolean(
           t?.laminas.some((l) => !laminaVacia(l)) ||
             Object.values(t?.notas ?? {}).some((texto) => texto?.trim()) ||
-            clips[j]?.docs?.length,
+            clips[j]?.docs?.length ||
+            normalizaCuaderno(apuntesRival[j]).apuntes.length,
         );
       };
 
       /* La jornada más reciente que tenga algo. */
-      const jornada = [...new Set([...Object.keys(analisis.jornadas), ...Object.keys(clips)])]
+      const jornada = [...new Set([...Object.keys(analisis.jornadas), ...Object.keys(clips), ...Object.keys(apuntesRival)])]
         .filter(tieneAlgo)
         .sort(ordenJornada)
         .pop();
@@ -218,6 +226,25 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
         }
       }
 
+      /* Los cuadernos: el del rival de esa jornada y los nuestros (la jornada antes y la de contra él). */
+      const n = Number(jornada.match(/\d+/)?.[0] ?? 0);
+      const propio = async (j: number) =>
+        j > 0
+          ? normalizaCuaderno(
+              await fetch(`/api/docs?key=${encodeURIComponent(apuntesPropiosKey(j))}`, { cache: "no-store" })
+                .then((r) => r.json() as Promise<{ data?: unknown }>)
+                .then((d) => d?.data)
+                .catch(() => null),
+            )
+          : normalizaCuaderno(null);
+      const [anterior, contraEl] = await Promise.all([propio(n - 1), propio(n)]);
+      const delRival = normalizaCuaderno(apuntesRival[jornada]);
+      const apuntes = [
+        { titulo: `${equipo}: lo que hacen`, deQuien: "rival" as const, ...delRival },
+        { titulo: `Nuestro partido anterior (J${n - 1})`, deQuien: "propio" as const, ...anterior },
+        { titulo: `Nuestro partido contra ${equipo} (${jornada})`, deQuien: "propio" as const, ...contraEl },
+      ].filter((c) => c.apuntes.length);
+
       const conclusiones = secciones
         .map((s) => ({ seccion: s.titulo, texto: trabajo.notas?.[s.id]?.trim() ?? "" }))
         .filter((una) => una.texto);
@@ -230,6 +257,7 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
           jornada,
           conclusiones,
           documentos: documentos.map((d) => ({ nombre: d.nombre, url: d.url })),
+          apuntes: apuntes.map((c) => ({ titulo: c.titulo, deQuien: c.deQuien, video: c.video, apuntes: c.apuntes })),
         },
         cargando: false,
       };

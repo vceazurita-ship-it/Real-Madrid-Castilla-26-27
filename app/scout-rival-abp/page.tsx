@@ -23,6 +23,7 @@ import {
   Flag,
   FolderInput,
   Images,
+  NotebookPen,
   LayoutDashboard,
   PenLine,
   Ruler,
@@ -57,6 +58,7 @@ import { Explicativo } from "@/components/ui/textos-analisis";
 import type { PatternCatalog } from "@/components/abp/PatternCombo";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
 import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
+import { ApuntesAbp } from "@/components/abp/apuntes/ApuntesAbp";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
@@ -118,7 +120,7 @@ type Grupo = "liga" | "pretemporada";
 | Las vistas (14/10/2026): antes era un scroll de once paneles y el registro
 | editable quedaba al fondo. Ahora cada pregunta en su pestaña (?vista=).
 */
-const VISTAS = ["resumen", "laminas", "patrones", "banda", "quien", "registrar"] as const;
+const VISTAS = ["resumen", "apuntes", "laminas", "patrones", "banda", "quien", "registrar"] as const;
 type Vista = (typeof VISTAS)[number];
 
 const GRUPOS: { key: Grupo; label: string }[] = [
@@ -781,6 +783,7 @@ export default function ScoutRivalAbpPage() {
                 onCambia={setVista}
                 opciones={[
                   { clave: "resumen", label: "¿Cuánto peligro tiene?", icono: LayoutDashboard },
+                  { clave: "apuntes", label: "Apuntes y vídeo", icono: NotebookPen },
                   ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Recoger y láminas", icono: Images }] : []),
                   { clave: "patrones", label: "¿Qué repite?", icono: Shapes },
                   { clave: "banda", label: "Saques de banda", icono: Flag },
@@ -804,6 +807,10 @@ export default function ScoutRivalAbpPage() {
                 </button>
               )}
 
+              {/* ----------- apuntes con su vídeo (16/10/2026) ----------- */}
+
+              {vista === "apuntes" && equipo && <ApuntesAbp key={`${equipo}|${jornadaDe(equipo)?.etiqueta ?? ""}`} equipo={equipo} jornadaPartido={jornadaDe(equipo)?.etiqueta ?? null} />}
+
               {/* ----------- análisis visual de la jornada ----------- */}
 
               {vista === "laminas" && equipo && grupo === "liga" && (
@@ -815,7 +822,7 @@ export default function ScoutRivalAbpPage() {
                 />
               )}
 
-              {delEquipo.length > 0 && vista !== "laminas" && vista !== "registrar" && (
+              {delEquipo.length > 0 && vista !== "laminas" && vista !== "apuntes" && vista !== "registrar" && (
                 <FilterDrawer
                   activeCount={activeFilters}
                   summary={`${jornadas.length - 1} ${jornadas.length === 2 ? "jornada" : "jornadas"} con datos`}
@@ -847,7 +854,7 @@ export default function ScoutRivalAbpPage() {
 
               {/* ------------------- aviso de origen ---------------- */}
 
-              {!hayScout && hayDerivado && vista !== "laminas" && (
+              {!hayScout && hayDerivado && vista !== "laminas" && vista !== "apuntes" && (
                 <Explicativo>
                 <Notice
                   tone="warn"
@@ -865,7 +872,7 @@ export default function ScoutRivalAbpPage() {
 
               {/* ---------------------- totales --------------------- */}
 
-              {vista === "laminas" || vista === "registrar" ? null : delEquipo.length === 0 ? (
+              {vista === "laminas" || vista === "apuntes" || vista === "registrar" ? null : delEquipo.length === 0 ? (
                 <EmptyState
                   title={`Todavía no hay ABP registrado del ${equipo}`}
                   description="Todavía no hay acciones de este rival. Se registran en la pestaña «Registrar»."
