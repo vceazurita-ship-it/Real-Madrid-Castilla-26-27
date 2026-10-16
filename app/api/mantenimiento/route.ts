@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
     equipo?: unknown;
     jornada?: unknown;
     plan?: unknown;
+    fecha?: unknown;
   };
 
   const tarea = cuerpo.tarea ?? "rivales";
@@ -95,6 +96,17 @@ export async function POST(request: NextRequest) {
     datos = { ruta, equipo, ...(jornada ? { jornada } : {}) };
   }
 
+  /* El entrenamiento a analizar (16/10/2026; sólo el administrador, ya lo exige lo de arriba). */
+  let datosEntreno: { fecha: string } | undefined;
+
+  if (tarea === "entreno") {
+    const fecha = String(cuerpo.fecha ?? "").trim();
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return NextResponse.json({ ok: false, error: "Falta la fecha del entrenamiento." }, { status: 400 });
+
+    datosEntreno = { fecha };
+  }
+
   /* «Repetir sólo lo que falló»: las etapas elegidas, completadas con lo que
      arrastran (lib/progreso.ts). Sólo en los trabajos que lo admiten. */
   let plan: number[] | undefined;
@@ -112,7 +124,7 @@ export async function POST(request: NextRequest) {
   try {
     /* El partido que se elige en Ajustes (12/10/2026); sin él, el último jugado. */
     const jornadaPartido = tarea === "partido" ? Math.trunc(Number(cuerpo.jornada)) || undefined : undefined;
-    const estado = await pideEncargo(tarea, slug, datos, plan, jornadaPartido);
+    const estado = await pideEncargo(tarea, slug, datos ?? datosEntreno, plan, jornadaPartido);
 
     return NextResponse.json({ ok: true, estado });
   } catch (error) {

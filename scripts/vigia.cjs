@@ -767,7 +767,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -895,6 +895,33 @@ async function haceCarpeta() {
   await acaba("carpeta", codigo === 0, dice);
 
   apunta(`Carpeta: ${dice}.`);
+}
+
+/**
+ * El análisis de un entrenamiento por objetivos (16/10/2026, en obras):
+ * `scripts/entreno/analiza-entreno.mjs`. Usa el Chrome de Hudl si no hay
+ * cámara táctica, así que no arranca mientras Wyscout o el partido lo tienen.
+ */
+async function haceEntreno() {
+  const encargos = await leeEncargos();
+  const fecha = encargos.entreno?.datos?.fecha;
+
+  await empieza("entreno");
+
+  if (!fecha) {
+    await acaba("entreno", false, "el encargo no traía la fecha");
+
+    return;
+  }
+
+  apunta(`Entreno: ${fecha}`);
+
+  const { codigo, texto } = await ejecuta("entreno", process.execPath, [path.join(RAIZ, "scripts/entreno/analiza-entreno.mjs"), "--fecha", fecha], sigue("entreno"));
+  const dice = resumen(texto) || (codigo === 0 ? "hecho" : `ha fallado (código ${codigo})`);
+
+  await acaba("entreno", codigo === 0, dice);
+
+  apunta(`Entreno: ${dice}.`);
 }
 
 /**
@@ -1104,7 +1131,12 @@ async function ronda() {
     wyscout: estadoEncargo("wyscout", encargos.wyscout),
     carpeta: estadoEncargo("carpeta", encargos.carpeta),
     partido: estadoEncargo("partido", encargos.partido),
+    entreno: estadoEncargo("entreno", encargos.entreno),
   };
+
+  if (estados.entreno === "pedido" && !enMarcha.has("entreno") && !enMarcha.has("wyscout") && !enMarcha.has("partido")) {
+    arranca("entreno", haceEntreno);
+  }
 
   if (estados.carpeta === "pedido" && !enMarcha.has("carpeta")) {
     arranca("carpeta", haceCarpeta);

@@ -95,6 +95,7 @@ const NOMBRE: Record<Tarea, string> = {
   wyscout: "Datos de Wyscout",
   carpeta: "Carpeta de análisis del rival",
   partido: "Análisis del partido",
+  entreno: "Análisis de entrenamiento",
 };
 
 const TARDA: Record<Tarea, string> = {
@@ -103,6 +104,7 @@ const TARDA: Record<Tarea, string> = {
   wyscout: "suele tardar unos veinte minutos",
   carpeta: "unos cuatro segundos por vídeo",
   partido: "unas horas: mira en vídeo cada jugada a balón parado",
+  entreno: "entre veinte minutos y una hora",
 };
 
 /** Lo que dice el pie de cada panel. */
@@ -469,6 +471,7 @@ export default function AjustesPage() {
     wyscout: deTarea("wyscout"),
     carpeta: deTarea("carpeta"),
     partido: deTarea("partido"),
+    entreno: deTarea("entreno"),
   } satisfies Record<Tarea, EstadoEncargo>;
 
   const ocupada = (tarea: Tarea) =>

@@ -156,7 +156,7 @@ export function Paleta() {
     const porHref = new Map<string, Fila>(
       SECCIONES.concat(AJUSTES).flatMap((seccion) =>
         seccion.entradas
-          .filter((entrada) => !entrada.obras)
+          .filter((entrada) => !entrada.obras && !entrada.soloAdmin)
           .map((entrada): [string, Fila] => [entrada.href, { seccion: "Recientes", entrada }]),
       ),
     )

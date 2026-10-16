@@ -25,7 +25,9 @@ export const CLAVE_VIGIA = "mantenimiento:vigia";
    `partido` (02/10/2026): el análisis entero del último partido —Wyscout, el
    timeline de Hudl y la cámara táctica— volcado en todas las secciones que lo
    leen. Lo hace `scripts/analisis-partido.cjs`. */
-export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta", "partido"] as const;
+/* `entreno` (16/10/2026, en obras): el análisis de un entrenamiento por objetivos
+   (scripts/entreno/analiza-entreno.mjs). */
+export const TAREAS = ["quiniela", "rivales", "wyscout", "carpeta", "partido", "entreno"] as const;
 
 export type Tarea = (typeof TAREAS)[number];
 
@@ -53,8 +55,8 @@ export type Encargo = {
   recorrido?: EtapaHecha[];
   /** Cómo quedó cada sección al acabar; sólo `partido`. */
   secciones?: SeccionPartido[];
-  /** Lo que necesita el encargo para hacerse; sólo lo usa `carpeta`. */
-  datos?: DatosCarpeta;
+  /** Lo que necesita el encargo para hacerse: `carpeta` (ruta y rival) y `entreno` (fecha). */
+  datos?: DatosCarpeta | DatosEntreno;
   /** El partido elegido (12/10/2026); sólo `partido`. Sin él, el último jugado. */
   jornada?: number;
 };
@@ -75,6 +77,9 @@ export type DatosCarpeta = {
   /** «J5»; si no viene, sale del nombre de la carpeta. */
   jornada?: string;
 };
+
+/** El entrenamiento que hay que analizar (16/10/2026). */
+export type DatosEntreno = { fecha: string };
 
 export type Mantenimiento = Partial<Record<Tarea, Encargo>>;
 
@@ -114,6 +119,9 @@ export const LIMITE_MIN: Record<Tarea, number> = {
   /* Wyscout, Hudl y mirar en vídeo cada jugada a balón parado: horas. Más
      allá de esto, el ordenador se apagó a media pasada. */
   partido: 12 * 60,
+  /* Bajar de Hudl un entrenamiento de dos horas, que Gemini lo vea por partes
+     (con su espera por la cuota) y cortar los clips. */
+  entreno: 4 * 60,
 };
 
 export function esTarea(valor: unknown): valor is Tarea {

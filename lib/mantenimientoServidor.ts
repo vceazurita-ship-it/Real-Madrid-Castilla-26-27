@@ -12,6 +12,7 @@ import {
   normalizaMantenimiento,
   type Mantenimiento,
   type DatosCarpeta,
+  type DatosEntreno,
   type Tarea,
   type Vigia,
 } from "@/lib/mantenimiento";
@@ -37,7 +38,7 @@ export async function leeMantenimiento(): Promise<{
 export async function pideEncargo(
   tarea: Tarea,
   quien: string,
-  datos?: DatosCarpeta,
+  datos?: DatosCarpeta | DatosEntreno,
   plan?: number[],
   jornada?: number,
 ): Promise<Mantenimiento> {

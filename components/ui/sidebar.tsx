@@ -129,6 +129,8 @@ export type Entrada = {
   icon: ComponentType<{ size?: number; className?: string }>
   /** Sin enlace: la página existe pero está en obras. */
   obras?: string
+  /** Se puede entrar, pero sólo la ve el administrador: lo que se está construyendo (16/10/2026). */
+  soloAdmin?: boolean
 }
 
 export type Seccion = { titulo: string; entradas: Entrada[] }
@@ -256,6 +258,8 @@ export const SECCIONES: Seccion[] = [
        de momento. */
     titulo: "En obras",
     entradas: [
+      /* Se puede usar, pero sólo el administrador mientras se construye (16/10/2026). */
+      { href: "/obras/entrenamiento", label: "Análisis de entrenamiento", icon: ClipboardCheck, soloAdmin: true },
       { href: "#area-condicional", label: "Área Condicional", icon: Dumbbell, obras: EN_OBRAS },
       { href: "#calendario-condicional", label: "Calendario Condicional", icon: CalendarClock, obras: EN_OBRAS },
       { href: "#pizarra-sesion", label: "Pizarra Sesión", icon: PencilRuler, obras: EN_OBRAS },
@@ -290,7 +294,9 @@ export const AJUSTES: Seccion = {
 export function entradasDelMenu({ admin, ajustes }: { admin: boolean; ajustes: boolean }): Seccion[] {
   const visibles = admin
     ? SECCIONES
-    : SECCIONES.filter((seccion) => !seccion.entradas.every((entrada) => entrada.obras))
+    : SECCIONES.map((seccion) => ({ ...seccion, entradas: seccion.entradas.filter((entrada) => !entrada.soloAdmin) })).filter(
+        (seccion) => seccion.entradas.length && !seccion.entradas.every((entrada) => entrada.obras),
+      )
 
   return ajustes ? [...visibles, AJUSTES] : visibles
 }
@@ -437,7 +443,7 @@ export function Sidebar() {
   const recientes = useMemo(() => {
     const porHref = new Map(
       SECCIONES.concat(AJUSTES).flatMap((seccion) =>
-        seccion.entradas.filter((entrada) => !entrada.obras).map((entrada) => [entrada.href, entrada] as const),
+        seccion.entradas.filter((entrada) => !entrada.obras && !entrada.soloAdmin).map((entrada) => [entrada.href, entrada] as const),
       ),
     )
 

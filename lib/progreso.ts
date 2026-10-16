@@ -79,6 +79,15 @@ export const ETAPAS: Record<Tarea, Etapa[]> = {
     { nombre: "Vídeo del partido", minutos: 8, marca: /^PASO:\s*7\// },
     { nombre: "Comprobar cada sección", minutos: 2, marca: /^PASO:\s*8\// },
   ],
+
+  /* Las líneas «PASO: n/5» de scripts/entreno/analiza-entreno.mjs (16/10/2026). */
+  entreno: [
+    { nombre: "Buscar el vídeo", minutos: 1, marca: /^PASO:\s*1\// },
+    { nombre: "Bajar de Hudl", minutos: 15, marca: /^PASO:\s*2\// },
+    { nombre: "Prepararlo para la IA", minutos: 4, marca: /^PASO:\s*3\// },
+    { nombre: "La IA mira cada parte", minutos: 12, marca: /^PASO:\s*4\// },
+    { nombre: "Clips y números", minutos: 4, marca: /^PASO:\s*5\// },
+  ],
 };
 
 /** Lo que el vigía va contando de un trabajo en marcha (viaja en su latido). */
@@ -112,6 +121,7 @@ const FALLO: Record<Tarea, RegExp> = {
   wyscout: /^FALLO|CADUCADO|PUSH HA FALLADO|OTRA CUENTA|CHROME NO RESPONDE/i,
   carpeta: /FALLO|no encuentro la carpeta/i,
   partido: /^✗ /,
+  entreno: /^FALLO/,
 };
 
 /* ------------------------------------------------------------------ */
