@@ -18,7 +18,20 @@ import { useEffect, useMemo, useState } from "react";
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { loadRegistro, type RegistroTarea } from "@/lib/abp/registro";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
-import { colocaRed, equiposComoElementos, partidosComoElementos, redDeParecidos, sesionesComoElementos, type RedParecidos } from "@/lib/data-analisis/parecidos";
+import {
+  GRUPOS_PARTIDO,
+  GRUPOS_PARTIDO_INICIALES,
+  GRUPOS_SESION,
+  GRUPOS_SESION_INICIALES,
+  clavesDe,
+  colocaRed,
+  equiposComoElementos,
+  partidosComoElementos,
+  redDeParecidos,
+  sesionesComoElementos,
+  soloRasgos,
+  type RedParecidos,
+} from "@/lib/data-analisis/parecidos";
 
 const OSCURO = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#9085e9"];
 const CLARO = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#6250d6"];
@@ -44,6 +57,18 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
   const [modo, setModo] = useState<"partidos" | "sesiones" | "equipos">("partidos");
   const [tareas, setTareas] = useState<RegistroTarea[] | null>(null);
   const [elegido, setElegido] = useState<string | null>(null);
+  /* Con qué se forman las familias: grupos de partidos (partidos y equipos) y de sesiones. */
+  const [gruposPartido, setGruposPartido] = useState<string[]>(GRUPOS_PARTIDO_INICIALES);
+  const [gruposSesion, setGruposSesion] = useState<string[]>(GRUPOS_SESION_INICIALES);
+  const grupos = modo === "sesiones" ? GRUPOS_SESION : GRUPOS_PARTIDO;
+  const activos = modo === "sesiones" ? gruposSesion : gruposPartido;
+  const conmuta = (k: string) => {
+    const pon = modo === "sesiones" ? setGruposSesion : setGruposPartido;
+
+    /* Siempre queda al menos uno. */
+    pon((lista) => (lista.includes(k) ? (lista.length > 1 ? lista.filter((x) => x !== k) : lista) : [...lista, k]));
+    setElegido(null);
+  };
 
   useEffect(() => {
     if (modo !== "sesiones" || tareas) return;
@@ -61,23 +86,23 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
 
   const red = useMemo(() => {
     if (modo === "partidos") {
-      const { elementos, rasgos } = partidosComoElementos(partidos);
+      const { elementos, rasgos } = partidosComoElementos(partidos, undefined, clavesDe(GRUPOS_PARTIDO, gruposPartido));
 
       return redDeParecidos(elementos, rasgos, 2);
     }
 
     if (modo === "equipos") {
-      const { elementos, rasgos } = equiposComoElementos(partidos);
+      const { elementos, rasgos } = equiposComoElementos(partidos, undefined, undefined, clavesDe(GRUPOS_PARTIDO, gruposPartido));
 
       return redDeParecidos(elementos, rasgos, 3);
     }
 
     if (!tareas) return null;
 
-    const { elementos, rasgos } = sesionesComoElementos(tareas);
+    const { elementos, rasgos } = soloRasgos(sesionesComoElementos(tareas), clavesDe(GRUPOS_SESION, gruposSesion));
 
     return redDeParecidos(elementos, rasgos, 3);
-  }, [modo, partidos, tareas]);
+  }, [modo, partidos, tareas, gruposPartido, gruposSesion]);
 
   const pos = useMemo(() => (red ? colocaRed(red) : []), [red]);
 
@@ -126,6 +151,27 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
         <span className="text-xs text-white/40">Temporada 2026/27 · cómo jugamos y cómo entrenamos, no lo bien que salió</span>
       </div>
 
+      {/* Con qué se forman las familias: se encienden y se apagan (al menos uno). */}
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Con qué se forman las familias">
+        <span className="mr-1 text-[11px] uppercase tracking-[0.14em] text-white/40">Familias por</span>
+        {grupos.map((g) => {
+          const activo = activos.includes(g.key);
+
+          return (
+            <button
+              key={g.key}
+              type="button"
+              aria-pressed={activo}
+              onClick={() => conmuta(g.key)}
+              className={`rounded-full border px-3 py-1 text-xs ${activo ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-[#C8A96B]" : "border-white/12 text-white/50 hover:text-white"}`}
+              title={activo && activos.length === 1 ? "Tiene que quedar al menos uno" : undefined}
+            >
+              {g.label}
+            </button>
+          );
+        })}
+      </div>
+
       <Explicativo>
         <p className="text-xs leading-relaxed text-white/45">
           {modo === "partidos"
@@ -136,6 +182,12 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
           Se estandariza cada métrica, el parecido es la similitud del coseno, cada punto se une a sus más parecidos y las familias salen del algoritmo de Louvain (como el experimento de Football Hacking del 16/10/2026).
         </p>
       </Explicativo>
+
+      {red && (
+        <Explicativo>
+          <p className="text-[11px] text-white/40">Con: {red.rasgos.map((r) => r.label).join(" · ")}.</p>
+        </Explicativo>
+      )}
 
       {!red ? (
         <p className="text-sm text-white/45">{modo === "sesiones" && !tareas ? "Leyendo la hoja de registro…" : `Todavía no hay ${modo} suficientes de la 2026/27.`}</p>

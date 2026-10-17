@@ -219,10 +219,46 @@ export function redDeParecidos(elementos: Elemento[], rasgos: Rasgo[], vecinos =
 
 export const TEMPORADA_DESDE = "2026-07-01";
 
-const CLAVES_PARTIDO = ["posesion", "pasesPorPosesion", "intensidadPase", "longitudPase", "cuotaLaterales", "pasesLargos", "cuotaProgresivos", "cuotaUltimoTercio", "pasesProfundidad", "centros", "contras", "ppda", "recuperacionesAltas"];
+/**
+ * Con qué se forman las familias (17/10/2026, lo pidió el usuario: poder
+ * elegirlo). Los partidos y los equipos, por grupos de métricas de Wyscout;
+ * las sesiones, por grupos de rasgos de sus tareas.
+ */
+export type GrupoRasgos = { key: string; label: string; claves: string[] };
 
-export function partidosComoElementos(partidos: FilaPartido[], equipo = "Real Madrid Castilla"): { elementos: Elemento[]; rasgos: Rasgo[] } {
-  const metricas = CLAVES_PARTIDO.map((k) => METRICAS.find((m) => m.key === k)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+export const GRUPOS_PARTIDO: GrupoRasgos[] = [
+  { key: "con", label: "Con balón", claves: ["posesion", "pasesPorPosesion", "intensidadPase", "longitudPase", "cuotaLaterales", "pasesLargos", "cuotaProgresivos", "cuotaUltimoTercio", "pasesProfundidad", "centros"] },
+  { key: "sin", label: "Sin balón", claves: ["ppda", "recuperacionesAltas", "recuperaciones", "interceptaciones", "duelosDefensivos", "tirosContra", "xgContra"] },
+  { key: "transiciones", label: "Transiciones", claves: ["contras", "contrasRemate", "perdidasBajas", "perdidas"] },
+  { key: "abp", label: "ABP", claves: ["corners", "abp", "abpRemate", "cornersRemate", "cuotaRematesAbp"] },
+  { key: "competitivo", label: "Competitivo (goles, faltas, tarjetas)", claves: ["goles", "golesContra", "xg", "tiros", "faltas", "amarillas", "rojas"] },
+];
+
+/** Por defecto, cómo se juega: con balón, sin balón y transiciones. */
+export const GRUPOS_PARTIDO_INICIALES = ["con", "sin", "transiciones"];
+
+export const GRUPOS_SESION: GrupoRasgos[] = [
+  { key: "volumen", label: "Volumen y carga", claves: ["minutos", "intensidad", "carga", "cargaCog"] },
+  { key: "tareas", label: "Cómo son las tareas", claves: ["densidad", "nJug", "normativa", "incertidumbre", "familiaridad"] },
+  { key: "tiempo", label: "En qué se fue el tiempo", claves: ["juego", "posesion", "abp", "defensa"] },
+];
+
+export const GRUPOS_SESION_INICIALES = ["volumen", "tareas", "tiempo"];
+
+/** Las claves de los grupos elegidos, sin repetir y en el orden de los grupos. */
+export const clavesDe = (grupos: GrupoRasgos[], elegidos: string[]) => [...new Set(grupos.filter((g) => elegidos.includes(g.key)).flatMap((g) => g.claves))];
+
+/** Sólo las columnas de esos rasgos (para las sesiones, que se calculan todas de una vez). */
+export function soloRasgos(datos: { elementos: Elemento[]; rasgos: Rasgo[] }, claves: string[]) {
+  const idx = datos.rasgos.map((r, i) => (claves.includes(r.key) ? i : -1)).filter((i) => i >= 0);
+
+  return { rasgos: idx.map((i) => datos.rasgos[i]), elementos: datos.elementos.map((e) => ({ ...e, valores: idx.map((i) => e.valores[i]) })) };
+}
+
+const CLAVES_PARTIDO = clavesDe(GRUPOS_PARTIDO, GRUPOS_PARTIDO_INICIALES);
+
+export function partidosComoElementos(partidos: FilaPartido[], equipo = "Real Madrid Castilla", claves: string[] = CLAVES_PARTIDO): { elementos: Elemento[]; rasgos: Rasgo[] } {
+  const metricas = claves.map((k) => METRICAS.find((m) => m.key === k)).filter((m): m is NonNullable<typeof m> => Boolean(m));
   const nuestros = partidos.filter((f) => f.equipo === equipo && f.fecha >= TEMPORADA_DESDE).sort((a, b) => a.fecha.localeCompare(b.fecha));
 
   return {
@@ -246,8 +282,8 @@ export function partidosComoElementos(partidos: FilaPartido[], equipo = "Real Ma
  * experimento original): cada equipo de la competición del Castilla en la
  * 2026/27, resumido por la MEDIANA de sus partidos en las 13 de estilo.
  */
-export function equiposComoElementos(partidos: FilaPartido[], equipo = "Real Madrid Castilla", minPartidos = 3): { elementos: Elemento[]; rasgos: Rasgo[] } {
-  const metricas = CLAVES_PARTIDO.map((k) => METRICAS.find((m) => m.key === k)).filter((m): m is NonNullable<typeof m> => Boolean(m));
+export function equiposComoElementos(partidos: FilaPartido[], equipo = "Real Madrid Castilla", minPartidos = 3, claves: string[] = CLAVES_PARTIDO): { elementos: Elemento[]; rasgos: Rasgo[] } {
+  const metricas = claves.map((k) => METRICAS.find((m) => m.key === k)).filter((m): m is NonNullable<typeof m> => Boolean(m));
   const delAno = partidos.filter((f) => f.fecha >= TEMPORADA_DESDE);
   const nuestros = delAno.filter((f) => f.equipo === equipo);
   const comp = [...nuestros.reduce((m, f) => m.set(f.competicion, (m.get(f.competicion) ?? 0) + 1), new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
