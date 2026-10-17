@@ -113,7 +113,8 @@ export function normalizaSesion(x: unknown): SesionEntreno {
     objetivos: Array.isArray(s.objetivos)
       ? s.objetivos
           .filter((o) => o && typeof o.objetivo === "string")
-          .map((o) => ({ ...o, id: o.id || nuevoId(), jugadores: Array.isArray(o.jugadores) ? o.jugadores.filter((j) => j && j.id) : [] }))
+          /* Sin id, uno fijo por su sitio: uno al azar cambiaría en cada pintado y la edición iría a parar a otro. */
+          .map((o, i) => ({ ...o, id: o.id || `obj-${i}`, jugadores: Array.isArray(o.jugadores) ? o.jugadores.filter((j) => j && j.id) : [] }))
       : [],
     validaciones: s.validaciones && typeof s.validaciones === "object" ? s.validaciones : {},
     notas: typeof s.notas === "string" ? s.notas : "",
