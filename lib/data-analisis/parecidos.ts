@@ -260,12 +260,14 @@ const CLAVES_PARTIDO = clavesDe(GRUPOS_PARTIDO, GRUPOS_PARTIDO_INICIALES);
 export function partidosComoElementos(partidos: FilaPartido[], equipo = "Real Madrid Castilla", claves: string[] = CLAVES_PARTIDO): { elementos: Elemento[]; rasgos: Rasgo[] } {
   const metricas = claves.map((k) => METRICAS.find((m) => m.key === k)).filter((m): m is NonNullable<typeof m> => Boolean(m));
   const nuestros = partidos.filter((f) => f.equipo === equipo && f.fecha >= TEMPORADA_DESDE).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  /* Un rival que sale dos veces (liga y copa, ida y vuelta) lleva la fecha en el rótulo. */
+  const veces = nuestros.reduce((m, f) => m.set(f.rival, (m.get(f.rival) ?? 0) + 1), new Map<string, number>());
 
   return {
     rasgos: metricas.map((m) => ({ key: m.key, label: m.nombre })),
     elementos: nuestros.map((f) => ({
       id: `${f.fecha}|${f.rival}`,
-      etiqueta: f.rival,
+      etiqueta: (veces.get(f.rival) ?? 0) > 1 ? `${f.rival} (${f.fecha.slice(8, 10)}/${f.fecha.slice(5, 7)})` : f.rival,
       detalle: `${f.fecha.slice(8, 10)}/${f.fecha.slice(5, 7)} · ${f.golesFavor}-${f.golesContra}`,
       fecha: f.fecha,
       valores: metricas.map((m) => {
