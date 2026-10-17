@@ -41,12 +41,12 @@ export function normalizaVideosJugadores(x: unknown): DocVideoJugadores {
   return { videos };
 }
 
-/** «J8», «J-08», «JORNADA 8», «LIG.08», «JOR 8» → 8. */
+/** «J8», «J-08», «JORNADA 8», «LIG.08», «JOR 8», o el número al principio («08 - ABP») → 8. */
 export function jornadaDeNombre(nombre: string): number | null {
   const limpio = nombre.replace(/\.[a-z0-9]+$/i, "");
-  const m = limpio.match(/\b(?:J|JOR|JORN|JORNADA|LIG|LIGA)\s*[-_.]?\s*0*(\d{1,2})\b/i);
+  const m = limpio.match(/\b(?:J|JOR|JORN|JORNADA|LIG|LIGA)\s*[-_.]?\s*0*(\d{1,2})\b/i) ?? limpio.match(/^\s*0*(\d{1,2})(?!\d)(?:\s*[-_.·]|\s|$)/);
 
-  return m ? Number(m[1]) : null;
+  return m && Number(m[1]) >= 1 ? Number(m[1]) : null;
 }
 
 const plano = (s: string) =>

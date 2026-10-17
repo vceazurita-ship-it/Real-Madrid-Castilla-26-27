@@ -11,7 +11,8 @@
  * (lib/abp/video-jugadores.ts). Sólo se guardan los últimos CUATRO: los
  * anteriores se borran del almacén.
  *
- * Un fichero que todavía se está copiando (cambiado hace menos de 90 s) se deja
+ * Un fichero que todavía se está copiando (cambiado hace menos de 90 s, o que
+ * sigue creciendo: la copia de Windows conserva la fecha del original) se deja
  * para la siguiente vuelta. Termina con «RESUMEN: …».
  */
 
@@ -122,7 +123,18 @@ async function principal() {
 
     return !ya || ya.origen?.tamano !== f.tamano || ya.origen?.mtime !== f.mtime;
   });
-  const copiandose = nuevos.filter((f) => Date.now() - f.mtime < 90_000);
+  /* Una fecha en el futuro (reloj de la cámara) no es «recién copiado»: lo que cuenta es que el tamaño ya no cambie. */
+  if (nuevos.length) await new Promise((r) => setTimeout(r, 5000));
+  const copiandose = nuevos.filter((f) => {
+    const edad = Date.now() - f.mtime;
+    let ahora = f.tamano;
+
+    try {
+      ahora = fs.statSync(path.join(CARPETA, f.nombre)).size;
+    } catch {}
+
+    return ahora !== f.tamano || (edad >= 0 && edad < 90_000);
+  });
   const aSubir = nuevos.filter((f) => !copiandose.includes(f));
 
   console.log(`  ${ficheros.length} vídeos en la carpeta · ${aSubir.length} por subir · ${copiandose.length} copiándose`);
