@@ -47,7 +47,8 @@ const FECHA = arg("fecha");
 const SOLO_VER = process.argv.includes("--ver");
 const PARTE_S = 20 * 60;
 const CLIPS_POR_VEREDICTO = 4;
-const MODELOS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"];
+/* Cada modelo con su propia cuota gratuita; `gemini-2.5-flash-lite` ya no se da a cuentas nuevas (404, 17/10/2026). */
+const MODELOS = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
 
 function fin(codigo, texto) {
   console.log(`RESUMEN: ${texto}`);
