@@ -280,22 +280,48 @@ async function deHudl(fecha, destino) {
 
     paso(2, `bajando «${v.title}» de Hudl (${lista.segs.length} trozos${lista.bw ? `, ${(lista.bw / 1e6).toFixed(1)} Mb/s` : ""})`);
 
-    const crudo = path.join(destino, "hudl.part");
-    const salida = fs.createWriteStream(crudo);
+    /*
+    | Cada trozo, su propio fichero (cabecera + trozo), y el concat de ffmpeg
+    | los encadena (16/10/2026). Pegarlos todos en uno NO vale: cada trozo de
+    | Hudl trae los tiempos desde cero y los 81 min del 16/10 se quedaron en
+    | 3:48 (a 637 imágenes por segundo). El concat suma la duración de cada
+    | fichero al siguiente. Lo ya bajado se aprovecha si se corta a medias.
+    */
+    const dirTrozos = path.join(destino, "trozos");
 
-    if (lista.init) salida.write(await baja(lista.init));
+    fs.mkdirSync(dirTrozos, { recursive: true });
+
+    const init = lista.init ? await baja(lista.init) : Buffer.alloc(0);
+    const nombres = [];
 
     for (const [i, s] of lista.segs.entries()) {
-      salida.write(await baja(s));
+      const ruta = path.join(dirTrozos, `t_${String(i).padStart(5, "0")}.mp4`);
+
+      if (!fs.existsSync(ruta)) fs.writeFileSync(ruta, Buffer.concat([init, await baja(s)]));
+
+      nombres.push(ruta);
 
       if (i % 100 === 0) console.log(`  trozo ${i + 1}/${lista.segs.length}`);
     }
 
-    await new Promise((r) => salida.end(r));
+    const listaConcat = path.join(destino, "trozos.txt");
 
-    /* Del fMP4 por trozos a un MP4 normal (sin volver a codificar). */
-    await ejecuta(FFMPEG, ["-y", "-loglevel", "error", "-i", crudo, "-c", "copy", "-movflags", "+faststart", fichero], { maxBuffer: 1 << 24 });
-    fs.rmSync(crudo, { force: true });
+    fs.writeFileSync(listaConcat, nombres.map((f) => `file '${f.replace(/\\/g, "/").replace(/'/g, "'\\''")}'`).join("\n"), "utf8");
+
+    await ejecuta(FFMPEG, ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", listaConcat, "-c", "copy", "-movflags", "+faststart", fichero], { maxBuffer: 1 << 24 });
+
+    /* Que de verdad dure lo que dice Hudl: si no, mejor parar que analizar un vídeo roto. */
+    const dura = await duracion([fichero]);
+    const esperada = (v.durationMs ?? 0) / 1000;
+
+    if (esperada && dura < esperada * 0.8) {
+      fs.rmSync(fichero, { force: true });
+
+      return { error: 1, texto: `el vídeo de Hudl ha salido de ${Math.round(dura / 60)} min y debería durar ${Math.round(esperada / 60)}: no se analiza` };
+    }
+
+    fs.rmSync(dirTrozos, { recursive: true, force: true });
+    fs.rmSync(listaConcat, { force: true });
 
     const datos = { titulo: v.title, id: v.id, url: `https://www.hudl.com/watch/video/${v.id}` };
 
