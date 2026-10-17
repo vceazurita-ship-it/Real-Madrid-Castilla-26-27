@@ -416,6 +416,9 @@ function instrucciones(objetivos, desde, hasta) {
     "Para cada objetivo, localiza las acciones en las que se ve con claridad a su jugador o jugadores haciendo (o debiendo hacer) lo que se busca, y di si es CORRECTA o MEJORABLE según su criterio.",
     "REGLAS: sólo acciones que se vean bien; si no estás seguro de que es ese jugador, no la pongas; no inventes; nada de lo que pase en tiempos de descanso o explicación;",
     "cada acción dura lo que dura la jugada (normalmente 3-12 s); como mucho 25 por objetivo; la explicación, en castellano y en una frase corta y concreta (qué hizo y qué debía hacer).",
+    /* 17/10/2026: la primera pasada (16/10) dio 29 de 29 «correctas» con jugadores reconocidos sólo por su sitio en una cámara lejana. */
+    "SÉ EXIGENTE, como un entrenador: lo normal es que haya acciones de los dos tipos. Si el objetivo no trae criterio, CORRECTA sólo si lo hace como lo haría el mejor de su puesto; ante la duda, MEJORABLE.",
+    "La cámara puede ser lejana: si no puedes reconocer al jugador con seguridad (peto, dorsal, rasgo claro), NO pongas la acción; en «jugador» di en qué te basas para reconocerlo.",
     "Objetivos:",
     ...objetivos.map((o) =>
       [
