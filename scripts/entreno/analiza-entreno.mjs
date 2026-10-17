@@ -148,16 +148,25 @@ async function listaHls(nav, master, tope = 3_500_000) {
   const urlLista = elegida?.url ?? master;
   const lista = elegida ? await fetch(urlLista, { headers: await cabecerasPara(nav, urlLista) }).then((r) => r.text()) : texto;
   const segs = [];
+  /* Lo que dura cada trozo (#EXTINF): el único dato fiable de tiempo; el del propio trozo no lo es. */
+  const dur = [];
   let init = null;
+  let pendiente = null;
 
   for (const l of lista.split(/\r?\n/)) {
     const mapa = l.match(/#EXT-X-MAP:URI="([^"]+)"/);
+    const d = l.match(/^#EXTINF:([\d.]+)/);
 
     if (mapa) init = new URL(mapa[1], urlLista).href;
-    else if (l && !l.startsWith("#")) segs.push(new URL(l.trim(), urlLista).href);
+    else if (d) pendiente = Number(d[1]);
+    else if (l && !l.startsWith("#")) {
+      segs.push(new URL(l.trim(), urlLista).href);
+      dur.push(pendiente ?? 0);
+      pendiente = null;
+    }
   }
 
-  return { init, segs, bw: elegida?.bw ?? null };
+  return { init, segs, dur, bw: elegida?.bw ?? null };
 }
 
 /** El entrenamiento del día en la biblioteca de Hudl: el título lleva la fecha y no es un partido. */
@@ -306,7 +315,12 @@ async function deHudl(fecha, destino) {
 
     const listaConcat = path.join(destino, "trozos.txt");
 
-    fs.writeFileSync(listaConcat, nombres.map((f) => `file '${f.replace(/\\/g, "/").replace(/'/g, "'\\''")}'`).join("\n"), "utf8");
+    /* Con la duración de cada uno: si no, ffmpeg se fía de la del trozo y el 16/10 salió de 31 horas. */
+    fs.writeFileSync(
+      listaConcat,
+      nombres.map((f, i) => `file '${f.replace(/\\/g, "/").replace(/'/g, "'\\''")}'${lista.dur[i] ? `\nduration ${lista.dur[i]}` : ""}`).join("\n"),
+      "utf8",
+    );
 
     await ejecuta(FFMPEG, ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", listaConcat, "-c", "copy", "-movflags", "+faststart", fichero], { maxBuffer: 1 << 24 });
 
@@ -314,7 +328,7 @@ async function deHudl(fecha, destino) {
     const dura = await duracion([fichero]);
     const esperada = (v.durationMs ?? 0) / 1000;
 
-    if (esperada && dura < esperada * 0.8) {
+    if (esperada && (dura < esperada * 0.8 || dura > esperada * 1.2)) {
       fs.rmSync(fichero, { force: true });
 
       return { error: 1, texto: `el vídeo de Hudl ha salido de ${Math.round(dura / 60)} min y debería durar ${Math.round(esperada / 60)}: no se analiza` };
