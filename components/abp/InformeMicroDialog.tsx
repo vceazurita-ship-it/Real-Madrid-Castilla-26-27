@@ -23,11 +23,8 @@ import { Loader2, Mail, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
 
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
-import { guionDeAbp, type CortePartido } from "@/lib/video-informe/guion";
-import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
-import { barlowCondensed } from "@/lib/rivals/portada-font";
-import { montaVideoInforme, puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
+import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
 
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 
@@ -314,51 +311,33 @@ export function InformeMicroDialog({
 
   const [enviando, setEnviando] = useState(false);
 
-  /* El vídeo resumen (12/10/2026): se monta en el navegador y va adjunto con el correo. */
+  /*
+  | NUESTRO VÍDEO DE LA JORNADA (17/10/2026, lo pidió el usuario): ya no se
+  | monta un vídeo con los clips de ABP; va el vídeo completo que el analista
+  | deja en «ABP\VIDEO - JUGADORES» (lo sube el vigía, lib/abp/video-jugadores.ts).
+  | Si no hay vídeo de esta jornada, el informe no dice nada de vídeo.
+  */
   const [conVideo, setConVideo] = useState(true);
   const [pasoVideo, setPasoVideo] = useState("");
-
-  /* El vídeo de análisis previo que sube el analista (sólo en la previa): tres trozos entran en el vídeo resumen. */
-  const [videoPrevio, setVideoPrevio] = useState<File | null>(null);
-
-  /*
-  | Los cortes de balón parado del partido, cortados de Hudl por el ordenador
-  | del club (`informe-clips:jNN`): en el post, los de ese partido; en la
-  | previa, los del último jugado («cómo lo hicimos»).
-  */
   const jornadaPartido = datos.partidoCalendario?.jornada ?? null;
-  const jornadaCortes = jornadaPartido ? (datos.partidoCalendario?.jugado ? jornadaPartido : jornadaPartido - 1) : null;
-  const [cortesPartido, setCortesPartido] = useState<CortePartido[]>([]);
+  const rivalVideo = datos.partidoCalendario?.rival || datos.rival || "";
+  const [videoJugadores, setVideoJugadores] = useState<VideoJugadores | null>(null);
 
   useEffect(() => {
-    if (!jornadaCortes || jornadaCortes < 1) return;
-
     let cancelado = false;
 
-    fetch(`/api/docs?key=${encodeURIComponent(`informe-clips:j${String(jornadaCortes).padStart(2, "0")}`)}`, { cache: "no-store" })
-      .then((r) => r.json() as Promise<{ data?: { cortes?: CortePartido[] } | null }>)
+    fetch(`/api/docs?key=${encodeURIComponent(VIDEO_JUGADORES_KEY)}`, { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ data?: unknown }>)
       .then((d) => {
-        if (!cancelado) setCortesPartido((d?.data?.cortes ?? []).filter((c) => c && typeof c.url === "string"));
+        if (!cancelado) setVideoJugadores(eligeVideoJugadores(normalizaVideosJugadores(d?.data), jornadaPartido, rivalVideo));
       })
       .catch(() => {});
 
     return () => {
       cancelado = true;
     };
-  }, [jornadaCortes]);
+  }, [jornadaPartido, rivalVideo]);
 
-  /** El vídeo de análisis previo sube al bucket como un adjunto más y el montaje lo lee de ahí. */
-  const subeVideoPrevio = async (file: File) => {
-    try {
-      const a = await subeAdjunto(file, (fraccion) => setPasoVideo(`subiendo tu análisis ${Math.round(fraccion * 100)} %`));
-
-      return { url: a.url, nombre: file.name };
-    } catch (error) {
-      toast.message("El vídeo de análisis previo no ha subido", { description: error instanceof Error ? error.message : "Se sigue sin él." });
-
-      return null;
-    }
-  };
 
   /*
   | Por qué el fallo del envío NO se queda en un aviso flotante.
@@ -683,7 +662,14 @@ export function InformeMicroDialog({
     [base, graficos, rivalInforme, modo],
   );
 
-  const html = useMemo(() => informeHtml(informe), [informe]);
+  /* En la vista previa, el enlace a nuestro vídeo tal cual irá (sin el póster, que en el correo va por cid). */
+  const html = useMemo(
+    () =>
+      informeHtml(informe, {
+        video: conVideo && videoJugadores ? bloqueVideoHtml({ url: videoJugadores.url, cid: "", segundos: videoJugadores.segundos, claro: true, relleno: "18px 24px 0", sinCopia: true, rotulo: "Ver nuestro vídeo de balón parado" }) : undefined,
+      }),
+    [informe, conVideo, videoJugadores],
+  );
 
   const cargandoSeguimiento = seguimientos === null;
 
@@ -750,35 +736,35 @@ export function InformeMicroDialog({
         });
       }
 
-      /*
-      | El vídeo resumen: se monta aquí (lib/video-informe) y sube a Supabase
-      | como los demás adjuntos; el servidor lo adjunta por su URL. Si no sale,
-      | el correo va sin él y se avisa: nunca para el envío.
-      */
       const adjuntosUrl: { nombre: string; url: string; tipo: string }[] = [];
-      /* El vídeo en el cuerpo del correo: su póster enlazado (por cid). */
+      /*
+      | Nuestro vídeo de la jornada, ya en el almacén: va ENLAZADO (póster y
+      | botón en el correo, y la última página del PDF). Completo pasa de lo que
+      | cabe en un correo, así que no se adjunta.
+      */
       let infoVideo: { url: string; segundos: number; poster: string | null } | null = null;
 
-      if (conVideo && puedeMontarVideo()) {
-        try {
-          /* El montado mientras se revisaba, o el que va por la mitad: no se empieza otro. */
-          const v = await dameVideo(setPasoVideo);
-          const nombre = `${paraEnviar.titulo} - Balón parado en vídeo.mp4`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
+      if (conVideo && videoJugadores) {
+        setPasoVideo("preparando el enlace…");
 
-          /* El de Full HD va enlazado (póster y botón); adjunta, la copia ligera en 720p. */
-          setPasoVideo("subiendo…");
-          const a = await subeAdjunto(new File([v.blob], nombre, { type: "video/mp4" }), (f) => setPasoVideo(`subiendo el vídeo HD ${Math.round(f * 100)} %`));
-          const ligero = v.ligero ? await subeAdjunto(new File([v.ligero], nombre, { type: "video/mp4" })) : a;
+        const poster = videoJugadores.poster
+          ? await fetch(videoJugadores.poster)
+              .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
+              .then(
+                (b) =>
+                  new Promise<string>((resolve, reject) => {
+                    const lector = new FileReader();
 
-          adjuntosUrl.push({ nombre, url: ligero.url, tipo: "video/mp4" });
-          infoVideo = { url: a.url, segundos: v.segundos, poster: v.poster ?? null };
+                    lector.onload = () => resolve(String(lector.result));
+                    lector.onerror = () => reject(lector.error);
+                    lector.readAsDataURL(b);
+                  }),
+              )
+              .catch(() => null)
+          : null;
 
-        } catch (error) {
-          console.warn("[abp] el vídeo resumen no ha salido", error);
-          toast.message("El correo va sin el vídeo resumen", { description: error instanceof Error ? error.message : "No se ha podido montar." });
-        } finally {
-          setPasoVideo("");
-        }
+        infoVideo = { url: videoJugadores.url, segundos: videoJugadores.segundos, poster };
+        setPasoVideo("");
       }
 
       /*
@@ -796,7 +782,7 @@ export function InformeMicroDialog({
           enlaces: (paraEnviar.rivalAnalisis?.documentos ?? []).map((d) => ({ nombre: d.nombre, url: d.url, detalle: "Informe del rival en PDF" })),
         }).catch(() => null);
         const blob = await informeUnicoPdf({ titulo: paraEnviar.titulo, diapos: [], hojas, final });
-        const nombrePdf = `${paraEnviar.titulo} - Balón parado.pdf`.replace(/[\/:*?"<>|]+/g, " ").replace(/s+/g, " ");
+        const nombrePdf = `${paraEnviar.titulo} - Balón parado.pdf`.replace(/[\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
         const subido = await subeAdjunto(new File([blob], nombrePdf, { type: "application/pdf" }), (f) => setPasoVideo(`subiendo el PDF ${Math.round(f * 100)} %`));
 
         adjuntosUrl.unshift({ nombre: nombrePdf, url: subido.url, tipo: "application/pdf" });
@@ -831,7 +817,7 @@ export function InformeMicroDialog({
              `cid` y viajan como partes aparte, que es lo único que Gmail pinta. */
           html: informeHtml(paraEnviar, {
             imagenes: "cid",
-            video: infoVideo ? bloqueVideoHtml({ url: infoVideo.url, cid: infoVideo.poster ? "video-poster" : "", segundos: infoVideo.segundos, claro: true, relleno: "18px 24px 0" }) : undefined,
+            video: infoVideo ? bloqueVideoHtml({ url: infoVideo.url, cid: infoVideo.poster ? "video-poster" : "", segundos: infoVideo.segundos, claro: true, relleno: "18px 24px 0", sinCopia: true, rotulo: "Ver nuestro vídeo de balón parado" }) : undefined,
           }),
           texto: informeTexto(paraEnviar),
           imagenes: [
@@ -907,74 +893,6 @@ export function InformeMicroDialog({
 
   const listo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando;
 
-  /*
-  | El vídeo, montado mientras se revisa (16/10/2026): antes empezaba al
-  | pulsar «Enviar» y el envío esperaba minutos. Una vez por informe (cambiar
-  | el vídeo de análisis previo, o que lleguen más cortes, lo rehace); al
-  | enviar se usa el que haya o se espera al que va por la mitad.
-  */
-  const [preparandoVideo, setPreparandoVideo] = useState("");
-  const videoCache = useRef<{ clave: string; montado: Promise<VideoMontado>; escucha?: (texto: string) => void } | null>(null);
-  const claveVideo =
-    listo && !incrustado
-      ? [clave, modo, informe.titulo, informe.graficos.length, cortesPartido.length, rivalInforme.clips.length, videoPrevio ? `${videoPrevio.name}:${videoPrevio.size}` : ""].join("|")
-      : "";
-
-  const dameVideo = (escucha?: (texto: string) => void) => {
-    if (videoCache.current?.clave === claveVideo && claveVideo) {
-      if (escucha) videoCache.current.escucha = escucha;
-
-      return videoCache.current.montado;
-    }
-
-    const entrada: NonNullable<typeof videoCache.current> = { clave: claveVideo, montado: Promise.resolve(null as unknown as VideoMontado), escucha };
-
-    entrada.montado = (async () => {
-      const escudo = buscadorDeEscudos(await traeEscudos().catch(() => []))(datos.partidoCalendario?.rival || datos.rival);
-
-      return montaVideoInforme(
-        guionDeAbp(informe, pinceladaAbp(informe), {
-          /* Sólo el balón parado del rival (córner y falta); los centros laterales son del informe de Área. */
-          cortes: rivalInforme.clips.filter((c) => /^(corner|falta)/.test(c.seccion)),
-          cortesPartido,
-          rotuloPartido: jornadaCortes && !datos.partidoCalendario?.jugado ? `J${jornadaCortes}` : undefined,
-          videoPrevio: videoPrevio && !datos.partidoCalendario?.jugado ? await subeVideoPrevio(videoPrevio) : null,
-          escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null,
-        }),
-        { alPaso: (t) => entrada.escucha?.(t), fuente: barlowCondensed.style.fontFamily },
-      );
-    })();
-
-    videoCache.current = entrada;
-
-    /* Si falla, se olvida: al enviar se intenta otra vez y, si vuelve a fallar, se dice. */
-    entrada.montado.catch(() => {
-      if (videoCache.current === entrada) videoCache.current = null;
-    });
-
-    return entrada.montado;
-  };
-
-  useEffect(() => {
-    if (!claveVideo || !conVideo || !puedeMontarVideo() || enviando || videoCache.current?.clave === claveVideo) return;
-
-    let vivo = true;
-
-    /* Un respiro para que la pantalla termine de pintarse antes de ponerse a montar. */
-    const reloj = window.setTimeout(() => {
-      setPreparandoVideo("Preparando el vídeo…");
-      dameVideo((t) => vivo && setPreparandoVideo(`Preparando el vídeo · ${t}`))
-        .catch(() => undefined)
-        .finally(() => vivo && setPreparandoVideo(""));
-    }, 2000);
-
-    return () => {
-      vivo = false;
-      window.clearTimeout(reloj);
-      setPreparandoVideo("");
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claveVideo, conVideo, enviando]);
 
   const alListo = incrustado?.alListo;
 
@@ -1048,27 +966,15 @@ export function InformeMicroDialog({
           ) : null}
 
           <div className="min-w-0 space-y-1">
-            <label className={`flex items-center gap-2 text-[11px] ${puedeMontarVideo() ? "cursor-pointer text-white/70" : "opacity-40"}`}>
-              <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo && puedeMontarVideo()} disabled={!puedeMontarVideo() || enviando} onChange={(e) => setConVideo(e.target.checked)} />
-              Adjuntar el vídeo resumen (de 1 a 2:30 min: cortes, datos y música)
-            </label>
-            {preparandoVideo && !enviando ? (
-              <p className="flex items-center gap-1.5 text-[11px] text-[#C8A96B]">
-                <Loader2 size={11} className="animate-spin" /> {preparandoVideo} (mientras lo revisas)
-              </p>
-            ) : null}
-            {!datos.partidoCalendario?.jugado && (
-              <label className={`flex items-center gap-2 text-[11px] ${puedeMontarVideo() ? "text-white/60" : "opacity-40"}`}>
-                <span className="shrink-0">Tu vídeo de análisis previo:</span>
-                <input
-                  type="file"
-                  accept="video/mp4,.mp4"
-                  disabled={!puedeMontarVideo() || enviando || !conVideo}
-                  className="max-w-[260px] text-[11px] file:mr-2 file:rounded file:border-0 file:bg-white/10 file:px-2 file:py-0.5 file:text-[11px] file:text-white/80"
-                  onChange={(e) => setVideoPrevio(e.target.files?.[0] ?? null)}
-                />
-                {videoPrevio ? <span className="text-white/40">{(videoPrevio.size / 1048576).toFixed(0)} MB · entran tres trozos</span> : null}
+            {videoJugadores ? (
+              <label className="flex cursor-pointer items-center gap-2 text-[11px] text-white/70" title={videoJugadores.nombre}>
+                <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo} disabled={enviando} onChange={(e) => setConVideo(e.target.checked)} />
+                Incluir nuestro vídeo de la jornada · «{videoJugadores.nombre.replace(/\.[a-z0-9]+$/i, "")}» ({Math.floor(videoJugadores.segundos / 60)}:{String(videoJugadores.segundos % 60).padStart(2, "0")}, enlazado)
               </label>
+            ) : (
+              <p className="text-[11px] text-white/40">
+                Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
+              </p>
             )}
             <p className="text-[11px] text-white/35">
               Sale de la cuenta de Google del club, la misma que sube los vídeos

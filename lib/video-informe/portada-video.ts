@@ -155,7 +155,7 @@ export async function diapositivaDelVideo(opciones: { url: string; poster: strin
 const escHtml = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** El bloque del correo: el póster enlazado al vídeo y una línea debajo. Para tablas de 960 px. */
-export function bloqueVideoHtml(opciones: { url: string; cid: string; segundos: number; claro?: boolean; relleno?: string }) {
+export function bloqueVideoHtml(opciones: { url: string; cid: string; segundos: number; claro?: boolean; relleno?: string; /** Sin copia ligera adjunta (el vídeo completo de ABP sólo va enlazado). */ sinCopia?: boolean; rotulo?: string }) {
   const color = opciones.claro ? "#5B6472" : "#9AA3B2";
 
   /* Sin póster (cid vacío), sólo la línea con el enlace. */
@@ -163,5 +163,5 @@ export function bloqueVideoHtml(opciones: { url: string; cid: string; segundos: 
     ? `<a href="${escHtml(opciones.url)}" target="_blank" style="text-decoration:none"><img src="cid:${escHtml(opciones.cid)}" alt="Ver el vídeo del informe" width="960" style="display:block;width:100%;max-width:960px;height:auto;border-radius:10px;border:0"></a>`
     : "";
 
-  return `<tr><td style="padding:${opciones.relleno ?? "10px 0 4px"}">${imagen}<p style="margin:8px 4px 0;font:400 13px/1.5 Arial,sans-serif;color:${color}">▶ <a href="${escHtml(opciones.url)}" target="_blank" style="color:#C8A96B;font-weight:700;text-decoration:none">Ver el vídeo en HD (${mmss(opciones.segundos)})</a> · adjunta va una copia ligera para verla sin conexión.</p></td></tr>`;
+  return `<tr><td style="padding:${opciones.relleno ?? "10px 0 4px"}">${imagen}<p style="margin:8px 4px 0;font:400 13px/1.5 Arial,sans-serif;color:${color}">▶ <a href="${escHtml(opciones.url)}" target="_blank" style="color:#C8A96B;font-weight:700;text-decoration:none">${escHtml(opciones.rotulo ?? "Ver el vídeo en HD")} (${mmss(opciones.segundos)})</a>${opciones.sinCopia ? "" : " · adjunta va una copia ligera para verla sin conexión."}</p></td></tr>`;
 }

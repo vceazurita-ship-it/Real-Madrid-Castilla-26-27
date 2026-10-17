@@ -767,7 +767,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -1064,6 +1064,61 @@ async function lanzaRivales(plan) {
     .finally(() => enMarcha.delete("rivales"));
 }
 
+/*
+| NUESTRO VÍDEO DE ABP DE LA JORNADA (17/10/2026): la carpeta
+| `ABP\VIDEO - JUGADORES` se mira cada dos minutos (sólo nombres, tamaños y
+| fechas, que es gratis) y, si ha cambiado, `scripts/abp/video-jugadores.cjs`
+| comprime y sube lo nuevo para el informe de ABP. No es un encargo: nadie lo
+| pide, basta con dejar el vídeo en la carpeta. Si falla, se reintenta a los
+| diez minutos.
+*/
+const CARPETA_VIDEO_JUGADORES = "C:\\Users\\Usuario\\Downloads\\RMCF CASTILLA\\ABP\\VIDEO - JUGADORES";
+let firmaVideoJugadores = "";
+let videoJugadoresMirado = 0;
+let videoJugadoresCorriendo = false;
+
+function miraVideoJugadores() {
+  if (videoJugadoresCorriendo || Date.now() - videoJugadoresMirado < 120_000) return;
+
+  videoJugadoresMirado = Date.now();
+
+  let firma = "";
+
+  try {
+    firma = fs
+      .readdirSync(CARPETA_VIDEO_JUGADORES)
+      .filter((f) => /\.(mp4|mov|m4v|avi|mkv)$/i.test(f))
+      .sort()
+      .map((f) => {
+        const st = fs.statSync(path.join(CARPETA_VIDEO_JUGADORES, f));
+
+        return `${f}:${st.size}:${Math.round(st.mtimeMs)}`;
+      })
+      .join("|");
+  } catch {
+    return;
+  }
+
+  if (!firma || firma === firmaVideoJugadores) return;
+
+  videoJugadoresCorriendo = true;
+
+  ejecuta("videojug", process.execPath, [path.join(RAIZ, "scripts/abp/video-jugadores.cjs")])
+    .then(({ codigo, texto }) => {
+      const dice = resumen(texto);
+
+      /* Lo que aún se estaba copiando se vuelve a mirar en la vuelta siguiente; un fallo, a los diez minutos. */
+      if (codigo === 0 && !/copiándose/.test(dice)) firmaVideoJugadores = firma;
+      if (codigo !== 0) videoJugadoresMirado = Date.now() + 8 * 60_000;
+      if (dice && dice !== "nada nuevo en la carpeta") apunta(`Vídeo de ABP para jugadores: ${dice}.`);
+    })
+    .catch(() => {})
+    .finally(() => {
+      videoJugadoresCorriendo = false;
+      limpiaRegistros();
+    });
+}
+
 /** Arranca un trabajo sin esperarlo: la quiniela no tiene por qué esperar a Wyscout. */
 function arranca(tarea, trabajo) {
   enMarcha.add(tarea);
@@ -1229,6 +1284,8 @@ async function ronda() {
   }
 
   await cierraCortadas(estados).catch((error) => apunta(`No se han podido cerrar las pasadas cortadas: ${error.message}`));
+
+  miraVideoJugadores();
 
   if (Date.now() - calendarioEn > CALENDARIO_CADA_MS && !enMarcha.has("calendario")) {
     enMarcha.add("calendario");
