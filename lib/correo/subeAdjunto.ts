@@ -19,12 +19,13 @@
 export type AdjuntoSubido = { nombre: string; url: string; tipo: string; tamano: number; path: string };
 
 /** Dónde se guarda: para un correo (se barre a la semana) o como documento del rival (se queda). */
-export type DestinoSubida = { carpeta?: "informe" | "rival"; equipo?: string };
+export type DestinoSubida = { carpeta?: "informe" | "rival"; equipo?: string; /** La ruta de un PDF ya subido: la imagen va a su lado con su nombre (su vista previa). */ junto?: string };
 
 const TIPOS: Record<string, string> = {
   pdf: "application/pdf",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   mp4: "video/mp4",
+  jpg: "image/jpeg",
 };
 
 /** El tipo del archivo; Windows a veces no lo da y se saca de la extensión. */
@@ -40,7 +41,7 @@ export async function subeAdjunto(file: File, alProgreso?: (fraccion: number) =>
   const firma = await fetch("/api/informe/subida", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ nombre: file.name, tipo, tamano: file.size, carpeta: destino.carpeta ?? "informe", equipo: destino.equipo ?? "" }),
+    body: JSON.stringify({ nombre: file.name, tipo, tamano: file.size, carpeta: destino.carpeta ?? "informe", equipo: destino.equipo ?? "", junto: destino.junto ?? "" }),
   });
 
   if (firma.status === 401) {

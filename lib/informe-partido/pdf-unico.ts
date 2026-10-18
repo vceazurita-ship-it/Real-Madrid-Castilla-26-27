@@ -144,8 +144,11 @@ export async function informeUnicoPdf(o: {
   diapos: string[];
   hojas?: { hojas: string[]; ancho: number; alto: number } | null;
   final?: { imagen: string; enlaces: NonNullable<HojaPdf["enlaces"]> } | null;
+  /** La misma página de vídeo y documentos, pero DELANTE de todo (la de ABP desde el 18/10/2026). */
+  inicio?: { imagen: string; enlaces: NonNullable<HojaPdf["enlaces"]> } | null;
 }): Promise<Blob> {
   const paginas: HojaPdf[] = [
+    ...(o.inicio ? [{ imagen: o.inicio.imagen, ancho: W, alto: H, orientacion: "landscape" as const, margen: 0, enlaces: o.inicio.enlaces }] : []),
     ...o.diapos.map((imagen) => ({ imagen, ancho: W, alto: H, orientacion: "landscape" as const, margen: 0 })),
     ...(o.hojas?.hojas ?? []).map((imagen) => ({ imagen, ancho: o.hojas!.ancho, alto: o.hojas!.alto, orientacion: "portrait" as const, margen: 0 })),
     ...(o.final ? [{ imagen: o.final.imagen, ancho: W, alto: H, orientacion: "landscape" as const, margen: 0, enlaces: o.final.enlaces }] : []),

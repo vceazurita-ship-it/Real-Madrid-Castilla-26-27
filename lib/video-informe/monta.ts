@@ -79,7 +79,19 @@ export type OpcionesVideo = {
   alPaso?: PasoVideo;
   /** La familia de la fuente del informe (Barlow Condensed de next/font lleva un nombre propio). */
   fuente?: string;
+  /**
+   * Un vídeo ENTERO que va detrás del guion (18/10/2026, el de ABP para los
+   * jugadores): a pantalla completa, con su propio sonido, sin música ni
+   * rótulos encima. El guion queda como entrada corta (sin estirar a un minuto).
+   */
+  cola?: { url: string } | null;
+  /** Lo más que dura el guion (sin la cola). */
+  tope?: number;
 };
+
+/* Con cola, un solo vídeo (el enlazado): todo el margen del bucket para él. */
+const BYTES_OBJETIVO_COLA = 44 * 1024 * 1024;
+const caudalColaPara = (segundos: number) => Math.round(Math.max(600_000, Math.min(CAUDAL_HD, (BYTES_OBJETIVO_COLA * 8) / Math.max(1, segundos) - CAUDAL_SONIDO)));
 
 export function puedeMontarVideo() {
   return typeof VideoEncoder !== "undefined" && typeof AudioEncoder !== "undefined" && typeof VideoFrame !== "undefined" && typeof document !== "undefined";
@@ -313,8 +325,29 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
 
   /* Sin voz en off desde el 13/10/2026: música compuesta (musica.ts) y el texto en pantalla. */
   const pistas = null;
-  const escenas = reparteEscenas(guion, pistas, FRECUENCIA_AAC, SEGUNDOS_MAXIMOS);
-  const total = escenas.reduce((s, x) => s + x.segundos, 0);
+  const escenas = reparteEscenas(guion, pistas, FRECUENCIA_AAC, opciones.tope ?? SEGUNDOS_MAXIMOS, opciones.cola ? 0 : undefined);
+  const totalGuion = escenas.reduce((s, x) => s + x.segundos, 0);
+
+  /* La cola: se baja entera y se descodifica como un corte; si no se puede leer, no hay vídeo (es lo principal). */
+  let cola: { fuente: FotogramasCorte; sonido: Float32Array | null; segundos: number } | null = null;
+
+  if (opciones.cola?.url) {
+    alPaso("bajando tu vídeo…");
+    const blob = await conPlazo(
+      fetch(opciones.cola.url)
+        .then((r) => (r.ok ? r.blob() : null))
+        .catch(() => null),
+      180_000,
+      null,
+    );
+    const fuenteCola = blob?.size ? await FotogramasCorte.abre(blob) : null;
+
+    if (!blob || !fuenteCola) throw new Error("Tu vídeo no se puede leer en este navegador (prueba con Chrome o Edge).");
+
+    cola = { fuente: fuenteCola, sonido: await sonidoDelClip(blob), segundos: fuenteCola.duracion };
+  }
+
+  const total = totalGuion + (cola?.segundos ?? 0);
 
   alPaso("fotos y cortes…");
   const rec: Recursos = { imagenes: new Map() };
@@ -362,19 +395,20 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
       },
     });
 
-  const muxor = new MuxorMp4();
-  const codificador = codificadorPara(muxor, ANCHO, ALTO);
-
-  codificador.configure({ codec: CODEC, width: ANCHO, height: ALTO, bitrate: caudalPara(total), framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
-
   /* El de Full HD, si el navegador lo sabe hacer; si no, el vídeo sale en 720p como antes. */
-  const caudalHd = caudalHdPara(total);
+  const caudalHd = cola ? caudalColaPara(total) : caudalHdPara(total);
   const codec = await codecHd(caudalHd);
   const muxorHd = codec ? new MuxorMp4() : null;
   const codificadorHd = muxorHd ? codificadorPara(muxorHd, ANCHO_HD, ALTO_HD) : null;
 
   codificadorHd?.configure({ codec: codec!, width: ANCHO_HD, height: ALTO_HD, bitrate: caudalHd, framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
-  const muxores = muxorHd ? [muxor, muxorHd] : [muxor];
+
+  /* La copia ligera (la adjunta del correo). Con cola el vídeo sólo va enlazado: no se hace, salvo que no haya HD. */
+  const muxor = cola && codificadorHd ? null : new MuxorMp4();
+  const codificador = muxor ? codificadorPara(muxor, ANCHO, ALTO) : null;
+
+  codificador?.configure({ codec: CODEC, width: ANCHO, height: ALTO, bitrate: cola ? caudalColaPara(total) : caudalPara(total), framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
+  const muxores = [muxor, muxorHd].filter((m): m is MuxorMp4 => Boolean(m));
 
   const frecuencia = FRECUENCIA_AAC;
   let enMuestras = 0;
@@ -428,7 +462,9 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
     });
   });
 
-  pista.set(bandaSonora({ total, cortes: arranques.slice(1), tramosConSonido, golpes, frecuencia }).subarray(0, totalMuestras));
+  const muestrasGuion = Math.min(totalMuestras, Math.ceil(totalGuion * frecuencia));
+
+  pista.set(bandaSonora({ total: totalGuion, cortes: arranques.slice(1), tramosConSonido, golpes, frecuencia }).subarray(0, muestrasGuion));
 
   /* El sonido ambiente de cada corte, bajo y con fundidos, en el sitio donde se ve. */
   escenas.forEach((x, k) => {
@@ -453,7 +489,29 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
     });
   });
 
-  masteriza(pista);
+  /*
+  | Se masteriza el guion; la cola lleva su sonido tal cual (con un fundido de
+  | entrada para no dar un golpe). La música de la entrada se deja al nivel de
+  | la cola: con el vídeo del 18/10 la música iba a −15 dB y su vídeo a −30, y
+  | al entrar parecía que se había quitado el sonido.
+  */
+  if (cola) {
+    let suma = 0;
+    const s = cola.sonido;
+
+    if (s) for (let i = 0; i < s.length; i += 1) suma += s[i] * s[i];
+
+    const rmsCola = s?.length ? Math.sqrt(suma / s.length) : 0;
+
+    masteriza(pista.subarray(0, muestrasGuion), rmsCola > 0.005 ? Math.min(0.19, Math.max(0.04, rmsCola * 1.3)) : undefined);
+  } else masteriza(pista);
+
+  if (cola?.sonido) {
+    const n = Math.min(cola.sonido.length, totalMuestras - muestrasGuion);
+    const fundido = 0.25 * frecuencia;
+
+    for (let j = 0; j < n; j += 1) pista[muestrasGuion + j] = cola.sonido[j] * Math.min(1, j / fundido);
+  }
 
   for (let i = 0; i < totalMuestras; i += 1024) {
     const n = Math.min(1024, totalMuestras - i);
@@ -469,7 +527,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   lienzo.width = codificadorHd ? ANCHO_HD : ANCHO;
   lienzo.height = codificadorHd ? ALTO_HD : ALTO;
   const ctx = lienzo.getContext("2d", { alpha: false })!;
-  const reducido = codificadorHd ? document.createElement("canvas") : null;
+  const reducido = codificadorHd && codificador ? document.createElement("canvas") : null;
   const ctxReducido = reducido?.getContext("2d", { alpha: false }) ?? null;
 
   if (reducido && ctxReducido) {
@@ -482,15 +540,42 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   grano.height = 256;
   rellenaGrano(grano.getContext("2d")!);
   const totalFotogramas = Math.round(total * FPS);
+  const fotogramasGuion = Math.round(totalGuion * FPS);
   let fotograma = 0;
   /* El fotograma del póster: la portada a los 2,4 s, con los escudos y el título ya dentro. */
   let fotoPoster: HTMLCanvasElement | null = null;
   let clipEnCurso: Clip | null = null;
 
+  /* Cada fotograma pintado, a los codificadores (el HD y, si va, la copia ligera reducida). */
+  const codifica = async () => {
+    const tiempo = { timestamp: Math.round((fotograma / FPS) * 1e6), duration: Math.round(1e6 / FPS) };
+    const clave = { keyFrame: fotograma % (FPS * 2) === 0 };
+
+    if (codificadorHd) {
+      const hd = new VideoFrame(lienzo, tiempo);
+
+      codificadorHd.encode(hd, clave);
+      hd.close();
+    }
+
+    if (codificador) {
+      if (reducido && ctxReducido) ctxReducido.drawImage(lienzo, 0, 0, ANCHO, ALTO);
+
+      const marca = new VideoFrame(reducido ?? lienzo, tiempo);
+
+      codificador.encode(marca, clave);
+      marca.close();
+    }
+
+    fotograma += 1;
+
+    while ((codificador?.encodeQueueSize ?? 0) > 8 || (codificadorHd?.encodeQueueSize ?? 0) > 8) await respira();
+  };
+
   for (const [k, x] of escenas.entries()) {
     alPaso(`escena ${k + 1}/${escenas.length}…`);
 
-    const cuantos = k === escenas.length - 1 ? totalFotogramas - fotograma : Math.round(x.segundos * FPS);
+    const cuantos = k === escenas.length - 1 ? fotogramasGuion - fotograma : Math.round(x.segundos * FPS);
     const e = x.escena;
 
     for (let i = 0; i < cuantos; i += 1) {
@@ -521,30 +606,54 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
         fotoPoster.getContext("2d")!.drawImage(lienzo, 0, 0, ANCHO, ALTO);
       }
 
-      const tiempo = { timestamp: Math.round((fotograma / FPS) * 1e6), duration: Math.round(1e6 / FPS) };
-      const clave = { keyFrame: fotograma % (FPS * 2) === 0 };
-
-      if (codificadorHd && reducido && ctxReducido) {
-        const hd = new VideoFrame(lienzo, tiempo);
-
-        codificadorHd.encode(hd, clave);
-        hd.close();
-        ctxReducido.drawImage(lienzo, 0, 0, ANCHO, ALTO);
-      }
-
-      const marca = new VideoFrame(reducido ?? lienzo, tiempo);
-
-      codificador.encode(marca, clave);
-      marca.close();
-      fotograma += 1;
-
-      while (codificador.encodeQueueSize > 8 || (codificadorHd?.encodeQueueSize ?? 0) > 8) await respira();
+      await codifica();
     }
   }
 
+  /* La cola: el vídeo entero a pantalla completa (encajado, sin recortar), saliendo del fondo del informe. */
+  if (cola) {
+    clipEnCurso?.fuente.cierra();
+
+    const cuantos = totalFotogramas - fotograma;
+    const W = lienzo.width;
+    const H = lienzo.height;
+
+    for (let i = 0; i < cuantos; i += 1) {
+      if (fallo) throw fallo;
+      if (i % FPS === 0) alPaso(`tu vídeo ${Math.round((i / cuantos) * 100)} %…`);
+
+      const t = i / FPS;
+      const cuadro = await cola.fuente.en(t);
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, W, H);
+
+      if (cuadro) {
+        const vw = cuadro.displayWidth;
+        const vh = cuadro.displayHeight;
+        const e = Math.min(W / vw, H / vh);
+
+        ctx.drawImage(cuadro, (W - vw * e) / 2, (H - vh * e) / 2, vw * e, vh * e);
+      }
+
+      if (t < 0.5) {
+        ctx.globalAlpha = 1 - t / 0.5;
+        ctx.fillStyle = "#08111F";
+        ctx.fillRect(0, 0, W, H);
+        ctx.globalAlpha = 1;
+      }
+
+      await codifica();
+    }
+
+    cola.fuente.cierra();
+  }
+
   alPaso("cerrando el vídeo…");
-  await Promise.all([codificador.flush(), codificadorHd?.flush(), sonido.flush()]);
-  codificador.close();
+  await Promise.all([codificador?.flush(), codificadorHd?.flush(), sonido.flush()]);
+  codificador?.close();
   codificadorHd?.close();
   sonido.close();
 
@@ -558,12 +667,12 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
 
   const poster = await posterDeVideo(fotoPoster, { segundos: total, rotulo: guion.titulo }).catch(() => undefined);
 
-  const ligero = muxor.cierra();
+  const ligero = muxor ? muxor.cierra() : null;
   const hd = muxorHd ? muxorHd.cierra() : null;
   /* Si el HD se pasara del tope del bucket (50 MB), no se podría subir: va la copia ligera como vídeo único. */
   const hdCabe = hd && hd.size < 49 * 1024 * 1024;
 
-  if (hd && !hdCabe) console.warn(`[vídeo] el HD pesa ${(hd.size / 1048576).toFixed(1)} MB y no cabe en el bucket: va el de 720p`);
+  if (hd && !hdCabe) console.warn(`[vídeo] el HD pesa ${(hd.size / 1048576).toFixed(1)} MB y no cabe en el bucket${ligero ? ": va el de 720p" : ""}`);
 
-  return { blob: hdCabe ? hd : ligero, ligero: hdCabe ? ligero : null, segundos: Math.round(total), conVoz: false, escenas: escenas.length, poster };
+  return { blob: hdCabe || !ligero ? hd! : ligero, ligero: hdCabe ? ligero : null, segundos: Math.round(total), conVoz: false, escenas: escenas.length, poster };
 }

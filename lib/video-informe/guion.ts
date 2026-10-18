@@ -780,3 +780,19 @@ export function guionDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, extra
 
   return { titulo: `ABP · ${informe.titulo}`, escenas };
 }
+
+/** Lo que dura como mucho la entrada del informe delante de nuestro vídeo de ABP. */
+export const SEGUNDOS_ENTRADA_ABP = 36;
+
+/**
+ * La ENTRADA del vídeo de ABP para los jugadores (18/10/2026, lo pidió el
+ * usuario): un trozo del informe —la portada, las cifras de la semana, lo que
+ * hay que mirar y el rival— y detrás va nuestro vídeo entero (la «cola» de
+ * `montaVideoInforme`). Sin cortes ni láminas: eso ya lo cuenta nuestro vídeo.
+ */
+export function entradaDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, extras: Pick<ExtrasAbp, "escudoRival"> = {}): GuionVideo {
+  const entran = new Set(["portada", "cifras", "claves", "rival"]);
+  const completo = guionDeAbp(informe, pincelada, { escudoRival: extras.escudoRival });
+
+  return { ...completo, escenas: completo.escenas.filter((e) => entran.has(e.id)) };
+}

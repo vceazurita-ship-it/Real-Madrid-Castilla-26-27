@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, MessageCircle, Users, X } from "lucide-react";
+import { Check, Copy, FileDown, MessageCircle, Share2, Users, X } from "lucide-react";
 
 import { enlaceWhatsapp, telefonoLegible, type MensajeWhatsapp } from "@/lib/correo/whatsapp";
 
@@ -11,11 +11,36 @@ import { enlaceWhatsapp, telefonoLegible, type MensajeWhatsapp } from "@/lib/cor
  * varias pestañas de un clic, así que va uno a uno; cada botón se marca al
  * pulsarlo para saber por dónde se va.
  */
-export function PanelWhatsapp({ mensajes, telefonos, onCierra }: { mensajes: MensajeWhatsapp[]; telefonos: string[]; onCierra: () => void }) {
+export function PanelWhatsapp({ mensajes, telefonos, archivo, onCierra }: { mensajes: MensajeWhatsapp[]; telefonos: string[]; /** El PDF del informe, para mandarlo como archivo (18/10/2026). */ archivo?: File | null; onCierra: () => void }) {
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   const [copiado, setCopiado] = useState<number | null>(null);
 
   if (!mensajes.length) return null;
+
+  /* El móvil (y Windows con la app de WhatsApp) deja compartir el archivo; si no, se descarga y se adjunta a mano. */
+  const comparteArchivo = typeof navigator !== "undefined" && Boolean(archivo) && Boolean(navigator.canShare?.({ files: [archivo!] }));
+
+  const comparte = async () => {
+    if (!archivo) return;
+
+    try {
+      await navigator.share({ files: [archivo], title: archivo.name, text: mensajes[0]?.texto });
+    } catch {
+      /* Cancelado: no pasa nada. */
+    }
+  };
+
+  const descarga = () => {
+    if (!archivo) return;
+
+    const url = URL.createObjectURL(archivo);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = archivo.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  };
 
   const abre = (clave: string, numero: string | null, texto: string) => {
     window.open(enlaceWhatsapp(numero, texto), "_blank", "noopener");
@@ -41,6 +66,22 @@ export function PanelWhatsapp({ mensajes, telefonos, onCierra }: { mensajes: Men
           <X size={15} />
         </button>
       </div>
+
+      {archivo ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {comparteArchivo ? (
+            <button type="button" onClick={() => void comparte()} className="flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-emerald-400">
+              <Share2 size={14} /> Compartir el PDF
+            </button>
+          ) : null}
+          <button type="button" onClick={descarga} className="flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/75 hover:bg-white/10">
+            <FileDown size={14} /> Descargar el PDF
+          </button>
+          <span className="text-[11px] text-white/45">
+            {comparteArchivo ? "Sale el PDF como archivo; elige WhatsApp y el chat." : "Para mandarlo como archivo, descárgalo y adjúntalo en el chat."} La primera página lleva el vídeo enlazado.
+          </span>
+        </div>
+      ) : null}
 
       {mensajes.map((m, i) => (
         <div key={m.titulo} className="space-y-2">

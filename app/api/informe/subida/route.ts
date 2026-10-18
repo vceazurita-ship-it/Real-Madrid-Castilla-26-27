@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     return mal("Entra con tu cuenta del cuerpo técnico (la de la quiniela) para adjuntar archivos.", 401);
   }
 
-  let cuerpo: { nombre?: unknown; tipo?: unknown; tamano?: unknown; carpeta?: unknown; equipo?: unknown };
+  let cuerpo: { nombre?: unknown; tipo?: unknown; tamano?: unknown; carpeta?: unknown; equipo?: unknown; junto?: unknown };
 
   try {
     cuerpo = (await request.json()) as typeof cuerpo;
@@ -71,7 +71,16 @@ export async function POST(request: NextRequest) {
 
   if (!nombre) return mal("El archivo no tiene nombre.");
 
-  if (!ADJUNTOS_PERMITIDOS.has(tipo)) return mal("Sólo se pueden adjuntar PDF, PowerPoint (.pptx) y el vídeo resumen (.mp4).");
+  /*
+  | JUNTO A OTRO (18/10/2026): la tarjeta de vista previa de un PDF (la imagen
+  | que enseñan WhatsApp y el correo) va al lado del PDF con su mismo nombre,
+  | para que la página /pdf/… la encuentre sin guardar nada más.
+  */
+  const junto = typeof cuerpo.junto === "string" && /^2026\/informes\/\d{4}-\d{2}-\d{2}\/[a-z0-9]{8}-[A-Za-z0-9._-]+\.pdf$/.test(cuerpo.junto) ? cuerpo.junto : "";
+
+  if (tipo === "image/jpeg" && !junto) return mal("La imagen sólo se sube como vista previa de un PDF.");
+
+  if (!ADJUNTOS_PERMITIDOS.has(tipo) && tipo !== "image/jpeg") return mal("Sólo se pueden adjuntar PDF, PowerPoint (.pptx) y el vídeo resumen (.mp4).");
 
   if (!Number.isFinite(tamano) || tamano <= 0) return mal("El archivo está vacío.");
 
@@ -103,7 +112,7 @@ export async function POST(request: NextRequest) {
 
   if (deRival && (!equipo || equipo === "archivo")) return mal("Falta el equipo del documento.");
 
-  const path = deRival ? `${CARPETA_RIVALES}${equipo}/${azar}-${limpiaNombre(nombre)}` : `2026/informes/${dia}/${azar}-${limpiaNombre(nombre)}`;
+  const path = junto ? junto.replace(/\.pdf$/, ".jpg") : deRival ? `${CARPETA_RIVALES}${equipo}/${azar}-${limpiaNombre(nombre)}` : `2026/informes/${dia}/${azar}-${limpiaNombre(nombre)}`;
 
   /* El barrido de lo viejo, sin esperar ni fallar por él. */
   void barreInformes(supabase.storage.from(BUCKET)).catch((error) => console.error("[informe] barrido", error));

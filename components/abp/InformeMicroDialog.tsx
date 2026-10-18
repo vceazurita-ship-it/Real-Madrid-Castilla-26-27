@@ -25,6 +25,11 @@ import { toast } from "sonner";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
+import { montaVideoInforme, puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
+import { SEGUNDOS_ENTRADA_ABP, entradaDeAbp } from "@/lib/video-informe/guion";
+import { barlowCondensed } from "@/lib/rivals/portada-font";
+import { enlaceConTarjeta, nombrePartidoPdf } from "@/lib/informe-partido/tarjeta-pdf";
+import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 
@@ -68,6 +73,39 @@ import {
   porJugadorAbp,
   type AccionAbp,
 } from "@/lib/data-analisis/abp-propio";
+
+/** El vídeo para los jugadores que se está montando (o ya montado), y para qué informe. */
+type Montaje = { clave: string; promesa: Promise<VideoMontado | null> };
+type EstadoMontaje = { clave: string; texto: string; listo: boolean; fallo?: string };
+
+/**
+ * Monta la entrada del informe + nuestro vídeo entero. Uno detrás de otro: si
+ * el informe cambia a mitad, el nuevo espera a que acabe el anterior (dos a la
+ * vez se pisarían el descodificador). Nunca falla: `null` si no ha salido.
+ */
+function arrancaMontaje(ref: { current: Montaje | null }, clave: string, informe: InformeMicro, url: string, rival: string, estado: (e: EstadoMontaje) => void) {
+  const anterior = ref.current?.promesa ?? Promise.resolve(null);
+  const promesa = anterior
+    .catch(() => null)
+    /* El escudo del rival para la portada de la entrada (sin él, sale la jornada en su sitio). */
+    .then(() => (rival ? traeEscudos().then((lista) => buscadorDeEscudos(lista)(rival)) : null))
+    .then((escudoRival) => montaVideoInforme(entradaDeAbp(informe, pinceladaAbp(informe), { escudoRival }), { cola: { url }, tope: SEGUNDOS_ENTRADA_ABP, fuente: barlowCondensed.style.fontFamily, alPaso: (texto) => estado({ clave, texto, listo: false }) }))
+    .then((v) => {
+      estado({ clave, texto: "", listo: true });
+
+      return v;
+    })
+    .catch((error) => {
+      console.warn("[abp] el vídeo para los jugadores no se ha montado", error);
+      estado({ clave, texto: "", listo: false, fallo: error instanceof Error ? error.message : "No se ha podido montar." });
+
+      return null;
+    });
+
+  ref.current = { clave, promesa };
+
+  return promesa;
+}
 
 /** Lo que la pantalla del microciclo ya tiene y aquí no hay que volver a pedir. */
 export type DatosDelMicro = Omit<
@@ -677,6 +715,33 @@ export function InformeMicroDialog({
 
   const cargandoPropio = acciones === null;
 
+  /*
+  | EL VÍDEO PARA LOS JUGADORES (18/10/2026, lo pidió el usuario): delante de
+  | nuestro vídeo entero, una entrada con lo principal del informe (portada,
+  | cifras, lo que hay que mirar y el rival). Se monta mientras se revisa
+  | —tarda más o menos lo que dura el vídeo— y al enviar se usa el que haya o
+  | se espera al que va por la mitad. Si no sale, va nuestro vídeo tal cual.
+  */
+  const informeListo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando;
+  const claveMontaje =
+    conVideo && videoJugadores && informeListo && puedeMontarVideo() ? [videoJugadores.url, informe.modo, informe.titulo, ...informe.resumen.map((c) => c.valor)].join("|") : "";
+  const montaje = useRef<Montaje | null>(null);
+  const informeVivo = useRef(informe);
+  const [estadoMontaje, setEstadoMontaje] = useState<EstadoMontaje>({ clave: "", texto: "", listo: false });
+
+  useEffect(() => {
+    informeVivo.current = informe;
+  }, [informe]);
+
+  useEffect(() => {
+    if (!claveMontaje || !videoJugadores || montaje.current?.clave === claveMontaje) return;
+
+    /* Unos segundos quieto antes de empezar: cambiar de previa a post no lanza dos montajes. */
+    const reloj = window.setTimeout(() => arrancaMontaje(montaje, claveMontaje, informeVivo.current, videoJugadores.url, rivalVideo, setEstadoMontaje), 3000);
+
+    return () => window.clearTimeout(reloj);
+  }, [claveMontaje, videoJugadores, rivalVideo]);
+
   /* Lo que el informe no sabe: se enseña al pulsar «Enviar», no en el correo. */
   const [avisando, setAvisando] = useState(false);
 
@@ -684,6 +749,7 @@ export function InformeMicroDialog({
   const canal: CanalEnvio = ajustes.canal ?? "correo";
   const telefonosWa = telefonosDe(ajustes.telefonos ?? "");
   const [mensajesWa, setMensajesWa] = useState<MensajeWhatsapp[]>([]);
+  const [pdfWa, setPdfWa] = useState<File | null>(null);
   const { apunta } = useAgendaEnvios();
 
   const envia = async () => {
@@ -744,7 +810,30 @@ export function InformeMicroDialog({
       */
       let infoVideo: { url: string; segundos: number; poster: string | null } | null = null;
 
-      if (conVideo && videoJugadores) {
+      /* El montado (entrada del informe + nuestro vídeo): el que haya, o se espera al que va por la mitad. */
+      if (conVideo && videoJugadores && claveMontaje) {
+        const enCurso = montaje.current?.clave === claveMontaje ? montaje.current.promesa : arrancaMontaje(montaje, claveMontaje, informe, videoJugadores.url, rivalVideo, setEstadoMontaje);
+
+        setPasoVideo("terminando el montaje…");
+
+        const montado = await enCurso;
+
+        if (montado) {
+          try {
+            const nombre = `${paraEnviar.titulo} - Balón parado en vídeo.mp4`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
+            const subido = await subeAdjunto(new File([montado.blob], nombre, { type: "video/mp4" }), (f) => setPasoVideo(`subiendo ${Math.round(f * 100)} %`));
+
+            infoVideo = { url: subido.url, segundos: montado.segundos, poster: montado.poster ?? null };
+          } catch (error) {
+            console.warn("[abp] el vídeo montado no ha subido", error);
+            toast.message("Va nuestro vídeo sin la entrada del informe", { description: error instanceof Error ? error.message : "No ha subido." });
+          }
+        } else {
+          toast.message("Va nuestro vídeo sin la entrada del informe", { description: "No se ha podido montar en este navegador." });
+        }
+      }
+
+      if (conVideo && videoJugadores && !infoVideo) {
         setPasoVideo("preparando el enlace…");
 
         const poster = videoJugadores.poster
@@ -768,23 +857,38 @@ export function InformeMicroDialog({
       }
 
       /*
-      | UN PDF Y UN VÍDEO (16/10/2026): el informe entero en PDF —con la página
-      | «Vídeo y documentos» al final: el vídeo en HD y los PDF del rival— va
-      | adjunto delante del vídeo. Si no sale, el correo sigue sin él.
+      | UN PDF Y UN VÍDEO (16/10/2026): el informe entero en PDF va adjunto
+      | delante del vídeo. Desde el 18/10/2026 la página «Vídeo y documentos»
+      | (el vídeo enlazado y los PDF del rival) es la PRIMERA: lo primero que
+      | se ve al abrirlo, también desde WhatsApp. Si no sale, se sigue sin él.
       */
+      let pdf: File | null = null;
+      let enlacePdf: { nombre: string; url: string } | null = null;
+
       try {
         setPasoVideo("armando el PDF…");
 
         const hojas = await completoEnHojas(informeHtml(paraEnviar), (h, t) => setPasoVideo(`PDF ${h}/${t}…`), { titulo: paraEnviar.titulo });
-        const final = await paginaDeEnlaces({
+        const portada = await paginaDeEnlaces({
           titulo: paraEnviar.titulo,
           video: infoVideo,
           enlaces: (paraEnviar.rivalAnalisis?.documentos ?? []).map((d) => ({ nombre: d.nombre, url: d.url, detalle: "Informe del rival en PDF" })),
         }).catch(() => null);
-        const blob = await informeUnicoPdf({ titulo: paraEnviar.titulo, diapos: [], hojas, final });
-        const nombrePdf = `${paraEnviar.titulo} - Balón parado.pdf`.replace(/[\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
-        const subido = await subeAdjunto(new File([blob], nombrePdf, { type: "application/pdf" }), (f) => setPasoVideo(`subiendo el PDF ${Math.round(f * 100)} %`));
+        const conPortada = Boolean(infoVideo || paraEnviar.rivalAnalisis?.documentos?.length);
+        const blob = await informeUnicoPdf({ titulo: paraEnviar.titulo, diapos: [], hojas, inicio: conPortada ? portada : null });
+        /* «J8 · RM Castilla - Antequera CF · ABP» (18/10/2026): la jornada y el partido, en el archivo y en el enlace. */
+        const pc = datos.partidoCalendario;
+        const partido = { jornada: pc?.jornada ?? null, local: pc ? (pc.lado === "casa" ? "RM Castilla" : pc.rival) : "", visitante: pc ? (pc.lado === "casa" ? pc.rival : "RM Castilla") : "" };
+        const titulo = nombrePartidoPdf({ ...partido, sufijo: "ABP", respaldo: paraEnviar.titulo });
+        const nombrePdf = `${titulo}.pdf`.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ");
 
+        pdf = new File([blob], nombrePdf, { type: "application/pdf" });
+
+        const subido = await subeAdjunto(pdf, (f) => setPasoVideo(`subiendo el PDF ${Math.round(f * 100)} %`));
+
+        /* El correo adjunta el PDF desde el almacén; WhatsApp lleva el enlace con la tarjeta (escudos e icono de PDF). */
+        setPasoVideo("tarjeta del enlace…");
+        enlacePdf = { nombre: nombrePdf, url: await enlaceConTarjeta(subido, { ...partido, titulo, detalle: `Balón parado · ${paraEnviar.modoRotulo}`, fuente: barlowCondensed.style.fontFamily }) };
         adjuntosUrl.unshift({ nombre: nombrePdf, url: subido.url, tipo: "application/pdf" });
       } catch (error) {
         console.warn("[abp] el PDF del informe no ha salido", error);
@@ -793,15 +897,27 @@ export function InformeMicroDialog({
         setPasoVideo("");
       }
 
+      /*
+      | Por WhatsApp (18/10/2026): nada de informe en texto —quedaba pobre—.
+      | Mensaje corto con el PDF y el vídeo, y el PDF se puede compartir como
+      | archivo (el panel lo ofrece si el aparato deja).
+      */
       if (canal === "whatsapp") {
+        setPdfWa(pdf);
         setMensajesWa([
           {
             titulo: "Informe de balón parado",
-            texto: mensajeWhatsapp({ asunto: paraEnviar.asunto, resumen: informeTexto(paraEnviar), video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: adjuntosUrl }),
+            texto: mensajeWhatsapp({
+              asunto: paraEnviar.asunto,
+              mensaje: infoVideo ? "El informe en PDF y el vídeo: primero lo principal del informe y después nuestro vídeo entero." : "El informe en PDF.",
+              video: (infoVideo as { url: string } | null)?.url ?? null,
+              enlaces: adjuntosUrl.map((a) => (enlacePdf && a.nombre === enlacePdf.nombre ? { ...a, url: enlacePdf.url } : a)),
+              documentosPrimero: true,
+            }),
           },
         ]);
         apunta("whatsapp", telefonosWa.buenos);
-        toast.success("Listo para WhatsApp", { description: "Debajo de los destinatarios, un botón por persona con el mensaje escrito." });
+        toast.success("Listo para WhatsApp", { description: "Debajo de los destinatarios: el PDF para compartir y un botón por persona con los enlaces." });
 
         return;
       }
@@ -969,17 +1085,28 @@ export function InformeMicroDialog({
             {videoJugadores ? (
               <label className="flex cursor-pointer items-center gap-2 text-[11px] text-white/70" title={videoJugadores.nombre}>
                 <input type="checkbox" className="accent-[#C8A96B]" checked={conVideo} disabled={enviando} onChange={(e) => setConVideo(e.target.checked)} />
-                Incluir nuestro vídeo de la jornada · «{videoJugadores.nombre.replace(/\.[a-z0-9]+$/i, "")}» ({Math.floor(videoJugadores.segundos / 60)}:{String(videoJugadores.segundos % 60).padStart(2, "0")}, enlazado)
+                Incluir nuestro vídeo de la jornada · «{videoJugadores.nombre.replace(/\.[a-z0-9]+$/i, "")}» ({Math.floor(videoJugadores.segundos / 60)}:{String(videoJugadores.segundos % 60).padStart(2, "0")}), con la entrada del informe delante
               </label>
             ) : (
               <p className="text-[11px] text-white/40">
                 Para que lleve nuestro vídeo, déjalo en ABP\VIDEO - JUGADORES con la jornada en el nombre ({jornadaPartido ? `«J${jornadaPartido}»` : "«J8»"}): el ordenador del club lo sube solo en un par de minutos.
               </p>
             )}
-            <p className="text-[11px] text-white/35">
-              Sale de la cuenta de Google del club, la misma que sube los vídeos
-              al canal.
-            </p>
+            {conVideo && videoJugadores && claveMontaje && estadoMontaje.clave === claveMontaje ? (
+              <p className={`text-[11px] ${estadoMontaje.fallo ? "text-amber-300/80" : "text-white/45"}`}>
+                {estadoMontaje.listo
+                  ? "Vídeo montado: la entrada del informe y después el nuestro entero."
+                  : estadoMontaje.fallo
+                    ? `El montaje no ha salido (${estadoMontaje.fallo}): irá nuestro vídeo tal cual.`
+                    : `Montando el vídeo mientras revisas · ${estadoMontaje.texto}`}
+              </p>
+            ) : null}
+            {canal === "correo" ? (
+              <p className="text-[11px] text-white/35">
+                Sale de la cuenta de Google del club, la misma que sube los vídeos
+                al canal.
+              </p>
+            ) : null}
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
@@ -1055,7 +1182,7 @@ export function InformeMicroDialog({
           onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
         />
 
-        <PanelWhatsapp mensajes={mensajesWa} telefonos={telefonosWa.buenos} onCierra={() => setMensajesWa([])} />
+        <PanelWhatsapp mensajes={mensajesWa} telefonos={telefonosWa.buenos} archivo={pdfWa} onCierra={() => setMensajesWa([])} />
 
         <p className="text-[11px] leading-relaxed text-white/35">
           Se guardan solos y valen para todos los microciclos; los de otras veces se proponen debajo.

@@ -59,11 +59,19 @@ export function enlaceWhatsapp(numero: string | null, texto: string) {
 const TOPE_TEXTO = 3500;
 
 /** El mensaje: el asunto en negrita, lo que se quiera decir, el vídeo y los documentos con su enlace. */
-export function mensajeWhatsapp(o: { asunto: string; mensaje?: string; firma?: string; resumen?: string; video?: string | null; enlaces: { nombre: string; url: string }[] }) {
-  const enlaces = [
-    ...(o.video ? [`▶️ Vídeo en HD: ${o.video}`] : []),
-    ...o.enlaces.filter((d) => d.url !== o.video && !/\.mp4$/i.test(d.nombre)).map((d) => `📄 ${d.nombre}: ${d.url}`),
-  ].join("\n");
+export function mensajeWhatsapp(o: {
+  asunto: string;
+  mensaje?: string;
+  firma?: string;
+  resumen?: string;
+  video?: string | null;
+  enlaces: { nombre: string; url: string }[];
+  /** Los documentos antes que el vídeo: WhatsApp saca la vista previa del PRIMER enlace (la tarjeta del PDF). */
+  documentosPrimero?: boolean;
+}) {
+  const video = o.video ? [`▶️ Vídeo en HD: ${o.video}`] : [];
+  const documentos = o.enlaces.filter((d) => d.url !== o.video && !/\.mp4$/i.test(d.nombre)).map((d) => `📄 ${d.nombre}: ${d.url}`);
+  const enlaces = (o.documentosPrimero ? [...documentos, ...video] : [...video, ...documentos]).join("\n");
 
   const cabeza = [`*${o.asunto.trim()}*`, o.mensaje?.trim() ? `${o.mensaje.trim()}${o.firma ? `\n— ${o.firma}` : ""}` : ""].filter(Boolean).join("\n\n");
   const hueco = TOPE_TEXTO - cabeza.length - enlaces.length - 8;
