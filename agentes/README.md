@@ -16,7 +16,7 @@ Montada el 19/10/2026. Prepara los **borradores** de la semana (informe post del
                       │                    (opus / sonnet)    ◄── 1 corrección ┘    │
                       │                                       ─► redactor-jugadores │
                       │ lector-cortes (haiku) · revisor-cambios (sonnet) ·          │
-                      │ mantenedor (opus)                                           │
+                      │ mantenedor (sonnet)                                           │
                       └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -34,7 +34,7 @@ Montada el 19/10/2026. Prepara los **borradores** de la semana (informe post del
 | `redactor-jugadores` | sonnet | el informe YA verificado | mensaje de ≤ 700 caracteres y 3 puntos | al final |
 | `lector-cortes` | haiku | 3 fotogramas por corte + datos de Hudl | qué pasa en cada corte, sin nombres | cuando hay cortes |
 | `revisor-cambios` | sonnet | git diff | fallos reales con escenario y arreglo | a mano o en GitHub |
-| `mantenedor` | opus | registros del vigía | diagnóstico con evidencia y arreglo propuesto | a mano |
+| `mantenedor` | sonnet | registros del vigía | diagnóstico con evidencia y arreglo propuesto | cada mañana (vigía) |
 
 Todos **sólo leen** (lo comprueba `scripts/agentes/valida.mjs` en GitHub). Las reglas comunes (`agentes/reglas.md`: sólo lo que está en el paquete, cada frase con fuente, lo que no tiene dato no se nombra, hora de Madrid…) se añaden a todos. La salida de cada uno es un JSON con esquema fijo (`agentes/esquemas/`), que Claude Code garantiza con `--json-schema`.
 

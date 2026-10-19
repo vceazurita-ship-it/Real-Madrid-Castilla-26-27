@@ -125,12 +125,12 @@ async function agente({ nombre, encargo, salida, esquemaDe, entradas = [] }) {
   */
   const plazo = def.modelo === "opus" ? PLAZO_MS : 10 * 60_000;
   const lanza = () => new Promise((resuelve) => {
-    const hijo = spawn(CLAUDE, args, { cwd: RAIZ, stdio: ["ignore", "pipe", "pipe"], shell: CLAUDE.endsWith(".cmd") });
+    const hijo = spawn(CLAUDE, args, { cwd: RAIZ, stdio: ["ignore", "pipe", "pipe"], shell: CLAUDE.endsWith(".cmd"), windowsHide: true });
     let out = "";
     let err = "";
     const reloj = setTimeout(() => {
       err += `\n(plazo de ${plazo / 60_000} min agotado)`;
-      if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(hijo.pid), "/T", "/F"]);
+      if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(hijo.pid), "/T", "/F"], { windowsHide: true });
       else hijo.kill("SIGKILL");
     }, plazo);
 
@@ -207,7 +207,7 @@ async function enParalelo(trabajos, n = PARALELO) {
 /*  BORRADOR → VERIFICADO                                              */
 /* ------------------------------------------------------------------ */
 
-const ficherosDe = (carpeta) => fs.readdirSync(carpeta).filter((f) => /\.(json|csv)$/.test(f) && !/^(borrador|verificacion|final|mensaje|vigilancia|red)/.test(f)).map((f) => path.join(carpeta, f));
+const ficherosDe = (carpeta) => fs.readdirSync(carpeta).filter((f) => /\.(json|csv)$/.test(f) && !/^(borrador|verificacion|final|mensaje|vigilancia|red|reparos|frescura)/.test(f)).map((f) => path.join(carpeta, f));
 
 /**
  * Un analista escribe, el verificador coteja y, si no aprueba, el analista
@@ -294,7 +294,7 @@ const aMarkdown = (titulo, informe, mensaje, vigilancia) => [
 /* ------------------------------------------------------------------ */
 
 function paquete(jornada) {
-  const r = spawnSync(process.execPath, [path.join(RAIZ, "scripts", "agentes", "paquete.mjs"), ...(jornada ? ["--jornada", String(jornada)] : [])], { cwd: RAIZ, encoding: "utf8" });
+  const r = spawnSync(process.execPath, [path.join(RAIZ, "scripts", "agentes", "paquete.mjs"), ...(jornada ? ["--jornada", String(jornada)] : [])], { cwd: RAIZ, encoding: "utf8", windowsHide: true });
   if (r.status !== 0) throw new Error(`paquete: ${(r.stdout + r.stderr).trim().split("\n").pop()}`);
   const m = r.stdout.match(/Paquete J(\d+) \((post|previa)/);
   return { jornada: Number(m[1]), tipo: m[2], carpeta: path.join(CACHE, `j${m[1].padStart(2, "0")}`) };
@@ -340,7 +340,9 @@ async function informeDe(jornada) {
   fs.writeFileSync(path.join(p.carpeta, `informe-${p.tipo}.md`), md);
   log(`  → ${path.relative(RAIZ, path.join(p.carpeta, `informe-${p.tipo}.md`))} (${final.aprobado ? "verificado" : "con reparos para el humano"})`);
 
-  return { jornada: p.jornada, tipo: p.tipo, aprobado: final.aprobado, secciones: final.secciones.length, afirmaciones: final.secciones.reduce((s, x) => s + x.afirmaciones.length, 0) };
+  const { rival } = JSON.parse(fs.readFileSync(path.join(p.carpeta, "partido.json"), "utf8"));
+
+  return { jornada: p.jornada, tipo: p.tipo, rival, md, aprobado: final.aprobado, secciones: final.secciones.length, afirmaciones: final.secciones.reduce((s, x) => s + x.afirmaciones.length, 0) };
 }
 
 async function main() {
@@ -362,7 +364,7 @@ async function main() {
       entradas: [path.join(RAIZ, ".cache", "vigia", "vigia.log")],
       encargo: "Diagnostica el estado del ordenador del club con .cache/vigia/vigia.log y los registros de .cache/vigia/ de las últimas 48 horas.",
     });
-    hechos.push({ mantenimiento: d?.estado ?? "sin respuesta", problemas: d?.problemas?.length ?? 0 });
+    hechos.push({ mantenimiento: d?.estado ?? "sin respuesta", problemas: d?.problemas?.length ?? 0, diagnostico: d });
   }
 
   if (orden === "revision") {
@@ -379,8 +381,50 @@ async function main() {
   registro.coste_usd = +registro.pasos.reduce((s, p) => s + (p.coste_usd ?? 0), 0).toFixed(2);
   fs.writeFileSync(path.join(CACHE, "red.json"), JSON.stringify(registro, null, 1));
 
-  const resumen = hechos.map((h) => (h.tipo ? `J${h.jornada} ${h.tipo} ${h.aprobado ? "verificado" : "con reparos"} (${h.afirmaciones} afirmaciones)` : JSON.stringify(h))).join(" · ");
-  console.log(`RESUMEN: ${resumen} · ${registro.pasos.length} pasos · ${registro.coste_usd} $`);
+  const nuevos = registro.pasos.filter((p) => !p.reutilizado).length;
+  const resumen = hechos
+    .map((h) =>
+      h.tipo
+        ? `J${h.jornada} ${h.tipo} ${h.aprobado ? "verificado" : "con reparos"} (${h.afirmaciones} afirmaciones)`
+        : h.mantenimiento
+          ? `mantenimiento ${h.mantenimiento} (${h.problemas} problemas)`
+          : `revisión ${h.revision} (${h.hallazgos} hallazgos)`,
+    )
+    .join(" · ");
+
+  /*
+  | El aviso por correo (19/10/2026, para el vigía): sólo si esta pasada ha
+  | hecho algo NUEVO —si todo se reutilizó, no hay nada que contar— y, en el
+  | mantenimiento, sólo si algo falla. Sale de la cuenta del club
+  | (scripts/aviso-correo.mjs) y es para el analista: el informe se revisa y
+  | se manda desde la plataforma, como siempre.
+  */
+  const para = valor("avisar");
+
+  if (para && nuevos) {
+    const cuerpo = [];
+    let asunto = "";
+
+    for (const h of hechos) {
+      if (h.tipo) {
+        asunto ||= `Borrador ${h.tipo === "post" ? "del post" : "de la previa"} · J${h.jornada} ${h.rival}${h.aprobado ? "" : " (con reparos)"}`;
+        cuerpo.push(h.md.replace(/\s*<sub>[^<]*<\/sub>/g, "").replace(/\*\*/g, ""));
+      } else if (h.mantenimiento && h.mantenimiento !== "ok" && h.diagnostico) {
+        asunto ||= `El ordenador del club: ${h.problemas} ${h.problemas === 1 ? "cosa que mirar" : "cosas que mirar"}`;
+        for (const p of h.diagnostico.problemas) cuerpo.push(`- ${p.donde}: ${p.sintoma}\n  Qué hacer: ${p.arreglo_propuesto}${p.requiere_humano ? " (te toca a ti)" : ""}`);
+      }
+    }
+
+    if (asunto) {
+      cuerpo.push("", `(La red de agentes, desde el ordenador del club: ${nuevos} pasos nuevos, ${registro.coste_usd} $. Los ficheros están en .cache/agentes/. Nada de esto se ha mandado a nadie más.)`);
+
+      const r = spawnSync(process.execPath, [path.join(RAIZ, "scripts", "aviso-correo.mjs"), para, asunto, cuerpo.join("\n")], { cwd: RAIZ, encoding: "utf8", windowsHide: true });
+
+      log(r.status === 0 ? `  ✉ aviso a ${para}` : `  ✉ el aviso no ha salido: ${(r.stdout + r.stderr).trim().split("\n").pop()}`);
+    }
+  }
+
+  console.log(`RESUMEN: ${resumen || "nada"} · ${nuevos ? `${nuevos} pasos nuevos` : "sin cambios"} · ${registro.coste_usd} $`);
 }
 
 main().catch((e) => {

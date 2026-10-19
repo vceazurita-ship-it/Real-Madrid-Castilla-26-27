@@ -23,7 +23,7 @@ const MODELO = {
   "lector-cortes": "haiku",
   "analista-partido": "opus",
   "analista-rival": "opus",
-  mantenedor: "opus",
+  mantenedor: "sonnet",
   "analista-abp": "sonnet",
   verificador: "sonnet",
   "redactor-jugadores": "sonnet",

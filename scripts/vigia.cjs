@@ -767,7 +767,7 @@ function limpiaRegistros() {
   try {
     const viejos = fs
       .readdirSync(REGISTRO)
-      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug)-\d+\.log$/.test(f))
+      .filter((f) => /^(quiniela|wyscout|calendario|rivales|carpeta|partido|pendientes|entreno|videojug|agentes)-\d+\.log$/.test(f))
       .sort()
       .reverse()
       .slice(40);
@@ -1065,6 +1065,92 @@ async function lanzaRivales(plan) {
 }
 
 /*
+| LA RED DE AGENTES, SOLA (19/10/2026, lo pidió el usuario). Ver
+| agentes/README.md. Nadie la pide: el vigía la lanza con el calendario.
+|
+|   - POST: desde 12 h después de cada partido y durante 4 días, una pasada
+|     cada 3 h (cuando llegan los datos de Hudl y el martes Wyscout, el
+|     informe se rehace con ellos).
+|   - PREVIA: los 4 días y medio antes del siguiente partido, cada 6 h.
+|   - MANTENIMIENTO: una vez cada mañana.
+|
+| Cada pasada reutiliza lo que no ha cambiado (la «huella» de red.mjs), así
+| que repetirla sin datos nuevos cuesta céntimos; y sólo avisa por correo si
+| ha salido algo NUEVO. De 8:00 a 22:00 y nunca a la vez que Wyscout, el
+| análisis del partido o el del entreno: comparten la poca memoria del
+| ordenador (dos trabajos pesados a la vez lo dejaron sin memoria el 19/10).
+| Nada de esto llega a nadie más que al analista: los informes se mandan
+| desde la plataforma, como siempre.
+*/
+const AGENTES_MIRA_MS = 20 * 60_000;
+const AGENTES_CADA_MS = { post: 3 * 3_600_000, previa: 6 * 3_600_000 };
+const AVISO_AGENTES = process.env.AVISO_AGENTES || "v.ceazurita@gmail.com";
+let agentesMirado = 0;
+/* Última pasada por tipo y jornada. En memoria: tras reiniciar el vigía se
+   repite una vez, y sin datos nuevos eso no gasta casi nada. */
+const agentesHechos = { post: {}, previa: {} };
+let mantenimientoHechoEl = "";
+
+async function miraAgentes(estados) {
+  if (enMarcha.has("agentes") || Date.now() - agentesMirado < AGENTES_MIRA_MS) return;
+
+  agentesMirado = Date.now();
+
+  const hora = horaDeMadrid();
+
+  if (hora < 8 || hora >= 22) return;
+  if (["wyscout", "partido", "entreno", "rivales"].some((t) => enMarcha.has(t)) || estados.partido === "pedido" || estados.wyscout === "pedido") return;
+
+  const hoy = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
+  let orden = null;
+  let jornada = null;
+
+  if (mantenimientoHechoEl !== hoy) {
+    orden = "mantenimiento";
+  } else {
+    const { data, error } = await supabase.from("app_documents").select("data").eq("key", "castilla:calendario").maybeSingle();
+
+    if (error) return;
+
+    const { anterior, proximo } = alrededorDe(data?.data?.partidos ?? [], Date.now());
+    const toca = (tipo, partido) => partido?.jornada && Date.now() - (agentesHechos[tipo][partido.jornada] ?? 0) > AGENTES_CADA_MS[tipo];
+
+    const desde = anterior?.cuando ? Date.now() - Date.parse(anterior.cuando) : -1;
+    const faltan = proximo?.cuando ? Date.parse(proximo.cuando) - Date.now() : -1;
+
+    if (desde > 12 * 3_600_000 && desde < 4 * 86_400_000 && toca("post", anterior)) {
+      orden = "post";
+      jornada = anterior.jornada;
+    } else if (faltan > 0 && faltan < 4.5 * 86_400_000 && toca("previa", proximo)) {
+      orden = "previa";
+      jornada = proximo.jornada;
+    }
+  }
+
+  if (!orden) return;
+
+  if (orden === "mantenimiento") mantenimientoHechoEl = hoy;
+  else agentesHechos[orden][jornada] = Date.now();
+
+  enMarcha.add("agentes");
+
+  const args = [path.join(RAIZ, "scripts", "agentes", "red.mjs"), orden, ...(jornada ? ["--jornada", String(jornada)] : []), "--avisar", AVISO_AGENTES];
+
+  ejecuta("agentes", process.execPath, args)
+    .then(({ codigo, texto }) => {
+      const dice = resumen(texto);
+
+      if (codigo !== 0) apunta(`Agentes (${orden}${jornada ? ` J${jornada}` : ""}): ha fallado (${dice || `código ${codigo}`}).`);
+      else if (dice && !/sin cambios/.test(dice)) apunta(`Agentes (${orden}${jornada ? ` J${jornada}` : ""}): ${dice}.`);
+    })
+    .catch(() => {})
+    .finally(() => {
+      enMarcha.delete("agentes");
+      limpiaRegistros();
+    });
+}
+
+/*
 | NUESTRO VÍDEO DE ABP DE LA JORNADA (17/10/2026): la carpeta
 | `ABP\VIDEO - JUGADORES` se mira cada dos minutos (sólo nombres, tamaños y
 | fechas, que es gratis) y, si ha cambiado, `scripts/abp/video-jugadores.cjs`
@@ -1286,6 +1372,8 @@ async function ronda() {
   await cierraCortadas(estados).catch((error) => apunta(`No se han podido cerrar las pasadas cortadas: ${error.message}`));
 
   miraVideoJugadores();
+
+  await miraAgentes(estados).catch((error) => apunta(`Agentes: no se ha podido mirar (${claro(error.message)}).`));
 
   if (Date.now() - calendarioEn > CALENDARIO_CADA_MS && !enMarcha.has("calendario")) {
     enMarcha.add("calendario");
