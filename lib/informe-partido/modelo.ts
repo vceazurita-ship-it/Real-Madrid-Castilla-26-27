@@ -798,7 +798,7 @@ export function contrastePronostico(inf: { pronostico: Pronostico | null; duelo:
 
   const xg = inf.duelo?.partido?.metricas.find((x) => x.key === "xg");
 
-  const filas = [
+  const filas: { rotulo: string; previsto: string; real: string; acierto: boolean | null }[] = [
     { rotulo: "Resultado", previsto: `${masProbable} (${pct(pr[masProbable])})`, real: `${resultado} ${p.gf}-${p.gc}`, acierto: masProbable === resultado },
     { rotulo: "Marcador", previsto: pr.marcador, real: `${p.gf}-${p.gc}`, acierto: pr.marcador === `${p.gf}-${p.gc}` },
     {
@@ -807,12 +807,18 @@ export function contrastePronostico(inf: { pronostico: Pronostico | null; duelo:
       real: `${p.gf} – ${p.gc}`,
       acierto: Math.abs(p.gf - pr.esperados.nosotros) <= 1 && Math.abs(p.gc - pr.esperados.rival) <= 1,
     },
-    {
-      rotulo: "xG del partido",
-      previsto: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`,
-      real: xg?.nuestro != null && xg?.suyo != null ? `${cifra(xg.nuestro, "decimal")} – ${cifra(xg.suyo, "decimal")}` : "pendiente de Wyscout",
-      acierto: xg?.nuestro != null && xg?.suyo != null ? Math.abs(xg.nuestro - pr.esperados.nosotros) <= 0.6 && Math.abs(xg.suyo - pr.esperados.rival) <= 0.6 : null,
-    },
+    /* Sin el xG de Wyscout la fila no sale: el informe no dice lo que
+       falta (antes, «pendiente de Wyscout»; 19/10/2026). */
+    ...(xg?.nuestro != null && xg?.suyo != null
+      ? [
+          {
+            rotulo: "xG del partido",
+            previsto: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`,
+            real: `${cifra(xg.nuestro, "decimal")} – ${cifra(xg.suyo, "decimal")}`,
+            acierto: Math.abs(xg.nuestro - pr.esperados.nosotros) <= 0.6 && Math.abs(xg.suyo - pr.esperados.rival) <= 0.6,
+          },
+        ]
+      : []),
   ];
 
   return filas;
@@ -826,7 +832,15 @@ export function revisaPalancas(inf: { pronostico: Pronostico | null; duelo: Duel
 
   const xg = inf.duelo?.partido?.metricas.find((x) => x.key === "xg");
 
-  return pr.palancas.map((p) => {
+  /* La palanca que se mide con el xG y aún no lo tiene no sale: el informe
+     no dice «pendiente de Wyscout» (19/10/2026). */
+  const medibles = pr.palancas.filter((p) => {
+    if (!p.revisa) return true;
+
+    return (p.revisa === "xgSuyo" ? xg?.suyo : xg?.nuestro) != null;
+  });
+
+  return medibles.map((p) => {
     const real = p.revisa === "xgSuyo" ? (xg?.suyo ?? null) : p.revisa === "xgNuestro" ? (xg?.nuestro ?? null) : null;
 
     const cumplida = real === null ? null : p.revisa === "xgSuyo" ? real <= p.meta : real >= p.meta;

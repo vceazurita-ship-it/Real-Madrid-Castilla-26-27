@@ -134,7 +134,8 @@ export async function duelosYVistazo(entrada: {
       equipo,
       competicion: perfil?.competicion ?? "",
       alcance: alcance.jornada
-        ? `Wyscout hasta la J${alcance.jornada}${alcance.estado === "completa" ? " · jornada completa" : " · jornada incompleta"}`
+        ? /* Que la jornada esté a medias va en los avisos, no en el informe (19/10/2026). */
+          `Wyscout hasta la J${alcance.jornada}${alcance.estado === "completa" ? " · jornada completa" : ""}`
         : "",
       partidos: resumen.partidos,
       g: resumen.g,

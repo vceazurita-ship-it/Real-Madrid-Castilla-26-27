@@ -728,7 +728,9 @@ export async function cargaInforme(entrada: {
     once = {
       jugadores: colocaPorDibujo(jugadores, ultimo.estructura),
       fuente: "ultimo",
-      detalle: `Su último once (${ultimo.estructura || "sin dibujo"}): nadie ha marcado aún el once probable en Plantillas`,
+      /* Lo que falta (que nadie lo ha marcado) va en los avisos de la
+         ventana, no en el informe (19/10/2026). */
+      detalle: ultimo.estructura ? `Su último once (${ultimo.estructura})` : "Su último once",
     };
 
     avisos.push("Nadie ha marcado el once probable del rival: sale su último once.");

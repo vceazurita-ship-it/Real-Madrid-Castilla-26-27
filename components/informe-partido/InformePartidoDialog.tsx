@@ -145,6 +145,20 @@ const nombreDeArchivo = (base: string, ext: string) => `${base.replace(/[\\/:*?"
 /* Lo que se espera al informe de ABP antes de darlo por perdido. */
 const ESPERA_ABP = 120_000;
 
+/**
+ * El día («YYYY-MM-DD») de un instante, con el reloj de aquí. `creado` va en
+ * UTC: recortado a secas, un documento sacado entre las 00:00 y las 02:00 del
+ * primer día de la semana contaba como de la semana anterior y se volvía a
+ * pedir (19/10/2026).
+ */
+function diaDeAqui(iso: string) {
+  const d = new Date(iso);
+
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 const mb = (bytes: number | null) => (bytes === null ? "" : bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toLocaleString("es-ES", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
 export function InformePartidoDialog({
@@ -237,17 +251,32 @@ export function InformePartidoDialog({
 
   const cargando = Boolean(pedido) && llegado !== pedido;
 
+  /* De qué micro es el informe que hay en pantalla. Si falla la carga de OTRO
+     micro, el de antes no puede quedarse: salía bajo el micro nuevo y se
+     podía mandar (19/10/2026). Si falla un «Volver a cargar» del mismo, se
+     queda el que había, que sigue siendo bueno. */
+  const informeDe = useRef("");
+
   useEffect(() => {
     if (!elegido) return;
 
     let cancelado = false;
 
+    const micro = `${elegido.temporada}|${elegido.micro}`;
+
     cargaInforme({ ...elegido, momento: momentoPedido ?? undefined })
       .then((inf) => {
-        if (!cancelado) setInforme(inf);
+        if (cancelado) return;
+
+        informeDe.current = micro;
+        setInforme(inf);
       })
       .catch((error) => {
-        if (!cancelado) toast.error("No se ha podido armar el informe", { description: error instanceof Error ? error.message : "" });
+        if (cancelado) return;
+
+        if (informeDe.current !== micro) setInforme(null);
+
+        toast.error("No se ha podido armar el informe", { description: error instanceof Error ? error.message : "" });
       })
       .finally(() => {
         if (!cancelado) setLlegado(`${elegido.temporada}|${elegido.micro}|${momentoPedido ?? ""}|${testigo}`);
@@ -333,7 +362,7 @@ export function InformePartidoDialog({
   const viejo = (tipo: TipoDocumentoRival) => {
     const g = generados.find((x) => x.tipo === tipo);
 
-    return !g || (inicioSemana !== "" && g.creado.slice(0, 10) < inicioSemana);
+    return !g || (inicioSemana !== "" && diaDeAqui(g.creado) < inicioSemana);
   };
 
   const equipoDocs = informe?.recursos.equipoPlantilla ?? "";
@@ -1209,7 +1238,12 @@ export function InformePartidoDialog({
 
         const video = videoCompleto && infoVideo ? (infoVideo as { url: string; segundos: number; poster: string | null }) : null;
 
-        const pdfUnico = await subeUnaVez(nombreInformePdf, "application/pdf", async () =>
+        /* Sin diapositivas, sin completo, sin vídeo y sin documentos que
+           enlazar, el PDF saldría vacío (o sin páginas, y el correo fallaba):
+           entonces no se arma ni se adjunta (19/10/2026). */
+        const hayPdf = c.pdfResumen || c.pdfCompleto || Boolean(video) || soloEnlace.length > 0;
+
+        const pdfUnico = !hayPdf ? null : await subeUnaVez(nombreInformePdf, "application/pdf", async () =>
           informeUnicoPdf({
             titulo: tituloPdf,
             diapos: c.pdfResumen ? imagenes : [],
@@ -1223,7 +1257,7 @@ export function InformePartidoDialog({
         );
 
         /* Adjuntos: el PDF y el vídeo, mientras quepan; lo demás, enlace. */
-        const candidatos = [pdfUnico, ...(videoCompleto ? [videoCompleto] : [])];
+        const candidatos = [...(pdfUnico ? [pdfUnico] : []), ...(videoCompleto ? [videoCompleto] : [])];
 
         let ocupado = 0;
 
@@ -1447,7 +1481,7 @@ export function InformePartidoDialog({
             <Button icon={Presentation} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaPptx()} title="Las diapositivas elegidas, en PowerPoint">
               Resumen PPT
             </Button>
-            <Button icon={BookOpen} disabled={!informe || Boolean(trabajando) || abpCargando} onClick={() => void bajaCompleto()} title="El informe extenso en PDF, con los capítulos elegidos">
+            <Button icon={BookOpen} disabled={!informe || Boolean(trabajando) || cargando || abpCargando} onClick={() => void bajaCompleto()} title="El informe extenso en PDF, con los capítulos elegidos">
               Completo PDF
             </Button>
             <Button
@@ -1524,7 +1558,13 @@ export function InformePartidoDialog({
             />
           </div>
 
-          <Button icon={cargando ? Loader2 : RefreshCw} disabled={cargando} onClick={() => setTestigo((n) => n + 1)} title="Volver a leer todo">
+          <Button icon={cargando ? Loader2 : RefreshCw} disabled={cargando}
+            onClick={() => {
+              /* Un ABP que falló se vuelve a pedir; uno que llegó, se queda. */
+              setAbp((actual) => (actual?.ok ? actual : null));
+              setTestigo((n) => n + 1);
+            }}
+            title="Volver a leer todo">
             {cargando ? "Leyendo…" : "Releer"}
           </Button>
         </div>
@@ -1757,7 +1797,16 @@ export function InformePartidoDialog({
             ) : abpActual ? (
               <span className="text-amber-200/80">
                 No ha llegado ({abpActual.error}). El informe sale con lo que hay del plan de ABP.{" "}
-                <button className="underline underline-offset-2" onClick={() => setTestigo((n) => n + 1)}>
+                {/* Se olvida el fallo antes de recargar: con la misma clave,
+                    seguía valiendo y la pantalla de ABP no se volvía a montar,
+                    así que «Reintentar» no hacía nada (19/10/2026). */}
+                <button
+                  className="underline underline-offset-2"
+                  onClick={() => {
+                    setAbp(null);
+                    setTestigo((n) => n + 1);
+                  }}
+                >
                   Reintentar
                 </button>
               </span>

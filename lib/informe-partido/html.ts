@@ -46,6 +46,9 @@ const parrafo = (t: string) => esc(t).replace(/\r?\n+/g, "<br>");
 
 const NUMERO = "{{N}}";
 
+/** Una cifra para una celda de tabla: sin dato, la celda va vacía, no con «—» (19/10/2026). */
+const celda = (...args: Parameters<typeof cifra>) => (args[0] == null || !Number.isFinite(args[0]) ? "" : cifra(...args));
+
 function seccion(titulo: string, pie: string, cuerpo: string) {
   if (!cuerpo.trim()) return "";
 
@@ -85,7 +88,10 @@ function lista(items: string[], color = NAVY) {
 }
 
 function tarjetas(items: { rotulo: string; valor: string; pie?: string }[]) {
+  /* Una tarjeta sin cifra no sale: en el informe lo que no tiene dato no se
+     nombra, ni con un «—» (19/10/2026). */
   const celdas = items
+    .filter((d) => d.valor !== "")
     .map(
       (d) =>
         `<td style="padding:14px 16px;background:${CREMA};border:1px solid #E5E1D6;border-top:3px solid #C8A96B;border-radius:8px"><p style="margin:0;font:600 10px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esc(d.rotulo)}</p><p style="margin:4px 0 0;font:700 26px/1.15 Arial,sans-serif;color:${NAVY}">${esc(d.valor)}</p>${
@@ -301,11 +307,10 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
     esPost && inf.duelo?.partido
       ? `${lista(inf.sintesis.partido)}<div style="height:10px"></div>${tabla(
           ["Métrica", "Nosotros", rival, "Nuestra media"],
-          inf.duelo.partido.metricas.map((m) => [esc(m.nombre), `<b>${cifra(m.nuestro, m.unidad)}</b>`, cifra(m.suyo, m.unidad), cifra(m.media, m.unidad)]),
+          inf.duelo.partido.metricas.map((m) => [esc(m.nombre), `<b>${celda(m.nuestro, m.unidad)}</b>`, celda(m.suyo, m.unidad), celda(m.media, m.unidad)]),
         )}`
-      : esPost
-        ? `<p style="margin:0;font:400 14px/1.5 Arial,sans-serif;color:${SUAVE}">Wyscout todavía no tiene este partido: se baja los martes o desde Ajustes. El resto del informe ya vale.</p>`
-        : "";
+      : /* Sin Wyscout, el capítulo no sale: antes decía que faltaba (19/10/2026). */
+        "";
 
   /* ---------------- post: la crónica ---------------- */
 
@@ -318,7 +323,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           `<b>${esc(g.minuto)}′</b>`,
           `<b style="color:${g.nuestro ? ORO : ROJO}">${g.nuestro ? "RM Castilla" : esc(rival)}</b>`,
           `${esc(g.jugador)}${g.tipo === "penalti" ? " (penalti)" : g.tipo === "propia" ? " (en propia)" : ""}`,
-          esc(g.asistente || "—"),
+          esc(g.asistente || ""),
         ]),
       )}${
         cr.cambios.length
@@ -342,7 +347,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           cr.onceReal.map((j) => [
             `<b>${esc(j.dorsal)}</b>`,
             `<b>${esc(j.nombre)}</b>`,
-            fichaJugador(j) || "—",
+            fichaJugador(j) || "",
             cr.acierto
               ? cr.acierto.sorpresas.includes(j.nombre)
                 ? `<b style="color:${ROJO}">Sorpresa</b>`
@@ -385,7 +390,11 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           ctx.nuestraRacha.length ? { rotulo: "Nuestra racha", valor: ctx.nuestraRacha.join(" "), pie: "del más reciente al más antiguo" } : null,
           ctx.racha.length ? { rotulo: `Racha del ${rival}`, valor: ctx.racha.join(" "), pie: "del más reciente al más antiguo" } : null,
           ctx.goleadores.length ? { rotulo: "Goleadores", valor: ctx.goleadores.map((g) => `${g.nombre.split(" ").slice(-1)[0]} ${g.goles}`).join(" · ") } : null,
-          ctx.entrenador || ctx.estructuras.length ? { rotulo: "Entrenador y dibujo", valor: ctx.entrenador || "—", pie: ctx.estructuras.join(" / ") || inf.duelo?.esquema.rival || undefined } : null,
+          ctx.entrenador
+            ? { rotulo: "Entrenador y dibujo", valor: ctx.entrenador, pie: ctx.estructuras.join(" / ") || inf.duelo?.esquema.rival || undefined }
+            : ctx.estructuras.length
+              ? { rotulo: "Dibujo", valor: ctx.estructuras.join(" / ") }
+              : null,
         ].filter((x): x is { rotulo: string; valor: string; pie?: string } => Boolean(x)),
       )
     : "";
@@ -401,9 +410,9 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
             : []),
           [
           `${esc(m.nombre)}${m.comoLeer ? `<br><span style="color:${SUAVE};font-size:11px">${esc(m.comoLeer)}</span>` : ""}`,
-          m.nosotros ? `<b>${cifra(m.nosotros.valor, m.unidad)}</b> <span style="color:${SUAVE}">${ordinal(m.nosotros.puesto)}</span>${barra(m.nosotros.percentil, ORO)}` : "—",
-          m.rival ? `<b>${cifra(m.rival.valor, m.unidad)}</b> <span style="color:${SUAVE}">${ordinal(m.rival.puesto)}</span>${barra(m.rival.percentil, ROJO)}` : "—",
-          cifra(m.mediana, m.unidad),
+          m.nosotros ? `<b>${cifra(m.nosotros.valor, m.unidad)}</b> <span style="color:${SUAVE}">${ordinal(m.nosotros.puesto)}</span>${barra(m.nosotros.percentil, ORO)}` : "",
+          m.rival ? `<b>${cifra(m.rival.valor, m.unidad)}</b> <span style="color:${SUAVE}">${ordinal(m.rival.puesto)}</span>${barra(m.rival.percentil, ROJO)}` : "",
+          celda(m.mediana, m.unidad),
           ],
         ]),
       )
@@ -425,7 +434,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           `<b>${esc(x.momento)}</b>`,
           esc(x.objetivo),
           esc(x.porque),
-          esc(x.plan || "—"),
+          esc(x.plan || ""),
           `<b style="color:${ORO}">+${Math.max(0, x.victoria)} pts</b>`,
         ]),
       )}<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">Modelo de Poisson con ${esc(pr.base)}. No es una apuesta: dice de qué partido venimos a hablar y cuánto mueve cada parte del plan.</p>`
@@ -437,14 +446,14 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           { rotulo: "Victoria", valor: pct(pr.victoria) },
           { rotulo: "Empate", valor: pct(pr.empate) },
           { rotulo: "Derrota", valor: pct(pr.derrota) },
-          { rotulo: "Resultado", valor: p.gf !== null && p.gc !== null ? `${p.gf}-${p.gc}` : "—", pie: `el más probable era ${pr.marcador}` },
+          { rotulo: "Resultado", valor: p.gf !== null && p.gc !== null ? `${p.gf}-${p.gc}` : "", pie: `el más probable era ${pr.marcador}` },
         ])}<div style="height:12px"></div>${tabla(
           ["", "Lo previsto", "Lo que pasó", ""],
           contrastePronostico(inf).map((f) => [
             `<b>${esc(f.rotulo)}</b>`,
             esc(f.previsto),
             `<b>${esc(f.real)}</b>`,
-            f.acierto === null ? "—" : f.acierto ? `<b style="color:${VERDE}">✓</b>` : `<b style="color:${ROJO}">✗</b>`,
+            f.acierto === null ? "" : f.acierto ? `<b style="color:${VERDE}">✓</b>` : `<b style="color:${ROJO}">✗</b>`,
           ]),
         )}<div style="height:12px"></div>${tabla(
           ["Palanca", "La meta", "Lo que pasó", ""],
@@ -452,7 +461,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
             `<b>${esc(x.momento)}</b>`,
             esc(x.meta),
             esc(x.real),
-            x.cumplida === null ? "—" : x.cumplida ? `<b style="color:${VERDE}">Cumplida</b>` : `<b style="color:${ROJO}">No</b>`,
+            x.cumplida === null ? "" : x.cumplida ? `<b style="color:${VERDE}">Cumplida</b>` : `<b style="color:${ROJO}">No</b>`,
           ]),
         )}`
       : "";
@@ -559,10 +568,10 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
     ? `${tarjetas([
         { rotulo: "Tareas", valor: String(m.totales.tareas) },
         { rotulo: "Minutos de trabajo", valor: `${m.totales.minutos}′` },
-        { rotulo: "Balón parado", valor: m.totales.abpMinutos ? `${m.totales.abpMinutos}′` : "—", pie: m.totales.abpMinutos ? undefined : "sin minutos en la hoja" },
-        { rotulo: "Valoración media", valor: m.totales.valoracionMedia !== null ? m.totales.valoracionMedia.toLocaleString("es-ES") : "—", pie: `${m.totales.valoradas} de ${m.totales.tareas} valoradas` },
+        { rotulo: "Balón parado", valor: m.totales.abpMinutos ? `${m.totales.abpMinutos}′` : "" },
+        { rotulo: "Valoración media", valor: m.totales.valoracionMedia !== null ? m.totales.valoracionMedia.toLocaleString("es-ES") : "", pie: `${m.totales.valoradas} de ${m.totales.tareas} valoradas` },
       ])}<div style="height:12px"></div>${tabla(
-        ["Día", "MD", "Tareas", "Minutos", "Carga", "Contenidos"],
+        ["Día", "Respecto al partido", "Tareas", "Minutos", "Carga", "Contenidos"],
         m.dias.map((d) => [`<b>${esc(d.etiqueta)}</b>`, esc(d.md), String(d.tareas), `${d.minutos}′`, String(d.carga), esc(d.contenidos.join(" · "))]),
       )}${
         m.contenidos.length
@@ -575,8 +584,8 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           `<b>${esc(t.tarea)}</b>${t.tipo ? `<br><span style="color:${SUAVE}">${esc(t.tipo)}${t.formato ? ` · ${esc(t.formato)}` : ""}</span>` : ""}`,
           esc(t.fase),
           `${esc(t.contenido)}${t.secundario ? `<br><span style="color:${SUAVE}">${esc(t.secundario)}</span>` : ""}`,
-          t.minutos ? `${t.minutos}′` : "—",
-          t.evaluacion ? `<b>${t.evaluacion}</b>${t.analisis ? `<br><span style="color:${SUAVE}">${esc(t.analisis)}</span>` : ""}` : "—",
+          t.minutos ? `${t.minutos}′` : "",
+          t.evaluacion ? `<b>${t.evaluacion}</b>${t.analisis ? `<br><span style="color:${SUAVE}">${esc(t.analisis)}</span>` : ""}` : "",
         ]),
       )}`}`
     : "";
@@ -585,7 +594,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const abp = inf.abp
     ? `${tarjetas([
-        { rotulo: "ABP trabajado esta semana", valor: inf.abp.minutosSemana ? `${inf.abp.minutosSemana}′` : "—", pie: inf.abp.minutosSemana ? undefined : "las tareas de ABP no tienen minutos en la hoja" },
+        { rotulo: "ABP trabajado esta semana", valor: inf.abp.minutosSemana ? `${inf.abp.minutosSemana}′` : "" },
         { rotulo: "Láminas del rival preparadas", valor: String(inf.abp.laminasRival), pie: "en ABP y Área del Rival" },
       ])}${
         inf.abp.documentosRival.length
@@ -683,9 +692,9 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
 
   const colorVeredicto = (v: string) => (v === "ventaja" ? VERDE : v === "desventaja" ? ROJO : v === "parejo" ? ORO : SUAVE);
 
-  const rotuloVeredicto = (v: string) => (v === "ventaja" ? "A favor" : v === "desventaja" ? "En contra" : v === "parejo" ? "Parejo" : "Sin datos");
+  const rotuloVeredicto = (v: string) => (v === "ventaja" ? "A favor" : v === "desventaja" ? "En contra" : v === "parejo" ? "Parejo" : "");
 
-  const signo = (n: number | null) => (n === null ? "—" : `${n > 0 ? "+" : ""}${n}`);
+  const signo = (n: number | null) => (n === null ? "" : `${n > 0 ? "+" : ""}${n}`);
 
   const atacarD = duelosParaAtacar(dj);
 
@@ -708,7 +717,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
         esPost ? ["Duelo", "Con balón", "Sin balón", "Lo previsto", "¿Se cumplió?"] : ["Duelo", "Con balón", "Sin balón", "Balance"],
         dj.lista.map((x) => {
           const fila = [
-            `<b>${esc(x.nuestros.map(apellido).join(" y ") || "—")}</b> <span style="color:${SUAVE}">ante</span> <b>${esc(x.suyos.map(apellido).join(" y ") || "—")}</b><br><span style="color:${SUAVE};font-size:11px">${esc(LUGAR_DUELO[x.clave] ?? x.titulo)}</span>`,
+            `<b>${esc(x.nuestros.map(apellido).join(" y ") || "")}</b> <span style="color:${SUAVE}">ante</span> <b>${esc(x.suyos.map(apellido).join(" y ") || "")}</b><br><span style="color:${SUAVE};font-size:11px">${esc(LUGAR_DUELO[x.clave] ?? x.titulo)}</span>`,
             `<b style="color:${(x.conBalon ?? 0) >= 10 ? VERDE : (x.conBalon ?? 0) <= -10 ? ROJO : NAVY}">${signo(x.conBalon)}</b>`,
             `<b style="color:${(x.sinBalon ?? 0) >= 10 ? VERDE : (x.sinBalon ?? 0) <= -10 ? ROJO : NAVY}">${signo(x.sinBalon)}</b>`,
             `<b style="color:${colorVeredicto(x.veredicto)}">${rotuloVeredicto(x.veredicto)} ${signo(x.balance)}</b>`,
@@ -728,13 +737,13 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
     ? `${tarjetas([
         { rotulo: "G · E · P", valor: `${vz.g}-${vz.e}-${vz.p}`, pie: `${vz.partidos} partidos` },
         { rotulo: "Goles", valor: `${vz.gf}-${vz.gc}`, pie: "a favor · en contra" },
-        { rotulo: "En la tabla", valor: vz.tabla ? ordinal(vz.tabla.puesto) : "—", pie: vz.tabla ? `de ${vz.tabla.de}, por puntos por partido` : "" },
-        { rotulo: "Forma", valor: vz.forma.map((f) => f.resultado).join(" ") || "—", pie: vz.sistemas[0] ? `sistema: ${vz.sistemas[0].sistema}` : "" },
+        { rotulo: "En la tabla", valor: vz.tabla ? ordinal(vz.tabla.puesto) : "", pie: vz.tabla ? `de ${vz.tabla.de}, por puntos por partido` : "" },
+        { rotulo: "Forma", valor: vz.forma.map((f) => f.resultado).join(" ") || "", pie: vz.sistemas[0] ? `sistema: ${vz.sistemas[0].sistema}` : "" },
       ])}${vz.frases.length ? `${etiqueta("En pocas palabras")}${lista(vz.frases)}` : ""}${
         vz.fases.length
           ? `${etiqueta("Por fases · percentil contra su competición")}${tabla(
               ["Fase", "Percentil", ""],
-              vz.fases.map((f) => [esc(f.label), `<b style="color:${colorPct(f.percentil)}">${f.percentil === null ? "—" : `P${f.percentil}`}</b>`, barra(f.percentil, colorPct(f.percentil))]),
+              vz.fases.map((f) => [esc(f.label), `<b style="color:${colorPct(f.percentil)}">${f.percentil === null ? "" : `P${f.percentil}`}</b>`, barra(f.percentil, colorPct(f.percentil))]),
             )}`
           : ""
       }${vz.fuertes.length ? `${etiqueta("Donde destaca", VERDE)}${lista(vz.fuertes.map((m) => `${m.nombre}: ${m.valor} (${ordinal(m.puesto)} de ${m.de})`))}` : ""}${
@@ -750,7 +759,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
         vz.figuras.length
           ? `${etiqueta("Los que más rinden para su puesto", ROJO)}${tabla(
               ["Índice", "Jugador", "Destaca en"],
-              vz.figuras.map((f) => [`<b style="color:${colorPct(f.indice)}">${f.indice}</b>`, `<b>${esc(f.nombre)}</b><br><span style="color:${SUAVE};font-size:11px">${esc(f.posicion)} · ${f.minutos}′</span>`, esc(f.destaca.join(" · ") || "—")]),
+              vz.figuras.map((f) => [`<b style="color:${colorPct(f.indice)}">${f.indice}</b>`, `<b>${esc(f.nombre)}</b><br><span style="color:${SUAVE};font-size:11px">${esc(f.posicion)} · ${f.minutos}′</span>`, esc(f.destaca.join(" · "))]),
             )}`
           : ""
       }${vz.alcance ? `<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(vz.alcance)}.</p>` : ""}`
@@ -952,7 +961,7 @@ export function informeTexto(inf: InformePartido) {
   if (inf.sintesis.frenados.length) l.push("", "¿LOS FRENAMOS?", ...inf.sintesis.frenados.map((f) => `- ${f.bien ? "Sí" : "No"} · ${f.jugador.nombre}: ${f.texto}`));
   if (inf.sintesis.ventajas.length) l.push("", "DONDE SOMOS MEJORES", ...inf.sintesis.ventajas.map((v) => `- ${v}`));
   if (inf.momento !== "post" && inf.sintesis.amenazas.length) l.push("", "DONDE SON FUERTES ELLOS", ...inf.sintesis.amenazas.map((v) => `- ${v}`));
-  if (inf.momento !== "post" && inf.sintesis.vigilar.length) l.push("", "A VIGILAR", ...inf.sintesis.vigilar.map((j) => `- ${j.dorsal} ${j.nombre} (${j.posicion})`));
+  if (inf.momento !== "post" && inf.sintesis.vigilar.length) l.push("", "A VIGILAR", ...inf.sintesis.vigilar.map((j) => `- ${j.dorsal ? `${j.dorsal} ` : ""}${j.nombre}${j.posicion ? ` (${j.posicion})` : ""}`));
   if (inf.sintesis.partido.length) l.push("", "EL PARTIDO EN DATOS", ...inf.sintesis.partido.map((v) => `- ${v}`));
   const atacarTxt = duelosParaAtacar(inf.duelosJugadores).slice(0, 3);
   const vigilarTxt = duelosParaVigilar(inf.duelosJugadores).slice(0, 3);
