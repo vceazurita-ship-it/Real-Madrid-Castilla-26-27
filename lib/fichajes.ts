@@ -94,6 +94,11 @@ const FICHAS: Ficha[] = [
  */
 export const IDS_ANTERIORES: Record<string, string> = {
   "JUG-54": "JUG-51",
+  /* Óscar Nassei y Sergio Martínez: /individual los tenía como 52 y 53 y la
+     hoja como 49 y 50 (comprobado en JUGADORES el 19/10/2026). Así los
+     enlaces viejos siguen abriendo a su jugador. */
+  "JUG-52": "JUG-49",
+  "JUG-53": "JUG-50",
 };
 
 export const idVigente = (id: string) => IDS_ANTERIORES[id] ?? id;
