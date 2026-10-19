@@ -51,6 +51,17 @@ export function ComoActualizar({
 }) {
   const [video, setVideo] = useState(videoPorDefecto);
   const [partido, setPartido] = useState(partidoPorDefecto);
+
+  /* Al elegir otro partido en la página, vídeo y partido propuestos son los
+     suyos (19/10/2026): el estado inicial sólo se leía al montar y las
+     órdenes seguían con el primero. Se compara en render. */
+  const [porDefectoVisto, setPorDefectoVisto] = useState(`${videoPorDefecto}|${partidoPorDefecto}`);
+
+  if (porDefectoVisto !== `${videoPorDefecto}|${partidoPorDefecto}`) {
+    setPorDefectoVisto(`${videoPorDefecto}|${partidoPorDefecto}`);
+    setVideo(videoPorDefecto);
+    setPartido(partidoPorDefecto);
+  }
   const [detalle, setDetalle] = useState<"fino" | "rapido">("rapido");
   const [copiada, setCopiada] = useState<string | null>(null);
 

@@ -20,8 +20,11 @@ import { GitCompareArrows } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
 import { Explicativo } from "@/components/ui/textos-analisis";
+import { chipInk } from "@/lib/theme";
 
 const ORO = "#C8A96B";
+/** El oro como texto: en modo día baja de luz para leerse sobre blanco. */
+const ORO_TINTA = "var(--rmcf-gold-ink)";
 /** Los dos de las gráficas de datos: separan bien también para daltonismo. */
 const MEJOR = "#1B9E77";
 const PEOR = "#D95F02";
@@ -102,11 +105,15 @@ export function ComparativaPartido({
           {/* La cabecera de las columnas, para que las dos cifras se lean sin leyenda. */}
           <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] gap-x-3 border-b border-white/10 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40 sm:px-5">
             <span>Métrica</span>
-            <span className="text-right" style={{ color: ORO }}>
+            <span className="text-right" style={{ color: ORO_TINTA }}>
               Este partido
             </span>
             <span className="text-right">{anteriores.n === 1 ? "Anterior" : "Media anteriores"}</span>
-            <span className="text-right">Diferencia</span>
+            {/* La clave de colores va en la nota, que sólo sale con los textos
+                explicativos: al pasar por encima se lee igual. */}
+            <span className="text-right" title="Verde: mejor que de costumbre · naranja: peor · gris: no se juzga">
+              Diferencia
+            </span>
           </div>
 
           <ul className="divide-y divide-white/[0.06]">
@@ -115,7 +122,10 @@ export function ComparativaPartido({
               const juzga = m.mejorAlto === true || m.mejorAlto === false;
               const d = m.actual !== null && m.media !== null ? m.actual - m.media : null;
               const mejor = d !== null && juzga && Math.abs(d) >= 0.05 ? (d > 0) === m.mejorAlto : null;
-              const colorDiferencia = mejor === null ? "rgba(255,255,255,0.55)" : mejor ? MEJOR : PEOR;
+              /* Como texto y en `style`, que la tabla del modo día no alcanza
+                 (19/10/2026): el gris de «igual» era blanco y no se veía, y
+                 el verde y el naranja puros no llegaban a leerse sobre blanco. */
+              const colorDiferencia = mejor === null ? "rgb(var(--rmcf-ink-rgb) / .55)" : chipInk(mejor ? MEJOR : PEOR);
               /* Las dos barras comparten escala: la más larga es el mayor de los dos. */
               const tope = Math.max(m.actual ?? 0, m.media ?? 0, 0.0001);
 
@@ -143,7 +153,7 @@ export function ComparativaPartido({
                     </div>
                   </div>
 
-                  <span className="text-right text-lg font-semibold tabular-nums" style={{ color: ORO }}>
+                  <span className="text-right text-lg font-semibold tabular-nums" style={{ color: ORO_TINTA }}>
                     {m.actual === null ? "—" : formato(m.actual)}
                   </span>
 

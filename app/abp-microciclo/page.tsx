@@ -837,6 +837,12 @@ export default function AbpMicrocicloPage() {
    */
   const aplicaBoceto = useCallback(
     (dias: Record<DiaKey, PlanDia>, rival: string, diasEntrenados: number) => {
+      /* Volver a proponer sustituye los bloques del boceto anterior, también
+         los retocados a mano: con «Deshacer», como al copiar otro micro
+         (19/10/2026). Vuelve a ESTA semana aunque se cambie de micro. */
+      const destino = claveActiva;
+      const antes = destino ? store.micros?.[destino] : undefined;
+
       mutaPlan((actual) => ({
         ...actual,
         rival: actual.rival || rival,
@@ -848,9 +854,23 @@ export default function AbpMicrocicloPage() {
 
       toast.success("Boceto aplicado", {
         description: "Está en la semana como cualquier otra tarea: muévelo, recórtalo y ciérralo.",
+        action: destino
+          ? {
+              label: "Deshacer",
+              onClick: () =>
+                setStore((actual) => {
+                  const lista = { ...(actual.micros ?? {}) };
+
+                  if (antes) lista[destino] = antes;
+                  else delete lista[destino];
+
+                  return { ...actual, micros: lista };
+                }),
+            }
+          : undefined,
       });
     },
-    [mutaPlan],
+    [mutaPlan, claveActiva, store.micros, setStore],
   );
 
   /* ----------------------- COPIAR OTRO MICROCICLO ---------------------- */
@@ -1730,7 +1750,7 @@ export default function AbpMicrocicloPage() {
                     <p className="text-[10.5px] leading-relaxed text-white/35">
                       Las hojas no separan el córner directo del jugado en corto:
                       esa división se lee del{" "}
-                      <span className="text-white/55">Tipo_Envio</span> (corto =
+                      <span className="text-white/55">tipo de envío</span> (corto =
                       indirecto). Y no registran saque de medio, reinicio de
                       portería ni libre indirecto dentro del área, así que ahí no
                       hay nada que cruzar todavía.
@@ -1769,7 +1789,10 @@ export default function AbpMicrocicloPage() {
           onBorrar={
             editor.origen
               ? () => {
-                  borraTrabajo(editor.origen as DiaKey, editor.trabajo.id);
+                  /* Por el mismo camino que la tarjeta de la semana, con su
+                     «Deshacer» (19/10/2026): el plan se guarda solo y un toque
+                     de más en «Quitar» perdía el bloque. */
+                  quitaDesdeLaSemana(editor.origen as DiaKey, editor.trabajo);
                   setEditor(null);
                 }
               : undefined

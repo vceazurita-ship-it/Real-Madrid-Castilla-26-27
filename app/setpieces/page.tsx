@@ -1,7 +1,8 @@
 "use client";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { traeCsv } from "@/lib/hojaCsv";
-import { EsqueletoPantalla, EstadoError } from "@/components/ui/estados";
+import { EsqueletoPantalla, EstadoError, EstadoVacio } from "@/components/ui/estados";
+import { chipInk } from "@/lib/theme";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
@@ -1964,8 +1965,9 @@ const chartNodes = document.querySelectorAll(
 );
 
 const originalStyles: Array<{
-  el: Element;
+  el: SVGElement;
   fill: string | null;
+  estilo: string;
   weight: string | null;
 }> = [];
 
@@ -1980,6 +1982,7 @@ chartNodes.forEach((chart) => {
       originalStyles.push({
         el: node,
         fill: node.getAttribute("fill"),
+        estilo: node.style.fill,
         weight:
           node.getAttribute(
             "font-weight"
@@ -1990,6 +1993,10 @@ chartNodes.forEach((chart) => {
         "fill",
         "#000000"
       );
+
+      /* Las cifras junto a la barra llevan el color en `style`, que gana al
+         atributo: sin esto salían blancas sobre el blanco del PDF (19/10/2026). */
+      node.style.fill = "#000000";
 
       node.setAttribute(
         "font-weight",
@@ -2278,12 +2285,14 @@ while (index < charts.length) {
     );
   }
 originalStyles.forEach(
-  ({ el, fill, weight }) => {
+  ({ el, fill, estilo, weight }) => {
     if (fill)
       el.setAttribute(
         "fill",
         fill
       );
+
+    el.style.fill = estilo;
 
     if (weight)
       el.setAttribute(
@@ -2292,8 +2301,12 @@ originalStyles.forEach(
       );
   }
 );
+  /* La fecha del nombre, la de aquí: con `toISOString` a pelo, un PDF
+     sacado pasada la medianoche llevaba la del día anterior (19/10/2026). */
+  const ahora = new Date();
+
   doc.save(
-    `ABP_Ofensivo_${new Date()
+    `ABP_Ofensivo_${new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000)
       .toISOString()
       .slice(0, 10)}.pdf`
   );
@@ -2959,7 +2972,7 @@ margin={{
   ><Label
   value={zonaCaida.reduce((suma, d) => suma + d.total, 0)}
   position="center"
-  fill="#fff"
+  fill="#F4F4F5"
   fontSize={isMobile ? 22 : 30}
 />
 
@@ -3070,7 +3083,7 @@ margin={{
               : ""
           }
           style={{
-            fill: "#fff",
+            fill: "rgb(var(--rmcf-ink-rgb))",
             fontWeight: 600,
           }}
         />
@@ -3136,7 +3149,7 @@ margin={{
           dataKey="xg"
           position="right"
           style={{
-            fill: "#fff",
+            fill: "rgb(var(--rmcf-ink-rgb))",
             fontWeight: 600,
           }}
         />
@@ -3202,7 +3215,7 @@ margin={{
           dataKey="total"
           position="right"
           style={{
-            fill: "#fff",
+            fill: "rgb(var(--rmcf-ink-rgb))",
             fontWeight: 600,
           }}
         />
@@ -3260,7 +3273,7 @@ outerRadius={
         <Label
 value={totalZonaRemate}
   position="center"
-  fill="#fff"
+  fill="#F4F4F5"
   fontSize={isMobile ? 22 : 30}
 />
        <LabelList
@@ -3335,7 +3348,7 @@ value={totalZonaRemate}
         )}        <Label
 value={totalSegundoBalon}
   position="center"
-  fill="#fff"
+  fill="#F4F4F5"
   fontSize={isMobile ? 22 : 30}
 />
        <LabelList
@@ -3410,7 +3423,7 @@ value={totalSegundoBalon}
         )} <Label
 value={totalTipoCarrera}
   position="center"
-  fill="#fff"
+  fill="#F4F4F5"
   fontSize={isMobile ? 22 : 30}
 />
        <LabelList
@@ -3489,7 +3502,7 @@ margin={{
           dataKey="total"
           position="top"
           style={{
-            fill: "#fff",
+            fill: "rgb(var(--rmcf-ink-rgb))",
             fontWeight: 600,
           }}
         />
@@ -3588,7 +3601,7 @@ margin={{
           dataKey="total"
           position="top"
           style={{
-            fill: "#fff",
+            fill: "rgb(var(--rmcf-ink-rgb))",
             fontSize: 11,
           }}
         />
@@ -3736,6 +3749,16 @@ margin={{
 
   </Explicativo>
 
+  {/* Sin una sola acción con marcador, tres barras a cero parecían un fallo
+      (19/10/2026): se dice qué falta. */}
+  {filasEstado.length > 0 && conMarcador.length === 0 ? (
+    <EstadoVacio
+      className="mb-4"
+      titulo="Ninguna de estas acciones tiene el marcador anotado"
+      texto="Sale de las columnas «Resultado RMC» y «Resultado RIVAL» de la hoja de córners a favor. Rellénalas en estas filas y aparecerán aquí."
+    />
+  ) : null}
+
   <div id="grafico-abp-marcador">
 
   <Chart>
@@ -3783,7 +3806,7 @@ margin={{
         <LabelList
           dataKey="total"
           position="top"
-          style={{ fill: "#fff", fontSize: 11 }}
+          style={{ fill: "rgb(var(--rmcf-ink-rgb))", fontSize: 11 }}
         />
       </Bar>
 
@@ -3814,7 +3837,7 @@ margin={{
       >
         <p
           className="text-[10px] uppercase tracking-[0.16em]"
-          style={{ color: ESTADO_COLOR[fila.key] }}
+          style={{ color: chipInk(ESTADO_COLOR[fila.key]) }}
         >
           {fila.estado}
         </p>
@@ -3898,7 +3921,7 @@ margin={{
               : ""
           }
           style={{
-            fill: "#fff",
+            fill: "rgb(var(--rmcf-ink-rgb))",
             fontWeight: 600,
           }}
         />
@@ -3907,7 +3930,7 @@ margin={{
   </Chart></div>
 </Panel>
 
-<Panel className={oculto("quien")} title="Top rivales por xG concedido" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}>
+<Panel className={oculto("quien")} title="xG generado contra cada rival" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}>
   <div id="grafico-rivales-xg-concedido">
 
   <Chart>
@@ -3959,7 +3982,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel className={oculto("donde")} title="xG por zona caida" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}>
+<Panel className={oculto("donde")} title="xG por zona de caída" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}>
   <div id="grafico-xg-caida">
 
   <Chart>
@@ -4118,7 +4141,7 @@ outerRadius={
    <Label
 value={`${tasaPeligroResultado.toFixed(0)}%`}
   position="center"
-  fill="#fff"
+  fill="#F4F4F5"
   fontSize={isMobile ? 22 : 30}
 />
     <LabelList

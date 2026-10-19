@@ -111,7 +111,10 @@ export function SelectorJugador({
     });
   }, [players, busca]);
 
-  const Fila = ({
+  /* Se llama como función y no se monta como componente (19/10/2026):
+     declarado dentro del render, cada clic lo volvía un componente nuevo,
+     se remontaban todas las filas, se perdía el foco y parpadeaban las fotos. */
+  const fila = ({
     player,
     veces,
   }: {
@@ -130,6 +133,7 @@ export function SelectorJugador({
 
     return (
       <button
+        key={player.id}
         type="button"
         disabled={bloqueado}
         onClick={() => (grupo ? alterna(player.id) : onElegir(player.id))}
@@ -208,6 +212,9 @@ export function SelectorJugador({
           ? `Quiénes lanzan desde aquí, por orden — hasta ${limite}`
           : "Quién ocupa este puesto"
       }
+      /* Por grupo, lo marcado no se aplica hasta «Guardar»: Escape o un clic
+         fuera lo tiraban sin avisar (19/10/2026). */
+      sinGuardar={grupo ? marcados.join("|") !== (elegidos ?? []).join("|") : false}
       onClose={onCerrar}
       footer={
         grupo ? (
@@ -285,7 +292,7 @@ export function SelectorJugador({
 
             <div className="grid gap-1.5 sm:grid-cols-2">
               {habituales.map(({ item, player }) => (
-                <Fila key={player.id} player={player} veces={item.veces} />
+                fila({ player, veces: item.veces })
               ))}
             </div>
           </div>
@@ -308,7 +315,7 @@ export function SelectorJugador({
 
           <div className="mt-2 grid max-h-[42vh] gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
             {resto.map((player) => (
-              <Fila key={player.id} player={player} />
+              fila({ player })
             ))}
 
             {resto.length === 0 && (

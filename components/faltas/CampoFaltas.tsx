@@ -178,7 +178,9 @@ export function CampoFaltas({
             <span className="h-3 w-3 rounded-full border-2 border-white/80" /> frontal, cerca del área
           </span>
           <span>Cifras de cada zona: a favor · en contra</span>
-          <span className="text-white/30">Pasa por un punto para ver minuto, defensores y qué pasó</span>
+          {/* En línea, como el resto del pie: la clase se volvía tinta oscura
+              sobre el verde del campo en modo día (19/10/2026). */}
+          <span style={{ color: "rgba(255,255,255,0.45)" }}>Pasa por un punto para ver minuto, defensores y qué pasó</span>
         </>
       }
     />

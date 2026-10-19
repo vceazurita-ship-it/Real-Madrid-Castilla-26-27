@@ -6,6 +6,7 @@
  */
 
 import Papa from "papaparse";
+import { traeCsv } from "@/lib/hojaCsv";
 
 const BOOK =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub";
@@ -163,19 +164,19 @@ export type SheetRow = Record<string, string>;
 /**
  * Descarga una pestaña y la devuelve como filas con cabecera.
  *
- * Se pide con `cache: "no-store"`: las hojas se editan durante la semana y un
- * dato de ABP viejo es peor que un segundo de espera.
+ * Por `traeCsv` (19/10/2026), como las páginas de córners y de banda, que
+ * piden estas mismas URL: antes era un `fetch` a pelo con `no-store` y el ABP
+ * del rival y la competición se bajaban las cuatro hojas enteras en cada
+ * visita, sin copia para ir sin cobertura. `traeCsv` enseña la copia y la
+ * renueva por detrás a los pocos minutos; `forzar` la salta.
  */
-export async function loadSheet(gid: string): Promise<SheetRow[]> {
+export async function loadSheet(
+  gid: string,
+  opciones: { forzar?: boolean } = {},
+): Promise<SheetRow[]> {
   if (!gid) return [];
 
-  const response = await fetch(sheetUrl(gid), { cache: "no-store" });
-
-  if (!response.ok) {
-    throw new Error(`No se pudo leer la hoja ${gid} (${response.status})`);
-  }
-
-  const text = await response.text();
+  const text = await traeCsv(sheetUrl(gid), opciones);
 
   const parsed = Papa.parse<SheetRow>(text, {
     header: true,

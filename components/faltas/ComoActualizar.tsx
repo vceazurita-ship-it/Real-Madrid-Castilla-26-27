@@ -35,6 +35,16 @@ export function ComoActualizar({
   const [carpeta, setCarpeta] = useState(carpetaPorDefecto);
   const [copiada, setCopiada] = useState<string | null>(null);
 
+  /* Al cambiar de partido en la página, la carpeta propuesta es la suya
+     (19/10/2026): el estado inicial sólo se leía al montar y las órdenes
+     seguían apuntando a los clips del primero. Se compara en render. */
+  const [porDefectoVisto, setPorDefectoVisto] = useState(carpetaPorDefecto);
+
+  if (porDefectoVisto !== carpetaPorDefecto) {
+    setPorDefectoVisto(carpetaPorDefecto);
+    setCarpeta(carpetaPorDefecto);
+  }
+
   const base = useMemo(() => conBarras(carpeta) || "C:/ruta/a/los/clips", [carpeta]);
 
   const ordenes = useMemo(
@@ -89,7 +99,7 @@ export function ComoActualizar({
           className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
         />
 
-        <span className="mt-1 block text-[11ash] text-[11px] text-white/35">
+        <span className="mt-1 block text-[11px] text-white/35">
           La de arriba, la que contiene <code>FALTA OF</code> y{" "}
           <code>FALTA DEF</code>. Pégala tal cual: las barras se arreglan solas.
         </span>

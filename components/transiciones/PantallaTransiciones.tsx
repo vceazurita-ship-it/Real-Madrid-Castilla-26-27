@@ -213,7 +213,9 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     unidad: "pérdidas",
     unidadUna: "pérdida",
     serieTotal: "Pérdidas",
-    serieAdelante: "Salen adelante",
+    /* Igual que el nombre de la acción: la leyenda filtra por este texto y,
+       con «Salen adelante», no casaba y no se podía pulsar (19/10/2026). */
+    serieAdelante: "Salen hacia delante",
     /* Aquí la salida es la del rival: que salga hacia delante es lo malo. */
     acciones: [
       { clave: "ADELANTE", nombre: "Salen hacia delante", color: NARANJA },
@@ -562,6 +564,11 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   const [resaltado, setResaltado] = useState<string | null>(null);
   const [porcentajes, setPorcentajes] = useState(false);
   const [conDudosos, setConDudosos] = useState(true);
+  /* Lo dudoso no es lo mismo en los dos modos (19/10/2026): en robos es la
+     confianza baja, pero en pérdidas —donde no hay ninguna baja— es la media,
+     como dice su texto. Con «baja» fijo, «Quitar los dudosos» en pérdidas no
+     quitaba nada. */
+  const DUDOSA = modo === "robos" ? "baja" : "media";
   /*
   | La pretemporada, fuera salvo que se pida: los amistosos no se leen igual
   | que la liga. Hoy no hay ninguno en los datos y el mando ni sale.
@@ -614,8 +621,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     const lista = elegidos.flatMap((p) =>
       p.robos.map((r) => ({ ...r, partido: p.id, jornada: p.jornada, rival: p.rival })),
     );
-    return conDudosos ? lista : lista.filter((r) => r.confianza !== "baja");
-  }, [elegidos, conDudosos]);
+    return conDudosos ? lista : lista.filter((r) => r.confianza !== DUDOSA);
+  }, [elegidos, conDudosos, DUDOSA]);
 
   /*
   | Con todo lo pinchado menos `excepto`. Cada gráfica se pinta sin su propio
@@ -849,7 +856,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     const filasDe = (p: (typeof partidos)[number]): RoboVisto[] =>
       p.robos
         .map((r) => ({ ...r, partido: p.id, jornada: p.jornada, rival: p.rival }))
-        .filter((r) => conDudosos || r.confianza !== "baja")
+        .filter((r) => conDudosos || r.confianza !== DUDOSA)
         .filter((r) => pasaFiltros(r, filtros, LECTORES));
 
     const actuales = filasDe(comparado);
@@ -936,7 +943,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
           ? `Se compara el último partido (${comparado.jornada}) aunque abajo se vean todos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor.`
           : undefined,
     };
-  }, [comparado, partidos, conDudosos, filtros, modo, T, quien]);
+  }, [comparado, partidos, conDudosos, DUDOSA, filtros, modo, T, quien]);
 
   /* ------------------------------------------------------------------ */
   /*  El campo: cada robo o pérdida en su tercio y su carril              */
@@ -1268,8 +1275,10 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                           <span className="h-3 w-3 rounded-full border-2 border-white/80" /> acaba en remate o en el área
                         </span>
                         <span>Cifras de cada zona: hacia delante · el resto</span>
+                        {/* En línea: el pie del campo es verde oscuro en los dos temas
+                            y la clase se volvía tinta oscura en modo día. */}
                         {sinSitio > 0 && explicativos && (
-                          <span className="text-white/30">{sinSitio} sin carril anotado, fuera del campo</span>
+                          <span style={{ color: "rgba(255,255,255,0.45)" }}>{sinSitio} sin carril anotado, fuera del campo</span>
                         )}
                       </>
                     }
@@ -1776,7 +1785,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                               DESENLACES.find((d) => d.clave === r.desenlace)?.nombre ??
                                 r.desenlace,
                             )}
-                            {r.duracion ? (
+                            {r.duracion != null ? (
                               <span className="ml-1 text-white/30">· {r.duracion}s</span>
                             ) : null}
                           </td>

@@ -148,7 +148,17 @@ export function buscaPartidoDelMicro(
 
   if (candidatos.length === 0) return null;
 
-  if (candidatos.length === 1 || !cerca) return candidatos[0];
+  if (candidatos.length === 1) return candidatos[0];
+
+  /* Sin fecha de referencia es un micro que aún no está en la hoja, o sea el
+     que se prepara ahora: su partido es el próximo contra ese rival, no la
+     ida (19/10/2026). Con el primero, en la segunda vuelta el micro nuevo
+     heredaba fechas, MD y «jugado» del partido de la primera. */
+  if (!cerca) {
+    const enOrden = [...candidatos].sort((a, b) => a.cuando.localeCompare(b.cuando));
+
+    return enOrden.find((uno) => !uno.jugado) ?? enOrden[enOrden.length - 1];
+  }
 
   const referencia = aMedioDia(cerca);
 
