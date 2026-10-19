@@ -1461,13 +1461,15 @@ export default function DataAnalisisPage() {
                         icon={History}
                       >
                         <div className="overflow-x-auto">
-                          <table className="w-full min-w-[620px] text-sm">
+                          <table className="w-full min-w-[680px] text-sm">
                             <thead>
                               <tr className="text-left text-[10px] uppercase tracking-[0.16em] text-white/40">
                                 {/* 19/10/2026: las siglas, explicadas al pasar por encima. */}
                                 <th className="pb-2 pr-3 font-medium">Temporada</th>
                                 <th className="pb-2 pr-3 text-right font-medium" title="Partidos jugados">PJ</th>
                                 <th className="pb-2 pr-3 text-right font-medium" title="Ganados, empatados y perdidos">G-E-P</th>
+                                {/* 19/10/2026, lo pidió el usuario: con «a estas alturas», los puntos que llevaba cada Castilla por esta jornada. */}
+                                <th className="pb-2 pr-3 text-right font-medium" title="Puntos: 3 por victoria y 1 por empate, en esos partidos">Puntos</th>
                                 <th className="pb-2 pr-3 text-right font-medium" title="Goles a favor y goles en contra">GF-GC</th>
                                 <th className="pb-2 pr-3 text-right font-medium" title="Goles esperados por partido: lo que valían las ocasiones creadas">xG/partido</th>
                                 <th className="pb-2 text-right font-medium" title="Goles marcados por partido menos xG por partido">Goles − xG/partido</th>
@@ -1507,6 +1509,9 @@ export default function DataAnalisisPage() {
                                     <td className="py-2 pr-3 text-right tabular-nums text-white/70">
                                       {t.ganados}-{t.empates}-{t.perdidos}
                                     </td>
+                                    <td className="py-2 pr-3 text-right font-semibold tabular-nums text-white/90" title={`${(puntosDe(t) / Math.max(1, t.partidos)).toFixed(2).replace(".", ",")} puntos por partido`}>
+                                      {puntosDe(t)}
+                                    </td>
                                     <td className="py-2 pr-3 text-right tabular-nums text-white/70">
                                       {t.gf}-{t.gc}
                                     </td>
@@ -1537,7 +1542,8 @@ export default function DataAnalisisPage() {
 
                         <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
                           PJ: partidos jugados · G-E-P: ganados, empatados y
-                          perdidos · GF-GC: goles a favor y en contra · xG
+                          perdidos · Puntos: 3 por victoria y 1 por empate (con
+                          «a estas alturas», los que llevaba por esta jornada) · GF-GC: goles a favor y en contra · xG
                           (goles esperados): lo que valían las ocasiones.
                           «Goles − xG» es lo que se marcó por partido por encima
                           de lo que valían las ocasiones. Sostenido en positivo
@@ -3281,6 +3287,9 @@ type ResumenTemporada = {
   gc: number;
 };
 
+/** Los puntos de una temporada (o de su tramo «a estas alturas»): 3 por victoria y 1 por empate. */
+const puntosDe = (t: { ganados: number; empates: number }) => t.ganados * 3 + t.empates;
+
 type DatosTemporadas = {
   a: ResumenTemporada;
   b: ResumenTemporada;
@@ -3324,7 +3333,7 @@ function PanelTemporadasCaraACara({
         Castilla {t.temporada}
       </p>
       <p className="mt-1 text-sm tabular-nums text-white/80">
-        {t.partidos} PJ · {t.ganados}-{t.empates}-{t.perdidos} · {t.gf}-{t.gc}
+        {t.partidos} PJ · {t.ganados}-{t.empates}-{t.perdidos} · {puntosDe(t)} pts · {t.gf}-{t.gc}
       </p>
     </div>
   );
