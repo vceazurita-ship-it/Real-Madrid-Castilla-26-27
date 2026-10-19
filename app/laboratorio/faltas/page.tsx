@@ -38,7 +38,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { BarChart3, Crosshair, LayoutDashboard, List, Map as MapIcon, Shield, Swords, Zap } from "lucide-react";
+import { BarChart3, Crosshair, LayoutDashboard, List, Map as MapIcon, Shield, Swords, Users, Zap } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -49,6 +49,7 @@ import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
 import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
 import { CampoFaltas, CARRILES_CAMPO, sitioEnCampo, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
+import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
 import {
   BarraFiltros,
   Filtrable,
@@ -111,6 +112,8 @@ const LECTORES: Record<string, (f: Falta) => string> = {
   carril: (f) => sitioEnCampo(f).carril,
   distancia: (f) => f.distancia,
   entre: (f) => (f.entre === null ? "?" : String(f.entre)),
+  /* El nuestro: el que la comete (en contra) o el que la recibe (a favor). */
+  jugador: (f) => f.jugador ?? "",
 };
 
 /** El rótulo de cada dimensión en la barra de «Filtrando». */
@@ -119,6 +122,7 @@ const ROTULO: Record<string, string> = {
   carril: "Carril",
   distancia: "Distancia",
   entre: "Defendían",
+  jugador: "Jugador",
 };
 
 /** "12'03\" (táctica 12:58)" o «—» cuando no se sabe. */
@@ -128,7 +132,45 @@ const minutoDe = (f: Falta) => f.minuto?.trim() || "—";
 const minutoCorto = (f: Falta) => minutoDe(f).replace(/\s*\(t[aá]ctica[^)]*\)/i, "");
 
 /* Las vistas de la pantalla: resumen, el campo, el detalle y la lista. */
-const VISTAS = ["resumen", "campo", "detalle", "lista"] as const;
+const VISTAS = ["resumen", "campo", "detalle", "jugadores", "lista"] as const;
+
+/* ------------------------------------------------------------------ */
+/*  Por jugador (19/10/2026)                                           */
+/* ------------------------------------------------------------------ */
+
+type FaltaVista = Falta & { partido: string };
+
+const enContra = (f: Falta) => f.lado === "defensivo";
+const aFavor = (f: Falta) => f.lado === "ofensivo";
+
+/** La que frenó una transición: con el campo abierto y fuera del último tercio (ver `cortes`). */
+const cortaTransicion = (f: Falta) =>
+  f.zona !== "campo rival" && f.entre !== null && f.entre <= CORTE_TRANSICION;
+
+/*
+| Lo que pregunta el entrenador de cada jugador: cuántas comete y cuántas
+| recibe, dónde, y cuáles traen peligro. El etiquetado NO apunta en qué
+| acaba la falta, así que «peligro» se lee por el sitio: una en contra
+| frontal o en nuestro campo es un balón parado para el rival; una a favor
+| en campo rival o frontal, uno para nosotros.
+*/
+const COLUMNAS_COMETE: ColumnaJugador<FaltaVista>[] = [
+  { clave: "comete", rotulo: "Comete", explica: "Faltas en contra que hace él", cumple: enContra, sobre: null, color: TEXTO_LADO.defensivo },
+  { tipo: "zonas", clave: "dondeComete", rotulo: "Dónde comete", explica: "Tercio y carril de sus faltas en contra, con el Castilla atacando hacia la derecha", cumple: enContra },
+  { clave: "cometeNuestro", rotulo: "En nuestro campo", explica: "Faltas en contra en nuestro primer tercio", cumple: (f) => enContra(f) && sitioEnCampo(f).zona === "nuestro campo", sobre: enContra, color: TEXTO_LADO.defensivo },
+  { clave: "cometeFrontal", rotulo: "Frontales", explica: "Faltas en contra de cara a nuestra portería: las de más peligro", cumple: (f) => enContra(f) && f.distancia === "frontal", sobre: enContra, color: TEXTO_LADO.defensivo },
+  { clave: "corta", rotulo: "Cortan contra", explica: `Faltas en contra con ${CORTE_TRANSICION} defensores o menos del rival por delante, fuera del último tercio: frenó una transición`, cumple: (f) => enContra(f) && cortaTransicion(f), sobre: enContra },
+];
+
+const COLUMNAS_RECIBE: ColumnaJugador<FaltaVista>[] = [
+  { clave: "recibe", rotulo: "Recibe", explica: "Faltas a favor que le hacen a él", cumple: aFavor, sobre: null, color: TEXTO_LADO.ofensivo },
+  { tipo: "zonas", clave: "dondeRecibe", rotulo: "Dónde recibe", explica: "Tercio y carril de las faltas que le hacen, con el Castilla atacando hacia la derecha", cumple: aFavor },
+  { clave: "recibeRival", rotulo: "En campo rival", explica: "Faltas a favor en el último tercio: balón parado de ataque", cumple: (f) => aFavor(f) && sitioEnCampo(f).zona === "campo rival", sobre: aFavor, color: TEXTO_LADO.ofensivo },
+  { clave: "recibeFrontal", rotulo: "Frontales", explica: "Faltas a favor de cara a la portería rival", cumple: (f) => aFavor(f) && f.distancia === "frontal", sobre: aFavor, color: TEXTO_LADO.ofensivo },
+];
+
+const jugadorDeFalta = (f: FaltaVista) => f.jugador ?? "";
+const partidoDeFalta = (f: FaltaVista) => f.partido;
 
 /** Si hay algún partido de pretemporada en los datos (hoy, ninguno). */
 const HAY_PRETEMPORADA = PARTIDOS.some((p) => esPretemporada(p.jornada));
@@ -190,6 +232,9 @@ export default function FaltasPage() {
     () => [...partidosVisibles].sort((a, b) => a.fecha.localeCompare(b.fecha)),
     [partidosVisibles],
   );
+
+  /** «Por jugador»: el partido elegido o la temporada (los partidos con jugador). */
+  const [ambito, setAmbito] = useState<"partido" | "temporada">("partido");
 
   /** La falta que está encendida, compartida entre el campo y la tabla. */
   const [resaltada, setResaltada] = useState<string | null>(null);
@@ -479,6 +524,51 @@ export default function FaltasPage() {
     return { partido: `${partido.jornada} · ${partido.rival}`, anteriores: anteriores.length, metricas };
   }, [partido, partidosVisibles]);
 
+  /*
+  | Por jugador: con el lado y todo lo pinchado menos el propio jugador (así
+  | al elegir uno se siguen viendo los demás). En temporada, todos los
+  | partidos visibles; sólo cuentan los que tienen jugador.
+  */
+  const partidosJugador = ambito === "temporada" ? partidosVisibles : partido ? [partido] : [];
+  const conJugador = partidosJugador.filter((p) => p.faltas.some((f) => f.jugador));
+  const sinJugador = partidosJugador.filter((p) => p.faltas.length > 0 && !p.faltas.some((f) => f.jugador));
+  const paraJugador: FaltaVista[] = partidosJugador
+    .flatMap((p) => p.faltas.map((f) => ({ ...f, partido: p.id })))
+    .filter(
+      (f) =>
+        (filtro === "todas" || f.lado === filtro) && pasaFiltros(f, filtros, LECTORES, ["jugador"]),
+    );
+  const sinNombre = paraJugador.filter((f) => !f.jugador && conJugador.some((p) => p.id === f.partido)).length;
+  const columnasJugador = [
+    ...(filtro === "ofensivo" ? [] : COLUMNAS_COMETE),
+    ...(filtro === "defensivo" ? [] : COLUMNAS_RECIBE),
+  ];
+
+  const frasesJugador = (() => {
+    const suyas = new Map<string, FaltaVista[]>();
+
+    for (const f of paraJugador) if (f.jugador) suyas.set(f.jugador, [...(suyas.get(f.jugador) ?? []), f]);
+
+    const lista = [...suyas.entries()].map(([jugador, filas]) => ({ jugador, filas }));
+    const elQueMas = (cumple: (f: Falta) => boolean) =>
+      lista
+        .map((l) => ({ jugador: l.jugador, n: l.filas.filter(cumple).length }))
+        .sort((a, b) => b.n - a.n || a.jugador.localeCompare(b.jugador, "es"))[0];
+
+    const frases: string[] = [];
+    const comete = elQueMas(enContra);
+    const recibe = elQueMas(aFavor);
+    const frontal = elQueMas((f) => enContra(f) && f.distancia === "frontal");
+    const corta = elQueMas((f) => enContra(f) && cortaTransicion(f));
+
+    if (comete?.n && filtro !== "ofensivo") frases.push(`El que más faltas comete es ${comete.jugador} (${comete.n}).`);
+    if (recibe?.n && filtro !== "defensivo") frases.push(`Al que más se las hacen es a ${recibe.jugador} (${recibe.n}).`);
+    if (frontal?.n && filtro !== "ofensivo") frases.push(`${frontal.jugador} es el que más faltas frontales hace en contra (${frontal.n}).`);
+    if (corta?.n && filtro !== "ofensivo") frases.push(`${corta.jugador} es el que más contras corta con falta (${corta.n}).`);
+
+    return frases;
+  })();
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -589,6 +679,7 @@ export default function FaltasPage() {
                   { clave: "resumen", label: "Resumen", icono: LayoutDashboard },
                   { clave: "campo", label: "En el campo", icono: MapIcon },
                   { clave: "detalle", label: "Detalle", icono: BarChart3 },
+                  { clave: "jugadores", label: "Por jugador", icono: Users },
                   { clave: "lista", label: "Falta a falta", icono: List, cuenta: faltas.length },
                 ]}
               />
@@ -874,6 +965,86 @@ export default function FaltasPage() {
             </>
             )}
 
+            {vista === "jugadores" && (
+            <>
+            {/* ---------------- por jugador ---------------- */}
+
+            <Conclusiones items={frasesJugador} className="mt-5" />
+
+            <div className="mt-4">
+              <Panel
+                title="Quién comete y quién recibe"
+                subtitle={
+                  conJugador.length === 0
+                    ? undefined
+                    : `${
+                        ambito === "temporada"
+                          ? `Temporada: suma de ${conJugador.length} ${conJugador.length === 1 ? "partido" : "partidos"} con jugador (${conJugador.map((p) => p.jornada).join(", ")})`
+                          : `${conJugador[0].jornada} · ${conJugador[0].rival}`
+                      }${sinJugador.length ? `. ${sinJugador.map((p) => p.jornada).join(" y ")} no ${sinJugador.length === 1 ? "entra" : "entran"}: se ${sinJugador.length === 1 ? "miró" : "miraron"} a ojo desde los clips y no ${sinJugador.length === 1 ? "tiene" : "tienen"} jugador` : ""}. Pulsa un nombre para filtrar la pantalla por él; pulsa una cabecera para ordenar`
+                }
+                icon={Users}
+                bodyClassName="p-0"
+                action={
+                  <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+                    {(
+                      [
+                        { key: "partido" as const, label: "Este partido" },
+                        { key: "temporada" as const, label: "Temporada" },
+                      ]
+                    ).map((uno) => (
+                      <button
+                        key={uno.key}
+                        type="button"
+                        onClick={() => setAmbito(uno.key)}
+                        aria-pressed={ambito === uno.key}
+                        className={`rounded-lg px-3 py-1.5 text-xs transition ${
+                          ambito === uno.key
+                            ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                            : "text-white/50 hover:text-white"
+                        }`}
+                      >
+                        {uno.label}
+                      </button>
+                    ))}
+                  </div>
+                }
+              >
+                {conJugador.length === 0 ? (
+                  <SinJugador>
+                    {partidosJugador.every((p) => p.faltas.length === 0)
+                      ? "Todavía no hay ninguna falta etiquetada."
+                      : ambito === "temporada"
+                        ? "Ninguno de estos partidos tiene jugador: se miraron a ojo desde los clips. El jugador sale del timeline de Hudl, desde el J5."
+                        : "Este partido se miró a ojo desde los clips, sin el timeline de Hudl: no tiene jugador. Pulsa «Temporada» para ver la suma de los que sí lo tienen."}
+                  </SinJugador>
+                ) : paraJugador.every((f) => !f.jugador) ? (
+                  <SinJugador>Ninguna falta con jugador con este filtro.</SinJugador>
+                ) : (
+                  <PorJugador
+                    filas={paraJugador}
+                    jugadorDe={jugadorDeFalta}
+                    sitioDe={sitioEnCampo}
+                    partidoDe={partidoDeFalta}
+                    total={{ rotulo: "Faltas", explica: "Las que comete más las que recibe, con los filtros de la pantalla" }}
+                    columnas={columnasJugador}
+                    marcados={filtros.jugador ?? []}
+                    onJugador={(j) => alterna("jugador", j)}
+                  />
+                )}
+              </Panel>
+
+              {explicativos && conJugador.length > 0 && (
+                <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+                  «Comete» son las faltas en contra que hace él; «Recibe», las que le hacen a él. El etiquetado no apunta en qué acaba cada falta, así que el peligro se lee por el sitio: en contra, las frontales y las de nuestro campo dejan un balón parado al rival; a favor, las de campo rival y las frontales nos lo dejan a nosotros. «Cortan contra»: con {CORTE_TRANSICION} defensores o menos del rival por delante, fuera del último tercio. El campo en miniatura es el de verdad: el Castilla ataca hacia la derecha y, cuanto más oro, más faltas en esa casilla.
+                  {sinNombre > 0 ? ` Quedan fuera ${sinNombre} ${sinNombre === 1 ? "falta" : "faltas"} sin jugador (manos, o que no casan con una del timeline).` : ""}
+                  {" "}El jugador sale del timeline de Hudl (la sesión por jugador); no se mira cuántos minutos jugó cada uno.
+                </p>
+              )}
+            </div>
+            </>
+            )}
+
             {vista === "lista" && (
             <>
             {/* ---------------- una por una ---------------- */}
@@ -894,6 +1065,8 @@ export default function FaltasPage() {
                         <tr>
                           <th className="pb-2 pr-3 font-medium">#</th>
                           <th className="pb-2 pr-3 font-medium">Lado</th>
+                          {/* El nuestro: el que la comete (en contra) o el que la recibe (a favor). */}
+                          <th className="pb-2 pr-3 font-medium">Jugador</th>
                           <th className="pb-2 pr-3 font-medium">Dónde</th>
                           <th className="pb-2 pr-3 font-medium">Distancia</th>
                           <th className="pb-2 pr-3 font-medium">Defendían</th>
@@ -933,6 +1106,10 @@ export default function FaltasPage() {
                               >
                                 {NOMBRE_LADO[f.lado]}
                               </button>
+                            </td>
+
+                            <td className="whitespace-nowrap py-2 pr-3 text-white/75">
+                              {celda("jugador", f.jugador ?? "")}
                             </td>
 
                             <td className="py-2 pr-3 text-white/70">

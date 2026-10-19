@@ -54,6 +54,7 @@ import {
   Map as MapIcon,
   Target,
   Timer,
+  Users,
 } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -71,6 +72,7 @@ import {
   type MetricaComparada,
 } from "@/components/abp/ComparativaPartido";
 import { CampoZonas, type PuntoCampo } from "@/components/campo/CampoZonas";
+import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
 import { CARRILES_CAMPO, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
 import {
@@ -345,8 +347,13 @@ function tipoDe(r: Robo) {
   return m ? (QUIEN_ROBA.exec(m[2])?.[1] ?? "") : "";
 }
 
-/** Quién roba o quién pierde (sólo en los bloques nuevos). */
+/*
+| Quién roba o quién pierde. Desde el 19/10/2026 viene en su propio campo
+| (`jugador`, de la sesión por jugador de Hudl); si no, del detalle de los
+| bloques de Hudl. Los partidos mirados a ojo (J2, J3) no lo tienen.
+*/
 function jugadorDe(r: Robo) {
+  if (r.jugador) return r.jugador;
   const m = PARTES_DETALLE.exec(r.detalle ?? "");
   return m ? (QUIEN_ROBA.exec(m[2])?.[2] ?? "") : "";
 }
@@ -399,6 +406,42 @@ const LECTORES: Record<string, (r: RoboVisto) => string> = {
 };
 
 const HAY_PRETEMPORADA = PARTIDOS.some((p) => esPretemporada(p.jornada));
+
+/* ------------------------------------------------------------------ */
+/*  Por jugador (19/10/2026)                                           */
+/* ------------------------------------------------------------------ */
+
+const llegaAlArea = (r: Robo) => r.desenlace === "REMATE" || r.desenlace === "AREA";
+const seJuega = (r: Robo) => r.accion === "ADELANTE" || r.accion === "HORIZONTAL_ATRAS";
+const conDesenlaceAnotado = (r: Robo) => Boolean(r.desenlace);
+
+/*
+| Lo que pregunta un entrenador de cada jugador: cuántas, dónde y qué sale
+| después. En los robos, lo bueno es salir hacia delante y llegar; en las
+| pérdidas, lo caro es que el rival nos llegue al área o al remate.
+*/
+const COLUMNAS_JUGADOR: Record<ModoTransiciones, ColumnaJugador<RoboVisto>[]> = {
+  robos: [
+    { tipo: "zonas", clave: "donde", rotulo: "Dónde roba", explica: "Tercio y carril de cada robo, con el Castilla atacando hacia la derecha" },
+    { clave: "rival", rotulo: "En campo rival", explica: "Robos en el último tercio: la presión alta que funciona", cumple: (r) => zonaDe(r) === "campo rival", color: VERDE },
+    { clave: "adelante", rotulo: "Salen adelante", explica: "Lo primero tras el robo es un pase o una conducción hacia delante; el % es sobre los que se juegan con pase o conducción", cumple: (r) => r.accion === "ADELANTE", sobre: seJuega, color: VERDE },
+    { clave: "llegan", rotulo: "Remate o área", explica: "La posesión que nace del robo acaba en remate o con el balón en el área rival", cumple: llegaAlArea, sobre: conDesenlaceAnotado, color: VERDE },
+    { clave: "remate", rotulo: "Remate", explica: "Acaban en remate", cumple: (r) => r.desenlace === "REMATE", sobre: null, color: VERDE },
+    { clave: "pierde", rotulo: "Perdida al momento", explica: "La perdemos sin llegar a jugarla", cumple: (r) => r.accion === "PERDIDA", color: NARANJA },
+  ],
+  perdidas: [
+    { tipo: "zonas", clave: "donde", rotulo: "Dónde pierde", explica: "Tercio y carril de cada pérdida, con el Castilla atacando hacia la derecha" },
+    { clave: "propio", rotulo: "En nuestro campo", explica: "Pérdidas en nuestro primer tercio: las que más peligro traen", cumple: (r) => zonaDe(r) === "campo propio", color: NARANJA },
+    { clave: "caras", rotulo: "Caras", explica: "Pérdidas caras: la posesión del rival acaba en remate o en nuestra área; el % es sobre las que tienen desenlace anotado", cumple: llegaAlArea, sobre: conDesenlaceAnotado, color: NARANJA },
+    { clave: "remate", rotulo: "Remate rival", explica: "Acaban en remate del rival", cumple: (r) => r.desenlace === "REMATE", sobre: null, color: NARANJA },
+    { clave: "adelante", rotulo: "Salen adelante", explica: "El rival sale hacia delante con pase o conducción; el % es sobre las que llega a jugar", cumple: (r) => r.accion === "ADELANTE", sobre: seJuega, color: NARANJA },
+    { clave: "recuperamos", rotulo: "Recuperada", explica: "La volvemos a recuperar antes de que nos llegue", cumple: (r) => r.accion === "RECUPERAMOS" || r.desenlace === "RECUPERAMOS", color: VERDE },
+  ],
+};
+
+/** El sitio de una fila en el campo de verdad, como lo dibuja el campo. */
+const sitioDe = (r: RoboVisto) => ({ zona: ZONA_EN_CAMPO[zonaDe(r)] ?? "", carril: r.carril });
+const partidoDeFila = (r: RoboVisto) => r.partido;
 
 /* ------------------------------------------------------------------ */
 /*  Piezas sueltas                                                     */
@@ -485,7 +528,7 @@ function Pista({ active, payload, label }: PistaProps) {
 /*  Pantalla                                                           */
 /* ------------------------------------------------------------------ */
 
-const VISTAS = ["resumen", "campo", "detalle", "lista"] as const;
+const VISTAS = ["resumen", "campo", "detalle", "jugadores", "lista"] as const;
 
 /** «0-1 Pedro Ortiz (min 13): pase de… Hudl 772-776…» → «0-1 Pedro Ortiz (min 13)». */
 function textoGolCorto(texto: string) {
@@ -1047,6 +1090,69 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     return frases;
   }, [robos, filtros, T, modo]);
 
+  /* ------------------------------------------------------------------ */
+  /*  Por jugador                                                        */
+  /* ------------------------------------------------------------------ */
+
+  /*
+  | Con todos los filtros menos el del propio jugador: al elegir uno se ven
+  | los demás, con él marcado. Sólo entran los partidos con jugador (los del
+  | timeline de Hudl); los mirados a ojo se dicen aparte.
+  */
+  const paraJugador = filtrados(["jugador"]);
+  const conJugador = elegidos.filter((p) => p.robos.some((r) => r.jugador));
+  const sinJugador = elegidos.filter((p) => p.robos.length > 0 && !p.robos.some((r) => r.jugador));
+  const fuera = paraJugador.filter((r) => !jugadorDe(r)).length;
+  const columnasJugador = COLUMNAS_JUGADOR[modo];
+
+  const frasesJugador = (() => {
+    const cuenta = new Map<string, RoboVisto[]>();
+
+    for (const r of paraJugador) {
+      const q = jugadorDe(r);
+      if (q) cuenta.set(q, [...(cuenta.get(q) ?? []), r]);
+    }
+
+    const lista = [...cuenta.entries()].map(([jugador, filas]) => ({ jugador, filas }));
+
+    if (lista.length === 0) return [];
+
+    const frases: string[] = [];
+    const porTotal = [...lista].sort((a, b) => b.filas.length - a.filas.length);
+    const [primero, segundo] = porTotal;
+
+    frases.push(
+      `${primero.jugador} es el que más ${modo === "robos" ? "roba" : "pierde"}: ${primero.filas.length}${segundo ? `, por delante de ${segundo.jugador} (${segundo.filas.length})` : ""}.`,
+    );
+
+    const llegan = [...lista]
+      .map((l) => ({ ...l, n: l.filas.filter(llegaAlArea).length }))
+      .sort((a, b) => b.n - a.n)[0];
+
+    if (llegan && llegan.n > 0) {
+      frases.push(
+        modo === "robos"
+          ? `Los robos de ${llegan.jugador} son los que más acaban en remate o área (${llegan.n}).`
+          : `Las pérdidas más caras son de ${llegan.jugador}: ${llegan.n} acaban en remate o en nuestra área.`,
+      );
+    }
+
+    const zona = modo === "robos" ? "campo rival" : "campo propio";
+    const enZona = [...lista]
+      .map((l) => ({ ...l, n: l.filas.filter((r) => zonaDe(r) === zona).length }))
+      .sort((a, b) => b.n - a.n)[0];
+
+    if (enZona && enZona.n > 0) {
+      frases.push(
+        modo === "robos"
+          ? `En campo rival roba sobre todo ${enZona.jugador} (${enZona.n}).`
+          : `En nuestro campo pierde sobre todo ${enZona.jugador} (${enZona.n}).`,
+      );
+    }
+
+    return frases;
+  })();
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -1150,6 +1256,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                   { clave: "resumen", label: "Resumen", icono: LayoutDashboard },
                   { clave: "campo", label: "En el campo", icono: MapIcon },
                   { clave: "detalle", label: "Detalle", icono: BarChart3 },
+                  { clave: "jugadores", label: "Por jugador", icono: Users },
                   { clave: "lista", label: modo === "robos" ? "Robo a robo" : "Pérdida a pérdida", icono: List, cuenta: robos.length },
                 ]}
               />
@@ -1679,6 +1786,67 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               </div>
             )}
 
+            </>
+            )}
+
+            {vista === "jugadores" && (
+            <>
+            {/* ---------------- por jugador ---------------- */}
+
+            <Conclusiones items={frasesJugador} className="mt-5" />
+
+            <div className="mt-4">
+              <Panel
+                title={modo === "robos" ? "Quién roba" : "Quién pierde el balón"}
+                subtitle={
+                  conJugador.length === 0
+                    ? undefined
+                    : `${
+                        quien === "todos"
+                          ? `Temporada: suma de ${conJugador.length} ${conJugador.length === 1 ? "partido" : "partidos"} con jugador (${conJugador.map((p) => p.jornada).join(", ")})`
+                          : `${conJugador[0].jornada} · ${conJugador[0].rival}`
+                      }${sinJugador.length ? `. ${sinJugador.map((p) => p.jornada).join(" y ")} no ${sinJugador.length === 1 ? "entra" : "entran"}: se ${sinJugador.length === 1 ? "miró" : "miraron"} a ojo y no ${sinJugador.length === 1 ? "tiene" : "tienen"} jugador` : ""}. Pulsa un nombre para filtrar la pantalla por él; pulsa una cabecera para ordenar`
+                }
+                icon={Users}
+                bodyClassName="p-0"
+              >
+                {conJugador.length === 0 ? (
+                  <SinJugador>
+                    {base.length === 0
+                      ? T.vacio
+                      : quien === "todos"
+                        ? "Ninguno de estos partidos tiene jugador: se miraron a ojo, imagen a imagen. El jugador sale del timeline de Hudl, desde el J4."
+                        : `Este partido se miró a ojo, imagen a imagen: no tiene jugador. El jugador sale del timeline de Hudl, desde el J4.`}
+                  </SinJugador>
+                ) : paraJugador.every((r) => !jugadorDe(r)) ? (
+                  <SinJugador>{T.vacioFiltro}</SinJugador>
+                ) : (
+                  <PorJugador
+                    filas={paraJugador}
+                    jugadorDe={jugadorDe}
+                    sitioDe={sitioDe}
+                    partidoDe={partidoDeFila}
+                    total={{
+                      rotulo: T.serieTotal,
+                      explica: modo === "robos" ? "Robos del jugador con los filtros de la pantalla" : "Pérdidas del jugador con los filtros de la pantalla",
+                    }}
+                    columnas={columnasJugador}
+                    marcados={filtros.jugador ?? []}
+                    onJugador={(j) => alterna("jugador", j)}
+                  />
+                )}
+              </Panel>
+
+              {explicativos && conJugador.length > 0 && (
+                <p className="mt-3 text-[11px] leading-relaxed text-white/40">
+                  {modo === "robos"
+                    ? "«Salen adelante»: lo primero tras el robo es un pase o una conducción hacia delante (el % es sobre los que se juegan). «Remate o área»: la jugada que nace del robo acaba en remate o con balón en el área rival (el % es sobre los que tienen desenlace). El campo en miniatura es el del partido de verdad: el Castilla ataca hacia la derecha y, cuanto más oro, más robos en esa casilla."
+                    : "«Caras»: la posesión del rival que nace de la pérdida acaba en remate o en nuestra área (el % es sobre las que tienen desenlace). «Salen adelante»: lo primero que hace el rival es un pase o una conducción hacia delante. «Recuperada»: la volvemos a recuperar antes de que nos llegue. El campo en miniatura es el del partido de verdad: el Castilla ataca hacia la derecha y, cuanto más oro, más pérdidas en esa casilla."}
+                  {fuera > 0 ? ` Con estos filtros quedan fuera ${fuera} ${fuera === 1 ? T.unidadUna : T.unidad} sin jugador.` : ""}
+                  {" "}El jugador sale del timeline de Hudl (la sesión por jugador); no se mira cuántos minutos jugó cada uno.
+                </p>
+              )}
+            </div>
             </>
             )}
 
