@@ -390,7 +390,7 @@ async function main() {
       "Material en .cache/expertos/:",
       "- informes/: los cuatro informes TAL COMO LOS VE EL CUERPO TÉCNICO hoy (sin enviar): partido-previa-resumen.txt y partido-previa-informe-completo.txt (previa J9 Algeciras), partido-post-resumen.txt y partido-post-informe-completo.txt (post J8 Antequera 3-2), abp-previa.txt y abp-post.txt; sus capturas (*.jpg) y los PDF que saca cada diálogo en informes/<informe>-pdf/.",
       "- muestra-video/hoja.png: todas las escenas del vídeo de informe (datos inventados).",
-      "Código: components/informe-partido/ (diálogo, Diapositivas.tsx), lib/informe-partido/ (modelo, textos), components/abp/InformeMicroDialog.tsx y lib/abp/informe-micro.ts (ABP), lib/video-informe/ (guion.ts, dibujo.ts, monta.ts), app/obras/entrenamiento/ y lib/entreno/ (análisis de entrenamiento: objetivos individuales medidos con IA sobre el vídeo de la sesión, con clips de lo correcto y lo mejorable).",
+      "Código: components/informe-partido/ (diálogo, Diapositivas.tsx), lib/informe-partido/ (modelo, textos), components/abp/InformeMicroDialog.tsx y lib/abp/informe-micro.ts (ABP), lib/video-informe/ (guion.ts, dibujo.ts, monta.ts), app/analisis-entrenamiento/ y lib/entreno/ (análisis de entrenamiento: objetivos individuales medidos con IA sobre el vídeo de la sesión, con clips de lo correcto y lo mejorable).",
       "Contexto: AGENTS.md, agentes/README.md. Reglas del usuario: lo que no tiene dato no se nombra en un informe; español de España; todo gratis (sin servicios de pago).",
       "Da como mucho 12 mejoras, las de más impacto primero, concretas y programables en esta plataforma.",
     ].join("\n");

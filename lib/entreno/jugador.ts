@@ -285,7 +285,8 @@ export function tuSesion(dia: DiaEntreno, clave: string, nombre: string): TuSesi
   const metaUnica = suyos.length === 1 ? frenteAMeta(suyos[0].o, suyos[0].c) : "";
   const parentesis = [pctTotal, metaUnica].filter(Boolean).join(" · ");
   const cifra = `${total.correctas} de ${total.total} acciones correctas${parentesis ? ` (${parentesis})` : ""}`;
-  const frase1 = `${primerNombre}, hoy hemos medido ${objetivos}: ${cifra}.`;
+  /* «En esta sesión», no «hoy» (20/10/2026): la vista por jugador prepara también el de los días pasados, y la fecha ya va arriba. */
+  const frase1 = `${primerNombre}, en esta sesión hemos medido ${objetivos}: ${cifra}.`;
 
   /* La explicación de la IA sólo vale si ella también la vio mejorable: si el
      analista le dio la vuelta, explica lo contrario. Entonces, el criterio del objetivo. */
@@ -293,7 +294,12 @@ export function tuSesion(dia: DiaEntreno, clave: string, nombre: string): TuSesi
   const consejo = foco ? (explicacion || foco.o.mejorable || "").trim().replace(/\.$/, "") : "";
   const donde = suyos.length > 1 && foco ? `, en «${textoLimpio(foco.o.objetivo)}»` : "";
   const frase2 = foco
-    ? `Para la próxima${donde}${consejo ? `: ${consejo.charAt(0).toLowerCase()}${consejo.slice(1)}` : `: mira el clip de lo que hay que mejorar`}.`
+    ? consejo
+      ? `Para la próxima${donde}: ${consejo.charAt(0).toLowerCase()}${consejo.slice(1)}.`
+      : /* Sin clip cortado no se le manda a mirarlo (20/10/2026). */
+        clipMejorable
+        ? `Para la próxima${donde}: mira el clip de lo que hay que mejorar.`
+        : `Para la próxima, hay margen de mejora${donde ? ` en «${textoLimpio(foco.o.objetivo)}»` : ""}.`
     : "Todo lo que hemos visto ha salido bien: sigue así.";
 
   const lineas = suyos.map(({ o, c }) => {
