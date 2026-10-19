@@ -296,6 +296,10 @@ export default function JugadoresSesionPage() {
       );
 
       await loadSquad();
+    } catch (error) {
+      /* Sin red el `fetch` lanza y el botón se quedaba sin decir nada. */
+      console.error(error);
+      toast.error("No se pudo crear el jugador");
     } finally {
       setCreating(null);
     }
@@ -396,8 +400,8 @@ export default function JugadoresSesionPage() {
 
               <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/55">
                 Sube la imagen del entrenamiento o pega el mensaje de WhatsApp
-                para detectar la disponibilidad, y ajústala jugador a jugador
-                antes de guardarla.
+                para detectar la disponibilidad, y ajústala jugador a jugador.
+                Cada cambio se guarda solo en la fecha elegida.
               </p>
             </header>
 
@@ -558,7 +562,8 @@ export default function JugadoresSesionPage() {
                   </h2>
 
                   <p className="mt-0.5 text-xs text-white/50">
-                    Ajusta el estado de cada jugador y guarda la sesión.
+                    Ajusta el estado de cada jugador: se guarda solo al dejar
+                    de tocar.
                   </p>
                 </div>
 
@@ -580,7 +585,11 @@ export default function JugadoresSesionPage() {
 
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
+                      /* Recargar pisa los estados con los de la hoja (19/10/2026):
+                         antes se perdía en silencio lo tocado en el último
+                         segundo, que aún no había salido. Primero se manda. */
+                      await auto.flush();
                       setLoading(true);
                       void loadSquad();
                     }}

@@ -159,6 +159,10 @@ export default function ImportAvailability({
 
     let url = "";
 
+    /* Ocupado desde la subida (19/10/2026): el botón seguía vivo mientras
+       subía la foto y un segundo toque la mandaba dos veces. */
+    setLoading(true);
+
     try {
       const upload = await uploadFile(file, "training");
       url = upload.url;
