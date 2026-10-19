@@ -250,6 +250,7 @@ export default function RivalVoicePanel({
                 key={`${change.campo}-${index}`}
                 type="button"
                 onClick={() => toggle(index)}
+                aria-pressed={!off}
                 className={cn(
                   "flex w-full gap-2.5 rounded-xl border p-3 text-left transition",
                   off
@@ -313,6 +314,7 @@ export default function RivalVoicePanel({
             <button
               type="button"
               onClick={() => setTagsAccepted((value) => !value)}
+              aria-pressed={tagsAccepted}
               className={cn(
                 "flex w-full gap-2.5 rounded-xl border p-3 text-left transition",
                 tagsAccepted
@@ -399,8 +401,11 @@ export default function RivalVoicePanel({
             </button>
           </div>
 
+          {/* Desde el 25/08/2026 la ficha de un jugador que ya existe se
+              autoguarda: «hace falta pulsar Guardar» sólo vale para un alta. */}
           <p className="text-center text-[10px] text-white/25">
-            Se escribe en el formulario. Sigue haciendo falta pulsar Guardar.
+            Se escribe en la ficha. Si el jugador ya estaba dado de alta se
+            guarda solo; si es nuevo, falta pulsar Guardar.
           </p>
         </div>
       )}

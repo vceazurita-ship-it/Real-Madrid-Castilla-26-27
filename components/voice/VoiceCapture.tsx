@@ -112,8 +112,9 @@ export default function VoiceCapture({
         <button
           type="button"
           onClick={cancel}
-          title="Descartar"
-          className="rounded-lg p-1 text-white/40 transition hover:bg-white/10 hover:text-white"
+          title="Descartar la grabación"
+          aria-label="Descartar la grabación"
+          className="rounded-lg p-1.5 text-white/40 transition hover:bg-white/10 hover:text-white"
         >
           <X size={13} />
         </button>
