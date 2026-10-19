@@ -414,7 +414,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/dashboard-plantilla",
     titulo: "Dashboard Individual",
     resumen: "La plantilla comparada de un vistazo.",
-    origen: "Hoja JUGADORES y hoja de seguimiento.",
+    origen: "Hoja JUGADORES (plantilla y estado) y hoja de controles de entrenamiento (último control).",
     bloques: [
       {
         titulo: "Cómo se lee",
