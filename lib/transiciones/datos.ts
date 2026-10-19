@@ -29,6 +29,12 @@ export type Robo = {
   pases: string;
   detalle: string;
   confianza: Confianza;
+  /**
+   * El jugador del Castilla que hace la acción: el que roba o el que la
+   * pierde. Sale de la sesión por jugador del timeline de Hudl; no lo tienen
+   * los partidos mirados a ojo (J2 y J3) ni los bloques viejos.
+   */
+  jugador?: string;
   bloque: string;
 };
 
@@ -1109,6 +1115,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "0'55\" (táctica 1:30) · Recuperación tras pérdida de Thiago Pitarch en campo rival por la izquierda, sigue Thiago Pitarch, acaba en area",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b00000"
       },
       {
@@ -1121,6 +1128,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "3'12\" (táctica 3:47) · Recuperación tras pérdida de Mario Rivas en campo propio por la izquierda, sigue Pol Fortuny, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b00000"
       },
       {
@@ -1133,6 +1141,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "4'40\" (táctica 5:15) · Interceptación de Mario Rivas en campo propio por el centro, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b00300"
       },
       {
@@ -1145,6 +1154,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "10",
         "detalle": "8'10\" (táctica 8:45) · Recuperación (pérdida del rival) de Oscar Naasei en campo propio por el centro, acaba en posesion",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b00300"
       },
       {
@@ -1157,6 +1167,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "9'46\" (táctica 10:21) · Interceptación de Jesús Fortea en campo propio por la derecha, sigue Pol Fortuny, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b00600"
       },
       {
@@ -1169,6 +1180,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "10'28\" (táctica 11:03) · Interceptación de Mario Rivas en campo propio por el centro, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b00600"
       },
       {
@@ -1181,6 +1193,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "11'55\" (táctica 12:30) · Duelo ganado de Daniel Yáñez en campo propio por la derecha, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b00600"
       },
       {
@@ -1193,6 +1206,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "14",
         "detalle": "14'26\" (táctica 15:01) · Recuperación con presión de Thiago Pitarch en campo rival por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Thiago Pitarch",
         "bloque": "b00900"
       },
       {
@@ -1205,6 +1219,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "15'32\" (táctica 16:07) · Interceptación de Pol Fortuny en medio campo por el centro, acaba en remate de Daniel Yáñez",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b00900"
       },
       {
@@ -1217,6 +1232,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "17'18\" (táctica 17:53) · Duelo ganado de Mario Rivas en medio campo por la derecha, sigue Mario Rivas, acaba en area",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b00900"
       },
       {
@@ -1229,6 +1245,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "18'00\" (táctica 18:35) · Recuperación con presión de Diego Aguado en campo propio por el centro, acaba en remate de Rachad Fettal",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b00900"
       },
       {
@@ -1241,6 +1258,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "22'34\" (táctica 23:08) · Duelo ganado de Diego Aguado en medio campo por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01200"
       },
       {
@@ -1253,6 +1271,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "24'21\" (táctica 24:55) · Recuperación tras pérdida de Jesús Fortea en campo propio por la derecha, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b01200"
       },
       {
@@ -1265,6 +1284,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "25'07\" (táctica 25:41) · Recuperación (pérdida del rival) de Pol Fortuny en campo propio por la izquierda, acaba en area",
         "confianza": "media",
+        "jugador": "Pol Fortuny",
         "bloque": "b01500"
       },
       {
@@ -1277,6 +1297,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "25'54\" (táctica 26:29) · Recuperación (pérdida del rival) de Jesús Fortea en medio campo por la derecha, acaba en posesion",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b01500"
       },
       {
@@ -1289,6 +1310,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "28'22\" (táctica 28:56) · Interceptación de Thiago Pitarch en medio campo por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b01500"
       },
       {
@@ -1301,6 +1323,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "28'48\" (táctica 29:23) · Recuperación tras pérdida de Thiago Pitarch en medio campo por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b01500"
       },
       {
@@ -1313,6 +1336,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "29'00\" (táctica 29:35) · Recuperación tras pérdida de Jesús Fortea en medio campo por la derecha, sigue Oscar Naasei, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b01500"
       },
       {
@@ -1325,6 +1349,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "29'27\" (táctica 30:01) · Recuperación con presión de Oscar Naasei en medio campo por el centro, sigue Mario Rivas, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b01800"
       },
       {
@@ -1337,6 +1362,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "30'30\" (táctica 31:04) · Recuperación (pérdida del rival) de Oscar Naasei en medio campo por el centro, acaba en perdida",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b01800"
       },
       {
@@ -1349,6 +1375,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "30'34\" (táctica 31:09) · Recuperación tras pérdida de Martínez en medio campo por la izquierda, acaba en remate de Jesús Fortea",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b01800"
       },
       {
@@ -1361,6 +1388,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "35'33\" (táctica 35:08) · Recuperación tras pérdida de Martínez en medio campo por el centro, sigue Martínez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b02100"
       },
       {
@@ -1373,6 +1401,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "37'51\" (táctica 37:26) · Recuperación tras pérdida de Mario Rivas en campo propio por el centro, acaba en falta contra",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b02100"
       },
       {
@@ -1385,6 +1414,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "40'23\" (táctica 39:58) · Interceptación de Diego Aguado en campo rival por la izquierda, sigue Mario Rivas, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02100"
       },
       {
@@ -1397,6 +1427,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "42'50\" (táctica 42:26) · Interceptación de Thiago Pitarch en medio campo por el centro, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b02400"
       },
       {
@@ -1409,6 +1440,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "45+0'19\" (táctica 44:55) · Recuperación tras pérdida de Oscar Naasei en campo propio por el centro, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b02400"
       },
       {
@@ -1421,6 +1453,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "45+0'27\" (táctica 45:02) · Recuperación tras pérdida de Oscar Naasei en medio campo por el centro, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b02700"
       },
       {
@@ -1433,6 +1466,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "45+1'20\" (táctica 45:55) · Recuperación tras pérdida de Pol Fortuny en medio campo por el centro, acaba en remate de Martínez",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b02700"
       },
       {
@@ -1445,6 +1479,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "45'12\" (táctica 48:23) · Recuperación (pérdida del rival) de Oscar Naasei en medio campo por el centro, acaba en posesion",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b02700"
       },
       {
@@ -1457,6 +1492,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "47'29\" (táctica 50:40) · Recuperación (pérdida del rival) de Jesús Fortea en medio campo por la derecha, acaba en fuera",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b03000"
       },
       {
@@ -1469,6 +1505,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "48'03\" (táctica 51:13) · Recuperación con presión de Pol Fortuny en campo rival por la derecha, sigue Pol Fortuny, acaba en area",
         "confianza": "media",
+        "jugador": "Pol Fortuny",
         "bloque": "b03000"
       },
       {
@@ -1481,6 +1518,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "49'05\" (táctica 52:16) · Recuperación tras pérdida de Jesús Fortea en campo propio por la derecha, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03000"
       },
       {
@@ -1493,6 +1531,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "50'14\" (táctica 53:24) · Recuperación tras pérdida de Diego Aguado en campo rival por el centro, acaba en remate de Rachad Fettal",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b03000"
       },
       {
@@ -1505,6 +1544,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "15",
         "detalle": "51'05\" (táctica 54:15) · Recuperación (pérdida del rival) de Mario Rivas en campo propio por el centro, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b03000"
       },
       {
@@ -1517,6 +1557,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "53'16\" (táctica 56:26) · Recuperación tras pérdida de Martínez en medio campo por el centro, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b03300"
       },
       {
@@ -1529,6 +1570,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "63'26\" (táctica 66:36) · Recuperación (pérdida del rival) de Daniel Yáñez en medio campo por el centro, acaba en remate de Daniel Yáñez",
         "confianza": "media",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03900"
       },
       {
@@ -1541,6 +1583,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "14",
         "detalle": "64'48\" (táctica 67:59) · Recuperación tras pérdida de Jesús Fortea en campo rival por la derecha, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03900"
       },
       {
@@ -1553,6 +1596,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "66'46\" (táctica 69:56) · Recuperación (pérdida del rival) de Mario Rivas en medio campo por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b03900"
       },
       {
@@ -1565,6 +1609,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "67'21\" (táctica 70:31) · Duelo ganado de Jesús Fortea en campo rival por la derecha, sigue Pol Fortuny, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b04200"
       },
       {
@@ -1577,6 +1622,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "69'17\" (táctica 72:27) · Interceptación de Mario Rivas en campo propio por el centro, sigue Roberto Martín, acaba en area",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b04200"
       },
       {
@@ -1589,6 +1635,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "70'26\" (táctica 73:36) · Interceptación de Mario Rivas en medio campo por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b04200"
       },
       {
@@ -1601,6 +1648,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "70'31\" (táctica 73:42) · Interceptación de Jesús Fortea en medio campo por el centro, acaba en atras portero",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b04200"
       },
       {
@@ -1613,6 +1661,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "73'14\" (táctica 76:25) · Duelo ganado de Dani Meso en medio campo por la izquierda, sigue Martínez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Dani Meso",
         "bloque": "b04500"
       },
       {
@@ -1625,6 +1674,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "77'36\" (táctica 80:47) · Recuperación (pérdida del rival) de Jesús Fortea en campo propio por la derecha, acaba en area",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b04800"
       },
       {
@@ -1637,6 +1687,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "78'00\" (táctica 81:11) · Recuperación tras pérdida de Diego Aguado en campo rival por la izquierda, acaba en remate de Dani Meso",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b04800"
       },
       {
@@ -1649,6 +1700,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "88'44\" (táctica 91:09) · Interceptación de Oscar Naasei en campo propio por el centro, sigue Jorge Rajado, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b05400"
       },
       {
@@ -1661,6 +1713,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "88'52\" (táctica 91:18) · Recuperación tras pérdida de Martínez en campo propio por el centro, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b05400"
       },
       {
@@ -1673,6 +1726,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "89'13\" (táctica 91:39) · Interceptación de Oscar Naasei en campo propio por el centro, sigue Mario Rivas, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b05400"
       },
       {
@@ -1685,6 +1739,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "90+0'13\" (táctica 92:39) · Interceptación de Oscar Naasei en campo propio por el centro, sigue Martínez, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b05400"
       },
       {
@@ -1697,6 +1752,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "90+0'26\" (táctica 92:52) · Interceptación de Dani Meso en campo propio por el centro, sigue Jesús Fortea, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Dani Meso",
         "bloque": "b05400"
       },
       {
@@ -1709,6 +1765,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "90+2'34\" (táctica 94:59) · Duelo ganado de Diego Aguado en campo propio por la izquierda, sigue Diego Aguado, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b05400"
       },
       {
@@ -1721,6 +1778,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "90+3'58\" (táctica 96:23) · Recuperación (pérdida del rival) de Mario Rivas en medio campo por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b05700"
       }
     ],
@@ -1735,6 +1793,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "0'51\" (táctica 1:26) · Pase perdido de Álvaro Leiva en campo rival por la izquierda, con presión, sigue Andreu Hernández, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00000"
       },
       {
@@ -1747,6 +1806,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "1'18\" (táctica 1:52) · Pase largo perdido de Mario Rivas en campo propio por la izquierda, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b00000"
       },
       {
@@ -1759,6 +1819,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "2'02\" (táctica 2:37) · Duelo perdido de Rachad Fettal en campo rival por la izquierda, con presión, sigue Alexis García, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Rachad Fettal",
         "bloque": "b00000"
       },
       {
@@ -1771,6 +1832,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "3'07\" (táctica 3:42) · Pase perdido de Diego Aguado en campo propio por la izquierda, sigue Pau Darbra, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00000"
       },
       {
@@ -1783,6 +1845,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "5'06\" (táctica 5:41) · Pérdida de Diego Aguado en campo propio por la izquierda, acaba en remate de Andreu Hernández",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b00300"
       },
       {
@@ -1795,6 +1858,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "5'29\" (táctica 6:03) · Duelo perdido de Rachad Fettal en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Rachad Fettal",
         "bloque": "b00300"
       },
       {
@@ -1807,6 +1871,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "6'30\" (táctica 7:05) · Duelo perdido de Álvaro Leiva en campo propio por la izquierda, con presión, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00300"
       },
       {
@@ -1819,6 +1884,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "9'51\" (táctica 10:25) · Duelo perdido de Rachad Fettal en medio campo por la derecha, con presión, sigue Javi Gómez, acaba en area",
         "confianza": "alta",
+        "jugador": "Rachad Fettal",
         "bloque": "b00600"
       },
       {
@@ -1831,6 +1897,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "10",
         "detalle": "11'59\" (táctica 12:34) · Duelo perdido de Jesús Fortea en campo propio por la derecha, con presión, sigue Pablo Menéndez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b00600"
       },
       {
@@ -1843,6 +1910,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "13'36\" (táctica 14:11) · Pérdida de Thiago Pitarch en medio campo por la izquierda, acaba en fuera",
         "confianza": "media",
+        "jugador": "Thiago Pitarch",
         "bloque": "b00600"
       },
       {
@@ -1855,6 +1923,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "14'21\" (táctica 14:56) · Duelo perdido de Thiago Pitarch en medio campo por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b00600"
       },
       {
@@ -1867,6 +1936,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "15'28\" (táctica 16:03) · Duelo perdido de Diego Aguado en medio campo por la izquierda, con presión, sigue Alexis García, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00900"
       },
       {
@@ -1879,6 +1949,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "17'30\" (táctica 18:05) · Duelo perdido de Pol Fortuny en campo rival por la derecha, con presión, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b00900"
       },
       {
@@ -1891,6 +1962,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "10",
         "detalle": "20'11\" (táctica 20:46) · Pase perdido de Diego Aguado en campo rival por la izquierda, sigue Iñaki Álvarez, acaba en remate de Pablo Menéndez",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01200"
       },
       {
@@ -1903,6 +1975,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "22'38\" (táctica 23:13) · Duelo perdido de Thiago Pitarch en medio campo por la izquierda, con presión, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b01200"
       },
       {
@@ -1915,6 +1988,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "24'08\" (táctica 24:43) · Pase perdido de Martínez en medio campo por la derecha, con presión, sigue Jaume Tovar, acaba en area",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b01200"
       },
       {
@@ -1927,6 +2001,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "24'16\" (táctica 24:50) · Pase perdido de Oscar Naasei en campo propio por el centro, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b01200"
       },
       {
@@ -1939,6 +2014,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "24'26\" (táctica 25:00) · Pase perdido de Rachad Fettal en medio campo por la derecha, sigue Javi Gómez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Rachad Fettal",
         "bloque": "b01500"
       },
       {
@@ -1951,6 +2027,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "25'41\" (táctica 26:15) · Centro perdido de Álvaro Leiva en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01500"
       },
       {
@@ -1963,6 +2040,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "25'45\" (táctica 26:20) · Control perdido de Daniel Yáñez en campo rival por el centro, con presión, sigue Andreu Hernández, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Daniel Yáñez",
         "bloque": "b01500"
       },
       {
@@ -1975,6 +2053,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "26'19\" (táctica 26:53) · Control perdido de Diego Aguado en medio campo por la izquierda, acaba en fuera",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b01500"
       },
       {
@@ -1987,6 +2066,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "28'23\" (táctica 28:58) · Pase perdido de Álvaro Leiva en medio campo por la izquierda, con presión, sigue Andreu Hernández, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01500"
       },
       {
@@ -1999,6 +2079,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "28'46\" (táctica 29:20) · Pase perdido de Mario Rivas en medio campo por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b01500"
       },
       {
@@ -2011,6 +2092,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "28'57\" (táctica 29:31) · Pase perdido de Daniel Yáñez en medio campo por la derecha, sigue Nil Jiménez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b01500"
       },
       {
@@ -2023,6 +2105,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "29'04\" (táctica 29:38) · Pase perdido de Oscar Naasei en medio campo por la derecha, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b01500"
       },
       {
@@ -2035,6 +2118,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "30'32\" (táctica 31:07) · Pase perdido de Mario Rivas en medio campo por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b01800"
       },
       {
@@ -2047,6 +2131,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "32'16\" (táctica 31:51) · Control perdido de Rachad Fettal en medio campo por la izquierda, sigue Pau Darbra, acaba en area",
         "confianza": "media",
+        "jugador": "Rachad Fettal",
         "bloque": "b01800"
       },
       {
@@ -2059,6 +2144,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "32'44\" (táctica 32:20) · Pase perdido de Jesús Fortea en campo propio por el centro, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b01800"
       },
       {
@@ -2071,6 +2157,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "35'28\" (táctica 35:03) · Control perdido de Álvaro Leiva en campo rival por la izquierda, sigue Jordi Méndez, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b02100"
       },
       {
@@ -2083,6 +2170,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "36'23\" (táctica 35:59) · Pase perdido de Jesús Fortea en medio campo por la derecha, sigue Pau Darbra, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b02100"
       },
       {
@@ -2095,6 +2183,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "37'07\" (táctica 36:43) · Pase largo perdido de Mario Rivas en campo propio por la izquierda, sigue Javi Gómez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b02100"
       },
       {
@@ -2107,6 +2196,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "37'45\" (táctica 37:20) · Pase perdido de Thiago Pitarch en campo propio por el centro, sigue Alberto García, acaba en area",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b02100"
       },
       {
@@ -2119,6 +2209,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "39'58\" (táctica 39:33) · Pase perdido de Martínez en medio campo por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b02100"
       },
       {
@@ -2131,6 +2222,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "40'20\" (táctica 39:56) · Conducción cortada de Álvaro Leiva en campo rival por la izquierda, con presión, sigue Alexis García, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b02100"
       },
       {
@@ -2143,6 +2235,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "40'29\" (táctica 40:05) · Duelo perdido de Diego Aguado en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02400"
       },
       {
@@ -2155,6 +2248,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "42'48\" (táctica 42:23) · Duelo perdido de Rachad Fettal en campo rival por la izquierda, con presión, sigue Andreu Hernández, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Rachad Fettal",
         "bloque": "b02400"
       },
       {
@@ -2167,6 +2261,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "43'26\" (táctica 43:02) · Pase perdido de Pol Fortuny en medio campo por la derecha, sigue Andreu Hernández, acaba en atras portero",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b02400"
       },
       {
@@ -2179,6 +2274,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "44'19\" (táctica 43:54) · Centro perdido de Jesús Fortea en campo rival por la derecha, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b02400"
       },
       {
@@ -2191,6 +2287,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "44'52\" (táctica 44:28) · Pase perdido de Oscar Naasei en medio campo por la derecha, acaba en atras portero",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b02400"
       },
       {
@@ -2203,6 +2300,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45+0'19\" (táctica 44:54) · Duelo perdido de Thiago Pitarch en medio campo por el centro, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b02400"
       },
       {
@@ -2215,6 +2313,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45+1'16\" (táctica 45:52) · Pase perdido de Martínez en medio campo por el centro, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b02700"
       },
       {
@@ -2227,6 +2326,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "45+2'03\" (táctica 46:39) · Pase largo perdido de Diego Aguado en medio campo por la izquierda, sigue Carlos Blanco, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02700"
       },
       {
@@ -2239,6 +2339,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45+2'36\" (táctica 47:11) · Duelo perdido de Rachad Fettal en medio campo por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Rachad Fettal",
         "bloque": "b02700"
       },
       {
@@ -2251,6 +2352,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "45'03\" (táctica 48:14) · Pase largo perdido de Mario Rivas en campo propio por el centro, sigue Javi Gómez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b02700"
       },
       {
@@ -2263,6 +2365,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "46'22\" (táctica 49:32) · Pase largo perdido de Diego Aguado en medio campo por la izquierda, sigue Iñaki Álvarez, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02700"
       },
       {
@@ -2275,6 +2378,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "47'04\" (táctica 50:15) · Pase largo perdido de Álvaro Leiva en medio campo por la izquierda, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03000"
       },
       {
@@ -2287,6 +2391,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "48'03\" (táctica 51:13) · Pase perdido de Pol Fortuny en campo rival por la derecha, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b03000"
       },
       {
@@ -2299,6 +2404,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "49'00\" (táctica 52:11) · Pérdida de Diego Aguado en campo propio por el centro, sigue Andreu Hernández, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b03000"
       },
       {
@@ -2311,6 +2417,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "49'57\" (táctica 53:08) · Conducción cortada de Daniel Yáñez en campo rival por la derecha, con presión, sigue Nil Jiménez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03000"
       },
       {
@@ -2323,6 +2430,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "50'08\" (táctica 53:18) · Pase perdido de Thiago Pitarch en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b03000"
       },
       {
@@ -2335,6 +2443,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "51'59\" (táctica 55:09) · Pase perdido de Álvaro Leiva en campo rival por la izquierda, sigue Carlos Blanco, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03300"
       },
       {
@@ -2347,6 +2456,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "52'42\" (táctica 55:53) · Pase perdido de Pol Fortuny en medio campo por el centro, con presión, sigue Alberto García, acaba en area",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b03300"
       },
       {
@@ -2359,6 +2469,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "53'08\" (táctica 56:19) · Pase perdido de Daniel Yáñez en campo rival por el centro, sigue Carlos Blanco, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03300"
       },
       {
@@ -2371,6 +2482,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "53'47\" (táctica 56:58) · Pase perdido de Jesús Fortea en campo rival por la derecha, sigue Pablo Menéndez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03300"
       },
       {
@@ -2383,6 +2495,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "53'54\" (táctica 57:04) · Pase perdido de Oscar Naasei en campo rival por la derecha, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b03300"
       },
       {
@@ -2395,6 +2508,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "54'23\" (táctica 57:34) · Pase largo perdido de Thiago Pitarch en medio campo por la izquierda, sigue Carlos Blanco, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b03300"
       },
       {
@@ -2407,6 +2521,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "54'30\" (táctica 57:40) · Pase perdido de Mario Rivas en medio campo por la izquierda, sigue Javi Gómez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b03300"
       },
       {
@@ -2419,6 +2534,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "54'35\" (táctica 57:46) · Control perdido de Mario Rivas en medio campo por la izquierda, sigue Alberto García, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b03300"
       },
       {
@@ -2431,6 +2547,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "54'40\" (táctica 57:51) · Pérdida de Oscar Naasei en medio campo por la izquierda, acaba en fuera",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b03300"
       },
       {
@@ -2443,6 +2560,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "56'04\" (táctica 59:15) · Pérdida de Álvaro Leiva en campo propio por el centro, acaba en area",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03300"
       },
       {
@@ -2455,6 +2573,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "56'39\" (táctica 59:50) · Pase largo perdido de Mario Rivas en campo propio por el centro, sigue Carlos Blanco, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b03300"
       },
       {
@@ -2467,6 +2586,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "57'34\" (táctica 60:45) · Pase perdido de Daniel Yáñez en campo rival por la derecha, sigue Andreu Hernández, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03600"
       },
       {
@@ -2479,6 +2599,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "60'04\" (táctica 63:14) · Pase perdido de Jesús Fortea en medio campo por la derecha, sigue Nil Jiménez, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03600"
       },
       {
@@ -2491,6 +2612,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "63'17\" (táctica 66:28) · Pase perdido de Diego Aguado en campo propio por la izquierda, sigue Javi Gómez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b03900"
       },
       {
@@ -2503,6 +2625,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "64'28\" (táctica 67:39) · Pase perdido de Álvaro Leiva en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03900"
       },
       {
@@ -2515,6 +2638,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "64'41\" (táctica 67:52) · Centro perdido de Diego Aguado en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b03900"
       },
       {
@@ -2527,6 +2651,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "66'37\" (táctica 69:47) · Pase perdido de Pol Fortuny en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b03900"
       },
       {
@@ -2539,6 +2664,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "67'35\" (táctica 70:46) · Control perdido de Diego Aguado en campo rival por la izquierda, sigue Jordi Méndez, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b04200"
       },
       {
@@ -2551,6 +2677,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "69'59\" (táctica 73:09) · Centro perdido de Jesús Fortea en campo rival por la derecha, con presión, sigue Jordi Méndez, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b04200"
       },
       {
@@ -2563,6 +2690,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "70'26\" (táctica 73:36) · Pérdida de Mario Rivas en medio campo por la izquierda, sigue Marc Delgado, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b04200"
       },
       {
@@ -2575,6 +2703,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "71'29\" (táctica 74:39) · Duelo perdido de Ángel Carvajal en campo rival por la derecha, con presión, acaba en falta contra",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b04200"
       },
       {
@@ -2587,6 +2716,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "74'04\" (táctica 77:15) · Conducción cortada de Dani Meso en campo rival por la derecha, con presión, sigue Dani Torices, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Dani Meso",
         "bloque": "b04500"
       },
       {
@@ -2599,6 +2729,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "75'51\" (táctica 79:02) · Centro perdido de Diego Aguado en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b04500"
       },
       {
@@ -2611,6 +2742,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "76'29\" (táctica 79:40) · Duelo perdido de Dani Meso en medio campo por la derecha, con presión, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Dani Meso",
         "bloque": "b04500"
       },
       {
@@ -2623,6 +2755,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "77'55\" (táctica 81:06) · Centro perdido de Jesús Fortea en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b04800"
       },
       {
@@ -2635,6 +2768,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "82'34\" (táctica 84:59) · Centro perdido de Álvaro Leiva en campo rival por la izquierda, con presión, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b04800"
       },
       {
@@ -2647,6 +2781,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "82'58\" (táctica 85:23) · Pérdida de Diego Aguado en medio campo por la izquierda, acaba en fuera",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b05100"
       },
       {
@@ -2659,6 +2794,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "87'01\" (táctica 89:26) · Pérdida de Mario Rivas en campo propio por el centro, acaba en remate de Sergi Armero",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b05100"
       },
       {
@@ -2671,6 +2807,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "88'22\" (táctica 90:48) · Pase perdido de Oscar Naasei en medio campo por la derecha, sigue Dani Torices, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b05400"
       },
       {
@@ -2683,6 +2820,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "88'28\" (táctica 90:53) · Control perdido de Jorge Rajado en campo rival por el centro, sigue Javi Gómez, acaba en area",
         "confianza": "media",
+        "jugador": "Jorge Rajado",
         "bloque": "b05400"
       },
       {
@@ -2695,6 +2833,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "88'47\" (táctica 91:12) · Pase perdido de Jorge Rajado en campo propio por el centro, sigue Jordi Méndez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jorge Rajado",
         "bloque": "b05400"
       },
       {
@@ -2707,6 +2846,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "88'53\" (táctica 91:19) · Control perdido de Dani Meso en campo propio por el centro, sigue Dani Torices, acaba en area",
         "confianza": "media",
+        "jugador": "Dani Meso",
         "bloque": "b05400"
       },
       {
@@ -2719,6 +2859,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "89'22\" (táctica 91:48) · Pase perdido de Jorge Rajado en medio campo por la derecha, sigue Andreu Hernández, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Jorge Rajado",
         "bloque": "b05400"
       },
       {
@@ -2731,6 +2872,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "90+0'16\" (táctica 92:41) · Pase perdido de Ángel Carvajal en medio campo por la izquierda, sigue Carlos Blanco, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b05400"
       },
       {
@@ -2743,6 +2885,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "90+0'30\" (táctica 92:55) · Pase largo perdido de Jesús Fortea en campo propio por la derecha, sigue Álex Bermejo, acaba en remate de Álex Bermejo",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b05400"
       },
       {
@@ -2755,6 +2898,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "90+0'52\" (táctica 93:17) · Pase perdido de Oscar Naasei en campo propio por la derecha, sigue Andreu Hernández, acaba en area",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b05400"
       },
       {
@@ -2767,6 +2911,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "90+1'36\" (táctica 94:02) · Duelo perdido de Álvaro Leiva en campo rival por la izquierda, con presión, sigue Álex Bermejo, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b05400"
       },
       {
@@ -2779,6 +2924,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "90+3'06\" (táctica 95:32) · Control perdido de Roberto Martín en campo rival por el centro, sigue Dani Torices, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Roberto Martín",
         "bloque": "b05700"
       },
       {
@@ -2791,6 +2937,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "90+3'51\" (táctica 96:17) · Pase perdido de Álvaro Leiva en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b05700"
       },
       {
@@ -2803,6 +2950,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "90+4'35\" (táctica 97:01) · Duelo perdido de Jesús Fortea en campo rival por la derecha, con presión, sigue Nil Jiménez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b05700"
       },
       {
@@ -2815,6 +2963,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "90+4'59\" (táctica 97:24) · Pase perdido de Diego Aguado en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b05700"
       },
       {
@@ -2827,6 +2976,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "90+5'56\" (táctica 98:21) · Centro perdido de Roberto Martín en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b05700"
       }
     ]
@@ -2876,6 +3026,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "10",
         "detalle": "0'27\" (táctica 0:34) · Recuperación (pérdida del rival) de Oscar Naasei en medio campo por el centro, acaba en posesion",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b00000"
       },
       {
@@ -2888,6 +3039,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "1'00\" (táctica 1:07) · Recuperación tras pérdida de Diego Aguado en medio campo por el centro, sigue Pol Fortuny, acaba en area",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00000"
       },
       {
@@ -2900,6 +3052,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "3'03\" (táctica 3:10) · Interceptación de Joan Martínez en campo propio por la izquierda, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Joan Martínez",
         "bloque": "b00000"
       },
       {
@@ -2912,6 +3065,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "5'18\" (táctica 5:25) · Recuperación (pérdida del rival) de Martínez en medio campo por el centro, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b00300"
       },
       {
@@ -2924,6 +3078,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "12'45\" (táctica 12:52) · Interceptación de Oscar Naasei en campo propio por la derecha, sigue Jesús Fortea, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b00600"
       },
       {
@@ -2936,6 +3091,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "13'58\" (táctica 14:05) · Recuperación con presión de Álvaro Leiva en medio campo por el centro, acaba en posesion",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00600"
       },
       {
@@ -2948,6 +3104,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "8",
         "detalle": "15'41\" (táctica 15:48) · Recuperación (pérdida del rival) de Thiago Pitarch en medio campo por el centro, acaba en area",
         "confianza": "media",
+        "jugador": "Thiago Pitarch",
         "bloque": "b00900"
       },
       {
@@ -2960,6 +3117,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "16'47\" (táctica 16:54) · Duelo ganado de Jesús Fortea en medio campo por la derecha, sigue Oscar Naasei, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b00900"
       },
       {
@@ -2972,6 +3130,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "17'08\" (táctica 17:15) · Interceptación de Oscar Naasei en medio campo por la derecha, acaba en remate de Ángel Carvajal",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b00900"
       },
       {
@@ -2984,6 +3143,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "19'08\" (táctica 19:15) · Recuperación (pérdida del rival) de Oscar Naasei en campo propio por el centro, acaba en perdida",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b00900"
       },
       {
@@ -2996,6 +3156,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "19'37\" (táctica 19:44) · Interceptación de Ángel Carvajal en campo rival por la derecha, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b00900"
       },
       {
@@ -3008,6 +3169,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "19'42\" (táctica 19:49) · Recuperación tras pérdida de Jesús Fortea en campo rival por la derecha, acaba en area",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b00900"
       },
       {
@@ -3020,6 +3182,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "20'35\" (táctica 20:42) · Interceptación de Martínez en medio campo por la derecha, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Martínez",
         "bloque": "b01200"
       },
       {
@@ -3032,6 +3195,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "21'38\" (táctica 21:45) · Interceptación de Thiago Pitarch en medio campo por la derecha, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b01200"
       },
       {
@@ -3044,6 +3208,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "22'31\" (táctica 22:38) · Recuperación con presión de Diego Aguado en campo propio por el centro, sigue Álvaro Leiva, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b01200"
       },
       {
@@ -3056,6 +3221,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "23'22\" (táctica 23:29) · Recuperación tras pérdida de Martínez en campo rival por el centro, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b01200"
       },
       {
@@ -3068,6 +3234,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "27'07\" (táctica 27:14) · Interceptación de Diego Aguado en campo propio por la izquierda, sigue Diego Aguado, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01500"
       },
       {
@@ -3080,6 +3247,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "28'06\" (táctica 28:13) · Interceptación de Daniel Yáñez en campo propio por el centro, sigue Ángel Carvajal, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b01500"
       },
       {
@@ -3092,6 +3260,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "29'19\" (táctica 29:26) · Interceptación de Álvaro Leiva en campo rival por el centro, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01500"
       },
       {
@@ -3104,6 +3273,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "29'28\" (táctica 29:35) · Recuperación (pérdida del rival) de Martínez en medio campo por el centro, acaba en posesion",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b01500"
       },
       {
@@ -3116,6 +3286,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "33'14\" (táctica 32:51) · Interceptación de Martínez en campo propio por la derecha, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Martínez",
         "bloque": "b01800"
       },
       {
@@ -3128,6 +3299,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "35'51\" (táctica 35:27) · Interceptación de Martínez en campo propio por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b02100"
       },
       {
@@ -3140,6 +3312,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "36'06\" (táctica 35:43) · Recuperación tras pérdida de Pol Fortuny en campo propio por la derecha, sigue Oscar Naasei, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b02100"
       },
       {
@@ -3152,6 +3325,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "40'48\" (táctica 40:25) · Recuperación (pérdida del rival) de Oscar Naasei en campo propio por el centro, acaba en perdida",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b02400"
       },
       {
@@ -3164,6 +3338,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "45+2'15\" (táctica 46:51) · Recuperación (pérdida del rival) de Joan Martínez en campo propio por la izquierda, acaba en perdida",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b02700"
       },
       {
@@ -3176,6 +3351,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "45'29\" (táctica 51:52) · Recuperación (pérdida del rival) de Daniel Yáñez en medio campo por la derecha, acaba en perdida",
         "confianza": "media",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03000"
       },
       {
@@ -3188,6 +3364,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "47'33\" (táctica 53:57) · Recuperación tras pérdida de Oscar Naasei en campo propio por el centro, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b03000"
       },
       {
@@ -3200,6 +3377,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "50'38\" (táctica 57:01) · Interceptación de Daniel Yáñez en medio campo por la derecha, sigue Daniel Yáñez, acaba en falta contra",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03300"
       },
       {
@@ -3212,6 +3390,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "54'23\" (táctica 60:46) · Recuperación (pérdida del rival) de Martínez en medio campo por la derecha, acaba en perdida",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b03600"
       },
       {
@@ -3224,6 +3403,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "55'56\" (táctica 62:19) · Recuperación tras pérdida de Thiago Pitarch en medio campo por la izquierda, acaba en area",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b03600"
       },
       {
@@ -3236,6 +3416,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "58'15\" (táctica 64:39) · Recuperación con presión de Thiago Pitarch en medio campo por el centro, sigue Álvaro Leiva, acaba en perdida",
         "confianza": "media",
+        "jugador": "Thiago Pitarch",
         "bloque": "b03600"
       },
       {
@@ -3248,6 +3429,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "60'48\" (táctica 67:12) · Recuperación (pérdida del rival) de Joan Martínez en campo propio por el centro, acaba en perdida",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b03900"
       },
       {
@@ -3260,6 +3442,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "61'56\" (táctica 68:19) · Recuperación (pérdida del rival) de Oscar Naasei en medio campo por la derecha, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b03900"
       },
       {
@@ -3272,6 +3455,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "64'01\" (táctica 70:24) · Recuperación (pérdida del rival) de Dani Meso en medio campo por el centro, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Dani Meso",
         "bloque": "b04200"
       },
       {
@@ -3284,6 +3468,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "64'30\" (táctica 70:53) · Recuperación (pérdida del rival) de Dani Meso en campo rival por la derecha, acaba en area",
         "confianza": "media",
+        "jugador": "Dani Meso",
         "bloque": "b04200"
       },
       {
@@ -3296,6 +3481,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "70'13\" (táctica 76:36) · Duelo ganado de Joan Martínez en medio campo por el centro, sigue Joan Martínez, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b04500"
       },
       {
@@ -3308,6 +3494,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "70'52\" (táctica 77:15) · Recuperación tras pérdida de Diego Aguado en campo rival por la izquierda, sigue Thiago Pitarch, acaba en area",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b04500"
       },
       {
@@ -3320,6 +3507,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "74'36\" (táctica 80:59) · Recuperación (pérdida del rival) de Jesús Fortea en campo rival por la derecha, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b04800"
       },
       {
@@ -3332,6 +3520,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "80'31\" (táctica 86:18) · Interceptación de Dani Meso en campo propio por la derecha, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Dani Meso",
         "bloque": "b05100"
       },
       {
@@ -3344,6 +3533,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "80'54\" (táctica 86:40) · Recuperación (pérdida del rival) de Mario Rivas en medio campo por la derecha, acaba en posesion",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b05100"
       },
       {
@@ -3356,6 +3546,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "81'26\" (táctica 87:13) · Recuperación (pérdida del rival) de Jesús Fortea en campo propio por la derecha, acaba en perdida",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b05100"
       },
       {
@@ -3368,6 +3559,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "85'37\" (táctica 91:23) · Interceptación de Dani Meso en medio campo por la derecha, sigue Oscar Naasei, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Dani Meso",
         "bloque": "b05400"
       },
       {
@@ -3380,6 +3572,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "88'40\" (táctica 94:26) · Recuperación tras pérdida de Roberto Martín en campo propio por el centro, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b05400"
       },
       {
@@ -3392,6 +3585,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "90+0'06\" (táctica 95:53) · Recuperación tras pérdida de Oscar Naasei en campo propio por la derecha, acaba en atras portero",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b05700"
       },
       {
@@ -3404,6 +3598,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "90+0'44\" (táctica 96:30) · Interceptación de Mario Rivas en medio campo por la derecha, acaba en remate de Alexis Ciria",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b05700"
       },
       {
@@ -3416,6 +3611,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "90+1'01\" (táctica 96:48) · Recuperación (pérdida del rival) de Joan Martínez en medio campo por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b05700"
       },
       {
@@ -3428,6 +3624,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "90+3'12\" (táctica 98:59) · Recuperación (pérdida del rival) de Joan Martínez en medio campo por la izquierda, acaba en atras portero",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b05700"
       }
     ],
@@ -3442,6 +3639,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "0'15\" (táctica 0:22) · Pase perdido de Álvaro Leiva en medio campo por la izquierda, sigue Álvaro Mayorga, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00000"
       },
       {
@@ -3454,6 +3652,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "1'52\" (táctica 1:59) · Pase perdido de Thiago Pitarch en medio campo por la izquierda, sigue Luis Vacas, acaba en remate de Davo",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b00000"
       },
       {
@@ -3466,6 +3665,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "2'49\" (táctica 2:56) · Control perdido de Thiago Pitarch en campo propio por la izquierda, sigue Luis Vacas, acaba en remate de Davo",
         "confianza": "media",
+        "jugador": "Thiago Pitarch",
         "bloque": "b00000"
       },
       {
@@ -3478,6 +3678,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "2'57\" (táctica 3:04) · Control perdido de Álvaro Leiva en campo propio por la izquierda, sigue Luis Vacas, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00000"
       },
       {
@@ -3490,6 +3691,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "3'03\" (táctica 3:10) · Pérdida de Joan Martínez en campo propio por la izquierda, sigue Xabi Irurita, acaba en area",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b00000"
       },
       {
@@ -3502,6 +3704,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "3'50\" (táctica 3:57) · Pase perdido de Diego Aguado en campo propio por la izquierda, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00000"
       },
       {
@@ -3514,6 +3717,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "4'41\" (táctica 4:48) · Duelo perdido de Ángel Carvajal en medio campo por la izquierda, con presión, sigue Javi Lancho, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b00000"
       },
       {
@@ -3526,6 +3730,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "5'20\" (táctica 5:27) · Pase perdido de Pol Fortuny en campo rival por el centro, sigue Álvaro Mayorga, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b00300"
       },
       {
@@ -3538,6 +3743,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "15",
         "detalle": "13'01\" (táctica 13:08) · Pase perdido de Martínez en campo propio por la derecha, sigue Javi Lancho, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b00600"
       },
       {
@@ -3550,6 +3756,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "14'18\" (táctica 14:25) · Pase perdido de Joan Martínez en campo propio por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b00600"
       },
       {
@@ -3562,6 +3769,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "15'11\" (táctica 15:18) · Pérdida bajo presión de Diego Aguado en medio campo por la izquierda, con presión, sigue Pablo Rivera, acaba en posesion",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b00900"
       },
       {
@@ -3574,6 +3782,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "16'07\" (táctica 16:14) · Pase perdido de Álvaro Leiva en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00900"
       },
       {
@@ -3586,6 +3795,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "17'02\" (táctica 17:09) · Pase perdido de Álvaro Leiva en medio campo por la izquierda, sigue Miguel Berlanga, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00900"
       },
       {
@@ -3598,6 +3808,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "19'37\" (táctica 19:44) · Pérdida de Ángel Carvajal en campo rival por la derecha, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Ángel Carvajal",
         "bloque": "b00900"
       },
       {
@@ -3610,6 +3821,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "19'43\" (táctica 19:50) · Centro perdido de Jesús Fortea en campo rival por la derecha, con presión, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b00900"
       },
       {
@@ -3622,6 +3834,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "20'31\" (táctica 20:38) · Pase perdido de Jesús Fortea en medio campo por la derecha, sigue Miguel Cuesta, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b01200"
       },
       {
@@ -3634,6 +3847,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "20'35\" (táctica 20:42) · Pérdida bajo presión de Martínez en medio campo por la derecha, con presión, sigue Miguel Cuesta, acaba en posesion",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b01200"
       },
       {
@@ -3646,6 +3860,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "21'36\" (táctica 21:43) · Pase perdido de Martínez en medio campo por la derecha, sigue Miguel Cuesta, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b01200"
       },
       {
@@ -3658,6 +3873,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "23'19\" (táctica 23:26) · Pase perdido de Thiago Pitarch en medio campo por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b01200"
       },
       {
@@ -3670,6 +3886,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "16",
         "detalle": "24'04\" (táctica 24:11) · Centro perdido de Diego Aguado en campo rival por la izquierda, sigue Pablo Rivera, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01200"
       },
       {
@@ -3682,6 +3899,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "8",
         "detalle": "25'17\" (táctica 25:24) · Pase perdido de Ángel Carvajal en medio campo por el centro, sigue Ouhdadi, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b01500"
       },
       {
@@ -3694,6 +3912,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "27'13\" (táctica 27:20) · Control perdido de Pol Fortuny en medio campo por el centro, acaba en remate de Miguel Cuesta",
         "confianza": "media",
+        "jugador": "Pol Fortuny",
         "bloque": "b01500"
       },
       {
@@ -3706,6 +3925,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "27'42\" (táctica 27:49) · Pase largo perdido de Joan Martínez en campo propio por la izquierda, sigue Ouhdadi, acaba en remate de Esteban Aparicio",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b01500"
       },
       {
@@ -3718,6 +3938,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "28'03\" (táctica 28:10) · Pase perdido de Oscar Naasei en campo propio por el centro, sigue Luis Vacas, acaba en area",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b01500"
       },
       {
@@ -3730,6 +3951,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "29'16\" (táctica 29:23) · Pase perdido de Martínez en campo rival por el centro, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b01500"
       },
       {
@@ -3742,6 +3964,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "33'14\" (táctica 32:51) · Pérdida de Martínez en campo propio por la derecha, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b01800"
       },
       {
@@ -3754,6 +3977,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "35'51\" (táctica 35:27) · Pérdida de Martínez en campo propio por la izquierda, acaba en remate de Esteban Aparicio",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b02100"
       },
       {
@@ -3766,6 +3990,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "36'02\" (táctica 35:38) · Duelo perdido de Daniel Yáñez en medio campo por la derecha, con presión, sigue Luis Vacas, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b02100"
       },
       {
@@ -3778,6 +4003,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "36'09\" (táctica 35:46) · Pase perdido de Oscar Naasei en campo propio por la derecha, sigue Xabi Irurita, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b02100"
       },
       {
@@ -3790,6 +4016,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "37'28\" (táctica 37:05) · Duelo perdido de Oscar Naasei en campo propio por la derecha, con presión, acaba en remate de Javi Lancho",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b02100"
       },
       {
@@ -3802,6 +4029,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "40'02\" (táctica 39:38) · Pase largo perdido de Joan Martínez en medio campo por el centro, sigue Miguel Cuesta, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b02100"
       },
       {
@@ -3814,6 +4042,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "40'53\" (táctica 40:30) · Duelo perdido de Pol Fortuny en medio campo por la derecha, con presión, sigue Miguel Cuesta, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b02400"
       },
       {
@@ -3826,6 +4055,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "41'41\" (táctica 41:17) · Pase perdido de Martínez en medio campo por el centro, sigue Miguel Berlanga, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b02400"
       },
       {
@@ -3838,6 +4068,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "8",
         "detalle": "43'44\" (táctica 43:20) · Pase perdido de Diego Aguado en campo propio por el centro, sigue Luis Vacas, acaba en remate de Esteban Aparicio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02400"
       },
       {
@@ -3850,6 +4081,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "44'40\" (táctica 44:17) · Pase perdido de Ángel Carvajal en medio campo por la izquierda, sigue Xabi Irurita, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b02400"
       },
       {
@@ -3862,6 +4094,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45+0'01\" (táctica 44:37) · Pase perdido de Thiago Pitarch en medio campo por el centro, sigue Esteban Aparicio, acaba en remate de Esteban Aparicio",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b02400"
       },
       {
@@ -3874,6 +4107,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45+1'55\" (táctica 46:31) · Duelo perdido de Joan Martínez en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b02700"
       },
       {
@@ -3886,6 +4120,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "45+2'06\" (táctica 46:42) · Duelo perdido de Álvaro Leiva en medio campo por la izquierda, con presión, sigue Xabi Irurita, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b02700"
       },
       {
@@ -3898,6 +4133,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "45+2'21\" (táctica 46:58) · Duelo perdido de Álvaro Leiva en medio campo por la izquierda, con presión, sigue Miguel Berlanga, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b02700"
       },
       {
@@ -3910,6 +4146,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "45+3'30\" (táctica 48:06) · Pase largo perdido de Diego Aguado en campo propio por la izquierda, sigue Álvaro Mayorga, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02700"
       },
       {
@@ -3922,6 +4159,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "45+3'35\" (táctica 48:11) · Pase largo perdido de Thiago Pitarch en medio campo por la izquierda, sigue Javi Lancho, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b02700"
       },
       {
@@ -3934,6 +4172,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "45+3'54\" (táctica 48:31) · Pérdida de Joan Martínez en medio campo por el centro, sigue Javi Lancho, acaba en fuera",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b02700"
       },
       {
@@ -3946,6 +4185,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "45+4'11\" (táctica 48:47) · Pase largo perdido de Diego Aguado en campo propio por la izquierda, sigue Álvaro Mayorga, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02700"
       },
       {
@@ -3958,6 +4198,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "45+4'33\" (táctica 49:09) · Pase perdido de Jesús Fortea en campo propio por la derecha, con presión, sigue Davo, acaba en area",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b02700"
       },
       {
@@ -3970,6 +4211,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "45'08\" (táctica 51:32) · Pase perdido de Jesús Fortea en campo propio por la derecha, con presión, sigue Esteban Aparicio, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03000"
       },
       {
@@ -3982,6 +4224,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "45'33\" (táctica 51:56) · Pase perdido de Pol Fortuny en medio campo por la derecha, con presión, sigue Miguel Cuesta, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b03000"
       },
       {
@@ -3994,6 +4237,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "46'59\" (táctica 53:23) · Pase perdido de Álvaro Leiva en medio campo por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03000"
       },
       {
@@ -4006,6 +4250,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "47'26\" (táctica 53:49) · Pase largo perdido de Diego Aguado en campo propio por la izquierda, sigue Javi Lancho, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b03000"
       },
       {
@@ -4018,6 +4263,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "47'38\" (táctica 54:01) · Pase perdido de Oscar Naasei en campo propio por el centro, sigue Miguel Cuesta, acaba en remate de Ouhdadi",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b03000"
       },
       {
@@ -4030,6 +4276,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "48'14\" (táctica 54:38) · Pase perdido de Diego Aguado en campo propio por la izquierda, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b03000"
       },
       {
@@ -4042,6 +4289,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "49'19\" (táctica 55:42) · Conducción cortada de Pol Fortuny en campo propio por la derecha, sigue Luis Vacas, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b03300"
       },
       {
@@ -4054,6 +4302,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "50'35\" (táctica 56:58) · Pase perdido de Daniel Yáñez en medio campo por la derecha, sigue Miguel Cuesta, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03300"
       },
       {
@@ -4066,6 +4315,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "52'19\" (táctica 58:43) · Control perdido de Jesús Fortea en campo propio por la derecha, con presión, acaba en falta favor",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b03300"
       },
       {
@@ -4078,6 +4328,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "54'26\" (táctica 60:50) · Pase perdido de Daniel Yáñez en medio campo por la derecha, sigue Javi Lancho, acaba en falta contra",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03600"
       },
       {
@@ -4090,6 +4341,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "55'10\" (táctica 61:33) · Duelo perdido de Álvaro Leiva en medio campo por la izquierda, con presión, sigue Xabi Irurita, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03600"
       },
       {
@@ -4102,6 +4354,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "55'50\" (táctica 62:13) · Pase largo perdido de Diego Aguado en medio campo por la izquierda, sigue Álvaro Mayorga, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b03600"
       },
       {
@@ -4114,6 +4367,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "56'04\" (táctica 62:27) · Centro perdido de Thiago Pitarch en campo rival por la izquierda, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b03600"
       },
       {
@@ -4126,6 +4380,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "56'47\" (táctica 63:11) · Pase perdido de Ángel Carvajal en campo rival por el centro, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b03600"
       },
       {
@@ -4138,6 +4393,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "57'48\" (táctica 64:12) · Duelo perdido de Diego Aguado en medio campo por la izquierda, con presión, sigue Xabi Irurita, acaba en atras portero",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b03600"
       },
       {
@@ -4150,6 +4406,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "58'02\" (táctica 64:25) · Control perdido de Pol Fortuny en medio campo por el centro, con presión, sigue Esteban Aparicio, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Pol Fortuny",
         "bloque": "b03600"
       },
       {
@@ -4162,6 +4419,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "58'20\" (táctica 64:43) · Control perdido de Álvaro Leiva en medio campo por la izquierda, con presión, sigue Álvaro Mayorga, acaba en falta contra",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03600"
       },
       {
@@ -4174,6 +4432,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "60'51\" (táctica 67:14) · Pase perdido de Jesús Fortea en campo propio por la derecha, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03900"
       },
       {
@@ -4186,6 +4445,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "61'22\" (táctica 67:46) · Centro perdido de Alexis Ciria en campo rival por la izquierda, con presión, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b03900"
       },
       {
@@ -4198,6 +4458,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "62'29\" (táctica 68:53) · Pase perdido de Martínez en campo rival por la izquierda, sigue Esteban Aparicio, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b03900"
       },
       {
@@ -4210,6 +4471,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "63'00\" (táctica 69:24) · Pase perdido de Alexis Ciria en campo rival por la izquierda, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b03900"
       },
       {
@@ -4222,6 +4484,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "63'51\" (táctica 70:15) · Pase largo perdido de Oscar Naasei en campo propio por la derecha, sigue Álvaro Mayorga, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b04200"
       },
       {
@@ -4234,6 +4497,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "64'08\" (táctica 70:31) · Control perdido de Rachad Fettal en campo rival por el centro, acaba en posesion",
         "confianza": "media",
+        "jugador": "Rachad Fettal",
         "bloque": "b04200"
       },
       {
@@ -4246,6 +4510,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "64'32\" (táctica 70:55) · Pase perdido de Rachad Fettal en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Rachad Fettal",
         "bloque": "b04200"
       },
       {
@@ -4258,6 +4523,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "66'16\" (táctica 72:40) · Pase perdido de Diego Aguado en medio campo por la izquierda, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b04200"
       },
       {
@@ -4270,6 +4536,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "66'53\" (táctica 73:16) · Duelo perdido de Dani Meso en campo rival por la derecha, con presión, sigue Luis Vacas, acaba en remate de Davo",
         "confianza": "alta",
+        "jugador": "Dani Meso",
         "bloque": "b04200"
       },
       {
@@ -4282,6 +4549,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "67'23\" (táctica 73:46) · Control perdido de Dani Meso en campo rival por el centro, sigue Ouhdadi, acaba en remate de Davo",
         "confianza": "media",
+        "jugador": "Dani Meso",
         "bloque": "b04200"
       },
       {
@@ -4294,6 +4562,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "68'53\" (táctica 75:17) · Pase largo perdido de Pol Fortuny en medio campo por la derecha, con presión, sigue Xabi Irurita, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b04500"
       },
       {
@@ -4306,6 +4575,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "69'03\" (táctica 75:26) · Centro perdido de Diego Aguado en campo rival por la izquierda, sigue Ouhdadi, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b04500"
       },
       {
@@ -4318,6 +4588,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "70'16\" (táctica 76:39) · Pase perdido de Joan Martínez en medio campo por el centro, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b04500"
       },
       {
@@ -4330,6 +4601,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "70'48\" (táctica 77:11) · Pase perdido de Diego Aguado en campo rival por la izquierda, sigue Nicola, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b04500"
       },
       {
@@ -4342,6 +4614,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "70'53\" (táctica 77:17) · Pase perdido de Thiago Pitarch en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b04500"
       },
       {
@@ -4354,6 +4627,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "71'25\" (táctica 77:48) · Pase perdido de Alexis Ciria en medio campo por la izquierda, sigue Pablo Rivera, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b04500"
       },
       {
@@ -4366,6 +4640,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "71'31\" (táctica 77:54) · Pase perdido de Pol Fortuny en campo rival por el centro, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b04500"
       },
       {
@@ -4378,6 +4653,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "72'10\" (táctica 78:34) · Pase perdido de Jesús Fortea en campo propio por la derecha, sigue Miguel Cuesta, acaba en remate de Ouhdadi",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b04500"
       },
       {
@@ -4390,6 +4666,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "72'56\" (táctica 79:19) · Pase perdido de Thiago Pitarch en campo propio por la izquierda, sigue Miguel Cuesta, acaba en atras portero",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b04500"
       },
       {
@@ -4402,6 +4679,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "74'01\" (táctica 80:24) · Pase perdido de Alexis Ciria en medio campo por la izquierda, sigue Javi Lancho, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b04800"
       },
       {
@@ -4414,6 +4692,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "75'35\" (táctica 81:21) · Control perdido de Oscar Naasei en campo rival por el centro, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b04800"
       },
       {
@@ -4426,6 +4705,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "77'49\" (táctica 83:36) · Control perdido de Thiago Pitarch en campo rival por la izquierda, sigue Pablo Rivera, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Thiago Pitarch",
         "bloque": "b04800"
       },
       {
@@ -4438,6 +4718,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "78'09\" (táctica 83:56) · Centro perdido de Alexis Ciria en campo rival por la izquierda, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b04800"
       },
       {
@@ -4450,6 +4731,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "79'35\" (táctica 85:21) · Pase perdido de Alexis Ciria en medio campo por la izquierda, sigue Álvaro Mayorga, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b05100"
       },
       {
@@ -4462,6 +4744,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "79'58\" (táctica 85:44) · Control perdido de Roberto Martín en campo rival por el centro, acaba en posesion",
         "confianza": "media",
+        "jugador": "Roberto Martín",
         "bloque": "b05100"
       },
       {
@@ -4474,6 +4757,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "80'20\" (táctica 86:07) · Pase perdido de Joan Martínez en campo propio por la izquierda, sigue Gonzalo Melero, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b05100"
       },
       {
@@ -4486,6 +4770,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "80'36\" (táctica 86:22) · Pase largo perdido de Jesús Fortea en campo propio por la derecha, sigue Pablo Rivera, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b05100"
       },
       {
@@ -4498,6 +4783,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "81'14\" (táctica 87:00) · Pase perdido de Mario Rivas en medio campo por la izquierda, sigue Nicola, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b05100"
       },
       {
@@ -4510,6 +4796,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "81'31\" (táctica 87:18) · Pase largo perdido de Dani Meso en medio campo por la derecha, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Dani Meso",
         "bloque": "b05100"
       },
       {
@@ -4522,6 +4809,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "84'50\" (táctica 90:37) · Control perdido de Roberto Martín en campo rival por la izquierda, acaba en posesion",
         "confianza": "media",
+        "jugador": "Roberto Martín",
         "bloque": "b05400"
       },
       {
@@ -4534,6 +4822,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "86'14\" (táctica 92:01) · Duelo perdido de Dani Meso en campo rival por la derecha, con presión, sigue Miguel Cuesta, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Dani Meso",
         "bloque": "b05400"
       },
       {
@@ -4546,6 +4835,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "89'02\" (táctica 94:49) · Control perdido de Dani Meso en campo rival por la derecha, acaba en fuera",
         "confianza": "media",
+        "jugador": "Dani Meso",
         "bloque": "b05400"
       },
       {
@@ -4558,6 +4848,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "90+0'00\" (táctica 95:46) · Pase largo perdido de Jesús Fortea en campo propio por la derecha, sigue Luis Vacas, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b05700"
       },
       {
@@ -4570,6 +4861,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "90+0'29\" (táctica 96:16) · Pase perdido de Joan Martínez en medio campo por el centro, sigue Miguel Cuesta, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b05700"
       },
       {
@@ -4582,6 +4874,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "90+2'57\" (táctica 98:44) · Control perdido de Diego Aguado en campo rival por la izquierda, sigue Nicola, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b05700"
       },
       {
@@ -4594,6 +4887,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "90+3'41\" (táctica 99:28) · Centro perdido de Oscar Naasei en campo rival por la izquierda, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b05700"
       }
     ]
@@ -4659,6 +4953,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "0'10\" (táctica 1:00) · Interceptación de Álvaro Leiva en campo rival por la izquierda, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00000"
       },
       {
@@ -4671,6 +4966,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "2'17\" (táctica 3:08) · Duelo ganado de Daniel Yáñez en medio campo por el centro, sigue Oscar Naasei, acaba en area",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b00000"
       },
       {
@@ -4683,6 +4979,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "5'52\" (táctica 6:42) · Recuperación tras pérdida de Álvaro Leiva en medio campo por el centro, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00300"
       },
       {
@@ -4695,6 +4992,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "12'00\" (táctica 12:51) · Recuperación con presión de Martínez en medio campo por la derecha, sigue Oscar Naasei, acaba en perdida",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b00600"
       },
       {
@@ -4707,6 +5005,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "8",
         "detalle": "23'42\" (táctica 24:35) · Recuperación (pérdida del rival) de Jesús Fortea en campo propio por la derecha, acaba en area",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b01200"
       },
       {
@@ -4719,6 +5018,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "24'12\" (táctica 25:04) · Recuperación tras pérdida de Álvaro Leiva en campo rival por la izquierda, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01500"
       },
       {
@@ -4731,6 +5031,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "25'01\" (táctica 25:53) · Recuperación (pérdida del rival) de Álvaro Leiva en campo rival por la izquierda, acaba en remate de Álvaro Leiva",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01500"
       },
       {
@@ -4743,6 +5044,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "14",
         "detalle": "28'18\" (táctica 29:11) · Interceptación de Oscar Naasei en medio campo por la derecha, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b01500"
       },
       {
@@ -4755,6 +5057,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "30'37\" (táctica 31:30) · Interceptación de Diego Aguado en campo propio por la izquierda, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Diego Aguado",
         "bloque": "b01800"
       },
       {
@@ -4767,6 +5070,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "31'36\" (táctica 32:29) · Interceptación de Mario Rivas en campo propio por el centro, sigue Álvaro Leiva, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b01800"
       },
       {
@@ -4779,6 +5083,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "32'22\" (táctica 33:15) · Interceptación de Álvaro Leiva en campo propio por la izquierda, acaba en atras portero",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01800"
       },
       {
@@ -4791,6 +5096,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "37'34\" (táctica 38:27) · Duelo ganado de Daniel Yáñez en campo propio por la derecha, sigue Daniel Yáñez, acaba en area",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b02100"
       },
       {
@@ -4803,6 +5109,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "42'13\" (táctica 43:05) · Interceptación de Martínez en medio campo por la derecha, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b02400"
       },
       {
@@ -4815,6 +5122,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "8",
         "detalle": "43'23\" (táctica 44:16) · Duelo ganado de Ángel Carvajal en campo propio por el centro, sigue Martínez, acaba en remate de Jesús Fortea",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b02400"
       },
       {
@@ -4827,6 +5135,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "45+1'55\" (táctica 47:48) · Recuperación (pérdida del rival) de Mario Rivas en campo propio por la izquierda, acaba en fuera",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b02700"
       },
       {
@@ -4839,6 +5148,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45+2'36\" (táctica 48:28) · Duelo ganado de Diego Aguado en campo propio por el centro, sigue Oscar Naasei, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02700"
       },
       {
@@ -4851,6 +5161,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "45'31\" (táctica 52:55) · Recuperación tras pérdida de Jesús Fortea en campo rival por la derecha, acaba en remate de Ángel Carvajal",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03000"
       },
       {
@@ -4863,6 +5174,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "48'04\" (táctica 55:28) · Interceptación de Álvaro Leiva en campo rival por el centro, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03300"
       },
       {
@@ -4875,6 +5187,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "49'59\" (táctica 57:25) · Recuperación (pérdida del rival) de Jorge Cestero en medio campo por la izquierda, acaba en area",
         "confianza": "media",
+        "jugador": "Jorge Cestero",
         "bloque": "b03300"
       },
       {
@@ -4887,6 +5200,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "52'18\" (táctica 59:44) · Interceptación de Mario Rivas en campo propio por el centro, sigue Mario Rivas, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b03300"
       },
       {
@@ -4899,6 +5213,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "68'59\" (táctica 75:30) · Recuperación tras pérdida de Oscar Naasei en campo propio por la derecha, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b04500"
       },
       {
@@ -4911,6 +5226,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "16",
         "detalle": "69'05\" (táctica 75:36) · Recuperación tras pérdida de Oscar Naasei en campo propio por la derecha, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b04500"
       },
       {
@@ -4923,6 +5239,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "82'16\" (táctica 88:49) · Interceptación de Mario Rivas en campo propio por el centro, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b05100"
       },
       {
@@ -4935,6 +5252,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "83'59\" (táctica 90:32) · Recuperación (pérdida del rival) de Oscar Naasei en campo propio por la derecha, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b05400"
       },
       {
@@ -4947,6 +5265,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "84'18\" (táctica 90:51) · Recuperación con presión de Álvaro Lezcano en campo propio por el centro, acaba en perdida",
         "confianza": "media",
+        "jugador": "Álvaro Lezcano",
         "bloque": "b05400"
       },
       {
@@ -4959,6 +5278,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "88'20\" (táctica 94:53) · Recuperación tras pérdida de Álvaro Lezcano en campo rival por la izquierda, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Álvaro Lezcano",
         "bloque": "b05400"
       },
       {
@@ -4971,6 +5291,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "90+0'01\" (táctica 96:35) · Recuperación (pérdida del rival) de Oscar Naasei en campo propio por el centro, acaba en fuera",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b05700"
       },
       {
@@ -4983,6 +5304,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "90+4'37\" (táctica 101:11) · Duelo ganado de Álvaro Lezcano en campo propio por la izquierda, sigue Álvaro Lezcano, acaba en area",
         "confianza": "alta",
+        "jugador": "Álvaro Lezcano",
         "bloque": "b06000"
       },
       {
@@ -4995,6 +5317,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "90+4'57\" (táctica 101:30) · Recuperación tras pérdida de Alexis Ciria en campo rival por la derecha, acaba en area",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b06000"
       },
       {
@@ -5007,6 +5330,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "90+8'23\" (táctica 104:13) · Duelo ganado de Roberto Martín en campo propio por el centro, sigue Thiago Pitarch, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b06000"
       }
     ],
@@ -5021,6 +5345,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "1'21\" (táctica 2:11) · Pase perdido de Diego Aguado en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00000"
       },
       {
@@ -5033,6 +5358,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "2'38\" (táctica 3:29) · Pase largo perdido de Oscar Naasei en campo propio por la derecha, sigue Ander Astralaga, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b00000"
       },
       {
@@ -5045,6 +5371,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "4'25\" (táctica 5:16) · Control perdido de Jesús Fortea en campo propio por la derecha, acaba en fuera",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b00300"
       },
       {
@@ -5057,6 +5384,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "5'48\" (táctica 6:38) · Pase perdido de Mario Rivas en medio campo por el centro, sigue Edgar Alcañiz, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b00300"
       },
       {
@@ -5069,6 +5397,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "5'53\" (táctica 6:44) · Conducción cortada de Álvaro Leiva en medio campo por la izquierda, con presión, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00300"
       },
       {
@@ -5081,6 +5410,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "7'01\" (táctica 7:52) · Duelo perdido de Daniel Yáñez en campo rival por la derecha, con presión, sigue Arnau Solà, acaba en falta contra",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b00300"
       },
       {
@@ -5093,6 +5423,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "7'32\" (táctica 8:22) · Centro perdido de Daniel Yáñez en campo rival por la derecha, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b00300"
       },
       {
@@ -5105,6 +5436,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "10'11\" (táctica 11:01) · Pase perdido de Diego Aguado en campo propio por la izquierda, sigue Yaakobishvili, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00600"
       },
       {
@@ -5117,6 +5449,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "10'44\" (táctica 11:35) · Centro perdido de Jesús Fortea en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b00600"
       },
       {
@@ -5129,6 +5462,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "13'09\" (táctica 13:59) · Pase perdido de Thiago Pitarch en campo rival por la izquierda, sigue Sergio Diez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b00600"
       },
       {
@@ -5141,6 +5475,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "13'30\" (táctica 14:20) · Pase largo perdido de Diego Aguado en campo rival por la izquierda, sigue Pan Pablo, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00600"
       },
       {
@@ -5153,6 +5488,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "18'28\" (táctica 19:21) · Pase perdido de Oscar Naasei en medio campo por la derecha, sigue Helguera, acaba en posesion",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b00900"
       },
       {
@@ -5165,6 +5501,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "22'29\" (táctica 23:22) · Pase largo perdido de Mario Rivas en campo propio por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b01200"
       },
       {
@@ -5177,6 +5514,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "22'34\" (táctica 23:27) · Pase perdido de Jesús Fortea en medio campo por la derecha, sigue Arnau Solà, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b01200"
       },
       {
@@ -5189,6 +5527,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "23'28\" (táctica 24:20) · Duelo perdido de Ángel Carvajal en medio campo por la izquierda, con presión, sigue Yaakobishvili, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b01200"
       },
       {
@@ -5201,6 +5540,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "24'05\" (táctica 24:57) · Centro perdido de Diego Aguado en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01200"
       },
       {
@@ -5213,6 +5553,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "24'52\" (táctica 25:44) · Conducción cortada de Ángel Carvajal en campo rival por el centro, con presión, sigue Helguera, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b01500"
       },
       {
@@ -5225,6 +5566,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "26'12\" (táctica 27:04) · Centro perdido de Daniel Yáñez en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b01500"
       },
       {
@@ -5237,6 +5579,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "28'12\" (táctica 29:05) · Control perdido de Álvaro Leiva en medio campo por la izquierda, sigue David Hidalgo, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01500"
       },
       {
@@ -5249,6 +5592,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "30'26\" (táctica 31:19) · Control perdido de Álvaro Leiva en medio campo por el centro, sigue Sergio Diez, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01800"
       },
       {
@@ -5261,6 +5605,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "30'37\" (táctica 31:30) · Pérdida bajo presión de Diego Aguado en campo propio por la izquierda, con presión, acaba en area",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b01800"
       },
       {
@@ -5273,6 +5618,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "30'57\" (táctica 31:49) · Duelo perdido de Ángel Carvajal en medio campo por la derecha, con presión, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b01800"
       },
       {
@@ -5285,6 +5631,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "31'43\" (táctica 32:35) · Pase largo perdido de Mario Rivas en campo propio por la izquierda, sigue David Hidalgo, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b01800"
       },
       {
@@ -5297,6 +5644,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "34'10\" (táctica 35:02) · Control perdido de Martínez en campo rival por la derecha, sigue Helguera, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b02100"
       },
       {
@@ -5309,6 +5657,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "34'22\" (táctica 35:14) · Duelo perdido de Daniel Yáñez en medio campo por la derecha, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b02100"
       },
       {
@@ -5321,6 +5670,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "34'56\" (táctica 35:48) · Duelo perdido de Diego Aguado en campo propio por la izquierda, con presión, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02100"
       },
       {
@@ -5333,6 +5683,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "36'48\" (táctica 37:40) · Control perdido de Ángel Carvajal en campo rival por el centro, acaba en atras portero",
         "confianza": "media",
+        "jugador": "Ángel Carvajal",
         "bloque": "b02100"
       },
       {
@@ -5345,6 +5696,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "37'41\" (táctica 38:33) · Pase perdido de Thiago Pitarch en medio campo por la derecha, sigue Ander Astralaga, acaba en remate de Helguera",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b02100"
       },
       {
@@ -5357,6 +5709,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "38'47\" (táctica 39:40) · Control perdido de Daniel Yáñez en campo rival por el centro, acaba en posesion",
         "confianza": "media",
+        "jugador": "Daniel Yáñez",
         "bloque": "b02100"
       },
       {
@@ -5369,6 +5722,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "40'18\" (táctica 41:10) · Centro perdido de Jesús Fortea en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b02400"
       },
       {
@@ -5381,6 +5735,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "45+1'44\" (táctica 47:36) · Pase perdido de Oscar Naasei en campo rival por el centro, sigue Sergio Diez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b02700"
       },
       {
@@ -5393,6 +5748,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45+3'01\" (táctica 48:53) · Duelo perdido de Ángel Carvajal en campo propio por la derecha, con presión, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b02700"
       },
       {
@@ -5405,6 +5761,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "10",
         "detalle": "45+3'06\" (táctica 48:58) · Control perdido de Daniel Yáñez en medio campo por la derecha, sigue Edgar Alcañiz, acaba en remate de David Hidalgo",
         "confianza": "media",
+        "jugador": "Daniel Yáñez",
         "bloque": "b02700"
       },
       {
@@ -5417,6 +5774,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45+4'12\" (táctica 50:05) · Duelo perdido de Ángel Carvajal en medio campo por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b03000"
       },
       {
@@ -5429,6 +5787,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "45'27\" (táctica 52:51) · Duelo perdido de Ángel Carvajal en campo rival por la derecha, con presión, sigue Pan Pablo, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b03000"
       },
       {
@@ -5441,6 +5800,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45'57\" (táctica 53:20) · Centro perdido de Mario Rivas en campo rival por la izquierda, con presión, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b03000"
       },
       {
@@ -5453,6 +5813,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "48'04\" (táctica 55:28) · Pérdida de Álvaro Leiva en campo rival por el centro, sigue Helguera, acaba en fuera",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03300"
       },
       {
@@ -5465,6 +5826,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "49'12\" (táctica 56:38) · Pase largo perdido de Álvaro Leiva en medio campo por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03300"
       },
       {
@@ -5477,6 +5839,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "50'19\" (táctica 57:45) · Control perdido de Diego Aguado en campo rival por la izquierda, sigue Pan Pablo, acaba en falta favor",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b03300"
       },
       {
@@ -5489,6 +5852,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "51'16\" (táctica 58:43) · Duelo perdido de Jesús Fortea en campo propio por la derecha, con presión, sigue Cordero, acaba en area",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03300"
       },
       {
@@ -5501,6 +5865,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "51'53\" (táctica 59:19) · Duelo perdido de Ángel Carvajal en medio campo por la derecha, con presión, sigue Helguera, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b03300"
       },
       {
@@ -5513,6 +5878,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "52'12\" (táctica 59:38) · Pase perdido de Diego Aguado en medio campo por la izquierda, sigue Sergio Diez, acaba en area",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b03300"
       },
       {
@@ -5525,6 +5891,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "67'06\" (táctica 73:38) · Pase largo perdido de Martínez en campo propio por el centro, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b04200"
       },
       {
@@ -5537,6 +5904,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "67'59\" (táctica 74:30) · Pase largo perdido de Oscar Naasei en campo propio por la derecha, sigue Yaakobishvili, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b04200"
       },
       {
@@ -5549,6 +5917,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "68'54\" (táctica 75:25) · Duelo perdido de Jesús Fortea en medio campo por la derecha, con presión, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b04500"
       },
       {
@@ -5561,6 +5930,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "69'00\" (táctica 75:32) · Control perdido de Oscar Naasei en campo propio por la derecha, con presión, acaba en area",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b04500"
       },
       {
@@ -5573,6 +5943,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "69'56\" (táctica 76:27) · Centro perdido de Diego Aguado en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b04500"
       },
       {
@@ -5585,6 +5956,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "78'44\" (táctica 85:18) · Pérdida de Jesús Fortea en campo propio por la derecha, acaba en fuera",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b05100"
       },
       {
@@ -5597,6 +5969,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "80'55\" (táctica 87:28) · Control perdido de Pol Fortuny en medio campo por el centro, con presión, sigue Jorge Castillo, acaba en remate de Cordero",
         "confianza": "media",
+        "jugador": "Pol Fortuny",
         "bloque": "b05100"
       },
       {
@@ -5609,6 +5982,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "16",
         "detalle": "81'17\" (táctica 87:51) · Duelo perdido de Alexis Ciria en medio campo por la izquierda, con presión, sigue Romeo Hueso, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b05100"
       },
       {
@@ -5621,6 +5995,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "87'04\" (táctica 93:37) · Pase perdido de Alexis Ciria en medio campo por la izquierda, sigue Yaakobishvili, acaba en fuera",
         "confianza": "media",
+        "jugador": "Alexis Ciria",
         "bloque": "b05400"
       },
       {
@@ -5633,6 +6008,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "87'26\" (táctica 93:59) · Pase perdido de Roberto Martín en medio campo por la izquierda, sigue Romeo Hueso, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b05400"
       },
       {
@@ -5645,6 +6021,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "88'16\" (táctica 94:49) · Control perdido de Alexis Ciria en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Alexis Ciria",
         "bloque": "b05400"
       },
       {
@@ -5657,6 +6034,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "90+2'23\" (táctica 98:57) · Pase perdido de Thiago Pitarch en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b05700"
       },
       {
@@ -5669,6 +6047,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "90+4'26\" (táctica 100:59) · Pase perdido de Roberto Martín en medio campo por el centro, con presión, sigue Cuellar Pérez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b06000"
       },
       {
@@ -5681,6 +6060,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "90+4'52\" (táctica 101:26) · Pase perdido de Pol Fortuny en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b06000"
       },
       {
@@ -5693,6 +6073,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "90+5'11\" (táctica 101:45) · Control perdido de Pol Fortuny en campo rival por la derecha, con presión, sigue Pan Pablo, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Pol Fortuny",
         "bloque": "b06000"
       },
       {
@@ -5705,6 +6086,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "90+10'07\" (táctica 105:58) · Duelo perdido de Thiago Pitarch en campo propio por el centro, con presión, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Thiago Pitarch",
         "bloque": "b06300"
       },
       {
@@ -5717,6 +6099,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "90+10'37\" (táctica 106:28) · Pase perdido de Mario Rivas en campo propio por el centro, sigue Álvaro Vega, acaba en fuera",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b06300"
       }
     ]
@@ -5765,6 +6148,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "0'11\" (táctica 0:15) · Interceptación de Joan Martínez en medio campo por la derecha, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b00000"
       },
       {
@@ -5777,6 +6161,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "0'16\" (táctica 0:19) · Recuperación tras pérdida de Pol Fortuny en medio campo por la derecha, sigue Pol Fortuny, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b00000"
       },
       {
@@ -5789,6 +6174,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "3'17\" (táctica 3:21) · Recuperación (pérdida del rival) de Diego Aguado en medio campo por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b00000"
       },
       {
@@ -5801,6 +6187,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "6'30\" (táctica 6:34) · Recuperación (pérdida del rival) de Oscar Naasei en medio campo por la izquierda, acaba en atras portero",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b00300"
       },
       {
@@ -5813,6 +6200,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "7'19\" (táctica 7:22) · Interceptación de Alexis Ciria en campo propio por la izquierda, sigue Alexis Ciria, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b00300"
       },
       {
@@ -5825,6 +6213,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "7'23\" (táctica 7:27) · Recuperación tras pérdida de Diego Aguado en campo propio por la izquierda, acaba en remate de Martínez",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00300"
       },
       {
@@ -5837,6 +6226,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "9'19\" (táctica 9:23) · Interceptación de Ángel Carvajal en campo rival por la derecha, sigue Daniel Yáñez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b00300"
       },
       {
@@ -5849,6 +6239,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "10'07\" (táctica 10:11) · Recuperación con presión de Diego Aguado en medio campo por el centro, acaba en perdida",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b00600"
       },
       {
@@ -5861,6 +6252,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "11'15\" (táctica 11:18) · Recuperación (pérdida del rival) de Pol Fortuny en medio campo por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Pol Fortuny",
         "bloque": "b00600"
       },
       {
@@ -5873,6 +6265,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "15'38\" (táctica 15:41) · Interceptación de Alexis Ciria en campo propio por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b00900"
       },
       {
@@ -5885,6 +6278,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "15'48\" (táctica 15:52) · Recuperación con presión de Jorge Cestero en campo propio por la izquierda, sigue Joan Martínez, acaba en perdida",
         "confianza": "media",
+        "jugador": "Jorge Cestero",
         "bloque": "b00900"
       },
       {
@@ -5897,6 +6291,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "16'26\" (táctica 16:30) · Duelo ganado de Jesús Fortea en medio campo por la derecha, sigue Daniel Yáñez, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b00900"
       },
       {
@@ -5909,6 +6304,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "17'59\" (táctica 18:02) · Duelo ganado de Alexis Ciria en campo propio por la izquierda, sigue Jorge Cestero, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b00900"
       },
       {
@@ -5921,6 +6317,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "22'28\" (táctica 22:32) · Duelo ganado de Pol Fortuny en medio campo por el centro, sigue Jesús Fortea, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b01200"
       },
       {
@@ -5933,6 +6330,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "22'44\" (táctica 22:47) · Recuperación (pérdida del rival) de Ángel Carvajal en medio campo por el centro, acaba en remate de Alexis Ciria",
         "confianza": "media",
+        "jugador": "Ángel Carvajal",
         "bloque": "b01200"
       },
       {
@@ -5945,6 +6343,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "24'35\" (táctica 24:38) · Recuperación (pérdida del rival) de Joan Martínez en medio campo por la derecha, acaba en perdida",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b01200"
       },
       {
@@ -5957,6 +6356,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "24'44\" (táctica 24:48) · Recuperación tras pérdida de Jesús Fortea en campo propio por la derecha, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b01200"
       },
       {
@@ -5969,6 +6369,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "28'24\" (táctica 28:27) · Duelo ganado de Diego Aguado en campo rival por la izquierda, sigue Alexis Ciria, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01500"
       },
       {
@@ -5981,6 +6382,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "10",
         "detalle": "28'38\" (táctica 28:41) · Recuperación (pérdida del rival) de Martínez en medio campo por la izquierda, acaba en area",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b01500"
       },
       {
@@ -5993,6 +6395,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "33'01\" (táctica 33:05) · Interceptación de Martínez en campo rival por la derecha, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Martínez",
         "bloque": "b01800"
       },
       {
@@ -6005,6 +6408,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "34'21\" (táctica 34:25) · Recuperación (pérdida del rival) de Jorge Cestero en campo rival por la derecha, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Jorge Cestero",
         "bloque": "b01800"
       },
       {
@@ -6017,6 +6421,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "34'52\" (táctica 34:55) · Recuperación (pérdida del rival) de Joan Martínez en medio campo por la derecha, acaba en posesion",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b01800"
       },
       {
@@ -6029,6 +6434,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "37'00\" (táctica 37:03) · Recuperación (pérdida del rival) de Diego Aguado en campo propio por la izquierda, acaba en falta favor",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b02100"
       },
       {
@@ -6041,6 +6447,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "38'53\" (táctica 38:57) · Recuperación (pérdida del rival) de Martínez en campo propio por la izquierda, acaba en perdida",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b02100"
       },
       {
@@ -6053,6 +6460,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "39'56\" (táctica 40:00) · Recuperación con presión de Diego Aguado en medio campo por el centro, acaba en perdida",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b02400"
       },
       {
@@ -6065,6 +6473,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "40'30\" (táctica 40:34) · Recuperación tras pérdida de Martínez en medio campo por la izquierda, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b02400"
       },
       {
@@ -6077,6 +6486,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "44'31\" (táctica 44:35) · Recuperación con presión de Joan Martínez en medio campo por la derecha, acaba en perdida",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b02400"
       },
       {
@@ -6089,6 +6499,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "45+1'26\" (táctica 46:30) · Duelo ganado de Oscar Naasei en campo propio por la izquierda, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b02700"
       },
       {
@@ -6101,6 +6512,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "47'36\" (táctica 49:47) · Recuperación (pérdida del rival) de Joan Martínez en campo propio por la derecha, acaba en posesion",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b02700"
       },
       {
@@ -6113,6 +6525,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "49'31\" (táctica 51:41) · Recuperación tras pérdida de Jorge Cestero en medio campo por la derecha, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03000"
       },
       {
@@ -6125,6 +6538,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "50'17\" (táctica 52:28) · Recuperación tras pérdida de Jorge Cestero en medio campo por la derecha, acaba en area",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03000"
       },
       {
@@ -6137,6 +6551,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "50'40\" (táctica 52:51) · Recuperación tras pérdida de Alexis Ciria en campo rival por la izquierda, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b03000"
       },
       {
@@ -6149,6 +6564,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "50'46\" (táctica 52:57) · Interceptación de Oscar Naasei en medio campo por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b03000"
       },
       {
@@ -6161,6 +6577,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "56'50\" (táctica 59:01) · Recuperación (pérdida del rival) de Joan Martínez en medio campo por la derecha, acaba en fuera",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b03300"
       },
       {
@@ -6173,6 +6590,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "59'33\" (táctica 61:44) · Interceptación de Roberto Martín en medio campo por la izquierda, sigue Álvaro Leiva, acaba en remate de Ángel Carvajal",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b03600"
       },
       {
@@ -6185,6 +6603,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "61'02\" (táctica 63:12) · Interceptación de Jorge Cestero en medio campo por la derecha, acaba en falta contra",
         "confianza": "baja",
+        "jugador": "Jorge Cestero",
         "bloque": "b03600"
       },
       {
@@ -6197,6 +6616,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "63'49\" (táctica 65:59) · Recuperación con presión de Oscar Naasei en medio campo por el centro, acaba en perdida",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b03900"
       },
       {
@@ -6209,6 +6629,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "64'30\" (táctica 66:40) · Interceptación de Joan Martínez en campo propio por el centro, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b03900"
       },
       {
@@ -6221,6 +6642,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "67'21\" (táctica 69:32) · Interceptación de Daniel Yáñez en campo rival por la derecha, acaba en remate de Daniel Yáñez",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03900"
       },
       {
@@ -6233,6 +6655,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "67'33\" (táctica 69:43) · Recuperación tras pérdida de Jorge Cestero en campo rival por la derecha, acaba en area",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03900"
       },
       {
@@ -6245,6 +6668,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "10",
         "detalle": "69'14\" (táctica 71:24) · Recuperación con presión de Oscar Naasei en campo propio por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b04200"
       },
       {
@@ -6257,6 +6681,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "86'23\" (táctica 88:33) · Recuperación con presión de Oscar Naasei en campo propio por la izquierda, sigue Joan Martínez, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b05100"
       },
       {
@@ -6269,6 +6694,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "87'55\" (táctica 90:06) · Recuperación (pérdida del rival) de Jesús Fortea en campo propio por la derecha, acaba en atras portero",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b05400"
       },
       {
@@ -6281,6 +6707,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "89'15\" (táctica 91:25) · Duelo ganado de Ángel Carvajal en campo rival por la derecha, sigue Ángel Carvajal, acaba en area",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b05400"
       },
       {
@@ -6293,6 +6720,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "90+1'57\" (táctica 94:07) · Recuperación con presión de Oscar Naasei en campo propio por la izquierda, acaba en perdida",
         "confianza": "media",
+        "jugador": "Oscar Naasei",
         "bloque": "b05400"
       },
       {
@@ -6305,6 +6733,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "90+2'54\" (táctica 95:04) · Interceptación de Diego Aguado en campo propio por la izquierda, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b05700"
       }
     ],
@@ -6319,6 +6748,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "0'09\" (táctica 0:12) · Duelo perdido de Daniel Yáñez en medio campo por la derecha, con presión, sigue Víctor García, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b00000"
       },
       {
@@ -6331,6 +6761,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "0'13\" (táctica 0:17) · Duelo perdido de Daniel Yáñez en medio campo por la derecha, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b00000"
       },
       {
@@ -6343,6 +6774,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "0'51\" (táctica 0:54) · Duelo perdido de Ángel Carvajal en campo rival por la derecha, con presión, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b00000"
       },
       {
@@ -6355,6 +6787,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "1'53\" (táctica 1:56) · Centro perdido de Alexis Ciria en campo rival por la izquierda, sigue Josep Calavera, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b00000"
       },
       {
@@ -6367,6 +6800,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "2'38\" (táctica 2:41) · Pase largo perdido de Diego Aguado en medio campo por la izquierda, sigue Blasco, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00000"
       },
       {
@@ -6379,6 +6813,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "3'00\" (táctica 3:03) · Pase perdido de Oscar Naasei en medio campo por el centro, sigue Pablo Busto, acaba en atras portero",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b00000"
       },
       {
@@ -6391,6 +6826,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "3'42\" (táctica 3:46) · Conducción cortada de Jesús Fortea en campo rival por la derecha, con presión, sigue Víctor García, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b00000"
       },
       {
@@ -6403,6 +6839,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "4'22\" (táctica 4:26) · Pase perdido de Alexis Ciria en medio campo por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b00000"
       },
       {
@@ -6415,6 +6852,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "5'06\" (táctica 5:10) · Duelo perdido de Oscar Naasei en campo propio por la derecha, con presión, acaba en remate de Manu Justo",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b00300"
       },
       {
@@ -6427,6 +6865,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "6'03\" (táctica 6:07) · Pase largo perdido de Oscar Naasei en campo propio por la izquierda, sigue Blasco, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b00300"
       },
       {
@@ -6439,6 +6878,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "7'22\" (táctica 7:26) · Pase perdido de Alexis Ciria en campo propio por la izquierda, con presión, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b00300"
       },
       {
@@ -6451,6 +6891,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "9'10\" (táctica 9:13) · Pase largo perdido de Diego Aguado en campo propio por la izquierda, sigue Erik Ruiz, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00300"
       },
       {
@@ -6463,6 +6904,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "10'03\" (táctica 10:06) · Duelo perdido de Pol Fortuny en campo rival por el centro, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b00600"
       },
       {
@@ -6475,6 +6917,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "10'19\" (táctica 10:22) · Pase perdido de Ángel Carvajal en medio campo por el centro, sigue Pedro Ortiz, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b00600"
       },
       {
@@ -6487,6 +6930,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "11'19\" (táctica 11:23) · Conducción cortada de Ángel Carvajal en campo rival por la izquierda, con presión, sigue Théo Valls, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b00600"
       },
       {
@@ -6499,6 +6943,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "15'20\" (táctica 15:24) · Control perdido de Alexis Ciria en medio campo por la izquierda, sigue Pedro Ortiz, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Alexis Ciria",
         "bloque": "b00900"
       },
       {
@@ -6511,6 +6956,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "15'38\" (táctica 15:41) · Pérdida de Alexis Ciria en campo propio por la izquierda, sigue David Astals, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Alexis Ciria",
         "bloque": "b00900"
       },
       {
@@ -6523,6 +6969,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "17'28\" (táctica 17:32) · Conducción cortada de Diego Aguado en campo rival por la izquierda, con presión, sigue Pablo Busto, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00900"
       },
       {
@@ -6535,6 +6982,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "18'08\" (táctica 18:11) · Pase perdido de Ángel Carvajal en medio campo por la izquierda, sigue Josep Calavera, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b00900"
       },
       {
@@ -6547,6 +6995,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "21'42\" (táctica 21:45) · Pase largo perdido de Pol Fortuny en medio campo por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b01200"
       },
       {
@@ -6559,6 +7008,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "22'38\" (táctica 22:41) · Pase perdido de Martínez en medio campo por el centro, sigue David Astals, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b01200"
       },
       {
@@ -6571,6 +7021,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "24'38\" (táctica 24:41) · Pase perdido de Jesús Fortea en medio campo por la derecha, sigue Théo Valls, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b01200"
       },
       {
@@ -6583,6 +7034,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "16",
         "detalle": "25'51\" (táctica 25:54) · Pase perdido de Martínez en campo rival por la derecha, sigue Víctor García, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b01500"
       },
       {
@@ -6595,6 +7047,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "14",
         "detalle": "27'47\" (táctica 27:50) · Conducción cortada de Alexis Ciria en campo rival por la izquierda, con presión, sigue Pablo Busto, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b01500"
       },
       {
@@ -6607,6 +7060,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "28'29\" (táctica 28:33) · Pase perdido de Diego Aguado en campo rival por la izquierda, sigue Josep Calavera, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01500"
       },
       {
@@ -6619,6 +7073,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "32'47\" (táctica 32:50) · Pase perdido de Joan Martínez en medio campo por la derecha, sigue Josep Calavera, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b01800"
       },
       {
@@ -6631,6 +7086,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "33'01\" (táctica 33:05) · Pérdida bajo presión de Martínez en campo rival por la derecha, con presión, sigue Théo Valls, acaba en remate de David Astals",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b01800"
       },
       {
@@ -6643,6 +7099,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "33'56\" (táctica 33:59) · Pase perdido de Jesús Fortea en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b01800"
       },
       {
@@ -6655,6 +7112,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "35'24\" (táctica 35:28) · Pase perdido de Alexis Ciria en medio campo por la izquierda, sigue Manu Justo, acaba en remate de Ander Yoldi",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b02100"
       },
       {
@@ -6667,6 +7125,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "38'21\" (táctica 38:25) · Control perdido de Martínez en medio campo por el centro, sigue David Astals, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Martínez",
         "bloque": "b02100"
       },
       {
@@ -6679,6 +7138,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "16",
         "detalle": "38'58\" (táctica 39:01) · Duelo perdido de Ángel Carvajal en medio campo por la izquierda, con presión, sigue Josep Calavera, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b02100"
       },
       {
@@ -6691,6 +7151,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "39'58\" (táctica 40:01) · Control perdido de Diego Aguado en medio campo por el centro, con presión, sigue Blasco, acaba en fuera",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b02400"
       },
       {
@@ -6703,6 +7164,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "40'23\" (táctica 40:27) · Pase largo perdido de Martínez en medio campo por la izquierda, sigue Pedro Ortiz, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b02400"
       },
       {
@@ -6715,6 +7177,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "40'51\" (táctica 40:55) · Pase perdido de Diego Aguado en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02400"
       },
       {
@@ -6727,6 +7190,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "41'59\" (táctica 42:02) · Pase perdido de Diego Aguado en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02400"
       },
       {
@@ -6739,6 +7203,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "44'09\" (táctica 44:12) · Conducción cortada de Jesús Fortea en campo rival por la derecha, con presión, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b02400"
       },
       {
@@ -6751,6 +7216,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "44'24\" (táctica 44:27) · Pase perdido de Jesús Fortea en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b02400"
       },
       {
@@ -6763,6 +7229,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "44'39\" (táctica 44:43) · Pase perdido de Martínez en medio campo por el centro, sigue Josep Calavera, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b02400"
       },
       {
@@ -6775,6 +7242,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45+0'28\" (táctica 45:31) · Duelo perdido de Joan Martínez en campo rival por el centro, con presión, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b02700"
       },
       {
@@ -6787,6 +7255,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "15",
         "detalle": "45+0'35\" (táctica 45:38) · Conducción cortada de Ángel Carvajal en campo rival por la izquierda, con presión, sigue Ander Yoldi, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b02700"
       },
       {
@@ -6799,6 +7268,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "45'55\" (táctica 48:06) · Pase perdido de Oscar Naasei en medio campo por la izquierda, sigue Pedro Ortiz, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b02700"
       },
       {
@@ -6811,6 +7281,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "46'18\" (táctica 48:29) · Control perdido de Alexis Ciria en medio campo por la izquierda, sigue Blasco, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Alexis Ciria",
         "bloque": "b02700"
       },
       {
@@ -6823,6 +7294,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "46'49\" (táctica 48:59) · Pase perdido de Diego Aguado en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02700"
       },
       {
@@ -6835,6 +7307,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "46'59\" (táctica 49:10) · Pase perdido de Diego Aguado en campo rival por la izquierda, con presión, sigue David Astals, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02700"
       },
       {
@@ -6847,6 +7320,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "49'08\" (táctica 51:18) · Conducción cortada de Diego Aguado en campo rival por la izquierda, con presión, sigue Gonzalo Almenara, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b03000"
       },
       {
@@ -6859,6 +7333,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "49'25\" (táctica 51:35) · Pase perdido de Daniel Yáñez en campo rival por la derecha, sigue Víctor García, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03000"
       },
       {
@@ -6871,6 +7346,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "50'36\" (táctica 52:47) · Pase largo perdido de Jesús Fortea en medio campo por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03000"
       },
       {
@@ -6883,6 +7359,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "50'43\" (táctica 52:54) · Duelo perdido de Martínez en campo rival por el centro, con presión, sigue David Astals, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b03000"
       },
       {
@@ -6895,6 +7372,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "50'49\" (táctica 53:00) · Duelo perdido de Jorge Cestero en campo rival por la izquierda, con presión, sigue Blasco, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03000"
       },
       {
@@ -6907,6 +7385,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "51'16\" (táctica 53:27) · Control perdido de Pol Fortuny en medio campo por el centro, acaba en remate de Ander Yoldi",
         "confianza": "media",
+        "jugador": "Pol Fortuny",
         "bloque": "b03000"
       },
       {
@@ -6919,6 +7398,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "52'24\" (táctica 54:34) · Pase perdido de Joan Martínez en campo propio por el centro, con presión, sigue Gonzalo Almenara, acaba en area",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b03000"
       },
       {
@@ -6931,6 +7411,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "52'35\" (táctica 54:46) · Pérdida de Pol Fortuny en campo propio por la derecha, acaba en area",
         "confianza": "media",
+        "jugador": "Pol Fortuny",
         "bloque": "b03000"
       },
       {
@@ -6943,6 +7424,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "56'42\" (táctica 58:53) · Pase perdido de Roberto Martín en campo rival por la izquierda, sigue Blasco, acaba en atras portero",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b03300"
       },
       {
@@ -6955,6 +7437,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "57'15\" (táctica 59:25) · Duelo perdido de Daniel Yáñez en medio campo por la derecha, con presión, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03300"
       },
       {
@@ -6967,6 +7450,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "57'29\" (táctica 59:39) · Duelo perdido de Roberto Martín en medio campo por la derecha, con presión, sigue Théo Valls, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b03300"
       },
       {
@@ -6979,6 +7463,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "58'14\" (táctica 60:24) · Pase perdido de Jorge Cestero en medio campo por la derecha, sigue Théo Valls, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03600"
       },
       {
@@ -6991,6 +7476,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "59'25\" (táctica 61:35) · Pase largo perdido de Joan Martínez en medio campo por el centro, sigue Gonzalo Almenara, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b03600"
       },
       {
@@ -7003,6 +7489,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "61'00\" (táctica 63:10) · Pase perdido de Jesús Fortea en medio campo por la derecha, sigue Josep Calavera, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03600"
       },
       {
@@ -7015,6 +7502,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "63'01\" (táctica 65:12) · Pase perdido de Álvaro Leiva en campo rival por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03900"
       },
       {
@@ -7027,6 +7515,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "63'53\" (táctica 66:03) · Duelo perdido de Roberto Martín en medio campo por la izquierda, con presión, sigue Josep Calavera, acaba en remate de Pedro Ortiz",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b03900"
       },
       {
@@ -7039,6 +7528,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "67'35\" (táctica 69:45) · Pase perdido de Daniel Yáñez en campo rival por la derecha, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b03900"
       },
       {
@@ -7051,6 +7541,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "68'54\" (táctica 71:05) · Pase perdido de Roberto Martín en medio campo por la izquierda, sigue Erik Ruiz, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b04200"
       },
       {
@@ -7063,6 +7554,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "70'59\" (táctica 73:09) · Centro perdido de Daniel Yáñez en campo rival por la derecha, sigue Andrés Prieto, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b04200"
       },
       {
@@ -7075,6 +7567,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "71'14\" (táctica 73:25) · Pase perdido de Jesús Fortea en medio campo por la derecha, sigue Ander Yoldi, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b04200"
       },
       {
@@ -7087,6 +7580,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "72'36\" (táctica 74:46) · Pase largo perdido de Diego Aguado en campo propio por la izquierda, sigue Blasco, acaba en remate de David Astals",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b04200"
       },
       {
@@ -7099,6 +7593,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "73'43\" (táctica 75:54) · Duelo perdido de Oscar Naasei en campo propio por la izquierda, con presión, sigue David Astals, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b04500"
       },
       {
@@ -7111,6 +7606,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "75'15\" (táctica 77:26) · Pase perdido de Joan Martínez en campo propio por el centro, sigue Víctor García, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Joan Martínez",
         "bloque": "b04500"
       },
       {
@@ -7123,6 +7619,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "76'09\" (táctica 78:20) · Duelo perdido de Diego Aguado en campo rival por la izquierda, con presión, sigue Gonzalo Almenara, acaba en area",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b04500"
       },
       {
@@ -7135,6 +7632,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "80'42\" (táctica 82:52) · Pase perdido de Joan Martínez en medio campo por la derecha, sigue Erik Ruiz, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b04800"
       },
       {
@@ -7147,6 +7645,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "82'36\" (táctica 84:46) · Pase perdido de Alexis Ciria en campo rival por la izquierda, sigue Andrés Prieto, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b04800"
       },
       {
@@ -7159,6 +7658,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "84'19\" (táctica 86:29) · Pase largo perdido de Roberto Martín en campo propio por la derecha, sigue Erik Ruiz, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b05100"
       },
       {
@@ -7171,6 +7671,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "88'15\" (táctica 90:26) · Pase largo perdido de Oscar Naasei en campo propio por la izquierda, acaba en falta contra",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b05400"
       },
       {
@@ -7183,6 +7684,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "90+0'37\" (táctica 92:47) · Pase perdido de Joan Martínez en campo propio por la derecha, sigue Víctor García, acaba en remate de Ismael Fadel",
         "confianza": "alta",
+        "jugador": "Joan Martínez",
         "bloque": "b05400"
       },
       {
@@ -7195,6 +7697,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "90+1'48\" (táctica 93:58) · Duelo perdido de Alexis Ciria en campo rival por la izquierda, con presión, sigue Théo Valls, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b05400"
       },
       {
@@ -7207,6 +7710,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "90+2'04\" (táctica 94:15) · Pase perdido de Oscar Naasei en campo propio por la izquierda, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b05400"
       },
       {
@@ -7219,6 +7723,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "90+2'34\" (táctica 94:44) · Pase perdido de Jesús Fortea en campo rival por la derecha, sigue José Carlos Lazo, acaba en area",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b05400"
       }
     ]
@@ -7282,6 +7787,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "1'01\" (táctica 1:08) · Duelo ganado de Oscar Naasei en campo propio por el centro, sigue Oscar Naasei, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b00000"
       },
       {
@@ -7294,6 +7800,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "2'04\" (táctica 2:11) · Recuperación con presión de Jorge Cestero en campo propio por la derecha, sigue Jorge Cestero, acaba en posesion",
         "confianza": "media",
+        "jugador": "Jorge Cestero",
         "bloque": "b00000"
       },
       {
@@ -7306,6 +7813,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "6'30\" (táctica 6:37) · Duelo ganado de Ángel Carvajal en campo rival por la izquierda, sigue Álvaro Leiva, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b00300"
       },
       {
@@ -7318,6 +7826,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "7'29\" (táctica 7:36) · Duelo ganado de Oscar Naasei en campo propio por la derecha, sigue Oscar Naasei, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b00300"
       },
       {
@@ -7330,6 +7839,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "11'41\" (táctica 11:49) · Recuperación tras pérdida de Diego Aguado en campo rival por la izquierda, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00600"
       },
       {
@@ -7342,6 +7852,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "12'40\" (táctica 12:47) · Interceptación de Roberto Martín en medio campo por la derecha, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b00600"
       },
       {
@@ -7354,6 +7865,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "8",
         "detalle": "16'25\" (táctica 16:32) · Interceptación de Jorge Cestero en medio campo por el centro, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b00900"
       },
       {
@@ -7366,6 +7878,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "17'30\" (táctica 17:37) · Recuperación (pérdida del rival) de Jorge Cestero en medio campo por la derecha, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Jorge Cestero",
         "bloque": "b00900"
       },
       {
@@ -7378,6 +7891,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "17'51\" (táctica 17:59) · Recuperación con presión de Diego Aguado en medio campo por la izquierda, acaba en posesion",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b00900"
       },
       {
@@ -7390,6 +7904,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "19'45\" (táctica 19:52) · Recuperación (pérdida del rival) de Diego Aguado en medio campo por la izquierda, acaba en falta favor",
         "confianza": "media",
+        "jugador": "Diego Aguado",
         "bloque": "b00900"
       },
       {
@@ -7402,6 +7917,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "21'17\" (táctica 21:25) · Recuperación (pérdida del rival) de Jesús Fortea en campo propio por el centro, acaba en remate de Diego Aguado",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b01200"
       },
       {
@@ -7414,6 +7930,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "21'58\" (táctica 22:06) · Recuperación tras pérdida de Diego Aguado en campo propio por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01200"
       },
       {
@@ -7426,6 +7943,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "24'35\" (táctica 24:43) · Duelo ganado de Alexis Ciria en medio campo por el centro, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b01200"
       },
       {
@@ -7438,6 +7956,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "25'03\" (táctica 25:10) · Duelo ganado de Roberto Martín en campo propio por la izquierda, sigue Diego Aguado, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b01500"
       },
       {
@@ -7450,6 +7969,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "25'44\" (táctica 25:51) · Duelo ganado de Diego Aguado en campo propio por la izquierda, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01500"
       },
       {
@@ -7462,6 +7982,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "26'33\" (táctica 26:41) · Recuperación tras pérdida de Mario Rivas en medio campo por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b01500"
       },
       {
@@ -7474,6 +7995,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "27'09\" (táctica 27:17) · Recuperación (pérdida del rival) de Roberto Martín en medio campo por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Roberto Martín",
         "bloque": "b01500"
       },
       {
@@ -7486,6 +8008,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "29'37\" (táctica 29:44) · Recuperación tras pérdida de Jorge Cestero en campo propio por la izquierda, acaba en area",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b01500"
       },
       {
@@ -7498,6 +8021,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "30'35\" (táctica 30:43) · Recuperación tras pérdida de Mario Rivas en campo propio por el centro, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b01800"
       },
       {
@@ -7510,6 +8034,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "31'00\" (táctica 31:08) · Recuperación (pérdida del rival) de Daniel Yáñez en campo propio por la derecha, acaba en fuera",
         "confianza": "media",
+        "jugador": "Daniel Yáñez",
         "bloque": "b01800"
       },
       {
@@ -7522,6 +8047,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "32'28\" (táctica 32:15) · Recuperación tras pérdida de Diego Aguado en campo rival por la izquierda, acaba en area",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01800"
       },
       {
@@ -7534,6 +8060,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "10",
         "detalle": "33'30\" (táctica 33:17) · Duelo ganado de Mario Rivas en medio campo por el centro, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b01800"
       },
       {
@@ -7546,6 +8073,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "34'06\" (táctica 33:53) · Interceptación de Diego Aguado en medio campo por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01800"
       },
       {
@@ -7558,6 +8086,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "38'55\" (táctica 38:43) · Interceptación de Jorge Cestero en campo propio por el centro, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Jorge Cestero",
         "bloque": "b02100"
       },
       {
@@ -7570,6 +8099,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "44'14\" (táctica 44:01) · Recuperación tras pérdida de Diego Aguado en medio campo por la izquierda, acaba en remate de Ángel Carvajal",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02400"
       },
       {
@@ -7582,6 +8112,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45+1'25\" (táctica 46:12) · Interceptación de Ángel Carvajal en medio campo por la derecha, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b02700"
       },
       {
@@ -7594,6 +8125,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "46'51\" (táctica 50:27) · Interceptación de Jorge Cestero en campo rival por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03000"
       },
       {
@@ -7606,6 +8138,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "50'06\" (táctica 53:41) · Recuperación tras pérdida de Oscar Naasei en campo propio por el centro, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b03000"
       },
       {
@@ -7618,6 +8151,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "50'15\" (táctica 53:50) · Recuperación tras pérdida de Jorge Cestero en campo propio por el centro, sigue Diego Aguado, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03000"
       },
       {
@@ -7630,6 +8164,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "50'21\" (táctica 53:57) · Recuperación tras pérdida de Jorge Cestero en campo propio por el centro, sigue Alexis Ciria, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03000"
       },
       {
@@ -7642,6 +8177,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "51'18\" (táctica 54:54) · Recuperación (pérdida del rival) de Mario Rivas en campo propio por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b03000"
       },
       {
@@ -7654,6 +8190,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "53'52\" (táctica 57:28) · Interceptación de Ángel Carvajal en campo rival por la derecha, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Ángel Carvajal",
         "bloque": "b03300"
       },
       {
@@ -7666,6 +8203,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "54'56\" (táctica 58:31) · Recuperación (pérdida del rival) de Roberto Martín en medio campo por el centro, acaba en falta favor",
         "confianza": "media",
+        "jugador": "Roberto Martín",
         "bloque": "b03300"
       },
       {
@@ -7678,6 +8216,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "56'09\" (táctica 59:45) · Duelo ganado de Jesús Fortea en campo propio por la derecha, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b03300"
       },
       {
@@ -7690,6 +8229,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "56'15\" (táctica 59:50) · Recuperación tras pérdida de Jorge Cestero en campo propio por la derecha, sigue Jesús Fortea, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03300"
       },
       {
@@ -7702,6 +8242,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "56'30\" (táctica 60:05) · Recuperación tras pérdida de Diego Aguado en medio campo por la izquierda, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b03600"
       },
       {
@@ -7714,6 +8255,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "56'40\" (táctica 60:15) · Interceptación de Oscar Naasei en campo propio por el centro, sigue Alexis Ciria, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b03600"
       },
       {
@@ -7726,6 +8268,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "61'39\" (táctica 65:15) · Recuperación (pérdida del rival) de Jorge Cestero en medio campo por la derecha, acaba en area",
         "confianza": "media",
+        "jugador": "Jorge Cestero",
         "bloque": "b03900"
       },
       {
@@ -7738,6 +8281,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "65'56\" (táctica 69:31) · Interceptación de Jorge Cestero en campo propio por el centro, sigue Jesús Fortea, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03900"
       },
       {
@@ -7750,6 +8294,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "66'31\" (táctica 70:06) · Recuperación con presión de Jesús Fortea en medio campo por la derecha, acaba en remate de Alexis Ciria",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b04200"
       },
       {
@@ -7762,6 +8307,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "68'41\" (táctica 71:30) · Recuperación con presión de Jorge Cestero en medio campo por la derecha, acaba en area",
         "confianza": "media",
+        "jugador": "Jorge Cestero",
         "bloque": "b04200"
       },
       {
@@ -7774,6 +8320,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "6",
         "detalle": "71'37\" (táctica 74:26) · Interceptación de Pol Fortuny en medio campo por el centro, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Pol Fortuny",
         "bloque": "b04200"
       },
       {
@@ -7786,6 +8333,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "76'41\" (táctica 79:29) · Recuperación (pérdida del rival) de Fati Joao en campo propio por la izquierda, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Fati Joao",
         "bloque": "b04500"
       },
       {
@@ -7798,6 +8346,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "18",
         "detalle": "78'26\" (táctica 81:15) · Recuperación con presión de Jorge Cestero en medio campo por el centro, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Jorge Cestero",
         "bloque": "b04800"
       },
       {
@@ -7810,6 +8359,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "83'11\" (táctica 85:59) · Recuperación tras pérdida de Diego Aguado en medio campo por la izquierda, acaba en perdida",
         "confianza": "baja",
+        "jugador": "Diego Aguado",
         "bloque": "b05100"
       },
       {
@@ -7822,6 +8372,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "13",
         "detalle": "87'58\" (táctica 90:46) · Recuperación tras pérdida de Martínez en campo rival por la izquierda, sigue Álvaro Leiva, acaba en remate de Jesús Fortea",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b05400"
       },
       {
@@ -7834,6 +8385,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "88'50\" (táctica 91:38) · Recuperación tras pérdida de Mario Rivas en medio campo por la derecha, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b05400"
       },
       {
@@ -7846,6 +8398,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "89'10\" (táctica 91:59) · Recuperación tras pérdida de Álvaro Leiva en campo rival por la izquierda, sigue Álvaro Leiva, acaba en area",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b05400"
       },
       {
@@ -7858,6 +8411,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "90+0'29\" (táctica 93:18) · Interceptación de Mario Rivas en campo propio por el centro, sigue Adrián Pérez, acaba en perdida",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b05400"
       }
     ],
@@ -7872,6 +8426,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "1'11\" (táctica 1:19) · Duelo perdido de Jorge Cestero en campo propio por el centro, con presión, acaba en remate de Isra Domínguez",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b00000"
       },
       {
@@ -7884,6 +8439,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "1'55\" (táctica 2:02) · Pase perdido de Oscar Naasei en campo propio por la derecha, sigue Juan Aspra, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b00000"
       },
       {
@@ -7896,6 +8452,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "5'46\" (táctica 5:53) · Pase perdido de Álvaro Leiva en medio campo por la izquierda, sigue Isra Domínguez, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00300"
       },
       {
@@ -7908,6 +8465,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "6'34\" (táctica 6:41) · Control perdido de Alexis Ciria en campo rival por la izquierda, sigue Moha Bassele, acaba en area",
         "confianza": "media",
+        "jugador": "Alexis Ciria",
         "bloque": "b00300"
       },
       {
@@ -7920,6 +8478,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "7'20\" (táctica 7:27) · Control perdido de Roberto Martín en medio campo por el centro, con presión, sigue Iván Pérez, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Roberto Martín",
         "bloque": "b00300"
       },
       {
@@ -7932,6 +8491,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "11'35\" (táctica 11:42) · Centro perdido de Álvaro Leiva en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00600"
       },
       {
@@ -7944,6 +8504,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "12'27\" (táctica 12:34) · Pase largo perdido de Álvaro Leiva en medio campo por la izquierda, sigue Alberto Quintana, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00600"
       },
       {
@@ -7956,6 +8517,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "13'04\" (táctica 13:11) · Pase largo perdido de Diego Aguado en medio campo por la izquierda, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b00600"
       },
       {
@@ -7968,6 +8530,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "14'37\" (táctica 14:44) · Control perdido de Álvaro Leiva en medio campo por la izquierda, acaba en fuera",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b00600"
       },
       {
@@ -7980,6 +8543,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "14",
         "detalle": "15'37\" (táctica 15:44) · Pase largo perdido de Alexis Ciria en medio campo por la izquierda, sigue Luismi Gutiérrez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b00900"
       },
       {
@@ -7992,6 +8556,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "17'19\" (táctica 17:27) · Pase perdido de Daniel Yáñez en campo rival por la derecha, sigue Alberto Quintana, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b00900"
       },
       {
@@ -8004,6 +8569,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "17'41\" (táctica 17:49) · Duelo perdido de Daniel Yáñez en campo rival por el centro, con presión, sigue Moha Bassele, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b00900"
       },
       {
@@ -8016,6 +8582,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "18'43\" (táctica 18:51) · Pase largo perdido de Jorge Cestero en campo rival por la izquierda, sigue Adrià Gené, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b00900"
       },
       {
@@ -8028,6 +8595,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "7",
         "detalle": "20'28\" (táctica 20:35) · Pase perdido de Oscar Naasei en medio campo por la derecha, sigue Iván Pérez, acaba en area",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b01200"
       },
       {
@@ -8040,6 +8608,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "21'09\" (táctica 21:16) · Duelo perdido de Ángel Carvajal en medio campo por la izquierda, con presión, sigue Iván Pérez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b01200"
       },
       {
@@ -8052,6 +8621,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "21'42\" (táctica 21:49) · Pase perdido de Ángel Carvajal en campo rival por el centro, sigue Javi Antón, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Ángel Carvajal",
         "bloque": "b01200"
       },
       {
@@ -8064,6 +8634,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "21'50\" (táctica 21:57) · Pérdida de Mario Rivas en medio campo por la izquierda, sigue Alberto Quintana, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Mario Rivas",
         "bloque": "b01200"
       },
       {
@@ -8076,6 +8647,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "24'40\" (táctica 24:48) · Control perdido de Álvaro Leiva en campo rival por el centro, con presión, sigue Alberto Quintana, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01200"
       },
       {
@@ -8088,6 +8660,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "25'14\" (táctica 25:21) · Pase largo perdido de Mario Rivas en campo propio por la izquierda, sigue Javi Antón, acaba en area",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b01500"
       },
       {
@@ -8100,6 +8673,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "25'30\" (táctica 25:38) · Pase largo perdido de Oscar Naasei en campo propio por la derecha, sigue Iván Pérez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b01500"
       },
       {
@@ -8112,6 +8686,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "9",
         "detalle": "26'36\" (táctica 26:44) · Control perdido de Alexis Ciria en medio campo por la izquierda, sigue Alberto Quintana, acaba en posesion",
         "confianza": "media",
+        "jugador": "Alexis Ciria",
         "bloque": "b01500"
       },
       {
@@ -8124,6 +8699,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "27'21\" (táctica 27:29) · Pase perdido de Roberto Martín en campo rival por la izquierda, sigue Javi Antón, acaba en falta contra",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b01500"
       },
       {
@@ -8136,6 +8712,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "29'34\" (táctica 29:41) · Pase perdido de Mario Rivas en campo propio por la izquierda, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b01500"
       },
       {
@@ -8148,6 +8725,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "29'40\" (táctica 29:48) · Pase largo perdido de Álvaro Leiva en medio campo por la izquierda, sigue Daniel Alcover, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01500"
       },
       {
@@ -8160,6 +8738,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "30'28\" (táctica 30:36) · Pase perdido de Diego Aguado en campo propio por la izquierda, sigue Javi Antón, acaba en area",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b01800"
       },
       {
@@ -8172,6 +8751,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "30'37\" (táctica 30:44) · Pase perdido de Álvaro Leiva en campo propio por la izquierda, acaba en remate de Adrià Gené",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01800"
       },
       {
@@ -8184,6 +8764,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "30'49\" (táctica 30:57) · Conducción cortada de Daniel Yáñez en medio campo por la derecha, sigue Iván Pérez, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b01800"
       },
       {
@@ -8196,6 +8777,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "31'45\" (táctica 31:33) · Duelo perdido de Álvaro Leiva en campo rival por la izquierda, con presión, sigue Alberto Quintana, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01800"
       },
       {
@@ -8208,6 +8790,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "32'25\" (táctica 32:13) · Duelo perdido de Daniel Yáñez en campo rival por la izquierda, con presión, sigue Juan Aspra, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b01800"
       },
       {
@@ -8220,6 +8803,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "32'34\" (táctica 32:21) · Pase perdido de Álvaro Leiva en campo rival por la izquierda, con presión, sigue Moi Parra, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01800"
       },
       {
@@ -8232,6 +8816,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "33'19\" (táctica 33:07) · Centro perdido de Jesús Fortea en campo rival por la derecha, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b01800"
       },
       {
@@ -8244,6 +8829,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "34'03\" (táctica 33:51) · Pase perdido de Álvaro Leiva en medio campo por la izquierda, sigue Moi Parra, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b01800"
       },
       {
@@ -8256,6 +8842,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "35'14\" (táctica 35:01) · Conducción cortada de Daniel Yáñez en campo rival por la derecha, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Daniel Yáñez",
         "bloque": "b02100"
       },
       {
@@ -8268,6 +8855,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "36'08\" (táctica 35:55) · Pérdida de Ángel Carvajal en campo propio por el centro, sigue Moha Bassele, acaba en fuera",
         "confianza": "media",
+        "jugador": "Ángel Carvajal",
         "bloque": "b02100"
       },
       {
@@ -8280,6 +8868,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "37'17\" (táctica 37:05) · Pase perdido de Alexis Ciria en campo rival por la izquierda, sigue Moi Parra, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b02100"
       },
       {
@@ -8292,6 +8881,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "37'52\" (táctica 37:39) · Pase largo perdido de Álvaro Leiva en campo propio por la izquierda, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b02100"
       },
       {
@@ -8304,6 +8894,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "38'45\" (táctica 38:33) · Control perdido de Ángel Carvajal en medio campo por la izquierda, sigue Alberto Quintana, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Ángel Carvajal",
         "bloque": "b02100"
       },
       {
@@ -8316,6 +8907,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "5",
         "detalle": "40'25\" (táctica 40:13) · Pase largo perdido de Mario Rivas en medio campo por la izquierda, sigue Alberto Quintana, acaba en falta contra",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b02400"
       },
       {
@@ -8328,6 +8920,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "42'54\" (táctica 42:41) · Pase perdido de Diego Aguado en campo rival por la izquierda, acaba en fuera",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b02400"
       },
       {
@@ -8340,6 +8933,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "43'48\" (táctica 43:35) · Centro perdido de Jesús Fortea en campo rival por la derecha, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Jesús Fortea",
         "bloque": "b02400"
       },
       {
@@ -8352,6 +8946,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "45'17\" (táctica 48:52) · Pase perdido de Jesús Fortea en campo propio por la derecha, acaba en fuera",
         "confianza": "media",
+        "jugador": "Jesús Fortea",
         "bloque": "b02700"
       },
       {
@@ -8364,6 +8959,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "11",
         "detalle": "45'56\" (táctica 49:32) · Pase largo perdido de Oscar Naasei en campo propio por la derecha, sigue Iván Pérez, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b02700"
       },
       {
@@ -8376,6 +8972,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "46'51\" (táctica 50:27) · Pérdida de Jorge Cestero en campo rival por la izquierda, sigue Alberto Quintana, acaba en ultimo tercio",
         "confianza": "media",
+        "jugador": "Jorge Cestero",
         "bloque": "b03000"
       },
       {
@@ -8388,6 +8985,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "49'54\" (táctica 53:30) · Duelo perdido de Mario Rivas en campo propio por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b03000"
       },
       {
@@ -8400,6 +8998,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "50'11\" (táctica 53:46) · Pase perdido de Alexis Ciria en campo propio por la derecha, con presión, sigue Moha Bassele, acaba en area",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b03000"
       },
       {
@@ -8412,6 +9011,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "10",
         "detalle": "50'26\" (táctica 54:01) · Pase largo perdido de Alexis Ciria en medio campo por la derecha, sigue Iván Pérez, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b03000"
       },
       {
@@ -8424,6 +9024,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "51'00\" (táctica 54:35) · Pase largo perdido de Diego Aguado en campo propio por el centro, sigue Iván Pérez, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b03000"
       },
       {
@@ -8436,6 +9037,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "53'52\" (táctica 57:28) · Pérdida de Ángel Carvajal en campo rival por la derecha, sigue Juan Aspra, acaba en remate de Juan Aspra",
         "confianza": "media",
+        "jugador": "Ángel Carvajal",
         "bloque": "b03300"
       },
       {
@@ -8448,6 +9050,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "54'34\" (táctica 58:10) · Pase largo perdido de Mario Rivas en campo propio por la izquierda, sigue Daniel Alcover, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Mario Rivas",
         "bloque": "b03300"
       },
       {
@@ -8460,6 +9063,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "56'11\" (táctica 59:47) · Conducción cortada de Roberto Martín en medio campo por la derecha, con presión, sigue David Cuenca, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b03300"
       },
       {
@@ -8472,6 +9076,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "56'23\" (táctica 59:58) · Pase perdido de Jorge Cestero en campo propio por la izquierda, sigue Alberto Quintana, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03300"
       },
       {
@@ -8484,6 +9089,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "3",
         "detalle": "56'31\" (táctica 60:06) · Pase perdido de Álvaro Leiva en medio campo por la izquierda, con presión, sigue Juan Aspra, acaba en area",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b03600"
       },
       {
@@ -8496,6 +9102,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "60'57\" (táctica 64:33) · Duelo perdido de Jorge Cestero en campo rival por el centro, con presión, sigue Javi Antón, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b03600"
       },
       {
@@ -8508,6 +9115,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "61'33\" (táctica 65:08) · Pase perdido de Roberto Martín en campo rival por la derecha, sigue David Cuenca, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Roberto Martín",
         "bloque": "b03900"
       },
       {
@@ -8520,6 +9128,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "66'51\" (táctica 70:26) · Conducción cortada de Alexis Ciria en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Alexis Ciria",
         "bloque": "b04200"
       },
       {
@@ -8532,6 +9141,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "8",
         "detalle": "68'57\" (táctica 71:46) · Pase largo perdido de Oscar Naasei en medio campo por la derecha, sigue Daniel Alcover, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Oscar Naasei",
         "bloque": "b04200"
       },
       {
@@ -8544,6 +9154,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "70'19\" (táctica 73:08) · Pérdida de Ángel Carvajal en campo rival por el centro, sigue Raúl Luque, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Ángel Carvajal",
         "bloque": "b04200"
       },
       {
@@ -8556,6 +9167,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "12",
         "detalle": "74'26\" (táctica 77:14) · Pase perdido de Fati Joao en medio campo por la izquierda, sigue Juan Aspra, acaba en posesion",
         "confianza": "alta",
+        "jugador": "Fati Joao",
         "bloque": "b04500"
       },
       {
@@ -8568,6 +9180,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "76'27\" (táctica 79:15) · Pase perdido de Jorge Cestero en campo rival por la derecha, sigue Moha Bassele, acaba en area",
         "confianza": "alta",
+        "jugador": "Jorge Cestero",
         "bloque": "b04500"
       },
       {
@@ -8580,6 +9193,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "78'12\" (táctica 81:01) · Duelo perdido de Martínez en medio campo por el centro, con presión, sigue Moha Bassele, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b04800"
       },
       {
@@ -8592,6 +9206,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "2",
         "detalle": "81'31\" (táctica 84:20) · Conducción cortada de Diego Aguado en campo rival por la izquierda, con presión, sigue Alberto Quintana, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Diego Aguado",
         "bloque": "b04800"
       },
       {
@@ -8604,6 +9219,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "4",
         "detalle": "83'12\" (táctica 86:00) · Duelo perdido de Martínez en medio campo por la izquierda, con presión, sigue Raúl Luque, acaba en remate de Antonio Zarzana",
         "confianza": "alta",
+        "jugador": "Martínez",
         "bloque": "b05100"
       },
       {
@@ -8616,6 +9232,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "14",
         "detalle": "84'38\" (táctica 87:27) · Duelo perdido de Fati Joao en campo propio por la izquierda, con presión, sigue Destiny, acaba en ultimo tercio",
         "confianza": "alta",
+        "jugador": "Fati Joao",
         "bloque": "b05100"
       },
       {
@@ -8628,6 +9245,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "87'54\" (táctica 90:42) · Control perdido de Álvaro Leiva en campo rival por la izquierda, con presión, sigue David Cuenca, acaba en recuperamos",
         "confianza": "media",
+        "jugador": "Álvaro Leiva",
         "bloque": "b05400"
       },
       {
@@ -8640,6 +9258,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "0",
         "detalle": "89'09\" (táctica 91:58) · Conducción cortada de Álvaro Leiva en campo rival por la izquierda, con presión, acaba en recuperamos",
         "confianza": "alta",
+        "jugador": "Álvaro Leiva",
         "bloque": "b05400"
       },
       {
@@ -8652,6 +9271,7 @@ export const PARTIDOS: PartidoTransiciones[] = [
         "pases": "1",
         "detalle": "89'29\" (táctica 92:18) · Conducción cortada de Adrián Pérez en campo rival por la derecha, con presión, sigue Agüero, acaba en falta favor",
         "confianza": "alta",
+        "jugador": "Adrián Pérez",
         "bloque": "b05400"
       }
     ]

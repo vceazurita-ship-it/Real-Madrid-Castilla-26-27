@@ -161,7 +161,25 @@ function parteLinea(linea) {
   const seg = Number.parseInt(p[0], 10);
   if (!Number.isFinite(seg)) return null;
 
-  const ultimo = (p[p.length - 1] || "").toLowerCase();
+  /*
+  | El jugador (19/10/2026): robos.cjs y perdidas.cjs lo escriben DETRÁS de la
+  | confianza, como décimo campo. Los bloques viejos acaban en la confianza y
+  | no lo tienen; los mirados a ojo (J2, J3), tampoco. Se reconoce porque el
+  | último campo no es una confianza y el penúltimo sí.
+  */
+  let fin = p.length;
+  let jugador = "";
+  if (
+    p.length >= 10 &&
+    !CONFIANZAS.includes((p[p.length - 1] || "").toLowerCase()) &&
+    CONFIANZAS.includes((p[p.length - 2] || "").toLowerCase())
+  ) {
+    jugador = p[p.length - 1];
+    fin = p.length - 1;
+  }
+  const conJugador = jugador ? { jugador } : {};
+
+  const ultimo = (p[fin - 1] || "").toLowerCase();
   const confianza = CONFIANZAS.includes(ultimo) ? ultimo : "media";
 
   // La acción manda: si está en la cuarta columna es el formato ampliado.
@@ -181,8 +199,9 @@ function parteLinea(linea) {
       desenlace: "",
       duracion: null,
       pases: "",
-      detalle: p.slice(iAccion + 1, p.length - 1).join(" — "),
+      detalle: p.slice(iAccion + 1, fin - 1).join(" — "),
       confianza,
+      ...conJugador,
     };
   }
 
@@ -195,8 +214,9 @@ function parteLinea(linea) {
     desenlace: (p[4] || "").toUpperCase(),
     duracion: Number.isFinite(duracion) ? duracion : null,
     pases: p[6] || "",
-    detalle: p.slice(7, p.length - 1).join(" — "),
+    detalle: p.slice(7, fin - 1).join(" — "),
     confianza,
+    ...conJugador,
   };
 }
 
@@ -306,6 +326,12 @@ export type Robo = {
   pases: string;
   detalle: string;
   confianza: Confianza;
+  /**
+   * El jugador del Castilla que hace la acción: el que roba o el que la
+   * pierde. Sale de la sesión por jugador del timeline de Hudl; no lo tienen
+   * los partidos mirados a ojo (J2 y J3) ni los bloques viejos.
+   */
+  jugador?: string;
   bloque: string;
 };
 
@@ -339,7 +365,7 @@ writeFileSync(DESTINO, cabecera + JSON.stringify(datos, null, 2) + ";\n", "utf8"
 
 for (const p of datos) {
   console.log(
-    `${p.id}: ${p.bloquesCerrados}/${p.bloquesTotales} bloques, ${p.robos.length} robos, ${p.perdidas.length} pérdidas`,
+    `${p.id}: ${p.bloquesCerrados}/${p.bloquesTotales} bloques, ${p.robos.length} robos (${p.robos.filter((r) => r.jugador).length} con jugador), ${p.perdidas.length} pérdidas (${p.perdidas.filter((r) => r.jugador).length} con jugador)`,
   );
 }
 console.log("escrito", DESTINO);

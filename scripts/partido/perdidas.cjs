@@ -32,7 +32,9 @@ const path = require("node:path");
 
 const PARTIDO = process.argv[2];
 const SOLO_VER = process.argv.includes("--ver");
-const AQUI = path.join(__dirname, "..", "..", "..", "..", "ANALISIS TRANSICIONES");
+/* Desde un worktree (.claude/worktrees/…) la ruta relativa no llega: se cae a la de siempre. */
+const RELATIVA = path.join(__dirname, "..", "..", "..", "..", "ANALISIS TRANSICIONES");
+const AQUI = fs.existsSync(RELATIVA) ? RELATIVA : "C:/Users/Usuario/Downloads/RMCF CASTILLA/ANALISIS TRANSICIONES";
 
 if (!PARTIDO) {
   console.error("Uso: node scripts/partido/perdidas.cjs <slug> [--segundos N] [--ver]");
@@ -242,6 +244,8 @@ ev.forEach((e, i) => {
       d.pases,
       partes.join(", "),
       es(e, "Pass", "Long pass", "Cross", "Duel", "Offensive duel", "Aerial duel", "Carry") ? "alta" : "media",
+      /* El nuestro que la pierde (19/10/2026), de la sesión por jugador: ver robos.cjs. */
+      sinDorsal(e.jug),
     ],
   });
 });
@@ -270,7 +274,7 @@ for (let b = 0; b < segundosVideo; b += 300) {
   const f = path.join(dir, `b${String(b).padStart(5, "0")}.csv`);
   fs.writeFileSync(
     f,
-    ["# segundo;zona;carril;accion;desenlace;duracion;pases;detalle;confianza",
+    ["# segundo;zona;carril;accion;desenlace;duracion;pases;detalle;confianza;jugador",
       "# Sacado del timeline de Hudl (perdidas.cjs), no mirado imagen a imagen. El segundo es del vídeo táctico. La acción es la del rival tras nuestra pérdida.",
       ...(porBloque[b] || [])].join("\n") + "\n",
     "utf8",

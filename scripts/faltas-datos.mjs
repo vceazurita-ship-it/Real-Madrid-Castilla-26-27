@@ -190,10 +190,39 @@ function relojDe(id) {
   | del Castilla → «defensivo» (en contra); uno del rival → «ofensivo». Así
   | dos faltas seguidas de equipos distintos no se cambian el minuto.
   */
+  const centro = (m) => (m.startTimeMs + (m.endTimeMs ?? m.startTimeMs)) / 2000;
+  const sinDorsal = (nombre) => String(nombre ?? "").replace(/^\d+\.\s*/, "").trim();
+
+  /*
+  | El jugador NUESTRO de cada falta (19/10/2026), de la sesión por jugador
+  | (la de equipo no lleva faltas, y sus nombres mezclan los dos equipos):
+  | en la que hacemos, el que la comete; en la que nos hacen, el nuestro con
+  | «Foul suffered» a dos segundos o menos de ella (van emparejadas: el
+  | centro de los dos clips cae a 0-1,5 s).
+  */
+  const sufridas = sesiones
+    .flatMap((x) => x.moments.items)
+    .filter((m) => tipos(m).includes("Foul suffered") && equipo[cod(m)] === "defensivo")
+    .map((m) => ({ t: centro(m), jugador: sinDorsal(cod(m)) }));
+
+  const recibe = (t) => {
+    const cerca = sufridas
+      .filter((s) => Math.abs(s.t - t) <= 2)
+      .sort((a, b) => Math.abs(a.t - t) - Math.abs(b.t - t))[0];
+
+    return cerca?.jugador ?? "";
+  };
+
   const faltas = sesiones
     .flatMap((x) => x.moments.items)
     .filter((m) => tipos(m).some((t) => t === "Foul" || t === "Penalty foul" || t === "Infraction") && !tipos(m).includes("Offside"))
-    .map((m) => ({ t: (m.startTimeMs + (m.endTimeMs ?? m.startTimeMs)) / 2000, lado: equipo[cod(m)] ?? null }))
+    .map((m) => {
+      const t = centro(m);
+      const lado = equipo[cod(m)] ?? null;
+      const jugador = lado === "defensivo" ? sinDorsal(cod(m)) : lado === "ofensivo" ? recibe(t) : "";
+
+      return { t, lado, jugador };
+    })
     .sort((a, b) => a.t - b.t);
 
   const tramosFichero = join(TRANSICIONES, id, "tramos.json");
@@ -414,6 +443,8 @@ function leePartido(partido) {
 
   /* El segundo de Hudl de cada falta, para el minuto y para el orden. */
   const segundo = new Map();
+  /* La falta de Hudl con la que casa cada falta revisada, y su jugador nuestro. */
+  const jugadorDe = new Map();
   const deLaBase = asignaBase(base, faltas);
 
   faltas.forEach((falta) => {
@@ -427,17 +458,47 @@ function leePartido(partido) {
     | La de Hudl más cercana DE SU LADO (el segundo de la base es el arranque
     | del clip). Una falta de Hudl sin equipo conocido vale para los dos.
     */
-    const cerca = reloj.faltas
+    const hudl = reloj.faltas
       .filter((h) => !h.lado || h.lado === falta.lado)
-      .reduce((mejor, h) => (Math.abs(h.t - aprox) < Math.abs(mejor - aprox) ? h.t : mejor), Infinity);
+      .reduce((mejor, h) => (!mejor || Math.abs(h.t - aprox) < Math.abs(mejor.t - aprox) ? h : mejor), null);
 
-    const t = Math.abs(cerca - aprox) <= 12 ? cerca : aprox;
+    const casa = hudl && Math.abs(hudl.t - aprox) <= 12;
+    const t = casa ? hudl.t : aprox;
 
     falta.minuto = `${reloj.reloj(t)}${reloj.tactica(t)}`;
     segundo.set(falta, t);
 
+    /* El jugador, sólo si la falta casa con una de Hudl: si no, no se sabe quién fue. */
+    if (casa && hudl.jugador) jugadorDe.set(falta, { hudl, jugador: hudl.jugador });
+
     conMinuto += 1;
   });
+
+  /*
+  | Dos faltas revisadas que caen en la misma de Hudl: una de las dos lleva
+  | un jugador que no es el suyo. Ninguna se lo queda (mejor sin nombre que
+  | con el de otro).
+  */
+  const veces = new Map();
+  for (const { hudl } of jugadorDe.values()) veces.set(hudl, (veces.get(hudl) ?? 0) + 1);
+
+  let conJugador = 0;
+  let noLoNombra = 0;
+
+  faltas.forEach((falta) => {
+    const uno = jugadorDe.get(falta);
+
+    if (!uno || veces.get(uno.hudl) > 1) return;
+
+    falta.jugador = uno.jugador;
+    conJugador += 1;
+
+    if (!nombraA(falta.nota, uno.jugador)) noLoNombra += 1;
+  });
+
+  console.log(
+    `  ${partido.id}: jugador en ${conJugador} de ${faltas.length}${noLoNombra ? ` (en ${noLoNombra} la nota no lo nombra: revísalas)` : ""}`,
+  );
 
   /*
   | En el orden en que se dieron: por su segundo cuando se sabe (el descuento
@@ -496,6 +557,13 @@ export type Falta = {
   /** «12'03" (táctica 12:58)»: minuto de la retransmisión y, si hay desfases, de la táctica. Vacío si no se sabe. */
   minuto: string;
   nota: string;
+  /**
+   * El jugador NUESTRO: en una falta en contra, el que la comete; en una a
+   * favor, el que la recibe. Sale del timeline de Hudl (sesión por jugador)
+   * cuando la falta casa con una suya; sin timeline (Sant Andreu, etiquetado
+   * desde clips) no lo hay.
+   */
+  jugador?: string;
 };
 
 export type PartidoFaltas = {
