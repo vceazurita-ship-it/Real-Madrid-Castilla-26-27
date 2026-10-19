@@ -45,7 +45,7 @@ import { completoEnHojas, type HojasCompleto } from "@/lib/informe-partido/pdf-c
 import { informeUnicoPdf, paginaDeEnlaces, type EnlaceInforme } from "@/lib/informe-partido/pdf-unico";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
 import { capitulosDe, informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
-import type { InformePartido, Momento, PinceladaAbp } from "@/lib/informe-partido/modelo";
+import { asuntoInforme, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
 import { capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
@@ -585,9 +585,15 @@ export function InformePartidoDialog({
   /* «Previa · RM Castilla – CD Teruel (J7)»: lo que se lee en la bandeja. */
   const cabeceraAsunto = p ? `${esPost ? "Post" : "Previa"} · ${cruce}${p.jornada ? ` (J${p.jornada})` : ""}` : "";
 
-  const asuntoResumen = envio.resumen.asunto ?? `${cabeceraAsunto} · Resumen`;
+  /*
+  | El asunto con dato (20/10/2026): «J9 Algeciras CF (fuera, dom 16:30): 50 %
+  | de victoria, 64 % con el plan» o «J8 · Remontamos 3-2 al Antequera CF:
+  | dominio claro (xG 3,46 a 0,75)…». La etiqueta de siempre («Previa · … ·
+  | Resumen») queda sólo de respaldo, si no hay informe.
+  */
+  const asuntoResumen = envio.resumen.asunto ?? (informeVisto ? asuntoInforme(informeVisto, "resumen") : `${cabeceraAsunto} · Resumen`);
 
-  const asuntoCompleto = envio.completo.asunto ?? `${cabeceraAsunto} · Informe completo`;
+  const asuntoCompleto = envio.completo.asunto ?? (informeVisto ? asuntoInforme(informeVisto, "completo") : `${cabeceraAsunto} · Informe completo`);
 
   /* El título que va en el pie y en las propiedades del PDF. */
   const tituloPdf = p ? `${esPost ? "Post" : "Previa"}${p.jornada ? ` J${p.jornada}` : ""} · ${cruce}` : "";
@@ -855,7 +861,8 @@ export function InformePartidoDialog({
   const [mensajesWa, setMensajesWa] = useState<MensajeWhatsapp[]>([]);
   const { apunta } = useAgendaEnvios();
 
-  type ParaWhatsapp = { titulo: string; mensaje?: string; firma?: string; resumen?: string; video?: string | null; enlaces: { nombre: string; url: string }[] };
+  /** `asunto` y `lineas`: el formato corto de cuatro líneas (20/10/2026); el asunto, si viene, pisa al del correo. */
+  type ParaWhatsapp = { titulo: string; asunto?: string; lineas?: string[]; mensaje?: string; firma?: string; resumen?: string; video?: string | null; enlaces: { nombre: string; url: string }[] };
 
   const manda = async (cuerpo: Record<string, unknown>, wa?: ParaWhatsapp) => {
     if (canal === "whatsapp") {
@@ -1200,7 +1207,17 @@ export function InformePartidoDialog({
           texto: `${r.mensaje?.trim() ? `${r.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}`,
           imagenes: usadas(html, [...diapositivasCid, ...posterCid()]),
           adjuntosUrl: archivos.map((a) => ({ nombre: a.nombre, url: a.url, tipo: a.tipo })),
-        }, { titulo: "Resumen", mensaje: r.mensaje, firma, resumen: informeTexto(informeVisto), video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: [...archivos, ...(pptSubido ? [pptSubido] : [])] });
+        }, {
+          /* WhatsApp en cuatro líneas (20/10/2026): titular en negrita, qué hacemos, el vídeo y el PDF.
+             Antes iba el informe entero en texto, que en el móvil no se lee. */
+          titulo: "Resumen",
+          asunto: whatsappInforme(informeVisto).titular,
+          lineas: whatsappInforme(informeVisto).lineas,
+          mensaje: r.mensaje,
+          firma,
+          video: (infoVideo as { url: string } | null)?.url ?? null,
+          enlaces: [...archivos, ...(pptSubido ? [pptSubido] : [])],
+        });
 
         paso("resumen", "mandado ✓");
       };
@@ -1815,15 +1832,22 @@ export function InformePartidoDialog({
         )}
 
         {informeVisto && informeVisto.avisos.length > 0 && (
-          <div className="font-sans">
-            <Notice tone="warn" title="Lo que este informe no sabe · no va en el correo: se avisa al enviar">
-              <ul className="ml-4 list-disc space-y-1">
-                {informeVisto.avisos.map((a) => (
-                  <li key={a}>{a}</li>
-                ))}
-              </ul>
-            </Notice>
-          </div>
+          /* Plegado en una línea (20/10/2026): antes eran decenas de líneas antes del asunto y del botón. */
+          <details className="font-sans">
+            <summary className="cursor-pointer select-none rounded-lg px-1 py-1 text-sm font-semibold text-amber-300">
+              {informeVisto.avisos.length === 1 ? "1 aviso para el analista" : `${informeVisto.avisos.length} avisos para el analista`}
+              <span className="ml-2 font-normal text-white/45">· no van en el correo; se recuerdan al enviar</span>
+            </summary>
+            <div className="mt-2">
+              <Notice tone="warn" title="Lo que este informe no sabe">
+                <ul className="ml-4 list-disc space-y-1">
+                  {informeVisto.avisos.map((a) => (
+                    <li key={a}>{a}</li>
+                  ))}
+                </ul>
+              </Notice>
+            </div>
+          </details>
         )}
 
         <div ref={caja} className="min-w-0">

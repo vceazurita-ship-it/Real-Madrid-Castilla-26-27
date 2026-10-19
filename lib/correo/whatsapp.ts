@@ -58,7 +58,34 @@ export function enlaceWhatsapp(numero: string | null, texto: string) {
 /** WhatsApp corta los enlaces muy largos: el texto se queda en lo que cabe sin perder los enlaces. */
 const TOPE_TEXTO = 3500;
 
-/** El mensaje: el asunto en negrita, lo que se quiera decir, el vídeo y los documentos con su enlace. */
+/**
+ * El texto de un mensaje corto, sin contar los enlaces (20/10/2026): en el
+ * móvil se lee en cinco segundos o no se lee.
+ */
+const TOPE_CORTO = 400;
+
+/** Recorta a `n` caracteres por la última frase entera que quepa (o la última palabra), sin «…». */
+function cabeEn(texto: string, n: number) {
+  if (texto.length <= n) return texto;
+
+  const corte = texto.slice(0, n);
+
+  const frase = corte.lastIndexOf(". ");
+
+  if (frase > n * 0.4) return corte.slice(0, frase + 1);
+
+  return corte.slice(0, corte.lastIndexOf(" ")).replace(/[,;:·\s]+$/, "");
+}
+
+/**
+ * El mensaje: el asunto en negrita, lo que se quiera decir, el vídeo y los documentos con su enlace.
+ *
+ * Con `lineas` (20/10/2026) sale el formato corto de cuatro líneas: titular
+ * en negrita, qué hacemos, qué ver (vídeo) y el PDF, en menos de 400
+ * caracteres sin contar los enlaces. Vale para el informe del partido y para
+ * el de balón parado: cada uno pone su titular (`asunto`) y su línea de qué
+ * hacemos. Sin `lineas`, el de siempre.
+ */
 export function mensajeWhatsapp(o: {
   asunto: string;
   mensaje?: string;
@@ -68,10 +95,27 @@ export function mensajeWhatsapp(o: {
   enlaces: { nombre: string; url: string }[];
   /** Los documentos antes que el vídeo: WhatsApp saca la vista previa del PRIMER enlace (la tarjeta del PDF). */
   documentosPrimero?: boolean;
+  /** Formato corto: la línea (o líneas) de «qué hacemos», bajo el titular. */
+  lineas?: string[];
 }) {
   const video = o.video ? [`▶️ Vídeo en HD: ${o.video}`] : [];
   const documentos = o.enlaces.filter((d) => d.url !== o.video && !/\.mp4$/i.test(d.nombre)).map((d) => `📄 ${d.nombre}: ${d.url}`);
   const enlaces = (o.documentosPrimero ? [...documentos, ...video] : [...video, ...documentos]).join("\n");
+
+  if (o.lineas) {
+    const titular = `*${o.asunto.trim().replace(/\*/g, "")}*`;
+
+    /* Lo que escribe quien lo manda va entero: son sus palabras. Se recorta lo nuestro. */
+    const propio = o.mensaje?.trim() ? `${o.mensaje.trim()}${o.firma ? `\n— ${o.firma}` : ""}` : "";
+
+    const etiquetas = enlaces.replace(/https?:\/\/\S+/g, "").length;
+
+    const hueco = Math.max(60, TOPE_CORTO - titular.length - propio.length - etiquetas - 4);
+
+    const que = cabeEn(o.lineas.map((l) => l.trim()).filter(Boolean).join(" "), hueco);
+
+    return [titular, que, propio, enlaces].filter(Boolean).join("\n");
+  }
 
   const cabeza = [`*${o.asunto.trim()}*`, o.mensaje?.trim() ? `${o.mensaje.trim()}${o.firma ? `\n— ${o.firma}` : ""}` : ""].filter(Boolean).join("\n\n");
   const hueco = TOPE_TEXTO - cabeza.length - enlaces.length - 8;
