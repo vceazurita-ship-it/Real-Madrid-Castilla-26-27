@@ -33,6 +33,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  CloudOff,
   ImagePlus,
   ListOrdered,
   Lock,
@@ -157,7 +158,7 @@ export default function QuinielaPage() {
   | tenga esto abierto un domingo por la noche vería el marcador congelado
   | hasta recargar. Dos minutos basta: esto no es un directo.
   */
-  const { doc, estado, guardadoEn, guarda, recarga } = useQuinielaDoc(
+  const { doc, estado, guardadoEn, guarda, recarga, leidoPara } = useQuinielaDoc(
     enJuego ? 120_000 : 0,
   );
 
@@ -165,6 +166,30 @@ export default function QuinielaPage() {
 
   /* Quién ha entrado. Lo dice la cookie, que sólo lee el servidor. */
   const yo = sesion.yo?.slug ?? null;
+
+  /*
+  | AL ENTRAR O SALIR, SE RELEE (19/10/2026).
+  |
+  | El documento viene cribado para quien lo pidió (`leidoPara`). Si quien
+  | está ahora no es ése —acaba de entrar desde el panel de abajo, o de
+  | salir—, se pide otra vez, una sola por cambio: si el servidor y la sesión
+  | no se pusieran de acuerdo, no se queda releyendo en bucle. Mientras no
+  | llegue, no se deja marcar (`docAlDia`): el borrador partiría de una
+  | apuesta vacía y «Guardar» le borraba lo que ya tenía guardado.
+  |
+  | Los borradores son de quien los marcó: si entra otra persona en el mismo
+  | navegador, no hereda los signos a medio guardar del anterior.
+  */
+  const docAlDia = !sesion.cargando && leidoPara !== undefined && leidoPara === yo;
+
+  const [releidoPara, setReleidoPara] = useState<string | null | undefined>(undefined);
+
+  if (!sesion.cargando && leidoPara !== undefined && leidoPara !== yo && releidoPara !== yo) {
+    setReleidoPara(yo);
+    recarga();
+  }
+
+  const [borradoresDe, setBorradoresDe] = useState<string | null>(yo);
 
   /* Para mí: cerrada salvo que el administrador me haya abierto una prórroga. */
   const plazo = useMemo(
@@ -194,6 +219,13 @@ export default function QuinielaPage() {
   | ya hecha. El borrador es de la pestaña; lo guardado, del servidor.
   */
   const [borradores, setBorradores] = useState<Record<string, (Signo | null)[]>>({});
+
+  if (borradoresDe !== yo) {
+    setBorradoresDe(yo);
+
+    /* De «cargando» (nadie) a quien ya estaba dentro no se tira nada. */
+    if (borradoresDe !== null) setBorradores({});
+  }
 
   const [guardandoApuesta, setGuardandoApuesta] = useState(false);
 
@@ -299,7 +331,7 @@ export default function QuinielaPage() {
   };
 
   const ponPronostico = (indice: number, signo: Signo) => {
-    if (!yo || plazo.cerrada) return;
+    if (!yo || plazo.cerrada || !docAlDia) return;
 
     setBorradores((actuales) => {
       const base = actuales[String(jornada)] ?? guardados;
@@ -315,7 +347,7 @@ export default function QuinielaPage() {
   };
 
   const guardaApuesta = async () => {
-    if (!yo || !borrador) return;
+    if (!yo || !borrador || !docAlDia) return;
 
     setGuardandoApuesta(true);
 
@@ -512,11 +544,23 @@ export default function QuinielaPage() {
               title="La Quiniela de la Semana"
               lead="Los nueve partidos de la jornada —la liga sin el Castilla—, el 1-X-2 de cada uno y el ranking de acierto de la temporada."
               aside={
-                <SaveState
-                  status={estadoGuardado}
-                  savedAt={guardadoEn}
-                  onGuardar={estado === "error" ? recarga : undefined}
-                />
+                /* El «error» de aquí es siempre de LEER: un guardado fallido
+                   se cuenta en su aviso y deja el estado en «listo». El
+                   rótulo de `SaveState` —«No se pudo guardar · reintentando»—
+                   decía lo contrario y no reintentaba nada solo (19/10/2026). */
+                estado === "error" ? (
+                  <button
+                    type="button"
+                    onClick={recarga}
+                    title="Volver a leer la quiniela"
+                    className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] text-red-300 transition hover:bg-white/10"
+                  >
+                    <CloudOff size={12} aria-hidden />
+                    No se ha podido leer · Reintentar
+                  </button>
+                ) : (
+                  <SaveState status={estadoGuardado} savedAt={guardadoEn} />
+                )
               }
             />
 
@@ -760,6 +804,10 @@ export default function QuinielaPage() {
                     ? "Entra con tu correo para apostar y meter resultados"
                     : plazo.cerrada
                       ? "Jornada cerrada: tu apuesta ya no se puede cambiar"
+                      : !docAlDia
+                        ? estado === "error"
+                          ? "No se ha podido leer tu apuesta: pulsa «Reintentar» arriba antes de marcar"
+                          : "Trayendo tu apuesta guardada…"
                       : sinRellenar > 0
                         ? `Te faltan ${sinRellenar} por marcar`
                         : "Los tienes todos puestos"
@@ -877,17 +925,34 @@ export default function QuinielaPage() {
                               <Tripleta
                                 valor={mio}
                                 onElige={(signo) => ponPronostico(indice, signo)}
-                                apagado={!yo || plazo.cerrada || guardandoApuesta}
+                                apagado={!yo || plazo.cerrada || guardandoApuesta || !docAlDia}
                                 resultado={resultado}
                               />
                             </td>
 
                             <td className="py-2 text-center">
+                              {/* Con la misma regla que el servidor: un
+                                  partido sin jugar no admite resultado. Antes
+                                  el botón estaba vivo y sólo al pulsarlo
+                                  saltaba el error (19/10/2026). Quitar uno ya
+                                  puesto se puede siempre. */}
                               <Tripleta
                                 valor={resultado}
                                 onElige={(signo) => void ponResultado(indice, signo)}
-                                apagado={!yo || estado === "guardando"}
+                                apagado={
+                                  !yo ||
+                                  estado === "guardando" ||
+                                  (!resultado &&
+                                    Boolean(partido.fecha) &&
+                                    ahora.getTime() < Date.parse(`${partido.fecha}T12:00:00Z`))
+                                }
                                 tono="neutro"
+                                motivo={
+                                  yo && !resultado && partido.fecha &&
+                                  ahora.getTime() < Date.parse(`${partido.fecha}T12:00:00Z`)
+                                    ? `Se juega el ${fechaCorta(partido.fecha)}: el resultado se pone cuando se haya jugado`
+                                    : undefined
+                                }
                               />
                             </td>
 
@@ -1443,6 +1508,7 @@ function Tripleta({
   apagado,
   tono = "propio",
   resultado,
+  motivo,
 }: {
   valor: Signo | null;
   onElige: (signo: Signo) => void;
@@ -1450,9 +1516,14 @@ function Tripleta({
   tono?: "propio" | "neutro";
   /** El resultado del partido, para saber si lo elegido acertó. */
   resultado?: Signo | null;
+  /** Por qué no se puede pulsar, para el cursor encima. */
+  motivo?: string;
 }) {
   return (
-    <span className="inline-flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.02] p-0.5">
+    <span
+      title={motivo}
+      className="inline-flex items-center gap-0.5 rounded-lg border border-white/10 bg-white/[0.02] p-0.5"
+    >
       {SIGNOS.map((signo) => {
         const puesto = valor === signo;
 
@@ -1476,8 +1547,13 @@ function Tripleta({
             disabled={apagado}
             onClick={() => onElige(signo)}
             aria-pressed={puesto}
-            title={NOMBRE_DEL_SIGNO[signo]}
-            className={`h-7 w-9 rounded-md text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-30 ${estilo}`}
+            title={motivo ? undefined : NOMBRE_DEL_SIGNO[signo]}
+            /* Apagado, lo elegido sigue leyéndose entero: con la jornada
+               cerrada es justo lo que se viene a mirar —tu signo en verde o
+               en rojo— y al 30 % no se distinguía (19/10/2026). */
+            className={`h-7 w-9 rounded-md text-[12px] font-semibold transition disabled:cursor-not-allowed ${
+              puesto ? "" : "disabled:opacity-30"
+            } ${estilo}`}
           >
             {signo}
           </button>

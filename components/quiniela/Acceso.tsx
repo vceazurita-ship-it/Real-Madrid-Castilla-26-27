@@ -262,6 +262,11 @@ function CambiarClave({ manda, onCerrar }: { manda: Manda; onCerrar: () => void 
 
   const noCasan = repite.length > 0 && nueva !== repite;
 
+  /* El mínimo del servidor (`MINIMO_CLAVE` en lib/quiniela/cuentas.ts, que no
+     se puede importar aquí: arrastra node:crypto). Se dice antes de pulsar,
+     no después (19/10/2026). */
+  const corta = nueva.length > 0 && nueva.length < 4;
+
   const cambia = async () => {
     setEnviando(true);
 
@@ -288,7 +293,7 @@ function CambiarClave({ manda, onCerrar }: { manda: Manda; onCerrar: () => void 
 
           <Button
             tone="primary"
-            disabled={enviando || !actual || !nueva || nueva !== repite}
+            disabled={enviando || !actual || !nueva || corta || nueva !== repite}
             onClick={() => void cambia()}
           >
             {enviando ? "Cambiando…" : "Cambiarla"}
@@ -320,6 +325,10 @@ function CambiarClave({ manda, onCerrar }: { manda: Manda; onCerrar: () => void 
           value={repite}
           onChange={setRepite}
         />
+
+        {corta && (
+          <p className="text-[11px] text-rose-300/80">La nueva necesita al menos 4 caracteres.</p>
+        )}
 
         {noCasan && (
           <p className="text-[11px] text-rose-300/80">Las dos nuevas no coinciden.</p>
