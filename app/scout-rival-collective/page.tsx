@@ -87,8 +87,12 @@ function formatDate(value?: string) {
 
   /* «05/10/2026» lo leía `new Date` a la americana (5 de mayo) y con día
      mayor que 12 no la entendía: se pasa antes por `claveFecha`, y se monta
-     a mediodía de aquí para no caer en el día de al lado (19/10/2026). */
-  const clave = claveFecha(value);
+     a mediodía de aquí para no caer en el día de al lado (19/10/2026).
+     Menos un instante con zona («…T22:00:00.000Z», la medianoche de Madrid
+     que manda la hoja): `claveFecha` lo recorta y daría el día anterior, así
+     que ése va tal cual por `new Date`, que lo pasa a la hora de aquí. */
+  const conZona = /T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/.test(value);
+  const clave = conZona ? "" : claveFecha(value);
   const date = clave ? new Date(`${clave}T12:00:00`) : new Date(value);
 
   return Number.isNaN(date.getTime())
