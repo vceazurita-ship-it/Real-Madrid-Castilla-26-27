@@ -24,6 +24,7 @@ import {
   Handshake,
   HeartHandshake,
   History,
+  ListChecks,
   PenTool,
   Scale,
   Scissors,
@@ -448,6 +449,16 @@ export const MODULES: AppModule[] = [
     icon: UsersRound,
     rank: 88,
     alias: ["equipos", "sesion", "petos", "convocados entrenamiento"],
+  },
+  /* Salió de obras el 19/10/2026 (antes /obras/entrenamiento, sólo el administrador). */
+  {
+    href: "/analisis-entrenamiento",
+    area: "METODOLOGÍA",
+    title: "Análisis de entrenamiento",
+    desc: "Objetivos por jugador medidos en el vídeo de la sesión, con sus clips",
+    icon: ListChecks,
+    rank: 86,
+    alias: ["entrenamiento", "objetivos", "sesion", "clips", "tu sesion", "evolucion jugador", "obras entrenamiento"],
   },
   {
     href: "/laboratorio/microciclo",

@@ -876,6 +876,52 @@ export const AYUDAS: AyudaDePagina[] = [
     ],
   },
 
+  /* ==================== ANÁLISIS DE ENTRENAMIENTO (19/10/2026) ==================== */
+  {
+    ruta: "/analisis-entrenamiento",
+    titulo: "Análisis de entrenamiento",
+    resumen:
+      "Objetivos por jugador medidos en el vídeo de la sesión: cuántas acciones salieron bien y cuántas hay que mejorar, con clips, su evolución día a día y el mensaje para cada jugador.",
+    origen:
+      "Los objetivos y las validaciones los escribe el cuerpo técnico aquí (se guardan solos). El vídeo del día lo mira el ordenador del club al pulsar «Analizar»: la cámara táctica de la carpeta SESIONES o, si no está, el entrenamiento subido a Hudl con la fecha en el título. Las tareas salen del registro de tareas.",
+    bloques: [
+      {
+        titulo: "El día",
+        filas: [
+          { que: "Objetivo", es: "Qué se busca, de quién, cómo reconocerlo (peto, dorsal) y qué es correcto o mejorable" },
+          { que: "Tarea del día", es: "En qué tarea del registro mirarlo (L-T1…). No cambia lo que mira el vídeo" },
+          { que: "Meta", es: "El porcentaje de correctas que se pide", cuenta: "Cumplida si el acierto llega a la meta (sólo con 8 acciones o más)" },
+          { que: "De dónde sale", es: "Seguimiento individual, «Qué toca» del post… para saber por qué se mide" },
+          { que: "Analizar", es: "Lo pide al ordenador del club; tarda de media hora a una hora y se puede cerrar la pantalla" },
+        ],
+      },
+      {
+        titulo: "Las cuentas",
+        filas: [
+          { que: "9 de 14 correctas", es: "Correctas entre las acciones que cuentan (todas menos las descartadas)" },
+          { que: "(11 validadas)", es: "Cuántas de esas ha mirado alguien. Las demás cuentan con lo que propuso la IA" },
+          { que: "Acierto", es: "Porcentaje de correctas", cuenta: "correctas ÷ acciones que cuentan; sólo con 8 o más" },
+          { que: "Tendencia", es: "Menos de 8 acciones: se da la cuenta, no el porcentaje" },
+          { que: "Sesión anterior", es: "El mismo objetivo (mismo texto) el último día analizado", cuenta: "mejora o baja = 5 puntos o más de diferencia" },
+          { que: "Borde continuo / discontinuo", es: "Acción validada / propuesta de la IA sin validar" },
+        ],
+      },
+      {
+        titulo: "Por jugador",
+        filas: [
+          { que: "Evolución", es: "Cada objetivo suyo sesión a sesión, con la anterior, el sentido y sus clips" },
+          { que: "Tu sesión", es: "Dos frases, su cuenta frente a la meta y su clip correcto y su clip mejorable, para WhatsApp" },
+          { que: "Abrir su chat", es: "Abre WhatsApp con el mensaje escrito; lo mandas tú. El móvil sólo se recuerda en ese aparato" },
+        ],
+      },
+    ],
+    ojo: [
+      "Con varios jugadores en un objetivo, a cada uno sólo se le cuentan las acciones en las que la IA le nombra.",
+      "Para ver la evolución, el objetivo tiene que llamarse igual cada día: «Copiar los del último día» lo deja igual.",
+      "Valida antes de mandar «Tu sesión»: lo no validado es una propuesta.",
+    ],
+  },
+
   /* ==================== LA PORTADA ==================== */
   {
     ruta: "/",

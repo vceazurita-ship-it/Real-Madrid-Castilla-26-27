@@ -76,6 +76,7 @@ import {
   UsersRound,
   X,
   Swords,
+  ListChecks,
 } from "lucide-react"
 
 import { trackModuleVisit, useRutasMasVisitadas } from "@/lib/module-usage"
@@ -168,6 +169,8 @@ export const SECCIONES: Seccion[] = [
       { href: "/micro_calendar", label: "Contenidos Microciclo", icon: BookOpen },
       { href: "/laboratorio/microciclo", label: "Crear o editar microciclo", icon: ClipboardPlus },
       { href: "/jugadores-sesion", label: "Jugadores Sesión", icon: UsersRound },
+      /* Salió de obras el 19/10/2026: para el cuerpo técnico (pide entrar con su cuenta). */
+      { href: "/analisis-entrenamiento", label: "Análisis de entrenamiento", icon: ListChecks },
     ],
   },
   {
@@ -258,8 +261,6 @@ export const SECCIONES: Seccion[] = [
        de momento. */
     titulo: "En obras",
     entradas: [
-      /* Se puede usar, pero sólo el administrador mientras se construye (16/10/2026). */
-      { href: "/obras/entrenamiento", label: "Análisis de entrenamiento", icon: ClipboardCheck, soloAdmin: true },
       { href: "#area-condicional", label: "Área Condicional", icon: Dumbbell, obras: EN_OBRAS },
       { href: "#calendario-condicional", label: "Calendario Condicional", icon: CalendarClock, obras: EN_OBRAS },
       { href: "#pizarra-sesion", label: "Pizarra Sesión", icon: PencilRuler, obras: EN_OBRAS },
