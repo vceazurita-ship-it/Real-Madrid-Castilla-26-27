@@ -7,6 +7,8 @@ import Papa from "papaparse";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOrdered } from "lucide-react";
 import { capturaNodo } from "@/lib/export/captura";
+import { EstadoError } from "@/components/ui/estados";
+import { THEME_COLOR, chipInk } from "@/lib/theme";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { descargaDataUrl } from "@/lib/export/lienzos";
 import { traeCsv } from "@/lib/hojaCsv";
@@ -808,7 +810,12 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   */
   const [filasPendientes, setPendientes] = useState<RecordRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  /* Dos fallos distintos (19/10/2026): el de la hoja deja la página sin
+     datos y se puede reintentar, como en ABP; el del PNG es un aviso y no
+     tapa nada. Antes compartían estado y uno pisaba al otro. */
+  const [error, setError] = useState<unknown>(null);
+  const [errorPng, setErrorPng] = useState("");
+  const [intento, setIntento] = useState(0);
   /*
   | LA ÚLTIMA JORNADA, PUESTA POR DEFECTO (11/10/2026).
   |
@@ -939,7 +946,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     | aquí, y se entra y se sale del menú todo el rato. Las dos páginas de
     | córner ya lo hacían así; ésta se había quedado atrás.
     */
-    traeCsv(csvUrl)
+    /* `intento` > 0 es un «Reintentar»: se salta la copia del aparato. */
+    traeCsv(csvUrl, { forzar: intento > 0 })
       .then((csv) => {
         const parsed = Papa.parse<RecordRow>(csv, { header: true, skipEmptyLines: true });
 
@@ -958,10 +966,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
         if (active) {
           setRows(conZona);
           setPendientes(aMedias);
+          setError(null);
         }
       })
       .catch((cause: unknown) => {
-        if (active) setError(cause instanceof Error ? cause.message : "Error cargando los datos.");
+        if (active) setError(cause);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -970,7 +979,13 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     return () => {
       active = false;
     };
-  }, [csvUrl]);
+  }, [csvUrl, intento]);
+
+  const reintenta = () => {
+    setLoading(true);
+    setError(null);
+    setIntento((n) => n + 1);
+  };
 
   /* Los rivales como chips con escudo, por la jornada en que se les jugó y
      con ella puesta: igual que en ABP ofensivo y defensivo (11/10/2026). */
@@ -1280,6 +1295,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     if (!contentRef.current) return;
 
     setExporting(true);
+    setErrorPng("");
 
     try {
       // El PNG salía sin título ni filtros: dos capturas del mismo panel eran
@@ -1290,18 +1306,25 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
       /* `capturaNodo`: el panel entero a 2× se pasa del lienzo de un iPad,
          y en Safari la primera pasada sale sin los escudos. */
+      /* El fondo, el del tema que se ve (19/10/2026): con el negro fijo, en
+         modo día la tinta oscura de los textos caía sobre negro y el PNG
+         salía ilegible. Y la fecha del nombre, la local, no la de Greenwich. */
+      const tema = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+      const ahora = new Date();
+      const hoy = new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
       const { dataUrl } = await capturaNodo(contentRef.current, {
-        backgroundColor: "#0B0F14",
+        backgroundColor: THEME_COLOR[tema],
         pixelRatio: 2,
         cacheBust: true,
       });
 
       await descargaDataUrl(
         dataUrl,
-        `saque-banda-${isOffensive ? "ofensivo" : "defensivo"}-${new Date().toISOString().slice(0, 10)}.png`,
+        `saque-banda-${isOffensive ? "ofensivo" : "defensivo"}-${hoy}.png`,
       );
     } catch {
-      setError("No se pudo generar la imagen del panel.");
+      setErrorPng("No se pudo generar la imagen del panel. Vuelve a intentarlo.");
     } finally {
       setExporting(false);
     }
@@ -1537,12 +1560,20 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
               }
             />
 
-            {error ? (
-              <p className="mb-5 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{error}</p>
+            {errorPng ? (
+              <p role="alert" className="mb-5 rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-200">{errorPng}</p>
             ) : null}
 
             {loading ? (
               <p className="py-24 text-center text-slate-400">Cargando saques de banda…</p>
+            ) : error && !todasLasFilas.length ? (
+              /* Sin la hoja no hay nada que pintar: se dice y se reintenta,
+                 en vez de enseñar gráficos vacíos que parecían «sin saques». */
+              <EstadoError
+                titulo={`No se ha podido cargar la hoja de saques de banda ${isOffensive ? "a favor" : "en contra"}`}
+                error={error}
+                onReintentar={reintenta}
+              />
             ) : (
               <div ref={contentRef}>
                 {/* Cabecera que sólo viaja en el PNG, para que la captura se
@@ -1832,8 +1863,10 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                                 return celda("__marcador", marcador.texto || "-", {
                                   className: "tabular-nums",
                                   style: {
+                                    /* Como texto, con `chipInk`: el oro de
+                                       «empatando» sobre blanco no se leía. */
                                     color: marcador.estado
-                                      ? ESTADO_COLOR[marcador.estado]
+                                      ? chipInk(ESTADO_COLOR[marcador.estado])
                                       : undefined,
                                   },
                                 });
