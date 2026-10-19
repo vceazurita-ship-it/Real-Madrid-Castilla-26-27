@@ -69,12 +69,15 @@ export function Acceso({
   cargando,
   manda,
   subtitulo = "Cada uno pone sólo lo suyo. Ver el ranking no necesita entrar",
+  titulo = "Entra para apostar",
 }: {
   yo: Yo | null;
   cargando: boolean;
   manda: Manda;
   /** Lo que va bajo «Entra para apostar». */
   subtitulo?: string;
+  /** El título del panel: otras pantallas lo usan para entrar con la misma cuenta (20/10/2026). */
+  titulo?: string;
 }) {
   const [modo, setModo] = useState<"entrar" | "registrar">("entrar");
   const [correo, setCorreo] = useState("");
@@ -153,7 +156,7 @@ export function Acceso({
 
   return (
     <Panel
-      title="Entra para apostar"
+      title={titulo}
       subtitle={subtitulo}
       icon={KeyRound}
       action={

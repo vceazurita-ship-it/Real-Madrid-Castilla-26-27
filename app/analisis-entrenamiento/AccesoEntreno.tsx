@@ -40,7 +40,7 @@ export function AccesoEntreno() {
           <div className="mx-auto w-full min-w-0 max-w-2xl space-y-5 px-4 py-6 sm:px-6">
             <AbpHeader area="RMCF Castilla · Entrenamiento" title="Análisis de entrenamiento" lead="Objetivos por jugador medidos en el vídeo de la sesión, con su evolución y sus clips. Es para el cuerpo técnico: entra con tu cuenta." />
 
-            <Acceso yo={yo} cargando={sesion.cargando} manda={sesion.manda} subtitulo="La misma cuenta que la quiniela y las apuestas del staff" />
+            <Acceso yo={yo} cargando={sesion.cargando} manda={sesion.manda} titulo="Entra con tu cuenta del cuerpo técnico" subtitulo="La misma cuenta que la quiniela y las apuestas del staff" />
 
             {yo && !delCuerpoTecnico ? (
               <Notice tone="warn" title="Esta cuenta no es del cuerpo técnico">
