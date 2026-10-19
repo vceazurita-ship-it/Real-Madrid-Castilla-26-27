@@ -79,7 +79,7 @@ type Pieza = {
 
 type Estado =
   | { fase: "cargando" }
-  | { fase: "sin-conectar"; aviso: string }
+  | { fase: "sin-conectar"; aviso: string; caido?: boolean }
   | { fase: "listo"; canal: string; listas: ListaCanal[] };
 
 /* ------------------------------------------------------------------ */
@@ -114,6 +114,9 @@ const TAMANOS = [
 ] as const;
 
 type TamanoKey = (typeof TAMANOS)[number]["key"];
+
+/** Lo que se guarda cuando se elige «Ninguna» lista para un rival. */
+const SIN_LISTA = "-";
 
 const CLAVE_TAMANO = "rmcf-videos-tamano";
 const CLAVE_AGRUPADO = "rmcf-videos-agrupado";
@@ -220,10 +223,13 @@ export function VideosDelCanal({
   | un parpadeo con los cortes del rival anterior—. Atados a su lista, «cuáles
   | toca enseñar» y «está cargando» se deducen.
   */
-  const [traidos, setTraidos] = useState<{ listaId: string; videos: Video[] }>({
+  const [traidos, setTraidos] = useState<{ listaId: string; videos: Video[]; fallo?: boolean }>({
     listaId: "",
     videos: [],
   });
+
+  /* «Volver a probar» de los vídeos: sube y el efecto los vuelve a pedir. */
+  const [intentoVideos, setIntentoVideos] = useState(0);
 
   /* La lista elegida a mano para un equipo vale para todo el cuerpo técnico. */
   const { value: elegidas, setValue: setElegidas } = useRemoteDoc<ListasRivales>({
@@ -268,9 +274,12 @@ export function VideosDelCanal({
 
         console.error("[VideosDelCanal] canal", error);
 
+        /* Sin red no es «sin conectar»: se dice aparte, para no mandar a
+           nadie a volver a conectar una cuenta que está bien (19/10/2026). */
         setEstado({
           fase: "sin-conectar",
-          aviso: "No se ha podido hablar con YouTube.",
+          aviso: "No se ha podido hablar con YouTube: puede ser la conexión.",
+          caido: true,
         });
       }
     })();
@@ -287,6 +296,10 @@ export function VideosDelCanal({
 
     /* Lo elegido a mano manda sobre lo que se adivine por el nombre. */
     const aMano = elegidas.porEquipo?.[clave];
+
+    /* «Ninguna» se guarda con su marca: guardada como vacío, la de por
+       nombre volvía a salir y elegir «Ninguna» no hacía nada (19/10/2026). */
+    if (aMano === SIN_LISTA) return null;
 
     const puesta = aMano ? listas.find((item) => item.id === aMano) : null;
 
@@ -328,25 +341,36 @@ export function VideosDelCanal({
 
     void (async () => {
       try {
-        const datos = await fetch(
+        const respuesta = await fetch(
           `/api/youtube/videos?lista=${encodeURIComponent(listaId)}`,
           { signal: control.signal },
-        ).then((r) => r.json());
+        );
+
+        const datos = await respuesta.json().catch(() => null);
 
         if (control.signal.aborted) return;
 
-        setTraidos({ listaId, videos: (datos?.videos ?? []) as Video[] });
+        /* Un fallo no es una lista vacía: antes se decía «no tiene vídeos»
+           cuando lo que había fallado era la conexión (19/10/2026). */
+        if (!respuesta.ok || !Array.isArray(datos?.videos)) {
+          setTraidos({ listaId, videos: [], fallo: true });
+          return;
+        }
+
+        setTraidos({ listaId, videos: datos.videos as Video[] });
       } catch (error) {
         if (control.signal.aborted) return;
 
         console.error("[VideosDelCanal] vídeos", error);
 
-        setTraidos({ listaId, videos: [] });
+        setTraidos({ listaId, videos: [], fallo: true });
       }
     })();
 
     return () => control.abort();
-  }, [listaId]);
+  }, [listaId, intentoVideos]);
+
+  const falloVideos = Boolean(listaId) && traidos.listaId === listaId && Boolean(traidos.fallo);
 
   /* Lo traído sólo vale si es de la lista que se está mirando. La identidad
      tiene que ser estable o el reparto por jugador se rehace en cada render. */
@@ -529,13 +553,19 @@ export function VideosDelCanal({
       <div className="rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] px-4 py-4">
         <p className="flex items-center gap-2 text-sm font-medium text-white/85">
           <Youtube size={15} className="text-amber-300" />
-          El canal de YouTube no está conectado
+          {estado.caido ? "No se ha podido leer el canal de YouTube" : "El canal de YouTube no está conectado"}
         </p>
 
         <p className="mt-1 text-[12px] leading-relaxed text-white/55">
-          {estado.aviso} Se conecta una vez desde <strong>Coding</strong>, en el
-          panel de YouTube, y desde entonces esta pantalla lee las listas de cada
-          rival.
+          {estado.caido ? (
+            <>{estado.aviso} Comprueba la conexión y vuelve a probar.</>
+          ) : (
+            <>
+              {estado.aviso} Se conecta una vez desde <strong>Coding</strong>, en el
+              panel de YouTube, y desde entonces esta pantalla lee las listas de cada
+              rival.
+            </>
+          )}
         </p>
 
         <button
@@ -567,7 +597,7 @@ export function VideosDelCanal({
         <select
           value={lista?.id ?? ""}
           onChange={(evento) => {
-            const id = evento.target.value;
+            const id = evento.target.value || SIN_LISTA;
 
             setElegidas((actual) => ({
               ...actual,
@@ -760,7 +790,24 @@ export function VideosDelCanal({
         </div>
       )}
 
-      {!cargandoVideos && lista && videos.length === 0 && (
+      {!cargandoVideos && lista && falloVideos && (
+        <div className="mt-4 rounded-2xl border border-amber-400/25 bg-amber-400/[0.06] px-4 py-6 text-center text-xs text-white/60">
+          No se han podido traer los vídeos de la lista.
+          <button
+            type="button"
+            onClick={() => {
+              setTraidos({ listaId: "", videos: [] });
+              setIntentoVideos((n) => n + 1);
+            }}
+            className="ml-2 inline-flex items-center gap-1 font-semibold text-[#C8A96B] underline underline-offset-2"
+          >
+            <RefreshCw size={11} />
+            Volver a probar
+          </button>
+        </div>
+      )}
+
+      {!cargandoVideos && lista && !falloVideos && videos.length === 0 && (
         <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center text-xs text-white/40">
           Esa lista todavía no tiene vídeos que se puedan ver.
         </p>

@@ -75,7 +75,13 @@ export function EligeVideoDeLista({
   const [aviso, setAviso] = useState("");
   const [listas, setListas] = useState<ListaCanal[]>([]);
   const [listaId, setListaId] = useState("");
-  const [videos, setVideos] = useState<VideoCanal[]>([]);
+  /*
+  | Los vídeos van con la lista de la que son (19/10/2026). Las listas y los
+  | vídeos compartían el «listo»: si la recarga de las listas (que vuelve a
+  | correr al recordar la elección) acababa antes, se daba por listo con los
+  | vídeos de la lista anterior en pantalla y un clic colgaba el que no era.
+  */
+  const [traidos, setTraidos] = useState<{ listaId: string; videos: VideoCanal[] }>({ listaId: "", videos: [] });
   const [busca, setBusca] = useState("");
 
   /*
@@ -170,8 +176,6 @@ export function EligeVideoDeLista({
     let cancelado = false;
 
     (async () => {
-      setEstado("cargando");
-
       try {
         const r = await fetch(
           `/api/youtube/videos?lista=${encodeURIComponent(listaId)}`,
@@ -182,8 +186,7 @@ export function EligeVideoDeLista({
 
         if (cancelado) return;
 
-        setVideos(Array.isArray(datos?.videos) ? datos.videos : []);
-        setEstado("listo");
+        setTraidos({ listaId, videos: Array.isArray(datos?.videos) ? datos.videos : [] });
       } catch (error) {
         if (cancelado) return;
 
@@ -206,6 +209,10 @@ export function EligeVideoDeLista({
   | se esconde —un corte del equipo también se cuelga de una ficha— sino que
   | baja.
   */
+  const videos = useMemo(() => (traidos.listaId === listaId ? traidos.videos : []), [traidos, listaId]);
+
+  const cargandoVideos = Boolean(listaId) && traidos.listaId !== listaId;
+
   const ordenados = useMemo(() => {
     const suyo = { nombre: jugador, dorsal };
 
@@ -299,7 +306,7 @@ export function EligeVideoDeLista({
         </button>
       </div>
 
-      {estado === "cargando" && (
+      {(estado === "cargando" || (estado === "listo" && cargandoVideos)) && (
         <p className="mt-3 flex items-center gap-2 text-xs text-white/40">
           <Loader2 size={12} className="animate-spin" />
           Pidiendo al canal…
@@ -310,7 +317,7 @@ export function EligeVideoDeLista({
         <p className="mt-3 text-xs text-[#F6AFB6]">{aviso}</p>
       )}
 
-      {estado === "listo" && listaId && (
+      {estado === "listo" && listaId && !cargandoVideos && (
         <>
           <label className="mt-3 flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-1.5">
             <Search size={12} className="text-white/30" />
@@ -325,7 +332,9 @@ export function EligeVideoDeLista({
 
           <p className="mt-2 text-[11px] text-white/35">
             {ordenados.length === 0
-              ? "Esa lista no tiene vídeos."
+              ? busca.trim() && videos.length > 0
+                ? `Ningún título coincide con «${busca.trim()}».`
+                : "Esa lista no tiene vídeos."
               : suyos > 0
                 ? `${suyos} parecen de ${jugador}, y van primeros.`
                 : `Ninguno lleva el nombre de ${jugador} en el título: van todos, por si alguno es suyo.`}

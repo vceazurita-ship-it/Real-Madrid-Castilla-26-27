@@ -621,25 +621,17 @@ export default function InformePptEditor({
   );
 
   /*
-  | CERRAR TIRA EL MONTAJE ENTERO
+  | CERRAR YA NO PREGUNTA (19/10/2026)
   |
-  | Esto no guarda en ningún sitio: lo que se coloca aquí sólo sale por el
-  | `.pptx`. Mover, escribir y recolocar las piezas de un informe es media
-  | tarde, y Escape o la X se lo llevaban sin decir nada. La pila de deshacer
-  | es la que sabe si se ha tocado algo.
+  | Preguntaba «lo colocado aquí no se guarda en ningún sitio… se pierde»,
+  | pero desde el 24/09 el repaso (dónde acaba cada pieza, lo borrado, las
+  | copias y las notas) se guarda solo en `rivals:informe-ajustes` y vuelve
+  | a salir al abrir el informe (ver «EL REPASO GUARDADO»). El aviso era
+  | falso y asustaba: se cierra sin más.
   */
   const cierra = useCallback(() => {
-    if (
-      pasado.length > 0 &&
-      !window.confirm(
-        "Lo colocado aquí no se guarda en ningún sitio: si cierras sin exportar el .pptx, se pierde. ¿Cerrar igual?",
-      )
-    ) {
-      return;
-    }
-
     onCerrar();
-  }, [onCerrar, pasado.length]);
+  }, [onCerrar]);
 
   /* ---------------------------------------------------------------- */
   /*  TECLADO                                                          */

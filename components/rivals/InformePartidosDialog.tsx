@@ -201,7 +201,11 @@ export default function InformePartidosDialog({
           {partidos.length === 0 ? (
             <p className="rounded-xl border border-white/10 bg-white/[0.02] p-6 text-center text-sm text-white/40">
               Todavía no hay alineaciones de este equipo.
-              <Explicativo> Se descargan con «node scripts/rivals-informe.mjs».</Explicativo>
+              {/* Lo que puede hacer el cuerpo técnico, no el comando (19/10/2026). */}
+              <span className="mt-1 block text-xs">
+                Se bajan de BeSoccer cada noche; para tenerlas ya, pulsa «Jornada de BeSoccer» en Ajustes.
+              </span>
+              <Explicativo> Por dentro: «node scripts/rivals-informe.mjs».</Explicativo>
             </p>
           ) : (
             <ul className="space-y-1">

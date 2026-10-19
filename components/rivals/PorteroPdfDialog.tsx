@@ -83,10 +83,14 @@ export default function PorteroPdfDialog({
   | pop-up y volver a abrirlo. Aquí sólo se resuelve qué hay marcado ahora:
   | mientras no se haya tocado nada manda lo que trae de casa.
   */
-  const marcados = useMemo(
-    () => new Set(elegidos ?? porDefecto),
-    [elegidos, porDefecto],
-  );
+  const marcados = useMemo(() => {
+    /* Sólo los que siguen en la lista: una elección guardada con alguien que
+       ya no está en el once seguía contando en el total, rompía «Todos» y se
+       mandaba al PDF (19/10/2026). */
+    const enLista = new Set(candidatos.map((c) => c.clave));
+
+    return new Set((elegidos ?? porDefecto).filter((clave) => enLista.has(clave)));
+  }, [elegidos, porDefecto, candidatos]);
 
   const cambiar = (claves: string[]) => onCambiar(claves);
 

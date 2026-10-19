@@ -282,7 +282,7 @@ export function PlayerStatsCard({
           ) : (
             <div className="flex h-full min-h-[120px] items-center justify-center rounded-xl border border-dashed border-white/10 px-4 text-center text-xs text-white/35">
               {missing
-                ? "Todavía no hay estadísticas."
+                ? "Todavía no hay estadísticas de BeSoccer. Se bajan cada noche, o con «Jornada de BeSoccer» en Ajustes."
                 : "Sin estadísticas de este jugador."}
             </div>
           )}
