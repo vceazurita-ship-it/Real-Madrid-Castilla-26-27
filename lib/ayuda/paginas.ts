@@ -781,7 +781,7 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           {
             que: "Resultados",
-            es: "Los mete cualquiera que haya entrado, y se guardan al marcarlos",
+            es: "Los mete cualquiera que haya entrado, sólo de partidos ya jugados, y se guardan al marcarlos",
           },
           {
             que: "1 · X · 2",
@@ -841,11 +841,11 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           {
             que: "Lanzar una apuesta",
-            es: "La predicción, qué te juegas y el día en que se comprueba. Quien la lanza va a favor de sí mismo",
+            es: "La predicción, qué te juegas y el día en que se comprueba, que es mañana como pronto. Quien la lanza va a favor de sí mismo",
           },
           {
             que: "A favor · En contra",
-            es: "Hasta el día de comprobación, sin contarlo. Se puede cambiar de bando o quitarse las veces que haga falta",
+            es: "Hasta el día antes de la comprobación. Se puede cambiar de bando o quitarse las veces que haga falta",
           },
           {
             que: "Toca comprobarla",
