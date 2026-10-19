@@ -126,8 +126,13 @@ export default function ListaAlertas({
                   ? "Silenciada"
                   : fechaValida(alerta.proximoEnvio)
                     ? fechaLegible(alerta.proximoEnvio)
-                    : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo. */
-                      "Sin fecha: no sonará hasta que la edites"}
+                    : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo.
+                         La que va atada al partido no se arregla editándola: se queda sin
+                         fecha cuando el calendario no tiene partido por delante, y la
+                         recibe sola al abrir esta pantalla cuando lo haya (19/10/2026). */
+                      alerta.repeticion === "partido"
+                      ? "Sin fecha: espera a que haya próximo partido en el calendario"
+                      : "Sin fecha: no sonará hasta que la edites"}
               </span>
 
               {alerta.repeticion !== "una-vez" && (
