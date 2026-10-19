@@ -462,9 +462,14 @@ function giroDelPartido(informe: InformePartido) {
  * póster del correo). Post: el giro; previa: su mejor arma.
  */
 function ideaDelPartido(informe: InformePartido) {
-  if (informe.momento === "post") return giroDelPartido(informe);
+  /* Post: el giro y, si no lo hubo, el hito del partido («Contra diez desde el 57′») si cabe en ocho palabras. */
+  if (informe.momento === "post") {
+    const hito = limpia(informe.sintesis.subtitular ?? "");
 
-  const fuerte = informe.vistazo?.fuertes[0];
+    return giroDelPartido(informe) || (hito && hito.split(" ").length <= 8 ? hito : "");
+  }
+
+  const fuerte = informe.pronostico?.suFuerte ?? informe.vistazo?.fuertes[0];
 
   return fuerte ? cortaPalabras(`Su arma: ${sinSiglas(fuerte.nombre).toLowerCase()}`, 8) : "";
 }
@@ -491,7 +496,8 @@ function escenaGancho(informe: InformePartido): Escena | null {
     return { id: "gancho", tipo: "gancho", dato: `${partido.gf}-${partido.gc}`, antetitulo: partido.rival, rotulo: (giro || resultado).toUpperCase(), contexto: dato, locucion: `${resultado.toLowerCase()} ${partido.gf}-${partido.gc}. ${dato}.` };
   }
 
-  const fuerte = vistazo?.fuertes[0];
+  /* Su mejor arma: la del pronóstico (la misma del titular del informe) y, si no, la de DATA. */
+  const fuerte = informe.pronostico?.suFuerte ?? vistazo?.fuertes[0];
 
   /* Previa (20/10/2026): «2º» enorme y debajo sólo en qué; el «de 20 equipos» queda para la escena fase a fase. */
   if (fuerte) {
@@ -738,6 +744,17 @@ function filasDeBalance(informe: InformePartido): FilaBalance[] {
     });
   }
 
+  /*
+  | Las claves del plan revisadas con Wyscout («¿Se cumplió?» del informe,
+  | 20/10/2026): van primero, porque son lo que escribió el cuerpo técnico.
+  | Sin métrica (veredicto `null`) no entran: no se inventa veredicto.
+  */
+  for (const c of informe.sintesis.cumplimiento ?? []) {
+    if (!c.veredicto || !c.dato) continue;
+
+    filas.push({ que: c.tema || "El plan", buscabamos: sinSiglas(c.clave), logramos: sinSiglas(c.dato), estado: c.veredicto === "si" ? "si" : c.veredicto === "no" ? "no" : "parcial" });
+  }
+
   const xg = informe.duelo?.partido?.metricas.find((m) => m.key === "xg");
 
   for (const palanca of pr?.palancas ?? []) {
@@ -881,6 +898,7 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     pon(
       escenaPlan([
         "Ganar",
+        ...(sintesis.cumplimiento ?? []).map((x) => x.clave),
         ...(pronostico?.palancas ?? []).map((x) => x.objetivo),
         ...(sintesis.frenados.length ? [`Frenar a ${sintesis.frenados.map((x) => apellidoDe(x.jugador.nombre)).join(", ")}`] : []),
       ]),
@@ -966,10 +984,20 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   | dos primeras claves como consigna (una sola si la primera es larga);
   | post: el recuento del balance y lo que toca esta semana.
   */
-  const consignas = sintesis.claves.map((c) => consigna(c, 9)).filter(Boolean);
+  /*
+  | Previa: primero «Cómo lo ganamos» del informe (ya viene en presente y en
+  | primera persona: «Les quitamos los pases en el último tercio»), sin el dato
+  | de después de los dos puntos; si no hay, las claves pasadas a consigna.
+  | Post: el recuento y lo primero que toca en el microciclo.
+  */
+  const delPlan = (sintesis.plan ?? []).map((x) => cortaPalabras(sinSiglas(limpia(x.texto).split(/:\s/)[0]), 10)).filter(Boolean);
+  const consignas = delPlan.length ? delPlan : sintesis.claves.map((c) => consigna(c, 9)).filter(Boolean);
+  const toca = (sintesis.microciclo ?? [])[0]?.split(" · ")[0];
   const cierre = previa
     ? consignas.slice(0, consignas[0] && consignas[0].split(" ").length <= 6 ? 2 : 1)
-    : balance?.cierre ?? [giroDelPartido(informe) || limpia(sintesis.titular)];
+    : balance
+      ? [balance.cierre[0], toca ? `Esta semana trabajamos: ${toca.toLowerCase()}` : balance.cierre[1]].filter((x): x is string => Boolean(x))
+      : [giroDelPartido(informe) || limpia(sintesis.titular)];
 
   escenas.push({
     id: "cierre",
