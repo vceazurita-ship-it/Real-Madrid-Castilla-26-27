@@ -874,7 +874,7 @@ export default function ScoutRivalAbpPage() {
 
               {vista === "laminas" || vista === "apuntes" || vista === "registrar" ? null : delEquipo.length === 0 ? (
                 <EmptyState
-                  title={`Todavía no hay ABP registrado del ${equipo}`}
+                  title={`Todavía no hay balón parado registrado de ${equipo}`}
                   description="Todavía no hay acciones de este rival. Se registran en la pestaña «Registrar»."
                 />
               ) : (
@@ -1089,11 +1089,17 @@ export default function ScoutRivalAbpPage() {
 
                   {/* ------------- lanzadores y rematadores ------------- */}
 
+                  {/*
+                  | En «Su defensa» quien saca y remata es el que les ataca —en
+                  | lo deducido, nosotros—, no el rival (19/10/2026): los títulos
+                  | lo dicen y no se tira de las etiquetas de SU plantilla, que
+                  | colaban a sus lanzadores en una lista que no es suya.
+                  */}
                   {vista === "quien" && (
                   <div className="grid gap-5 xl:grid-cols-2">
                     <Panel
-                      title="Lanzadores"
-                      subtitle="Quién ejecuta el balón parado"
+                      title={side === "ofensivo" ? "Lanzadores" : "Quién les lanza"}
+                      subtitle={side === "ofensivo" ? "Quién ejecuta su balón parado" : "Los lanzadores de los equipos que les atacan"}
                       icon={Flag}
                       analisis={pie({
                         metrica: "xg",
@@ -1103,7 +1109,7 @@ export default function ScoutRivalAbpPage() {
                     >
                       {sacadores.length > 0 ? (
                         <PeopleList people={sacadores} />
-                      ) : etiquetados.sacan.length > 0 ? (
+                      ) : side === "ofensivo" && etiquetados.sacan.length > 0 ? (
                         <TaggedList
                           players={etiquetados.sacan}
                           note="Del scouting de plantilla, no de las acciones registradas."
@@ -1117,8 +1123,8 @@ export default function ScoutRivalAbpPage() {
                     </Panel>
 
                     <Panel
-                      title="Rematadores"
-                      subtitle="Quién ataca el balón"
+                      title={side === "ofensivo" ? "Rematadores" : "Quién les remata"}
+                      subtitle={side === "ofensivo" ? "Quién ataca el balón" : "Los rematadores de los equipos que les atacan"}
                       icon={Users}
                       analisis={pie({
                         dimension: "rematador",
@@ -1127,7 +1133,7 @@ export default function ScoutRivalAbpPage() {
                     >
                       {rematadores.length > 0 ? (
                         <PeopleList people={rematadores} />
-                      ) : etiquetados.rematan.length > 0 ? (
+                      ) : side === "ofensivo" && etiquetados.rematan.length > 0 ? (
                         <TaggedList
                           players={etiquetados.rematan}
                           note="Del scouting de plantilla, no de las acciones registradas."
@@ -1218,8 +1224,12 @@ function PeopleList({
 
           <Meter value={person.acciones} max={max} />
 
-          <span className="w-24 shrink-0 text-right text-[11px] tabular-nums text-white/45">
-            {person.acciones} · {person.peligro} pel.
+          {/* «pel.» no lo entendía nadie: acciones y cuántas con peligro. */}
+          <span
+            className="w-28 shrink-0 text-right text-[11px] tabular-nums text-white/45"
+            title={`${person.acciones} ${person.acciones === 1 ? "acción" : "acciones"}, ${person.peligro} acaban en gol u ocasión`}
+          >
+            {person.acciones} · {person.peligro} con peligro
           </span>
         </li>
       ))}
