@@ -27,6 +27,12 @@ import {
 } from "@/components/ui/knowledge-kit";
 import { traeJson } from "@/lib/hojaCsv";
 import { olvidaLoGuardado } from "@/lib/hojaRivales";
+import {
+  AVISO_TEXTO_LARGO,
+  guardaTextoEnLaHoja,
+} from "@/lib/guardaTextoHoja";
+import { AvisoLargo } from "@/components/conocimiento/AvisoLargo";
+import { sePuedeDescartar } from "@/components/abp/ui";
 import { cn } from "@/lib/utils";
 
 type PosicionItem = {
@@ -38,40 +44,6 @@ type PosicionItem = {
   ORDEN: number;
   ACTIVO?: string;
 };
-
-const API =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
-
-/**
- * ¿Ha escrito de verdad el Apps Script?
- *
- * Un 200 no basta: el script contesta 200 también cuando no escribe, con
- * `{ success: false, error }` en el cuerpo, y la página de «Authorization
- * required» de Google también llega con 200. Mirar sólo `res.ok` daba por
- * guardado un texto que no estaba en la hoja. Una respuesta de texto que no
- * es JSON ni HTML se da por buena, que es lo que se hacía antes.
- */
-async function escritoEnLaHoja(res: Response): Promise<boolean> {
-  if (!res.ok) return false;
-
-  const texto = await res.text().catch(() => "");
-
-  try {
-    const cuerpo = JSON.parse(texto) as {
-      success?: boolean;
-      ok?: boolean;
-      error?: unknown;
-    } | null;
-
-    if (!cuerpo || typeof cuerpo !== "object") return true;
-
-    if (cuerpo.success === false || cuerpo.ok === false) return false;
-
-    return !(cuerpo.error && cuerpo.success !== true && cuerpo.ok !== true);
-  } catch {
-    return !/<html|<!doctype/i.test(texto);
-  }
-}
 
 /**
  * Lo que llega de la hoja, sin comerse lo que se está escribiendo.
@@ -364,13 +336,14 @@ export default function IdentidadPosicionalPage() {
 
       if (pendientes.length === 0) return true;
 
+      /* Un texto largo no cabe en la dirección del GET: ver
+         `lib/guardaTextoHoja.ts` (19/10/2026). */
       const resultados = await Promise.allSettled(
         pendientes.map((p) =>
-          fetch(
-            `${API}?action=guardarIdentidadPosicional&ID=${p.ID}&CONTENIDO=${encodeURIComponent(
-              p.CONTENIDO,
-            )}`,
-          ).then(escritoEnLaHoja),
+          guardaTextoEnLaHoja("guardarIdentidadPosicional", {
+            ID: p.ID,
+            CONTENIDO: p.CONTENIDO,
+          }),
         ),
       );
 
@@ -380,8 +353,12 @@ export default function IdentidadPosicionalPage() {
       const fallidos = pendientes.filter((_, indice) => {
         const resultado = resultados[indice];
 
-        return resultado.status === "rejected" || !resultado.value;
+        return resultado.status === "rejected" || !resultado.value.ok;
       });
+
+      const porLargo = resultados.some(
+        (r) => r.status === "fulfilled" && !r.value.ok && r.value.largo,
+      );
 
       if (fallidos.length > 0) {
         const campos = Object.fromEntries(
@@ -403,6 +380,13 @@ export default function IdentidadPosicionalPage() {
             titulo: "Identidad posicional · cambios sin guardar",
             campos,
           });
+
+          if (porLargo) {
+            toast.error(AVISO_TEXTO_LARGO.titulo, {
+              description: AVISO_TEXTO_LARGO.descripcion,
+              duration: 12000,
+            });
+          }
         }
 
         ultimoGuardadoOk.current = false;
@@ -504,13 +488,11 @@ export default function IdentidadPosicionalPage() {
     setBorrando(true);
 
     try {
-      const res = await fetch(
-        `${API}?action=borrarIdentidadPosicional&ID=${porBorrar.ID}`,
-      );
+      const { ok } = await guardaTextoEnLaHoja("borrarIdentidadPosicional", {
+        ID: porBorrar.ID,
+      });
 
-      if (!(await escritoEnLaHoja(res))) {
-        throw new Error(`La hoja no lo ha borrado (${res.status})`);
-      }
+      if (!ok) throw new Error("La hoja no lo ha borrado");
 
       olvidaLoGuardado();
 
@@ -554,6 +536,19 @@ export default function IdentidadPosicionalPage() {
     setNuevoOrden(String(siguienteOrden(bloque)));
   };
 
+  /*
+  | Cerrar la ventana de «Nuevo contenido» —con Cancelar, la X, Escape o
+  | pinchando fuera— tiraba lo escrito sin preguntar (19/10/2026). Ahora se
+  | pregunta si hay texto, como en el resto de ventanas de la app.
+  */
+  const cerrarNuevo = () => {
+    if (creando) return;
+
+    if (!sePuedeDescartar(nuevoContenido.trim() !== "")) return;
+
+    setNuevoBloque(null);
+  };
+
   const crearItem = async () => {
     if (!nuevoBloque) return;
 
@@ -565,16 +560,25 @@ export default function IdentidadPosicionalPage() {
     setCreando(true);
 
     try {
-      const res = await fetch(
-        `${API}?action=crearIdentidadPosicional` +
-          `&POSICION=${encodeURIComponent(posicion)}` +
-          `&BLOQUE=${encodeURIComponent(nuevoBloque)}` +
-          `&CONTENIDO=${encodeURIComponent(nuevoContenido.trim())}` +
-          `&ORDEN=${encodeURIComponent(nuevoOrden)}`,
+      const { ok, largo } = await guardaTextoEnLaHoja(
+        "crearIdentidadPosicional",
+        {
+          POSICION: posicion,
+          BLOQUE: nuevoBloque,
+          CONTENIDO: nuevoContenido.trim(),
+          ORDEN: nuevoOrden,
+        },
       );
 
-      if (!(await escritoEnLaHoja(res))) {
-        throw new Error(`La hoja no lo ha creado (${res.status})`);
+      if (!ok) {
+        if (largo) {
+          toast.error(AVISO_TEXTO_LARGO.titulo, {
+            description: AVISO_TEXTO_LARGO.descripcion,
+            duration: 12000,
+          });
+        }
+
+        throw new Error("La hoja no lo ha creado");
       }
 
       /* Lo nuevo entra en la foto de «Deshacer» con la relectura de abajo
@@ -667,6 +671,8 @@ export default function IdentidadPosicionalPage() {
                         )
                       }
                     />
+
+                    <AvisoLargo texto={item.CONTENIDO} />
 
                     <div className="flex justify-end">
                       <button
@@ -847,14 +853,14 @@ export default function IdentidadPosicionalPage() {
       {/* Nuevo contenido */}
       <Modal
         open={nuevoBloque !== null}
-        onClose={() => !creando && setNuevoBloque(null)}
+        onClose={cerrarNuevo}
         title="Nuevo contenido"
         description={`Se añadirá a ${posicion} · ${nuevoBloque ?? ""}`}
         footer={
           <>
             <button
               type="button"
-              onClick={() => setNuevoBloque(null)}
+              onClick={cerrarNuevo}
               disabled={creando}
               className={cn(
                 "rounded-xl border border-white/15 px-5 py-2.5 text-sm text-gray-300 transition-colors hover:bg-white/[0.06] hover:text-white disabled:opacity-50",
@@ -922,6 +928,8 @@ export default function IdentidadPosicionalPage() {
               onChange={(e) => setNuevoContenido(e.target.value)}
               placeholder="Describe el foco individual…"
             />
+
+            <AvisoLargo texto={nuevoContenido.trim()} />
           </div>
 
           <div>

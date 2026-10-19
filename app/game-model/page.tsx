@@ -19,6 +19,11 @@ import { useSaveGuard } from "@/hooks/useSaveGuard";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { anotaEscritas, aplicaEscritas } from "@/lib/escriturasRecientes";
 import {
+  AVISO_TEXTO_LARGO,
+  guardaTextoEnLaHoja,
+} from "@/lib/guardaTextoHoja";
+import { AvisoLargo } from "@/components/conocimiento/AvisoLargo";
+import {
   AutoTextarea,
   EditToolbar,
   EmptyState,
@@ -42,40 +47,6 @@ type Principio = {
   PRINCIPIO: string;
   ORDEN: number;
 };
-
-const API =
-  "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
-
-/**
- * ¿Ha escrito de verdad el Apps Script?
- *
- * Un 200 no basta: el script contesta 200 también cuando no escribe, con
- * `{ success: false, error }` en el cuerpo, y la página de «Authorization
- * required» de Google también llega con 200. Mirar sólo `res.ok` daba por
- * guardado un texto que no estaba en la hoja. Una respuesta de texto que no
- * es JSON ni HTML se da por buena, que es lo que se hacía antes.
- */
-async function escritoEnLaHoja(res: Response): Promise<boolean> {
-  if (!res.ok) return false;
-
-  const texto = await res.text().catch(() => "");
-
-  try {
-    const cuerpo = JSON.parse(texto) as {
-      success?: boolean;
-      ok?: boolean;
-      error?: unknown;
-    } | null;
-
-    if (!cuerpo || typeof cuerpo !== "object") return true;
-
-    if (cuerpo.success === false || cuerpo.ok === false) return false;
-
-    return !(cuerpo.error && cuerpo.success !== true && cuerpo.ok !== true);
-  } catch {
-    return !/<html|<!doctype/i.test(texto);
-  }
-}
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1322156567&single=true&output=csv";
@@ -388,13 +359,14 @@ export default function GameModelPage() {
 
       if (pendientes.length === 0) return true;
 
+      /* Un texto largo no cabe en la dirección del GET: ver
+         `lib/guardaTextoHoja.ts` (19/10/2026). */
       const resultados = await Promise.allSettled(
         pendientes.map((p) =>
-          fetch(
-            `${API}?action=guardarPrincipio&ID=${p.ID}&PRINCIPIO=${encodeURIComponent(
-              p.PRINCIPIO,
-            )}`,
-          ).then(escritoEnLaHoja),
+          guardaTextoEnLaHoja("guardarPrincipio", {
+            ID: p.ID,
+            PRINCIPIO: p.PRINCIPIO,
+          }),
         ),
       );
 
@@ -404,8 +376,12 @@ export default function GameModelPage() {
       const fallidos = pendientes.filter((_, indice) => {
         const resultado = resultados[indice];
 
-        return resultado.status === "rejected" || !resultado.value;
+        return resultado.status === "rejected" || !resultado.value.ok;
       });
+
+      const porLargo = resultados.some(
+        (r) => r.status === "fulfilled" && !r.value.ok && r.value.largo,
+      );
 
       /* Lo que sí ha llegado se apunta, para que una recarga no enseñe el
          CSV de antes. */
@@ -438,6 +414,13 @@ export default function GameModelPage() {
             titulo: "Modelo de juego · principios sin guardar",
             campos,
           });
+
+          if (porLargo) {
+            toast.error(AVISO_TEXTO_LARGO.titulo, {
+              description: AVISO_TEXTO_LARGO.descripcion,
+              duration: 12000,
+            });
+          }
         }
 
         return false;
@@ -736,19 +719,22 @@ export default function GameModelPage() {
 
                         <div className="min-w-0 flex-1">
                           {editing ? (
-                            <AutoTextarea
-                              value={p.PRINCIPIO}
-                              aria-label={`Principio ${p.ORDEN} de ${apartado}`}
-                              onChange={(e) =>
-                                setData((prev) =>
-                                  prev.map((item) =>
-                                    item.ID === p.ID
-                                      ? { ...item, PRINCIPIO: e.target.value }
-                                      : item,
-                                  ),
-                                )
-                              }
-                            />
+                            <>
+                              <AutoTextarea
+                                value={p.PRINCIPIO}
+                                aria-label={`Principio ${p.ORDEN} de ${apartado}`}
+                                onChange={(e) =>
+                                  setData((prev) =>
+                                    prev.map((item) =>
+                                      item.ID === p.ID
+                                        ? { ...item, PRINCIPIO: e.target.value }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                              />
+                              <AvisoLargo texto={p.PRINCIPIO} />
+                            </>
                           ) : (
                             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white lg:text-base">
                               <Highlight text={p.PRINCIPIO} query={query} />
