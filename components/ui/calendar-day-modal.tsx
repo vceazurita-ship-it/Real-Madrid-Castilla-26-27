@@ -62,6 +62,24 @@ export function CalendarDayModal({
     onClose();
   }, [onClose]);
 
+  /* Saltar de día también desmonta la ficha (19/10/2026): las flechas, en
+     pantalla y en el teclado, preguntan como ya hacía cerrar. Aquí y no en
+     cada calendario, para que ninguno se lo salte. */
+  const salta = useCallback((ir?: () => void) => {
+    if (!ir) return;
+
+    if (
+      hayTexto.current &&
+      !window.confirm(
+        "Hay una ficha a medio rellenar. ¿Cambiar de día y perder lo escrito?",
+      )
+    ) {
+      return;
+    }
+
+    ir();
+  }, []);
+
   // Bloquea el scroll del fondo mientras el modal está abierto.
   useEffect(() => {
     const previous = document.body.style.overflow;
@@ -93,18 +111,18 @@ export function CalendarDayModal({
 
       if (e.key === "ArrowLeft" && onPrev && canPrev) {
         e.preventDefault();
-        onPrev();
+        salta(onPrev);
       }
 
       if (e.key === "ArrowRight" && onNext && canNext) {
         e.preventDefault();
-        onNext();
+        salta(onNext);
       }
     };
 
     window.addEventListener("keydown", handle);
     return () => window.removeEventListener("keydown", handle);
-  }, [keyboardEnabled, cierra, onPrev, onNext, canPrev, canNext]);
+  }, [keyboardEnabled, cierra, salta, onPrev, onNext, canPrev, canNext]);
 
   return (
     <div
@@ -128,7 +146,7 @@ export function CalendarDayModal({
                 type="button"
                 aria-label="Día anterior"
                 disabled={!canPrev}
-                onClick={onPrev}
+                onClick={() => salta(onPrev)}
                 className="shrink-0 rounded-full border border-white/10 p-2 transition hover:border-[#C8A96B] disabled:opacity-30"
               >
                 <ChevronLeft size={18} />
@@ -150,7 +168,7 @@ export function CalendarDayModal({
                 type="button"
                 aria-label="Día siguiente"
                 disabled={!canNext}
-                onClick={onNext}
+                onClick={() => salta(onNext)}
                 className="shrink-0 rounded-full border border-white/10 p-2 transition hover:border-[#C8A96B] disabled:opacity-30"
               >
                 <ChevronRight size={18} />

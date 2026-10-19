@@ -271,16 +271,8 @@ export default function CalendarGeneralPage() {
 
       if (date < SEASON_FIRST_DAY || date > SEASON_LAST_DAY) return;
 
-      /* Saltar de día también desmonta la ficha (19/10/2026): cerrar ya
-         preguntaba, las flechas no, y lo escrito se perdía sin aviso. */
-      if (
-        fichaSucia &&
-        !window.confirm(
-          "Hay una ficha a medio rellenar. ¿Cambiar de día y perder lo escrito?",
-        )
-      ) {
-        return;
-      }
+      /* Si hay una ficha a medio rellenar, ya pregunta la ventana del día
+         antes de llamar aquí (components/ui/calendar-day-modal.tsx). */
 
       const monthIdx = months.findIndex(
         (m) => m.month === date.getMonth() && m.year === date.getFullYear()
@@ -289,7 +281,7 @@ export default function CalendarGeneralPage() {
       if (monthIdx !== -1) setCurrentMonth(monthIdx);
       openDay(dateKey(date));
     },
-    [selectedKey, months, openDay, fichaSucia]
+    [selectedKey, months, openDay]
   );
 
   const canShift = (offset: number) => {

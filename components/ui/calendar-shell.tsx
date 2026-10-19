@@ -185,7 +185,7 @@ export function CalendarShell({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {toolbar}
+                  {toolbar && <div className="hidden md:block">{toolbar}</div>}
 
                   <button
                     type="button"
@@ -209,6 +209,10 @@ export function CalendarShell({
                   </button>
                 </div>
               </div>
+
+              {/* En el móvil, los filtros en su propia fila (19/10/2026): en la
+                  del mes no caben, y con `hidden` no se podía filtrar. */}
+              {toolbar && <div className="-mt-3 mb-5 md:hidden [&_select]:w-full [&_select]:max-w-none">{toolbar}</div>}
 
               <div className="overflow-x-auto">
                 <div className="min-w-[700px] md:min-w-[1100px]">

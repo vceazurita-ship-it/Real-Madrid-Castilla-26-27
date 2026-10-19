@@ -309,6 +309,19 @@ const CLAVE_FIJADO = "rmcf-menu-fijado"
 
 const oyentes = new Set<() => void>()
 
+/**
+ * Si una entrada del menú es la pantalla en la que se está. También en sus
+ * subrutas (19/10/2026): en /obras/entrenamiento o /laboratorio/apuestas el
+ * menú no marcaba nada. Las de ancla (#…) y con consulta (?…) sólo exactas.
+ */
+function rutaActiva(pathname: string | null, href: string) {
+  if (!pathname) return false;
+  if (pathname === href) return true;
+  if (href === "/" || href.startsWith("#") || href.includes("?")) return false;
+
+  return pathname.startsWith(`${href}/`);
+}
+
 function suscribeFijado(avisa: () => void) {
   oyentes.add(avisa)
   window.addEventListener("storage", avisa)
@@ -481,7 +494,7 @@ export function Sidebar() {
   const seccionActiva = useMemo(
     () =>
       SECCIONES.concat(AJUSTES).find((seccion) =>
-        seccion.entradas.some((entrada) => entrada.href === pathname),
+        seccion.entradas.some((entrada) => rutaActiva(pathname, entrada.href)),
       )?.titulo ?? "",
     [pathname],
   )
@@ -760,7 +773,7 @@ export function Sidebar() {
                   {seccion.entradas.map((entrada) => {
                     const Icono = entrada.icon
 
-                    const esActiva = pathname === entrada.href
+                    const esActiva = rutaActiva(pathname, entrada.href)
 
                     if (entrada.obras) {
                       return (

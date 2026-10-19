@@ -224,7 +224,9 @@ export default function Calendar() {
         </>
       }
       toolbar={
-        <div className="relative hidden md:block">
+        /* También en el móvil (19/10/2026): con `hidden md:block` no se
+           podía filtrar por jugador desde el teléfono. */
+        <div className="relative min-w-0">
           <Users
             size={15}
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#C8A96B]"
