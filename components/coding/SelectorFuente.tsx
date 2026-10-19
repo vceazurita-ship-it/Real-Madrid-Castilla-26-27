@@ -52,7 +52,12 @@ type Carpeta = {
   videos: VideoDePartido[];
 };
 
-const gigas = (bytes: number) => `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+/* Con coma decimal, como el resto de la app: «4,51 GB» (19/10/2026). */
+const gigas = (bytes: number) =>
+  `${(bytes / 1024 ** 3).toLocaleString("es-ES", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} GB`;
 
 /** Un vídeo listo para abrir: qué es, con qué se reproduce y de dónde salió. */
 export type VideoElegido = {
