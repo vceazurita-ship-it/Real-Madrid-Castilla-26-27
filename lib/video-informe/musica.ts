@@ -257,17 +257,46 @@ export function bandaSonora({ total, cortes, tramosConSonido = [], golpes = [], 
 }
 
 /**
+ * El nivel de la mezcla como lo oye la gente, no la media de todo el fichero
+ * (20/10/2026, crítica del editor: «sonido igualado entre vídeos»): bloques
+ * de 0,4 s, y fuera los silencios (por debajo de −70 dB) y los tramos que
+ * quedan 10 dB por debajo de la media de los demás, como hace la medida de
+ * sonoridad de la tele (EBU R128). Así un vídeo con pausas o con mucho estadio
+ * bajo no sale más alto que otro: los dos acaban igual de fuertes.
+ */
+export function rmsConPuerta(pista: Float32Array, frecuencia = 48_000) {
+  const bloque = Math.max(1, Math.round(0.4 * frecuencia));
+  const energias: number[] = [];
+
+  for (let i = 0; i < pista.length; i += bloque) {
+    const fin = Math.min(pista.length, i + bloque);
+    let suma = 0;
+
+    for (let j = i; j < fin; j += 1) suma += pista[j] * pista[j];
+
+    energias.push(suma / Math.max(1, fin - i));
+  }
+
+  const absoluta = 1e-7; /* −70 dB */
+  const sobre = energias.filter((e) => e > absoluta);
+
+  if (!sobre.length) return 0;
+
+  const relativa = (sobre.reduce((s, e) => s + e, 0) / sobre.length) * 0.1; /* −10 dB */
+  const validos = sobre.filter((e) => e > relativa);
+  const media = (validos.length ? validos : sobre).reduce((s, e) => s + e, 0) / (validos.length || sobre.length);
+
+  return Math.sqrt(media);
+}
+
+/**
  * La masterización de la mezcla final (música + estadio), en su sitio: se
  * lleva a ~-17 LUFS en mono, que suena como -14 en estéreo (RMS objetivo 0,19), y se limita con una
  * saturación suave por debajo de 0 dB. Sin esto el vídeo salía a -21 LUFS,
  * flojo al lado de cualquier vídeo del móvil.
  */
-export function masteriza(pista: Float32Array, rmsObjetivo = 0.19) {
-  let suma = 0;
-
-  for (let i = 0; i < pista.length; i += 1) suma += pista[i] * pista[i];
-
-  const rms = Math.sqrt(suma / Math.max(1, pista.length));
+export function masteriza(pista: Float32Array, rmsObjetivo = 0.19, frecuencia = 48_000) {
+  const rms = rmsConPuerta(pista, frecuencia);
   const ganancia = rms > 1e-5 ? Math.min(4, rmsObjetivo / rms) : 1;
   const techo = 0.97;
 

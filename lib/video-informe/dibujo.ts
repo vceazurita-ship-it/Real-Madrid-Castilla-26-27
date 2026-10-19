@@ -29,17 +29,82 @@ export const ALTO = 720;
 export const ANCHO_HD = 1920;
 export const ALTO_HD = 1080;
 export const FPS = 30;
+/** En qué segundo de la portada se saca el póster: con el título, la jornada y la idea ya dentro. */
+export const SEGUNDO_POSTER = 3;
 
 const FONDO = "#08111F";
 const ORO = "#C8A96B";
 const BLANCO = "#FFFFFF";
 
-/** Lo que dura cada escena si la voz no manda otra cosa, y cuánto aire se deja tras la locución. */
+/**
+ * Lo que duraba cada escena hasta el 20/10/2026 (casi fijo, 7-8 s, dijera lo
+ * que dijera). Queda como referencia; la duración la da `segundosDeEscena`.
+ */
 export const SEGUNDOS: Record<Escena["tipo"], number> = { portada: 5.5, cifras: 7, claves: 8, barras: 7, once: 8, vigilar: 7, clips: 10, imagen: 7, cierre: 5.5, gancho: 3.6, contexto: 7, versus: 8, percentiles: 7, duelos: 8, fases: 9, balance: 10 };
 const AIRE = 0.7;
 
+/*
+| LA DURACIÓN POR CONTENIDO (20/10/2026, crítica del editor de vídeo: «el
+| ritmo queda plano y hay tiempo muerto en las pantallas con poco texto»):
+| 2 s de entrada + 0,35 s por palabra visible o por elemento (barra, fila,
+| duelo), entre 3,5 y 8 s. Tres excepciones con su propio reloj: el gancho
+| (3,5 s), las claves (3 s cada una, entran de una en una, + 1 s) y el balance
+| del post (3 s por meta + 2,5 s del recuento).
+*/
+const ENTRADA = 2;
+const POR_PALABRA = 0.35;
+const SUELO = 3.5;
+const TECHO = 8;
+
+const palabras = (t: string | undefined) => (t ? t.split(/\s+/).filter(Boolean).length : 0);
+
+/** Cuánto hay que leer en una escena: palabras visibles y elementos (sin el título, que se cuenta aparte). */
+export function contenidoDeEscena(e: Escena): number {
+  switch (e.tipo) {
+    case "cifras":
+      return e.cifras.reduce((s, c) => s + palabras(c.rotulo) + (c.valor.length > 12 ? palabras(c.valor) : 1) + palabras(c.pie), 0);
+    case "barras":
+      return e.barras.length;
+    case "once":
+      return Math.ceil(e.jugadores.length / 2);
+    case "vigilar":
+      return e.jugadores.reduce((s, j) => s + palabras(j.nombre) + palabras(j.texto), 0);
+    case "imagen":
+      return palabras(e.pie);
+    case "cierre":
+      return e.lineas.reduce((s, l) => s + palabras(l), 0);
+    case "contexto":
+      return 2 * e.equipos.length;
+    case "versus":
+      return Math.ceil(e.filas.length * 1.5);
+    case "percentiles":
+      return e.filas.length;
+    case "duelos":
+      return e.duelos.reduce((s, d) => s + palabras(d.texto) + 2, 0);
+    case "fases":
+      return e.fases.reduce((s, f) => s + palabras(f.titulo) + palabras(f.texto), 0) + e.dano.reduce((s, d) => s + palabras(d), 0);
+    default:
+      return 0;
+  }
+}
+
+/** Lo que dura una escena si la voz no manda otra cosa. */
+export function segundosDeEscena(e: Escena): number {
+  if (e.tipo === "clips") return e.segundos;
+  if (e.tipo === "gancho") return 3.5;
+  if (e.tipo === "portada") return e.idea ? 5 : 4.5;
+  if (e.tipo === "claves") return 1 + 3 * Math.min(4, e.lineas.length);
+  if (e.tipo === "balance") return 2.5 + 3 * Math.min(4, e.filas.length);
+
+  /* El título se lee mientras entra lo demás: no cuenta. Y nunca por debajo de la base de su tipo (la que fijó la crítica). */
+  return Math.min(TECHO, Math.max(SUELO, BASE[e.tipo] ?? 0, ENTRADA + POR_PALABRA * contenidoDeEscena(e)));
+}
+
+/** El mínimo de cada tipo de escena de datos (20/10/2026: antes 7-9 s; las barras necesitan su cascada y la comparativa, leer cinco filas). */
+const BASE: Partial<Record<Escena["tipo"], number>> = { cifras: 4.5, barras: 5, contexto: 5, vigilar: 5.5, versus: 6, percentiles: 5, once: 5, fases: 6, duelos: 6, imagen: 5 };
+
 /** Las que se sacrifican primero si no cabe en el tiempo, por este orden. */
-const PRESCINDIBLES = ["abp", "duelo", "acierto", "percentiles", "contexto", "duelos", "fases", "grafico-2", "lamina-2", "grafico-1", "lamina-1", "rival", "clips-rival-2", "abp-banda", "vigilar", "clips-3", "clips-2", "grafico-0", "lamina-0", "abp-suyos", "once", "cifras", "clips-1", "clips", "abp-nuestros", "analisis-previo", "versus"];
+const PRESCINDIBLES = ["abp", "duelo", "acierto", "percentiles", "contexto", "duelos", "fases", "grafico-2", "lamina-2", "grafico-1", "lamina-1", "rival", "clips-rival-2", "abp-banda", "vigilar", "clips-3", "clips-2", "grafico-0", "lamina-0", "abp-suyos", "once", "pronostico", "plan", "cifras", "clips-1", "clips", "abp-nuestros", "analisis-previo", "versus"];
 
 /* ------------------------------------------------------------------ */
 /*  TIPOS QUE COMPARTEN LOS DOS MOTORES                                */
@@ -59,27 +124,31 @@ export type EscenaMedida = { escena: Escena; segundos: number; voz: Float32Array
 /*  EL REPARTO DEL TIEMPO                                              */
 /* ------------------------------------------------------------------ */
 
+/** Como mucho, cuánto aire se da a una escena sin cortes si el vídeo no llega al mínimo (20/10/2026; antes se estiraba todo ×1,8 y quedaban pantallas quietas). */
+const AIRE_MAXIMO = 1;
+
 /**
- * Cuánto aire se da a las escenas sin cortes si el vídeo no llega al mínimo:
- * el factor por el que se estiran (como mucho ×1,8, que más ya se nota vacío).
+ * Los segundos de aire que recibe cada escena sin cortes si el vídeo no llega
+ * al mínimo (entre 0 y 1). Se lo pasa a `palabrasDeEscena` para que la IA sepa
+ * cuánto puede escribir. (Hasta el 20/10/2026 era un factor de estiramiento.)
  */
 export function estiramiento(guion: GuionVideo, minimo = SEGUNDOS_MINIMOS) {
-  const cortes = guion.escenas.reduce((s, e) => s + (e.tipo === "clips" ? e.segundos : 0), 0);
-  const resto = guion.escenas.reduce((s, e) => s + (e.tipo === "clips" ? 0 : SEGUNDOS[e.tipo]), 0);
+  const total = guion.escenas.reduce((s, e) => s + segundosDeEscena(e), 0);
+  const sinCortes = guion.escenas.filter((e) => e.tipo !== "clips").length;
 
-  return resto > 0 && cortes + resto < minimo ? Math.min(1.8, (minimo - cortes) / resto) : 1;
+  return sinCortes && total < minimo ? Math.min(AIRE_MAXIMO, (minimo - total) / sinCortes) : 0;
 }
 
 /** Las palabras que caben en la locución de cada escena (2,4 por segundo), contando el aire que se le da si el vídeo es corto. */
-export function palabrasDeEscena(e: Escena, factor = 1) {
-  return Math.ceil((e.tipo === "clips" ? e.segundos : SEGUNDOS[e.tipo] * factor) * 2.4);
+export function palabrasDeEscena(e: Escena, aire = 0) {
+  return Math.ceil((e.tipo === "clips" ? e.segundos : segundosDeEscena(e) + aire) * 2.4);
 }
 
 export function reparteEscenas(guion: GuionVideo, pistas: (Float32Array | null)[] | null, frecuencia: number, tope = SEGUNDOS_MAXIMOS, minimo = SEGUNDOS_MINIMOS): EscenaMedida[] {
   let lista: EscenaMedida[] = guion.escenas.map((escena, i) => {
     const pista = pistas?.[i] ?? null;
     const habla = pista ? pista.length / frecuencia : 0;
-    const base = escena.tipo === "clips" ? escena.segundos : SEGUNDOS[escena.tipo];
+    const base = segundosDeEscena(escena);
 
     /* Los cortes no se acortan por la voz: la acción tiene que verse entera. */
     const minimo = escena.tipo === "clips" ? base : 0;
@@ -195,16 +264,24 @@ export function reparteEscenas(guion: GuionVideo, pistas: (Float32Array | null)[
   }
 
   /*
-  | Y si se queda corto (menos de un minuto), aire a las escenas sin cortes:
-  | la cámara sigue moviéndose y los números siguen contando, así que no se
-  | nota parado. Como mucho ×1,8; los cortes no se estiran nunca.
+  | Y si se queda corto (menos de un minuto), un poco de aire a las escenas
+  | sin cortes: como mucho 1 s a cada una y primero a las que más hay que leer
+  | (20/10/2026; antes ×1,8 a todas, y una pantalla con dos cifras se quedaba
+  | quieta 12 s). Mejor un vídeo de 50 s con ritmo que uno de 60 con relleno.
   */
   if (total() < minimo) {
-    const fijo = lista.reduce((s, x) => s + (x.escena.tipo === "clips" ? x.segundos : 0), 0);
-    const libre = total() - fijo;
-    const factor = libre > 0 ? Math.min(1.8, (minimo - fijo) / libre) : 1;
+    const orden = lista
+      .map((x, i) => ({ i, peso: x.escena.tipo === "clips" || x.escena.tipo === "gancho" ? -1 : contenidoDeEscena(x.escena) + palabras("titulo" in x.escena ? x.escena.titulo : "") }))
+      .filter((x) => x.peso >= 0)
+      .sort((a, b) => b.peso - a.peso);
 
-    if (factor > 1) lista = lista.map((x) => (x.escena.tipo === "clips" ? x : { ...x, segundos: x.segundos * factor }));
+    for (const { i } of orden) {
+      const falta = minimo - total();
+
+      if (falta <= 0) break;
+
+      lista[i] = { ...lista[i], segundos: lista[i].segundos + Math.min(AIRE_MAXIMO, falta) };
+    }
   }
 
   return lista;
@@ -493,11 +570,26 @@ function parteLineas(ctx: Lienzo, texto: string, anchoMax: number) {
 }
 
 /** Título con barrido de luz: una banda clara que lo cruza una vez. */
-function titular(ctx: Lienzo, fuente: string, texto: string, t: number, y = 150, tam = 54) {
+function titular(ctx: Lienzo, fuente: string, texto: string, t: number, y = 150, tamPedido = 54) {
   const mayus = texto.toUpperCase();
   const palabras = mayus.split(" ");
 
+  /*
+  | Los títulos dicen ahora la conclusión (20/10/2026) y son más largos: si
+  | no caben en una línea, la letra baja, pero nunca de 38 px (56 en Full HD).
+  */
+  let tam = Math.max(TITULO_MINIMO, tamPedido);
+
   ctx.font = `700 ${tam}px ${fuente}`;
+
+  const cabe = ANCHO - 112;
+  const mide = ctx.measureText(mayus).width;
+
+  if (mide > cabe) {
+    tam = Math.max(TITULO_MINIMO, Math.floor((tam * cabe) / mide));
+    ctx.font = `700 ${tam}px ${fuente}`;
+  }
+
   ctx.textAlign = "left";
 
   const espacio = ctx.measureText(" ").width;
@@ -548,13 +640,13 @@ function pieLocucion(ctx: Lienzo, fuente: string, texto: string, t: number) {
   const a = entra(t, 0.3, 0.6);
 
   ctx.globalAlpha = a * 0.85;
-  ctx.font = `400 24px ${fuente}`;
+  ctx.font = `400 ${LECTURA}px ${fuente}`;
   ctx.textAlign = "left";
   ctx.fillStyle = BLANCO;
 
   const lineas = parteLineas(ctx, texto, ANCHO - 112).slice(0, 2);
 
-  lineas.forEach((l, i) => ctx.fillText(l, 56, ALTO - 62 + i * 30 - (lineas.length - 1) * 30));
+  lineas.forEach((l, i) => ctx.fillText(l, 56, ALTO - 50 + i * 33 - (lineas.length - 1) * 33));
   ctx.globalAlpha = 1;
 }
 
@@ -787,11 +879,17 @@ function pintaPortada(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "p
   ctx.fillStyle = FONDO;
   espaciado(ctx, sello, ANCHO / 2, 411 + (1 - b) * 14, 3, "center");
 
-  /* El título, letra a letra. */
+  /* El título, letra a letra. Con dos líneas o con la idea debajo, algo más pequeño para que quepa todo. */
   ctx.fillStyle = BLANCO;
   ctx.font = `700 92px ${fuente}`;
 
+  const dosLineas = parteLineas(ctx, e.titulo.toUpperCase(), ANCHO - 160).length > 1;
+  const tamTitulo = dosLineas ? 66 : e.idea ? 84 : 92;
+
+  ctx.font = `700 ${tamTitulo}px ${fuente}`;
+
   const lineas = parteLineas(ctx, e.titulo.toUpperCase(), ANCHO - 160).slice(0, 2);
+  const yTitulo = e.idea ? 490 : 506;
 
   lineas.forEach((l, i) => {
     const anchos = [...l].map((c) => ctx.measureText(c).width);
@@ -803,14 +901,14 @@ function pintaPortada(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "p
       const a = tramo(t, 1.05 + i * 0.25 + k * 0.035, 0.45);
 
       ctx.globalAlpha = a;
-      ctx.fillText(c, x, 506 + i * 92 + (1 - a) * 36);
+      ctx.fillText(c, x, yTitulo + i * tamTitulo + (1 - a) * 36);
       x += anchos[k];
     });
   });
 
   /* Dos filetes de oro que se abren desde el centro bajo el título. */
   const f = tramo(t, 1.5, 0.8);
-  const yf = 530 + (lineas.length - 1) * 92;
+  const yf = yTitulo + 22 + (lineas.length - 1) * tamTitulo;
 
   ctx.globalAlpha = 1;
   ctx.fillStyle = ORO;
@@ -819,11 +917,22 @@ function pintaPortada(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "p
 
   const c = tramo(t, 1.7, 0.6);
 
-  ctx.globalAlpha = c * 0.8;
+  ctx.globalAlpha = c * 0.85;
   ctx.textAlign = "center";
-  ctx.font = `500 28px ${fuente}`;
+  ctx.font = `500 ${LECTURA + 1}px ${fuente}`;
   ctx.fillStyle = BLANCO;
-  ctx.fillText(e.subtitulo, ANCHO / 2, yf + 44 + (1 - c) * 10);
+  ctx.fillText(e.subtitulo, ANCHO / 2, yf + 40 + (1 - c) * 10);
+
+  /* La idea del partido (20/10/2026): en oro y en una línea; con ella la portada vale de póster. */
+  if (e.idea) {
+    const d = tramo(t, 1.95, 0.6);
+
+    ctx.globalAlpha = d;
+    ctx.fillStyle = "#E3C98F";
+    ctx.font = `700 ${TITULO_MINIMO}px ${fuente}`;
+    ctx.fillText(e.idea.toUpperCase(), ANCHO / 2, yf + 92 + (1 - d) * 10);
+  }
+
   ctx.textAlign = "left";
   ctx.globalAlpha = 1;
 }
@@ -842,47 +951,100 @@ function espaciadoAncho(ctx: Lienzo, texto: string, aire: number) {
   return [...texto].reduce((s, c) => s + ctx.measureText(c).width, 0) + aire * Math.max(0, texto.length - 1);
 }
 
-function pintaClaves(ctx: Lienzo, fuente: string, titulo: string, lineas: string[], t: number) {
+/*
+| LOS TAMAÑOS DE LETRA (20/10/2026, crítica del editor: «los textos
+| secundarios son diminutos en el móvil»). Las medidas de este fichero son
+| del lienzo lógico de 1280×720 y el vídeo sale a 1080: ×1,5. Así que 27 px
+| aquí son 40 px de verdad (el mínimo para leer en el móvil) y 38 px son 56
+| (el mínimo de un título). Las etiquetas en versalitas (no se leen como
+| frase) se quedan en 22 px = 33 de verdad.
+*/
+const LECTURA = 27;
+const ETIQUETA = 22;
+const TITULO_MINIMO = 38;
+
+/**
+ * Las claves, de una en una (20/10/2026, crítica del editor: «son lo único
+ * que el entrenador debe recordar y se tratan como una escena más»): la que
+ * toca ocupa el centro en grande; las anteriores suben, se encogen y se
+ * atenúan al 40 %. Cada una tiene su tramo de la escena (3 s si nada aprieta).
+ */
+function pintaClaves(ctx: Lienzo, fuente: string, titulo: string, lineas: string[], t: number, dur: number) {
   titular(ctx, fuente, titulo, t);
 
-  const n = Math.min(4, lineas.length);
-  const alto = n <= 3 ? 104 : 86;
-  const hueco = 16;
+  const lista = lineas.slice(0, 4);
+  const n = lista.length;
+  const tramoClave = Math.max(1.2, (dur - 1) / Math.max(1, n));
+  const activa = Math.min(n - 1, Math.max(0, Math.floor((t - 0.4) / tramoClave)));
+  const anchoTarjeta = ANCHO - 112;
+  const altoCompacta = 56;
+  const hueco = 10;
+  const y0 = 196;
 
-  lineas.slice(0, 4).forEach((linea, i) => {
-    const a = salta((t - (0.5 + i * 0.32)) / 0.6);
+  lista.forEach((linea, i) => {
+    if (i > activa) return;
 
-    if (a <= 0) return;
+    const desde = 0.4 + i * tramoClave;
 
-    const y = 205 + i * (alto + hueco);
-    const x = 56 + (1 - Math.min(1, a)) * -60;
+    if (i === activa) {
+      /* La de ahora: tarjeta grande, número enorme y el texto a 42 px (63 de verdad). */
+      const a = salta((t - desde) / 0.3);
 
-    ctx.globalAlpha = Math.min(1, a);
+      if (a <= 0) return;
 
-    /* La tarjeta, con degradado y filo de oro. */
-    const g = ctx.createLinearGradient(x, 0, x + ANCHO - 112, 0);
-    g.addColorStop(0, "rgba(16,30,52,0.92)");
-    g.addColorStop(1, "rgba(8,17,31,0.55)");
-    ctx.fillStyle = g;
-    caja(ctx, x, y, ANCHO - 112, alto, 14);
+      const y = y0 + activa * (altoCompacta + hueco);
+      const alto = Math.min(300, ALTO - 40 - y);
+
+      ctx.globalAlpha = Math.min(1, a);
+      ctx.save();
+      ctx.translate(56 + anchoTarjeta / 2, y + alto / 2);
+      ctx.scale(0.92 + 0.08 * Math.min(1, a), 0.92 + 0.08 * Math.min(1, a));
+      ctx.translate(-(56 + anchoTarjeta / 2), -(y + alto / 2));
+
+      const g = ctx.createLinearGradient(56, 0, 56 + anchoTarjeta, 0);
+      g.addColorStop(0, "rgba(16,30,52,0.95)");
+      g.addColorStop(1, "rgba(8,17,31,0.7)");
+      ctx.fillStyle = g;
+      caja(ctx, 56, y, anchoTarjeta, alto, 18);
+      ctx.fill();
+      ctx.fillStyle = ORO;
+      caja(ctx, 56, y, 8, alto, 4);
+      ctx.fill();
+
+      ctx.font = `700 120px ${fuente}`;
+      ctx.fillStyle = ORO;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(i + 1).padStart(2, "0"), 92, y + alto / 2 + 6);
+
+      ctx.fillStyle = BLANCO;
+      ctx.font = `600 42px ${fuente}`;
+
+      const partes = parteLineas(ctx, linea, anchoTarjeta - 260).slice(0, Math.max(1, Math.floor((alto - 30) / 50)));
+
+      partes.forEach((p, k) => ctx.fillText(p, 270, y + alto / 2 + (k - (partes.length - 1) / 2) * 50));
+      ctx.textBaseline = "alphabetic";
+      ctx.restore();
+      ctx.globalAlpha = 1;
+
+      return;
+    }
+
+    /* Las ya dichas: una línea, arriba y al 40 %. */
+    const y = y0 + i * (altoCompacta + hueco);
+
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = "rgba(16,30,52,0.9)";
+    caja(ctx, 56, y, anchoTarjeta, altoCompacta, 12);
     ctx.fill();
     ctx.fillStyle = ORO;
-    caja(ctx, x, y, 6, alto, 3);
-    ctx.fill();
-
-    /* El número, grande y en oro. */
-    ctx.font = `700 ${Math.round(alto * 0.62)}px ${fuente}`;
-    ctx.fillStyle = ORO;
-    ctx.textAlign = "left";
-    ctx.fillText(String(i + 1).padStart(2, "0"), x + 30, y + alto * 0.72);
-
+    ctx.font = `700 32px ${fuente}`;
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(i + 1).padStart(2, "0"), 80, y + altoCompacta / 2 + 2);
     ctx.fillStyle = BLANCO;
-    ctx.font = `500 32px ${fuente}`;
-
-    const partes = parteLineas(ctx, linea, ANCHO - 112 - 160).slice(0, 2);
-    const y0 = y + alto / 2 + 11 - (partes.length - 1) * 18;
-
-    partes.forEach((p, k) => ctx.fillText(p, x + 130, y0 + k * 36));
+    ctx.font = `500 ${LECTURA}px ${fuente}`;
+    ctx.fillText(parteLineas(ctx, linea, anchoTarjeta - 150)[0] ?? "", 140, y + altoCompacta / 2 + 2);
+    ctx.textBaseline = "alphabetic";
     ctx.globalAlpha = 1;
   });
 }
@@ -893,8 +1055,8 @@ function pintaCifras(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ci
   const n = Math.min(4, e.cifras.length);
   const hueco = 22;
   const ancho = (ANCHO - 112 - (n - 1) * hueco) / n;
-  const yTarjeta = 214;
-  const altoTarjeta = 316;
+  const yTarjeta = 206;
+  const altoTarjeta = 360;
 
   e.cifras.slice(0, 4).forEach((c, i) => {
     const a = salta((t - (0.45 + i * 0.22)) / 0.6);
@@ -922,8 +1084,8 @@ function pintaCifras(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ci
     caja(ctx, x, y, ancho * conta, 5, 2.5);
     ctx.fill();
 
-    ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.font = `600 19px ${fuente}`;
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.font = `600 ${ETIQUETA}px ${fuente}`;
     espaciado(ctx, c.rotulo.toUpperCase(), x + 22, y + 44, 1.4);
 
     const fraccion = fraccionDe(c.valor);
@@ -943,18 +1105,18 @@ function pintaCifras(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ci
       ctx.textAlign = "left";
     } else {
       ctx.fillStyle = BLANCO;
-      ctx.font = `700 ${largo ? 30 : 92}px ${fuente}`;
+      ctx.font = `700 ${largo ? 32 : 92}px ${fuente}`;
       parteLineas(ctx, largo ? c.valor : cuenta(c.valor, conta), ancho - 44)
-        .slice(0, largo ? 5 : 2)
-        .forEach((l, k) => ctx.fillText(l, x + 22, (largo ? 100 : 160) + y + k * (largo ? 36 : 90)));
+        .slice(0, largo ? 6 : 2)
+        .forEach((l, k) => ctx.fillText(l, x + 22, (largo ? 100 : 160) + y + k * (largo ? 38 : 90)));
     }
 
     if (c.pie) {
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      ctx.font = `500 21px ${fuente}`;
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.font = `500 ${LECTURA}px ${fuente}`;
       parteLineas(ctx, c.pie, ancho - 44)
         .slice(0, 2)
-        .forEach((l, k) => ctx.fillText(l, x + 22, y + altoTarjeta - 52 + k * 25));
+        .forEach((l, k) => ctx.fillText(l, x + 22, y + altoTarjeta - 58 + k * 31));
     }
 
     ctx.globalAlpha = 1;
@@ -971,14 +1133,22 @@ function pintaBarras(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ba
   const largo = ANCHO - x0 - 56 - 170;
   const paso = lista.length > 4 ? 76 : 88;
 
+  /*
+  | En cascada y con un orden de lectura (20/10/2026, crítica del editor):
+  | cada barra se rellena en 0,6 s, 0,25 s después de la anterior; la
+  | principal en oro y el resto en gris azulado, que a los 2 s baja a la mitad
+  | para que el ojo se quede en la que importa.
+  */
+  const apaga = 1 - 0.5 * tramo(t, 0.45 + lista.length * 0.25 + 0.9, 0.6);
+
   lista.forEach((b, i) => {
-    const a = tramo(t, 0.45 + i * 0.22, 1.1);
+    const a = tramo(t, 0.45 + i * 0.25, 0.6);
     const y = 228 + i * paso;
     const destacada = i === mayor;
 
-    ctx.globalAlpha = tramo(t, 0.35 + i * 0.22, 0.4);
-    ctx.fillStyle = destacada ? BLANCO : "rgba(255,255,255,0.72)";
-    ctx.font = `600 26px ${fuente}`;
+    ctx.globalAlpha = tramo(t, 0.35 + i * 0.25, 0.3) * (destacada ? 1 : apaga);
+    ctx.fillStyle = destacada ? BLANCO : "rgba(255,255,255,0.8)";
+    ctx.font = `600 ${LECTURA + 1}px ${fuente}`;
     ctx.textAlign = "left";
     ctx.fillText(b.rotulo.toUpperCase(), 56, y + 9);
 
@@ -989,8 +1159,8 @@ function pintaBarras(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ba
 
     const w = Math.max(34, largo * (b.valor / maximo) * a);
     const g = ctx.createLinearGradient(x0, 0, x0 + w, 0);
-    g.addColorStop(0, destacada ? "#B8935A" : "rgba(200,169,107,0.45)");
-    g.addColorStop(1, destacada ? "#F0D9A6" : "rgba(200,169,107,0.9)");
+    g.addColorStop(0, destacada ? "#B8935A" : "rgba(122,138,164,0.75)");
+    g.addColorStop(1, destacada ? "#F0D9A6" : "rgba(160,174,198,0.9)");
 
     /* La destacada, con un resplandor (una banda más ancha y translúcida). */
     if (destacada) {
@@ -1081,7 +1251,8 @@ function pintaOnce(ctx: Lienzo, fuente: string, P: Proyector, e: Extract<Escena,
 
     medallon(ctx, fuente, rec.imagenes.get(`${e.id}:${i}`) ?? null, s.x, cy, radio, j.destacado ? ORO : "rgba(255,255,255,0.85)", j.dorsal || "·");
 
-    const tam = Math.max(13, radio * 0.45);
+    /* Los nombres, al menos a 20 px (30 de verdad) sobre su banda oscura (20/10/2026). */
+    const tam = Math.max(20, radio * 0.5);
     ctx.font = `700 ${tam}px ${fuente}`;
     ctx.textAlign = "center";
     const nombre = j.nombre.split(" ").slice(-1)[0].toUpperCase();
@@ -1094,9 +1265,7 @@ function pintaOnce(ctx: Lienzo, fuente: string, P: Proyector, e: Extract<Escena,
     ctx.globalAlpha = 1;
   }
 
-  const destacados = e.jugadores.filter((j) => j.destacado).map((j) => j.nombre);
-
-  if (destacados.length) rotuloBajo(ctx, fuente, "A vigilar", destacados.join(" · "), t - 1.4, ALTO - 110);
+  /* Sin el rótulo «A vigilar» en la esquina (20/10/2026): el aro de oro lo dice en la ficha y el título lo explica. */
 }
 
 function pintaVigilar(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "vigilar" }>, rec: Recursos, t: number) {
@@ -1110,24 +1279,25 @@ function pintaVigilar(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "v
     const x = 56 + i * (ancho + 24);
     const dy = (1 - a) * 40;
 
+    /* Tarjeta más alta y foto más grande (20/10/2026): la frase de cada uno a 40 px de verdad, en blanco. */
     ctx.globalAlpha = a;
     ctx.fillStyle = "rgba(8,17,31,0.72)";
-    ctx.fillRect(x, 200 + dy, ancho, 330);
+    ctx.fillRect(x, 196 + dy, ancho, 480);
     ctx.fillStyle = j.destacado ? ORO : "rgba(255,255,255,0.35)";
-    ctx.fillRect(x, 200 + dy, ancho, 4);
-    medallon(ctx, fuente, rec.imagenes.get(`${e.id}:${i}`) ?? null, x + ancho / 2, 290 + dy, 62, j.destacado ? ORO : "rgba(255,255,255,0.7)", j.dorsal || "·");
+    ctx.fillRect(x, 196 + dy, ancho, 4);
+    medallon(ctx, fuente, rec.imagenes.get(`${e.id}:${i}`) ?? null, x + ancho / 2, 300 + dy, 80, j.destacado ? ORO : "rgba(255,255,255,0.7)", j.dorsal || "·");
     ctx.textAlign = "center";
     ctx.fillStyle = BLANCO;
-    ctx.font = `700 30px ${fuente}`;
-    ctx.fillText(j.nombre.toUpperCase(), x + ancho / 2, 392 + dy);
+    ctx.font = `700 ${TITULO_MINIMO}px ${fuente}`;
+    ctx.fillText(j.nombre.toUpperCase(), x + ancho / 2, 428 + dy);
     ctx.fillStyle = ORO;
-    ctx.font = `600 18px ${fuente}`;
-    ctx.fillText([j.dorsal ? `#${j.dorsal}` : "", j.posicion].filter(Boolean).join(" · "), x + ancho / 2, 420 + dy);
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.font = `400 21px ${fuente}`;
+    ctx.font = `600 ${ETIQUETA}px ${fuente}`;
+    ctx.fillText([j.dorsal ? `#${j.dorsal}` : "", j.posicion].filter(Boolean).join(" · "), x + ancho / 2, 460 + dy);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.font = `500 ${LECTURA + 3}px ${fuente}`;
     parteLineas(ctx, j.texto ?? "", ancho - 40)
-      .slice(0, 3)
-      .forEach((l, k) => ctx.fillText(l, x + ancho / 2, 458 + k * 26 + dy));
+      .slice(0, 4)
+      .forEach((l, k) => ctx.fillText(l, x + ancho / 2, 508 + k * 36 + dy));
     ctx.textAlign = "left";
     ctx.globalAlpha = 1;
   });
@@ -1265,7 +1435,8 @@ function lineaDelPartido(ctx: Lienzo, fuente: string, marcas: MarcaPartido[], ac
 
   const x0 = 56;
   const x1 = ANCHO - 56 - 300;
-  const y = 150;
+  /* Más abajo que antes (20/10/2026): el título del corte ya no baja de 38 px y el minuto chocaba con su subrayado. */
+  const y = 168;
   const tope = Math.max(90, ...marcas.map((m) => m.minuto));
   const xDe = (m: number) => x0 + ((x1 - x0) * Math.min(m, tope)) / tope;
 
@@ -1283,7 +1454,7 @@ function lineaDelPartido(ctx: Lienzo, fuente: string, marcas: MarcaPartido[], ac
   ctx.lineTo(xDe(45), y + 6);
   ctx.stroke();
 
-  ctx.font = `600 14px ${fuente}`;
+  ctx.font = `600 18px ${fuente}`;
   ctx.textAlign = "left";
   ctx.fillStyle = "rgba(255,255,255,0.55)";
   ctx.fillText("0'", x0, y + 24);
@@ -1311,7 +1482,7 @@ function lineaDelPartido(ctx: Lienzo, fuente: string, marcas: MarcaPartido[], ac
       ctx.arc(x, cy, r + 5, 0, Math.PI * 2);
       ctx.stroke();
       ctx.fillStyle = ORO;
-      ctx.font = `700 15px ${fuente}`;
+      ctx.font = `700 20px ${fuente}`;
       ctx.textAlign = "center";
       ctx.fillText(`${actual}'`, x, m.de === "nosotros" ? y - 24 : y + 38);
       ctx.textAlign = "left";
@@ -1352,8 +1523,9 @@ function pintaCierre(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ci
   ctx.font = `600 24px ${fuente}`;
   espaciado(ctx, e.titulo.toUpperCase(), ANCHO / 2, 390, 3, "center");
 
+  /* La consigna, nunca por debajo de 64 px de verdad (43 aquí): es lo que tiene que quedarse (20/10/2026). */
   const largo = e.lineas.slice(0, 2).join("").length > 70;
-  const cuerpo = largo ? 38 : 52;
+  const cuerpo = largo ? 44 : 54;
 
   ctx.fillStyle = BLANCO;
   ctx.font = `700 ${cuerpo}px ${fuente}`;
@@ -1444,37 +1616,58 @@ function pintaGancho(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ga
     ctx.fillRect(0, 0, ANCHO, ALTO);
   }
 
-  const a = salta(t / 0.55);
-  const escala = 0.7 + 0.3 * Math.min(1, a);
-  const largo = e.dato.length > 6;
-  const tam = largo ? 150 : 230;
+  /*
+  | A casi toda la pantalla (20/10/2026, críticas del editor y de marketing:
+  | «un número y una frase pequeña que se lee mal en el móvil»): el dato a
+  | ~45 % del alto, entrando con un golpe de escala de 0,3 s a la vez que el
+  | golpe de la música, y UNA línea debajo. Encima, una etiqueta corta (el
+  | rival). El contexto largo ya no se pinta.
+  */
+  const a = salta(t / 0.3);
+  const escala = 0.6 + 0.4 * Math.min(1, a);
+
+  /* 440 px de letra: la cifra (sin rabos) mide ~0,72 de eso, unos 320 de 720 de alto. */
+  ctx.font = `700 440px ${fuente}`;
+
+  const ancho = ctx.measureText(e.dato).width;
+  const tam = Math.round(440 * Math.min(1, (ANCHO - 160) / Math.max(1, ancho)));
+  const base = 520;
 
   ctx.save();
-  ctx.translate(ANCHO / 2, ALTO / 2 + 50);
+  ctx.translate(ANCHO / 2, base);
   ctx.scale(escala, escala);
   ctx.globalAlpha = Math.min(1, a);
   ctx.font = `700 ${tam}px ${fuente}`;
   ctx.textAlign = "center";
 
-  const g = ctx.createLinearGradient(0, -tam, 0, 0);
+  const g = ctx.createLinearGradient(0, -tam * 0.75, 0, 0);
   g.addColorStop(0, "#F6E3B4");
   g.addColorStop(1, "#B8935A");
   ctx.fillStyle = g;
   ctx.fillText(e.dato, 0, 0);
   ctx.restore();
 
-  ctx.globalAlpha = tramo(t, 0.25, 0.5);
-  ctx.fillStyle = BLANCO;
-  ctx.font = `700 34px ${fuente}`;
-  ctx.textAlign = "center";
-  espaciado(ctx, e.rotulo, ANCHO / 2, ALTO / 2 - (largo ? 110 : 160), 4, "center");
+  if (e.antetitulo) {
+    ctx.globalAlpha = tramo(t, 0.15, 0.4);
+    ctx.fillStyle = ORO;
+    ctx.font = `700 ${ETIQUETA + 4}px ${fuente}`;
+    espaciado(ctx, e.antetitulo.toUpperCase(), ANCHO / 2, base - tam * 0.75 - 34, 5, "center");
+  }
 
-  ctx.globalAlpha = tramo(t, 0.6, 0.6);
-  ctx.fillStyle = "rgba(255,255,255,0.82)";
-  ctx.font = `500 30px ${fuente}`;
-  parteLineas(ctx, e.contexto, ANCHO - 260)
-    .slice(0, 2)
-    .forEach((l, i) => ctx.fillText(l, ANCHO / 2, ALTO / 2 + 120 + i * 38));
+  /* La línea: 44 px (66 en Full HD); si no cabe, baja hasta 30 (45). */
+  const linea = e.rotulo.toUpperCase();
+  let tamLinea = 44;
+
+  ctx.font = `700 ${tamLinea}px ${fuente}`;
+
+  while (tamLinea > 30 && espaciadoAncho(ctx, linea, 3) > ANCHO - 120) {
+    tamLinea -= 2;
+    ctx.font = `700 ${tamLinea}px ${fuente}`;
+  }
+
+  ctx.globalAlpha = tramo(t, 0.35, 0.45);
+  ctx.fillStyle = BLANCO;
+  espaciado(ctx, linea, ANCHO / 2, base + 78, 3, "center");
 
   ctx.textAlign = "left";
   ctx.globalAlpha = 1;
@@ -1499,8 +1692,8 @@ function pintaContexto(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "
     ctx.globalAlpha = Math.min(1, a);
     tarjeta(ctx, x, y0, w, h, eq.nuestro ? ORO : "rgba(255,255,255,0.7)");
 
-    ctx.fillStyle = eq.nuestro ? ORO : "rgba(255,255,255,0.75)";
-    ctx.font = `600 20px ${fuente}`;
+    ctx.fillStyle = eq.nuestro ? ORO : "rgba(255,255,255,0.8)";
+    ctx.font = `600 ${ETIQUETA}px ${fuente}`;
     espaciado(ctx, eq.nombre.toUpperCase(), x + 28, y0 + 50, 1.6);
 
     ctx.fillStyle = BLANCO;
@@ -1508,9 +1701,9 @@ function pintaContexto(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "
     ctx.fillText(eq.puesto ? `${eq.puesto}º` : "–", x + 26, y0 + 172);
 
     if (eq.puntos !== null) {
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.font = `500 26px ${fuente}`;
-      ctx.fillText(`${cuenta(String(eq.puntos), conta)} puntos`, x + 30, y0 + 214);
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.font = `500 ${LECTURA + 3}px ${fuente}`;
+      ctx.fillText(`${cuenta(String(eq.puntos), conta)} puntos`, x + 30, y0 + 216);
     }
 
     /* La racha: una ficha por partido, del más antiguo al último, entrando de una en una. */
@@ -1533,9 +1726,9 @@ function pintaContexto(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "
     });
 
     if (racha.length) {
-      ctx.globalAlpha = Math.min(1, a) * 0.5;
+      ctx.globalAlpha = Math.min(1, a) * 0.65;
       ctx.fillStyle = BLANCO;
-      ctx.font = `500 17px ${fuente}`;
+      ctx.font = `500 ${ETIQUETA - 2}px ${fuente}`;
       ctx.fillText("ÚLTIMOS PARTIDOS →", x + 30, y0 + h - 84);
     }
 
@@ -1554,7 +1747,7 @@ function pintaVersus(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ve
   const filas = e.filas.slice(0, 6);
   const cx = ANCHO / 2;
   const mitad = 330;
-  const paso = filas.length > 5 ? 62 : 70;
+  const paso = filas.length > 5 ? 64 : 74;
   const y0 = 262;
 
   ctx.globalAlpha = tramo(t, 0.3, 0.4);
@@ -1566,17 +1759,27 @@ function pintaVersus(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ve
   ctx.fillText("RIVAL", cx + mitad + 120, y0 - 50);
   ctx.textAlign = "left";
 
+  /* En cascada; la primera fila (la que más separa, la del título) se queda encendida y el resto baja a la mitad a los 2 s (20/10/2026). */
+  const apaga = 1 - 0.5 * tramo(t, 0.45 + filas.length * 0.25 + 0.9, 0.6);
+
   filas.forEach((f, i) => {
-    const a = tramo(t, 0.45 + i * 0.16, 1.0);
+    const a = tramo(t, 0.45 + i * 0.25, 0.6);
     const y = y0 + i * paso;
     const tope = Math.max(f.nuestro, f.suyo, f.media ?? 0, 0.0001);
     const gana = f.mejorAlto === null || f.nuestro === f.suyo ? null : (f.nuestro > f.suyo) === f.mejorAlto ? "nosotros" : "rival";
 
-    ctx.globalAlpha = tramo(t, 0.35 + i * 0.16, 0.4);
+    ctx.globalAlpha = tramo(t, 0.35 + i * 0.25, 0.3) * (i === 0 ? 1 : apaga);
+
+    /* La principal, con un resplandor de oro detrás. */
+    if (i === 0) {
+      ctx.fillStyle = "rgba(200,169,107,0.12)";
+      caja(ctx, cx - mitad - 130, y - 40, (mitad + 130) * 2, paso - 6, 14);
+      ctx.fill();
+    }
 
     /* El nombre de la cifra, centrado, sobre las barras. */
-    ctx.fillStyle = "rgba(255,255,255,0.78)";
-    ctx.font = `600 19px ${fuente}`;
+    ctx.fillStyle = i === 0 ? ORO : "rgba(255,255,255,0.85)";
+    ctx.font = `600 ${ETIQUETA}px ${fuente}`;
     ctx.textAlign = "center";
     ctx.fillText(f.nombre.toUpperCase(), cx, y - 14);
     ctx.textAlign = "left";
@@ -1608,7 +1811,7 @@ function pintaVersus(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ve
     }
 
     /* Los valores, en los extremos. */
-    ctx.font = `700 30px ${fuente}`;
+    ctx.font = `700 ${i === 0 ? 38 : 32}px ${fuente}`;
     ctx.fillStyle = gana === "nosotros" ? ORO : BLANCO;
     ctx.textAlign = "right";
     ctx.fillText(cuenta(f.textoNuestro, a), cx - mitad - 16, y + 17);
@@ -1617,11 +1820,11 @@ function pintaVersus(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ve
     ctx.fillText(cuenta(f.textoSuyo, a), cx + mitad + 16, y + 17);
   });
 
-  ctx.globalAlpha = tramo(t, 1.2, 0.6) * 0.6;
+  ctx.globalAlpha = tramo(t, 1.2, 0.6) * 0.7;
   ctx.fillStyle = BLANCO;
-  ctx.font = `400 19px ${fuente}`;
+  ctx.font = `400 ${ETIQUETA}px ${fuente}`;
   ctx.textAlign = "center";
-  ctx.fillText(e.pie, cx, ALTO - 40);
+  ctx.fillText(e.pie, cx, ALTO - 30);
   ctx.textAlign = "left";
   ctx.globalAlpha = 1;
 }
@@ -1635,15 +1838,19 @@ function pintaPercentiles(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo
   const largo = ANCHO - x0 - 160;
   const paso = filas.length > 5 ? 66 : 76;
 
+  /* En cascada; la fase más alta se queda encendida y el resto baja a la mitad a los 2 s (20/10/2026). */
+  const mejor = filas.reduce((m, f, i) => (f.percentil > filas[m].percentil ? i : m), 0);
+  const apaga = 1 - 0.5 * tramo(t, 0.45 + filas.length * 0.25 + 0.9, 0.6);
+
   filas.forEach((f, i) => {
-    const a = tramo(t, 0.45 + i * 0.18, 1.1);
+    const a = tramo(t, 0.45 + i * 0.25, 0.6);
     const y = 236 + i * paso;
     const p = Math.max(0, Math.min(100, f.percentil));
-    const color = p >= 66 ? ORO : p >= 33 ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.32)";
+    const color = i === mejor ? ORO : p >= 66 ? "rgba(227,201,143,0.75)" : p >= 33 ? "rgba(160,174,198,0.85)" : "rgba(160,174,198,0.45)";
 
-    ctx.globalAlpha = tramo(t, 0.35 + i * 0.18, 0.4);
+    ctx.globalAlpha = tramo(t, 0.35 + i * 0.25, 0.3) * (i === mejor ? 1 : apaga);
     ctx.fillStyle = BLANCO;
-    ctx.font = `600 25px ${fuente}`;
+    ctx.font = `600 ${LECTURA}px ${fuente}`;
     parteLineas(ctx, f.nombre.toUpperCase(), x0 - 90).slice(0, 1).forEach((l) => ctx.fillText(l, 56, y + 9));
 
     ctx.fillStyle = "rgba(255,255,255,0.07)";
@@ -1658,15 +1865,16 @@ function pintaPercentiles(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.fillRect(x0 + largo / 2 - 1, y - 20, 2, 40);
 
-    ctx.font = `700 28px ${fuente}`;
-    ctx.fillStyle = p >= 66 ? ORO : BLANCO;
-    ctx.fillText(String(Math.round(p * a)), x0 + largo + 22, y + 10);
+    ctx.font = `700 ${i === mejor ? 36 : 30}px ${fuente}`;
+    ctx.fillStyle = i === mejor ? ORO : BLANCO;
+    ctx.fillText(String(Math.round(p * a)), x0 + largo + 22, y + 11);
   });
 
-  ctx.globalAlpha = tramo(t, 1.2, 0.6) * 0.6;
+  /* El pie explica qué es un percentil (sin la sigla): 100 es el mejor de la categoría. */
+  ctx.globalAlpha = tramo(t, 1.2, 0.6) * 0.7;
   ctx.fillStyle = BLANCO;
-  ctx.font = `400 19px ${fuente}`;
-  ctx.fillText(`${e.pie} · la raya, la mediana`, 56, ALTO - 40);
+  ctx.font = `400 ${ETIQUETA}px ${fuente}`;
+  ctx.fillText(`${e.pie} · 100 = el mejor; la raya, la mitad de la tabla`, 56, ALTO - 30);
   ctx.globalAlpha = 1;
 }
 
@@ -1675,8 +1883,9 @@ function pintaDuelos(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "du
   titular(ctx, fuente, e.titulo, t);
 
   const lista = e.duelos.slice(0, 3);
-  const h = 128;
-  const hueco = 18;
+  /* Tarjetas más altas (20/10/2026): la frase de cada duelo a 40 px de verdad. */
+  const h = lista.length > 2 ? 148 : 170;
+  const hueco = 14;
 
   lista.forEach((d, i) => {
     const a = salta((t - (0.45 + i * 0.3)) / 0.6);
@@ -1690,11 +1899,11 @@ function pintaDuelos(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "du
     ctx.globalAlpha = Math.min(1, a);
     tarjeta(ctx, 56, y, ANCHO - 112, h, null);
 
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.font = `600 18px ${fuente}`;
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.font = `600 ${ETIQUETA}px ${fuente}`;
     espaciado(ctx, d.titulo.toUpperCase(), 84, y + 34, 1.4);
 
-    ctx.font = `700 30px ${fuente}`;
+    ctx.font = `700 32px ${fuente}`;
     ctx.fillStyle = ORO;
     parteLineas(ctx, d.nuestros, 420).slice(0, 1).forEach((l) => ctx.fillText(l, 84, y + 76));
     ctx.fillStyle = BLANCO;
@@ -1703,19 +1912,19 @@ function pintaDuelos(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "du
     ctx.textAlign = "left";
 
     /* El veredicto, en una píldora de color en el centro. */
-    ctx.font = `700 20px ${fuente}`;
+    ctx.font = `700 ${ETIQUETA}px ${fuente}`;
     const wv = ctx.measureText(veredicto).width + 34;
 
     ctx.fillStyle = color;
-    caja(ctx, ANCHO / 2 - wv / 2, y + 52, wv, 34, 17);
+    caja(ctx, ANCHO / 2 - wv / 2, y + 52, wv, 36, 18);
     ctx.fill();
     ctx.fillStyle = BLANCO;
     ctx.textAlign = "center";
-    ctx.fillText(veredicto, ANCHO / 2, y + 76);
+    ctx.fillText(veredicto, ANCHO / 2, y + 78);
 
-    ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.font = `400 19px ${fuente}`;
-    ctx.fillText(d.texto, ANCHO / 2, y + h - 16);
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.font = `500 ${LECTURA}px ${fuente}`;
+    parteLineas(ctx, d.texto, ANCHO - 200).slice(0, 1).forEach((l) => ctx.fillText(l, ANCHO / 2, y + h - 22));
     ctx.textAlign = "left";
     ctx.globalAlpha = 1;
   });
@@ -1723,57 +1932,67 @@ function pintaDuelos(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "du
 
 /**
  * El balance del post: una tarjeta por meta, con lo que buscábamos a la
- * izquierda, lo que logramos a la derecha y una píldora con el veredicto. Abajo,
- * el recuento («Cumplimos 2 de 3»).
+ * izquierda, lo que logramos a la derecha y una píldora con el veredicto.
+ *
+ * De una en una (20/10/2026, crítica del editor: «tres filas en letra pequeña,
+ * todas a la vez; nadie lo lee en 10 s en un móvil»): cada meta tiene su tramo
+ * (3 s si nada aprieta), la de ahora encendida y las anteriores al 45 %; en
+ * los últimos 2,5 s, el recuento en grande («Cumplimos 2 de 3»).
  */
-function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "balance" }>, t: number) {
+function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "balance" }>, t: number, dur: number) {
   titular(ctx, fuente, e.titulo, t);
 
   const filas = e.filas.slice(0, 4);
-  const hueco = 14;
-  const h = filas.length > 3 ? 98 : 112;
-  const y0 = 212;
+  const n = filas.length;
+  const hueco = 12;
+  const h = n > 3 ? 104 : 118;
+  const y0 = 222;
   const xMedio = 640;
+  const final = Math.min(2.5, dur * 0.25);
+  const tramoFila = Math.max(0.8, (dur - final - 0.5) / Math.max(1, n));
+  const activa = Math.min(n - 1, Math.floor((t - 0.5) / tramoFila));
+  const recuento = tramo(t, dur - final, 0.4);
 
   /* Las cabeceras de las dos columnas. */
   const c = tramo(t, 0.3, 0.5);
 
-  ctx.globalAlpha = c;
-  ctx.font = `700 17px ${fuente}`;
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
-  espaciado(ctx, "LO QUE BUSCÁBAMOS", 84, y0 - 12, 2.2);
+  ctx.globalAlpha = c * (1 - 0.6 * recuento);
+  ctx.font = `700 ${ETIQUETA - 2}px ${fuente}`;
+  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  espaciado(ctx, "LO QUE BUSCÁBAMOS", 84, y0 - 14, 2.2);
   ctx.fillStyle = ORO;
-  espaciado(ctx, "LO QUE LOGRAMOS", xMedio + 20, y0 - 12, 2.2);
+  espaciado(ctx, "LO QUE LOGRAMOS", xMedio + 20, y0 - 14, 2.2);
   ctx.globalAlpha = 1;
 
   filas.forEach((x, i) => {
-    const a = salta((t - (0.5 + i * 0.35)) / 0.6);
+    const a = salta((t - (0.5 + i * tramoFila)) / 0.4);
 
     if (a <= 0) return;
 
     const y = y0 + i * (h + hueco);
-    const color = x.estado === "si" ? VERDE : x.estado === "no" ? ROJO : x.estado === "parcial" ? ORO : GRIS;
-    const veredicto = x.estado === "si" ? "CUMPLIDO" : x.estado === "no" ? "NO" : x.estado === "parcial" ? "A MEDIAS" : "PENDIENTE";
+    const color = x.estado === "si" ? VERDE : x.estado === "no" ? ROJO : ORO;
+    const veredicto = x.estado === "si" ? "CUMPLIDO" : x.estado === "no" ? "NO" : "A MEDIAS";
+    const encendida = i === activa ? 1 : 0.45;
 
-    ctx.globalAlpha = Math.min(1, a);
+    ctx.globalAlpha = Math.min(1, a) * encendida * (1 - 0.65 * recuento);
     tarjeta(ctx, 56, y, ANCHO - 112, h, null);
 
     /* El filo de color a la izquierda: el veredicto se lee de un vistazo. */
     ctx.fillStyle = color;
-    ctx.fillRect(56, y, 6, h);
+    ctx.fillRect(56, y, 8, h);
 
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
-    ctx.font = `600 16px ${fuente}`;
-    espaciado(ctx, x.que.toUpperCase(), 84, y + 28, 1.4);
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.font = `600 ${ETIQUETA - 2}px ${fuente}`;
+    espaciado(ctx, x.que.toUpperCase(), 84, y + 30, 1.4);
 
     ctx.fillStyle = BLANCO;
-    ctx.font = `600 24px ${fuente}`;
+    ctx.font = `600 ${LECTURA}px ${fuente}`;
     parteLineas(ctx, x.buscabamos, xMedio - 84 - 40)
       .slice(0, 2)
-      .forEach((l, k) => ctx.fillText(l, 84, y + 60 + k * 28));
+      .forEach((l, k) => ctx.fillText(l, 84, y + 64 + k * 31));
 
     /* La flecha entre las dos columnas, dibujada (Barlow no trae «→»). */
-    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.strokeStyle = "rgba(255,255,255,0.45)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(xMedio - 26, y + h / 2 + 6);
@@ -1783,36 +2002,49 @@ function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "b
     ctx.lineTo(xMedio - 6, y + h / 2 + 14);
     ctx.stroke();
 
-    ctx.font = `700 17px ${fuente}`;
-    const wv = ctx.measureText(veredicto).width + 30;
+    ctx.font = `700 ${ETIQUETA}px ${fuente}`;
+    const wv = ctx.measureText(veredicto).width + 32;
     const xv = ANCHO - 84 - wv;
 
     ctx.fillStyle = ORO;
-    ctx.font = `700 26px ${fuente}`;
+    ctx.font = `700 30px ${fuente}`;
     parteLineas(ctx, x.logramos, xv - (xMedio + 20) - 16)
       .slice(0, 2)
-      .forEach((l, k) => ctx.fillText(l, xMedio + 20, y + 60 + k * 30));
+      .forEach((l, k) => ctx.fillText(l, xMedio + 20, y + 64 + k * 33));
 
     ctx.fillStyle = color;
-    caja(ctx, xv, y + h / 2 - 15, wv, 30, 15);
+    caja(ctx, xv, y + h / 2 - 18, wv, 36, 18);
     ctx.fill();
     ctx.fillStyle = x.estado === "parcial" ? "#0B0F14" : BLANCO;
-    ctx.font = `700 17px ${fuente}`;
+    ctx.font = `700 ${ETIQUETA}px ${fuente}`;
     ctx.textAlign = "center";
-    ctx.fillText(veredicto, xv + wv / 2, y + h / 2 + 6);
+    ctx.fillText(veredicto, xv + wv / 2, y + h / 2 + 8);
     ctx.textAlign = "left";
     ctx.globalAlpha = 1;
   });
 
-  const r = tramo(t, 0.6 + filas.length * 0.35, 0.6);
+  /* El recuento, en su propia «pantalla» al final. */
+  if (recuento > 0) {
+    const s = salta((t - (dur - final)) / 0.35);
 
-  ctx.globalAlpha = r;
-  ctx.fillStyle = BLANCO;
-  ctx.font = `700 28px ${fuente}`;
-  ctx.textAlign = "center";
-  ctx.fillText(e.resumen, ANCHO / 2, y0 + filas.length * (h + hueco) + 34);
-  ctx.textAlign = "left";
-  ctx.globalAlpha = 1;
+    ctx.globalAlpha = recuento;
+    ctx.fillStyle = "rgba(8,17,31,0.88)";
+    caja(ctx, ANCHO / 2 - 400, ALTO / 2 - 40, 800, 150, 20);
+    ctx.fill();
+    ctx.fillStyle = ORO;
+    caja(ctx, ANCHO / 2 - 400, ALTO / 2 - 40, 800, 6, 3);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(ANCHO / 2, ALTO / 2 + 56);
+    ctx.scale(0.85 + 0.15 * Math.min(1, s), 0.85 + 0.15 * Math.min(1, s));
+    ctx.fillStyle = BLANCO;
+    ctx.font = `700 64px ${fuente}`;
+    ctx.textAlign = "center";
+    ctx.fillText(e.resumen.toUpperCase(), 0, 0);
+    ctx.restore();
+    ctx.textAlign = "left";
+    ctx.globalAlpha = 1;
+  }
 }
 
 /** Cómo juegan: cuatro baldosas, una por momento del juego, y debajo dónde hacerles daño. */
@@ -1823,7 +2055,7 @@ function pintaFases(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "fas
   const n = fases.length;
   const hueco = 18;
   const w = (ANCHO - 112 - (n - 1) * hueco) / n;
-  const h = e.dano.length ? 300 : 380;
+  const h = e.dano.length ? 316 : 400;
   const y0 = 200;
 
   fases.forEach((f, i) => {
@@ -1842,31 +2074,32 @@ function pintaFases(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "fas
     ctx.fillText(String(i + 1).padStart(2, "0"), x + 22, y + 66);
 
     ctx.fillStyle = BLANCO;
-    ctx.font = `700 24px ${fuente}`;
-    parteLineas(ctx, f.titulo.toUpperCase(), w - 44).slice(0, 2).forEach((l, k) => ctx.fillText(l, x + 22, y + 108 + k * 28));
+    ctx.font = `700 28px ${fuente}`;
+    parteLineas(ctx, f.titulo.toUpperCase(), w - 44).slice(0, 1).forEach((l) => ctx.fillText(l, x + 22, y + 108));
 
-    ctx.fillStyle = "rgba(255,255,255,0.78)";
-    ctx.font = `400 21px ${fuente}`;
-    parteLineas(ctx, f.texto, w - 44)
-      .slice(0, e.dano.length ? 5 : 8)
-      .forEach((l, k) => ctx.fillText(l, x + 22, y + 160 + k * 26));
+    /* El texto a 40 px de verdad (20/10/2026); el guion ya lo deja en doce palabras. */
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.font = `500 ${LECTURA}px ${fuente}`;
+    parteLineas(ctx, f.texto, w - 40)
+      .slice(0, Math.floor((h - 150) / 31))
+      .forEach((l, k) => ctx.fillText(l, x + 22, y + 150 + k * 31));
     ctx.globalAlpha = 1;
   });
 
   if (e.dano.length) {
     const a = tramo(t, 1.4, 0.6);
-    const y = y0 + h + 22;
+    const y = y0 + h + 16;
 
     ctx.globalAlpha = a;
     ctx.fillStyle = "rgba(200,169,107,0.14)";
-    caja(ctx, 56, y, ANCHO - 112, 86, 14);
+    caja(ctx, 56, y, ANCHO - 112, 92, 14);
     ctx.fill();
     ctx.fillStyle = ORO;
-    ctx.font = `700 19px ${fuente}`;
+    ctx.font = `700 ${ETIQUETA}px ${fuente}`;
     espaciado(ctx, "DÓNDE HACERLES DAÑO", 80, y + 32, 2.2);
     ctx.fillStyle = BLANCO;
-    ctx.font = `500 22px ${fuente}`;
-    ctx.fillText(e.dano.join("  ·  ").slice(0, 110), 80, y + 66);
+    ctx.font = `600 ${LECTURA + 1}px ${fuente}`;
+    ctx.fillText(parteLineas(ctx, e.dano.join("  ·  "), ANCHO - 160)[0] ?? "", 80, y + 70);
     ctx.globalAlpha = 1;
   }
 }
@@ -1900,7 +2133,7 @@ export function pintaFotograma(ctx: Lienzo, grano: Dibujable, fuente: string, ti
     ctx.fillRect(0, 0, ANCHO, ALTO);
 
     if (e.tipo === "portada") pintaPortada(ctx, fuente, e, rec, f.t);
-    else if (e.tipo === "claves") pintaClaves(ctx, fuente, e.titulo, e.lineas, f.t);
+    else if (e.tipo === "claves") pintaClaves(ctx, fuente, e.titulo, e.lineas, f.t, f.medida.segundos);
     else if (e.tipo === "cifras") pintaCifras(ctx, fuente, e, f.t);
     else if (e.tipo === "barras") pintaBarras(ctx, fuente, e, f.t);
     else if (e.tipo === "imagen") pintaImagen(ctx, fuente, e, rec.imagenes.get(e.id) ?? null, f.t, f.medida.segundos);
@@ -1912,10 +2145,11 @@ export function pintaFotograma(ctx: Lienzo, grano: Dibujable, fuente: string, ti
     else if (e.tipo === "percentiles") pintaPercentiles(ctx, fuente, e, f.t);
     else if (e.tipo === "duelos") pintaDuelos(ctx, fuente, e, f.t);
     else if (e.tipo === "fases") pintaFases(ctx, fuente, e, f.t);
-    else if (e.tipo === "balance") pintaBalance(ctx, fuente, e, f.t);
+    else if (e.tipo === "balance") pintaBalance(ctx, fuente, e, f.t, f.medida.segundos);
     else pintaCierre(ctx, fuente, e, rec, f.t);
 
-    if (e.tipo === "claves" || e.tipo === "cifras" || e.tipo === "barras" || e.tipo === "imagen" || e.tipo === "vigilar") pieLocucion(ctx, fuente, e.locucion, f.t);
+    /* Sin el pie en las claves y en «a vigilar» (20/10/2026): repetía lo que ya se lee en grande. */
+    if (e.tipo === "cifras" || e.tipo === "barras" || e.tipo === "imagen") pieLocucion(ctx, fuente, e.locucion, f.t);
   }
 
   acabado(ctx, grano, f.progreso, titulo, fuente, f.marcas);

@@ -34,6 +34,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
 const D = require("../lib/video-informe/dibujo.ts");
+const G = require("../lib/video-informe/guion.ts");
 
 const RAIZ = path.join(__dirname, "..");
 const salida = path.resolve(process.argv[2] ?? "video-muestra");
@@ -53,23 +54,32 @@ const once = [
 const guion = {
   titulo: "Antequera CF · previa",
   escenas: [
-    { id: "gancho", tipo: "gancho", dato: "2º", rotulo: "CENTROS AL ÁREA", contexto: "Antequera CF, de 20 equipos de la categoría: su mejor arma (17,4 por partido).", locucion: "Antequera es segundo de veinte en centros al área." },
-    { id: "portada", tipo: "portada", titulo: "Antequera CF", subtitulo: "Jornada 8 · Domingo 18 de octubre · en casa", sello: "PREVIA", escudoNosotros: "/logo.png", escudoRival: "/logo.png", locucion: "Antequera, en casa." },
-    { id: "contexto", tipo: "contexto", titulo: "Cómo llegamos los dos", equipos: [{ nombre: "Real Madrid Castilla", nuestro: true, puesto: 12, puntos: 9, racha: racha("EPEGP") }, { nombre: "Antequera CF", nuestro: false, puesto: 5, puntos: 13, racha: racha("GGEPG") }], locucion: "Doce contra cinco." },
-    { id: "pronostico", tipo: "barras", titulo: "Lo que dice el dato", barras: [{ rotulo: "Victoria", valor: 0.38, texto: "38 %" }, { rotulo: "Empate", valor: 0.29, texto: "29 %" }, { rotulo: "Derrota", valor: 0.33, texto: "33 %" }, { rotulo: "Con el plan", valor: 0.45, texto: "45 %" }], locucion: "El modelo nos da un 38 por ciento de victoria." },
-    { id: "once", tipo: "once", titulo: "Su once previsto", jugadores: once, locucion: "Así se colocan." },
-    { id: "fases", tipo: "fases", titulo: "Cómo juegan", fases: [{ titulo: "Salida", texto: "Salen en corto con los centrales abiertos; si les presionan, balón largo al 9." }, { titulo: "Ataque", texto: "Cargan el área con centros desde los dos costados." }, { titulo: "Defensa", texto: "Bloque medio en 4-4-2, juntos por dentro." }, { titulo: "Transición", texto: "Al robar buscan rápido al extremo derecho." }], dano: ["Espalda de los laterales cuando suben", "Segundo palo en sus córners defensivos"], locucion: "Cómo juegan." },
-    { id: "clips", tipo: "clips", titulo: "Cómo juegan: acciones", segundos: 12, locucion: "Dos acciones suyas.", cortes: [{ url: "x", rotulo: "Córner ofensivo · VS EUROPA · J7", texto: "Bloqueo al primer palo y remate en el segundo." }, { url: "x", rotulo: "Centro lateral · VS IBIZA · J6", texto: "El lateral llega a línea de fondo y centra atrás." }] },
-    { id: "percentiles", tipo: "percentiles", titulo: "Antequera CF, fase a fase", pie: "Percentil contra los equipos de Primera Federación · datos hasta la J7", filas: [{ nombre: "Ataque posicional", percentil: 71 }, { nombre: "Centros", percentil: 94 }, { nombre: "Transición ofensiva", percentil: 48 }, { nombre: "Presión", percentil: 22 }, { nombre: "Defensa del área", percentil: 63 }, { nombre: "Balón parado", percentil: 80 }], locucion: "Fase a fase." },
-    { id: "versus", tipo: "versus", titulo: "Donde más nos separamos", pie: "Media por partido esta temporada · la raya, la mediana de los 20 equipos", filas: [{ nombre: "Centros", nuestro: 9.1, suyo: 17.4, textoNuestro: "9,1", textoSuyo: "17", media: 12.3, mejorAlto: true }, { nombre: "xG", nuestro: 1.1, suyo: 1.6, textoNuestro: "1,1", textoSuyo: "1,6", media: 1.3, mejorAlto: true }, { nombre: "Recuperaciones altas", nuestro: 8.2, suyo: 4.1, textoNuestro: "8,2", textoSuyo: "4,1", media: 6, mejorAlto: true }, { nombre: "Posesión", nuestro: 56, suyo: 47, textoNuestro: "56 %", textoSuyo: "47 %", media: 50, mejorAlto: true }, { nombre: "Remates concedidos", nuestro: 11.4, suyo: 9.2, textoNuestro: "11", textoSuyo: "9,2", media: 10.5, mejorAlto: false }], locucion: "Donde más nos separamos." },
-    { id: "vigilar", tipo: "vigilar", titulo: "A vigilar", jugadores: once.slice(9).map((j) => ({ ...j, texto: "Remate de cabeza · desmarque al primer palo" })), locucion: "Sus hombres a vigilar." },
-    { id: "duelos", tipo: "duelos", titulo: "Los duelos que deciden", duelos: [{ titulo: "Banda derecha", nuestros: "Fortea · Mesonero", suyos: "Moi Parra · Zarzana", veredicto: "ventaja", texto: "Les ganamos en duelos y en llegadas por ese costado." }, { titulo: "Centro del campo", nuestros: "Cestero · Thiago", suyos: "Luismi · Gené", veredicto: "parejo", texto: "Igualados en pases progresivos." }, { titulo: "Área", nuestros: "Joan Martínez · Mario Rivas", suyos: "Destiny", veredicto: "desventaja", texto: "Su 9 gana el 61 % de los duelos aéreos." }], locucion: "Los duelos." },
-    { id: "claves", tipo: "claves", titulo: "Las claves", lineas: ["Defender el segundo palo en los córners: 3 de sus 5 goles.", "Atacar la espalda del lateral derecho cuando sube.", "Cerrar el pasillo interior a su 10."], locucion: "Tres claves." },
-    /* La del post (15/10/2026): lo que buscábamos frente a lo que logramos. */
-    { id: "balance", tipo: "balance", titulo: "Lo que buscábamos y lo que logramos", resumen: "Cumplimos 2 de 4 y 1 a medias", locucion: "Balance.", filas: [{ que: "El resultado", buscabamos: "Ganar", logramos: "Empate 1-1", estado: "parcial" }, { que: "Con balón", buscabamos: "Control del partido desde el dominio de la posesión.", logramos: "57 % de la posesión · 66 llegadas al último tercio (62 suyas)", estado: "si" }, { que: "Sin balón", buscabamos: "Optimizar y ajustar nuestra fase sin balón ante un equipo que tendrá el objetivo de someternos.", logramos: "15 remates suyos (6 nuestros) · 30 ataques suyos con llegada", estado: "no" }, { que: "Transición", buscabamos: "Darle valor a la transición ante un rival que se expondrá en campo propio.", logramos: "3 de 21 robos acabaron en remate · 0 contras nuestras (2 suyas)", estado: "si" }] },
-    { id: "cierre", tipo: "cierre", titulo: "El plan, en una frase", lineas: ["Cerrar sus centros y castigar la espalda de sus laterales."], locucion: "En una frase." },
+    /* Desde el 20/10/2026, como los arma `guion.ts`: el gancho a casi toda la pantalla con una línea, títulos que dicen la conclusión, claves de una en una y la consigna al final. */
+    { id: "gancho", tipo: "gancho", dato: "2º", antetitulo: "Antequera CF · su mejor arma", rotulo: "CENTROS AL ÁREA", contexto: "Antequera CF, de 20 equipos de la categoría: su mejor arma (17,4 por partido).", locucion: "Antequera es segundo de veinte en centros al área." },
+    { id: "portada", tipo: "portada", titulo: "Antequera CF", subtitulo: "Jornada 8 · Domingo 18 de octubre · en casa", sello: "PREVIA", escudoNosotros: "/logo.png", escudoRival: "/logo.png", idea: "Su arma: centros al área", locucion: "Antequera, en casa." },
+    { id: "contexto", tipo: "contexto", titulo: "Ellos llegan por delante: 5º contra 12º", equipos: [{ nombre: "Real Madrid Castilla", nuestro: true, puesto: 12, puntos: 9, racha: racha("EPEGP") }, { nombre: "Antequera CF", nuestro: false, puesto: 5, puntos: 13, racha: racha("GGEPG") }], locucion: "Doce contra cinco." },
+    { id: "pronostico", tipo: "barras", titulo: "Victoria: 38 %; con el plan, 45 %", barras: [{ rotulo: "Victoria", valor: 0.38, texto: "38 %" }, { rotulo: "Empate", valor: 0.29, texto: "29 %" }, { rotulo: "Derrota", valor: 0.33, texto: "33 %" }, { rotulo: "Con el plan", valor: 0.45, texto: "45 %" }], locucion: "El modelo nos da un 38 por ciento de victoria; con el plan, un 45." },
+    { id: "once", tipo: "once", titulo: "Su once previsto: en oro, a quién vigilar", jugadores: once, locucion: "Así se colocan." },
+    { id: "fases", tipo: "fases", titulo: "Así juegan, y por dónde hacerles daño", fases: [{ titulo: "Salida", texto: "Salen en corto con los centrales abiertos; si les presionan, balón largo" }, { titulo: "Ataque", texto: "Cargan el área con centros desde los dos costados." }, { titulo: "Defensa", texto: "Bloque medio en 4-4-2, juntos por dentro." }, { titulo: "Transición", texto: "Al robar buscan rápido al extremo derecho." }], dano: ["Espalda de los laterales cuando suben", "Segundo palo en sus córners defensivos"], locucion: "Cómo juegan." },
+    { id: "clips", tipo: "clips", titulo: "Así lo hacen: córner ofensivo", segundos: 12, locucion: "Mira: bloqueo al primer palo y remate en el segundo.", cortes: [{ url: "x", rotulo: "Córner ofensivo · VS EUROPA · J7", texto: "Bloqueo al primer palo y remate en el segundo." }, { url: "x", rotulo: "Centro lateral · VS IBIZA · J6", texto: "El lateral llega a línea de fondo y centra atrás." }] },
+    { id: "percentiles", tipo: "percentiles", titulo: "Fuertes en centros, flojos en presión", pie: "Percentil contra los equipos de Primera Federación · datos hasta la J7", filas: [{ nombre: "Ataque posicional", percentil: 71 }, { nombre: "Centros", percentil: 94 }, { nombre: "Transición ofensiva", percentil: 48 }, { nombre: "Presión", percentil: 22 }, { nombre: "Defensa del área", percentil: 63 }, { nombre: "Balón parado", percentil: 80 }], locucion: "Fase a fase." },
+    { id: "versus", tipo: "versus", titulo: "Nos sacan ventaja en centros", pie: "Media por partido esta temporada · la raya, la mediana de los 20 equipos", filas: [{ nombre: "Centros", nuestro: 9.1, suyo: 17.4, textoNuestro: "9,1", textoSuyo: "17", media: 12.3, mejorAlto: true }, { nombre: "Goles esperados", nuestro: 1.1, suyo: 1.6, textoNuestro: "1,1", textoSuyo: "1,6", media: 1.3, mejorAlto: true }, { nombre: "Recuperaciones altas", nuestro: 8.2, suyo: 4.1, textoNuestro: "8,2", textoSuyo: "4,1", media: 6, mejorAlto: true }, { nombre: "Posesión", nuestro: 56, suyo: 47, textoNuestro: "56 %", textoSuyo: "47 %", media: 50, mejorAlto: true }, { nombre: "Remates concedidos", nuestro: 11.4, suyo: 9.2, textoNuestro: "11", textoSuyo: "9,2", media: 10.5, mejorAlto: false }], locucion: "Donde más nos separamos." },
+    { id: "vigilar", tipo: "vigilar", titulo: "A vigilar: Díaz y Gil", jugadores: once.slice(9).map((j, i) => ({ ...j, texto: ["Peligro de cabeza a balón parado", "Busca el desmarque al primer palo"][i] })), locucion: "Sus hombres a vigilar." },
+    { id: "duelos", tipo: "duelos", titulo: "Ganamos en banda derecha; sufrimos en área", duelos: [{ titulo: "Banda derecha", nuestros: "Fortea · Mesonero", suyos: "Moi Parra · Zarzana", veredicto: "ventaja", texto: "Les ganamos en duelos y en llegadas por ese costado" }, { titulo: "Centro del campo", nuestros: "Cestero · Thiago", suyos: "Luismi · Gené", veredicto: "parejo", texto: "Igualados en pases progresivos." }, { titulo: "Área", nuestros: "Joan Martínez · Mario Rivas", suyos: "Destiny", veredicto: "desventaja", texto: "Su 9 gana el 61 % de los duelos aéreos." }], locucion: "Los duelos." },
+    { id: "claves", tipo: "claves", titulo: "Tres claves para ganar el partido", lineas: ["Defender el segundo palo en los córners: 3 de sus 5 goles.", "Atacar la espalda del lateral derecho cuando sube.", "Cerrar el pasillo interior a su 10."], locucion: "Tres claves." },
+    /* La del post: sólo filas medidas (sin «pendiente») y de una en una, con el recuento al final. */
+    G.escenaBalance([
+      { que: "El resultado", buscabamos: "Ganar", logramos: "Empate 1-1", estado: "parcial" },
+      { que: "Con balón", buscabamos: "Control del partido desde el dominio de la posesión.", logramos: "57 % de la posesión · 66 llegadas al último tercio (62 suyas)", estado: "si" },
+      { que: "Sin balón", buscabamos: "Optimizar y ajustar nuestra fase sin balón ante un equipo que tendrá el objetivo de someternos.", logramos: "15 remates suyos (6 nuestros) · 30 ataques suyos con llegada", estado: "no" },
+      { que: "Transición", buscabamos: "Darle valor a la transición ante un rival que se expondrá en campo propio.", logramos: "3 de 21 robos acabaron en remate · 0 contras nuestras (2 suyas)", estado: "si" },
+    ]).escena,
+    { id: "cierre", tipo: "cierre", titulo: "Nuestra consigna", lineas: [G.consigna("Defender el segundo palo en los córners: 3 de sus 5 goles.", 9)], locucion: "Nuestra consigna." },
   ],
 };
+
+/* La pieza «Consignas» para los jugadores (20/10/2026): la lista blanca de `consignasDePartido`. */
+const CONSIGNAS = new Set(["gancho", "portada", "vigilar", "clips", "claves", "cierre"]);
 
 /** Un fotograma de partido inventado para los cortes: césped a franjas y fichas. */
 function cuadroDeMentira() {
@@ -134,8 +144,9 @@ function cuadroDeMentira() {
   const hoja = createCanvas(640 * 2, 360 * medidas.length);
   const h = hoja.getContext("2d");
 
+  /* El momento «lleno», a los 3,4 s o más tarde en las escenas que van de una en una (claves y balance). */
   medidas.forEach((m, k) =>
-    [0.8, Math.min(3.4, m.segundos - 0.6)].forEach((t, j) => {
+    [0.8, Math.min(Math.max(3.4, m.segundos * 0.72), m.segundos - 0.6)].forEach((t, j) => {
       pinta(k, t);
       h.drawImage(lienzo, j * 640, k * 360, 640, 360);
     }),
@@ -143,6 +154,12 @@ function cuadroDeMentira() {
 
   fs.writeFileSync(path.join(salida, "hoja.png"), await hoja.encode("png"));
   console.log(`${medidas.length} escenas, ${total.toFixed(1)} s → ${path.join(salida, "hoja.png")}`);
+  console.log(medidas.map((m) => `  ${m.escena.id.padEnd(12)} ${m.segundos.toFixed(1).padStart(5)} s`).join("\n"));
+
+  /* Lo que duraría la pieza «Consignas» con estas escenas (tope 75 s). */
+  const consignas = D.reparteEscenas({ ...guion, escenas: guion.escenas.filter((e) => CONSIGNAS.has(e.id)) }, null, 48000, G.SEGUNDOS_CONSIGNAS);
+
+  console.log(`Consignas: ${consignas.length} escenas, ${consignas.reduce((s, m) => s + m.segundos, 0).toFixed(1)} s`);
 
   if (!conMp4) return;
 

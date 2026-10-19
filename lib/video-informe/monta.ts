@@ -24,10 +24,10 @@
 import { MuxorMp4 } from "@/lib/coding/mp4";
 import type { Bytes } from "@/lib/export/zip";
 
-import { ALTO, ALTO_HD, ANCHO, ANCHO_HD, FPS, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
+import { ALTO, ALTO_HD, ANCHO, ANCHO_HD, FPS, SEGUNDO_POSTER, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
 import { SEGUNDOS_MAXIMOS, type Corte, type Escena, type GuionVideo, type JugadorEscena } from "./guion";
 import { FRECUENCIA_AAC, remuestrea } from "./voz";
-import { bandaSonora, masteriza } from "./musica";
+import { bandaSonora, masteriza, rmsConPuerta } from "./musica";
 import { posterDeVideo } from "./portada-video";
 import { FotogramasCorte } from "./fotogramas-corte";
 
@@ -496,19 +496,16 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   | al entrar parecía que se había quitado el sonido.
   */
   if (cola) {
-    let suma = 0;
-    const s = cola.sonido;
+    /* El nivel de su vídeo medido igual que la mezcla (sin silencios: 20/10/2026), para que la entrada y la cola suenen parejas. */
+    const rmsCola = cola.sonido?.length ? rmsConPuerta(cola.sonido, frecuencia) : 0;
 
-    if (s) for (let i = 0; i < s.length; i += 1) suma += s[i] * s[i];
-
-    const rmsCola = s?.length ? Math.sqrt(suma / s.length) : 0;
-
-    masteriza(pista.subarray(0, muestrasGuion), rmsCola > 0.005 ? Math.min(0.19, Math.max(0.04, rmsCola * 1.3)) : undefined);
-  } else masteriza(pista);
+    masteriza(pista.subarray(0, muestrasGuion), rmsCola > 0.005 ? Math.min(0.19, Math.max(0.04, rmsCola * 1.3)) : undefined, frecuencia);
+  } else masteriza(pista, undefined, frecuencia);
 
   if (cola?.sonido) {
     const n = Math.min(cola.sonido.length, totalMuestras - muestrasGuion);
-    const fundido = 0.25 * frecuencia;
+    /* Medio segundo (20/10/2026; antes 0,25 s): pasar de la música al sonido del vídeo daba un golpe. */
+    const fundido = 0.5 * frecuencia;
 
     for (let j = 0; j < n; j += 1) pista[muestrasGuion + j] = cola.sonido[j] * Math.min(1, j / fundido);
   }
@@ -542,7 +539,12 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
   const totalFotogramas = Math.round(total * FPS);
   const fotogramasGuion = Math.round(totalGuion * FPS);
   let fotograma = 0;
-  /* El fotograma del póster: la portada a los 2,4 s, con los escudos y el título ya dentro. */
+  /*
+  | El fotograma del póster: la PORTADA (escudos, rival, jornada y la idea)
+  | ya entera, no la primera escena (20/10/2026: desde que el vídeo abre con el
+  | gancho, el póster del correo era un «2º» sobre fondo oscuro).
+  */
+  const escenaPoster = Math.max(0, escenas.findIndex((x) => x.escena.tipo === "portada"));
   let fotoPoster: HTMLCanvasElement | null = null;
   let clipEnCurso: Clip | null = null;
 
@@ -599,7 +601,7 @@ export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: Opcion
 
       pintaFotograma(ctx, grano, fuente, guion.titulo, rec, { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro, marcas: arranques.slice(1).map((a) => a / total) });
 
-      if (k === 0 && i === Math.min(cuantos - 1, Math.round(2.4 * FPS))) {
+      if (k === escenaPoster && i === Math.min(cuantos - 1, Math.round(SEGUNDO_POSTER * FPS))) {
         fotoPoster = document.createElement("canvas");
         fotoPoster.width = ANCHO;
         fotoPoster.height = ALTO;
