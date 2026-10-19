@@ -54,8 +54,15 @@ function Ficha({
   tono?: "normal" | "oro" | "aviso";
   children?: React.ReactNode;
 }) {
+  /* Con la tinta del tema (19/10/2026): el oro y el amarillo claros, sobre la
+     ficha del modo día, se quedaban en 1,9:1. Así oscurecen de día y siguen
+     igual de noche. */
   const color =
-    tono === "oro" ? "#C8A96B" : tono === "aviso" ? "rgb(252 211 77)" : undefined;
+    tono === "oro"
+      ? "var(--rmcf-gold-ink)"
+      : tono === "aviso"
+        ? "color-mix(in srgb, rgb(245 158 11) 70%, rgb(var(--rmcf-ink-rgb)))"
+        : undefined;
 
   return (
     <div
