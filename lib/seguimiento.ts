@@ -28,6 +28,26 @@ interface JugadorMinimo {
   nombre: string;
 }
 
+/*
+| Seguimientos escritos SIN NOMBRE con un ID que la hoja ya no tiene.
+|
+| La ficha de `/individual` seguía guardando a Óscar Nassei como JUG-52 y a
+| Sergio Martínez como JUG-53 —los IDs que les dio el puente de fichajes—
+| cuando la hoja JUGADORES ya los tenía como JUG-49 y JUG-50. El Apps Script
+| no encuentra ese ID, deja el NOMBRE vacío y el registro no se ata a nadie:
+| medido el 19/10/2026, siete seguimientos de Julián a Óscar y uno a Sergio
+| que no salían en el Dashboard ni en la portada. Esa ficha ya escribe el ID
+| bueno; esto recoge los que quedaron escritos.
+|
+| Sólo se traduce si el ID viejo **no** es hoy de nadie en la plantilla: si
+| algún día la hoja da el JUG-52 a otro, sus registros llevarán su nombre y
+| se atan por él, que va antes.
+*/
+const ESCRITOS_CON_ID_VIEJO: Record<string, string> = {
+  "JUG-52": "JUG-49",
+  "JUG-53": "JUG-50",
+};
+
 export function alineaSeguimiento<T extends FilaSeguimiento>(
   filas: T[],
   jugadores: JugadorMinimo[],
@@ -38,10 +58,20 @@ export function alineaSeguimiento<T extends FilaSeguimiento>(
     jugadores.map((jugador) => [normalizePlayerName(jugador.nombre), jugador.id]),
   );
 
+  const vigentes = new Set(jugadores.map((jugador) => jugador.id));
+
   return filas.map((fila) => {
     const id = fila.NOMBRE
       ? porNombre.get(normalizePlayerName(fila.NOMBRE))
       : undefined;
+
+    if (!id && !vigentes.has(fila.ID_JUGADOR)) {
+      const traducido = ESCRITOS_CON_ID_VIEJO[fila.ID_JUGADOR];
+
+      if (traducido && vigentes.has(traducido)) {
+        return { ...fila, ID_JUGADOR: traducido };
+      }
+    }
 
     /* Sin nombre, o con un nombre que ya no está en la plantilla, se queda
        como estaba: el registro es de alguien que se fue, y borrarle el ID lo

@@ -37,6 +37,7 @@ import {
   round,
 } from "@/lib/ratings/compute";
 import { formatMatchDateShort, matchLabel } from "@/lib/ratings/matches";
+import { lineaDe, type LineaKey } from "@/lib/ratings/pitch";
 import { Player } from "@/types/player";
 
 import { AXIS, ChartTooltip, GRID_STROKE } from "./charts";
@@ -67,15 +68,13 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: "goals", label: "G+A" },
 ];
 
-const LINE_GROUPS: { key: string; label: string; positions: string[] }[] = [
-  { key: "por", label: "Porteros", positions: ["PORTERO"] },
-  {
-    key: "def",
-    label: "Defensas",
-    positions: ["LATERAL D.", "LATERAL I.", "CENTRAL"],
-  },
-  { key: "med", label: "Medios", positions: ["6", "8", "10"] },
-  { key: "del", label: "Ataque", positions: ["7", "11", "9"] },
+/* La línea sale de `lineaDe`: con una lista cerrada de puestos, el portero
+   escrito «1» en la hoja no entraba en ninguna media (19/10/2026). */
+const LINE_GROUPS: { key: LineaKey; label: string }[] = [
+  { key: "por", label: "Porteros" },
+  { key: "def", label: "Defensas" },
+  { key: "med", label: "Medios" },
+  { key: "del", label: "Ataque" },
 ];
 
 function sortValue(entry: RankedPlayer, key: SortKey) {
@@ -172,7 +171,7 @@ export function TeamPanel({
     return LINE_GROUPS.map((group) => {
       const members = ranked.filter(
         (entry) =>
-          group.positions.includes(entry.player.posicion) &&
+          lineaDe(entry.player.posicion) === group.key &&
           entry.summary.played > 0
       );
 

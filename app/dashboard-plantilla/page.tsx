@@ -7,7 +7,9 @@ import Papa from "papaparse";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { getPlayerImage } from "@/lib/playerImages";
+import { getPlayerImage, normalizePlayerName } from "@/lib/playerImages";
+import { posicionDe } from "@/lib/posiciones";
+import { dorsalDe } from "@/lib/dorsales";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 
 import {
@@ -305,36 +307,68 @@ export default function DashboardPlantilla() {
   |--------------------------------------------------------------------------
   */
 
+  /*
+  | 19/10/2026 · la plantilla sale de JUGADORES y el control se le ata por
+  | NOMBRE, no por ID.
+  |
+  | Antes la lista salía de la hoja de controles (la de las sesiones) y se le
+  | pegaba la ficha de JUGADORES por `ID_JUGADOR`. Esa hoja dejó de escribirse
+  | el 24/08/2026 con la numeración vieja, y la de JUGADORES se renumeró
+  | después (ver la nota «ids-jugador-renumerados»): medido ese día, quince
+  | jugadores salían con el estado de otro —Diego Lacosta con el de Thiago,
+  | Mestre con el de Rachad…— y seis que ya no están (Fran González, César
+  | Palacios, Guille González…) seguían contando en la plantilla.
+  |
+  | Ahora: los jugadores son los de JUGADORES; el estado, el que trae esa
+  | misma hoja (la que se mantiene al día); y del control sólo se toma la
+  | fecha y, si la ficha no trae estado, el suyo. El cruce va por nombre y,
+  | si no, por apodo —la hoja de controles escribe el nombre completo en
+  | mayúsculas («JESÚS FORTEA») y la de JUGADORES a veces sólo el apellido—;
+  | se comprobó a mano que el apodo casa uno a uno. El «Grupo» es la licencia
+  | del Castilla, la misma regla que el resto de la aplicación.
+  */
   const players = useMemo<Player[]>(() => {
-    if (!estadoRows.length) return [];
+    if (!scoutingRows.length) return [];
 
-    // Nos quedamos con el registro más reciente de cada jugador
-    const latestMap = new Map<string, EstadoCSV>();
+    const clave = (valor: unknown) => normalizePlayerName(String(valor ?? ""));
 
-    estadoRows.forEach((row) => {
-      if (!row.ID_JUGADOR) return;
+    /* El control más reciente de cada nombre y de cada apodo. */
+    const ultimoPor = (campo: "NOMBRE" | "APODO") => {
+      const mapa = new Map<string, EstadoCSV>();
 
-      const previous = latestMap.get(row.ID_JUGADOR);
+      estadoRows.forEach((row) => {
+        const k = clave(row[campo]);
 
-      if (!previous) {
-        latestMap.set(row.ID_JUGADOR, row);
-        return;
-      }
+        if (!k) return;
 
-      if (parseFecha(row.FECHA) >= parseFecha(previous.FECHA)) {
-        latestMap.set(row.ID_JUGADOR, row);
-      }
-    });
+        const previo = mapa.get(k);
 
-    const scoutingMap = new Map<string, ScoutingCSV>();
+        if (!previo || parseFecha(row.FECHA) >= parseFecha(previo.FECHA)) {
+          mapa.set(k, row);
+        }
+      });
 
-    scoutingRows.forEach((row) => {
-      if (row.ID_JUGADOR) scoutingMap.set(row.ID_JUGADOR, row);
-    });
+      return mapa;
+    };
 
-    return [...latestMap.values()]
-      .map((estado) => {
-        const scout = scoutingMap.get(estado.ID_JUGADOR);
+    const porNombre = ultimoPor("NOMBRE");
+    const porApodo = ultimoPor("APODO");
+
+    const vistos = new Set<string>();
+
+    return scoutingRows
+      .filter((scout) => {
+        if (!scout.ID_JUGADOR || vistos.has(scout.ID_JUGADOR)) return false;
+
+        vistos.add(scout.ID_JUGADOR);
+
+        return true;
+      })
+      .map((scout) => {
+        const estado: Partial<EstadoCSV> =
+          porNombre.get(clave(scout.NOMBRE)) ??
+          porApodo.get(clave(scout.APODO)) ??
+          {};
 
         const mentalidad = toNumber(scout?.MENTALIDAD);
         const habitos = toNumber(scout?.HABITOS);
@@ -354,27 +388,26 @@ export default function DashboardPlantilla() {
           ? valores.reduce((acc, value) => acc + value, 0) / valores.length
           : 0;
 
-        return {
-          id: estado.ID_JUGADOR,
-          fecha: estado.FECHA,
+        const nombre = scout.NOMBRE || estado.NOMBRE || "";
+        const licencia = scout.LICENCIA || estado.LICENCIA || "";
 
-          nombre: scout?.NOMBRE || estado.NOMBRE || "",
-          apodo: scout?.APODO || estado.APODO || "",
-          posicion: scout?.POSICION || estado.POSICION || "",
-          dorsal: scout?.DORSAL || estado.DORSAL || "",
+        return {
+          id: scout.ID_JUGADOR,
+          fecha: estado.FECHA ?? "",
+
+          nombre,
+          apodo: scout.APODO || estado.APODO || "",
+          posicion: posicionDe(nombre, scout.POSICION || estado.POSICION || ""),
+          dorsal: scout.DORSAL || String(dorsalDe(nombre) ?? ""),
           foto:
-            getPlayerImage(
-              scout?.NOMBRE || estado.NOMBRE,
-              "cerca",
-              estado.ID_JUGADOR
-            ) ||
-            scout?.FOTO_URL ||
+            getPlayerImage(nombre, "cerca", scout.ID_JUGADOR) ||
+            scout.FOTO_URL ||
             estado.FOTO_URL ||
             "",
-          licencia: scout?.LICENCIA || estado.LICENCIA || "",
+          licencia,
 
-          estado: estado.ESTADO || "",
-          activo: String(estado.ACTIVO).toUpperCase() === "TRUE",
+          estado: (scout.ESTADO || estado.ESTADO || "").trim(),
+          activo: licencia.trim() === "RMCF Castilla",
 
           mentalidad,
           habitos,
@@ -411,11 +444,13 @@ export default function DashboardPlantilla() {
       posiciones: unique(players.map((p) => p.posicion)),
       estados: unique(players.map((p) => p.estado)),
       licencias: unique(players.map((p) => p.licencia)),
+      /* Sólo las fechas que son el último control de alguien: con todas las
+         de la hoja, elegir una antigua dejaba la pantalla vacía. */
       fechas: [
-        ...new Set(estadoRows.map((row) => row.FECHA).filter(Boolean)),
+        ...new Set(players.map((p) => p.fecha).filter(Boolean)),
       ].sort((a, b) => parseFecha(b) - parseFecha(a)),
     };
-  }, [players, estadoRows]);
+  }, [players]);
 
   const filteredPlayers = useMemo(() => {
     const search = normalize(playerSearch);
@@ -654,7 +689,8 @@ export default function DashboardPlantilla() {
   }[] = [
     { title: "Jugadores", value: stats.total },
     {
-      title: "Activos",
+      /* Es la licencia del Castilla (ver arriba), no «activo» en la hoja. */
+      title: "Del Castilla",
       value: stats.activos,
       filter: { key: "activo", value: "true" },
     },
@@ -1860,7 +1896,9 @@ function PlayerCard({
 
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/5 pt-4 text-xs text-white/30">
         <span className="truncate">
-          Último control: {formatFecha(player.fecha)}
+          {player.fecha
+            ? `Último control: ${formatFecha(player.fecha)}`
+            : "Sin control registrado"}
         </span>
 
         {player.hudl && (

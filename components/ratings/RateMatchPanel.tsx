@@ -18,6 +18,7 @@ import { toast } from "sonner";
 
 import { formatRating, ratingColor, ratingColorAlpha } from "@/lib/ratings/compute";
 import { formatMatchDate, matchId, matchLabel } from "@/lib/ratings/matches";
+import { lineaDe } from "@/lib/ratings/pitch";
 import {
   AREA_KEYS,
   AREA_LABELS,
@@ -47,22 +48,16 @@ import {
 
 type Draft = Record<string, PlayerRating>;
 
-const LINES: { key: string; label: string; positions: string[] }[] = [
-  { key: "por", label: "Porteros", positions: ["PORTERO"] },
-  {
-    key: "def",
-    label: "Defensas",
-    positions: ["LATERAL D.", "LATERAL I.", "CENTRAL"],
-  },
-  { key: "med", label: "Centrocampistas", positions: ["6", "8", "10"] },
-  { key: "del", label: "Ataque", positions: ["7", "11", "9"] },
+const LINES: { key: string; label: string }[] = [
+  { key: "por", label: "Porteros" },
+  { key: "def", label: "Defensas" },
+  { key: "med", label: "Centrocampistas" },
+  { key: "del", label: "Ataque" },
 ];
 
-function lineOf(position: string) {
-  return (
-    LINES.find((line) => line.positions.includes(position))?.key ?? "med"
-  );
-}
+/* 19/10/2026: misma lectura que el campograma. Con la lista cerrada que había,
+   un portero escrito «1» en la hoja se valoraba entre los centrocampistas. */
+const lineOf = (position: string) => lineaDe(position);
 
 function normalize(value: string) {
   return (value || "")

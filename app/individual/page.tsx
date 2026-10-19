@@ -476,8 +476,13 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
   | La foto no es de la sesión del club —todavía no ha pasado por ella—, así
   | que el respaldo apunta al recorte local en vez de a realmadrid.com; el
   | mapa de abajo lo sustituye igualmente por el de Supabase.
+  |
+  | 19/10/2026: era JUG-52, el ID del puente de fichajes, y la hoja lo tiene
+  | como JUG-49 («Óscar Nassei»). Con el viejo, su ficha no leía sus datos de
+  | la hoja ni los seguimientos de los demás, y lo que se guardaba aquí iba
+  | sin nombre y no salía en el Dashboard (ver `lib/seguimiento.ts`).
   */
-  idJugador: "JUG-52",
+  idJugador: "JUG-49",
   name: "Óscar Naasei",
   position: "Defensa",
   photo: "/players/lejos/oscar-naasei.webp",
@@ -559,8 +564,9 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
 },
 
 {
-  /* Alta del 4/9/2026. Mediocentro; ver lib/fichajes.ts. */
-  idJugador: "JUG-53",
+  /* Alta del 4/9/2026. Mediocentro; ver lib/fichajes.ts. Era JUG-53, el ID
+     del puente; la hoja lo tiene como JUG-50 (19/10/2026, igual que Óscar). */
+  idJugador: "JUG-50",
   name: "Sergio Martínez",
   position: "Centrocampista",
   /* Vacío a propósito: el recorte del club lo pone el `map` de abajo. */
