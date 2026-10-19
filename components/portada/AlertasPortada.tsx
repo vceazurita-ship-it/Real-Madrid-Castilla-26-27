@@ -12,7 +12,9 @@ import {
 } from "lucide-react";
 
 import type { Alerta } from "@/lib/data-analisis/alertas";
+import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import { traeJson } from "@/lib/hojaCsv";
+import { chipInk } from "@/lib/theme";
 import {
   alertasDeSeguimiento,
   type FilaSeguimiento,
@@ -230,7 +232,9 @@ function Cuenta({
       style={{
         borderColor: `${color}55`,
         background: `${color}14`,
-        color,
+        /* La tinta con `chipInk`: en modo día el verde y el naranja puros
+           se quedaban en 3:1 sobre el panel claro (19/10/2026). */
+        color: chipInk(color),
       }}
     >
       <Icono className="h-3.5 w-3.5" />
@@ -259,6 +263,10 @@ function Cajon({ alertas, alCerrar }: { alertas: Alerta[]; alCerrar: () => void 
 
   const buenas = alertas.filter((a) => a.tono === "buena");
   const malas = alertas.filter((a) => a.tono === "mala");
+
+  /* Con el cajón abierto, la portada de detrás no se desplaza (en el móvil
+     arrastraba la página en vez de la lista). */
+  useBodyScrollLock(true);
 
   return (
     <div
@@ -331,7 +339,7 @@ function Columna({
     <section className="min-w-0">
       <p
         className="mb-2.5 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em]"
-        style={{ color }}
+        style={{ color: chipInk(color) }}
       >
         <Icono className="h-3.5 w-3.5" />
         {titulo} · {alertas.length}
@@ -365,7 +373,7 @@ function Columna({
               <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px]">
                 <span
                   className="rounded-lg px-2 py-1 font-medium tabular-nums"
-                  style={{ background: `${color}14`, color }}
+                  style={{ background: `${color}14`, color: chipInk(color) }}
                 >
                   {alerta.cifra}
                 </span>

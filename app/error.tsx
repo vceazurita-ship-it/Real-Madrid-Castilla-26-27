@@ -35,7 +35,9 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         </p>
 
         {error?.message && (
-          <p className="mt-3 break-words rounded-xl border border-white/10 bg-black/30 px-3 py-2 font-mono text-[11px] text-white/55">
+          /* Sin `bg-black/30`: en modo día esa clase deja el texto en blanco
+             (es para rótulos sobre foto) y el detalle salía blanco sobre gris. */
+          <p className="mt-3 break-words rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 font-mono text-[11px] text-white/60">
             {error.message}
             {error.digest ? ` · ${error.digest}` : ""}
           </p>

@@ -28,6 +28,7 @@ import {
 } from "@/lib/castilla/calendario";
 import { traeJson } from "@/lib/hojaCsv";
 import { trackModuleVisit } from "@/lib/module-usage";
+import { chipInk } from "@/lib/theme";
 import {
   cuantoFalta,
   diaEnMadrid,
@@ -663,7 +664,9 @@ function Racha({ ultimos, cargando }: { ultimos: PartidoNuestro[]; cargando: boo
                     key={`${partido.jornada}-${partido.cuando}`}
                     title={`J${partido.jornada} · ${partido.lado === "casa" ? "" : "en "}${partido.rival} · ${partido.golesFavor}-${partido.golesContra}`}
                     className="flex h-7 w-7 items-center justify-center rounded-lg text-[12px] font-bold"
-                    style={{ background: `${color}22`, color, border: `1px solid ${color}55` }}
+                    /* La letra con `chipInk`: el gris del empate y el verde
+                       sobre el blanco del modo día no llegaban a 3:1. */
+                    style={{ background: `${color}22`, color: chipInk(color), border: `1px solid ${color}55` }}
                   >
                     {signo}
                   </span>

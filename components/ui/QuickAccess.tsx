@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { trackModuleVisit, useModulosMasUsados } from "@/lib/module-usage";
 import { AREA_BY_KEY } from "@/lib/modules";
+import { chipInk } from "@/lib/theme";
 
 /**
  * Fila de accesos directos.
@@ -30,7 +31,9 @@ export default function QuickAccess() {
             key={module.href}
             href={module.href}
             onClick={() => trackModuleVisit(module.href)}
-            style={{ ["--accent" as string]: area.color }}
+            /* Con `chipInk`, como las tarjetas de «Áreas de trabajo»: el
+               pastel del área sobre el blanco del modo día no llegaba a 2:1. */
+            style={{ ["--accent" as string]: chipInk(area.color) }}
             className="group inline-flex shrink-0 items-center gap-2.5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13px] text-white/80 transition-all duration-300 hover:-translate-y-0.5 hover:border-[color:var(--accent)]/45 hover:bg-white/[0.06] hover:text-white"
           >
             <Icon className="h-[17px] w-[17px] shrink-0 text-[color:var(--accent)]" />

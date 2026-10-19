@@ -1573,3 +1573,86 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="text-sky-100"] {
   color: rgb(3 105 161);
 }
+
+/*
+| LO QUE SEGUÍA SIN TRADUCIR (19/10/2026)
+|
+| Salió de cruzar todas las clases de color de `app/` y `components/` con los
+| selectores de esta tabla (script de una vez en el scratchpad de la revisión).
+| Sólo entra lo que en modo día se leía mal de verdad; los lienzos que se
+| quedan oscuros a propósito (diapositivas, campos de césped) siguen fuera.
+*/
+
+/* Oros y rosas pálidos escritos a mano: sobre blanco no llegaban a 1,5:1. */
+:root[data-theme="light"] [class~="text-[#E4CE9B]"],
+:root[data-theme="light"] [class~="text-[#E9D5A8]"] {
+  color: var(--rmcf-gold-ink);
+}
+:root[data-theme="light"] [class~="text-[#F6AFB6]"] {
+  color: #BE123C;
+}
+:root[data-theme="light"] [class~="text-[#F87171]/60"] {
+  color: rgb(185 28 28 / .8);
+}
+:root[data-theme="light"] [class~="text-[#FBBF24]"] {
+  color: #9A3F07;
+}
+:root[data-theme="light"] [class~="text-[#34D399]"] {
+  color: #047857;
+}
+
+/* El recuadro de órdenes de «Cómo actualizar» (faltas, transiciones): con
+   `bg-black/40` quedaba gris medio en día, y el oro pálido encima no se leía.
+   Pasa a ficha clara con el oro oscuro. */
+:root[data-theme="light"] [class~="bg-black/40"][class~="text-[#E4CE9B]"] {
+  background-color: var(--rmcf-surface-2);
+  color: var(--rmcf-gold-ink);
+}
+
+/* Paneles oscuros escritos a mano que faltaban: la columna fija de la
+   comparativa, la cabecera de la tabla de equipo y el fantasma de arrastre
+   del microciclo salían en negro con la tinta ya oscura encima. */
+:root[data-theme="light"] [class~="bg-[#0f1419]"],
+:root[data-theme="light"] [class~="bg-[#10151b]"],
+:root[data-theme="light"] [class~="bg-[#141A21]"] {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="bg-[#04121F]"] {
+  background-color: var(--rmcf-surface-2);
+}
+
+/* El aviso de «Sin conexión»: marrón casi negro con la tinta oscura encima.
+   En día, ámbar claro; el icono ya lo oscurece la regla de `text-amber-400`. */
+:root[data-theme="light"] [class~="bg-[#2A1F06]/95"] {
+  background-color: rgb(254 243 199 / .97);
+}
+
+/* Fondos oscuros al pasar el ratón. Sobre un fondo traducido no se notaban
+   (la tabla gana a Tailwind), pero la tarjeta no respondía al ratón. */
+:root[data-theme="light"] [class~="hover:bg-[#0B1728]"]:hover {
+  background-color: var(--rmcf-surface);
+}
+:root[data-theme="light"] [class~="hover:bg-[#161D26]"]:hover,
+:root[data-theme="light"] [class~="hover:bg-[#141A22]"]:hover,
+:root[data-theme="light"] [class~="hover:bg-[#232D39]"]:hover {
+  background-color: var(--rmcf-surface-2);
+}
+
+/* Tinta al pasar el ratón que faltaba en el bloque de variantes. */
+:root[data-theme="light"] [class~="hover:text-rose-200"]:hover,
+:root[data-theme="light"] [class~="hover:text-rose-300"]:hover {
+  color: #BE123C;
+}
+:root[data-theme="light"] [class~="hover:text-[#F7D98B]"]:hover {
+  color: var(--rmcf-gold-ink);
+}
+
+/* Subrayados y textos de ayuda pensados para fondo negro. */
+:root[data-theme="light"] [class~="decoration-white/20"],
+:root[data-theme="light"] [class~="decoration-white/30"] {
+  text-decoration-color: rgb(var(--rmcf-ink-rgb) / .3);
+}
+:root[data-theme="light"] [class~="placeholder:text-[#C8A96B]/45"]::placeholder,
+:root[data-theme="light"] [class~="placeholder:text-[#C8A96B]/55"]::placeholder {
+  color: rgb(116 86 28 / .7);
+}

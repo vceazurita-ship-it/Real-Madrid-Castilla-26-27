@@ -178,7 +178,7 @@ export default function ModulesExplorer() {
                 type="button"
                 disabled={count === 0}
                 onClick={() => setArea(active ? null : item.key)}
-                style={{ ["--accent" as string]: item.color }}
+                style={{ ["--accent" as string]: chipInk(item.color) }}
                 className={cn(
                   "shrink-0 rounded-full border px-3.5 py-1.5 text-[12px] font-medium transition disabled:cursor-not-allowed disabled:opacity-25",
                   active
