@@ -148,6 +148,8 @@ function toEvent(
 
   const remateRaw = pick(row, "Remate");
 
+  const gol = result.owner === atacante && result.rank === 5;
+
   return {
     jornada: pick(row, "JORNADA", "Jornada"),
     contexto: contextoDeFila(row),
@@ -159,10 +161,13 @@ function toEvent(
       : (options.familyFallback ?? "otra"),
     envio: parseEnvio(pick(row, "Tipo_Envio")),
     zonaSaque: parseZonaSaque(pick(row, "Zona_Saque")),
-    remate: remateRaw ? esSi(remateRaw) : Boolean(pick(row, "Rematador")),
+    /* Un gol es un remate aunque la casilla no lo diga (19/10/2026): los
+       penaltis de pretemporada venían con «Remate» vacío y la tabla del
+       informe daba 4 goles con 2 remates. */
+    remate: (remateRaw ? esSi(remateRaw) : Boolean(pick(row, "Rematador"))) || gol,
     xg: num(pick(row, "xG", "xg")),
     peligro: result.owner === atacante && result.rank >= 4,
-    gol: result.owner === atacante && result.rank === 5,
+    gol,
   };
 }
 
