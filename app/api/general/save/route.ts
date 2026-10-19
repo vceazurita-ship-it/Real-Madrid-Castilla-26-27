@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { respondeCambio } from "@/lib/season/guardaCambio";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,25 +14,57 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     /*
-    | UPSERT, y comprobando que ha escrito.
-    |
-    | Era un `update` sobre la fila de la temporada: si esa fila no existe
-    | —proyecto nuevo, cambio de temporada— Supabase no da error, afecta a
-    | cero filas y esto contestaba «guardado». El calendario de operativa
-    | del año entero se escribía contra la nada, con la pantalla diciendo
-    | que todo iba bien.
+    | Lo normal desde el 19/10/2026: `{ cambio }` con lo que ha cambiado en
+    | UNA semana, que se aplica sobre lo último guardado (lib/season/fusion.ts).
+    | Mandar la temporada entera hacía que dos personas a la vez se borrasen
+    | lo subido la una a la otra.
+    */
+    const porCambio = await respondeCambio(
+      body,
+      supabase,
+      "general_seasons",
+      CURRENT_SEASON
+    );
+
+    if (porCambio) {
+      return NextResponse.json(porCambio.json, { status: porCambio.status });
+    }
+
+    /* Formato antiguo (temporada entera). Sin un array de meses no se
+       escribe: antes un cuerpo vacío dejaba la temporada en `null`. */
+    if (!Array.isArray(body?.data)) {
+      return NextResponse.json(
+        { success: false, error: "Falta la temporada que guardar." },
+        { status: 400 }
+      );
+    }
+
+    /*
+    | La temporada entera sólo se acepta para CREAR la fila (temporada nueva).
+    | Encima de una que ya existe es justo lo que borraba el trabajo de otros
+    | (19/10/2026); sólo lo mandaría una pestaña abierta antes de esta versión,
+    | y a esa se le pide que recargue. Antes era un upsert —y antes aún un
+    | `update` que, sin fila, contestaba «guardado» sin escribir nada—.
     */
     const { data: escrito, error } = await supabase
       .from("general_seasons")
-      .upsert(
-        {
-          season: CURRENT_SEASON,
-          data: body.data,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "season" },
-      )
+      .insert({
+        season: CURRENT_SEASON,
+        data: body.data,
+        updated_at: new Date().toISOString(),
+      })
       .select("season");
+
+    if (error?.code === "23505") {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Esta página está desactualizada. Recárgala para guardar sin pisar lo de los demás.",
+        },
+        { status: 409 }
+      );
+    }
 
     if (error) {
       return NextResponse.json(

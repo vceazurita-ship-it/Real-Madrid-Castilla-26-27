@@ -5,8 +5,14 @@ import { AlertTriangle, ListFilter, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { loadSeasonData, saveSeasonData } from "@/lib/season/api";
-import { FileKind, MonthData, SeasonArea, WeekData } from "@/lib/season/types";
+import { loadSeasonData, saveWeekChange } from "@/lib/season/api";
+import {
+  aplicaCambio,
+  CambioSemana,
+  inverso,
+  poneSemana,
+} from "@/lib/season/fusion";
+import { FileKind, MonthData, SeasonArea } from "@/lib/season/types";
 import {
   collectFiles,
   findWeekForDate,
@@ -26,7 +32,10 @@ export default function SeasonWorkspace({ area }: Props) {
   const [season, setSeason] = useState<MonthData[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [saving, setSaving] = useState(false);
+  // Un contador y no un sí/no: con una subida y un borrado a la vez, el primero
+  // en terminar apagaba «Guardando» mientras el otro seguía en camino.
+  const [savingCount, setSavingCount] = useState(0);
+  const saving = savingCount > 0;
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
   const [filesViewer, setFilesViewer] = useState<FileKind | null>(null);
   const [navOpen, setNavOpen] = useState(false);
@@ -109,37 +118,45 @@ export default function SeasonWorkspace({ area }: Props) {
     []
   );
 
-  /** Guarda la semana de forma optimista y revierte si el servidor falla. */
+  /*
+  | Guarda UN cambio de semana de forma optimista (19/10/2026).
+  |
+  | Antes se mandaba la temporada entera tal como la veía esta pestaña, y se
+  | revertía a una foto completa si fallaba: con dos personas a la vez la
+  | segunda borraba lo de la primera, y una reversión se llevaba también
+  | cualquier otro cambio hecho mientras tanto. Ahora viaja sólo el cambio, el
+  | servidor lo aplica sobre lo último guardado y devuelve cómo ha quedado la
+  | semana (con lo que otros hayan subido); si falla, se deshace sólo ese
+  | cambio. Todo con actualizaciones funcionales: dos subidas seguidas no se
+  | pisan por leer `season` de un render anterior.
+  */
   const updateWeek = useCallback(
-    async (updatedWeek: WeekData) => {
-      const previous = season;
+    async (cambio: CambioSemana) => {
+      const aplica = (meses: MonthData[], c: CambioSemana) =>
+        (aplicaCambio(meses, c)?.raw as MonthData[] | undefined) ?? meses;
 
-      const next = season.map((month) => ({
-        ...month,
-        weeks: month.weeks.map((week) =>
-          week.id === updatedWeek.id ? updatedWeek : week
-        ),
-      }));
-
-      setSeason(next);
-      setSaving(true);
+      setSeason((meses) => aplica(meses, cambio));
+      setSavingCount((n) => n + 1);
 
       try {
-        await saveSeasonData(area, next);
+        const semana = await saveWeekChange(area, cambio);
+
+        setSeason((meses) => poneSemana(meses, semana));
       } catch (error) {
         console.error(error);
-        setSeason(previous);
+        setSeason((meses) => aplica(meses, inverso(cambio)));
 
-        toast.error(
-          "No se pudieron guardar los cambios. Se ha restaurado el estado anterior."
-        );
+        toast.error("No se ha podido guardar y se ha deshecho el cambio.", {
+          description:
+            error instanceof Error && error.message ? error.message : undefined,
+        });
 
         throw error;
       } finally {
-        setSaving(false);
+        setSavingCount((n) => n - 1);
       }
     },
-    [area, season]
+    [area]
   );
 
   return (

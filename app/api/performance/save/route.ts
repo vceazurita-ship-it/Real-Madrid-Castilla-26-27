@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { respondeCambio } from "@/lib/season/guardaCambio";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,24 +14,56 @@ export async function POST(req: NextRequest) {
     const seasonData = await req.json();
 
     /*
-    | UPSERT, y comprobando que ha escrito (igual que /api/general/save).
-    |
-    | Era un `update` sobre la fila de la temporada: si esa fila no existe,
-    | Supabase no da error, afecta a cero filas y esto contestaba «guardado».
-    | La forma guardada no cambia: la fila guarda el cuerpo entero
-    | (`{ season, data }`), que es lo que desenvuelve `unwrapSeason`.
+    | Lo normal desde el 19/10/2026: `{ cambio }` con lo que ha cambiado en
+    | UNA semana (ver /api/general/save y lib/season/fusion.ts). Va antes que
+    | lo demás: guardado tal cual, `{ season, cambio }` machacaría la temporada.
+    */
+    const porCambio = await respondeCambio(
+      seasonData,
+      supabase,
+      "performance_seasons",
+      CURRENT_SEASON
+    );
+
+    if (porCambio) {
+      return NextResponse.json(porCambio.json, { status: porCambio.status });
+    }
+
+    /* Formato antiguo (temporada entera, `{ season, data }`): sin un array de
+       meses dentro no se escribe nada. */
+    if (!Array.isArray(seasonData?.data)) {
+      return NextResponse.json(
+        { success: false, error: "Falta la temporada que guardar." },
+        { status: 400 }
+      );
+    }
+
+    /*
+    | La temporada entera sólo se acepta para CREAR la fila (igual que
+    | /api/general/save, 19/10/2026): encima de una que ya existe borraba lo
+    | que otros hubieran subido. La forma guardada no cambia: la fila guarda
+    | el cuerpo entero (`{ season, data }`), que es lo que desenvuelve
+    | `unwrapSeason`.
     */
     const { data: escrito, error } = await supabase
       .from("performance_seasons")
-      .upsert(
-        {
-          season: CURRENT_SEASON,
-          data: seasonData,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "season" },
-      )
+      .insert({
+        season: CURRENT_SEASON,
+        data: seasonData,
+        updated_at: new Date().toISOString(),
+      })
       .select("season");
+
+    if (error?.code === "23505") {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Esta página está desactualizada. Recárgala para guardar sin pisar lo de los demás.",
+        },
+        { status: 409 }
+      );
+    }
 
     if (error) {
       return NextResponse.json(
