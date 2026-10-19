@@ -1276,6 +1276,16 @@ export function InformeMicroDialog({
             title="Vista previa del informe"
             srcDoc={html}
             className="h-[58vh] w-full bg-white"
+            /* El correo mide 860 px y el marco menos: se encoge para que se lea entero, sin barra lateral ni titulares cortados (20/10/2026). */
+            onLoad={(e) => {
+              const raiz = e.currentTarget.contentDocument?.documentElement;
+
+              if (!raiz) return;
+
+              raiz.style.zoom = "";
+
+              if (raiz.scrollWidth > raiz.clientWidth + 1) raiz.style.zoom = String(raiz.clientWidth / raiz.scrollWidth);
+            }}
           />
         </div>
       </div>
