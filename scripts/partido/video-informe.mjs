@@ -46,8 +46,8 @@ const { createCanvas, GlobalFonts } = require("@napi-rs/canvas");
 const { Worker } = require("worker_threads");
 const os = require("os");
 
-const { escenaBalance, escenasDeCortes, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
-const { ANCHO, ALTO, ANCHO_HD, ALTO_HD, FPS, estiramiento, limitesDeCortes, palabrasDeEscena, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
+const { escenaBalance, escenaPlan, escenasDeCortes, tituloDeVersus, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
+const { ANCHO, ALTO, ANCHO_HD, ALTO_HD, FPS, SEGUNDO_POSTER, estiramiento, limitesDeCortes, palabrasDeEscena, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
 const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
 const { bandaSonora, masteriza } = require("../../lib/video-informe/musica.ts");
@@ -636,6 +636,15 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
   });
 
   const deCortes = escenasDeCortes(cortes, rival);
+  const filasBalance = filasDeBalance(partido, datos, transiciones, plan);
+
+  /*
+  | Lo que buscábamos, como planteamiento (20/10/2026, crítica del guionista):
+  | el arco del post es buscábamos → pasó → nos deja. Sólo con dos metas o más.
+  */
+  const planteamiento = escenaPlan(filasBalance.map((f) => f.buscabamos));
+
+  if (planteamiento) escenas.push(planteamiento);
 
   /* Los goles, justo después de la portada: es lo que se viene a ver. */
   escenas.push(...deCortes.filter((e) => e.id === "clips-1"));
@@ -663,10 +672,13 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
   ].filter((x) => x.nuestro + x.suyo > 0);
 
   if (filasDatos.length >= 3) {
+    /* Primero la cifra en la que más se separaron (el dibujo la deja en oro) y el título la cuenta (20/10/2026). */
+    filasDatos.sort((a, b) => Math.abs(b.nuestro - b.suyo) / Math.max(b.nuestro, b.suyo, 1) - Math.abs(a.nuestro - a.suyo) / Math.max(a.nuestro, a.suyo, 1));
+
     escenas.push({
       id: "datos",
       tipo: "versus",
-      titulo: "El partido en datos",
+      titulo: tituloDeVersus(filasDatos[0], true),
       pie: `Castilla a la izquierda, ${rival} a la derecha · timeline de Hudl${robos.length ? " y análisis de robos y pérdidas" : ""}`,
       filas: filasDatos,
       locucion: filasDatos.map((x) => `${x.nombre}: ${x.textoNuestro} contra ${x.textoSuyo}`).join(". "),
@@ -674,7 +686,7 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
   }
 
   /* Lo que buscábamos (el plan) frente a lo que logramos (Hudl), y el cierre con el recuento y lo que hay que mejorar. */
-  const balance = escenaBalance(filasDeBalance(partido, datos, transiciones, plan));
+  const balance = escenaBalance(filasBalance);
 
   if (balance) escenas.push(balance.escena);
 
@@ -886,7 +898,9 @@ async function renderiza(guion, pistas, carpetaVideo, salida) {
 
   console.log(`  pintando con ${HILOS} ${HILOS === 1 ? "hilo" : "hilos"}`);
 
-  const fotoPoster = Math.min(tramos[0].cuantos - 1, Math.round(2.4 * FPS));
+  /* El póster: la PORTADA ya entera (20/10/2026), no la primera escena, que desde el 14/10 es el gancho. */
+  const kPoster = Math.max(0, escenas.findIndex((x) => x.escena.tipo === "portada"));
+  const fotoPoster = tramos[kPoster].desde + Math.min(tramos[kPoster].cuantos - 1, Math.round(SEGUNDO_POSTER * FPS));
   let escrito = 0;
   let pedido = 0;
   let escenaDicha = -1;
