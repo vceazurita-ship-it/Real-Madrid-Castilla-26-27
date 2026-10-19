@@ -31,7 +31,13 @@ export function useCalendarioCastilla() {
     /* Por `cargaCalendario`: la misma descarga que el resto de paneles y la
        copia del aparato; antes cada sello volvía a bajar el documento. */
     void cargaCalendario().then((partidos) => {
-      if (vivo) setEstado({ partidos, hoy: new Date().toISOString().slice(0, 10) });
+      /* El día de aquí (19/10/2026): `toISOString` es UTC y entre las 00:00
+         y las 02:00 daba todavía el de ayer, así que la jornada recién
+         jugada no salía como «ya jugada y sin datos». */
+      const ahora = new Date();
+      const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
+
+      if (vivo) setEstado({ partidos, hoy });
     });
     return () => {
       vivo = false;
@@ -53,7 +59,10 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
       {alcances.map((a) => {
         const completa = a.estado === "completa";
         const sin = a.estado === "sin-datos";
-        const color = completa ? "#1B9E77" : sin ? "rgba(255,255,255,0.45)" : "#E3A008";
+        /* 19/10/2026: el gris de «sin datos» era un blanco al 45 % —invisible
+           en modo día— y además `${color}55` sobre un `rgba()` daba un color
+           inválido. Ahora es un gris en hex, que se lee en los dos temas. */
+        const color = completa ? "#1B9E77" : sin ? "#7C8794" : "#E3A008";
         const Icono = completa ? CheckCircle2 : sin ? CircleDashed : CircleAlert;
         return (
           <div
@@ -62,7 +71,7 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
             style={{ borderColor: `${color}55`, background: `${color}10` }}
             role="status"
           >
-            <Icono size={14} style={{ color }} className="shrink-0" />
+            <Icono size={14} style={{ color: chipInk(color) }} className="shrink-0" />
             <span className="font-medium text-white/85">
               {explicativos ? `${a.fuente}: ` : ""}
               {a.jornada ? `${explicativos ? "datos" : "Datos"} hasta la J${a.jornada}` : "Sin jornada de liga"}
@@ -76,7 +85,7 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
             )}
             {explicativos && <span className="text-white/55">{a.detalle}</span>}
             {explicativos && a.pendientes.length > 0 && (
-              <span className="basis-full text-[11px]" style={{ color: "#E3A008" }}>
+              <span className="basis-full text-[11px]" style={{ color: chipInk("#E3A008") }}>
                 Ya jugada{a.pendientes.length > 1 ? "s" : ""} y sin datos todavía: {a.pendientes.join(" · ")}.
               </span>
             )}

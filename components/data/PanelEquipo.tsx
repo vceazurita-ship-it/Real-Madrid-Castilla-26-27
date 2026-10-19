@@ -95,7 +95,10 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
   useEffect(() => {
     let vivo = true;
     void cargaCalendario().then((partidos) => {
-      const hoy = new Date().toISOString().slice(0, 10);
+      /* El día de aquí, no el de Greenwich (19/10/2026): con `toISOString`,
+         entre las 00:00 y las 02:00 «hoy» era todavía ayer. */
+      const ahora = new Date();
+      const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
       const sig = partidos
         .filter((p) => p.cuando && p.cuando.slice(0, 10) >= hoy)
         .sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
@@ -217,12 +220,12 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
 
           <div className="flex flex-wrap items-center gap-5">
             {[
-              { t: "PJ", v: resumen.partidos },
-              { t: "G-E-P", v: `${resumen.g}-${resumen.e}-${resumen.p}` },
-              { t: "Goles", v: `${resumen.gf}-${resumen.gc}` },
-              { t: "Pts/partido", v: resumen.partidos ? (resumen.puntos / resumen.partidos).toFixed(2).replace(".", ",") : "—" },
+              { t: "PJ", d: "Partidos jugados con informe de Wyscout", v: resumen.partidos },
+              { t: "G-E-P", d: "Ganados, empatados y perdidos", v: `${resumen.g}-${resumen.e}-${resumen.p}` },
+              { t: "Goles", d: "A favor y en contra", v: `${resumen.gf}-${resumen.gc}` },
+              { t: "Pts/partido", d: "Puntos por partido", v: resumen.partidos ? (resumen.puntos / resumen.partidos).toFixed(2).replace(".", ",") : "—" },
             ].map((k) => (
-              <div key={k.t} className="text-center">
+              <div key={k.t} className="text-center" title={k.d}>
                 <p className="text-xl font-semibold tabular-nums">{k.v}</p>
                 <p className="text-[10px] uppercase tracking-wider text-white/40">{k.t}</p>
               </div>
@@ -285,6 +288,13 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
                 </div>
               ))}
               <Explicativo><p className="text-[11px] text-white/35">Media de sus percentiles en cada fase (P50 = la media de su competición).</p></Explicativo>
+              {/* 19/10/2026: los tres colores no se explicaban en ningún sitio. */}
+              <p className="text-[11px] leading-relaxed text-white/45">
+                P80 es estar mejor que el 80 % de los equipos de su competición.{" "}
+                <span style={{ color: MEJOR }}>Verde</span>, P60 o más;{" "}
+                <span style={{ color: ORO }}>oro</span>, entre P40 y P60;{" "}
+                <span style={{ color: PEOR }}>naranja</span>, P40 o menos.
+              </p>
             </div>
           ) : (
             <p className="text-sm text-white/45">No hay bastantes equipos de su competición para compararle.</p>
@@ -370,15 +380,22 @@ export function PanelEquipo({ liga, jugadores }: { liga: FilaPartido[]; jugadore
           <Tarjeta titulo={`La plantilla · ${plantilla.length} con minutos`}>
             <div className="max-h-[520px] overflow-auto">
               <table className="w-full min-w-[720px] text-xs">
-                <thead className="sticky top-0 bg-[#10151b]">
+                {/* 19/10/2026: `bg-[#10151b]` no está en la tabla del modo día y la
+                    cabecera fija salía oscura con la tinta ya oscurecida encima. */}
+                <thead className="sticky top-0 bg-[#11161C]">
                   <tr className="text-left text-[10px] uppercase tracking-wider text-white/40">
                     <th className="py-2 pr-2 font-medium">Jugador</th>
-                    <th className="px-1 font-medium">Pos.</th>
+                    <th className="px-1 font-medium" title="Puesto">Pos.</th>
                     <th className="px-1 text-right font-medium">Edad</th>
-                    <th className="px-1 text-right font-medium">Min.</th>
-                    <th className="px-1 text-right font-medium">G</th>
-                    <th className="px-1 text-right font-medium">A</th>
-                    <th className="w-28 px-2 font-medium">Índice</th>
+                    <th className="px-1 text-right font-medium" title="Minutos jugados">Min.</th>
+                    <th className="px-1 text-right font-medium" title="Goles">G</th>
+                    <th className="px-1 text-right font-medium" title="Asistencias">A</th>
+                    <th
+                      className="w-28 px-2 font-medium"
+                      title="La media de sus percentiles en las métricas de su puesto, de 0 a 100: 50 es un jugador medio de su puesto en la categoría"
+                    >
+                      Índice
+                    </th>
                     <th className="px-1 font-medium">Destaca / flojea (percentil en su puesto)</th>
                   </tr>
                 </thead>
