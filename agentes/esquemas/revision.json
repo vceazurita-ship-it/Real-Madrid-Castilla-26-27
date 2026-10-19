@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "riesgo": {
+      "type": "string",
+      "enum": [
+        "bajo",
+        "medio",
+        "alto"
+      ]
+    },
+    "hallazgos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fichero": {
+            "type": "string"
+          },
+          "linea": {
+            "type": "integer"
+          },
+          "problema": {
+            "type": "string"
+          },
+          "escenario": {
+            "type": "string"
+          },
+          "arreglo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fichero",
+          "linea",
+          "problema",
+          "escenario",
+          "arreglo"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "riesgo",
+    "hallazgos"
+  ],
+  "additionalProperties": false
+}

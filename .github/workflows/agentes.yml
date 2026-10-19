@@ -1,0 +1,93 @@
+# La red de agentes en GitHub (19/10/2026)
+#
+# Dos cosas:
+#
+# 1. «Comprobar la red»: en cada cambio de los agentes (.claude/agents/),
+#    sus reglas y esquemas (agentes/) o el orquestador (scripts/agentes/),
+#    comprueba que cada agente sólo puede LEER, usa el modelo que le toca y
+#    devuelve un esquema que existe. No llama a ningún modelo: gratis.
+#
+# 2. «Revisor de cambios»: sólo a mano (Actions → Red de agentes → Run
+#    workflow). Lanza el agente revisor-cambios sobre los últimos commits y
+#    deja lo que encuentre en el resumen de la ejecución. Necesita el secreto
+#    CLAUDE_CODE_OAUTH_TOKEN (Settings → Secrets → Actions; se saca con
+#    `claude setup-token` en el ordenador del club). Sin él, lo dice y para.
+#
+# La red de la SEMANA (informes post y previa) no corre aquí: necesita los
+# datos de BeSoccer y Hudl, y BeSoccer bloquea las IP de GitHub (ver
+# jornada-nocturna.yml). Corre en el ordenador del club. Ver agentes/README.md.
+
+name: Red de agentes
+
+on:
+  push:
+    branches: [main]
+    paths: [".claude/agents/**", "agentes/**", "scripts/agentes/**", ".github/workflows/agentes.yml"]
+  pull_request:
+    paths: [".claude/agents/**", "agentes/**", "scripts/agentes/**", ".github/workflows/agentes.yml"]
+  workflow_dispatch:
+    inputs:
+      desde:
+        description: "Revisar los cambios desde este commit (p. ej. HEAD~5 o un hash)"
+        default: "HEAD~5"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agentes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  valida:
+    name: Comprobar la red
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Agentes, reglas y esquemas
+        run: node scripts/agentes/valida.mjs
+
+  revision:
+    name: Revisor de cambios
+    if: github.event_name == 'workflow_dispatch'
+    needs: valida
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: ¿Hay credencial?
+        id: cred
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::notice::Falta el secreto CLAUDE_CODE_OAUTH_TOKEN: el revisor no puede correr (ver la cabecera de este fichero)."
+            echo "hay=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "hay=si" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Claude Code
+        if: steps.cred.outputs.hay == 'si'
+        run: npm install -g @anthropic-ai/claude-code@2.1.301
+      - name: Revisor de cambios
+        if: steps.cred.outputs.hay == 'si'
+        run: node scripts/agentes/red.mjs revision --desde "${{ inputs.desde }}"
+      - name: Resumen
+        if: steps.cred.outputs.hay == 'si'
+        run: |
+          node -e '
+            const r = require("./.cache/agentes/revision.json").resultado;
+            const l = ["## Revisor de cambios", "", `Riesgo: **${r.riesgo}** · ${r.hallazgos.length} hallazgos`, ""];
+            for (const h of r.hallazgos) l.push(`- \`${h.fichero}:${h.linea}\` — ${h.problema}  \n  _Cuándo:_ ${h.escenario}  \n  _Arreglo:_ ${h.arreglo}`);
+            require("fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, l.join("\n") + "\n");
+          '

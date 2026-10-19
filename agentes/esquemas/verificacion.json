@@ -1,0 +1,55 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "aprobado": {
+      "type": "boolean"
+    },
+    "revisiones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "seccion": {
+            "type": "string"
+          },
+          "texto": {
+            "type": "string"
+          },
+          "veredicto": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "corregir",
+              "quitar"
+            ]
+          },
+          "valor_visto": {
+            "type": "string",
+            "description": "El valor leído en la fuente citada"
+          },
+          "motivo": {
+            "type": "string"
+          },
+          "texto_corregido": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "seccion",
+          "texto",
+          "veredicto",
+          "valor_visto",
+          "motivo",
+          "texto_corregido"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "aprobado",
+    "revisiones"
+  ],
+  "additionalProperties": false
+}

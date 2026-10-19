@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "estado": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "aviso",
+        "roto"
+      ]
+    },
+    "problemas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "donde": {
+            "type": "string"
+          },
+          "sintoma": {
+            "type": "string"
+          },
+          "causa_probable": {
+            "type": "string"
+          },
+          "evidencia": {
+            "type": "string"
+          },
+          "arreglo_propuesto": {
+            "type": "string"
+          },
+          "requiere_humano": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "donde",
+          "sintoma",
+          "causa_probable",
+          "evidencia",
+          "arreglo_propuesto",
+          "requiere_humano"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "estado",
+    "problemas"
+  ],
+  "additionalProperties": false
+}

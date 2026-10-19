@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "mensaje": {
+      "type": "string",
+      "maxLength": 700,
+      "description": "Para el grupo de jugadores: corto, directo, sin cifras de más"
+    },
+    "puntos": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 3
+    },
+    "dudas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "mensaje",
+    "puntos",
+    "dudas"
+  ],
+  "additionalProperties": false
+}

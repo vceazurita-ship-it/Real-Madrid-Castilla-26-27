@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "cortes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "que_pasa": {
+            "type": "string"
+          },
+          "zona": {
+            "type": "string"
+          },
+          "clave_tactica": {
+            "type": "string"
+          },
+          "confianza": {
+            "type": "string",
+            "enum": [
+              "alta",
+              "media",
+              "baja"
+            ]
+          },
+          "duda": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "que_pasa",
+          "zona",
+          "clave_tactica",
+          "confianza",
+          "duda"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "cortes"
+  ],
+  "additionalProperties": false
+}

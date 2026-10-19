@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "listo": {
+      "type": "object",
+      "properties": {
+        "post": {
+          "type": "boolean"
+        },
+        "previa": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "post",
+        "previa"
+      ],
+      "additionalProperties": false
+    },
+    "huecos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fuente": {
+            "type": "string"
+          },
+          "problema": {
+            "type": "string"
+          },
+          "gravedad": {
+            "type": "string",
+            "enum": [
+              "bloquea",
+              "resta",
+              "aviso"
+            ]
+          },
+          "como_arreglar": {
+            "type": "string",
+            "description": "Qué botón o qué script, en una frase"
+          }
+        },
+        "required": [
+          "fuente",
+          "problema",
+          "gravedad",
+          "como_arreglar"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "listo",
+    "huecos"
+  ],
+  "additionalProperties": false
+}
