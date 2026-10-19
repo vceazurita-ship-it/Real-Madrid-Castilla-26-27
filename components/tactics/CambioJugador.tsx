@@ -42,7 +42,7 @@ export function CambioJugador({
   }, [busca, opciones]);
 
   return (
-    <div className="modal-veil fixed inset-0 z-[70] flex items-end justify-center backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={titulo} onPointerDown={(e) => e.target === e.currentTarget && onCierra()}>
+    <div className="modal-veil fixed inset-0 z-[70] flex items-end justify-center backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={titulo} onPointerDown={(e) => e.target === e.currentTarget && onCierra()} onKeyDown={(e) => e.key === "Escape" && onCierra()}>
       <div className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#11161C] shadow-2xl sm:rounded-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-white/10 px-4 py-3">
           <div className="min-w-0">
@@ -79,7 +79,14 @@ export function CambioJugador({
               ) : null}
             </button>
           ))}
-          {!visibles.length ? <p className="py-6 text-center text-xs text-white/40">Nadie con ese nombre.</p> : null}
+          {/* Sin plantilla no es «nadie con ese nombre» (19/10/2026): una ficha rival suelta, sin equipo en el campo, abría la lista vacía con ese texto. */}
+          {!visibles.length ? (
+            <p className="px-4 py-6 text-center text-xs leading-relaxed text-white/40">
+              {opciones.length === 0
+                ? "No hay plantilla de este equipo cargada. Elige el rival en «Rivales», encima del campo, y pon sus dorsales desde ahí."
+                : "Nadie con ese nombre."}
+            </p>
+          ) : null}
         </div>
 
         <footer className="flex justify-end border-t border-white/10 px-4 py-2.5">

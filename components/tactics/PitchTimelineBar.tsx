@@ -92,7 +92,7 @@ export default function PitchTimelineBar({
 
       <div className="flex items-center gap-0.5">
         <Control
-          title="Keyframe anterior"
+          title="Escena anterior"
           onClick={timeline.prevKeyframe}
           disabled={single}
           icon={<SkipBack size={13} />}
@@ -109,7 +109,7 @@ export default function PitchTimelineBar({
         </button>
 
         <Control
-          title="Keyframe siguiente"
+          title="Escena siguiente"
           onClick={timeline.nextKeyframe}
           disabled={single}
           icon={<SkipForward size={13} />}

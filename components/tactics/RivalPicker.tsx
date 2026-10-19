@@ -112,6 +112,8 @@ export default function RivalPicker({
             }}
             placeholder="nº"
             inputMode="numeric"
+            title="Dorsal de un rival que no está en la hoja: escríbelo y pulsa Intro o +"
+            aria-label="Dorsal suelto del rival"
             className="w-12 rounded-xl border border-white/10 bg-[#0F141B] px-2 py-2 text-center text-[11px] text-white outline-none placeholder:text-white/25"
           />
 
@@ -119,6 +121,7 @@ export default function RivalPicker({
             type="button"
             onClick={addManual}
             title="Añadir dorsal suelto"
+            aria-label="Añadir dorsal suelto"
             className="rounded-xl border border-white/10 bg-white/[0.03] p-2 text-white/55 transition hover:bg-white/[0.08] hover:text-white"
           >
             <Plus size={14} />
@@ -168,7 +171,8 @@ export default function RivalPicker({
                         : "border-white/10 bg-white/[0.03] text-white/55 hover:border-white/30 hover:text-white"
                     )}
                   >
-                    {player.dorsal || "–"}
+                    {/* Sin dorsal en la hoja, sus iniciales —las mismas que lleva la ficha en el campo— en vez de un guion. */}
+                    {player.dorsal || player.nombre.slice(0, 2).toUpperCase()}
                   </button>
                 );
               })}

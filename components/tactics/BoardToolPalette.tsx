@@ -42,7 +42,7 @@ export const BOARD_TOOLS: {
     id: "select",
     label: "Mover",
     short: "Mover",
-    hint: "Arrastra fichas",
+    hint: "Arrastra las fichas; pincha una para cambiar al jugador",
     icon: <MousePointer2 size={15} />,
   },
   {
@@ -91,14 +91,14 @@ export const BOARD_TOOLS: {
     id: "text",
     label: "Texto",
     short: "Texto",
-    hint: "Etiqueta",
+    hint: "Pincha en el campo para poner un texto; para corregirlo, doble clic sobre él con Mover",
     icon: <TypeIcon size={15} />,
   },
   {
     id: "erase",
     label: "Borrar",
     short: "Borrar",
-    hint: "Toca lo que sobre",
+    hint: "Toca la ficha o el dibujo que sobre",
     icon: <Eraser size={15} />,
   },
 ];
@@ -131,7 +131,7 @@ export default function BoardToolPalette({
   const actions = [
     {
       id: "undo",
-      title: "Deshacer",
+      title: "Deshacer (Ctrl+Z)",
       short: "Atrás",
       icon: <Undo2 size={15} />,
       onClick: onUndo,
@@ -139,7 +139,7 @@ export default function BoardToolPalette({
     },
     {
       id: "redo",
-      title: "Rehacer",
+      title: "Rehacer (Ctrl+Y)",
       short: "Rehacer",
       icon: <Redo2 size={15} />,
       onClick: onRedo,
@@ -147,7 +147,7 @@ export default function BoardToolPalette({
     },
     {
       id: "clear",
-      title: "Vaciar la escena",
+      title: "Vaciar la escena: quita fichas y dibujos (se puede deshacer)",
       short: "Vaciar",
       icon: <Trash2 size={15} />,
       onClick: onClear,
@@ -195,6 +195,7 @@ export default function BoardToolPalette({
             key={action.id}
             type="button"
             title={action.title}
+            aria-label={action.title}
             onClick={action.onClick}
             disabled={action.disabled}
             className="flex h-13 flex-col items-center justify-center gap-1 rounded-xl bg-white/[0.03] text-white/45 transition disabled:opacity-25"
@@ -223,6 +224,7 @@ export default function BoardToolPalette({
           type="button"
           onClick={() => onToolChange(item.id)}
           title={`${item.label} — ${item.hint}`}
+          aria-label={item.label}
           aria-pressed={tool === item.id}
           className={cn(
             "rounded-xl p-2 transition",
@@ -242,6 +244,7 @@ export default function BoardToolPalette({
           key={action.id}
           type="button"
           title={action.title}
+          aria-label={action.title}
           onClick={action.onClick}
           disabled={action.disabled}
           className="rounded-xl p-2 text-white/45 transition hover:bg-white/[0.09] hover:text-white disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent"
