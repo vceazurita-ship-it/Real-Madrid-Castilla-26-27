@@ -164,7 +164,6 @@ function Forma({ titulo, resultados, derecha = false }: { titulo: string; result
           </span>
         );
       })}
-      {!resultados.length && <span style={{ fontSize: 20, color: C.tenue }}>Sin datos</span>}
     </div>
   );
 }
@@ -316,7 +315,6 @@ function Lista({ items, numerada = false, tamano = 30, max = 4, corte = 120 }: {
           <span style={{ fontSize: tamano, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(t, corte)}</span>
         </div>
       ))}
-      {!items.length && <span style={{ fontSize: 24, color: C.tenue }}>Sin datos todavía.</span>}
     </div>
   );
 }
@@ -446,6 +444,9 @@ function BarraResultado({ p, alto = 64, resaltar }: { p: Probabilidades; alto?: 
 function PanelPronostico({ inf }: { inf: InformePartido }) {
   const pr = inf.pronostico;
 
+  /* Sin pronóstico, el panel no sale: el informe no nombra lo que no tiene (regla del usuario, 17/10/2026; aplicada a las láminas el 19/10/2026). */
+  if (!pr) return null;
+
   return (
     <Panel titulo="EL PRONÓSTICO">
       {pr ? (
@@ -483,9 +484,7 @@ function PanelPronostico({ inf }: { inf: InformePartido }) {
           </div>
           <div style={{ fontSize: 15, color: C.tenue }}>{pr.base}</div>
         </div>
-      ) : (
-        <span style={{ fontSize: 24, color: C.tenue }}>Sin datos de los dos en Data Análisis: no hay pronóstico.</span>
-      )}
+      ) : null}
     </Panel>
   );
 }
@@ -535,7 +534,7 @@ function PreviaPartido({ inf }: { inf: InformePartido }) {
         <PanelPronostico inf={inf} />
 
         <Panel titulo={inf.once.fuente === "marcado" ? "SU ONCE PROBABLE" : "SU ÚLTIMO ONCE"} acento={C.rival}>
-          {inf.once.jugadores.length ? <Campo once={inf.once.jugadores} /> : <span style={{ fontSize: 24, color: C.tenue }}>Sin once.</span>}
+          {inf.once.jugadores.length ? <Campo once={inf.once.jugadores} /> : null}
           <div style={{ marginTop: 8, fontSize: 18, color: C.tenue, textAlign: "center" }}>
             {[inf.duelo?.esquema.rival && `Dibujo más usado: ${inf.duelo.esquema.rival}`, ctx?.entrenador && `Entrenador: ${ctx.entrenador}`].filter(Boolean).join(" · ")}
           </div>
@@ -752,7 +751,7 @@ function PostResultado({ inf }: { inf: InformePartido }) {
 
   const sorpresas = new Set(real.filter((r) => acierto?.sorpresas.includes(r.nombre)).map((r) => r.clave));
 
-  const marcador = p.gf !== null && p.gc !== null ? (p.lado === "fuera" ? `${p.gc} - ${p.gf}` : `${p.gf} - ${p.gc}`) : "—";
+  const marcador = p.gf !== null && p.gc !== null ? (p.lado === "fuera" ? `${p.gc} - ${p.gf}` : `${p.gf} - ${p.gc}`) : "VS";
 
   const [local, visitante] = p.lado === "fuera" ? [p.rival.toUpperCase(), "RM CASTILLA"] : ["RM CASTILLA", p.rival.toUpperCase()];
 
@@ -792,9 +791,7 @@ function PostResultado({ inf }: { inf: InformePartido }) {
                 El pronóstico daba <b style={{ color: C.oro }}>{pct(inf.pronostico.victoria)}</b> de victoria, {pct(inf.pronostico.empate)} de empate y {pct(inf.pronostico.derrota)} de derrota.
               </div>
             ) : null}
-            <div style={{ marginTop: 8, fontSize: 18, color: C.tenue }}>
-              Wyscout aún no tiene este partido (se baja los martes o desde Ajustes): medias de la temporada hasta la jornada.
-            </div>
+            <div style={{ marginTop: 8, fontSize: 18, color: C.tenue }}>Medias de la temporada hasta la jornada.</div>
           </Panel>
         ) : (
           <Panel titulo="EL PARTIDO EN DATOS">
@@ -820,9 +817,6 @@ function PostResultado({ inf }: { inf: InformePartido }) {
                   </div>
                 );
               })}
-              {!metricas.length && (
-                <span style={{ fontSize: 26, color: C.tenue }}>Wyscout todavía no tiene este partido: se baja los martes (o desde Ajustes).</span>
-              )}
             </div>
           </Panel>
         )}
@@ -834,9 +828,7 @@ function PostResultado({ inf }: { inf: InformePartido }) {
         >
           {real.length || inf.once.jugadores.length ? (
             <Campo once={real.length ? real : inf.once.jugadores} resaltar={sorpresas} />
-          ) : (
-            <span style={{ fontSize: 24, color: C.tenue }}>Sin once.</span>
-          )}
+          ) : null}
           {acierto && (
             <div style={{ marginTop: 10, textAlign: "center", fontSize: 22, fontWeight: 600, color: C.suave }}>
               <b style={{ color: C.oro, fontSize: 30 }}>
@@ -1140,18 +1132,19 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
 
 function PanelVistazo({ inf }: { inf: InformePartido }) {
   const v = inf.vistazo;
+
+  /* Sin partidos suyos en Wyscout, el panel no sale (el informe no nombra lo que no tiene). */
+  if (!v) return null;
   const color = (p: number | null) => (p === null ? C.neutro : p >= 60 ? C.bien : p <= 40 ? C.mal : C.oro);
 
   return (
     <Panel titulo={`${(inf.partido.rival || "EL RIVAL").toUpperCase()} DE UN VISTAZO`} acento={C.rival}>
-      {!v ? (
-        <span style={{ fontSize: 22, color: C.tenue }}>Wyscout no tiene partidos suyos esta temporada.</span>
-      ) : (
+      {(
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             <Cifra rotulo="G · E · P" valor={`${v.g}-${v.e}-${v.p}`} pie={`${v.partidos} partidos`} />
             <Cifra rotulo="GOLES" valor={`${v.gf}-${v.gc}`} pie="a favor · en contra" />
-            <Cifra rotulo="TABLA" valor={v.tabla ? ordinal(v.tabla.puesto) : "—"} pie={v.tabla ? `de ${v.tabla.de} · pts/partido` : ""} color={C.oro} />
+            {v.tabla ? <Cifra rotulo="TABLA" valor={ordinal(v.tabla.puesto)} pie={`de ${v.tabla.de} · pts/partido`} color={C.oro} /> : null}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
             <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: C.tenue, marginRight: 6 }}>FORMA</span>
@@ -1166,11 +1159,11 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
             <span style={{ marginLeft: "auto", fontSize: 18, fontWeight: 600, color: C.suave }}>{v.sistemas.slice(0, 2).map((s) => s.sistema).join(" · ")}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px 18px", marginTop: 14 }}>
-            {v.fases.map((f) => (
+            {v.fases.filter((f) => f.percentil !== null).map((f) => (
               <div key={f.label}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 17, fontWeight: 600 }}>
                   <span style={{ color: C.suave }}>{f.label}</span>
-                  <span style={{ color: color(f.percentil) }}>{f.percentil === null ? "—" : `P${f.percentil}`}</span>
+                  <span style={{ color: color(f.percentil) }}>{`P${f.percentil}`}</span>
                 </div>
                 <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
                   <div style={{ width: `${f.percentil ?? 0}%`, height: "100%", background: color(f.percentil) }} />
