@@ -30,6 +30,7 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { traeJson } from "@/lib/hojaCsv";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { claveDeHoy } from "@/lib/rivals/orden-calendario";
 import { slugClave } from "@/lib/rivals/media";
 import { normalizarOnce, rivalOnceKey } from "@/lib/rivals/once";
 import { findInforme, type InformeDoc } from "@/lib/rivals/informe";
@@ -154,7 +155,9 @@ export default function DuelosPage() {
     });
     void cargaCalendario().then((partidos: PartidoCal[]) => {
       if (!vivo) return;
-      const hoy = new Date().toISOString().slice(0, 10);
+      /* El día de aquí, no el de UTC: de 00:00 a 02:00 del día del partido
+         `toISOString()` todavía decía «ayer» (19/10/2026). */
+      const hoy = claveDeHoy();
       const siguiente = partidos
         .filter((p) => p.cuando && p.cuando.slice(0, 10) >= hoy)
         .sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
@@ -861,8 +864,8 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
                     : f.veredicto === "desventaja"
                       ? { texto: `gana ${nombresDe(d.suyos)}`, color: PEOR }
                       : f.veredicto === "parejo"
-                        ? { texto: "igualado", color: "rgba(255,255,255,0.45)" }
-                        : { texto: "sin datos", color: "rgba(255,255,255,0.3)" };
+                        ? { texto: "igualado", color: tinta(0.45) }
+                        : { texto: "sin datos", color: tinta(0.3) };
 
                 return (
                   <div key={f.titulo} title={`${f.explica}\n${f.frase}`}>

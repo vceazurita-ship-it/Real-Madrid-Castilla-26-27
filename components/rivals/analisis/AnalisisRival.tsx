@@ -1169,7 +1169,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                   jornada={jornada}
                 />
               ) : (
-                <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[#C8A96B]/30 bg-[#081524]/60 text-center">
+                <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[#C8A96B]/30 bg-white/[0.03] text-center">
                   <p className="text-sm text-white/55">
                     No hay láminas de «{SECCION_POR_ID.get(seccion)?.titulo}» en la {jornada}.
                   </p>

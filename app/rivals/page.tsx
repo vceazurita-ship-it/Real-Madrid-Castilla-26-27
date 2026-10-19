@@ -5807,11 +5807,18 @@ function formatDateForInput(value: unknown) {
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
 
+  /* Ya viene como la quiere el <input type="date">: tal cual. */
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
   const date = new Date(raw);
 
   if (isNaN(date.getTime())) return "";
 
-  return date.toISOString().split("T")[0];
+  /* Con el día de aquí, no el de UTC: una fecha de la hoja a medianoche de
+     Madrid salía con `toISOString()` el día anterior (19/10/2026). */
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function EditableDateField({
