@@ -55,7 +55,12 @@ export function completaMarcador<T extends { contexto: ContextoAccion }>(filas: 
 
     if (!partido) return fila;
 
-    const parte = minuto.parte ?? (minuto.minuto > 45 ? 2 : 1);
+    /* El minuto es el del partido (lib/abp/partido.ts), así que pasado el 50
+       sólo puede ser la segunda parte aunque «Tiempo» diga otra cosa: en la
+       J3 hay acciones «T1» en el 52 y el 75, y leídas como primera parte
+       contaban el marcador del descanso (19/10/2026). La parte declarada sólo
+       decide en la franja dudosa del añadido, «45+3» frente a un 48. */
+    const parte = minuto.minuto > 50 ? 2 : (minuto.parte ?? (minuto.minuto > 45 ? 2 : 1));
 
     return { ...fila, contexto: { ...fila.contexto, marcador: marcadorEn(partido, parte, minuto.minuto) } };
   });

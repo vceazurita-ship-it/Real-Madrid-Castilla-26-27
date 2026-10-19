@@ -1,7 +1,8 @@
 "use client";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { traeCsv } from "@/lib/hojaCsv";
-import { EsqueletoPantalla, EstadoError } from "@/components/ui/estados";
+import { EsqueletoPantalla, EstadoError, EstadoVacio } from "@/components/ui/estados";
+import { chipInk } from "@/lib/theme";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import type { LegendProps } from "recharts";
@@ -1858,11 +1859,11 @@ resumen.forEach(
   },
   {
     id: "grafico-impacto-sacador",
-    title: "Impacto sacador",
+    title: "xG por perfil de golpeo",
   },
   {
     id: "grafico-impacto-rematadores",
-    title: "Impacto rematadores",
+    title: "xG por tipo de remate",
   },
   {
     id: "grafico-tipo-envio",
@@ -1926,8 +1927,9 @@ const chartNodes =
   );
 
 const originalStyles: Array<{
-  el: Element;
+  el: SVGElement;
   fill: string | null;
+  estilo: string;
   weight: string | null;
 }> = [];
 
@@ -1942,6 +1944,7 @@ chartNodes.forEach((chart) => {
       originalStyles.push({
         el: node,
         fill: node.getAttribute("fill"),
+        estilo: node.style.fill,
         weight:
           node.getAttribute(
             "font-weight"
@@ -1952,6 +1955,10 @@ chartNodes.forEach((chart) => {
         "fill",
         "#000000"
       );
+
+      /* Las cifras junto a la barra llevan el color en `style`, que gana al
+         atributo: sin esto salían blancas sobre el blanco del PDF (19/10/2026). */
+      node.style.fill = "#000000";
 
       node.setAttribute(
         "font-weight",
@@ -2171,12 +2178,14 @@ head: [[
     );
   }
 originalStyles.forEach(
-  ({ el, fill, weight }) => {
+  ({ el, fill, estilo, weight }) => {
     if (fill)
       el.setAttribute(
         "fill",
         fill
       );
+
+    el.style.fill = estilo;
 
     if (weight)
       el.setAttribute(
@@ -2185,8 +2194,12 @@ originalStyles.forEach(
       );
   }
 );
+  /* La fecha del nombre, la de aquí: con `toISOString` a pelo, un PDF
+     sacado pasada la medianoche llevaba la del día anterior (19/10/2026). */
+  const ahora = new Date();
+
   doc.save(
-    `ABP_Defensivo_${new Date()
+    `ABP_Defensivo_${new Date(ahora.getTime() - ahora.getTimezoneOffset() * 60000)
       .toISOString()
       .slice(0, 10)}.pdf`
   );
@@ -2897,7 +2910,7 @@ outerRadius={isMobile ? 90 : 120}
         )}<Label
   value={zonaCaida.reduce((suma, d) => suma + d.total, 0)}
   position="center"
-  fill="#fff"
+  fill="#F4F4F5"
   fontSize={isMobile ? 22 : 30}
 />
  <LabelList
@@ -2925,7 +2938,9 @@ outerRadius={isMobile ? 90 : 120}
     </PieChart>
   </Chart></div>
 </Panel>
-<Panel className={oculto("quien")} title="Impacto sacador" analisis={pie({ metrica: "xg", dimension: "perfil de golpeo", categoria: (r) => r.perfilGolpeo })}>
+{/* Era «Impacto sacador», pero la hoja defensiva no anota sacador: el
+    gráfico reparte por perfil de golpeo, y así se llama (19/10/2026). */}
+<Panel className={oculto("quien")} title="xG concedido por perfil de golpeo" analisis={pie({ metrica: "xg", dimension: "perfil de golpeo", categoria: (r) => r.perfilGolpeo })}>
   <div id="grafico-impacto-sacador">
   <Chart>
     <BarChart
@@ -2992,7 +3007,7 @@ margin={{
               : ""
           }
           style={{
-            fill: "#fff",
+            fill: "rgb(var(--rmcf-ink-rgb))",
             fontWeight: 600,
           }}
         />
@@ -3000,7 +3015,8 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel className={oculto("quien")} title="Impacto rematadores" analisis={pie({ dimension: "tipo de remate", categoria: (r) => r.tipoRemate })}><div id="grafico-impacto-rematadores">
+{/* Igual: sin columna de rematador, esto es el xG por tipo de remate. */}
+<Panel className={oculto("quien")} title="xG concedido por tipo de remate" analisis={pie({ dimension: "tipo de remate", categoria: (r) => r.tipoRemate })}><div id="grafico-impacto-rematadores">
   <Chart>
     <BarChart
       data={rematadoresData}
@@ -3056,7 +3072,7 @@ margin={{
           dataKey="xg"
           position="right"
           style={{
-            fill: "#fff",
+            fill: "rgb(var(--rmcf-ink-rgb))",
             fontWeight: 600,
           }}
         />
@@ -3120,7 +3136,7 @@ margin={{
           dataKey="total"
           position="right"
           style={{
-            fill: "#fff",
+            fill: "rgb(var(--rmcf-ink-rgb))",
             fontWeight: 600,
           }}
         />
@@ -3165,7 +3181,7 @@ margin={{
   0
 )}
   position="center"
-  fill="#fff"
+  fill="#F4F4F5"
   fontSize={isMobile ? 22 : 30}
 />
 <LabelList
@@ -3229,7 +3245,7 @@ margin={{
   0
 )}
   position="center"
-  fill="#fff"
+  fill="#F4F4F5"
   fontSize={isMobile ? 22 : 30}
 />
 <LabelList
@@ -3289,7 +3305,7 @@ margin={{
         <Label
   value={tipoCarrera.reduce((suma, d) => suma + d.total, 0)}
   position="center"
-  fill="#fff"
+  fill="#F4F4F5"
   fontSize={isMobile ? 22 : 30}
 />
 <LabelList
@@ -3389,20 +3405,32 @@ margin={{
 {/*
   Qué nos lanzan según cómo va el marcador.
 
-  Sale de «Resultado RMC» y «Resultado RIVAL», que la hoja anota en cada
-  acción. Es la lectura que dice si el equipo se desordena a balón parado
-  cuando se pone por delante, que es donde se pierden los partidos.
+  La hoja defensiva no tiene «Resultado RMC» ni «Resultado RIVAL»: el
+  marcador sale de JORNADA y MINUTO cruzados con los goles de cada partido de
+  liga (lib/abp/marcador-goles.ts). Es la lectura que dice si el equipo se
+  desordena a balón parado cuando se pone por delante, que es donde se
+  pierden los partidos.
 */}
 <Panel className={oculto("cuando")} title="Según el marcador" analisis={pie({ dimension: "marcador", categoria: (r) => ESTADOS.find((uno) => uno.key === r.contexto.marcador.estado)?.label ?? "" })}><div id="grafico-abp-marcador">
   <Explicativo>
 
   <p className="-mt-3 mb-4 text-xs text-zinc-500">
-    Acciones y remates del rival según cómo iba el partido.
+    Acciones y remates del rival según cómo iba el partido, calculado con el
+    minuto de cada acción y los goles del partido.
     {sinMarcador > 0 &&
-      ` ${sinMarcador} acciones quedan fuera por no tener marcador anotado.`}
+      ` ${sinMarcador} ${sinMarcador === 1 ? "acción queda" : "acciones quedan"} fuera: son de pretemporada o no tienen el minuto anotado.`}
   </p>
 
   </Explicativo>
+
+  {/* Con todo fuera, tres barras a cero parecían un fallo (19/10/2026). */}
+  {filasEstado.length > 0 && conMarcador.length === 0 ? (
+    <EstadoVacio
+      className="mb-4"
+      titulo="No se puede saber cómo iba el partido en estas acciones"
+      texto="El marcador se calcula con el minuto de cada acción y los goles de los partidos de liga. Los amistosos no tienen esos goles; en liga, anota el MINUTO en la hoja de córners en contra."
+    />
+  ) : null}
 
   <Chart>
     <BarChart
@@ -3456,7 +3484,7 @@ margin={{
       >
         <p
           className="text-[10px] uppercase tracking-[0.16em]"
-          style={{ color: ESTADO_COLOR[fila.key] }}
+          style={{ color: chipInk(ESTADO_COLOR[fila.key]) }}
         >
           {fila.estado}
         </p>
@@ -3538,7 +3566,7 @@ margin={{
               : ""
           }
           style={{
-            fill: "#fff",
+            fill: "rgb(var(--rmcf-ink-rgb))",
             fontWeight: 600,
           }}
         />
@@ -3547,7 +3575,7 @@ margin={{
   </Chart></div>
 </Panel>
 
-<Panel className={oculto("quien")} title="Top rivales por xG concedido" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}><div id="grafico-rivales-xg-concedido">
+<Panel className={oculto("quien")} title="xG concedido a cada rival" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}><div id="grafico-rivales-xg-concedido">
   <Chart>
     <BarChart
       data={rivalesData}
@@ -3597,7 +3625,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel className={oculto("donde")} title="xG por zona caida" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}><div id="grafico-xg-zona-caida">
+<Panel className={oculto("donde")} title="xG por zona de caída" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}><div id="grafico-xg-zona-caida">
   <Chart>
     <BarChart
   data={xgZonaCaida}
@@ -3738,7 +3766,7 @@ outerRadius={isMobile ? 90 : 120}
 <Label
   value={`${tasaPeligroResultado.toFixed(0)}%`}
   position="center"
-  fill="#fff"
+  fill="#F4F4F5"
   fontSize={isMobile ? 22 : 30}
 />
 
