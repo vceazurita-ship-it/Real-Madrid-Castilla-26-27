@@ -61,6 +61,8 @@ import {
   type ContextoAccion,
   type JornadaAbp,
 } from "@/lib/abp/partido";
+import { completaMarcador } from "@/lib/abp/marcador-goles";
+import { DOC_GOLES, type PartidoGoles } from "@/lib/goles/analisis";
 import {
   ComparativaPartido,
   formatoPorcentaje,
@@ -450,11 +452,17 @@ const [tramoFilter, setTramoFilter] = useState("ALL");
   useEffect(() => {
     let vivo = true;
 
-    traeCsv(CSV_URL, { forzar: intento > 0 })
-      .then((t) => {
+    /* La hoja no trae el marcador: sale de los goles de cada partido (lib/abp/marcador-goles.ts). Sin ellos, la página carga igual. */
+    const goles = fetch(`/api/docs?key=${encodeURIComponent(DOC_GOLES)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ data?: { partidos?: PartidoGoles[] } | null }>) : null))
+      .then((d) => d?.data?.partidos ?? null)
+      .catch(() => null);
+
+    Promise.all([traeCsv(CSV_URL, { forzar: intento > 0 }), goles])
+      .then(([t, partidos]) => {
         if (!vivo) return;
 
-        const filas = parseCSV(t);
+        const filas = completaMarcador(parseCSV(t), partidos);
 
         setRows(filas);
         setError(null);
