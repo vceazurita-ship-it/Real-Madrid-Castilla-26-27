@@ -5875,10 +5875,11 @@ function formatDateForInput(value: unknown) {
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
 
-  /* Ya viene como la quiere el <input type="date">: tal cual. */
+  /* Ya viene como la quiere el <input type="date">: tal cual. Un instante
+     con zona («…T22:00:00.000Z») no: va por la hora local de abajo. */
   const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  if (iso && !/T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/.test(raw)) return `${iso[1]}-${iso[2]}-${iso[3]}`;
 
   const date = new Date(raw);
 

@@ -214,7 +214,12 @@ function aValorDeInput(raw: unknown) {
 
   const directo = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
-  if (directo) return `${directo[1]}-${directo[2]}-${directo[3]}`;
+  /* Un instante con zona («…T22:00:00.000Z», la medianoche de Madrid que
+     manda la hoja) no se recorta: daba el día anterior. Ése va por la
+     conversión a hora local de abajo (19/10/2026). */
+  const conZona = /T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/.test(texto);
+
+  if (directo && !conZona) return `${directo[1]}-${directo[2]}-${directo[3]}`;
 
   const fecha = new Date(texto);
 
@@ -393,7 +398,7 @@ function AutoTextarea({
 function ReadText({
   value,
   separarPorPuntoYComa = false,
-  vacio = "Sin información",
+  vacio = "Sin escribir todavía. Se rellena con «Editar informe».",
 }: {
   value: unknown;
   separarPorPuntoYComa?: boolean;
@@ -761,7 +766,9 @@ function AnilloProgreso({
             cy="38"
             r={radio}
             fill="none"
-            stroke="rgba(255,255,255,0.08)"
+            /* En `style`, que sí resuelve la variable del tema: el blanco
+               escrito como atributo desaparecía en modo día (19/10/2026). */
+            style={{ stroke: "rgb(var(--rmcf-ink-rgb) / .1)" }}
             strokeWidth="6"
           />
 
@@ -1321,6 +1328,9 @@ export default function MatchPreparation() {
   */
   const [bocetoAbierto, setBocetoAbierto] = useState(false);
 
+  /* Sube cada vez que se guardan unos porqués nuevos: es la `key` de su sección. */
+  const [versionMotivos, setVersionMotivos] = useState(0);
+
   const aplicaBoceto = useCallback(
     (campos: Record<string, string>, boceto: BocetoPlan) => {
       if (!rivalActivo) return;
@@ -1347,7 +1357,12 @@ export default function MatchPreparation() {
             campos: boceto.campos,
           },
         }),
-      }).catch(() => {});
+      })
+        /* Al llegar, se vuelve a montar la sección del pie para que los lea:
+           `useRemoteDoc` no relee solo y se quedaban los del boceto anterior
+           (o ninguno) hasta recargar la página (19/10/2026). */
+        .then(() => setVersionMotivos((n) => n + 1))
+        .catch(() => {});
 
       toast.success("Boceto aplicado: «?» a valorar cambiar, «*» a valorar incorporar. Los porqués, abajo del todo. Edítalo: se guarda solo.");
     },
@@ -2046,7 +2061,13 @@ export default function MatchPreparation() {
 
               <button
                 type="button"
-                onClick={auto.descartaRecuperado}
+                /* Es la única copia de lo que no llegó a la hoja: se pregunta
+                   antes de tirarla (19/10/2026). */
+                onClick={() => {
+                  if (window.confirm("¿Descartar los cambios que no llegaron a guardarse? No se podrán recuperar.")) {
+                    auto.descartaRecuperado();
+                  }
+                }}
                 className="rounded-xl border border-white/15 px-4 py-2 text-sm text-white/70 transition hover:border-white/30 hover:text-white"
               >
                 Descartar
@@ -2488,7 +2509,7 @@ export default function MatchPreparation() {
                     placeholder="Separa cada fortaleza con ; o un salto de línea"
                     minHeight={150}
                     separarPorPuntoYComa
-                    vacio="Sin fortalezas registradas"
+                    vacio="Sin fortalezas escritas. Se añaden con «Editar informe»."
                   />
 
                   <Bloque
@@ -2501,7 +2522,7 @@ export default function MatchPreparation() {
                     placeholder="Separa cada debilidad con ; o un salto de línea"
                     minHeight={150}
                     separarPorPuntoYComa
-                    vacio="Sin debilidades registradas"
+                    vacio="Sin debilidades escritas. Se añaden con «Editar informe»."
                   />
 
                   <Bloque
@@ -2618,7 +2639,7 @@ export default function MatchPreparation() {
         {/* Los porqués del boceto, plegados y sólo para el administrador. */}
         {rivalActivo && (
           <div className="px-4 pb-10 sm:px-6 lg:px-10">
-            <PorQueDelBoceto key={String(rivalActivo.ID ?? "")} idRival={String(rivalActivo.ID ?? "")} />
+            <PorQueDelBoceto key={`${String(rivalActivo.ID ?? "")}|${versionMotivos}`}idRival={String(rivalActivo.ID ?? "")} />
           </div>
         )}
 

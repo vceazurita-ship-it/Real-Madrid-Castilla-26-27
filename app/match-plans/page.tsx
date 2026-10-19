@@ -1162,8 +1162,8 @@ function MatchModal({
                 </p>
 
                 <p className="mt-1 text-sm text-white/40">
-                  Este partido aún no tiene un plan enlazado en la hoja de la
-                  temporada.
+                  Este partido aún no tiene el enlace del vídeo de análisis en la hoja de la
+                  temporada (columna del enlace). Pégalo allí y vuelve a abrirlo.
                 </p>
               </div>
             </div>
