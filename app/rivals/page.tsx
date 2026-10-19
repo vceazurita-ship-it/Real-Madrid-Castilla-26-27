@@ -1245,6 +1245,21 @@ export default function RivalPlayersPage() {
   }, [filteredPlayers, pitchTeam]);
 
   /*
+  | La plantilla entera del equipo del campo, sin mirar la búsqueda ni el
+  | filtro de puesto. De aquí salen los contadores del once y los botones que
+  | trabajan con todo el equipo (PDF, portero, PPT, sugerir): con el filtro
+  | «DC» puesto, el contador decía «2/11» con el once completo y «SUGERIR 11»
+  | se saltaba la pregunta y pisaba el once marcado (19/10/2026).
+  */
+  const plantillaCampo = useMemo(
+    () =>
+      players.filter(
+        (player) => player["POSICIÓN"] && player.NOMBRE_EQUIPO === pitchTeam,
+      ),
+    [players, pitchTeam],
+  );
+
+  /*
   |--------------------------------------------------------------------------
   | ONCE PROBABLE
   |--------------------------------------------------------------------------
@@ -1275,7 +1290,7 @@ export default function RivalPlayersPage() {
   );
 
   const onceResumen = useMemo(() => {
-    const claves = new Set(pitchPlayers.map((player) => playerKey(player)));
+    const claves = new Set(plantillaCampo.map((player) => playerKey(player)));
 
     /* Sólo cuenta la gente que sigue en la plantilla: si alguien se da de
        baja, su marca no puede seguir sumando en el contador. */
@@ -1283,7 +1298,7 @@ export default function RivalPlayersPage() {
       titulares: once.doc.titulares.filter((key) => claves.has(key)).length,
       dudas: once.doc.dudas.filter((key) => claves.has(key)).length,
     };
-  }, [once.doc, pitchPlayers]);
+  }, [once.doc, plantillaCampo]);
 
   /*
   |--------------------------------------------------------------------------
@@ -1456,7 +1471,7 @@ export default function RivalPlayersPage() {
         /* El mapa de zona se deduce de la posición, igual que en la ficha
            de pantalla: el slot dice dónde y el lado hacia qué banda. */
         slot: slotEntry?.slot.key ?? null,
-        side: detectSide(player["POSICIÓN"] || ""),
+        side: detectSide(normalize(player["POSICIÓN"])),
         portero: Boolean(stats?.portero),
         temporadas: stats?.temporadas ?? [],
         temporadaActual: statsDoc?.temporada,
@@ -1755,12 +1770,12 @@ export default function RivalPlayersPage() {
 
   /* Cuántos hay puestos a mano, contando sólo a los que siguen en la hoja. */
   const puestosAMano = useMemo(() => {
-    const claves = new Set(pitchPlayers.map((player) => playerKey(player)));
+    const claves = new Set(plantillaCampo.map((player) => playerKey(player)));
 
     return Object.keys(once.doc.puestos ?? {}).filter((clave) =>
       claves.has(clave),
     ).length;
-  }, [once.doc.puestos, pitchPlayers]);
+  }, [once.doc.puestos, plantillaCampo]);
 
 
 
@@ -1861,7 +1876,7 @@ export default function RivalPlayersPage() {
   }, [equipoDelOnce, once, proponeOnce]);
 
   const exportarAlineacionPptx = useCallback(async () => {
-    if (!pitchPlayers.length) return;
+    if (!plantillaCampo.length) return;
 
     setExportando(true);
 
@@ -1895,7 +1910,7 @@ export default function RivalPlayersPage() {
       setExportando(false);
     }
   }, [
-    pitchPlayers,
+    plantillaCampo,
     jugadoresPlantilla,
     statsDoc,
     equipoDelOnce,
@@ -1982,13 +1997,27 @@ export default function RivalPlayersPage() {
     [partidosElegidosDoc, selectedTeam],
   );
 
+  /* El equipo que se está mirando AHORA, para lo que vuelve de un `await`. */
+  const equipoVivo = useRef(selectedTeam);
+
+  useEffect(() => {
+    equipoVivo.current = selectedTeam;
+  }, [selectedTeam]);
+
   const abrirInforme = useCallback(async () => {
     if (!selectedTeam) return;
+
+    const equipo = selectedTeam;
 
     setExportando(true);
 
     try {
       const doc = await pideInforme();
+
+      /* El documento entero tarda: si mientras tanto se ha cambiado de
+         equipo, el pop-up salía con los partidos del de antes bajo el nombre
+         del nuevo, y la elección se guardaba en el que no era (19/10/2026). */
+      if (equipoVivo.current !== equipo) return;
 
       const informe = findInforme(doc, selectedTeam);
 
@@ -2990,7 +3019,7 @@ export default function RivalPlayersPage() {
 
   const selectedIndex = selectedPlayer
     ? listPlayers.findIndex(
-        (player) => player.ID_JUGADOR === selectedPlayer.ID_JUGADOR,
+        (player) => idDeJugador(player) === idDeJugador(selectedPlayer),
       )
     : -1;
 
@@ -3002,9 +3031,13 @@ export default function RivalPlayersPage() {
 
       if (nextIndex < 0 || nextIndex >= listPlayers.length) return;
 
-      if (isDirty) {
+      /* Sólo un jugador nuevo sin añadir se puede perder. Los cambios de uno
+         que ya existe se guardan solos y `openPlayer` manda lo pendiente
+         antes de cambiar: preguntar «¿descartar?» asustaba por nada
+         (19/10/2026), como ya hace `closePlayer`. */
+      if (isCreating && isDirty) {
         const confirmed = window.confirm(
-          "Hay cambios sin guardar. ¿Seguro que quieres cambiar de jugador?",
+          "El jugador nuevo no se ha añadido todavía. ¿Descartarlo?",
         );
 
         if (!confirmed) return;
@@ -3012,7 +3045,7 @@ export default function RivalPlayersPage() {
 
       openPlayer(listPlayers[nextIndex]);
     },
-    [selectedIndex, listPlayers, openPlayer, isDirty],
+    [selectedIndex, listPlayers, openPlayer, isDirty, isCreating],
   );
 
   /*
@@ -3036,6 +3069,10 @@ export default function RivalPlayersPage() {
         target?.isContentEditable;
 
       if (event.key === "Escape") {
+        /* Con otra ventana encima (el aviso de guardado, las etiquetas…) el
+           Escape es para ella: cerraba la ficha entera de debajo (19/10/2026). */
+        if (event.defaultPrevented || document.querySelectorAll('[aria-modal="true"]').length > 1) return;
+
         closePlayer();
         return;
       }
@@ -3165,10 +3202,10 @@ export default function RivalPlayersPage() {
       | ID, y darla de alta la duplicaría. Se dice claro y no se da por bueno.
       */
       if (!form.ID_JUGADOR) {
-        toast.error("Este jugador no tiene ID en la hoja", {
+        toast.error("Esta ficha no está enlazada con la hoja", {
           id: `ficha-sin-id-${form.NOMBRE_EQUIPO ?? ""}-${form.JUGADOR ?? ""}`,
           description:
-            "Los cambios de la ficha no se pueden guardar hasta que su fila de la hoja tenga ID_JUGADOR. Copia lo escrito antes de cerrarla.",
+            "A su fila de la hoja le falta el identificador del jugador (columna ID_JUGADOR) y los cambios no se pueden guardar. Copia lo escrito antes de cerrarla y avisa a quien mantiene la hoja.",
         });
 
         return false;
@@ -4023,7 +4060,22 @@ export default function RivalPlayersPage() {
 
                     {listPlayers.length === 0 && (
                       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
-                        No se han encontrado jugadores.
+                        {/* Que diga qué hacer: con filtros, quitarlos; sin
+                            ellos, añadir a la plantilla (19/10/2026). */}
+                        {hasFilters ? (
+                          <>
+                            Ningún jugador coincide con la búsqueda o el filtro.{" "}
+                            <button
+                              type="button"
+                              onClick={resetFilters}
+                              className="font-semibold text-[#C8A96B] underline underline-offset-2"
+                            >
+                              Limpiar filtros
+                            </button>
+                          </>
+                        ) : (
+                          "Este equipo todavía no tiene jugadores. Añádelos con el botón «+» (Añadir jugador)."
+                        )}
                       </div>
                     )}
                   </div>
@@ -4152,7 +4204,18 @@ export default function RivalPlayersPage() {
                             <button
                               type="button"
                               data-export-hide
-                              onClick={once.quitaPuestos}
+                              /* Pregunta, como «Vaciar once»: de un toque se
+                                 perdían todas las colocaciones a mano del
+                                 rival (19/10/2026). */
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `¿Devolver a su sitio a ${puestosAMano === 1 ? "el jugador colocado" : `los ${puestosAMano} jugadores colocados`} a mano?`,
+                                  )
+                                ) {
+                                  once.quitaPuestos();
+                                }
+                              }}
                               title={`${puestosAMano} jugador${
                                 puestosAMano === 1 ? "" : "es"
                               } colocado${
@@ -4202,7 +4265,7 @@ export default function RivalPlayersPage() {
                             Con un once ya marcado avisa antes de pisarlo.
                           */}
 
-                          {pitchPlayers.length > 0 && (
+                          {plantillaCampo.length > 0 && (
                             <button
                               type="button"
                               data-export-hide
@@ -4241,7 +4304,7 @@ export default function RivalPlayersPage() {
                             empezar. El once se monta ahora dentro del pop-up.
                           */}
 
-                          {pitchPlayers.length > 0 && (
+                          {plantillaCampo.length > 0 && (
                             <button
                               type="button"
                               data-export-hide
@@ -4263,7 +4326,7 @@ export default function RivalPlayersPage() {
 
                           {/* Y el que se lleva el portero: los que le tiran. */}
 
-                          {pitchPlayers.length > 0 && (
+                          {plantillaCampo.length > 0 && (
                             <button
                               type="button"
                               data-export-hide
@@ -4291,7 +4354,7 @@ export default function RivalPlayersPage() {
                             así que está siempre que haya gente en el campo.
                           */}
 
-                          {pitchPlayers.length > 0 && (
+                          {plantillaCampo.length > 0 && (
                             <button
                               type="button"
                               data-export-hide
@@ -4352,7 +4415,8 @@ export default function RivalPlayersPage() {
                                 }
                               }}
                               title="Vaciar el once probable"
-                              className="rounded-full border border-white/10 p-1 text-white/35 transition hover:border-white/30 hover:text-white"
+                              aria-label="Vaciar el once probable"
+                              className="rounded-full border border-white/10 p-2.5 text-white/35 transition hover:border-white/30 hover:text-white sm:p-1"
                             >
                               <RotateCcw size={11} />
                             </button>
@@ -4437,7 +4501,10 @@ export default function RivalPlayersPage() {
             enlace.download = vistaPdf.nombre;
             enlace.click();
 
-            URL.revokeObjectURL(enlace.href);
+            /* Se suelta después: soltarlo al momento deja en Safari (y en
+               algún Firefox) la descarga vacía o fallida (19/10/2026). */
+            const url = enlace.href;
+            window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 
             toast.success("Descargado", { description: vistaPdf.nombre });
           }}
@@ -4989,7 +5056,7 @@ export default function RivalPlayersPage() {
                   loading={statsLoading}
                   missing={statsMissing}
                   slot={slotDelJugador?.slot.key ?? null}
-                  side={detectSide(editForm["POSICIÓN"])}
+                  side={detectSide(normalize(editForm["POSICIÓN"]))}
                   positionCode={slotDelJugador?.slot.code}
                   temporadaActual={statsDoc?.temporada}
                 />
@@ -5393,7 +5460,7 @@ function EtiquetasDialog({
           />
 
           <span className="hidden text-[11px] text-white/30 sm:inline">
-            Se guarda solo en la columna IMPACTO.
+            Se guarda solo.
           </span>
 
           <button
@@ -5486,7 +5553,8 @@ function PlayerRow({
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        /* Sólo la propia fila: el Enter de sus botones (once, etiquetas) subía hasta aquí y abría la ficha (19/10/2026). */
+        if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
           onClick();
         }
@@ -5498,7 +5566,7 @@ function PlayerRow({
       <div
         className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border bg-[#0B0F14]"
         style={{
-          borderColor: onceColor ?? "rgba(255,255,255,0.1)",
+          borderColor: onceColor ?? "rgb(var(--rmcf-ink-rgb) / .1)",
           borderWidth: onceEstado ? 2 : 1,
           /* La duda va en línea discontinua: sin mirar el color ya se
              distingue del titular confirmado. */
@@ -6978,7 +7046,7 @@ function TagPicker({
 
             <label className="block pt-1">
               <span className="mb-2 block text-[11px] uppercase tracking-wider text-white/30">
-                Valor guardado (columna IMPACTO)
+                Texto que se guarda
               </span>
 
               <input
@@ -7094,7 +7162,7 @@ function TagPicker({
 
           <label className="block pt-1">
             <span className="mb-2 block text-[11px] uppercase tracking-wider text-white/30">
-              Valor guardado (columna IMPACTO)
+              Texto que se guarda
             </span>
 
             <input
@@ -8060,7 +8128,7 @@ function TacticalPitch({
               onPlayerClick(player);
             }}
             onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
+              if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
                 event.preventDefault();
                 onPlayerClick(player);
               }
