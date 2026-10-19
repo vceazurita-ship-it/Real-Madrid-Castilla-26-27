@@ -68,6 +68,7 @@ import { duracion, vistaProgreso, type VistaProgreso } from "@/lib/progreso";
 import { fechaIsoDeHoja } from "@/lib/registro/hoja";
 
 import { CAMPO, ObjetivoEditor, type TareaDelDia } from "./ObjetivoEditor";
+import { QueTocaDelPost } from "./QueTocaDelPost";
 import { VistaJugador } from "./VistaJugador";
 
 const isoDe = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -508,6 +509,13 @@ export default function AnalisisEntrenamientoPage() {
                     <Button icon={Plus} onClick={() => cambia((s) => ({ ...s, objetivos: [...s.objetivos, { id: nuevoId(), objetivo: "", jugadores: [] }] }))}>
                       Objetivo
                     </Button>
+                    {/* Mientras llega el documento no se ofrece: se escribiría encima de lo que hay. */}
+                    {status !== "loading" ? (
+                      <QueTocaDelPost
+                        yaEstan={sesion.objetivos.map((o) => o.origen ?? "").filter(Boolean)}
+                        onAnade={(objetivo, origen) => cambia((s) => ({ ...s, objetivos: [...s.objetivos, { id: nuevoId(), objetivo, jugadores: [], origen }] }))}
+                      />
+                    ) : null}
                     <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                       <Button
                         tone="primary"
