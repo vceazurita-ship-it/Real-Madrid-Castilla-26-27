@@ -158,6 +158,22 @@ export function RepositorioCultura() {
 
     const id = idDocumento(ficha.numero, ficha.titulo);
 
+    /*
+    | Mismo número y título que uno que ya está: lo pisa. Es a propósito —así se
+    | corrige una errata—, pero se hacía sin decir nada y un número repetido
+    | por despiste se llevaba el documento anterior (19/10/2026).
+    */
+    const yaEsta = documentos.find((doc) => doc.id === id);
+
+    if (
+      yaEsta &&
+      !window.confirm(
+        `Ya hay un documento «${yaEsta.numero} · ${yaEsta.titulo}». ¿Sustituirlo por éste? Si sólo querías añadir otro, cambia el número.`,
+      )
+    ) {
+      return;
+    }
+
     const nuevo = documentoDesdeBruto(bruto, ficha, id);
 
     setValue((actual) => ({
@@ -173,7 +189,7 @@ export function RepositorioCultura() {
     toast.success(
       `«${nuevo.titulo}» publicado · ${nuevo.diapositivas.length} diapositivas`,
     );
-  }, [pendiente, setValue]);
+  }, [pendiente, setValue, documentos]);
 
   const borra = useCallback(
     (id: string, titulo: string) => {
@@ -250,6 +266,17 @@ export function RepositorioCultura() {
                     <button
                       type="button"
                       onClick={() => {
+                        /* Con un bruto a medio revisar, abrir otro documento
+                           lo tiraba con lo retocado en la ficha (19/10/2026). */
+                        if (
+                          pendiente &&
+                          !window.confirm(
+                            "Hay un documento subido sin publicar. ¿Descartarlo y abrir éste?",
+                          )
+                        ) {
+                          return;
+                        }
+
                         setPendiente(null);
                         setAbierto(item.id);
                       }}

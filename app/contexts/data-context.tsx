@@ -71,7 +71,14 @@ function useFilas(clave: string) {
   useEffect(() => {
     if (subidas === null) return;
 
-    localStorage.setItem(clave, JSON.stringify(subidas));
+    /* Un CSV grande llena el `localStorage` (unos 5 MB) y `setItem` lanza:
+       sin esto, el error tumbaba la pantalla entera desde el proveedor, que
+       envuelve toda la app (19/10/2026). Los datos siguen en memoria. */
+    try {
+      localStorage.setItem(clave, JSON.stringify(subidas));
+    } catch (error) {
+      console.error("No se han podido guardar los datos en el navegador:", error);
+    }
   }, [clave, subidas]);
 
   return [subidas ?? guardadas, setSubidas] as const;

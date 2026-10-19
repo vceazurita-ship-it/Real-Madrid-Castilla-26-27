@@ -115,13 +115,25 @@ function num(v?: string) {
   return Number(String(v || "").replace(",", ".")) || 0;
 }
 
+/* Una nota de verdad: número, con coma o punto. */
+const ES_NOTA = /^\s*\d+(?:[.,]\d+)?\s*$/;
+
 function parseCSV(text: string): Player[] {
   const parsed = Papa.parse<string[]>(text, {
     header: false,
     skipEmptyLines: true,
   });
 
+  /*
+  | Sólo filas con las cuatro notas (19/10/2026). La hoja lleva encima un
+  | título, los rótulos de los cuadrantes y la cabecera «POSICION, JUGADOR,
+  | E.A.…»; ésta tenía nombre en la segunda columna y entraba como un jugador
+  | llamado «JUGADOR» con todo a cero: salía en los selectores y hundía la
+  | media de la plantilla y de cada eje. Un jugador sin evaluar tampoco es un
+  | cero.
+  */
   return parsed.data
+    .filter((r) => [r[2], r[3], r[4], r[5]].every((v) => ES_NOTA.test(v ?? "")))
     .map((r) => ({
       posicion: r[0]?.trim() || "",
       jugador: r[1]?.trim() || "",
@@ -314,8 +326,9 @@ export default function EmotionPage() {
 
                   <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/50">
                     Perfil atencional de cada jugador en las cuatro dimensiones
-                    del modelo. Selecciona jugadores en cada línea para comparar
-                    perfiles y detectar sinergias.
+                    del modelo, puntuadas de 0 a 10. Selecciona jugadores en
+                    cada línea para comparar sus perfiles; la línea discontinua
+                    es la media de la plantilla.
                   </p>
                 </div>
 
@@ -758,13 +771,21 @@ function RadarPanel({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <span className="text-[11px] text-white/60">
-            Sinergia{" "}
-            <span className="tabular-nums font-semibold text-white">
-              {synergyScore.toFixed(1)}
+          {/* Es la media de los elegidos, no una medida de cómo encajan:
+              «Sinergia» prometía algo que no se calcula (19/10/2026). Sin
+              jugadores no se enseña un 0,0 que parece una nota. */}
+          {series.length > 0 && (
+            <span
+              className="text-[11px] text-white/60"
+              title="Media de las cuatro dimensiones de los jugadores elegidos, de 0 a 10"
+            >
+              Media{" "}
+              <span className="tabular-nums font-semibold text-white">
+                {synergyScore.toFixed(1)}
+              </span>
+              <span className="text-white/35"> / 10</span>
             </span>
-            <span className="text-white/35"> / 10</span>
-          </span>
+          )}
 
           {series.length > 0 && (
             <span

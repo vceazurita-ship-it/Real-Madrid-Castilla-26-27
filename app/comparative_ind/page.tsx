@@ -149,6 +149,9 @@ export default function ComparativaCategoria() {
   const [elegido, setElegido] = useState<string | null>(null);
   const [orden, setOrden] = useState<{ por: Orden; desc: boolean }>({ por: "indice", desc: true });
 
+  /* Subirlo relanza la lectura: el botón «Reintentar» del aviso de error. */
+  const [intento, setIntento] = useState(0);
+
   useEffect(() => {
     const control = new AbortController();
     fetch("/api/data-analisis", { signal: control.signal })
@@ -161,7 +164,12 @@ export default function ComparativaCategoria() {
       .then((d) => setSeguimientos(Array.isArray(d) ? (d as RegistroSeguimiento[]) : []))
       .catch(() => setSeguimientos([]));
     return () => control.abort();
-  }, []);
+  }, [intento]);
+
+  const reintenta = () => {
+    setDatos(null);
+    setIntento((n) => n + 1);
+  };
 
   const jugadores = useMemo(() => datos?.jugadores ?? [], [datos]);
   const filas = useMemo(() => (jugadores.length ? comparativa(jugadores, ref) : []), [jugadores, ref]);
@@ -344,10 +352,27 @@ export default function ComparativaCategoria() {
               <p className="mt-10 flex items-center gap-2 text-sm text-white/50">
                 <Loader2 className="h-4 w-4 animate-spin" /> Cargando los datos de la categoría…
               </p>
-            ) : !datos?.ok || filas.length === 0 ? (
-              <p className="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                {datos?.error ?? "No hay datos de jugadores de esta temporada."}
-              </p>
+            ) : !datos?.ok ? (
+              /* Un fallo de lectura se puede reintentar sin recargar la página (19/10/2026). */
+              <div className="mt-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                <span>{datos?.error ?? "No se han podido leer los datos."}</span>
+                <button
+                  type="button"
+                  onClick={reintenta}
+                  className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-medium text-red-200 transition hover:bg-red-500/15"
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : filas.length === 0 ? (
+              /* Sin datos no es un error: falta la descarga. Se dice de dónde sale. */
+              <div className="mt-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-white/70">
+                <p className="font-medium text-white/85">Todavía no hay jugadores del Castilla con minutos esta temporada en Wyscout.</p>
+                <p className="mt-1 text-xs text-white/50">
+                  La comparativa sale de la descarga de jugadores de toda la categoría. Se actualiza con el botón de Wyscout en
+                  Ajustes (o con la descarga semanal del ordenador del club) y aparece aquí en cuanto se publica.
+                </p>
+              </div>
             ) : (
               <>
                 {pestana === "ranking" && (
@@ -379,10 +404,10 @@ export default function ComparativaCategoria() {
                                 [null, "Puesto", "px-2"],
                                 ["minutos", "Minutos", "px-2 text-right"],
                                 ["nota", "Nota", "px-2 text-right"],
-                                ["indice", `Índice vs ${ref === "todos" ? "categoría" : ref.toUpperCase()}`, "w-44 px-3"],
+                                ["indice", `Índice (${ref === "todos" ? "categoría" : ref === "u21" ? "sub-21" : "sub-23"})`, "w-44 px-3"],
                                 ["ranking", "Ranking", "px-2"],
                                 ["evolucion", "Evolución", "px-2"],
-                                ["seguimientos", "Seguim.", "px-2 text-right"],
+                                ["seguimientos", "Seguimientos", "px-2 text-right"],
                               ] as [Orden | null, string, string][]
                             ).map(([clave, texto, clase]) => (
                               <th key={texto} className={`py-3 font-medium ${clase}`}>
@@ -409,7 +434,16 @@ export default function ComparativaCategoria() {
                             <tr
                               key={f.jugador.jugador}
                               onClick={() => abreFicha(f.jugador.jugador)}
-                              className="cursor-pointer border-t border-white/[0.06] transition hover:bg-white/[0.04]"
+                              /* También con teclado: Tab hasta la fila y Enter (19/10/2026). */
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  abreFicha(f.jugador.jugador);
+                                }
+                              }}
+                              aria-label={`Abrir la ficha de ${ficha?.nombre ?? f.jugador.jugador}`}
+                              className="cursor-pointer border-t border-white/[0.06] transition hover:bg-white/[0.04] focus-visible:bg-white/[0.06] focus-visible:outline-none"
                             >
                               <td className="px-4 py-2.5">
                                 <div className="flex items-center gap-2.5">
@@ -696,8 +730,18 @@ function Graficos({
   /* «Sólo los equipos elegidos»: los nuestros y los suyos; las medianas siguen siendo las de la categoría. */
   const puntos = soloElegidos && equiposSel.length ? todos.filter((q) => q.nuestro || q.comparado) : todos;
 
-  const mx = mediana(todos.filter((q) => !q.nuestro).map((q) => q.x));
-  const my = mediana(todos.filter((q) => !q.nuestro).map((q) => q.y));
+  /*
+  | Las medianas, sólo con la referencia (19/10/2026). Los de los equipos
+  | elegidos entran «de todas las edades», y metiéndolos en la cuenta elegir un
+  | equipo movía las líneas: «la mediana de la categoría» cambiaba según a quién
+  | se mirase. Ahora un comparado sólo cuenta si también es de la referencia.
+  */
+  const edadRef = REFERENCIAS.find((r) => r.key === refe)?.edad ?? 21;
+  const deLaReferencia = todos.filter(
+    (q) => !q.nuestro && (!q.comparado || (q.jugador.edad > 0 && q.jugador.edad <= edadRef)),
+  );
+  const mx = mediana(deLaReferencia.map((q) => q.x));
+  const my = mediana(deLaReferencia.map((q) => q.y));
   const mejorX = !ejes && p.mejorX !== undefined ? p.mejorX : METRICA_JUGADOR_POR_COLUMNA.get(x)?.mejorAlto;
   const mejorY = METRICA_JUGADOR_POR_COLUMNA.get(y)?.mejorAlto;
   const porEncima = (v: number, m: number, mejor: boolean | null | undefined) => (mejor === false ? v < m : v > m);
@@ -1067,7 +1111,7 @@ function Detalle({
             {fila.indice ?? "—"}
           </span>
           <span className="text-xs text-white/45">
-            índice vs {refLabel.toLowerCase()}
+            índice frente a {refLabel.toLowerCase()}
             {fila.ranking ? ` · ${ordinal(fila.ranking.posicion)} de ${fila.ranking.de}` : ""}
           </span>
         </div>
@@ -1129,7 +1173,7 @@ function Detalle({
 
       {/* ---- los mejores de su edad y la nube ---- */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-        <p className="text-sm font-semibold">Los mejores {refe === "todos" ? "" : refe.toUpperCase() + " "}del puesto en la categoría</p>
+        <p className="text-sm font-semibold">Los mejores {refe === "todos" ? "" : refe === "u21" ? "sub-21 " : "sub-23 "}del puesto en la categoría</p>
         <ol className={`mt-3 space-y-1.5 ${verTodos ? "max-h-[440px] overflow-y-auto pr-1" : ""}`}>
           {mejores.map((m, i) => {
             const suyo = m.jugador === j;
@@ -1409,11 +1453,14 @@ function CaraACara({
                 </Chip>
               </div>
             </div>
+            {/* La columna fija va en bg-[#0F141B], que la tabla del modo día
+                traduce; el #0f1419 de antes no estaba y en modo día salía un
+                bloque negro con el texto oscuro encima (19/10/2026). */}
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="align-bottom">
-                    <th className="sticky left-0 z-10 min-w-[170px] bg-[#0f1419] py-2 pr-3 text-left font-normal text-white/40">Métrica</th>
+                    <th className="sticky left-0 z-10 min-w-[170px] bg-[#0F141B] py-2 pr-3 text-left font-normal text-white/40">Métrica</th>
                     {columnas.map((j, i) => {
                       const escudo = escudoDe(j.equipo);
                       return (
@@ -1453,7 +1500,7 @@ function CaraACara({
                 </thead>
                 <tbody>
                   <tr className="border-t border-white/[0.08]">
-                    <td className="sticky left-0 z-10 bg-[#0f1419] py-2 pr-3 font-medium text-white/80">Índice del puesto</td>
+                    <td className="sticky left-0 z-10 bg-[#0F141B] py-2 pr-3 font-medium text-white/80">Índice del puesto</td>
                     {indices.map((v, i) => (
                       <td key={i} className="px-1.5 text-center text-sm font-semibold tabular-nums" style={{ color: colorIndice(v) }}>
                         {v ?? "—"}
@@ -1473,7 +1520,7 @@ function CaraACara({
                           </tr>
                         )}
                         <tr className="border-t border-white/[0.05]" title={m.comoLeer}>
-                          <td className="sticky left-0 z-10 bg-[#0f1419] py-1.5 pr-3 text-white/70">{m.nombre}</td>
+                          <td className="sticky left-0 z-10 bg-[#0F141B] py-1.5 pr-3 text-white/70">{m.nombre}</td>
                           {celdas.map((c, i) => (
                             <td key={i} className={`px-1.5 py-1.5 text-center ${i === 0 ? "bg-[#C8A96B]/[0.06]" : ""}`}>
                               {c ? (

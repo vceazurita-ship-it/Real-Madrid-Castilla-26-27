@@ -247,6 +247,19 @@ export default function TacticsVoicePanel({
   const apply = (mode: "append" | "replace") => {
     if (scenes.length === 0) return;
 
+    /* «Sustituir la pizarra» borra todas las escenas que hay: se pregunta
+       antes, como cualquier borrado (19/10/2026). En el tablero de una sola
+       escena dibujar es lo único que hay y no se pregunta. */
+    if (
+      mode === "replace" &&
+      !singleScene &&
+      !window.confirm(
+        "¿Sustituir la pizarra entera por el dictado? Se quitan todas las escenas que hay ahora.",
+      )
+    ) {
+      return;
+    }
+
     onApply({ scenes, crop: result?.crop, mode });
 
     setResult(null);
@@ -289,6 +302,7 @@ export default function TacticsVoicePanel({
             type="button"
             onClick={onClose}
             title="Cerrar el dictado"
+            aria-label="Cerrar el dictado"
             className="rounded-lg p-1.5 text-white/35 transition hover:bg-white/10 hover:text-white"
           >
             <X size={14} />
@@ -332,6 +346,7 @@ export default function TacticsVoicePanel({
                   type="button"
                   onClick={() => setPreview((index) => Math.max(0, index - 1))}
                   disabled={preview === 0}
+                  aria-label="Escena anterior"
                   className="rounded-lg border border-white/10 p-1.5 text-white/50 transition hover:text-white disabled:opacity-20"
                 >
                   <ChevronLeft size={14} />
@@ -351,6 +366,7 @@ export default function TacticsVoicePanel({
                     setPreview((index) => Math.min(scenes.length - 1, index + 1))
                   }
                   disabled={preview >= scenes.length - 1}
+                  aria-label="Escena siguiente"
                   className="rounded-lg border border-white/10 p-1.5 text-white/50 transition hover:text-white disabled:opacity-20"
                 >
                   <ChevronRight size={14} />
