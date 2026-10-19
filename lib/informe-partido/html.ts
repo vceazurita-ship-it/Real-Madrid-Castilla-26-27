@@ -17,15 +17,31 @@ import {
   cifra,
   conDato,
   contrastePronostico,
+  dueloEnSuOnce,
   duelosParaAtacar,
   duelosParaVigilar,
   fraseDuelo,
+  lecturaXg,
+  minutosAbpInforme,
+  minutosLegibles,
   ordinal,
   pct,
+  preencabezadoInforme,
   revisaPalancas,
+  selloDatos,
+  type DuelosInforme,
   type InformePartido,
   type JugadorRival,
 } from "./modelo";
+
+/** Los duelos con jugadores de su once probable (20/10/2026): como en las diapositivas. */
+const delOnce = (inf: InformePartido, lista: ReturnType<typeof duelosParaAtacar>) => lista.filter((x) => dueloEnSuOnce(x, inf.once.jugadores));
+
+const atacarDe = (inf: InformePartido, d: DuelosInforme | null = inf.duelosJugadores) => delOnce(inf, duelosParaAtacar(d));
+const vigilarDe = (inf: InformePartido, d: DuelosInforme | null = inf.duelosJugadores) => delOnce(inf, duelosParaVigilar(d));
+
+/** ✓ / ✗ / = de una clave del plan, para el correo. */
+const marcaCumplimiento = (v: "si" | "no" | "igual" | null) => (v === "si" ? "✓" : v === "no" ? "✗" : v === "igual" ? "=" : "");
 
 const NAVY = "#0F1E3D";
 const ORO = "#A8874A";
@@ -251,6 +267,9 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const ligero = extras.ligero ?? 0;
 
+  /* Una sola cifra de minutos de ABP en todo el informe (20/10/2026). */
+  const abpMin = minutosAbpInforme(inf);
+
   /* Lo que se quita para que Gmail no recorte el correo: dónde está. */
   const enElPdf = (que: string) =>
     `<p style="margin:10px 0 0;padding:10px 12px;border-left:3px solid #C8A96B;background:#FBF6EA;font:400 13px/1.5 Arial,sans-serif;color:${NAVY}">${esc(que)}: en el PDF del informe completo, adjunto a este correo.</p>`;
@@ -260,9 +279,21 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   const etiqueta = (t: string, color = SUAVE) =>
     `<p style="margin:12px 0 4px;font:700 12px/1.3 Arial,sans-serif;color:${color};text-transform:uppercase;letter-spacing:.08em">${esc(t)}</p>`;
 
-  const esencialPost = `<p style="margin:0 0 6px;font:700 20px/1.3 Arial,sans-serif;color:${NAVY}">${esc(inf.sintesis.titular)}</p>${
-    inf.sintesis.relato.length ? `${etiqueta("Cómo fue")}${lista(inf.sintesis.relato)}` : ""
-  }${inf.sintesis.claves.length ? `${etiqueta("Lo que nos deja")}${lista(inf.sintesis.claves)}` : ""}${
+  const s = inf.sintesis;
+
+  const subtitular = s.subtitular ? `<p style="margin:0 0 10px;font:400 14px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(s.subtitular)}</p>` : "";
+
+  /* Post (20/10/2026): el relato gol a gol, lo que nos deja, el plan con su
+     veredicto y qué toca en el microciclo, que es en lo que acaba el informe. */
+  const esencialPost = `<p style="margin:0 0 6px;font:700 20px/1.3 Arial,sans-serif;color:${NAVY}">${esc(s.titular)}</p>${subtitular}${
+    s.relato.length ? `${etiqueta("Cómo fue")}${lista(s.relato)}` : ""
+  }${s.claves.length ? `${etiqueta("Lo que nos deja")}${lista(s.claves)}` : ""}${
+    s.cumplimiento.length
+      ? `${etiqueta("Lo que nos propusimos · ¿se cumplió?")}<ul style="margin:0;padding-left:18px;font:400 14px/1.6 Arial,sans-serif;color:${NAVY}">${s.cumplimiento
+          .map((f) => `<li>${f.veredicto ? `<b style="color:${f.veredicto === "si" ? VERDE : f.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(f.veredicto)}</b> ` : ""}${esc(f.clave)}${f.dato ? `<br><span style="color:${SUAVE}">${esc(f.dato)}</span>` : ""}</li>`)
+          .join("")}</ul>`
+      : ""
+  }${s.microciclo.length ? `${etiqueta("Qué toca en el microciclo", ROJO)}${lista(s.microciclo)}` : ""}${
     inf.sintesis.frenados.length
       ? `${etiqueta("¿Frenamos a los que había que vigilar?", ROJO)}<ul style="margin:0;padding-left:18px;font:400 14px/1.6 Arial,sans-serif;color:${NAVY}">${inf.sintesis.frenados
           .map((f) => `<li><b style="color:${f.bien ? VERDE : ROJO}">${f.bien ? "Sí" : "No"}</b> · ${esc(f.jugador.nombre)}: ${esc(f.texto)}</li>`)
@@ -270,29 +301,23 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
       : ""
   }`;
 
-  const atacarEsencial = duelosParaAtacar(inf.duelosJugadores).slice(0, 2);
+  const atacarEsencial = atacarDe(inf).slice(0, 2);
 
-  const vigilarEsencial = duelosParaVigilar(inf.duelosJugadores).slice(0, 2);
-
-  const clavesSinDuelos = inf.sintesis.claves.filter((c) => !/^(Atacar|Vigilar) · /.test(c));
+  const vigilarEsencial = vigilarDe(inf).slice(0, 2);
 
   const duelosEsencial = `${atacarEsencial.length ? `${etiqueta("Dónde atacar", VERDE)}${lista(atacarEsencial.map((x) => fraseDuelo(x, "con")))}` : ""}${
     vigilarEsencial.length ? `${etiqueta("Qué vigilar", ROJO)}${lista(vigilarEsencial.map((x) => fraseDuelo(x, "sin")))}` : ""
   }`;
 
-  const esencial = esPost ? esencialPost : `<p style="margin:0 0 12px;font:700 20px/1.3 Arial,sans-serif;color:${NAVY}">${esc(inf.sintesis.titular)}</p>${duelosEsencial}${
-    /* «Atacar · …» y «Vigilar · …» ya van arriba en sus bloques: aquí, el resto de claves. */
-    clavesSinDuelos.length
-      ? `<p style="margin:12px 0 4px;font:700 12px/1.3 Arial,sans-serif;color:${SUAVE};text-transform:uppercase;letter-spacing:.08em">${esPost ? "Lo que nos deja" : "Claves del partido"}</p>${lista(clavesSinDuelos)}`
-      : ""
+  /* Previa (20/10/2026): la pregunta del partido, el pronóstico en una línea,
+     cómo lo ganamos (las claves del cuerpo técnico o el plan por fases) y,
+     detrás, los duelos y los cruces que lo respaldan. */
+  const esencial = esPost ? esencialPost : `<p style="margin:0 0 6px;font:700 20px/1.3 Arial,sans-serif;color:${NAVY}">${esc(s.titular)}</p>${subtitular}${
+    s.claves.length ? `${etiqueta("Cómo lo ganamos")}${lista(s.claves)}` : ""
+  }${duelosEsencial}${
+    s.ventajas.length ? `${etiqueta("Donde ganamos el cruce", VERDE)}${lista(s.ventajas)}` : ""
   }${
-    inf.sintesis.ventajas.length
-      ? `<p style="margin:12px 0 4px;font:700 12px/1.3 Arial,sans-serif;color:${VERDE};text-transform:uppercase;letter-spacing:.08em">Donde somos mejores</p>${lista(inf.sintesis.ventajas)}`
-      : ""
-  }${
-    inf.sintesis.amenazas.length
-      ? `<p style="margin:12px 0 4px;font:700 12px/1.3 Arial,sans-serif;color:${ROJO};text-transform:uppercase;letter-spacing:.08em">Donde son fuertes ellos</p>${lista(inf.sintesis.amenazas)}`
-      : ""
+    s.amenazas.length ? `${etiqueta("Donde nos pueden hacer daño", ROJO)}${lista(s.amenazas)}` : ""
   }${
     inf.sintesis.vigilar.length
       ? `<p style="margin:12px 0 4px;font:700 12px/1.3 Arial,sans-serif;color:${ROJO};text-transform:uppercase;letter-spacing:.08em">A vigilar</p>${lista(
@@ -361,6 +386,10 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const plRev = inf.plan;
 
+  /* La columna «¿Se cumplió?» con la métrica del partido cuando la clave casa
+     con una (20/10/2026); la que no, sigue en blanco para la reunión. */
+  const veredictoDe = (clave: string) => s.cumplimiento.find((f) => f.clave === clave && f.veredicto);
+
   const revision = plRev
     ? tabla(
         ["Lo que nos propusimos", "¿Se cumplió?"],
@@ -372,10 +401,16 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           ["ABP defensivo", plRev.abpDef],
         ]
           .filter(([, t]) => t)
-          .map(([m, t]) => [
-            `<span style="color:${SUAVE};font-size:11px;text-transform:uppercase;letter-spacing:.06em">${esc(m)}</span><br>${parrafo(t)}`,
-            `<div style="min-width:150px;height:34px;border:1px dashed #D6D0C2;border-radius:6px"></div>`,
-          ]),
+          .map(([m, t]) => {
+            const v = m === "Clave" ? veredictoDe(t) : undefined;
+
+            return [
+              `<span style="color:${SUAVE};font-size:11px;text-transform:uppercase;letter-spacing:.06em">${esc(m)}</span><br>${parrafo(t)}`,
+              v
+                ? `<b style="color:${v.veredicto === "si" ? VERDE : v.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(v.veredicto)} ${v.veredicto === "si" ? "Sí" : v.veredicto === "no" ? "No" : "Igual que siempre"}</b><br><span style="color:${SUAVE};font-size:12px">${esc(v.dato)}</span>`
+                : `<div style="min-width:150px;height:34px;border:1px dashed #D6D0C2;border-radius:6px"></div>`,
+            ];
+          }),
       )
     : "";
 
@@ -442,7 +477,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const veredicto =
     pr && esPost && inf.sintesis.veredicto
-      ? `<p style="margin:0 0 10px;font:700 15px/1.5 Arial,sans-serif;color:${NAVY}">${esc(inf.sintesis.veredicto)}.</p>${tarjetas([
+      ? `<p style="margin:0 0 10px;font:700 15px/1.5 Arial,sans-serif;color:${NAVY}">${esc(inf.sintesis.veredicto)}.${lecturaXg(inf) ? ` <span style="font-weight:400">${esc(lecturaXg(inf))}.</span>` : ""}</p>${tarjetas([
           { rotulo: "Victoria", valor: pct(pr.victoria) },
           { rotulo: "Empate", valor: pct(pr.empate) },
           { rotulo: "Derrota", valor: pct(pr.derrota) },
@@ -568,7 +603,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
     ? `${tarjetas([
         { rotulo: "Tareas", valor: String(m.totales.tareas) },
         { rotulo: "Minutos de trabajo", valor: `${m.totales.minutos}′` },
-        { rotulo: "Balón parado", valor: m.totales.abpMinutos ? `${m.totales.abpMinutos}′` : "" },
+        { rotulo: "Balón parado", valor: abpMin.minutos ? minutosLegibles(abpMin.minutos) : "", pie: abpMin.texto || undefined },
         { rotulo: "Valoración media", valor: m.totales.valoracionMedia !== null ? m.totales.valoracionMedia.toLocaleString("es-ES") : "", pie: `${m.totales.valoradas} de ${m.totales.tareas} valoradas` },
       ])}<div style="height:12px"></div>${tabla(
         ["Día", "Respecto al partido", "Tareas", "Minutos", "Carga", "Contenidos"],
@@ -594,7 +629,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const abp = inf.abp
     ? `${tarjetas([
-        { rotulo: "ABP trabajado esta semana", valor: inf.abp.minutosSemana ? `${inf.abp.minutosSemana}′` : "" },
+        { rotulo: "ABP trabajado esta semana", valor: abpMin.minutos ? minutosLegibles(abpMin.minutos) : "", pie: abpMin.texto || undefined },
         { rotulo: "Láminas del rival preparadas", valor: String(inf.abp.laminasRival), pie: "en ABP y Área del Rival" },
       ])}${
         inf.abp.documentosRival.length
@@ -651,7 +686,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
     pr ? { rotulo: esPost ? "Victoria que daba el pronóstico" : "Victoria según el pronóstico", valor: pct(pr.victoria), pie: esPost ? undefined : `${pct(pr.conPlan.victoria)} con el plan` } : null,
     pr ? { rotulo: "Goles esperados", valor: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`, pie: `más probable ${pr.marcador}` } : null,
     ctx?.nuestroPuesto && ctx.puesto ? { rotulo: "Clasificación", valor: `${ordinal(ctx.nuestroPuesto)} · ${ordinal(ctx.puesto)}`, pie: `${ctx.nuestrosPuntos} y ${ctx.puntos} pts` } : null,
-    inf.microciclo ? { rotulo: "La semana", valor: `${inf.microciclo.totales.minutos}′`, pie: `${inf.microciclo.totales.tareas} tareas${inf.microciclo.totales.abpMinutos ? ` · ${inf.microciclo.totales.abpMinutos}′ de ABP` : ""}` } : null,
+    inf.microciclo ? { rotulo: "La semana", valor: `${inf.microciclo.totales.minutos}′`, pie: `${inf.microciclo.totales.tareas} tareas${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de ABP` : ""}` } : null,
   ]).filter((x): x is { rotulo: string; valor: string; pie?: string } => Boolean(x));
 
   const cabecera = `<tr><td style="padding:30px 32px 26px;background:${NAVY}">
@@ -696,9 +731,9 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
 
   const signo = (n: number | null) => (n === null ? "" : `${n > 0 ? "+" : ""}${n}`);
 
-  const atacarD = duelosParaAtacar(dj);
+  const atacarD = atacarDe(inf, dj);
 
-  const vigilarD = duelosParaVigilar(dj);
+  const vigilarD = vigilarDe(inf, dj);
 
   const duelosCap = dj
     ? `<p style="margin:0 0 10px;font:400 14px/1.6 Arial,sans-serif;color:${NAVY}">${
@@ -737,7 +772,10 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
     ? `${tarjetas([
         { rotulo: "G · E · P", valor: `${vz.g}-${vz.e}-${vz.p}`, pie: `${vz.partidos} partidos` },
         { rotulo: "Goles", valor: `${vz.gf}-${vz.gc}`, pie: "a favor · en contra" },
-        { rotulo: "En la tabla", valor: vz.tabla ? ordinal(vz.tabla.puesto) : "", pie: vz.tabla ? `de ${vz.tabla.de}, por puntos por partido` : "" },
+        /* Un solo puesto, el de BeSoccer por puntos (20/10/2026); el de Wyscout por puntos por partido, sólo sin él. */
+        ctx?.puesto
+          ? { rotulo: "En la tabla", valor: ordinal(ctx.puesto), pie: ctx.puntos !== null ? `${ctx.puntos} pts` : "" }
+          : { rotulo: "En la tabla", valor: vz.tabla ? ordinal(vz.tabla.puesto) : "", pie: vz.tabla ? `de ${vz.tabla.de}, por puntos por partido` : "" },
         { rotulo: "Forma", valor: vz.forma.map((f) => f.resultado).join(" ") || "", pie: vz.sistemas[0] ? `sistema: ${vz.sistemas[0].sistema}` : "" },
       ])}${vz.frases.length ? `${etiqueta("En pocas palabras")}${lista(vz.frases)}` : ""}${
         vz.fases.length
@@ -788,7 +826,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
           {
             id: "duelo",
             titulo: "Los dos en la temporada",
-            html: seccion("Los dos en la temporada", `Wyscout, temporada ${inf.duelo?.temporada ?? ""}: media por partido y puesto entre los ${inf.duelo?.equipos ?? ""} del grupo. La barra es el percentil.`, duelo),
+            html: seccion("Los dos en la temporada", `${selloDatos(inf) || `Wyscout, temporada ${inf.duelo?.temporada ?? ""}`}: media por partido y puesto entre los ${inf.duelo?.equipos ?? ""} del grupo. La barra es el percentil. xG = goles esperados.`, duelo),
           },
           { id: "abp", titulo: "Balón parado", html: abpEntero || seccion("Balón parado", "", abp) },
           { id: "material", titulo: "Material del partido", html: seccion("Material del partido", "", adjuntosTexto) },
@@ -804,7 +842,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
             titulo: "El duelo en datos",
             html: seccion(
               "El duelo en datos",
-              `Wyscout, temporada ${inf.duelo?.temporada ?? ""}: la media por partido de cada equipo y su puesto entre los ${inf.duelo?.equipos ?? ""} del grupo (1.º = el mejor). La barra es el percentil.`,
+              `${selloDatos(inf) || `Wyscout, temporada ${inf.duelo?.temporada ?? ""}`}: la media por partido de cada equipo y su puesto entre los ${inf.duelo?.equipos ?? ""} del grupo (1.º = el mejor). La barra es el percentil. xG = goles esperados; PPDA = pases que dejan dar antes de presionar (menos = más presión).`,
               duelo,
             ),
           },
@@ -847,7 +885,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
     ? `<tr><td style="padding:22px 32px 0">${bloqueMensaje(extras.mensaje, extras.firma)}</td></tr>`
     : "";
 
-  const html = numera(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">${preheader(extras.mensaje?.trim() ? extras.mensaje.trim().slice(0, 140) : `${inf.sintesis.titular}${pr?.idea && !esPost ? ` · ${pr.idea}` : ""}`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEAE0"><tr><td align="center" style="padding:24px 10px"><table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:100%;max-width:760px;background:#FFFFFF;border-radius:12px;overflow:hidden">
+  const html = numera(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#EEEAE0">${preheader(extras.mensaje?.trim() ? extras.mensaje.trim().slice(0, 140) : preencabezadoInforme(inf))}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEAE0"><tr><td align="center" style="padding:24px 10px"><table role="presentation" width="760" cellpadding="0" cellspacing="0" style="width:100%;max-width:760px;background:#FFFFFF;border-radius:12px;overflow:hidden">
 ${cabecera}
 ${mensaje}
 ${extras.video ?? ""}
@@ -903,9 +941,14 @@ export function resumenHtml(inf: InformePartido, cids: string[], opciones: { con
         idea
           ? `<p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:#C8A96B">LA IDEA</p><p style="margin:4px 0 14px;font:700 17px/1.4 Arial,sans-serif;color:#F7F4EC">${esc(idea)}</p>`
           : ""
-      }${!esPost && inf.pronostico ? `${barraPronostico(inf.pronostico, "EL PRONÓSTICO")}<div style="height:14px"></div>` : ""}<p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:#C8A96B">${esPost ? "LO QUE NOS DEJA" : "CLAVES DEL PARTIDO"}</p><ol style="margin:6px 0 0;padding-left:20px;font:400 15px/1.55 Arial,sans-serif;color:#E6E9EF">${claves
+      }${!esPost && inf.pronostico ? `${barraPronostico(inf.pronostico, "EL PRONÓSTICO")}<div style="height:14px"></div>` : ""}<p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:#C8A96B">${esPost ? "LO QUE NOS DEJA" : "CÓMO LO GANAMOS"}</p><ol style="margin:6px 0 0;padding-left:20px;font:400 15px/1.55 Arial,sans-serif;color:#E6E9EF">${claves
         .map((c) => `<li style="margin:0 0 4px">${esc(c)}</li>`)
-        .join("")}</ol></td></tr></table></td></tr>`
+        .join("")}</ol>${
+        /* El post acaba en lo que toca esta semana (20/10/2026). */
+        esPost && inf.sintesis.microciclo.length
+          ? `<p style="margin:14px 0 0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:#E8615A">QUÉ TOCA EN EL MICROCICLO</p><ol style="margin:6px 0 0;padding-left:20px;font:400 15px/1.55 Arial,sans-serif;color:#E6E9EF">${inf.sintesis.microciclo.map((c) => `<li style="margin:0 0 4px">${esc(c)}</li>`).join("")}</ol>`
+          : ""
+      }</td></tr></table></td></tr>`
     : "";
 
   const descargas = opciones.descargas?.length
@@ -925,10 +968,10 @@ export function resumenHtml(inf: InformePartido, cids: string[], opciones: { con
       ? `${cids.length === 1 ? "La diapositiva va" : "Las diapositivas van"} también en PDF adjunto.`
       : "";
 
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#08111F">${preheader(opciones.mensaje?.trim() ? opciones.mensaje.trim().slice(0, 140) : `${titular}${idea ? ` · ${idea}` : ""}`)}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#08111F"><tr><td align="center" style="padding:20px 8px"><table role="presentation" width="960" cellpadding="0" cellspacing="0" style="width:100%;max-width:960px">
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(titulo)}</title></head><body style="margin:0;padding:0;background:#08111F">${preheader(opciones.mensaje?.trim() ? opciones.mensaje.trim().slice(0, 140) : preencabezadoInforme(inf))}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#08111F"><tr><td align="center" style="padding:20px 8px"><table role="presentation" width="960" cellpadding="0" cellspacing="0" style="width:100%;max-width:960px">
 <tr><td style="padding:4px 4px 14px"><p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.24em;color:#C8A96B">REAL MADRID CASTILLA · ${esPost ? "POST PARTIDO" : "PREVIA"} · RESUMEN</p><p style="margin:6px 0 0;font:700 24px/1.25 Arial,sans-serif;color:#F7F4EC">${esc(titulo)}</p>${
     subtitulo ? `<p style="margin:4px 0 0;font:400 13px/1.4 Arial,sans-serif;color:#9AA3B2">${esc(subtitulo)}</p>` : ""
-  }<p style="margin:10px 0 0;font:700 16px/1.4 Arial,sans-serif;color:#F2E6C9">${esc(titular)}.</p></td></tr>
+  }<p style="margin:10px 0 0;font:700 16px/1.4 Arial,sans-serif;color:#F2E6C9">${esc(/[?!]$/.test(titular) ? titular : `${titular}.`)}</p>${inf.sintesis.subtitular ? `<p style="margin:4px 0 0;font:400 13px/1.4 Arial,sans-serif;color:#9AA3B2">${esc(inf.sintesis.subtitular)}</p>` : ""}</td></tr>
 ${mensaje}
 ${opciones.video ?? ""}
 ${cids.map((cid, i) => `<tr><td style="padding:6px 0"><img src="cid:${esc(cid)}" alt="Diapositiva ${i + 1}" width="960" style="display:block;width:100%;max-width:960px;height:auto;border-radius:10px"></td></tr>`).join("")}
@@ -941,13 +984,16 @@ ${pie ? `<tr><td style="padding:16px 4px 4px;font:400 12px/1.5 Arial,sans-serif;
 export function informeTexto(inf: InformePartido) {
   const p = inf.partido;
 
+  const abpMin = minutosAbpInforme(inf);
+
   const l: string[] = [
     `REAL MADRID CASTILLA · ${inf.momento === "post" ? "POST PARTIDO" : "PREVIA"} · ${p.rival}`,
     [p.jornada ? `Jornada ${p.jornada}` : "", p.fechaTexto].filter(Boolean).join(" · "),
     "",
     inf.sintesis.titular,
+    ...(inf.sintesis.subtitular ? [inf.sintesis.subtitular] : []),
     "",
-    inf.momento === "post" ? "LO QUE NOS DEJA" : "CLAVES DEL PARTIDO",
+    inf.momento === "post" ? "LO QUE NOS DEJA" : "CÓMO LO GANAMOS",
     ...inf.sintesis.claves.map((c, i) => `${i + 1}. ${c}`),
   ];
 
@@ -958,17 +1004,19 @@ export function informeTexto(inf: InformePartido) {
   }
   if (inf.sintesis.veredicto) l.push("", inf.sintesis.veredicto);
   if (inf.sintesis.relato.length) l.push("", "CÓMO FUE", ...inf.sintesis.relato.map((v) => `- ${v}`));
+  if (inf.sintesis.cumplimiento.length) l.push("", "LO QUE NOS PROPUSIMOS · ¿SE CUMPLIÓ?", ...inf.sintesis.cumplimiento.map((f) => `- ${marcaCumplimiento(f.veredicto) ? `${marcaCumplimiento(f.veredicto)} ` : ""}${f.clave}${f.dato ? ` (${f.dato})` : ""}`));
+  if (inf.sintesis.microciclo.length) l.push("", "QUÉ TOCA EN EL MICROCICLO", ...inf.sintesis.microciclo.map((v, i) => `${i + 1}. ${v}`));
   if (inf.sintesis.frenados.length) l.push("", "¿LOS FRENAMOS?", ...inf.sintesis.frenados.map((f) => `- ${f.bien ? "Sí" : "No"} · ${f.jugador.nombre}: ${f.texto}`));
-  if (inf.sintesis.ventajas.length) l.push("", "DONDE SOMOS MEJORES", ...inf.sintesis.ventajas.map((v) => `- ${v}`));
-  if (inf.momento !== "post" && inf.sintesis.amenazas.length) l.push("", "DONDE SON FUERTES ELLOS", ...inf.sintesis.amenazas.map((v) => `- ${v}`));
+  if (inf.sintesis.ventajas.length) l.push("", "DONDE GANAMOS EL CRUCE", ...inf.sintesis.ventajas.map((v) => `- ${v}`));
+  if (inf.momento !== "post" && inf.sintesis.amenazas.length) l.push("", "DONDE NOS PUEDEN HACER DAÑO", ...inf.sintesis.amenazas.map((v) => `- ${v}`));
   if (inf.momento !== "post" && inf.sintesis.vigilar.length) l.push("", "A VIGILAR", ...inf.sintesis.vigilar.map((j) => `- ${j.dorsal ? `${j.dorsal} ` : ""}${j.nombre}${j.posicion ? ` (${j.posicion})` : ""}`));
   if (inf.sintesis.partido.length) l.push("", "EL PARTIDO EN DATOS", ...inf.sintesis.partido.map((v) => `- ${v}`));
-  const atacarTxt = duelosParaAtacar(inf.duelosJugadores).slice(0, 3);
-  const vigilarTxt = duelosParaVigilar(inf.duelosJugadores).slice(0, 3);
+  const atacarTxt = atacarDe(inf).slice(0, 3);
+  const vigilarTxt = vigilarDe(inf).slice(0, 3);
   if (atacarTxt.length) l.push("", inf.momento === "post" ? "DÓNDE ESPERÁBAMOS HACERLES DAÑO" : "DÓNDE LES HACEMOS DAÑO (CON BALÓN)", ...atacarTxt.map((x) => `- ${fraseDuelo(x, "con")}`));
   if (vigilarTxt.length) l.push("", inf.momento === "post" ? "DÓNDE NOS PODÍAN HACER DAÑO" : "DÓNDE NOS PUEDEN HACER DAÑO (SIN BALÓN)", ...vigilarTxt.map((x) => `- ${fraseDuelo(x, "sin")}`));
   if (inf.vistazo?.frases.length) l.push("", `${(p.rival || "EL RIVAL").toUpperCase()} DE UN VISTAZO`, ...inf.vistazo.frases.map((v) => `- ${v}`));
-  if (inf.microciclo) l.push("", `LA SEMANA: ${inf.microciclo.totales.tareas} tareas · ${inf.microciclo.totales.minutos}′${inf.microciclo.totales.abpMinutos ? ` · ${inf.microciclo.totales.abpMinutos}′ de ABP` : ""}`);
+  if (inf.microciclo) l.push("", `LA SEMANA: ${inf.microciclo.totales.tareas} tareas · ${inf.microciclo.totales.minutos}′${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de ABP` : ""}`);
 
   return l.join("\n");
 }
