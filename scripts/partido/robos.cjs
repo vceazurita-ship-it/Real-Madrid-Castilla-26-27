@@ -28,7 +28,9 @@ const path = require("node:path");
 
 const PARTIDO = process.argv[2];
 const SOLO_VER = process.argv.includes("--ver");
-const AQUI = path.join(__dirname, "..", "..", "..", "..", "ANALISIS TRANSICIONES");
+/* Desde un worktree (.claude/worktrees/…) la ruta relativa no llega: se cae a la de siempre. */
+const RELATIVA = path.join(__dirname, "..", "..", "..", "..", "ANALISIS TRANSICIONES");
+const AQUI = fs.existsSync(RELATIVA) ? RELATIVA : "C:/Users/Usuario/Downloads/RMCF CASTILLA/ANALISIS TRANSICIONES";
 
 /*
 | Desfase vídeo táctico − vídeo de Hudl, por tramos de Hudl (segundos).
@@ -292,7 +294,14 @@ ev.forEach((e, i) => {
   ].filter(Boolean);
   robos.push({
     t: e.t,
-    fila: [aTactica(e.t), zona, carril, accion, d.desenlace, d.duracion, d.pases, partes.join(", "), accion === "PERDIDA" && d.duracion <= 1 && d.pases === 0 ? "baja" : es(e, "Recovery") && !es(e, "Interception", "Counterpressing recovery", "Defensive duel") ? "media" : "alta"],
+    fila: [aTactica(e.t), zona, carril, accion, d.desenlace, d.duracion, d.pases, partes.join(", "), accion === "PERDIDA" && d.duracion <= 1 && d.pases === 0 ? "baja" : es(e, "Recovery") && !es(e, "Interception", "Counterpressing recovery", "Defensive duel") ? "media" : "alta",
+      /*
+      | El jugador que roba, al final de la fila (19/10/2026): sale de la
+      | sesión POR JUGADOR del timeline, que es la única con nombres fiables
+      | (la de equipo mezcla atacantes y defensores). Los bloques viejos no lo
+      | tienen y transiciones-datos.mjs los sigue leyendo igual.
+      */
+      sinDorsal(e.jug)],
   });
 });
 
@@ -313,7 +322,7 @@ fs.mkdirSync(dir, { recursive: true });
 /* Fuera los bloques de una pasada anterior (09/10/2026): sin la táctica el
    vídeo es más largo y sus bloques del final se quedaban, con robos en el
    segundo de Hudl, contados dos veces por transiciones-datos. */
-for (const viejo of fs.readdirSync(dir).filter((f) => /^bd+.csv$/.test(f))) fs.rmSync(path.join(dir, viejo), { force: true });
+for (const viejo of fs.readdirSync(dir).filter((f) => /^b\d+\.csv$/.test(f))) fs.rmSync(path.join(dir, viejo), { force: true });
 const porBloque = {};
 for (const r of robos) {
   const b = Math.floor(r.fila[0] / 300) * 300;
@@ -324,7 +333,7 @@ for (let b = 0; b < segundosVideo; b += 300) {
   const f = path.join(dir, `b${String(b).padStart(5, "0")}.csv`);
   fs.writeFileSync(
     f,
-    ["# segundo;zona;carril;accion;desenlace;duracion;pases;detalle;confianza",
+    ["# segundo;zona;carril;accion;desenlace;duracion;pases;detalle;confianza;jugador",
       "# Sacado del timeline de Hudl (robos-hudl.cjs), no mirado imagen a imagen. El segundo es del vídeo táctico.",
       ...(porBloque[b] || [])].join("\n") + "\n",
     "utf8",
