@@ -916,7 +916,9 @@ export function InformeMicroDialog({
               lineas: (() => {
                 const p = pinceladaAbp(paraEnviar);
 
-                return [p.titular, p.claves[0] ? `Esta semana: ${p.claves[0]}` : ""].filter(Boolean);
+                /* La clave tal cual (20/10/2026): ya trae su rótulo («Prioridad nº 1: …») y
+                   en el post habla del partido, así que «Esta semana: » delante sobraba. */
+                return [p.titular, p.claves[0] ?? ""].filter(Boolean);
               })(),
               video: (infoVideo as { url: string } | null)?.url ?? null,
               enlaces: adjuntosUrl.map((a) => (enlacePdf && a.nombre === enlacePdf.nombre ? { ...a, url: enlacePdf.url } : a)),

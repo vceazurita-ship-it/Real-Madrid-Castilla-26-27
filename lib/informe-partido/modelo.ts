@@ -1630,9 +1630,10 @@ function titularPost(inf: Omit<InformePartido, "sintesis">) {
 
   const p = inf.partido;
 
-  const rival = p.rival || "el rival";
+  /* Sin el nombre del rival no se escribe «ante el el rival» (20/10/2026): se omite. */
+  const ante = p.rival ? ` ante el ${p.rival}` : "";
 
-  if (!giro) return `Post partido ante el ${rival}`;
+  if (!giro) return `Post partido${ante}`;
 
   const xg = giro.xgNos !== null && giro.xgSuyo !== null ? `${cifra(giro.xgNos, "decimal")} goles esperados contra ${cifra(giro.xgSuyo, "decimal")}` : "";
 
@@ -1644,7 +1645,7 @@ function titularPost(inf: Omit<InformePartido, "sintesis">) {
 
   if (giro.dominio === "suyo" && giro.resultado !== "derrota") return `${giro.verbo} (${p.gf}-${p.gc}) aunque ellos generaron más: ${xg}`;
 
-  return `${giro.verbo} ${p.gf}-${p.gc} ante el ${rival}`;
+  return `${giro.verbo} ${p.gf}-${p.gc}${ante}`;
 }
 
 /** El asunto de cada correo, con dato (20/10/2026). Sin dato, el de siempre. */
@@ -1691,7 +1692,7 @@ export function asuntoInforme(inf: InformePartido, tipo: "resumen" | "completo")
 
     const encajados = giro.resultado === "victoria" && (p.gc ?? 0) >= 2 ? `, pero encajamos ${p.gc}` : "";
 
-    return `${j}· ${giro.verbo} ${p.gf}-${p.gc} ${prep} ${rival}${idea}${encajados}`.replace(/^· /, "");
+    return `${j}· ${giro.verbo} ${p.gf}-${p.gc}${p.rival ? ` ${prep} ${p.rival}` : ""}${idea}${encajados}`.replace(/^· /, "");
   }
 
   const pr = inf.pronostico;
@@ -1729,7 +1730,7 @@ export function whatsappInforme(inf: InformePartido): { titular: string; lineas:
 
     return {
       titular: `${j}${marcador}`.toUpperCase(),
-      lineas: [[`${s.titular}.`, s.microciclo[0] ? `Esta semana: ${minusculaInicial(s.microciclo[0])}.` : ""].filter(Boolean).join(" ")],
+      lineas: [[/[.?!]$/.test(s.titular) ? s.titular : `${s.titular}.`, s.microciclo[0] ? `Esta semana: ${minusculaInicial(s.microciclo[0])}.` : ""].filter(Boolean).join(" ")],
     };
   }
 

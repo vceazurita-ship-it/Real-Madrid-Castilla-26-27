@@ -1118,7 +1118,7 @@ export function guionDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, extra
   const claves = pincelada.claves.slice(0, 4).map((c) => corta(limpia(c)));
 
   if (claves.length) {
-    escenas.push({ id: "claves", tipo: "claves", titulo: `${["", "Una cosa", "Dos cosas", "Tres cosas", "Cuatro cosas"][claves.length]} para el partido`, lineas: claves, locucion: claves.join(". ") });
+    escenas.push({ id: "claves", tipo: "claves", titulo: `${["", "Una cosa", "Dos cosas", "Tres cosas", "Cuatro cosas"][claves.length]} ${momento === "post" ? "que nos deja el partido" : "para el partido"}`, lineas: claves, locucion: claves.join(". ") });
   }
 
   /* Las láminas dibujadas del rival, con movimiento de cámara; luego sus cortes; luego los dos gráficos que contestan la semana. */

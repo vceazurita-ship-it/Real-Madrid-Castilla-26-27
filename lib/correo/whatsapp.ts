@@ -112,7 +112,15 @@ export function mensajeWhatsapp(o: {
 
     const hueco = Math.max(60, TOPE_CORTO - titular.length - propio.length - etiquetas - 4);
 
-    const que = cabeEn(o.lineas.map((l) => l.trim()).filter(Boolean).join(" "), hueco);
+    /* Cada línea acaba en punto (20/10/2026): el titular de ABP y su clave iban pegados, sin pausa. */
+    const que = cabeEn(
+      o.lineas
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((l) => (/[.?!:]$/.test(l) ? l : `${l}.`))
+        .join(" "),
+      hueco,
+    );
 
     return [titular, que, propio, enlaces].filter(Boolean).join("\n");
   }
