@@ -263,14 +263,14 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
                     Minutos
                     <input type="number" inputMode="numeric" min={0} value={t.tiempo || ""} onChange={(e) => cambiaTarea(i, { tiempo: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={CAMPO_NUM} />
                   </label>
-                  {/* Con el nombre entero y su escala, la de la columna
-                      «Intensidad (1-5)» de la hoja, igual que en el editor del
-                      microciclo. Aquí ponía máximo 10 y no recortaba: un 8
-                      tecleado se guardaba tal cual y disparaba la carga
-                      ponderada (19/10/2026). */}
-                  <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-white/40" title="Intensidad de la tarea, del 1 al 5">
-                    Intensidad 1-5
-                    <input type="number" inputMode="numeric" min={0} max={5} value={t.intensidad || ""} onChange={(e) => cambiaTarea(i, { intensidad: Math.min(5, Math.max(0, Math.round(Number(e.target.value) || 0))) })} className={CAMPO_NUM} />
+                  {/* Con el nombre entero y su escala. La columna de la hoja
+                      se llama «Intensidad (1-5)», pero lo que de verdad se
+                      apunta va del 1 al 10 (medido en la hoja el 19/10/2026:
+                      17 tareas a 10, 39 entre 8 y 9): se acota a 10, que es
+                      lo que antes no hacía. */}
+                  <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-white/40" title="Intensidad de la tarea, del 1 al 10">
+                    Intensidad 1-10
+                    <input type="number" inputMode="numeric" min={0} max={10} value={t.intensidad || ""} onChange={(e) => cambiaTarea(i, { intensidad: Math.min(10, Math.max(0, Math.round(Number(e.target.value) || 0))) })} className={CAMPO_NUM} />
                   </label>
                 </div>
                 <div className="mt-2.5">
