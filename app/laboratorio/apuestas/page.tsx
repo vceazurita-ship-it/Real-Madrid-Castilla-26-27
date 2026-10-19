@@ -304,7 +304,19 @@ function Lanzar({ guarda, hoy, ocupado }: { guarda: Guarda; hoy: string; ocupado
   const [enviando, setEnviando] = useState(false);
 
   const lista =
-    prediccion.trim().length >= 8 && enJuego.trim().length > 0 && comprobar >= hoy;
+    prediccion.trim().length >= 8 && enJuego.trim().length > 0 && comprobar > hoy;
+
+  /* Lo que falta, dicho: el botón apagado sin más no explicaba nada. */
+  const falta =
+    prediccion.trim().length < 8
+      ? "Escribe la predicción (al menos 8 letras)"
+      : !enJuego.trim()
+        ? "Di qué te juegas"
+        : !comprobar
+          ? "Pon el día en que se comprueba"
+          : comprobar <= hoy
+            ? "El día tiene que ser mañana como pronto"
+            : "";
 
   const lanza = async () => {
     setEnviando(true);
@@ -339,6 +351,7 @@ function Lanzar({ guarda, hoy, ocupado }: { guarda: Guarda; hoy: string; ocupado
           tone="primary"
           icon={Megaphone}
           disabled={!lista || enviando || ocupado}
+          title={falta || undefined}
           onClick={() => void lanza()}
         >
           {enviando ? "Lanzando…" : "Lanzarla"}
@@ -369,18 +382,24 @@ function Lanzar({ guarda, hoy, ocupado }: { guarda: Guarda; hoy: string; ocupado
           hint={
             comprobar && comprobar < hoy
               ? "Ese día ya ha pasado"
-              : comprobar
-                ? `Se mira el ${fechaLarga(comprobar)}`
-                : "Hasta ese día se admiten posturas"
+              : comprobar && comprobar === hoy
+                ? "Hoy no: nadie podría ponerse a favor o en contra. Mañana como pronto"
+                : comprobar
+                  ? `Se mira el ${fechaLarga(comprobar)}. Hasta el día antes se admiten posturas`
+                  : "Mañana como pronto. Hasta el día antes se admiten posturas"
           }
         />
       </div>
+
+      {falta && (prediccion || enJuego || comprobar) && (
+        <p className="mt-3 text-[11px] text-white/45">Para lanzarla: {falta.charAt(0).toLowerCase() + falta.slice(1)}.</p>
+      )}
     </Panel>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  LA TARJETA                                                         */
+/*  LA TARJETA                                                       */
 /* ------------------------------------------------------------------ */
 
 const CHIP: Record<EstadoApuesta, { texto: (a: Apuesta, hoy: string) => string; clase: string }> = {
@@ -435,7 +454,12 @@ function Tarjeta({
 
   const puedoRetirar = puedeRetirarse(apuesta, yo);
 
-  const retira = () => void pide({ accion: "retirar", id: apuesta.id }, "Apuesta retirada");
+  /* Retirarla la borra para siempre y no tiene deshacer: se pregunta. */
+  const retira = () => {
+    if (!window.confirm("¿Retirar esta apuesta? Se borra y no se puede recuperar.")) return;
+
+    void pide({ accion: "retirar", id: apuesta.id }, "Apuesta retirada");
+  };
 
   const postura = (nueva: Postura) =>
     void pide(
