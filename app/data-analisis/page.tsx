@@ -2458,6 +2458,14 @@ function FilaContraLaLiga({
 
   const dif = contraLaMedia(nuestro, liga, metrica.mejorAlto);
 
+  /*
+  | 19/10/2026: `dif` lleva el sentido puesto, así que en las de «menos es
+  | mejor» tener un 20 % MENOS amarillas salía como «+20 % sobre la media», al
+  | lado de dos barras que decían lo contrario. Se escribe el porcentaje tal
+  | cual (como en el campograma) y el juicio va en palabra y en color.
+  */
+  const bruta = dif === null ? null : metrica.mejorAlto === false ? -dif : dif;
+
   return (
     <div className="min-w-0">
       <button
@@ -2468,10 +2476,16 @@ function FilaContraLaLiga({
       >
         <span className="min-w-0 truncate text-[12.5px] text-white/70">
           {metrica.nombre}
+          {metrica.mejorAlto === false && (
+            <span className="ml-1.5 text-[10px] text-white/40">(menos es mejor)</span>
+          )}
+          {metrica.mejorAlto === null && (
+            <span className="ml-1.5 text-[10px] text-white/40">(estilo)</span>
+          )}
         </span>
 
         <span className="shrink-0 text-[11px] tabular-nums">
-          {dif === null ? (
+          {dif === null || bruta === null ? (
             <span className="text-white/30">—</span>
           ) : (
             <span
@@ -2484,8 +2498,9 @@ function FilaContraLaLiga({
                       : PEOR,
               }}
             >
-              {dif >= 0 ? "+" : ""}
-              {dif.toFixed(0)} % {metrica.mejorAlto === null ? "" : "sobre la media"}
+              {bruta >= 0 ? "+" : ""}
+              {bruta.toFixed(0)} % que la media
+              {metrica.mejorAlto === null ? "" : dif >= 0 ? " · mejor" : " · peor"}
             </span>
           )}
         </span>
@@ -2571,7 +2586,12 @@ function lecturaDeOpta(
 
   const porEncima = con.filter((x) => x.dif > 0).length;
 
-  return `De ${con.length} métricas con un sentido claro, el Castilla está por encima de la categoría en ${porEncima}. Lo más destacado, ${mejor.metrica.nombre.toLowerCase()} (${mejor.dif >= 0 ? "+" : ""}${mejor.dif.toFixed(0)} %); lo más flojo, ${peor.metrica.nombre.toLowerCase()} (${peor.dif >= 0 ? "+" : ""}${peor.dif.toFixed(0)} %).`;
+  /* 19/10/2026: en palabras («un 20 % mejor») y no con signo, que en las de
+     «menos es mejor» el signo orientado se leía al revés que el número. */
+  const juicio = (d: number) =>
+    `un ${Math.abs(d).toFixed(0)} % ${d >= 0 ? "mejor" : "peor"} que la media`;
+
+  return `De ${con.length} métricas con un sentido claro, el Castilla está mejor que la categoría en ${porEncima}. Lo más destacado, ${mejor.metrica.nombre.toLowerCase()} (${juicio(mejor.dif)}); lo más flojo, ${peor.metrica.nombre.toLowerCase()} (${juicio(peor.dif)}).`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -3471,10 +3491,30 @@ function PanelEventos({
   const topeTramo = Math.max(...tramos.map((t) => t.total), 1);
   const topeJug = Math.max(...jugadores.map((j) => j.total), 1);
 
+  /* La leyenda de color es lectura, no método (19/10/2026): iba dentro de los
+     textos explicativos, que vienen apagados, y las barras verdes y grises se
+     quedaban sin decir qué eran. */
+  const leyendaRobo = (
+    <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/50">
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block h-2.5 w-2.5 rounded-[2px]" style={{ background: MEJOR }} />
+        Robo: devuelve el balón
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="inline-block h-2.5 w-2.5 rounded-[2px]" style={{ background: tinta(0.28) }} />
+        El resto (despejes, duelos, faltas…): quita el peligro pero no el balón
+      </span>
+    </p>
+  );
+
   return (
     <>
-      <div className="mt-5">
-        <Explicativo><Notice title={titulo}>
+      {/* Qué partido (o partidos) se está mirando: antes sólo salía dentro del
+          aviso explicativo, y con los textos apagados no se sabía. */}
+      <p className="mt-5 text-[13px] font-semibold text-white/80">{titulo}</p>
+
+      <div className="mt-3">
+        <Explicativo><Notice title="Qué trae este log">
           Esta descarga de Opta son las{" "}
           <strong className="text-white/75">acciones defensivas</strong>, una
           por una, con su jugador y su minuto. Wyscout da el total —«74
@@ -3607,10 +3647,7 @@ function PanelEventos({
             ))}
           </div>
 
-          <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
-            En verde los robos, que devuelven el balón. El resto quita el peligro
-            pero lo deja en disputa.
-          </p></Explicativo>
+          {leyendaRobo}
         </Panel>
       </div>
 
@@ -3648,6 +3685,8 @@ function PanelEventos({
               </div>
             ))}
           </div>
+
+          {leyendaRobo}
 
           <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             Los tipos de acción se agrupan en familias ({familiaDe("BallRecovery")},{" "}
