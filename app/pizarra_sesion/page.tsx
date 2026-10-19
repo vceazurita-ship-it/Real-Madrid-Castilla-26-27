@@ -60,7 +60,7 @@ export default function PizarraSesionPage() {
 
   const fallback = useMemo(() => createBoard(fecha), [fecha]);
 
-  const { value, setValue, status, localOnly, reload } =
+  const { value, setValue, status, localOnly, reload, sinGuardar, guardaYa } =
     useRemoteDoc<SessionBoard>({
       key: `session-board:${fecha}`,
       kind: "session-board",
@@ -230,7 +230,12 @@ export default function PizarraSesionPage() {
 
                   <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/40 via-white/10 to-transparent" />
 
-                  <SaveBadge status={status} localOnly={localOnly} />
+                  <SaveBadge
+                    status={status}
+                    localOnly={localOnly}
+                    sinGuardar={sinGuardar}
+                    onGuardar={() => void guardaYa()}
+                  />
                 </div>
 
                 <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/55">
@@ -289,13 +294,15 @@ export default function PizarraSesionPage() {
               {localOnly && (
                 <p className="flex items-start gap-2 rounded-2xl border border-amber-400/25 bg-amber-400/5 px-4 py-3 text-xs leading-relaxed text-amber-200/90">
                   <TriangleAlert size={15} className="mt-0.5 shrink-0" />
+                  {/* Sin la orden de base de datos (19/10/2026): quien lo lee
+                      es el cuerpo técnico, y además este aviso sale también
+                      con un simple corte de red, no sólo si falta la tabla
+                      de supabase/app_documents.sql. */}
                   <span>
-                    La pizarra se está guardando solo en este dispositivo. Para
-                    sincronizarla, ejecuta{" "}
-                    <code className="rounded bg-black/40 px-1">
-                      supabase/app_documents.sql
-                    </code>{" "}
-                    en Supabase.
+                    La pizarra no llega al servidor y se está guardando sólo
+                    en este aparato: el resto del staff no la ve. Pulsa
+                    «Recargar» cuando vuelva la conexión; si sigue igual, avisa
+                    al administrador de la app.
                   </span>
                 </p>
               )}
@@ -520,9 +527,13 @@ function Stat({
 function SaveBadge({
   status,
   localOnly,
+  sinGuardar,
+  onGuardar,
 }: {
   status: string;
   localOnly: boolean;
+  sinGuardar: boolean;
+  onGuardar: () => void;
 }) {
   if (localOnly) {
     return (
@@ -540,11 +551,26 @@ function SaveBadge({
     );
   }
 
+  /* Con fallo o con cambios por mandar, el rótulo es un botón que guarda ya
+     (19/10/2026). Antes decía «Guardado» con equipos recién movidos todavía
+     en camino, y el error no ofrecía nada que hacer. */
   if (status === "error") {
     return (
-      <Badge tone="red" icon={<TriangleAlert size={13} />}>
-        Error al guardar
-      </Badge>
+      <button type="button" onClick={onGuardar} title="Reintentar ahora">
+        <Badge tone="red" icon={<TriangleAlert size={13} />}>
+          No se pudo guardar · Reintentar
+        </Badge>
+      </button>
+    );
+  }
+
+  if (sinGuardar) {
+    return (
+      <button type="button" onClick={onGuardar} title="Guardar ahora">
+        <Badge tone="amber" icon={<Loader2 size={13} className="animate-spin" />}>
+          Sin guardar
+        </Badge>
+      </button>
     );
   }
 

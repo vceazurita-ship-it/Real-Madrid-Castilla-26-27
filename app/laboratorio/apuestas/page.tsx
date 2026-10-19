@@ -56,6 +56,7 @@ import {
   puedePosicionarse,
   puedeResolverse,
   puedeRetirarse,
+  sumaDias,
   type Apuesta,
   type EstadoApuesta,
   type Postura,
@@ -379,6 +380,9 @@ function Lanzar({ guarda, hoy, ocupado }: { guarda: Guarda; hoy: string; ocupado
           type="date"
           value={comprobar}
           onChange={setComprobar}
+          /* Mañana como pronto, también en el calendario: antes dejaba
+             elegir hoy o un día pasado y sólo se avisaba debajo (19/10/2026). */
+          min={sumaDias(hoy, 1)}
           hint={
             comprobar && comprobar < hoy
               ? "Ese día ya ha pasado"

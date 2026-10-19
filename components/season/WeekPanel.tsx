@@ -11,6 +11,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { toast } from "sonner";
+import { CambioSemana } from "@/lib/season/fusion";
 import { SeasonArea, WeekData } from "@/lib/season/types";
 import { AREA_CONFIG } from "@/lib/season/config";
 import { deleteSeasonFile, uploadSeasonFile } from "@/lib/season/api";
@@ -27,7 +28,8 @@ interface Props {
   area: SeasonArea;
   week: WeekData | null;
   isCurrentWeek: boolean;
-  onUpdateWeek: (week: WeekData) => Promise<void>;
+  /** Sólo lo que cambia: el servidor lo aplica sobre lo último guardado. */
+  onUpdateWeek: (cambio: CambioSemana) => Promise<void>;
 }
 
 export default function WeekPanel({
@@ -122,11 +124,7 @@ export default function WeekPanel({
 
       if (uploaded.length > 0) {
         try {
-          await onUpdateWeek(
-            kind === "images"
-              ? { ...week, images: [...images, ...uploaded] }
-              : { ...week, pdfs: [...pdfs, ...uploaded] }
-          );
+          await onUpdateWeek({ weekId: week.id, anade: { [kind]: uploaded } });
         } catch {
           // El error de guardado ya se notifica al revertir el estado.
           toast.dismiss(toastId);
@@ -172,17 +170,10 @@ export default function WeekPanel({
     }
 
     try {
-      await onUpdateWeek(
-        pendingDelete.kind === "images"
-          ? {
-              ...week,
-              images: images.filter((url) => url !== pendingDelete.url),
-            }
-          : {
-              ...week,
-              pdfs: pdfs.filter((url) => url !== pendingDelete.url),
-            }
-      );
+      await onUpdateWeek({
+        weekId: week.id,
+        quita: { [pendingDelete.kind]: [pendingDelete.url] },
+      });
 
       toast.success("Archivo eliminado.");
       setPendingDelete(null);

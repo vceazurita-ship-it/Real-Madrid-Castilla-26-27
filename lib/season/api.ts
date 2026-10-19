@@ -1,4 +1,5 @@
 import { AREA_CONFIG } from "./config";
+import { CambioSemana } from "./fusion";
 import { MonthData, SeasonArea, WeekData } from "./types";
 
 /**
@@ -62,10 +63,16 @@ export async function loadSeasonData(
   return normalizeSeason(unwrapSeason(await response.json()));
 }
 
-export async function saveSeasonData(
+/**
+ * Guarda UN cambio de semana (archivos añadidos o quitados). Antes se mandaba
+ * la temporada entera y dos personas a la vez se borraban lo subido la una a
+ * la otra; ver lib/season/fusion.ts. Devuelve la semana como ha quedado en el
+ * servidor, con lo que otros hayan subido entre medias.
+ */
+export async function saveWeekChange(
   area: SeasonArea,
-  data: MonthData[]
-): Promise<void> {
+  cambio: CambioSemana
+): Promise<WeekData> {
   const response = await fetch(AREA_CONFIG[area].api.save, {
     method: "POST",
     headers: {
@@ -73,13 +80,20 @@ export async function saveSeasonData(
     },
     body: JSON.stringify({
       season: "2026-2027",
-      data,
+      cambio,
     }),
   });
 
-  if (!response.ok) {
-    throw new Error("No se pudo guardar la temporada");
+  const payload = (await response.json().catch(() => null)) as {
+    week?: WeekData;
+    error?: string;
+  } | null;
+
+  if (!response.ok || !payload?.week) {
+    throw new Error(payload?.error ?? "No se pudo guardar la temporada");
   }
+
+  return payload.week;
 }
 
 /** Nombre único para evitar colisiones en storage (`upsert: false`). */

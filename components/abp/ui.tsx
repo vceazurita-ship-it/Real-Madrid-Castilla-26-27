@@ -695,6 +695,8 @@ export function Field({
   hint,
   suggestions,
   autoFocus,
+  min,
+  max,
 }: {
   label: string;
   value: string;
@@ -705,6 +707,13 @@ export function Field({
   suggestions?: string[];
   /** Se enfoca solo al aparecer. Para el primer campo de un diálogo. */
   autoFocus?: boolean;
+  /**
+   * Límites del campo de fecha («YYYY-MM-DD») o de número. El calendario del
+   * navegador no deja elegir fuera; teclear sí, así que quien lo usa sigue
+   * validando al guardar (19/10/2026).
+   */
+  min?: string;
+  max?: string;
 }) {
   const id = useId();
   const listId = `${id}-list`;
@@ -721,6 +730,8 @@ export function Field({
         value={value}
         autoFocus={autoFocus}
         placeholder={placeholder}
+        min={min}
+        max={max}
         list={suggestions?.length ? listId : undefined}
         onChange={(event) => onChange(event.target.value)}
         className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
@@ -781,6 +792,8 @@ export function Button({
   disabled,
   icon: Icon,
   title,
+  "aria-pressed": ariaPressed,
+  "aria-label": ariaLabel,
 }: {
   children?: ReactNode;
   onClick?: () => void;
@@ -789,6 +802,10 @@ export function Button({
   disabled?: boolean;
   icon?: ComponentType<{ size?: number; className?: string }>;
   title?: string;
+  /** Para botones que se encienden y apagan (filtros, interruptores). */
+  "aria-pressed"?: boolean;
+  /** Nombre para el lector de pantalla cuando el botón es sólo un icono. */
+  "aria-label"?: string;
 }) {
   const styles = {
     primary:
@@ -805,6 +822,8 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       title={title}
+      aria-pressed={ariaPressed}
+      aria-label={ariaLabel}
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${styles}`}
     >
       {Icon && <Icon size={13} />}
@@ -957,6 +976,8 @@ export function SaveState({
   savedAt,
   sinGuardar = false,
   onGuardar,
+  errorDe = "guardado",
+  onReleer,
 }: {
   status: "loading" | "saved" | "saving" | "offline" | "error";
   localOnly?: boolean;
@@ -965,12 +986,26 @@ export function SaveState({
   sinGuardar?: boolean;
   /** Fuerza el guardado sin esperar al retardo. */
   onGuardar?: () => void;
+  /**
+   * De qué es el `status: "error"` (19/10/2026). Por defecto, de guardar. Con
+   * `"lectura"` dice «No se ha podido leer» en vez de «No se pudo guardar ·
+   * reintentando»: la quiniela lo resolvía a mano porque el rótulo de
+   * siempre decía lo contrario de lo que pasaba.
+   */
+  errorDe?: "guardado" | "lectura";
+  /** Vuelve a leer el documento. Hace pulsable el error de lectura. */
+  onReleer?: () => void;
 }) {
-  const pulsable = (contenido: ReactNode, titulo: string, clase: string) =>
-    onGuardar ? (
+  const pulsable = (
+    contenido: ReactNode,
+    titulo: string,
+    clase: string,
+    accion: (() => void) | undefined = onGuardar,
+  ) =>
+    accion ? (
       <button
         type="button"
-        onClick={onGuardar}
+        onClick={accion}
         title={titulo}
         className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] transition hover:bg-white/10 ${clase}`}
       >
@@ -988,6 +1023,18 @@ export function SaveState({
         <Loader2 size={12} className="animate-spin" />
         Guardando…
       </span>
+    );
+  }
+
+  if (status === "error" && errorDe === "lectura") {
+    return pulsable(
+      <>
+        <CloudOff size={12} aria-hidden />
+        {onReleer ? "No se ha podido leer · Reintentar" : "No se ha podido leer"}
+      </>,
+      "Volver a leer",
+      "text-red-300",
+      onReleer,
     );
   }
 
