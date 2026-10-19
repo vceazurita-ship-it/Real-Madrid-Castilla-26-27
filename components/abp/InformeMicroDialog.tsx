@@ -909,9 +909,15 @@ export function InformeMicroDialog({
         setMensajesWa([
           {
             titulo: "Informe de balón parado",
+            /* Formato corto (20/10/2026, equipo de expertos): titular, la idea
+               y la clave de la semana, y los enlaces. Igual que el del partido. */
             texto: mensajeWhatsapp({
               asunto: paraEnviar.asunto,
-              mensaje: infoVideo ? "El informe en PDF y el vídeo: primero lo principal del informe y después nuestro vídeo entero." : "El informe en PDF.",
+              lineas: (() => {
+                const p = pinceladaAbp(paraEnviar);
+
+                return [p.titular, p.claves[0] ? `Esta semana: ${p.claves[0]}` : ""].filter(Boolean);
+              })(),
               video: (infoVideo as { url: string } | null)?.url ?? null,
               enlaces: adjuntosUrl.map((a) => (enlacePdf && a.nombre === enlacePdf.nombre ? { ...a, url: enlacePdf.url } : a)),
               documentosPrimero: true,
