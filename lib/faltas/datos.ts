@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-10-10
+ * Generado: 2026-10-19
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -1283,6 +1283,301 @@ export const PARTIDOS: PartidoFaltas[] = [
         "entre": null,
         "nota": "Aguado roba y da a Roberto Martín (20), que conduce pegado a la banda izquierda (lado banquillos) para salir de nuestro campo y Astals (18), que le persigue, le derriba junto a la línea de banda a unos 30-35 m de nuestra portería, al lado del asistente (TV 92:59, táctica 5710). En la táctica se ven al menos 6 del Ibiza por delante del balón, pero faltan jugadores y el portero fuera de plano, por eso entre = ?. El saque no entra en las imágenes: el vídeo acaba con Martín colocando el balón en la banda (TV 93:05).",
         "minuto": "90+2'58\" (táctica 95:09)"
+      }
+    ]
+  },
+  {
+    "jornada": "LIGA 08",
+    "rival": "Antequera CF",
+    "local": true,
+    "fecha": "2026-10-18",
+    "resultado": "3-2",
+    "clips": "Hudl · Castilla · «2026-10-18 Real Madrid Castilla - Antequera 3 - 2» (timeline de Sportscode) y la cámara táctica J 08 - CASTILLA - ANTEQUERA.mov",
+    "notas": [
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se mira después en la retransmisión y en la cámara táctica del club: zona, carril, distancia, defensores y la nota salen de la imagen.",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
+    ],
+    "id": "j08-antequera",
+    "faltas": [
+      {
+        "clip": "of-c01",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 6. Min 6 (05:14), Cuenca (22) derriba a Yáñez (7) junto a la banda derecha unos metros pasado el medio campo tras pase de Fortea. Yáñez la saca rápido en corto para Óscar y el Castilla sigue jugando. En los 16 s de la táctica no se ve el instante de la falta.",
+        "minuto": "5'15\" (táctica 5:22)"
+      },
+      {
+        "clip": "def-c01",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 6. Leiva (11) derriba a Moha Bassele (19) en el círculo central tras la pérdida y el Antequera la saca en el medio campo (TV 05:51). En las 16 s de táctica sólo se ve la salida del Castilla antes de la falta, así que no se pueden contar los de entre.",
+        "minuto": "5'51\" (táctica 5:58)"
+      },
+      {
+        "clip": "of-c02",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 10. Min 10 (09:29-09:30), Isra Domínguez (23) derriba a Mario (4) junto a la banda izquierda a la altura del área propia en la salida desde Mestre. La TV se va al centro del campo y no se ve bien cómo se saca. La táctica acaba antes de la falta (sólo llega a la salida de Mestre).",
+        "minuto": "9'30\" (táctica 9:38)"
+      },
+      {
+        "clip": "of-c03",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 11,
+        "nota": "T1 min 11. Min 11 (10:27), Antón (2) derriba a Leiva (11) junto a la banda izquierda unos 10 m antes del medio campo, en campo propio. La saca Cestero en corto para seguir jugando. En la táctica (s_02) los 11 del Antequera, portero incluido, quedan por delante del balón (Antón pegado a él).",
+        "minuto": "10'28\" (táctica 10:35)"
+      },
+      {
+        "clip": "of-c04",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 20. Min 20 (19:47), Moi Parra (11) derriba a Aguado (3) cuando salía con el balón junto a la banda izquierda en campo propio y ve la amarilla (19:51). La TV no enseña el saque. En los 16 s de la táctica el juego está en campo del Antequera y no se ve la falta.",
+        "minuto": "19'47\" (táctica 19:55)"
+      },
+      {
+        "clip": "of-c05",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 23. Min 23 (22:04), Aspra (20) derriba a Yáñez (7) junto al círculo central, en campo propio, cuando Yáñez cogía el balón tras un rechace. Aspra se lleva el balón y el árbitro se lo quita, así que la TV no enseña el saque. En los 16 s de la táctica no se ve la falta.",
+        "minuto": "22'05\" (táctica 22:12)"
+      },
+      {
+        "clip": "of-c06",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 26. Falta de Moi Parra (11) sobre Cestero (6, según Hudl, el dorsal no se lee en la TV) hacia el 25:46, unos metros fuera de la esquina izquierda del área del Castilla junto a la banda de los banquillos, y el juego se para con el jugador en el suelo sin que se vea el saque. En la táctica no aparece la parada y la portería del Antequera queda fuera de plano, por eso entre es ?.",
+        "minuto": "25'46\" (táctica 25:54)"
+      },
+      {
+        "clip": "of-c07",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 28. Tras un balón largo de Javi Antón, Isra Domínguez (23) derriba a Mario Rivas (4, según Hudl) hacia el 27:25-27:26 junto a la banda de los banquillos a la altura de la línea de medio campo, y el árbitro habla con ellos mientras el Castilla prepara el saque (no se ve la ejecución). La táctica de esas 16 s muestra juego seguido en campo del Antequera sin esta parada, por eso entre es ?.",
+        "minuto": "27'26\" (táctica 27:33)"
+      },
+      {
+        "clip": "def-c02",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 28. Aguado (3) comete falta sobre Moi Parra (11 según Hudl) junto a la banda de los banquillos en campo del Antequera, justo después de una falta a favor del Castilla (TV 28:01, jugador del Antequera en el suelo). Según Hudl la saca Javi Antón en corto para seguir jugando. La táctica termina antes (sólo se ve la preparación de la falta del Castilla), entre sin contar.",
+        "minuto": "28'01\" (táctica 28:09)"
+      },
+      {
+        "clip": "of-c08",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "T1 min 41. Falta de Javi Antón (2) sobre Ciria (17), con amarilla según Hudl, hacia el 40:33 pegada a la banda de los banquillos justo en la línea de medio campo (lado del Castilla), con los dos jugadores en el suelo y los del Castilla pidiendo tarjeta, sin que se vea el saque. Entre contados en la táctica: el portero y 4 de campo por delante del balón, con otro del Antequera casi a la altura de la línea (no contado).",
+        "minuto": "40'34\" (táctica 40:22)"
+      },
+      {
+        "clip": "def-c03",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "T1 min 47. Mano de Carvajal (19) al saltar para cortar el pase de Luismi Gutiérrez (10), a unos 10 m del medio campo en campo del Antequera (TV 46:23 del añadido de la 1ª parte). El árbitro deja seguir y luego la pita, y según Hudl la saca Luismi y Moi Parra centra y el centro se bloquea. En la táctica quedan 8 del Castilla por detrás del balón con el portero, y Carvajal y otro compañero a su altura.",
+        "minuto": "45+1'24\" (táctica 46:11)"
+      },
+      {
+        "clip": "def-c04",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": 5,
+        "nota": "T2 min 48. Roberto Martín (20) entra en plancha a Adrià Gené (16) en conducción por la banda de los banquillos, a unos 30-35 m de la portería del Castilla (TV 47:10 de la 2ª parte), y ve amarilla. En la táctica, en el instante de la entrada, sólo 4 del Castilla y el portero están por detrás del balón. El saque no sale en las imágenes.",
+        "minuto": "47'09\" (táctica 50:45)"
+      },
+      {
+        "clip": "def-c05",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "T2 min 49. Min 49 (48:48): Roberto Martín derriba a Javi Antón en el carril derecho del Antequera, justo en su campo junto a la línea de medio campo. Se sacó en corto hacia atrás y el Antequera reinició con su portero, sin peligro.",
+        "minuto": "48'48\" (táctica 52:23)"
+      },
+      {
+        "clip": "of-c09",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "T2 min 56. Sin imágenes de TV (sólo táctica): Luismi Gutiérrez (10) derriba a Fortea (2, según Hudl) en la banda derecha de ataque del Castilla, junto a los banquillos y a la altura de la línea de medio campo, y el blanco queda en el suelo mientras el juego sigue unos segundos (Hudl da el saque de Fortea 19 s después, no se ve en estas imágenes). Entre en la táctica: el portero y 6 de campo por delante del balón, con los 11 del Antequera a la vista.",
+        "minuto": "55'03\" (táctica 58:39)"
+      },
+      {
+        "clip": "of-c10",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "centro",
+        "distancia": "frontal",
+        "entre": 4,
+        "nota": "T2 min 57. Iván Pérez (4) derriba a Carvajal (19) hacia el 56:50 cuando encaraba por el centro, a pocos metros de la frontal del área del Antequera, y el árbitro le enseña la roja al 56:56 mientras Ciria (17) coge el balón para el saque (no se ve la ejecución). Entre en la táctica: el portero y 3 de campo por delante del balón, con Iván Pérez a su altura (no contado) y los 11 del Antequera a la vista.",
+        "minuto": "56'49\" (táctica 60:25)"
+      },
+      {
+        "clip": "of-c11",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": 6,
+        "nota": "T2 min 63. Min 63 (62:24 TV): Gené (16) derriba a Yáñez (7) en la esquina derecha del área tras el pase de Fortea y ve la amarilla. Falta lateral pegada al vértice del área, en las imágenes el juego sigue parado con Yáñez en el suelo y no se ve el saque.",
+        "minuto": "62'23\" (táctica 65:58)"
+      },
+      {
+        "clip": "of-c12",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "T2 min 72. Min 73 (72:02 TV): Luismi Gutiérrez (10) derriba por detrás a Óscar Naasei (21) cuando conducía por la derecha unos 10 m dentro de su propio campo. Todo el Antequera queda por delante del balón y la TV corta a repetición, no se ve el saque.",
+        "minuto": "71'57\" (táctica 74:45)"
+      },
+      {
+        "clip": "of-c13",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "T2 min 73. Min 73 (72:44 TV): Aspra (20) derriba a Fortuny (10) pegado a la banda derecha, apenas pasada la línea de medio campo, poco después de sacar Martínez la falta anterior. El jugador del Castilla se queda en el suelo y en las imágenes no se ve el saque.",
+        "minuto": "72'40\" (táctica 75:29)"
+      },
+      {
+        "clip": "def-c06",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "T2 min 76. Hacia el min 76 (sin TV, estimado por el marcador del estadio y el desfase con Hudl): Fortea (amarilla) derriba a Luismi Gutiérrez junto a la banda izquierda del Antequera, en su propio campo a unos 30-35 m de su portería, tras presionar el Castilla arriba. Sin imágenes de TV (sólo táctica): en esos 16 s el juego sigue parado con la tarjeta y no se ve el saque.",
+        "minuto": "75'04\" (táctica 77:53)"
+      },
+      {
+        "clip": "def-c07",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "T2 min 82. Min 82 (81:40): Martínez (16) derriba por detrás a Moha Bassele cuando recibía de espaldas justo fuera del área del Antequera, en el lado derecho de su ataque, tras una pérdida del Castilla en ataque. El Antequera la sacó en corto (Aspra) y la movió atrás hasta su portero, sin peligro.",
+        "minuto": "81'35\" (táctica 84:23)"
+      },
+      {
+        "clip": "def-c08",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 3,
+        "nota": "T2 min 83. Min 83 (82:10): en un balón largo de Quintana, Fati Joao choca con Destiny y ambos caen en el carril derecho del Antequera, unos metros dentro de su campo. El balón lo recoge Mario y el juego sigue en las imágenes (TV y táctica), así que no se ve el pitido ni el saque (Hudl da la falta sacada por Bassele unos 20 s después).",
+        "minuto": "82'10\" (táctica 84:58)"
+      },
+      {
+        "clip": "of-c14",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T2 min 83. Min 83 (82:44 TV): Agüero (14) derriba a Cestero (6) en el carril derecho, unos 5 m dentro del campo del Castilla, tras la recuperación de Fortea y Adrián Pérez. Cestero se queda en el suelo, el saque no entra en las imágenes (Hudl lo da en corto de Fortuny con pase atrás de Fortea).",
+        "minuto": "82'42\" (táctica 85:30)"
+      },
+      {
+        "clip": "of-c15",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": 6,
+        "nota": "T2 min 84. Min 84 (83:38): Julio Martínez (3) derriba a Adrián Pérez (39) pegado a la banda derecha, a la altura del borde del área, tras pase de Fortuny. El árbitro parece amonestar a Julio Martínez y Fortea coloca el balón para sacar, pero el saque no se llega a ver.",
+        "minuto": "83'37\" (táctica 86:25)"
+      },
+      {
+        "clip": "def-c09",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 3,
+        "nota": "T2 min 90. Min 90 (TV 89:43): Cestero derriba a Destiny, que conducía por la banda izquierda del Antequera, a pocos metros de la línea de medio campo en campo del Antequera. El saque no entra en las imágenes, Hudl lo da como falta en corto de Aspra a Quintana para seguir jugando (entre contado en táctica s_06 abajo, uno casi a la altura del balón no contado).",
+        "minuto": "89'41\" (táctica 92:30)"
+      },
+      {
+        "clip": "of-c16",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "T2 min 92. Min 92 (91:57, añadido): Agüero (14) entra a Fortea (2) pegado a la banda derecha, unos 15 m pasada la divisoria, y Fortea acaba fuera del campo junto al banquillo del Antequera. Martínez (16) recoge el balón para sacar, pero el saque no se llega a ver.",
+        "minuto": "90+1'56\" (táctica 94:49)"
+      },
+      {
+        "clip": "def-c10",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T2 min 93. Min 93 (TV 92:34): Fortuny derriba a Agüero junto a la banda izquierda del Antequera, en su propio campo a unos 30 m de su línea de fondo. Se saca rápido y en corto (Julio Martínez para Quintana, que conduce y lanza en largo) para seguir jugando.",
+        "minuto": "90+2'33\" (táctica 95:26)"
+      },
+      {
+        "clip": "def-c11",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": 5,
+        "nota": "T2 min 93. Min 93 (TV 92:55): Cestero derriba a Raúl Luque a unos 30 m de la portería del Castilla, a la altura de la prolongación del lateral derecho del área (atacando el Antequera). El Antequera la prepara para colgarla al área (es la falta lateral abp-def-07), entre contado en táctica s_03 abajo con otros dos defensores casi a la altura del balón no contados.",
+        "minuto": "90+2'54\" (táctica 95:48)"
+      },
+      {
+        "clip": "of-c17",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "T2 min 95. Min 95 (94:37, añadido): Agüero (14) derriba a Fortea (2) en un balón dividido tras un saque de puerta de Alcover, en el carril derecho, unos metros por detrás de la divisoria en campo propio, y ve la amarilla. Fortea se queda en el suelo junto al banquillo y el saque no se llega a ver.",
+        "minuto": "90+4'37\" (táctica 97:35)"
       }
     ]
   }
