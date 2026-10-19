@@ -22,6 +22,8 @@ import {
   duelosParaVigilar,
   fraseDuelo,
   lecturaXg,
+  minutosAbpInforme,
+  minutosLegibles,
   ordinal,
   pct,
   preencabezadoInforme,
@@ -264,6 +266,9 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   const esPost = inf.momento === "post";
 
   const ligero = extras.ligero ?? 0;
+
+  /* Una sola cifra de minutos de ABP en todo el informe (20/10/2026). */
+  const abpMin = minutosAbpInforme(inf);
 
   /* Lo que se quita para que Gmail no recorte el correo: dónde está. */
   const enElPdf = (que: string) =>
@@ -598,7 +603,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
     ? `${tarjetas([
         { rotulo: "Tareas", valor: String(m.totales.tareas) },
         { rotulo: "Minutos de trabajo", valor: `${m.totales.minutos}′` },
-        { rotulo: "Balón parado", valor: m.totales.abpMinutos ? `${m.totales.abpMinutos}′` : "" },
+        { rotulo: "Balón parado", valor: abpMin.minutos ? minutosLegibles(abpMin.minutos) : "", pie: abpMin.texto || undefined },
         { rotulo: "Valoración media", valor: m.totales.valoracionMedia !== null ? m.totales.valoracionMedia.toLocaleString("es-ES") : "", pie: `${m.totales.valoradas} de ${m.totales.tareas} valoradas` },
       ])}<div style="height:12px"></div>${tabla(
         ["Día", "Respecto al partido", "Tareas", "Minutos", "Carga", "Contenidos"],
@@ -624,7 +629,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const abp = inf.abp
     ? `${tarjetas([
-        { rotulo: "ABP trabajado esta semana", valor: inf.abp.minutosSemana ? `${inf.abp.minutosSemana}′` : "" },
+        { rotulo: "ABP trabajado esta semana", valor: abpMin.minutos ? minutosLegibles(abpMin.minutos) : "", pie: abpMin.texto || undefined },
         { rotulo: "Láminas del rival preparadas", valor: String(inf.abp.laminasRival), pie: "en ABP y Área del Rival" },
       ])}${
         inf.abp.documentosRival.length
@@ -681,7 +686,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
     pr ? { rotulo: esPost ? "Victoria que daba el pronóstico" : "Victoria según el pronóstico", valor: pct(pr.victoria), pie: esPost ? undefined : `${pct(pr.conPlan.victoria)} con el plan` } : null,
     pr ? { rotulo: "Goles esperados", valor: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`, pie: `más probable ${pr.marcador}` } : null,
     ctx?.nuestroPuesto && ctx.puesto ? { rotulo: "Clasificación", valor: `${ordinal(ctx.nuestroPuesto)} · ${ordinal(ctx.puesto)}`, pie: `${ctx.nuestrosPuntos} y ${ctx.puntos} pts` } : null,
-    inf.microciclo ? { rotulo: "La semana", valor: `${inf.microciclo.totales.minutos}′`, pie: `${inf.microciclo.totales.tareas} tareas${inf.microciclo.totales.abpMinutos ? ` · ${inf.microciclo.totales.abpMinutos}′ de ABP` : ""}` } : null,
+    inf.microciclo ? { rotulo: "La semana", valor: `${inf.microciclo.totales.minutos}′`, pie: `${inf.microciclo.totales.tareas} tareas${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de ABP` : ""}` } : null,
   ]).filter((x): x is { rotulo: string; valor: string; pie?: string } => Boolean(x));
 
   const cabecera = `<tr><td style="padding:30px 32px 26px;background:${NAVY}">
@@ -979,6 +984,8 @@ ${pie ? `<tr><td style="padding:16px 4px 4px;font:400 12px/1.5 Arial,sans-serif;
 export function informeTexto(inf: InformePartido) {
   const p = inf.partido;
 
+  const abpMin = minutosAbpInforme(inf);
+
   const l: string[] = [
     `REAL MADRID CASTILLA · ${inf.momento === "post" ? "POST PARTIDO" : "PREVIA"} · ${p.rival}`,
     [p.jornada ? `Jornada ${p.jornada}` : "", p.fechaTexto].filter(Boolean).join(" · "),
@@ -1009,7 +1016,7 @@ export function informeTexto(inf: InformePartido) {
   if (atacarTxt.length) l.push("", inf.momento === "post" ? "DÓNDE ESPERÁBAMOS HACERLES DAÑO" : "DÓNDE LES HACEMOS DAÑO (CON BALÓN)", ...atacarTxt.map((x) => `- ${fraseDuelo(x, "con")}`));
   if (vigilarTxt.length) l.push("", inf.momento === "post" ? "DÓNDE NOS PODÍAN HACER DAÑO" : "DÓNDE NOS PUEDEN HACER DAÑO (SIN BALÓN)", ...vigilarTxt.map((x) => `- ${fraseDuelo(x, "sin")}`));
   if (inf.vistazo?.frases.length) l.push("", `${(p.rival || "EL RIVAL").toUpperCase()} DE UN VISTAZO`, ...inf.vistazo.frases.map((v) => `- ${v}`));
-  if (inf.microciclo) l.push("", `LA SEMANA: ${inf.microciclo.totales.tareas} tareas · ${inf.microciclo.totales.minutos}′${inf.microciclo.totales.abpMinutos ? ` · ${inf.microciclo.totales.abpMinutos}′ de ABP` : ""}`);
+  if (inf.microciclo) l.push("", `LA SEMANA: ${inf.microciclo.totales.tareas} tareas · ${inf.microciclo.totales.minutos}′${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de ABP` : ""}`);
 
   return l.join("\n");
 }

@@ -31,6 +31,8 @@ import {
   duelosParaVigilar,
   fraseUtil,
   lecturaXg,
+  minutosAbpInforme,
+  minutosLegibles,
   metricasQueSeparan,
   ordinal,
   pct,
@@ -408,9 +410,10 @@ function Semana({ inf }: { inf: InformePartido }) {
         <span>
           <b style={{ color: C.crema, fontSize: 28 }}>{m.totales.minutos}′</b> de trabajo
         </span>
-        {m.totales.abpMinutos > 0 && (
+        {minutosAbpInforme(inf).minutos > 0 && (
           <span>
-            <b style={{ color: C.crema, fontSize: 28 }}>{m.totales.abpMinutos}′</b> de ABP
+            {/* La misma cifra que el informe de ABP (20/10/2026). */}
+            <b style={{ color: C.crema, fontSize: 28 }}>{minutosLegibles(minutosAbpInforme(inf).minutos)}</b> de ABP
           </span>
         )}
         {m.totales.valoracionMedia !== null && (
@@ -706,7 +709,7 @@ function PanelAbp({ inf, titulo = "BALÓN PARADO" }: { inf: InformePartido; titu
   | «0′ de trabajo», «0 de 5 urgencias», «faltan 30′». Queda lo planificado
   | y lo del rival. El titular de ABP lo arregla su propio informe (lib/abp).
   */
-  const sinMinutos = inf.momento === "previa" && !(inf.abp?.minutosSemana ?? 0);
+  const sinMinutos = inf.momento === "previa" && !minutosAbpInforme(inf).minutos;
 
   const cifras = (p?.cifras ?? []).filter((c) => !(sinMinutos && (esCeroDeMinutos(c.valor) || esCeroDeMinutos(c.pie ?? ""))));
   const claves = (p?.claves ?? []).filter((t) => !(sinMinutos && (esCeroDeMinutos(t) || /faltan \d+['′]|sin trabajar/i.test(t))));

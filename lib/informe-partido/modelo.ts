@@ -479,7 +479,28 @@ export type PinceladaAbp = {
   claves: string[];
   cifras: { rotulo: string; valor: string; pie?: string }[];
   rival: string[];
+  /** Los minutos de ABP de la semana, los mismos del informe de ABP (`minutosAbp`, lib/abp/minutos.ts). */
+  minutos?: { confirmados: number; propuestos: number; texto: string };
 };
+
+/**
+ * Los minutos de ABP de la semana, UNA cifra para todo el informe
+ * (20/10/2026): la del informe de ABP cuando ha llegado (cuenta campo, vídeo
+ * y trabajo tras el entreno, y deja fuera los bocetos); si no, la del
+ * registro de tareas. Antes salían 23′ en el resumen y 1 h 35′ en el de ABP.
+ */
+export function minutosAbpInforme(inf: { abp: InformePartido["abp"]; microciclo: Microciclo | null }) {
+  const m = inf.abp?.pincelada?.minutos;
+
+  if (m) return { minutos: Math.round(m.confirmados), texto: m.texto };
+
+  const registro = inf.microciclo?.totales.abpMinutos ?? 0;
+
+  return { minutos: registro, texto: "" };
+}
+
+/** «1 h 35′», «23′». */
+export const minutosLegibles = (n: number) => (n >= 60 ? `${Math.floor(n / 60)} h ${String(Math.round(n % 60)).padStart(2, "0")}′` : `${Math.round(n)}′`);
 
 /* ------------------------------------------------------------------ */
 /*  FORMATO                                                            */
