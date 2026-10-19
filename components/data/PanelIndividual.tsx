@@ -165,15 +165,17 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
 
       {/* A quién se mira y contra quién. */}
       <div className="mt-5 flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-2">
+        <label className="flex min-w-0 max-w-full items-center gap-2">
           <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
             Jugador
           </span>
 
+          {/* min-w-0: con «Nombre · posiciones · minutos» el desplegable
+              desbordaba la pantalla del móvil (19/10/2026). */}
           <select
             value={cual}
             onChange={(e) => setCual(Number(e.target.value))}
-            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+            className="min-w-0 max-w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
           >
             {ordenados.map((j, i) => (
               <option key={j.jugador} value={i} className="bg-[#11161C]">
@@ -328,9 +330,11 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
         <Panel
           title="Métrica a métrica"
           subtitle={
+            /* 19/10/2026: decía «dentro de la plantilla» siempre, también con
+               «La liga ahora» elegido, que es lo que se ve por defecto. */
             comparacion.contra === "solo"
               ? "Sus cifras, sin percentil: no hay con quién compararle"
-              : "A la derecha, mejor. La barra es el percentil dentro de la plantilla."
+              : `Todo por 90 minutos. La barra es el percentil contra ${referenciaCorta(comparacion)}: p70 es estar mejor que el 70 % de ellos. Verde, p60 o más; oro, en medio; naranja, p35 o menos.`
           }
           icon={Scale}
           action={
@@ -370,6 +374,7 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
                           jugador={jugador}
                           companeros={comparacion.lista}
                           conPercentil={comparacion.contra !== "solo"}
+                          rotuloMediana={comparacion.ambito === "plantilla" ? "plantilla" : "mediana"}
                         />
                       ))}
                   </div>
@@ -394,11 +399,14 @@ function FilaMetrica({
   jugador,
   companeros,
   conPercentil,
+  rotuloMediana,
 }: {
   metrica: MetricaJugador;
   jugador: FilaJugador;
   companeros: FilaJugador[];
   conPercentil: boolean;
+  /** «plantilla» o «mediana»: la cifra gris es la de con quién se compara. */
+  rotuloMediana: string;
 }) {
   const [abierto, setAbierto] = useState(false);
 
@@ -432,10 +440,18 @@ function FilaMetrica({
         type="button"
         onClick={() => setAbierto(!abierto)}
         aria-expanded={abierto}
+        title="Pulsa para ver qué mide y cómo se lee"
         className="flex w-full items-baseline justify-between gap-3 text-left"
       >
-        <span className="min-w-0 truncate text-[12.5px] text-white/70">
+        <span className="min-w-0 truncate text-[12.5px] text-white/70 underline decoration-dotted underline-offset-4">
           {metrica.nombre}
+          {/* 19/10/2026: el sentido, escrito; la barra ya va dada la vuelta. */}
+          {metrica.mejorAlto === false && (
+            <span className="ml-1.5 inline-block text-[10px] text-white/40">(menos es mejor)</span>
+          )}
+          {metrica.mejorAlto === null && (
+            <span className="ml-1.5 inline-block text-[10px] text-white/40">(estilo)</span>
+          )}
         </span>
 
         <span className="shrink-0 text-[12.5px] tabular-nums">
@@ -444,8 +460,11 @@ function FilaMetrica({
           </span>
 
           {mediana !== null && (
-            <span className="ml-2 text-[11px] text-white/30">
-              plantilla {formatea(mediana, metrica.unidad)}
+            <span
+              className="ml-2 text-[11px] text-white/30"
+              title={`Mediana de los ${valores.length} con quienes se compara`}
+            >
+              {rotuloMediana} {formatea(mediana, metrica.unidad)}
             </span>
           )}
         </span>
@@ -524,7 +543,13 @@ function TablaPlantilla({
     <div className="mt-5">
       <Panel
         title="La plantilla, ordenada"
-        subtitle="Cualquier métrica, todos los jugadores de mejor a peor"
+        subtitle={
+          metrica.mejorAlto === null
+            ? "Cualquier métrica, todos los jugadores de más a menos (es estilo: no hay mejor ni peor). Por 90 minutos."
+            : metrica.mejorAlto === false
+              ? "Cualquier métrica, todos los jugadores de mejor a peor (aquí, el primero es el que menos tiene). Por 90 minutos."
+              : "Cualquier métrica, todos los jugadores de mejor a peor. Por 90 minutos."
+        }
         icon={Users}
         action={
           <select
@@ -593,6 +618,15 @@ function TablaPlantilla({
       </Panel>
     </div>
   );
+}
+
+/** «los 34 medios de la categoría, esta temporada»: contra quién va el percentil. */
+function referenciaCorta(comparacion: Comparacion) {
+  const donde = (AMBITOS.find((a) => a.key === comparacion.ambito)?.label ?? "").toLowerCase();
+
+  return comparacion.contra === "puesto"
+    ? `los ${comparacion.lista.length} de su puesto (${donde})`
+    : `los ${comparacion.lista.length} jugadores de campo (${donde})`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -741,8 +775,9 @@ function PanelEvolucion({
               tone="warn"
               title={`El año pasado sólo jugó ${antes.minutos} minutos`}
             >
-              Su percentil de entonces sale de una muestra de un partido, así
-              que el salto de este año es más ruido que progreso. Se enseña para
+              Su percentil de entonces sale de menos de{" "}
+              {MINUTOS_MINIMOS_ANTERIOR} minutos, cinco partidos, así que el
+              salto de este año es más ruido que progreso. Se enseña para
               mirarlo, pero no cuenta en los avisos de la sección de
               entrenamiento.
             </Notice>

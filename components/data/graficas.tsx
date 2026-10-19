@@ -136,29 +136,73 @@ export function BarraPercentil({
         ? MEJOR
         : PEOR;
 
+  /*
+  | EL SENTIDO, ESCRITO (19/10/2026)
+  |
+  | La barra ya viene dada la vuelta en las métricas en las que menos es
+  | mejor, pero eso sólo lo sabía quien leyó el código: un entrenador veía
+  | «PPDA 9,80» en verde y no sabía si 9,80 era mucho. Ahora cada fila dice
+  | si es de «menos es mejor» o de estilo, y el pN dice contra quién se
+  | compara al pasar por encima.
+  */
+  const sentido =
+    fila.mejorAlto === false
+      ? "Menos es mejor: la barra ya está dada la vuelta, a la derecha sigue siendo mejor."
+      : esEstilo
+        ? "Es estilo, no rendimiento: no hay mejor ni peor. A la derecha, más que la liga."
+        : "Más es mejor.";
+
+  const quePercentil = (p: number | null, quien: string) =>
+    p === null
+      ? "Sin percentil: faltan equipos con este dato"
+      : esEstilo
+        ? `Percentil ${Math.round(p)}: ${quien} tiene más que el ${Math.round(p)} % de los ${fila.deCuantos} equipos de la liga`
+        : `Percentil ${Math.round(p)}: ${quien} está mejor que el ${Math.round(p)} % de los ${fila.deCuantos} equipos de la liga`;
+
   return (
     <div className="min-w-0 border-b border-white/[0.06] py-2 last:border-0">
       <div className="flex min-w-0 items-baseline gap-2">
         <button
           type="button"
           onClick={() => setAbierta(!abierta)}
-          title="Ver cómo se lee"
-          className="min-w-0 flex-1 truncate text-left text-[13px] text-white/80 transition hover:text-white"
+          aria-expanded={abierta}
+          title="Pulsa para ver qué mide y cómo se lee"
+          className="min-w-0 flex-1 truncate text-left text-[13px] text-white/80 underline decoration-dotted underline-offset-4 transition hover:text-white"
         >
           {fila.nombre}
+          {fila.mejorAlto === false && (
+            <span className="ml-1.5 text-[10px] font-normal text-white/40 inline-block" title="En esta métrica, menos es mejor">
+              (menos es mejor)
+            </span>
+          )}
+          {esEstilo && (
+            <span className="ml-1.5 text-[10px] font-normal text-white/40 inline-block" title="Estilo de juego: no hay mejor ni peor">
+              (estilo)
+            </span>
+          )}
         </button>
 
         <span className="shrink-0 text-[13px] font-semibold tabular-nums text-white">
           {formatea(fila.valor, fila.unidad)}
         </span>
 
-        <span className="w-20 shrink-0 text-right text-[11px] tabular-nums text-white/35">
+        <span
+          className="w-20 shrink-0 text-right text-[11px] tabular-nums text-white/35"
+          title={`Mediana de los ${fila.deCuantos} equipos de la liga: la mitad tiene más y la mitad menos`}
+        >
           liga {formatea(fila.mediana, fila.unidad)}
         </span>
 
         <span
           className="w-16 shrink-0 text-right text-[11px] font-semibold tabular-nums"
           style={{ color: esEstilo ? tinta(0.45) : color }}
+          title={
+            fila.puesto
+              ? esEstilo
+                ? `Puesto ${fila.puesto} de ${fila.deCuantos}, del que más tiene al que menos`
+                : `Puesto ${fila.puesto} de ${fila.deCuantos}, del mejor al peor`
+              : undefined
+          }
         >
           {fila.puesto ? `${fila.puesto}º/${fila.deCuantos}` : "—"}
         </span>
@@ -202,6 +246,7 @@ export function BarraPercentil({
         <span
           className="w-9 shrink-0 text-right text-[10px] tabular-nums"
           style={{ color: tinta(0.4) }}
+          title={quePercentil(pct, "el Castilla")}
         >
           {pct === null ? "—" : `p${Math.round(pct)}`}
         </span>
@@ -218,7 +263,11 @@ export function BarraPercentil({
           <span className="w-16 shrink-0 text-right" style={{ color: COMPARADO }}>
             {otra.puesto ? `${otra.puesto}º/${otra.deCuantos}` : "—"}
           </span>
-          <span className="w-9 shrink-0 text-right text-[10px]" style={{ color: tinta(0.4) }}>
+          <span
+            className="w-9 shrink-0 text-right text-[10px]"
+            style={{ color: tinta(0.4) }}
+            title={quePercentil(otra.percentil, nombreOtra ?? "el otro equipo")}
+          >
             {otra.percentil === null ? "—" : `p${Math.round(otra.percentil)}`}
           </span>
         </p>
@@ -226,7 +275,7 @@ export function BarraPercentil({
 
       {abierta && (
         <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
-          {fila.comoLeer}
+          {fila.comoLeer} <span className="text-white/60">{sentido}</span>
         </p>
       )}
     </div>
@@ -366,6 +415,8 @@ export function Dispersion({
   comparado,
   alPulsar,
   rotulaTodos = false,
+  cadaPunto,
+  medianasDe,
 }: {
   puntos: Punto[];
   etiquetaX: string;
@@ -385,10 +436,20 @@ export function Dispersion({
    * equipos y ahí el nombre lo lleva el escudo.
    */
   rotulaTodos?: boolean;
+  /**
+   * Qué es cada punto y de quién son las medianas, para la línea de ayuda de
+   * debajo (19/10/2026): en nuestra historia cada punto es una temporada y
+   * las rayas son las medianas de nuestras temporadas, no de la liga.
+   */
+  cadaPunto?: string;
+  medianasDe?: string;
 }) {
   const id = useId();
 
   const [encima, setEncima] = useState<Punto | null>(null);
+
+  const cadaUno = cadaPunto ?? "equipo";
+  const deQuien = medianasDe ?? "de la liga";
 
   const escudoDe = useEscudos();
 
@@ -429,7 +490,7 @@ export function Dispersion({
           aria-labelledby={`${id}-titulo`}
         >
           <title id={`${id}-titulo`}>
-            {etiquetaY} frente a {etiquetaX}, un punto por equipo
+            {etiquetaY} frente a {etiquetaX}, un punto por {cadaUno}
           </title>
 
           {/* Las medianas: los cuatro cuadrantes son la lectura. */}
@@ -587,7 +648,12 @@ export function Dispersion({
                   fill="transparent"
                   onMouseEnter={() => setEncima(punto)}
                   onMouseLeave={() => setEncima(null)}
-                  onClick={() => alPulsar?.(punto.equipo)}
+                  /* En la tableta no hay «pasar el ratón»: tocar el punto
+                     también enseña sus cifras debajo (19/10/2026). */
+                  onClick={() => {
+                    setEncima(punto);
+                    alPulsar?.(punto.equipo);
+                  }}
                   style={{ cursor: alPulsar ? "pointer" : "default" }}
                 />
 
@@ -609,10 +675,10 @@ export function Dispersion({
         </svg>
       </div>
 
-      <p className="mt-1 h-4 text-[11px] tabular-nums text-white/45">
+      <p className="mt-1 min-h-4 text-[11px] tabular-nums text-white/45">
         {encima
           ? `${encima.equipo} · ${etiquetaX} ${formatea(encima.x, unidadX)} · ${etiquetaY} ${formatea(encima.y, unidadY)}`
-          : "Pasa el ratón por un punto para ver el equipo. Las rayas son las medianas de la liga."}
+          : `Pasa el ratón por un punto (o tócalo) para ver sus cifras. Cada punto es un ${cadaUno}; las rayas son las medianas ${deQuien}.`}
       </p>
     </div>
   );
@@ -741,17 +807,29 @@ export function Evolucion({
           <path d={camino} fill="none" stroke={ORO} strokeWidth={2} />
 
           {validos.map((p) => (
-            <circle
-              key={p.i}
-              cx={x(p.i)}
-              cy={y(p.valor)}
-              r={encima === p.i ? 6 : 4}
-              fill={ORO}
-              stroke="var(--rmcf-surface, #11161C)"
-              strokeWidth={2}
-              onMouseEnter={() => setEncima(p.i)}
-              onMouseLeave={() => setEncima(null)}
-            />
+            <g key={p.i}>
+              <circle
+                cx={x(p.i)}
+                cy={y(p.valor)}
+                r={encima === p.i ? 6 : 4}
+                fill={ORO}
+                stroke="var(--rmcf-surface, #11161C)"
+                strokeWidth={2}
+                pointerEvents="none"
+              />
+
+              {/* El blanco del dedo: un punto de 4 px no se acierta en la
+                  tableta, y tocar también enseña el detalle (19/10/2026). */}
+              <circle
+                cx={x(p.i)}
+                cy={y(p.valor)}
+                r={12}
+                fill="transparent"
+                onMouseEnter={() => setEncima(p.i)}
+                onMouseLeave={() => setEncima(null)}
+                onClick={() => setEncima(p.i)}
+              />
+            </g>
           ))}
 
           {/* Sólo se rotulan los extremos: un número en cada punto es ruido. */}
@@ -772,12 +850,14 @@ export function Evolucion({
         </svg>
       </div>
 
-      <p className="mt-1 h-4 text-[11px] tabular-nums text-white/45">
+      <p className="mt-1 min-h-4 text-[11px] tabular-nums text-white/45">
         {encima !== null && serie[encima]
           ? `${serie[encima].etiqueta} · ${formatea(serie[encima].valor, unidad)}${
               serie[encima].nota ? ` · ${serie[encima].nota}` : ""
             }`
-          : "Pasa el ratón por un punto para ver el detalle."}
+          : media !== null && media !== undefined
+            ? "La línea dorada es la métrica; la raya discontinua, su media en el periodo. Pasa el ratón por un punto (o tócalo) para ver el detalle."
+            : "Pasa el ratón por un punto (o tócalo) para ver el detalle."}
       </p>
     </div>
   );

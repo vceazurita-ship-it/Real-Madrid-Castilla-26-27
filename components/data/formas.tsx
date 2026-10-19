@@ -164,6 +164,14 @@ export function Composicion({
         </p>
       )}
 
+      {/* 19/10/2026: con todo a cero la barra no se pintaba y quedaba la
+          leyenda sola, como si faltase el dibujo. */}
+      {trozos.reduce((s, t) => s + t.valor, 0) <= 0 && (
+        <p className="py-3 text-[12px] text-white/40">
+          {rotulo}: ninguna acción de este tipo con los filtros de arriba.
+        </p>
+      )}
+
       <div className="space-y-2.5">
         {dibuja(trozos, rotulo, false)}
         {trozosOtro && dibuja(trozosOtro, rotuloOtro ?? "El otro", false, true)}
@@ -339,7 +347,8 @@ export function Distribucion({
   if (puntos.length === 0) {
     return (
       <p className="py-6 text-center text-xs text-white/35">
-        No hay partidos con este dato.
+        No hay partidos con este dato con los filtros de arriba: prueba con
+        otra temporada o quita el filtro de competición o de sistema.
       </p>
     );
   }
@@ -355,6 +364,21 @@ export function Distribucion({
   const der = max + aire;
 
   const pos = (v: number) => ((v - izq) / (der - izq)) * 100;
+
+  /*
+  | El rótulo de una referencia pegada a un borde (19/10/2026): centrado sobre
+  | su raya, «mediana de la liga» se salía por un lado y en el móvil empujaba
+  | la página a lo ancho. Cerca de un borde se alinea hacia dentro.
+  */
+  const anclaRotulo = (v: number) => {
+    const p = pos(v);
+
+    return p < 18
+      ? { left: `${p}%` }
+      : p > 82
+        ? { right: `${100 - p}%` }
+        : { left: `${p}%`, transform: "translateX(-50%)" };
+  };
 
   return (
     <div className="min-w-0">
@@ -379,8 +403,8 @@ export function Distribucion({
             />
 
             <span
-              className="absolute top-0 -translate-x-1/2 whitespace-nowrap text-[10px]"
-              style={{ left: `${pos(referencia)}%`, color: tinta(0.45) }}
+              className="absolute top-0 whitespace-nowrap text-[10px]"
+              style={{ ...anclaRotulo(referencia), color: tinta(0.45) }}
             >
               {etiquetaReferencia}
             </span>
@@ -396,8 +420,8 @@ export function Distribucion({
             />
 
             <span
-              className="absolute top-[44px] -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold"
-              style={{ left: `${pos(referenciaOtra)}%`, color: COMPARADO }}
+              className="absolute top-[44px] whitespace-nowrap text-[10px] font-semibold"
+              style={{ ...anclaRotulo(referenciaOtra), color: COMPARADO }}
             >
               {etiquetaOtra}
             </span>
@@ -409,6 +433,8 @@ export function Distribucion({
             key={`${punto.etiqueta}-${i}`}
             onMouseEnter={() => setEncima(punto)}
             onMouseLeave={() => setEncima(null)}
+            /* En la tableta, tocar el punto enseña su partido (19/10/2026). */
+            onClick={() => setEncima(punto)}
             title={`${punto.etiqueta}: ${formatea(punto.valor, unidad)}`}
             className="absolute top-7 block h-3 w-3 -translate-x-1/2 -translate-y-1/2 cursor-default rounded-full"
             style={{
@@ -436,10 +462,10 @@ export function Distribucion({
         </span>
       </div>
 
-      <p className="h-4 text-[11px] tabular-nums text-white/45">
+      <p className="min-h-4 text-[11px] tabular-nums text-white/45">
         {encima
           ? `${encima.etiqueta} · ${formatea(encima.valor, unidad)}${encima.nota ? ` · ${encima.nota}` : ""}`
-          : `${puntos.length} partidos. Cada punto es uno; pasa el ratón por encima.`}
+          : `${puntos.length} ${puntos.length === 1 ? "partido" : "partidos"}. Cada punto dorado es uno${referencia !== null && referencia !== undefined ? `; la raya gris, la ${etiquetaReferencia}` : ""}. Pasa el ratón o toca un punto para verlo.`}
       </p>
 
       {lectura && <Lectura>{lectura}</Lectura>}

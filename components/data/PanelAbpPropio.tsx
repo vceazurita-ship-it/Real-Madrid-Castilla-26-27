@@ -48,7 +48,7 @@ export function PanelAbpPropio() {
   const [bloque, setBloque] = useState<BloqueAbp>("piezasOf");
 
   /* Liga por defecto: la pretemporada es contra equipos de otra categoría. */
-  const [ambito, setAmbito] = useState<"liga" | "amistoso" | "todo">("liga");
+  const [ambitoPedido, setAmbito] = useState<"liga" | "amistoso" | "todo">("liga");
 
   /*
   | UNA JORNADA SUELTA.
@@ -81,6 +81,18 @@ export function PanelAbpPropio() {
   }, []);
 
   const meta = BLOQUES.find((b) => b.key === bloque)!;
+
+  const hayLiga = useMemo(
+    () => (acciones ?? []).some((a) => a.jornada.competicion === "liga"),
+    [acciones],
+  );
+
+  /*
+  | 19/10/2026: sin ninguna acción de liga, «Liga» salía elegido y a la vez
+  | desactivado, y el panel decía «nada registrado» sin poder pulsar el botón
+  | que lo había elegido. Sin liga se mira todo lo que hay.
+  */
+  const ambito = ambitoPedido === "liga" && acciones && !hayLiga ? "todo" : ambitoPedido;
 
   /*
   | La jornada elegida, sólo si sigue existiendo con este ámbito y este bloque.
@@ -147,11 +159,6 @@ export function PanelAbpPropio() {
 
     return [...vistas.values()].sort((x, y) => y.orden - x.orden);
   }, [acciones, ambito, bloque]);
-
-  const hayLiga = useMemo(
-    () => (acciones ?? []).some((a) => a.jornada.competicion === "liga"),
-    [acciones],
-  );
 
   if (!acciones) {
     return (
@@ -404,7 +411,9 @@ export function PanelAbpPropio() {
                     </p>
 
                     <p className="mt-0.5 text-[11px] text-white/35">
-                      {resumen.xgPorAccion.toFixed(3)} por acción
+                      {resumen.xgPorAccion.toFixed(3)} por acción · goles esperados:
+                      lo que valían las ocasiones
+                      {meta.nuestro ? " (más es mejor)" : " concedidas (menos es mejor)"}
                     </p>
                   </div>
 
@@ -415,7 +424,7 @@ export function PanelAbpPropio() {
                   */}
                   <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
                     <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
-                      Goles contra xG
+                      Goles menos xG
                     </p>
 
                     <p
@@ -538,11 +547,15 @@ export function PanelAbpPropio() {
               <Evolucion
                 serie={serie}
                 unidad="porcentaje"
-                media={
-                  serie.length
-                    ? serie.reduce((s, p) => s + (p.valor ?? 0), 0) / serie.length
-                    : null
-                }
+                media={(() => {
+                  /* 19/10/2026: una jornada sin dato contaba como un 0 % y
+                     bajaba la media; ahora sólo cuentan las que tienen valor. */
+                  const con = serie
+                    .map((p) => p.valor)
+                    .filter((v): v is number => v !== null);
+
+                  return con.length ? con.reduce((s, v) => s + v, 0) / con.length : null;
+                })()}
               />
 
               <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
@@ -658,8 +671,12 @@ function RutinasEnsayadas({
                 <th className="pb-2 pr-3 font-medium">Rutina</th>
                 <th className="pb-2 pr-3 text-right font-medium">Veces</th>
                 <th className="pb-2 pr-3 text-right font-medium">Con peligro</th>
-                <th className="pb-2 pr-3 text-right font-medium">%</th>
-                <th className="pb-2 text-right font-medium">xG</th>
+                <th className="pb-2 pr-3 text-right font-medium" title="Qué parte de las veces acabó en gol u ocasión">
+                  % con peligro
+                </th>
+                <th className="pb-2 text-right font-medium" title="Goles esperados: lo que valían las ocasiones que salieron de la rutina">
+                  xG
+                </th>
               </tr>
             </thead>
 

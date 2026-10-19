@@ -16,7 +16,7 @@
 import { ArrowLeftRight, Check, CircleSlash, Minus, X } from "lucide-react";
 
 import { EmptyState, Notice } from "@/components/abp/ui";
-import { MEJOR, ORO, PEOR } from "@/components/data/graficas";
+import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import {
   MINIMO_JUNTOS,
   type EstadoRelacion,
@@ -52,11 +52,20 @@ const ICONO: Record<EstadoRelacion, typeof Check> = {
   pisan: X,
 };
 
+/* 19/10/2026: «media» era un blanco al 35 % escrito a mano, que la tabla del
+   modo día no traduce: el icono desaparecía sobre la tarjeta clara. */
 const COLOR: Record<EstadoRelacion, string> = {
   potencia: MEJOR,
-  media: "rgb(255 255 255 / 0.35)",
+  media: tinta(0.4),
   hueco: PEOR,
   pisan: PEOR,
+};
+
+const QUE_ES: Record<EstadoRelacion, string> = {
+  potencia: "se complementan",
+  media: "ni una cosa ni otra",
+  hueco: "ninguno de los dos lo hace",
+  pisan: "hacen lo mismo y se pisan",
 };
 
 export function PanelSinergias({
@@ -106,6 +115,26 @@ export function PanelSinergias({
           </li>
         </ul>
       </Notice></Explicativo>
+
+      {/*
+        LO QUE NO SE PUEDE ESCONDER (19/10/2026). El aviso de arriba va con
+        los textos explicativos, y apagados no quedaba en ninguna parte que
+        esto compara perfiles —no rendimiento juntos— ni qué es cada icono.
+      */}
+      <p className="mt-3 text-[11px] leading-relaxed text-white/50">
+        Compara perfiles (lo que hace cada uno, en percentil contra{" "}
+        {ambito.toLowerCase()}), no lo que pasa cuando juegan juntos.{" "}
+        {(Object.keys(ICONO) as EstadoRelacion[]).map((estado) => {
+          const Icono = ICONO[estado];
+
+          return (
+            <span key={estado} className="mr-2.5 inline-flex items-center gap-1 whitespace-nowrap">
+              <Icono size={11} style={{ color: COLOR[estado] }} aria-hidden />
+              {QUE_ES[estado]}
+            </span>
+          );
+        })}
+      </p>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {parejas.map((pareja) => (

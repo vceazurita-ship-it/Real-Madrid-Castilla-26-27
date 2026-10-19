@@ -47,6 +47,23 @@ export const COLOR_TIPO: Record<TipoGol, string> = {
 
 const SIN = "#94A3B8";
 
+/*
+| El número dentro de cada trozo (19/10/2026): en blanco sobre los tonos claros
+| —falta directa #F0C24B, espalda #7FB0F2, transición en campo propio #4CC79F—
+| no se leía. Sobre un relleno claro va en tinta oscura.
+*/
+function tintaSobre(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  const canal = (c: number) => {
+    const v = c / 255;
+
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  const luz = 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
+
+  return luz > 0.35 ? "#0B0F14" : "#fff";
+}
+
 const NOMBRE_FASE: Record<string, string> = { "AT. ORGANIZADO": "Ataque organizado", TRANSICIÓN: "Transición", ABP: "Balón parado" };
 
 export type GolConTipo = GolVisto & { tipoFinal: TipoGol | null };
@@ -145,7 +162,7 @@ function Anillo({ titulo, goles, color, resaltado, onResalta }: { titulo: string
             const m = (t.a0 + t.a1) / 2;
 
             return (
-              <text key={`n-${t.clave}`} x={Math.sin(m * 2 * Math.PI) * 88.5} y={-Math.cos(m * 2 * Math.PI) * 88.5 + 4} textAnchor="middle" fontSize={12} fontWeight={700} fill="#fff" pointerEvents="none" opacity={atenua(t.clave, t.fase)}>
+              <text key={`n-${t.clave}`} x={Math.sin(m * 2 * Math.PI) * 88.5} y={-Math.cos(m * 2 * Math.PI) * 88.5 + 4} textAnchor="middle" fontSize={12} fontWeight={700} fill={tintaSobre(t.clave === "sin" ? SIN : COLOR_TIPO[t.clave as TipoGol])} pointerEvents="none" opacity={atenua(t.clave, t.fase)}>
                 {t.n}
               </text>
             );
@@ -260,10 +277,10 @@ function LineaGoles({ goles, resaltado, onResalta }: { goles: GolConTipo[]; resa
           </g>
         );
       })}
-      <text x={(X_DESC1 + X_P2) / 2 - 6} y={EJE + 16} textAnchor="middle" fontSize={10} fontWeight={700} fill="#C8A96B">
+      <text x={(X_DESC1 + X_P2) / 2 - 6} y={EJE + 16} textAnchor="middle" fontSize={10} fontWeight={700} fill="var(--rmcf-gold-ink, #C8A96B)">
         45+
       </text>
-      <text x={(X_DESC2 + ANCHO) / 2 - 6} y={EJE + 16} textAnchor="middle" fontSize={10} fontWeight={700} fill="#C8A96B">
+      <text x={(X_DESC2 + ANCHO) / 2 - 6} y={EJE + 16} textAnchor="middle" fontSize={10} fontWeight={700} fill="var(--rmcf-gold-ink, #C8A96B)">
         90+
       </text>
 

@@ -252,8 +252,13 @@ export function PantallaGoles() {
 
   const equipo = equipoElegido ?? nuestroNombre;
   const esNuestro = mismoEquipo(equipo, CASTILLA);
-  const jDesde = desde ?? jornadas[0] ?? 1;
-  const jHasta = hasta ?? ultima;
+  /* 19/10/2026: con «desde» por detrás de «hasta» (J9 a J4) la pantalla se
+     quedaba entera a cero sin decir por qué. Se lee como el tramo entre las
+     dos, en el orden que sea. */
+  const jA = desde ?? jornadas[0] ?? 1;
+  const jB = hasta ?? ultima;
+  const jDesde = Math.min(jA, jB);
+  const jHasta = Math.max(jA, jB);
 
   const lista = useMemo(() => franjasACortes(cortes, descuentos) ?? franjas(tamano, descuentos), [cortes, descuentos, tamano]);
 
@@ -691,7 +696,7 @@ export function PantallaGoles() {
                 const l = primero.lg[k];
 
                 return [
-                  k === "propio" ? "Marca primero" : k === "rival" ? "Recibe primero" : "Sin goles",
+                  k === "propio" ? "Marca primero" : k === "rival" ? "Recibe primero" : "Nadie marca (0-0)",
                   e.n,
                   e.G,
                   e.E,
