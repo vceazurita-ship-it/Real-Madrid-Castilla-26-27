@@ -82,8 +82,14 @@ export function Pestanas<K extends string>({
               role="tab"
               aria-selected={activa}
               onClick={() => onCambia(clave)}
+              /* El subrayado va en `style`: la regla `* { border-color }` de
+                 globals.css gana a las clases `border-*`, así que con
+                 `border-[#C8A96B]` / `border-transparent` todas las pestañas
+                 salían con la misma raya gris y la elegida no se distinguía
+                 (19/10/2026). */
+              style={{ borderBottomColor: activa ? "var(--rmcf-gold-ink, #C8A96B)" : "transparent" }}
               className={`-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3.5 py-2.5 text-sm font-semibold transition ${
-                activa ? "border-[#C8A96B] text-white" : "border-transparent text-white/50 hover:text-white/80"
+                activa ? "text-white" : "text-white/50 hover:text-white/80"
               }`}
             >
               {Icono ? <Icono size={14} className={activa ? "text-[#C8A96B]" : ""} /> : null}

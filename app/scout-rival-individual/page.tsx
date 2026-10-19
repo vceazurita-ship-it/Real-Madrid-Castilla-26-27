@@ -59,11 +59,17 @@ export default function ScoutRivalIndividual() {
   */
   const [orden, setOrden] = useState<OrdenRivales>(SIN_ORDEN);
 
+  /* Ya se sabe el orden (o que no se va a saber: `cargaOrdenRivales` no lanza). */
+  const [ordenListo, setOrdenListo] = useState(false);
+
   useEffect(() => {
     const control = new AbortController();
 
     void cargaOrdenRivales(control.signal).then((leido) => {
-      if (!control.signal.aborted) setOrden(leido);
+      if (control.signal.aborted) return;
+
+      setOrden(leido);
+      setOrdenListo(true);
     });
 
     return () => control.abort();
@@ -78,7 +84,10 @@ export default function ScoutRivalIndividual() {
     [squads, orden],
   );
 
-  const equipo = equipoPedido || equipos[0] || "";
+  /* Sin pedir ninguno, el de por defecto es el primero POR CALENDARIO: hasta
+     que llega el orden no se elige, o se montaban y pedían a YouTube los
+     vídeos del primero por alfabeto y luego se cambiaba (19/10/2026). */
+  const equipo = equipoPedido || (ordenListo ? equipos[0] : "") || "";
 
   /* La tira de escudos se filtra al teclear: con treinta y ocho equipos,
      buscar el escudo a ojo es más lento que escribir tres letras. */
@@ -240,7 +249,7 @@ export default function ScoutRivalIndividual() {
                 equipo={equipo}
                 plantilla={plantilla}
               />
-            ) : loading ? (
+            ) : loading || !ordenListo ? (
               <EsqueletoPantalla titulo="las plantillas rivales" cifras={0} paneles={1} />
             ) : (
               <EstadoVacio icon={Users} titulo="No hay plantillas rivales en la hoja todavía." />

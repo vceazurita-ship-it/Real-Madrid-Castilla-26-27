@@ -568,10 +568,20 @@ export function RecursosRival({
           body: formData,
         });
 
-        const datos = await respuesta.json();
+        /* Una respuesta que no es JSON (un 413 del servidor, una página de
+           error) daba «Unexpected token…» en inglés; y «HTTP 413» tampoco
+           dice nada. Se traduce a lo que pasa (19/10/2026). */
+        const datos = (await respuesta.json().catch(() => null)) as
+          | { success?: boolean; error?: string; url?: string; path?: string; mime?: string; tamano?: number }
+          | null;
 
-        if (!respuesta.ok || !datos.success) {
-          throw new Error(datos.error || `HTTP ${respuesta.status}`);
+        if (!respuesta.ok || !datos?.success) {
+          throw new Error(
+            datos?.error ||
+              (respuesta.status === 413
+                ? "El archivo es demasiado grande para subirlo."
+                : `El servidor no lo ha aceptado (error ${respuesta.status}). Inténtalo de nuevo.`),
+          );
         }
 
         actualizar(tipo, (lista) => [
@@ -579,7 +589,7 @@ export function RecursosRival({
           {
             id: nuevoId(),
             nombre: nombreDesdeArchivo(archivo.name),
-            url: datos.url,
+            url: datos.url ?? "",
             origen: "archivo",
             path: datos.path,
             mime: datos.mime,

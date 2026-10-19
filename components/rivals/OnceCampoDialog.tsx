@@ -1209,7 +1209,20 @@ export default function OnceCampoDialog({
             <button
               type="button"
               data-export-hide
-              onClick={onRecolocar}
+              /* Pregunta como «Sugerir once»: de un clic se iba todo lo
+                 colocado a mano (19/10/2026). */
+              onClick={() => {
+                if (
+                  jugadores.length > 0 &&
+                  !window.confirm(
+                    "¿Volver a colocar a todos por líneas? Se pierde lo que hayas movido a mano.",
+                  )
+                ) {
+                  return;
+                }
+
+                onRecolocar();
+              }}
               title="Volver a colocar a todos por líneas"
               className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-white/50 transition hover:border-white/30 hover:text-white"
             >

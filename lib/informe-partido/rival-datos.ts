@@ -20,6 +20,8 @@ import { alcanceWyscout, type PartidoCalendario } from "@/lib/data-analisis/alca
 import { duelosDelPartido, type FichaPropia } from "@/lib/duelos-onces";
 import { normalizaDuelos } from "@/lib/duelos";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+/* El «hoy» del alcance de Wyscout, con el día de aquí y no el de UTC (19/10/2026). */
+import { claveDeHoy } from "@/lib/rivals/orden-calendario";
 import { slugClave } from "@/lib/rivals/media";
 import type { InformeEquipo } from "@/lib/rivals/informe";
 import type { DuelosInforme, EnfrentamientoInforme, VistazoRival } from "@/lib/informe-partido/modelo";
@@ -121,7 +123,7 @@ export async function duelosYVistazo(entrada: {
     const resumen = resumenDe(equipo, deLaTemporada, deLaTemporada);
     const perfil = perfilDe(equipo, deLaTemporada);
     const plantilla = plantillaDe(equipo, wy.jugadores);
-    const alcance = alcanceWyscout(wy.partidos, entrada.calendario, new Date().toISOString().slice(0, 10));
+    const alcance = alcanceWyscout(wy.partidos, entrada.calendario, claveDeHoy());
     const met = (x: { metrica: { nombre: string; unidad: Parameters<typeof formatea>[1] }; valor: number; puesto: number; de: number }) => ({
       nombre: x.metrica.nombre,
       valor: formatea(x.valor, x.metrica.unidad),
@@ -132,7 +134,8 @@ export async function duelosYVistazo(entrada: {
       equipo,
       competicion: perfil?.competicion ?? "",
       alcance: alcance.jornada
-        ? `Wyscout hasta la J${alcance.jornada}${alcance.estado === "completa" ? " · jornada completa" : " · jornada incompleta"}`
+        ? /* Que la jornada esté a medias va en los avisos, no en el informe (19/10/2026). */
+          `Wyscout hasta la J${alcance.jornada}${alcance.estado === "completa" ? " · jornada completa" : ""}`
         : "",
       partidos: resumen.partidos,
       g: resumen.g,

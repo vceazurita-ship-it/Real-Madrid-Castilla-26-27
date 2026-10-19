@@ -113,7 +113,13 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
   const { setValue } = doc;
 
-  const [clips, setClips] = useState<RivalClipsDoc>({ jornadas: {} });
+  /* Los clips van con el equipo del que son: al cambiar de rival se seguían
+     viendo los del anterior hasta que llegaban los nuevos (o para siempre si
+     la carga fallaba). Así, si no son de este equipo, no se enseñan
+     (19/10/2026). */
+  const [clipsDe, setClipsDe] = useState<{ equipo: string; doc: RivalClipsDoc }>({ equipo, doc: { jornadas: {} } });
+
+  const clips = useMemo<RivalClipsDoc>(() => (clipsDe.equipo === equipo ? clipsDe.doc : { jornadas: {} }), [clipsDe, equipo]);
 
   /* Recargar es subir el testigo: el fetch vive dentro del efecto, que es la
      forma que admite el linter (ver `useRemoteDoc`). */
@@ -127,7 +133,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
     fetch(`/api/docs?key=${encodeURIComponent(clipsKey(equipo))}`, { cache: "no-store" })
       .then((respuesta) => respuesta.json())
       .then((json: { data?: unknown } | null) => {
-        if (!cancelado) setClips(normalizaClips(json?.data));
+        if (!cancelado) setClipsDe({ equipo, doc: normalizaClips(json?.data) });
       })
       .catch(() => {
         /* sin red: se queda lo que hubiera */
@@ -484,6 +490,9 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
       guardaLocal(ULTIMA_RUTA, limpia);
       toast.success("Encargado: el ordenador del club lo recoge en unos segundos.");
       leeEncargo();
+    } catch {
+      /* Sin red el botón dejaba de girar y no decía nada (19/10/2026). */
+      toast.error("No se ha podido dejar el encargo. Comprueba la conexión y vuelve a intentarlo.");
     } finally {
       setPidiendo(false);
     }
@@ -660,7 +669,10 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
         descarga(blob, `${nombre}.pptx`);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No se ha podido exportar.");
+      /* El detalle del navegador (en inglés) va a la consola; al cuerpo
+         técnico, un aviso que se entienda (19/10/2026). */
+      console.error("[análisis del rival] exportación", error);
+      toast.error("No se ha podido exportar.", { description: "Vuelve a intentarlo; si se repite, recarga la página." });
     } finally {
       setExportando(null);
     }
@@ -1169,7 +1181,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                   jornada={jornada}
                 />
               ) : (
-                <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[#C8A96B]/30 bg-[#081524]/60 text-center">
+                <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[#C8A96B]/30 bg-white/[0.03] text-center">
                   <p className="text-sm text-white/55">
                     No hay láminas de «{SECCION_POR_ID.get(seccion)?.titulo}» en la {jornada}.
                   </p>

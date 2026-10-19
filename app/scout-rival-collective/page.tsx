@@ -9,7 +9,7 @@ import { useAutoSave } from "@/hooks/useAutoSave";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { guardaEnLaHoja, leeRivales } from "@/lib/hojaRivales";
 import { traeJson } from "@/lib/hojaCsv";
-import { aJornada } from "@/lib/abp/jornada";
+import { aJornada, claveFecha } from "@/lib/abp/jornada";
 import { POR_VENIR, claveDeHoy, jornadaJugada, proximosEnfrentamientos } from "@/lib/rivals/orden-calendario";
 import { toast } from "sonner";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
@@ -85,7 +85,11 @@ const NAV = [
 function formatDate(value?: string) {
   if (!value) return "—";
 
-  const date = new Date(value);
+  /* «05/10/2026» lo leía `new Date` a la americana (5 de mayo) y con día
+     mayor que 12 no la entendía: se pasa antes por `claveFecha`, y se monta
+     a mediodía de aquí para no caer en el día de al lado (19/10/2026). */
+  const clave = claveFecha(value);
+  const date = clave ? new Date(`${clave}T12:00:00`) : new Date(value);
 
   return Number.isNaN(date.getTime())
     ? value
@@ -583,6 +587,14 @@ export default function ScoutRivalCollective() {
       action: {
         label: "Recuperar",
         onClick: () => {
+          /* El aviso dura medio minuto: si entretanto se ha cambiado de
+             rival, «Recuperar» devolvía la pantalla al de antes saltándose
+             el guardado del nuevo (19/10/2026). */
+          if (String(rivalActivoRef.current?.ID ?? "") !== String(rivalActivo.ID ?? "")) {
+            toast.message("Vuelve a ese rival para recuperar sus cambios.");
+            return;
+          }
+
           setRivalActivo(copia);
           setModoEdicion(true);
           descartaRecuperado();
@@ -1047,15 +1059,13 @@ function Campo({
         )}
       </div>
 
-      {editando && (
+      {/* El nombre de la columna de la hoja (SALIDA_BALON…) no le dice nada
+          al cuerpo técnico: queda sólo al pasar el ratón (19/10/2026). */}
+      {editando && field.ayuda && (
         <div className="mb-2 flex flex-wrap items-center gap-2" data-export-hide>
-          <span className="rounded bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-300">
-            {field.campo}
+          <span className="text-[11px] text-white/35" title={`Columna de la hoja: ${field.campo}`}>
+            {field.ayuda}
           </span>
-
-          {field.ayuda && (
-            <span className="text-[11px] text-white/35">{field.ayuda}</span>
-          )}
         </div>
       )}
 
