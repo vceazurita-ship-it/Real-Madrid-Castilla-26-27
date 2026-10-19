@@ -192,7 +192,7 @@ export function ListaClips({
         <Play size={13} />
       </Icono>
 
-      <Icono titulo="Editar" onClick={() => onEditar(fila.clip)}>
+      <Icono titulo="Corregir el clip" onClick={() => onEditar(fila.clip)}>
         <Pencil size={13} />
       </Icono>
 
@@ -204,11 +204,11 @@ export function ListaClips({
         <Scissors size={13} />
       </Icono>
 
-      <Icono titulo="Duplicar" onClick={() => onDuplicar(fila.clip.id)}>
+      <Icono titulo="Duplicar el clip" onClick={() => onDuplicar(fila.clip.id)}>
         <Copy size={13} />
       </Icono>
 
-      <Icono titulo="Eliminar" tono="peligro" onClick={() => onBorrar(fila.clip.id)}>
+      <Icono titulo="Eliminar (se deshace con Retroceso o el botón de deshacer)" tono="peligro" onClick={() => onBorrar(fila.clip.id)}>
         <Trash2 size={13} />
       </Icono>
     </>
@@ -220,8 +220,11 @@ export function ListaClips({
   const quien = (clip: ClipCoding) => (
     <span className="flex min-w-0 items-center gap-2">
       {clip.sujeto === "colectivo" ? (
-        <span className="shrink-0 rounded bg-white/[0.08] px-1 text-[9px] uppercase tracking-[0.12em] text-white/40">
-          Col
+        <span
+          title="Comportamiento colectivo: del equipo, no de un jugador"
+          className="shrink-0 rounded bg-white/[0.08] px-1 text-[9px] uppercase tracking-[0.12em] text-white/40"
+        >
+          Equipo
         </span>
       ) : (
         clip.jugadorDorsal !== undefined && (
