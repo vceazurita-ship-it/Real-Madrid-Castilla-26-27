@@ -45,6 +45,7 @@ import {
   History,
   LayoutGrid,
   Loader2,
+  Network,
   Percent,
   RefreshCw,
   Scale,
@@ -59,7 +60,7 @@ import {
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Explicativo } from "@/components/ui/textos-analisis";
-import { Pestanas } from "@/components/analisis/Pestanas";
+import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { olvidaCsv, traeJson } from "@/lib/hojaCsv";
@@ -211,7 +212,9 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
   {
     key: "parecidos",
     label: "Partidos y sesiones parecidos",
-    icono: Shield,
+    /* 19/10/2026: llevaba el mismo escudo que «Un equipo de un vistazo» y
+       los dos botones, uno al lado del otro, parecían el mismo. */
+    icono: Network,
     pregunta: "¿Qué partidos jugamos igual y qué sesiones se parecen?",
   },
   /*
@@ -324,6 +327,8 @@ const BLOQUES: { clave: Bloque; label: string; icono: typeof History; areas: Are
   { clave: "entrenamiento", label: "Entrenamiento", icono: Brain, areas: ["transferencia"] },
 ];
 
+const CLAVES_AREA = AREAS.map((a) => a.key);
+
 const bloqueDe = (area: Area) => BLOQUES.find((g) => g.areas.includes(area)) ?? BLOQUES[0];
 
 /** «06/09 · vs Teruel (2-1)», que es como se pide un partido de viva voz. */
@@ -351,14 +356,13 @@ export default function DataAnalisisPage() {
   | Se lee **una sola vez, al montar** (`useState` con función), no en un
   | efecto: cambiar de área después con un efecto sería pisarle la elección al
   | que ya está navegando, y es lo que prohíbe `react-hooks/set-state-in-effect`.
+  |
+  | 19/10/2026: y ahora se escribe también al cambiar (`usePestanaUrl`, lo mismo
+  | que en Análisis de goles). Antes, recargar o volver atrás desde otra
+  | pantalla devolvía siempre a «Contra la liga», y un enlace copiado no
+  | llevaba al área que se estaba mirando.
   */
-  const [area, setArea] = useState<Area>(() => {
-    if (typeof window === "undefined") return "liga";
-
-    const pedida = new URLSearchParams(window.location.search).get("area");
-
-    return AREAS.some((a) => a.key === pedida) ? (pedida as Area) : "liga";
-  });
+  const [area, setArea] = usePestanaUrl<Area>("area", CLAVES_AREA, "liga");
 
   /* La fase que se está mirando dentro de «Contra la liga». */
   const [fase, setFase] = useState<Fase>("con");
@@ -1460,12 +1464,13 @@ export default function DataAnalisisPage() {
                           <table className="w-full min-w-[620px] text-sm">
                             <thead>
                               <tr className="text-left text-[10px] uppercase tracking-[0.16em] text-white/40">
+                                {/* 19/10/2026: las siglas, explicadas al pasar por encima. */}
                                 <th className="pb-2 pr-3 font-medium">Temporada</th>
-                                <th className="pb-2 pr-3 text-right font-medium">PJ</th>
-                                <th className="pb-2 pr-3 text-right font-medium">G-E-P</th>
-                                <th className="pb-2 pr-3 text-right font-medium">GF-GC</th>
-                                <th className="pb-2 pr-3 text-right font-medium">xG/partido</th>
-                                <th className="pb-2 text-right font-medium">Goles − xG</th>
+                                <th className="pb-2 pr-3 text-right font-medium" title="Partidos jugados">PJ</th>
+                                <th className="pb-2 pr-3 text-right font-medium" title="Ganados, empatados y perdidos">G-E-P</th>
+                                <th className="pb-2 pr-3 text-right font-medium" title="Goles a favor y goles en contra">GF-GC</th>
+                                <th className="pb-2 pr-3 text-right font-medium" title="Goles esperados por partido: lo que valían las ocasiones creadas">xG/partido</th>
+                                <th className="pb-2 text-right font-medium" title="Goles marcados por partido menos xG por partido">Goles − xG/partido</th>
                               </tr>
                             </thead>
 
@@ -1531,9 +1536,12 @@ export default function DataAnalisisPage() {
                         </div>
 
                         <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
-                          «Goles − xG» es lo que se marcó por encima de lo que
-                          valían las ocasiones. Sostenido en positivo es acierto;
-                          en negativo, ocasiones que no se terminan.
+                          PJ: partidos jugados · G-E-P: ganados, empatados y
+                          perdidos · GF-GC: goles a favor y en contra · xG
+                          (goles esperados): lo que valían las ocasiones.
+                          «Goles − xG» es lo que se marcó por partido por encima
+                          de lo que valían las ocasiones. Sostenido en positivo
+                          es acierto; en negativo, ocasiones que no se terminan.
                         </p></Explicativo>
                       </Panel>
                     </div>
@@ -1726,6 +1734,15 @@ export default function DataAnalisisPage() {
                           <p className="mt-3 text-[12px] text-amber-500/90">{avisoMuestra}</p>
                         )}
 
+                        {/*
+                          CÓMO SE LEE CADA FILA (19/10/2026). El «p73» y el
+                          «4º/20» no se explicaban en ningún sitio, ni contra
+                          quién se comparaba el Castilla.
+                        */}
+                        <p className="mt-3 text-[12px] leading-relaxed text-white/55">
+                          Cada fila: la cifra del Castilla{unPartidoElegido ? " en ese partido" : modo === "total" ? " (acumulada en las de conteo)" : " por partido"} · «liga», la mediana de los {equiposLiga.length} equipos de {laQueMando}{compViva ? ` en ${compViva.replace(/^Spain\.\s*/, "")}` : ""} · el puesto · y el percentil: <strong className="text-white/75">p73</strong> es estar mejor que el 73 % de ellos. Verde, por encima de la mediana; naranja, por debajo; gris, métricas de estilo, donde no hay mejor ni peor. Pulsa el nombre de una métrica para ver qué mide.
+                        </p>
+
                         {/* Los gráficos propios de cada fase. */}
                         <PanelesDeFase
                           fase={fase}
@@ -1772,8 +1789,8 @@ export default function DataAnalisisPage() {
                                 title={grupo}
                                 subtitle={
                                   otroEquipo
-                                    ? `A la derecha, mejor. La raya del centro es la mediana de la liga y la marca azul, ${otroEquipo}.`
-                                    : "A la derecha, mejor. La raya del centro es la mediana de la liga."
+                                    ? `A la derecha, mejor (en las de estilo, más). La raya del centro es la mediana de la liga y la marca azul, ${otroEquipo}.`
+                                    : "A la derecha, mejor (en las de estilo, más). La raya del centro es la mediana de la liga."
                                 }
                                 icon={Scale}
                               >
@@ -2643,7 +2660,10 @@ function ParDeMetricas({
       >
         {puntos.length < 3 ? (
           <p className="py-10 text-center text-[12px] text-white/35">
-            Con menos de tres puntos no hay dibujo que leer.
+            {/* 19/10/2026: el vacío dice qué hacer, no sólo que está vacío. */}
+            Con menos de tres {rotulaTodos ? "temporadas" : "equipos"} con dato
+            en las dos métricas no hay dibujo que leer. Prueba con otra pareja
+            de métricas{rotulaTodos ? "" : " u otra temporada"}.
           </p>
         ) : (
           <>
@@ -2656,6 +2676,8 @@ function ParDeMetricas({
               destacado={destacado}
               comparado={comparado}
               rotulaTodos={rotulaTodos}
+              cadaPunto={rotulaTodos ? "temporada del Castilla" : "equipo"}
+              medianasDe={rotulaTodos ? "de nuestras temporadas" : "de la liga"}
             />
 
             {metX && metY && (
