@@ -10,6 +10,8 @@ interface Props {
   description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Lo que dice el botón mientras trabaja: no todo lo que se confirma es borrar. */
+  loadingLabel?: string;
   loading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -21,6 +23,7 @@ export default function ConfirmDialog({
   description,
   confirmLabel = "Eliminar",
   cancelLabel = "Cancelar",
+  loadingLabel = "Eliminando…",
   loading = false,
   onConfirm,
   onCancel,
@@ -85,7 +88,7 @@ export default function ConfirmDialog({
             autoFocus
             className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
           >
-            {loading ? "Eliminando..." : confirmLabel}
+            {loading ? loadingLabel : confirmLabel}
           </button>
         </div>
       </div>

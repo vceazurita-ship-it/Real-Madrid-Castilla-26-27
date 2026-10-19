@@ -20,6 +20,11 @@ import {
   type Alerta,
 } from "@/lib/alertas/modelo";
 
+/** ¿Lleva una fecha de verdad? Vacía o ilegible, la alerta no suena. */
+function fechaValida(iso: string | null | undefined) {
+  return Boolean(iso) && !Number.isNaN(new Date(String(iso)).getTime());
+}
+
 /**
  * Las tareas con alerta, ordenadas por lo que suena antes.
  *
@@ -60,6 +65,13 @@ export default function ListaAlertas({
   /* Las apagadas al final; entre las vivas, la que antes suena arriba. */
   const ordenadas = [...alertas].sort((a, b) => {
     if (a.activa !== b.activa) return a.activa ? -1 : 1;
+
+    /* Las que no tienen fecha, detrás de las que sí (19/10/2026): una cadena
+       vacía se ordenaba la primera y la lista abría con una que no va a sonar. */
+    const sinA = !fechaValida(a.proximoEnvio);
+    const sinB = !fechaValida(b.proximoEnvio);
+
+    if (sinA !== sinB) return sinA ? 1 : -1;
 
     return String(a.proximoEnvio).localeCompare(String(b.proximoEnvio));
   });
@@ -110,9 +122,12 @@ export default function ListaAlertas({
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-white/40">
               <span className="inline-flex items-center gap-1.5">
                 <AlarmClock className="h-3 w-3" aria-hidden />
-                {alerta.activa
-                  ? fechaLegible(alerta.proximoEnvio)
-                  : "Silenciada"}
+                {!alerta.activa
+                  ? "Silenciada"
+                  : fechaValida(alerta.proximoEnvio)
+                    ? fechaLegible(alerta.proximoEnvio)
+                    : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo. */
+                      "Sin fecha: no sonará hasta que la edites"}
               </span>
 
               {alerta.repeticion !== "una-vez" && (
@@ -132,13 +147,17 @@ export default function ListaAlertas({
                 </span>
               )}
 
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5" title={alerta.destinatarios.join(", ")}>
                 <Users className="h-3 w-3" aria-hidden />
-                {alerta.destinatarios.length}
+                {alerta.destinatarios.length}{" "}
+                {alerta.destinatarios.length === 1 ? "destinatario" : "destinatarios"}
               </span>
 
               {alerta.adjuntos.length > 0 && (
-                <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="inline-flex items-center gap-1.5"
+                  title={`${alerta.adjuntos.length} ${alerta.adjuntos.length === 1 ? "adjunto" : "adjuntos"}`}
+                >
                   <Paperclip className="h-3 w-3" aria-hidden />
                   {alerta.adjuntos.length}
                 </span>

@@ -160,10 +160,18 @@ export default function GestorAlertas() {
     setOcupada(null);
   };
 
+  /*
+  | «Enviar ahora» desde la lista pregunta antes (19/10/2026): manda un correo
+  | de verdad a todos los destinatarios, y en el móvil está a un dedo de
+  | «Editar». Un correo mandado no se puede deshacer.
+  */
+  const [aEnviar, setAEnviar] = useState<Alerta | null>(null);
+
   const enviarSuelta = async (alerta: Alerta) => {
     setOcupada(alerta.id);
     await enviarAhora(alerta.id);
     setOcupada(null);
+    setAEnviar(null);
   };
 
   const confirmarBorrado = async () => {
@@ -258,7 +266,7 @@ export default function GestorAlertas() {
         <ListaAlertas
           alertas={alertas}
           onEditar={abrirExistente}
-          onEnviarAhora={(alerta) => void enviarSuelta(alerta)}
+          onEnviarAhora={setAEnviar}
           onAlternarActiva={(alerta) => void alternarActiva(alerta)}
           onBorrar={setABorrar}
           ocupada={ocupada}
@@ -290,6 +298,23 @@ export default function GestorAlertas() {
         loading={Boolean(aBorrar && ocupada === aBorrar.id)}
         onConfirm={() => void confirmarBorrado()}
         onCancel={() => setABorrar(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(aEnviar)}
+        title="Enviar el aviso ahora"
+        description={
+          aEnviar
+            ? `«${aEnviar.titulo}» sale ya por correo a ${aEnviar.destinatarios.length} ${
+                aEnviar.destinatarios.length === 1 ? "persona" : "personas"
+              }.`
+            : undefined
+        }
+        confirmLabel="Enviar"
+        loadingLabel="Enviando…"
+        loading={Boolean(aEnviar && ocupada === aEnviar.id)}
+        onConfirm={() => aEnviar && void enviarSuelta(aEnviar)}
+        onCancel={() => setAEnviar(null)}
       />
     </div>
   );
