@@ -66,7 +66,7 @@ export default function PlayerChip({
     >
       <span
         className={cn(
-          "relative shrink-0 overflow-hidden rounded-full bg-black/30 ring-2",
+          "relative shrink-0 overflow-hidden rounded-full bg-black/40 ring-2",
           status.ring,
           small ? "h-6 w-6" : "h-8 w-8"
         )}

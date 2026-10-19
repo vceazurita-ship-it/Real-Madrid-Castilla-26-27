@@ -84,7 +84,7 @@ useEffect(() => {
 
 </div>
       {/* Oscurecer */}
-      <div className="pitch-photo-veil absolute inset-0 bg-black/35" />
+      <div className="pitch-photo-veil absolute inset-0 bg-black/40" />
 
       {/* Viñeta */}
       <div className="pitch-photo-veil absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(0,0,0,.45))]" />

@@ -1100,14 +1100,6 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="bg-black"] [class*="text-white"],
 :root[data-theme="light"] [class~="bg-zinc-950"][class*="text-white"],
 :root[data-theme="light"] [class~="bg-zinc-950"] [class*="text-white"],
-:root[data-theme="light"] [class~="bg-black/15"][class*="text-white"],
-:root[data-theme="light"] [class~="bg-black/15"] [class*="text-white"],
-:root[data-theme="light"] [class~="bg-black/25"][class*="text-white"],
-:root[data-theme="light"] [class~="bg-black/25"] [class*="text-white"],
-:root[data-theme="light"] [class~="bg-black/30"][class*="text-white"],
-:root[data-theme="light"] [class~="bg-black/30"] [class*="text-white"],
-:root[data-theme="light"] [class~="bg-black/35"][class*="text-white"],
-:root[data-theme="light"] [class~="bg-black/35"] [class*="text-white"],
 :root[data-theme="light"] [class~="bg-black/40"][class*="text-white"],
 :root[data-theme="light"] [class~="bg-black/40"] [class*="text-white"],
 :root[data-theme="light"] [class~="bg-black/45"][class*="text-white"],
@@ -1139,6 +1131,17 @@ scrollbar-width:none;
   color: #fff;
 }
 
+
+/* Los pozos oscuros SUTILES (bg-black/15 a /35, 19/10/2026): en el tema
+   oscuro son el hueco de un campo, una lista o un bloque de texto, no un
+   velo. Antes estaban en la lista de «el texto se queda blanco», y en modo
+   día eso era blanco sobre gris claro (el panel de WhatsApp, el cuaderno de
+   apuntes, las listas del once…). Ahora son un pozo claro y el texto va a
+   tinta como en el resto. Lo que va encima de una foto o del césped usa
+   /40 o más, que sigue en esa lista. */
+:root[data-theme="light"] :is([class~="bg-black/15"], [class~="bg-black/20"], [class~="bg-black/25"], [class~="bg-black/30"], [class~="bg-black/35"]) {
+  background-color: rgb(var(--rmcf-ink-rgb) / .05);
+}
 
 /* Superficies oscuras translúcidas (barras fijas, paneles, velos):
    en claro se vuelven blanco translúcido con la misma opacidad, para

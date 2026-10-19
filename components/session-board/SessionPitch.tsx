@@ -51,7 +51,7 @@ export default function SessionPitch({ players, excluidos, onToggle }: Props) {
         {LINE_ORDER.map((line) => (
           <div
             key={line}
-            className="rounded-2xl border border-white/10 bg-black/25 p-2.5 backdrop-blur-sm sm:p-3"
+            className="rounded-2xl border border-white/10 bg-black/40 p-2.5 backdrop-blur-sm sm:p-3"
           >
             <div className="mb-2 flex items-baseline justify-between">
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#C8A96B]">

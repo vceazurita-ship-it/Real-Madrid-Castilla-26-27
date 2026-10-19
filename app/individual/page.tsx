@@ -1450,7 +1450,10 @@ function PlayerCard({
             style={{
               color: scoreColorHex(player.score),
               borderColor: `${scoreColorHex(player.score)}55`,
-              background: "rgba(0,0,0,0.55)",
+              /* 0,78 y no 0,55 (19/10/2026): sobre el fondo claro de la foto
+                 en modo día, el velo al 55 % quedaba gris y el oro no pasaba
+                 de 2,4:1. */
+              background: "rgba(0,0,0,0.78)",
             }}
           >
             {player.score.toFixed(1)}

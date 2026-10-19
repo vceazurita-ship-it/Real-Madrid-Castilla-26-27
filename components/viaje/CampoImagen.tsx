@@ -177,7 +177,9 @@ export function CampoImagen({
         )}
       </div>
 
-      <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-black/25">
+      {/* El fondo oscuro, sólo con imagen (19/10/2026): vacío, en modo día la
+          tabla de globals.css dejaba el texto blanco sobre gris claro. */}
+      <div className={`mt-2 overflow-hidden rounded-xl border border-white/10 ${imagen?.url ? "bg-black/25" : "bg-white/[0.03]"}`}>
         {imagen?.url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img

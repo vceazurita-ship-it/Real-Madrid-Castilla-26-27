@@ -67,6 +67,16 @@ const COLOR: Record<Veredicto, string> = {
   "sin-datos": "#94A3B8",
 };
 
+/* Para TEXTO (19/10/2026): el oro claro de las líneas del campo, sobre la
+   tarjeta clara del modo día, se quedaba en 2:1. El texto va con el oro del
+   tema (`ORO`, que oscurece en modo día); las líneas y los fondos con alfa
+   siguen con el hexadecimal. */
+/* El campo es verde oscuro en los dos modos: sus fichas y nombres van con el oro claro fijo (en modo día el del tema oscurecía y no se leía). */
+const ORO_CAMPO = "#C8A96B";
+
+const textoDe = (color: string) => (color === "#C8A96B" ? ORO : color);
+
+
 const ROTULO: Record<Veredicto, string> = {
   ventaja: "Ventaja",
   desventaja: "Desventaja",
@@ -419,10 +429,10 @@ export default function DuelosPage() {
                     />
                     <div className="mt-2 flex flex-wrap gap-4 text-[11px] text-white/45">
                       <span className="inline-flex items-center gap-1.5">
-                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: ORO }} /> Castilla
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: ORO_CAMPO }} /> Castilla
                       </span>
                       <span className="inline-flex items-center gap-1.5">
-                        <span className="h-2.5 w-2.5 rounded-full bg-white/80" /> {equipoVisto}
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "rgba(255,255,255,0.88)", boxShadow: `0 0 0 1px ${tinta(0.35)}` }} /> {equipoVisto}
                       </span>
                       {(["ventaja", "parejo", "desventaja"] as Veredicto[]).map((v) => (
                         <span key={v} className="inline-flex items-center gap-1.5">
@@ -545,11 +555,11 @@ function Campo({
     const { x, y } = px(p);
     return (
       <g key={key}>
-        <circle cx={x} cy={y} r={15} fill={nuestro ? ORO : "rgba(255,255,255,0.88)"} stroke="rgba(0,0,0,0.4)" strokeWidth={1} />
+        <circle cx={x} cy={y} r={15} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.88)"} stroke="rgba(0,0,0,0.4)" strokeWidth={1} />
         <text x={x} y={y + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill="#0B0F14">
           {j ? (nuestro ? (PUESTOS.find((q) => q.key === j.puesto)?.corto ?? "") : j.dorsal || "") : "?"}
         </text>
-        <text x={x} y={y + 29} textAnchor="middle" fontSize={11} fill={nuestro ? ORO : "rgba(255,255,255,0.85)"} fontWeight={600}>
+        <text x={x} y={y + 29} textAnchor="middle" fontSize={11} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"} fontWeight={600}>
           {j ? apellido(j.nombre) : "—"}
         </text>
       </g>
@@ -824,7 +834,7 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
         const nuestroBalon = b.sentido === "con";
         const aire = b.sentido === "aire";
         const fondo = aire ? tinta(0.08) : nuestroBalon ? "rgba(200,169,107,0.16)" : "rgba(232,106,90,0.16)";
-        const tono = aire ? tinta(0.7) : nuestroBalon ? "#C8A96B" : "#F29A8C";
+        const tono = aire ? tinta(0.7) : nuestroBalon ? ORO : PEOR;
 
         return (
           <div key={b.sentido} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
@@ -834,7 +844,7 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
                 {aire ? "Balón dividido · por arriba" : nuestroBalon ? "Balón: Castilla" : `Balón: ${equipo}`}
               </span>
               {b.balance !== null && (
-                <span className="text-[11px] font-semibold tabular-nums" style={{ color: COLOR[b.veredicto] }}>
+                <span className="text-[11px] font-semibold tabular-nums" style={{ color: textoDe(COLOR[b.veredicto]) }}>
                   {ROTULO_CORTO[b.veredicto]} {b.balance > 0 ? "+" : ""}
                   {b.balance}
                 </span>
@@ -1026,7 +1036,7 @@ function Tarjeta({
                           {p.sinBalon === null ? "—" : `${p.sinBalon > 0 ? "+" : ""}${p.sinBalon}`}
                         </span>
                       )}
-                      <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${c}22`, color: c }}>
+                      <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${c}22`, color: textoDe(c) }}>
                         {ROTULO_CORTO[p.veredicto]}
                         {v !== null ? ` ${v > 0 ? "+" : ""}${v}` : ""}
                       </span>

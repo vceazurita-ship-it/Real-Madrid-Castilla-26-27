@@ -469,7 +469,7 @@ export default function MicroCalendar() {
           badges: (
             <div className="flex items-center gap-1">
               {md && (
-                <span className="rounded-full border border-white/15 bg-black/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white/70">
+                <span className="rounded-full border border-white/15 bg-black/55 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white/90">
                   {md}
                 </span>
               )}

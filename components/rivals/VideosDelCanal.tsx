@@ -1114,7 +1114,7 @@ function Rejilla({
               className="aspect-video w-full object-cover"
             />
 
-            <span className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition group-hover:opacity-100">
+            <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
               <Play size={26} className="text-white drop-shadow" />
             </span>
           </button>

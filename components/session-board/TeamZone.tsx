@@ -86,7 +86,7 @@ export default function TeamZone({
                 "flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider transition",
                 active
                   ? "border-white/50 bg-black/45 text-white"
-                  : "border-white/10 bg-black/25 text-white/45 hover:text-white/80"
+                  : "border-white/10 bg-black/40 text-white/60 hover:text-white/80"
               )}
             >
               <span className={cn("h-2 w-2 rounded-full", option.dot)} />

@@ -602,7 +602,7 @@ export default function FaltasPage() {
                     : `${partido.rival} · RM Castilla`}
                 </span>
 
-                <span className="rounded-lg border border-white/10 bg-black/30 px-2 py-0.5 font-mono text-[12px] tabular-nums text-white/80">
+                <span className="rounded-lg border border-white/10 bg-black/55 px-2 py-0.5 font-mono text-[12px] tabular-nums text-white/90">
                   {partido.resultado}
                 </span>
 
