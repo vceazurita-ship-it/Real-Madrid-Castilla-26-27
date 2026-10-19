@@ -7,7 +7,9 @@ import Papa from "papaparse";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { getPlayerImage } from "@/lib/playerImages";
+import { getPlayerImage, normalizePlayerName } from "@/lib/playerImages";
+import { posicionDe } from "@/lib/posiciones";
+import { dorsalDe } from "@/lib/dorsales";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 
 import {
@@ -442,11 +444,13 @@ export default function DashboardPlantilla() {
       posiciones: unique(players.map((p) => p.posicion)),
       estados: unique(players.map((p) => p.estado)),
       licencias: unique(players.map((p) => p.licencia)),
+      /* Sólo las fechas que son el último control de alguien: con todas las
+         de la hoja, elegir una antigua dejaba la pantalla vacía. */
       fechas: [
-        ...new Set(estadoRows.map((row) => row.FECHA).filter(Boolean)),
+        ...new Set(players.map((p) => p.fecha).filter(Boolean)),
       ].sort((a, b) => parseFecha(b) - parseFecha(a)),
     };
-  }, [players, estadoRows]);
+  }, [players]);
 
   const filteredPlayers = useMemo(() => {
     const search = normalize(playerSearch);
@@ -1892,7 +1896,9 @@ function PlayerCard({
 
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/5 pt-4 text-xs text-white/30">
         <span className="truncate">
-          Último control: {formatFecha(player.fecha)}
+          {player.fecha
+            ? `Último control: ${formatFecha(player.fecha)}`
+            : "Sin control registrado"}
         </span>
 
         {player.hudl && (
