@@ -1402,9 +1402,9 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "derecha",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T1 min 6. Min 6 (05:14), Cuenca (22) derriba a Yáñez (7) junto a la banda derecha unos metros pasado el medio campo tras pase de Fortea. Yáñez la saca rápido en corto para Óscar y el Castilla sigue jugando. En los 16 s de la táctica no se ve el instante de la falta.",
-        "minuto": "5'15\" (táctica 5:22)",
+        "entre": 8,
+        "nota": "T1 min 6. Cuenca (22) derriba a Yáñez (7) pegado a la banda derecha unos 15-18 m pasada la divisoria tras la conducción de Aguado por la izquierda y el cambio a Fortea, y Yáñez la saca rápido en corto para Óscar. En la táctica se ve en despues/s_07 arriba (el choque, unos 26 s después del momento esperado) y despues/s_07 abajo y s_08 con Yáñez en el suelo y el asistente al lado. Entre: el portero y 7 de campo por delante del balón (uno, en el carril izquierdo, apenas 2-3 m por delante), con Cuenca a su altura (no contado) y los 11 del Antequera a la vista.",
+        "minuto": "5'15\" (táctica 5:46)",
         "jugador": "Daniel Yáñez"
       },
       {
@@ -1413,9 +1413,9 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "centro",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T1 min 6. Leiva (11) derriba a Moha Bassele (19) en el círculo central tras la pérdida y el Antequera la saca en el medio campo (TV 05:51). En las 16 s de táctica sólo se ve la salida del Castilla antes de la falta, así que no se pueden contar los de entre.",
-        "minuto": "5'51\" (táctica 5:58)",
+        "entre": 6,
+        "nota": "T1 min 6. La falta de Leiva sobre Moha Bassele se ve en la táctica despues/s_07 abajo (cae dentro del círculo central, justo en campo del Antequera) y en despues/s_08 el juego ya se para, unos 27 s después del momento esperado. Entre el balón y la portería del Castilla quedan 5 jugadores de campo más Mestre (fuera de plano abajo), los otros 4 y Leiva están a la altura de la falta o por delante.",
+        "minuto": "5'51\" (táctica 6:22)",
         "jugador": "Álvaro Leiva"
       },
       {
@@ -1424,9 +1424,9 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo propio",
         "carril": "izquierda",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T1 min 10. Min 10 (09:29-09:30), Isra Domínguez (23) derriba a Mario (4) junto a la banda izquierda a la altura del área propia en la salida desde Mestre. La TV se va al centro del campo y no se ve bien cómo se saca. La táctica acaba antes de la falta (sólo llega a la salida de Mestre).",
-        "minuto": "9'30\" (táctica 9:38)",
+        "entre": 9,
+        "nota": "T1 min 10. Tras la salida Mestre-Óscar-Mestre, Mestre abre a Mario (4) en el pico izquierdo del área propia, Mario conduce y se la adelanta e Isra Domínguez (23) lo derriba a la altura de la línea del área, a unos 10-15 m de la banda izquierda. En la táctica se ve en despues/s_07 abajo (el choque, unos 28 s después del momento esperado) y despues/s_08 con Mario en el suelo. Entre: el portero y 8 de campo por delante, con Isra Domínguez encima de Mario y otro a la altura del borde del área (no contados) y los 11 del Antequera a la vista.",
+        "minuto": "9'30\" (táctica 10:02)",
         "jugador": "Mario Rivas"
       },
       {
@@ -1435,9 +1435,9 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "izquierda",
         "distancia": "lejana",
-        "entre": 11,
-        "nota": "T1 min 11. Min 11 (10:27), Antón (2) derriba a Leiva (11) junto a la banda izquierda unos 10 m antes del medio campo, en campo propio. La saca Cestero en corto para seguir jugando. En la táctica (s_02) los 11 del Antequera, portero incluido, quedan por delante del balón (Antón pegado a él).",
-        "minuto": "10'28\" (táctica 10:35)",
+        "entre": 8,
+        "nota": "T1 min 11. Min 11, Antón (2) derriba a Leiva (11) junto a la banda izquierda unos 10 m antes del medio campo, en campo del Castilla, y Cestero la saca en corto para seguir jugando. En la táctica la falta se ve en s_02 abajo (se ven los 11 del Antequera): entre el balón y su portería hay 8, portero incluido, otro queda a la altura del balón, otro por detrás y Antón en el balón.",
+        "minuto": "10'28\" (táctica 10:59)",
         "jugador": "Álvaro Leiva"
       },
       {
@@ -1446,9 +1446,9 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo propio",
         "carril": "izquierda",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T1 min 20. Min 20 (19:47), Moi Parra (11) derriba a Aguado (3) cuando salía con el balón junto a la banda izquierda en campo propio y ve la amarilla (19:51). La TV no enseña el saque. En los 16 s de la táctica el juego está en campo del Antequera y no se ve la falta.",
-        "minuto": "19'47\" (táctica 19:55)",
+        "entre": 9,
+        "nota": "T1 min 20. Aguado (3) sale conduciendo pegado a la banda izquierda en campo propio, a medio camino entre su área y la divisoria, y Moi Parra (11) lo persigue y lo derriba por detrás (amarilla en la TV). En la táctica la persecución se ve en despues/s_06 abajo y s_07 y el choque en despues/s_08 arriba (unos 28 s después del momento esperado), pero la ventana acaba ahí y no se ve la parada ni el saque. Entre: el portero y 8 de campo por delante, con Moi Parra a la altura de Aguado y otro por detrás (no contados) y los 11 del Antequera a la vista.",
+        "minuto": "19'47\" (táctica 20:19)",
         "jugador": "Diego Aguado"
       },
       {
@@ -1457,9 +1457,9 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "centro",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T1 min 23. Min 23 (22:04), Aspra (20) derriba a Yáñez (7) junto al círculo central, en campo propio, cuando Yáñez cogía el balón tras un rechace. Aspra se lleva el balón y el árbitro se lo quita, así que la TV no enseña el saque. En los 16 s de la táctica no se ve la falta.",
-        "minuto": "22'05\" (táctica 22:12)",
+        "entre": 5,
+        "nota": "T1 min 23. Aspra (20) derriba a Yáñez (7) unos metros dentro del campo del Castilla, junto al borde izquierdo del círculo central, en el lío tras el balón dividido de Roberto con Bassele, y el árbitro para el juego (no se ve el saque). En la táctica el choque se ve en despues/s_07 arriba (unos 26 s después del momento esperado) y Yáñez en el suelo con un compañero pidiendo falta en despues/s_07 abajo y s_08. Entre: el portero y 4 de campo claramente por delante, con Aspra y otro prácticamente a la altura del balón (no contados), 3 por detrás y los 11 del Antequera a la vista.",
+        "minuto": "22'05\" (táctica 22:36)",
         "jugador": "Daniel Yáñez"
       },
       {
@@ -1468,9 +1468,9 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo propio",
         "carril": "izquierda",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T1 min 26. Falta de Moi Parra (11) sobre Cestero (6, según Hudl, el dorsal no se lee en la TV) hacia el 25:46, unos metros fuera de la esquina izquierda del área del Castilla junto a la banda de los banquillos, y el juego se para con el jugador en el suelo sin que se vea el saque. En la táctica no aparece la parada y la portería del Antequera queda fuera de plano, por eso entre es ?.",
-        "minuto": "25'46\" (táctica 25:54)",
+        "entre": 7,
+        "nota": "T1 min 26. La falta de Moi Parra sobre Cestero se ve en la táctica despues/s_07 abajo (duelo a unos 15 m del área del Castilla, por la izquierda) y en despues/s_08 arriba ya está el jugador del Castilla en el suelo con el árbitro llegando (unos 27-28 s después del momento esperado). En ese instante hay 6 jugadores de campo del Antequera más arriba que el balón más su portero (el que hace la falta y otros 3 quedan a su altura o por detrás), conteo justo porque uno está casi a la altura del balón.",
+        "minuto": "25'46\" (táctica 26:18)",
         "jugador": "Jorge Cestero"
       },
       {
@@ -1479,9 +1479,9 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "medio campo",
         "carril": "izquierda",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T1 min 28. Tras un balón largo de Javi Antón, Isra Domínguez (23) derriba a Mario Rivas (4, según Hudl) hacia el 27:25-27:26 junto a la banda de los banquillos a la altura de la línea de medio campo, y el árbitro habla con ellos mientras el Castilla prepara el saque (no se ve la ejecución). La táctica de esas 16 s muestra juego seguido en campo del Antequera sin esta parada, por eso entre es ?.",
-        "minuto": "27'26\" (táctica 27:33)",
+        "entre": 10,
+        "nota": "T1 min 28. La falta de Isra Domínguez sobre Mario se ve en la táctica despues/s_06 abajo y despues/s_07 arriba (los dos caen junto a la banda izquierda, unos metros pasado el medio campo en campo del Antequera), unos 25-26 s después del momento esperado. Los otros 9 jugadores de campo del Antequera y su portero están todos más cerca de su portería que el balón.",
+        "minuto": "27'26\" (táctica 27:57)",
         "jugador": "Mario Rivas"
       },
       {
@@ -1490,9 +1490,9 @@ export const PARTIDOS: PartidoFaltas[] = [
         "zona": "campo propio",
         "carril": "derecha",
         "distancia": "lejana",
-        "entre": null,
-        "nota": "T1 min 28. Aguado (3) comete falta sobre Moi Parra (11 según Hudl) junto a la banda de los banquillos en campo del Antequera, justo después de una falta a favor del Castilla (TV 28:01, jugador del Antequera en el suelo). Según Hudl la saca Javi Antón en corto para seguir jugando. La táctica termina antes (sólo se ve la preparación de la falta del Castilla), entre sin contar.",
-        "minuto": "28'01\" (táctica 28:09)",
+        "entre": 10,
+        "nota": "T1 min 28. La falta de Aguado sobre Moi Parra se ve en la táctica despues/s_07 abajo (duelo junto a la banda derecha del Antequera, a unos 8 m de la banda y unos metros por delante del borde de su área) y en despues/s_08 está el jugador del Antequera en el suelo (unos 27 s después del momento esperado). Los otros 9 jugadores de campo del Castilla están por debajo del punto de la falta y el portero en su portería (fuera de plano abajo).",
+        "minuto": "28'01\" (táctica 28:33)",
         "jugador": "Diego Aguado"
       },
       {
