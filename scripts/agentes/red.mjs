@@ -376,6 +376,41 @@ async function main() {
     hechos.push({ revision: d?.riesgo ?? "sin respuesta", hallazgos: d?.hallazgos?.length ?? 0 });
   }
 
+  /*
+  | EL EQUIPO DE EXPERTOS (20/10/2026, lo pidió el usuario): fútbol,
+  | análisis, marketing, guion, edición y producción de vídeo juzgan los
+  | informes de partido y de ABP (previa y post), el vídeo y el análisis de
+  | entrenamiento, y cada uno devuelve sus mejoras priorizadas (esquema
+  | «critica»). Sólo opinan: los cambios se programan después.
+  | El material se prepara antes en .cache/expertos/ (capturas, textos y PDF
+  | de los informes tal como se ven, y la hoja de escenas del vídeo).
+  */
+  if (orden === "expertos") {
+    const comun = [
+      "Material en .cache/expertos/:",
+      "- informes/: los cuatro informes TAL COMO LOS VE EL CUERPO TÉCNICO hoy (sin enviar): partido-previa-resumen.txt y partido-previa-informe-completo.txt (previa J9 Algeciras), partido-post-resumen.txt y partido-post-informe-completo.txt (post J8 Antequera 3-2), abp-previa.txt y abp-post.txt; sus capturas (*.jpg) y los PDF que saca cada diálogo en informes/<informe>-pdf/.",
+      "- muestra-video/hoja.png: todas las escenas del vídeo de informe (datos inventados).",
+      "Código: components/informe-partido/ (diálogo, Diapositivas.tsx), lib/informe-partido/ (modelo, textos), components/abp/InformeMicroDialog.tsx y lib/abp/informe-micro.ts (ABP), lib/video-informe/ (guion.ts, dibujo.ts, monta.ts), app/obras/entrenamiento/ y lib/entreno/ (análisis de entrenamiento: objetivos individuales medidos con IA sobre el vídeo de la sesión, con clips de lo correcto y lo mejorable).",
+      "Contexto: AGENTS.md, agentes/README.md. Reglas del usuario: lo que no tiene dato no se nombra en un informe; español de España; todo gratis (sin servicios de pago).",
+      "Da como mucho 12 mejoras, las de más impacto primero, concretas y programables en esta plataforma.",
+    ].join("\n");
+    const foco = {
+      "experto-futbol": "¿Sirven los cuatro informes y el análisis de entrenamiento para preparar y corregir de verdad? Qué falta, qué sobra, qué orden, qué conclusiones accionables.",
+      "experto-analisis": "Rigor y lectura de cifras, comparaciones y gráficos de los cuatro informes y del análisis de entrenamiento; métricas que faltan y ya hay en la plataforma.",
+      "experto-marketing": "Primer vistazo, asuntos, titulares, WhatsApp, portada del PDF, póster del vídeo y longitud de los cuatro informes; reescribe lo mejorable.",
+      guionista: "El relato de cada informe (arco, gancho, transiciones, cierre) y los textos de pantalla del vídeo (lib/video-informe/guion.ts); reescribe titulares y textos.",
+      "editor-video": "El montaje del vídeo de informe: ritmo, duración por escena (SEGUNDOS en dibujo.ts), estructura, rótulos, transiciones y sonido; mira hoja.png y el código.",
+      "productor-video": "Qué piezas de vídeo hacer cada semana (cuerpo técnico, jugadores, ABP), en qué formato y canal, y cómo producirlas sin coste y sin trabajo extra para el analista.",
+    };
+    const carpeta = path.join(RAIZ, ".cache", "expertos");
+    const res = await enParalelo(
+      Object.entries(foco).map(([nombre, f]) => () =>
+        agente({ nombre, salida: path.join(carpeta, `critica-${nombre}.json`), esquemaDe: "critica", entradas: [], encargo: `${comun}\n\nTU FOCO: ${f}` }),
+      ),
+    );
+    hechos.push({ expertos: res.filter(Boolean).length });
+  }
+
   registro.fin = new Date().toISOString();
   registro.hechos = hechos;
   registro.coste_usd = +registro.pasos.reduce((s, p) => s + (p.coste_usd ?? 0), 0).toFixed(2);
@@ -388,7 +423,9 @@ async function main() {
         ? `J${h.jornada} ${h.tipo} ${h.aprobado ? "verificado" : "con reparos"} (${h.afirmaciones} afirmaciones)`
         : h.mantenimiento
           ? `mantenimiento ${h.mantenimiento} (${h.problemas} problemas)`
-          : `revisión ${h.revision} (${h.hallazgos} hallazgos)`,
+          : h.expertos !== undefined
+            ? `expertos ${h.expertos}/6`
+            : `revisión ${h.revision} (${h.hallazgos} hallazgos)`,
     )
     .join(" · ");
 

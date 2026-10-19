@@ -28,6 +28,13 @@ const MODELO = {
   verificador: "sonnet",
   "redactor-jugadores": "sonnet",
   "revisor-cambios": "sonnet",
+  /* El equipo de expertos (20/10/2026): sólo opinan, con el esquema «critica». */
+  "experto-futbol": "opus",
+  guionista: "opus",
+  "experto-analisis": "sonnet",
+  "experto-marketing": "sonnet",
+  "editor-video": "sonnet",
+  "productor-video": "sonnet",
 };
 const LEER = new Set(["Read", "Grep", "Glob"]);
 const GIT_LECTURA = /^Bash\(git (diff|log|show):\*\)$/;

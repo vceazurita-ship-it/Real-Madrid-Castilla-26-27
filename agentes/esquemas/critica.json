@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "nota",
+    "veredicto",
+    "funciona",
+    "mejoras"
+  ],
+  "properties": {
+    "nota": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10,
+      "description": "Nota global del informe desde tu especialidad"
+    },
+    "veredicto": {
+      "type": "string",
+      "description": "Dos frases: qué es lo que más falla y qué lo arreglaría"
+    },
+    "funciona": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 5,
+      "description": "Lo que hay que conservar"
+    },
+    "mejoras": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "informe",
+          "donde",
+          "problema",
+          "propuesta",
+          "ejemplo",
+          "prioridad",
+          "esfuerzo"
+        ],
+        "properties": {
+          "informe": {
+            "type": "string",
+            "enum": [
+              "partido-previa",
+              "partido-post",
+              "abp-previa",
+              "abp-post",
+              "video",
+              "todos",
+              "entrenamiento"
+            ]
+          },
+          "donde": {
+            "type": "string",
+            "description": "Diapositiva, sección, escena o pantalla concreta"
+          },
+          "problema": {
+            "type": "string"
+          },
+          "propuesta": {
+            "type": "string",
+            "description": "Qué cambiar, concreto y programable"
+          },
+          "ejemplo": {
+            "type": "string",
+            "description": "Cómo quedaría: el texto, el titular o la escena reescritos"
+          },
+          "prioridad": {
+            "type": "string",
+            "enum": [
+              "alta",
+              "media",
+              "baja"
+            ]
+          },
+          "esfuerzo": {
+            "type": "string",
+            "enum": [
+              "pequeño",
+              "medio",
+              "grande"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
