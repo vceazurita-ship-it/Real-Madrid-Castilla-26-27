@@ -118,15 +118,22 @@ body {
   min-height: 100vh;
 }
 
-/* Ojo: esta regla está fuera de `@layer`, y en la cascada una declaración sin
-   capa gana a cualquier utilidad de Tailwind (que vive en `@layer utilities`),
-   sin importar la especificidad. Es decir: fija el color de TODOS los bordes
-   de la aplicación y las clases `border-*` de los componentes no se aplican.
-   Por eso el modo día se resuelve aquí, cambiando la variable, y no clase a
-   clase. */
+/* El color de borde por defecto, DENTRO de `@layer base` (19/10/2026).
 
-* {
-  border-color: var(--rmcf-border);
+   Antes estaba fuera de capa, y en la cascada una declaración sin capa gana a
+   cualquier utilidad de Tailwind sin importar la especificidad: fijaba el
+   color de TODOS los bordes y ninguna clase `border-*` se aplicaba. Los ~600
+   bordes de oro, ámbar, verde o rojo con los que las pantallas marcan lo
+   elegido o lo importante no se habían visto nunca. En la capa base, un
+   borde sin color sigue tomando éste y las clases vuelven a mandar.
+
+   Los neutros (`border-white/…`) en modo noche quedan casi igual que antes
+   (un /10 frente al 0,08 de la variable); en modo día se traducen a tinta
+   oscura más abajo, en la tabla de equivalencias («Bordes»). */
+@layer base {
+  * {
+    border-color: var(--rmcf-border);
+  }
 }
 
 ::selection {
@@ -1655,4 +1662,55 @@ scrollbar-width:none;
 :root[data-theme="light"] [class~="placeholder:text-[#C8A96B]/45"]::placeholder,
 :root[data-theme="light"] [class~="placeholder:text-[#C8A96B]/55"]::placeholder {
   color: rgb(116 86 28 / .7);
+}
+
+/* ===========================
+   BORDES EN MODO DÍA (19/10/2026)
+
+   Desde que el borde por defecto vive en `@layer base`, las clases
+   `border-white/…` se aplican de verdad, y en modo día serían líneas blancas
+   sobre fondo claro. Aquí se traducen a tinta, conservando el escalón de
+   cada opacidad: los finos son la línea neutra del tema, los de /15–/20 algo
+   más marcados y los de /25 en adelante, los que se quieren ver.
+   A diferencia del resto de la tabla, va DENTRO de `@layer utilities` y con
+   `:where(…)` (especificidad de una clase): así el oro de un `hover:` o un
+   color de borde explícito del componente siguen ganando, que es la gracia
+   de haber sacado el borde por defecto de su sitio. Por token entero.
+=========================== */
+@layer utilities {
+
+:where(:root[data-theme="light"]) :is(
+  [class~="border-white/5"], [class~="border-white/[0.05]"], [class~="border-white/[0.06]"],
+  [class~="border-white/[0.07]"], [class~="border-white/8"], [class~="border-white/[0.08]"],
+  [class~="border-white/10"], [class~="border-white/12"]
+) {
+  border-color: var(--rmcf-border);
+}
+:where(:root[data-theme="light"]) :is([class~="border-white/15"], [class~="border-white/20"], [class~="border-l-white/20"]) {
+  border-color: rgb(var(--rmcf-ink-rgb) / .2);
+}
+:where(:root[data-theme="light"]) :is(
+  [class~="border-white/25"], [class~="border-white/30"], [class~="border-white/35"],
+  [class~="border-white/40"], [class~="border-l-white/30"]
+) {
+  border-color: rgb(var(--rmcf-ink-rgb) / .3);
+}
+:where(:root[data-theme="light"]) :is(
+  [class~="border-white"], [class~="border-t-white"], [class~="border-white/50"],
+  [class~="border-white/60"], [class~="border-white/80"]
+) {
+  border-color: rgb(var(--rmcf-ink-rgb) / .45);
+}
+:where(:root[data-theme="light"]) :is([class~="divide-white/5"], [class~="divide-white/[0.06]"]) > :not(:last-child) {
+  border-color: var(--rmcf-border);
+}
+/* Al pasar el ratón o con el foco: un escalón más de tinta. */
+:where(:root[data-theme="light"]) :is(
+  [class~="hover:border-white/10"], [class~="hover:border-white/15"], [class~="hover:border-white/20"],
+  [class~="hover:border-white/25"], [class~="hover:border-white/30"], [class~="hover:border-white/35"],
+  [class~="hover:border-white/40"], [class~="hover:border-white/55"], [class~="hover:border-white/60"]
+):hover:not(:disabled),
+:where(:root[data-theme="light"]) :is([class~="focus:border-white/30"], [class~="focus:border-white/40"]):focus {
+  border-color: rgb(var(--rmcf-ink-rgb) / .35);
+}
 }
