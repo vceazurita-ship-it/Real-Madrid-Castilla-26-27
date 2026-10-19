@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   useCallback,
   useEffect,
@@ -346,6 +346,7 @@ function guardaFijado(valor: boolean) {
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
 
   const { visible: puedeVolver, volver } = useVolver()
 
@@ -501,6 +502,7 @@ export function Sidebar() {
         data-export-hide
         onClick={() => setOpen(true)}
         aria-label="Abrir el menú"
+        aria-expanded={open}
         className="fixed left-1 top-1 z-50 rounded-2xl border border-white/10 bg-[#111827]/90 p-3 text-white backdrop-blur-md shadow-lg md:hidden"
       >
         <Menu size={20} />
@@ -655,7 +657,23 @@ export function Sidebar() {
                 ref={cajaBusca}
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                onKeyDown={(e) => e.key === "Escape" && setBusca("")}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setBusca("")
+
+                  /* Intro entra en la primera que queda (19/10/2026): antes no
+                     hacía nada y había que ir a por ella con el ratón. */
+                  if (e.key === "Enter" && busca.trim()) {
+                    const primera = secciones.flatMap((s) => s.entradas).find((entrada) => !entrada.obras)
+
+                    if (primera) {
+                      e.preventDefault()
+                      trackModuleVisit(primera.href)
+                      cierra()
+                      router.push(primera.href)
+                    }
+                  }
+                }}
+                enterKeyHint="go"
                 placeholder="Buscar en el menú…"
                 aria-label="Buscar en el menú"
                 className="w-full rounded-2xl border border-white/10 bg-white/[0.03] py-2.5 pl-10 pr-9 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-[#D8B45A]/50 focus:bg-white/[0.06]"

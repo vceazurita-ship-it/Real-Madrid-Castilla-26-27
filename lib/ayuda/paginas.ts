@@ -879,10 +879,60 @@ export const AYUDAS: AyudaDePagina[] = [
   {
     ruta: "/",
     titulo: "Portada",
-    resumen: "El estado del equipo de un vistazo y la puerta a las 36 áreas.",
+    /* Sin número de áreas: era «36» y ya no lo era (19/10/2026). */
+    resumen: "El próximo partido, la semana de trabajo, el estado del equipo de un vistazo y la puerta a todas las áreas.",
     origen:
-      "Los informes de la categoría (Data Análisis) y las hojas de seguimiento, identidad y cultura. Ninguna cifra se escribe aquí.",
+      "El calendario de la liga (se pone al día cada noche), la hoja de registro del microciclo, los informes de la categoría (Data Análisis) y las hojas de seguimiento, identidad y cultura. Ninguna cifra se escribe aquí.",
     bloques: [
+      {
+        titulo: "El próximo partido",
+        filas: [
+          {
+            que: "La tira de días",
+            es: "Del día después del partido anterior al del próximo; el de hoy va en dorado y el del partido, recuadrado",
+            cuenta: "MD = día de partido; MD-3 = tres días antes del partido",
+          },
+          {
+            que: "«libre»",
+            es: "Día sin tareas en el microciclo escrito. Si aún no hay microciclo, es la propuesta habitual",
+          },
+          {
+            que: "Pinchar un día",
+            es: "Abre su sesión para poner minutos, intensidad y valoración, o un seguimiento individual o de grupo",
+          },
+          {
+            que: "Los botones",
+            es: "Abren la plantilla, el plan, el scout y la pizarra de ABP ya con el rival puesto",
+          },
+          {
+            que: "Últimos",
+            es: "Los cinco últimos resultados, del más antiguo al más reciente",
+            cuenta: "V ganado · E empatado · D perdido",
+          },
+        ],
+      },
+      {
+        titulo: "Las cifras",
+        filas: [
+          {
+            que: "xG por partido",
+            es: "Goles esperados: lo que valían las ocasiones que generamos, por partido, y nuestro puesto en la categoría",
+          },
+          {
+            que: "Goles − xG",
+            es: "Positivo: marcamos más de lo que valían las ocasiones. Negativo: fallamos de más",
+          },
+          {
+            que: "Seguimientos y cobertura",
+            es: "Sólo los jugadores de campo con licencia del Castilla, igual que el Dashboard Seguimiento",
+            cuenta: "Cobertura = jugadores con algún seguimiento ÷ jugadores de la plantilla",
+          },
+          {
+            que: "«—»",
+            es: "La hoja no ha contestado; debajo sale «Reintentar». No es un cero",
+          },
+        ],
+      },
       {
         titulo: "Las alertas",
         filas: [

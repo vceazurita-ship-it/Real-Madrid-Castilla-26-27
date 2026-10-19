@@ -52,6 +52,8 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
   const [guardando, setGuardando] = useState(false);
   /* Las tareas de la hoja: de ellas sale la propuesta de la demanda cognitiva. */
   const [historico, setHistorico] = useState<RegistroTarea[]>([]);
+  /* Para «Volver a leer» tras un fallo: el efecto de carga lo lleva en sus dependencias. */
+  const [intento, setIntento] = useState(0);
   const { players } = usePlayers();
 
   const jugadores = useMemo(
@@ -103,7 +105,7 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
     return () => {
       vivo = false;
     };
-  }, [fecha]);
+  }, [fecha, intento]);
 
   const sesion = estado.fase === "lista" ? estado.micro.sesiones.find((s) => s.fecha === fecha) ?? null : null;
 
@@ -211,7 +213,20 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
           <Loader2 size={15} className="animate-spin" aria-hidden /> Leyendo la sesión de la hoja…
         </p>
       ) : estado.fase === "error" ? (
-        <p className="py-6 text-sm text-rose-300">No se ha podido leer la sesión: {estado.mensaje}</p>
+        <div className="py-6 text-sm">
+          <p className="text-rose-300">No se ha podido leer la sesión: {estado.mensaje}</p>
+          {/* La hoja de Google falla a ratos y a la segunda suele ir. */}
+          <button
+            type="button"
+            onClick={() => {
+              setEstado({ fase: "cargando" });
+              setIntento((n) => n + 1);
+            }}
+            className="mt-3 rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2 text-sm text-white/85 transition hover:border-white/30"
+          >
+            Volver a leer
+          </button>
+        </div>
       ) : estado.fase === "sin-sesion" || !sesion || !sesion.tareas.length ? (
         <div className="py-6 text-sm text-white/60">
           <p className="flex items-center gap-2">
@@ -245,12 +260,17 @@ export function DiaRapido({ fecha, titulo, rotulo, onClose }: { fecha: string; t
                     {t.contenidoPrincipal ? <span className="text-white/45"> · {t.contenidoPrincipal}</span> : null}
                   </span>
                   <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-white/40">
-                    Tiempo
-                    <input type="number" min={0} value={t.tiempo || ""} onChange={(e) => cambiaTarea(i, { tiempo: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={CAMPO_NUM} />
+                    Minutos
+                    <input type="number" inputMode="numeric" min={0} value={t.tiempo || ""} onChange={(e) => cambiaTarea(i, { tiempo: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={CAMPO_NUM} />
                   </label>
-                  <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-white/40">
-                    Int.
-                    <input type="number" min={0} max={10} value={t.intensidad || ""} onChange={(e) => cambiaTarea(i, { intensidad: Math.max(0, Math.round(Number(e.target.value) || 0)) })} className={CAMPO_NUM} />
+                  {/* Con el nombre entero y su escala, la de la columna
+                      «Intensidad (1-5)» de la hoja, igual que en el editor del
+                      microciclo. Aquí ponía máximo 10 y no recortaba: un 8
+                      tecleado se guardaba tal cual y disparaba la carga
+                      ponderada (19/10/2026). */}
+                  <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-white/40" title="Intensidad de la tarea, del 1 al 5">
+                    Intensidad 1-5
+                    <input type="number" inputMode="numeric" min={0} max={5} value={t.intensidad || ""} onChange={(e) => cambiaTarea(i, { intensidad: Math.min(5, Math.max(0, Math.round(Number(e.target.value) || 0))) })} className={CAMPO_NUM} />
                   </label>
                 </div>
                 <div className="mt-2.5">

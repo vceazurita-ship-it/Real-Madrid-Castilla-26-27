@@ -9,7 +9,15 @@ import {
   ClipboardCheck,
   ClipboardList,
   ClipboardPen,
+  ClipboardPlus,
+  CircleSlash,
+  Crosshair,
   Database,
+  Dices,
+  Magnet,
+  Medal,
+  Swords,
+  UsersRound,
   Flag,
   CircleDot,
   Goal,
@@ -385,6 +393,88 @@ export const MODULES: AppModule[] = [
     icon: CircleDot,
     rank: 83,
     alias: ["area rival", "centros rival", "centros laterales", "remates rival"],
+  },
+
+  /*
+  | LAS QUE ESTABAN EN EL MENÚ Y NO EN LA PORTADA (19/10/2026)
+  |
+  | El buscador de «Áreas de trabajo» y el acceso rápido salen de este
+  | catálogo, y aquí faltaban ocho pantallas que el menú lateral sí tiene:
+  | escribir «duelos» o «faltas» en la portada decía «Nada coincide». Mismo
+  | color por área que el resto; los `rank` las dejan detrás de las de cada
+  | día hasta que el uso las suba.
+  */
+  {
+    href: "/duelos",
+    area: "COMPETICIÓN",
+    title: "Duelos",
+    desc: "Nuestro once contra el suyo, puesto a puesto",
+    icon: Swords,
+    rank: 82,
+    alias: ["once contra once", "emparejamientos", "duelo"],
+  },
+  {
+    href: "/laboratorio/transiciones",
+    area: "COMPETICIÓN",
+    title: "Robos y transiciones",
+    desc: "Dónde robamos y qué hacemos después del robo",
+    icon: Magnet,
+    rank: 75,
+    alias: ["robos", "recuperaciones", "transicion ofensiva", "contraataque"],
+  },
+  {
+    href: "/laboratorio/perdidas",
+    area: "COMPETICIÓN",
+    title: "Pérdidas y transiciones",
+    desc: "Dónde perdemos el balón y qué pasa después",
+    icon: CircleSlash,
+    rank: 74,
+    alias: ["perdidas", "transicion defensiva", "tras perdida"],
+  },
+  {
+    href: "/laboratorio/faltas",
+    area: "COMPETICIÓN",
+    title: "Análisis de faltas",
+    desc: "Dónde se cometen las faltas y con cuántos defensores por delante",
+    icon: Crosshair,
+    rank: 73,
+    alias: ["faltas", "infracciones", "tarjetas"],
+  },
+  {
+    href: "/jugadores-sesion",
+    area: "METODOLOGÍA",
+    title: "Jugadores Sesión",
+    desc: "Los equipos de cada tarea con la lista del día",
+    icon: UsersRound,
+    rank: 88,
+    alias: ["equipos", "sesion", "petos", "convocados entrenamiento"],
+  },
+  {
+    href: "/laboratorio/microciclo",
+    area: "METODOLOGÍA",
+    title: "Crear o editar microciclo",
+    desc: "Escribir las sesiones de la semana y sus tareas",
+    icon: ClipboardPlus,
+    rank: 92,
+    alias: ["registro", "tareas", "editor microciclo", "nueva sesion"],
+  },
+  {
+    href: "/laboratorio/escudos",
+    area: "OPERATIVA",
+    title: "Escudos de la liga",
+    desc: "Los escudos del grupo en un PowerPoint, para copiarlos de uno en uno",
+    icon: Medal,
+    rank: 40,
+    alias: ["escudos", "logos", "equipos"],
+  },
+  {
+    href: "/laboratorio/apuestas",
+    area: "OPERATIVA",
+    title: "Apuestas del staff",
+    desc: "Predicciones del cuerpo técnico y quién acierta",
+    icon: Dices,
+    rank: 9,
+    alias: ["apuestas", "predicciones", "porra"],
   },
 
   /*

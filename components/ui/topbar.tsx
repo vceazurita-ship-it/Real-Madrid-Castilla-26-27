@@ -65,7 +65,7 @@ export function Topbar() {
           */}
           <div className="hidden rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2 sm:block md:px-4 md:py-3">
             <p className="text-[9px] uppercase tracking-[0.22em] text-gray-500 md:text-[10px]">
-              Season
+              Temporada
             </p>
 
             <p className="mt-1 whitespace-nowrap text-sm font-medium text-white">

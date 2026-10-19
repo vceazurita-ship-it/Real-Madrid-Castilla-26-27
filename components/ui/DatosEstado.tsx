@@ -15,6 +15,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 import { estadoHojas, olvidaTodoElCsv, suscribeHojas } from "@/lib/hojaCsv";
 
@@ -59,7 +60,18 @@ export function DatosEstado() {
     window.location.reload();
   };
 
+  /*
+  | Sin red no se tira nada (19/10/2026). Tirar las copias y recargar sin
+  | conexión dejaba TODAS las pantallas vacías justo cuando la copia es lo
+  | único que hay (el autobús, el vestuario del campo rival). Sin red, el botón
+  | sólo lo dice.
+  */
   const todoFresco = () => {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      toast.info("Sin conexión", { description: "Se siguen enseñando los datos guardados en este aparato. Pulsa otra vez cuando vuelva la red." });
+      return;
+    }
+
     olvidaTodoElCsv();
     window.location.reload();
   };
