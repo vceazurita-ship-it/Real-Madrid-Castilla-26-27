@@ -684,7 +684,7 @@ function duelo(datos: Dataset, rivalPedido: string, fecha: string | null, corte:
   let partido = null as null | {
     fecha: string;
     marcador: string;
-    metricas: { key: string; nombre: string; unidad: string; mejorAlto: boolean | null; nuestro: number | null; suyo: number | null; media: number | null }[];
+    metricas: { key: string; nombre: string; unidad: string; mejorAlto: boolean | null; nuestro: number | null; suyo: number | null; media: number | null; desviacion: number | null }[];
   };
 
   if (fecha && rival) {
@@ -698,6 +698,23 @@ function duelo(datos: Dataset, rivalPedido: string, fecha: string | null, corte:
     const suya = deLaLiga.find((p) => p.equipo === rival && p.rival === NOSOTROS && cerca(p.fecha));
 
     if (nuestra) {
+      const anteriores = deLaLiga.filter((q) => q.equipo === NOSOTROS && antesDelPartido(q));
+
+      /*
+      | La desviación típica de nuestros partidos de antes (21/10/2026): el
+      | informe la usa para decir «dentro de lo habitual» en vez de marcar ✗
+      | por un 16,4 % frente a 17,7 %. Con menos de cuatro partidos, no se da.
+      */
+      const desviacion = (m: (typeof metricas)[number]) => {
+        const valores = anteriores.map((q) => valorEnGrupo(m, [q])).filter((v): v is number => v !== null && Number.isFinite(v));
+
+        if (valores.length < 4) return null;
+
+        const media = valores.reduce((a, b) => a + b, 0) / valores.length;
+
+        return Math.sqrt(valores.reduce((a, v) => a + (v - media) ** 2, 0) / (valores.length - 1));
+      };
+
       partido = {
         fecha: nuestra.fecha,
         marcador: `${nuestra.golesFavor}-${nuestra.golesContra}`,
@@ -708,7 +725,8 @@ function duelo(datos: Dataset, rivalPedido: string, fecha: string | null, corte:
           mejorAlto: m.mejorAlto,
           nuestro: valorEnGrupo(m, [nuestra]),
           suyo: suya ? valorEnGrupo(m, [suya]) : null,
-          media: valorEnGrupo(m, deLaLiga.filter((q) => q.equipo === NOSOTROS && antesDelPartido(q))),
+          media: valorEnGrupo(m, anteriores),
+          desviacion: desviacion(m),
         })),
       };
     }

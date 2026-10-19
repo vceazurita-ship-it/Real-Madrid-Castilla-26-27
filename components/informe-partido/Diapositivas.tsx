@@ -26,6 +26,7 @@ import {
   apellido,
   cifra,
   conDato,
+  cortaEnPausa,
   dueloEnSuOnce,
   duelosParaAtacar,
   duelosParaVigilar,
@@ -36,8 +37,9 @@ import {
   metricasQueSeparan,
   ordinal,
   pct,
-  revisaPalancas,
   selloDatos,
+  sinSiglas,
+  ventajaVisible,
   type DueloJugadores,
   type GolCronica,
   type InformePartido,
@@ -82,7 +84,12 @@ const C = {
 
 const fuente: CSSProperties = { fontFamily: "var(--fuente-informe, 'Barlow Condensed', Arial, sans-serif)" };
 
-const recorta = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
+/*
+| Lo que no cabe se corta en una pausa natural y sin «…» (21/10/2026): «2
+| goles encajad…» o «el otro de 3º…» se leían como un error. Los topes son
+| de varias líneas: el texto envuelve; sólo se corta lo que no cabría.
+*/
+const recorta = cortaEnPausa;
 
 /* ------------------------------------------------------------------ */
 /*  PIEZAS                                                             */
@@ -90,6 +97,23 @@ const recorta = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).t
 
 function Marco({ children, pagina, total, etiqueta, inf }: { children: ReactNode; pagina: number; total: number; etiqueta: string; inf: InformePartido }) {
   const p = inf.partido;
+
+  /*
+  | La cabecera dice contra quién en las tres láminas (21/10/2026): la 2 y la
+  | 3, reenviadas sueltas por WhatsApp, no decían de qué partido eran, y
+  | «MICROCICLO 18» ocupaba el sitio del rival. El micro va al final, pequeño.
+  */
+  const post = inf.momento === "post";
+
+  /* En el post, el marcador como se lee: el de casa primero. */
+  const partido =
+    post && p.gf !== null && p.gc !== null
+      ? p.lado === "fuera"
+        ? `${p.rival.toUpperCase()} ${p.gc}-${p.gf} RM CASTILLA`
+        : `RM CASTILLA ${p.gf}-${p.gc} ${p.rival.toUpperCase()}`
+      : p.rival.toUpperCase();
+
+  const cabecera = [post ? "POST" : "PREVIA", p.jornada ? `J${p.jornada}` : "", partido, !post && p.lado ? (p.lado === "fuera" ? "FUERA" : "EN CASA") : ""].filter(Boolean).join(" · ");
 
   return (
     <div
@@ -115,15 +139,14 @@ function Marco({ children, pagina, total, etiqueta, inf }: { children: ReactNode
           <img src="/logo.png" alt="" style={{ width: 54, height: 54, objectFit: "contain" }} />
           <div>
             <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0.26em", color: C.oro }}>REAL MADRID CASTILLA</div>
-            <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "0.14em", color: C.suave }}>
-              {inf.momento === "post" ? "POST PARTIDO" : "PREVIA DEL PARTIDO"}
-              {p.jornada ? ` · JORNADA ${p.jornada}` : ""}
-              {inf.microciclo ? ` · MICROCICLO ${inf.microciclo.micro}` : ""}
-            </div>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "0.14em", color: C.crema }}>{cabecera}</div>
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "0.08em", color: C.suave, textTransform: "uppercase" }}>{p.fechaTexto}</div>
+          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: "0.08em", color: C.suave, textTransform: "uppercase" }}>
+            {p.fechaTexto}
+            {inf.microciclo ? <span style={{ fontSize: 16, color: C.tenue }}> · MICRO {inf.microciclo.micro}</span> : null}
+          </div>
           <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.2em", color: C.oro }}>
             {etiqueta} · {pagina}/{total}
           </div>
@@ -238,7 +261,7 @@ function FilaDuelo({ m, equipos, compacta = false }: { m: MetricaDuelo; equipos:
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
       {lado(m.nosotros, C.oro, "left")}
       <div style={{ flex: 1, textAlign: "center", fontSize: compacta ? 16 : 22, lineHeight: 1.05, fontWeight: 700, letterSpacing: "0.04em", color: C.suave, textTransform: "uppercase" }}>
-        {m.nombre}
+        {sinSiglas(m.nombre)}
       </div>
       {lado(m.rival, C.rival, "right")}
       <span style={{ display: "none" }}>{equipos}</span>
@@ -439,7 +462,8 @@ const BLOQUES = ["Resultado", "Con balón", "Transiciones", "Sin balón", "Baló
  * no decidían nada; la tabla entera va en el informe completo.
  */
 function metricasPorBloque(inf: InformePartido) {
-  const todas = metricasQueSeparan(inf.duelo, 6);
+  /* Cuatro: lo que se lee en cinco segundos sin tapar el titular (21/10/2026); la tabla entera, en el completo. */
+  const todas = metricasQueSeparan(inf.duelo, 4);
 
   return BLOQUES.map((b) => ({ bloque: b, metricas: todas.filter((m) => m.bloque === b) })).filter((x) => x.metricas.length);
 }
@@ -535,13 +559,13 @@ function PanelPronostico({ inf }: { inf: InformePartido }) {
               {inf.sintesis.ventajas[0] ? (
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", color: C.bien }}>DONDE GANAMOS EL CRUCE</div>
-                  <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(inf.sintesis.ventajas[0], 80)}</div>
+                  <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(inf.sintesis.ventajas[0], 110)}</div>
                 </div>
               ) : null}
               {inf.sintesis.amenazas[0] ? (
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", color: C.rival }}>DONDE NOS PUEDEN HACER DAÑO</div>
-                  <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(inf.sintesis.amenazas[0], 80)}</div>
+                  <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(inf.sintesis.amenazas[0], 110)}</div>
                 </div>
               ) : null}
             </div>
@@ -662,7 +686,7 @@ function PanelSuJuego({ inf }: { inf: InformePartido }) {
           {r.fases.map((f) => (
             <div key={f.titulo}>
               <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.rival }}>{f.titulo.toUpperCase()}</div>
-              <div style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(f.texto, 96)}</div>
+              <div style={{ fontSize: 21, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(f.texto, 120)}</div>
             </div>
           ))}
         </div>
@@ -674,7 +698,7 @@ function PanelSuJuego({ inf }: { inf: InformePartido }) {
           {r.dano.slice(0, 2).map((t) => (
             <div key={t} style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, color: C.crema, marginTop: 4 }}>
               <span style={{ color: C.bien }}>▸ </span>
-              {recorta(t, 92)}
+              {recorta(t, 130)}
             </div>
           ))}
         </div>
@@ -698,7 +722,8 @@ function PanelSuJuego({ inf }: { inf: InformePartido }) {
 /** «0'», «0′», «0 de 5…»: un cero de minutos antes de que la semana tenga registro no es una medida. */
 const esCeroDeMinutos = (t: string) => /^0\s*['′]?$/.test(t.trim()) || /(^|\s)0\s*['′]\s*(de|en)\b/i.test(t) || /\b0 de \d+ urgencias\b/i.test(t);
 
-function PanelAbp({ inf, titulo = "BALÓN PARADO" }: { inf: InformePartido; titulo?: string }) {
+/** `compacto`: dos cifras y una línea (post, 21/10/2026): el informe de balón parado va aparte y entero. */
+function PanelAbp({ inf, titulo = "BALÓN PARADO", compacto = false }: { inf: InformePartido; titulo?: string; compacto?: boolean }) {
   const p = inf.abp?.pincelada;
 
   const plan = fraseUtil(inf.plan?.abpOf, 90);
@@ -721,10 +746,10 @@ function PanelAbp({ inf, titulo = "BALÓN PARADO" }: { inf: InformePartido; titu
     <Panel titulo={titulo}>
       {p ? (
         <>
-          {titularAbp ? <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{recorta(titularAbp, 90)}</div> : null}
+          {titularAbp ? <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{recorta(titularAbp, 130)}</div> : null}
           {cifras.length ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
-              {cifras.slice(0, 4).map((c) => (
+              {cifras.slice(0, compacto ? 2 : 4).map((c) => (
                 <div key={c.rotulo} style={{ padding: "8px 12px", borderRadius: 12, background: "rgba(255,255,255,0.04)", border: `2px solid ${C.borde}` }}>
                   <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", color: C.tenue, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.rotulo}</div>
                   <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1.05, color: C.oro }}>{c.valor}</div>
@@ -734,16 +759,16 @@ function PanelAbp({ inf, titulo = "BALÓN PARADO" }: { inf: InformePartido; titu
             </div>
           ) : null}
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 10 }}>
-            {claves.slice(0, 2).map((t) => (
+            {claves.slice(0, compacto ? 1 : 2).map((t) => (
               <div key={t} style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>
                 <span style={{ color: C.oro }}>▸ </span>
-                {recorta(t, 96)}
+                {recorta(t, 130)}
               </div>
             ))}
-            {p.rival.slice(0, 1).map((t) => (
+            {p.rival.slice(0, compacto ? 0 : 1).map((t) => (
               <div key={t} style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>
                 <span style={{ color: C.rival }}>▸ </span>
-                {recorta(t, 96)}
+                {recorta(t, 130)}
               </div>
             ))}
           </div>
@@ -836,6 +861,8 @@ function PostResultado({ inf }: { inf: InformePartido }) {
 
   const metricas = (inf.duelo?.partido?.metricas ?? []).filter((m) => m.nuestro !== null && m.suyo !== null).slice(0, cronica?.goles.length ? 7 : 9);
 
+  const relato = inf.sintesis.relato;
+
   /* Con la línea de goles el panel tiene menos alto: dos filas menos. */
   const temporada = (inf.duelo?.metricas ?? []).filter((m) => m.nosotros && m.rival && conDato(m)).slice(0, cronica?.goles.length ? 6 : 8);
 
@@ -868,7 +895,27 @@ function PostResultado({ inf }: { inf: InformePartido }) {
 
       {cronica?.goles.length ? <LineaGoles goles={cronica.goles} /> : null}
 
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 26, marginTop: cronica?.goles.length ? 8 : 22 }}>
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: relato.length ? "0.95fr 1.2fr 0.85fr" : "1.5fr 1fr", gap: 22, marginTop: cronica?.goles.length ? 8 : 22 }}>
+        {/* «Cómo fue» junto al marcador (21/10/2026): el relato iba a mitad de la
+            diapositiva 2, detrás del pronóstico, y el arco «qué pasó → qué nos
+            deja» se rompía. */}
+        {relato.length ? (
+          <Panel titulo="CÓMO FUE">
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {relato.map((t) => {
+                const [min, ...resto] = t.split(" · ");
+
+                return (
+                  <div key={t} style={{ display: "flex", gap: 12, alignItems: "baseline", fontSize: 21, fontWeight: 600, lineHeight: 1.2 }}>
+                    <span style={{ width: 62, flexShrink: 0, textAlign: "right", color: C.oro, fontWeight: 700 }}>{min}</span>
+                    <span style={{ color: C.crema, minWidth: 0 }}>{resto.join(" · ")}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Panel>
+        ) : null}
+
         {/* Sin el partido en Wyscout (se baja los martes), el panel no se queda
             vacío: enseña cómo llegábamos los dos a la jornada. */}
         {!metricas.length && temporada.length ? (
@@ -879,7 +926,7 @@ function PostResultado({ inf }: { inf: InformePartido }) {
             </div>
             <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", flex: 1 }}>
               {temporada.map((m) => (
-                <FilaDuelo key={m.key} m={m} equipos={inf.duelo?.equipos ?? 0} />
+                <FilaDuelo key={m.key} m={m} equipos={inf.duelo?.equipos ?? 0} compacta={relato.length > 0} />
               ))}
             </div>
             {inf.pronostico ? (
@@ -899,22 +946,24 @@ function PostResultado({ inf }: { inf: InformePartido }) {
               {metricas.map((m) => {
                 const tope = Math.max(Math.abs(m.nuestro ?? 0), Math.abs(m.suyo ?? 0), 0.0001);
 
+                /* Con «Cómo fue» al lado, la columna es más estrecha: cifras y rótulo más pequeños, en dos líneas si hace falta. */
+                const estrecha = relato.length > 0;
+
                 return (
-                  <div key={m.key} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ width: 110, textAlign: "right", fontSize: 30, fontWeight: 700 }}>{cifra(m.nuestro, m.unidad)}</span>
-                    <div style={{ flex: 1, height: 20, display: "flex", justifyContent: "flex-end", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
+                  <div key={m.key} style={{ display: "flex", alignItems: "center", gap: estrecha ? 8 : 12 }}>
+                    <span style={{ width: estrecha ? 84 : 110, flexShrink: 0, textAlign: "right", fontSize: estrecha ? 26 : 30, fontWeight: 700 }}>{cifra(m.nuestro, m.unidad)}</span>
+                    <div style={{ flex: 1, height: estrecha ? 16 : 20, display: "flex", justifyContent: "flex-end", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
                       <div style={{ width: `${(Math.abs(m.nuestro ?? 0) / tope) * 100}%`, background: C.oro, borderRadius: 10 }} />
                     </div>
-                    <span style={{ width: 300, textAlign: "center", fontSize: 21, fontWeight: 700, color: C.suave, textTransform: "uppercase" }}>{m.nombre}</span>
-                    <div style={{ flex: 1, height: 20, background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
+                    <span style={{ width: estrecha ? 200 : 300, flexShrink: 0, textAlign: "center", fontSize: estrecha ? 17 : 21, lineHeight: 1.05, fontWeight: 700, color: C.suave, textTransform: "uppercase" }}>{sinSiglas(m.nombre)}</span>
+                    <div style={{ flex: 1, height: estrecha ? 16 : 20, background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
                       <div style={{ width: `${(Math.abs(m.suyo ?? 0) / tope) * 100}%`, height: "100%", background: C.rival, borderRadius: 10 }} />
                     </div>
-                    <span style={{ width: 110, fontSize: 30, fontWeight: 700 }}>{cifra(m.suyo, m.unidad)}</span>
+                    <span style={{ width: estrecha ? 84 : 110, flexShrink: 0, fontSize: estrecha ? 26 : 30, fontWeight: 700 }}>{cifra(m.suyo, m.unidad)}</span>
                   </div>
                 );
               })}
             </div>
-            {glosario(metricas.map((m) => m.nombre)) ? <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>{glosario(metricas.map((m) => m.nombre))}</div> : null}
           </Panel>
         )}
 
@@ -1029,6 +1078,20 @@ function Pie({ inf }: { inf: InformePartido }) {
   );
 }
 
+/** El titular de una diapositiva: la conclusión en una frase, sobre los paneles (21/10/2026). */
+function TitularDiapo({ texto }: { texto: string }) {
+  if (!texto) return null;
+
+  return <div style={{ fontSize: 34, fontWeight: 700, lineHeight: 1.1, color: C.oroClaro, marginBottom: 16 }}>{texto}</div>;
+}
+
+/*
+| POST · 2 «Lo que buscábamos» (21/10/2026). Antes, catorce bloques en una
+| lámina y «Cómo fue» enterrado detrás del pronóstico. Ahora: el titular con
+| la conclusión, lo que nos propusimos y si se cumplió, el pronóstico en
+| dos frases, el balón parado en corto y, a todo el ancho, lo que toca esta
+| semana. El relato ya va en la 1; las palancas, en el informe completo.
+*/
 function PostLecciones({ inf }: { inf: InformePartido }) {
   const pr = inf.pronostico;
 
@@ -1036,70 +1099,50 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
 
   const real = p.gf !== null && p.gc !== null ? (p.gf > p.gc ? "victoria" : p.gf < p.gc ? "derrota" : "empate") : undefined;
 
-  const palancas = revisaPalancas(inf);
-
   const xg = lecturaXg(inf);
 
-  /* Una marca de veredicto: ✓, ✗ o = frente a nuestra media. */
+  /* Una marca de veredicto: ✓, ✗ o = (dentro de lo habitual). */
   const marca = (v: "si" | "no" | "igual" | null | boolean) => {
     const bien = v === "si" || v === true;
     const mal = v === "no" || v === false;
 
     return (
-      <span style={{ width: 28, height: 28, borderRadius: 999, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: "#08111F", background: bien ? C.bien : mal ? C.mal : C.neutro }}>
+      <span style={{ width: 30, height: 30, borderRadius: 999, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 17, fontWeight: 700, color: "#08111F", background: bien ? C.bien : mal ? C.mal : C.neutro }}>
         {bien ? "✓" : mal ? "✗" : "="}
       </span>
     );
   };
 
+  const toca = inf.sintesis.microciclo.slice(0, 3).map((t) => {
+    const [consigna, ...dato] = t.split(" · ");
+
+    return { consigna, dato: dato.join(" · ") };
+  });
+
   return (
-    <Marco pagina={2} total={3} etiqueta="LO QUE NOS DEJA" inf={inf}>
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.15fr 1fr 0.95fr", gap: 22 }}>
-        <Panel titulo="EL PLAN, A REVISIÓN">
-          {pr ? (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.oro, marginBottom: 6 }}>EL PRONÓSTICO, FRENTE AL RESULTADO</div>
-              <BarraResultado p={pr} alto={46} resaltar={real} />
-              {inf.sintesis.veredicto ? <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, color: C.crema, marginTop: 6 }}>{inf.sintesis.veredicto}.</div> : null}
-              {/* Sin las aspas de marcador, goles y xG (20/10/2026): la lectura de los goles esperados, sin veredicto. */}
-              {xg ? <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.suave, marginTop: 4 }}>{xg}.</div> : null}
-            </div>
-          ) : null}
-          {/* Cada clave del plan con su veredicto y la métrica del partido que lo sostiene (20/10/2026);
-              la que no casa con ninguna métrica va sin veredicto, no inventado. */}
+    <Marco pagina={2} total={3} etiqueta="LO QUE BUSCÁBAMOS" inf={inf}>
+      <TitularDiapo texto={inf.sintesis.titularPlan} />
+
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.15fr 1fr 0.9fr", gap: 22 }}>
+        <Panel titulo="LO QUE NOS PROPUSIMOS">
           {inf.sintesis.cumplimiento.length ? (
-            <>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.tenue, marginBottom: 8 }}>LO QUE NOS PROPUSIMOS · ¿SE CUMPLIÓ?</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {inf.sintesis.cumplimiento.slice(0, 3).map((f) => (
-                  <div key={f.clave} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                    {f.veredicto ? marca(f.veredicto) : <span style={{ width: 28, flexShrink: 0 }} />}
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.15, color: C.crema }}>{f.clave}</div>
-                      {f.dato ? <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.15, color: C.suave }}>{f.dato}</div> : null}
-                    </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {inf.sintesis.cumplimiento.slice(0, 3).map((f) => (
+                <div key={f.clave} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  {f.veredicto ? marca(f.veredicto) : <span style={{ width: 30, flexShrink: 0 }} />}
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 21, fontWeight: 700, lineHeight: 1.15, color: C.crema }}>{recorta(f.clave, 110)}</div>
+                    {f.dato ? <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.2, color: C.suave, marginTop: 2 }}>{f.dato}</div> : null}
                   </div>
-                ))}
-              </div>
-            </>
-          ) : null}
-          {palancas.length ? (
-            <div style={{ marginTop: 14 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.oro, marginBottom: 6 }}>¿MOVIMOS LAS PALANCAS?</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {palancas.map((x) => (
-                  <div key={x.momento} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 19, fontWeight: 600, whiteSpace: "nowrap", minWidth: 0 }}>
-                    {x.cumplida === null ? <span style={{ width: 28, flexShrink: 0 }} /> : marca(x.cumplida)}
-                    <span style={{ color: C.oro, width: 112, flexShrink: 0, fontWeight: 700 }}>{x.momento}</span>
-                    <span style={{ color: C.crema, flexShrink: 0 }}>{x.meta}</span>
-                    <span style={{ color: C.tenue, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>· {x.real}</span>
-                  </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
+          ) : null}
+          {inf.sintesis.cumplimiento.some((f) => f.veredicto === "igual") ? (
+            <div style={{ marginTop: 8, fontSize: 15, color: C.tenue }}>= dentro de lo habitual: a menos de una desviación de nuestra media</div>
           ) : null}
           {inf.sintesis.frenados.length > 0 ? (
-            <div style={{ marginTop: "auto", paddingTop: 12 }}>
+            <div style={{ marginTop: "auto", paddingTop: 14 }}>
               <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.rival, marginBottom: 8 }}>¿LOS FRENAMOS?</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {inf.sintesis.frenados.map((f) => (
@@ -1117,30 +1160,26 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
         </Panel>
 
         <Panel titulo="LO QUE NOS DEJA">
-          {inf.sintesis.relato.length ? (
+          {pr ? (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.oro, marginBottom: 6 }}>CÓMO FUE</div>
-              {inf.sintesis.relato.map((t) => (
-                <div key={t} style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.25, color: C.crema }}>
-                  <span style={{ color: C.oro }}>▸ </span>
-                  {t}
-                </div>
-              ))}
+              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.oro, marginBottom: 6 }}>EL PRONÓSTICO, FRENTE AL RESULTADO</div>
+              <BarraResultado p={pr} alto={42} resaltar={real} />
+              {inf.sintesis.veredicto ? <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.15, color: C.crema, marginTop: 8 }}>{inf.sintesis.veredicto}.</div> : null}
+              {/* Una idea por frase y dos cifras como mucho en cada una (21/10/2026). */}
+              {xg
+                ? xg.split(". ").map((f) => (
+                    <div key={f} style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.2, color: C.suave, marginTop: 4 }}>
+                      {f}.
+                    </div>
+                  ))
+                : null}
             </div>
           ) : null}
-          <Lista items={inf.sintesis.claves} tamano={21} max={3} corte={400} />
-          {/* «Qué toca en el microciclo» sustituye a «Donde hay que crecer» (20/10/2026): aquel repetía
-              métricas de la temporada que no salían del partido; esto sale de lo que pasó. */}
-          {inf.sintesis.microciclo.length ? (
-            <div style={{ marginTop: "auto", paddingTop: 16 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.rival, marginBottom: 8 }}>QUÉ TOCA EN EL MICROCICLO</div>
-              <Lista items={inf.sintesis.microciclo} numerada tamano={22} max={3} corte={400} />
-            </div>
-          ) : null}
+          <Lista items={inf.sintesis.claves} tamano={21} max={3} corte={160} />
         </Panel>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 22, minHeight: 0 }}>
-          <PanelAbp inf={inf} titulo="BALÓN PARADO DEL PARTIDO" />
+          <PanelAbp inf={inf} titulo="BALÓN PARADO DEL PARTIDO" compacto />
           {haySemana(inf) ? (
             <Panel titulo="LA SEMANA QUE LO PREPARÓ" style={{ flex: 1 }}>
               <Semana inf={inf} />
@@ -1148,6 +1187,25 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
           ) : null}
         </div>
       </div>
+
+      {/* «Qué toca» como cierre visible, a todo el ancho: la consigna grande y el dato que la pide debajo (21/10/2026). */}
+      {toca.length ? (
+        <div style={{ display: "flex", alignItems: "stretch", gap: 22, marginTop: 18, padding: "16px 24px", borderRadius: 20, background: "linear-gradient(90deg, rgba(232,97,90,0.16), rgba(232,97,90,0.04))", border: "2px solid rgba(232,97,90,0.45)" }}>
+          <div style={{ display: "flex", alignItems: "center", fontSize: 18, fontWeight: 700, letterSpacing: "0.22em", color: C.rival, whiteSpace: "nowrap" }}>ESTA SEMANA</div>
+          <span style={{ width: 2, alignSelf: "stretch", background: "rgba(232,97,90,0.5)" }} />
+          <div style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${toca.length}, 1fr)`, gap: 22 }}>
+            {toca.map((t, i) => (
+              <div key={t.consigna} style={{ display: "flex", gap: 12, alignItems: "flex-start", minWidth: 0 }}>
+                <span style={{ minWidth: 34, height: 34, borderRadius: 10, background: C.oro, color: "#08111F", fontSize: 22, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 27, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{t.consigna}</div>
+                  {t.dato ? <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.suave, marginTop: 2 }}>{t.dato}</div> : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </Marco>
   );
 }
@@ -1171,7 +1229,8 @@ const LUGAR_CORTO: Record<string, string> = {
 
 /** Un duelo en una fila: la cifra grande, quién contra quién, dónde y por qué. */
 function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin" }) {
-  const valor = lado === "con" ? x.conBalon : x.sinBalon;
+  /* La media de los cruces que se ven, no el balance de todos (21/10/2026): «+38» junto a 69-12 y 77-24 no cuadraba. */
+  const valor = ventajaVisible(x, lado);
   const color = lado === "con" ? C.bien : C.mal;
   const [a, b] = lado === "con" ? [x.nuestros, x.suyos] : [x.suyos, x.nuestros];
   const claves = x.destacados.filter((e) => e.sentido === lado && e.veredicto === (lado === "con" ? "ventaja" : "desventaja")).slice(0, 2);
@@ -1209,8 +1268,15 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
      Aviles, que estaba en «el resto de su plantilla». */
   const enOnce = (x: DueloJugadores) => dueloEnSuOnce(x, inf.once.jugadores);
 
-  const atacar = duelosParaAtacar(d).filter(enOnce).slice(0, 3);
-  const vigilar = duelosParaVigilar(d).filter(enOnce).slice(0, 3);
+  /* En el orden de la cifra que se ve: si no, un +85 salía debajo de un +55. */
+  const atacar = duelosParaAtacar(d)
+    .filter(enOnce)
+    .slice(0, 3)
+    .sort((a, b) => (ventajaVisible(b, "con") ?? 0) - (ventajaVisible(a, "con") ?? 0));
+  const vigilar = duelosParaVigilar(d)
+    .filter(enOnce)
+    .slice(0, 3)
+    .sort((a, b) => (ventajaVisible(a, "sin") ?? 0) - (ventajaVisible(b, "sin") ?? 0));
   const medidos = (d?.lista ?? []).filter((x) => x.veredicto !== "sin-datos").length;
 
   /* Lo que no tiene dato no se nombra: sin duelos, el panel no sale; sin un lado, ese lado no sale. */
@@ -1243,7 +1309,7 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
         </>
       ) : null}
       <div style={{ marginTop: "auto", paddingTop: 12, fontSize: 15, color: C.tenue }}>
-        {medidos} de {d.lista.length} duelos medidos · con balón de uno contra sin balón del otro · cada cifra es su percentil contra los de su puesto en la categoría (97 = mejor que 97 de cada 100) · {recorta(d.fuenteSuya, 70)}
+        {medidos} de {d.lista.length} duelos medidos · con balón de uno contra sin balón del otro · cada cifra pequeña es su percentil contra los de su puesto en la categoría (97 = mejor que 97 de cada 100); la grande, la diferencia media de los cruces de su fila · {recorta(d.fuenteSuya, 70)}
       </div>
     </Panel>
   );
@@ -1330,15 +1396,40 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
   );
 }
 
+/*
+| PREVIA · 3 acaba en lo nuestro (21/10/2026): antes terminaba en «Los que
+| más rinden» del rival, un dato sin conclusión. Ahora el rival de un vistazo
+| va primero, los duelos después y, al pie, la consigna: las mismas líneas
+| que cierran el vídeo, que responden a la pregunta del titular.
+*/
 function DuelosYRival({ inf }: { inf: InformePartido }) {
   const post = inf.momento === "post";
 
+  const consigna = post ? [] : inf.sintesis.consigna;
+
   return (
     <Marco pagina={3} total={3} etiqueta={post ? "LOS DUELOS" : "DUELOS Y RIVAL"} inf={inf}>
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 22 }}>
-        <PanelDuelos inf={inf} post={post} />
-        <PanelVistazo inf={inf} />
+      <TitularDiapo texto={inf.sintesis.titularDuelos} />
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? "1.2fr 1fr" : "1fr 1.2fr", gap: 22 }}>
+        {post ? (
+          <>
+            <PanelDuelos inf={inf} post />
+            <PanelVistazo inf={inf} />
+          </>
+        ) : (
+          <>
+            <PanelVistazo inf={inf} />
+            <PanelDuelos inf={inf} post={false} />
+          </>
+        )}
       </div>
+      {consigna.length ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 22, marginTop: 18, padding: "16px 26px", borderRadius: 18, background: "linear-gradient(90deg, rgba(200,169,107,0.24), rgba(200,169,107,0.05))", border: "2px solid rgba(200,169,107,0.5)" }}>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.22em", color: C.oro, whiteSpace: "nowrap" }}>NUESTRA CONSIGNA</span>
+          <span style={{ width: 2, alignSelf: "stretch", background: "rgba(200,169,107,0.5)" }} />
+          <span style={{ fontSize: 32, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{consigna.join(". ")}.</span>
+        </div>
+      ) : null}
     </Marco>
   );
 }

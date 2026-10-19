@@ -29,6 +29,7 @@ import {
   preencabezadoInforme,
   revisaPalancas,
   selloDatos,
+  ventajaVisible,
   type DuelosInforme,
   type InformePartido,
   type JugadorRival,
@@ -742,11 +743,11 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
           : "Cada duelo enfrenta lo que hace <b>con balón</b> el que ataca con lo que hace <b>sin balón</b> el que defiende (regate contra entrada, desmarque contra anticipación, pase que rompe líneas contra corte…), en los dos sentidos. Cada jugador va en percentil contra los de su puesto en la categoría."
       }</p>${
         atacarD.length
-          ? `${etiqueta(esPost ? "Dónde esperábamos hacerles daño · con balón" : "Dónde les hacemos daño · con balón", VERDE)}${lista(atacarD.slice(0, 4).map((x) => `${fraseDuelo(x, "con")} (${signo(x.conBalon)})`))}`
+          ? `${etiqueta(esPost ? "Dónde esperábamos hacerles daño · con balón" : "Dónde les hacemos daño · con balón", VERDE)}${lista(atacarD.slice(0, 4).map((x) => `${fraseDuelo(x, "con")} (${signo(ventajaVisible(x, "con", 1))})`))}`
           : ""
       }${
         vigilarD.length
-          ? `${etiqueta(esPost ? "Dónde nos podían hacer daño · sin balón" : "Dónde nos pueden hacer daño · sin balón", ROJO)}${lista(vigilarD.slice(0, 4).map((x) => `${fraseDuelo(x, "sin")} (${signo(x.sinBalon)})`))}`
+          ? `${etiqueta(esPost ? "Dónde nos podían hacer daño · sin balón" : "Dónde nos pueden hacer daño · sin balón", ROJO)}${lista(vigilarD.slice(0, 4).map((x) => `${fraseDuelo(x, "sin")} (${signo(ventajaVisible(x, "sin", 1))})`))}`
           : ""
       }<div style="height:10px"></div>${tabla(
         esPost ? ["Duelo", "Con balón", "Sin balón", "Lo previsto", "¿Se cumplió?"] : ["Duelo", "Con balón", "Sin balón", "Balance"],

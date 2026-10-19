@@ -29,7 +29,7 @@ import { cargaPlantilla } from "@/hooks/usePlayers";
 import { duelosYVistazo } from "@/lib/informe-partido/rival-datos";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
-import { fraseUtil, mismoJugador, pronostica, type Cronica } from "./modelo";
+import { explicaDano, fraseDeFase, fraseUtil, mismoJugador, pronostica, type Cronica } from "./modelo";
 import type { CortePartido } from "@/lib/video-informe/guion";
 import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
 
@@ -462,29 +462,48 @@ function colectivoDe(fila: Fila | null, extra: Record<string, string>): Colectiv
 
   const conclusiones = CONCLUSIONES.map((c) => ({ titulo: c.titulo, texto: valor(c.campo) })).filter((c) => c.texto);
 
-  /* Una línea por momento: el primer campo con algo, por orden de importancia. */
-  const primero = (campos: string[]) => campos.map((k) => fraseUtil(valor(k), 120)).find(Boolean) ?? "";
+  /*
+  | Una línea por momento, con sujeto y verbo (21/10/2026): «Estructura
+  | 1-4-3-3.» era una etiqueta; ahora «Salen en 1-4-3-3: inicios en corto…».
+  | Los campos van por orden de importancia y `fraseDeFase` toma la frase del
+  | siguiente si el primero sólo trae el dibujo.
+  */
+  const fase = (titulo: string, campos: string[]) => ({ titulo, texto: fraseDeFase(titulo, campos.map(valor).filter(Boolean), 140) });
 
   const fases = [
-    { titulo: "Cómo salen", texto: primero(["OF_INICIO_ESTRUCTURA", "OF_REINICIO_CONTEXTO", "OF_REINICIO_REFERENCIAS", "OF_INICIO_ASOCIACIONES"]) },
-    { titulo: "Cómo atacan", texto: primero(["OF_CAMPO_ESTRUCTURA", "OF_CAMPO_CARRIL_EXTERIOR", "OF_AREA_JUGADORES", "OF_AREA_CENTROS"]) },
-    { titulo: "Cómo defienden", texto: primero(["DEF_BLOQUE_MEDIO_ESTRUCTURA", "DEF_BLOQUE_ALTO_ESTRUCTURA", "DEF_REINICIO_EMPAREJAN", "DEF_REINICIO_ORIENTAN"]) },
-    { titulo: "Al robar", texto: primero(["TRANSICION_OF_PRIMERA_INTENCION", "TRANSICION_OF_ESPACIOS", "TRANSICION_OF_ZONAS_ROBO", "TRANSICION_OF_JUGADORES_REFERENCIA"]) },
+    fase("Cómo salen", ["OF_INICIO_ESTRUCTURA", "OF_REINICIO_CONTEXTO", "OF_REINICIO_REFERENCIAS", "OF_INICIO_ASOCIACIONES"]),
+    fase("Cómo atacan", ["OF_CAMPO_ESTRUCTURA", "OF_CAMPO_CARRIL_EXTERIOR", "OF_AREA_JUGADORES", "OF_AREA_CENTROS"]),
+    fase("Cómo defienden", ["DEF_BLOQUE_MEDIO_ESTRUCTURA", "DEF_BLOQUE_ALTO_ESTRUCTURA", "DEF_REINICIO_EMPAREJAN", "DEF_REINICIO_ORIENTAN"]),
+    fase("Al robar", ["TRANSICION_OF_PRIMERA_INTENCION", "TRANSICION_OF_ESPACIOS", "TRANSICION_OF_ZONAS_ROBO", "TRANSICION_OF_JUGADORES_REFERENCIA"]),
   ].filter((f) => f.texto);
 
-  /* Dónde hacerles daño: sus puntos débiles, sin repetir. */
-  const dano = [
-    "TRANSICION_DEF_DIFICULTADES_ESPALDA",
-    "DEF_BLOQUE_ALTO_ESPALDA",
-    "DEF_BLOQUE_MEDIO_ESPALDA",
-    "OF_INICIO_JUGADOR_DEBIL_DENTRO",
-    "DEF_REINICIO_JUGADORES_DEBILES",
-    "DEF_AREA_JUGADOR_DEBIL",
-    "DEBILIDADES_INDIVIDUALES",
-  ]
-    .map((k) => fraseUtil(valor(k), 110))
-    .filter((t, i, todos) => t && todos.indexOf(t) === i)
-    .slice(0, 3);
+  /*
+  | Dónde hacerles daño: sus puntos débiles, sin repetir, cada uno con DÓNDE
+  | (21/10/2026): «Tienen dificultades, especialmente si la acción va por el
+  | perfil de Ángel» no decía que era a la espalda de su presión. Los nombres
+  | se completan con la plantilla en `cargaInforme` (`explicaDano`).
+  */
+  const DONDE_DANO: [string, string][] = [
+    ["TRANSICION_DEF_DIFICULTADES_ESPALDA", "Tras pérdida, a su espalda"],
+    ["DEF_BLOQUE_ALTO_ESPALDA", "A la espalda de su presión"],
+    ["DEF_BLOQUE_MEDIO_ESPALDA", "A la espalda de su bloque"],
+    ["OF_INICIO_JUGADOR_DEBIL_DENTRO", "En su salida, el más flojo"],
+    ["DEF_REINICIO_JUGADORES_DEBILES", "Los más flojos atrás"],
+    ["DEF_AREA_JUGADOR_DEBIL", "En su área, los más flojos"],
+    ["DEBILIDADES_INDIVIDUALES", ""],
+  ];
+
+  const vistos = new Set<string>();
+
+  const dano = DONDE_DANO.flatMap(([k, donde]) => {
+    const t = fraseUtil(valor(k), 400).replace(/[.\s]+$/, "");
+
+    if (!t || vistos.has(t)) return [];
+
+    vistos.add(t);
+
+    return [donde ? `${donde}: ${t.charAt(0).toLowerCase()}${t.slice(1)}` : t];
+  }).slice(0, 3);
 
   return bloques.length || conclusiones.length ? { bloques, conclusiones, resumen: { fases, dano } } : null;
 }
@@ -598,6 +617,9 @@ export async function cargaInforme(entrada: {
   const equipoHoja = texto(suyas[0]?.NOMBRE_EQUIPO) || rival;
 
   const plantilla = suyas.map((f) => jugadorDe(f, stats));
+
+  /* «…por el perfil de Ángel» → «…de Ángel Gomez (lento, pierde duelos)». */
+  if (colectivo) colectivo.resumen.dano = colectivo.resumen.dano.map((t) => explicaDano(t, plantilla));
 
   const informeRival = findInforme(informes, equipoHoja);
 
