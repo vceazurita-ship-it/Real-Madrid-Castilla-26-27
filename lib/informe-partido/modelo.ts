@@ -1640,7 +1640,8 @@ function titularPost(inf: Omit<InformePartido, "sintesis">) {
   if (giro.dominio === "nuestro") {
     if (giro.resultado !== "victoria") return `Dominamos y no ganamos (${p.gf}-${p.gc}): ${xg}`;
 
-    return giro.sufrida && !giro.fuimosPerdiendo ? `Dominamos y sufrimos al final (${p.gf}-${p.gc}): ${xg}` : `${giro.verbo} y dominamos: ${xg}`;
+    /* Con el marcador (20/10/2026): «Remontamos 3-2 y dominamos…»; sin él, el titular no decía cómo acabó. */
+    return giro.sufrida && !giro.fuimosPerdiendo ? `Dominamos y sufrimos al final (${p.gf}-${p.gc}): ${xg}` : `${giro.verbo} ${p.gf}-${p.gc} y dominamos: ${xg}`;
   }
 
   if (giro.dominio === "suyo" && giro.resultado !== "derrota") return `${giro.verbo} (${p.gf}-${p.gc}) aunque ellos generaron más: ${xg}`;
