@@ -49,7 +49,14 @@ export function Destinatarios({ label, canal, onCanal, correos, onCorreos, telef
   const guarda = (valores: string[]) => (whatsapp ? onTelefonos(valores.join(", ")) : onCorreos(valores.join(", ")));
 
   const añade = (entrada: string) => {
-    const nuevos = (whatsapp ? listaTelefonos(entrada) : lista(entrada)).filter((v) => !yaPuestos.has(clave(v)));
+    /* Sin repetidos tampoco dentro de lo pegado: «a@b.es, a@b.es» daba dos
+       fichas con la misma clave y quitar una se llevaba las dos. */
+    const vistos = new Set(yaPuestos);
+    const nuevos = (whatsapp ? listaTelefonos(entrada) : lista(entrada)).filter((v) => {
+      if (vistos.has(clave(v))) return false;
+      vistos.add(clave(v));
+      return true;
+    });
 
     if (nuevos.length) guarda([...puestos, ...nuevos.map((v) => (whatsapp && esTelefono(v) ? normalizaTelefono(v) : v))]);
 
@@ -130,15 +137,26 @@ export function Destinatarios({ label, canal, onCanal, correos, onCorreos, telef
           <span className="text-[11px] text-white/35">Otras veces:</span>
           {propuestas.map((c) => (
             <span key={c.valor} className="group flex items-center rounded-md border border-white/10 text-[11px] text-white/60">
-              <button type="button" onClick={() => añade(c.valor)} className="flex items-center gap-1 px-2 py-0.5 hover:text-white">
+              {/* `onMouseDown` sin efecto: si el campo perdía el foco, su
+                  `onBlur` metía como ficha lo tecleado para buscar («vic») y
+                  salía una ficha roja al lado de la buena (19/10/2026). */}
+              <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => añade(c.valor)}
+                className="flex items-center gap-1 px-2 py-0.5 hover:text-white"
+              >
                 <Plus size={11} /> {whatsapp ? telefonoLegible(c.valor) : c.valor}
               </button>
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => olvida(c.tipo, c.valor)}
                 aria-label={`Olvidar ${c.valor}`}
                 title="Quitar de las propuestas"
-                className="hidden pr-1.5 text-white/35 hover:text-white group-hover:block"
+                /* En un aparato sin ratón no hay «pasar por encima»: ahí la
+                   cruz se ve siempre, si no, no había forma de olvidar a nadie. */
+                className="hidden pr-1.5 text-white/35 hover:text-white group-hover:block [@media(hover:none)]:block"
               >
                 <X size={11} />
               </button>

@@ -93,6 +93,23 @@ export function NotasVestuario({
 
   const original = NOTAS_ORIGINALES[clave];
 
+  /*
+  | Lo que se imprime (19/10/2026): un campo vaciado vuelve al original.
+  |
+  | El campo vacío enseña el original de muestra, así que se entendía que
+  | dejarlo en blanco era quedarse con él; pero se guardaba «» y la hoja salía
+  | sin texto, o sin cierre. En el editor se deja vacío —para poder escribir
+  | desde cero— y aquí, en lo que se dibuja y se descarga, se rellena.
+  */
+  const notaHoja: NotaVestuario = useMemo(
+    () => ({
+      ...nota,
+      texto: nota.texto.trim() ? nota.texto : original.texto,
+      cierre: nota.cierre.trim() ? nota.cierre : original.cierre,
+    }),
+    [nota, original],
+  );
+
   const tocada =
     nota.texto !== original.texto || nota.cierre !== original.cierre;
 
@@ -122,7 +139,7 @@ export function NotasVestuario({
     const plazo = setTimeout(async () => {
       try {
         /* La misma hoja a escala: es el A4 con el lado corto en 420 px. */
-        const canvas = await dibujaNota(nota, 420, 594);
+        const canvas = await dibujaNota(notaHoja, 420, 594);
 
         if (!cancelado) setVista(canvas.toDataURL("image/png"));
       } catch (error) {
@@ -134,7 +151,7 @@ export function NotasVestuario({
       cancelado = true;
       clearTimeout(plazo);
     };
-  }, [nota]);
+  }, [notaHoja]);
 
   /* ---------------------------- DESCARGAS ---------------------------- */
 
@@ -146,8 +163,8 @@ export function NotasVestuario({
     try {
       const nombre =
         formato === "pdf"
-          ? await exportNotaPdf(clave, nota)
-          : await exportNotaPptx(clave, nota);
+          ? await exportNotaPdf(clave, notaHoja)
+          : await exportNotaPptx(clave, notaHoja);
 
       toast.success("Nota descargada", { description: nombre });
     } catch (error) {
@@ -224,6 +241,9 @@ export function NotasVestuario({
                 icon={RotateCcw}
                 disabled={!tocada}
                 onClick={() => {
+                  /* Lo reescrito se pierde y no hay deshacer: se pregunta. */
+                  if (!window.confirm("¿Volver al texto original? Lo que has escrito en esta nota se pierde.")) return;
+
                   setValue((actual) => ({ ...actual, [clave]: undefined }));
 
                   toast.success("Nota devuelta al texto original");

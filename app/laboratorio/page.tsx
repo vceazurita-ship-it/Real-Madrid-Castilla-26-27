@@ -132,9 +132,18 @@ export default function LaboratorioPage() {
         body: JSON.stringify({ rivalId, motor }),
       });
 
-      const datos = await respuesta.json();
+      /* Si el servidor se corta (más de dos minutos, o un 504 de Vercel)
+         no contesta JSON, y el aviso decía «Unexpected token…» (19/10/2026). */
+      const datos = await respuesta.json().catch(() => null);
 
-      if (!respuesta.ok) throw new Error(datos?.error ?? "No ha salido");
+      if (!respuesta.ok || !datos?.borrador) {
+        throw new Error(
+          datos?.error ??
+            (respuesta.status === 504 || respuesta.status === 502
+              ? "El motor ha tardado demasiado. Prueba otra vez o con el otro motor."
+              : "No ha salido el borrador. Prueba otra vez en un momento."),
+        );
+      }
 
       setBorrador(datos.borrador as Borrador);
       setEntrada(datos.entrada as Entrada);
@@ -262,7 +271,16 @@ export default function LaboratorioPage() {
 
                     <select
                       value={rivalId}
-                      onChange={(evento) => setRivalId(evento.target.value)}
+                      disabled={trabajando}
+                      onChange={(evento) => {
+                        /* El borrador es de un partido: al cambiar de partido
+                           se quita, para no copiar el del rival anterior con
+                           el escudo del nuevo encima (19/10/2026). */
+                        setRivalId(evento.target.value);
+                        setBorrador(null);
+                        setEntrada(null);
+                        setCopiado(null);
+                      }}
                       className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                     >
                       {jornadas.length === 0 && (
@@ -290,6 +308,7 @@ export default function LaboratorioPage() {
 
                     <select
                       value={motor}
+                      disabled={trabajando}
                       onChange={(evento) => setMotor(evento.target.value)}
                       className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                     >

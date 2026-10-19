@@ -35,6 +35,19 @@ export function useQuinielaDoc(refrescoMs = 0) {
   const [testigo, setTestigo] = useState(0);
 
   /*
+  | PARA QUIÉN SE LEYÓ EL DOCUMENTO (19/10/2026).
+  |
+  | `/api/quiniela/leer` criba según la cookie: con la jornada abierta sólo
+  | manda los pronósticos de quien pregunta. Así que el documento que hay en
+  | pantalla es «el de» alguien —o el de nadie, si se leyó sin entrar—, y la
+  | página lo necesita saber: quien entraba desde aquí mismo seguía mirando el
+  | documento leído sin sesión, sin su apuesta guardada, y al marcar un signo
+  | el borrador partía de vacío y «Guardar» le pisaba el resto. `undefined`
+  | es que todavía no se ha leído bien ninguna vez.
+  */
+  const [leidoPara, setLeidoPara] = useState<string | null | undefined>(undefined);
+
+  /*
   | Cuántos guardados han empezado o terminado. Una lectura que salió ANTES de
   | guardar vuelve con el documento de antes y, pintada encima, borraba de la
   | pantalla la apuesta recién guardada —la del reloj del fin de semana cae en
@@ -69,6 +82,7 @@ export function useQuinielaDoc(refrescoMs = 0) {
         ok?: boolean;
         doc?: DocumentoQuiniela | null;
         updatedAt?: string | null;
+        yo?: string | null;
       }>)
       .then((datos) => {
         if (cancelado || guardados.current !== alSalir) return;
@@ -85,6 +99,7 @@ export function useQuinielaDoc(refrescoMs = 0) {
           }),
         );
         setGuardadoEn(datos.updatedAt ?? null);
+        setLeidoPara(datos.yo ?? null);
         setEstado("listo");
       })
       .catch((error) => {
@@ -145,7 +160,7 @@ export function useQuinielaDoc(refrescoMs = 0) {
     }
   }, []);
 
-  return { doc, estado, guardadoEn, guarda, recarga };
+  return { doc, estado, guardadoEn, guarda, recarga, leidoPara };
 }
 
 /**

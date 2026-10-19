@@ -33,7 +33,16 @@ function tituloDeNombre(nombre: string) {
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ ruta: string[] }> }) {
-  const ruta = (await params).ruta.map(decodeURIComponent).join("/");
+  /* Un «%» suelto en el enlace hace que `decodeURIComponent` lance: eso es un
+     enlace que no existe (404), no un fallo del servidor (500). 19/10/2026. */
+  let ruta: string;
+
+  try {
+    ruta = (await params).ruta.map(decodeURIComponent).join("/");
+  } catch {
+    return new Response("No encontrado", { status: 404 });
+  }
+
   const m = ruta.match(RUTA);
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
 

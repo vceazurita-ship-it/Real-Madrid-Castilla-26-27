@@ -319,7 +319,19 @@ export function aplica(
 
     if (!esFecha(comprobar)) throw new Rechazo("Pon el día en que se comprueba.");
 
-    if (comprobar < hoy) throw new Rechazo("El día de comprobación no puede haber pasado ya.");
+    /*
+    | Mañana como pronto (19/10/2026).
+    |
+    | Las posturas se cierran el mismo día de comprobación, así que una
+    | apuesta «para hoy» nacía ya cerrada: nadie podía entrar y su autor,
+    | que sí puede dar el veredicto, se apuntaba un acierto en el marcador
+    | con dos clics.
+    */
+    if (comprobar <= hoy) {
+      throw new Rechazo(
+        "El día de comprobación tiene que ser mañana como pronto: hasta ese día los demás se ponen a favor o en contra.",
+      );
+    }
 
     if (comprobar > sumaDias(hoy, DIAS_MAXIMOS)) {
       throw new Rechazo("Eso es demasiado lejos: como mucho dos temporadas.");
