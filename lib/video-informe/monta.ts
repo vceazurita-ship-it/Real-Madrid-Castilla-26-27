@@ -25,7 +25,7 @@ import { MuxorMp4 } from "@/lib/coding/mp4";
 import type { Bytes } from "@/lib/export/zip";
 
 import { ALTO, ALTO_HD, ANCHO, ANCHO_HD, FPS, SEGUNDO_POSTER, corteEn, estiramiento, limitesDeCortes, palabrasDeEscena, pintaFotograma, rellenaGrano, reparteEscenas, type Recursos } from "./dibujo";
-import { SEGUNDOS_MAXIMOS, type Corte, type Escena, type GuionVideo, type JugadorEscena } from "./guion";
+import { SEGUNDOS_MAXIMOS, soloCompletas, type Corte, type Escena, type GuionVideo, type JugadorEscena } from "./guion";
 import { FRECUENCIA_AAC, remuestrea } from "./voz";
 import { bandaSonora, masteriza, rmsConPuerta } from "./musica";
 import { posterDeVideo } from "./portada-video";
@@ -311,8 +311,11 @@ export type VideoMontado = {
 };
 
 /** Monta el vídeo resumen de un guion. `alPaso` recibe el texto de progreso para la pantalla. */
-export async function montaVideoInforme(guionCrudo: GuionVideo, opciones: OpcionesVideo = {}): Promise<VideoMontado> {
+export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: OpcionesVideo = {}): Promise<VideoMontado> {
   if (!puedeMontarVideo()) throw new Error("Este navegador no puede montar vídeo (hace falta Chrome, Edge o Safari 17).");
+
+  /* La comprobación previa (21/10/2026): ninguna escena a medias, venga el guion de donde venga. */
+  const guionCrudo: GuionVideo = { ...guionEntrada, escenas: soloCompletas(guionEntrada.escenas) };
 
   const alPaso = opciones.alPaso ?? (() => {});
   const fuente = `${opciones.fuente ? `${opciones.fuente}, ` : ""}"Barlow Condensed", "Segoe UI", Arial, sans-serif`;

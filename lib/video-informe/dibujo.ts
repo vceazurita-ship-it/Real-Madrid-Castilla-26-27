@@ -655,7 +655,7 @@ function pieLocucion(ctx: Lienzo, fuente: string, texto: string, t: number) {
  * filo derecho en diagonal que se despliega con un rebote corto, bloque de
  * oro, y los textos entrando un poco después.
  */
-function rotuloBajo(ctx: Lienzo, fuente: string, principal: string, secundario: string, t: number, y = ALTO - 150) {
+function rotuloBajo(ctx: Lienzo, fuente: string, principal: string, secundario: string, t: number, y = ALTO - 150, alfa = 1) {
   const a = salta((t - 0.15) / 0.55);
 
   if (a <= 0) return;
@@ -663,7 +663,7 @@ function rotuloBajo(ctx: Lienzo, fuente: string, principal: string, secundario: 
   ctx.textAlign = "left";
   ctx.font = `700 34px ${fuente}`;
   const w1 = ctx.measureText(principal).width;
-  ctx.font = `500 22px ${fuente}`;
+  ctx.font = `500 ${ETIQUETA + 2}px ${fuente}`;
   const w2 = secundario ? ctx.measureText(secundario).width : 0;
   const w = Math.min(Math.max(w1, w2) + 70, ANCHO - 112);
   const alto = secundario ? 86 : 60;
@@ -671,7 +671,7 @@ function rotuloBajo(ctx: Lienzo, fuente: string, principal: string, secundario: 
   const sesgo = 18;
 
   ctx.save();
-  ctx.globalAlpha = Math.min(1, a);
+  ctx.globalAlpha = Math.min(1, a) * alfa;
   ctx.beginPath();
   ctx.moveTo(x, y - 42);
   ctx.lineTo(x + w * a + sesgo, y - 42);
@@ -690,7 +690,7 @@ function rotuloBajo(ctx: Lienzo, fuente: string, principal: string, secundario: 
 
   const b = tramo(t, 0.3, 0.45);
 
-  ctx.globalAlpha = b;
+  ctx.globalAlpha = b * alfa;
   ctx.fillStyle = BLANCO;
   ctx.font = `700 34px ${fuente}`;
   ctx.fillText(principal, x + 30 - (1 - b) * 16, y + 2);
@@ -698,9 +698,9 @@ function rotuloBajo(ctx: Lienzo, fuente: string, principal: string, secundario: 
   if (secundario) {
     const c = tramo(t, 0.42, 0.45);
 
-    ctx.globalAlpha = c;
+    ctx.globalAlpha = c * alfa;
     ctx.fillStyle = "rgba(227,201,143,0.95)";
-    ctx.font = `500 22px ${fuente}`;
+    ctx.font = `500 ${ETIQUETA + 2}px ${fuente}`;
     ctx.fillText(secundario, x + 30 - (1 - c) * 16, y + 33);
   }
 
@@ -954,14 +954,14 @@ function espaciadoAncho(ctx: Lienzo, texto: string, aire: number) {
 /*
 | LOS TAMAÑOS DE LETRA (20/10/2026, crítica del editor: «los textos
 | secundarios son diminutos en el móvil»). Las medidas de este fichero son
-| del lienzo lógico de 1280×720 y el vídeo sale a 1080: ×1,5. Así que 27 px
-| aquí son 40 px de verdad (el mínimo para leer en el móvil) y 38 px son 56
-| (el mínimo de un título). Las etiquetas en versalitas (no se leen como
-| frase) se quedan en 22 px = 33 de verdad.
+| del lienzo lógico de 1280×720 y el vídeo sale a 1080: ×1,5. Segunda ronda
+| (21/10/2026): 30 px aquí son 45 de verdad (el mínimo de lectura en el
+| móvil), 40 son 60 (el mínimo de un título) y las etiquetas en versalitas,
+| 24 = 36. Si algo no cabe, se quitan elementos de la escena; la letra no baja.
 */
-const LECTURA = 27;
-const ETIQUETA = 22;
-const TITULO_MINIMO = 38;
+const LECTURA = 30;
+const ETIQUETA = 24;
+const TITULO_MINIMO = 40;
 
 /**
  * Las claves, de una en una (20/10/2026, crítica del editor: «son lo único
@@ -969,11 +969,46 @@ const TITULO_MINIMO = 38;
  * toca ocupa el centro en grande; las anteriores suben, se encogen y se
  * atenúan al 40 %. Cada una tiene su tramo de la escena (3 s si nada aprieta).
  */
-function pintaClaves(ctx: Lienzo, fuente: string, titulo: string, lineas: string[], t: number, dur: number) {
-  titular(ctx, fuente, titulo, t);
+function pintaClaves(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "claves" }>, t: number, dur: number) {
+  titular(ctx, fuente, e.titulo, t);
 
-  const lista = lineas.slice(0, 4);
+  const lista = e.lineas.slice(0, 4);
+  const pies = e.pies ?? [];
   const n = lista.length;
+
+  /*
+  | Una sola (21/10/2026, crítica del productor: «una clave grande con el
+  | hueco del 02 y del 03 en blanco»): sin número ni hueco; la frase en el
+  | centro, grande, y su dato debajo en oro.
+  */
+  if (n === 1) {
+    const a = salta((t - 0.4) / 0.45);
+
+    if (a <= 0) return;
+
+    ctx.globalAlpha = Math.min(1, a);
+    tarjeta(ctx, 56, 210, ANCHO - 112, 380);
+    ctx.textAlign = "center";
+    ctx.fillStyle = BLANCO;
+    ctx.font = `700 60px ${fuente}`;
+
+    const partes = parteLineas(ctx, lista[0], ANCHO - 240).slice(0, 3);
+    const yMedio = pies[0] ? 370 : 400;
+
+    partes.forEach((p, k) => ctx.fillText(p, ANCHO / 2, yMedio + (k - (partes.length - 1) / 2) * 68));
+
+    if (pies[0]) {
+      ctx.globalAlpha = Math.min(1, a) * tramo(t, 1, 0.5);
+      ctx.fillStyle = ORO;
+      ctx.font = `600 ${LECTURA + 4}px ${fuente}`;
+      ctx.fillText(parteLineas(ctx, pies[0], ANCHO - 240)[0] ?? "", ANCHO / 2, yMedio + (partes.length - 1) * 34 + 86);
+    }
+
+    ctx.textAlign = "left";
+    ctx.globalAlpha = 1;
+
+    return;
+  }
   const tramoClave = Math.max(1.2, (dur - 1) / Math.max(1, n));
   const activa = Math.min(n - 1, Math.max(0, Math.floor((t - 0.4) / tramoClave)));
   const anchoTarjeta = ANCHO - 112;
@@ -1018,11 +1053,21 @@ function pintaClaves(ctx: Lienzo, fuente: string, titulo: string, lineas: string
       ctx.fillText(String(i + 1).padStart(2, "0"), 92, y + alto / 2 + 6);
 
       ctx.fillStyle = BLANCO;
-      ctx.font = `600 42px ${fuente}`;
+      ctx.font = `600 44px ${fuente}`;
 
-      const partes = parteLineas(ctx, linea, anchoTarjeta - 260).slice(0, Math.max(1, Math.floor((alto - 30) / 50)));
+      /* La consigna en grande y, debajo, en oro, el dato que la sostiene (21/10/2026, crítica del guionista). */
+      const pie = pies[i] ?? "";
+      const caben = Math.max(1, Math.floor((alto - 30 - (pie ? 46 : 0)) / 52));
+      const partes = parteLineas(ctx, linea, anchoTarjeta - 260).slice(0, caben);
+      const yCentro = y + alto / 2 - (pie ? 22 : 0);
 
-      partes.forEach((p, k) => ctx.fillText(p, 270, y + alto / 2 + (k - (partes.length - 1) / 2) * 50));
+      partes.forEach((p, k) => ctx.fillText(p, 270, yCentro + (k - (partes.length - 1) / 2) * 52));
+
+      if (pie) {
+        ctx.fillStyle = ORO;
+        ctx.font = `600 ${LECTURA + 2}px ${fuente}`;
+        ctx.fillText(parteLineas(ctx, pie, anchoTarjeta - 260)[0] ?? "", 270, yCentro + ((partes.length - 1) / 2) * 52 + 50);
+      }
       ctx.textBaseline = "alphabetic";
       ctx.restore();
       ctx.globalAlpha = 1;
@@ -1177,7 +1222,7 @@ function pintaBarras(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ba
     const num = b.texto.match(/^(\d+)(.*)$/);
     const texto = num ? `${Math.round(Number(num[1]) * a)}${num[2]}` : b.texto;
 
-    ctx.font = `700 26px ${fuente}`;
+    ctx.font = `700 ${LECTURA}px ${fuente}`;
     const wt = ctx.measureText(texto).width + 26;
     const px = Math.min(x0 + w + 14, ANCHO - 56 - wt);
 
@@ -1251,8 +1296,8 @@ function pintaOnce(ctx: Lienzo, fuente: string, P: Proyector, e: Extract<Escena,
 
     medallon(ctx, fuente, rec.imagenes.get(`${e.id}:${i}`) ?? null, s.x, cy, radio, j.destacado ? ORO : "rgba(255,255,255,0.85)", j.dorsal || "·");
 
-    /* Los nombres, al menos a 20 px (30 de verdad) sobre su banda oscura (20/10/2026). */
-    const tam = Math.max(20, radio * 0.5);
+    /* Los nombres, al menos a 24 px (36 de verdad) sobre su banda oscura (21/10/2026; antes 20). */
+    const tam = Math.max(24, radio * 0.5);
     ctx.font = `700 ${tam}px ${fuente}`;
     ctx.textAlign = "center";
     const nombre = j.nombre.split(" ").slice(-1)[0].toUpperCase();
@@ -1297,7 +1342,7 @@ function pintaVigilar(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "v
     ctx.font = `500 ${LECTURA + 3}px ${fuente}`;
     parteLineas(ctx, j.texto ?? "", ancho - 40)
       .slice(0, 4)
-      .forEach((l, k) => ctx.fillText(l, x + ancho / 2, 508 + k * 36 + dy));
+      .forEach((l, k) => ctx.fillText(l, x + ancho / 2, 512 + k * 40 + dy));
     ctx.textAlign = "left";
     ctx.globalAlpha = 1;
   });
@@ -1386,7 +1431,13 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
   | etiquetas que a veces fallan, y la jugada se explica sola.
   */
   const partes = corte.rotulo.split(" · ");
-  const [principal, ...resto] = corte.tipo ? partes.slice(0, 2) : partes;
+  /*
+  | Los del partido (con `tipo`), con el minuto delante y en la misma línea
+  | (21/10/2026, crítica del editor: «el corte empieza sin avisar de qué hay
+  | que mirar»): «34' · Córner en contra». Se ve al empezar y se retira a los
+  | 3,5 s para no tapar la jugada; la línea del partido sigue marcando el minuto.
+  */
+  const [principal, ...resto] = corte.tipo ? [[corte.minuto, partes[0]].filter(Boolean).join(" · ")] : partes;
 
   /* La repetición: viñeta más cerrada, una franja de oro arriba y el rótulo «REPETICIÓN» latiendo. */
   if (corte.repeticion) {
@@ -1399,14 +1450,30 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
     ctx.fillRect(ANCHO - 56 - 290, 96, 290, 40);
     ctx.globalAlpha = 1;
     ctx.fillStyle = "#0B0F14";
-    ctx.font = `700 22px ${fuente}`;
+    ctx.font = `700 ${ETIQUETA}px ${fuente}`;
     ctx.textAlign = "center";
-    ctx.fillText("REPETICIÓN · CÁMARA LENTA", ANCHO - 56 - 145, 123);
+    ctx.fillText("REPETICIÓN · CÁMARA LENTA", ANCHO - 56 - 145, 124);
     ctx.textAlign = "left";
+
+    /* Al entrar, una cortinilla de oro de 0,3 s: se distingue de la jugada en directo sin mirar la velocidad. */
+    if (tc < 0.3) {
+      const x = (tc / 0.3) * (ANCHO + 200) - 100;
+
+      ctx.fillStyle = "rgba(200,169,107,0.85)";
+      ctx.beginPath();
+      ctx.moveTo(x - 60, 0);
+      ctx.lineTo(x + 60, 0);
+      ctx.lineTo(x - 40, ALTO);
+      ctx.lineTo(x - 160, ALTO);
+      ctx.closePath();
+      ctx.fill();
+    }
   }
 
   /* Sin la lectura táctica debajo (15/10/2026, a petición del cuerpo técnico): la jugada habla sola; queda el rótulo. */
-  rotuloBajo(ctx, fuente, principal, resto.join(" · "), tc, ALTO - 140);
+  const retirada = corte.tipo && !corte.repeticion ? 1 - tramo(tc, 3.5, 0.4) : 1;
+
+  if (retirada > 0 && !corte.repeticion) rotuloBajo(ctx, fuente, principal, resto.join(" · "), tc, ALTO - 140, retirada);
 
   if (corte.tipo === "gol" && !corte.repeticion) estallidoGol(ctx, fuente, tc);
 
@@ -1454,9 +1521,9 @@ function lineaDelPartido(ctx: Lienzo, fuente: string, marcas: MarcaPartido[], ac
   ctx.lineTo(xDe(45), y + 6);
   ctx.stroke();
 
-  ctx.font = `600 18px ${fuente}`;
+  ctx.font = `600 ${ETIQUETA - 2}px ${fuente}`;
   ctx.textAlign = "left";
-  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
   ctx.fillText("0'", x0, y + 24);
   ctx.textAlign = "center";
   ctx.fillText("45'", xDe(45), y + 24);
@@ -1482,7 +1549,7 @@ function lineaDelPartido(ctx: Lienzo, fuente: string, marcas: MarcaPartido[], ac
       ctx.arc(x, cy, r + 5, 0, Math.PI * 2);
       ctx.stroke();
       ctx.fillStyle = ORO;
-      ctx.font = `700 20px ${fuente}`;
+      ctx.font = `700 ${ETIQUETA}px ${fuente}`;
       ctx.textAlign = "center";
       ctx.fillText(`${actual}'`, x, m.de === "nosotros" ? y - 24 : y + 38);
       ctx.textAlign = "left";
@@ -1520,7 +1587,7 @@ function pintaCierre(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ci
   ctx.font = `700 26px ${fuente}`;
   espaciado(ctx, "REAL MADRID CASTILLA", ANCHO / 2, 352, 7, "center");
   ctx.fillStyle = "rgba(255,255,255,0.75)";
-  ctx.font = `600 24px ${fuente}`;
+  ctx.font = `600 ${ETIQUETA + 2}px ${fuente}`;
   espaciado(ctx, e.titulo.toUpperCase(), ANCHO / 2, 390, 3, "center");
 
   /* La consigna, nunca por debajo de 64 px de verdad (43 aquí): es lo que tiene que quedarse (20/10/2026). */
@@ -1576,8 +1643,9 @@ export type Fotograma = {
 /*  LAS ESCENAS DE DATOS (14/10/2026)                                  */
 /* ------------------------------------------------------------------ */
 
-const VERDE = "#2FB67C";
-const ROJO = "#E05252";
+const VERDE = "#2EE6A6";
+const ROJO = "#FF5A5F";
+const TINTA = "#0B0F14";
 const GRIS = "#8A94A6";
 
 const colorRacha = (r: string) => (r === "G" ? VERDE : r === "P" ? ROJO : GRIS);
@@ -1718,7 +1786,7 @@ function pintaContexto(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "
       ctx.fillStyle = colorRacha(r);
       caja(ctx, cx, cy, 52, 44, 10);
       ctx.fill();
-      ctx.fillStyle = BLANCO;
+      ctx.fillStyle = TINTA;
       ctx.font = `700 26px ${fuente}`;
       ctx.textAlign = "center";
       ctx.fillText(r, cx + 26, cy + 31);
@@ -1728,7 +1796,7 @@ function pintaContexto(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "
     if (racha.length) {
       ctx.globalAlpha = Math.min(1, a) * 0.65;
       ctx.fillStyle = BLANCO;
-      ctx.font = `500 ${ETIQUETA - 2}px ${fuente}`;
+      ctx.font = `500 ${ETIQUETA}px ${fuente}`;
       ctx.fillText("ÚLTIMOS PARTIDOS →", x + 30, y0 + h - 84);
     }
 
@@ -1751,7 +1819,7 @@ function pintaVersus(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "ve
   const y0 = 262;
 
   ctx.globalAlpha = tramo(t, 0.3, 0.4);
-  ctx.font = `700 22px ${fuente}`;
+  ctx.font = `700 ${ETIQUETA}px ${fuente}`;
   ctx.fillStyle = ORO;
   espaciado(ctx, "CASTILLA", cx - mitad - 120, y0 - 50, 3);
   ctx.fillStyle = BLANCO;
@@ -1918,7 +1986,7 @@ function pintaDuelos(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "du
     ctx.fillStyle = color;
     caja(ctx, ANCHO / 2 - wv / 2, y + 52, wv, 36, 18);
     ctx.fill();
-    ctx.fillStyle = BLANCO;
+    ctx.fillStyle = TINTA;
     ctx.textAlign = "center";
     ctx.fillText(veredicto, ANCHO / 2, y + 78);
 
@@ -1942,11 +2010,12 @@ function pintaDuelos(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "du
 function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "balance" }>, t: number, dur: number) {
   titular(ctx, fuente, e.titulo, t);
 
-  const filas = e.filas.slice(0, 4);
+  /* Tres metas como mucho (21/10/2026): a 45 px de verdad no caben cuatro; el guion elige las que más cuentan. */
+  const filas = e.filas.slice(0, 3);
   const n = filas.length;
   const hueco = 12;
-  const h = n > 3 ? 104 : 118;
-  const y0 = 222;
+  const h = 134;
+  const y0 = 226;
   const xMedio = 640;
   const final = Math.min(2.5, dur * 0.25);
   const tramoFila = Math.max(0.8, (dur - final - 0.5) / Math.max(1, n));
@@ -1957,8 +2026,8 @@ function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "b
   const c = tramo(t, 0.3, 0.5);
 
   ctx.globalAlpha = c * (1 - 0.6 * recuento);
-  ctx.font = `700 ${ETIQUETA - 2}px ${fuente}`;
-  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  ctx.font = `700 ${ETIQUETA}px ${fuente}`;
+  ctx.fillStyle = "rgba(255,255,255,0.7)";
   espaciado(ctx, "LO QUE BUSCÁBAMOS", 84, y0 - 14, 2.2);
   ctx.fillStyle = ORO;
   espaciado(ctx, "LO QUE LOGRAMOS", xMedio + 20, y0 - 14, 2.2);
@@ -1981,15 +2050,18 @@ function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "b
     ctx.fillStyle = color;
     ctx.fillRect(56, y, 8, h);
 
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
-    ctx.font = `600 ${ETIQUETA - 2}px ${fuente}`;
-    espaciado(ctx, x.que.toUpperCase(), 84, y + 30, 1.4);
+    /* El veredicto primero, a la izquierda y con su icono (21/10/2026, crítica del editor): se lee antes que el texto y no depende del color. */
+    iconoEstado(ctx, x.estado, 104, y + 40, color);
+
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    ctx.font = `600 ${ETIQUETA}px ${fuente}`;
+    espaciado(ctx, x.que.toUpperCase(), 136, y + 48, 1.4);
 
     ctx.fillStyle = BLANCO;
     ctx.font = `600 ${LECTURA}px ${fuente}`;
     parteLineas(ctx, x.buscabamos, xMedio - 84 - 40)
       .slice(0, 2)
-      .forEach((l, k) => ctx.fillText(l, 84, y + 64 + k * 31));
+      .forEach((l, k) => ctx.fillText(l, 84, y + 88 + k * 34));
 
     /* La flecha entre las dos columnas, dibujada (Barlow no trae «→»). */
     ctx.strokeStyle = "rgba(255,255,255,0.45)";
@@ -2007,15 +2079,15 @@ function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "b
     const xv = ANCHO - 84 - wv;
 
     ctx.fillStyle = ORO;
-    ctx.font = `700 30px ${fuente}`;
+    ctx.font = `700 ${LECTURA + 2}px ${fuente}`;
     parteLineas(ctx, x.logramos, xv - (xMedio + 20) - 16)
       .slice(0, 2)
-      .forEach((l, k) => ctx.fillText(l, xMedio + 20, y + 64 + k * 33));
+      .forEach((l, k) => ctx.fillText(l, xMedio + 20, y + 58 + k * 36));
 
     ctx.fillStyle = color;
     caja(ctx, xv, y + h / 2 - 18, wv, 36, 18);
     ctx.fill();
-    ctx.fillStyle = x.estado === "parcial" ? "#0B0F14" : BLANCO;
+    ctx.fillStyle = TINTA;
     ctx.font = `700 ${ETIQUETA}px ${fuente}`;
     ctx.textAlign = "center";
     ctx.fillText(veredicto, xv + wv / 2, y + h / 2 + 8);
@@ -2047,6 +2119,35 @@ function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "b
   }
 }
 
+/** ✓, ✗ o ~ en un círculo de su color, dibujados: el estado no depende sólo del color (daltónicos). */
+function iconoEstado(ctx: Lienzo, estado: "si" | "parcial" | "no", cx: number, cy: number, color: string) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 19, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = TINTA;
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+
+  if (estado === "si") {
+    ctx.moveTo(cx - 9, cy);
+    ctx.lineTo(cx - 2, cy + 7);
+    ctx.lineTo(cx + 10, cy - 7);
+  } else if (estado === "no") {
+    ctx.moveTo(cx - 7, cy - 7);
+    ctx.lineTo(cx + 7, cy + 7);
+    ctx.moveTo(cx + 7, cy - 7);
+    ctx.lineTo(cx - 7, cy + 7);
+  } else {
+    ctx.moveTo(cx - 9, cy + 2);
+    ctx.bezierCurveTo(cx - 4, cy - 7, cx + 4, cy + 9, cx + 9, cy - 2);
+  }
+
+  ctx.stroke();
+  ctx.lineCap = "butt";
+}
+
 /** Cómo juegan: cuatro baldosas, una por momento del juego, y debajo dónde hacerles daño. */
 function pintaFases(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "fases" }>, t: number) {
   titular(ctx, fuente, e.titulo, t);
@@ -2055,8 +2156,8 @@ function pintaFases(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "fas
   const n = fases.length;
   const hueco = 18;
   const w = (ANCHO - 112 - (n - 1) * hueco) / n;
-  const h = e.dano.length ? 316 : 400;
-  const y0 = 200;
+  const h = e.dano.length ? 324 : 410;
+  const y0 = 196;
 
   fases.forEach((f, i) => {
     const a = salta((t - (0.45 + i * 0.22)) / 0.6);
@@ -2074,15 +2175,15 @@ function pintaFases(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "fas
     ctx.fillText(String(i + 1).padStart(2, "0"), x + 22, y + 66);
 
     ctx.fillStyle = BLANCO;
-    ctx.font = `700 28px ${fuente}`;
+    ctx.font = `700 ${LECTURA + 2}px ${fuente}`;
     parteLineas(ctx, f.titulo.toUpperCase(), w - 44).slice(0, 1).forEach((l) => ctx.fillText(l, x + 22, y + 108));
 
     /* El texto a 40 px de verdad (20/10/2026); el guion ya lo deja en doce palabras. */
     ctx.fillStyle = "rgba(255,255,255,0.88)";
     ctx.font = `500 ${LECTURA}px ${fuente}`;
     parteLineas(ctx, f.texto, w - 40)
-      .slice(0, Math.floor((h - 150) / 31))
-      .forEach((l, k) => ctx.fillText(l, x + 22, y + 150 + k * 31));
+      .slice(0, Math.floor((h - 130) / 34))
+      .forEach((l, k) => ctx.fillText(l, x + 22, y + 150 + k * 34));
     ctx.globalAlpha = 1;
   });
 
@@ -2133,7 +2234,7 @@ export function pintaFotograma(ctx: Lienzo, grano: Dibujable, fuente: string, ti
     ctx.fillRect(0, 0, ANCHO, ALTO);
 
     if (e.tipo === "portada") pintaPortada(ctx, fuente, e, rec, f.t);
-    else if (e.tipo === "claves") pintaClaves(ctx, fuente, e.titulo, e.lineas, f.t, f.medida.segundos);
+    else if (e.tipo === "claves") pintaClaves(ctx, fuente, e, f.t, f.medida.segundos);
     else if (e.tipo === "cifras") pintaCifras(ctx, fuente, e, f.t);
     else if (e.tipo === "barras") pintaBarras(ctx, fuente, e, f.t);
     else if (e.tipo === "imagen") pintaImagen(ctx, fuente, e, rec.imagenes.get(e.id) ?? null, f.t, f.medida.segundos);
@@ -2148,8 +2249,8 @@ export function pintaFotograma(ctx: Lienzo, grano: Dibujable, fuente: string, ti
     else if (e.tipo === "balance") pintaBalance(ctx, fuente, e, f.t, f.medida.segundos);
     else pintaCierre(ctx, fuente, e, rec, f.t);
 
-    /* Sin el pie en las claves y en «a vigilar» (20/10/2026): repetía lo que ya se lee en grande. */
-    if (e.tipo === "cifras" || e.tipo === "barras" || e.tipo === "imagen") pieLocucion(ctx, fuente, e.locucion, f.t);
+    /* Sólo en las láminas: en las claves, «a vigilar», las barras y las cifras repetía lo que ya se lee en grande (20 y 21/10/2026). */
+    if (e.tipo === "imagen") pieLocucion(ctx, fuente, e.locucion, f.t);
   }
 
   acabado(ctx, grano, f.progreso, titulo, fuente, f.marcas);

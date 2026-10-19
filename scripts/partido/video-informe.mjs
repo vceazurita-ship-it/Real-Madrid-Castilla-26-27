@@ -46,7 +46,7 @@ const { createCanvas, GlobalFonts } = require("@napi-rs/canvas");
 const { Worker } = require("worker_threads");
 const os = require("os");
 
-const { escenaBalance, escenaPlan, escenasDeCortes, tituloDeVersus, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
+const { escenaBalance, escenaPlan, escenasDeCortes, soloCompletas, tituloDeVersus, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
 const { ANCHO, ALTO, ANCHO_HD, ALTO_HD, FPS, SEGUNDO_POSTER, estiramiento, limitesDeCortes, palabrasDeEscena, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
 const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
@@ -690,19 +690,21 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
 
   if (balance) escenas.push(balance.escena);
 
-  const cierre = balance?.cierre ?? [
-    `${resultado[0].toUpperCase()}${resultado.slice(1)} ${marcador} · remates ${datos.remates[0]}-${datos.remates[1]} · llegadas ${datos.ataques[0]}-${datos.ataques[1]}`,
-  ];
+  /* El recuento ya es el título del balance (21/10/2026): el cierre es la consigna de la semana, si la hay. */
+  const consignaSemana = balance?.cierre.slice(1) ?? [];
+  const cierre = consignaSemana.length
+    ? consignaSemana
+    : (balance?.cierre ?? [`${resultado[0].toUpperCase()}${resultado.slice(1)} ${marcador} · remates ${datos.remates[0]}-${datos.remates[1]} · llegadas ${datos.ataques[0]}-${datos.ataques[1]}`]);
 
   escenas.push({
     id: "cierre",
     tipo: "cierre",
-    titulo: "Lo que nos deja",
+    titulo: consignaSemana.length ? "Nuestra consigna" : "Lo que nos deja",
     lineas: cierre,
     locucion: `Lo que nos deja: ${cierre.join(". ")}.`,
   });
 
-  return { titulo: `${rival} · J${partido.jornada} · post`, escenas };
+  return { titulo: `${rival} · J${partido.jornada} · post`, escenas: soloCompletas(escenas) };
 }
 
 /* ------------------------------------------------------------------ */
