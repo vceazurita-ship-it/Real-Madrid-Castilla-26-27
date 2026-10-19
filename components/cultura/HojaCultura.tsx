@@ -364,14 +364,17 @@ function Marco({
           RMCF Castilla · {documento.titulo}
         </Rotulo>
 
-        <Rotulo
-          tamano={18}
-          color="rgba(15,30,61,.45)"
-          espaciado="0.22em"
-          estilo={{ fontWeight: 600 }}
-        >
-          Temporada {documento.temporada}
-        </Rotulo>
+        {/* Sin temporada no se pinta un «Temporada» suelto (19/10/2026). */}
+        {documento.temporada?.trim() && (
+          <Rotulo
+            tamano={18}
+            color="rgba(15,30,61,.45)"
+            espaciado="0.22em"
+            estilo={{ fontWeight: 600 }}
+          >
+            Temporada {documento.temporada}
+          </Rotulo>
+        )}
       </div>
     </div>
   );

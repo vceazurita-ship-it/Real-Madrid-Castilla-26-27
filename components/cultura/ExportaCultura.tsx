@@ -75,6 +75,11 @@ export function ExportaCultura({ documento }: { documento: DocumentoCultura }) {
 
       const titulos = titulosDocumento(documento);
 
+      /* Un bruto sin temporada dejaba «Temporada » colgando en el pie de cada
+         hoja: lo que no hay no se nombra (19/10/2026). */
+      const temporada = documento.temporada?.trim() ?? "";
+      const tituloLargo = `${documento.titulo} · RMCF Castilla${temporada ? ` ${temporada}` : ""}`;
+
       const imagenes = await capturaLienzos(raiz, "[data-cultura-slide]", {
         ancho: SLIDE_W,
         alto: SLIDE_H,
@@ -95,7 +100,7 @@ export function ExportaCultura({ documento }: { documento: DocumentoCultura }) {
             imagen,
           })),
           {
-            titulo: `${documento.titulo} · RMCF Castilla ${documento.temporada}`,
+            titulo: tituloLargo,
             autor: "RMCF Castilla",
           },
         );
@@ -115,13 +120,15 @@ export function ExportaCultura({ documento }: { documento: DocumentoCultura }) {
         orientacion: "landscape",
         pie: (indice, total) => ({
           izquierda: (titulos[indice] ?? "").toUpperCase(),
-          centro: `${documento.titulo} · Temporada ${documento.temporada}`,
+          centro: temporada
+            ? `${documento.titulo} · Temporada ${temporada}`
+            : documento.titulo,
           derecha: `${indice + 1} / ${total}`,
         }),
       });
 
       doc.setProperties({
-        title: `${documento.titulo} · RMCF Castilla ${documento.temporada}`,
+        title: tituloLargo,
         subject: documento.subtitulo,
         creator: "RMCF Castilla",
       });
