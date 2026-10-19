@@ -99,6 +99,28 @@ export function detectRow(position: string): PitchRowKey {
   return "ocho";
 }
 
+/**
+ * La línea del jugador —portero, defensa, medio o ataque— para agrupar y
+ * filtrar.
+ *
+ * 19/10/2026: la lista de valorar y la media por líneas del equipo comparaban
+ * el puesto con una lista cerrada ("PORTERO", "LATERAL D.", "6"…), así que un
+ * portero escrito con su número de rol —la hoja usa las dos formas, ver
+ * `lib/posiciones.ts`— caía entre los centrocampistas al valorar y
+ * desaparecía de la media por líneas. Ahora sale de `detectRow`, la misma
+ * lectura que coloca a cada uno en el campograma.
+ */
+export type LineaKey = "por" | "def" | "med" | "del";
+
+export function lineaDe(position: string): LineaKey {
+  const row = detectRow(position);
+
+  if (row === "por" || row === "def" || row === "del") return row;
+  if (row === "band") return "del";
+
+  return "med";
+}
+
 export type PitchItem = {
   id: string;
   position: string;
