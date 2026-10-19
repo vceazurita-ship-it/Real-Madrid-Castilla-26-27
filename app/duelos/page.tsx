@@ -411,7 +411,7 @@ export default function DuelosPage() {
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <p className="text-sm font-semibold">
                         El campo: nosotros atacamos hacia la derecha
-                        <span className="ml-2 text-xs font-normal" style={{ color: modo === "nuestro" ? "#C8A96B" : modo === "suyo" ? "#F29A8C" : tinta(0.45) }}>
+                        <span className="ml-2 text-xs font-normal" style={{ color: modo === "nuestro" ? ORO : modo === "suyo" ? PEOR : tinta(0.45) }}>
                           {modo === "nuestro" ? "· con el balón nuestro" : modo === "suyo" ? `· con el balón de ${equipoVisto}` : "· balance de los dos momentos"}
                         </span>
                       </p>
@@ -979,7 +979,7 @@ function Tarjeta({
           <p className="text-sm font-semibold">{d.def.titulo}</p>
           <p className="text-[11px] text-white/40">{d.def.subtitulo}</p>
         </div>
-        <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: `${color}22`, color }}>
+        <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: `${color}22`, color: textoDe(color) }}>
           {ROTULO[d.veredicto]}
           {d.balance !== null ? ` ${d.balance > 0 ? "+" : ""}${d.balance}` : ""}
         </span>

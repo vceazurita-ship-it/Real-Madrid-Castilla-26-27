@@ -74,6 +74,14 @@ const TINTA_LADO: Record<LadoFalta, string> = {
   defensivo: "#F6AFB6",
 };
 
+/* Para el TEXTO de las chapas (19/10/2026): el oro y el rosa claros, sobre la
+   tarjeta del modo día, se quedaban en 1,7-2:1. Mezclados con la tinta del
+   tema oscurecen de día y aclaran de noche solos. */
+const TEXTO_LADO: Record<LadoFalta, string> = {
+  ofensivo: "var(--rmcf-gold-ink)",
+  defensivo: "color-mix(in srgb, #E8707C 60%, rgb(var(--rmcf-ink-rgb)))",
+};
+
 const NOMBRE_LADO: Record<LadoFalta, string> = {
   ofensivo: "A favor",
   defensivo: "En contra",
@@ -620,7 +628,7 @@ export default function FaltasPage() {
                       title={TITULO_FILTRO}
                       className="cursor-pointer rounded-full px-2.5 py-1 transition hover:opacity-100"
                       style={{
-                        color: TINTA_LADO[lado],
+                        color: TEXTO_LADO[lado],
                         background: `${TINTA_LADO[lado]}1A`,
                         ...marcaPieza(filtro === lado, filtro !== "todas"),
                       }}
