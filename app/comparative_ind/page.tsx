@@ -1453,11 +1453,14 @@ function CaraACara({
                 </Chip>
               </div>
             </div>
+            {/* La columna fija va en bg-[#0F141B], que la tabla del modo día
+                traduce; el #0f1419 de antes no estaba y en modo día salía un
+                bloque negro con el texto oscuro encima (19/10/2026). */}
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="align-bottom">
-                    <th className="sticky left-0 z-10 min-w-[170px] bg-[#0f1419] py-2 pr-3 text-left font-normal text-white/40">Métrica</th>
+                    <th className="sticky left-0 z-10 min-w-[170px] bg-[#0F141B] py-2 pr-3 text-left font-normal text-white/40">Métrica</th>
                     {columnas.map((j, i) => {
                       const escudo = escudoDe(j.equipo);
                       return (
@@ -1497,7 +1500,7 @@ function CaraACara({
                 </thead>
                 <tbody>
                   <tr className="border-t border-white/[0.08]">
-                    <td className="sticky left-0 z-10 bg-[#0f1419] py-2 pr-3 font-medium text-white/80">Índice del puesto</td>
+                    <td className="sticky left-0 z-10 bg-[#0F141B] py-2 pr-3 font-medium text-white/80">Índice del puesto</td>
                     {indices.map((v, i) => (
                       <td key={i} className="px-1.5 text-center text-sm font-semibold tabular-nums" style={{ color: colorIndice(v) }}>
                         {v ?? "—"}
@@ -1517,7 +1520,7 @@ function CaraACara({
                           </tr>
                         )}
                         <tr className="border-t border-white/[0.05]" title={m.comoLeer}>
-                          <td className="sticky left-0 z-10 bg-[#0f1419] py-1.5 pr-3 text-white/70">{m.nombre}</td>
+                          <td className="sticky left-0 z-10 bg-[#0F141B] py-1.5 pr-3 text-white/70">{m.nombre}</td>
                           {celdas.map((c, i) => (
                             <td key={i} className={`px-1.5 py-1.5 text-center ${i === 0 ? "bg-[#C8A96B]/[0.06]" : ""}`}>
                               {c ? (
