@@ -25,7 +25,7 @@
  * sobreviven al JPEG. El acabado es el de `public/INDIVIDUAL.pptx`.
  */
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import {
   CLUB_VIAJE,
@@ -42,6 +42,23 @@ import {
 const HUECO = "—";
 
 const valor = (texto: string | undefined) => (texto?.trim() ? texto : HUECO);
+
+/**
+ * Una sola línea que cabe (19/10/2026): con un nombre largo —«Estadio
+ * Municipal de Santo Domingo»— el título partía en dos y empujaba el plano
+ * sobre el pie. La letra baja hasta que cabe en `ancho` (~`em` por letra
+ * en Barlow Condensed mayúscula), como mucho al 55 %; y si ni así, «…».
+ */
+const enUnaLinea = (texto: string, base: number, ancho: number, em = 0.52): CSSProperties => {
+  const letras = Math.max(1, texto.trim().length);
+
+  return {
+    fontSize: Math.max(Math.round(base * 0.55), Math.min(base, Math.floor(ancho / (letras * em)))),
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  };
+};
 
 /* ------------------------------------------------------------------ */
 /*  PIEZAS                                                             */
@@ -543,11 +560,11 @@ function Portada({ viaje }: { viaje: Desplazamiento }) {
             style={{
               margin: "22px 0 0",
               color: C.navy,
-              fontSize: 96,
               fontWeight: 700,
               lineHeight: 0.92,
               letterSpacing: "0.005em",
               textTransform: "uppercase",
+              ...enUnaLinea(valor(viaje.rival), 96, 920),
             }}
           >
             {valor(viaje.rival)}
@@ -557,11 +574,11 @@ function Portada({ viaje }: { viaje: Desplazamiento }) {
             style={{
               margin: "18px 0 0",
               color: C.rosaHondo,
-              fontSize: 40,
               fontWeight: 700,
               lineHeight: 1,
               letterSpacing: "0.06em",
               textTransform: "uppercase",
+              ...enUnaLinea(`${valor(viaje.estadio.nombre)}${viaje.estadio.ciudad.trim() ? ` · ${viaje.estadio.ciudad}` : ""}`, 40, 920, 0.6),
             }}
           >
             {valor(viaje.estadio.nombre)}
@@ -610,10 +627,10 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
             style={{
               margin: 0,
               color: C.navy,
-              fontSize: 52,
               fontWeight: 700,
               lineHeight: 1,
               textTransform: "uppercase",
+              ...enUnaLinea(valor(viaje.estadio.nombre), 52, 800),
             }}
           >
             {valor(viaje.estadio.nombre)}
@@ -678,10 +695,10 @@ function SlideHotel({ viaje }: { viaje: Desplazamiento }) {
             style={{
               margin: 0,
               color: C.navy,
-              fontSize: 52,
               fontWeight: 700,
               lineHeight: 1,
               textTransform: "uppercase",
+              ...enUnaLinea(valor(viaje.hotel.nombre), 52, 800),
             }}
           >
             {valor(viaje.hotel.nombre)}

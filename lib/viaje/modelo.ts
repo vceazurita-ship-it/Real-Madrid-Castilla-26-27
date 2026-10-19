@@ -672,12 +672,17 @@ export function diaDePlantilla(plantilla: PlantillaDia, fecha: string): DiaViaje
  * entrenamiento y comida. Las citas llevan identidad nueva para que editar la
  * copia no toque el original.
  */
-export function duplicaDia(dia: DiaViaje): DiaViaje {
+export function duplicaDia(dia: DiaViaje, ocupadas: string[] = []): DiaViaje {
+  /* El día siguiente que no tenga ya otro día del viaje. */
+  let fecha = sumaDias(dia.fecha, 1);
+
+  for (let n = 2; fecha && ocupadas.includes(fecha) && n < 60; n += 1) fecha = sumaDias(dia.fecha, n);
+
   return conCitas(
     {
       ...dia,
       id: nuevoId("DIA"),
-      fecha: sumaDias(dia.fecha, 1),
+      fecha,
       citas: [],
     },
     clonaCitas(dia.citas),
@@ -720,9 +725,23 @@ export function encadenaFechas(dias: DiaViaje[], desde?: string): DiaViaje[] {
   }));
 }
 
+/**
+ * Si un día es el del partido. Con fecha, el de esa fecha. SIN fecha
+ * (19/10/2026) todos los días tienen `fecha: ""` y antes TODOS eran «el del
+ * partido» —la víspera llevaba la chapa y la hora no movía nada—: entonces es
+ * el que lleva la cita «Partido», o el último.
+ */
+export function esDiaDelPartido(dia: DiaViaje, viaje: Pick<Desplazamiento, "fecha" | "dias">) {
+  if (viaje.fecha) return dia.fecha === viaje.fecha;
+
+  const conPartido = viaje.dias.find((uno) => uno.citas.some((cita) => cita.tipo === "partido")) ?? viaje.dias[viaje.dias.length - 1];
+
+  return Boolean(conPartido) && conPartido.id === dia.id;
+}
+
 /** Cuál de los días es el del partido, o −1 si ninguno cae en esa fecha. */
 export function indiceDiaPartido(viaje: Desplazamiento) {
-  return viaje.dias.findIndex((dia) => dia.fecha === viaje.fecha);
+  return viaje.dias.findIndex((dia) => esDiaDelPartido(dia, viaje));
 }
 
 /** Cómo se llama el día en pantalla y en la hoja, si no lleva rótulo propio. */
@@ -1187,7 +1206,7 @@ export function copiaViaje(
         fecha: sumaDias(dia.fecha, saltoDias),
         citas: [],
       },
-      clonaCitas(dia.citas, dia.fecha === fuente.fecha ? salto : 0),
+      clonaCitas(dia.citas, esDiaDelPartido(dia, fuente) ? salto : 0),
     ),
   );
 
@@ -1247,7 +1266,7 @@ export const COPIA_POR_DEFECTO: QueCopiar = {
  * las 18:00. Sin cita de partido, la hora del viaje.
  */
 export function anclaDelHorario(viaje: Desplazamiento): number | null {
-  const dia = viaje.dias.find((uno) => uno.fecha === viaje.fecha);
+  const dia = viaje.dias.find((uno) => esDiaDelPartido(uno, viaje));
 
   const partido = dia?.citas.find((cita) => cita.tipo === "partido");
 
@@ -1267,7 +1286,7 @@ export function mueveDiaPartido(viaje: Desplazamiento, salto: number): DiaViaje[
   if (!salto) return viaje.dias;
 
   return viaje.dias.map((dia) =>
-    dia.fecha === viaje.fecha
+    esDiaDelPartido(dia, viaje)
       ? conCitas(
           dia,
           dia.citas.map((cita) => ({
@@ -1337,7 +1356,7 @@ export function minutoDeRapida(
 
   const desfase = rapida.desfase;
 
-  if (dia.fecha === viaje.fecha && minutoPartido !== null && desfase !== undefined) {
+  if (esDiaDelPartido(dia, viaje) && minutoPartido !== null && desfase !== undefined) {
     return Math.max(0, minutoPartido + desfase);
   }
 

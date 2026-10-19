@@ -104,6 +104,7 @@ import {
   encadenaFechas,
   esDiaSiguiente,
   horarioDePlantilla,
+  esDiaDelPartido,
   indiceDiaPartido,
   mueveDiaPartido,
   mueveEnLista,
@@ -408,7 +409,7 @@ function TarjetaDia({
 
   const minutoPartido = aMinutos(viaje.hora);
 
-  const esDelPartido = dia.fecha === viaje.fecha;
+  const esDelPartido = esDiaDelPartido(dia, viaje);
 
   const citas = dia.citas;
 
@@ -738,6 +739,42 @@ function TarjetaDia({
 /*  EL EDITOR                                                          */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Si de `antes` a `despues` sólo ha cambiado el texto o la nota de UNA cita,
+ * su clave («id:texto»); si no, `null`. Así se agrupan las letras en un paso.
+ */
+function soloTextoDe(antes: DiaViaje[], despues: DiaViaje[]): string | null {
+  if (antes.length !== despues.length) return null;
+
+  let clave: string | null = null;
+
+  for (let i = 0; i < antes.length; i += 1) {
+    const a = antes[i];
+    const d = despues[i];
+
+    if (a === d) continue;
+
+    if (a.id !== d.id || a.fecha !== d.fecha || a.titulo !== d.titulo || a.citas.length !== d.citas.length) return null;
+
+    for (let k = 0; k < a.citas.length; k += 1) {
+      const x = a.citas[k];
+      const y = d.citas[k];
+
+      if (x === y) continue;
+
+      if (x.id !== y.id || x.minuto !== y.minuto || clave) return null;
+
+      const campos = x.texto !== y.texto ? "texto" : x.nota !== y.nota ? "nota" : "";
+
+      if (!campos || JSON.stringify({ ...x, texto: "", nota: "" }) !== JSON.stringify({ ...y, texto: "", nota: "" })) return null;
+
+      clave = `${x.id}:${campos}`;
+    }
+  }
+
+  return clave;
+}
+
 export function EditorHorario({
   viaje,
   onCambio,
@@ -770,14 +807,29 @@ export function EditorHorario({
   | con un clic, y sin vuelta atrás eso da miedo de usar. No se guarda entre
   | sesiones a propósito: lo que vale es el documento, no el camino.
   */
-  const pila = useRef<DiaViaje[][]>([]);
+  /*
+  | Cada paso recuerda la fecha y la hora del partido con las que se dio
+  | (19/10/2026): si después se cambian desde arriba, deshacer devolvería los
+  | días con las fechas viejas, así que esos pasos ya no se deshacen.
+  */
+  const pila = useRef<{ dias: DiaViaje[]; ancla: string; texto: string | null }[]>([]);
 
   const [pasos, setPasos] = useState(0);
 
-  const guarda = (siguientes: DiaViaje[], aviso?: string) => {
-    pila.current = [...pila.current.slice(-19), dias];
+  const anclaPila = `${viaje.fecha}|${viaje.hora}`;
 
-    setPasos(pila.current.length);
+  const guarda = (siguientes: DiaViaje[], aviso?: string) => {
+    /*
+    | Escribir en una cita es UN paso, no uno por letra (19/10/2026): antes
+    | veinte letras llenaban la pila y un día borrado ya no se recuperaba.
+    */
+    const texto = soloTextoDe(dias, siguientes);
+    const ultimo = pila.current[pila.current.length - 1];
+
+    if (!(texto && ultimo?.texto === texto && ultimo.ancla === anclaPila)) {
+      pila.current = [...pila.current.slice(-19), { dias, ancla: anclaPila, texto }];
+      setPasos(pila.current.length);
+    }
 
     onCambio(siguientes);
 
@@ -787,11 +839,19 @@ export function EditorHorario({
   const deshace = () => {
     const previo = pila.current.pop();
 
+    if (previo && previo.ancla !== anclaPila) {
+      pila.current = [];
+      setPasos(0);
+      toast.message("No se puede deshacer", { description: "La fecha o la hora del partido han cambiado después: deshacerlo dejaría los días mal colocados." });
+
+      return;
+    }
+
     setPasos(pila.current.length);
 
     if (!previo) return;
 
-    onCambio(previo);
+    onCambio(previo.dias);
 
     toast.success("Deshecho");
   };
@@ -1133,16 +1193,19 @@ export function EditorHorario({
                 onCambiaCitas={(citas) => cambiaCitas(dia.id, citas)}
                 onSube={() => guarda(mueveEnLista(dias, indice, indice - 1))}
                 onBaja={() => guarda(mueveEnLista(dias, indice, indice + 1))}
-                onDuplica={() =>
+                onDuplica={() => {
+                  /* En el primer día libre (19/10/2026): replicar la víspera caía en el día del partido. */
+                  const copia = duplicaDia(dia, dias.map((uno) => uno.fecha));
+
                   guarda(
                     [
                       ...dias.slice(0, indice + 1),
-                      duplicaDia(dia),
+                      copia,
                       ...dias.slice(indice + 1),
                     ],
-                    `Día replicado en el ${diaCorto(sumaDias(dia.fecha, 1)).toLowerCase()}`,
-                  )
-                }
+                    `Día replicado en el ${diaCorto(copia.fecha).toLowerCase()}`,
+                  );
+                }}
                 onElimina={() =>
                   guarda(
                     dias.filter((item) => item.id !== dia.id),

@@ -36,12 +36,17 @@ import Link from "next/link";
 import {
   Binoculars,
   Bus,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Circle,
   ClipboardList,
+  Clock,
   Copy,
   Eye,
   Hotel,
   Landmark,
-  Link2,
+  Navigation,
   RotateCcw,
   Shield,
 } from "lucide-react";
@@ -97,6 +102,8 @@ import {
   anclaDelHorario,
   comoDesfase,
   copiaViaje,
+  diaCorto,
+  diaLargo,
   diasEntre,
   mueveDiaPartido,
   mueveFechas,
@@ -108,6 +115,7 @@ import {
 } from "@/lib/viaje/modelo";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { conSemilla, tieneSemilla } from "@/lib/viaje/semilla";
+import { CALENDARIO_CASTILLA_KEY, enlaceRuta, horaDelCalendario, type PartidoBesoccer } from "@/lib/viaje/calendario";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 
 /** "J07 · 18 oct 2026 · @ Teruel", como se llama a la semana en la caseta. */
@@ -171,6 +179,102 @@ function Escalado({
         {children}
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  LO QUE FALTA                                                       */
+/* ------------------------------------------------------------------ */
+
+type Pendiente = { clave: string; rotulo: string; hecho: boolean; seccion: string };
+
+/**
+ * Lo que necesita el viaje para salir completo, en el orden del formulario
+ * (19/10/2026): el formulario es largo y no se veía de un golpe qué quedaba.
+ * Cada chapa lleva a su sección.
+ */
+function pendientesDe(viaje: Desplazamiento): Pendiente[] {
+  const lista: Pendiente[] = [
+    { clave: "hora", rotulo: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
+    { clave: "estadio", rotulo: "Estadio", hecho: Boolean(viaje.estadio.nombre.trim()), seccion: "viaje-estadio" },
+    { clave: "direccion", rotulo: "Dirección del estadio", hecho: Boolean(viaje.estadio.direccion.trim()), seccion: "viaje-estadio" },
+    { clave: "plano", rotulo: "Plano del estadio", hecho: Boolean(viaje.estadio.plano?.url), seccion: "viaje-estadio" },
+    { clave: "ruta", rotulo: "Ruta del autobús", hecho: Boolean(viaje.estadio.ruta?.url), seccion: "viaje-estadio" },
+  ];
+
+  if (viaje.conHotel) {
+    lista.push(
+      { clave: "hotel", rotulo: "Hotel", hecho: Boolean(viaje.hotel.nombre.trim()), seccion: "viaje-hotel" },
+      { clave: "foto", rotulo: "Foto del hotel", hecho: Boolean(viaje.hotel.foto?.url), seccion: "viaje-hotel" },
+      { clave: "ruta-hotel", rotulo: "Ruta hotel · estadio", hecho: Boolean(viaje.hotel.ruta?.url), seccion: "viaje-hotel" },
+    );
+  }
+
+  lista.push(
+    { clave: "horario", rotulo: "Horario", hecho: viaje.dias.some((dia) => dia.citas.length > 0), seccion: "viaje-horario" },
+    { clave: "avisos", rotulo: "No olvidar", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
+  );
+
+  return lista;
+}
+
+const irA = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+function ListaPendiente({ viaje }: { viaje: Desplazamiento }) {
+  const lista = pendientesDe(viaje);
+  const hechos = lista.filter((p) => p.hecho).length;
+  const completo = hechos === lista.length;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Cómo va el viaje</p>
+
+        <div className="h-1.5 min-w-[80px] flex-1 overflow-hidden rounded-full bg-white/10 sm:max-w-[220px]" aria-hidden>
+          <div className="h-full rounded-full bg-[#C8A96B] transition-all" style={{ width: `${(hechos / lista.length) * 100}%` }} />
+        </div>
+
+        <p className="text-xs tabular-nums text-white/60">
+          {completo ? "Todo listo para exportar" : `${hechos} de ${lista.length}`}
+        </p>
+
+        <button type="button" onClick={() => irA("viaje-vista")} className="ml-auto flex items-center gap-1 text-xs text-[#C8A96B] hover:underline">
+          <Eye size={13} /> Vista previa y exportar
+        </button>
+      </div>
+
+      {!completo && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {lista.map((p) => (
+            <button
+              key={p.clave}
+              type="button"
+              onClick={() => irA(p.seccion)}
+              title={p.hecho ? "Hecho" : "Falta: ir a la sección"}
+              className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition ${
+                p.hecho ? "border-white/10 text-white/35" : "border-[#C8A96B]/40 text-white/80 hover:bg-[#C8A96B]/10"
+              }`}
+            >
+              {p.hecho ? <CheckCircle2 size={12} className="text-emerald-400/70" /> : <Circle size={12} className="text-[#C8A96B]" />}
+              {p.rotulo}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Un enlace a la ruta en Google Maps, al lado de los campos de distancia y tiempo. */
+function EnlaceRuta({ desde, hasta, rotulo }: { desde: string; hasta: string; rotulo: string }) {
+  const url = enlaceRuta(desde, hasta);
+
+  if (!url) return null;
+
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-[#C8A96B] hover:underline">
+      <Navigation size={12} /> {rotulo}
+    </a>
   );
 }
 
@@ -262,33 +366,58 @@ export default function DesplazamientoPage() {
     return () => control.abort();
   }, []);
 
+  /* El calendario de BeSoccer, con la HORA de cada partido (19/10/2026): ver `lib/viaje/calendario.ts`. */
+  const [besoccer, setBesoccer] = useState<PartidoBesoccer[] | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+
+    fetch(`/api/docs?key=${encodeURIComponent(CALENDARIO_CASTILLA_KEY)}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ data?: { partidos?: PartidoBesoccer[] } | null }>) : null))
+      .then((d) => {
+        if (vivo) setBesoccer(d?.data?.partidos ?? []);
+      })
+      .catch(() => {
+        if (vivo) setBesoccer([]);
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
   const partidos = useMemo(
     () => mezclaCalendario(jugados, jornadas),
     [jugados, jornadas],
   );
 
+  /* «Hoy», una vez al montar (en hora local, como todo `lib/viaje`: en UTC, a
+     las 00:30 de un domingo español el «hoy» era el sábado). */
+  const [hoy] = useState(() => comoIso(new Date()));
+
   /*
-  | Al entrar manda el último desplazamiento tocado y, si no hay ninguno, el
-  | **próximo** partido: preparar un viaje es tarea de la semana de antes, no
-  | de repasar la temporada.
+  | Al entrar manda el PRÓXIMO partido: preparar un viaje es tarea de la
+  | semana de antes. Antes mandaba el último viaje tocado, y en cuanto se
+  | montaba uno la pantalla seguía abriendo ese partido ya jugado (19/10/2026).
+  | Si la temporada se ha acabado, el último con viaje.
   */
   const porDefecto = useMemo(() => {
     if (partidos.length === 0) return "";
 
+    const proximo = partidos.find((item) => item.date && item.date >= hoy);
+
+    if (proximo) return proximo.id;
+
     const conViaje = partidos.filter((item) => store.viajes?.[item.id]);
 
-    if (conViaje.length) return conViaje[conViaje.length - 1].id;
-
-    /* En hora local, como todo `lib/viaje`: en UTC, a las 00:30 de un
-       domingo español el «hoy» era el sábado y la pantalla abría el partido
-       ya jugado en vez del siguiente. */
-    const hoy = comoIso(new Date());
-
-    return (partidos.find((item) => item.date && item.date >= hoy) ?? partidos[0])
-      .id;
-  }, [partidos, store.viajes]);
+    return (conViaje[conViaje.length - 1] ?? partidos[partidos.length - 1]).id;
+  }, [partidos, store.viajes, hoy]);
 
   const elegido = pedido || porDefecto;
+
+  const indiceElegido = partidos.findIndex((item) => item.id === elegido);
+
+  const proximoId = useMemo(() => partidos.find((item) => item.date && item.date >= hoy)?.id ?? "", [partidos, hoy]);
 
   const partido = useMemo(
     () => partidos.find((item) => item.id === elegido) ?? null,
@@ -304,6 +433,19 @@ export default function DesplazamientoPage() {
       fecha: partido.date,
     });
   }, [jornadas, partido]);
+
+  /* Lo que dice BeSoccer de este partido: fecha, hora y jornada. */
+  const delCalendario = useMemo(
+    () =>
+      partido
+        ? horaDelCalendario(besoccer, {
+            fecha: partido.date,
+            rival: partido.opponent,
+            jornada: Number(partido.competition.match(/^Jornada\s+(\d+)/i)?.[1]) || null,
+          })
+        : null,
+    [besoccer, partido],
+  );
 
   /* ---------------------------- EL VIAJE --------------------------- */
 
@@ -323,12 +465,14 @@ export default function DesplazamientoPage() {
        `horario` y no `dias`: se convierten al leerlos. */
     if (guardado) return normalizaViaje(guardado);
 
+    /* Con la hora del calendario el viaje abre montado a su hora (antes, a las 20:00 hasta que alguien la tecleaba). */
     const base = viajeVacio(partido.id, {
       rival: partido.opponent,
-      jornada: jornada?.jornada ?? "",
+      jornada: jornada?.jornada || (delCalendario ? String(delCalendario.jornada) : ""),
       rivalId: jornada?.id,
-      fecha: partido.date,
-      hora: "",
+      /* BeSoccer manda en la fecha: la hoja RIVALES ponía el Ibiza el 11 y se jugó el 9. */
+      fecha: delCalendario?.fecha || partido.date || "",
+      hora: delCalendario?.hora ?? "",
       condicion: partido.isHome ? "local" : "visitante",
       competicion: partido.competition,
     });
@@ -344,7 +488,7 @@ export default function DesplazamientoPage() {
 
     /* Y la jornada 1 viene montada entera desde los documentos originales. */
     return conSemilla(conDimensiones);
-  }, [partido, store.viajes, jornada]);
+  }, [partido, store.viajes, jornada, delCalendario]);
 
   const guardado = Boolean(partido && store.viajes?.[partido.id]);
 
@@ -634,15 +778,27 @@ export default function DesplazamientoPage() {
             {/* ===================== PARTIDO ===================== */}
 
             <div className="mt-6 grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-              <label className="block min-w-0">
-                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+              <div className="block min-w-0">
+                <span id="etiqueta-partido" className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
                   Partido
                 </span>
 
+                <span className="flex min-w-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  aria-label="Partido anterior"
+                  disabled={indiceElegido <= 0}
+                  onClick={() => setPedido(partidos[indiceElegido - 1]?.id ?? elegido)}
+                  className="shrink-0 rounded-xl border border-white/10 px-2.5 py-2 text-white/60 transition hover:text-white disabled:opacity-30"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+
                 <select
+                  aria-labelledby="etiqueta-partido"
                   value={elegido}
                   onChange={(evento) => setPedido(evento.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                  className="w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                 >
                   {partidos.length === 0 && (
                     <option value="">
@@ -654,10 +810,32 @@ export default function DesplazamientoPage() {
                     <option key={item.id} value={item.id} className="bg-[#11161C]">
                       {etiquetaPartido(item)}
                       {store.viajes?.[item.id] ? " ✓" : ""}
+                      {item.id === proximoId ? " · próximo" : ""}
                     </option>
                   ))}
                 </select>
-              </label>
+
+                <button
+                  type="button"
+                  aria-label="Partido siguiente"
+                  disabled={indiceElegido < 0 || indiceElegido >= partidos.length - 1}
+                  onClick={() => setPedido(partidos[indiceElegido + 1]?.id ?? elegido)}
+                  className="shrink-0 rounded-xl border border-white/10 px-2.5 py-2 text-white/60 transition hover:text-white disabled:opacity-30"
+                >
+                  <ChevronRight size={16} />
+                </button>
+
+                {proximoId && proximoId !== elegido && (
+                  <button
+                    type="button"
+                    onClick={() => setPedido(proximoId)}
+                    className="shrink-0 rounded-xl border border-[#C8A96B]/40 px-3 py-2 text-xs text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                  >
+                    Próximo
+                  </button>
+                )}
+                </span>
+              </div>
 
               <div className="flex flex-wrap items-end gap-2">
                 {viaje && otrosViajes.length > 0 && (
@@ -722,9 +900,39 @@ export default function DesplazamientoPage() {
                     </div>
                   )}
 
+                  <ListaPendiente viaje={viaje} />
+
+                  {/* La hora guardada no es la del calendario (o no hay): se propone, no se cambia sola. */}
+                  {guardado && delCalendario?.hora && (delCalendario.hora !== viaje.hora || (delCalendario.fecha && delCalendario.fecha !== viaje.fecha)) && (() => {
+                    const otraFecha = Boolean(delCalendario.fecha && delCalendario.fecha !== viaje.fecha);
+                    const cuando = `${otraFecha ? `${diaLargo(delCalendario.fecha).toLowerCase()} a las ` : ""}${delCalendario.hora}`;
+
+                    return (
+                      <div className="mt-3">
+                        <Notice tone="warn" title={viaje.hora || otraFecha ? `El calendario dice ${cuando}` : `El calendario ya tiene la hora: ${delCalendario.hora}`}>
+                          <span className="flex flex-wrap items-center gap-2">
+                            <span>
+                              Sale del calendario de BeSoccer
+                              {viaje.hora || viaje.fecha ? ` (aquí: ${[viaje.fecha ? diaLargo(viaje.fecha).toLowerCase() : "", viaje.hora].filter(Boolean).join(" a las ")})` : ""}. Al usarlo, los días del viaje se mueven con el partido.
+                            </span>
+                            <Button
+                              icon={Clock}
+                              onClick={() => {
+                                if (otraFecha) cambiaFecha(delCalendario.fecha);
+                                cambiaHora(aMinutos(delCalendario.hora));
+                              }}
+                            >
+                              Usar {otraFecha ? `${diaCorto(delCalendario.fecha).toLowerCase()} · ` : ""}{delCalendario.hora}
+                            </Button>
+                          </span>
+                        </Notice>
+                      </div>
+                    );
+                  })()}
+
                   {/* ================== EL PARTIDO ================== */}
 
-                  <div className="mt-5">
+                  <div className="mt-5 scroll-mt-20" id="viaje-partido">
                     <Panel
                       title="El partido"
                       subtitle="La cabecera que llevan las tres diapositivas y la hoja del horario"
@@ -793,7 +1001,9 @@ export default function DesplazamientoPage() {
                           />
 
                           <span className="mt-1 block text-[11px] leading-snug text-white/35">
-                            La que manda: al cambiarla, el día del partido se mueve solo.
+                            {delCalendario?.hora && delCalendario.hora === viaje.hora
+                              ? "La del calendario de BeSoccer. Al cambiarla, el día del partido se mueve solo."
+                              : "La que manda: al cambiarla, el día del partido se mueve solo."}
                           </span>
                         </label>
                       </div>
@@ -868,7 +1078,7 @@ export default function DesplazamientoPage() {
 
                   {/* ================== EL ESTADIO ================= */}
 
-                  <div className="mt-5">
+                  <div className="mt-5 scroll-mt-20" id="viaje-estadio">
                     <Panel
                       title="El estadio"
                       subtitle="Dónde se juega y cómo se llega: la diapositiva del campo"
@@ -939,6 +1149,21 @@ export default function DesplazamientoPage() {
                         />
                       </div>
 
+                      {/* La ruta abierta en Google Maps: de ahí salen la distancia, el tiempo y la captura (19/10/2026). */}
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <EnlaceRuta
+                          desde={viaje.origen || "Ciudad Real Madrid, Valdebebas"}
+                          hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad].filter(Boolean).join(", ")}
+                          rotulo={`Ruta ${viaje.origen || "Valdebebas"} · estadio en Google Maps`}
+                        />
+
+                        {viaje.estadio.enlace.trim() && /^https?:\/\//i.test(viaje.estadio.enlace.trim()) && (
+                          <a href={viaje.estadio.enlace.trim()} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-[#C8A96B] hover:underline">
+                            <Landmark size={12} /> Abrir el mapa del estadio
+                          </a>
+                        )}
+                      </div>
+
                       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
                         <CampoImagen
                           etiqueta="Plano del estadio"
@@ -962,7 +1187,7 @@ export default function DesplazamientoPage() {
                   {/* =================== EL HOTEL ================== */}
 
                   {viaje.conHotel && (
-                    <div className="mt-5">
+                    <div className="mt-5 scroll-mt-20" id="viaje-hotel">
                       <Panel
                         title="El hotel"
                         subtitle="Dónde se come y se descansa, y a cuánto queda del campo"
@@ -1021,6 +1246,14 @@ export default function DesplazamientoPage() {
                           />
                         </div>
 
+                        <div className="mt-2">
+                          <EnlaceRuta
+                            desde={viaje.hotel.direccion || viaje.hotel.nombre}
+                            hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad].filter(Boolean).join(", ")}
+                            rotulo="Ruta hotel · estadio en Google Maps"
+                          />
+                        </div>
+
                         <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
                           <CampoImagen
                             etiqueta="Foto del hotel"
@@ -1044,7 +1277,7 @@ export default function DesplazamientoPage() {
 
                   {/* =================== HORARIO =================== */}
 
-                  <div className="mt-5">
+                  <div className="mt-5 scroll-mt-20" id="viaje-horario">
                     {/*
                     | Con `key`: al cambiar de partido el editor empieza de
                     | cero. Sin ella, «Deshacer» guardaba los días del viaje
@@ -1061,7 +1294,7 @@ export default function DesplazamientoPage() {
 
                   {/* ==================== AVISOS ================== */}
 
-                  <div className="mt-5">
+                  <div className="mt-5 scroll-mt-20" id="viaje-avisos">
                     <Panel
                       title="No olvidar"
                       subtitle="La línea del pie de la hoja del horario. Uno por línea."
@@ -1084,7 +1317,7 @@ export default function DesplazamientoPage() {
 
                   {/* ================ VISTA PREVIA ================ */}
 
-                  <div className="mt-5">
+                  <div className="mt-5 scroll-mt-20" id="viaje-vista">
                     <Panel
                       title="Cómo va a quedar"
                       subtitle="Es el documento de verdad, a escala: lo que se ve aquí es exactamente lo que se exporta"
@@ -1139,20 +1372,6 @@ export default function DesplazamientoPage() {
                     <ExportaViaje viaje={viaje} />
                   </div>
 
-                  {viaje.estadio.enlace.trim() && (
-                    <p className="mt-4 text-xs text-white/35">
-                      <Link2 size={12} className="mr-1 inline" />
-                      Mapa del estadio:{" "}
-                      <a
-                        href={viaje.estadio.enlace}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[#C8A96B] underline underline-offset-2"
-                      >
-                        {viaje.estadio.enlace}
-                      </a>
-                    </p>
-                  )}
                 </>
               )
             )}

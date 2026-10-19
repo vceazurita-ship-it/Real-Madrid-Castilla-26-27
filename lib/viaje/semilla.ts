@@ -87,8 +87,12 @@ const TERUEL: Semilla = {
   | Por fecha o por fila de la hoja, no por nombre: el calendario dice
   | "Teruel" y el pptx "CD TERUEL", y contra el mismo rival se juega ida y
   | vuelta. La del 31/08/2026 es la ida, que es la que está montada.
+  |
+  | Sólo por fecha (19/10/2026): con «o RIV-01» la vuelta contra el Teruel
+  | (otra fecha, en casa) abría con la ida —31/08, fuera, su hotel— y el
+  | primer cambio lo guardaba. Y los RIV-XX de la hoja se renumeran.
   */
-  reconoce: (base) => base.fecha === "2026-08-31" || base.rivalId === "RIV-01",
+  reconoce: (base) => base.fecha === "2026-08-31",
 
   monta: (base) => {
     const citas = [

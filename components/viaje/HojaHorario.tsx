@@ -44,6 +44,7 @@ import {
   diaLargo,
   diaSiguienteCorto,
   ejeHorario,
+  esDiaDelPartido,
   esDiaSiguiente,
   rotuloDia,
   type Desplazamiento,
@@ -96,13 +97,22 @@ export function HojaHorario({
 }) {
   const { desde, hasta, citas } = dia;
 
-  const esDelPartido = dia.fecha === viaje.fecha;
+  const esDelPartido = esDiaDelPartido(dia, viaje);
 
   const avisos = viaje.avisos.filter((aviso) => aviso.trim());
 
   /* El recuadro de avisos cuelga del final de la columna, así que cuando lo
      hay la columna cede lo que ocupa: si no, se come el pie de la hoja. */
-  const columnaAlto = avisos.length ? COLUMNA_ALTO - 130 : COLUMNA_ALTO;
+  /*
+  | Y cede lo que de verdad ocupa (19/10/2026): con un hueco fijo, cuatro
+  | líneas de avisos pisaban el pie. Con mucho texto la letra baja a 18 y,
+  | pasadas cinco líneas, se corta.
+  */
+  const textoAvisos = avisos.join("  ·  ");
+  const cuerpoAvisos = textoAvisos.length > 260 ? 18 : 22;
+  const lineasAvisos = Math.min(5, Math.max(1, Math.ceil((textoAvisos.length * cuerpoAvisos * 0.5) / (HOJA_W - MARGEN * 2 - 50))));
+  const cajaAvisos = 57 + lineasAvisos * cuerpoAvisos * 1.35;
+  const columnaAlto = avisos.length ? COLUMNA_ALTO - 130 - Math.max(0, Math.ceil(cajaAvisos - 160)) : COLUMNA_ALTO;
 
   const { citas: colocadas, marcas } = ejeHorario(citas, {
     desde,
@@ -526,12 +536,16 @@ export function HojaHorario({
             style={{
               margin: "12px 0 0",
               color: C.navy,
-              fontSize: 22,
+              fontSize: cuerpoAvisos,
               fontWeight: 600,
               lineHeight: 1.35,
+              display: "-webkit-box",
+              WebkitLineClamp: 5,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
             }}
           >
-            {avisos.join("  ·  ")}
+            {textoAvisos}
           </p>
         </div>
       )}

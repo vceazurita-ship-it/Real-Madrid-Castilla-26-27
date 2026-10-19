@@ -15,7 +15,7 @@
  *   madrugada: se escribe «03:15» y no salta al amanecer del mismo día.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { aHora, aMinutos } from "@/lib/viaje/modelo";
 
@@ -50,7 +50,17 @@ export function EntradaHora({
   /* La madrugada se queda en la madrugada. */
   const base = minuto !== null && minuto >= 1440 ? 1440 : 0;
 
+  /* Escape cancela: el `blur` que le sigue llega con el borrador aún escrito (el `setBorrador(null)` no ha corrido). */
+  const cancelado = useRef(false);
+
   const confirma = () => {
+    if (cancelado.current) {
+      cancelado.current = false;
+      setBorrador(null);
+
+      return;
+    }
+
     if (borrador === null) return;
 
     const texto = borrador.trim();
@@ -68,7 +78,8 @@ export function EntradaHora({
     /* Lo que no se entiende no borra lo que había. */
     if (leido === null) return;
 
-    const nuevo = leido >= 1440 ? leido : leido + base;
+    /* Sólo la madrugada sigue en la madrugada: «23:45» en una cita de las 03:15 son las 23:45 de ese día, no las del siguiente. */
+    const nuevo = leido >= 1440 || leido >= 12 * 60 ? leido : leido + base;
 
     if (nuevo !== minuto) onCambia(nuevo);
   };
@@ -92,6 +103,7 @@ export function EntradaHora({
         }
 
         if (evento.key === "Escape") {
+          cancelado.current = true;
           setBorrador(null);
           evento.currentTarget.blur();
 

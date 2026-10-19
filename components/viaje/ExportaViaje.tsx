@@ -250,8 +250,8 @@ export function ExportaViaje({ viaje }: { viaje: Desplazamiento }) {
         <Button
           icon={Printer}
           onClick={() => setFormato("horario")}
-          disabled={ocupado}
-          title={`${viaje.dias.length} ${
+          disabled={ocupado || viaje.dias.length === 0}
+          title={viaje.dias.length === 0 ? "El viaje no tiene ningún día: añade uno en el horario" : `${viaje.dias.length} ${
             viaje.dias.length === 1 ? "hoja" : "hojas"
           } de horario en A4 vertical, una por día del viaje, listas para imprimir`}
         >
