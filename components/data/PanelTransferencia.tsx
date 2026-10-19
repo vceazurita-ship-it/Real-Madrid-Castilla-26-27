@@ -148,7 +148,9 @@ export function PanelTransferencia({
           {conPartido.length === 0 ? (
             <p className="py-6 text-center text-[12px] text-white/40">
               Ninguna semana de la hoja se ha podido atar a un informe de
-              partido de {temporada}.
+              partido de {temporada}. Se atan por el rival escrito en cada
+              tarea: comprueba que las tareas de Microciclos llevan el rival y
+              que el informe de Wyscout de ese partido está en la carpeta.
             </p>
           ) : (
             <div className="space-y-2.5">
@@ -182,7 +184,8 @@ export function PanelTransferencia({
             />
           ) : (
             <p className="py-8 text-center text-[12px] text-white/35">
-              Sin minutos registrados.
+              Ninguna tarea de la hoja tiene minutos y fase de juego. Se
+              rellenan en Microciclos.
             </p>
           )}
 
@@ -199,6 +202,15 @@ export function PanelTransferencia({
         >
           <CargasPorFase semanas={semanas} />
 
+          {/* 19/10/2026: las cifras no tenían unidad ni se decía que cada
+              carga va en su propia escala. */}
+          <p className="mt-3 text-[11px] leading-relaxed text-white/45">
+            La cifra es la carga acumulada: minutos de cada tarea por su nota de
+            carga, sumados. Cada tipo va en su escala: la barra más larga es la
+            fase que más carga de ese tipo, así que física y cognitiva no se
+            comparan entre sí.
+          </p>
+
           <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
             La carga se pondera por los minutos de cada tarea: una tarea corta
             muy intensa no pesa lo mismo que media hora suave.
@@ -210,7 +222,7 @@ export function PanelTransferencia({
       <div className="mt-5">
         <Panel
           title="Semana a semana"
-          subtitle="Lo entrenado de cada fase y cómo salió esa fase en el partido de esa semana"
+          subtitle="Minutos entrenados de cada fase y, al lado, cómo salió esa fase en el partido de esa semana frente a la mediana de la categoría (verde, por encima; naranja, por debajo). Las semanas en gris aún no tienen informe del partido."
           icon={Flame}
         >
           <div className="overflow-x-auto">
@@ -300,9 +312,12 @@ function FilaAviso({ aviso }: { aviso: Aviso }) {
         : { color: ORO, Icono: AlertTriangle, rotulo: "Falla y no se entrena" };
 
   return (
+    /* 19/10/2026: `${color}44` pegado a ORO —que es `var(--rmcf-gold-ink)`—
+       daba un color inválido y el aviso ámbar salía sin borde ni fondo.
+       Con `color-mix` vale para un hex y para una variable. */
     <div
       className="rounded-xl border bg-white/[0.02] px-3.5 py-3"
-      style={{ borderColor: `${tono.color}44` }}
+      style={{ borderColor: `color-mix(in srgb, ${tono.color} 27%, transparent)` }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <span className="flex items-center gap-2">
@@ -314,7 +329,7 @@ function FilaAviso({ aviso }: { aviso: Aviso }) {
 
           <span
             className="rounded-full px-2 py-0.5 text-[10px] uppercase tracking-[0.14em]"
-            style={{ background: `${tono.color}1f`, color: tono.color }}
+            style={{ background: `color-mix(in srgb, ${tono.color} 12%, transparent)`, color: tono.color }}
           >
             {tono.rotulo}
           </span>
@@ -485,17 +500,31 @@ function mismoJugador(deWyscout: string, deLaHoja: string) {
 function TrabajoIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
   const [seguimientos, setSeguimientos] = useState<FilaSeguimiento[] | null>(null);
 
+  /*
+  | 19/10/2026: si la hoja no se podía leer, se tomaba como «nadie tiene
+  | seguimientos» y la lectura acusaba a toda la plantilla de jugar sin
+  | ninguno. Un fallo de lectura no es un dato: se dice y no se juzga a nadie.
+  */
+  const [sinHoja, setSinHoja] = useState(false);
+
   useEffect(() => {
     let vivo = true;
 
     traeJson<unknown>("/api/rivals?action=seguimiento")
       .then((datos) => {
-        if (vivo) {
-          setSeguimientos(Array.isArray(datos) ? (datos as FilaSeguimiento[]) : []);
+        if (!vivo) return;
+
+        if (Array.isArray(datos)) setSeguimientos(datos as FilaSeguimiento[]);
+        else {
+          setSinHoja(true);
+          setSeguimientos([]);
         }
       })
       .catch(() => {
-        if (vivo) setSeguimientos([]);
+        if (!vivo) return;
+
+        setSinHoja(true);
+        setSeguimientos([]);
       });
 
     return () => {
@@ -558,9 +587,11 @@ function TrabajoIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
   const partidos = Math.max(...filas.map((f) => f.jugador.partidos), 1);
 
   /* Los tres casos que interesa que salten a la vista. */
-  const sinSeguimiento = filas.filter(
-    (f) => f.seguimientos === 0 && f.jugador.minutos >= partidos * 90 * 0.5,
-  );
+  const sinSeguimiento = sinHoja
+    ? []
+    : filas.filter(
+        (f) => f.seguimientos === 0 && f.jugador.minutos >= partidos * 90 * 0.5,
+      );
 
   const sinSubir = filas.filter(
     (f) => f.seguimientos >= 3 && f.salto !== null && f.salto < -3,
@@ -577,14 +608,29 @@ function TrabajoIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
         subtitle="Seguimientos escritos, minutos jugados y evolución contra la categoría"
         icon={Users}
       >
+        {sinHoja && (
+          <p className="mb-3 text-[12px] text-amber-300/80">
+            No se ha podido leer la hoja de seguimiento: la columna de
+            seguimientos sale vacía. Vuelve a entrar en un rato; si sigue igual,
+            mira si se abre en Dashboard Seguimiento.
+          </p>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full min-w-[660px] text-sm">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-[0.16em] text-white/40">
                 <th className="pb-2 pr-3 font-medium">Jugador</th>
                 <th className="pb-2 pr-3 font-medium">Minutos</th>
-                <th className="pb-2 pr-3 text-right font-medium">Seguimientos</th>
-                <th className="pb-2 text-right font-medium">Evolución</th>
+                <th className="pb-2 pr-3 text-right font-medium" title="Seguimientos individuales escritos en la hoja esta temporada">
+                  Seguimientos
+                </th>
+                <th
+                  className="pb-2 text-right font-medium"
+                  title="Cuánto ha subido (+) o bajado (−) su percentil medio frente a los de su puesto en la categoría, del año pasado a éste"
+                >
+                  Evolución
+                </th>
               </tr>
             </thead>
 
@@ -613,9 +659,9 @@ function TrabajoIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
 
                   <td
                     className="py-2 pr-3 text-right tabular-nums"
-                    style={{ color: f.seguimientos === 0 ? PEOR : tinta(0.6) }}
+                    style={{ color: f.seguimientos === 0 && !sinHoja ? PEOR : tinta(0.6) }}
                   >
-                    {f.seguimientos}
+                    {sinHoja ? "—" : f.seguimientos}
                   </td>
 
                   <td className="py-2 text-right tabular-nums">
@@ -628,7 +674,7 @@ function TrabajoIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
                     ) : (
                       <span style={{ color: f.salto >= 0 ? MEJOR : PEOR }}>
                         {f.salto >= 0 ? "+" : ""}
-                        {f.salto.toFixed(0)} de percentil
+                        {f.salto.toFixed(0)} puntos de percentil
                       </span>
                     )}
                   </td>
@@ -638,14 +684,14 @@ function TrabajoIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
           </table>
         </div>
 
-        <Lectura>
+        {!sinHoja && <Lectura>
           {lecturaDelTrabajo(
             filas.length,
             sinSeguimiento.map((f) => f.jugador.jugador),
             sinSubir.map((f) => f.jugador.jugador),
             subiendo.map((f) => f.jugador.jugador),
           )}
-        </Lectura>
+        </Lectura>}
 
         <Explicativo><p className="mt-3 text-[11px] leading-relaxed text-white/40">
           La evolución es el salto medio de percentil contra su puesto en la

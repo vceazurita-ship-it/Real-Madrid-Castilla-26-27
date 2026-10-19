@@ -245,7 +245,10 @@ export function PanelDestacados({
           <div className="mt-5">
             <Panel
               title="Los equipos más destacados"
-              subtitle="Su aspecto más marcado, de mayor a menor. Pulsa uno para abrirlo."
+              /* 19/10/2026: «+25 pts» no se explicaba si los textos
+                 explicativos estaban apagados (el aviso de arriba va con
+                 ellos). La clave de lectura va siempre en el subtítulo. */
+              subtitle={`Su aspecto más marcado, de mayor a menor. «+25 pts» es estar 25 puntos de percentil por encima de la mediana de los ${equipos.length} equipos (verde, por arriba; naranja, por abajo). Pulsa uno para abrirlo.`}
               icon={Award}
               analisis={
                 <Lectura>{lecturaDelRanking(ranking, equipos.length, aspectos.length)}</Lectura>
@@ -322,7 +325,7 @@ export function PanelDestacados({
                 <Panel
                   key={a.key}
                   title={a.label}
-                  subtitle={`${a.explica}. La cifra es el percentil medio del aspecto.`}
+                  subtitle={`${a.explica}. La cifra es el percentil medio del aspecto, de 0 a 100: 50 es la mediana de la categoría y más es más arriba.`}
                   icon={Award}
                 >
                   <BarrasEquipos
@@ -452,12 +455,17 @@ function FilaEquipoDestacado({
       </span>
 
       <span
-        className={`w-36 shrink-0 truncate text-[12px] ${
+        className={`w-28 shrink-0 text-[12px] sm:w-36 ${
           nuestro ? "font-semibold" : "text-white/60"
         }`}
         style={nuestro ? { color: ORO } : undefined}
       >
-        {equipo}
+        <span className="block truncate">{equipo}</span>
+        {/* En el móvil la columna del aspecto no cabe y se escondía sin más:
+            ahora va debajo del nombre (19/10/2026). */}
+        <span className="block truncate text-[10px] font-normal text-white/40 sm:hidden">
+          {destacado.aspecto.label}
+        </span>
       </span>
 
       <span className="hidden w-40 shrink-0 truncate text-[11px] text-white/45 sm:block">
@@ -550,6 +558,7 @@ function BloqueAspecto({ destacado }: { destacado: DestacadoEquipo }) {
               <span
                 className="ml-2 text-[11px]"
                 style={{ color: f.percentil >= 50 ? MEJOR : PEOR }}
+                title={`Percentil ${f.percentil}: por delante del ${f.percentil} % de los equipos de la categoría`}
               >
                 p{f.percentil}
               </span>
@@ -574,9 +583,11 @@ function FichaJugador({
   return (
     <div
       className="min-w-0 rounded-xl border px-3 py-2.5"
+      /* 19/10/2026: el borde y el fondo eran blanco fijo —invisibles en modo
+         día—; ahora van en la tinta del tema. */
       style={{
-        borderColor: nuestro ? "rgb(200 169 107 / .35)" : "rgb(255 255 255 / .1)",
-        background: nuestro ? "rgb(200 169 107 / .07)" : "rgb(255 255 255 / .02)",
+        borderColor: nuestro ? "rgb(200 169 107 / .35)" : "rgb(var(--rmcf-ink-rgb) / .1)",
+        background: nuestro ? "rgb(200 169 107 / .07)" : "rgb(var(--rmcf-ink-rgb) / .02)",
       }}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -589,7 +600,7 @@ function FichaJugador({
 
         <p className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-white/35">
           {PUESTOS.find((p) => p.key === destacado.puesto)?.corto} ·{" "}
-          {Math.round(destacado.cuotaMinutos * 100)} % min
+          {Math.round(destacado.cuotaMinutos * 100)} % de los min.
         </p>
       </div>
 
@@ -611,7 +622,11 @@ function FichaJugador({
             <span className="shrink-0 text-[12px] tabular-nums text-white/85">
               {formatea(f.valor, f.metrica.unidad)}
 
-              <span className="ml-2 text-[11px]" style={{ color: MEJOR }}>
+              <span
+                className="ml-2 text-[11px]"
+                style={{ color: MEJOR }}
+                title={`Percentil ${f.percentil}: mejor que el ${f.percentil} % de los de su puesto en la categoría`}
+              >
                 p{f.percentil}
               </span>
             </span>
@@ -683,7 +698,7 @@ function lecturaDeJugadores(
   deQuien: string,
 ) {
   if (visibles.length === 0) {
-    return "Con estos filtros no queda nadie: o no hay jugadores con bastantes minutos o ninguno destaca por encima del percentil 80 entre los de su puesto.";
+    return `Con estos filtros no queda nadie: o no hay jugadores con bastantes minutos o ninguno destaca por encima del percentil ${PERCENTIL_DESTACA} entre los de su puesto.`;
   }
 
   const primero = visibles[0];

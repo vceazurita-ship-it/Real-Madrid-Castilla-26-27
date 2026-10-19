@@ -912,10 +912,34 @@ export function PanelOnce({
               }
             />
           ) : rejilla.bloques.length === 0 ? (
-            <p className="px-1 py-10 text-center text-xs text-white/35">
-              No hay datos de esta fuente para el once elegido.
+            /* 19/10/2026: el vacío dice qué hacer, no sólo que está vacío. */
+            <p className="px-1 py-10 text-center text-xs leading-relaxed text-white/35">
+              No hay datos de {FUENTES.find((una) => una.key === fuente)?.label ?? "esta fuente"} para
+              el once elegido.{" "}
+              {fuente === "opta"
+                ? "Opta sólo trae los partidos que tienen log de eventos: elige uno de ésos o cambia a Wyscout."
+                : fuente === "nuestra"
+                  ? "Ningún partido elegido está valorado todavía (Competición → Valoraciones de Partido): elige otro o cambia a Wyscout."
+                  : "Elige jugadores en «El once» o cambia de fuente."}
             </p>
           ) : (
+            <>
+            {/*
+              CÓMO SE LEE LA REJILLA (19/10/2026). El color y la barra no
+              querían decir lo mismo en las tres fuentes y no se decía en
+              ningún sitio fuera de los textos explicativos.
+            */}
+            <p className="mb-3 text-[11px] leading-relaxed text-white/50">
+              {fuente === "wyscout"
+                ? `La barra es el percentil contra ${(AMBITOS.find((uno) => uno.key === ambito)?.label ?? "su puesto").toLowerCase()}, cada uno contra los de su puesto: llena, el mejor. En el peso en el equipo, la barra es su parte del total contra la columna que más se lleva.`
+                : fuente === "nuestra"
+                  ? "La barra es la nota del cuerpo técnico sobre 10."
+                  : "La barra compara con la columna que más tiene en esa fila: no es una nota, es quién carga con más."}{" "}
+              <span style={{ color: MEJOR }}>Verde</span>, tercio alto;{" "}
+              <span style={{ color: PEOR }}>naranja</span>, tercio bajo;{" "}
+              <span style={{ color: ORO }}>oro</span>, en medio o métricas sin mejor ni peor.
+              Pasa el ratón por una fila para ver qué mide y por una casilla para su detalle.
+            </p>
             <div className="min-w-0 overflow-x-auto">
               <table
                 className="w-full text-[12px]"
@@ -955,6 +979,7 @@ export function PanelOnce({
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
       </div>
