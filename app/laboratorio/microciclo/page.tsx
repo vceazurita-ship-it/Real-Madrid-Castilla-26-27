@@ -1335,13 +1335,28 @@ export default function EditorMicrocicloPage() {
         }),
       });
 
-      const datos = (await respuesta.json()) as {
+      /*
+      | Sin respuesta legible NO es «no se ha escrito» (19/10/2026).
+      |
+      | El Apps Script tarda de 30 a 70 s en frío y, si Vercel corta antes,
+      | llega una página de error en vez de JSON: el aviso decía «Unexpected
+      | token…» y lo natural era volver a pulsar, que con un micro nuevo
+      | escribía sus filas otra vez, duplicadas. Se dice lo que de verdad se
+      | sabe: que hay que mirar la hoja antes de repetir.
+      */
+      const datos = (await respuesta.json().catch(() => null)) as {
         ok?: boolean;
         error?: string;
         escritas?: number;
         borradas?: number;
         filas?: unknown[];
-      };
+      } | null;
+
+      if (!datos) {
+        throw new Error(
+          `La hoja no ha contestado a tiempo (HTTP ${respuesta.status}) y puede que sí haya escrito. Antes de volver a pulsar, mira en la hoja si ya están las filas del microciclo ${micro.micro}: repetir las duplicaría.`,
+        );
+      }
 
       if (!respuesta.ok || !datos.ok) throw new Error(datos.error ?? `HTTP ${respuesta.status}`);
 
@@ -1968,7 +1983,9 @@ export default function EditorMicrocicloPage() {
                         onClick={() => void guarda()}
                         title={
                           listo
-                            ? "Añade las filas al final de la pestaña"
+                            ? editando !== null || (yaEnLaHoja && reemplazar)
+                              ? `Sustituye las filas del microciclo ${micro.micro} en su sitio`
+                              : "Añade las filas al final de la pestaña"
                             : (problemas[0] ??
                               "Marca «rehacerlo» para sustituir lo que ya hay")
                         }

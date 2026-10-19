@@ -56,7 +56,13 @@ export default function EscudosPage() {
   */
   const [testigo, setTestigo] = useState(0);
 
-  const pideLista = useCallback(() => setTestigo((n) => n + 1), []);
+  /* Con «Pidiendo…» a la vista: antes el botón no daba ninguna señal y la
+     lista vieja se quedaba igual hasta que llegase la nueva (19/10/2026). */
+  const pideLista = useCallback(() => {
+    setEstado("cargando");
+    setAviso(null);
+    setTestigo((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     let cancelado = false;
@@ -64,6 +70,11 @@ export default function EscudosPage() {
     (async () => {
       try {
         const respuesta = await fetch("/api/data-analisis?escudos=1");
+
+        /* Un 500 con cuerpo de error se leía como «lista vacía» y mandaba a
+           bajar un documento que a lo mejor ya estaba bajado. */
+        if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
+
         const datos = await respuesta.json();
 
         const lista = sinRepetidos(
@@ -152,7 +163,10 @@ export default function EscudosPage() {
             <AbpHeader
               area="RMCF Castilla · En obras"
               title="Escudos de la liga"
-              lead="Los escudos del grupo en un .pptx, cada uno como un objeto suelto con su PNG transparente: se copia y se pega donde haga falta."
+              /* Desde el 13/10/2026 la lista trae los dos grupos de la
+                 categoría (`escudos:categoria`), no sólo el nuestro: el
+                 rótulo lo dice para que nadie busque «los veinte». */
+              lead="Los escudos de la categoría —nuestro grupo y el otro— en un .pptx, cada uno como un objeto suelto con su PNG transparente: se copia y se pega donde haga falta."
               aside={
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
                   <HardHat size={12} />
@@ -179,10 +193,10 @@ export default function EscudosPage() {
               <button
                 type="button"
                 onClick={pideLista}
-                disabled={haciendo !== null}
+                disabled={haciendo !== null || estado === "cargando"}
                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white/70 transition hover:border-white/20 disabled:opacity-40"
               >
-                <RefreshCw size={16} />
+                <RefreshCw size={16} className={estado === "cargando" ? "animate-spin" : undefined} />
                 Volver a pedir la lista
               </button>
 
