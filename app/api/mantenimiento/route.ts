@@ -67,8 +67,10 @@ export async function POST(request: NextRequest) {
   }
 
   /* Los botones de Ajustes, sólo el administrador (02/10/2026). La carpeta
-     del rival la pide cualquiera del cuerpo técnico desde ABP/Área del Rival. */
-  if (tarea !== "carpeta" && !admin) {
+     del rival la pide cualquiera del cuerpo técnico desde ABP/Área del Rival,
+     y el análisis de un entrenamiento también desde el 19/10/2026, cuando la
+     pantalla salió de obras y se abrió al cuerpo técnico. */
+  if (tarea !== "carpeta" && tarea !== "entreno" && !admin) {
     return NextResponse.json(
       { ok: false, error: "Sólo el administrador puede pedir esto. Entra en Ajustes con su usuario." },
       { status: 403 },
@@ -96,7 +98,7 @@ export async function POST(request: NextRequest) {
     datos = { ruta, equipo, ...(jornada ? { jornada } : {}) };
   }
 
-  /* El entrenamiento a analizar (16/10/2026; sólo el administrador, ya lo exige lo de arriba). */
+  /* El entrenamiento a analizar (16/10/2026; administrador o cuerpo técnico, desde el 19/10/2026). */
   let datosEntreno: { fecha: string } | undefined;
 
   if (tarea === "entreno") {
