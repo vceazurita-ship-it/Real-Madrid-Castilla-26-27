@@ -2005,14 +2005,15 @@ export default function EditorMicrocicloPage() {
                     </Notice>
                   ) : (
                     <p className="text-[12px] leading-relaxed text-white/45">
-                      {editando !== null
+                      {/* Con «rehacerlo» marcado también se reescribe en su
+                          sitio (`registroGuardar` del .gs, con `reemplazar`),
+                          como ya dice el `title` del botón: este párrafo
+                          decía «al final de la pestaña» (19/10/2026). */}
+                      {editando !== null || (yaEnLaHoja && reemplazar)
                         ? `Se sustituyen las filas del microciclo ${micro.micro} por estas ${filas.length}, en el mismo sitio de la pestaña, heredando las fórmulas de carga y las listas desplegables.`
                         : `Se añaden ${filas.length} filas al final de la pestaña, clonando la última para heredar las fórmulas de carga y las listas desplegables.`}
                       {enBlanco > 0
                         ? ` ${enBlanco} tarea(s) en blanco —sin tipo, contenido ni tiempo— no se escriben.`
-                        : ""}
-                      {yaEnLaHoja && reemplazar && editando === null
-                        ? ` Antes se borran las del microciclo ${micro.micro} que ya estaban.`
                         : ""}
                     </p>
                   )}

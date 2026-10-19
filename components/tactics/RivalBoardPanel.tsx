@@ -14,7 +14,11 @@ import type { TacticsDoc } from "@/lib/tactics/types";
 function teamKey(equipo: string) {
   return equipo
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    /* Con los escapes, no con los acentos sueltos pegados (19/10/2026): la
+       revisión los había convertido en caracteres invisibles. Hacían lo mismo,
+       pero un editor que los normalice cambiaría la clave del documento y
+       las pizarras de ese rival saldrían vacías. */
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "");
