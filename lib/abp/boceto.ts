@@ -38,6 +38,7 @@
  */
 
 import { objetivoDeLaSemana } from "@/lib/abp/informe-micro";
+import { MARCA_BOCETO } from "@/lib/abp/minutos";
 import {
   ASPECTO_BY_KEY,
   DIA_KEYS,
@@ -83,8 +84,12 @@ const PASO_MINUTOS = 5;
 
 const MINIMO_TAREA = 10;
 
-/** La marca que deja el boceto en sus tareas, para poder rehacerlo sin duplicar. */
-export const MARCA_BOCETO = "Boceto ·";
+/**
+ * La marca que deja el boceto en sus tareas, para poder rehacerlo sin duplicar.
+ * Vive en `lib/abp/minutos.ts` desde el 19/10/2026: ahí se decide si una tarea
+ * del boceto suma minutos o sigue siendo una propuesta.
+ */
+export { MARCA_BOCETO };
 
 export function esDelBoceto(trabajo: Trabajo) {
   return (trabajo.notas || "").startsWith(MARCA_BOCETO);

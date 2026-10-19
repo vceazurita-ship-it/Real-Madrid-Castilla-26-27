@@ -1178,6 +1178,17 @@ export default function AbpMicrocicloPage() {
     minutosPorAspecto: [...minutosMicro.entries()].map(
       ([clave, minutos]) => ({ clave, minutos }),
     ),
+    /*
+    | Con qué rehacer el cruce dentro del informe (19/10/2026): el de esta
+    | pantalla mete los amistosos de julio y las propuestas del boceto, y el
+    | informe habla de competición y de los minutos que cuentan (`minutosAbp`).
+    */
+    cruce: {
+      events: competicion?.events ?? [],
+      partidos,
+      minutosTemporada,
+      trabajoPrevio,
+    },
   };
 
   /* Incrustada: el micro pedido no existe, o la hoja no ha cargado. */

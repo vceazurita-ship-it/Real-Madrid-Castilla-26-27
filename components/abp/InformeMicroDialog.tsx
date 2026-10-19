@@ -658,8 +658,10 @@ export function InformeMicroDialog({
       propio,
       modo,
       accionesPartido,
+      /* El cruce, con las mismas acciones que el resto del informe (19/10/2026). */
+      conPretemporada,
     }),
-    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido],
+    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido, conPretemporada],
   );
 
   const borrador = useMemo(() => construyeInforme(base), [base]);

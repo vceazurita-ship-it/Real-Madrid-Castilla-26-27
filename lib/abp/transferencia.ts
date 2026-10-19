@@ -425,6 +425,96 @@ export function ordenaPorUrgencia(filas: FilaCruce[]) {
     .sort((a, b) => (b.urgencia ?? 0) - (a.urgencia ?? 0));
 }
 
+/* ------------------------------------------------------------------ */
+/*  LAS PRIORIDADES DEL INFORME                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Pesos de las prioridades del informe (19/10/2026). Como `PESOS`, se declaran
+ * aquí para poder discutirlos.
+ */
+export const PESOS_INFORME = {
+  /** Lo que está en juego: acciones con peligro y goles (ver `enJuego`). */
+  enJuego: 0.5,
+  /** Cómo de mal nos va frente a su familia (el `deficit` de la urgencia). */
+  deficit: 0.3,
+  /** Cuán poco se ha trabajado en la temporada. */
+  desatencion: 0.2,
+};
+
+/** Por debajo de esto, un aspecto no entra en las prioridades: es ruido. */
+export const MINIMO_ACCIONES_PRIORIDAD = 5;
+
+export type Prioridad = {
+  fila: FilaCruce;
+  /** 0-100, sólo para ordenar: no se enseña como «urgencia». */
+  peso: number;
+  /** Los saques de banda van aparte: no acaban en remate. */
+  esBanda: boolean;
+};
+
+/**
+ * Lo que está en juego en un aspecto, en «acciones con peligro».
+ *
+ * - **Defendiendo**: las acciones con peligro que nos han hecho, y cada gol
+ *   cuenta otra vez (un gol también es peligro). Es el daño de verdad.
+ * - **Atacando**: el peligro que nos falta para rendir como su familia,
+ *   multiplicado por las veces que ocurre. Un aspecto que ya rinde no tiene
+ *   nada en juego por mucho que se repita.
+ */
+function enJuego(fila: FilaCruce) {
+  if (fila.lado === "defensivo") return fila.stats.peligro + fila.stats.goles;
+
+  const falta = Math.max(0, fila.referencia - fila.peligroAjustado) / 100;
+
+  return fila.stats.acciones * falta;
+}
+
+/**
+ * LAS PRIORIDADES DEL INFORME DE ABP (19/10/2026, crítica de los expertos).
+ *
+ * La urgencia de la pantalla premia el volumen, y las cinco primeras eran
+ * siempre saques de banda (149-156 acciones, 0 remates, 2-7 % de peligro)
+ * mientras el córner directo defensivo —15 % de peligro y 2 goles en contra—
+ * no salía. Aquí se repesa con lo que de verdad hace daño (`enJuego`: acciones
+ * con peligro y goles), se deja fuera lo que tiene menos de
+ * `MINIMO_ACCIONES_PRIORIDAD` acciones y **los saques de banda van aparte**:
+ * como mucho `banda` de ellos, detrás del balón parado que acaba en remate
+ * (córner, falta, penalti).
+ *
+ * La urgencia de siempre no se toca: la sigue usando la pantalla y el boceto.
+ */
+export function prioridadesAbp(
+  filas: FilaCruce[],
+  opciones: { conRemate?: number; banda?: number } = {},
+): Prioridad[] {
+  const conRemate = opciones.conRemate ?? 4;
+  const banda = opciones.banda ?? 1;
+
+  const candidatas = filas.filter(
+    (fila) => fila.aspecto.reconocimiento && fila.urgencia !== null && fila.stats.acciones >= MINIMO_ACCIONES_PRIORIDAD,
+  );
+
+  const maximo = Math.max(1e-9, ...candidatas.map(enJuego));
+
+  const pesadas = candidatas
+    .map((fila) => ({
+      fila,
+      esBanda: fila.aspecto.grupo === "banda",
+      peso:
+        100 *
+        (PESOS_INFORME.enJuego * (enJuego(fila) / maximo) +
+          PESOS_INFORME.deficit * fila.ingredientes.deficit +
+          PESOS_INFORME.desatencion * fila.ingredientes.desatencion),
+    }))
+    .sort((a, b) => b.peso - a.peso);
+
+  return [
+    ...pesadas.filter((una) => !una.esBanda).slice(0, conRemate),
+    ...pesadas.filter((una) => una.esBanda).slice(0, banda),
+  ];
+}
+
 /** Color del semáforo de urgencia. */
 export function colorUrgencia(urgencia: number) {
   if (urgencia >= 65) return "#F87171";
