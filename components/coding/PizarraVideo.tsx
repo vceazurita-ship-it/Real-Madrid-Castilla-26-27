@@ -1176,6 +1176,7 @@ function EditorPizarra({
         <button
           type="button"
           title="Deshacer (Ctrl+Z)"
+          aria-label="Deshacer el último trazo"
           onClick={deshace}
           className="rounded-lg p-1 text-white/50 transition hover:bg-white/10 hover:text-white"
         >
@@ -1185,6 +1186,7 @@ function EditorPizarra({
         <button
           type="button"
           title="Guardar la pizarra como imagen"
+          aria-label="Guardar la pizarra como imagen"
           onClick={exportaPng}
           className="rounded-lg p-1 text-white/50 transition hover:bg-white/10 hover:text-white"
         >
@@ -1194,6 +1196,7 @@ function EditorPizarra({
         <button
           type="button"
           title="Pantalla completa"
+          aria-label="Pantalla completa"
           onClick={pantallaCompleta}
           className="rounded-lg p-1 text-white/50 transition hover:bg-white/10 hover:text-white"
         >
@@ -1202,7 +1205,8 @@ function EditorPizarra({
 
         <button
           type="button"
-          title="Vaciar la pizarra"
+          title="Quitar todos los dibujos (se puede deshacer)"
+          aria-label="Quitar todos los dibujos"
           onClick={vacia}
           className="rounded-lg p-1 text-white/50 transition hover:bg-white/10 hover:text-red-300"
         >
@@ -1510,7 +1514,8 @@ function EditorPizarra({
                 type="button"
                 onClick={duplicaElegido}
                 disabled={!elegido}
-                title="Duplicar"
+                title="Duplicar el dibujo elegido"
+                aria-label="Duplicar el dibujo elegido"
                 className="rounded-lg p-1 text-white/45 transition hover:text-white disabled:opacity-30"
               >
                 <Copy size={14} />
@@ -1521,6 +1526,7 @@ function EditorPizarra({
                 onClick={borraElegido}
                 disabled={!elegido}
                 title="Borrar el dibujo (Supr)"
+                aria-label="Borrar el dibujo elegido"
                 className="rounded-lg p-1 text-white/45 transition hover:text-red-300 disabled:opacity-30"
               >
                 <Trash2 size={14} />
@@ -1532,6 +1538,7 @@ function EditorPizarra({
                   alBorrar(local.id);
                   alSalir();
                 }}
+                title="Borrar la pizarra entera (el aviso trae «Deshacer»)"
                 className="rounded-lg border border-red-400/25 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-red-300/80 transition hover:border-red-400/60"
               >
                 Borrar pizarra
@@ -1838,12 +1845,32 @@ export function FilaPizarra({
             {nombre}
           </span>
 
-          <span className="shrink-0 text-[10px] text-white/35">
-            {escena.dibujos.length} · {Math.round(escena.duracionMs / 1000)}s
+          {/*
+          | Con palabras (19/10/2026): «3 · 4s · ❄ 3s» había que saber leerlo.
+          | El título lo cuenta entero para quien pase el ratón.
+          */}
+          <span
+            className="shrink-0 text-[10px] text-white/35"
+            title={`${escena.dibujos.length} ${
+              escena.dibujos.length === 1 ? "dibujo" : "dibujos"
+            } · se ve ${Math.round(escena.duracionMs / 1000)} s${
+              escena.congelada
+                ? escena.pausaMs > 0
+                  ? ` · el vídeo se para ${Math.round(escena.pausaMs / 1000)} s y sigue solo`
+                  : " · el vídeo se queda parado hasta darle al play"
+                : ""
+            }`}
+          >
+            {escena.dibujos.length === 0
+              ? "vacía"
+              : `${escena.dibujos.length} ${
+                  escena.dibujos.length === 1 ? "dibujo" : "dibujos"
+                }`}{" "}
+            · {Math.round(escena.duracionMs / 1000)} s
             {escena.congelada
               ? escena.pausaMs > 0
-                ? ` · ❄ ${Math.round(escena.pausaMs / 1000)}s`
-                : " · ❄"
+                ? ` · ❄ para ${Math.round(escena.pausaMs / 1000)} s`
+                : " · ❄ parada"
               : ""}
           </span>
         </button>

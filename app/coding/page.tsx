@@ -1100,6 +1100,26 @@ function Coding() {
   const [pizarraEditando, setPizarraEditando] = useState<string | null>(null);
 
   /*
+  | Cambiar de pizarra en edición —o salir de ella— recoge la que se deja si
+  | se ha quedado vacía (19/10/2026). Abrir «Pizarra» para mirar y salir sin
+  | pintar dejaba una escena sin dibujos que, congelada de partida, paraba el
+  | vídeo en ese minuto sin enseñar nada. La comprobación va dentro de la
+  | sesión: una pizarra con dibujos no se borra por aquí nunca.
+  */
+  const { borraEscenaSiVacia } = sesion;
+
+  const cambiaPizarraEditando = useCallback(
+    (siguiente: string | null) => {
+      if (pizarraEditando && pizarraEditando !== siguiente) {
+        borraEscenaSiVacia(pizarraEditando);
+      }
+
+      setPizarraEditando(siguiente);
+    },
+    [borraEscenaSiVacia, pizarraEditando],
+  );
+
+  /*
   | La hoja para elegir jugador y categoría con el dedo.
   |
   | Los paneles de la derecha caen debajo del vídeo en un móvil, así que
@@ -1396,6 +1416,27 @@ function Coding() {
     [videosSesion],
   );
 
+  /*
+  | El último corte MARCADO, para «Ver el último» (19/10/2026).
+  |
+  | Es el de número más alto —la lista va en orden de vídeo, no de
+  | creación—, pero sin contar los «Vídeo completo»: antes se cogía el más
+  | alto y, si era uno de ésos, el botón desaparecía aunque hubiera cortes
+  | marcados; pasaba en cuanto se añadía otro vídeo a la sesión.
+  */
+  const ultimoMarcado = useMemo(
+    () =>
+      clips.reduce<ClipCoding | null>(
+        (mayor, uno) =>
+          uno.jugadorId !== SUJETO_VIDEO_COMPLETO.id &&
+          (!mayor || uno.numero > mayor.numero)
+            ? uno
+            : mayor,
+        null,
+      ),
+    [clips],
+  );
+
   /* ¿Sigue la lista en el orden en el que ocurrió el partido? */
   const ordenDePartido = useMemo(() => enOrdenDePartido(clips), [clips]);
 
@@ -1535,8 +1576,9 @@ function Coding() {
     | imagen vuelve a estar limpia para buscar la jugada siguiente sin tener
     | que apagar nada a mano.
     */
-    setPizarraEditando(null);
+    cambiaPizarraEditando(null);
   }, [
+    cambiaPizarraEditando,
     categoriaActiva,
     estado.duracionMs,
     inicioMs,
@@ -1656,6 +1698,46 @@ function Coding() {
     },
     [miraVideo, sesion.sesion.fuente, srcPorVideo, videosSesion],
   );
+
+  /*
+  | `?clip=<id>`: se llega desde la ficha de un jugador para ver UN corte
+  | (19/10/2026). Antes el enlace abría el partido en el minuto cero y había
+  | que buscar el corte en la lista. Se hace una vez por enlace, y cuando el
+  | vídeo ya sabe lo que dura —saltar antes sería saltar en el vacío—. Si el
+  | vídeo era del ordenador y hay que volver a abrirlo, no pasa nada: el
+  | corte sigue en la lista.
+  */
+  const clipPedido = params.get("clip");
+  const clipPedidoHecho = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!clipPedido || clipPedidoHecho.current === clipPedido) return;
+
+    if (!elemento || !src) return;
+
+    const clip = sesion.sesion.clips.find((uno) => uno.id === clipPedido);
+
+    if (!clip) return;
+
+    /* Se apunta como hecho al saltar, no antes: si el efecto se rearma
+       mientras espera (llega otra versión de la sesión), vuelve a esperar. */
+    const ve = () => {
+      if (clipPedidoHecho.current === clipPedido) return;
+
+      clipPedidoHecho.current = clipPedido;
+      reproduceDeCualquierVideo(clip);
+    };
+
+    if (elemento.readyState >= 1) {
+      const espera = setTimeout(ve, 0);
+
+      return () => clearTimeout(espera);
+    }
+
+    elemento.addEventListener("loadedmetadata", ve, { once: true });
+
+    return () => elemento.removeEventListener("loadedmetadata", ve);
+  }, [clipPedido, elemento, reproduceDeCualquierVideo, sesion.sesion.clips, src]);
 
   /* ------------------------------------------------------ playlist */
 
@@ -1816,7 +1898,7 @@ function Coding() {
     const existente = escenaEn(escenas, ahora);
 
     if (existente) {
-      setPizarraEditando(existente.id);
+      cambiaPizarraEditando(existente.id);
       return;
     }
 
@@ -1828,8 +1910,8 @@ function Coding() {
 
     guardaEscena(nueva);
     setPizarraVisible(true);
-    setPizarraEditando(nueva.id);
-  }, [escenas, guardaEscena, reproductor, tiempoAhoraMs]);
+    cambiaPizarraEditando(nueva.id);
+  }, [cambiaPizarraEditando, escenas, guardaEscena, reproductor, tiempoAhoraMs]);
 
   const abreEscena = useCallback(
     (id: string, paraPintar: boolean) => {
@@ -1842,10 +1924,64 @@ function Coding() {
 
       if (paraPintar) {
         reproductor.pausa();
-        setPizarraEditando(id);
+        cambiaPizarraEditando(id);
       }
     },
-    [escenas, reproductor, salta],
+    [cambiaPizarraEditando, escenas, reproductor, salta],
+  );
+
+  /*
+  | Borrar una pizarra entera, con vuelta atrás (19/10/2026).
+  |
+  | Las pizarras van fuera del deshacer de los cortes —el Retroceso es para la
+  | última acción marcada—, así que la papelera de la lista o el «Borrar
+  | pizarra» del editor se llevaban un dibujo de diez minutos de un toque y
+  | sin remedio. Se guarda la copia y el aviso trae «Deshacer»: volver a
+  | guardarla la mete otra vez en su sitio, con su vídeo y sus cortes.
+  */
+  const borraPizarra = useCallback(
+    (id: string) => {
+      const copia = sesion.sesion.escenas.find((una) => una.id === id);
+
+      sesion.borraEscena(id);
+
+      if (pizarraEditando === id) setPizarraEditando(null);
+
+      /* Una vacía no tiene nada que recuperar. */
+      if (!copia || copia.dibujos.length === 0) {
+        toast.success("Pizarra borrada");
+        return;
+      }
+
+      const restaurada: EscenaTel = {
+        ...copia,
+        /* Las de antes de haber varios vídeos eran del primero. */
+        video: copia.video ?? videosSesion[0]?.nombre,
+      };
+
+      /* Si entretanto se ha cambiado de partido, no se cuela en el otro. */
+      const deLaSesion = sesionDelante.current;
+
+      toast.success("Pizarra borrada", {
+        duration: 10000,
+        action: {
+          label: "Deshacer",
+          onClick: () => {
+            if (sesionDelante.current !== deLaSesion) {
+              toast.error("Esa pizarra era de otra sesión", {
+                description:
+                  "Has cambiado de partido o de rival y ya no se puede recuperar desde aquí.",
+              });
+              return;
+            }
+
+            guardaEscena(restaurada);
+            toast.success("Pizarra recuperada");
+          },
+        },
+      });
+    },
+    [guardaEscena, pizarraEditando, sesion, videosSesion],
   );
 
   /**
@@ -1897,7 +2033,11 @@ function Coding() {
   useEffect(() => {
     if (pizarraEditando || !pizarraVisible) return;
 
-    if (!elemento || escenasEnPantalla.length === 0) return;
+    /* Una pizarra sin dibujos no tiene nada que enseñar: no para el vídeo
+       (19/10/2026; las había de antes, abiertas y dejadas sin pintar). */
+    const conDibujo = escenasEnPantalla.filter((una) => una.dibujos.length > 0);
+
+    if (!elemento || conDibujo.length === 0) return;
 
     const video = elemento;
 
@@ -1911,7 +2051,7 @@ function Coding() {
 
       if (video.paused) return;
 
-      const escena = escenaEn(escenasEnPantalla, video.currentTime * 1000);
+      const escena = escenaEn(conDibujo, video.currentTime * 1000);
 
       if (!escena) {
         congelada.current = null;
@@ -3056,6 +3196,8 @@ function Coding() {
 
     siguientes.set("ambito", ambito);
     siguientes.set(clave, valor);
+    /* El corte del enlace era de la sesión de antes. */
+    siguientes.delete("clip");
 
     router.replace(`/coding?${siguientes.toString()}`);
   };
@@ -3074,6 +3216,7 @@ function Coding() {
     const siguientes = new URLSearchParams(params.toString());
 
     siguientes.set("ambito", nuevo);
+    siguientes.delete("clip");
 
     router.replace(`/coding?${siguientes.toString()}`);
   };
@@ -3394,9 +3537,9 @@ function Coding() {
                       video={elemento}
                       escenas={escenasEnPantalla}
                       editando={pizarraEditando}
-                      alEditar={setPizarraEditando}
+                      alEditar={cambiaPizarraEditando}
                       alCambiar={guardaEscena}
-                      alBorrar={sesion.borraEscena}
+                      alBorrar={borraPizarra}
                       alPintar={abrePizarra}
                       visible={pizarraVisible}
                     />
@@ -3747,7 +3890,9 @@ function Coding() {
                           : "Volver a enseñar lo pintado"
                       }
                     >
-                      {escenas.length}
+                      {/* El número solo no decía de qué era (19/10/2026). */}
+                      {escenas.length}{" "}
+                      {escenas.length === 1 ? "pizarra" : "pizarras"}
                     </Button>
 
                     {/*
@@ -3809,27 +3954,17 @@ function Coding() {
                     onElegirCategoria={() => setEligiendoMarca(true)}
                     /* El último que se CERRÓ: el de número más alto, que la
                        lista va en orden de vídeo y no de creación. */
-                    ultimo={(() => {
-                      const ultimoClip = clips.reduce<(typeof clips)[number] | null>(
-                        (mayor, uno) => (!mayor || uno.numero > mayor.numero ? uno : mayor),
-                        null,
-                      );
-
-                      return ultimoClip && !/-COMP$|^Vídeo completo$/i.test(ultimoClip.jugadorNombre)
+                    ultimo={
+                      ultimoMarcado
                         ? {
-                            nombre: ultimoClip.jugadorNombre,
+                            nombre: ultimoMarcado.jugadorNombre,
                             /* La misma duración que enseña la lista: con márgenes. */
-                            largoMs: duracionClip(ultimoClip),
+                            largoMs: duracionClip(ultimoMarcado),
                           }
-                        : null;
-                    })()}
+                        : null
+                    }
                     onVerUltimo={() => {
-                      const ultimoClip = clips.reduce<(typeof clips)[number] | null>(
-                        (mayor, uno) => (!mayor || uno.numero > mayor.numero ? uno : mayor),
-                        null,
-                      );
-
-                      if (ultimoClip) reproduceClip(ultimoClip);
+                      if (ultimoMarcado) reproduceClip(ultimoMarcado);
                     }}
                   />
 
@@ -4261,8 +4396,8 @@ function Coding() {
                       <b className="text-white/60">Pizarra</b>: focos sobre un
                       jugador, flechas, zonas, mover a alguien a donde tenía que
                       estar. Lo pintado vuelve a salir solo al pasar por ahí, y
-                      con <b className="text-white/60">⧉</b> la misma pizarra se
-                      reparte entre los cortes que quieras.
+                      con el botón de capas de cada pizarra se reutiliza en los
+                      cortes que quieras.
                     </p>
                   ) : (
                     <div className="space-y-1.5">
@@ -4287,15 +4422,7 @@ function Coding() {
                               ? () => setPizarraRepartida(escena.id)
                               : undefined
                           }
-                          alBorrar={() => {
-                            sesion.borraEscena(escena.id);
-
-                            if (pizarraEditando === escena.id) {
-                              setPizarraEditando(null);
-                            }
-
-                            toast.success("Pizarra borrada");
-                          }}
+                          alBorrar={() => borraPizarra(escena.id)}
                         />
                       ))}
                     </div>
@@ -4356,14 +4483,21 @@ function Coding() {
                           <p className="text-white/85">{clip.jugadorNombre}</p>
 
                           <p className="font-mono tabular-nums">
+                            <span className="font-sans text-white/40">Marcado: </span>
                             {formateaMs(clip.codingInicioMs)} →{" "}
                             {formateaMs(clip.codingFinMs)}
                           </p>
 
+                          {/* Con coma decimal y diciendo qué es cada cosa:
+                              «(3.40s)» no se leía como duración (19/10/2026). */}
                           <p className="text-white/35">
-                            Corte: {formateaMs(clip.inicioMs)} →{" "}
-                            {formateaMs(clip.finMs)} (
-                            {(duracionClip(clip) / 1000).toFixed(2)}s)
+                            Con márgenes: {formateaMs(clip.inicioMs)} →{" "}
+                            {formateaMs(clip.finMs)} · dura{" "}
+                            {(duracionClip(clip) / 1000).toLocaleString("es-ES", {
+                              minimumFractionDigits: 1,
+                              maximumFractionDigits: 1,
+                            })}{" "}
+                            s
                           </p>
 
                           {clip.nota && (

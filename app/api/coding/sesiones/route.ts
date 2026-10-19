@@ -135,6 +135,10 @@ export async function GET(request: NextRequest) {
         if (sesion.ambito === "rival") parametros.set("equipo", sesion.titulo);
         else parametros.set("partido", sesion.refId);
 
+        /* Y el corte, para que el coding se abra en él y no al principio
+           del partido (19/10/2026). */
+        parametros.set("clip", clip.id);
+
         /*
         | El vídeo DEL CLIP, no el de la sesión.
         |
