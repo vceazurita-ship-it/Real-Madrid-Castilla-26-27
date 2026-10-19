@@ -619,6 +619,12 @@ export function InformeMicroDialog({
     [acciones, datos.partidoCalendario, datos.rival, datos.partido],
   );
 
+  /* Las del partido del que viene la semana: el arco de la previa (20/10/2026). */
+  const accionesAnterior = useMemo(
+    () => (datos.partidoAnterior?.rival ? accionesDelPartido(acciones ?? [], { rival: datos.partidoAnterior.rival }) : []),
+    [acciones, datos.partidoAnterior],
+  );
+
   /*
   | PREVIA O POST.
   |
@@ -658,10 +664,11 @@ export function InformeMicroDialog({
       propio,
       modo,
       accionesPartido,
+      accionesAnterior,
       /* El cruce, con las mismas acciones que el resto del informe (19/10/2026). */
       conPretemporada,
     }),
-    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido, conPretemporada],
+    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido, accionesAnterior, conPretemporada],
   );
 
   const borrador = useMemo(() => construyeInforme(base), [base]);
