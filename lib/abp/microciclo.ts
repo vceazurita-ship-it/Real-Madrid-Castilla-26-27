@@ -761,10 +761,13 @@ export function claveAspecto(aspecto: AspectoKey, lado: AbpLado) {
 export function fmtMin(minutos: number) {
   if (!minutos) return "0'";
 
-  const horas = Math.floor(minutos / 60);
-  const resto = Math.round(minutos % 60);
+  /* Se redondea antes de partir (19/10/2026): con minutos repartidos entre
+     aspectos salen decimales, y 119,5 se escribía «1h 60'». */
+  const total = Math.round(minutos);
+  const horas = Math.floor(total / 60);
+  const resto = total % 60;
 
-  return horas > 0 ? `${horas}h ${resto}'` : `${Math.round(minutos)}'`;
+  return horas > 0 ? `${horas}h ${resto}'` : `${total}'`;
 }
 
 export function fmtPct(valor: number) {

@@ -140,6 +140,10 @@ export function BocetoDialog({
           tareas: tareasDelMicro,
           rival: rivalDelMicro,
           partidos: calendario,
+          /* Los mismos días que enseña la parrilla (19/10/2026): sin esto el
+             boceto proponía otros y al aplicarlo pisaba los «Días entrenados»
+             puestos a mano. */
+          diasEntrenados: plan.diasEntrenados,
         });
 
         /* Sin días en la hoja no hay microciclo que planificar. */
