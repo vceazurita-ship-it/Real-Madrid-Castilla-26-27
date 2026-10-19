@@ -108,6 +108,9 @@ export type Transferencia = {
   partidosSin: number;
   accionesCon: number;
   accionesSin: number;
+  /** Acciones con peligro en cada grupo: la muestra que de verdad cuenta (20/10/2026). */
+  peligrosCon: number;
+  peligrosSin: number;
   /** Peligro en cada grupo, en tanto por ciento. */
   pctCon: number;
   pctSin: number;
@@ -224,6 +227,8 @@ function calculaTransferencia(
     partidosSin,
     accionesCon: con.length,
     accionesSin: sin.length,
+    peligrosCon: con.filter((event) => event.peligro).length,
+    peligrosSin: sin.filter((event) => event.peligro).length,
     pctCon,
     pctSin,
     delta: suficiente ? delta : null,
@@ -486,7 +491,16 @@ function enJuego(fila: FilaCruce) {
  */
 export function prioridadesAbp(
   filas: FilaCruce[],
-  opciones: { conRemate?: number; banda?: number } = {},
+  opciones: {
+    conRemate?: number;
+    banda?: number;
+    /**
+     * Cuánto pesa el rival de la semana en cada aspecto (20/10/2026): un factor
+     * alrededor de 1 —más si el rival ataca bien lo que defendemos o concede lo
+     * que atacamos— que multiplica el peso. Sin él, manda nuestro histórico.
+     */
+    rival?: (fila: FilaCruce) => number | null;
+  } = {},
 ): Prioridad[] {
   const conRemate = opciones.conRemate ?? 4;
   const banda = opciones.banda ?? 1;
@@ -505,7 +519,8 @@ export function prioridadesAbp(
         100 *
         (PESOS_INFORME.enJuego * (enJuego(fila) / maximo) +
           PESOS_INFORME.deficit * fila.ingredientes.deficit +
-          PESOS_INFORME.desatencion * fila.ingredientes.desatencion),
+          PESOS_INFORME.desatencion * fila.ingredientes.desatencion) *
+        (opciones.rival?.(fila) ?? 1),
     }))
     .sort((a, b) => b.peso - a.peso);
 
