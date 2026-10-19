@@ -25,13 +25,15 @@ import { fechaIsoDeHoja, type ColumnaRegistro, type TareaNueva } from "@/lib/reg
 
 export type CampoCognitivo = "nJug" | "nComodines" | "normativa" | "incertidumbre" | "familiaridad" | "motivacion";
 
+/* `corto` con la palabra entera (19/10/2026): «Norm.», «Incert.» o «Famil.»
+   había que adivinarlas; si no cabe, la casilla la recorta y el `title` la da. */
 export const CAMPOS_COGNITIVOS: { campo: CampoCognitivo; columna: ColumnaRegistro; rotulo: string; corto: string; max: number }[] = [
-  { campo: "nJug", columna: "NºJug", rotulo: "Nº jugadores en la tarea", corto: "NºJug", max: 40 },
-  { campo: "nComodines", columna: "NºComodines", rotulo: "Comodines", corto: "Comod.", max: 10 },
-  { campo: "normativa", columna: "Normativa", rotulo: "Normativa (1-5)", corto: "Norm.", max: 5 },
-  { campo: "incertidumbre", columna: "Incertidumbre", rotulo: "Incertidumbre (1-5)", corto: "Incert.", max: 5 },
-  { campo: "familiaridad", columna: "Familiaridad (dificultad)", rotulo: "Familiaridad (dificultad, 1-5)", corto: "Famil.", max: 5 },
-  { campo: "motivacion", columna: "Motivacion", rotulo: "Motivación (1-5)", corto: "Motiv.", max: 5 },
+  { campo: "nJug", columna: "NºJug", rotulo: "Nº jugadores en la tarea", corto: "Jugadores", max: 40 },
+  { campo: "nComodines", columna: "NºComodines", rotulo: "Comodines", corto: "Comodines", max: 10 },
+  { campo: "normativa", columna: "Normativa", rotulo: "Normativa (1-5)", corto: "Normativa", max: 5 },
+  { campo: "incertidumbre", columna: "Incertidumbre", rotulo: "Incertidumbre (1-5)", corto: "Incertidumbre", max: 5 },
+  { campo: "familiaridad", columna: "Familiaridad (dificultad)", rotulo: "Familiaridad (dificultad, 1-5)", corto: "Familiaridad", max: 5 },
+  { campo: "motivacion", columna: "Motivacion", rotulo: "Motivación (1-5)", corto: "Motivación", max: 5 },
 ];
 
 export type Propuesta = Partial<Record<CampoCognitivo, number>> & {
