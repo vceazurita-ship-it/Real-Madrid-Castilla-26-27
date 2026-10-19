@@ -109,7 +109,7 @@ export function diasHasta(fecha: string, hoy: string) {
   return Math.round((Date.UTC(a2, m2 - 1, d2) - Date.UTC(a1, m1 - 1, d1)) / 86_400_000);
 }
 
-function sumaDias(fecha: string, dias: number) {
+export function sumaDias(fecha: string, dias: number) {
   const [a, m, d] = fecha.split("-").map(Number);
 
   const f = new Date(Date.UTC(a, m - 1, d + dias));

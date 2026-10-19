@@ -33,7 +33,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  CloudOff,
   ImagePlus,
   ListOrdered,
   Lock,
@@ -546,21 +545,15 @@ export default function QuinielaPage() {
               aside={
                 /* El «error» de aquí es siempre de LEER: un guardado fallido
                    se cuenta en su aviso y deja el estado en «listo». El
-                   rótulo de `SaveState` —«No se pudo guardar · reintentando»—
-                   decía lo contrario y no reintentaba nada solo (19/10/2026). */
-                estado === "error" ? (
-                  <button
-                    type="button"
-                    onClick={recarga}
-                    title="Volver a leer la quiniela"
-                    className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[11px] text-red-300 transition hover:bg-white/10"
-                  >
-                    <CloudOff size={12} aria-hidden />
-                    No se ha podido leer · Reintentar
-                  </button>
-                ) : (
-                  <SaveState status={estadoGuardado} savedAt={guardadoEn} />
-                )
+                   rótulo de siempre de `SaveState` —«No se pudo guardar ·
+                   reintentando»— decía lo contrario y no reintentaba nada
+                   solo; por eso `errorDe="lectura"` (19/10/2026). */
+                <SaveState
+                  status={estadoGuardado}
+                  savedAt={guardadoEn}
+                  errorDe="lectura"
+                  onReleer={recarga}
+                />
               }
             />
 
