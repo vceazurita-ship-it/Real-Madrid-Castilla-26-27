@@ -27,9 +27,8 @@ export default function PitchPosition({
   } = useLineup();
 
   const handleClick = () => {
-     console.log("CLICK");
-  console.log(selectedPlayer); 
-
+    /* Sin `console.log` de depuración (19/10/2026): cada clic en el campo
+       escribía «CLICK» y el jugador entero en la consola. */
     if (!selectedPlayer) return;
 
     assignPlayer(id, selectedPlayer);

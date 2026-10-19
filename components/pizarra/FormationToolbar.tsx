@@ -6,13 +6,15 @@ import { usePlayers } from "@/hooks/usePlayers";
 import { capturaNodo } from "@/lib/export/captura";
 import { descargaDataUrl } from "@/lib/export/lienzos";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
+  Loader2,
   Save,
   RotateCcw,
   Share2,
   Download,
-  LayoutGrid,
 } from "lucide-react";
+import { ALINEACIONES_CAMBIADAS } from "@/components/pizarra/SavedLineups";
 
 const formations = [
   "4-4-2",
@@ -39,18 +41,54 @@ const [rival, setRival] = useState("");
 } = useLineup();
 
 const { players } = usePlayers();
+
+/*
+| Guardando (19/10/2026). El botón no se apagaba mientras la hoja contestaba
+| —el Apps Script tarda hasta un minuto en frío— y un segundo clic daba de
+| alta una segunda fila con la misma jornada. Los avisos van por `toast`, no
+| por `alert`, que paraba la página entera.
+*/
+const [guardando, setGuardando] = useState(false);
+
+const cierraModal = () => {
+  if (guardando) return;
+
+  setShowSaveModal(false);
+  setNombre("Jornada ");
+  setRival("");
+};
+
+/** Vaciar el campo pregunta antes si hay alguien colocado. */
+const vaciaCampo = () => {
+  const colocados = lineup.filter((slot) => slot.playerId).length;
+
+  if (
+    colocados > 0 &&
+    !window.confirm(
+      `¿Quitar a los ${colocados} jugadores del campo? El banquillo se queda como está.`
+    )
+  ) {
+    return;
+  }
+
+  clearLineup();
+};
+
 async function guardar() {
+  if (guardando) return;
 
   const nombreLimpio = nombre.trim();
 
   const valido = /^Jornada\s+\d+$/i.test(nombreLimpio);
 
   if (!valido) {
-    alert(
-      "El nombre debe tener el formato 'Jornada X'."
-    );
+    toast.error("El nombre tiene que ser «Jornada» y el número", {
+      description: "Por ejemplo: Jornada 9.",
+    });
     return;
   }
+
+  setGuardando(true);
 
   const resultado = await saveLineup({
 
@@ -83,23 +121,27 @@ async function guardar() {
 
   /* Si no ha entrado, el modal se queda abierto con el nombre puesto para
      poder reintentar sin volver a montar la alineación. */
+  setGuardando(false);
+
   if (!resultado?.success) {
-    alert(
-      `No se ha podido guardar la alineación.\n\n${
-        resultado?.error ?? "Revisa la conexión e inténtalo de nuevo."
-      }`
-    );
+    toast.error("No se ha podido guardar la alineación", {
+      description:
+        resultado?.error ?? "Revisa la conexión e inténtalo de nuevo.",
+    });
 
     return;
   }
 
   setShowSaveModal(false);
 
-alert(
-  loadedLineupId
-    ? "Alineación actualizada."
-    : "Alineación guardada."
-);
+  /* La lista de «Alineaciones guardadas» sólo se leía al abrir la página: la
+     jornada recién guardada no salía hasta recargar. */
+  window.dispatchEvent(new Event(ALINEACIONES_CAMBIADAS));
+
+  toast.success(
+    loadedLineupId ? "Alineación actualizada" : "Alineación guardada",
+    { description: nombreLimpio }
+  );
 }
 
 async function generateImage() {
@@ -199,25 +241,36 @@ clone.style.overflow = "hidden";
   document.body.appendChild(wrapper);
 
   /* `capturaNodo` y no `toPng`: en Safari la primera pasada sale sin las
-     caras, y en un iPad hay tope de lienzo. */
-  const { dataUrl } = await capturaNodo(wrapper, {
-    cacheBust: true,
-    pixelRatio: 2,
-  });
+     caras, y en un iPad hay tope de lienzo.
 
-  document.body.removeChild(wrapper);
+     En un `finally` (19/10/2026): si la captura fallaba, la copia del campo
+     se quedaba pegada al final de la página y el campo de verdad, en modo
+     exportación. */
+  try {
+    const { dataUrl } = await capturaNodo(wrapper, {
+      cacheBust: true,
+      pixelRatio: 2,
+    });
 
-  node.classList.remove("export-mode");
+    return dataUrl;
+  } finally {
+    wrapper.remove();
 
-  return dataUrl;
+    node.classList.remove("export-mode");
+  }
 }
 
 async function exportPitch() {
-  const dataUrl = await generateImage();
+  try {
+    const dataUrl = await generateImage();
 
-  if (!dataUrl) return;
+    if (!dataUrl) return;
 
-  await descargaDataUrl(dataUrl, "alineacion.png");
+    await descargaDataUrl(dataUrl, "alineacion.png");
+  } catch (err) {
+    console.error(err);
+    toast.error("No se ha podido sacar la imagen de la alineación");
+  }
 }
 async function sharePitch() {
   try {
@@ -241,10 +294,20 @@ async function sharePitch() {
         files: [file],
       });
     } else {
-      window.open(dataUrl, "_blank");
+      /* Sin «compartir» en el navegador (el de un ordenador, casi siempre)
+         se descarga. Antes abría la imagen en otra pestaña, y los
+         navegadores bloquean abrir una imagen así: no pasaba nada. */
+      await descargaDataUrl(dataUrl, "alineacion.png");
+      toast.success("Imagen descargada", {
+        description: "Este navegador no permite compartir directamente.",
+      });
     }
   } catch (err) {
+    /* Cerrar el menú de compartir sin elegir no es un fallo. */
+    if (err instanceof DOMException && err.name === "AbortError") return;
+
     console.error(err);
+    toast.error("No se ha podido compartir la alineación");
   }
 }
   return (
@@ -319,12 +382,16 @@ async function sharePitch() {
     lg:ml-auto
   "
 >
+  {/* «Vaciar campo» y no «Reset» (19/10/2026), y pregunta antes: de un clic
+      se iba la alineación entera, sin deshacer. */}
   <button
-    onClick={clearLineup}
+    type="button"
+    onClick={vaciaCampo}
+    title="Quita a todos los jugadores del campo (el banquillo no se toca)"
     className="shrink-0 flex items-center gap-2 rounded-2xl border border-white/10 bg-[#1A222C] px-5 py-3 text-sm text-white hover:border-[#C8A96B]/50 hover:bg-[#232D39]"
   >
     <RotateCcw size={16} />
-    Reset
+    Vaciar campo
   </button>
 
   <button
@@ -345,7 +412,9 @@ async function sharePitch() {
   </button>
 
   <button
+    type="button"
     onClick={exportPitch}
+    title="Descarga una imagen PNG de la alineación"
     className="shrink-0 flex items-center gap-2 rounded-2xl border border-[#C8A96B] bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-[#111] hover:brightness-110"
   >
     <Download size={16} />
@@ -353,29 +422,28 @@ async function sharePitch() {
   </button>
 
   <button
+    type="button"
     onClick={sharePitch}
+    title="Manda la imagen de la alineación (en el móvil abre WhatsApp, correo…)"
     className="shrink-0 flex items-center gap-2 rounded-2xl border border-[#C8A96B] bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-[#111] hover:brightness-110"
   >
     <Share2 size={16} />
     Compartir
   </button>
 
-  <button
-    className="shrink-0 flex items-center gap-2 rounded-2xl border border-[#C8A96B] bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-[#111] hover:brightness-110"
-  >
-    <LayoutGrid size={16} />
-    Plantillas
-  </button>
+  {/* Aquí había un botón «Plantillas» sin nada detrás: se pulsaba y no
+      pasaba nada. Quitado el 19/10/2026. */}
 </div>
 </div>
      {showSaveModal && (
 
 <div
-  onClick={() => {
-    setShowSaveModal(false);
-    setNombre("Jornada ");
-    setRival("");
+  onClick={cierraModal}
+  onKeyDown={(e) => {
+    if (e.key === "Escape") cierraModal();
   }}
+  role="dialog"
+  aria-modal="true"
   className="modal-veil fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
 >
 
@@ -394,8 +462,12 @@ Nombre
 </label>
 
 <input
+autoFocus
 value={nombre}
 onChange={(e)=>setNombre(e.target.value)}
+onKeyDown={(e) => {
+  if (e.key === "Enter") void guardar();
+}}
 className="
 mb-4
 w-full
@@ -416,6 +488,9 @@ Rival
 <input
 value={rival}
 onChange={(e)=>setRival(e.target.value)}
+onKeyDown={(e) => {
+  if (e.key === "Enter") void guardar();
+}}
 className="
 w-full
 rounded-xl
@@ -447,13 +522,9 @@ Jornada 1
 <div className="mt-6 flex justify-end gap-3">
 
 <button
-
-onClick={()=>{
-setShowSaveModal(false);
-setNombre("Jornada ");
-setRival("");
-}}
-
+type="button"
+onClick={cierraModal}
+disabled={guardando}
 className="
 rounded-xl
 border
@@ -461,19 +532,20 @@ border-white/10
 px-4
 py-2
 hover:bg-white/5
+disabled:opacity-40
 "
-
 >
-
 Cancelar
-
 </button>
 
 <button
-
-onClick={guardar}
-
+type="button"
+onClick={() => void guardar()}
+disabled={guardando}
 className="
+inline-flex
+items-center
+gap-2
 rounded-xl
 bg-[#C8A96B]
 px-5
@@ -481,12 +553,12 @@ py-2
 font-semibold
 text-[#111]
 hover:brightness-110
+disabled:cursor-wait
+disabled:opacity-60
 "
-
 >
-
-Guardar
-
+{guardando && <Loader2 size={15} className="animate-spin" />}
+{guardando ? "Guardando…" : "Guardar"}
 </button>
 
 </div>
