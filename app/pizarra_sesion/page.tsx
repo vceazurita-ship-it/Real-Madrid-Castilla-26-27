@@ -140,6 +140,13 @@ export default function PizarraSesionPage() {
   const removeTask = (taskId: string) => {
     if (board.tasks.length <= 1) return;
 
+    /* Con equipos hechos se pregunta (19/10/2026): aquí no hay deshacer y
+       la papelera se pulsaba sin querer junto a las pestañas de tarea. */
+    const quitada = board.tasks.find((task) => task.id === taskId);
+    const colocados = quitada?.teams.reduce((s, team) => s + team.playerIds.length, 0) ?? 0;
+
+    if (colocados > 0 && !window.confirm(`¿Quitar «${quitada?.nombre || "la tarea"}»? Tiene ${colocados} jugadores repartidos.`)) return;
+
     const remaining = board.tasks.filter((task) => task.id !== taskId);
 
     update((current) => ({

@@ -194,6 +194,16 @@ export default function CalendarGeneralPage() {
       else map.set(key, [event]);
     });
 
+    /* En el orden del día, por la hora (19/10/2026): antes salían en el
+       orden en que se apuntaron. Los que no tienen hora, al final. */
+    map.forEach((list) =>
+      list.sort((a, b) =>
+        (a.hora?.trim() || "99").localeCompare(b.hora?.trim() || "99", "es", {
+          numeric: true,
+        })
+      )
+    );
+
     return map;
   }, [events]);
 
@@ -261,6 +271,17 @@ export default function CalendarGeneralPage() {
 
       if (date < SEASON_FIRST_DAY || date > SEASON_LAST_DAY) return;
 
+      /* Saltar de día también desmonta la ficha (19/10/2026): cerrar ya
+         preguntaba, las flechas no, y lo escrito se perdía sin aviso. */
+      if (
+        fichaSucia &&
+        !window.confirm(
+          "Hay una ficha a medio rellenar. ¿Cambiar de día y perder lo escrito?",
+        )
+      ) {
+        return;
+      }
+
       const monthIdx = months.findIndex(
         (m) => m.month === date.getMonth() && m.year === date.getFullYear()
       );
@@ -268,7 +289,7 @@ export default function CalendarGeneralPage() {
       if (monthIdx !== -1) setCurrentMonth(monthIdx);
       openDay(dateKey(date));
     },
-    [selectedKey, months, openDay]
+    [selectedKey, months, openDay, fichaSucia]
   );
 
   const canShift = (offset: number) => {
@@ -310,12 +331,9 @@ export default function CalendarGeneralPage() {
       legend={LEGEND}
       stats={
         <>
-          <CalendarStat
-            label="Eventos"
-            value={monthStats.eventos}
-            hint={`${monthStats.dias} días con actividad`}
-          />
-          <CalendarStat label="Días programados" value={monthStats.dias} />
+          {/* El número de días iba dos veces: de pista y de tarjeta. */}
+          <CalendarStat label="Eventos" value={monthStats.eventos} />
+          <CalendarStat label="Días con actividad" value={monthStats.dias} />
           <CalendarStat label="Imágenes" value={monthStats.imagenes} />
           <CalendarStat label="PDFs" value={monthStats.pdfs} />
         </>
@@ -395,12 +413,12 @@ export default function CalendarGeneralPage() {
         <div className="px-4 pb-6 md:px-8">
           <p className="flex items-start gap-2 rounded-xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-200/90">
             <TriangleAlert size={16} className="mt-0.5 shrink-0" />
+            {/* Sin la orden de base de datos (19/10/2026): quien lo lee es el
+                cuerpo técnico. Lo técnico va en el comentario: falta la tabla
+                de supabase/app_documents.sql. */}
             <span>
-              Los eventos se están guardando solo en este dispositivo. Ejecuta{" "}
-              <code className="rounded bg-black/40 px-1">
-                supabase/app_documents.sql
-              </code>{" "}
-              en Supabase para compartirlos con el resto del staff.
+              Los eventos se están guardando sólo en este aparato y el resto
+              del staff no los ve. Avisa al administrador de la app.
             </span>
           </p>
         </div>
@@ -843,7 +861,7 @@ function EventForm({
         <input
           value={hora}
           onChange={(event) => setHora(event.target.value)}
-          placeholder="Hora"
+          placeholder="Hora (10:30)"
           className={inputClass}
         />
 

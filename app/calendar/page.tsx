@@ -113,11 +113,11 @@ export default function Calendar() {
         if (cancelled) return;
 
         setTrackingData(Array.isArray(data) ? data : []);
-        setError(Array.isArray(data) ? null : "Respuesta inesperada del servidor");
+        setError(Array.isArray(data) ? null : "El seguimiento ha llegado en un formato que no se entiende. Recarga la página y, si sigue, avisa al administrador.");
       })
       .catch((err) => {
         console.error(err);
-        if (!cancelled) setError("No se pudo cargar el seguimiento");
+        if (!cancelled) setError("No se ha podido cargar el seguimiento. Comprueba la conexión y recarga la página.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

@@ -271,12 +271,12 @@ export default function MicroCalendar() {
         } else {
           console.error("Microciclo: respuesta inesperada", data);
           setMicrocycleData([]);
-          setError("Respuesta inesperada del servidor");
+          setError("La hoja de microciclos ha llegado en un formato que no se entiende. Recarga la página y, si sigue, avisa al administrador.");
         }
       })
       .catch((err) => {
         console.error(err);
-        if (!cancelled) setError("No se pudo cargar el microciclo");
+        if (!cancelled) setError("No se ha podido cargar la hoja de microciclos. Comprueba la conexión y recarga la página.");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -364,7 +364,15 @@ export default function MicroCalendar() {
     const minutos = selectedTasks.reduce((s, t) => s + minutesOf(t), 0);
     const head = selectedTasks[0];
 
+    /* La barra de cada carga se mide contra la tarea más cargada del día
+       (19/10/2026). Antes iba contra 100 fijo, y como la carga es minutos ×
+       intensidad (20' a 7 = 140) casi todas las barras salían llenas. */
+    const maxCarga = Math.max(0, ...selectedTasks.map((t) => Number(t["Carga Ponderada"]) || 0));
+    const maxCognitiva = Math.max(0, ...selectedTasks.map((t) => Number(t["Carga cognitiva"]) || 0));
+
     return {
+      maxCarga,
+      maxCognitiva,
       minutos,
       micro: head?.Micro ?? "",
       md: head?.MD ?? "",
@@ -391,7 +399,7 @@ export default function MicroCalendar() {
 
   return (
     <CalendarShell
-      eyebrow="RMCF CASTILLA INDIVIDUAL"
+      eyebrow="RMCF CASTILLA · ENTRENAMIENTO"
       title="Calendario de Microciclo"
       months={months}
       monthIndex={currentMonth}
@@ -410,10 +418,17 @@ export default function MicroCalendar() {
             label="Volumen"
             value={formatMinutes(monthStats.minutos)}
           />
-          <CalendarStat label="Carga media / sesión" value={monthStats.cargaMedia} />
+          {/* Las dos cargas son puntos sin unidad: se dice de qué salen
+              (19/10/2026), si no un 420 no le dice nada a nadie. */}
           <CalendarStat
-            label="Carga cognitiva media"
+            label="Carga física media / sesión"
+            value={monthStats.cargaMedia}
+            hint="Minutos × intensidad de la tarea"
+          />
+          <CalendarStat
+            label="Carga cognitiva media / sesión"
             value={monthStats.cognitivaMedia}
+            hint="Minutos × demanda cognitiva"
           />
         </>
       }
@@ -624,6 +639,7 @@ export default function MicroCalendar() {
                             icon={<Dumbbell size={16} className="text-[#C8A96B]" />}
                             label="Carga física"
                             value={Math.round(Number(t["Carga Ponderada"]) || 0)}
+                            max={selectedSummary.maxCarga}
                           />
 
                           <div className="mt-4">
@@ -631,6 +647,7 @@ export default function MicroCalendar() {
                               icon={<Brain size={16} className="text-[#C8A96B]" />}
                               label="Carga cognitiva"
                               value={Math.round(Number(t["Carga cognitiva"]) || 0)}
+                              max={selectedSummary.maxCognitiva}
                             />
                           </div>
 
@@ -672,10 +689,13 @@ function Metric({
   icon,
   label,
   value,
+  max,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
+  /** La barra llena: la tarea más cargada del día. */
+  max: number;
 }) {
   return (
     <div>
@@ -688,7 +708,7 @@ function Metric({
         <span className="text-sm font-semibold">{value}</span>
       </div>
 
-      <MetricBar value={value} />
+      <MetricBar value={value} max={max} />
     </div>
   );
 }

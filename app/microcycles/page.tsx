@@ -1914,9 +1914,9 @@ export default function Page() {
 
                 <StatCard
                   icon={Gauge}
-                  title="Ratio Cog/Fís"
+                  title="Cognitiva / física"
                   value={cogRatio.toFixed(2)}
-                  hint={`Int. media ${metrics.intensidad}`}
+                  hint={`Intensidad media ${metrics.intensidad || "sin valorar"}`}
                   accent={COLORS.green}
                 />
               </div>
@@ -3488,8 +3488,11 @@ export default function Page() {
                     subtitle="Las 5 tareas con mayor evaluación"
                   >
                     <div className="space-y-2.5">
-                      {topTasks.map((t) => (
-                        <TaskRow key={`${t.micro}-${t.tarea}`} row={t} />
+                      {/* Con el índice: la hoja repite nombres de tarea en
+                          un mismo micro (dos «L-T1» el 21/09) y la clave
+                          repetida deja filas sin pintar. */}
+                      {topTasks.map((t, i) => (
+                        <TaskRow key={`${t.micro}-${t.tarea}-${i}`} row={t} />
                       ))}
 
                       {!topTasks.length && (
@@ -3505,8 +3508,8 @@ export default function Page() {
                     subtitle="Las 5 tareas con menor evaluación"
                   >
                     <div className="space-y-2.5">
-                      {bottomTasks.map((t) => (
-                        <TaskRow key={`${t.micro}-${t.tarea}-b`} row={t} />
+                      {bottomTasks.map((t, i) => (
+                        <TaskRow key={`${t.micro}-${t.tarea}-b${i}`} row={t} />
                       ))}
 
                       {!bottomTasks.length && (
@@ -3587,6 +3590,7 @@ export default function Page() {
                           />
                           <Th
                             label="Min"
+                            titulo="Minutos de la tarea"
                             k="tiempo"
                             sortKey={sortKey}
                             sortDir={sortDir}
@@ -3595,6 +3599,7 @@ export default function Page() {
                           />
                           <Th
                             label="Int"
+                            titulo="Intensidad de la tarea"
                             k="intensidad"
                             sortKey={sortKey}
                             sortDir={sortDir}
@@ -3603,6 +3608,7 @@ export default function Page() {
                           />
                           <Th
                             label="C.Fís"
+                            titulo="Carga física: minutos × intensidad"
                             k="carga"
                             sortKey={sortKey}
                             sortDir={sortDir}
@@ -3611,6 +3617,7 @@ export default function Page() {
                           />
                           <Th
                             label="C.Cog"
+                            titulo="Carga cognitiva: minutos × demanda cognitiva"
                             k="cargaCog"
                             sortKey={sortKey}
                             sortDir={sortDir}
@@ -3619,6 +3626,7 @@ export default function Page() {
                           />
                           <Th
                             label="Eval"
+                            titulo="Evaluación del cuerpo técnico"
                             k="evaluacion"
                             sortKey={sortKey}
                             sortDir={sortDir}
@@ -3636,7 +3644,10 @@ export default function Page() {
                           >
                             <td className="py-3 pr-3 whitespace-nowrap">
                               <span className="rounded-md bg-white/5 px-2 py-1 text-xs">
-                                M{r.micro}
+                                {/* «M13B», no «M13.1» (19/10/2026): la
+                                    semana del segundo rival lleva su letra
+                                    igual que en el resto de la pantalla. */}
+                                M{etiquetaMicro(r.micro)}
                               </span>
                             </td>
 
@@ -3913,8 +3924,11 @@ function Th({
   sortDir,
   onSort,
   align = "left",
+  titulo,
 }: {
   label: string;
+  /** Qué es la columna, cuando el rótulo va abreviado. */
+  titulo?: string;
   k: keyof Row;
   sortKey: keyof Row;
   sortDir: "asc" | "desc";
@@ -3926,6 +3940,7 @@ function Th({
   return (
     <th
       onClick={() => onSort(k)}
+      title={titulo}
       className={`cursor-pointer select-none pb-3 px-3 font-medium transition hover:text-white ${
         active ? "text-[#C8A96B]" : ""
       } ${

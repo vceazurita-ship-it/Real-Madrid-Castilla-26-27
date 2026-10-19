@@ -1510,6 +1510,10 @@ export default function JugadoresSesionPage() {
 
     setAlmacen((actual) => ({ ...actual, sesiones: (actual.sesiones ?? []).filter((s) => s.id !== sesion.id) }));
     setSesionId(null);
+
+    /* Con su «Deshacer» a mano (19/10/2026): el botón de arriba ya lo hacía,
+       pero tras un borrado nadie lo busca. */
+    toast.success(`«${sesion.titulo}» borrada`, { action: { label: "Deshacer", onClick: deshaz } });
   };
 
   /* ---------------- tareas ---------------- */
@@ -1524,7 +1528,16 @@ export default function JugadoresSesionPage() {
     const conMolde: TareaEquipos = tarea
       ? {
           ...nueva,
-          equipos: tarea.equipos.map((e) => ({ ...e, id: `${e.id}-${nueva.id.slice(-4)}` })),
+          /* Sólo el peto y el dibujo (19/10/2026): con `...e` viajaban también
+             los huecos, los puntos y las parejas de la tarea anterior, y dos
+             que compartían puesto allí volvían a quedar emparejados en ésta
+             en cuanto se les metía en ese equipo. */
+          equipos: tarea.equipos.map((e) => ({
+            id: `${e.id}-${nueva.id.slice(-4)}`,
+            nombre: e.nombre,
+            color: e.color,
+            ...(e.estructura ? { estructura: e.estructura } : {}),
+          })),
           comodines: tarea.comodines,
           colorComodin: tarea.colorComodin,
         }
@@ -1672,6 +1685,9 @@ export default function JugadoresSesionPage() {
 
     cambiaSesion(sesion.id, (s) => ({ ...s, tareas: s.tareas.filter((t) => t.id !== tarea.id) }));
     setPedida(Math.max(0, activa - 1));
+
+    /* Con tres o menos colocados se quita sin preguntar: que se pueda volver atrás. */
+    toast.success(`«${tarea.nombre}» quitada`, { action: { label: "Deshacer", onClick: deshaz } });
   };
 
   const mueveTarea = (desde: number, hasta: number) => {
