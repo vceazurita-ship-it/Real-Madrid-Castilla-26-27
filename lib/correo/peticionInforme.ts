@@ -145,7 +145,7 @@ export function leeAdjuntosUrl(cuerpo: Record<string, unknown>): AdjuntoUrl[] | 
       return { error: `Ese adjunto no viene del almacén de la plataforma: ${nombre || url}` };
     }
 
-    if (!ADJUNTOS_PERMITIDOS.has(tipo)) return { error: `Sólo se pueden adjuntar PDF y PowerPoint (.pptx): ${nombre}` };
+    if (!ADJUNTOS_PERMITIDOS.has(tipo)) return { error: `Sólo se pueden adjuntar PDF, PowerPoint (.pptx) o vídeo MP4: ${nombre}` };
 
     if (!nombre) return { error: "Un adjunto ha llegado sin nombre." };
 
