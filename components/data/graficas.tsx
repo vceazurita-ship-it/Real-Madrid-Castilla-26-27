@@ -678,7 +678,7 @@ export function Dispersion({
       <p className="mt-1 min-h-4 text-[11px] tabular-nums text-white/45">
         {encima
           ? `${encima.equipo} · ${etiquetaX} ${formatea(encima.x, unidadX)} · ${etiquetaY} ${formatea(encima.y, unidadY)}`
-          : `Pasa el ratón por un punto (o tócalo) para ver sus cifras. Cada punto es un ${cadaUno}; las rayas son las medianas ${deQuien}.`}
+          : `Pasa el ratón por un punto (o tócalo) para ver sus cifras. Cada punto es ${/* «una temporada», no «un temporada» (19/10/2026) */ /^temporada/.test(cadaUno) ? "una" : "un"} ${cadaUno}; las rayas son las medianas ${deQuien}.`}
       </p>
     </div>
   );

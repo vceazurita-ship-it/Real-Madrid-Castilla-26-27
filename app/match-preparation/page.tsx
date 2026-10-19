@@ -411,7 +411,9 @@ function ReadText({
 
   if (!items.length) {
     return (
-      <div className="flex items-center gap-2 rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-white/30">
+      /* El aviso dice cómo rellenarlo: en el papel no pinta nada (lo que no
+         tiene dato no se nombra en un informe; 19/10/2026). */
+      <div className="flex items-center gap-2 rounded-2xl border border-dashed border-white/10 px-4 py-5 text-sm text-white/30 print:hidden">
         <CircleAlert size={15} />
         {vacio}
       </div>
@@ -2639,7 +2641,7 @@ export default function MatchPreparation() {
         {/* Los porqués del boceto, plegados y sólo para el administrador. */}
         {rivalActivo && (
           <div className="px-4 pb-10 sm:px-6 lg:px-10">
-            <PorQueDelBoceto key={`${String(rivalActivo.ID ?? "")}|${versionMotivos}`}idRival={String(rivalActivo.ID ?? "")} />
+            <PorQueDelBoceto key={`${String(rivalActivo.ID ?? "")}|${versionMotivos}`} idRival={String(rivalActivo.ID ?? "")} />
           </div>
         )}
 
