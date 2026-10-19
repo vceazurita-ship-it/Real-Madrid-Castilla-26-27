@@ -56,9 +56,12 @@ export function Campograma({
         <p className="truncate text-[11px] text-white/35">{subtitulo}</p>
       </div>
 
+      {/* 19/10/2026: a 390 px el campo entero dejaba las cifras en 7 px; por
+          debajo de 520 px se desliza en vez de encogerse. */}
+      <div className="overflow-x-auto">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="w-full"
+        className="w-full min-w-[520px]"
         role="img"
         aria-label={`${titulo}: ${fichas.map((f) => `${f.ficha.rotulo} ${formatea(lado === "partido" ? f.partido : f.media, f.unidad)}`).join(", ")}`}
       >
@@ -183,6 +186,8 @@ export function Campograma({
               key={clave}
               onMouseEnter={() => setEncima(clave)}
               onMouseLeave={() => setEncima(null)}
+              /* En la tableta no hay ratón: tocar la chapa enseña su nota. */
+              onClick={() => setEncima(clave)}
               style={{ cursor: "default" }}
             >
               {/* El 2 px de aire contra el césped, para que la chapa se
@@ -202,7 +207,15 @@ export function Campograma({
                 width={ancho}
                 height={30}
                 rx={8}
-                fill={lado === "partido" ? `${color}22` : "rgb(var(--rmcf-ink-rgb) / .06)"}
+                /* 19/10/2026: `${color}22` sólo vale con un hex. Con el oro
+                   (`var(--rmcf-gold-ink)`, el de las métricas de estilo) salía
+                   «var(...)22», un color inválido, y la chapa se rellenaba de
+                   negro: en modo día, cifra oscura sobre negro. */
+                fill={
+                  lado === "partido"
+                    ? `color-mix(in srgb, ${color} 13%, transparent)`
+                    : "rgb(var(--rmcf-ink-rgb) / .06)"
+                }
                 stroke={color}
                 strokeWidth={resaltada ? 2 : 1.2}
                 opacity={resaltada ? 1 : 0.92}
@@ -257,12 +270,13 @@ export function Campograma({
           );
         })}
       </svg>
+      </div>
 
       {/* Lo que explica la ficha sobre la que está el ratón. */}
       <p className="mt-2 min-h-[32px] text-[11.5px] leading-relaxed text-white/45">
         {encima
           ? fichas.find((f) => `${id}-${f.ficha.rotulo}` === encima)?.ficha.nota
-          : ""}
+          : "Pasa el ratón por una cifra (o tócala) para ver qué mide."}
       </p>
     </div>
   );

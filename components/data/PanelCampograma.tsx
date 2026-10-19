@@ -6,7 +6,7 @@ import { LayoutGrid, Scale } from "lucide-react";
 import { Notice, Panel } from "@/components/abp/ui";
 import { Lectura } from "@/components/data/formas";
 import { Campograma } from "@/components/data/Campograma";
-import { COMPARADO, MEJOR, PEOR } from "@/components/data/graficas";
+import { COMPARADO, MEJOR, ORO, PEOR } from "@/components/data/graficas";
 import {
   MOMENTOS_CAMPO,
   REFERENCIAS_CAMPO,
@@ -88,7 +88,23 @@ export function PanelCampograma({
   | somos**—. Va en el mismo desplegable, arriba del todo, porque es la misma
   | pregunta con otro sujeto y no merece otro mando.
   */
-  const [cual, setCual] = useState(0);
+  /*
+  | 19/10/2026: se guarda el partido por su clave y no por su posición en la
+  | lista. Con la posición, cambiar de temporada o de filtro arriba dejaba el
+  | mismo número elegido y la pantalla pasaba a otro partido sin avisar; si el
+  | elegido ya no está, se vuelve al último jugado.
+  */
+  const [claveElegida, setClaveElegida] = useState("");
+
+  const claveDe = (p: FilaPartido) => `${p.fecha}|${p.rival}`;
+
+  const cual =
+    claveElegida === "todo"
+      ? -1
+      : Math.max(0, jugados.findIndex((p) => claveDe(p) === claveElegida));
+
+  const setCual = (i: number) =>
+    setClaveElegida(i < 0 ? "todo" : jugados[i] ? claveDe(jugados[i]) : "");
 
   const partido =
     cual < 0 ? null : jugados[Math.min(cual, Math.max(0, jugados.length - 1))] ?? null;
@@ -291,6 +307,16 @@ export function PanelCampograma({
                 style={{ background: PEOR }}
               />
               Peor
+            </span>
+
+            {/* 19/10/2026: las fichas de estilo (posesión, longitud de pase…)
+                salen en oro y la leyenda no lo decía. */}
+            <span className="flex items-center gap-1.5" style={{ color: ORO }}>
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-[2px]"
+                style={{ background: ORO }}
+              />
+              Estilo: ni mejor ni peor
             </span>
 
             <span className="text-white/35">

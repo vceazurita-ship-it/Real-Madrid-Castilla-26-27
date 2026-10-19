@@ -48,7 +48,9 @@ type Columna = { lado: Lado; campo: Campo; rotulo: string; estimado: boolean };
 | Quedan las dos que cuentan el marcador y Wyscout.
 */
 const CAMPOS: { campo: Campo; rotulo: string; estimado: boolean }[] = [
-  { campo: "goles", rotulo: "Goles", estimado: false },
+  /* 19/10/2026: «Goles» a secas, en una pantalla que se llama «Goles a balón
+     parado», se leía como goles de ABP y son TODOS los goles. */
+  { campo: "goles", rotulo: "Todos los goles", estimado: false },
   { campo: "penalti", rotulo: "De penalti", estimado: false },
 ];
 
@@ -243,7 +245,7 @@ export function PanelGolesAbp({
           <div className="mt-5">
             <Panel
               title="La categoría, a balón parado"
-              subtitle={`Los goles que hace y recibe cada equipo en ${temporada}. Pulsa una cabecera para ordenar.`}
+              subtitle={`Todos los goles que hace y recibe cada equipo en ${temporada} y cuántos son de penalti, que es lo único de balón parado que se sabe de toda la liga. Pulsa una cabecera para ordenar.`}
               icon={Scale}
               action={
                 <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
@@ -271,7 +273,7 @@ export function PanelGolesAbp({
               }
             >
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[940px] text-[12px]">
+                <table className="w-full min-w-[560px] text-[12px]">
                   <thead>
                     <tr className="text-[10px] uppercase tracking-[0.16em]">
                       <th className="pb-1 pr-2 text-left font-medium text-white/40" colSpan={3} />
@@ -296,7 +298,9 @@ export function PanelGolesAbp({
                     <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">
                       <th className="w-6 pb-2 pt-1.5 text-right font-medium">#</th>
                       <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Equipo</th>
-                      <th className="pb-2 pr-3 pt-1.5 text-right font-medium">PJ</th>
+                      <th className="pb-2 pr-3 pt-1.5 text-right font-medium" title="Partidos jugados con informe">
+                        PJ
+                      </th>
 
                       {COLUMNAS.map((c, i) => (
                         <CabeceraOrdenable
@@ -453,11 +457,11 @@ export function PanelGolesAbp({
       <div className="mt-5">
         <Panel
           title="El Castilla, temporada a temporada"
-          subtitle="Los goles a balón parado de cada curso del que hay informes, a favor y en contra"
+          subtitle="Todos los goles de cada curso del que hay informes, a favor y en contra, y cuántos fueron de penalti"
           icon={History}
         >
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-[12px]">
+            <table className="w-full min-w-[480px] text-[12px]">
               <thead>
                 <tr className="text-[10px] uppercase tracking-[0.16em]">
                   <th colSpan={2} />
@@ -479,9 +483,11 @@ export function PanelGolesAbp({
 
                 <tr className="text-right text-[10px] uppercase tracking-[0.12em] text-white/40">
                   <th className="pb-2 pt-1.5 text-left font-medium">Temporada</th>
-                  <th className="pb-2 pr-3 pt-1.5 font-medium">PJ</th>
+                  <th className="pb-2 pr-3 pt-1.5 font-medium" title="Partidos jugados con informe">
+                    PJ
+                  </th>
                   {[0, 1].map((lado) =>
-                    ["Goles", "De penalti"].map((r, i) => (
+                    ["Todos los goles", "De penalti"].map((r, i) => (
                       <th
                         key={`${lado}-${r}`}
                         className={`pb-2 pt-1.5 font-medium ${i === 0 && lado === 1 ? "border-l pl-3" : "pl-2"}`}
@@ -635,7 +641,7 @@ function CifraContraste({
 
       <div className="mt-1.5 grid grid-cols-3 gap-2">
         {[
-          { que: "Balón parado", valor: pct(abp) },
+          { que: "Balón parado (sin penaltis)", valor: pct(abp) },
           { que: "Córner", valor: pct(corner) },
           { que: "Penalti", valor: pct(penalti) },
         ].map((c) => (
