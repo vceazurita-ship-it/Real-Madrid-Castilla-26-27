@@ -15,6 +15,7 @@
 import {
   PointerEvent as ReactPointerEvent,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -213,6 +214,8 @@ export default function TacticsBoard({
   */
   const pulsacion = useRef<{ id: string; x: number; y: number; t: number } | null>(null);
   const [cambiando, setCambiando] = useState<string | null>(null);
+  /** El tablero tal y como estaba al agarrar una ficha: es el punto de deshacer del arrastre. */
+  const antesDelArrastre = useRef<TacticsDoc | null>(null);
   const [editingShape, setEditingShape] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [dictating, setDictating] = useState(false);
@@ -497,23 +500,60 @@ export default function TacticsBoard({
     [commit, doc, safeIndex]
   );
 
-  const undo = () => {
+  const undo = useCallback(() => {
     const previous = past[past.length - 1];
     if (!previous) return;
 
     setPast((current) => current.slice(0, -1));
     setFuture((current) => [...current, doc]);
     onChange(previous);
-  };
+  }, [past, doc, onChange]);
 
-  const redo = () => {
+  const redo = useCallback(() => {
     const next = future[future.length - 1];
     if (!next) return;
 
     setFuture((current) => current.slice(0, -1));
     setPast((current) => [...current, doc]);
     onChange(next);
-  };
+  }, [future, doc, onChange]);
+
+  /*
+  | Ctrl/⌘+Z deshace y Ctrl/⌘+Y (o Mayús+Ctrl+Z) rehace (19/10/2026). Hasta
+  | ahora sólo estaban las flechas de la barra, y quien venía de cualquier
+  | otro programa pulsaba Ctrl+Z tras borrar una flecha y no pasaba nada. No
+  | se atiende mientras se escribe —un nombre de escena, un texto del campo,
+  | el dictado—: ahí Ctrl+Z es del propio cuadro de texto.
+  */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || live) return;
+
+      const target = event.target as HTMLElement | null;
+
+      if (
+        target &&
+        (target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+      ) {
+        return;
+      }
+
+      const tecla = event.key.toLowerCase();
+
+      if (tecla === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      } else if (tecla === "y" || (tecla === "z" && event.shiftKey)) {
+        event.preventDefault();
+        redo();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [undo, redo, live]);
 
   // ---------------------------------------------------------------
   // Dibujo
@@ -629,8 +669,23 @@ export default function TacticsBoard({
         return;
       }
 
-      // El arrastre ya escribió posiciones; guardamos un punto de deshacer.
-      setPast((current) => [...current.slice(-40), doc]);
+      /*
+      | El arrastre ya escribió posiciones; guardamos un punto de deshacer.
+      |
+      | Con el tablero de ANTES de agarrar la ficha (19/10/2026). Se guardaba
+      | `doc`, que a estas alturas ya es el de después —cada movimiento lo
+      | reescribe—, así que deshacer un arrastre no devolvía la ficha a su
+      | sitio: había que pulsar dos veces y la segunda se llevaba otra cosa.
+      */
+      const antes = antesDelArrastre.current;
+
+      antesDelArrastre.current = null;
+
+      if (antes && antes !== doc) {
+        setPast((current) => [...current.slice(-40), antes]);
+        setFuture([]);
+      }
+
       return;
     }
 
@@ -1031,6 +1086,7 @@ export default function TacticsBoard({
               const player = roster.find((p) => p.id === event.target.value);
               if (player) addToken("home", player);
             }}
+            aria-label="Añadir un jugador de la plantilla al campo"
             className="w-full min-w-0 rounded-xl border border-white/10 bg-[#0F141B] px-2.5 py-2 text-[11px] text-white/75 outline-none sm:w-auto"
           >
             <option value="">Añadir jugador…</option>
@@ -1048,6 +1104,8 @@ export default function TacticsBoard({
           type="button"
           onClick={() => setDictating((open) => !open)}
           title="Explicar la jugada por voz"
+          aria-label="Dictar la jugada por voz"
+          aria-pressed={dictating}
           className={cn(
             "inline-flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[11px] font-semibold transition",
             dictating
@@ -1086,7 +1144,8 @@ export default function TacticsBoard({
 
           <button
             type="button"
-            title="Descargar PNG"
+            title="Descargar la escena como imagen (PNG)"
+            aria-label="Descargar la escena como imagen"
             disabled={exporting}
             onClick={exportPng}
             className="rounded-xl p-2 text-white/55 transition hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
@@ -1378,14 +1437,33 @@ export default function TacticsBoard({
                 interactive={!live && (tool === "erase" || tool === "select")}
                 editing={editingShape === shape.id}
                 onErase={() => tool === "erase" && removeShape(shape.id)}
-                onEdit={() => setEditingShape(shape.id)}
+                onEdit={() => {
+                  /* Un punto de deshacer al empezar a corregir, no uno por letra. */
+                  setPast((current) => [...current.slice(-40), doc]);
+                  setFuture([]);
+                  setEditingShape(shape.id);
+                }}
+                /*
+                | Cada letra va sin pasar por el historial (19/10/2026): con
+                | `commit` cada tecla era un paso de deshacer y una palabra de
+                | diez letras se comía un cuarto de los 40 pasos que se guardan,
+                | así que lo de antes del texto ya no se podía recuperar. El
+                | texto recién creado ya dejó su punto al nacer.
+                */
                 onText={(text) =>
-                  updateScene((current) => ({
-                    ...current,
-                    shapes: current.shapes.map((item) =>
-                      item.id === shape.id ? { ...item, text } : item
+                  onChange({
+                    ...doc,
+                    scenes: doc.scenes.map((item, index) =>
+                      index === safeIndex
+                        ? {
+                            ...item,
+                            shapes: item.shapes.map((s) =>
+                              s.id === shape.id ? { ...s, text } : s
+                            ),
+                          }
+                        : item
                     ),
-                  }))
+                  })
                 }
                 onCloseEdit={() => setEditingShape(null)}
               />
@@ -1454,6 +1532,7 @@ export default function TacticsBoard({
 
                     svgRef.current?.setPointerCapture(event.pointerId);
                     pulsacion.current = { id: token.id, x: token.x, y: token.y, t: event.timeStamp };
+                    antesDelArrastre.current = doc;
                     setDraggingToken(token.id);
                   }}
                   className={cn(

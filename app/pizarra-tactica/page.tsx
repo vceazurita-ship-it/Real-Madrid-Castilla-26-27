@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
-  Check,
-  CloudOff,
   FolderOpen,
   Loader2,
   Maximize2,
@@ -20,6 +18,7 @@ import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import EstadoGuardado from "@/components/tactics/EstadoGuardado";
 import TacticsBoard from "@/components/tactics/TacticsBoard";
 import { usePantallaCompleta } from "@/hooks/usePantallaCompleta";
 import { usePlayers } from "@/hooks/usePlayers";
@@ -270,8 +269,20 @@ export default function PizarraTacticaPage() {
     }));
   };
 
+  /*
+  | Eliminar se puede deshacer (19/10/2026). Era un clic en la papelera, sin
+  | pregunta y sin vuelta atrás, justo al lado del lápiz de renombrar: la
+  | pizarra desaparecía de la lista y, aunque su documento sigue guardado, no
+  | había forma de volver a llegar a ella desde la pantalla. Ahora el aviso
+  | trae «Deshacer», que la devuelve a su sitio de la lista.
+  */
   const deleteBoard = (id: string) => {
     if (!listaCargada) return;
+
+    const posicion = boards.findIndex((board) => board.id === id);
+    const quitada = boards[posicion];
+
+    if (!quitada) return;
 
     setIndex((actual) => ({
       boards: (actual?.boards ?? []).filter((board) => board.id !== id),
@@ -279,7 +290,26 @@ export default function PizarraTacticaPage() {
 
     if (id === activeId) setActiveId(null);
 
-    toast.success("Pizarra eliminada");
+    toast.success(`Pizarra «${quitada.nombre}» eliminada`, {
+      duration: 8000,
+      action: {
+        label: "Deshacer",
+        onClick: () => {
+          setIndex((actual) => {
+            const lista = actual?.boards ?? [];
+
+            if (lista.some((board) => board.id === quitada.id)) return actual;
+
+            const copia = [...lista];
+            copia.splice(Math.min(posicion, copia.length), 0, quitada);
+
+            return { boards: copia };
+          });
+
+          setActiveId(quitada.id);
+        },
+      },
+    });
   };
 
   return (
@@ -321,12 +351,12 @@ export default function PizarraTacticaPage() {
             {!sinCromo && indexLocalOnly && (
               <p className="flex items-start gap-2 rounded-2xl border border-amber-400/25 bg-amber-400/5 px-4 py-3 text-xs leading-relaxed text-amber-200/90">
                 <TriangleAlert size={15} className="mt-0.5 shrink-0" />
+                {/* Sin jerga de base de datos (19/10/2026): quien lo lee es el
+                    cuerpo técnico, y casi siempre es falta de conexión. */}
                 <span>
-                  Las pizarras se guardan solo en este dispositivo. Ejecuta{" "}
-                  <code className="rounded bg-black/40 px-1">
-                    supabase/app_documents.sql
-                  </code>{" "}
-                  en Supabase para sincronizarlas.
+                  No hay conexión con el servidor: lo que hagas se guarda en
+                  este dispositivo y se subirá solo cuando vuelva. Mientras
+                  tanto, el resto del staff no verá estos cambios.
                 </span>
               </p>
             )}
@@ -407,6 +437,7 @@ export default function PizarraTacticaPage() {
                         type="button"
                         onClick={() => setRenaming(board.id)}
                         title="Renombrar"
+                        aria-label={`Renombrar ${board.nombre}`}
                         className="rounded-lg p-1.5 text-white/30 transition hover:bg-white/10 hover:text-white"
                       >
                         <Pencil size={12} />
@@ -415,7 +446,8 @@ export default function PizarraTacticaPage() {
                       <button
                         type="button"
                         onClick={() => deleteBoard(board.id)}
-                        title="Eliminar"
+                        title="Eliminar (se puede deshacer)"
+                        aria-label={`Eliminar ${board.nombre}`}
                         className="rounded-lg p-1.5 text-white/30 transition hover:bg-red-500/15 hover:text-red-300"
                       >
                         <Trash2 size={12} />
@@ -508,7 +540,7 @@ function BoardEditor({
 }) {
   const fallback = useMemo(() => emptyDoc(nombre), [nombre]);
 
-  const { value, setValue, status, localOnly } = useRemoteDoc<TacticsDoc>({
+  const { value, setValue, status, localOnly, sinGuardar, guardaYa } = useRemoteDoc<TacticsDoc>({
     key: `tactics:board:${boardId}`,
     kind: "tactics-board",
     fallback,
@@ -716,40 +748,13 @@ function BoardEditor({
           </button>
         )}
 
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium",
-            localOnly
-              ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
-              : status === "error"
-              ? "border-red-500/30 bg-red-500/10 text-red-300"
-              : status === "saving" || status === "loading"
-              ? "border-white/15 bg-white/5 text-white/60"
-              : "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
-          )}
-        >
-          {localOnly ? (
-            <>
-              <CloudOff size={13} />
-              Solo local
-            </>
-          ) : status === "error" ? (
-            <>
-              <TriangleAlert size={13} />
-              Error
-            </>
-          ) : status === "saving" || status === "loading" ? (
-            <>
-              <Loader2 size={13} className="animate-spin" />
-              {status === "saving" ? "Guardando" : "Cargando"}
-            </>
-          ) : (
-            <>
-              <Check size={13} />
-              Guardado
-            </>
-          )}
-        </span>
+        {/* El estado del guardado: botón para guardar o reintentar cuando hay algo pendiente. */}
+        <EstadoGuardado
+          status={status}
+          localOnly={localOnly}
+          sinGuardar={sinGuardar}
+          onGuardar={() => void guardaYa()}
+        />
         </div>
       </div>
 
@@ -797,7 +802,7 @@ function BoardEditor({
         aPantallaCompleta={aPantallaCompleta}
         roster={roster}
         rivalSquads={rivalSquads}
-        hint="Elige el equipo rival y pulsa sus dorsales para pintarlos. Dibuja con las herramientas de la barra, duplica la escena, mueve las fichas y pulsa Animar para ver la transición."
+        hint="Elige el equipo rival y pulsa sus dorsales para pintarlos. Dibuja con las herramientas de la barra, duplica la escena, mueve las fichas y pulsa ▶ en la barra de escenas para ver la transición. Ctrl+Z deshace."
       />
     </div>
   );

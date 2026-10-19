@@ -151,7 +151,7 @@ const reloj = (segundos: number) =>
 
 const megas = (bytes: number) =>
   bytes >= 1024 ** 3
-    ? `${(bytes / 1024 ** 3).toFixed(2)} GB`
+    ? `${(bytes / 1024 ** 3).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GB`
     : `${Math.round(bytes / 1024 ** 2)} MB`;
 
 /**
@@ -1034,6 +1034,7 @@ export function BarraExportacion({
             key={peso}
             type="button"
             onClick={() => onTopeMegas(peso)}
+            aria-pressed={topeMegas === peso}
             title={
               peso === 0
                 ? "Sin tope: cada corte pesa lo que pida la imagen"
@@ -1074,6 +1075,7 @@ export function BarraExportacion({
             key={una.px}
             type="button"
             onClick={() => onMedida(una.px)}
+            aria-pressed={medida === una.px}
             title={
               una.px === 0
                 ? "El corte sale con la imagen del partido, sin encogerla"
@@ -1108,7 +1110,12 @@ export function BarraExportacion({
           <button
             type="button"
             onClick={() => onQuema(!quema)}
-            title="El vídeo se para en cada pizarra, se ve el dibujo y sigue limpio"
+            aria-pressed={quema}
+            title={
+              quema
+                ? "El vídeo se para en cada pizarra, se ve el dibujo y sigue limpio. Pulsa para sacarlo sin dibujos."
+                : "El vídeo sale sin los dibujos. Pulsa para meterlos."
+            }
             className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
               quema
                 ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
@@ -1116,13 +1123,13 @@ export function BarraExportacion({
             }`}
           >
             {quema ? <Snowflake size={12} /> : <SkipForward size={12} />}
-            {quema ? "Dentro del vídeo" : "Fuera"}
+            {quema ? "Dentro del vídeo" : "Sin dibujos"}
           </button>
 
           <span className="text-[11px] text-white/35">
             {quema
               ? `${pizarras} ${pizarras === 1 ? "parada" : "paradas"}: el vídeo se detiene, se ve lo pintado y sigue`
-              : `${pizarras} sin quemar: el vídeo sale como se grabó`}
+              : `${pizarras} ${pizarras === 1 ? "pizarra se queda" : "pizarras se quedan"} fuera: el vídeo sale como se grabó`}
           </span>
         </div>
       )}
@@ -1253,8 +1260,8 @@ export function BarraExportacion({
           sonido, a la calidad y a los fotogramas del partido, y tarda bastante
           menos de lo que dura el vídeo —no hay que reproducirlo—. Se ve
           mientras se hace y se puede cancelar. Si el fichero no se deja leer
-          así (un .mkv, un códec raro), se graba a tiempo real: {formateaTotal(total)}
-          , y entonces sale en .webm.
+          así (un .mkv, un formato raro), se graba a tiempo real —tarda{" "}
+          {formateaTotal(total)}— y entonces sale en .webm.
         </p>
       ) : (
       <div className="flex flex-wrap items-center gap-2">
@@ -1264,14 +1271,15 @@ export function BarraExportacion({
 
         {(
           [
-            ["preciso", "Preciso", "Vuelve a codificar: empieza en el fotograma exacto."],
-            ["rapido", "Rápido", "Copia sin recodificar: instantáneo, pero corta en el fotograma clave más cercano."],
+            ["preciso", "Preciso", "Empieza justo donde marcaste. Tarda más o menos lo que duran los cortes."],
+            ["rapido", "Rápido", "Casi al momento, pero el corte puede empezar uno o dos segundos antes de lo marcado."],
           ] as const
         ).map(([valor, texto, ayuda]) => (
           <button
             key={valor}
             type="button"
             title={ayuda}
+            aria-pressed={modo === valor}
             onClick={() => onModo(valor)}
             className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
               modo === valor
@@ -1282,6 +1290,14 @@ export function BarraExportacion({
             {texto}
           </button>
         ))}
+
+        {/* La diferencia, a la vista: en una tablet no hay ratón que
+            enseñe el `title` (19/10/2026). */}
+        <span className="text-[11px] text-white/35">
+          {modo === "rapido"
+            ? "casi al momento; puede empezar un par de segundos antes"
+            : "justo donde marcaste; tarda lo que duran los cortes"}
+        </span>
       </div>
       )}
     </div>

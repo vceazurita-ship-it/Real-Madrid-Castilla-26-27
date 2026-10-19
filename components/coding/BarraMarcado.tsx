@@ -114,7 +114,7 @@ export function BarraMarcado({
         >
           {sujeto?.tipo === "colectivo" && (
             <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-white/40">
-              Col.
+              Equipo
             </span>
           )}
 
@@ -148,8 +148,8 @@ export function BarraMarcado({
         <button
           type="button"
           onClick={onDeshacer}
-          title="Deshacer el último corte"
-          aria-label="Deshacer el último corte"
+          title="Deshacer lo último que se ha hecho con los cortes: marcar, borrar, mover o vaciar (tecla Retroceso)"
+          aria-label="Deshacer lo último"
           className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 text-white/50 transition hover:border-white/25 hover:text-white"
         >
           <Undo2 size={16} />
@@ -204,18 +204,20 @@ export function BarraMarcado({
       {/* --------------------------- LOS TIEMPOS ----------------------- */}
 
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[12px] tabular-nums">
-        <span className="text-white/35">
-          IN{" "}
-          <b className={abierta ? "text-white/80" : "text-white/30"}>
+        {/* «Inicio» y «Final», no IN y OUT: son la I y la O del teclado y
+            en castellano (19/10/2026). */}
+        <span className="font-sans text-white/35">
+          Inicio{" "}
+          <b className={`font-mono ${abierta ? "text-white/80" : "text-white/30"}`}>
             {abierta ? formatea(inicioMs) : "—"}
           </b>
         </span>
 
         <span className="text-white/15">→</span>
 
-        <span className="text-white/35">
-          OUT{" "}
-          <b className={abierta ? "text-white/80" : "text-white/30"}>
+        <span className="font-sans text-white/35">
+          Final{" "}
+          <b className={`font-mono ${abierta ? "text-white/80" : "text-white/30"}`}>
             {abierta ? formatea(Math.max(inicioMs, tiempoMs)) : "—"}
           </b>
         </span>

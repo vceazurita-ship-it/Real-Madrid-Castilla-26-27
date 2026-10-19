@@ -354,7 +354,8 @@ export function ClipsDelJugador({
 
               <Link
                 href={clip.enlace}
-                title="Abrir el coding de ese partido"
+                title="Abrir el coding de ese partido en este corte"
+                aria-label="Abrir el coding de ese partido en este corte"
                 className="shrink-0 rounded-lg p-1.5 text-white/35 transition hover:bg-white/[0.08] hover:text-white"
               >
                 <Scissors size={13} />

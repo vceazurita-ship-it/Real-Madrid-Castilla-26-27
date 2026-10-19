@@ -14,8 +14,16 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 
 const ORIGEN = "/api/rivals?action=alineaciones";
+
+/**
+ * Aviso de «la lista ha cambiado» (19/10/2026). La barra de la pizarra lo
+ * lanza al guardar: antes la jornada recién guardada no aparecía aquí hasta
+ * recargar la página, y parecía que no se había guardado.
+ */
+export const ALINEACIONES_CAMBIADAS = "rmcf:alineaciones-cambiadas";
 
 type SavedLineup = {
   ID: number;
@@ -35,15 +43,30 @@ const fecha = new Intl.DateTimeFormat("es-ES", {
   year: "numeric",
 });
 
-/** Una fecha que la hoja trae en blanco o mal escrita no rompe la tarjeta. */
+/**
+ * La fecha de la tarjeta. La hoja la devuelve como instante («…T22:00Z», que
+ * es el día siguiente en Madrid y por eso se pinta en hora local), pero una
+ * celda escrita como texto llega «19/10/2026», que `new Date` no entiende.
+ * Una fecha que no se puede leer no se pinta: nada de «—» en la tarjeta.
+ */
 function formatDate(valor: string) {
-  const dia = new Date(valor);
+  const texto = String(valor ?? "").trim();
 
-  return Number.isNaN(dia.getTime()) ? "—" : fecha.format(dia);
+  const dma = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+
+  const dia = dma
+    ? new Date(Number(dma[3]), Number(dma[2]) - 1, Number(dma[1]))
+    : new Date(texto);
+
+  return texto && !Number.isNaN(dia.getTime()) ? fecha.format(dia) : "";
 }
 
 export default function SavedLineups({ onLoad }: Props) {
   const [lineups, setLineups] = useState<SavedLineup[]>([]);
+
+  /* Mientras llega la lista no se dice «no hay ninguna»: la primera lectura
+     puede tardar un minuto y parecía que se habían borrado. */
+  const [cargando, setCargando] = useState(true);
 
   /*
   | Declarada ANTES del efecto que la usa. Estaba después: funcionaba por el
@@ -66,6 +89,8 @@ export default function SavedLineups({ onLoad }: Props) {
       console.error("[pizarra] alineaciones guardadas", error);
 
       setLineups([]);
+    } finally {
+      setCargando(false);
     }
   }, []);
 
@@ -75,6 +100,12 @@ export default function SavedLineups({ onLoad }: Props) {
        cosas. */
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void carga();
+
+    const relee = () => void carga();
+
+    window.addEventListener(ALINEACIONES_CAMBIADAS, relee);
+
+    return () => window.removeEventListener(ALINEACIONES_CAMBIADAS, relee);
   }, [carga]);
 
   /* Sólo las jornadas; y un nombre vacío en la hoja ya no tira la página. */
@@ -89,29 +120,42 @@ export default function SavedLineups({ onLoad }: Props) {
       </h3>
 
       {visibleLineups.length === 0 ? (
-        <p className="text-xs text-white/40">
-          Todavía no hay ninguna jornada guardada.
-        </p>
+        cargando ? (
+          <p className="flex items-center gap-2 text-xs text-white/40">
+            <Loader2 size={13} className="animate-spin" />
+            Cargando las jornadas guardadas…
+          </p>
+        ) : (
+          <p className="text-xs text-white/40">
+            Todavía no hay ninguna jornada guardada. Monta la alineación y
+            pulsa «Guardar» con el nombre «Jornada» y su número.
+          </p>
+        )
       ) : (
         <div className="flex snap-x gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-[#C8A96B]/40">
-          {visibleLineups.map((item) => (
-            <button
-              key={item.ID}
-              type="button"
-              onClick={() => onLoad(item.ID)}
-              className="w-[220px] min-w-[220px] shrink-0 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-[#C8A96B]"
-            >
-              <div className="font-semibold">{item.Nombre}</div>
+          {visibleLineups.map((item) => {
+            const dia = formatDate(item.Fecha);
 
-              <div className="text-xs text-white/60">
-                {formatDate(item.Fecha)}
-              </div>
+            return (
+              <button
+                key={item.ID}
+                type="button"
+                onClick={() => onLoad(item.ID)}
+                title={`Abrir la alineación de la ${item.Nombre}`}
+                className="w-[220px] min-w-[220px] shrink-0 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-[#C8A96B]"
+              >
+                <div className="font-semibold">{item.Nombre}</div>
 
-              <div className="text-xs text-[#C8A96B]">{item.Rival}</div>
+                {dia && <div className="text-xs text-white/60">{dia}</div>}
 
-              <div className="text-xs">{item.Sistema}</div>
-            </button>
-          ))}
+                {item.Rival && (
+                  <div className="text-xs text-[#C8A96B]">{item.Rival}</div>
+                )}
+
+                {item.Sistema && <div className="text-xs">{item.Sistema}</div>}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

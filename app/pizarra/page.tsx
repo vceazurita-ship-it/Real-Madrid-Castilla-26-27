@@ -13,6 +13,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { LayoutGrid, Shield, Swords } from "lucide-react";
+import { toast } from "sonner";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -113,7 +114,26 @@ function PizarraContent() {
     assignPlayer(overId, player);
   }
 
+  /*
+  | Abrir una jornada guardada (19/10/2026): con aviso de «abriendo» —la hoja
+  | puede tardar un minuto en frío y el clic parecía no hacer nada—, sin
+  | `alert` que bloquee la página, y preguntando antes si el campo tiene una
+  | alineación montada, porque la sustituye entera y no hay deshacer.
+  */
   async function handleLoadLineup(id: number) {
+    const colocados = lineup.filter((slot) => slot.playerId).length;
+
+    if (
+      colocados > 0 &&
+      !window.confirm(
+        `En el campo hay ${colocados} jugadores colocados. ¿Cambiarlos por la alineación guardada?`
+      )
+    ) {
+      return;
+    }
+
+    const aviso = toast.loading("Abriendo la alineación…");
+
     try {
       /* Por `/api/rivals`, que guarda la respuesta del Apps Script en el
          servidor y ahorra su arranque en frío. Guardar tira esa copia. */
@@ -122,7 +142,7 @@ function PizarraContent() {
       const data = await res.json();
 
       if (!data.success) {
-        alert("No se pudo cargar la alineación");
+        toast.error("No se pudo cargar la alineación", { id: aviso });
         return;
       }
 
@@ -132,9 +152,14 @@ function PizarraContent() {
         JSON.parse(data.alineacion),
         data.nombre
       );
+
+      toast.success(`${data.nombre} en el campo`, { id: aviso });
     } catch (e) {
       console.error(e);
-      alert("Error al cargar la alineación");
+      toast.error("No se pudo cargar la alineación", {
+        id: aviso,
+        description: "Revisa la conexión e inténtalo de nuevo.",
+      });
     }
   }
 

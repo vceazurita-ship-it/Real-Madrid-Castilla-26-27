@@ -216,7 +216,7 @@ export const AVISOS_YOUTUBE: Record<string, { tono: "ok" | "mal"; texto: string;
   },
   token: {
     tono: "mal",
-    texto: "Google no ha dado el token",
+    texto: "Google no ha terminado de dar el acceso",
     detalle: "Suele ser la URL de vuelta: tiene que estar dada de alta tal cual en la consola.",
   },
   "sin-refresco": {

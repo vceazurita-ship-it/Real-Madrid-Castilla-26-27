@@ -572,6 +572,32 @@ export function useSesionCoding(opciones: {
     [muta],
   );
 
+  /*
+  | Quita una pizarra sólo si se ha quedado sin dibujos (19/10/2026).
+  |
+  | «Pizarra» crea la escena en el acto, antes de pintar nada, y salir sin
+  | dibujar la dejaba guardada: vacía, congelada de partida, y parando el
+  | vídeo cada vez que se pasaba por ese minuto sin enseñar nada. Se mira
+  | dentro del actualizador, con lo último guardado —el «Listo» del editor
+  | guarda el último trazo justo antes de salir—, así que una pizarra con
+  | algo dentro no se toca nunca.
+  */
+  const borraEscenaSiVacia = useCallback(
+    (id: string) => {
+      muta((actual) => {
+        const suya = actual.escenas.find((una) => una.id === id);
+
+        if (!suya || suya.dibujos.length > 0) return actual;
+
+        return {
+          ...actual,
+          escenas: actual.escenas.filter((una) => una.id !== id),
+        };
+      });
+    },
+    [muta],
+  );
+
   /* ------------------------------------------------------- la sesión */
 
   /**
@@ -708,6 +734,7 @@ export function useSesionCoding(opciones: {
     ajustaEscena,
     ponClipsDeEscena,
     borraEscena,
+    borraEscenaSiVacia,
     ponFuente,
     añadeVideos,
     quitaVideo,

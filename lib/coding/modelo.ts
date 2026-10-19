@@ -433,9 +433,18 @@ export function formateaMs(ms: number) {
   return horas > 0 ? `${horas}:${cuerpo}` : cuerpo;
 }
 
-/** 7580 → "7.58s": la duración como se lee en la lista de clips. */
+/**
+ * 7580 → "7,58 s": la duración como se lee en la lista de clips.
+ *
+ * Con coma decimal (19/10/2026): salía «7.58s», con punto, en una app que
+ * escribe todos los demás números en castellano. Sólo es para la pantalla;
+ * ffmpeg tiene su propio `segundosFfmpeg`.
+ */
 export function formateaDuracion(ms: number) {
-  return `${(Math.max(0, ms) / 1000).toFixed(2)}s`;
+  return `${(Math.max(0, ms) / 1000).toLocaleString("es-ES", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} s`;
 }
 
 /** "04:12" — el tiempo total codificado, sin milésimas. */
