@@ -62,7 +62,9 @@ const COLOR: Record<Veredicto, string> = {
   ventaja: MEJOR,
   desventaja: PEOR,
   parejo: "#C8A96B",
-  "sin-datos": "rgba(255,255,255,0.25)",
+  /* Gris en hexadecimal: se le pega el alfa («${color}22») y un rgba() con
+     sufijo no es color; además el blanco no se veía en modo día (19/10/2026). */
+  "sin-datos": "#94A3B8",
 };
 
 const ROTULO: Record<Veredicto, string> = {
@@ -353,7 +355,7 @@ export default function DuelosPage() {
                   [
                     { key: "nuestro", label: "Balón: Castilla", color: "#C8A96B" },
                     { key: "suyo", label: `Balón: ${equipoVisto || "rival"}`, color: "#F29A8C" },
-                    { key: "ambos", label: "Los dos", color: "#FFFFFF" },
+                    { key: "ambos", label: "Los dos", color: tinta(0.9) },
                   ] as const
                 ).map((o) => (
                   <button
@@ -399,7 +401,7 @@ export default function DuelosPage() {
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <p className="text-sm font-semibold">
                         El campo: nosotros atacamos hacia la derecha
-                        <span className="ml-2 text-xs font-normal" style={{ color: modo === "nuestro" ? "#C8A96B" : modo === "suyo" ? "#F29A8C" : "rgba(255,255,255,0.45)" }}>
+                        <span className="ml-2 text-xs font-normal" style={{ color: modo === "nuestro" ? "#C8A96B" : modo === "suyo" ? "#F29A8C" : tinta(0.45) }}>
                           {modo === "nuestro" ? "· con el balón nuestro" : modo === "suyo" ? `· con el balón de ${equipoVisto}` : "· balance de los dos momentos"}
                         </span>
                       </p>
@@ -427,6 +429,9 @@ export default function DuelosPage() {
                           <span className="h-0.5 w-4" style={{ background: COLOR[v] }} /> {ROTULO[v]}
                         </span>
                       ))}
+                      {/* La clave de los «P73» de las tarjetas, siempre a la vista:
+                          la explicación larga de abajo se puede apagar (19/10/2026). */}
+                      <span className="basis-full sm:basis-auto sm:ml-auto">P73 = mejor que el 73 % de los de su puesto (P100, el mejor)</span>
                     </div>
                   </div>
 
@@ -818,8 +823,8 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
       {visibles.map((b) => {
         const nuestroBalon = b.sentido === "con";
         const aire = b.sentido === "aire";
-        const fondo = aire ? "rgba(255,255,255,0.08)" : nuestroBalon ? "rgba(200,169,107,0.16)" : "rgba(232,106,90,0.16)";
-        const tono = aire ? "rgba(255,255,255,0.7)" : nuestroBalon ? "#C8A96B" : "#F29A8C";
+        const fondo = aire ? tinta(0.08) : nuestroBalon ? "rgba(200,169,107,0.16)" : "rgba(232,106,90,0.16)";
+        const tono = aire ? tinta(0.7) : nuestroBalon ? "#C8A96B" : "#F29A8C";
 
         return (
           <div key={b.sentido} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5">
@@ -892,7 +897,7 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
                         <div className="h-full" style={{ width: `${f.nuestro ?? 0}%`, background: f.veredicto === "ventaja" ? MEJOR : ORO }} />
                       </div>
                       <div className="flex-1 overflow-hidden rounded-r-full bg-white/[0.06]">
-                        <div className="h-full" style={{ width: `${f.suyo ?? 0}%`, background: f.veredicto === "desventaja" ? PEOR : "rgba(255,255,255,0.6)" }} />
+                        <div className="h-full" style={{ width: `${f.suyo ?? 0}%`, background: f.veredicto === "desventaja" ? PEOR : tinta(0.55) }} />
                       </div>
                     </div>
                   </div>
@@ -935,7 +940,7 @@ function Tarjeta({
       {lista.length === 0 && <span className="text-xs text-white/35">Sin nadie en el hueco</span>}
       {lista.map((j) => (
         <div key={j.clave} className={`flex min-w-0 items-center gap-2 ${nuestro ? "" : "flex-row-reverse"}`}>
-          <Foto src={j.foto} nombre={j.nombre} size={34} borde={nuestro ? ORO : "rgba(255,255,255,0.7)"} />
+          <Foto src={j.foto} nombre={j.nombre} size={34} borde={nuestro ? ORO : tinta(0.5)} />
           <div className="min-w-0">
             <p className={`truncate text-sm font-medium ${nuestro ? "text-[#C8A96B]" : "text-white/90"}`}>{j.nombre}</p>
             <p className="truncate text-[10px] text-white/40">
