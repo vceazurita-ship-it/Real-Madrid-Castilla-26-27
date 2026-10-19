@@ -5,14 +5,28 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { Play, Maximize2 } from "lucide-react";
 
-export default function IndividualPage() {
+export default function CollectiveHistoryPage() {
+  /*
+  | 19/10/2026: el iPhone no deja poner un elemento a pantalla completa
+  | (`requestFullscreen` no existe ahí) y el botón no hacía nada. Si el
+  | navegador no puede, se abre el informe en una pestaña nueva, que en el
+  | móvil ya ocupa la pantalla entera.
+  */
   const toggleDashboardFullscreen = async () => {
   try {
-    if (!document.fullscreenElement) {
-      await dashboardRef.current?.requestFullscreen();
-    } else {
+    if (document.fullscreenElement) {
       await document.exitFullscreen();
+      return;
     }
+
+    const panel = dashboardRef.current;
+
+    if (panel && typeof panel.requestFullscreen === "function") {
+      await panel.requestFullscreen();
+      return;
+    }
+
+    window.open(src, "_blank", "noopener");
   } catch (error) {
     console.error(error);
   }
@@ -47,7 +61,9 @@ useEffect(() => {
       e.key === "Escape" &&
       document.fullscreenElement
     ) {
-      document.exitFullscreen();
+      /* El navegador suele salir solo con Escape; si ya lo ha hecho, esta
+         segunda salida falla y no debe dejar un error en la consola. */
+      document.exitFullscreen().catch(() => {});
     }
   };
 
@@ -186,7 +202,7 @@ useEffect(() => {
 </button>
 
   <iframe
-    title="Power BI Report"
+    title="Histórico de la competición (Power BI)"
     src={src}
     className={`
       block
@@ -213,7 +229,7 @@ useEffect(() => {
 
                 <div className="mt-4 flex items-center gap-3 sm:gap-5">
                   <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-                    Uso del dashboard
+                    Cómo se usa el informe
                   </h2>
 
                   <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
@@ -223,7 +239,7 @@ useEffect(() => {
               {/* Desktop */}
               <div className="hidden lg:block rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
                 <iframe
-                  title="Video explicativo"
+                  title="Vídeo explicativo"
                   src="https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1Nrt/preview"
                   className="
                     w-full
@@ -240,7 +256,7 @@ useEffect(() => {
               {/* Móvil */}
               <div className="lg:hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-6 text-center">
                 <p className="text-white/80 text-sm mb-4">
-                  Ver explicación completa del dashboard
+                  Ver la explicación completa del informe
                 </p>
 
                 <button
