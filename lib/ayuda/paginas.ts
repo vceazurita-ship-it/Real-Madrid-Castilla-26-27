@@ -230,7 +230,8 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           { que: "Carga cognitiva", es: "Lo mismo con la columna cognitiva" },
           {
-            que: "Ratio cog/fís",
+            /* Como la tarjeta, que ya no dice «Ratio Cog/Fís» (19/10/2026). */
+            que: "Cognitiva / física",
             es: "Si la semana pide más cabeza o más piernas",
             cuenta: "Carga cognitiva ÷ carga física. Por encima de 1, sesgo cognitivo",
           },

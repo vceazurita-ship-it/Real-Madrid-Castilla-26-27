@@ -407,7 +407,10 @@ export default function DashboardPlantilla() {
           licencia,
 
           estado: (scout.ESTADO || estado.ESTADO || "").trim(),
-          activo: licencia.trim() === "RMCF Castilla",
+          /* Sin licencia escrita cuenta como del Castilla, igual que en
+             `hooks/usePlayers` (19/10/2026): si no, «la misma regla que el
+             resto» dejaba fuera de «Del Castilla» a quien la tuviera vacía. */
+          activo: (licencia.trim() || "RMCF Castilla") === "RMCF Castilla",
 
           mentalidad,
           habitos,
