@@ -28,6 +28,7 @@ import { toast } from "sonner";
 
 import { Button, Dialog, Notice, Segmented } from "@/components/abp/ui";
 import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada } from "@/components/informe-partido/Diapositivas";
+import { VideosDeLaSemana, type PiezaDeVideo } from "@/components/informe-partido/VideosDeLaSemana";
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 import { Destinatarios } from "@/components/correo/Destinatarios";
 import { PanelWhatsapp } from "@/components/correo/PanelWhatsapp";
@@ -883,6 +884,44 @@ export function InformePartidoDialog({
       setTrabajando(null);
     }
   };
+
+  /*
+  | El catálogo de la semana (22/10/2026, crítica del productor): el del
+  | cuerpo técnico es el mismo que va en el correo (se reutiliza si ya está
+  | montado) y el de los jugadores, la pieza corta de consignas.
+  */
+  const piezasDeVideo: PiezaDeVideo[] =
+    informeVisto && puedeMontarVideo()
+      ? [
+          {
+            id: "cuerpo-tecnico",
+            nombre: esPost ? "El partido, para el cuerpo técnico" : "La previa, para el cuerpo técnico",
+            publico: "Cuerpo técnico",
+            formato: "horizontal",
+            duracion: "de 1 a 2:30 min",
+            archivo: nombreDeArchivo(`${nombreLegible} - Vídeo del informe`, "mp4"),
+            monta: (alPaso) => dameVideo(alPaso),
+          },
+          {
+            id: "jugadores",
+            nombre: "Consignas, para los jugadores",
+            publico: "Jugadores",
+            formato: "para el móvil",
+            duracion: `${SEGUNDOS_CONSIGNAS} s como mucho`,
+            archivo: nombreDeArchivo(`${nombreLegible} - Consignas para jugadores`, "mp4"),
+            monta: async (alPaso) => {
+              const escudos = await traeEscudos().catch(() => []);
+              const escudo = buscadorDeEscudos(escudos)(informeVisto.partido.rival);
+
+              return montaVideoInforme(consignasDePartido(informeVisto, { escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null }), {
+                tope: SEGUNDOS_CONSIGNAS,
+                fuente: barlowCondensed.style.fontFamily,
+                alPaso,
+              });
+            },
+          },
+        ]
+      : [];
 
   /* ---------------- mandar ---------------- */
 
@@ -1844,6 +1883,8 @@ export function InformePartidoDialog({
             </div>
           </div>
         )}
+
+        {informeVisto && !cargando ? <VideosDeLaSemana piezas={piezasDeVideo} jornada={informeVisto.partido.jornada ?? null} rival={informeVisto.partido.rival} ocupado={Boolean(trabajando) || Boolean(preparando)} /> : null}
 
         {/* El estado del balón parado, que llega aparte. */}
         {informe && !cargando && (

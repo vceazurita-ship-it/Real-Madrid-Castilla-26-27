@@ -484,7 +484,7 @@ function ideaDelPartido(informe: InformePartido) {
   if (principal) return cortaPalabras(principal.linea, 8);
 
   /* Sin consigna, su arma, pero sólo si el gancho no la ha dicho ya. */
-  const fuerte = informe.pronostico?.suFuerte ?? informe.vistazo?.fuertes[0];
+  const fuerte = armaDelRival(informe);
 
   return fuerte && !escenaGancho(informe) ? cortaPalabras(`Su arma: ${sinSiglas(fuerte.nombre).toLowerCase()}`, 8) : "";
 }
@@ -497,6 +497,45 @@ function ideaDelPartido(informe: InformePartido) {
  * debajo. Primero las claves que escribió el cuerpo técnico; si ninguna se
  * puede decir así, «Cómo lo ganamos» del informe (ya viene en esa voz).
  */
+/**
+ * Su mejor arma, la del gancho de la previa (la del pronóstico o, si no, la
+ * de DATA), y si una consigna habla de ella: comparten una raíz de cinco
+ * letras («centros» y «centro», «córner» y «córners»).
+ */
+function armaDelRival(informe: InformePartido) {
+  const candidatas = [informe.pronostico?.suFuerte, ...(informe.vistazo?.fuertes ?? [])].filter((x): x is NonNullable<typeof x> => Boolean(x));
+
+  if (!candidatas.length) return null;
+
+  /* De sus armas, la que nuestras claves contestan; si ninguna, la principal. */
+  const nuestras = raices([...informe.sintesis.claves, ...(informe.sintesis.plan ?? []).map((x) => x.texto)].slice(0, 3).join(" "));
+
+  return candidatas.find((c) => [...raices(sinSiglas(c.nombre))].some((r) => nuestras.has(r))) ?? candidatas[0];
+}
+
+const raices = (t: string) =>
+  new Set(
+    t
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .split(/[^a-z]+/)
+      .filter((p) => p.length >= 5)
+      .map((p) => p.slice(0, 5))
+      /* Un córner y un balón colgado son centros al área: la misma familia. */
+      .map((r) => (r === "corne" || r === "colga" ? "centr" : r)),
+  );
+
+function respondeAlArma(informe: InformePartido, texto: string) {
+  const arma = armaDelRival(informe);
+
+  if (!arma) return false;
+
+  const suyas = raices(sinSiglas(arma.nombre));
+
+  return [...raices(texto)].some((r) => suyas.has(r));
+}
+
 export function consignasDePrevia(informe: InformePartido): { linea: string; pie: string }[] {
   const s = informe.sintesis;
   const dato = (t: string) => {
@@ -508,12 +547,25 @@ export function consignasDePrevia(informe: InformePartido): { linea: string; pie
   };
   const deClaves = s.claves.map((c) => ({ linea: consigna(c, 9), pie: dato(c) })).filter((x) => x.linea);
 
-  if (deClaves.length) return deClaves.slice(0, 3);
+  /*
+  | La que contesta al gancho va primera (22/10/2026, crítica del guionista:
+  | el vídeo abría con «2.º en centros al área» y cerraba con otra cosa, y la
+  | pregunta no se contestaba). Así la portada, la primera clave y el cierre
+  | hablan de lo mismo que el gancho.
+  */
+  const primeroLaQueResponde = (lista: { linea: string; pie: string }[]) => {
+    const k = lista.findIndex((x) => respondeAlArma(informe, `${x.linea} ${x.pie}`));
 
-  return (s.plan ?? [])
+    return k > 0 ? [lista[k], ...lista.filter((_, i) => i !== k)] : lista;
+  };
+
+  if (deClaves.length) return primeroLaQueResponde(deClaves).slice(0, 3);
+
+  return primeroLaQueResponde(
+    (s.plan ?? [])
     .map((x) => ({ linea: cortaPalabras(sinSiglas(limpia(x.texto)).split(/:\s/)[0], 9).replace(/[.;,\s]+$/, ""), pie: dato(x.texto) }))
-    .filter((x) => x.linea)
-    .slice(0, 3);
+    .filter((x) => x.linea),
+  ).slice(0, 3);
 }
 
 /**
@@ -523,7 +575,7 @@ export function consignasDePrevia(informe: InformePartido): { linea: string; pie
  * categoría (o los puestos de los dos).
  */
 function escenaGancho(informe: InformePartido): Escena | null {
-  const { partido, duelo, vistazo, contexto, momento } = informe;
+  const { partido, duelo, contexto, momento } = informe;
 
   if (momento === "post" && partido.gf !== null && partido.gc !== null) {
     const resultado = partido.gf > partido.gc ? "VICTORIA" : partido.gf < partido.gc ? "DERROTA" : "EMPATE";
@@ -538,8 +590,8 @@ function escenaGancho(informe: InformePartido): Escena | null {
     return { id: "gancho", tipo: "gancho", dato: `${partido.gf}-${partido.gc}`, antetitulo: partido.rival, rotulo: (giro || resultado).toUpperCase(), contexto: dato, locucion: `${resultado.toLowerCase()} ${partido.gf}-${partido.gc}. ${dato}.` };
   }
 
-  /* Su mejor arma: la del pronóstico (la misma del titular del informe) y, si no, la de DATA. */
-  const fuerte = informe.pronostico?.suFuerte ?? vistazo?.fuertes[0];
+  /* Su mejor arma: la del pronóstico (la misma del titular del informe) y, si no, la de DATA; entre ellas, la que contestan nuestras claves (22/10/2026). */
+  const fuerte = armaDelRival(informe);
 
   /* Previa (20/10/2026): «2º» enorme y debajo sólo en qué; el «de 20 equipos» queda para la escena fase a fase. */
   if (fuerte) {
@@ -1091,7 +1143,14 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   | primera clave; post: lo primero que toca, con el porqué del informe.
   */
   const cierre = previa ? consignas.slice(0, 1) : tocan.length ? tocan.slice(0, 1) : balance ? balance.cierre.slice(1, 2) : [];
-  const pieCierre = previa ? (consignasPrevia[0]?.pie ?? "") : tocan.length ? cortaPalabras(limpia((sintesis.microciclo ?? [])[0]?.split(" · ").slice(1).join(" · ") ?? ""), 12) : "";
+  /*
+  | Previa: si la consigna contesta al gancho, el dato de debajo lo dice
+  | («Contra su 2.º en centros al área»): el vídeo se cierra en bucle
+  | (22/10/2026, crítica del guionista).
+  */
+  const arma = armaDelRival(informe);
+  const contraSuArma = previa && arma && consignasPrevia[0] && respondeAlArma(informe, `${consignasPrevia[0].linea} ${consignasPrevia[0].pie}`) ? `Contra su ${arma.puesto}.º en ${sinSiglas(arma.nombre).toLowerCase()}` : "";
+  const pieCierre = previa ? contraSuArma || (consignasPrevia[0]?.pie ?? "") : tocan.length ? cortaPalabras(limpia((sintesis.microciclo ?? [])[0]?.split(" · ").slice(1).join(" · ") ?? ""), 12) : "";
 
   if (!cierre.length && !previa) cierre.push(giroDelPartido(informe) || limpia(sintesis.titular));
 

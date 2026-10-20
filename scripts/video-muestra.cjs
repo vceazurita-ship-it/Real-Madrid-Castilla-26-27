@@ -84,8 +84,8 @@ const guion = {
       { que: "Sin balón", buscabamos: "Optimizar y ajustar nuestra fase sin balón ante un equipo que tendrá el objetivo de someternos.", logramos: "15 remates suyos (6 nuestros) · 30 ataques suyos con llegada", estado: "no" },
       { que: "Transición", buscabamos: "Darle valor a la transición ante un rival que se expondrá en campo propio.", logramos: "3 de 21 robos acabaron en remate · 0 contras nuestras (2 suyas)", estado: "si" },
     ]).escena,
-    /* Un único cierre (21/10/2026): la consigna y su dato, y fundido a negro. */
-    { id: "cierre", tipo: "cierre", titulo: "Nuestra consigna", lineas: [G.consigna("Defender el segundo palo en los córners: 3 de sus 5 goles.", 9)], pie: "3 de sus 5 goles", locucion: "Nuestra consigna." },
+    /* Un único cierre (21/10/2026) que contesta al gancho (22/10/2026): la consigna y, debajo, contra qué. */
+    { id: "cierre", tipo: "cierre", titulo: "Nuestra consigna", lineas: [G.consigna("Defender el segundo palo en los córners: 3 de sus 5 goles.", 9)], pie: "Contra su 2.º en centros al área", locucion: "Nuestra consigna." },
   ].filter(Boolean),
 };
 
