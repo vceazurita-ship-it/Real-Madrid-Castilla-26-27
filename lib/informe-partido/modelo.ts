@@ -598,6 +598,8 @@ export type PinceladaAbp = {
   minutos?: { confirmados: number; propuestos: number; texto: string };
   /** Post: el aspecto que nos dio peligro en contra en el partido, ya como consigna y dato, para «Qué toca en el microciclo» (22/10/2026). */
   sustoEnContra?: { consigna: string; dato: string } | null;
+  /** Previa: la prioridad nº 1 del informe de ABP, tal cual (24/10/2026): la previa del partido dice lo mismo. */
+  prioridad?: { consigna: string; texto: string } | null;
 };
 
 /**
@@ -2112,7 +2114,7 @@ export function planPorFases(inf: Omit<InformePartido, "sintesis">): { fase: str
   | informe ya ha llegado, la línea es su prioridad nº 1 («Defendemos la falta
   | lateral»), no otra calculada aquí.
   */
-  const prioridadAbp = inf.momento === "post" ? "" : consignaDe(inf.abp?.pincelada?.titular ?? "");
+  const prioridadAbp = inf.momento === "post" ? "" : inf.abp?.pincelada?.prioridad?.consigna || consignaDe(inf.abp?.pincelada?.titular ?? "");
 
   /* El scouting puede llamar «fortaleza» a un balón parado que en los datos rinde poco: se dice (24/10/2026, experto de análisis). */
   const flojo = abpDelRivalFlojo(d);
