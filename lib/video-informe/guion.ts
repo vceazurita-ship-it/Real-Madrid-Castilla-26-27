@@ -1167,6 +1167,8 @@ function locucionDeAcciones(cortes: Corte[], primera: boolean) {
 
 /** Lo que dura como mucho la pieza «Consignas» para los jugadores. */
 export const SEGUNDOS_CONSIGNAS = 75;
+/** Y lo que dura como poco en vertical (21/10/2026): sin estirar al minuto del informe. */
+export const SEGUNDOS_CONSIGNAS_MINIMOS = 45;
 
 /**
  * La pieza «CONSIGNAS» para los jugadores (20/10/2026, crítica del productor
@@ -1176,8 +1178,8 @@ export const SEGUNDOS_CONSIGNAS = 75;
  * de cortes del rival, las claves y la consigna; post: gancho, portada, los
  * goles, el balance y la consigna. Se monta con `montaVideoInforme(…, { tope:
  * SEGUNDOS_CONSIGNAS })`; el diálogo del informe la descarga con «Vídeo para
- * jugadores» (21/10/2026). Sale en 16:9: el 9:16 pide rehacer el dibujo de
- * cada escena (todo está medido sobre 1280×720) y no está hecho.
+ * jugadores» (21/10/2026). Sale en vertical (`montaVideoInforme(…, { vertical:
+ * true })`, composición propia de cada escena en `vertical.ts`) o en 16:9.
  */
 export function consignasDePartido(informe: InformePartido, extras: ExtrasPartido = {}): GuionVideo {
   const completo = guionDePartido(informe, extras);

@@ -6,6 +6,9 @@
 |   node scripts/video-muestra.cjs <carpeta>          hoja de fotogramas
 |   node scripts/video-muestra.cjs <carpeta> --mp4    y el vídeo entero
 |
+| Saca también `vertical.png`: la pieza para jugadores en 9:16 (21/10/2026),
+| con la lista blanca de la previa más el balance y los cortes del post.
+|
 | Pinta un informe inventado con TODOS los tipos de escena del vídeo (los de
 | siempre y los de datos: gancho, contexto, versus, percentiles, duelos y
 | fases) con el mismo dibujo que el navegador y el ordenador del club
@@ -35,6 +38,7 @@ const { spawn } = require("child_process");
 const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
 const D = require("../lib/video-informe/dibujo.ts");
 const G = require("../lib/video-informe/guion.ts");
+const V = require("../lib/video-informe/vertical.ts");
 
 const RAIZ = path.join(__dirname, "..");
 const salida = path.resolve(process.argv[2] ?? "video-muestra");
@@ -167,6 +171,36 @@ function cuadroDeMentira() {
   const consignas = D.reparteEscenas({ ...guion, escenas: guion.escenas.filter((e) => CONSIGNAS.has(e.id)) }, null, 48000, G.SEGUNDOS_CONSIGNAS);
 
   console.log(`Consignas: ${consignas.length} escenas, ${consignas.reduce((s, m) => s + m.segundos, 0).toFixed(1)} s`);
+
+  /* La pieza para jugadores en vertical: 1080×1920, tres momentos de cada escena (la portada, desde su primer fotograma: es la miniatura). */
+  const guionV = V.paraVertical({ ...guion, escenas: guion.escenas.filter((e) => CONSIGNAS.has(e.id) || e.id === "balance" || e.id === "clips-2") });
+  const medidasV = D.reparteEscenas(guionV, null, 48000, G.SEGUNDOS_CONSIGNAS, G.SEGUNDOS_CONSIGNAS_MINIMOS);
+  const totalV = medidasV.reduce((s, m) => s + m.segundos, 0);
+  const arranquesV = [];
+
+  medidasV.reduce((s, m) => (arranquesV.push(s), s + m.segundos), 0);
+
+  const lienzoV = createCanvas(V.ANCHO_V_HD, V.ALTO_V_HD);
+  const ctxV = lienzoV.getContext("2d");
+  const hojaV = createCanvas(360 * 3, 640 * medidasV.length);
+  const hv = hojaV.getContext("2d");
+
+  medidasV.forEach((m, k) => {
+    const momentos = k === 0 ? [0, 1.5, m.segundos - 0.6] : [0.8, Math.min(Math.max(3.4, m.segundos * 0.5), m.segundos - 0.6), m.segundos - 0.6];
+
+    momentos.forEach((t, j) => {
+      V.pintaFotogramaVertical(ctxV, grano, fuente, rec, { medida: m, t, global: arranquesV[k] + t, progreso: (arranquesV[k] + t) / totalV, restante: m.segundos - t, cuadro: m.escena.tipo === "clips" ? cuadro : null });
+      hv.drawImage(lienzoV, j * 360, k * 640, 360, 640);
+    });
+  });
+
+  fs.writeFileSync(path.join(salida, "vertical.png"), await hojaV.encode("png"));
+  console.log(`Vertical: ${medidasV.length} escenas, ${totalV.toFixed(1)} s → ${path.join(salida, "vertical.png")}`);
+  console.log(medidasV.map((m) => `  ${m.escena.id.padEnd(12)} ${m.segundos.toFixed(1).padStart(5)} s`).join(String.fromCharCode(10)));
+
+  /* Y el primer fotograma suelto, a tamaño de miniatura de WhatsApp. */
+  V.pintaFotogramaVertical(ctxV, grano, fuente, rec, { medida: medidasV[0], t: 0, global: 0, progreso: 0, restante: medidasV[0].segundos, cuadro: null });
+  fs.writeFileSync(path.join(salida, "vertical-miniatura.png"), await lienzoV.encode("png"));
 
   if (!conMp4) return;
 

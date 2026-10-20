@@ -552,7 +552,7 @@ const rebota = (t: number) => salta(t);
 
 const entra = (t: number, desde: number, cuanto = 0.45) => suave((t - desde) / cuanto);
 
-function parteLineas(ctx: Lienzo, texto: string, anchoMax: number) {
+export function parteLineas(ctx: Lienzo, texto: string, anchoMax: number) {
   const palabras = texto.split(" ");
   const lineas: string[] = [];
   let actual = "";
@@ -748,7 +748,7 @@ function estallidoGol(ctx: Lienzo, fuente: string, tc: number) {
 }
 
 /** Una foto o escudo recortados en círculo, con un aro; sin imagen, el texto (dorsal o siglas). */
-function medallon(ctx: Lienzo, fuente: string, img: Dibujable | null, cx: number, cy: number, radio: number, aro: string, texto: string) {
+export function medallon(ctx: Lienzo, fuente: string, img: Dibujable | null, cx: number, cy: number, radio: number, aro: string, texto: string) {
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, radio, 0, Math.PI * 2);
@@ -941,7 +941,7 @@ function pintaPortada(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "p
 }
 
 /** Un resplandor de oro detrás de un escudo. */
-function halo(ctx: Lienzo, cx: number, cy: number, radio: number) {
+export function halo(ctx: Lienzo, cx: number, cy: number, radio: number) {
   const g = ctx.createRadialGradient(cx, cy, radio * 0.4, cx, cy, radio);
   g.addColorStop(0, "rgba(200,169,107,0.45)");
   g.addColorStop(1, "rgba(200,169,107,0)");
@@ -950,7 +950,7 @@ function halo(ctx: Lienzo, cx: number, cy: number, radio: number) {
 }
 
 /** El ancho de un texto con espaciado entre letras (para medir antes de pintar). */
-function espaciadoAncho(ctx: Lienzo, texto: string, aire: number) {
+export function espaciadoAncho(ctx: Lienzo, texto: string, aire: number) {
   return [...texto].reduce((s, c) => s + ctx.measureText(c).width, 0) + aire * Math.max(0, texto.length - 1);
 }
 
@@ -1678,7 +1678,7 @@ const GRIS = "#8A94A6";
 const colorRacha = (r: string) => (r === "G" ? VERDE : r === "P" ? ROJO : GRIS);
 
 /** Una tarjeta oscura con degradado, como las de las claves. */
-function tarjeta(ctx: Lienzo, x: number, y: number, w: number, h: number, filo: string | null = ORO) {
+export function tarjeta(ctx: Lienzo, x: number, y: number, w: number, h: number, filo: string | null = ORO) {
   const g = ctx.createLinearGradient(0, y, 0, y + h);
   g.addColorStop(0, "rgba(18,34,58,0.95)");
   g.addColorStop(1, "rgba(8,17,31,0.78)");
@@ -2154,7 +2154,7 @@ function pintaBalance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "b
 }
 
 /** ✓, ✗ o ~ en un círculo de su color, dibujados: el estado no depende sólo del color (daltónicos). */
-function iconoEstado(ctx: Lienzo, estado: "si" | "parcial" | "no", cx: number, cy: number, color: string) {
+export function iconoEstado(ctx: Lienzo, estado: "si" | "parcial" | "no", cx: number, cy: number, color: string) {
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(cx, cy, 19, 0, Math.PI * 2);

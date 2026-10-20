@@ -36,7 +36,7 @@ import { mensajeWhatsapp, telefonosDe, type CanalEnvio, type MensajeWhatsapp } f
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { TOPE_ADJUNTOS_CORREO, TOPE_PETICION_CORREO } from "@/lib/correo/limites";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
-import { SEGUNDOS_CONSIGNAS, consignasDePartido, guionDePartido } from "@/lib/video-informe/guion";
+import { SEGUNDOS_CONSIGNAS, SEGUNDOS_CONSIGNAS_MINIMOS, consignasDePartido, guionDePartido } from "@/lib/video-informe/guion";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { montaVideoInforme, puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
@@ -859,9 +859,10 @@ export function InformePartidoDialog({
   | la pieza corta «Consignas» (gancho, a vigilar, sus acciones, las claves y
   | la consigna; en el post, los goles y el balance), 75 s como mucho, con el
   | mismo motor. Se baja al aparato: no sube nada ni se manda a nadie, y quien
-  | lo quiera lo comparte desde el móvil. Sale en 16:9 como el del informe.
+  | lo quiera lo comparte desde el móvil. En VERTICAL por defecto (1080×1920,
+  | 21/10/2026: se ve en el móvil, por WhatsApp); el 16:9, con el botón de al lado.
   */
-  const bajaVideoJugadores = async () => {
+  const bajaVideoJugadores = async (vertical = true) => {
     try {
       setTrabajando("Vídeo para jugadores…");
 
@@ -869,11 +870,13 @@ export function InformePartidoDialog({
       const escudo = buscadorDeEscudos(escudos)(informeVisto!.partido.rival);
       const v = await montaVideoInforme(consignasDePartido(informeVisto!, { escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null }), {
         tope: SEGUNDOS_CONSIGNAS,
+        minimo: vertical ? SEGUNDOS_CONSIGNAS_MINIMOS : undefined,
+        vertical,
         fuente: barlowCondensed.style.fontFamily,
         alPaso: (t) => setTrabajando(`Vídeo para jugadores · ${t}`),
       });
 
-      descarga(v.blob, nombreDeArchivo(`${nombreLegible} - Consignas para jugadores`, "mp4"));
+      descarga(v.blob, nombreDeArchivo(`${nombreLegible} - Consignas para jugadores${vertical ? "" : " (16x9)"}`, "mp4"));
     } catch (error) {
       toast.error("No se ha podido montar el vídeo", { description: error instanceof Error ? error.message : "" });
     } finally {
@@ -1536,9 +1539,14 @@ export function InformePartidoDialog({
               Completo PDF
             </Button>
             {puedeMontarVideo() ? (
-              <Button icon={Clapperboard} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaVideoJugadores()} title="La pieza corta para el móvil (75 s como mucho): a quién vigilar, las claves y la consigna. Se descarga; no se envía">
-                Vídeo para jugadores
-              </Button>
+              <>
+                <Button icon={Clapperboard} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaVideoJugadores()} title="La pieza corta en vertical para el móvil (45-75 s): a quién vigilar, sus acciones, las claves y la consigna. Se descarga; no se envía">
+                  Vídeo para jugadores
+                </Button>
+                <Button disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaVideoJugadores(false)} title="La misma pieza en horizontal (16:9), para proyectarla">
+                  16:9
+                </Button>
+              </>
             ) : null}
             <Button
               tone="primary"

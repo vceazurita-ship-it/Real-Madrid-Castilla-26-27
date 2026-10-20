@@ -30,6 +30,7 @@ import { FRECUENCIA_AAC, remuestrea } from "./voz";
 import { bandaSonora, masteriza, rmsConPuerta } from "./musica";
 import { posterDeVideo } from "./portada-video";
 import { FotogramasCorte } from "./fotogramas-corte";
+import { ALTO_V, ALTO_V_HD, ANCHO_V, ANCHO_V_HD, paraVertical, pintaFotogramaVertical } from "./vertical";
 
 /*
 | DOS VÍDEOS EN UNA PASADA (15/10/2026):
@@ -59,10 +60,10 @@ const CODEC = "avc1.4d401f"; /* H.264 Main 3.1: 1280×720 a 30 fps en cualquier 
 const CODECS_HD = ["avc1.640028", "avc1.4d4028"];
 
 /** El primer códec de HD que este navegador sabe codificar; `null` si ninguno (entonces sale sólo en 720p). */
-async function codecHd(caudal: number) {
+async function codecHd(caudal: number, ancho = ANCHO_HD, alto = ALTO_HD) {
   for (const codec of CODECS_HD) {
     try {
-      const r = await VideoEncoder.isConfigSupported({ codec, width: ANCHO_HD, height: ALTO_HD, bitrate: caudal, framerate: FPS, avc: { format: "avc" } });
+      const r = await VideoEncoder.isConfigSupported({ codec, width: ancho, height: alto, bitrate: caudal, framerate: FPS, avc: { format: "avc" } });
 
       if (r.supported) return codec;
     } catch {
@@ -87,6 +88,14 @@ export type OpcionesVideo = {
   cola?: { url: string } | null;
   /** Lo más que dura el guion (sin la cola). */
   tope?: number;
+  /** Lo menos que dura el guion: sin él, un minuto (`SEGUNDOS_MINIMOS`). */
+  minimo?: number;
+  /**
+   * En vertical, 1080×1920 (21/10/2026): la pieza para jugadores, para verla
+   * en el móvil. Sólo entran las escenas con composición vertical
+   * (`vertical.ts`) y la portada va delante (es la miniatura de WhatsApp).
+   */
+  vertical?: boolean;
 };
 
 /* Con cola, un solo vídeo (el enlazado): todo el margen del bucket para él. */
@@ -315,7 +324,14 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
   if (!puedeMontarVideo()) throw new Error("Este navegador no puede montar vídeo (hace falta Chrome, Edge o Safari 17).");
 
   /* La comprobación previa (21/10/2026): ninguna escena a medias, venga el guion de donde venga. */
-  const guionCrudo: GuionVideo = { ...guionEntrada, escenas: soloCompletas(guionEntrada.escenas) };
+  const guionCompleto: GuionVideo = { ...guionEntrada, escenas: soloCompletas(guionEntrada.escenas) };
+  const vertical = Boolean(opciones.vertical);
+  const guionCrudo = vertical ? paraVertical(guionCompleto) : guionCompleto;
+  /* Las medidas del vídeo: el lienzo lógico (y la copia ligera) y el de alta definición. */
+  const W = vertical ? ANCHO_V : ANCHO;
+  const H = vertical ? ALTO_V : ALTO;
+  const W_HD = vertical ? ANCHO_V_HD : ANCHO_HD;
+  const H_HD = vertical ? ALTO_V_HD : ALTO_HD;
 
   const alPaso = opciones.alPaso ?? (() => {});
   const fuente = `${opciones.fuente ? `${opciones.fuente}, ` : ""}"Barlow Condensed", "Segoe UI", Arial, sans-serif`;
@@ -328,7 +344,7 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
 
   /* Sin voz en off desde el 13/10/2026: música compuesta (musica.ts) y el texto en pantalla. */
   const pistas = null;
-  const escenas = reparteEscenas(guion, pistas, FRECUENCIA_AAC, opciones.tope ?? SEGUNDOS_MAXIMOS, opciones.cola ? 0 : undefined);
+  const escenas = reparteEscenas(guion, pistas, FRECUENCIA_AAC, opciones.tope ?? SEGUNDOS_MAXIMOS, opciones.cola ? 0 : opciones.minimo);
   const totalGuion = escenas.reduce((s, x) => s + x.segundos, 0);
 
   /* La cola: se baja entera y se descodifica como un corte; si no se puede leer, no hay vídeo (es lo principal). */
@@ -400,17 +416,17 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
 
   /* El de Full HD, si el navegador lo sabe hacer; si no, el vídeo sale en 720p como antes. */
   const caudalHd = cola ? caudalColaPara(total) : caudalHdPara(total);
-  const codec = await codecHd(caudalHd);
+  const codec = await codecHd(caudalHd, W_HD, H_HD);
   const muxorHd = codec ? new MuxorMp4() : null;
-  const codificadorHd = muxorHd ? codificadorPara(muxorHd, ANCHO_HD, ALTO_HD) : null;
+  const codificadorHd = muxorHd ? codificadorPara(muxorHd, W_HD, H_HD) : null;
 
-  codificadorHd?.configure({ codec: codec!, width: ANCHO_HD, height: ALTO_HD, bitrate: caudalHd, framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
+  codificadorHd?.configure({ codec: codec!, width: W_HD, height: H_HD, bitrate: caudalHd, framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
 
   /* La copia ligera (la adjunta del correo). Con cola el vídeo sólo va enlazado: no se hace, salvo que no haya HD. */
   const muxor = cola && codificadorHd ? null : new MuxorMp4();
-  const codificador = muxor ? codificadorPara(muxor, ANCHO, ALTO) : null;
+  const codificador = muxor ? codificadorPara(muxor, W, H) : null;
 
-  codificador?.configure({ codec: CODEC, width: ANCHO, height: ALTO, bitrate: cola ? caudalColaPara(total) : caudalPara(total), framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
+  codificador?.configure({ codec: CODEC, width: W, height: H, bitrate: cola ? caudalColaPara(total) : caudalPara(total), framerate: FPS, latencyMode: "quality", avc: { format: "avc" } });
   const muxores = [muxor, muxorHd].filter((m): m is MuxorMp4 => Boolean(m));
 
   const frecuencia = FRECUENCIA_AAC;
@@ -524,15 +540,15 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
   /* ---- los fotogramas ---- */
   /* Se pinta en HD (dibujo.ts escala sus medidas de 1280 al lienzo) y la copia ligera es ese lienzo reducido. */
   const lienzo = document.createElement("canvas");
-  lienzo.width = codificadorHd ? ANCHO_HD : ANCHO;
-  lienzo.height = codificadorHd ? ALTO_HD : ALTO;
+  lienzo.width = codificadorHd ? W_HD : W;
+  lienzo.height = codificadorHd ? H_HD : H;
   const ctx = lienzo.getContext("2d", { alpha: false })!;
   const reducido = codificadorHd && codificador ? document.createElement("canvas") : null;
   const ctxReducido = reducido?.getContext("2d", { alpha: false }) ?? null;
 
   if (reducido && ctxReducido) {
-    reducido.width = ANCHO;
-    reducido.height = ALTO;
+    reducido.width = W;
+    reducido.height = H;
     ctxReducido.imageSmoothingQuality = "high";
   }
   const grano = document.createElement("canvas");
@@ -564,7 +580,7 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
     }
 
     if (codificador) {
-      if (reducido && ctxReducido) ctxReducido.drawImage(lienzo, 0, 0, ANCHO, ALTO);
+      if (reducido && ctxReducido) ctxReducido.drawImage(lienzo, 0, 0, W, H);
 
       const marca = new VideoFrame(reducido ?? lienzo, tiempo);
 
@@ -602,13 +618,16 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
         }
       }
 
-      pintaFotograma(ctx, grano, fuente, guion.titulo, rec, { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro, marcas: arranques.slice(1).map((a) => a / total) });
+      const f = { medida: x, t, global: arranques[k] + t, progreso: fotograma / totalFotogramas, restante: (cuantos - i) / FPS, cuadro, marcas: arranques.slice(1).map((a) => a / total) };
+
+      if (vertical) pintaFotogramaVertical(ctx, grano, fuente, rec, f);
+      else pintaFotograma(ctx, grano, fuente, guion.titulo, rec, f);
 
       if (k === escenaPoster && i === Math.min(cuantos - 1, Math.round(SEGUNDO_POSTER * FPS))) {
         fotoPoster = document.createElement("canvas");
-        fotoPoster.width = ANCHO;
-        fotoPoster.height = ALTO;
-        fotoPoster.getContext("2d")!.drawImage(lienzo, 0, 0, ANCHO, ALTO);
+        fotoPoster.width = W;
+        fotoPoster.height = H;
+        fotoPoster.getContext("2d")!.drawImage(lienzo, 0, 0, W, H);
       }
 
       await codifica();
@@ -670,7 +689,8 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
 
   if (fallo) throw fallo;
 
-  const poster = await posterDeVideo(fotoPoster, { segundos: total, rotulo: guion.titulo }).catch(() => undefined);
+  /* En vertical, el póster es la portada tal cual (la miniatura de WhatsApp); el de 16:9 lleva su botón y su rótulo. */
+  const poster = vertical ? fotoPoster?.toDataURL("image/jpeg", 0.85) : await posterDeVideo(fotoPoster, { segundos: total, rotulo: guion.titulo }).catch(() => undefined);
 
   const ligero = muxor ? muxor.cierra() : null;
   const hd = muxorHd ? muxorHd.cierra() : null;
