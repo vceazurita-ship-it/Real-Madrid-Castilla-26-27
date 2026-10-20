@@ -343,6 +343,8 @@ export type InformePartido = {
   vistazo: VistazoRival | null;
   /** El vídeo resumen ya montado por el ordenador del club (`informe-video:jNN`): el diálogo lo adjunta tal cual, sin montar nada. */
   videoListo?: { url: string; creado: string; segundos: number; /** El póster (JPEG en el bucket). */ poster?: string | null; /** La copia ligera en 720p para adjuntar (desde el 15/10/2026; `url` es la de Full HD). */ ligero?: string | null } | null;
+  /** Previa: lo que pidió el post del partido anterior («Qué toca en el microciclo»), para cruzarlo con las tareas de esta semana (24/10/2026). */
+  postAnterior?: { etiqueta: string; lineas: string[] } | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -555,6 +557,10 @@ export type Sintesis = {
   ideaPrevia: string;
   /** Previa: cada consigna con las tareas de la semana que la entrenan (sin tarea, la lista va vacía: lo decide el cuerpo técnico). */
   consignaTareas: { consigna: string; tareas: string[] }[];
+  /** Previa: lo que pidió el post anterior, con las tareas de esta semana que lo entrenan. */
+  delPostAnterior: { origen: string; consigna: string; dato: string; tareas: string[] }[];
+  /** Previa: la consigna que mejor responde a los datos pero no tiene tarea esta semana (va al aviso del analista, no al informe). */
+  ideaSinTarea: string;
 };
 
 /** Una clave del plan, revisada con Wyscout: `null` = no hay métrica que la mida (no se inventa veredicto). */
@@ -1815,6 +1821,9 @@ function respuestaDelTitular(inf: Omit<InformePartido, "sintesis">, plan: { fase
 
 /** Qué tareas de la semana entrenan cada tipo de consigna (por las palabras de la hoja de registro). */
 const TAREAS_DE_CONSIGNA: { consigna: RegExp; tarea: RegExp }[] = [
+  /* Lo que pide el post (24/10/2026): «Sacamos más de cada robo», «Cerramos los partidos con ventaja». */
+  { consigna: /cada robo|al robar|salimos r[aá]pido|contraata|transici/i, tarea: /transici|contraata|tras robo|tras recuperaci/i },
+  { consigna: /cerramos|con ventaja|gestionamos/i, tarea: /gesti[oó]n|ventaja|cierre de partido|marcador|superioridad|11\s*v\s*10/i },
   { consigna: /segunda jugada|rechace/i, tarea: /segunda|2\s*[ªº°]|rechace|a[eé]re|directo|bal[oó]n largo/i },
   { consigna: /espalda|profundidad/i, tarea: /espalda|profundidad|ruptura|desmarque|[uú]ltimo tercio|ataque\s*cr\b|finalizaci/i },
   { consigna: /robamos|presionamos|apretamos/i, tarea: /presi[oó]n|tras p[eé]rdida|robo|recuperaci|bloque (?:medio-)?alto|evitar progresi/i },
@@ -1943,7 +1952,7 @@ export function planPorFases(inf: Omit<InformePartido, "sintesis">): { fase: str
     lineas.push({
       fase: "Sin balón",
       texto: primeraQueQuepa(
-        segunda.dePosesion ? `Ganamos la segunda jugada: su envío largo y somos ${ordinal(segunda.puesto)} por alto` : `Ganamos la segunda jugada: juegan en largo y somos ${ordinal(segunda.puesto)} por alto`,
+        segunda.dePosesion ? `Ganamos la segunda jugada: su envío largo y somos ${ordinal(segunda.puesto)} de ${segunda.de} por alto` : `Ganamos la segunda jugada: juegan en largo y somos ${ordinal(segunda.puesto)} de ${segunda.de} por alto`,
         `Ganamos la segunda jugada`,
       ),
     });
@@ -2510,6 +2519,196 @@ export function preencabezadoInforme(inf: InformePartido) {
 }
 
 /**
+ * El titular de la previa sale de la idea principal (24/10/2026, marketing y
+ * guion): afirmativo, una sola idea y sin pregunta. «Buscan en largo a la
+ * última línea: toca ganar la segunda jugada»; «Su punto débil, Gomez (lento
+ * y pierde duelos): toca atacar su espalda». Sin una de estas tres, manda el
+ * dato (la cadena de siempre en `sintetiza`).
+ */
+function titularDePrevia(inf: Omit<InformePartido, "sintesis">, principal: string) {
+  if (!principal) return "";
+
+  const toca = `toca ${minusculaInicial(enInfinitivo(principal))}`;
+
+  if (/segunda jugada|rechace/i.test(principal)) {
+    const s = segundaJugada(inf);
+
+    if (s) return s.dePosesion ? `Buscan en largo a la última línea: ${toca}` : `Juegan en largo: ${toca}`;
+  }
+
+  const debil = defensorDebil(inf);
+
+  const nombra = debil ? plano(debil.jugador.nombre).some((t) => t.length >= 4 && plano(principal).includes(t)) : false;
+
+  if (debil && nombra) {
+    const ap = apellido(debil.jugador.nombre);
+
+    const accion = debil.espalda && /espalda/i.test(principal) ? "toca atacar su espalda" : toca;
+
+    return debil.rasgos.length ? `Su punto débil, ${ap} (${yFinal(debil.rasgos)}): ${accion}` : `Su punto débil, ${ap}: ${accion}`;
+  }
+
+  const arma = inf.pronostico?.suFuerte;
+
+  if (arma && /^Les quitamos/i.test(principal)) return `Su arma: ${nombreEnFrase(sinSiglas(arma.nombre))} (${ordinal(arma.puesto)} de ${arma.de}): toca quitársela`;
+
+  return "";
+}
+
+/**
+ * La línea del plan con su porqué para el WhatsApp de la previa (24/10/2026):
+ * «Atacamos la espalda de Gomez con Carvajal: lento y pierde duelos.»
+ */
+function consignaConPorque(s: Pick<Sintesis, "consigna" | "plan">) {
+  const principal = s.consigna[0];
+
+  if (!principal) return "";
+
+  const linea = s.plan.find((l) => consignaDe(l.texto) === principal)?.texto ?? principal;
+
+  return /[.?!]$/.test(linea) ? linea : `${linea}.`;
+}
+
+/** Las claves del cuerpo técnico que sirve cada fase del plan (24/10/2026, guion: la idea y el plan del cuerpo técnico eran dos historias). */
+const FASE_DE_CLAVE: [string, RegExp][] = [
+  ["Con balón", /posesi|con bal[oó]n|ataque|ofensiv|dominio/i],
+  ["Sin balón", /sin bal[oó]n|defens|presi[oó]n|bloque/i],
+  ["Transiciones", /transici|contraata|robo|p[eé]rdida/i],
+  ["Balón parado", /bal[oó]n parado|\babp\b|c[oó]rner|faltas?\b/i],
+];
+
+/** El número (desde 1) de la clave del cuerpo técnico que sirve esta fase, o 0 si ninguna. */
+export function claveDeFase(claves: string[], fase: string) {
+  const re = FASE_DE_CLAVE.find(([f]) => f === fase)?.[1];
+
+  if (!re) return 0;
+
+  return claves.findIndex((c) => re.test(c)) + 1;
+}
+
+/** Palabras con mayúscula tras una preposición que no son nombres de jugador. */
+const NO_ES_NOMBRE = /^(?:Z\d|Zona|Estructura|Atenci[oó]n|Ventaja|Prioridad|Ocupaci[oó]n|Vigilancia|Reinicios?|C[oó]rner|Falta|Penalti|Banda|Área|Area|Defensa|Ataque|Transici[oó]n|Bal[oó]n|Saque|Medio|Central|Lateral|Extremo|Punta|Portero|Mediapunta|Pivote)$/i;
+
+/**
+ * El plan de la previa, sin lo heredado de otro rival (24/10/2026, experto de
+ * fútbol): «Z1: 4-2-3-1 (Intención de levantar a Dani)» nombraba al portero
+ * del Antequera en la previa del Algeciras (y el Algeciras también tiene un
+ * Dani: el nombre solo no basta). No se publica, y va a los avisos del
+ * analista, una línea que:
+ * - está copiada del plan del partido anterior y nombra a un jugador de
+ *   aquel rival;
+ * - nombra a alguien que no está en su plantilla ni en la nuestra;
+ * - el boceto dejó con «?».
+ */
+export function planSinHeredado(
+  plan: Plan | null,
+  conocidos: string[],
+  rival: string,
+  avisos: string[],
+  anterior?: { rival: string; plan: Plan | null; nombres: string[] } | null,
+): Plan | null {
+  if (!plan) return plan;
+
+  const tokens = new Set(conocidos.flatMap((n) => plano(n)).filter((t) => t.length >= 3));
+
+  /* El plan anterior, línea a línea, y su plantilla («Dani» → «Dani Alcover»). */
+  const textosAnterior = anterior?.plan
+    ? [anterior.plan.ataque, anterior.plan.defensa, anterior.plan.abpOf, anterior.plan.abpDef, anterior.plan.emocionales, anterior.plan.estado, anterior.plan.estructuraOf, anterior.plan.estructuraDef, anterior.plan.fortalezas, anterior.plan.debilidades, ...anterior.plan.claves, ...anterior.plan.duelos.map((d) => d.texto)]
+    : [];
+
+  const lineasAnterior = new Set(textosAnterior.flatMap((t) => t.split("\n")).map((l) => plano(l).join(" ")).filter(Boolean));
+
+  const deAnterior = (n: string) => anterior?.nombres.find((x) => plano(x).some((t) => plano(n).includes(t)));
+
+  const NOMBRE = /(?:^|[\s(])(?:a|al|de|del|con|ante|sobre|para|levantar a)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]{2,})/g;
+
+  const quitadas: string[] = [];
+
+  const limpia = (texto: string, campo: string) =>
+    texto
+      .split("\n")
+      .filter((linea) => {
+        const t = linea.trim();
+
+        if (/^\?\s/.test(t)) {
+          quitadas.push(`«${campo}: ${t.replace(/^\?\s*/, "")}» lleva la marca «?» del boceto`);
+
+          return false;
+        }
+
+        const nombres = [...t.matchAll(NOMBRE)].map((m) => m[1]).filter((n) => !NO_ES_NOMBRE.test(n));
+
+        const copiada = lineasAnterior.has(plano(t).join(" "));
+
+        const suyo = copiada ? nombres.map((n) => ({ n, de: deAnterior(n) })).find((x) => x.de) : undefined;
+
+        if (suyo?.de) {
+          quitadas.push(`«${campo}: ${t}» viene del plan contra el ${anterior?.rival} y nombra a ${suyo.n} (${suyo.de}, de aquel rival)`);
+
+          return false;
+        }
+
+        const desconocido = nombres.find((n) => !plano(n).some((x) => tokens.has(x)));
+
+        if (desconocido) {
+          quitadas.push(`«${campo}: ${t}» nombra a ${desconocido}, que no está en la plantilla del ${rival || "rival"} ni en la nuestra`);
+
+          return false;
+        }
+
+        return true;
+      })
+      .map((l) => l.replace(/^(\s*)\*\s+/, "$1"))
+      .join("\n")
+      .trim();
+
+  const limpio: Plan = {
+    ...plan,
+    claves: plan.claves.map((c) => limpia(c, "Claves")).filter(Boolean),
+    ataque: limpia(plan.ataque, "Con balón"),
+    defensa: limpia(plan.defensa, "Sin balón"),
+    abpOf: limpia(plan.abpOf, "ABP ofensivo"),
+    abpDef: limpia(plan.abpDef, "ABP defensivo"),
+    emocionales: limpia(plan.emocionales, "Claves emocionales"),
+    estado: limpia(plan.estado, "Cómo llega el rival"),
+    estructuraOf: limpia(plan.estructuraOf, "Estructura ofensiva"),
+    estructuraDef: limpia(plan.estructuraDef, "Estructura defensiva"),
+    fortalezas: limpia(plan.fortalezas, "Sus fortalezas"),
+    debilidades: limpia(plan.debilidades, "Sus debilidades"),
+    duelos: plan.duelos.map((d) => ({ ...d, texto: limpia(d.texto, `Duelos · ${d.titulo.toLowerCase()}`) })).filter((d) => d.texto),
+  };
+
+  if (quitadas.length) avisos.push(`El plan de partido trae ${quitadas.length === 1 ? "una línea que no se publica" : `${quitadas.length} líneas que no se publican`}: ${quitadas.join("; ")}. Revísalo en Preparación de Partido.`);
+
+  return limpio;
+}
+
+/**
+ * Los avisos de la semana de la previa (24/10/2026): lo que no tiene tarea no
+ * se escribe en el informe («→ sin tarea esta semana» era un aviso para el
+ * analista dentro del documento del cuerpo técnico); se le dice a él.
+ */
+export function avisosDeLaSemana(inf: InformePartido) {
+  if (inf.momento === "post" || !inf.microciclo?.tareas.length) return [];
+
+  const s = inf.sintesis;
+
+  const avisos: string[] = [];
+
+  if (s.ideaSinTarea) avisos.push(`«${s.ideaSinTarea}» es lo que más piden los datos, pero no tiene tarea esta semana: no es la idea principal del informe. Si se entrena, apúntalo en el registro de tareas.`);
+
+  const sinTarea = s.consignaTareas.filter((c) => !c.tareas.length && c.consigna !== s.ideaSinTarea).map((c) => c.consigna);
+
+  if (sinTarea.length) avisos.push(`Sin tarea esta semana: ${yFinal(sinTarea.map((c) => `«${c}»`))}. En el informe salen sin tareas a su lado.`);
+
+  const anterior = s.delPostAnterior.filter((c) => !c.tareas.length).map((c) => c.consigna);
+
+  if (anterior.length) avisos.push(`Lo que pidió el ${s.delPostAnterior[0]?.origen || "post anterior"} y no tiene tarea esta semana: ${yFinal(anterior.map((c) => `«${c}»`))}.`);
+
+  return avisos;
+}
+
+/**
  * El WhatsApp en cuatro líneas (20/10/2026): titular en negrita, qué
  * hacemos, el vídeo y el PDF. Aquí van las dos primeras; los enlaces los pone
  * `mensajeWhatsapp`.
@@ -2545,14 +2744,15 @@ export function whatsappInforme(inf: InformePartido): { titular: string; lineas:
   return {
     titular: cabeza,
     /*
-    | La pregunta, su respuesta y, al final, el pronóstico en pequeño
-    | (23/10/2026): la consigna nº 1 contesta al titular; las otras, «y
-    | además». Sin el «con el plan», que es un supuesto, no una predicción.
+    | La idea con su porqué, lo demás en «Además» y el pronóstico al final,
+    | cada cosa en su línea (24/10/2026, marketing y guion: «¿Ganamos la
+    | segunda jugada? La respuesta: ganamos la segunda jugada» se contestaba
+    | repitiéndose). Sin el «con el plan», que es un supuesto.
     */
     lineas: [
-      s.titular,
-      s.consigna.length ? `La respuesta: ${minusculaInicial(s.consigna[0])}${s.consigna.length > 1 ? `; y además, ${yFinal(s.consigna.slice(1).map(minusculaInicial))}` : ""}.` : "",
-      pr ? `Pronóstico: ${pct(pr.victoria)} de victoria.` : "",
+      consignaConPorque(s) || s.titular,
+      s.consigna.length > 1 ? `Además: ${yFinal(s.consigna.slice(1).map(minusculaInicial))}.` : "",
+      pr ? `Pronóstico: ${pct(pr.victoria)} de victoria · ${pct(pr.derrota)} de derrota.` : "",
     ].filter(Boolean),
   };
 }
@@ -2575,7 +2775,45 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
   /* El hilo de la previa (23/10/2026): la línea del plan que responde a la pregunta del titular va primera, en «Cómo lo ganamos» y en la consigna. */
   const respuesta = esPost ? "" : respuestaDelTitular(inf, planBase);
 
-  const plan = respuesta ? [...planBase.filter((l) => consignaDe(l.texto) === respuesta), ...planBase.filter((l) => consignaDe(l.texto) !== respuesta)] : planBase;
+  /*
+  | La idea principal tiene que estar entrenada (24/10/2026, expertos de
+  | fútbol, guion y marketing): «Ganamos la segunda jugada → sin tarea esta
+  | semana» decía en el informe que lo más importante no se entrenaba. La
+  | respuesta al dato manda si tiene tarea; si no, la primera línea del plan
+  | que sí la tiene. La otra va al aviso del analista, no al informe.
+  */
+  const candidatas = esPost ? [] : [...new Set([respuesta, ...planBase.map((l) => consignaDe(l.texto)).filter((t) => t && ES_CONSIGNA.test(t))].filter(Boolean))];
+
+  const hayTareas = Boolean(inf.microciclo?.tareas.some((t) => t.md !== "MD"));
+
+  const conTarea = (c: string) => tareasDeConsigna(c, inf.microciclo).length > 0;
+
+  const principal = hayTareas ? candidatas.find(conTarea) ?? candidatas[0] ?? "" : candidatas[0] ?? "";
+
+  const ideaSinTarea = hayTareas && respuesta && respuesta !== principal && !conTarea(respuesta) ? respuesta : "";
+
+  const plan = principal ? [...planBase.filter((l) => consignaDe(l.texto) === principal), ...planBase.filter((l) => consignaDe(l.texto) !== principal)] : planBase;
+
+  const consigna = esPost ? [] : [principal, ...candidatas.filter((c) => c !== principal)].filter(Boolean).slice(0, 3);
+
+  /* LA IDEA: la principal y, si la hay, otra que también se entrena. La misma en la diapositiva 3, la portada del completo, el WhatsApp y el vídeo. */
+  const acompana = consigna.slice(1).find((c) => !hayTareas || conTarea(c));
+
+  const ideaPrevia = principal ? (acompana ? `${principal} y ${minusculaInicial(acompana)}` : principal) : "";
+
+  /* Una sola lista por consigna (24/10/2026): el resumen daba dos tareas y el completo, tres. */
+  const consignaTareas = consigna.map((c) => ({ consigna: c, tareas: tareasDeConsigna(c, inf.microciclo).slice(0, 3) }));
+
+  /* Lo que pidió el post anterior, en esta semana (24/10/2026, experto de fútbol): la corrección del lunes no se pierde antes del miércoles. */
+  const delPostAnterior = esPost
+    ? []
+    : (inf.postAnterior?.lineas ?? [])
+        .map((l) => {
+          const [c, ...dato] = l.split(" · ");
+
+          return { origen: inf.postAnterior?.etiqueta ?? "", consigna: c.trim(), dato: dato.join(" · ").trim(), tareas: tareasDeConsigna(c, inf.microciclo).slice(0, 3) };
+        })
+        .filter((x) => x.consigna);
 
   const cumplimiento = esPost ? cumplimientoPlan(inf) : [];
 
@@ -2656,19 +2894,22 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
 
   const baza = crucesAtaqueDefensa(inf.duelo).filter((c) => c.ataca === "nosotros" && c.ventaja >= UMBRAL_DIFERENCIA).sort((a, b) => b.ventaja - a.ventaja)[0];
 
-  const titular = esPost
-    ? titularPost(inf)
+  const titularDato = esPost
+    ? ""
     : segunda
       ? segunda.dePosesion
-        ? `Salen en corto y buscan en largo a la última línea; somos ${ordinal(segunda.puesto)} por alto. ¿Ganamos la segunda jugada?`
-        : `Nos buscarán en largo y a la segunda jugada, y somos ${ordinal(segunda.puesto)} por alto. ¿Ganamos el rechace?`
+        ? `Buscan en largo a la última línea: toca ganar la segunda jugada`
+        : `Juegan en largo: toca ganar la segunda jugada`
       : arma
-        ? `Su arma: ${nombreEnFrase(sinSiglas(arma.nombre))} (${ordinal(arma.puesto)} de ${arma.de}). ¿Se la quitamos?`
+        ? `Su arma: ${nombreEnFrase(sinSiglas(arma.nombre))} (${ordinal(arma.puesto)} de ${arma.de}): toca quitársela`
         : pr?.muchoBalon
           ? `Mucho balón y poco peligro: ${ordinal(pr.muchoBalon.volumen.puesto)} en ${nombreEnFrase(sinSiglas(pr.muchoBalon.volumen.nombre))}, ${ordinal(pr.muchoBalon.sinPeligro.puesto)} en ${nombreEnFrase(sinSiglas(pr.muchoBalon.sinPeligro.nombre))}`
           : baza
             ? `Nuestra baza. ${baza.texto}`
             : `${inf.partido.lado === "fuera" ? "Visitamos al" : "Recibimos al"} ${rival}${inf.contexto?.puesto ? `, ${ordinal(inf.contexto.puesto)} de la tabla` : ""}`;
+
+  /* Previa: el titular sale de la idea principal (24/10/2026); sin ella, del dato. */
+  const titular = esPost ? titularPost(inf) : titularDePrevia(inf, consigna[0] ?? "") || titularDato;
 
   const roja = (inf.cronica?.tarjetas ?? []).find((t) => t.tipo === "roja");
 
@@ -2717,15 +2958,6 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
       ? `Hoy ganaríamos ${veces(pr.victoria)}; si se cumplen las metas del plan, el ${pct(pr.conPlan.victoria)}`
       : "";
 
-  /* La consigna de la previa: la parte de antes de los dos puntos de cada línea del plan («Atacamos la espalda de Gómez»); la primera, la respuesta al titular. */
-  const consignaBase = esPost ? [] : plan.map((l) => consignaDe(l.texto)).filter((t) => t && ES_CONSIGNA.test(t));
-
-  const consigna = esPost ? [] : [...new Set([respuesta, ...consignaBase].filter(Boolean))].slice(0, 3);
-
-  const ideaPrevia = consigna.length > 1 ? `${consigna[0]} y ${minusculaInicial(consigna[1])}` : consigna[0] ?? "";
-
-  const consignaTareas = consigna.map((c) => ({ consigna: c, tareas: tareasDeConsigna(c, inf.microciclo) }));
-
   const titularPlan = esPost ? titularDelPlan(cumplimiento, microciclo) : "";
 
   return {
@@ -2747,5 +2979,7 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
     consigna,
     ideaPrevia,
     consignaTareas,
+    delPostAnterior,
+    ideaSinTarea,
   };
 }

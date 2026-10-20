@@ -548,6 +548,18 @@ export function consignasDePrevia(informe: InformePartido): { linea: string; pie
   const deClaves = s.claves.map((c) => ({ linea: consigna(c, 9), pie: dato(c) })).filter((x) => x.linea);
 
   /*
+  | La misma idea que el informe (24/10/2026, expertos de fútbol y guion): el
+  | plan por fases ya viene con la idea principal primero (la que se entrena
+  | esta semana), así que el vídeo dice lo mismo que la diapositiva 3 y el
+  | WhatsApp. Las claves escritas a mano, sólo si no hay plan.
+  */
+  const delPlan = (s.plan ?? [])
+    .map((x) => ({ linea: cortaPalabras(sinSiglas(limpia(x.texto)).split(/:\s/)[0], 9).replace(/[.;,\s]+$/, ""), pie: dato(x.texto) }))
+    .filter((x) => x.linea);
+
+  if (s.consigna?.length && delPlan.length) return delPlan.slice(0, 3);
+
+  /*
   | La que contesta al gancho va primera (22/10/2026, crítica del guionista:
   | el vídeo abría con «2.º en centros al área» y cerraba con otra cosa, y la
   | pregunta no se contestaba). Así la portada, la primera clave y el cierre
@@ -1210,9 +1222,18 @@ function tituloDeAcciones(cortes: Corte[]) {
     if (tipo) cuenta.set(tipo, (cuenta.get(tipo) ?? 0) + 1);
   }
 
-  const [tipo] = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0] ?? [""];
+  /*
+  | El título no contradice al corte (24/10/2026, guion: «córner ofensivo»
+  | sobre un centro lateral). Un tipo, ése; dos, los dos; más, el título
+  | genérico y cada corte dice el suyo en el rótulo.
+  */
+  const tipos = [...cuenta.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t.toLowerCase());
 
-  return tipo ? cortaPalabras(`Así lo hacen: ${tipo.toLowerCase()}`, 8) : "Así lo hacen";
+  if (!tipos.length || tipos.length > 2) return "Así lo hacen";
+
+  const titulo = `Así lo hacen: ${tipos.join(" y ")}`;
+
+  return titulo.split(/\s+/).length <= 8 ? titulo : "Así lo hacen";
 }
 
 /** La locución de los cortes del rival: si el primero trae lectura, se dice qué mirar; si no, qué viene. */

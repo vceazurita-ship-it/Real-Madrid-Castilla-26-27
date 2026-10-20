@@ -70,7 +70,8 @@ function cabeEn(texto: string, n: number) {
 
   const corte = texto.slice(0, n);
 
-  const frase = corte.lastIndexOf(". ");
+  /* El final de una frase, también si va al final de una línea (24/10/2026: el WhatsApp va en líneas). */
+  const frase = Math.max(corte.lastIndexOf(". "), corte.lastIndexOf(".\n"));
 
   if (frase > n * 0.4) return corte.slice(0, frase + 1);
 
@@ -112,13 +113,13 @@ export function mensajeWhatsapp(o: {
 
     const hueco = Math.max(60, TOPE_CORTO - titular.length - propio.length - etiquetas - 4);
 
-    /* Cada línea acaba en punto (20/10/2026): el titular de ABP y su clave iban pegados, sin pausa. */
+    /* Cada línea acaba en punto (20/10/2026) y va en su renglón (24/10/2026, marketing: era un párrafo de cinco líneas en el móvil). */
     const que = cabeEn(
       o.lineas
         .map((l) => l.trim())
         .filter(Boolean)
         .map((l) => (/[.?!:]$/.test(l) ? l : `${l}.`))
-        .join(" "),
+        .join("\n"),
       hueco,
     );
 

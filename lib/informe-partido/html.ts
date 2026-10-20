@@ -611,15 +611,26 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   /*
   | Cada consigna de la previa con la tarea que la entrena (23/10/2026,
-  | experto de fútbol): «Ganamos la segunda jugada → sin tarea esta semana».
-  | No es un dato que falte: es una decisión de planificación, y se dice.
+  | experto de fútbol), y lo que pidió el post anterior con la suya
+  | (24/10/2026). Lo que no tiene tarea no se escribe aquí: va al aviso del
+  | analista (24/10/2026, marketing: «→ sin tarea esta semana» decía al
+  | cuerpo técnico que la idea principal no se entrenaba).
   */
-  const consignasEnLaSemana =
-    !esPost && inf.sintesis.consignaTareas.length && m?.tareas.length
-      ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Las consignas, en la semana</p>${lista(
-          inf.sintesis.consignaTareas.map((c) => `${c.consigna} → ${c.tareas.length ? c.tareas.join(" · ") : "sin tarea esta semana"}`),
+  const conTarea = !esPost && m?.tareas.length ? inf.sintesis.consignaTareas.filter((c) => c.tareas.length) : [];
+
+  const anteriorConTarea = !esPost && m?.tareas.length ? inf.sintesis.delPostAnterior.filter((c) => c.tareas.length) : [];
+
+  const consignasEnLaSemana = `${
+    conTarea.length
+      ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Las consignas, en la semana</p>${lista(conTarea.map((c) => `${c.consigna} → ${c.tareas.join(" · ")}`))}`
+      : ""
+  }${
+    anteriorConTarea.length
+      ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Lo que pidió el ${esc(anteriorConTarea[0].origen)}, en esta semana</p>${lista(
+          anteriorConTarea.map((c) => `${c.consigna}${c.dato ? ` (${c.dato})` : ""} → ${c.tareas.join(" · ")}`),
         )}`
-      : "";
+      : ""
+  }`;
 
   const semana = m
     ? `${tarjetas([
@@ -737,8 +748,8 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
 </td></tr>${
     cifrasCabecera.length ? `<tr><td style="padding:18px 32px 0">${tarjetas(cifrasCabecera)}</td></tr>` : ""
   }${
-    pr?.idea && !esPost
-      ? `<tr><td style="padding:16px 32px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:14px 18px;border-left:4px solid #C8A96B;background:#FBF6EA"><p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:${ORO}">LA IDEA</p><p style="margin:4px 0 0;font:700 16px/1.4 Arial,sans-serif;color:${NAVY}">${esc(pr.idea)}</p></td></tr></table></td></tr>`
+    (inf.sintesis.ideaPrevia || pr?.idea) && !esPost
+      ? `<tr><td style="padding:16px 32px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:14px 18px;border-left:4px solid #C8A96B;background:#FBF6EA"><p style="margin:0;font:700 11px/1.3 Arial,sans-serif;letter-spacing:.2em;color:${ORO}">LA IDEA</p><p style="margin:4px 0 0;font:700 16px/1.4 Arial,sans-serif;color:${NAVY}">${esc(inf.sintesis.ideaPrevia || pr?.idea || "")}</p></td></tr></table></td></tr>`
       : ""
   }`;
 
@@ -970,7 +981,8 @@ export function resumenHtml(inf: InformePartido, cids: string[], opciones: { con
 
   const titular = inf.sintesis.titular.replace(/[.\s]+$/, "");
 
-  const idea = !esPost ? inf.pronostico?.idea ?? "" : "";
+  /* LA IDEA, la misma que la diapositiva 3, el WhatsApp y el vídeo (24/10/2026). */
+  const idea = !esPost ? inf.sintesis.ideaPrevia || inf.pronostico?.idea || "" : "";
 
   const claves = inf.sintesis.claves.slice(0, 5);
 

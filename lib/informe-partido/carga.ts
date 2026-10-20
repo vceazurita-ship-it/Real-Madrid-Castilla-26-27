@@ -36,6 +36,8 @@ import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
 import {
   enFrases,
   avisosDelPlan,
+  avisosDeLaSemana,
+  planSinHeredado,
   sintetiza,
   type Colectivo,
   type ContextoRival,
@@ -645,6 +647,9 @@ export async function cargaInforme(entrada: {
   /* Previa o post: si no se dice, lo decide el calendario. */
   const momento: Momento = entrada.momento ?? (partido?.jugado ? "post" : "previa");
 
+  /* Previa: lo que pidió el post del partido anterior (24/10/2026), en paralelo con lo demás. */
+  const postAnteriorP = momento === "previa" ? postAnteriorDe(entrada).catch(() => null) : Promise.resolve(null);
+
   /* ---------------- la fila del rival en RIVALES ---------------- */
 
   const candidatos = (Array.isArray(rivales) ? rivales : []).filter((f) => mismoClub(texto(f.EQUIPO), rival));
@@ -835,6 +840,36 @@ export async function cargaInforme(entrada: {
 
   avisos.push(...delRival.avisos);
 
+  /*
+  | Previa: el plan sin lo heredado de otro rival (24/10/2026): una línea que
+  | nombra a alguien que no está en su plantilla ni en la nuestra, o que el
+  | boceto dejó con «?», va al aviso del analista y no al informe.
+  */
+  const nuestras = momento === "previa" ? await cargaPlantilla().catch(() => []) : [];
+
+  /* El plan y la plantilla del rival de la jornada anterior: lo copiado que nombra a uno de los suyos no es de esta semana. */
+  const filaAnterior = momento === "previa" && partido?.jornada ? (Array.isArray(rivales) ? rivales : []).find((f) => num(f.JORNADA) === partido.jornada! - 1) ?? null : null;
+
+  const rivalAnterior = filaAnterior ? texto(filaAnterior.EQUIPO) : "";
+
+  const anterior = filaAnterior
+    ? {
+        rival: rivalAnterior,
+        plan: planDe(filaAnterior),
+        nombres: (Array.isArray(plantillas) ? plantillas : [])
+          .filter((f) => mismoClub(texto(f.NOMBRE_EQUIPO), rivalAnterior))
+          .map((f) => texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR))
+          .filter(Boolean),
+      }
+    : null;
+
+  const planPublicado =
+    momento === "previa"
+      ? planSinHeredado(plan, [...plantilla.map((j) => j.nombre), ...nuestras.flatMap((j) => [j.nombre, j.apodo ?? ""]), rival, equipoHoja], rival, avisos, anterior)
+      : plan;
+
+  const postAnterior = await postAnteriorP;
+
   const sinSintesis: Omit<InformePartido, "sintesis"> = {
     momento,
     generado: new Date().toISOString(),
@@ -850,7 +885,8 @@ export async function cargaInforme(entrada: {
     },
     microciclo,
     duelo,
-    plan,
+    plan: planPublicado,
+    postAnterior,
     colectivo,
     once,
     plantilla,
@@ -862,7 +898,7 @@ export async function cargaInforme(entrada: {
     ),
     cronica,
     recursos,
-    pronostico: pronostica({ duelo, partido: { lado: partido?.lado ?? "" }, plan }),
+    pronostico: pronostica({ duelo, partido: { lado: partido?.lado ?? "" }, plan: planPublicado }),
     abp: microciclo || laminasRival || docsRival.length
       ? { minutosSemana: microciclo?.totales.abpMinutos ?? 0, laminasRival, documentosRival: docsRival }
       : null,
@@ -878,5 +914,33 @@ export async function cargaInforme(entrada: {
   /* La coherencia del plan con los duelos y su once (23/10/2026): lo que no cuadra, al analista. */
   avisos.push(...avisosDelPlan(sinSintesis));
 
-  return { ...sinSintesis, sintesis: sintetiza(sinSintesis) };
+  const informe: InformePartido = { ...sinSintesis, sintesis: sintetiza(sinSintesis) };
+
+  /* Lo que no tiene tarea esta semana se le dice al analista, no al cuerpo técnico (24/10/2026). */
+  avisos.push(...avisosDeLaSemana(informe));
+
+  return informe;
+}
+
+/** Hasta cuántos microciclos atrás se busca el partido anterior ya jugado. */
+const MICROS_ATRAS = 3;
+
+/**
+ * El «Qué toca en el microciclo» del post del partido anterior (24/10/2026,
+ * experto de fútbol): el post pedía «Sacamos más de cada robo» y la previa
+ * siguiente no lo nombraba. Es el mismo informe post que arma el diálogo
+ * (sólo lectura); se salta el micro sin partido (semana sin competición).
+ */
+async function postAnteriorDe(entrada: { temporada: string; micro: number }): Promise<InformePartido["postAnterior"]> {
+  for (let k = entrada.micro - 1; k >= Math.max(1, entrada.micro - MICROS_ATRAS); k--) {
+    const post = await cargaInforme({ temporada: entrada.temporada, micro: k, momento: "post" }).catch(() => null);
+
+    if (!post?.partido.jugado) continue;
+
+    const lineas = post.sintesis.microciclo.filter(Boolean);
+
+    return lineas.length ? { etiqueta: `post de la J${post.partido.jornada ?? ""} (${post.partido.rival})`.replace("J (", "("), lineas } : null;
+  }
+
+  return null;
 }
