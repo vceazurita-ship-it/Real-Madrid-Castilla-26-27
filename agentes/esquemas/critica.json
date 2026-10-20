@@ -6,14 +6,15 @@
     "nota",
     "veredicto",
     "funciona",
-    "mejoras"
+    "mejoras",
+    "para_notable"
   ],
   "properties": {
     "nota": {
       "type": "integer",
       "minimum": 1,
       "maximum": 10,
-      "description": "Nota global del informe desde tu especialidad"
+      "description": "Nota global desde tu especialidad, con esta escala fija: 5 = aprobado (se usa, pero con errores que confunden); 6 = bien (sin errores graves, pero le falta hilo o claridad); 7 = notable (útil, coherente y sin errores de dato ni de lectura; quedan mejoras de pulido); 8 = notable alto (lo usaría tal cual un club profesional); 9-10 = excelente."
     },
     "veredicto": {
       "type": "string",
@@ -88,6 +89,14 @@
           }
         }
       }
+    },
+    "para_notable": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "string"
+      },
+      "description": "Si tu nota es menor que 7: la lista CERRADA y MÍNIMA de cosas concretas (con su sitio) sin las cuales no le pondrías un 7. Si ya es 7 o más, vacía. No añadas nada que no sea imprescindible para el 7."
     }
   }
 }
