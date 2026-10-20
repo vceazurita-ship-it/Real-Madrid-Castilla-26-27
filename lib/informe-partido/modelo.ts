@@ -282,6 +282,8 @@ export type Cronica = {
   acierto: { acertados: number; total: number; noSalieron: string[]; sorpresas: string[] } | null;
   /** Si su once no se sostiene (dos porteros, un expulsado que no sale), el aviso para el analista; entonces `acierto` es null. */
   avisoOnce?: string;
+  /** Los nombres del once que no se sostienen (el portero de más, el expulsado que no sale): los duelos con ellos no se publican. */
+  dudosos?: string[];
   /** Suyos: BeSoccer los da del equipo del informe, que es el rival. */
   cambios: { minuto: string; sale: string; entra: string }[];
   tarjetas: { minuto: string; jugador: string; tipo: "amarilla" | "roja" }[];
@@ -556,7 +558,14 @@ export type Sintesis = {
 };
 
 /** Una clave del plan, revisada con Wyscout: `null` = no hay métrica que la mida (no se inventa veredicto). */
-export type FilaCumplimiento = { clave: string; tema: string; veredicto: "si" | "no" | "igual" | null; dato: string };
+export type FilaCumplimiento = {
+  clave: string;
+  tema: string;
+  veredicto: "si" | "no" | "igual" | null;
+  dato: string;
+  /** La meta contada en corto y en primera del plural, con su veredicto: «Al robar no salimos» (22/10/2026). */
+  lectura?: string;
+};
 
 /**
  * La pincelada del informe de ABP del microciclo (la arma la pantalla de ABP,
@@ -1477,6 +1486,8 @@ export function relatoDeGoles(goles: GolCronica[], cronica?: Pick<Cronica, "tarj
 
   const tanda = [...porMinuto].find(([, l]) => l.length >= 3) ?? null;
 
+  const suRoja = (cronica?.tarjetas ?? []).filter((t) => t.tipo === "roja").sort((a, b) => minutoNum(a.minuto) - minutoNum(b.minuto))[0];
+
   const entroEnTanda = (g: GolCronica) => !g.nuestro && g.tipo !== "propia" && tanda?.[1].some((c) => mismoJugador(c.entra, g.jugador));
 
   marcadorPorGoles(goles).forEach(({ g, antes, tras }, i) => {
@@ -1504,7 +1515,10 @@ export function relatoDeGoles(goles: GolCronica[], cronica?: Pick<Cronica, "tarj
 
     const quien = g.tipo === "propia" ? `en propia, ${apellido(g.jugador)}` : `${apellido(g.jugador)}${g.tipo === "penalti" ? ", de penalti" : ""}${entroEnTanda(g) ? `, que entró en el ${tanda![0]}′` : ""}`;
 
-    lineas.push({ min: minutoNum(g.minuto), texto: `${g.minuto}′ · ${frase} (${quien})` });
+    /* Cómo nos marcaron (22/10/2026): un gol suyo con uno más es la lección del partido; se dice en su línea. */
+    const conUnoMas = !g.nuestro && suRoja && minutoNum(suRoja.minuto) < minutoNum(g.minuto) ? ", con uno más" : "";
+
+    lineas.push({ min: minutoNum(g.minuto), texto: `${g.minuto}′ · ${frase} (${quien})${conUnoMas}` });
   });
 
   /* Su roja ya no entra aquí (22/10/2026): la cuenta el subtítulo, junto al
@@ -2083,6 +2097,9 @@ function frenteAMedia(m: MetricaPartido): "si" | "no" | "igual" {
   const media = m.media ?? 0;
   const valor = m.nuestro ?? 0;
 
+  /* Lo que solemos hacer y no hicimos ni una vez (0 contraataques con 0,71 de media) no se dio: no es «lo de siempre» (22/10/2026). */
+  if (m.mejorAlto && valor === 0 && media >= 0.5) return "no";
+
   const margen = m.desviacion != null && m.desviacion > 0 ? m.desviacion : Math.abs(media) * 0.15;
 
   if (Math.abs(valor - media) <= margen) return "igual";
@@ -2090,10 +2107,28 @@ function frenteAMedia(m: MetricaPartido): "si" | "no" | "igual" {
   return (m.mejorAlto ? valor > media : valor < media) ? "si" : "no";
 }
 
+/*
+| La meta en corto (22/10/2026): el plan escribe «Optimizar y ajustar nuestra
+| fase sin balón ante un equipo que…» y eso no se lee en una diapositiva. Se
+| cuenta como en el vestuario, en primera del plural, según el veredicto.
+*/
+const LECTURA_TEMA: Record<string, Record<"si" | "no" | "igual", string>> = {
+  Posesión: { si: "Mandamos con el balón", no: "No mandamos con el balón", igual: "Con el balón, en nuestra media" },
+  "Sin balón": { si: "Sin balón les dejamos en poco", no: "Sin balón concedimos de más", igual: "Sin balón, en nuestra media" },
+  Transición: { si: "Al robar, salimos y les hicimos daño", no: "Al robar no salimos: la transición no se dio", igual: "Al robar, en nuestra media" },
+  "Balón parado": { si: "Nuestro balón parado apareció", no: "Nuestro balón parado no apareció", igual: "Balón parado, en nuestra media" },
+  "Llegada y remate": { si: "Llegamos y rematamos más que nunca", no: "Llegamos poco al área", igual: "En el área, en nuestra media" },
+  "Juego por fuera": { si: "Cargamos el área desde banda", no: "Jugamos poco por fuera", igual: "Por fuera, en nuestra media" },
+  Progresión: { si: "Progresamos rápido hacia su área", no: "Nos costó progresar", igual: "Progresando, en nuestra media" },
+};
+
+/* La posesión y los contraataques no tienen «mejor» en la liga (depende del estilo), pero para la meta que los pide, más es mejor. */
+const SENTIDO_EN_META: Record<string, boolean> = { posesion: true, contras: true };
+
 export function cumplimientoPlan(inf: { plan: Plan | null; duelo: Duelo | null }): FilaCumplimiento[] {
   const claves = inf.plan?.claves ?? [];
 
-  const metricas = inf.duelo?.partido?.metricas ?? [];
+  const metricas = (inf.duelo?.partido?.metricas ?? []).map((m) => (m.mejorAlto === null && m.key in SENTIDO_EN_META ? { ...m, mejorAlto: SENTIDO_EN_META[m.key] } : m));
 
   return claves.map((clave) => {
     const tema = TEMAS_PLAN.find((t) => t.re.test(clave));
@@ -2110,7 +2145,7 @@ export function cumplimientoPlan(inf: { plan: Plan | null; duelo: Duelo | null }
 
     const veredicto = votos.includes("si") && !votos.includes("no") ? "si" : votos.includes("no") && !votos.includes("si") ? "no" : "igual";
 
-    return { clave, tema: tema.tema, veredicto, dato: capital(medibles.map(datoFrenteAMedia).join(" · ")) };
+    return { clave, tema: tema.tema, veredicto, dato: capital(medibles.map(datoFrenteAMedia).join(" · ")), lectura: LECTURA_TEMA[tema.tema]?.[veredicto] };
   });
 }
 
@@ -2196,7 +2231,10 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
 
       const margen = m.desviacion != null && m.desviacion > 0 ? 1.5 * m.desviacion : 0.4 * Math.abs(m.media!);
 
-      return { m, peor, fuerza: peor / margen };
+      /* Calidad antes que volumen (22/10/2026): tras 3,5 goles esperados, «acabar en córner» no es lo primero que toca. */
+      const volumen = m.key === "corners" || m.key === "centros" ? 0.6 : 1;
+
+      return { m, peor, fuerza: (peor / margen) * volumen };
     })
     .filter((x) => x.fuerza >= 1)
     .sort((a, b) => b.fuerza - a.fuerza)[0];
@@ -2243,11 +2281,12 @@ export function titularDelPlan(cumplimiento: FilaCumplimiento[], microciclo: str
   };
 
   if (medidas.length) {
-    if (no.length) return `Cumplimos ${si.length} de ${medidas.length}: ${yFinal(no.map(tema))} no ${no.length > 1 ? "salieron" : "salió"}`;
+    /* «Cumplimos 1 de 3: la transición no salió» callaba la tercera (22/10/2026): lo que quedó en nuestra media se dice detrás. */
+    if (no.length) return `Cumplimos ${si.length} de ${medidas.length}: ${yFinal(no.map(tema))} no ${no.length > 1 ? "salieron" : "salió"}${igual.length ? `; ${yFinal(igual.map(tema))}, en nuestra media` : ""}`;
 
     if (!igual.length) return `Cumplimos lo que nos propusimos: ${si.length} de ${medidas.length}`;
 
-    return `Cumplimos ${si.length} de ${medidas.length}; ${yFinal(igual.map(tema))}, dentro de lo habitual`;
+    return `Cumplimos ${si.length} de ${medidas.length}; ${yFinal(igual.map(tema))}, en nuestra media`;
   }
 
   const toca = microciclo[0]?.split(" · ")[0];
@@ -2328,6 +2367,18 @@ export function titularPost(inf: Omit<InformePartido, "sintesis">, { sinMarcador
   | Su roja matiza el dominio (21/10/2026), pero se cuenta UNA vez: en el
   | subtítulo, que va siempre bajo el titular (22/10/2026).
   */
+
+  /*
+  | La lección va en el titular (22/10/2026): con el partido ganado nos
+  | marcaron al final. Antes, con «Remontamos» (fuimosPerdiendo) la rama
+  | «sufrida» no se usaba nunca y la lección salía dos diapositivas después.
+  | Los goles esperados bajan al subtítulo.
+  */
+  if (giro.resultado === "victoria" && giro.tardio) {
+    const conUnoMas = giro.unoMas && minutoNum(giro.unoMas.minuto) < minutoNum(giro.tardio) ? "con uno más " : "";
+
+    return `${giro.verbo}${m}${giro.dominio === "nuestro" ? " y dominamos" : ""}, pero ${conUnoMas}nos marcaron en el ${giro.tardio}′`;
+  }
 
   if (giro.dominio === "nuestro") {
     if (giro.resultado !== "victoria") return `Dominamos y no ganamos${mp}: ${xg}`;
@@ -2636,10 +2687,32 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
 
   const veces = (x: number) => (Math.abs(x - 0.5) <= 0.03 ? "la mitad de las veces" : `el ${pct(x)} de las veces`);
 
+  /*
+  | Post (22/10/2026): los goles esperados del partido, si el titular no los
+  | lleva, y su roja con lo que pasó en ese tramo. El xG no viene partido por
+  | minutos (Wyscout da el total), así que el tramo se cuenta con los goles:
+  | «desde el 57′, con uno más (roja a Pérez, con 2-1): 1-1 en ese tramo».
+  */
+  const giro = esPost ? giroDelPartido(inf) : null;
+
+  const xgPost = giro && giro.xgNos !== null && giro.xgSuyo !== null && !titular.includes("goles esperados") ? `${unDecimal(giro.xgNos)} goles esperados contra ${unDecimal(giro.xgSuyo)}` : "";
+
+  const tramo = roja
+    ? (() => {
+        const tras = (inf.cronica?.goles ?? []).filter((g) => minutoNum(g.minuto) > minutoNum(roja.minuto));
+
+        return `${tras.filter((g) => g.nuestro).length}-${tras.filter((g) => !g.nuestro).length} en ese tramo`;
+      })()
+    : "";
+
   const subtitular = esPost
-    ? roja
-      ? `Con uno más desde el ${roja.minuto}′: roja a ${apellido(roja.jugador)}, con ${marcadorEn(roja.minuto)}`
-      : ""
+    ? [
+        xgPost ? `${xgPost}${roja ? " en el partido entero" : ""}` : "",
+        roja ? `desde el ${roja.minuto}′, con uno más (roja a ${apellido(roja.jugador)}, con ${marcadorEn(roja.minuto)}): ${tramo}` : "",
+      ]
+        .filter(Boolean)
+        .join("; ")
+        .replace(/^./, (c) => c.toUpperCase())
     : pr
       ? `Hoy ganaríamos ${veces(pr.victoria)}; si se cumplen las metas del plan, el ${pct(pr.conPlan.victoria)}`
       : "";
