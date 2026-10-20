@@ -376,6 +376,26 @@ export function InformeMicroDialog({
     };
   }, [jornadaPartido, rivalVideo]);
 
+  /*
+  | Las plantillas rivales (20/10/2026): la estatura y la etiqueta «Rematador
+  | de ABP» de sus jugadores, para «A quién marcamos». Sólo se lee; si falla,
+  | el bloque no sale.
+  */
+  const [plantillaRival, setPlantillaRival] = useState<unknown>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    traeJson<unknown>("/api/rivals?action=rivalesPlantillas")
+      .then((data) => {
+        if (!cancelado) setPlantillaRival(data);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   /*
   | Por qué el fallo del envío NO se queda en un aviso flotante.
@@ -665,10 +685,11 @@ export function InformeMicroDialog({
       modo,
       accionesPartido,
       accionesAnterior,
+      plantillaRival,
       /* El cruce, con las mismas acciones que el resto del informe (19/10/2026). */
       conPretemporada,
     }),
-    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido, accionesAnterior, conPretemporada],
+    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido, accionesAnterior, plantillaRival, conPretemporada],
   );
 
   const borrador = useMemo(() => construyeInforme(base), [base]);
@@ -923,9 +944,9 @@ export function InformeMicroDialog({
               lineas: (() => {
                 const p = pinceladaAbp(paraEnviar);
 
-                /* La clave tal cual (20/10/2026): ya trae su rótulo («Prioridad nº 1: …») y
-                   en el post habla del partido, así que «Esta semana: » delante sobraba. */
-                return [p.titular, p.claves[0] ?? ""].filter(Boolean);
+                /* El asunto ya es la idea (20/10/2026, tercera ronda): debajo, el porqué y
+                   lo que dice el rival, sin repetir el titular. */
+                return p.claves.slice(0, 2);
               })(),
               video: (infoVideo as { url: string } | null)?.url ?? null,
               enlaces: adjuntosUrl.map((a) => (enlacePdf && a.nombre === enlacePdf.nombre ? { ...a, url: enlacePdf.url } : a)),
@@ -1152,7 +1173,7 @@ export function InformeMicroDialog({
         {/*
         | PREVIA O POST. Dos informes distintos de la misma semana: la previa
         | cuenta qué se va a hacer y por qué; el post, qué pasó en el partido y
-        | si lo entrenado apareció. El asunto lleva [PREVIA] o [POST].
+        | si lo entrenado apareció. El asunto lleva la idea de cada uno (`asuntoAbp`).
         */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
