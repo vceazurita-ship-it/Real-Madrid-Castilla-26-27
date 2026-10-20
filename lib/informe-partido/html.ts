@@ -337,7 +337,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   }${
     inf.sintesis.vigilar.length
       ? `<p style="margin:12px 0 4px;font:700 12px/1.3 Arial,sans-serif;color:${ROJO};text-transform:uppercase;letter-spacing:.08em">A vigilar</p>${lista(
-          inf.sintesis.vigilar.map((j) => `${j.dorsal ? `${j.dorsal} · ` : ""}${j.nombre}${j.posicion ? ` (${j.posicion.toLowerCase()})` : ""}${j.goles ? ` · ${j.goles} ${j.goles === 1 ? "gol" : "goles"}` : ""}`),
+          inf.sintesis.vigilar.map((j) => `${j.dorsal ? `${j.dorsal} · ` : ""}${j.nombre}${j.posicion ? ` (${j.posicion.toLowerCase()})` : ""}${j.desdeBanquillo ? " · si entra desde el banquillo" : ""}${j.goles || j.asistencias ? ` · ${[j.goles ? `${j.goles} ${j.goles === 1 ? "gol" : "goles"}` : "", j.asistencias ? `${j.asistencias} ${j.asistencias === 1 ? "asistencia" : "asistencias"}` : ""].filter(Boolean).join(" y ")}${j.minutos ? ` en ${j.minutos}′` : ""}` : ""}`),
         )}`
       : ""
   }`;
@@ -631,7 +631,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           ["Claves emocionales", pl.emocionales],
           ["Cómo llega el rival", pl.estado],
           /* Si el scouting llama fortaleza a su balón parado y Wyscout lo pone entre los peores, se dice al lado (24/10/2026, experto de análisis). */
-          ["Sus fortalezas", pl.fortalezas && /abp|bal[oó]n parado|sacador|c[oó]rner/i.test(pl.fortalezas) && abpDelRivalFlojo(inf.duelo) ? `${pl.fortalezas} (en los datos, su balón parado rinde poco: ${abpDelRivalFlojo(inf.duelo)})` : pl.fortalezas],
+          ["Sus fortalezas", pl.fortalezas && /\babp\b|bal[oó]n parado|sacador|c[oó]rner/i.test(pl.fortalezas) && abpDelRivalFlojo(inf.duelo) ? `${pl.fortalezas} (en los datos, su balón parado rinde poco: ${abpDelRivalFlojo(inf.duelo)})` : pl.fortalezas],
           ["Sus debilidades", pl.debilidades],
         ]
           .filter(([, t]) => t)
@@ -920,7 +920,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
         vz.fases.length
           ? `${etiqueta("Por fases · percentil contra su competición")}${tabla(
               ["Fase", "Percentil", ""],
-              vz.fases.map((f) => [esc(f.label), `<b style="color:${colorPct(f.percentil)}">${f.percentil === null ? "" : `P${f.percentil}`}</b>`, barra(f.percentil, colorPct(f.percentil))]),
+              vz.fases.map((f) => [esc(f.label), `<b style="color:${colorPct(f.percentil)}">${f.percentil === null ? "" : `${f.percentil} de 100`}</b>`, barra(f.percentil, colorPct(f.percentil))]),
             )}`
           : ""
       }${vz.fuertes.length ? `${etiqueta("Donde destaca", VERDE)}${lista(vz.fuertes.map((m) => `${m.nombre}: ${m.valor} (${ordinal(m.puesto)} de ${m.de})`))}` : ""}${
@@ -935,7 +935,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
       }${
         vz.figuras.length
           ? `${etiqueta("Los que más rinden para su puesto", ROJO)}${tabla(
-              ["Índice", "Jugador", "Destaca en"],
+              ["Índice (0-100)", "Jugador", "Destaca en"],
               vz.figuras.map((f) => [`<b style="color:${colorPct(f.indice)}">${f.indice}</b>`, `<b>${esc(f.nombre)}</b><br><span style="color:${SUAVE};font-size:11px">${esc(f.posicion)} · ${f.minutos}′</span>`, esc(f.destaca.join(" · "))]),
             )}`
           : ""
