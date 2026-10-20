@@ -291,7 +291,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   }${s.claves.length ? `${etiqueta("Lo que nos deja")}${lista(s.claves)}` : ""}${
     s.cumplimiento.length
       ? `${etiqueta("Lo que nos propusimos · ¿se cumplió?")}<ul style="margin:0;padding-left:18px;font:400 14px/1.6 Arial,sans-serif;color:${NAVY}">${s.cumplimiento
-          .map((f) => `<li>${f.veredicto ? `<b style="color:${f.veredicto === "si" ? VERDE : f.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(f.veredicto)}</b> ` : ""}${esc(f.clave)}${f.dato ? `<br><span style="color:${SUAVE}">${esc(f.dato)}</span>` : ""}</li>`)
+          .map((f) => `<li>${f.veredicto ? `<b style="color:${f.veredicto === "si" ? VERDE : f.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(f.veredicto)}</b> ` : ""}${f.lectura ? `<b>${esc(f.lectura)}</b>` : esc(f.clave)}${f.dato ? `<br><span style="color:${SUAVE}">${esc(f.dato)}</span>` : ""}${f.lectura ? `<br><span style="color:${SUAVE};font-size:12px">Del plan: ${esc(f.clave)}</span>` : ""}</li>`)
           .join("")}</ul>`
       : ""
   }${s.microciclo.length ? `${etiqueta("Qué toca en el microciclo", ROJO)}${lista(s.microciclo)}` : ""}${
@@ -408,7 +408,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
             return [
               `<span style="color:${SUAVE};font-size:11px;text-transform:uppercase;letter-spacing:.06em">${esc(m)}</span><br>${parrafo(t)}`,
               v
-                ? `<b style="color:${v.veredicto === "si" ? VERDE : v.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(v.veredicto)} ${v.veredicto === "si" ? "Sí" : v.veredicto === "no" ? "No" : "Igual que siempre"}</b><br><span style="color:${SUAVE};font-size:12px">${esc(v.dato)}</span>`
+                ? `<b style="color:${v.veredicto === "si" ? VERDE : v.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(v.veredicto)} ${v.veredicto === "si" ? "Sí" : v.veredicto === "no" ? "No" : "En nuestra media"}</b><br><span style="color:${SUAVE};font-size:12px">${esc(v.dato)}</span>`
                 : `<div style="min-width:150px;height:34px;border:1px dashed #D6D0C2;border-radius:6px"></div>`,
             ];
           }),
@@ -1028,7 +1028,7 @@ export function informeTexto(inf: InformePartido) {
   }
   if (inf.sintesis.veredicto) l.push("", inf.sintesis.veredicto);
   if (inf.sintesis.relato.length) l.push("", "CÓMO FUE", ...inf.sintesis.relato.map((v) => `- ${v}`));
-  if (inf.sintesis.cumplimiento.length) l.push("", "LO QUE NOS PROPUSIMOS · ¿SE CUMPLIÓ?", ...inf.sintesis.cumplimiento.map((f) => `- ${marcaCumplimiento(f.veredicto) ? `${marcaCumplimiento(f.veredicto)} ` : ""}${f.clave}${f.dato ? ` (${f.dato})` : ""}`));
+  if (inf.sintesis.cumplimiento.length) l.push("", "LO QUE NOS PROPUSIMOS · ¿SE CUMPLIÓ?", ...inf.sintesis.cumplimiento.map((f) => `- ${marcaCumplimiento(f.veredicto) ? `${marcaCumplimiento(f.veredicto)} ` : ""}${f.lectura || f.clave}${f.dato ? ` (${f.dato})` : ""}`));
   if (inf.sintesis.microciclo.length) l.push("", "QUÉ TOCA EN EL MICROCICLO", ...inf.sintesis.microciclo.map((v, i) => `${i + 1}. ${v}`));
   if (inf.sintesis.frenados.length) l.push("", "¿LOS FRENAMOS?", ...inf.sintesis.frenados.map((f) => `- ${f.bien ? "Sí" : "No"} · ${f.jugador.nombre}: ${f.texto}`));
   if (inf.sintesis.ventajas.length) l.push("", "DONDE GANAMOS EL CRUCE", ...inf.sintesis.ventajas.map((v) => `- ${v}`));

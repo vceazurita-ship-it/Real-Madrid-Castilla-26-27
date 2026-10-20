@@ -1116,12 +1116,6 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
     );
   };
 
-  const toca = inf.sintesis.microciclo.slice(0, 3).map((t) => {
-    const [consigna, ...dato] = t.split(" · ");
-
-    return { consigna, dato: dato.join(" · ") };
-  });
-
   return (
     <Marco pagina={2} total={3} etiqueta="LO QUE BUSCÁBAMOS" inf={inf}>
       <TitularDiapo texto={inf.sintesis.titularPlan} />
@@ -1134,7 +1128,7 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
                 <div key={f.clave} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                   {f.veredicto ? marca(f.veredicto) : <span style={{ width: 30, flexShrink: 0 }} />}
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 21, fontWeight: 700, lineHeight: 1.15, color: C.crema }}>{recorta(f.clave, 110)}</div>
+                    <div style={{ fontSize: 21, fontWeight: 700, lineHeight: 1.15, color: C.crema }}>{f.lectura || recorta(f.clave, 110)}</div>
                     {f.dato ? <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.2, color: C.suave, marginTop: 2 }}>{f.dato}</div> : null}
                   </div>
                 </div>
@@ -1142,7 +1136,7 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
             </div>
           ) : null}
           {inf.sintesis.cumplimiento.some((f) => f.veredicto === "igual") ? (
-            <div style={{ marginTop: 8, fontSize: 15, color: C.tenue }}>= dentro de lo habitual: a menos de una desviación de nuestra media</div>
+            <div style={{ marginTop: 8, fontSize: 15, color: C.tenue }}>= en nuestra media: ni mejor ni peor que en un partido normal</div>
           ) : null}
           {inf.sintesis.frenados.length > 0 ? (
             <div style={{ marginTop: "auto", paddingTop: 14 }}>
@@ -1189,24 +1183,7 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
         </div>
       </div>
 
-      {/* «Qué toca» como cierre visible, a todo el ancho: la consigna grande y el dato que la pide debajo (21/10/2026). */}
-      {toca.length ? (
-        <div style={{ display: "flex", alignItems: "stretch", gap: 22, marginTop: 18, padding: "16px 24px", borderRadius: 20, background: "linear-gradient(90deg, rgba(232,97,90,0.16), rgba(232,97,90,0.04))", border: "2px solid rgba(232,97,90,0.45)" }}>
-          <div style={{ display: "flex", alignItems: "center", fontSize: 18, fontWeight: 700, letterSpacing: "0.22em", color: C.rival, whiteSpace: "nowrap" }}>ESTA SEMANA</div>
-          <span style={{ width: 2, alignSelf: "stretch", background: "rgba(232,97,90,0.5)" }} />
-          <div style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${toca.length}, 1fr)`, gap: 22 }}>
-            {toca.map((t, i) => (
-              <div key={t.consigna} style={{ display: "flex", gap: 12, alignItems: "flex-start", minWidth: 0 }}>
-                <span style={{ minWidth: 34, height: 34, borderRadius: 10, background: C.oro, color: "#08111F", fontSize: 22, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 27, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{t.consigna}</div>
-                  {t.dato ? <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.suave, marginTop: 2 }}>{t.dato}</div> : null}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {/* «ESTA SEMANA» pasa al final de la 3 (22/10/2026): el resumen del post acaba en las consignas. */}
     </Marco>
   );
 }
@@ -1275,11 +1252,14 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
   const atacar = duelosParaAtacar(d)
     .filter(enOnce)
     .slice(0, 3)
-    .sort((a, b) => (ventajaVisible(b, "con") ?? 0) - (ventajaVisible(a, "con") ?? 0));
+    .sort((a, b) => (ventajaVisible(b, "con") ?? 0) - (ventajaVisible(a, "con") ?? 0))
+    /* En el post caben dos por lado: debajo va «ESTA SEMANA» (22/10/2026). Los dos primeros son los del titular. */
+    .slice(0, post ? 2 : 3);
   const vigilar = duelosParaVigilar(d)
     .filter(enOnce)
     .slice(0, 3)
-    .sort((a, b) => (ventajaVisible(a, "sin") ?? 0) - (ventajaVisible(b, "sin") ?? 0));
+    .sort((a, b) => (ventajaVisible(a, "sin") ?? 0) - (ventajaVisible(b, "sin") ?? 0))
+    .slice(0, post ? 2 : 3);
   const medidos = (d?.lista ?? []).filter((x) => x.veredicto !== "sin-datos").length;
 
   /* Lo que no tiene dato no se nombra: sin duelos, el panel no sale; sin un lado, ese lado no sale. */
@@ -1399,7 +1379,42 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
   );
 }
 
+/** «Qué toca» del post, a todo el ancho: la consigna grande y el dato que la pide debajo (21/10/2026). */
+function EstaSemana({ inf }: { inf: InformePartido }) {
+  const toca = inf.sintesis.microciclo.slice(0, 3).map((t) => {
+    const [consigna, ...dato] = t.split(" · ");
+
+    return { consigna, dato: dato.join(" · ") };
+  });
+
+  if (!toca.length) return null;
+
+  return (
+    <div style={{ display: "flex", alignItems: "stretch", gap: 22, marginTop: 18, padding: "16px 24px", borderRadius: 20, background: "linear-gradient(90deg, rgba(232,97,90,0.16), rgba(232,97,90,0.04))", border: "2px solid rgba(232,97,90,0.45)" }}>
+      <div style={{ display: "flex", alignItems: "center", fontSize: 18, fontWeight: 700, letterSpacing: "0.22em", color: C.rival, whiteSpace: "nowrap" }}>ESTA SEMANA</div>
+      <span style={{ width: 2, alignSelf: "stretch", background: "rgba(232,97,90,0.5)" }} />
+      <div style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${toca.length}, 1fr)`, gap: 22 }}>
+        {toca.map((t, i) => (
+          <div key={t.consigna} style={{ display: "flex", gap: 12, alignItems: "flex-start", minWidth: 0 }}>
+            <span style={{ minWidth: 34, height: 34, borderRadius: 10, background: C.oro, color: "#08111F", fontSize: 22, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 27, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{t.consigna}</div>
+              {t.dato ? <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.suave, marginTop: 2 }}>{t.dato}</div> : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /*
+| POST · 3 (22/10/2026): sin datos del partido duelo a duelo no se puede
+| decir cuáles ganamos, así que la lámina se queda en los duelos que
+| planteamos, a todo el ancho, y acaba en «ESTA SEMANA». El rival de un
+| vistazo sale del resumen del post (queda en el completo): ya no sirve para
+| nada después del partido.
+|
 | PREVIA · 3 acaba en lo nuestro (21/10/2026): antes terminaba en «Los que
 | más rinden» del rival, un dato sin conclusión. Ahora el rival de un vistazo
 | va primero, los duelos después y, al pie, la consigna: las mismas líneas
@@ -1411,14 +1426,11 @@ function DuelosYRival({ inf }: { inf: InformePartido }) {
   const consigna = post ? [] : inf.sintesis.consigna;
 
   return (
-    <Marco pagina={3} total={3} etiqueta={post ? "LOS DUELOS" : "DUELOS Y RIVAL"} inf={inf}>
+    <Marco pagina={3} total={3} etiqueta={post ? "LOS DUELOS Y LA SEMANA" : "DUELOS Y RIVAL"} inf={inf}>
       <TitularDiapo texto={inf.sintesis.titularDuelos} />
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? "1.2fr 1fr" : "1fr 1.2fr", gap: 22 }}>
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? "1fr" : "1fr 1.2fr", gap: 22 }}>
         {post ? (
-          <>
-            <PanelDuelos inf={inf} post />
-            <PanelVistazo inf={inf} />
-          </>
+          <PanelDuelos inf={inf} post />
         ) : (
           <>
             <PanelVistazo inf={inf} />
@@ -1426,6 +1438,7 @@ function DuelosYRival({ inf }: { inf: InformePartido }) {
           </>
         )}
       </div>
+      {post ? <EstaSemana inf={inf} /> : null}
       {consigna.length ? (
         <div style={{ display: "flex", alignItems: "center", gap: 22, marginTop: 18, padding: "16px 26px", borderRadius: 18, background: "linear-gradient(90deg, rgba(200,169,107,0.24), rgba(200,169,107,0.05))", border: "2px solid rgba(200,169,107,0.5)" }}>
           <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.22em", color: C.oro, whiteSpace: "nowrap" }}>NUESTRA CONSIGNA</span>

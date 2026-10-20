@@ -270,11 +270,30 @@ function codigoDeLado(posicion: string) {
 
 /** Un once de BeSoccer con las fichas de la hoja (por nombre: BeSoccer no lleva el id de la foto). */
 function jugadoresDeOnce(once: OncePartido, plantilla: JugadorRival[]): JugadorRival[] {
-  return [...once.jugadores].sort((a, b) => (a.puesto || 99) - (b.puesto || 99)).map((uno) => {
-    const enHoja = plantilla.find((j) => mismoJugador(j.nombre, uno.nombre));
+  /*
+  | Varios con el mismo apellido (22/10/2026): BeSoccer dio «PEREZ» y se cogía
+  | el primer Pérez de la hoja, Samu, portero, en lugar de Iván, el central
+  | expulsado: salían dos porteros y el duelo de centrales se puntuaba con un
+  | portero. Entre los candidatos manda el dorsal, luego la línea, y nadie se
+  | usa dos veces.
+  */
+  const usados = new Set<string>();
 
+  return [...once.jugadores].sort((a, b) => (a.puesto || 99) - (b.puesto || 99)).map((uno) => {
     const linea: JugadorRival["linea"] =
       uno.demarcacion === "PT" ? "POR" : uno.demarcacion === "DF" ? "DEF" : uno.demarcacion === "MC" ? "MED" : uno.demarcacion === "DL" ? "DEL" : "";
+
+    const candidatos = plantilla.filter((j) => !usados.has(j.clave) && mismoJugador(j.nombre, uno.nombre));
+
+    const dorsal = String(uno.dorsal ?? "").trim();
+
+    const enHoja =
+      (dorsal ? candidatos.find((j) => String(j.dorsal).trim() === dorsal) : undefined) ??
+      (linea ? candidatos.find((j) => j.linea === linea) : undefined) ??
+      (linea && linea !== "POR" ? candidatos.find((j) => j.linea !== "POR") : undefined) ??
+      candidatos[0];
+
+    if (enHoja) usados.add(enHoja.clave);
 
     return enHoja
       ? { ...enHoja, linea: linea || enHoja.linea }
@@ -299,6 +318,21 @@ function jugadoresDeOnce(once: OncePartido, plantilla: JugadorRival[]): JugadorR
           minutos: null,
         } satisfies JugadorRival);
   });
+}
+
+/** Quita los duelos con jugadores del once que no se sostiene, y lo dice al analista. */
+function duelosSinDudosos(duelos: InformePartido["duelosJugadores"], cronica: Cronica | null, avisos: string[]): InformePartido["duelosJugadores"] {
+  const dudosos = cronica?.dudosos ?? [];
+
+  if (!duelos || !dudosos.length) return duelos;
+
+  const fuera = duelos.lista.filter((x) => x.suyos.some((s) => dudosos.some((d) => mismoJugador(s, d))));
+
+  if (!fuera.length) return duelos;
+
+  avisos.push(`Duelos sin publicar hasta confirmar su once: ${fuera.map((x) => `${x.nuestros.join(" y ")} ante ${x.suyos.join(" y ")}`).join("; ")}.`);
+
+  return { ...duelos, lista: duelos.lista.filter((x) => !fuera.includes(x)) };
 }
 
 /** Post: el partido contado con lo que BeSoccer guarda del rival. */
@@ -356,6 +390,7 @@ function cronicaDe(informe: InformeEquipo | null, partido: PartidoNuestro | null
     onceReal,
     acierto,
     avisoOnce: avisoOnce || undefined,
+    dudosos: avisoOnce ? [...(porteros.length > 1 ? porteros.slice(1).map((j) => j.nombre) : []), ...expulsadosFuera] : undefined,
     cambios: (suOnce?.cambios ?? []).map((c) => ({ minuto: c.minuto, sale: c.sale, entra: c.entra })),
     tarjetas: (suOnce?.tarjetas ?? []).map((t) => ({ minuto: t.minuto, jugador: t.jugador, tipo: t.tipo })),
   };
@@ -831,7 +866,8 @@ export async function cargaInforme(entrada: {
       ? { minutosSemana: microciclo?.totales.abpMinutos ?? 0, laminasRival, documentosRival: docsRival }
       : null,
     avisos,
-    duelosJugadores: delRival.duelos,
+    /* Un duelo con alguien del once dudoso no se publica hasta que el analista lo confirme (22/10/2026). */
+    duelosJugadores: duelosSinDudosos(delRival.duelos, cronica, avisos),
     vistazo: delRival.vistazo,
     videoListo: videoDoc?.url ? { url: videoDoc.url, creado: videoDoc.creado ?? "", segundos: videoDoc.segundos ?? 0, poster: videoDoc.poster ?? null, ligero: videoDoc.ligero ?? null } : null,
   };
