@@ -222,14 +222,13 @@ function portada(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "portad
   const radio = 104 * respira;
 
   /*
-  | Sin escudo del rival (22/10/2026, crítica de marketing): sólo el nuestro,
-  | en el centro, y el rival con su nombre grande debajo. Ni sus siglas en un
-  | círculo ni el escudo del Madrid repetido.
+  | Sin escudo del rival, ninguno (25/10/2026, marketing): nuestro escudo solo
+  | sobre «ANTEQUERA CF» se leía como el escudo del Antequera. El bloque de
+  | texto sube y ocupa el sitio.
   */
-  if (!riv) {
-    halo(ctx, ANCHO_V / 2, cy, radio * 1.7);
-    medallon(ctx, fuente, nos, ANCHO_V / 2, cy, radio * 1.15, "rgba(255,255,255,0.85)", "RM");
-  } else {
+  const sube = riv ? 0 : -250;
+
+  if (riv) {
     halo(ctx, ANCHO_V / 2 - 160, cy, radio * 1.55);
     medallon(ctx, fuente, nos, ANCHO_V / 2 - 160, cy, radio, "rgba(255,255,255,0.85)", "RM");
     halo(ctx, ANCHO_V / 2 + 160, cy, radio * 1.55);
@@ -260,10 +259,10 @@ function portada(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "portad
   const ws = espaciadoAncho(ctx, sello, 3) + 44;
 
   ctx.fillStyle = ORO;
-  caja(ctx, ANCHO_V / 2 - ws / 2, 600, ws, 42, 21);
+  caja(ctx, ANCHO_V / 2 - ws / 2, 600 + sube, ws, 42, 21);
   ctx.fill();
   ctx.fillStyle = FONDO;
-  espaciado(ctx, sello, ANCHO_V / 2, 630, 3, "center");
+  espaciado(ctx, sello, ANCHO_V / 2, 630 + sube, 3, "center");
 
   /* El rival, grande. */
   const rival = ajusta(ctx, fuente, e.titulo.toUpperCase(), 700, 88, 64, UTIL, 2);
@@ -271,17 +270,17 @@ function portada(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "portad
   ctx.fillStyle = BLANCO;
   ctx.font = `700 ${rival.tam}px ${fuente}`;
 
-  let y = centradas(ctx, rival.lineas, ANCHO_V / 2, 734, rival.tam);
+  let y = centradas(ctx, rival.lineas, ANCHO_V / 2, 734 + sube, rival.tam);
 
   ctx.fillStyle = ORO;
   ctx.fillRect(ANCHO_V / 2 - 150, y + 24, 300, 3);
 
-  /* La jornada, el día y el campo. */
-  const sub = ajusta(ctx, fuente, e.subtitulo, 500, 36, LECTURA, UTIL, 2);
+  /* La jornada, el día y el campo: más grande y pegado al rival (25/10/2026, marketing: se perdía). */
+  const sub = ajusta(ctx, fuente, e.subtitulo.toUpperCase(), 600, 44, LECTURA, UTIL, 2);
 
-  ctx.fillStyle = "rgba(255,255,255,0.88)";
-  ctx.font = `500 ${sub.tam}px ${fuente}`;
-  y = centradas(ctx, sub.lineas, ANCHO_V / 2, y + 74, sub.tam + 6);
+  ctx.fillStyle = "rgba(255,255,255,0.94)";
+  ctx.font = `600 ${sub.tam}px ${fuente}`;
+  y = centradas(ctx, sub.lineas, ANCHO_V / 2, y + 70, sub.tam + 6);
 
   /* La consigna (la idea del partido), en oro: con ella la portada vale de póster. */
   if (e.idea) {

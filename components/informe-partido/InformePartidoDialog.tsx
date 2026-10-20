@@ -47,7 +47,7 @@ import { completoEnHojas, type HojasCompleto } from "@/lib/informe-partido/pdf-c
 import { informeUnicoPdf, paginaDeEnlaces, paginaDelVideo, type EnlaceInforme } from "@/lib/informe-partido/pdf-unico";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
 import { capitulosDe, informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
-import { asuntoInforme, queTocaEnElMicro, titularDelPlan, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
+import { asuntoInforme, queTocaEnElMicro, titularDelPlan, titularEstaSemana, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
 import { capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
@@ -346,7 +346,7 @@ export function InformePartidoDialog({
 
     const microciclo = queTocaEnElMicro(conAbp, informe.sintesis.cumplimiento);
 
-    return { ...conAbp, sintesis: { ...informe.sintesis, microciclo, titularPlan: titularDelPlan(informe.sintesis.cumplimiento, microciclo) } };
+    return { ...conAbp, sintesis: { ...informe.sintesis, microciclo, titularPlan: titularDelPlan(informe.sintesis.cumplimiento, microciclo), titularDuelos: titularEstaSemana(microciclo) || informe.sintesis.titularDuelos } };
   }, [informe, abpActual]);
 
   /* ---------------- el PDF y el PPT del rival, de su pantalla ---------------- */
@@ -797,7 +797,7 @@ export function InformePartidoDialog({
   const indicesDiapos = TODAS_DIAPOS.filter(diapoMarcada);
 
   const rotuloDiapo = (i: number) =>
-    i === 0 ? (esPost ? "El resultado" : "El rival") : i === 1 ? (esPost ? "Lo que buscábamos" : "Dónde está el partido") : esPost ? "Cómo nos marcaron" : "Cómo lo ganamos";
+    i === 0 ? (esPost ? "El resultado" : "El rival") : i === 1 ? (esPost ? "Lo que buscábamos" : "Dónde está el partido") : esPost ? "Esta semana" : "Cómo lo ganamos";
 
   const pdfDe = async (imagenes: string[]) =>
     (await pdfDeLienzos(imagenes, { ancho: DIAPO_W, alto: DIAPO_H, orientacion: "landscape", margen: 0 })).output("blob") as Blob;

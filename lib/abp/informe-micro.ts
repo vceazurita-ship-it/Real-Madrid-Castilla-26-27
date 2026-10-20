@@ -3358,7 +3358,13 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
         const ofensivo = lado("ofensivo");
         const defensivo = lado("defensivo");
 
-        return ofensivo + defensivo > 0 && Math.abs(ofensivo + defensivo - minutos.confirmados) <= Math.max(2, minutos.confirmados * 0.05) ? { ofensivo, defensivo } : null;
+        if (!(ofensivo + defensivo > 0 && Math.abs(ofensivo + defensivo - minutos.confirmados) <= Math.max(2, minutos.confirmados * 0.05))) return null;
+
+        /* Que las dos partes sumen el total que se escribe al lado (25/10/2026): «1 h 13 min ofensivos y 8 defensivos» de «1 h 20» no cuadraba. */
+        const total = Math.round(minutos.confirmados);
+        const of = Math.round((ofensivo * total) / (ofensivo + defensivo));
+
+        return { ofensivo: of, defensivo: total - of };
       })(),
     },
     sinMinutos,
