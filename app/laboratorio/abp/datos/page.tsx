@@ -26,6 +26,12 @@ import { BarraPercentil, BarrasEquipos, Dispersion, Evolucion, type FilaPercenti
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { useAbpLigas, useProximoRival } from "@/hooks/useAbpLigas";
 import { formatea } from "@/lib/data-analisis/metricas";
+
+/* «England. Premier League» es como lo escribe Wyscout; en pantalla, en castellano. */
+const nombreDeLiga = (competicion: string) =>
+  competicion
+    .replace(/^Spain\.\s*Primera Division RFEF/i, "Primera RFEF · España")
+    .replace(/^England\.\s*Premier League/i, "Premier League · Inglaterra");
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import {
   METRICA,
@@ -202,7 +208,7 @@ export default function DatosAbpPage() {
                 </div>
 
                 <p className="mt-2 text-xs text-white/45">
-                  {liga.competicion} · temporada {liga.temporada} · {liga.equipos.length} equipos
+                  {nombreDeLiga(liga.competicion)} · temporada {liga.temporada} · {liga.equipos.length} equipos
                   {comparado ? ` · en azul, el próximo rival (${comparado})` : ""}
                 </p>
 

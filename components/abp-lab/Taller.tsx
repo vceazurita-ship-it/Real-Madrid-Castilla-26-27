@@ -87,7 +87,7 @@ export const borradorVacio = (): Borrador => ({
 /* Las inspiraciones posibles: cada referente y cada una de sus rutinas. */
 const INSPIRACIONES = [
   { value: "", label: "Propia" },
-  ...REFERENTES.flatMap((r) => [{ value: r.id, label: `${r.nombre} (${r.club})` }, ...r.rutinas.map((x) => ({ value: x.id, label: `· ${x.nombre}` }))]),
+  ...REFERENTES.flatMap((r) => [{ value: r.id, label: `${r.nombre} (${r.club})` }, ...r.rutinas.map((x) => ({ value: x.id, label: `${r.nombre} · ${x.nombre}` }))]),
 ];
 
 const nombreInspiracion = (id?: string) => {

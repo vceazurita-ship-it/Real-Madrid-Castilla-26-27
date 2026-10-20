@@ -1067,11 +1067,14 @@ export function temporadaDe(fecha: string) {
 export function formatea(valor: number | null, unidad: Unidad) {
   if (valor === null || !Number.isFinite(valor)) return "—";
 
-  if (unidad === "porcentaje") return `${valor.toFixed(1)}%`;
-  if (unidad === "entero") return String(Math.round(valor));
-  if (unidad === "minutos") return `${valor.toFixed(1)}′`;
+  /* Coma decimal, como en el resto de la plataforma (20/10/2026). */
+  const coma = (texto: string) => texto.replace(".", ",");
 
-  return valor.toFixed(2);
+  if (unidad === "porcentaje") return `${coma(valor.toFixed(1))} %`;
+  if (unidad === "entero") return String(Math.round(valor));
+  if (unidad === "minutos") return `${coma(valor.toFixed(1))}′`;
+
+  return coma(valor.toFixed(2));
 }
 
 /**
