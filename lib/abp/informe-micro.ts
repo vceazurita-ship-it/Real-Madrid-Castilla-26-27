@@ -1833,7 +1833,7 @@ function clavesPrevia(
         ? "está en el plan de la semana"
         : "no figura en el plan de la semana"
       : primera.minSemana > 0
-        ? `esta semana se le han dado ${fmtMin(primera.minSemana)}`
+        ? `esta semana se le han dado ${fmtLargo(primera.minSemana)}`
         : "esta semana no se ha trabajado";
 
     claves.push(`${consignaDe(primera.aspecto, primera.lado)} (prioridad nº 1 en nuestras hojas): ${estado}.`);
@@ -2038,7 +2038,7 @@ function titularPost(partido: PartidoAbpInforme, minutosSemana = 0) {
   const total = partido.favor.acciones + partido.contra.acciones;
 
   if (top) {
-    const trabajo = top.minutos > 0 ? `${fmtMin(top.minutos)} de trabajo en la semana` : "ningún minuto de trabajo en la semana";
+    const trabajo = top.minutos > 0 ? `${fmtLargo(top.minutos)} de trabajo en la semana` : "ningún minuto de trabajo en la semana";
 
     const quien = `${conArticulo(top.aspecto)} ${top.lado === "ofensivo" ? "a favor" : "en contra"}`;
 
@@ -2084,9 +2084,9 @@ function titularPost(partido: PartidoAbpInforme, minutosSemana = 0) {
 
   const hecho = susto.remates >= susto.peligros ? `nos remataron ${susto.remates} de ${susto.acciones}` : `nos crearon peligro en ${susto.peligros} de ${susto.acciones}`;
 
-  const deTotal = susto.minutos > 0 && minutosSemana > susto.minutos ? ` de ${fmtMin(minutosSemana)}` : "";
-  const trabajo = susto.minutos > 0 ? ` y le dimos ${fmtMin(susto.minutos)}${deTotal}` : " sin trabajo en la semana";
-  const trabajoCorto = susto.minutos > 0 ? ` y le dimos ${fmtMin(susto.minutos)}` : " sin trabajo en la semana";
+  const deTotal = susto.minutos > 0 && minutosSemana > susto.minutos ? ` de ${fmtLargo(minutosSemana)}` : "";
+  const trabajo = susto.minutos > 0 ? ` y le dimos ${fmtLargo(susto.minutos)}${deTotal}` : " sin trabajo en la semana";
+  const trabajoCorto = susto.minutos > 0 ? ` y le dimos ${fmtLargo(susto.minutos)}` : " sin trabajo en la semana";
 
   return laQueCabe(
     [`${quien}: ${hecho}${trabajo}`, `${quienCorto}: ${hecho}${trabajo}`, `${quienCorto}: ${hecho}${trabajoCorto}`, `${quienCorto}: ${hecho}`],
@@ -2157,7 +2157,7 @@ function clavesPost(partido: PartidoAbpInforme, minutosSemana = 0) {
 
   if (susto && !malas.includes(susto)) {
     claves.push(
-      `${mayuscula(conArticulo(susto.aspecto))} en contra: ${danoEnFrase(susto)}; ${susto.minutos > 0 ? `le dimos ${fmtMin(susto.minutos)}${minutosSemana > susto.minutos ? ` de ${fmtMin(minutosSemana)}` : ""} en la semana` : "no se trabajó en la semana"}.`,
+      `${mayuscula(conArticulo(susto.aspecto))} en contra: ${danoEnFrase(susto)}; ${susto.minutos > 0 ? `le dimos ${fmtLargo(susto.minutos)}${minutosSemana > susto.minutos ? ` de ${fmtLargo(minutosSemana)}` : ""} en la semana` : "no se trabajó en la semana"}.`,
     );
   }
 
