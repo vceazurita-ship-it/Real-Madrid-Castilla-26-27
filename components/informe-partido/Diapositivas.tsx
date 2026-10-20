@@ -40,6 +40,9 @@ import {
   selloDatos,
   sinSiglas,
   ventajaVisible,
+  conductaDuelo,
+  fraseFrenados,
+  cifrasDuelo,
   type DueloJugadores,
   type GolCronica,
   type InformePartido,
@@ -422,7 +425,7 @@ function Semana({ inf }: { inf: InformePartido }) {
       <div style={{ display: "flex", alignItems: "flex-end", gap: 14, flex: 1, minHeight: 0, paddingBottom: 6 }}>
         {m.dias.map((d) => (
           <div key={d.fecha} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
-            <span style={{ fontSize: 20, fontWeight: 700, color: C.crema }}>{d.minutos}′</span>
+            <span style={{ fontSize: 20, fontWeight: 700, color: C.crema }}>{d.minutos > 0 ? `${d.minutos}′` : ""}</span>
             <div style={{ width: "70%", height: `${Math.max(6, (d.minutos / max) * 72)}%`, borderRadius: 10, background: d.esPartido ? C.rival : C.oro, marginTop: 6 }} />
             <span style={{ marginTop: 8, fontSize: 19, fontWeight: 700, color: C.suave }}>{d.md || d.etiqueta}</span>
             <span style={{ fontSize: 16, color: C.tenue }}>{d.etiqueta}</span>
@@ -1143,17 +1146,15 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
           ) : null}
           {inf.sintesis.frenados.length > 0 ? (
             <div style={{ marginTop: "auto", paddingTop: 14 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.rival, marginBottom: 8 }}>¿LOS FRENAMOS?</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {inf.sintesis.frenados.map((f) => (
-                  <div key={f.jugador.clave} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ width: 34, height: 34, borderRadius: 999, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 700, color: "#08111F", background: f.bien ? C.bien : C.mal }}>{f.bien ? "✓" : "!"}</span>
-                    <Cara j={f.jugador} size={44} color={f.bien ? C.bien : C.mal} />
-                    <div style={{ minWidth: 0, fontSize: 21, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {f.jugador.nombre} <span style={{ fontSize: 17, fontWeight: 600, color: C.suave, textTransform: "none" }}>{f.texto}</span>
-                    </div>
-                  </div>
-                ))}
+              {/* En frases (22/10/2026): «¿LOS FRENAMOS?» con «✓», «!» y dorsales era un acertijo en el móvil. */}
+              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.rival, marginBottom: 8 }}>A QUIÉN TENÍAMOS QUE FRENAR</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  {inf.sintesis.frenados.map((f) => (
+                    <Cara key={f.jugador.clave} j={f.jugador} size={44} color={f.bien ? C.bien : C.mal} />
+                  ))}
+                </div>
+                <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.25, color: C.crema }}>{fraseFrenados(inf.sintesis.frenados)}.</div>
               </div>
             </div>
           ) : null}
@@ -1233,7 +1234,9 @@ function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin
   const valor = ventajaVisible(x, lado);
   const color = lado === "con" ? C.bien : C.mal;
   const [a, b] = lado === "con" ? [x.nuestros, x.suyos] : [x.suyos, x.nuestros];
-  const claves = x.destacados.filter((e) => e.sentido === lado && e.veredicto === (lado === "con" ? "ventaja" : "desventaja")).slice(0, 2);
+  /* Lo que hacemos en palabras y, debajo, las cifras que suman la grande (22/10/2026). */
+  const conducta = conductaDuelo(x, lado);
+  const cifras = cifrasDuelo(x, lado);
 
   return (
     <div style={{ display: "flex", gap: 16, alignItems: "center", padding: "10px 14px", borderRadius: 14, background: `${color}12`, border: `2px solid ${color}33` }}>
@@ -1250,12 +1253,12 @@ function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin
           <span style={{ color: C.tenue, fontWeight: 600 }}> ante </span>
           <span style={{ color: lado === "con" ? C.crema : C.oro }}>{b.map(apellido).join(" y ")}</span>
         </div>
-        <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.suave, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {/* «97 frente a 32» y no «P97–P32» (20/10/2026); qué es el número, en el pie. */}
-          {claves.length
-            ? claves.map((e) => `${e.titulo} ${lado === "con" ? e.nuestro : e.suyo} frente a ${lado === "con" ? e.suyo : e.nuestro}`).join(" · ")
-            : "Ventaja repartida en varios enfrentamientos"}
-        </div>
+        {conducta ? (
+          <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.crema }}>
+            {conducta.charAt(0).toUpperCase() + conducta.slice(1)}
+          </div>
+        ) : null}
+        {cifras ? <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.2, color: C.tenue }}>{cifras}</div> : null}
       </div>
     </div>
   );

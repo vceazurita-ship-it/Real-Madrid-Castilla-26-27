@@ -3483,6 +3483,8 @@ export type PinceladaAbp = {
    * de antes (`lib/informe-partido/modelo.ts`).
    */
   minutos?: { confirmados: number; propuestos: number; texto: string };
+  /** Post: lo que nos dio peligro en contra, como consigna y dato, para «Qué toca» del informe del partido (22/10/2026). */
+  sustoEnContra?: { consigna: string; dato: string } | null;
 };
 
 /**
@@ -3598,9 +3600,13 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
         ? `El balón parado sumó: ${p.favor.goles}-${p.contra.goles}${rivalNombre ? ` ante ${rivalNombre}` : ""}`
         : `El balón parado restó: ${p.favor.goles}-${p.contra.goles}${rivalNombre ? ` ante ${rivalNombre}` : ""}`);
 
+    /* El susto en contra, para que el informe del partido lo lleve a «Qué toca» (22/10/2026). */
+    const susto = p.cruce.filter((una) => una.medible && una.lado === "defensivo" && una.peligros >= 2).sort((a, b) => b.peligros - a.peligros)[0];
+
     return {
       modo: "post",
       titular,
+      sustoEnContra: susto ? { consigna: `Defendemos ${conArticulo(susto.aspecto)}`, dato: `${susto.peligros} de ${susto.acciones} con peligro en contra en el partido` } : null,
       claves: claves.slice(0, 3),
       cifras: [
         { rotulo: "Goles ABP", valor: `${p.favor.goles}·${p.contra.goles}`, pie: "a favor · en contra" },
