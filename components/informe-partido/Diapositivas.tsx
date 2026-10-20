@@ -28,6 +28,7 @@ import { type CSSProperties, type ReactNode } from "react";
 import {
   apellido,
   cifra,
+  claveDeFase,
   conDato,
   cortaEnPausa,
   dueloEnSuOnce,
@@ -1418,10 +1419,11 @@ function PreviaDondeEsta({ inf }: { inf: InformePartido }) {
 }
 
 /*
-| Cada línea del plan por fases con la tarea de la semana que la entrena (o
-| «sin tarea esta semana»). Es la misma historia que LA IDEA y la consigna:
-| las claves escritas a mano en el plan (en infinitivo, de veinte palabras)
-| rompían el hilo; van debajo, en pequeño, como lo que pidió el cuerpo técnico.
+| Cada línea del plan por fases con la tarea de la semana que la entrena. Es
+| la misma historia que LA IDEA: cada fase dice a qué clave del cuerpo
+| técnico sirve («CON BALÓN · CLAVE 1») y las claves van debajo, numeradas
+| (24/10/2026, guion: eran dos historias sin unir). Lo que no tiene tarea no
+| lo dice: va al aviso del analista.
 */
 function PlanConTareas({ inf }: { inf: InformePartido }) {
   const delPlan = inf.plan?.claves ?? [];
@@ -1439,19 +1441,18 @@ function PlanConTareas({ inf }: { inf: InformePartido }) {
 
         return (
           <div key={`${l.fase}${l.texto}`}>
-            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.2em", color: C.oro }}>{l.fase.toUpperCase()}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.2em", color: C.oro }}>
+              {l.fase.toUpperCase()}
+              {claveDeFase(delPlan.slice(0, 3), l.fase) ? ` · CLAVE ${claveDeFase(delPlan.slice(0, 3), l.fase)}` : ""}
+            </div>
             <div style={{ fontSize: 27, fontWeight: 700, lineHeight: 1.12, color: C.crema, marginTop: 2 }}>{l.texto}</div>
-            {t ? (
-              <div style={{ fontSize: 17, fontWeight: 600, marginTop: 3, color: t.tareas.length ? C.suave : C.rival }}>
-                {t.tareas.length ? `→ ${t.tareas.slice(0, 2).join(" · ")}` : "→ sin tarea esta semana"}
-              </div>
-            ) : null}
+            {t?.tareas.length ? <div style={{ fontSize: 17, fontWeight: 600, marginTop: 3, color: C.suave }}>→ {t.tareas.join(" · ")}</div> : null}
           </div>
         );
       })}
       {delPlan.length ? (
         <div style={{ marginTop: "auto", paddingTop: 10, borderTop: `2px solid ${C.borde}` }}>
-          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", color: C.tenue }}>LO QUE PIDE EL PLAN DEL CUERPO TÉCNICO</div>
+          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", color: C.tenue }}>LAS CLAVES DEL CUERPO TÉCNICO</div>
           {delPlan.slice(0, 3).map((t, i) => (
             <div key={t} style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25, color: C.suave, marginTop: 3 }}>
               {i + 1}. {cortaEnPausa(t, 90)}
@@ -1463,11 +1464,9 @@ function PlanConTareas({ inf }: { inf: InformePartido }) {
   );
 }
 
-/** PREVIA · 3 «Cómo lo ganamos»: la idea, el plan por fases, a vigilar, el balón parado, la semana y la consigna. */
+/** PREVIA · 3 «Cómo lo ganamos»: la idea (la consigna, dicha una vez), el plan por fases, a vigilar, el balón parado y la semana. */
 function PreviaComoGanamos({ inf }: { inf: InformePartido }) {
   const idea = inf.sintesis.ideaPrevia || inf.pronostico?.idea || "";
-
-  const [primera, ...resto] = inf.sintesis.consigna;
 
   const vigilar = inf.sintesis.vigilar;
 
@@ -1516,16 +1515,6 @@ function PreviaComoGanamos({ inf }: { inf: InformePartido }) {
           </>
         )}
       </div>
-      {primera ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 22, marginTop: 18, padding: "16px 26px", borderRadius: 18, background: "linear-gradient(90deg, rgba(200,169,107,0.24), rgba(200,169,107,0.05))", border: "2px solid rgba(200,169,107,0.5)" }}>
-          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.22em", color: C.oro, whiteSpace: "nowrap" }}>NUESTRA CONSIGNA</span>
-          <span style={{ width: 2, alignSelf: "stretch", background: "rgba(200,169,107,0.5)" }} />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 36, fontWeight: 700, lineHeight: 1.05, color: C.crema }}>{primera}.</div>
-            {resto.length ? <div style={{ marginTop: 4, fontSize: 22, fontWeight: 600, color: C.suave }}>Y además: {resto.map((t) => t.charAt(0).toLowerCase() + t.slice(1)).join(" · ")}.</div> : null}
-          </div>
-        </div>
-      ) : null}
     </Marco>
   );
 }
