@@ -352,8 +352,10 @@ function Editor({
           <div className="space-y-2">
             {b.roles.map((r, i) => (
               <div key={i} className="grid grid-cols-[1fr_auto] gap-2 rounded-xl border border-white/10 bg-white/[0.02] p-2.5">
-                <div className="grid min-w-0 gap-2 sm:grid-cols-3">
-                  <Select label="Jugador" value={r.jugador} options={opcionesJugador} onChange={(v) => ponRol(i, { jugador: v })} />
+                <div className="grid min-w-0 grid-cols-2 gap-2">
+                  <div className="col-span-2 min-w-0">
+                    <Select label="Jugador" value={r.jugador} options={r.jugador && !opcionesJugador.some((o) => o.value === r.jugador) ? [...opcionesJugador, { value: r.jugador, label: porId.get(r.jugador)?.nombre ?? r.jugador }] : opcionesJugador} onChange={(v) => ponRol(i, { jugador: v })} />
+                  </div>
                   <Select label="Papel" value={r.papel} options={papeles.map((p) => ({ value: p.key, label: p.label }))} onChange={(v) => ponRol(i, { papel: v as Papel })} />
                   <Select label="Zona" value={r.zona} options={ZONAS.map((z) => ({ value: z.key, label: z.label }))} onChange={(v) => ponRol(i, { zona: v as Zona })} />
                 </div>

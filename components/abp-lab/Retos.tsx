@@ -270,9 +270,12 @@ export function Retos({
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {retos.map((r) => {
-              const jugaron = jugadores.filter((j) => puntosEn(r, j.id) !== null).length;
+              /* Quién jugó, esté o no hoy en la plantilla: las marcas y los participantes del propio reto. */
+              const ids = r.tipo === "precision" ? Object.keys(r.marcas) : r.participantes;
 
-              const mejor = filas.length ? Math.max(0, ...jugadores.map((j) => puntosEn(r, j.id) ?? 0)) : 0;
+              const jugaron = ids.length;
+
+              const mejor = Math.max(0, ...ids.map((id) => puntosEn(r, id) ?? 0));
 
               return (
                 <article key={r.id} className="lab-aparece flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-4">

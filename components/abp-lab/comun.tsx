@@ -32,7 +32,11 @@ export function useJugadoresLab() {
     [players],
   );
 
-  const porId = useMemo(() => new Map(jugadores.map((j) => [j.id, j])), [jugadores]);
+  /* Por id, todos (también los que ya no son del Castilla): una marca vieja sigue teniendo nombre. */
+  const porId = useMemo(
+    () => new Map(players.map((p) => [p.id, { id: p.id, nombre: corto(p), foto: p.foto, posicion: p.posicion, dorsal: p.dorsal } as JugadorLab])),
+    [players],
+  );
 
   return { jugadores, porId, cargando: loading };
 }
