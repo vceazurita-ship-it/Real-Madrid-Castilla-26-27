@@ -602,7 +602,9 @@ export type PinceladaAbp = {
   /** Los minutos de ABP de la semana, los mismos del informe de ABP (`minutosAbp`, lib/abp/minutos.ts). */
   minutos?: { confirmados: number; propuestos: number; texto: string };
   /** Post: el aspecto que nos dio peligro en contra en el partido, ya como consigna y dato, para «Qué toca en el microciclo» (22/10/2026). */
-  sustoEnContra?: { consigna: string; dato: string } | null;
+  sustoEnContra?: { consigna: string; dato: string; /** Sin muestra: para vigilar, no la prioridad (25/10/2026). */ corta?: boolean } | null;
+  /** Post: los goles esperados del partido a balón parado (25/10/2026), para revisar la palanca del pronóstico. */
+  xgPartido?: { favor: number; contra: number } | null;
   /** Previa: la prioridad nº 1 del informe de ABP, tal cual (24/10/2026): la previa del partido dice lo mismo. */
   prioridad?: { consigna: string; texto: string } | null;
 };
@@ -1403,7 +1405,7 @@ export function lecturaXg(inf: { pronostico: Pronostico | null; duelo: Duelo | n
 }
 
 /** Post: cada palanca, su meta y lo que pasó (si Wyscout ya tiene el partido). */
-export function revisaPalancas(inf: { pronostico: Pronostico | null; duelo: Duelo | null }) {
+export function revisaPalancas(inf: { pronostico: Pronostico | null; duelo: Duelo | null; abp?: InformePartido["abp"] }) {
   const pr = inf.pronostico;
 
   if (!pr) return [] as { momento: string; meta: string; real: string; cumplida: boolean | null }[];
@@ -1418,7 +1420,25 @@ export function revisaPalancas(inf: { pronostico: Pronostico | null; duelo: Duel
     return (p.revisa === "xgSuyo" ? xg?.suyo : xg?.nuestro) != null;
   });
 
+  /*
+  | El balón parado con su veredicto, como las otras dos (25/10/2026, ronda 7):
+  | los goles esperados del partido a balón parado salen del informe de ABP
+  | (a favor menos en contra) frente a la meta de +0,12.
+  */
+  const xgAbp = inf.abp?.pincelada?.xgPartido ?? null;
+
   return medibles.map((p) => {
+    if (p.momento === "Balón parado" && xgAbp) {
+      const neto = xgAbp.favor - xgAbp.contra;
+
+      return {
+        momento: p.momento,
+        meta: `+${cifra(p.meta, "decimal")} goles esperados (a favor menos en contra)`,
+        real: `${cifra(xgAbp.favor, "decimal")} a favor − ${cifra(xgAbp.contra, "decimal")} en contra = ${neto >= 0 ? "+" : "−"}${cifra(Math.abs(neto), "decimal")}`,
+        cumplida: neto >= p.meta,
+      };
+    }
+
     const real = p.revisa === "xgSuyo" ? (xg?.suyo ?? null) : p.revisa === "xgNuestro" ? (xg?.nuestro ?? null) : null;
 
     const cumplida = real === null ? null : p.revisa === "xgSuyo" ? real <= p.meta : real >= p.meta;
@@ -2324,6 +2344,7 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
 
     if (x.momento === "Sin balón") metas.push(`Concedemos menos ocasiones · la meta era dejarles en ${meta} goles esperados y fueron ${real}`);
     else if (x.momento === "Con balón") metas.push(`Generamos más ocasiones · la meta eran ${meta} goles esperados y fueron ${real}`);
+    else if (x.momento === "Balón parado") metas.push(`Sacamos más de nuestro balón parado · ${x.real.replace(/ = .*$/, "")}; la meta era +0,12`);
   }
 
   /* Un gol suyo en los últimos diez minutos con el partido a favor. */
@@ -2341,14 +2362,24 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
 
   const baseCierre = base && base.partidos > 1 ? (base.veces <= 1 ? `; la primera vez en ${base.partidos} partidos` : `; nos ha pasado en ${base.veces} de ${base.partidos} partidos`) : "";
 
-  const cierre = tarde
+  /*
+  | Lo aislado va al vídeo, lo que se repite al microciclo (25/10/2026, ronda
+  | 7, experto de fútbol): si es la primera vez en la temporada, el gol tardío
+  | no encabeza «Esta semana»; se enseña el lunes (ver `golesEnContraDe`).
+  */
+  const aislado = Boolean(base && base.partidos > 1 && base.veces <= 1);
+
+  const cierre = tarde && !aislado
     ? `Cerramos los partidos con ventaja · nos marcaron en el ${tarde.g.minuto}′ con ${tarde.antes.nos}-${tarde.antes.ellos}${roja && minutoNum(roja.minuto) < minutoNum(tarde.g.minuto) ? " y uno más" : ""}${baseCierre}`
     : "";
 
   /* El balón parado que nos dio peligro en contra (lo trae la pincelada del informe de ABP). */
   const susto = inf.abp?.pincelada?.sustoEnContra;
 
-  const abp = susto ? `${susto.consigna} · ${susto.dato}` : "";
+  const abp = susto && !susto.corta ? `${susto.consigna} · ${susto.dato}` : "";
+
+  /* Sin muestra, el balón parado se vigila, pero detrás de lo que tiene peso (25/10/2026). */
+  const abpCorto = susto && susto.corta ? `${susto.consigna} · ${susto.dato}` : "";
 
   /*
   | La métrica que quedó claramente por debajo de lo nuestro: a más de una
@@ -2391,7 +2422,7 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
   }
 
   /* Lo que tiene peso primero (24/10/2026): el gol que se nos escapó con el partido ganado y el balón parado que nos remató; luego el plan. */
-  return [cierre, abp, ...plan, ...metas, metrica, duelo].filter(Boolean).slice(0, 3);
+  return [cierre, abp, ...plan, ...metas, metrica, duelo, abpCorto].filter(Boolean).slice(0, 3);
 }
 
 /**
@@ -3144,7 +3175,9 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
       ? `Desde el ${roja.minuto}′ jugamos con uno más (${Math.max(1, 90 - Math.floor(minutoNum(roja.minuto)))} minutos): la posesión, las entradas al área y lo que nos generaron cuentan ese tramo`
       : "";
 
-  const golesEnContra = esPost ? golesEnContraDe(inf.cronica, inf.golesTemporada?.fases) : [];
+  const baseTarde = inf.golesTemporada?.cerradosConVentaja;
+
+  const golesEnContra = esPost ? golesEnContraDe(inf.cronica, inf.golesTemporada?.fases, { tardeAislado: Boolean(baseTarde && baseTarde.partidos > 1 && baseTarde.veces <= 1) }) : [];
 
   return {
     titular,
@@ -3216,7 +3249,7 @@ export function nombreMetricaPartido(m: { key: string; nombre: string }, cronica
 /** Los goles van en entero: «3», no «3,00». */
 export const unidadPartido = (m: { key: string; unidad: string }) => (m.key === "goles" || m.key === "golesContra" ? "entero" : m.unidad);
 
-export function golesEnContraDe(cronica: Cronica | null, fases?: Record<string, string>) {
+export function golesEnContraDe(cronica: Cronica | null, fases?: Record<string, string>, opciones: { /** El gol tardío con ventaja es la primera vez en la temporada: va al vídeo, no al microciclo. */ tardeAislado?: boolean } = {}) {
   if (!cronica) return [] as string[];
 
   const roja = cronica.tarjetas.filter((t) => t.tipo === "roja").sort((a, b) => minutoNum(a.minuto) - minutoNum(b.minuto))[0];
@@ -3246,7 +3279,9 @@ export function golesEnContraDe(cronica: Cronica | null, fases?: Record<string, 
       /* La fase, si el coding de Hudl la clasificó (25/10/2026); el gol en propia ya dice lo que es. */
       const fase = g.tipo !== "propia" ? (fases?.[String(g.minuto).replace(/[′'\s]/g, "")] ?? "") : "";
 
-      return [`${g.minuto}′`, `${tras.nos}-${tras.ellos}`, quien, fase, contexto].filter(Boolean).join(" · ");
+      const alVideo = opciones.tardeAislado && antes.nos > antes.ellos && minutoNum(g.minuto) >= 80 ? "para el vídeo del lunes: la primera vez esta temporada" : "";
+
+      return [`${g.minuto}′`, `${tras.nos}-${tras.ellos}`, quien, fase, contexto, alVideo].filter(Boolean).join(" · ");
     })
     .filter(Boolean);
 }
