@@ -2385,7 +2385,7 @@ function metaNumerica(duelo: Duelo | null, tema: (typeof TEMAS_PLAN)[number]) {
   return alto === null ? null : { key: nuestra.key, valor: nuestra.nosotros.valor, unidad: nuestra.unidad, alto };
 }
 
-export function cumplimientoPlan(inf: { plan: Plan | null; duelo: Duelo | null; abp?: InformePartido["abp"] }): FilaCumplimiento[] {
+export function cumplimientoPlan(inf: { plan: Plan | null; duelo: Duelo | null; abp?: InformePartido["abp"]; pronostico?: InformePartido["pronostico"] }): FilaCumplimiento[] {
   const claves = inf.plan?.claves ?? [];
 
   const metricas = (inf.duelo?.partido?.metricas ?? []).map((m) => (m.mejorAlto === null && m.key in SENTIDO_EN_META ? { ...m, mejorAlto: SENTIDO_EN_META[m.key] } : m));
@@ -2424,20 +2424,28 @@ export function cumplimientoPlan(inf: { plan: Plan | null; duelo: Duelo | null; 
     | contraataques con meta de 0,63 es ✗, con la base al lado si es corta;
     | no un «sin diferencia clara».
     */
-    const meta = metaNumerica(inf.duelo, tema);
+    /* La MISMA meta que escribió la previa (26/10/2026): la de su palanca del pronóstico (`metaDePalanca`); sin pronóstico, nuestra cifra de la temporada. */
+    const dePalanca = inf.pronostico !== undefined ? metaDePalanca({ duelo: inf.duelo, pronostico: inf.pronostico }, clave) : null;
 
-    const principal = meta ? medibles.find((m) => m.key === meta.key) : undefined;
+    const numerica = metaNumerica(inf.duelo, tema);
+
+    const meta = dePalanca && dePalanca.metrica !== "xgAbp" ? { key: dePalanca.metrica, valor: dePalanca.cifra, alto: dePalanca.sentido === "mas", texto: dePalanca.texto } : numerica ? { ...numerica, texto: "" } : null;
+
+    const principal = meta ? medibles.find((m) => m.key === meta.key) ?? metricas.find((m) => m.key === meta.key && m.nuestro !== null) : undefined;
 
     if (meta && principal) {
       const valor = principal.nuestro!;
 
-      const veredicto: "si" | "no" = (meta.alto ? valor > meta.valor : valor < meta.valor) ? "si" : "no";
+      /* «Al menos 1», «llegar a 2,17 o más», «1,08 o menos»: alcanzar la cifra de la meta es cumplirla. */
+      const veredicto: "si" | "no" = (meta.alto ? valor >= meta.valor : valor <= meta.valor) ? "si" : "no";
 
       const corta = muestraCorta(principal) ? "; un partido, base corta" : "";
 
       const resto = medibles.filter((m) => m !== principal).map(datoFrenteAMedia);
 
-      const dato = [`${nombreEnFrase(sinSiglas(principal.nombre))} ${cifraPartido(valor, principal.unidad)}${conRecuentoTexto(principal)} · meta: ${meta.alto ? "más de" : "menos de"} ${cifra(meta.valor, meta.unidad)}${corta}`, ...resto].join(" · ");
+      const textoMeta = meta.texto ? minusculaInicial(meta.texto) : `${meta.alto ? "más de" : "menos de"} ${cifra(meta.valor, principal.unidad)}`;
+
+      const dato = [`${nombreEnFrase(sinSiglas(principal.nombre))} ${cifraPartido(valor, principal.unidad)}${conRecuentoTexto(principal)} · meta: ${textoMeta}${corta}`, ...resto].join(" · ");
 
       return { clave, tema: tema.tema, veredicto, dato: capital(dato), lectura: LECTURA_TEMA[tema.tema]?.[veredicto], consigna: tema.consigna };
     }
