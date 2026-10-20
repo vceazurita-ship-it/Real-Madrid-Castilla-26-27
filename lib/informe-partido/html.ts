@@ -35,8 +35,13 @@ import {
   type JugadorRival,
 } from "./modelo";
 
-/** Los duelos con jugadores de su once probable (20/10/2026): como en las diapositivas. */
-const delOnce = (inf: InformePartido, lista: ReturnType<typeof duelosParaAtacar>) => lista.filter((x) => dueloEnSuOnce(x, inf.once.jugadores));
+/**
+ * Los duelos con jugadores de su once probable (20/10/2026): como en las
+ * diapositivas. En el post, con su once de verdad (24/10/2026): un duelo con
+ * quien no salió de inicio no se puede valorar.
+ */
+const delOnce = (inf: InformePartido, lista: ReturnType<typeof duelosParaAtacar>) =>
+  lista.filter((x) => dueloEnSuOnce(x, inf.momento === "post" && inf.cronica?.onceReal.length ? inf.cronica.onceReal : inf.once.jugadores));
 
 const atacarDe = (inf: InformePartido, d: DuelosInforme | null = inf.duelosJugadores) => delOnce(inf, duelosParaAtacar(d));
 const vigilarDe = (inf: InformePartido, d: DuelosInforme | null = inf.duelosJugadores) => delOnce(inf, duelosParaVigilar(d));
@@ -288,11 +293,11 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
      veredicto y qué toca en el microciclo, que es en lo que acaba el informe. */
   const esencialPost = `<p style="margin:0 0 6px;font:700 20px/1.3 Arial,sans-serif;color:${NAVY}">${esc(s.titular)}</p>${subtitular}${
     s.relato.length ? `${etiqueta("Cómo fue")}${lista(s.relato)}` : ""
-  }${s.claves.length ? `${etiqueta("Lo que nos deja")}${lista(s.claves)}` : ""}${
+  }${s.golesEnContra.length ? `${etiqueta("Cómo nos marcaron", ROJO)}${lista(s.golesEnContra)}` : ""}${s.claves.length ? `${etiqueta("Lo que nos deja")}${lista(s.claves)}` : ""}${
     s.cumplimiento.length
       ? `${etiqueta("Lo que nos propusimos · ¿se cumplió?")}<ul style="margin:0;padding-left:18px;font:400 14px/1.6 Arial,sans-serif;color:${NAVY}">${s.cumplimiento
           .map((f) => `<li>${f.veredicto ? `<b style="color:${f.veredicto === "si" ? VERDE : f.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(f.veredicto)}</b> ` : ""}${f.lectura ? `<b>${esc(f.lectura)}</b>` : esc(f.clave)}${f.dato ? `<br><span style="color:${SUAVE}">${esc(f.dato)}</span>` : ""}${f.lectura ? `<br><span style="color:${SUAVE};font-size:12px">Del plan: ${esc(f.clave)}</span>` : ""}</li>`)
-          .join("")}</ul>`
+          .join("")}</ul>${s.notaRoja ? `<p style="margin:6px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(s.notaRoja)}.</p>` : ""}`
       : ""
   }${s.microciclo.length ? `${etiqueta("Qué toca en el microciclo", ROJO)}${lista(s.microciclo)}` : ""}${
     inf.sintesis.frenados.length
@@ -331,9 +336,12 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const partidoDatos =
     esPost && inf.duelo?.partido
-      ? `${lista(inf.sintesis.partido)}<div style="height:10px"></div>${tabla(
+      ? `${lista(inf.sintesis.partido)}${s.notaRoja ? `<p style="margin:6px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(s.notaRoja)}.</p>` : ""}<div style="height:10px"></div>${tabla(
           ["Métrica", "Nosotros", rival, "Nuestra media"],
-          inf.duelo.partido.metricas.map((m) => [esc(m.nombre), `<b>${celda(m.nuestro, m.unidad)}</b>`, celda(m.suyo, m.unidad), celda(m.media, m.unidad)]),
+          /* Sin filas vacías y cada porcentaje con su recuento: «75,0 % (6 de 8)» (24/10/2026). */
+          inf.duelo.partido.metricas
+            .filter((m) => m.nuestro !== null)
+            .map((m) => [esc(m.nombre), `<b>${celda(m.nuestro, m.unidad)}</b>${m.recuento ? `<br><span style="color:${SUAVE};font-size:11px">${Math.round(m.recuento.de)} de ${Math.round(m.recuento.total)}</span>` : ""}`, celda(m.suyo, m.unidad), celda(m.media, m.unidad)]),
         )}`
       : /* Sin Wyscout, el capítulo no sale: antes decía que faltaba (19/10/2026). */
         "";
@@ -387,32 +395,50 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const plRev = inf.plan;
 
-  /* La columna «¿Se cumplió?» con la métrica del partido cuando la clave casa
-     con una (20/10/2026); la que no, sigue en blanco para la reunión. */
+  /*
+  | «¿Se cumplió?» sólo con lo que tiene veredicto (24/10/2026): antes las
+  | filas sin métrica salían con un hueco «para la reunión», y lo que no tiene
+  | dato no se nombra. El resto del plan va debajo, sin esa columna.
+  */
   const veredictoDe = (clave: string) => s.cumplimiento.find((f) => f.clave === clave && f.veredicto);
 
-  const revision = plRev
-    ? tabla(
-        ["Lo que nos propusimos", "¿Se cumplió?"],
-        [
-          ...plRev.claves.map((c) => ["Clave", c]),
-          ["Con balón", plRev.ataque],
-          ["Sin balón", plRev.defensa],
-          ["ABP ofensivo", plRev.abpOf],
-          ["ABP defensivo", plRev.abpDef],
-        ]
-          .filter(([, t]) => t)
-          .map(([m, t]) => {
-            const v = m === "Clave" ? veredictoDe(t) : undefined;
+  const filasPlan = plRev
+    ? [
+        ...plRev.claves.map((c) => ["Clave", c]),
+        ["Con balón", plRev.ataque],
+        ["Sin balón", plRev.defensa],
+        ["ABP ofensivo", plRev.abpOf],
+        ["ABP defensivo", plRev.abpDef],
+      ].filter(([, t]) => t)
+    : [];
 
-            return [
-              `<span style="color:${SUAVE};font-size:11px;text-transform:uppercase;letter-spacing:.06em">${esc(m)}</span><br>${parrafo(t)}`,
-              v
-                ? `<b style="color:${v.veredicto === "si" ? VERDE : v.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(v.veredicto)} ${v.veredicto === "si" ? "Sí" : v.veredicto === "no" ? "No" : "En nuestra media"}</b><br><span style="color:${SUAVE};font-size:12px">${esc(v.dato)}</span>`
-                : `<div style="min-width:150px;height:34px;border:1px dashed #D6D0C2;border-radius:6px"></div>`,
-            ];
-          }),
-      )
+  const conVeredicto = filasPlan.filter(([m, t]) => m === "Clave" && veredictoDe(t));
+
+  const sinVeredicto = filasPlan.filter((x) => !conVeredicto.includes(x));
+
+  const revision = plRev
+    ? `${
+        conVeredicto.length
+          ? tabla(
+              ["Lo que nos propusimos", "¿Se cumplió?"],
+              conVeredicto.map(([, t]) => {
+                const v = veredictoDe(t)!;
+
+                return [
+                  parrafo(t),
+                  `<b style="color:${v.veredicto === "si" ? VERDE : v.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(v.veredicto)} ${v.veredicto === "si" ? "Sí" : v.veredicto === "no" ? "No" : "En nuestra media"}</b><br><span style="color:${SUAVE};font-size:12px">${esc(v.dato)}</span>`,
+                ];
+              }),
+            )
+          : ""
+      }${
+        sinVeredicto.length
+          ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">${conVeredicto.length ? "El resto del plan" : "El plan"}</p>${tabla(
+              ["Momento", "El plan"],
+              sinVeredicto.map(([m, t]) => [`<b>${esc(m)}</b>`, parrafo(t)]),
+            )}`
+          : ""
+      }`
     : "";
 
   /* ---------------- el rival y su momento ---------------- */
@@ -605,7 +631,35 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   const conMinutos = (m?.dias ?? []).some((d) => d.md !== "MD" && d.minutos > 0);
 
   /* En la previa, el partido de la semana no es algo «trabajado» (23/10/2026): «Competición: 90′» salía como hecho. */
-  const trabajados = (m?.contenidos ?? []).filter((c) => c.minutos > 0 && !(!esPost && /^competici/i.test(c.nombre)));
+  /*
+  | Una sola cifra de ABP en todo el informe (24/10/2026, experto de análisis):
+  | salían 14′ en «Qué se ha trabajado», 23′ sumando las tareas y 1 h 20′ en el
+  | cuadro. Los contenidos de balón parado de la hoja se juntan en una línea
+  | con la cifra de minutosAbp(), que cuenta además lo de fuera de las tareas.
+  */
+  const esAbp = (nombre: string) => /\babp\b|bal[oó]n parado|estrategia/i.test(nombre);
+
+  const competicion = (nombre: string) => /^competici/i.test(nombre);
+
+  const trabajadosHoja = (m?.contenidos ?? []).filter((c) => c.minutos > 0 && !(!esPost && competicion(c.nombre)));
+
+  const abpEnTareas = trabajadosHoja.filter((c) => esAbp(c.nombre)).reduce((a, c) => a + c.minutos, 0);
+
+  const trabajados = [
+    ...trabajadosHoja.filter((c) => !esAbp(c.nombre)),
+    ...(abpEnTareas || abpMin.minutos
+      ? [
+          {
+            nombre: "Balón parado",
+            minutos: abpMin.minutos || abpEnTareas,
+            detalle: abpMin.minutos && abpEnTareas && abpMin.minutos !== abpEnTareas ? ` (${abpEnTareas}′ en tareas de campo; el resto, fuera de las tareas)` : "",
+          },
+        ]
+      : []),
+  ];
+
+  /* En el post, el partido aparte: «Minutos de trabajo 340′» llevaba dentro los 90′ del partido. */
+  const minPartido = esPost ? (m?.contenidos ?? []).filter((c) => competicion(c.nombre)).reduce((a, c) => a + c.minutos, 0) : 0;
 
   const planificados = (m?.contenidos ?? []).filter((c) => !(c.minutos > 0) && !/^competici/i.test(c.nombre));
 
@@ -624,7 +678,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   const semana = m
     ? `${tarjetas([
         { rotulo: "Tareas", valor: String(m.totales.tareas) },
-        { rotulo: "Minutos de trabajo", valor: conMinutos ? `${m.totales.minutos}′` : "" },
+        { rotulo: "Minutos de trabajo", valor: conMinutos ? `${m.totales.minutos - minPartido}′` : "", pie: minPartido ? `y el partido, ${minPartido}′` : undefined },
         { rotulo: "Balón parado", valor: abpMin.minutos ? minutosLegibles(abpMin.minutos) : "", pie: abpMin.texto || undefined },
         { rotulo: "Valoración media", valor: m.totales.valoracionMedia !== null ? m.totales.valoracionMedia.toLocaleString("es-ES") : "", pie: `${m.totales.valoradas} de ${m.totales.tareas} valoradas` },
       ])}<div style="height:12px"></div>${tabla(
@@ -636,7 +690,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
         ),
       )}${
         trabajados.length
-          ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Qué se ha trabajado</p>${lista(trabajados.map((c) => `${c.nombre}: ${c.minutos}′`))}`
+          ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Qué se ha trabajado</p>${lista(trabajados.map((c) => `${c.nombre}: ${minutosLegibles(c.minutos)}${"detalle" in c ? c.detalle : ""}`))}`
           : ""
       }${
         planificados.length
@@ -772,7 +826,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
   const duelosCap = dj
     ? `<p style="margin:0 0 10px;font:400 14px/1.6 Arial,sans-serif;color:${NAVY}">${
         esPost
-          ? "Lo que esperábamos de cada duelo antes del partido. La última columna es para cerrarlo en la reunión: ¿se dio lo que preveíamos?"
+          ? "Lo que esperábamos de cada duelo antes del partido, sólo con los que salieron de inicio."
           : "Cada duelo enfrenta lo que hace <b>con balón</b> el que ataca con lo que hace <b>sin balón</b> el que defiende (regate contra entrada, desmarque contra anticipación, pase que rompe líneas contra corte…), en los dos sentidos. Cada jugador va en percentil contra los de su puesto en la categoría."
       }</p>${
         atacarD.length
@@ -783,9 +837,10 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
           ? `${etiqueta(esPost ? "Dónde nos podían hacer daño · sin balón" : "Dónde nos pueden hacer daño · sin balón", ROJO)}${lista(vigilarD.slice(0, 4).map((x) => `<b>${signo(ventajaVisible(x, "sin"))}</b> · ${fraseDuelo(x, "sin")}`))}`
           : ""
       }<div style="height:10px"></div>${tabla(
-        esPost ? ["Duelo", "Con balón", "Sin balón", "Lo previsto", "¿Se cumplió?"] : ["Duelo", "Con balón", "Sin balón", "Balance"],
+        esPost ? ["Duelo", "Con balón", "Sin balón", "Lo previsto"] : ["Duelo", "Con balón", "Sin balón", "Balance"],
         /* En la previa, sólo los duelos con jugadores de su once probable (23/10/2026): salía «Carvajal ante Ruiz y Carmona» con Ruiz fuera del once. */
-        dj.lista.filter((x) => esPost || dueloEnSuOnce(x, inf.once.jugadores)).map((x) => {
+        /* En el post, sólo los que salieron de inicio (24/10/2026): con Destiny, que entró en el 64′, el duelo no se puede valorar. */
+        dj.lista.filter((x) => (esPost ? !cr?.onceReal.length || dueloEnSuOnce(x, cr.onceReal) : dueloEnSuOnce(x, inf.once.jugadores))).map((x) => {
           /* La misma cifra que la diapositiva y la lista de arriba (22/10/2026): `ventajaVisible`. */
           const con = ventajaVisible(x, "con");
           const sin = ventajaVisible(x, "sin");
@@ -795,7 +850,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
             `<b style="color:${(sin ?? 0) >= 10 ? VERDE : (sin ?? 0) <= -10 ? ROJO : NAVY}">${signo(sin)}</b>`,
             `<b style="color:${colorVeredicto(x.veredicto)}">${rotuloVeredicto(x.veredicto)}</b>`,
           ];
-          return esPost ? [...fila, `<div style="min-width:110px;height:30px;border:1px dashed #D6D0C2;border-radius:6px"></div>`] : fila;
+          return fila;
         }),
       )}<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">La cifra de cada duelo es la misma en todo el informe: la diferencia media, sobre 100, de los dos cruces que más pesan (los que se nombran arriba). Con balón: + = les sacamos ventaja cuando la tenemos nosotros. Sin balón: − = nos la sacan cuando la tienen ellos. Su once: ${esc(dj.fuenteSuya.toLowerCase())}.</p>`
     : "";
@@ -856,7 +911,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
             titulo: "Su once",
             html: seccion(`Su once${cr?.estructura ? ` · ${cr.estructura}` : ""}`, cr?.acierto ? "El que sacaron, frente al que habíamos previsto en Plantillas." : "El que sacaron (BeSoccer).", onceReal),
           },
-          { id: "plan", titulo: "El plan, a revisión", html: seccion("El plan, a revisión", "Lo que nos propusimos en Preparación de Partido; la columna de la derecha es para cerrarlo en la reunión.", revision) },
+          { id: "plan", titulo: "El plan, a revisión", html: seccion("El plan, a revisión", "Lo que nos propusimos en Preparación de Partido y, en las claves que mide el partido, si se cumplió.", revision) },
           { id: "duelos", titulo: "Los duelos que planteamos", html: seccion("Los duelos que planteamos", "Competición → Duelos: lo previsto, para contrastarlo con lo que pasó.", duelosCap) },
           { id: "semana", titulo: "La semana que lo preparó", html: seccion("La semana que lo preparó", "El microciclo de la hoja de registro de tareas.", semana) },
           { id: "contexto", titulo: "Dónde quedamos", html: seccion("Dónde quedamos", "Clasificación y racha (BeSoccer).", contexto) },
@@ -1031,6 +1086,7 @@ export function informeTexto(inf: InformePartido) {
     inf.sintesis.titular,
     ...(inf.sintesis.subtitular ? [inf.sintesis.subtitular] : []),
     "",
+    ...(inf.sintesis.golesEnContra.length ? ["CÓMO NOS MARCARON", ...inf.sintesis.golesEnContra.map((g) => `- ${g}`), ""] : []),
     inf.momento === "post" ? "LO QUE NOS DEJA" : "CÓMO LO GANAMOS",
     ...inf.sintesis.claves.map((c, i) => `${i + 1}. ${c}`),
   ];
@@ -1044,7 +1100,8 @@ export function informeTexto(inf: InformePartido) {
   if (inf.sintesis.relato.length) l.push("", "CÓMO FUE", ...inf.sintesis.relato.map((v) => `- ${v}`));
   if (inf.sintesis.cumplimiento.length) l.push("", "LO QUE NOS PROPUSIMOS · ¿SE CUMPLIÓ?", ...inf.sintesis.cumplimiento.map((f) => `- ${marcaCumplimiento(f.veredicto) ? `${marcaCumplimiento(f.veredicto)} ` : ""}${f.lectura || f.clave}${f.dato ? ` (${f.dato})` : ""}`));
   if (inf.sintesis.microciclo.length) l.push("", "QUÉ TOCA EN EL MICROCICLO", ...inf.sintesis.microciclo.map((v, i) => `${i + 1}. ${v}`));
-  if (inf.sintesis.frenados.length) l.push("", "¿LOS FRENAMOS?", ...inf.sintesis.frenados.map((f) => `- ${f.bien ? "Sí" : "No"} · ${f.jugador.nombre}: ${f.texto}`));
+  if (inf.sintesis.notaRoja) l.push(`(${inf.sintesis.notaRoja}.)`);
+  if (inf.sintesis.frenados.length) l.push("", "A QUIÉN TENÍAMOS QUE FRENAR", ...inf.sintesis.frenados.map((f) => `- ${f.bien ? "Sí" : "No"} · ${f.jugador.nombre}: ${f.texto}`));
   if (inf.sintesis.ventajas.length) l.push("", "DONDE GANAMOS EL CRUCE", ...inf.sintesis.ventajas.map((v) => `- ${v}`));
   if (inf.momento !== "post" && inf.sintesis.amenazas.length) l.push("", "DONDE NOS PUEDEN HACER DAÑO", ...inf.sintesis.amenazas.map((v) => `- ${v}`));
   if (inf.momento !== "post" && inf.sintesis.vigilar.length) l.push("", "A VIGILAR", ...inf.sintesis.vigilar.map((j) => `- ${j.dorsal ? `${j.dorsal} ` : ""}${j.nombre}${j.posicion ? ` (${j.posicion})` : ""}`));
