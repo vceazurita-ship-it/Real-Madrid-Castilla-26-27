@@ -4500,6 +4500,8 @@ export type PinceladaAbp = {
   sustoEnContra?: { consigna: string; dato: string; /** Sin muestra: para vigilar, no la prioridad (25/10/2026). */ corta?: boolean } | null;
   /** Post: los goles esperados del partido a balón parado (25/10/2026), para revisar la palanca del pronóstico. */
   xgPartido?: { favor: number; contra: number } | null;
+  /** Post: lo mismo en la temporada (26/10/2026): el informe del partido juzga el balón parado con esto, no con una jornada. */
+  xgTemporada?: { favor: number; contra: number; partidos: number } | null;
   /**
    * Previa: la prioridad nº 1 de balón parado, como consigna («Defendemos la
    * falta lateral directa») y como frase corta (el titular del informe de
@@ -4879,6 +4881,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
         : null,
       /* Los goles esperados del partido a balón parado, para revisar la palanca del pronóstico (25/10/2026). */
       xgPartido: { favor: p.favor.xg, contra: p.contra.xg },
+      xgTemporada: informe.propio && informe.propio.partidos ? { favor: informe.propio.ofensivo.xg, contra: informe.propio.defensivo.xg, partidos: informe.propio.partidos } : null,
       claves: claves.slice(0, 3),
       cifras: [
         { rotulo: "Goles ABP", valor: `${p.favor.goles}·${p.contra.goles}`, pie: "a favor · en contra" },

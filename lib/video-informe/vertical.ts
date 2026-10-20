@@ -614,10 +614,10 @@ function balance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "balanc
   const finTitulo = tituloV(ctx, fuente, e.titulo, t);
   const filas = e.filas.slice(0, 3);
   const n = filas.length;
-  const final = Math.min(2.5, dur * 0.25);
+  /* Sin la caja final con el recuento (26/10/2026, ronda 8, guion): repetía el título. Las metas se quedan a la vista hasta el final. */
+  const final = 0;
   const tramoFila = Math.max(0.8, (dur - final - 0.5) / Math.max(1, n));
   const activa = Math.min(n - 1, Math.floor((t - 0.5) / tramoFila));
-  const recuento = tramo(t, dur - final, 0.4);
   const hueco = 20;
   const y0 = finTitulo + 46;
   const alto = Math.min(270, (ALTO_V - SEGURO - 30 - y0 - (n - 1) * hueco) / Math.max(1, n));
@@ -632,7 +632,7 @@ function balance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "balanc
     const veredicto = x.estado === "si" ? "CUMPLIDO" : x.estado === "no" ? "NO" : "A MEDIAS";
 
     /* Con el recuento, las filas se apagan del todo (22/10/2026, crítica del productor: quedaban a medias detrás). */
-    ctx.globalAlpha = Math.min(1, a) * (i === activa ? 1 : 0.5) * (1 - recuento);
+    ctx.globalAlpha = Math.min(1, a) * (i === activa ? 1 : 0.5);
     tarjeta(ctx, MARGEN, y, UTIL, alto, null);
     ctx.fillStyle = color;
     ctx.fillRect(MARGEN, y, 8, alto);
@@ -674,29 +674,8 @@ function balance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "balanc
 
     ctx.globalAlpha = 1;
   });
-
-  if (recuento > 0) {
-    const s = salta((t - (dur - final)) / 0.35);
-    const r = ajusta(ctx, fuente, e.resumen.toUpperCase(), 700, 64, TITULO, UTIL - 60, 3);
-    const altoCaja = 90 + r.lineas.length * (r.tam + 6);
-
-    ctx.globalAlpha = recuento;
-    ctx.fillStyle = "rgba(8,17,31,0.92)";
-    caja(ctx, MARGEN, ALTO_V / 2 - altoCaja / 2, UTIL, altoCaja, 20);
-    ctx.fill();
-    ctx.fillStyle = ORO;
-    caja(ctx, MARGEN, ALTO_V / 2 - altoCaja / 2, UTIL, 6, 3);
-    ctx.fill();
-    ctx.save();
-    ctx.translate(ANCHO_V / 2, ALTO_V / 2);
-    ctx.scale(0.85 + 0.15 * Math.min(1, s), 0.85 + 0.15 * Math.min(1, s));
-    ctx.fillStyle = BLANCO;
-    ctx.font = `700 ${r.tam}px ${fuente}`;
-    centradas(ctx, r.lineas, 0, r.tam / 2 - ((r.lineas.length - 1) * (r.tam + 6)) / 2, r.tam + 6);
-    ctx.restore();
-    ctx.globalAlpha = 1;
-  }
 }
+
 
 /** El cierre: nuestro escudo, «Nuestra consigna», la consigna grande y su dato; fundido a negro. */
 function cierre(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cierre" }>, rec: Recursos, t: number, restante: number) {

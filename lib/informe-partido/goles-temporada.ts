@@ -54,13 +54,15 @@ async function doc<T>(key: string): Promise<T | null> {
 function faseConAccion(tipo: TipoGol, motivo: string) {
   const fase = FASE_EN_CONTRA[tipo];
 
-  const m = motivo.trim().replace(/.$/, "");
+  /* Sólo el punto final (26/10/2026): con «/.$/» se comía la última letra de cualquier motivo. */
+  const m = motivo.trim().replace(/\.$/, "");
 
   if (!m || /(BeSoccer)/i.test(m)) return fase;
 
   const perdida = m.match(/^p[ée]rdida de (.+?) en su propio (tercio|campo)$/i);
 
-  if (perdida) return `tras una pérdida en nuestro ${perdida[2].toLowerCase()} (${perdida[1]})`;
+  /* Con el equipo (26/10/2026, análisis): «(Adrián Pérez)» se confundía con su Iván Pérez, el expulsado. */
+  if (perdida) return `tras una pérdida en nuestro ${perdida[2].toLowerCase()} (${perdida[1]}, nuestro)`;
 
   return `${fase}: ${m.charAt(0).toLowerCase()}${m.slice(1)}`;
 }

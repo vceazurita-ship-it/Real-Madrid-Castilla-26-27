@@ -110,19 +110,19 @@ const guionPost = {
   titulo: "Antequera CF · post",
   escenas: G.intercalaCortes(
     [
-      { id: "gancho", tipo: "gancho", dato: "3-2", antetitulo: "Antequera CF · J8", rotulo: "GANAMOS, PERO CON UNO MÁS NOS MARCARON EN EL 90+1′", contexto: "", locucion: "Ganamos tres a dos, pero con uno más nos marcaron en el noventa y uno." },
+      { id: "gancho", tipo: "gancho", dato: "3-2", antetitulo: "Antequera CF · J8", rotulo: "GANAMOS, PERO CON 3-1 Y ELLOS CON DIEZ NOS MARCARON EN EL 90+1′", contexto: "", locucion: "Ganamos tres a dos, pero con tres a uno y ellos con diez nos marcaron en el noventa y uno." },
       { id: "portada", tipo: "portada", titulo: "Antequera CF", subtitulo: "Jornada 8 · Domingo 18 de octubre · en casa", sello: "POST · 3-2", escudoNosotros: "/logo.png", escudoRival: null, idea: "Esta semana, cerramos los partidos con ventaja", locucion: "Antequera, tres a dos." },
-      G.escenaPlan(["Mandamos con el balón", "Sin balón concedimos poco", "Al robar, sin diferencia clara"]),
+      G.escenaPlan(["Mandamos con el balón y lo llevamos al área", "Concedemos menos cerca de nuestra área", "Sacamos más de cada robo"]),
       { id: "clips-1", tipo: "clips", titulo: "Así remontamos", segundos: 14, locucion: "Los goles.", marcas: [{ minuto: 40, gol: true, de: "rival" }, { minuto: 45, gol: true, de: "nosotros" }, { minuto: 53, gol: true, de: "nosotros" }], cortes: [{ url: "x", rotulo: "Gol · 45'", tipo: "gol", minuto: "45'", minutoNum: 45, de: "nosotros", segundos: 7, zona: { tercio: 2, carril: 1 }, desdeZona: { tercio: 2, carril: 0 } }, { url: "x", rotulo: "Gol · 53'", tipo: "gol", minuto: "53'", minutoNum: 53, de: "nosotros", segundos: 7, zona: { tercio: 2, carril: 2 } }] },
       { id: "versus", tipo: "versus", titulo: "Dominamos en goles esperados", pie: "", filas: [{ nombre: "Goles esperados", nuestro: 3.46, suyo: 0.75, textoNuestro: "3,5", textoSuyo: "0,8", media: 1.3, mejorAlto: true }, { nombre: "Entradas al área", nuestro: 41, suyo: 12, textoNuestro: "41", textoSuyo: "12", media: 25, mejorAlto: true }, { nombre: "Posesión", nuestro: 63.7, suyo: 36.3, textoNuestro: "64 %", textoSuyo: "36 %", media: 50, mejorAlto: true }] },
       { id: "vigilar", tipo: "vigilar", titulo: "Frenamos a 2 de 3 de sus peligrosos", jugadores: [{ nombre: "Destiny", dorsal: "9", posicion: "", foto: "", x: 0, y: 0, destacado: false, texto: "Marcó en el 90+1' con 3-1" }, { nombre: "Gené", dorsal: "10", posicion: "", foto: "", x: 0, y: 0, destacado: true, texto: "Sin gol ni asistencia" }, { nombre: "Gutiérrez", dorsal: "7", posicion: "", foto: "", x: 0, y: 0, destacado: true, texto: "Sin gol ni asistencia" }], locucion: "A quién frenamos." },
       /* Sólo filas medidas (sin «pendiente») y de una en una, con el recuento al final. */
       G.escenaBalance([
-        { que: "Posesión", buscabamos: "Mandamos con el balón", logramos: "64 % de la posesión · 41 entradas al área", estado: "si" },
-        { que: "Sin balón", buscabamos: "Sin balón concedimos poco", logramos: "0,8 goles esperados suyos (1,6 de media)", estado: "si" },
-        { que: "Transición", buscabamos: "Al robar, sin diferencia clara", logramos: "0 contraataques (0,7 de media)", estado: "parcial" },
+        { que: "Posesión", buscabamos: "Mandamos con el balón y lo llevamos al área", logramos: "Posesión 64 % (meta: más de 58 %)", estado: "si" },
+        { que: "Sin balón", buscabamos: "Concedemos menos cerca de nuestra área", logramos: "0,8 goles esperados suyos (meta: menos de 1,6)", estado: "si" },
+        { que: "Transición", buscabamos: "Sacamos más de cada robo", logramos: "Contraataques 0 (meta: más de 0,71)", estado: "no" },
       ]).escena,
-      { id: "cierre", tipo: "cierre", titulo: "Nuestra consigna", lineas: ["Esta semana, cerramos los partidos con ventaja"], pie: "Nos marcaron en el 90+1' con 3-1 y uno más", locucion: "Nuestra consigna." },
+      { id: "cierre", tipo: "cierre", titulo: "Nuestra consigna", lineas: ["Esta semana, cerramos los partidos con ventaja"], pie: "Nos marcaron en el 90+1' con 3-1 y ellos con diez", locucion: "Nuestra consigna." },
     ].filter(Boolean),
   ),
 };
