@@ -22,7 +22,7 @@
 */
 
 import { anillo, caja, cortinilla, espaciado, sale, salta, tramo } from "./movimiento";
-import { corteEn, espaciadoAncho, halo, iconoEstado, medallon, parteLineas, tarjeta, type Dibujable, type Fotograma, type Lienzo, type Recursos } from "./dibujo";
+import { corteEn, espaciadoAncho, halo, iconoEstado, medallon, parteLineas, tarjeta, zonaEnPalabras, type Dibujable, type Fotograma, type Lienzo, type Recursos } from "./dibujo";
 import type { Corte, CortePartido, Escena, GuionVideo } from "./guion";
 
 export const ANCHO_V = 720;
@@ -221,24 +221,37 @@ function portada(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "portad
 
   const radio = 104 * respira;
 
-  halo(ctx, ANCHO_V / 2 - 160, cy, radio * 1.55);
-  medallon(ctx, fuente, nos, ANCHO_V / 2 - 160, cy, radio, "rgba(255,255,255,0.85)", "RM");
-  halo(ctx, ANCHO_V / 2 + 160, cy, radio * 1.55);
-  medallon(ctx, fuente, riv, ANCHO_V / 2 + 160, cy, radio, ORO, e.titulo.slice(0, 3).toUpperCase());
+  /*
+  | Sin escudo del rival (22/10/2026, crítica de marketing): sólo el nuestro,
+  | en el centro, y el rival con su nombre grande debajo. Ni sus siglas en un
+  | círculo ni el escudo del Madrid repetido.
+  */
+  if (!riv) {
+    halo(ctx, ANCHO_V / 2, cy, radio * 1.7);
+    medallon(ctx, fuente, nos, ANCHO_V / 2, cy, radio * 1.15, "rgba(255,255,255,0.85)", "RM");
+  } else {
+    halo(ctx, ANCHO_V / 2 - 160, cy, radio * 1.55);
+    medallon(ctx, fuente, nos, ANCHO_V / 2 - 160, cy, radio, "rgba(255,255,255,0.85)", "RM");
+    halo(ctx, ANCHO_V / 2 + 160, cy, radio * 1.55);
+    medallon(ctx, fuente, riv, ANCHO_V / 2 + 160, cy, radio, ORO, e.titulo.slice(0, 3).toUpperCase());
 
-  ctx.save();
-  ctx.translate(ANCHO_V / 2, cy);
-  ctx.rotate(Math.PI / 4);
-  ctx.fillStyle = "rgba(8,17,31,0.92)";
-  ctx.fillRect(-30, -30, 60, 60);
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = ORO;
-  ctx.strokeRect(-30, -30, 60, 60);
-  ctx.restore();
-  ctx.fillStyle = ORO;
-  ctx.font = `700 30px ${fuente}`;
+    /* El VS, entre los dos escudos (con uno solo no hace falta: el nombre del rival va debajo). */
+    ctx.save();
+    ctx.translate(ANCHO_V / 2, cy);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = "rgba(8,17,31,0.92)";
+    ctx.fillRect(-30, -30, 60, 60);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = ORO;
+    ctx.strokeRect(-30, -30, 60, 60);
+    ctx.restore();
+    ctx.fillStyle = ORO;
+    ctx.font = `700 30px ${fuente}`;
+    ctx.textAlign = "center";
+    ctx.fillText("VS", ANCHO_V / 2, cy + 11);
+  }
+
   ctx.textAlign = "center";
-  ctx.fillText("VS", ANCHO_V / 2, cy + 11);
 
   /* El sello (PREVIA / POST) en su píldora. */
   ctx.font = `700 ${ETIQUETA}px ${fuente}`;
@@ -529,7 +542,8 @@ function clips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "clips" }
   const partes = corte.rotulo.split(" · ");
   const jornada = partes.find((p) => /^J\d+$/i.test(p.trim()));
   const principal = corte.tipo ? [partes[0], corte.minuto].filter(Boolean).join(" · ") : [partes[0], jornada].filter(Boolean).join(" · ");
-  const queMirar = corte.texto ?? (corte.tipo ? "" : partes.slice(1).filter((p) => p !== jornada).join(" · "));
+  /* Sin lectura, la zona que etiqueta Hudl en palabras («Último tercio · banda derecha»); nunca una posición inventada. */
+  const queMirar = corte.texto ?? (corte.zona ? zonaEnPalabras(corte.zona) : corte.tipo ? "" : partes.slice(1).filter((p) => p !== jornada).join(" · "));
 
   if (corte.repeticion) {
     const pulso = 0.75 + Math.sin(t * 7) * 0.25;
@@ -618,7 +632,8 @@ function balance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "balanc
     const color = x.estado === "si" ? VERDE : x.estado === "no" ? ROJO : ORO;
     const veredicto = x.estado === "si" ? "CUMPLIDO" : x.estado === "no" ? "NO" : "A MEDIAS";
 
-    ctx.globalAlpha = Math.min(1, a) * (i === activa ? 1 : 0.5) * (1 - 0.7 * recuento);
+    /* Con el recuento, las filas se apagan del todo (22/10/2026, crítica del productor: quedaban a medias detrás). */
+    ctx.globalAlpha = Math.min(1, a) * (i === activa ? 1 : 0.5) * (1 - recuento);
     tarjeta(ctx, MARGEN, y, UTIL, alto, null);
     ctx.fillStyle = color;
     ctx.fillRect(MARGEN, y, 8, alto);

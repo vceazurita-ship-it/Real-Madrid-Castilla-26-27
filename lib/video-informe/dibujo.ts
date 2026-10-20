@@ -15,7 +15,7 @@
 */
 
 import { anillo, caja, cortinilla, cuenta, espaciado, fraccionDe, sale, salta, tramo } from "./movimiento";
-import { SEGUNDOS_MAXIMOS, SEGUNDOS_MINIMOS, type Corte, type CortePartido, type Escena, type GuionVideo, type MarcaPartido } from "./guion";
+import { SEGUNDOS_MAXIMOS, SEGUNDOS_MINIMOS, type Celda, type Corte, type CortePartido, type Escena, type GuionVideo, type MarcaPartido } from "./guion";
 
 /*
 | ANCHO×ALTO es el lienzo LÓGICO: todas las medidas de este fichero (rótulos,
@@ -1305,15 +1305,27 @@ function pintaOnce(ctx: Lienzo, fuente: string, P: Proyector, e: Extract<Escena,
 
     medallon(ctx, fuente, rec.imagenes.get(`${e.id}:${i}`) ?? null, s.x, cy, radio, j.destacado ? ORO : "rgba(255,255,255,0.85)", j.dorsal || "·");
 
-    /* Los nombres, al menos a 24 px (36 de verdad) sobre su banda oscura (21/10/2026; antes 20). */
-    const tam = Math.max(24, radio * 0.5);
+    /* A quién vigilar: un aro de oro que late alrededor de la ficha (22/10/2026, crítica del editor). */
+    if (j.destacado) {
+      ctx.strokeStyle = ORO;
+      ctx.lineWidth = 5;
+      ctx.globalAlpha = Math.min(1, a) * (0.75 + 0.25 * Math.sin(t * 4));
+      ctx.beginPath();
+      ctx.arc(s.x, cy, radio + 9, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = Math.min(1, a);
+    }
+
+    /* Los nombres a 30 px como poco (45 de verdad), sobre su píldora oscura; los de vigilar, en oro (22/10/2026; antes 24). */
+    const tam = Math.max(30, radio * 0.5);
     ctx.font = `700 ${tam}px ${fuente}`;
     ctx.textAlign = "center";
     const nombre = j.nombre.split(" ").slice(-1)[0].toUpperCase();
     const w = ctx.measureText(nombre).width + tam;
-    ctx.fillStyle = j.destacado ? ORO : "rgba(8,17,31,0.8)";
-    ctx.fillRect(s.x - w / 2, s.y + 4, w, tam * 1.4);
-    ctx.fillStyle = j.destacado ? "#0B0F14" : BLANCO;
+    ctx.fillStyle = "rgba(8,17,31,0.88)";
+    caja(ctx, s.x - w / 2, s.y + 4, w, tam * 1.4, (tam * 1.4) / 2);
+    ctx.fill();
+    ctx.fillStyle = j.destacado ? ORO : BLANCO;
     ctx.fillText(nombre, s.x, s.y + 4 + tam * 1.05);
     ctx.textAlign = "left";
     ctx.globalAlpha = 1;
@@ -1471,8 +1483,10 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
   /* «CÓRNER · J7 · 34'» en mayúsculas (22/10/2026, crítica del editor). */
   const principal = (corte.tipo ? [partes[0], jornada, corte.minuto] : [partes[0], jornada]).filter(Boolean).join(" · ").toUpperCase();
   const queMirar = corte.texto ? parteLineas(ctx, corte.texto, ANCHO - 260)[0] ?? "" : "";
-  /* En los del partido el minuto ya va arriba: debajo, sólo qué mirar. */
-  const resto = [queMirar || (corte.tipo ? "" : partes.slice(1).filter((p) => p !== jornada).join(" · "))].filter(Boolean);
+  /* Sin lectura, la zona en palabras (la que etiqueta Hudl, nunca una posición inventada): «Último tercio · banda derecha». */
+  const zona = corte.zona ? zonaEnPalabras(corte.zona) : "";
+  /* En los del partido el minuto ya va arriba: debajo, qué mirar o, si no, la zona. */
+  const resto = [queMirar || zona || (corte.tipo ? "" : partes.slice(1).filter((p) => p !== jornada).join(" · "))].filter(Boolean);
 
   /* La repetición: viñeta más cerrada, una franja de oro arriba y el rótulo «REPETICIÓN» latiendo. */
   if (corte.repeticion) {
@@ -1512,6 +1526,9 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
 
   if (corte.tipo === "gol" && !corte.repeticion) estallidoGol(ctx, fuente, tc);
 
+  /* La telestración mínima: el campo pequeño con la zona de la jugada, mientras está el rótulo. */
+  if (corte.zona && !corte.repeticion && retirada > 0) campoDeZona(ctx, fuente, corte.zona, corte.desdeZona ?? null, corte.de === "rival", tc, retirada);
+
   /* El congelado se nota: un filo de oro alrededor del cuadro quieto. */
   if (congelado) {
     ctx.strokeStyle = ORO;
@@ -1532,6 +1549,104 @@ function pintaClips(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "cli
     ctx.arc(ANCHO - 70 - (e.cortes.length - 1 - i) * 18, ALTO - 36, 4, 0, Math.PI * 2);
     ctx.fill();
   });
+}
+
+const TERCIOS = ["Campo propio", "Medio campo", "Último tercio"];
+const CARRILES = ["banda izquierda", "por el centro", "banda derecha"];
+
+/** «Último tercio · banda derecha»: la zona de Hudl en palabras, desde el punto de vista de quien ataca. */
+export function zonaEnPalabras(z: Celda) {
+  return [TERCIOS[z.tercio], CARRILES[z.carril]].filter(Boolean).join(" · ");
+}
+
+/**
+ * La zona de la jugada sobre un campo pequeño (22/10/2026, crítica del
+ * editor: el corte no marcaba nada). Sólo con la celda que etiqueta Hudl
+ * (tercio y carril), nunca una posición: un aro de oro en la celda y, si se
+ * sabe de dónde vino el pase, una flecha desde esa celda. Ataca hacia la
+ * derecha; si la jugada es del rival, el campo se da la vuelta.
+ */
+function campoDeZona(ctx: Lienzo, fuente: string, zona: Celda, desde: Celda | null, rival: boolean, tc: number, alfa: number) {
+  const a = Math.min(alfa, tramo(tc, 0.4, 0.4));
+
+  if (a <= 0) return;
+
+  const w = 240;
+  const h = 156;
+  const x0 = ANCHO - 56 - w;
+  const y0 = ALTO - 140 - h - 20;
+  /* El centro de una celda: el tercio a lo largo (hacia la derecha si atacamos nosotros) y el carril a lo ancho (la izquierda arriba). */
+  const centro = (c: Celda) => {
+    const tercio = rival ? 2 - c.tercio : c.tercio;
+    const carril = rival ? 2 - c.carril : c.carril;
+
+    return { x: x0 + ((tercio + 0.5) * w) / 3, y: y0 + ((carril + 0.5) * h) / 3 };
+  };
+
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.fillStyle = "rgba(8,17,31,0.82)";
+  caja(ctx, x0 - 10, y0 - 34, w + 20, h + 44, 12);
+  ctx.fill();
+  ctx.fillStyle = "rgba(46,125,58,0.55)";
+  ctx.fillRect(x0, y0, w, h);
+  ctx.strokeStyle = "rgba(255,255,255,0.7)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x0, y0, w, h);
+  ctx.beginPath();
+  ctx.moveTo(x0 + w / 2, y0);
+  ctx.lineTo(x0 + w / 2, y0 + h);
+  ctx.stroke();
+  /* Las áreas, para orientarse. */
+  ctx.strokeRect(x0, y0 + h * 0.22, w * 0.14, h * 0.56);
+  ctx.strokeRect(x0 + w - w * 0.14, y0 + h * 0.22, w * 0.14, h * 0.56);
+  /* La rejilla de tercios y carriles, muy suave. */
+  ctx.strokeStyle = "rgba(255,255,255,0.18)";
+  ctx.setLineDash([4, 5]);
+
+  for (const k of [1, 2]) {
+    ctx.beginPath();
+    ctx.moveTo(x0 + (k * w) / 3, y0);
+    ctx.lineTo(x0 + (k * w) / 3, y0 + h);
+    ctx.moveTo(x0, y0 + (k * h) / 3);
+    ctx.lineTo(x0 + w, y0 + (k * h) / 3);
+    ctx.stroke();
+  }
+
+  ctx.setLineDash([]);
+
+  const z = centro(zona);
+
+  if (desde && (desde.tercio !== zona.tercio || desde.carril !== zona.carril)) {
+    const d = centro(desde);
+    const ang = Math.atan2(z.y - d.y, z.x - d.x);
+    const fin = { x: z.x - Math.cos(ang) * 24, y: z.y - Math.sin(ang) * 24 };
+
+    ctx.strokeStyle = ORO;
+    ctx.fillStyle = ORO;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(d.x, d.y);
+    ctx.lineTo(fin.x, fin.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(fin.x + Math.cos(ang) * 4, fin.y + Math.sin(ang) * 4);
+    ctx.lineTo(fin.x - Math.cos(ang - 0.5) * 14, fin.y - Math.sin(ang - 0.5) * 14);
+    ctx.lineTo(fin.x - Math.cos(ang + 0.5) * 14, fin.y - Math.sin(ang + 0.5) * 14);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.strokeStyle = ORO;
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(z.x, z.y, 18 + 3 * Math.sin(tc * 5), 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.fillStyle = ORO;
+  ctx.font = `700 ${ETIQUETA}px ${fuente}`;
+  espaciado(ctx, "ZONA DE LA JUGADA", x0, y0 - 10, 1.6);
+  ctx.restore();
 }
 
 /**
@@ -2226,7 +2341,8 @@ function pintaFases(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "fas
   const fases = e.fases.slice(0, 4);
   const n = fases.length;
 
-  if (n <= 2) return pintaDosFases(ctx, fuente, fases, e.dano, t);
+  /* La segunda escena sigue la cuenta («03», «04»): son la misma lista partida en dos (22/10/2026). */
+  if (n <= 2) return pintaDosFases(ctx, fuente, fases, e.dano, t, e.id === "fases-2" ? 3 : 1);
 
   /* Con dos tarjetas (21/10/2026), el texto a 36 px y el título a 40. */
   const lectura = n <= 2 ? 36 : LECTURA;
@@ -2288,11 +2404,15 @@ function pintaFases(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "fas
  * franja: el «01» enorme en oro a la izquierda y el texto a 40 px a su lado;
  * la segunda entra a los 2 s. Abajo, una banda de oro con dónde hacerles daño.
  */
-function pintaDosFases(ctx: Lienzo, fuente: string, fases: { titulo: string; texto: string }[], dano: string[], t: number) {
+function pintaDosFases(ctx: Lienzo, fuente: string, fases: { titulo: string; texto: string }[], dano: string[], t: number, primero = 1) {
   const conDano = dano.length > 0;
   const arriba = 196;
   const abajo = conDano ? ALTO - 176 : ALTO - 70;
-  const alto = (abajo - arriba) / 2;
+  /* Una sola fase ocupa todo el alto, con el texto más grande y centrado: nada de media pantalla vacía (22/10/2026, crítica del editor). */
+  const sola = fases.length === 1;
+  const alto = (abajo - arriba) / (sola ? 1 : 2);
+  const cuerpo = sola ? 48 : 40;
+  const interlinea = sola ? 58 : 48;
   const xTexto = 250;
   const ancho = ANCHO - xTexto - 64;
 
@@ -2312,17 +2432,21 @@ function pintaDosFases(ctx: Lienzo, fuente: string, fases: { titulo: string; tex
     }
 
     ctx.fillStyle = ORO;
-    ctx.font = `700 140px ${fuente}`;
-    ctx.fillText(String(i + 1).padStart(2, "0"), 56 - desliza, y + alto / 2 + 50);
+    ctx.font = `700 ${sola ? 180 : 140}px ${fuente}`;
+    ctx.fillText(String(primero + i).padStart(2, "0"), 56 - desliza, y + alto / 2 + (sola ? 64 : 50));
+
+    ctx.font = `500 ${cuerpo}px ${fuente}`;
+
+    const lineas = parteLineas(ctx, f.texto, ancho).slice(0, Math.max(1, Math.floor((alto - 80) / interlinea)));
+    /* Sola, el bloque (título y texto) centrado en el alto. */
+    const yTitulo = sola ? y + (alto - (54 + lineas.length * interlinea)) / 2 + 40 : y + 62;
 
     ctx.font = `700 ${TITULO_MINIMO}px ${fuente}`;
-    espaciado(ctx, f.titulo.toUpperCase(), xTexto + desliza, y + 62, 2);
+    espaciado(ctx, f.titulo.toUpperCase(), xTexto + desliza, yTitulo, 2);
 
     ctx.fillStyle = BLANCO;
-    ctx.font = `500 40px ${fuente}`;
-    parteLineas(ctx, f.texto, ancho)
-      .slice(0, Math.max(1, Math.floor((alto - 80) / 48)))
-      .forEach((l, k) => ctx.fillText(l, xTexto + desliza, y + 116 + k * 48));
+    ctx.font = `500 ${cuerpo}px ${fuente}`;
+    lineas.forEach((l, k) => ctx.fillText(l, xTexto + desliza, yTitulo + 54 + k * interlinea));
     ctx.globalAlpha = 1;
   });
 

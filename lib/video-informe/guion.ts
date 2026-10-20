@@ -395,8 +395,12 @@ export function consigna(t: string, maximo = 10) {
 /** Un vídeo del bucket se puede leer en el navegador; un enlace de YouTube, no. */
 export const esClipLegible = (url: string) => /^https?:\/\/.+\.(mp4|m4v|mov|webm)(\?|$)/i.test(url) || /supabase\.co\/storage/i.test(url);
 
-/** Las fotos de fuera pasan por el proxy, como en las diapositivas. */
-const fotoVia = (src: string) => (src ? (src.startsWith("/") || src.startsWith("data:") ? src : `/api/rivals/foto?url=${encodeURIComponent(src)}`) : "");
+/**
+ * Las fotos de fuera pasan por el proxy, como en las diapositivas. Son fotos
+ * de jugadores rivales: si la ficha trae nuestro escudo de relleno, no hay
+ * foto y sale el dorsal (22/10/2026, crítica de marketing).
+ */
+const fotoVia = (src: string) => (!src || /(^|\/)logo\.png($|\?)/i.test(src) ? "" : src.startsWith("/") || src.startsWith("data:") ? src : `/api/rivals/foto?url=${encodeURIComponent(src)}`);
 
 /* ------------------------------------------------------------------ */
 /*  LAS ESCENAS DE DATOS (14/10/2026)                                  */
@@ -751,6 +755,14 @@ function escenaFases(informe: InformePartido): Escena[] {
   */
   const locucion = (lista: typeof fases) => lista.map((f) => `${f.titulo}: ${f.texto}`).join(". ");
 
+  /*
+  | Tres fases sin «dónde hacerles daño»: una sola escena de tres tarjetas
+  | (22/10/2026, crítica del editor: la segunda escena se quedaba con una
+  | tarjeta y media pantalla muerta). Con daño, la tercera va sola y a lo
+  | ancho, con la banda de oro debajo.
+  */
+  if (fases.length === 3 && !dano.length) return [{ id: "fases", tipo: "fases", titulo: "Así juegan", fases, dano: [], locucion: `${locucion(fases)}.` }];
+
   return [
     { id: "fases", tipo: "fases", titulo: "Así juegan", fases: fases.slice(0, 2), dano: [], locucion: `${locucion(fases.slice(0, 2))}.` },
     { id: "fases-2", tipo: "fases", titulo: dano.length ? "Y por dónde hacerles daño" : "Así juegan, sin balón y al robar", fases: fases.slice(2, 4), dano, locucion: `${locucion(fases.slice(2, 4))}${dano.length ? `. Dónde hacerles daño: ${dano.join("; ")}` : ""}.` },
@@ -927,6 +939,64 @@ export type ExtrasPartido = { escudoNosotros?: string | null; escudoRival?: stri
 /*  EL INFORME DEL PARTIDO                                             */
 /* ------------------------------------------------------------------ */
 
+/**
+ * El escudo del rival, o nada (22/10/2026, crítica de marketing): si el
+ * buscador no lo encuentra y devuelve el nuestro, el vídeo enseñaba el del
+ * Madrid a los dos lados. Sin escudo, el rival va sólo con su nombre.
+ */
+export function escudoDelRival(extras: { escudoRival?: string | null; escudoNosotros?: string | null }) {
+  const r = (extras.escudoRival ?? "").trim();
+
+  if (!r) return null;
+
+  let legible = r;
+
+  try {
+    legible = decodeURIComponent(r);
+  } catch {
+    /* Tal cual. */
+  }
+
+  if (r === (extras.escudoNosotros ?? "/logo.png") || /(^|\/)logo\.png($|\?)/i.test(legible) || /real[-_ ]?madrid|castilla/i.test(legible)) return null;
+
+  return r;
+}
+
+/** Las escenas que son lámina de datos (cifras, tarjetas, barras): cada dos, una jugada. */
+const DE_DATOS = new Set<Escena["tipo"]>(["contexto", "barras", "versus", "percentiles", "duelos", "cifras", "fases", "balance"]);
+
+/**
+ * Ningún tramo de más de dos láminas de datos seguidas (22/10/2026, crítica
+ * del editor): si quedan cortes de vídeo más adelante, el primero se adelanta
+ * y rompe la racha. Sin cortes, todo se queda como está.
+ */
+export function intercalaCortes(escenas: Escena[]): Escena[] {
+  const lista = [...escenas];
+  let racha = 0;
+
+  for (let i = 0; i < lista.length; i += 1) {
+    if (!DE_DATOS.has(lista[i].tipo)) {
+      racha = 0;
+      continue;
+    }
+
+    racha += 1;
+
+    if (racha <= 2) continue;
+
+    const j = lista.findIndex((x, k) => k > i && x.tipo === "clips");
+
+    if (j < 0) continue;
+
+    const [corte] = lista.splice(j, 1);
+
+    lista.splice(i, 0, corte);
+    racha = 0;
+  }
+
+  return lista;
+}
+
 export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = {}): GuionVideo {
   const { partido, sintesis, pronostico, momento } = informe;
   const previa = momento === "previa";
@@ -959,7 +1029,7 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     subtitulo: [partido.jornada ? `Jornada ${partido.jornada}` : "", partido.fechaTexto, lado].filter(Boolean).join(" · "),
     sello: previa ? "PREVIA" : `POST${marcador ? ` · ${marcador}` : ""}`,
     escudoNosotros: extras.escudoNosotros ?? "/logo.png",
-    escudoRival: extras.escudoRival ?? null,
+    escudoRival: escudoDelRival(extras),
     ...(idea ? { idea } : {}),
     locucion: previa ? `${partido.rival}, ${lado || "próximo partido"}. ${limpia(sintesis.titular)}` : `${partido.rival}${marcador ? `, ${marcador}` : ""}. ${limpia(sintesis.titular)}`,
   });
@@ -1191,13 +1261,14 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   }
 
   const ORDEN = previa
-    ? ["gancho", "portada", "contexto", "pronostico", "once", "clips", "fases", "fases-2", "clips-rival-2", "versus", "percentiles", "duelos", "duelo", "vigilar", "abp", "clips-2", "claves", "cierre"]
+    ? ["gancho", "portada", "contexto", "pronostico", "clips", "once", "fases", "fases-2", "clips-rival-2", "versus", "percentiles", "duelos", "duelo", "vigilar", "abp", "clips-2", "claves", "cierre"]
     : ["gancho", "portada", "plan", "clips-1", "clips-2", "clips-3", "versus", "vigilar", "acierto", "abp", "balance", "cierre"];
   const lugar = (id: string) => (ORDEN.includes(id) ? ORDEN.indexOf(id) : ORDEN.length - 1.5);
 
   escenas.sort((a, b) => lugar(a.id) - lugar(b.id));
 
-  return { titulo: `${partido.rival} · ${previa ? "previa" : "post"}`, escenas: soloCompletas(escenas) };
+  /* Un corte antes de su once y ninguna racha de más de dos láminas de datos (22/10/2026, crítica del editor). */
+  return { titulo: `${partido.rival} · ${previa ? "previa" : "post"}`, escenas: intercalaCortes(soloCompletas(escenas)) };
 }
 
 /** El tipo de acción que más se repite en los cortes del rival, para el título («Así lo hacen: córner ofensivo»). */
@@ -1210,9 +1281,16 @@ function tituloDeAcciones(cortes: Corte[]) {
     if (tipo) cuenta.set(tipo, (cuenta.get(tipo) ?? 0) + 1);
   }
 
-  const [tipo] = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0] ?? [""];
+  const tipos = [...cuenta.keys()].map((x) => x.toLowerCase());
 
-  return tipo ? cortaPalabras(`Así lo hacen: ${tipo.toLowerCase()}`, 8) : "Así lo hacen";
+  /* Con un tipo, ese; con varios, todos («córner ofensivo y centro lateral»): un título de córner sobre un centro lateral confundía (22/10/2026, crítica del guionista). */
+  if (!tipos.length) return "Así lo hacen";
+
+  if (tipos.length === 1) return cortaPalabras(`Así lo hacen: ${tipos[0]}`, 8);
+
+  const lista = tipos.length === 2 ? tipos.join(" y ") : `${tipos.slice(0, -1).join(", ")} y ${tipos[tipos.length - 1]}`;
+
+  return cortaPalabras(`Así nos atacan: ${lista}`, 9);
 }
 
 /** La locución de los cortes del rival: si el primero trae lectura, se dice qué mirar; si no, qué viene. */
@@ -1287,7 +1365,7 @@ export function guionDeAbp(informe: InformeMicro, pincelada: PinceladaAbp, extra
     subtitulo: [informe.subtitulo, informe.rango].filter(Boolean).join(" · "),
     sello: `BALÓN PARADO · ${informe.modoRotulo.toUpperCase()}`,
     escudoNosotros: "/logo.png",
-    escudoRival: extras.escudoRival ?? null,
+    escudoRival: escudoDelRival(extras),
     locucion: `Balón parado, ${informe.modoRotulo}. ${limpia(pincelada.titular)}`,
   });
 
@@ -1398,22 +1476,24 @@ export function escenaCompleta(e: Escena): boolean {
     case "barras":
       return e.barras.length >= 2;
     case "once":
-      return e.jugadores.length >= 7;
+      return e.jugadores.filter((j) => lleno(j.nombre)).length >= 7;
     case "vigilar":
-      return e.jugadores.length >= 1;
+      return e.jugadores.some((j) => lleno(j.nombre));
     case "clips":
-      return e.cortes.length >= 1;
+      /* Un corte sin vídeo es un campo vacío en pantalla (22/10/2026, crítica del productor). */
+      return e.cortes.some((c) => lleno(c.url));
     case "contexto":
       return e.equipos.filter((x) => x.puesto !== null || x.racha.length).length >= 2;
     case "versus":
     case "percentiles":
       return e.filas.length >= 3;
     case "duelos":
-      return e.duelos.length >= 2;
+      return e.duelos.filter((d) => lleno(d.titulo)).length >= 2;
     case "fases":
-      return e.fases.length >= 3;
+      /* Las fases van de dos en dos (21/10/2026): basta una tarjeta con texto. Antes pedía tres y se comía las dos escenas. */
+      return e.fases.some((x) => lleno(x.texto));
     case "balance":
-      return e.filas.length >= 2;
+      return e.filas.filter((x) => lleno(x.logramos)).length >= 2;
     case "imagen":
       return lleno(e.src);
     case "gancho":
