@@ -64,6 +64,10 @@ next-env.d.ts
 # todos los despliegues para nada. Se quedan en la carpeta de quien los baja.
 public/data/**/*.pdf
 
+# Laboratorio de ABP · los .xlsx de las otras ligas (Grupo 1, Premier). Sólo
+# se publica lo que se usa: public/data/abp-ligas.json (scripts/abp-ligas.cjs).
+public/data/wys-ligas/
+
 # informes de Lighthouse (scripts/calidad-web.mjs)
 /calidad-web/
 
