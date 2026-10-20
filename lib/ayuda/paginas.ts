@@ -876,6 +876,40 @@ export const AYUDAS: AyudaDePagina[] = [
     ],
   },
 
+  /* ==================== LABORATORIO DE ABP (20/10/2026) ==================== */
+  {
+    ruta: "/laboratorio/abp",
+    titulo: "Laboratorio de ABP",
+    resumen:
+      "Lo que hacen los mejores en balón parado, nuestras rutinas de la idea al partido y una competición de retos para la plantilla.",
+    origen:
+      "Los referentes son artículos y análisis publicados, cada uno con su enlace. Las rutinas y los retos se escriben aquí y viven en un documento propio de Supabase que sólo ve el administrador.",
+    bloques: [
+      {
+        titulo: "Las pestañas",
+        filas: [
+          { que: "Referentes", es: "Principios, rutinas y formación de Jover (Arsenal), Cueva (Chelsea), Brentford, Georgson, Vio, Grønnemark y Coulston. «Al taller» copia una rutina para hacerla nuestra" },
+          { que: "Taller", es: "Cada rutina con quién hace qué y en qué zona, la señal, las variantes, contra qué defensa y su estado: idea, probada o en partido" },
+          { que: "Retos", es: "Retos de precisión (se apunta la marca de cada uno) y de preguntas (se proyectan en el vestuario y se marca quién acierta)" },
+          { que: "Datos", es: "El balón parado de los equipos de Primera RFEF y de la Premier, en su propia pantalla" },
+        ],
+      },
+      {
+        titulo: "La clasificación",
+        filas: [
+          { que: "Puntos", es: "Precisión: la marca por los puntos de cada acierto. Preguntas: las acertadas por los puntos de cada pregunta" },
+          { que: "Acierto", es: "Puntos sobre lo que podía sacar en los retos que jugó" },
+          { que: "Racha", es: "Retos seguidos puntuando, contando desde el último que jugó" },
+          { que: "Insignias", es: "Francotirador, Lector de juego, En racha, MVP y Siempre está: se ganan solas" },
+        ],
+      },
+    ],
+    ojo: [
+      "Un reto de preguntas cuenta como jugado para quien se marca al empezar, aunque no acierte ninguna.",
+      "El interruptor «Marcar para abrir» sólo deja apuntado que se abrirá a la plantilla: hoy la pantalla sigue siendo del administrador.",
+    ],
+  },
+
   /* ==================== ANÁLISIS DE ENTRENAMIENTO (19/10/2026) ==================== */
   {
     ruta: "/analisis-entrenamiento",

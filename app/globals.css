@@ -1717,3 +1717,32 @@ scrollbar-width:none;
   border-color: rgb(var(--rmcf-ink-rgb) / .35);
 }
 }
+
+/* ------------------------------------------------------------------ */
+/*  LABORATORIO DE ABP (20/10/2026): entrada de tarjetas y podio       */
+/* ------------------------------------------------------------------ */
+@keyframes lab-aparece {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes lab-sube {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+.lab-aparece {
+  animation: lab-aparece 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+.lab-sube {
+  transform-origin: bottom;
+  animation: lab-sube 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab-aparece,
+  .lab-sube {
+    animation: none;
+  }
+}

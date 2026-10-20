@@ -26,7 +26,8 @@ const PREFIJO_VETADO = /^secreto:/i;
  * papel mojado: bastaba con pedir `?key=quiniela` —sin entrar siquiera— para
  * tener la apuesta de los diez el martes.
  */
-const CLAVES_VETADAS = new Set(["quiniela"]);
+/* El laboratorio de ABP es del administrador: se lee y se escribe sólo por /api/abp-lab (20/10/2026). */
+const CLAVES_VETADAS = new Set(["quiniela", "abp-laboratorio"]);
 
 /**
  * Y la caché del servidor tampoco se toca desde fuera.

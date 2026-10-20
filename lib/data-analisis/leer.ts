@@ -324,7 +324,7 @@ export function leeRotuloDePartido(rotulo: string) {
 
 const COLUMNAS_FIJAS = new Set(["A", "B", "C", "D", "E", "F"]);
 
-function partidosDeXlsx(bytes: Buffer): FilaPartido[] {
+export function partidosDeXlsx(bytes: Buffer): FilaPartido[] {
   const filas = hojaDeXlsx(bytes);
 
   if (filas.length < 4) return [];

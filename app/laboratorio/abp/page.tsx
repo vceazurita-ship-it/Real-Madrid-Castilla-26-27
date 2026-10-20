@@ -1,0 +1,147 @@
+"use client";
+
+/**
+ * LABORATORIO DE ABP (20/10/2026) · sólo administrador.
+ *
+ * El sitio donde se inventa el balón parado del Castilla:
+ * - **Referentes**: lo que hacen Jover (Arsenal), Cueva (Chelsea), Brentford,
+ *   Georgson, Vio, Grønnemark y Coulston, con la fuente de cada cosa y lo que
+ *   se puede estudiar gratis.
+ * - **Taller**: nuestras rutinas, de la idea al partido.
+ * - **Retos**: la competición de la plantilla, con podio, rachas e insignias.
+ * - **Datos**: el balón parado de Primera RFEF y la Premier en Wyscout
+ *   (`/laboratorio/abp/datos`, su propia pantalla).
+ *
+ * El candado está en `layout.tsx` (servidor) y en el menú (`soloAdmin`).
+ */
+
+import { useState } from "react";
+import { BarChart3, BookMarked, FlaskConical, Swords, Trophy } from "lucide-react";
+import Link from "next/link";
+
+import { AbpHeader, Notice } from "@/components/abp/ui";
+import { Referentes } from "@/components/abp-lab/Referentes";
+import { Retos } from "@/components/abp-lab/Retos";
+import { Taller, borradorVacio, type Borrador } from "@/components/abp-lab/Taller";
+import { useJugadoresLab } from "@/components/abp-lab/comun";
+import { Sidebar } from "@/components/ui/sidebar";
+import { Topbar } from "@/components/ui/topbar";
+import { useAbpLab } from "@/hooks/useAbpLab";
+
+type Pestana = "referentes" | "taller" | "retos";
+
+const PESTANAS: { key: Pestana; label: string; icon: typeof Trophy; lema: string }[] = [
+  { key: "referentes", label: "Referentes", icon: BookMarked, lema: "Lo que hacen los mejores" },
+  { key: "taller", label: "Taller", icon: FlaskConical, lema: "Nuestras rutinas" },
+  { key: "retos", label: "Retos", icon: Swords, lema: "La competición" },
+];
+
+export default function LaboratorioAbpPage() {
+  const [pestana, setPestana] = useState<Pestana>("referentes");
+
+  const [borrador, setBorrador] = useState<Borrador | null>(null);
+
+  const { doc, estado, guarda } = useAbpLab();
+
+  const { jugadores, porId } = useJugadoresLab();
+
+  const ocupado = estado === "guardando";
+
+  return (
+    <main className="min-h-screen bg-[#0B0F14] text-white">
+      <div className="flex">
+        <Sidebar />
+
+        <section className="flex min-w-0 flex-1 flex-col">
+          <Topbar />
+
+          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
+            <AbpHeader
+              area="RMCF Castilla · Balón parado"
+              title="Laboratorio de ABP"
+              lead="Aprender de los mejores, inventar lo nuestro y convertir el balón parado en una competición de la plantilla."
+              aside={
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
+                  <FlaskConical size={12} />
+                  Sólo tú
+                </span>
+              }
+            />
+
+            {/* ------------------------ PESTAÑAS ------------------------------ */}
+            <nav className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Secciones del laboratorio">
+              {PESTANAS.map((p) => {
+                const activa = p.key === pestana;
+
+                const Icono = p.icon;
+
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    aria-current={activa ? "page" : undefined}
+                    onClick={() => setPestana(p.key)}
+                    className={`group flex min-w-0 items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition ${
+                      activa ? "border-[#C8A96B]/60 bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${activa ? "bg-[#C8A96B]/20 text-[#C8A96B]" : "bg-white/5 text-white/50"}`}>
+                      <Icono size={17} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className={`block truncate text-sm font-semibold ${activa ? "text-[#C8A96B]" : "text-white/85"}`}>{p.label}</span>
+                      <span className="block truncate text-[11px] text-white/45">{p.lema}</span>
+                    </span>
+                  </button>
+                );
+              })}
+              <Link
+                href="/laboratorio/abp/datos"
+                className="group flex min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3 transition hover:bg-white/[0.06]"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/50">
+                  <BarChart3 size={17} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold text-white/85">Datos</span>
+                  <span className="block truncate text-[11px] text-white/45">Primera RFEF y Premier</span>
+                </span>
+              </Link>
+            </nav>
+
+            {estado === "error" && (
+              <div className="mt-5">
+                <Notice tone="warn" title="No se ha podido leer el laboratorio">
+                  Si la sesión de administrador ha caducado, vuelve a entrar desde Ajustes.
+                </Notice>
+              </div>
+            )}
+
+            <div className="mt-6">
+              {pestana === "referentes" && (
+                <Referentes
+                  onAlTaller={(rutina, referente) => {
+                    setBorrador({
+                      ...borradorVacio(),
+                      nombre: rutina.nombre,
+                      tipo: rutina.tipo,
+                      inspiracion: rutina.id || referente,
+                      idea: rutina.pasos.join(" "),
+                    });
+                    setPestana("taller");
+                  }}
+                />
+              )}
+
+              {pestana === "taller" && (
+                <Taller rutinas={doc.rutinas} jugadores={jugadores} porId={porId} guarda={guarda} ocupado={ocupado} abierto={borrador} setAbierto={setBorrador} />
+              )}
+
+              {pestana === "retos" && <Retos doc={doc} jugadores={jugadores} porId={porId} guarda={guarda} ocupado={ocupado} />}
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
