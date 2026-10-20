@@ -30,6 +30,7 @@ import {
   cifra,
   claveDeFase,
   claveEnCorto,
+  metaDeClave,
   conDato,
   cortaEnPausa,
   dueloEnSuOnce,
@@ -1361,12 +1362,17 @@ function DuelosYRival({ inf }: { inf: InformePartido }) {
   return (
     <Marco pagina={3} total={3} etiqueta={post ? "ESTA SEMANA" : "DUELOS Y RIVAL"} inf={inf}>
       <TitularDiapo texto={inf.sintesis.titularDuelos} />
-      {/* Post: lo que toca va delante (25/10/2026, marketing): es lo que el cuerpo técnico lleva al campo; cómo nos marcaron, al lado, es el porqué. */}
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? (inf.sintesis.golesEnContra.length ? "1.15fr 1fr" : "1fr") : "1fr 1.2fr", gap: 22 }}>
+      {/*
+      | Post: el problema y luego la respuesta (25/10/2026, ronda 7, guionista):
+      | «Cómo nos marcaron» a la izquierda y «ESTA SEMANA» a la derecha, que es
+      | lo último que se lee. La cabecera ya dice «ESTA SEMANA» y el titular,
+      | las consignas: lo que toca no se pierde por ir segundo.
+      */}
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? (inf.sintesis.golesEnContra.length ? "1fr 1.15fr" : "1fr") : "1fr 1.2fr", gap: 22 }}>
         {post ? (
           <>
-            <PanelEstaSemana inf={inf} />
             <PanelGolesEnContra inf={inf} />
+            <PanelEstaSemana inf={inf} />
           </>
         ) : (
           <>
@@ -1544,6 +1550,7 @@ function ClavesConTareas({ inf }: { inf: InformePartido }) {
             ) : dato ? (
               <div style={{ fontSize: 23, fontWeight: 600, lineHeight: 1.2, marginTop: 5, color: C.suave }}>{dato}</div>
             ) : null}
+            {metaDeClave(inf, clave) ? <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.2, marginTop: 4, color: C.suave }}>{metaDeClave(inf, clave)}</div> : null}
             {tareas.length ? <div style={{ fontSize: 19, fontWeight: 600, marginTop: 4, color: C.tenue }}>→ {tareas.join(" · ")}</div> : null}
           </div>
         );
@@ -1552,21 +1559,29 @@ function ClavesConTareas({ inf }: { inf: InformePartido }) {
   );
 }
 
-/** «El domingo: mandamos con el balón…»: la línea con la que se cierra la previa. */
+/**
+ * La línea con la que se cierra la previa (24/10/2026, guion): dos frases
+ * cortas, LA IDEA y la consigna de balón parado, no las tres metas genéricas.
+ * «El domingo: atacamos la espalda de Gomez. Y defendemos la falta lateral directa.»
+ */
 function cierrePrevia(inf: InformePartido) {
-  const claves = (inf.plan?.claves ?? []).slice(0, 3).map((c) => claveEnCorto(c).replace(/[.]$/, ""));
+  const idea = (inf.sintesis.ideaPrevia || inf.sintesis.consigna[0] || "").replace(/[.]$/, "");
 
-  if (!claves.length) return "";
+  const abp = (inf.abp?.pincelada?.prioridad?.consigna ?? "").replace(/[.]$/, "");
+
+  if (!idea && !abp) return "";
 
   const d = inf.partido.cuando ? new Date(inf.partido.cuando) : null;
 
   const dia = d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", weekday: "long" }).format(d) : "";
 
-  const lista = claves.map((c, i) => (i ? c.charAt(0).toLowerCase() + c.slice(1) : c));
+  const minus = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 
-  const frase = lista.length > 1 ? `${lista.slice(0, -1).join(", ")} y ${lista[lista.length - 1]}` : lista[0];
+  const primera = idea || abp;
 
-  return dia ? `El ${dia}: ${frase.charAt(0).toLowerCase()}${frase.slice(1)}.` : `${frase}.`;
+  const segunda = idea && abp && !idea.toLowerCase().includes(abp.toLowerCase()) ? ` Y ${minus(abp)}.` : "";
+
+  return `${dia ? `El ${dia}: ${minus(primera)}` : primera}.${segunda}`;
 }
 
 function PlanConTareas({ inf }: { inf: InformePartido }) {

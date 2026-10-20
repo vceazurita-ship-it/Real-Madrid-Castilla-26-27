@@ -253,7 +253,7 @@ export type Escena =
   | { id: string; tipo: "clips"; titulo: string; cortes: Corte[]; segundos: number; locucion: string; /** La línea del partido con todas sus acciones, si son cortes del partido. */ marcas?: MarcaPartido[] }
   | { id: string; tipo: "imagen"; titulo: string; src: string; pie: string; locucion: string }
   /** `pie`: el dato de la consigna, en oro debajo (21/10/2026). */
-  | { id: string; tipo: "cierre"; titulo: string; lineas: string[]; locucion: string; pie?: string }
+  | { id: string; tipo: "cierre"; titulo: string; lineas: string[]; locucion: string; pie?: string; /** Las claves completas (consigna y su dato) para el cierre horizontal (25/10/2026, crítica del editor); la pieza vertical sigue con una sola. */ repaso?: { linea: string; pie: string }[] }
   /*
   | Las escenas de datos (14/10/2026): lo que la app ya calcula y el vídeo no
   | contaba. El gancho abre con el dato más llamativo antes de la portada; el
@@ -530,6 +530,39 @@ const raices = (t: string) =>
       .map((r) => (r === "corne" || r === "colga" ? "centr" : r)),
   );
 
+/**
+ * De qué aspecto del juego habla un texto (25/10/2026, crítica del
+ * guionista: el dato bajo la consigna tiene que ser del mismo aspecto, «córner
+ * con dato de córner»). Familias cerradas; un texto puede no tener ninguna.
+ */
+const ASPECTOS: [string, RegExp][] = [
+  ["corner", /corner|esquina/],
+  ["falta", /falta/],
+  ["penalti", /penalti/],
+  ["banda", /saque de banda|saques de banda/],
+  ["centro", /centro|colgad|cruzad/],
+  ["transicion", /transic|contraata|robo|robar|recuper|perdida/],
+  ["presion", /presion|presiona|apret/],
+  ["segunda", /segunda jugada|rechace/],
+  ["espalda", /espalda|profundidad|al espacio/],
+  ["aereo", /aereo|cabeza|por alto/],
+  ["posesion", /posesion|circula/],
+];
+
+const aspectosDe = (t: string) => {
+  const x = t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+  return new Set(ASPECTOS.filter(([, r]) => r.test(x)).map(([k]) => k));
+};
+
+/** Si dos textos hablan del mismo aspecto: sólo es «no» cuando los dos nombran aspectos y no comparten ninguno. */
+export function mismoAspecto(a: string, b: string) {
+  const x = aspectosDe(a);
+  const y = aspectosDe(b);
+
+  return !x.size || !y.size || [...x].some((k) => y.has(k));
+}
+
 function respondeAlArma(informe: InformePartido, texto: string) {
   const arma = armaDelRival(informe);
 
@@ -607,12 +640,12 @@ function escenaGancho(informe: InformePartido): Escena | null {
     | historia). Si el titular es largo, el giro; si no lo hay, el resultado.
     */
     const delResumen = limpia(informe.sintesis.titular ?? "")
-      .replace(/s*d+s*-s*d+(?=[s,.:;]|$)/, "")
-      .replace(/s+,/g, ",")
-      .replace(/s{2,}/g, " ")
+      .replace(/\s*\d+\s*-\s*\d+(?=[\s,.:;]|$)/, "")
+      .replace(/\s+,/g, ",")
+      .replace(/\s{2,}/g, " ")
       .trim();
     const giro = giroDelPartido(informe);
-    const rotulo = delResumen && delResumen.split(/s+/).length <= 12 ? delResumen : giro || resultado;
+    const rotulo = delResumen && delResumen.split(/\s+/).length <= 12 ? delResumen : giro || resultado;
 
     return { id: "gancho", tipo: "gancho", dato: `${partido.gf}-${partido.gc}`, antetitulo: partido.rival, rotulo: rotulo.toUpperCase(), contexto: dato, locucion: `${resultado.toLowerCase()} ${partido.gf}-${partido.gc}. ${dato}.` };
   }
@@ -771,24 +804,33 @@ function escenaFases(informe: InformePartido): Escena[] {
 
   const dano = (r?.dano ?? []).slice(0, 2).map((t) => cortaPalabras(sinSiglas(limpia(t)), 8));
 
-  /*
-  | En dos escenas de dos tarjetas (21/10/2026, crítica del editor: cuatro
-  | tarjetas de texto durante 9 s no se leen en el móvil). La segunda lleva
-  | «dónde hacerles daño». Con tres fases, la segunda tarjeta va sola.
-  */
-  const locucion = (lista: typeof fases) => lista.map((f) => `${f.titulo}: ${f.texto}`).join(". ");
+  return escenasDeFases(fases, dano);
+}
 
-  /*
-  | Tres fases sin «dónde hacerles daño»: una sola escena de tres tarjetas
-  | (22/10/2026, crítica del editor: la segunda escena se quedaba con una
-  | tarjeta y media pantalla muerta). Con daño, la tercera va sola y a lo
-  | ancho, con la banda de oro debajo.
-  */
-  if (fases.length === 3 && !dano.length) return [{ id: "fases", tipo: "fases", titulo: "Así juegan", fases, dano: [], locucion: `${locucion(fases)}.` }];
+/**
+ * Cómo se reparten las fases en escenas (25/10/2026, crítica del editor:
+ * «con 1-2 tarjetas queda media pantalla vacía»). Ninguna escena se queda
+ * con una tarjeta sola:
+ * - menos de tres fases: no hay escena (no da para contar cómo juegan);
+ * - tres: UNA escena de tres tarjetas a todo el alto y, si lo hay, «dónde
+ *   hacerles daño» en la banda de oro de abajo;
+ * - cuatro: dos escenas de dos franjas a todo el ancho; la segunda lleva el
+ *   daño.
+ * La usa también la muestra (scripts/video-muestra.cjs) para pintar los
+ * cuatro casos.
+ */
+export function escenasDeFases(fases: { titulo: string; texto: string }[], dano: string[]): Escena[] {
+  const lista = fases.slice(0, 4);
+  const locucion = (l: typeof lista) => l.map((f) => `${f.titulo}: ${f.texto}`).join(". ");
+  const conDano = dano.length ? `. Dónde hacerles daño: ${dano.join("; ")}` : "";
+
+  if (lista.length < 3) return [];
+
+  if (lista.length === 3) return [{ id: "fases", tipo: "fases", titulo: dano.length ? "Así juegan y por dónde hacerles daño" : "Así juegan", fases: lista, dano, locucion: `${locucion(lista)}${conDano}.` }];
 
   return [
-    { id: "fases", tipo: "fases", titulo: "Así juegan", fases: fases.slice(0, 2), dano: [], locucion: `${locucion(fases.slice(0, 2))}.` },
-    { id: "fases-2", tipo: "fases", titulo: dano.length ? "Y por dónde hacerles daño" : "Así juegan, sin balón y al robar", fases: fases.slice(2, 4), dano, locucion: `${locucion(fases.slice(2, 4))}${dano.length ? `. Dónde hacerles daño: ${dano.join("; ")}` : ""}.` },
+    { id: "fases", tipo: "fases", titulo: "Así juegan", fases: lista.slice(0, 2), dano: [], locucion: `${locucion(lista.slice(0, 2))}.` },
+    { id: "fases-2", tipo: "fases", titulo: dano.length ? "Y por dónde hacerles daño" : "Así juegan, sin balón y al robar", fases: lista.slice(2, 4), dano, locucion: `${locucion(lista.slice(2, 4))}${conDano}.` },
   ];
 }
 
@@ -1260,10 +1302,18 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   | (22/10/2026, crítica del guionista).
   */
   const arma = armaDelRival(informe);
-  const contraSuArma = previa && arma && consignasPrevia[0] && respondeAlArma(informe, `${consignasPrevia[0].linea} ${consignasPrevia[0].pie}`) ? `Contra su ${arma.puesto}.º en ${sinSiglas(arma.nombre).toLowerCase()}` : "";
-  const pieCierre = previa ? contraSuArma || (consignasPrevia[0]?.pie ?? "") : tocan.length ? cortaPalabras(limpia((sintesis.microciclo ?? [])[0]?.split(" · ").slice(1).join(" · ") ?? ""), 12) : "";
+  /* Sólo si el arma es del MISMO aspecto que la consigna (25/10/2026, guionista: «Defendemos el segundo palo en los córners» con «Contra su 2.º en centros al área» mezclaba dos cosas). */
+  const contraSuArma =
+    previa && arma && consignasPrevia[0] && respondeAlArma(informe, `${consignasPrevia[0].linea} ${consignasPrevia[0].pie}`) && mismoAspecto(consignasPrevia[0].linea, arma.nombre)
+      ? `Contra su ${arma.puesto}.º en ${sinSiglas(arma.nombre).toLowerCase()}`
+      : "";
+  const pieDe = (linea: string, pie: string) => (pie && mismoAspecto(linea, pie) ? pie : "");
+  const pieCierre = previa ? contraSuArma || pieDe(consignasPrevia[0]?.linea ?? "", consignasPrevia[0]?.pie ?? "") : tocan.length ? pieDe(cierre[0] ?? "", cortaPalabras(limpia((sintesis.microciclo ?? [])[0]?.split(" · ").slice(1).join(" · ") ?? ""), 12)) : "";
 
   if (!cierre.length && !previa) cierre.push(giroDelPartido(informe) || limpia(sintesis.titular));
+
+  /* El cierre horizontal repite las claves completas (25/10/2026, crítica del editor): la primera es la consigna; cada una con su dato del mismo aspecto. */
+  const repaso = previa && consignasPrevia.length > 1 ? consignasPrevia.slice(0, 3).map((x, i) => ({ linea: x.linea, pie: i === 0 ? pieCierre : pieDe(x.linea, x.pie) })) : [];
 
   escenas.push({
     id: "cierre",
@@ -1271,6 +1321,7 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     titulo: previa || tocan.length ? "Nuestra consigna" : "Lo que nos deja",
     lineas: cierre.length ? cierre : [limpia(sintesis.titular)],
     ...(pieCierre ? { pie: pieCierre } : {}),
+    ...(repaso.length ? { repaso } : {}),
     locucion: previa ? `Nuestra consigna: ${cierre.join(". ") || limpia(sintesis.titular)}` : `Lo que nos deja: ${cierre.join(". ") || limpia(sintesis.titular)}`,
   });
 
@@ -1533,8 +1584,8 @@ export function escenaCompleta(e: Escena): boolean {
     case "duelos":
       return e.duelos.filter((d) => lleno(d.titulo)).length >= 2;
     case "fases":
-      /* Las fases van de dos en dos (21/10/2026): basta una tarjeta con texto. Antes pedía tres y se comía las dos escenas. */
-      return e.fases.some((x) => lleno(x.texto));
+      /* Dos tarjetas con texto como mínimo (25/10/2026): una sola dejaba media pantalla vacía. `escenasDeFases` nunca reparte menos. */
+      return e.fases.filter((x) => lleno(x.texto)).length >= 2;
     case "balance":
       return e.filas.filter((x) => lleno(x.logramos)).length >= 2;
     case "imagen":

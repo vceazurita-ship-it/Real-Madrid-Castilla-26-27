@@ -57,6 +57,17 @@ const once = [
   [0.5, 0.04], [0.15, 0.22], [0.38, 0.18], [0.62, 0.18], [0.85, 0.22], [0.3, 0.42], [0.5, 0.38], [0.7, 0.42], [0.18, 0.66], [0.5, 0.72], [0.82, 0.66],
 ].map(([x, y], i) => ({ nombre: ["Destiny", "Moi Parra", "Zarzana", "Luismi", "Gené", "Pérez", "Ruiz", "Torres", "Núñez", "Díaz", "Gil"][i], dorsal: String(i + 1), posicion: "", foto: "", x, y, destacado: i === 9 || i === 10 }));
 
+/* Las fases del scouting y dónde hacerles daño (las cuatro combinaciones van además en fases.png). */
+const FASES = [
+  { titulo: "Salida", texto: "Salen en corto con los centrales abiertos; si les presionan, balón largo" },
+  { titulo: "Ataque", texto: "Cargan el área con centros desde los dos costados." },
+  { titulo: "Defensa", texto: "Bloque medio en 4-4-2, juntos por dentro." },
+  { titulo: "Transición", texto: "Al robar buscan rápido al extremo derecho." },
+];
+const DANO = ["Espalda de los laterales cuando suben", "Segundo palo en sus córners defensivos"];
+const CLAVES = ["Defendemos el segundo palo en los córners", "Atacamos la espalda del lateral derecho", "Cerramos el pasillo interior a su 10"];
+const PIES = ["3 de sus 5 goles", "Sube en el 70 % de sus ataques", "Recibe entre líneas 8 veces por partido"];
+
 const guion = {
   titulo: "Antequera CF · previa",
   escenas: [
@@ -67,9 +78,8 @@ const guion = {
     { id: "pronostico", tipo: "barras", titulo: "Victoria: 38 %; con el plan, 45 %", barras: [{ rotulo: "Victoria", valor: 0.38, texto: "38 %" }, { rotulo: "Empate", valor: 0.29, texto: "29 %" }, { rotulo: "Derrota", valor: 0.33, texto: "33 %" }, { rotulo: "Con el plan", valor: 0.45, texto: "45 %" }], locucion: "El modelo nos da un 38 por ciento de victoria; con el plan, un 45." },
     { id: "once", tipo: "once", titulo: "Su once previsto: en oro, a quién vigilar", jugadores: once, locucion: "Así se colocan." },
     { id: "clips", tipo: "clips", titulo: "Así nos atacan: córner ofensivo y centro lateral", segundos: 12, locucion: "Mira: bloqueo al primer palo y remate en el segundo.", cortes: [{ url: "x", rotulo: "Córner ofensivo · VS EUROPA · J7", texto: "Bloqueo al primer palo y remate en el segundo." }, { url: "x", rotulo: "Centro lateral · VS IBIZA · J6", texto: "El lateral llega a línea de fondo y centra atrás." }] },
-    /* Desde el 21/10/2026, en dos escenas de dos tarjetas. */
-    { id: "fases", tipo: "fases", titulo: "Así juegan", fases: [{ titulo: "Salida", texto: "Salen en corto con los centrales abiertos; si les presionan, balón largo" }, { titulo: "Ataque", texto: "Cargan el área con centros desde los dos costados." }], dano: [], locucion: "Cómo juegan." },
-    { id: "fases-2", tipo: "fases", titulo: "Y por dónde hacerles daño", fases: [{ titulo: "Defensa", texto: "Bloque medio en 4-4-2, juntos por dentro; al robar buscan rápido al extremo derecho." }], dano: ["Espalda de los laterales cuando suben", "Segundo palo en sus córners defensivos"], locucion: "Y por dónde hacerles daño." },
+    /* Como las reparte el guion (25/10/2026): tres fases y «dónde hacerles daño», una sola escena de tres tarjetas a todo el alto. */
+    ...G.escenasDeFases(FASES.slice(0, 3), DANO),
     /* «Fuertes en centros» y «Nos sacan ventaja en centros» decían lo mismo: el guion deja la comparativa (21/10/2026). */
     false && { id: "percentiles", tipo: "percentiles", titulo: "Fuertes en centros, flojos en presión", pie: "Percentil contra los equipos de Primera Federación · datos hasta la J7", filas: [{ nombre: "Ataque posicional", percentil: 71 }, { nombre: "Centros", percentil: 94 }, { nombre: "Transición ofensiva", percentil: 48 }, { nombre: "Presión", percentil: 22 }, { nombre: "Defensa del área", percentil: 63 }, { nombre: "Balón parado", percentil: 80 }], locucion: "Fase a fase." },
     { id: "versus", tipo: "versus", titulo: "Nos sacan ventaja en centros", pie: "Media por partido esta temporada · la raya, la mediana de los 20 equipos", filas: [{ nombre: "Centros", nuestro: 9.1, suyo: 17.4, textoNuestro: "9,1", textoSuyo: "17", media: 12.3, mejorAlto: true }, { nombre: "Goles esperados", nuestro: 1.1, suyo: 1.6, textoNuestro: "1,1", textoSuyo: "1,6", media: 1.3, mejorAlto: true }, { nombre: "Recuperaciones altas", nuestro: 8.2, suyo: 4.1, textoNuestro: "8,2", textoSuyo: "4,1", media: 6, mejorAlto: true }, { nombre: "Posesión", nuestro: 56, suyo: 47, textoNuestro: "56 %", textoSuyo: "47 %", media: 50, mejorAlto: true }, { nombre: "Remates concedidos", nuestro: 11.4, suyo: 9.2, textoNuestro: "11", textoSuyo: "9,2", media: 10.5, mejorAlto: false }], locucion: "Donde más nos separamos." },
@@ -78,9 +88,10 @@ const guion = {
     /* Nuestras llegadas del último partido (cortes de Hudl, con su tipo y minuto): el rótulo dice «34' · Remate» y se retira a los 3,5 s. */
     { id: "clips-2", tipo: "clips", titulo: "Así llegamos en la J7: lo repetimos", segundos: 13.4, locucion: "Así llegamos.", marcas: [{ minuto: 34, gol: false, de: "nosotros" }, { minuto: 67, gol: true, de: "nosotros" }], cortes: [{ url: "x", rotulo: "Remate · 34'", tipo: "remate", minuto: "34'", minutoNum: 34, de: "nosotros", segundos: 6, zona: { tercio: 2, carril: 1 }, desdeZona: { tercio: 2, carril: 2 } }, { url: "x", rotulo: "Gol · 67'", tipo: "gol", minuto: "67'", minutoNum: 67, de: "nosotros", segundos: 3, zona: { tercio: 2, carril: 1 }, desdeZona: { tercio: 1, carril: 0 } }, { url: "x", rotulo: "Gol · 67'", tipo: "gol", minuto: "67'", minutoNum: 67, de: "nosotros", segundos: 4.4, repeticion: true, velocidad: 0.5 }] },
     /* Desde el 21/10/2026: cada clave es una consigna (presente, «nosotros») y, debajo, su dato. */
-    { id: "claves", tipo: "claves", titulo: "Tres claves para ganar el partido", lineas: ["Defendemos el segundo palo en los córners", "Atacamos la espalda del lateral derecho", "Cerramos el pasillo interior a su 10"], pies: ["3 de sus 5 goles", "Sube en el 70 % de sus ataques", "Recibe entre líneas 8 veces por partido"], locucion: "Tres claves." },
+    { id: "claves", tipo: "claves", titulo: "Tres claves para ganar el partido", lineas: CLAVES, pies: PIES, locucion: "Tres claves." },
     /* Un único cierre (21/10/2026) que contesta al gancho (22/10/2026): la consigna y, debajo, contra qué. */
-    { id: "cierre", tipo: "cierre", titulo: "Nuestra consigna", lineas: [G.consigna("Defender el segundo palo en los córners: 3 de sus 5 goles.", 9)], pie: "Contra su 2.º en centros al área", locucion: "Nuestra consigna." },
+    /* El dato, del mismo aspecto que la consigna (25/10/2026): «Contra su 2.º en centros al área» no va bajo una consigna de córners. Y el repaso de las tres claves. */
+    { id: "cierre", tipo: "cierre", titulo: "Nuestra consigna", lineas: [G.consigna("Defender el segundo palo en los córners: 3 de sus 5 goles.", 9)], pie: G.mismoAspecto("Defendemos el segundo palo en los córners", "Contra su 2.º en centros al área") ? "Contra su 2.º en centros al área" : "3 de sus 5 goles", repaso: CLAVES.map((linea, i) => ({ linea, pie: PIES[i] })), locucion: "Nuestra consigna." },
   ].filter(Boolean),
 };
 
@@ -209,6 +220,18 @@ function cuadroDeMentira() {
 
   await hojaDe(guion, "hoja.png");
   await hojaDe(guionPost, "hoja-post.png");
+
+  /* Las cuatro combinaciones de fases (25/10/2026): tres o cuatro, con y sin daño. Con una o dos fases no hay escena. */
+  const combinaciones = [
+    ["3", FASES.slice(0, 3), []],
+    ["3 + daño", FASES.slice(0, 3), DANO],
+    ["4", FASES, []],
+    ["4 + daño", FASES, DANO],
+  ];
+
+  for (const n of [1, 2]) if (G.escenasDeFases(FASES.slice(0, n), DANO).length) throw new Error(`Con ${n} fases no debería haber escena`);
+
+  await hojaDe({ titulo: "Fases", escenas: combinaciones.flatMap(([k, fs_, d]) => G.escenasDeFases(fs_, d).map((e) => ({ ...e, id: `${e.id} (${k})` }))) }, "fases.png");
 
   /* Lo que duraría la pieza «Consignas» con estas escenas (tope 75 s). */
   const consignas = D.reparteEscenas({ ...guion, escenas: guion.escenas.filter((e) => CONSIGNAS.has(e.id)) }, null, 48000, G.SEGUNDOS_CONSIGNAS);
