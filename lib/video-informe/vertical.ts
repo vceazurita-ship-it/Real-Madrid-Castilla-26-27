@@ -629,7 +629,7 @@ function balance(ctx: Lienzo, fuente: string, e: Extract<Escena, { tipo: "balanc
 
     const y = y0 + i * (alto + hueco);
     const color = x.estado === "si" ? VERDE : x.estado === "no" ? ROJO : ORO;
-    const veredicto = x.estado === "si" ? "CUMPLIDO" : x.estado === "no" ? "NO" : "A MEDIAS";
+    const veredicto = x.estado === "si" ? "CUMPLIDO" : x.estado === "no" ? "NO" : x.habitual ? "LO HABITUAL" : "A MEDIAS";
 
     /* Con el recuento, las filas se apagan del todo (22/10/2026, crítica del productor: quedaban a medias detrás). */
     ctx.globalAlpha = Math.min(1, a) * (i === activa ? 1 : 0.5);

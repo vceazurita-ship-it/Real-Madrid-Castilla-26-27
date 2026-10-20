@@ -4934,7 +4934,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
       sustoEnContra: susto
         ? sustoConMuestra(susto)
           ? { consigna: `Defendemos ${conArticulo(susto.aspecto)}`, dato: `${susto.peligros} de ${susto.acciones} con peligro en contra en el partido`, corta: false }
-          : { consigna: `Vigilamos ${conArticulo(susto.aspecto)} en contra`, dato: `${danoEnFrase(susto)}: base corta`, corta: true }
+          : { consigna: `Vigilamos ${conArticulo(susto.aspecto)} en contra`, dato: `${danoEnFrase(susto)}; con tan pocas acciones, es un aviso, no una prioridad`, corta: true }
         : null,
       /* Los goles esperados del partido a balón parado, para revisar la palanca del pronóstico (25/10/2026). */
       xgPartido: { favor: p.favor.xg, contra: p.contra.xg },

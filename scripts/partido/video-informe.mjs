@@ -46,7 +46,7 @@ const { createCanvas, GlobalFonts } = require("@napi-rs/canvas");
 const { Worker } = require("worker_threads");
 const os = require("os");
 
-const { escenaBalance, escenaPlan, escenasDeCortes, soloCompletas, tituloDeVersus, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
+const { escenasDeCortes, soloCompletas, tituloDeVersus, SEGUNDOS_MAXIMOS } = require("../../lib/video-informe/guion.ts");
 const { ANCHO, ALTO, ANCHO_HD, ALTO_HD, FPS, SEGUNDO_POSTER, estiramiento, limitesDeCortes, palabrasDeEscena, reparteEscenas } = require("../../lib/video-informe/dibujo.ts");
 const { pintaPoster } = require("../../lib/video-informe/portada-video.ts");
 const { FRECUENCIA_AAC, pcm16aFlotante, remuestrea, reparteVoz } = require("../../lib/video-informe/voz.ts");
@@ -494,102 +494,7 @@ async function pideVoz(ai, guion) {
 /*  EL GUION DEL PARTIDO (CON LO QUE HAY EN NODE)                      */
 /* ------------------------------------------------------------------ */
 
-/**
- * Las claves del plan de esta jornada (hoja RIVALES, columna CLAVES_PARTIDO),
- * de la copia que guarda /api/rivals en Supabase. `null` si no hay fila.
- */
-async function planDelPartido(supabase, partido) {
-  try {
-    const { mismoClub } = require("../../lib/rivals/mismoClub.ts");
-    const { data } = await supabase.from("app_documents").select("data").eq("key", "cache:apps-script:rivales").maybeSingle();
-    const filas = Array.isArray(data?.data?.data) ? data.data.data : [];
-    const fila = filas.find((x) => Number(x.JORNADA) === Number(partido.jornada) && mismoClub(String(x.EQUIPO ?? ""), partido.rival));
-
-    if (!fila) return null;
-
-    const frases = (t) =>
-      String(t ?? "")
-        .split(/\n+/)
-        .map((x) => x.replace(/\s+/g, " ").trim())
-        .filter((x) => x.length > 12 && !/^[0-9]+\./.test(x) && x !== x.toUpperCase());
-
-    return { claves: frases(fila.CLAVES_PARTIDO || fila.PLAN_PARTIDO), defensa: frases(fila.DEFENSA) };
-  } catch (error) {
-    console.log(`  (sin el plan de la jornada: ${String(error?.message ?? error).slice(0, 80)})`);
-
-    return null;
-  }
-}
-
-/**
- * Lo que buscábamos (las claves del plan) frente a lo que logramos, medido en
- * el timeline de Hudl. Sólo entran las claves que se pueden medir con lo que
- * hay aquí; los umbrales están a la vista en cada fila.
- */
-function filasDeBalance(partido, datos, transiciones, plan) {
-  const r = partido.gf > partido.gc ? "Victoria" : partido.gf < partido.gc ? "Derrota" : "Empate";
-  const filas = [{ que: "El resultado", buscabamos: "Ganar", logramos: `${r} ${partido.gf}-${partido.gc}`, estado: r === "Victoria" ? "si" : r === "Empate" ? "parcial" : "no" }];
-  const corta = (t, n = 100) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
-  const usadas = new Set();
-
-  const medidas = [
-    {
-      que: "Con balón",
-      re: /posesi|control|dominio/i,
-      mide: () => {
-        const [a, b] = datos.posesionSeg ?? [0, 0];
-
-        if (!(a + b)) return null;
-
-        const pct = Math.round((100 * a) / (a + b));
-
-        return { logramos: `${pct} % de la posesión · ${datos.ultimoTercio[0]} llegadas al último tercio (${datos.ultimoTercio[1]} suyas)`, estado: pct >= 55 ? "si" : pct >= 48 ? "parcial" : "no" };
-      },
-    },
-    {
-      que: "Sin balón",
-      re: /sin bal[oó]n|defens|presi|verticalidad|someter/i,
-      mide: () => {
-        const [nos, ellos] = datos.remates;
-
-        return { logramos: `${ellos} remates suyos (${nos} nuestros) · ${datos.ataques[1]} ataques suyos con llegada`, estado: ellos <= nos ? "si" : ellos <= nos * 1.5 ? "parcial" : "no" };
-      },
-    },
-    {
-      que: "Transición",
-      re: /transici|contraata|robo/i,
-      mide: () => {
-        const robos = transiciones?.robos ?? [];
-        const conRemate = robos.filter((x) => /REMATE|GOL|OCASION/i.test(x.desenlace)).length;
-
-        return robos.length
-          ? { logramos: `${conRemate} de ${robos.length} robos acabaron en remate · ${datos.contras[0]} contras nuestras (${datos.contras[1]} suyas)`, estado: conRemate >= robos.length * 0.1 ? "si" : conRemate >= robos.length * 0.05 ? "parcial" : "no" }
-          : { logramos: `${datos.contras[0]} contras nuestras (${datos.contras[1]} suyas)`, estado: datos.contras[0] > datos.contras[1] ? "si" : datos.contras[0] === datos.contras[1] ? "parcial" : "no" };
-      },
-    },
-    {
-      que: "Balón parado",
-      re: /bal[oó]n parado|abp|c[oó]rner/i,
-      mide: () => ({ logramos: `${datos.corners[0]} córners y ${datos.abp[0]} ABP nuestras (${datos.corners[1]} y ${datos.abp[1]} suyas)`, estado: datos.abp[0] >= datos.abp[1] ? "si" : "no" }),
-    },
-  ];
-
-  for (const clave of [...(plan?.claves ?? []), ...(plan?.defensa ?? [])]) {
-    const m = medidas.find((x) => !usadas.has(x.que) && x.re.test(clave));
-    const hecho = m?.mide();
-
-    if (!m || !hecho) continue;
-
-    usadas.add(m.que);
-    filas.push({ que: m.que, buscabamos: corta(clave), ...hecho });
-
-    if (filas.length >= 4) break;
-  }
-
-  return filas;
-}
-
-function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = null, plan = null) {
+function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = null) {
   const rival = partido.rival;
   const marcador = `${partido.gf}-${partido.gc}`;
   const fecha = new Date(partido.cuando ?? partido.fecha);
@@ -636,15 +541,15 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
   });
 
   const deCortes = escenasDeCortes(cortes, rival);
-  const filasBalance = filasDeBalance(partido, datos, transiciones, plan);
 
   /*
-  | Lo que buscábamos, como planteamiento (20/10/2026, crítica del guionista):
-  | el arco del post es buscábamos → pasó → nos deja. Sólo con dos metas o más.
+  | Sin «Lo que buscábamos» ni balance aquí (27/10/2026, ronda 9: fútbol,
+  | guion y análisis). Con el timeline de Hudl se juzgaban metas que no eran
+  | las de la previa (posesión ≥ 55 %, remates suyos ≤ los nuestros) y el
+  | jugador veía otra cifra que el informe. El balance sale del MISMO objeto
+  | que la diapositiva 2 (`cumplimientoPlan`, con Wyscout), en el vídeo que
+  | monta el navegador.
   */
-  const planteamiento = escenaPlan(filasBalance.map((f) => f.buscabamos));
-
-  if (planteamiento) escenas.push(planteamiento);
 
   /* Los goles, justo después de la portada: es lo que se viene a ver. */
   escenas.push(...deCortes.filter((e) => e.id === "clips-1"));
@@ -685,21 +590,13 @@ function guionDelPartido(partido, cortes, datos, transiciones, escudoRival = nul
     });
   }
 
-  /* Lo que buscábamos (el plan) frente a lo que logramos (Hudl), y el cierre con el recuento y lo que hay que mejorar. */
-  const balance = escenaBalance(filasBalance);
-
-  if (balance) escenas.push(balance.escena);
-
-  /* El recuento ya es el título del balance (21/10/2026): el cierre es la consigna de la semana, si la hay. */
-  const consignaSemana = balance?.cierre.slice(1) ?? [];
-  const cierre = consignaSemana.length
-    ? consignaSemana
-    : (balance?.cierre ?? [`${resultado[0].toUpperCase()}${resultado.slice(1)} ${marcador} · remates ${datos.remates[0]}-${datos.remates[1]} · llegadas ${datos.ataques[0]}-${datos.ataques[1]}`]);
+  /* Sin balance, sin consigna propia (27/10/2026): la de la semana es la del informe; aquí, lo que nos deja el partido. */
+  const cierre = [`${resultado[0].toUpperCase()}${resultado.slice(1)} ${marcador} · remates ${datos.remates[0]}-${datos.remates[1]} · llegadas ${datos.ataques[0]}-${datos.ataques[1]}`];
 
   escenas.push({
     id: "cierre",
     tipo: "cierre",
-    titulo: consignaSemana.length ? "Nuestra consigna" : "Lo que nos deja",
+    titulo: "Lo que nos deja",
     lineas: cierre,
     locucion: `Lo que nos deja: ${cierre.join(". ")}.`,
   });
@@ -1257,12 +1154,7 @@ async function principal() {
   const { PARTIDOS } = require("../../lib/transiciones/datos.ts");
   const transiciones = PARTIDOS.find((p) => p.id === partido.slug) ?? null;
   const escudo = supabase ? await escudoDelRival(supabase, partido.rival, carpetaVideo) : null;
-  /* El plan se lee aunque no se suba nada (--sin-subir): es sólo lectura. */
-  const plan = env ? await planDelPartido(supabaseDe(env), partido) : null;
-
-  console.log(plan ? `  plan de la jornada: ${plan.claves.length} claves` : "  (sin plan de la jornada en RIVALES: el balance va sólo con el resultado)");
-
-  let guion = guionDelPartido(partido, cortes, datos, transiciones, escudo, plan);
+  let guion = guionDelPartido(partido, cortes, datos, transiciones, escudo);
 
   if (ai) {
     try {
