@@ -24,6 +24,7 @@
 /* ------------------------------------------------------------------ */
 
 import type { CortePartido } from "@/lib/video-informe/guion";
+import type { GolesTemporada } from "./goles-temporada";
 
 export type Momento = "previa" | "post";
 
@@ -347,6 +348,8 @@ export type InformePartido = {
   videoListo?: { url: string; creado: string; segundos: number; /** El póster (JPEG en el bucket). */ poster?: string | null; /** La copia ligera en 720p para adjuntar (desde el 15/10/2026; `url` es la de Full HD). */ ligero?: string | null } | null;
   /** Previa: lo que pidió el post del partido anterior («Qué toca en el microciclo»), para cruzarlo con las tareas de esta semana (24/10/2026). */
   postAnterior?: { etiqueta: string; lineas: string[] } | null;
+  /** Post: los goles de la temporada (`goles:analisis`): en cuántos partidos nos marcaron tarde yendo por delante y la fase de cada gol en contra (25/10/2026). */
+  golesTemporada?: GolesTemporada | null;
 };
 
 /* ------------------------------------------------------------------ */
@@ -582,6 +585,8 @@ export type FilaCumplimiento = {
   dato: string;
   /** La meta contada en corto y en primera del plural, con su veredicto: «Al robar no salimos» (22/10/2026). */
   lectura?: string;
+  /** Lo que pesa sobre la cifra, en la misma fila: «con diez enfrente desde el 57′» (25/10/2026). */
+  matiz?: string;
 };
 
 /**
@@ -611,7 +616,8 @@ export type PinceladaAbp = {
 export function minutosAbpInforme(inf: { abp: InformePartido["abp"]; microciclo: Microciclo | null }) {
   const m = inf.abp?.pincelada?.minutos;
 
-  if (m) return { minutos: Math.round(m.confirmados), texto: m.texto };
+  /* El mismo formato que el resto del informe (25/10/2026): «1h 20'» de la pantalla de ABP pasa a «1 h 20′». */
+  if (m) return { minutos: Math.round(m.confirmados), texto: (m.texto ?? "").replace(/(d+)hs*(d+)'/g, "$1 h $2′").replace(/(d+)h(?=W|$)/g, "$1 h").replace(/(d+)'/g, "$1′") };
 
   const registro = inf.microciclo?.totales.abpMinutos ?? 0;
 
@@ -1384,13 +1390,16 @@ export function lecturaXg(inf: { pronostico: Pronostico | null; duelo: Duelo | n
   };
 
   /*
-  | Sin repetir las cifras del partido (24/10/2026, guionista): los 3,5 y 0,8
-  | ya van en el subtítulo de la 1. Aquí, lo previsto y el cuánto.
+  | Cada cifra con su etiqueta (25/10/2026, fútbol y guion): «Generamos el
+  | doble de lo previsto (1,7)» se leía como si hubiéramos generado 1,7.
   */
-  return [
-    `Generamos ${cuanto(xg.nuestro, pr.esperados.nosotros)} (${unDecimal(pr.esperados.nosotros)} goles esperados)`,
-    `Concedimos ${cuanto(xg.suyo, pr.esperados.rival)} (${unDecimal(pr.esperados.rival)})`,
-  ].join(". ");
+  const lado = (verbo: string, real: number, previsto: number) => {
+    const c = cuanto(real, previsto);
+
+    return `${verbo} ${unDecimal(real)} goles esperados; el pronóstico daba ${unDecimal(previsto)}${c === "lo previsto" ? "" : ` (${c.replace(/ de lo previsto$/, "")})`}`;
+  };
+
+  return [lado("Generamos", xg.nuestro, pr.esperados.nosotros), lado("Concedimos", xg.suyo, pr.esperados.rival)].join(". ");
 }
 
 /** Post: cada palanca, su meta y lo que pasó (si Wyscout ya tiene el partido). */
@@ -2193,12 +2202,22 @@ function frenteAMedia(m: MetricaPartido): "si" | "no" | "igual" {
   */
   if (muestraCorta(m) && (m.unidad === "porcentaje" || Math.abs(valor - media) < 2)) return "igual";
 
-  const margen = m.desviacion != null && m.desviacion > 0 ? m.desviacion : Math.abs(media) * 0.15;
+  /*
+  | Una sola regla, la misma en todo el informe (25/10/2026, análisis y
+  | fútbol): con la desviación de pocos partidos, 0,75 goles esperados en
+  | contra frente a 1,57 de media (la mitad) salía «en nuestra media» y el
+  | capítulo del pronóstico lo daba por cumplido. Lo habitual es a menos de una
+  | desviación, pero nunca más de un 25 % de la media.
+  */
+  const margen = m.desviacion != null && m.desviacion > 0 ? Math.min(m.desviacion, Math.abs(media) * 0.25) : Math.abs(media) * 0.15;
 
   if (Math.abs(valor - media) <= margen) return "igual";
 
   return (m.mejorAlto ? valor > media : valor < media) ? "si" : "no";
 }
+
+/** La regla, como se lee al pie de «Lo que buscábamos»: la misma para la diapositiva, el completo y el vídeo. */
+export const REGLA_VEREDICTO = "✓ mejor que nuestra media · = dentro de lo habitual · ✗ peor; lo habitual, a menos de una desviación y nunca más de un 25 % de la media";
 
 /*
 | La meta en corto (22/10/2026): el plan escribe «Optimizar y ajustar nuestra
@@ -2207,7 +2226,7 @@ function frenteAMedia(m: MetricaPartido): "si" | "no" | "igual" {
 */
 const LECTURA_TEMA: Record<string, Record<"si" | "no" | "igual", string>> = {
   Posesión: { si: "Mandamos con el balón", no: "No mandamos con el balón", igual: "Con el balón, en nuestra media" },
-  "Sin balón": { si: "Sin balón les dejamos en poco", no: "Sin balón concedimos de más", igual: "Sin balón, en nuestra media" },
+  "Sin balón": { si: "Sin balón concedimos poco", no: "Sin balón concedimos de más", igual: "Sin balón, en nuestra media" },
   Transición: { si: "Al robar, salimos y les hicimos daño", no: "Robamos y no salimos", igual: "Al robar, sin diferencia clara" },
   "Balón parado": { si: "Nuestro balón parado apareció", no: "Nuestro balón parado no apareció", igual: "Balón parado, en nuestra media" },
   "Llegada y remate": { si: "Llegamos y rematamos más que nunca", no: "Llegamos poco al área", igual: "En el área, en nuestra media" },
@@ -2314,8 +2333,16 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
 
   const tarde = marcadorPorGoles(goles).find((x) => !x.g.nuestro && minutoNum(x.g.minuto) >= 80 && x.antes.nos > x.antes.ellos);
 
+  /*
+  | Con su base de temporada (25/10/2026, experto de análisis): «Cerramos los
+  | partidos» en plural no puede salir de un solo gol sin decir si se repite.
+  */
+  const base = inf.golesTemporada?.cerradosConVentaja;
+
+  const baseCierre = base && base.partidos > 1 ? (base.veces <= 1 ? `; la primera vez en ${base.partidos} partidos` : `; nos ha pasado en ${base.veces} de ${base.partidos} partidos`) : "";
+
   const cierre = tarde
-    ? `Cerramos los partidos con ventaja · nos marcaron en el ${tarde.g.minuto}′ con ${tarde.antes.nos}-${tarde.antes.ellos}${roja && minutoNum(roja.minuto) < minutoNum(tarde.g.minuto) ? " y uno más" : ""}`
+    ? `Cerramos los partidos con ventaja · nos marcaron en el ${tarde.g.minuto}′ con ${tarde.antes.nos}-${tarde.antes.ellos}${roja && minutoNum(roja.minuto) < minutoNum(tarde.g.minuto) ? " y uno más" : ""}${baseCierre}`
     : "";
 
   /* El balón parado que nos dio peligro en contra (lo trae la pincelada del informe de ABP). */
@@ -2379,19 +2406,23 @@ export function titularDelPlan(cumplimiento: FilaCumplimiento[], microciclo: str
   const no = medidas.filter((f) => f.veredicto === "no");
   const igual = medidas.filter((f) => f.veredicto === "igual");
 
-  const tema = (f: FilaCumplimiento) => {
-    const t = f.tema.toLowerCase();
+  /*
+  | Una lección y no una cuenta (25/10/2026, marketing y guion): el recuento
+  | delante («Cumplimos 2 de 3», el mismo que el vídeo) y detrás lo que pasó,
+  | en palabras: «Cumplimos 2 de 3: mandamos con el balón y concedimos poco;
+  | al robar, sin diferencia clara».
+  */
+  const corto = (f: FilaCumplimiento) => {
+    const l = f.lectura ?? f.tema;
 
-    return t === "sin balón" || t === "balón parado" ? `el ${t}` : t === "posesión" || t === "transición" || t === "progresión" ? `la ${t}` : t;
+    return minusculaInicial(l.replace(/^Sin balón concedimos/, "concedimos"));
   };
 
   if (medidas.length) {
-    /* «Cumplimos 1 de 3: la transición no salió» callaba la tercera (22/10/2026): lo que quedó en nuestra media se dice detrás. */
-    if (no.length) return `Cumplimos ${si.length} de ${medidas.length}: ${yFinal(no.map(tema))} no ${no.length > 1 ? "salieron" : "salió"}${igual.length ? `; ${yFinal(igual.map(tema))}, en nuestra media` : ""}`;
+    const bien = si.length ? yFinal(si.map(corto)) : "";
+    const resto = [...no, ...igual].map(corto).join("; ");
 
-    if (!igual.length) return `Cumplimos lo que nos propusimos: ${si.length} de ${medidas.length}`;
-
-    return `Cumplimos ${si.length} de ${medidas.length}; ${yFinal(igual.map(tema))}, en nuestra media`;
+    return `Cumplimos ${si.length} de ${medidas.length}${bien ? `: ${bien}` : ""}${resto ? `${bien ? "; " : ": "}${resto}` : ""}`;
   }
 
   const toca = microciclo[0]?.split(" · ")[0];
@@ -2512,6 +2543,13 @@ export function titularPost(inf: Omit<InformePartido, "sintesis">, { sinMarcador
   if (giro.dominio === "suyo" && giro.resultado !== "derrota") return `${giro.verbo}${mp} aunque ellos generaron más: ${xg}`;
 
   return `${giro.verbo}${m}${ante}`;
+}
+
+/** «Esta semana: cerrar los partidos con ventaja y defender la falta lateral directa». */
+export function titularEstaSemana(microciclo: string[]) {
+  const tareas = microciclo.slice(0, 3).map((t) => minusculaInicial(enInfinitivo(t.split(" · ")[0].trim()))).filter(Boolean);
+
+  return tareas.length ? `Esta semana: ${yFinal(tareas)}` : "";
 }
 
 /**
@@ -2954,7 +2992,12 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
         })
         .filter((x) => x.consigna);
 
-  const cumplimiento = esPost ? cumplimientoPlan(inf) : [];
+  /* La roja, en la misma fila que la cifra a la que afecta (25/10/2026): «concedimos poco… con diez enfrente desde el 57′». */
+  const rojaMeta = esPost ? (inf.cronica?.tarjetas ?? []).filter((t) => t.tipo === "roja" && minutoNum(t.minuto) < 88).sort((a, b) => minutoNum(a.minuto) - minutoNum(b.minuto))[0] : undefined;
+
+  const cumplimiento = esPost
+    ? cumplimientoPlan(inf).map((f) => (rojaMeta && f.veredicto === "si" && f.tema !== "Balón parado" ? { ...f, matiz: `con diez enfrente desde el ${rojaMeta.minuto}′` } : f))
+    : [];
 
   const microciclo = esPost ? queTocaEnElMicro(inf, cumplimiento) : [];
 
@@ -3101,7 +3144,7 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
       ? `Desde el ${roja.minuto}′ jugamos con uno más (${Math.max(1, 90 - Math.floor(minutoNum(roja.minuto)))} minutos): la posesión, las entradas al área y lo que nos generaron cuentan ese tramo`
       : "";
 
-  const golesEnContra = esPost ? golesEnContraDe(inf.cronica) : [];
+  const golesEnContra = esPost ? golesEnContraDe(inf.cronica, inf.golesTemporada?.fases) : [];
 
   return {
     titular,
@@ -3119,7 +3162,8 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
     microciclo,
     titularPlan,
     /* Post: la 3 ya no repite lo que esperábamos de los duelos; cuenta cómo nos marcaron (24/10/2026). */
-    titularDuelos: esPost ? titularGolesEnContra(inf.cronica) : titularDuelos(inf),
+    /* Post: la 3 abre con lo que toca, en infinitivo (25/10/2026, marketing): «Esta semana: cerrar los partidos con ventaja y defender la falta lateral». */
+    titularDuelos: esPost ? titularEstaSemana(microciclo) || titularGolesEnContra(inf.cronica) : titularDuelos(inf),
     consigna,
     ideaPrevia,
     consignaTareas,
@@ -3158,7 +3202,21 @@ export function titularGolesEnContra(cronica: Cronica | null) {
   return `Nos marcaron ${cuantos}: ${yFinal(suyos.map(como))}`;
 }
 
-export function golesEnContraDe(cronica: Cronica | null) {
+/**
+ * El nombre de una métrica del partido con lo que la explica (25/10/2026,
+ * análisis): «Goles recibidos (1 en propia)». Con 0,75 goles esperados en
+ * contra, «2 recibidos» parecía un fallo defensivo que no era.
+ */
+export function nombreMetricaPartido(m: { key: string; nombre: string }, cronica: Cronica | null) {
+  const propias = (cronica?.goles ?? []).filter((g) => !g.nuestro && g.tipo === "propia").length;
+
+  return m.key === "golesContra" && propias ? `${m.nombre} (${propias} en propia)` : m.nombre;
+}
+
+/** Los goles van en entero: «3», no «3,00». */
+export const unidadPartido = (m: { key: string; unidad: string }) => (m.key === "goles" || m.key === "golesContra" ? "entero" : m.unidad);
+
+export function golesEnContraDe(cronica: Cronica | null, fases?: Record<string, string>) {
   if (!cronica) return [] as string[];
 
   const roja = cronica.tarjetas.filter((t) => t.tipo === "roja").sort((a, b) => minutoNum(a.minuto) - minutoNum(b.minuto))[0];
@@ -3185,7 +3243,10 @@ export function golesEnContraDe(cronica: Cronica | null) {
               ? "con uno más"
               : "";
 
-      return [`${g.minuto}′`, `${tras.nos}-${tras.ellos}`, quien, contexto].filter(Boolean).join(" · ");
+      /* La fase, si el coding de Hudl la clasificó (25/10/2026); el gol en propia ya dice lo que es. */
+      const fase = g.tipo !== "propia" ? (fases?.[String(g.minuto).replace(/[′'\s]/g, "")] ?? "") : "";
+
+      return [`${g.minuto}′`, `${tras.nos}-${tras.ellos}`, quien, fase, contexto].filter(Boolean).join(" · ");
     })
     .filter(Boolean);
 }

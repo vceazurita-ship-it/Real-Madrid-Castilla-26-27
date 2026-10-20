@@ -42,6 +42,9 @@ import {
   metricasQueSeparan,
   ordinal,
   pct,
+  REGLA_VEREDICTO,
+  nombreMetricaPartido,
+  unidadPartido,
   selloDatos,
   sinSiglas,
   ventajaVisible,
@@ -460,12 +463,13 @@ function Semana({ inf }: { inf: InformePartido }) {
       </div>
       <div style={{ display: "flex", gap: 22, marginTop: 10, fontSize: 21, fontWeight: 600, color: C.suave }}>
         <span>
-          <b style={{ color: C.crema, fontSize: 28 }}>{m.totales.minutos}′</b> de trabajo
+          {/* Sin el partido (25/10/2026): «340′ de trabajo» llevaba dentro sus 90′; el completo dice 250′. */}
+          <b style={{ color: C.crema, fontSize: 28 }}>{m.dias.filter((d) => !d.esPartido).reduce((a, d) => a + d.minutos, 0)}′</b> de entrenamiento
         </span>
         {minutosAbpInforme(inf).minutos > 0 && (
           <span>
             {/* La misma cifra que el informe de ABP (20/10/2026). */}
-            <b style={{ color: C.crema, fontSize: 28 }}>{minutosLegibles(minutosAbpInforme(inf).minutos)}</b> de ABP
+            <b style={{ color: C.crema, fontSize: 28 }}>{minutosLegibles(minutosAbpInforme(inf).minutos)}</b> de balón parado
           </span>
         )}
         {m.totales.valoracionMedia !== null && (
@@ -845,15 +849,15 @@ function PostResultado({ inf }: { inf: InformePartido }) {
 
                 return (
                   <div key={m.key} style={{ display: "flex", alignItems: "center", gap: estrecha ? 8 : 12 }}>
-                    <span style={{ width: estrecha ? 84 : 110, flexShrink: 0, textAlign: "right", fontSize: estrecha ? 26 : 30, fontWeight: 700 }}>{cifra(m.nuestro, m.unidad)}</span>
+                    <span style={{ width: estrecha ? 84 : 110, flexShrink: 0, textAlign: "right", fontSize: estrecha ? 26 : 30, fontWeight: 700 }}>{cifra(m.nuestro, unidadPartido(m))}</span>
                     <div style={{ flex: 1, height: estrecha ? 16 : 20, display: "flex", justifyContent: "flex-end", background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
                       <div style={{ width: `${(Math.abs(m.nuestro ?? 0) / tope) * 100}%`, background: C.oro, borderRadius: 10 }} />
                     </div>
-                    <span style={{ width: estrecha ? 200 : 300, flexShrink: 0, textAlign: "center", fontSize: estrecha ? 17 : 21, lineHeight: 1.05, fontWeight: 700, color: C.suave, textTransform: "uppercase" }}>{sinSiglas(m.nombre)}</span>
+                    <span style={{ width: estrecha ? 200 : 300, flexShrink: 0, textAlign: "center", fontSize: estrecha ? 17 : 21, lineHeight: 1.05, fontWeight: 700, color: C.suave, textTransform: "uppercase" }}>{sinSiglas(nombreMetricaPartido(m, cronica))}</span>
                     <div style={{ flex: 1, height: estrecha ? 16 : 20, background: "rgba(255,255,255,0.05)", borderRadius: 10 }}>
                       <div style={{ width: `${(Math.abs(m.suyo ?? 0) / tope) * 100}%`, height: "100%", background: C.rival, borderRadius: 10 }} />
                     </div>
-                    <span style={{ width: estrecha ? 84 : 110, flexShrink: 0, fontSize: estrecha ? 26 : 30, fontWeight: 700 }}>{cifra(m.suyo, m.unidad)}</span>
+                    <span style={{ width: estrecha ? 84 : 110, flexShrink: 0, fontSize: estrecha ? 26 : 30, fontWeight: 700 }}>{cifra(m.suyo, unidadPartido(m))}</span>
                   </div>
                 );
               })}
@@ -1021,16 +1025,16 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 21, fontWeight: 700, lineHeight: 1.15, color: C.crema }}>{f.lectura || recorta(f.clave, 110)}</div>
                     {f.dato ? <div style={{ fontSize: 17, fontWeight: 600, lineHeight: 1.2, color: C.suave, marginTop: 2 }}>{f.dato}</div> : null}
+                    {f.matiz ? <div style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.2, color: C.oroClaro, marginTop: 2 }}>Ojo: {f.matiz}</div> : null}
                   </div>
                 </div>
               ))}
             </div>
           ) : null}
-          {inf.sintesis.cumplimiento.some((f) => f.veredicto === "igual") ? (
-            <div style={{ marginTop: 8, fontSize: 15, color: C.tenue }}>= en nuestra media: ni mejor ni peor que en un partido normal</div>
-          ) : null}
-          {/* La roja pesa en estas cifras (24/10/2026): se dice donde se leen. */}
-          {inf.sintesis.notaRoja ? <div style={{ marginTop: 8, fontSize: 16, fontWeight: 600, lineHeight: 1.25, color: C.oroClaro }}>{inf.sintesis.notaRoja}.</div> : null}
+          {/* Una sola regla, la misma en el completo y en el vídeo (25/10/2026). */}
+          {inf.sintesis.cumplimiento.some((f) => f.veredicto) ? <div style={{ marginTop: 8, fontSize: 15, lineHeight: 1.25, color: C.tenue }}>{REGLA_VEREDICTO}</div> : null}
+          {/* La roja pesa en estas cifras (24/10/2026): en la fila si la toca; si no, al pie. */}
+          {inf.sintesis.notaRoja && !inf.sintesis.cumplimiento.some((f) => f.matiz) ? <div style={{ marginTop: 8, fontSize: 16, fontWeight: 600, lineHeight: 1.25, color: C.oroClaro }}>{inf.sintesis.notaRoja}.</div> : null}
           {inf.sintesis.frenados.length > 0 ? (
             <div style={{ marginTop: "auto", paddingTop: 14 }}>
               {/* En frases (22/10/2026): «¿LOS FRENAMOS?» con «✓», «!» y dorsales era un acertijo en el móvil. */}
@@ -1355,13 +1359,14 @@ function DuelosYRival({ inf }: { inf: InformePartido }) {
   const consigna = post ? [] : inf.sintesis.consigna;
 
   return (
-    <Marco pagina={3} total={3} etiqueta={post ? "CÓMO NOS MARCARON Y LA SEMANA" : "DUELOS Y RIVAL"} inf={inf}>
+    <Marco pagina={3} total={3} etiqueta={post ? "ESTA SEMANA" : "DUELOS Y RIVAL"} inf={inf}>
       <TitularDiapo texto={inf.sintesis.titularDuelos} />
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? (inf.sintesis.golesEnContra.length ? "1fr 1.15fr" : "1fr") : "1fr 1.2fr", gap: 22 }}>
+      {/* Post: lo que toca va delante (25/10/2026, marketing): es lo que el cuerpo técnico lleva al campo; cómo nos marcaron, al lado, es el porqué. */}
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? (inf.sintesis.golesEnContra.length ? "1.15fr 1fr" : "1fr") : "1fr 1.2fr", gap: 22 }}>
         {post ? (
           <>
-            <PanelGolesEnContra inf={inf} />
             <PanelEstaSemana inf={inf} />
+            <PanelGolesEnContra inf={inf} />
           </>
         ) : (
           <>

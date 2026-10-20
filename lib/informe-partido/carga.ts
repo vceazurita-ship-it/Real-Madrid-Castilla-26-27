@@ -29,6 +29,7 @@ import { cargaPlantilla } from "@/hooks/usePlayers";
 import { duelosYVistazo } from "@/lib/informe-partido/rival-datos";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
+import { golesTemporadaDe } from "./goles-temporada";
 import { explicaDano, fraseDeFase, fraseUtil, mismoJugador, pronostica, type Cronica } from "./modelo";
 import type { CortePartido } from "@/lib/video-informe/guion";
 import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
@@ -651,6 +652,9 @@ export async function cargaInforme(entrada: {
   /* Previa: lo que pidió el post del partido anterior (24/10/2026), en paralelo con lo demás. */
   const postAnteriorP = momento === "previa" ? postAnteriorDe(entrada).catch(() => null) : Promise.resolve(null);
 
+  /* Post: los goles de la temporada (25/10/2026), para la base de «Qué toca» y la fase de cada gol en contra. Sólo lectura. */
+  const golesTemporadaP = momento === "post" ? golesTemporadaDe(partido?.jornada ?? null).catch(() => null) : Promise.resolve(null);
+
   /* ---------------- la fila del rival en RIVALES ---------------- */
 
   const candidatos = (Array.isArray(rivales) ? rivales : []).filter((f) => mismoClub(texto(f.EQUIPO), rival));
@@ -888,6 +892,7 @@ export async function cargaInforme(entrada: {
     duelo,
     plan: planPublicado,
     postAnterior,
+    golesTemporada: await golesTemporadaP,
     colectivo,
     once,
     plantilla,

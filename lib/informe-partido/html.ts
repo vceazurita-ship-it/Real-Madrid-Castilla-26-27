@@ -28,6 +28,9 @@ import {
   ordinal,
   pct,
   preencabezadoInforme,
+  REGLA_VEREDICTO,
+  nombreMetricaPartido,
+  unidadPartido,
   revisaPalancas,
   selloDatos,
   ventajaVisible,
@@ -297,8 +300,8 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   }${s.golesEnContra.length ? `${etiqueta("Cómo nos marcaron", ROJO)}${lista(s.golesEnContra)}` : ""}${s.claves.length ? `${etiqueta("Lo que nos deja")}${lista(s.claves)}` : ""}${
     s.cumplimiento.length
       ? `${etiqueta("Lo que nos propusimos · ¿se cumplió?")}<ul style="margin:0;padding-left:18px;font:400 14px/1.6 Arial,sans-serif;color:${NAVY}">${s.cumplimiento
-          .map((f) => `<li>${f.veredicto ? `<b style="color:${f.veredicto === "si" ? VERDE : f.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(f.veredicto)}</b> ` : ""}${f.lectura ? `<b>${esc(f.lectura)}</b>` : esc(f.clave)}${f.dato ? `<br><span style="color:${SUAVE}">${esc(f.dato)}</span>` : ""}${f.lectura ? `<br><span style="color:${SUAVE};font-size:12px">Del plan: ${esc(f.clave)}</span>` : ""}</li>`)
-          .join("")}</ul>${s.notaRoja ? `<p style="margin:6px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(s.notaRoja)}.</p>` : ""}`
+          .map((f) => `<li>${f.veredicto ? `<b style="color:${f.veredicto === "si" ? VERDE : f.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(f.veredicto)}</b> ` : ""}${f.lectura ? `<b>${esc(f.lectura)}</b>` : esc(f.clave)}${f.dato ? `<br><span style="color:${SUAVE}">${esc(f.dato)}</span>` : ""}${f.matiz ? `<br><span style="color:${SUAVE}">Ojo: ${esc(f.matiz)}</span>` : ""}${f.lectura ? `<br><span style="color:${SUAVE};font-size:12px">Del plan: ${esc(f.clave)}</span>` : ""}</li>`)
+          .join("")}</ul><p style="margin:6px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(REGLA_VEREDICTO)}.</p>${s.notaRoja ? `<p style="margin:6px 0 0;font:400 13px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(s.notaRoja)}.</p>` : ""}`
       : ""
   }${s.microciclo.length ? `${etiqueta("Qué toca en el microciclo", ROJO)}${lista(s.microciclo)}` : ""}${
     inf.sintesis.frenados.length
@@ -342,7 +345,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           /* Sin filas vacías y cada porcentaje con su recuento: «75,0 % (6 de 8)» (24/10/2026). */
           inf.duelo.partido.metricas
             .filter((m) => m.nuestro !== null)
-            .map((m) => [esc(m.nombre), `<b>${celda(m.nuestro, m.unidad)}</b>${m.recuento ? `<br><span style="color:${SUAVE};font-size:11px">${Math.round(m.recuento.de)} de ${Math.round(m.recuento.total)}</span>` : ""}`, celda(m.suyo, m.unidad), celda(m.media, m.unidad)]),
+            .map((m) => [esc(nombreMetricaPartido(m, inf.cronica)), `<b>${celda(m.nuestro, unidadPartido(m))}</b>${m.recuento ? `<br><span style="color:${SUAVE};font-size:11px">${Math.round(m.recuento.de)} de ${Math.round(m.recuento.total)}</span>` : ""}`, celda(m.suyo, unidadPartido(m)), celda(m.media, m.unidad)]),
         )}`
       : /* Sin Wyscout, el capítulo no sale: antes decía que faltaba (19/10/2026). */
         "";
@@ -427,10 +430,10 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
                 return [
                   parrafo(t),
-                  `<b style="color:${v.veredicto === "si" ? VERDE : v.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(v.veredicto)} ${v.veredicto === "si" ? "Sí" : v.veredicto === "no" ? "No" : "En nuestra media"}</b><br><span style="color:${SUAVE};font-size:12px">${esc(v.dato)}</span>`,
+                  `<b style="color:${v.veredicto === "si" ? VERDE : v.veredicto === "no" ? ROJO : SUAVE}">${marcaCumplimiento(v.veredicto)} ${v.veredicto === "si" ? "Sí" : v.veredicto === "no" ? "No" : "En nuestra media"}</b><br><span style="color:${SUAVE};font-size:12px">${esc(v.dato)}${v.matiz ? ` · ojo: ${esc(v.matiz)}` : ""}</span>`,
                 ];
               }),
-            )
+            ) + `<p style="margin:6px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">${esc(REGLA_VEREDICTO)}.</p>`
           : ""
       }${
         sinVeredicto.length
@@ -654,7 +657,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           {
             nombre: "Balón parado",
             minutos: abpMin.minutos || abpEnTareas,
-            detalle: abpMin.minutos && abpEnTareas && abpMin.minutos !== abpEnTareas ? ` (${abpEnTareas}′ en tareas de campo; el resto, fuera de las tareas)` : "",
+            detalle: abpMin.minutos && abpEnTareas && abpMin.minutos !== abpEnTareas ? ` (${abpEnTareas}′ apuntados como tareas en el registro; el resto, sólo en el plan de balón parado)` : "",
           },
         ]
       : []),
@@ -785,7 +788,16 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
     ctx?.nuestroPuesto && ctx.puesto ? { rotulo: "Clasificación", valor: `${ordinal(ctx.nuestroPuesto)} · ${ordinal(ctx.puesto)}`, pie: `${ctx.nuestrosPuntos} y ${ctx.puntos} pts` } : null,
     inf.microciclo
       ? conMinutos
-        ? { rotulo: "La semana", valor: `${inf.microciclo.totales.minutos}′`, pie: `${inf.microciclo.totales.tareas} tareas${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de ABP` : ""}` }
+        ? (() => {
+            /* La misma cifra que «La semana» del completo (25/10/2026): el entrenamiento sin el partido, y el partido aparte. */
+            const delPartido = esPost ? (inf.microciclo.contenidos ?? []).filter((c) => /^competici/i.test(c.nombre)).reduce((a, c) => a + c.minutos, 0) : 0;
+
+            return {
+              rotulo: "La semana",
+              valor: `${inf.microciclo.totales.minutos - delPartido}′`,
+              pie: `de entrenamiento${delPartido ? ` (y el partido, ${delPartido}′)` : ""} · ${inf.microciclo.totales.tareas} tareas${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de balón parado` : ""}`,
+            };
+          })()
         : { rotulo: "La semana", valor: `${inf.microciclo.totales.tareas} tareas`, pie: "planificadas" }
       : null,
   ]).filter((x): x is { rotulo: string; valor: string; pie?: string } => Boolean(x));
@@ -1125,7 +1137,7 @@ export function informeTexto(inf: InformePartido) {
   if (atacarTxt.length) l.push("", inf.momento === "post" ? "DÓNDE ESPERÁBAMOS HACERLES DAÑO" : "DÓNDE LES HACEMOS DAÑO (CON BALÓN)", ...atacarTxt.map((x) => `- ${fraseDuelo(x, "con")}`));
   if (vigilarTxt.length) l.push("", inf.momento === "post" ? "DÓNDE NOS PODÍAN HACER DAÑO" : "DÓNDE NOS PUEDEN HACER DAÑO (SIN BALÓN)", ...vigilarTxt.map((x) => `- ${fraseDuelo(x, "sin")}`));
   if (inf.vistazo?.frases.length) l.push("", `${(p.rival || "EL RIVAL").toUpperCase()} DE UN VISTAZO`, ...inf.vistazo.frases.map((v) => `- ${v}`));
-  if (inf.microciclo) l.push("", `LA SEMANA: ${inf.microciclo.totales.tareas} tareas${inf.microciclo.dias.some((d) => d.md !== "MD" && d.minutos > 0) ? ` · ${inf.microciclo.totales.minutos}′` : ""}${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de ABP` : ""}`);
+  if (inf.microciclo) l.push("", `LA SEMANA: ${inf.microciclo.totales.tareas} tareas${inf.microciclo.dias.some((d) => d.md !== "MD" && d.minutos > 0) ? ` · ${inf.microciclo.dias.filter((d) => !d.esPartido).reduce((t, d) => t + d.minutos, 0)}′ de entrenamiento` : ""}${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de balón parado` : ""}`);
 
   return l.join("\n");
 }

@@ -600,10 +600,21 @@ function escenaGancho(informe: InformePartido): Escena | null {
       .map((m) => ({ m, ventaja: ((m.nuestro! - m.suyo!) / Math.max(m.nuestro!, m.suyo!)) * (m.mejorAlto ? 1 : -1) }))
       .sort((a, b) => b.ventaja - a.ventaja)[0];
     const dato = mejor && mejor.ventaja > 0.15 ? sinSiglas(`${mejor.m.nombre}: ${numero(mejor.m.nuestro!, mejor.m.unidad)} contra ${numero(mejor.m.suyo!, mejor.m.unidad)}`) : corta(limpia(informe.sintesis.titular), 70);
-    /* La línea de debajo es el giro del partido si lo hubo (remontada, dominio sin premio…); si no, el resultado. */
+    /*
+    | La línea de debajo es el MISMO titular del resumen, sin el marcador, que ya
+    | va en grande (25/10/2026, guionista: el vídeo decía «Remontamos con uno
+    | más» cuando la vuelta llegó antes de la roja, y el PDF contaba otra
+    | historia). Si el titular es largo, el giro; si no lo hay, el resultado.
+    */
+    const delResumen = limpia(informe.sintesis.titular ?? "")
+      .replace(/s*d+s*-s*d+(?=[s,.:;]|$)/, "")
+      .replace(/s+,/g, ",")
+      .replace(/s{2,}/g, " ")
+      .trim();
     const giro = giroDelPartido(informe);
+    const rotulo = delResumen && delResumen.split(/s+/).length <= 12 ? delResumen : giro || resultado;
 
-    return { id: "gancho", tipo: "gancho", dato: `${partido.gf}-${partido.gc}`, antetitulo: partido.rival, rotulo: (giro || resultado).toUpperCase(), contexto: dato, locucion: `${resultado.toLowerCase()} ${partido.gf}-${partido.gc}. ${dato}.` };
+    return { id: "gancho", tipo: "gancho", dato: `${partido.gf}-${partido.gc}`, antetitulo: partido.rival, rotulo: rotulo.toUpperCase(), contexto: dato, locucion: `${resultado.toLowerCase()} ${partido.gf}-${partido.gc}. ${dato}.` };
   }
 
   /* Su mejor arma: la del pronóstico (la misma del titular del informe) y, si no, la de DATA; entre ellas, la que contestan nuestras claves (22/10/2026). */
@@ -809,13 +820,14 @@ export function escenaBalance(filas: FilaBalance[]): { escena: Escena; cierre: s
 
   if (lista.length < 2) return null;
 
-  const cumplidas = medidas.filter((x) => x.estado === "si").length;
-  const medias = medidas.filter((x) => x.estado === "parcial").length;
+  /* El resultado no es una meta del plan (25/10/2026, guionista): no entra en el recuento, que así es el mismo que el de la diapositiva 2. */
+  const cuentan = resto.length ? resto : medidas;
+  const cumplidas = cuentan.filter((x) => x.estado === "si").length;
   const fallo = lista.find((x) => x.estado === "no" && x.que !== "El resultado") ?? lista.find((x) => x.estado === "parcial" && x.que !== "El resultado");
   const acierto = lista.find((x) => x.estado === "si" && x.que !== "El resultado");
 
-  /* «Cumplimos 2 de 4; 1, a medias» (21/10/2026: «2 de 4 y 1 a medias» se leía como 3 de 4). */
-  const resumen = `Cumplimos ${cumplidas} de ${medidas.length}${medias ? `; ${medias}, a medias` : ""}`;
+  /* «Cumplimos 2 de 3»: las filas ya dicen cuál quedó a medias o igual que siempre. */
+  const resumen = `Cumplimos ${cumplidas} de ${cuentan.length}`;
 
   /* El cierre: el recuento y la consigna de la semana, en presente y primera persona (crítica del guionista). */
   const cierre = [resumen, fallo ? `Esta semana, ${consignaDeMejora(fallo.que)}` : acierto ? `Seguimos así: ${acierto.que.toLowerCase()}` : ""].filter(Boolean);
@@ -872,6 +884,23 @@ function filasDeBalance(informe: InformePartido): FilaBalance[] {
   const p = informe.partido;
   const pr = informe.pronostico;
   const filas: FilaBalance[] = [];
+
+  /*
+  | Las mismas filas y el mismo recuento que la diapositiva 2 (25/10/2026,
+  | guionista: el vídeo decía «Cumplimos 3 de 4» contando el resultado y el
+  | resumen, «Cumplimos 1 de 3»). Con dos o más metas del plan medidas, el
+  | balance son ellas y sólo ellas.
+  */
+  const delPlan = (informe.sintesis.cumplimiento ?? []).filter((c) => c.veredicto && c.dato);
+
+  if (delPlan.length >= 2) {
+    return delPlan.map((c) => ({
+      que: c.tema || "El plan",
+      buscabamos: sinSiglas(c.lectura ?? c.clave),
+      logramos: sinSiglas(c.dato),
+      estado: c.veredicto === "si" ? "si" : c.veredicto === "no" ? "no" : "parcial",
+    }));
+  }
 
   if (p.jugado && p.gf !== null && p.gc !== null) {
     const r = p.gf > p.gc ? "Victoria" : p.gf < p.gc ? "Derrota" : "Empate";
@@ -1097,9 +1126,9 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   /* Post: lo que buscábamos, como planteamiento (el balance del final dice si se logró). */
   if (!previa) {
     pon(
+      /* Sin «Ganar» (25/10/2026, guionista): no se entrena ni se mide; las metas del plan, contadas como en la diapositiva. */
       escenaPlan([
-        "Ganar",
-        ...(sintesis.cumplimiento ?? []).map((x) => x.clave),
+        ...(sintesis.cumplimiento ?? []).map((x) => x.lectura ?? x.clave),
         ...(pronostico?.palancas ?? []).map((x) => x.objetivo),
         ...(sintesis.frenados.length ? [`Frenar a ${sintesis.frenados.map((x) => apellidoDe(x.jugador.nombre)).join(", ")}`] : []),
       ]),
