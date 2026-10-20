@@ -13,6 +13,7 @@
 
 import {
   LUGAR_DUELO,
+  abpDelRivalFlojo,
   apellido,
   cifra,
   conDato,
@@ -614,7 +615,8 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           ...pl.duelos.map((d) => [`Duelos · ${d.titulo.toLowerCase()}`, d.texto]),
           ["Claves emocionales", pl.emocionales],
           ["Cómo llega el rival", pl.estado],
-          ["Sus fortalezas", pl.fortalezas],
+          /* Si el scouting llama fortaleza a su balón parado y Wyscout lo pone entre los peores, se dice al lado (24/10/2026, experto de análisis). */
+          ["Sus fortalezas", pl.fortalezas && /abp|bal[oó]n parado|sacador|c[oó]rner/i.test(pl.fortalezas) && abpDelRivalFlojo(inf.duelo) ? `${pl.fortalezas} (en los datos, su balón parado rinde poco: ${abpDelRivalFlojo(inf.duelo)})` : pl.fortalezas],
           ["Sus debilidades", pl.debilidades],
         ]
           .filter(([, t]) => t)

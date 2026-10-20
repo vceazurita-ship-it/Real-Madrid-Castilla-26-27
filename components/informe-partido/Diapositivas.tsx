@@ -29,6 +29,7 @@ import {
   apellido,
   cifra,
   claveDeFase,
+  claveEnCorto,
   conDato,
   cortaEnPausa,
   dueloEnSuOnce,
@@ -1461,7 +1462,7 @@ function PreviaDondeEsta({ inf }: { inf: InformePartido }) {
       <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1fr 1.15fr", gap: 22 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 22, minHeight: 0 }}>
           {separan.length ? (
-            <Panel titulo="DONDE MÁS NOS SEPARAMOS" style={{ flex: 1 }}>
+            <Panel titulo="DÓNDE MÁS NOS SEPARAMOS" style={{ flex: 1 }}>
               <DatosPorBloques inf={inf} />
               {inf.duelo && (
                 <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>
@@ -1486,10 +1487,89 @@ function PreviaDondeEsta({ inf }: { inf: InformePartido }) {
 | (24/10/2026, guion: eran dos historias sin unir). Lo que no tiene tarea no
 | lo dice: va al aviso del analista.
 */
+const FASES_PLAN = ["Con balón", "Sin balón", "Transiciones", "Balón parado"];
+
+/** Las tareas de la semana de una línea del plan («Atacamos la espalda de Gomez: …»). */
+const tareasDeLinea = (inf: InformePartido, texto: string) =>
+  inf.microciclo?.tareas.length ? inf.sintesis.consignaTareas.find((c) => texto === c.consigna || texto.startsWith(`${c.consigna}:`) || texto.startsWith(`${c.consigna} `))?.tareas ?? [] : [];
+
+/*
+| UNA lista en la 3/3 (24/10/2026, experto de fútbol, guion y marketing): antes
+| salían LA IDEA, «Cómo lo ganamos» con su «Clave 1» (la misma frase que LA
+| IDEA) y, debajo, otras tres «claves del cuerpo técnico» sin atar: dos
+| relatos. Ahora mandan las claves del cuerpo técnico, en corto y como
+| consigna; debajo de cada una, lo concreto de esta semana (la línea del plan
+| de su fase) con su tarea. La línea que es LA IDEA no se repite: se marca.
+| Lo que no cuelga de ninguna clave queda en el informe completo.
+*/
+function ClavesConTareas({ inf }: { inf: InformePartido }) {
+  const delPlan = (inf.plan?.claves ?? []).slice(0, 3);
+
+  const principal = inf.sintesis.consigna[0] ?? "";
+
+  const esIdea = (texto: string) => Boolean(principal) && (texto === principal || texto.startsWith(`${principal}:`) || texto.startsWith(`${principal} `));
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 26, flex: 1 }}>
+      {delPlan.map((clave, i) => {
+        const fase = FASES_PLAN.find((f) => claveDeFase([clave], f) === 1) ?? "";
+
+        const lineas = inf.sintesis.plan.filter((l) => l.fase === fase);
+
+        const idea = lineas.find((l) => esIdea(l.texto));
+
+        const concreta = idea ?? lineas[0];
+
+        const tareas = concreta ? tareasDeLinea(inf, concreta.texto) : [];
+
+        /* De LA IDEA, sólo su porqué («lento y pierde duelos»): la consigna ya está arriba. */
+        const dato = concreta ? (idea ? concreta.texto.split(/:\s/).slice(1).join(": ") : concreta.texto) : "";
+
+        return (
+          <div key={clave}>
+            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.2em", color: C.oro }}>
+              {i + 1}
+              {fase ? ` · ${fase.toUpperCase()}` : ""}
+            </div>
+            <div style={{ fontSize: 31, fontWeight: 700, lineHeight: 1.12, color: C.crema, marginTop: 2 }}>{claveEnCorto(clave)}</div>
+            {idea ? (
+              <div style={{ fontSize: 22, fontWeight: 700, marginTop: 5, color: C.oro }}>
+                ★ Por aquí, LA IDEA{dato ? <span style={{ fontWeight: 600, color: C.suave }}> · {dato}</span> : null}
+              </div>
+            ) : dato ? (
+              <div style={{ fontSize: 23, fontWeight: 600, lineHeight: 1.2, marginTop: 5, color: C.suave }}>{dato}</div>
+            ) : null}
+            {tareas.length ? <div style={{ fontSize: 19, fontWeight: 600, marginTop: 4, color: C.tenue }}>→ {tareas.join(" · ")}</div> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** «El domingo: mandamos con el balón…»: la línea con la que se cierra la previa. */
+function cierrePrevia(inf: InformePartido) {
+  const claves = (inf.plan?.claves ?? []).slice(0, 3).map((c) => claveEnCorto(c).replace(/[.]$/, ""));
+
+  if (!claves.length) return "";
+
+  const d = inf.partido.cuando ? new Date(inf.partido.cuando) : null;
+
+  const dia = d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat("es-ES", { timeZone: "Europe/Madrid", weekday: "long" }).format(d) : "";
+
+  const lista = claves.map((c, i) => (i ? c.charAt(0).toLowerCase() + c.slice(1) : c));
+
+  const frase = lista.length > 1 ? `${lista.slice(0, -1).join(", ")} y ${lista[lista.length - 1]}` : lista[0];
+
+  return dia ? `El ${dia}: ${frase.charAt(0).toLowerCase()}${frase.slice(1)}.` : `${frase}.`;
+}
+
 function PlanConTareas({ inf }: { inf: InformePartido }) {
   const delPlan = inf.plan?.claves ?? [];
 
   if (!inf.sintesis.plan.length) return <ComoLoGanamos inf={inf} />;
+
+  if (delPlan.length) return <ClavesConTareas inf={inf} />;
 
   const tareas = (texto: string) => inf.sintesis.consignaTareas.find((c) => texto === c.consigna || texto.startsWith(`${c.consigna}:`) || texto.startsWith(`${c.consigna} `));
 
@@ -1511,16 +1591,6 @@ function PlanConTareas({ inf }: { inf: InformePartido }) {
           </div>
         );
       })}
-      {delPlan.length ? (
-        <div style={{ marginTop: "auto", paddingTop: 10, borderTop: `2px solid ${C.borde}` }}>
-          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", color: C.tenue }}>LAS CLAVES DEL CUERPO TÉCNICO</div>
-          {delPlan.slice(0, 3).map((t, i) => (
-            <div key={t} style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25, color: C.suave, marginTop: 3 }}>
-              {i + 1}. {cortaEnPausa(t, 90)}
-            </div>
-          ))}
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -1543,6 +1613,14 @@ function PreviaComoGanamos({ inf }: { inf: InformePartido }) {
     </Panel>
   ) : null;
 
+  /* Las tareas de LA IDEA van con su clave; si ninguna clave cubre su fase, en la propia franja (no se pierden). */
+  const principal = inf.sintesis.consigna[0] ?? "";
+  const lineaIdea = inf.sintesis.plan.find((l) => principal && (l.texto === principal || l.texto.startsWith(`${principal}:`) || l.texto.startsWith(`${principal} `)));
+  const cubierta = Boolean(lineaIdea && (inf.plan?.claves ?? []).slice(0, 3).some((c) => claveDeFase([c], lineaIdea.fase) === 1));
+  const tareasIdea = lineaIdea && !cubierta ? tareasDeLinea(inf, lineaIdea.texto) : [];
+
+  const cierre = (inf.plan?.claves ?? []).length ? cierrePrevia(inf) : "";
+
   return (
     <Marco pagina={3} total={3} etiqueta="CÓMO LO GANAMOS" inf={inf}>
       {idea ? (
@@ -1550,6 +1628,7 @@ function PreviaComoGanamos({ inf }: { inf: InformePartido }) {
           <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.24em", color: C.oro, whiteSpace: "nowrap" }}>LA IDEA</span>
           <span style={{ width: 2, alignSelf: "stretch", background: "rgba(200,169,107,0.5)" }} />
           <span style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{idea}</span>
+          {tareasIdea.length ? <span style={{ marginLeft: "auto", fontSize: 17, fontWeight: 600, color: C.suave, whiteSpace: "nowrap" }}>→ {tareasIdea.join(" · ")}</span> : null}
         </div>
       ) : null}
       {/* Sin semana registrada, dos columnas a la derecha (a vigilar · balón parado) en vez de un hueco vacío. */}
@@ -1576,6 +1655,8 @@ function PreviaComoGanamos({ inf }: { inf: InformePartido }) {
           </>
         )}
       </div>
+      {/* La última línea de la previa: las claves dichas como se dicen en la charla (24/10/2026, guion: acababa en una tabla). */}
+      {cierre ? <div style={{ marginTop: 16, fontSize: 26, fontWeight: 700, lineHeight: 1.15, color: C.oroClaro, textAlign: "center" }}>{cierre}</div> : null}
     </Marco>
   );
 }
