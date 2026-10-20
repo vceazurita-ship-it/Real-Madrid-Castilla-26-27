@@ -38,6 +38,8 @@ import {
   enFrases,
   avisosDelPlan,
   avisosDeLaSemana,
+  vistazoCoherente,
+  puestosCoherentes,
   planSinHeredado,
   sintetiza,
   type Colectivo,
@@ -845,6 +847,11 @@ export async function cargaInforme(entrada: {
 
   avisos.push(...delRival.avisos);
 
+  /* El lado de cada uno lo manda Wyscout (26/10/2026): la ficha que lo contradice, al analista. */
+  const plantillaFinal = puestosCoherentes(delRival.vistazo, plantilla, avisos);
+
+  const onceFinal = { ...once, jugadores: puestosCoherentes(delRival.vistazo, once.jugadores) };
+
   /*
   | Previa: el plan sin lo heredado de otro rival (24/10/2026): una línea que
   | nombra a alguien que no está en su plantilla ni en la nuestra, o que el
@@ -894,8 +901,8 @@ export async function cargaInforme(entrada: {
     postAnterior,
     golesTemporada: await golesTemporadaP,
     colectivo,
-    once,
-    plantilla,
+    once: onceFinal,
+    plantilla: plantillaFinal,
     contexto: contextoDe(
       informeRival,
       rival,
@@ -911,7 +918,8 @@ export async function cargaInforme(entrada: {
     avisos,
     /* Un duelo con alguien del once dudoso no se publica hasta que el analista lo confirme (22/10/2026). */
     duelosJugadores: duelosSinDudosos(delRival.duelos, cronica, avisos),
-    vistazo: delRival.vistazo,
+    /* Sin lo que contradice la ficha (25/10/2026): se le dice al analista. */
+    vistazo: (() => { const v = vistazoCoherente(delRival.vistazo, plantilla); avisos.push(...v.avisos); return v.vistazo; })(),
     videoListo: videoDoc?.url ? { url: videoDoc.url, creado: videoDoc.creado ?? "", segundos: videoDoc.segundos ?? 0, poster: videoDoc.poster ?? null, ligero: videoDoc.ligero ?? null } : null,
   };
 

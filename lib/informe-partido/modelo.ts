@@ -23,6 +23,7 @@
 /*  LA FORMA                                                           */
 /* ------------------------------------------------------------------ */
 
+import { consignaPrincipal } from "./consigna";
 import type { CortePartido } from "@/lib/video-informe/guion";
 import type { GolesTemporada } from "./goles-temporada";
 
@@ -148,6 +149,8 @@ export type JugadorRival = {
   /** Dónde va en el dibujo, en tanto por uno (x: banda, y: 0 portería → 1 ataque). */
   x?: number;
   y?: number;
+  /** «A vigilar»: no está en su once, pero entra desde el banquillo y produce (25/10/2026). */
+  desdeBanquillo?: boolean;
 };
 
 export type Plan = {
@@ -205,6 +208,8 @@ export type Palanca = {
   victoria: number;
   /** La meta en número y con qué dato del partido se revisa. */
   meta: number;
+  /** De dónde parte el pronóstico (su xG o el nuestro), para decir la meta con su punto de partida (25/10/2026). */
+  desde: number;
   revisa: "xgSuyo" | "xgNuestro" | null;
 };
 
@@ -410,6 +415,8 @@ export type VistazoRival = {
   frases: string[];
   /** Los que más rinden para su puesto, con lo que destacan. */
   figuras: { nombre: string; posicion: string; indice: number; minutos: number; destaca: string[] }[];
+  /** El puesto principal de Wyscout de cada uno, en palabras: el lado manda sobre la ficha (26/10/2026). */
+  puestos?: { nombre: string; posicion: string; minutos: number }[];
 };
 
 const apellidos = (lista: string[]) => lista.map((n) => apellido(n)).join(" y ");
@@ -566,6 +573,12 @@ export type Sintesis = {
   delPostAnterior: { origen: string; consigna: string; dato: string; tareas: string[] }[];
   /** Previa: la consigna que mejor responde a los datos pero no tiene tarea esta semana (va al aviso del analista, no al informe). */
   ideaSinTarea: string;
+  /** Previa: la línea del plan que nombra a un defensor suyo sin duelo medido a la vista (va al aviso, no es LA IDEA). */
+  ideaSinDuelo: string;
+  /** Previa: la respuesta al titular de la 1/3, en presente («Ganamos la segunda jugada de su balón largo»), para el cierre de la 3/3 (26/10/2026, guion). */
+  gancho?: string;
+  /** Previa: la meta de cada clave del plan (`metaDePalanca`), la misma con la que el post la juzga (25/10/2026). */
+  metas: (MetaDeClave & { clave: string })[];
   /**
    * Post: la roja del rival pesa en las cifras del partido (24/10/2026,
    * experto de análisis): «Desde el 57′ jugamos con uno más (33 minutos): la
@@ -587,6 +600,10 @@ export type FilaCumplimiento = {
   lectura?: string;
   /** Lo que pesa sobre la cifra, en la misma fila: «con diez enfrente desde el 57′» (25/10/2026). */
   matiz?: string;
+  /** Lo que buscábamos, como consigna del tema («Sacamos más de cada robo», 26/10/2026): el balance del vídeo lo usa en «Buscábamos». */
+  consigna?: string;
+  /** La cifra y su meta en corto, de este mismo objeto, para el vídeo: «0 contraataques (meta: al menos 1)» (27/10/2026). */
+  corto?: string;
 };
 
 /**
@@ -605,6 +622,8 @@ export type PinceladaAbp = {
   sustoEnContra?: { consigna: string; dato: string; /** Sin muestra: para vigilar, no la prioridad (25/10/2026). */ corta?: boolean } | null;
   /** Post: los goles esperados del partido a balón parado (25/10/2026), para revisar la palanca del pronóstico. */
   xgPartido?: { favor: number; contra: number } | null;
+  /** Post: lo mismo en la temporada (26/10/2026): con una jornada no se juzga el balón parado; con la temporada, sí. */
+  xgTemporada?: { favor: number; contra: number; partidos: number } | null;
   /** Previa: la prioridad nº 1 del informe de ABP, tal cual (24/10/2026): la previa del partido dice lo mismo. */
   prioridad?: { consigna: string; texto: string } | null;
 };
@@ -923,10 +942,32 @@ export function aVigilar(once: JugadorRival[], plantilla: JugadorRival[]) {
 
   const base = once.length ? once : plantilla;
 
-  return [...base]
+  const elegidos = [...base]
     .filter((j) => j.linea !== "POR")
     .sort((a, b) => peso(b) - peso(a))
     .slice(0, 3);
+
+  /*
+  | El suplente que produce (25/10/2026, experto de análisis: Avilés, 2 goles y
+  | 1 asistencia en 217′, se quedaba fuera por no salir de inicio). Con 180′ o
+  | más, 2 o más goles y asistencias, y más ritmo que el último de la lista,
+  | entra en su lugar «si entra desde el banquillo».
+  */
+  if (!once.length) return elegidos;
+
+  const enOnce = new Set(once.map((j) => j.clave));
+
+  const apellidosOnce = new Set(once.map((j) => plano(apellido(j.nombre)).join(" ")));
+
+  const banquillo = plantilla
+    .filter((j) => !enOnce.has(j.clave) && !apellidosOnce.has(plano(apellido(j.nombre)).join(" ")) && j.linea !== "POR" && (j.minutos ?? 0) >= 180 && (j.goles ?? 0) + (j.asistencias ?? 0) >= 2)
+    .sort((a, b) => ritmo(b) - ritmo(a))[0];
+
+  const ultimo = elegidos[elegidos.length - 1];
+
+  if (banquillo && (!ultimo || elegidos.length < 3 || ritmo(banquillo) > ritmo(ultimo))) return [...elegidos.slice(0, 2), { ...banquillo, desdeBanquillo: true }];
+
+  return elegidos;
 }
 
 /** Post: las métricas del partido que más se separan de lo habitual. */
@@ -969,7 +1010,8 @@ export function lecturaDelPartido(duelo: Duelo | null) {
 
       return { m, rel, bueno };
     })
-    .filter((x) => Math.abs(x.rel) >= 15)
+    /* Con la misma regla que la columna «Lectura» del capítulo (27/10/2026, ronda 9): lo que allí es «= lo habitual» aquí no se destaca. */
+    .filter((x) => Math.abs(x.rel) >= 15 && frenteAMedia(x.m) !== "igual")
     .sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel))
     .slice(0, 4);
 
@@ -989,6 +1031,25 @@ const RECUENTOS = new Set(["contras", "goles", "golesContra", "tirosPuerta", "pe
 
 const muestraCorta = (m: { key: string; unidad: string; media: number | null; recuento?: { de: number; total: number } | null }) =>
   m.unidad === "porcentaje" ? Boolean(m.recuento && m.recuento.total < 10) : RECUENTOS.has(m.key) && m.media !== null && Math.abs(m.media) < 2;
+
+/**
+ * Cuántas veces sale un recuento como el del partido (o peor) con nuestra
+ * media, por Poisson (27/10/2026): con 0,71 contraataques de media, un 0 sale
+ * el 49 % de las veces. Sólo para recuentos pequeños (media < 5); null si no.
+ */
+function probabilidadDeRecuento(m: { key: string; unidad: string; media: number | null; nuestro: number | null; mejorAlto: boolean | null }) {
+  if (!RECUENTOS.has(m.key) || m.media === null || m.nuestro === null || m.mejorAlto === null || m.media <= 0 || m.media >= 5 || !Number.isInteger(m.nuestro)) return null;
+
+  let bajo = 0;
+
+  for (let k = 0; k <= m.nuestro; k++) bajo += poisson(k, m.media);
+
+  /* Más es mejor: P(X ≤ lo nuestro); menos es mejor: P(X ≥ lo nuestro). */
+  return m.mejorAlto ? bajo : 1 - bajo + poisson(m.nuestro, m.media);
+}
+
+/** 0,49 → «uno de cada dos partidos»; 0,3 → «uno de cada tres». */
+const vecesDeCada = (p: number) => `uno de cada ${["", "", "dos", "tres", "cuatro"][Math.min(4, Math.max(2, Math.round(1 / p)))]} partidos`;
 
 /** Una cifra de UN partido: los recuentos van sin decimales («0 contraataques», no «0,00»). */
 function cifraPartido(valor: number, unidad: string) {
@@ -1145,6 +1206,20 @@ export function explicaDano(texto: string, plantilla: JugadorRival[]) {
 }
 
 /**
+ * La meta de una palanca dicha igual en todo el informe (25/10/2026, análisis
+ * y fútbol: «menos de 1,47» en la diapositiva y «bajar su xG de 1,35 a 1,08»
+ * en el completo eran dos metas para la misma clave). La diapositiva 3, el
+ * capítulo del pronóstico y el post usan esta frase y esta cifra.
+ */
+export function textoDeMeta(momento: Palanca["momento"], meta: number, desde: number) {
+  if (momento === "Sin balón") return `Que se queden en ${cifra(meta, "decimal")} goles esperados o menos (contra nuestra defensa y en este campo, el pronóstico les da ${cifra(desde, "decimal")})`;
+
+  if (momento === "Con balón") return `Llegar a ${cifra(meta, "decimal")} goles esperados o más (contra su defensa y en este campo, el pronóstico nos da ${cifra(desde, "decimal")})`;
+
+  return `Sacar +${cifra(meta, "decimal")} goles esperados a balón parado (a favor menos en contra)`;
+}
+
+/**
  * El pronóstico y las tres palancas.
  *
  * - Fuerza de cada uno: 70 % xG + 30 % goles (el xG es más estable con pocos
@@ -1244,31 +1319,34 @@ export function pronostica(inf: { duelo: Duelo | null; partido: { lado: "casa" |
   const palancas: Palanca[] = [
     {
       momento: "Sin balón",
-      objetivo: `Bajar su xG de ${cifra(lRiv, "decimal")} a ${cifra(lRiv * 0.8, "decimal")}`,
+      objetivo: textoDeMeta("Sin balón", lRiv * 0.8, lRiv),
       porque: suFuerte ? `Su punto fuerte · ${dato(suFuerte, "rival")}` : "Es lo que más pesa en su ataque",
       plan: primeraFrase(inf.plan?.defensa),
       victoria: sube(conSinBalon),
       meta: lRiv * 0.8,
+      desde: lRiv,
       revisa: "xgSuyo",
     },
     {
       momento: "Con balón",
-      objetivo: `Subir nuestro xG de ${cifra(lNos, "decimal")} a ${cifra(lNos * 1.15, "decimal")}`,
+      objetivo: textoDeMeta("Con balón", lNos * 1.15, lNos),
       porque: suDebil ? `Por donde sufren · ${dato(suDebil, "rival")}` : "Generar más de lo que solemos contra ellos",
       plan: primeraFrase(inf.plan?.ataque),
       victoria: sube(conConBalon),
       meta: lNos * 1.15,
+      desde: lNos,
       revisa: "xgNuestro",
     },
     {
       momento: "Balón parado",
-      objetivo: "Sumar 0,12 goles esperados a balón parado",
+      objetivo: textoDeMeta("Balón parado", 0.12, 0),
       porque: abpNos?.nosotros
         ? `Nuestro · ${dato(abpNos, "nosotros")}${abpRem?.nosotros ? ` · ${dato(abpRem, "nosotros")}` : ""}`
         : "Un córner más con remate claro",
       plan: primeraFrase(inf.plan?.abpOf || inf.plan?.abpDef),
       victoria: sube(conAbp),
       meta: 0.12,
+      desde: 0,
       revisa: null,
     },
   ];
@@ -1339,7 +1417,8 @@ export function contrastePronostico(inf: { pronostico: Pronostico | null; duelo:
   | previsto frente al real, sin veredicto.
   */
   const filas: { rotulo: string; previsto: string; real: string; acierto: boolean | null }[] = [
-    { rotulo: "Lo más probable", previsto: `${masProbable} (${pct(pr[masProbable])})`, real: `${resultado} ${p.gf}-${p.gc}`, acierto: masProbable === resultado },
+    /* Sin ✓ (27/10/2026, ronda 9, análisis): un 40 % que sale en un partido no valida el pronóstico. */
+    { rotulo: "Lo más probable", previsto: `${masProbable} (${pct(pr[masProbable])})`, real: `${resultado} ${p.gf}-${p.gc}`, acierto: null },
     /* Sin el xG de Wyscout la fila no sale: el informe no dice lo que
        falta (antes, «pendiente de Wyscout»; 19/10/2026). */
     ...(xg?.nuestro != null && xg?.suyo != null
@@ -1427,15 +1506,35 @@ export function revisaPalancas(inf: { pronostico: Pronostico | null; duelo: Duel
   */
   const xgAbp = inf.abp?.pincelada?.xgPartido ?? null;
 
+  const xgAbpTemporada = inf.abp?.pincelada?.xgTemporada ?? null;
+
+  const conSigno = (n: number) => `${n >= 0 ? "+" : "−"}${cifra(Math.abs(n), "decimal")}`;
+
   return medibles.map((p) => {
-    if (p.momento === "Balón parado" && xgAbp) {
-      const neto = xgAbp.favor - xgAbp.contra;
+    /*
+    | Con una jornada no se juzga (26/10/2026, ronda 8, análisis): 7 acciones
+    | y 0,08 − 0,16 daban un «No» que no aguanta. Manda la temporada, por
+    | partido, frente a la misma meta; el partido se cuenta, sin veredicto.
+    */
+    if (p.momento === "Balón parado" && (xgAbp || xgAbpTemporada)) {
+      /*
+      | Sin veredicto (27/10/2026, ronda 9, análisis): «Cumplida» con −0,08 en
+      | el partido se contradecía, y +0,13 frente a +0,12 en la temporada es la
+      | misma cifra. Se cuenta el acumulado como lo que se vigila, sin ✓ ni ✗.
+      */
+      const partido = xgAbp ? `este partido, ${conSigno(xgAbp.favor - xgAbp.contra)} (${cifra(xgAbp.favor, "decimal")} a favor − ${cifra(xgAbp.contra, "decimal")} en contra): una jornada no se juzga sola` : "";
+
+      const t = xgAbpTemporada && xgAbpTemporada.partidos >= 3 ? xgAbpTemporada : null;
+
+      const porPartido = t ? (t.favor - t.contra) / t.partidos : null;
+
+      const frente = porPartido === null ? "" : Math.abs(porPartido - p.meta) < 0.05 ? ", a la par de la meta" : porPartido > p.meta ? ", por encima de la meta" : ", por debajo de la meta";
 
       return {
         momento: p.momento,
-        meta: `+${cifra(p.meta, "decimal")} goles esperados (a favor menos en contra)`,
-        real: `${cifra(xgAbp.favor, "decimal")} a favor − ${cifra(xgAbp.contra, "decimal")} en contra = ${neto >= 0 ? "+" : "−"}${cifra(Math.abs(neto), "decimal")}`,
-        cumplida: neto >= p.meta,
+        meta: `+${cifra(p.meta, "decimal")} goles esperados por partido (a favor menos en contra)`,
+        real: [t ? `En ${t.partidos} partidos, ${conSigno(porPartido!)} por partido${frente} (${cifra(t.favor, "decimal")} a favor − ${cifra(t.contra, "decimal")} en contra)` : "", partido].filter(Boolean).join("; "),
+        cumplida: null,
       };
     }
 
@@ -1495,6 +1594,41 @@ export const apellido = (nombre: string) => {
 
   return ultimo.charAt(0).toUpperCase() + ultimo.slice(1).toLowerCase();
 };
+
+/**
+ * Post: lo que pasó en un duelo planteado, con lo que mide la crónica
+ * (27/10/2026, ronda 9, análisis): goles y asistencias de los de cada lado,
+ * el gol en propia, sus tarjetas y el minuto en que se fue el suyo. «Gené: se
+ * fue en el 64′, con amarilla; sin gol ni asistencia». Sin crónica, vacío.
+ */
+export function loQuePasoEnElDuelo(x: Pick<DueloJugadores, "nuestros" | "suyos">, cr: Cronica | null) {
+  if (!cr) return "";
+
+  const de = (lista: string[], nombre: string) => Boolean(nombre) && lista.some((j) => mismoJugador(j, nombre));
+
+  const hechos: string[] = [];
+
+  for (const g of cr.goles) {
+    if (g.nuestro && de(x.nuestros, g.jugador)) hechos.push(`gol de ${apellido(g.jugador)} (${g.minuto}′)`);
+    else if (g.nuestro && de(x.nuestros, g.asistente)) hechos.push(`asistencia de ${apellido(g.asistente)} (${g.minuto}′)`);
+    else if (!g.nuestro && g.tipo === "propia" && de(x.nuestros, g.jugador)) hechos.push(`en propia de ${apellido(g.jugador)} (${g.minuto}′)`);
+    else if (!g.nuestro && g.tipo !== "propia" && de(x.suyos, g.jugador)) hechos.push(`nos marcó ${apellido(g.jugador)} (${g.minuto}′)`);
+    else if (!g.nuestro && de(x.suyos, g.asistente)) hechos.push(`asistió ${apellido(g.asistente)} (${g.minuto}′)`);
+  }
+
+  const golesYPases = hechos.length;
+
+  for (const s of x.suyos) {
+    const fuera = cr.cambios.find((c) => mismoJugador(c.sale, s));
+    const tarjeta = cr.tarjetas.filter((t) => mismoJugador(t.jugador, s)).sort((a, b) => (a.tipo === "roja" ? -1 : b.tipo === "roja" ? 1 : 0))[0];
+
+    if (tarjeta?.tipo === "roja") hechos.push(`expulsado ${apellido(s)} (${tarjeta.minuto}′)`);
+    else if (fuera) hechos.push(`${apellido(s)} se fue en el ${fuera.minuto}′${tarjeta ? ", con amarilla" : ""}`);
+    else if (tarjeta) hechos.push(`amarilla a ${apellido(s)} (${tarjeta.minuto}′)`);
+  }
+
+  return [...hechos, golesYPases ? "" : "sin gol ni asistencia"].filter(Boolean).join("; ");
+}
 
 /**
  * Los goles que cambiaron el partido, contados como en el vestuario: quién
@@ -1832,6 +1966,84 @@ export function segundaJugada(inf: Pick<InformePartido, "colectivo" | "plan" | "
   return { puesto: aereo.nosotros.puesto, de: d.equipos, suyo: aereo.rival.puesto, dePosesion, puestoPosesion: posesion?.rival?.puesto ?? null };
 }
 
+/** Lo que la ficha dice y el dato que lo contradice (25/10/2026). */
+const FICHA_CONTRA_DATO: [RegExp, RegExp, string][] = [
+  [/perdedor de duelos/i, /duelo/i, "Perdedor de duelos"],
+  [/flojo por alto/i, /a[eé]reo|por alto|cabeza/i, "Flojo por alto"],
+  [/^lento$/i, /velocidad|aceleraci|carrera/i, "Lento"],
+];
+
+/**
+ * Las figuras del rival sin contradecir su ficha (25/10/2026, experto de
+ * análisis: Víctor Ruiz salía «duelos aéreos P100» y su ficha decía
+ * «Perdedor de duelos»). Lo que choca no se publica; se le dice al analista
+ * para que revise la ficha o la muestra.
+ */
+export function vistazoCoherente(v: VistazoRival | null, plantilla: JugadorRival[]): { vistazo: VistazoRival | null; avisos: string[] } {
+  if (!v?.figuras.length) return { vistazo: v, avisos: [] };
+
+  const avisos: string[] = [];
+
+  const ficha = (nombre: string) => {
+    const ap = plano(apellido(nombre)).join(" ");
+
+    return plantilla.find((j) => plano(apellido(j.nombre)).join(" ") === ap);
+  };
+
+  const figuras = v.figuras.map((fig) => {
+    const j = ficha(fig.nombre);
+
+    if (!j?.rasgos.length) return fig;
+
+    const destaca = fig.destaca.filter((d) => {
+      const choque = FICHA_CONTRA_DATO.find(([rasgo, dato]) => j.rasgos.some((r) => rasgo.test(r.trim())) && dato.test(d));
+
+      if (choque) avisos.push(`La ficha de ${j.nombre} dice «${choque[2]}» y Wyscout le da «${d}» (${fig.minutos}′): no sale en el informe; revisa la ficha o la muestra.`);
+
+      return !choque;
+    });
+
+    return { ...fig, destaca };
+  });
+
+  return { vistazo: { ...v, figuras }, avisos };
+}
+
+const ladoDe = (puesto: string) => (/\bizq|\bizd|\bizdo\b|\biz\b/i.test(puesto) ? "izquierdo" : /\bder|\bdch|\bdcho\b/i.test(puesto) ? "derecho" : "");
+
+/**
+ * El lado lo manda Wyscout (26/10/2026, fútbol y análisis): la ficha ponía a
+ * José Carlos «LATERAL IZDO» y Wyscout, de lateral derecho; el once probable
+ * salía con dos laterales izquierdos. Si la ficha dice el lado contrario,
+ * sale el puesto de Wyscout y se avisa al analista. Sólo con un único
+ * jugador de Wyscout que case con la ficha.
+ */
+export function puestosCoherentes(v: VistazoRival | null, jugadores: JugadorRival[], avisos?: string[]): JugadorRival[] {
+  const puestos = v?.puestos ?? [];
+
+  if (!puestos.length) return jugadores;
+
+  return jugadores.map((j) => {
+    const lado = ladoDe(j.posicion);
+
+    if (!lado) return j;
+
+    const casan = puestos.filter((p) => mismoJugador(j.nombre, p.nombre));
+
+    if (casan.length !== 1) return j;
+
+    const wy = casan[0];
+
+    const suyo = ladoDe(wy.posicion);
+
+    if (!suyo || suyo === lado) return j;
+
+    avisos?.push(`La ficha de ${j.nombre} dice «${j.posicion}» y Wyscout lo pone de ${wy.posicion} (${wy.minutos}′): sale el de Wyscout; revisa la ficha.`);
+
+    return { ...j, posicion: wy.posicion.toUpperCase() };
+  });
+}
+
 /** Los rasgos de la ficha que son un punto débil de un defensor, en palabras de caseta. */
 const RASGO_DEBIL: [RegExp, string][] = [
   [/^lento$/i, "lento"],
@@ -1930,7 +2142,7 @@ const TAREAS_DE_CONSIGNA: { consigna: RegExp; tarea: RegExp }[] = [
  * Una consigna sin tarea no es un dato que falte: es una decisión del
  * cuerpo técnico, y se dice.
  */
-export function tareasDeConsigna(consigna: string, micro: Microciclo | null) {
+export function tareasDeConsigna(consigna: string, micro: Microciclo | null, opciones: { minutos?: boolean } = {}) {
   const tema = TAREAS_DE_CONSIGNA.find((t) => t.consigna.test(consigna));
 
   if (!tema || !micro) return [];
@@ -1938,7 +2150,16 @@ export function tareasDeConsigna(consigna: string, micro: Microciclo | null) {
   return micro.tareas
     .filter((t) => t.md !== "MD" && !/competici/i.test(`${t.tipo} ${t.fase}`))
     .filter((t) => tema.tarea.test([t.fase, t.contenido, t.secundario, t.tipo].join(" ")))
-    .map((t) => `${t.dia} ${t.tarea}${t.secundario ? ` (${minusculaInicial(t.secundario)})` : t.contenido ? ` (${minusculaInicial(t.contenido)})` : ""}`);
+    .map((t) => {
+      const que = minusculaInicial(t.secundario || t.contenido || "");
+
+      /* Con sus minutos cuando se pide y los hay (26/10/2026, fútbol): «L-T2 (transición, 11′)». */
+      const min = opciones.minutos && t.minutos > 0 ? `${t.minutos}′` : "";
+
+      const entre = [que, min].filter(Boolean).join(", ");
+
+      return `${t.dia} ${t.tarea}${entre ? ` (${entre})` : ""}`;
+    });
 }
 
 /**
@@ -2236,8 +2457,13 @@ function frenteAMedia(m: MetricaPartido): "si" | "no" | "igual" {
   return (m.mejorAlto ? valor > media : valor < media) ? "si" : "no";
 }
 
-/** La regla, como se lee al pie de «Lo que buscábamos»: la misma para la diapositiva, el completo y el vídeo. */
-export const REGLA_VEREDICTO = "✓ mejor que nuestra media · = dentro de lo habitual · ✗ peor; lo habitual, a menos de una desviación y nunca más de un 25 % de la media";
+/**
+ * La regla, como se lee al pie de «Lo que buscábamos»: la misma para la
+ * diapositiva, el completo y el vídeo. Desde el 26/10/2026 cada clave se
+ * juzga contra SU meta, la que puso la previa (`metaDeClave`); sin meta, contra
+ * nuestra media.
+ */
+export const REGLA_VEREDICTO = "✓ llegamos a la meta de la previa · ✗ no llegamos · = dentro de lo habitual: sin meta, o un recuento pequeño que con nuestra media sale así una de cada cuatro veces o más";
 
 /*
 | La meta en corto (22/10/2026): el plan escribe «Optimizar y ajustar nuestra
@@ -2247,23 +2473,59 @@ export const REGLA_VEREDICTO = "✓ mejor que nuestra media · = dentro de lo ha
 const LECTURA_TEMA: Record<string, Record<"si" | "no" | "igual", string>> = {
   Posesión: { si: "Mandamos con el balón", no: "No mandamos con el balón", igual: "Con el balón, en nuestra media" },
   "Sin balón": { si: "Sin balón concedimos poco", no: "Sin balón concedimos de más", igual: "Sin balón, en nuestra media" },
-  Transición: { si: "Al robar, salimos y les hicimos daño", no: "Robamos y no salimos", igual: "Al robar, sin diferencia clara" },
+  Transición: { si: "Al robar, salimos y les hicimos daño", no: "Al robar no salimos", igual: "Al robar, dentro de lo habitual" },
   "Balón parado": { si: "Nuestro balón parado apareció", no: "Nuestro balón parado no apareció", igual: "Balón parado, en nuestra media" },
   "Llegada y remate": { si: "Llegamos y rematamos más que nunca", no: "Llegamos poco al área", igual: "En el área, en nuestra media" },
   "Juego por fuera": { si: "Cargamos el área desde banda", no: "Jugamos poco por fuera", igual: "Por fuera, en nuestra media" },
   Progresión: { si: "Progresamos rápido hacia su área", no: "Nos costó progresar", igual: "Progresando, en nuestra media" },
 };
 
+/* El nombre corto de la métrica de cada meta, para el vídeo (27/10/2026). */
+const NOMBRE_CORTO: Record<string, string> = { xg: "goles esperados", xgContra: "goles esperados suyos", contras: "contraataques", posesion: "de posesión", tirosContra: "remates suyos" };
+
 /* La posesión y los contraataques no tienen «mejor» en la liga (depende del estilo), pero para la meta que los pide, más es mejor. */
 const SENTIDO_EN_META: Record<string, boolean> = { posesion: true, contras: true };
 
-export function cumplimientoPlan(inf: { plan: Plan | null; duelo: Duelo | null }): FilaCumplimiento[] {
+/**
+ * La meta de una clave, en número (26/10/2026): la misma cifra que la previa
+ * escribe con `metaDeClave` («meta: más de 0,63») y con la que el post la
+ * juzga. Es nuestra cifra de la temporada en la primera métrica del tema.
+ */
+function metaNumerica(duelo: Duelo | null, tema: (typeof TEMAS_PLAN)[number]) {
+  const nuestra = tema.metricas.map((k) => (duelo?.metricas ?? []).find((m) => m.key === k)).find((m) => m?.nosotros);
+
+  if (!nuestra?.nosotros) return null;
+
+  const alto = nuestra.mejorAlto ?? SENTIDO_EN_META[nuestra.key] ?? null;
+
+  return alto === null ? null : { key: nuestra.key, valor: nuestra.nosotros.valor, unidad: nuestra.unidad, alto };
+}
+
+export function cumplimientoPlan(inf: { plan: Plan | null; duelo: Duelo | null; abp?: InformePartido["abp"]; pronostico?: InformePartido["pronostico"] }): FilaCumplimiento[] {
   const claves = inf.plan?.claves ?? [];
 
   const metricas = (inf.duelo?.partido?.metricas ?? []).map((m) => (m.mejorAlto === null && m.key in SENTIDO_EN_META ? { ...m, mejorAlto: SENTIDO_EN_META[m.key] } : m));
 
   return claves.map((clave) => {
     const tema = TEMAS_PLAN.find((t) => t.re.test(clave));
+
+    /*
+    | El balón parado no se juzga con una jornada (26/10/2026, ronda 8): siete
+    | acciones no dan para ✓ ni ✗. Se dice la temporada, sin veredicto.
+    */
+    if (tema?.tema === "Balón parado") {
+      const t = inf.abp?.pincelada?.xgTemporada;
+
+      const neto = t ? t.favor - t.contra : null;
+
+      return {
+        clave,
+        tema: tema.tema,
+        veredicto: null,
+        dato: t && neto !== null && t.partidos >= 3 ? `Una jornada no basta para juzgarlo; en ${t.partidos} partidos, ${neto >= 0 ? "+" : "−"}${cifra(Math.abs(neto), "decimal")} goles esperados a balón parado` : "",
+        lectura: "Balón parado: se mide en la temporada",
+      };
+    }
 
     const medibles = (tema?.metricas ?? [])
       .map((k) => metricas.find((m) => m.key === k))
@@ -2272,12 +2534,60 @@ export function cumplimientoPlan(inf: { plan: Plan | null; duelo: Duelo | null }
 
     if (!tema || !medibles.length) return { clave, tema: tema?.tema ?? "", veredicto: null, dato: "" };
 
-    /* Las dos métricas votan: ✓ si alguna sale mejor y ninguna peor; ✗ al revés; si no, «=». */
+    /*
+    | Contra SU meta (26/10/2026, ronda 8, fútbol): la previa escribe «meta:
+    | más de 0,63» y el post la juzga con esa misma cifra. Un 0 en
+    | contraataques con meta de 0,63 es ✗, con la base al lado si es corta;
+    | no un «sin diferencia clara».
+    */
+    /* La MISMA meta que escribió la previa (26/10/2026): la de su palanca del pronóstico (`metaDePalanca`); sin pronóstico, nuestra cifra de la temporada. */
+    const dePalanca = inf.pronostico !== undefined ? metaDePalanca({ duelo: inf.duelo, pronostico: inf.pronostico }, clave) : null;
+
+    const numerica = metaNumerica(inf.duelo, tema);
+
+    const meta = dePalanca && dePalanca.metrica !== "xgAbp" ? { key: dePalanca.metrica, valor: dePalanca.cifra, alto: dePalanca.sentido === "mas", texto: dePalanca.texto } : numerica ? { ...numerica, texto: "" } : null;
+
+    const principal = meta ? medibles.find((m) => m.key === meta.key) ?? metricas.find((m) => m.key === meta.key && m.nuestro !== null) : undefined;
+
+    if (meta && principal) {
+      const valor = principal.nuestro!;
+
+      /* «Al menos 1», «llegar a 2,17 o más», «1,08 o menos»: alcanzar la cifra de la meta es cumplirla. */
+      const llega = meta.alto ? valor >= meta.valor : valor <= meta.valor;
+
+      /*
+      | Un recuento pequeño se juzga con su ruido (27/10/2026, ronda 9,
+      | análisis): con 0,71 contraataques de media, un 0 sale en uno de cada dos
+      | partidos (Poisson). Si lo que pasó sale así una de cada cuatro veces o
+      | más, es «=» (dentro de lo habitual), no ✗, y no pide consigna.
+      */
+      const azar = !llega ? probabilidadDeRecuento(principal) : null;
+
+      const veredicto: "si" | "no" | "igual" = llega ? "si" : azar !== null && azar >= 0.25 ? "igual" : "no";
+
+      const corta = azar !== null && azar >= 0.25 ? `; con nuestra media sale así en ${vecesDeCada(azar)}: no es un fallo` : muestraCorta(principal) ? "; un partido: lo tomamos como pista, no como regla" : "";
+
+      const resto = medibles.filter((m) => m !== principal).map(datoFrenteAMedia);
+
+      /* «1,50 o más»: alcanzarla es cumplirla, como juzga el veredicto (27/10/2026). */
+      const textoMeta = meta.texto ? minusculaInicial(meta.texto) : `${cifra(meta.valor, principal.unidad)} o ${meta.alto ? "más" : "menos"}`;
+
+      const dato = [`${nombreEnFrase(sinSiglas(principal.nombre))} ${cifraPartido(valor, principal.unidad)}${conRecuentoTexto(principal)} · meta: ${textoMeta}${corta}`, ...resto].join(" · ");
+
+      /* La misma cifra y la misma meta, en corto, para el vídeo (27/10/2026, ronda 9): «3,46 goles esperados (meta: 1,96 o más)». */
+      const metaCorta = meta.alto && RECUENTOS.has(principal.key) ? `al menos ${cifra(meta.valor, "entero")}` : `${cifra(meta.valor, principal.unidad)} o ${meta.alto ? "más" : "menos"}`;
+
+      const corto = `${cifraPartido(valor, principal.unidad)} ${NOMBRE_CORTO[principal.key] ?? nombreEnFrase(sinSiglas(principal.nombre))} (meta: ${metaCorta})`;
+
+      return { clave, tema: tema.tema, veredicto, dato: capital(dato), corto, lectura: LECTURA_TEMA[tema.tema]?.[veredicto], consigna: tema.consigna };
+    }
+
+    /* Sin meta: las dos métricas votan contra nuestra media; ✓ si alguna sale mejor y ninguna peor; ✗ al revés; si no, «=». */
     const votos = medibles.map(frenteAMedia);
 
     const veredicto = votos.includes("si") && !votos.includes("no") ? "si" : votos.includes("no") && !votos.includes("si") ? "no" : "igual";
 
-    return { clave, tema: tema.tema, veredicto, dato: capital(medibles.map(datoFrenteAMedia).join(" · ")), lectura: LECTURA_TEMA[tema.tema]?.[veredicto] };
+    return { clave, tema: tema.tema, veredicto, dato: capital(medibles.map(datoFrenteAMedia).join(" · ")), lectura: LECTURA_TEMA[tema.tema]?.[veredicto], consigna: tema.consigna };
   });
 }
 
@@ -2296,7 +2606,67 @@ const RIVAL_DE_TEMA: Record<string, string> = {
  * la misma con la que el post dirá si se cumplió. Un rival en la mediana se
  * dice: no se le vende como «se expondrá».
  */
-export function metaDeClave(inf: Pick<InformePartido, "duelo">, clave: string) {
+/** La palanca del pronóstico que mide cada tema del plan (25/10/2026). La posesión es un medio, no una meta: se mide con lo que genera. */
+const PALANCA_DE_TEMA: Record<string, Palanca["momento"]> = {
+  Posesión: "Con balón",
+  "Llegada y remate": "Con balón",
+  "Juego por fuera": "Con balón",
+  Progresión: "Con balón",
+  "Sin balón": "Sin balón",
+  "Balón parado": "Balón parado",
+};
+
+/** La métrica del partido con la que el post revisa cada palanca. */
+const METRICA_DE_PALANCA: Record<Palanca["momento"], string> = { "Con balón": "xg", "Sin balón": "xgContra", "Balón parado": "xgAbp" };
+
+export type MetaDeClave = {
+  tema: string;
+  /** La métrica del partido con la que se revisa en el post. */
+  metrica: string;
+  cifra: number;
+  sentido: "mas" | "menos";
+  /** «Que se queden en 1,08 goles esperados o menos (el pronóstico les da 1,35)». */
+  texto: string;
+};
+
+/**
+ * UNA meta por clave del plan (25/10/2026, análisis y fútbol), la misma en la
+ * diapositiva 3, en el capítulo del pronóstico y en el post, que la juzga
+ * contra esta cifra. Con pronóstico, la de su palanca; la transición (no tiene
+ * palanca), un recuento que se puede revisar: con 0,63 contraataques de
+ * media, «más de 0,63» no se podía juzgar con un partido.
+ */
+export function metaDePalanca(inf: Pick<InformePartido, "duelo" | "pronostico">, clave: string): MetaDeClave | null {
+  const tema = TEMAS_PLAN.find((t) => t.re.test(clave));
+
+  if (!tema) return null;
+
+  const momento = PALANCA_DE_TEMA[tema.tema];
+
+  const palanca = momento ? inf.pronostico?.palancas.find((p) => p.momento === momento) : undefined;
+
+  if (palanca) return { tema: tema.tema, metrica: METRICA_DE_PALANCA[palanca.momento], cifra: palanca.meta, sentido: palanca.momento === "Sin balón" ? "menos" : "mas", texto: textoDeMeta(palanca.momento, palanca.meta, palanca.desde) };
+
+  if (tema.tema === "Transición") {
+    const contras = inf.duelo?.metricas.find((m) => m.key === "contras")?.nosotros?.valor;
+
+    if (contras === undefined) return null;
+
+    const objetivo = contras < 2 ? Math.max(1, Math.ceil(contras)) : Math.round(contras * 1.15 * 10) / 10;
+
+    return { tema: tema.tema, metrica: "contras", cifra: objetivo, sentido: "mas", texto: `Al menos ${cifra(objetivo, contras < 2 ? "entero" : "decimal")} ${objetivo === 1 ? "contraataque" : "contraataques"} (nuestra media, ${cifra(contras, "decimal")})` };
+  }
+
+  return null;
+}
+
+/**
+ * Cada clave del plan con su dato de hoy, el del rival y su meta (24/10/2026,
+ * experto de análisis). La meta es la de `metaDePalanca`: la misma con la
+ * que el post dirá si se cumplió. Un rival en la mediana se dice: no se le
+ * vende como «se expondrá».
+ */
+export function metaDeClave(inf: Pick<InformePartido, "duelo" | "pronostico"> & Partial<Pick<InformePartido, "colectivo" | "plan">>, clave: string, opciones: { corta?: boolean } = {}) {
   const tema = TEMAS_PLAN.find((t) => t.re.test(clave));
 
   if (!tema) return "";
@@ -2305,30 +2675,70 @@ export function metaDeClave(inf: Pick<InformePartido, "duelo">, clave: string) {
 
   const de = inf.duelo?.equipos ?? 0;
 
-  const nuestra = tema.metricas.map((k) => ms.find((m) => m.key === k)).find((m) => m?.nosotros);
+  const meta = metaDePalanca(inf, clave);
 
-  if (!nuestra?.nosotros) return "";
+  /* El dato de hoy es el de la métrica de su meta (la posesión ya no es meta). */
+  const claveHoy = meta && meta.metrica !== "xgAbp" ? meta.metrica : null;
+
+  const nuestra = (claveHoy ? [claveHoy] : tema.metricas).map((k) => ms.find((m) => m.key === k)).find((m) => m?.nosotros);
 
   const puesto = (p: number) => (de ? ` (${ordinal(p)} de ${de})` : "");
 
-  const hoy = `Esta temporada, ${nombreEnFrase(sinSiglas(nuestra.nombre))} ${cifra(nuestra.nosotros.valor, nuestra.unidad)}${puesto(nuestra.nosotros.puesto)}`;
+  const hoy = nuestra?.nosotros ? `Esta temporada, ${nombreEnFrase(sinSiglas(nuestra.nombre))} ${cifra(nuestra.nosotros.valor, nuestra.unidad)}${puesto(nuestra.nosotros.puesto)}` : "";
 
-  const suya = ms.find((m) => m.key === (RIVAL_DE_TEMA[tema.tema] ?? nuestra.key) && m.rival);
+  /*
+  | El dato del rival es el que se enfrenta a la clave (26/10/2026, fútbol y
+  | guion): con balón, lo que ELLOS CONCEDEN (no lo que generan: eso es de la
+  | clave sin balón); sin balón, lo que generan. Una métrica del rival no
+  | apoya a dos claves.
+  */
+  const rivalKey = claveHoy === "xg" ? "xgContra" : claveHoy === "xgContra" ? "xg" : RIVAL_DE_TEMA[tema.tema] ?? nuestra?.key;
 
-  const tercio = de ? Math.ceil(de / 3) : 0;
+  const suya = ms.find((m) => m.key === rivalKey && m.rival);
 
-  const extremo = suya?.rival && tercio ? suya.rival.puesto <= tercio || suya.rival.puesto > de - tercio : true;
+  const top = de ? Math.max(3, Math.round(de * 0.25)) : 0;
 
-  const ellos = suya?.rival
-    ? `ellos, ${nombreEnFrase(sinSiglas(suya.nombre))} ${cifra(suya.rival.valor, suya.unidad)}${puesto(suya.rival.puesto)}${!extremo && suya.mediana !== null ? `, en la mediana (${cifra(suya.mediana, suya.unidad)})` : ""}`
-    : "";
+  let ellos = "";
 
-  const alto = nuestra.mejorAlto ?? SENTIDO_EN_META[nuestra.key] ?? null;
+  if (suya?.rival && (rivalKey === "xgContra" || rivalKey === "xg")) {
+    ellos = `ellos ${rivalKey === "xgContra" ? "conceden" : "generan"} ${cifra(suya.rival.valor, suya.unidad)}${puesto(suya.rival.puesto)}`;
+  } else if (tema.tema === "Transición") {
+    /*
+    | La transición se apoya en algo suyo que la sostenga (26/10/2026, fútbol):
+    | «pérdidas en campo propio, en la mediana» la desmentía. Que salen en
+    | corto (scouting) o que pierden muchos balones atrás; si no, no hay dato.
+    */
+    const perdidas = ms.find((m) => m.key === "perdidasBajas" && m.rival);
 
-  const meta = alto === null ? "" : `meta: ${alto ? "más de" : "menos de"} ${cifra(nuestra.nosotros.valor, nuestra.unidad)}`;
+    ellos = SALEN_EN_CORTO.test(textoScouting({ colectivo: inf.colectivo ?? null, plan: inf.plan ?? null }))
+      ? "ellos salen en corto (scouting)"
+      : perdidas?.rival && top && perdidas.rival.puesto >= de - top + 1
+        ? `ellos pierden balones atrás: ${cifra(perdidas.rival.valor, perdidas.unidad)}${puesto(perdidas.rival.puesto)}`
+        : "";
+  } else if (suya?.rival) {
+    const tercio = de ? Math.ceil(de / 3) : 0;
 
-  return [hoy, ellos, meta].filter(Boolean).join(" · ");
+    /* Un rival en la mediana no sostiene nada: no se imprime. */
+    const extremo = tercio ? suya.rival.puesto <= tercio || suya.rival.puesto > de - tercio : true;
+
+    ellos = extremo ? `ellos, ${nombreEnFrase(sinSiglas(suya.nombre))} ${cifra(suya.rival.valor, suya.unidad)}${puesto(suya.rival.puesto)}` : "";
+  }
+
+  /* En la diapositiva, la meta sin el pronóstico entre paréntesis: tres cifras en la línea (guion). */
+  const textoMeta = meta ? minusculaInicial(opciones.corta ? meta.texto.replace(/\s*\([^)]*\)\s*$/, "") : meta.texto) : "";
+
+  return [hoy, ellos, textoMeta ? `meta: ${textoMeta}` : ""].filter(Boolean).join(" · ");
 }
+
+/**
+ * «Base corta» era jerga de analista (26/10/2026, guion): se dice qué hacemos
+ * con la poca muestra. «…; un partido, base corta» → «…: es un solo partido,
+ * lo tomamos como pista, no como regla».
+ */
+export const conPocaMuestra = (texto: string) =>
+  texto
+    .replace(/[;,]?\s*un partido, base corta/g, ": es un solo partido, lo tomamos como pista, no como regla")
+    .replace(/[:;,·]?\s*base corta/g, ": pocas acciones, lo tomamos como pista, no como regla");
 
 /** La consigna de un tema del plan: «Sacamos más de cada robo». */
 export const consignaDeTema = (tema: string) => TEMAS_PLAN.find((t) => t.tema === tema)?.consigna ?? "";
@@ -2379,9 +2789,10 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
   const plan: string[] = [];
 
   for (const f of cumplimiento.filter((x) => x.veredicto === "no")) {
-    const primero = f.dato.split(" · ")[0];
+    /* Con su meta (26/10/2026): «contraataques 0; meta: más de 0,63». */
+    const [primero, segundo] = f.dato.split(" · ");
 
-    plan.push(`${consignaDeTema(f.tema) || f.tema} · ${minusculaInicial(primero)}`);
+    plan.push(`${consignaDeTema(f.tema) || f.tema} · ${minusculaInicial(primero)}${segundo?.startsWith("meta") ? `; ${segundo}` : ""}`);
   }
 
   const metas: string[] = [];
@@ -2409,17 +2820,15 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
   */
   const base = inf.golesTemporada?.cerradosConVentaja;
 
-  const baseCierre = base && base.partidos > 1 ? (base.veces <= 1 ? `; la primera vez en ${base.partidos} partidos` : `; nos ha pasado en ${base.veces} de ${base.partidos} partidos`) : "";
+  const baseCierre = base && base.partidos > 1 ? (base.veces <= 1 ? `; la primera vez esta temporada (en ${base.partidos} partidos)` : `; nos ha pasado en ${base.veces} de ${base.partidos} partidos`) : "";
 
   /*
-  | Lo aislado va al vídeo, lo que se repite al microciclo (25/10/2026, ronda
-  | 7, experto de fútbol): si es la primera vez en la temporada, el gol tardío
-  | no encabeza «Esta semana»; se enseña el lunes (ver `golesEnContraDe`).
+  | El gol tardío con ventaja ES la consigna de la semana (26/10/2026, ronda 8:
+  | fútbol y guion): contesta al giro del titular. Si es la primera vez se
+  | dice con su base honesta; ya no se manda «al vídeo del lunes».
   */
-  const aislado = Boolean(base && base.partidos > 1 && base.veces <= 1);
-
-  const cierre = tarde && !aislado
-    ? `Cerramos los partidos con ventaja · nos marcaron en el ${tarde.g.minuto}′ con ${tarde.antes.nos}-${tarde.antes.ellos}${roja && minutoNum(roja.minuto) < minutoNum(tarde.g.minuto) ? " y uno más" : ""}${baseCierre}`
+  const cierre = tarde
+    ? `Cerramos los partidos con ventaja · nos marcaron en el ${tarde.g.minuto}′ con ${tarde.antes.nos}-${tarde.antes.ellos}${roja && minutoNum(roja.minuto) < minutoNum(tarde.g.minuto) ? " y ellos con diez" : ""}${baseCierre}`
     : "";
 
   /* El balón parado que nos dio peligro en contra (lo trae la pincelada del informe de ABP). */
@@ -2470,8 +2879,13 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
     }
   }
 
-  /* Lo que tiene peso primero (24/10/2026): el gol que se nos escapó con el partido ganado y el balón parado que nos remató; luego el plan. */
-  return [cierre, abp, ...plan, ...metas, metrica, duelo, abpCorto].filter(Boolean).slice(0, 3);
+  /*
+  | Por daño (26/10/2026, ronda 8): la consigna que contesta al titular (el gol
+  | que se nos escapó con el partido ganado), las claves del plan que no
+  | llegaron a su meta y el balón parado (con muestra, «Defendemos…»; sin
+  | ella, «Vigilamos…»); luego las palancas, la métrica y el duelo.
+  */
+  return [cierre, ...plan, abp, abpCorto, ...metas, metrica, duelo].filter(Boolean).slice(0, 3);
 }
 
 /**
@@ -2499,10 +2913,14 @@ export function titularDelPlan(cumplimiento: FilaCumplimiento[], microciclo: str
   };
 
   if (medidas.length) {
+    /* «Cumplimos 2 de 3: mandamos y concedimos poco, pero al robar no salimos» (27/10/2026, guion): lo fallado tras un «pero»; lo habitual, tras punto y coma. */
     const bien = si.length ? yFinal(si.map(corto)) : "";
-    const resto = [...no, ...igual].map(corto).join("; ");
+    const mal = no.length ? yFinal(no.map(corto)) : "";
+    const igualTexto = igual.map(corto).join("; ");
 
-    return `Cumplimos ${si.length} de ${medidas.length}${bien ? `: ${bien}` : ""}${resto ? `${bien ? "; " : ": "}${resto}` : ""}`;
+    const cuerpo = [bien && mal ? `${bien}, pero ${mal}` : bien || mal, igualTexto].filter(Boolean).join("; ");
+
+    return `Cumplimos ${si.length} de ${medidas.length}${cuerpo ? `: ${cuerpo}` : ""}`;
   }
 
   const toca = microciclo[0]?.split(" · ")[0];
@@ -2535,9 +2953,52 @@ export function dueloDeLaIdea(inf: Pick<InformePartido, "duelosJugadores">, idea
   return duelo ? { nombre, duelo, conEl: Boolean(conEl) } : { nombre, duelo: null, conEl: false };
 }
 
+/**
+ * Los duelos que enseña la lámina, en su orden (25/10/2026): los mismos para
+ * la lámina, su titular y LA IDEA. Sólo los de su once; en el post, dos por
+ * lado (debajo va «ESTA SEMANA»).
+ */
+export function duelosDeLaLamina(inf: Pick<InformePartido, "duelosJugadores" | "once" | "momento">) {
+  const post = inf.momento === "post";
+
+  const enOnce = (x: DueloJugadores) => dueloEnSuOnce(x, inf.once.jugadores);
+
+  const atacar = duelosParaAtacar(inf.duelosJugadores)
+    .filter(enOnce)
+    .slice(0, 3)
+    .sort((a, b) => (ventajaVisible(b, "con") ?? 0) - (ventajaVisible(a, "con") ?? 0))
+    .slice(0, post ? 2 : 3);
+
+  const vigilar = duelosParaVigilar(inf.duelosJugadores)
+    .filter(enOnce)
+    .slice(0, 3)
+    .sort((a, b) => (ventajaVisible(a, "sin") ?? 0) - (ventajaVisible(b, "sin") ?? 0))
+    .slice(0, post ? 2 : 3);
+
+  return { atacar, vigilar };
+}
+
+/**
+ * LA IDEA que nombra a un defensor suyo sólo se sostiene con su duelo MEDIDO y
+ * a la vista (25/10/2026, fútbol, análisis y guion: «La espalda de Gomez la
+ * atacamos con Carvajal» y en la lámina no había ni Carvajal ni Gomez). Sin
+ * defensor nombrado, no hace falta duelo.
+ */
+export function dueloVisibleDeLaIdea(inf: Pick<InformePartido, "duelosJugadores" | "once" | "momento">, idea: string) {
+  const d = dueloDeLaIdea(inf, idea);
+
+  if (!d?.duelo || !d.conEl) return null;
+
+  const { atacar } = duelosDeLaLamina(inf);
+
+  return atacar.includes(d.duelo) && (ventajaVisible(d.duelo, "con") ?? 0) > 0 ? d : null;
+}
+
+const nombraDefensor = (idea: string) => /espalda de \p{Lu}/u.test(idea);
+
 export function titularDuelos(inf: Pick<InformePartido, "duelosJugadores" | "once" | "momento">, idea = "") {
-  /* Previa: la 2/3 cuenta LA IDEA desde el duelo que la explota (24/10/2026). */
-  const deLaIdea = inf.momento === "post" ? null : dueloDeLaIdea(inf, idea);
+  /* Previa: la 2/3 cuenta LA IDEA desde el duelo que la explota, si se ve en la lámina (25/10/2026). */
+  const deLaIdea = inf.momento === "post" ? null : dueloVisibleDeLaIdea(inf, idea);
 
   if (deLaIdea?.duelo) {
     const quien = apellidos(deLaIdea.duelo.nuestros);
@@ -2642,14 +3103,22 @@ export function titularPost(inf: Omit<InformePartido, "sintesis">, { sinMarcador
   | Los goles esperados bajan al subtítulo.
   */
   if (giro.resultado === "victoria" && giro.tardio) {
-    const conUnoMas = giro.unoMas && minutoNum(giro.unoMas.minuto) < minutoNum(giro.tardio) ? "con uno más " : "";
-
     /*
     | Una idea (24/10/2026, marketing): «Remontamos 3-2 y dominamos, pero…»
     | eran dos verbos y la remontada fue el 2-1, no el 3-2. El dominio baja
     | al subtítulo.
+    |
+    | Sin poder leerse al revés (26/10/2026, guion): «con uno más» no decía
+    | quién lo tenía. «Ganamos 3-2, pero con 3-1 y ellos con diez nos
+    | marcaron en el 90+1′».
     */
-    return `Ganamos${m}, pero ${conUnoMas}nos marcaron en el ${giro.tardio}′`;
+    const paso = marcadorPorGoles(inf.cronica?.goles ?? []).find((x) => !x.g.nuestro && x.g.minuto === giro.tardio && x.antes.nos > x.antes.ellos);
+
+    const diez = giro.unoMas && minutoNum(giro.unoMas.minuto) < minutoNum(giro.tardio) ? "ellos con diez" : "";
+
+    const como = [paso ? `con ${paso.antes.nos}-${paso.antes.ellos}` : "", diez].filter(Boolean).join(" y ");
+
+    return `Ganamos${m}, pero ${como ? `${como} ` : ""}nos marcaron en el ${giro.tardio}′`;
   }
 
   if (giro.dominio === "nuestro") {
@@ -2666,9 +3135,19 @@ export function titularPost(inf: Omit<InformePartido, "sintesis">, { sinMarcador
 
 /** «Esta semana: cerrar los partidos con ventaja y defender la falta lateral directa». */
 export function titularEstaSemana(microciclo: string[]) {
-  const tareas = microciclo.slice(0, 3).map((t) => minusculaInicial(enInfinitivo(t.split(" · ")[0].trim()))).filter(Boolean);
+  /*
+  | UNA consigna en el titular (27/10/2026, ronda 9, guion): la principal, la
+  | misma que cierra el vídeo, en presente y con su porqué. Las otras van sólo
+  | en la lista de debajo. «Esta semana cerramos los partidos con ventaja: nos
+  | marcaron en el 90+1′ con 3-1 y ellos con diez».
+  */
+  const principal = consignaPrincipal(microciclo);
 
-  return tareas.length ? `Esta semana: ${yFinal(tareas)}` : "";
+  if (!principal) return "";
+
+  const porque = principal.dato.split(/[;(]/)[0].trim();
+
+  return `Esta semana ${minusculaInicial(principal.consigna)}${porque ? `: ${porque}` : ""}`;
 }
 
 /**
@@ -2747,7 +3226,7 @@ export function asuntoInforme(inf: InformePartido, tipo: "resumen" | "completo")
       .sort((a, b) => b.llenos - a.llenos || b.texto.length - a.texto.length)[0];
 
     /* La acción, como en la previa (24/10/2026, marketing): «J8 · Ganamos 3-2 al Antequera CF · Esta semana: cerrar con ventaja». */
-    const toca = inf.sintesis.microciclo[0]?.split(" · ")[0];
+    const toca = consignaPrincipal(inf.sintesis.microciclo)?.consigna;
 
     const conAccion = toca ? `${base} · Esta semana: ${minusculaInicial(enInfinitivo(toca))}` : "";
 
@@ -2785,7 +3264,7 @@ export function preencabezadoInforme(inf: InformePartido) {
   const s = inf.sintesis;
 
   if (inf.momento === "post") {
-    const [consigna, dato] = (s.microciclo[0] ?? "").split(" · ");
+    const { consigna, dato } = consignaPrincipal(s.microciclo) ?? { consigna: "", dato: "" };
 
     return consigna ? `Esta semana: ${minusculaInicial(consigna)}${dato ? ` (${dato})` : ""}` : s.subtitular || s.titular;
   }
@@ -2990,10 +3469,10 @@ export function avisosDeLaSemana(inf: InformePartido) {
 
   if (anterior.length) avisos.push(`Lo que pidió el ${s.delPostAnterior[0]?.origen || "post anterior"} y no tiene tarea esta semana: ${yFinal(anterior.map((c) => `«${c}»`))}.`);
 
-  /* LA IDEA nombra a un defensor que no sale en los duelos (24/10/2026): el duelo de nuestro delantero se calculó con otros centrales. */
-  const deLaIdea = dueloDeLaIdea(inf, s.consigna[0] ?? "");
+  /* Una línea del plan nombra a un defensor sin duelo medido (25/10/2026): no puede ser LA IDEA; se le dice al analista. */
+  const deLaIdea = s.ideaSinDuelo ? dueloDeLaIdea(inf, s.ideaSinDuelo) : null;
 
-  if (deLaIdea && !deLaIdea.conEl) avisos.push(`LA IDEA ataca a ${deLaIdea.nombre}, pero ${deLaIdea.nombre} no sale en los duelos (su once en Duelos tiene a ${deLaIdea.duelo ? apellidos(deLaIdea.duelo.suyos) : "otros centrales"}): revisa el once del rival en Duelos para que la cifra sea la de ${deLaIdea.nombre}.`);
+  if (deLaIdea) avisos.push(`«${s.ideaSinDuelo}» no es LA IDEA: ${deLaIdea.nombre} no sale en los duelos medidos${deLaIdea.duelo && !deLaIdea.conEl ? ` (su once en Duelos tiene a ${apellidos(deLaIdea.duelo.suyos)})` : ""}. Si juega, corrige su once en Duelos y volverá a serlo.`);
 
   return avisos;
 }
@@ -3019,12 +3498,33 @@ export function whatsappInforme(inf: InformePartido): { titular: string; lineas:
 
     const giro = titularPost(inf, { sinMarcador: true });
 
-    /* Las tres tareas, no sólo la primera (24/10/2026, marketing), en infinitivo y separadas. */
-    const tocas = s.microciclo.map((x) => minusculaInicial(enInfinitivo(x.split(" · ")[0]))).filter(Boolean);
+    /*
+    | La consigna principal, la misma que la diapositiva 3 y el cierre del vídeo
+    | (26/10/2026, ronda 8), con su dato; las demás, detrás.
+    */
+    const principal = consignaPrincipal(s.microciclo);
+
+    const demas = s.microciclo.slice(1).map((x) => minusculaInicial(enInfinitivo(x.split(" · ")[0]))).filter(Boolean);
+
+    /*
+    | El dato sin repetir lo que ya dice el titular (26/10/2026): si el primer
+    | trozo nombra el mismo minuto que el giro, va el siguiente («la primera vez
+    | esta temporada»); y sin paréntesis dentro de paréntesis.
+    */
+    const trozos = (principal?.dato ?? "").split(";").map((x) => x.trim().replace(/\s*\([^)]*\)$/, "")).filter(Boolean);
+
+    const minutoDe = (t: string) => /\d+(?:\+\d+)?′/.exec(t)?.[0] ?? "";
+
+    const datoCorto = trozos.length > 1 && minutoDe(trozos[0]) && giro.includes(minutoDe(trozos[0])) ? trozos[1] : (trozos[0] ?? "");
 
     return {
       titular: `${j}${marcador}`,
-      lineas: [/[.?!]$/.test(giro) ? giro : `${giro}.`, s.subtitular ? `${s.subtitular}.` : "", tocas.length ? `Esta semana: ${tocas.join(" · ")}.` : ""].filter(Boolean),
+      lineas: [
+        /[.?!]$/.test(giro) ? giro : `${giro}.`,
+        s.subtitular ? `${s.subtitular}.` : "",
+        principal ? `Esta semana: ${minusculaInicial(enInfinitivo(principal.consigna))}${datoCorto ? ` (${datoCorto})` : ""}.` : "",
+        demas.length ? `Y además: ${demas.join(" · ")}.` : "",
+      ].filter(Boolean),
     };
   }
 
@@ -3079,13 +3579,36 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
 
   const conTarea = (c: string) => tareasDeConsigna(c, inf.microciclo).length > 0;
 
-  const principal = hayTareas ? candidatas.find(conTarea) ?? candidatas[0] ?? "" : candidatas[0] ?? "";
+  /* Y si nombra a un defensor suyo, con su duelo medido y a la vista (25/10/2026): si no, va al aviso y manda la siguiente. */
+  const sostenida = (c: string) => !nombraDefensor(c) || Boolean(dueloVisibleDeLaIdea(inf, c));
+
+  /* El balón parado tiene su bloque y su consigna (la del informe de ABP): no es LA IDEA salvo que no haya otra (25/10/2026). */
+  const deJuego = (c: string) => !/bal[oó]n parado|\babp\b|c[oó]rner|faltas? lateral/i.test(c);
+
+  /*
+  | La idea que da el mejor duelo medido de la lámina (25/10/2026, fútbol y
+  | guion): si ninguna línea del plan se sostiene con duelo y tarea, LA IDEA
+  | es la que la 2/3 enseña con su cifra («Atacamos por la derecha con
+  | Fortuny»), antes que el balón parado.
+  */
+  const mejorDuelo = esPost ? undefined : duelosDeLaLamina(inf).atacar.find((x) => (ventajaVisible(x, "con") ?? 0) > 0);
+
+  const delDuelo = mejorDuelo ? `Atacamos ${LUGAR_ATAQUE[mejorDuelo.clave] ?? ""} con ${apellidos(mejorDuelo.nuestros)}`.replace(/\s+/g, " ").trim() : "";
+
+  const validas = [...new Set([...candidatas.filter((c) => sostenida(c) && deJuego(c)), delDuelo, ...candidatas.filter((c) => sostenida(c) && !deJuego(c))].filter(Boolean))];
+
+  const elegibles = validas.length ? validas : candidatas;
+
+  const principal = hayTareas ? elegibles.find(conTarea) ?? elegibles[0] ?? "" : elegibles[0] ?? "";
+
+  const ideaSinDuelo = esPost ? "" : candidatas.find((c) => !sostenida(c) && (!hayTareas || conTarea(c))) ?? "";
 
   const ideaSinTarea = hayTareas && respuesta && respuesta !== principal && !conTarea(respuesta) ? respuesta : "";
 
   const plan = principal ? [...planBase.filter((l) => consignaDe(l.texto) === principal), ...planBase.filter((l) => consignaDe(l.texto) !== principal)] : planBase;
 
-  const consigna = esPost ? [] : [principal, ...candidatas.filter((c) => c !== principal)].filter(Boolean).slice(0, 3);
+  /* Las consignas, sin la que nombra a un defensor sin duelo medido (va al aviso, 25/10/2026). */
+  const consigna = esPost ? [] : [principal, ...candidatas.filter((c) => c !== principal && sostenida(c))].filter(Boolean).slice(0, 3);
 
   /* LA IDEA: la principal y, si la hay, otra que también se entrena. La misma en la diapositiva 3, la portada del completo, el WhatsApp y el vídeo. */
   /* Sin el balón parado (tiene su bloque) ni otra que nombre al mismo jugador: «…la espalda de Gomez y marcamos a Carmona y Gomez…» era dos ideas y un nombre repetido (24/10/2026). */
@@ -3107,7 +3630,7 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
         .map((l) => {
           const [c, ...dato] = l.split(" · ");
 
-          return { origen: inf.postAnterior?.etiqueta ?? "", consigna: c.trim(), dato: dato.join(" · ").trim(), tareas: tareasDeConsigna(c, inf.microciclo).slice(0, 3) };
+          return { origen: inf.postAnterior?.etiqueta ?? "", consigna: c.trim(), dato: conPocaMuestra(dato.join(" · ").trim()), tareas: tareasDeConsigna(c, inf.microciclo, { minutos: true }).slice(0, 3) };
         })
         .filter((x) => x.consigna);
 
@@ -3210,7 +3733,18 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
             : `${inf.partido.lado === "fuera" ? "Visitamos al" : "Recibimos al"} ${rival}${inf.contexto?.puesto ? `, ${ordinal(inf.contexto.puesto)} de la tabla` : ""}`;
 
   /* Previa: el titular sale de la idea principal (24/10/2026); sin ella, del dato. */
-  const titular = esPost ? titularPost(inf) : titularDePrevia(inf, consigna[0] ?? "") || titularDato;
+  const deLaIdea = esPost ? "" : titularDePrevia(inf, consigna[0] ?? "");
+
+  const titular = esPost ? titularPost(inf) : deLaIdea || titularDato;
+
+  /*
+  | Lo que responde al titular de la 1/3 (26/10/2026, guion): el cierre de la
+  | 3/3 contesta a la pregunta que abrió el informe. Con la idea, su consigna;
+  | con el dato de la segunda jugada, ganarla.
+  */
+  const respuestaGancho = esPost ? "" : deLaIdea ? consigna[0] ?? "" : segunda ? "Ganamos la segunda jugada" : "";
+
+  const gancho = /segunda jugada/i.test(respuestaGancho) && !/largo/i.test(respuestaGancho) && segunda ? `${respuestaGancho.replace(/[.]$/, "")} de su balón largo` : respuestaGancho;
 
   const roja = (inf.cronica?.tarjetas ?? []).find((t) => t.tipo === "roja");
 
@@ -3290,6 +3824,9 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
     consignaTareas,
     delPostAnterior,
     ideaSinTarea,
+    ideaSinDuelo,
+    gancho,
+    metas: esPost ? [] : (inf.plan?.claves ?? []).flatMap((clave) => { const m = metaDePalanca(inf, clave); return m ? [{ ...m, clave }] : []; }),
     notaRoja,
     golesEnContra,
   };
@@ -3313,7 +3850,7 @@ export function titularGolesEnContra(cronica: Cronica | null) {
   const como = ({ g, antes }: (typeof suyos)[number]) => {
     const unoMas = roja && minutoNum(roja.minuto) < minutoNum(g.minuto);
 
-    const ventaja = antes.nos > antes.ellos ? ` con ${antes.nos}-${antes.ellos}${unoMas ? " y uno más" : ""}` : unoMas ? " con uno más" : "";
+    const ventaja = antes.nos > antes.ellos ? ` con ${antes.nos}-${antes.ellos}${unoMas ? " y ellos con diez" : ""}` : unoMas ? ", ellos ya con diez" : "";
 
     return g.tipo === "propia" ? `en propia en el ${g.minuto}′` : g.tipo === "penalti" ? `de penalti en el ${g.minuto}′${ventaja}` : `en el ${g.minuto}′${ventaja}`;
   };
@@ -3335,7 +3872,30 @@ export function nombreMetricaPartido(m: { key: string; nombre: string }, cronica
 }
 
 /** Los goles van en entero: «3», no «3,00». */
-export const unidadPartido = (m: { key: string; unidad: string }) => (m.key === "goles" || m.key === "golesContra" ? "entero" : m.unidad);
+export const unidadPartido = (m: { key: string; unidad: string }) => (m.key === "goles" || m.key === "golesContra" || RECUENTOS.has(m.key) || NUMEROS_ENTEROS.has(m.key) ? "entero" : m.unidad);
+
+/* Los recuentos de un partido van sin decimales: «10 centros», no «10,0» (27/10/2026, ronda 9, análisis). */
+const NUMEROS_ENTEROS = new Set(["tiros", "tirosContra", "tirosContraPuerta", "centros", "entradasArea", "toquesArea", "pasesProgresivos", "pasesUltimoTercio", "faltasTiro", "recuperaciones", "perdidas"]);
+
+/**
+ * La lectura de una fila de «El partido en datos» (27/10/2026, ronda 9,
+ * análisis): mejor, peor o dentro de lo habitual, con el sentido de cada
+ * métrica (menos es mejor en pérdidas, PPDA o goles en contra) y la misma
+ * regla que el plan. Sin sentido (la posesión) o con menos de 10 casos debajo
+ * de un porcentaje, sin lectura.
+ */
+export function lecturaDeFilaDelPartido(m: MetricaPartido): "mejor" | "peor" | "habitual" | "" {
+  if (m.nuestro === null || m.media === null || m.mejorAlto === null) return "";
+
+  if (baseMenorDeDiez(m)) return "";
+
+  const v = frenteAMedia(m);
+
+  return v === "si" ? "mejor" : v === "no" ? "peor" : "habitual";
+}
+
+/** Un porcentaje de UN partido con menos de 10 casos debajo («3 de 4»): no se compara con la media. */
+export const baseMenorDeDiez = (m: { unidad: string; recuento?: { de: number; total: number } | null }) => m.unidad === "porcentaje" && Boolean(m.recuento && m.recuento.total < 10);
 
 export function golesEnContraDe(cronica: Cronica | null, fases?: Record<string, string>, opciones: { /** El gol tardío con ventaja es la primera vez en la temporada: va al vídeo, no al microciclo. */ tardeAislado?: boolean } = {}) {
   if (!cronica) return [] as string[];
@@ -3357,19 +3917,20 @@ export function golesEnContraDe(cronica: Cronica | null, fases?: Record<string, 
 
       const contexto =
         antes.nos > antes.ellos
-          ? `con ${antes.nos}-${antes.ellos} a favor${conUnoMas ? " y uno más" : ""}`
+          ? `con ${antes.nos}-${antes.ellos} a favor${conUnoMas ? " y ellos con diez" : ""}`
           : i === 0
             ? "el primero del partido"
             : conUnoMas
-              ? "con uno más"
+              ? "ellos ya con diez"
               : "";
 
       /* La fase, si el coding de Hudl la clasificó (25/10/2026); el gol en propia ya dice lo que es. */
       const fase = g.tipo !== "propia" ? (fases?.[String(g.minuto).replace(/[′'\s]/g, "")] ?? "") : "";
 
-      const alVideo = opciones.tardeAislado && antes.nos > antes.ellos && minutoNum(g.minuto) >= 80 ? "para el vídeo del lunes: la primera vez esta temporada" : "";
+      /* Sin «para el vídeo del lunes» (26/10/2026): era una nota del analista; la base honesta va en la consigna. */
+      void opciones;
 
-      return [`${g.minuto}′`, `${tras.nos}-${tras.ellos}`, quien, fase, contexto, alVideo].filter(Boolean).join(" · ");
+      return [`${g.minuto}′`, `${tras.nos}-${tras.ellos}`, quien, fase, contexto].filter(Boolean).join(" · ");
     })
     .filter(Boolean);
 }

@@ -276,7 +276,7 @@ const ordinal = (n: number) => `${n}º`;
 /** «Toques por entrada» → «toques por entrada», pero «PPDA» se queda como está. */
 const enFrase = (t: string) => (/^\p{Lu}\p{Ll}/u.test(t) ? t[0].toLowerCase() + t.slice(1) : t);
 
-export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: PerfilColectivo | null, plantilla: JugadorEquipo[]): string[] {
+export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: PerfilColectivo | null, plantilla: JugadorEquipo[], minimoMinutos = 270): string[] {
   const frases: string[] = [];
   if (resumen.partidos) {
     const ppp = (resumen.puntos / resumen.partidos).toFixed(2).replace(".", ",");
@@ -299,14 +299,14 @@ export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: Perfi
     /* «Lo mejor» de algo por debajo de la mediana no es lo mejor (23/10/2026): si ninguna fase pasa de P50, se dice. */
     /* «Resultado» no es una fase de juego, pero sale en la misma tabla: si queda por encima, se dice, para que la frase no choque con la tabla (24/10/2026). */
     const resultado = perfil.fases.find((f) => f.fase === "general" && f.percentil !== null);
-    const yResultado = resultado && (resultado.percentil ?? 0) > (mejorFase[0]?.percentil ?? 0) ? `; en resultados, P${resultado.percentil}` : "";
+    const yResultado = resultado && (resultado.percentil ?? 0) > (mejorFase[0]?.percentil ?? 0) ? `; en resultados, ${resultado.percentil} de 100` : "";
     if (mejorFase.length >= 2 && (mejorFase[0].percentil ?? 0) < 50) {
       frases.push(
-        `Ninguna fase de su juego pasa de la mediana (la mejor, ${mejorFase[0].label.toLowerCase()}, P${mejorFase[0].percentil}); la más floja, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (P${mejorFase[mejorFase.length - 1].percentil})${yResultado}.`,
+        `Ninguna fase de su juego pasa de la mediana (la mejor, ${mejorFase[0].label.toLowerCase()}, ${mejorFase[0].percentil} de 100); la más floja, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (${mejorFase[mejorFase.length - 1].percentil} de 100)${yResultado}.`,
       );
     } else if (mejorFase.length >= 2) {
       frases.push(
-        `Lo mejor de su juego, ${mejorFase[0].label.toLowerCase()} (P${mejorFase[0].percentil}); lo más flojo, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (P${mejorFase[mejorFase.length - 1].percentil}).`,
+        `Lo mejor de su juego, ${mejorFase[0].label.toLowerCase()} (${mejorFase[0].percentil} de 100); lo más flojo, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (${mejorFase[mejorFase.length - 1].percentil} de 100).`,
       );
     }
     if (perfil.fuertes.length)
@@ -315,7 +315,8 @@ export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: Perfi
       frases.push(`Sufre en ${perfil.flojos.slice(0, 3).map((x) => `${enFrase(x.metrica.nombre)} (${ordinal(x.puesto)} de ${x.de})`).join(", ")}.`);
   }
   const goleador = [...plantilla].sort((a, b) => b.goles - a.goles)[0];
-  const mejor = [...plantilla].filter((j) => j.indice !== null && j.fila.minutos >= 270).sort((a, b) => (b.indice ?? 0) - (a.indice ?? 0))[0];
+  /* El mismo mínimo que la lista que va al lado (26/10/2026): el informe del partido pide 450′. */
+  const mejor = [...plantilla].filter((j) => j.indice !== null && j.fila.minutos >= minimoMinutos).sort((a, b) => (b.indice ?? 0) - (a.indice ?? 0))[0];
   if (goleador && goleador.goles > 0)
     frases.push(`Su goleador, ${goleador.fila.jugador} (${goleador.goles} ${goleador.goles === 1 ? "gol" : "goles"}).${
       mejor && mejor !== goleador ? ` El que más rinde para su puesto: ${mejor.fila.jugador} (índice ${mejor.indice}).` : ""
