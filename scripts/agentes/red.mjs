@@ -389,10 +389,11 @@ async function main() {
     const comun = [
       "Material en .cache/expertos/:",
       "- informes/: los cuatro informes TAL COMO LOS VE EL CUERPO TÉCNICO hoy (sin enviar): partido-previa-resumen.txt y partido-previa-informe-completo.txt (previa J9 Algeciras), partido-post-resumen.txt y partido-post-informe-completo.txt (post J8 Antequera 3-2), abp-previa.txt y abp-post.txt; sus capturas (*.jpg) y los PDF que saca cada diálogo en informes/<informe>-pdf/.",
-      "- muestra-video/hoja.png: todas las escenas del vídeo de informe (datos inventados).",
-      "Código: components/informe-partido/ (diálogo, Diapositivas.tsx), lib/informe-partido/ (modelo, textos), components/abp/InformeMicroDialog.tsx y lib/abp/informe-micro.ts (ABP), lib/video-informe/ (guion.ts, dibujo.ts, monta.ts), app/analisis-entrenamiento/ y lib/entreno/ (análisis de entrenamiento: objetivos individuales medidos con IA sobre el vídeo de la sesión, con clips de lo correcto y lo mejorable).",
+      "- muestra-video/hoja.png: todas las escenas del vídeo de informe del cuerpo técnico, horizontal (datos inventados); muestra-video/vertical.png y vertical-miniatura.png: la pieza de consignas para los jugadores, vertical 9:16 para WhatsApp, y su miniatura.",
+      "Código: components/informe-partido/ (diálogo, Diapositivas.tsx), lib/informe-partido/ (modelo, textos), components/abp/InformeMicroDialog.tsx y lib/abp/informe-micro.ts (ABP), lib/video-informe/ (guion.ts, dibujo.ts, vertical.ts, monta.ts) y el catálogo «Vídeos de la semana» (components/informe-partido/VideosDeLaSemana.tsx), app/analisis-entrenamiento/ y lib/entreno/ (con plantillas.ts: del «Qué toca» del post a un objetivo medible; análisis de entrenamiento: objetivos individuales medidos con IA sobre el vídeo de la sesión, con clips de lo correcto y lo mejorable).",
       "Contexto: AGENTS.md, agentes/README.md. Reglas del usuario: lo que no tiene dato no se nombra en un informe; español de España; todo gratis (sin servicios de pago).",
       "Da como mucho 12 mejoras, las de más impacto primero, concretas y programables en esta plataforma.",
+      "Pon la nota con la escala fija del esquema (7 = notable: útil, coherente y sin errores de dato ni de lectura). Si no llega a 7, «para_notable» es la lista cerrada y mínima de lo imprescindible para el 7: si se arregla eso, la siguiente vez le pones un 7.",
     ].join("\n");
     const foco = {
       "experto-futbol": "¿Sirven los cuatro informes y el análisis de entrenamiento para preparar y corregir de verdad? Qué falta, qué sobra, qué orden, qué conclusiones accionables.",

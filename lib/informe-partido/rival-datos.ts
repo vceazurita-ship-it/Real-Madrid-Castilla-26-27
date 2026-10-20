@@ -15,7 +15,7 @@
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { formatea, temporadaDe } from "@/lib/data-analisis/metricas";
 import { PUESTOS } from "@/lib/data-analisis/individual";
-import { perfilDe, plantillaDe, resumenDe, sintesisDe } from "@/lib/data-analisis/equipo";
+import { perfilDe, plantillaDe, resumenDe, sintesisDe, type MetricaEquipo, type PerfilColectivo } from "@/lib/data-analisis/equipo";
 import { alcanceWyscout, type PartidoCalendario } from "@/lib/data-analisis/alcance";
 import { duelosDelPartido, type FichaPropia } from "@/lib/duelos-onces";
 import { normalizaDuelos } from "@/lib/duelos";
@@ -49,6 +49,20 @@ async function leeWyscout(): Promise<{ partidos: FilaPartido[]; jugadores: FilaJ
   } catch {
     return null;
   }
+}
+
+/** Métricas que no dicen si el rival es mejor o peor: volumen o disciplina. */
+const SIN_SENTIDO_CLARO = new Set(["perdidas", "faltas", "amarillas", "rojas", "faltasPorAmarilla", "toquesPorEntrada"]);
+
+/** Un porcentaje en 0 o 100, o un recuento en 0, es un artefacto de muestra. */
+const esArtefacto = (x: MetricaEquipo) => (x.metrica.unidad === "porcentaje" && (x.valor >= 99.5 || x.valor <= 0.5)) || x.valor === 0;
+
+const valeParaDestacar = (x: MetricaEquipo) => !SIN_SENTIDO_CLARO.has(x.metrica.key) && !esArtefacto(x);
+
+function limpiaPerfil(perfil: PerfilColectivo | null): PerfilColectivo | null {
+  if (!perfil) return null;
+
+  return { ...perfil, fuertes: perfil.fuertes.filter(valeParaDestacar), flojos: perfil.flojos.filter(valeParaDestacar) };
 }
 
 export async function duelosYVistazo(entrada: {
@@ -113,6 +127,13 @@ export async function duelosYVistazo(entrada: {
   }
 
   /* ---------------- el rival de un vistazo ---------------- */
+  /*
+  | «Destaca / Sufre» sin artefactos (23/10/2026, experto de análisis): un
+  | «Entradas logradas 100 % (1.º)» o «Tarjetas rojas 0 (1.º)» es muestra
+  | pequeña, no una virtud; «Pérdidas» totales o «Faltas por amarilla» no
+  | dicen si es bueno o malo. Fuera las métricas sin sentido claro y los
+  | porcentajes en 0 o 100.
+  */
   const ultima = wy.partidos.map((p) => p.fecha).sort().pop() ?? "";
   const deLaTemporada = wy.partidos.filter((p) => temporadaDe(p.fecha) === temporadaDe(ultima));
   const equipos = [...new Set(deLaTemporada.map((p) => p.equipo))];
@@ -121,7 +142,7 @@ export async function duelosYVistazo(entrada: {
   let vistazo: VistazoRival | null = null;
   if (equipo) {
     const resumen = resumenDe(equipo, deLaTemporada, deLaTemporada);
-    const perfil = perfilDe(equipo, deLaTemporada);
+    const perfil = limpiaPerfil(perfilDe(equipo, deLaTemporada));
     const plantilla = plantillaDe(equipo, wy.jugadores);
     const alcance = alcanceWyscout(wy.partidos, entrada.calendario, claveDeHoy());
     const met = (x: { metrica: { nombre: string; unidad: Parameters<typeof formatea>[1] }; valor: number; puesto: number; de: number }) => ({

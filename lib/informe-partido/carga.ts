@@ -29,12 +29,16 @@ import { cargaPlantilla } from "@/hooks/usePlayers";
 import { duelosYVistazo } from "@/lib/informe-partido/rival-datos";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
+import { golesTemporadaDe } from "./goles-temporada";
 import { explicaDano, fraseDeFase, fraseUtil, mismoJugador, pronostica, type Cronica } from "./modelo";
 import type { CortePartido } from "@/lib/video-informe/guion";
 import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
 
 import {
   enFrases,
+  avisosDelPlan,
+  avisosDeLaSemana,
+  planSinHeredado,
   sintetiza,
   type Colectivo,
   type ContextoRival,
@@ -176,7 +180,8 @@ function microDe(tareas: RegistroTarea[], temporada: string, micro: number, riva
         ? Math.round((valoradas.reduce((s, t) => s + t.evaluacion, 0) / valoradas.length) * 10) / 10
         : null,
     },
-    contenidos: sumaPor((t) => t.contenidoPrincipal).slice(0, 8),
+    /* Todos (24/10/2026): con ocho, «Qué se ha trabajado» sumaba 320′ de 340′. */
+    contenidos: sumaPor((t) => t.contenidoPrincipal),
     fases: sumaPor((t) => t.fase).slice(0, 6),
   };
 }
@@ -270,11 +275,30 @@ function codigoDeLado(posicion: string) {
 
 /** Un once de BeSoccer con las fichas de la hoja (por nombre: BeSoccer no lleva el id de la foto). */
 function jugadoresDeOnce(once: OncePartido, plantilla: JugadorRival[]): JugadorRival[] {
-  return [...once.jugadores].sort((a, b) => (a.puesto || 99) - (b.puesto || 99)).map((uno) => {
-    const enHoja = plantilla.find((j) => mismoJugador(j.nombre, uno.nombre));
+  /*
+  | Varios con el mismo apellido (22/10/2026): BeSoccer dio «PEREZ» y se cogía
+  | el primer Pérez de la hoja, Samu, portero, en lugar de Iván, el central
+  | expulsado: salían dos porteros y el duelo de centrales se puntuaba con un
+  | portero. Entre los candidatos manda el dorsal, luego la línea, y nadie se
+  | usa dos veces.
+  */
+  const usados = new Set<string>();
 
+  return [...once.jugadores].sort((a, b) => (a.puesto || 99) - (b.puesto || 99)).map((uno) => {
     const linea: JugadorRival["linea"] =
       uno.demarcacion === "PT" ? "POR" : uno.demarcacion === "DF" ? "DEF" : uno.demarcacion === "MC" ? "MED" : uno.demarcacion === "DL" ? "DEL" : "";
+
+    const candidatos = plantilla.filter((j) => !usados.has(j.clave) && mismoJugador(j.nombre, uno.nombre));
+
+    const dorsal = String(uno.dorsal ?? "").trim();
+
+    const enHoja =
+      (dorsal ? candidatos.find((j) => String(j.dorsal).trim() === dorsal) : undefined) ??
+      (linea ? candidatos.find((j) => j.linea === linea) : undefined) ??
+      (linea && linea !== "POR" ? candidatos.find((j) => j.linea !== "POR") : undefined) ??
+      candidatos[0];
+
+    if (enHoja) usados.add(enHoja.clave);
 
     return enHoja
       ? { ...enHoja, linea: linea || enHoja.linea }
@@ -299,6 +323,21 @@ function jugadoresDeOnce(once: OncePartido, plantilla: JugadorRival[]): JugadorR
           minutos: null,
         } satisfies JugadorRival);
   });
+}
+
+/** Quita los duelos con jugadores del once que no se sostiene, y lo dice al analista. */
+function duelosSinDudosos(duelos: InformePartido["duelosJugadores"], cronica: Cronica | null, avisos: string[]): InformePartido["duelosJugadores"] {
+  const dudosos = cronica?.dudosos ?? [];
+
+  if (!duelos || !dudosos.length) return duelos;
+
+  const fuera = duelos.lista.filter((x) => x.suyos.some((s) => dudosos.some((d) => mismoJugador(s, d))));
+
+  if (!fuera.length) return duelos;
+
+  avisos.push(`Duelos sin publicar hasta confirmar su once: ${fuera.map((x) => `${x.nuestros.join(" y ")} ante ${x.suyos.join(" y ")}`).join("; ")}.`);
+
+  return { ...duelos, lista: duelos.lista.filter((x) => !fuera.includes(x)) };
 }
 
 /** Post: el partido contado con lo que BeSoccer guarda del rival. */
@@ -356,6 +395,7 @@ function cronicaDe(informe: InformeEquipo | null, partido: PartidoNuestro | null
     onceReal,
     acierto,
     avisoOnce: avisoOnce || undefined,
+    dudosos: avisoOnce ? [...(porteros.length > 1 ? porteros.slice(1).map((j) => j.nombre) : []), ...expulsadosFuera] : undefined,
     cambios: (suOnce?.cambios ?? []).map((c) => ({ minuto: c.minuto, sale: c.sale, entra: c.entra })),
     tarjetas: (suOnce?.tarjetas ?? []).map((t) => ({ minuto: t.minuto, jugador: t.jugador, tipo: t.tipo })),
   };
@@ -609,6 +649,12 @@ export async function cargaInforme(entrada: {
   /* Previa o post: si no se dice, lo decide el calendario. */
   const momento: Momento = entrada.momento ?? (partido?.jugado ? "post" : "previa");
 
+  /* Previa: lo que pidió el post del partido anterior (24/10/2026), en paralelo con lo demás. */
+  const postAnteriorP = momento === "previa" ? postAnteriorDe(entrada).catch(() => null) : Promise.resolve(null);
+
+  /* Post: los goles de la temporada (25/10/2026), para la base de «Qué toca» y la fase de cada gol en contra. Sólo lectura. */
+  const golesTemporadaP = momento === "post" ? golesTemporadaDe(partido?.jornada ?? null).catch(() => null) : Promise.resolve(null);
+
   /* ---------------- la fila del rival en RIVALES ---------------- */
 
   const candidatos = (Array.isArray(rivales) ? rivales : []).filter((f) => mismoClub(texto(f.EQUIPO), rival));
@@ -799,6 +845,36 @@ export async function cargaInforme(entrada: {
 
   avisos.push(...delRival.avisos);
 
+  /*
+  | Previa: el plan sin lo heredado de otro rival (24/10/2026): una línea que
+  | nombra a alguien que no está en su plantilla ni en la nuestra, o que el
+  | boceto dejó con «?», va al aviso del analista y no al informe.
+  */
+  const nuestras = momento === "previa" ? await cargaPlantilla().catch(() => []) : [];
+
+  /* El plan y la plantilla del rival de la jornada anterior: lo copiado que nombra a uno de los suyos no es de esta semana. */
+  const filaAnterior = momento === "previa" && partido?.jornada ? (Array.isArray(rivales) ? rivales : []).find((f) => num(f.JORNADA) === partido.jornada! - 1) ?? null : null;
+
+  const rivalAnterior = filaAnterior ? texto(filaAnterior.EQUIPO) : "";
+
+  const anterior = filaAnterior
+    ? {
+        rival: rivalAnterior,
+        plan: planDe(filaAnterior),
+        nombres: (Array.isArray(plantillas) ? plantillas : [])
+          .filter((f) => mismoClub(texto(f.NOMBRE_EQUIPO), rivalAnterior))
+          .map((f) => texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR))
+          .filter(Boolean),
+      }
+    : null;
+
+  const planPublicado =
+    momento === "previa"
+      ? planSinHeredado(plan, [...plantilla.map((j) => j.nombre), ...nuestras.flatMap((j) => [j.nombre, j.apodo ?? ""]), rival, equipoHoja], rival, avisos, anterior)
+      : plan;
+
+  const postAnterior = await postAnteriorP;
+
   const sinSintesis: Omit<InformePartido, "sintesis"> = {
     momento,
     generado: new Date().toISOString(),
@@ -814,7 +890,9 @@ export async function cargaInforme(entrada: {
     },
     microciclo,
     duelo,
-    plan,
+    plan: planPublicado,
+    postAnterior,
+    golesTemporada: await golesTemporadaP,
     colectivo,
     once,
     plantilla,
@@ -826,17 +904,49 @@ export async function cargaInforme(entrada: {
     ),
     cronica,
     recursos,
-    pronostico: pronostica({ duelo, partido: { lado: partido?.lado ?? "" }, plan }),
+    pronostico: pronostica({ duelo, partido: { lado: partido?.lado ?? "" }, plan: planPublicado }),
     abp: microciclo || laminasRival || docsRival.length
       ? { minutosSemana: microciclo?.totales.abpMinutos ?? 0, laminasRival, documentosRival: docsRival }
       : null,
     avisos,
-    duelosJugadores: delRival.duelos,
+    /* Un duelo con alguien del once dudoso no se publica hasta que el analista lo confirme (22/10/2026). */
+    duelosJugadores: duelosSinDudosos(delRival.duelos, cronica, avisos),
     vistazo: delRival.vistazo,
     videoListo: videoDoc?.url ? { url: videoDoc.url, creado: videoDoc.creado ?? "", segundos: videoDoc.segundos ?? 0, poster: videoDoc.poster ?? null, ligero: videoDoc.ligero ?? null } : null,
   };
 
   if (momento === "post" && !partido?.jugado) avisos.push("El partido aún no tiene resultado: el post saldrá completo cuando se juegue.");
 
-  return { ...sinSintesis, sintesis: sintetiza(sinSintesis) };
+  /* La coherencia del plan con los duelos y su once (23/10/2026): lo que no cuadra, al analista. */
+  avisos.push(...avisosDelPlan(sinSintesis));
+
+  const informe: InformePartido = { ...sinSintesis, sintesis: sintetiza(sinSintesis) };
+
+  /* Lo que no tiene tarea esta semana se le dice al analista, no al cuerpo técnico (24/10/2026). */
+  avisos.push(...avisosDeLaSemana(informe));
+
+  return informe;
+}
+
+/** Hasta cuántos microciclos atrás se busca el partido anterior ya jugado. */
+const MICROS_ATRAS = 3;
+
+/**
+ * El «Qué toca en el microciclo» del post del partido anterior (24/10/2026,
+ * experto de fútbol): el post pedía «Sacamos más de cada robo» y la previa
+ * siguiente no lo nombraba. Es el mismo informe post que arma el diálogo
+ * (sólo lectura); se salta el micro sin partido (semana sin competición).
+ */
+async function postAnteriorDe(entrada: { temporada: string; micro: number }): Promise<InformePartido["postAnterior"]> {
+  for (let k = entrada.micro - 1; k >= Math.max(1, entrada.micro - MICROS_ATRAS); k--) {
+    const post = await cargaInforme({ temporada: entrada.temporada, micro: k, momento: "post" }).catch(() => null);
+
+    if (!post?.partido.jugado) continue;
+
+    const lineas = post.sintesis.microciclo.filter(Boolean);
+
+    return lineas.length ? { etiqueta: `post de la J${post.partido.jornada ?? ""} (${post.partido.rival})`.replace("J (", "("), lineas } : null;
+  }
+
+  return null;
 }

@@ -984,6 +984,21 @@ export function valorEnPartido(metrica: Metrica, fila: FilaPartido) {
  * tocar ni un componente de pintado. Sólo obedecen las métricas `acumulable`:
  * un porcentaje o un PPDA se promedian siempre, se pida lo que se pida.
  */
+/**
+ * El recuento detrás de un porcentaje de UN partido: «6 de 8» (24/10/2026,
+ * crítica del experto de análisis: un 75 % sin su base se lee como un hecho).
+ * Sólo para las métricas de cociente; las demás, null.
+ */
+export function recuentoEnPartido(metrica: Metrica, fila: FilaPartido) {
+  /* Sólo los porcentajes: «0,22 goles esperados por remate» no es «3 de 16». */
+  if (!metrica.numerador || !metrica.denominador || metrica.unidad !== "porcentaje") return null;
+
+  const de = valorDe(metrica.numerador, fila);
+  const total = valorDe(metrica.denominador, fila);
+
+  return de === null || total === null ? null : { de, total };
+}
+
 export function valorEnGrupo(
   metrica: Metrica,
   filas: FilaPartido[],

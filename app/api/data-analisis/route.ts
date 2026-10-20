@@ -5,6 +5,7 @@ import { expandeIndice, leeDatos, type Dataset } from "@/lib/data-analisis/leer"
 import {
   METRICA_POR_KEY,
   percentil,
+  recuentoEnPartido,
   temporadaDe,
   valorEnGrupo,
 } from "@/lib/data-analisis/metricas";
@@ -684,7 +685,7 @@ function duelo(datos: Dataset, rivalPedido: string, fecha: string | null, corte:
   let partido = null as null | {
     fecha: string;
     marcador: string;
-    metricas: { key: string; nombre: string; unidad: string; mejorAlto: boolean | null; nuestro: number | null; suyo: number | null; media: number | null; desviacion: number | null }[];
+    metricas: { key: string; nombre: string; unidad: string; mejorAlto: boolean | null; nuestro: number | null; suyo: number | null; media: number | null; desviacion: number | null; recuento: { de: number; total: number } | null }[];
   };
 
   if (fecha && rival) {
@@ -727,6 +728,7 @@ function duelo(datos: Dataset, rivalPedido: string, fecha: string | null, corte:
           suyo: suya ? valorEnGrupo(m, [suya]) : null,
           media: valorEnGrupo(m, anteriores),
           desviacion: desviacion(m),
+          recuento: recuentoEnPartido(m, nuestra),
         })),
       };
     }

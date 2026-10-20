@@ -28,6 +28,7 @@ import { toast } from "sonner";
 
 import { Button, Dialog, Notice, Segmented } from "@/components/abp/ui";
 import { DIAPO_H, DIAPO_W, DIAPOSITIVAS, Escalada } from "@/components/informe-partido/Diapositivas";
+import { VideosDeLaSemana, type PiezaDeVideo } from "@/components/informe-partido/VideosDeLaSemana";
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 import { Destinatarios } from "@/components/correo/Destinatarios";
 import { PanelWhatsapp } from "@/components/correo/PanelWhatsapp";
@@ -36,16 +37,17 @@ import { mensajeWhatsapp, telefonosDe, type CanalEnvio, type MensajeWhatsapp } f
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { TOPE_ADJUNTOS_CORREO, TOPE_PETICION_CORREO } from "@/lib/correo/limites";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
-import { SEGUNDOS_CONSIGNAS, consignasDePartido, guionDePartido } from "@/lib/video-informe/guion";
+import { SEGUNDOS_CONSIGNAS, SEGUNDOS_CONSIGNAS_MINIMOS, consignasDePartido, guionDePartido } from "@/lib/video-informe/guion";
+import { consignasDePost, sinConsignasDeAbp } from "@/lib/video-informe/piezas";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { montaVideoInforme, puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
 import { completoEnHojas, type HojasCompleto } from "@/lib/informe-partido/pdf-completo";
-import { informeUnicoPdf, paginaDeEnlaces, type EnlaceInforme } from "@/lib/informe-partido/pdf-unico";
+import { informeUnicoPdf, paginaDeEnlaces, paginaDelVideo, type EnlaceInforme } from "@/lib/informe-partido/pdf-unico";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
 import { capitulosDe, informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
-import { asuntoInforme, queTocaEnElMicro, titularDelPlan, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
+import { asuntoInforme, queTocaEnElMicro, titularDelPlan, titularEstaSemana, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
 import { capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
@@ -344,7 +346,7 @@ export function InformePartidoDialog({
 
     const microciclo = queTocaEnElMicro(conAbp, informe.sintesis.cumplimiento);
 
-    return { ...conAbp, sintesis: { ...informe.sintesis, microciclo, titularPlan: titularDelPlan(informe.sintesis.cumplimiento, microciclo) } };
+    return { ...conAbp, sintesis: { ...informe.sintesis, microciclo, titularPlan: titularDelPlan(informe.sintesis.cumplimiento, microciclo), titularDuelos: titularEstaSemana(microciclo) || informe.sintesis.titularDuelos } };
   }, [informe, abpActual]);
 
   /* ---------------- el PDF y el PPT del rival, de su pantalla ---------------- */
@@ -795,7 +797,7 @@ export function InformePartidoDialog({
   const indicesDiapos = TODAS_DIAPOS.filter(diapoMarcada);
 
   const rotuloDiapo = (i: number) =>
-    i === 0 ? (esPost ? "El resultado" : "El partido") : i === 1 ? (esPost ? "Lo que nos deja" : "El plan") : esPost ? "Los duelos" : "Duelos y rival";
+    i === 0 ? (esPost ? "El resultado" : "El rival") : i === 1 ? (esPost ? "Lo que buscábamos" : "Dónde está el partido") : esPost ? "Esta semana" : "Cómo lo ganamos";
 
   const pdfDe = async (imagenes: string[]) =>
     (await pdfDeLienzos(imagenes, { ancho: DIAPO_W, alto: DIAPO_H, orientacion: "landscape", margen: 0 })).output("blob") as Blob;
@@ -859,27 +861,84 @@ export function InformePartidoDialog({
   | la pieza corta «Consignas» (gancho, a vigilar, sus acciones, las claves y
   | la consigna; en el post, los goles y el balance), 75 s como mucho, con el
   | mismo motor. Se baja al aparato: no sube nada ni se manda a nadie, y quien
-  | lo quiera lo comparte desde el móvil. Sale en 16:9 como el del informe.
+  | lo quiera lo comparte desde el móvil. En VERTICAL por defecto (1080×1920,
+  | 21/10/2026: se ve en el móvil, por WhatsApp); el 16:9, con el botón de al lado.
   */
-  const bajaVideoJugadores = async () => {
+  /*
+  | El guion de la pieza de los jugadores (22/10/2026): en el post, «lo que nos
+  | deja» (goles con su corte, lo que nos hicieron y la consigna); si no hay
+  | cortes, la de consignas de siempre. En la previa, si ese viernes también
+  | sale el vídeo de balón parado, sus consignas van sólo en ése.
+  */
+  const guionJugadores = async (conAbp = false) => {
+    const escudos = await traeEscudos().catch(() => []);
+    const escudo = buscadorDeEscudos(escudos)(informeVisto!.partido.rival);
+    const extras = { escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null };
+    const deConsignas = consignasDePartido(informeVisto!, extras);
+
+    if (informeVisto!.momento === "post") return consignasDePost(informeVisto!, extras) ?? deConsignas;
+
+    return conAbp ? sinConsignasDeAbp(deConsignas) : deConsignas;
+  };
+
+  const hayPiezaDePost = useMemo(() => (informeVisto?.momento === "post" ? consignasDePost(informeVisto) !== null : false), [informeVisto]);
+
+  const bajaVideoJugadores = async (vertical = true) => {
     try {
       setTrabajando("Vídeo para jugadores…");
 
-      const escudos = await traeEscudos().catch(() => []);
-      const escudo = buscadorDeEscudos(escudos)(informeVisto!.partido.rival);
-      const v = await montaVideoInforme(consignasDePartido(informeVisto!, { escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null }), {
+      const v = await montaVideoInforme(await guionJugadores(), {
         tope: SEGUNDOS_CONSIGNAS,
+        minimo: vertical ? SEGUNDOS_CONSIGNAS_MINIMOS : undefined,
+        vertical,
         fuente: barlowCondensed.style.fontFamily,
         alPaso: (t) => setTrabajando(`Vídeo para jugadores · ${t}`),
       });
 
-      descarga(v.blob, nombreDeArchivo(`${nombreLegible} - Consignas para jugadores`, "mp4"));
+      descarga(v.blob, nombreDeArchivo(`${nombreLegible} - Consignas para jugadores${vertical ? "" : " (16x9)"}`, "mp4"));
     } catch (error) {
       toast.error("No se ha podido montar el vídeo", { description: error instanceof Error ? error.message : "" });
     } finally {
       setTrabajando(null);
     }
   };
+
+  /*
+  | El catálogo de la semana (22/10/2026, crítica del productor): el del
+  | cuerpo técnico es el mismo que va en el correo (se reutiliza si ya está
+  | montado) y el de los jugadores, la pieza corta de consignas.
+  */
+  const piezasDeVideo: PiezaDeVideo[] =
+    informeVisto && puedeMontarVideo()
+      ? [
+          {
+            id: "cuerpo-tecnico",
+            nombre: esPost ? "El partido, para el cuerpo técnico" : "La previa, para el cuerpo técnico",
+            publico: "Cuerpo técnico",
+            formato: "horizontal",
+            duracion: "de 1 a 2:30 min",
+            archivo: nombreDeArchivo(`${nombreLegible} - Vídeo del informe`, "mp4"),
+            monta: (alPaso) => dameVideo(alPaso),
+          },
+          {
+            id: "jugadores",
+            nombre: esPost ? (hayPiezaDePost ? "Lo que nos deja, para los jugadores" : "Consignas, para los jugadores") : "Consignas, para los jugadores",
+            publico: "Jugadores",
+            formato: "vertical, para el móvil",
+            duracion: `de ${SEGUNDOS_CONSIGNAS_MINIMOS} a ${SEGUNDOS_CONSIGNAS} s`,
+            archivo: nombreDeArchivo(`${nombreLegible} - ${esPost && hayPiezaDePost ? "Lo que nos deja" : "Consignas"} para jugadores`, "mp4"),
+            monta: async (alPaso, contexto) => {
+              return montaVideoInforme(await guionJugadores(Boolean(contexto?.conAbp)), {
+                tope: SEGUNDOS_CONSIGNAS,
+                minimo: SEGUNDOS_CONSIGNAS_MINIMOS,
+                vertical: true,
+                fuente: barlowCondensed.style.fontFamily,
+                alPaso,
+              });
+            },
+          },
+        ]
+      : [];
 
   /* ---------------- mandar ---------------- */
 
@@ -1101,9 +1160,13 @@ export function InformePartidoDialog({
 
           if (!video && !enlaces.length) return pdfDe(imagenes);
 
-          const final = await paginaDeEnlaces({ titulo: `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`, video, enlaces }).catch(() => null);
+          const tituloEnlaces = `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`;
 
-          return informeUnicoPdf({ titulo: tituloPdf, diapos: imagenes, final });
+          /* El vídeo abre el PDF (22/10/2026): póster grande y QR en la primera página; al final, sólo los documentos. */
+          const inicio = video ? await paginaDelVideo({ titulo: tituloEnlaces, video }).catch(() => null) : null;
+          const final = enlaces.length || !inicio ? await paginaDeEnlaces({ titulo: tituloEnlaces, video: inicio ? null : video, enlaces }).catch(() => null) : null;
+
+          return informeUnicoPdf({ titulo: tituloPdf, diapos: imagenes, final, inicio });
         })());
 
       let pptResumen: Blob | null = null;
@@ -1175,7 +1238,7 @@ export function InformePartidoDialog({
       };
 
       /* El bloque del vídeo para un correo (con el póster por cid si lo hay). */
-      const bloqueVideo = (relleno?: string) => (infoVideo ? bloqueVideoHtml({ url: infoVideo.url, cid: infoVideo.poster ? "video-poster" : "", segundos: infoVideo.segundos, relleno }) : "");
+      const bloqueVideo = (relleno?: string) => (infoVideo ? bloqueVideoHtml({ url: infoVideo.url, cid: infoVideo.poster ? "video-poster" : "", segundos: infoVideo.segundos, relleno, sinCopia: true }) : "");
 
       const posterCid = () => (infoVideo?.poster ? [{ cid: "video-poster", tipo: "image/jpeg", base64: infoVideo.poster.replace(/^data:[^;]+;base64,/, "") }] : []);
 
@@ -1231,7 +1294,8 @@ export function InformePartidoDialog({
           conCompleto: c.activo,
           mensaje: r.mensaje,
           firma,
-          descargas: [...archivos.map((a) => ({ nombre: a.nombre, url: a.url, tamano: a.tamano, adjunto: true })), ...(pptSubido ? [{ nombre: pptSubido.nombre, url: pptSubido.url, tamano: pptSubido.tamano, adjunto: false }] : [])],
+          /* El vídeo ya va enlazado en HD con su póster (22/10/2026): su copia ligera es un enlace de descarga, no un adjunto pesado. */
+          descargas: [...archivos.map((a) => ({ nombre: a.tipo === "video/mp4" ? "Copia ligera del vídeo, para verla sin conexión" : a.nombre, url: a.url, tamano: a.tamano, adjunto: a.tipo !== "video/mp4" })), ...(pptSubido ? [{ nombre: pptSubido.nombre, url: pptSubido.url, tamano: pptSubido.tamano, adjunto: false }] : [])],
         });
 
         await manda({
@@ -1240,7 +1304,7 @@ export function InformePartidoDialog({
           html,
           texto: `${r.mensaje?.trim() ? `${r.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}`,
           imagenes: usadas(html, [...diapositivasCid, ...posterCid()]),
-          adjuntosUrl: archivos.map((a) => ({ nombre: a.nombre, url: a.url, tipo: a.tipo })),
+          adjuntosUrl: archivos.filter((a) => a.tipo !== "video/mp4").map((a) => ({ nombre: a.nombre, url: a.url, tipo: a.tipo })),
         }, {
           /* WhatsApp en cuatro líneas (20/10/2026): titular en negrita, qué hacemos, el vídeo y el PDF.
              Antes iba el informe entero en texto, que en el móvil no se lee. */
@@ -1299,16 +1363,21 @@ export function InformePartidoDialog({
             titulo: tituloPdf,
             diapos: c.pdfResumen ? imagenes : [],
             hojas: c.pdfCompleto ? await dameHojasCompleto((h, t) => paso("completo", `PDF ${h}/${t}…`)) : null,
-            final: await paginaDeEnlaces({
-              titulo: `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`,
-              video,
-              enlaces: soloEnlace.map((d) => ({ nombre: d.nombre, url: d.url, detalle: `${d.detalle}${d.tamano ? ` · ${mb(d.tamano)}` : ""}` })),
-            }).catch(() => null),
+            inicio: video ? await paginaDelVideo({ titulo: `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`, video }).catch(() => null) : null,
+            final:
+              soloEnlace.length || !video
+                ? await paginaDeEnlaces({
+                    titulo: `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`,
+                    video: null,
+                    enlaces: soloEnlace.map((d) => ({ nombre: d.nombre, url: d.url, detalle: `${d.detalle}${d.tamano ? ` · ${mb(d.tamano)}` : ""}` })),
+                  }).catch(() => null)
+                : null,
           }),
         );
 
         /* Adjuntos: el PDF y el vídeo, mientras quepan; lo demás, enlace. */
-        const candidatos = [...(pdfUnico ? [pdfUnico] : []), ...(videoCompleto ? [videoCompleto] : [])];
+        /* El vídeo va enlazado en HD con su póster (22/10/2026): la copia ligera, como enlace de descarga, no como adjunto. */
+        const candidatos = [...(pdfUnico ? [pdfUnico] : [])];
 
         let ocupado = 0;
 
@@ -1320,7 +1389,9 @@ export function InformePartidoDialog({
           if (cabe) ocupado += bytes;
 
           return { ...d, adjunto: cabe };
-        }).concat(soloEnlace.map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo, tamano: d.tamano, adjunto: false })));
+        })
+          .concat(videoCompleto ? [{ ...videoCompleto, nombre: "Copia ligera del vídeo, para verla sin conexión", adjunto: false }] : [])
+          .concat(soloEnlace.map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo, tamano: d.tamano, adjunto: false })));
 
         const descargas: Descarga[] = reparto.map((d) => ({ nombre: d.nombre, url: d.url, tamano: d.tamano, adjunto: d.adjunto }));
 
@@ -1536,9 +1607,14 @@ export function InformePartidoDialog({
               Completo PDF
             </Button>
             {puedeMontarVideo() ? (
-              <Button icon={Clapperboard} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaVideoJugadores()} title="La pieza corta para el móvil (75 s como mucho): a quién vigilar, las claves y la consigna. Se descarga; no se envía">
-                Vídeo para jugadores
-              </Button>
+              <>
+                <Button icon={Clapperboard} disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaVideoJugadores()} title="La pieza corta en vertical para el móvil (45-75 s): a quién vigilar, sus acciones, las claves y la consigna. Se descarga; no se envía">
+                  Vídeo para jugadores
+                </Button>
+                <Button disabled={!informe || Boolean(trabajando) || cargando} onClick={() => void bajaVideoJugadores(false)} title="La misma pieza en horizontal (16:9), para proyectarla">
+                  16:9
+                </Button>
+              </>
             ) : null}
             <Button
               tone="primary"
@@ -1638,6 +1714,26 @@ export function InformePartidoDialog({
               telefonos={ajustes.telefonos ?? ""}
               onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
             />
+            {/*
+              Lo que recibirá cada persona, antes de mandarlo (23/10/2026,
+              marketing): antes el diálogo explicaba el mecanismo en tres
+              líneas y no enseñaba el mensaje. Los enlaces se ponen al enviar.
+            */}
+            {canal === "whatsapp" && informeVisto && !mensajesWa.length ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">Así le llega a cada uno</span>
+                <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-white/80">
+                  {mensajeWhatsapp({
+                    asunto: whatsappInforme(informeVisto).titular,
+                    lineas: whatsappInforme(informeVisto).lineas,
+                    mensaje: envio.resumen.mensaje,
+                    firma: (ajustes.firma ?? "").trim() || undefined,
+                    video: null,
+                    enlaces: [{ nombre: "Informe (PDF)", url: "enlace al enviar" }],
+                  })}
+                </pre>
+              </div>
+            ) : null}
             <PanelWhatsapp mensajes={mensajesWa} telefonos={telefonosWa.buenos} onCierra={() => setMensajesWa([])} />
           </div>
           <label>
@@ -1836,6 +1932,8 @@ export function InformePartidoDialog({
             </div>
           </div>
         )}
+
+        {informeVisto && !cargando ? <VideosDeLaSemana piezas={piezasDeVideo} jornada={informeVisto.partido.jornada ?? null} rival={informeVisto.partido.rival} momento={informeVisto.momento} ocupado={Boolean(trabajando) || Boolean(preparando)} /> : null}
 
         {/* El estado del balón parado, que llega aparte. */}
         {informe && !cargando && (
