@@ -33,8 +33,9 @@ export type ObjetivoEntreno = {
   donde?: string;
   /*
   | Lo que se añadió el 19/10/2026 (opcional: los objetivos guardados antes
-  | siguen valiendo tal cual). Ninguno entra en `huellaObjetivo`: no cambian
-  | lo que mira la IA, así que tocarlos no pide volver a analizar.
+  | siguen valiendo tal cual). Sólo `tarea` entra en `huellaObjetivo`, y sólo
+  | sin «Mirar sólo en»: desde el 21/10/2026 se le pasa a la IA como pista.
+  | El resto no cambia lo que mira la IA y tocarlo no pide volver a analizar.
   */
   /** La tarea del registro del día en la que mirarlo: «L-T1». */
   tarea?: string;
@@ -95,7 +96,7 @@ export const KIND_ENTRENO = "entreno";
 
 /** Una huella de los objetivos (lo que importa para el análisis) para saber si han cambiado desde el último. */
 export const huellaObjetivo = (o: ObjetivoEntreno) =>
-  [o.id, o.objetivo.trim(), o.jugadores.map((j) => j.id).sort().join(","), (o.reconocer ?? "").trim(), (o.correcto ?? "").trim(), (o.mejorable ?? "").trim(), (o.donde ?? "").trim()].join("|");
+  [o.id, o.objetivo.trim(), o.jugadores.map((j) => j.id).sort().join(","), (o.reconocer ?? "").trim(), (o.correcto ?? "").trim(), (o.mejorable ?? "").trim(), (o.donde ?? "").trim(), ...(!(o.donde ?? "").trim() && o.tarea ? [`t:${o.tarea.trim()}`] : [])].join("|");
 
 /** El veredicto que vale: el del analista si lo hay; si no, el de la IA. `null` = descartada. */
 export function veredictoFinal(a: AccionEntreno, validaciones: Record<string, Validacion> | undefined): Veredicto | null {

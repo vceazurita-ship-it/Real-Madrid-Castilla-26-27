@@ -513,7 +513,9 @@ export default function AnalisisEntrenamientoPage() {
                     {status !== "loading" ? (
                       <QueTocaDelPost
                         yaEstan={sesion.objetivos.map((o) => o.origen ?? "").filter(Boolean)}
-                        onAnade={(objetivo, origen) => cambia((s) => ({ ...s, objetivos: [...s.objetivos, { id: nuevoId(), objetivo, jugadores: [], origen }] }))}
+                        jugadores={jugadores}
+                        tareas={tareasDelDia}
+                        onAnade={(objetivo) => cambia((s) => ({ ...s, objetivos: [...s.objetivos, { ...objetivo, id: nuevoId() }] }))}
                       />
                     ) : null}
                     <div className="ml-auto flex flex-wrap items-center justify-end gap-2">

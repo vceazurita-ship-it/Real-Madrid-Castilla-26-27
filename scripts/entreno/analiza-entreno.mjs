@@ -486,6 +486,8 @@ function instrucciones(objetivos, desde, hasta) {
         o.correcto ? `  CORRECTA si: ${o.correcto}` : "",
         o.mejorable ? `  MEJORABLE si: ${o.mejorable}` : "",
         o.donde ? `  sólo en: ${o.donde}` : "",
+        /* La tarea del registro (21/10/2026): pista, no corte; «Mirar sólo en» manda si está. */
+        !o.donde && o.tarea ? `  sobre todo en la tarea ${o.tarea}${o.tareaTexto ? ` («${o.tareaTexto}»)` : ""}, si se distingue en el vídeo` : "",
       ]
         .filter(Boolean)
         .join("\n"),
@@ -705,7 +707,7 @@ async function analiza(supabase, env, objetivos, fuente, destino) {
     return { objetivoId: o.id, total: suyas.length, correctas, mejorables: suyas.length - correctas };
   });
 
-  const huella = (o) => [o.id, String(o.objetivo ?? "").trim(), (o.jugadores ?? []).map((j) => j.id).sort().join(","), String(o.reconocer ?? "").trim(), String(o.correcto ?? "").trim(), String(o.mejorable ?? "").trim(), String(o.donde ?? "").trim()].join("|");
+  const huella = (o) => [o.id, String(o.objetivo ?? "").trim(), (o.jugadores ?? []).map((j) => j.id).sort().join(","), String(o.reconocer ?? "").trim(), String(o.correcto ?? "").trim(), String(o.mejorable ?? "").trim(), String(o.donde ?? "").trim(), ...(!String(o.donde ?? "").trim() && o.tarea ? [`t:${String(o.tarea).trim()}`] : [])].join("|");
 
   const analisis = {
     fecha: FECHA,
