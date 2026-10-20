@@ -23,6 +23,7 @@ import {
   duelosParaVigilar,
   fraseDuelo,
   lecturaXg,
+  metaDeClave,
   minutosAbpInforme,
   minutosLegibles,
   ordinal,
@@ -108,9 +109,14 @@ function tabla(cabecera: string[], filas: string[][]) {
 }
 
 function lista(items: string[], color = NAVY) {
+  return listaHtml(items.map(esc), color);
+}
+
+/** Como `lista`, con los elementos ya en HTML (y ya escapados): la negrita de los duelos salía escrita, «<b>+57</b>» (24/10/2026). */
+function listaHtml(items: string[], color = NAVY) {
   if (!items.length) return "";
 
-  return `<ul style="margin:0;padding-left:18px;font:400 14px/1.6 Arial,sans-serif;color:${color}">${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`;
+  return `<ul style="margin:0;padding-left:18px;font:400 14px/1.6 Arial,sans-serif;color:${color}">${items.map((i) => `<li>${i}</li>`).join("")}</ul>`;
 }
 
 function tarjetas(items: { rotulo: string; valor: string; pie?: string }[]) {
@@ -606,7 +612,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   const pl = inf.plan;
 
   const plan = pl
-    ? `${pl.claves.length ? `<p style="margin:0 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Claves</p>${lista(pl.claves)}` : ""}${tabla(
+    ? `${pl.claves.length ? `<p style="margin:0 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Claves</p>${listaHtml(pl.claves.map((c) => { const meta = esPost ? "" : metaDeClave(inf, c); return `${esc(c)}${meta ? `<br><span style="color:${SUAVE};font-size:12px">${esc(meta)}</span>` : ""}`; }))}` : ""}${tabla(
         ["Momento", "El plan"],
         [
           ["Con balón", pl.ataque],
@@ -842,6 +848,15 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
 
   const rotuloVeredicto = (v: string) => (v === "ventaja" ? "A favor" : v === "desventaja" ? "En contra" : v === "parejo" ? "Parejo" : "");
 
+  /* El balance sale de las dos cifras que se ven (24/10/2026): +39/−37 decía «A favor» y +57/−47 «Parejo». Una regla, publicada al pie. */
+  const balanceVisible = (con: number | null, sin: number | null) => {
+    if (con === null && sin === null) return "";
+
+    const suma = (con ?? 0) + (sin ?? 0);
+
+    return suma >= 10 ? "ventaja" : suma <= -10 ? "desventaja" : "parejo";
+  };
+
   const signo = (n: number | null) => (n === null ? "" : `${n > 0 ? "+" : ""}${n}`);
 
   const atacarD = atacarDe(inf, dj);
@@ -855,11 +870,11 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
           : "Cada duelo enfrenta lo que hace <b>con balón</b> el que ataca con lo que hace <b>sin balón</b> el que defiende (regate contra entrada, desmarque contra anticipación, pase que rompe líneas contra corte…), en los dos sentidos. Cada jugador va en percentil contra los de su puesto en la categoría."
       }</p>${
         atacarD.length
-          ? `${etiqueta(esPost ? "Dónde esperábamos hacerles daño · con balón" : "Dónde les hacemos daño · con balón", VERDE)}${lista(atacarD.slice(0, 4).map((x) => `<b>${signo(ventajaVisible(x, "con"))}</b> · ${fraseDuelo(x, "con")}`))}`
+          ? `${etiqueta(esPost ? "Dónde esperábamos hacerles daño · con balón" : "Dónde les hacemos daño · con balón", VERDE)}${listaHtml(atacarD.slice(0, 4).map((x) => `<b>${signo(ventajaVisible(x, "con"))}</b> · ${esc(fraseDuelo(x, "con"))}`))}`
           : ""
       }${
         vigilarD.length
-          ? `${etiqueta(esPost ? "Dónde nos podían hacer daño · sin balón" : "Dónde nos pueden hacer daño · sin balón", ROJO)}${lista(vigilarD.slice(0, 4).map((x) => `<b>${signo(ventajaVisible(x, "sin"))}</b> · ${fraseDuelo(x, "sin")}`))}`
+          ? `${etiqueta(esPost ? "Dónde nos podían hacer daño · sin balón" : "Dónde nos pueden hacer daño · sin balón", ROJO)}${listaHtml(vigilarD.slice(0, 4).map((x) => `<b>${signo(ventajaVisible(x, "sin"))}</b> · ${esc(fraseDuelo(x, "sin"))}`))}`
           : ""
       }<div style="height:10px"></div>${tabla(
         esPost ? ["Duelo", "Con balón", "Sin balón", "Lo previsto"] : ["Duelo", "Con balón", "Sin balón", "Balance"],
@@ -873,11 +888,11 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
             `<b>${esc(x.nuestros.map(apellido).join(" y ") || "")}</b> <span style="color:${SUAVE}">ante</span> <b>${esc(x.suyos.map(apellido).join(" y ") || "")}</b><br><span style="color:${SUAVE};font-size:11px">${esc(LUGAR_DUELO[x.clave] ?? x.titulo)}</span>`,
             `<b style="color:${(con ?? 0) >= 10 ? VERDE : (con ?? 0) <= -10 ? ROJO : NAVY}">${signo(con)}</b>`,
             `<b style="color:${(sin ?? 0) >= 10 ? VERDE : (sin ?? 0) <= -10 ? ROJO : NAVY}">${signo(sin)}</b>`,
-            `<b style="color:${colorVeredicto(x.veredicto)}">${rotuloVeredicto(x.veredicto)}</b>`,
+            `<b style="color:${colorVeredicto(balanceVisible(con, sin))}">${rotuloVeredicto(balanceVisible(con, sin))}</b>`,
           ];
           return fila;
         }),
-      )}<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">La cifra de cada duelo es la misma en todo el informe: la diferencia media, sobre 100, de los dos cruces que más pesan (los que se nombran arriba). Con balón: + = les sacamos ventaja cuando la tenemos nosotros. Sin balón: − = nos la sacan cuando la tienen ellos. Su once: ${esc(dj.fuenteSuya.toLowerCase())}.</p>`
+      )}<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">La cifra de cada duelo es la misma en todo el informe: la diferencia media, sobre 100, de los dos cruces que más pesan (los que se nombran arriba). Con balón: + = les sacamos ventaja cuando la tenemos nosotros. Sin balón: − = nos la sacan cuando la tienen ellos. El balance suma las dos: +10 o más, a favor; −10 o menos, en contra; entre medias, parejo. Su once: ${esc(dj.fuenteSuya.toLowerCase())}.</p>`
     : "";
 
   /* ---------------- el rival de un vistazo (06/10/2026) ---------------- */
