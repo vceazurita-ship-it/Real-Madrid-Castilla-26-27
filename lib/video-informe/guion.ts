@@ -252,7 +252,8 @@ export type Escena =
   | { id: string; tipo: "vigilar"; titulo: string; jugadores: JugadorEscena[]; locucion: string }
   | { id: string; tipo: "clips"; titulo: string; cortes: Corte[]; segundos: number; locucion: string; /** La línea del partido con todas sus acciones, si son cortes del partido. */ marcas?: MarcaPartido[] }
   | { id: string; tipo: "imagen"; titulo: string; src: string; pie: string; locucion: string }
-  | { id: string; tipo: "cierre"; titulo: string; lineas: string[]; locucion: string }
+  /** `pie`: el dato de la consigna, en oro debajo (21/10/2026). */
+  | { id: string; tipo: "cierre"; titulo: string; lineas: string[]; locucion: string; pie?: string }
   /*
   | Las escenas de datos (14/10/2026): lo que la app ya calcula y el vídeo no
   | contaba. El gancho abre con el dato más llamativo antes de la portada; el
@@ -545,9 +546,10 @@ function escenaGancho(informe: InformePartido): Escena | null {
     return {
       id: "gancho",
       tipo: "gancho",
-      dato: `${fuerte.puesto}º`,
+      dato: `${fuerte.puesto}.º`,
       antetitulo: `${partido.rival} · su mejor arma`,
-      rotulo: sinSiglas(fuerte.nombre).toUpperCase(),
+      /* «2.º de la liga en centros al área» (21/10/2026, marketing: el «2.º» solo no se entendía en la vista previa del móvil). */
+      rotulo: `De la liga en ${sinSiglas(fuerte.nombre).toLowerCase()}`.toUpperCase(),
       contexto: `${partido.rival}, de ${fuerte.de} equipos de la categoría: su mejor arma (${fuerte.valor}).`,
       locucion: `${partido.rival} es ${fuerte.puesto}º de ${fuerte.de} en ${sinSiglas(fuerte.nombre).toLowerCase()}.`,
     };
@@ -674,7 +676,7 @@ function escenaDuelos(informe: InformePartido): Escena | null {
 }
 
 /** Cómo juegan, momento a momento, y dónde hacerles daño (Scouting colectivo). */
-function escenaFases(informe: InformePartido): Escena | null {
+function escenaFases(informe: InformePartido): Escena[] {
   const r = informe.colectivo?.resumen;
   /*
   | Doce palabras por fase como mucho (20/10/2026: a 40 px caben unas cuatro
@@ -686,11 +688,21 @@ function escenaFases(informe: InformePartido): Escena | null {
     .filter((f) => f.texto.replace(/[^A-Za-zÁÉÍÓÚáéíóúñÑ]/g, "").length >= 5)
     .slice(0, 4);
 
-  if (fases.length < 3) return null;
+  if (fases.length < 3) return [];
 
   const dano = (r?.dano ?? []).slice(0, 2).map((t) => cortaPalabras(sinSiglas(limpia(t)), 8));
 
-  return { id: "fases", tipo: "fases", titulo: dano.length ? "Así juegan, y por dónde hacerles daño" : "Así juegan, fase a fase", fases, dano, locucion: `${fases.map((f) => `${f.titulo}: ${f.texto}`).join(". ")}${dano.length ? `. Dónde hacerles daño: ${dano.join("; ")}` : ""}.` };
+  /*
+  | En dos escenas de dos tarjetas (21/10/2026, crítica del editor: cuatro
+  | tarjetas de texto durante 9 s no se leen en el móvil). La segunda lleva
+  | «dónde hacerles daño». Con tres fases, la segunda tarjeta va sola.
+  */
+  const locucion = (lista: typeof fases) => lista.map((f) => `${f.titulo}: ${f.texto}`).join(". ");
+
+  return [
+    { id: "fases", tipo: "fases", titulo: "Así juegan", fases: fases.slice(0, 2), dano: [], locucion: `${locucion(fases.slice(0, 2))}.` },
+    { id: "fases-2", tipo: "fases", titulo: dano.length ? "Y por dónde hacerles daño" : "Así juegan, sin balón y al robar", fases: fases.slice(2, 4), dano, locucion: `${locucion(fases.slice(2, 4))}${dano.length ? `. Dónde hacerles daño: ${dano.join("; ")}` : ""}.` },
+  ];
 }
 
 /**
@@ -934,12 +946,14 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     });
   }
 
-  pon(previa ? escenaFases(informe) : escenaAcierto(informe));
+  if (previa) escenas.push(...escenaFases(informe));
+  else pon(escenaAcierto(informe));
 
   /* Las claves de la previa: cada una es una consigna (presente, «nosotros») y, debajo, su dato (21/10/2026). */
   const consignasPrevia = previa ? consignasDePrevia(informe) : [];
 
-  if (consignasPrevia.length) {
+  /* Una sola clave no lleva escena propia (21/10/2026): la dice el cierre, con su dato, y no sale dos veces seguidas. */
+  if (consignasPrevia.length > 1) {
     const lineas = consignasPrevia.map((x) => x.linea);
     const titulo = lineas.length === 1 ? "La clave para ganar el partido" : `${lineas.length === 2 ? "Dos claves" : "Tres claves"} para ganar el partido`;
 
@@ -982,8 +996,27 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   }
 
   if (previa) {
-    pon(escenaPercentiles(informe));
-    pon(escenaVersus(informe));
+    /*
+    | Si las dos escenas de barras abren con la misma métrica («Fuertes en
+    | centros» y «Nos sacan ventaja en centros»), queda sólo la comparativa
+    | (21/10/2026, críticas del editor y de marketing).
+    */
+    const fasesRival = escenaPercentiles(informe);
+    const cruce = escenaVersus(informe);
+    const clave = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split(/\s+/).filter((p) => p.length > 3);
+    const repite =
+      fasesRival?.tipo === "percentiles" && cruce?.tipo === "versus" && cruce.filas[0]
+        ? (() => {
+            const mejor = [...fasesRival.filas].sort((a, b) => b.percentil - a.percentil)[0];
+            const a = clave(mejor?.nombre ?? "");
+            const b = clave(cruce.filas[0].nombre);
+
+            return a.some((p) => b.includes(p));
+          })()
+        : false;
+
+    if (!repite) pon(fasesRival);
+    pon(cruce);
 
     const ventajas = sintesis.ventajas.slice(0, 2).map((v) => cortaPalabras(sinSiglas(limpia(v)), 12));
     const amenazas = sintesis.amenazas.slice(0, 2).map((v) => cortaPalabras(sinSiglas(limpia(v)), 12));
@@ -1052,7 +1085,13 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   */
   const consignas = consignasPrevia.map((x) => x.linea);
   const tocan = [...new Set((sintesis.microciclo ?? []).map((m) => m.split(" · ")[0].trim()).filter(Boolean).map((tema) => `Esta semana, ${consignaDeMejora(tema)}`))];
-  const cierre = previa ? consignas.slice(0, consignas[0] && consignas[0].split(" ").length <= 6 ? 2 : 1) : tocan.length ? tocan.slice(0, 2) : balance ? balance.cierre.slice(1) : [];
+  /*
+  | Un único cierre (21/10/2026, crítica del editor: la consigna salía dos
+  | veces seguidas): UNA consigna a 64 px y, debajo, su dato en oro. Previa: la
+  | primera clave; post: lo primero que toca, con el porqué del informe.
+  */
+  const cierre = previa ? consignas.slice(0, 1) : tocan.length ? tocan.slice(0, 1) : balance ? balance.cierre.slice(1, 2) : [];
+  const pieCierre = previa ? (consignasPrevia[0]?.pie ?? "") : tocan.length ? cortaPalabras(limpia((sintesis.microciclo ?? [])[0]?.split(" · ").slice(1).join(" · ") ?? ""), 12) : "";
 
   if (!cierre.length && !previa) cierre.push(giroDelPartido(informe) || limpia(sintesis.titular));
 
@@ -1061,6 +1100,7 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
     tipo: "cierre",
     titulo: previa || tocan.length ? "Nuestra consigna" : "Lo que nos deja",
     lineas: cierre.length ? cierre : [limpia(sintesis.titular)],
+    ...(pieCierre ? { pie: pieCierre } : {}),
     locucion: previa ? `Nuestra consigna: ${cierre.join(". ") || limpia(sintesis.titular)}` : `Lo que nos deja: ${cierre.join(". ") || limpia(sintesis.titular)}`,
   });
 
@@ -1092,7 +1132,7 @@ export function guionDePartido(informe: InformePartido, extras: ExtrasPartido = 
   }
 
   const ORDEN = previa
-    ? ["gancho", "portada", "contexto", "pronostico", "once", "clips", "fases", "clips-rival-2", "versus", "percentiles", "duelos", "duelo", "vigilar", "abp", "clips-2", "claves", "cierre"]
+    ? ["gancho", "portada", "contexto", "pronostico", "once", "clips", "fases", "fases-2", "clips-rival-2", "versus", "percentiles", "duelos", "duelo", "vigilar", "abp", "clips-2", "claves", "cierre"]
     : ["gancho", "portada", "plan", "clips-1", "clips-2", "clips-3", "versus", "vigilar", "acierto", "abp", "balance", "cierre"];
   const lugar = (id: string) => (ORDEN.includes(id) ? ORDEN.indexOf(id) : ORDEN.length - 1.5);
 
@@ -1143,7 +1183,8 @@ export function consignasDePartido(informe: InformePartido, extras: ExtrasPartid
   const completo = guionDePartido(informe, extras);
   const entran = new Set(informe.momento === "previa" ? ["gancho", "portada", "vigilar", "clips", "claves", "cierre"] : ["gancho", "portada", "clips-1", "balance", "cierre"]);
 
-  return { titulo: `${informe.partido.rival} · consignas`, escenas: completo.escenas.filter((e) => entran.has(e.id)) };
+  /* Nunca el pronóstico ni porcentajes de victoria (21/10/2026, experto de fútbol: a un jugador no se le enseña eso). */
+  return { titulo: `${informe.partido.rival} · consignas`, escenas: completo.escenas.filter((e) => entran.has(e.id) && e.id !== "pronostico" && !(e.tipo === "barras" && /victoria/i.test(e.titulo))) };
 }
 
 /* ------------------------------------------------------------------ */
