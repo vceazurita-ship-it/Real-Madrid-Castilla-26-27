@@ -764,7 +764,8 @@ export type InformeMicro = {
    * El cierre del post (22/10/2026): «PARA LA SEMANA QUE VIENE», la consigna
    * con su porqué. `null` si el partido no deja nada con dato.
    */
-  cierre: { titulo: string; consigna: string; porQue: string; marcamos: string } | null;
+  /** En el post, `aviso` dice si lo de la semana que viene no llega a prioridad (`prioridadOAviso`), para que el informe del partido lo diga igual. */
+  cierre: { titulo: string; consigna: string; porQue: string; marcamos: string; aspecto?: string; lado?: string; aviso?: boolean; semana?: string } | null;
   titulo: string;
   subtitulo: string;
   generado: string;
@@ -989,6 +990,51 @@ export function muestraSuficiente(o: { acciones: number; casos: number; tasa?: n
   const esperados = o.tasa === null || o.tasa === undefined ? 0 : o.acciones * o.tasa;
 
   return Math.max(esperados, o.casos) >= MINIMO_CASOS;
+}
+
+/** La etiqueta de lo que no llega a prioridad, la misma en los cuatro informes (ronda 10). */
+export const ETIQUETA_AVISO = "aviso con poca muestra";
+
+/** Probabilidad de ver `goles` o más con `xg` goles esperados (Poisson). */
+export function probGolesOMas(goles: number, xg: number) {
+  if (goles <= 0) return 1;
+
+  let p = 0;
+  let termino = Math.exp(-xg);
+
+  for (let k = 0; k < goles; k++) {
+    p += termino;
+    termino *= xg / (k + 1);
+  }
+
+  return Math.max(0, 1 - p);
+}
+
+/** Por debajo de esto, los goles no caben en el ruido de sus goles esperados. */
+const UMBRAL_RUIDO_GOLES = 0.2;
+
+/**
+ * PRIORIDAD O AVISO (ronda 10 de los expertos): una sola regla para la previa
+ * de ABP, el post de ABP, el post del partido y la diapositiva 3 de la previa.
+ * La falta lateral era «aviso, no prioridad» en un informe y «la tarea de la
+ * semana» en otro. Es prioridad si pasa la regla de muestra
+ * (`muestraSuficiente`) o si sus goles no caben en el ruido de sus goles
+ * esperados (2 goles con 0,91 pasan una de cada cuatro veces: ruido). Lo
+ * demás es aviso, con esa etiqueta en todos los sitios.
+ */
+export function prioridadOAviso(o: { acciones: number; peligros: number; goles?: number; xg?: number | null; tasa?: number | null }): "prioridad" | "aviso" {
+  if (muestraSuficiente({ acciones: o.acciones, casos: o.peligros, tasa: o.tasa })) return "prioridad";
+
+  const goles = o.goles ?? 0;
+
+  if (goles > 0 && (!o.xg || probGolesOMas(goles, o.xg) < UMBRAL_RUIDO_GOLES)) return "prioridad";
+
+  return "aviso";
+}
+
+/** «2 goles con 0,91 goles esperados» ¿cabe en el ruido? Para decirlo con palabras. */
+export function golesEnElRuido(goles: number, xg: number) {
+  return goles > 0 && xg > 0 && probGolesOMas(goles, xg) >= UMBRAL_RUIDO_GOLES;
 }
 
 /**
@@ -2108,7 +2154,7 @@ function ataqueYDanoEnContra(partido: PartidoAbpInforme, porLado: { ofensivo: nu
 
 /** El peligro en contra del partido pasa la regla de muestra del informe (`muestraSuficiente`). */
 function sustoConMuestra(susto: LineaCruce) {
-  return susto.goles > 0 || muestraSuficiente({ acciones: susto.acciones, casos: susto.peligros });
+  return prioridadOAviso(susto) === "prioridad";
 }
 
 function titularPost(partido: PartidoAbpInforme, porLado: { ofensivo: number; defensivo: number } | null = null) {
@@ -2827,6 +2873,14 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
     const masAlto = Math.max(0, ...candidatos.map((uno) => uno.altura ?? 0));
 
+    /*
+    | Con quién (ronda 10, fútbol): «Marcamos a Carmona» no se puede ensayar el
+    | viernes. A cada uno de los suyos que sale, por orden, uno de nuestros más
+    | altos de campo con minutos (Wyscout). Es una propuesta: la confirma el
+    | cuerpo técnico. Sin alturas nuestras, no se nombra a nadie.
+    */
+    const nuestros = [...(datos.comparativa?.aereosNuestros ?? [])];
+
     const marcamos = candidatos
       .map((uno) => ({ uno, sale: titular(uno.nombre, uno.foto) }))
       .sort((a, b) => Number(b.sale) - Number(a.sale) || Number(b.uno.remataAbp) - Number(a.uno.remataAbp) || (b.uno.altura ?? 0) - (a.uno.altura ?? 0))
@@ -2838,7 +2892,11 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
         const que = uno.remataAbp ? "su rematador" : uno.altura && uno.altura === masAlto ? "el más alto" : "";
 
-        return `${quien}: ${[que, altura].filter(Boolean).join(", ")}${sale ? "" : ", si entra"}`;
+        const nuestro = sale ? nuestros.shift() : undefined;
+
+        const conQuien = nuestro ? ` · lo marca ${nuestro.nombre} (${dec(nuestro.altura / 100, 2)} m)` : "";
+
+        return `${quien}: ${[que, altura].filter(Boolean).join(", ")}${conQuien}${sale ? "" : ", si entra"}`;
       });
 
     /* Quién la pone, si el scouting lo tiene marcado y sale. */
@@ -3263,10 +3321,10 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     ...(primeraPrioridad
       ? [
           {
-            /* Sin señal clara no es una prioridad (26/10/2026, análisis): es lo que se mantiene. */
-            rotulo: sinSenal ? "Lo que mantenemos" : "Prioridad nº 1",
+            /* Sin señal clara no es una prioridad (26/10/2026, análisis); con goles, sí, sin alarma (ronda 10): `rotuloDeLaPrimera`. */
+            rotulo: rotuloDeLaPrimera(primeraPrioridad, sinSenal).rotulo,
             valor: primeraPrioridad.base,
-            pie: `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))}: acciones con peligro${primeraPrioridad.lado === "defensivo" ? " en contra" : ""}${golesConXg(primeraPrioridad)}${sinSenal ? " · pocos casos: lo mantenemos sin darlo por hecho" : primeraPrioridad.tendencia ? " · aviso reciente" : ""}`,
+            pie: `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))}: acciones con peligro${primeraPrioridad.lado === "defensivo" ? " en contra" : ""}${golesConXg(primeraPrioridad)}${rotuloDeLaPrimera(primeraPrioridad, sinSenal).sufijo}`,
           },
         ]
       : []),
@@ -3412,7 +3470,21 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
       const hecho = delTitular && delTitular.aspecto === una.aspecto && delTitular.lado === una.lado ? "" : una.lado === "defensivo" ? danoEnFrase(una) : enMinuscula(una.lectura);
 
-      return { titulo: "Para la semana que viene", consigna: conPatron(consignaDe(una.aspecto, una.lado), p), porQue: hecho ? `${mayuscula(hecho)}. ${semana}` : semana, marcamos: "" };
+      /* La misma etiqueta que el informe del partido (ronda 10): si no llega a prioridad, es un aviso y se dice. */
+      const aviso = prioridadOAviso(una) === "aviso";
+
+      const porQue = [hecho ? mayuscula(hecho) : "", aviso ? (hecho ? ETIQUETA_AVISO : mayuscula(ETIQUETA_AVISO)) : ""].filter(Boolean).join(": ");
+
+      return {
+        titulo: "Para la semana que viene",
+        consigna: conPatron(consignaDe(una.aspecto, una.lado), p),
+        porQue: porQue ? `${porQue}. ${semana}` : semana,
+        marcamos: "",
+        aspecto: una.aspecto,
+        lado: una.lado,
+        aviso,
+        semana,
+      };
     }
 
     /*
@@ -3446,21 +3518,34 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
     /* «Carmona (2): su rematador, 1,84 m» → «Carmona (2)»: en el cierre, sólo los nombres de los que salen. */
     const nombres = defensivo
-      ? (emparejamientos?.marcamos ?? []).filter((m) => !/^La pone\b/.test(m) && !/si entra$/.test(m)).slice(0, 3).map((m) => m.split(":")[0].trim())
+      ? (emparejamientos?.marcamos ?? [])
+          .filter((m) => !/^La pone\b/.test(m) && !/si entra$/.test(m))
+          .slice(0, 3)
+          .map((m) => {
+            /* Con nuestro marcador, si lo hay (ronda 10): «A. Pérez a Carmona (2)». */
+            const nuestro = m.match(/ · lo marca (.+?) \(/)?.[1];
+
+            return nuestro ? `${nuestro} a ${m.split(":")[0].trim()}` : m.split(":")[0].trim();
+          })
       : [];
+
+    const conMarcador = nombres.some((n) => / a /.test(n));
 
     /* Sin señal clara (25/10/2026): las dos que se mantienen, con su base, en una frase. */
     const otra = sinSenal && defensivo ? vigiladaTambien : null;
 
+    /* La otra, si es aviso, va con su etiqueta y no entra en la consigna (ronda 10). */
+    const otraEsAviso = Boolean(otra && prioridadOAviso(otra) === "aviso");
+
     const baseCorta = (una: LineaEquipo) => `${mayuscula(aspectoCorto(una.aspecto))}, ${una.base} con peligro${golesConXg(una)}`;
 
-    const consignaSinSenal = sinSenal && defensivo ? `Defendemos ${aspectoCorto(primera.aspecto)}${otra && aspectoCorto(otra.aspecto) !== aspectoCorto(primera.aspecto) ? ` y ${aspectoCorto(otra.aspecto)}` : ""}` : "";
+    const consignaSinSenal = sinSenal && defensivo ? `Defendemos ${aspectoCorto(primera.aspecto)}${otra && !otraEsAviso && aspectoCorto(otra.aspecto) !== aspectoCorto(primera.aspecto) ? ` y ${aspectoCorto(otra.aspecto)}` : ""}` : "";
 
     return {
       titulo: dia ? `Para el ${dia}` : "Para el partido",
       consigna: conPatron(consignaSinSenal || consignaDe(primera.aspecto, primera.lado), primera.consignaPatron ? { consigna: primera.consignaPatron } : null),
-      porQue: consignaSinSenal ? [baseCorta(primera), otra ? enMinuscula(baseCorta(otra)) : ""].filter(Boolean).join("; ") : porQue,
-      marcamos: nombres.length ? `Marcamos a ${fraseLista(nombres).replace(/ y /, " y a ")}` : "",
+      porQue: consignaSinSenal ? [baseCorta(primera), otra ? `${enMinuscula(baseCorta(otra))}${otraEsAviso ? `: ${ETIQUETA_AVISO}` : ""}` : ""].filter(Boolean).join("; ") : porQue,
+      marcamos: nombres.length ? (conMarcador ? `Marcamos (propuesta): ${fraseLista(nombres)}` : `Marcamos a ${fraseLista(nombres).replace(/ y /, " y a ")}`) : "",
     };
   })();
 
@@ -4141,11 +4226,16 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
   const rival: Seccion | null =
     r && (r.conclusiones.length || docs.length || (!esPost && graficos("rival")))
       ? {
+          /* Sin conclusiones, el post no promete una lectura que no trae (ronda 10, guion): sólo el material. */
           titulo: esPost
-            ? `Lo que esperábamos del rival · ${r.equipo}`
+            ? r.conclusiones.length
+              ? `Lo que esperábamos del rival · ${r.equipo}`
+              : `Material del partido · ${r.equipo}`
             : `El rival a balón parado · ${r.equipo}`,
           pie: esPost
-            ? `Las conclusiones de la previa (${r.jornada}), para leerlas con el partido ya jugado.`
+            ? r.conclusiones.length
+              ? `Las conclusiones de la previa (${r.jornada}), para leerlas con el partido ya jugado.`
+              : `Los informes de balón parado de la previa (${r.jornada}).`
             : `Lo analizado en «ABP del Rival» y «Área del Rival» (${r.jornada}): cómo ataca y defiende a balón parado y en centros laterales.`,
           html: `${
             docs.length
@@ -4597,6 +4687,23 @@ function golesConXg(una: { goles: number; xg: number }) {
   return xg ? ` (${xg})` : "";
 }
 
+/**
+ * El rótulo de la nº 1 en la cabecera y en la pincelada (ronda 10, fútbol y
+ * guion): «Lo que mantenemos» encabezaba el córner que era la prioridad y
+ * nos había costado dos goles. Con goles, es la prioridad nº 1, y si caben
+ * en el ruido de sus goles esperados se dice: sin alarma. «Lo que
+ * mantenemos» queda para lo que no tiene goles ni tendencia.
+ */
+function rotuloDeLaPrimera(una: LineaEquipo, sinSenal: boolean) {
+  if (!sinSenal) return { rotulo: "Prioridad nº 1", sufijo: una.tendencia ? " · aviso reciente" : "" };
+
+  if (una.goles > 0) {
+    return { rotulo: "Prioridad nº 1 · sin alarma", sufijo: golesEnElRuido(una.goles, una.xg) ? " · dentro de lo esperable: lo trabajamos sin alarma" : "" };
+  }
+
+  return { rotulo: "Lo que mantenemos", sufijo: " · pocos casos: lo mantenemos sin darlo por hecho" };
+}
+
 function aspectoCorto(aspecto: string) {
   return conArticulo(aspecto).replace(/ (?:directo|directa|indirecto|indirecta)$/, "");
 }
@@ -4610,7 +4717,10 @@ function sinSenalEnFrase(informe: InformeMicro, primera: LineaEquipo | undefined
 
   const a = aspectoCorto(primera.aspecto);
 
-  const b = informe.sinSenal.otra ? aspectoCorto(informe.sinSenal.otra.aspecto) : "";
+  /* Lo que es aviso no titula (ronda 10, análisis): la otra sólo entra si también es prioridad (`prioridadOAviso`). */
+  const otra = informe.sinSenal.otra && prioridadOAviso(informe.sinSenal.otra) === "prioridad" ? informe.sinSenal.otra : null;
+
+  const b = otra ? aspectoCorto(otra.aspecto) : "";
 
   return b && b !== a ? `${a} y ${b}` : a;
 }
@@ -4936,10 +5046,23 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
       modo: "post",
       titular,
       /* Con muestra o sin ella (25/10/2026, ronda 7): «corta» le dice al informe del partido que es para vigilar, no la prioridad. */
+      /*
+      | La misma frase y la misma etiqueta que «Para la semana que viene» del
+      | post de ABP (ronda 10, fútbol y guion): si es el mismo aspecto, su
+      | consigna, «aviso con poca muestra» y la tarea que se propone.
+      */
       sustoEnContra: susto
-        ? sustoConMuestra(susto)
-          ? { consigna: `Defendemos ${conArticulo(susto.aspecto)}`, dato: `${susto.peligros} de ${susto.acciones} con peligro en contra en el partido`, corta: false }
-          : { consigna: `Vigilamos ${conArticulo(susto.aspecto)} en contra`, dato: `${danoEnFrase(susto)}; con tan pocas acciones, es un aviso, no una prioridad`, corta: true }
+        ? (() => {
+            const delCierre = informe.cierre && informe.cierre.aspecto === susto.aspecto && informe.cierre.lado === susto.lado ? informe.cierre : null;
+
+            const consigna = delCierre ? delCierre.consigna.split(". ")[0] : `Defendemos ${conArticulo(susto.aspecto)}`;
+
+            const tarea = delCierre?.semana ? `; ${enMinuscula(delCierre.semana.replace(/^.*?; /, ""))}` : "";
+
+            return sustoConMuestra(susto)
+              ? { consigna, dato: `${susto.peligros} de ${susto.acciones} con peligro en contra en el partido${tarea}`, corta: false }
+              : { consigna, dato: `${danoEnFrase(susto)}: ${ETIQUETA_AVISO}${tarea}`, corta: true };
+          })()
         : null,
       /* Los goles esperados del partido a balón parado, para revisar la palanca del pronóstico (25/10/2026). */
       xgPartido: { favor: p.favor.xg, contra: p.contra.xg },
@@ -5062,18 +5185,8 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
       informe.sinSenal && primera
         ? [
             conXg(primera),
-            otraVigilada ? conXg(otraVigilada) : "",
-            /*
-            | Una sola idea (ronda 8, guion): «ninguna da una señal clara» justo
-            | debajo de la prioridad se leía como una contradicción, y las dos
-            | «pesa menos» eran dos noticias. Lo que dicen juntas: es nuestro
-            | problema, no su arma.
-            */
-            otraVigilada?.contraRival && primera.contraRival && primera.sentidoRival === "baja" && otraVigilada.sentidoRival === "baja"
-              ? `Es nuestro problema, no su arma: ${primera.contraRival}, y ${otraVigilada.contraRival}`
-              : primera.contraRival
-                ? mayuscula(primera.contraRival)
-                : "",
+            otraVigilada ? `${conXg(otraVigilada)}${prioridadOAviso(otraVigilada) === "aviso" ? ` · ${ETIQUETA_AVISO}` : ""}` : "",
+            /* «Es nuestro problema, no su arma» va en las claves, no aquí (ronda 10, fútbol): junto al titular chocaba. */
             enElPlan,
           ]
         : null;
@@ -5122,7 +5235,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
       /* La nº 1 lista para la previa del partido (24/10/2026): la misma consigna y la misma frase, sin rehacerla allí. */
       prioridad: laPrioridad,
       cifras: [
-        ...(primera ? [{ rotulo: informe.sinSenal ? "Lo que mantenemos" : "Prioridad nº 1", valor: primera.base, pie: `${mayuscula(nombre(primera))}: con peligro${primera.lado === "defensivo" ? " en contra" : ""}${golesConXg(primera)}${informe.sinSenal ? " · pocos casos: lo mantenemos sin darlo por hecho" : primera.tendencia ? " · aviso reciente" : ""}` }] : []),
+        ...(primera ? [{ rotulo: rotuloDeLaPrimera(primera, Boolean(informe.sinSenal)).rotulo, valor: primera.base, pie: `${mayuscula(nombre(primera))}: con peligro${primera.lado === "defensivo" ? " en contra" : ""}${golesConXg(primera)}${rotuloDeLaPrimera(primera, Boolean(informe.sinSenal)).sufijo}` }] : []),
         ...(informe.trabajos.length ? [{ rotulo: "Planificado", valor: String(informe.trabajos.length), pie: informe.trabajos.length === 1 ? "tarea" : "tareas" }] : []),
       ],
       rival,

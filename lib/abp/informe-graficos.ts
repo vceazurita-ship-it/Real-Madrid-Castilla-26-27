@@ -76,6 +76,11 @@ export type ComparativaAbp = {
    * boceto del microciclo se apaña sin ellos.
    */
   golesAbp?: FilaGolesAbp[];
+  /**
+   * Nuestros jugadores de campo más altos con minutos (Wyscout), para
+   * proponer quién marca a sus rematadores (ronda 10, fútbol). Opcional.
+   */
+  aereosNuestros?: { nombre: string; altura: number; minutos: number; posicion: string }[];
 };
 
 /**

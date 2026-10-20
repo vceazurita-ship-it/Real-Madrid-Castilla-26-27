@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
+import { esNuestro } from "@/lib/data-analisis/individual";
 
 import { expandeIndice, leeDatos, type Dataset } from "@/lib/data-analisis/leer";
 import {
@@ -868,6 +869,12 @@ function abpParaInforme(datos: Dataset) {
     | para decir de qué vive el rival al que se juega.
     */
     golesAbp: liga.map((fila) => golesAbpDeEquipo(fila.equipo, deLaLiga)),
+    /* Nuestros más altos de campo con minutos: la propuesta de marcas del informe de ABP (ronda 10). */
+    aereosNuestros: datos.jugadores
+      .filter((j) => esNuestro(j) && j.temporada === "actual" && j.minutos >= 270 && j.altura > 0 && !/^GK/.test(j.posicion))
+      .sort((a, b) => b.altura - a.altura || b.minutos - a.minutos)
+      .slice(0, 6)
+      .map((j) => ({ nombre: j.jugador, altura: j.altura, minutos: j.minutos, posicion: j.posicion.split(",")[0].trim() })),
   };
 }
 
