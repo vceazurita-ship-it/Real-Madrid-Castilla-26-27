@@ -307,7 +307,7 @@ function cuadraPorDentro(uno: string, otro: string) {
 
   if (!largo.includes(corto)) return false;
 
-  const sobra = largo.replace(corto, "").trim().split(/s+/).filter(Boolean);
+  const sobra = largo.replace(corto, "").trim().split(/\s+/).filter(Boolean);
 
   return !sobra.some((palabra) => FILIALES.has(palabra));
 }

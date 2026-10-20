@@ -617,7 +617,7 @@ export function minutosAbpInforme(inf: { abp: InformePartido["abp"]; microciclo:
   const m = inf.abp?.pincelada?.minutos;
 
   /* El mismo formato que el resto del informe (25/10/2026): «1h 20'» de la pantalla de ABP pasa a «1 h 20′». */
-  if (m) return { minutos: Math.round(m.confirmados), texto: (m.texto ?? "").replace(/(d+)hs*(d+)'/g, "$1 h $2′").replace(/(d+)h(?=W|$)/g, "$1 h").replace(/(d+)'/g, "$1′") };
+  if (m) return { minutos: Math.round(m.confirmados), texto: (m.texto ?? "").replace(/(\d+)h\s*(\d+)'/g, "$1 h $2′").replace(/(\d+)h(?=\W|$)/g, "$1 h").replace(/(\d+)'/g, "$1′") };
 
   const registro = inf.microciclo?.totales.abpMinutos ?? 0;
 

@@ -1082,7 +1082,7 @@ export function InformeMicroDialog({
       const cuantos = datosRespuesta.para?.length ?? 0;
 
       /* A quién se ha mandado, a la agenda: la próxima vez se propone. */
-      apunta("correo", datosRespuesta.para ?? para.split(/[s,;]+/).filter(Boolean));
+      apunta("correo", datosRespuesta.para ?? para.split(/[\s,;]+/).filter(Boolean));
 
       toast.success(
         `Informe enviado a ${cuantos} dirección${cuantos === 1 ? "" : "es"}`,
