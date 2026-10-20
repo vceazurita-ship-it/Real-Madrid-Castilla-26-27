@@ -23,7 +23,7 @@
  * calculado y ni `oklch` ni `backdrop-filter` sobreviven al JPEG.
  */
 
-import { type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 
 import {
   apellido,
@@ -284,8 +284,29 @@ function FilaDuelo({ m, equipos, compacta = false }: { m: MetricaDuelo; equipos:
 function Campo({ once, resaltar }: { once: JugadorRival[]; resaltar?: Set<string> }) {
   const linea = "2px solid rgba(255,255,255,0.22)";
 
+  /* Las fichas, a la medida del campo (24/10/2026): en el post el campo es más pequeño y las cuatro de la defensa se pisaban. */
+  const caja = useRef<HTMLDivElement>(null);
+
+  const [escala, setEscala] = useState(1);
+
+  useEffect(() => {
+    const el = caja.current;
+
+    if (!el) return;
+
+    const mide = () => setEscala(Math.max(0.6, Math.min(1, el.offsetWidth / 540)));
+
+    mide();
+
+    const ro = new ResizeObserver(mide);
+
+    ro.observe(el);
+
+    return () => ro.disconnect();
+  }, []);
+
   return (
-    <div style={{ position: "relative", flex: 1, minHeight: 0, height: "100%", aspectRatio: "1.12", maxWidth: "100%", margin: "0 auto", borderRadius: 18, overflow: "hidden", background: "repeating-linear-gradient(180deg, #133A27 0 10%, #10301F 10% 20%)", border: "2px solid rgba(255,255,255,0.12)" }}>
+    <div ref={caja} style={{ position: "relative", flex: 1, minHeight: 0, height: "100%", aspectRatio: "1.12", maxWidth: "100%", margin: "0 auto", borderRadius: 18, overflow: "hidden", background: "repeating-linear-gradient(180deg, #133A27 0 10%, #10301F 10% 20%)", border: "2px solid rgba(255,255,255,0.12)" }}>
       {/* líneas */}
       <div style={{ position: "absolute", left: "4%", right: "4%", top: "3%", bottom: "3%", border: linea, borderRadius: 4 }} />
       <div style={{ position: "absolute", left: "4%", right: "4%", top: "50%", height: 2, background: "rgba(255,255,255,0.22)" }} />
@@ -298,11 +319,11 @@ function Campo({ once, resaltar }: { once: JugadorRival[]; resaltar?: Set<string
         const y = 92 - (j.y ?? 0.5) * 84;
 
         return (
-          <div key={j.clave} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: 118, transform: "translate(-50%, -30px)", textAlign: "center" }}>
+          <div key={j.clave} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, width: Math.round(118 * escala), transform: `translate(-50%, -${Math.round(30 * escala)}px)`, textAlign: "center" }}>
             <div style={{ display: "flex", justifyContent: "center" }}>
-              <Cara j={j} size={54} color={resaltar?.has(j.clave) ? C.oro : C.rival} />
+              <Cara j={j} size={Math.round(54 * escala)} color={resaltar?.has(j.clave) ? C.oro : C.rival} />
             </div>
-            <div style={{ marginTop: 3, fontSize: 18, fontWeight: 700, color: "#fff", textTransform: "uppercase", textShadow: "0 1px 3px rgba(0,0,0,0.8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ marginTop: 3, fontSize: Math.max(13, Math.round(18 * escala)), fontWeight: 700, color: "#fff", textTransform: "uppercase", textShadow: "0 1px 3px rgba(0,0,0,0.8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {j.nombre.split(" ").slice(-1)[0]}
             </div>
           </div>

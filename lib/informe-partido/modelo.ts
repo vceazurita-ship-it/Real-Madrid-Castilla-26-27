@@ -2864,7 +2864,12 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
   const consigna = esPost ? [] : [principal, ...candidatas.filter((c) => c !== principal)].filter(Boolean).slice(0, 3);
 
   /* LA IDEA: la principal y, si la hay, otra que también se entrena. La misma en la diapositiva 3, la portada del completo, el WhatsApp y el vídeo. */
-  const acompana = consigna.slice(1).find((c) => !hayTareas || conTarea(c));
+  /* Sin el balón parado (tiene su bloque) ni otra que nombre al mismo jugador: «…la espalda de Gomez y marcamos a Carmona y Gomez…» era dos ideas y un nombre repetido (24/10/2026). */
+  const nombresDe = (t: string) => new Set(t.split(/\s+/).slice(1).filter((w) => /^\p{Lu}\p{Ll}+/u.test(w)).map((w) => w.replace(/\W+$/u, "")));
+
+  const nombrados = nombresDe(principal);
+
+  const acompana = consigna.slice(1).find((c) => (!hayTareas || conTarea(c)) && !/bal[oó]n parado/i.test(c) && ![...nombresDe(c)].some((n) => nombrados.has(n)));
 
   const ideaPrevia = principal ? (acompana ? `${principal} y ${minusculaInicial(acompana)}` : principal) : "";
 
