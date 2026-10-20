@@ -1258,7 +1258,7 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
                 <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: g.c }}>{g.t}</div>
                 {g.l.slice(0, 3).map((m) => (
                   <div key={m.nombre} style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.25, color: C.crema, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {m.nombre} <span style={{ color: C.tenue }}>{ordinal(m.puesto)}</span>
+                    {m.nombre} <span style={{ color: C.tenue }}>{m.mediana ? `${m.valor} · mediana ${m.mediana}` : ordinal(m.puesto)}</span>
                   </div>
                 ))}
               </div>

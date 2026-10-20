@@ -385,7 +385,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
                 l === "mejor" ? `<b style="color:${VERDE}">▲ mejor</b>` : l === "peor" ? `<b style="color:${ROJO}">▼ peor</b>` : l === "habitual" ? `<span style="color:${SUAVE}">= lo habitual</span>` : "",
               ];
             }),
-        )}`
+        )}<p style="margin:6px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">Lectura: la misma prueba para todas las filas. Con nuestra media, ¿cuántas veces sale una cifra así o más lejos? Recuentos por Poisson, porcentajes sobre su base y lo demás con la desviación de nuestros partidos. Una de cada cuatro veces o más es «lo habitual»; menos, ▲ mejor o ▼ peor según el sentido de la métrica (menos es mejor en pérdidas, PPDA y goles en contra).</p>`
       : /* Sin Wyscout, el capítulo no sale: antes decía que faltaba (19/10/2026). */
         "";
 
@@ -535,7 +535,8 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const pronostico = pr
     ? `<p style="margin:0 0 10px;font:700 16px/1.4 Arial,sans-serif;color:${NAVY}">${esc(pr.lectura)}</p>${tarjetas([
-        { rotulo: "Victoria", valor: pct(pr.victoria), pie: `con el plan: ${pct(pr.conPlan.victoria)}` },
+        /* Con su margen (ronda 10, análisis): pocos partidos, la cifra sola parecía exacta. */
+        { rotulo: "Victoria", valor: pct(pr.victoria), pie: pr.rango ? `entre ${pct(pr.rango.victoria[0])} y ${pct(pr.rango.victoria[1])} · con el plan: ${pct(pr.conPlan.victoria)} (entre ${pct(pr.rango.conPlan[0])} y ${pct(pr.rango.conPlan[1])})` : `con el plan: ${pct(pr.conPlan.victoria)}` },
         { rotulo: "Empate", valor: pct(pr.empate), pie: `con el plan: ${pct(pr.conPlan.empate)}` },
         { rotulo: "Derrota", valor: pct(pr.derrota), pie: `con el plan: ${pct(pr.conPlan.derrota)}` },
         { rotulo: "Goles esperados", valor: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`, pie: `más probable: ${pr.marcador}` },
@@ -546,9 +547,9 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
           esc(x.objetivo),
           esc(x.porque),
           esc(x.plan || ""),
-          `<b style="color:${ORO}">+${Math.max(0, x.victoria)} pts</b>`,
+          `<b style="color:${ORO}">+${Math.max(0, x.victoria)}</b> <span style="color:${SUAVE};font-size:11px">puntos de probabilidad de victoria</span>`,
         ]),
-      )}<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">Modelo de Poisson con ${esc(pr.base)}. No es una apuesta: dice de qué partido venimos a hablar y cuánto mueve cada parte del plan. «Con el plan» es el modelo con las tres metas cumplidas a la vez; no es la suma de los puntos de cada palanca, que se solapan.</p>`
+      )}<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">Modelo de Poisson con ${esc(pr.base)}. No es una apuesta: dice de qué partido venimos a hablar y cuánto mueve cada parte del plan. «Con el plan» es el modelo con las tres metas cumplidas a la vez; no es la suma de los puntos de cada palanca, que se solapan. Cada meta sale del pronóstico contra este rival y en este campo, no de nuestra media de la temporada: con balón, un 15 % más de lo que nos da; sin balón, un 20 % menos de lo que les da; a balón parado, +0,12. Por eso la meta puede quedar cerca de nuestra media o por debajo de ella.</p>`
     : "";
 
   const veredicto =
@@ -958,13 +959,19 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
               vz.fases.map((f) => [esc(f.label), `<b style="color:${colorPct(f.percentil)}">${f.percentil === null ? "" : `${f.percentil} de 100`}</b>`, barra(f.percentil, colorPct(f.percentil))]),
             )}`
           : ""
-      }${vz.fuertes.length ? `${etiqueta("Donde destaca", VERDE)}${lista(vz.fuertes.map((m) => `${m.nombre}: ${m.valor} (${ordinal(m.puesto)} de ${m.de})`))}` : ""}${
-        vz.flojos.length ? `${etiqueta("Donde sufre", ROJO)}${lista(vz.flojos.map((m) => `${m.nombre}: ${m.valor} (${ordinal(m.puesto)} de ${m.de})`))}` : ""
+      }${vz.fuertes.length ? `${etiqueta("Donde destaca", VERDE)}${lista(vz.fuertes.map((m) => `${m.nombre}: ${m.valor}${m.mediana ? ` frente a ${m.mediana} de mediana` : ""} (${ordinal(m.puesto)} de ${m.de})`))}` : ""}${
+        vz.flojos.length ? `${etiqueta("Donde sufre", ROJO)}${lista(vz.flojos.map((m) => `${m.nombre}: ${m.valor}${m.mediana ? ` frente a ${m.mediana} de mediana` : ""} (${ordinal(m.puesto)} de ${m.de})`))}` : ""
       }${
         vz.estilo.length
-          ? `${etiqueta("Su estilo · 1.º = el que más")}${tabla(
-              ["", "Suyo", "Mediana", "Puesto"],
-              vz.estilo.map((m) => [esc(m.nombre), `<b>${esc(m.valor)}</b>`, esc(m.mediana), `${ordinal(m.puesto)} de ${m.de}`]),
+          ? /* Sin un segundo orden de puestos (ronda 10, análisis): el estilo se lee contra la mediana, en palabras. */
+            `${etiqueta("Su estilo · frente a la mediana de la liga")}${tabla(
+              ["", "Suyo", "Mediana", "Frente al resto"],
+              vz.estilo.map((m) => [
+                esc(m.nombre),
+                `<b>${esc(m.valor)}</b>`,
+                esc(m.mediana),
+                m.de && m.puesto <= Math.ceil(m.de / 3) ? "de los que más" : m.de && m.puesto > m.de - Math.ceil(m.de / 3) ? "de los que menos" : "en la media",
+              ]),
             )}`
           : ""
       }${
@@ -1177,7 +1184,7 @@ export function informeTexto(inf: InformePartido) {
   if (inf.pronostico) {
     const pr = inf.pronostico;
 
-    l.push("", "EL PRONÓSTICO", pr.lectura, ...pr.palancas.map((x) => `- ${x.momento}: ${x.objetivo} (+${Math.max(0, x.victoria)} pts de victoria)`));
+    l.push("", "EL PRONÓSTICO", pr.lectura, ...pr.palancas.map((x) => `- ${x.momento}: ${x.objetivo} (+${Math.max(0, x.victoria)} puntos de probabilidad de victoria)`));
   }
   if (inf.sintesis.veredicto) l.push("", inf.sintesis.veredicto);
   if (inf.sintesis.relato.length) l.push("", "CÓMO FUE", ...inf.sintesis.relato.map((v) => `- ${v}`));

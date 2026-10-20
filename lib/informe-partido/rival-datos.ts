@@ -14,6 +14,9 @@
 /* Sólo tipos: leer.ts usa el sistema de archivos y no puede entrar en el navegador. */
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { formatea, temporadaDe } from "@/lib/data-analisis/metricas";
+
+/** Decimales con coma y «55,0 %» (ronda 10, análisis: «Su estilo» salía con punto y el resto del informe con coma). */
+const conComa = (t: string) => t.replace(/(\d)\.(\d)/g, "$1,$2").replace(/(\d)%/g, "$1 %");
 import { PUESTOS } from "@/lib/data-analisis/individual";
 import { perfilDe, plantillaDe, resumenDe, sintesisDe, type MetricaEquipo, type PerfilColectivo } from "@/lib/data-analisis/equipo";
 import { alcanceWyscout, type PartidoCalendario } from "@/lib/data-analisis/alcance";
@@ -57,7 +60,21 @@ const SIN_SENTIDO_CLARO = new Set(["perdidas", "faltas", "amarillas", "rojas", "
 /** Un porcentaje en 0 o 100, o un recuento en 0, es un artefacto de muestra. */
 const esArtefacto = (x: MetricaEquipo) => (x.metrica.unidad === "porcentaje" && (x.valor >= 99.5 || x.valor <= 0.5)) || x.valor === 0;
 
-const valeParaDestacar = (x: MetricaEquipo) => !SIN_SENTIDO_CLARO.has(x.metrica.key) && !esArtefacto(x);
+/*
+| Sólo lo que se separa de verdad de la mediana (ronda 10, análisis): 49,4 %
+| frente a 52,1 % salía como «18.º» en «Sufre en». Fuera de la banda central
+| (percentil 25-75) y con una distancia que se nota: 3 puntos en un
+| porcentaje, un 10 % en lo demás.
+*/
+const seSepara = (x: MetricaEquipo) => {
+  if (x.percentil !== null && x.percentil > 25 && x.percentil < 75) return false;
+
+  const diferencia = Math.abs(x.valor - x.mediana);
+
+  return x.metrica.unidad === "porcentaje" ? diferencia >= 3 : diferencia >= 0.1 * Math.max(Math.abs(x.mediana), 0.01);
+};
+
+const valeParaDestacar = (x: MetricaEquipo) => !SIN_SENTIDO_CLARO.has(x.metrica.key) && !esArtefacto(x) && seSepara(x);
 
 function limpiaPerfil(perfil: PerfilColectivo | null): PerfilColectivo | null {
   if (!perfil) return null;
@@ -176,9 +193,11 @@ export async function duelosYVistazo(entrada: {
     const perfil = limpiaPerfil(perfilDe(equipo, deLaTemporada));
     const plantilla = plantillaDe(equipo, wy.jugadores);
     const alcance = alcanceWyscout(wy.partidos, entrada.calendario, claveDeHoy());
-    const met = (x: { metrica: { nombre: string; unidad: Parameters<typeof formatea>[1] }; valor: number; puesto: number; de: number }) => ({
+    const met = (x: { metrica: { nombre: string; unidad: Parameters<typeof formatea>[1] }; valor: number; puesto: number; de: number; mediana: number }) => ({
       nombre: x.metrica.nombre,
-      valor: formatea(x.valor, x.metrica.unidad),
+      valor: conComa(formatea(x.valor, x.metrica.unidad)),
+      /* Valor y mediana, no un puesto suelto (ronda 10, análisis). */
+      mediana: conComa(formatea(x.mediana, x.metrica.unidad)),
       puesto: x.puesto,
       de: x.de,
     });
@@ -203,8 +222,8 @@ export async function duelosYVistazo(entrada: {
       flojos: (perfil?.flojos ?? []).slice(0, 4).map(met),
       estilo: (perfil?.estilo ?? []).slice(0, 6).map((x) => ({
         nombre: x.metrica.nombre,
-        valor: formatea(x.valor, x.metrica.unidad),
-        mediana: formatea(x.mediana, x.metrica.unidad),
+        valor: conComa(formatea(x.valor, x.metrica.unidad)),
+        mediana: conComa(formatea(x.mediana, x.metrica.unidad)),
         puesto: x.puestoDeMas,
         de: x.de,
       })),

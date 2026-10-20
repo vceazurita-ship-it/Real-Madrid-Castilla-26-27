@@ -244,7 +244,24 @@ export type Pronostico = Probabilidades & {
   suDebil?: ArmaMetrica | null;
   /** Arriba en volumen (pases, posesión) y abajo en peligro: «mucho balón, poco remate» (21/10/2026). */
   muchoBalon?: { volumen: ArmaMetrica; sinPeligro: ArmaMetrica } | null;
+  /** La victoria con su margen por los pocos partidos (`rangoVictoria`, ronda 10). */
+  rango?: { victoria: [number, number]; conPlan: [number, number] };
 };
+
+/**
+ * El margen de la victoria (ronda 10, análisis: «50 %» sin rango con 7 u 8
+ * partidos). Cada media de goles esperados se mueve un error típico
+ * (√(λ/n), Poisson) a favor y en contra, y se recalcula la victoria.
+ */
+export function rangoVictoria(lNos: number, lRiv: number, nNos: number, nRiv: number): [number, number] {
+  const eNos = nNos > 0 ? Math.sqrt(lNos / nNos) : 0;
+  const eRiv = nRiv > 0 ? Math.sqrt(lRiv / nRiv) : 0;
+
+  const bajo = probabilidades(Math.max(0.05, lNos - eNos), lRiv + eRiv).victoria;
+  const alto = probabilidades(lNos + eNos, Math.max(0.05, lRiv - eRiv)).victoria;
+
+  return [bajo, alto];
+}
 
 /** Las métricas que acaban en peligro: de ellas sale «su arma» (21/10/2026). */
 const PELIGRO = ["xg", "goles", "tiros", "xgPorTiro", "entradasArea", "ataquesPosRemate", "contrasRemate", "abpRemate", "cornersRemate"];
@@ -411,8 +428,8 @@ export type VistazoRival = {
   forma: { resultado: "G" | "E" | "P"; rival: string; marcador: string; casa: boolean }[];
   sistemas: { sistema: string; partidos: number }[];
   fases: { label: string; percentil: number | null }[];
-  fuertes: { nombre: string; valor: string; puesto: number; de: number }[];
-  flojos: { nombre: string; valor: string; puesto: number; de: number }[];
+  fuertes: { nombre: string; valor: string; puesto: number; de: number; mediana?: string }[];
+  flojos: { nombre: string; valor: string; puesto: number; de: number; mediana?: string }[];
   estilo: { nombre: string; valor: string; mediana: string; puesto: number; de: number }[];
   frases: string[];
   /** Los que más rinden para su puesto, con lo que destacan. */
@@ -659,7 +676,30 @@ export type FilaCumplimiento = {
   consigna?: string;
   /** La cifra y su meta en corto, de este mismo objeto, para el vídeo: «0 contraataques (meta: al menos 1)» (27/10/2026). */
   corto?: string;
+  /** La cifra y la meta en número, para descontar el tramo con uno más (`enIgualdad`, ronda 10). */
+  medida?: { key: string; valor: number; meta: number; alto: boolean; unidad: string };
 };
+
+/**
+ * ¿La meta se cumple también en igualdad? (ronda 10, análisis). El partido
+ * no viene por minutos, así que se estima a la baja: el tramo con uno más
+ * cuenta el doble de lo nuestro (o la mitad de lo suyo, si la meta es que
+ * generen poco), y lo que queda se lleva a 90′. Si aun así llega, el ✓ se
+ * sostiene; si no, no se puede separar y pasa a «=».
+ */
+export function enIgualdad(f: FilaCumplimiento, minutoRoja: number) {
+  const m = f.medida;
+
+  if (!m || minutoRoja <= 0 || minutoRoja >= 90) return null;
+
+  const resto = 90 - minutoRoja;
+
+  const ritmo = m.alto ? m.valor / (minutoRoja + 2 * resto) : m.valor / (minutoRoja + 0.5 * resto);
+
+  const igualdad = ritmo * 90;
+
+  return { valor: igualdad, llega: m.alto ? igualdad >= m.meta : igualdad <= m.meta };
+}
 
 /**
  * La pincelada del informe de ABP del microciclo (la arma la pantalla de ABP,
@@ -1440,6 +1480,10 @@ export function pronostica(inf: { duelo: Duelo | null; partido: { lado: "casa" |
     suFuerte: arma(suFuerte),
     suDebil: arma(suDebil),
     muchoBalon: muchoBalon ? { volumen: arma(muchoBalon.volumen)!, sinPeligro: arma(muchoBalon.sinPeligro)! } : null,
+    rango: {
+      victoria: rangoVictoria(lNos, lRiv, nNos, nRiv),
+      conPlan: rangoVictoria(lNos * 1.15 + 0.12, lRiv * 0.8, nNos, nRiv),
+    },
     base: `xG y goles de la temporada antes del partido (${nNos} y ${nRiv} partidos) · ${campo === 1 ? "sin factor campo" : campo > 1 ? "en casa" : "fuera"}`,
   };
 }
@@ -2481,14 +2525,94 @@ const datoFrenteAMedia = (m: MetricaPartido) =>
     m.unidad !== "porcentaje" && muestraCorta(m) && Math.abs((m.nuestro ?? 0) - (m.media ?? 0)) < 2 ? ` (con esa media, ${Math.floor(m.media ?? 0)} o ${Math.floor(m.media ?? 0) + 1} es lo normal)` : ""
   }`;
 
+/** Una de cada cuatro veces o más: lo habitual (la misma cifra que `REGLA_VEREDICTO`). */
+const UMBRAL_HABITUAL = 0.25;
+
+/** Cola de la normal: P(Z ≥ z), con la aproximación de Abramowitz y Stegun. */
+function colaNormal(z: number) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(z));
+
+  const d = 0.3989423 * Math.exp((-z * z) / 2);
+
+  const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+
+  return z >= 0 ? p : 1 - p;
+}
+
 /**
- * ¿Mejor, peor o dentro de lo habitual? Lo habitual: a menos de una
- * desviación típica de nuestra media (la da Data con 4 o más partidos); sin
- * ella, a menos de un 15 %.
+ * La probabilidad de ver lo del partido, o algo más lejos de la media en esa
+ * misma dirección, con nuestra media (ronda 10). `null` si no hay con qué
+ * medirlo (sin desviación ni base): entonces manda el margen de siempre.
+ */
+export function probabilidadDeLoVisto(m: Pick<MetricaPartido, "key" | "unidad" | "media" | "nuestro"> & { desviacion?: number | null; recuento?: { de: number; total: number } | null }) {
+  if (m.media === null || m.nuestro === null) return null;
+
+  const media = m.media;
+  const valor = m.nuestro;
+
+  const arriba = valor >= media;
+
+  /* Recuentos: Poisson. */
+  if (RECUENTOS.has(m.key) && media > 0 && media < 15 && Number.isInteger(valor)) {
+    let hasta = 0;
+
+    for (let k = 0; k <= valor; k++) hasta += poisson(k, media);
+
+    return arriba ? 1 - hasta + poisson(valor, media) : hasta;
+  }
+
+  /* Porcentajes con su base: binomial. */
+  if (m.unidad === "porcentaje" && m.recuento && m.recuento.total > 0 && media > 0 && media < 100) {
+    const n = Math.round(m.recuento.total);
+    const k = Math.round(m.recuento.de);
+    const q = media / 100;
+
+    let comb = 1;
+    let hasta = 0;
+    let en = 0;
+
+    for (let i = 0; i <= n; i++) {
+      if (i > 0) comb = (comb * (n - i + 1)) / i;
+
+      const pi = comb * q ** i * (1 - q) ** (n - i);
+
+      if (i <= k) hasta += pi;
+
+      if (i === k) en = pi;
+    }
+
+    return arriba ? 1 - hasta + en : hasta;
+  }
+
+  /* Lo demás: con la desviación de nuestros partidos. */
+  if (m.desviacion != null && m.desviacion > 0) return colaNormal(Math.abs(valor - media) / m.desviacion);
+
+  return null;
+}
+
+/**
+ * ¿Mejor, peor o dentro de lo habitual? Desde la ronda 10, con
+ * `probabilidadDeLoVisto` (una de cada cuatro o más: lo habitual); sin con
+ * qué medirlo, a menos de un 15 % de la media.
  */
 function frenteAMedia(m: MetricaPartido): "si" | "no" | "igual" {
   const media = m.media ?? 0;
   const valor = m.nuestro ?? 0;
+
+  /*
+  | UNA prueba para todas las filas (ronda 10, análisis): 3 goles con 1,14 de
+  | media salía «= lo habitual» (pasa 1 de cada 9) y el xG con flecha. Ahora,
+  | la probabilidad de ver algo así o más lejos con nuestra media: recuentos
+  | por Poisson, porcentajes por binomial sobre su base y lo demás con la
+  | desviación de nuestros partidos. Una de cada cuatro o más: lo habitual.
+  */
+  const p = probabilidadDeLoVisto(m);
+
+  if (p !== null) {
+    if (p >= UMBRAL_HABITUAL || valor === media) return "igual";
+
+    return (m.mejorAlto ? valor > media : valor < media) ? "si" : "no";
+  }
 
   /*
   | Fuera la regla «0 con media ≥ 0,5 = ✗» (24/10/2026): con 0,71 de media,
@@ -2634,7 +2758,7 @@ export function cumplimientoPlan(inf: { plan: Plan | null; duelo: Duelo | null; 
 
       const corto = `${cifraPartido(valor, principal.unidad)} ${NOMBRE_CORTO[principal.key] ?? nombreEnFrase(sinSiglas(principal.nombre))} (meta: ${metaCorta})`;
 
-      return { clave, tema: tema.tema, veredicto, dato: capital(dato), corto, lectura: LECTURA_TEMA[tema.tema]?.[veredicto], consigna: tema.consigna };
+      return { clave, tema: tema.tema, veredicto, dato: capital(dato), corto, lectura: LECTURA_TEMA[tema.tema]?.[veredicto], consigna: tema.consigna, medida: { key: principal.key, valor, meta: meta.valor, alto: meta.alto, unidad: principal.unidad } };
     }
 
     /* Sin meta: las dos métricas votan contra nuestra media; ✓ si alguna sale mejor y ninguna peor; ✗ al revés; si no, «=». */
@@ -3727,7 +3851,18 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
   const rojaMeta = esPost ? (inf.cronica?.tarjetas ?? []).filter((t) => t.tipo === "roja" && minutoNum(t.minuto) < 88).sort((a, b) => minutoNum(a.minuto) - minutoNum(b.minuto))[0] : undefined;
 
   const cumplimiento = esPost
-    ? cumplimientoPlan(inf).map((f) => (rojaMeta && f.veredicto === "si" && f.tema !== "Balón parado" ? { ...f, matiz: `con diez enfrente desde el ${rojaMeta.minuto}′` } : f))
+    ? cumplimientoPlan(inf).map((f): FilaCumplimiento => {
+        if (!rojaMeta || f.veredicto !== "si" || f.tema === "Balón parado") return f;
+
+        /* El ✓ sólo si se sostiene también en igualdad (ronda 10, análisis): `enIgualdad`. */
+        const ig = enIgualdad(f, minutoNum(rojaMeta.minuto));
+
+        if (ig?.llega && f.medida) {
+          return { ...f, matiz: `con diez enfrente desde el ${rojaMeta.minuto}′; aun descontando ese tramo, en igualdad saldría ${cifra(ig.valor, f.medida.unidad)}: la meta se sostiene` };
+        }
+
+        return { ...f, veredicto: "igual", lectura: LECTURA_TEMA[f.tema]?.igual ?? f.lectura, matiz: `con diez enfrente desde el ${rojaMeta.minuto}′: no se puede separar del tramo con uno más` };
+      })
     : [];
 
   const microciclo = esPost ? queTocaEnElMicro(inf, cumplimiento) : [];
