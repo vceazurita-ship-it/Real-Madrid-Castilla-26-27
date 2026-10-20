@@ -14,7 +14,7 @@
  * administrador; el interruptor deja preparada la apertura a los jugadores.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   Award,
   CheckCircle2,
@@ -25,6 +25,8 @@ import {
   Flame,
   Lock,
   LockOpen,
+  Maximize2,
+  Minimize2,
   Plus,
   Presentation,
   Save,
@@ -34,6 +36,8 @@ import {
   Trash2,
   Trophy,
   Users,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -88,7 +92,7 @@ function Cara({ jugador, tam = 40, anillo = false }: { jugador?: JugadorLab; tam
 
 const ALTO_PODIO = [150, 112, 84];
 
-function Podio({ filas, porId }: { filas: Fila[]; porId: Map<string, JugadorLab> }) {
+function Podio({ filas, porId, titulo = "Clasificación de balón parado" }: { filas: Fila[]; porId: Map<string, JugadorLab>; titulo?: string }) {
   const tres = filas.slice(0, 3);
 
   /* Orden de podio: 2.º, 1.º, 3.º. */
@@ -97,7 +101,7 @@ function Podio({ filas, porId }: { filas: Fila[]; porId: Map<string, JugadorLab>
   return (
     <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] px-4 pb-0 pt-6 sm:px-8">
       <div className="pointer-events-none absolute left-1/2 top-0 h-48 w-[28rem] max-w-full -translate-x-1/2 rounded-full bg-[#C8A96B]/15 blur-3xl" />
-      <p className="relative text-center text-[10px] uppercase tracking-[0.32em] text-[#C8A96B]">Clasificación de balón parado</p>
+      <p className="relative truncate text-center text-[10px] uppercase tracking-[0.32em] text-[#C8A96B]">{titulo}</p>
 
       <div className="relative mt-5 flex items-end justify-center gap-2 sm:gap-5">
         {orden.map(({ f, puesto }, i) => {
@@ -149,12 +153,14 @@ export function Retos({
   porId,
   guarda,
   ocupado,
+  cargando,
 }: {
   doc: DocumentoLab;
   jugadores: JugadorLab[];
   porId: Map<string, JugadorLab>;
   guarda: GuardaLab;
   ocupado: boolean;
+  cargando: boolean;
 }) {
   const filas = useMemo(() => clasificacion(doc), [doc]);
 
@@ -170,6 +176,21 @@ export function Retos({
     const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Madrid" });
 
     setEditando({ tipo, titulo: "", descripcion: "", fecha: hoy, maximo: 10, puntos: tipo === "quiz" ? 3 : 1, preguntas: [] });
+  };
+
+  /*
+   * Quien puede jugar un reto: la plantilla de hoy más quien ya jugó ese reto
+   * aunque hoy no figure en ella (un cedido, un juvenil que subió): si no, sus
+   * marcas y sus aciertos desaparecían del proyector y del podio final.
+   */
+  const jugadoresDe = (r: Reto) => {
+    const hoy = new Set(jugadores.map((j) => j.id));
+
+    const jugaron = [...Object.keys(r.marcas), ...r.participantes, ...Object.values(r.aciertos).flat()];
+
+    const extra = [...new Set(jugaron)].filter((id) => !hoy.has(id)).map((id) => porId.get(id)).filter((j): j is JugadorLab => Boolean(j));
+
+    return [...jugadores, ...extra];
   };
 
   const retoMarcando = doc.retos.find((r) => r.id === marcando) ?? null;
@@ -201,7 +222,12 @@ export function Retos({
       </div>
 
       {/* ------------------------ PODIO Y TABLA ---------------------------- */}
-      {filas.length > 0 ? (
+      {cargando ? (
+        <div className="grid gap-5 xl:grid-cols-[1fr_1.15fr]" aria-busy="true" aria-label="Cargando la clasificación">
+          <div className="h-72 animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]" />
+          <div className="h-72 animate-pulse rounded-3xl border border-white/10 bg-white/[0.03]" />
+        </div>
+      ) : filas.length > 0 ? (
         <div className="grid gap-5 xl:grid-cols-[1fr_1.15fr]">
           <Podio filas={filas} porId={porId} />
 
@@ -369,9 +395,9 @@ export function Retos({
         />
       )}
 
-      {retoMarcando && <Marcas reto={retoMarcando} jugadores={jugadores} guarda={guarda} onCerrar={() => setMarcando(null)} />}
+      {retoMarcando && <Marcas reto={retoMarcando} jugadores={jugadoresDe(retoMarcando)} guarda={guarda} onCerrar={() => setMarcando(null)} />}
 
-      {retoProyectando && <Proyector reto={retoProyectando} jugadores={jugadores} guarda={guarda} onCerrar={() => setProyectando(null)} />}
+      {retoProyectando && <Proyector reto={retoProyectando} jugadores={jugadoresDe(retoProyectando)} guarda={guarda} onCerrar={() => setProyectando(null)} />}
     </div>
   );
 }
@@ -627,7 +653,66 @@ function Marcas({ reto, jugadores, guarda, onCerrar }: { reto: Reto; jugadores: 
 
 const SEGUNDOS = 20;
 
-function Cuenta() {
+const CLAVE_SONIDO = "abp-lab:sonido";
+
+/**
+ * El sonido del proyector, apagado por defecto y recordado en este aparato.
+ * El contexto de audio nace con un toque (los navegadores no dejan sonar
+ * sin que alguien haya tocado antes la página).
+ */
+function useSonido() {
+  const [activo, setActivo] = useState(() => {
+    try {
+      return typeof window !== "undefined" && window.localStorage.getItem(CLAVE_SONIDO) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const audio = useRef<AudioContext | null>(null);
+
+  const pita = useCallback(
+    (frecuencia: number, ms = 140, volumen = 0.08) => {
+      if (!activo) return;
+
+      try {
+        audio.current ??= new AudioContext();
+
+        const ctx = audio.current;
+
+        const osc = ctx.createOscillator();
+
+        const gan = ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.value = frecuencia;
+        gan.gain.setValueAtTime(volumen, ctx.currentTime);
+        gan.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + ms / 1000);
+        osc.connect(gan).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + ms / 1000);
+      } catch {
+        /* Sin audio en este aparato: se juega en silencio. */
+      }
+    },
+    [activo],
+  );
+
+  const conmuta = () =>
+    setActivo((v) => {
+      try {
+        window.localStorage.setItem(CLAVE_SONIDO, v ? "0" : "1");
+      } catch {
+        /* Sin almacenamiento: vale para esta sesión. */
+      }
+
+      return !v;
+    });
+
+  return { activo, conmuta, pita };
+}
+
+function Cuenta({ pita }: { pita: (f: number, ms?: number) => void }) {
   const [s, setS] = useState(SEGUNDOS);
 
   /* La clave del componente la reinicia en cada pregunta; el intervalo sólo baja hasta cero. */
@@ -637,13 +722,50 @@ function Cuenta() {
     return () => clearInterval(t);
   }, []);
 
+  /* Los tres últimos segundos suenan; el cero, más grave. */
+  useEffect(() => {
+    if (s === 0) pita(330, 420);
+    else if (s <= 3) pita(880, 110);
+  }, [s, pita]);
+
+  const tarde = s <= 5;
+
   return (
-    <div className="flex items-center gap-2">
-      <Timer size={18} className={s <= 5 ? "text-rose-300" : "text-[#C8A96B]"} />
-      <div className="h-2 w-32 overflow-hidden rounded-full bg-white/10 sm:w-48">
-        <div className="h-full rounded-full transition-all duration-1000 ease-linear" style={{ width: `${(s / SEGUNDOS) * 100}%`, background: s <= 5 ? "#f43f5e" : "var(--rmcf-gold-ink)" }} />
+    <div className="flex items-center gap-2" role="timer" aria-label={s ? `Quedan ${s} segundos` : "Tiempo"}>
+      <Timer size={18} className={tarde ? "text-rose-300" : "text-[#C8A96B]"} />
+      <div className="h-2 w-28 overflow-hidden rounded-full bg-white/10 sm:w-48">
+        <div className="h-full rounded-full transition-all duration-1000 ease-linear" style={{ width: `${(s / SEGUNDOS) * 100}%`, background: tarde ? "#f43f5e" : "var(--rmcf-gold-ink)" }} />
       </div>
-      <span className={`w-8 text-right text-lg font-bold tabular-nums ${s <= 5 ? "text-rose-300" : "text-white"}`}>{s}</span>
+      <span className={`w-16 text-right text-lg font-bold tabular-nums ${tarde ? "text-rose-300" : "text-white"} ${tarde && s > 0 ? "lab-late" : ""}`}>{s ? s : "¡Ya!"}</span>
+    </div>
+  );
+}
+
+/* Confeti con posiciones fijas (sin azar en el render): se reparte con la proporción áurea. */
+const COLORES_CONFETI = ["#C8A96B", "#F2DFB0", "#FFFFFF", "#34D399", "#7DD3FC"];
+
+function Confeti() {
+  return (
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-[71] overflow-hidden">
+      {Array.from({ length: 70 }, (_, i) => {
+        const x = ((i * 0.618034) % 1) * 100;
+
+        return (
+          <span
+            key={i}
+            className="lab-confeti"
+            style={
+              {
+                left: `${x}%`,
+                background: COLORES_CONFETI[i % COLORES_CONFETI.length],
+                animationDelay: `${(i % 14) * 70}ms`,
+                animationDuration: `${2.2 + (i % 5) * 0.35}s`,
+                "--deriva": `${((i * 37) % 120) - 60}px`,
+              } as CSSProperties
+            }
+          />
+        );
+      })}
     </div>
   );
 }
@@ -656,11 +778,17 @@ function Proyector({ reto, jugadores, guarda, onCerrar }: { reto: Reto; jugadore
 
   const [elegidos, setElegidos] = useState<string[]>(reto.participantes.length ? reto.participantes : jugadores.map((j) => j.id));
 
+  const [completa, setCompleta] = useState(false);
+
+  const sonido = useSonido();
+
   const n = reto.preguntas.length;
 
   const p = i >= 0 && i < n ? reto.preguntas[i] : null;
 
   const juegan = jugadores.filter((j) => (reto.participantes.length ? reto.participantes : elegidos).includes(j.id));
+
+  const porId = useMemo(() => new Map(jugadores.map((j) => [j.id, j])), [jugadores]);
 
   const ir = (k: number) => {
     setI(k);
@@ -679,25 +807,103 @@ function Proyector({ reto, jugadores, guarda, onCerrar }: { reto: Reto; jugadore
     guarda({ accion: "reto-acierto", id: reto.id, pregunta: p.id, jugador, acierta }).catch(avisa);
   };
 
-  /* La clasificación del propio reto, para el final. */
+  const revela = () => {
+    setVista("respuesta");
+    sonido.pita(660, 160);
+    setTimeout(() => sonido.pita(990, 260), 150);
+  };
+
+  /* La clasificación del propio reto, para el final, con el formato del podio. */
   const tabla = juegan.map((j) => ({ j, pts: puntosEn(reto, j.id) ?? 0 })).sort((a, b) => b.pts - a.pts);
+
+  const filasPodio: Fila[] = tabla.map(({ j, pts }) => ({ jugador: j.id, puntos: pts, jugados: 1, racha: 0, mejorRacha: 0, acierto: 0, insignias: [], victorias: 0 }));
+
+  /* ------------------------- teclado y pantalla ------------------------ */
+
+  /* El manejador lee siempre lo último sin volver a engancharse en cada render. */
+  const teclas = useRef<(e: KeyboardEvent) => void>(() => undefined);
+
+  useEffect(() => {
+    teclas.current = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+
+      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) return;
+
+      if (e.key === "Escape") {
+        if (!document.fullscreenElement) onCerrar();
+
+        return;
+      }
+
+      if (i === -1) return;
+
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") {
+        /* Espacio y Enter sobre un botón ya lo pulsan: no dos veces. */
+        if (t instanceof HTMLButtonElement && e.key !== "ArrowRight") return;
+
+        e.preventDefault();
+
+        if (p && vista === "pregunta") revela();
+        else if (i < n) ir(i + 1);
+      } else if (e.key === "ArrowLeft" && i > 0) {
+        e.preventDefault();
+        ir(i - 1);
+      }
+    };
+  });
+
+  useEffect(() => {
+    const oye = (e: KeyboardEvent) => teclas.current(e);
+
+    const cambia = () => setCompleta(Boolean(document.fullscreenElement));
+
+    const antes = document.body.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", oye);
+    document.addEventListener("fullscreenchange", cambia);
+
+    return () => {
+      document.body.style.overflow = antes;
+      window.removeEventListener("keydown", oye);
+      document.removeEventListener("fullscreenchange", cambia);
+
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    };
+  }, []);
+
+  const pantallaCompleta = () => {
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+    else void document.documentElement.requestFullscreen?.().catch(() => undefined);
+  };
+
+  const final = i >= n && n > 0;
 
   return (
     <div role="dialog" aria-modal="true" aria-label={reto.titulo} className="fixed inset-0 z-[70] flex flex-col overflow-y-auto bg-[#0B0F14] text-white">
-      <div className="pointer-events-none fixed left-1/2 top-0 h-72 w-[40rem] max-w-full -translate-x-1/2 rounded-full bg-[#C8A96B]/10 blur-3xl" />
+      {/* El halo dorado, en degradado: el desenfoque sobre un rectángulo dejaba manchas en el modo día */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed left-1/2 top-0 h-80 w-[48rem] max-w-full -translate-x-1/2"
+        style={{ background: "radial-gradient(closest-side, rgba(200,169,107,0.22), rgba(200,169,107,0))" }}
+      />
+
+      {final && <Confeti />}
 
       <header className="relative flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-10">
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-[0.32em] text-[#C8A96B]">Reto de balón parado</p>
           <p className="truncate text-lg font-semibold">{reto.titulo}</p>
         </div>
-        <div className="flex items-center gap-3">
-          {p && vista === "pregunta" && <Cuenta key={`${p.id}-${i}`} />}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {p && vista === "pregunta" && <Cuenta key={`${p.id}-${i}`} pita={sonido.pita} />}
           {p && (
             <span className="text-sm tabular-nums text-white/50">
               {i + 1} / {n}
             </span>
           )}
+          <Button icon={sonido.activo ? Volume2 : VolumeX} onClick={sonido.conmuta} aria-pressed={sonido.activo} aria-label={sonido.activo ? "Quitar el sonido" : "Poner sonido"} title="Sonido de la cuenta atrás" />
+          <Button icon={completa ? Minimize2 : Maximize2} onClick={pantallaCompleta} aria-label={completa ? "Salir de pantalla completa" : "Pantalla completa"} title="Pantalla completa (para el proyector)" />
           <Button icon={X} onClick={onCerrar} aria-label="Salir del proyector">
             Salir
           </Button>
@@ -712,7 +918,11 @@ function Proyector({ reto, jugadores, guarda, onCerrar }: { reto: Reto; jugadore
               ¿Quién juega?
             </p>
             <p className="mt-1 text-white/55">Fallarlo todo también cuenta como jugado.</p>
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button onClick={() => setElegidos(jugadores.map((j) => j.id))}>Todos</Button>
+              <Button onClick={() => setElegidos([])}>Ninguno</Button>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5">
               {jugadores.map((j) => {
                 const dentro = elegidos.includes(j.id);
 
@@ -755,9 +965,7 @@ function Proyector({ reto, jugadores, guarda, onCerrar }: { reto: Reto; jugadore
                       buena ? "scale-[1.02] border-emerald-400/70 bg-emerald-400/15" : mala ? "border-white/5 opacity-35" : "border-white/15 bg-white/[0.04]"
                     }`}
                   >
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-black ${buena ? "bg-emerald-400/30" : "bg-white/10"}`}>
-                      {String.fromCharCode(65 + k)}
-                    </span>
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-base font-black ${buena ? "bg-emerald-400/30" : "bg-white/10"}`}>{String.fromCharCode(65 + k)}</span>
                     <span className="min-w-0">{o}</span>
                     {buena && <CheckCircle2 size={26} className="ml-auto shrink-0 text-emerald-300" />}
                   </div>
@@ -804,8 +1012,9 @@ function Proyector({ reto, jugadores, guarda, onCerrar }: { reto: Reto; jugadore
               <Button icon={ChevronLeft} disabled={i === 0} onClick={() => ir(i - 1)}>
                 Anterior
               </Button>
+              <p className="hidden text-[11px] text-white/35 md:block">Flechas para moverse · Espacio para la respuesta</p>
               {vista === "pregunta" ? (
-                <Button tone="primary" icon={Eye} onClick={() => setVista("respuesta")}>
+                <Button tone="primary" icon={Eye} onClick={revela}>
                   Ver la respuesta
                 </Button>
               ) : (
@@ -817,31 +1026,31 @@ function Proyector({ reto, jugadores, guarda, onCerrar }: { reto: Reto; jugadore
           </div>
         )}
 
-        {i >= n && n > 0 && (
-          <div className="lab-aparece text-center">
-            <Trophy size={44} className="mx-auto text-[#C8A96B]" />
-            <p className="mt-3 text-4xl font-bold">Así queda</p>
-            <ol className="mx-auto mt-6 max-w-xl space-y-2 text-left">
-              {tabla.map(({ j, pts }, k) => (
-                <li
-                  key={j.id}
-                  className={`lab-aparece flex items-center gap-3 rounded-2xl border px-4 py-3 ${k === 0 ? "border-[#C8A96B]/60 bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.03]"}`}
-                  style={{ animationDelay: `${k * 90}ms` }}
-                >
-                  <span className={`w-7 text-center text-lg font-black ${k < 3 ? "text-[#C8A96B]" : "text-white/40"}`}>{k + 1}</span>
-                  <Cara jugador={j} tam={36} anillo={k === 0} />
-                  <span className="min-w-0 flex-1 truncate text-lg font-semibold">{j.nombre}</span>
-                  <span className="text-2xl font-black tabular-nums">{pts}</span>
-                </li>
-              ))}
-            </ol>
+        {final && (
+          <div className="lab-aparece">
+            <p className="text-center text-4xl font-bold">Así queda</p>
+            <div className="mx-auto mt-6 max-w-2xl">{filasPodio.length > 0 && <Podio filas={filasPodio} porId={porId} titulo={reto.titulo} />}</div>
+            {tabla.length > 3 && (
+              <ol className="mx-auto mt-4 max-w-xl space-y-2 text-left" start={4}>
+                {tabla.slice(3).map(({ j, pts }, k) => (
+                  <li key={j.id} className="lab-aparece flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5" style={{ animationDelay: `${600 + k * 70}ms` }}>
+                    <span className="w-7 text-center text-lg font-black text-white/40">{k + 4}</span>
+                    <Cara jugador={j} tam={32} />
+                    <span className="min-w-0 flex-1 truncate text-base font-semibold">{j.nombre}</span>
+                    <span className="text-xl font-black tabular-nums">{pts}</span>
+                  </li>
+                ))}
+              </ol>
+            )}
             <div className="mt-6 flex justify-center gap-2">
               <Button icon={ChevronLeft} onClick={() => ir(n - 1)}>
                 Volver
               </Button>
-              <Button tone="primary" icon={Lock} onClick={() => guarda({ accion: "reto-cierra", id: reto.id, cerrado: true }).then(onCerrar).catch(avisa)}>
-                Cerrar el reto
-              </Button>
+              {!reto.cerrado && (
+                <Button tone="primary" icon={Lock} onClick={() => guarda({ accion: "reto-cierra", id: reto.id, cerrado: true }).then(onCerrar).catch(avisa)}>
+                  Cerrar el reto
+                </Button>
+              )}
             </div>
           </div>
         )}

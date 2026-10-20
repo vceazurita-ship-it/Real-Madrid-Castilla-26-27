@@ -1740,9 +1740,40 @@ scrollbar-width:none;
   animation: lab-sube 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* El confeti del podio del reto (21/10/2026): cae una vez y se va. */
+@keyframes lab-confeti {
+  0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate3d(var(--deriva, 0), 105vh, 0) rotate(720deg); opacity: 0.9; }
+}
+
+.lab-confeti {
+  position: fixed;
+  top: 0;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  pointer-events: none;
+  animation: lab-confeti 2.8s cubic-bezier(0.25, 0.6, 0.4, 1) forwards;
+}
+
+/* La cuenta atrás, en sus últimos segundos. */
+@keyframes lab-late {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+}
+
+.lab-late {
+  animation: lab-late 1s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lab-aparece,
-  .lab-sube {
+  .lab-sube,
+  .lab-late {
     animation: none;
+  }
+
+  .lab-confeti {
+    display: none;
   }
 }

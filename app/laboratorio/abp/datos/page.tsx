@@ -16,7 +16,7 @@
  * por percentiles.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Crosshair, FlaskConical, GitCompareArrows, LineChart, ListOrdered, ScatterChart } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -24,7 +24,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel, Segmented, Select } from "@/components/abp/ui";
 import { BarraPercentil, BarrasEquipos, Dispersion, Evolucion, type FilaPercentil } from "@/components/data/graficas";
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
-import { cargaCalendario } from "@/hooks/useCalendario";
+import { useAbpLigas, useProximoRival } from "@/hooks/useAbpLigas";
 import { formatea } from "@/lib/data-analisis/metricas";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import {
@@ -36,7 +36,6 @@ import {
   serieDe,
   tablaDe,
   baseDe,
-  type AbpLigas,
   type FilaLiga,
   type LigaAbp,
   type MetricaAbp,
@@ -62,36 +61,43 @@ const fila = (tabla: FilaLiga[], equipo: string, m: MetricaAbp): FilaPercentil =
   };
 };
 
+/**
+ * El equipo de la Premier con el balón parado más parecido: la menor
+ * distancia entre los percentiles de cada uno contra su liga, en las
+ * métricas que se juzgan (no en las de estilo). Es parecido de perfil, no
+ * de nivel: un percentil 80 en Primera RFEF no es un percentil 80 en la
+ * Premier.
+ */
+function gemeloEn(tabla: FilaLiga[], equipo: string, tablaPremier: FilaLiga[]) {
+  const juzgables = METRICAS_ABP.filter((x) => x.mejorAlto !== null);
+
+  const perfil = (t: FilaLiga[], e: string) => juzgables.map((x) => posicionEn(t, e, x).percentil);
+
+  const mio = perfil(tabla, equipo);
+
+  if (mio.filter((v) => v !== null).length < 4) return null;
+
+  const distancias = tablaPremier
+    .map((f) => {
+      const suyo = perfil(tablaPremier, f.equipo);
+
+      const pares = mio.map((v, i) => [v, suyo[i]] as const).filter((p): p is readonly [number, number] => p[0] !== null && p[1] !== null);
+
+      return { equipo: f.equipo, d: pares.length >= 4 ? Math.sqrt(pares.reduce((s, [a, b]) => s + (a - b) ** 2, 0) / pares.length) : Infinity };
+    })
+    .filter((x) => Number.isFinite(x.d))
+    .sort((a, b) => a.d - b.d);
+
+  return distancias[0] ?? null;
+}
+
 export default function DatosAbpPage() {
-  const [datos, setDatos] = useState<AbpLigas | null>(null);
-  const [fallo, setFallo] = useState(false);
+  const { datos, fallo } = useAbpLigas();
+  const proximo = useProximoRival();
   const [slug, setSlug] = useState("");
   const [elegido, setElegido] = useState("");
   const [metrica, setMetrica] = useState("abpRemF");
   const [referencia, setReferencia] = useState("");
-  const [proximo, setProximo] = useState("");
-
-  useEffect(() => {
-    let vivo = true;
-
-    fetch("/data/abp-ligas.json", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((j: AbpLigas) => vivo && setDatos(j))
-      .catch(() => vivo && setFallo(true));
-
-    /* El próximo rival, del calendario de BeSoccer (como en DATA). */
-    void cargaCalendario().then((partidos) => {
-      const ahora = new Date();
-      const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
-      const sig = partidos.filter((p) => p.cuando && p.cuando.slice(0, 10) >= hoy).sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
-
-      if (vivo && sig) setProximo(/castilla/i.test(sig.local) ? sig.visitante : sig.local);
-    });
-
-    return () => {
-      vivo = false;
-    };
-  }, []);
 
   const ligas = useMemo(() => datos?.ligas ?? [], [datos]);
 
@@ -103,7 +109,10 @@ export default function DatosAbpPage() {
 
   const tablaPremier = useMemo(() => (premier ? tablaDe(premier) : []), [premier]);
 
-  const equipo = liga ? (elegido && liga.equipos.includes(elegido) ? elegido : equipoQueCasa(liga, ABRE_CON[liga.slug] ?? "") || liga.equipos[0]) : "";
+  /* Sin equipo de referencia en esa liga, abre con el que más remata a balón parado: lo interesante, no el primero del abecedario. */
+  const elMasPeligroso = [...tabla].sort((a, b) => (b.valores.abpRemF ?? -1) - (a.valores.abpRemF ?? -1))[0]?.equipo ?? "";
+
+  const equipo = liga ? (elegido && liga.equipos.includes(elegido) ? elegido : equipoQueCasa(liga, ABRE_CON[liga.slug] ?? "") || elMasPeligroso || liga.equipos[0]) : "";
 
   /* El próximo rival sólo se resalta en su liga. */
   const delProximo = liga && proximo ? (liga.equipos.find((e) => mismoClub(e, proximo)) ?? "") : "";
@@ -153,6 +162,8 @@ export default function DatosAbpPage() {
   );
 
   const serie = useMemo(() => (liga ? serieDe(liga, equipo, m) : []), [liga, equipo, m]);
+
+  const gemelo = useMemo(() => (premier && premier !== liga && equipo ? gemeloEn(tabla, equipo, tablaPremier) : null), [premier, liga, equipo, tabla, tablaPremier]);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -244,19 +255,45 @@ export default function DatosAbpPage() {
                     />
                   </Panel>
 
+                  {/* ------------------------ TENDENCIA ---------------------- */}
+                  <Panel
+                    title={`${m.nombre}, partido a partido`}
+                    subtitle={`${equipo}: cada punto es un partido; la raya, su valor en la temporada (base: ${formatea(baseDe(suyos, m), "entero")} ${m.denominador === "partidos" ? "partidos" : "acciones"})`}
+                    icon={LineChart}
+                    className="xl:col-span-2"
+                  >
+                    <Evolucion serie={serie} unidad={m.unidad} media={posicionEn(tabla, equipo, m).valor} />
+                  </Panel>
                   {/* ------------------ CONTRA LA REFERENCIA ----------------- */}
                   {premier && premier !== liga && ref && (
                     <Panel
                       title={`${equipo} frente a ${ref}`}
                       subtitle={`Cada uno contra su liga: ${equipo} en ${liga.nombre}, ${ref} en la Premier League. Se comparan percentiles, no cifras`}
                       icon={GitCompareArrows}
+                      className="xl:col-span-2"
                       action={
-                        <div className="w-48">
+                        <div className="w-full sm:w-48">
                           <Select label="Referencia Premier" value={ref} options={premier.equipos} onChange={setReferencia} />
                         </div>
                       }
                     >
-                      <div className="space-y-1">
+                      {gemelo && (
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] px-3.5 py-2.5">
+                          <p className="min-w-0 text-[13px] leading-snug text-white/80">
+                            <span className="font-semibold text-[#C8A96B]">Su gemelo en la Premier: {gemelo.equipo}.</span> Es el perfil de balón parado más parecido, cada uno contra su liga (de media, a {Math.round(gemelo.d)} puntos de percentil).
+                          </p>
+                          {gemelo.equipo !== ref && (
+                            <button
+                              type="button"
+                              onClick={() => setReferencia(gemelo.equipo)}
+                              className="shrink-0 rounded-lg border border-[#C8A96B]/40 px-2.5 py-1 text-[11.5px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                            >
+                              Compararlo
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <div className="grid gap-x-10 gap-y-1 md:grid-cols-2">
                         {METRICAS_ABP.filter((x) => x.mejorAlto !== null).map((x) => (
                           <BarraPercentil key={x.key} fila={fila(tabla, equipo, x)} otra={fila(tablaPremier, ref, x)} nombreOtra={ref} />
                         ))}
@@ -264,15 +301,6 @@ export default function DatosAbpPage() {
                     </Panel>
                   )}
 
-                  {/* ------------------------ TENDENCIA ---------------------- */}
-                  <Panel
-                    title={`${m.nombre}, partido a partido`}
-                    subtitle={`${equipo}: cada punto es un partido; la raya, su valor en la temporada (base: ${formatea(baseDe(suyos, m), "entero")} ${m.denominador === "partidos" ? "partidos" : "acciones"})`}
-                    icon={LineChart}
-                    className={premier && premier !== liga ? "" : "xl:col-span-2"}
-                  >
-                    <Evolucion serie={serie} unidad={m.unidad} media={posicionEn(tabla, equipo, m).valor} />
-                  </Panel>
                 </div>
               </>
             )}

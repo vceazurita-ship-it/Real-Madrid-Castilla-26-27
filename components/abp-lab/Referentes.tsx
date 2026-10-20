@@ -6,13 +6,106 @@
  * cada cosa; una rutina se lleva al taller con un botón.
  */
 
-import { useState } from "react";
-import { ArrowUpRight, BookOpen, FlaskConical, GraduationCap, Shield, Sparkles } from "lucide-react";
+import { useMemo, useState, useSyncExternalStore } from "react";
+import { ArrowUpRight, BookOpen, Check, FlaskConical, GraduationCap, Library, Route, Search, Shield, Sparkles, X } from "lucide-react";
 
 import { Button, Panel } from "@/components/abp/ui";
-import { fechaFuente } from "@/components/abp-lab/comun";
-import { DATOS_CLAVE, DEFENSA, REFERENTES, type Fuente, type RutinaReferente } from "@/lib/abp-lab/referentes";
+import { fechaFuente, type JugadorLab } from "@/components/abp-lab/comun";
+import { MiniPizarra } from "@/components/abp-lab/PizarraRutina";
+import { ESQUEMAS } from "@/lib/abp-lab/esquemas";
+import { DATOS_CLAVE, DEFENSA, FUENTES as F, REFERENTES, type Fuente, type RutinaReferente } from "@/lib/abp-lab/referentes";
 import { TIPOS, etiqueta } from "@/lib/abp-lab/modelo";
+
+/* ------------------------------------------------------------------ */
+/*  LA RUTA DE APRENDIZAJE                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Lo gratuito, en el orden en que se aprovecha mejor: primero el marco (para
+ * qué sirve el balón parado en el modelo), luego el dato, después cómo
+ * atacan los mejores, cómo se defiende, el saque de banda y cómo se entrena.
+ * Lo hecho se recuerda en este aparato.
+ */
+const RUTA: { fuente: Fuente; para: string }[] = [
+  { fuente: F.coulston, para: "El marco: las cuatro preguntas antes de dibujar nada" },
+  { fuente: F.analystCorners, para: "El dato: qué córner y qué zona dan más" },
+  { fuente: F.plGabriel, para: "Arsenal: bloqueos, señuelos y un solo rematador" },
+  { fuente: F.tggBloqueos, para: "El arte del bloqueo, paso a paso" },
+  { fuente: F.fifaChelsea, para: "Chelsea: el córner en corto como ataque (con vídeo)" },
+  { fuente: F.tfaChelsea, para: "Las rutinas de Cueva y por qué fallaban en la ejecución" },
+  { fuente: F.plDefensa, para: "Defender: quién encaja menos y cómo se coloca" },
+  { fuente: F.gronnemark, para: "El saque de banda: conservar y no sacar por la línea" },
+  { fuente: F.georgson, para: "Entrenarlo: minutos a la semana y principios que crecen" },
+  { fuente: F.vio, para: "Lo psicológico: variar para ser imprevisible" },
+];
+
+const CLAVE_RUTA = "abp-lab:ruta";
+
+/*
+ * La ruta vive en el almacenamiento del aparato y se lee con
+ * `useSyncExternalStore`: en el servidor sale vacía y en el navegador con lo
+ * guardado, sin desajuste al hidratar. Si no hay almacenamiento (ventana
+ * privada), vale lo de esta sesión en memoria.
+ */
+const oyentesRuta = new Set<() => void>();
+
+let rutaEnMemoria = "[]";
+
+const leeRuta = () => {
+  try {
+    return window.localStorage.getItem(CLAVE_RUTA) ?? rutaEnMemoria;
+  } catch {
+    return rutaEnMemoria;
+  }
+};
+
+const suscribeRuta = (aviso: () => void) => {
+  oyentesRuta.add(aviso);
+  window.addEventListener("storage", aviso);
+
+  return () => {
+    oyentesRuta.delete(aviso);
+    window.removeEventListener("storage", aviso);
+  };
+};
+
+function useRuta() {
+  const crudo = useSyncExternalStore(suscribeRuta, leeRuta, () => "[]");
+
+  const hechos = useMemo(() => {
+    try {
+      const v = JSON.parse(crudo);
+
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    } catch {
+      return [];
+    }
+  }, [crudo]);
+
+  const conmuta = (url: string) => {
+    const nuevo = JSON.stringify(hechos.includes(url) ? hechos.filter((y) => y !== url) : [...hechos, url]);
+
+    rutaEnMemoria = nuevo;
+
+    try {
+      window.localStorage.setItem(CLAVE_RUTA, nuevo);
+    } catch {
+      /* Vale para esta sesión. */
+    }
+
+    oyentesRuta.forEach((aviso) => aviso());
+  };
+
+  return { hechos, conmuta };
+}
+
+const normaliza = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+
+const SIN_JUGADORES = new Map<string, JugadorLab>();
 
 function Cita({ fuente }: { fuente: Fuente }) {
   return (
@@ -34,10 +127,82 @@ function Cita({ fuente }: { fuente: Fuente }) {
 export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferente, referente: string) => void }) {
   const [elegido, setElegido] = useState(REFERENTES[0].id);
 
+  const [busca, setBusca] = useState("");
+
+  const ruta = useRuta();
+
   const ref = REFERENTES.find((r) => r.id === elegido) ?? REFERENTES[0];
+
+  /* Todo lo que se puede buscar: principios y rutinas de cada referente, y la defensa de la liga. */
+  const resultados = useMemo(() => {
+    const q = normaliza(busca.trim());
+
+    if (q.length < 2) return [];
+
+    const todo = [
+      ...REFERENTES.flatMap((r) => [
+        ...r.principios.map((p) => ({ clave: `${r.id}-p-${p.titulo}`, de: r.nombre, refId: r.id, titulo: p.titulo, texto: p.detalle, fuente: p.fuente })),
+        ...r.rutinas.map((x) => ({ clave: `${r.id}-r-${x.id}`, de: r.nombre, refId: r.id, titulo: x.nombre, texto: x.pasos.join(" "), fuente: x.fuente })),
+      ]),
+      ...DEFENSA.map((p) => ({ clave: `def-${p.titulo}`, de: "Defender en la élite", refId: "", titulo: p.titulo, texto: p.detalle, fuente: p.fuente })),
+    ];
+
+    return todo.filter((x) => normaliza(`${x.titulo} ${x.texto} ${x.de}`).includes(q));
+  }, [busca]);
+
+  const biblioteca = REFERENTES.flatMap((r) => r.rutinas.map((x) => ({ r, x })));
 
   return (
     <div className="space-y-5">
+      {/* ------------------------ BUSCADOR -------------------------------- */}
+      <label className="relative block max-w-xl">
+        <span className="sr-only">Buscar en los referentes</span>
+        <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/35" />
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar: bloqueo, portero, corto, barrera, segundo palo…"
+          className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-2.5 pl-10 pr-10 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#C8A96B]/50"
+        />
+        {busca && (
+          <button type="button" aria-label="Borrar la búsqueda" onClick={() => setBusca("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1 text-white/40 hover:text-white">
+            <X size={14} />
+          </button>
+        )}
+      </label>
+
+      {busca.trim().length >= 2 && (
+        <section aria-live="polite" className="space-y-2">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+            {resultados.length ? `${resultados.length} ${resultados.length === 1 ? "resultado" : "resultados"}` : "Nada con esa palabra: prueba con otra"}
+          </p>
+          <div className="grid gap-2 md:grid-cols-2">
+            {resultados.slice(0, 12).map((x) => (
+              <article key={x.clave} className="lab-aparece min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-3.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">{x.de}</p>
+                <p className="mt-1 text-sm font-semibold text-white/90">{x.titulo}</p>
+                <p className="mt-0.5 line-clamp-3 text-[12.5px] leading-snug text-white/60">{x.texto}</p>
+                <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                  <Cita fuente={x.fuente} />
+                  {x.refId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setElegido(x.refId);
+                        setBusca("");
+                      }}
+                      className="text-[11px] font-semibold text-white/55 underline-offset-2 hover:text-white hover:underline"
+                    >
+                      Ver su ficha
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* ------------------------ LOS DATOS QUE MANDAN --------------------- */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {DATOS_CLAVE.map((d) => (
@@ -48,6 +213,37 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
           </div>
         ))}
       </div>
+
+      {/* ------------------------ LA BIBLIOTECA --------------------------- */}
+      <Panel title="Biblioteca de rutinas" subtitle="Las de los referentes, dibujadas a partir de su fuente: al taller llegan colocadas y listas para reproducir" icon={Library}>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {biblioteca.map(({ r, x }) => {
+            const esquema = ESQUEMAS[x.id];
+
+            return (
+              <article key={x.id} className="lab-aparece flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+                {esquema && <MiniPizarra rutina={{ nombre: x.nombre, senal: "", tipo: x.tipo, lado: "ofensivo", contra: "cualquiera", roles: esquema.roles, balon: esquema.balon }} porId={SIN_JUGADORES} />}
+                <div className="flex flex-1 flex-col p-3.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+                    {r.nombre} · {r.club}
+                  </p>
+                  <p className="mt-1 text-[13.5px] font-semibold leading-snug text-white/90">{x.nombre}</p>
+                  <p className="mt-0.5 text-[11.5px] text-white/45">
+                    {etiqueta(TIPOS, x.tipo)}
+                    {x.contra ? ` · contra ${x.contra}` : ""}
+                  </p>
+                  <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2.5">
+                    <Cita fuente={x.fuente} />
+                    <Button icon={FlaskConical} onClick={() => onAlTaller(x, r.id)}>
+                      Al taller
+                    </Button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </Panel>
 
       {/* ------------------------ ELEGIR REFERENTE ------------------------ */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" role="tablist" aria-label="Referentes">
@@ -188,6 +384,48 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
           </div>
         </div>
       </section>
+
+      {/* ------------------------ RUTA DE APRENDIZAJE ---------------------- */}
+      <Panel
+        title="Ruta de aprendizaje"
+        subtitle={`Todo gratis, en orden · ${RUTA.filter((x) => ruta.hechos.includes(x.fuente.url)).length} de ${RUTA.length} hechos`}
+        icon={Route}
+      >
+        <div className="mb-4 flex items-center gap-1" role="img" aria-label={`Ruta: ${RUTA.filter((x) => ruta.hechos.includes(x.fuente.url)).length} de ${RUTA.length}`}>
+          {RUTA.map((x) => (
+            <span key={x.fuente.url} className={`h-1.5 flex-1 rounded-full ${ruta.hechos.includes(x.fuente.url) ? "bg-[#C8A96B]" : "bg-white/10"}`} />
+          ))}
+        </div>
+        <ol className="grid gap-2 md:grid-cols-2">
+          {RUTA.map((x, i) => {
+            const hecho = ruta.hechos.includes(x.fuente.url);
+
+            return (
+              <li key={x.fuente.url} className={`flex min-w-0 items-start gap-3 rounded-xl border p-3 transition ${hecho ? "border-[#C8A96B]/40 bg-[#C8A96B]/[0.06]" : "border-white/10 bg-white/[0.02]"}`}>
+                <button
+                  type="button"
+                  aria-pressed={hecho}
+                  aria-label={hecho ? `Marcar «${x.para}» como pendiente` : `Marcar «${x.para}» como hecho`}
+                  onClick={() => ruta.conmuta(x.fuente.url)}
+                  className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition ${hecho ? "bg-[#C8A96B] text-black" : "bg-white/10 text-white/55 hover:bg-white/20"}`}
+                >
+                  {hecho ? <Check size={13} /> : i + 1}
+                </button>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold leading-snug text-white/90">{x.para}</p>
+                  <a href={x.fuente.url} target="_blank" rel="noreferrer" className="mt-0.5 inline-flex max-w-full items-center gap-1 text-[11.5px] text-white/50 underline-offset-2 hover:text-[#C8A96B] hover:underline">
+                    <ArrowUpRight size={11} className="shrink-0" />
+                    <span className="truncate">
+                      {x.fuente.medio}
+                      {x.fuente.fecha ? ` · ${fechaFuente(x.fuente.fecha)}` : ""}
+                    </span>
+                  </a>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </Panel>
 
       {/* ------------------------ DEFENDER -------------------------------- */}
       <Panel title="Cómo se defiende en la élite" subtitle="Lo que hacen los equipos que menos encajan de córner" icon={Shield}>

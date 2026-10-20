@@ -33,13 +33,47 @@ export type Papel = "lanzador" | "rematador" | "bloqueador" | "senuelo" | "porte
 
 export type Zona = "primer-palo" | "centro" | "segundo-palo" | "portero" | "frontal" | "corto" | "atras";
 
+/** Cuándo arranca la carrera: antes del saque, con el golpeo o a por el rechace. */
+export type Fase = 1 | 2 | 3;
+
+/** Un punto del medio campo en metros: x de banda a banda (0-68), y desde la línea de fondo (0-52,5). */
+export type Punto = { x: number; y: number };
+
 export type Rol = {
   /** Id del jugador de la plantilla; vacío si el papel aún no tiene dueño. */
   jugador: string;
   papel: Papel;
   zona: Zona;
   nota?: string;
+  /** Dónde arranca, si se ha colocado a mano en la pizarra (si no, sale de la zona). */
+  x?: number;
+  y?: number;
+  /** Adónde va su carrera, si la tiene. */
+  hx?: number;
+  hy?: number;
+  fase?: Fase;
 };
+
+/** El camino de entrenamiento de una rutina, de la pizarra al partido. */
+export const PROGRESION: { key: string; label: string; detalle: string }[] = [
+  { key: "charla", label: "Explicada", detalle: "Pizarra y vídeo en la charla" },
+  { key: "sin-oposicion", label: "Sin oposición", detalle: "Ritmos, señal y golpeo" },
+  { key: "pasiva", label: "Oposición pasiva", detalle: "Con defensores que no disputan" },
+  { key: "activa", label: "Oposición activa", detalle: "Contra una defensa de verdad" },
+  { key: "partidillo", label: "En partidillo", detalle: "Dentro de un partido de entrenamiento" },
+  { key: "oficial", label: "En partido oficial", detalle: "Ya se ha usado compitiendo" },
+];
+
+export type Desenlace = "gol" | "remate" | "nada";
+
+export const DESENLACES: { key: Desenlace; label: string }[] = [
+  { key: "gol", label: "Gol" },
+  { key: "remate", label: "Remate" },
+  { key: "nada", label: "Sin remate" },
+];
+
+/** Una vez que se usó compitiendo, con lo que dio. */
+export type Uso = { fecha: string; rival: string; desenlace: Desenlace };
 
 export type Rutina = {
   id: string;
@@ -55,6 +89,12 @@ export type Rutina = {
   roles: Rol[];
   variantes: string[];
   estado: Estado;
+  /** El recorrido del balón: el primer punto es donde se golpea. */
+  balon?: Punto[];
+  /** Los pasos de `PROGRESION` ya dados. */
+  progreso?: string[];
+  /** Las veces que se ha usado compitiendo. */
+  usos?: Uso[];
   creadaEn: string;
   actualizadaEn: string;
 };
@@ -181,17 +221,58 @@ const entero = (v: unknown, min: number, max: number, defecto: number) => {
 
 const LADOS: { key: Lado }[] = [{ key: "ofensivo" }, { key: "defensivo" }];
 
+/** Una lista opcional: si viene vacía, el campo no se escribe (el documento no se llena de `[]`). */
+const listaSi = <K extends string, T>(clave: K, lista: T[]) => (lista.length ? ({ [clave]: lista } as Record<K, T[]>) : {});
+
+/** Una coordenada del medio campo, con un decimal; null si no es un número. */
+const metro = (v: unknown, max: number) => {
+  const n = Number(v);
+
+  return v === null || v === undefined || v === "" || !Number.isFinite(n) ? null : Math.round(Math.min(max, Math.max(0, n)) * 10) / 10;
+};
+
+const punto = (v: unknown): Punto | null => {
+  if (!v || typeof v !== "object") return null;
+
+  const p = v as Record<string, unknown>;
+
+  const x = metro(p.x, 68);
+
+  const y = metro(p.y, 52.5);
+
+  return x === null || y === null ? null : { x, y };
+};
+
 function rol(v: unknown): Rol | null {
   if (!v || typeof v !== "object") return null;
 
   const r = v as Record<string, unknown>;
+
+  const inicio = punto(r);
+
+  const destino = punto({ x: r.hx, y: r.hy });
+
+  const fase = Number(r.fase);
 
   return {
     jugador: texto(r.jugador, 60),
     papel: de(PAPELES, r.papel, "rematador"),
     zona: de(ZONAS, r.zona, "centro"),
     ...(texto(r.nota, 140) ? { nota: texto(r.nota, 140) } : {}),
+    ...(inicio ? { x: inicio.x, y: inicio.y } : {}),
+    ...(destino ? { hx: destino.x, hy: destino.y } : {}),
+    ...(fase === 1 || fase === 2 || fase === 3 ? { fase: fase as Fase } : {}),
   };
+}
+
+function uso(v: unknown): Uso | null {
+  if (!v || typeof v !== "object") return null;
+
+  const u = v as Record<string, unknown>;
+
+  if (!esFecha(u.fecha)) return null;
+
+  return { fecha: u.fecha, rival: texto(u.rival, 60), desenlace: de(DESENLACES, u.desenlace, "nada") };
 }
 
 export function rutinaDe(v: unknown, ahora: string, previa?: Rutina): Rutina {
@@ -213,6 +294,16 @@ export function rutinaDe(v: unknown, ahora: string, previa?: Rutina): Rutina {
     roles: (Array.isArray(r.roles) ? r.roles : []).map(rol).filter((x): x is Rol => Boolean(x)).slice(0, 14),
     variantes: (Array.isArray(r.variantes) ? r.variantes : []).map((x) => texto(x, 240)).filter(Boolean).slice(0, 8),
     estado: de(ESTADOS, r.estado, "idea"),
+    ...listaSi("balon", (Array.isArray(r.balon) ? r.balon : []).map(punto).filter((x): x is Punto => Boolean(x)).slice(0, 6)),
+    ...listaSi("progreso", [...new Set((Array.isArray(r.progreso) ? r.progreso : []).filter((x): x is string => PROGRESION.some((p) => p.key === x)))]),
+    ...listaSi(
+      "usos",
+      (Array.isArray(r.usos) ? r.usos : [])
+        .map(uso)
+        .filter((x): x is Uso => Boolean(x))
+        .sort((a, b) => b.fecha.localeCompare(a.fecha))
+        .slice(0, 60),
+    ),
     creadaEn: previa?.creadaEn ?? ahora,
     actualizadaEn: ahora,
   };

@@ -888,10 +888,20 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
-          { que: "Referentes", es: "Principios, rutinas y formación de Jover (Arsenal), Cueva (Chelsea), Brentford, Georgson, Vio, Grønnemark y Coulston. «Al taller» copia una rutina para hacerla nuestra" },
-          { que: "Taller", es: "Cada rutina con quién hace qué y en qué zona, la señal, las variantes, contra qué defensa y su estado: idea, probada o en partido" },
-          { que: "Retos", es: "Retos de precisión (se apunta la marca de cada uno) y de preguntas (se proyectan en el vestuario y se marca quién acierta)" },
-          { que: "Datos", es: "El balón parado de los equipos de Primera RFEF y de la Premier, en su propia pantalla" },
+          { que: "Referentes", es: "Principios, rutinas y formación de Jover (Arsenal), Cueva (Chelsea), Brentford, Georgson, Vio, Grønnemark y Coulston, con buscador, la biblioteca de rutinas dibujadas y una ruta de aprendizaje gratuita. «Al taller» la lleva al taller ya colocada" },
+          { que: "Taller", es: "Cada rutina en una pizarra viva: se coloca a cada uno, se dibujan carreras y balón, se reproduce y se saca en PNG. Con papeles, variantes de los referentes según la defensa, el encaje con el rival y su progresión hasta el partido" },
+          { que: "Retos", es: "Retos de precisión (se apunta la marca de cada uno) y de preguntas (se proyectan en el vestuario, con teclado, pantalla completa y sonido opcional, y se marca quién acierta)" },
+          { que: "Datos", es: "El balón parado de los equipos de Primera RFEF (los dos grupos) y de la Premier, con el gemelo de cada equipo en la Premier" },
+        ],
+      },
+      {
+        titulo: "La pizarra del taller",
+        filas: [
+          { que: "Colocar", es: "Arrastra a cada uno a su sitio de salida (con teclado: flechas, medio metro; con Mayúsculas, dos)" },
+          { que: "Carreras", es: "Arrastra desde un jugador hasta donde acaba su carrera; un toque sin moverse la borra. La fase dice cuándo arranca: antes del saque, con el golpeo o al rechace" },
+          { que: "Balón", es: "Cada toque añade un punto al recorrido; el primero es el golpeo. Doble toque quita un punto" },
+          { que: "Rival tipo", es: "La defensa contra la que se pensó (zona, mixta o al hombre), en esquema: no es un rival concreto" },
+          { que: "Encaje con el rival", es: "Lo que Wyscout mide del rival en ese tipo de balón parado: lo que concede si atacamos, lo que genera si defendemos, contra el resto de la liga" },
         ],
       },
       {

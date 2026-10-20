@@ -27,6 +27,19 @@ import { useJugadoresLab } from "@/components/abp-lab/comun";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAbpLab } from "@/hooks/useAbpLab";
+import { ESQUEMAS } from "@/lib/abp-lab/esquemas";
+import type { Defensa } from "@/lib/abp-lab/modelo";
+
+/** La defensa que cuenta la fuente («Southampton (cinco zonales, tres al hombre)» es mixta). */
+function defensaDe(texto?: string): Defensa {
+  const t = (texto ?? "").toLowerCase();
+
+  const zona = /zona/.test(t);
+
+  const hombre = /hombre/.test(t);
+
+  return zona && hombre ? "mixta" : zona ? "zona" : hombre ? "hombre" : "cualquiera";
+}
 
 type Pestana = "referentes" | "taller" | "retos";
 
@@ -121,12 +134,17 @@ export default function LaboratorioAbpPage() {
               {pestana === "referentes" && (
                 <Referentes
                   onAlTaller={(rutina, referente) => {
+                    /* Llega dibujada si tenemos su esquema, y con la defensa contra la que la cuenta su fuente. */
+                    const esquema = ESQUEMAS[rutina.id];
+
                     setBorrador({
                       ...borradorVacio(),
                       nombre: rutina.nombre,
                       tipo: rutina.tipo,
+                      contra: defensaDe(rutina.contra),
                       inspiracion: rutina.id || referente,
-                      idea: rutina.pasos.join(" "),
+                      idea: rutina.pasos.map((p, i) => `${i + 1}. ${p}`).join("\n"),
+                      ...(esquema ? { roles: esquema.roles.map((r) => ({ ...r })), balon: esquema.balon.map((p) => ({ ...p })) } : {}),
                     });
                     setPestana("taller");
                   }}
@@ -134,10 +152,19 @@ export default function LaboratorioAbpPage() {
               )}
 
               {pestana === "taller" && (
-                <Taller rutinas={doc.rutinas} jugadores={jugadores} porId={porId} guarda={guarda} ocupado={ocupado} abierto={borrador} setAbierto={setBorrador} />
+                <Taller
+                  rutinas={doc.rutinas}
+                  jugadores={jugadores}
+                  porId={porId}
+                  guarda={guarda}
+                  ocupado={ocupado}
+                  cargando={estado === "cargando"}
+                  abierto={borrador}
+                  setAbierto={setBorrador}
+                />
               )}
 
-              {pestana === "retos" && <Retos doc={doc} jugadores={jugadores} porId={porId} guarda={guarda} ocupado={ocupado} />}
+              {pestana === "retos" && <Retos doc={doc} jugadores={jugadores} porId={porId} guarda={guarda} ocupado={ocupado} cargando={estado === "cargando"} />}
             </div>
           </div>
         </section>
