@@ -56,6 +56,7 @@ import {
   type JugadorRival,
   type MetricaDuelo,
   type Probabilidades,
+  quienDuelo,
 } from "@/lib/informe-partido/modelo";
 
 /**
@@ -1108,7 +1109,8 @@ function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin
   /* La media de los cruces que se ven, no el balance de todos (21/10/2026): «+38» junto a 69-12 y 77-24 no cuadraba. */
   const valor = ventajaVisible(x, lado);
   const color = lado === "con" ? C.bien : C.mal;
-  const [a, b] = lado === "con" ? [x.nuestros, x.suyos] : [x.suyos, x.nuestros];
+  /* Con dorsal y sin apellidos repetidos (ronda 10): `quienDuelo`. */
+  const [a, b] = lado === "con" ? [quienDuelo(x, "nuestros"), quienDuelo(x, "suyos")] : [quienDuelo(x, "suyos"), quienDuelo(x, "nuestros")];
   /* Lo que hacemos en palabras y, debajo, las cifras que suman la grande (22/10/2026). */
   const conducta = conductaDuelo(x, lado);
   const cifras = cifrasDuelo(x, lado);
@@ -1124,9 +1126,9 @@ function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin
       </div>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.05, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          <span style={{ color: lado === "con" ? C.oro : C.crema }}>{a.map(apellido).join(" y ")}</span>
+          <span style={{ color: lado === "con" ? C.oro : C.crema }}>{a.charAt(0).toUpperCase() + a.slice(1)}</span>
           <span style={{ color: C.tenue, fontWeight: 600 }}> ante </span>
-          <span style={{ color: lado === "con" ? C.crema : C.oro }}>{b.map(apellido).join(" y ")}</span>
+          <span style={{ color: lado === "con" ? C.crema : C.oro }}>{b}</span>
         </div>
         {conducta ? (
           <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.crema }}>

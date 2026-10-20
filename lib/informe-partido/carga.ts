@@ -30,7 +30,7 @@ import { duelosYVistazo } from "@/lib/informe-partido/rival-datos";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
 import { golesTemporadaDe } from "./goles-temporada";
-import { explicaDano, fraseDeFase, fraseUtil, mismoJugador, pronostica, type Cronica } from "./modelo";
+import { explicaDano, fraseDeFase, fraseUtil, mismoJugador, pronostica, rotulosDeDuelos, type Cronica } from "./modelo";
 import type { CortePartido } from "@/lib/video-informe/guion";
 import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
 
@@ -917,7 +917,8 @@ export async function cargaInforme(entrada: {
       : null,
     avisos,
     /* Un duelo con alguien del once dudoso no se publica hasta que el analista lo confirme (22/10/2026). */
-    duelosJugadores: duelosSinDudosos(delRival.duelos, cronica, avisos),
+    /* Con dorsal y sin apellidos repetidos (ronda 10): `rotulosDeDuelos`. */
+    duelosJugadores: rotulosDeDuelos(duelosSinDudosos(delRival.duelos, cronica, avisos), onceFinal.jugadores),
     /* Sin lo que contradice la ficha (25/10/2026): se le dice al analista. */
     vistazo: (() => { const v = vistazoCoherente(delRival.vistazo, plantilla); avisos.push(...v.avisos); return v.vistazo; })(),
     videoListo: videoDoc?.url ? { url: videoDoc.url, creado: videoDoc.creado ?? "", segundos: videoDoc.segundos ?? 0, poster: videoDoc.poster ?? null, ligero: videoDoc.ligero ?? null } : null,

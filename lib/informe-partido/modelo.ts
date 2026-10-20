@@ -386,6 +386,8 @@ export type DueloJugadores = {
   resumen: string;
   /** Los enfrentamientos que se despegan (ventaja o desventaja), del más claro al menos. */
   destacados: EnfrentamientoInforme[];
+  /** Cómo se lee cada nombre cuando el apellido solo confunde («el 7 García», «J. Martínez»): `rotulosDeDuelos`. */
+  rotulos?: Record<string, string>;
 };
 
 export type DuelosInforme = {
@@ -420,6 +422,59 @@ export type VistazoRival = {
 };
 
 const apellidos = (lista: string[]) => lista.map((n) => apellido(n)).join(" y ");
+
+const primeraMayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** Cómo se lee cada lado de un duelo: con sus rótulos (`rotulosDeDuelos`) si los tiene, si no el apellido. */
+export function quienDuelo(x: DueloJugadores, lado: "nuestros" | "suyos") {
+  return x[lado].map((n) => x.rotulos?.[n] ?? apellido(n)).join(" y ");
+}
+
+/**
+ * Los nombres de los duelos, sin dudas (ronda 10, fútbol): su 18 Martínez y
+ * nuestro Martínez en la misma línea parecían el mismo, y su delantero «entre
+ * líneas» parecía nuestro. Los suyos llevan el dorsal delante («el 7
+ * García») y, si es delantero en un duelo de la medular, lo dice; los
+ * nuestros llevan la inicial cuando el apellido se repite en el duelo.
+ */
+export function rotulosDeDuelos(d: DuelosInforme | null, onceRival: JugadorRival[]): DuelosInforme | null {
+  if (!d) return d;
+
+  const inicial = (n: string) => {
+    const partes = n.trim().split(/\s+/);
+
+    return partes.length > 1 ? `${partes[0].charAt(0).toUpperCase()}. ${apellido(n)}` : apellido(n);
+  };
+
+  return {
+    ...d,
+    lista: d.lista.map((x) => {
+      const rotulos: Record<string, string> = {};
+
+      const suyosApellidos = x.suyos.map((n) => apellido(n));
+
+      x.nuestros.forEach((n) => {
+        const a = apellido(n);
+
+        if (suyosApellidos.includes(a) || x.nuestros.filter((m) => apellido(m) === a).length > 1) rotulos[n] = inicial(n);
+      });
+
+      x.suyos.forEach((n) => {
+        const j = onceRival.find((uno) => mismoJugador(uno.nombre, n));
+
+        const dorsal = String(j?.dorsal ?? "").trim();
+
+        if (!dorsal) return;
+
+        const puesto = x.zona === "medio" && j?.linea === "DEL" ? " (delantero)" : "";
+
+        rotulos[n] = `el ${dorsal} ${apellido(n)}${puesto}`;
+      });
+
+      return Object.keys(rotulos).length ? { ...x, rotulos } : x;
+    }),
+  };
+}
 
 /** «Dónde atacar»: los duelos en los que, con el balón nuestro, les sacamos ventaja. */
 export function duelosParaAtacar(d: DuelosInforme | null, umbral = 10) {
@@ -505,7 +560,7 @@ export function cifrasDuelo(x: DueloJugadores, lado: "con" | "sin") {
 
 /** Una línea de caseta para un duelo: quién, dónde, qué hacemos y, al final, las cifras (sobre 100, contra su puesto). */
 export function fraseDuelo(x: DueloJugadores, lado: "con" | "sin") {
-  const quien = lado === "con" ? `${apellidos(x.nuestros)} ante ${apellidos(x.suyos)}` : `${apellidos(x.suyos)} ante ${apellidos(x.nuestros)}`;
+  const quien = primeraMayuscula(lado === "con" ? `${quienDuelo(x, "nuestros")} ante ${quienDuelo(x, "suyos")}` : `${quienDuelo(x, "suyos")} ante ${quienDuelo(x, "nuestros")}`);
   const donde = LUGAR_DUELO[x.clave] ?? x.titulo.replace(/^Nuestr[oa]s? /, "").replace(/ vs .*/, "");
   const conducta = conductaDuelo(x, lado);
   const cifras = cifrasDuelo(x, lado);
@@ -2710,8 +2765,20 @@ export function metaDeClave(inf: Pick<InformePartido, "duelo" | "pronostico"> & 
     */
     const perdidas = ms.find((m) => m.key === "perdidasBajas" && m.rival);
 
-    ellos = SALEN_EN_CORTO.test(textoScouting({ colectivo: inf.colectivo ?? null, plan: inf.plan ?? null }))
-      ? "ellos salen en corto (scouting)"
+    const scouting = textoScouting({ colectivo: inf.colectivo ?? null, plan: inf.plan ?? null });
+
+    /*
+    | Sin contradecir el gancho (ronda 10, guion): «salen en corto» bajo
+    | «buscan en largo» eran dos rivales. Si el scouting o el dato dicen
+    | también que van en largo, una sola frase que lo junta y dice dónde está
+    | el robo; sin la etiqueta interna «(scouting)».
+    */
+    const vanEnLargo = /\b(?:en largo|bal[oó]n largo|directos?)\b/i.test(scouting) || Boolean(segundaJugada({ colectivo: inf.colectivo ?? null, plan: inf.plan ?? null, duelo: inf.duelo }));
+
+    ellos = SALEN_EN_CORTO.test(scouting)
+      ? vanEnLargo
+        ? "salen en corto y enseguida van directos: robamos en su primer pase"
+        : "salen en corto: robamos en su primer pase"
       : perdidas?.rival && top && perdidas.rival.puesto >= de - top + 1
         ? `ellos pierden balones atrás: ${cifra(perdidas.rival.valor, perdidas.unidad)}${puesto(perdidas.rival.puesto)}`
         : "";
@@ -2827,8 +2894,20 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
   | fútbol y guion): contesta al giro del titular. Si es la primera vez se
   | dice con su base honesta; ya no se manda «al vídeo del lunes».
   */
+  const diez = tarde && roja && minutoNum(roja.minuto) < minutoNum(tarde.g.minuto) ? " y ellos con diez" : "";
+
+  /*
+  | La acción, no la intención (ronda 10, fútbol y guion): «cerramos los
+  | partidos con ventaja» no le dice al jugador qué hacer. Si Hudl dice que el
+  | gol nació de una pérdida nuestra en campo propio, la consigna es esa
+  | acción con verbo concreto, y el dato, de dónde sale.
+  */
+  const perdida = tarde ? /^tras una pérdida en nuestro (tercio|campo)/.exec(inf.golesTemporada?.fases?.[String(tarde.g.minuto)] ?? "") : null;
+
   const cierre = tarde
-    ? `Cerramos los partidos con ventaja · nos marcaron en el ${tarde.g.minuto}′ con ${tarde.antes.nos}-${tarde.antes.ellos}${roja && minutoNum(roja.minuto) < minutoNum(tarde.g.minuto) ? " y ellos con diez" : ""}${baseCierre}`
+    ? perdida
+      ? `Con ventaja, no perdemos el balón en nuestro ${perdida[1]} · su gol del ${tarde.g.minuto}′ nace de una pérdida ahí con ${tarde.antes.nos}-${tarde.antes.ellos}${diez}${baseCierre}`
+      : `Cerramos los partidos con ventaja · nos marcaron en el ${tarde.g.minuto}′ con ${tarde.antes.nos}-${tarde.antes.ellos}${diez}${baseCierre}`
     : "";
 
   /* El balón parado que nos dio peligro en contra (lo trae la pincelada del informe de ABP). */
@@ -3118,6 +3197,13 @@ export function titularPost(inf: Omit<InformePartido, "sintesis">, { sinMarcador
 
     const como = [paso ? `con ${paso.antes.nos}-${paso.antes.ellos}` : "", diez].filter(Boolean).join(" y ");
 
+    /*
+    | Una cifra en el titular (ronda 10, guion): con el dominio claro, el
+    | titular es el dominio y el gol tardío baja al subtítulo, que la
+    | diapositiva 3 no repite.
+    */
+    if (giro.dominio === "nuestro" && xg) return `Ganamos y dominamos: ${xg}`;
+
     return `Ganamos${m}, pero ${como ? `${como} ` : ""}nos marcaron en el ${giro.tardio}′`;
   }
 
@@ -3146,6 +3232,9 @@ export function titularEstaSemana(microciclo: string[]) {
   if (!principal) return "";
 
   const porque = principal.dato.split(/[;(]/)[0].trim();
+
+  /* «Con ventaja, no perdemos el balón…» ya es la acción (ronda 10): sin el «Esta semana» delante. */
+  if (/^Con /.test(principal.consigna)) return `${principal.consigna}${porque ? `: ${porque}` : ""}`;
 
   return `Esta semana ${minusculaInicial(principal.consigna)}${porque ? `: ${porque}` : ""}`;
 }
@@ -3778,10 +3867,14 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
   | El subtítulo del post (24/10/2026): las ocasiones y el tramo con uno más,
   | en dos frases. La roja con su jugador y su marcador ya va en «Cómo fue».
   */
+  /* El gol tardío, cuando el titular es el dominio (`titularPost`, ronda 10). */
+  const tardioEnSub = esPost && giro && giro.resultado === "victoria" && giro.tardio && giro.dominio === "nuestro" && xgPost ? giro.tardio : "";
+
   const subtitular = esPost
     ? [
-        xgPost ? `${giro?.dominio === "nuestro" ? "Dominamos" : "Generamos"}: ${xgPost}` : "",
-        roja ? `Con uno más desde el ${roja.minuto}′, ese tramo acabó ${tramo.replace(/ en ese tramo$/, "")}` : "",
+        /* Si el titular ya es el dominio (ronda 10), aquí va el giro: el tramo con uno más y el gol tardío. */
+        xgPost && !tardioEnSub ? `${giro?.dominio === "nuestro" ? "Dominamos" : "Generamos"}: ${xgPost}` : "",
+        roja ? `Con uno más desde el ${roja.minuto}′, ese tramo acabó ${tramo.replace(/ en ese tramo$/, "")}${tardioEnSub ? ` y nos marcaron en el ${tardioEnSub}′` : ""}` : tardioEnSub ? `Nos marcaron en el ${tardioEnSub}′ con el partido ganado` : "",
       ]
         .filter(Boolean)
         .join(". ")

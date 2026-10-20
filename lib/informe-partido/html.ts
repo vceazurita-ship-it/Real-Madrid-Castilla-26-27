@@ -14,7 +14,6 @@
 import {
   LUGAR_DUELO,
   abpDelRivalFlojo,
-  apellido,
   cifra,
   conDato,
   contrastePronostico,
@@ -41,6 +40,7 @@ import {
   type DuelosInforme,
   type InformePartido,
   type JugadorRival,
+  quienDuelo,
 } from "./modelo";
 
 /**
@@ -227,6 +227,17 @@ export type ExtrasInforme = {
 };
 
 /** El mensaje de quien manda el informe: una nota con su firma, en el tono del club. */
+/**
+ * Las claves que cuenta el texto (ronda 10, fútbol): en la previa, el mismo
+ * plan por fases que la diapositiva 3; sin él, las del cuerpo técnico. En el
+ * post, las de siempre.
+ */
+function clavesDeLaPrevia(inf: InformePartido) {
+  if (inf.momento === "post" || !inf.sintesis.plan.length) return inf.sintesis.claves;
+
+  return inf.sintesis.plan.slice(0, 4).map((l) => `${l.fase} · ${l.texto}`);
+}
+
 export function bloqueMensaje(texto: string, firma?: string) {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:16px 20px;border-left:4px solid #C8A96B;background:#FBF6EA;border-radius:0 8px 8px 0"><p style="margin:0;font:400 15px/1.6 Arial,sans-serif;color:${NAVY}">${parrafo(texto.trim())}</p>${
     firma ? `<p style="margin:10px 0 0;font:700 12px/1.3 Arial,sans-serif;letter-spacing:.06em;color:${ORO}">— ${esc(firma)}</p>` : ""
@@ -332,7 +343,13 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
      cómo lo ganamos (las claves del cuerpo técnico o el plan por fases) y,
      detrás, los duelos y los cruces que lo respaldan. */
   const esencial = esPost ? esencialPost : `<p style="margin:0 0 6px;font:700 20px/1.3 Arial,sans-serif;color:${NAVY}">${esc(s.titular)}</p>${subtitular}${
-    s.claves.length ? `${etiqueta("Cómo lo ganamos")}${lista(s.claves)}` : ""
+    /*
+    | El mismo plan que la diapositiva 3 (ronda 10, fútbol): el texto del
+    | cuerpo técnico aquí contaba otro partido («intenciones similares»,
+    | «se expondrá en campo propio») frente a «buscan en largo». Sus claves
+    | siguen enteras en «Nuestro plan de partido».
+    */
+    clavesDeLaPrevia(inf).length ? `${etiqueta("Cómo lo ganamos")}${lista(clavesDeLaPrevia(inf))}` : ""
   }${duelosEsencial}${
     s.ventajas.length ? `${etiqueta("Donde ganamos el cruce", VERDE)}${lista(s.ventajas)}` : ""
   }${
@@ -907,7 +924,7 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
           const con = ventajaVisible(x, "con");
           const sin = ventajaVisible(x, "sin");
           const fila = [
-            `<b>${esc(x.nuestros.map(apellido).join(" y ") || "")}</b> <span style="color:${SUAVE}">ante</span> <b>${esc(x.suyos.map(apellido).join(" y ") || "")}</b><br><span style="color:${SUAVE};font-size:11px">${esc(LUGAR_DUELO[x.clave] ?? x.titulo)}</span>`,
+            `<b>${esc(quienDuelo(x, "nuestros"))}</b> <span style="color:${SUAVE}">ante</span> <b>${esc(quienDuelo(x, "suyos"))}</b><br><span style="color:${SUAVE};font-size:11px">${esc(LUGAR_DUELO[x.clave] ?? x.titulo)}</span>`,
             `<b style="color:${(con ?? 0) >= 10 ? VERDE : (con ?? 0) <= -10 ? ROJO : NAVY}">${signo(con)}</b>`,
             `<b style="color:${(sin ?? 0) >= 10 ? VERDE : (sin ?? 0) <= -10 ? ROJO : NAVY}">${signo(sin)}</b>`,
             `<b style="color:${colorVeredicto(balanceVisible(con, sin))}">${rotuloVeredicto(balanceVisible(con, sin))}</b>`,
@@ -1092,7 +1109,8 @@ export function resumenHtml(inf: InformePartido, cids: string[], opciones: { con
   /* LA IDEA, la misma que la diapositiva 3, el WhatsApp y el vídeo (24/10/2026). */
   const idea = !esPost ? inf.sintesis.ideaPrevia || inf.pronostico?.idea || "" : "";
 
-  const claves = inf.sintesis.claves.slice(0, 5);
+  /* La previa cuenta el mismo plan que la diapositiva 3 (ronda 10, fútbol): `clavesDeLaPrevia`. */
+  const claves = clavesDeLaPrevia(inf).slice(0, 5);
 
   const textoClaves = claves.length
     ? `<tr><td style="padding:14px 4px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0F1E3D;border-radius:10px"><tr><td style="padding:18px 20px">${
@@ -1153,7 +1171,7 @@ export function informeTexto(inf: InformePartido) {
     "",
     ...(inf.sintesis.golesEnContra.length ? ["CÓMO NOS MARCARON", ...inf.sintesis.golesEnContra.map((g) => `- ${g}`), ""] : []),
     inf.momento === "post" ? "LO QUE NOS DEJA" : "CÓMO LO GANAMOS",
-    ...inf.sintesis.claves.map((c, i) => `${i + 1}. ${c}`),
+    ...clavesDeLaPrevia(inf).map((c, i) => `${i + 1}. ${c}`),
   ];
 
   if (inf.pronostico) {

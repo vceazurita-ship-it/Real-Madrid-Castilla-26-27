@@ -445,6 +445,12 @@ function giroDelPartido(informe: InformePartido) {
   const sufrido = goles.some((g) => !g.nuestro && minutoNumero(g.minuto) >= 80);
 
   if (partido.gf > partido.gc) {
+    /* El giro del partido en diez palabras (ronda 10, guion): ganando y con uno más, nos marcaron al final. */
+    const roja = (informe.cronica?.tarjetas ?? []).find((t) => t.tipo === "roja");
+    const tardio = goles.find((g) => !g.nuestro && minutoNumero(g.minuto) >= 80);
+
+    if (tardio && roja && minutoNumero(roja.minuto) < minutoNumero(tardio.minuto)) return `${dominio ? "Dominamos" : "Ganamos"}, pero con uno más nos marcaron al final`;
+
     if (ibamosPerdiendo) return dominio ? "Remontamos y dominamos" : "Le dimos la vuelta";
     if (sufrido && partido.gf - partido.gc === 1) return "Victoria sufrida hasta el final";
     if (dominio) return "Victoria con dominio";
@@ -646,7 +652,8 @@ function escenaGancho(informe: InformePartido): Escena | null {
       .replace(/\s{2,}/g, " ")
       .trim();
     const giro = giroDelPartido(informe);
-    const rotulo = delResumen && delResumen.split(/\s+/).length <= 12 ? delResumen : giro || resultado;
+    /* Diez palabras como mucho y sin cifras: la cifra ya va en grande y en la línea del dato (ronda 10, guion). */
+    const rotulo = giro || (delResumen && delResumen.split(/\s+/).length <= 10 && !/\d/.test(delResumen) ? delResumen : resultado);
 
     return { id: "gancho", tipo: "gancho", dato: `${partido.gf}-${partido.gc}`, antetitulo: partido.rival, rotulo: rotulo.toUpperCase(), contexto: dato, locucion: `${resultado.toLowerCase()} ${partido.gf}-${partido.gc}. ${dato}.` };
   }
