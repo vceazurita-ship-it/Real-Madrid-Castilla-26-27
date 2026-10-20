@@ -87,7 +87,6 @@ export async function paginaDeEnlaces(o: { titulo: string; video: VideoInforme |
     ctx.font = `400 28px "Barlow Condensed", Arial, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.65)";
     ctx.fillText("Pulsa el póster o escanea el código.", 360, 874);
-    ctx.fillText("Adjunta al correo va una copia ligera.", 360, 912);
     zona(360, 790, 520, 60, o.video.url);
   }
 
@@ -131,6 +130,68 @@ export async function paginaDeEnlaces(o: { titulo: string; video: VideoInforme |
   ctx.font = `400 22px "Barlow Condensed", Arial, sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.4)";
   ctx.fillText("Los enlaces se mantienen 30 días.", 96, H - 50);
+
+  return { imagen: lienzo.toDataURL("image/jpeg", 0.88), enlaces: zonas };
+}
+
+/**
+ * LA PRIMERA PÁGINA, EL VÍDEO (22/10/2026, crítica del productor de vídeo):
+ * el PDF se abre con el póster grande (el del dato fuerte) y el QR, todo
+ * pulsable. Lo primero que se ve al abrir el informe es la puerta al vídeo,
+ * no la última página que nadie alcanza.
+ */
+export async function paginaDelVideo(o: { titulo: string; video: VideoInforme }): Promise<{ imagen: string; enlaces: NonNullable<HojaPdf["enlaces"]> }> {
+  const lienzo = document.createElement("canvas");
+
+  lienzo.width = W;
+  lienzo.height = H;
+
+  const ctx = lienzo.getContext("2d")!;
+  const zonas: NonNullable<HojaPdf["enlaces"]> = [];
+  const zona = (x: number, y: number, w: number, h: number) => zonas.push({ x: x / W, y: y / H, w: w / W, h: h / H, url: o.video.url });
+
+  ctx.fillStyle = FONDO;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = ORO;
+  ctx.fillRect(96, 92, 60, 6);
+  ctx.font = `700 30px "Barlow Condensed", Arial, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  ctx.fillText("REAL MADRID CASTILLA · EMPIEZA POR EL VÍDEO", 176, 104);
+  ctx.font = `700 60px "Barlow Condensed", Arial, sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(o.titulo.toUpperCase(), 96, 186);
+
+  /* El póster, a lo grande y pulsable (16:9). */
+  const pw = 1200;
+  const ph = 675;
+  const poster = o.video.poster ? await cargaImagen(o.video.poster) : null;
+
+  if (poster) ctx.drawImage(poster, 96, 250, pw, ph);
+  else {
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.fillRect(96, 250, pw, ph);
+  }
+
+  ctx.strokeStyle = ORO;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(96, 250, pw, ph);
+  zona(96, 250, pw, ph);
+
+  /* A la derecha, el QR para el que lo tenga impreso y la duración. */
+  const xq = 96 + pw + 80;
+  const lado = W - 96 - xq;
+
+  dibujaQr(ctx, o.video.url, xq, 250, lado);
+  zona(xq, 250, lado, lado);
+
+  ctx.font = `700 40px "Barlow Condensed", Arial, sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(`Ver el vídeo en HD · ${mmss(o.video.segundos)}`, xq, 250 + lado + 64);
+  ctx.font = `400 28px "Barlow Condensed", Arial, sans-serif`;
+  ctx.fillStyle = "rgba(255,255,255,0.65)";
+  ctx.fillText("Pulsa el póster o escanea el código.", xq, 250 + lado + 108);
+  zona(xq, 250 + lado + 20, lado, 100);
 
   return { imagen: lienzo.toDataURL("image/jpeg", 0.88), enlaces: zonas };
 }

@@ -29,6 +29,7 @@ import { SEGUNDOS_MAXIMOS, soloCompletas, type Corte, type Escena, type GuionVid
 import { FRECUENCIA_AAC, remuestrea } from "./voz";
 import { bandaSonora, masteriza, rmsConPuerta } from "./musica";
 import { posterDeVideo } from "./portada-video";
+import { posterConDato } from "./poster";
 import { FotogramasCorte } from "./fotogramas-corte";
 import { ALTO_V, ALTO_V_HD, ANCHO_V, ANCHO_V_HD, paraVertical, pintaFotogramaVertical } from "./vertical";
 
@@ -689,8 +690,21 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
 
   if (fallo) throw fallo;
 
-  /* En vertical, el póster es la portada tal cual (la miniatura de WhatsApp); el de 16:9 lleva su botón y su rótulo. */
-  const poster = vertical ? fotoPoster?.toDataURL("image/jpeg", 0.85) : await posterDeVideo(fotoPoster, { segundos: total, rotulo: guion.titulo }).catch(() => undefined);
+  /*
+  | El póster abre con el dato fuerte del gancho (22/10/2026, productor de
+  | vídeo: el escudo contra escudo no decía nada en el móvil), en el formato
+  | del vídeo. Sin gancho ni idea, el de siempre: en vertical, la portada tal
+  | cual; en 16:9, el fotograma de la portada con su botón y su rótulo.
+  */
+  let conDato: string | null = null;
+
+  try {
+    conDato = posterConDato(guion, { segundos: total, vertical, fuente: opciones.fuente });
+  } catch {
+    conDato = null;
+  }
+
+  const poster = conDato ?? (vertical ? fotoPoster?.toDataURL("image/jpeg", 0.85) : await posterDeVideo(fotoPoster, { segundos: total, rotulo: guion.titulo }).catch(() => undefined));
 
   const ligero = muxor ? muxor.cierra() : null;
   const hd = muxorHd ? muxorHd.cierra() : null;
