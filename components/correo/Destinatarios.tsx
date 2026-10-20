@@ -167,8 +167,7 @@ export function Destinatarios({ label, canal, onCanal, correos, onCorreos, telef
 
       {whatsapp && (
         <p className="text-[11px] leading-relaxed text-white/35">
-          Sale desde tu WhatsApp: al terminar se abre un botón por persona con el mensaje y los enlaces ya escritos, y
-          pulsas «Enviar» en cada chat. Sin teléfonos, eliges tú el chat o el grupo.
+          Se abre un botón por persona con el mensaje ya escrito; tú pulsas «Enviar» (sin teléfonos, eliges el chat).
         </p>
       )}
     </div>

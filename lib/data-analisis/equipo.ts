@@ -296,7 +296,12 @@ export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: Perfi
   }
   if (perfil) {
     const mejorFase = [...perfil.fases].filter((f) => f.percentil !== null && f.fase !== "general").sort((a, b) => (b.percentil ?? 0) - (a.percentil ?? 0));
-    if (mejorFase.length >= 2) {
+    /* «Lo mejor» de algo por debajo de la mediana no es lo mejor (23/10/2026): si ninguna fase pasa de P50, se dice. */
+    if (mejorFase.length >= 2 && (mejorFase[0].percentil ?? 0) < 50) {
+      frases.push(
+        `Ninguna fase de su juego pasa de la mediana (la mejor, ${mejorFase[0].label.toLowerCase()}, P${mejorFase[0].percentil}); la más floja, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (P${mejorFase[mejorFase.length - 1].percentil}).`,
+      );
+    } else if (mejorFase.length >= 2) {
       frases.push(
         `Lo mejor de su juego, ${mejorFase[0].label.toLowerCase()} (P${mejorFase[0].percentil}); lo más flojo, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (P${mejorFase[mejorFase.length - 1].percentil}).`,
       );
