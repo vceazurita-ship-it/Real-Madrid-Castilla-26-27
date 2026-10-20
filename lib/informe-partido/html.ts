@@ -476,7 +476,13 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   const duelo = inf.duelo?.metricas.length
     ? tabla(
         ["Métrica", "Nosotros", rival, "Mediana liga"],
-        inf.duelo.metricas.filter(conDato).flatMap((m, i, todas) => [
+        /*
+        | Una sola mediana por métrica (25/10/2026, ronda 7): con el informe de
+        | balón parado dentro, sus métricas van allí con la comparativa de
+        | Wyscout de ese informe; aquí salían con otra base (14,3 % frente a
+        | 14,0 %) y se contradecían en el mismo documento.
+        */
+        inf.duelo.metricas.filter(conDato).filter((m) => !(inf.abp?.pincelada && m.bloque === "Balón parado")).flatMap((m, i, todas) => [
           ...(m.bloque && m.bloque !== todas[i - 1]?.bloque
             ? [[`<b style="color:${ORO};text-transform:uppercase;letter-spacing:.1em;font-size:11px">${esc(m.bloque)}</b>`, "", "", ""]]
             : []),

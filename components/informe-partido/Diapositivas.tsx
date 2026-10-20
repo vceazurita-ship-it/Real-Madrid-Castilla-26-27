@@ -1362,12 +1362,17 @@ function DuelosYRival({ inf }: { inf: InformePartido }) {
   return (
     <Marco pagina={3} total={3} etiqueta={post ? "ESTA SEMANA" : "DUELOS Y RIVAL"} inf={inf}>
       <TitularDiapo texto={inf.sintesis.titularDuelos} />
-      {/* Post: lo que toca va delante (25/10/2026, marketing): es lo que el cuerpo técnico lleva al campo; cómo nos marcaron, al lado, es el porqué. */}
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? (inf.sintesis.golesEnContra.length ? "1.15fr 1fr" : "1fr") : "1fr 1.2fr", gap: 22 }}>
+      {/*
+      | Post: el problema y luego la respuesta (25/10/2026, ronda 7, guionista):
+      | «Cómo nos marcaron» a la izquierda y «ESTA SEMANA» a la derecha, que es
+      | lo último que se lee. La cabecera ya dice «ESTA SEMANA» y el titular,
+      | las consignas: lo que toca no se pierde por ir segundo.
+      */}
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? (inf.sintesis.golesEnContra.length ? "1fr 1.15fr" : "1fr") : "1fr 1.2fr", gap: 22 }}>
         {post ? (
           <>
-            <PanelEstaSemana inf={inf} />
             <PanelGolesEnContra inf={inf} />
+            <PanelEstaSemana inf={inf} />
           </>
         ) : (
           <>

@@ -44,6 +44,27 @@ async function doc<T>(key: string): Promise<T | null> {
   }
 }
 
+/**
+ * La fase con la acción que la abrió (25/10/2026, ronda 7, experto de
+ * fútbol): «tras un error nuestro» no decía qué entrenar. El `motivo` de la
+ * tipología es lo que se vio en Hudl («Pérdida de Adrián Pérez en su propio
+ * tercio.»); contado desde nuestro lado: «tras una pérdida en nuestro tercio
+ * (Adrián Pérez)». Lo que viene de BeSoccer sin más no añade nada.
+ */
+function faseConAccion(tipo: TipoGol, motivo: string) {
+  const fase = FASE_EN_CONTRA[tipo];
+
+  const m = motivo.trim().replace(/.$/, "");
+
+  if (!m || /(BeSoccer)/i.test(m)) return fase;
+
+  const perdida = m.match(/^p[ée]rdida de (.+?) en su propio (tercio|campo)$/i);
+
+  if (perdida) return `tras una pérdida en nuestro ${perdida[2].toLowerCase()} (${perdida[1]})`;
+
+  return `${fase}: ${m.charAt(0).toLowerCase()}${m.slice(1)}`;
+}
+
 /** «90+1», «57»: como escribe el minuto la crónica de BeSoccer. */
 const minutoDe = (min: number, extra: number) => (extra ? `${min}+${extra}` : String(min));
 
@@ -82,7 +103,10 @@ export async function golesTemporadaDe(jornada: number | null): Promise<GolesTem
       if (!nuestro && p.jornada === jornada) {
         const tipo = (manual?.[`${p.id}:${i}`] || goles?.tipologia?.[`${p.id}:${i}`]?.tipo) as TipoGol | null | undefined;
 
-        if (tipo && FASE_EN_CONTRA[tipo]) fases[minutoDe(g.min, g.extra)] = FASE_EN_CONTRA[tipo];
+        /* El motivo sólo si la tipología es la de Hudl (la manual cambia el tipo, no el motivo). */
+        const motivo = !manual?.[`${p.id}:${i}`] ? (goles?.tipologia?.[`${p.id}:${i}`]?.motivo ?? "") : "";
+
+        if (tipo && FASE_EN_CONTRA[tipo]) fases[minutoDe(g.min, g.extra)] = faseConAccion(tipo, motivo);
       }
     }
 

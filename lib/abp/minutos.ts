@@ -123,12 +123,8 @@ export function minutosAbp(entradas: EntradaPlan[], tareas: RegistroTarea[] = []
     totales.minutosVideo ? `${fmt(totales.minutosVideo)} en vídeo` : "",
   ].filter(Boolean);
 
-  const texto = [
-    totales.minutos ? `${fmt(totales.minutos)}${reparto.length === 2 ? ` (${reparto.join(", ")})` : ""}` : "",
-    propuestos ? `${fmt(propuestos)} ${totales.minutos ? "más " : ""}propuestos, sin confirmar` : "",
-  ]
-    .filter(Boolean)
-    .join("; ");
+  /* Sólo lo que cuenta (25/10/2026): lo propuesto sin confirmar es cosa del analista y va a su aviso. */
+  const texto = totales.minutos ? `${fmt(totales.minutos)}${reparto.length === 2 ? ` (${reparto.join(", ")})` : ""}` : "";
 
   return {
     confirmados: totales.minutos,
