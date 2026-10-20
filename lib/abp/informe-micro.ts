@@ -2251,10 +2251,7 @@ function clavesPost(partido: PartidoAbpInforme, minutosSemana = 0) {
     );
   }
 
-  const reparto = repartoDelPartido(partido);
-
-  if (reparto) claves.push(`${reparto}.`);
-
+  /* El reparto del partido va bajo su tabla, no también aquí: salía dos veces (24/10/2026, guionista). */
   return claves.slice(0, 5);
 }
 
