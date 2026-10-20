@@ -665,6 +665,16 @@ export type LineaEquipo = {
    * (7,6 %)». Vacío sin muestra.
    */
   referencia: string;
+  /** La clave del aspecto (`AspectoKey`): para buscar sus acciones en las hojas. */
+  clave: AspectoKey;
+  /**
+   * Cómo fueron sus acciones de peligro en el partido anterior (23/10/2026):
+   * «las 2 contra el Antequera CF: desde Z4 interior, envío bombeado al
+   * segundo palo». Vacío si la hoja no lo trae.
+   */
+  patron: string;
+  /** El patrón hecho consigna, en defensa: «El segundo palo tiene dueño antes del golpeo». */
+  consignaPatron: string;
 };
 
 /** Lo que pasó en el partido, contado a favor o en contra. */
@@ -743,7 +753,7 @@ export type InformeMicro = {
    * El cierre del post (22/10/2026): «PARA LA SEMANA QUE VIENE», la consigna
    * con su porqué. `null` si el partido no deja nada con dato.
    */
-  cierre: { consigna: string; porQue: string } | null;
+  cierre: { titulo: string; consigna: string; porQue: string; marcamos: string } | null;
   titulo: string;
   subtitulo: string;
   generado: string;
@@ -795,7 +805,15 @@ export type InformeMicro = {
    * cifra de minutos del informe, la diapositiva y el vídeo. `texto` dice qué
    * cuenta («1h 5' (35' en campo, 30' en vídeo); 30' más propuestos…»).
    */
-  minutosAbp: { confirmados: number; propuestos: number; campo: number; video: number; texto: string };
+  minutosAbp: {
+    confirmados: number;
+    propuestos: number;
+    campo: number;
+    video: number;
+    texto: string;
+    /** Los mismos minutos por lado (23/10/2026), si cuadran con el total: «ofensivo 1 h 10′ · defensivo 10′». */
+    porLado: { ofensivo: number; defensivo: number } | null;
+  };
   /**
    * Previa sin un minuto todavía (19/10/2026): la semana no ha empezado, así
    * que no se habla de minutos, carga ni «sin trabajar»; sólo de lo planificado.
@@ -1101,6 +1119,9 @@ function filaEquipo(
     delAnterior: anterior?.get(`${fila.aspecto.label}|${fila.lado}`)?.frase ?? "",
     referencia: "",
     tendencia: "",
+    clave: fila.aspecto.key,
+    patron: "",
+    consignaPatron: "",
     sentidoRival: delRival?.sentido ?? null,
     familia: fila.aspecto.reconocimiento?.family ?? "",
     aspecto: fila.aspecto.label,
@@ -1365,6 +1386,58 @@ function accionEnFrase(a: AccionAbp, corta = false) {
     : [[tipo, envio].filter(Boolean).join(", "), remate ? `${remate}${final ? ` (${final})` : ""}` : final, xg].filter(Boolean).join("; ");
 
   return `${a.minuto ? `${a.minuto}: ` : ""}${cuerpo}`;
+}
+
+/**
+ * El patrón de un aspecto en el partido anterior (23/10/2026): sus acciones
+ * de peligro, desde dónde y adónde, si la hoja lo trae y se repite.
+ * «las 2 contra el Antequera CF: desde Z4 interior, envío bombeado al segundo
+ * palo». En defensa, con un palo claro, la consigna: «El segundo palo tiene
+ * dueño antes del golpeo». `null` si no hay patrón que contar.
+ */
+function patronDe(acciones: AccionAbp[], aspecto: AspectoKey, lado: AbpLado, rival: string) {
+  const suyas = acciones.filter((una) => ladoDe(una) === lado && encaja(una, aspecto) && una.peligro);
+
+  if (suyas.length === 0) return null;
+
+  /* Lo que más se repite de un campo; vacío si la hoja no lo trae o no hay mayoría. */
+  const comun = (valor: (a: AccionAbp) => string) => {
+    const cuenta = new Map<string, number>();
+
+    suyas.forEach((a) => {
+      const v = valor(a).trim();
+
+      if (v && !/^no\b/i.test(v)) cuenta.set(v, (cuenta.get(v) ?? 0) + 1);
+    });
+
+    const [mejor, n] = [...cuenta.entries()].sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
+
+    return n * 2 > suyas.length ? mejor : "";
+  };
+
+  const zona = comun((a) => {
+    const m = a.tipo.match(/\b(interior|exterior)?\s*(Z\s?\d)\b/i);
+
+    return m ? [m[2].replace(/\s/g, "").toUpperCase(), m[1]?.toLowerCase()].filter(Boolean).join(" ") : "";
+  });
+
+  const envio = comun((a) => a.envio.toLowerCase());
+  const caida = comun((a) => a.zonaCaida.toLowerCase());
+
+  if (!zona && !caida) return null;
+
+  const destino = caida ? (/palo/.test(caida) ? ` al ${caida}` : ` a la zona de ${caida}`) : "";
+
+  const como = [zona ? `desde ${zona}` : "", envio || destino ? `${envio ? `envío ${envio}` : "envío"}${destino}` : ""].filter(Boolean).join(", ");
+
+  const cuantas = suyas.length === 1 ? "la que nos remataron" : `las ${suyas.length} con peligro`;
+
+  const palo = caida.match(/(primer|segundo) palo/)?.[0] ?? "";
+
+  return {
+    patron: `${cuantas}${rival ? ` contra el ${rival}` : ""}: ${como}`,
+    consigna: lado === "defensivo" && palo ? `El ${palo} tiene dueño antes del golpeo` : "",
+  };
 }
 
 function enMinusculaInicial(texto: string) {
@@ -1765,7 +1838,10 @@ function clavesPrevia(
 
     claves.push(`${consignaDe(primera.aspecto, primera.lado)} (prioridad nº 1 en nuestras hojas): ${estado}.`);
 
-    /* Con pocos peligros detrás, se dice (22/10/2026): se trabaja, pero no es norma. */
+    /* El patrón del último partido, como consigna (23/10/2026). */
+    if (primera.patron) claves.push(`${mayuscula(primera.patron)}.${primera.consignaPatron ? ` ${primera.consignaPatron}.` : ""}`);
+
+    /* Con pocos peligros detrás, se dice (22/10/2026): es un aviso reciente, y se trabaja igual. */
     if (primera.tendencia) claves.push(`${primera.tendencia}.`);
   }
 
@@ -1992,33 +2068,29 @@ function titularPost(partido: PartidoAbpInforme, minutosSemana = 0) {
 
   const sinGoles = partido.favor.goles + partido.contra.goles === 0;
 
-  const ningunGol = partido.marcador && sinGoles ? "Ningún gol a balón parado" : base;
+  /* En afirmativo (23/10/2026): «Cero goles a balón parado», no «Ningún gol…». */
+  const ceroGoles = partido.marcador && sinGoles ? `Cero goles a balón parado en el ${partido.marcador.favor}-${partido.marcador.contra}` : base;
 
-  if (!susto) return laQueCabe([`${base}: ${remates}`, `${ningunGol}: ${remates}`], 80);
+  if (!susto) return laQueCabe([`${ceroGoles}: ${remates}`, `${base}: ${remates}`], 80);
 
   /*
-  | El titular con la causa (22/10/2026): qué nos hicieron y cuánto se le dio
-  | en la semana. «Nos dio 2 sustos» contaba la impresión, no el hecho.
+  | Una idea, lo que toca corregir (23/10/2026, equipo de expertos): el
+  | aspecto, lo que nos hicieron y cuánto se le dio. «Ningún gol a balón
+  | parado; en la falta lateral…» empezaba por una negación y metía dos
+  | ideas; los cero goles van en las claves.
   */
-  const cabeza = partido.marcador && sinGoles ? `Sin goles a balón parado en el ${partido.marcador.favor}-${partido.marcador.contra}` : ningunGol;
-
-  const quien = `${conArticulo(susto.aspecto)} en contra`;
-  const quienCorto = quien.replace(/^((?:el|la|los) \S+ \S+) \S+ en contra$/, "$1 en contra");
+  const quien = mayuscula(`${conArticulo(susto.aspecto)} en contra`);
+  const quienCorto = quien.replace(/^((?:El|La|Los) \S+ \S+) \S+ en contra$/, "$1 en contra");
 
   const hecho = susto.remates >= susto.peligros ? `nos remataron ${susto.remates} de ${susto.acciones}` : `nos crearon peligro en ${susto.peligros} de ${susto.acciones}`;
 
-  const trabajo = susto.minutos > 0 ? ` con ${fmtMin(susto.minutos)} trabajados` : ", sin trabajo en la semana";
   const deTotal = susto.minutos > 0 && minutosSemana > susto.minutos ? ` de ${fmtMin(minutosSemana)}` : "";
+  const trabajo = susto.minutos > 0 ? ` y le dimos ${fmtMin(susto.minutos)}${deTotal}` : " sin trabajo en la semana";
+  const trabajoCorto = susto.minutos > 0 ? ` y le dimos ${fmtMin(susto.minutos)}` : " sin trabajo en la semana";
 
   return laQueCabe(
-    [
-      `${cabeza}; en ${quien} ${hecho}${trabajo}${deTotal}`,
-      `${cabeza}; en ${quienCorto} ${hecho}${trabajo}${deTotal}`,
-      `${cabeza}; en ${quienCorto} ${hecho}${trabajo}`,
-      `${ningunGol}; en ${quienCorto} ${hecho}${trabajo}`,
-      `${ningunGol}; en ${quienCorto} ${hecho}`,
-    ],
-    100,
+    [`${quien}: ${hecho}${trabajo}`, `${quienCorto}: ${hecho}${trabajo}`, `${quienCorto}: ${hecho}${trabajoCorto}`, `${quienCorto}: ${hecho}`],
+    80,
   );
 }
 
@@ -2463,7 +2535,13 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     const delResto = peligros / acciones;
     const r = linea.peligros / linea.acciones / delResto;
 
-    const resto2 = `resto de nuestro balón parado ${linea.lado === "defensivo" ? "en contra" : "a favor"} (${dec(delResto * 100)} %)`;
+    /*
+    | La base, dicha (23/10/2026, equipo de expertos): este porcentaje es el
+    | del balón parado que puede acabar en remate, sin saques de banda; el de
+    | la tabla de la temporada cuenta todo. Sin decirlo, «17,5 %» y «7,6 %»
+    | parecían contradecirse.
+    */
+    const resto2 = `resto de nuestro balón parado ${linea.lado === "defensivo" ? "en contra" : "a favor"} sin saques de banda (${peligros} de ${acciones}, ${dec(delResto * 100)} %)`;
 
     if (r >= 2.7) return `el triple que el ${resto2}`;
     if (r >= 1.8) return `el doble que el ${resto2}`;
@@ -2504,13 +2582,17 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
               : `las ${linea.peligros} llegaron`
           : `${ant.peligros} de las ${linea.peligros} llegaron`;
 
-      /* Lo esencial va primero y sin paréntesis: si se recorta, cae el xG, no el «antes». */
-      const antes = `y antes iban ${linea.peligros - ant.peligros} de ${linea.acciones - ant.acciones}`;
+      /*
+      | Un aviso, no una certeza (23/10/2026): «Tendencia, no norma» debajo de
+      | «Prioridad nº 1» le quitaba la fuerza que el titular le daba. Se dice
+      | qué es (reciente), de dónde sale y por qué se trabaja igual.
+      */
+      const antes = `antes, ${linea.peligros - ant.peligros} de ${linea.acciones - ant.acciones}`;
 
-      return `Tendencia, no norma: ${cuantas} contra el ${ant.rival} ${antes}${ant.xg > 0 ? `; valían ${dec(ant.xg, 2)} goles esperados` : ""}`;
+      return `Aviso reciente: ${cuantas} contra el ${ant.rival} (${antes}${ant.xg > 0 ? `; valían ${dec(ant.xg, 2)} goles esperados` : ""}). Lo cerramos antes de que sea costumbre`;
     }
 
-    return `Tendencia, no norma: ${plural(linea.peligros, "acción con peligro", "acciones con peligro")} en la temporada`;
+    return `Aviso con poca muestra: ${plural(linea.peligros, "acción con peligro", "acciones con peligro")} en la temporada`;
   };
 
   const prioridades: LineaEquipo[] = (
@@ -2530,6 +2612,40 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
   if (hilo && primeraPorPeso && primeraPorPeso.sentidoRival === "baja" && !primeraPorPeso.delAnterior) {
     prioridades.splice(prioridades.indexOf(hilo), 1);
     prioridades.unshift(hilo);
+  }
+
+  /*
+  | Lo que costó goles va primero (23/10/2026, equipo de expertos): el hilo
+  | de la semana y el rival ajustan el orden, pero no ponen una falta con 0
+  | goles y 0,16 goles esperados por delante del córner que nos marcó 2. A
+  | igualdad de goles encajados se queda el orden que había.
+  */
+  const costo = (una: LineaEquipo) => (una.lado === "defensivo" && !una.esBanda ? una.goles : 0);
+
+  if (prioridades.some((una) => costo(una) > 0)) {
+    const ordenadas = prioridades
+      .filter((una) => !una.esBanda)
+      .map((una, i) => ({ una, i }))
+      .sort((a, b) => costo(b.una) - costo(a.una) || a.i - b.i)
+      .map(({ una }) => una);
+
+    const bandas = prioridades.filter((una) => una.esBanda);
+
+    prioridades.splice(0, prioridades.length, ...ordenadas, ...bandas);
+  }
+
+  /*
+  | El patrón de la última jornada (23/10/2026): si la hoja dice desde dónde
+  | y adónde fueron las acciones de peligro de ese aspecto en el partido
+  | anterior, la prioridad lo lleva, y en defensa se convierte en consigna
+  | («el segundo palo tiene dueño antes del golpeo»).
+  */
+  if (!esPost) {
+    prioridades.forEach((una, i) => {
+      const p = patronDe(datos.accionesAnterior ?? [], una.clave, una.lado, datos.partidoAnterior?.rival ?? "");
+
+      if (p) prioridades[i] = { ...una, patron: p.patron, consignaPatron: p.consigna };
+    });
   }
 
   /*
@@ -2619,7 +2735,12 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
         .filter((una) => una.lado === "ofensivo" && !una.esBanda && una.sentidoRival === "sube" && una.contraRival)
         .slice(0, 1)
         .map((una) => `${consignaDe(una.aspecto, una.lado)}: ${una.contraRival}`),
-      ...(familias[0] && familias[0].puesto > n / 2
+      /*
+      | Sólo si es una debilidad de verdad (23/10/2026): en el tercio de
+      | abajo de la categoría y claramente por encima de la mediana. «Les
+      | rematan el 33,3 % (12.º)» era la mediana (32,6 %), no un hueco.
+      */
+      ...(familias[0] && familias[0].puesto > (2 * n) / 3 && (familias[0].mediana === null || familias[0].valor > familias[0].mediana * 1.1)
         ? [
             `${familias[0].articulo}: les rematan el ${fmtMedida(familias[0].valor, familias[0].key)} (${familias[0].puesto}.º de ${n}; la mediana, ${fmtMedida(familias[0].mediana, familias[0].key)})`,
             ...(familias[1] && familias[1].puesto <= Math.ceil(n / 3)
@@ -2999,7 +3120,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
           {
             rotulo: "Prioridad nº 1",
             valor: primeraPrioridad.base,
-            pie: `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))}: acciones con peligro${primeraPrioridad.lado === "defensivo" ? " en contra" : ""}${primeraPrioridad.tendencia ? " · tendencia, no norma" : ""}`,
+            pie: `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))}: acciones con peligro${primeraPrioridad.lado === "defensivo" ? " en contra" : ""}${primeraPrioridad.tendencia ? " · aviso reciente" : ""}`,
           },
         ]
       : []),
@@ -3114,17 +3235,68 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
   | peligro nos generó en contra. Sin nada de eso, no hay cierre.
   */
   const cierre = (() => {
-    if (!partidoAbp) return null;
+    /* El patrón hecho consigna, si la hoja lo trae: «Defendemos la falta lateral directa. El segundo palo tiene dueño antes del golpeo». */
+    const conPatron = (consigna: string, p: { consigna: string } | null) => (p?.consigna ? `${consigna}. ${p.consigna}` : consigna);
 
-    const una = candidatosDelPartido(partidoAbp)[0] ?? sustoDelPartido(partidoAbp);
+    if (esPost) {
+      if (!partidoAbp) return null;
 
-    if (!una) return null;
+      const una = candidatosDelPartido(partidoAbp)[0] ?? sustoDelPartido(partidoAbp);
 
-    const semana = una.minutos > 0 ? `le dimos ${fmtMin(una.minutos)} en la semana` : "no se trabajó en la semana";
+      if (!una) return null;
 
-    const hecho = una.lado === "defensivo" ? danoEnFrase(una) : enMinuscula(una.lectura);
+      const clave = ASPECTOS.find((a) => a.label === una.aspecto)?.key;
 
-    return { consigna: consignaDe(una.aspecto, una.lado), porQue: `${mayuscula(hecho)}; ${semana}` };
+      const p = clave ? patronDe(datos.accionesPartido ?? [], clave, una.lado, "") : null;
+
+      /* La acción, no el dato otra vez (23/10/2026): cuánto se le dio y qué cambia. */
+      const semana = una.minutos > 0 ? `le dimos ${fmtMin(una.minutos)} en la semana: el próximo microciclo le damos más` : "no se trabajó en la semana: entra en el próximo microciclo";
+
+      const hecho = una.lado === "defensivo" ? danoEnFrase(una) : enMinuscula(una.lectura);
+
+      return { titulo: "Para la semana que viene", consigna: conPatron(consignaDe(una.aspecto, una.lado), p), porQue: `${mayuscula(hecho)}; ${semana}`, marcamos: "" };
+    }
+
+    /*
+    | El cierre de la previa (23/10/2026, equipo de expertos): «PARA EL
+    | DOMINGO», la consigna, su porqué en una frase y a quién marcamos. La
+    | previa acababa en tablas de la temporada, sin decir qué hacemos.
+    */
+    const primera = prioridades.find((una) => !una.esBanda) ?? prioridades[0];
+
+    if (!primera) return null;
+
+    const defensivo = primera.lado === "defensivo";
+
+    const dia = (() => {
+      const cuando = datos.partidoCalendario?.cuando;
+      const fecha = cuando ? new Date(cuando) : null;
+
+      return fecha && !Number.isNaN(fecha.getTime()) ? ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"][fecha.getDay()] : "";
+    })();
+
+    const porQue =
+      primera.goles > 0
+        ? defensivo
+          ? `Nos ha costado ${plural(primera.goles, "gol", "goles")} esta temporada: ${primera.base} con peligro en contra`
+          : `Ya nos ha dado ${plural(primera.goles, "gol", "goles")}: ${primera.base} con peligro`
+        : primera.sentidoRival === "sube" && primera.contraRivalCorto
+          ? `${mayuscula(primera.contraRivalCorto)}${primera.delAnterior ? `, y ${primera.delAnterior}` : ""}`
+          : primera.delAnterior
+            ? mayuscula(primera.delAnterior)
+            : `${primera.base} con peligro${defensivo ? " en contra" : ""}`;
+
+    /* «Carmona (2): su rematador, 1,84 m» → «Carmona (2)»: en el cierre, sólo los nombres de los que salen. */
+    const nombres = defensivo
+      ? (emparejamientos?.marcamos ?? []).filter((m) => !/^La pone\b/.test(m) && !/si entra$/.test(m)).slice(0, 3).map((m) => m.split(":")[0].trim())
+      : [];
+
+    return {
+      titulo: dia ? `Para el ${dia}` : "Para el partido",
+      consigna: conPatron(consignaDe(primera.aspecto, primera.lado), primera.consignaPatron ? { consigna: primera.consignaPatron } : null),
+      porQue,
+      marcamos: nombres.length ? `Marcamos a ${fraseLista(nombres).replace(/ y /, " y a ")}` : "",
+    };
   })();
 
   /* Sin minutos, los gráficos del tiempo serían una barra a cero: no salen. */
@@ -3179,6 +3351,15 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
       campo: minutos.campo,
       video: minutos.video,
       texto: minutos.texto,
+      porLado: (() => {
+        /* Una tarea con varios aspectos no puede sumar dos veces: si el reparto no cuadra con el total, no se da. */
+        const lado = (l: AbpLado) => [...minutos.porAspecto.entries()].filter(([clave]) => clave.endsWith(`|${l}`)).reduce((t, [, m]) => t + m, 0);
+
+        const ofensivo = lado("ofensivo");
+        const defensivo = lado("defensivo");
+
+        return ofensivo + defensivo > 0 && Math.abs(ofensivo + defensivo - minutos.confirmados) <= Math.max(2, minutos.confirmados * 0.05) ? { ofensivo, defensivo } : null;
+      })(),
     },
     sinMinutos,
     rivalAbp,
@@ -3618,7 +3799,7 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
         linea.esBanda ? `<span style="color:${SUAVE}">Banda</span>` : `<b>${i + 1}</b>`,
         esc(linea.aspecto),
         LADO_LABEL[linea.lado],
-        `<b>${esc(linea.base)}</b>${linea.acciones >= MINIMO_VEREDICTO && linea.peligro ? ` <span style="color:${SUAVE}">(${esc(linea.peligro)})</span>` : ""}${linea.referencia ? `<br><span style="color:${SUAVE};font-size:12px">${esc(mayuscula(linea.referencia))}</span>` : ""}${linea.delAnterior ? `<br><span style="color:${NARANJA};font-size:12px">${esc(mayuscula(linea.delAnterior))}</span>` : ""}${linea.tendencia ? `<br><span style="color:${SUAVE};font-size:12px;font-style:italic">${esc(linea.tendencia)}</span>` : ""}`,
+        `<b>${esc(linea.base)}</b>${linea.acciones >= MINIMO_VEREDICTO && linea.peligro ? ` <span style="color:${SUAVE}">(${esc(linea.peligro)})</span>` : ""}${linea.referencia ? `<br><span style="color:${SUAVE};font-size:12px">${esc(mayuscula(linea.referencia))}</span>` : ""}${linea.delAnterior ? `<br><span style="color:${NARANJA};font-size:12px">${esc(mayuscula(linea.delAnterior))}</span>` : ""}${linea.tendencia ? `<br><span style="color:${SUAVE};font-size:12px;font-style:italic">${esc(linea.tendencia)}</span>` : ""}${linea.patron ? `<br><span style="color:${TINTA};font-size:12px">${esc(mayuscula(linea.patron))}${linea.consignaPatron ? `. <b>${esc(linea.consignaPatron)}</b>` : ""}</span>` : ""}`,
         linea.goles ? `<b>${linea.goles}</b>` : "0",
         estadoSemana(linea),
         esc(linea.minutosTemporada),
@@ -3631,6 +3812,7 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
         linea.referencia,
         linea.delAnterior,
         linea.tendencia,
+        linea.patron ? `${mayuscula(linea.patron)}${linea.consignaPatron ? `. ${linea.consignaPatron}` : ""}` : "",
         estadoSemanaTexto(linea),
         `${linea.minutosTemporada} en la temporada`,
         linea.contraRival ? `${linea.sentidoRival === "sube" ? "sube" : "baja"} por el rival: ${linea.contraRival}` : "",
@@ -3978,18 +4160,19 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
   */
   const c2 = informe.cierre;
 
-  const cierre: Seccion | null = esPost && c2
+  /* Post: «Para la semana que viene». Previa (23/10/2026): «Para el domingo», con a quién marcamos, antes de los anexos. */
+  const cierre: Seccion | null = c2
     ? {
-        titulo: "Para la semana que viene",
+        titulo: c2.titulo,
         pie: "",
-        html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${NAVY};border-radius:10px"><tr><td style="padding:16px 18px"><p style="margin:0;font:700 19px/1.35 Arial,sans-serif;color:#F2E6C9">${esc(c2.consigna)}</p><p style="margin:6px 0 0;font:400 13px/1.5 Arial,sans-serif;color:#C9D2DF">${esc(c2.porQue)}.</p></td></tr></table>`,
-        texto: [`${c2.consigna}. ${c2.porQue}.`],
+        html: `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${NAVY};border-radius:10px"><tr><td style="padding:16px 18px"><p style="margin:0;font:700 19px/1.35 Arial,sans-serif;color:#F2E6C9">${esc(c2.consigna)}</p><p style="margin:6px 0 0;font:400 13px/1.5 Arial,sans-serif;color:#C9D2DF">${esc(c2.porQue)}.</p>${c2.marcamos ? `<p style="margin:8px 0 0;font:700 14px/1.5 Arial,sans-serif;color:#F2E6C9">${esc(c2.marcamos)}.</p>` : ""}</td></tr></table>`,
+        texto: [[`${c2.consigna}.`, `${c2.porQue}.`, c2.marcamos ? `${c2.marcamos}.` : ""].filter(Boolean).join(" ")],
       }
     : null;
 
   const orden: (Seccion | null)[] = esPost
     ? [claves, partido, rival, cruce, valoracion, tiempo, semana, apuntes, acumulado, equipo, categoria, seguimiento, cierre]
-    : [claves, prioridades, tiempo, semana, valoracion, rival, suBalonParado, emparejamientos, apuntes, categoria, acumulado, seguimiento];
+    : [claves, prioridades, tiempo, semana, valoracion, rival, suBalonParado, emparejamientos, cierre, apuntes, categoria, acumulado, seguimiento];
 
   orden.forEach((una) => {
     if (una) mete(una);
@@ -4213,18 +4396,33 @@ function titularPrevia(primera: LineaEquipo, rival: string) {
     ? `${primera.peligros} de ${primera.acciones} ${primera.peligros === 1 ? "nos creó" : "nos crearon"} peligro`
     : `${primera.peligros} de ${primera.acciones} ${primera.peligros === 1 ? "acabó" : "acabaron"} en peligro`;
 
-  const goles = primera.goles ? (defensivo ? ` y nos marcaron ${primera.goles}` : ` y ${plural(primera.goles, "gol", "goles")}`) : "";
-
-  const delRival =
-    primera.sentidoRival === "sube" && primera.contraRivalCorto ? `, y ${primera.contraRivalCorto.replace(/(\d+),0\b/g, "$1")}` : "";
-
   const ante = rival ? ` ante el ${rival}` : "";
 
-  const conRival = [`${consigna}: ${hecho}${goles}${delRival}`, `${consignaCorta}: ${hecho}${goles}${delRival}`, `${consignaCorta}: ${hecho}${delRival}`];
+  /*
+  | Una idea por titular (23/10/2026, equipo de expertos): «Defendemos la
+  | falta lateral: 2 de 8 nos crearon peligro, y el Algeciras saca 3 faltas
+  | por partido» eran dos ideas y 18 palabras. Ahora, la más fuerte de las
+  | que hay, por este orden: los goles que nos costó, lo que el rival hace
+  | subir (si la base es corta, el titular no la vende como certeza), lo que
+  | nos hizo el partido anterior y, si no, la base.
+  */
+  if (defensivo && primera.goles > 0) {
+    return laQueCabe([`${consigna}: nos ha costado ${plural(primera.goles, "gol", "goles")} esta temporada`, `${consignaCorta}: nos ha costado ${plural(primera.goles, "gol", "goles")}`], 80);
+  }
 
-  const sinRival = [`${consigna}${ante}: ${hecho}${goles}`, `${consigna}: ${hecho}${goles}`, `${consignaCorta}: ${hecho}${goles}`, `${consignaCorta}: ${hecho}`];
+  if (!defensivo && primera.goles > 0) {
+    return laQueCabe([`${consigna}${ante}: ya nos ha dado ${plural(primera.goles, "gol", "goles")}`, `${consignaCorta}: ya nos ha dado ${plural(primera.goles, "gol", "goles")}`], 80);
+  }
 
-  return (delRival ? conRival.find((una) => una.length <= 100) : null) ?? laQueCabe(sinRival, 80);
+  if (primera.sentidoRival === "sube" && primera.contraRivalCorto) {
+    const delRival = primera.contraRivalCorto.replace(/(\d+),0\b/g, "$1");
+
+    return laQueCabe([`${consigna}: ${delRival}`, `${consignaCorta}: ${delRival}`], 80);
+  }
+
+  if (primera.delAnterior) return laQueCabe([`${consigna}: ${primera.delAnterior}`, `${consignaCorta}: ${primera.delAnterior}`], 80);
+
+  return laQueCabe([`${consigna}${ante}: ${hecho}`, `${consigna}: ${hecho}`, `${consignaCorta}: ${hecho}`], 80);
 }
 
 /**
@@ -4395,10 +4593,18 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
     */
     const sustoSin = sustoDelPartido(p);
 
+    /*
+    | El porqué del susto (23/10/2026): el titular ya dice cuánto se le dio;
+    | aquí, cómo se repartió la semana, que es lo que se corrige.
+    */
+    const lados = informe.minutosAbp.porLado;
+
     const semanaSusto = sustoSin
-      ? sustoSin.minutos > 0
-        ? `Le dimos ${fmtMin(sustoSin.minutos)}${minutos > sustoSin.minutos ? ` de ${fmtMin(minutos)}` : ""} en la semana: sube para la próxima`
-        : "No se trabajó en la semana: entra en la próxima"
+      ? lados && sustoSin.lado === "defensivo" && lados.ofensivo > lados.defensivo
+        ? `De ${fmtLargo(minutos)} de balón parado, ${fmtLargo(lados.ofensivo)} fueron ofensivos y ${fmtLargo(lados.defensivo)} defensivos: la semana que viene, más defensa`
+        : sustoSin.minutos > 0
+          ? "La semana que viene le damos más tiempo"
+          : "No se trabajó en la semana: entra en la próxima"
       : "";
 
     const accionesSusto = sustoSin
@@ -4408,6 +4614,8 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
     const claves = [
       malas.length ? `No salió: ${fraseLista(malas.slice(0, 2).map(nombre))}` : "",
       buenas.length ? `Salió bien: ${fraseLista(buenas.slice(0, 2).map(nombre))}` : "",
+      /* Los goles del partido, que el titular ya no dice (23/10/2026): «Ninguno de los 5 goles fue a balón parado». */
+      sustoSin && p.marcador ? golesAbpEnFrase(p.marcador, p.favor.goles, p.contra.goles) : "",
       semanaSusto,
       ...accionesSusto,
       !sustoSin && candidato ? `Para el próximo microciclo: ${nombre(candidato)}` : "",
@@ -4496,18 +4704,47 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
     | antes que nada. Lo que el titular ya dice del rival no se repite: va la
     | referencia en su lugar.
     */
-    const titularConRival = Boolean(primera && primera.sentidoRival === "sube" && primera.contraRivalCorto);
+    /*
+    | Qué dijo ya el titular (23/10/2026): los goles, el rival o el partido
+    | anterior, por ese orden. Lo que dijo no se repite; lo que no, va aquí.
+    */
+    const titularDeGoles = Boolean(primera && primera.goles > 0);
+    const titularConRival = Boolean(primera && !titularDeGoles && primera.sentidoRival === "sube" && primera.contraRivalCorto);
+    const titularConAnterior = Boolean(primera && !titularDeGoles && !titularConRival && primera.delAnterior);
+
+    /* El patrón del último partido hecho consigna: «Las 2 con peligro contra el Antequera CF: desde Z4 interior… El segundo palo tiene dueño antes del golpeo». */
+    const patron = primera?.patron ? `${mayuscula(primera.patron)}${primera.consignaPatron ? `. ${primera.consignaPatron}` : ""}` : "";
+
+    /*
+    | Con los goles en el titular, de cuántos y con qué (23/10/2026): «2 de
+    | los 3 goles que nos han marcado a balón parado; 8 remates en 27
+    | acciones». La referencia contra el resto confundía: el córner puede
+    | estar por debajo en ocasiones y por encima en goles.
+    */
+    const golesLado = primera ? informe.equipo.filter((una) => una.lado === primera.lado && !una.esBanda).reduce((t, una) => t + una.goles, 0) : 0;
+
+    const dePartido = primera?.lado === "defensivo" ? "que nos han marcado" : "que hemos marcado";
+
+    const base =
+      primera && titularDeGoles
+        ? `${golesLado > primera.goles ? `${primera.goles} de los ${golesLado} goles ${dePartido} a balón parado` : `Todos los goles ${dePartido} a balón parado`}; ${plural(primera.remates, "remate", "remates")} en ${primera.acciones} acciones`
+        : "";
+
+    const porQueSinRepetir = titularConAnterior ? (primera?.referencia ? `${/^(por|en línea)/.test(primera.referencia) ? "Está" : "Es"} ${primera.referencia}` : "") : porQue;
 
     const claves = [
-      primera?.tendencia || porQue,
-      titularConRival ? (primera?.tendencia ? porQue : "") : delRival,
+      patron,
+      primera?.tendencia ?? "",
+      base || porQueSinRepetir,
+      titularConRival ? "" : delRival,
       enElPlan,
       otraQueSube,
       banda && banda !== primera ? `Saques de banda, aparte: ${nombre(banda)}, ${banda.base} con peligro` : "",
       conRemate[1] ? `Después: ${nombre(conRemate[1])}, ${baseDe(conRemate[1])}` : "",
     ]
       .filter(Boolean)
-      .map((una) => breve(una, 90));
+      .map((una) => breve(una, una === patron ? 140 : 110))
+      .filter((una, i, todas) => todas.indexOf(una) === i);
 
     return {
       modo: "previa",
@@ -4518,7 +4755,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
           : "Balón parado: lo planificado de la semana",
       claves: claves.slice(0, 3),
       cifras: [
-        ...(primera ? [{ rotulo: "Prioridad nº 1", valor: primera.base, pie: `${mayuscula(nombre(primera))}: con peligro${primera.lado === "defensivo" ? " en contra" : ""}${primera.tendencia ? " · tendencia" : ""}` }] : []),
+        ...(primera ? [{ rotulo: "Prioridad nº 1", valor: primera.base, pie: `${mayuscula(nombre(primera))}: con peligro${primera.lado === "defensivo" ? " en contra" : ""}${primera.tendencia ? " · aviso reciente" : ""}` }] : []),
         ...(informe.trabajos.length ? [{ rotulo: "Planificado", valor: String(informe.trabajos.length), pie: informe.trabajos.length === 1 ? "tarea" : "tareas" }] : []),
       ],
       rival,
