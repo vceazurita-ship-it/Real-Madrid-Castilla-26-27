@@ -299,14 +299,14 @@ export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: Perfi
     /* «Lo mejor» de algo por debajo de la mediana no es lo mejor (23/10/2026): si ninguna fase pasa de P50, se dice. */
     /* «Resultado» no es una fase de juego, pero sale en la misma tabla: si queda por encima, se dice, para que la frase no choque con la tabla (24/10/2026). */
     const resultado = perfil.fases.find((f) => f.fase === "general" && f.percentil !== null);
-    const yResultado = resultado && (resultado.percentil ?? 0) > (mejorFase[0]?.percentil ?? 0) ? `; en resultados, P${resultado.percentil}` : "";
+    const yResultado = resultado && (resultado.percentil ?? 0) > (mejorFase[0]?.percentil ?? 0) ? `; en resultados, ${resultado.percentil} de 100` : "";
     if (mejorFase.length >= 2 && (mejorFase[0].percentil ?? 0) < 50) {
       frases.push(
-        `Ninguna fase de su juego pasa de la mediana (la mejor, ${mejorFase[0].label.toLowerCase()}, P${mejorFase[0].percentil}); la más floja, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (P${mejorFase[mejorFase.length - 1].percentil})${yResultado}.`,
+        `Ninguna fase de su juego pasa de la mediana (la mejor, ${mejorFase[0].label.toLowerCase()}, ${mejorFase[0].percentil} de 100); la más floja, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (${mejorFase[mejorFase.length - 1].percentil} de 100)${yResultado}.`,
       );
     } else if (mejorFase.length >= 2) {
       frases.push(
-        `Lo mejor de su juego, ${mejorFase[0].label.toLowerCase()} (P${mejorFase[0].percentil}); lo más flojo, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (P${mejorFase[mejorFase.length - 1].percentil}).`,
+        `Lo mejor de su juego, ${mejorFase[0].label.toLowerCase()} (${mejorFase[0].percentil} de 100); lo más flojo, ${mejorFase[mejorFase.length - 1].label.toLowerCase()} (${mejorFase[mejorFase.length - 1].percentil} de 100).`,
       );
     }
     if (perfil.fuertes.length)

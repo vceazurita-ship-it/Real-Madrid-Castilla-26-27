@@ -33,9 +33,7 @@ import {
   metaDeClave,
   conDato,
   cortaEnPausa,
-  dueloEnSuOnce,
-  duelosParaAtacar,
-  duelosParaVigilar,
+  duelosDeLaLamina,
   fraseUtil,
   lecturaXg,
   minutosAbpInforme,
@@ -581,8 +579,9 @@ function Cifra({ rotulo, valor, pie, color = C.crema }: { rotulo: string; valor:
   );
 }
 
+/* Goles y asistencias con sus minutos (25/10/2026): «2 goles y 1 asist. en 217′»; el suplente, «si entra». */
 const rasgosDe = (j: JugadorRival) =>
-  [j.goles ? `${j.goles} ${j.goles === 1 ? "gol" : "goles"}` : "", j.asistencias ? `${j.asistencias} ${j.asistencias === 1 ? "asistencia" : "asist."}` : "", ...j.rasgos.slice(0, 2)]
+  [j.desdeBanquillo ? "si entra" : "", [j.goles ? `${j.goles} ${j.goles === 1 ? "gol" : "goles"}` : "", j.asistencias ? `${j.asistencias} ${j.asistencias === 1 ? "asistencia" : "asist."}` : ""].filter(Boolean).join(" y ") + (j.minutos && (j.goles || j.asistencias) ? ` en ${j.minutos}′` : ""), ...j.rasgos.slice(0, j.desdeBanquillo ? 1 : 2)]
     .filter(Boolean)
     .join(" · ") || recorta(j.fortalezas.split(/\n/)[0] ?? "", 60);
 
@@ -1143,22 +1142,9 @@ function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin
 function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
   const d = inf.duelosJugadores;
 
-  /* Sólo los duelos con jugadores de su once probable (20/10/2026): entraba
-     Aviles, que estaba en «el resto de su plantilla». */
-  const enOnce = (x: DueloJugadores) => dueloEnSuOnce(x, inf.once.jugadores);
 
-  /* En el orden de la cifra que se ve: si no, un +85 salía debajo de un +55. */
-  const atacar = duelosParaAtacar(d)
-    .filter(enOnce)
-    .slice(0, 3)
-    .sort((a, b) => (ventajaVisible(b, "con") ?? 0) - (ventajaVisible(a, "con") ?? 0))
-    /* En el post caben dos por lado: debajo va «ESTA SEMANA» (22/10/2026). Los dos primeros son los del titular. */
-    .slice(0, post ? 2 : 3);
-  const vigilar = duelosParaVigilar(d)
-    .filter(enOnce)
-    .slice(0, 3)
-    .sort((a, b) => (ventajaVisible(a, "sin") ?? 0) - (ventajaVisible(b, "sin") ?? 0))
-    .slice(0, post ? 2 : 3);
+  /* Los mismos que cuenta su titular y que sostienen LA IDEA (25/10/2026): una sola selección, en modelo.ts. */
+  const { atacar, vigilar } = duelosDeLaLamina({ ...inf, momento: post ? "post" : "previa" });
   const medidos = (d?.lista ?? []).filter((x) => x.veredicto !== "sin-datos").length;
 
   /* Lo que no tiene dato no se nombra: sin duelos, el panel no sale; sin un lado, ese lado no sale. */
@@ -1236,7 +1222,7 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
               <div key={f.label}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 17, fontWeight: 600 }}>
                   <span style={{ color: C.suave }}>{f.label}</span>
-                  <span style={{ color: color(f.percentil) }}>{`P${f.percentil}`}</span>
+                  <span style={{ color: color(f.percentil) }}>{`${f.percentil} de 100`}</span>
                 </div>
                 <div style={{ height: 8, borderRadius: 4, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
                   <div style={{ width: `${f.percentil ?? 0}%`, height: "100%", background: color(f.percentil) }} />
@@ -1261,17 +1247,17 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
           </div>
           {v.figuras.length ? (
             <div style={{ marginTop: "auto", paddingTop: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: C.rival, marginBottom: 6 }}>LOS QUE MÁS RINDEN PARA SU PUESTO</div>
+              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", color: C.rival, marginBottom: 6 }}>LOS QUE MÁS RINDEN PARA SU PUESTO · ÍNDICE DE 0 A 100</div>
               {v.figuras.slice(0, 3).map((f) => (
                 <div key={f.nombre} style={{ display: "flex", gap: 10, alignItems: "baseline", fontSize: 19, fontWeight: 600, lineHeight: 1.25 }}>
                   <span style={{ width: 42, color: color(f.indice), fontWeight: 700 }}>{f.indice}</span>
                   <span style={{ color: C.crema, whiteSpace: "nowrap" }}>{f.nombre}</span>
-                  <span style={{ color: C.tenue, fontSize: 16, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.posicion} · {f.destaca.join(" · ")}</span>
+                  <span style={{ color: C.tenue, fontSize: 16, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{[f.posicion, f.destaca[0]].filter(Boolean).join(" · ")}</span>
                 </div>
               ))}
             </div>
           ) : null}
-          {v.alcance ? <div style={{ marginTop: 8, fontSize: 14, color: C.tenue }}>{v.alcance} · percentil contra su competición</div> : null}
+          {v.alcance ? <div style={{ marginTop: 8, fontSize: 14, color: C.tenue }}>{v.alcance} · de 0 a 100 contra los de su competición (50, la mitad)</div> : null}
         </>
       )}
     </Panel>
@@ -1637,7 +1623,8 @@ function PreviaComoGanamos({ inf }: { inf: InformePartido }) {
   const principal = inf.sintesis.consigna[0] ?? "";
   const lineaIdea = inf.sintesis.plan.find((l) => principal && (l.texto === principal || l.texto.startsWith(`${principal}:`) || l.texto.startsWith(`${principal} `)));
   const cubierta = Boolean(lineaIdea && (inf.plan?.claves ?? []).slice(0, 3).some((c) => claveDeFase([c], lineaIdea.fase) === 1));
-  const tareasIdea = lineaIdea && !cubierta ? tareasDeLinea(inf, lineaIdea.texto) : [];
+  /* LA IDEA que sale de un duelo (no es línea del plan) lleva las tareas de su consigna (25/10/2026). */
+  const tareasIdea = lineaIdea ? (!cubierta ? tareasDeLinea(inf, lineaIdea.texto) : []) : (inf.sintesis.consignaTareas.find((c) => c.consigna === principal)?.tareas ?? []);
 
   const cierre = (inf.plan?.claves ?? []).length ? cierrePrevia(inf) : "";
 

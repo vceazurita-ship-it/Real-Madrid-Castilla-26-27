@@ -38,6 +38,7 @@ import {
   enFrases,
   avisosDelPlan,
   avisosDeLaSemana,
+  vistazoCoherente,
   planSinHeredado,
   sintetiza,
   type Colectivo,
@@ -911,7 +912,8 @@ export async function cargaInforme(entrada: {
     avisos,
     /* Un duelo con alguien del once dudoso no se publica hasta que el analista lo confirme (22/10/2026). */
     duelosJugadores: duelosSinDudosos(delRival.duelos, cronica, avisos),
-    vistazo: delRival.vistazo,
+    /* Sin lo que contradice la ficha (25/10/2026): se le dice al analista. */
+    vistazo: (() => { const v = vistazoCoherente(delRival.vistazo, plantilla); avisos.push(...v.avisos); return v.vistazo; })(),
     videoListo: videoDoc?.url ? { url: videoDoc.url, creado: videoDoc.creado ?? "", segundos: videoDoc.segundos ?? 0, poster: videoDoc.poster ?? null, ligero: videoDoc.ligero ?? null } : null,
   };
 
