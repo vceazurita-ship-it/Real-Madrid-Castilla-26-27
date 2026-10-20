@@ -906,8 +906,8 @@ export function InformePartidoDialog({
             id: "jugadores",
             nombre: "Consignas, para los jugadores",
             publico: "Jugadores",
-            formato: "para el móvil",
-            duracion: `${SEGUNDOS_CONSIGNAS} s como mucho`,
+            formato: "vertical, para el móvil",
+            duracion: `de ${SEGUNDOS_CONSIGNAS_MINIMOS} a ${SEGUNDOS_CONSIGNAS} s`,
             archivo: nombreDeArchivo(`${nombreLegible} - Consignas para jugadores`, "mp4"),
             monta: async (alPaso) => {
               const escudos = await traeEscudos().catch(() => []);
@@ -915,6 +915,8 @@ export function InformePartidoDialog({
 
               return montaVideoInforme(consignasDePartido(informeVisto, { escudoRival: escudo ? (escudo.startsWith("/") ? escudo : `/api/rivals/foto?url=${encodeURIComponent(escudo)}`) : null }), {
                 tope: SEGUNDOS_CONSIGNAS,
+                minimo: SEGUNDOS_CONSIGNAS_MINIMOS,
+                vertical: true,
                 fuente: barlowCondensed.style.fontFamily,
                 alPaso,
               });
