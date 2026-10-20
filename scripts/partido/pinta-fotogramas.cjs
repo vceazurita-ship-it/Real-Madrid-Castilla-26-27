@@ -74,12 +74,12 @@ async function pinta(n) {
   let cuadro = null;
 
   if (e.tipo === "clips") {
-    const { k: c, tc } = corteEn(e, t, x.segundos);
+    const { k: c, tv } = corteEn(e, t, x.segundos);
     const corte = cortesPorClave.get(`${e.id}:${c}`);
 
     if (corte) {
       /* Desde dónde y a qué velocidad: la repetición vuelve al remate a media velocidad. */
-      const enFichero = (corte.desdeFichero ?? 0) + tc * (corte.velocidad ?? 1);
+      const enFichero = (corte.desdeFichero ?? 0) + tv * (corte.velocidad ?? 1);
       const ruta = path.join(corte.dir, `f_${String(Math.min(Math.round(enFichero * FPS) + 1, 9999)).padStart(4, "0")}.jpg`);
 
       if (ruta !== ultimoCuadro.ruta) {

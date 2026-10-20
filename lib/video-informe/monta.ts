@@ -590,7 +590,7 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
       let cuadro: VideoFrame | null = null;
 
       if (e.tipo === "clips") {
-        const { k: c, tc } = corteEn(e, t, x.segundos);
+        const { k: c, tv } = corteEn(e, t, x.segundos);
         const clip = clips.get(`${e.id}:${c}`);
 
         /* Al pasar de corte, el anterior suelta su descodificador. */
@@ -598,7 +598,7 @@ export async function montaVideoInforme(guionEntrada: GuionVideo, opciones: Opci
 
         if (clip) {
           clipEnCurso = clip;
-          cuadro = await clip.fuente.en(clip.desde + tc * ((e.cortes[c] as { velocidad?: number }).velocidad ?? 1));
+          cuadro = await clip.fuente.en(clip.desde + tv * ((e.cortes[c] as { velocidad?: number }).velocidad ?? 1));
         }
       }
 
