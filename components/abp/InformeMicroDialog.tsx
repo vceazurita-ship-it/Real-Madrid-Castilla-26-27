@@ -35,6 +35,8 @@ import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 
 import { Button, Dialog, Notice } from "@/components/abp/ui";
 import { traeJson } from "@/lib/hojaCsv";
+import { teamKey } from "@/lib/abp/model";
+import { normalizarOnce, rivalOnceKey } from "@/lib/rivals/once";
 import { useAnalisisRivalInforme } from "@/hooks/useAnalisisRivalInforme";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
@@ -398,6 +400,74 @@ export function InformeMicroDialog({
   }, []);
 
   /*
+  | Su once probable marcado (22/10/2026), para que «A quién marcamos» ponga
+  | primero a los que salen y «si entra» a los demás. El documento va por el
+  | nombre del equipo tal como lo escribe la hoja de plantillas. Sólo se lee.
+  */
+  const equipoHoja = useMemo(() => {
+    if (!Array.isArray(plantillaRival) || !rivalVideo) return "";
+
+    const fila = (plantillaRival as Record<string, unknown>[]).find(
+      (una) => una && typeof una === "object" && teamKey(String(una.NOMBRE_EQUIPO ?? "")) === teamKey(rivalVideo),
+    );
+
+    return fila ? String(fila.NOMBRE_EQUIPO ?? "") : "";
+  }, [plantillaRival, rivalVideo]);
+
+  const [onceRival, setOnceRival] = useState<{ titulares: string[]; dudas: string[] } | null>(null);
+
+  useEffect(() => {
+    if (!equipoHoja) return;
+
+    let cancelado = false;
+
+    fetch(`/api/docs?key=${encodeURIComponent(rivalOnceKey(equipoHoja))}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { data?: unknown }) => {
+        if (cancelado || !j?.data) return;
+
+        const once = normalizarOnce(j.data);
+
+        setOnceRival({ titulares: once.titulares, dudas: once.dudas });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelado = true;
+    };
+  }, [equipoHoja]);
+
+  /*
+  | Los cortes del partido (22/10/2026): cada acción de peligro del post se
+  | enlaza con su corte por el minuto. Los deja el ordenador del club en
+  | `informe-clips:jNN`. Sólo se lee; sin cortes, las acciones salen sin enlace.
+  */
+  const [clipsPartido, setClipsPartido] = useState<{ minuto: string; url: string; de: string; tipo: string }[] | null>(null);
+
+  useEffect(() => {
+    if (!jornadaPartido) return;
+
+    let cancelado = false;
+
+    fetch(`/api/docs?key=${encodeURIComponent(`informe-clips:j${String(jornadaPartido).padStart(2, "0")}`)}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { data?: { cortes?: { minuto?: string; url?: string; de?: string; tipo?: string }[] } | null }) => {
+        if (cancelado) return;
+
+        setClipsPartido(
+          (j?.data?.cortes ?? [])
+            .filter((c) => c && c.url && c.minuto)
+            .map((c) => ({ minuto: String(c.minuto), url: String(c.url), de: String(c.de ?? ""), tipo: String(c.tipo ?? "") })),
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelado = true;
+    };
+  }, [jornadaPartido]);
+
+  /*
   | Por qué el fallo del envío NO se queda en un aviso flotante.
   |
   | Los dos motivos por los que Gmail puede negarse —falta el permiso, falta
@@ -686,10 +756,12 @@ export function InformeMicroDialog({
       accionesPartido,
       accionesAnterior,
       plantillaRival,
+      onceRival,
+      clipsPartido,
       /* El cruce, con las mismas acciones que el resto del informe (19/10/2026). */
       conPretemporada,
     }),
-    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido, accionesAnterior, plantillaRival, conPretemporada],
+    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido, accionesAnterior, plantillaRival, onceRival, clipsPartido, conPretemporada],
   );
 
   const borrador = useMemo(() => construyeInforme(base), [base]);

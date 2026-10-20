@@ -112,6 +112,11 @@ export type AccionAbp = {
   gol: boolean;
   /** Sólo en saque de banda: el balón siguió siendo nuestro. */
   retenido: boolean;
+  /**
+   * El minuto como se lee («49'», «90+4'»), de MINUTO y Tiempo (22/10/2026):
+   * para contar cada acción de peligro y enlazar su corte. Vacío si la hoja no lo trae.
+   */
+  minuto: string;
 };
 
 const texto = (fila: SheetRow, ...nombres: string[]) => {
@@ -159,6 +164,17 @@ function leeAccion(fila: SheetRow, bloque: BloqueAbp): AccionAbp | null {
 
   const zonaSaque = texto(fila, "Zona_Saque");
 
+  /* «94» en la segunda parte es el 90+4. */
+  const minutoBruto = Number(texto(fila, "MINUTO").replace(/[^0-9]/g, "")) || 0;
+  const parte = texto(fila, "Tiempo");
+  const minuto = !minutoBruto
+    ? ""
+    : parte === "1" && minutoBruto > 45
+      ? `45+${minutoBruto - 45}'`
+      : parte === "2" && minutoBruto > 90
+        ? `90+${minutoBruto - 90}'`
+        : `${minutoBruto}'`;
+
   return {
     bloque,
     jornada,
@@ -189,6 +205,7 @@ function leeAccion(fila: SheetRow, bloque: BloqueAbp): AccionAbp | null {
     | «Posicional» no hace daño a nadie— pero perderlo en el saque sí es un
     | fallo, y es lo que mide esta columna.
     */
+    minuto,
     retenido:
       bloque.startsWith("banda") &&
       resultado.owner === (meta.nuestro ? "rmcf" : "rival") &&
