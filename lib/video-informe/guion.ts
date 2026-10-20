@@ -17,7 +17,7 @@
 | Microciclos) y el de ABP (la semana de balón parado).
 */
 
-import type { InformePartido, PinceladaAbp, VeredictoDuelo } from "@/lib/informe-partido/modelo";
+import type { FilaCumplimiento, InformePartido, PinceladaAbp, VeredictoDuelo } from "@/lib/informe-partido/modelo";
 import type { InformeMicro } from "@/lib/abp/informe-micro";
 import { consignaPrincipal } from "../informe-partido/consigna";
 
@@ -280,7 +280,7 @@ export type Escena =
  * se cumplió. Sin estado «pendiente» (20/10/2026): una meta que aún no se
  * puede medir no entra (regla del usuario: lo que no tiene dato no se nombra).
  */
-export type FilaBalance = { que: string; buscabamos: string; logramos: string; estado: "si" | "parcial" | "no" };
+export type FilaBalance = { que: string; buscabamos: string; logramos: string; estado: "si" | "parcial" | "no"; /** «=» del informe: dentro de lo habitual, no «a medias» (27/10/2026). */ habitual?: boolean };
 
 export type EquipoContexto = { nombre: string; nuestro: boolean; puesto: number | null; puntos: number | null; racha: string[] };
 
@@ -858,15 +858,18 @@ export function escenaBalance(filas: FilaBalance[]): { escena: Escena; cierre: s
   const resto = medidas.filter((x) => x.que !== "El resultado");
   const orden = [resto.find((x) => x.estado === "no"), resto.find((x) => x.estado === "si"), resto.find((x) => x.estado === "parcial"), ...resto];
   const elegidas = [...resultado, ...orden.filter((x, i, todas): x is FilaBalance => Boolean(x) && todas.indexOf(x) === i)].slice(0, 3);
+  /* Lo cumplido delante y lo fallado al final, que enlaza con la consigna (27/10/2026, ronda 9, guion). */
+  const peso = { si: 0, parcial: 1, no: 2 } as const;
   const lista = elegidas
-    .map((x) => ({ ...x, buscabamos: sinParentesisAbierto(cortaPalabras(sinSiglas(x.buscabamos.split(" · ")[0]), 9)), logramos: sinParentesisAbierto(cortaPalabras(sinSiglas(x.logramos.split(" · ")[0]), 8)) }));
+    .map((x) => ({ ...x, buscabamos: sinParentesisAbierto(cortaPalabras(sinSiglas(x.buscabamos.split(" · ")[0]), 9)), logramos: sinParentesisAbierto(cortaPalabras(sinSiglas(x.logramos.split(" · ")[0]), 9)) }))
+    .sort((a, b) => (a.que === "El resultado" ? -1 : b.que === "El resultado" ? 1 : peso[a.estado] - peso[b.estado]));
 
   if (lista.length < 2) return null;
 
   /* El resultado no es una meta del plan (25/10/2026, guionista): no entra en el recuento, que así es el mismo que el de la diapositiva 2. */
   const cuentan = resto.length ? resto : medidas;
   const cumplidas = cuentan.filter((x) => x.estado === "si").length;
-  const fallo = lista.find((x) => x.estado === "no" && x.que !== "El resultado") ?? lista.find((x) => x.estado === "parcial" && x.que !== "El resultado");
+  const fallo = lista.find((x) => x.estado === "no" && x.que !== "El resultado") ?? lista.find((x) => x.estado === "parcial" && !x.habitual && x.que !== "El resultado");
   const acierto = lista.find((x) => x.estado === "si" && x.que !== "El resultado");
 
   /* «Cumplimos 2 de 3»: las filas ya dicen cuál quedó a medias o igual que siempre. */
@@ -936,6 +939,29 @@ export function escenaPlan(metas: string[]): Escena | null {
 const decimal = (n: number) => n.toFixed(2).replace(".", ",");
 const apellidoDe = (nombre: string) => nombre.trim().split(/\s+/).slice(-1)[0] ?? nombre;
 
+/**
+ * Las filas del balance desde las claves del plan ya juzgadas
+ * (`cumplimientoPlan`, 27/10/2026): el MISMO objeto que la diapositiva 2 del
+ * post, para que el vídeo enseñe la misma meta y la misma cifra.
+ */
+export function filasDeCumplimiento(cumplimiento: readonly FilaCumplimiento[]): FilaBalance[] {
+  return cumplimiento
+    .filter((c) => c.veredicto && c.dato)
+    .map((c) => ({
+      que: c.tema || "El plan",
+      /* Buscábamos la consigna; logramos, lo que pasó (26/10/2026): antes «Buscábamos: al robar no salimos». */
+      buscabamos: sinSiglas(c.consigna ?? c.lectura ?? c.clave),
+      /*
+      | La cifra con su meta, del MISMO objeto que la diapositiva 2 (27/10/2026,
+      | ronda 9, fútbol y guion): «3,46 goles esperados (meta: 1,96 o más)».
+      | Antes se recortaba el dato largo y la meta se perdía en el corte.
+      */
+      logramos: sinSiglas(c.corto ?? conMeta(c.dato)),
+      estado: c.veredicto === "si" ? "si" : c.veredicto === "no" ? "no" : "parcial",
+      habitual: c.veredicto === "igual",
+    }));
+}
+
 /** Las filas del balance con lo que sabe el informe del navegador: el resultado, las metas de xG del plan y los que había que frenar. */
 function filasDeBalance(informe: InformePartido): FilaBalance[] {
   const p = informe.partido;
@@ -948,18 +974,9 @@ function filasDeBalance(informe: InformePartido): FilaBalance[] {
   | resumen, «Cumplimos 1 de 3»). Con dos o más metas del plan medidas, el
   | balance son ellas y sólo ellas.
   */
-  const delPlan = (informe.sintesis.cumplimiento ?? []).filter((c) => c.veredicto && c.dato);
+  const delPlan = filasDeCumplimiento(informe.sintesis.cumplimiento ?? []);
 
-  if (delPlan.length >= 2) {
-    return delPlan.map((c) => ({
-      que: c.tema || "El plan",
-      /* Buscábamos la consigna; logramos, lo que pasó (26/10/2026): antes «Buscábamos: al robar no salimos». */
-      buscabamos: sinSiglas(c.consigna ?? c.lectura ?? c.clave),
-      /* La cifra con su meta, en corto (26/10/2026): «Contraataques 0 (meta: más de 0,71)»; el balance lee lo de antes del primer «·». */
-      logramos: sinSiglas(conMeta(c.dato)),
-      estado: c.veredicto === "si" ? "si" : c.veredicto === "no" ? "no" : "parcial",
-    }));
-  }
+  if (delPlan.length >= 2) return delPlan;
 
   if (p.jugado && p.gf !== null && p.gc !== null) {
     const r = p.gf > p.gc ? "Victoria" : p.gf < p.gc ? "Derrota" : "Empate";

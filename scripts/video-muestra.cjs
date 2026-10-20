@@ -117,11 +117,14 @@ const guionPost = {
       { id: "versus", tipo: "versus", titulo: "Dominamos en goles esperados", pie: "", filas: [{ nombre: "Goles esperados", nuestro: 3.46, suyo: 0.75, textoNuestro: "3,5", textoSuyo: "0,8", media: 1.3, mejorAlto: true }, { nombre: "Entradas al área", nuestro: 41, suyo: 12, textoNuestro: "41", textoSuyo: "12", media: 25, mejorAlto: true }, { nombre: "Posesión", nuestro: 63.7, suyo: 36.3, textoNuestro: "64 %", textoSuyo: "36 %", media: 50, mejorAlto: true }] },
       { id: "vigilar", tipo: "vigilar", titulo: "Frenamos a 2 de 3 de sus peligrosos", jugadores: [{ nombre: "Destiny", dorsal: "9", posicion: "", foto: "", x: 0, y: 0, destacado: false, texto: "Marcó en el 90+1' con 3-1" }, { nombre: "Gené", dorsal: "10", posicion: "", foto: "", x: 0, y: 0, destacado: true, texto: "Sin gol ni asistencia" }, { nombre: "Gutiérrez", dorsal: "7", posicion: "", foto: "", x: 0, y: 0, destacado: true, texto: "Sin gol ni asistencia" }], locucion: "A quién frenamos." },
       /* Sólo filas medidas (sin «pendiente») y de una en una, con el recuento al final. */
-      G.escenaBalance([
-        { que: "Posesión", buscabamos: "Mandamos con el balón y lo llevamos al área", logramos: "Posesión 64 % (meta: más de 58 %)", estado: "si" },
-        { que: "Sin balón", buscabamos: "Concedemos menos cerca de nuestra área", logramos: "0,8 goles esperados suyos (meta: menos de 1,6)", estado: "si" },
-        { que: "Transición", buscabamos: "Sacamos más de cada robo", logramos: "Contraataques 0 (meta: más de 0,71)", estado: "no" },
-      ]).escena,
+      /* Por el MISMO camino que el informe (27/10/2026): las filas de `cumplimientoPlan` tal y como salen en la diapositiva 2 del post. */
+      G.escenaBalance(
+        G.filasDeCumplimiento([
+          { clave: "Control del partido desde el dominio de la posesión.", tema: "Posesión", veredicto: "si", consigna: "Mandamos con el balón y lo llevamos al área", dato: "Goles esperados a favor 3,46 · meta: llegar a 1,96 goles esperados o más (contra su defensa y en este campo, el pronóstico nos da 1,71)", corto: "3,46 goles esperados (meta: 1,96 o más)" },
+          { clave: "Optimizar y ajustar nuestra fase sin balón.", tema: "Sin balón", veredicto: "si", consigna: "Concedemos menos cerca de nuestra área", dato: "Goles esperados en contra 0,75 · meta: que se queden en 1,30 goles esperados o menos", corto: "0,75 goles esperados suyos (meta: 1,30 o menos)" },
+          { clave: "Darle valor a la transición.", tema: "Transición", veredicto: "igual", consigna: "Sacamos más de cada robo", dato: "Contraataques 0 · meta: al menos 1 contraataque (nuestra media, 0,71); con nuestra media sale así en uno de cada dos partidos: no es un fallo", corto: "0 contraataques (meta: al menos 1)" },
+        ]),
+      ).escena,
       { id: "cierre", tipo: "cierre", titulo: "Nuestra consigna", lineas: ["Esta semana, cerramos los partidos con ventaja"], pie: "Nos marcaron en el 90+1' con 3-1 y ellos con diez", locucion: "Nuestra consigna." },
     ].filter(Boolean),
   ),
