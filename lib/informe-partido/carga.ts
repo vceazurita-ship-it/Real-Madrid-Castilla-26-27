@@ -179,7 +179,8 @@ function microDe(tareas: RegistroTarea[], temporada: string, micro: number, riva
         ? Math.round((valoradas.reduce((s, t) => s + t.evaluacion, 0) / valoradas.length) * 10) / 10
         : null,
     },
-    contenidos: sumaPor((t) => t.contenidoPrincipal).slice(0, 8),
+    /* Todos (24/10/2026): con ocho, «Qué se ha trabajado» sumaba 320′ de 340′. */
+    contenidos: sumaPor((t) => t.contenidoPrincipal),
     fases: sumaPor((t) => t.fase).slice(0, 6),
   };
 }

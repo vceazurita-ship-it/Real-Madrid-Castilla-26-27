@@ -797,7 +797,7 @@ export function InformePartidoDialog({
   const indicesDiapos = TODAS_DIAPOS.filter(diapoMarcada);
 
   const rotuloDiapo = (i: number) =>
-    i === 0 ? (esPost ? "El resultado" : "El rival") : i === 1 ? (esPost ? "Lo que nos deja" : "Dónde está el partido") : esPost ? "Los duelos" : "Cómo lo ganamos";
+    i === 0 ? (esPost ? "El resultado" : "El rival") : i === 1 ? (esPost ? "Lo que buscábamos" : "Dónde está el partido") : esPost ? "Cómo nos marcaron" : "Cómo lo ganamos";
 
   const pdfDe = async (imagenes: string[]) =>
     (await pdfDeLienzos(imagenes, { ancho: DIAPO_W, alto: DIAPO_H, orientacion: "landscape", margen: 0 })).output("blob") as Blob;

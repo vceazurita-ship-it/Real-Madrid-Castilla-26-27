@@ -1007,6 +1007,8 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
           {inf.sintesis.cumplimiento.some((f) => f.veredicto === "igual") ? (
             <div style={{ marginTop: 8, fontSize: 15, color: C.tenue }}>= en nuestra media: ni mejor ni peor que en un partido normal</div>
           ) : null}
+          {/* La roja pesa en estas cifras (24/10/2026): se dice donde se leen. */}
+          {inf.sintesis.notaRoja ? <div style={{ marginTop: 8, fontSize: 16, fontWeight: 600, lineHeight: 1.25, color: C.oroClaro }}>{inf.sintesis.notaRoja}.</div> : null}
           {inf.sintesis.frenados.length > 0 ? (
             <div style={{ marginTop: "auto", paddingTop: 14 }}>
               {/* En frases (22/10/2026): «¿LOS FRENAMOS?» con «✓», «!» y dorsales era un acertijo en el móvil. */}
@@ -1023,10 +1025,11 @@ function PostLecciones({ inf }: { inf: InformePartido }) {
           ) : null}
         </Panel>
 
-        <Panel titulo="LO QUE NOS DEJA">
+        {/* El bloque dice lo que es (24/10/2026): antes «LO QUE NOS DEJA» encima del pronóstico. */}
+        <Panel titulo="FRENTE A LO PREVISTO">
           {pr ? (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.oro, marginBottom: 6 }}>EL PRONÓSTICO, FRENTE AL RESULTADO</div>
+              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.oro, marginBottom: 6 }}>EL PRONÓSTICO Y EL RESULTADO</div>
               <BarraResultado p={pr} alto={42} resaltar={real} />
               {inf.sintesis.veredicto ? <div style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.15, color: C.crema, marginTop: 8 }}>{inf.sintesis.veredicto}.</div> : null}
               {/* Una idea por frase y dos cifras como mucho en cada una (21/10/2026). */}
@@ -1248,8 +1251,12 @@ function PanelVistazo({ inf }: { inf: InformePartido }) {
   );
 }
 
-/** «Qué toca» del post, a todo el ancho: la consigna grande y el dato que la pide debajo (21/10/2026). */
-function EstaSemana({ inf }: { inf: InformePartido }) {
+/**
+ * «ESTA SEMANA» como columna de la 3 del post (24/10/2026): la franja de
+ * abajo dejaba media lámina vacía y la llamada a la acción, pequeña. Ahora
+ * ocupa la mitad derecha y es lo último que se lee del resumen.
+ */
+function PanelEstaSemana({ inf }: { inf: InformePartido }) {
   const toca = inf.sintesis.microciclo.slice(0, 3).map((t) => {
     const [consigna, ...dato] = t.split(" · ");
 
@@ -1259,21 +1266,52 @@ function EstaSemana({ inf }: { inf: InformePartido }) {
   if (!toca.length) return null;
 
   return (
-    <div style={{ display: "flex", alignItems: "stretch", gap: 22, marginTop: 18, padding: "16px 24px", borderRadius: 20, background: "linear-gradient(90deg, rgba(232,97,90,0.16), rgba(232,97,90,0.04))", border: "2px solid rgba(232,97,90,0.45)" }}>
-      <div style={{ display: "flex", alignItems: "center", fontSize: 18, fontWeight: 700, letterSpacing: "0.22em", color: C.rival, whiteSpace: "nowrap" }}>ESTA SEMANA</div>
-      <span style={{ width: 2, alignSelf: "stretch", background: "rgba(232,97,90,0.5)" }} />
-      <div style={{ flex: 1, display: "grid", gridTemplateColumns: `repeat(${toca.length}, 1fr)`, gap: 22 }}>
-        {toca.map((t, i) => (
-          <div key={t.consigna} style={{ display: "flex", gap: 12, alignItems: "flex-start", minWidth: 0 }}>
-            <span style={{ minWidth: 34, height: 34, borderRadius: 10, background: C.oro, color: "#08111F", fontSize: 22, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 27, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{t.consigna}</div>
-              {t.dato ? <div style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.2, color: C.suave, marginTop: 2 }}>{t.dato}</div> : null}
-            </div>
+    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 34, padding: "26px 34px", borderRadius: 20, background: "linear-gradient(160deg, rgba(200,169,107,0.22), rgba(200,169,107,0.04))", border: "2px solid rgba(200,169,107,0.5)", minHeight: 0 }}>
+      <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "0.22em", color: C.oro }}>ESTA SEMANA</div>
+      {toca.map((t, i) => (
+        <div key={t.consigna} style={{ display: "flex", gap: 16, alignItems: "flex-start", minWidth: 0 }}>
+          <span style={{ minWidth: 56, height: 56, borderRadius: 14, background: C.oro, color: "#08111F", fontSize: 32, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{i + 1}</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 42, fontWeight: 700, lineHeight: 1.05, color: C.crema }}>{t.consigna}</div>
+            {t.dato ? <div style={{ fontSize: 25, fontWeight: 600, lineHeight: 1.2, color: C.suave, marginTop: 6 }}>{t.dato}</div> : null}
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
     </div>
+  );
+}
+
+/**
+ * POST · 3 (24/10/2026, experto de fútbol, análisis y guion): la lámina
+ * repetía lo que esperábamos de los duelos sin decir qué pasó. Sin datos del
+ * partido duelo a duelo, cuenta cómo nos marcaron (minuto, marcador, quién y
+ * en qué contexto) y acaba en «ESTA SEMANA». Los duelos previstos siguen en
+ * el informe completo.
+ */
+function PanelGolesEnContra({ inf }: { inf: InformePartido }) {
+  const goles = inf.sintesis.golesEnContra;
+
+  if (!goles.length) return null;
+
+  return (
+    <Panel titulo="CÓMO NOS MARCARON">
+      {/* Repartido en el alto de la lámina, con la letra grande: son dos o tres goles, no una tabla (24/10/2026). */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 22 }}>
+        {goles.map((g) => {
+          const [minuto, marcador, ...resto] = g.split(" · ");
+
+          return (
+            <div key={g} style={{ display: "flex", gap: 22, alignItems: "center", padding: "20px 24px", borderRadius: 18, background: `${C.mal}12`, border: `2px solid ${C.mal}33` }}>
+              <div style={{ width: 120, flexShrink: 0, textAlign: "center" }}>
+                <div style={{ fontSize: 48, fontWeight: 700, lineHeight: 1, color: C.mal }}>{minuto}</div>
+                <div style={{ fontSize: 26, fontWeight: 700, color: C.crema, marginTop: 4 }}>{marcador}</div>
+              </div>
+              <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.2, color: C.crema }}>{resto.join(" · ")}</div>
+            </div>
+          );
+        })}
+      </div>
+    </Panel>
   );
 }
 
@@ -1295,11 +1333,14 @@ function DuelosYRival({ inf }: { inf: InformePartido }) {
   const consigna = post ? [] : inf.sintesis.consigna;
 
   return (
-    <Marco pagina={3} total={3} etiqueta={post ? "LOS DUELOS Y LA SEMANA" : "DUELOS Y RIVAL"} inf={inf}>
+    <Marco pagina={3} total={3} etiqueta={post ? "CÓMO NOS MARCARON Y LA SEMANA" : "DUELOS Y RIVAL"} inf={inf}>
       <TitularDiapo texto={inf.sintesis.titularDuelos} />
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? "1fr" : "1fr 1.2fr", gap: 22 }}>
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: post ? (inf.sintesis.golesEnContra.length ? "1fr 1.15fr" : "1fr") : "1fr 1.2fr", gap: 22 }}>
         {post ? (
-          <PanelDuelos inf={inf} post />
+          <>
+            <PanelGolesEnContra inf={inf} />
+            <PanelEstaSemana inf={inf} />
+          </>
         ) : (
           <>
             <PanelVistazo inf={inf} />
@@ -1307,7 +1348,6 @@ function DuelosYRival({ inf }: { inf: InformePartido }) {
           </>
         )}
       </div>
-      {post ? <EstaSemana inf={inf} /> : null}
       {consigna.length ? (
         <div style={{ display: "flex", alignItems: "center", gap: 22, marginTop: 18, padding: "16px 26px", borderRadius: 18, background: "linear-gradient(90deg, rgba(200,169,107,0.24), rgba(200,169,107,0.05))", border: "2px solid rgba(200,169,107,0.5)" }}>
           <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.22em", color: C.oro, whiteSpace: "nowrap" }}>NUESTRA CONSIGNA</span>
