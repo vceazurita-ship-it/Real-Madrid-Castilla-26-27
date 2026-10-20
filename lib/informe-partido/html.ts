@@ -604,9 +604,22 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
      sale sólo lo planificado (22/10/2026, regla del usuario). */
   const conMinutos = (m?.dias ?? []).some((d) => d.md !== "MD" && d.minutos > 0);
 
-  const trabajados = (m?.contenidos ?? []).filter((c) => c.minutos > 0);
+  /* En la previa, el partido de la semana no es algo «trabajado» (23/10/2026): «Competición: 90′» salía como hecho. */
+  const trabajados = (m?.contenidos ?? []).filter((c) => c.minutos > 0 && !(!esPost && /^competici/i.test(c.nombre)));
 
-  const planificados = (m?.contenidos ?? []).filter((c) => !(c.minutos > 0));
+  const planificados = (m?.contenidos ?? []).filter((c) => !(c.minutos > 0) && !/^competici/i.test(c.nombre));
+
+  /*
+  | Cada consigna de la previa con la tarea que la entrena (23/10/2026,
+  | experto de fútbol): «Ganamos la segunda jugada → sin tarea esta semana».
+  | No es un dato que falte: es una decisión de planificación, y se dice.
+  */
+  const consignasEnLaSemana =
+    !esPost && inf.sintesis.consignaTareas.length && m?.tareas.length
+      ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Las consignas, en la semana</p>${lista(
+          inf.sintesis.consignaTareas.map((c) => `${c.consigna} → ${c.tareas.length ? c.tareas.join(" · ") : "sin tarea esta semana"}`),
+        )}`
+      : "";
 
   const semana = m
     ? `${tarjetas([
@@ -629,7 +642,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
         planificados.length
           ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">${trabajados.length ? "Lo que queda por trabajar" : "Lo planificado"}</p><p style="margin:0;font:400 13px/1.6 Arial,sans-serif;color:${NAVY}">${esc(planificados.map((c) => c.nombre).join(" · "))}</p>`
           : ""
-      }${ligero >= 1 ? enElPdf("La semana tarea a tarea") : `<p style="margin:14px 0 6px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Tarea a tarea</p>${tabla(
+      }${consignasEnLaSemana}${ligero >= 1 ? enElPdf("La semana tarea a tarea") : `<p style="margin:14px 0 6px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Tarea a tarea</p>${tabla(
         ["Día", "Tarea", "Fase", "Contenido", "Min.", "Nota"],
         m.tareas.map((t) => [
           `${esc(t.dia)} <span style="color:${SUAVE}">${esc(t.md)}</span>`,
@@ -771,7 +784,8 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
           : ""
       }<div style="height:10px"></div>${tabla(
         esPost ? ["Duelo", "Con balón", "Sin balón", "Lo previsto", "¿Se cumplió?"] : ["Duelo", "Con balón", "Sin balón", "Balance"],
-        dj.lista.map((x) => {
+        /* En la previa, sólo los duelos con jugadores de su once probable (23/10/2026): salía «Carvajal ante Ruiz y Carmona» con Ruiz fuera del once. */
+        dj.lista.filter((x) => esPost || dueloEnSuOnce(x, inf.once.jugadores)).map((x) => {
           /* La misma cifra que la diapositiva y la lista de arriba (22/10/2026): `ventajaVisible`. */
           const con = ventajaVisible(x, "con");
           const sin = ventajaVisible(x, "sin");

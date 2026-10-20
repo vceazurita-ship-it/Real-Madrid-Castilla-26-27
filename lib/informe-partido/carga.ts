@@ -35,6 +35,7 @@ import type { PartidoBeSoccer } from "@/lib/quiniela/besoccer";
 
 import {
   enFrases,
+  avisosDelPlan,
   sintetiza,
   type Colectivo,
   type ContextoRival,
@@ -837,6 +838,9 @@ export async function cargaInforme(entrada: {
   };
 
   if (momento === "post" && !partido?.jugado) avisos.push("El partido aún no tiene resultado: el post saldrá completo cuando se juegue.");
+
+  /* La coherencia del plan con los duelos y su once (23/10/2026): lo que no cuadra, al analista. */
+  avisos.push(...avisosDelPlan(sinSintesis));
 
   return { ...sinSintesis, sintesis: sintetiza(sinSintesis) };
 }

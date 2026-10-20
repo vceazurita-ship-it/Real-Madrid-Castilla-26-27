@@ -6,9 +6,12 @@
  * Lo que se lee en el móvil antes de entrar al vestuario: dos láminas de
  * 1920×1080, iguales en pantalla, en el correo y en el PDF.
  *
- *   PREVIA · 1 «El partido»: quién es, cómo llega, el duelo en datos y su once.
- *   PREVIA · 2 «El plan»: las claves, a quién vigilar, la semana y los tres
- *               momentos (con balón, sin balón, ABP).
+ *   PREVIA (23/10/2026, del rival a cómo lo ganamos, en una sola historia):
+ *     1 «El rival»: la pregunta del partido, cómo juegan, de un vistazo y su once.
+ *     2 «Dónde está el partido»: dónde nos separamos, el pronóstico (en
+ *        pequeño) y los duelos.
+ *     3 «Cómo lo ganamos»: la idea, el plan por fases con su tarea de la
+ *        semana, a vigilar, el balón parado y, al pie, la consigna.
  *   POST   · 1 «El resultado»: marcador y el partido en datos, nosotros y ellos.
  *   POST   · 2 «Lo que nos deja»: lo que se salió de lo habitual, el plan a
  *               revisión y la semana que lo preparó.
@@ -540,55 +543,6 @@ function BarraResultado({ p, alto = 64, resaltar }: { p: Probabilidades; alto?: 
   );
 }
 
-/** El pronóstico: qué partido es, en números. */
-function PanelPronostico({ inf }: { inf: InformePartido }) {
-  const pr = inf.pronostico;
-
-  /* Sin pronóstico, el panel no sale: el informe no nombra lo que no tiene (regla del usuario, 17/10/2026; aplicada a las láminas el 19/10/2026). */
-  if (!pr) return null;
-
-  return (
-    <Panel titulo="EL PRONÓSTICO">
-      {pr ? (
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 18 }}>
-          <div style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.05, color: C.crema }}>{pr.lectura.split(":")[0]}</div>
-          <BarraResultado p={pr} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Cifra rotulo="GOLES ESPERADOS" valor={`${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`} />
-            <Cifra rotulo="MARCADOR MÁS PROBABLE" valor={pr.marcador} />
-          </div>
-          {inf.sintesis.ventajas[0] || inf.sintesis.amenazas[0] ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {inf.sintesis.ventajas[0] ? (
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", color: C.bien }}>DONDE GANAMOS EL CRUCE</div>
-                  <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(inf.sintesis.ventajas[0], 110)}</div>
-                </div>
-              ) : null}
-              {inf.sintesis.amenazas[0] ? (
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", color: C.rival }}>DONDE NOS PUEDEN HACER DAÑO</div>
-                  <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15, color: C.crema }}>{recorta(inf.sintesis.amenazas[0], 110)}</div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          <div style={{ marginTop: "auto", padding: "14px 18px", borderRadius: 16, background: "rgba(200,169,107,0.12)", border: "2px solid rgba(200,169,107,0.4)" }}>
-            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.18em", color: C.oro }}>CON EL PLAN BIEN HECHO</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginTop: 4 }}>
-              <span style={{ fontSize: 26, fontWeight: 600, color: C.suave, textDecoration: "line-through" }}>{pct(pr.victoria)}</span>
-              <span style={{ fontSize: 26, color: C.oro }}>→</span>
-              <span style={{ fontSize: 54, fontWeight: 700, color: C.oro, lineHeight: 1 }}>{pct(pr.conPlan.victoria)}</span>
-              <span style={{ fontSize: 22, fontWeight: 600, color: C.suave }}>de victoria</span>
-            </div>
-          </div>
-          <div style={{ fontSize: 15, color: C.tenue }}>{pr.base}</div>
-        </div>
-      ) : null}
-    </Panel>
-  );
-}
-
 function Cifra({ rotulo, valor, pie, color = C.crema }: { rotulo: string; valor: string; pie?: string; color?: string }) {
   return (
     <div style={{ padding: "12px 16px", borderRadius: 14, background: "rgba(255,255,255,0.04)", border: `2px solid ${C.borde}` }}>
@@ -596,63 +550,6 @@ function Cifra({ rotulo, valor, pie, color = C.crema }: { rotulo: string; valor:
       <div style={{ fontSize: 40, fontWeight: 700, lineHeight: 1.05, color }}>{valor}</div>
       {pie ? <div style={{ fontSize: 15, color: C.tenue, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pie}</div> : null}
     </div>
-  );
-}
-
-function PreviaPartido({ inf }: { inf: InformePartido }) {
-  const ctx = inf.contexto;
-
-  const nosotros = "RM CASTILLA";
-  const ellos = inf.partido.rival.toUpperCase();
-
-  const [local, visitante] = inf.partido.lado === "fuera" ? [ellos, nosotros] : [nosotros, ellos];
-
-  const separan = metricasPorBloque(inf).flatMap((g) => g.metricas);
-
-  return (
-    <Marco pagina={1} total={3} etiqueta="EL PARTIDO" inf={inf}>
-      {/* El cartel */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 40 }}>
-        <Escudo src={inf.partido.lado === "fuera" ? ctx?.escudo ?? "" : ctx?.escudoNuestro ?? ""} size={84} />
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 68, fontWeight: 700, lineHeight: 0.95, letterSpacing: "0.01em" }}>
-            {local} <span style={{ color: C.oro }}>·</span> {visitante}
-          </div>
-          {/* La pregunta del partido y, debajo, el pronóstico en una línea (20/10/2026). */}
-          <div style={{ marginTop: 8, fontSize: 30, fontWeight: 700, lineHeight: 1.1, color: C.oroClaro }}>{inf.sintesis.titular}</div>
-          {inf.sintesis.subtitular ? <div style={{ marginTop: 4, fontSize: 21, fontWeight: 600, letterSpacing: "0.04em", color: C.suave }}>{inf.sintesis.subtitular}</div> : null}
-        </div>
-        <Escudo src={inf.partido.lado === "fuera" ? ctx?.escudoNuestro ?? "" : ctx?.escudo ?? ""} size={84} />
-      </div>
-
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.3fr 0.9fr 1fr", gap: 22, marginTop: 18 }}>
-        {separan.length ? (
-          <Panel titulo="DONDE MÁS NOS SEPARAMOS">
-            <DatosPorBloques inf={inf} />
-            {inf.duelo && (
-              <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>
-                {[selloDatos(inf), `media por partido y puesto entre ${inf.duelo.equipos}`, "barra = percentil (larga = mejor)", glosario([...separan.map((m) => m.nombre), ...inf.sintesis.ventajas.slice(0, 1), ...inf.sintesis.amenazas.slice(0, 1)])]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </div>
-            )}
-          </Panel>
-        ) : (
-          <div />
-        )}
-
-        <PanelPronostico inf={inf} />
-
-        <Panel titulo={inf.once.fuente === "marcado" ? "SU ONCE PROBABLE" : "SU ÚLTIMO ONCE"} acento={C.rival}>
-          {inf.once.jugadores.length ? <Campo once={inf.once.jugadores} /> : null}
-          <div style={{ marginTop: 8, fontSize: 18, color: C.tenue, textAlign: "center" }}>
-            {[inf.duelo?.esquema.rival && `Dibujo más usado: ${inf.duelo.esquema.rival}`, ctx?.entrenador && `Entrenador: ${ctx.entrenador}`].filter(Boolean).join(" · ")}
-          </div>
-        </Panel>
-      </div>
-
-      <Pie inf={inf} />
-    </Marco>
   );
 }
 
@@ -676,11 +573,13 @@ function VigilarFila({ j }: { j: JugadorRival }) {
   );
 }
 
-/** Cómo juega el rival: una línea por momento y dónde hacerles daño. */
-function PanelSuJuego({ inf }: { inf: InformePartido }) {
+/** Cómo juega el rival: una línea por momento y dónde hacerles daño (`sinVigilar`: «A vigilar» va en otra lámina). */
+function PanelSuJuego({ inf, sinVigilar = false }: { inf: InformePartido; sinVigilar?: boolean }) {
   const r = inf.colectivo?.resumen;
 
-  if (!r?.fases.length && !r?.dano.length && !inf.sintesis.vigilar.length) return null;
+  const vigilar = sinVigilar ? [] : inf.sintesis.vigilar;
+
+  if (!r?.fases.length && !r?.dano.length && !vigilar.length) return null;
 
   return (
     <Panel titulo="CÓMO JUEGAN" acento={C.rival}>
@@ -707,11 +606,11 @@ function PanelSuJuego({ inf }: { inf: InformePartido }) {
         </div>
       ) : null}
 
-      {inf.sintesis.vigilar.length ? (
+      {vigilar.length ? (
         <div style={{ marginTop: "auto", paddingTop: 14 }}>
           <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.18em", color: C.rival, marginBottom: 8 }}>A VIGILAR</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {inf.sintesis.vigilar.map((j) => (
+            {vigilar.map((j) => (
               <VigilarFila key={j.clave} j={j} />
             ))}
           </div>
@@ -823,37 +722,6 @@ function ComoLoGanamos({ inf }: { inf: InformePartido }) {
         </div>
       ))}
     </div>
-  );
-}
-
-function PreviaPlan({ inf }: { inf: InformePartido }) {
-  return (
-    <Marco pagina={2} total={3} etiqueta="EL PLAN" inf={inf}>
-      {inf.pronostico?.idea ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 22, padding: "14px 26px", marginBottom: 18, borderRadius: 18, background: "linear-gradient(90deg, rgba(200,169,107,0.22), rgba(200,169,107,0.04))", border: "2px solid rgba(200,169,107,0.45)" }}>
-          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.24em", color: C.oro, whiteSpace: "nowrap" }}>LA IDEA</span>
-          <span style={{ width: 2, alignSelf: "stretch", background: "rgba(200,169,107,0.5)" }} />
-          <span style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{inf.pronostico.idea}</span>
-        </div>
-      ) : null}
-      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.15fr 1fr 0.95fr", gap: 22 }}>
-        <Panel titulo="CÓMO LO GANAMOS">
-          <ComoLoGanamos inf={inf} />
-          {glosario(inf.sintesis.plan.map((l) => l.texto)) ? <div style={{ marginTop: "auto", paddingTop: 12, fontSize: 15, color: C.tenue }}>{glosario(inf.sintesis.plan.map((l) => l.texto))}</div> : null}
-        </Panel>
-
-        <PanelSuJuego inf={inf} />
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 22, minHeight: 0 }}>
-          <PanelAbp inf={inf} />
-          {haySemana(inf) ? (
-            <Panel titulo="LA SEMANA" style={{ flex: 1 }}>
-              <Semana inf={inf} />
-            </Panel>
-          ) : null}
-        </div>
-      </div>
-    </Marco>
   );
 }
 
@@ -1437,6 +1305,218 @@ function DuelosYRival({ inf }: { inf: InformePartido }) {
   );
 }
 
+/*
+| LA PREVIA, EN UNA SOLA HISTORIA (23/10/2026, guionista y experto de fútbol).
+| Antes: el pronóstico y una tabla abrían, el plan iba en la 2 y el rival de
+| un vistazo llegaba en la 3, después de «cómo lo ganamos». Ahora se lee como
+| se prepara un partido: quién es el rival → dónde está el partido → cómo lo
+| ganamos, y la última línea es la consigna que contesta a la pregunta del
+| titular. El pronóstico baja a una línea pequeña en la 2: es un supuesto,
+| no lo que se entrena.
+*/
+
+/** Al pie de cada lámina, lo que viene: la transición entre las tres. */
+function Siguiente({ texto }: { texto: string }) {
+  return <div style={{ marginTop: 14, fontSize: 18, fontWeight: 700, letterSpacing: "0.16em", color: C.tenue, textAlign: "right" }}>{texto.toUpperCase()} →</div>;
+}
+
+/** PREVIA · 1 «El rival»: la pregunta, cómo juegan, de un vistazo y su once. */
+function PreviaRival({ inf }: { inf: InformePartido }) {
+  const ctx = inf.contexto;
+
+  const nosotros = "RM CASTILLA";
+  const ellos = inf.partido.rival.toUpperCase();
+
+  const [local, visitante] = inf.partido.lado === "fuera" ? [ellos, nosotros] : [nosotros, ellos];
+
+  return (
+    <Marco pagina={1} total={3} etiqueta="EL RIVAL" inf={inf}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 40 }}>
+        <Escudo src={inf.partido.lado === "fuera" ? ctx?.escudo ?? "" : ctx?.escudoNuestro ?? ""} size={84} />
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 64, fontWeight: 700, lineHeight: 0.95, letterSpacing: "0.01em" }}>
+            {local} <span style={{ color: C.oro }}>·</span> {visitante}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 32, fontWeight: 700, lineHeight: 1.1, color: C.oroClaro }}>{inf.sintesis.titular}</div>
+        </div>
+        <Escudo src={inf.partido.lado === "fuera" ? ctx?.escudoNuestro ?? "" : ctx?.escudo ?? ""} size={84} />
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1fr 1.05fr 0.85fr", gap: 22, marginTop: 18 }}>
+        <PanelSuJuego inf={inf} sinVigilar />
+        <PanelVistazo inf={inf} />
+        <Panel titulo={inf.once.fuente === "marcado" ? "SU ONCE PROBABLE" : "SU ÚLTIMO ONCE"} acento={C.rival}>
+          {inf.once.jugadores.length ? <Campo once={inf.once.jugadores} /> : null}
+          <div style={{ marginTop: 8, fontSize: 18, color: C.tenue, textAlign: "center" }}>
+            {[inf.duelo?.esquema.rival && `Dibujo más usado: ${inf.duelo.esquema.rival}`, ctx?.entrenador && `Entrenador: ${ctx.entrenador}`].filter(Boolean).join(" · ")}
+          </div>
+        </Panel>
+      </div>
+
+      <Pie inf={inf} />
+      <Siguiente texto="2/3 · Dónde está el partido" />
+    </Marco>
+  );
+}
+
+/** El pronóstico en pequeño: una barra y una línea, sin el protagonismo de antes. */
+function PronosticoCorto({ inf }: { inf: InformePartido }) {
+  const pr = inf.pronostico;
+
+  if (!pr) return null;
+
+  return (
+    <Panel titulo="EL PRONÓSTICO">
+      <BarraResultado p={pr} alto={40} />
+      <div style={{ marginTop: 10, fontSize: 19, fontWeight: 600, lineHeight: 1.25, color: C.suave }}>
+        Marcador más probable <b style={{ color: C.crema }}>{pr.marcador}</b> · si se cumplen las metas del plan, <b style={{ color: C.oro }}>{pct(pr.conPlan.victoria)}</b> de victoria
+      </div>
+      <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>{pr.base}</div>
+    </Panel>
+  );
+}
+
+/** PREVIA · 2 «Dónde está el partido»: dónde nos separamos, el pronóstico en pequeño y los duelos. */
+function PreviaDondeEsta({ inf }: { inf: InformePartido }) {
+  const separan = metricasPorBloque(inf).flatMap((g) => g.metricas);
+
+  return (
+    <Marco pagina={2} total={3} etiqueta="DÓNDE ESTÁ EL PARTIDO" inf={inf}>
+      <TitularDiapo texto={inf.sintesis.titularDuelos} />
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1fr 1.15fr", gap: 22 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 22, minHeight: 0 }}>
+          {separan.length ? (
+            <Panel titulo="DONDE MÁS NOS SEPARAMOS" style={{ flex: 1 }}>
+              <DatosPorBloques inf={inf} />
+              {inf.duelo && (
+                <div style={{ marginTop: 6, fontSize: 15, color: C.tenue }}>
+                  {[selloDatos(inf), `media por partido y puesto entre ${inf.duelo.equipos}`, "barra = percentil (larga = mejor)", glosario(separan.map((m) => m.nombre))].filter(Boolean).join(" · ")}
+                </div>
+              )}
+            </Panel>
+          ) : null}
+          <PronosticoCorto inf={inf} />
+        </div>
+        <PanelDuelos inf={inf} post={false} />
+      </div>
+      <Siguiente texto="3/3 · Cómo lo ganamos" />
+    </Marco>
+  );
+}
+
+/*
+| Cada línea del plan por fases con la tarea de la semana que la entrena (o
+| «sin tarea esta semana»). Es la misma historia que LA IDEA y la consigna:
+| las claves escritas a mano en el plan (en infinitivo, de veinte palabras)
+| rompían el hilo; van debajo, en pequeño, como lo que pidió el cuerpo técnico.
+*/
+function PlanConTareas({ inf }: { inf: InformePartido }) {
+  const delPlan = inf.plan?.claves ?? [];
+
+  if (!inf.sintesis.plan.length) return <ComoLoGanamos inf={inf} />;
+
+  const tareas = (texto: string) => inf.sintesis.consignaTareas.find((c) => texto === c.consigna || texto.startsWith(`${c.consigna}:`) || texto.startsWith(`${c.consigna} `));
+
+  const conTareas = Boolean(inf.microciclo?.tareas.length);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
+      {inf.sintesis.plan.slice(0, 4).map((l) => {
+        const t = conTareas ? tareas(l.texto) : undefined;
+
+        return (
+          <div key={`${l.fase}${l.texto}`}>
+            <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: "0.2em", color: C.oro }}>{l.fase.toUpperCase()}</div>
+            <div style={{ fontSize: 27, fontWeight: 700, lineHeight: 1.12, color: C.crema, marginTop: 2 }}>{l.texto}</div>
+            {t ? (
+              <div style={{ fontSize: 17, fontWeight: 600, marginTop: 3, color: t.tareas.length ? C.suave : C.rival }}>
+                {t.tareas.length ? `→ ${t.tareas.slice(0, 2).join(" · ")}` : "→ sin tarea esta semana"}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+      {delPlan.length ? (
+        <div style={{ marginTop: "auto", paddingTop: 10, borderTop: `2px solid ${C.borde}` }}>
+          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", color: C.tenue }}>LO QUE PIDE EL PLAN DEL CUERPO TÉCNICO</div>
+          {delPlan.slice(0, 3).map((t, i) => (
+            <div key={t} style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.25, color: C.suave, marginTop: 3 }}>
+              {i + 1}. {cortaEnPausa(t, 90)}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** PREVIA · 3 «Cómo lo ganamos»: la idea, el plan por fases, a vigilar, el balón parado, la semana y la consigna. */
+function PreviaComoGanamos({ inf }: { inf: InformePartido }) {
+  const idea = inf.sintesis.ideaPrevia || inf.pronostico?.idea || "";
+
+  const [primera, ...resto] = inf.sintesis.consigna;
+
+  const vigilar = inf.sintesis.vigilar;
+
+  const semana = haySemana(inf);
+
+  const panelVigilar = vigilar.length ? (
+    <Panel titulo="A VIGILAR" acento={C.rival}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {vigilar.map((j) => (
+          <VigilarFila key={j.clave} j={j} />
+        ))}
+      </div>
+    </Panel>
+  ) : null;
+
+  return (
+    <Marco pagina={3} total={3} etiqueta="CÓMO LO GANAMOS" inf={inf}>
+      {idea ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 22, padding: "14px 26px", marginBottom: 18, borderRadius: 18, background: "linear-gradient(90deg, rgba(200,169,107,0.22), rgba(200,169,107,0.04))", border: "2px solid rgba(200,169,107,0.45)" }}>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.24em", color: C.oro, whiteSpace: "nowrap" }}>LA IDEA</span>
+          <span style={{ width: 2, alignSelf: "stretch", background: "rgba(200,169,107,0.5)" }} />
+          <span style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.1, color: C.crema }}>{idea}</span>
+        </div>
+      ) : null}
+      {/* Sin semana registrada, dos columnas a la derecha (a vigilar · balón parado) en vez de un hueco vacío. */}
+      <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "1.25fr 0.95fr 0.95fr", gap: 22 }}>
+        <Panel titulo="CÓMO LO GANAMOS">
+          <PlanConTareas inf={inf} />
+          {glosario(inf.sintesis.plan.map((l) => l.texto)) ? <div style={{ paddingTop: 12, fontSize: 15, color: C.tenue }}>{glosario(inf.sintesis.plan.map((l) => l.texto))}</div> : null}
+        </Panel>
+
+        {semana ? (
+          <>
+            <div style={{ display: "flex", flexDirection: "column", gap: 22, minHeight: 0 }}>
+              {panelVigilar}
+              <PanelAbp inf={inf} />
+            </div>
+            <Panel titulo="LA SEMANA">
+              <Semana inf={inf} />
+            </Panel>
+          </>
+        ) : (
+          <>
+            {panelVigilar ?? <div />}
+            <PanelAbp inf={inf} />
+          </>
+        )}
+      </div>
+      {primera ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 22, marginTop: 18, padding: "16px 26px", borderRadius: 18, background: "linear-gradient(90deg, rgba(200,169,107,0.24), rgba(200,169,107,0.05))", border: "2px solid rgba(200,169,107,0.5)" }}>
+          <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.22em", color: C.oro, whiteSpace: "nowrap" }}>NUESTRA CONSIGNA</span>
+          <span style={{ width: 2, alignSelf: "stretch", background: "rgba(200,169,107,0.5)" }} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 36, fontWeight: 700, lineHeight: 1.05, color: C.crema }}>{primera}.</div>
+            {resto.length ? <div style={{ marginTop: 4, fontSize: 22, fontWeight: 600, color: C.suave }}>Y además: {resto.map((t) => t.charAt(0).toLowerCase() + t.slice(1)).join(" · ")}.</div> : null}
+          </div>
+        </div>
+      ) : null}
+    </Marco>
+  );
+}
+
 export function Diapositivas({ inf }: { inf: InformePartido }) {
   return inf.momento === "post" ? (
     <>
@@ -1446,9 +1526,9 @@ export function Diapositivas({ inf }: { inf: InformePartido }) {
     </>
   ) : (
     <>
-      <PreviaPartido inf={inf} />
-      <PreviaPlan inf={inf} />
-      <DuelosYRival inf={inf} />
+      <PreviaRival inf={inf} />
+      <PreviaDondeEsta inf={inf} />
+      <PreviaComoGanamos inf={inf} />
     </>
   );
 }
@@ -1465,6 +1545,6 @@ export function Escalada({ ancho, children }: { ancho: number; children: ReactNo
 }
 
 export const DIAPOSITIVAS = {
-  previa: [PreviaPartido, PreviaPlan, DuelosYRival],
+  previa: [PreviaRival, PreviaDondeEsta, PreviaComoGanamos],
   post: [PostResultado, PostLecciones, DuelosYRival],
 } as const;

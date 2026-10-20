@@ -795,7 +795,7 @@ export function InformePartidoDialog({
   const indicesDiapos = TODAS_DIAPOS.filter(diapoMarcada);
 
   const rotuloDiapo = (i: number) =>
-    i === 0 ? (esPost ? "El resultado" : "El partido") : i === 1 ? (esPost ? "Lo que nos deja" : "El plan") : esPost ? "Los duelos" : "Duelos y rival";
+    i === 0 ? (esPost ? "El resultado" : "El rival") : i === 1 ? (esPost ? "Lo que nos deja" : "Dónde está el partido") : esPost ? "Los duelos" : "Cómo lo ganamos";
 
   const pdfDe = async (imagenes: string[]) =>
     (await pdfDeLienzos(imagenes, { ancho: DIAPO_W, alto: DIAPO_H, orientacion: "landscape", margen: 0 })).output("blob") as Blob;
@@ -1638,6 +1638,26 @@ export function InformePartidoDialog({
               telefonos={ajustes.telefonos ?? ""}
               onTelefonos={(telefonos) => setAjustes((a) => ({ ...a, telefonos }))}
             />
+            {/*
+              Lo que recibirá cada persona, antes de mandarlo (23/10/2026,
+              marketing): antes el diálogo explicaba el mecanismo en tres
+              líneas y no enseñaba el mensaje. Los enlaces se ponen al enviar.
+            */}
+            {canal === "whatsapp" && informeVisto && !mensajesWa.length ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">Así le llega a cada uno</span>
+                <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-[12px] leading-relaxed text-white/80">
+                  {mensajeWhatsapp({
+                    asunto: whatsappInforme(informeVisto).titular,
+                    lineas: whatsappInforme(informeVisto).lineas,
+                    mensaje: envio.resumen.mensaje,
+                    firma: (ajustes.firma ?? "").trim() || undefined,
+                    video: null,
+                    enlaces: [{ nombre: "Informe (PDF)", url: "enlace al enviar" }],
+                  })}
+                </pre>
+              </div>
+            ) : null}
             <PanelWhatsapp mensajes={mensajesWa} telefonos={telefonosWa.buenos} onCierra={() => setMensajesWa([])} />
           </div>
           <label>
