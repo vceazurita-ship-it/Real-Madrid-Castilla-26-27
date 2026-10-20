@@ -1912,7 +1912,12 @@ function clavesPrevia(
   const cruzadas = prioridades.filter((una) => una.sentidoRival && una.contraRival).slice(0, 2);
 
   /* Una decisión por frase (22/10/2026): «sube… porque…; baja… porque…» llevaba seis cifras de un tirón. */
-  if (rivalNombre) {
+  /* Las dos defensivas que bajan, en una sola idea (ronda 8, guion): es nuestro problema, no su arma. */
+  const dosQueBajan = cruzadas.length === 2 && cruzadas.every((una) => una.sentidoRival === "baja" && una.lado === "defensivo");
+
+  if (rivalNombre && dosQueBajan) {
+    claves.push(`${mayuscula(conArticulo(cruzadas[0].aspecto))} y ${conArticulo(cruzadas[1].aspecto)} en contra son nuestro problema, no su arma: ${cruzadas[0].contraRival}, y ${cruzadas[1].contraRival}.`);
+  } else if (rivalNombre) {
     cruzadas.forEach((una) =>
       claves.push(`${mayuscula(conArticulo(una.aspecto))} ${ladoConcordado(una.aspecto, una.lado)} pesa ${una.sentidoRival === "sube" ? "más" : "menos"} contra ellos: ${una.contraRival}.`),
     );
@@ -2762,7 +2767,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
     prioridades[i] = {
       ...una,
-      segundoPlano: `${mayuscula(conArticulo(una.aspecto))} ${ladoConcordado(una.aspecto, una.lado)} sigue vigilado: nos ha costado ${plural(una.goles, "gol", "goles")}${una.goles <= 2 ? " (base corta)" : ""}${ref}${rival}`,
+      segundoPlano: `${mayuscula(conArticulo(una.aspecto))} ${ladoConcordado(una.aspecto, una.lado)} sigue vigilado: nos ha costado ${plural(una.goles, "gol", "goles")}${una.goles <= 2 ? " (pocos casos: lo seguimos sin darlo por hecho)" : ""}${ref}${rival}`,
     };
   });
 
@@ -3261,7 +3266,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
             /* Sin señal clara no es una prioridad (26/10/2026, análisis): es lo que se mantiene. */
             rotulo: sinSenal ? "Lo que mantenemos" : "Prioridad nº 1",
             valor: primeraPrioridad.base,
-            pie: `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))}: acciones con peligro${primeraPrioridad.lado === "defensivo" ? " en contra" : ""}${golesConXg(primeraPrioridad)}${sinSenal ? " · base corta" : primeraPrioridad.tendencia ? " · aviso reciente" : ""}`,
+            pie: `${mayuscula(aspectoEnFrase(primeraPrioridad.aspecto, primeraPrioridad.lado))}: acciones con peligro${primeraPrioridad.lado === "defensivo" ? " en contra" : ""}${golesConXg(primeraPrioridad)}${sinSenal ? " · pocos casos: lo mantenemos sin darlo por hecho" : primeraPrioridad.tendencia ? " · aviso reciente" : ""}`,
           },
         ]
       : []),
@@ -4934,7 +4939,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
       sustoEnContra: susto
         ? sustoConMuestra(susto)
           ? { consigna: `Defendemos ${conArticulo(susto.aspecto)}`, dato: `${susto.peligros} de ${susto.acciones} con peligro en contra en el partido`, corta: false }
-          : { consigna: `Vigilamos ${conArticulo(susto.aspecto)} en contra`, dato: `${danoEnFrase(susto)}: base corta`, corta: true }
+          : { consigna: `Vigilamos ${conArticulo(susto.aspecto)} en contra`, dato: `${danoEnFrase(susto)}: pocos casos, lo vigilamos sin cambiar el plan`, corta: true }
         : null,
       /* Los goles esperados del partido a balón parado, para revisar la palanca del pronóstico (25/10/2026). */
       xgPartido: { favor: p.favor.xg, contra: p.contra.xg },
@@ -5058,12 +5063,17 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
         ? [
             conXg(primera),
             otraVigilada ? conXg(otraVigilada) : "",
-            /* El porqué de cada una, sin generalizar: una puede tener muestra y aun así no apretar. */
-            `Ninguna da una señal clara: ${[primera, otraVigilada]
-              .filter((una): una is LineaEquipo => Boolean(una))
-              .map((una) => `${aspectoCorto(una.aspecto)}, ${!una.tendencia && /^(por debajo|la mitad)/.test(una.referencia) && una.sentidoRival === "baja" ? `por debajo del resto y el rival ${/^la /.test(aspectoCorto(una.aspecto)) ? "la" : "lo"} hace bajar` : "base corta"}`)
-              .join("; ")}`,
-            primera.contraRival ? mayuscula(primera.contraRival) : "",
+            /*
+            | Una sola idea (ronda 8, guion): «ninguna da una señal clara» justo
+            | debajo de la prioridad se leía como una contradicción, y las dos
+            | «pesa menos» eran dos noticias. Lo que dicen juntas: es nuestro
+            | problema, no su arma.
+            */
+            otraVigilada?.contraRival && primera.contraRival && primera.sentidoRival === "baja" && otraVigilada.sentidoRival === "baja"
+              ? `Es nuestro problema, no su arma: ${primera.contraRival}, y ${otraVigilada.contraRival}`
+              : primera.contraRival
+                ? mayuscula(primera.contraRival)
+                : "",
             enElPlan,
           ]
         : null;
@@ -5112,7 +5122,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
       /* La nº 1 lista para la previa del partido (24/10/2026): la misma consigna y la misma frase, sin rehacerla allí. */
       prioridad: laPrioridad,
       cifras: [
-        ...(primera ? [{ rotulo: informe.sinSenal ? "Lo que mantenemos" : "Prioridad nº 1", valor: primera.base, pie: `${mayuscula(nombre(primera))}: con peligro${primera.lado === "defensivo" ? " en contra" : ""}${golesConXg(primera)}${informe.sinSenal ? " · base corta" : primera.tendencia ? " · aviso reciente" : ""}` }] : []),
+        ...(primera ? [{ rotulo: informe.sinSenal ? "Lo que mantenemos" : "Prioridad nº 1", valor: primera.base, pie: `${mayuscula(nombre(primera))}: con peligro${primera.lado === "defensivo" ? " en contra" : ""}${golesConXg(primera)}${informe.sinSenal ? " · pocos casos: lo mantenemos sin darlo por hecho" : primera.tendencia ? " · aviso reciente" : ""}` }] : []),
         ...(informe.trabajos.length ? [{ rotulo: "Planificado", valor: String(informe.trabajos.length), pie: informe.trabajos.length === 1 ? "tarea" : "tareas" }] : []),
       ],
       rival,
