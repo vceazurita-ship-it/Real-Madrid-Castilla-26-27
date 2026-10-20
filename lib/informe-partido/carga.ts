@@ -324,8 +324,24 @@ function cronicaDe(informe: InformeEquipo | null, partido: PartidoNuestro | null
     nuestro: !g.propio,
   }));
 
+  /* Un once que no se sostiene no da acierto (22/10/2026): dos porteros, o un
+     expulsado que no está ni en el once ni entre los que entraron, es un
+     cruce de dorsales o nombres en BeSoccer. Se avisa al analista y el
+     «acertamos 9 de 11» no se publica. */
+  const porteros = onceReal.filter((j) => /^(POR|PT|GK)\b|porter/i.test(j.posicion));
+  const entraron = (suOnce?.cambios ?? []).map((c) => c.entra);
+  const expulsadosFuera = (suOnce?.tarjetas ?? [])
+    .filter((t) => t.tipo === "roja")
+    .map((t) => t.jugador)
+    .filter((n) => n && !onceReal.some((r) => mismoJugador(n, r.nombre)) && !entraron.some((e) => mismoJugador(n, e)));
+  const dudas = [
+    porteros.length > 1 ? `tiene ${porteros.length} porteros (${porteros.map((j) => j.nombre).join(", ")})` : "",
+    expulsadosFuera.length ? `no sale ${expulsadosFuera.join(", ")}, que vio la roja` : "",
+  ].filter(Boolean);
+  const avisoOnce = dudas.length ? `Su once de BeSoccer ${dudas.join(" y ")}: revisa los dorsales. Mientras, el informe no dice cuántos acertamos.` : "";
+
   const acierto =
-    previsto.length && onceReal.length
+    previsto.length && onceReal.length && !avisoOnce
       ? {
           acertados: onceReal.filter((r) => previsto.some((p) => p.clave === r.clave || mismoJugador(p.nombre, r.nombre))).length,
           total: onceReal.length,
@@ -339,6 +355,7 @@ function cronicaDe(informe: InformeEquipo | null, partido: PartidoNuestro | null
     estructura: suOnce?.estructura ?? "",
     onceReal,
     acierto,
+    avisoOnce: avisoOnce || undefined,
     cambios: (suOnce?.cambios ?? []).map((c) => ({ minuto: c.minuto, sale: c.sale, entra: c.entra })),
     tarjetas: (suOnce?.tarjetas ?? []).map((t) => ({ minuto: t.minuto, jugador: t.jugador, tipo: t.tipo })),
   };
@@ -773,6 +790,8 @@ export async function cargaInforme(entrada: {
   const docsRival = Object.values(clipsDoc?.jornadas ?? {}).flatMap((j) => j.docs ?? []).map((d) => ({ nombre: d.nombre, url: d.url }));
 
   const cronica = momento === "post" ? cronicaDe(informeRival, partido, plantilla, once.fuente === "marcado" ? once.jugadores : []) : null;
+
+  if (cronica?.avisoOnce) avisos.push(cronica.avisoOnce);
 
   if (momento === "post" && partido?.jugado && !cronica) avisos.push("BeSoccer aún no tiene la ficha del partido (goles, su once): se baja cada noche.");
 

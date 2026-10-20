@@ -45,7 +45,7 @@ import { completoEnHojas, type HojasCompleto } from "@/lib/informe-partido/pdf-c
 import { informeUnicoPdf, paginaDeEnlaces, type EnlaceInforme } from "@/lib/informe-partido/pdf-unico";
 import { ROTULO_DOCUMENTO, type TipoDocumentoRival } from "@/lib/rivals/documentos";
 import { capitulosDe, informeHtml, informeTexto, resumenHtml, type Descarga, type ExtrasInforme } from "@/lib/informe-partido/html";
-import { asuntoInforme, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
+import { asuntoInforme, queTocaEnElMicro, titularDelPlan, whatsappInforme, type InformePartido, type Momento, type PinceladaAbp } from "@/lib/informe-partido/modelo";
 import { capturaLienzos, descarga, pintado, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
@@ -333,11 +333,18 @@ export function InformePartidoDialog({
 
     if (!abpActual?.ok) return informe;
 
-    return {
+    const conAbp = {
       ...informe,
       abp: { ...(informe.abp ?? { minutosSemana: 0, laminasRival: 0, documentosRival: [] }), pincelada: abpActual.pincelada },
       avisos: [...informe.avisos, ...abpActual.avisos.map((a) => `ABP: ${a}`)],
     };
+
+    /* «Qué toca» se rehace con el balón parado que nos dio peligro (22/10/2026): llega con la pincelada. */
+    if (informe.momento !== "post") return conAbp;
+
+    const microciclo = queTocaEnElMicro(conAbp, informe.sintesis.cumplimiento);
+
+    return { ...conAbp, sintesis: { ...informe.sintesis, microciclo, titularPlan: titularDelPlan(informe.sintesis.cumplimiento, microciclo) } };
   }, [informe, abpActual]);
 
   /* ---------------- el PDF y el PPT del rival, de su pantalla ---------------- */

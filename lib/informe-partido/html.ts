@@ -600,18 +600,34 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
 
   const m = inf.microciclo;
 
+  /* Antes de entrenar no hay minutos ni carga: «0′» y «carga 0» no se escriben,
+     sale sólo lo planificado (22/10/2026, regla del usuario). */
+  const conMinutos = (m?.dias ?? []).some((d) => d.md !== "MD" && d.minutos > 0);
+
+  const trabajados = (m?.contenidos ?? []).filter((c) => c.minutos > 0);
+
+  const planificados = (m?.contenidos ?? []).filter((c) => !(c.minutos > 0));
+
   const semana = m
     ? `${tarjetas([
         { rotulo: "Tareas", valor: String(m.totales.tareas) },
-        { rotulo: "Minutos de trabajo", valor: `${m.totales.minutos}′` },
+        { rotulo: "Minutos de trabajo", valor: conMinutos ? `${m.totales.minutos}′` : "" },
         { rotulo: "Balón parado", valor: abpMin.minutos ? minutosLegibles(abpMin.minutos) : "", pie: abpMin.texto || undefined },
         { rotulo: "Valoración media", valor: m.totales.valoracionMedia !== null ? m.totales.valoracionMedia.toLocaleString("es-ES") : "", pie: `${m.totales.valoradas} de ${m.totales.tareas} valoradas` },
       ])}<div style="height:12px"></div>${tabla(
-        ["Día", "Respecto al partido", "Tareas", "Minutos", "Carga", "Contenidos"],
-        m.dias.map((d) => [`<b>${esc(d.etiqueta)}</b>`, esc(d.md), String(d.tareas), `${d.minutos}′`, String(d.carga), esc(d.contenidos.join(" · "))]),
+        conMinutos ? ["Día", "Respecto al partido", "Tareas", "Minutos", "Carga", "Contenidos"] : ["Día", "Respecto al partido", "Tareas", "Contenidos"],
+        m.dias.map((d) =>
+          conMinutos
+            ? [`<b>${esc(d.etiqueta)}</b>`, esc(d.md), String(d.tareas), d.minutos > 0 ? `${d.minutos}′` : "", d.carga > 0 ? String(d.carga) : "", esc(d.contenidos.join(" · "))]
+            : [`<b>${esc(d.etiqueta)}</b>`, esc(d.md), String(d.tareas), esc(d.contenidos.join(" · "))],
+        ),
       )}${
-        m.contenidos.length
-          ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Qué se ha trabajado</p>${lista(m.contenidos.map((c) => `${c.nombre}: ${c.minutos}′`))}`
+        trabajados.length
+          ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Qué se ha trabajado</p>${lista(trabajados.map((c) => `${c.nombre}: ${c.minutos}′`))}`
+          : ""
+      }${
+        planificados.length
+          ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">${trabajados.length ? "Lo que queda por trabajar" : "Lo planificado"}</p><p style="margin:0;font:400 13px/1.6 Arial,sans-serif;color:${NAVY}">${esc(planificados.map((c) => c.nombre).join(" · "))}</p>`
           : ""
       }${ligero >= 1 ? enElPdf("La semana tarea a tarea") : `<p style="margin:14px 0 6px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Tarea a tarea</p>${tabla(
         ["Día", "Tarea", "Fase", "Contenido", "Min.", "Nota"],
@@ -687,7 +703,11 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
     pr ? { rotulo: esPost ? "Victoria que daba el pronóstico" : "Victoria según el pronóstico", valor: pct(pr.victoria), pie: esPost ? undefined : `${pct(pr.conPlan.victoria)} con el plan` } : null,
     pr ? { rotulo: "Goles esperados", valor: `${cifra(pr.esperados.nosotros, "decimal")} – ${cifra(pr.esperados.rival, "decimal")}`, pie: `más probable ${pr.marcador}` } : null,
     ctx?.nuestroPuesto && ctx.puesto ? { rotulo: "Clasificación", valor: `${ordinal(ctx.nuestroPuesto)} · ${ordinal(ctx.puesto)}`, pie: `${ctx.nuestrosPuntos} y ${ctx.puntos} pts` } : null,
-    inf.microciclo ? { rotulo: "La semana", valor: `${inf.microciclo.totales.minutos}′`, pie: `${inf.microciclo.totales.tareas} tareas${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de ABP` : ""}` } : null,
+    inf.microciclo
+      ? conMinutos
+        ? { rotulo: "La semana", valor: `${inf.microciclo.totales.minutos}′`, pie: `${inf.microciclo.totales.tareas} tareas${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de ABP` : ""}` }
+        : { rotulo: "La semana", valor: `${inf.microciclo.totales.tareas} tareas`, pie: "planificadas" }
+      : null,
   ]).filter((x): x is { rotulo: string; valor: string; pie?: string } => Boolean(x));
 
   const cabecera = `<tr><td style="padding:30px 32px 26px;background:${NAVY}">
@@ -743,24 +763,27 @@ ${pr ? barraPronostico(pr, esPost ? "LO QUE DABA EL PRONÓSTICO" : "EL PRONÓSTI
           : "Cada duelo enfrenta lo que hace <b>con balón</b> el que ataca con lo que hace <b>sin balón</b> el que defiende (regate contra entrada, desmarque contra anticipación, pase que rompe líneas contra corte…), en los dos sentidos. Cada jugador va en percentil contra los de su puesto en la categoría."
       }</p>${
         atacarD.length
-          ? `${etiqueta(esPost ? "Dónde esperábamos hacerles daño · con balón" : "Dónde les hacemos daño · con balón", VERDE)}${lista(atacarD.slice(0, 4).map((x) => `${fraseDuelo(x, "con")} (${signo(ventajaVisible(x, "con", 1))})`))}`
+          ? `${etiqueta(esPost ? "Dónde esperábamos hacerles daño · con balón" : "Dónde les hacemos daño · con balón", VERDE)}${lista(atacarD.slice(0, 4).map((x) => `<b>${signo(ventajaVisible(x, "con"))}</b> · ${fraseDuelo(x, "con")}`))}`
           : ""
       }${
         vigilarD.length
-          ? `${etiqueta(esPost ? "Dónde nos podían hacer daño · sin balón" : "Dónde nos pueden hacer daño · sin balón", ROJO)}${lista(vigilarD.slice(0, 4).map((x) => `${fraseDuelo(x, "sin")} (${signo(ventajaVisible(x, "sin", 1))})`))}`
+          ? `${etiqueta(esPost ? "Dónde nos podían hacer daño · sin balón" : "Dónde nos pueden hacer daño · sin balón", ROJO)}${lista(vigilarD.slice(0, 4).map((x) => `<b>${signo(ventajaVisible(x, "sin"))}</b> · ${fraseDuelo(x, "sin")}`))}`
           : ""
       }<div style="height:10px"></div>${tabla(
         esPost ? ["Duelo", "Con balón", "Sin balón", "Lo previsto", "¿Se cumplió?"] : ["Duelo", "Con balón", "Sin balón", "Balance"],
         dj.lista.map((x) => {
+          /* La misma cifra que la diapositiva y la lista de arriba (22/10/2026): `ventajaVisible`. */
+          const con = ventajaVisible(x, "con");
+          const sin = ventajaVisible(x, "sin");
           const fila = [
             `<b>${esc(x.nuestros.map(apellido).join(" y ") || "")}</b> <span style="color:${SUAVE}">ante</span> <b>${esc(x.suyos.map(apellido).join(" y ") || "")}</b><br><span style="color:${SUAVE};font-size:11px">${esc(LUGAR_DUELO[x.clave] ?? x.titulo)}</span>`,
-            `<b style="color:${(x.conBalon ?? 0) >= 10 ? VERDE : (x.conBalon ?? 0) <= -10 ? ROJO : NAVY}">${signo(x.conBalon)}</b>`,
-            `<b style="color:${(x.sinBalon ?? 0) >= 10 ? VERDE : (x.sinBalon ?? 0) <= -10 ? ROJO : NAVY}">${signo(x.sinBalon)}</b>`,
-            `<b style="color:${colorVeredicto(x.veredicto)}">${rotuloVeredicto(x.veredicto)} ${signo(x.balance)}</b>`,
+            `<b style="color:${(con ?? 0) >= 10 ? VERDE : (con ?? 0) <= -10 ? ROJO : NAVY}">${signo(con)}</b>`,
+            `<b style="color:${(sin ?? 0) >= 10 ? VERDE : (sin ?? 0) <= -10 ? ROJO : NAVY}">${signo(sin)}</b>`,
+            `<b style="color:${colorVeredicto(x.veredicto)}">${rotuloVeredicto(x.veredicto)}</b>`,
           ];
           return esPost ? [...fila, `<div style="min-width:110px;height:30px;border:1px dashed #D6D0C2;border-radius:6px"></div>`] : fila;
         }),
-      )}<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">Con balón: + = les sacamos ventaja cuando la tenemos nosotros. Sin balón: − = nos la sacan cuando la tienen ellos. Su once: ${esc(dj.fuenteSuya.toLowerCase())}.</p>`
+      )}<p style="margin:8px 0 0;font:400 12px/1.5 Arial,sans-serif;color:${SUAVE}">La cifra de cada duelo es la misma en todo el informe: la diferencia media, sobre 100, de los dos cruces que más pesan (los que se nombran arriba). Con balón: + = les sacamos ventaja cuando la tenemos nosotros. Sin balón: − = nos la sacan cuando la tienen ellos. Su once: ${esc(dj.fuenteSuya.toLowerCase())}.</p>`
     : "";
 
   /* ---------------- el rival de un vistazo (06/10/2026) ---------------- */
@@ -1017,7 +1040,7 @@ export function informeTexto(inf: InformePartido) {
   if (atacarTxt.length) l.push("", inf.momento === "post" ? "DÓNDE ESPERÁBAMOS HACERLES DAÑO" : "DÓNDE LES HACEMOS DAÑO (CON BALÓN)", ...atacarTxt.map((x) => `- ${fraseDuelo(x, "con")}`));
   if (vigilarTxt.length) l.push("", inf.momento === "post" ? "DÓNDE NOS PODÍAN HACER DAÑO" : "DÓNDE NOS PUEDEN HACER DAÑO (SIN BALÓN)", ...vigilarTxt.map((x) => `- ${fraseDuelo(x, "sin")}`));
   if (inf.vistazo?.frases.length) l.push("", `${(p.rival || "EL RIVAL").toUpperCase()} DE UN VISTAZO`, ...inf.vistazo.frases.map((v) => `- ${v}`));
-  if (inf.microciclo) l.push("", `LA SEMANA: ${inf.microciclo.totales.tareas} tareas · ${inf.microciclo.totales.minutos}′${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de ABP` : ""}`);
+  if (inf.microciclo) l.push("", `LA SEMANA: ${inf.microciclo.totales.tareas} tareas${inf.microciclo.dias.some((d) => d.md !== "MD" && d.minutos > 0) ? ` · ${inf.microciclo.totales.minutos}′` : ""}${abpMin.minutos ? ` · ${minutosLegibles(abpMin.minutos)} de ABP` : ""}`);
 
   return l.join("\n");
 }
