@@ -23,7 +23,23 @@
 |      aplicación —«Advanced Search»— y bajan por lotes de equipos porque
 |      Wyscout corta cada exportación en 500 filas, a `Player Stats N.xlsx`.
 |
-| Se puede pedir sólo uno: `--sin-jugadores` o `--solo-jugadores`.
+| Se puede pedir sólo uno: `--sin-jugadores` (o `--solo-equipos`) o
+| `--solo-jugadores`.
+|
+| OTRAS LIGAS (20/10/2026, laboratorio de ABP)
+|
+| Por defecto baja lo de siempre —Primera RFEF, Group 2, a `public/data/wys`—.
+| Con argumentos, cualquier liga que se pueda pulsar igual:
+|
+|     --pais=Inglaterra --competicion="Premier League" --solo-equipos
+|        --carpeta=public/data/wys-ligas/premier-league
+|     --grupo="Group 1" --solo-equipos
+|        --carpeta=public/data/wys-ligas/primera-rfef-g1
+|
+| `--pais` y `--competicion` se escriben como salen en la lista de Wyscout
+| (la cuenta está en castellano). Si se da `--competicion` sin `--grupo`, no
+| se busca grupo. `--carpeta` es relativa a la raíz del proyecto. Lo que baja
+| a otra carpeta NO lo lee DATA: lo compacta `scripts/abp-ligas.cjs`.
 |
 | CÓMO ENTRA EN WYSCOUT, QUE ES LA PARTE DELICADA
 |
@@ -80,7 +96,10 @@ import { esperaTurno } from "./chrome-turno.mjs";
 
 const RAIZ = path.resolve(import.meta.dirname, "..");
 
-const DESTINO = path.join(RAIZ, "public", "data", "wys");
+/* `--carpeta=` lleva otra liga a su sitio (20/10/2026): DATA sólo lee `wys`. */
+const DESTINO = argumento("carpeta")
+  ? path.resolve(RAIZ, argumento("carpeta"))
+  : path.join(RAIZ, "public", "data", "wys");
 
 /** Donde van el registro de cada pasada y el testigo de la sesión. */
 const CACHE = path.join(RAIZ, ".cache", "wyscout");
@@ -101,19 +120,25 @@ const CHROME = [
 const PUERTO = 9333;
 
 /* El camino hasta el grupo, tal y como se pulsa a mano. */
-const PAIS = "España";
-const COMPETICION = "Primera Division RFEF";
-const GRUPO = argumento("grupo") ?? "Group 2";
+/* Por defecto, la nuestra; con argumentos, otra liga (20/10/2026). Una
+   competición pedida sin grupo no busca grupo: la Premier no tiene. */
+const PAIS = argumento("pais") ?? "España";
+const COMPETICION = argumento("competicion") ?? "Primera Division RFEF";
+const GRUPO = argumento("grupo") ?? (argumento("competicion") ? null : "Group 2");
 
 const espera = (ms) => new Promise((listo) => setTimeout(listo, ms));
 
 function argumento(nombre) {
-  return (
-    process.argv.find((a) => a.startsWith(`--${nombre}=`))?.split("=")[1] ?? null
-  );
+  /* Todo lo que va tras el primer «=», sin comillas (cmd las deja a veces). */
+  const crudo = process.argv.find((a) => a.startsWith(`--${nombre}=`));
+
+  return crudo ? crudo.slice(nombre.length + 3).replace(/^"|"$/g, "") || null : null;
 }
 
-const bandera = (nombre) => process.argv.includes(`--${nombre}`);
+/* `--solo-equipos` es otro nombre de `--sin-jugadores`. */
+const bandera = (nombre) =>
+  process.argv.includes(`--${nombre}`) ||
+  (nombre === "sin-jugadores" && process.argv.includes("--solo-equipos"));
 
 /* ------------------------------------------------------------------ */
 /*  CHROME                                                             */
@@ -859,12 +884,12 @@ async function vaAlGrupoUnaVez(nav) {
     throw new Error(`No se abre ${PAIS} o no aparece ${COMPETICION}.`);
   }
 
-  if (!(await nav.clicHasta(COMPETICION, "EQUIPOS|" + GRUPO))) {
+  if (!(await nav.clicHasta(COMPETICION, GRUPO ? "EQUIPOS|" + GRUPO : "EQUIPOS"))) {
     throw new Error(`No se abre ${COMPETICION}.`);
   }
 
   /* El grupo sólo aparece en las competiciones que lo tienen. */
-  if (await nav.esperaA(GRUPO, 8)) {
+  if (GRUPO && (await nav.esperaA(GRUPO, 8))) {
     await nav.clic(GRUPO, { luego: 2500 });
   }
 
@@ -2462,7 +2487,7 @@ async function principal() {
   console.log("\n  RMCF · informes de Wyscout de toda la liga\n");
   console.log(`  perfil   ${PERFIL}`);
   console.log(`  destino  ${DESTINO}`);
-  console.log(`  grupo    ${GRUPO}\n`);
+  console.log(`  liga     ${PAIS} · ${COMPETICION}${GRUPO ? ` · ${GRUPO}` : ""}\n`);
 
   fs.mkdirSync(DESTINO, { recursive: true });
 
@@ -2595,7 +2620,7 @@ async function principal() {
         ? [...new Set(deLaCarpeta)].sort()
         : await vaAlGrupo(nav);
 
-    console.log(`  ${equipos.length} equipos en ${GRUPO}:`);
+    console.log(`  ${equipos.length} equipos en ${GRUPO ?? COMPETICION}:`);
     console.log(`  ${equipos.join(" · ")}\n`);
 
     /*
@@ -2762,7 +2787,7 @@ async function principal() {
     if (!bandera("solo-jugadores")) {
       const bien = resultados.filter((r) => r.estado === "ok").length;
 
-      console.log(`\n  ${bien} de ${lista.length} bajados a public/data/wys\n`);
+      console.log(`\n  ${bien} de ${lista.length} bajados a ${path.relative(RAIZ, DESTINO).split(path.sep).join("/")}\n`);
 
       /* El consejo del diseño sólo cuando no es un cuelgue: el 05/10 a las
          6:07 culpaba a Wyscout de una pestaña colgada. */
