@@ -156,6 +156,8 @@ export async function duelosYVistazo(entrada: {
   }
 
   /* ---------------- el rival de un vistazo ---------------- */
+  /* Los minutos mínimos para «los que más rinden», en la frase y en la lista (26/10/2026). */
+  const MINIMO_FIGURAS = 450;
   /*
   | «Destaca / Sufre» sin artefactos (23/10/2026, experto de análisis): un
   | «Entradas logradas 100 % (1.º)» o «Tarjetas rojas 0 (1.º)» es muestra
@@ -206,7 +208,7 @@ export async function duelosYVistazo(entrada: {
         puesto: x.puestoDeMas,
         de: x.de,
       })),
-      frases: sintesisDe(equipo, resumen, perfil, plantilla),
+      frases: sintesisDe(equipo, resumen, perfil, plantilla, MINIMO_FIGURAS),
       /*
       | Con 450′ como mínimo (25/10/2026, experto de análisis: «duelos aéreos P100»
       | sobre 369′ era muestra de cuatro partidos) y en palabras de caseta: el
@@ -214,7 +216,7 @@ export async function duelosYVistazo(entrada: {
       | dicho («mejor que 99 de cada 100 de su puesto»), no una «P» suelta.
       */
       figuras: plantilla
-        .filter((j) => j.indice !== null && j.fila.minutos >= 450)
+        .filter((j) => j.indice !== null && j.fila.minutos >= MINIMO_FIGURAS)
         .sort((a, b) => (b.indice ?? 0) - (a.indice ?? 0))
         .slice(0, 4)
         .map((j) => ({
@@ -224,6 +226,11 @@ export async function duelosYVistazo(entrada: {
           minutos: j.fila.minutos,
           destaca: j.destaca.slice(0, 2).map((p) => `${p.metrica.nombre}: ${p.percentil >= 100 ? "el mejor de su puesto" : `mejor que ${p.percentil} de cada 100 de su puesto`}`),
         })),
+      /* Con 270′ o más: el lado de Wyscout manda sobre el de la ficha (26/10/2026). */
+      puestos: plantilla
+        .filter((j) => j.fila.minutos >= 270)
+        .map((j) => ({ nombre: j.fila.jugador, posicion: puestoEnPalabras(j.fila.posicion.split(",")[0] ?? ""), minutos: j.fila.minutos }))
+        .filter((p) => p.posicion),
     };
     if (alcance.estado === "incompleta") avisos.push(`Wyscout: ${alcance.detalle}`);
   } else {

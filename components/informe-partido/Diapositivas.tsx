@@ -1139,6 +1139,23 @@ function FilaDueloJugadores({ x, lado }: { x: DueloJugadores; lado: "con" | "sin
   );
 }
 
+/*
+| El pie cuadra con las filas que se ven (26/10/2026, análisis: «9 de 9
+| duelos medidos» bajo seis filas). Un duelo puede salir con balón y sin él:
+| se cuentan los distintos y se dice.
+*/
+function cuentaDuelos(atacar: DueloJugadores[], vigilar: DueloJugadores[], medidos: number) {
+  const filas = atacar.length + vigilar.length;
+
+  const distintos = new Set([...atacar, ...vigilar].map((x) => x.clave)).size;
+
+  const repetidos = filas - distintos;
+
+  const dobles = repetidos ? ` (${repetidos === 1 ? "uno sale" : `${repetidos} salen`} con balón y sin él)` : "";
+
+  return distintos >= medidos ? `Los ${medidos} duelos medidos${dobles}` : `Los ${distintos} duelos más claros de los ${medidos} medidos${dobles}`;
+}
+
 function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
   const d = inf.duelosJugadores;
 
@@ -1177,7 +1194,7 @@ function PanelDuelos({ inf, post }: { inf: InformePartido; post: boolean }) {
         </>
       ) : null}
       <div style={{ marginTop: "auto", paddingTop: 12, fontSize: 15, color: C.tenue }}>
-        {medidos} de {d.lista.length} duelos medidos · con balón de uno contra sin balón del otro · cada cifra pequeña es su percentil contra los de su puesto en la categoría (97 = mejor que 97 de cada 100); la grande, la diferencia media de los cruces de su fila · {recorta(d.fuenteSuya, 70)}
+        {cuentaDuelos(atacar, vigilar, medidos)} · con balón de uno contra sin balón del otro · cada cifra pequeña es su percentil contra los de su puesto en la categoría (97 = mejor que 97 de cada 100); la grande, la diferencia media de los cruces de su fila · {recorta(d.fuenteSuya, 70)}
       </div>
     </Panel>
   );
@@ -1536,7 +1553,7 @@ function ClavesConTareas({ inf }: { inf: InformePartido }) {
             ) : dato ? (
               <div style={{ fontSize: 23, fontWeight: 600, lineHeight: 1.2, marginTop: 5, color: C.suave }}>{dato}</div>
             ) : null}
-            {metaDeClave(inf, clave) ? <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.2, marginTop: 4, color: C.suave }}>{metaDeClave(inf, clave)}</div> : null}
+            {metaDeClave(inf, clave, { corta: true }) ? <div style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.2, marginTop: 4, color: C.suave }}>{metaDeClave(inf, clave, { corta: true })}</div> : null}
             {tareas.length ? <div style={{ fontSize: 19, fontWeight: 600, marginTop: 4, color: C.tenue }}>→ {tareas.join(" · ")}</div> : null}
           </div>
         );
@@ -1563,11 +1580,24 @@ function cierrePrevia(inf: InformePartido) {
 
   const minus = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 
-  const primera = idea || abp;
+  /*
+  | Tres piezas, siempre las mismas, en presente y sin cifras (26/10/2026,
+  | guion): LA IDEA con balón, la respuesta al titular de la 1/3 («ganamos la
+  | segunda jugada de su balón largo») y el balón parado. Sin repetir.
+  */
+  const sinPorque = (t: string) => t.split(/:\s/)[0].replace(/[.]$/, "").trim();
 
-  const segunda = idea && abp && !idea.toLowerCase().includes(abp.toLowerCase()) ? ` Y ${minus(abp)}.` : "";
+  const piezas: string[] = [];
 
-  return `${dia ? `El ${dia}: ${minus(primera)}` : primera}.${segunda}`;
+  for (const t of [idea, inf.sintesis.gancho ?? "", abp].map(sinPorque).filter(Boolean)) {
+    if (!piezas.some((p) => p.toLowerCase().includes(t.toLowerCase()) || t.toLowerCase().includes(p.toLowerCase()))) piezas.push(t);
+  }
+
+  if (!piezas.length) return "";
+
+  const frase = piezas.length === 1 ? piezas[0] : `${piezas.slice(0, -1).map(minus).join(", ")} y ${minus(piezas[piezas.length - 1])}`;
+
+  return `${dia ? `El ${dia}: ${minus(frase)}` : frase.charAt(0).toUpperCase() + frase.slice(1)}.`;
 }
 
 function PlanConTareas({ inf }: { inf: InformePartido }) {

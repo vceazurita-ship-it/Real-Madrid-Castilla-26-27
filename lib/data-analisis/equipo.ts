@@ -276,7 +276,7 @@ const ordinal = (n: number) => `${n}º`;
 /** «Toques por entrada» → «toques por entrada», pero «PPDA» se queda como está. */
 const enFrase = (t: string) => (/^\p{Lu}\p{Ll}/u.test(t) ? t[0].toLowerCase() + t.slice(1) : t);
 
-export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: PerfilColectivo | null, plantilla: JugadorEquipo[]): string[] {
+export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: PerfilColectivo | null, plantilla: JugadorEquipo[], minimoMinutos = 270): string[] {
   const frases: string[] = [];
   if (resumen.partidos) {
     const ppp = (resumen.puntos / resumen.partidos).toFixed(2).replace(".", ",");
@@ -315,7 +315,8 @@ export function sintesisDe(equipo: string, resumen: ResumenEquipo, perfil: Perfi
       frases.push(`Sufre en ${perfil.flojos.slice(0, 3).map((x) => `${enFrase(x.metrica.nombre)} (${ordinal(x.puesto)} de ${x.de})`).join(", ")}.`);
   }
   const goleador = [...plantilla].sort((a, b) => b.goles - a.goles)[0];
-  const mejor = [...plantilla].filter((j) => j.indice !== null && j.fila.minutos >= 270).sort((a, b) => (b.indice ?? 0) - (a.indice ?? 0))[0];
+  /* El mismo mínimo que la lista que va al lado (26/10/2026): el informe del partido pide 450′. */
+  const mejor = [...plantilla].filter((j) => j.indice !== null && j.fila.minutos >= minimoMinutos).sort((a, b) => (b.indice ?? 0) - (a.indice ?? 0))[0];
   if (goleador && goleador.goles > 0)
     frases.push(`Su goleador, ${goleador.fila.jugador} (${goleador.goles} ${goleador.goles === 1 ? "gol" : "goles"}).${
       mejor && mejor !== goleador ? ` El que más rinde para su puesto: ${mejor.fila.jugador} (índice ${mejor.indice}).` : ""

@@ -415,6 +415,8 @@ export type VistazoRival = {
   frases: string[];
   /** Los que más rinden para su puesto, con lo que destacan. */
   figuras: { nombre: string; posicion: string; indice: number; minutos: number; destaca: string[] }[];
+  /** El puesto principal de Wyscout de cada uno, en palabras: el lado manda sobre la ficha (26/10/2026). */
+  puestos?: { nombre: string; posicion: string; minutos: number }[];
 };
 
 const apellidos = (lista: string[]) => lista.map((n) => apellido(n)).join(" y ");
@@ -573,6 +575,8 @@ export type Sintesis = {
   ideaSinTarea: string;
   /** Previa: la línea del plan que nombra a un defensor suyo sin duelo medido a la vista (va al aviso, no es LA IDEA). */
   ideaSinDuelo: string;
+  /** Previa: la respuesta al titular de la 1/3, en presente («Ganamos la segunda jugada de su balón largo»), para el cierre de la 3/3 (26/10/2026, guion). */
+  gancho?: string;
   /** Previa: la meta de cada clave del plan (`metaDePalanca`), la misma con la que el post la juzga (25/10/2026). */
   metas: (MetaDeClave & { clave: string })[];
   /**
@@ -1940,6 +1944,41 @@ export function vistazoCoherente(v: VistazoRival | null, plantilla: JugadorRival
   return { vistazo: { ...v, figuras }, avisos };
 }
 
+const ladoDe = (puesto: string) => (/\bizq|\bizd|\bizdo\b|\biz\b/i.test(puesto) ? "izquierdo" : /\bder|\bdch|\bdcho\b/i.test(puesto) ? "derecho" : "");
+
+/**
+ * El lado lo manda Wyscout (26/10/2026, fútbol y análisis): la ficha ponía a
+ * José Carlos «LATERAL IZDO» y Wyscout, de lateral derecho; el once probable
+ * salía con dos laterales izquierdos. Si la ficha dice el lado contrario,
+ * sale el puesto de Wyscout y se avisa al analista. Sólo con un único
+ * jugador de Wyscout que case con la ficha.
+ */
+export function puestosCoherentes(v: VistazoRival | null, jugadores: JugadorRival[], avisos?: string[]): JugadorRival[] {
+  const puestos = v?.puestos ?? [];
+
+  if (!puestos.length) return jugadores;
+
+  return jugadores.map((j) => {
+    const lado = ladoDe(j.posicion);
+
+    if (!lado) return j;
+
+    const casan = puestos.filter((p) => mismoJugador(j.nombre, p.nombre));
+
+    if (casan.length !== 1) return j;
+
+    const wy = casan[0];
+
+    const suyo = ladoDe(wy.posicion);
+
+    if (!suyo || suyo === lado) return j;
+
+    avisos?.push(`La ficha de ${j.nombre} dice «${j.posicion}» y Wyscout lo pone de ${wy.posicion} (${wy.minutos}′): sale el de Wyscout; revisa la ficha.`);
+
+    return { ...j, posicion: wy.posicion.toUpperCase() };
+  });
+}
+
 /** Los rasgos de la ficha que son un punto débil de un defensor, en palabras de caseta. */
 const RASGO_DEBIL: [RegExp, string][] = [
   [/^lento$/i, "lento"],
@@ -2038,7 +2077,7 @@ const TAREAS_DE_CONSIGNA: { consigna: RegExp; tarea: RegExp }[] = [
  * Una consigna sin tarea no es un dato que falte: es una decisión del
  * cuerpo técnico, y se dice.
  */
-export function tareasDeConsigna(consigna: string, micro: Microciclo | null) {
+export function tareasDeConsigna(consigna: string, micro: Microciclo | null, opciones: { minutos?: boolean } = {}) {
   const tema = TAREAS_DE_CONSIGNA.find((t) => t.consigna.test(consigna));
 
   if (!tema || !micro) return [];
@@ -2046,7 +2085,16 @@ export function tareasDeConsigna(consigna: string, micro: Microciclo | null) {
   return micro.tareas
     .filter((t) => t.md !== "MD" && !/competici/i.test(`${t.tipo} ${t.fase}`))
     .filter((t) => tema.tarea.test([t.fase, t.contenido, t.secundario, t.tipo].join(" ")))
-    .map((t) => `${t.dia} ${t.tarea}${t.secundario ? ` (${minusculaInicial(t.secundario)})` : t.contenido ? ` (${minusculaInicial(t.contenido)})` : ""}`);
+    .map((t) => {
+      const que = minusculaInicial(t.secundario || t.contenido || "");
+
+      /* Con sus minutos cuando se pide y los hay (26/10/2026, fútbol): «L-T2 (transición, 11′)». */
+      const min = opciones.minutos && t.minutos > 0 ? `${t.minutos}′` : "";
+
+      const entre = [que, min].filter(Boolean).join(", ");
+
+      return `${t.dia} ${t.tarea}${entre ? ` (${entre})` : ""}`;
+    });
 }
 
 /**
@@ -2534,7 +2582,7 @@ export function metaDePalanca(inf: Pick<InformePartido, "duelo" | "pronostico">,
  * que el post dirá si se cumplió. Un rival en la mediana se dice: no se le
  * vende como «se expondrá».
  */
-export function metaDeClave(inf: Pick<InformePartido, "duelo" | "pronostico">, clave: string) {
+export function metaDeClave(inf: Pick<InformePartido, "duelo" | "pronostico"> & Partial<Pick<InformePartido, "colectivo" | "plan">>, clave: string, opciones: { corta?: boolean } = {}) {
   const tema = TEMAS_PLAN.find((t) => t.re.test(clave));
 
   if (!tema) return "";
@@ -2554,18 +2602,59 @@ export function metaDeClave(inf: Pick<InformePartido, "duelo" | "pronostico">, c
 
   const hoy = nuestra?.nosotros ? `Esta temporada, ${nombreEnFrase(sinSiglas(nuestra.nombre))} ${cifra(nuestra.nosotros.valor, nuestra.unidad)}${puesto(nuestra.nosotros.puesto)}` : "";
 
-  const suya = ms.find((m) => m.key === (RIVAL_DE_TEMA[tema.tema] ?? nuestra?.key) && m.rival);
+  /*
+  | El dato del rival es el que se enfrenta a la clave (26/10/2026, fútbol y
+  | guion): con balón, lo que ELLOS CONCEDEN (no lo que generan: eso es de la
+  | clave sin balón); sin balón, lo que generan. Una métrica del rival no
+  | apoya a dos claves.
+  */
+  const rivalKey = claveHoy === "xg" ? "xgContra" : claveHoy === "xgContra" ? "xg" : RIVAL_DE_TEMA[tema.tema] ?? nuestra?.key;
 
-  const tercio = de ? Math.ceil(de / 3) : 0;
+  const suya = ms.find((m) => m.key === rivalKey && m.rival);
 
-  const extremo = suya?.rival && tercio ? suya.rival.puesto <= tercio || suya.rival.puesto > de - tercio : true;
+  const top = de ? Math.max(3, Math.round(de * 0.25)) : 0;
 
-  const ellos = suya?.rival
-    ? `ellos, ${nombreEnFrase(sinSiglas(suya.nombre))} ${cifra(suya.rival.valor, suya.unidad)}${puesto(suya.rival.puesto)}${!extremo && suya.mediana !== null ? `, en la mediana (${cifra(suya.mediana, suya.unidad)})` : ""}`
-    : "";
+  let ellos = "";
 
-  return [hoy, ellos, meta ? `meta: ${minusculaInicial(meta.texto)}` : ""].filter(Boolean).join(" · ");
+  if (suya?.rival && (rivalKey === "xgContra" || rivalKey === "xg")) {
+    ellos = `ellos ${rivalKey === "xgContra" ? "conceden" : "generan"} ${cifra(suya.rival.valor, suya.unidad)}${puesto(suya.rival.puesto)}`;
+  } else if (tema.tema === "Transición") {
+    /*
+    | La transición se apoya en algo suyo que la sostenga (26/10/2026, fútbol):
+    | «pérdidas en campo propio, en la mediana» la desmentía. Que salen en
+    | corto (scouting) o que pierden muchos balones atrás; si no, no hay dato.
+    */
+    const perdidas = ms.find((m) => m.key === "perdidasBajas" && m.rival);
+
+    ellos = SALEN_EN_CORTO.test(textoScouting({ colectivo: inf.colectivo ?? null, plan: inf.plan ?? null }))
+      ? "ellos salen en corto (scouting)"
+      : perdidas?.rival && top && perdidas.rival.puesto >= de - top + 1
+        ? `ellos pierden balones atrás: ${cifra(perdidas.rival.valor, perdidas.unidad)}${puesto(perdidas.rival.puesto)}`
+        : "";
+  } else if (suya?.rival) {
+    const tercio = de ? Math.ceil(de / 3) : 0;
+
+    /* Un rival en la mediana no sostiene nada: no se imprime. */
+    const extremo = tercio ? suya.rival.puesto <= tercio || suya.rival.puesto > de - tercio : true;
+
+    ellos = extremo ? `ellos, ${nombreEnFrase(sinSiglas(suya.nombre))} ${cifra(suya.rival.valor, suya.unidad)}${puesto(suya.rival.puesto)}` : "";
+  }
+
+  /* En la diapositiva, la meta sin el pronóstico entre paréntesis: tres cifras en la línea (guion). */
+  const textoMeta = meta ? minusculaInicial(opciones.corta ? meta.texto.replace(/\s*\([^)]*\)\s*$/, "") : meta.texto) : "";
+
+  return [hoy, ellos, textoMeta ? `meta: ${textoMeta}` : ""].filter(Boolean).join(" · ");
 }
+
+/**
+ * «Base corta» era jerga de analista (26/10/2026, guion): se dice qué hacemos
+ * con la poca muestra. «…; un partido, base corta» → «…: es un solo partido,
+ * lo tomamos como pista, no como regla».
+ */
+export const conPocaMuestra = (texto: string) =>
+  texto
+    .replace(/[;,]?\s*un partido, base corta/g, ": es un solo partido, lo tomamos como pista, no como regla")
+    .replace(/[:;,·]?\s*base corta/g, ": pocas acciones, lo tomamos como pista, no como regla");
 
 /** La consigna de un tema del plan: «Sacamos más de cada robo». */
 export const consignaDeTema = (tema: string) => TEMAS_PLAN.find((t) => t.tema === tema)?.consigna ?? "";
@@ -3443,7 +3532,7 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
         .map((l) => {
           const [c, ...dato] = l.split(" · ");
 
-          return { origen: inf.postAnterior?.etiqueta ?? "", consigna: c.trim(), dato: dato.join(" · ").trim(), tareas: tareasDeConsigna(c, inf.microciclo).slice(0, 3) };
+          return { origen: inf.postAnterior?.etiqueta ?? "", consigna: c.trim(), dato: conPocaMuestra(dato.join(" · ").trim()), tareas: tareasDeConsigna(c, inf.microciclo, { minutos: true }).slice(0, 3) };
         })
         .filter((x) => x.consigna);
 
@@ -3546,7 +3635,18 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
             : `${inf.partido.lado === "fuera" ? "Visitamos al" : "Recibimos al"} ${rival}${inf.contexto?.puesto ? `, ${ordinal(inf.contexto.puesto)} de la tabla` : ""}`;
 
   /* Previa: el titular sale de la idea principal (24/10/2026); sin ella, del dato. */
-  const titular = esPost ? titularPost(inf) : titularDePrevia(inf, consigna[0] ?? "") || titularDato;
+  const deLaIdea = esPost ? "" : titularDePrevia(inf, consigna[0] ?? "");
+
+  const titular = esPost ? titularPost(inf) : deLaIdea || titularDato;
+
+  /*
+  | Lo que responde al titular de la 1/3 (26/10/2026, guion): el cierre de la
+  | 3/3 contesta a la pregunta que abrió el informe. Con la idea, su consigna;
+  | con el dato de la segunda jugada, ganarla.
+  */
+  const respuestaGancho = esPost ? "" : deLaIdea ? consigna[0] ?? "" : segunda ? "Ganamos la segunda jugada" : "";
+
+  const gancho = /segunda jugada/i.test(respuestaGancho) && !/largo/i.test(respuestaGancho) && segunda ? `${respuestaGancho.replace(/[.]$/, "")} de su balón largo` : respuestaGancho;
 
   const roja = (inf.cronica?.tarjetas ?? []).find((t) => t.tipo === "roja");
 
@@ -3627,6 +3727,7 @@ export function sintetiza(inf: Omit<InformePartido, "sintesis">): Sintesis {
     delPostAnterior,
     ideaSinTarea,
     ideaSinDuelo,
+    gancho,
     metas: esPost ? [] : (inf.plan?.claves ?? []).flatMap((clave) => { const m = metaDePalanca(inf, clave); return m ? [{ ...m, clave }] : []; }),
     notaRoja,
     golesEnContra,
