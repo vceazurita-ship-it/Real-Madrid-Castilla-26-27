@@ -39,6 +39,7 @@ import {
   avisosDelPlan,
   avisosDeLaSemana,
   vistazoCoherente,
+  puestosCoherentes,
   planSinHeredado,
   sintetiza,
   type Colectivo,
@@ -846,6 +847,11 @@ export async function cargaInforme(entrada: {
 
   avisos.push(...delRival.avisos);
 
+  /* El lado de cada uno lo manda Wyscout (26/10/2026): la ficha que lo contradice, al analista. */
+  const plantillaFinal = puestosCoherentes(delRival.vistazo, plantilla, avisos);
+
+  const onceFinal = { ...once, jugadores: puestosCoherentes(delRival.vistazo, once.jugadores) };
+
   /*
   | Previa: el plan sin lo heredado de otro rival (24/10/2026): una línea que
   | nombra a alguien que no está en su plantilla ni en la nuestra, o que el
@@ -895,8 +901,8 @@ export async function cargaInforme(entrada: {
     postAnterior,
     golesTemporada: await golesTemporadaP,
     colectivo,
-    once,
-    plantilla,
+    once: onceFinal,
+    plantilla: plantillaFinal,
     contexto: contextoDe(
       informeRival,
       rival,

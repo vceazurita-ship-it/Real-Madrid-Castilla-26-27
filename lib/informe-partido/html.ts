@@ -698,7 +698,7 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
   }${
     anteriorConTarea.length
       ? `<p style="margin:14px 0 4px;font:700 13px/1.3 Arial,sans-serif;color:${NAVY}">Lo que pidió el ${esc(anteriorConTarea[0].origen)}, en esta semana</p>${lista(
-          anteriorConTarea.map((c) => `${c.consigna}${c.dato ? ` (${c.dato})` : ""} → ${c.tareas.join(" · ")}`),
+          anteriorConTarea.map((c) => `${c.consigna}${c.dato ? `: ${c.dato}` : ""} → ${c.tareas.join(" · ")}`),
         )}`
       : ""
   }`;
