@@ -335,7 +335,7 @@ export default function PitchCameraBar({
   /* Plegada: con el campo plano no hace falta nada más que pasar a 3D. */
   if (plegable && render === "2d" && !abierta) {
     return (
-      <div className="flex w-[132px] items-center gap-1 rounded-2xl border border-white/12 bg-[#0B0F14]/85 p-1 backdrop-blur-md">
+      <div className="flex w-[150px] items-center gap-1 rounded-2xl border border-white/12 bg-[#0B0F14]/85 p-1 backdrop-blur-md">
         <div className="min-w-0 flex-1">{renderToggle}</div>
         {desplegar}
       </div>

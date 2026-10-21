@@ -93,7 +93,9 @@ export default function Desplegable({
           role="dialog"
           aria-label={etiqueta}
           className={cn(
+            /* En el teléfono, una hoja abajo a todo el ancho: anclado al botón se salía de la pantalla por un lado. */
             "absolute top-full z-[60] mt-1.5 max-w-[calc(100vw-2rem)] rounded-2xl border border-white/10 bg-[#11161D] p-3 shadow-[0_20px_60px_rgba(0,0,0,.45)]",
+            "max-sm:fixed max-sm:inset-x-3 max-sm:bottom-3 max-sm:top-auto max-sm:mt-0 max-sm:max-h-[75svh] max-sm:w-auto max-sm:max-w-none max-sm:overflow-y-auto",
             ancho,
             lado === "derecha" ? "right-0" : "left-0",
           )}
