@@ -20,9 +20,11 @@ import {
   fmtMin,
 } from "@/lib/abp/microciclo";
 import {
+  PESOS,
   colorUrgencia,
   etiquetaUrgencia,
   formulaUrgencia,
+  partesUrgencia,
   type FilaCruce,
 } from "@/lib/abp/transferencia";
 
@@ -53,7 +55,7 @@ function Th({
 
 /** Las tres barras que explican la urgencia, cada una con su número (0-100). */
 function Ingredientes({ fila }: { fila: FilaCruce }) {
-  const { ingredientes, lado, referencia, peligroAjustado } = fila;
+  const { lado, referencia, peligroAjustado } = fila;
 
   /*
   | «Rinde peor» sólo cuando de verdad rinde peor que los suyos (21/10/2026).
@@ -63,15 +65,26 @@ function Ingredientes({ fila }: { fila: FilaCruce }) {
   */
   const diferencia =
     lado === "ofensivo" ? referencia - peligroAjustado : peligroAjustado - referencia;
-  const rinde = diferencia >= 1 ? "peor" : diferencia <= -1 ? "mejor" : "igual";
 
-  /* Cuánto peor, frente a su propia familia: 0 es igual, 1 es el doble de mal. */
-  const cuantoPeor = Math.min(1, Math.max(0, diferencia) / Math.max(referencia, 5));
+  /* Con menos de cinco acciones no hay veredicto: es una tendencia (21/10/2026). */
+  const rinde =
+    fila.stats.acciones < 5 ? "sin" : diferencia >= 1 ? "peor" : diferencia <= -1 ? "mejor" : "igual";
 
+  const veredicto =
+    rinde === "sin" ? "Sin veredicto" : rinde === "peor" ? "Rinde peor" : rinde === "mejor" ? "Rinde mejor" : "En la media";
+
+  const partes = partesUrgencia(fila);
+
+  /*
+  | Cada barra es lo que esa parte SUMA a la urgencia, en puntos (21/10/2026):
+  | los tres números de la derecha dan la cifra de la columna siguiente. La
+  | barra se llena contra el máximo de su parte (50, 30 y 20).
+  */
   const barras = [
     {
       label: "Daño",
-      valor: ingredientes.dano as number | null,
+      puntos: partes.dano,
+      max: 100 * PESOS.dano,
       color: "#5E7FB8",
       ayuda:
         lado === "ofensivo"
@@ -79,49 +92,57 @@ function Ingredientes({ fila }: { fila: FilaCruce }) {
           : "Las acciones con peligro que nos han hecho (cada gol cuenta tres veces), comparadas con el aspecto que más daño nos hace",
     },
     {
-      label: rinde === "peor" ? "Rinde peor" : rinde === "mejor" ? "Rinde mejor" : "En la media",
-      valor: rinde === "peor" ? cuantoPeor : null,
+      label: veredicto,
+      puntos: partes.deficit,
+      max: 100 * PESOS.deficit,
       color: "#F87171",
-      ayuda:
+      ayuda: `${
         lado === "ofensivo"
           ? `Genera peligro en el ${peligroAjustado.toFixed(0)} % de sus acciones; su familia, en el ${referencia.toFixed(0)} %.`
-          : `Nos hacen peligro en el ${peligroAjustado.toFixed(0)} % de estas acciones; en su familia, en el ${referencia.toFixed(0)} %.`,
+          : `Nos hacen peligro en el ${peligroAjustado.toFixed(0)} % de estas acciones; en su familia, en el ${referencia.toFixed(0)} %.`
+      } Ir como su familia ya suma la mitad de esta parte; con pocas acciones se rebaja.`,
     },
     {
       label: "Sin trabajar",
-      valor: ingredientes.desatencion as number | null,
+      puntos: partes.desatencion,
+      max: 100 * PESOS.desatencion,
       color: "#FBBF24",
-      ayuda: "Cuán pocos minutos se le han dedicado esta temporada, frente al aspecto más trabajado",
+      ayuda: "Cuán pocos minutos se le han dedicado esta temporada, frente al aspecto más trabajado. Con pocas acciones se rebaja.",
     },
   ];
 
   return (
-    <div className="flex w-[150px] flex-col gap-[3px]">
+    <div className="flex w-[160px] flex-col gap-[3px]" data-urgencia-suma={partes.suma}>
       {barras.map((barra) => (
         <div
-          key={barra.label}
+          key={barra.max}
           className="flex items-center gap-1.5"
-          title={`${barra.label}${barra.valor === null ? "" : `: ${Math.round(barra.valor * 100)} de 100`}. ${barra.ayuda}`}
+          title={`${barra.label}: suma ${barra.puntos} de ${barra.max}. ${barra.ayuda}`}
+          data-parte-urgencia={barra.puntos}
         >
           <span
             className={`w-[76px] shrink-0 truncate text-[9px] uppercase tracking-wide ${
-              rinde === "mejor" && barra.valor === null ? "font-semibold text-emerald-300" : "text-white/45"
+              rinde === "mejor" && barra.max === 100 * PESOS.deficit
+                ? "font-semibold text-emerald-300"
+                : "text-white/45"
             }`}
           >
             {barra.label}
           </span>
 
-          {barra.valor === null ? (
-            <span className="flex-1" />
-          ) : (
-            <Meter value={barra.valor} max={1} color={barra.color} label={barra.label} />
-          )}
+          <Meter value={barra.puntos} max={barra.max} color={barra.color} label={barra.label} />
 
           <span className="w-5 shrink-0 text-right text-[9px] tabular-nums text-white/45">
-            {barra.valor === null ? "" : Math.round(barra.valor * 100)}
+            {barra.puntos}
           </span>
         </div>
       ))}
+
+      {partes.subidaPorGoles && (
+        <span className="text-right text-[9px] text-red-300/80">
+          {partes.suma} → {partes.urgencia} por gol en contra
+        </span>
+      )}
     </div>
   );
 }
@@ -328,6 +349,15 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                               pocos casos ({fila.stats.acciones})
                             </span>
                           )}
+                          {fila.liga.acciones > 0 && fila.liga.acciones < fila.stats.acciones && (
+                            <span
+                              className="block text-[9.5px] text-white/40"
+                              title="Sólo los partidos de liga, sin la pretemporada"
+                            >
+                              en liga {Math.round((fila.liga.peligro / fila.liga.acciones) * 100)} % ({fila.liga.peligro} de{" "}
+                              {fila.liga.acciones})
+                            </span>
+                          )}
                         </>
                       ) : (
                         ""
@@ -349,8 +379,9 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                             color: chipInk(colorUrgencia(fila.urgencia)),
                           }}
                           title={`Urgencia ${etiquetaUrgencia(fila.urgencia).toLowerCase()}. ${formulaUrgencia(fila)}`}
+                          data-urgencia={partesUrgencia(fila).urgencia}
                         >
-                          {Math.round(fila.urgencia)}
+                          {partesUrgencia(fila).urgencia}
                         </span>
                       )}
                     </td>

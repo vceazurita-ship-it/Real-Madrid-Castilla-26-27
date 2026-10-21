@@ -204,13 +204,32 @@ export function BocetoDialog({
     return boceto.minutos >= boceto.objetivo.minimo && boceto.minutos <= boceto.objetivo.maximo;
   }, [estado]);
 
+  /*
+  | El título dice la propuesta (21/10/2026): «Proponemos 65′ de ABP: 2
+  | sesiones, vie y sáb». Mientras se monta, el número del microciclo.
+  */
+  const titulo = useMemo(() => {
+    const deMicro = `Boceto del microciclo ${micro.numero || ""}`.trim();
+
+    if (estado.fase !== "listo") return deMicro;
+
+    const conTrabajo = estado.ventana.dias.filter((dia) => estado.boceto.dias[dia.clave].trabajos.length > 0);
+
+    if (!conTrabajo.length || !estado.boceto.minutos) return deMicro;
+
+    const nombres = conTrabajo.map((dia) => dia.etiqueta.split(" ")[0].toLowerCase());
+    const lista = nombres.length > 1 ? `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}` : nombres[0];
+
+    return `Proponemos ${fmtMin(estado.boceto.minutos)} de ABP: ${cuenta(conTrabajo.length, "sesión", "sesiones")}, ${lista}`;
+  }, [estado, micro.numero]);
+
   return (
     <Dialog
-      title={`Boceto del microciclo ${micro.numero || ""}`.trim()}
+      title={titulo}
       subtitle={
         explicativos
-          ? "Los días salen de la hoja de registro; los aspectos, de nuestro rendimiento y del rival. Se aplica al plan y se cierra a mano."
-          : "Se aplica al plan y se cierra a mano."
+          ? `Microciclo ${micro.numero || ""}. Los días salen de la hoja de registro; los aspectos, de nuestro rendimiento y del rival. Se aplica al plan y se cierra a mano.`
+          : `Microciclo ${micro.numero || ""}. Se aplica al plan y se cierra a mano.`
       }
       onClose={onCerrar}
       footer={
@@ -368,7 +387,11 @@ export function BocetoDialog({
                       {suyo.trabajos.map((trabajo) => (
                         <li key={trabajo.id} className="rounded-xl bg-white/[0.03] px-2.5 py-2">
                           <p className="text-[11px] text-white/75">
-                            {trabajo.minutos > 0 ? fmtMin(trabajo.minutos) : "Sin tiempo"} · {etiquetaTrabajo(trabajo)}
+                            {trabajo.minutos > 0 ? `${fmtMin(trabajo.minutos)} · ` : ""}{etiquetaTrabajo(trabajo)}
+                            {/* Sin minutos sólo llegan las que ya estaban en la hoja (21/10/2026). */}
+                            {!(trabajo.minutos > 0) && (
+                              <span className="text-white/40"> · ya en la hoja, sin minutos: pónselos al abrirla</span>
+                            )}
                           </p>
 
                           <p className="text-[10px] uppercase tracking-wide text-white/35">

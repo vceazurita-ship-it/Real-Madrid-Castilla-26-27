@@ -22,7 +22,7 @@ import { useState, type DragEvent, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Moon, PenLine, Plus, Trophy } from "lucide-react";
 
 import { FASES_ABP, tareaEnBlanco, tareasQueSeEscriben, type MicroNuevo, type TareaNueva } from "@/lib/registro/hoja";
-import { cargaDelDia, esCompeticion, frenteAReferencia, type ReferenciaMd } from "@/lib/registro/semana";
+import { baseDeReferencia, cargaDelDia, esCompeticion, frenteAReferencia, type ReferenciaMd } from "@/lib/registro/semana";
 import { etiquetaDia } from "@/lib/abp/ventana";
 import { chipInk } from "@/lib/theme";
 
@@ -279,7 +279,7 @@ export function TableroSemana({
                     {ref && (
                       <p className="mt-1 text-[10px] leading-snug text-white/40">
                         {frente
-                          ? `${frente.diferencia > 0 ? "+" : ""}${frente.diferencia} % frente a su media (${ref.carga})`
+                          ? `${frente.diferencia > 0 ? "+" : ""}${frente.diferencia} % frente a su ${baseDeReferencia(ref)}`
                           : `media del ${md}: ${ref.carga} · ${ref.minutos}′`}
                       </p>
                     )}

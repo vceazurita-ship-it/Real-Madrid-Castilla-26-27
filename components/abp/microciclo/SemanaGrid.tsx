@@ -158,7 +158,7 @@ function TrabajoCuerpo({
             detalle ? "leading-snug" : "truncate leading-tight"
           }`}
         >
-          {/* Dos aspectos como mucho y «+N» (21/10/2026): cinco seguidos
+          {/* Dos aspectos como mucho y «y N más» (21/10/2026): cinco seguidos
               ocupaban ocho líneas en una columna estrecha. */}
           {detalle ? (
             <span title={aspectos.map((aspecto) => aspecto.label).join(" · ")}>
@@ -167,7 +167,7 @@ function TrabajoCuerpo({
                 .map((aspecto) => aspecto.label)
                 .join(" · ")}
               {aspectos.length > 2 && (
-                <span className="ml-1 font-medium text-white/45">+{aspectos.length - 2}</span>
+                <span className="font-medium text-white/45"> y {aspectos.length - 2} más</span>
               )}
             </span>
           ) : (
@@ -477,7 +477,7 @@ function DiaColumna({
             onChange={(event) => onCambiaMd(event.target.value)}
             placeholder="MD"
             aria-label={`Día de partido de ${info?.label}`}
-            className="w-14 rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-right text-[10px] uppercase tracking-wide text-[#C8A96B] outline-none transition placeholder:text-white/20 focus:border-[#C8A96B]/50"
+            className="w-14 rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-right text-[12px] uppercase tracking-wide text-[#C8A96B] outline-none transition placeholder:text-white/20 focus:border-[#C8A96B]/50"
           />
         </div>
 
@@ -538,7 +538,7 @@ function DiaColumna({
         ))}
 
         {!plan.trabajos.length && (
-          <p className="px-1 py-3 text-center text-[10px] leading-relaxed text-white/35">
+          <p className="px-1 py-2 text-center text-[13px] leading-snug text-white/45">
             {descansa ? "Descanso" : plan.tipo === "partido" ? "Día de partido" : "Sin balón parado"}
           </p>
         )}
@@ -597,8 +597,12 @@ export function SemanaGrid({
   orden?: DiaKey[];
   /** La fecha de cada día, para la cabecera ("dom 20"). */
   etiquetas?: Partial<Record<DiaKey, string>>;
-  /** Ficha completa —la de compartir— o corta —la de replanificar—. */
-  detalle?: boolean;
+  /**
+   * Ficha completa —la de compartir— o corta —la de replanificar—. «auto»
+   * (21/10/2026): completa salvo en los días con tres o más tareas, que en
+   * completa ocupaban columnas larguísimas con el porqué cortado.
+   */
+  detalle?: boolean | "auto";
   onCambiaTipo: (dia: DiaKey, tipo: TipoDia) => void;
   onCambiaMd: (dia: DiaKey, md: string) => void;
   onAbrir: (dia: DiaKey, trabajo: Trabajo) => void;
@@ -689,13 +693,13 @@ export function SemanaGrid({
         {/* La ficha completa necesita columna ancha: con 140 px «Falta lateral
             indirecta» se parte en cuatro renglones. */}
         <div
-          className="grid grid-cols-1 items-stretch gap-2 md:min-w-(--ancho) md:grid-cols-(--columnas)"
+          className="grid grid-cols-1 items-start gap-2 md:min-w-(--ancho) md:grid-cols-(--columnas)"
           style={
             {
               /* Todas iguales: se probó a estrechar los días libres y de partido
                  y su selector «Sesión · Libre · Partido» ya no cabía. */
               "--columnas": `repeat(${columnas.length}, minmax(0, 1fr))`,
-              "--ancho": `${columnas.length * (detalle ? 170 : 140)}px`,
+              "--ancho": `${columnas.length * (detalle !== false ? 170 : 140)}px`,
             } as CSSProperties
           }
         >
@@ -704,7 +708,7 @@ export function SemanaGrid({
               key={clave}
               dia={clave}
               plan={dias[clave]}
-              detalle={detalle}
+              detalle={detalle === "auto" ? dias[clave].trabajos.length < 3 : detalle}
               etiqueta={etiquetas?.[clave]}
               maximo={maximoDia}
               onCambiaTipo={(tipo) => onCambiaTipo(clave, tipo)}

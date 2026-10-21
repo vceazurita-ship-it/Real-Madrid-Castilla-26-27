@@ -524,7 +524,7 @@ export function etiquetaTrabajo(trabajo: Trabajo, corto = false) {
   /* En las fichas de la semana no cabe la lista entera: el primero y cuántos
      más. En el diálogo, donde hay ancho, van todos. */
   return corto
-    ? `${aspectos[0].short} +${aspectos.length - 1}`
+    ? `${aspectos[0].short} y ${aspectos.length - 1} más`
     : aspectos.map((aspecto) => aspecto.label).join(" · ");
 }
 

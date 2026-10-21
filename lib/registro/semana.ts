@@ -166,6 +166,8 @@ export type ReferenciaMd = {
   carga: number;
   /** Media de los minutos de la sesión. */
   minutos: number;
+  /** Media de tareas por sesión (21/10/2026), con un decimal. */
+  tareas: number;
 };
 
 /**
@@ -181,7 +183,7 @@ export function referenciaPorMd(
   tareas: RegistroTarea[],
   { sinMicro, temporada }: { sinMicro?: number; temporada?: string } = {},
 ): Record<string, ReferenciaMd> {
-  const porSesion = new Map<string, { md: string; carga: number; minutos: number }>();
+  const porSesion = new Map<string, { md: string; carga: number; minutos: number; tareas: number }>();
 
   for (const tarea of tareas) {
     if (sinMicro && tarea.micro === sinMicro) continue;
@@ -193,22 +195,24 @@ export function referenciaPorMd(
     if (!md || !(tarea.tiempo > 0) || !(tarea.intensidad > 0)) continue;
 
     const clave = `${tarea.fecha}|${md}`;
-    const suya = porSesion.get(clave) ?? { md, carga: 0, minutos: 0 };
+    const suya = porSesion.get(clave) ?? { md, carga: 0, minutos: 0, tareas: 0 };
 
     suya.carga += tarea.tiempo * tarea.intensidad;
     suya.minutos += tarea.tiempo;
+    suya.tareas += 1;
 
     porSesion.set(clave, suya);
   }
 
-  const porMd = new Map<string, { n: number; carga: number; minutos: number }>();
+  const porMd = new Map<string, { n: number; carga: number; minutos: number; tareas: number }>();
 
   for (const sesion of porSesion.values()) {
-    const suya = porMd.get(sesion.md) ?? { n: 0, carga: 0, minutos: 0 };
+    const suya = porMd.get(sesion.md) ?? { n: 0, carga: 0, minutos: 0, tareas: 0 };
 
     suya.n += 1;
     suya.carga += sesion.carga;
     suya.minutos += sesion.minutos;
+    suya.tareas += sesion.tareas;
 
     porMd.set(sesion.md, suya);
   }
@@ -222,6 +226,7 @@ export function referenciaPorMd(
       sesiones: suya.n,
       carga: Math.round(suya.carga / suya.n),
       minutos: Math.round(suya.minutos / suya.n),
+      tareas: Math.round((suya.tareas / suya.n) * 10) / 10,
     };
   }
 
@@ -239,6 +244,11 @@ export function cargaDelDia(sesion: MicroNuevo["sesiones"][number]) {
     completa: tareas.length > 0 && tareas.every((t) => t.tiempo > 0 && t.intensidad > 0),
     tareas: tareas.length,
   };
+}
+
+/** «media de 3 sesiones: carga 186 · 45′», la base de un «+96 %». */
+export function baseDeReferencia(referencia: ReferenciaMd) {
+  return `media de ${plural(referencia.sesiones, "sesión", "sesiones")}: carga ${referencia.carga} · ${referencia.minutos}′`;
 }
 
 /**
@@ -293,7 +303,16 @@ export function resumenDeLaSemana(
 
     const tareas = tareasDeLaLamina(sesion);
 
-    if (tareas.length === 0) continue;
+    /* Lo mismo que la lámina (21/10/2026): antes el texto se saltaba el día. */
+    if (tareas.length === 0) {
+      const vacias = tareasQueSeEscriben(sesion).filter(tareaSinContenido);
+
+      if (vacias.length > 0) {
+        lineas.push(`*${nombreBonito}* · ${sesion.md} · por definir (${vacias.map((tarea) => tarea.tipoTarea || tarea.tarea).join(", ")})`);
+      }
+
+      continue;
+    }
 
     const partidoDia = tareas.some(esCompeticion) && tareas.length === 1;
     const delDia = [
@@ -330,8 +349,14 @@ export function plural(n: number, uno: string, varios: string) {
 }
 
 export type CuentasSemana = {
-  /** Tareas de entrenamiento que se escriben (sin el partido). */
+  /**
+   * Tareas de entrenamiento con contenido: las que salen en la lámina y en el
+   * texto (sin el partido). Las que no tienen contenido van en `porDefinir`:
+   * la lámina decía «12 tareas» y enseñaba nueve (21/10/2026).
+   */
   tareas: number;
+  /** Tareas de entreno sin contenido principal: se escriben, pero no salen. */
+  porDefinir: number;
   /** Minutos de esas tareas. El partido no suma. */
   entreno: number;
   /** Tareas de entreno sin minutos: no suman a la carga. */
@@ -354,7 +379,7 @@ export type CuentasSemana = {
  * una tarea, y sus minutos no son de entrenamiento.
  */
 export function cuentasDeLaSemana(micro: MicroNuevo): CuentasSemana {
-  const cuentas: CuentasSemana = { tareas: 0, entreno: 0, sinMinutos: 0, partido: 0, filas: 0, sesiones: 0, libres: 0 };
+  const cuentas: CuentasSemana = { tareas: 0, porDefinir: 0, entreno: 0, sinMinutos: 0, partido: 0, filas: 0, sesiones: 0, libres: 0 };
 
   for (const sesion of micro.sesiones) {
     if (sesion.libre) {
@@ -378,7 +403,9 @@ export function cuentasDeLaSemana(micro: MicroNuevo): CuentasSemana {
         continue;
       }
 
-      cuentas.tareas += 1;
+      if (tareaSinContenido(tarea)) cuentas.porDefinir += 1;
+      else cuentas.tareas += 1;
+
       cuentas.entreno += tarea.tiempo || 0;
 
       if (!(tarea.tiempo > 0)) cuentas.sinMinutos += 1;
@@ -391,6 +418,8 @@ export function cuentasDeLaSemana(micro: MicroNuevo): CuentasSemana {
 /** «11 tareas · 340′ de entreno · partido 90′», con el aviso si faltan minutos. */
 export function textoDeCuentas(cuentas: CuentasSemana) {
   const trozos = [plural(cuentas.tareas, "tarea", "tareas")];
+
+  if (cuentas.porDefinir > 0) trozos.push(`${cuentas.porDefinir} por definir`);
 
   if (cuentas.entreno > 0) trozos.push(`${cuentas.entreno}′ de entreno`);
 
@@ -443,7 +472,7 @@ function huellaDelDia(sesion: MicroNuevo["sesiones"][number]) {
     .join("¶");
 }
 
-export type AvisoSemana = { tipo: "sin-contenido" | "sin-minutos" | "dia-repetido" | "gazapo" | "carga-alta"; texto: string; sesion: number };
+export type AvisoSemana = { tipo: "sin-contenido" | "sin-minutos" | "dia-repetido" | "gazapo" | "carga-alta" | "muchas-tareas"; texto: string; sesion: number };
 
 /**
  * Lo que conviene mirar antes de mandar la semana, sin impedir escribirla:
@@ -502,8 +531,25 @@ export function avisosDeLaSemana(
     const carga = cargaDelDia(sesion);
     const frente = carga.completa ? frenteAReferencia(carga.carga, referencia[sesion.md.trim().toUpperCase()]) : null;
 
-    if (frente && frente.diferencia >= 30) {
-      avisos.push({ tipo: "carga-alta", sesion: s, texto: `${dia} (${sesion.md}): carga ${carga.carga}, un ${frente.diferencia} % por encima de su media` });
+    const ref = referencia[sesion.md.trim().toUpperCase()];
+
+    if (frente && ref && frente.diferencia >= 30) {
+      avisos.push({
+        tipo: "carga-alta",
+        sesion: s,
+        texto: `${dia} (${sesion.md}): carga ${carga.carga}, un ${frente.diferencia} % por encima de su ${baseDeReferencia(ref)}`,
+      });
+    }
+
+    /* Más tareas de lo habitual en ese MD (21/10/2026), con la base dicha. */
+    const conContenido = tareas.filter((tarea) => !tareaSinContenido(tarea)).length;
+
+    if (ref && ref.tareas > 0 && conContenido >= ref.tareas + 1.5) {
+      avisos.push({
+        tipo: "muchas-tareas",
+        sesion: s,
+        texto: `${dia}: ${plural(conContenido, "tarea", "tareas")} · media del ${sesion.md.trim().toUpperCase()}: ${String(ref.tareas).replace(".", ",")} (${plural(ref.sesiones, "sesión", "sesiones")})`,
+      });
     }
   });
 

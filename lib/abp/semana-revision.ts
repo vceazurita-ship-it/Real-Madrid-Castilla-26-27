@@ -39,6 +39,7 @@ import {
 } from "@/lib/abp/microciclo";
 import { encajaEnAspecto, type CompeticionEvent } from "@/lib/abp/competicion";
 import { MARCA_BOCETO } from "@/lib/abp/minutos";
+import { enFrase, enPrimeraPlural } from "@/lib/abp/primera-plural";
 import type { FilaCruce } from "@/lib/abp/transferencia";
 
 /* ------------------------------------------------------------------ */
@@ -301,7 +302,7 @@ export function revisaSemana({
         delMd1.flatMap((trabajo) =>
           trabajo.aspectos
             .filter((aspecto) => !antes.has(aspecto))
-            .map((aspecto) => [aspecto, { trabajo, texto: nombreAspecto(aspecto).toLowerCase() }] as const),
+            .map((aspecto) => [aspecto, { trabajo, texto: enFrase(nombreAspecto(aspecto)) }] as const),
         ),
       ).values(),
     ];
@@ -537,7 +538,7 @@ export function lecturaDelPartido(
     noSalio: lecturas
       .filter((uno) => uno.minutos > 0 && !salio(uno))
       .sort((a, b) => b.minutos - a.minutos)
-      .map((uno) => `${uno.label.toLowerCase()} ${uno.lado === "ofensivo" ? "atacando" : "defendiendo"}`),
+      .map((uno) => `${enFrase(uno.label)} ${uno.lado === "ofensivo" ? "atacando" : "defendiendo"}`),
     sinTrabajar: lecturas
       .filter((uno) => uno.minutos <= 0 && uno.peligro > 0)
       .sort((a, b) => b.goles - a.goles || b.peligro - a.peligro),
@@ -585,6 +586,15 @@ export function porqueDe(notas: string | undefined, explicativos: boolean) {
        falta», que es una estimación y no se dice en voz alta: fuera. */
     .replace(/\s*·\s*≈[^·]*/g, "")
     .replace(/(\d+) gol\(es\)/g, (_, n: string) => (n === "1" ? "un gol" : `${n} goles`))
+    /* Lo guardado antes del 21/10/2026 por la tarde: «Nuestro:», «Nosotros en
+       la liga: concede…» y «Algeciras: Algeciras saca…» (lo de ahora ya lo
+       escribe así `motivoDe`). */
+    .replace(/\bNuestro: /g, "A favor: ")
+    .replace(/Nosotros en la liga: ([^.]*)/g, (_, resto: string) => `En la liga ${enPrimeraPlural(resto, "Real Madrid Castilla")}`)
+    .replace(/([A-ZÁÉÍÓÚÑ][^.:]{1,40}): \1 /g, "$1 ")
+    /* Un porcentaje sin su base no se escribe: el boceto de ahora la pone
+       («remata el 19 % (4 de 21 faltas)»); lo guardado antes, no. */
+    .replace(/ y (deja )?remata(r)? el \d+(,\d+)? %(?! \()/g, "")
     /* «vídeo del Algeciras…», «ensayo del día antes…»: con mayúscula. */
     .replace(/^./, (letra) => letra.toUpperCase());
 
