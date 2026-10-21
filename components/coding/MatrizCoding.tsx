@@ -53,6 +53,14 @@ export function MatrizCoding({
   if (matriz.filas.length === 0) return null;
 
   return (
+    <div className="min-w-0">
+      {/* En un teléfono no caben todas las columnas: que se sepa que hay más. */}
+      {matriz.columnas.length > 3 && (
+        <p className="mb-1.5 text-[11px] text-white/35 sm:hidden">
+          Desliza la tabla para ver las {matriz.columnas.length} categorías →
+        </p>
+      )}
+
     <div className="min-w-0 overflow-x-auto rounded-xl border border-white/10">
       <table className="w-full border-collapse text-[12px]">
         <caption className="sr-only">
@@ -60,10 +68,10 @@ export function MatrizCoding({
         </caption>
 
         <thead>
-          <tr className="border-b border-white/10 bg-white/[0.03]">
+          <tr className="border-b border-white/10">
             <th
               scope="col"
-              className="sticky left-0 z-10 min-w-[140px] bg-[#0F141B] px-3 py-2 text-left text-[10px] font-normal uppercase tracking-[0.14em] text-white/40"
+              className="sticky left-0 z-10 min-w-[120px] bg-[#0F141B] px-3 py-2 text-left text-[10px] font-normal uppercase tracking-[0.14em] text-white/40"
             >
               {matriz.total} clips
             </th>
@@ -72,7 +80,7 @@ export function MatrizCoding({
               const activa = categoria === columna.id && !sujeto;
 
               return (
-                <th key={columna.id || "sin"} scope="col" className="px-1 py-1.5">
+                <th key={columna.id || "sin"} scope="col" className="px-0.5 py-1.5">
                   <button
                     type="button"
                     onClick={() =>
@@ -80,7 +88,7 @@ export function MatrizCoding({
                     }
                     aria-pressed={activa}
                     title={`Filtrar por ${columna.nombre} (${columna.total})`}
-                    className={`flex w-full min-w-[64px] flex-col items-center gap-1 rounded-lg px-1.5 py-1 transition hover:bg-white/[0.06] ${
+                    className={`flex w-full min-w-[44px] flex-col items-center gap-1 rounded-lg px-1 py-1 transition hover:bg-white/[0.06] ${
                       activa ? "ring-1 ring-[#C8A96B]" : ""
                     }`}
                   >
@@ -89,7 +97,7 @@ export function MatrizCoding({
                       className="h-1 w-6 rounded-full"
                       style={{ background: columna.color }}
                     />
-                    <span className="max-w-[88px] truncate text-[11px] font-semibold text-white/75">
+                    <span className="max-w-[76px] truncate text-[11px] font-semibold text-white/75">
                       {columna.nombre}
                     </span>
                   </button>
@@ -99,7 +107,7 @@ export function MatrizCoding({
 
             <th
               scope="col"
-              className="px-3 py-2 text-right text-[10px] font-normal uppercase tracking-[0.14em] text-white/40"
+              className="px-2 py-2 text-right text-[10px] font-normal uppercase tracking-[0.14em] text-white/40"
             >
               Total
             </th>
@@ -150,7 +158,7 @@ export function MatrizCoding({
                   const activa = sujeto === fila.id && categoria === columna.id;
 
                   return (
-                    <td key={columna.id || "sin"} className="px-1 py-1 text-center">
+                    <td key={columna.id || "sin"} className="px-0.5 py-1 text-center">
                       {n > 0 ? (
                         <button
                           type="button"
@@ -161,7 +169,7 @@ export function MatrizCoding({
                           }
                           aria-pressed={activa}
                           aria-label={`${fila.nombre} · ${columna.nombre}: ${n} ${n === 1 ? "clip" : "clips"}`}
-                          className={`h-8 w-full min-w-[44px] rounded-md font-mono text-[12px] font-semibold tabular-nums text-white transition hover:brightness-125 ${
+                          className={`h-8 w-full min-w-[36px] rounded-md font-mono text-[12px] font-semibold tabular-nums text-white transition hover:brightness-125 ${
                             activa ? "ring-2 ring-[#C8A96B]" : ""
                           }`}
                           style={{
@@ -184,7 +192,7 @@ export function MatrizCoding({
                   );
                 })}
 
-                <td className="px-3 py-1 text-right font-mono tabular-nums text-white/60">
+                <td className="px-2 py-1 text-right font-mono tabular-nums text-white/60">
                   {fila.total}
                 </td>
               </tr>
@@ -192,6 +200,7 @@ export function MatrizCoding({
           })}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }
