@@ -413,11 +413,13 @@ export function construyeCruce(entrada: EntradaCruce): FilaCruce[] {
     const desatencion =
       (maxMinutos ? 1 - bruto.minutosTemporada / maxMinutos : 1) * fiabilidad;
 
+    /* Cada parte redondeada y luego sumadas (21/10/2026): así la cifra es la
+       misma en las tarjetas, en la tabla y en el informe, y cuadra con los
+       tres números que enseña la tabla (ver `partesUrgencia`). */
     const urgencia = aspecto.reconocimiento
-      ? 100 *
-        (PESOS.dano * dano +
-          PESOS.deficit * deficit +
-          PESOS.desatencion * desatencion)
+      ? Math.round(100 * PESOS.dano * dano) +
+        Math.round(100 * PESOS.deficit * deficit) +
+        Math.round(100 * PESOS.desatencion * desatencion)
       : null;
 
     return {

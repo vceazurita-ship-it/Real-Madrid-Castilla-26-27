@@ -99,7 +99,7 @@ function comprueba(nombre, { events, partidos }) {
        la cifra es la urgencia real y la tabla dice «suma → cifra». */
     const esperado = fila.subidaPorGoles ? Math.round(fila.urgencia) : suma;
 
-    if (partes.urgencia !== esperado || Math.abs(fila.urgencia - suma) > 1.5 && !fila.subidaPorGoles) {
+    if (partes.urgencia !== esperado || (!fila.subidaPorGoles && fila.urgencia !== suma)) {
       malas++;
       console.error(
         `  NO CUADRA ${nombre} · ${fila.aspecto.label} ${fila.lado}: ${partes.dano}+${partes.deficit}+${partes.desatencion}=${suma}, cifra ${partes.urgencia}, urgencia ${fila.urgencia.toFixed(2)}`,
