@@ -81,6 +81,23 @@ export function conVentana(plan: MicroPlan, sabidos: DiaSabido[]): MicroPlan {
     cambia = true;
   }
 
+  /*
+  | Las letras que NO son de este microciclo (uno de miércoles a domingo no
+  | tiene lunes ni martes) no son días de entrenamiento suyos: vacías y sin
+  | tocar, cuentan como libres. Si no, seguían naciendo «entreno» y el
+  | objetivo de minutos se calculaba con seis días en vez de con cuatro.
+  */
+  const suyas = new Set(sabidos.map((sabido) => sabido.clave));
+
+  for (const clave of Object.keys(dias) as DiaKey[]) {
+    const actual = dias[clave];
+
+    if (suyas.has(clave) || actual.md.trim() || actual.trabajos.length || actual.tipo !== "entreno") continue;
+
+    dias[clave] = { ...actual, tipo: "descanso" };
+    cambia = true;
+  }
+
   return cambia ? { ...plan, dias } : plan;
 }
 
