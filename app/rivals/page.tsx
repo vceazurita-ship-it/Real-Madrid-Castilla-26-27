@@ -34,7 +34,7 @@ import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import { useRivalOnce } from "@/hooks/useRivalOnce";
 import type { AlineacionJugador } from "@/lib/rivals/alineacion-ppt";
-import { findStats, findTeam, highlightSeason } from "@/lib/rivals/stats";
+import { findStats, findTeam, highlightSeason, type RivalSeasonStats } from "@/lib/rivals/stats";
 import EscudoEquipo from "@/components/rivals/EscudoEquipo";
 import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import { EligeVideoDeLista } from "@/components/rivals/EligeVideoDeLista";
@@ -3017,6 +3017,10 @@ export default function RivalPlayersPage() {
     [players, perfilesRival, selectedTeam],
   );
 
+  /* La temporada en curso de cada uno, para el listado. */
+  const temporadaDe = (player: RivalPlayer) =>
+    statsDoc ? highlightSeason(findStats(statsDoc, player)?.temporadas ?? [], statsDoc.temporada) : null;
+
   /* El jugador abierto, en Wyscout: sólo si es del equipo cuyos perfiles hay. */
   const perfilDelEditado =
     editForm && !isCreating ? (perfilesPorFicha.get(idDeJugador(editForm)) ?? null) : null;
@@ -4101,6 +4105,7 @@ export default function RivalPlayersPage() {
                                       onceEstado={onceDe(player)}
                                       onCiclarOnce={ciclarOnceDe(player)}
                                       onEtiquetas={abrirEtiquetasDe(player)}
+                                      temporada={temporadaDe(player)}
                                       onClick={() => openPlayer(player)}
                                     />
                                   ))}
@@ -4133,6 +4138,7 @@ export default function RivalPlayersPage() {
                               onceEstado={onceDe(player)}
                               onCiclarOnce={ciclarOnceDe(player)}
                               onEtiquetas={abrirEtiquetasDe(player)}
+                              temporada={temporadaDe(player)}
                               onClick={() => openPlayer(player)}
                             />
                           ))}
@@ -5699,6 +5705,7 @@ function PlayerRow({
   onceEstado = null,
   onCiclarOnce,
   onEtiquetas,
+  temporada = null,
   onClick,
 }: {
   player: RivalPlayer;
@@ -5708,6 +5715,8 @@ function PlayerRow({
   onCiclarOnce?: () => void;
   /** Abre el pop-up de etiquetas. Sin fila en la hoja no hay dónde escribir. */
   onEtiquetas?: () => void;
+  /** Su temporada en curso en BeSoccer: quién juega se ve sin abrir la ficha. */
+  temporada?: RivalSeasonStats | null;
   onClick: () => void;
 }) {
   const { tags } = parseTags(player.IMPACTO);
@@ -5814,6 +5823,19 @@ function PlayerRow({
         {showTeam && (
           <p className="mt-1 min-w-0 truncate text-[10px] text-white/30">
             {player.NOMBRE_EQUIPO}
+          </p>
+        )}
+
+        {/* CUÁNTO JUEGA — los minutos de esta temporada (21/10/2026). La
+            plantilla de un rival son 25 nombres y lo primero que se busca es
+            quién juega de verdad: con esto se ve sin abrir ninguna ficha. */}
+        {temporada && (
+          <p
+            className="mt-1 min-w-0 truncate text-[10px] tabular-nums text-white/45"
+            title={`${temporada.temporada}: ${temporada.partidos} partidos, ${temporada.titular} de titular, ${temporada.minutos} minutos (BeSoccer)`}
+          >
+            <span className="font-semibold text-white/70">{temporada.minutos.toLocaleString("es-ES")}′</span>
+            {temporada.partidos > 0 && ` · ${temporada.titular} de ${temporada.partidos} de titular`}
           </p>
         )}
 
