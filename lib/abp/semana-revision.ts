@@ -550,6 +550,10 @@ export function porqueDe(notas: string | undefined, explicativos: boolean) {
     .map((linea) => linea.trim().slice(MARCA_BOCETO.length).trim())
     .filter((linea) => explicativos || !/urgencia \d+\/100|de su familia/.test(linea))
     .join(" ")
+    /* Las notas guardadas antes del 21/10/2026 llevan «· ≈1 gol(es) de
+       falta», que es una estimación y no se dice en voz alta: fuera. */
+    .replace(/\s*·\s*≈[^·]*/g, "")
+    .replace(/(\d+) gol\(es\)/g, (_, n: string) => (n === "1" ? "un gol" : `${n} goles`))
     /* «vídeo del Algeciras…», «ensayo del día antes…»: con mayúscula. */
     .replace(/^./, (letra) => letra.toUpperCase());
 

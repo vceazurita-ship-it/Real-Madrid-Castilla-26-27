@@ -71,13 +71,24 @@ function confianza(acciones: number) {
  * porque son un criterio del cuerpo técnico y se van a querer discutir.
  */
 export const PESOS = {
-  /** Cuánto ocurre en competición. */
-  volumen: 0.4,
-  /** Cómo de mal nos va cuando ocurre. */
-  deficit: 0.35,
+  /**
+   * Lo que hace daño (21/10/2026): acciones con peligro y goles, no el número
+   * de acciones. Antes pesaba el volumen puro (40 %) y las cinco primeras eran
+   * saques de banda —149 acciones, 5 % de peligro— mientras el córner
+   * defensivo, con 18 remates y 2 goles en contra, quedaba en el 38.
+   */
+  dano: 0.5,
+  /** Cómo de mal nos va cuando ocurre, frente a su propia familia. */
+  deficit: 0.3,
   /** Cuán poco se ha trabajado esta temporada. */
-  desatencion: 0.25,
+  desatencion: 0.2,
 };
+
+/**
+ * Un aspecto con goles en contra nunca baja de aquí ni del tercer puesto: un
+ * gol encajado a balón parado es lo que le cuesta puntos al equipo.
+ */
+export const SUELO_GOL_EN_CONTRA = 65;
 
 export type FilaCruce = {
   aspecto: Aspecto;
@@ -99,7 +110,9 @@ export type FilaCruce = {
   pctAcciones: number;
   /** `null` cuando ninguna hoja registra la acción. */
   urgencia: number | null;
-  ingredientes: { volumen: number; deficit: number; desatencion: number };
+  ingredientes: { dano: number; deficit: number; desatencion: number };
+  /** Subida por goles en contra (ver `SUELO_GOL_EN_CONTRA`). */
+  subidaPorGoles: boolean;
   transferencia: Transferencia | null;
 };
 
@@ -332,9 +345,11 @@ export function construyeCruce(entrada: EntradaCruce): FilaCruce[] {
 
   const conDato = brutos.filter((bruto) => bruto.aspecto.reconocimiento);
 
-  const maxAcciones = Math.max(
-    1,
-    ...conDato.map((bruto) => bruto.stats.acciones),
+  const maxDano = Math.max(
+    1e-9,
+    ...conDato.map((bruto) =>
+      danoDe(bruto.lado, bruto.stats, bruto.peligroAjustado, referenciaDe(bruto.aspecto, bruto.lado) * 100),
+    ),
   );
 
   const maxMinutos = Math.max(
@@ -354,10 +369,12 @@ export function construyeCruce(entrada: EntradaCruce): FilaCruce[] {
 
   /* --- Segunda pasada: urgencia y transferencia --- */
 
-  return brutos.map((bruto) => {
+  const filas: FilaCruce[] = brutos.map((bruto) => {
     const { aspecto, lado, stats } = bruto;
 
-    const volumen = stats.acciones / maxAcciones;
+    const dano =
+      danoDe(lado, stats, bruto.peligroAjustado, referenciaDe(aspecto, lado) * 100) /
+      maxDano;
 
     /* Todo lo que no sea volumen puro se pondera por la muestra: un aspecto
        del que no sabemos nada no puede arrastrar la urgencia hacia arriba. */
@@ -393,7 +410,7 @@ export function construyeCruce(entrada: EntradaCruce): FilaCruce[] {
 
     const urgencia = aspecto.reconocimiento
       ? 100 *
-        (PESOS.volumen * volumen +
+        (PESOS.dano * dano +
           PESOS.deficit * deficit +
           PESOS.desatencion * desatencion)
       : null;
@@ -411,7 +428,8 @@ export function construyeCruce(entrada: EntradaCruce): FilaCruce[] {
         : 0,
       pctAcciones: totalAcciones ? (stats.acciones / totalAcciones) * 100 : 0,
       urgencia,
-      ingredientes: { volumen, deficit, desatencion },
+      ingredientes: { dano, deficit, desatencion },
+      subidaPorGoles: false,
       transferencia: calculaTransferencia(
         events,
         aspecto,
@@ -421,6 +439,56 @@ export function construyeCruce(entrada: EntradaCruce): FilaCruce[] {
       ),
     };
   });
+
+  /*
+  | Gol en contra: nunca por debajo de «Alta» ni fuera de los tres primeros.
+  | Se sube hasta la tercera urgencia (o el suelo, la mayor de las dos), así el
+  | número sigue ordenado con su puesto y la etiqueta dice lo mismo.
+  */
+  const tercera =
+    filas
+      .map((fila) => fila.urgencia)
+      .filter((valor): valor is number => valor !== null)
+      .sort((a, b) => b - a)[2] ?? 0;
+
+  return filas.map((fila) => {
+    if (fila.urgencia === null || fila.lado !== "defensivo" || fila.stats.goles <= 0) return fila;
+
+    const suelo = Math.max(SUELO_GOL_EN_CONTRA, tercera);
+
+    return fila.urgencia >= suelo ? fila : { ...fila, urgencia: suelo, subidaPorGoles: true };
+  });
+}
+
+/**
+ * Lo que hace daño en un aspecto, en «acciones con peligro».
+ *
+ * - **Defendiendo**: el peligro que nos han hecho, y cada gol cuenta dos veces
+ *   más (un gol también es peligro, y es el que cuesta puntos).
+ * - **Atacando**: el peligro que nos falta para rendir como su familia, por
+ *   las veces que ocurre, más los goles que ya no hacemos de más. Un aspecto
+ *   que ya rinde no tiene nada en juego por mucho que se repita.
+ */
+function danoDe(lado: AbpLado, stats: AspectoStats, peligroAjustado: number, referencia: number) {
+  if (lado === "defensivo") return stats.peligro + 2 * stats.goles;
+
+  return (stats.acciones * Math.max(0, referencia - peligroAjustado)) / 100;
+}
+
+/** La urgencia dicha en una línea, para el título de la cifra. */
+export function formulaUrgencia(fila: FilaCruce) {
+  const pct = (valor: number) => `${Math.round(valor * 100)}`;
+  const partes = [
+    `Daño ${pct(fila.ingredientes.dano)} × ${PESOS.dano * 100} %`,
+    `peor que los suyos ${pct(fila.ingredientes.deficit)} × ${PESOS.deficit * 100} %`,
+    `poco trabajado ${pct(fila.ingredientes.desatencion)} × ${PESOS.desatencion * 100} %`,
+  ];
+
+  const base = `Urgencia = ${partes.join(" + ")} (cada parte de 0 a 100).`;
+
+  return fila.subidaPorGoles
+    ? `${base} Sube a ${Math.round(fila.urgencia ?? 0)} porque nos han marcado ${fila.stats.goles === 1 ? "un gol" : `${fila.stats.goles} goles`} así.`
+    : base;
 }
 
 /** Aspectos con datos, de más urgente a menos. */
