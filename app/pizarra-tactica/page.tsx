@@ -32,7 +32,7 @@ import {
   DIBUJO_DE_PARTIDA,
 } from "@/lib/tactics/dosOnces";
 import { emptyDoc, normalizeDoc, tacticId } from "@/lib/tactics/helpers";
-import { oncesDeLaSemana, semanaActual } from "@/lib/tactics/oncesSemana";
+import { escenasSinNumeroRepetido, oncesDeLaSemana, semanaActual } from "@/lib/tactics/oncesSemana";
 import type { RivalSquad } from "@/lib/tactics/rivals";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
@@ -749,6 +749,19 @@ function BoardEditor({
       vivo = false;
     };
   }, []);
+
+  /* El tablero de los onces guardado con dos «6»: se arregla una vez al abrirlo (21/10/2026). */
+  const numerosMirados = useRef(false);
+
+  useEffect(() => {
+    if (!deLaSemana || numerosMirados.current || status === "loading") return;
+
+    numerosMirados.current = true;
+
+    const arregladas = escenasSinNumeroRepetido(doc.scenes);
+
+    if (arregladas) setValue({ ...doc, scenes: arregladas });
+  }, [deLaSemana, doc, setValue, status]);
 
   useEffect(() => {
     if (!deLaSemana || semanaMirada.current || status === "loading" || localOnly || roster.length === 0) return;

@@ -273,7 +273,7 @@ export async function oncesDeLaSemana(plantilla: Player[]): Promise<OncesSemana 
 | mismo número, el que no está en su hueco natural se queda con el del hueco
 | (el doble pivote, 6 y 8) o, si ya está cogido, con el más bajo libre.
 */
-function sinNumeroRepetido(tokens: TacticToken[]): TacticToken[] {
+export function sinNumeroRepetido(tokens: TacticToken[]): TacticToken[] {
   const delHueco = numerosDelOnce(DIBUJO_DE_PARTIDA);
   const huecoDe = (token: TacticToken) => delHueco[token.id];
 
@@ -314,4 +314,34 @@ function sinNumeroRepetido(tokens: TacticToken[]): TacticToken[] {
 
     return { ...token, label: numero };
   });
+}
+
+/**
+ * Las escenas de un tablero ya guardado, sin números repetidos en ningún
+ * equipo. Devuelve `null` si no había nada que arreglar: el tablero de los
+ * onces que se rellenó antes del 21/10/2026 sigue con sus dos «6» hasta que
+ * cambie la semana, y así se arregla al abrirlo.
+ */
+export function escenasSinNumeroRepetido<E extends { tokens: TacticToken[] }>(escenas: E[]): E[] | null {
+  let cambio = false;
+
+  const salida = escenas.map((escena) => {
+    const nuevos = new Map<string, string>();
+
+    for (const kind of ["home", "away"] as const) {
+      const equipo = escena.tokens.filter((token) => token.kind === kind);
+
+      for (const token of sinNumeroRepetido(equipo)) {
+        if (token.label !== equipo.find((t) => t.id === token.id)?.label) nuevos.set(token.id, token.label);
+      }
+    }
+
+    if (nuevos.size === 0) return escena;
+
+    cambio = true;
+
+    return { ...escena, tokens: escena.tokens.map((token) => (nuevos.has(token.id) ? { ...token, label: nuevos.get(token.id)! } : token)) };
+  });
+
+  return cambio ? salida : null;
 }

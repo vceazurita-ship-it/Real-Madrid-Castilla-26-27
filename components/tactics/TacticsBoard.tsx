@@ -102,6 +102,7 @@ import {
   LAMINA_W,
   cargaEscudo,
   lienzoLamina,
+  PALETA_LAMINA,
   pintaLamina,
   pintaLaminaVertical,
   pintaPortada,
@@ -1747,6 +1748,7 @@ export default function TacticsBoard({
               alto: LAMINA_H,
               orientacion: "landscape" as const,
               margen: 0,
+              bandas: { arriba: PALETA_LAMINA.azul, abajo: pie ? PALETA_LAMINA.crema : PALETA_LAMINA.papel },
             }))
           );
 
@@ -3062,7 +3064,7 @@ function Segmentado<T extends string>({
   return (
     <div>
       <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">{etiqueta}</p>
-      <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/[0.05] p-0.5">
+      <div className={cn("grid gap-1 rounded-xl bg-white/[0.05] p-0.5", opciones.length === 3 ? "grid-cols-3" : "grid-cols-2")}>
         {opciones.map(([id, texto]) => (
           <button
             key={id}
