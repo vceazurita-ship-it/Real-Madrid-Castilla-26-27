@@ -101,17 +101,92 @@ const CAMPO_DESDE = CABECERA_H - 26;
 /** Margen entre el filo de la cabecera y lo que va debajo. */
 const AIRE = 16;
 
-type Maqueta = { k: number; left: number; top: number; w: number; h: number };
+type Maqueta = {
+  k: number;
+  left: number;
+  top: number;
+  w: number;
+  h: number;
+  /** Esquina del campo (en coordenadas de la plantilla) que cae arriba a la izquierda. */
+  ox: number;
+  oy: number;
+};
 
-function maquetaDe(conPanel: boolean, conNotas: boolean): Maqueta {
+/** Lo que ocupa la jugada, en coordenadas de la plantilla. */
+type Caja = { x0: number; y0: number; x1: number; y1: number };
+
+/** Hasta dónde se acerca: más, y la foto del campo se ve borrosa. */
+const ACERCA_MAX = 1.4;
+
+function maquetaDe(conPanel: boolean, conNotas: boolean, jugada?: Caja | null): Maqueta {
   const arriba = CABECERA_H + 5 + AIRE;
   const abajo = TABLERO_H - (conNotas ? FRANJA_NOTAS + AIRE / 2 : AIRE);
   const izquierda = AIRE;
   const derecha = TABLERO_W - (conPanel ? COLUMNA_PANEL : AIRE);
 
   const altoFuente = TABLERO_H - CAMPO_DESDE;
+  const anchoCaja = derecha - izquierda;
+  const altoCaja = abajo - arriba;
 
-  const k = Math.min(1, (derecha - izquierda) / TABLERO_W, (abajo - arriba) / altoFuente);
+  /*
+  | Al editar se ve el campo entero: hay que poder poner a alguien en
+  | cualquier sitio. Al enseñar (proyector y exportación) el marco se acerca a
+  | lo que hay dibujado —caras, flechas, rivales y puestos de la plantilla—,
+  | con aire alrededor y sin salirse de la foto: la jugada ocupa la sala, no
+  | el graderío.
+  */
+  if (jugada) {
+    const aire = 70;
+
+    let x0 = Math.max(0, jugada.x0 - aire);
+    let x1 = Math.min(TABLERO_W, jugada.x1 + aire);
+    let y0 = Math.max(CAMPO_DESDE, jugada.y0 - aire);
+    let y1 = Math.min(TABLERO_H, jugada.y1 + aire);
+
+    /* La misma proporción que el hueco, creciendo hacia los dos lados. */
+    const proporcion = anchoCaja / altoCaja;
+
+    if ((x1 - x0) / (y1 - y0) < proporcion) {
+      const falta = (y1 - y0) * proporcion - (x1 - x0);
+
+      x0 -= falta / 2;
+      x1 += falta / 2;
+    } else {
+      const falta = (x1 - x0) / proporcion - (y1 - y0);
+
+      y0 -= falta / 2;
+      y1 += falta / 2;
+    }
+
+    let k = Math.min(ACERCA_MAX, anchoCaja / (x1 - x0));
+
+    /* Sin acercar más de la cuenta, el recorte vuelve a crecer. */
+    const anchoVisto = Math.min(TABLERO_W, anchoCaja / k);
+    const altoVisto = Math.min(altoFuente, altoCaja / k);
+
+    k = Math.min(anchoCaja / anchoVisto, altoCaja / altoVisto);
+
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+
+    const ox = Math.max(0, Math.min(TABLERO_W - anchoVisto, cx - anchoVisto / 2));
+    const oy = Math.max(CAMPO_DESDE, Math.min(TABLERO_H - altoVisto, cy - altoVisto / 2));
+
+    const w = anchoVisto * k;
+    const h = altoVisto * k;
+
+    return {
+      k,
+      w,
+      h,
+      ox,
+      oy,
+      left: izquierda + (anchoCaja - w) / 2,
+      top: arriba + (altoCaja - h) / 2,
+    };
+  }
+
+  const k = Math.min(1, anchoCaja / TABLERO_W, altoCaja / altoFuente);
 
   const w = TABLERO_W * k;
   const h = altoFuente * k;
@@ -120,9 +195,43 @@ function maquetaDe(conPanel: boolean, conNotas: boolean): Maqueta {
     k,
     w,
     h,
-    left: izquierda + (derecha - izquierda - w) / 2,
-    top: arriba + (abajo - arriba - h) / 2,
+    ox: 0,
+    oy: CAMPO_DESDE,
+    left: izquierda + (anchoCaja - w) / 2,
+    top: arriba + (altoCaja - h) / 2,
   };
+}
+
+/** Lo que ocupa la jugada: caras, rivales, flechas y puestos con sitio. */
+function cajaDeJugada(slide: SlidePizarra): Caja | null {
+  const xs: number[] = [];
+  const ys: number[] = [];
+
+  for (const ficha of slide.fichas.filter(enElCampo)) {
+    xs.push(ficha.x - FOTO_W / 2, ficha.x + FOTO_W / 2);
+    ys.push(ficha.y - FOTO_H - 34, ficha.y + 12);
+  }
+
+  for (const rival of slide.rivales ?? []) {
+    xs.push(rival.x - 30, rival.x + 30);
+    ys.push(rival.y - 60, rival.y + 8);
+  }
+
+  for (const trazo of slide.trazos ?? []) {
+    xs.push(trazo.x1, trazo.x2, ...(trazo.cx != null ? [trazo.cx] : []));
+    ys.push(trazo.y1, trazo.y2, ...(trazo.cy != null ? [trazo.cy] : []));
+  }
+
+  for (const puesto of puestosDe(slide)) {
+    if (puesto.x == null || puesto.y == null) continue;
+
+    xs.push(puesto.x - FOTO_W / 2, puesto.x + FOTO_W / 2);
+    ys.push(puesto.y - FOTO_H, puesto.y + 12);
+  }
+
+  if (xs.length === 0) return null;
+
+  return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
 }
 
 /*
@@ -181,6 +290,39 @@ function separaFichas(fichas: FichaPizarra[]) {
         compactas.add(pos[j].id);
       }
     }
+  }
+
+  /*
+  | Las compactas son más estrechas (un disco de 54 px): entre ellas basta con
+  | 64 px, y se les deja abrirse un poco más, que ya no tapan ninguna foto.
+  */
+  const discos = pos.filter((p) => compactas.has(p.id));
+
+  for (let vuelta = 0; vuelta < 24; vuelta += 1) {
+    let movido = false;
+
+    for (let i = 0; i < discos.length; i += 1) {
+      for (let j = i + 1; j < discos.length; j += 1) {
+        const a = discos[i];
+        const b = discos[j];
+        const dx = b.x - a.x;
+
+        if (Math.abs(b.y - a.y) >= SEPARA_Y || Math.abs(dx) >= 63) continue;
+
+        const sentido = dx === 0 ? (a.x0 <= b.x0 ? 1 : -1) : Math.sign(dx);
+        const empuje = (64 - Math.abs(dx)) / 2;
+
+        const ax = Math.max(a.x0 - 48, Math.min(a.x0 + 48, a.x - sentido * empuje));
+        const bx = Math.max(b.x0 - 48, Math.min(b.x0 + 48, b.x + sentido * empuje));
+
+        if (ax !== a.x || bx !== b.x) movido = true;
+
+        a.x = ax;
+        b.x = bx;
+      }
+    }
+
+    if (!movido) break;
   }
 
   return new Map(pos.map((p) => [p.id, { x: Math.round(p.x), compacta: compactas.has(p.id) }]));
@@ -1060,7 +1202,7 @@ export function TableroSlide({
       const cx = (clientX - caja.left) / kk;
       const cy = (clientY - caja.top) / kk;
 
-      return { x: (cx - m.left) / m.k, y: (cy - m.top) / m.k + CAMPO_DESDE };
+      return { x: (cx - m.left) / m.k + m.ox, y: (cy - m.top) / m.k + m.oy };
     },
     [conPanel, conNotas],
   );
@@ -1266,7 +1408,7 @@ export function TableroSlide({
   }, [onMover, onCambiarTrazo, onCrearTrazo, onMoverRival, alLienzo, setBorrador]);
 
   const puestos = puestosDe(slide);
-  const maqueta = maquetaDe(conPanel, conNotas);
+  const maqueta = maquetaDe(conPanel, conNotas, soloVer ? cajaDeJugada(slide) : null);
 
   const todos = slide.trazos ?? [];
 
@@ -1388,7 +1530,7 @@ export function TableroSlide({
           style={{
             width: TABLERO_W,
             height: TABLERO_H,
-            transform: `scale(${maqueta.k}) translateY(${-CAMPO_DESDE}px)`,
+            transform: `scale(${maqueta.k}) translate(${-maqueta.ox}px, ${-maqueta.oy}px)`,
             transformOrigin: "top left",
           }}
         >

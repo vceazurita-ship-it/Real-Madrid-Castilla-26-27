@@ -2029,11 +2029,32 @@ export function normalizaConsigna(texto: string) {
   const letras = limpio.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
   const mayusculas = letras.replace(/[^A-ZÁÉÍÓÚÜÑ]/g, "").length;
 
-  if (letras.length < 4 || mayusculas / letras.length < 0.8) return limpio;
+  if (letras.length < 4) return limpio;
 
-  const bajada = limpio.toLocaleLowerCase("es-ES");
+  if (mayusculas / letras.length >= 0.8) {
+    const bajada = limpio.toLocaleLowerCase("es-ES");
 
-  return bajada.charAt(0).toLocaleUpperCase("es-ES") + bajada.slice(1);
+    return bajada.charAt(0).toLocaleUpperCase("es-ES") + bajada.slice(1);
+  }
+
+  /*
+  | Una línea a medio escribir en mayúsculas («PORTERO LIDERA LA atención…»):
+  | se bajan las palabras en mayúsculas del arranque, que son las que se
+  | quedaron con el bloqueo puesto.
+  */
+  const palabras = limpio.split(" ");
+  let i = 0;
+
+  while (i < palabras.length && /^[A-ZÁÉÍÓÚÜÑ]{2,}[.,;:]?$/.test(palabras[i])) {
+    palabras[i] = palabras[i].toLocaleLowerCase("es-ES");
+    i += 1;
+  }
+
+  if (i < 2) return limpio;
+
+  const junta = palabras.join(" ");
+
+  return junta.charAt(0).toLocaleUpperCase("es-ES") + junta.slice(1);
 }
 
 export type LineaConsigna = { tipo: "subtitulo" | "consigna"; texto: string };
