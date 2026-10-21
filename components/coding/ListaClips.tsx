@@ -260,6 +260,21 @@ export function ListaClips({
       <span className="text-[11px] text-white/20">—</span>
     );
 
+  /* Los descriptores y etiquetas: antes sólo se veían abriendo la ficha. */
+  const chapaTags = (clip: ClipCoding) =>
+    clip.tags.length > 0 && (
+      <span className="inline-flex min-w-0 flex-wrap gap-1">
+        {clip.tags.map((tag) => (
+          <span
+            key={tag}
+            className="rounded-full border border-white/10 px-1.5 text-[10px] text-white/55"
+          >
+            {tag}
+          </span>
+        ))}
+      </span>
+    );
+
   const chapaPizarras = (pizarras: number) =>
     pizarras > 0 && (
       <span
@@ -317,6 +332,8 @@ export function ListaClips({
                 </span>
 
                 {chapaCategoria(fila.categoria)}
+
+                {chapaTags(fila.clip)}
 
                 {videoDe && (
                   <span
@@ -479,7 +496,12 @@ export function ListaClips({
 
                   <td className="max-w-[190px] px-2 py-1.5">{quien(clip)}</td>
 
-                  <td className="px-2 py-1.5">{chapaCategoria(fila.categoria)}</td>
+                  <td className="px-2 py-1.5">
+                    <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      {chapaCategoria(fila.categoria)}
+                      {chapaTags(fila.clip)}
+                    </span>
+                  </td>
 
                   <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-white/50">
                     {formateaMs(clip.codingInicioMs)}
