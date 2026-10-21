@@ -392,7 +392,7 @@ function FilaTarea({
         />
 
         <Field
-          label="Cog. (1-10)"
+          label="Cog."
           type="number"
           value={tarea.exigCog ? String(tarea.exigCog) : ""}
           onChange={(v) => onCambia({ exigCog: Math.min(10, numero(v)) })}
@@ -2077,7 +2077,7 @@ export default function EditorMicrocicloPage() {
                   const corta =
                     sesion.tareas.length > 0 && suyos > 0 && suyos < MINUTOS_HABITUALES.minimo;
 
-                  const larga = suyos > MINUTOS_HABITUALES.maximo;
+                  const larga = suyos > MINUTOS_HABITUALES.maximo && !/^MD$/i.test(sesion.md.trim()); /* El partido son 90′: no es una sesión «larga». */
 
                   /* Las que se escriben: los cuatro huecos vacíos de cada día no son tareas. */
                   const escritas = tareasQueSeEscriben(sesion).length;
