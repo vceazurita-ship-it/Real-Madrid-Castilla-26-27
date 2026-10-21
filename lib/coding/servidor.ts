@@ -420,15 +420,35 @@ function rejillaDeCaudal(topeMegas: number, segundos: number): string[] {
 /*  EL RÓTULO DE CADA CORTE                                            */
 /* ------------------------------------------------------------------ */
 
-/** Lo mismo que `RotuloClip` del navegador (`lib/coding/rotulo.ts`). */
-export type RotuloServidor = { titulo: string; detalle: string; color: string };
+/**
+ * Lo mismo que `RotuloClip` del navegador (`lib/coding/rotulo.ts`), más el
+ * rótulo ya pintado por él (`imagenDeRotulo`): un PNG de la caja a 1080 de
+ * alto, en `data:` URL.
+ */
+export type RotuloServidor = {
+  titulo: string;
+  detalle: string;
+  color: string;
+  imagen?: string;
+};
 
-/** El filtro ya escrito y la carpeta desde la que ffmpeg lo tiene que leer. */
-export type RotuloListo = { filtro: string; carpeta: string };
+/**
+ * El rótulo listo para ffmpeg.
+ *
+ * Con `imagen` es el PNG del navegador, que se pone encima con `overlay`;
+ * sin ella, el respaldo con `drawtext` en `filtro`.
+ */
+export type RotuloListo = {
+  carpeta: string;
+  filtro?: string;
+  imagen?: string;
+};
 
-/** Los mismos 3,5 s y el mismo fundido que el rótulo del navegador. */
+/** Los mismos tiempos que el rótulo del navegador. */
 const ROTULO_S = 3.5;
-const FUNDIDO_S = 0.28;
+const ENTRADA_S = 0.25;
+const SALIDA_S = 0.2;
+const DESLIZA_U = 3;
 
 const LETRA_ROTULO = path.join(
   process.cwd(),
@@ -437,28 +457,56 @@ const LETRA_ROTULO = path.join(
   "BarlowCondensed-Bold.ttf",
 );
 
+/** Igual que `baseDeRotulo` del navegador: en vertical manda el ancho. */
+const baseDeRotulo = (ancho: number, alto: number) => Math.min(alto, ancho * 1.25);
+
 /**
- * Prepara el rótulo para `drawtext`, con las medidas del de la pantalla.
+ * Prepara el rótulo del corte.
  *
- * El texto va en un fichero (`textfile`) y no dentro del filtro: un nombre con
- * dos puntos, una comilla o un «%» rompía la sintaxis de ffmpeg, y escaparlo
- * a mano es justo el tipo de cosa que falla con el apellido que no se probó.
- * La letra se copia a la carpeta de trabajo y ffmpeg corre desde ahí, así que
- * el filtro sólo nombra ficheros sueltos: sin rutas de Windows con «C:» y
- * espacios que también habría que escapar.
+ * Lo normal es que llegue **pintado**: el navegador dibuja la caja una vez con
+ * la misma función que usan sus dos motores, y aquí sólo se escribe a disco y
+ * se pone encima. Así el rótulo de ffmpeg es el mismo —una sola pieza, el
+ * escudo, el filete oro— y no un parecido.
  *
- * Devuelve `null` si falta la letra: el corte sale igual, sin rótulo.
+ * Si no llega la imagen (una petición vieja, o más cortes de los que caben en
+ * la petición), queda el respaldo con `drawtext`: **un solo fondo** del ancho
+ * calculado sobre la letra, el filete y las dos líneas. El texto va en un
+ * fichero (`textfile`) y no dentro del filtro: un nombre con dos puntos, una
+ * comilla o un «%» rompía la sintaxis de ffmpeg.
+ *
+ * Devuelve `null` si no hay ni imagen ni letra: el corte sale igual, sin
+ * rótulo.
  */
 export async function preparaRotulo(opciones: {
   rotulo: RotuloServidor;
   carpeta: string;
   prefijo: string;
+  ancho: number;
   alto: number;
 }): Promise<RotuloListo | null> {
   const titulo = String(opciones.rotulo?.titulo ?? "").trim().toUpperCase();
   const detalle = String(opciones.rotulo?.detalle ?? "").trim();
 
-  if (!titulo || !existsSync(LETRA_ROTULO)) return null;
+  if (!titulo) return null;
+
+  if (
+    typeof opciones.rotulo.imagen === "string" &&
+    opciones.rotulo.imagen.startsWith("data:image/png")
+  ) {
+    try {
+      const fichero = await guardaImagen({
+        fuente: opciones.rotulo.imagen,
+        carpeta: opciones.carpeta,
+        nombre: opciones.prefijo,
+      });
+
+      return { carpeta: opciones.carpeta, imagen: path.basename(fichero) };
+    } catch (error) {
+      console.warn("[coding] el rótulo pintado no se ha podido leer", error);
+    }
+  }
+
+  if (!existsSync(LETRA_ROTULO)) return null;
 
   const letra = path.join(opciones.carpeta, "rotulo.ttf");
 
@@ -478,39 +526,173 @@ export async function preparaRotulo(opciones: {
     );
   }
 
-  const color = /^#[0-9a-f]{6}$/i.test(opciones.rotulo.color)
-    ? `0x${opciones.rotulo.color.slice(1)}`
-    : "0xC8A96B";
-
-  const u = opciones.alto / 100;
+  const u = baseDeRotulo(opciones.ancho, opciones.alto) / 100;
   const margen = Math.round(4.2 * u);
-  const raya = Math.max(3, Math.round(0.7 * u));
+  const filete = Math.max(3, Math.round(0.8 * u));
   const relleno = Math.round(1.6 * u);
-  const altoTitulo = Math.round(5.2 * u);
-  const altoDetalle = Math.round(2.9 * u);
+  const altoTitulo = Math.round(5.4 * u);
+  const altoDetalle = Math.round(3.4 * u);
 
   const altoCaja = Math.round(
-    relleno * 2 + altoTitulo + (detalle ? altoDetalle + 0.6 * u : 0),
+    relleno * 2 + altoTitulo + (detalle ? altoDetalle + 0.5 * u : 0),
   );
 
+  /*
+  | El ancho de la caja, medido sobre la letra: la Barlow Condensed avanza
+  | ~0,46 em en mayúsculas negritas y ~0,40 em en el detalle. Es el respaldo:
+  | si se queda corto o largo por unos píxeles, sigue siendo una sola pieza.
+  */
+  const anchoTexto = Math.max(
+    titulo.length * altoTitulo * 0.46,
+    detalle.length * altoDetalle * 0.4,
+  );
+  const anchoCaja = Math.round(filete + relleno * 2.4 + anchoTexto);
+
   const arriba = opciones.alto - margen - altoCaja;
-  const x = margen + raya + relleno;
+  const x = margen + filete + relleno;
 
   const cuando = `enable='lt(t,${ROTULO_S})'`;
-  const alfa = `alpha='if(lt(t,${FUNDIDO_S}),t/${FUNDIDO_S},if(gt(t,${ROTULO_S - FUNDIDO_S}),(${ROTULO_S}-t)/${FUNDIDO_S},1))'`;
+  const alfa = `alpha='if(lt(t,${ENTRADA_S}),t/${ENTRADA_S},if(gt(t,${ROTULO_S - SALIDA_S}),(${ROTULO_S}-t)/${SALIDA_S},1))'`;
 
   const partes = [
-    `drawbox=x=${margen}:y=${arriba}:w=${raya}:h=${altoCaja}:color=${color}:t=fill:${cuando}`,
-    `drawtext=fontfile=rotulo.ttf:textfile=${opciones.prefijo}-titulo.txt:expansion=none:fontsize=${altoTitulo}:fontcolor=white:x=${x}:y=${arriba + relleno}:box=1:boxcolor=0x0B0F14@0.82:boxborderw=${relleno}:${alfa}:${cuando}`,
+    `drawbox=x=${margen}:y=${arriba}:w=${anchoCaja}:h=${altoCaja}:color=0x0B0F14@0.86:t=fill:${cuando}`,
+    `drawbox=x=${margen}:y=${arriba}:w=${filete}:h=${altoCaja}:color=0xC8A96B:t=fill:${cuando}`,
+    `drawtext=fontfile=rotulo.ttf:textfile=${opciones.prefijo}-titulo.txt:expansion=none:fontsize=${altoTitulo}:fontcolor=white:x=${x}:y=${arriba + relleno}:${alfa}:${cuando}`,
   ];
 
   if (detalle) {
     partes.push(
-      `drawtext=fontfile=rotulo.ttf:textfile=${opciones.prefijo}-detalle.txt:expansion=none:fontsize=${altoDetalle}:fontcolor=0xC8A96B:x=${x}:y=${Math.round(arriba + relleno + altoTitulo + 0.4 * u)}:box=1:boxcolor=0x0B0F14@0.82:boxborderw=${Math.round(relleno * 0.6)}:${alfa}:${cuando}`,
+      `drawtext=fontfile=rotulo.ttf:textfile=${opciones.prefijo}-detalle.txt:expansion=none:fontsize=${altoDetalle}:fontcolor=0xE6D8B8:x=${x}:y=${Math.round(arriba + relleno + altoTitulo + 0.5 * u)}:${alfa}:${cuando}`,
     );
   }
 
-  return { filtro: partes.join(","), carpeta: opciones.carpeta };
+  return { carpeta: opciones.carpeta, filtro: partes.join(",") };
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA IMAGEN Y EL SONIDO DE CADA TROZO                                */
+/* ------------------------------------------------------------------ */
+
+/** La medida con la que sale el vídeo, y si es la vertical del móvil. */
+export type MedidaSalida = { ancho: number; alto: number; vertical?: boolean };
+
+/**
+ * La medida de salida a partir de la del partido y lo pedido en la barra.
+ *
+ * `medida` es la de la barra: `0` la del partido, un ancho para encoger y
+ * `-1` el vertical 1080 × 1920 (`lib/coding/vertical.ts`). Nunca se agranda:
+ * inventar píxeles no devuelve detalle.
+ */
+export function medidaDeSalida(
+  datos: { ancho: number; alto: number },
+  medida: number,
+): MedidaSalida {
+  if (medida === -1) return { ancho: 1080, alto: 1920, vertical: true };
+
+  if (medida > 0 && datos.ancho > medida) {
+    const alto = Math.round((datos.alto * medida) / datos.ancho);
+
+    return { ancho: medida - (medida % 2), alto: alto - (alto % 2) };
+  }
+
+  return { ancho: datos.ancho, alto: datos.alto };
+}
+
+/**
+ * El grafo de la imagen: la forma, el vertical, el fundido y el rótulo.
+ *
+ * Va en `-filter_complex` porque el rótulo pintado es una **segunda entrada**
+ * —la imagen, en bucle sus 3,5 s— que se pone encima con `overlay`, con la
+ * misma entrada deslizándose y la misma salida que en la pantalla.
+ *
+ * `indiceRotulo` es el número de esa entrada en la orden de ffmpeg: va
+ * detrás de las demás, así que lo dice quien la monta.
+ */
+function grafoDeImagen(opciones: {
+  /** `scale`, `pad`, `fps`… lo que deja el trozo con la forma de todos. */
+  forma?: string;
+  fundido?: string;
+  rotulo?: RotuloListo | null;
+  salida: MedidaSalida;
+  indiceRotulo: number;
+}): { entradas: string[]; argumentos: string[] } {
+  const { ancho, alto } = opciones.salida;
+  const pasos: string[] = [];
+
+  let actual = "0:v";
+
+  /*
+  | El vertical: detrás, el mismo fotograma ampliado, desenfocado y
+  | oscurecido; delante, el corte a todo el ancho y en el centro.
+  */
+  if (opciones.salida.vertical) {
+    pasos.push(
+      `[${actual}]split[va][vb]`,
+      `[va]scale=${ancho}:${alto}:force_original_aspect_ratio=increase,crop=${ancho}:${alto},boxblur=30:3,eq=brightness=-0.18[vf]`,
+      `[vb]scale=${ancho}:-2[vc]`,
+      `[vf][vc]overlay=(W-w)/2:(H-h)/2[v0]`,
+    );
+    actual = "v0";
+  }
+
+  /* El fundido va antes que el rótulo: el negro no se lo come. */
+  const cadena = [opciones.forma, opciones.fundido, opciones.rotulo?.filtro]
+    .filter(Boolean)
+    .join(",");
+
+  pasos.push(`[${actual}]${cadena || "null"}[v1]`);
+  actual = "v1";
+
+  const entradas: string[] = [];
+
+  if (opciones.rotulo?.imagen) {
+    const base = baseDeRotulo(ancho, alto);
+    const escala = (base / 1080).toFixed(4);
+    const margen = Math.round(0.042 * base);
+    const desliza = Math.round((DESLIZA_U / 100) * base);
+
+    entradas.push(
+      "-loop",
+      "1",
+      "-t",
+      String(ROTULO_S),
+      "-i",
+      opciones.rotulo.imagen,
+    );
+
+    pasos.push(
+      `[${opciones.indiceRotulo}:v]format=rgba,scale=iw*${escala}:-1,fade=t=in:st=0:d=${ENTRADA_S}:alpha=1,fade=t=out:st=${ROTULO_S - SALIDA_S}:d=${SALIDA_S}:alpha=1[ro]`,
+      `[${actual}][ro]overlay=x='${margen}-${desliza}*pow(max(0,1-t/${ENTRADA_S}),3)':y=H-h-${margen}:eof_action=pass[v2]`,
+    );
+    actual = "v2";
+  }
+
+  return {
+    entradas,
+    argumentos: ["-filter_complex", pasos.join(";"), "-map", `[${actual}]`],
+  };
+}
+
+/**
+ * El sonido de cada trozo: igualado y sin chasquidos en las uniones.
+ *
+ * Un montaje pega cortes de minutos y fuentes distintas, y el volumen saltaba
+ * de uno a otro: el grito de la grada del minuto 80 a todo volumen y el
+ * siguiente corte casi mudo. Cada trozo se lleva a **-16 LUFS** (`loudnorm`,
+ * lo que piden las plataformas para el móvil) y entra y sale con un fundido
+ * de 0,25 s, que es lo que evita el golpe en cada unión.
+ */
+export function filtroDeSonido(segundosTrozo: number, fundido = true) {
+  const pasos = ["loudnorm=I=-16:TP=-1.5:LRA=11", "aresample=48000"];
+
+  if (fundido && segundosTrozo > 0.8) {
+    pasos.push(
+      `afade=t=in:st=0:d=${ENTRADA_S}`,
+      `afade=t=out:st=${Math.max(0, segundosTrozo - 0.25).toFixed(3)}:d=0.25`,
+    );
+  }
+
+  return pasos.join(",");
 }
 
 export async function cortaClip(opciones: {
@@ -523,6 +705,12 @@ export async function cortaClip(opciones: {
   topeMegas?: number;
   /** Con rótulo se recodifica siempre: hay que pintar encima. */
   rotulo?: RotuloListo | null;
+  /** La medida con la que sale; sin ella, la del partido. */
+  salida?: MedidaSalida;
+  /** La del partido, para saber si hay que tocarla. */
+  original?: { ancho: number; alto: number };
+  /** Si el partido trae sonido. Sin él no hay nada que igualar. */
+  audio?: boolean;
 }) {
   const duracion = Math.max(0, opciones.finMs - opciones.inicioMs);
 
@@ -540,13 +728,23 @@ export async function cortaClip(opciones: {
     segundos(duracion),
   ];
 
+  const cambiaMedida =
+    !!opciones.salida &&
+    (!!opciones.salida.vertical ||
+      (!!opciones.original &&
+        (opciones.salida.ancho !== opciones.original.ancho ||
+          opciones.salida.alto !== opciones.original.alto)));
+
   /*
   | Copiando no hay nada que apretar: los bytes son los del partido. Un tope
   | de peso obliga a recodificar, así que `rapido` con tope pasa a `preciso`
   | —y eso lo decide quien llama, no aquí: aquí sólo se deja de copiar.
   */
   const copia =
-    opciones.modo === "rapido" && !(opciones.topeMegas ?? 0) && !opciones.rotulo;
+    opciones.modo === "rapido" &&
+    !(opciones.topeMegas ?? 0) &&
+    !opciones.rotulo &&
+    !cambiaMedida;
 
   /*
   | Cuánta calidad se conserva al recodificar.
@@ -559,24 +757,61 @@ export async function cortaClip(opciones: {
   */
   const crf = (opciones.topeMegas ?? 0) > 0 ? "20" : "18";
 
-  const codificacion = copia
-    ? ["-c", "copy", "-avoid_negative_ts", "make_zero"]
-    : [
-        ...(opciones.rotulo ? ["-vf", opciones.rotulo.filtro] : []),
-        "-c:v",
-        "libx264",
-        "-preset",
-        "veryfast",
-        "-crf",
-        crf,
-        ...rejillaDeCaudal(opciones.topeMegas ?? 0, duracion / 1000),
-        "-pix_fmt",
-        "yuv420p",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "160k",
-      ];
+  /* El sonido se iguala también copiando la imagen: recodificarlo es nada. */
+  const sonido =
+    opciones.audio === false
+      ? ["-an"]
+      : [
+          "-map",
+          "0:a:0?",
+          "-af",
+          filtroDeSonido(duracion / 1000),
+          "-c:a",
+          "aac",
+          "-b:a",
+          "160k",
+        ];
+
+  let codificacion: string[];
+
+  if (copia) {
+    codificacion = [
+      "-map",
+      "0:v:0",
+      "-c:v",
+      "copy",
+      ...sonido,
+      "-avoid_negative_ts",
+      "make_zero",
+    ];
+  } else {
+    const salida: MedidaSalida =
+      opciones.salida ?? opciones.original ?? { ancho: 0, alto: 0 };
+
+    const grafo = grafoDeImagen({
+      forma: cambiaMedida && !salida.vertical
+        ? `scale=${salida.ancho}:${salida.alto},setsar=1`
+        : undefined,
+      rotulo: opciones.rotulo,
+      salida: { ...salida, vertical: opciones.salida?.vertical },
+      indiceRotulo: 1,
+    });
+
+    codificacion = [
+      ...grafo.entradas,
+      ...grafo.argumentos,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      crf,
+      ...rejillaDeCaudal(opciones.topeMegas ?? 0, duracion / 1000),
+      "-pix_fmt",
+      "yuv420p",
+      ...sonido,
+    ];
+  }
 
   await ejecuta(
     FFMPEG,
@@ -608,16 +843,25 @@ export async function cortaClip(opciones: {
  */
 async function normaliza(opciones: {
   entradaArgs: string[];
+  /** Cuántas entradas trae ya `entradaArgs` (la imagen fija trae dos). */
+  entradasPropias?: number;
   ancho: number;
   alto: number;
+  vertical?: boolean;
   fps: number;
   destino: string;
   /** Duración del silencio que hay que inventar, en ms. `0` si ya trae sonido. */
   silencioMs?: number;
+  /** De qué entrada sale el sonido cuando no hay que inventarlo. */
+  sonidoDe?: string;
+  /** Lo que dura el trozo, en segundos: para el fundido del sonido. */
+  segundosTrozo?: number;
+  /** `false` en la portada: su sonido es silencio y no hay nada que igualar. */
+  igualaSonido?: boolean;
   /** Techo de peso del fichero final y lo que dura, para la rejilla de caudal. */
   topeMegas?: number;
   segundosDelTope?: number;
-  /** Ya preparado para esta misma medida (`preparaRotulo` con `alto`). */
+  /** Ya preparado para esta misma medida (`preparaRotulo`). */
   rotulo?: RotuloListo | null;
   /** Los filtros `fade` del fundido entre cortes, ya escritos. */
   fundido?: string;
@@ -627,7 +871,8 @@ async function normaliza(opciones: {
    * `-map`, ffmpeg elige el vídeo de una entrada y el audio de la otra sólo
    * por suerte, y con dos entradas de vídeo se equivoca.
    */
-  const silencio = opciones.silencioMs && opciones.silencioMs > 0;
+  const silencio = !!opciones.silencioMs && opciones.silencioMs > 0;
+  const propias = opciones.entradasPropias ?? 1;
 
   const extra = silencio
     ? [
@@ -640,9 +885,34 @@ async function normaliza(opciones: {
       ]
     : [];
 
-  const mapas = silencio ? ["-map", "0:v:0", "-map", "1:a:0"] : [];
+  const indiceSilencio = propias;
+  const indiceRotulo = propias + (silencio ? 1 : 0);
 
   const forma = `scale=${opciones.ancho}:${opciones.alto}:force_original_aspect_ratio=decrease,pad=${opciones.ancho}:${opciones.alto}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=${opciones.fps.toFixed(3)}`;
+
+  const grafo = grafoDeImagen({
+    forma,
+    fundido: opciones.fundido,
+    rotulo: opciones.rotulo,
+    salida: {
+      ancho: opciones.ancho,
+      alto: opciones.alto,
+      vertical: opciones.vertical,
+    },
+    indiceRotulo,
+  });
+
+  /* El sonido inventado es silencio: no hay nada que igualar. */
+  const sonido = silencio
+    ? ["-map", `${indiceSilencio}:a:0`]
+    : opciones.igualaSonido === false
+      ? ["-map", opciones.sonidoDe ?? "0:a:0"]
+      : [
+          "-map",
+          opciones.sonidoDe ?? "0:a:0",
+          "-af",
+          filtroDeSonido(opciones.segundosTrozo ?? 0),
+        ];
 
   await ejecuta(FFMPEG, [
     "-hide_banner",
@@ -650,10 +920,9 @@ async function normaliza(opciones: {
     "error",
     ...opciones.entradaArgs,
     ...extra,
-    ...mapas,
-    "-vf",
-    /* El fundido va antes que el rótulo: el negro no se lo come. */
-    [forma, opciones.fundido, opciones.rotulo?.filtro].filter(Boolean).join(","),
+    ...grafo.entradas,
+    ...grafo.argumentos,
+    ...sonido,
     "-c:v",
     "libx264",
     "-preset",
@@ -686,6 +955,7 @@ export async function segmentoNormalizado(opciones: {
   finMs: number;
   ancho: number;
   alto: number;
+  vertical?: boolean;
   fps: number;
   destino: string;
   /** Si la fuente de ESTE trozo trae sonido. Sin él, se le pone silencio. */
@@ -731,12 +1001,19 @@ export async function segmentoNormalizado(opciones: {
     ],
     ancho: opciones.ancho,
     alto: opciones.alto,
+    vertical: opciones.vertical,
     fps: opciones.fps,
     destino: opciones.destino,
     silencioMs: opciones.audio === false ? duracion : 0,
+    segundosTrozo: duracion / 1000,
     topeMegas: opciones.topeMegas,
     segundosDelTope: opciones.segundosDelTope,
     rotulo: opciones.rotulo,
+    /*
+    | El sonido entra y sale con su fundido en cada unión aunque la imagen
+    | vaya a corte seco (`filtroDeSonido`): el golpe de un sonido que empieza
+    | a todo volumen se oye aunque no se vea.
+    */
     fundido: fundido || undefined,
   });
 }
@@ -754,6 +1031,7 @@ export async function imagenComoVideo(opciones: {
   duracionMs: number;
   ancho: number;
   alto: number;
+  vertical?: boolean;
   fps: number;
   destino: string;
 }) {
@@ -772,8 +1050,15 @@ export async function imagenComoVideo(opciones: {
       "-i",
       "anullsrc=channel_layout=stereo:sample_rate=48000",
     ],
+    entradasPropias: 2,
+    /* El silencio de la portada ya viene en la entrada 1: no se iguala. */
+    silencioMs: 0,
+    sonidoDe: "1:a:0",
+    igualaSonido: false,
+    segundosTrozo: opciones.duracionMs / 1000,
     ancho: opciones.ancho,
     alto: opciones.alto,
+    vertical: opciones.vertical,
     fps: opciones.fps,
     destino: opciones.destino,
   });
@@ -817,6 +1102,7 @@ export async function cortaClipConParadas(opciones: {
   finMs: number;
   ancho: number;
   alto: number;
+  vertical?: boolean;
   fps: number;
   audio: boolean;
   paradas: ParadaPedida[];
@@ -878,6 +1164,7 @@ export async function cortaClipConParadas(opciones: {
         finMs: opciones.inicioMs + b,
         ancho: opciones.ancho,
         alto: opciones.alto,
+        vertical: opciones.vertical,
         fps: opciones.fps,
         audio: opciones.audio,
         /* El tope es del fichero entero, y cada trozo es un pedazo de él: se
@@ -902,6 +1189,7 @@ export async function cortaClipConParadas(opciones: {
         duracionMs: Math.max(500, parada.duracionMs),
         ancho: opciones.ancho,
         alto: opciones.alto,
+        vertical: opciones.vertical,
         fps: opciones.fps,
         destino: nombra("pizarra"),
       }),

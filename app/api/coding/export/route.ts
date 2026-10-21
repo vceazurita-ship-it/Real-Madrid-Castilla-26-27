@@ -15,6 +15,7 @@ import {
   hayFfmpeg,
   imagenComoVideo,
   leeBytes,
+  medidaDeSalida,
   pegaVideos,
   preparaRotulo,
   respuestaDeFichero,
@@ -107,6 +108,11 @@ type Peticion = {
    * hecho donde se haya hecho.
    */
   topeMegas?: number;
+  /**
+   * La medida de la barra: `0` la del partido, un ancho para encoger y `-1`
+   * el vertical 1080 × 1920 para el móvil (`medidaDeSalida`).
+   */
+  medida?: number;
 };
 
 const MAX_CLIPS = 400;
@@ -231,6 +237,8 @@ export async function POST(request: NextRequest) {
   /* Sin tope, 0. Y con tope no se puede copiar: hay que recodificar. */
   const topeMegas = Math.max(0, Number(peticion.topeMegas) || 0);
 
+  const medida = Number(peticion.medida) || 0;
+
   /* Como mucho un segundo: más es una pantalla en negro, no una transición. */
   const fundidoMs = Math.min(1000, Math.max(0, Number(peticion.fundidoMs) || 0));
 
@@ -302,49 +310,48 @@ export async function POST(request: NextRequest) {
       return listas;
     };
 
-    /*
-     * El rótulo del corte, medido para la altura con la que va a salir.
-     *
-     * Sólo se sondea el vídeo si hace falta: un corte sin rótulo ni pizarras
-     * sigue yendo por la copia directa, sin abrir el fichero dos veces.
-     */
-    const rotuloDe = async (clip: ClipPedido, indice: number, alto?: number) => {
+    /* El rótulo del corte, medido para la medida con la que va a salir. */
+    const rotuloDe = async (
+      clip: ClipPedido,
+      indice: number,
+      salida: { ancho: number; alto: number },
+    ) => {
       if (!clip.rotulo?.titulo) return null;
-
-      const medida = alto ?? (await sondeaUnaVez(entradaDe(clip)!)).alto;
 
       return preparaRotulo({
         rotulo: clip.rotulo,
         carpeta,
         prefijo: `rotulo-${indice}`,
-        alto: medida,
+        ancho: salida.ancho,
+        alto: salida.alto,
       });
     };
 
-    /* ------------------------------------------------ un solo clip */
-
-    if (peticion.formato === "clip") {
-      const clip = clips[0];
-
-      const destino = path.join(carpeta, "clip.mp4");
-
-      const paradas = await paradasDe(clip, 0);
+    /*
+    | Un corte suelto, con o sin pizarras.
+    |
+    | Se sondea siempre: el sonido se iguala aunque se copie la imagen, y para
+    | eso hay que saber si el partido lo trae.
+    */
+    const cortaUno = async (clip: ClipPedido, indice: number, destino: string, prefijo: string) => {
+      const paradas = await paradasDe(clip, indice);
+      const datos = await sondeaUnaVez(entradaDe(clip)!);
+      const salida = medidaDeSalida(datos, medida);
 
       if (paradas.length > 0) {
-        const datos = await sondeaUnaVez(entradaDe(clip)!);
-
         await cortaClipConParadas({
-          rotulo: await rotuloDe(clip, 0, datos.alto),
+          rotulo: await rotuloDe(clip, indice, salida),
           entrada: entradaDe(clip)!,
           inicioMs: clip.inicioMs,
           finMs: clip.finMs,
-          ancho: datos.ancho,
-          alto: datos.alto,
+          ancho: salida.ancho,
+          alto: salida.alto,
+          vertical: salida.vertical,
           fps: datos.fps,
           audio: datos.audio,
           paradas,
           carpeta,
-          prefijo: "clip",
+          prefijo,
           destino,
           topeMegas,
         });
@@ -356,9 +363,22 @@ export async function POST(request: NextRequest) {
           modo,
           destino,
           topeMegas,
-          rotulo: await rotuloDe(clip, clips.indexOf(clip)),
+          rotulo: await rotuloDe(clip, indice, salida),
+          salida,
+          original: datos,
+          audio: datos.audio,
         });
       }
+    };
+
+    /* ------------------------------------------------ un solo clip */
+
+    if (peticion.formato === "clip") {
+      const clip = clips[0];
+
+      const destino = path.join(carpeta, "clip.mp4");
+
+      await cortaUno(clip, 0, destino, "clip");
 
       return respuestaDeFichero({
         archivo: destino,
@@ -379,6 +399,9 @@ export async function POST(request: NextRequest) {
        */
       const datos = await sondeaUnaVez(entradaDe(clips[0])!);
 
+      /* La medida del montaje: la del primer corte, o la pedida en la barra. */
+      const salida = medidaDeSalida(datos, medida);
+
       const trozos: string[] = [];
 
       if (peticion.portada) {
@@ -395,8 +418,9 @@ export async function POST(request: NextRequest) {
               1000,
               Math.round((peticion.portadaSegundos ?? 4) * 1000),
             ),
-            ancho: datos.ancho,
-            alto: datos.alto,
+            ancho: salida.ancho,
+            alto: salida.alto,
+            vertical: salida.vertical,
             fps: datos.fps,
             destino: path.join(carpeta, "000-portada.mp4"),
           }),
@@ -421,8 +445,9 @@ export async function POST(request: NextRequest) {
                 entrada: entradaClip,
                 inicioMs: clip.inicioMs,
                 finMs: clip.finMs,
-                ancho: datos.ancho,
-                alto: datos.alto,
+                ancho: salida.ancho,
+                alto: salida.alto,
+                vertical: salida.vertical,
                 fps: datos.fps,
                 audio: suyo.audio,
                 paradas,
@@ -433,22 +458,23 @@ export async function POST(request: NextRequest) {
                    entre todo lo que va a durar, no entre este trozo. */
                 topeMegas,
                 segundosDelTope: duracionDe(clips),
-                /* Medido a la altura del montaje, no a la de su vídeo. */
-                rotulo: await rotuloDe(clip, indice, datos.alto),
+                /* Medido a la medida del montaje, no a la de su vídeo. */
+                rotulo: await rotuloDe(clip, indice, salida),
                 fundidoMs,
               })
             : await segmentoNormalizado({
                 entrada: entradaClip,
                 inicioMs: clip.inicioMs,
                 finMs: clip.finMs,
-                ancho: datos.ancho,
-                alto: datos.alto,
+                ancho: salida.ancho,
+                alto: salida.alto,
+                vertical: salida.vertical,
                 fps: datos.fps,
                 audio: suyo.audio,
                 destino: destinoTrozo,
                 topeMegas,
                 segundosDelTope: duracionDe(clips),
-                rotulo: await rotuloDe(clip, indice, datos.alto),
+                rotulo: await rotuloDe(clip, indice, salida),
                 fundido: fundidoMs
                   ? { ms: fundidoMs, entra: true, sale: true }
                   : undefined,
@@ -476,37 +502,7 @@ export async function POST(request: NextRequest) {
     for (const [indice, clip] of clips.entries()) {
       const destino = path.join(carpeta, `${indice}.mp4`);
 
-      const paradas = await paradasDe(clip, indice);
-
-      if (paradas.length > 0) {
-        const datos = await sondeaUnaVez(entradaDe(clip)!);
-
-        await cortaClipConParadas({
-          entrada: entradaDe(clip)!,
-          inicioMs: clip.inicioMs,
-          finMs: clip.finMs,
-          ancho: datos.ancho,
-          alto: datos.alto,
-          fps: datos.fps,
-          audio: datos.audio,
-          paradas,
-          carpeta,
-          prefijo: `z${indice}`,
-          destino,
-          topeMegas,
-          rotulo: await rotuloDe(clip, indice, datos.alto),
-        });
-      } else {
-        await cortaClip({
-          entrada: entradaDe(clip)!,
-          inicioMs: clip.inicioMs,
-          finMs: clip.finMs,
-          modo,
-          destino,
-          topeMegas,
-          rotulo: await rotuloDe(clip, clips.indexOf(clip)),
-        });
-      }
+      await cortaUno(clip, indice, destino, `z${indice}`);
 
       entradas.push({
         nombre: `${rutaSegura(clip.nombre, `clip-${indice + 1}`)}.mp4`,

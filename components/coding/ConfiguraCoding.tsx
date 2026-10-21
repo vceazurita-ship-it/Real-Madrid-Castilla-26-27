@@ -25,6 +25,7 @@ import {
   CATEGORIAS_INICIALES,
   COMPORTAMIENTOS_INICIALES,
   DESCRIPTORES_INICIALES,
+  FASES_CODING,
   TECLAS_RESERVADAS,
   TOPE_DESCRIPTORES,
   reparteTeclas,
@@ -130,7 +131,7 @@ export function ConfiguraCoding({
               preRollMs: Math.max(0, Number(valor) || 0),
             }))
           }
-          hint="Se añade delante de cada clip nuevo."
+          hint="Se añade delante de cada corte nuevo."
         />
 
         <Field
@@ -284,6 +285,52 @@ export function ConfiguraCoding({
                 className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[13px] text-white outline-none focus:border-[#C8A96B]/50"
               />
 
+              {/*
+              | Lo que lee el jugador en el rótulo del vídeo. «Mal» se queda en la
+              | tecla, pero en la sala sale «A corregir»; lo interno no sale.
+              */}
+              <label
+                className="flex shrink-0 items-center gap-1 text-[11px] text-white/45"
+                title="Si sale en el rótulo del vídeo. Apágalo en lo que es para ti: «Vídeo de grupo», «Repasar»…"
+              >
+                <input
+                  type="checkbox"
+                  checked={descriptor.enRotulo !== false}
+                  onChange={(evento) =>
+                    setBorrador((actual) => ({
+                      ...actual,
+                      descriptores: actual.descriptores.map((uno) =>
+                        uno.id === descriptor.id
+                          ? { ...uno, enRotulo: evento.target.checked }
+                          : uno,
+                      ),
+                    }))
+                  }
+                  className="accent-[#C8A96B]"
+                />
+                En el vídeo
+              </label>
+
+              {descriptor.enRotulo !== false && (
+                <input
+                  value={descriptor.rotulo ?? ""}
+                  placeholder={descriptor.nombre}
+                  aria-label={`Cómo se lee ${descriptor.nombre} en el rótulo`}
+                  title="Cómo se lee en el rótulo del vídeo; vacío, su nombre"
+                  onChange={(evento) =>
+                    setBorrador((actual) => ({
+                      ...actual,
+                      descriptores: actual.descriptores.map((uno) =>
+                        uno.id === descriptor.id
+                          ? { ...uno, rotulo: evento.target.value }
+                          : uno,
+                      ),
+                    }))
+                  }
+                  className="w-28 shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[12px] text-white/80 outline-none placeholder:text-white/25 focus:border-[#C8A96B]/50"
+                />
+              )}
+
               <button
                 type="button"
                 title="Quitar el descriptor (los cortes que ya lo llevan lo conservan)"
@@ -381,6 +428,26 @@ export function ConfiguraCoding({
                 }
                 className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[13px] text-white outline-none focus:border-[#C8A96B]/50"
               />
+
+              {/* La fase: el primer nivel, por el que se agrupa la matriz. */}
+              <select
+                value={categoria.fase ?? ""}
+                aria-label={`Fase de ${categoria.nombre}`}
+                title="La fase del juego a la que pertenece: la matriz agrupa por ella"
+                onChange={(evento) =>
+                  cambiaCategoria(categoria.id, {
+                    fase: evento.target.value || undefined,
+                  })
+                }
+                className="w-[7.5rem] shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-1.5 py-1 text-[12px] text-white/75 outline-none focus:border-[#C8A96B]/50"
+              >
+                <option value="">Sin fase</option>
+                {FASES_CODING.map((fase) => (
+                  <option key={fase.id} value={fase.id}>
+                    {fase.corto}
+                  </option>
+                ))}
+              </select>
 
               <CampoTecla
                 valor={categoria.tecla}
