@@ -39,6 +39,16 @@ export const PERCENTIL_FLOJO = 30;
 /** Con menos iguales que éstos, un percentil no es una referencia. */
 const IGUALES_MINIMOS = 8;
 
+/*
+| Y para sacarle perfil a UNO, tres partidos enteros (21/10/2026).
+|
+| Los 90′ de DATA son el suelo para entrar en la comparación de los demás; para
+| leer a un jugador concreto no bastan: con 114′ un central salía en el p1 de
+| «pase progresivo» por no haber dado ninguno en dos ratos. Por debajo de esto
+| se enseña cuánto lleva y no se le juzga.
+*/
+export const MINUTOS_PARA_LEER = 270;
+
 export type RasgoWyscout = {
   nombre: string;
   valor: number;
@@ -57,7 +67,7 @@ export type PerfilWyscout = {
   minutos: number;
   /** Contra cuántos de su puesto se le compara. */
   iguales: number;
-  /** Con menos de 90′ no se compara: las cifras serían extrapolaciones. */
+  /** Con menos de 270′ no se le saca perfil: las cifras serían extrapolaciones. */
   muestraCorta: boolean;
   fuertes: RasgoWyscout[];
   flojos: RasgoWyscout[];
@@ -105,7 +115,7 @@ export function perfilesDeEquipo(jugadores: FilaJugador[], equipo: string): Perf
       iguales: iguales.length,
     };
 
-    if (fila.minutos < MINUTOS_MINIMOS || iguales.length < IGUALES_MINIMOS) {
+    if (fila.minutos < MINUTOS_PARA_LEER || iguales.length < IGUALES_MINIMOS) {
       return { ...base, muestraCorta: true, fuertes: [], flojos: [] };
     }
 

@@ -113,8 +113,8 @@ export function vistazoDe(
   return { tabla, enEseCampo, forma, dibujo, goleadores };
 }
 
-/** «12 pts · 3-3-2» → texto del balance, sin puntos si no los hay. */
-export const balanceDe = (fila: FilaClasificacion) => `${fila.ganados}-${fila.empatados}-${fila.perdidos}`;
+/** «3V 1E 4D»: con las mismas letras que la forma, que «3-1-4» no se sabe en qué orden va. */
+export const balanceDe = (fila: FilaClasificacion) => `${fila.ganados}V ${fila.empatados}E ${fila.perdidos}D`;
 
 /**
  * La misma franja en una frase, para leerla antes que las cifras.

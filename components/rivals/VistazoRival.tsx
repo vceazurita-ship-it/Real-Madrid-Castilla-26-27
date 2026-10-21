@@ -40,13 +40,16 @@ function Casilla({
   titulo,
   children,
   pie,
+  ancha = false,
 }: {
   titulo: string;
   children: React.ReactNode;
   pie?: React.ReactNode;
+  /** En el móvil ocupa las dos columnas (la lista de goleadores). */
+  ancha?: boolean;
 }) {
   return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+    <div className={`min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 ${ancha ? "col-span-2 md:col-span-1" : ""}`}>
       <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/40">
         {titulo}
       </p>
@@ -91,7 +94,10 @@ export function VistazoRival({
         </h2>
 
         {jornada && !jornada.jugado && (
-          <p className="shrink-0 text-[11px] text-white/45">{jornada.titulo}</p>
+          /* «fuera» a secas no decía de quién: es dónde jugamos nosotros. */
+          <p className="shrink-0 text-[11px] text-white/45">
+            {jornada.titulo.replace(/ · (fuera|en casa)$/, " · jugamos $1")}
+          </p>
         )}
       </header>
 
@@ -168,7 +174,7 @@ export function VistazoRival({
         )}
 
         {goleadores.length > 0 && (
-          <Casilla titulo="Le hacen los goles">
+          <Casilla titulo="Le hacen los goles" ancha>
             <ul className="min-w-0 space-y-0.5">
               {goleadores.map((g) => (
                 <li key={g.nombre} className="flex min-w-0 items-center gap-1.5 text-sm">

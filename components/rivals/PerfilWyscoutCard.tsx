@@ -4,7 +4,7 @@ import { Activity } from "lucide-react";
 
 import { formatea } from "@/lib/data-analisis/metricas";
 import { chipInk } from "@/lib/theme";
-import type { PerfilWyscout, RasgoWyscout } from "@/lib/rivals/perfil-wyscout";
+import { MINUTOS_PARA_LEER, type PerfilWyscout, type RasgoWyscout } from "@/lib/rivals/perfil-wyscout";
 
 /*
 |--------------------------------------------------------------------------
@@ -19,6 +19,7 @@ import type { PerfilWyscout, RasgoWyscout } from "@/lib/rivals/perfil-wyscout";
 |
 | Sin fila en Wyscout la tarjeta no sale. Con menos de 90′ sale sólo la
 | muestra, sin percentiles: con veinte minutos cualquiera es el mejor en algo.
+| (Para leer a uno se piden 270′: ver `MINUTOS_PARA_LEER`.)
 */
 
 /* «contra los extremos y mediapuntas»: «los bandas» no se dice. */
@@ -40,7 +41,10 @@ function Barra({ rasgo, color }: { rasgo: RasgoWyscout; color: string }) {
       <div className="flex min-w-0 items-baseline justify-between gap-2 text-[12px]">
         <span className="min-w-0 truncate text-white/80">{rasgo.nombre}</span>
         <span className="shrink-0 tabular-nums text-white/45">
-          {formatea(rasgo.valor, rasgo.unidad)}
+          {/* Un recuento (porterías a cero) no lleva decimales. */}
+          {rasgo.unidad === "decimal" && Number.isInteger(rasgo.valor)
+            ? String(rasgo.valor)
+            : formatea(rasgo.valor, rasgo.unidad)}
           <span className="ml-1.5 font-semibold" style={{ color: chipInk(color) }}>
             p{rasgo.percentil}
           </span>
@@ -76,7 +80,7 @@ export function PerfilWyscoutCard({ perfil }: { perfil: PerfilWyscout }) {
 
       {perfil.muestraCorta ? (
         <p className="text-xs text-white/50">
-          Lleva {perfil.minutos}′: con menos de 90 no se le compara, cualquier cifra por partido sería una extrapolación.
+          Lleva {perfil.minutos}′ en {perfil.partidos} {perfil.partidos === 1 ? "partido" : "partidos"}: con menos de {MINUTOS_PARA_LEER} (tres partidos enteros) no se le saca perfil, porque una tarde buena o mala lo movería todo.
         </p>
       ) : conRasgos ? (
         <div className="grid min-w-0 gap-4 sm:grid-cols-2">
@@ -114,7 +118,7 @@ export function PerfilWyscoutCard({ perfil }: { perfil: PerfilWyscout }) {
 
       {!perfil.muestraCorta && (
         <p className="mt-3 text-[10px] text-white/35">
-          Percentil contra {perfil.iguales} de {LOS[perfil.puesto] ?? perfil.puestoLabel.toLowerCase()} con 90′ o más. p80 = mejor que 8 de cada 10.
+          Percentil contra {perfil.iguales} de {LOS[perfil.puesto] ?? perfil.puestoLabel.toLowerCase()} con 90′ o más; las cifras son por 90′, salvo los porcentajes. p80 = mejor que 8 de cada 10.
           {perfil.posicion && ` Wyscout le pone de ${perfil.posicion}.`}
         </p>
       )}

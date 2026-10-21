@@ -3761,6 +3761,7 @@ export default function RivalPlayersPage() {
                 {teams.map((team) => (
                   <button
                     key={team.name}
+                    aria-pressed={selectedTeam === team.name}
                     title={
                       esElProximo(ordenRivales, team.name)
                         ? etiquetaDelProximo(ordenRivales)
@@ -5696,7 +5697,8 @@ function nombreQueCabe(nombre: string, ancho: number, cuerpo: number, relleno: n
   const ultimo = partes[partes.length - 1];
   const conUltimo = `${inicial}. ${ultimo}`;
 
-  return cabe(conUltimo) || partes.length === 2 ? conUltimo : ultimo;
+  /* Y si ni así, el apellido solo: «GARRIDO» dice más que «D. GARRID…». */
+  return cabe(conUltimo) ? conUltimo : ultimo;
 }
 
 function PlayerRow({
@@ -5806,9 +5808,13 @@ function PlayerRow({
             </span>
           )}
 
-          <span className="min-w-0 truncate text-[10px] text-white/45">
-            {player["POSICIÓN"] || "—"}
-          </span>
+          {/* Con chapa, el puesto ya lo dicen ella y la cabecera del grupo:
+              el texto de la hoja sólo salía cortado («LATERAL …»). */}
+          {!slotEntry && player["POSICIÓN"] && (
+            <span className="min-w-0 truncate text-[10px] text-white/45">
+              {player["POSICIÓN"]}
+            </span>
+          )}
 
           {secondSlot && (
             <span
