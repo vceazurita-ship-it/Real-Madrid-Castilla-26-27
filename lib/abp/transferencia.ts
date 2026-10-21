@@ -98,6 +98,11 @@ export type FilaCruce = {
   /** Minutos en todos los microciclos planificados. */
   minutosTemporada: number;
   stats: AspectoStats;
+  /**
+   * Lo mismo contando sólo los partidos de liga (21/10/2026): la tabla mezcla
+   * pretemporada y liga, y el peligro de un amistoso de julio no se lee igual.
+   */
+  liga: { acciones: number; peligro: number };
   /** Peligro ya suavizado, en tanto por ciento. */
   peligroAjustado: number;
   /**
@@ -421,6 +426,7 @@ export function construyeCruce(entrada: EntradaCruce): FilaCruce[] {
       minutosMicro: bruto.minutosMicro,
       minutosTemporada: bruto.minutosTemporada,
       stats,
+      liga: aspecto.reconocimiento ? ligaDe(events, aspecto, lado) : { acciones: 0, peligro: 0 },
       peligroAjustado: bruto.peligroAjustado,
       referencia: referenciaDe(aspecto, lado) * 100,
       pctMinutos: totalMinutos
@@ -475,19 +481,58 @@ function danoDe(lado: AbpLado, stats: AspectoStats, peligroAjustado: number, ref
   return (stats.acciones * Math.max(0, referencia - peligroAjustado)) / 100;
 }
 
+/** Acciones y peligro de un aspecto contando sólo los partidos de liga. */
+function ligaDe(events: CompeticionEvent[], aspecto: Aspecto, lado: AbpLado) {
+  const deLiga = events.filter(
+    (event) => event.lado === lado && event.contexto.jornada.competicion === "liga" && encajaEnAspecto(event, aspecto),
+  );
+
+  return { acciones: deLiga.length, peligro: deLiga.filter((event) => event.peligro).length };
+}
+
+/**
+ * Los puntos que aporta cada ingrediente a la urgencia (21/10/2026).
+ *
+ * La tabla pinta exactamente esto: los tres números suman la urgencia de la
+ * fila salvo cuando la sube un gol en contra, y entonces se dice. Antes la
+ * barra del medio enseñaba «cuánto peor» (otra magnitud) y la urgencia
+ * contaba además 0,5 por ir como su familia y un factor de muestra que no se
+ * veía: 58/26/72 marcaba 62 cuando a mano daba 51.
+ */
+export function partesUrgencia(fila: FilaCruce) {
+  const dano = 100 * PESOS.dano * fila.ingredientes.dano;
+  const deficit = 100 * PESOS.deficit * fila.ingredientes.deficit;
+  const desatencion = 100 * PESOS.desatencion * fila.ingredientes.desatencion;
+
+  /* Se redondea cada parte y se suma lo redondeado: así lo que se lee cuadra
+     a ojo con la cifra de la derecha, sin el «uno de más» del redondeo. */
+  const redondas = {
+    dano: Math.round(dano),
+    deficit: Math.round(deficit),
+    desatencion: Math.round(desatencion),
+  };
+  const suma = redondas.dano + redondas.deficit + redondas.desatencion;
+
+  return {
+    ...redondas,
+    suma,
+    /** La cifra que se enseña: la suma, o el suelo si la subió un gol. */
+    urgencia: fila.subidaPorGoles ? Math.round(fila.urgencia ?? suma) : suma,
+    subidaPorGoles: fila.subidaPorGoles,
+  };
+}
+
 /** La urgencia dicha en una línea, para el título de la cifra. */
 export function formulaUrgencia(fila: FilaCruce) {
-  const pct = (valor: number) => `${Math.round(valor * 100)}`;
-  const partes = [
-    `Daño ${pct(fila.ingredientes.dano)} × ${PESOS.dano * 100} %`,
-    `peor que los suyos ${pct(fila.ingredientes.deficit)} × ${PESOS.deficit * 100} %`,
-    `poco trabajado ${pct(fila.ingredientes.desatencion)} × ${PESOS.desatencion * 100} %`,
-  ];
+  const partes = partesUrgencia(fila);
 
-  const base = `Urgencia = ${partes.join(" + ")} (cada parte de 0 a 100).`;
+  const base =
+    `Urgencia = daño ${partes.dano} (hasta 50) + frente a su familia ${partes.deficit} (hasta 30) + ` +
+    `poco trabajado ${partes.desatencion} (hasta 20) = ${partes.suma}. ` +
+    `Las dos últimas se rebajan cuando hay pocas acciones: con poca muestra no se puede saber si va mal.`;
 
   return fila.subidaPorGoles
-    ? `${base} Sube a ${Math.round(fila.urgencia ?? 0)} porque nos han marcado ${fila.stats.goles === 1 ? "un gol" : `${fila.stats.goles} goles`} así.`
+    ? `${base} Sube a ${partes.urgencia} porque nos han marcado ${fila.stats.goles === 1 ? "un gol" : `${fila.stats.goles} goles`} así.`
     : base;
 }
 

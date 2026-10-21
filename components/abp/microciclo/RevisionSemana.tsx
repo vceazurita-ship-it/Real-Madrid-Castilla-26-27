@@ -20,6 +20,7 @@ import { CheckCircle2, CircleAlert, Plus, TriangleAlert } from "lucide-react";
 import { Panel } from "@/components/abp/ui";
 import { LADO_COLOR, LADO_LABEL, fmtMin, type DiaKey, type Trabajo } from "@/lib/abp/microciclo";
 import { chipInk } from "@/lib/theme";
+import { enFrase } from "@/lib/abp/primera-plural";
 import type { LecturaAspecto, LecturaPartido, PuntoRevision, TonoRevision } from "@/lib/abp/semana-revision";
 
 const ICONO: Record<TonoRevision, { Icono: typeof CheckCircle2; clase: string; etiqueta: string }> = {
@@ -200,7 +201,7 @@ export function conclusionDelPartido(lectura: LecturaPartido, marcador: string |
   const enContra = lectura.goles.filter((gol) => gol.lado === "defensivo");
 
   const lista = (goles: typeof lectura.goles) =>
-    goles.map((gol) => `${gol.label.toLowerCase()}${minutoDe(gol.minuto)}`).join("; ");
+    goles.map((gol) => `${enFrase(gol.label)}${minutoDe(gol.minuto)}`).join("; ");
 
   const goles = lectura.goles.length
     ? `A balón parado: ${[
@@ -230,7 +231,7 @@ export function conclusionDelPartido(lectura: LecturaPartido, marcador: string |
           : `no nos crearon nada (${uno.acciones} ${uno.acciones === 1 ? "acción" : "acciones"})`;
 
   const buscabamos = principal
-    ? `Lo que más trabajamos, ${principal.label.toLowerCase()} ${principal.lado === "ofensivo" ? "atacando" : "defendiendo"} (${fmtMin(Math.round(principal.minutos))}), ${comoAcabo(principal)}`
+    ? `Lo que más trabajamos, ${enFrase(principal.label)} ${principal.lado === "ofensivo" ? "atacando" : "defendiendo"} (${fmtMin(Math.round(principal.minutos))}), ${comoAcabo(principal)}`
     : "";
 
   /* Lo que nos hizo daño: defendiendo con peligro suyo, trabajado o no. */
@@ -244,7 +245,7 @@ export function conclusionDelPartido(lectura: LecturaPartido, marcador: string |
   const nosDeja = dano.length
     ? `nos hicieron daño en ${dano
         .slice(0, 3)
-        .map((uno) => uno.label.toLowerCase())
+        .map((uno) => enFrase(uno.label))
         .join(", ")
         .replace(/, ([^,]*)$/, " y $1")}, ${minutosDano ? `a lo que dimos ${fmtMin(minutosDano)}` : "que no estaba en la semana"}`
     : "";

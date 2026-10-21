@@ -1136,8 +1136,10 @@ export default function AbpMicrocicloPage() {
   | a trabajar. «Compacta» es la de antes, para cuando lo que se está haciendo
   | es mover bloques de un día a otro y hacen falta más días a la vista.
   */
-  const [vistaSemana, setVistaSemana] = useState<"completa" | "compacta">(
-    "completa",
+  /* «Según el día» de salida (21/10/2026): completa, salvo los días con tres
+     o más tareas, que van compactos para no hacer columnas larguísimas. */
+  const [vistaSemana, setVistaSemana] = useState<"auto" | "completa" | "compacta">(
+    "auto",
   );
 
   /* ------------------------------- CRUCE ------------------------------- */
@@ -1721,7 +1723,7 @@ export default function AbpMicrocicloPage() {
                 <Panel
                   title="La semana"
                   subtitle={
-                    vistaSemana === "completa"
+                    vistaSemana !== "compacta"
                       ? "Cada bloque enseña todo lo que se trabaja, para que un pantallazo se entienda sin entrar en la app. Pulsa uno para editarlo y arrástralo para cambiarlo de día"
                       : "Fichas cortas, para mover bloques de día. Pulsa uno para editarlo; cada uno se puede duplicar o quitar"
                   }
@@ -1732,6 +1734,7 @@ export default function AbpMicrocicloPage() {
                       value={vistaSemana}
                       onChange={setVistaSemana}
                       options={[
+                        { key: "auto" as const, label: "Según el día" },
                         { key: "completa" as const, label: "Ficha completa" },
                         { key: "compacta" as const, label: "Compacta" },
                       ]}
@@ -1757,7 +1760,7 @@ export default function AbpMicrocicloPage() {
                     dias={planVisto.dias}
                     orden={ordenDias}
                     etiquetas={etiquetasDia}
-                    detalle={vistaSemana === "completa"}
+                    detalle={vistaSemana === "auto" ? "auto" : vistaSemana === "completa"}
                     onCambiaTipo={cambiaTipo}
                     onCambiaMd={cambiaMd}
                     onAbrir={(dia, trabajo) =>

@@ -33,7 +33,7 @@ import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 
 import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 
-import { Button, Dialog, Notice } from "@/components/abp/ui";
+import { Button, Dialog } from "@/components/abp/ui";
 import { traeJson } from "@/lib/hojaCsv";
 import { teamKey } from "@/lib/abp/model";
 import { normalizarOnce, rivalOnceKey } from "@/lib/rivals/once";
@@ -1348,15 +1348,16 @@ export function InformeMicroDialog({
                   : "Cargando la comparación con la categoría…"}
           </p>
         ) : (
-          informe.avisos.length > 0 && (
-            <Notice tone="warn" title="Lo que este informe no sabe">
-              <ul className="ml-4 list-disc space-y-1">
-                {informe.avisos.map((aviso) => (
-                  <li key={aviso}>{aviso}</li>
-                ))}
-              </ul>
-            </Notice>
-          )
+          /*
+          | Cómo llega a la bandeja (21/10/2026): el asunto y la línea gris que
+          | Gmail enseña debajo, antes del correo entero. Es lo primero que lee
+          | quien lo recibe y no se veía en ningún sitio.
+          */
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-white/40">Así llega</p>
+            <p className="mt-1 text-[13px] font-semibold text-white">{informe.asunto}</p>
+            {informe.preencabezado && <p className="mt-0.5 text-[12px] text-white/55">{informe.preencabezado}</p>}
+          </div>
         )}
 
         {/*
@@ -1381,6 +1382,25 @@ export function InformeMicroDialog({
             }}
           />
         </div>
+
+        {/*
+        | Lo que el informe no sabe va debajo y plegado (21/10/2026): delante
+        | de la vista previa tapaba lo esencial. Antes de mandar se vuelve a
+        | enseñar entero (`AvisoAntesDeMandar`).
+        */}
+        {!(cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando) &&
+          informe.avisos.length > 0 && (
+            <details className="rounded-xl border border-amber-400/25 bg-amber-400/[0.05] px-3 py-2 text-[12px] text-white/70">
+              <summary className="cursor-pointer font-semibold text-amber-200">
+                Lo que este informe no sabe ({informe.avisos.length})
+              </summary>
+              <ul className="mt-2 ml-4 list-disc space-y-1">
+                {informe.avisos.map((aviso) => (
+                  <li key={aviso}>{aviso}</li>
+                ))}
+              </ul>
+            </details>
+          )}
       </div>
       {avisando && informe && (
         <AvisoAntesDeMandar

@@ -39,6 +39,7 @@
 
 import { objetivoDeLaSemana } from "@/lib/abp/informe-micro";
 import { MARCA_BOCETO } from "@/lib/abp/minutos";
+import { enPrimeraPlural } from "@/lib/abp/primera-plural";
 import { CRITERIO_ENSAYO, criterioDe } from "@/lib/abp/criterios";
 import {
   ASPECTO_BY_KEY,
@@ -228,7 +229,7 @@ function motivoDe(fila: FilaCruce, rival: RivalAbp | null, delRival: number, nos
 
     frases.push(
       fila.lado === "ofensivo"
-        ? `Nuestro: ${acciones} a favor, ${peligro} % con peligro, ${comparado}`
+        ? `A favor: ${acciones} ${acciones === 1 ? "acción" : "acciones"}, ${peligro} % con peligro, ${comparado}`
         : `Nos han sacado ${acciones}, ${peligro} % con peligro suyo, ${comparado}`,
     );
   }
@@ -239,11 +240,12 @@ function motivoDe(fila: FilaCruce, rival: RivalAbp | null, delRival: number, nos
     nosotros?.motivos[claveAspecto(fila.aspecto.key, fila.lado === "ofensivo" ? "defensivo" : "ofensivo")] ?? "",
   );
 
-  if (enLaLiga) frases.push(`Nosotros en la liga: ${enLaLiga}`);
+  if (enLaLiga) frases.push(`En la liga ${enPrimeraPlural(enLaLiga, nosotros?.equipo ?? "")}`);
 
   const dicho = limpiaLectura(rival?.motivos[claveAspecto(fila.aspecto.key, fila.lado)] ?? "");
 
-  if (dicho && rival) frases.push(`${rival.equipo}: ${dicho}`);
+  /* «Algeciras: Algeciras saca…»: el nombre sólo una vez. */
+  if (dicho && rival) frases.push(dicho.startsWith(rival.equipo) ? dicho : `${rival.equipo} ${dicho}`);
   else if (delRival > 0 && rival) {
     frases.push(
       fila.lado === "defensivo"
