@@ -358,6 +358,7 @@ function Caja({
               {atajo}
             </kbd>
           )}
+          {!(compacta && cuenta === 0) && (
           <span
             className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12px] font-bold tabular-nums"
             style={{ background: color ? (tinta === "#FFFFFF" ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.5)") : "rgba(255,255,255,0.08)" }}
@@ -365,13 +366,14 @@ function Caja({
             {cuenta}
             {objetivo !== undefined ? `/${objetivo}` : ""}
           </span>
+          )}
         </span>
       </div>
 
       {resumen}
 
       <div
-        className={`flex flex-1 flex-wrap content-start gap-1.5 ${compacta ? "min-h-[36px] px-2 py-1.5" : "min-h-[64px] p-2"}`}
+        className={`flex flex-1 flex-wrap content-start gap-1.5 ${compacta ? (cuenta === 0 && !activa ? "hidden" : "min-h-[36px] px-2 py-1.5") : "min-h-[64px] p-2"}`}
         onClick={(e) => {
           if (activa && e.target === e.currentTarget) onSoltar();
         }}
@@ -3072,7 +3074,9 @@ export default function JugadoresSesionPage() {
                                             ? `${demarcacion(demarcacionesAuto[j.id])?.nombre} (plantilla)`
                                             : auto
                                               ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)`
-                                              : "Elige su demarcación"}
+                                              : demarcacionDe(j)
+                                                ? `${demarcacion(demarcacionDe(j))?.nombre} (por dónde lo colocáis)`
+                                                : "Elige su demarcación"}
                                         </option>
                                         {DEMARCACIONES.map((d) => (
                                           <option key={d.clave} value={d.clave} className="bg-[#11161C]">

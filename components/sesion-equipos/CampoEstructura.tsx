@@ -106,6 +106,15 @@ export function CampoEstructura({
     /* Dos renglones (1,02 de alto cada uno, más el relleno) entre la ficha y la línea siguiente. */
     Math.max(8, (hueco - ficha - 10) / 2.3),
   );
+  /*
+  | Con la ficha en su punto y el nombre colgando, la última línea se salía
+  | por abajo en la lámina (21/10/2026). Sin tocar (la lámina), las alturas se
+  | encogen lo justo para que el nombre de la línea de atrás quepa entero.
+  */
+  const yMax = Math.max(0.01, ...huecos.filter((h) => h.jugador).map((h) => h.y));
+  const sitioAbajo = alto - 6 - ficha / 2 - letra * 2.5 - 8;
+  const escalaY = !onToca && yMax * alto > sitioAbajo ? sitioAbajo / (yMax * alto) : 1;
+
   const tinta = tintaSobre(color);
   /* Más pálidas en la lámina (21/10/2026): con 0,42 la línea del área y el semicírculo ensuciaban los nombres de encima. */
   const trazo = claro ? "rgba(20,83,45,0.26)" : "rgba(255,255,255,0.5)";
@@ -192,7 +201,7 @@ export function CampoEstructura({
             style={{
               position: "absolute",
               left: `${h.x * 100}%`,
-              top: `${h.y * 100}%`,
+              top: `${h.y * escalaY * 100}%`,
               /* La FICHA en el punto, el nombre colgando (21/10/2026): centrando el bloque entero, un nombre en dos renglones subía su ficha y la línea no quedaba recta. */
               transform: `translate(-50%, ${-(ficha / 2 + (onToca ? 4 : 0))}px)`,
               display: "flex",

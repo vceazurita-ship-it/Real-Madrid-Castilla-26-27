@@ -388,14 +388,14 @@ export function LaminaEquipos({
                       {fase === "cambio" ? " · tras el cambio" : ""}
                     </span>
                   )}
-                  <span style={{ minWidth: 0, display: "flex", alignItems: "baseline", gap: 14 }}>
-                    <span style={{ fontSize: tamanoTitulo(c.titulo), fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ minWidth: 0, display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: 14, rowGap: 0 }}>
+                    <span style={{ fontSize: tamanoTitulo(c.titulo), fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0, maxWidth: "100%" }}>
                       {c.titulo}
                     </span>
                     {c.estructura && (
-                      <span style={{ fontSize: 28, fontWeight: 700, opacity: 0.8, whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 28, fontWeight: 700, opacity: 0.8, whiteSpace: "nowrap", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
                         {/* Sin portero en el equipo, el dibujo sin su «1» (21/10/2026): «1-4-2-3-1» sin nadie en la portería se leía como si el punta fuera el portero. */}
-                        {colocados && colocados.porteros.length === 0 ? `${c.estructura.replace(/^1-/, "")} (sin portero)` : c.estructura}
+                        {colocados && colocados.porteros.length === 0 ? `${c.estructura.replace(/^1-/, "")} · sin portero` : c.estructura}
                       </span>
                     )}
                   </span>
