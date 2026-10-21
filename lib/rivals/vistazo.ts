@@ -115,3 +115,62 @@ export function vistazoDe(
 
 /** «12 pts · 3-3-2» → texto del balance, sin puntos si no los hay. */
 export const balanceDe = (fila: FilaClasificacion) => `${fila.ganados}-${fila.empatados}-${fila.perdidos}`;
+
+/**
+ * La misma franja en una frase, para leerla antes que las cifras.
+ *
+ * «Llega 13.º con 10 puntos, 3 victorias en sus últimos 5 y lejos de casa ha
+ * ganado 1 de 4.» Sólo con lo que hay: sin tabla empieza por la forma, y sin nada no
+ * hay frase. Las rachas se nombran cuando dicen algo (tres o más sin perder,
+ * dos o más derrotas seguidas).
+ */
+export function fraseDelVistazo(vistazo: Vistazo | null): string {
+  if (!vistazo) return "";
+
+  const partes: string[] = [];
+
+  if (vistazo.tabla) {
+    const { puesto, puntos } = vistazo.tabla;
+    partes.push(`${puesto}.º con ${puntos} ${puntos === 1 ? "punto" : "puntos"}`);
+  }
+
+  const forma = vistazo.forma;
+
+  if (forma.length >= 3) {
+    const ganados = forma.filter((r) => r.resultado === "G").length;
+
+    let sinPerder = 0;
+    while (sinPerder < forma.length && forma[sinPerder].resultado !== "P") sinPerder++;
+
+    let derrotas = 0;
+    while (derrotas < forma.length && forma[derrotas].resultado === "P") derrotas++;
+
+    const racha =
+      derrotas >= 2
+        ? ` (pierde los ${derrotas} últimos)`
+        : sinPerder >= 3
+          ? ` (${sinPerder === forma.length ? "sin perder ninguno" : `${sinPerder} partidos seguidos sin perder`})`
+          : "";
+
+    partes.push(
+      `${ganados === 0 ? "ninguna victoria" : `${ganados} ${ganados === 1 ? "victoria" : "victorias"}`} en sus últimos ${forma.length}${racha}`,
+    );
+  }
+
+  if (vistazo.enEseCampo) {
+    const { ganados, jugados } = vistazo.enEseCampo.fila;
+    const donde = vistazo.enEseCampo.donde === "fuera" ? "lejos de casa" : "en su campo";
+
+    partes.push(
+      ganados === 0
+        ? `${donde} no ha ganado ${jugados === 1 ? "su partido" : `ninguno de ${jugados}`}`
+        : `${donde} ha ganado ${ganados} de ${jugados}`,
+    );
+  }
+
+  if (!partes.length) return "";
+
+  const lista = partes.length === 1 ? partes[0] : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
+
+  return `Llega ${lista}.`;
+}

@@ -4736,12 +4736,16 @@ export default function RivalPlayersPage() {
                     </span>
                   )
                 ) : (
-                  <AutoSaveStatus
-                    estado={autoFicha.status}
-                    guardadoEn={autoFicha.lastSavedAt}
-                    onReintentar={() => void autoFicha.flush()}
-                    className="hidden sm:inline-flex"
-                  />
+                  /* En una caja propia: el `inline-flex` del aviso le ganaba al
+                     `hidden` y en el móvil salía dos veces (arriba y al pie),
+                     comiéndose el nombre del jugador (21/10/2026). */
+                  <span className="hidden sm:inline-flex">
+                    <AutoSaveStatus
+                      estado={autoFicha.status}
+                      guardadoEn={autoFicha.lastSavedAt}
+                      onReintentar={() => void autoFicha.flush()}
+                    />
+                  </span>
                 )}
 
                 <button
@@ -4805,9 +4809,11 @@ export default function RivalPlayersPage() {
                       </span>
                     )}
 
-                    <span className="min-w-0 truncate text-sm text-white/50">
-                      {editForm["POSICIÓN"] || "Sin posición"}
-                    </span>
+                    {editForm["POSICIÓN"] && (
+                      <span className="min-w-0 truncate text-sm text-white/50">
+                        {editForm["POSICIÓN"]}
+                      </span>
+                    )}
 
                     {editForm["2º POSICIÓN"] &&
                       editForm["2º POSICIÓN"] !== "." && (
@@ -5463,16 +5469,18 @@ function EtiquetasDialog({
 
             <p className="truncate text-[11px] text-white/40">
               {player.DORSAL ? `${player.DORSAL} · ` : ""}
-              {slotEntry?.slot.label || player["POSICIÓN"] || "Sin posición"}
+              {slotEntry?.slot.label || player["POSICIÓN"] || ""}
             </p>
           </div>
 
-          <AutoSaveStatus
-            estado={estado}
-            guardadoEn={guardadoEn}
-            onReintentar={onReintentar}
-            className="hidden sm:inline-flex"
-          />
+          {/* En caja propia: ver el mismo aviso en la cabecera de la ficha. */}
+          <span className="hidden shrink-0 sm:inline-flex">
+            <AutoSaveStatus
+              estado={estado}
+              guardadoEn={guardadoEn}
+              onReintentar={onReintentar}
+            />
+          </span>
 
           <button
             type="button"

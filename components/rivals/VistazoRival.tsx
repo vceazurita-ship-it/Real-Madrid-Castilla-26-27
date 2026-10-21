@@ -7,7 +7,7 @@ import { ArrowUpRight, Goal, LayoutGrid, Trophy } from "lucide-react";
 import { chipInk } from "@/lib/theme";
 import type { AspectoDestacado } from "@/lib/rivals/destacados-rival";
 import type { JornadaDeEquipo } from "@/lib/rivals/orden-calendario";
-import { balanceDe, type ResultadoForma, type Vistazo } from "@/lib/rivals/vistazo";
+import { balanceDe, fraseDelVistazo, type ResultadoForma, type Vistazo } from "@/lib/rivals/vistazo";
 
 /*
 |--------------------------------------------------------------------------
@@ -94,6 +94,11 @@ export function VistazoRival({
           <p className="shrink-0 text-[11px] text-white/45">{jornada.titulo}</p>
         )}
       </header>
+
+      {/* Primero la lectura, luego las cifras que la sostienen. */}
+      {fraseDelVistazo(vistazo) && (
+        <p className="mb-3 text-sm text-white/80 sm:text-[15px]">{fraseDelVistazo(vistazo)}</p>
+      )}
 
       {vistazo && (
       <div className="grid min-w-0 grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">

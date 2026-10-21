@@ -143,7 +143,9 @@ export function PlayerStatsCard({
             slot={slot}
             side={side}
             label={positionCode}
-            className="aspect-[2/3] w-full"
+            /* En el móvil la columna es la pantalla entera y el mapa, a 2:3,
+               medía más que la tabla: se queda en un tamaño de lectura. */
+            className="mx-auto aspect-[2/3] w-full max-w-[132px] sm:max-w-none"
           />
 
           <p className="mt-1 text-center text-[9px] leading-tight text-white/30">
@@ -279,13 +281,14 @@ export function PlayerStatsCard({
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : missing ? (
             <div className="flex h-full min-h-[120px] items-center justify-center rounded-xl border border-dashed border-white/10 px-4 text-center text-xs text-white/35">
-              {missing
-                ? "Todavía no hay estadísticas de BeSoccer. Se bajan cada noche, o con «Jornada de BeSoccer» en Ajustes."
-                : "Sin estadísticas de este jugador."}
+              {/* Sin documento se dice cómo llega; sin fila del jugador no
+                  se nombra lo que falta (21/10/2026): el mapa ya dice dónde
+                  juega. */}
+              Las estadísticas de BeSoccer se bajan cada noche, o con «Jornada de BeSoccer» en Ajustes.
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </section>
