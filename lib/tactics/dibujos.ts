@@ -288,13 +288,13 @@ export function colocaDibujo(
   const contrarios = tokens.filter((token) => token.kind !== kind && (token.kind === "home" || token.kind === "away"));
 
   for (const [id, sitio] of destino) {
-    const pegado = contrarios.find((otro) => Math.hypot((otro.x - sitio.x) * 1.05, otro.y - sitio.y) < 3.6);
+    const pegado = contrarios.find((otro) => Math.hypot((otro.x - sitio.x) * 1.05, otro.y - sitio.y) < 5.5);
 
     if (!pegado) continue;
 
     const hacia = sitio.y >= pegado.y ? 1 : -1;
 
-    destino.set(id, { x: sitio.x, y: Math.min(PITCH_HEIGHT - 2, Math.max(2, pegado.y + hacia * 3.8)) });
+    destino.set(id, { x: sitio.x, y: Math.min(PITCH_HEIGHT - 2, Math.max(2, pegado.y + hacia * 5.5)) });
   }
 
   return {
