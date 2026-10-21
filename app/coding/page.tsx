@@ -1378,6 +1378,13 @@ function Coding() {
     [clips, filtro],
   );
 
+  /* Lo que la línea de tiempo enseña encendido: sin filtro, todo. */
+  const resaltados = useMemo(
+    () =>
+      hayFiltro(filtro) ? new Set(clipsFiltrados.map((clip) => clip.id)) : null,
+    [clipsFiltrados, filtro],
+  );
+
   /*
   | Lo que se EXPORTA: los cortes de todos los vídeos de la sesión.
   |
@@ -4202,6 +4209,7 @@ function Coding() {
                       categorias={config.categorias}
                       escenas={escenas}
                       seleccionado={seleccionado}
+                      resaltados={resaltados}
                       onSalta={salta}
                       onElegirClip={(id) => {
                         const clip = clips.find((uno) => uno.id === id);
