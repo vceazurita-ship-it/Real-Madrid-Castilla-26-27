@@ -260,13 +260,31 @@ export function construyeRivalAbp(entrada: EntradaRival): RivalAbp | null {
     familias.penalti.ataca = percentil(valor(fila, "penaltis", "favor"), columna("penaltis", "favor"));
     familias.penalti.concede = percentil(valor(fila, "penaltis", "contra"), columna("penaltis", "contra"));
 
+    /*
+    | La base del porcentaje (21/10/2026): «remata el 29 %» no decía de
+    | cuántas. Wyscout da medias por partido; por los partidos que tiene salen
+    | las acciones de la temporada: «(5 de 17 faltas)».
+    */
+    const baseDe = (volumen: string, remate: string, cara: "favor" | "contra", nombre: string) => {
+      const porPartido = valor(fila, volumen, cara);
+      const pct = valor(fila, remate, cara);
+
+      if (porPartido == null || pct == null || !fila.partidos) return "";
+
+      const total = Math.round(porPartido * fila.partidos);
+
+      return total ? ` (${Math.round((total * pct) / 100)} de ${total} ${nombre})` : "";
+    };
+
     familias.corner.dice.defensivo = `${fila.equipo} saca ${cifra(valor(fila, "corners", "favor"))} córners por partido (${puesto(
       valor(fila, "corners", "favor"),
       columna("corners", "favor"),
-    )}) y remata el ${cifra(valor(fila, "cornersRemate", "favor"), 0)} % (media ${cifra(
-      media(columna("cornersRemate", "favor")),
-      0,
-    )} %)`;
+    )}) y remata el ${cifra(valor(fila, "cornersRemate", "favor"), 0)} %${baseDe(
+      "corners",
+      "cornersRemate",
+      "favor",
+      "córners",
+    )} (media ${cifra(media(columna("cornersRemate", "favor")), 0)} %)`;
 
     familias.corner.dice.ofensivo = `concede ${cifra(valor(fila, "corners", "contra"))} córners por partido y deja rematar el ${cifra(
       valor(fila, "cornersRemate", "contra"),
@@ -276,12 +294,12 @@ export function construyeRivalAbp(entrada: EntradaRival): RivalAbp | null {
     familias.falta.dice.defensivo = `lanza ${cifra(valor(fila, "faltasTiro", "favor"))} faltas por partido y remata el ${cifra(
       valor(fila, "faltasRemate", "favor"),
       0,
-    )} %`;
+    )} %${baseDe("faltasTiro", "faltasRemate", "favor", "faltas")}`;
 
     familias.falta.dice.ofensivo = `comete faltas para ${cifra(valor(fila, "faltasTiro", "contra"))} lanzamientos por partido y deja rematar el ${cifra(
       valor(fila, "faltasRemate", "contra"),
       0,
-    )} %`;
+    )} %${baseDe("faltasTiro", "faltasRemate", "contra", "faltas")}`;
 
     familias.penalti.dice.defensivo = `${cifra(valor(fila, "penaltis", "favor"), 2)} penaltis a favor por partido`;
 
@@ -306,19 +324,20 @@ export function construyeRivalAbp(entrada: EntradaRival): RivalAbp | null {
     const encaja = golesSuyos.enContra;
 
     /* Los de córner y falta son estimación —se reparten los goles por el
-       origen de los remates— y por eso van con «≈». Los de penalti sí son
-       dato de Wyscout. */
-    if (marca.corner + marca.falta > 0) {
-      familias.corner.dice.defensivo += ` · ≈${marca.corner} gol(es) de córner en ${marca.partidos} partidos`;
+       origen de los remates— y por eso van con «en torno a» (antes «≈1
+       gol(es)», que no se dice en voz alta). Los de penalti sí son dato de
+       Wyscout. `limpiaLectura` quita estos trozos de las tareas. */
+    const goles = (n: number) => `en torno a ${n === 1 ? "un gol" : `${n} goles`}`;
 
-      familias.falta.dice.defensivo += ` · ≈${marca.falta} gol(es) de falta`;
+    if (marca.corner > 0) {
+      familias.corner.dice.defensivo += ` · ${goles(marca.corner)} de córner en ${marca.partidos} partidos`;
     }
 
-    if (encaja.corner + encaja.falta > 0) {
-      familias.corner.dice.ofensivo += ` · le han hecho ≈${encaja.corner} de córner`;
+    if (marca.falta > 0) familias.falta.dice.defensivo += ` · ${goles(marca.falta)} de falta`;
 
-      familias.falta.dice.ofensivo += ` · ≈${encaja.falta} de falta`;
-    }
+    if (encaja.corner > 0) familias.corner.dice.ofensivo += ` · le han hecho ${goles(encaja.corner)} de córner`;
+
+    if (encaja.falta > 0) familias.falta.dice.ofensivo += ` · le han hecho ${goles(encaja.falta)} de falta`;
   }
 
   /* ---------------------------------------------------------------- */

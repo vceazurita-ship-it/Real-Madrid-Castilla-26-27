@@ -158,9 +158,21 @@ function TrabajoCuerpo({
             detalle ? "leading-snug" : "truncate leading-tight"
           }`}
         >
-          {detalle
-            ? aspectos.map((aspecto) => aspecto.label).join(" · ")
-            : etiquetaTrabajo(trabajo, true)}
+          {/* Dos aspectos como mucho y «+N» (21/10/2026): cinco seguidos
+              ocupaban ocho líneas en una columna estrecha. */}
+          {detalle ? (
+            <span title={aspectos.map((aspecto) => aspecto.label).join(" · ")}>
+              {aspectos
+                .slice(0, 2)
+                .map((aspecto) => aspecto.label)
+                .join(" · ")}
+              {aspectos.length > 2 && (
+                <span className="ml-1 font-medium text-white/45">+{aspectos.length - 2}</span>
+              )}
+            </span>
+          ) : (
+            etiquetaTrabajo(trabajo, true)
+          )}
         </p>
 
         {trabajo.minutos > 0 && (
@@ -171,17 +183,8 @@ function TrabajoCuerpo({
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-1">
-        {/* Una tarea de la hoja que aún no tiene el tiempo apuntado: «0′»
-            parecía un dato y es un hueco por rellenar. */}
-        {!(trabajo.minutos > 0) && (
-          <span
-            className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-300"
-            title="Falta apuntar cuántos minutos dura"
-          >
-            Sin tiempo
-          </span>
-        )}
-
+        {/* La chapa «Sin tiempo» se quitó el 21/10/2026: el hueco ya lo
+            avisa la revisión de la semana, y decirlo tres veces era ruido. */}
         {lados.map((lado) => (
           <span
             key={lado}
@@ -478,29 +481,26 @@ function DiaColumna({
           />
         </div>
 
-        <div className="mt-1.5 grid grid-cols-3 gap-1">
-          {TIPOS_DIA.map((tipo) => {
-            const activo = tipo.key === plan.tipo;
-
-            return (
-              <button
-                key={tipo.key}
-                type="button"
-                onClick={() => onCambiaTipo(tipo.key)}
-                aria-pressed={activo}
-                title={tipo.label}
-                className={`truncate rounded-md px-0.5 py-1 text-[9.5px] font-semibold tracking-tight transition ${
-                  activo
-                    ? "bg-[#C8A96B] text-black"
-                    : "bg-white/[0.05] text-white/40 hover:text-white/70"
-                }`}
-              >
-                {/* «ENTR» y «DESC» eran recortes, no palabras. */}
-                {ROTULO_TIPO[tipo.key]}
-              </button>
-            );
-          })}
-        </div>
+        {/* Un desplegable a 13 px (21/10/2026): los tres botones a 9,5 px no
+            se leían, y a 13 px no caben en una columna de 140. */}
+        <select
+          value={plan.tipo}
+          onChange={(event) => onCambiaTipo(event.target.value as TipoDia)}
+          aria-label={`Tipo de día del ${info?.label?.toLowerCase() ?? "día"}`}
+          className={`mt-1.5 w-full rounded-md border px-1.5 py-1 text-[13px] font-semibold outline-none transition focus:border-[#C8A96B]/60 ${
+            plan.tipo === "entreno"
+              ? "border-white/10 bg-white/[0.05] text-white/80"
+              : plan.tipo === "partido"
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                : "border-white/10 bg-white/[0.02] text-white/45"
+          }`}
+        >
+          {TIPOS_DIA.map((tipo) => (
+            <option key={tipo.key} value={tipo.key}>
+              {ROTULO_TIPO[tipo.key]}
+            </option>
+          ))}
+        </select>
 
         {/* El perfil de la semana de un vistazo: cuánto balón parado lleva
             cada día frente al más cargado. */}
@@ -521,7 +521,10 @@ function DiaColumna({
 
       {/* ---------------------- TRABAJOS ---------------------- */}
 
-      <div ref={setNodeRef} className="flex min-h-[64px] flex-1 flex-col gap-1.5 p-2 md:min-h-[110px]">
+      <div
+        ref={setNodeRef}
+        className={`flex flex-1 flex-col gap-1.5 p-2 ${plan.trabajos.length ? "min-h-[64px] md:min-h-[110px]" : "min-h-[40px]"}`}
+      >
         {plan.trabajos.map((trabajo) => (
           <TrabajoCard
             key={trabajo.id}
@@ -556,8 +559,8 @@ function DiaColumna({
         <div className="flex items-center justify-between gap-1 border-t border-white/10 px-2.5 py-1.5 text-[10px] tabular-nums">
           <span className="font-semibold text-white/75">{fmtMin(minutos)}</span>
 
-          <span className="text-white/35" title="Carga condicional · cognitiva">
-            {Math.round(carga)} · {Math.round(cargaCog)}
+          <span className="text-white/40">
+            carga {Math.round(carga)} · cognitiva {Math.round(cargaCog)}
           </span>
         </div>
       )}

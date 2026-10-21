@@ -187,14 +187,16 @@ export function ordenaCandidatos(
 /**
  * Quita de una lectura lo que no se puede defender delante del cuerpo técnico.
  *
- * Los goles de balón parado de la liga son una estimación calibrada («≈1
- * gol(es) de falta»): sirven para ordenar, no para escribirlos en una tarea.
+ * Los goles de balón parado de la liga son una estimación calibrada («en
+ * torno a un gol de falta»): sirven para ordenar, no para escribirlos en una
+ * tarea. Se reconocen por «en torno a» (y por el «≈» de antes, por si queda
+ * alguno guardado).
  */
 export function limpiaLectura(texto: string) {
   return (texto || "")
     .split(/ · |; /)
     .map((trozo) => trozo.trim())
-    .filter((trozo) => trozo && !trozo.includes("≈"))
+    .filter((trozo) => trozo && !trozo.includes("≈") && !trozo.includes("en torno a"))
     .join(", ")
     .replace(/\s*[;,.]\s*$/, "")
     .trim();

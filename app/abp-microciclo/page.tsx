@@ -45,6 +45,12 @@ import {
 import { BocetoDialog } from "@/components/abp/microciclo/BocetoDialog";
 import { InformeMicroDialog, type DatosDelMicro, type ResultadoIncrustado } from "@/components/abp/InformeMicroDialog";
 import { objetivoDeLaSemana } from "@/lib/abp/informe-micro";
+import {
+  VIDEO_JUGADORES_KEY,
+  eligeVideoJugadores,
+  normalizaVideosJugadores,
+  type DocVideoJugadores,
+} from "@/lib/abp/video-jugadores";
 
 import { toast } from "sonner";
 
@@ -143,6 +149,7 @@ import {
   construyeCruce,
   construyeTrabajoPrevio,
   etiquetaUrgencia,
+  formulaUrgencia,
   ordenaPorUrgencia,
 } from "@/lib/abp/transferencia";
 
@@ -1067,6 +1074,29 @@ export default function AbpMicrocicloPage() {
 
   const partidos = useMemo(() => competicion?.partidos ?? [], [competicion]);
 
+  /*
+  | De dónde salen las cifras del cruce (21/10/2026). «15 partidos» con 8
+  | jornadas jugadas no se entendía: son todos los partidos de nuestras hojas
+  | de ABP, también los de pretemporada y copa, y las acciones son las del
+  | Castilla (atacando, las nuestras; defendiendo, las del rival contra
+  | nosotros).
+  */
+  const baseDelCruce = useMemo(() => {
+    const cuenta = (tipo: string) => partidos.filter((uno) => uno.competicion === tipo).length;
+    const liga = cuenta("liga");
+    const copa = cuenta("copa");
+    const amistosos = cuenta("amistoso");
+    const trozos = [
+      liga ? `${liga} de liga` : "",
+      copa ? `${copa} de copa` : "",
+      amistosos ? `${amistosos} de pretemporada` : "",
+    ].filter(Boolean);
+
+    if (!partidos.length) return "Minutos de todos los microciclos planificados";
+
+    return `Acciones del Castilla en ${partidos.length} ${partidos.length === 1 ? "partido" : "partidos"} de nuestras hojas de ABP (${trozos.join(", ")}): atacando, las nuestras; defendiendo, las del rival. Minutos de todos los microciclos planificados.`;
+  }, [partidos]);
+
   const trabajoPrevio = useMemo(
     () =>
       construyeTrabajoPrevio(
@@ -1216,6 +1246,35 @@ export default function AbpMicrocicloPage() {
 
     return lecturaDelPartido(delPartido, minutosMicro);
   }, [ventana.partido, competicion, minutosMicro]);
+
+  /*
+  | La pieza de la semana (21/10/2026): nuestro vídeo de ABP para los
+  | jugadores de esta jornada, el que sube el vigía. Si no está, no se nombra.
+  */
+  const [videosJugadores, setVideosJugadores] = useState<DocVideoJugadores | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    fetch(`/api/docs?key=${encodeURIComponent(VIDEO_JUGADORES_KEY)}`, { cache: "no-store" })
+      .then((respuesta) => (respuesta.ok ? respuesta.json() : null))
+      .then((datos) => {
+        if (!cancelado) setVideosJugadores(normalizaVideosJugadores(datos?.data));
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const pieza = useMemo(() => {
+    if (!videosJugadores || !ventana.partido) return null;
+
+    const video = eligeVideoJugadores(videosJugadores, ventana.partido.jornada ?? null, ventana.partido.rival);
+
+    return video ? { url: video.url, segundos: video.segundos } : null;
+  }, [videosJugadores, ventana.partido]);
 
   /* Los días del diálogo de una tarea: los de este microciclo, con su MD. */
   const diasDialogo = useMemo(
@@ -1460,9 +1519,8 @@ export default function AbpMicrocicloPage() {
                   inputMode="numeric"
                   min={0}
                   max={7}
-                  value={plan.diasEntrenados ?? ""}
+                  value={plan.diasEntrenados ?? semana.dias}
                   onChange={(event) => cambiaDiasEntrenados(event.target.value)}
-                  placeholder={String(semana.dias)}
                   aria-describedby="dias-entrenados-ayuda"
                   className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/40 focus:border-[#C8A96B]/50"
                 />
@@ -1544,6 +1602,8 @@ export default function AbpMicrocicloPage() {
               porLado={totales.porLado}
               enlaces={enlaces}
               onVerPost={ventana.partido?.jugado ? () => setInformeAbierto(true) : undefined}
+              onProponer={claveActiva ? () => setBocetoAbierto(true) : undefined}
+              pieza={pieza}
             />
           )}
 
@@ -1577,10 +1637,14 @@ export default function AbpMicrocicloPage() {
                 <>
               {/* ===================== RESUMEN ===================== */}
 
+              {/* Con la semana vacía no hay resumen (21/10/2026): cinco tarjetas
+                  con «0′», «0′ / 0′» y «—» parecían una pantalla rota. Lo que
+                  queda por hacer ya lo dice la tarjeta del partido. */}
+              {totales.minutos > 0 && (
               <div className="mt-7">
                 {/* Dos por fila en el móvil: cinco tarjetas apiladas eran una
                     pantalla entera antes de llegar a la semana. */}
-                <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-5">
+                <div className="grid min-w-0 grid-cols-2 gap-3 lg:auto-cols-fr lg:grid-flow-col">
                   <StatCard
                     label="Minutos de ABP"
                     value={fmtMin(totales.minutos)}
@@ -1591,26 +1655,26 @@ export default function AbpMicrocicloPage() {
                   <StatCard
                     label="Ofensivo / Defensivo"
                     value={`${fmtMin(totales.porLado.ofensivo)} / ${fmtMin(totales.porLado.defensivo)}`}
-                    hint={
-                      totales.minutos
-                        ? `${Math.round((totales.porLado.ofensivo / totales.minutos) * 100)} % ofensivo`
-                        : "sin reparto todavía"
-                    }
+                    hint={`${Math.round((totales.porLado.ofensivo / totales.minutos) * 100)} % ofensivo`}
                   />
 
-                  <StatCard
-                    label="Carga condicional"
-                    value={Math.round(totales.carga) || "—"}
-                    hint="tiempo × intensidad"
-                    accent={chipInk("#FBBF24")}
-                  />
+                  {totales.carga > 0 && (
+                    <StatCard
+                      label="Carga condicional"
+                      value={Math.round(totales.carga)}
+                      hint="tiempo × intensidad"
+                      accent={chipInk("#FBBF24")}
+                    />
+                  )}
 
-                  <StatCard
-                    label="Carga cognitiva"
-                    value={Math.round(totales.cargaCog) || "—"}
-                    hint="tiempo × exigencia"
-                    accent={chipInk("#8B5CF6")}
-                  />
+                  {totales.cargaCog > 0 && (
+                    <StatCard
+                      label="Carga cognitiva"
+                      value={Math.round(totales.cargaCog)}
+                      hint="tiempo × exigencia"
+                      accent={chipInk("#8B5CF6")}
+                    />
+                  )}
 
                   <StatCard
                     label="Campo / Vídeo"
@@ -1623,6 +1687,7 @@ export default function AbpMicrocicloPage() {
                   />
                 </div>
               </div>
+              )}
 
               {/* ================ LO QUE DEJÓ EL PARTIDO ================ */}
 
@@ -1764,7 +1829,7 @@ export default function AbpMicrocicloPage() {
               <div className="mt-6">
                 <Panel
                   title="Lo más urgente ahora mismo"
-                  subtitle="Mucho volumen en competición, mal rendimiento y pocos minutos encima"
+                  subtitle="Lo que más daño nos hace (peligro y goles), lo que peor nos sale frente a los suyos y lo menos trabajado"
                   icon={Flame}
                 >
                   {prioridades.length ? (
@@ -1804,15 +1869,22 @@ export default function AbpMicrocicloPage() {
                             </p>
 
                             <p className="mt-0.5 text-[10.5px] tabular-nums text-white/40">
-                              {fila.stats.acciones} acciones ·{" "}
-                              {fila.peligroAjustado.toFixed(0)} % peligro ·{" "}
-                              {fila.minutosTemporada
-                                ? fmtMin(fila.minutosTemporada)
-                                : "sin trabajar"}
+                              {fila.stats.acciones} {fila.stats.acciones === 1 ? "acción" : "acciones"}
+                              {fila.stats.remates
+                                ? ` · ${fila.stats.remates} ${fila.stats.remates === 1 ? "remate" : "remates"}`
+                                : ""}
+                              {fila.stats.goles
+                                ? ` · ${fila.stats.goles} ${fila.stats.goles === 1 ? "gol" : "goles"} ${fila.lado === "defensivo" ? "en contra" : "a favor"}`
+                                : ""}
+                              {" · "}
+                              {fila.minutosTemporada ? fmtMin(fila.minutosTemporada) : "sin trabajar"}
                             </p>
 
-                            <p className="mt-1.5 text-[10px] uppercase tracking-wide text-white/40">
-                              Urgencia {etiquetaUrgencia(fila.urgencia ?? 0)} ·
+                            <p
+                              className="mt-1.5 text-[10px] uppercase tracking-wide text-white/40"
+                              title={formulaUrgencia(fila)}
+                            >
+                              Urgencia {etiquetaUrgencia(fila.urgencia ?? 0).toLowerCase()} ·
                               planificar
                             </p>
                           </button>
@@ -1833,7 +1905,7 @@ export default function AbpMicrocicloPage() {
               <div className="mt-6">
                 <Panel
                   title="Cruce con la competición"
-                  subtitle={`${partidos.length} partido${partidos.length === 1 ? "" : "s"}${explicativos ? " en las hojas de ABP" : ""} · minutos de todos los microciclos planificados`}
+                  subtitle={baseDelCruce}
                   icon={TriangleAlert}
                   action={
                     <div className="flex flex-wrap items-center gap-2">
@@ -1870,9 +1942,12 @@ export default function AbpMicrocicloPage() {
                   <div className="space-y-1.5 border-t border-white/10 px-4 py-3 sm:px-5">
                     <p className="text-[10.5px] leading-relaxed text-white/35">
                       <span className="text-white/55">Urgencia</span> pesa el
-                      volumen en competición (40 %), lo mal que sale la jugada
-                      comparada con las de su familia (35 %) y lo poco que se ha
-                      trabajado (25 %). Un saque de banda no se juzga con la vara
+                      daño (50 %: defendiendo, las acciones con peligro que nos
+                      hacen, y cada gol tres veces; atacando, el peligro que nos
+                      falta por las veces que ocurre), lo mal que sale la jugada
+                      comparada con las de su familia (30 %) y lo poco que se ha
+                      trabajado (20 %). Un aspecto con goles en contra nunca baja
+                      de alta ni del tercer puesto. Un saque de banda no se juzga con la vara
                       de un córner: la referencia de cada aspecto es la media de
                       su propia familia, y aparece junto al peligro. Los dos
                       últimos ingredientes se ponderan por la muestra, así que un

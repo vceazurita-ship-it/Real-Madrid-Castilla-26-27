@@ -187,7 +187,10 @@ export function revisaSemana({
       id: "minutos",
       tono: faltan <= 5 ? "aviso" : "alerta",
       titulo: `Faltan ${faltan}′ para el objetivo`,
-      detalle: `${fmtMin(minutos)} de ${objetivo.minimo}-${objetivo.maximo}′.`,
+      /* Con tareas pero sin minutos, «0′ de 60-67′» repetía la tarjeta. */
+      detalle: minutos
+        ? `${fmtMin(minutos)} de ${objetivo.minimo}-${objetivo.maximo}′.`
+        : `Ninguna tarea tiene minutos todavía: ponle tiempo o pide el boceto.`,
     });
   } else if (minutos > objetivo.maximo) {
     puntos.push({
@@ -231,7 +234,11 @@ export function revisaSemana({
       id: "sin-carga",
       tono: "aviso",
       titulo: `${plural(sinCarga.length, "tarea", "tareas")} sin intensidad`,
-      detalle: `${enLista(sinCarga.map(({ dia }) => nombreDia(dia)))}: la carga de esos días no se puede leer.`,
+      detalle: (() => {
+        const dias = [...new Set(sinCarga.map(({ dia }) => nombreDia(dia)))];
+
+        return `Sin ella no se lee la carga ${dias.length === 1 ? "del" : "de"} ${enLista(dias)}.`;
+      })(),
       dia: sinCarga[0].dia,
       trabajo: sinCarga[0].trabajo,
     });
@@ -375,8 +382,13 @@ export function revisaSemana({
     puntos.push({
       id: "video",
       tono: "aviso",
-      titulo: "El vídeo va después del campo",
-      detalle: `${enLista(tarde.map(({ dia }) => nombreDia(dia)))}: se ve antes de trabajarlo en el campo, no después.`,
+      titulo: (() => {
+        const dias = [...new Set(tarde.map(({ dia }) => nombreDia(dia)))];
+        const cuando = enLista(dias);
+
+        return `${cuando.replace(/^./, (letra) => letra.toUpperCase())}: el vídeo va después del campo`;
+      })(),
+      detalle: "Ponlo antes: primero se ve, luego se entrena.",
       dia: tarde[0].dia,
       trabajo: tarde[0].trabajo,
     });
@@ -458,6 +470,11 @@ export type LecturaPartido = {
   /** Lo que no estaba en la semana y acabó en gol u ocasión clara. */
   sinTrabajar: LecturaAspecto[];
   acciones: number;
+  /**
+   * Los goles a balón parado del partido, a favor y en contra, con su tipo y
+   * su minuto (21/10/2026): lo primero que se pregunta el lunes.
+   */
+  goles: { lado: AbpLado; label: string; minuto: number | null }[];
 };
 
 /**
@@ -525,6 +542,20 @@ export function lecturaDelPartido(
       .filter((uno) => uno.minutos <= 0 && uno.peligro > 0)
       .sort((a, b) => b.goles - a.goles || b.peligro - a.peligro),
     acciones: events.length,
+    goles: events
+      .filter((event) => event.gol)
+      .map((event) => {
+        const aspecto = [...ASPECTO_BY_KEY.values()].find(
+          (uno) => uno.reconocimiento && encajaEnAspecto(event, uno),
+        );
+
+        return {
+          lado: event.lado,
+          label: aspecto?.label ?? "Balón parado",
+          minuto: event.contexto.minuto.minuto,
+        };
+      })
+      .sort((a, b) => (a.minuto ?? 999) - (b.minuto ?? 999)),
   };
 }
 
@@ -550,6 +581,10 @@ export function porqueDe(notas: string | undefined, explicativos: boolean) {
     .map((linea) => linea.trim().slice(MARCA_BOCETO.length).trim())
     .filter((linea) => explicativos || !/urgencia \d+\/100|de su familia/.test(linea))
     .join(" ")
+    /* Las notas guardadas antes del 21/10/2026 llevan «· ≈1 gol(es) de
+       falta», que es una estimación y no se dice en voz alta: fuera. */
+    .replace(/\s*·\s*≈[^·]*/g, "")
+    .replace(/(\d+) gol\(es\)/g, (_, n: string) => (n === "1" ? "un gol" : `${n} goles`))
     /* «vídeo del Algeciras…», «ensayo del día antes…»: con mayúscula. */
     .replace(/^./, (letra) => letra.toUpperCase());
 
