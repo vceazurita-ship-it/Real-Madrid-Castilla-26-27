@@ -41,8 +41,10 @@ import {
   balonEn,
   distancia,
   nuevoTrazo,
+  nuevoRival,
   posicionEn,
   type FaseTrazo,
+  type RivalPizarra,
   type Punto,
   type TipoTrazo,
   type TrazoPizarra,
@@ -575,6 +577,80 @@ function Adorno({ adorno }: { adorno: AdornoAbp }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  UN RIVAL                                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * La chapa de un rival: un disco granate con filo blanco y su dorsal.
+ *
+ * Granate y no rojo puro: sobre el césped de la foto el rojo vibra y a
+ * tamaño de proyección se come a nuestras chapas, que son las que importan.
+ * Va de pie en el mismo suelo que las caras —la sombra y la profundidad son
+ * las mismas—, así que delante y detrás se leen igual que con los nuestros.
+ */
+function ChapaRival({
+  rival,
+  elegido,
+  editable,
+  onPointerDown,
+}: {
+  rival: RivalPizarra;
+  elegido: boolean;
+  editable: boolean;
+  onPointerDown: (event: React.PointerEvent) => void;
+}) {
+  const lado = 52;
+
+  return (
+    <div
+      data-rival
+      className="absolute select-none"
+      style={{
+        left: rival.x - lado / 2,
+        top: rival.y - lado - 4,
+        width: lado,
+        height: lado + 10,
+        zIndex: profundidad(rival.x, rival.y),
+        cursor: editable ? "grab" : "default",
+        touchAction: editable ? "none" : undefined,
+        pointerEvents: editable ? "auto" : "none",
+      }}
+      onPointerDown={editable ? onPointerDown : undefined}
+      aria-label={rival.dorsal ? `Rival ${rival.dorsal}` : "Rival"}
+    >
+      <div
+        className="pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-[50%]"
+        style={{
+          top: lado - 4,
+          width: 50,
+          height: 14,
+          background: "radial-gradient(50% 50% at 50% 50%, rgba(0,0,0,.5) 0%, rgba(0,0,0,0) 72%)",
+        }}
+      />
+
+      <div
+        className="relative flex items-center justify-center rounded-full"
+        style={{
+          width: lado,
+          height: lado,
+          backgroundImage: "radial-gradient(70% 70% at 35% 30%, #A8323E 0%, #6E1622 100%)",
+          boxShadow: elegido
+            ? `0 0 0 3px #FFFFFF, 0 0 0 7px ${COLORES.oro}, 0 8px 14px rgba(0,0,0,.55)`
+            : "0 0 0 3px #FFFFFF, 0 8px 14px rgba(0,0,0,.5)",
+        }}
+      >
+        <span
+          className="text-[22px] font-bold leading-none tabular-nums"
+          style={{ color: "#FFFFFF", fontFamily: "var(--fuente-pizarra, inherit)" }}
+        >
+          {rival.dorsal ?? ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  LEYENDA DE LAS FLECHAS                                             */
 /* ------------------------------------------------------------------ */
 
@@ -590,10 +666,12 @@ function LeyendaTrazos({
   tipos,
   fases,
   hastaFase,
+  rivales,
 }: {
   tipos: TipoTrazo[];
   fases: number;
   hastaFase?: number;
+  rivales: boolean;
 }) {
   return (
     <div
@@ -650,6 +728,22 @@ function LeyendaTrazos({
         );
       })}
 
+      {rivales && (
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="inline-block rounded-full"
+            style={{ width: 18, height: 18, backgroundColor: "#8E2430", boxShadow: "0 0 0 2px #FFFFFF" }}
+          />
+          <span
+            className="text-[15px] font-semibold uppercase leading-none tracking-[0.12em]"
+            style={{ color: "#FFFFFF" }}
+          >
+            Rival
+          </span>
+        </span>
+      )}
+
       {hastaFase == null && fases > 1 && (
         <span
           className="text-[13px] font-semibold uppercase leading-none tracking-[0.14em]"
@@ -686,6 +780,10 @@ export function TableroSlide({
   soloVer = false,
   hastaFase,
   onPasoNuevo,
+  rivalElegido = null,
+  onElegirRival,
+  onCrearRival,
+  onMoverRival,
 }: {
   slide: SlidePizarra;
   players: Map<string, Player>;
@@ -698,7 +796,7 @@ export function TableroSlide({
   onPulsarPuesto: (puestoKey: string) => void;
   onSeleccionar: (id: string | null) => void;
   /** Mover caras, o dibujar un tipo de trazo. */
-  herramienta?: "mover" | TipoTrazo;
+  herramienta?: "mover" | "rival" | TipoTrazo;
   /** La fase con la que nacen los trazos que se dibujan. */
   fase?: FaseTrazo;
   trazoElegido?: string | null;
@@ -719,6 +817,10 @@ export function TableroSlide({
    * píxel). Lo usa el deshacer de la página.
    */
   onPasoNuevo?: () => void;
+  rivalElegido?: string | null;
+  onElegirRival?: (id: string | null) => void;
+  onCrearRival?: (rival: RivalPizarra) => void;
+  onMoverRival?: (id: string, x: number, y: number) => void;
 }) {
   const marcoRef = useRef<HTMLDivElement>(null);
 
@@ -754,6 +856,7 @@ export function TableroSlide({
     | { modo: "ficha"; id: string; dx: number; dy: number }
     | { modo: "tirador"; id: string; cual: TiradorTrazo }
     | { modo: "dibujo"; desde: Punto }
+    | { modo: "rival"; id: string; dx: number; dy: number }
     | null
   >(null);
 
@@ -807,10 +910,11 @@ export function TableroSlide({
       onPasoNuevo?.();
       onSeleccionar(ficha.id);
       onElegirTrazo?.(null);
+      onElegirRival?.(null);
 
       event.preventDefault();
     },
-    [alLienzo, onSeleccionar, onElegirTrazo, onPasoNuevo],
+    [alLienzo, onSeleccionar, onElegirTrazo, onElegirRival, onPasoNuevo],
   );
 
   const tira = useCallback(
@@ -821,8 +925,27 @@ export function TableroSlide({
     [onPasoNuevo],
   );
 
+  const empiezaRival = useCallback(
+    (event: React.PointerEvent, rival: RivalPizarra) => {
+      const p = alLienzo(event.clientX, event.clientY);
+
+      if (!p) return;
+
+      arrastre.current = { modo: "rival", id: rival.id, dx: p.x - rival.x, dy: p.y - rival.y };
+
+      onPasoNuevo?.();
+      onElegirRival?.(rival.id);
+      onSeleccionar(null);
+      onElegirTrazo?.(null);
+
+      event.stopPropagation();
+      event.preventDefault();
+    },
+    [alLienzo, onElegirRival, onSeleccionar, onElegirTrazo, onPasoNuevo],
+  );
+
   /* Dibujar: se pulsa en el arranque (se engancha a una cara o a una punta)
-     y se suelta en la punta. */
+     y se suelta en la punta. Con la herramienta de rival, se planta uno. */
   const empiezaDibujo = useCallback(
     (event: React.PointerEvent) => {
       if (herramienta === "mover") return;
@@ -830,6 +953,18 @@ export function TableroSlide({
       const p = alLienzo(event.clientX, event.clientY);
 
       if (!p) return;
+
+      if (herramienta === "rival") {
+        const rival = nuevoRival({
+          x: Math.max(30, Math.min(TABLERO_W - 30, p.x)),
+          y: Math.max(CABECERA_H + 40, Math.min(TABLERO_H - 10, p.y)),
+        });
+
+        onCrearRival?.(rival);
+        event.preventDefault();
+
+        return;
+      }
 
       const desde = arranqueDe(p, fichasRef.current.filter(enElCampo), trazosRef.current);
 
@@ -839,7 +974,7 @@ export function TableroSlide({
 
       event.preventDefault();
     },
-    [herramienta, fase, alLienzo, setBorrador],
+    [herramienta, fase, alLienzo, setBorrador, onCrearRival],
   );
 
   useEffect(() => {
@@ -856,6 +991,16 @@ export function TableroSlide({
         const actual = borradorRef.current;
 
         if (actual) setBorrador({ ...actual, x2: Math.round(p.x), y2: Math.round(p.y) });
+
+        return;
+      }
+
+      if (activo.modo === "rival") {
+        onMoverRival?.(
+          activo.id,
+          Math.round(Math.max(30, Math.min(TABLERO_W - 30, p.x - activo.dx))),
+          Math.round(Math.max(CABECERA_H + 40, Math.min(TABLERO_H - 10, p.y - activo.dy))),
+        );
 
         return;
       }
@@ -945,7 +1090,7 @@ export function TableroSlide({
       window.removeEventListener("pointerup", suelta);
       window.removeEventListener("pointercancel", suelta);
     };
-  }, [onMover, onCambiarTrazo, onCrearTrazo, alLienzo, setBorrador]);
+  }, [onMover, onCambiarTrazo, onCrearTrazo, onMoverRival, alLienzo, setBorrador]);
 
   const puestos = puestosDe(slide);
   const grupos = gruposDe(slide);
@@ -1020,10 +1165,11 @@ export function TableroSlide({
 
           const blanco = event.target as Element;
 
-          if (blanco.closest("[data-ficha],[data-trazo],button")) return;
+          if (blanco.closest("[data-ficha],[data-trazo],[data-rival],button")) return;
 
           onSeleccionar(null);
           onElegirTrazo?.(null);
+          onElegirRival?.(null);
         }}
       >
         {/* ------------------------- CAMPO ------------------------- */}
@@ -1212,11 +1358,12 @@ export function TableroSlide({
 
         {/* ----------------- CARRERAS, BALÓN, BLOQUEOS ----------------- */}
 
-        {todos.length > 0 && (
+        {(todos.length > 0 || (slide.rivales?.length ?? 0) > 0) && (
           <LeyendaTrazos
             tipos={[...new Set(todos.map((trazo) => trazo.tipo))]}
             fases={totalFases}
             hastaFase={hastaFase}
+            rivales={(slide.rivales?.length ?? 0) > 0}
           />
         )}
 
@@ -1228,6 +1375,7 @@ export function TableroSlide({
           onElegir={(id) => {
             onElegirTrazo?.(id);
             onSeleccionar(null);
+            onElegirRival?.(null);
           }}
         />
 
@@ -1257,6 +1405,16 @@ export function TableroSlide({
             soloVer={soloVer || tiempo != null}
             onPointerDown={(event) => empieza(event, ficha)}
             onQuitar={() => onQuitar(ficha.id)}
+          />
+        ))}
+
+        {(slide.rivales ?? []).map((rival) => (
+          <ChapaRival
+            key={rival.id}
+            rival={rival}
+            elegido={!soloVer && rivalElegido === rival.id}
+            editable={editaTrazos && herramienta === "mover"}
+            onPointerDown={(event) => empiezaRival(event, rival)}
           />
         ))}
 

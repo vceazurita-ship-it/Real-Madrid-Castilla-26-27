@@ -409,3 +409,41 @@ export function huellaTrazos(trazos: TrazoPizarra[] | undefined) {
     ])
     .sort((a, b) => String(a).localeCompare(String(b)));
 }
+
+/* ------------------------------------------------------------------ */
+/*  RIVALES                                                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Un rival dibujado: el defensor al que se bloquea, el que hace la zona del
+ * primer palo, el portero. Sin él, un bloqueo es una «T» contra nada.
+ *
+ * No es una cara de la plantilla —del rival no hay fotos—, sino una chapa con
+ * su dorsal si se sabe (lo da el análisis del rival; si no, se deja en blanco
+ * y sale la chapa lisa).
+ */
+export type RivalPizarra = {
+  id: string;
+  x: number;
+  y: number;
+  /** Dorsal o una letra corta ("P" del portero). Vacío = chapa lisa. */
+  dorsal?: string;
+};
+
+export function nuevoRival(p: Punto): RivalPizarra {
+  return {
+    id: `RV-${Math.random().toString(36).slice(2, 10)}`,
+    x: Math.round(p.x),
+    y: Math.round(p.y),
+  };
+}
+
+export function clonaRivales(rivales: RivalPizarra[] | undefined) {
+  return rivales?.map((rival) => ({ ...rival }));
+}
+
+export function huellaRivales(rivales: RivalPizarra[] | undefined) {
+  return (rivales ?? [])
+    .map((rival) => [Math.round(rival.x), Math.round(rival.y), rival.dorsal ?? ""])
+    .sort((a, b) => String(a).localeCompare(String(b)));
+}

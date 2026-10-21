@@ -85,6 +85,7 @@ import {
   arrastraTrazos,
   fasesDe,
   type FaseTrazo,
+  type RivalPizarra,
   type TrazoPizarra,
 } from "@/lib/abp/trazos";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
@@ -737,6 +738,45 @@ export default function PizarraAbpPage() {
   const [herramienta, setHerramienta] = useState<Herramienta>("mover");
   const [fase, setFase] = useState<FaseTrazo>(1);
   const [trazoElegido, setTrazoElegido] = useState<string | null>(null);
+  const [rivalElegido, setRivalElegido] = useState<string | null>(null);
+
+  const rivalEnMano = useMemo(
+    () => (slide?.rivales ?? []).find((rival) => rival.id === rivalElegido) ?? null,
+    [slide, rivalElegido],
+  );
+
+  const creaRival = useCallback(
+    (rival: RivalPizarra) => {
+      mutaSlide((actual) => ({ ...actual, rivales: [...(actual.rivales ?? []), rival] }));
+      setRivalElegido(rival.id);
+    },
+    [mutaSlide],
+  );
+
+  const cambiaRivalDibujado = useCallback(
+    (id: string, cambio: Partial<RivalPizarra>, clave?: string) =>
+      mutaSlide(
+        (actual) => ({
+          ...actual,
+          rivales: (actual.rivales ?? []).map((rival) =>
+            rival.id === id ? { ...rival, ...cambio } : rival,
+          ),
+        }),
+        clave,
+      ),
+    [mutaSlide],
+  );
+
+  const quitaRivalDibujado = useCallback(
+    (id: string) => {
+      mutaSlide((actual) => ({
+        ...actual,
+        rivales: (actual.rivales ?? []).filter((rival) => rival.id !== id),
+      }));
+      setRivalElegido(null);
+    },
+    [mutaSlide],
+  );
 
   const trazos = useMemo(() => slide?.trazos ?? [], [slide]);
 
@@ -1560,6 +1600,7 @@ export default function PizarraAbpPage() {
         event.preventDefault();
         setHerramienta(herramientaDeTecla);
         setTrazoElegido(null);
+        setRivalElegido(null);
 
         return;
       }
@@ -1597,13 +1638,17 @@ export default function PizarraAbpPage() {
 
         setHerramienta("mover");
         setTrazoElegido(null);
+        setRivalElegido(null);
         setSeleccion(null);
 
         return;
       }
 
       if (tecla === "Delete" || tecla === "Backspace") {
-        if (trazoEnMano) {
+        if (rivalEnMano) {
+          event.preventDefault();
+          quitaRivalDibujado(rivalEnMano.id);
+        } else if (trazoEnMano) {
           event.preventDefault();
           borraTrazo(trazoEnMano.id);
         } else if (seleccion && slide.fichas.some((ficha) => ficha.id === seleccion)) {
@@ -1626,6 +1671,21 @@ export default function PizarraAbpPage() {
         ArrowUp: [0, -paso],
         ArrowDown: [0, paso],
       }[tecla];
+
+      if (delta && rivalEnMano && tiempo == null) {
+        event.preventDefault();
+
+        cambiaRivalDibujado(
+          rivalEnMano.id,
+          {
+            x: Math.max(30, Math.min(TABLERO_W - 30, rivalEnMano.x + delta[0])),
+            y: Math.max(CABECERA_H + 40, Math.min(TABLERO_H - 10, rivalEnMano.y + delta[1])),
+          },
+          `tecla:${rivalEnMano.id}`,
+        );
+
+        return;
+      }
 
       if (delta && seleccion && tiempo == null) {
         const ficha = slide.fichas.find((item) => item.id === seleccion);
@@ -2125,6 +2185,7 @@ export default function PizarraAbpPage() {
                       onHerramienta={(nueva) => {
                         setHerramienta(nueva);
                         setTrazoElegido(null);
+                        setRivalElegido(null);
                       }}
                       fase={fase}
                       onFase={setFase}
@@ -2143,6 +2204,16 @@ export default function PizarraAbpPage() {
                       onParar={paraReproduccion}
                       onProyectar={() => setProyectando(activa)}
                       trazos={trazos.length}
+                      rival={rivalEnMano}
+                      onDorsalRival={(dorsal) =>
+                        rivalEnMano &&
+                        cambiaRivalDibujado(
+                          rivalEnMano.id,
+                          { dorsal: dorsal.trim() ? dorsal.toUpperCase() : undefined },
+                          `texto:dorsal:${rivalEnMano.id}`,
+                        )
+                      }
+                      onBorrarRival={() => rivalEnMano && quitaRivalDibujado(rivalEnMano.id)}
                     />
 
                     <TableroSlide
@@ -2172,6 +2243,12 @@ export default function PizarraAbpPage() {
                       }
                       onPasoNuevo={pasoNuevo}
                       tiempo={tiempo}
+                      rivalElegido={rivalElegido}
+                      onElegirRival={setRivalElegido}
+                      onCrearRival={creaRival}
+                      onMoverRival={(id, x, y) =>
+                        cambiaRivalDibujado(id, { x, y }, `gesto:${gesto.current}`)
+                      }
                     />
                   </div>
                 )}

@@ -1,8 +1,11 @@
 import { idVigente } from "@/lib/fichajes";
 import {
   arrastraTrazos,
+  clonaRivales,
   clonaTrazos,
+  huellaRivales,
   huellaTrazos,
+  type RivalPizarra,
   type TrazoPizarra,
 } from "@/lib/abp/trazos";
 /**
@@ -810,6 +813,8 @@ export type SlidePizarra = {
    * Ver `lib/abp/trazos.ts`: van atados a las caras por dónde empiezan.
    */
   trazos?: TrazoPizarra[];
+  /** Los rivales dibujados: a quién se bloquea, quién defiende cada zona. */
+  rivales?: RivalPizarra[];
   /** Con qué versión del dibujo de la plantilla se colocaron las fichas. */
   rev?: number;
 };
@@ -1367,6 +1372,7 @@ export function copiaTablero(
       ...(clonaTextos(slide.textos) ? { textos: clonaTextos(slide.textos)! } : {}),
       fichas: slide.fichas.map((ficha) => ({ ...ficha, id: nuevoId("FI") })),
       ...(slide.trazos ? { trazos: clonaTrazos(slide.trazos) } : {}),
+      ...(slide.rivales ? { rivales: clonaRivales(slide.rivales) } : {}),
     })),
   };
 }
@@ -1406,6 +1412,7 @@ export function huellaTablero(rival: string, slides: SlidePizarra[]) {
       /* Sin trazos no se añade nada: las versiones guardadas antes de que
          existieran conservan su huella y no salen como «distintas». */
       ...(slide.trazos?.length ? [huellaTrazos(slide.trazos)] : []),
+      ...(slide.rivales?.length ? [huellaRivales(slide.rivales)] : []),
     ]),
   ]);
 }
@@ -1471,6 +1478,7 @@ export function registraVersion(
       notas: [...slide.notas],
       fichas: slide.fichas.map((ficha) => ({ ...ficha })),
       ...(slide.trazos ? { trazos: clonaTrazos(slide.trazos) } : {}),
+      ...(slide.rivales ? { rivales: clonaRivales(slide.rivales) } : {}),
     })),
   };
 
@@ -1516,6 +1524,7 @@ export function aplicaVersion(
       notas: [...slide.notas],
       fichas: slide.fichas.map((ficha) => ({ ...ficha, id: nuevoId("FI") })),
       ...(slide.trazos ? { trazos: clonaTrazos(slide.trazos) } : {}),
+      ...(slide.rivales ? { rivales: clonaRivales(slide.rivales) } : {}),
     })),
   };
 }

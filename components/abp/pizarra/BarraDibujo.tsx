@@ -11,6 +11,7 @@
  */
 
 import {
+  CircleDot,
   Footprints,
   MousePointer2,
   Pause,
@@ -31,17 +32,19 @@ import {
   esCurvo,
   type FaseTrazo,
   type TipoTrazo,
+  type RivalPizarra,
   type TrazoPizarra,
 } from "@/lib/abp/trazos";
 import { ESTILO_TRAZO } from "@/components/abp/pizarra/CapaTrazos";
 
-export type Herramienta = "mover" | TipoTrazo;
+export type Herramienta = "mover" | "rival" | TipoTrazo;
 
 const ICONO: Record<Herramienta, ComponentType<{ size?: number; className?: string }>> = {
   mover: MousePointer2,
   carrera: Footprints,
   balon: Volleyball,
   bloqueo: Shield,
+  rival: CircleDot,
 };
 
 export const TECLA_HERRAMIENTA: Record<Herramienta, string> = {
@@ -49,11 +52,13 @@ export const TECLA_HERRAMIENTA: Record<Herramienta, string> = {
   carrera: "C",
   balon: "B",
   bloqueo: "L",
+  rival: "R",
 };
 
 const HERRAMIENTAS: { key: Herramienta; label: string; ayuda: string }[] = [
   { key: "mover", label: "Mover", ayuda: "Arrastrar caras y elegir flechas" },
   ...TIPOS_TRAZO,
+  { key: "rival", label: "Rival", ayuda: "Plantar un defensor o el portero rival" },
 ];
 
 function Tecla({ children }: { children: string }) {
@@ -89,6 +94,9 @@ export function BarraDibujo({
   onParar,
   onProyectar,
   trazos,
+  rival,
+  onDorsalRival,
+  onBorrarRival,
 }: {
   herramienta: Herramienta;
   onHerramienta: (herramienta: Herramienta) => void;
@@ -108,6 +116,10 @@ export function BarraDibujo({
   onParar: () => void;
   onProyectar: () => void;
   trazos: number;
+  /** El rival elegido en el campo, si hay uno. */
+  rival: RivalPizarra | null;
+  onDorsalRival: (dorsal: string) => void;
+  onBorrarRival: () => void;
 }) {
   /* Con un trazo elegido, la fase y el tipo son los SUYOS: cambiar el botón
      le cambia a él, que es lo que espera quien acaba de pincharlo. */
@@ -120,7 +132,14 @@ export function BarraDibujo({
           {HERRAMIENTAS.map((item) => {
             const Icono = ICONO[item.key];
             const activa = herramienta === item.key;
-            const color = item.key === "mover" ? undefined : ESTILO_TRAZO[item.key].color;
+            const color =
+              item.key === "mover"
+                ? undefined
+                : item.key === "rival"
+                  ? "#A8323E"
+                  : ESTILO_TRAZO[item.key].color;
+            /* Con una flecha elegida, los tipos de flecha la cambian a ella. */
+            const cambiaFlecha = Boolean(elegido) && item.key !== "mover" && item.key !== "rival";
 
             return (
               <button
@@ -129,15 +148,15 @@ export function BarraDibujo({
                 role="radio"
                 aria-checked={activa}
                 onClick={() => {
-                  if (elegido && item.key !== "mover") {
-                    onCambiarElegido({ tipo: item.key });
+                  if (cambiaFlecha) {
+                    onCambiarElegido({ tipo: item.key as TipoTrazo });
                     return;
                   }
 
                   onHerramienta(item.key);
                 }}
                 title={`${item.label} (${TECLA_HERRAMIENTA[item.key]}) — ${item.ayuda}${
-                  elegido && item.key !== "mover" ? " · cambia la flecha elegida" : ""
+                  cambiaFlecha ? " · cambia la flecha elegida" : ""
                 }`}
                 className={`${BOTON} ${
                   activa || (elegido && elegido.tipo === item.key) ? ENCENDIDO : APAGADO
@@ -245,7 +264,38 @@ export function BarraDibujo({
 
       {/* La segunda línea dice qué hacer ahora, o qué se puede hacer con lo elegido. */}
       <div className="flex min-h-7 min-w-0 flex-wrap items-center gap-2 text-[11px] leading-snug text-white/45">
-        {elegido ? (
+        {rival ? (
+          <>
+            <span className="font-semibold text-white/75">Rival</span>
+
+            <label className="inline-flex items-center gap-1.5">
+              <span>Dorsal</span>
+              <input
+                value={rival.dorsal ?? ""}
+                onChange={(event) => onDorsalRival(event.target.value.slice(0, 3))}
+                placeholder="—"
+                aria-label="Dorsal del rival"
+                className="h-7 w-14 rounded-lg border border-white/15 bg-white/[0.04] px-2 text-center text-xs text-white outline-none focus:border-[#C8A96B]/60"
+              />
+            </label>
+
+            <span className="hidden sm:inline">Arrástralo para colocarlo. «P» para el portero.</span>
+
+            <button
+              type="button"
+              onClick={onBorrarRival}
+              title="Quitar al rival (Supr)"
+              className={`${BOTON} min-h-7 border-red-400/30 text-red-300/80 hover:border-red-400/60 hover:text-red-300`}
+            >
+              <Trash2 size={13} />
+              Quitar
+            </button>
+          </>
+        ) : herramienta === "rival" ? (
+          <span>
+            Pulsa en el campo para plantar un rival —el que defiende la zona, al que se bloquea, el portero— y luego arrástralo con «Mover». Su dorsal se escribe al elegirlo.
+          </span>
+        ) : elegido ? (
           <>
             <span className="font-semibold text-white/75">
               {TIPOS_TRAZO.find((item) => item.key === elegido.tipo)?.label} · fase {elegido.fase}
