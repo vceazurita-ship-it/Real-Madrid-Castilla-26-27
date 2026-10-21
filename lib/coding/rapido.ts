@@ -52,6 +52,7 @@ import {
   type ResultadoNavegador,
 } from "@/lib/coding/pantalla-montaje";
 import { pintaRotulo } from "@/lib/coding/rotulo";
+import { igualaSonido } from "@/lib/coding/sonido";
 import { MEDIDA_VERTICAL, esVertical, pintaVertical } from "@/lib/coding/vertical";
 import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
 
@@ -1298,6 +1299,9 @@ export async function montaRapido(
 
       return;
     }
+
+    /* Cada corte a su nivel, y entrando y saliendo sin golpe (`sonido.ts`). */
+    igualaSonido(canales, frecuencia);
 
     /*
     | Los canales de la salida, aunque este vídeo traiga otros: un mono detrás
