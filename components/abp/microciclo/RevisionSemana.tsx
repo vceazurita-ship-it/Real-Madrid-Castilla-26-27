@@ -152,7 +152,24 @@ export function LecturaDelPartido({
   rival: string;
   marcador: string | null;
 }) {
-  if (!lectura.trabajado.length && !lectura.sinTrabajar.length) return null;
+  if (!lectura.trabajado.length && !lectura.sinTrabajar.length && !lectura.noSalio.length) return null;
+
+  /* La conclusión primero: cuánto de lo trabajado salió bien y cuánto no. */
+  const bien = lectura.trabajado.filter((uno) => uno.veredicto === "bien").length;
+  const mal = lectura.trabajado.filter((uno) => uno.veredicto === "mal").length;
+
+  const frase = [
+    lectura.trabajado.length
+      ? `De lo trabajado, ${lectura.trabajado.length} ${lectura.trabajado.length === 1 ? "aspecto salió" : "aspectos salieron"} en el partido`
+      : "",
+    bien ? `${bien} ${bien === 1 ? "salió bien" : "salieron bien"}` : "",
+    mal ? `en ${mal} nos crearon peligro` : "",
+  ]
+    .filter(Boolean)
+    .join(": ")
+    .replace(/: ([^:]+): /, ": $1 y ");
+
+  const ambas = lectura.trabajado.length > 0 && lectura.sinTrabajar.length > 0;
 
   return (
     <Panel
@@ -160,7 +177,9 @@ export function LecturaDelPartido({
       subtitle={`${rival}${marcador ? ` · ${marcador}` : ""} · lo trabajado en la semana, en el partido`}
       icon={CheckCircle2}
     >
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+      {frase && <p className="mb-3 text-[13px] font-medium leading-snug text-white">{frase}.</p>}
+
+      <div className={`grid gap-5 ${ambas ? "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]" : ""}`}>
         {lectura.trabajado.length > 0 && (
           <div className="min-w-0">
             <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-white/40">Lo que trabajamos</p>
@@ -187,6 +206,13 @@ export function LecturaDelPartido({
           </div>
         )}
       </div>
+
+      {lectura.noSalio.length > 0 && (
+        <p className="mt-3 text-[11.5px] leading-relaxed text-white/50">
+          <span className="font-semibold text-white/70">Trabajado y sin acciones en el partido: </span>
+          {lectura.noSalio.join(", ")}.
+        </p>
+      )}
     </Panel>
   );
 }

@@ -1469,7 +1469,7 @@ export default function AbpMicrocicloPage() {
 
                 <span id="dias-entrenados-ayuda" className="mt-1 block text-[10px] leading-snug text-white/40">
                   {semana.origen === "a mano"
-                    ? "Puestos a mano"
+                    ? "Fijados en el plan"
                     : semana.origen === "marcados"
                       ? `${semana.dias} en el microciclo`
                       : `${semana.dias} con balón parado`}

@@ -257,28 +257,41 @@ export function revisaSemana({
       });
     }
 
-    /* Lo que se ve por primera vez el día antes no se aprende. */
+    /*
+    | Lo que se ve por primera vez el día antes no se aprende.
+    |
+    | Se mira el ASPECTO, no aspecto y lado: una tarea de repaso con cinco
+    | aspectos y los dos lados daba diez «estrenos» de combinaciones que nadie
+    | trabaja por separado (probado con el micro 17). Defender un córner que se
+    | atacó el miércoles no es contenido nuevo para el MD-1.
+    */
     const antes = new Set(
       enOrden
         .slice(0, enOrden.indexOf(md1))
         .flatMap((clave) => dias[clave]?.trabajos ?? [])
-        .flatMap((trabajo) => ladosDe(trabajo).flatMap((lado) => trabajo.aspectos.map((aspecto) => claveAspecto(aspecto, lado)))),
+        .flatMap((trabajo) => trabajo.aspectos),
     );
 
-    const estrenos = delMd1.flatMap((trabajo) =>
-      ladosDe(trabajo).flatMap((lado) =>
-        trabajo.aspectos
-          .filter((aspecto) => !antes.has(claveAspecto(aspecto, lado)))
-          .map((aspecto) => ({ trabajo, texto: `${nombreAspecto(aspecto).toLowerCase()} ${lado === "ofensivo" ? "atacando" : "defendiendo"}` })),
-      ),
-    );
+    const estrenos = [
+      ...new Map(
+        delMd1.flatMap((trabajo) =>
+          trabajo.aspectos
+            .filter((aspecto) => !antes.has(aspecto))
+            .map((aspecto) => [aspecto, { trabajo, texto: nombreAspecto(aspecto).toLowerCase() }] as const),
+        ),
+      ).values(),
+    ];
 
     if (estrenos.length && antes.size > 0) {
+      const nombres = estrenos.map((uno) => uno.texto);
+
+      const dichos = nombres.length > 3 ? [...nombres.slice(0, 3), `${nombres.length - 3} más`] : nombres;
+
       puntos.push({
         id: "md1-estreno",
         tono: "aviso",
         titulo: "El MD-1 estrena contenido",
-        detalle: `${enLista(estrenos.map((uno) => uno.texto))} ${new Set(estrenos.map((uno) => uno.texto)).size === 1 ? "sale" : "salen"} por primera vez el día antes: el MD-1 repasa lo de la semana.`,
+        detalle: `${enLista(dichos).replace(/^./, (letra) => letra.toUpperCase())} ${nombres.length === 1 ? "sale" : "salen"} por primera vez el día antes: el MD-1 repasa lo de la semana.`,
         dia: md1,
         trabajo: estrenos[0].trabajo,
       });
@@ -421,7 +434,10 @@ export type LecturaAspecto = {
 };
 
 export type LecturaPartido = {
+  /** Lo trabajado que salió en el partido. */
   trabajado: LecturaAspecto[];
+  /** Lo trabajado que no salió ni una vez: «penaltis atacando». */
+  noSalio: string[];
   /** Lo que no estaba en la semana y acabó en gol u ocasión clara. */
   sinTrabajar: LecturaAspecto[];
   acciones: number;
@@ -474,8 +490,20 @@ export function lecturaDelPartido(
     }
   }
 
+  /* Lo trabajado que salió en el partido va en la lista; lo que no salió se
+     dice en una frase: catorce renglones de «no salió» tapaban lo que sí. */
+  const salio = (uno: LecturaAspecto) => uno.acciones > 0;
+
+  const peso = (uno: LecturaAspecto) => (uno.veredicto === "neutro" ? 0 : 1);
+
   return {
-    trabajado: lecturas.filter((uno) => uno.minutos > 0).sort((a, b) => b.minutos - a.minutos),
+    trabajado: lecturas
+      .filter((uno) => uno.minutos > 0 && salio(uno))
+      .sort((a, b) => peso(b) - peso(a) || b.goles - a.goles || b.peligro - a.peligro || b.minutos - a.minutos),
+    noSalio: lecturas
+      .filter((uno) => uno.minutos > 0 && !salio(uno))
+      .sort((a, b) => b.minutos - a.minutos)
+      .map((uno) => `${uno.label.toLowerCase()} ${uno.lado === "ofensivo" ? "atacando" : "defendiendo"}`),
     sinTrabajar: lecturas
       .filter((uno) => uno.minutos <= 0 && uno.peligro > 0)
       .sort((a, b) => b.goles - a.goles || b.peligro - a.peligro),

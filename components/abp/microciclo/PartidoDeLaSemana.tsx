@@ -17,6 +17,7 @@ import { ArrowRight, CalendarClock, ClipboardList, Flag, LayoutTemplate, Swords 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { fmtMin } from "@/lib/abp/microciclo";
 import type { PartidoNuestro } from "@/lib/castilla/calendario";
+import { esSinPartido } from "@/lib/abp/ventana";
 
 const FECHA = new Intl.DateTimeFormat("es-ES", {
   weekday: "long",
@@ -76,7 +77,9 @@ export function PartidoDeLaSemana({
   /** Abre el informe del partido ya jugado. */
   onVerPost?: () => void;
 }) {
-  const nombre = partido?.rival || rival;
+  /* «NO COMPETICIÓN» es como la hoja llama a una semana sin partido: no es
+     un rival y no lleva escudo ni ABP del rival. */
+  const nombre = partido?.rival || (esSinPartido(rival) ? "" : rival);
 
   const faltan = partido && hoy ? diasEntre(hoy, partido.cuando.slice(0, 10)) : null;
 
@@ -154,7 +157,7 @@ export function PartidoDeLaSemana({
           </p>
 
           <p className="truncate text-lg font-semibold leading-tight text-white sm:text-xl">
-            {nombre || "Sin rival todavía"}
+            {nombre || (esSinPartido(rival) ? "Semana sin competición" : "Escribe el rival de la semana")}
           </p>
 
           {partido && (
