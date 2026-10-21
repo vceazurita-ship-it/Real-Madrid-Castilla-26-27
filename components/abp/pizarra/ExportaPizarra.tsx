@@ -30,6 +30,7 @@ import {
   COLORES,
   TABLERO_H,
   TABLERO_W,
+  tituloVisible,
   type SlidePizarra,
 } from "@/lib/abp/pizarra";
 import { creaPptx } from "@/lib/export/pptx";
@@ -95,18 +96,22 @@ export function ExportaPizarra({
 
   const conFases = slides.some((slide) => fasesDe(slide.trazos) > 1);
 
-  const hojas = useMemo(() => slides.flatMap((slide) => {
+  const hojas = useMemo(() => slides.flatMap((slide, orden) => {
     const n = fasesDe(slide.trazos);
 
+    /* Dos córneres ofensivos no pueden llamarse igual en la hoja. */
+    const visible = tituloVisible(slides, orden);
+
     if (!porFases || n < 2) {
-      return [{ key: slide.id, slide, titulo: slide.titulo, hasta: undefined as number | undefined }];
+      return [{ key: slide.id, slide, visible, titulo: visible, hasta: undefined as number | undefined }];
     }
 
     return Array.from({ length: n }, (_, indice) => ({
       key: `${slide.id}-${indice + 1}`,
       slide,
+      visible,
       hasta: indice + 1,
-      titulo: `${slide.titulo} · fase ${indice + 1} de ${n}`,
+      titulo: `${visible} · fase ${indice + 1} de ${n}`,
     }));
   }), [slides, porFases]);
 
@@ -288,6 +293,7 @@ export function ExportaPizarra({
         <div key={hoja.key} style={{ width: TABLERO_W }}>
           <TableroSlide
             slide={hoja.slide}
+            titulo={hoja.visible}
             hastaFase={hoja.hasta}
             soloVer
             players={players}

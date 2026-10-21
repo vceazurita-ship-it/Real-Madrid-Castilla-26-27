@@ -22,13 +22,14 @@ import {
   ChevronRight,
   Maximize,
   Minimize,
+  PanelRight,
   RotateCcw,
   X,
 } from "lucide-react";
 
 import type { Player } from "@/types/player";
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
-import { TABLERO_H, TABLERO_W, type SlidePizarra } from "@/lib/abp/pizarra";
+import { TABLERO_H, TABLERO_W, tituloVisible, type SlidePizarra } from "@/lib/abp/pizarra";
 import { fasesDe } from "@/lib/abp/trazos";
 import { useReproduccionAbp } from "@/hooks/useReproduccionAbp";
 
@@ -63,6 +64,9 @@ export function ProyectaPizarra({
   const reloj = useReproduccionAbp(fases, fases > 0 ? 0 : null);
 
   const [completa, setCompleta] = useState(false);
+
+  /* El panel de asignaciones se puede quitar (A) para dar todo el sitio al campo. */
+  const [conPanel, setConPanel] = useState(true);
 
   /*
   | Al llegar a una diapositiva con fases se parte de la salida (tiempo 0:
@@ -115,8 +119,18 @@ export function ProyectaPizarra({
     document.addEventListener("fullscreenchange", cambia);
 
     /* Se abre ya a pantalla completa: se ha pulsado un botón hace un instante,
-       así que el navegador lo permite. Si no, se queda en la ventana. */
-    void raizRef.current?.requestFullscreen?.().catch(() => undefined);
+       así que el navegador lo permite. Si no, se queda en la ventana. En un
+       móvil, además, se gira a horizontal si el sistema lo deja. */
+    void raizRef.current
+      ?.requestFullscreen?.()
+      .then(() => {
+        const orientacion = screen.orientation as ScreenOrientation & {
+          lock?: (modo: string) => Promise<void>;
+        };
+
+        return orientacion?.lock?.("landscape");
+      })
+      .catch(() => undefined);
 
     const previo = document.body.style.overflow;
 
@@ -153,6 +167,9 @@ export function ProyectaPizarra({
       } else if (event.key === "f" || event.key === "F") {
         event.preventDefault();
         alternaCompleta();
+      } else if (event.key === "a" || event.key === "A") {
+        event.preventDefault();
+        setConPanel((actual) => !actual);
       } else if (event.key === "r" || event.key === "R") {
         event.preventDefault();
         if (fases > 0) reloj.reproduce();
@@ -233,6 +250,8 @@ export function ProyectaPizarra({
           onSeleccionar={NADA}
           tiempo={reloj.tiempo}
           soloVer
+          panel={conPanel}
+          titulo={tituloVisible(slides, indice)}
         />
       </div>
 
@@ -259,16 +278,25 @@ export function ProyectaPizarra({
               {indice + 1}/{slides.length} · {slide.titulo}
             </p>
 
+            {/* Salida y cada fase, con la que se ve en oro. */}
             {fases > 0 && (
-              <p className="mt-0.5 flex items-center justify-center gap-1 text-[10px] uppercase tracking-[0.18em]" style={{ color: "rgba(228,206,155,.85)" }}>
-                Fase
-                {Array.from({ length: fases }, (_, i) => (
-                  <span
-                    key={i}
-                    className="inline-block h-1.5 w-4 rounded-full"
-                    style={{ backgroundColor: i < faseActual ? "#E4CE9B" : "rgba(255,255,255,.2)" }}
-                  />
-                ))}
+              <p className="mt-1 flex items-center justify-center gap-1.5">
+                {Array.from({ length: fases + 1 }, (_, i) => {
+                  const activa = i === faseActual;
+
+                  return (
+                    <span
+                      key={i}
+                      className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12px] font-bold uppercase leading-none tracking-[0.08em]"
+                      style={{
+                        backgroundColor: activa ? "#C8A96B" : i < faseActual ? "rgba(200,169,107,.32)" : "rgba(255,255,255,.12)",
+                        color: activa ? "#0F2036" : "#FFFFFF",
+                      }}
+                    >
+                      {i === 0 ? "Salida" : i}
+                    </span>
+                  );
+                })}
               </p>
             )}
           </div>
@@ -282,6 +310,14 @@ export function ProyectaPizarra({
               <RotateCcw size={16} />
             </MandoBoton>
           )}
+
+          <MandoBoton
+            etiqueta={conPanel ? "Quitar las asignaciones (A)" : "Poner las asignaciones (A)"}
+            onClick={() => setConPanel((actual) => !actual)}
+            activo={conPanel}
+          >
+            <PanelRight size={16} />
+          </MandoBoton>
 
           <MandoBoton etiqueta={completa ? "Salir de pantalla completa (F)" : "Pantalla completa (F)"} onClick={alternaCompleta}>
             {completa ? <Minimize size={16} /> : <Maximize size={16} />}
@@ -300,11 +336,14 @@ function MandoBoton({
   etiqueta,
   onClick,
   disabled,
+  activo,
   children,
 }: {
   etiqueta: string;
   onClick: () => void;
   disabled?: boolean;
+  /** Un interruptor encendido. */
+  activo?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -313,9 +352,10 @@ function MandoBoton({
       aria-label={etiqueta}
       title={etiqueta}
       disabled={disabled}
+      aria-pressed={activo}
       onClick={onClick}
       className="flex h-10 w-10 items-center justify-center rounded-xl transition hover:bg-white/10 disabled:opacity-30"
-      style={{ color: "#fff" }}
+      style={{ color: activo === false ? "rgba(255,255,255,.5)" : "#fff" }}
     >
       {children}
     </button>
