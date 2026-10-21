@@ -25,6 +25,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { User, X } from "lucide-react";
 
+import { apartaRivales, separaFichas } from "@/lib/abp/separa";
+
 import type { Player } from "@/types/player";
 import {
   BalonEnJuego,
@@ -59,7 +61,7 @@ import {
   adornosDe,
   enElCampo,
   gruposDe,
-  lineasConsignas,
+  lineasDeSlide,
   pideDorsal,
   puestoDe,
   puestosDe,
@@ -239,100 +241,6 @@ function cajaDeJugada(slide: SlidePizarra): Caja | null {
   return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) };
 }
 
-/*
-| Separar caras que se pisan (proyector y exportación).
-|
-| En el córner los rematadores van hombro con hombro y, a tamaño de sala,
-| cuatro caras apiladas no dejan leer ni el puesto ni el nombre. Sólo al
-| enseñar —al editar, cada cara está donde se ha puesto—: las que se pisan se
-| abren un poco hacia los lados (como mucho 30 px, para que sigan sobre el
-| arranque de su flecha) y, si aun así no caben, se pintan compactas: el puesto
-| en un disco y el nombre debajo, sin foto.
-*/
-const SEPARA_X = 84;
-const SEPARA_Y = 64;
-const EMPUJE_MAX = 30;
-
-function separaFichas(fichas: FichaPizarra[]) {
-  const pos = fichas.map((ficha) => ({ id: ficha.id, x: ficha.x, y: ficha.y, x0: ficha.x }));
-
-  for (let vuelta = 0; vuelta < 24; vuelta += 1) {
-    let movido = false;
-
-    for (let i = 0; i < pos.length; i += 1) {
-      for (let j = i + 1; j < pos.length; j += 1) {
-        const a = pos[i];
-        const b = pos[j];
-        const dx = b.x - a.x;
-
-        if (Math.abs(b.y - a.y) >= SEPARA_Y || Math.abs(dx) >= SEPARA_X - 1) continue;
-
-        const sentido = dx === 0 ? (a.x0 <= b.x0 ? 1 : -1) : Math.sign(dx);
-        const empuje = (SEPARA_X - Math.abs(dx)) / 2;
-
-        const ax = Math.max(a.x0 - EMPUJE_MAX, Math.min(a.x0 + EMPUJE_MAX, a.x - sentido * empuje));
-        const bx = Math.max(b.x0 - EMPUJE_MAX, Math.min(b.x0 + EMPUJE_MAX, b.x + sentido * empuje));
-
-        if (ax !== a.x || bx !== b.x) movido = true;
-
-        a.x = ax;
-        b.x = bx;
-      }
-    }
-
-    if (!movido) break;
-  }
-
-  const compactas = new Set<string>();
-
-  for (let i = 0; i < pos.length; i += 1) {
-    for (let j = i + 1; j < pos.length; j += 1) {
-      if (
-        Math.abs(pos[j].y - pos[i].y) < SEPARA_Y &&
-        Math.abs(pos[j].x - pos[i].x) < SEPARA_X * 0.86
-      ) {
-        compactas.add(pos[i].id);
-        compactas.add(pos[j].id);
-      }
-    }
-  }
-
-  /*
-  | Las compactas son más estrechas (un disco de 54 px): entre ellas basta con
-  | 64 px, y se les deja abrirse un poco más, que ya no tapan ninguna foto.
-  */
-  const discos = pos.filter((p) => compactas.has(p.id));
-
-  for (let vuelta = 0; vuelta < 24; vuelta += 1) {
-    let movido = false;
-
-    for (let i = 0; i < discos.length; i += 1) {
-      for (let j = i + 1; j < discos.length; j += 1) {
-        const a = discos[i];
-        const b = discos[j];
-        const dx = b.x - a.x;
-
-        if (Math.abs(b.y - a.y) >= SEPARA_Y || Math.abs(dx) >= 63) continue;
-
-        const sentido = dx === 0 ? (a.x0 <= b.x0 ? 1 : -1) : Math.sign(dx);
-        const empuje = (64 - Math.abs(dx)) / 2;
-
-        const ax = Math.max(a.x0 - 48, Math.min(a.x0 + 48, a.x - sentido * empuje));
-        const bx = Math.max(b.x0 - 48, Math.min(b.x0 + 48, b.x + sentido * empuje));
-
-        if (ax !== a.x || bx !== b.x) movido = true;
-
-        a.x = ax;
-        b.x = bx;
-      }
-    }
-
-    if (!movido) break;
-  }
-
-  return new Map(pos.map((p) => [p.id, { x: Math.round(p.x), compacta: compactas.has(p.id) }]));
-}
-
 /**
  * Quién tapa a quién.
  *
@@ -439,12 +347,14 @@ function Ficha({
           </span>
         </div>
 
-        <span
-          className="mt-1 max-w-[80px] truncate rounded px-1.5 py-[1px] text-[12px] font-bold uppercase leading-[15px] tracking-wide"
-          style={{ backgroundColor: "rgba(15,32,54,.88)", color: COLORES.oroClaro }}
-        >
-          {nombre || "—"}
-        </span>
+        {nombre && (
+          <span
+            className="mt-1 max-w-[96px] truncate rounded px-1.5 py-[1px] text-[14px] font-bold uppercase leading-[17px] tracking-wide"
+            style={{ backgroundColor: "rgba(15,32,54,.88)", color: COLORES.oroClaro }}
+          >
+            {nombre}
+          </span>
+        )}
       </div>
     );
   }
@@ -889,9 +799,12 @@ function ChapaRival({
   rival,
   elegido,
   editable,
+  debajo = false,
   onPointerDown,
 }: {
   rival: RivalPizarra;
+  /** Al enseñar, no cabe al lado de los nuestros: va por debajo de las caras. */
+  debajo?: boolean;
   elegido: boolean;
   editable: boolean;
   onPointerDown: (event: React.PointerEvent) => void;
@@ -907,7 +820,7 @@ function ChapaRival({
         top: rival.y - lado - 4,
         width: lado,
         height: lado + 10,
-        zIndex: profundidad(rival.x, rival.y),
+        zIndex: debajo ? 1 : profundidad(rival.x, rival.y),
         cursor: editable ? "grab" : "default",
         touchAction: editable ? "none" : undefined,
         pointerEvents: editable ? "auto" : "none",
@@ -1121,7 +1034,7 @@ export function TableroSlide({
   const marcoRef = useRef<HTMLDivElement>(null);
 
   const grupos = gruposDe(slide);
-  const lineas = lineasConsignas(slide.notas);
+  const lineas = lineasDeSlide(slide);
 
   const conPanel = panel && grupos.length > 0;
   const conNotas = lineas.length > 0;
@@ -1439,6 +1352,9 @@ export function TableroSlide({
   /* Al enseñar, las caras que se pisan se abren o se pintan compactas. */
   const separadas = soloVer ? separaFichas(enCampo) : null;
 
+  /* Y los rivales, que no tapen a los nuestros: se apartan o van por debajo. */
+  const apartados = soloVer ? apartaRivales(slide.rivales ?? [], enCampo, separadas) : null;
+
   /*
   | En qué momento de la jugada se está, fijo en la cabecera: en el proyector
   | la sala no sabía si veía la colocación o el movimiento, porque la fase
@@ -1655,7 +1571,8 @@ export function TableroSlide({
         {(slide.rivales ?? []).map((rival) => (
           <ChapaRival
             key={rival.id}
-            rival={rival}
+            rival={apartados?.has(rival.id) ? { ...rival, x: apartados.get(rival.id)!.x, y: apartados.get(rival.id)!.y } : rival}
+            debajo={apartados?.get(rival.id)?.debajo ?? false}
             elegido={!soloVer && rivalElegido === rival.id}
             editable={editaTrazos && herramienta === "mover"}
             onPointerDown={(event) => empiezaRival(event, rival)}
@@ -1911,7 +1828,7 @@ export function TableroSlide({
                   <div key={grupo.key} className="min-w-0">
                     <p
                       className={`border-b pb-1 font-bold uppercase tracking-[0.14em] ${
-                        panelDenso ? "text-[14px]" : "text-[16px]"
+                        panelDenso ? "text-[18px]" : "text-[20px]"
                       }`}
                       style={{
                         color: COLORES.oroClaro,
@@ -1938,7 +1855,7 @@ export function TableroSlide({
                           >
                             <span
                               className={`shrink-0 rounded px-1.5 font-bold tabular-nums ${
-                                panelDenso ? "text-[15px]" : "text-[17px]"
+                                panelDenso ? "text-[17px]" : "text-[19px]"
                               }`}
                               style={{
                                 backgroundColor: "rgba(200,169,107,.16)",
@@ -1951,7 +1868,7 @@ export function TableroSlide({
 
                             <span
                               className={`min-w-0 flex-1 truncate font-semibold uppercase tracking-[0.02em] ${
-                                panelDenso ? "text-[19px]" : "text-[22px]"
+                                panelDenso ? "text-[21px]" : "text-[24px]"
                               } ${player ? "text-white" : "text-white/35"}`}
                             >
                               {player?.apodo ?? player?.nombre ?? puesto.label}
@@ -2027,10 +1944,25 @@ export function TableroSlide({
                 }}
               >
                 {lineas.map((linea, indice) =>
-                  linea.tipo === "subtitulo" ? (
+                  linea.tipo === "guion" ? (
+                    <p
+                      key={`${indice}-${linea.rotulo}`}
+                      className="mb-2 text-[22px] font-semibold leading-[1.25]"
+                      style={{ color: COLORES.navy, breakInside: "avoid" }}
+                    >
+                      <span
+                        className="mr-2.5 text-[19px] font-bold uppercase tracking-[0.12em]"
+                        style={{ color: COLORES.oro }}
+                      >
+                        {linea.rotulo}
+                      </span>
+
+                      {linea.texto}
+                    </p>
+                  ) : linea.tipo === "subtitulo" ? (
                     <p
                       key={`${indice}-${linea.texto}`}
-                      className="mb-1.5 mt-0.5 text-[15px] font-bold uppercase leading-none tracking-[0.22em]"
+                      className="mb-1.5 mt-0.5 text-[21px] font-bold leading-tight tracking-[0.02em]"
                       style={{ color: COLORES.oro, breakInside: "avoid", breakAfter: "avoid" }}
                     >
                       {linea.texto}

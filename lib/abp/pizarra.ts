@@ -815,6 +815,12 @@ export type SlidePizarra = {
   trazos?: TrazoPizarra[];
   /** Los rivales dibujados: a quién se bloquea, quién defiende cada zona. */
   rivales?: RivalPizarra[];
+  /**
+   * Señal, rutina e intención, cada una en su casilla (ronda del sobresaliente,
+   * 21/10/2026). Optativo: las consignas de texto libre siguen como estaban y
+   * se pintan detrás.
+   */
+  guion?: GuionConsigna;
   /** Con qué versión del dibujo de la plantilla se colocaron las fichas. */
   rev?: number;
 };
@@ -2057,7 +2063,33 @@ export function normalizaConsigna(texto: string) {
   return junta.charAt(0).toLocaleUpperCase("es-ES") + junta.slice(1);
 }
 
-export type LineaConsigna = { tipo: "subtitulo" | "consigna"; texto: string };
+export type LineaConsigna =
+  | { tipo: "subtitulo" | "consigna"; texto: string }
+  | { tipo: "guion"; rotulo: string; texto: string };
+
+/** Las tres casillas fijas de la jugada, en el orden en que se cuentan. */
+export type GuionConsigna = { senal?: string; rutina?: string; intencion?: string };
+
+export const CASILLAS_GUION = [
+  { key: "senal", rotulo: "Señal", ejemplo: "Brazo levantado desde el banquillo" },
+  { key: "rutina", rotulo: "Rutina", ejemplo: "Directa a zona 2 con bloqueo del 9" },
+  { key: "intencion", rotulo: "Intención", ejemplo: "Centro al segundo palo en movimiento" },
+] as const;
+
+/**
+ * Todo lo que va en la franja de consignas: primero la señal, la rutina y la
+ * intención que estén escritas, cada una con su rótulo, y después las
+ * consignas de texto libre.
+ */
+export function lineasDeSlide(slide: Pick<SlidePizarra, "notas" | "guion">): LineaConsigna[] {
+  const guion = CASILLAS_GUION.flatMap((casilla) => {
+    const texto = slide.guion?.[casilla.key]?.trim();
+
+    return texto ? [{ tipo: "guion" as const, rotulo: casilla.rotulo, texto: normalizaConsigna(texto) }] : [];
+  });
+
+  return [...guion, ...lineasConsignas(slide.notas)];
+}
 
 /**
  * Las consignas de la diapositiva, listas para pintar.

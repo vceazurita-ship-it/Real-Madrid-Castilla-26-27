@@ -139,6 +139,7 @@ import {
   sinTextosPropios,
   slideDePlantilla,
   avisosConsignas,
+  CASILLAS_GUION,
   lineasConsignas,
   normalizaMemoria,
   normalizaTablero,
@@ -2104,13 +2105,16 @@ export default function PizarraAbpPage() {
                               />
 
                               <span className="block max-w-[176px] truncate text-[12px] font-semibold uppercase tracking-wide">
-                                {indice + 1}. {item.titulo}
+                                {indice + 1}. {tituloVisible(tablero.slides, indice)}
                               </span>
                             </span>
 
-                            <span className="block text-[10px] tabular-nums text-white/35">
-                              {total ? `${cubiertos}/${total} puestos` : "libre"}
-                            </span>
+                            {/* La cifra, sólo si falta alguien: completa no hace falta decir nada. */}
+                            {(!total || cubiertos < total) && (
+                              <span className="block text-[10px] tabular-nums text-amber-300/70">
+                                {total ? `Faltan ${total - cubiertos}` : "Libre"}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -2357,6 +2361,17 @@ export default function PizarraAbpPage() {
                       }
                       onNotas={(notas) =>
                         mutaSlide((actual) => ({ ...actual, notas }), "texto:notas")
+                      }
+                      onGuion={(clave, texto) =>
+                        mutaSlide((actual) => {
+                          const guion = { ...actual.guion, [clave]: texto };
+
+                          if (!texto.trim()) delete guion[clave];
+
+                          const { guion: _antes, ...resto } = actual;
+
+                          return Object.keys(guion).length ? { ...resto, guion } : resto;
+                        }, `texto:guion:${clave}`)
                       }
                       onTexto={cambiaTexto}
                       onDejarParaLasSiguientes={() =>
@@ -2799,6 +2814,7 @@ function TextosDeLaSlide({
   guardadoParaSiguientes,
   onTitulo,
   onNotas,
+  onGuion,
   onTexto,
   onDejarParaLasSiguientes,
   onVolverALaPlantilla,
@@ -2807,6 +2823,7 @@ function TextosDeLaSlide({
   guardadoParaSiguientes: boolean;
   onTitulo: (titulo: string) => void;
   onNotas: (notas: string[]) => void;
+  onGuion: (clave: (typeof CASILLAS_GUION)[number]["key"], texto: string) => void;
   onTexto: (fn: (textos: TextosSlide) => TextosSlide) => void;
   onDejarParaLasSiguientes: () => void;
   onVolverALaPlantilla: () => void;
@@ -2838,6 +2855,35 @@ function TextosDeLaSlide({
             placeholder={PLANTILLA_BY_KEY.get(slide.plantilla)?.titulo}
             className={campo}
           />
+        </div>
+
+        {/*
+        | Señal, rutina e intención en casillas fijas: en la sala se leen en ese
+        | orden y separan la señal de lo que hay que hacer. Optativas; lo que se
+        | escriba sale antes de las consignas libres, cada una con su rótulo.
+        */}
+        <div>
+          <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-white/35">
+            Señal, rutina e intención · optativo
+          </p>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            {CASILLAS_GUION.map((casilla) => (
+              <label key={casilla.key} className="block">
+                <span className="mb-1 block text-xs font-semibold text-[#E4CE9B]">
+                  {casilla.rotulo}
+                </span>
+
+                <input
+                  value={slide.guion?.[casilla.key] ?? ""}
+                  onChange={(event) => onGuion(casilla.key, event.target.value)}
+                  placeholder={casilla.ejemplo}
+                  maxLength={120}
+                  className={campo}
+                />
+              </label>
+            ))}
+          </div>
         </div>
 
         <div>
