@@ -398,6 +398,8 @@ export default function TacticsBoard({
   const [cambiando, setCambiando] = useState<string | null>(null);
   const [editingShape, setEditingShape] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  /* El vídeo vertical gira el campo un cuarto de vuelta: las fichas se giran al revés para que sus números se lean derechos. */
+  const [fichasGiradas, setFichasGiradas] = useState(false);
   const [formato, setFormato] = useState<Formato | null>(null);
   const [progreso, setProgreso] = useState<string>("");
   const [dictating, setDictating] = useState(false);
@@ -1787,6 +1789,11 @@ export default function TacticsBoard({
 
       const ctxSalida = salida === lienzo ? ctx : salida.getContext("2d");
 
+      if (vertical) {
+        setFichasGiradas(true);
+        await dosFotogramas();
+      }
+
       if (!ctxSalida) throw new Error("El navegador no da un lienzo 2D");
 
       let fallo: Error | null = null;
@@ -1893,6 +1900,7 @@ export default function TacticsBoard({
       toast.error(error instanceof Error && error.message ? error.message : "No se ha podido exportar", { id: aviso });
     } finally {
       setFotograma(null);
+      setFichasGiradas(false);
       setExporting(false);
       setFormato(null);
       setProgreso("");
@@ -2692,7 +2700,7 @@ export default function TacticsBoard({
                 <g
                   key={token.id}
                   /* Al exportar, las fichas un 30 % más grandes: en la lámina y en el vídeo se leen desde el fondo de la sala. */
-                  transform={`translate(${token.x} ${token.y})${exporting ? " scale(1.3)" : ""}`}
+                  transform={`translate(${token.x} ${token.y})${exporting ? " scale(1.3)" : ""}${fichasGiradas ? " rotate(90)" : ""}`}
                   onPointerDown={(event) => {
                     if (live || exporting || tool === "camera") return;
 

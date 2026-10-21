@@ -283,18 +283,21 @@ export function colocaDibujo(
   /*
   | Encima de uno del otro equipo, tampoco (21/10/2026): con el bloque alto
   | nuestras puntas caían sobre sus mediocentros y las dos fichas se tapaban.
-  | Se queda a su lado, un paso hacia el carril de fuera.
+  | Se va al primer hueco libre a su lado, sin pisar a un compañero.
   */
   const contrarios = tokens.filter((token) => token.kind !== kind && (token.kind === "home" || token.kind === "away"));
+  const lejos = (a: Point, b: Point) => Math.hypot((a.x - b.x) * 1.05, a.y - b.y) >= 5.5;
 
   for (const [id, sitio] of destino) {
-    const pegado = contrarios.find((otro) => Math.hypot((otro.x - sitio.x) * 1.05, otro.y - sitio.y) < 5.5);
+    if (contrarios.every((otro) => lejos(otro, sitio))) continue;
 
-    if (!pegado) continue;
+    /* El primer hueco libre a su lado: ni encima de un contrario ni de un compañero. */
+    const companeros = [...destino].filter(([otro]) => otro !== id).map(([, punto]) => punto);
+    const libre = [5.5, -5.5, 9, -9, 12, -12]
+      .map((paso) => ({ x: sitio.x, y: Math.min(PITCH_HEIGHT - 2, Math.max(2, sitio.y + paso)) }))
+      .find((punto) => contrarios.every((otro) => lejos(otro, punto)) && companeros.every((otro) => lejos(otro, punto)));
 
-    const hacia = sitio.y >= pegado.y ? 1 : -1;
-
-    destino.set(id, { x: sitio.x, y: Math.min(PITCH_HEIGHT - 2, Math.max(2, pegado.y + hacia * 5.5)) });
+    if (libre) destino.set(id, libre);
   }
 
   return {
