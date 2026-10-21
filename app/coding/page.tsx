@@ -4365,7 +4365,9 @@ function Coding() {
                 <Panel
                   title="Clips"
                   subtitle={
-                    verTodosEnLista
+                    listaGuardada
+                      ? `${clipsDeLaLista.length} ${clipsDeLaLista.length === 1 ? "corte" : "cortes"} · ${etiquetaFiltro} · en el orden de la lista`
+                      : verTodosEnLista
                       ? `${clipsDeLaLista.length} de ${sesion.sesion.clips.length} · de ${videosSesion.length} vídeos · ${etiquetaFiltro} · el orden de la lista es el del vídeo`
                       : `${clipsFiltrados.length} de ${clips.length} · ${etiquetaFiltro} · el orden de la lista es el del vídeo`
                   }
@@ -4389,7 +4391,9 @@ function Coding() {
                         </Button>
                       )}
 
-                      {hayFiltro(filtro) && (
+                      {/* Con una lista abierta los filtros no mandan, y
+                          «Ordenar por tiempo» reordenaría la sesión, no ella. */}
+                      {!listaGuardada && hayFiltro(filtro) && (
                         <Button icon={X} onClick={quitaFiltros}>
                           Quitar filtros
                         </Button>
@@ -4402,7 +4406,7 @@ function Coding() {
                       | partido: en un coding recién hecho sería un botón que no
                       | hace nada.
                       */}
-                      {!ordenDePartido && (
+                      {!listaGuardada && !ordenDePartido && (
                         <Button
                           icon={ArrowDownWideNarrow}
                           onClick={() => {
