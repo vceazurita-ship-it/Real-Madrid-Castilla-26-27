@@ -689,15 +689,9 @@ export function SemanaGrid({
           className="grid grid-cols-1 items-stretch gap-2 md:min-w-(--ancho) md:grid-cols-(--columnas)"
           style={
             {
-              /* Un día libre o de partido sin nada escrito ocupa tres cuartos: el
-                 ancho se lo quedan los días de sesión, donde están las fichas. */
-              "--columnas": columnas
-                .map((clave) =>
-                  dias[clave]?.tipo !== "entreno" && !(dias[clave]?.trabajos.length ?? 0)
-                    ? "minmax(0, 0.75fr)"
-                    : "minmax(0, 1fr)",
-                )
-                .join(" "),
+              /* Todas iguales: se probó a estrechar los días libres y de partido
+                 y su selector «Sesión · Libre · Partido» ya no cabía. */
+              "--columnas": `repeat(${columnas.length}, minmax(0, 1fr))`,
               "--ancho": `${columnas.length * (detalle ? 170 : 140)}px`,
             } as CSSProperties
           }
