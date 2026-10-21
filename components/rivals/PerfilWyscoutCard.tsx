@@ -160,7 +160,7 @@ export function PerfilWyscoutCard({ perfil, besoccer }: { perfil: PerfilWyscout;
 
       {!perfil.muestraCorta && (
         <p className="mt-3 text-[10px] text-white/35">
-          Percentil contra {perfil.iguales} de {los} con 90′ o más; las cifras son por 90′, salvo los porcentajes, y entre paréntesis las veces en la temporada. Lo que pasa una o dos veces no entra.
+          Percentil contra {perfil.iguales} de {los} con 90′ o más; las cifras «por 90′» llevan entre paréntesis las veces en la temporada; los porcentajes y las que no van por 90′ salen tal como las da Wyscout. Lo que pasa una o dos veces no entra.
           {perfil.posicionTexto && ` Wyscout lo sitúa de ${perfil.posicionTexto}.`}
         </p>
       )}

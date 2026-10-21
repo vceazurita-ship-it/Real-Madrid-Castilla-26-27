@@ -101,11 +101,12 @@ import {
 } from "@/lib/rivals/posiciones-temporada";
 import type { InformeData } from "@/lib/rivals/informe-ppt";
 import { traeDestacadosRival } from "@/lib/rivals/destacados-rival";
-import { vistazoDe } from "@/lib/rivals/vistazo";
+import { fraseDelVistazo, vistazoDe } from "@/lib/rivals/vistazo";
 import { asignaPerfiles, type PerfilWyscout } from "@/lib/rivals/perfil-wyscout";
 import { conTildes } from "@/lib/rivals/tildes";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import VistazoRival from "@/components/rivals/VistazoRival";
+import { ParaLaSemana } from "@/components/rivals/ParaLaSemana";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
 import { pieDominante } from "@/lib/rivals/pie";
 import { centimetros, kilos } from "@/lib/rivals/lienzo-club";
@@ -3949,6 +3950,51 @@ export default function RivalPlayersPage() {
                 />
               )}
 
+              {/* PARA LA SEMANA — sólo del próximo rival: es el que se prepara. */}
+
+              {selectedTeam && !loading && esElProximo(ordenRivales, selectedTeam) && (
+                <ParaLaSemana
+                  equipo={selectedTeam}
+                  jornada={jornadaDeEquipo(ordenRivales, selectedTeam)}
+                  frase={fraseDelVistazo(vistazoRival)}
+                  ocupado={exportando}
+                  piezas={[
+                    {
+                      clave: "informe",
+                      etiqueta: "Informe del rival",
+                      explica: "Clasificación, resultados y los partidos que elijas; se retoca antes de exportar.",
+                      icono: "informe" as const,
+                      onClick: () => void abrirInforme(),
+                    },
+                    ...(plantillaCampo.length > 0
+                      ? [
+                          {
+                            clave: "once",
+                            etiqueta: "PDF del once probable",
+                            explica: "El once colocado, con un salto a la ficha de cada jugador.",
+                            icono: "once" as const,
+                            onClick: () => setPreparandoPdf(true),
+                          },
+                          {
+                            clave: "portero",
+                            etiqueta: "PDF para el portero",
+                            explica: "Quién les tira los penaltis y las faltas.",
+                            icono: "portero" as const,
+                            onClick: () => setPreparandoPortero(true),
+                          },
+                          {
+                            clave: "ppt",
+                            etiqueta: "PowerPoint de día de partido",
+                            explica: "La plantilla entera colocada, para borrar a los que no salgan.",
+                            icono: "ppt" as const,
+                            onClick: () => void exportarAlineacionPptx(),
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              )}
+
               {/* FILTROS */}
 
               <div className="mt-6 grid min-w-0 gap-3 md:grid-cols-2">
@@ -5865,9 +5911,13 @@ function CaraJugador({
 | La medida es una estimación de la letra en negrita: si se queda corta, la
 | caja sigue cortando con «…» como antes.
 */
+/* Ancho medio de una letra en mayúscula y negrita, en cuerpos. Con 0,62 el
+   cálculo se quedaba corto y «JOE JAMES» se daba por bueno y salía «JOE JAM…». */
+const ANCHO_LETRA = 0.7;
+
 function nombreQueCabe(nombre: string, ancho: number, cuerpo: number, relleno: number) {
   const limpio = nombre.trim().replace(/\s+/g, " ");
-  const cabe = (texto: string) => texto.length * cuerpo * 0.62 + relleno <= ancho;
+  const cabe = (texto: string) => texto.length * cuerpo * ANCHO_LETRA + relleno <= ancho;
 
   if (!limpio || cabe(limpio)) return limpio;
 
@@ -5885,6 +5935,16 @@ function nombreQueCabe(nombre: string, ancho: number, cuerpo: number, relleno: n
 
   /* Y si ni así, el apellido solo: «GARRIDO» dice más que «D. GARRID…». */
   return cabe(conUltimo) ? conUltimo : ultimo;
+}
+
+/* El cuerpo de letra con el que el nombre elegido entra entero. Un apellido
+   largo («PARADOWSKI») no cabe ni solo: antes se cortaba en «PARADO…», que
+   en la charla no se lee; ahora baja la letra lo justo, hasta un mínimo que
+   todavía se lee en el proyector. */
+function cuerpoQueCabe(texto: string, ancho: number, cuerpo: number, relleno: number) {
+  const necesario = texto.length * cuerpo * ANCHO_LETRA + relleno;
+  if (!texto || necesario <= ancho) return cuerpo;
+  return Math.max(7, Math.floor(((ancho - relleno) / (texto.length * ANCHO_LETRA)) * 10) / 10);
 }
 
 function PlayerRow({
@@ -8714,7 +8774,15 @@ function TacticalPitch({
               className={`mt-1 truncate rounded bg-black/75 py-0.5 font-semibold leading-tight text-white ${
                 compact ? "px-1" : "px-1.5"
               }`}
-              style={{ fontSize: nameFont, maxWidth: nameWidth }}
+              style={{
+                fontSize: cuerpoQueCabe(
+                  nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12),
+                  nameWidth,
+                  nameFont,
+                  compact ? 8 : 12,
+                ),
+                maxWidth: nameWidth,
+              }}
             >
               {nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12)}
             </span>
@@ -8802,12 +8870,18 @@ function TacticalPitch({
               <span className="mt-0.5 block truncate text-[10px] text-[#C8A96B]">
                 {getSlot(player["POSICIÓN"])?.slot.label || player["POSICIÓN"]}
 
-                {player["2º POSICIÓN"] && player["2º POSICIÓN"] !== "." && (
-                  <span className="text-white/35">
-                    {" "}
-                    · {player["2º POSICIÓN"]}
-                  </span>
-                )}
+                {(() => {
+                  /* La 2ª posición, con el mismo nombre de puesto que la
+                     1ª: la hoja la escribe a su manera («LATERAL DCHO»). */
+                  const segunda = getSlot(player["2º POSICIÓN"]);
+                  if (!segunda || segunda.slot.key === getSlot(player["POSICIÓN"])?.slot.key) return null;
+                  return (
+                    <span className="text-white/35">
+                      {" "}
+                      · también {segunda.slot.label.toLowerCase()}
+                    </span>
+                  );
+                })()}
               </span>
 
               {enElOnce && (
