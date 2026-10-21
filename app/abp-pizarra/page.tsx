@@ -53,6 +53,7 @@ import {
   RotateCcw,
   Save,
   Shield,
+  Smartphone,
   Trash2,
   Type,
   Wand2,
@@ -137,12 +138,15 @@ import {
   revisaTablero,
   sinTextosPropios,
   slideDePlantilla,
+  avisosConsignas,
+  lineasConsignas,
   normalizaMemoria,
   normalizaTablero,
   tableroVacio,
   textosDeSlide,
   tieneFichas,
   tieneTextosPropios,
+  tituloVisible,
   type PizarraStore,
   type PuestoAbp,
   type SlidePizarra,
@@ -2027,7 +2031,13 @@ export default function PizarraAbpPage() {
                 <div className="mt-6">
                   <Panel
                     title="Diapositivas"
-                    subtitle={`${totales.cubiertos} de ${totales.total} puestos con jugador · arrástralas para cambiar el orden del PowerPoint`}
+                    subtitle={`${
+                      totales.cubiertos >= totales.total
+                        ? "Todos los puestos tienen jugador"
+                        : `${totales.total - totales.cubiertos} ${
+                            totales.total - totales.cubiertos === 1 ? "puesto sin jugador" : "puestos sin jugador"
+                          }`
+                    } · arrastra una diapositiva para cambiar el orden del PowerPoint`}
                     icon={LayoutGrid}
                   >
                     <div className="flex min-w-0 flex-wrap gap-1.5">
@@ -2218,6 +2228,7 @@ export default function PizarraAbpPage() {
 
                     <TableroSlide
                       slide={slide}
+                      titulo={tablero ? tituloVisible(tablero.slides, activa) : undefined}
                       players={porId}
                       temporada={temporadaCorta(RATINGS_SEASON)}
                       rival={tablero?.rival || partido.opponent}
@@ -2250,6 +2261,42 @@ export default function PizarraAbpPage() {
                         cambiaRivalDibujado(id, { x, y }, `gesto:${gesto.current}`)
                       }
                     />
+
+                    {/*
+                    | En el móvil en vertical la diapositiva es una miniatura: se
+                    | ofrece verla a pantalla completa (el proyector intenta girar
+                    | a horizontal) y las consignas van debajo como texto normal.
+                    */}
+                    <div className="mt-3 space-y-3 sm:hidden">
+                      <Button icon={Smartphone} onClick={() => setProyectando(activa)}>
+                        Ver en horizontal, a pantalla completa
+                      </Button>
+
+                      {lineasConsignas(slide.notas).length > 0 && (
+                        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                            Consignas
+                          </p>
+
+                          <ul className="space-y-1.5">
+                            {lineasConsignas(slide.notas).map((linea, indice) =>
+                              linea.tipo === "subtitulo" ? (
+                                <li
+                                  key={`${indice}-${linea.texto}`}
+                                  className="pt-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-white/45"
+                                >
+                                  {linea.texto}
+                                </li>
+                              ) : (
+                                <li key={`${indice}-${linea.texto}`} className="text-base leading-snug text-white/85">
+                                  {linea.texto}
+                                </li>
+                              ),
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -2809,6 +2856,18 @@ function TextosDeLaSlide({
             placeholder="Remate detrás de corta…"
             className={`${campo} leading-relaxed`}
           />
+
+          {/* En la sala se leen tres consignas cortas, no un párrafo. */}
+          {avisosConsignas(slide.notas).map((aviso) => (
+            <p key={aviso} className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-amber-300/80">
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+              {aviso}
+            </p>
+          ))}
+
+          <p className="mt-1.5 text-[11px] leading-relaxed text-white/35">
+            Una línea que acaba en «:» sale como rótulo de las que van detrás.
+          </p>
         </div>
 
         {grupos.length > 0 && (
