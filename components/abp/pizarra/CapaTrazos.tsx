@@ -34,13 +34,21 @@ import {
   type TrazoPizarra,
 } from "@/lib/abp/trazos";
 
-/** Cómo se pinta cada tipo. Los mismos tres colores en pantalla y en papel. */
+/**
+ * Cómo se pinta cada tipo. Los mismos tres colores en pantalla y en papel.
+ *
+ * Los colores van en `rgb()` y no en hexadecimal A POSTA: el modo día de
+ * `globals.css` reescribe `[stroke="#FFFFFF"]` y `[stroke="#C8A96B"]` para las
+ * gráficas sobre papel claro, y el balón salía gris pizarra en pantalla y en
+ * el PNG. Con `rgb()` el selector no casa y el tablero —que es oscuro en los
+ * dos temas— se queda como es.
+ */
 export const ESTILO_TRAZO: Record<
   TipoTrazo,
   { color: string; ancho: number; discontinuo?: string }
 > = {
   carrera: { color: COLORES.oroClaro, ancho: 7 },
-  balon: { color: "#FFFFFF", ancho: 5, discontinuo: "16 12" },
+  balon: { color: "rgb(255,255,255)", ancho: 5, discontinuo: "16 12" },
   bloqueo: { color: COLORES.rosa, ancho: 7 },
 };
 
@@ -80,7 +88,7 @@ function UnTrazo({
         <path
           d={d}
           fill="none"
-          stroke={COLORES.oro}
+          stroke="rgb(200,169,107)"
           strokeOpacity={0.45}
           strokeWidth={estilo.ancho + 16}
           strokeLinecap="round"
