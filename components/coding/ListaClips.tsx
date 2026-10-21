@@ -33,14 +33,35 @@ import {
 
 import { Button, Dialog, Field, TextArea, sePuedeDescartar } from "@/components/abp/ui";
 import {
+  alternaTag,
   duracionClip,
   formateaDuracion,
   formateaMs,
+  tieneTag,
   type CategoriaCoding,
   type ClipCoding,
   type ComportamientoColectivo,
+  type DescriptorCoding,
   type JugadorCoding,
 } from "@/lib/coding/modelo";
+
+/** «perfil, pase ,, progresión» → las etiquetas limpias, sin repetir. */
+function leeTags(texto: string) {
+  const vistas = new Set<string>();
+
+  return texto
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => {
+      const clave = tag.toLowerCase();
+
+      if (!tag || vistas.has(clave)) return false;
+
+      vistas.add(clave);
+
+      return true;
+    });
+}
 
 export function ListaClips({
   clips,
@@ -599,6 +620,7 @@ export function FichaClip({
   jugadores,
   comportamientos,
   categorias,
+  descriptores = [],
   tiempoActualMs,
   onGuardar,
   onCerrar,
@@ -607,15 +629,25 @@ export function FichaClip({
   jugadores: JugadorCoding[];
   comportamientos: ComportamientoColectivo[];
   categorias: CategoriaCoding[];
+  descriptores?: DescriptorCoding[];
   /** Por dónde va el vídeo: permite traer el IN o el OUT de donde se está. */
   tiempoActualMs: number;
   onGuardar: (cambios: Partial<ClipCoding>) => void;
   onCerrar: () => void;
 }) {
   const [borrador, setBorrador] = useState<ClipCoding>(clip);
+  const [textoTags, setTextoTags] = useState(clip.tags.join(", "));
 
   const cambia = (cambios: Partial<ClipCoding>) =>
     setBorrador((actual) => ({ ...actual, ...cambios }));
+
+  /* Un descriptor pulsado entra en las etiquetas y en el texto del campo. */
+  const alternaDescriptor = (nombre: string) => {
+    const tags = alternaTag(borrador, nombre).tags;
+
+    cambia({ tags });
+    setTextoTags(tags.join(", "));
+  };
 
   const invalido = borrador.codingFinMs <= borrador.codingInicioMs;
 
@@ -789,18 +821,48 @@ export function FichaClip({
         />
       </div>
 
+      {descriptores.length > 0 && (
+        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[11px] text-white/45">Descriptores</span>
+
+          {descriptores.map((descriptor, indice) => {
+            const puesto = tieneTag(borrador, descriptor.nombre);
+
+            return (
+              <button
+                key={descriptor.id}
+                type="button"
+                aria-pressed={puesto}
+                onClick={() => alternaDescriptor(descriptor.nombre)}
+                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+                  puesto ? "font-semibold text-white" : "text-white/55 hover:text-white"
+                }`}
+                style={{
+                  borderColor: puesto ? descriptor.color : `${descriptor.color}55`,
+                  background: puesto ? `${descriptor.color}33` : "transparent",
+                }}
+              >
+                <span className="font-mono text-[10px] opacity-60">⇧{indice + 1}</span>
+                {descriptor.nombre}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {/*
+        | El texto se guarda tal cual se escribe y las etiquetas se sacan de él.
+        | Antes el campo se repintaba con las etiquetas ya limpias, y la coma
+        | se borraba nada más escribirla: no había forma de poner dos.
+        */}
         <Field
           label="Etiquetas"
-          value={borrador.tags.join(", ")}
-          onChange={(valor) =>
-            cambia({
-              tags: valor
-                .split(",")
-                .map((tag) => tag.trim())
-                .filter(Boolean),
-            })
-          }
+          value={textoTags}
+          onChange={(valor) => {
+            setTextoTags(valor);
+            cambia({ tags: leeTags(valor) });
+          }}
           hint="Separadas por comas: perfil, pase, progresión."
         />
 

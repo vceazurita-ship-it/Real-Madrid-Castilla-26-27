@@ -5200,6 +5200,7 @@ function Coding() {
           jugadores={jugadores}
           comportamientos={config.comportamientos}
           categorias={config.categorias}
+          descriptores={config.descriptores}
           tiempoActualMs={estado.tiempoMs}
           onCerrar={() => setEditando(null)}
           onGuardar={(cambios) => {
