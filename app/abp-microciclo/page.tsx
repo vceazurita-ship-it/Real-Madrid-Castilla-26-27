@@ -29,7 +29,6 @@ import {
   Brain,
   CalendarDays,
   ClipboardCopy,
-  Flag,
   Dumbbell,
   Flame,
   Mail,
@@ -62,7 +61,6 @@ import {
   SaveState,
   Segmented,
   StatCard,
-  StatRow,
 } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { useTextosExplicativos } from "@/components/ui/textos-analisis";
@@ -75,11 +73,11 @@ import {
 import { CruceTabla } from "@/components/abp/microciclo/CruceTabla";
 import { CopiarMicro } from "@/components/abp/microciclo/CopiarMicro";
 import { copiaPlan, type MdPorDia, type ModoCopia } from "@/lib/abp/copia-micro";
-import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { chipInk } from "@/lib/theme";
 import {
+  DIAS,
   EMPTY_MICRO_STORE,
   LADOS,
   LADO_COLOR,
@@ -119,6 +117,22 @@ import {
   type RegistroDataset,
 } from "@/lib/abp/registro";
 import { etiquetaDia, ventanaDelMicro } from "@/lib/abp/ventana";
+import {
+  conVentana,
+  lecturaDelPartido,
+  revisaSemana,
+  type DiaSabido,
+  type PuntoRevision,
+} from "@/lib/abp/semana-revision";
+import {
+  buscaJornada,
+  cargaJornadas,
+  enlaceAbpRival,
+  enlacePlanDePartido,
+  type JornadaRival,
+} from "@/lib/abp/jornada";
+import { PartidoDeLaSemana } from "@/components/abp/microciclo/PartidoDeLaSemana";
+import { LecturaDelPartido, RevisionSemana } from "@/components/abp/microciclo/RevisionSemana";
 import {
   soloDia,
   type PartidoCastilla,
@@ -274,6 +288,25 @@ export default function AbpMicrocicloPage() {
      de BeSoccer el ordenador del club (scripts/castilla-calendario.cjs). */
   const [calendario, setCalendario] = useState<PartidoCastilla[]>([]);
 
+  const [hoy, setHoy] = useState("");
+
+  /*
+  | Las jornadas de la hoja RIVALES (21/10/2026): con su `ID` se abren la
+  | pizarra de ABP y el plan de ese partido. Va aparte de la carga principal
+  | porque puede tardar, y la semana no tiene por qué esperarla.
+  */
+  const [jornadas, setJornadas] = useState<JornadaRival[]>([]);
+
+  useEffect(() => {
+    const control = new AbortController();
+
+    cargaJornadas(control.signal)
+      .then((lista) => setJornadas(lista))
+      .catch(() => undefined);
+
+    return () => control.abort();
+  }, []);
+
   /* --------------------------- CARGA DE HOJAS --------------------------- */
 
   useEffect(() => {
@@ -288,6 +321,10 @@ export default function AbpMicrocicloPage() {
       ]);
 
       if (cancelado) return;
+
+      /* Hoy, para «faltan 4 días»: se toma aquí y no en el render, que tiene
+         que ser puro. La fecha de Madrid, no la UTC. */
+      setHoy(new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date()));
 
       setRegistro(datosRegistro);
       setErrorRegistro(datosRegistro === null);
@@ -386,6 +423,82 @@ export default function AbpMicrocicloPage() {
     );
   }, [store.micros, claveActiva, microActivo]);
 
+  /* --------------------------- TAREAS DE LA HOJA ------------------------ */
+
+  const tareasAbpDelMicro = useMemo(() => {
+    if (!registro || !microActivo) return [];
+
+    return registro.tareas.filter(
+      (tarea) =>
+        tarea.micro === microActivo.micro &&
+        tarea.temporada === microActivo.temporada &&
+        esTareaAbp(tarea),
+    );
+  }, [registro, microActivo]);
+
+  /**
+   * TODAS las tareas de la hoja de este microciclo, no sólo las de ABP.
+   *
+   * Son las que dicen **qué días se entrena**: el microciclo del Sant Andreu va
+   * de domingo a miércoles, y eso no se puede deducir del calendario.
+   */
+  const tareasDelMicro = useMemo(() => {
+    if (!registro || !microActivo) return [];
+
+    return registro.tareas.filter(
+      (tarea) =>
+        tarea.micro === microActivo.micro &&
+        tarea.temporada === microActivo.temporada,
+    );
+  }, [registro, microActivo]);
+
+  /** Los días de este microciclo, en su orden, con su fecha y su partido. */
+  const ventana = useMemo(
+    () =>
+      ventanaDelMicro({
+        tareas: tareasDelMicro,
+        rival: microActivo?.rival ?? "",
+        partidos: calendario,
+        /* Para un microciclo que todavía no está escrito en la hoja: con esto
+           los días salen del calendario en vez de un lunes-a-domingo vacío. */
+        diasEntrenados: plan.diasEntrenados,
+      }),
+    [tareasDelMicro, microActivo, calendario, plan.diasEntrenados],
+  );
+
+  /* Sin letras repetidas: dos columnas con la misma inicial editarían el mismo
+     día, y dnd-kit no sabría en cuál se suelta. La ventana lo avisa. */
+  const ordenDias = useMemo(
+    () => [...new Set(ventana.dias.map((dia) => dia.clave))],
+    [ventana],
+  );
+
+  const etiquetasDia = useMemo(() => {
+    const mapa: Partial<Record<DiaKey, string>> = {};
+
+    /* "domingo 20" no cabe en la cabecera: sólo el número. */
+    for (const dia of ventana.dias) mapa[dia.clave] = dia.fecha.slice(8, 10);
+
+    return mapa;
+  }, [ventana]);
+
+  /*
+  | LO QUE LA HOJA YA SABE DE LOS DÍAS (21/10/2026).
+  |
+  | Qué día se juega, cuál se descansa y qué MD es cada uno lo dice la hoja de
+  | registro (o el calendario). Mientras nadie los marque a mano, se pintan
+  | encima del plan: todo día nace «entreno», y la semana sin tocar enseñaba el
+  | domingo de partido como sesión y contaba siete días de trabajo. Al editar,
+  | lo pintado se guarda con lo demás (`mutaPlan`).
+  */
+  const sabidos = useMemo<DiaSabido[]>(
+    () => ventana.dias.map((dia) => ({ clave: dia.clave, tipo: dia.tipo, rotulo: dia.rotulo })),
+    [ventana],
+  );
+
+  const planVisto = useMemo(() => conVentana(plan, sabidos), [plan, sabidos]);
+
+
   /* ------------------------------ EDICIÓN ------------------------------ */
 
   const mutaPlan = useCallback(
@@ -403,8 +516,10 @@ export default function AbpMicrocicloPage() {
             microActivo?.rival ?? "",
           );
 
-        /* Los documentos viejos pueden traer días a medias. */
-        const completo: MicroPlan = { ...base, dias: diasCompletos(base) };
+        /* Los documentos viejos pueden traer días a medias. Y lo que la hoja
+           sabe de los días se guarda con el primer cambio: lo que se ve es lo
+           que queda. */
+        const completo: MicroPlan = conVentana({ ...base, dias: diasCompletos(base) }, sabidos);
 
         return {
           ...actual,
@@ -412,7 +527,7 @@ export default function AbpMicrocicloPage() {
         };
       });
     },
-    [claveActiva, microActivo, setStore],
+    [claveActiva, microActivo, setStore, sabidos],
   );
 
   const cambiaTipo = useCallback(
@@ -621,65 +736,6 @@ export default function AbpMicrocicloPage() {
   /* El informe de la semana: se mira aquí y se manda por correo desde la
      cuenta del club. Lo arma `lib/abp/informe-micro.ts`. */
   const [informeAbierto, setInformeAbierto] = useState(false);
-
-  /* --------------------------- TAREAS DE LA HOJA ------------------------ */
-
-  const tareasAbpDelMicro = useMemo(() => {
-    if (!registro || !microActivo) return [];
-
-    return registro.tareas.filter(
-      (tarea) =>
-        tarea.micro === microActivo.micro &&
-        tarea.temporada === microActivo.temporada &&
-        esTareaAbp(tarea),
-    );
-  }, [registro, microActivo]);
-
-  /**
-   * TODAS las tareas de la hoja de este microciclo, no sólo las de ABP.
-   *
-   * Son las que dicen **qué días se entrena**: el microciclo del Sant Andreu va
-   * de domingo a miércoles, y eso no se puede deducir del calendario.
-   */
-  const tareasDelMicro = useMemo(() => {
-    if (!registro || !microActivo) return [];
-
-    return registro.tareas.filter(
-      (tarea) =>
-        tarea.micro === microActivo.micro &&
-        tarea.temporada === microActivo.temporada,
-    );
-  }, [registro, microActivo]);
-
-  /** Los días de este microciclo, en su orden, con su fecha y su partido. */
-  const ventana = useMemo(
-    () =>
-      ventanaDelMicro({
-        tareas: tareasDelMicro,
-        rival: microActivo?.rival ?? "",
-        partidos: calendario,
-        /* Para un microciclo que todavía no está escrito en la hoja: con esto
-           los días salen del calendario en vez de un lunes-a-domingo vacío. */
-        diasEntrenados: plan.diasEntrenados,
-      }),
-    [tareasDelMicro, microActivo, calendario, plan.diasEntrenados],
-  );
-
-  /* Sin letras repetidas: dos columnas con la misma inicial editarían el mismo
-     día, y dnd-kit no sabría en cuál se suelta. La ventana lo avisa. */
-  const ordenDias = useMemo(
-    () => [...new Set(ventana.dias.map((dia) => dia.clave))],
-    [ventana],
-  );
-
-  const etiquetasDia = useMemo(() => {
-    const mapa: Partial<Record<DiaKey, string>> = {};
-
-    /* "domingo 20" no cabe en la cabecera: sólo el número. */
-    for (const dia of ventana.dias) mapa[dia.clave] = dia.fecha.slice(8, 10);
-
-    return mapa;
-  }, [ventana]);
 
   const yaImportadas = useMemo(
     () =>
@@ -922,14 +978,14 @@ export default function AbpMicrocicloPage() {
         diasEntrenados: origen.diasEntrenados,
       });
 
-      return copiaPlan(origen, plan, {
+      return copiaPlan(origen, planVisto, {
         modo,
         mdOrigen: mdDeVentana(ventanaOrigen.dias),
         mdDestino: mdDeVentana(ventana.dias),
         diasDestino: ordenDias,
       });
     },
-    [store.micros, micros, registro, calendario, plan, mdDeVentana, ventana, ordenDias],
+    [store.micros, micros, registro, calendario, planVisto, mdDeVentana, ventana, ordenDias],
   );
 
   const aplicaCopia = useCallback(
@@ -976,7 +1032,7 @@ export default function AbpMicrocicloPage() {
   const totales = useMemo(() => totalesDe(entradas), [entradas]);
 
   /* Los días que cuentan para el objetivo, y de dónde sale ese número. */
-  const semana = useMemo(() => diasDeLaSemana(plan), [plan]);
+  const semana = useMemo(() => diasDeLaSemana(planVisto), [planVisto]);
 
   const objetivoSemana = useMemo(
     () => objetivoDeLaSemana(totales.minutos, semana.dias, semana.origen),
@@ -1069,7 +1125,16 @@ export default function AbpMicrocicloPage() {
 
     if (orden === "catalogo") return filtradas;
 
-    return [...filtradas].sort((a, b) => {
+    /*
+    | Por urgencia o por minutos, sólo lo que tiene algo que decir: lo que
+    | ninguna hoja registra o no ha pasado ni se ha trabajado nunca se queda
+    | en «Catálogo» (21/10/2026). Eran ocho filas de ceros al pie de la tabla.
+    */
+    const conAlgo = filtradas.filter(
+      (fila) => fila.urgencia != null && (fila.stats.acciones > 0 || fila.minutosTemporada > 0),
+    );
+
+    return [...conAlgo].sort((a, b) => {
       if (orden === "minutos") {
         return b.minutosTemporada - a.minutosTemporada;
       }
@@ -1087,6 +1152,85 @@ export default function AbpMicrocicloPage() {
   const bandaSinZona = competicion
     ? competicion.bandaSinZona.ofensivo + competicion.bandaSinZona.defensivo
     : 0;
+
+  /* ------------------------ PARTIDO Y REVISIÓN ------------------------- */
+
+  /*
+  | Dónde cae una tarea nueva que se pide desde fuera de la rejilla (una
+  | urgencia, la revisión): el primer día de sesión del microciclo. Antes era
+  | siempre el lunes, que en un microciclo de domingo a miércoles no existe.
+  */
+  const primerDiaSesion = useMemo<DiaKey>(
+    () => ordenDias.find((clave) => planVisto.dias[clave]?.tipo === "entreno") ?? ordenDias[0] ?? "L",
+    [ordenDias, planVisto],
+  );
+
+  const planificaAspecto = useCallback(
+    (aspecto: Trabajo["aspectos"][number], lado: AbpLado) =>
+      setEditor({
+        trabajo: nuevoTrabajo({ aspectos: [aspecto], lados: [lado] }),
+        dia: primerDiaSesion,
+        origen: null,
+      }),
+    [primerDiaSesion],
+  );
+
+  /* La jornada de la hoja RIVALES de este partido: la llave de la pizarra. */
+  const jornadaRival = useMemo(
+    () =>
+      buscaJornada(jornadas, {
+        fecha: ventana.partido ? soloDia(ventana.partido.cuando) : undefined,
+        rival: ventana.partido?.rival || plan.rival,
+      }),
+    [jornadas, ventana.partido, plan.rival],
+  );
+
+  const enlaces = useMemo(
+    () => ({
+      pizarra: jornadaRival?.id ? `/abp-pizarra?rival=${encodeURIComponent(jornadaRival.id)}` : "/abp-pizarra",
+      abpRival: enlaceAbpRival(ventana.partido?.rival || plan.rival),
+      plan: jornadaRival ? enlacePlanDePartido(jornadaRival) : null,
+    }),
+    [jornadaRival, ventana.partido, plan.rival],
+  );
+
+  const puntosRevision = useMemo<PuntoRevision[]>(
+    () => revisaSemana({ plan: planVisto, orden: ordenDias, objetivo: objetivoSemana, urgentes: prioridades }),
+    [planVisto, ordenDias, objetivoSemana, prioridades],
+  );
+
+  /*
+  | Lo que dejó el partido, cuando ya se jugó: las acciones de ESA jornada de
+  | liga, no las del rival en la ida.
+  */
+  const lectura = useMemo(() => {
+    const partido = ventana.partido;
+
+    if (!partido?.jugado || !competicion) return null;
+
+    const delPartido = competicion.events.filter(
+      (event) => event.contexto.jornada.competicion === "liga" && event.contexto.jornada.numero === partido.jornada,
+    );
+
+    if (!delPartido.length) return null;
+
+    return lecturaDelPartido(delPartido, minutosMicro);
+  }, [ventana.partido, competicion, minutosMicro]);
+
+  /* Los días del diálogo de una tarea: los de este microciclo, con su MD. */
+  const diasDialogo = useMemo(
+    () =>
+      ordenDias.map((clave) => {
+        const info = DIAS.find((dia) => dia.key === clave);
+
+        return {
+          clave,
+          rotulo: `${info?.corto ?? clave} ${etiquetasDia[clave] ? Number(etiquetasDia[clave]) : ""}`.trim(),
+          detalle: planVisto.dias[clave]?.md || undefined,
+        };
+      }),
+    [ordenDias, etiquetasDia, planVisto],
+  );
 
   /* --------------------------- NUEVO MICROCICLO ------------------------ */
 
@@ -1173,8 +1317,8 @@ export default function AbpMicrocicloPage() {
     | casos y dice de cuál viene el número, para que el informe pueda
     | contarlo en vez de dar una cifra que nadie puede comprobar.
     */
-    diasEntreno: diasDeLaSemana(plan).dias,
-    origenDias: diasDeLaSemana(plan).origen,
+    diasEntreno: semana.dias,
+    origenDias: semana.origen,
     minutosPorAspecto: [...minutosMicro.entries()].map(
       ([clave, minutos]) => ({ clave, minutos }),
     ),
@@ -1253,50 +1397,43 @@ export default function AbpMicrocicloPage() {
             </div>
           )}
 
-          {/* ====================== SELECTOR ====================== */}
+          {/* ====================== SELECTOR ======================
+              Dos filas desde el 21/10/2026: qué semana (microciclo, rival y
+              días) a la izquierda y qué hacer con ella a la derecha, con lo
+              principal —proponerla e informarla— delante. Antes eran ocho
+              piezas en una fila que se partía por cualquier sitio. */}
 
-          <div className="mt-6 flex flex-wrap items-end gap-3">
-            <label className="block min-w-[200px]">
-              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
-                Microciclo
-              </span>
+          <div className="mt-6 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_150px]">
+              <label className="block min-w-0">
+                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  Microciclo
+                </span>
 
-              <select
-                value={claveActiva}
-                onChange={(event) => setSeleccion(event.target.value)}
-                disabled={!micros.length}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50 disabled:opacity-40"
-              >
-                {micros.map((micro) => (
-                  <option
-                    key={micro.clave}
-                    value={micro.clave}
-                    className="bg-[#11161C]"
-                  >
-                    {`Micro ${micro.micro} · ${micro.rival || "sin rival"}`}
-                    {micro.planificado ? " ✓" : ""}
-                    {micro.enRegistro ? "" : " (nuevo)"}
-                  </option>
-                ))}
-              </select>
-            </label>
+                <select
+                  value={claveActiva}
+                  onChange={(event) => setSeleccion(event.target.value)}
+                  disabled={!micros.length}
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50 disabled:opacity-40"
+                >
+                  {micros.map((micro) => (
+                    <option
+                      key={micro.clave}
+                      value={micro.clave}
+                      className="bg-[#11161C]"
+                    >
+                      {`Micro ${micro.micro} · ${micro.rival || "sin rival"}`}
+                      {micro.planificado ? " ✓" : ""}
+                      {micro.enRegistro ? "" : " (nuevo)"}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="block min-w-[220px] flex-1">
-              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
-                Rival de la semana
-              </span>
-
-              {/* El escudo delante del nombre: es lo que dice de un vistazo
-                  con qué rival se ha cruzado la semana, porque el desplegable
-                  de al lado es un <select> nativo y no puede llevarlo. */}
-              <span className="flex min-w-0 items-center gap-2">
-                {plan.rival.trim() && (
-                  <EscudoEquipo
-                    nombre={plan.rival}
-                    escudo={escudoDe(plan.rival)}
-                    lado={26}
-                  />
-                )}
+              <label className="block min-w-0">
+                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  Rival de la semana
+                </span>
 
                 <input
                   value={plan.rival}
@@ -1304,107 +1441,111 @@ export default function AbpMicrocicloPage() {
                   placeholder="Contra quién se juega"
                   className="w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
                 />
-              </span>
-            </label>
+              </label>
 
-            {/*
-              LOS DÍAS QUE SE ENTRENÓ.
-              |
-              | Con ellos se prorratea el objetivo de balón parado de la semana
-              | (90-100′ en una de seis). Si se deja vacío se deduce del plan,
-              | pero esa deducción sólo es fiable cuando los descansos están
-              | marcados: todo día nace como «entreno», así que una semana sin
-              | tocar declara siete. El recuadro dice qué número se está usando
-              | y de dónde sale, para que no haya que abrir el informe para
-              | descubrirlo.
-            */}
-            <label className="block w-[150px]">
-              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
-                Días entrenados
-              </span>
+              {/*
+                LOS DÍAS QUE SE ENTRENÓ.
+                |
+                | Con ellos se prorratea el objetivo de balón parado de la semana
+                | (90-100′ en una de seis). En blanco se deduce del plan, que desde
+                | el 21/10/2026 ya trae los descansos y el partido que dice la hoja.
+              */}
+              <label className="block min-w-0">
+                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  Días entrenados
+                </span>
 
-              <input
-                type="number"
-                min={0}
-                max={7}
-                value={plan.diasEntrenados ?? ""}
-                onChange={(event) => cambiaDiasEntrenados(event.target.value)}
-                placeholder={String(semana.dias)}
-                title="En blanco se deduce del plan. Se usa para prorratear el objetivo de minutos."
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
-              />
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={7}
+                  value={plan.diasEntrenados ?? ""}
+                  onChange={(event) => cambiaDiasEntrenados(event.target.value)}
+                  placeholder={String(semana.dias)}
+                  aria-describedby="dias-entrenados-ayuda"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/40 focus:border-[#C8A96B]/50"
+                />
 
-              <span className="mt-1 block text-[10px] leading-snug text-white/35">
-                {semana.origen === "a mano"
-                  ? `Objetivo: ${objetivoSemana.minimo}-${objetivoSemana.maximo}′`
-                  : semana.origen === "marcados"
-                    ? `${semana.dias} en el plan · objetivo ${objetivoSemana.minimo}-${objetivoSemana.maximo}′`
-                    : `Sin descansos marcados: se leen ${semana.dias} con trabajo`}
-              </span>
-            </label>
+                <span id="dias-entrenados-ayuda" className="mt-1 block text-[10px] leading-snug text-white/40">
+                  {semana.origen === "a mano"
+                    ? "Puestos a mano"
+                    : semana.origen === "marcados"
+                      ? `${semana.dias} en el microciclo`
+                      : `${semana.dias} con balón parado`}
+                </span>
+              </label>
+            </div>
 
-            <Button
-              tone="primary"
-              icon={Sparkles}
-              onClick={() => setBocetoAbierto(true)}
-              disabled={!claveActiva}
-              title="Proponer la semana entera: días, aspectos y minutos, según el próximo partido, nuestro rendimiento y el del rival"
-            >
-              Proponer boceto
-            </Button>
+            <div className="flex min-w-0 flex-wrap gap-2 xl:justify-end xl:pb-[18px]">
+              <Button
+                tone="primary"
+                icon={Sparkles}
+                onClick={() => setBocetoAbierto(true)}
+                disabled={!claveActiva}
+                title="Proponer la semana entera: días, aspectos y minutos, según el próximo partido, nuestro rendimiento y el del rival"
+              >
+                Proponer boceto
+              </Button>
 
-            <Button
-              icon={Download}
-              onClick={() => setImportando(true)}
-              disabled={!tareasAbpDelMicro.length}
-              title={
-                tareasAbpDelMicro.length
-                  ? "Traer las tareas de ABP ya registradas de este microciclo"
-                  : "Este microciclo no tiene tareas de ABP en la hoja de registro"
-              }
-            >
-              Importar del registro
-              {tareasAbpDelMicro.length ? ` (${tareasAbpDelMicro.length})` : ""}
-            </Button>
+              <Button
+                icon={Mail}
+                onClick={() => setInformeAbierto(true)}
+                disabled={!claveActiva}
+                title="Ver el informe de balón parado de esta semana y mandarlo"
+              >
+                Informe de la semana
+              </Button>
 
-            <Button
-              icon={ClipboardCopy}
-              onClick={() => setCopiando(true)}
-              disabled={!claveActiva}
-              title="Traer a esta semana los bloques de otro microciclo, atados por MD"
-            >
-              Copiar de otro micro
-            </Button>
+              <Button
+                icon={Download}
+                onClick={() => setImportando(true)}
+                disabled={!tareasAbpDelMicro.length}
+                title={
+                  tareasAbpDelMicro.length
+                    ? "Traer las tareas de ABP ya registradas de este microciclo"
+                    : "Este microciclo no tiene tareas de ABP en la hoja de registro"
+                }
+              >
+                Importar del registro
+                {tareasAbpDelMicro.length ? ` (${tareasAbpDelMicro.length})` : ""}
+              </Button>
 
-            <Button
-              icon={Mail}
-              onClick={() => setInformeAbierto(true)}
-              title="Ver el informe de balón parado de esta semana y mandarlo por correo"
-            >
-              Informe de la semana
-            </Button>
+              <Button
+                icon={ClipboardCopy}
+                onClick={() => setCopiando(true)}
+                disabled={!claveActiva || !opcionesCopia.length}
+                title="Traer a esta semana los bloques de otro microciclo, atados por MD"
+              >
+                Copiar de otro micro
+              </Button>
 
-            <Button icon={Plus} onClick={creaMicro}>
-              Nuevo microciclo
-            </Button>
+              <Button icon={Plus} onClick={creaMicro}>
+                Nuevo microciclo
+              </Button>
+            </div>
           </div>
 
-          {/* Qué partido mide esta semana. Sin esto, la transferencia es magia. */}
-          <p className="mt-2 text-[11px] text-white/35">
-            {partidoDelMicro ? (
-              <>
-                Se mide contra{" "}
-                <span className="text-white/60">{partidoDelMicro.jornada}</span>{" "}
-                · {partidoDelMicro.rival}.
-              </>
-            ) : plan.rival ? (
-              <>
-                Todavía no se ha jugado contra <span className="text-white/60">{plan.rival}</span>.
-              </>
-            ) : (
-              "Escribe el rival de la semana para poder cruzar este microciclo con su partido."
-            )}
-          </p>
+          {/* =================== EL PARTIDO DE LA SEMANA =================== */}
+
+          {!cargando && !sinMicros && (
+            <PartidoDeLaSemana
+              partido={ventana.partido}
+              anterior={
+                ventana.partidoAnterior
+                  ? { rival: ventana.partidoAnterior.rival, cuando: etiquetaDia(soloDia(ventana.partidoAnterior.cuando)) }
+                  : null
+              }
+              rival={plan.rival}
+              escudo={escudoDe(ventana.partido?.rival || plan.rival)}
+              hoy={hoy}
+              minutos={totales.minutos}
+              objetivo={objetivoSemana}
+              porLado={totales.porLado}
+              enlaces={enlaces}
+              onVerPost={ventana.partido?.jugado ? () => setInformeAbierto(true) : undefined}
+            />
+          )}
 
           {cargando ? (
             <div className="mt-8">
@@ -1437,7 +1578,9 @@ export default function AbpMicrocicloPage() {
               {/* ===================== RESUMEN ===================== */}
 
               <div className="mt-7">
-                <StatRow>
+                {/* Dos por fila en el móvil: cinco tarjetas apiladas eran una
+                    pantalla entera antes de llegar a la semana. */}
+                <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-5">
                   <StatCard
                     label="Minutos de ABP"
                     value={fmtMin(totales.minutos)}
@@ -1478,7 +1621,33 @@ export default function AbpMicrocicloPage() {
                         : "todo en campo"
                     }
                   />
-                </StatRow>
+                </div>
+              </div>
+
+              {/* ================ LO QUE DEJÓ EL PARTIDO ================ */}
+
+              {lectura && ventana.partido && (
+                <div className="mt-6">
+                  <LecturaDelPartido
+                    lectura={lectura}
+                    rival={ventana.partido.rival}
+                    marcador={
+                      ventana.partido.golesFavor != null && ventana.partido.golesContra != null
+                        ? `${ventana.partido.golesFavor}-${ventana.partido.golesContra}`
+                        : null
+                    }
+                  />
+                </div>
+              )}
+
+              {/* ======================= REVISIÓN ======================= */}
+
+              <div className="mt-6">
+                <RevisionSemana
+                  puntos={puntosRevision}
+                  onAbrir={(dia, trabajo) => setEditor({ trabajo, dia, origen: dia })}
+                  onPlanificar={(falta) => planificaAspecto(falta.aspecto, falta.lado)}
+                />
               </div>
 
               {/* ====================== SEMANA ===================== */}
@@ -1504,43 +1673,8 @@ export default function AbpMicrocicloPage() {
                     />
                   }
                 >
-                  {/*
-                    DE QUÉ PARTIDO VIENE Y A CUÁL VA.
-                    Un microciclo va de partido a partido, y hasta ahora la
-                    rejilla empezaba en el primer día con tareas escritas: el
-                    domingo de descanso después de jugar se quedaba fuera y la
-                    semana parecía arrancar el martes. Ahora arranca al día
-                    siguiente del partido anterior, y los dos partidos se ven
-                    aquí para que el ciclo se lea entero de un vistazo.
-                  */}
-                  {(ventana.partidoAnterior || ventana.partido) && (
-                    <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px]">
-                      {ventana.partidoAnterior && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-white/45">
-                          <Flag size={11} />
-                          Viene de {ventana.partidoAnterior.rival}
-                          <span className="text-white/25">
-                            · {etiquetaDia(soloDia(ventana.partidoAnterior.cuando))}
-                          </span>
-                        </span>
-                      )}
-
-                      {ventana.partidoAnterior && ventana.partido && (
-                        <span className="text-white/20">→</span>
-                      )}
-
-                      {ventana.partido && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1.5 font-semibold text-[#C8A96B]">
-                          <Flag size={11} />
-                          Se juega contra {ventana.partido.rival}
-                          <span className="text-[#C8A96B]/60">
-                            · {etiquetaDia(soloDia(ventana.partido.cuando))}
-                            {ventana.partido.lado === "casa" ? " · en casa" : " · fuera"}
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  {/* De qué partido viene y a cuál va: en la tarjeta del partido
+                      de la semana, arriba (21/10/2026). */}
 
                   {ventana.avisos.length > 0 && (
                     <div className="mb-3">
@@ -1555,7 +1689,7 @@ export default function AbpMicrocicloPage() {
                   )}
 
                   <SemanaGrid
-                    dias={plan.dias}
+                    dias={planVisto.dias}
                     orden={ordenDias}
                     etiquetas={etiquetasDia}
                     detalle={vistaSemana === "completa"}
@@ -1642,16 +1776,8 @@ export default function AbpMicrocicloPage() {
                           <button
                             key={`${fila.aspecto.key}-${fila.lado}`}
                             type="button"
-                            onClick={() =>
-                              setEditor({
-                                trabajo: nuevoTrabajo({
-                                  aspectos: [fila.aspecto.key],
-                                  lados: [fila.lado],
-                                }),
-                                dia: "L",
-                                origen: null,
-                              })
-                            }
+                            onClick={() => planificaAspecto(fila.aspecto.key, fila.lado)}
+                            aria-label={`Planificar ${fila.aspecto.label} ${LADO_LABEL[fila.lado].toLowerCase()}`}
                             className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-white/25 hover:bg-white/[0.06]"
                           >
                             <div className="flex items-center justify-between gap-2">
@@ -1738,6 +1864,9 @@ export default function AbpMicrocicloPage() {
                 >
                   <CruceTabla filas={filasVisibles} />
 
+                  {/* Cómo se calcula cada columna es método: sólo con los
+                      textos explicativos (21/10/2026). */}
+                  {explicativos && (
                   <div className="space-y-1.5 border-t border-white/10 px-4 py-3 sm:px-5">
                     <p className="text-[10.5px] leading-relaxed text-white/35">
                       <span className="text-white/55">Urgencia</span> pesa el
@@ -1777,6 +1906,7 @@ export default function AbpMicrocicloPage() {
                       </p>
                     )}
                   </div>
+                  )}
                 </Panel>
               </div>
                 </>
@@ -1792,6 +1922,7 @@ export default function AbpMicrocicloPage() {
         <TrabajoDialog
           trabajo={editor.trabajo}
           dia={editor.dia}
+          dias={diasDialogo}
           nuevo={editor.origen === null}
           onGuardar={(trabajo, destino) => {
             guardaTrabajo(trabajo, destino, editor.origen);
@@ -1815,7 +1946,7 @@ export default function AbpMicrocicloPage() {
       {bocetoAbierto && (
         <BocetoDialog
           filas={filas}
-          plan={plan}
+          plan={planVisto}
           events={competicion?.events ?? []}
           tareasDelMicro={tareasDelMicro}
           rivalDelMicro={microActivo?.rival ?? plan.rival}

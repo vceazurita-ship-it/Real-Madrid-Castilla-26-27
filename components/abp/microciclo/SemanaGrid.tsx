@@ -32,7 +32,7 @@
  * a mano —arrastrar seis bloques de un día a otro— caben más días a la vez.
  */
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -50,7 +50,7 @@ import { Copy, Monitor, Plus, Trash2 } from "lucide-react";
 
 import { chipInk } from "@/lib/theme";
 import { useTextosExplicativos } from "@/components/ui/textos-analisis";
-import { MARCA_BOCETO } from "@/lib/abp/boceto";
+import { porqueDe } from "@/lib/abp/semana-revision";
 
 import {
   DIAS,
@@ -88,6 +88,12 @@ import {
 const idBloque = (dia: DiaKey, trabajo: string) => `bloque:${dia}:${trabajo}`;
 const idColumna = (dia: DiaKey) => `columna:${dia}`;
 const idHueco = (dia: DiaKey, trabajo: string) => `hueco:${dia}:${trabajo}`;
+
+const ROTULO_TIPO: Record<TipoDia, string> = {
+  entreno: "Sesión",
+  descanso: "Libre",
+  partido: "Partido",
+};
 
 type DatosArrastre = { dia: DiaKey; id: string };
 type DatosDestino = { dia: DiaKey; antesDe: string | null };
@@ -133,13 +139,9 @@ function TrabajoCuerpo({
   | Lo escrito a mano en la nota se ve siempre.
   */
   const explicativos = useTextosExplicativos();
-  const notas = explicativos
-    ? trabajo.notas
-    : (trabajo.notas ?? "")
-        .split("\n")
-        .filter((l) => !l.trim().startsWith(MARCA_BOCETO))
-        .join("\n")
-        .trim();
+
+  /* El porqué del boceto se ve siempre, como «Por qué» (21/10/2026). */
+  const { porque, resto: notas } = porqueDe(trabajo.notas, explicativos);
 
   const desgaste = [
     trabajo.intensidad > 0 ? `intensidad ${trabajo.intensidad}/10` : "",
@@ -161,9 +163,20 @@ function TrabajoCuerpo({
             : etiquetaTrabajo(trabajo, true)}
         </p>
 
-        <span className="shrink-0 text-[11px] font-semibold tabular-nums text-white/70">
-          {trabajo.minutos}′
-        </span>
+        {trabajo.minutos > 0 ? (
+          <span className="shrink-0 text-[11px] font-semibold tabular-nums text-white/70">
+            {trabajo.minutos}′
+          </span>
+        ) : (
+          /* Una tarea de la hoja que aún no tiene el tiempo apuntado: «0′»
+             parecía un dato y es un hueco por rellenar. */
+          <span
+            className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-300"
+            title="Falta apuntar cuántos minutos dura"
+          >
+            Sin tiempo
+          </span>
+        )}
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-1">
@@ -242,6 +255,15 @@ function TrabajoCuerpo({
             {notas}
           </p>
         ))}
+
+      {detalle && porque && (
+        <p className="mt-1 text-[10px] leading-snug text-white/50">
+          <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+            Por qué ·{" "}
+          </span>
+          {porque}
+        </p>
+      )}
 
       {detalle && desgaste.length > 0 && (
         <p className="mt-1 text-[9.5px] leading-snug tabular-nums text-white/35">
@@ -366,6 +388,7 @@ function DiaColumna({
   plan,
   detalle,
   etiqueta,
+  maximo,
   onCambiaTipo,
   onCambiaMd,
   onAbrir,
@@ -376,6 +399,8 @@ function DiaColumna({
   dia: DiaKey;
   plan: PlanDia;
   detalle: boolean;
+  /** Los minutos del día más cargado de la semana. */
+  maximo: number;
   /** "dom 20": la fecha real de ese día en este microciclo. */
   etiqueta?: string;
   onCambiaTipo: (tipo: TipoDia) => void;
@@ -417,7 +442,9 @@ function DiaColumna({
           ? "border-[#C8A96B]/60 bg-[#C8A96B]/[0.05]"
           : descansa
             ? "border-white/[0.06] bg-white/[0.01]"
-            : "border-white/10 bg-white/[0.025]"
+            : plan.tipo === "partido"
+              ? "border-emerald-400/30 bg-emerald-400/[0.05]"
+              : "border-white/10 bg-white/[0.025]"
       }`}
     >
       {/* ---------------------- CABECERA ---------------------- */}
@@ -459,16 +486,33 @@ function DiaColumna({
                     : "bg-white/[0.05] text-white/40 hover:text-white/70"
                 }`}
               >
-                {tipo.label.slice(0, 4)}
+                {/* «ENTR» y «DESC» eran recortes, no palabras. */}
+                {ROTULO_TIPO[tipo.key]}
               </button>
             );
           })}
+        </div>
+
+        {/* El perfil de la semana de un vistazo: cuánto balón parado lleva
+            cada día frente al más cargado. */}
+        <div
+          className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06]"
+          role="img"
+          aria-label={`${fmtMin(minutos)} de balón parado`}
+        >
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${Math.round((minutos / maximo) * 100)}%`,
+              backgroundColor: "var(--rmcf-gold-ink)",
+            }}
+          />
         </div>
       </div>
 
       {/* ---------------------- TRABAJOS ---------------------- */}
 
-      <div ref={setNodeRef} className="flex min-h-[110px] flex-1 flex-col gap-1.5 p-2">
+      <div ref={setNodeRef} className="flex min-h-[64px] flex-1 flex-col gap-1.5 p-2 md:min-h-[110px]">
         {plan.trabajos.map((trabajo) => (
           <TrabajoCard
             key={trabajo.id}
@@ -483,7 +527,7 @@ function DiaColumna({
 
         {!plan.trabajos.length && (
           <p className="px-1 py-3 text-center text-[10px] leading-relaxed text-white/35">
-            {descansa ? "Descanso" : "Sin ABP"}
+            {descansa ? "Descanso" : plan.tipo === "partido" ? "Día de partido" : "Sin balón parado"}
           </p>
         )}
 
@@ -576,6 +620,14 @@ export function SemanaGrid({
       ]
     : DIA_KEYS;
 
+  /* El día con más minutos: la barra de cada cabecera se mide contra él. */
+  const maximoDia = Math.max(
+    1,
+    ...columnas.map((clave) =>
+      (dias[clave]?.trabajos ?? []).reduce((total, trabajo) => total + (trabajo.minutos || 0), 0),
+    ),
+  );
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, {
@@ -615,15 +667,23 @@ export function SemanaGrid({
       onDragEnd={termina}
       onDragCancel={() => setArrastrando(null)}
     >
-      <div className="overflow-x-auto pb-1">
+      {/*
+      | En el móvil los días van uno debajo de otro (21/10/2026): siete columnas
+      | de 180 px en 390 obligaban a desplazar de lado para encontrar el día, y
+      | la barra de cada cabecera ya deja comparar los días entre sí. Desde la
+      | tableta, la rejilla de siempre.
+      */}
+      <div className="pb-1 md:overflow-x-auto">
         {/* La ficha completa necesita columna ancha: con 140 px «Falta lateral
             indirecta» se parte en cuatro renglones. */}
         <div
-          className="grid items-stretch gap-2"
-          style={{
-            gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))`,
-            minWidth: columnas.length * (detalle ? 180 : 140),
-          }}
+          className="grid grid-cols-1 items-stretch gap-2 md:min-w-(--ancho) md:grid-cols-(--columnas)"
+          style={
+            {
+              "--columnas": `repeat(${columnas.length}, minmax(0, 1fr))`,
+              "--ancho": `${columnas.length * (detalle ? 180 : 140)}px`,
+            } as CSSProperties
+          }
         >
           {columnas.map((clave) => (
             <DiaColumna
@@ -632,6 +692,7 @@ export function SemanaGrid({
               plan={dias[clave]}
               detalle={detalle}
               etiqueta={etiquetas?.[clave]}
+              maximo={maximoDia}
               onCambiaTipo={(tipo) => onCambiaTipo(clave, tipo)}
               onCambiaMd={(md) => onCambiaMd(clave, md)}
               onAbrir={(trabajo) => onAbrir(clave, trabajo)}

@@ -183,35 +183,73 @@ export function ordenaCandidatos(
   return candidatos.sort((a, b) => b.puntos - a.puntos);
 }
 
-function motivoDe(fila: FilaCruce, rival: RivalAbp | null, delRival: number, nosotros: RivalAbp | null = null) {
-  const trozos: string[] = [];
+/**
+ * Quita de una lectura lo que no se puede defender delante del cuerpo técnico.
+ *
+ * Los goles de balón parado de la liga son una estimación calibrada («≈1
+ * gol(es) de falta»): sirven para ordenar, no para escribirlos en una tarea.
+ */
+export function limpiaLectura(texto: string) {
+  return (texto || "")
+    .split(/ · |; /)
+    .map((trozo) => trozo.trim())
+    .filter((trozo) => trozo && !trozo.includes("≈"))
+    .join(", ")
+    .replace(/\s*[;,.]\s*$/, "")
+    .trim();
+}
 
-  if (fila.urgencia != null) {
-    trozos.push(
-      `urgencia ${Math.round(fila.urgencia)}/100 (${fila.stats.acciones} acciones, ${Math.round(
-        fila.peligroAjustado,
-      )} % de peligro contra ${Math.round(fila.referencia)} % de su familia)`,
+/**
+ * El porqué de una tarea del boceto, como lo contaría el analista.
+ *
+ * Desde el 21/10/2026 va en lenguaje de campo y sin la cocina —ni «urgencia
+ * 32/100» ni «su familia»—, porque se lee en la ficha de la semana con los
+ * textos explicativos apagados: lo que dice QUÉ pasa se queda; cómo se
+ * calcula, no.
+ */
+function motivoDe(fila: FilaCruce, rival: RivalAbp | null, delRival: number, nosotros: RivalAbp | null = null) {
+  const frases: string[] = [];
+
+  const acciones = fila.stats.acciones;
+
+  if (fila.urgencia != null && acciones > 0) {
+    const peligro = Math.round(fila.peligroAjustado);
+    const media = Math.round(fila.referencia);
+
+    const comparado =
+      peligro > media
+        ? `por encima del ${media} % habitual`
+        : peligro < media
+          ? `por debajo del ${media} % habitual`
+          : "en la media";
+
+    frases.push(
+      fila.lado === "ofensivo"
+        ? `Nuestro: ${acciones} a favor, ${peligro} % con peligro, ${comparado}`
+        : `Nos han sacado ${acciones}, ${peligro} % con peligro suyo, ${comparado}`,
     );
   }
 
   /* Lo que dice la liga de nosotros en esa familia: atacando, lo que
      sacamos y rematamos; defendiendo, lo que concedemos. */
-  const enLaLiga = nosotros?.motivos[claveAspecto(fila.aspecto.key, fila.lado === "ofensivo" ? "defensivo" : "ofensivo")];
+  const enLaLiga = limpiaLectura(
+    nosotros?.motivos[claveAspecto(fila.aspecto.key, fila.lado === "ofensivo" ? "defensivo" : "ofensivo")] ?? "",
+  );
 
-  if (enLaLiga) trozos.push(`en la liga ${enLaLiga.replace(/^[^ ]+ /, "")}`);
+  if (enLaLiga) frases.push(`Nosotros en la liga: ${enLaLiga}`);
 
-  const dicho = rival?.motivos[claveAspecto(fila.aspecto.key, fila.lado)];
+  const dicho = limpiaLectura(rival?.motivos[claveAspecto(fila.aspecto.key, fila.lado)] ?? "");
 
-  if (dicho) trozos.push(dicho);
+  if (dicho && rival) frases.push(`${rival.equipo}: ${dicho}`);
   else if (delRival > 0 && rival) {
-    trozos.push(
+    frases.push(
       fila.lado === "defensivo"
         ? `${rival.equipo} lo usa por encima de la media`
         : `${rival.equipo} lo concede por encima de la media`,
     );
   }
 
-  return trozos.join(" · ") || "propuesto por catálogo: no hay datos que lo ordenen";
+  return frases.length ? `${frases.join(". ")}.` : "Completa la semana.";
 }
 
 /**
@@ -524,7 +562,7 @@ function colocaTrabajo(
         tareaDe(
           { ...paraVer[0], minutos: minutosVideo },
           { momento: "pre", medio: "video", intensidad: 1, exigCognitiva: 7 },
-          `${MARCA_BOCETO} vídeo del ${rival.equipo}: ${rival.resumen}`,
+          `${MARCA_BOCETO} vídeo del ${rival.equipo}: ${limpiaLectura(rival.resumen)}.`,
           paraVer.map((uno) => uno.aspecto),
           [...new Set(paraVer.map((uno) => uno.lado))],
         ),
