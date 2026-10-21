@@ -338,7 +338,7 @@ export function TableroSemana({
 
                   {enBlanco > 0 && (
                     <li className="px-1 text-[10px] text-white/35">
-                      + {enBlanco} hueco(s) en blanco, que no se escriben
+                      + {enBlanco} {enBlanco === 1 ? "hueco en blanco, que no se escribe" : "huecos en blanco, que no se escriben"}
                     </li>
                   )}
                 </ol>

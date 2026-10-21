@@ -17,13 +17,23 @@
 import { forwardRef } from "react";
 
 import { FASES_ABP, type MicroNuevo } from "@/lib/registro/hoja";
-import { cargaDelDia, esCompeticion } from "@/lib/registro/semana";
+import {
+  cargaDelDia,
+  cuentasDeLaSemana,
+  esCompeticion,
+  frenteAReferencia,
+  plural,
+  sinGazapos,
+  tareasDeLaLamina,
+  type ReferenciaMd,
+} from "@/lib/registro/semana";
 import { tareasQueSeEscriben } from "@/lib/registro/hoja";
 import { etiquetaDia } from "@/lib/abp/ventana";
 
 import { colorDeFase } from "./TableroSemana";
 
-export const LAMINA = { ancho: 1600, alto: 1000 };
+/** Ancho fijo; el alto sale del contenido (antes, 1000 fijos dejaban media hoja vacía). */
+export const LAMINA = { ancho: 1600, altoMinimo: 640 };
 
 const C = {
   papel: "#FFFFFF",
@@ -39,29 +49,29 @@ const FUENTE = "'Barlow Condensed Lamina', 'Barlow Condensed', 'Arial Narrow', s
 
 export type PartidoLamina = { rival: string; jornada?: number | string; cuando?: string; lado?: string } | null;
 
-export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; partido: PartidoLamina }>(
-  function LaminaSemana({ micro, partido }, ref) {
+export const LaminaSemana = forwardRef<
+  HTMLDivElement,
+  { micro: MicroNuevo; partido: PartidoLamina; referencia?: Record<string, ReferenciaMd> }
+>(
+  function LaminaSemana({ micro, partido, referencia = {} }, ref) {
     const dias = micro.sesiones;
     const muchos = dias.length > 7;
 
-    const totales = dias.reduce(
-      (suma, sesion) => {
-        const dia = cargaDelDia(sesion);
-        const abp = tareasQueSeEscriben(sesion)
+    const cuentas = cuentasDeLaSemana(micro);
+    const abp = dias.reduce(
+      (n, sesion) =>
+        n +
+        tareasQueSeEscriben(sesion)
           .filter((tarea) => FASES_ABP.includes(tarea.fase))
-          .reduce((n, tarea) => n + (tarea.tiempo || 0), 0);
-        const entreno = !esPartidoMd(sesion.md) && dia.tareas > 0;
-
-        return {
-          minutos: suma.minutos + (esPartidoMd(sesion.md) ? 0 : dia.minutos),
-          abp: suma.abp + abp,
-          tareas: suma.tareas + (esPartidoMd(sesion.md) ? 0 : dia.tareas),
-          sesiones: suma.sesiones + (entreno ? 1 : 0),
-          libres: suma.libres + (sesion.libre ? 1 : 0),
-        };
-      },
-      { minutos: 0, abp: 0, tareas: 0, sesiones: 0, libres: 0 },
+          .reduce((m, tarea) => m + (tarea.tiempo || 0), 0),
+      0,
     );
+
+    /* El titular del pie: el día que más pesa, si la carga de la semana está escrita. */
+    const masCargado = dias
+      .map((sesion) => ({ sesion, dia: cargaDelDia(sesion) }))
+      .filter(({ sesion, dia }) => !esPartidoMd(sesion.md) && dia.completa && dia.carga > 0)
+      .sort((a, b) => b.dia.carga - a.dia.carga)[0];
 
     /* La mayúscula sólo en la primera letra: con `capitalize` salía «31 De Octubre». */
     const fecha = partido?.cuando
@@ -70,19 +80,23 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
     const cuando = fecha.charAt(0).toUpperCase() + fecha.slice(1);
 
     const cifras = [
-      totales.sesiones ? `${totales.sesiones} sesiones` : "",
-      totales.tareas ? `${totales.tareas} tareas` : "",
-      totales.minutos ? `${totales.minutos}′ de entreno` : "",
-      totales.abp ? `${totales.abp}′ de balón parado` : "",
-      totales.libres ? `${totales.libres} ${totales.libres === 1 ? "día libre" : "días libres"}` : "",
+      cuentas.sesiones ? plural(cuentas.sesiones, "sesión", "sesiones") : "",
+      cuentas.tareas ? plural(cuentas.tareas, "tarea", "tareas") : "",
+      cuentas.entreno ? `${cuentas.entreno}′ de entreno` : "",
+      abp ? `${abp}′ de balón parado` : "",
+      cuentas.libres ? plural(cuentas.libres, "día libre", "días libres") : "",
     ].filter(Boolean);
+
+    const titular = masCargado
+      ? `Día más exigente: ${etiquetaDia(masCargado.sesion.fecha)} (${masCargado.sesion.md}, carga ${masCargado.dia.carga})`
+      : "";
 
     return (
       <div
         ref={ref}
         style={{
           width: LAMINA.ancho,
-          height: LAMINA.alto,
+          minHeight: LAMINA.altoMinimo,
           background: C.papel,
           color: C.tinta,
           fontFamily: FUENTE,
@@ -108,6 +122,11 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
             <h1 style={{ margin: "2px 0 0", fontSize: 50, fontWeight: 700, lineHeight: 1.02, textTransform: "uppercase" }}>
               {partido?.rival || micro.rival}
             </h1>
+            {micro.objetivo?.trim() && (
+              <p style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 600, lineHeight: 1.2, color: C.verde }}>
+                Objetivo · {micro.objetivo.trim()}
+              </p>
+            )}
           </div>
 
           {(partido?.jornada || cuando) && (
@@ -121,17 +140,17 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
         <div
           style={{
             marginTop: 26,
-            flex: 1,
-            minHeight: 0,
             display: "grid",
+            alignItems: "start",
             gridTemplateColumns: `repeat(${Math.max(1, dias.length)}, minmax(0, 1fr))`,
             gap: muchos ? 8 : 12,
           }}
         >
           {dias.map((sesion, s) => {
             const partidoDia = esPartidoMd(sesion.md);
-            const tareas = tareasQueSeEscriben(sesion);
+            const tareas = tareasDeLaLamina(sesion);
             const dia = cargaDelDia(sesion);
+            const frente = dia.completa ? frenteAReferencia(dia.carga, referencia[sesion.md.trim().toUpperCase()]) : null;
 
             return (
               <section
@@ -169,8 +188,13 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
                 </div>
 
                 {!partidoDia && dia.minutos > 0 && (
-                  <p style={{ margin: "4px 0 0", fontSize: 16, fontWeight: 600, color: C.gris }}>
+                  <p style={{ margin: "4px 0 0", fontSize: 18, fontWeight: 600, color: C.gris }}>
                     {dia.minutos}′{dia.completa && dia.carga > 0 ? ` · carga ${dia.carga}` : ""}
+                    {frente ? (
+                      <span style={{ color: frente.tono === "alta" ? "#A23B3B" : frente.tono === "baja" ? "#2E6B4F" : C.gris }}>
+                        {` · ${frente.diferencia > 0 ? "+" : ""}${frente.diferencia} % s/ su media`}
+                      </span>
+                    ) : null}
                   </p>
                 )}
 
@@ -182,7 +206,7 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
                       const comp = esCompeticion(tarea);
                       const contenido = comp
                         ? tarea.contenidoSecundario
-                        : [tarea.contenidoPrincipal, tarea.contenidoSecundario].filter(Boolean).join(" · ");
+                        : sinGazapos([tarea.contenidoPrincipal, tarea.contenidoSecundario].filter(Boolean).join(" · "));
                       const datos = [tarea.tiempo > 0 && !comp ? `${tarea.tiempo}′` : "", tarea.intensidad > 0 && !comp ? `int. ${tarea.intensidad}` : "", comp ? "" : tarea.formato].filter(Boolean);
 
                       return (
@@ -195,16 +219,16 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
                             borderLeft: `5px solid ${colorDeFase(tarea.fase)}`,
                           }}
                         >
-                          <p style={{ margin: 0, fontSize: muchos ? 16 : 18, fontWeight: 700, lineHeight: 1.1 }}>
-                            {tarea.tipoTarea || (comp ? "Competición" : tarea.tarea)}
+                          <p style={{ margin: 0, fontSize: muchos ? 19 : 22, fontWeight: 700, lineHeight: 1.1 }}>
+                            {sinGazapos(tarea.tipoTarea || (comp ? "Competición" : tarea.tarea))}
                           </p>
                           {contenido && (
-                            <p style={{ margin: "2px 0 0", fontSize: muchos ? 13.5 : 15, fontWeight: 500, lineHeight: 1.15, opacity: 0.8 }}>
+                            <p style={{ margin: "2px 0 0", fontSize: muchos ? 16 : 18, fontWeight: 500, lineHeight: 1.15, opacity: 0.8 }}>
                               {contenido}
                             </p>
                           )}
                           {(datos.length > 0 || tarea.fase) && !comp && (
-                            <p style={{ margin: "3px 0 0", fontSize: muchos ? 12.5 : 14, fontWeight: 600, color: partidoDia ? C.crema : C.gris }}>
+                            <p style={{ margin: "3px 0 0", fontSize: muchos ? 15 : 17, fontWeight: 600, color: partidoDia ? C.crema : C.gris }}>
                               {[tarea.fase, ...datos].filter(Boolean).join(" · ")}
                             </p>
                           )}
@@ -231,7 +255,10 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
             fontWeight: 600,
           }}
         >
-          <span>{cifras.join("  ·  ")}</span>
+          <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {titular && <span style={{ fontSize: 20, fontWeight: 700 }}>{titular}</span>}
+            <span>{cifras.join("  ·  ")}</span>
+          </span>
           <span style={{ color: C.gris, fontWeight: 500, letterSpacing: 2, textTransform: "uppercase", fontSize: 14 }}>
             Metodología · Cuerpo técnico
           </span>

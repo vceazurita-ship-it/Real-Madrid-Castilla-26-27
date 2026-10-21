@@ -274,7 +274,11 @@ export function resumenDeLaSemana(
 
   if (partido?.jornada) cabecera.push(`J${partido.jornada}${partido.lado ? (partido.lado === "fuera" ? " · fuera" : " · en casa") : ""}`);
 
-  const lineas = [cabecera.join(" · "), ""];
+  const lineas = [cabecera.join(" · ")];
+
+  if (micro.objetivo?.trim()) lineas.push(`_Objetivo: ${micro.objetivo.trim()}_`);
+
+  lineas.push("");
 
   for (const sesion of micro.sesiones) {
     const dia = cargaDelDia(sesion);
@@ -287,15 +291,17 @@ export function resumenDeLaSemana(
       continue;
     }
 
-    const tareas = tareasQueSeEscriben(sesion);
+    const tareas = tareasDeLaLamina(sesion);
 
     if (tareas.length === 0) continue;
 
     const partidoDia = tareas.some(esCompeticion) && tareas.length === 1;
+    const delDia = [
+      dia.minutos > 0 ? `${dia.minutos}′` : "",
+      dia.completa && dia.carga > 0 ? `carga ${dia.carga}` : "",
+    ].filter(Boolean).join(" · ");
 
-    lineas.push(
-      `*${nombreBonito}* · ${sesion.md}${partidoDia ? " · partido" : dia.minutos > 0 ? ` · ${dia.minutos}′` : ""}`,
-    );
+    lineas.push(`*${nombreBonito}* · ${sesion.md}${partidoDia ? " · partido" : delDia ? ` · ${delDia}` : ""}`);
 
     if (partidoDia) continue;
 
@@ -305,9 +311,211 @@ export function resumenDeLaSemana(
       const contenido = [tarea.contenidoPrincipal, tarea.contenidoSecundario].filter(Boolean).join(" / ");
       const datos = [tarea.tiempo > 0 ? `${tarea.tiempo}′` : "", tarea.intensidad > 0 ? `int. ${tarea.intensidad}` : ""].filter(Boolean).join(", ");
 
-      lineas.push(`  • ${tarea.tipoTarea || tarea.tarea}${contenido ? ` — ${contenido}` : ""}${datos ? ` (${datos})` : ""}`);
+      lineas.push(sinGazapos(`  • ${tarea.tipoTarea || tarea.tarea}${contenido ? ` — ${contenido}` : ""}${datos ? ` (${datos})` : ""}`));
     }
   }
 
+  lineas.push("", textoDeCuentas(cuentasDeLaSemana(micro)));
+
   return lineas.join("\n").trim();
+}
+
+/* ------------------------------------------------------------------ */
+/*  LAS CUENTAS DE LA SEMANA, IGUALES EN TODOS LOS SITIOS              */
+/* ------------------------------------------------------------------ */
+
+/** «1 tarea», «3 tareas»: sin el «tarea(s)» de relleno. */
+export function plural(n: number, uno: string, varios: string) {
+  return `${n} ${n === 1 ? uno : varios}`;
+}
+
+export type CuentasSemana = {
+  /** Tareas de entrenamiento que se escriben (sin el partido). */
+  tareas: number;
+  /** Minutos de esas tareas. El partido no suma. */
+  entreno: number;
+  /** Tareas de entreno sin minutos: no suman a la carga. */
+  sinMinutos: number;
+  /** Minutos del partido (90′ si hay fila de competición). */
+  partido: number;
+  /** Filas que van a la hoja: las tareas más la del partido. */
+  filas: number;
+  /** Días con sesión de entreno. */
+  sesiones: number;
+  libres: number;
+};
+
+/**
+ * Lo que mide la semana, contado una sola vez.
+ *
+ * Antes la cabecera decía «11 tarea(s) · 90′ en total» —los 90′ eran los del
+ * partido, sumados a tareas copiadas sin minutos— y la barra de abajo contaba
+ * 12 porque metía la fila del partido. El partido es una fila de la hoja, no
+ * una tarea, y sus minutos no son de entrenamiento.
+ */
+export function cuentasDeLaSemana(micro: MicroNuevo): CuentasSemana {
+  const cuentas: CuentasSemana = { tareas: 0, entreno: 0, sinMinutos: 0, partido: 0, filas: 0, sesiones: 0, libres: 0 };
+
+  for (const sesion of micro.sesiones) {
+    if (sesion.libre) {
+      cuentas.libres += 1;
+
+      continue;
+    }
+
+    const tareas = tareasQueSeEscriben(sesion);
+
+    cuentas.filas += tareas.length;
+
+    const deEntreno = tareas.filter((tarea) => !esCompeticion(tarea));
+
+    if (deEntreno.length > 0) cuentas.sesiones += 1;
+
+    for (const tarea of tareas) {
+      if (esCompeticion(tarea)) {
+        cuentas.partido += tarea.tiempo || 0;
+
+        continue;
+      }
+
+      cuentas.tareas += 1;
+      cuentas.entreno += tarea.tiempo || 0;
+
+      if (!(tarea.tiempo > 0)) cuentas.sinMinutos += 1;
+    }
+  }
+
+  return cuentas;
+}
+
+/** «11 tareas · 340′ de entreno · partido 90′», con el aviso si faltan minutos. */
+export function textoDeCuentas(cuentas: CuentasSemana) {
+  const trozos = [plural(cuentas.tareas, "tarea", "tareas")];
+
+  if (cuentas.entreno > 0) trozos.push(`${cuentas.entreno}′ de entreno`);
+
+  if (cuentas.partido > 0) trozos.push(`partido ${cuentas.partido}′`);
+
+  return trozos.join(" · ");
+}
+
+/* ------------------------------------------------------------------ */
+/*  GAZAPOS Y AVISOS ANTES DE SACAR LA LÁMINA                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Erratas y abreviaturas de la hoja que no deben llegar al grupo, en lista
+ * cerrada: sólo se cambia lo que está aquí, nunca se «adivina».
+ */
+const GAZAPOS: [RegExp, string][] = [
+  [/\bReiniciios\b/g, "Reinicios"],
+  [/\bReinicos\b/g, "Reinicios"],
+  [/\bInd\.\s*Finalizaci[oó]n\b/g, "Finalización individual"],
+  [/\bFinalizacion\b/g, "Finalización"],
+  [/\bTransicion\b/g, "Transición"],
+  [/\bPresion\b/g, "Presión"],
+  [/\bPosesion\b/g, "Posesión"],
+  [/\bProgresion\b/g, "Progresión"],
+  [/\bActivacion\b/g, "Activación"],
+  [/\bCOMPETCI[OÓ]N\b/g, "COMPETICIÓN"],
+];
+
+export function sinGazapos(texto: string) {
+  let limpio = texto;
+
+  for (const [patron, bueno] of GAZAPOS) limpio = limpio.replace(patron, bueno);
+
+  return limpio;
+}
+
+/** Una tarea de entreno sin contenido principal no sale en la lámina ni en el texto. */
+export const tareaSinContenido = (tarea: TareaNueva) => !esCompeticion(tarea) && !tarea.contenidoPrincipal.trim();
+
+/** Lo que sale en la lámina y en el texto: lo escrito y con contenido. */
+export const tareasDeLaLamina = (sesion: MicroNuevo["sesiones"][number]) =>
+  tareasQueSeEscriben(sesion).filter((tarea) => !tareaSinContenido(tarea));
+
+/** Huella de un día para ver si dos seguidos son el mismo (tipo, contenido y formato). */
+function huellaDelDia(sesion: MicroNuevo["sesiones"][number]) {
+  return tareasQueSeEscriben(sesion)
+    .filter((tarea) => !esCompeticion(tarea))
+    .map((tarea) => [tarea.tipoTarea, tarea.contenidoPrincipal, tarea.contenidoSecundario, tarea.formato].join("|").toLowerCase())
+    .join("¶");
+}
+
+export type AvisoSemana = { tipo: "sin-contenido" | "sin-minutos" | "dia-repetido" | "gazapo" | "carga-alta"; texto: string; sesion: number };
+
+/**
+ * Lo que conviene mirar antes de mandar la semana, sin impedir escribirla:
+ * tareas sin contenido (no salen en la lámina), sin minutos (no suman a la
+ * carga), dos días seguidos iguales (copiados de otra semana y sin tocar),
+ * erratas de la lista y días muy por encima de lo habitual de su MD.
+ */
+export function avisosDeLaSemana(
+  micro: MicroNuevo,
+  nombreDia: (fecha: string) => string,
+  referencia: Record<string, ReferenciaMd> = {},
+): AvisoSemana[] {
+  const avisos: AvisoSemana[] = [];
+
+  /* Las tareas sin minutos van en un solo aviso: copiada la semana sin tiempos, eran once líneas iguales. */
+  const sinMinutos: { dia: string; n: number; sesion: number }[] = [];
+
+  micro.sesiones.forEach((sesion, s) => {
+    if (sesion.libre) return;
+
+    const dia = nombreDia(sesion.fecha);
+    const tareas = tareasQueSeEscriben(sesion).filter((tarea) => !esCompeticion(tarea));
+
+    const vacias = tareas.filter(tareaSinContenido);
+
+    if (vacias.length > 0) {
+      avisos.push({
+        tipo: "sin-contenido",
+        sesion: s,
+        texto: `${dia}: ${vacias.map((tarea) => tarea.tipoTarea || tarea.tarea).join(", ")} sin contenido · no sale en la lámina ni en el texto`,
+      });
+    }
+
+    const sinMin = tareas.filter((tarea) => !(tarea.tiempo > 0)).length;
+
+    if (sinMin > 0) sinMinutos.push({ dia, n: sinMin, sesion: s });
+
+    const erratas = new Set<string>();
+
+    for (const tarea of tareas) {
+      for (const texto of [tarea.tipoTarea, tarea.contenidoPrincipal, tarea.contenidoSecundario]) {
+        if (texto && sinGazapos(texto) !== texto) erratas.add(`«${texto}» → «${sinGazapos(texto)}»`);
+      }
+    }
+
+    if (erratas.size > 0) {
+      avisos.push({ tipo: "gazapo", sesion: s, texto: `${dia}: ${[...erratas].join(", ")} · se corrige en la lámina y en el texto` });
+    }
+
+    const anterior = micro.sesiones[s - 1];
+
+    if (anterior && !anterior.libre && tareas.length > 0 && huellaDelDia(anterior) === huellaDelDia(sesion)) {
+      avisos.push({ tipo: "dia-repetido", sesion: s, texto: `${dia}: las mismas tareas que el día anterior · ¿copiado sin cambiar?` });
+    }
+
+    const carga = cargaDelDia(sesion);
+    const frente = carga.completa ? frenteAReferencia(carga.carga, referencia[sesion.md.trim().toUpperCase()]) : null;
+
+    if (frente && frente.diferencia >= 30) {
+      avisos.push({ tipo: "carga-alta", sesion: s, texto: `${dia} (${sesion.md}): carga ${carga.carga}, un ${frente.diferencia} % por encima de su media` });
+    }
+  });
+
+  if (sinMinutos.length > 0) {
+    const total = sinMinutos.reduce((n, uno) => n + uno.n, 0);
+
+    avisos.unshift({
+      tipo: "sin-minutos",
+      sesion: sinMinutos[0].sesion,
+      texto: `${plural(total, "tarea sin minutos", "tareas sin minutos")} (${sinMinutos.map((uno) => uno.dia).join(", ")}) · ${total === 1 ? "no suma" : "no suman"} a la carga de la semana`,
+    });
+  }
+
+  return avisos;
 }
