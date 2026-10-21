@@ -29,12 +29,15 @@ import type { Player } from "@/types/player";
 import {
   BalonEnJuego,
   CapaTrazos,
+  ESTILO_TRAZO,
   MandosTrazo,
   type TiradorTrazo,
 } from "@/components/abp/pizarra/CapaTrazos";
 import {
+  TIPOS_TRAZO,
   TRAZO_MINIMO,
   arranqueDe,
+  fasesDe,
   balonEn,
   distancia,
   nuevoTrazo,
@@ -572,6 +575,94 @@ function Adorno({ adorno }: { adorno: AdornoAbp }) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  LEYENDA DE LAS FLECHAS                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Qué es cada flecha, en la esquina de arriba a la izquierda.
+ *
+ * La diapositiva se cuelga en el vestuario y se lee sin nadie que la explique:
+ * sin leyenda, una línea discontinua blanca no dice «balón». Sólo salen los
+ * tipos que hay dibujados, y la fase cuando la hoja es de una fase concreta.
+ * Va justo bajo la cabecera, sobre el graderío, donde no se planta nadie.
+ */
+function LeyendaTrazos({
+  tipos,
+  fases,
+  hastaFase,
+}: {
+  tipos: TipoTrazo[];
+  fases: number;
+  hastaFase?: number;
+}) {
+  return (
+    <div
+      className="pointer-events-none absolute flex items-center gap-5 rounded-xl px-4"
+      style={{
+        left: 24,
+        top: CABECERA_H + 18,
+        height: 40,
+        zIndex: 3_000_001,
+        backgroundColor: "rgba(15,32,54,.86)",
+        border: "1px solid rgba(200,169,107,.4)",
+        boxShadow: "0 6px 16px rgba(0,0,0,.4)",
+      }}
+    >
+      {hastaFase != null && fases > 1 && (
+        <span
+          className="rounded-md px-2 py-1 text-[15px] font-bold uppercase leading-none tracking-[0.14em]"
+          style={{ backgroundColor: COLORES.oro, color: COLORES.noche }}
+        >
+          Fase {hastaFase} de {fases}
+        </span>
+      )}
+
+      {TIPOS_TRAZO.filter((tipo) => tipos.includes(tipo.key)).map((tipo) => {
+        const estilo = ESTILO_TRAZO[tipo.key];
+
+        return (
+          <span key={tipo.key} className="flex items-center gap-2">
+            <svg width={44} height={16} viewBox="0 0 44 16" aria-hidden>
+              <line
+                x1={3}
+                y1={8}
+                x2={tipo.key === "bloqueo" ? 38 : 30}
+                y2={8}
+                stroke={estilo.color}
+                strokeWidth={4}
+                strokeLinecap="round"
+                strokeDasharray={estilo.discontinuo ? "7 5" : undefined}
+              />
+              {tipo.key === "bloqueo" ? (
+                <line x1={39} y1={1} x2={39} y2={15} stroke={estilo.color} strokeWidth={4} strokeLinecap="round" />
+              ) : (
+                <polygon points="42,8 30,1.5 30,14.5" fill={estilo.color} />
+              )}
+            </svg>
+
+            <span
+              className="text-[15px] font-semibold uppercase leading-none tracking-[0.12em]"
+              style={{ color: "#FFFFFF" }}
+            >
+              {tipo.label}
+            </span>
+          </span>
+        );
+      })}
+
+      {hastaFase == null && fases > 1 && (
+        <span
+          className="text-[13px] font-semibold uppercase leading-none tracking-[0.14em]"
+          style={{ color: COLORES.oroClaro }}
+        >
+          {fases} fases · el número dice el orden
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  TABLERO                                                            */
 /* ------------------------------------------------------------------ */
 
@@ -593,6 +684,7 @@ export function TableroSlide({
   onCambiarTrazo,
   tiempo = null,
   soloVer = false,
+  hastaFase,
   onPasoNuevo,
 }: {
   slide: SlidePizarra;
@@ -617,6 +709,11 @@ export function TableroSlide({
   tiempo?: number | null;
   /** Proyector y exportación: sin huecos, sin tiradores, sin arrastrar. */
   soloVer?: boolean;
+  /**
+   * Hoja de una fase, para el PDF y el PowerPoint «por fases»: sólo las
+   * flechas hasta esa fase, con las caras en su sitio de salida.
+   */
+  hastaFase?: number;
   /**
    * Empieza un gesto que se deshace de una vez (un arrastre entero, no cada
    * píxel). Lo usa el deshacer de la página.
@@ -853,7 +950,12 @@ export function TableroSlide({
   const puestos = puestosDe(slide);
   const grupos = gruposDe(slide);
 
-  const trazos = slide.trazos ?? [];
+  const todos = slide.trazos ?? [];
+
+  const trazos =
+    hastaFase == null ? todos : todos.filter((trazo) => trazo.fase <= hastaFase);
+
+  const totalFases = fasesDe(todos);
 
   /*
   | Durante la reproducción cada cara está donde la lleva su carrera; parada,
@@ -1109,6 +1211,14 @@ export function TableroSlide({
         ))}
 
         {/* ----------------- CARRERAS, BALÓN, BLOQUEOS ----------------- */}
+
+        {todos.length > 0 && (
+          <LeyendaTrazos
+            tipos={[...new Set(todos.map((trazo) => trazo.tipo))]}
+            fases={totalFases}
+            hastaFase={hastaFase}
+          />
+        )}
 
         <CapaTrazos
           trazos={borrador ? [...trazos, borrador] : trazos}
