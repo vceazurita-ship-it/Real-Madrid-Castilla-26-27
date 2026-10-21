@@ -1691,28 +1691,33 @@ export default function TacticsBoard({
       });
 
       /*
-      | Guion del vídeo: la primera escena se sostiene un segundo, cada tramo
-      | dura lo mismo que en el reproductor a 1× y la última se queda dos
-      | segundos para que dé tiempo a leer su nota. La nota y el número de
-      | escena cambian al llegar, no al salir: lo que se lee es lo que se ve.
+      | Guion del vídeo: cada escena se sostiene lo que tarda en leerse su nota
+      | (un segundo y pico sin nota, hasta seis con una larga; la última, dos
+      | como poco) y cada tramo dura lo mismo que en el reproductor a 1×. La
+      | nota y el número de escena cambian al llegar, no al salir: lo que se
+      | lee es lo que se ve.
       */
-      const tramos = singleScene ? 0 : scenes.length - 1;
       const porTramo = Math.round((SEGMENT_MS / 1000) * FPS_LAMINA);
       const plan: { index: number; t: number; rotulo: number }[] = [];
 
-      for (let k = 0; k < FPS_LAMINA; k += 1) plan.push({ index: 0, t: 0, rotulo: 0 });
+      const pausa = (indice: number) => {
+        const palabras = (scenes[indice]?.nota ?? "").trim().split(/\s+/).filter(Boolean).length;
+        const segundos = Math.min(6, Math.max(1.2, 1.2 + palabras * 0.28));
 
-      for (let tramo = 0; tramo < tramos; tramo += 1) {
-        for (let k = 1; k <= porTramo; k += 1) {
+        return Math.round((indice === scenes.length - 1 ? Math.max(2, segundos) : segundos) * FPS_LAMINA);
+      };
+
+      for (let indice = 0; indice < scenes.length; indice += 1) {
+        for (let k = 0; k < pausa(indice); k += 1) plan.push({ index: indice, t: 0, rotulo: indice });
+
+        if (indice === scenes.length - 1) break;
+
+        for (let k = 1; k < porTramo; k += 1) {
           const t = k / porTramo;
 
-          plan.push(t >= 1 ? { index: tramo + 1, t: 0, rotulo: tramo + 1 } : { index: tramo, t, rotulo: t >= 0.86 ? tramo + 1 : tramo });
+          plan.push({ index: indice, t, rotulo: t >= 0.86 ? indice + 1 : indice });
         }
       }
-
-      const ultimo = plan[plan.length - 1];
-
-      for (let k = 0; k < FPS_LAMINA * 2; k += 1) plan.push({ ...ultimo });
 
       let previo = "";
       let textosPrevios: Awaited<ReturnType<typeof laminaDe>> | null = null;
