@@ -21,7 +21,7 @@
 import { useState, type DragEvent, type KeyboardEvent } from "react";
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Moon, PenLine, Plus, Trophy } from "lucide-react";
 
-import { FASES_ABP, tareaEnBlanco, type MicroNuevo, type TareaNueva } from "@/lib/registro/hoja";
+import { FASES_ABP, tareaEnBlanco, tareasQueSeEscriben, type MicroNuevo, type TareaNueva } from "@/lib/registro/hoja";
 import { cargaDelDia, esCompeticion, frenteAReferencia, type ReferenciaMd } from "@/lib/registro/semana";
 import { etiquetaDia } from "@/lib/abp/ventana";
 import { chipInk } from "@/lib/theme";
@@ -77,6 +77,21 @@ export function TableroSemana({
   const [elegida, setElegida] = useState<{ sesion: number; tarea: number } | null>(null);
 
   const sesiones = micro.sesiones;
+
+  /* Los minutos de la semana por familia de fase, en la propia leyenda: si la
+     semana va cargada de lo ofensivo y apenas toca lo defensivo, se ve sin
+     sumar a mano. Sólo con minutos escritos; el partido no cuenta. */
+  const minutosPorFamilia = new Map<string, number>();
+
+  for (const sesion of sesiones) {
+    for (const tarea of tareasQueSeEscriben(sesion)) {
+      if (esCompeticion(tarea) || !(tarea.tiempo > 0)) continue;
+
+      const familia = LEYENDA_FASES.find((una) => una.color === colorDeFase(tarea.fase))?.nombre;
+
+      if (familia) minutosPorFamilia.set(familia, (minutosPorFamilia.get(familia) ?? 0) + tarea.tiempo);
+    }
+  }
 
   /* Para que la barra de carga de todos los días hable la misma escala. Sin
      el partido: sus 90′ a tope aplastaban los días de entreno. */
@@ -179,6 +194,9 @@ export function TableroSemana({
           <span key={fase.nombre} className="inline-flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full" style={{ background: fase.color }} aria-hidden />
             {fase.nombre}
+            {minutosPorFamilia.get(fase.nombre) ? (
+              <span className="tabular-nums text-white/70">{minutosPorFamilia.get(fase.nombre)}′</span>
+            ) : null}
           </span>
         ))}
 

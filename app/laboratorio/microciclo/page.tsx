@@ -1031,11 +1031,15 @@ export default function EditorMicrocicloPage() {
     if (libre) {
       const rellenas = sesion.tareas.filter((tarea) => !tareaEnBlanco(tarea)).length;
 
-      if (rellenas > 0 && !window.confirm(`${etiquetaDia(fecha)} tiene ${rellenas} tarea(s) rellena(s). Si lo pasas a libre se quitan. ¿Seguir?`)) {
-        return;
-      }
-
       cambiaSesion(indice, { libre: true, tareas: [] });
+
+      /* Sin pregunta: con deshacer, el aviso con su botón protege igual y no corta el trabajo. */
+      if (rellenas > 0) {
+        toast(`${mayuscula(etiquetaDia(fecha))} pasa a libre`, {
+          description: `Se han quitado sus ${rellenas} tarea(s).`,
+          action: { label: "Deshacer", onClick: deshaz },
+        });
+      }
     } else {
       cambiaSesion(indice, {
         libre: false,
