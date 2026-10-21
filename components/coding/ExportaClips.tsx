@@ -118,6 +118,28 @@ export const MEDIDAS = [
 /** La medida de partida: la del partido, sin tocar nada. */
 export const MEDIDA_POR_DEFECTO = 0;
 
+/** Peso y medida de cada destino, para no tener que pensarlo en megas. */
+const DESTINOS = [
+  {
+    nombre: "WhatsApp",
+    megas: 16,
+    medida: 1280,
+    explica: "720p y como mucho 16 MB por fichero: lo que WhatsApp manda sin recomprimir",
+  },
+  {
+    nombre: "Correo o grupo",
+    megas: 50,
+    medida: 1920,
+    explica: "1080p y como mucho 50 MB por fichero",
+  },
+  {
+    nombre: "Sala o YouTube",
+    megas: 0,
+    medida: 0,
+    explica: "Con la imagen del partido y sin tope: para el proyector o para subirlo",
+  },
+];
+
 /** Lo que dura una carátula en pantalla. */
 export const SEGUNDOS_CARATULA = 4;
 
@@ -1060,6 +1082,45 @@ export function BarraExportacion({
           </div>
         </div>
       )}
+
+      {/* ----------------------------- PARA DÓNDE --------------------- */}
+
+      {/*
+      | El destino decide el peso y la medida a la vez, y quien exporta piensa
+      | en «esto va al grupo», no en megas. Pulsar uno pone los dos de abajo;
+      | se pueden seguir tocando sueltos.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+          <Film size={12} className="text-[#C8A96B]" />
+          Para
+        </span>
+
+        {DESTINOS.map((destino) => {
+          const elegido =
+            topeMegas === destino.megas && medida === destino.medida;
+
+          return (
+            <button
+              key={destino.nombre}
+              type="button"
+              aria-pressed={elegido}
+              onClick={() => {
+                onTopeMegas(destino.megas);
+                onMedida(destino.medida);
+              }}
+              title={destino.explica}
+              className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+                elegido
+                  ? "border-[#C8A96B] bg-[#C8A96B]/10 font-semibold text-[#C8A96B]"
+                  : "border-white/10 text-white/50 hover:text-white"
+              }`}
+            >
+              {destino.nombre}
+            </button>
+          );
+        })}
+      </div>
 
       {/* ------------------------- EL PESO DE CADA FICHERO ------------- */}
 
