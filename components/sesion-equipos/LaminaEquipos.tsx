@@ -197,7 +197,14 @@ export function LaminaEquipos({
   const filasTotal = Math.max(4, ...columnas.filter((c) => !c.estructura).map((c) => c.jugadores.length));
 
   /* El alto que de verdad queda para la lista (08/10/2026): con 640 la fila once se cortaba. Cada fila mide ~1,47 × la letra (1,05 de letra + 0,2 de relleno + 0,22 de hueco; antes 1,62, 14/10/2026). */
-  const ALTO_LISTA = (cabecera ? 575 : 770) - (cambios.length ? 55 : 0);
+  /*
+  | Quién descansa, también sin cabecera (21/10/2026): la imagen que se manda
+  | al grupo es la de sólo equipos, y el que no hace la tarea no se enteraba
+  | por ella. Una línea al pie, sin quitarle a los nombres más que lo justo.
+  */
+  const pieCorto = !cabecera && r.fuera.length > 0;
+
+  const ALTO_LISTA = (cabecera ? 575 : 770) - (cambios.length ? 55 : 0) - (pieCorto ? 52 : 0);
 
   const anchoEquipo = (LAMINA_W - 120 - (columnas.length - 1) * 28) / Math.max(1, columnas.length);
 
@@ -231,8 +238,18 @@ export function LaminaEquipos({
 
   const fuera = [...r.fuera, ...r.sinSitio];
 
-  /* El campograma, lo más grande que quepa en la columna y en el alto que queda. */
-  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 335) - (cambios.length ? 60 : 0)) / 1.08);
+  /*
+  | El campograma, lo más grande que quepa en la columna y en el alto que queda.
+  | La línea bajo el campo (porteros, o los que quedan fuera del dibujo) sólo
+  | resta si algún equipo la lleva (21/10/2026): sin ella, esos 40 px se los
+  | queda el campo.
+  */
+  const lineaPortero = columnas.some((c) => {
+    if (!c.estructura) return false;
+    const { porteros, sobran } = colocaEnEstructura(c.jugadores, c.estructura, porPuesto, c.orden, c.posiciones, c.pares);
+    return porteros.length > 0 || sobran.length > 0;
+  });
+  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 335) + (lineaPortero ? 0 : 40) - (cambios.length ? 60 : 0) - (pieCorto ? 52 : 0)) / 1.08);
 
   return (
     <div
@@ -396,7 +413,6 @@ export function LaminaEquipos({
                   {c.jugadores.map((j) => (
                     <Nombre key={j.id} jugador={j} color={c.color} tamano={tamano} portero={porPuesto(j) === "POR"} pareja={c.parejas?.get(j.id)} />
                   ))}
-                  {c.jugadores.length === 0 && <span style={{ fontSize: 30, color: "#B6BCC8", fontWeight: 600 }}>—</span>}
                 </div>
               )}
             </div>
@@ -426,6 +442,13 @@ export function LaminaEquipos({
           <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
             {cambios.map((c) => `${c.jugador.nombre}: ${c.texto}`).join("  ·  ")}
           </span>
+        </div>
+      )}
+
+      {pieCorto && (
+        <div style={{ marginTop: 18, fontSize: 24, fontWeight: 600, letterSpacing: "0.04em", color: SUAVE, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span style={{ color: ORO, fontWeight: 700, letterSpacing: "0.14em" }}>No hacen la tarea · </span>
+          {r.fuera.map((j) => (j.baja ? `${j.nombre} (${j.baja.toLowerCase().replace(/s$/, "")})` : j.nombre)).join(" · ")}
         </div>
       )}
 

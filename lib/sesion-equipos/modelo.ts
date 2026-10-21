@@ -680,6 +680,21 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
     }
   }
 
+  /*
+  | 6b. Líneas (21/10/2026): un equipo con tres defensas y otro con ninguno
+  | no es una tarea igualada aunque los dos tengan siete. Se avisa cuando una
+  | línea se lleva dos o más de diferencia entre equipos.
+  */
+  if (tarea.equipos.length > 1 && tarea.equipos.every((e) => (r.porEquipo[e.id]?.length ?? 0) >= 4)) {
+    const descompensadas = (["DEF", "MED", "EXT", "DEL"] as Puesto[]).flatMap((p) => {
+      const n = tarea.equipos.map((e) => (r.porEquipo[e.id] ?? []).filter((j) => puestoDe(j) === p).length);
+
+      return Math.max(...n) - Math.min(...n) >= 2 ? [`${PUESTOS.find((x) => x.clave === p)?.nombre.toLowerCase() ?? p}s ${tarea.equipos.map((e, i) => `${e.nombre} ${n[i]}`).join(" · ")}`] : [];
+    });
+
+    if (descompensadas.length) avisos.push({ nivel: "aviso", texto: `Líneas descompensadas: ${descompensadas.join("; ")}` });
+  }
+
   /* 7. Bajas que hacen la tarea: no es un error, pero que se vea. */
   const bajasDentro = sesion.jugadores.filter((j) => j.baja && tarea.sitio[j.id] && tarea.sitio[j.id] !== FUERA);
 
@@ -831,7 +846,15 @@ export function sorteaReparto(
 
   for (const [id, donde] of Object.entries(tarea.sitio)) if (donde === FUERA) sitio[id] = FUERA;
 
-  return completaReparto({ ...tarea, sitio }, jugadores, opciones);
+  /*
+  | Equipos nuevos, dibujo nuevo (21/10/2026): los huecos, puntos y parejas de
+  | antes eran de otros equipos. Si se quedaban, el que caía en un equipo
+  | ocupaba el hueco de quien ya no estaba y dos que compartían puesto volvían
+  | a quedar emparejados. Sin ellos, cada uno va a su sitio preferido.
+  */
+  const equipos = tarea.equipos.map(({ id, nombre, color, estructura }) => ({ id, nombre, color, ...(estructura ? { estructura } : {}) }));
+
+  return completaReparto({ ...tarea, sitio, equipos }, jugadores, opciones);
 }
 
 /* ------------------------------------------------------------------ */

@@ -1067,6 +1067,46 @@ export const AYUDAS: AyudaDePagina[] = [
       "El orden es por cuánto se sale de lo normal, no por importancia: eso lo pone el cuerpo técnico.",
     ],
   },
+
+  /* ==================== JUGADORES SESIÓN (21/10/2026) ==================== */
+  {
+    ruta: "/jugadores-sesion",
+    titulo: "Jugadores sesión",
+    resumen: "Los equipos de cada tarea del día, a partir de la lista del delegado, listos para proyectar o mandar.",
+    origen: "La lista que se pega (título, listado y apartados de bajas). Los puestos salen de la plantilla y de dónde coloca el cuerpo técnico a cada uno.",
+    bloques: [
+      {
+        titulo: "Hacer los equipos",
+        filas: [
+          { que: "Proponer equipos", es: "Reparte a todos los que hacen la tarea en equipos parejos", cuenta: "Porteros separados; laterales, centrales, medios y puntas repartidos; los comodines rotan entre quienes menos lo han sido" },
+          { que: "Completar", es: "Coloca sólo a los que faltan, en el equipo más corto, sin mover a nadie" },
+          { que: "Como la anterior", es: "Copia los equipos, colores y comodines de la tarea de antes" },
+          { que: "Soltar encima de otro", es: "«Cambiar»: los dos se intercambian el sitio. «Compartir puesto»: van juntos en el mismo hueco" },
+          { que: "Teclado", es: "Con un jugador elegido: 1-6 equipo, C comodín, F fuera, 0 sin colocar. Ctrl+Z deshace, Ctrl+Y rehace" },
+        ],
+      },
+      {
+        titulo: "El validador",
+        filas: [
+          { que: "Punto rojo", es: "Falta alguien por colocar, hay un equipo vacío o un nombre repetido en la lista" },
+          { que: "Punto ámbar", es: "Equipos o líneas descompensados, porteros juntos, colores repetidos o comodines de más o de menos", cuenta: "Línea descompensada: dos o más de diferencia entre equipos en defensas, medios, extremos o delanteros" },
+          { que: "Com. y Fuera", es: "En la plantilla del día, en cuántas tareas ha sido comodín o no ha participado cada uno" },
+        ],
+      },
+      {
+        titulo: "Mandarlo",
+        filas: [
+          { que: "Esta / Todas", es: "Imágenes .jpg a 1920×1080, una por tarea (dos si hay cambio a mitad)" },
+          { que: "PDF", es: "Todas las diapositivas en un solo archivo, una por página" },
+          { que: "Texto", es: "Los equipos en texto para el grupo de WhatsApp, un equipo por línea" },
+        ],
+      },
+    ],
+    ojo: [
+      "Los lesionados empiezan fuera de cada tarea; si alguno hace una, se le mete en un equipo y el validador lo señala.",
+      "Volver a pegar la lista manda: quien no esté en ella sale de todas las tareas.",
+    ],
+  },
 ];
 
 const limpia = (ruta: string) => ruta.replace(/\/+$/, "") || "/";
