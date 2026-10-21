@@ -544,7 +544,7 @@ export const AYUDAS: AyudaDePagina[] = [
           {
             que: "«Cómo llega»",
             es: "Tabla, su balance en el campo del partido, los últimos cinco de liga, el dibujo que más repite y quién le hace los goles",
-            cuenta: "BeSoccer; el dibujo, de las alineaciones bajadas (las 8 últimas)",
+            cuenta: "BeSoccer; el dibujo, contando sus últimas alineaciones bajadas",
           },
           {
             que: "«Lo que le hace distinto»",
