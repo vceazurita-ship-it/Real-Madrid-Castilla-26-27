@@ -201,6 +201,8 @@ function Chip({
     <div
       role="button"
       tabIndex={0}
+      aria-pressed={seleccionado}
+      aria-label={`${jugador.nombre}${puesto ? `, ${puesto}` : ""}${conQuien ? `, comparte puesto con ${conQuien}` : ""}${jugador.baja ? `, ${jugador.baja.toLowerCase()}` : ""}`}
       data-destino={destino}
       onPointerDown={onPointerDown}
       onClick={onClick}
@@ -212,7 +214,7 @@ function Chip({
       }}
       title="Arrástralo a otro equipo, o tócalo y luego toca dónde va. Con él elegido: 1-6 equipo, C comodín, F fuera"
       style={{ touchAction: "pan-y" }}
-      className={`group flex min-w-0 cursor-grab select-none items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide transition active:cursor-grabbing ${
+      className={`group flex min-w-0 cursor-grab select-none items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide outline-none transition focus-visible:ring-2 focus-visible:ring-[#C8A96B] active:cursor-grabbing ${
         arrastrando
           ? "opacity-35"
           : encima
