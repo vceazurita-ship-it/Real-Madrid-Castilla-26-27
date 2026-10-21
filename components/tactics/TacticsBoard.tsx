@@ -2146,7 +2146,7 @@ export default function TacticsBoard({
 
       {cambio && (
         <CambioJugador
-          titulo={`Cambiar a ${cambio.ficha.nombre || `el ${cambio.ficha.label}`}`}
+          titulo={cambio.ficha.nombre ? `Cambiar a ${nombreCorto(cambio.ficha.nombre)}` : `Cambiar al ${cambio.ficha.label}`}
           equipo={cambio.equipo}
           opciones={cambio.opciones}
           onElige={(id) => {
