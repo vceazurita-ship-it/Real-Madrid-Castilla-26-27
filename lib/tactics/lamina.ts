@@ -187,13 +187,18 @@ export interface DatosLamina {
   nota?: string;
   /** Quién es quién, sólo de los equipos que están en el campo. */
   leyenda?: { color: string; borde: string; texto: string }[];
+  /** El pie: «RMCF CASTILLA · ALGECIRAS CF · 25/10/2026». Sin él, no hay pie. */
+  pie?: string;
 }
 
 /** Una caja de texto de la lámina, para el PowerPoint (en tanto por uno). */
 export type TextoLamina = { capa: { x: number; y: number; w: number; h: number }; texto: TextoPptx; nombre: string };
 
-const PAD = 64;
-const BANDA = 150;
+const PAD = 48;
+const BANDA = 124;
+const PIE = 52;
+/** La columna de la derecha: quién es quién y lo que se cuenta. */
+const COLUMNA = 500;
 
 /** Parte un texto en renglones que quepan en `ancho`, con «…» si no cabe en `maximo`. */
 function renglones(ctx: CanvasRenderingContext2D, texto: string, ancho: number, maximo: number) {
@@ -245,8 +250,89 @@ function espaciado(ctx: CanvasRenderingContext2D, px: number) {
   (ctx as CanvasRenderingContext2D & { letterSpacing?: string }).letterSpacing = `${px}px`;
 }
 
+type Escribe = (
+  contenido: string,
+  x: number,
+  base: number,
+  tamano: number,
+  peso: 500 | 600 | 700,
+  tinta: string,
+  alinea?: "izq" | "dcha" | "centro",
+  letra?: number,
+  nombre?: string,
+) => void;
+
+/** Lo que escribe un texto en el lienzo y lo apunta para el PowerPoint. */
+function escritor(ctx: CanvasRenderingContext2D, familia: string, ancho: number, alto: number, sinTextos: boolean, textos: TextoLamina[]): Escribe {
+  return (contenido, x, base, tamano, peso, tinta, alinea = "izq", letra = 0, nombre = "Texto") => {
+    if (!contenido) return;
+
+    ctx.font = `${peso} ${tamano}px ${familia}, Arial, sans-serif`;
+    espaciado(ctx, letra);
+    ctx.fillStyle = tinta;
+    ctx.textAlign = alinea === "dcha" ? "right" : alinea === "centro" ? "center" : "left";
+    ctx.textBaseline = "alphabetic";
+
+    const medido = ctx.measureText(contenido).width;
+
+    if (!sinTextos) ctx.fillText(contenido, x, base);
+
+    const izquierda = alinea === "dcha" ? x - medido : alinea === "centro" ? x - medido / 2 : x;
+
+    textos.push({
+      nombre,
+      capa: {
+        x: izquierda / ancho,
+        y: (base - tamano * 0.92) / alto,
+        w: (medido + 8) / ancho,
+        h: (tamano * 1.2) / alto,
+      },
+      texto: { contenido, tamano, tinta, peso, espaciado: letra, alinea: alinea === "dcha" ? "dcha" : "izq" },
+    });
+
+    espaciado(ctx, 0);
+  };
+}
+
+/** El campo con su sombra y sus esquinas redondas. */
+function pintaCampo(ctx: CanvasRenderingContext2D, campo: CanvasImageSource, x: number, y: number, w: number, h: number) {
+  ctx.save();
+  ctx.shadowColor = "rgba(15,30,61,.28)";
+  ctx.shadowBlur = 36;
+  ctx.shadowOffsetY = 12;
+  ctx.fillStyle = PALETA_LAMINA.azul;
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 18);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 18);
+  ctx.clip();
+  ctx.drawImage(campo, x, y, w, h);
+  ctx.restore();
+}
+
+/** Un punto de la leyenda: el color de la ficha con su borde. */
+function puntoLeyenda(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, color: string, borde: string) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = borde;
+  ctx.stroke();
+}
+
 /**
  * Pinta la lámina entera en el lienzo (1920 × 1080).
+ *
+ * El campo mide SIEMPRE lo mismo, haya nota o no (21/10/2026: en el PDF la
+ * hoja sin nota sacaba el campo más grande que la de al lado y parecía otra
+ * jugada). Lo que se cuenta y quién es quién van en una columna a la derecha:
+ * debajo, con el campo apaisado de un 16:9, la nota se comía el alto y el
+ * campo se quedaba en la mitad del ancho.
  *
  * Con `sinTextos` deja los huecos de los textos vacíos y los devuelve para
  * escribirlos como cajas de texto del PowerPoint, que así se corrigen allí.
@@ -260,156 +346,285 @@ export function pintaLamina(
 ): TextoLamina[] {
   const C = PALETA_LAMINA;
   const textos: TextoLamina[] = [];
-
-  const escribe = (
-    contenido: string,
-    x: number,
-    base: number,
-    tamano: number,
-    peso: 500 | 600 | 700,
-    tinta: string,
-    alinea: "izq" | "dcha" = "izq",
-    letra = 0,
-    nombre = "Texto",
-  ) => {
-    if (!contenido) return;
-
-    ctx.font = `${peso} ${tamano}px ${familia}, Arial, sans-serif`;
-    espaciado(ctx, letra);
-    ctx.fillStyle = tinta;
-    ctx.textAlign = alinea === "dcha" ? "right" : "left";
-    ctx.textBaseline = "alphabetic";
-
-    const ancho = ctx.measureText(contenido).width;
-
-    if (!sinTextos) ctx.fillText(contenido, x, base);
-
-    const izquierda = alinea === "dcha" ? x - ancho : x;
-
-    textos.push({
-      nombre,
-      capa: {
-        x: izquierda / LAMINA_W,
-        y: (base - tamano * 0.92) / LAMINA_H,
-        w: (ancho + 8) / LAMINA_W,
-        h: (tamano * 1.2) / LAMINA_H,
-      },
-      texto: { contenido, tamano, tinta, peso, espaciado: letra, alinea: alinea === "dcha" ? "dcha" : "izq" },
-    });
-
-    espaciado(ctx, 0);
-  };
+  const escribe = escritor(ctx, familia, LAMINA_W, LAMINA_H, sinTextos, textos);
 
   /* Papel. */
   ctx.fillStyle = C.papel;
   ctx.fillRect(0, 0, LAMINA_W, LAMINA_H);
 
-  /* La banda de arriba, con el filo rosa de la plantilla. */
+  /* La banda de arriba, a sangre, con el filo rosa de la plantilla. */
   ctx.fillStyle = C.azul;
   ctx.fillRect(0, 0, LAMINA_W, BANDA);
   ctx.fillStyle = C.rosa;
   ctx.fillRect(0, BANDA, LAMINA_W, 6);
 
-  ctx.font = `600 24px ${familia}, Arial, sans-serif`;
-  const kicker = "RMCF CASTILLA · PIZARRA TÁCTICA";
+  escribe("RMCF CASTILLA · PIZARRA TÁCTICA", PAD, 46, 24, 600, C.rosa, "izq", 5, "Cabecera");
 
-  escribe(kicker, PAD, 56, 24, 600, C.rosa, "izq", 5, "Cabecera");
-
-  ctx.font = `700 60px ${familia}, Arial, sans-serif`;
-  const tituloCabe = cabe(ctx, datos.titulo.toUpperCase(), LAMINA_W * 0.5);
-
-  escribe(tituloCabe, PAD, 118, 60, 700, C.crema, "izq", 1, "Título");
+  ctx.font = `700 56px ${familia}, Arial, sans-serif`;
+  escribe(cabe(ctx, datos.titulo.toUpperCase(), LAMINA_W * 0.55), PAD, 104, 56, 700, C.crema, "izq", 1, "Título");
 
   const escenaRotulo = datos.total > 1 ? `ESCENA ${datos.indice + 1} DE ${datos.total}` : "ESCENA";
 
-  escribe(escenaRotulo, LAMINA_W - PAD, 56, 24, 600, C.rosa, "dcha", 5, "Número de escena");
+  escribe(escenaRotulo, LAMINA_W - PAD, 46, 24, 600, C.rosa, "dcha", 5, "Número de escena");
 
-  ctx.font = `600 44px ${familia}, Arial, sans-serif`;
-  escribe(cabe(ctx, datos.escena, LAMINA_W * 0.4), LAMINA_W - PAD, 116, 44, 600, C.crema, "dcha", 0, "Escena");
+  ctx.font = `600 42px ${familia}, Arial, sans-serif`;
+  escribe(cabe(ctx, datos.escena, LAMINA_W * 0.36), LAMINA_W - PAD, 102, 42, 600, C.crema, "dcha", 0, "Escena");
 
-  /* La nota: se mide antes, porque decide cuánto sitio queda para el campo. */
-  const nota = (datos.nota ?? "").trim();
-  const TAM_NOTA = 36;
-  const INTERLINEA = 46;
+  /* El pie, a sangre: de quién, contra quién y cuándo. */
+  if (datos.pie) {
+    ctx.fillStyle = C.crema;
+    ctx.fillRect(0, LAMINA_H - PIE, LAMINA_W, PIE);
+    escribe(datos.pie.toUpperCase(), PAD, LAMINA_H - 17, 22, 600, C.gris, "izq", 4, "Pie");
+  }
 
-  ctx.font = `500 ${TAM_NOTA}px ${familia}, Arial, sans-serif`;
-  const lineas = nota ? renglones(ctx, nota, LAMINA_W - PAD * 2 - 70, 3) : [];
-
-  const altoNota = lineas.length ? 44 + lineas.length * INTERLINEA : 0;
-  const altoLeyenda = datos.leyenda?.length ? 44 : 0;
-
-  /* El campo, lo más grande que quepa. */
-  const arriba = BANDA + 34;
-  const abajo = LAMINA_H - 40 - altoNota - (altoNota ? 24 : 0) - altoLeyenda;
-  const huecoAncho = LAMINA_W - PAD * 2;
-  const huecoAlto = Math.max(200, abajo - arriba);
+  /* El campo: lo más grande que quepa a la izquierda de la columna. */
+  const arriba = BANDA + 6 + 30;
+  const abajo = LAMINA_H - (datos.pie ? PIE : 0) - 30;
+  const huecoAncho = LAMINA_W - PAD * 2 - COLUMNA - 40;
+  const huecoAlto = abajo - arriba;
 
   const escala = Math.min(huecoAncho / campo.width, huecoAlto / campo.height);
   const w = campo.width * escala;
   const h = campo.height * escala;
-  const x = (LAMINA_W - w) / 2;
+  const x = PAD + (huecoAncho - w) / 2;
   const y = arriba + (huecoAlto - h) / 2;
 
-  ctx.save();
-  ctx.shadowColor = "rgba(15,30,61,.28)";
-  ctx.shadowBlur = 36;
-  ctx.shadowOffsetY = 12;
+  pintaCampo(ctx, campo, x, y, w, h);
+
+  /* La columna: quién es quién arriba, lo que se cuenta debajo. */
+  const cx = LAMINA_W - PAD - COLUMNA;
+  let cursor = y;
+
+  if (datos.leyenda?.length) {
+    for (const item of datos.leyenda) {
+      puntoLeyenda(ctx, cx + 16, cursor + 20, 15, item.color, item.borde);
+
+      ctx.font = `600 30px ${familia}, Arial, sans-serif`;
+      escribe(cabe(ctx, item.texto, COLUMNA - 52), cx + 46, cursor + 31, 30, 600, C.azul, "izq", 0, "Leyenda");
+      cursor += 52;
+    }
+
+    cursor += 22;
+  }
+
+  const nota = (datos.nota ?? "").trim();
+
+  if (nota) {
+    const TAM = 34;
+    const INTER = 44;
+
+    ctx.font = `500 ${TAM}px ${familia}, Arial, sans-serif`;
+    const maximo = Math.max(2, Math.floor((y + h - cursor - 96) / INTER));
+    const lineas = renglones(ctx, nota, COLUMNA - 66, maximo);
+    const alto = 76 + lineas.length * INTER;
+
+    ctx.fillStyle = C.crema;
+    ctx.beginPath();
+    ctx.roundRect(cx, cursor, COLUMNA, alto, 16);
+    ctx.fill();
+    ctx.fillStyle = C.rosa;
+    ctx.fillRect(cx, cursor, 10, alto);
+
+    escribe("LO QUE SE CUENTA", cx + 36, cursor + 42, 22, 600, C.gris, "izq", 4, "Rótulo de la nota");
+
+    lineas.forEach((linea, indice) =>
+      escribe(linea, cx + 36, cursor + 52 + TAM * 0.92 + indice * INTER, TAM, 500, C.azul, "izq", 0, `Nota ${indice + 1}`),
+    );
+  }
+
+  return textos;
+}
+
+/**
+ * La lámina del teléfono (1080 × 1920): el campo de pie, que es como se mira
+ * un vídeo en el móvil, con la cabecera arriba y lo que se cuenta debajo.
+ */
+export const VERTICAL_W = 1080;
+export const VERTICAL_H = 1920;
+
+export function pintaLaminaVertical(
+  ctx: CanvasRenderingContext2D,
+  campo: CanvasImageSource & { width: number; height: number },
+  datos: DatosLamina,
+  familia: string,
+) {
+  const C = PALETA_LAMINA;
+  const escribe = escritor(ctx, familia, VERTICAL_W, VERTICAL_H, false, []);
+  const P = 44;
+  const CAB = 230;
+
+  ctx.fillStyle = C.papel;
+  ctx.fillRect(0, 0, VERTICAL_W, VERTICAL_H);
   ctx.fillStyle = C.azul;
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, 18);
-  ctx.fill();
-  ctx.restore();
+  ctx.fillRect(0, 0, VERTICAL_W, CAB);
+  ctx.fillStyle = C.rosa;
+  ctx.fillRect(0, CAB, VERTICAL_W, 8);
+
+  escribe("RMCF CASTILLA · PIZARRA TÁCTICA", P, 62, 26, 600, C.rosa, "izq", 4);
+
+  ctx.font = `700 64px ${familia}, Arial, sans-serif`;
+  escribe(cabe(ctx, datos.titulo.toUpperCase(), VERTICAL_W - P * 2), P, 140, 64, 700, C.crema, "izq", 1);
+
+  const escenaRotulo = datos.total > 1 ? `${datos.indice + 1}/${datos.total} · ` : "";
+
+  ctx.font = `600 40px ${familia}, Arial, sans-serif`;
+  escribe(cabe(ctx, `${escenaRotulo}${datos.escena}`, VERTICAL_W - P * 2), P, 198, 40, 600, C.crema, "izq");
+
+  /* El campo de pie: girado un cuarto de vuelta, nuestra portería abajo. */
+  const nota = (datos.nota ?? "").trim();
+  const leyendaAlto = datos.leyenda?.length ? 64 : 0;
+  const pieAlto = datos.pie ? 60 : 0;
+
+  ctx.font = `500 38px ${familia}, Arial, sans-serif`;
+  const lineas = nota ? renglones(ctx, nota, VERTICAL_W - P * 2 - 60, 4) : [];
+  const notaAlto = lineas.length ? 50 + lineas.length * 50 : 0;
+
+  const arriba = CAB + 8 + 30;
+  const huecoAlto = VERTICAL_H - arriba - 30 - leyendaAlto - (notaAlto ? notaAlto + 24 : 0) - pieAlto;
+  const huecoAncho = VERTICAL_W - P * 2;
+
+  /* Girado, el ancho del campo es su alto. */
+  const escala = Math.min(huecoAncho / campo.height, huecoAlto / campo.width);
+  const w = campo.height * escala;
+  const h = campo.width * escala;
+  const x = (VERTICAL_W - w) / 2;
+  const y = arriba;
 
   ctx.save();
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, 18);
   ctx.clip();
-  ctx.drawImage(campo, x, y, w, h);
+  ctx.translate(x + w / 2, y + h / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.drawImage(campo, -h / 2, -w / 2, h, w);
   ctx.restore();
 
-  /* Quién es quién, bajo el campo. */
-  let cursor = y + h + 34;
+  let cursor = y + h + 30;
 
   if (datos.leyenda?.length) {
-    let lx = x;
+    let lx = P;
 
     for (const item of datos.leyenda) {
-      ctx.beginPath();
-      ctx.arc(lx + 11, cursor - 9, 11, 0, Math.PI * 2);
-      ctx.fillStyle = item.color;
-      ctx.fill();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = item.borde;
-      ctx.stroke();
+      puntoLeyenda(ctx, lx + 15, cursor + 14, 15, item.color, item.borde);
+      ctx.font = `600 32px ${familia}, Arial, sans-serif`;
 
-      ctx.font = `600 26px ${familia}, Arial, sans-serif`;
-      const ancho = ctx.measureText(item.texto).width;
+      const texto = cabe(ctx, item.texto, (VERTICAL_W - P * 2) / 2 - 60);
+      const ancho = ctx.measureText(texto).width;
 
-      escribe(item.texto, lx + 32, cursor, 26, 600, C.azul, "izq", 0, "Leyenda");
-      lx += 32 + ancho + 40;
+      escribe(texto, lx + 42, cursor + 26, 32, 600, C.azul, "izq");
+      lx += 42 + ancho + 40;
     }
 
-    cursor += altoLeyenda - 34 + 24;
-  } else {
-    cursor = y + h + 24;
+    cursor += leyendaAlto;
   }
 
   if (lineas.length) {
-    const top = Math.max(cursor, LAMINA_H - 40 - altoNota);
-
     ctx.fillStyle = C.crema;
     ctx.beginPath();
-    ctx.roundRect(PAD, top, LAMINA_W - PAD * 2, altoNota, 16);
+    ctx.roundRect(P, cursor, VERTICAL_W - P * 2, notaAlto, 16);
     ctx.fill();
     ctx.fillStyle = C.rosa;
-    ctx.fillRect(PAD, top, 10, altoNota);
+    ctx.fillRect(P, cursor, 10, notaAlto);
 
-    lineas.forEach((linea, indice) =>
-      escribe(linea, PAD + 46, top + 22 + TAM_NOTA * 0.92 + indice * INTERLINEA, TAM_NOTA, 500, C.azul, "izq", 0, `Nota ${indice + 1}`),
-    );
+    lineas.forEach((linea, indice) => escribe(linea, P + 40, cursor + 25 + 38 * 0.92 + indice * 50, 38, 500, C.azul, "izq"));
   }
 
-  return textos;
+  if (datos.pie) {
+    ctx.fillStyle = C.crema;
+    ctx.fillRect(0, VERTICAL_H - pieAlto, VERTICAL_W, pieAlto);
+    ctx.font = `600 24px ${familia}, Arial, sans-serif`;
+    escribe(cabe(ctx, datos.pie.toUpperCase(), VERTICAL_W - P * 2), P, VERTICAL_H - 21, 24, 600, C.gris, "izq", 3);
+  }
+}
+
+/** El escudo del club, una vez: para la portada del vídeo y el póster. */
+let escudo: Promise<HTMLImageElement | null> | null = null;
+
+export function cargaEscudo(): Promise<HTMLImageElement | null> {
+  if (escudo) return escudo;
+
+  escudo = (async () => {
+    try {
+      const imagen = new Image();
+
+      imagen.src = "/logo.png";
+      await imagen.decode();
+
+      return imagen;
+    } catch {
+      return null;
+    }
+  })();
+
+  return escudo;
+}
+
+export interface DatosPortada {
+  titulo: string;
+  /** «Contra Algeciras CF · domingo 25/10». Sin partido, no sale. */
+  partido?: string;
+  /** «3 escenas · 14 s». */
+  detalle?: string;
+}
+
+/**
+ * La portada del vídeo: lo primero que se ve en el grupo y la imagen que va
+ * de póster en el correo. Azul de la plantilla, escudo, el nombre de la
+ * jugada y contra quién.
+ */
+export function pintaPortada(
+  ctx: CanvasRenderingContext2D,
+  ancho: number,
+  alto: number,
+  datos: DatosPortada,
+  familia: string,
+  escudoImg: HTMLImageElement | null,
+) {
+  const C = PALETA_LAMINA;
+  const escribe = escritor(ctx, familia, ancho, alto, false, []);
+  const vertical = alto > ancho;
+  const P = vertical ? 64 : 120;
+
+  ctx.fillStyle = C.azul;
+  ctx.fillRect(0, 0, ancho, alto);
+  ctx.fillStyle = C.rosa;
+  ctx.fillRect(0, alto - 14, ancho, 14);
+
+  const lado = vertical ? 260 : 220;
+  const centroY = vertical ? alto * 0.36 : alto * 0.4;
+
+  if (escudoImg) {
+    const proporcion = escudoImg.naturalWidth / Math.max(1, escudoImg.naturalHeight);
+    const eh = lado;
+    const ew = eh * proporcion;
+
+    ctx.drawImage(escudoImg, vertical ? (ancho - ew) / 2 : P, centroY - eh / 2 - (vertical ? 60 : 0), ew, eh);
+  }
+
+  const textoX = vertical ? ancho / 2 : P + (escudoImg ? lado * 1.1 + 60 : 0);
+  const alinea = vertical ? "centro" : "izq";
+  const maxAncho = vertical ? ancho - P * 2 : ancho - textoX - P;
+  const baseTitulo = vertical ? centroY + lado / 2 + 140 : centroY + 30;
+
+  escribe("RMCF CASTILLA · PIZARRA TÁCTICA", textoX, baseTitulo - (vertical ? 120 : 110), vertical ? 30 : 30, 600, C.rosa, alinea, 6);
+
+  const tam = vertical ? 92 : 104;
+
+  ctx.font = `700 ${tam}px ${familia}, Arial, sans-serif`;
+
+  const lineas = renglones(ctx, datos.titulo.toUpperCase(), maxAncho, 2);
+
+  lineas.forEach((linea, indice) => escribe(linea, textoX, baseTitulo + indice * tam * 1.02, tam, 700, C.crema, alinea, 1));
+
+  let base = baseTitulo + (lineas.length - 1) * tam * 1.02 + (vertical ? 90 : 84);
+
+  if (datos.partido) {
+    ctx.font = `600 ${vertical ? 46 : 48}px ${familia}, Arial, sans-serif`;
+    escribe(cabe(ctx, datos.partido, maxAncho), textoX, base, vertical ? 46 : 48, 600, C.crema, alinea);
+    base += vertical ? 64 : 66;
+  }
+
+  if (datos.detalle) escribe(datos.detalle.toUpperCase(), textoX, base, 28, 600, C.rosa, alinea, 4);
 }
 
 /** Un lienzo de lámina nuevo, con su contexto. */
@@ -437,17 +652,17 @@ export function puedeHacerVideo() {
   return typeof VideoEncoder !== "undefined" && typeof VideoFrame !== "undefined";
 }
 
-/** El primer H.264 que este navegador sabe codificar a 1920 × 1080. */
-export async function codecLamina(): Promise<string | null> {
+/** El primer H.264 que este navegador sabe codificar a ese tamaño. */
+export async function codecLamina(ancho = LAMINA_W, alto = LAMINA_H, bitrate = 6_000_000): Promise<string | null> {
   if (!puedeHacerVideo()) return null;
 
   for (const codec of ["avc1.640028", "avc1.4d4028", "avc1.42e028"]) {
     try {
       const r = await VideoEncoder.isConfigSupported({
         codec,
-        width: LAMINA_W,
-        height: LAMINA_H,
-        bitrate: 6_000_000,
+        width: ancho,
+        height: alto,
+        bitrate,
         framerate: FPS_LAMINA,
         avc: { format: "avc" },
       });

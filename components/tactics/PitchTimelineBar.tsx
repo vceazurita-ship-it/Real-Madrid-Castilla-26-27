@@ -202,7 +202,7 @@ export default function PitchTimelineBar({
         </div>
 
         <span className="w-11 shrink-0 text-right text-[10px] tabular-nums text-white/45">
-          {(timeline.time / 1000).toFixed(1)}s
+          {(timeline.time / 1000).toFixed(1).replace(".", ",")} s
         </span>
       </div>
 
@@ -221,7 +221,7 @@ export default function PitchTimelineBar({
                 : "text-white/50 hover:text-white"
             )}
           >
-            {option}×
+            {String(option).replace(".", ",")}×
           </button>
         ))}
       </div>
