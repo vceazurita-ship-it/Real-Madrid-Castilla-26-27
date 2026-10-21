@@ -39,6 +39,8 @@ export type RegistroTarea = {
   /** Cómo se monta la tarea: «8v8+6». Lo pide el editor de microciclos para
       poder sugerir lo que ya se usa. */
   formato: string;
+  /** «Espacio» de la hoja (40×30…), cuando lo escriben: lo enseña la diapositiva de Jugadores sesión. */
+  espacio?: string;
   grupo: string;
   contenidoPrincipal: string;
   contenidoSecundario: string;
@@ -181,6 +183,7 @@ export async function loadRegistro(): Promise<RegistroDataset> {
     tipoTarea: indiceDe(cabeceras, "tipo tarea"),
     fase: indiceDe(cabeceras, "fase"),
     formato: indiceDe(cabeceras, "formato"),
+    espacio: indiceDe(cabeceras, "espacio"),
     grupo: indiceDe(cabeceras, "grupo"),
     principal: indiceDe(cabeceras, "contenido principal"),
     secundario: indiceDe(cabeceras, "contenido secundario"),
@@ -229,6 +232,7 @@ export async function loadRegistro(): Promise<RegistroDataset> {
       tipoTarea: texto(fila, col.tipoTarea),
       fase: texto(fila, col.fase),
       formato: texto(fila, col.formato),
+      espacio: texto(fila, col.espacio),
       grupo: texto(fila, col.grupo),
       contenidoPrincipal: texto(fila, col.principal),
       contenidoSecundario: texto(fila, col.secundario),

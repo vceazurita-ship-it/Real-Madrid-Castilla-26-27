@@ -25,7 +25,7 @@
 | y de 1 (su portería, abajo) a 0 (la contraria, arriba). Sin React.
 */
 
-import { claveNombre, type JugadorSesion, type Puesto } from "@/lib/sesion-equipos/modelo";
+import { casaPalabra, claveNombre, type JugadorSesion, type Puesto } from "@/lib/sesion-equipos/modelo";
 
 export type Punto = { x: number; y: number };
 
@@ -295,7 +295,7 @@ export function demarcacionesDesdePlantilla(jugadores: JugadorSesion[], plantill
       [f.nombre, f.apodo ?? ""].some((n) => {
         const pals = claveNombre(n).split(" ").filter((p) => p.length > 1);
 
-        return pals.length > 0 && pals.every((p) => suyas.has(p));
+        return pals.length > 0 && pals.every((p) => casaPalabra(p, suyas));
       }),
     );
     const ds = [...new Set(casan.map((f) => demarcacionDePosicion(f.posicion)).filter(Boolean))] as Demarcacion[];

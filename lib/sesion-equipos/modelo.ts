@@ -94,6 +94,19 @@ export type FichaPlantilla ={ nombre: string; apodo?: string; posicion: string }
  * casa si todas las palabras del nombre de la plantilla (o su apodo) están en
  * el de la lista. Si casan dos fichas distintas, no se pone ninguna.
  */
+/**
+ * Una palabra de la plantilla casa con el nombre de la lista si está entera o
+ * es el principio de una de sus palabras (21/10/2026): la hoja trae nombres
+ * cortados («Aimar Gar») y el delegado los escribe enteros («AIMAR GARCÍA»).
+ * Desde tres letras: «de» no puede casar con «DEMBELÉ».
+ */
+export function casaPalabra(palabra: string, suyas: Set<string>) {
+  if (suyas.has(palabra)) return true;
+  if (palabra.length < 3) return false;
+  for (const s of suyas) if (s.startsWith(palabra)) return true;
+  return false;
+}
+
 export function puestosDesdePlantilla(jugadores: JugadorSesion[], plantilla: FichaPlantilla[]) {
   const salida: Record<string, Puesto> = {};
 
@@ -104,7 +117,7 @@ export function puestosDesdePlantilla(jugadores: JugadorSesion[], plantilla: Fic
       [f.nombre, f.apodo ?? ""].some((n) => {
         const pals = claveNombre(n).split(" ").filter((p) => p.length > 1);
 
-        return pals.length > 0 && pals.every((p) => suyas.has(p));
+        return pals.length > 0 && pals.every((p) => casaPalabra(p, suyas));
       }),
     );
 
@@ -161,6 +174,8 @@ export type TareaEquipos = {
   sitio: Record<string, Sitio>;
   /** Cada equipo con su dibujo en un mini campograma, o sólo los equipos (06/10/2026). */
   conEstructura?: boolean;
+  /** Las reglas de la tarea en una línea, para la diapositiva (21/10/2026): «máx. 3 toques; gol = 8 pases». */
+  reglas?: string;
   /** Cómo queda la tarea tras el cambio a mitad (08/10/2026). */
   cambio?: FaseCambio;
 };
@@ -578,6 +593,8 @@ export function repartoDe(tarea: TareaEquipos, jugadores: JugadorSesion[]): Repa
 export type Aviso = {
   nivel: "error" | "aviso" | "info" | "ok";
   texto: string;
+  /** Un arreglo de un toque (21/10/2026): cambiar de equipo a estos dos. */
+  arreglo?: { a: string; b: string; texto: string };
 };
 
 /** El puesto de un jugador: el puesto a mano, si no el de la plantilla. */
@@ -686,13 +703,39 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
   | línea se lleva dos o más de diferencia entre equipos.
   */
   if (tarea.equipos.length > 1 && tarea.equipos.every((e) => (r.porEquipo[e.id]?.length ?? 0) >= 4)) {
+    /*
+    | El aviso acaba en lo que hay que hacer (21/10/2026) y trae el arreglo
+    | de un toque: el último de esa línea del equipo que va sobrado, por uno
+    | del corto que sea de la línea que a éste le sobra (así los dos siguen
+    | con los mismos).
+    */
+    const nombreEq = (e: EquipoTarea) => e.nombre.charAt(0).toUpperCase() + e.nombre.slice(1).toLowerCase();
+    let arreglo: Aviso["arreglo"];
     const descompensadas = (["DEF", "MED", "EXT", "DEL"] as Puesto[]).flatMap((p) => {
       const n = tarea.equipos.map((e) => (r.porEquipo[e.id] ?? []).filter((j) => puestoDe(j) === p).length);
 
-      return Math.max(...n) - Math.min(...n) >= 2 ? [`${PUESTOS.find((x) => x.clave === p)?.nombre.toLowerCase() ?? p}s ${tarea.equipos.map((e, i) => `${e.nombre} ${n[i]}`).join(" · ")}`] : [];
+      if (Math.max(...n) - Math.min(...n) < 2) return [];
+
+      const mas = tarea.equipos[n.indexOf(Math.max(...n))];
+      const menos = tarea.equipos[n.indexOf(Math.min(...n))];
+      const plural = `${PUESTOS.find((x) => x.clave === p)?.nombre ?? p}s`;
+
+      if (!arreglo) {
+        const suyos = r.porEquipo[mas.id] ?? [];
+        const otros = r.porEquipo[menos.id] ?? [];
+        const a = [...suyos].reverse().find((j) => puestoDe(j) === p);
+        const cuenta = (lista: JugadorSesion[], q: Puesto | undefined) => lista.filter((j) => puestoDe(j) === q).length;
+        const b = [...otros]
+          .filter((j) => puestoDe(j) !== p && puestoDe(j) !== "POR")
+          .sort((x, y) => cuenta(otros, puestoDe(y)) - cuenta(suyos, puestoDe(y)) - (cuenta(otros, puestoDe(x)) - cuenta(suyos, puestoDe(x))))[0];
+
+        if (a && b) arreglo = { a: a.id, b: b.id, texto: `Cambiar a ${a.nombre} por ${b.nombre}` };
+      }
+
+      return [`${plural} ${p === "DEF" ? "descompensadas" : "descompensados"}: ${tarea.equipos.map((e, i) => `${nombreEq(e)} ${n[i]}`).join(", ")}. Pasa uno de ${nombreEq(mas)} a ${nombreEq(menos)}.`];
     });
 
-    if (descompensadas.length) avisos.push({ nivel: "aviso", texto: `Líneas descompensadas: ${descompensadas.join("; ")}` });
+    if (descompensadas.length) avisos.push({ nivel: "aviso", texto: descompensadas.join(" "), arreglo });
   }
 
   /* 7. Bajas que hacen la tarea: no es un error, pero que se vea. */

@@ -21,6 +21,7 @@ import type { CSSProperties } from "react";
 import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
 import { colocaEnEstructura, parejasDe } from "@/lib/sesion-equipos/estructura";
 import { cambiosDe, vistaCambio, type Fase } from "@/lib/sesion-equipos/cambio";
+import type { ContextoSesion } from "@/lib/sesion-equipos/registro";
 import {
   ordenPorPuesto,
   repartoDe,
@@ -138,6 +139,8 @@ export function LaminaEquipos({
   indice,
   total,
   puestoDe,
+  detalle = "",
+  contexto = null,
 }: {
   sesion: SesionEquipos;
   tarea: TareaEquipos;
@@ -152,6 +155,10 @@ export function LaminaEquipos({
    * Al exportar, por defecto va sin: la imagen es para enseñar los equipos.
    */
   cabecera?: boolean;
+  /** Lo que trae la hoja de registro de esta tarea: «8v8+1 · Global» (21/10/2026). */
+  detalle?: string;
+  /** El micro, el rival y el MD del día, si la hoja tiene la sesión. */
+  contexto?: ContextoSesion | null;
 }) {
   const porPuestoCambio = puestoDe ?? ((j: JugadorSesion) => j.puesto);
   /* El inicio lleva al pie quién cambia; «tras el cambio», el reparto de después. */
@@ -204,7 +211,11 @@ export function LaminaEquipos({
   */
   const pieCorto = !cabecera && r.fuera.length > 0;
 
-  const ALTO_LISTA = (cabecera ? 575 : 770) - (cambios.length ? 55 : 0) - (pieCorto ? 52 : 0);
+  /* Bajo el título, lo que trae la hoja y las reglas (21/10/2026): cada línea quita su alto a la lista. */
+  const reglas = (tareaBase.reglas ?? "").trim();
+  const extra = cabecera ? (detalle ? 46 : 0) + (reglas ? 44 : 0) : 0;
+
+  const ALTO_LISTA = (cabecera ? 575 : 770) - extra - (cambios.length ? 55 : 0) - (pieCorto ? 52 : 0);
 
   const anchoEquipo = (LAMINA_W - 120 - (columnas.length - 1) * 28) / Math.max(1, columnas.length);
 
@@ -249,7 +260,7 @@ export function LaminaEquipos({
     const { porteros, sobran } = colocaEnEstructura(c.jugadores, c.estructura, porPuesto, c.orden, c.posiciones, c.pares);
     return porteros.length > 0 || sobran.length > 0;
   });
-  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 335) + (lineaPortero ? 0 : 40) - (cambios.length ? 60 : 0) - (pieCorto ? 52 : 0)) / 1.08);
+  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 335) - extra + (lineaPortero ? 0 : 40) - (cambios.length ? 60 : 0) - (pieCorto ? 52 : 0)) / 1.08);
 
   return (
     <div
@@ -278,7 +289,7 @@ export function LaminaEquipos({
         <div style={{ display: "flex", alignItems: "center", gap: 28, minWidth: 0 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0.22em", color: ORO, textTransform: "uppercase" }}>
-              Real Madrid Castilla · Equipos de la sesión
+              {contexto ? `RMCF Castilla · Microciclo ${contexto.micro} · ${contexto.rival} · ${contexto.md}` : "Real Madrid Castilla · Equipos de la sesión"}
             </div>
             <div
               style={{
@@ -297,6 +308,15 @@ export function LaminaEquipos({
             >
               {tarea.nombre || `Tarea ${indice + 1}`}
             </div>
+            {detalle && (
+              <div style={{ marginTop: 10, fontSize: 34, fontWeight: 600, letterSpacing: "0.02em", color: SUAVE, textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 1220 }}>{detalle}</div>
+            )}
+            {reglas && (
+              <div style={{ marginTop: 6, fontSize: 32, fontWeight: 700, color: TINTA, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 1220 }}>
+                <span style={{ color: ORO, letterSpacing: "0.14em", textTransform: "uppercase" }}>Reglas · </span>
+                {reglas}
+              </div>
+            )}
           </div>
         </div>
 
@@ -372,7 +392,12 @@ export function LaminaEquipos({
                     <span style={{ fontSize: tamanoTitulo(c.titulo), fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {c.titulo}
                     </span>
-                    {c.estructura && <span style={{ fontSize: 28, fontWeight: 700, opacity: 0.8, whiteSpace: "nowrap" }}>{c.estructura}</span>}
+                    {c.estructura && (
+                      <span style={{ fontSize: 28, fontWeight: 700, opacity: 0.8, whiteSpace: "nowrap" }}>
+                        {/* Sin portero en el equipo, el dibujo sin su «1» (21/10/2026): «1-4-2-3-1» sin nadie en la portería se leía como si el punta fuera el portero. */}
+                        {colocados && colocados.porteros.length === 0 ? `${c.estructura.replace(/^1-/, "")} (sin portero)` : c.estructura}
+                      </span>
+                    )}
                   </span>
                 </span>
                 <span
@@ -395,7 +420,7 @@ export function LaminaEquipos({
 
               {colocados ? (
                 <div style={{ padding: "18px 18px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10, minWidth: 0 }}>
-                  <CampoEstructura huecos={colocados.huecos} color={c.color} ancho={anchoCampo} claro />
+                  <CampoEstructura huecos={colocados.huecos} color={c.color} ancho={anchoCampo} claro flecha />
                   {colocados.porteros.length > 0 && (
                     <div style={{ fontSize: 24, fontWeight: 700, color: TINTA, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                       <span style={{ color: SUAVE }}>{colocados.porteros.length === 1 ? "Portero" : "Porteros"} · </span>
