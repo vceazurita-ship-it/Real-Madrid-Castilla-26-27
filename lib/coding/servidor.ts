@@ -628,7 +628,9 @@ function grafoDeImagen(opciones: {
   if (opciones.salida.vertical) {
     pasos.push(
       `[${actual}]split[va][vb]`,
-      `[va]scale=${ancho}:${alto}:force_original_aspect_ratio=increase,crop=${ancho}:${alto},boxblur=30:3,eq=brightness=-0.18[vf]`,
+      /* El fondo se desenfoca en pequeño y se amplía: igual de borroso y diez
+         veces más barato que un `boxblur` grande sobre 1080 × 1920. */
+      `[va]scale=${Math.round(ancho / 10)}:${Math.round(alto / 10)}:force_original_aspect_ratio=increase,crop=${Math.round(ancho / 10)}:${Math.round(alto / 10)},boxblur=3:2,scale=${ancho}:${alto},eq=brightness=-0.18[vf]`,
       `[vb]scale=${ancho}:-2[vc]`,
       `[vf][vc]overlay=(W-w)/2:(H-h)/2[v0]`,
     );
@@ -720,12 +722,14 @@ export async function cortaClip(opciones: {
     "-hide_banner",
     "-loglevel",
     "error",
+    /* El `-t` va delante del `-i`: es de esta entrada. Detrás sería de la
+       siguiente, que con el rótulo es la imagen, y el partido saldría entero. */
     "-ss",
     segundos(opciones.inicioMs),
-    "-i",
-    opciones.entrada,
     "-t",
     segundos(duracion),
+    "-i",
+    opciones.entrada,
   ];
 
   const cambiaMedida =
@@ -994,10 +998,10 @@ export async function segmentoNormalizado(opciones: {
     entradaArgs: [
       "-ss",
       segundos(opciones.inicioMs),
-      "-i",
-      opciones.entrada,
       "-t",
       segundos(duracion),
+      "-i",
+      opciones.entrada,
     ],
     ancho: opciones.ancho,
     alto: opciones.alto,
