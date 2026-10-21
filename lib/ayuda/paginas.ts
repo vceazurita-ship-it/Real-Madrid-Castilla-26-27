@@ -536,11 +536,26 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/rivals",
     titulo: "Plantillas Rivales",
     resumen: "Fichas e informes de los jugadores del rival.",
-    origen: "Hoja RIVALES y datos de BeSoccer; los recursos, en Supabase.",
+    origen: "Hoja RIVALES, BeSoccer y Wyscout de toda la categoría; los recursos, en Supabase.",
     bloques: [
       {
         titulo: "Cómo se lee",
         filas: [
+          {
+            que: "«Cómo llega»",
+            es: "Tabla, su balance en el campo del partido, los últimos cinco de liga, el dibujo que más repite y quién le hace los goles",
+            cuenta: "BeSoccer; el dibujo, de las alineaciones bajadas (las 8 últimas)",
+          },
+          {
+            que: "«Lo que le hace distinto»",
+            es: "Aspectos del juego en los que el equipo se sale de la categoría, en verde por arriba y en rojo por detrás",
+            cuenta: "Percentil medio del aspecto entre los equipos de la categoría; sólo si se separa ±20 puntos (Wyscout)",
+          },
+          {
+            que: "«Cómo juega» (en la ficha)",
+            es: "Lo que más le separa de los de su puesto en la categoría: hasta tres por arriba y tres por abajo",
+            cuenta: "Percentil contra su puesto con 90′ o más, esta temporada; sólo por encima de 70 o por debajo de 30. Con menos de 90′ no se compara",
+          },
           { que: "Once probable", es: "Se propone con los últimos onces del rival" },
           { que: "Etiquetas", es: "Las pone el analista; no salen de ningún dato" },
         ],
