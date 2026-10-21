@@ -660,7 +660,9 @@ function ChapaRival({
  * La diapositiva se cuelga en el vestuario y se lee sin nadie que la explique:
  * sin leyenda, una línea discontinua blanca no dice «balón». Sólo salen los
  * tipos que hay dibujados, y la fase cuando la hoja es de una fase concreta.
- * Va justo bajo la cabecera, sobre el graderío, donde no se planta nadie.
+ * Va en la cabecera, junto al rival: en el campo no hay esquina libre —en el
+ * córner la portería está arriba y en las defensivas abajo van las flechas de
+ * la transición—, y encima de un jugador taparía justo lo que se explica.
  */
 function LeyendaTrazos({
   tipos,
@@ -675,15 +677,11 @@ function LeyendaTrazos({
 }) {
   return (
     <div
-      className="pointer-events-none absolute flex items-center gap-5 rounded-xl px-4"
+      className="pointer-events-none flex shrink-0 flex-wrap items-center justify-end gap-x-5 gap-y-2 rounded-xl px-4 py-2"
       style={{
-        left: 24,
-        top: CABECERA_H + 18,
-        height: 40,
-        zIndex: 3_000_001,
-        backgroundColor: "rgba(15,32,54,.86)",
-        border: "1px solid rgba(200,169,107,.4)",
-        boxShadow: "0 6px 16px rgba(0,0,0,.4)",
+        maxWidth: 620,
+        backgroundColor: "rgba(255,255,255,.04)",
+        border: "1px solid rgba(200,169,107,.22)",
       }}
     >
       {hastaFase != null && fases > 1 && (
@@ -990,7 +988,14 @@ export function TableroSlide({
       if (activo.modo === "dibujo") {
         const actual = borradorRef.current;
 
-        if (actual) setBorrador({ ...actual, x2: Math.round(p.x), y2: Math.round(p.y) });
+        /* La punta, dentro del césped: sobre la cabecera no se lee. */
+        if (actual) {
+          setBorrador({
+            ...actual,
+            x2: Math.round(Math.max(8, Math.min(TABLERO_W - 8, p.x))),
+            y2: Math.round(Math.max(CABECERA_H + 14, Math.min(TABLERO_H - 8, p.y))),
+          });
+        }
 
         return;
       }
@@ -1007,7 +1012,7 @@ export function TableroSlide({
 
       if (activo.modo === "tirador") {
         const x = Math.round(Math.max(0, Math.min(TABLERO_W, p.x)));
-        const y = Math.round(Math.max(CABECERA_H, Math.min(TABLERO_H, p.y)));
+        const y = Math.round(Math.max(CABECERA_H + 14, Math.min(TABLERO_H - 8, p.y)));
 
         onCambiarTrazo?.(
           activo.id,
@@ -1314,6 +1319,15 @@ export function TableroSlide({
             | proyección se comía las letras; sobre la tinta con filo de oro se
             | leen desde el fondo de la sala.
             */}
+            {(todos.length > 0 || (slide.rivales?.length ?? 0) > 0) && (
+              <LeyendaTrazos
+                tipos={[...new Set(todos.map((trazo) => trazo.tipo))]}
+                fases={totalFases}
+                hastaFase={hastaFase}
+                rivales={(slide.rivales?.length ?? 0) > 0}
+              />
+            )}
+
             <div
               className="max-w-[440px] shrink-0 rounded-xl px-5 py-2.5 text-right"
               style={{
@@ -1358,14 +1372,6 @@ export function TableroSlide({
 
         {/* ----------------- CARRERAS, BALÓN, BLOQUEOS ----------------- */}
 
-        {(todos.length > 0 || (slide.rivales?.length ?? 0) > 0) && (
-          <LeyendaTrazos
-            tipos={[...new Set(todos.map((trazo) => trazo.tipo))]}
-            fases={totalFases}
-            hastaFase={hastaFase}
-            rivales={(slide.rivales?.length ?? 0) > 0}
-          />
-        )}
 
         <CapaTrazos
           trazos={borrador ? [...trazos, borrador] : trazos}
@@ -1463,7 +1469,9 @@ export function TableroSlide({
           />
         )}
 
-        {elegido && herramienta === "mover" && (
+        {/* También con la herramienta en la mano: recién dibujada, lo normal
+            es curvarla al momento sin cambiar de herramienta. */}
+        {elegido && (
           <MandosTrazo
             trazo={elegido}
             onTirar={(cual) => tira(elegido.id, cual)}
