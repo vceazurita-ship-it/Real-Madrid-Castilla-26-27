@@ -68,6 +68,8 @@ import {
   ImageDown,
   FileDown,
   MessageSquareText,
+  Mail,
+  Send,
   Kanban,
   ListChecks,
 } from "lucide-react";
@@ -77,9 +79,13 @@ import { useHistorial } from "@/hooks/useHistorial";
 import { TableroSemana } from "@/components/microciclo/TableroSemana";
 import { LaminaSemana, LAMINA } from "@/components/microciclo/LaminaSemana";
 import {
+  avisosDeLaSemana,
   conPartido,
   copiaDia,
+  cuentasDeLaSemana,
   esCompeticion,
+  plural,
+  textoDeCuentas,
   mueveTarea as mueveTareaEnSemana,
   referenciaPorMd,
   resumenDeLaSemana,
@@ -353,7 +359,7 @@ function FilaTarea({
         esAbp ? "border-[#C8A96B]/25 bg-[#C8A96B]/[0.04]" : "border-white/[0.07] bg-white/[0.02]"
       }`}
     >
-      <div className="grid gap-2 md:grid-cols-[86px_1.3fr_1fr_66px_66px_66px_128px] md:items-end">
+      <div className="grid gap-2 md:grid-cols-[86px_1.3fr_1fr_76px_76px_76px_128px] md:items-end">
         <Field label="Tarea" value={tarea.tarea} onChange={(v) => onCambia({ tarea: v })} />
 
         <Field
@@ -385,7 +391,7 @@ function FilaTarea({
         | retocar un 9 al editar lo dejaba en 5 y la carga caía a la mitad.
         */}
         <Field
-          label="Int. (1-10)"
+          label="Int."
           type="number"
           value={tarea.intensidad ? String(tarea.intensidad) : ""}
           onChange={(v) => onCambia({ intensidad: Math.min(10, numero(v)) })}
@@ -592,6 +598,9 @@ export default function EditorMicrocicloPage() {
   const [enfocada, setEnfocada] = useState<string | null>(null);
 
   const [exportando, setExportando] = useState<"png" | "pdf" | null>(null);
+
+  /* Editar o copiar otro se pliega: lo principal de la entrada es crear el siguiente. */
+  const [verOtras, setVerOtras] = useState(false);
 
   const laminaRef = useRef<HTMLDivElement>(null);
 
@@ -896,9 +905,9 @@ export default function EditorMicrocicloPage() {
 
     toast.success(`Microciclo ${ultimoMicro + 1} creado`, {
       description:
-        `${diasPlan.length - libres - 1} día(s) de entreno, ${libres} libre(s) y el partido.` +
+        `${plural(diasPlan.length - libres - 1, "día de entreno", "días de entreno")}, ${plural(libres, "libre", "libres")} y el partido.` +
         (hecho
-          ? ` Relleno con ${hecho.puestas} tarea(s) del micro ${origen}${hecho.rival ? ` (${hecho.rival})` : ""}, atadas por MD: cambia lo que toque.`
+          ? ` Relleno con ${plural(hecho.puestas, "tarea", "tareas")} del micro ${origen}${hecho.rival ? ` (${hecho.rival})` : ""}, atadas por MD: cambia lo que toque.`
           : ""),
     });
   };
@@ -954,7 +963,7 @@ export default function EditorMicrocicloPage() {
 
       toast.success(`Microciclo ${numero} abierto`, {
         id: aviso,
-        description: `${datos.filas.length} fila(s). Al escribir se sustituyen en el mismo sitio de la hoja.`,
+        description: `${plural(datos.filas.length, "fila", "filas")}. Al escribir se sustituyen en el mismo sitio de la hoja.`,
       });
 
       return abierto;
@@ -1036,7 +1045,7 @@ export default function EditorMicrocicloPage() {
       /* Sin pregunta: con deshacer, el aviso con su botón protege igual y no corta el trabajo. */
       if (rellenas > 0) {
         toast(`${mayuscula(etiquetaDia(fecha))} pasa a libre`, {
-          description: `Se han quitado sus ${rellenas} tarea(s).`,
+          description: `Se han quitado sus ${plural(rellenas, "tarea", "tareas")}.`,
           action: { label: "Deshacer", onClick: deshaz },
         });
       }
@@ -1117,10 +1126,22 @@ export default function EditorMicrocicloPage() {
 
   const deAbp = useMemo(() => (micro ? minutosAbp(micro.sesiones) : 0), [micro]);
 
+  /* Las cuentas de la semana, las mismas en la cabecera, el tablero, la barra y la lámina. */
+  const semana = useMemo(
+    () => (micro ? cuentasDeLaSemana(micro) : { tareas: 0, entreno: 0, sinMinutos: 0, partido: 0, filas: 0, sesiones: 0, libres: 0 }),
+    [micro],
+  );
+
   /* Cómo suele ser cada MD esta temporada, sin contar el microciclo que se edita. */
   const referencia = useMemo(
     () => referenciaPorMd(registro?.tareas ?? [], { sinMicro: micro?.micro, temporada: micro?.temporada }),
     [registro, micro?.micro, micro?.temporada],
+  );
+
+  /* Lo que conviene mirar antes de mandarla: no impide escribir. */
+  const avisos = useMemo(
+    () => (micro ? avisosDeLaSemana(micro, (fecha) => mayuscula(etiquetaDia(fecha)), referencia) : []),
+    [micro, referencia],
   );
 
   /* ------------------------ EL TABLERO ------------------------ */
@@ -1144,7 +1165,7 @@ export default function EditorMicrocicloPage() {
 
     cambiaMicro(nuevo);
 
-    toast.success(`${copiadas} tarea(s) copiadas al ${etiquetaDia(micro.sesiones[hasta].fecha)}`, {
+    toast.success(`${plural(copiadas, "tarea copiada", "tareas copiadas")} al ${etiquetaDia(micro.sesiones[hasta].fecha)}`, {
       description: "Sin tiempo ni intensidad, que son de la sesión que se haga.",
       action: { label: "Deshacer", onClick: deshaz },
     });
@@ -1206,13 +1227,16 @@ export default function EditorMicrocicloPage() {
 
     setExportando(formato);
 
+    /* El alto sale del contenido: una semana corta no deja media hoja vacía. */
+    const alto = Math.max(LAMINA.altoMinimo, Math.ceil(laminaRef.current.offsetHeight));
+
     try {
       const { dataUrl } = await capturaNodo(laminaRef.current, {
         formato: formato === "pdf" ? "jpeg" : "png",
         pixelRatio: 1.5,
         backgroundColor: "#FFFFFF",
         width: LAMINA.ancho,
-        height: LAMINA.alto,
+        height: alto,
       });
 
       const nombre = `RMCF Castilla - Microciclo ${micro.micro} - ${apodo(partidoDelMicro?.rival || micro.rival, "semana")}`;
@@ -1221,7 +1245,7 @@ export default function EditorMicrocicloPage() {
         await descargaDataUrl(dataUrl, `${nombre}.png`);
       } else {
         const doc = await pdfDeHojas([
-          { imagen: dataUrl, ancho: LAMINA.ancho, alto: LAMINA.alto, orientacion: "landscape", margen: 18 },
+          { imagen: dataUrl, ancho: LAMINA.ancho, alto, orientacion: "landscape", margen: 18 },
         ]);
 
         descarga(doc.output("blob"), `${nombre}.pdf`);
@@ -1249,6 +1273,27 @@ export default function EditorMicrocicloPage() {
     } catch {
       toast.error("El navegador no deja copiar", { description: "Prueba con la lámina en PNG." });
     }
+  };
+
+  /*
+  | Mandar al cuerpo técnico (21/10/2026): abre WhatsApp o el correo con la
+  | semana ya escrita, y quien lo usa elige a quién y pulsa enviar. No se
+  | manda nada solo. La lámina se adjunta a mano: se descarga a la vez.
+  */
+  const manda = (por: "whatsapp" | "correo") => {
+    if (!micro) return;
+
+    const texto = resumenDeLaSemana(micro, partidoDelMicro, etiquetaDia);
+
+    if (por === "whatsapp") {
+      window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
+    } else {
+      const asunto = `Microciclo ${micro.micro} · ${partidoDelMicro?.rival || micro.rival}`;
+
+      window.location.href = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto.split("*").join(""))}`;
+    }
+
+    void exporta("png");
   };
 
   /* --------------------------- EDICIÓN --------------------------- */
@@ -1394,7 +1439,7 @@ export default function EditorMicrocicloPage() {
     */
     toast.success(`Copiado del microciclo ${numero}`, {
       description:
-        `${puestas} tarea(s)${rival ? ` de la semana del ${rival}` : ""}, atadas por MD.` +
+        `${plural(puestas, "tarea", "tareas")}${rival ? ` de la semana del ${rival}` : ""}, atadas por MD.` +
         (sinPareja > 0
           ? ` ${sinPareja} no tenían MD equivalente en esta semana y se han quedado fuera.`
           : "") +
@@ -1444,7 +1489,7 @@ export default function EditorMicrocicloPage() {
 
       toast.success(`Microciclo ${ultimoMicro + 1} creado desde el ${origen}`, {
         description:
-          `${hecho.puestas} tarea(s) atadas por MD.` +
+          `${plural(hecho.puestas, "tarea atada", "tareas atadas")} por MD.` +
           (hecho.sinPareja > 0 ? ` ${hecho.sinPareja} sin MD equivalente se han quedado fuera.` : "") +
           " Revisa y pulsa «Escribir en la hoja».",
       });
@@ -1472,7 +1517,7 @@ export default function EditorMicrocicloPage() {
 
     toast.success(`Semana del ${origen} copiada sobre el ${destino}`, {
       description:
-        `${hecho.puestas} tarea(s) atadas por MD.` +
+        `${plural(hecho.puestas, "tarea atada", "tareas atadas")} por MD.` +
         (hecho.sinPareja > 0 ? ` ${hecho.sinPareja} sin MD equivalente se han quedado fuera.` : "") +
         " Al escribir se sustituyen las filas del " + destino + " en su sitio.",
     });
@@ -1592,7 +1637,7 @@ export default function EditorMicrocicloPage() {
       setEditando(micro.micro);
       setReemplazar(true);
 
-      toast.success(`${datos.escritas ?? filas.length} fila(s) escritas`, {
+      toast.success(`${plural(datos.escritas ?? filas.length, "fila escrita", "filas escritas")}`, {
         id: aviso,
         description: "La hoja tarda unos minutos en refrescar el CSV que leen las pantallas.",
       });
@@ -1624,14 +1669,15 @@ export default function EditorMicrocicloPage() {
           <AbpHeader
             area="RMCF Castilla · Metodología"
             title="Crear o editar el microciclo"
-            lead="El siguiente sale del calendario y de lo que ya está escrito en la hoja; cualquiera de los que ya están se abre, se retoca y se reescribe en su sitio."
+            lead="Prepara la semana que viene o retoca una que ya está en la hoja."
             aside={
               micro ? (
                 <div className="text-right text-[11px] leading-relaxed text-white/45">
-                  <p>
-                    <span className="text-white/75">{cuentas.tareas}</span> tarea(s) ·{" "}
-                    <span className="text-white/75">{cuentas.total}′</span> en total
-                  </p>
+                  <p className="text-white/75">{textoDeCuentas(semana)}</p>
+
+                  {semana.sinMinutos > 0 && (
+                    <p className="text-[#C8A96B]">{plural(semana.sinMinutos, "tarea sin minutos", "tareas sin minutos")}: {semana.sinMinutos === 1 ? "no suma" : "no suman"} a la carga</p>
+                  )}
 
                   {deAbp > 0 && <p className="text-[#C8A96B]">{deAbp}′ de balón parado</p>}
                 </div>
@@ -1717,21 +1763,31 @@ export default function EditorMicrocicloPage() {
                   </Button>
 
                   <Button onClick={() => setLibresPlan(null)} title="Libre sólo el día después del partido">
-                    Lo de siempre
+                    Semana tipo
                   </Button>
 
                   <Button onClick={() => setLibresPlan([])} title="Todos los días con sesión">
-                    Sin días libres
+                    Todos los días de entreno
                   </Button>
 
                   <span className="text-[11px] text-white/45">
-                    {diasPlan.length - libresMarcados.size - 1} día(s) de entreno · {libresMarcados.size} libre(s) · partido
+                    {plural(diasPlan.length - libresMarcados.size - 1, "día de entreno", "días de entreno")} · {plural(libresMarcados.size, "libre", "libres")} · partido
                   </span>
                 </div>
               </Panel>
             )}
 
-            {!micro && !cargando && microsDeLaHoja.length > 0 && (
+            {!micro && !cargando && proximo && microsDeLaHoja.length > 0 && !verOtras && (
+              <button
+                type="button"
+                onClick={() => setVerOtras(true)}
+                className="w-full rounded-2xl border border-white/10 px-4 py-3 text-left text-[12px] text-white/60 hover:border-white/25 hover:text-white/85"
+              >
+                O edita uno que ya está en la hoja, o copia uno en otro ›
+              </button>
+            )}
+
+            {!micro && !cargando && (verOtras || !proximo) && microsDeLaHoja.length > 0 && (
               <Panel
                 title="O edita uno que ya está en la hoja"
                 subtitle="Se carga con todas sus columnas y, al escribir, se sustituye en el mismo sitio. La evaluación y el análisis post no se tocan."
@@ -1745,7 +1801,7 @@ export default function EditorMicrocicloPage() {
               </Panel>
             )}
 
-            {!micro && !cargando && microsDeLaHoja.some((uno) => uno.tareas > 0) && (
+            {!micro && !cargando && (verOtras || !proximo) && microsDeLaHoja.some((uno) => uno.tareas > 0) && (
               <Panel
                 title="O copia un microciclo en otro"
                 subtitle="La semana de uno, atada por MD, sobre otro que ya está en la hoja o sobre el siguiente. Se revisa en pantalla y no se escribe nada hasta «Escribir en la hoja»."
@@ -2029,8 +2085,8 @@ export default function EditorMicrocicloPage() {
                 <Panel
                   title="La semana"
                   subtitle={[
-                    cuentas.tareas ? `${cuentas.tareas} tarea(s)` : "",
-                    cuentas.total ? `${cuentas.total}′` : "",
+                    textoDeCuentas(semana),
+                    semana.sinMinutos ? plural(semana.sinMinutos, "tarea sin minutos", "tareas sin minutos") : "",
                     deAbp ? `${deAbp}′ de balón parado` : "",
                     Object.keys(referencia).length ? "la marca sobre cada barra es la media de su MD esta temporada" : "",
                   ]
@@ -2043,6 +2099,14 @@ export default function EditorMicrocicloPage() {
                         Copiar texto
                       </Button>
 
+                      <Button icon={Send} onClick={() => manda("whatsapp")} title="Abre WhatsApp con la semana escrita y descarga la lámina para adjuntarla">
+                        WhatsApp
+                      </Button>
+
+                      <Button icon={Mail} onClick={() => manda("correo")} title="Abre el correo con la semana escrita y descarga la lámina para adjuntarla">
+                        Correo
+                      </Button>
+
                       <Button icon={ImageDown} disabled={exportando !== null} onClick={() => void exporta("png")} title="La semana en una lámina">
                         {exportando === "png" ? "Sacando…" : "Lámina PNG"}
                       </Button>
@@ -2053,6 +2117,16 @@ export default function EditorMicrocicloPage() {
                     </div>
                   }
                 >
+                  <div className="mb-3 max-w-2xl">
+                    <Field
+                      label="Objetivo de la semana"
+                      value={micro.objetivo ?? ""}
+                      onChange={(valor) => cambiaMicro((actual) => (actual ? { ...actual, objetivo: valor } : actual), { agrupa: "objetivo" })}
+                      placeholder={`Qué buscamos contra ${partidoDelMicro?.rival || micro.rival || "el rival"}, en una línea`}
+                      hint="Sale bajo el rival en la lámina y abre el texto del grupo. No se escribe en la hoja."
+                    />
+                  </div>
+
                   <TableroSemana
                     micro={micro}
                     referencia={referencia}
@@ -2080,7 +2154,10 @@ export default function EditorMicrocicloPage() {
                   const larga = suyos > MINUTOS_HABITUALES.maximo && !/^MD$/i.test(sesion.md.trim()); /* El partido son 90′: no es una sesión «larga». */
 
                   /* Las que se escriben: los cuatro huecos vacíos de cada día no son tareas. */
-                  const escritas = tareasQueSeEscriben(sesion).length;
+                  const escritas = tareasQueSeEscriben(sesion).filter((tarea) => !esCompeticion(tarea)).length;
+
+                  /* El día del partido no es una sesión: «MD · Partido · 90′». */
+                  const esPartidoDelDia = escritas === 0 && sesion.tareas.some(esCompeticion);
 
                   /* La valoración es de después de la sesión: sólo en los días que ya han llegado. */
                   const yaPaso = Boolean(hoy) && sesion.fecha <= hoy;
@@ -2094,9 +2171,11 @@ export default function EditorMicrocicloPage() {
                           ? `${sesion.md} · día libre`
                           : sesion.tareas.length === 0
                           ? `${sesion.md} · sin sesión`
+                          : esPartidoDelDia
+                          ? `${sesion.md} · Partido${suyos ? ` · ${suyos}′` : ""}`
                           : [
                               sesion.md,
-                              escritas ? `${escritas} tarea(s)` : "sin tareas rellenas",
+                              escritas ? plural(escritas, "tarea", "tareas") : "sin tareas rellenas",
                               suyos ? `${suyos}′${corta ? " (corta para lo habitual)" : larga ? " (larga)" : ""}` : "",
                             ]
                               .filter(Boolean)
@@ -2234,7 +2313,7 @@ export default function EditorMicrocicloPage() {
 
                 <Panel
                   title="Escribir en la hoja"
-                  subtitle={`${filas.length} fila(s) · microciclo ${micro.micro} · ${micro.rival}`}
+                  subtitle={`${plural(filas.length, "fila", "filas")} para la hoja · microciclo ${micro.micro} · ${micro.rival}`}
                   icon={Upload}
                   action={
                     <div className="flex flex-wrap gap-2">
@@ -2261,6 +2340,18 @@ export default function EditorMicrocicloPage() {
                     </div>
                   }
                 >
+                  {avisos.length > 0 && (
+                    <div className="mb-3">
+                      <Notice tone="info" title={`Antes de mandar la semana · ${plural(avisos.length, "cosa", "cosas")} que mirar`}>
+                        <ul className="space-y-1">
+                          {avisos.map((aviso) => (
+                            <li key={`${aviso.tipo}-${aviso.sesion}`}>{aviso.texto}</li>
+                          ))}
+                        </ul>
+                      </Notice>
+                    </div>
+                  )}
+
                   {problemas.length > 0 ? (
                     <Notice tone="warn" title="Antes de escribir">
                       <ul className="space-y-1">
@@ -2279,7 +2370,7 @@ export default function EditorMicrocicloPage() {
                         ? `Se sustituyen las filas del microciclo ${micro.micro} por estas ${filas.length}, en el mismo sitio de la pestaña, heredando las fórmulas de carga y las listas desplegables.`
                         : `Se añaden ${filas.length} filas al final de la pestaña, clonando la última para heredar las fórmulas de carga y las listas desplegables.`}
                       {enBlanco > 0
-                        ? ` ${enBlanco} tarea(s) en blanco —sin tipo, contenido ni tiempo— no se escriben.`
+                        ? ` ${plural(enBlanco, "tarea en blanco", "tareas en blanco")} —sin tipo, contenido ni tiempo— no se escriben.`
                         : ""}
                     </p>
                   )}
@@ -2294,10 +2385,10 @@ export default function EditorMicrocicloPage() {
 
                       <p className="text-[12px] leading-relaxed text-white/70">
                         Escritas <strong className="text-white/90">{escrito.escritas}</strong>{" "}
-                        fila(s)
+                        {escrito.escritas === 1 ? "fila" : "filas"}
                         {escrito.borradas ? `, borradas ${escrito.borradas}` : ""}. La hoja dice que
                         el microciclo {micro.micro} tiene ahora{" "}
-                        <strong className="text-white/90">{escrito.filas}</strong> fila(s).
+                        <strong className="text-white/90">{escrito.filas}</strong> {escrito.filas === 1 ? "fila" : "filas"}.
                       </p>
                     </div>
                   )}
@@ -2368,8 +2459,8 @@ export default function EditorMicrocicloPage() {
 
                   <p className="min-w-0 flex-1 truncate text-[11px] text-white/50">
                     <span className="font-semibold text-white/80">Micro {micro.micro}</span>
-                    {cuentas.tareas ? ` · ${cuentas.tareas} tarea(s)` : ""}
-                    {cuentas.total ? ` · ${cuentas.total}′` : ""}
+                    {` · ${textoDeCuentas(semana)}`}
+                    {filas.length ? ` · ${plural(filas.length, "fila", "filas")} para la hoja` : ""}
                     <span className="hidden sm:inline"> · borrador guardado en este aparato</span>
                   </p>
 
@@ -2381,7 +2472,7 @@ export default function EditorMicrocicloPage() {
                     }
                   >
                     {problemas.length > 0
-                      ? `${problemas.length} cosa(s) que revisar`
+                      ? plural(problemas.length, "cosa que revisar", "cosas que revisar")
                       : escrito
                         ? "Escrito en la hoja"
                         : "Revisar y escribir"}
@@ -2390,7 +2481,7 @@ export default function EditorMicrocicloPage() {
 
                 {/* La lámina se monta fuera de la vista para poder fotografiarla: apartada con posición, nunca con display:none, que se captura en blanco. */}
                 <div aria-hidden className="pointer-events-none fixed left-[-20000px] top-0">
-                  <LaminaSemana ref={laminaRef} micro={micro} partido={partidoDelMicro} />
+                  <LaminaSemana ref={laminaRef} micro={micro} partido={partidoDelMicro} referencia={referencia} />
                 </div>
               </>
             )}

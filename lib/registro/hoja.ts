@@ -219,6 +219,12 @@ export type MicroNuevo = {
   micro: number;
   rival: string;
   sesiones: SesionNueva[];
+  /**
+   * Lo que se busca esta semana contra el rival, en una o dos líneas
+   * (21/10/2026). Sale bajo el rival en la lámina y abre el texto del grupo.
+   * La hoja no tiene columna para esto: no se escribe en ella.
+   */
+  objetivo?: string;
 };
 
 /* ------------------------------------------------------------------ */
