@@ -46,6 +46,8 @@ import {
   Eraser,
   Eye,
   EyeOff,
+  FileDown,
+  FileUp,
   Film,
   Grid3x3,
   Keyboard,
@@ -130,6 +132,12 @@ import {
 import { useSesionCoding } from "@/hooks/useSesionCoding";
 import { duracionDeVideoMs } from "@/lib/coding/duracion";
 import { abreMp4 } from "@/lib/coding/mp4";
+import {
+  csvDeClips,
+  leeXmlSportscode,
+  xmlDeClips,
+} from "@/lib/coding/intercambio";
+import { descarga } from "@/lib/export/lienzos";
 import { caratulaDeJugador } from "@/lib/coding/portada";
 import {
   CLAVE_CONFIG_CODING,
@@ -1710,6 +1718,56 @@ function Coding() {
     sujeto,
     tiempoAhoraMs,
   ]);
+
+  /*
+  | Traer un timeline de SportsCode / Nacsport sobre el vídeo de delante.
+  |
+  | Los jugadores se reconocen por el nombre (con o sin dorsal); lo que no se
+  | reconoce entra como sujeto de equipo con su nombre, para no perderlo. Un
+  | solo paso de deshacer para todo lo importado.
+  */
+  const entradaXml = useRef<HTMLInputElement>(null);
+
+  const importaXml = useCallback(
+    async (fichero: File) => {
+      try {
+        const leido = leeXmlSportscode(await fichero.text(), {
+          jugadores,
+          comportamientos: config.comportamientos,
+          categorias: config.categorias,
+        });
+
+        const metidos = sesion.añadeImportados(
+          leido.clips,
+          estado.duracionMs || undefined,
+        );
+
+        if (metidos === 0) {
+          toast.error("El XML no trae ningún clip que se pueda usar.");
+          return;
+        }
+
+        const detalles = [
+          leido.descartadas > 0
+            ? `${leido.descartadas} sin tiempos válidos se han quedado fuera`
+            : "",
+          leido.sujetosNuevos.length > 0
+            ? `${leido.sujetosNuevos.length} ${leido.sujetosNuevos.length === 1 ? "código entra" : "códigos entran"} como equipo: ${leido.sujetosNuevos.slice(0, 4).join(", ")}${leido.sujetosNuevos.length > 4 ? "…" : ""}`
+            : "",
+          "Retroceso lo deshace todo de una vez",
+        ].filter(Boolean);
+
+        toast.success(`${metidos} ${metidos === 1 ? "clip importado" : "clips importados"} de ${fichero.name}`, {
+          description: detalles.join(" · "),
+        });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "No se ha podido leer el XML.",
+        );
+      }
+    },
+    [config.categorias, config.comportamientos, estado.duracionMs, jugadores, sesion],
+  );
 
   const reproduceClip = useCallback(
     (clip: ClipCoding) => {
@@ -4476,6 +4534,77 @@ function Coding() {
                     pizarrasDe={(clip) => pizarrasDeClip(clip).length}
                     exportando={exportador.exportando}
                   />
+
+                  {/*
+                  | Lo que entra y sale de otras herramientas: el timeline de
+                  | SportsCode o Nacsport (XML) y la tabla para Excel (CSV).
+                  | Sale lo que se ve en la lista, con sus filtros.
+                  */}
+                  <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-white/10 pt-3">
+                    <span className="mr-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+                      Intercambio
+                    </span>
+
+                    <input
+                      ref={entradaXml}
+                      type="file"
+                      accept=".xml,text/xml,application/xml"
+                      className="hidden"
+                      onChange={(evento) => {
+                        const fichero = evento.target.files?.[0];
+
+                        evento.target.value = "";
+
+                        if (fichero) void importaXml(fichero);
+                      }}
+                    />
+
+                    <Button
+                      icon={FileUp}
+                      onClick={() => entradaXml.current?.click()}
+                      disabled={!src}
+                      title={
+                        src
+                          ? "Traer un timeline de SportsCode, Hudl o Nacsport (XML) sobre el vídeo que está delante"
+                          : "Abre antes el vídeo sobre el que va el timeline"
+                      }
+                    >
+                      Importar XML
+                    </Button>
+
+                    <Button
+                      icon={FileDown}
+                      onClick={() =>
+                        descarga(
+                          new Blob([xmlDeClips(clipsDeLaLista, config.categorias)], {
+                            type: "application/xml",
+                          }),
+                          `${apodoCoding(titulo) || "coding"}-sportscode.xml`,
+                        )
+                      }
+                      disabled={clipsDeLaLista.length === 0}
+                      title="Los clips de la lista como timeline de SportsCode (lo abren también Nacsport y Metrica Play)"
+                    >
+                      XML SportsCode
+                    </Button>
+
+                    <Button
+                      icon={FileDown}
+                      onClick={() =>
+                        descarga(
+                          new Blob(
+                            [csvDeClips(clipsDeLaLista, config.categorias, videoDeClip)],
+                            { type: "text/csv;charset=utf-8" },
+                          ),
+                          `${apodoCoding(titulo) || "coding"}-clips.csv`,
+                        )
+                      }
+                      disabled={clipsDeLaLista.length === 0}
+                      title="Los clips de la lista en una tabla para Excel"
+                    >
+                      CSV
+                    </Button>
+                  </div>
                 </Panel>
 
                 {/* ------------------------ EXPORTACIÓN ------------------ */}

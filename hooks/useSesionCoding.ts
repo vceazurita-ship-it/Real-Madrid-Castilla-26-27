@@ -25,6 +25,7 @@ import {
   type FuenteVideo,
   type SesionCoding,
 } from "@/lib/coding/modelo";
+import type { ClipImportado } from "@/lib/coding/intercambio";
 import type { EscenaTel } from "@/lib/coding/telestracion";
 
 /**
@@ -161,6 +162,50 @@ export function useSesionCoding(opciones: {
       }, true);
 
       return null;
+    },
+    [muta, siguienteNumero],
+  );
+
+  /**
+   * Mete de una vez los clips de un timeline importado (XML de SportsCode).
+   *
+   * Un solo paso de deshacer para todos: si el fichero no era el bueno, se
+   * retira entero con una tecla. Van al vídeo que está delante, que es sobre
+   * el que se importó.
+   */
+  const añadeImportados = useCallback(
+    (lista: ClipImportado[], duracionVideoMs?: number) => {
+      const validos = lista.filter(
+        (uno) => problemaDeClip(uno.borrador) === null,
+      );
+
+      if (validos.length === 0) return 0;
+
+      muta((actual) => {
+        const video = nombreDeFuente(actual.fuente);
+        const ahora = new Date().toISOString();
+
+        let numero = siguienteNumero(actual.clips);
+
+        const nuevos = validos.map((uno) => {
+          const clip = creaClip(
+            { ...uno.borrador, duracionVideoMs },
+            numero++,
+            ahora,
+          );
+
+          return {
+            ...clip,
+            tags: uno.tags,
+            nota: uno.nota,
+            ...(video ? { video } : {}),
+          };
+        });
+
+        return { ...actual, clips: [...actual.clips, ...nuevos], abierta: true };
+      }, true);
+
+      return validos.length;
     },
     [muta, siguienteNumero],
   );
@@ -781,6 +826,7 @@ export function useSesionCoding(opciones: {
     /** Manda ya lo pendiente (el botón «Guardar ahora» de la cabecera). */
     guardaYa: doc.guardaYa,
     añadeClip,
+    añadeImportados,
     ponCorteCompleto,
     ponCortesCompletos,
     ponVideoFuera,

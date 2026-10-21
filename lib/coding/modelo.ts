@@ -902,10 +902,21 @@ export const SIN_FILTRO: FiltroClips = {
   soloRevisar: false,
 };
 
+/*
+| «Sin categoría» es un filtro de verdad, no la ausencia de filtro: la matriz
+| lo pide como `""` y la tabla de la derecha como `sin-categoria` (su clave en
+| `porCategoria`). Antes los dos se leían como «sin filtro» y pulsar esa fila
+| enseñaba todos los clips.
+*/
+const categoriaDelFiltro = (categoria: string | null) =>
+  categoria === "sin-categoria" ? "" : categoria;
+
 export function pasaFiltro(clip: ClipCoding, filtro: FiltroClips) {
+  const categoria = categoriaDelFiltro(filtro.categoria);
+
   return (
     (!filtro.sujeto || clip.jugadorId === filtro.sujeto) &&
-    (!filtro.categoria || clip.categoriaId === filtro.categoria) &&
+    (categoria === null || clip.categoriaId === categoria) &&
     (!filtro.tag || tieneTag(clip, filtro.tag)) &&
     (!filtro.soloRevisar || clip.estado === "revisar")
   );
@@ -913,7 +924,10 @@ export function pasaFiltro(clip: ClipCoding, filtro: FiltroClips) {
 
 export function hayFiltro(filtro: FiltroClips) {
   return Boolean(
-    filtro.sujeto || filtro.categoria || filtro.tag || filtro.soloRevisar,
+    filtro.sujeto ||
+      filtro.categoria !== null ||
+      filtro.tag ||
+      filtro.soloRevisar,
   );
 }
 
