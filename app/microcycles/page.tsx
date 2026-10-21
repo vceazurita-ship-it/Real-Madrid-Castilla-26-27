@@ -15,6 +15,7 @@ import {
   type ReactNode,
 } from "react";
 import Papa from "papaparse";
+import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
@@ -30,6 +31,7 @@ import {
   Layers,
   ListChecks,
   Minus,
+  Pencil,
   Search,
   Sparkles,
   Star,
@@ -1580,6 +1582,18 @@ export default function Page() {
                 )}
 
                 <div className="hidden sm:block h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
+
+                {/* Del análisis a la edición de ese mismo micro (21/10/2026): antes había que buscarlo otra vez en el editor. */}
+                {selectedMicroStat && /^[0-9]+$/.test(String(selectedMicroStat.micro)) && (
+                  <Link
+                    href={`/laboratorio/microciclo?micro=${selectedMicroStat.micro}`}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-white/12 px-4 py-2.5 text-sm text-white/70 transition hover:border-white/25 hover:text-white"
+                    title="Abrir este microciclo en el editor: mover tareas, copiar días, sacar la lámina"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Editar este micro
+                  </Link>
+                )}
 
                 <button
                   onClick={() => setInformeAbierto(true)}

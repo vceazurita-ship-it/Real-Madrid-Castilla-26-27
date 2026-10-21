@@ -437,8 +437,8 @@ export function copiaDeTarea(tarea: TareaNueva): TareaNueva {
  * Una semana se parece mucho a la anterior: los mismos tipos de tarea en el
  * mismo sitio, los mismos contenidos. Copiarla y cambiar lo que toque es la
  * mitad del trabajo. Viajan el formato y el bloque que alimenta la demanda
- * cognitiva; **tiempo e intensidad se quedan en blanco**: los pone otra
- * persona (ver `copiaDeTarea`).
+ * cognitiva; **tiempo e intensidad llegan en blanco salvo que se pida
+ * copiarlos**: normalmente los pone otra persona (ver `copiaDeTarea`).
  *
  * **Se ata por MD, no por día de la semana**: el MD-2 de la semana pasada es el
  * MD-2 de ésta aunque uno cayera en sábado y el otro en lunes. Lo que no
@@ -487,8 +487,11 @@ export function copiaEstructura(
         grupo: tarea.grupo || "Plantilla Parcial",
         contenidoPrincipal: tarea.contenidoPrincipal,
         contenidoSecundario: tarea.contenidoSecundario,
-        tiempo: 0,
-        intensidad: 0,
+        /* Llegan a 0 salvo que se marque «Copiar también el tiempo y la
+           intensidad» (21/10/2026): aquí se ponían a 0 siempre y la casilla
+           no hacía nada. Quien llama decide. */
+        tiempo: tarea.tiempo,
+        intensidad: tarea.intensidad,
         exigCog: tarea.exigCog,
         jugadores: tarea.jugadores ?? 0,
         densidad: tarea.densidad ?? 0,
