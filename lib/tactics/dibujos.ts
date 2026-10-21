@@ -280,6 +280,23 @@ export function colocaDibujo(
 
   if (portero) destino.set(portero.id, sitios[indicePorteria]);
 
+  /*
+  | Encima de uno del otro equipo, tampoco (21/10/2026): con el bloque alto
+  | nuestras puntas caían sobre sus mediocentros y las dos fichas se tapaban.
+  | Se queda a su lado, un paso hacia el carril de fuera.
+  */
+  const contrarios = tokens.filter((token) => token.kind !== kind && (token.kind === "home" || token.kind === "away"));
+
+  for (const [id, sitio] of destino) {
+    const pegado = contrarios.find((otro) => Math.hypot((otro.x - sitio.x) * 1.05, otro.y - sitio.y) < 3.6);
+
+    if (!pegado) continue;
+
+    const hacia = sitio.y >= pegado.y ? 1 : -1;
+
+    destino.set(id, { x: sitio.x, y: Math.min(PITCH_HEIGHT - 2, Math.max(2, pegado.y + hacia * 3.8)) });
+  }
+
   return {
     tokens: tokens.map((token) => {
       const sitio = destino.get(token.id);
