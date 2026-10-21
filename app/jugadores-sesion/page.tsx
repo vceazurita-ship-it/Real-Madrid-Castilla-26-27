@@ -114,6 +114,7 @@ import {
   tintaSobre,
   valida,
   type AlmacenEquipos,
+  type Aviso,
   type EquipoTarea,
   type JugadorSesion,
   type Puesto,
@@ -549,6 +550,7 @@ function BarraReparto({
  */
 function EstructuraEquipo({
   equipo,
+  descompensado = false,
   jugadores,
   puestoDe,
   elegido,
@@ -563,6 +565,8 @@ function EstructuraEquipo({
   onBorraMia,
 }: {
   equipo: EquipoTarea;
+  /** Hay un aviso de líneas descompensadas: el «10/10» no va en verde. */
+  descompensado?: boolean;
   jugadores: JugadorSesion[];
   puestoDe: PuestoDe;
   elegido: number | null;
@@ -659,8 +663,8 @@ function EstructuraEquipo({
           {creando ? "Cerrar" : "Crear"}
         </button>
         <span
-          className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${deCampo === total ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
-          title="Jugadores de campo del equipo / huecos del dibujo (el portero no se dibuja)"
+          className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${deCampo === total && !descompensado ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
+          title={descompensado ? "Los huecos están llenos, pero las líneas no van parejas entre equipos: mira el validador" : "Jugadores de campo del equipo / huecos del dibujo (el portero no se dibuja)"}
         >
           {deCampo}/{total} huecos
         </span>
@@ -2079,7 +2083,47 @@ export default function JugadoresSesionPage() {
   /* Los que hacen la tarea sin demarcación: el reparto «por puesto» no sabe dónde juegan (21/10/2026). */
   const sinDemarcacion = sesion && reparto ? [...Object.values(reparto.porEquipo).flat(), ...reparto.comodines, ...reparto.sinSitio].filter((j) => !puestoDe(j)) : [];
 
-  const avisos = sesion && tarea ? valida(tarea, sesion, puestoDe) : [];
+  const enLaTarea = reparto ? [...Object.values(reparto.porEquipo).flat(), ...reparto.comodines] : [];
+
+  /*
+  | El formato de la hoja contra los colocados (21/10/2026): «8v8+1» son 17, y
+  | si en la tarea hay 20, o sobran tres o son comodines. Lo pidió el entrenador:
+  | la diapositiva ya trae el formato de la hoja y no puede decir otra cosa.
+  */
+  const avisoDeFormato = ((): Aviso[] => {
+    const formato = detalles[activa]?.formato ?? "";
+    const m = formato.match(/(\d+)\s*v\s*(\d+)(?:\s*\+\s*(\d+))?/i);
+    if (!m || !reparto) return [];
+    const esperados = Number(m[1]) + Number(m[2]) + Number(m[3] ?? 0);
+    const hay = enLaTarea.length;
+    if (!hay || hay === esperados) return [];
+    const dif = Math.abs(hay - esperados);
+    return [
+      {
+        nivel: "aviso",
+        texto:
+          hay > esperados
+            ? `La hoja dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ¿${dif} ${dif === 1 ? "sobra o es comodín" : "sobran o son comodines"}?`
+            : `La hoja dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ${dif === 1 ? "falta 1" : `faltan ${dif}`}.`,
+      },
+    ];
+  })();
+
+  const avisos = sesion && tarea ? [...valida(tarea, sesion, puestoDe), ...avisoDeFormato] : [];
+
+  /* Hay líneas descompensadas: el «10/10 huecos» no puede quedarse en verde. */
+  const lineasDescompensadas = avisos.some((a) => a.nivel === "aviso" && /descompensad/i.test(a.texto));
+
+  /* De dónde sale el puesto de cada uno de la tarea: lo que el reparto sabe de ellos. */
+  const origenPuestos = enLaTarea.reduce(
+    (cuenta, j) => {
+      if (j.demarcacion || j.puesto || demarcacionesAuto[j.id] || puestosAuto[j.id]) cuenta.suya += 1;
+      else if (demarcacionDe(j)) cuenta.vuestra += 1;
+      else cuenta.sin += 1;
+      return cuenta;
+    },
+    { suya: 0, vuestra: 0, sin: 0 },
+  );
 
   const estadoTareas = useMemo(
     () => (sesion ? sesion.tareas.map((t) => valida(t, sesion, puestoDe)) : []),
@@ -2773,6 +2817,7 @@ export default function JugadoresSesionPage() {
                           {tarea.conEstructura && (
                             <EstructuraEquipo
                               equipo={equipo}
+                              descompensado={lineasDescompensadas}
                               jugadores={reparto.porEquipo[equipo.id] ?? []}
                               puestoDe={puestoDe}
                               elegido={huecoTocado?.equipo === equipo.id ? huecoTocado.hueco : null}
@@ -2909,6 +2954,25 @@ export default function JugadoresSesionPage() {
                           </li>
                         ))}
                       </ul>
+                      {/*
+                      | El criterio, siempre a la vista (21/10/2026): «parejos» sólo lo decía
+                      | el aviso al proponer, y desaparecía. Y de dónde sale el puesto de los
+                      | de esta tarea, que es lo que el reparto sabe de ellos.
+                      */}
+                      <p className="mt-3 rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-2 text-[11px] leading-snug text-white/55">
+                        <span className="font-semibold text-white/75">Criterio del reparto:</span> misma demarcación, sí · nivel, no se mide.
+                        {enLaTarea.length > 0 && (
+                          <span className="mt-1 block text-white/45">
+                            {[
+                              origenPuestos.suya ? `${origenPuestos.suya} por su demarcación` : "",
+                              origenPuestos.vuestra ? `${origenPuestos.vuestra} por dónde los colocáis` : "",
+                              origenPuestos.sin ? `${origenPuestos.sin} sin demarcación, donde haya sitio` : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        )}
+                      </p>
                       {estadoTareas.some((s) => !tareaLista(s)) && (
                         <p className="mt-3 border-t border-white/8 pt-2 text-[11px] text-white/40">
                           Por revisar:{" "}
