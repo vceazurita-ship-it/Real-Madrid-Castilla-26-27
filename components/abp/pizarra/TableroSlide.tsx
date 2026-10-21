@@ -140,7 +140,9 @@ function maquetaDe(conPanel: boolean, conNotas: boolean, jugada?: Caja | null): 
 
     let x0 = Math.max(0, jugada.x0 - aire);
     let x1 = Math.min(TABLERO_W, jugada.x1 + aire);
-    let y0 = Math.max(CAMPO_DESDE, jugada.y0 - aire);
+    /* Aquí sí puede asomar el graderío: una cara que corre hacia la portería
+       acaba con la cabeza por encima del filo de la cabecera. */
+    let y0 = Math.max(0, jugada.y0 - aire);
     let y1 = Math.min(TABLERO_H, jugada.y1 + aire);
 
     /* La misma proporción que el hueco, creciendo hacia los dos lados. */
@@ -162,7 +164,7 @@ function maquetaDe(conPanel: boolean, conNotas: boolean, jugada?: Caja | null): 
 
     /* Sin acercar más de la cuenta, el recorte vuelve a crecer. */
     const anchoVisto = Math.min(TABLERO_W, anchoCaja / k);
-    const altoVisto = Math.min(altoFuente, altoCaja / k);
+    const altoVisto = Math.min(TABLERO_H, altoCaja / k);
 
     k = Math.min(anchoCaja / anchoVisto, altoCaja / altoVisto);
 
@@ -170,7 +172,7 @@ function maquetaDe(conPanel: boolean, conNotas: boolean, jugada?: Caja | null): 
     const cy = (y0 + y1) / 2;
 
     const ox = Math.max(0, Math.min(TABLERO_W - anchoVisto, cx - anchoVisto / 2));
-    const oy = Math.max(CAMPO_DESDE, Math.min(TABLERO_H - altoVisto, cy - altoVisto / 2));
+    const oy = Math.max(0, Math.min(TABLERO_H - altoVisto, cy - altoVisto / 2));
 
     const w = anchoVisto * k;
     const h = altoVisto * k;
@@ -217,9 +219,12 @@ function cajaDeJugada(slide: SlidePizarra): Caja | null {
     ys.push(rival.y - 60, rival.y + 8);
   }
 
+  /* Al final de una carrera hay una cara: se cuenta su foto entera. */
   for (const trazo of slide.trazos ?? []) {
     xs.push(trazo.x1, trazo.x2, ...(trazo.cx != null ? [trazo.cx] : []));
     ys.push(trazo.y1, trazo.y2, ...(trazo.cy != null ? [trazo.cy] : []));
+
+    if (trazo.tipo === "carrera") ys.push(trazo.y2 - FOTO_H - 10);
   }
 
   for (const puesto of puestosDe(slide)) {
