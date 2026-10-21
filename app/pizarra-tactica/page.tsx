@@ -88,6 +88,23 @@ export default function PizarraTacticaPage() {
   */
   const { enPantallaCompleta: sinCromo } = usePantallaCompleta();
 
+  /* El próximo partido, para el nombre con el que nace una pizarra nueva. */
+  const [partido, setPartido] = useState<{ rival: string; fecha: string } | undefined>(undefined);
+
+  useEffect(() => {
+    let vivo = true;
+
+    void semanaActual()
+      .then((s) => {
+        if (vivo && s) setPartido({ rival: s.rival, fecha: s.fecha });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
   /*
   | ¿Se llega desde la portada pidiendo los dos onces?
   |
@@ -262,10 +279,24 @@ export default function PizarraTacticaPage() {
 
     if (como === "copia" && (!original || !docAbierto.current)) return;
 
-    const board: BoardRef = {
-      id: tacticId("board"),
-      nombre: original ? `${original.nombre} (copia)` : `Pizarra ${boards.length + 1}`,
-    };
+    /*
+    | Nace con el nombre con el que saldrá su fichero (tercera vuelta,
+    | 21/10/2026): «Pizarra 2» encabezaba la lista y la cabecera, y luego la
+    | lámina salía con otro. El rival y el día del próximo partido, y si se
+    | repite, con número.
+    */
+    const propuesto = original
+      ? `${original.nombre} (copia)`
+      : partido
+        ? [partido.rival, como === "onces" ? "Los dos onces" : diaCorto(partido.fecha)].filter(Boolean).join(" · ")
+        : `Pizarra ${boards.length + 1}`;
+
+    const ocupados = new Set(boards.map((b) => b.nombre.trim().toLowerCase()));
+    let nombre = propuesto;
+
+    for (let n = 2; ocupados.has(nombre.trim().toLowerCase()); n += 1) nombre = `${propuesto} ${n}`;
+
+    const board: BoardRef = { id: tacticId("board"), nombre };
 
     if (como === "onces") {
       const base = emptyDoc(board.nombre);
@@ -944,6 +975,15 @@ function BoardEditor({
 const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
 /** «domingo 25 en Algeciras» o «domingo 25 contra el Algeciras CF», como lo diría el cuerpo técnico. */
+/** «domingo 25»: como lo dice el cuerpo técnico. */
+function diaCorto(fecha: string) {
+  const dia = new Date(`${fecha}T12:00:00`);
+
+  if (Number.isNaN(dia.getTime())) return "";
+
+  return dia.toLocaleDateString("es-ES", { weekday: "long", day: "numeric" }).replace(",", "");
+}
+
 function diaYLugar(fecha: string, rival: string, partido?: { rival: string; fecha: string; lado: "casa" | "fuera" }) {
   const [anio, mes, dia] = fecha.split("-").map(Number);
   const nombre = anio && mes && dia ? `${DIAS_SEMANA[new Date(anio, mes - 1, dia, 12).getDay()]} ${dia}` : fecha;

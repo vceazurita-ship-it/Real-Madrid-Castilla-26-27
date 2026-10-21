@@ -194,11 +194,17 @@ export interface DatosLamina {
 /** Una caja de texto de la lámina, para el PowerPoint (en tanto por uno). */
 export type TextoLamina = { capa: { x: number; y: number; w: number; h: number }; texto: TextoPptx; nombre: string };
 
-const PAD = 48;
-const BANDA = 124;
-const PIE = 52;
-/** La columna de la derecha: quién es quién y lo que se cuenta. */
-const COLUMNA = 500;
+/*
+| La lámina del campo (21/10/2026, tercera vuelta): un campo de 100 × 68 en
+| una hoja 16:9 sólo crece si se le quita alto a lo demás. La banda baja a 80
+| y el pie se va a la columna: así el campo pasa del 64 % del ancho a casi
+| tres cuartos, y lo que se cuenta va a su lado a 34 px.
+*/
+const PAD_L = 24;
+const BANDA_L = 80;
+const AIRE_L = 14;
+const COLUMNA_MIN = 380;
+const COLUMNA_MAX = 560;
 
 /** Parte un texto en renglones que quepan en `ancho`, con «…» si no cabe en `maximo`. */
 function renglones(ctx: CanvasRenderingContext2D, texto: string, ancho: number, maximo: number) {
@@ -354,59 +360,56 @@ export function pintaLamina(
 
   /* La banda de arriba, a sangre, con el filo rosa de la plantilla. */
   ctx.fillStyle = C.azul;
-  ctx.fillRect(0, 0, LAMINA_W, BANDA);
+  ctx.fillRect(0, 0, LAMINA_W, BANDA_L);
   ctx.fillStyle = C.rosa;
-  ctx.fillRect(0, BANDA, LAMINA_W, 6);
+  ctx.fillRect(0, BANDA_L, LAMINA_W, 6);
 
-  escribe("RMCF CASTILLA · PIZARRA TÁCTICA", PAD, 46, 24, 600, C.rosa, "izq", 5, "Cabecera");
+  escribe("RMCF CASTILLA · PIZARRA TÁCTICA", PAD_L, 30, 18, 600, C.rosa, "izq", 5, "Cabecera");
 
-  ctx.font = `700 56px ${familia}, Arial, sans-serif`;
-  escribe(cabe(ctx, datos.titulo.toUpperCase(), LAMINA_W * 0.55), PAD, 104, 56, 700, C.crema, "izq", 1, "Título");
+  ctx.font = `700 42px ${familia}, Arial, sans-serif`;
+  escribe(cabe(ctx, datos.titulo.toUpperCase(), LAMINA_W * 0.6), PAD_L, 68, 42, 700, C.crema, "izq", 1, "Título");
 
   const escenaRotulo = datos.total > 1 ? `ESCENA ${datos.indice + 1} DE ${datos.total}` : "ESCENA";
 
-  escribe(escenaRotulo, LAMINA_W - PAD, 46, 24, 600, C.rosa, "dcha", 5, "Número de escena");
+  escribe(escenaRotulo, LAMINA_W - PAD_L, 30, 18, 600, C.rosa, "dcha", 5, "Número de escena");
 
-  ctx.font = `600 42px ${familia}, Arial, sans-serif`;
-  escribe(cabe(ctx, datos.escena, LAMINA_W * 0.36), LAMINA_W - PAD, 102, 42, 600, C.crema, "dcha", 0, "Escena");
+  ctx.font = `600 34px ${familia}, Arial, sans-serif`;
+  escribe(cabe(ctx, datos.escena, LAMINA_W * 0.34), LAMINA_W - PAD_L, 68, 34, 600, C.crema, "dcha", 0, "Escena");
 
-  /* El pie, a sangre: de quién, contra quién y cuándo. */
-  if (datos.pie) {
-    ctx.fillStyle = C.crema;
-    ctx.fillRect(0, LAMINA_H - PIE, LAMINA_W, PIE);
-    escribe(datos.pie.toUpperCase(), PAD, LAMINA_H - 17, 22, 600, C.gris, "izq", 4, "Pie");
-  }
-
-  /* El campo: lo más grande que quepa a la izquierda de la columna. */
-  const arriba = BANDA + 6 + 30;
-  const abajo = LAMINA_H - (datos.pie ? PIE : 0) - 30;
-  const huecoAncho = LAMINA_W - PAD * 2 - COLUMNA - 40;
+  /* El campo: todo el alto que queda, y la columna con lo que sobra de ancho. */
+  const arriba = BANDA_L + 6 + AIRE_L;
+  const abajo = LAMINA_H - AIRE_L;
   const huecoAlto = abajo - arriba;
+
+  const anchoAlAlto = (campo.width * huecoAlto) / campo.height;
+  const columna = Math.max(COLUMNA_MIN, Math.min(COLUMNA_MAX, LAMINA_W - PAD_L * 2 - AIRE_L * 2 - anchoAlAlto));
+  const huecoAncho = LAMINA_W - PAD_L * 2 - AIRE_L * 2 - columna;
 
   const escala = Math.min(huecoAncho / campo.width, huecoAlto / campo.height);
   const w = campo.width * escala;
   const h = campo.height * escala;
-  const x = PAD + (huecoAncho - w) / 2;
+  const x = PAD_L + (huecoAncho - w) / 2;
   const y = arriba + (huecoAlto - h) / 2;
 
   pintaCampo(ctx, campo, x, y, w, h);
 
-  /* La columna: quién es quién arriba, lo que se cuenta debajo. */
-  const cx = LAMINA_W - PAD - COLUMNA;
+  /* La columna: quién es quién arriba, lo que se cuenta debajo y el pie al final. */
+  const cx = LAMINA_W - PAD_L - columna;
   let cursor = y;
 
   if (datos.leyenda?.length) {
     for (const item of datos.leyenda) {
-      puntoLeyenda(ctx, cx + 16, cursor + 20, 15, item.color, item.borde);
+      puntoLeyenda(ctx, cx + 17, cursor + 21, 16, item.color, item.borde);
 
       ctx.font = `600 30px ${familia}, Arial, sans-serif`;
-      escribe(cabe(ctx, item.texto, COLUMNA - 52), cx + 46, cursor + 31, 30, 600, C.azul, "izq", 0, "Leyenda");
-      cursor += 52;
+      escribe(cabe(ctx, item.texto, columna - 54), cx + 48, cursor + 32, 30, 600, C.azul, "izq", 0, "Leyenda");
+      cursor += 54;
     }
 
-    cursor += 22;
+    cursor += 20;
   }
 
+  const pieAlto = datos.pie ? 64 : 0;
   const nota = (datos.nota ?? "").trim();
 
   if (nota) {
@@ -414,22 +417,31 @@ export function pintaLamina(
     const INTER = 44;
 
     ctx.font = `500 ${TAM}px ${familia}, Arial, sans-serif`;
-    const maximo = Math.max(2, Math.floor((y + h - cursor - 96) / INTER));
-    const lineas = renglones(ctx, nota, COLUMNA - 66, maximo);
+    const maximo = Math.max(2, Math.floor((y + h - pieAlto - cursor - 96) / INTER));
+    const lineas = renglones(ctx, nota, columna - 58, maximo);
     const alto = 76 + lineas.length * INTER;
 
     ctx.fillStyle = C.crema;
     ctx.beginPath();
-    ctx.roundRect(cx, cursor, COLUMNA, alto, 16);
+    ctx.roundRect(cx, cursor, columna, alto, 16);
     ctx.fill();
     ctx.fillStyle = C.rosa;
     ctx.fillRect(cx, cursor, 10, alto);
 
-    escribe("LO QUE SE CUENTA", cx + 36, cursor + 42, 22, 600, C.gris, "izq", 4, "Rótulo de la nota");
+    escribe("LO QUE SE CUENTA", cx + 32, cursor + 42, 22, 600, C.gris, "izq", 4, "Rótulo de la nota");
 
     lineas.forEach((linea, indice) =>
-      escribe(linea, cx + 36, cursor + 52 + TAM * 0.92 + indice * INTER, TAM, 500, C.azul, "izq", 0, `Nota ${indice + 1}`),
+      escribe(linea, cx + 32, cursor + 52 + TAM * 0.92 + indice * INTER, TAM, 500, C.azul, "izq", 0, `Nota ${indice + 1}`),
     );
+  }
+
+  /* El pie, al final de la columna: de quién, contra quién y cuándo. */
+  if (datos.pie) {
+    ctx.fillStyle = C.rosa;
+    ctx.fillRect(cx, y + h - pieAlto + 6, columna, 3);
+
+    ctx.font = `600 21px ${familia}, Arial, sans-serif`;
+    escribe(cabe(ctx, datos.pie.toUpperCase(), columna), cx, y + h - 14, 21, 600, C.gris, "izq", 3, "Pie");
   }
 
   return textos;

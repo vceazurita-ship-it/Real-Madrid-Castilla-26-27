@@ -132,6 +132,8 @@ import { BalonOficial } from "@/components/tactics/BalonOficial";
 import { CAMPOS, CAMPO_POR_DEFECTO } from "@/lib/tactics/campos";
 import { creaPptx } from "@/lib/export/pptx";
 import { MuxorMp4 } from "@/lib/coding/mp4";
+import { separaParaExportar } from "@/lib/tactics/separa";
+import { conTildes } from "@/lib/rivals/tildes";
 import type { Bytes } from "@/lib/export/zip";
 import { cn } from "@/lib/utils";
 
@@ -172,7 +174,8 @@ const PASO_LARGO = 2;
  * mismo campo unos gritaban y otros no, y los de mayúsculas tapaban el doble.
  */
 function nombreCorto(nombre: string) {
-  let limpio = nombre.trim().replace(/\s+/g, " ");
+  /* Con sus tildes (21/10/2026): la hoja de los rivales las pierde («Ivan Moreno»). */
+  let limpio = conTildes(nombre).trim().replace(/\s+/g, " ");
 
   if (limpio && limpio === limpio.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(limpio)) {
     limpio = limpio
@@ -726,7 +729,10 @@ export default function TacticsBoard({
    * fondo podía taparse encima de otra que está en primer plano.
    */
   const paintedTokens = useMemo(() => {
-    if (camera.render !== "3d" || exporting) return visibleTokens;
+    /* Al exportar van un 30 % más grandes: se abren lo justo para no montarse. */
+    if (exporting) return separaParaExportar(visibleTokens, TOKEN_STYLE.home.radius * 2 * 1.3);
+
+    if (camera.render !== "3d") return visibleTokens;
 
     const pose = camera.pose;
 
@@ -1750,7 +1756,7 @@ export default function TacticsBoard({
               alto: LAMINA_H,
               orientacion: "landscape" as const,
               margen: 0,
-              bandas: { arriba: PALETA_LAMINA.azul, abajo: pie ? PALETA_LAMINA.crema : PALETA_LAMINA.papel },
+              bandas: { arriba: PALETA_LAMINA.azul, abajo: PALETA_LAMINA.papel },
             }))
           );
 
@@ -2444,7 +2450,7 @@ export default function TacticsBoard({
       {/* CAMPO */}
 
       <PitchStage
-        className="max-sm:-order-1"
+        className="max-sm:-order-1 max-sm:-mx-3 max-sm:rounded-2xl"
         camera={camera}
         aPantallaCompleta={aPantallaCompleta}
         aspect={`${viewBox.width} / ${viewBox.height}`}
