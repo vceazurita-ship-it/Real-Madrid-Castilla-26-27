@@ -53,6 +53,10 @@ import {
 } from "@/lib/abp/microciclo";
 import type { RegistroTarea } from "@/lib/abp/registro";
 import type { FilaCruce } from "@/lib/abp/transferencia";
+import { porqueDe } from "@/lib/abp/semana-revision";
+
+/** «1 entreno», «5 entrenos»: nada de «entreno(s)» en un documento del club. */
+const cuenta = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 type Estado =
   | { fase: "cargando" }
@@ -213,7 +217,7 @@ export function BocetoDialog({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-[11px] text-white/40">
             {estado.fase === "listo"
-              ? `${fmtMin(estado.boceto.minutos)} en ${estado.boceto.diasEntrenados} entreno(s) · objetivo ${estado.boceto.objetivo.minimo}-${estado.boceto.objetivo.maximo}′`
+              ? `${fmtMin(estado.boceto.minutos)} en ${cuenta(estado.boceto.diasEntrenados, "entreno", "entrenos")} · objetivo ${estado.boceto.objetivo.minimo}-${estado.boceto.objetivo.maximo}′`
               : "Preparando la propuesta…"}
           </p>
 
@@ -321,7 +325,7 @@ export function BocetoDialog({
                   {estado.ventana.rivalHoja || "sin rival"})
                 </>
               )}
-              . {estado.boceto.diasEntrenados} día(s) de entrenamiento{explicativos ? " según la hoja" : ""}.
+              . {cuenta(estado.boceto.diasEntrenados, "día", "días")} de entrenamiento{explicativos ? " según la hoja" : ""}.
             </p>
           </div>
 
@@ -364,7 +368,7 @@ export function BocetoDialog({
                       {suyo.trabajos.map((trabajo) => (
                         <li key={trabajo.id} className="rounded-xl bg-white/[0.03] px-2.5 py-2">
                           <p className="text-[11px] text-white/75">
-                            {fmtMin(trabajo.minutos)} · {etiquetaTrabajo(trabajo)}
+                            {trabajo.minutos > 0 ? fmtMin(trabajo.minutos) : "Sin tiempo"} · {etiquetaTrabajo(trabajo)}
                           </p>
 
                           <p className="text-[10px] uppercase tracking-wide text-white/35">
@@ -372,9 +376,37 @@ export function BocetoDialog({
                             {trabajo.medio === "video" ? "Vídeo" : "Campo"}
                           </p>
 
-                          <p className="mt-1 text-[10px] leading-relaxed text-white/40">
-                            {trabajo.notas.replace(/^Boceto ·\s*/, "")}
-                          </p>
+                          {(() => {
+                            /* El porqué en lenguaje de campo; lo escrito a
+                               mano, debajo y tal cual. */
+                            const { porque, resto } = porqueDe(trabajo.notas, explicativos);
+
+                            return (
+                              <>
+                                {porque && (
+                                  <p className="mt-1 text-[10.5px] leading-relaxed text-white/55">
+                                    <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+                                      Por qué ·{" "}
+                                    </span>
+                                    {porque}
+                                  </p>
+                                )}
+
+                                {trabajo.objetivo?.trim() && (
+                                  <p className="mt-1 text-[10.5px] leading-relaxed text-white/55">
+                                    <span className="font-semibold text-emerald-300">Éxito · </span>
+                                    {trabajo.objetivo.trim()}
+                                  </p>
+                                )}
+
+                                {resto && (
+                                  <p className="mt-1 whitespace-pre-wrap text-[10px] leading-relaxed text-white/40">
+                                    {resto}
+                                  </p>
+                                )}
+                              </>
+                            );
+                          })()}
                         </li>
                       ))}
                     </ul>
@@ -382,7 +414,7 @@ export function BocetoDialog({
 
                   {suyo.trabajos.length === 0 && dia.tipo === "entreno" && (
                     <p className="mt-2 text-[10px] text-white/30">
-                      Sin balón parado{dia.tareasHoja ? ` · ${dia.tareasHoja} tarea(s)${explicativos ? " en la hoja" : ""}` : ""}.
+                      Sin balón parado{dia.tareasHoja ? ` · ${cuenta(dia.tareasHoja, "tarea", "tareas")} en la sesión` : ""}.
                     </p>
                   )}
                 </div>
@@ -390,8 +422,11 @@ export function BocetoDialog({
             })}
           </div>
 
-          {/* ---------------- DE DÓNDE SALE ---------------- */}
+          {/* ---------------- DE DÓNDE SALE ----------------
+              Es método (fuentes, pesos y cómo se prorratea): sólo con los
+              textos explicativos, como pide el cuerpo técnico (14/10/2026). */}
 
+          {explicativos && (
           <div className="rounded-2xl border border-white/[0.07] px-4 py-3">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/50">
               <Info size={12} aria-hidden /> De dónde sale
@@ -432,9 +467,10 @@ export function BocetoDialog({
               )}
             </ul>
           </div>
+          )}
 
           {(estado.boceto.avisos.length > 0 ||
-            (estado.rival?.avisos.length ?? 0) > 0 ||
+            (explicativos && (estado.rival?.avisos.length ?? 0) > 0) ||
             !dentro) && (
             <Notice tone="warn" title="Lo que hay que saber antes de cerrarlo">
               <ul className="space-y-1">
@@ -442,7 +478,7 @@ export function BocetoDialog({
                   <li key={aviso}>{aviso}</li>
                 ))}
 
-                {(estado.rival?.avisos ?? []).map((aviso) => (
+                {(explicativos ? (estado.rival?.avisos ?? []) : []).map((aviso) => (
                   <li key={aviso}>{aviso}</li>
                 ))}
 

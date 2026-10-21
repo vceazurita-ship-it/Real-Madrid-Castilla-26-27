@@ -338,6 +338,13 @@ export type Trabajo = {
   /** `Tarea` de la hoja, para no importar dos veces lo mismo. */
   tareaId?: string;
   notas: string;
+  /**
+   * Qué tiene que pasar en la tarea para darla por buena (21/10/2026):
+   * «el primer palo gana el primer contacto», «nadie pierde su marca en el
+   * bloqueo». Es lo que el entrenador mira en el campo y lo que se revisa
+   * después; los documentos de antes no lo traen.
+   */
+  objetivo?: string;
 };
 
 export type PlanDia = {

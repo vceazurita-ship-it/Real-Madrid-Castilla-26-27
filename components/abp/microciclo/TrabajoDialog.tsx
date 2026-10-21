@@ -13,7 +13,9 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 
 import { Button, Dialog, TextArea, sePuedeDescartar } from "@/components/abp/ui";
-import { Explicativo } from "@/components/ui/textos-analisis";
+import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-analisis";
+import { porqueDe } from "@/lib/abp/semana-revision";
+import { criterioDe } from "@/lib/abp/criterios";
 import { chipInk } from "@/lib/theme";
 import {
   ASPECTOS_POR_GRUPO,
@@ -50,7 +52,8 @@ function Conmutador<T extends string>({
   colorOf,
 }: {
   label: string;
-  options: { key: T; label: string }[];
+  /** `detalle` va en un segundo renglón pequeño: el MD de cada día. */
+  options: { key: T; label: string; detalle?: string }[];
   value: T;
   onChange: (key: T) => void;
   colorOf?: (key: T) => string;
@@ -89,6 +92,12 @@ function Conmutador<T extends string>({
               }
             >
               {option.label}
+
+              {option.detalle && (
+                <span className="block truncate text-[9px] font-semibold uppercase tracking-wide opacity-60">
+                  {option.detalle}
+                </span>
+              )}
             </button>
           );
         })}
@@ -338,6 +347,7 @@ function LadoPicker({
 export function TrabajoDialog({
   trabajo,
   dia,
+  dias,
   nuevo,
   onGuardar,
   onBorrar,
@@ -345,6 +355,12 @@ export function TrabajoDialog({
 }: {
   trabajo: Trabajo;
   dia: DiaKey;
+  /**
+   * Los días de ESTE microciclo, en su orden, con su fecha y su MD («Vie 23 ·
+   * MD-2»). Sin ellos, la semana natural de lunes a domingo, que en un
+   * microciclo de domingo a miércoles ofrecía días que no existen.
+   */
+  dias?: { clave: DiaKey; rotulo: string; detalle?: string }[];
   /** Cambia el rótulo del botón: no es lo mismo crear que corregir. */
   nuevo?: boolean;
   /** El día viaja aparte del trabajo: cambiarlo lo mueve de columna. */
@@ -373,6 +389,13 @@ export function TrabajoDialog({
   const sinDato = aspectos.filter((item) => item.sinDato);
 
   const importado = borrador.origen === "registro";
+
+  /* Por qué la propuso el boceto, en lenguaje de campo (21/10/2026). */
+  const explicativos = useTextosExplicativos();
+  const { porque } = porqueDe(borrador.notas, explicativos);
+
+  /* El criterio de partida para lo que está marcado ahora. */
+  const sugerido = criterioDe(borrador.aspectos, lados, borrador.medio);
 
   const carga = cargaCondicional(borrador);
   const cargaCog = cargaCognitiva(borrador);
@@ -417,10 +440,23 @@ export function TrabajoDialog({
       <div className="space-y-4">
         <Conmutador
           label="Día"
-          options={DIAS.map((item) => ({ key: item.key, label: item.corto }))}
+          options={
+            dias?.length
+              ? dias.map((item) => ({ key: item.clave, label: item.rotulo, detalle: item.detalle }))
+              : DIAS.map((item) => ({ key: item.key, label: item.corto }))
+          }
           value={diaBorrador}
           onChange={(key) => setDiaBorrador(key as DiaKey)}
         />
+
+        {porque && (
+          <p className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-[11.5px] leading-relaxed text-white/60">
+            <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+              Por qué ·{" "}
+            </span>
+            {porque}
+          </p>
+        )}
 
         <LadoPicker
           value={lados}
@@ -442,7 +478,8 @@ export function TrabajoDialog({
           </p>
         ))}
 
-        {borrador.aspectos.length > 1 && (
+        {/* Cómo se reparten los minutos es método: con los textos explicativos. */}
+        {borrador.aspectos.length > 1 && explicativos && (
           <p className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] leading-relaxed text-white/40">
             Con varios aspectos, los {borrador.minutos || 0}′ de la tarea se
             reparten entre ellos en el cruce con competición
@@ -526,6 +563,27 @@ export function TrabajoDialog({
                 }
                 className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm tabular-nums text-white outline-none transition focus:border-[#C8A96B]/50"
               />
+
+              {/* Las duraciones de siempre, de un toque: en la tableta el
+                  teclado numérico tapa medio diálogo. */}
+              <span className="mt-1.5 grid grid-cols-4 gap-1">
+                {[5, 10, 15, 20].map((minutos) => (
+                  <button
+                    key={minutos}
+                    type="button"
+                    onClick={() => set("minutos", minutos)}
+                    aria-pressed={borrador.minutos === minutos}
+                    aria-label={`${minutos} minutos`}
+                    className={`rounded-md border py-1 text-[10px] font-semibold tabular-nums transition ${
+                      borrador.minutos === minutos
+                        ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]"
+                        : "border-white/10 text-white/45 hover:text-white"
+                    }`}
+                  >
+                    {minutos}
+                  </button>
+                ))}
+              </span>
             </label>
 
             <div className="grid grid-cols-2 gap-3 text-center">
@@ -585,6 +643,34 @@ export function TrabajoDialog({
                 : "Carga condicional = tiempo × intensidad, la misma cuenta que la hoja de registro. La cognitiva es una estimación (tiempo × exigencia); la de la hoja lleva más ingredientes."}
             </p>
           </Explicativo>
+        </div>
+
+        {/*
+          CRITERIO DE ÉXITO (21/10/2026): lo que se mira en el campo para dar
+          la tarea por buena. Se ofrece el de partida del aspecto de un toque y
+          se reescribe para la rutina concreta.
+        */}
+        <div className="min-w-0">
+          <TextArea
+            label="Criterio de éxito"
+            value={borrador.objetivo ?? ""}
+            onChange={(valor) => set("objetivo", valor)}
+            placeholder="Qué tiene que pasar para darla por buena"
+            rows={2}
+          />
+
+          {sugerido && sugerido !== (borrador.objetivo ?? "").trim() && (
+            <button
+              type="button"
+              onClick={() => set("objetivo", sugerido)}
+              className="mt-1.5 w-full rounded-xl border border-dashed border-white/15 px-3 py-2 text-left text-[11px] leading-snug text-white/55 transition hover:border-[#C8A96B]/50 hover:text-white"
+            >
+              <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+                {borrador.objetivo?.trim() ? "Cambiar por · " : "Usar · "}
+              </span>
+              {sugerido}
+            </button>
+          )}
         </div>
 
         <TextArea

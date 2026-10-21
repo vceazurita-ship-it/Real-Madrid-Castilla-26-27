@@ -39,6 +39,7 @@
 
 import { objetivoDeLaSemana } from "@/lib/abp/informe-micro";
 import { MARCA_BOCETO } from "@/lib/abp/minutos";
+import { CRITERIO_ENSAYO, criterioDe } from "@/lib/abp/criterios";
 import {
   ASPECTO_BY_KEY,
   DIA_KEYS,
@@ -183,35 +184,73 @@ export function ordenaCandidatos(
   return candidatos.sort((a, b) => b.puntos - a.puntos);
 }
 
-function motivoDe(fila: FilaCruce, rival: RivalAbp | null, delRival: number, nosotros: RivalAbp | null = null) {
-  const trozos: string[] = [];
+/**
+ * Quita de una lectura lo que no se puede defender delante del cuerpo técnico.
+ *
+ * Los goles de balón parado de la liga son una estimación calibrada («≈1
+ * gol(es) de falta»): sirven para ordenar, no para escribirlos en una tarea.
+ */
+export function limpiaLectura(texto: string) {
+  return (texto || "")
+    .split(/ · |; /)
+    .map((trozo) => trozo.trim())
+    .filter((trozo) => trozo && !trozo.includes("≈"))
+    .join(", ")
+    .replace(/\s*[;,.]\s*$/, "")
+    .trim();
+}
 
-  if (fila.urgencia != null) {
-    trozos.push(
-      `urgencia ${Math.round(fila.urgencia)}/100 (${fila.stats.acciones} acciones, ${Math.round(
-        fila.peligroAjustado,
-      )} % de peligro contra ${Math.round(fila.referencia)} % de su familia)`,
+/**
+ * El porqué de una tarea del boceto, como lo contaría el analista.
+ *
+ * Desde el 21/10/2026 va en lenguaje de campo y sin la cocina —ni «urgencia
+ * 32/100» ni «su familia»—, porque se lee en la ficha de la semana con los
+ * textos explicativos apagados: lo que dice QUÉ pasa se queda; cómo se
+ * calcula, no.
+ */
+function motivoDe(fila: FilaCruce, rival: RivalAbp | null, delRival: number, nosotros: RivalAbp | null = null) {
+  const frases: string[] = [];
+
+  const acciones = fila.stats.acciones;
+
+  if (fila.urgencia != null && acciones > 0) {
+    const peligro = Math.round(fila.peligroAjustado);
+    const media = Math.round(fila.referencia);
+
+    const comparado =
+      peligro > media
+        ? `por encima del ${media} % habitual`
+        : peligro < media
+          ? `por debajo del ${media} % habitual`
+          : "en la media";
+
+    frases.push(
+      fila.lado === "ofensivo"
+        ? `Nuestro: ${acciones} a favor, ${peligro} % con peligro, ${comparado}`
+        : `Nos han sacado ${acciones}, ${peligro} % con peligro suyo, ${comparado}`,
     );
   }
 
   /* Lo que dice la liga de nosotros en esa familia: atacando, lo que
      sacamos y rematamos; defendiendo, lo que concedemos. */
-  const enLaLiga = nosotros?.motivos[claveAspecto(fila.aspecto.key, fila.lado === "ofensivo" ? "defensivo" : "ofensivo")];
+  const enLaLiga = limpiaLectura(
+    nosotros?.motivos[claveAspecto(fila.aspecto.key, fila.lado === "ofensivo" ? "defensivo" : "ofensivo")] ?? "",
+  );
 
-  if (enLaLiga) trozos.push(`en la liga ${enLaLiga.replace(/^[^ ]+ /, "")}`);
+  if (enLaLiga) frases.push(`Nosotros en la liga: ${enLaLiga}`);
 
-  const dicho = rival?.motivos[claveAspecto(fila.aspecto.key, fila.lado)];
+  const dicho = limpiaLectura(rival?.motivos[claveAspecto(fila.aspecto.key, fila.lado)] ?? "");
 
-  if (dicho) trozos.push(dicho);
+  if (dicho && rival) frases.push(`${rival.equipo}: ${dicho}`);
   else if (delRival > 0 && rival) {
-    trozos.push(
+    frases.push(
       fila.lado === "defensivo"
         ? `${rival.equipo} lo usa por encima de la media`
         : `${rival.equipo} lo concede por encima de la media`,
     );
   }
 
-  return trozos.join(" · ") || "propuesto por catálogo: no hay datos que lo ordenen";
+  return frases.length ? `${frases.join(". ")}.` : "Completa la semana.";
 }
 
 /**
@@ -241,13 +280,17 @@ export function repartePorAspecto(
 
     uno.minutos =
       indice === elegidos.length - 1
-        ? Math.max(MINIMO_TAREA, minutos - repartido)
+        ? /* También al paso de cinco (21/10/2026): el resto a pelo dejaba
+             tareas de 14′, que nadie programa así. */
+          Math.max(MINIMO_TAREA, Math.round((minutos - repartido) / PASO_MINUTOS) * PASO_MINUTOS)
         : Math.max(MINIMO_TAREA, Math.round(bruto / PASO_MINUTOS) * PASO_MINUTOS);
 
     repartido += uno.minutos;
   });
 
-  const sobra = repartido - minutos;
+  /* El ajuste también va de cinco en cinco: el objetivo es una horquilla, y
+     cuadrarlo al minuto daba tareas de 14′ o de 23′. */
+  const sobra = Math.round((repartido - minutos) / PASO_MINUTOS) * PASO_MINUTOS;
 
   if (sobra !== 0 && elegidos[0].minutos - sobra >= MINIMO_TAREA) {
     elegidos[0].minutos -= sobra;
@@ -413,7 +456,13 @@ export function construyeBoceto(entrada: EntradaBoceto): Boceto {
   colocaTrabajo(plan, candidatos, donde, rival, minutosVideo);
 
   if (diaEnsayo && minutosEnsayo > 0 && candidatos.length > 0) {
-    const principales = candidatos.slice(0, Math.min(2, candidatos.length));
+    /*
+    | Las dos principales DEL MISMO LADO (21/10/2026): con un córner ofensivo y
+    | una banda defensiva, la tarea cruzaba aspectos y lados y el ensayo salía
+    | con «banda ofensiva», que no se había trabajado en la semana: el ensayo
+    | del día antes estrenaba algo, justo lo que promete no hacer.
+    */
+    const principales = candidatos.filter((uno) => uno.lado === candidatos[0].lado).slice(0, 2);
 
     plan[diaEnsayo.clave].trabajos.push(
       tareaDe(
@@ -423,7 +472,8 @@ export function construyeBoceto(entrada: EntradaBoceto): Boceto {
           ventana.partido ? ` para el ${ventana.partido.rival}` : ""
         }, sin estrenar nada.`,
         principales.map((uno) => uno.aspecto),
-        [...new Set(principales.map((uno) => uno.lado))],
+        [principales[0].lado],
+        CRITERIO_ENSAYO,
       ),
     );
   }
@@ -524,7 +574,7 @@ function colocaTrabajo(
         tareaDe(
           { ...paraVer[0], minutos: minutosVideo },
           { momento: "pre", medio: "video", intensidad: 1, exigCognitiva: 7 },
-          `${MARCA_BOCETO} vídeo del ${rival.equipo}: ${rival.resumen}`,
+          `${MARCA_BOCETO} vídeo del ${rival.equipo}: ${limpiaLectura(rival.resumen)}.`,
           paraVer.map((uno) => uno.aspecto),
           [...new Set(paraVer.map((uno) => uno.lado))],
         ),
@@ -539,6 +589,8 @@ function tareaDe(
   notas: string,
   aspectos?: AspectoKey[],
   lados?: AbpLado[],
+  /** El criterio de éxito; si no se da, el de partida del aspecto. */
+  objetivo?: string,
 ): Trabajo {
   const suyos = (aspectos?.length ? aspectos : [candidato.aspecto]).filter((clave) =>
     ASPECTO_BY_KEY.has(clave),
@@ -559,5 +611,6 @@ function tareaDe(
     intensidad: sitio.intensidad,
     exigCognitiva: sitio.exigCognitiva,
     notas,
+    objetivo: objetivo ?? criterioDe(suyos, susLados, sitio.medio),
   });
 }
