@@ -133,7 +133,7 @@ function Escala({
         </p>
 
         <p className="text-[11px] tabular-nums text-white/45">
-          {value > 0 ? `${value}/10` : "sin valorar"}
+          {value > 0 ? `${value}/10` : ""}
         </p>
       </div>
 
@@ -586,27 +586,27 @@ export function TrabajoDialog({
               </span>
             </label>
 
-            <div className="grid grid-cols-2 gap-3 text-center">
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Carga condicional
-                </p>
+            {/* Las cargas salen cuando hay con qué calcularlas (21/10/2026):
+                con «—» el mismo hueco se decía tres veces. */}
+            {(carga > 0 || cargaCog > 0) && (
+              <div className="grid grid-cols-2 gap-3 text-center">
+                {carga > 0 && (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-white/35">Carga condicional</p>
 
-                <p className="mt-0.5 text-lg font-semibold tabular-nums text-white">
-                  {carga || "—"}
-                </p>
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-white">{carga}</p>
+                  </div>
+                )}
+
+                {cargaCog > 0 && (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                    <p className="text-[10px] uppercase tracking-[0.16em] text-white/35">Carga cognitiva</p>
+
+                    <p className="mt-0.5 text-lg font-semibold tabular-nums text-white">{cargaCog}</p>
+                  </div>
+                )}
               </div>
-
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/35">
-                  Carga cognitiva
-                </p>
-
-                <p className="mt-0.5 text-lg font-semibold tabular-nums text-white">
-                  {cargaCog || "—"}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="mt-3.5 grid gap-3.5 sm:grid-cols-2">
