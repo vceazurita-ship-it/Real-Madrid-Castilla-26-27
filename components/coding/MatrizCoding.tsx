@@ -362,9 +362,9 @@ export function MatrizCoding({
       <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/45">
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden className="inline-flex h-2.5 w-10 overflow-hidden rounded-sm">
-            <span className="flex-1 bg-white/15" />
-            <span className="flex-1 bg-white/35" />
-            <span className="flex-1 bg-white/60" />
+            <span className="flex-1 bg-[#60A5FA]/25" />
+            <span className="flex-1 bg-[#60A5FA]/55" />
+            <span className="flex-1 bg-[#60A5FA]/90" />
           </span>
           Más color, más cortes
         </span>

@@ -1331,9 +1331,11 @@ export function BarraExportacion({
         ))}
 
         <span className="text-[11px] text-white/30">
-          {medida > 0
-            ? "se encoge sólo si el partido es más grande"
-            : "sin encoger: sale como se grabó"}
+          {medida === VERTICAL
+            ? "1080 × 1920: el corte a todo el ancho y su imagen desenfocada detrás"
+            : medida > 0
+              ? "se encoge sólo si el partido es más grande"
+              : "sin encoger: sale como se grabó"}
         </span>
       </div>
 
