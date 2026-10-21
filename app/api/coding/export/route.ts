@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { creaZip, type EntradaZip } from "@/lib/export/zip";
 import {
+  ajustaAlTope,
   borraCarpetaTemporal,
   cortaClip,
   cortaClipConParadas,
@@ -380,6 +381,9 @@ export async function POST(request: NextRequest) {
 
       await cortaUno(clip, 0, destino, "clip");
 
+      /* Si se ha pasado del tope, una segunda pasada con el caudal justo. */
+      await ajustaAlTope(destino, topeMegas);
+
       return respuestaDeFichero({
         archivo: destino,
         carpeta,
@@ -486,6 +490,8 @@ export async function POST(request: NextRequest) {
         trozos,
         path.join(carpeta, "unificado.mp4"),
       );
+
+      await ajustaAlTope(destino, topeMegas);
 
       return respuestaDeFichero({
         archivo: destino,

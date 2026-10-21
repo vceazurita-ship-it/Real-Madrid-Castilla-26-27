@@ -69,7 +69,25 @@ function titularDe(matriz: Matriz) {
     .map((una) => `${una.n} de ${una.nombre.toLowerCase()}`)
     .join(" y ");
 
-  return `${primero.nombre} acumula ${cortes(primero.total)}${reparto ? `: ${reparto}` : ""}.`;
+  /* La referencia: sin ella, «10 cortes» no dice si es mucho o poco. */
+  const media =
+    !primero.colectivo && matriz.mediaJugador !== null
+      ? ` (media del equipo: ${matriz.mediaJugador.toLocaleString("es-ES", {
+          maximumFractionDigits: 1,
+        })} por jugador)`
+      : "";
+
+  return `${primero.nombre} acumula ${cortes(primero.total)}${media}${reparto ? `: ${reparto}` : ""}.`;
+}
+
+/**
+ * La cabecera de la tabla. Si algún corte no entra («Vídeo completo», que no
+ * es de nadie), lo dice: así cuadra con el «65 de 65» de la lista.
+ */
+function cuentaDe(matriz: Matriz) {
+  if (matriz.fuera === 0) return cortes(matriz.total);
+
+  return `${matriz.total} de ${cortes(matriz.total + matriz.fuera)}`;
 }
 
 export function MatrizCoding({
@@ -149,6 +167,14 @@ export function MatrizCoding({
         <p className="mb-2 text-[13px] font-semibold text-white/85">{titular}</p>
       )}
 
+      {matriz.fuera > 0 && (
+        <p className="mb-2 text-[11px] text-white/45">
+          {matriz.fuera === 1
+            ? "1 corte es de «Vídeo completo»: no es de nadie y no entra en la tabla."
+            : `${matriz.fuera} cortes son de «Vídeo completo»: no son de nadie y no entran en la tabla.`}
+        </p>
+      )}
+
       {/* En un teléfono no caben todas las columnas: que se sepa que hay más. */}
       {matriz.columnas.length > 3 && (
         <p className="mb-1.5 text-[11px] text-white/35 sm:hidden">
@@ -187,7 +213,7 @@ export function MatrizCoding({
               scope="col"
               className="sticky left-0 z-10 min-w-[120px] bg-[#0F141B] px-3 py-2 text-left text-[10px] font-normal uppercase tracking-[0.14em] text-white/40"
             >
-              {cortes(matriz.total)}
+              {cuentaDe(matriz)}
             </th>
 
             {matriz.columnas.map((columna) => {
