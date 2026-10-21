@@ -132,7 +132,7 @@ export function VistazoRival({
       )}
 
       {vistazo && (
-      <div className={`grid min-w-0 grid-cols-2 gap-2 md:grid-cols-3 ${avisos ? "xl:grid-cols-6" : "xl:grid-cols-5"}`}>
+      <div className="grid min-w-0 grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
         {tabla && (
           <Casilla
             titulo="Clasificación"
@@ -198,36 +198,6 @@ export function VistazoRival({
           </Casilla>
         )}
 
-        {avisos && (
-          <Casilla titulo="Bajas y apercibidos" ancha>
-            <ul className="min-w-0 space-y-0.5 text-sm">
-              {avisos.fuera.map((uno) => (
-                <li key={`f-${uno.nombre}`} className="flex min-w-0 items-center gap-1.5">
-                  <UserX size={12} className="shrink-0 text-[#F87171]" aria-hidden />
-                  <span className="min-w-0 truncate">{uno.nombre}</span>
-                  <span className="ml-auto shrink-0 text-[11px] text-white/45">{uno.estado}</span>
-                </li>
-              ))}
-              {avisos.apercibidos.map((uno) => (
-                <li key={`a-${uno.nombre}`} className="flex min-w-0 items-center gap-1.5">
-                  <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#FACC15]" aria-hidden />
-                  <span className="min-w-0 truncate">{uno.nombre}</span>
-                  <span className="ml-auto shrink-0 text-[11px] text-white/45">a una amarilla ({uno.amarillas})</span>
-                </li>
-              ))}
-              {avisos.rojas.map((uno) => (
-                <li key={`r-${uno.nombre}`} className="flex min-w-0 items-center gap-1.5">
-                  <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#EF4444]" aria-hidden />
-                  <span className="min-w-0 truncate">{uno.nombre}</span>
-                  <span className="ml-auto shrink-0 text-[11px] text-white/45">
-                    {uno.rojas === 1 ? "una roja esta temporada" : `${uno.rojas} rojas esta temporada`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </Casilla>
-        )}
-
         {goleadores.length > 0 && (
           <Casilla titulo="Le hacen los goles" ancha>
             <ul className="min-w-0 space-y-0.5">
@@ -243,6 +213,39 @@ export function VistazoRival({
         )}
       </div>
 
+      )}
+
+      {/*
+        Bajas y apercibidos en una tira a lo ancho: en una casilla más de la
+        rejilla los nombres se cortaban («F. C…»). Lo pidió el experto de fútbol.
+      */}
+      {avisos && (
+        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/40">Bajas y apercibidos</p>
+          {avisos.fuera.map((uno) => (
+            <span key={`f-${uno.nombre}`} className="flex items-center gap-1.5">
+              <UserX size={12} className="shrink-0 text-[#F87171]" aria-hidden />
+              {uno.nombre}
+              <span className="text-[11px] text-white/45">{uno.estado}</span>
+            </span>
+          ))}
+          {avisos.apercibidos.map((uno) => (
+            <span key={`a-${uno.nombre}`} className="flex items-center gap-1.5">
+              <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#FACC15]" aria-hidden />
+              {uno.nombre}
+              <span className="text-[11px] text-white/45">a una amarilla del ciclo ({uno.amarillas})</span>
+            </span>
+          ))}
+          {avisos.rojas.map((uno) => (
+            <span key={`r-${uno.nombre}`} className="flex items-center gap-1.5">
+              <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#EF4444]" aria-hidden />
+              {uno.nombre}
+              <span className="text-[11px] text-white/45">
+                {uno.rojas === 1 ? "una roja esta temporada" : `${uno.rojas} rojas esta temporada`}
+              </span>
+            </span>
+          ))}
+        </div>
       )}
 
       {aspectos.length > 0 && (

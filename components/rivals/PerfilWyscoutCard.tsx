@@ -42,7 +42,10 @@ const ROJO = "#F87171";
 | contrario. Ahora la fila lo cuenta con palabras y en las de «menos es mejor»
 | no sale el «p» suelto. Lo marcaron análisis y guion.
 */
-function lectura(rasgo: RasgoWyscout, los: string) {
+function lectura(rasgo: RasgoWyscout, conArticulo: string) {
+  /* «de cada 100 centrales», sin el artículo de «contra los centrales». */
+  const los = conArticulo.replace(/^los /, "");
+
   if (rasgo.mejorAlto) return `mejor que ${rasgo.percentil} de cada 100 ${los}`;
 
   const peor = 100 - rasgo.percentil;
