@@ -65,6 +65,7 @@ export function CampoEstructura({
   sobre = null,
   onArrastra,
   campoDestino,
+  flecha = false,
   style,
 }: {
   huecos: Hueco[];
@@ -84,6 +85,8 @@ export function CampoEstructura({
   onArrastra?: (indice: number, e: ReactPointerEvent) => void;
   /** El destino del césped entero: soltar en un punto vacío deja al jugador ahí («campo:<equipo>»). */
   campoDestino?: string;
+  /** Una flecha discreta con el sentido del ataque (hacia arriba: la portería propia va abajo). */
+  flecha?: boolean;
   style?: CSSProperties;
 }) {
   const alto = ancho * PROPORCION_CAMPO;
@@ -103,8 +106,18 @@ export function CampoEstructura({
     /* Dos renglones (1,02 de alto cada uno, más el relleno) entre la ficha y la línea siguiente. */
     Math.max(8, (hueco - ficha - 10) / 2.3),
   );
+  /*
+  | Con la ficha en su punto y el nombre colgando, la última línea se salía
+  | por abajo en la lámina (21/10/2026). Sin tocar (la lámina), las alturas se
+  | encogen lo justo para que el nombre de la línea de atrás quepa entero.
+  */
+  const yMax = Math.max(0.01, ...huecos.filter((h) => h.jugador).map((h) => h.y));
+  const sitioAbajo = alto - 6 - ficha / 2 - letra * 2.5 - 8;
+  const escalaY = !onToca && yMax * alto > sitioAbajo ? sitioAbajo / (yMax * alto) : 1;
+
   const tinta = tintaSobre(color);
-  const trazo = claro ? "rgba(20,83,45,0.42)" : "rgba(255,255,255,0.5)";
+  /* Más pálidas en la lámina (21/10/2026): con 0,42 la línea del área y el semicírculo ensuciaban los nombres de encima. */
+  const trazo = claro ? "rgba(20,83,45,0.26)" : "rgba(255,255,255,0.5)";
   const encimaCampo = Boolean(campoDestino && sobre === campoDestino);
 
   return (
@@ -135,6 +148,31 @@ export function CampoEstructura({
     >
       <Lineas trazo={trazo} grosor={Math.max(1.5, ancho / 220)} />
 
+      {flecha && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            right: ancho * 0.015,
+            top: "34%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 2,
+            color: claro ? "rgba(20,83,45,0.55)" : "rgba(255,255,255,0.6)",
+            fontSize: Math.max(8, ancho / 34),
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            pointerEvents: "none",
+          }}
+        >
+          <svg width={Math.max(10, ancho / 26)} height={Math.max(22, ancho / 9)} viewBox="0 0 10 30" aria-hidden>
+            <path d="M5 29 V3 M1 8 L5 2 L9 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>ATAQUE</span>
+        </div>
+      )}
+
       {huecos.map((h, i) => {
         /* En la lámina (sin tocar), un hueco libre no se dibuja: ni círculo vacío ni guion en el campo que ven los jugadores (21/10/2026). */
         if (!h.jugador && !onToca) return null;
@@ -163,8 +201,9 @@ export function CampoEstructura({
             style={{
               position: "absolute",
               left: `${h.x * 100}%`,
-              top: `${h.y * 100}%`,
-              transform: "translate(-50%, -50%)",
+              top: `${h.y * escalaY * 100}%`,
+              /* La FICHA en el punto, el nombre colgando (21/10/2026): centrando el bloque entero, un nombre en dos renglones subía su ficha y la línea no quedaba recta. */
+              transform: `translate(-50%, ${-(ficha / 2 + (onToca ? 4 : 0))}px)`,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",

@@ -48,6 +48,7 @@ import {
   Wand2,
   X,
   Eraser,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,6 +58,8 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { LAMINA_H, LAMINA_W, LaminaEquipos, LaminaEscalada } from "@/components/sesion-equipos/LaminaEquipos";
 import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
+import { loadRegistro, type RegistroTarea } from "@/lib/abp/registro";
+import { contextoDeSesion, detallesDeTareas, lineaDeDetalle, tareasDelDia } from "@/lib/sesion-equipos/registro";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   ESTRUCTURAS,
@@ -355,6 +358,7 @@ function Caja({
               {atajo}
             </kbd>
           )}
+          {!(compacta && cuenta === 0) && (
           <span
             className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12px] font-bold tabular-nums"
             style={{ background: color ? (tinta === "#FFFFFF" ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.5)") : "rgba(255,255,255,0.08)" }}
@@ -362,19 +366,21 @@ function Caja({
             {cuenta}
             {objetivo !== undefined ? `/${objetivo}` : ""}
           </span>
+          )}
         </span>
       </div>
 
       {resumen}
 
       <div
-        className={`flex flex-1 flex-wrap content-start gap-1.5 ${compacta ? "min-h-[36px] px-2 py-1.5" : "min-h-[64px] p-2"}`}
+        className={`flex flex-1 flex-wrap content-start gap-1.5 ${compacta ? (cuenta === 0 && !activa ? "hidden" : "min-h-[36px] px-2 py-1.5") : "min-h-[64px] p-2"}`}
         onClick={(e) => {
           if (activa && e.target === e.currentTarget) onSoltar();
         }}
       >
         {children}
-        {cuenta === 0 && (
+        {/* Vacía y plegada, sin el texto de ayuda salvo con alguien en la mano (21/10/2026): dos cajas con un cero eran ruido. */}
+        {cuenta === 0 && (!compacta || activa) && (
           <span className="pointer-events-none self-center px-1 text-[11px] text-white/40">{vacio}</span>
         )}
       </div>
@@ -656,7 +662,7 @@ function EstructuraEquipo({
           className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${deCampo === total ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
           title="Jugadores de campo del equipo / huecos del dibujo (el portero no se dibuja)"
         >
-          {deCampo}/{total}
+          {deCampo}/{total} huecos
         </span>
       </div>
 
@@ -733,6 +739,7 @@ function EstructuraEquipo({
       {total > 0 ? (
         <div ref={refCaja} className="flex w-full justify-center">
           <CampoEstructura
+            flecha
             huecos={huecos}
             color={equipo.color}
             ancho={anchoCampo}
@@ -1146,8 +1153,31 @@ export default function JugadoresSesionPage() {
 
   const [exportando, setExportando] = useState<null | { laminas: { i: number; fase: Fase }[]; paso: string }>(null);
 
-  /* Al exportar, sólo los equipos (lo de por defecto) o con la cabecera de la tarea (08/10/2026). */
-  const [conCabecera, setConCabecera] = useState(false);
+  /*
+  | Con la cabecera de la tarea por defecto (21/10/2026): la imagen que va al
+  | grupo tiene que decir qué tarea es y de qué día. Sólo equipos, desmarcándola.
+  */
+  const [conCabecera, setConCabecera] = useState(true);
+
+  /*
+  | LA TAREA DE LA HOJA (21/10/2026). Lo que el cuerpo técnico escribió en el
+  | registro de tareas para el día de la sesión (formato, espacio, tiempo,
+  | contenido) y el micro, el rival y el MD: salen en la diapositiva. Sólo se
+  | lee; si la hoja no tiene el día, la diapositiva queda como estaba.
+  */
+  const [registro, setRegistro] = useState<RegistroTarea[]>([]);
+
+  useEffect(() => {
+    let vivo = true;
+    loadRegistro()
+      .then((r) => {
+        if (vivo) setRegistro(r.tareas);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   /* ---------------- escribir ---------------- */
 
@@ -1833,6 +1863,12 @@ export default function JugadoresSesionPage() {
     }
   };
 
+  /* WhatsApp con el texto de toda la sesión (21/10/2026): wa.me abre la app y se elige el grupo; aquí no se manda nada. */
+  const mandaAlGrupo = () => {
+    if (!sesion) return;
+    window.open(`https://wa.me/?text=${encodeURIComponent(textoDeSesion(sesion))}`, "_blank", "noopener");
+  };
+
   /*
   | AÑADIR, QUITAR O REEMPLAZAR A UN JUGADOR DE LA SESIÓN (08/10/2026).
   |
@@ -2034,6 +2070,14 @@ export default function JugadoresSesionPage() {
   /* ---------------- lo que se ve ---------------- */
 
   const reparto = sesion && tarea ? repartoDe(tarea, sesion.jugadores) : null;
+
+  const delDia = useMemo(() => tareasDelDia(registro, sesion?.fecha), [registro, sesion?.fecha]);
+  const contexto = useMemo(() => contextoDeSesion(delDia), [delDia]);
+  const detalles = useMemo(() => (sesion ? detallesDeTareas(sesion.tareas.map((t) => t.nombre), delDia) : []), [sesion, delDia]);
+  const detalleDe = (i: number) => (sesion ? lineaDeDetalle(detalles[i], sesion.tareas[i]?.nombre ?? "") : "");
+
+  /* Los que hacen la tarea sin demarcación: el reparto «por puesto» no sabe dónde juegan (21/10/2026). */
+  const sinDemarcacion = sesion && reparto ? [...Object.values(reparto.porEquipo).flat(), ...reparto.comodines, ...reparto.sinSitio].filter((j) => !puestoDe(j)) : [];
 
   const avisos = sesion && tarea ? valida(tarea, sesion, puestoDe) : [];
 
@@ -2265,7 +2309,7 @@ export default function JugadoresSesionPage() {
                           irATarea(i);
                           setElegido(null);
                         }}
-                        title={`${t.nombre} — arrastra para cambiar el orden`}
+                        title={`${t.nombre}: ${suyos.filter((a) => a.nivel === "error" || a.nivel === "aviso").map((a) => a.texto).join(" · ") || "lista"}. Arrástrala para cambiar el orden.`}
                         aria-label={`Tarea ${i + 1}: ${t.nombre}. ${!tareaLista(suyos) ? "Hay algo que corregir" : suyos.some((a) => a.nivel === "aviso") ? "Con avisos" : "Lista"}`}
                         aria-current={i === activa ? "true" : undefined}
                         className={`flex min-w-0 cursor-grab items-center gap-2 rounded-xl border px-3 py-2 text-left transition active:cursor-grabbing ${
@@ -2324,6 +2368,20 @@ export default function JugadoresSesionPage() {
                           placeholder="Rondo 4v4+3"
                           className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-base font-semibold text-white outline-none focus:border-[#C8A96B]/50"
                         />
+                      </label>
+
+                      {/* Las reglas en una línea (21/10/2026): salen bajo el título de la diapositiva, con lo que trae la hoja de registro. */}
+                      <label className="block min-w-[220px] flex-[2]">
+                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                          Reglas <span className="normal-case tracking-normal text-white/30">(salen en la diapositiva)</span>
+                        </span>
+                        <input
+                          value={tarea.reglas ?? ""}
+                          onChange={(e) => cambiaTarea((t) => ({ ...t, reglas: e.target.value || undefined }), `reglas:${tarea.id}`)}
+                          placeholder="Máx. 3 toques; gol = 8 pases seguidos"
+                          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[13px] text-white outline-none placeholder:text-white/30 focus:border-[#C8A96B]/50"
+                        />
+                        {detalleDe(activa) && <span className="mt-1 block truncate text-[11px] text-white/45" title="Lo que trae la hoja de registro para esta tarea">De la hoja: {detalleDe(activa)}</span>}
                       </label>
 
                       <div>
@@ -2494,7 +2552,7 @@ export default function JugadoresSesionPage() {
                             /* Sin preguntar (21/10/2026): con «Deshacer» a mano en el aviso, pulsar otra vez es pedir otra propuesta. */
                             cambiaTarea((t) => sorteaReparto(t, sesion.jugadores, opcionesReparto));
                             toast.success(enTarea > 0 ? "Otra propuesta de equipos" : "Equipos propuestos", {
-                              description: "Parejos por puesto: porteros separados, laterales, centrales, medios y puntas repartidos. Pulsa otra vez para otra.",
+                              description: `Parejos por puesto (por su demarcación; el nivel no se mide): porteros separados, laterales, centrales, medios y puntas repartidos.${sinDemarcacion.length ? ` ${sinDemarcacion.length} sin demarcación van donde haya sitio.` : ""} Pulsa otra vez para otra.`,
                               action: enTarea > 0 ? { label: "Deshacer", onClick: deshaz } : undefined,
                             });
                           }}
@@ -2551,7 +2609,30 @@ export default function JugadoresSesionPage() {
                           <span className="min-w-0">
                             {problemas.length
                               ? problemas.map((a) => a.texto).join(" · ")
-                              : "Lista para presentar: nadie olvidado, nadie repetido y equipos parejos."}
+                              : "Lista para presentar: nadie olvidado, nadie repetido y equipos parejos por puesto."}
+                            {sinDemarcacion.length > 0 && (
+                              <span className="mt-1 block">
+                                {sinDemarcacion.length === 1 ? "1 sin demarcación" : `${sinDemarcacion.length} sin demarcación`} ({sinDemarcacion.map((j) => j.nombre).join(", ")}): el reparto por puesto no sabe dónde juegan.{" "}
+                                <button type="button" onClick={() => setVista("plantilla")} className="font-semibold underline underline-offset-2">
+                                  Asignar
+                                </button>
+                              </span>
+                            )}
+                            {problemas
+                              .filter((a) => a.arreglo)
+                              .map((a) => (
+                                <button
+                                  key={a.arreglo!.a}
+                                  type="button"
+                                  onClick={() => {
+                                    cambiaTarea((t) => intercambiaSitios(t, a.arreglo!.a, a.arreglo!.b));
+                                    toast.success(a.arreglo!.texto, { action: { label: "Deshacer", onClick: deshaz } });
+                                  }}
+                                  className="ml-1 mt-1 inline-flex rounded-md border border-current px-1.5 py-0.5 text-[11px] font-semibold"
+                                >
+                                  {a.arreglo!.texto}
+                                </button>
+                              ))}
                           </span>
                         </div>
                       );
@@ -2832,8 +2913,9 @@ export default function JugadoresSesionPage() {
                         <p className="mt-3 border-t border-white/8 pt-2 text-[11px] text-white/40">
                           Por revisar:{" "}
                           {sesion.tareas
-                            .filter((_, i) => !tareaLista(estadoTareas[i] ?? []))
-                            .map((t) => t.nombre)
+                            .map((t, i) => ({ t, error: (estadoTareas[i] ?? []).find((a) => a.nivel === "error") }))
+                            .filter((x) => x.error)
+                            .map((x) => `${x.t.nombre} (${x.error!.texto.charAt(0).toLowerCase()}${x.error!.texto.slice(1)})`)
                             .join(" · ")}
                         </p>
                       )}
@@ -2853,10 +2935,10 @@ export default function JugadoresSesionPage() {
                             Presentar
                           </Button>
                           <Button icon={MessageSquareText} onClick={() => void copiaTexto(false)} title="Los equipos de esta tarea en texto, para el grupo">
-                            Texto
+                            Copiar texto
                           </Button>
                           <Button icon={Download} disabled={Boolean(exportando)} onClick={() => void exporta([{ i: activa, fase }])} title="Esta tarea en imagen (.jpg), en el momento que estás viendo">
-                            Esta
+                            Descargar esta
                           </Button>
                           <Button
                             tone="primary"
@@ -2865,7 +2947,7 @@ export default function JugadoresSesionPage() {
                             onClick={() => void exporta(laminasDe(sesion.tareas.map((_, i) => i)))}
                             title="Todas las tareas, una imagen cada una (dos si hay cambio a mitad), descargadas una a una"
                           >
-                            {exportando ? exportando.paso : "Todas"}
+                            {exportando ? exportando.paso : `Descargar las ${laminasDe(sesion.tareas.map((_, i) => i)).length}`}
                           </Button>
                           <Button
                             icon={FileDown}
@@ -2873,14 +2955,29 @@ export default function JugadoresSesionPage() {
                             onClick={() => void exporta(laminasDe(sesion.tareas.map((_, i) => i)), "pdf")}
                             title="Todas las tareas en un solo PDF, una página por diapositiva"
                           >
-                            PDF
+                            PDF de la sesión
+                          </Button>
+                          <Button
+                            icon={Send}
+                            onClick={mandaAlGrupo}
+                            title="Abre WhatsApp con los equipos de todas las tareas en texto, para elegir el grupo (no se manda nada solo)"
+                          >
+                            Mandar al grupo
                           </Button>
                         </div>
                       }
                     >
-                      <div ref={refPrevia} className="min-w-0 overflow-hidden rounded-xl">
+                      {/* En el móvil la diapositiva entera queda diminuta (21/10/2026): tocarla la abre en grande. */}
+                      <div
+                        ref={refPrevia}
+                        className="w-full min-w-0 cursor-zoom-in overflow-hidden rounded-xl sm:cursor-default"
+                        onClick={() => {
+                          if (window.innerWidth < 640) setPresentando(true);
+                        }}
+                        title="En el móvil, toca para verla en grande"
+                      >
                         {anchoPrevia > 0 && (
-                          <LaminaEscalada ancho={anchoPrevia} puestoDe={puestoDe} sesion={sesion} tarea={tareaBase ?? tarea} fase={fase} cabecera={conCabecera} indice={activa} total={sesion.tareas.length} />
+                          <LaminaEscalada ancho={anchoPrevia} puestoDe={puestoDe} sesion={sesion} tarea={tareaBase ?? tarea} fase={fase} cabecera={conCabecera} indice={activa} total={sesion.tareas.length} detalle={detalleDe(activa)} contexto={contexto} />
                         )}
                       </div>
                       <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[12px] text-white/75 transition hover:border-white/25">
@@ -2898,7 +2995,8 @@ export default function JugadoresSesionPage() {
                         <button type="button" disabled={activa === 0} onClick={() => { irATarea(activa - 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
                           <ChevronLeft size={13} /> Anterior
                         </button>
-                        <span>Sólo nombres: lista para proyectar o mandar</span>
+                        <span className="sm:hidden">Toca la diapositiva para verla en grande</span>
+                        <span className="hidden sm:inline">Lista para proyectar o mandar</span>
                         <button type="button" disabled={activa >= sesion.tareas.length - 1} onClick={() => { irATarea(activa + 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
                           Siguiente <ChevronRight size={13} />
                         </button>
@@ -2945,8 +3043,8 @@ export default function JugadoresSesionPage() {
                             <tr>
                               <th className="px-4 py-2 text-left font-medium">Jugador</th>
                               <th className="hidden px-2 py-2 text-left font-medium sm:table-cell">Puesto</th>
-                              <th className="px-2 py-2 text-center font-medium" title="Tareas como comodín">Com.</th>
-                              <th className="px-2 py-2 text-center font-medium" title="Tareas sin participar">Fuera</th>
+                              <th className="px-2 py-2 text-center font-medium" title="Tareas de esta sesión como comodín (vacío: ninguna)">Com.</th>
+                              <th className="px-2 py-2 text-center font-medium" title="Tareas de esta sesión sin participar (vacío: ninguna)">Fuera</th>
                               <th className="px-2 py-2 text-right font-medium">
                                 <span className="sr-only">Reemplazar o quitar</span>
                               </th>
@@ -2976,7 +3074,9 @@ export default function JugadoresSesionPage() {
                                             ? `${demarcacion(demarcacionesAuto[j.id])?.nombre} (plantilla)`
                                             : auto
                                               ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)`
-                                              : "Elige su demarcación"}
+                                              : demarcacionDe(j)
+                                                ? `${demarcacion(demarcacionDe(j))?.nombre} (por dónde lo colocáis)`
+                                                : "Elige su demarcación"}
                                         </option>
                                         {DEMARCACIONES.map((d) => (
                                           <option key={d.clave} value={d.clave} className="bg-[#11161C]">
@@ -3034,10 +3134,10 @@ export default function JugadoresSesionPage() {
                                     {selector}
                                   </td>
                                   <td className={`px-2 py-1 text-center tabular-nums ${r.comodin >= 2 ? "font-bold text-amber-300" : r.comodin ? "text-white/70" : "text-white/30"}`}>
-                                    {r.comodin}
+                                    {r.comodin || ""}
                                   </td>
                                   <td className={`px-2 py-1 text-center tabular-nums ${r.fuera >= 2 && !j.baja ? "font-bold text-amber-300" : r.fuera ? "text-white/70" : "text-white/30"}`}>
-                                    {r.fuera}
+                                    {r.fuera || ""}
                                   </td>
                                   <td className="whitespace-nowrap px-2 py-1 text-right">
                                     <button
@@ -3121,6 +3221,8 @@ export default function JugadoresSesionPage() {
           sesion={sesion}
           inicial={activa}
           puestoDe={puestoDe}
+          detalleDe={detalleDe}
+          contexto={contexto}
           onCierra={(ultima) => {
             setPresentando(false);
             irATarea(ultima);
@@ -3137,7 +3239,7 @@ export default function JugadoresSesionPage() {
           style={{ position: "fixed", left: -30000, top: 0, width: LAMINA_W, pointerEvents: "none" }}
         >
           {exportando.laminas.map(({ i, fase: f }) => (
-            <LaminaEquipos key={`${sesion.tareas[i].id}-${f}`} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} fase={f} cabecera={conCabecera} indice={i} total={sesion.tareas.length} />
+            <LaminaEquipos key={`${sesion.tareas[i].id}-${f}`} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} fase={f} cabecera={conCabecera} indice={i} total={sesion.tareas.length} detalle={detalleDe(i)} contexto={contexto} />
           ))}
         </div>
       )}
@@ -3192,11 +3294,15 @@ function Presentacion({
   inicial,
   onCierra,
   puestoDe,
+  detalleDe,
+  contexto,
 }: {
   sesion: SesionEquipos;
   inicial: number;
   onCierra: (ultima: number) => void;
   puestoDe: PuestoDe;
+  detalleDe: (i: number) => string;
+  contexto: ReturnType<typeof contextoDeSesion>;
 }) {
   /* Cada tarea es una diapositiva; con cambio a mitad, dos. */
   const pasos = useMemo(
@@ -3269,12 +3375,13 @@ function Presentacion({
   const ancho = Math.min(hueco.w, (hueco.h * 16) / 9);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black" onClick={() => setI((n) => Math.min(pasos.length - 1, n + 1))}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: "#FFFFFF" }} onClick={() => setI((n) => Math.min(pasos.length - 1, n + 1))}>
       {ancho > 0 && pasos[i] && (
-        <LaminaEscalada ancho={ancho} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[pasos[i].k]} fase={pasos[i].fase} indice={pasos[i].k} total={sesion.tareas.length} />
+        <LaminaEscalada ancho={ancho} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[pasos[i].k]} fase={pasos[i].fase} indice={pasos[i].k} total={sesion.tareas.length} detalle={detalleDe(pasos[i].k)} contexto={contexto} />
       )}
 
-      <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/10 px-2 py-1 text-white/80 opacity-30 transition hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full px-2 py-1 opacity-80 shadow-lg transition hover:opacity-100"
+        style={{ background: "rgba(11,26,51,0.88)", color: "#FFFFFF" }} onClick={(e) => e.stopPropagation()}>
         <button type="button" aria-label="Anterior" onClick={() => setI((n) => Math.max(0, n - 1))} className="rounded-full p-1.5 hover:bg-white/15">
           <ArrowLeft size={16} />
         </button>
