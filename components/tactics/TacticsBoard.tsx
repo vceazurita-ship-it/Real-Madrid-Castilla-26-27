@@ -92,7 +92,7 @@ import {
   tacticId,
   tramoSuave,
 } from "@/lib/tactics/helpers";
-import { colocaDibujo, DIBUJOS, ENCAJE_LABEL, type Encaje } from "@/lib/tactics/dibujos";
+import { ALTURA_LABEL, colocaDibujo, DIBUJOS, FASE_LABEL, type Altura, type Fase } from "@/lib/tactics/dibujos";
 import {
   cargaFuentesLamina,
   codecLamina,
@@ -100,9 +100,14 @@ import {
   imagenDelCampo,
   LAMINA_H,
   LAMINA_W,
+  cargaEscudo,
   lienzoLamina,
   pintaLamina,
+  pintaLaminaVertical,
+  pintaPortada,
   puedeHacerVideo,
+  VERTICAL_H,
+  VERTICAL_W,
   type DatosLamina,
 } from "@/lib/tactics/lamina";
 import {
@@ -247,7 +252,56 @@ function dosFotogramas() {
   );
 }
 
-type Formato = "png" | "copia" | "pdf" | "pptx" | "mp4";
+type Formato = "png" | "copia" | "pdf" | "pptx" | "portada" | Destino;
+
+/*
+| LOS DESTINOS DEL VÍDEO (21/10/2026)
+|
+| Un solo MP4 de 1920 × 1080 no valía para todo: por WhatsApp pasa de 16 MB y
+| se recomprime, y en el teléfono del jugador el campo apaisado se ve en una
+| franja. Cada destino tiene su tamaño y su caudal, y el menú dice lo que va a
+| pesar antes de pulsar.
+*/
+type Destino = "mp4" | "mp4-whatsapp" | "mp4-vertical";
+
+const DESTINOS: Record<Destino, { ancho: number; alto: number; caudal: number; titulo: string; detalle: string }> = {
+  mp4: { ancho: LAMINA_W, alto: LAMINA_H, caudal: 6_000_000, titulo: "Vídeo para la sala", detalle: "MP4 1920 × 1080, para proyectar" },
+  "mp4-whatsapp": { ancho: 1280, alto: 720, caudal: 2_200_000, titulo: "Vídeo para WhatsApp", detalle: "MP4 1280 × 720: no pasa de 16 MB" },
+  "mp4-vertical": { ancho: VERTICAL_W, alto: VERTICAL_H, caudal: 4_000_000, titulo: "Vídeo para el móvil", detalle: "MP4 vertical 1080 × 1920, el campo de pie" },
+};
+
+/** Lo que dura la portada del vídeo. */
+const PORTADA_S = 2.5;
+
+/** Los segundos que se sostiene una escena: lo que se tarda en leer su nota, entre 3 y 4. */
+function lecturaDe(nota: string | undefined, ultima: boolean) {
+  const palabras = (nota ?? "").trim().split(/\s+/).filter(Boolean).length;
+  const segundos = Math.min(4, Math.max(3, 2.6 + palabras * 0.08));
+
+  return ultima ? Math.max(3.5, segundos) : segundos;
+}
+
+/** Cuánto pesará el vídeo, en MB, con un 5 % del contenedor. */
+function pesoVideoMb(destino: Destino, segundos: number) {
+  return (DESTINOS[destino].caudal * segundos * 1.05) / 8 / 1_000_000;
+}
+
+const coma = (numero: number, decimales = 1) => numero.toFixed(decimales).replace(".", ",");
+
+/** Un título que no dice nada: el que se pone solo al crear la pizarra. */
+const tituloGenerico = (titulo: string) => /^\s*(pizarra( t[aá]ctica)?( \d+)?)?\s*(\(copia\))?\s*$/i.test(titulo);
+const escenaGenerica = (nombre: string) => /^\s*(escena( \d+)?)?\s*$/i.test(nombre);
+
+const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+/** «2026-10-25» → «domingo 25/10». */
+function diaDelPartido(fecha: string) {
+  const [anio, mes, dia] = fecha.split("-").map(Number);
+
+  if (!anio || !mes || !dia) return "";
+
+  return `${DIAS[new Date(anio, mes - 1, dia, 12).getDay()]} ${dia}/${mes}`;
+}
 
 interface Props {
   doc: TacticsDoc;
@@ -264,6 +318,8 @@ interface Props {
   hint?: string;
   /** Abrir el campo ocupando la pantalla entera. Ver `PitchStage`. */
   aPantallaCompleta?: boolean;
+  /** El próximo partido, para el pie de la lámina y la portada del vídeo. */
+  partido?: { rival: string; fecha: string; lado?: "casa" | "fuera" };
 }
 
 export default function TacticsBoard({
@@ -275,6 +331,7 @@ export default function TacticsBoard({
   singleScene = false,
   hint,
   aPantallaCompleta = false,
+  partido,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -356,7 +413,8 @@ export default function TacticsBoard({
 
   /* El dibujo que se ofrece en «Colocar»: equipo, dónde y si va en escena nueva. */
   const [dibujoEquipo, setDibujoEquipo] = useState<"home" | "away">("home");
-  const [dibujoEncaje, setDibujoEncaje] = useState<Encaje>("mitad");
+  const [dibujoAltura, setDibujoAltura] = useState<Altura>("medio");
+  const [dibujoFase, setDibujoFase] = useState<Fase>("sin");
   const [dibujoNueva, setDibujoNueva] = useState(false);
 
   const scenes = doc.scenes;
@@ -1223,7 +1281,7 @@ export default function TacticsBoard({
   /** Coloca a un equipo en un dibujo, en esta escena o en una nueva para animar el cambio. */
   const colocaEquipo = (dibujo: string) => {
     const base = dibujoNueva && !singleScene ? duplicateScene(scene, `${dibujo}`) : scene;
-    const { tokens, movidas, creadas } = colocaDibujo(base.tokens, dibujoEquipo, dibujo, dibujoEncaje);
+    const { tokens, movidas, creadas } = colocaDibujo(base.tokens, dibujoEquipo, dibujo, dibujoAltura, dibujoFase);
 
     const equipo = dibujoEquipo === "home" ? "Nosotros" : "El rival";
 
@@ -1234,7 +1292,7 @@ export default function TacticsBoard({
       updateScene((current) => ({ ...current, tokens }));
     }
 
-    toast.success(`${equipo} en ${dibujo}`, {
+    toast.success(`${equipo} en ${dibujo} · ${ALTURA_LABEL[dibujoAltura].toLowerCase()}, ${FASE_LABEL[dibujoFase].toLowerCase()}`, {
       description: creadas
         ? `${creadas} fichas puestas. Se puede deshacer.`
         : `${movidas} ${movidas === 1 ? "ficha recolocada" : "fichas recolocadas"}, cada una al puesto más cercano. Se puede deshacer.`,
@@ -1532,46 +1590,90 @@ export default function TacticsBoard({
   // ---------------------------------------------------------------
 
   /** Quién es quién en la lámina: sólo los equipos que salen en la jugada. */
+  const rivalDelCampo = squadDelCampo?.equipo ?? lockedRivalTeam ?? partido?.rival;
+
   const leyenda = useMemo(() => {
     const hay = (kind: TokenKind) => scenes.some((s) => s.tokens.some((token) => token.kind === kind));
     const items: DatosLamina["leyenda"] = [];
 
-    if (hay("home")) items.push({ color: TOKEN_STYLE.home.fill, borde: TOKEN_STYLE.home.stroke, texto: "Real Madrid Castilla" });
-    if (hay("away")) items.push({ color: TOKEN_STYLE.away.fill, borde: TOKEN_STYLE.away.stroke, texto: squadDelCampo?.equipo ?? lockedRivalTeam ?? "Rival" });
+    if (hay("home")) items.push({ color: TOKEN_STYLE.home.fill, borde: TOKEN_STYLE.home.stroke, texto: "Nosotros · Real Madrid Castilla" });
+    if (hay("away")) items.push({ color: TOKEN_STYLE.away.fill, borde: TOKEN_STYLE.away.stroke, texto: rivalDelCampo ? `Rival · ${rivalDelCampo}` : "Rival" });
 
     return items;
-  }, [lockedRivalTeam, scenes, squadDelCampo]);
+  }, [rivalDelCampo, scenes]);
+
+  /*
+  | EL TÍTULO DE LO QUE SALE (21/10/2026)
+  |
+  | «Pizarra 2» encabezaba la lámina, el PDF, el PowerPoint y el nombre del
+  | fichero. Si la pizarra no tiene un nombre propio, lo que se exporta sale
+  | con uno que dice de qué va —el rival y la primera escena con nombre— y el
+  | menú avisa de que conviene ponerle el suyo.
+  */
+  const sinTitulo = tituloGenerico(doc.titulo ?? "");
+
+  const tituloPropuesto = useMemo(() => {
+    const escena = scenes.find((s) => !escenaGenerica(s.nombre ?? ""))?.nombre?.trim();
+    const partes = [rivalDelCampo, escena].filter(Boolean) as string[];
+
+    return partes.length ? partes.join(" · ") : "Pizarra táctica";
+  }, [rivalDelCampo, scenes]);
+
+  const tituloDeSalida = sinTitulo ? tituloPropuesto : doc.titulo;
+
+  const pie = partido
+    ? `RMCF Castilla · ${partido.rival} · ${partido.fecha.split("-").reverse().join("/")}`
+    : undefined;
 
   const datosDe = useCallback(
     (indice: number): DatosLamina => ({
-      titulo: doc.titulo || "Pizarra táctica",
+      titulo: tituloDeSalida,
       escena: scenes[indice]?.nombre ?? "",
       indice,
       total: singleScene ? 1 : scenes.length,
       nota: scenes[indice]?.nota,
       leyenda,
+      pie,
     }),
-    [doc.titulo, leyenda, scenes, singleScene]
+    [tituloDeSalida, leyenda, pie, scenes, singleScene]
   );
+
+  /** Pinta el fotograma pedido y devuelve el campo hecho imagen. */
+  const campoDe = useCallback(async (indice: number, t: number) => {
+    setFotograma({ index: indice, t });
+    await dosFotogramas();
+
+    const svg = svgRef.current;
+
+    if (!svg) throw new Error("No hay campo que exportar");
+
+    return imagenDelCampo(svg, 1800);
+  }, []);
 
   /** Pinta el fotograma pedido y lo devuelve hecho lámina. */
   const laminaDe = useCallback(
-    async (indice: number, t: number, ctx: CanvasRenderingContext2D, familia: string, datos: DatosLamina, sinTextos = false) => {
-      setFotograma({ index: indice, t });
-      await dosFotogramas();
-
-      const svg = svgRef.current;
-
-      if (!svg) throw new Error("No hay campo que exportar");
-
-      const campo = await imagenDelCampo(svg, 1800);
-
-      return pintaLamina(ctx, campo, datos, familia, { sinTextos });
-    },
-    []
+    async (indice: number, t: number, ctx: CanvasRenderingContext2D, familia: string, datos: DatosLamina, sinTextos = false) =>
+      pintaLamina(ctx, await campoDe(indice, t), datos, familia, { sinTextos }),
+    [campoDe]
   );
 
-  const nombreFichero = apodo(`${doc.titulo || "pizarra"}`, "pizarra");
+  const nombreFichero = apodo(tituloDeSalida || "pizarra", "pizarra");
+
+  /** Lo que dura el vídeo: la portada, cada escena leída y cada tramo de movimiento. */
+  const duracionVideo = useMemo(() => {
+    const lectura = scenes.reduce((suma, escena, indice) => suma + lecturaDe(escena.nota, indice === scenes.length - 1), 0);
+
+    return PORTADA_S + lectura + Math.max(0, scenes.length - 1) * (SEGMENT_MS / 1000);
+  }, [scenes]);
+
+  const portadaDe = useCallback(
+    (): Parameters<typeof pintaPortada>[3] => ({
+      titulo: tituloDeSalida,
+      partido: partido ? `Contra ${partido.rival} · ${diaDelPartido(partido.fecha)}${partido.lado === "casa" ? " · en casa" : partido.lado === "fuera" ? " · fuera" : ""}` : rivalDelCampo ? `Contra ${rivalDelCampo}` : undefined,
+      detalle: singleScene ? undefined : `${scenes.length} ${scenes.length === 1 ? "escena" : "escenas"}`,
+    }),
+    [partido, rivalDelCampo, scenes.length, singleScene, tituloDeSalida]
+  );
 
   const exporta = async (que: Formato) => {
     if (formato) return;
@@ -1581,8 +1683,10 @@ export default function TacticsBoard({
     setExporting(true);
     setEditingShape(null);
 
+    const esVideo = que === "mp4" || que === "mp4-whatsapp" || que === "mp4-vertical";
+
     const aviso = toast.loading(
-      que === "mp4" ? "Montando el vídeo…" : que === "pptx" ? "Montando el PowerPoint…" : que === "pdf" ? "Montando el PDF…" : "Preparando la imagen…"
+      esVideo ? "Montando el vídeo…" : que === "pptx" ? "Montando el PowerPoint…" : que === "pdf" ? "Montando el PDF…" : "Preparando la imagen…"
     );
 
     try {
@@ -1592,6 +1696,14 @@ export default function TacticsBoard({
       await dosFotogramas();
 
       const { lienzo, ctx } = lienzoLamina();
+
+      if (que === "portada") {
+        pintaPortada(ctx, LAMINA_W, LAMINA_H, portadaDe(), familia, await cargaEscudo());
+        await descargaDataUrl(lienzo.toDataURL("image/jpeg", 0.9), `${nombreFichero}-portada.jpg`);
+        toast.success("Portada descargada: la imagen para el correo o el enlace del vídeo", { id: aviso });
+
+        return;
+      }
 
       if (que === "png" || que === "copia") {
         await laminaDe(safeIndex, 0, ctx, familia, datosDe(safeIndex));
@@ -1627,13 +1739,14 @@ export default function TacticsBoard({
         }
 
         if (que === "pdf") {
+          /* A sangre: la banda azul llega al borde de la hoja, como la lámina. */
           const pdf = await pdfDeHojas(
             hojas.map((hoja) => ({
               imagen: hoja.imagen,
               ancho: LAMINA_W,
               alto: LAMINA_H,
               orientacion: "landscape" as const,
-              margen: 18,
+              margen: 0,
             }))
           );
 
@@ -1646,7 +1759,7 @@ export default function TacticsBoard({
               imagen: hoja.imagen,
               capas: hoja.textos.map((texto) => ({ nombre: texto.nombre, texto: texto.texto, ...texto.capa })),
             })),
-            { titulo: doc.titulo || "Pizarra táctica", autor: "RMCF Castilla", aplicacion: "Pizarra táctica" }
+            { titulo: tituloDeSalida, autor: "RMCF Castilla", aplicacion: "Pizarra táctica" }
           );
 
           descarga(blob, `${nombreFichero}.pptx`);
@@ -1658,9 +1771,21 @@ export default function TacticsBoard({
 
       /* ------------------------------------------------ el vídeo */
 
-      const codec = await codecLamina();
+      const destino = DESTINOS[que];
+      const vertical = que === "mp4-vertical";
+      const codec = await codecLamina(destino.ancho, destino.alto, destino.caudal);
 
       if (!codec) throw new Error("Este navegador no sabe montar vídeo. Prueba con Chrome o Edge.");
+
+      /* El lienzo del vídeo: el de la lámina, el vertical o el de 720p (que se pinta reducido). */
+      const salida = vertical || que === "mp4-whatsapp" ? document.createElement("canvas") : lienzo;
+
+      salida.width = destino.ancho;
+      salida.height = destino.alto;
+
+      const ctxSalida = salida === lienzo ? ctx : salida.getContext("2d");
+
+      if (!ctxSalida) throw new Error("El navegador no da un lienzo 2D");
 
       let fallo: Error | null = null;
       const muxor = new MuxorMp4();
@@ -1668,7 +1793,7 @@ export default function TacticsBoard({
         output: (trozo, metadatos) => {
           const descripcion = metadatos?.decoderConfig?.description;
 
-          if (descripcion) muxor.configuraVideo({ ancho: LAMINA_W, alto: LAMINA_H, descripcion: copiaBytes(descripcion) });
+          if (descripcion) muxor.configuraVideo({ ancho: destino.ancho, alto: destino.alto, descripcion: copiaBytes(descripcion) });
 
           const datos = new Uint8Array(new ArrayBuffer(trozo.byteLength));
 
@@ -1682,33 +1807,30 @@ export default function TacticsBoard({
 
       codificador.configure({
         codec,
-        width: LAMINA_W,
-        height: LAMINA_H,
-        bitrate: 6_000_000,
+        width: destino.ancho,
+        height: destino.alto,
+        bitrate: destino.caudal,
         framerate: FPS_LAMINA,
         latencyMode: "quality",
         avc: { format: "avc" },
       });
 
       /*
-      | Guion del vídeo: cada escena se sostiene lo que tarda en leerse su nota
-      | (un segundo y pico sin nota, hasta seis con una larga; la última, dos
-      | como poco) y cada tramo dura lo mismo que en el reproductor a 1×. La
+      | Guion del vídeo (21/10/2026): la portada (título, escudo y contra
+      | quién), y luego cada escena quieta de 3 a 4 s —lo que se tarda en leer
+      | su nota— y el movimiento hasta la siguiente en 1,5 s con su estela. La
       | nota y el número de escena cambian al llegar, no al salir: lo que se
       | lee es lo que se ve.
       */
       const porTramo = Math.round((SEGMENT_MS / 1000) * FPS_LAMINA);
-      const plan: { index: number; t: number; rotulo: number }[] = [];
+      const plan: ({ portada: true } | { portada?: false; index: number; t: number; rotulo: number })[] = [];
 
-      const pausa = (indice: number) => {
-        const palabras = (scenes[indice]?.nota ?? "").trim().split(/\s+/).filter(Boolean).length;
-        const segundos = Math.min(6, Math.max(1.2, 1.2 + palabras * 0.28));
-
-        return Math.round((indice === scenes.length - 1 ? Math.max(2, segundos) : segundos) * FPS_LAMINA);
-      };
+      for (let k = 0; k < Math.round(PORTADA_S * FPS_LAMINA); k += 1) plan.push({ portada: true });
 
       for (let indice = 0; indice < scenes.length; indice += 1) {
-        for (let k = 0; k < pausa(indice); k += 1) plan.push({ index: indice, t: 0, rotulo: indice });
+        const quieta = Math.round(lecturaDe(scenes[indice]?.nota, indice === scenes.length - 1) * FPS_LAMINA);
+
+        for (let k = 0; k < quieta; k += 1) plan.push({ index: indice, t: 0, rotulo: indice });
 
         if (indice === scenes.length - 1) break;
 
@@ -1719,22 +1841,31 @@ export default function TacticsBoard({
         }
       }
 
+      const escudoImg = await cargaEscudo();
       let previo = "";
-      let textosPrevios: Awaited<ReturnType<typeof laminaDe>> | null = null;
 
       for (let k = 0; k < plan.length; k += 1) {
         if (fallo) throw fallo;
 
         const paso = plan[k];
-        const clave = `${paso.index}|${paso.t}|${paso.rotulo}`;
+        const clave = paso.portada ? "portada" : `${paso.index}|${paso.t}|${paso.rotulo}`;
 
         /* Los fotogramas quietos se repiten sin volver a pintar. */
-        if (clave !== previo || !textosPrevios) {
-          textosPrevios = await laminaDe(paso.index, paso.t, ctx, familia, datosDe(paso.rotulo));
+        if (clave !== previo) {
+          if (paso.portada) {
+            pintaPortada(ctxSalida, destino.ancho, destino.alto, portadaDe(), familia, escudoImg);
+          } else if (vertical) {
+            pintaLaminaVertical(ctxSalida, await campoDe(paso.index, paso.t), datosDe(paso.rotulo), familia);
+          } else {
+            await laminaDe(paso.index, paso.t, ctx, familia, datosDe(paso.rotulo));
+
+            if (salida !== lienzo) ctxSalida.drawImage(lienzo, 0, 0, destino.ancho, destino.alto);
+          }
+
           previo = clave;
         }
 
-        const cuadro = new VideoFrame(lienzo, { timestamp: Math.round((k * 1_000_000) / FPS_LAMINA), duration: Math.round(1_000_000 / FPS_LAMINA) });
+        const cuadro = new VideoFrame(salida, { timestamp: Math.round((k * 1_000_000) / FPS_LAMINA), duration: Math.round(1_000_000 / FPS_LAMINA) });
 
         codificador.encode(cuadro, { keyFrame: k % (FPS_LAMINA * 2) === 0 });
         cuadro.close();
@@ -1749,11 +1880,12 @@ export default function TacticsBoard({
 
       if (fallo) throw fallo;
 
-      descarga(muxor.cierra(), `${nombreFichero}.mp4`);
+      const fichero = muxor.cierra();
+      const sufijo = que === "mp4-whatsapp" ? "-whatsapp" : vertical ? "-movil" : "";
 
-      const segundos = (plan.length / FPS_LAMINA).toFixed(1).replace(".", ",");
+      descarga(fichero, `${nombreFichero}${sufijo}.mp4`);
 
-      toast.success(`Vídeo listo · ${segundos} s en 1920 × 1080`, { id: aviso });
+      toast.success(`Vídeo listo · ${coma(plan.length / FPS_LAMINA)} s · ${coma(fichero.size / 1_000_000)} MB · ${destino.ancho} × ${destino.alto}`, { id: aviso });
     } catch (error) {
       console.error("[pizarra] exportación", error);
       toast.error(error instanceof Error && error.message ? error.message : "No se ha podido exportar", { id: aviso });
@@ -1802,10 +1934,14 @@ export default function TacticsBoard({
 
     if (fichas.length < 2) return "";
 
+    /* De quién es el bloque, dicho: con los dos onces puestos no se sabía a quién se medía. */
+    const kinds = new Set(fichas.map((token) => token.kind));
+    const quien = kinds.size === 1 && kinds.has("home") ? "Nosotros · " : kinds.size === 1 && kinds.has("away") ? `${rivalDelCampo ?? "Rival"} · ` : "";
+
     if (fichas.length === 2) {
       const [a, b] = fichas;
 
-      return `a ${Math.round(Math.hypot((a.x - b.x) * 1.05, a.y - b.y))} m`;
+      return `${quien}a ${Math.round(Math.hypot((a.x - b.x) * 1.05, a.y - b.y))} m · campo 105 × 68`;
     }
 
     const xs = fichas.map((token) => token.x);
@@ -1813,13 +1949,16 @@ export default function TacticsBoard({
     const largo = Math.round((Math.max(...xs) - Math.min(...xs)) * 1.05);
     const ancho = Math.round(Math.max(...ys) - Math.min(...ys));
 
-    return [largo ? `${largo} m de largo` : "", ancho ? `${ancho} m de ancho` : ""].filter(Boolean).join(" × ");
-  }, [elegidasSet, scene.tokens]);
+    const partes = [ancho ? `${ancho} m entre extremos` : "", largo ? `${largo} m de largo` : ""].filter(Boolean).join(" · ");
+
+    return `${quien}bloque de ${fichas.length}${partes ? ` · ${partes}` : ""} · campo 105 × 68`;
+  }, [elegidasSet, rivalDelCampo, scene.tokens]);
 
   const ocupado = formato !== null;
 
   return (
-    <div ref={raizRef} className="space-y-3">
+    /* En el teléfono el campo va primero y las barras debajo: antes había seis bloques de botones antes de verlo. */
+    <div ref={raizRef} className="flex flex-col gap-3">
       {/* BARRA DE FICHAS Y ACCIONES */}
 
       <div
@@ -1894,10 +2033,16 @@ export default function TacticsBoard({
                 ]}
               />
               <Segmentado
-                etiqueta="Dónde"
-                valor={dibujoEncaje}
-                onCambia={setDibujoEncaje}
-                opciones={(Object.keys(ENCAJE_LABEL) as Encaje[]).map((id) => [id, id === "mitad" ? "En su mitad" : "Todo el campo"])}
+                etiqueta="Altura"
+                valor={dibujoAltura}
+                onCambia={setDibujoAltura}
+                opciones={(Object.keys(ALTURA_LABEL) as Altura[]).map((id) => [id, id === "alto" ? "Alto" : id === "medio" ? "Medio" : "Bajo"])}
+              />
+              <Segmentado
+                etiqueta="Fase"
+                valor={dibujoFase}
+                onCambia={setDibujoFase}
+                opciones={(Object.keys(FASE_LABEL) as Fase[]).map((id) => [id, FASE_LABEL[id]])}
               />
 
               <div className="grid grid-cols-3 gap-1.5">
@@ -1932,9 +2077,10 @@ export default function TacticsBoard({
               )}
 
               <p className="leading-snug text-white/45">
-                Recoloca a los que ya están, cada uno al puesto más cercano,
-                sin cambiar nombres ni dorsales. Si el equipo no tiene fichas,
-                pone las once.
+                La altura es dónde va su línea defensiva: alto a unos 45 m de
+                su portería, medio a 35 y bajo a 22. Sin balón el equipo se
+                junta; con balón se abre. Recoloca a los que ya están, cada
+                uno al puesto más cercano, sin cambiar nombres ni dorsales.
               </p>
             </div>
           )}
@@ -1967,10 +2113,10 @@ export default function TacticsBoard({
                 title="Duplicar la escena justo detrás: mueve las fichas en la copia y al reproducir se verá el movimiento"
               />
               <TokenButton
-                label="Vacía"
+                label="Escena en blanco"
                 icon={<Plus size={13} />}
                 onClick={addEmptyScene}
-                title="Una escena vacía justo detrás de ésta"
+                title="Una escena en blanco justo detrás de ésta"
               />
             </>
           )}
@@ -2118,23 +2264,39 @@ export default function TacticsBoard({
                     void exporta("pptx");
                   }}
                 />
-                {!singleScene && (
-                  <OpcionExportar
-                    icono={<Film size={15} />}
-                    titulo="Vídeo de la jugada"
-                    detalle={
-                      puedeHacerVideo()
-                        ? scenes.length > 1
-                          ? "MP4 1920 × 1080 con el movimiento y las notas"
-                          : "Hacen falta dos escenas para que haya movimiento"
-                        : "Este navegador no monta vídeo: usa Chrome o Edge"
-                    }
-                    deshabilitado={!puedeHacerVideo() || scenes.length < 2}
-                    onClick={() => {
-                      cierra();
-                      void exporta("mp4");
-                    }}
-                  />
+                {!singleScene &&
+                  (Object.keys(DESTINOS) as Destino[]).map((destino) => (
+                    <OpcionExportar
+                      key={destino}
+                      icono={<Film size={15} />}
+                      titulo={DESTINOS[destino].titulo}
+                      detalle={
+                        puedeHacerVideo()
+                          ? scenes.length > 1
+                            ? `${DESTINOS[destino].detalle} · ${coma(duracionVideo, 0)} s · ≈ ${coma(pesoVideoMb(destino, duracionVideo))} MB`
+                            : "Hacen falta dos escenas para que haya movimiento"
+                          : "Este navegador no monta vídeo: usa Chrome o Edge"
+                      }
+                      deshabilitado={!puedeHacerVideo() || scenes.length < 2}
+                      onClick={() => {
+                        cierra();
+                        void exporta(destino);
+                      }}
+                    />
+                  ))}
+                <OpcionExportar
+                  icono={<ImageIcon size={15} />}
+                  titulo="Portada"
+                  detalle="JPG con el título, el escudo y el rival: la imagen del enlace en el correo"
+                  onClick={() => {
+                    cierra();
+                    void exporta("portada");
+                  }}
+                />
+                {sinTitulo && (
+                  <p className="mt-1 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2.5 py-2 text-[10px] leading-snug text-[#E9C46A]">
+                    Ponle título a la pizarra: sin él, todo sale como «{tituloPropuesto}».
+                  </p>
                 )}
               </div>
             )}
@@ -2272,6 +2434,7 @@ export default function TacticsBoard({
       {/* CAMPO */}
 
       <PitchStage
+        className="max-sm:-order-1"
         camera={camera}
         aPantallaCompleta={aPantallaCompleta}
         aspect={`${viewBox.width} / ${viewBox.height}`}
@@ -2526,7 +2689,8 @@ export default function TacticsBoard({
               return (
                 <g
                   key={token.id}
-                  transform={`translate(${token.x} ${token.y})`}
+                  /* Al exportar, las fichas un 30 % más grandes: en la lámina y en el vídeo se leen desde el fondo de la sala. */
+                  transform={`translate(${token.x} ${token.y})${exporting ? " scale(1.3)" : ""}`}
                   onPointerDown={(event) => {
                     if (live || exporting || tool === "camera") return;
 
@@ -2701,6 +2865,18 @@ export default function TacticsBoard({
           )}
         </svg>
       </PitchStage>
+
+      {/* QUIÉN ES QUIÉN: con los dos onces, los mismos números en los dos colores no decían de quién era cada uno. */}
+      {(leyenda?.length ?? 0) > 1 && (
+        <div data-export-hide className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-white/60">
+          {leyenda?.map((item) => (
+            <span key={item.texto} className="inline-flex items-center gap-1.5">
+              <span aria-hidden className="h-3 w-3 rounded-full border-2" style={{ background: item.color, borderColor: item.borde }} />
+              {item.texto}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* LA ESCENA: NOMBRE, ORDEN Y LO QUE SE CUENTA */}
 

@@ -27,37 +27,109 @@ import { PITCH_HEIGHT, type Point, type TacticToken } from "./types";
 /** Los dibujos que se ofrecen, en el orden de la lista. */
 export const DIBUJOS = Object.keys(formations);
 
-/** Dónde se coloca el equipo. */
-export type Encaje = "mitad" | "campo";
-
-export const ENCAJE_LABEL: Record<Encaje, string> = {
-  mitad: "En su mitad (frente al rival)",
-  campo: "A lo largo del campo",
-};
-
 /*
-| Un once de `formations` va del 12 % al 87 % del largo: es un equipo solo,
-| atacando hacia la derecha. «En su mitad» lo comprime del 10 al 45, que es
-| como se ponen dos equipos enfrentados sin meterse uno dentro del otro (lo
-| mismo que hace `dosOnces`).
+| ALTURA Y FASE (21/10/2026)
+|
+| «En su mitad / Todo el campo» no decía cómo está el equipo: el «4-4-2 para
+| presionar la salida» se colocaba en bloque bajo, al borde de nuestra área,
+| y lo que contaba la nota no era lo que se veía. Ahora se elige la altura
+| del bloque —dónde está la línea defensiva, en metros desde nuestra
+| portería— y la fase: sin balón el equipo se junta (corto y estrecho), con
+| balón se abre a lo largo y a lo ancho.
 */
-function largo(porcentaje: number, encaje: Encaje) {
-  if (encaje === "campo") return porcentaje;
 
-  return 10 + ((porcentaje - 12) / (87 - 12)) * (45 - 10);
-}
+/** Altura del bloque: la línea defensiva, a tantos metros de su portería. */
+export type Altura = "alto" | "medio" | "bajo";
+export type Fase = "sin" | "con";
 
-/** Los once sitios del dibujo para ese equipo, ya en metros del campo. */
-export function sitiosDelDibujo(dibujo: string, kind: "home" | "away", encaje: Encaje): Point[] {
+export const ALTURA_LABEL: Record<Altura, string> = { alto: "Bloque alto", medio: "Bloque medio", bajo: "Bloque bajo" };
+export const FASE_LABEL: Record<Fase, string> = { sin: "Sin balón", con: "Con balón" };
+
+/** Metros de la línea defensiva a su portería. */
+const LINEA: Record<Altura, number> = { alto: 45, medio: 35, bajo: 22 };
+
+/** Metros de la línea defensiva a la delantera: sin balón, junto; con balón, largo. */
+const LARGO_BLOQUE: Record<Fase, number> = { sin: 30, con: 42 };
+
+/** Cuánto del ancho del campo ocupa el equipo (1 = todo lo que da el dibujo). */
+const ANCHO_BLOQUE: Record<Fase, number> = { sin: 0.78, con: 1 };
+
+const LARGO_CAMPO_M = 105;
+
+/** Lo que mide el campo de la pizarra (100) en metros de verdad (105). */
+const aUnidades = (metros: number) => (metros / LARGO_CAMPO_M) * 100;
+
+/** Separación mínima entre dos de un mismo equipo, en metros. */
+const SEPARACION_M = 6;
+
+/** Los once sitios del dibujo para ese equipo, ya en unidades del campo. */
+export function sitiosDelDibujo(dibujo: string, kind: "home" | "away", altura: Altura, fase: Fase): Point[] {
   const puestos = formations[dibujo] ?? [];
 
-  return puestos.map((puesto) => {
-    const x = largo(Number.parseFloat(puesto.left), encaje);
-    const y = (Number.parseFloat(puesto.top) / 100) * PITCH_HEIGHT;
+  const linea = LINEA[altura] + (fase === "con" ? 8 : 0);
+  /* La delantera nunca más allá de 6 m de la portería contraria. */
+  const largo = Math.min(LARGO_BLOQUE[fase], LARGO_CAMPO_M - 6 - linea);
+  const portero = Math.min(16, Math.max(5, linea * 0.32));
 
-    /* El rival, media vuelta entera: su derecha es nuestra izquierda. */
-    return kind === "home" ? { x, y } : { x: 100 - x, y: PITCH_HEIGHT - y };
+  /* En `formations` la defensa va al 23 % y la delantera al 82 %. */
+  const DEFENSA = 23;
+  const DELANTERA = 82;
+
+  const sitios = puestos.map((puesto, indice) => {
+    const izquierda = Number.parseFloat(puesto.left);
+    const arriba = Number.parseFloat(puesto.top) / 100;
+
+    const metros =
+      indice === 0
+        ? portero
+        : linea + Math.max(0, Math.min(1, (izquierda - DEFENSA) / (DELANTERA - DEFENSA))) * largo;
+
+    const x = aUnidades(metros);
+    const y = PITCH_HEIGHT / 2 + (arriba - 0.5) * PITCH_HEIGHT * (indice === 0 ? 1 : ANCHO_BLOQUE[fase]);
+
+    return { x, y };
   });
+
+  const separados = separa(sitios);
+
+  /* El rival, media vuelta entera: su derecha es nuestra izquierda. */
+  return kind === "home" ? separados : separados.map(({ x, y }) => ({ x: 100 - x, y: PITCH_HEIGHT - y }));
+}
+
+/**
+ * Aparta a los que quedan montados (21/10/2026: el 4-4-2 comprimido ponía al
+ * 4 encima del 6 y al 5 encima del 8). Empuja a lo largo, que es lo que
+ * separa dos líneas, hasta que entre los dos hay `SEPARACION_M`.
+ */
+function separa(sitios: Point[]): Point[] {
+  const salida = sitios.map((sitio) => ({ ...sitio }));
+  const minimo = aUnidades(SEPARACION_M);
+
+  for (let vuelta = 0; vuelta < 6; vuelta += 1) {
+    let movido = false;
+
+    for (let i = 0; i < salida.length; i += 1) {
+      for (let j = i + 1; j < salida.length; j += 1) {
+        const dx = (salida[j].x - salida[i].x) * 1.05;
+        const dy = salida[j].y - salida[i].y;
+        const d = Math.hypot(dx, dy);
+
+        if (d >= SEPARACION_M) continue;
+
+        /* El de más adelante sube y el de atrás baja, lo que falte entre los dos. */
+        const falta = (minimo - Math.abs(salida[j].x - salida[i].x)) / 2;
+        const [atras, delante] = salida[i].x <= salida[j].x ? [i, j] : [j, i];
+
+        salida[atras].x = Math.max(1, salida[atras].x - falta);
+        salida[delante].x = Math.min(99, salida[delante].x + falta);
+        movido = true;
+      }
+    }
+
+    if (!movido) break;
+  }
+
+  return salida;
 }
 
 /**
@@ -156,9 +228,10 @@ export function colocaDibujo(
   tokens: TacticToken[],
   kind: "home" | "away",
   dibujo: string,
-  encaje: Encaje,
+  altura: Altura,
+  fase: Fase,
 ): { tokens: TacticToken[]; movidas: number; creadas: number } {
-  const sitios = sitiosDelDibujo(dibujo, kind, encaje);
+  const sitios = sitiosDelDibujo(dibujo, kind, altura, fase);
 
   if (sitios.length === 0) return { tokens, movidas: 0, creadas: 0 };
 

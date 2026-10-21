@@ -733,6 +733,23 @@ function BoardEditor({
     [nombre, roster, setValue],
   );
 
+  /* El próximo partido, para el pie de la lámina y la portada del vídeo de cualquier pizarra. */
+  const [partido, setPartido] = useState<{ rival: string; fecha: string; lado: "casa" | "fuera" } | undefined>(undefined);
+
+  useEffect(() => {
+    let vivo = true;
+
+    void semanaActual()
+      .then((s) => {
+        if (vivo && s) setPartido({ rival: s.rival, fecha: s.fecha, lado: s.lado });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!deLaSemana || semanaMirada.current || status === "loading" || localOnly || roster.length === 0) return;
 
@@ -863,9 +880,9 @@ function BoardEditor({
           {/* En el móvil, en su propia fila: al lado de los botones se quedaba en una palabra por renglón. */}
           <span className="min-w-0 sm:flex-1">
             {fuentes
-              ? `${fuentes.nuestra} · vs ${fuentes.rival}: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}. Pincha dos veces una ficha para cambiar al jugador.`
+              ? `${fuentes.nuestra} · vs ${fuentes.rival}: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}. Toca dos veces una ficha para cambiar al jugador.`
               : doc.semanaOnces
-                ? `Puestos para el partido del ${doc.semanaOnces.split("|")[0].split("-").reverse().join("/")} contra ${doc.semanaOnces.split("|")[1]}. Pincha dos veces una ficha para cambiar al jugador.`
+                ? `Nuestro once y el suyo para el ${diaYLugar(doc.semanaOnces.split("|")[0], doc.semanaOnces.split("|")[1], partido)}. Toca dos veces una ficha para cambiar al jugador.`
                 : "Se rellenan solos cada semana con nuestro último once y el teórico del rival."}
           </span>
           <span className="flex flex-wrap items-center gap-2">
@@ -904,8 +921,23 @@ function BoardEditor({
         aPantallaCompleta={aPantallaCompleta}
         roster={roster}
         rivalSquads={rivalSquads}
+        partido={partido}
         hint="Para animar: duplica la escena, mueve las fichas en la copia y pulsa ▶. Para presentar: pantalla completa y → (o el mando) avanza la jugada escena a escena."
       />
     </div>
   );
+}
+
+const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+/** «domingo 25 en Algeciras» o «domingo 25 contra el Algeciras CF», como lo diría el cuerpo técnico. */
+function diaYLugar(fecha: string, rival: string, partido?: { rival: string; fecha: string; lado: "casa" | "fuera" }) {
+  const [anio, mes, dia] = fecha.split("-").map(Number);
+  const nombre = anio && mes && dia ? `${DIAS_SEMANA[new Date(anio, mes - 1, dia, 12).getDay()]} ${dia}` : fecha;
+  const lado = partido && partido.fecha === fecha ? partido.lado : undefined;
+
+  if (lado === "casa") return `${nombre} en casa contra el ${rival}`;
+  if (lado === "fuera") return `${nombre} en el campo del ${rival}`;
+
+  return `${nombre} contra el ${rival}`;
 }

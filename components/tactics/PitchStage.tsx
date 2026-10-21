@@ -351,7 +351,10 @@ export default function PitchStage({
         ref={stageRef}
         className={cn(
           "relative",
-          expanded && "flex min-h-0 flex-1 items-center justify-center"
+          expanded && "flex min-h-0 flex-1 items-center justify-center",
+          /* La paleta flota a la izquierda: el campo se aparta lo que ocupa
+             para que no tape al portero ni al lateral (21/10/2026). */
+          toolbar && "pitch-float:pl-[60px] lg:pl-[64px]"
         )}
       >
         {/* Fondo del estadio: al inclinar el campo queda hueco alrededor. */}
