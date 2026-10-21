@@ -37,8 +37,11 @@ export function AutoSaveStatus({
   onReintentar?: () => void;
   className?: string;
 }) {
-  const base =
-    "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition";
+  // Si quien lo usa trae su propio `display` sin prefijo (p. ej. «hidden
+  // lg:inline-flex»), el `inline-flex` de aquí le ganaba y el aviso salía
+  // siempre. En ese caso el display lo pone sólo quien lo usa.
+  const traeDisplay = /(^|\s)(hidden|block|flex|inline-flex|inline-block)(\s|$)/.test(className);
+  const base = `${traeDisplay ? "" : "inline-flex "}items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition`;
 
   if (estado === "saving") {
     return (
