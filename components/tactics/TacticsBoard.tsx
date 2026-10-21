@@ -1373,7 +1373,11 @@ export default function TacticsBoard({
       .map((player) => player.id);
   }, [rivalSquads, scene.tokens]);
 
-  /* Al montar: si ya hay rivales en el campo, el panel de dorsales arranca plegado. */
+  /*
+  | El panel de dorsales arranca plegado (21/10/2026): desplegado son dos filas
+  | que empujan el campo media pantalla. En la pizarra de un rival, que es
+  | para eso, se abre si todavía no hay ninguno de los suyos en el campo.
+  */
   const [rivalesAbiertos] = useState(() => !scene.tokens.some((token) => token.kind === "away"));
 
   /** Enciende o apaga el dorsal: segunda pulsación, ficha fuera. */
@@ -1804,7 +1808,7 @@ export default function TacticsBoard({
     const largo = Math.round((Math.max(...xs) - Math.min(...xs)) * 1.05);
     const ancho = Math.round(Math.max(...ys) - Math.min(...ys));
 
-    return `${largo} m de largo × ${ancho} m de ancho`;
+    return [largo ? `${largo} m de largo` : "", ancho ? `${ancho} m de ancho` : ""].filter(Boolean).join(" × ");
   }, [elegidasSet, scene.tokens]);
 
   const ocupado = formato !== null;
@@ -1952,15 +1956,16 @@ export default function TacticsBoard({
           {!singleScene && (
             <>
               <TokenButton
-                label="Duplicar escena"
+                label="Duplicar"
                 icon={<Copy size={13} />}
                 onClick={addScene}
-                title="Copia esta escena justo detrás: mueve las fichas en la copia y al reproducir se verá el movimiento"
+                title="Duplicar la escena justo detrás: mueve las fichas en la copia y al reproducir se verá el movimiento"
               />
               <TokenButton
-                label="Escena vacía"
+                label="Vacía"
                 icon={<Plus size={13} />}
                 onClick={addEmptyScene}
+                title="Una escena vacía justo detrás de ésta"
               />
             </>
           )}
@@ -2171,7 +2176,7 @@ export default function TacticsBoard({
           onAddNumber={addRivalNumber}
           onClear={clearRivals}
           lockedTeam={lockedRivalTeam}
-          abiertoAlEmpezar={rivalesAbiertos}
+          abiertoAlEmpezar={Boolean(lockedRivalTeam) && rivalesAbiertos}
         />
       )}
 
@@ -2240,7 +2245,7 @@ export default function TacticsBoard({
             <span className="min-w-0 flex-1 leading-snug">
               <span className="font-semibold text-white/80">{pista?.label}</span>
               {pista ? ` · ${pista.hint}` : ""}
-              {tool === "select" && ". Arrastra sobre el césped vacío para elegir varias; Mayús al arrastrar las pega a la rejilla."}
+              {tool === "select" && ". En vacío, arrastra para elegir varias."}
             </span>
 
             <button
