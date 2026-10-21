@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { ArrowUpRight, Goal, LayoutGrid, Trophy } from "lucide-react";
+import { ArrowUpRight, Goal, LayoutGrid, Trophy, UserX } from "lucide-react";
 
 import { chipInk } from "@/lib/theme";
 import type { AspectoDestacado } from "@/lib/rivals/destacados-rival";
@@ -56,10 +56,32 @@ function Casilla({
 
       <div className="mt-1 min-w-0">{children}</div>
 
-      {pie && <p className="mt-1 truncate text-[11px] text-white/45">{pie}</p>}
+      {/* Dos renglones antes que «El último: 2-0 en casa co…» en el móvil. */}
+      {pie && <p className="mt-1 line-clamp-2 text-[11px] text-white/45">{pie}</p>}
     </div>
   );
 }
+
+/** «Destaca en dominio con balón y eficacia, pero se queda corto en producción de remate.» */
+function fraseDeAspectos(aspectos: AspectoDestacado[]) {
+  const lista = (nombres: string[]) =>
+    nombres.length === 1 ? nombres[0] : `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
+
+  const fuertes = aspectos.filter((a) => a.desviacion >= 0).map((a) => a.aspecto.toLowerCase());
+  const flojos = aspectos.filter((a) => a.desviacion < 0).map((a) => a.aspecto.toLowerCase());
+
+  if (fuertes.length && flojos.length) return `Destaca en ${lista(fuertes)}, pero se queda corto en ${lista(flojos)}.`;
+  if (fuertes.length) return `Destaca en ${lista(fuertes)}.`;
+  if (flojos.length) return `Se queda corto en ${lista(flojos)}.`;
+
+  return "";
+}
+
+export type AvisosRival = {
+  fuera: { nombre: string; estado: string }[];
+  apercibidos: { nombre: string; amarillas: number }[];
+  rojas: { nombre: string; rojas: number }[];
+};
 
 export function VistazoRival({
   equipo,
@@ -67,8 +89,11 @@ export function VistazoRival({
   jornada,
   aspectos = [],
   equipos = 0,
+  avisos = null,
   enlaces,
 }: {
+  /** Bajas de la hoja, apercibidos y rojas de BeSoccer; `null` si no hay nada. */
+  avisos?: AvisosRival | null;
   equipo: string;
   vistazo: Vistazo | null;
   jornada: JornadaDeEquipo | null;
@@ -107,7 +132,7 @@ export function VistazoRival({
       )}
 
       {vistazo && (
-      <div className="grid min-w-0 grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
+      <div className={`grid min-w-0 grid-cols-2 gap-2 md:grid-cols-3 ${avisos ? "xl:grid-cols-6" : "xl:grid-cols-5"}`}>
         {tabla && (
           <Casilla
             titulo="Clasificación"
@@ -173,6 +198,36 @@ export function VistazoRival({
           </Casilla>
         )}
 
+        {avisos && (
+          <Casilla titulo="Bajas y apercibidos" ancha>
+            <ul className="min-w-0 space-y-0.5 text-sm">
+              {avisos.fuera.map((uno) => (
+                <li key={`f-${uno.nombre}`} className="flex min-w-0 items-center gap-1.5">
+                  <UserX size={12} className="shrink-0 text-[#F87171]" aria-hidden />
+                  <span className="min-w-0 truncate">{uno.nombre}</span>
+                  <span className="ml-auto shrink-0 text-[11px] text-white/45">{uno.estado}</span>
+                </li>
+              ))}
+              {avisos.apercibidos.map((uno) => (
+                <li key={`a-${uno.nombre}`} className="flex min-w-0 items-center gap-1.5">
+                  <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#FACC15]" aria-hidden />
+                  <span className="min-w-0 truncate">{uno.nombre}</span>
+                  <span className="ml-auto shrink-0 text-[11px] text-white/45">a una amarilla ({uno.amarillas})</span>
+                </li>
+              ))}
+              {avisos.rojas.map((uno) => (
+                <li key={`r-${uno.nombre}`} className="flex min-w-0 items-center gap-1.5">
+                  <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#EF4444]" aria-hidden />
+                  <span className="min-w-0 truncate">{uno.nombre}</span>
+                  <span className="ml-auto shrink-0 text-[11px] text-white/45">
+                    {uno.rojas === 1 ? "una roja esta temporada" : `${uno.rojas} rojas esta temporada`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Casilla>
+        )}
+
         {goleadores.length > 0 && (
           <Casilla titulo="Le hacen los goles" ancha>
             <ul className="min-w-0 space-y-0.5">
@@ -196,27 +251,38 @@ export function VistazoRival({
             Lo que le hace distinto · Wyscout, contra {equipos > 0 ? `los ${equipos} de` : ""} la categoría
           </p>
 
-          <ul className="flex min-w-0 flex-wrap gap-2">
-            {aspectos.map((a) => {
-              /* Verde si se sale por arriba, rojo si va por detrás: lo mismo
-                 que las etiquetas de los jugadores. */
-              const color = a.desviacion >= 0 ? "#34D399" : "#F87171";
+          {/* Primero la frase, luego los dos grupos: una lista de «p15 · p80» no se leía (guion, 21/10). */}
+          {fraseDeAspectos(aspectos) && <p className="mb-2 text-sm text-white/75">{fraseDeAspectos(aspectos)}</p>}
 
-              return (
-                <li
-                  key={a.aspecto}
-                  title={`${a.explica}. ${a.filas.map((f) => `${f.nombre}: p${f.percentil}`).join(" · ")}`}
-                  className="flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
-                  style={{ borderColor: `${color}55`, background: `${color}14` }}
-                >
-                  <span className="min-w-0 truncate">{a.aspecto}</span>
-                  <span className="shrink-0 font-semibold tabular-nums" style={{ color: chipInk(color) }}>
-                    p{a.percentil}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+            {[
+              { titulo: "Fuerte en", color: "#34D399", lista: aspectos.filter((a) => a.desviacion >= 0) },
+              { titulo: "Flojo en", color: "#F87171", lista: aspectos.filter((a) => a.desviacion < 0) },
+            ]
+              .filter((grupo) => grupo.lista.length > 0)
+              .map((grupo) => (
+                <div key={grupo.titulo} className="min-w-0">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: chipInk(grupo.color) }}>
+                    {grupo.titulo}
+                  </p>
+                  <ul className="flex min-w-0 flex-wrap gap-1.5">
+                    {grupo.lista.map((a) => (
+                      <li
+                        key={a.aspecto}
+                        title={`${a.explica}. ${a.filas.map((f) => `${f.nombre}: p${f.percentil}`).join(" · ")}`}
+                        className="flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+                        style={{ borderColor: `${grupo.color}55`, background: `${grupo.color}14` }}
+                      >
+                        <span className="min-w-0 truncate">{a.aspecto}</span>
+                        <span className="shrink-0 tabular-nums text-white/50">
+                          {a.desviacion >= 0 ? `mejor que ${Math.round(a.percentil / 10)} de cada 10` : `peor que ${10 - Math.round(a.percentil / 10)} de cada 10`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+          </div>
         </div>
       )}
 
