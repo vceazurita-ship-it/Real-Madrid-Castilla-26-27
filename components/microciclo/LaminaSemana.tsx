@@ -24,6 +24,7 @@ import {
   frenteAReferencia,
   plural,
   sinGazapos,
+  tareaSinContenido,
   tareasDeLaLamina,
   type ReferenciaMd,
 } from "@/lib/registro/semana";
@@ -82,6 +83,7 @@ export const LaminaSemana = forwardRef<
     const cifras = [
       cuentas.sesiones ? plural(cuentas.sesiones, "sesión", "sesiones") : "",
       cuentas.tareas ? plural(cuentas.tareas, "tarea", "tareas") : "",
+      cuentas.porDefinir ? `${cuentas.porDefinir} por definir` : "",
       cuentas.entreno ? `${cuentas.entreno}′ de entreno` : "",
       abp ? `${abp}′ de balón parado` : "",
       cuentas.libres ? plural(cuentas.libres, "día libre", "días libres") : "",
@@ -150,7 +152,10 @@ export const LaminaSemana = forwardRef<
             const partidoDia = esPartidoMd(sesion.md);
             const tareas = tareasDeLaLamina(sesion);
             const dia = cargaDelDia(sesion);
-            const frente = dia.completa ? frenteAReferencia(dia.carga, referencia[sesion.md.trim().toUpperCase()]) : null;
+            const ref = referencia[sesion.md.trim().toUpperCase()];
+            const frente = dia.completa ? frenteAReferencia(dia.carga, ref) : null;
+            /* Las que están escritas sin contenido: el día por definir las nombra. */
+            const vacias = tareasQueSeEscriben(sesion).filter(tareaSinContenido);
 
             return (
               <section
@@ -193,6 +198,7 @@ export const LaminaSemana = forwardRef<
                     {frente ? (
                       <span style={{ color: frente.tono === "alta" ? "#A23B3B" : frente.tono === "baja" ? "#2E6B4F" : C.gris }}>
                         {` · ${frente.diferencia > 0 ? "+" : ""}${frente.diferencia} % s/ media`}
+                        {ref ? <span style={{ color: C.gris, fontWeight: 400 }}>{` (${ref.sesiones} ses., ${ref.minutos}′)`}</span> : null}
                       </span>
                     ) : null}
                   </p>
@@ -203,7 +209,14 @@ export const LaminaSemana = forwardRef<
                     <p style={{ margin: "18px 0 0", textAlign: "center", fontSize: 22, fontWeight: 600, color: C.gris }}>Libre</p>
                   ) : tareas.length === 0 ? (
                     /* Un día de entreno cuyas tareas aún no tienen contenido: una columna vacía parecía un fallo. */
-                    <p style={{ margin: "14px 0 0", textAlign: "center", fontSize: 20, fontWeight: 600, color: C.gris }}>Sesión por definir</p>
+                    <p style={{ margin: "14px 0 0", textAlign: "center", fontSize: 20, fontWeight: 600, color: C.gris }}>
+                      Por definir
+                      {vacias.length > 0 && (
+                        <span style={{ display: "block", marginTop: 4, fontSize: 17, fontWeight: 500 }}>
+                          {sinGazapos(vacias.map((tarea) => tarea.tipoTarea || tarea.tarea).join(", "))}
+                        </span>
+                      )}
+                    </p>
                   ) : (
                     tareas.map((tarea, t) => {
                       const comp = esCompeticion(tarea);

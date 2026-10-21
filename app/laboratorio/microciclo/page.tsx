@@ -1128,7 +1128,7 @@ export default function EditorMicrocicloPage() {
 
   /* Las cuentas de la semana, las mismas en la cabecera, el tablero, la barra y la lámina. */
   const semana = useMemo(
-    () => (micro ? cuentasDeLaSemana(micro) : { tareas: 0, entreno: 0, sinMinutos: 0, partido: 0, filas: 0, sesiones: 0, libres: 0 }),
+    () => (micro ? cuentasDeLaSemana(micro) : { tareas: 0, porDefinir: 0, entreno: 0, sinMinutos: 0, partido: 0, filas: 0, sesiones: 0, libres: 0 }),
     [micro],
   );
 
