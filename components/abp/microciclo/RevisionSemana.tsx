@@ -14,6 +14,7 @@
  *   acabó en gol u ocasión.
  */
 
+import { useState } from "react";
 import { CheckCircle2, CircleAlert, Plus, TriangleAlert } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
@@ -36,9 +37,25 @@ export function RevisionSemana({
   onAbrir: (dia: DiaKey, trabajo: Trabajo) => void;
   onPlanificar: (falta: NonNullable<PuntoRevision["falta"]>) => void;
 }) {
+  const [todos, setTodos] = useState(false);
+
   if (!puntos.length) return null;
 
   const pendientes = puntos.filter((punto) => punto.tono !== "bien").length;
+
+  /*
+  | Por gravedad (21/10/2026): lo que hay que corregir, lo que conviene mirar y
+  | lo que ya está bien, al final. Antes las cuatro tarjetas pesaban igual y la
+  | correcta («MD-1 de repaso») iba entre las urgentes. Se enseña la más grave
+  | y el resto se pliega en «Ver N más»; el objetivo de minutos manda dentro de
+  | su tono.
+  */
+  const orden: Record<TonoRevision, number> = { alerta: 0, aviso: 1, bien: 2 };
+  const ordenados = [...puntos].sort(
+    (a, b) => orden[a.tono] - orden[b.tono] || Number(b.id === "minutos") - Number(a.id === "minutos"),
+  );
+  const visibles = todos ? ordenados : ordenados.slice(0, 1);
+  const ocultos = ordenados.length - visibles.length;
 
   return (
     <Panel
@@ -51,7 +68,7 @@ export function RevisionSemana({
       icon={pendientes ? CircleAlert : CheckCircle2}
     >
       <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-        {puntos.map((punto) => {
+        {visibles.map((punto) => {
           const { Icono, clase, etiqueta } = ICONO[punto.tono];
 
           const abre = punto.dia && punto.trabajo ? () => onAbrir(punto.dia as DiaKey, punto.trabajo as Trabajo) : null;
@@ -97,6 +114,17 @@ export function RevisionSemana({
           );
         })}
       </ul>
+
+      {(ocultos > 0 || todos) && ordenados.length > 1 && (
+        <button
+          type="button"
+          onClick={() => setTodos((antes) => !antes)}
+          aria-expanded={todos}
+          className="mt-2 inline-flex items-center gap-1 rounded-lg border border-white/12 px-2.5 py-1 text-[11.5px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
+        >
+          {todos ? "Ver menos" : `Ver ${ocultos} más`}
+        </button>
+      )}
     </Panel>
   );
 }
@@ -114,12 +142,22 @@ function Fila({ uno }: { uno: LecturaAspecto }) {
         uno.lado === "defensivo" ? " suyo" : ""
       }${uno.goles ? ` · ${uno.goles} ${uno.goles === 1 ? "gol" : "goles"}` : ""}`;
 
-  const marca =
+  /*
+  | Todas las filas cierran con un veredicto (21/10/2026), y con menos de cinco
+  | acciones es una tendencia: va en gris y lo dice, no en color como si fuera
+  | una conclusión.
+  */
+  const base =
     uno.veredicto === "bien"
       ? { texto: uno.lado === "ofensivo" ? "Dio peligro" : "Sin peligro suyo", clase: "text-emerald-300" }
       : uno.veredicto === "mal"
         ? { texto: uno.goles ? "Nos marcaron" : "Nos crearon peligro", clase: "text-rose-300" }
-        : null;
+        : { texto: "No dio peligro", clase: "text-white/55" };
+
+  const marca =
+    uno.acciones > 0 && uno.acciones < 5 && !uno.goles
+      ? { texto: `${base.texto} · pocos casos (${uno.acciones})`, clase: "text-white/45" }
+      : base;
 
   return (
     <li className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-white/[0.06] py-2 last:border-b-0">
@@ -138,9 +176,86 @@ function Fila({ uno }: { uno: LecturaAspecto }) {
 
       <span className="text-[11.5px] tabular-nums text-white/65">{lectura}</span>
 
-      {marca && <span className={`text-[11px] font-semibold ${marca.clase}`}>{marca.texto}</span>}
+      <span className={`text-[11px] font-semibold ${marca.clase}`}>{marca.texto}</span>
     </li>
   );
+}
+
+const minutoDe = (minuto: number | null) => (minuto != null ? `, ${minuto}′` : "");
+
+/**
+ * Lo que dejó el partido en tres frases (21/10/2026): el resultado, los goles
+ * a balón parado y qué buscábamos → qué pasó → qué nos deja. Antes enumeraba
+ * («9 aspectos salieron en el partido: 2 salieron bien…») sin concluir.
+ */
+export function conclusionDelPartido(lectura: LecturaPartido, marcador: string | null) {
+  const [favor, contra] = (marcador ?? "").split("-").map((n) => Number.parseInt(n, 10));
+
+  const resultado =
+    Number.isFinite(favor) && Number.isFinite(contra)
+      ? `${favor > contra ? "Ganamos" : favor < contra ? "Perdimos" : "Empatamos"} ${favor}-${contra}.`
+      : "";
+
+  const aFavor = lectura.goles.filter((gol) => gol.lado === "ofensivo");
+  const enContra = lectura.goles.filter((gol) => gol.lado === "defensivo");
+
+  const lista = (goles: typeof lectura.goles) =>
+    goles.map((gol) => `${gol.label.toLowerCase()}${minutoDe(gol.minuto)}`).join("; ");
+
+  const goles = lectura.goles.length
+    ? `A balón parado: ${[
+        aFavor.length ? `${aFavor.length} a favor (${lista(aFavor)})` : "",
+        enContra.length ? `${enContra.length} en contra (${lista(enContra)})` : "",
+      ]
+        .filter(Boolean)
+        .join(" y ")}.`
+    : lectura.acciones
+      ? "Ningún gol a balón parado, ni a favor ni en contra."
+      : "";
+
+  /* Lo que más trabajamos y cómo acabó. */
+  const principal = [...lectura.trabajado].sort((a, b) => b.minutos - a.minutos)[0];
+
+  const comoAcabo = (uno: LecturaAspecto) =>
+    uno.lado === "ofensivo"
+      ? uno.goles
+        ? `acabó en gol`
+        : uno.peligro
+          ? `dio peligro en ${uno.peligro} de ${uno.acciones}`
+          : `no llegó a dar peligro (${uno.acciones} ${uno.acciones === 1 ? "acción" : "acciones"})`
+      : uno.goles
+        ? `nos costó un gol`
+        : uno.peligro
+          ? `nos crearon peligro en ${uno.peligro} de ${uno.acciones}`
+          : `no nos crearon nada (${uno.acciones} ${uno.acciones === 1 ? "acción" : "acciones"})`;
+
+  const buscabamos = principal
+    ? `Lo que más trabajamos, ${principal.label.toLowerCase()} ${principal.lado === "ofensivo" ? "atacando" : "defendiendo"} (${fmtMin(Math.round(principal.minutos))}), ${comoAcabo(principal)}`
+    : "";
+
+  /* Lo que nos hizo daño: defendiendo con peligro suyo, trabajado o no. */
+  const dano = [
+    ...lectura.trabajado.filter((uno) => uno.veredicto === "mal"),
+    ...lectura.sinTrabajar.filter((uno) => uno.lado === "defensivo"),
+  ].filter((uno) => uno !== principal);
+
+  const minutosDano = Math.round(dano.reduce((total, uno) => total + uno.minutos, 0));
+
+  const nosDeja = dano.length
+    ? `nos hicieron daño en ${dano
+        .slice(0, 3)
+        .map((uno) => uno.label.toLowerCase())
+        .join(", ")
+        .replace(/, ([^,]*)$/, " y $1")}, ${minutosDano ? `a lo que dimos ${fmtMin(minutosDano)}` : "que no estaba en la semana"}`
+    : "";
+
+  const deja = [buscabamos, nosDeja].filter(Boolean).join("; ");
+
+  return {
+    resultado,
+    goles,
+    deja: deja ? `${deja.replace(/^./, (letra) => letra.toUpperCase())}.` : "",
+  };
 }
 
 export function LecturaDelPartido({
@@ -154,20 +269,7 @@ export function LecturaDelPartido({
 }) {
   if (!lectura.trabajado.length && !lectura.sinTrabajar.length && !lectura.noSalio.length) return null;
 
-  /* La conclusión primero: cuánto de lo trabajado salió bien y cuánto no. */
-  const bien = lectura.trabajado.filter((uno) => uno.veredicto === "bien").length;
-  const mal = lectura.trabajado.filter((uno) => uno.veredicto === "mal").length;
-
-  const frase = [
-    lectura.trabajado.length
-      ? `De lo trabajado, ${lectura.trabajado.length} ${lectura.trabajado.length === 1 ? "aspecto salió" : "aspectos salieron"} en el partido`
-      : "",
-    bien ? `${bien} ${bien === 1 ? "salió bien" : "salieron bien"}` : "",
-    mal ? `en ${mal} nos crearon peligro` : "",
-  ]
-    .filter(Boolean)
-    .join(": ")
-    .replace(/: ([^:]+): /, ": $1 y ");
+  const frase = conclusionDelPartido(lectura, marcador);
 
   const ambas = lectura.trabajado.length > 0 && lectura.sinTrabajar.length > 0;
 
@@ -177,7 +279,13 @@ export function LecturaDelPartido({
       subtitle={`${rival}${marcador ? ` · ${marcador}` : ""} · lo trabajado en la semana, en el partido`}
       icon={CheckCircle2}
     >
-      {frase && <p className="mb-3 text-[13px] font-medium leading-snug text-white">{frase}.</p>}
+      {frase.resultado && (
+        <p className="mb-1 text-[13px] font-semibold leading-snug text-white">{frase.resultado}</p>
+      )}
+
+      {frase.goles && <p className="mb-1 text-[12.5px] leading-snug text-white/75">{frase.goles}</p>}
+
+      {frase.deja && <p className="mb-3 text-[12.5px] leading-snug text-white/75">{frase.deja}</p>}
 
       <div className={`grid gap-5 ${ambas ? "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]" : ""}`}>
         {lectura.trabajado.length > 0 && (

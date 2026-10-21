@@ -18,7 +18,6 @@ import {
   LADO_LABEL,
   LADO_SHORT,
   fmtMin,
-  type AbpLado,
 } from "@/lib/abp/microciclo";
 import {
   colorUrgencia,

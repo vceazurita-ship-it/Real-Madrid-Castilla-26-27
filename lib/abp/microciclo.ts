@@ -766,15 +766,17 @@ export function claveAspecto(aspecto: AspectoKey, lado: AbpLado) {
 /* ------------------------------------------------------------------ */
 
 export function fmtMin(minutos: number) {
-  if (!minutos) return "0'";
+  if (!minutos) return "0′";
 
   /* Se redondea antes de partir (19/10/2026): con minutos repartidos entre
-     aspectos salen decimales, y 119,5 se escribía «1h 60'». */
+     aspectos salen decimales, y 119,5 se escribía «1h 60'».
+     Con la prima (′) y «1 h 35′» desde el 21/10/2026: en la misma línea se
+     mezclaban «0'» y «60-67′». */
   const total = Math.round(minutos);
   const horas = Math.floor(total / 60);
   const resto = total % 60;
 
-  return horas > 0 ? `${horas}h ${resto}'` : `${total}'`;
+  return horas > 0 ? `${horas} h ${resto}′` : `${total}′`;
 }
 
 export function fmtPct(valor: number) {

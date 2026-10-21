@@ -12,7 +12,7 @@
  */
 
 import Link from "next/link";
-import { ArrowRight, CalendarClock, ClipboardList, Flag, LayoutTemplate, Swords } from "lucide-react";
+import { ArrowRight, CalendarClock, ClipboardList, Flag, LayoutTemplate, Play, Sparkles, Swords } from "lucide-react";
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { fmtMin } from "@/lib/abp/microciclo";
@@ -62,6 +62,8 @@ export function PartidoDeLaSemana({
   porLado,
   enlaces,
   onVerPost,
+  onProponer,
+  pieza,
 }: {
   partido: PartidoNuestro | null;
   anterior: { rival: string; cuando: string } | null;
@@ -76,6 +78,10 @@ export function PartidoDeLaSemana({
   enlaces: { pizarra: string; abpRival: string; plan: string | null };
   /** Abre el informe del partido ya jugado. */
   onVerPost?: () => void;
+  /** Con la semana vacía, la acción principal: proponer el boceto. */
+  onProponer?: () => void;
+  /** Nuestro vídeo de ABP para los jugadores de esta jornada, si ya está subido. */
+  pieza?: { url: string; segundos: number } | null;
 }) {
   /* «NO COMPETICIÓN» es como la hoja llama a una semana sin partido: no es
      un rival y no lleva escudo ni ABP del rival. */
@@ -123,9 +129,13 @@ export function PartidoDeLaSemana({
   const lleno = Math.min(100, (minutos / tope) * 100);
   const marcaMinimo = (objetivo.minimo / tope) * 100;
 
+  /* Con la semana vacía no se pinta «0′», la barra ni su marca —se leía como
+     una raya suelta—: una línea con el objetivo y el botón del boceto. */
+  const vacia = minutos === 0;
+
   const estadoMinutos =
-    minutos === 0
-      ? { texto: "sin balón parado todavía", clase: "text-white/45" }
+    vacia
+      ? null
       : minutos < objetivo.minimo
         ? { texto: `faltan ${objetivo.minimo - minutos}′`, clase: "text-amber-300" }
         : minutos > objetivo.maximo
@@ -186,11 +196,33 @@ export function PartidoDeLaSemana({
 
       {/* ------------------------- LA SEMANA ------------------------- */}
 
+      {vacia ? (
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">Balón parado de la semana</p>
+
+          <p className="mt-1 text-sm text-white/75">
+            Objetivo: <span className="font-semibold tabular-nums text-white">{objetivo.minimo}-{objetivo.maximo}′</span>
+          </p>
+
+          {onProponer && (
+            <button
+              type="button"
+              onClick={onProponer}
+              className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl bg-[#C8A96B] px-3.5 py-2 text-[13px] font-semibold text-black transition hover:brightness-110"
+            >
+              <Sparkles size={14} aria-hidden />
+              Proponer boceto
+            </button>
+          )}
+        </div>
+      ) : (
       <div className="min-w-0">
         <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
           <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">Balón parado de la semana</span>
 
-          <span className={`text-[11px] font-medium ${estadoMinutos.clase}`}>{estadoMinutos.texto}</span>
+          {estadoMinutos && (
+            <span className={`text-[11px] font-medium ${estadoMinutos.clase}`}>{estadoMinutos.texto}</span>
+          )}
         </p>
 
         <p className="mt-1 text-sm text-white/80">
@@ -228,6 +260,7 @@ export function PartidoDeLaSemana({
           </p>
         )}
       </div>
+      )}
 
       {/* ------------------------- A UN TOQUE ------------------------- */}
 
@@ -256,6 +289,19 @@ export function PartidoDeLaSemana({
             <ArrowRight size={13} aria-hidden />
             Informe post
           </button>
+        )}
+
+        {/* La pieza de la semana para los jugadores: sólo si ya está subida. */}
+        {pieza && (
+          <a href={pieza.url} target="_blank" rel="noreferrer" className={enlaceClase}>
+            <Play size={13} aria-hidden />
+            Vídeo de ABP
+            {pieza.segundos > 0 && (
+              <span className="tabular-nums text-white/45">
+                {Math.floor(pieza.segundos / 60)}:{String(Math.round(pieza.segundos % 60)).padStart(2, "0")}
+              </span>
+            )}
+          </a>
         )}
       </nav>
     </section>

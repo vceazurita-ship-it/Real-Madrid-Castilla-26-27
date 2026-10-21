@@ -45,6 +45,12 @@ import {
 import { BocetoDialog } from "@/components/abp/microciclo/BocetoDialog";
 import { InformeMicroDialog, type DatosDelMicro, type ResultadoIncrustado } from "@/components/abp/InformeMicroDialog";
 import { objetivoDeLaSemana } from "@/lib/abp/informe-micro";
+import {
+  VIDEO_JUGADORES_KEY,
+  eligeVideoJugadores,
+  normalizaVideosJugadores,
+  type DocVideoJugadores,
+} from "@/lib/abp/video-jugadores";
 
 import { toast } from "sonner";
 
@@ -1241,6 +1247,35 @@ export default function AbpMicrocicloPage() {
     return lecturaDelPartido(delPartido, minutosMicro);
   }, [ventana.partido, competicion, minutosMicro]);
 
+  /*
+  | La pieza de la semana (21/10/2026): nuestro vídeo de ABP para los
+  | jugadores de esta jornada, el que sube el vigía. Si no está, no se nombra.
+  */
+  const [videosJugadores, setVideosJugadores] = useState<DocVideoJugadores | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    fetch(`/api/docs?key=${encodeURIComponent(VIDEO_JUGADORES_KEY)}`, { cache: "no-store" })
+      .then((respuesta) => (respuesta.ok ? respuesta.json() : null))
+      .then((datos) => {
+        if (!cancelado) setVideosJugadores(normalizaVideosJugadores(datos?.data));
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const pieza = useMemo(() => {
+    if (!videosJugadores || !ventana.partido) return null;
+
+    const video = eligeVideoJugadores(videosJugadores, ventana.partido.jornada ?? null, ventana.partido.rival);
+
+    return video ? { url: video.url, segundos: video.segundos } : null;
+  }, [videosJugadores, ventana.partido]);
+
   /* Los días del diálogo de una tarea: los de este microciclo, con su MD. */
   const diasDialogo = useMemo(
     () =>
@@ -1484,9 +1519,8 @@ export default function AbpMicrocicloPage() {
                   inputMode="numeric"
                   min={0}
                   max={7}
-                  value={plan.diasEntrenados ?? ""}
+                  value={plan.diasEntrenados ?? semana.dias}
                   onChange={(event) => cambiaDiasEntrenados(event.target.value)}
-                  placeholder={String(semana.dias)}
                   aria-describedby="dias-entrenados-ayuda"
                   className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition placeholder:text-white/40 focus:border-[#C8A96B]/50"
                 />
@@ -1568,6 +1602,8 @@ export default function AbpMicrocicloPage() {
               porLado={totales.porLado}
               enlaces={enlaces}
               onVerPost={ventana.partido?.jugado ? () => setInformeAbierto(true) : undefined}
+              onProponer={claveActiva ? () => setBocetoAbierto(true) : undefined}
+              pieza={pieza}
             />
           )}
 
@@ -1601,10 +1637,14 @@ export default function AbpMicrocicloPage() {
                 <>
               {/* ===================== RESUMEN ===================== */}
 
+              {/* Con la semana vacía no hay resumen (21/10/2026): cinco tarjetas
+                  con «0′», «0′ / 0′» y «—» parecían una pantalla rota. Lo que
+                  queda por hacer ya lo dice la tarjeta del partido. */}
+              {totales.minutos > 0 && (
               <div className="mt-7">
                 {/* Dos por fila en el móvil: cinco tarjetas apiladas eran una
                     pantalla entera antes de llegar a la semana. */}
-                <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-5">
+                <div className="grid min-w-0 grid-cols-2 gap-3 lg:auto-cols-fr lg:grid-flow-col">
                   <StatCard
                     label="Minutos de ABP"
                     value={fmtMin(totales.minutos)}
@@ -1615,26 +1655,26 @@ export default function AbpMicrocicloPage() {
                   <StatCard
                     label="Ofensivo / Defensivo"
                     value={`${fmtMin(totales.porLado.ofensivo)} / ${fmtMin(totales.porLado.defensivo)}`}
-                    hint={
-                      totales.minutos
-                        ? `${Math.round((totales.porLado.ofensivo / totales.minutos) * 100)} % ofensivo`
-                        : "sin reparto todavía"
-                    }
+                    hint={`${Math.round((totales.porLado.ofensivo / totales.minutos) * 100)} % ofensivo`}
                   />
 
-                  <StatCard
-                    label="Carga condicional"
-                    value={Math.round(totales.carga) || "—"}
-                    hint="tiempo × intensidad"
-                    accent={chipInk("#FBBF24")}
-                  />
+                  {totales.carga > 0 && (
+                    <StatCard
+                      label="Carga condicional"
+                      value={Math.round(totales.carga)}
+                      hint="tiempo × intensidad"
+                      accent={chipInk("#FBBF24")}
+                    />
+                  )}
 
-                  <StatCard
-                    label="Carga cognitiva"
-                    value={Math.round(totales.cargaCog) || "—"}
-                    hint="tiempo × exigencia"
-                    accent={chipInk("#8B5CF6")}
-                  />
+                  {totales.cargaCog > 0 && (
+                    <StatCard
+                      label="Carga cognitiva"
+                      value={Math.round(totales.cargaCog)}
+                      hint="tiempo × exigencia"
+                      accent={chipInk("#8B5CF6")}
+                    />
+                  )}
 
                   <StatCard
                     label="Campo / Vídeo"
@@ -1647,6 +1687,7 @@ export default function AbpMicrocicloPage() {
                   />
                 </div>
               </div>
+              )}
 
               {/* ================ LO QUE DEJÓ EL PARTIDO ================ */}
 
