@@ -411,7 +411,7 @@ export function LineaDeTiempo({
                       categorias.find((una) => una.id === clip.categoriaId)
                         ?.nombre ?? "Sin categoría"
                     }${clip.tags.length ? ` · ${clip.tags.join(", ")}` : ""}\n${formateaMs(clip.codingInicioMs)} → ${formateaMs(clip.codingFinMs)} (${formateaDuracion(duracionClip(clip))})`}
-                    aria-label={`Clip ${clip.numero}, ${clip.jugadorNombre}, ${formateaMs(clip.codingInicioMs)}`}
+                    aria-label={`Corte ${clip.numero}, ${clip.jugadorNombre}, ${formateaMs(clip.codingInicioMs)}`}
                     onClick={(evento) => {
                       evento.stopPropagation();
                       onElegirClip(clip.id);
@@ -586,7 +586,7 @@ export function LineaDeTiempo({
               ? formateaMs(encima)
               : lupa > 1
                 ? `${formateaMs(ventana.desde)} – ${formateaMs(ventana.desde + ventana.tramo)}`
-                : `${acciones.length} ${acciones.length === 1 ? "clip" : "clips"}`}
+                : `${acciones.length} ${acciones.length === 1 ? "corte" : "cortes"}`}
         </span>
 
         <span>{formateaMs(duracionMs)}</span>

@@ -181,7 +181,7 @@ export function ClipsDelJugador({
       const aviso = toast.loading(
         formato === "unificado"
           ? `Montando el vídeo con ${lista.length} cortes…`
-          : `Cortando ${lista.length} clips…`,
+          : `Cortando ${lista.length} cortes…`,
       );
 
       /* La carátula sube al bucket y se borra al terminar: ver más abajo. */
@@ -240,7 +240,7 @@ export function ClipsDelJugador({
 
         toast.success("Listo", { id: aviso });
       } catch (error) {
-        console.error("[clips del jugador]", error);
+        console.error("[cortes del jugador]", error);
 
         toast.error(
           error instanceof Error ? error.message : "No se ha podido exportar.",

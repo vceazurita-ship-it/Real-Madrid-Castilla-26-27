@@ -282,7 +282,7 @@ export function SelectorFuente({
         {carpeta && !carpeta.ffmpeg && (
           <p className="mt-2 rounded-lg border border-amber-400/25 bg-amber-400/[0.07] px-3 py-2 text-[11px] leading-relaxed text-amber-200/80">
             En este servidor no está el motor de vídeo: se puede codificar y
-            guardar, pero no cortar los clips.
+            guardar, pero no cortar el vídeo.
           </p>
         )}
       </div>

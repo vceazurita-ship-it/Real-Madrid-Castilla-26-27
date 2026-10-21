@@ -159,6 +159,7 @@ import {
   pasaFiltro,
   porCategoria,
   porColectivo,
+  ordenIndividual,
   porJugador,
   reparteTeclas,
   tagsDeClips,
@@ -1787,7 +1788,7 @@ function Coding() {
         );
 
         if (metidos === 0) {
-          toast.error("El XML no trae ningún clip que se pueda usar.");
+          toast.error("El XML no trae ningún corte que se pueda usar.");
           return;
         }
 
@@ -1801,7 +1802,7 @@ function Coding() {
           "Retroceso lo deshace todo de una vez",
         ].filter(Boolean);
 
-        toast.success(`${metidos} ${metidos === 1 ? "clip importado" : "clips importados"} de ${fichero.name}`, {
+        toast.success(`${metidos} ${metidos === 1 ? "corte importado" : "cortes importados"} de ${fichero.name}`, {
           description: detalles.join(" · "),
         });
       } catch (error) {
@@ -2699,6 +2700,7 @@ function Coding() {
   const exportador = useExportador({
     fuente: sesion.sesion.fuente,
     categorias: config.categorias,
+    descriptores: config.descriptores,
     carpeta: apodoCoding(titulo),
     modo: modoCorte,
     topeMegas,
@@ -3143,7 +3145,15 @@ function Coding() {
     setCaratulaVista(png);
   }, [caratulaDe, caratulaSujeto, sujetosDeClips]);
 
-  const exportaUnificado = useCallback(async () => {
+  const exportaUnificado = useCallback(async (individual = false) => {
+    /*
+    | El vídeo individual es el mismo montaje en otro orden: abre y cierra con
+    | lo bien hecho y deja en medio lo que corregir (`ordenIndividual`).
+    */
+    const lista = individual
+      ? ordenIndividual(clipsExportables, config.descriptores)
+      : clipsExportables;
+
     /*
     | El aviso es para la carátula, que es lo único que se dibuja aquí y tarda
     | —hay que traerse la foto y el escudo—. Estaba al revés: salía cuando NO
@@ -3155,7 +3165,7 @@ function Coding() {
       ? toast.loading("Montando la carátula del vídeo…")
       : null;
 
-    const { portada, dentro, faltan } = await construyeCaratulas(clipsExportables);
+    const { portada, dentro, faltan } = await construyeCaratulas(lista);
 
     if (aviso) toast.dismiss(aviso);
 
@@ -3198,7 +3208,7 @@ function Coding() {
     | Y van aunque las pizarras estén en «Fuera»: apagar las pizarras es no
     | quemar los dibujos, no renunciar a las diapositivas que se han pedido.
     */
-    const paradas = await componePizarras(clipsExportables);
+    const paradas = await componePizarras(lista);
 
     for (const { clipId, imagen } of dentro) {
       paradas.set(clipId, [
@@ -3208,9 +3218,9 @@ function Coding() {
     }
 
     await exporta({
-      clips: clipsExportables,
+      clips: lista,
       formato: "unificado",
-      nombre: `${apodoCoding(titulo)}-${apodoCoding(etiquetaFiltro)}`,
+      nombre: `${apodoCoding(titulo)}-${apodoCoding(etiquetaFiltro)}${individual ? "-individual" : ""}`,
       portada,
       paradas,
     });
@@ -3218,6 +3228,7 @@ function Coding() {
     caratulaSujeto,
     clipsExportables,
     componePizarras,
+    config.descriptores,
     construyeCaratulas,
     etiquetaFiltro,
     exporta,
@@ -3558,7 +3569,7 @@ function Coding() {
               title={
                 ambito === "rival" ? "Coding de rival" : "Coding de partido"
               }
-              lead="Marca el inicio y el final de cada acción sin soltar el teclado. Los clips se guardan solos y se convierten en vídeo de verdad desde aquí."
+              lead="Marca el inicio y el final de cada acción sin soltar el teclado. Los cortes se guardan solos y se convierten en vídeo de verdad desde aquí."
               aside={
                 <div className="flex items-center gap-2">
                   <SaveState
@@ -3568,7 +3579,7 @@ function Coding() {
                     sinGuardar={sesion.sinGuardar}
                     onGuardar={() => {
                       void sesion.guardaYa().then((bien) => {
-                        if (bien) toast.success("Clips guardados");
+                        if (bien) toast.success("Cortes guardados");
                       });
                     }}
                   />
@@ -3749,7 +3760,7 @@ function Coding() {
 
               <div className="flex items-end gap-2">
                 <span className="rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/40">
-                  {clips.length} clips · {formateaTotal(totalCodificadoMs(clips))}
+                  {clips.length} {clips.length === 1 ? "corte" : "cortes"} · {formateaTotal(totalCodificadoMs(clips))}
                 </span>
               </div>
             </div>
@@ -3763,15 +3774,17 @@ function Coding() {
             {avisoSesion && sesion.sesion.abierta && clips.length > 0 && (
               <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2.5">
                 <p className="min-w-0 flex-1 text-[12px] leading-snug text-white/75">
-                  <b className="text-white">Sesión abierta</b> · {clips.length}{" "}
-                  {clips.length === 1 ? "clip guardado" : "clips guardados"} de la última vez.
-                  Sigue donde lo dejaste o márcala como terminada:{" "}
-                  <span className="text-white/50">cerrarla no borra ningún clip.</span>
+                  <b className="text-white">
+                    Retoma tu sesión: {clips.length}{" "}
+                    {clips.length === 1 ? "corte" : "cortes"} ·{" "}
+                    {formateaTotal(totalCodificadoMs(clips))}
+                  </b>{" "}
+                  <span className="text-white/50">· darla por terminada no borra ningún corte</span>
                 </p>
 
                 <div className="flex shrink-0 gap-2">
                   <Button tone="primary" onClick={() => setAvisoSesion(false)}>
-                    Continuar
+                    Seguir codificando
                   </Button>
 
                   <Button
@@ -3780,7 +3793,7 @@ function Coding() {
                       setAvisoSesion(false);
                     }}
                   >
-                    Terminada
+                    Dar por terminada
                   </Button>
                 </div>
               </div>
@@ -3815,8 +3828,15 @@ function Coding() {
                     touchAction: "pan-y",
                     maxWidth: enPantallaCompleta ? undefined : visor.anchoMaximo,
                   }}
+                  /*
+                  | En el teléfono el vídeo se queda arriba al bajar: la lista
+                  | de cortes, los marcadores y la matriz están debajo, y sin
+                  | esto se pulsaba un corte sin ver qué se reproducía.
+                  */
                   className={`relative mx-auto min-w-0 overflow-hidden border border-white/10 bg-black ${
-                    enPantallaCompleta ? "rounded-none border-0" : "rounded-2xl"
+                    enPantallaCompleta
+                      ? "rounded-none border-0"
+                      : "rounded-2xl max-sm:sticky max-sm:top-0 max-sm:z-30 max-sm:shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
                   }`}
                 >
                   {/*
@@ -4341,13 +4361,14 @@ function Coding() {
                 ) && (
                   <Panel
                     title="Matriz"
-                    subtitle="Quién por qué · pulsa un cruce y la lista, la línea de tiempo y la exportación se quedan con esos clips"
+                    subtitle="Quién por qué, agrupado por fase · pulsa un cruce y la lista, la línea de tiempo y la exportación se quedan con esos cortes"
                     icon={Grid3x3}
                     bodyClassName="p-3 sm:p-3"
                   >
                     <MatrizCoding
                       clips={clipsDeLaMatriz}
                       categorias={config.categorias}
+                      descriptores={config.descriptores}
                       sujeto={filtroSujeto}
                       categoria={filtroCategoria}
                       onFiltra={(quien, que) => {
@@ -4363,7 +4384,7 @@ function Coding() {
                 {/* --------------------------- CLIPS --------------------- */}
 
                 <Panel
-                  title="Clips"
+                  title="Cortes"
                   subtitle={
                     listaGuardada
                       ? `${clipsDeLaLista.length} ${clipsDeLaLista.length === 1 ? "corte" : "cortes"} · ${etiquetaFiltro} · en el orden de la lista`
@@ -4381,8 +4402,8 @@ function Coding() {
                           onClick={() => setListaDeTodos((valor) => !valor)}
                           title={
                             listaDeTodos
-                              ? "Enseñar sólo los clips del vídeo que está delante"
-                              : "Enseñar los clips de todos los vídeos de la sesión"
+                              ? "Enseñar sólo los cortes del vídeo que está delante"
+                              : "Enseñar los cortes de todos los vídeos de la sesión"
                           }
                         >
                           {listaDeTodos
@@ -4413,7 +4434,7 @@ function Coding() {
                             /* Sólo los del vídeo de delante: el orden hecho a
                                mano en los demás vídeos se respeta. */
                             sesion.ordenaClipsPorTiempo(clips.map((clip) => clip.id));
-                            toast.success("Clips en el orden del partido");
+                            toast.success("Cortes en el orden del partido");
                           }}
                           title="Deshacer el orden a mano y volver al del partido"
                         >
@@ -4445,8 +4466,8 @@ function Coding() {
                         disabled={colaParaReproducir.length === 0}
                         title={
                           verTodosEnLista
-                            ? "Reproducir uno detrás de otro los clips del vídeo que está delante (el reproductor es de un vídeo)"
-                            : "Reproducir todos los clips filtrados, uno detrás de otro"
+                            ? "Reproducir uno detrás de otro los cortes del vídeo que está delante (el reproductor es de un vídeo)"
+                            : "Reproducir todos los cortes filtrados, uno detrás de otro"
                         }
                       >
                         {verTodosEnLista ? "Reproducir todos (este vídeo)" : "Reproducir todos"}
@@ -4485,7 +4506,7 @@ function Coding() {
                               : "border-white/10 text-white/60 hover:text-white"
                           }`}
                         >
-                          Todos los clips
+                          Todos los cortes
                         </button>
                       )}
 
@@ -4538,7 +4559,7 @@ function Coding() {
                           <button
                             type="button"
                             onClick={() => setNombrandoLista(etiquetaFiltro === "todo el partido" ? "" : etiquetaFiltro)}
-                            title="Guardar los clips que se ven, en este orden, como un montaje con nombre"
+                            title="Guardar los cortes que se ven, en este orden, como un montaje con nombre"
                             className="flex items-center gap-1.5 rounded-full border border-dashed border-white/20 px-2.5 py-1 text-[11px] text-white/60 transition hover:border-[#C8A96B]/60 hover:text-white"
                           >
                             <Plus size={12} />
@@ -4706,7 +4727,7 @@ function Coding() {
                       }
 
                       sesion.borraClip(id);
-                      toast.success("Clip eliminado · se puede deshacer");
+                      toast.success("Corte eliminado · se puede deshacer");
                     }}
                     libre={Boolean(listaGuardada)}
                     tituloBorrar={
@@ -4782,7 +4803,7 @@ function Coding() {
                         )
                       }
                       disabled={clipsDeLaLista.length === 0}
-                      title="Los clips de la lista como timeline de SportsCode (lo abren también Nacsport y Metrica Play)"
+                      title="Los cortes de la lista como timeline de SportsCode (lo abren también Nacsport y Metrica Play)"
                     >
                       XML SportsCode
                     </Button>
@@ -4795,11 +4816,11 @@ function Coding() {
                             [csvDeClips(clipsDeLaLista, config.categorias, videoDeClip)],
                             { type: "text/csv;charset=utf-8" },
                           ),
-                          `${apodoCoding(titulo) || "coding"}-clips.csv`,
+                          `${apodoCoding(titulo) || "coding"}-cortes.csv`,
                         )
                       }
                       disabled={clipsDeLaLista.length === 0}
-                      title="Los clips de la lista en una tabla para Excel"
+                      title="Los cortes de la lista en una tabla para Excel"
                     >
                       CSV
                     </Button>
@@ -4880,6 +4901,7 @@ function Coding() {
                         }))()
                     }
                     onUnificado={() => void exportaUnificado()}
+                    onIndividual={() => void exportaUnificado(true)}
                   />
                 </Panel>
 
@@ -5089,8 +5111,8 @@ function Coding() {
 
                 <Panel title="Por jugador" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
-                    filas={porJugador(clips)}
-                    vacio="Sin clips todavía."
+                    filas={porJugador(clips, config.descriptores)}
+                    vacio="Sin cortes todavía."
                     activa={filtroSujeto}
                     onElegir={(clave) =>
                       setFiltroSujeto((actual) =>
@@ -5104,8 +5126,8 @@ function Coding() {
                 {porColectivo(clips).length > 0 && (
                   <Panel title="Por comportamiento" bodyClassName="p-3 sm:p-3">
                     <TablaResumen
-                      filas={porColectivo(clips)}
-                      vacio="Sin clips todavía."
+                      filas={porColectivo(clips, config.descriptores)}
+                      vacio="Sin cortes todavía."
                       activa={filtroSujeto}
                       onElegir={(clave) =>
                         setFiltroSujeto((actual) =>
@@ -5118,8 +5140,8 @@ function Coding() {
 
                 <Panel title="Por categoría" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
-                    filas={porCategoria(clips, config.categorias)}
-                    vacio="Sin clips todavía."
+                    filas={porCategoria(clips, config.categorias, config.descriptores)}
+                    vacio="Sin cortes todavía."
                     activa={filtroCategoria}
                     onElegir={(clave) =>
                       setFiltroCategoria((actual) =>
@@ -5130,7 +5152,7 @@ function Coding() {
                 </Panel>
 
                 {seleccionado && (
-                  <Panel title="Clip elegido" bodyClassName="p-3 sm:p-3">
+                  <Panel title="Corte elegido" bodyClassName="p-3 sm:p-3">
                     {(() => {
                       const clip = clips.find((uno) => uno.id === seleccionado);
 
@@ -5420,7 +5442,7 @@ function Coding() {
 
             setEditando(null);
 
-            toast.success("Clip corregido");
+            toast.success("Corte corregido");
           }}
         />
       )}

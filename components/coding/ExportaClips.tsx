@@ -48,7 +48,8 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/abp/ui";
 import { NOMBRE_PRIVACIDAD } from "@/lib/coding/youtube-cliente";
-import { descarga } from "@/lib/export/lienzos";
+import { descarga, descargaDataUrl } from "@/lib/export/lienzos";
+import { VERTICAL } from "@/lib/coding/vertical";
 import {
   borraImagenes,
   pesaDemasiado,
@@ -68,9 +69,14 @@ import {
   rutaDeClip,
   type CategoriaCoding,
   type ClipCoding,
+  type DescriptorCoding,
   type FuenteVideo,
 } from "@/lib/coding/modelo";
-import { rotuloDeClip } from "@/lib/coding/rotulo";
+import {
+  cargaEscudoRotulo,
+  imagenDeRotulo,
+  rotuloDeClip,
+} from "@/lib/coding/rotulo";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 export type ModoCorteUI = "preciso" | "rapido";
@@ -113,7 +119,16 @@ export const MEDIDAS = [
   { px: 0, nombre: "La del partido" },
   { px: 1920, nombre: "1080p" },
   { px: 1280, nombre: "720p" },
+  { px: VERTICAL, nombre: "Vertical 9:16" },
 ];
+
+/*
+| Cuántos rótulos se mandan ya pintados al servidor.
+|
+| Cada uno es un PNG de unos 20 KB: cien caben de sobra en los 4,5 MB de la
+| petición. Por encima, el servidor los pinta él con su respaldo.
+*/
+const ROTULOS_PINTADOS_MAX = 120;
 
 /** La medida de partida: la del partido, sin tocar nada. */
 export const MEDIDA_POR_DEFECTO = 0;
@@ -138,7 +153,31 @@ const DESTINOS = [
     medida: 0,
     explica: "Con la imagen del partido y sin tope: para el proyector o para subirlo",
   },
+  {
+    nombre: "Móvil vertical",
+    megas: 16,
+    medida: VERTICAL,
+    explica:
+      "1080 × 1920 y como mucho 16 MB: el corte a todo el ancho con su propia imagen desenfocada detrás, para verlo en el teléfono",
+  },
 ];
+
+/**
+ * Lo que va a pesar y el caudal que le toca, antes de pulsar.
+ *
+ * Con tope, el tope se reparte entre lo que dura: sale **un solo fichero** con
+ * ese caudal, no varios. Sin tope no se puede saber —pesa lo que pida la
+ * imagen— y no se inventa una cifra.
+ */
+export function pesoPrevisto(topeMegas: number, segundos: number) {
+  if (topeMegas <= 0 || segundos <= 0) return null;
+
+  const caudal = Math.max(0.4, (topeMegas * 8 * 0.94) / segundos - 0.16);
+
+  return `Sale en un fichero de hasta ${topeMegas} MB · ${caudal.toLocaleString("es-ES", {
+    maximumFractionDigits: 1,
+  })} Mb/s para ${Math.floor(segundos / 60)}:${String(Math.round(segundos % 60)).padStart(2, "0")}`;
+}
 
 /** Lo que dura una carátula en pantalla. */
 export const SEGUNDOS_CARATULA = 4;
@@ -207,6 +246,8 @@ export type PeticionExport = {
 export function useExportador(opciones: {
   fuente: FuenteVideo | null;
   categorias: CategoriaCoding[];
+  /** Para el rótulo: qué descriptores se leen y cómo («Mal» → «A corregir»). */
+  descriptores?: DescriptorCoding[];
   carpeta: string;
   modo: ModoCorteUI;
   /**
@@ -271,6 +312,7 @@ export function useExportador(opciones: {
   const {
     fuente,
     categorias,
+    descriptores,
     carpeta,
     modo,
     topeMegas = 0,
@@ -315,9 +357,27 @@ export function useExportador(opciones: {
   const rotuloDe = useCallback(
     (clip: ClipCoding) =>
       rotulos && clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id
-        ? rotuloDeClip(clip, categorias)
+        ? rotuloDeClip(clip, categorias, descriptores)
         : undefined,
-    [categorias, rotulos],
+    [categorias, descriptores, rotulos],
+  );
+
+  /*
+  | La carátula también como póster: la imagen que va en el correo o en el
+  | PDF con el enlace al vídeo. Es la misma que abre el montaje, así que el
+  | enlace y el vídeo empiezan igual.
+  */
+  const descargaPoster = useCallback(
+    async (peticion: PeticionExport) => {
+      if (peticion.formato !== "unificado" || !peticion.portada) return;
+
+      try {
+        await descargaDataUrl(peticion.portada, `${peticion.nombre}-poster.jpg`);
+      } catch (error) {
+        console.warn("[coding] el póster no se ha podido guardar", error);
+      }
+    },
+    [],
   );
 
   /*
@@ -342,7 +402,7 @@ export function useExportador(opciones: {
 
       try {
         /* Sin la letra descargada, el lienzo pinta el rótulo con la de respaldo. */
-        if (rotulos) await esperaFuentePortada();
+        if (rotulos) await Promise.all([esperaFuentePortada(), cargaEscudoRotulo()]);
 
         const resultado = await cortaEnElNavegador({
           fichero,
@@ -379,6 +439,8 @@ export function useExportador(opciones: {
           }${resultado.conSonido ? "" : " · sin sonido: el partido viene mudo"}`,
         });
 
+        await descargaPoster(peticion);
+
         if (peticion.formato !== "zip") {
           await alTerminarVideo?.(resultado.blob, nombre);
         }
@@ -402,6 +464,7 @@ export function useExportador(opciones: {
     },
     [
       alTerminarVideo,
+      descargaPoster,
       familiaRotulo,
       fps,
       fundidoMs,
@@ -446,7 +509,7 @@ export function useExportador(opciones: {
       const faena =
         peticion.formato === "unificado"
           ? `Montando el vídeo de ${peticion.clips.length} cortes`
-          : `Cortando ${peticion.clips.length} ${peticion.clips.length === 1 ? "clip" : "clips"}`;
+          : `Cortando ${peticion.clips.length} ${peticion.clips.length === 1 ? "corte" : "cortes"}`;
 
       /* Con pizarras siempre se recodifica, aunque el modo diga `rapido`. */
       const conPizarras = (peticion.paradas?.size ?? 0) > 0;
@@ -487,6 +550,26 @@ export function useExportador(opciones: {
 
         rutas = imagenes.rutas;
 
+        /*
+        | El rótulo va ya pintado: el servidor lo pone encima tal cual, y así
+        | es el mismo de los dos motores del navegador. Hace falta la letra y
+        | el escudo antes de pintarlo.
+        */
+        const pintados = rotulos && peticion.clips.length <= ROTULOS_PINTADOS_MAX;
+
+        if (pintados) await Promise.all([esperaFuentePortada(), cargaEscudoRotulo()]);
+
+        const conImagen = (clip: ClipCoding) => {
+          const rotulo = rotuloDe(clip);
+
+          if (!rotulo || !pintados) return rotulo;
+
+          return {
+            ...rotulo,
+            imagen: imagenDeRotulo(rotulo, familiaRotulo ?? "sans-serif")?.imagen,
+          };
+        };
+
         const cuerpo = JSON.stringify({
           fuente: fuenteServidor,
           modo,
@@ -496,13 +579,14 @@ export function useExportador(opciones: {
           portadaSegundos: SEGUNDOS_CARATULA,
           fundidoMs,
           topeMegas,
+          medida: topeAncho,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
             inicioMs: clip.inicioMs,
             finMs: clip.finMs,
             pizarras: imagenes.paradas.get(clip.id),
             fuente: fuenteDe?.(clip),
-            rotulo: rotuloDe(clip),
+            rotulo: conImagen(clip),
           })),
         });
 
@@ -603,6 +687,8 @@ export function useExportador(opciones: {
           )}`,
         });
 
+        await descargaPoster(peticion);
+
         if (peticion.formato !== "zip") {
           await alTerminarVideo?.(blob, `${peticion.nombre}.${extension}`);
         }
@@ -621,7 +707,18 @@ export function useExportador(opciones: {
         void borraImagenes(rutas);
       }
     },
-    [alTerminarVideo, fundidoMs, modo, nombraClips, rotuloDe, topeMegas],
+    [
+      alTerminarVideo,
+      descargaPoster,
+      familiaRotulo,
+      fundidoMs,
+      modo,
+      nombraClips,
+      rotuloDe,
+      rotulos,
+      topeAncho,
+      topeMegas,
+    ],
   );
 
   /*
@@ -700,7 +797,7 @@ export function useExportador(opciones: {
       if (exportando) return;
 
       if (peticion.clips.length === 0) {
-        toast.error("No hay clips que exportar.");
+        toast.error("No hay cortes que exportar.");
         return;
       }
 
@@ -893,6 +990,7 @@ export function BarraExportacion({
   onMedida,
   onZip,
   onUnificado,
+  onIndividual,
   caratula,
   opcionesCaratula,
   cabePorJugador = false,
@@ -929,6 +1027,8 @@ export function BarraExportacion({
   onMedida: (px: number) => void;
   onZip: () => void;
   onUnificado: () => void;
+  /** El unificado de un jugador en orden de corrección (`ordenIndividual`). */
+  onIndividual?: () => void;
   /** Id del sujeto de la carátula; `""` es sin carátula. */
   caratula: string;
   opcionesCaratula: { id: string; nombre: string }[];
@@ -998,6 +1098,14 @@ export function BarraExportacion({
 
   const videosDentro = videos.filter((video) => video.dentro).length;
 
+  /* El individual tiene sentido con los cortes de un solo jugador. */
+  const jugadores = new Set(
+    clips
+      .filter((clip) => clip.sujeto !== "colectivo" && clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id)
+      .map((clip) => clip.jugadorId),
+  );
+  const deUno = jugadores.size === 1 ? clips.find((clip) => jugadores.has(clip.jugadorId)) : null;
+
   return (
     <div className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -1015,17 +1123,28 @@ export function BarraExportacion({
           Vídeo unificado
         </Button>
 
+        {onIndividual && deUno && (
+          <Button
+            icon={Film}
+            onClick={onIndividual}
+            disabled={exportando}
+            title={`El vídeo de ${deUno.jugadorNombre} para corregirle: abre y cierra con lo bien hecho y deja en medio lo que hay que corregir`}
+          >
+            Vídeo individual
+          </Button>
+        )}
+
         <Button
           icon={Package}
           onClick={onZip}
           disabled={exportando || clips.length === 0}
           title="Un fichero por corte, en carpetas por jugador"
         >
-          Clips sueltos (ZIP)
+          Cortes sueltos (ZIP)
         </Button>
 
         <span className="text-[11px] text-white/35">
-          {clips.length} {clips.length === 1 ? "clip" : "clips"} ·{" "}
+          {clips.length} {clips.length === 1 ? "corte" : "cortes"} ·{" "}
           {formateaTotal(total)} · {etiqueta}
         </span>
       </div>
@@ -1170,7 +1289,7 @@ export function BarraExportacion({
 
         <span className="text-[11px] text-white/30">
           {topeMegas > 0
-            ? "por fichero, apretando la imagen sólo si hace falta"
+            ? (pesoPrevisto(topeMegas, total / 1000) ?? "por fichero, apretando la imagen sólo si hace falta")
             : "el corte pesa lo que pida el partido"}
         </span>
       </div>
@@ -1197,7 +1316,9 @@ export function BarraExportacion({
             title={
               una.px === 0
                 ? "El corte sale con la imagen del partido, sin encogerla"
-                : `La imagen se baja a ${una.px} de ancho`
+                : una.px === VERTICAL
+                  ? "1080 × 1920 para el teléfono: el corte a todo el ancho y su imagen desenfocada detrás"
+                  : `La imagen se baja a ${una.px} de ancho`
             }
             className={`rounded-md border px-2 py-0.5 text-[11px] transition ${
               medida === una.px
@@ -1210,9 +1331,11 @@ export function BarraExportacion({
         ))}
 
         <span className="text-[11px] text-white/30">
-          {medida > 0
-            ? "se encoge sólo si el partido es más grande"
-            : "sin encoger: sale como se grabó"}
+          {medida === VERTICAL
+            ? "1080 × 1920: el corte a todo el ancho y su imagen desenfocada detrás"
+            : medida > 0
+              ? "se encoge sólo si el partido es más grande"
+              : "sin encoger: sale como se grabó"}
         </span>
       </div>
 

@@ -63,6 +63,52 @@ export type CategoriaCoding = {
   color: string;
   /** Tecla que la selecciona. Vacío = sin tecla. */
   tecla: string;
+  /**
+   * La fase del juego a la que pertenece (`FASES_CODING`), o nada.
+   *
+   * Es el primer nivel del modelo de juego: el cuerpo técnico no habla de
+   * «pases», habla de la organización ofensiva y, dentro, del pase. Con la
+   * fase la matriz agrupa las columnas como se prepara la charla, y filtrar
+   * «transición defensiva» no mezcla la pérdida con el remate.
+   */
+  fase?: string;
+};
+
+/** Las cinco fases del juego, en el orden en que se cuentan. */
+export const FASES_CODING = [
+  { id: "oo", nombre: "Organización ofensiva", corto: "Org. ofensiva" },
+  { id: "od", nombre: "Organización defensiva", corto: "Org. defensiva" },
+  { id: "to", nombre: "Transición ofensiva", corto: "Trans. ofensiva" },
+  { id: "td", nombre: "Transición defensiva", corto: "Trans. defensiva" },
+  { id: "abp", nombre: "Balón parado", corto: "ABP" },
+] as const;
+
+export function faseCoding(id: string | undefined) {
+  return FASES_CODING.find((fase) => fase.id === id);
+}
+
+/**
+ * La fase de las categorías de fábrica, por su id.
+ *
+ * Una configuración guardada antes de las fases no la trae y se guarda
+ * entera, así que sin esto la matriz de quien ya codificaba no se agruparía
+ * nunca. Lo que no está aquí —una categoría propia— se queda sin fase hasta
+ * que se le ponga en la configuración.
+ */
+const FASE_DE_FABRICA: Record<string, string> = {
+  ataque: "oo",
+  pase: "oo",
+  control: "oo",
+  conduccion: "oo",
+  desmarque: "oo",
+  centro: "oo",
+  remate: "oo",
+  defensa: "od",
+  duelo: "od",
+  recuperacion: "to",
+  perdida: "td",
+  "abp-of": "abp",
+  "abp-def": "abp",
 };
 
 /**
@@ -105,6 +151,17 @@ export type DescriptorCoding = {
   id: string;
   nombre: string;
   color: string;
+  /**
+   * Si sale en el rótulo del vídeo. `false` en los que son para el analista
+   * —«Vídeo de grupo», «Individual», «Repasar»—: dicen adónde va el corte,
+   * no qué tiene que mirar quien lo ve.
+   */
+  enRotulo?: boolean;
+  /**
+   * Cómo se lee en el rótulo, si no es su nombre. «Mal» se queda en «Mal» en
+   * la tecla y en la lista, pero delante del grupo se escribe «A corregir».
+   */
+  rotulo?: string;
 };
 
 /** Como mucho nueve: del ⇧1 al ⇧9. */
@@ -294,20 +351,20 @@ export type ConfigCoding = {
  */
 export const CATEGORIAS_INICIALES: CategoriaCoding[] = [
   { id: "ataque", nombre: "Ataque", color: "#F87171", tecla: "q" },
-  { id: "defensa", nombre: "Defensa", color: "#60A5FA", tecla: "w" },
   { id: "pase", nombre: "Pase", color: "#34D399", tecla: "e" },
   { id: "control", nombre: "Control", color: "#A78BFA", tecla: "r" },
   { id: "conduccion", nombre: "Conducción", color: "#FBBF24", tecla: "t" },
+  { id: "desmarque", nombre: "Desmarque", color: "#4ADE80", tecla: "a" },
+  { id: "centro", nombre: "Centro", color: "#818CF8", tecla: "p" },
+  { id: "remate", nombre: "Remate", color: "#C8A96B", tecla: "h" },
+  { id: "defensa", nombre: "Defensa", color: "#60A5FA", tecla: "w" },
   { id: "duelo", nombre: "Duelo", color: "#FB7185", tecla: "y" },
   { id: "recuperacion", nombre: "Recuperación", color: "#22D3EE", tecla: "u" },
   { id: "perdida", nombre: "Pérdida", color: "#F97316", tecla: "g" },
-  { id: "remate", nombre: "Remate", color: "#C8A96B", tecla: "h" },
-  { id: "centro", nombre: "Centro", color: "#818CF8", tecla: "p" },
-  { id: "desmarque", nombre: "Desmarque", color: "#4ADE80", tecla: "a" },
   { id: "abp-of", nombre: "ABP OF", color: "#F472B6", tecla: "s" },
   { id: "abp-def", nombre: "ABP DEF", color: "#94A3B8", tecla: "d" },
   { id: "otros", nombre: "Otros", color: "#CBD5E1", tecla: "f" },
-];
+].map((categoria) => ({ ...categoria, fase: FASE_DE_FABRICA[categoria.id] }));
 
 /**
  * Los comportamientos colectivos con los que se arranca.
@@ -408,12 +465,74 @@ export const TECLAS_JUGADOR_DE_RESERVA = [
 ];
 
 export const DESCRIPTORES_INICIALES: DescriptorCoding[] = [
-  { id: "bien", nombre: "Bien", color: "#34D399" },
-  { id: "mal", nombre: "Mal", color: "#F87171" },
-  { id: "video-grupo", nombre: "Vídeo de grupo", color: "#C8A96B" },
-  { id: "individual", nombre: "Individual", color: "#60A5FA" },
-  { id: "repasar", nombre: "Repasar", color: "#A78BFA" },
+  { id: "bien", nombre: "Bien", color: "#34D399", rotulo: "Bien hecho" },
+  { id: "mal", nombre: "Mal", color: "#F87171", rotulo: "A corregir" },
+  { id: "video-grupo", nombre: "Vídeo de grupo", color: "#C8A96B", enRotulo: false },
+  { id: "individual", nombre: "Individual", color: "#60A5FA", enRotulo: false },
+  { id: "repasar", nombre: "Repasar", color: "#A78BFA", enRotulo: false },
 ];
+
+/** Lo que trae de fábrica cada descriptor para el rótulo, por id. */
+const ROTULO_DE_FABRICA = new Map(
+  DESCRIPTORES_INICIALES.map((uno) => [uno.id, uno]),
+);
+
+/**
+ * Si un corte está «bien», «a corregir» o sin valorar.
+ *
+ * Es la valoración que necesitan la matriz (la tasa de acierto) y el vídeo
+ * individual (el orden). Sale de los descriptores de fábrica por su id, y de
+ * su nombre en los propios: «Bien», «Bien hecho», «Mal», «A corregir».
+ */
+export function valoracionDeClip(
+  clip: ClipCoding,
+  descriptores: DescriptorCoding[],
+): "bien" | "mal" | null {
+  const marcados = new Set(clip.tags.map((tag) => tag.trim().toLowerCase()));
+
+  let bien = false;
+  let mal = false;
+
+  for (const uno of descriptores) {
+    if (!marcados.has(uno.nombre.trim().toLowerCase())) continue;
+
+    const clave = `${uno.id} ${uno.nombre} ${uno.rotulo ?? ""}`.toLowerCase();
+
+    if (uno.id === "bien" || /\bbien\b/.test(clave)) bien = true;
+    else if (uno.id === "mal" || /\bmal\b|corregir/.test(clave)) mal = true;
+  }
+
+  if (bien === mal) return null;
+
+  return bien ? "bien" : "mal";
+}
+
+/**
+ * El orden del vídeo individual: se abre y se cierra con lo bien hecho.
+ *
+ * Es como se corrige a un jugador joven en la sala: primero lo que ya hace
+ * bien —para que vea que se le mira entero—, en medio lo que hay que
+ * corregir, y al final otra vez algo bien hecho, que es lo último que se
+ * lleva. Lo que no está valorado va detrás de lo que corregir. Dentro de cada
+ * bloque, en el orden del partido.
+ */
+export function ordenIndividual(
+  clips: ClipCoding[],
+  descriptores: DescriptorCoding[],
+): ClipCoding[] {
+  const enOrden = [...clips].sort(
+    (a, b) => (a.video ?? "").localeCompare(b.video ?? "") || a.inicioMs - b.inicioMs,
+  );
+
+  const bien = enOrden.filter((clip) => valoracionDeClip(clip, descriptores) === "bien");
+  const mal = enOrden.filter((clip) => valoracionDeClip(clip, descriptores) === "mal");
+  const resto = enOrden.filter((clip) => valoracionDeClip(clip, descriptores) === null);
+
+  const abre = bien.slice(0, Math.ceil(bien.length / 2));
+  const cierra = bien.slice(abre.length);
+
+  return [...abre, ...mal, ...resto, ...cierra];
+}
 
 export const CONFIG_POR_DEFECTO: ConfigCoding = {
   categorias: CATEGORIAS_INICIALES,
@@ -803,11 +922,14 @@ export type ResumenCoding = {
   clips: number;
   totalMs: number;
   mediaMs: number;
+  /** Los que llevan «Bien» o «Mal», para la tasa de acierto. */
+  valorados: { bien: number; mal: number };
 };
 
 function resume(
   clips: ClipCoding[],
   clave: (clip: ClipCoding) => { clave: string; etiqueta: string },
+  descriptores: DescriptorCoding[] = [],
 ): ResumenCoding[] {
   const mapa = new Map<string, ResumenCoding>();
 
@@ -820,10 +942,15 @@ function resume(
       clips: 0,
       totalMs: 0,
       mediaMs: 0,
+      valorados: { bien: 0, mal: 0 },
     };
 
     actual.clips += 1;
     actual.totalMs += duracionClip(clip);
+
+    const valor = valoracionDeClip(clip, descriptores);
+
+    if (valor) actual.valorados[valor] += 1;
 
     mapa.set(id, actual);
   }
@@ -837,10 +964,14 @@ function resume(
 }
 
 /** Lo que ha hecho cada jugador. Lo colectivo tiene su propia tabla. */
-export function porJugador(clips: ClipCoding[]) {
+export function porJugador(
+  clips: ClipCoding[],
+  descriptores: DescriptorCoding[] = [],
+) {
   return resume(
     clips.filter((clip) => clip.sujeto !== "colectivo"),
     (clip) => ({ clave: clip.jugadorId, etiqueta: clip.jugadorNombre }),
+    descriptores,
   );
 }
 
@@ -851,23 +982,32 @@ export function porJugador(clips: ClipCoding[]) {
  * hemos trabajado a Mestre» y «cuántas salidas de balón llevamos» no se leen en
  * la misma lista, y sumadas se estorban —el equipo saldría siempre arriba.
  */
-export function porColectivo(clips: ClipCoding[]) {
+export function porColectivo(
+  clips: ClipCoding[],
+  descriptores: DescriptorCoding[] = [],
+) {
   return resume(
     clips.filter((clip) => clip.sujeto === "colectivo"),
     (clip) => ({ clave: clip.jugadorId, etiqueta: clip.jugadorNombre }),
+    descriptores,
   );
 }
 
 export function porCategoria(
   clips: ClipCoding[],
   categorias: CategoriaCoding[],
+  descriptores: DescriptorCoding[] = [],
 ) {
-  return resume(clips, (clip) => ({
-    clave: clip.categoriaId || "sin-categoria",
-    etiqueta:
-      categorias.find((una) => una.id === clip.categoriaId)?.nombre ??
-      "Sin categoría",
-  }));
+  return resume(
+    clips,
+    (clip) => ({
+      clave: clip.categoriaId || "sin-categoria",
+      etiqueta:
+        categorias.find((una) => una.id === clip.categoriaId)?.nombre ??
+        "Sin categoría",
+    }),
+    descriptores,
+  );
 }
 
 export function totalCodificadoMs(clips: ClipCoding[]) {
@@ -977,25 +1117,48 @@ export function tagsDeClips(clips: ClipCoding[]) {
  * de clips; luego lo colectivo) y las columnas las categorías usadas, en el
  * orden de la configuración. El corte «Vídeo completo» no cuenta.
  */
+/** Cuántos cortes valorados hay y cuántos de ellos están bien hechos. */
+export type Valorados = { bien: number; mal: number };
+
+/**
+ * Por debajo de esto, una tasa de acierto es una tendencia, no un dato: 3 de
+ * 4 y 15 de 20 se leen igual en porcentaje y no pesan lo mismo.
+ */
+export const MUESTRA_MINIMA_TASA = 5;
+
 export type MatrizCoding = {
-  filas: { id: string; nombre: string; colectivo: boolean; total: number }[];
-  columnas: { id: string; nombre: string; color: string; total: number }[];
+  filas: {
+    id: string;
+    nombre: string;
+    colectivo: boolean;
+    total: number;
+    valorados: Valorados;
+  }[];
+  columnas: {
+    id: string;
+    nombre: string;
+    color: string;
+    total: number;
+    /** La fase de la categoría (`FASES_CODING`), o `""` si no tiene. */
+    fase: string;
+  }[];
   /** `${sujeto}|${categoria}` → clips. */
   celdas: Map<string, number>;
+  /** `${sujeto}|${categoria}` → los que llevan «bien» o «mal». */
+  valorados: Map<string, Valorados>;
   total: number;
 };
 
 export function matrizDeClips(
   clips: ClipCoding[],
   categorias: CategoriaCoding[],
+  descriptores: DescriptorCoding[] = [],
 ): MatrizCoding {
   const conocidas = new Set(categorias.map((categoria) => categoria.id));
   const celdas = new Map<string, number>();
+  const valorados = new Map<string, Valorados>();
   const usadas = new Map<string, number>();
-  const filas = new Map<
-    string,
-    { id: string; nombre: string; colectivo: boolean; total: number }
-  >();
+  const filas = new Map<string, MatrizCoding["filas"][number]>();
 
   for (const clip of clips) {
     if (clip.jugadorId === SUJETO_VIDEO_COMPLETO.id) continue;
@@ -1012,19 +1175,49 @@ export function matrizDeClips(
       nombre: clip.jugadorNombre,
       colectivo: clip.sujeto === "colectivo",
       total: 0,
+      valorados: { bien: 0, mal: 0 },
     };
 
     fila.total += 1;
+
+    const valor = valoracionDeClip(clip, descriptores);
+
+    if (valor) {
+      const celda = valorados.get(clave) ?? { bien: 0, mal: 0 };
+
+      celda[valor] += 1;
+      fila.valorados[valor] += 1;
+      valorados.set(clave, celda);
+    }
+
     filas.set(clip.jugadorId, fila);
   }
 
+  /*
+  | Las columnas, agrupadas por fase en el orden en que se cuenta el juego y,
+  | dentro de cada fase, en el de la configuración. Las que no tienen fase
+  | van al final, como hasta ahora.
+  */
+  const ordenFase = (fase: string | undefined) => {
+    const indice = FASES_CODING.findIndex((una) => una.id === fase);
+
+    return indice < 0 ? FASES_CODING.length : indice;
+  };
+
   const columnas = categorias
-    .filter((categoria) => usadas.has(categoria.id))
-    .map((categoria) => ({
+    .map((categoria, indice) => ({ categoria, indice }))
+    .filter(({ categoria }) => usadas.has(categoria.id))
+    .sort(
+      (a, b) =>
+        ordenFase(a.categoria.fase) - ordenFase(b.categoria.fase) ||
+        a.indice - b.indice,
+    )
+    .map(({ categoria }) => ({
       id: categoria.id,
       nombre: categoria.nombre,
       color: categoria.color,
       total: usadas.get(categoria.id) ?? 0,
+      fase: faseCoding(categoria.fase) ? (categoria.fase as string) : "",
     }));
 
   if (usadas.has("")) {
@@ -1033,6 +1226,7 @@ export function matrizDeClips(
       nombre: "Sin categoría",
       color: "#CBD5E1",
       total: usadas.get("") ?? 0,
+      fase: "",
     });
   }
 
@@ -1047,7 +1241,31 @@ export function matrizDeClips(
     filas: ordenadas,
     columnas,
     celdas,
+    valorados,
     total: ordenadas.reduce((suma, fila) => suma + fila.total, 0),
+  };
+}
+
+/**
+ * La tasa de acierto en palabras cortas: «71 %» con muestra, «3 de 4» sin
+ * ella. `null` si no hay nada valorado.
+ */
+export function tasaDeAcierto(valor: Valorados | undefined) {
+  const n = (valor?.bien ?? 0) + (valor?.mal ?? 0);
+
+  if (!valor || n === 0) return null;
+
+  const suficiente = n >= MUESTRA_MINIMA_TASA;
+
+  return {
+    n,
+    suficiente,
+    texto: suficiente
+      ? `${Math.round((valor.bien / n) * 100)} %`
+      : `${valor.bien} de ${n}`,
+    largo: `${valor.bien} bien hecho${valor.bien === 1 ? "" : "s"} de ${n} valorado${n === 1 ? "" : "s"}${
+      suficiente ? ` (${Math.round((valor.bien / n) * 100)} %)` : " · pocos casos, sólo tendencia"
+    }`,
   };
 }
 
@@ -1341,6 +1559,10 @@ export function normalizaConfig(crudo: unknown): ConfigCoding {
         nombre: categoria?.nombre ?? "Sin nombre",
         color: categoria?.color ?? "#CBD5E1",
         tecla: categoria?.tecla ?? "",
+        fase:
+          typeof categoria?.fase === "string"
+            ? categoria.fase || undefined
+            : FASE_DE_FABRICA[categoria?.id ?? ""],
       }))
     : CATEGORIAS_INICIALES;
 
@@ -1365,11 +1587,21 @@ export function normalizaConfig(crudo: unknown): ConfigCoding {
     ? dato.descriptores
         .filter((uno) => uno && String(uno.nombre ?? "").trim())
         .slice(0, TOPE_DESCRIPTORES)
-        .map((uno) => ({
-          id: uno.id || apodoCoding(uno.nombre),
-          nombre: String(uno.nombre).trim(),
-          color: uno.color ?? "#CBD5E1",
-        }))
+        .map((uno) => {
+          const id = uno.id || apodoCoding(uno.nombre);
+          const fabrica = ROTULO_DE_FABRICA.get(id);
+
+          return {
+            id,
+            nombre: String(uno.nombre).trim(),
+            color: uno.color ?? "#CBD5E1",
+            /* Los guardados antes del rótulo heredan lo de fábrica por su id. */
+            enRotulo:
+              typeof uno.enRotulo === "boolean" ? uno.enRotulo : fabrica?.enRotulo,
+            rotulo:
+              typeof uno.rotulo === "string" ? uno.rotulo : fabrica?.rotulo,
+          };
+        })
     : DESCRIPTORES_INICIALES;
 
   const milisegundos = (valor: unknown, defecto: number) =>

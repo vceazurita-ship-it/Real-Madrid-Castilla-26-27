@@ -45,6 +45,9 @@ import {
   type JugadorCoding,
 } from "@/lib/coding/modelo";
 
+/** Las tarjetas que se enseñan de cada vez en el teléfono. */
+const POR_PAGINA_MOVIL = 10;
+
 /** «perfil, pase ,, progresión» → las etiquetas limpias, sin repetir. */
 function leeTags(texto: string) {
   const vistas = new Set<string>();
@@ -174,6 +177,13 @@ export function ListaClips({
   | (ordenador) y las tarjetas (teléfono), y no puede haber dos versiones de
   | «cuál es el vecino» o «cuántas pizarras lleva».
   */
+  /*
+  | En el teléfono, de diez en diez. Sesenta y cinco tarjetas eran siete mil
+  | píxeles de página, y el vídeo quedaba tan arriba que no se veía lo que se
+  | pulsaba. El elegido se enseña aunque caiga más abajo.
+  */
+  const [enMovil, setEnMovil] = useState(POR_PAGINA_MOVIL);
+
   const filas = clips.map((clip, indice) => ({
     clip,
     categoria: categorias.find((una) => una.id === clip.categoriaId),
@@ -185,7 +195,7 @@ export function ListaClips({
   if (clips.length === 0) {
     return (
       <p className="py-10 text-center text-xs text-white/30">
-        Todavía no hay clips. Elige un jugador y toca <b>Marcar inicio</b>
+        Todavía no hay cortes. Elige un jugador y toca <b>Marcar inicio</b>
         cuando empiece la acción y <b>Cerrar corte</b> cuando termine. Con
         teclado, la <b>I</b> y la <b>O</b>; el comportamiento colectivo, con{" "}
         <b>⇧</b>.
@@ -216,23 +226,23 @@ export function ListaClips({
         <ChevronDown size={13} />
       </Icono>
 
-      <Icono titulo="Reproducir el clip" onClick={() => onReproducir(fila.clip)}>
+      <Icono titulo="Reproducir el corte" onClick={() => onReproducir(fila.clip)}>
         <Play size={13} />
       </Icono>
 
-      <Icono titulo="Corregir el clip" onClick={() => onEditar(fila.clip)}>
+      <Icono titulo="Corregir el corte" onClick={() => onEditar(fila.clip)}>
         <Pencil size={13} />
       </Icono>
 
       <Icono
-        titulo="Exportar este clip"
+        titulo="Exportar este corte"
         onClick={() => onExportar(fila.clip)}
         desactivado={exportando}
       >
         <Scissors size={13} />
       </Icono>
 
-      <Icono titulo="Duplicar el clip" onClick={() => onDuplicar(fila.clip.id)}>
+      <Icono titulo="Duplicar el corte" onClick={() => onDuplicar(fila.clip.id)}>
         <Copy size={13} />
       </Icono>
 
@@ -326,8 +336,10 @@ export function ListaClips({
       | scroll es un gesto que falla.
       */}
       <ul className="space-y-1.5 sm:hidden">
-        {filas.map((fila) => {
+        {filas.map((fila, indice) => {
           const activo = fila.clip.id === seleccionado;
+
+          if (indice >= enMovil && !activo) return null;
 
           return (
             <li
@@ -383,6 +395,22 @@ export function ListaClips({
           );
         })}
       </ul>
+
+      {filas.length > enMovil && (
+        <div className="mt-2 flex items-center justify-between gap-2 sm:hidden">
+          <span className="text-[11px] text-white/40">
+            {Math.min(enMovil, filas.length)} de {filas.length} cortes
+          </span>
+
+          <Button
+            onClick={() =>
+              setEnMovil((actual) => actual + POR_PAGINA_MOVIL)
+            }
+          >
+            Ver {Math.min(POR_PAGINA_MOVIL, filas.length - enMovil)} más
+          </Button>
+        </div>
+      )}
 
       {/* EN UN ORDENADOR, LA TABLA DE SIEMPRE: densa, con arrastre. */}
       <div className="hidden min-w-0 overflow-x-auto sm:block">
@@ -678,7 +706,7 @@ export function FichaClip({
 
   return (
     <Dialog
-      title={`Clip ${String(clip.numero).padStart(3, "0")}`}
+      title={`Corte ${String(clip.numero).padStart(3, "0")}`}
       subtitle="Se puede corregir todo sin borrar ni volver a marcar"
       onClose={onCerrar}
       sinGuardar={sinGuardar}
