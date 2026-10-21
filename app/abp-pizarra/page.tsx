@@ -56,6 +56,7 @@ import {
   Smartphone,
   Trash2,
   Type,
+  Users,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -167,6 +168,17 @@ import {
   type JornadaRival,
 } from "@/lib/abp/jornada";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
+import {
+  colocaDefensa,
+  estructuraDefensiva,
+  familiaDePlantilla,
+  susCabeceadores,
+} from "@/lib/abp/defensa-rival";
+import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
+import { buildAerialThreats } from "@/lib/abp/rival";
+import { enElCampo } from "@/lib/abp/pizarra";
+import { traeJson } from "@/lib/hojaCsv";
+import { VideoJugada } from "@/components/abp/pizarra/VideoJugada";
 
 /**
  * Cuánto se espera, sin tocar nada, antes de congelar una versión.
@@ -737,6 +749,54 @@ export default function PizarraAbpPage() {
       ),
     [mutaTablero, activa],
   );
+
+  /*
+  | «Poner su defensa» (ronda del sobresaliente, 21/10/2026): coloca al rival
+  | como defiende esta acción según su scouting y con el dorsal de sus mejores
+  | por alto. Sólo lee; las chapas quedan como cualquier rival dibujado, y la
+  | colocación se deshace con Ctrl+Z.
+  */
+  const [poniendoDefensa, setPoniendoDefensa] = useState(false);
+
+  const ponSuDefensa = useCallback(async () => {
+    if (!slide) return;
+
+    const familia = familiaDePlantilla(slide.plantilla);
+    const equipo = tablero?.rival || partido?.opponent || "";
+
+    if (!familia || !equipo) return;
+
+    setPoniendoDefensa(true);
+
+    const aviso = toast.loading(`Leyendo cómo defiende ${equipo}…`);
+
+    try {
+      const [scout, plantillas] = await Promise.all([
+        fetch(`/api/docs?key=${SCOUT_DOC_KEY}`, { cache: "no-store" })
+          .then((respuesta) => (respuesta.ok ? respuesta.json() : null))
+          .catch(() => null),
+        traeJson<unknown>("/api/rivals?action=rivalesPlantillas").catch(() => []),
+      ]);
+
+      const estructura = estructuraDefensiva(actionsOf(scout?.data ?? null, equipo), familia);
+      const cabeceadores = susCabeceadores(buildAerialThreats(plantillas, [], equipo));
+      const hecho = colocaDefensa(slide.plantilla, slide.fichas.filter(enElCampo), estructura, cabeceadores, equipo);
+
+      if (!hecho) {
+        toast.info(
+          `De ${equipo} no hay registrado cómo defiende esta acción ni rematadores de ABP: colócalos a mano con la R.`,
+          { id: aviso },
+        );
+
+        return;
+      }
+
+      mutaSlide((actual) => ({ ...actual, rivales: hecho.rivales }), "rivales:defensa");
+      toast.success(hecho.aviso, { id: aviso, duration: 9_000 });
+    } finally {
+      setPoniendoDefensa(false);
+    }
+  }, [slide, tablero?.rival, partido?.opponent, mutaSlide]);
 
   /* ---------------------- CARRERAS Y BALÓN ------------------------- */
 
@@ -2229,6 +2289,35 @@ export default function PizarraAbpPage() {
                       }
                       onBorrarRival={() => rivalEnMano && quitaRivalDibujado(rivalEnMano.id)}
                     />
+
+                    {/*
+                    | Su defensa y el vídeo de la jugada, justo encima del
+                    | tablero: son las dos cosas que se hacen con la rutina ya
+                    | dibujada, antes de llevarla a la sala.
+                    */}
+                    {(familiaDePlantilla(slide.plantilla) || fases > 0) && (
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        {familiaDePlantilla(slide.plantilla) && (
+                          <Button
+                            icon={Users}
+                            onClick={() => void ponSuDefensa()}
+                            disabled={poniendoDefensa}
+                            title="Coloca al rival como defiende esta acción según su scouting de ABP, con el dorsal de sus rematadores"
+                          >
+                            {poniendoDefensa ? "Leyendo su scouting…" : "Poner su defensa"}
+                          </Button>
+                        )}
+
+                        <VideoJugada
+                          slide={slide}
+                          titulo={tablero ? tituloVisible(tablero.slides, activa) : slide.titulo}
+                          players={porId}
+                          temporada={temporadaCorta(RATINGS_SEASON)}
+                          rival={tablero?.rival || partido.opponent}
+                          jornada={tablero?.jornada ? `J${tablero.jornada}` : undefined}
+                        />
+                      </div>
+                    )}
 
                     <TableroSlide
                       slide={slide}
