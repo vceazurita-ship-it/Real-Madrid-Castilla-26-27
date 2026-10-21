@@ -78,6 +78,7 @@
 
 import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
 import { montaRapido, puedeIrRapido } from "@/lib/coding/rapido";
+import { pintaRotulo } from "@/lib/coding/rotulo";
 import {
   CORTE_ATASCADO as ATASCADO,
   CORTE_CANCELADO as CANCELADO,
@@ -1105,11 +1106,23 @@ async function montaATiempoReal(
 
         const media = await siguienteDelVideo(video);
 
+        const t = (media ?? video.currentTime) * 1000;
+
         pintaVideo();
 
-        empuja();
+        /* El rótulo de los primeros segundos, encima del partido. */
+        if (clip.rotulo) {
+          pintaRotulo(
+            ctx,
+            ancho,
+            alto,
+            clip.rotulo,
+            t - clip.inicioMs,
+            peticion.familiaRotulo ?? "sans-serif",
+          );
+        }
 
-        const t = (media ?? video.currentTime) * 1000;
+        empuja();
 
         /* Un cuarto de segundo de margen: el reloj del vídeo no es continuo. */
         if (t > ultimoT + 250) {

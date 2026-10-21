@@ -16,12 +16,14 @@ import {
   imagenComoVideo,
   leeBytes,
   pegaVideos,
+  preparaRotulo,
   respuestaDeFichero,
   segmentoNormalizado,
   sondeaVideo,
   type FuenteServidor,
   type ModoCorte,
   type ParadaPedida,
+  type RotuloServidor,
 } from "@/lib/coding/servidor";
 
 /**
@@ -74,6 +76,8 @@ type ClipPedido = {
    * 4,5 MB que aguanta el despliegue: ver `lib/coding/imagenes.ts`.
    */
   pizarras?: { imagen: string; enMs: number; duracionMs: number }[];
+  /** El rótulo de los primeros segundos: quién y qué. */
+  rotulo?: RotuloServidor;
 };
 
 type Peticion = {
@@ -293,6 +297,25 @@ export async function POST(request: NextRequest) {
       return listas;
     };
 
+    /*
+     * El rótulo del corte, medido para la altura con la que va a salir.
+     *
+     * Sólo se sondea el vídeo si hace falta: un corte sin rótulo ni pizarras
+     * sigue yendo por la copia directa, sin abrir el fichero dos veces.
+     */
+    const rotuloDe = async (clip: ClipPedido, indice: number, alto?: number) => {
+      if (!clip.rotulo?.titulo) return null;
+
+      const medida = alto ?? (await sondeaUnaVez(entradaDe(clip)!)).alto;
+
+      return preparaRotulo({
+        rotulo: clip.rotulo,
+        carpeta,
+        prefijo: `rotulo-${indice}`,
+        alto: medida,
+      });
+    };
+
     /* ------------------------------------------------ un solo clip */
 
     if (peticion.formato === "clip") {
@@ -306,6 +329,7 @@ export async function POST(request: NextRequest) {
         const datos = await sondeaUnaVez(entradaDe(clip)!);
 
         await cortaClipConParadas({
+          rotulo: await rotuloDe(clip, 0, datos.alto),
           entrada: entradaDe(clip)!,
           inicioMs: clip.inicioMs,
           finMs: clip.finMs,
@@ -327,6 +351,7 @@ export async function POST(request: NextRequest) {
           modo,
           destino,
           topeMegas,
+          rotulo: await rotuloDe(clip, clips.indexOf(clip)),
         });
       }
 
@@ -403,6 +428,8 @@ export async function POST(request: NextRequest) {
                    entre todo lo que va a durar, no entre este trozo. */
                 topeMegas,
                 segundosDelTope: duracionDe(clips),
+                /* Medido a la altura del montaje, no a la de su vídeo. */
+                rotulo: await rotuloDe(clip, indice, datos.alto),
               })
             : await segmentoNormalizado({
                 entrada: entradaClip,
@@ -415,6 +442,7 @@ export async function POST(request: NextRequest) {
                 destino: destinoTrozo,
                 topeMegas,
                 segundosDelTope: duracionDe(clips),
+                rotulo: await rotuloDe(clip, indice, datos.alto),
               }),
         );
       }
@@ -457,6 +485,7 @@ export async function POST(request: NextRequest) {
           prefijo: `z${indice}`,
           destino,
           topeMegas,
+          rotulo: await rotuloDe(clip, indice, datos.alto),
         });
       } else {
         await cortaClip({
@@ -466,6 +495,7 @@ export async function POST(request: NextRequest) {
           modo,
           destino,
           topeMegas,
+          rotulo: await rotuloDe(clip, clips.indexOf(clip)),
         });
       }
 

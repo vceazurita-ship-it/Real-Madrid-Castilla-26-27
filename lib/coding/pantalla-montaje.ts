@@ -15,6 +15,8 @@
  * coding no llegan a la página de detrás.
  */
 
+import type { RotuloClip } from "@/lib/coding/rotulo";
+
 const ORO = "#C8A96B";
 
 /** El mensaje del corte cancelado a mano, para no enseñarlo como un error. */
@@ -43,6 +45,8 @@ export type ClipNavegador = {
    * lee del suyo.
    */
   fichero?: Blob;
+  /** El rótulo de los primeros segundos (`lib/coding/rotulo.ts`). */
+  rotulo?: RotuloClip;
 };
 
 export type PeticionNavegador = {
@@ -75,6 +79,8 @@ export type PeticionNavegador = {
    * se elige en la barra de la exportación.
    */
   topeAncho?: number;
+  /** La familia de `ctx.font` para los rótulos: el motor no carga fuentes. */
+  familiaRotulo?: string;
 };
 
 export type ResultadoNavegador = {

@@ -39,6 +39,7 @@ import {
   PenTool,
   SkipForward,
   Snowflake,
+  Type,
   Upload,
   X,
   SquarePlay as Youtube,
@@ -60,6 +61,7 @@ import {
   puedeCortarAqui,
 } from "@/lib/coding/navegador";
 import {
+  SUJETO_VIDEO_COMPLETO,
   duracionClip,
   formateaTotal,
   nombreDeClip,
@@ -68,6 +70,8 @@ import {
   type ClipCoding,
   type FuenteVideo,
 } from "@/lib/coding/modelo";
+import { rotuloDeClip } from "@/lib/coding/rotulo";
+import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 export type ModoCorteUI = "preciso" | "rapido";
 
@@ -220,6 +224,13 @@ export function useExportador(opciones: {
   fps?: number;
   /** El partido, para la pantalla del montaje. */
   titulo?: string;
+  /**
+   * Un rótulo al empezar cada corte: quién, qué y en qué minuto
+   * (`lib/coding/rotulo.ts`). Vale para los tres caminos.
+   */
+  rotulos?: boolean;
+  /** La letra del rótulo en el navegador (`FAMILIA_PORTADA`). */
+  familiaRotulo?: string;
   /** Adoptar el vídeo ya copiado: cambia la fuente de la sesión. */
   onAdopta?: (fuente: FuenteVideo, src: string) => void;
   /**
@@ -245,6 +256,8 @@ export function useExportador(opciones: {
     ficheros,
     fps,
     titulo,
+    rotulos = false,
+    familiaRotulo,
     onAdopta,
     alTerminarVideo,
   } = opciones;
@@ -271,6 +284,18 @@ export function useExportador(opciones: {
   );
 
   /*
+  | El rótulo de cada corte, o nada. El corte «Vídeo completo» no lo lleva:
+  | no es una jugada de nadie, es el partido.
+  */
+  const rotuloDe = useCallback(
+    (clip: ClipCoding) =>
+      rotulos && clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id
+        ? rotuloDeClip(clip, categorias)
+        : undefined,
+    [categorias, rotulos],
+  );
+
+  /*
   | ------------------------------------------- EL MONTAJE EN EL NAVEGADOR
   |
   | El partido abierto del ordenador se corta **aquí**, sin servidor.
@@ -291,6 +316,9 @@ export function useExportador(opciones: {
       setExportando(true);
 
       try {
+        /* Sin la letra descargada, el lienzo pinta el rótulo con la de respaldo. */
+        if (rotulos) await esperaFuentePortada();
+
         const resultado = await cortaEnElNavegador({
           fichero,
           titulo: titulo ? `${titulo} · ${peticion.nombre}` : peticion.nombre,
@@ -300,12 +328,14 @@ export function useExportador(opciones: {
           fps,
           topeMegas,
           topeAncho,
+          familiaRotulo,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
             inicioMs: clip.inicioMs,
             finMs: clip.finMs,
             paradas: peticion.paradas?.get(clip.id),
             fichero: ficheroDe?.(clip),
+            rotulo: rotuloDe(clip),
           })),
         });
 
@@ -344,7 +374,17 @@ export function useExportador(opciones: {
         setExportando(false);
       }
     },
-    [alTerminarVideo, fps, nombraClips, titulo, topeAncho, topeMegas],
+    [
+      alTerminarVideo,
+      familiaRotulo,
+      fps,
+      nombraClips,
+      rotuloDe,
+      rotulos,
+      titulo,
+      topeAncho,
+      topeMegas,
+    ],
   );
 
   /*
@@ -434,6 +474,7 @@ export function useExportador(opciones: {
             finMs: clip.finMs,
             pizarras: imagenes.paradas.get(clip.id),
             fuente: fuenteDe?.(clip),
+            rotulo: rotuloDe(clip),
           })),
         });
 
@@ -552,7 +593,7 @@ export function useExportador(opciones: {
         void borraImagenes(rutas);
       }
     },
-    [alTerminarVideo, modo, nombraClips, topeMegas],
+    [alTerminarVideo, modo, nombraClips, rotuloDe, topeMegas],
   );
 
   /*
@@ -834,6 +875,8 @@ export function BarraExportacion({
   pizarras,
   quema,
   onQuema,
+  rotulos = false,
+  onRotulos,
   enNavegador,
   youtube,
   videos = [],
@@ -870,6 +913,9 @@ export function BarraExportacion({
   pizarras: number;
   quema: boolean;
   onQuema: (quema: boolean) => void;
+  /** El rótulo de los primeros segundos de cada corte. */
+  rotulos?: boolean;
+  onRotulos?: (rotulos: boolean) => void;
   /**
    * El vídeo está abierto del ordenador: el montaje se hace aquí.
    *
@@ -1130,6 +1176,42 @@ export function BarraExportacion({
             {quema
               ? `${pizarras} ${pizarras === 1 ? "parada" : "paradas"}: el vídeo se detiene, se ve lo pintado y sigue`
               : `${pizarras} ${pizarras === 1 ? "pizarra se queda" : "pizarras se quedan"} fuera: el vídeo sale como se grabó`}
+          </span>
+        </div>
+      )}
+
+      {/* ------------------------- LOS RÓTULOS ------------------------ */}
+
+      {onRotulos && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+            <Type size={12} className="text-[#C8A96B]" />
+            Rótulos
+          </span>
+
+          <button
+            type="button"
+            onClick={() => onRotulos(!rotulos)}
+            aria-pressed={rotulos}
+            title={
+              rotulos
+                ? "Cada corte empieza con un rótulo de 3,5 s: quién, qué y en qué minuto. Pulsa para sacarlos limpios."
+                : "Los cortes salen limpios. Pulsa para ponerles el rótulo."
+            }
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+              rotulos
+                ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                : "border-white/10 text-white/40 hover:text-white"
+            }`}
+          >
+            <Type size={12} />
+            {rotulos ? "Con rótulo" : "Sin rótulo"}
+          </button>
+
+          <span className="text-[11px] text-white/35">
+            {rotulos
+              ? "3,5 s al empezar cada corte: dorsal y nombre, categoría, descriptores y minuto"
+              : "los cortes salen como se grabaron"}
           </span>
         </div>
       )}

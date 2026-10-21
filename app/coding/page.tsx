@@ -1113,6 +1113,10 @@ function Coding() {
      modo de corte: es una decisión del momento de exportar. */
   const [topeMegas, setTopeMegas] = useState<number>(TOPE_MEGAS_POR_DEFECTO);
 
+  /* El rótulo de cada corte (quién, qué, minuto). De partida, puesto: un
+     montaje para la sala sin decir de quién es cada jugada no se entiende. */
+  const [rotulos, setRotulos] = useState(true);
+
   /* Con qué medida sale la imagen. `0` es la del partido, sin encoger. */
   const [medidaVideo, setMedidaVideo] = useState<number>(MEDIDA_POR_DEFECTO);
 
@@ -2601,6 +2605,8 @@ function Coding() {
     ficheros: ficherosLocales,
     fps: sesion.sesion.fps,
     titulo,
+    rotulos,
+    familiaRotulo: FAMILIA_PORTADA,
     /* El vídeo copiado a la carpeta entra en la sesión y se pone delante. */
     onAdopta: (fuente, src) => abreVideos([{ fuente, src }], { forzar: false }),
     alTerminarVideo,
@@ -4511,6 +4517,8 @@ function Coding() {
                     pizarras={pizarrasEnLaExportacion}
                     quema={quemaPizarras}
                     onQuema={setQuemaPizarras}
+                    rotulos={rotulos}
+                    onRotulos={setRotulos}
                     enNavegador={montaEnNavegador}
                     videos={videosSesion.map((video) => ({
                       nombre: video.nombre,

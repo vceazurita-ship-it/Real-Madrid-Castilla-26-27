@@ -50,6 +50,7 @@ import {
   type PeticionNavegador,
   type ResultadoNavegador,
 } from "@/lib/coding/pantalla-montaje";
+import { pintaRotulo } from "@/lib/coding/rotulo";
 import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
 
 /* ------------------------------------------------------------------ */
@@ -665,6 +666,8 @@ export async function montaRapido(
 
   if (!plan) return null;
 
+  const familiaRotulo = peticion.familiaRotulo ?? "sans-serif";
+
   /* ------------------------------------------------------- el sonido */
 
   /* La pista de sonido de la salida: la del primer vídeo. */
@@ -975,6 +978,18 @@ export async function montaRapido(
         pincel.drawImage(fotograma, 0, 0, plan.ancho, plan.alto);
 
         fotograma.close();
+
+        /* El rótulo de los primeros segundos, encima del partido. */
+        if (clip.rotulo) {
+          pintaRotulo(
+            pincel,
+            plan.ancho,
+            plan.alto,
+            clip.rotulo,
+            (t - inicioUs) / 1000,
+            familiaRotulo,
+          );
+        }
 
         asoma(lienzo);
 
