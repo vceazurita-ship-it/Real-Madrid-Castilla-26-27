@@ -240,10 +240,15 @@ export function LaminaEquipos({
 
   /*
   | El campograma, lo más grande que quepa en la columna y en el alto que queda.
-  | La línea del portero bajo el campo sólo resta si algún equipo la lleva
-  | (21/10/2026): sin porteros, esos 40 px se los queda el campo.
+  | La línea bajo el campo (porteros, o los que quedan fuera del dibujo) sólo
+  | resta si algún equipo la lleva (21/10/2026): sin ella, esos 40 px se los
+  | queda el campo.
   */
-  const lineaPortero = columnas.some((c) => c.estructura && c.jugadores.some((j) => porPuesto(j) === "POR"));
+  const lineaPortero = columnas.some((c) => {
+    if (!c.estructura) return false;
+    const { porteros, sobran } = colocaEnEstructura(c.jugadores, c.estructura, porPuesto, c.orden, c.posiciones, c.pares);
+    return porteros.length > 0 || sobran.length > 0;
+  });
   const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 335) + (lineaPortero ? 0 : 40) - (cambios.length ? 60 : 0) - (pieCorto ? 52 : 0)) / 1.08);
 
   return (
