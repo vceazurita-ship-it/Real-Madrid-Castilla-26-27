@@ -163,23 +163,25 @@ function TrabajoCuerpo({
             : etiquetaTrabajo(trabajo, true)}
         </p>
 
-        {trabajo.minutos > 0 ? (
+        {trabajo.minutos > 0 && (
           <span className="shrink-0 text-[11px] font-semibold tabular-nums text-white/70">
             {trabajo.minutos}′
-          </span>
-        ) : (
-          /* Una tarea de la hoja que aún no tiene el tiempo apuntado: «0′»
-             parecía un dato y es un hueco por rellenar. */
-          <span
-            className="shrink-0 rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-300"
-            title="Falta apuntar cuántos minutos dura"
-          >
-            Sin tiempo
           </span>
         )}
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        {/* Una tarea de la hoja que aún no tiene el tiempo apuntado: «0′»
+            parecía un dato y es un hueco por rellenar. */}
+        {!(trabajo.minutos > 0) && (
+          <span
+            className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-300"
+            title="Falta apuntar cuántos minutos dura"
+          >
+            Sin tiempo
+          </span>
+        )}
+
         {lados.map((lado) => (
           <span
             key={lado}
@@ -487,7 +489,7 @@ function DiaColumna({
                 onClick={() => onCambiaTipo(tipo.key)}
                 aria-pressed={activo}
                 title={tipo.label}
-                className={`truncate rounded-md px-1 py-1 text-[9px] font-semibold uppercase tracking-wide transition ${
+                className={`truncate rounded-md px-1 py-1 text-[10px] font-semibold transition ${
                   activo
                     ? "bg-[#C8A96B] text-black"
                     : "bg-white/[0.05] text-white/40 hover:text-white/70"
@@ -688,7 +690,7 @@ export function SemanaGrid({
           style={
             {
               "--columnas": `repeat(${columnas.length}, minmax(0, 1fr))`,
-              "--ancho": `${columnas.length * (detalle ? 180 : 140)}px`,
+              "--ancho": `${columnas.length * (detalle ? 170 : 140)}px`,
             } as CSSProperties
           }
         >

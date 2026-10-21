@@ -59,7 +59,7 @@ export function CopiarMicro({
             disabled={!clave || !resultado || resultado.puestas === 0}
             onClick={() => onCopiar(clave, modo)}
           >
-            Copiar {resultado?.puestas ? `${resultado.puestas} bloque(s)` : ""}
+            Copiar {resultado?.puestas ? `${resultado.puestas} ${resultado.puestas === 1 ? "bloque" : "bloques"}` : ""}
           </Button>
         </>
       }
@@ -104,7 +104,7 @@ export function CopiarMicro({
           </p>
 
           {resultado && (
-            <Notice tone={resultado.sinPareja > 0 ? "warn" : "info"} title={`Entran ${resultado.puestas} bloque(s)`}>
+            <Notice tone={resultado.sinPareja > 0 ? "warn" : "info"} title={`Entran ${resultado.puestas} ${resultado.puestas === 1 ? "bloque" : "bloques"}`}>
               {resultado.sinPareja > 0
                 ? `${resultado.sinPareja} no tienen su MD en esta semana y se quedan fuera.`
                 : "Todos encuentran su día."}

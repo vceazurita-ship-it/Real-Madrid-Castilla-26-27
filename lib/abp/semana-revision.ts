@@ -24,7 +24,6 @@
 import {
   ASPECTO_BY_KEY,
   DIAS,
-  LADO_LABEL,
   cargaCondicional,
   claveAspecto,
   diasCompletos,
@@ -270,7 +269,7 @@ export function revisaSemana({
       ladosDe(trabajo).flatMap((lado) =>
         trabajo.aspectos
           .filter((aspecto) => !antes.has(claveAspecto(aspecto, lado)))
-          .map((aspecto) => ({ trabajo, texto: `${nombreAspecto(aspecto).toLowerCase()} ${LADO_LABEL[lado].toLowerCase()}` })),
+          .map((aspecto) => ({ trabajo, texto: `${nombreAspecto(aspecto).toLowerCase()} ${lado === "ofensivo" ? "atacando" : "defendiendo"}` })),
       ),
     );
 
@@ -279,7 +278,7 @@ export function revisaSemana({
         id: "md1-estreno",
         tono: "aviso",
         titulo: "El MD-1 estrena contenido",
-        detalle: `${enLista(estrenos.map((uno) => uno.texto))} sale por primera vez el día antes: el MD-1 repasa lo de la semana.`,
+        detalle: `${enLista(estrenos.map((uno) => uno.texto))} ${new Set(estrenos.map((uno) => uno.texto)).size === 1 ? "sale" : "salen"} por primera vez el día antes: el MD-1 repasa lo de la semana.`,
         dia: md1,
         trabajo: estrenos[0].trabajo,
       });
@@ -392,7 +391,7 @@ export function revisaSemana({
     puntos.push({
       id: `urgente-${fila.aspecto.key}-${fila.lado}`,
       tono: "aviso",
-      titulo: `${fila.aspecto.label} ${LADO_LABEL[fila.lado].toLowerCase()}, fuera de la semana`,
+      titulo: `${fila.aspecto.label} ${fila.lado === "ofensivo" ? "atacando" : "defendiendo"}, fuera de la semana`,
       detalle: `De lo más urgente: ${fila.stats.acciones} acciones en competición y ${Math.round(fila.peligroAjustado)} % de peligro.`,
       falta: { aspecto: fila.aspecto.key, lado: fila.lado },
     });
@@ -505,7 +504,9 @@ export function porqueDe(notas: string | undefined, explicativos: boolean) {
     .filter(esPorque)
     .map((linea) => linea.trim().slice(MARCA_BOCETO.length).trim())
     .filter((linea) => explicativos || !/urgencia \d+\/100|de su familia/.test(linea))
-    .join(" ");
+    .join(" ")
+    /* «vídeo del Algeciras…», «ensayo del día antes…»: con mayúscula. */
+    .replace(/^./, (letra) => letra.toUpperCase());
 
   return {
     porque,

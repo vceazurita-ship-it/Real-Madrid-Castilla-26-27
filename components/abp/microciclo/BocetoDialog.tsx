@@ -368,7 +368,7 @@ export function BocetoDialog({
                       {suyo.trabajos.map((trabajo) => (
                         <li key={trabajo.id} className="rounded-xl bg-white/[0.03] px-2.5 py-2">
                           <p className="text-[11px] text-white/75">
-                            {fmtMin(trabajo.minutos)} · {etiquetaTrabajo(trabajo)}
+                            {trabajo.minutos > 0 ? fmtMin(trabajo.minutos) : "Sin tiempo"} · {etiquetaTrabajo(trabajo)}
                           </p>
 
                           <p className="text-[10px] uppercase tracking-wide text-white/35">

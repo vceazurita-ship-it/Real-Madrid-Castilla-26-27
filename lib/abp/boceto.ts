@@ -280,13 +280,17 @@ export function repartePorAspecto(
 
     uno.minutos =
       indice === elegidos.length - 1
-        ? Math.max(MINIMO_TAREA, minutos - repartido)
+        ? /* También al paso de cinco (21/10/2026): el resto a pelo dejaba
+             tareas de 14′, que nadie programa así. */
+          Math.max(MINIMO_TAREA, Math.round((minutos - repartido) / PASO_MINUTOS) * PASO_MINUTOS)
         : Math.max(MINIMO_TAREA, Math.round(bruto / PASO_MINUTOS) * PASO_MINUTOS);
 
     repartido += uno.minutos;
   });
 
-  const sobra = repartido - minutos;
+  /* El ajuste también va de cinco en cinco: el objetivo es una horquilla, y
+     cuadrarlo al minuto daba tareas de 14′ o de 23′. */
+  const sobra = Math.round((repartido - minutos) / PASO_MINUTOS) * PASO_MINUTOS;
 
   if (sobra !== 0 && elegidos[0].minutos - sobra >= MINIMO_TAREA) {
     elegidos[0].minutos -= sobra;

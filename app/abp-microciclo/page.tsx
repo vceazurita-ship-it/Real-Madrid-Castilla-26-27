@@ -873,7 +873,7 @@ export default function AbpMicrocicloPage() {
     }
 
     if (entran.length || sinAspecto) {
-      toast.success(`Microciclo ${microActivo.micro}: ${entran.length} tarea(s) de ABP del registro puestas en la semana`, {
+      toast.success(`Microciclo ${microActivo.micro}: ${entran.length === 1 ? "1 tarea de ABP del registro puesta" : `${entran.length} tareas de ABP del registro puestas`} en la semana`, {
         description:
           (sinAspecto ? `${sinAspecto} no dicen qué aspecto trabajan: están en «Importar del registro». ` : "") +
           "Edítalo encima como quieras: lo que quites no vuelve.",
@@ -1006,7 +1006,7 @@ export default function AbpMicrocicloPage() {
 
       toast.success(`Copiado de ${nombre}`, {
         description:
-          `${hecho.puestas} bloque(s) atados por MD.` +
+          `${hecho.puestas === 1 ? "1 bloque atado" : `${hecho.puestas} bloques atados`} por MD.` +
           (hecho.sinPareja > 0 ? ` ${hecho.sinPareja} sin su MD en esta semana se han quedado fuera.` : "") +
           " Repasa minutos y aspectos.",
         action: {
@@ -1403,8 +1403,8 @@ export default function AbpMicrocicloPage() {
               principal —proponerla e informarla— delante. Antes eran ocho
               piezas en una fila que se partía por cualquier sitio. */}
 
-          <div className="mt-6 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-            <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_150px]">
+          <div className="mt-6 grid min-w-0 gap-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-end">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_150px]">
               <label className="block min-w-0">
                 <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
                   Microciclo
@@ -1477,7 +1477,7 @@ export default function AbpMicrocicloPage() {
               </label>
             </div>
 
-            <div className="flex min-w-0 flex-wrap gap-2 xl:justify-end xl:pb-[18px]">
+            <div className="flex min-w-0 flex-wrap gap-2 2xl:justify-end 2xl:pb-[18px]">
               <Button
                 tone="primary"
                 icon={Sparkles}

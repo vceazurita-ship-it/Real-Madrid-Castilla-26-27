@@ -16,6 +16,7 @@ import { chipInk } from "@/lib/theme";
 import {
   LADO_COLOR,
   LADO_LABEL,
+  LADO_SHORT,
   fmtMin,
   type AbpLado,
 } from "@/lib/abp/microciclo";
@@ -68,7 +69,8 @@ function Ingredientes({
       ayuda: "Cuánto ocurre en competición, comparado con el aspecto que más ocurre",
     },
     {
-      label: "Peor que los suyos",
+      /* «Peor que los suyos» se cortaba en «PEOR QUE L…» en 62 px. */
+      label: "Rinde peor",
       valor: ingredientes.deficit,
       color: "#F87171",
       ayuda:
@@ -108,14 +110,14 @@ function Transferencia({ fila }: { fila: FilaCruce }) {
   const t = fila.transferencia;
 
   if (!t) {
-    return <span className="text-[11px] text-white/20">—</span>;
+    return null;
   }
 
   if (t.delta === null) {
     return (
       <span
         className="text-[10px] text-white/40"
-        title={`Hacen falta al menos dos partidos comparables con tres acciones cada uno. Ahora mismo: ${t.partidosCon} partido(s) con trabajo previo (${t.accionesCon} acciones) y ${t.partidosSin} sin él (${t.accionesSin}).`}
+        title={`Hacen falta al menos dos partidos comparables con tres acciones cada uno. Ahora mismo: ${t.partidosCon} ${t.partidosCon === 1 ? "partido" : "partidos"} con trabajo previo (${t.accionesCon} acciones) y ${t.partidosSin} sin él (${t.accionesSin}).`}
       >
         sin muestra
       </span>
@@ -132,7 +134,7 @@ function Transferencia({ fila }: { fila: FilaCruce }) {
     <span
       className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums"
       style={{ color: chipInk(color) }}
-      title={`Con trabajo previo: ${t.pctCon.toFixed(0)} % en ${t.partidosCon} partido(s). Sin él: ${t.pctSin.toFixed(0)} % en ${t.partidosSin}.`}
+      title={`Con trabajo previo: ${t.pctCon.toFixed(0)} % en ${t.partidosCon} ${t.partidosCon === 1 ? "partido" : "partidos"}. Sin él: ${t.pctSin.toFixed(0)} % en ${t.partidosSin}.`}
     >
       <Icono size={11} />
       {t.delta > 0 ? "+" : ""}
@@ -188,11 +190,15 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
               >
                 <td className="px-2.5 py-2">
                   <div className="flex min-w-0 items-center gap-2">
+                    {/* El lado escrito, no sólo un punto de color: dos filas de
+                        «Saque de banda Z2» seguidas no se distinguían. */}
                     <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: color }}
+                      className="w-9 shrink-0 rounded px-1 py-0.5 text-center text-[9px] font-semibold tracking-wide"
+                      style={{ backgroundColor: `${color}1F`, color: chipInk(color) }}
                       title={LADO_LABEL[fila.lado]}
-                    />
+                    >
+                      {LADO_SHORT[fila.lado]}
+                    </span>
 
                     <span className="truncate text-[12.5px] text-white">
                       {fila.aspecto.label}
@@ -201,7 +207,7 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                     {fila.stats.sinClasificar > 0 && (
                       <span
                         className="shrink-0 rounded bg-amber-400/12 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300/80"
-                        title={`${fila.stats.sinClasificar} acción(es) de esta familia sin «Tipo_Envio» en la hoja: no se han repartido entre directo e indirecto.`}
+                        title={`${fila.stats.sinClasificar} ${fila.stats.sinClasificar === 1 ? "acción" : "acciones"} de esta familia sin «Tipo_Envio» en la hoja: no se han repartido entre directo e indirecto.`}
                       >
                         +{fila.stats.sinClasificar} s/c
                       </span>
@@ -215,12 +221,12 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                       fila.minutosMicro ? "text-white" : "text-white/20"
                     }
                   >
-                    {fila.minutosMicro ? fmtMin(fila.minutosMicro) : "—"}
+                    {fila.minutosMicro ? fmtMin(fila.minutosMicro) : ""}
                   </span>
                 </td>
 
                 <td className="px-2.5 py-2 text-right text-[12px] tabular-nums text-white/60">
-                  {fila.minutosTemporada ? fmtMin(fila.minutosTemporada) : "—"}
+                  {fila.minutosTemporada ? fmtMin(fila.minutosTemporada) : ""}
                 </td>
 
                 {sinRegistro ? (
@@ -251,7 +257,7 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                     </td>
 
                     <td className="px-2.5 py-2 text-right text-[12px] tabular-nums text-white/60">
-                      {fila.stats.remates || "—"}
+                      {fila.stats.remates || ""}
                     </td>
 
                     <td className="px-2.5 py-2 text-right text-[12px] font-semibold tabular-nums">
@@ -264,7 +270,7 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                             : "text-white/20"
                         }
                       >
-                        {fila.stats.goles || "—"}
+                        {fila.stats.goles || ""}
                       </span>
                     </td>
 
@@ -280,7 +286,7 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                           </span>
                         </>
                       ) : (
-                        "—"
+                        ""
                       )}
                     </td>
 
