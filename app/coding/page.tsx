@@ -1065,6 +1065,10 @@ function Coding() {
     setSoloRevisar(false);
   }, []);
 
+  /* La lista guardada que se está mirando, si hay una. Manda sobre los filtros. */
+  const [listaActiva, setListaActiva] = useState<string | null>(null);
+  const [nombrandoLista, setNombrandoLista] = useState<string | null>(null);
+
   const [modoCorte, setModoCorte] = useState<ModoCorteUI>("preciso");
 
   /*
@@ -1408,12 +1412,35 @@ function Coding() {
   */
   const videosFuera = sesion.sesion.videosFuera;
 
+  /*
+  | Una lista guardada se exporta y se enseña en SU orden, cortes de varios
+  | vídeos mezclados si hace falta: es un montaje, no un filtro. Sus cortes
+  | se buscan por id, así que uno borrado simplemente no sale.
+  */
+  const listaGuardada = useMemo(
+    () =>
+      (sesion.sesion.listas ?? []).find((lista) => lista.id === listaActiva) ??
+      null,
+    [listaActiva, sesion.sesion.listas],
+  );
+
+  const clipsDeLaListaGuardada = useMemo(() => {
+    if (!listaGuardada) return null;
+
+    const porId = new Map(sesion.sesion.clips.map((clip) => [clip.id, clip]));
+
+    return listaGuardada.clipIds
+      .map((id) => porId.get(id))
+      .filter((clip): clip is ClipCoding => Boolean(clip));
+  }, [listaGuardada, sesion.sesion.clips]);
+
   const clipsExportables = useMemo(
     () =>
+      clipsDeLaListaGuardada ??
       clipsParaExportar(sesion.sesion.clips, videosSesion, videosFuera).filter(
         (clip) => pasaFiltro(clip, filtro),
       ),
-    [filtro, sesion.sesion.clips, videosFuera, videosSesion],
+    [clipsDeLaListaGuardada, filtro, sesion.sesion.clips, videosFuera, videosSesion],
   );
 
 
@@ -1431,18 +1458,32 @@ function Coding() {
 
   const clipsDeLaLista = useMemo(
     () =>
-      verTodosEnLista
+      clipsDeLaListaGuardada ??
+      (verTodosEnLista
         ? clipsParaExportar(sesion.sesion.clips, videosSesion, []).filter(
             (clip) => pasaFiltro(clip, filtro),
           )
-        : clipsFiltrados,
+        : clipsFiltrados),
     [
+      clipsDeLaListaGuardada,
       clipsFiltrados,
       filtro,
       sesion.sesion.clips,
       verTodosEnLista,
       videosSesion,
     ],
+  );
+
+  /*
+  | Lo que «Reproducir todos» encadena: el reproductor es de un vídeo, así que
+  | con una lista guardada son sus cortes del vídeo de delante, en su orden.
+  */
+  const colaParaReproducir = useMemo(
+    () =>
+      clipsDeLaListaGuardada
+        ? clipsDeVideo(clipsDeLaListaGuardada, videosSesion, sesion.sesion.fuente)
+        : clipsFiltrados,
+    [clipsDeLaListaGuardada, clipsFiltrados, sesion.sesion.fuente, videosSesion],
   );
 
   /* De qué vídeo es cada clip de la lista, por su nombre. */
@@ -2301,7 +2342,9 @@ function Coding() {
   | subtítulo decía «Mestre» mientras la lista enseñaba sólo sus
   | recuperaciones.
   */
-  const etiquetaFiltro = hayFiltro(filtro)
+  const etiquetaFiltro = listaGuardada
+    ? `lista «${listaGuardada.nombre}»`
+    : hayFiltro(filtro)
     ? [
         filtroSujeto
           ? (jugadorDe(filtroSujeto)?.nombre ??
@@ -4304,6 +4347,8 @@ function Coding() {
                       sujeto={filtroSujeto}
                       categoria={filtroCategoria}
                       onFiltra={(quien, que) => {
+                        /* Filtrar es mirar la sesión: se sale de la lista. */
+                        setListaActiva(null);
                         setFiltroSujeto(quien);
                         setFiltroCategoria(que);
                       }}
@@ -4388,8 +4433,8 @@ function Coding() {
 
                       <Button
                         icon={Play}
-                        onClick={() => lanzaCola(clipsFiltrados)}
-                        disabled={clipsFiltrados.length === 0}
+                        onClick={() => lanzaCola(colaParaReproducir)}
+                        disabled={colaParaReproducir.length === 0}
                         title={
                           verTodosEnLista
                             ? "Reproducir uno detrás de otro los clips del vídeo que está delante (el reproductor es de un vídeo)"
@@ -4407,7 +4452,137 @@ function Coding() {
                   | Sólo los que de verdad llevan los clips: una fila con los
                   | nueve descriptores a cero sería ruido.
                   */}
-                  {(tagsUsados.length > 0 || porRevisar > 0) && (
+                  {/*
+                  | LAS LISTAS: montajes con nombre y su propio orden.
+                  |
+                  | «Guardar lo que se ve» se lleva la lista tal cual está
+                  | —filtros y orden incluidos—. Con una lista abierta, la lista
+                  | de abajo, la exportación y «Reproducir» son los de ella; la
+                  | papelera la saca de la lista sin borrar el corte.
+                  */}
+                  {(clipsDeLaLista.length > 0 || (sesion.sesion.listas ?? []).length > 0) && (
+                    <div className="mb-3 flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span className="mr-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+                        Listas
+                      </span>
+
+                      {(sesion.sesion.listas ?? []).length > 0 && (
+                        <button
+                          type="button"
+                          aria-pressed={!listaGuardada}
+                          onClick={() => setListaActiva(null)}
+                          className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
+                            !listaGuardada
+                              ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-white"
+                              : "border-white/10 text-white/60 hover:text-white"
+                          }`}
+                        >
+                          Todos los clips
+                        </button>
+                      )}
+
+                      {(sesion.sesion.listas ?? []).map((lista) => {
+                        const activa = lista.id === listaActiva;
+
+                        return (
+                          <span key={lista.id} className="inline-flex items-center">
+                            <button
+                              type="button"
+                              aria-pressed={activa}
+                              onClick={() => setListaActiva(activa ? null : lista.id)}
+                              className={`flex items-center gap-1.5 border px-2.5 py-1 text-[11px] transition ${
+                                activa ? "rounded-l-full" : "rounded-full"
+                              } ${
+                                activa
+                                  ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-white"
+                                  : "border-white/10 text-white/60 hover:text-white"
+                              }`}
+                            >
+                              <ListVideo size={12} />
+                              {lista.nombre}
+                              <span className="font-mono tabular-nums text-white/40">
+                                {lista.clipIds.filter((id) => sesion.sesion.clips.some((clip) => clip.id === id)).length}
+                              </span>
+                            </button>
+
+                            {activa && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  sesion.borraLista(lista.id);
+                                  setListaActiva(null);
+                                  toast.success(`Lista «${lista.nombre}» borrada · los cortes siguen`);
+                                }}
+                                aria-label={`Borrar la lista ${lista.nombre}`}
+                                title="Borrar la lista (los cortes se quedan)"
+                                className="rounded-r-full border border-l-0 border-[#C8A96B] px-2 py-1 text-white/50 transition hover:text-red-300"
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+
+                      {!listaGuardada &&
+                        clipsDeLaLista.length > 0 &&
+                        (nombrandoLista === null ? (
+                          <button
+                            type="button"
+                            onClick={() => setNombrandoLista(etiquetaFiltro === "todo el partido" ? "" : etiquetaFiltro)}
+                            title="Guardar los clips que se ven, en este orden, como un montaje con nombre"
+                            className="flex items-center gap-1.5 rounded-full border border-dashed border-white/20 px-2.5 py-1 text-[11px] text-white/60 transition hover:border-[#C8A96B]/60 hover:text-white"
+                          >
+                            <Plus size={12} />
+                            Guardar lo que se ve ({clipsDeLaLista.length})
+                          </button>
+                        ) : (
+                          <form
+                            className="flex min-w-0 items-center gap-1.5"
+                            onSubmit={(evento) => {
+                              evento.preventDefault();
+
+                              const nombre = nombrandoLista.trim();
+
+                              if (!nombre) return;
+
+                              const id = sesion.guardaLista(
+                                nombre,
+                                clipsDeLaLista.map((clip) => clip.id),
+                              );
+
+                              setNombrandoLista(null);
+                              setListaActiva(id);
+                              toast.success(`Lista «${nombre}» guardada con ${clipsDeLaLista.length} cortes`);
+                            }}
+                          >
+                            <input
+                              autoFocus
+                              value={nombrandoLista}
+                              onChange={(evento) => setNombrandoLista(evento.target.value)}
+                              onKeyDown={(evento) => {
+                                if (evento.key === "Escape") setNombrandoLista(null);
+                              }}
+                              aria-label="Nombre de la lista"
+                              placeholder="Charla del martes"
+                              className="w-44 min-w-0 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[12px] text-white outline-none focus:border-[#C8A96B]/60"
+                            />
+                            <Button tone="primary" type="submit" disabled={!nombrandoLista.trim()}>
+                              Guardar
+                            </Button>
+                            <Button onClick={() => setNombrandoLista(null)}>Cancelar</Button>
+                          </form>
+                        ))}
+
+                      {listaGuardada && (
+                        <span className="text-[11px] text-white/40">
+                          Se exporta en este orden · la papelera la saca de la lista
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {!listaGuardada && (tagsUsados.length > 0 || porRevisar > 0) && (
                     <div className="mb-3 flex min-w-0 flex-wrap items-center gap-1.5">
                       <span className="mr-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
                         Filtrar
@@ -4516,9 +4691,21 @@ function Coding() {
                     onEditar={editaClip}
                     onDuplicar={sesion.duplicaClip}
                     onBorrar={(id) => {
+                      if (listaGuardada) {
+                        sesion.quitaDeLista(listaGuardada.id, id);
+                        toast.success(`Fuera de «${listaGuardada.nombre}» · el corte sigue en la sesión`);
+                        return;
+                      }
+
                       sesion.borraClip(id);
                       toast.success("Clip eliminado · se puede deshacer");
                     }}
+                    libre={Boolean(listaGuardada)}
+                    tituloBorrar={
+                      listaGuardada
+                        ? `Sacar de la lista «${listaGuardada.nombre}» (el corte no se borra)`
+                        : undefined
+                    }
                     onExportar={(clip) =>
                       void (async () =>
                         exporta({
@@ -4528,7 +4715,11 @@ function Coding() {
                           paradas: await componePizarras([clip]),
                         }))()
                     }
-                    onMover={sesion.mueveClipA}
+                    onMover={(id, destinoId, donde) =>
+                      listaGuardada
+                        ? sesion.mueveEnLista(listaGuardada.id, id, destinoId, donde)
+                        : sesion.mueveClipA(id, destinoId, donde)
+                    }
                     /* Las pizarras son del vídeo que está delante: las de
                        otro no se pueden contar con estas escenas. */
                     pizarrasDe={(clip) => pizarrasDeClip(clip).length}

@@ -585,6 +585,83 @@ export function useSesionCoding(opciones: {
     return llevado;
   }, [muta, sesion.clips.length, sesion.escenas.length]);
 
+  /* ----------------------------------------------------- las listas */
+
+  /*
+  | Las listas van fuera del deshacer, como las pizarras: el Retroceso es del
+  | marcado, y que deshaga «guardar la lista de la charla» sería una sorpresa.
+  */
+  const guardaLista = useCallback(
+    (nombre: string, clipIds: string[]) => {
+      const id = `lista-${Date.now().toString(36)}`;
+
+      muta((actual) => ({
+        ...actual,
+        listas: [
+          ...(actual.listas ?? []),
+          { id, nombre: nombre.trim() || "Lista", clipIds: [...new Set(clipIds)] },
+        ],
+      }));
+
+      return id;
+    },
+    [muta],
+  );
+
+  const borraLista = useCallback(
+    (id: string) => {
+      muta((actual) => ({
+        ...actual,
+        listas: (actual.listas ?? []).filter((lista) => lista.id !== id),
+      }));
+    },
+    [muta],
+  );
+
+  /** Cambia el orden dentro de una lista; el de la sesión no se toca. */
+  const mueveEnLista = useCallback(
+    (
+      listaId: string,
+      id: string,
+      destinoId: string,
+      donde: "antes" | "despues",
+    ) => {
+      muta((actual) => ({
+        ...actual,
+        listas: (actual.listas ?? []).map((lista) => {
+          if (lista.id !== listaId || id === destinoId) return lista;
+
+          const resto = lista.clipIds.filter((uno) => uno !== id);
+          const posicion = resto.indexOf(destinoId);
+
+          if (posicion < 0) return lista;
+
+          const corte = donde === "antes" ? posicion : posicion + 1;
+
+          return {
+            ...lista,
+            clipIds: [...resto.slice(0, corte), id, ...resto.slice(corte)],
+          };
+        }),
+      }));
+    },
+    [muta],
+  );
+
+  const quitaDeLista = useCallback(
+    (listaId: string, id: string) => {
+      muta((actual) => ({
+        ...actual,
+        listas: (actual.listas ?? []).map((lista) =>
+          lista.id === listaId
+            ? { ...lista, clipIds: lista.clipIds.filter((uno) => uno !== id) }
+            : lista,
+        ),
+      }));
+    },
+    [muta],
+  );
+
   /* --------------------------------------------------- las pizarras */
 
   /*
@@ -840,6 +917,10 @@ export function useSesionCoding(opciones: {
     rehacer,
     alternaDescriptor,
     vaciaCortes,
+    guardaLista,
+    borraLista,
+    mueveEnLista,
+    quitaDeLista,
     guardaEscena,
     ajustaEscena,
     ponClipsDeEscena,

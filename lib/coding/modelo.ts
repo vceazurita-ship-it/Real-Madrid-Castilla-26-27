@@ -110,6 +110,13 @@ export type DescriptorCoding = {
 /** Como mucho nueve: del ⇧1 al ⇧9. */
 export const TOPE_DESCRIPTORES = 9;
 
+/** Un montaje guardado: nombre y los cortes en su orden. */
+export type ListaCoding = {
+  id: string;
+  nombre: string;
+  clipIds: string[];
+};
+
 /**
  * De qué va el clip: de un jugador o de un comportamiento del equipo.
  *
@@ -233,6 +240,16 @@ export type SesionCoding = {
    * no puede llevarse por delante el análisis dibujado encima.
    */
   escenas: EscenaTel[];
+  /**
+   * Las listas guardadas: montajes con nombre y su propio orden.
+   *
+   * De un mismo partido salen varios vídeos —la charla del martes, el
+   * individual de Mestre, el de ABP— y cada uno quiere sus cortes en su
+   * orden. Con un solo orden por sesión había que reordenar y volver a
+   * filtrar para cada montaje. Guardan ids: un clip borrado desaparece solo
+   * de todas las listas.
+   */
+  listas?: ListaCoding[];
   /**
    * Una sesión queda `abierta` mientras se codifica y se cierra a mano.
    * Es lo que permite avisar de que se dejó a medias al volver a entrar.
@@ -1094,6 +1111,19 @@ export function normalizaSesion(
     postRollMs:
       typeof dato.postRollMs === "number" ? dato.postRollMs : base.postRollMs,
     escenas: normalizaEscenas(dato.escenas),
+    listas: Array.isArray(dato.listas)
+      ? dato.listas
+          .filter((lista) => lista && typeof lista.id === "string")
+          .map((lista) => ({
+            id: lista.id,
+            nombre: String(lista.nombre ?? "").trim() || "Lista",
+            clipIds: Array.isArray(lista.clipIds)
+              ? lista.clipIds.filter(
+                  (uno): uno is string => typeof uno === "string",
+                )
+              : [],
+          }))
+      : [],
     abierta: dato.abierta === true,
     clips: clips.map((clip, indice) => ({
       ...clip,

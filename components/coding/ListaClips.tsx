@@ -77,8 +77,14 @@ export function ListaClips({
   pizarrasDe,
   exportando,
   videoDe,
+  libre = false,
+  tituloBorrar = "Eliminar (se deshace con Retroceso o el botón de deshacer)",
 }: {
   clips: ClipCoding[];
+  /** Una lista guardada: se reordena sin mirar de qué vídeo es cada corte. */
+  libre?: boolean;
+  /** En una lista, la papelera saca el corte de la lista, no lo borra. */
+  tituloBorrar?: string;
   /**
    * De qué vídeo es cada clip, cuando la lista enseña los de varios.
    *
@@ -148,7 +154,8 @@ export function ListaClips({
   const compartenVideo = (clip: ClipCoding, otro: ClipCoding | undefined) => {
     if (!otro) return undefined;
 
-    if (!videoDe) return otro;
+    /* En una lista guardada el orden es el del montaje, de vídeo a vídeo. */
+    if (libre || !videoDe) return otro;
 
     const suyo = videoDe(clip);
 
@@ -229,7 +236,7 @@ export function ListaClips({
         <Copy size={13} />
       </Icono>
 
-      <Icono titulo="Eliminar (se deshace con Retroceso o el botón de deshacer)" tono="peligro" onClick={() => onBorrar(fila.clip.id)}>
+      <Icono titulo={tituloBorrar} tono="peligro" onClick={() => onBorrar(fila.clip.id)}>
         <Trash2 size={13} />
       </Icono>
     </>
