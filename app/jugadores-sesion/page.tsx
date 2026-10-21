@@ -2890,7 +2890,9 @@ export default function JugadoresSesionPage() {
                           onChange={(e) => setConCabecera(e.target.checked)}
                           className="h-3.5 w-3.5 accent-[#C8A96B]"
                         />
-                        Con cabecera <span className="text-white/40">(título de la tarea, sesión y pie). Sin marcar, la imagen lleva sólo los equipos.</span>
+                        <span className="min-w-0">
+                          Con cabecera <span className="text-white/40">(título de la tarea, sesión y pie). Sin marcar, la imagen lleva sólo los equipos.</span>
+                        </span>
                       </label>
                       <div className="mt-2 flex items-center justify-between text-[11px] text-white/40">
                         <button type="button" disabled={activa === 0} onClick={() => { irATarea(activa - 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
