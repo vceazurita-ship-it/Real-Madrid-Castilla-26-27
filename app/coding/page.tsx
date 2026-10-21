@@ -4384,7 +4384,7 @@ function Coding() {
                 {/* --------------------------- CLIPS --------------------- */}
 
                 <Panel
-                  title="Clips"
+                  title="Cortes"
                   subtitle={
                     listaGuardada
                       ? `${clipsDeLaLista.length} ${clipsDeLaLista.length === 1 ? "corte" : "cortes"} · ${etiquetaFiltro} · en el orden de la lista`
