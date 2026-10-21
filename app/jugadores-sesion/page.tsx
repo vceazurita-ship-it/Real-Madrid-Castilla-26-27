@@ -2936,7 +2936,7 @@ export default function JugadoresSesionPage() {
                           <thead className="sticky top-0 bg-[#11161C] text-[10px] uppercase tracking-[0.14em] text-white/35">
                             <tr>
                               <th className="px-4 py-2 text-left font-medium">Jugador</th>
-                              <th className="px-2 py-2 text-left font-medium">Puesto</th>
+                              <th className="hidden px-2 py-2 text-left font-medium sm:table-cell">Puesto</th>
                               <th className="px-2 py-2 text-center font-medium" title="Tareas como comodín">Com.</th>
                               <th className="px-2 py-2 text-center font-medium" title="Tareas sin participar">Fuera</th>
                               <th className="px-2 py-2 text-right font-medium">
@@ -2952,6 +2952,36 @@ export default function JugadoresSesionPage() {
                               const r = rotacion.find((x) => x.jugador.id === j.id)!;
 
                               const auto = puestosAuto[j.id];
+
+                              /* En el móvil va debajo del nombre (21/10/2026): en su columna, la tabla no cabía y los botones de reemplazar y quitar quedaban fuera. */
+                              const selector = (
+                                      <select
+                                        value={j.demarcacion ?? (j.puesto ? `p:${j.puesto}` : "")}
+                                        onChange={(e) => ponDemarcacion(j.id, e.target.value)}
+                                        aria-label={`Demarcación de ${j.nombre}`}
+                                        className={`rounded-lg border bg-transparent px-1.5 py-1 text-[11px] outline-none focus:border-[#C8A96B]/50 ${
+                                          j.puesto || j.demarcacion ? "border-[#C8A96B]/40 text-white" : "border-white/10 text-white/50"
+                                        }`}
+                                      >
+                                        <option value="" className="bg-[#11161C]">
+                                          {demarcacionesAuto[j.id]
+                                            ? `${demarcacion(demarcacionesAuto[j.id])?.nombre} (plantilla)`
+                                            : auto
+                                              ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)`
+                                              : "Elige su demarcación"}
+                                        </option>
+                                        {DEMARCACIONES.map((d) => (
+                                          <option key={d.clave} value={d.clave} className="bg-[#11161C]">
+                                            {d.nombre}
+                                          </option>
+                                        ))}
+                                        {j.puesto && !j.demarcacion ? (
+                                          <option value={`p:${j.puesto}`} className="bg-[#11161C]">
+                                            {PUESTOS.find((p) => p.clave === j.puesto)?.nombre} (sin banda)
+                                          </option>
+                                        ) : null}
+                                      </select>
+                              );
 
                               return (
                                 <tr key={j.id} className="border-t border-white/[0.05]">
@@ -2990,40 +3020,16 @@ export default function JugadoresSesionPage() {
                                         {j.baja && <span className="ml-1.5 text-[10px] text-red-300">{j.baja.toLowerCase()}</span>}
                                       </span>
                                     )}
+                                    {reemplazando?.id !== j.id && <div className="mt-1 sm:hidden">{selector}</div>}
                                   </td>
-                                  <td className="px-2 py-1">
-                                    <select
-                                      value={j.demarcacion ?? (j.puesto ? `p:${j.puesto}` : "")}
-                                      onChange={(e) => ponDemarcacion(j.id, e.target.value)}
-                                      aria-label={`Demarcación de ${j.nombre}`}
-                                      className={`rounded-lg border bg-transparent px-1.5 py-1 text-[11px] outline-none focus:border-[#C8A96B]/50 ${
-                                        j.puesto || j.demarcacion ? "border-[#C8A96B]/40 text-white" : "border-white/10 text-white/50"
-                                      }`}
-                                    >
-                                      <option value="" className="bg-[#11161C]">
-                                        {demarcacionesAuto[j.id]
-                                          ? `${demarcacion(demarcacionesAuto[j.id])?.nombre} (plantilla)`
-                                          : auto
-                                            ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)`
-                                            : "Elige su demarcación"}
-                                      </option>
-                                      {DEMARCACIONES.map((d) => (
-                                        <option key={d.clave} value={d.clave} className="bg-[#11161C]">
-                                          {d.nombre}
-                                        </option>
-                                      ))}
-                                      {j.puesto && !j.demarcacion ? (
-                                        <option value={`p:${j.puesto}`} className="bg-[#11161C]">
-                                          {PUESTOS.find((p) => p.clave === j.puesto)?.nombre} (sin banda)
-                                        </option>
-                                      ) : null}
-                                    </select>
+                                  <td className="hidden px-2 py-1 sm:table-cell">
+                                    {selector}
                                   </td>
-                                  <td className={`px-2 py-1 text-center tabular-nums ${r.comodin >= 2 ? "font-bold text-amber-300" : "text-white/55"}`}>
-                                    {r.comodin || "·"}
+                                  <td className={`px-2 py-1 text-center tabular-nums ${r.comodin >= 2 ? "font-bold text-amber-300" : r.comodin ? "text-white/70" : "text-white/30"}`}>
+                                    {r.comodin}
                                   </td>
-                                  <td className={`px-2 py-1 text-center tabular-nums ${r.fuera >= 2 && !j.baja ? "font-bold text-amber-300" : "text-white/55"}`}>
-                                    {r.fuera || "·"}
+                                  <td className={`px-2 py-1 text-center tabular-nums ${r.fuera >= 2 && !j.baja ? "font-bold text-amber-300" : r.fuera ? "text-white/70" : "text-white/30"}`}>
+                                    {r.fuera}
                                   </td>
                                   <td className="whitespace-nowrap px-2 py-1 text-right">
                                     <button
