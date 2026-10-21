@@ -1870,7 +1870,9 @@ export default function JugadoresSesionPage() {
   /* WhatsApp con el texto de toda la sesión (21/10/2026): wa.me abre la app y se elige el grupo; aquí no se manda nada. */
   const mandaAlGrupo = () => {
     if (!sesion) return;
+    /* Primero WhatsApp, en el mismo toque (si no, el navegador lo bloquea); luego se descarga la imagen para adjuntarla. */
     window.open(`https://wa.me/?text=${encodeURIComponent(textoDeSesion(sesion))}`, "_blank", "noopener");
+    void exporta(laminasDe(sesion.tareas.map((_, i) => i)), "vertical");
   };
 
   /*
@@ -1997,7 +1999,7 @@ export default function JugadoresSesionPage() {
   const laminasDe = (indices: number[]) =>
     indices.flatMap((i) => (sesion?.tareas[i]?.cambio ? [{ i, fase: "inicio" as Fase }, { i, fase: "cambio" as Fase }] : [{ i, fase: "inicio" as Fase }]));
 
-  const exporta = async (laminas: { i: number; fase: Fase }[], formato: "jpg" | "pdf" = "jpg") => {
+  const exporta = async (laminas: { i: number; fase: Fase }[], formato: "jpg" | "pdf" | "vertical" = "jpg") => {
     if (!sesion || exportando || !laminas.length) return;
 
     setExportando({ laminas, paso: "Preparando…" });
@@ -2029,6 +2031,48 @@ export default function JugadoresSesionPage() {
       | la sesión. Es lo que se manda al grupo o se deja en la tableta del campo
       | de una vez, sin diez imágenes sueltas.
       */
+      /*
+      | Para el móvil (21/10/2026): la sesión entera en una imagen vertical de
+      | 1080 × 1920, las diapositivas una debajo de otra. Es la que se adjunta
+      | al mensaje del grupo; se descarga y la adjunta el analista.
+      */
+      if (formato === "vertical") {
+        setExportando({ laminas, paso: "Montando la imagen vertical…" });
+
+        const lienzo = document.createElement("canvas");
+        lienzo.width = 1080;
+        lienzo.height = 1920;
+        const ctx = lienzo.getContext("2d");
+        if (!ctx) throw new Error("el navegador no deja dibujar la imagen");
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, 1080, 1920);
+        ctx.fillStyle = "#0B1A33";
+        ctx.fillRect(0, 0, 1080, 12);
+        ctx.font = "700 40px sans-serif";
+        ctx.fillText(sesion.titulo.toUpperCase(), 40, 80, 1000);
+
+        const arriba = 120;
+        const sitio = (1920 - arriba - 30) / imagenes.length;
+        const alto = Math.min(LAMINA_H * (1000 / LAMINA_W), sitio - 20);
+        const ancho = alto * (LAMINA_W / LAMINA_H);
+
+        for (let k = 0; k < imagenes.length; k += 1) {
+          const img = new Image();
+          img.src = imagenes[k];
+          await img.decode();
+          ctx.drawImage(img, (1080 - ancho) / 2, arriba + k * sitio, ancho, alto);
+        }
+
+        const blob = await new Promise<Blob | null>((listo) => lienzo.toBlob(listo, "image/png"));
+        if (!blob) throw new Error("no se ha podido montar la imagen");
+
+        descarga(blob, `${apodo(sesion.titulo, "sesion")}-movil.png`);
+        toast.success("Imagen para el móvil descargada", { description: "Adjúntala al mensaje del grupo." });
+
+        return;
+      }
+
       if (formato === "pdf") {
         setExportando({ laminas, paso: "Montando el PDF…" });
 
@@ -3024,7 +3068,7 @@ export default function JugadoresSesionPage() {
                           <Button
                             icon={Send}
                             onClick={mandaAlGrupo}
-                            title="Abre WhatsApp con los equipos de todas las tareas en texto, para elegir el grupo (no se manda nada solo)"
+                            title="Abre WhatsApp con los equipos de todas las tareas en texto y descarga la sesión en una imagen vertical para adjuntarla (no se manda nada solo)"
                           >
                             Mandar al grupo
                           </Button>

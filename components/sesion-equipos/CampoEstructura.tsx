@@ -98,22 +98,33 @@ export function CampoEstructura({
   */
   const alturas = [...new Set(huecos.filter((h) => !h.aMano).map((h) => Math.round(h.y * 1000)))].sort((a, b) => a - b);
   const entreLineas = alturas.length > 1 ? Math.min(...alturas.slice(1).map((y, k) => y - alturas[k])) / 1000 : 1;
-  const hueco = entreLineas * alto;
-  const ficha = Math.max(16, Math.min(50, ancho / 10, hueco * 0.38));
-  /* En la lámina exportada (`claro`) los nombres van más grandes: se leen en la tele del vestuario. */
-  const letra = Math.min(
-    claro ? Math.max(10, Math.min(36, ancho / 16)) : Math.max(9, Math.min(28, ancho / 21)),
-    /* Dos renglones (1,02 de alto cada uno, más el relleno) entre la ficha y la línea siguiente. */
-    Math.max(8, (hueco - ficha - 10) / 2.3),
-  );
   /*
   | Con la ficha en su punto y el nombre colgando, la última línea se salía
   | por abajo en la lámina (21/10/2026). Sin tocar (la lámina), las alturas se
   | encogen lo justo para que el nombre de la línea de atrás quepa entero.
+  |
+  | Y al encogerlas, las líneas se juntan: la letra se calculaba con el hueco
+  | de antes de encoger, y el nombre de una línea acababa encima de las fichas
+  | de la siguiente («ÁNGEL CARVAJAL» sobre los tres de detrás). Se vuelve a
+  | calcular con el hueco ya encogido, y otra vez la escala con esa letra.
   */
   const yMax = Math.max(0.01, ...huecos.filter((h) => h.jugador).map((h) => h.y));
-  const sitioAbajo = alto - 6 - ficha / 2 - letra * 2.5 - 8;
-  const escalaY = !onToca && yMax * alto > sitioAbajo ? sitioAbajo / (yMax * alto) : 1;
+  const medidas = (escala: number) => {
+    const hueco = entreLineas * alto * escala;
+    const ficha = Math.max(16, Math.min(50, ancho / 10, hueco * 0.38));
+    /* En la lámina exportada (`claro`) los nombres van más grandes: se leen en la tele del vestuario. */
+    const letra = Math.min(
+      claro ? Math.max(10, Math.min(36, ancho / 16)) : Math.max(9, Math.min(28, ancho / 21)),
+      /* Dos renglones (1,02 de alto cada uno, más el relleno) y una rendija antes de la ficha siguiente. */
+      Math.max(8, (hueco - ficha - 14) / 2.4),
+    );
+    const sitioAbajo = alto - 6 - ficha / 2 - letra * 2.5 - 8;
+    const escalaY = !onToca && yMax * alto > sitioAbajo ? sitioAbajo / (yMax * alto) : 1;
+    return { ficha, letra, escalaY };
+  };
+  const primera = medidas(1);
+  const { ficha, letra } = primera.escalaY < 1 ? medidas(primera.escalaY) : primera;
+  const escalaY = primera.escalaY < 1 ? medidas(primera.escalaY).escalaY : 1;
 
   const tinta = tintaSobre(color);
   /* Más pálidas en la lámina (21/10/2026): con 0,42 la línea del área y el semicírculo ensuciaban los nombres de encima. */
