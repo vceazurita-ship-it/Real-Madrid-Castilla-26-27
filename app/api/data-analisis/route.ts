@@ -13,6 +13,7 @@ import {
 import { alertasDeData, seleccionaAlertas } from "@/lib/data-analisis/alertas";
 import { equiposConMuestra, golesAbpDeEquipo } from "@/lib/data-analisis/goles-abp";
 import { proponeTipologia } from "@/lib/rivals/tipologia-wyscout";
+import { perfilesDeEquipo } from "@/lib/rivals/perfil-wyscout";
 import { readDoc } from "@/lib/docStore";
 import { alertasDeFichajes, type CotejoRival } from "@/lib/portada/alertas-fichajes";
 import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
@@ -272,6 +273,25 @@ function resumenDePortada(datos: Dataset) {
     deCuantos: todos.length,
     tope: todos[0] ?? null,
     golesMenosXg: metDif ? valorEnGrupo(metDif, nuestros) : null,
+  };
+}
+
+/**
+ * La plantilla rival en Wyscout, para /rivals (21/10/2026).
+ *
+ * Una entrada por cada jugador suyo con minutos, contra los de su puesto en la
+ * categoría (`perfilesDeEquipo`), y lo que hace distinto al equipo, que es lo
+ * mismo que lleva el informe. Pesa unos kilobytes: la ficha se abre a veces
+ * desde el móvil y no puede bajarse la categoría entera.
+ */
+function perfilesDe(datos: Dataset, equipo: string) {
+  const destacados = destacadosDe(datos, equipo, []);
+
+  return {
+    ...perfilesDeEquipo(datos.jugadores, equipo),
+    temporada: destacados.temporada,
+    equipos: destacados.equipos,
+    aspectos: destacados.equipo,
   };
 }
 
@@ -939,6 +959,9 @@ async function contesta(peticion: Request) {
 
   const equipoDestacado = parametros.get("destacados");
 
+  /* La plantilla rival (21/10/2026): cada suyo contra su puesto, y el equipo. */
+  const equipoPerfiles = parametros.get("perfiles");
+
   const aspectosPedidos = (parametros.get("aspectos") ?? "")
     .split(",")
     .map((a) => a.trim())
@@ -947,6 +970,10 @@ async function contesta(peticion: Request) {
   const ahora = Date.now();
 
   if (!fresco && guardado && ahora - guardado.en < VIDA) {
+    if (equipoPerfiles) {
+      return NextResponse.json({ ok: true, ...perfilesDe(guardado.datos, equipoPerfiles) });
+    }
+
     if (equipoDestacado) {
       return NextResponse.json({
         ok: true,
@@ -1000,6 +1027,10 @@ async function contesta(peticion: Request) {
     }
 
     guardado = { datos, en: ahora };
+
+    if (equipoPerfiles) {
+      return NextResponse.json({ ok: true, origen, ...perfilesDe(datos, equipoPerfiles) });
+    }
 
     if (equipoDestacado) {
       return NextResponse.json({

@@ -34,7 +34,7 @@ import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import { useRivalOnce } from "@/hooks/useRivalOnce";
 import type { AlineacionJugador } from "@/lib/rivals/alineacion-ppt";
-import { findStats, findTeam, highlightSeason } from "@/lib/rivals/stats";
+import { findStats, findTeam, highlightSeason, type RivalSeasonStats } from "@/lib/rivals/stats";
 import EscudoEquipo from "@/components/rivals/EscudoEquipo";
 import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import { EligeVideoDeLista } from "@/components/rivals/EligeVideoDeLista";
@@ -85,6 +85,7 @@ import {
   esElProximo,
   etiquetaDelProximo,
   jornadaDeEquipo,
+  JUGADO,
   SIN_ORDEN,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
@@ -100,6 +101,13 @@ import {
 } from "@/lib/rivals/posiciones-temporada";
 import type { InformeData } from "@/lib/rivals/informe-ppt";
 import { traeDestacadosRival } from "@/lib/rivals/destacados-rival";
+import { vistazoDe } from "@/lib/rivals/vistazo";
+import { asignaPerfiles, type PerfilWyscout } from "@/lib/rivals/perfil-wyscout";
+import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
+import VistazoRival from "@/components/rivals/VistazoRival";
+import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
+import { pieDominante } from "@/lib/rivals/pie";
+import { centimetros, kilos } from "@/lib/rivals/lienzo-club";
 import type { HojaInforme } from "@/lib/rivals/informe-elementos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import type { PartidoElegible } from "@/components/rivals/InformePartidosDialog";
@@ -938,6 +946,9 @@ export default function RivalPlayersPage() {
   } = useRivalInforme({
     alEntrar: true,
   });
+
+  /* Cada suyo contra los de su puesto en la categoría, y el equipo (Wyscout). */
+  const perfilesRival = useRivalPerfiles(selectedTeam);
 
   const [showPitch, setShowPitch] = useState(true);
 
@@ -2960,20 +2971,69 @@ export default function RivalPlayersPage() {
       return texto && texto !== "." ? texto : "";
     };
 
+    /*
+    | Con su unidad y como se dice (21/10/2026): la hoja mezcla «1,87» y «187»,
+    | escribe el pie como «DCHO» y la fecha como la guarda el formulario
+    | («2024-07-12»). En la cabecera se lee «1,87 m», «Diestro», «12/07/2024»;
+    | lo que no se entienda se enseña tal cual, que es mejor que perderlo.
+    */
+    const cm = centimetros(limpio(editForm.ALTURA));
+    const kg = kilos(limpio(editForm.PESO));
+    const pie = pieDominante(limpio(editForm["PIE DOMINANTE"]));
+    const fecha = formatDateForInput(editForm["FECHA INCORPORACIÓN"]).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const estado = limpio(editForm.ESTADO);
+
     return [
-      { label: "Edad", valor: limpio(editForm.EDAD) },
-      { label: "Altura", valor: limpio(editForm.ALTURA) },
-      { label: "Peso", valor: limpio(editForm.PESO) },
-      { label: "Pie", valor: limpio(editForm["PIE DOMINANTE"]) },
-      { label: "Estado", valor: limpio(editForm.ESTADO) },
+      { label: "Edad", valor: /^\d+$/.test(limpio(editForm.EDAD)) ? `${limpio(editForm.EDAD)} años` : limpio(editForm.EDAD) },
+      { label: "Altura", valor: cm ? `${(cm / 100).toFixed(2).replace(".", ",")} m` : limpio(editForm.ALTURA) },
+      { label: "Peso", valor: kg ? `${kg} kg` : limpio(editForm.PESO) },
+      { label: "Pie", valor: pie ? pie.charAt(0) + pie.slice(1).toLowerCase() : limpio(editForm["PIE DOMINANTE"]) },
+      /* «ACTIVO» lo lleva todo el que está disponible: sólo se ve la excepción. */
+      { label: "Estado", valor: /^activ/i.test(estado) ? "" : estado },
       { label: "Procedencia", valor: limpio(editForm.PROCEDENCIA) },
       { label: "Nacimiento", valor: limpio(editForm["LUGAR DE NACIMIENTO"]) },
       {
         label: "Incorporación",
-        valor: limpio(editForm["FECHA INCORPORACIÓN"]),
+        valor: fecha ? `${fecha[3]}/${fecha[2]}/${fecha[1]}` : limpio(editForm["FECHA INCORPORACIÓN"]),
       },
     ].filter((dato) => dato.valor);
   }, [editForm]);
+
+  /*
+  | Cada ficha del equipo elegido con su entrada de Wyscout. Se casa la
+  | plantilla entera a la vez y uno a uno (`asignaPerfiles`): con tres Pérez en
+  | la hoja y uno en Wyscout, casar ficha a ficha les daba a los tres los datos
+  | del mismo.
+  */
+  const perfilesPorFicha = useMemo(
+    () =>
+      perfilesRival
+        ? asignaPerfiles(
+            players.filter((p) => p.NOMBRE_EQUIPO === selectedTeam),
+            perfilesRival.perfiles,
+            idDeJugador,
+          )
+        : new Map<string, PerfilWyscout>(),
+    [players, perfilesRival, selectedTeam],
+  );
+
+  /* La temporada en curso de cada uno, para el listado. */
+  const temporadaDe = (player: RivalPlayer) =>
+    statsDoc ? highlightSeason(findStats(statsDoc, player)?.temporadas ?? [], statsDoc.temporada) : null;
+
+  /* El jugador abierto, en Wyscout: sólo si es del equipo cuyos perfiles hay. */
+  const perfilDelEditado =
+    editForm && !isCreating ? (perfilesPorFicha.get(idDeJugador(editForm)) ?? null) : null;
+
+  /* Cómo llega el rival: tabla, su campo en el partido, forma, dibujo, goles. */
+  const vistazoRival = useMemo(() => {
+    const partido = enfrentamientoDe(ordenRivales, selectedTeam);
+
+    /* Sólo si el partido está por venir: el de la vuelta pasada no dice dónde se juega el siguiente. */
+    const enCasa = partido && partido.grupo !== JUGADO ? partido.local : null;
+
+    return vistazoDe(findInforme(informeDoc, selectedTeam), enCasa);
+  }, [informeDoc, ordenRivales, selectedTeam]);
 
   /*
   | Estadísticas del jugador y, con ellas, su ficha en BeSoccer.
@@ -3701,6 +3761,7 @@ export default function RivalPlayersPage() {
                 {teams.map((team) => (
                   <button
                     key={team.name}
+                    aria-pressed={selectedTeam === team.name}
                     title={
                       esElProximo(ordenRivales, team.name)
                         ? etiquetaDelProximo(ordenRivales)
@@ -3769,6 +3830,33 @@ export default function RivalPlayersPage() {
 
             {view === "plantilla" && (
               <>
+              {/* CÓMO LLEGA — lo que se pregunta antes de mirar a nadie */}
+
+              {selectedTeam && !loading && (
+                <VistazoRival
+                  equipo={selectedTeam}
+                  vistazo={vistazoRival}
+                  jornada={jornadaDeEquipo(ordenRivales, selectedTeam)}
+                  aspectos={perfilesRival?.aspectos ?? []}
+                  equipos={perfilesRival?.equipos ?? 0}
+                  enlaces={[
+                    {
+                      href: `/scout-rival-abp?equipo=${encodeURIComponent(selectedTeam)}`,
+                      label: "Su balón parado",
+                    },
+                    /* Estas pantallas abren solas en el próximo rival: sólo se
+                       ofrecen cuando es éste, o llevarían a otro equipo. */
+                    ...(esElProximo(ordenRivales, selectedTeam)
+                      ? [
+                          { href: "/scout-rival-collective", label: "Cómo juega como equipo" },
+                          { href: "/duelos", label: "Duelos contra nuestro once" },
+                          { href: "/scout-rival-individual", label: "Vídeos de sus jugadores" },
+                        ]
+                      : []),
+                  ]}
+                />
+              )}
+
               {/* FILTROS */}
 
               <div className="mt-6 grid min-w-0 gap-3 md:grid-cols-2">
@@ -4019,6 +4107,7 @@ export default function RivalPlayersPage() {
                                       onceEstado={onceDe(player)}
                                       onCiclarOnce={ciclarOnceDe(player)}
                                       onEtiquetas={abrirEtiquetasDe(player)}
+                                      temporada={temporadaDe(player)}
                                       onClick={() => openPlayer(player)}
                                     />
                                   ))}
@@ -4051,6 +4140,7 @@ export default function RivalPlayersPage() {
                               onceEstado={onceDe(player)}
                               onCiclarOnce={ciclarOnceDe(player)}
                               onEtiquetas={abrirEtiquetasDe(player)}
+                              temporada={temporadaDe(player)}
                               onClick={() => openPlayer(player)}
                             />
                           ))}
@@ -4654,12 +4744,16 @@ export default function RivalPlayersPage() {
                     </span>
                   )
                 ) : (
-                  <AutoSaveStatus
-                    estado={autoFicha.status}
-                    guardadoEn={autoFicha.lastSavedAt}
-                    onReintentar={() => void autoFicha.flush()}
-                    className="hidden sm:inline-flex"
-                  />
+                  /* En una caja propia: el `inline-flex` del aviso le ganaba al
+                     `hidden` y en el móvil salía dos veces (arriba y al pie),
+                     comiéndose el nombre del jugador (21/10/2026). */
+                  <span className="hidden sm:inline-flex">
+                    <AutoSaveStatus
+                      estado={autoFicha.status}
+                      guardadoEn={autoFicha.lastSavedAt}
+                      onReintentar={() => void autoFicha.flush()}
+                    />
+                  </span>
                 )}
 
                 <button
@@ -4723,9 +4817,11 @@ export default function RivalPlayersPage() {
                       </span>
                     )}
 
-                    <span className="min-w-0 truncate text-sm text-white/50">
-                      {editForm["POSICIÓN"] || "Sin posición"}
-                    </span>
+                    {editForm["POSICIÓN"] && (
+                      <span className="min-w-0 truncate text-sm text-white/50">
+                        {editForm["POSICIÓN"]}
+                      </span>
+                    )}
 
                     {editForm["2º POSICIÓN"] &&
                       editForm["2º POSICIÓN"] !== "." && (
@@ -5061,6 +5157,14 @@ export default function RivalPlayersPage() {
                   temporadaActual={statsDoc?.temporada}
                 />
 
+                {/* Y cómo juega, contra los de su puesto en la categoría. */}
+
+                {perfilDelEditado && (
+                  <div className="mt-5">
+                    <PerfilWyscoutCard perfil={perfilDelEditado} />
+                  </div>
+                )}
+
                 {/* El dictado es una herramienta de edición: fuera del PDF. */}
 
                 <div data-export-hide className="mt-5">
@@ -5373,16 +5477,18 @@ function EtiquetasDialog({
 
             <p className="truncate text-[11px] text-white/40">
               {player.DORSAL ? `${player.DORSAL} · ` : ""}
-              {slotEntry?.slot.label || player["POSICIÓN"] || "Sin posición"}
+              {slotEntry?.slot.label || player["POSICIÓN"] || ""}
             </p>
           </div>
 
-          <AutoSaveStatus
-            estado={estado}
-            guardadoEn={guardadoEn}
-            onReintentar={onReintentar}
-            className="hidden sm:inline-flex"
-          />
+          {/* En caja propia: ver el mismo aviso en la cabecera de la ficha. */}
+          <span className="hidden shrink-0 sm:inline-flex">
+            <AutoSaveStatus
+              estado={estado}
+              guardadoEn={guardadoEn}
+              onReintentar={onReintentar}
+            />
+          </span>
 
           <button
             type="button"
@@ -5519,12 +5625,90 @@ function SearchInput({
   );
 }
 
+/*
+| La cara de un jugador, con respaldo (21/10/2026).
+|
+| BeSoccer retira fotos de vez en cuando y la hoja sigue apuntando a ellas:
+| el navegador pintaba el texto alternativo cortado encima del círculo
+| («SERGI» sobre la ficha de Sergio García). Si la foto no carga, el mismo
+| muñeco que lleva quien no tiene foto.
+*/
+function CaraJugador({
+  foto,
+  alt,
+  icono,
+  className = "",
+}: {
+  foto: string | undefined;
+  alt: string;
+  icono: number;
+  className?: string;
+}) {
+  /* Se guarda QUÉ foto falló: si cambia la URL, se vuelve a intentar. */
+  const [rota, setRota] = useState("");
+
+  if (!foto || rota === foto) {
+    return (
+      <UserRound
+        size={icono}
+        aria-hidden
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/30"
+      />
+    );
+  }
+
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={foto}
+      alt={alt}
+      loading="lazy"
+      draggable={false}
+      onError={() => setRota(foto)}
+      className={`h-full w-full object-cover ${className}`}
+    />
+  );
+}
+
+/*
+| El nombre que cabe bajo la ficha del campograma (21/10/2026).
+|
+| El hueco lo fija el motor (el paso entre fichas) y no se toca. Lo que sí se
+| elige es QUÉ se escribe: «DIEGO IGL…» no dice quién es y «D. IGLESIAS» sí.
+| Se prueba el nombre entero, luego la inicial con los apellidos, luego la
+| inicial con el último, y si nada cabe, el apellido (que la caja corta).
+| La medida es una estimación de la letra en negrita: si se queda corta, la
+| caja sigue cortando con «…» como antes.
+*/
+function nombreQueCabe(nombre: string, ancho: number, cuerpo: number, relleno: number) {
+  const limpio = nombre.trim().replace(/\s+/g, " ");
+  const cabe = (texto: string) => texto.length * cuerpo * 0.62 + relleno <= ancho;
+
+  if (!limpio || cabe(limpio)) return limpio;
+
+  const partes = limpio.split(" ");
+
+  if (partes.length < 2) return limpio;
+
+  const inicial = partes[0].charAt(0);
+  const conApellidos = `${inicial}. ${partes.slice(1).join(" ")}`;
+
+  if (cabe(conApellidos)) return conApellidos;
+
+  const ultimo = partes[partes.length - 1];
+  const conUltimo = `${inicial}. ${ultimo}`;
+
+  /* Y si ni así, el apellido solo: «GARRIDO» dice más que «D. GARRID…». */
+  return cabe(conUltimo) ? conUltimo : ultimo;
+}
+
 function PlayerRow({
   player,
   showTeam,
   onceEstado = null,
   onCiclarOnce,
   onEtiquetas,
+  temporada = null,
   onClick,
 }: {
   player: RivalPlayer;
@@ -5534,6 +5718,8 @@ function PlayerRow({
   onCiclarOnce?: () => void;
   /** Abre el pop-up de etiquetas. Sin fila en la hoja no hay dónde escribir. */
   onEtiquetas?: () => void;
+  /** Su temporada en curso en BeSoccer: quién juega se ve sin abrir la ficha. */
+  temporada?: RivalSeasonStats | null;
   onClick: () => void;
 }) {
   const { tags } = parseTags(player.IMPACTO);
@@ -5559,47 +5745,50 @@ function PlayerRow({
           onClick();
         }
       }}
-      className="group flex min-w-0 cursor-pointer items-center gap-3 bg-[#11161D] p-3 text-left transition hover:bg-white/[0.07]"
+      className="group flex min-w-0 cursor-pointer items-center gap-2.5 bg-[#11161D] px-3 py-2.5 text-left transition hover:bg-white/[0.07]"
     >
-      {/* FOTO */}
+      {/* FOTO, con el dorsal en la esquina como en el campograma.
 
-      <div
-        className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border bg-[#0B0F14]"
-        style={{
-          borderColor: onceColor ?? "rgb(var(--rmcf-ink-rgb) / .1)",
-          borderWidth: onceEstado ? 2 : 1,
-          /* La duda va en línea discontinua: sin mirar el color ya se
-             distingue del titular confirmado. */
-          borderStyle: onceEstado === "duda" ? "dashed" : "solid",
-        }}
-      >
-        {player.FOTO ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={player.FOTO}
+          El dorsal iba en una columna propia y, con el listado a 236 px,
+          se comía el sitio del nombre: «IVAN M…», «PARIS A…» (21/10/2026).
+          Pegado a la cara se lee igual y el nombre sale entero. */}
+
+      <div className="relative h-11 w-11 shrink-0">
+        <div
+          className="relative h-full w-full overflow-hidden rounded-full border bg-[#0B0F14]"
+          style={{
+            borderColor: onceColor ?? "rgb(var(--rmcf-ink-rgb) / .1)",
+            borderWidth: onceEstado ? 2 : 1,
+            /* La duda va en línea discontinua: sin mirar el color ya se
+               distingue del titular confirmado. */
+            borderStyle: onceEstado === "duda" ? "dashed" : "solid",
+          }}
+        >
+          <CaraJugador
+            foto={player.FOTO}
             alt={player["NOMBRE DEPORTIVO"] || player.JUGADOR}
-            loading="lazy"
-            className="h-full w-full object-cover transition group-hover:scale-110"
+            icono={20}
+            className="transition group-hover:scale-110"
           />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <UserRound size={20} className="text-white/20" />
-          </div>
+        </div>
+
+        {player.DORSAL !== "" && player.DORSAL !== undefined && (
+          <span
+            aria-label={`Dorsal ${player.DORSAL}`}
+            className="absolute -bottom-1 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#C8A96B] px-1 text-[10px] font-bold tabular-nums text-black shadow"
+          >
+            {player.DORSAL}
+          </span>
         )}
-      </div>
-
-      {/* DORSAL */}
-
-      <div className="w-6 shrink-0 text-center">
-        <span className="text-lg font-bold text-white/30">
-          {player.DORSAL || "—"}
-        </span>
       </div>
 
       {/* NOMBRE Y POSICIÓN */}
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">
+        <p
+          className="truncate text-[13px] font-semibold leading-tight"
+          title={player["NOMBRE DEPORTIVO"] || player.JUGADOR}
+        >
           {player["NOMBRE DEPORTIVO"] || player.JUGADOR}
         </p>
 
@@ -5620,9 +5809,13 @@ function PlayerRow({
             </span>
           )}
 
-          <span className="min-w-0 truncate text-[10px] text-white/45">
-            {player["POSICIÓN"] || "—"}
-          </span>
+          {/* Con chapa, el puesto ya lo dicen ella y la cabecera del grupo:
+              el texto de la hoja sólo salía cortado («LATERAL …»). */}
+          {!slotEntry && player["POSICIÓN"] && (
+            <span className="min-w-0 truncate text-[10px] text-white/45">
+              {player["POSICIÓN"]}
+            </span>
+          )}
 
           {secondSlot && (
             <span
@@ -5640,6 +5833,19 @@ function PlayerRow({
           </p>
         )}
 
+        {/* CUÁNTO JUEGA — los minutos de esta temporada (21/10/2026). La
+            plantilla de un rival son 25 nombres y lo primero que se busca es
+            quién juega de verdad: con esto se ve sin abrir ninguna ficha. */}
+        {temporada && (
+          <p
+            className="mt-1 min-w-0 truncate text-[10px] tabular-nums text-white/45"
+            title={`${temporada.temporada}: ${temporada.partidos} partidos, ${temporada.titular} de titular, ${temporada.minutos} minutos (BeSoccer)`}
+          >
+            <span className="font-semibold text-white/70">{temporada.minutos.toLocaleString("es-ES")}′</span>
+            {temporada.partidos > 0 && ` · ${temporada.titular} de ${temporada.partidos} de titular`}
+          </p>
+        )}
+
         {/* ETIQUETAS — se tocan aquí mismo, sin abrir la ficha */}
 
         {(tags.length > 0 || onEtiquetas) && (
@@ -5651,7 +5857,7 @@ function PlayerRow({
                 <span
                   key={tag.key}
                   title={tag.label}
-                  className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                  className="flex max-w-full items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-medium"
                   style={{
                     background: `${tag.color}1F`,
                     color: chipInk(tag.color),
@@ -8184,23 +8390,13 @@ function TacticalPitch({
                     : undefined,
                 }}
               >
-                {player.FOTO ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={player.FOTO}
-                    alt={name}
-                    loading="lazy"
-                    /* Ver el comentario del arrastre: sin esto, el navegador
-                       se lleva el gesto para arrastrar la imagen. */
-                    draggable={false}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <UserRound
-                    size={Math.round(avatar * 0.5)}
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/30"
-                  />
-                )}
+                {/* Ver el comentario del arrastre: sin `draggable`, el
+                    navegador se lleva el gesto para arrastrar la imagen. */}
+                <CaraJugador
+                  foto={player.FOTO}
+                  alt={name}
+                  icono={Math.round(avatar * 0.5)}
+                />
               </div>
 
               {/* DORSAL */}
@@ -8327,7 +8523,7 @@ function TacticalPitch({
               }`}
               style={{ fontSize: nameFont, maxWidth: nameWidth }}
             >
-              {name}
+              {nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12)}
             </span>
 
             {/* ETIQUETAS */}
