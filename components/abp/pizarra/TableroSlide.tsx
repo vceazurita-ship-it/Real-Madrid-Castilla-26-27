@@ -74,7 +74,7 @@ import {
 /** Medidas de una ficha en el lienzo, las del pptx: foto de 96×120. */
 const FOTO_W = 96;
 const FOTO_H = 120;
-const CHAPA_H = 30;
+const CHAPA_H = 36;
 
 /*
 | La maqueta de la sala (21/10/2026).
@@ -428,10 +428,10 @@ function Ficha({
         </span>
 
         <span
-          className="max-w-[86px] truncate text-[10px] font-semibold uppercase leading-[12px] tracking-wide"
-          style={{ color: "rgba(228,206,155,.78)" }}
+          className="max-w-[124px] truncate text-[14px] font-semibold uppercase leading-[16px] tracking-wide"
+          style={{ color: "rgba(228,206,155,.95)" }}
         >
-          {player?.apodo ?? player?.nombre ?? "—"}
+          {player?.apodo ?? player?.nombre ?? ""}
         </span>
       </div>
 
