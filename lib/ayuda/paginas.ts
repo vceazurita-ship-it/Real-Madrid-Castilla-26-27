@@ -513,6 +513,37 @@ export const AYUDAS: AyudaDePagina[] = [
     ],
   },
   {
+    ruta: "/pizarra-tactica",
+    titulo: "Pizarra Táctica",
+    resumen: "Dibujar una idea con fichas, flechas y escenas, y presentarla moviéndose.",
+    origen: "Las fichas propias salen de la plantilla y las rivales de Plantillas rivales. El tablero «Once 4-2-3-1» se rellena solo cada semana con nuestro último once (Valoraciones) y el teórico del rival.",
+    bloques: [
+      {
+        titulo: "Montar la jugada",
+        filas: [
+          { que: "Escenas", es: "Cada escena es un momento de la jugada; al reproducir, las fichas van de una a la siguiente" },
+          { que: "Duplicar escena", es: "Copia la escena justo detrás: se mueven las fichas en la copia y ese es el movimiento" },
+          { que: "Dibujo", es: "Coloca a un equipo en 4-4-2, 4-3-3… recolocando a los que ya están, cada uno al puesto más cercano" },
+          { que: "Qué se cuenta", es: "La nota de la escena: sale bajo el campo a pantalla completa y en todo lo que se exporta" },
+          { que: "Elegir varias", es: "Arrastrar sobre el césped vacío o Mayús + clic; luego se mueven, alinean, reparten o duplican juntas" },
+          { que: "Medidas del bloque", es: "Con varias elegidas, el largo y el ancho que ocupan en metros", cuenta: "El campo de la pizarra es 100 × 68; el largo se pasa a 105 m" },
+          { que: "Carriles", es: "Tercios y cinco carriles; los carriles salen del ancho del área grande y de la pequeña" },
+        ],
+      },
+      {
+        titulo: "Presentar y sacar",
+        filas: [
+          { que: "→ o AvPág", es: "Avanza a la siguiente escena moviéndose y se para; ← vuelve. Es lo que manda un mando de presentación" },
+          { que: "Exportar", es: "PNG o copia de la escena, PDF y PowerPoint (una hoja por escena) y vídeo MP4 de la jugada, todo en 1920 × 1080" },
+          { que: "Atajos", es: "La tecla ? enseña todos los atajos de teclado" },
+        ],
+      },
+    ],
+    ojo: [
+      "Las fichas se emparejan entre escenas por su identidad: una ficha duplicada con Ctrl+D es otra ficha y no se anima desde la original.",
+    ],
+  },
+  {
     ruta: "/coding",
     titulo: "Coding de Partido",
     resumen: "Marcar las acciones del partido y sacar los clips.",

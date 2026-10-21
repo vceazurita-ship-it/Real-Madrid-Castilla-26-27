@@ -46,6 +46,7 @@ export function normalizeDoc(raw: unknown, titulo?: string): TacticsDoc {
           nombre: scene.nombre ?? `Escena ${index + 1}`,
           tokens: Array.isArray(scene.tokens) ? scene.tokens : [],
           shapes: Array.isArray(scene.shapes) ? scene.shapes : [],
+          ...(typeof scene.nota === "string" && scene.nota ? { nota: scene.nota } : {}),
         }))
     : [];
 
@@ -64,6 +65,8 @@ export function normalizeDoc(raw: unknown, titulo?: string): TacticsDoc {
     entorno: value.entorno,
     figuras: value.figuras,
     semanaOnces: value.semanaOnces,
+    sinNombres: value.sinNombres,
+    guias: value.guias,
   };
 }
 
@@ -109,6 +112,67 @@ export function interpolateTokens(
   const appearing = to.filter((token) => !known.has(token.id));
 
   return t > 0.5 ? [...moved, ...appearing] : moved;
+}
+
+/**
+ * El avance de un tramo tal y como se ve (21/10/2026).
+ *
+ * Con el avance tal cual las fichas salían disparadas y frenaban en seco
+ * justo en la escena, y no había ni un instante para señalar dónde estaban:
+ * el reproductor pasaba por las escenas sin pararse. Ahora cada escena se
+ * sostiene un momento a la entrada y a la salida, y entre medias el
+ * movimiento acelera y frena como un jugador de verdad.
+ */
+export function tramoSuave(t: number) {
+  const PAUSA = 0.14;
+
+  const u = Math.min(1, Math.max(0, (t - PAUSA) / (1 - 2 * PAUSA)));
+
+  return u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+}
+
+/** Cómo se ordenan las fichas elegidas. */
+export type Alineacion = "linea" | "fila" | "reparte-alto" | "reparte-ancho";
+
+/**
+ * Alinea o reparte las fichas elegidas (21/10/2026).
+ *
+ * - `linea`: todas a la misma altura del campo —la línea defensiva, la de
+ *   presión—, en la media de donde estaban.
+ * - `fila`: todas en el mismo carril, de portería a portería.
+ * - `reparte-alto` / `reparte-ancho`: a la misma distancia unas de otras
+ *   entre la primera y la última, sin moverlas del otro eje.
+ */
+export function alineaFichas(
+  tokens: TacticToken[],
+  ids: Set<string>,
+  modo: Alineacion,
+): TacticToken[] {
+  const elegidas = tokens.filter((token) => ids.has(token.id));
+
+  if (elegidas.length < 2) return tokens;
+
+  const nuevo = new Map<string, Point>();
+
+  if (modo === "linea" || modo === "fila") {
+    const eje = modo === "linea" ? "x" : "y";
+    const media = elegidas.reduce((suma, token) => suma + token[eje], 0) / elegidas.length;
+
+    elegidas.forEach((token) => nuevo.set(token.id, { ...token, [eje]: media }));
+  } else {
+    const eje = modo === "reparte-alto" ? "y" : "x";
+    const orden = [...elegidas].sort((a, b) => a[eje] - b[eje]);
+    const desde = orden[0][eje];
+    const paso = (orden[orden.length - 1][eje] - desde) / (orden.length - 1);
+
+    orden.forEach((token, indice) => nuevo.set(token.id, { ...token, [eje]: desde + paso * indice }));
+  }
+
+  return tokens.map((token) => {
+    const punto = nuevo.get(token.id);
+
+    return punto ? { ...token, x: punto.x, y: punto.y } : token;
+  });
 }
 
 /** Trazado SVG de una forma dibujada a mano o de una línea recta. */

@@ -16,6 +16,12 @@ interface Props {
   onClear: () => void;
   /** Equipo fijo: se oculta el selector (la pizarra ya vive dentro de él). */
   lockedTeam?: string;
+  /**
+   * Si arranca desplegado. El tablero lo arranca plegado cuando la escena ya
+   * tiene a los rivales puestos (21/10/2026): desplegado son dos filas de
+   * dorsales que empujan el campo media pantalla hacia abajo.
+   */
+  abiertoAlEmpezar?: boolean;
 }
 
 /**
@@ -32,10 +38,11 @@ export default function RivalPicker({
   onAddNumber,
   onClear,
   lockedTeam,
+  abiertoAlEmpezar = true,
 }: Props) {
   const [team, setTeam] = useState(lockedTeam ?? squads[0]?.equipo ?? "");
   const [manual, setManual] = useState("");
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(abiertoAlEmpezar);
 
   // El equipo elegido puede desaparecer al recargar la hoja.
   useEffect(() => {
@@ -70,6 +77,7 @@ export default function RivalPicker({
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
           className="inline-flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55 transition hover:text-white"
         >
           <Shirt size={13} className="text-[#F87171]" />

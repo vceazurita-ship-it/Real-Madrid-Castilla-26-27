@@ -17,6 +17,7 @@
  */
 
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Compass,
@@ -29,6 +30,8 @@ import {
   User,
   Video,
 } from "lucide-react";
+
+import { useState } from "react";
 
 import {
   CAMERA_MODES,
@@ -52,6 +55,12 @@ interface Props {
   compact?: boolean;
   /** Versión en filas para el muelle del móvil. */
   dock?: boolean;
+  /**
+   * Con el campo plano, la barra flotante se queda en el interruptor
+   * Plano/3D y una flecha (21/10/2026). Abierta medía 170 × 160 px encima
+   * del césped y tapaba justo la esquina donde se colocan sus delanteros.
+   */
+  plegable?: boolean;
 }
 
 const MODE_ICON: Record<PitchCameraMode, React.ReactNode> = {
@@ -72,8 +81,11 @@ export default function PitchCameraBar({
   followedLabel,
   compact = false,
   dock = false,
+  plegable = false,
 }: Props) {
   const { mode, render, pose } = camera;
+
+  const [abierta, setAbierta] = useState(false);
 
   /** Giro en 0..359, que es como se lee de un vistazo. */
   const yaw = Math.round(((pose.yaw % 360) + 360) % 360);
@@ -308,9 +320,38 @@ export default function PitchCameraBar({
     );
   }
 
+  const desplegar = plegable && (
+    <button
+      type="button"
+      onClick={() => setAbierta((valor) => !valor)}
+      aria-expanded={abierta}
+      title={abierta ? "Recoger los modos de cámara" : "Más cámaras: TV, portería, seguir, jugador"}
+      className="inline-flex shrink-0 items-center justify-center rounded-lg px-1.5 py-1 text-white/55 transition hover:bg-white/[0.09] hover:text-white"
+    >
+      <ChevronDown size={13} className={cn("transition", abierta && "rotate-180")} />
+    </button>
+  );
+
+  /* Plegada: con el campo plano no hace falta nada más que pasar a 3D. */
+  if (plegable && render === "2d" && !abierta) {
+    return (
+      <div className="flex w-[150px] items-center gap-1 rounded-2xl border border-white/12 bg-[#0B0F14]/85 p-1 backdrop-blur-md">
+        <div className="min-w-0 flex-1">{renderToggle}</div>
+        {desplegar}
+      </div>
+    );
+  }
+
   return (
     <div className="flex w-[150px] flex-col gap-1.5 rounded-2xl border border-white/12 bg-[#0B0F14]/85 p-1.5 backdrop-blur-md sm:w-[168px]">
-      {renderToggle}
+      {plegable && render === "2d" ? (
+        <div className="flex items-center gap-1">
+          <div className="min-w-0 flex-1">{renderToggle}</div>
+          {desplegar}
+        </div>
+      ) : (
+        renderToggle
+      )}
       {modes}
       {anchor}
 
