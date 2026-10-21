@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import {
   TIPO_CODING,
+  alternaTag,
   borradorVideoCompleto,
   claveSesion,
   creaClip,
@@ -84,11 +85,22 @@ export function useSesionCoding(opciones: {
     { clave: string; clips: ClipCoding[]; escenas: EscenaTel[] }[]
   >([]);
 
+  /*
+  | Lo deshecho, para rehacerlo (⇧ + retroceso).
+  |
+  | Cualquier cambio nuevo que entre en el deshacer la vacía: rehacer después
+  | de haber marcado otro corte devolvería un estado que ya no existe.
+  */
+  const rehechos = useRef<
+    { clave: string; clips: ClipCoding[]; escenas: EscenaTel[] }[]
+  >([]);
+
   const { setValue } = doc;
 
   const muta = useCallback(
     (cambio: (actual: SesionCoding) => SesionCoding, conDeshacer = false) => {
       if (conDeshacer) {
+        rehechos.current = [];
         historial.current = [
           ...historial.current
             .filter((paso) => paso.clave === clave)
@@ -321,6 +333,22 @@ export function useSesionCoding(opciones: {
     [muta],
   );
 
+  /** Pone o quita un descriptor (⇧1…⇧9). Entra en el deshacer. */
+  const alternaDescriptor = useCallback(
+    (id: string, nombre: string) => {
+      muta(
+        (actual) => ({
+          ...actual,
+          clips: actual.clips.map((clip) =>
+            clip.id === id ? alternaTag(clip, nombre) : clip,
+          ),
+        }),
+        true,
+      );
+    },
+    [muta],
+  );
+
   const borraClip = useCallback(
     (id: string) => {
       muta(
@@ -425,6 +453,11 @@ export function useSesionCoding(opciones: {
 
     historial.current = propios.slice(0, -1);
 
+    rehechos.current = [
+      ...rehechos.current.filter((paso) => paso.clave === clave),
+      { clave, clips: sesion.clips, escenas: sesion.escenas },
+    ];
+
     muta((actual) => ({
       ...actual,
       clips: anterior.clips,
@@ -432,7 +465,36 @@ export function useSesionCoding(opciones: {
     }));
 
     return true;
-  }, [clave, muta]);
+  }, [clave, muta, sesion.clips, sesion.escenas]);
+
+  const rehacer = useCallback(() => {
+    const propios = rehechos.current.filter((paso) => paso.clave === clave);
+
+    const siguiente = propios[propios.length - 1];
+
+    if (!siguiente) {
+      rehechos.current = [];
+
+      return false;
+    }
+
+    rehechos.current = propios.slice(0, -1);
+
+    historial.current = [
+      ...historial.current
+        .filter((paso) => paso.clave === clave)
+        .slice(-(TOPE_DESHACER - 1)),
+      { clave, clips: sesion.clips, escenas: sesion.escenas },
+    ];
+
+    muta((actual) => ({
+      ...actual,
+      clips: siguiente.clips,
+      escenas: siguiente.escenas,
+    }));
+
+    return true;
+  }, [clave, muta, sesion.clips, sesion.escenas]);
 
   /**
    * Vacía los cortes para empezar otro bloque, dejando los vídeos puestos.
@@ -729,6 +791,8 @@ export function useSesionCoding(opciones: {
     mueveClipA,
     ordenaClipsPorTiempo,
     deshacer,
+    rehacer,
+    alternaDescriptor,
     vaciaCortes,
     guardaEscena,
     ajustaEscena,

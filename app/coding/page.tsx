@@ -47,6 +47,7 @@ import {
   Eye,
   EyeOff,
   Film,
+  Grid3x3,
   Keyboard,
   ListVideo,
   Pause,
@@ -90,6 +91,7 @@ import {
 } from "@/components/coding/ExportaClips";
 import { FichaClip, ListaClips } from "@/components/coding/ListaClips";
 import { LineaDeTiempo } from "@/components/coding/LineaDeTiempo";
+import { MatrizCoding } from "@/components/coding/MatrizCoding";
 import {
   AyudaTeclado,
   PanelCategorias,
@@ -145,12 +147,16 @@ import {
   formateaTotal,
   mismaFuente,
   normalizaConfig,
+  hayFiltro,
+  pasaFiltro,
   porCategoria,
   porColectivo,
   porJugador,
   reparteTeclas,
+  tagsDeClips,
   totalCodificadoMs,
   type AmbitoCoding,
+  type FiltroClips,
   type ClipCoding,
   type ConfigCoding,
   type FuenteVideo,
@@ -1030,6 +1036,26 @@ function Coding() {
   /* Filtros de la lista y de la exportación. */
   const [filtroSujeto, setFiltroSujeto] = useState<string | null>(null);
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);
+  /* Por descriptor o etiqueta, y los que se marcaron para revisar. */
+  const [filtroTag, setFiltroTag] = useState<string | null>(null);
+  const [soloRevisar, setSoloRevisar] = useState(false);
+
+  const filtro: FiltroClips = useMemo(
+    () => ({
+      sujeto: filtroSujeto,
+      categoria: filtroCategoria,
+      tag: filtroTag,
+      soloRevisar,
+    }),
+    [filtroCategoria, filtroSujeto, filtroTag, soloRevisar],
+  );
+
+  const quitaFiltros = useCallback(() => {
+    setFiltroSujeto(null);
+    setFiltroCategoria(null);
+    setFiltroTag(null);
+    setSoloRevisar(false);
+  }, []);
 
   const [modoCorte, setModoCorte] = useState<ModoCorteUI>("preciso");
 
@@ -1348,13 +1374,8 @@ function Coding() {
   );
 
   const clipsFiltrados = useMemo(
-    () =>
-      clips.filter(
-        (clip) =>
-          (!filtroSujeto || clip.jugadorId === filtroSujeto) &&
-          (!filtroCategoria || clip.categoriaId === filtroCategoria),
-      ),
-    [clips, filtroCategoria, filtroSujeto],
+    () => clips.filter((clip) => pasaFiltro(clip, filtro)),
+    [clips, filtro],
   );
 
   /*
@@ -1371,11 +1392,9 @@ function Coding() {
   const clipsExportables = useMemo(
     () =>
       clipsParaExportar(sesion.sesion.clips, videosSesion, videosFuera).filter(
-        (clip) =>
-          (!filtroSujeto || clip.jugadorId === filtroSujeto) &&
-          (!filtroCategoria || clip.categoriaId === filtroCategoria),
+        (clip) => pasaFiltro(clip, filtro),
       ),
-    [filtroCategoria, filtroSujeto, sesion.sesion.clips, videosFuera, videosSesion],
+    [filtro, sesion.sesion.clips, videosFuera, videosSesion],
   );
 
 
@@ -1395,15 +1414,12 @@ function Coding() {
     () =>
       verTodosEnLista
         ? clipsParaExportar(sesion.sesion.clips, videosSesion, []).filter(
-            (clip) =>
-              (!filtroSujeto || clip.jugadorId === filtroSujeto) &&
-              (!filtroCategoria || clip.categoriaId === filtroCategoria),
+            (clip) => pasaFiltro(clip, filtro),
           )
         : clipsFiltrados,
     [
       clipsFiltrados,
-      filtroCategoria,
-      filtroSujeto,
+      filtro,
       sesion.sesion.clips,
       verTodosEnLista,
       videosSesion,
@@ -1434,6 +1450,45 @@ function Coding() {
             : mayor,
         null,
       ),
+    [clips],
+  );
+
+  /*
+  | A qué corte van los descriptores (⇧1…⇧9).
+  |
+  | Al elegido en la lista, y si no hay ninguno, al último que se ha marcado:
+  | en directo se marca y se califica sin tocar el ratón. Marcar uno nuevo
+  | suelta la elección, así que la tecla no se va a un corte de hace diez
+  | minutos.
+  */
+  const objetivoDescriptor = useMemo(
+    () =>
+      (seleccionado
+        ? sesion.sesion.clips.find((uno) => uno.id === seleccionado)
+        : null) ?? ultimoMarcado,
+    [seleccionado, sesion.sesion.clips, ultimoMarcado],
+  );
+
+  /*
+  | Lo que cuenta la matriz: lo mismo que la lista, pero sin su propio filtro
+  | de quién y qué —si no, al pulsar un cruce se quedaría sola esa celda—.
+  */
+  const clipsDeLaMatriz = useMemo(
+    () =>
+      (verTodosEnLista
+        ? clipsParaExportar(sesion.sesion.clips, videosSesion, [])
+        : clips
+      ).filter((clip) =>
+        pasaFiltro(clip, { ...filtro, sujeto: null, categoria: null }),
+      ),
+    [clips, filtro, sesion.sesion.clips, verTodosEnLista, videosSesion],
+  );
+
+  /* Las etiquetas que hay, para filtrar por ellas. */
+  const tagsUsados = useMemo(() => tagsDeClips(clips), [clips]);
+
+  const porRevisar = useMemo(
+    () => clips.filter((clip) => clip.estado === "revisar").length,
     [clips],
   );
 
@@ -1569,6 +1624,7 @@ function Coding() {
     }
 
     setInicioMs(null);
+    setSeleccionado(null);
 
     /*
     | Cerrado el corte, la mesa queda recogida: se sale del modo de dibujo y
@@ -1582,6 +1638,63 @@ function Coding() {
     categoriaActiva,
     estado.duracionMs,
     inicioMs,
+    sesion,
+    sujeto,
+    tiempoAhoraMs,
+  ]);
+
+  /*
+  | La marca de un toque (Intro).
+  |
+  | Para el directo: se ve la recuperación y se pulsa una vez. Coge lo que
+  | diga la configuración hacia atrás y hacia delante del instante —el
+  | «lead/lag» de SportsCode—, y luego se le suman los márgenes de siempre.
+  | Con una marca de inicio abierta no hace nada distinto: la cierra, que es
+  | lo que se quería.
+  */
+  const marcaToque = useCallback(() => {
+    if (inicioMs !== null) {
+      marcaFinal();
+      return;
+    }
+
+    if (!sujeto) {
+      toast.error(SIN_SUJETO);
+      setEligiendoMarca(true);
+      return;
+    }
+
+    const ahora = tiempoAhoraMs();
+    const duracion = estado.duracionMs || Number.POSITIVE_INFINITY;
+
+    const problema = sesion.añadeClip({
+      sujeto: sujeto.tipo,
+      jugadorId: sujeto.id,
+      jugadorNombre: sujeto.nombre,
+      jugadorDorsal: sujeto.dorsal,
+      categoriaId: categoriaActiva,
+      codingInicioMs: Math.max(0, ahora - config.toqueAntesMs),
+      codingFinMs: Math.max(1, Math.min(duracion, ahora + config.toqueDespuesMs)),
+      preRollMs: sesion.sesion.preRollMs,
+      postRollMs: sesion.sesion.postRollMs,
+      duracionVideoMs: estado.duracionMs || undefined,
+    });
+
+    if (problema) {
+      toast.error(problema);
+      return;
+    }
+
+    setSeleccionado(null);
+    cambiaPizarraEditando(null);
+  }, [
+    cambiaPizarraEditando,
+    categoriaActiva,
+    config.toqueAntesMs,
+    config.toqueDespuesMs,
+    estado.duracionMs,
+    inicioMs,
+    marcaFinal,
     sesion,
     sujeto,
     tiempoAhoraMs,
@@ -2112,14 +2225,32 @@ function Coding() {
     [config.comportamientos],
   );
 
-  const etiquetaFiltro = filtroSujeto
-    ? (jugadorDe(filtroSujeto)?.nombre ??
-      comportamientoDe(filtroSujeto)?.nombre ??
-      "sujeto")
-    : filtroCategoria
-      ? (config.categorias.find((una) => una.id === filtroCategoria)?.nombre ??
-        "categoría")
-      : "todo el partido";
+  /*
+  | Lo que se está mirando, dicho entero: «Mestre · Recuperación · Bien».
+  |
+  | Antes decía sólo el primer filtro, y con la matriz se cruzan dos: el
+  | subtítulo decía «Mestre» mientras la lista enseñaba sólo sus
+  | recuperaciones.
+  */
+  const etiquetaFiltro = hayFiltro(filtro)
+    ? [
+        filtroSujeto
+          ? (jugadorDe(filtroSujeto)?.nombre ??
+            comportamientoDe(filtroSujeto)?.nombre ??
+            sesion.sesion.clips.find((uno) => uno.jugadorId === filtroSujeto)
+              ?.jugadorNombre ??
+            "sujeto")
+          : null,
+        filtroCategoria !== null
+          ? (config.categorias.find((una) => una.id === filtroCategoria)
+              ?.nombre ?? "Sin categoría")
+          : null,
+        filtroTag,
+        soloRevisar ? "por revisar" : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "todo el partido";
 
   /*
   | ------------------------------------------------------ YOUTUBE
@@ -3019,6 +3150,30 @@ function Coding() {
         return;
       }
 
+      /*
+      | Alt + flecha: cinco segundos. Estaba en la ayuda desde el principio y
+      | no hacía nada —el Alt salía aquí abajo sin mirar—. Se cancela el
+      | evento porque, sin eso, Alt + ← es «atrás» en el navegador y la
+      | pantalla se iba con la marca a medias.
+      */
+      if (
+        evento.altKey &&
+        !evento.ctrlKey &&
+        !evento.metaKey &&
+        (evento.key === "ArrowLeft" || evento.key === "ArrowRight")
+      ) {
+        evento.preventDefault();
+
+        salta(
+          Math.max(
+            0,
+            tiempoAhoraMs() + (evento.key === "ArrowLeft" ? -5000 : 5000),
+          ),
+        );
+
+        return;
+      }
+
       if (evento.metaKey || evento.ctrlKey || evento.altKey) return;
 
       const tecla = evento.key.toLowerCase();
@@ -3091,10 +3246,51 @@ function Coding() {
       if (evento.key === "Backspace") {
         evento.preventDefault();
 
+        if (evento.shiftKey) {
+          if (sesion.rehacer()) toast.success("Rehecho");
+          else toast.info("No hay nada que rehacer");
+
+          return;
+        }
+
         if (sesion.deshacer()) toast.success("Deshecho");
         else toast.info("No hay nada que deshacer");
 
         return;
+      }
+
+      if (evento.key === "Enter") {
+        /* Intro sobre un botón es pulsar ese botón, no marcar. */
+        if (destino?.closest("button, a, [role=button]")) return;
+
+        evento.preventDefault();
+        marcaToque();
+        return;
+      }
+
+      /*
+      | ⇧ + cifra: un descriptor al corte elegido o al último.
+      |
+      | Se mira `code` y no `key`: con mayúscula, la tecla del 1 da «!» en un
+      | teclado español y «!» también en uno inglés, pero la del 3 da «·» en
+      | uno y «#» en otro.
+      */
+      const cifra = /^Digit([1-9])$/.exec(evento.code);
+
+      if (evento.shiftKey && cifra) {
+        const descriptor = config.descriptores[Number(cifra[1]) - 1];
+
+        if (descriptor) {
+          evento.preventDefault();
+
+          if (!objetivoDescriptor) {
+            toast.info("Marca antes un corte para ponerle un descriptor.");
+            return;
+          }
+
+          sesion.alternaDescriptor(objetivoDescriptor.id, descriptor.nombre);
+          return;
+        }
       }
 
       if (evento.key === "Escape") {
@@ -3175,14 +3371,19 @@ function Coding() {
     ajustaLanzadera,
     config.categorias,
     config.comportamientos,
+    config.descriptores,
     hayModal,
     inicioMs,
     jugadores,
     marcaFinal,
     marcaInicio,
+    marcaToque,
+    objetivoDescriptor,
     reproductor,
+    salta,
     sesion,
     teclas,
+    tiempoAhoraMs,
   ]);
 
   /* ---------------------------------------------------------- vista */
@@ -3966,6 +4167,30 @@ function Coding() {
                     onVerUltimo={() => {
                       if (ultimoMarcado) reproduceClip(ultimoMarcado);
                     }}
+                    onRehacer={() => {
+                      if (sesion.rehacer()) toast.success("Rehecho");
+                      else toast.info("No hay nada que rehacer");
+                    }}
+                    toque={{
+                      antesMs: config.toqueAntesMs,
+                      despuesMs: config.toqueDespuesMs,
+                    }}
+                    onToque={marcaToque}
+                    descriptores={config.descriptores}
+                    objetivo={
+                      objetivoDescriptor
+                        ? {
+                            numero: objetivoDescriptor.numero,
+                            nombre: objetivoDescriptor.jugadorNombre,
+                            tags: objetivoDescriptor.tags,
+                          }
+                        : null
+                    }
+                    onDescriptor={(nombre) => {
+                      if (objetivoDescriptor) {
+                        sesion.alternaDescriptor(objetivoDescriptor.id, nombre);
+                      }
+                    }}
                   />
 
                   <div className="mt-3">
@@ -3988,6 +4213,31 @@ function Coding() {
                     />
                   </div>
                 </div>
+
+                {/* -------------------------- MATRIZ -------------------- */}
+
+                {/* Sólo con cortes marcados: el «Vídeo completo» no es de nadie. */}
+                {clips.some(
+                  (clip) => clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id,
+                ) && (
+                  <Panel
+                    title="Matriz"
+                    subtitle="Quién por qué · pulsa un cruce y la lista, la línea de tiempo y la exportación se quedan con esos clips"
+                    icon={Grid3x3}
+                    bodyClassName="p-3 sm:p-3"
+                  >
+                    <MatrizCoding
+                      clips={clipsDeLaMatriz}
+                      categorias={config.categorias}
+                      sujeto={filtroSujeto}
+                      categoria={filtroCategoria}
+                      onFiltra={(quien, que) => {
+                        setFiltroSujeto(quien);
+                        setFiltroCategoria(que);
+                      }}
+                    />
+                  </Panel>
+                )}
 
                 {/* --------------------------- CLIPS --------------------- */}
 
@@ -4018,13 +4268,8 @@ function Coding() {
                         </Button>
                       )}
 
-                      {(filtroSujeto || filtroCategoria) && (
-                        <Button
-                          onClick={() => {
-                            setFiltroSujeto(null);
-                            setFiltroCategoria(null);
-                          }}
-                        >
+                      {hayFiltro(filtro) && (
+                        <Button icon={X} onClick={quitaFiltros}>
                           Quitar filtros
                         </Button>
                       )}
@@ -4084,6 +4329,73 @@ function Coding() {
                     </div>
                   }
                 >
+                  {/*
+                  | Los descriptores y etiquetas que hay, como filtro.
+                  |
+                  | Sólo los que de verdad llevan los clips: una fila con los
+                  | nueve descriptores a cero sería ruido.
+                  */}
+                  {(tagsUsados.length > 0 || porRevisar > 0) && (
+                    <div className="mb-3 flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span className="mr-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+                        Filtrar
+                      </span>
+
+                      {tagsUsados.map((tag) => {
+                        const activo =
+                          filtroTag?.toLowerCase() === tag.nombre.toLowerCase();
+                        const color = config.descriptores.find(
+                          (uno) =>
+                            uno.nombre.toLowerCase() === tag.nombre.toLowerCase(),
+                        )?.color;
+
+                        return (
+                          <button
+                            key={tag.nombre}
+                            type="button"
+                            aria-pressed={activo}
+                            onClick={() => setFiltroTag(activo ? null : tag.nombre)}
+                            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+                              activo
+                                ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-white"
+                                : "border-white/10 text-white/60 hover:border-white/25 hover:text-white"
+                            }`}
+                          >
+                            {color && (
+                              <span
+                                aria-hidden
+                                className="h-2 w-2 rounded-full"
+                                style={{ background: color }}
+                              />
+                            )}
+                            {tag.nombre}
+                            <span className="font-mono tabular-nums text-white/40">
+                              {tag.clips}
+                            </span>
+                          </button>
+                        );
+                      })}
+
+                      {porRevisar > 0 && (
+                        <button
+                          type="button"
+                          aria-pressed={soloRevisar}
+                          onClick={() => setSoloRevisar((valor) => !valor)}
+                          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+                            soloRevisar
+                              ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-white"
+                              : "border-dashed border-white/20 text-white/60 hover:text-white"
+                          }`}
+                        >
+                          Por revisar
+                          <span className="font-mono tabular-nums text-white/40">
+                            {porRevisar}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   {cola && clipEnCola && (
                     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-3 py-2">
                       <span className="text-[11px] text-[#C8A96B]">

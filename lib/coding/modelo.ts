@@ -90,6 +90,27 @@ export type ComportamientoColectivo = {
 };
 
 /**
+ * Un descriptor: lo que se dice DEL clip, no de quién es ni de qué tipo.
+ *
+ * Es la segunda capa de SportsCode y de Nacsport: el clip ya dice «Recuperación
+ * de Mestre», y el descriptor añade «bien», «mal» o «al vídeo de grupo». Se
+ * guarda como un `tag` más del clip, por su nombre, así que lo que ya se
+ * escribía a mano en la ficha y lo que se pone con la tecla son lo mismo.
+ *
+ * **La tecla es su posición**: ⇧1 el primero, ⇧2 el segundo… Las cifras solas
+ * son de los jugadores y las letras con ⇧ de los comportamientos; el turno de
+ * mayúsculas de las cifras era lo único libre.
+ */
+export type DescriptorCoding = {
+  id: string;
+  nombre: string;
+  color: string;
+};
+
+/** Como mucho nueve: del ⇧1 al ⇧9. */
+export const TOPE_DESCRIPTORES = 9;
+
+/**
  * De qué va el clip: de un jugador o de un comportamiento del equipo.
  *
  * Los dos se guardan en los mismos campos (`jugadorId` / `jugadorNombre`),
@@ -224,11 +245,23 @@ export type ConfigCoding = {
   categorias: CategoriaCoding[];
   /** Los comportamientos de equipo, con su tecla de mayúscula. */
   comportamientos: ComportamientoColectivo[];
+  /** Lo que se dice del clip con ⇧1…⇧9. */
+  descriptores: DescriptorCoding[];
   /** `idJugador` → tecla. Se comparte entre partidos. */
   teclasJugador: Record<string, string>;
   preRollMs: number;
   postRollMs: number;
   fps: number;
+  /**
+   * La marca de un toque (Intro): lo que se coge hacia atrás y hacia delante
+   * del instante en que se pulsa.
+   *
+   * En directo nadie llega a pulsar la I antes de la acción: se ve la
+   * recuperación y se pulsa. Es el «lead/lag» de SportsCode, y por eso va
+   * aparte de los márgenes del corte, que se suman encima.
+   */
+  toqueAntesMs: number;
+  toqueDespuesMs: number;
 };
 
 /* ------------------------------------------------------------------ */
@@ -357,13 +390,24 @@ export const TECLAS_JUGADOR_DE_RESERVA = [
   "p",
 ];
 
+export const DESCRIPTORES_INICIALES: DescriptorCoding[] = [
+  { id: "bien", nombre: "Bien", color: "#34D399" },
+  { id: "mal", nombre: "Mal", color: "#F87171" },
+  { id: "video-grupo", nombre: "Vídeo de grupo", color: "#C8A96B" },
+  { id: "individual", nombre: "Individual", color: "#60A5FA" },
+  { id: "repasar", nombre: "Repasar", color: "#A78BFA" },
+];
+
 export const CONFIG_POR_DEFECTO: ConfigCoding = {
   categorias: CATEGORIAS_INICIALES,
   comportamientos: COMPORTAMIENTOS_INICIALES,
+  descriptores: DESCRIPTORES_INICIALES,
   teclasJugador: {},
   preRollMs: 2000,
   postRollMs: 2000,
   fps: 25,
+  toqueAntesMs: 8000,
+  toqueDespuesMs: 3000,
 };
 
 export const CLAVE_CONFIG_CODING = "coding:config";
@@ -814,6 +858,169 @@ export function totalCodificadoMs(clips: ClipCoding[]) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  DESCRIPTORES, FILTROS Y MATRIZ                                     */
+/* ------------------------------------------------------------------ */
+
+/** Si el clip lleva ese descriptor (o etiqueta), sin mirar mayúsculas. */
+export function tieneTag(clip: ClipCoding, nombre: string) {
+  const buscado = nombre.trim().toLowerCase();
+
+  return clip.tags.some((tag) => tag.trim().toLowerCase() === buscado);
+}
+
+/** Pone el descriptor si no lo tenía y lo quita si ya lo tenía. */
+export function alternaTag(clip: ClipCoding, nombre: string): ClipCoding {
+  const buscado = nombre.trim().toLowerCase();
+
+  return tieneTag(clip, nombre)
+    ? {
+        ...clip,
+        tags: clip.tags.filter((tag) => tag.trim().toLowerCase() !== buscado),
+      }
+    : { ...clip, tags: [...clip.tags, nombre.trim()] };
+}
+
+/**
+ * Lo que se está mirando: la misma regla para la lista, la línea de tiempo,
+ * la matriz y la exportación.
+ *
+ * Estaba copiada tres veces en la pantalla, y un filtro nuevo que se olvidara
+ * en una de ellas exportaría otra cosa que la que se ve.
+ */
+export type FiltroClips = {
+  sujeto: string | null;
+  categoria: string | null;
+  /** Por nombre de descriptor o etiqueta. */
+  tag: string | null;
+  soloRevisar: boolean;
+};
+
+export const SIN_FILTRO: FiltroClips = {
+  sujeto: null,
+  categoria: null,
+  tag: null,
+  soloRevisar: false,
+};
+
+export function pasaFiltro(clip: ClipCoding, filtro: FiltroClips) {
+  return (
+    (!filtro.sujeto || clip.jugadorId === filtro.sujeto) &&
+    (!filtro.categoria || clip.categoriaId === filtro.categoria) &&
+    (!filtro.tag || tieneTag(clip, filtro.tag)) &&
+    (!filtro.soloRevisar || clip.estado === "revisar")
+  );
+}
+
+export function hayFiltro(filtro: FiltroClips) {
+  return Boolean(
+    filtro.sujeto || filtro.categoria || filtro.tag || filtro.soloRevisar,
+  );
+}
+
+/** Las etiquetas que hay en los clips, con cuántos las llevan. */
+export function tagsDeClips(clips: ClipCoding[]) {
+  const cuenta = new Map<string, { nombre: string; clips: number }>();
+
+  for (const clip of clips) {
+    for (const tag of clip.tags) {
+      const clave = tag.trim().toLowerCase();
+
+      if (!clave) continue;
+
+      const actual = cuenta.get(clave) ?? { nombre: tag.trim(), clips: 0 };
+
+      actual.clips += 1;
+      cuenta.set(clave, actual);
+    }
+  }
+
+  return [...cuenta.values()].sort(
+    (a, b) => b.clips - a.clips || a.nombre.localeCompare(b.nombre, "es"),
+  );
+}
+
+/**
+ * La matriz de SportsCode: quién por qué, con el número de clips en el cruce.
+ *
+ * Las filas son los sujetos con algún clip (primero los jugadores, por número
+ * de clips; luego lo colectivo) y las columnas las categorías usadas, en el
+ * orden de la configuración. El corte «Vídeo completo» no cuenta.
+ */
+export type MatrizCoding = {
+  filas: { id: string; nombre: string; colectivo: boolean; total: number }[];
+  columnas: { id: string; nombre: string; color: string; total: number }[];
+  /** `${sujeto}|${categoria}` → clips. */
+  celdas: Map<string, number>;
+  total: number;
+};
+
+export function matrizDeClips(
+  clips: ClipCoding[],
+  categorias: CategoriaCoding[],
+): MatrizCoding {
+  const conocidas = new Set(categorias.map((categoria) => categoria.id));
+  const celdas = new Map<string, number>();
+  const usadas = new Map<string, number>();
+  const filas = new Map<
+    string,
+    { id: string; nombre: string; colectivo: boolean; total: number }
+  >();
+
+  for (const clip of clips) {
+    if (clip.jugadorId === SUJETO_VIDEO_COMPLETO.id) continue;
+
+    /* Una categoría borrada de la configuración no esconde sus clips. */
+    const categoria = conocidas.has(clip.categoriaId) ? clip.categoriaId : "";
+    const clave = `${clip.jugadorId}|${categoria}`;
+
+    celdas.set(clave, (celdas.get(clave) ?? 0) + 1);
+    usadas.set(categoria, (usadas.get(categoria) ?? 0) + 1);
+
+    const fila = filas.get(clip.jugadorId) ?? {
+      id: clip.jugadorId,
+      nombre: clip.jugadorNombre,
+      colectivo: clip.sujeto === "colectivo",
+      total: 0,
+    };
+
+    fila.total += 1;
+    filas.set(clip.jugadorId, fila);
+  }
+
+  const columnas = categorias
+    .filter((categoria) => usadas.has(categoria.id))
+    .map((categoria) => ({
+      id: categoria.id,
+      nombre: categoria.nombre,
+      color: categoria.color,
+      total: usadas.get(categoria.id) ?? 0,
+    }));
+
+  if (usadas.has("")) {
+    columnas.push({
+      id: "",
+      nombre: "Sin categoría",
+      color: "#CBD5E1",
+      total: usadas.get("") ?? 0,
+    });
+  }
+
+  const ordenadas = [...filas.values()].sort(
+    (a, b) =>
+      Number(a.colectivo) - Number(b.colectivo) ||
+      b.total - a.total ||
+      a.nombre.localeCompare(b.nombre, "es"),
+  );
+
+  return {
+    filas: ordenadas,
+    columnas,
+    celdas,
+    total: ordenadas.reduce((suma, fila) => suma + fila.total, 0),
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /*  NORMALIZAR LO GUARDADO                                             */
 /* ------------------------------------------------------------------ */
 
@@ -1109,9 +1316,32 @@ export function normalizaConfig(crudo: unknown): ConfigCoding {
         }))
       : COMPORTAMIENTOS_INICIALES;
 
+  /* Una lista vacía guardada a propósito se respeta: hay quien no los usa. */
+  const descriptores = Array.isArray(dato.descriptores)
+    ? dato.descriptores
+        .filter((uno) => uno && String(uno.nombre ?? "").trim())
+        .slice(0, TOPE_DESCRIPTORES)
+        .map((uno) => ({
+          id: uno.id || apodoCoding(uno.nombre),
+          nombre: String(uno.nombre).trim(),
+          color: uno.color ?? "#CBD5E1",
+        }))
+    : DESCRIPTORES_INICIALES;
+
+  const milisegundos = (valor: unknown, defecto: number) =>
+    typeof valor === "number" && Number.isFinite(valor) && valor >= 0
+      ? Math.min(valor, 60_000)
+      : defecto;
+
   return {
     categorias,
     comportamientos,
+    descriptores,
+    toqueAntesMs: milisegundos(dato.toqueAntesMs, CONFIG_POR_DEFECTO.toqueAntesMs),
+    toqueDespuesMs: milisegundos(
+      dato.toqueDespuesMs,
+      CONFIG_POR_DEFECTO.toqueDespuesMs,
+    ),
     teclasJugador:
       dato.teclasJugador && typeof dato.teclasJugador === "object"
         ? dato.teclasJugador
