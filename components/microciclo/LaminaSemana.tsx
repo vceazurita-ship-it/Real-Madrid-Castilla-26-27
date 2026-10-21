@@ -192,7 +192,7 @@ export const LaminaSemana = forwardRef<
                     {dia.minutos}′{dia.completa && dia.carga > 0 ? ` · carga ${dia.carga}` : ""}
                     {frente ? (
                       <span style={{ color: frente.tono === "alta" ? "#A23B3B" : frente.tono === "baja" ? "#2E6B4F" : C.gris }}>
-                        {` · ${frente.diferencia > 0 ? "+" : ""}${frente.diferencia} % s/ su media`}
+                        {` · ${frente.diferencia > 0 ? "+" : ""}${frente.diferencia} % s/ media`}
                       </span>
                     ) : null}
                   </p>
@@ -201,6 +201,9 @@ export const LaminaSemana = forwardRef<
                 <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8, minHeight: 0 }}>
                   {sesion.libre ? (
                     <p style={{ margin: "18px 0 0", textAlign: "center", fontSize: 22, fontWeight: 600, color: C.gris }}>Libre</p>
+                  ) : tareas.length === 0 ? (
+                    /* Un día de entreno cuyas tareas aún no tienen contenido: una columna vacía parecía un fallo. */
+                    <p style={{ margin: "14px 0 0", textAlign: "center", fontSize: 20, fontWeight: 600, color: C.gris }}>Sesión por definir</p>
                   ) : (
                     tareas.map((tarea, t) => {
                       const comp = esCompeticion(tarea);
