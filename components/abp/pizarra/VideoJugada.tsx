@@ -165,6 +165,7 @@ export function VideoJugada({
     const d = DESTINOS[destino];
     const nFases = fasesDe(slide.trazos);
     const aviso = toast.loading("Montando el vídeo de la jugada…");
+    let abierto: VideoEncoder | null = null;
 
     try {
       const codec = await codecLamina(d.ancho, d.alto, d.caudal);
@@ -231,6 +232,8 @@ export function VideoJugada({
           fallo = e instanceof Error ? e : new Error(String(e));
         },
       });
+
+      abierto = codificador;
 
       codificador.configure({
         codec,
@@ -317,6 +320,8 @@ export function VideoJugada({
       console.error("[abp-pizarra] vídeo", error);
       toast.error(error instanceof Error && error.message ? error.message : "No se ha podido montar el vídeo", { id: aviso });
     } finally {
+      // Si algo falla a mitad, el codificador queda abierto y Chrome se queda sin codificadores para el siguiente vídeo.
+      if (abierto && abierto.state !== "closed") abierto.close();
       corriendo.current = false;
       setDestino(null);
       setTiempo(0);

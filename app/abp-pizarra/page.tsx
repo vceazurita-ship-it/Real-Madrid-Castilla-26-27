@@ -791,8 +791,13 @@ export default function PizarraAbpPage() {
         return;
       }
 
+      const pisados = slide.rivales?.length ?? 0;
+
       mutaSlide((actual) => ({ ...actual, rivales: hecho.rivales }), "rivales:defensa");
-      toast.success(hecho.aviso, { id: aviso, duration: 9_000 });
+      toast.success(
+        pisados ? `${hecho.aviso} Sustituye a los ${pisados} rivales que había; Ctrl+Z los recupera.` : hecho.aviso,
+        { id: aviso, duration: 9_000 },
+      );
     } finally {
       setPoniendoDefensa(false);
     }

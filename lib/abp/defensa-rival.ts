@@ -102,10 +102,10 @@ export function estructuraDefensiva(
   return { tipo, enZona: tipo === "hombre" ? 0 : enZona, fuente: textos[0], acciones: total };
 }
 
-/** Sus mejores por alto: los etiquetados primero, luego por estatura. */
+/** Sus mejores por alto: los etiquetados primero, luego por estatura (sin el portero, que no marca en un córner). */
 export function susCabeceadores(plantilla: RivalPlayerAerial[], maximo = 3) {
   return [...plantilla]
-    .filter((uno) => uno.remataAbp || (uno.altura ?? 0) >= 186)
+    .filter((uno) => uno.remataAbp || ((uno.altura ?? 0) >= 186 && !/portero|^po?r?$|^gk$/i.test(uno.posicion.trim())))
     .sort((a, b) => Number(b.remataAbp) - Number(a.remataAbp) || (b.altura ?? 0) - (a.altura ?? 0))
     .slice(0, maximo);
 }

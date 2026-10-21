@@ -1002,6 +1002,8 @@ export function tieneTextosPropios(slide: SlidePizarra) {
 
   if (plantilla.grupos.some((grupo) => grupos[grupo.key]?.trim())) return true;
 
+  if (Object.values(slide.guion ?? {}).some((texto) => texto?.trim())) return true;
+
   return (slide.textos?.adornos ?? []).some(
     (uno) => uno?.label?.trim() || uno?.remate?.trim(),
   );
@@ -1013,7 +1015,7 @@ export function sinTextosPropios(slide: SlidePizarra): SlidePizarra {
 
   if (!plantilla) return slide;
 
-  const { textos: _fuera, ...resto } = slide;
+  const { textos: _fuera, guion: _guion, ...resto } = slide;
 
   return {
     ...resto,
