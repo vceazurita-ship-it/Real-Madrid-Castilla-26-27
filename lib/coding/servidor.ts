@@ -619,6 +619,8 @@ async function normaliza(opciones: {
   segundosDelTope?: number;
   /** Ya preparado para esta misma medida (`preparaRotulo` con `alto`). */
   rotulo?: RotuloListo | null;
+  /** Los filtros `fade` del fundido entre cortes, ya escritos. */
+  fundido?: string;
 }) {
   /*
    * El silencio es una entrada más, y entonces hay que mapear a mano: sin
@@ -650,7 +652,8 @@ async function normaliza(opciones: {
     ...extra,
     ...mapas,
     "-vf",
-    opciones.rotulo ? `${forma},${opciones.rotulo.filtro}` : forma,
+    /* El fundido va antes que el rótulo: el negro no se lo come. */
+    [forma, opciones.fundido, opciones.rotulo?.filtro].filter(Boolean).join(","),
     "-c:v",
     "libx264",
     "-preset",
@@ -692,10 +695,30 @@ export async function segmentoNormalizado(opciones: {
   /** Y lo que dura ese fichero final, que es entre lo que se reparte. */
   segundosDelTope?: number;
   rotulo?: RotuloListo | null;
+  /**
+   * Fundido a negro de este trozo, en ms: al entrar, al salir o los dos.
+   * Con un clip partido por pizarras sólo entra el primero y sale el último.
+   */
+  fundido?: { ms: number; entra: boolean; sale: boolean };
 }) {
   const duracion = Math.max(0, opciones.finMs - opciones.inicioMs);
 
   if (duracion <= 0) throw new Error("El clip no tiene duración.");
+
+  /* Lo mismo que `negroDeFundido` del navegador: un trozo corto no se funde. */
+  const fundido =
+    opciones.fundido && opciones.fundido.ms > 0 && duracion > opciones.fundido.ms * 2
+      ? [
+          opciones.fundido.entra
+            ? `fade=t=in:st=0:d=${segundos(opciones.fundido.ms)}`
+            : "",
+          opciones.fundido.sale
+            ? `fade=t=out:st=${segundos(duracion - opciones.fundido.ms)}:d=${segundos(opciones.fundido.ms)}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(",")
+      : "";
 
   return normaliza({
     entradaArgs: [
@@ -714,6 +737,7 @@ export async function segmentoNormalizado(opciones: {
     topeMegas: opciones.topeMegas,
     segundosDelTope: opciones.segundosDelTope,
     rotulo: opciones.rotulo,
+    fundido: fundido || undefined,
   });
 }
 
@@ -812,6 +836,8 @@ export async function cortaClipConParadas(opciones: {
   topeMegas?: number;
   /** Va en el trozo que empieza el corte: es el que tiene el tiempo cero. */
   rotulo?: RotuloListo | null;
+  /** Fundido a negro al entrar en el corte y al salir de él, en ms. */
+  fundidoMs?: number;
 }) {
   const duracion = Math.max(0, opciones.finMs - opciones.inicioMs);
 
@@ -860,6 +886,9 @@ export async function cortaClipConParadas(opciones: {
         segundosDelTope: opciones.segundosDelTope ?? (duracion + paradasMs) / 1000,
         destino: nombra("video"),
         rotulo: a === 0 ? opciones.rotulo : null,
+        fundido: opciones.fundidoMs
+          ? { ms: opciones.fundidoMs, entra: a === 0, sale: b >= duracion }
+          : undefined,
       }),
     );
   };

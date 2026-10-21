@@ -81,7 +81,21 @@ export type PeticionNavegador = {
   topeAncho?: number;
   /** La familia de `ctx.font` para los rótulos: el motor no carga fuentes. */
   familiaRotulo?: string;
+  /**
+   * Fundido a negro al entrar y salir de cada corte, en ms. Sólo en el vídeo
+   * unificado: es lo que separa una jugada de la siguiente sin un salto seco.
+   */
+  fundidoMs?: number;
 };
+
+/** Cuánto negro va encima en el ms `t` de un corte que dura `dura`: de 0 a 1. */
+export function negroDeFundido(t: number, dura: number, fundidoMs: number) {
+  if (fundidoMs <= 0 || dura <= fundidoMs * 2) return 0;
+
+  const borde = Math.min(t, dura - t);
+
+  return borde >= fundidoMs ? 0 : Math.max(0, 1 - borde / fundidoMs);
+}
 
 export type ResultadoNavegador = {
   blob: Blob;

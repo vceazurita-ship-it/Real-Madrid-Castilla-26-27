@@ -96,6 +96,8 @@ type Peticion = {
    */
   portada?: string;
   portadaSegundos?: number;
+  /** Fundido a negro entre cortes del unificado, en ms. `0` es corte seco. */
+  fundidoMs?: number;
   /**
    * Lo que puede pesar cada fichero de salida, en megas. `0` es sin tope.
    *
@@ -228,6 +230,9 @@ export async function POST(request: NextRequest) {
 
   /* Sin tope, 0. Y con tope no se puede copiar: hay que recodificar. */
   const topeMegas = Math.max(0, Number(peticion.topeMegas) || 0);
+
+  /* Como mucho un segundo: más es una pantalla en negro, no una transición. */
+  const fundidoMs = Math.min(1000, Math.max(0, Number(peticion.fundidoMs) || 0));
 
   /** Lo que dura, en segundos, el fichero que va a salir de esos clips. */
   const duracionDe = (lista: ClipPedido[]) =>
@@ -430,6 +435,7 @@ export async function POST(request: NextRequest) {
                 segundosDelTope: duracionDe(clips),
                 /* Medido a la altura del montaje, no a la de su vídeo. */
                 rotulo: await rotuloDe(clip, indice, datos.alto),
+                fundidoMs,
               })
             : await segmentoNormalizado({
                 entrada: entradaClip,
@@ -443,6 +449,9 @@ export async function POST(request: NextRequest) {
                 topeMegas,
                 segundosDelTope: duracionDe(clips),
                 rotulo: await rotuloDe(clip, indice, datos.alto),
+                fundido: fundidoMs
+                  ? { ms: fundidoMs, entra: true, sale: true }
+                  : undefined,
               }),
         );
       }

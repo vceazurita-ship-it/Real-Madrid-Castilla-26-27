@@ -1129,6 +1129,9 @@ function Coding() {
      montaje para la sala sin decir de quién es cada jugada no se entiende. */
   const [rotulos, setRotulos] = useState(true);
 
+  /* Fundido a negro entre jugadas del unificado: de partida, puesto. */
+  const [fundido, setFundido] = useState(true);
+
   /* Con qué medida sale la imagen. `0` es la del partido, sin encoger. */
   const [medidaVideo, setMedidaVideo] = useState<number>(MEDIDA_POR_DEFECTO);
 
@@ -2708,6 +2711,7 @@ function Coding() {
     titulo,
     rotulos,
     familiaRotulo: FAMILIA_PORTADA,
+    fundidoMs: fundido ? 300 : 0,
     /* El vídeo copiado a la carpeta entra en la sesión y se pone delante. */
     onAdopta: (fuente, src) => abreVideos([{ fuente, src }], { forzar: false }),
     alTerminarVideo,
@@ -4839,6 +4843,8 @@ function Coding() {
                     onQuema={setQuemaPizarras}
                     rotulos={rotulos}
                     onRotulos={setRotulos}
+                    fundido={fundido}
+                    onFundido={setFundido}
                     enNavegador={montaEnNavegador}
                     videos={videosSesion.map((video) => ({
                       nombre: video.nombre,

@@ -45,6 +45,7 @@ import {
 import {
   CORTE_ATASCADO,
   CORTE_CANCELADO,
+  negroDeFundido,
   type ClipNavegador,
   type PantallaMontaje,
   type PeticionNavegador,
@@ -668,6 +669,10 @@ export async function montaRapido(
 
   const familiaRotulo = peticion.familiaRotulo ?? "sans-serif";
 
+  /* Sólo en el unificado: un corte suelto no tiene vecino del que separarse. */
+  const fundidoMs =
+    peticion.formato === "unificado" ? Math.max(0, peticion.fundidoMs ?? 0) : 0;
+
   /* ------------------------------------------------------- el sonido */
 
   /* La pista de sonido de la salida: la del primer vídeo. */
@@ -978,6 +983,18 @@ export async function montaRapido(
         pincel.drawImage(fotograma, 0, 0, plan.ancho, plan.alto);
 
         fotograma.close();
+
+        /* El fundido entre cortes del unificado, antes del rótulo. */
+        const negro = negroDeFundido(
+          (t - inicioUs) / 1000,
+          clip.finMs - clip.inicioMs,
+          fundidoMs,
+        );
+
+        if (negro > 0) {
+          pincel.fillStyle = `rgba(0,0,0,${negro.toFixed(3)})`;
+          pincel.fillRect(0, 0, plan.ancho, plan.alto);
+        }
 
         /* El rótulo de los primeros segundos, encima del partido. */
         if (clip.rotulo) {

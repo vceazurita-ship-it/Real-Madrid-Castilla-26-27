@@ -253,6 +253,8 @@ export function useExportador(opciones: {
   rotulos?: boolean;
   /** La letra del rótulo en el navegador (`FAMILIA_PORTADA`). */
   familiaRotulo?: string;
+  /** Fundido a negro entre cortes del unificado, en ms. `0`, corte seco. */
+  fundidoMs?: number;
   /** Adoptar el vídeo ya copiado: cambia la fuente de la sesión. */
   onAdopta?: (fuente: FuenteVideo, src: string) => void;
   /**
@@ -280,6 +282,7 @@ export function useExportador(opciones: {
     titulo,
     rotulos = false,
     familiaRotulo,
+    fundidoMs = 0,
     onAdopta,
     alTerminarVideo,
   } = opciones;
@@ -347,6 +350,7 @@ export function useExportador(opciones: {
           formato: peticion.formato,
           portada: peticion.portada ?? null,
           portadaSegundos: SEGUNDOS_CARATULA,
+          fundidoMs,
           fps,
           topeMegas,
           topeAncho,
@@ -400,6 +404,7 @@ export function useExportador(opciones: {
       alTerminarVideo,
       familiaRotulo,
       fps,
+      fundidoMs,
       nombraClips,
       rotuloDe,
       rotulos,
@@ -489,6 +494,7 @@ export function useExportador(opciones: {
           nombre: peticion.nombre,
           portada: imagenes.portada,
           portadaSegundos: SEGUNDOS_CARATULA,
+          fundidoMs,
           topeMegas,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
@@ -615,7 +621,7 @@ export function useExportador(opciones: {
         void borraImagenes(rutas);
       }
     },
-    [alTerminarVideo, modo, nombraClips, rotuloDe, topeMegas],
+    [alTerminarVideo, fundidoMs, modo, nombraClips, rotuloDe, topeMegas],
   );
 
   /*
@@ -899,6 +905,8 @@ export function BarraExportacion({
   onQuema,
   rotulos = false,
   onRotulos,
+  fundido = false,
+  onFundido,
   enNavegador,
   youtube,
   videos = [],
@@ -938,6 +946,9 @@ export function BarraExportacion({
   /** El rótulo de los primeros segundos de cada corte. */
   rotulos?: boolean;
   onRotulos?: (rotulos: boolean) => void;
+  /** Fundido a negro entre los cortes del vídeo unificado. */
+  fundido?: boolean;
+  onFundido?: (fundido: boolean) => void;
   /**
    * El vídeo está abierto del ordenador: el montaje se hace aquí.
    *
@@ -1273,6 +1284,42 @@ export function BarraExportacion({
             {rotulos
               ? "3,5 s al empezar cada corte: dorsal y nombre, categoría, descriptores y minuto"
               : "los cortes salen como se grabaron"}
+          </span>
+        </div>
+      )}
+
+      {/* ----------------------- ENTRE UN CORTE Y OTRO ---------------- */}
+
+      {onFundido && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+            <Film size={12} className="text-[#C8A96B]" />
+            Transición
+          </span>
+
+          {[
+            { valor: true, texto: "Fundido" },
+            { valor: false, texto: "Corte seco" },
+          ].map((opcion) => (
+            <button
+              key={opcion.texto}
+              type="button"
+              onClick={() => onFundido(opcion.valor)}
+              aria-pressed={fundido === opcion.valor}
+              className={`rounded-md border px-2 py-0.5 text-[11px] transition ${
+                fundido === opcion.valor
+                  ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                  : "border-white/10 text-white/40 hover:text-white"
+              }`}
+            >
+              {opcion.texto}
+            </button>
+          ))}
+
+          <span className="text-[11px] text-white/30">
+            {fundido
+              ? "en el vídeo unificado, un fundido a negro de 0,3 s separa cada jugada"
+              : "las jugadas se pegan una detrás de otra"}
           </span>
         </div>
       )}
