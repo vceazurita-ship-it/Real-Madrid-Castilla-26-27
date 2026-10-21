@@ -2487,6 +2487,33 @@ export default function JugadoresSesionPage() {
                       </div>
                     </div>
 
+                    {/*
+                    | --- estado de la tarea, a la vista (21/10/2026) ---
+                    | El validador iba al final de la página (o a la derecha sólo
+                    | en pantallas muy anchas): con el portátil o el móvil nadie
+                    | lo veía mientras hacía los equipos. Aquí, en una línea.
+                    */}
+                    {(() => {
+                      const problemas = avisos.filter((a) => a.nivel === "error" || a.nivel === "aviso");
+                      const grave = problemas.some((a) => a.nivel === "error");
+
+                      return (
+                        <div
+                          role="status"
+                          className={`flex min-w-0 items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-snug ${
+                            grave ? "border-red-400/30 bg-red-500/[0.06] text-red-200" : problemas.length ? "border-amber-400/40 bg-amber-400/[0.05] text-amber-100" : "border-emerald-400/30 bg-emerald-400/[0.05] text-emerald-200"
+                          }`}
+                        >
+                          {grave ? ICONO_AVISO.error : problemas.length ? ICONO_AVISO.aviso : ICONO_AVISO.ok}
+                          <span className="min-w-0">
+                            {problemas.length
+                              ? problemas.map((a) => a.texto).join(" · ")
+                              : "Lista para presentar: nadie olvidado, nadie repetido y equipos parejos."}
+                          </span>
+                        </div>
+                      );
+                    })()}
+
                     {/* --- sin colocar --- */}
                     <Caja
                       destino="sin"
@@ -2741,7 +2768,7 @@ export default function JugadoresSesionPage() {
                     {vista === "equipos" && (
                     <Panel
                       title="Validador"
-                      subtitle={tareaLista(avisos) ? "Lista para presentar" : "Hay algo que corregir"}
+                      subtitle={!tareaLista(avisos) ? "Hay algo que corregir" : avisos.some((a) => a.nivel === "aviso") ? "Lista, con avisos que mirar" : "Lista para presentar"}
                       icon={tareaLista(avisos) ? Check : AlertTriangle}
                       bodyClassName="p-4"
                     >
@@ -2941,7 +2968,7 @@ export default function JugadoresSesionPage() {
                                           ? `${demarcacion(demarcacionesAuto[j.id])?.nombre} (plantilla)`
                                           : auto
                                             ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)`
-                                            : "Sin demarcación"}
+                                            : "Elige su demarcación"}
                                       </option>
                                       {DEMARCACIONES.map((d) => (
                                         <option key={d.clave} value={d.clave} className="bg-[#11161C]">

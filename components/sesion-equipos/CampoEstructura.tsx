@@ -87,9 +87,22 @@ export function CampoEstructura({
   style?: CSSProperties;
 }) {
   const alto = ancho * PROPORCION_CAMPO;
-  const ficha = Math.max(16, Math.min(50, ancho / 10));
+  /*
+  | Lo que hay de una línea a la siguiente (21/10/2026). Con cuatro líneas y
+  | nombres en dos renglones, la etiqueta de una línea tapaba la ficha de la
+  | de delante (se veía en la diapositiva con cabecera, donde el campo es más
+  | bajo). Ficha + nombre caben ahora en ese hueco.
+  */
+  const alturas = [...new Set(huecos.filter((h) => !h.aMano).map((h) => Math.round(h.y * 1000)))].sort((a, b) => a - b);
+  const entreLineas = alturas.length > 1 ? Math.min(...alturas.slice(1).map((y, k) => y - alturas[k])) / 1000 : 1;
+  const hueco = entreLineas * alto;
+  const ficha = Math.max(16, Math.min(50, ancho / 10, hueco * 0.38));
   /* En la lámina exportada (`claro`) los nombres van más grandes: se leen en la tele del vestuario. */
-  const letra = claro ? Math.max(10, Math.min(36, ancho / 16)) : Math.max(9, Math.min(28, ancho / 21));
+  const letra = Math.min(
+    claro ? Math.max(10, Math.min(36, ancho / 16)) : Math.max(9, Math.min(28, ancho / 21)),
+    /* Dos renglones (1,02 de alto cada uno, más el relleno) entre la ficha y la línea siguiente. */
+    Math.max(8, (hueco - ficha - 10) / 2.3),
+  );
   const tinta = tintaSobre(color);
   const trazo = claro ? "rgba(20,83,45,0.42)" : "rgba(255,255,255,0.5)";
   const encimaCampo = Boolean(campoDestino && sobre === campoDestino);
@@ -123,13 +136,20 @@ export function CampoEstructura({
       <Lineas trazo={trazo} grosor={Math.max(1.5, ancho / 220)} />
 
       {huecos.map((h, i) => {
+        /* En la lámina (sin tocar), un hueco libre no se dibuja: ni círculo vacío ni guion en el campo que ven los jugadores (21/10/2026). */
+        if (!h.jugador && !onToca) return null;
+
         const es = elegido === i;
         const destino = destinoDe?.(i);
         const debajo = Boolean(destino && sobre === destino);
         /* Cada nombre cabe en su trozo de línea: con cuatro en fila, la cuarta parte del campo. */
         const enSuLinea = h.linea < 0 ? 3 : huecos.filter((x) => x.linea === h.linea && !x.aMano).length || 3;
-        /* El mismo ancho en la lámina: más ancho, los nombres de una línea se pisaban (14/10/2026). */
-        const anchoNombre = Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 1.1);
+        /*
+        | El mismo ancho en la lámina. Los huecos de una línea están a 1/(n+1)
+        | del campo uno de otro: con 1,1 veces eso, dos nombres largos vecinos
+        | se montaban (21/10/2026). Con 0,96 queda siempre una rendija.
+        */
+        const anchoNombre = Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 0.96);
         const nombre = h.jugador?.nombre ?? "";
         /* Con pareja, los dos nombres; la letra la manda el más largo. */
         const largo = Math.max(palabraMasLarga(nombre || "—"), h.pareja ? palabraMasLarga(h.pareja.nombre) : 0);
