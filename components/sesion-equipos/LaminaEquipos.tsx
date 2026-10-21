@@ -238,8 +238,13 @@ export function LaminaEquipos({
 
   const fuera = [...r.fuera, ...r.sinSitio];
 
-  /* El campograma, lo más grande que quepa en la columna y en el alto que queda. */
-  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 335) - (cambios.length ? 60 : 0) - (pieCorto ? 52 : 0)) / 1.08);
+  /*
+  | El campograma, lo más grande que quepa en la columna y en el alto que queda.
+  | La línea del portero bajo el campo sólo resta si algún equipo la lleva
+  | (21/10/2026): sin porteros, esos 40 px se los queda el campo.
+  */
+  const lineaPortero = columnas.some((c) => c.estructura && c.jugadores.some((j) => porPuesto(j) === "POR"));
+  const anchoCampo = Math.min(anchoEquipo - 40, (LAMINA_H - (cabecera ? 520 : 335) + (lineaPortero ? 0 : 40) - (cambios.length ? 60 : 0) - (pieCorto ? 52 : 0)) / 1.08);
 
   return (
     <div

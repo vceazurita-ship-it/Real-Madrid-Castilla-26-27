@@ -1475,6 +1475,40 @@ export default function JugadoresSesionPage() {
       /* Con el dedo, mantenerlo quieto un momento también lo coge. */
       const pulsacion = tactil ? window.setTimeout(activa, 250) : null;
 
+      /*
+      | La página se desplaza sola cerca del borde (21/10/2026): en el móvil la
+      | tarea es más alta que la pantalla y no había forma de llevar a alguien
+      | de un equipo de arriba a «No hacen esta tarea» de abajo. Encima de los
+      | dos botones del pie no se desplaza, para poder soltar ahí.
+      */
+      let velocidad = 0;
+      let bucle: number | null = null;
+
+      const desplaza = () => {
+        if (!velocidad) {
+          bucle = null;
+          return;
+        }
+
+        window.scrollBy(0, velocidad);
+        coloca(ultimo.x, ultimo.y);
+        bucle = window.requestAnimationFrame(desplaza);
+      };
+
+      const miraBorde = (y: number) => {
+        const alto = window.innerHeight;
+
+        velocidad = y > alto - 140 && y < alto - 76 ? 14 : y < 90 ? -14 : 0;
+
+        if (velocidad && bucle === null) bucle = window.requestAnimationFrame(desplaza);
+      };
+
+      const paraDesplazar = () => {
+        velocidad = 0;
+        if (bucle !== null) window.cancelAnimationFrame(bucle);
+        bucle = null;
+      };
+
       const mueve = (ev: PointerEvent) => {
         if (ev.pointerId !== puntero) return;
 
@@ -1496,6 +1530,7 @@ export default function JugadoresSesionPage() {
 
         ev.preventDefault();
         coloca(ev.clientX, ev.clientY);
+        miraBorde(ev.clientY);
       };
 
       /* Ya cogido, el dedo no desplaza la página. */
@@ -1507,6 +1542,7 @@ export default function JugadoresSesionPage() {
         if (ev && ev.pointerId !== puntero) return;
 
         if (pulsacion) window.clearTimeout(pulsacion);
+        paraDesplazar();
         window.removeEventListener("pointermove", mueve);
         window.removeEventListener("pointerup", alSoltar);
         window.removeEventListener("pointercancel", alCancelar);
@@ -1547,6 +1583,7 @@ export default function JugadoresSesionPage() {
       /* Si la pantalla se desmonta a mitad, se suelta sin aplicar nada. */
       limpiaArrastre.current = () => {
         if (pulsacion) window.clearTimeout(pulsacion);
+        paraDesplazar();
         window.removeEventListener("pointermove", mueve);
         window.removeEventListener("pointerup", alSoltar);
         window.removeEventListener("pointercancel", alCancelar);
@@ -3109,7 +3146,7 @@ export default function JugadoresSesionPage() {
           </div>
 
           {/* Abajo, siempre a mano: quitarlo del equipo o dejarlo fuera de la tarea. */}
-          <div className="fixed inset-x-0 bottom-4 z-[80] flex justify-center gap-3 px-4">
+          <div className="fixed inset-x-0 bottom-3 z-[80] flex justify-center gap-2 px-4">
             {[
               { destino: "sin", rotulo: "Quitar del equipo", pie: "queda sin colocar" },
               { destino: FUERA, rotulo: "No hace esta tarea", pie: "descansa o va aparte" },
@@ -3117,7 +3154,7 @@ export default function JugadoresSesionPage() {
               <div
                 key={z.destino}
                 data-destino={z.destino}
-                className={`flex min-w-[170px] flex-col items-center rounded-2xl border-2 border-dashed px-5 py-3 text-center shadow-2xl backdrop-blur transition ${
+                className={`flex min-w-[140px] flex-col items-center rounded-2xl border-2 border-dashed px-4 py-1.5 text-center shadow-2xl backdrop-blur transition ${
                   sobre === z.destino ? "scale-105 border-red-300 bg-red-500/30 text-white" : "border-white/30 bg-[#0B0F14]/90 text-white/80"
                 }`}
               >
