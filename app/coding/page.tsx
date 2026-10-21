@@ -3037,10 +3037,40 @@ function Coding() {
       ? caratulaPedida
       : caratulaPorDefecto;
 
-  const caratulaDe = useCallback(async (sujetoId: string) => {
+  const caratulaDe = useCallback(async (
+    sujetoId: string,
+    /** El vídeo de corrección de un jugador nuestro: firma propia y objetivo. */
+    individual?: { objetivo: string },
+  ) => {
     if (!sujetoId) return null;
 
-    const jugador = jugadorDe(sujetoId);
+    /*
+    | Si el corte se marcó con otro id —una sesión importada, un dorsal— se
+    | busca por el nombre en la plantilla: sin eso la carátula salía con la
+    | silueta aunque el jugador tiene su foto.
+    */
+    const sinTildes = (texto: string) =>
+      texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+    const nombreDelCorte = sujetosDeClips.find((uno) => uno.id === sujetoId)?.nombre ?? "";
+
+    const porNombre = () => {
+      const buscado = sinTildes(nombreDelCorte);
+
+      if (!buscado) return null;
+
+      const iguales = jugadores.filter((uno) => sinTildes(uno.nombre) === buscado);
+
+      if (iguales.length === 1) return iguales[0];
+
+      const parecidos = jugadores.filter((uno) =>
+        sinTildes(uno.nombre).split(" ").includes(buscado),
+      );
+
+      return parecidos.length === 1 ? parecidos[0] : null;
+    };
+
+    const jugador = jugadorDe(sujetoId) ?? porNombre();
     const comportamiento = jugador ? null : comportamientoDe(sujetoId);
 
     /*
@@ -3066,12 +3096,24 @@ function Coding() {
       dorsal: jugador?.dorsal !== undefined ? String(jugador.dorsal) : "",
       foto: jugador?.foto,
       contexto: titulo,
+      /*
+      | La firma dice para qué es el vídeo. Era siempre «SCOUTING RIVAL»,
+      | también en el vídeo de corrección de un jugador nuestro.
+      */
+      firma:
+        ambito === "rival"
+          ? undefined
+          : individual
+            ? `RMCF CASTILLA · FEEDBACK INDIVIDUAL · ${titulo}`
+            : `RMCF CASTILLA · VÍDEO DE TRABAJO · ${titulo}`,
+      objetivo: individual?.objetivo,
     });
   }, [
     ambito,
     comportamientoDe,
     escudoDe,
     jugadorDe,
+    jugadores,
     rival,
     sujetosDeClips,
     titulo,
@@ -3127,6 +3169,12 @@ function Coding() {
   /* La vista previa: se pinta al pedirla y se queda hasta que se cierra. */
   const [caratulaVista, setCaratulaVista] = useState<string | null>(null);
 
+  /*
+  | Lo que se le pide al jugador en su vídeo individual. Se escribe al
+  | montarlo y va a la carátula; vacío, la carátula no lo nombra.
+  */
+  const [objetivoIndividual, setObjetivoIndividual] = useState("");
+
   const verCaratula = useCallback(async () => {
     /* Con «una por jugador» se enseña la del primero: son todas la misma
        plantilla, y lo que se comprueba es que la plantilla sale bien. */
@@ -3161,11 +3209,29 @@ function Coding() {
     | única forma de que se quede colgado en pantalla. Y colgado tapaba el
     | error de verdad, el que llega justo después desde `exporta`.
     */
-    const aviso = caratulaSujeto
-      ? toast.loading("Montando la carátula del vídeo…")
-      : null;
+    /*
+    | El individual lleva SIEMPRE la carátula del jugador, con la firma de
+    | corrección y su objetivo de la semana: es la que dice para qué es.
+    */
+    const elJugador = individual
+      ? lista.find(
+          (clip) =>
+            clip.sujeto !== "colectivo" && clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id,
+        )?.jugadorId
+      : undefined;
 
-    const { portada, dentro, faltan } = await construyeCaratulas(lista);
+    const aviso =
+      caratulaSujeto || elJugador
+        ? toast.loading("Montando la carátula del vídeo…")
+        : null;
+
+    const { portada, dentro, faltan } = elJugador
+      ? {
+          portada: await caratulaDe(elJugador, { objetivo: objetivoIndividual }),
+          dentro: [] as { clipId: string; imagen: string }[],
+          faltan: 0,
+        }
+      : await construyeCaratulas(lista);
 
     if (aviso) toast.dismiss(aviso);
 
@@ -3225,6 +3291,7 @@ function Coding() {
       paradas,
     });
   }, [
+    caratulaDe,
     caratulaSujeto,
     clipsExportables,
     componePizarras,
@@ -3232,6 +3299,7 @@ function Coding() {
     construyeCaratulas,
     etiquetaFiltro,
     exporta,
+    objetivoIndividual,
     titulo,
   ]);
 
@@ -4902,6 +4970,10 @@ function Coding() {
                     }
                     onUnificado={() => void exportaUnificado()}
                     onIndividual={() => void exportaUnificado(true)}
+                    objetivoIndividual={objetivoIndividual}
+                    onObjetivoIndividual={setObjetivoIndividual}
+                    ultimoVideo={exportador.ultimo}
+                    tituloMensaje={titulo}
                   />
                 </Panel>
 

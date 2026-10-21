@@ -77,6 +77,7 @@ import {
   imagenDeRotulo,
   rotuloDeClip,
 } from "@/lib/coding/rotulo";
+import { posterDeVideo } from "@/lib/coding/poster";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 export type ModoCorteUI = "preciso" | "rapido";
@@ -331,6 +332,9 @@ export function useExportador(opciones: {
 
   const [exportando, setExportando] = useState(false);
 
+  /* El último MP4 que ha salido, para «Mandar». El ZIP no cuenta. */
+  const [ultimo, setUltimo] = useState<VideoListo | null>(null);
+
   /*
   | Cómo se llama cada corte. Vive aparte porque lo usan los dos caminos —el
   | servidor y el navegador— y un nombre distinto en cada uno sería un ZIP con
@@ -367,12 +371,26 @@ export function useExportador(opciones: {
   | PDF con el enlace al vídeo. Es la misma que abre el montaje, así que el
   | enlace y el vídeo empiezan igual.
   */
+  /*
+  | Y TODO MP4 lleva el suyo. Sólo lo tenía el unificado con carátula; un
+  | corte suelto o un unificado sin carátula salían sin imagen que poner junto
+  | al enlace. Esos se quedan con un fotograma del propio vídeo, con el rótulo
+  | ya entrado (`lib/coding/poster.ts`). El ZIP no: es un paquete de cortes,
+  | no una pieza que se mande.
+  */
   const descargaPoster = useCallback(
-    async (peticion: PeticionExport) => {
-      if (peticion.formato !== "unificado" || !peticion.portada) return;
+    async (peticion: PeticionExport, video?: Blob) => {
+      if (peticion.formato === "zip") return;
 
       try {
-        await descargaDataUrl(peticion.portada, `${peticion.nombre}-poster.jpg`);
+        const imagen =
+          peticion.formato === "unificado" && peticion.portada
+            ? peticion.portada
+            : video
+              ? await posterDeVideo(video)
+              : null;
+
+        if (imagen) await descargaDataUrl(imagen, `${peticion.nombre}-poster.jpg`);
       } catch (error) {
         console.warn("[coding] el póster no se ha podido guardar", error);
       }
@@ -439,7 +457,11 @@ export function useExportador(opciones: {
           }${resultado.conSonido ? "" : " · sin sonido: el partido viene mudo"}`,
         });
 
-        await descargaPoster(peticion);
+        if (peticion.formato !== "zip") {
+          setUltimo({ nombre, segundos: resultado.segundos, bytes: resultado.blob.size });
+        }
+
+        await descargaPoster(peticion, resultado.blob);
 
         if (peticion.formato !== "zip") {
           await alTerminarVideo?.(resultado.blob, nombre);
@@ -687,7 +709,17 @@ export function useExportador(opciones: {
           )}`,
         });
 
-        await descargaPoster(peticion);
+        if (peticion.formato !== "zip") {
+          setUltimo({
+            nombre: `${peticion.nombre}.${extension}`,
+            /* Lo que dura de verdad: los cortes y, si la lleva, la carátula. */
+            segundos:
+              segundosDeVideo + (peticion.formato === "unificado" && peticion.portada ? SEGUNDOS_CARATULA : 0),
+            bytes: blob.size,
+          });
+        }
+
+        await descargaPoster(peticion, blob);
 
         if (peticion.formato !== "zip") {
           await alTerminarVideo?.(blob, `${peticion.nombre}.${extension}`);
@@ -971,7 +1003,26 @@ export function useExportador(opciones: {
     ],
   );
 
-  return { exporta, exportando };
+  return { exporta, exportando, ultimo };
+}
+
+/**
+ * El último vídeo que ha salido, para mandarlo.
+ *
+ * No se sube nada: el mensaje lleva qué es, cuánto dura y cuánto pesa, y el
+ * fichero y su póster se adjuntan desde Descargas. El enlace llegará cuando
+ * haya subida, que aún no está decidida.
+ */
+export type VideoListo = { nombre: string; segundos: number; bytes: number };
+
+export function mensajeDeVideo(video: VideoListo, titulo?: string) {
+  const pieza = video.nombre.replace(/\.mp4$/i, "");
+
+  return [
+    titulo ? `${titulo} · ${pieza}` : pieza,
+    `Dura ${reloj(Math.round(video.segundos))} y pesa ${megas(video.bytes)}.`,
+    "Va adjunto, con su póster.",
+  ].join("\n");
 }
 
 /* ------------------------------------------------------------------ */
@@ -1012,6 +1063,10 @@ export function BarraExportacion({
   onTodosLosVideos,
   plantillaCaratula = [],
   pistaCaratula,
+  objetivoIndividual = "",
+  onObjetivoIndividual,
+  ultimoVideo = null,
+  tituloMensaje,
 }: {
   clips: ClipCoding[];
   /** Qué se va a exportar: "todos", "Sergio Mestre", "Pase"… */
@@ -1086,6 +1141,13 @@ export function BarraExportacion({
   plantillaCaratula?: { id: string; nombre: string }[];
   /** Por qué se ha puesto sola esa carátula, si se ha puesto sola. */
   pistaCaratula?: string;
+  /** Lo que se le pide al jugador: va a la carátula del vídeo individual. */
+  objetivoIndividual?: string;
+  onObjetivoIndividual?: (texto: string) => void;
+  /** El último MP4 que ha salido: se puede mandar con el mensaje ya escrito. */
+  ultimoVideo?: VideoListo | null;
+  /** El partido o el rival, para el mensaje. */
+  tituloMensaje?: string;
 }) {
   const total = clips.reduce((suma, clip) => suma + duracionClip(clip), 0);
 
@@ -1148,6 +1210,57 @@ export function BarraExportacion({
           {formateaTotal(total)} · {etiqueta}
         </span>
       </div>
+
+      {/*
+      | El objetivo del vídeo individual: sin él, el vídeo de corrección es
+      | una lista de errores. Va a la carátula, debajo del nombre.
+      */}
+      {/*
+      | Mandar lo recién montado. No se sube nada: abre WhatsApp o el correo
+      | con qué es, cuánto dura y cuánto pesa, y el fichero y su póster se
+      | adjuntan desde Descargas.
+      */}
+      {ultimoVideo && (
+        <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-3 py-2 text-[11px] text-white/60">
+          <span className="min-w-0 truncate">
+            Listo: <span className="text-white/85">{ultimoVideo.nombre}</span> ·{" "}
+            {reloj(Math.round(ultimoVideo.segundos))} · {megas(ultimoVideo.bytes)}
+          </span>
+          <span className="text-white/35">Mandar:</span>
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(mensajeDeVideo(ultimoVideo, tituloMensaje))}`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-white/15 px-2.5 py-1 text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white"
+          >
+            WhatsApp
+          </a>
+          <a
+            href={`mailto:?subject=${encodeURIComponent(
+              tituloMensaje ? `${tituloMensaje} · ${ultimoVideo.nombre}` : ultimoVideo.nombre,
+            )}&body=${encodeURIComponent(mensajeDeVideo(ultimoVideo, tituloMensaje))}`}
+            className="rounded-full border border-white/15 px-2.5 py-1 text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white"
+          >
+            Correo
+          </a>
+        </div>
+      )}
+
+      {onIndividual && deUno && onObjetivoIndividual && (
+        <label className="flex min-w-0 flex-wrap items-center gap-2 text-[11px] text-white/45">
+          <span className="shrink-0">
+            Objetivo de la semana de {deUno.jugadorNombre} (sale en la carátula del vídeo individual)
+          </span>
+          <input
+            type="text"
+            value={objetivoIndividual}
+            maxLength={140}
+            onChange={(evento) => onObjetivoIndividual(evento.target.value)}
+            placeholder="Perfilarse antes de recibir y vigilar al pívot tras pérdida"
+            className="min-w-0 flex-1 basis-60 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[12px] text-white/85 placeholder:text-white/25 focus:border-[#C8A96B]/60 focus:outline-none"
+          />
+        </label>
+      )}
 
       {/* ------------------------- LOS VÍDEOS -------------------------- */}
 
@@ -1441,8 +1554,8 @@ export function BarraExportacion({
 
           <span className="text-[11px] text-white/30">
             {fundido
-              ? "en el vídeo unificado, un fundido a negro de 0,3 s separa cada jugada"
-              : "las jugadas se pegan una detrás de otra"}
+              ? "en el vídeo unificado, un fundido a negro de 0,3 s separa cada corte"
+              : "los cortes se pegan uno detrás de otro"}
           </span>
         </div>
       )}

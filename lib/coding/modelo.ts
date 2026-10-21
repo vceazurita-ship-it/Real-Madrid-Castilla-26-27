@@ -1147,6 +1147,13 @@ export type MatrizCoding = {
   /** `${sujeto}|${categoria}` → los que llevan «bien» o «mal». */
   valorados: Map<string, Valorados>;
   total: number;
+  /**
+   * Los cortes de «Vídeo completo», que no son de nadie y no entran en la
+   * tabla. Se dicen para que el total de la matriz cuadre con el de la lista.
+   */
+  fuera: number;
+  /** Cortes por jugador de media (sin lo colectivo); `null` con menos de 2. */
+  mediaJugador: number | null;
 };
 
 export function matrizDeClips(
@@ -1159,9 +1166,13 @@ export function matrizDeClips(
   const valorados = new Map<string, Valorados>();
   const usadas = new Map<string, number>();
   const filas = new Map<string, MatrizCoding["filas"][number]>();
+  let fuera = 0;
 
   for (const clip of clips) {
-    if (clip.jugadorId === SUJETO_VIDEO_COMPLETO.id) continue;
+    if (clip.jugadorId === SUJETO_VIDEO_COMPLETO.id) {
+      fuera += 1;
+      continue;
+    }
 
     /* Una categoría borrada de la configuración no esconde sus clips. */
     const categoria = conocidas.has(clip.categoriaId) ? clip.categoriaId : "";
@@ -1237,12 +1248,20 @@ export function matrizDeClips(
       a.nombre.localeCompare(b.nombre, "es"),
   );
 
+  const jugadores = ordenadas.filter((fila) => !fila.colectivo);
+
   return {
     filas: ordenadas,
     columnas,
     celdas,
     valorados,
     total: ordenadas.reduce((suma, fila) => suma + fila.total, 0),
+    fuera,
+    mediaJugador:
+      jugadores.length >= 2
+        ? jugadores.reduce((suma, fila) => suma + fila.total, 0) /
+          jugadores.length
+        : null,
   };
 }
 

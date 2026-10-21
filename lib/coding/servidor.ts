@@ -4,7 +4,9 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  rename,
   rm,
+  stat,
   writeFile,
 } from "node:fs/promises";
 import { createReadStream, existsSync } from "node:fs";
@@ -1213,6 +1215,74 @@ export async function cortaClipConParadas(opciones: {
   }
 
   return pegaVideos(trozos, opciones.destino);
+}
+
+/**
+ * El caudal de vídeo que hace caber `segundos` en `bytes`, con el mismo
+ * descuento que `rejillaDeCaudal`: sonido y contenedor.
+ */
+export function caudalParaCaber(bytes: number, segundos: number) {
+  return Math.max(400_000, Math.round((bytes * 8 * 0.94) / segundos - 160_000));
+}
+
+/**
+ * Si el fichero ya montado se ha pasado del tope, se vuelve a comprimir UNA
+ * vez con el caudal justo para caber.
+ *
+ * La rejilla de caudal es un techo por trozo, y al pegar trozos con pizarras
+ * y carátula —imágenes fijas que pesan poco— la cuenta casi siempre cuadra;
+ * pero un partido con mucho grano o un corte muy corto puede pasarse por
+ * unos megas, y un fichero de 17 MB no entra en un WhatsApp de 16. Mejor una
+ * segunda pasada que mandar algo que se va a rechazar. El sonido no se toca:
+ * ya está igualado.
+ *
+ * Devuelve lo que pesa al final y si ha hecho falta reintentar.
+ */
+export async function ajustaAlTope(archivo: string, topeMegas: number) {
+  const tope = Math.max(0, topeMegas) * 1_000_000;
+  const antes = (await stat(archivo)).size;
+
+  if (tope <= 0 || antes <= tope) return { bytes: antes, reintento: false };
+
+  const { duracionMs } = await sondeaVideo(archivo);
+  const segundos = duracionMs / 1000;
+
+  if (segundos <= 0) return { bytes: antes, reintento: false };
+
+  /* Un 3 % de margen más: el primer intento ya demostró que la cuenta va justa. */
+  const caudal = Math.round(caudalParaCaber(tope * 0.97, segundos) / 1000);
+
+  const nuevo = archivo.replace(/\.mp4$/i, "") + "-ajustado.mp4";
+
+  await ejecuta(FFMPEG, [
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-i",
+    archivo,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-b:v",
+    `${caudal}k`,
+    "-maxrate",
+    `${caudal}k`,
+    "-bufsize",
+    `${caudal * 2}k`,
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "copy",
+    "-movflags",
+    "+faststart",
+    "-y",
+    nuevo,
+  ]);
+
+  await rename(nuevo, archivo);
+
+  return { bytes: (await stat(archivo)).size, reintento: true };
 }
 
 /** Pega en uno todos los trozos, que ya vienen con la misma forma. */

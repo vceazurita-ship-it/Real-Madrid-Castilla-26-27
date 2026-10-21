@@ -89,6 +89,16 @@ export type PortadaData = {
   contexto?: string;
   /** Hasta seis; con menos, la franja se estrecha sola. */
   metricas?: PortadaMetrica[];
+  /**
+   * La firma del pie. Por defecto la del scouting; el vídeo de un jugador
+   * nuestro lleva la suya («RMCF CASTILLA · FEEDBACK INDIVIDUAL»).
+   */
+  firma?: string;
+  /**
+   * Lo que se le pide al jugador esta semana. Ocupa el sitio de la franja de
+   * números, que en un jugador propio no se pinta.
+   */
+  objetivo?: string;
 };
 
 /*
@@ -479,7 +489,10 @@ function chapasDelJugador(ctx: Ctx, data: PortadaData) {
 function franjaNumeros(ctx: Ctx, data: PortadaData) {
   const metricas = (data.metricas ?? []).slice(0, 6);
 
-  if (!metricas.length) return;
+  if (!metricas.length) {
+    franjaObjetivo(ctx, data);
+    return;
+  }
 
   const X = FRANJA_X;
   const ANCHO = FRANJA_W;
@@ -519,13 +532,72 @@ function franjaNumeros(ctx: Ctx, data: PortadaData) {
  * informe de final de temporada. Con la fecha impresa, la segunda vez parecía
  * vieja y alguien la volvía a exportar sin necesidad.
  */
-function pie(ctx: Ctx) {
+function pie(ctx: Ctx, firma = "RMCF CASTILLA · SCOUTING RIVAL") {
   ctx.fillStyle = C.rosa;
   ctx.fillRect(MARGEN, 1006, W - MARGEN * 2, 3);
 
-  fuente(ctx, 22, 600);
   ctx.fillStyle = C.verde;
-  textoEspaciado(ctx, "RMCF CASTILLA · SCOUTING RIVAL", MARGEN, 1046, 5);
+  ajusta(ctx, firma.toUpperCase(), W - MARGEN * 2, 22, 600, 5);
+  textoEspaciado(ctx, firma.toUpperCase(), MARGEN, 1046, 5);
+}
+
+/*
+| El objetivo de la semana, donde un rival lleva sus números.
+|
+| Un vídeo de corrección sin el «para qué» se ve como una lista de errores:
+| lo que se le pide va delante, en grande, y en dos líneas como mucho —si no
+| cabe, encoge antes que cortar—.
+*/
+function franjaObjetivo(ctx: Ctx, data: PortadaData) {
+  const objetivo = (data.objetivo ?? "").trim();
+
+  if (!objetivo) return;
+
+  const X = FRANJA_X;
+  const ANCHO = FRANJA_W;
+  const etiqueta = "OBJETIVO DE LA SEMANA";
+
+  ctx.fillStyle = C.verde;
+  ajusta(ctx, etiqueta, ANCHO, 22, 600, 4);
+  textoEspaciado(ctx, etiqueta, X, 852, 4);
+
+  ctx.fillStyle = C.rosa;
+  ctx.fillRect(X, 872, ANCHO, 3);
+
+  /* En dos líneas: se prueba de 44 hacia abajo hasta que quepa. */
+  const palabras = objetivo.split(" ").filter(Boolean);
+
+  for (let px = 44; px >= 20; px -= 2) {
+    fuente(ctx, px, 600);
+
+    const lineas: string[] = [];
+    let actual = "";
+
+    for (const palabra of palabras) {
+      const prueba = actual ? `${actual} ${palabra}` : palabra;
+
+      if (ctx.measureText(prueba).width <= ANCHO || !actual) actual = prueba;
+      else {
+        lineas.push(actual);
+        actual = palabra;
+      }
+    }
+
+    if (actual) lineas.push(actual);
+
+    const caben =
+      lineas.length <= 2 &&
+      lineas.every((linea) => ctx.measureText(linea).width <= ANCHO);
+
+    if (caben || px === 20) {
+      ctx.fillStyle = C.navy;
+      lineas.slice(0, 2).forEach((linea, indice) => {
+        ctx.fillText(linea, X, 922 + indice * (px + 8));
+      });
+
+      return;
+    }
+  }
 }
 
 /*
@@ -571,7 +643,7 @@ export async function pintaPortada(data: PortadaData) {
   retrato(ctx, foto);
   chapasDelJugador(ctx, data);
   franjaNumeros(ctx, data);
-  pie(ctx);
+  pie(ctx, data.firma);
 
   return lienzo;
 }
