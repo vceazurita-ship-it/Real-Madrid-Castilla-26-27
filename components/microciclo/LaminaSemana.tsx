@@ -63,9 +63,11 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
       { minutos: 0, abp: 0, tareas: 0, sesiones: 0, libres: 0 },
     );
 
-    const cuando = partido?.cuando
+    /* La mayúscula sólo en la primera letra: con `capitalize` salía «31 De Octubre». */
+    const fecha = partido?.cuando
       ? new Date(partido.cuando).toLocaleString("es-ES", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
       : "";
+    const cuando = fecha.charAt(0).toUpperCase() + fecha.slice(1);
 
     const cifras = [
       totales.sesiones ? `${totales.sesiones} sesiones` : "",
@@ -111,7 +113,7 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
           {(partido?.jornada || cuando) && (
             <div style={{ textAlign: "right", fontSize: 20, fontWeight: 600, lineHeight: 1.25 }}>
               {partido?.jornada ? <p style={{ margin: 0 }}>Jornada {partido.jornada}{partido.lado ? ` · ${partido.lado === "fuera" ? "fuera" : "en casa"}` : ""}</p> : null}
-              {cuando && <p style={{ margin: 0, color: C.gris, fontWeight: 500, textTransform: "capitalize" }}>{cuando}</p>}
+              {cuando && <p style={{ margin: 0, color: C.gris, fontWeight: 500 }}>{cuando}</p>}
             </div>
           )}
         </header>
@@ -150,6 +152,7 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
                   <span style={{ fontSize: muchos ? 20 : 23, fontWeight: 700, textTransform: "capitalize", whiteSpace: "nowrap" }}>
                     {etiquetaDia(sesion.fecha)}
                   </span>
+                  {sesion.md && (
                   <span
                     style={{
                       fontSize: 15,
@@ -160,8 +163,9 @@ export const LaminaSemana = forwardRef<HTMLDivElement, { micro: MicroNuevo; part
                       color: partidoDia ? C.tinta : C.crema,
                     }}
                   >
-                    {sesion.md || "—"}
+                    {sesion.md}
                   </span>
+                  )}
                 </div>
 
                 {!partidoDia && dia.minutos > 0 && (

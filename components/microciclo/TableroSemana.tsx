@@ -237,7 +237,7 @@ export function TableroSemana({
                 {!sesion.libre && !partido && (
                   <div className="mt-1.5">
                     <div className="flex items-baseline justify-between text-[10px] tabular-nums text-white/50">
-                      <span>{dia.minutos > 0 ? `${dia.minutos}′` : "sin minutos"}</span>
+                      <span>{dia.minutos > 0 ? `${dia.minutos}′` : ""}</span>
                       {dia.carga > 0 && <span title="Carga = tiempo × intensidad">carga {dia.carga}</span>}
                     </div>
 

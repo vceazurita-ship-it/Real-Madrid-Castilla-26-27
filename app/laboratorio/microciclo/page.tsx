@@ -378,18 +378,24 @@ function FilaTarea({
           onChange={(v) => onCambia({ tiempo: numero(v) })}
         />
 
+        {/*
+        | Hasta 10, no hasta 5 (21/10/2026). La cabecera de la hoja dice
+        | «(1-5)», pero el cuerpo técnico puntúa del 1 al 10 toda la temporada
+        | (en la hoja hay 85 tareas con intensidad 6-10). Con el tope en 5,
+        | retocar un 9 al editar lo dejaba en 5 y la carga caía a la mitad.
+        */}
         <Field
-          label="Int. (1-5)"
+          label="Int. (1-10)"
           type="number"
           value={tarea.intensidad ? String(tarea.intensidad) : ""}
-          onChange={(v) => onCambia({ intensidad: Math.min(5, numero(v)) })}
+          onChange={(v) => onCambia({ intensidad: Math.min(10, numero(v)) })}
         />
 
         <Field
-          label="Cog. (1-5)"
+          label="Cog. (1-10)"
           type="number"
           value={tarea.exigCog ? String(tarea.exigCog) : ""}
-          onChange={(v) => onCambia({ exigCog: Math.min(5, numero(v)) })}
+          onChange={(v) => onCambia({ exigCog: Math.min(10, numero(v)) })}
         />
 
         <div className="mb-1 flex gap-1">
@@ -1166,6 +1172,13 @@ export default function EditorMicrocicloPage() {
     const alTeclear = (evento: KeyboardEvent) => {
       if (!(evento.ctrlKey || evento.metaKey) || evento.altKey) return;
 
+      /* Escribiendo en el buscador de la cabecera o en otra ventana, Ctrl+Z es suyo, no del microciclo. */
+      const donde = evento.target instanceof Element ? evento.target : null;
+
+      if (donde && donde.closest("input,textarea,select,[contenteditable]") && !donde.closest("#editor-microciclo")) return;
+
+      if (donde?.closest("[role=dialog]")) return;
+
       const tecla = evento.key.toLowerCase();
 
       if (tecla === "z" && !evento.shiftKey) {
@@ -1603,7 +1616,7 @@ export default function EditorMicrocicloPage() {
       <main className="min-w-0 flex-1">
         <Topbar />
 
-        <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 md:px-8 md:py-8">
+        <div id="editor-microciclo" className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 md:px-8 md:py-8">
           <AbpHeader
             area="RMCF Castilla · Metodología"
             title="Crear o editar el microciclo"
@@ -2015,7 +2028,7 @@ export default function EditorMicrocicloPage() {
                     cuentas.tareas ? `${cuentas.tareas} tarea(s)` : "",
                     cuentas.total ? `${cuentas.total}′` : "",
                     deAbp ? `${deAbp}′ de balón parado` : "",
-                    Object.keys(referencia).length ? "la marca blanca es la media de su MD esta temporada" : "",
+                    Object.keys(referencia).length ? "la marca sobre cada barra es la media de su MD esta temporada" : "",
                   ]
                     .filter(Boolean)
                     .join(" · ") || "Arrastra, copia y ordena; los detalles se rellenan abajo"}
