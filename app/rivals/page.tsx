@@ -3850,6 +3850,7 @@ export default function RivalPlayersPage() {
                       ? [
                           { href: "/scout-rival-collective", label: "Cómo juega como equipo" },
                           { href: "/duelos", label: "Duelos contra nuestro once" },
+                          { href: "/scout-rival-individual", label: "Vídeos de sus jugadores" },
                         ]
                       : []),
                   ]}
