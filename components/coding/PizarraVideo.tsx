@@ -1747,7 +1747,9 @@ export function PizarraVideo({
           <button
             type="button"
             onClick={alPintar}
-            className="pointer-events-auto absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-[#11161C]/85 px-3 py-1.5 text-[11px] font-medium text-white/80 backdrop-blur transition hover:border-[#C8A96B]/60 hover:text-white"
+            /* A la izquierda del tirador de tamaño del vídeo, que va en la esquina:
+               montados en el mismo sitio, el tirador tapaba la palabra. */
+            className="pointer-events-auto absolute bottom-3 right-11 inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-[#11161C]/85 px-3 py-1.5 text-[11px] font-medium text-white/80 backdrop-blur transition hover:border-[#C8A96B]/60 hover:text-white"
           >
             <PenTool size={13} />
             Pizarra

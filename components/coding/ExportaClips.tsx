@@ -39,6 +39,7 @@ import {
   PenTool,
   SkipForward,
   Snowflake,
+  Type,
   Upload,
   X,
   SquarePlay as Youtube,
@@ -60,6 +61,7 @@ import {
   puedeCortarAqui,
 } from "@/lib/coding/navegador";
 import {
+  SUJETO_VIDEO_COMPLETO,
   duracionClip,
   formateaTotal,
   nombreDeClip,
@@ -68,6 +70,8 @@ import {
   type ClipCoding,
   type FuenteVideo,
 } from "@/lib/coding/modelo";
+import { rotuloDeClip } from "@/lib/coding/rotulo";
+import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 export type ModoCorteUI = "preciso" | "rapido";
 
@@ -113,6 +117,28 @@ export const MEDIDAS = [
 
 /** La medida de partida: la del partido, sin tocar nada. */
 export const MEDIDA_POR_DEFECTO = 0;
+
+/** Peso y medida de cada destino, para no tener que pensarlo en megas. */
+const DESTINOS = [
+  {
+    nombre: "WhatsApp",
+    megas: 16,
+    medida: 1280,
+    explica: "720p y como mucho 16 MB por fichero: lo que WhatsApp manda sin recomprimir",
+  },
+  {
+    nombre: "Correo o grupo",
+    megas: 50,
+    medida: 1920,
+    explica: "1080p y como mucho 50 MB por fichero",
+  },
+  {
+    nombre: "Sala o YouTube",
+    megas: 0,
+    medida: 0,
+    explica: "Con la imagen del partido y sin tope: para el proyector o para subirlo",
+  },
+];
 
 /** Lo que dura una carátula en pantalla. */
 export const SEGUNDOS_CARATULA = 4;
@@ -220,6 +246,15 @@ export function useExportador(opciones: {
   fps?: number;
   /** El partido, para la pantalla del montaje. */
   titulo?: string;
+  /**
+   * Un rótulo al empezar cada corte: quién, qué y en qué minuto
+   * (`lib/coding/rotulo.ts`). Vale para los tres caminos.
+   */
+  rotulos?: boolean;
+  /** La letra del rótulo en el navegador (`FAMILIA_PORTADA`). */
+  familiaRotulo?: string;
+  /** Fundido a negro entre cortes del unificado, en ms. `0`, corte seco. */
+  fundidoMs?: number;
   /** Adoptar el vídeo ya copiado: cambia la fuente de la sesión. */
   onAdopta?: (fuente: FuenteVideo, src: string) => void;
   /**
@@ -245,6 +280,9 @@ export function useExportador(opciones: {
     ficheros,
     fps,
     titulo,
+    rotulos = false,
+    familiaRotulo,
+    fundidoMs = 0,
     onAdopta,
     alTerminarVideo,
   } = opciones;
@@ -271,6 +309,18 @@ export function useExportador(opciones: {
   );
 
   /*
+  | El rótulo de cada corte, o nada. El corte «Vídeo completo» no lo lleva:
+  | no es una jugada de nadie, es el partido.
+  */
+  const rotuloDe = useCallback(
+    (clip: ClipCoding) =>
+      rotulos && clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id
+        ? rotuloDeClip(clip, categorias)
+        : undefined,
+    [categorias, rotulos],
+  );
+
+  /*
   | ------------------------------------------- EL MONTAJE EN EL NAVEGADOR
   |
   | El partido abierto del ordenador se corta **aquí**, sin servidor.
@@ -291,21 +341,27 @@ export function useExportador(opciones: {
       setExportando(true);
 
       try {
+        /* Sin la letra descargada, el lienzo pinta el rótulo con la de respaldo. */
+        if (rotulos) await esperaFuentePortada();
+
         const resultado = await cortaEnElNavegador({
           fichero,
           titulo: titulo ? `${titulo} · ${peticion.nombre}` : peticion.nombre,
           formato: peticion.formato,
           portada: peticion.portada ?? null,
           portadaSegundos: SEGUNDOS_CARATULA,
+          fundidoMs,
           fps,
           topeMegas,
           topeAncho,
+          familiaRotulo,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
             inicioMs: clip.inicioMs,
             finMs: clip.finMs,
             paradas: peticion.paradas?.get(clip.id),
             fichero: ficheroDe?.(clip),
+            rotulo: rotuloDe(clip),
           })),
         });
 
@@ -344,7 +400,18 @@ export function useExportador(opciones: {
         setExportando(false);
       }
     },
-    [alTerminarVideo, fps, nombraClips, titulo, topeAncho, topeMegas],
+    [
+      alTerminarVideo,
+      familiaRotulo,
+      fps,
+      fundidoMs,
+      nombraClips,
+      rotuloDe,
+      rotulos,
+      titulo,
+      topeAncho,
+      topeMegas,
+    ],
   );
 
   /*
@@ -427,6 +494,7 @@ export function useExportador(opciones: {
           nombre: peticion.nombre,
           portada: imagenes.portada,
           portadaSegundos: SEGUNDOS_CARATULA,
+          fundidoMs,
           topeMegas,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
@@ -434,6 +502,7 @@ export function useExportador(opciones: {
             finMs: clip.finMs,
             pizarras: imagenes.paradas.get(clip.id),
             fuente: fuenteDe?.(clip),
+            rotulo: rotuloDe(clip),
           })),
         });
 
@@ -552,7 +621,7 @@ export function useExportador(opciones: {
         void borraImagenes(rutas);
       }
     },
-    [alTerminarVideo, modo, nombraClips, topeMegas],
+    [alTerminarVideo, fundidoMs, modo, nombraClips, rotuloDe, topeMegas],
   );
 
   /*
@@ -834,6 +903,10 @@ export function BarraExportacion({
   pizarras,
   quema,
   onQuema,
+  rotulos = false,
+  onRotulos,
+  fundido = false,
+  onFundido,
   enNavegador,
   youtube,
   videos = [],
@@ -870,6 +943,12 @@ export function BarraExportacion({
   pizarras: number;
   quema: boolean;
   onQuema: (quema: boolean) => void;
+  /** El rótulo de los primeros segundos de cada corte. */
+  rotulos?: boolean;
+  onRotulos?: (rotulos: boolean) => void;
+  /** Fundido a negro entre los cortes del vídeo unificado. */
+  fundido?: boolean;
+  onFundido?: (fundido: boolean) => void;
   /**
    * El vídeo está abierto del ordenador: el montaje se hace aquí.
    *
@@ -1015,6 +1094,45 @@ export function BarraExportacion({
         </div>
       )}
 
+      {/* ----------------------------- PARA DÓNDE --------------------- */}
+
+      {/*
+      | El destino decide el peso y la medida a la vez, y quien exporta piensa
+      | en «esto va al grupo», no en megas. Pulsar uno pone los dos de abajo;
+      | se pueden seguir tocando sueltos.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+          <Film size={12} className="text-[#C8A96B]" />
+          Para
+        </span>
+
+        {DESTINOS.map((destino) => {
+          const elegido =
+            topeMegas === destino.megas && medida === destino.medida;
+
+          return (
+            <button
+              key={destino.nombre}
+              type="button"
+              aria-pressed={elegido}
+              onClick={() => {
+                onTopeMegas(destino.megas);
+                onMedida(destino.medida);
+              }}
+              title={destino.explica}
+              className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+                elegido
+                  ? "border-[#C8A96B] bg-[#C8A96B]/10 font-semibold text-[#C8A96B]"
+                  : "border-white/10 text-white/50 hover:text-white"
+              }`}
+            >
+              {destino.nombre}
+            </button>
+          );
+        })}
+      </div>
+
       {/* ------------------------- EL PESO DE CADA FICHERO ------------- */}
 
       {/*
@@ -1130,6 +1248,78 @@ export function BarraExportacion({
             {quema
               ? `${pizarras} ${pizarras === 1 ? "parada" : "paradas"}: el vídeo se detiene, se ve lo pintado y sigue`
               : `${pizarras} ${pizarras === 1 ? "pizarra se queda" : "pizarras se quedan"} fuera: el vídeo sale como se grabó`}
+          </span>
+        </div>
+      )}
+
+      {/* ------------------------- LOS RÓTULOS ------------------------ */}
+
+      {onRotulos && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+            <Type size={12} className="text-[#C8A96B]" />
+            Rótulos
+          </span>
+
+          <button
+            type="button"
+            onClick={() => onRotulos(!rotulos)}
+            aria-pressed={rotulos}
+            title={
+              rotulos
+                ? "Cada corte empieza con un rótulo de 3,5 s: quién, qué y en qué minuto. Pulsa para sacarlos limpios."
+                : "Los cortes salen limpios. Pulsa para ponerles el rótulo."
+            }
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+              rotulos
+                ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                : "border-white/10 text-white/40 hover:text-white"
+            }`}
+          >
+            <Type size={12} />
+            {rotulos ? "Con rótulo" : "Sin rótulo"}
+          </button>
+
+          <span className="text-[11px] text-white/35">
+            {rotulos
+              ? "3,5 s al empezar cada corte: dorsal y nombre, categoría, descriptores y minuto"
+              : "los cortes salen como se grabaron"}
+          </span>
+        </div>
+      )}
+
+      {/* ----------------------- ENTRE UN CORTE Y OTRO ---------------- */}
+
+      {onFundido && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+            <Film size={12} className="text-[#C8A96B]" />
+            Transición
+          </span>
+
+          {[
+            { valor: true, texto: "Fundido" },
+            { valor: false, texto: "Corte seco" },
+          ].map((opcion) => (
+            <button
+              key={opcion.texto}
+              type="button"
+              onClick={() => onFundido(opcion.valor)}
+              aria-pressed={fundido === opcion.valor}
+              className={`rounded-md border px-2 py-0.5 text-[11px] transition ${
+                fundido === opcion.valor
+                  ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                  : "border-white/10 text-white/40 hover:text-white"
+              }`}
+            >
+              {opcion.texto}
+            </button>
+          ))}
+
+          <span className="text-[11px] text-white/30">
+            {fundido
+              ? "en el vídeo unificado, un fundido a negro de 0,3 s separa cada jugada"
+              : "las jugadas se pegan una detrás de otra"}
           </span>
         </div>
       )}

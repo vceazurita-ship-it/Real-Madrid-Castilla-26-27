@@ -24,7 +24,9 @@ import { Button, Dialog, Field, Notice, sePuedeDescartar } from "@/components/ab
 import {
   CATEGORIAS_INICIALES,
   COMPORTAMIENTOS_INICIALES,
+  DESCRIPTORES_INICIALES,
   TECLAS_RESERVADAS,
+  TOPE_DESCRIPTORES,
   reparteTeclas,
   teclasRepetidas,
   type CategoriaCoding,
@@ -155,6 +157,152 @@ export function ConfiguraCoding({
           }
           hint="Lo que avanza cada flecha."
         />
+      </div>
+
+      {/* --------------------- MARCA DE UN TOQUE -------------------- */}
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+        <Field
+          label="Un toque · coge antes (s)"
+          type="number"
+          value={String(borrador.toqueAntesMs / 1000)}
+          onChange={(valor) =>
+            setBorrador((actual) => ({
+              ...actual,
+              toqueAntesMs: Math.min(60_000, Math.max(0, Math.round((Number(valor) || 0) * 1000))),
+            }))
+          }
+          hint="Intro marca la acción que acaba de pasar."
+        />
+
+        <Field
+          label="Un toque · coge después (s)"
+          type="number"
+          value={String(borrador.toqueDespuesMs / 1000)}
+          onChange={(valor) =>
+            setBorrador((actual) => ({
+              ...actual,
+              toqueDespuesMs: Math.min(60_000, Math.max(0, Math.round((Number(valor) || 0) * 1000))),
+            }))
+          }
+          hint="Los márgenes de arriba se suman encima."
+        />
+      </div>
+
+      {/* ----------------------- DESCRIPTORES ----------------------- */}
+
+      {/*
+      | Lo que se dice del corte: bien, mal, al vídeo de grupo. La tecla es la
+      | posición (⇧1 el primero), así que no hay campo de tecla que pueda chocar.
+      */}
+      <div className="mt-5">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-white/85">Descriptores</h3>
+
+            <p className="text-[11px] text-white/35">
+              Se ponen al último corte (o al elegido) con <b>⇧1</b> … <b>⇧9</b>
+            </p>
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              icon={RotateCcw}
+              onClick={() =>
+                setBorrador((actual) => ({
+                  ...actual,
+                  descriptores: DESCRIPTORES_INICIALES,
+                }))
+              }
+            >
+              Restaurar
+            </Button>
+
+            <Button
+              icon={Plus}
+              disabled={borrador.descriptores.length >= TOPE_DESCRIPTORES}
+              onClick={() =>
+                setBorrador((actual) => ({
+                  ...actual,
+                  descriptores: [
+                    ...actual.descriptores,
+                    {
+                      id: `des-${actual.descriptores.length + 1}-${Date.now().toString(36)}`,
+                      nombre: "Nuevo",
+                      color: "#CBD5E1",
+                    },
+                  ],
+                }))
+              }
+            >
+              Añadir
+            </Button>
+          </div>
+        </div>
+
+        <ul className="space-y-1.5">
+          {borrador.descriptores.map((descriptor, indice) => (
+            <li
+              key={descriptor.id}
+              className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-2.5 py-2"
+            >
+              <span className="w-8 shrink-0 text-center font-mono text-[12px] text-white/50">
+                ⇧{indice + 1}
+              </span>
+
+              <input
+                type="color"
+                value={descriptor.color}
+                onChange={(evento) =>
+                  setBorrador((actual) => ({
+                    ...actual,
+                    descriptores: actual.descriptores.map((uno) =>
+                      uno.id === descriptor.id
+                        ? { ...uno, color: evento.target.value }
+                        : uno,
+                    ),
+                  }))
+                }
+                className="h-6 w-6 shrink-0 cursor-pointer rounded border border-white/10 bg-transparent"
+                title="Color del descriptor"
+              />
+
+              {/* El id no sigue al nombre: ver la nota de las categorías. */}
+              <input
+                value={descriptor.nombre}
+                aria-label={`Nombre del descriptor ⇧${indice + 1}`}
+                onChange={(evento) =>
+                  setBorrador((actual) => ({
+                    ...actual,
+                    descriptores: actual.descriptores.map((uno) =>
+                      uno.id === descriptor.id
+                        ? { ...uno, nombre: evento.target.value }
+                        : uno,
+                    ),
+                  }))
+                }
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[13px] text-white outline-none focus:border-[#C8A96B]/50"
+              />
+
+              <button
+                type="button"
+                title="Quitar el descriptor (los cortes que ya lo llevan lo conservan)"
+                aria-label={`Quitar ${descriptor.nombre}`}
+                onClick={() =>
+                  setBorrador((actual) => ({
+                    ...actual,
+                    descriptores: actual.descriptores.filter(
+                      (uno) => uno.id !== descriptor.id,
+                    ),
+                  }))
+                }
+                className="rounded-lg p-1.5 text-white/30 transition hover:bg-red-500/10 hover:text-red-300"
+              >
+                <Trash2 size={13} />
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
 
       {/* ------------------------ CATEGORÍAS ------------------------ */}

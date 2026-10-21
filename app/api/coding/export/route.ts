@@ -16,12 +16,14 @@ import {
   imagenComoVideo,
   leeBytes,
   pegaVideos,
+  preparaRotulo,
   respuestaDeFichero,
   segmentoNormalizado,
   sondeaVideo,
   type FuenteServidor,
   type ModoCorte,
   type ParadaPedida,
+  type RotuloServidor,
 } from "@/lib/coding/servidor";
 
 /**
@@ -74,6 +76,8 @@ type ClipPedido = {
    * 4,5 MB que aguanta el despliegue: ver `lib/coding/imagenes.ts`.
    */
   pizarras?: { imagen: string; enMs: number; duracionMs: number }[];
+  /** El rótulo de los primeros segundos: quién y qué. */
+  rotulo?: RotuloServidor;
 };
 
 type Peticion = {
@@ -92,6 +96,8 @@ type Peticion = {
    */
   portada?: string;
   portadaSegundos?: number;
+  /** Fundido a negro entre cortes del unificado, en ms. `0` es corte seco. */
+  fundidoMs?: number;
   /**
    * Lo que puede pesar cada fichero de salida, en megas. `0` es sin tope.
    *
@@ -225,6 +231,9 @@ export async function POST(request: NextRequest) {
   /* Sin tope, 0. Y con tope no se puede copiar: hay que recodificar. */
   const topeMegas = Math.max(0, Number(peticion.topeMegas) || 0);
 
+  /* Como mucho un segundo: más es una pantalla en negro, no una transición. */
+  const fundidoMs = Math.min(1000, Math.max(0, Number(peticion.fundidoMs) || 0));
+
   /** Lo que dura, en segundos, el fichero que va a salir de esos clips. */
   const duracionDe = (lista: ClipPedido[]) =>
     lista.reduce(
@@ -293,6 +302,25 @@ export async function POST(request: NextRequest) {
       return listas;
     };
 
+    /*
+     * El rótulo del corte, medido para la altura con la que va a salir.
+     *
+     * Sólo se sondea el vídeo si hace falta: un corte sin rótulo ni pizarras
+     * sigue yendo por la copia directa, sin abrir el fichero dos veces.
+     */
+    const rotuloDe = async (clip: ClipPedido, indice: number, alto?: number) => {
+      if (!clip.rotulo?.titulo) return null;
+
+      const medida = alto ?? (await sondeaUnaVez(entradaDe(clip)!)).alto;
+
+      return preparaRotulo({
+        rotulo: clip.rotulo,
+        carpeta,
+        prefijo: `rotulo-${indice}`,
+        alto: medida,
+      });
+    };
+
     /* ------------------------------------------------ un solo clip */
 
     if (peticion.formato === "clip") {
@@ -306,6 +334,7 @@ export async function POST(request: NextRequest) {
         const datos = await sondeaUnaVez(entradaDe(clip)!);
 
         await cortaClipConParadas({
+          rotulo: await rotuloDe(clip, 0, datos.alto),
           entrada: entradaDe(clip)!,
           inicioMs: clip.inicioMs,
           finMs: clip.finMs,
@@ -327,6 +356,7 @@ export async function POST(request: NextRequest) {
           modo,
           destino,
           topeMegas,
+          rotulo: await rotuloDe(clip, clips.indexOf(clip)),
         });
       }
 
@@ -403,6 +433,9 @@ export async function POST(request: NextRequest) {
                    entre todo lo que va a durar, no entre este trozo. */
                 topeMegas,
                 segundosDelTope: duracionDe(clips),
+                /* Medido a la altura del montaje, no a la de su vídeo. */
+                rotulo: await rotuloDe(clip, indice, datos.alto),
+                fundidoMs,
               })
             : await segmentoNormalizado({
                 entrada: entradaClip,
@@ -415,6 +448,10 @@ export async function POST(request: NextRequest) {
                 destino: destinoTrozo,
                 topeMegas,
                 segundosDelTope: duracionDe(clips),
+                rotulo: await rotuloDe(clip, indice, datos.alto),
+                fundido: fundidoMs
+                  ? { ms: fundidoMs, entra: true, sale: true }
+                  : undefined,
               }),
         );
       }
@@ -457,6 +494,7 @@ export async function POST(request: NextRequest) {
           prefijo: `z${indice}`,
           destino,
           topeMegas,
+          rotulo: await rotuloDe(clip, indice, datos.alto),
         });
       } else {
         await cortaClip({
@@ -466,6 +504,7 @@ export async function POST(request: NextRequest) {
           modo,
           destino,
           topeMegas,
+          rotulo: await rotuloDe(clip, clips.indexOf(clip)),
         });
       }
 

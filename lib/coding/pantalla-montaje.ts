@@ -15,6 +15,8 @@
  * coding no llegan a la página de detrás.
  */
 
+import type { RotuloClip } from "@/lib/coding/rotulo";
+
 const ORO = "#C8A96B";
 
 /** El mensaje del corte cancelado a mano, para no enseñarlo como un error. */
@@ -43,6 +45,8 @@ export type ClipNavegador = {
    * lee del suyo.
    */
   fichero?: Blob;
+  /** El rótulo de los primeros segundos (`lib/coding/rotulo.ts`). */
+  rotulo?: RotuloClip;
 };
 
 export type PeticionNavegador = {
@@ -75,7 +79,23 @@ export type PeticionNavegador = {
    * se elige en la barra de la exportación.
    */
   topeAncho?: number;
+  /** La familia de `ctx.font` para los rótulos: el motor no carga fuentes. */
+  familiaRotulo?: string;
+  /**
+   * Fundido a negro al entrar y salir de cada corte, en ms. Sólo en el vídeo
+   * unificado: es lo que separa una jugada de la siguiente sin un salto seco.
+   */
+  fundidoMs?: number;
 };
+
+/** Cuánto negro va encima en el ms `t` de un corte que dura `dura`: de 0 a 1. */
+export function negroDeFundido(t: number, dura: number, fundidoMs: number) {
+  if (fundidoMs <= 0 || dura <= fundidoMs * 2) return 0;
+
+  const borde = Math.min(t, dura - t);
+
+  return borde >= fundidoMs ? 0 : Math.max(0, 1 - borde / fundidoMs);
+}
 
 export type ResultadoNavegador = {
   blob: Blob;

@@ -31,11 +31,12 @@
 | misma hoja: el aviso decía qué falta, pero no llevaba a ninguna parte.
 */
 
-import { CircleDot, Play, Square, Undo2, X } from "lucide-react";
+import { CircleDot, Play, Redo2, Square, Undo2, X, Zap } from "lucide-react";
 
 import type {
   CategoriaCoding,
   ComportamientoColectivo,
+  DescriptorCoding,
   JugadorCoding,
 } from "@/lib/coding/modelo";
 import {
@@ -65,6 +66,12 @@ export function BarraMarcado({
   listo,
   ultimo = null,
   onVerUltimo,
+  onRehacer,
+  toque,
+  onToque,
+  descriptores = [],
+  objetivo = null,
+  onDescriptor,
 }: {
   /** Milisegundo del IN, o `null` si no hay marca abierta. */
   inicioMs: number | null;
@@ -90,6 +97,19 @@ export function BarraMarcado({
    */
   ultimo?: { nombre: string; largoMs: number } | null;
   onVerUltimo?: () => void;
+  onRehacer?: () => void;
+  /**
+   * La marca de un toque (Intro): lo que coge hacia atrás y hacia delante.
+   *
+   * Es para el directo: se ve la acción y se pulsa una vez, sin haber
+   * llegado a marcar el inicio.
+   */
+  toque?: { antesMs: number; despuesMs: number };
+  onToque?: () => void;
+  /** Lo que se dice del corte con ⇧1…⇧9, y a qué corte se le dice. */
+  descriptores?: DescriptorCoding[];
+  objetivo?: { numero: number; nombre: string; tags: string[] } | null;
+  onDescriptor?: (nombre: string) => void;
 }) {
   const abierta = inicioMs !== null;
 
@@ -154,6 +174,18 @@ export function BarraMarcado({
         >
           <Undo2 size={16} />
         </button>
+
+        {onRehacer && (
+          <button
+            type="button"
+            onClick={onRehacer}
+            title="Rehacer lo que se acaba de deshacer (⇧ + Retroceso)"
+            aria-label="Rehacer"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/10 text-white/50 transition hover:border-white/25 hover:text-white"
+          >
+            <Redo2 size={16} />
+          </button>
+        )}
       </div>
 
       {/* --------------------------- MARCAR ---------------------------- */}
@@ -188,6 +220,30 @@ export function BarraMarcado({
         | del mismo tamaño al lado del de marcar sería el que se pulsa por
         | equivocación con el pulgar.
         */}
+        {/*
+        | El toque va al lado y no en lugar del botón grande: marcar inicio y
+        | final sigue siendo lo preciso, y el toque es lo rápido del directo.
+        */}
+        {!abierta && toque && onToque && (
+          <button
+            type="button"
+            disabled={!listo}
+            onClick={onToque}
+            title={`Un toque (Intro): coge los ${Math.round(toque.antesMs / 1000)} s de antes y los ${Math.round(toque.despuesMs / 1000)} s de después del instante`}
+            className="flex min-h-14 shrink-0 flex-col items-center justify-center rounded-xl border border-[#C8A96B]/50 px-3 text-[#C8A96B] transition hover:bg-[#C8A96B]/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <span className="flex items-center gap-1.5 text-sm font-semibold">
+              <Zap size={15} />
+              Un toque
+            </span>
+
+            <span className="font-mono text-[10px] tabular-nums opacity-75">
+              −{Math.round(toque.antesMs / 1000)} s · +
+              {Math.round(toque.despuesMs / 1000)} s
+            </span>
+          </button>
+        )}
+
         {abierta && (
           <button
             type="button"
@@ -239,10 +295,54 @@ export function BarraMarcado({
           )}
 
           <span className="hidden text-[11px] text-white/25 sm:inline">
-            o con las teclas I y O
+            o con las teclas I y O · Intro, un toque
           </span>
         </span>
       </div>
+
+      {/* ------------------------ DESCRIPTORES ------------------------ */}
+
+      {descriptores.length > 0 && objetivo && onDescriptor && (
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5 border-t border-white/10 pt-2">
+          <span className="min-w-0 truncate text-[11px] text-white/40">
+            Al corte{" "}
+            <b className="font-mono font-semibold text-white/70">
+              {String(objetivo.numero).padStart(3, "0")}
+            </b>{" "}
+            · {objetivo.nombre}
+          </span>
+
+          {descriptores.map((descriptor, indice) => {
+            const puesto = objetivo.tags.some(
+              (tag) =>
+                tag.trim().toLowerCase() ===
+                descriptor.nombre.trim().toLowerCase(),
+            );
+
+            return (
+              <button
+                key={descriptor.id}
+                type="button"
+                aria-pressed={puesto}
+                onClick={() => onDescriptor(descriptor.nombre)}
+                title={`${puesto ? "Quitar" : "Poner"} «${descriptor.nombre}» (⇧${indice + 1})`}
+                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+                  puesto ? "font-semibold text-white" : "text-white/55 hover:text-white"
+                }`}
+                style={{
+                  borderColor: puesto ? descriptor.color : `${descriptor.color}55`,
+                  background: puesto ? `${descriptor.color}33` : "transparent",
+                }}
+              >
+                <span className="font-mono text-[10px] opacity-60">
+                  ⇧{indice + 1}
+                </span>
+                {descriptor.nombre}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

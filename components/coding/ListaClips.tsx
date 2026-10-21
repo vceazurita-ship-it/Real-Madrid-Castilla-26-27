@@ -33,14 +33,35 @@ import {
 
 import { Button, Dialog, Field, TextArea, sePuedeDescartar } from "@/components/abp/ui";
 import {
+  alternaTag,
   duracionClip,
   formateaDuracion,
   formateaMs,
+  tieneTag,
   type CategoriaCoding,
   type ClipCoding,
   type ComportamientoColectivo,
+  type DescriptorCoding,
   type JugadorCoding,
 } from "@/lib/coding/modelo";
+
+/** «perfil, pase ,, progresión» → las etiquetas limpias, sin repetir. */
+function leeTags(texto: string) {
+  const vistas = new Set<string>();
+
+  return texto
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter((tag) => {
+      const clave = tag.toLowerCase();
+
+      if (!tag || vistas.has(clave)) return false;
+
+      vistas.add(clave);
+
+      return true;
+    });
+}
 
 export function ListaClips({
   clips,
@@ -56,8 +77,14 @@ export function ListaClips({
   pizarrasDe,
   exportando,
   videoDe,
+  libre = false,
+  tituloBorrar = "Eliminar (se deshace con Retroceso o el botón de deshacer)",
 }: {
   clips: ClipCoding[];
+  /** Una lista guardada: se reordena sin mirar de qué vídeo es cada corte. */
+  libre?: boolean;
+  /** En una lista, la papelera saca el corte de la lista, no lo borra. */
+  tituloBorrar?: string;
   /**
    * De qué vídeo es cada clip, cuando la lista enseña los de varios.
    *
@@ -127,7 +154,8 @@ export function ListaClips({
   const compartenVideo = (clip: ClipCoding, otro: ClipCoding | undefined) => {
     if (!otro) return undefined;
 
-    if (!videoDe) return otro;
+    /* En una lista guardada el orden es el del montaje, de vídeo a vídeo. */
+    if (libre || !videoDe) return otro;
 
     const suyo = videoDe(clip);
 
@@ -208,7 +236,7 @@ export function ListaClips({
         <Copy size={13} />
       </Icono>
 
-      <Icono titulo="Eliminar (se deshace con Retroceso o el botón de deshacer)" tono="peligro" onClick={() => onBorrar(fila.clip.id)}>
+      <Icono titulo={tituloBorrar} tono="peligro" onClick={() => onBorrar(fila.clip.id)}>
         <Trash2 size={13} />
       </Icono>
     </>
@@ -258,6 +286,21 @@ export function ListaClips({
       </span>
     ) : (
       <span className="text-[11px] text-white/20">—</span>
+    );
+
+  /* Los descriptores y etiquetas: antes sólo se veían abriendo la ficha. */
+  const chapaTags = (clip: ClipCoding) =>
+    clip.tags.length > 0 && (
+      <span className="inline-flex min-w-0 flex-wrap gap-1">
+        {clip.tags.map((tag) => (
+          <span
+            key={tag}
+            className="rounded-full border border-white/10 px-1.5 text-[10px] text-white/55"
+          >
+            {tag}
+          </span>
+        ))}
+      </span>
     );
 
   const chapaPizarras = (pizarras: number) =>
@@ -317,6 +360,8 @@ export function ListaClips({
                 </span>
 
                 {chapaCategoria(fila.categoria)}
+
+                {chapaTags(fila.clip)}
 
                 {videoDe && (
                   <span
@@ -479,7 +524,12 @@ export function ListaClips({
 
                   <td className="max-w-[190px] px-2 py-1.5">{quien(clip)}</td>
 
-                  <td className="px-2 py-1.5">{chapaCategoria(fila.categoria)}</td>
+                  <td className="px-2 py-1.5">
+                    <span className="flex min-w-0 flex-wrap items-center gap-1.5">
+                      {chapaCategoria(fila.categoria)}
+                      {chapaTags(fila.clip)}
+                    </span>
+                  </td>
 
                   <td className="px-2 py-1.5 text-right text-[11px] tabular-nums text-white/50">
                     {formateaMs(clip.codingInicioMs)}
@@ -577,6 +627,7 @@ export function FichaClip({
   jugadores,
   comportamientos,
   categorias,
+  descriptores = [],
   tiempoActualMs,
   onGuardar,
   onCerrar,
@@ -585,15 +636,25 @@ export function FichaClip({
   jugadores: JugadorCoding[];
   comportamientos: ComportamientoColectivo[];
   categorias: CategoriaCoding[];
+  descriptores?: DescriptorCoding[];
   /** Por dónde va el vídeo: permite traer el IN o el OUT de donde se está. */
   tiempoActualMs: number;
   onGuardar: (cambios: Partial<ClipCoding>) => void;
   onCerrar: () => void;
 }) {
   const [borrador, setBorrador] = useState<ClipCoding>(clip);
+  const [textoTags, setTextoTags] = useState(clip.tags.join(", "));
 
   const cambia = (cambios: Partial<ClipCoding>) =>
     setBorrador((actual) => ({ ...actual, ...cambios }));
+
+  /* Un descriptor pulsado entra en las etiquetas y en el texto del campo. */
+  const alternaDescriptor = (nombre: string) => {
+    const tags = alternaTag(borrador, nombre).tags;
+
+    cambia({ tags });
+    setTextoTags(tags.join(", "));
+  };
 
   const invalido = borrador.codingFinMs <= borrador.codingInicioMs;
 
@@ -767,18 +828,48 @@ export function FichaClip({
         />
       </div>
 
+      {descriptores.length > 0 && (
+        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-[11px] text-white/45">Descriptores</span>
+
+          {descriptores.map((descriptor, indice) => {
+            const puesto = tieneTag(borrador, descriptor.nombre);
+
+            return (
+              <button
+                key={descriptor.id}
+                type="button"
+                aria-pressed={puesto}
+                onClick={() => alternaDescriptor(descriptor.nombre)}
+                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+                  puesto ? "font-semibold text-white" : "text-white/55 hover:text-white"
+                }`}
+                style={{
+                  borderColor: puesto ? descriptor.color : `${descriptor.color}55`,
+                  background: puesto ? `${descriptor.color}33` : "transparent",
+                }}
+              >
+                <span className="font-mono text-[10px] opacity-60">⇧{indice + 1}</span>
+                {descriptor.nombre}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {/*
+        | El texto se guarda tal cual se escribe y las etiquetas se sacan de él.
+        | Antes el campo se repintaba con las etiquetas ya limpias, y la coma
+        | se borraba nada más escribirla: no había forma de poner dos.
+        */}
         <Field
           label="Etiquetas"
-          value={borrador.tags.join(", ")}
-          onChange={(valor) =>
-            cambia({
-              tags: valor
-                .split(",")
-                .map((tag) => tag.trim())
-                .filter(Boolean),
-            })
-          }
+          value={textoTags}
+          onChange={(valor) => {
+            setTextoTags(valor);
+            cambia({ tags: leeTags(valor) });
+          }}
           hint="Separadas por comas: perfil, pase, progresión."
         />
 
