@@ -489,7 +489,7 @@ function DiaColumna({
                 onClick={() => onCambiaTipo(tipo.key)}
                 aria-pressed={activo}
                 title={tipo.label}
-                className={`truncate rounded-md px-1 py-1 text-[10px] font-semibold transition ${
+                className={`truncate rounded-md px-0.5 py-1 text-[9.5px] font-semibold tracking-tight transition ${
                   activo
                     ? "bg-[#C8A96B] text-black"
                     : "bg-white/[0.05] text-white/40 hover:text-white/70"
