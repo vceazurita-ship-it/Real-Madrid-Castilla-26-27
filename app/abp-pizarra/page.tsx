@@ -2961,7 +2961,8 @@ function TextosDeLaSlide({
             Señal, rutina e intención · optativo
           </p>
 
-          <div className="grid gap-2 sm:grid-cols-3">
+          {/* Una por fila: en tres columnas la rutina, que es la más larga, se cortaba en el campo. */}
+          <div className="grid gap-2">
             {CASILLAS_GUION.map((casilla) => (
               <label key={casilla.key} className="block">
                 <span className="mb-1 block text-xs font-semibold text-[#E4CE9B]">

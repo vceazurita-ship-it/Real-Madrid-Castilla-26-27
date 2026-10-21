@@ -103,6 +103,14 @@ const CAMPO_DESDE = CABECERA_H - 26;
 /** Margen entre el filo de la cabecera y lo que va debajo. */
 const AIRE = 16;
 
+/** Tamaños de letra de las consignas, del normal al más apretado (en px del lienzo). */
+const PASOS_LETRA_NOTAS = [
+  { texto: 22, rotulo: 19, sub: 21 },
+  { texto: 19, rotulo: 16.5, sub: 18 },
+  { texto: 17, rotulo: 15, sub: 16 },
+  { texto: 15, rotulo: 13, sub: 14 },
+];
+
 type Maqueta = {
   k: number;
   left: number;
@@ -1041,6 +1049,22 @@ export function TableroSlide({
 
   const [escala, setEscala] = useState(1);
 
+  /*
+  | Lo que no cabe se encoge en vez de cortarse: el panel y la franja de
+  | consignas tienen caja fija y, con muchos puestos o muchas consignas, lo de
+  | abajo (o la tercera columna) quedaba fuera sin avisar, en la sala y en el
+  | PNG / PPT. El panel se mide y se reduce de una vez; las consignas bajan de
+  | letra por pasos hasta que caben en sus dos columnas. La clave devuelve el
+  | paso a cero en cuanto cambia el texto.
+  */
+  const panelRef = useRef<HTMLDivElement>(null);
+  const notasRef = useRef<HTMLDivElement>(null);
+  const [ajustePanel, setAjustePanel] = useState(1);
+  const claveNotas = lineas.map((l) => ("rotulo" in l ? l.rotulo : "") + l.texto).join("\n");
+  const [pasoNotas, setPasoNotas] = useState({ clave: "", paso: 0 });
+  const paso = pasoNotas.clave === claveNotas ? pasoNotas.paso : 0;
+  const letra = PASOS_LETRA_NOTAS[paso];
+
   /* El lienzo es fijo; lo que cambia es cuánto se encoge para caber. */
   useEffect(() => {
     const marco = marcoRef.current;
@@ -1377,6 +1401,36 @@ export function TableroSlide({
   const filasPanel = puestos.length + grupos.length;
   const panelDenso = filasPanel > 17;
 
+  /* Alto que le queda al panel entre la cabecera y la franja de consignas. */
+  const altoPanel =
+    (conNotas ? TABLERO_H - FRANJA_NOTAS - AIRE / 2 : TABLERO_H - AIRE) - maqueta.top;
+
+  useEffect(() => {
+    const el = panelRef.current;
+
+    if (!el) return;
+
+    /* 34 = relleno vertical (32) y borde (2) de la caja. */
+    const medir = () =>
+      setAjustePanel(Math.min(1, Math.max(0.55, (altoPanel - 34) / el.offsetHeight)));
+
+    medir();
+
+    const observer = new ResizeObserver(medir);
+
+    observer.observe(el);
+
+    return () => observer.disconnect();
+  }, [altoPanel, conPanel]);
+
+  useEffect(() => {
+    const el = notasRef.current;
+
+    if (el && el.scrollWidth > el.clientWidth + 1 && paso < PASOS_LETRA_NOTAS.length - 1) {
+      setPasoNotas({ clave: claveNotas, paso: paso + 1 });
+    }
+  }, [paso, claveNotas, conNotas]);
+
   const editaTrazos = !soloVer && tiempo == null;
 
   const elegido = editaTrazos
@@ -1515,9 +1569,23 @@ export function TableroSlide({
 
         {/* --------------- LO QUE DIBUJA LA PLANTILLA --------------- */}
 
-        {adornos.map((adorno, indice) => (
-          <Adorno key={`${adorno.tipo}-${indice}`} adorno={adorno} />
-        ))}
+        {/*
+        | La flecha de la contra mide 1040 × 380 en el lienzo de la plantilla. Al
+        | enseñar, el marco se acerca a la jugada y puede dejarla a medias: sólo
+        | se veía «OS EL CÓRNER» pegado al borde y media flecha. Si no cabe
+        | entera en lo que se ve, no se pinta.
+        */}
+        {adornos
+          .filter(
+            (adorno) =>
+              adorno.tipo !== "transicion" ||
+              (maqueta.ox <= 96 &&
+                maqueta.oy + maqueta.h / maqueta.k >= 1080 &&
+                maqueta.ox + maqueta.w / maqueta.k >= 1136),
+          )
+          .map((adorno, indice) => (
+            <Adorno key={`${adorno.tipo}-${indice}`} adorno={adorno} />
+          ))}
 
         {/* ----------------- CARRERAS, BALÓN, BLOQUEOS ----------------- */}
 
@@ -1793,13 +1861,20 @@ export function TableroSlide({
               left: TABLERO_W - COLUMNA_PANEL + AIRE / 2,
               top: maqueta.top,
               width: COLUMNA_PANEL - AIRE * 1.5,
-              maxHeight:
-                (conNotas ? TABLERO_H - FRANJA_NOTAS - AIRE / 2 : TABLERO_H - AIRE) - maqueta.top,
+              maxHeight: altoPanel,
               backgroundColor: "rgba(15,32,54,.96)",
               border: "1px solid rgba(200,169,107,.32)",
               boxShadow: "0 18px 44px rgba(0,0,0,.5)",
             }}
           >
+            <div
+              ref={panelRef}
+              style={{
+                transform: ajustePanel < 1 ? `scale(${ajustePanel})` : undefined,
+                transformOrigin: "top left",
+                width: ajustePanel < 1 ? `${100 / ajustePanel}%` : undefined,
+              }}
+            >
             <div
               className="mb-3 flex items-baseline justify-between border-b pb-2.5"
               style={{ borderColor: "rgba(200,169,107,.25)" }}
@@ -1899,6 +1974,7 @@ export function TableroSlide({
                 );
               })}
             </div>
+            </div>
           </div>
         )}
 
@@ -1935,6 +2011,7 @@ export function TableroSlide({
               </p>
 
               <div
+                ref={notasRef}
                 className="min-w-0 flex-1"
                 style={{
                   columnCount: lineas.length > 3 ? 2 : 1,
@@ -1947,12 +2024,12 @@ export function TableroSlide({
                   linea.tipo === "guion" ? (
                     <p
                       key={`${indice}-${linea.rotulo}`}
-                      className="mb-2 text-[22px] font-semibold leading-[1.25]"
-                      style={{ color: COLORES.navy, breakInside: "avoid" }}
+                      className="mb-2 font-semibold leading-[1.25]"
+                      style={{ color: COLORES.navy, breakInside: "avoid", fontSize: letra.texto }}
                     >
                       <span
-                        className="mr-2.5 text-[19px] font-bold uppercase tracking-[0.12em]"
-                        style={{ color: COLORES.oro }}
+                        className="mr-2.5 font-bold uppercase tracking-[0.12em]"
+                        style={{ color: COLORES.oro, fontSize: letra.rotulo }}
                       >
                         {linea.rotulo}
                       </span>
@@ -1962,16 +2039,16 @@ export function TableroSlide({
                   ) : linea.tipo === "subtitulo" ? (
                     <p
                       key={`${indice}-${linea.texto}`}
-                      className="mb-1.5 mt-0.5 text-[21px] font-bold leading-tight tracking-[0.02em]"
-                      style={{ color: COLORES.oro, breakInside: "avoid", breakAfter: "avoid" }}
+                      className="mb-1.5 mt-0.5 font-bold leading-tight tracking-[0.02em]"
+                      style={{ color: COLORES.oro, breakInside: "avoid", breakAfter: "avoid", fontSize: letra.sub }}
                     >
                       {linea.texto}
                     </p>
                   ) : (
                     <p
                       key={`${indice}-${linea.texto}`}
-                      className="mb-2 flex items-start gap-3 text-[22px] font-semibold leading-[1.25]"
-                      style={{ color: COLORES.navy, breakInside: "avoid" }}
+                      className="mb-2 flex items-start gap-3 font-semibold leading-[1.25]"
+                      style={{ color: COLORES.navy, breakInside: "avoid", fontSize: letra.texto }}
                     >
                       <span
                         className="mt-[10px] shrink-0 rounded-[1px]"
