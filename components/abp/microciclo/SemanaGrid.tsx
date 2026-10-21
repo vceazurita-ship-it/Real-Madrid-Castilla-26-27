@@ -256,8 +256,15 @@ function TrabajoCuerpo({
           </p>
         ))}
 
+      {detalle && trabajo.objetivo?.trim() && (
+        <p className="mt-1 text-[10px] leading-snug text-white/60">
+          <span className="font-semibold text-emerald-300">Éxito · </span>
+          {trabajo.objetivo.trim()}
+        </p>
+      )}
+
       {detalle && porque && (
-        <p className="mt-1 text-[10px] leading-snug text-white/50">
+        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-white/50" title={porque}>
           <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
             Por qué ·{" "}
           </span>

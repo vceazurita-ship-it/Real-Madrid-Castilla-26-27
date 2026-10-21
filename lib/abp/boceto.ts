@@ -39,6 +39,7 @@
 
 import { objetivoDeLaSemana } from "@/lib/abp/informe-micro";
 import { MARCA_BOCETO } from "@/lib/abp/minutos";
+import { CRITERIO_ENSAYO, criterioDe } from "@/lib/abp/criterios";
 import {
   ASPECTO_BY_KEY,
   DIA_KEYS,
@@ -451,7 +452,13 @@ export function construyeBoceto(entrada: EntradaBoceto): Boceto {
   colocaTrabajo(plan, candidatos, donde, rival, minutosVideo);
 
   if (diaEnsayo && minutosEnsayo > 0 && candidatos.length > 0) {
-    const principales = candidatos.slice(0, Math.min(2, candidatos.length));
+    /*
+    | Las dos principales DEL MISMO LADO (21/10/2026): con un córner ofensivo y
+    | una banda defensiva, la tarea cruzaba aspectos y lados y el ensayo salía
+    | con «banda ofensiva», que no se había trabajado en la semana: el ensayo
+    | del día antes estrenaba algo, justo lo que promete no hacer.
+    */
+    const principales = candidatos.filter((uno) => uno.lado === candidatos[0].lado).slice(0, 2);
 
     plan[diaEnsayo.clave].trabajos.push(
       tareaDe(
@@ -461,7 +468,8 @@ export function construyeBoceto(entrada: EntradaBoceto): Boceto {
           ventana.partido ? ` para el ${ventana.partido.rival}` : ""
         }, sin estrenar nada.`,
         principales.map((uno) => uno.aspecto),
-        [...new Set(principales.map((uno) => uno.lado))],
+        [principales[0].lado],
+        CRITERIO_ENSAYO,
       ),
     );
   }
@@ -577,6 +585,8 @@ function tareaDe(
   notas: string,
   aspectos?: AspectoKey[],
   lados?: AbpLado[],
+  /** El criterio de éxito; si no se da, el de partida del aspecto. */
+  objetivo?: string,
 ): Trabajo {
   const suyos = (aspectos?.length ? aspectos : [candidato.aspecto]).filter((clave) =>
     ASPECTO_BY_KEY.has(clave),
@@ -597,5 +607,6 @@ function tareaDe(
     intensidad: sitio.intensidad,
     exigCognitiva: sitio.exigCognitiva,
     notas,
+    objetivo: objetivo ?? criterioDe(suyos, susLados, sitio.medio),
   });
 }

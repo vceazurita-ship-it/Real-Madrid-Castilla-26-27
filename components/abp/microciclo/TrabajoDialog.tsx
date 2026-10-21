@@ -15,6 +15,7 @@ import { Trash2 } from "lucide-react";
 import { Button, Dialog, TextArea, sePuedeDescartar } from "@/components/abp/ui";
 import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { porqueDe } from "@/lib/abp/semana-revision";
+import { criterioDe } from "@/lib/abp/criterios";
 import { chipInk } from "@/lib/theme";
 import {
   ASPECTOS_POR_GRUPO,
@@ -393,6 +394,9 @@ export function TrabajoDialog({
   const explicativos = useTextosExplicativos();
   const { porque } = porqueDe(borrador.notas, explicativos);
 
+  /* El criterio de partida para lo que está marcado ahora. */
+  const sugerido = criterioDe(borrador.aspectos, lados, borrador.medio);
+
   const carga = cargaCondicional(borrador);
   const cargaCog = cargaCognitiva(borrador);
 
@@ -639,6 +643,34 @@ export function TrabajoDialog({
                 : "Carga condicional = tiempo × intensidad, la misma cuenta que la hoja de registro. La cognitiva es una estimación (tiempo × exigencia); la de la hoja lleva más ingredientes."}
             </p>
           </Explicativo>
+        </div>
+
+        {/*
+          CRITERIO DE ÉXITO (21/10/2026): lo que se mira en el campo para dar
+          la tarea por buena. Se ofrece el de partida del aspecto de un toque y
+          se reescribe para la rutina concreta.
+        */}
+        <div className="min-w-0">
+          <TextArea
+            label="Criterio de éxito"
+            value={borrador.objetivo ?? ""}
+            onChange={(valor) => set("objetivo", valor)}
+            placeholder="Qué tiene que pasar para darla por buena"
+            rows={2}
+          />
+
+          {sugerido && sugerido !== (borrador.objetivo ?? "").trim() && (
+            <button
+              type="button"
+              onClick={() => set("objetivo", sugerido)}
+              className="mt-1.5 w-full rounded-xl border border-dashed border-white/15 px-3 py-2 text-left text-[11px] leading-snug text-white/55 transition hover:border-[#C8A96B]/50 hover:text-white"
+            >
+              <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+                {borrador.objetivo?.trim() ? "Cambiar por · " : "Usar · "}
+              </span>
+              {sugerido}
+            </button>
+          )}
         </div>
 
         <TextArea

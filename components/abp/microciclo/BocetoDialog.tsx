@@ -392,6 +392,13 @@ export function BocetoDialog({
                                   </p>
                                 )}
 
+                                {trabajo.objetivo?.trim() && (
+                                  <p className="mt-1 text-[10.5px] leading-relaxed text-white/55">
+                                    <span className="font-semibold text-emerald-300">Éxito · </span>
+                                    {trabajo.objetivo.trim()}
+                                  </p>
+                                )}
+
                                 {resto && (
                                   <p className="mt-1 whitespace-pre-wrap text-[10px] leading-relaxed text-white/40">
                                     {resto}
