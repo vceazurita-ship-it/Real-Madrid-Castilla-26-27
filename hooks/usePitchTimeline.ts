@@ -12,8 +12,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-/** Duración de un tramo entre dos escenas, a velocidad 1x. */
-export const SEGMENT_MS = 1100;
+/**
+ * Duración de un tramo entre dos escenas, a velocidad 1x.
+ *
+ * 1,5 s desde el 21/10/2026: cada tramo sostiene ahora la escena un momento a
+ * la entrada y a la salida (`tramoSuave`), y con 1,1 s el movimiento de en
+ * medio se quedaba en un tirón.
+ */
+export const SEGMENT_MS = 1500;
 
 export const SPEEDS = [0.5, 1, 1.5, 2] as const;
 
@@ -53,6 +59,13 @@ export interface PitchTimeline {
   nextKeyframe: () => void;
   prevKeyframe: () => void;
   stopAt: (index: number) => void;
+  /**
+   * Reproduce desde donde esté hasta la escena indicada y se para allí.
+   *
+   * Es el «siguiente» de quien presenta: la jugada avanza moviéndose hasta la
+   * escena siguiente y espera a que se explique, en vez de saltar de golpe.
+   */
+  playTo: (index: number) => void;
 
   beginScrub: () => void;
   endScrub: () => void;
@@ -79,6 +92,9 @@ export function usePitchTimeline(count: number): PitchTimeline {
   /** Duración vigente para el bucle de animación, que vive fuera de React. */
   const durationRef = useRef(duration);
 
+  /** Dónde parar la reproducción en curso, en ms; `null` es hasta el final. */
+  const paradaRef = useRef<number | null>(null);
+
   useEffect(() => {
     durationRef.current = duration;
   }, [duration]);
@@ -99,6 +115,15 @@ export function usePitchTimeline(count: number): PitchTimeline {
 
       setRaw((current) => {
         const next = Math.min(current, duration) + delta * speed;
+
+        const parada = paradaRef.current;
+
+        if (parada !== null && next >= parada) {
+          paradaRef.current = null;
+          setPlaying(false);
+
+          return Math.min(parada, duration);
+        }
 
         if (next < duration) return next;
 
@@ -140,6 +165,8 @@ export function usePitchTimeline(count: number): PitchTimeline {
   const play = useCallback(() => {
     if (durationRef.current === 0) return;
 
+    paradaRef.current = null;
+
     // Volver a dar al play al final de la jugada la rebobina.
     setRaw((current) =>
       Math.min(current, durationRef.current) >= durationRef.current
@@ -149,9 +176,14 @@ export function usePitchTimeline(count: number): PitchTimeline {
     setPlaying(true);
   }, []);
 
-  const pause = useCallback(() => setPlaying(false), []);
+  const pause = useCallback(() => {
+    paradaRef.current = null;
+    setPlaying(false);
+  }, []);
 
   const toggle = useCallback(() => {
+    paradaRef.current = null;
+
     setPlaying((current) => {
       if (current) return false;
       if (durationRef.current === 0) return false;
@@ -182,6 +214,27 @@ export function usePitchTimeline(count: number): PitchTimeline {
     },
     [seekKeyframe]
   );
+
+  const playTo = useCallback((target: number) => {
+    const destino = Math.min(durationRef.current, Math.max(0, target * SEGMENT_MS));
+
+    setRaw((current) => {
+      const desde = Math.min(current, durationRef.current);
+
+      /* Hacia atrás no se anima: se salta, que rebobinar no explica nada. */
+      if (destino <= desde) {
+        paradaRef.current = null;
+        setPlaying(false);
+
+        return destino;
+      }
+
+      paradaRef.current = destino;
+      setPlaying(true);
+
+      return desde;
+    });
+  }, []);
 
   const nextKeyframe = useCallback(() => {
     setPlaying(false);
@@ -231,6 +284,7 @@ export function usePitchTimeline(count: number): PitchTimeline {
     nextKeyframe,
     prevKeyframe,
     stopAt,
+    playTo,
     beginScrub,
     endScrub,
   };

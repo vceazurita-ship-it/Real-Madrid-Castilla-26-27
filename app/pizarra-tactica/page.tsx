@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
+  Copy,
   FolderOpen,
   Loader2,
+  Users,
   Maximize2,
   Minimize2,
   Pencil,
@@ -180,6 +182,17 @@ export default function PizarraTacticaPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
 
+  /*
+  | Con qué nace cada pizarra nueva (21/10/2026): en blanco, con los dos onces
+  | ya puestos o como copia de otra. Cada tablero es su propio documento, así
+  | que la copia no puede escribirse desde aquí: se le pasa al editor de la
+  | pizarra nueva y él la guarda en cuanto sabe que su documento está vacío.
+  */
+  const [semillas, setSemillas] = useState<Record<string, TacticsDoc>>({});
+
+  /** El documento de la pizarra abierta, para poder duplicarla. */
+  const docAbierto = useRef<TacticsDoc | null>(null);
+
   // La primera pizarra se selecciona sola en cuanto llega el índice.
   useEffect(() => {
     if (activeId && boards.some((board) => board.id === activeId)) return;
@@ -242,13 +255,42 @@ export default function PizarraTacticaPage() {
     setActiveId(board.id);
   }, [boards, conOnces, listaCargada, setIndex]);
 
-  const createBoard = () => {
+  const createBoard = (como: "blanco" | "onces" | "copia" = "blanco") => {
     if (!listaCargada) return;
+
+    const original = como === "copia" ? active : null;
+
+    if (como === "copia" && (!original || !docAbierto.current)) return;
 
     const board: BoardRef = {
       id: tacticId("board"),
-      nombre: `Pizarra ${boards.length + 1}`,
+      nombre: original ? `${original.nombre} (copia)` : `Pizarra ${boards.length + 1}`,
     };
+
+    if (como === "onces") {
+      const base = emptyDoc(board.nombre);
+
+      const semilla: TacticsDoc = {
+        ...base,
+        scenes: [{ ...base.scenes[0], nombre: "Los dos onces", tokens: dosOnces(DIBUJO_DE_PARTIDA) }],
+      };
+
+      setSemillas((antes) => ({ ...antes, [board.id]: semilla }));
+    }
+
+    if (como === "copia" && docAbierto.current) {
+      const copia = normalizeDoc(docAbierto.current, board.nombre);
+
+      /* Las escenas con identificador nuevo; las fichas conservan el suyo, que es lo que anima. */
+      const semilla: TacticsDoc = {
+        ...copia,
+        titulo: board.nombre,
+        semanaOnces: undefined,
+        scenes: copia.scenes.map((escena) => ({ ...escena, id: tacticId("scene") })),
+      };
+
+      setSemillas((antes) => ({ ...antes, [board.id]: semilla }));
+    }
 
     /* Sobre lo que haya en ese momento, no sobre lo que se leyó al pintar. */
     setIndex((actual) => ({
@@ -256,7 +298,7 @@ export default function PizarraTacticaPage() {
     }));
 
     setActiveId(board.id);
-    toast.success("Pizarra creada");
+    toast.success(como === "copia" ? `Copia de «${original?.nombre}» creada` : "Pizarra creada");
   };
 
   const renameBoard = (id: string, nombre: string) => {
@@ -276,6 +318,10 @@ export default function PizarraTacticaPage() {
   | había forma de volver a llegar a ella desde la pantalla. Ahora el aviso
   | trae «Deshacer», que la devuelve a su sitio de la lista.
   */
+  const recuerdaDoc = useCallback((actual: TacticsDoc) => {
+    docAbierto.current = actual;
+  }, []);
+
   const deleteBoard = (id: string) => {
     if (!listaCargada) return;
 
@@ -322,8 +368,8 @@ export default function PizarraTacticaPage() {
 
           <div
             className={cn(
-              "space-y-5",
-              sinCromo ? "p-2" : "px-3 py-5 sm:px-6 sm:py-6 lg:px-10",
+              "space-y-4",
+              sinCromo ? "p-2" : "px-3 py-4 sm:px-6 sm:py-5 lg:px-10",
             )}
           >
             {!sinCromo && (
@@ -332,7 +378,7 @@ export default function PizarraTacticaPage() {
                 RMCF Castilla · Metodología
               </p>
 
-              <div className="mt-3 flex flex-wrap items-center gap-4">
+              <div className="mt-2 flex flex-wrap items-center gap-4">
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                   Pizarra Táctica
                 </h1>
@@ -340,10 +386,10 @@ export default function PizarraTacticaPage() {
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/40 via-white/10 to-transparent" />
               </div>
 
-              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/55">
-                Coloca fichas propias y rivales, dibuja desplazamientos, pases y
-                zonas, encadena escenas y reprodúcelas como una animación para
-                explicar la idea al grupo.
+              {/* Una línea (21/10/2026): eran tres y empujaban el campo fuera de la pantalla. */}
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-white/55">
+                Fichas, flechas y escenas que se reproducen moviéndose: para la
+                charla, el proyector y el grupo.
               </p>
             </header>
             )}
@@ -456,16 +502,40 @@ export default function PizarraTacticaPage() {
                   ))}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={createBoard}
-                  disabled={!listaCargada}
-                  title={listaCargada ? undefined : "Esperando a que cargue la lista…"}
-                  className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/20 px-3 py-2.5 text-xs font-semibold text-white/60 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/20 disabled:hover:text-white/60"
-                >
-                  <Plus size={14} />
-                  Nueva pizarra
-                </button>
+                <div className="mt-3 grid grid-cols-3 gap-1.5 xl:grid-cols-1">
+                  <button
+                    type="button"
+                    onClick={() => createBoard("blanco")}
+                    disabled={!listaCargada}
+                    title={listaCargada ? "Una pizarra nueva, con el campo vacío" : "Esperando a que cargue la lista…"}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/20 px-2 py-2.5 text-xs font-semibold text-white/60 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/20 disabled:hover:text-white/60"
+                  >
+                    <Plus size={14} />
+                    <span>Nueva<span className="hidden sm:inline"> en blanco</span></span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => createBoard("onces")}
+                    disabled={!listaCargada}
+                    title={listaCargada ? "Una pizarra nueva con los dos equipos ya puestos en 4-2-3-1" : "Esperando a que cargue la lista…"}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/20 px-2 py-2.5 text-xs font-semibold text-white/60 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/20 disabled:hover:text-white/60"
+                  >
+                    <Users size={14} />
+                    <span>Con<span className="hidden sm:inline"> los</span> dos onces</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => createBoard("copia")}
+                    disabled={!listaCargada || !active}
+                    title={active ? `Una copia de «${active.nombre}», con todas sus escenas` : "Abre una pizarra para duplicarla"}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/20 px-2 py-2.5 text-xs font-semibold text-white/60 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-white/20 disabled:hover:text-white/60"
+                  >
+                    <Copy size={14} />
+                    <span>Duplicar<span className="hidden sm:inline"> ésta</span></span>
+                  </button>
+                </div>
               </aside>
               )}
 
@@ -484,6 +554,8 @@ export default function PizarraTacticaPage() {
                     aPantallaCompleta={
                       pantallaNuestra && active.nombre === TABLERO_DE_ONCES
                     }
+                    semilla={semillas[active.id]}
+                    onDoc={recuerdaDoc}
                   />
                 ) : (
                   <div className="flex flex-col items-center px-6 py-24 text-center">
@@ -499,7 +571,7 @@ export default function PizarraTacticaPage() {
 
                     <button
                       type="button"
-                      onClick={createBoard}
+                      onClick={() => createBoard("blanco")}
                       disabled={!listaCargada}
                       title={listaCargada ? undefined : "Esperando a que cargue la lista…"}
                       className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-5 py-2.5 text-sm font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:cursor-not-allowed disabled:opacity-40"
@@ -526,6 +598,8 @@ function BoardEditor({
   conOnces = false,
   deLaSemana = false,
   aPantallaCompleta = false,
+  semilla,
+  onDoc,
 }: {
   boardId: string;
   nombre: string;
@@ -537,6 +611,10 @@ function BoardEditor({
   deLaSemana?: boolean;
   /** El campo se abre ocupando la pantalla. Ver `PitchStage`. */
   aPantallaCompleta?: boolean;
+  /** Con qué nace: si su documento llega vacío, se guarda esto. */
+  semilla?: TacticsDoc;
+  /** Cada vez que cambia el documento, para poder duplicarlo desde la lista. */
+  onDoc?: (doc: TacticsDoc) => void;
 }) {
   const fallback = useMemo(() => emptyDoc(nombre), [nombre]);
 
@@ -547,6 +625,27 @@ function BoardEditor({
   });
 
   const doc = useMemo(() => normalizeDoc(value, nombre), [value, nombre]);
+
+  useEffect(() => {
+    onDoc?.(doc);
+  }, [doc, onDoc]);
+
+  /*
+  | La pizarra recién creada nace con su semilla en cuanto se sabe que su
+  | documento está vacío (no antes: pintar sobre el respaldo mientras carga
+  | machacaría lo que contestara el servidor).
+  */
+  const sembrada = useRef(false);
+
+  useEffect(() => {
+    if (!semilla || sembrada.current || status === "loading") return;
+
+    sembrada.current = true;
+
+    const vacia = doc.scenes.every((escena) => escena.tokens.length === 0 && escena.shapes.length === 0);
+
+    if (vacia) setValue({ ...semilla, titulo: nombre });
+  }, [doc.scenes, nombre, semilla, setValue, status]);
 
   /*
   |--------------------------------------------------------------------------
@@ -759,15 +858,17 @@ function BoardEditor({
       </div>
 
       {deLaSemana && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-2xl border border-[#C8A96B]/20 bg-[#C8A96B]/[0.05] px-3 py-2 text-[11px] text-white/60">
+        <div className="flex flex-col gap-2 rounded-2xl border border-[#C8A96B]/20 bg-[#C8A96B]/[0.05] px-3 py-2 text-[11px] text-white/60 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
           <span className="font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">Onces de la semana</span>
-          <span className="min-w-0 flex-1">
+          {/* En el móvil, en su propia fila: al lado de los botones se quedaba en una palabra por renglón. */}
+          <span className="min-w-0 sm:flex-1">
             {fuentes
-              ? `${fuentes.nuestra} · vs ${fuentes.rival}: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}. Pincha una ficha para cambiar al jugador.`
+              ? `${fuentes.nuestra} · vs ${fuentes.rival}: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}. Pincha dos veces una ficha para cambiar al jugador.`
               : doc.semanaOnces
-                ? `Puestos para el partido del ${doc.semanaOnces.split("|")[0].split("-").reverse().join("/")} contra ${doc.semanaOnces.split("|")[1]}. Pincha una ficha para cambiar al jugador.`
+                ? `Puestos para el partido del ${doc.semanaOnces.split("|")[0].split("-").reverse().join("/")} contra ${doc.semanaOnces.split("|")[1]}. Pincha dos veces una ficha para cambiar al jugador.`
                 : "Se rellenan solos cada semana con nuestro último once y el teórico del rival."}
           </span>
+          <span className="flex flex-wrap items-center gap-2">
           {antesDelRelleno && (
             <button
               type="button"
@@ -793,6 +894,7 @@ function BoardEditor({
             {rellenando ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
             Rellenar otra vez
           </button>
+          </span>
         </div>
       )}
 
@@ -802,7 +904,7 @@ function BoardEditor({
         aPantallaCompleta={aPantallaCompleta}
         roster={roster}
         rivalSquads={rivalSquads}
-        hint="Elige el equipo rival y pulsa sus dorsales para pintarlos. Dibuja con las herramientas de la barra, duplica la escena, mueve las fichas y pulsa ▶ en la barra de escenas para ver la transición. Ctrl+Z deshace."
+        hint="Para animar: duplica la escena, mueve las fichas en la copia y pulsa ▶. Para presentar: pantalla completa y → (o el mando) avanza la jugada escena a escena."
       />
     </div>
   );

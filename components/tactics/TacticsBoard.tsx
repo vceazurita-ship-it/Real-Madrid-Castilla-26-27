@@ -20,18 +20,35 @@ import {
   useRef,
   useState,
 } from "react";
-import { capturaNodo } from "@/lib/export/captura";
-import { descargaDataUrl } from "@/lib/export/lienzos";
+import { apodo, descarga, descargaDataUrl, pdfDeHojas } from "@/lib/export/lienzos";
 import { toast } from "sonner";
 import {
+  AlignHorizontalSpaceAround,
+  AlignVerticalSpaceAround,
+  ArrowLeft,
+  ArrowRight,
   Building2,
   Circle,
+  ClipboardCopy,
   Cone,
   Copy,
   Download,
+  Eye,
+  FileText,
+  Film,
+  Image as ImageIcon,
+  Keyboard,
+  LayoutGrid,
   Mic,
   Plus,
   PersonStanding,
+  Presentation,
+  Rows3,
+  Columns3,
+  Repeat2,
+  Tag,
+  Trash2,
+  X,
 } from "lucide-react";
 
 import type { Player } from "@/types/player";
@@ -43,11 +60,12 @@ import PitchStage from "./PitchStage";
 import PitchCameraBar, { FollowSubject } from "./PitchCameraBar";
 import PitchTimelineBar from "./PitchTimelineBar";
 import PlayerFigure from "./PlayerFigure";
-import BoardToolPalette from "./BoardToolPalette";
+import BoardToolPalette, { BOARD_TOOLS } from "./BoardToolPalette";
 import BoardStyleBar from "./BoardStyleBar";
+import Desplegable from "./Desplegable";
 import { CambioJugador, type OpcionCambio } from "./CambioJugador";
 import { planeDepth, usePitchCamera } from "@/hooks/usePitchCamera";
-import { usePitchTimeline } from "@/hooks/usePitchTimeline";
+import { SEGMENT_MS, usePitchTimeline } from "@/hooks/usePitchTimeline";
 import {
   freeSpot,
   RivalPick,
@@ -63,13 +81,29 @@ import {
   tieneFigura,
 } from "@/lib/tactics/figuras";
 import {
+  Alineacion,
+  alineaFichas,
   duplicateScene,
   emptyScene,
   interpolateTokens,
   pathFrom,
   rectFrom,
   tacticId,
+  tramoSuave,
 } from "@/lib/tactics/helpers";
+import { colocaDibujo, DIBUJOS, ENCAJE_LABEL, type Encaje } from "@/lib/tactics/dibujos";
+import {
+  cargaFuentesLamina,
+  codecLamina,
+  FPS_LAMINA,
+  imagenDelCampo,
+  LAMINA_H,
+  LAMINA_W,
+  lienzoLamina,
+  pintaLamina,
+  puedeHacerVideo,
+  type DatosLamina,
+} from "@/lib/tactics/lamina";
 import {
   CROP_LABEL,
   CROP_VIEWBOX,
@@ -89,6 +123,9 @@ import {
 } from "@/lib/tactics/types";
 import { BalonOficial } from "@/components/tactics/BalonOficial";
 import { CAMPOS, CAMPO_POR_DEFECTO } from "@/lib/tactics/campos";
+import { creaPptx } from "@/lib/export/pptx";
+import { MuxorMp4 } from "@/lib/coding/mp4";
+import type { Bytes } from "@/lib/export/zip";
 import { cn } from "@/lib/utils";
 
 const TOKEN_STYLE: Record<
@@ -109,29 +146,46 @@ interface PerfilFisico {
   posicion?: string;
 }
 
+/** Rejilla del imán al arrastrar con Mayús, en metros del campo. */
+const IMAN = 2.5;
+
+/** Paso de las flechas del teclado con fichas elegidas (con Mayús, el largo). */
+const PASO_CORTO = 0.5;
+const PASO_LARGO = 2;
+
 /**
- * Nombre cabido bajo una figura.
+ * Nombre cabido bajo una ficha.
  *
  * La hoja de scouting guarda el nombre completo ("A. Mayorga Miguel Bañuelos")
  * y bajo la figura eso son tres jugadores de ancho. Se queda el apellido, que
  * es como se le llama en la charla.
+ *
+ * Y en minúscula con su mayúscula (21/10/2026): la hoja de los rivales viene
+ * en mayúsculas («JOSE CARLOS») y la nuestra no («Leiva»), así que en el
+ * mismo campo unos gritaban y otros no, y los de mayúsculas tapaban el doble.
  */
 function nombreCorto(nombre: string) {
-  const limpio = nombre.trim();
+  let limpio = nombre.trim().replace(/\s+/g, " ");
 
-  if (limpio.length <= 14) return limpio;
+  if (limpio && limpio === limpio.toUpperCase() && /[A-ZÁÉÍÓÚÑ]{2}/.test(limpio)) {
+    limpio = limpio
+      .toLowerCase()
+      .replace(/(^|[\s.'-])(\p{L})/gu, (_, antes: string, letra: string) => antes + letra.toUpperCase());
+  }
 
-  const partes = limpio.split(/\s+/);
+  if (limpio.length <= 12) return limpio;
+
+  const partes = limpio.split(" ");
   const ultimo = partes[partes.length - 1];
 
-  return ultimo.length <= 14 ? ultimo : `${limpio.slice(0, 13)}…`;
+  return ultimo.length <= 12 ? ultimo : `${limpio.slice(0, 11)}…`;
 }
 
 /** Nombre reducido a lo comparable: sin tildes, sin puntuación, en minúscula. */
 function claveNombre(nombre?: string) {
   return String(nombre ?? "")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
@@ -160,6 +214,39 @@ function tituloFicha(
 
   return datos.length ? `${base} · ${datos.join(" · ")}` : base;
 }
+
+/** ¿Se está escribiendo en algún sitio? Ahí las teclas son del cuadro de texto. */
+function escribiendo(target: EventTarget | null) {
+  const nodo = target as HTMLElement | null;
+
+  return Boolean(
+    nodo &&
+      (nodo.isContentEditable ||
+        ["INPUT", "TEXTAREA", "SELECT"].includes(nodo.tagName))
+  );
+}
+
+/** Copia lo que da el codificador a unos bytes propios. */
+function copiaBytes(origen: AllowSharedBufferSource): Bytes {
+  const vista = ArrayBuffer.isView(origen)
+    ? new Uint8Array(origen.buffer, origen.byteOffset, origen.byteLength)
+    : new Uint8Array(origen as ArrayBuffer);
+
+  const salida = new Uint8Array(new ArrayBuffer(vista.byteLength));
+
+  salida.set(vista);
+
+  return salida as Bytes;
+}
+
+/** Espera a que React haya pintado lo último que se le ha pedido. */
+function dosFotogramas() {
+  return new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  );
+}
+
+type Formato = "png" | "copia" | "pdf" | "pptx" | "mp4";
 
 interface Props {
   doc: TacticsDoc;
@@ -190,14 +277,24 @@ export default function TacticsBoard({
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
+  const raizRef = useRef<HTMLDivElement>(null);
 
-  /**
-   * Distancia entre el centro de la ficha y el punto donde se agarró.
-   *
-   * Sin ella la ficha saltaba para centrarse bajo el cursor, un tirón que
-   * con el campo inclinado se notaba todavía más.
-   */
-  const grabRef = useRef<Point | null>(null);
+  /*
+  | ¿Es éste el tablero con el que se está trabajando? En /pizarra hay dos en
+  | la misma página (fase defensiva y ofensiva) y las teclas iban a los dos:
+  | Espacio reproducía ambos. Manda el último en el que se ha pinchado.
+  */
+  const activo = useRef(true);
+
+  useEffect(() => {
+    const marca = (event: PointerEvent) => {
+      activo.current = Boolean(raizRef.current?.contains(event.target as Node));
+    };
+
+    document.addEventListener("pointerdown", marca, true);
+
+    return () => document.removeEventListener("pointerdown", marca, true);
+  }, []);
 
   const [tool, setTool] = useState<ToolId>("select");
   const [color, setColor] = useState(DRAW_COLORS[0]);
@@ -206,25 +303,60 @@ export default function TacticsBoard({
 
   const [sceneIndex, setSceneIndex] = useState(0);
   const [draft, setDraft] = useState<TacticShape | null>(null);
-  const [draggingToken, setDraggingToken] = useState<string | null>(null);
+
+  /*
+  |--------------------------------------------------------------------------
+  | FICHAS ELEGIDAS (21/10/2026)
+  |--------------------------------------------------------------------------
+  |
+  | Mover una línea de cuatro eran cuatro arrastres, y nunca quedaban a la
+  | misma altura. Ahora se eligen varias —arrastrando un recuadro sobre el
+  | césped vacío, o con Mayús y clic— y se mueven juntas, se alinean, se
+  | reparten, se duplican o se borran de una vez.
+  */
+  const [elegidas, setElegidas] = useState<string[]>([]);
+  const [recuadro, setRecuadro] = useState<{ a: Point; b: Point; suma: boolean } | null>(null);
+
+  /** El arrastre en curso: de dónde salió cada ficha y el puntero. */
+  const arrastre = useRef<{
+    inicio: Point;
+    agarrada: string;
+    origen: Map<string, Point>;
+    antes: TacticsDoc;
+    movida: boolean;
+    t: number;
+    /** La ficha ya era la única elegida al pulsar: un toque abre el cambio. */
+    yaElegida: boolean;
+  } | null>(null);
+  const [arrastrando, setArrastrando] = useState(false);
+
   /*
   | Pinchar una ficha sin arrastrarla ofrece cambiarla por otro de su equipo
-  | (13/10/2026). Se distingue del arrastre por lo poco que se ha movido y lo
-  | poco que ha durado la pulsación.
+  | (13/10/2026). Desde el 21/10/2026 el primer toque la elige y el segundo
+  | abre el cambio: con el cambio al primer toque no había forma de elegir una
+  | ficha para moverla con el teclado o borrarla sin que saltara la lista.
   */
-  const pulsacion = useRef<{ id: string; x: number; y: number; t: number } | null>(null);
   const [cambiando, setCambiando] = useState<string | null>(null);
-  /** El tablero tal y como estaba al agarrar una ficha: es el punto de deshacer del arrastre. */
-  const antesDelArrastre = useRef<TacticsDoc | null>(null);
   const [editingShape, setEditingShape] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [formato, setFormato] = useState<Formato | null>(null);
+  const [progreso, setProgreso] = useState<string>("");
   const [dictating, setDictating] = useState(false);
+  const [atajos, setAtajos] = useState(false);
+
+  /** Escena e instante que se pintan para un fotograma exportado. */
+  const [fotograma, setFotograma] = useState<{ index: number; t: number } | null>(null);
 
   const [follow, setFollow] = useState<FollowSubject>("ball");
   const [followId, setFollowId] = useState<string | null>(null);
 
   const [past, setPast] = useState<TacticsDoc[]>([]);
   const [future, setFuture] = useState<TacticsDoc[]>([]);
+
+  /* El dibujo que se ofrece en «Colocar»: equipo, dónde y si va en escena nueva. */
+  const [dibujoEquipo, setDibujoEquipo] = useState<"home" | "away">("home");
+  const [dibujoEncaje, setDibujoEncaje] = useState<Encaje>("mitad");
+  const [dibujoNueva, setDibujoNueva] = useState(false);
 
   const scenes = doc.scenes;
   const safeIndex = Math.min(sceneIndex, scenes.length - 1);
@@ -249,6 +381,8 @@ export default function TacticsBoard({
   | tapen las flechas. Se enciende cuando importa quién es quién.
   */
   const figurasVisibles = doc.figuras ?? false;
+
+  const nombresVisibles = !doc.sinNombres;
 
   // ---------------------------------------------------------------
   // Fichas de las personas (modo jugador)
@@ -338,20 +472,28 @@ export default function TacticsBoard({
   /** `true` mientras la jugada corre o se arrastra el cursor del tiempo. */
   const live = timeline.playing || timeline.scrubbing;
 
-  // Con la jugada en marcha manda el reproductor; parada, la escena editada.
-  const displayIndex = live ? Math.min(timeline.index, scenes.length - 1) : safeIndex;
+  /*
+  | Con la jugada en marcha manda el reproductor; parada, la escena editada;
+  | y al exportar un fotograma, el fotograma.
+  */
+  const displayIndex = fotograma
+    ? Math.min(fotograma.index, scenes.length - 1)
+    : live
+      ? Math.min(timeline.index, scenes.length - 1)
+      : safeIndex;
   const displayScene = scenes[displayIndex] ?? scene;
   const nextScene = scenes[displayIndex + 1];
+  const tramo = fotograma ? fotograma.t : live ? timeline.t : 0;
 
   const visibleTokens = useMemo(() => {
-    if (!live || !nextScene) return displayScene.tokens;
+    if ((!live && !fotograma) || !nextScene || tramo === 0) return displayScene.tokens;
 
     return interpolateTokens(
       displayScene.tokens,
       nextScene.tokens,
-      timeline.t
+      tramoSuave(tramo)
     );
-  }, [live, nextScene, displayScene.tokens, timeline.t]);
+  }, [live, fotograma, nextScene, displayScene.tokens, tramo]);
 
   /*
    * Mientras la jugada corre, la escena en edición sigue al reproductor: al
@@ -364,6 +506,48 @@ export default function TacticsBoard({
   if (timeline.playing && sceneIndex !== timeline.index) {
     setSceneIndex(timeline.index);
   }
+
+  /*
+  | Y al pararse, la escena es la más cercana al cursor (21/10/2026).
+  |
+  | El reproductor lleva la escena de PARTIDA del tramo: al terminar la jugada
+  | iba por el último tramo, así que la pizarra se quedaba en la penúltima
+  | escena y las fichas saltaban de vuelta desde donde acababan.
+  */
+  const [sonaba, setSonaba] = useState(false);
+
+  if (sonaba !== timeline.playing) {
+    setSonaba(timeline.playing);
+
+    if (!timeline.playing && scenes.length > 1) {
+      setSceneIndex(
+        Math.min(scenes.length - 1, Math.max(0, Math.round(timeline.time / SEGMENT_MS)))
+      );
+    }
+  }
+
+  /** La siguiente escena, moviéndose: el «siguiente» de quien presenta. */
+  const avanza = useCallback(() => {
+    if (singleScene || scenes.length < 2) return;
+
+    const desde = timeline.playing ? timeline.index : safeIndex;
+    const destino = Math.min(scenes.length - 1, desde + 1);
+
+    if (destino === desde) return;
+
+    if (!timeline.playing) timeline.seekKeyframe(desde);
+
+    timeline.playTo(destino);
+  }, [safeIndex, scenes.length, singleScene, timeline]);
+
+  const retrocede = useCallback(() => {
+    if (singleScene || scenes.length < 2) return;
+
+    const destino = Math.max(0, safeIndex - 1);
+
+    timeline.stopAt(destino);
+    setSceneIndex(destino);
+  }, [safeIndex, scenes.length, singleScene, timeline]);
 
   // ---------------------------------------------------------------
   // Cámara
@@ -467,11 +651,21 @@ export default function TacticsBoard({
     );
   }, [camera.render, camera.pose, exporting, visibleTokens]);
 
+  /** Las elegidas que siguen en la escena (una escena nueva no hereda nada raro). */
+  const elegidasVivas = useMemo(() => {
+    const ids = new Set(scene.tokens.map((token) => token.id));
+
+    return elegidas.filter((id) => ids.has(id));
+  }, [elegidas, scene.tokens]);
+
+  const elegidasSet = useMemo(() => new Set(elegidasVivas), [elegidasVivas]);
+
   /** El gesto de cámara se ha llevado el puntero: no dejes nada a medias. */
   const cancelEditGesture = useCallback(() => {
     setDraft(null);
-    setDraggingToken(null);
-    grabRef.current = null;
+    setRecuadro(null);
+    setArrastrando(false);
+    arrastre.current = null;
   }, []);
 
   // ---------------------------------------------------------------
@@ -500,6 +694,25 @@ export default function TacticsBoard({
     [commit, doc, safeIndex]
   );
 
+  /** Un punto de deshacer sin cambiar nada todavía: lo que viene va sin historial. */
+  const marcaDeshacer = useCallback(() => {
+    setPast((current) => [...current.slice(-40), doc]);
+    setFuture([]);
+  }, [doc]);
+
+  /** Cambia la escena actual sin pasar por el historial (cada letra, cada paso del arrastre). */
+  const cambiaEscenaSinHistorial = useCallback(
+    (updater: (current: TacticScene) => TacticScene) => {
+      onChange({
+        ...doc,
+        scenes: doc.scenes.map((item, index) =>
+          index === safeIndex ? updater(item) : item
+        ),
+      });
+    },
+    [doc, onChange, safeIndex]
+  );
+
   const undo = useCallback(() => {
     const previous = past[past.length - 1];
     if (!previous) return;
@@ -518,55 +731,227 @@ export default function TacticsBoard({
     onChange(next);
   }, [future, doc, onChange]);
 
+  // ---------------------------------------------------------------
+  // Acciones sobre las fichas elegidas
+  // ---------------------------------------------------------------
+
+  const borraElegidas = useCallback(() => {
+    if (elegidasVivas.length === 0) return;
+
+    const fuera = new Set(elegidasVivas);
+
+    updateScene((current) => ({
+      ...current,
+      tokens: current.tokens.filter((token) => !fuera.has(token.id)),
+    }));
+    setElegidas([]);
+  }, [elegidasVivas, updateScene]);
+
   /*
-  | Ctrl/⌘+Z deshace y Ctrl/⌘+Y (o Mayús+Ctrl+Z) rehace (19/10/2026). Hasta
-  | ahora sólo estaban las flechas de la barra, y quien venía de cualquier
-  | otro programa pulsaba Ctrl+Z tras borrar una flecha y no pasaba nada. No
-  | se atiende mientras se escribe —un nombre de escena, un texto del campo,
-  | el dictado—: ahí Ctrl+Z es del propio cuadro de texto.
+  | Duplicar crea fichas nuevas, con identificador propio: si copiaran el de
+  | la original, la animación no sabría cuál de las dos es la que se mueve.
   */
+  const duplicaElegidas = useCallback(() => {
+    if (elegidasVivas.length === 0) return;
+
+    const ids = new Set(elegidasVivas);
+    const copias = scene.tokens
+      .filter((token) => ids.has(token.id))
+      .map((token) => {
+        const sitio = clampToView({ x: token.x + 3, y: token.y + 3 });
+
+        return { ...token, id: tacticId("token"), x: sitio.x, y: sitio.y };
+      });
+
+    updateScene((current) => ({ ...current, tokens: [...current.tokens, ...copias] }));
+    setElegidas(copias.map((token) => token.id));
+  }, [clampToView, elegidasVivas, scene.tokens, updateScene]);
+
+  const alinea = useCallback(
+    (modo: Alineacion) => {
+      if (elegidasVivas.length < 2) return;
+
+      updateScene((current) => ({
+        ...current,
+        tokens: alineaFichas(current.tokens, elegidasSet, modo),
+      }));
+    },
+    [elegidasSet, elegidasVivas.length, updateScene]
+  );
+
+  const empuja = useCallback(
+    (dx: number, dy: number) => {
+      if (elegidasVivas.length === 0) return;
+
+      updateScene((current) => ({
+        ...current,
+        tokens: current.tokens.map((token) => {
+          if (!elegidasSet.has(token.id)) return token;
+
+          const sitio = clampToView({ x: token.x + dx, y: token.y + dy });
+
+          return { ...token, x: sitio.x, y: sitio.y };
+        }),
+      }));
+    },
+    [clampToView, elegidasSet, elegidasVivas.length, updateScene]
+  );
+
+  // ---------------------------------------------------------------
+  // Teclado
+  // ---------------------------------------------------------------
+
+  /*
+  | Ctrl/⌘+Z deshace y Ctrl/⌘+Y (o Mayús+Ctrl+Z) rehace (19/10/2026). No se
+  | atiende mientras se escribe —un nombre de escena, un texto del campo, el
+  | dictado—: ahí las teclas son del propio cuadro de texto.
+  |
+  | Desde el 21/10/2026, además: una letra por herramienta (V, A, P, L, F, Z,
+  | T, E, C), Supr para borrar lo elegido, flechas para moverlo, Ctrl+D para
+  | duplicarlo, Ctrl+A para elegir todo, y para presentar → / AvPág avanzan
+  | la jugada moviéndose y ← / RePág vuelven (los mandos de presentación
+  | mandan justo AvPág y RePág). Espacio reproduce o para.
+  */
+  const atajoHerramienta: Record<string, ToolId> = useMemo(
+    () => ({ v: "select", c: "camera", a: "arrow", p: "dashed", l: "line", f: "free", z: "zone", t: "text", e: "erase" }),
+    []
+  );
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey || live) return;
+      if (!activo.current || escribiendo(event.target) || cambiando) return;
 
-      const target = event.target as HTMLElement | null;
+      /* La capa de la cámara tiene sus propias flechas. */
+      const enCamara = (event.target as HTMLElement | null)?.getAttribute?.("role") === "application";
 
-      if (
-        target &&
-        (target.isContentEditable ||
-          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
-      ) {
+      const tecla = event.key.toLowerCase();
+      const control = event.ctrlKey || event.metaKey;
+
+      if (control && !event.altKey) {
+        if (live) return;
+
+        if (tecla === "z" && !event.shiftKey) {
+          event.preventDefault();
+          undo();
+        } else if (tecla === "y" || (tecla === "z" && event.shiftKey)) {
+          event.preventDefault();
+          redo();
+        } else if (tecla === "d" && elegidasVivas.length) {
+          event.preventDefault();
+          duplicaElegidas();
+        } else if (tecla === "a") {
+          event.preventDefault();
+          setElegidas(scene.tokens.map((token) => token.id));
+        }
+
         return;
       }
 
-      const tecla = event.key.toLowerCase();
+      if (event.altKey) return;
 
-      if (tecla === "z" && !event.shiftKey) {
+      if (event.key === "PageDown" || (event.key === "ArrowRight" && !elegidasVivas.length && !enCamara)) {
         event.preventDefault();
-        undo();
-      } else if (tecla === "y" || (tecla === "z" && event.shiftKey)) {
+        avanza();
+        return;
+      }
+
+      if (event.key === "PageUp" || (event.key === "ArrowLeft" && !elegidasVivas.length && !enCamara)) {
         event.preventDefault();
-        redo();
+        retrocede();
+        return;
+      }
+
+      if (event.key === " " && !singleScene) {
+        if ((event.target as HTMLElement | null)?.tagName === "BUTTON") return;
+
+        event.preventDefault();
+        timeline.toggle();
+        return;
+      }
+
+      if (live) return;
+
+      if (event.key === "?") {
+        setAtajos((valor) => !valor);
+        return;
+      }
+
+      if ((event.key === "Delete" || event.key === "Backspace") && elegidasVivas.length) {
+        event.preventDefault();
+        borraElegidas();
+        return;
+      }
+
+      if (event.key === "Escape" && elegidasVivas.length) {
+        setElegidas([]);
+        return;
+      }
+
+      if (elegidasVivas.length && !enCamara && event.key.startsWith("Arrow")) {
+        const paso = event.shiftKey ? PASO_LARGO : PASO_CORTO;
+        const movimiento: Record<string, [number, number]> = {
+          ArrowLeft: [-paso, 0],
+          ArrowRight: [paso, 0],
+          ArrowUp: [0, -paso],
+          ArrowDown: [0, paso],
+        };
+
+        const [dx, dy] = movimiento[event.key] ?? [0, 0];
+
+        event.preventDefault();
+        empuja(dx, dy);
+        return;
+      }
+
+      const herramienta = !event.shiftKey ? atajoHerramienta[tecla] : undefined;
+
+      if (herramienta) {
+        setTool(herramienta);
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
 
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [undo, redo, live]);
+  }, [
+    atajoHerramienta,
+    avanza,
+    borraElegidas,
+    cambiando,
+    duplicaElegidas,
+    elegidasVivas.length,
+    empuja,
+    live,
+    redo,
+    retrocede,
+    scene.tokens,
+    singleScene,
+    timeline,
+    undo,
+  ]);
 
   // ---------------------------------------------------------------
-  // Dibujo
+  // Dibujo y recuadro de elección
   // ---------------------------------------------------------------
 
   function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>) {
-    if (live) return;
-    if (tool === "select" || tool === "erase" || tool === "camera") return;
+    if (live || exporting) return;
+    if (tool === "erase" || tool === "camera") return;
 
     const point = toPitch(event);
     if (!point) return;
 
     svgRef.current?.setPointerCapture(event.pointerId);
+
+    /* Con Mover, el césped vacío es para elegir arrastrando un recuadro. */
+    if (tool === "select") {
+      const suma = event.shiftKey || event.ctrlKey || event.metaKey;
+
+      if (!suma) setElegidas([]);
+
+      setRecuadro({ a: point, b: point, suma });
+      return;
+    }
 
     if (tool === "text") {
       const shape: TacticShape = {
@@ -603,27 +988,42 @@ export default function TacticsBoard({
     const point = toPitch(event);
     if (!point) return;
 
-    if (draggingToken) {
-      // La ficha conserva el punto por el que se agarró.
-      const grab = grabRef.current ?? { x: 0, y: 0 };
-      const spot = clampToView({ x: point.x + grab.x, y: point.y + grab.y });
+    const actual = arrastre.current;
 
-      onChange({
-        ...doc,
-        scenes: doc.scenes.map((item, index) =>
-          index === safeIndex
-            ? {
-                ...item,
-                tokens: item.tokens.map((token) =>
-                  token.id === draggingToken
-                    ? { ...token, x: spot.x, y: spot.y }
-                    : token
-                ),
-              }
-            : item
-        ),
-      });
+    if (actual) {
+      let dx = point.x - actual.inicio.x;
+      let dy = point.y - actual.inicio.y;
 
+      /* Con Mayús, la ficha agarrada cae en la rejilla y las demás la siguen. */
+      if (event.shiftKey) {
+        const base = actual.origen.get(actual.agarrada);
+
+        if (base) {
+          dx = Math.round((base.x + dx) / IMAN) * IMAN - base.x;
+          dy = Math.round((base.y + dy) / IMAN) * IMAN - base.y;
+        }
+      }
+
+      if (!actual.movida && Math.hypot(dx, dy) >= 0.8) actual.movida = true;
+
+      cambiaEscenaSinHistorial((current) => ({
+        ...current,
+        tokens: current.tokens.map((token) => {
+          const base = actual.origen.get(token.id);
+
+          if (!base) return token;
+
+          const sitio = clampToView({ x: base.x + dx, y: base.y + dy });
+
+          return { ...token, x: sitio.x, y: sitio.y };
+        }),
+      }));
+
+      return;
+    }
+
+    if (recuadro) {
+      setRecuadro({ ...recuadro, b: point });
       return;
     }
 
@@ -648,43 +1048,56 @@ export default function TacticsBoard({
   function handlePointerUp(event: ReactPointerEvent<SVGSVGElement>) {
     svgRef.current?.releasePointerCapture(event.pointerId);
 
-    if (draggingToken) {
-      const pulsada = pulsacion.current;
-      const ahora = scene.tokens.find((token) => token.id === draggingToken);
+    const actual = arrastre.current;
 
-      pulsacion.current = null;
-      setDraggingToken(null);
-      grabRef.current = null;
+    if (actual) {
+      arrastre.current = null;
+      setArrastrando(false);
 
-      /* Un toque, no un arrastre: se ofrece el cambio de jugador. */
-      if (
-        pulsada &&
-        ahora &&
-        pulsada.id === ahora.id &&
-        (ahora.kind === "home" || ahora.kind === "away") &&
-        Math.hypot(ahora.x - pulsada.x, ahora.y - pulsada.y) < 0.8 &&
-        event.timeStamp - pulsada.t < 450
-      ) {
-        setCambiando(ahora.id);
+      const ficha = scene.tokens.find((token) => token.id === actual.agarrada);
+
+      /* Un toque, no un arrastre: el segundo toque ofrece el cambio de jugador. */
+      if (!actual.movida) {
+        if (
+          actual.yaElegida &&
+          ficha &&
+          (ficha.kind === "home" || ficha.kind === "away") &&
+          event.timeStamp - actual.t < 600
+        ) {
+          setCambiando(ficha.id);
+        }
+
         return;
       }
 
       /*
-      | El arrastre ya escribió posiciones; guardamos un punto de deshacer.
-      |
-      | Con el tablero de ANTES de agarrar la ficha (19/10/2026). Se guardaba
-      | `doc`, que a estas alturas ya es el de después —cada movimiento lo
-      | reescribe—, así que deshacer un arrastre no devolvía la ficha a su
-      | sitio: había que pulsar dos veces y la segunda se llevaba otra cosa.
+      | El arrastre ya escribió posiciones; guardamos un punto de deshacer con
+      | el tablero de ANTES de agarrar (19/10/2026): `doc` a estas alturas ya
+      | es el de después.
       */
-      const antes = antesDelArrastre.current;
-
-      antesDelArrastre.current = null;
-
-      if (antes && antes !== doc) {
-        setPast((current) => [...current.slice(-40), antes]);
+      if (actual.antes !== doc) {
+        setPast((current) => [...current.slice(-40), actual.antes]);
         setFuture([]);
       }
+
+      return;
+    }
+
+    if (recuadro) {
+      const { a, b, suma } = recuadro;
+
+      setRecuadro(null);
+
+      if (Math.hypot(b.x - a.x, b.y - a.y) < 0.8) return;
+
+      const [x0, x1] = [Math.min(a.x, b.x), Math.max(a.x, b.x)];
+      const [y0, y1] = [Math.min(a.y, b.y), Math.max(a.y, b.y)];
+
+      const dentro = scene.tokens
+        .filter((token) => token.x >= x0 && token.x <= x1 && token.y >= y0 && token.y <= y1)
+        .map((token) => token.id);
+
+      setElegidas((antes) => (suma ? [...new Set([...antes, ...dentro])] : dentro));
 
       return;
     }
@@ -702,6 +1115,51 @@ export default function TacticsBoard({
     }
 
     setDraft(null);
+  }
+
+  /** Pulsar una ficha con Mover: elegirla y, si se arrastra, moverla (con las demás elegidas). */
+  function agarraFicha(event: ReactPointerEvent, token: TacticToken) {
+    const point = toPitch(event);
+    if (!point) return;
+
+    event.stopPropagation();
+
+    // La última ficha tocada es la que persigue la cámara.
+    if (token.kind !== "ball") setFollowId(token.id);
+
+    const suma = event.shiftKey || event.ctrlKey || event.metaKey;
+
+    if (suma) {
+      setElegidas((antes) =>
+        antes.includes(token.id) ? antes.filter((id) => id !== token.id) : [...antes, token.id]
+      );
+
+      return;
+    }
+
+    const yaElegida = elegidasVivas.length === 1 && elegidasVivas[0] === token.id;
+    const grupo = elegidasSet.has(token.id) ? elegidasVivas : [token.id];
+
+    if (!elegidasSet.has(token.id)) setElegidas([token.id]);
+
+    const origen = new Map<string, Point>();
+
+    scene.tokens.forEach((ficha) => {
+      if (grupo.includes(ficha.id)) origen.set(ficha.id, { x: ficha.x, y: ficha.y });
+    });
+
+    svgRef.current?.setPointerCapture(event.pointerId);
+
+    arrastre.current = {
+      inicio: point,
+      agarrada: token.id,
+      origen,
+      antes: doc,
+      movida: false,
+      t: event.timeStamp,
+      yaElegida,
+    };
+    setArrastrando(true);
   }
 
   // ---------------------------------------------------------------
@@ -735,13 +1193,36 @@ export default function TacticsBoard({
           : item
       ),
     });
+
+    setElegidas([token.id]);
+  };
+
+  /** Coloca a un equipo en un dibujo, en esta escena o en una nueva para animar el cambio. */
+  const colocaEquipo = (dibujo: string) => {
+    const base = dibujoNueva && !singleScene ? duplicateScene(scene, `${dibujo}`) : scene;
+    const { tokens, movidas, creadas } = colocaDibujo(base.tokens, dibujoEquipo, dibujo, dibujoEncaje);
+
+    const equipo = dibujoEquipo === "home" ? "Nosotros" : "El rival";
+
+    if (dibujoNueva && !singleScene) {
+      commit({ ...doc, scenes: [...scenes.slice(0, safeIndex + 1), { ...base, tokens }, ...scenes.slice(safeIndex + 1)] });
+      setSceneIndex(safeIndex + 1);
+    } else {
+      updateScene((current) => ({ ...current, tokens }));
+    }
+
+    toast.success(`${equipo} en ${dibujo}`, {
+      description: creadas
+        ? `${creadas} fichas puestas. Se puede deshacer.`
+        : `${movidas} ${movidas === 1 ? "ficha recolocada" : "fichas recolocadas"}, cada una al puesto más cercano. Se puede deshacer.`,
+    });
   };
 
   /* ---------------------------------------------------------------
      Cambiar una ficha por otro jugador de su equipo
      --------------------------------------------------------------- */
 
-  const claveNombreDe = (nombre?: string) => (nombre ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  const claveNombreDe = (nombre?: string) => claveNombre(nombre);
 
   /** Su equipo: la plantilla del rival que tenga alguna de las fichas rivales del campo, o la fijada. */
   const squadDelCampo = useMemo(() => {
@@ -760,12 +1241,12 @@ export default function TacticsBoard({
     if (!ficha) return null;
 
     if (ficha.kind === "home") {
-      const enCampo = new Set(scene.tokens.filter((t) => t.kind === "home").map((t) => claveNombreDe(t.nombre)));
+      const enCampo = new Set(scene.tokens.filter((t) => t.kind === "home").map((t) => claveNombre(t.nombre)));
       const opciones: OpcionCambio[] = roster
         /* Toda la plantilla, también RMC y Juvenil A (14/10/2026): sólo con la licencia del Castilla faltaban 21. */
         .filter((p) => p.activo !== false)
-        .map((p) => ({ id: p.id, nombre: p.apodo || p.nombre, dorsal: p.dorsal ? String(p.dorsal) : "", posicion: p.posicion, foto: p.foto, enCampo: enCampo.has(claveNombreDe(p.apodo || p.nombre)) }))
-        .filter((o) => claveNombreDe(o.nombre) !== claveNombreDe(ficha.nombre));
+        .map((p) => ({ id: p.id, nombre: p.apodo || p.nombre, dorsal: p.dorsal ? String(p.dorsal) : "", posicion: p.posicion, foto: p.foto, enCampo: enCampo.has(claveNombre(p.apodo || p.nombre)) }))
+        .filter((o) => claveNombre(o.nombre) !== claveNombre(ficha.nombre));
 
       return { ficha, equipo: "Real Madrid Castilla", opciones };
     }
@@ -838,6 +1319,9 @@ export default function TacticsBoard({
         };
       }),
     });
+
+    /* La ficha ha cambiado de identificador: se elige la nueva. */
+    setElegidas([nuevoId]);
   };
 
   const removeToken = (tokenId: string) =>
@@ -865,6 +1349,9 @@ export default function TacticsBoard({
       .filter((player) => ids.has(rivalTokenId(player.id)))
       .map((player) => player.id);
   }, [rivalSquads, scene.tokens]);
+
+  /* Al montar: si ya hay rivales en el campo, el panel de dorsales arranca plegado. */
+  const [rivalesAbiertos] = useState(() => !scene.tokens.some((token) => token.kind === "away"));
 
   /** Enciende o apaga el dorsal: segunda pulsación, ficha fuera. */
   const toggleRival = (player: RivalPick) => {
@@ -923,11 +1410,22 @@ export default function TacticsBoard({
   // Escenas
   // ---------------------------------------------------------------
 
+  /** Duplica la escena actual justo detrás de ella (no al final). */
   const addScene = () => {
     const next = duplicateScene(scene, `Escena ${scenes.length + 1}`);
 
-    commit({ ...doc, scenes: [...scenes, next] });
-    setSceneIndex(scenes.length);
+    commit({ ...doc, scenes: [...scenes.slice(0, safeIndex + 1), next, ...scenes.slice(safeIndex + 1)] });
+    setSceneIndex(safeIndex + 1);
+    timeline.stopAt(safeIndex + 1);
+  };
+
+  const addEmptyScene = () => {
+    commit({
+      ...doc,
+      scenes: [...scenes.slice(0, safeIndex + 1), emptyScene(`Escena ${scenes.length + 1}`), ...scenes.slice(safeIndex + 1)],
+    });
+    setSceneIndex(safeIndex + 1);
+    timeline.stopAt(safeIndex + 1);
   };
 
   const removeScene = (index: number) => {
@@ -935,6 +1433,21 @@ export default function TacticsBoard({
 
     commit({ ...doc, scenes: scenes.filter((_, i) => i !== index) });
     setSceneIndex(Math.max(0, index - 1));
+  };
+
+  /** Mueve la escena actual un puesto antes o después en la jugada. */
+  const mueveEscena = (paso: -1 | 1) => {
+    const destino = safeIndex + paso;
+
+    if (destino < 0 || destino >= scenes.length) return;
+
+    const copia = [...scenes];
+    const [quitada] = copia.splice(safeIndex, 1);
+
+    copia.splice(destino, 0, quitada);
+    commit({ ...doc, scenes: copia });
+    setSceneIndex(destino);
+    timeline.stopAt(destino);
   };
 
   // ---------------------------------------------------------------
@@ -988,53 +1501,252 @@ export default function TacticsBoard({
   };
 
   // ---------------------------------------------------------------
-  // Exportar
+  // Exportar: PNG, copia, PDF, PowerPoint y vídeo
   // ---------------------------------------------------------------
 
-  const exportPng = async () => {
-    if (!frameRef.current) return;
+  /** Quién es quién en la lámina: sólo los equipos que salen en la jugada. */
+  const leyenda = useMemo(() => {
+    const hay = (kind: TokenKind) => scenes.some((s) => s.tokens.some((token) => token.kind === kind));
+    const items: DatosLamina["leyenda"] = [];
+
+    if (hay("home")) items.push({ color: TOKEN_STYLE.home.fill, borde: TOKEN_STYLE.home.stroke, texto: "Real Madrid Castilla" });
+    if (hay("away")) items.push({ color: TOKEN_STYLE.away.fill, borde: TOKEN_STYLE.away.stroke, texto: squadDelCampo?.equipo ?? lockedRivalTeam ?? "Rival" });
+
+    return items;
+  }, [lockedRivalTeam, scenes, squadDelCampo]);
+
+  const datosDe = useCallback(
+    (indice: number): DatosLamina => ({
+      titulo: doc.titulo || "Pizarra táctica",
+      escena: scenes[indice]?.nombre ?? "",
+      indice,
+      total: singleScene ? 1 : scenes.length,
+      nota: scenes[indice]?.nota,
+      leyenda,
+    }),
+    [doc.titulo, leyenda, scenes, singleScene]
+  );
+
+  /** Pinta el fotograma pedido y lo devuelve hecho lámina. */
+  const laminaDe = useCallback(
+    async (indice: number, t: number, ctx: CanvasRenderingContext2D, familia: string, datos: DatosLamina, sinTextos = false) => {
+      setFotograma({ index: indice, t });
+      await dosFotogramas();
+
+      const svg = svgRef.current;
+
+      if (!svg) throw new Error("No hay campo que exportar");
+
+      const campo = await imagenDelCampo(svg, 1800);
+
+      return pintaLamina(ctx, campo, datos, familia, { sinTextos });
+    },
+    []
+  );
+
+  const nombreFichero = apodo(`${doc.titulo || "pizarra"}`, "pizarra");
+
+  const exporta = async (que: Formato) => {
+    if (formato) return;
 
     timeline.pause();
+    setFormato(que);
     setExporting(true);
+    setEditingShape(null);
+
+    const aviso = toast.loading(
+      que === "mp4" ? "Montando el vídeo…" : que === "pptx" ? "Montando el PowerPoint…" : que === "pdf" ? "Montando el PDF…" : "Preparando la imagen…"
+    );
 
     try {
-      // Un par de fotogramas para que la cámara ya esté en reposo al capturar.
-      await new Promise<void>((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      );
+      const familia = await cargaFuentesLamina();
 
-      /* `capturaNodo`: segundo dibujo en Safari y tope de lienzo en iPad. */
-      const { dataUrl } = await capturaNodo(frameRef.current, {
-        pixelRatio: 2,
-        backgroundColor: "#0B0F14",
-        filter: (node) =>
-          !(node instanceof HTMLElement) ||
-          !node.hasAttribute("data-export-hide"),
+      /* Un par de fotogramas para que la cámara ya esté en reposo y el campo plano. */
+      await dosFotogramas();
+
+      const { lienzo, ctx } = lienzoLamina();
+
+      if (que === "png" || que === "copia") {
+        await laminaDe(safeIndex, 0, ctx, familia, datosDe(safeIndex));
+
+        if (que === "copia") {
+          const blob = await new Promise<Blob | null>((resolve) => lienzo.toBlob(resolve, "image/png"));
+
+          if (!blob || typeof ClipboardItem === "undefined" || !navigator.clipboard?.write) {
+            throw new Error("El navegador no deja copiar imágenes");
+          }
+
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          toast.success("Escena copiada: pégala en WhatsApp o en el correo", { id: aviso });
+        } else {
+          await descargaDataUrl(lienzo.toDataURL("image/png"), `${nombreFichero}-${apodo(scene.nombre, "escena")}.png`);
+          toast.success("Imagen descargada", { id: aviso });
+        }
+
+        return;
+      }
+
+      const indices = singleScene ? [safeIndex] : scenes.map((_, indice) => indice);
+
+      if (que === "pdf" || que === "pptx") {
+        const hojas: { imagen: string; textos: Awaited<ReturnType<typeof laminaDe>> }[] = [];
+
+        for (const indice of indices) {
+          setProgreso(`${hojas.length + 1} / ${indices.length}`);
+
+          const textos = await laminaDe(indice, 0, ctx, familia, datosDe(indice), que === "pptx");
+
+          hojas.push({ imagen: lienzo.toDataURL("image/jpeg", 0.92), textos });
+        }
+
+        if (que === "pdf") {
+          const pdf = await pdfDeHojas(
+            hojas.map((hoja) => ({
+              imagen: hoja.imagen,
+              ancho: LAMINA_W,
+              alto: LAMINA_H,
+              orientacion: "landscape" as const,
+              margen: 18,
+            }))
+          );
+
+          pdf.save(`${nombreFichero}.pdf`);
+          toast.success(`PDF listo · ${hojas.length} ${hojas.length === 1 ? "hoja" : "hojas"}`, { id: aviso });
+        } else {
+          const blob = creaPptx(
+            hojas.map((hoja, indice) => ({
+              titulo: scenes[indices[indice]]?.nombre ?? `Escena ${indice + 1}`,
+              imagen: hoja.imagen,
+              capas: hoja.textos.map((texto) => ({ nombre: texto.nombre, texto: texto.texto, ...texto.capa })),
+            })),
+            { titulo: doc.titulo || "Pizarra táctica", autor: "RMCF Castilla", aplicacion: "Pizarra táctica" }
+          );
+
+          descarga(blob, `${nombreFichero}.pptx`);
+          toast.success(`PowerPoint listo · ${hojas.length} ${hojas.length === 1 ? "diapositiva" : "diapositivas"}, con los textos editables`, { id: aviso });
+        }
+
+        return;
+      }
+
+      /* ------------------------------------------------ el vídeo */
+
+      const codec = await codecLamina();
+
+      if (!codec) throw new Error("Este navegador no sabe montar vídeo. Prueba con Chrome o Edge.");
+
+      let fallo: Error | null = null;
+      const muxor = new MuxorMp4();
+      const codificador = new VideoEncoder({
+        output: (trozo, metadatos) => {
+          const descripcion = metadatos?.decoderConfig?.description;
+
+          if (descripcion) muxor.configuraVideo({ ancho: LAMINA_W, alto: LAMINA_H, descripcion: copiaBytes(descripcion) });
+
+          const datos = new Uint8Array(new ArrayBuffer(trozo.byteLength));
+
+          trozo.copyTo(datos);
+          muxor.añadeVideo(datos as Bytes, Math.max(0, trozo.timestamp), trozo.duration || 1_000_000 / FPS_LAMINA, trozo.type === "key");
+        },
+        error: (e) => {
+          fallo = e instanceof Error ? e : new Error(String(e));
+        },
       });
 
-      await descargaDataUrl(dataUrl, `${doc.titulo || "pizarra"}-${scene.nombre}.png`);
+      codificador.configure({
+        codec,
+        width: LAMINA_W,
+        height: LAMINA_H,
+        bitrate: 6_000_000,
+        framerate: FPS_LAMINA,
+        latencyMode: "quality",
+        avc: { format: "avc" },
+      });
 
-      toast.success("Imagen descargada");
+      /*
+      | Guion del vídeo: la primera escena se sostiene un segundo, cada tramo
+      | dura lo mismo que en el reproductor a 1× y la última se queda dos
+      | segundos para que dé tiempo a leer su nota. La nota y el número de
+      | escena cambian al llegar, no al salir: lo que se lee es lo que se ve.
+      */
+      const tramos = singleScene ? 0 : scenes.length - 1;
+      const porTramo = Math.round((SEGMENT_MS / 1000) * FPS_LAMINA);
+      const plan: { index: number; t: number; rotulo: number }[] = [];
+
+      for (let k = 0; k < FPS_LAMINA; k += 1) plan.push({ index: 0, t: 0, rotulo: 0 });
+
+      for (let tramo = 0; tramo < tramos; tramo += 1) {
+        for (let k = 1; k <= porTramo; k += 1) {
+          const t = k / porTramo;
+
+          plan.push(t >= 1 ? { index: tramo + 1, t: 0, rotulo: tramo + 1 } : { index: tramo, t, rotulo: t >= 0.86 ? tramo + 1 : tramo });
+        }
+      }
+
+      const ultimo = plan[plan.length - 1];
+
+      for (let k = 0; k < FPS_LAMINA * 2; k += 1) plan.push({ ...ultimo });
+
+      let previo = "";
+      let textosPrevios: Awaited<ReturnType<typeof laminaDe>> | null = null;
+
+      for (let k = 0; k < plan.length; k += 1) {
+        if (fallo) throw fallo;
+
+        const paso = plan[k];
+        const clave = `${paso.index}|${paso.t}|${paso.rotulo}`;
+
+        /* Los fotogramas quietos se repiten sin volver a pintar. */
+        if (clave !== previo || !textosPrevios) {
+          textosPrevios = await laminaDe(paso.index, paso.t, ctx, familia, datosDe(paso.rotulo));
+          previo = clave;
+        }
+
+        const cuadro = new VideoFrame(lienzo, { timestamp: Math.round((k * 1_000_000) / FPS_LAMINA), duration: Math.round(1_000_000 / FPS_LAMINA) });
+
+        codificador.encode(cuadro, { keyFrame: k % (FPS_LAMINA * 2) === 0 });
+        cuadro.close();
+
+        if (k % 10 === 0) setProgreso(`${Math.round((k / plan.length) * 100)} %`);
+
+        while (codificador.encodeQueueSize > 6) await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+
+      await codificador.flush();
+      codificador.close();
+
+      if (fallo) throw fallo;
+
+      descarga(muxor.cierra(), `${nombreFichero}.mp4`);
+
+      const segundos = (plan.length / FPS_LAMINA).toFixed(1).replace(".", ",");
+
+      toast.success(`Vídeo listo · ${segundos} s en 1920 × 1080`, { id: aviso });
     } catch (error) {
-      console.error(error);
-      toast.error("No se pudo exportar la imagen");
+      console.error("[pizarra] exportación", error);
+      toast.error(error instanceof Error && error.message ? error.message : "No se ha podido exportar", { id: aviso });
     } finally {
+      setFotograma(null);
       setExporting(false);
+      setFormato(null);
+      setProgreso("");
     }
   };
 
   const canUndo = past.length > 0;
   const canRedo = future.length > 0;
 
-  const clearScene = () =>
+  const clearScene = () => {
     updateScene((current) => ({ ...current, tokens: [], shapes: [] }));
+    setElegidas([]);
+  };
 
   /**
    * Hay una herramienta de dibujo en la mano.
    *
-   * En el móvil decide qué se ve bajo la paleta: el estilo del trazo mientras
-   * se dibuja y los mandos de cámara el resto del tiempo. Los dos a la vez no
-   * caben sin comerse el campo, que es justo lo que se quería evitar.
+   * Decide qué se ve: el estilo del trazo mientras se dibuja y, el resto del
+   * tiempo, nada encima del césped (21/10/2026: la barra del estilo flotaba
+   * siempre sobre la esquina de abajo y tapaba al lateral).
    */
   const drawing = tool !== "select" && tool !== "erase" && tool !== "camera";
 
@@ -1043,8 +1755,14 @@ export default function TacticsBoard({
       ? followToken?.nombre ?? followToken?.label ?? undefined
       : undefined;
 
+  const pista = BOARD_TOOLS.find((item) => item.id === tool);
+
+  const unaElegida = elegidasVivas.length === 1 ? scene.tokens.find((token) => token.id === elegidasVivas[0]) : undefined;
+
+  const ocupado = formato !== null;
+
   return (
-    <div className="space-y-3">
+    <div ref={raizRef} className="space-y-3">
       {/* BARRA DE FICHAS Y ACCIONES */}
 
       <div
@@ -1062,7 +1780,7 @@ export default function TacticsBoard({
           <TokenButton
             label="Rival"
             className="flex-1 justify-center sm:flex-none"
-            icon={<Circle size={14} />}
+            icon={<Circle size={14} className="text-[#F87171]" />}
             onClick={() => addToken("away")}
           />
           <TokenButton
@@ -1100,6 +1818,71 @@ export default function TacticsBoard({
           </select>
         )}
 
+        {/* COLOCAR EN UN DIBUJO */}
+        <Desplegable
+          etiqueta="Dibujo"
+          icono={<LayoutGrid size={13} />}
+          titulo="Colocar a un equipo en un dibujo (4-4-2, 4-3-3…)"
+          deshabilitado={live || ocupado}
+        >
+          {(cierra) => (
+            <div className="space-y-3 text-[11px] text-white/70">
+              <Segmentado
+                etiqueta="Equipo"
+                valor={dibujoEquipo}
+                onCambia={setDibujoEquipo}
+                opciones={[
+                  ["home", "Nosotros"],
+                  ["away", "Rival"],
+                ]}
+              />
+              <Segmentado
+                etiqueta="Dónde"
+                valor={dibujoEncaje}
+                onCambia={setDibujoEncaje}
+                opciones={(Object.keys(ENCAJE_LABEL) as Encaje[]).map((id) => [id, id === "mitad" ? "En su mitad" : "Todo el campo"])}
+              />
+
+              <div className="grid grid-cols-3 gap-1.5">
+                {DIBUJOS.map((dibujo) => (
+                  <button
+                    key={dibujo}
+                    type="button"
+                    onClick={() => {
+                      colocaEquipo(dibujo);
+                      cierra();
+                    }}
+                    className="rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 text-xs font-semibold tabular-nums text-white/80 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B]"
+                  >
+                    {dibujo}
+                  </button>
+                ))}
+              </div>
+
+              {!singleScene && (
+                <label className="flex items-start gap-2 leading-snug">
+                  <input
+                    type="checkbox"
+                    checked={dibujoNueva}
+                    onChange={(event) => setDibujoNueva(event.target.checked)}
+                    className="mt-0.5 accent-[#C8A96B]"
+                  />
+                  <span>
+                    En una escena nueva, detrás de ésta: al reproducir se ve
+                    cómo cambia el dibujo.
+                  </span>
+                </label>
+              )}
+
+              <p className="leading-snug text-white/45">
+                Recoloca a los que ya están, cada uno al puesto más cercano,
+                sin cambiar nombres ni dorsales. Si el equipo no tiene fichas,
+                pone las once.
+              </p>
+            </div>
+          )}
+        </Desplegable>
+
         <button
           type="button"
           onClick={() => setDictating((open) => !open)}
@@ -1117,45 +1900,182 @@ export default function TacticsBoard({
           <span className="hidden lg:inline">Dictar</span>
         </button>
 
-        <div className="ml-auto flex flex-wrap items-center gap-1">
+        <div className="ml-auto flex flex-wrap items-center gap-1.5">
           {!singleScene && (
             <>
               <TokenButton
                 label="Duplicar escena"
                 icon={<Copy size={13} />}
                 onClick={addScene}
+                title="Copia esta escena justo detrás: mueve las fichas en la copia y al reproducir se verá el movimiento"
               />
               <TokenButton
                 label="Escena vacía"
                 icon={<Plus size={13} />}
-                onClick={() => {
-                  commit({
-                    ...doc,
-                    scenes: [
-                      ...scenes,
-                      emptyScene(`Escena ${scenes.length + 1}`),
-                    ],
-                  });
-                  setSceneIndex(scenes.length);
-                }}
+                onClick={addEmptyScene}
               />
             </>
           )}
 
-          <button
-            type="button"
-            title="Descargar la escena como imagen (PNG)"
-            aria-label="Descargar la escena como imagen"
-            disabled={exporting}
-            onClick={exportPng}
-            className="rounded-xl p-2 text-white/55 transition hover:bg-white/[0.07] hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+          {/* VISTA: ENCUADRE, CÉSPED, GRADERÍO, FIGURAS, NOMBRES */}
+          <Desplegable etiqueta="Vista" icono={<Eye size={13} />} titulo="Encuadre, césped, graderío, figuras y nombres" lado="derecha" ancho="w-80">
+            {() => (
+              <div className="space-y-3 text-[11px] text-white/70">
+                <div>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">Encuadre</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(Object.keys(CROP_VIEWBOX) as PitchCrop[]).map((crop) => (
+                      <Chip key={crop} activo={doc.crop === crop} onClick={() => commit({ ...doc, crop })}>
+                        {CROP_LABEL[crop]}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                {/*
+                  El campo se elige, no viene dado: la charla a oscuras pide un
+                  césped apagado que deje ver las flechas, y la imagen que se
+                  manda por el grupo pide el verde de retransmisión.
+                */}
+                <div>
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">Césped</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CAMPOS.map((item) => (
+                      <Chip key={item.id} activo={campoActivo === item.id} onClick={() => commit({ ...doc, campo: item.id })} title={item.nota}>
+                        <span
+                          aria-hidden
+                          className="h-3 w-3 shrink-0 rounded-[3px]"
+                          style={{
+                            background: item.cesped,
+                            boxShadow: `inset 0 0 0 1px ${item.linea}`,
+                          }}
+                        />
+                        {item.label}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  <Chip
+                    activo={nombresVisibles}
+                    onClick={() => commit({ ...doc, sinNombres: nombresVisibles ? true : undefined })}
+                    title={nombresVisibles ? "Quitar los nombres de debajo de las fichas: queda el dorsal" : "Poner el nombre bajo cada ficha"}
+                  >
+                    <Tag size={12} />
+                    Nombres
+                  </Chip>
+
+                  {/*
+                    Modo jugador: la ficha redonda deja paso a la figura del
+                    jugador, con su cara y con el cuerpo que le corresponde por
+                    altura y peso. En un córner se ve de un vistazo quién gana
+                    por alto sin abrir la hoja.
+                  */}
+                  <Chip
+                    activo={figurasVisibles}
+                    onClick={() => commit({ ...doc, figuras: !figurasVisibles })}
+                    title={
+                      figurasVisibles
+                        ? "Volver a las fichas redondas con el dorsal"
+                        : "Modo jugador: cada ficha se dibuja como el jugador que es (foto, altura y peso)"
+                    }
+                  >
+                    <PersonStanding size={13} />
+                    Jugadores
+                  </Chip>
+
+                  <Chip
+                    activo={entornoVisible}
+                    onClick={() => commit({ ...doc, entorno: !entornoVisible })}
+                    title={
+                      entornoVisible
+                        ? "Quitar las vallas y el graderío: sólo el campo (se ven en 3D)"
+                        : "Levantar las vallas y el graderío alrededor del campo (se ven en 3D)"
+                    }
+                  >
+                    <Building2 size={12} />
+                    Graderío
+                  </Chip>
+                </div>
+              </div>
+            )}
+          </Desplegable>
+
+          {/* EXPORTAR */}
+          <Desplegable
+            etiqueta={ocupado ? `Exportando${progreso ? ` · ${progreso}` : "…"}` : "Exportar"}
+            icono={<Download size={13} />}
+            titulo="PNG, PDF, PowerPoint o vídeo de la jugada"
+            lado="derecha"
+            ancho="w-72"
+            deshabilitado={ocupado}
           >
-            <Download size={15} />
-          </button>
+            {(cierra) => (
+              <div className="space-y-1">
+                <OpcionExportar
+                  icono={<ImageIcon size={15} />}
+                  titulo="Imagen de esta escena"
+                  detalle="PNG 1920 × 1080 con título, escena y nota"
+                  onClick={() => {
+                    cierra();
+                    void exporta("png");
+                  }}
+                />
+                {typeof window !== "undefined" && "ClipboardItem" in window && (
+                  <OpcionExportar
+                    icono={<ClipboardCopy size={15} />}
+                    titulo="Copiar esta escena"
+                    detalle="Para pegarla en WhatsApp Web o en el correo"
+                    onClick={() => {
+                      cierra();
+                      void exporta("copia");
+                    }}
+                  />
+                )}
+                <OpcionExportar
+                  icono={<FileText size={15} />}
+                  titulo={singleScene ? "PDF" : `PDF · ${scenes.length} ${scenes.length === 1 ? "escena" : "escenas"}`}
+                  detalle="Una hoja apaisada por escena, para imprimir o mandar"
+                  onClick={() => {
+                    cierra();
+                    void exporta("pdf");
+                  }}
+                />
+                <OpcionExportar
+                  icono={<Presentation size={15} />}
+                  titulo="PowerPoint"
+                  detalle="Una diapositiva por escena; título y nota se corrigen allí"
+                  onClick={() => {
+                    cierra();
+                    void exporta("pptx");
+                  }}
+                />
+                {!singleScene && (
+                  <OpcionExportar
+                    icono={<Film size={15} />}
+                    titulo="Vídeo de la jugada"
+                    detalle={
+                      puedeHacerVideo()
+                        ? scenes.length > 1
+                          ? "MP4 1920 × 1080 con el movimiento y las notas"
+                          : "Hacen falta dos escenas para que haya movimiento"
+                        : "Este navegador no monta vídeo: usa Chrome o Edge"
+                    }
+                    deshabilitado={!puedeHacerVideo() || scenes.length < 2}
+                    onClick={() => {
+                      cierra();
+                      void exporta("mp4");
+                    }}
+                  />
+                )}
+              </div>
+            )}
+          </Desplegable>
         </div>
       </div>
 
-      {/* CAMBIO DE JUGADOR: al pinchar una ficha */}
+      {/* CAMBIO DE JUGADOR: al pinchar dos veces una ficha */}
 
       {cambio && (
         <CambioJugador
@@ -1194,110 +2114,92 @@ export default function TacticsBoard({
           onAddNumber={addRivalNumber}
           onClear={clearRivals}
           lockedTeam={lockedRivalTeam}
+          abiertoAlEmpezar={rivalesAbiertos}
         />
       )}
 
-      {/* RECORTE, DISEÑO DEL CAMPO Y ENTORNO */}
+      {/* LO QUE HAY EN LA MANO: herramienta o fichas elegidas */}
 
       <div
         data-export-hide
-        className="flex flex-wrap items-center gap-x-1.5 gap-y-2"
+        aria-live="polite"
+        className="flex min-h-10 flex-wrap items-center gap-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/60"
       >
-        {(Object.keys(CROP_VIEWBOX) as PitchCrop[]).map((crop) => (
-          <button
-            key={crop}
-            type="button"
-            onClick={() => commit({ ...doc, crop })}
-            className={cn(
-              "rounded-full border px-3 py-1 text-[11px] font-medium transition",
-              doc.crop === crop
-                ? "border-[#C8A96B]/50 bg-[#C8A96B]/12 text-[#C8A96B]"
-                : "border-white/10 bg-white/[0.03] text-white/55 hover:text-white"
+        {elegidasVivas.length > 0 && tool === "select" ? (
+          <>
+            <span className="mr-1 font-semibold text-[#C8A96B]">
+              {elegidasVivas.length === 1
+                ? `${unaElegida?.nombre ? nombreCorto(unaElegida.nombre) : unaElegida?.label ? `Ficha ${unaElegida.label}` : "1 ficha"} elegida`
+                : `${elegidasVivas.length} fichas elegidas`}
+            </span>
+
+            {elegidasVivas.length >= 2 && (
+              <>
+                <Accion icono={<Rows3 size={13} />} onClick={() => alinea("linea")} titulo="Todas a la misma altura del campo: una línea defensiva, la de presión">
+                  Misma línea
+                </Accion>
+                <Accion icono={<Columns3 size={13} />} onClick={() => alinea("fila")} titulo="Todas en el mismo carril, de portería a portería">
+                  Mismo carril
+                </Accion>
+              </>
             )}
-          >
-            {CROP_LABEL[crop]}
-          </button>
-        ))}
-
-        <span className="mx-1 h-4 w-px bg-white/10" />
-
-        {/*
-          El campo se elige, no viene dado: la charla a oscuras pide un césped
-          apagado que deje ver las flechas, y la imagen que se manda por el
-          grupo pide el verde de retransmisión.
-        */}
-        {CAMPOS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => commit({ ...doc, campo: item.id })}
-            title={item.nota}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
-              campoActivo === item.id
-                ? "border-[#C8A96B]/50 bg-[#C8A96B]/12 text-[#C8A96B]"
-                : "border-white/10 bg-white/[0.03] text-white/55 hover:text-white"
+            {elegidasVivas.length >= 3 && (
+              <>
+                <Accion icono={<AlignVerticalSpaceAround size={13} />} onClick={() => alinea("reparte-alto")} titulo="La misma distancia entre cada una, de banda a banda">
+                  Repartir a lo ancho
+                </Accion>
+                <Accion icono={<AlignHorizontalSpaceAround size={13} />} onClick={() => alinea("reparte-ancho")} titulo="La misma distancia entre cada una, de portería a portería">
+                  Repartir a lo largo
+                </Accion>
+              </>
             )}
-          >
-            <span
-              aria-hidden
-              className="h-3 w-3 shrink-0 rounded-[3px]"
-              style={{
-                background: item.cesped,
-                boxShadow: `inset 0 0 0 1px ${item.linea}`,
-              }}
-            />
-            {item.label}
-          </button>
-        ))}
 
-        <span className="mx-1 h-4 w-px bg-white/10" />
+            {unaElegida && (unaElegida.kind === "home" || unaElegida.kind === "away") && (
+              <Accion icono={<Repeat2 size={13} />} onClick={() => setCambiando(unaElegida.id)} titulo="Cambiarla por otro jugador de su equipo (o pincha la ficha otra vez)">
+                Cambiar jugador
+              </Accion>
+            )}
 
-        <button
-          type="button"
-          onClick={() => commit({ ...doc, entorno: !entornoVisible })}
-          title={
-            entornoVisible
-              ? "Quitar las vallas y el graderío: sólo el campo"
-              : "Levantar las vallas y el graderío alrededor del campo"
-          }
-          aria-pressed={entornoVisible}
-          className={cn(
-            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition",
-            entornoVisible
-              ? "border-[#C8A96B]/50 bg-[#C8A96B]/12 text-[#C8A96B]"
-              : "border-white/10 bg-white/[0.03] text-white/55 hover:text-white"
-          )}
-        >
-          <Building2 size={12} />
-          Graderío
-        </button>
+            <Accion icono={<Copy size={13} />} onClick={duplicaElegidas} titulo="Duplicar (Ctrl+D)">
+              Duplicar
+            </Accion>
+            <Accion icono={<Trash2 size={13} />} onClick={borraElegidas} titulo="Quitar del campo (Supr)" peligro>
+              Quitar
+            </Accion>
 
-        {/*
-          Modo jugador: la ficha redonda deja paso a la figura del jugador, con
-          su cara y con el cuerpo que le corresponde por altura y peso. En un
-          córner se ve de un vistazo quién gana por alto sin abrir la hoja.
-        */}
-        <button
-          type="button"
-          onClick={() => commit({ ...doc, figuras: !figurasVisibles })}
-          title={
-            figurasVisibles
-              ? "Volver a las fichas redondas con el dorsal"
-              : "Modo jugador: cada ficha se dibuja como el jugador que es (foto, altura y peso)"
-          }
-          aria-pressed={figurasVisibles}
-          className={cn(
-            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium transition",
-            figurasVisibles
-              ? "border-[#C8A96B]/50 bg-[#C8A96B]/12 text-[#C8A96B]"
-              : "border-white/10 bg-white/[0.03] text-white/55 hover:text-white"
-          )}
-        >
-          <PersonStanding size={13} />
-          Jugadores
-        </button>
+            <button
+              type="button"
+              onClick={() => setElegidas([])}
+              title="Soltar la elección (Esc)"
+              aria-label="Soltar la elección"
+              className="ml-auto rounded-lg p-1.5 text-white/40 transition hover:bg-white/[0.08] hover:text-white"
+            >
+              <X size={13} />
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 leading-snug">
+              <span className="font-semibold text-white/80">{pista?.label}</span>
+              {pista ? ` · ${pista.hint}` : ""}
+              {tool === "select" && ". Arrastra sobre el césped vacío para elegir varias; Mayús al arrastrar las pega a la rejilla."}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setAtajos((valor) => !valor)}
+              aria-expanded={atajos}
+              title="Atajos de teclado (?)"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-white/50 transition hover:bg-white/[0.08] hover:text-white"
+            >
+              <Keyboard size={13} />
+              <span className="hidden sm:inline">Atajos</span>
+            </button>
+          </>
+        )}
       </div>
+
+      {atajos && <PanelAtajos onCierra={() => setAtajos(false)} singleScene={singleScene} />}
 
       {/* CAMPO */}
 
@@ -1320,6 +2222,7 @@ export default function TacticsBoard({
         }
         cameraBar={
           <PitchCameraBar
+            plegable
             camera={camera}
             follow={follow}
             onFollowChange={setFollow}
@@ -1339,15 +2242,17 @@ export default function TacticsBoard({
           />
         }
         styleBar={
-          <BoardStyleBar
-            color={color}
-            onColorChange={setColor}
-            width={strokeWidth}
-            onWidthChange={setStrokeWidth}
-            dash={dash}
-            onDashChange={setDash}
-            disabled={live}
-          />
+          drawing ? (
+            <BoardStyleBar
+              color={color}
+              onColorChange={setColor}
+              width={strokeWidth}
+              onWidthChange={setStrokeWidth}
+              dash={dash}
+              onDashChange={setDash}
+              disabled={live}
+            />
+          ) : undefined
         }
         dockToolbar={
           <BoardToolPalette
@@ -1385,6 +2290,18 @@ export default function TacticsBoard({
             />
           )
         }
+        pie={
+          displayScene.nota ? (
+            <p className="px-4 py-2.5 text-sm leading-relaxed text-white/85 sm:text-base">
+              {!singleScene && (
+                <span className="mr-2 font-semibold text-[#C8A96B]">
+                  {displayIndex + 1}/{scenes.length} · {displayScene.nombre}
+                </span>
+              )}
+              {displayScene.nota}
+            </p>
+          ) : undefined
+        }
         timeline={
           singleScene ? undefined : (
             <PitchTimelineBar
@@ -1404,11 +2321,16 @@ export default function TacticsBoard({
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
-          onPointerLeave={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          aria-label={`Campo · ${scene.nombre}`}
           className={cn(
             "block h-full w-full touch-none select-none",
-            tool === "select" || tool === "camera"
+            tool === "camera"
               ? "cursor-default"
+              : tool === "select"
+              ? arrastrando
+                ? "cursor-grabbing"
+                : "cursor-default"
               : "cursor-crosshair"
           )}
         >
@@ -1430,40 +2352,28 @@ export default function TacticsBoard({
 
           {/* Formas */}
           <g>
-            {[...displayScene.shapes, ...(draft ? [draft] : [])].map((shape) => (
+            {[...displayScene.shapes, ...(draft && !exporting ? [draft] : [])].map((shape) => (
               <ShapeNode
                 key={shape.id}
                 shape={shape}
-                interactive={!live && (tool === "erase" || tool === "select")}
-                editing={editingShape === shape.id}
+                interactive={!live && !exporting && (tool === "erase" || tool === "select")}
+                editing={!exporting && editingShape === shape.id}
                 onErase={() => tool === "erase" && removeShape(shape.id)}
                 onEdit={() => {
                   /* Un punto de deshacer al empezar a corregir, no uno por letra. */
-                  setPast((current) => [...current.slice(-40), doc]);
-                  setFuture([]);
+                  marcaDeshacer();
                   setEditingShape(shape.id);
                 }}
                 /*
                 | Cada letra va sin pasar por el historial (19/10/2026): con
                 | `commit` cada tecla era un paso de deshacer y una palabra de
-                | diez letras se comía un cuarto de los 40 pasos que se guardan,
-                | así que lo de antes del texto ya no se podía recuperar. El
-                | texto recién creado ya dejó su punto al nacer.
+                | diez letras se comía un cuarto de los 40 pasos que se guardan.
                 */
                 onText={(text) =>
-                  onChange({
-                    ...doc,
-                    scenes: doc.scenes.map((item, index) =>
-                      index === safeIndex
-                        ? {
-                            ...item,
-                            shapes: item.shapes.map((s) =>
-                              s.id === shape.id ? { ...s, text } : s
-                            ),
-                          }
-                        : item
-                    ),
-                  })
+                  cambiaEscenaSinHistorial((item) => ({
+                    ...item,
+                    shapes: item.shapes.map((s) => (s.id === shape.id ? { ...s, text } : s)),
+                  }))
                 }
                 onCloseEdit={() => setEditingShape(null)}
               />
@@ -1475,7 +2385,8 @@ export default function TacticsBoard({
             {paintedTokens.map((token) => {
               const style = TOKEN_STYLE[token.kind];
               const anchored =
-                follow === "player" && followId === token.id;
+                follow === "player" && followId === token.id && !exporting;
+              const elegida = !exporting && !live && elegidasSet.has(token.id);
 
               /*
                 Modo jugador. El balón y el cono no tienen figura, así que en
@@ -1502,12 +2413,14 @@ export default function TacticsBoard({
               */
               const anclaY = figura ? 0 : style.radius * 0.55;
 
+              const nombre = token.nombre && nombresVisibles ? nombreCorto(token.nombre) : "";
+
               return (
                 <g
                   key={token.id}
                   transform={`translate(${token.x} ${token.y})`}
                   onPointerDown={(event) => {
-                    if (live || tool === "camera") return;
+                    if (live || exporting || tool === "camera") return;
 
                     if (tool === "erase") {
                       event.stopPropagation();
@@ -1517,23 +2430,7 @@ export default function TacticsBoard({
 
                     if (tool !== "select") return;
 
-                    const point = toPitch(event);
-                    if (!point) return;
-
-                    event.stopPropagation();
-
-                    // La última ficha tocada es la que persigue la cámara.
-                    if (token.kind !== "ball") setFollowId(token.id);
-
-                    grabRef.current = {
-                      x: token.x - point.x,
-                      y: token.y - point.y,
-                    };
-
-                    svgRef.current?.setPointerCapture(event.pointerId);
-                    pulsacion.current = { id: token.id, x: token.x, y: token.y, t: event.timeStamp };
-                    antesDelArrastre.current = doc;
-                    setDraggingToken(token.id);
+                    agarraFicha(event, token);
                   }}
                   className={cn(
                     tool === "select" && "cursor-grab",
@@ -1567,6 +2464,20 @@ export default function TacticsBoard({
                     />
                   )}
 
+                  {/* Elegida: un aro dorado bajo la ficha, sobre el césped. */}
+                  {elegida && (
+                    <ellipse
+                      cx={0}
+                      cy={anclaY}
+                      rx={medio + 0.9}
+                      ry={figura ? (medio + 0.9) * 0.45 : medio + 0.9}
+                      fill="rgba(200,169,107,.18)"
+                      stroke="#E9C46A"
+                      strokeWidth={0.45}
+                      style={{ pointerEvents: "none" }}
+                    />
+                  )}
+
                   {/*
                     La ficha se endereza para que la perspectiva no la
                     aplaste: se estira lo justo para volver a verse redonda.
@@ -1575,7 +2486,7 @@ export default function TacticsBoard({
                   */}
                   <g
                     transform={`rotate(${tokenSpin.toFixed(2)}) translate(0 ${anclaY}) scale(1 ${tokenLift.toFixed(3)}) translate(0 ${-anclaY})`}
-                    style={{ transition: "transform 190ms ease-out" }}
+                    style={{ transition: exporting ? undefined : "transform 190ms ease-out" }}
                   >
                   {/*
                     Área de agarre, invisible y más ancha que la ficha.
@@ -1630,7 +2541,7 @@ export default function TacticsBoard({
                     <text
                       y={0.85}
                       textAnchor="middle"
-                      fontSize={2.4}
+                      fontSize={token.label.length > 2 ? 1.8 : 2.4}
                       fontWeight={700}
                       fill={style.text}
                       style={{ pointerEvents: "none" }}
@@ -1640,23 +2551,24 @@ export default function TacticsBoard({
                   )}
 
                   {/*
-                    El nombre. Junto a la figura va más pequeño y con un halo
-                    oscuro: al lado de un círculo de cinco unidades de ancho un
-                    nombre a cuerpo 1,9 se lee bien, pero junto a una figura
-                    —que es alta y estrecha— tapaba a los dos vecinos.
+                    El nombre, con un halo oscuro para que se lea sobre las
+                    rayas del campo y sobre las flechas. Más pequeño que antes
+                    (1,9 → 1,55 el 21/10/2026): con los dos onces puestos los
+                    nombres se montaban unos encima de otros.
                   */}
-                  {token.nombre && (
+                  {nombre && (
                     <text
-                      y={figura ? 1.5 : style.radius + 2.4}
+                      y={figura ? 1.5 : style.radius + 2.1}
                       textAnchor="middle"
-                      fontSize={figura ? 1.3 : 1.9}
-                      fill="rgba(255,255,255,.9)"
-                      stroke={figura ? "rgba(0,0,0,.6)" : undefined}
-                      strokeWidth={figura ? 0.45 : undefined}
+                      fontSize={figura ? 1.3 : 1.55}
+                      fontWeight={600}
+                      fill="rgba(255,255,255,.95)"
+                      stroke="rgba(0,0,0,.55)"
+                      strokeWidth={figura ? 0.45 : 0.4}
                       paintOrder="stroke"
                       style={{ pointerEvents: "none" }}
                     >
-                      {figura ? nombreCorto(token.nombre) : token.nombre}
+                      {nombre}
                     </text>
                   )}
                   </g>
@@ -1664,11 +2576,314 @@ export default function TacticsBoard({
               );
             })}
           </g>
+
+          {/* Recuadro de elección */}
+          {recuadro && (
+            <rect
+              x={Math.min(recuadro.a.x, recuadro.b.x)}
+              y={Math.min(recuadro.a.y, recuadro.b.y)}
+              width={Math.abs(recuadro.b.x - recuadro.a.x)}
+              height={Math.abs(recuadro.b.y - recuadro.a.y)}
+              fill="rgba(200,169,107,.12)"
+              stroke="#E9C46A"
+              strokeWidth={0.3}
+              strokeDasharray="1 0.7"
+              style={{ pointerEvents: "none" }}
+            />
+          )}
         </svg>
       </PitchStage>
 
+      {/* LA ESCENA: NOMBRE, ORDEN Y LO QUE SE CUENTA */}
+
+      <PanelEscena
+        escena={scene}
+        indice={safeIndex}
+        total={scenes.length}
+        singleScene={singleScene}
+        deshabilitado={live || ocupado}
+        onEmpieza={marcaDeshacer}
+        onCambia={(cambios) => cambiaEscenaSinHistorial((current) => ({ ...current, ...cambios }))}
+        onMueve={mueveEscena}
+      />
+
       {hint && <p className="text-[11px] leading-relaxed text-white/40">{hint}</p>}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  PIEZAS                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Nombre de la escena, su sitio en la jugada y lo que se cuenta en ella.
+ *
+ * La nota es lo que el entrenador diría señalando la pizarra; sale bajo el
+ * campo a pantalla completa y en todo lo que se exporta.
+ */
+function PanelEscena({
+  escena,
+  indice,
+  total,
+  singleScene,
+  deshabilitado,
+  onEmpieza,
+  onCambia,
+  onMueve,
+}: {
+  escena: TacticScene;
+  indice: number;
+  total: number;
+  singleScene: boolean;
+  deshabilitado: boolean;
+  /** Al empezar a escribir: un solo punto de deshacer, no uno por letra. */
+  onEmpieza: () => void;
+  onCambia: (cambios: Partial<Pick<TacticScene, "nombre" | "nota">>) => void;
+  onMueve: (paso: -1 | 1) => void;
+}) {
+  return (
+    <div
+      data-export-hide
+      className="grid gap-2 rounded-2xl border border-white/10 bg-[#11161D] p-3 sm:grid-cols-[minmax(0,240px)_1fr]"
+    >
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45" htmlFor={`escena-${escena.id}`}>
+          {singleScene ? "Escena" : `Escena ${indice + 1} de ${total}`}
+        </label>
+
+        <div className="flex items-center gap-1">
+          <input
+            id={`escena-${escena.id}`}
+            value={escena.nombre}
+            disabled={deshabilitado}
+            onFocus={onEmpieza}
+            onChange={(event) => onCambia({ nombre: event.target.value })}
+            onBlur={(event) => {
+              if (!event.target.value.trim()) onCambia({ nombre: `Escena ${indice + 1}` });
+            }}
+            maxLength={60}
+            className="min-w-0 flex-1 rounded-xl border border-white/10 bg-[#0F141B] px-2.5 py-2 text-xs font-semibold text-white/85 outline-none focus:border-[#C8A96B]/50"
+          />
+
+          {!singleScene && total > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={() => onMueve(-1)}
+                disabled={deshabilitado || indice === 0}
+                title="Pasar esta escena antes"
+                aria-label="Pasar esta escena antes"
+                className="rounded-lg p-2 text-white/50 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-25"
+              >
+                <ArrowLeft size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onMueve(1)}
+                disabled={deshabilitado || indice === total - 1}
+                title="Pasar esta escena después"
+                aria-label="Pasar esta escena después"
+                className="rounded-lg p-2 text-white/50 transition hover:bg-white/[0.08] hover:text-white disabled:opacity-25"
+              >
+                <ArrowRight size={13} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45" htmlFor={`nota-${escena.id}`}>
+          Qué se cuenta
+        </label>
+        <textarea
+          id={`nota-${escena.id}`}
+          value={escena.nota ?? ""}
+          disabled={deshabilitado}
+          onFocus={onEmpieza}
+          onChange={(event) => onCambia({ nota: event.target.value || undefined })}
+          rows={2}
+          maxLength={280}
+          placeholder="Lo que tiene que ver el grupo: «el 6 salta al poseedor y el 8 cierra el pase interior». Sale bajo el campo y en lo que se exporta."
+          className="min-h-[3.25rem] w-full resize-y rounded-xl border border-white/10 bg-[#0F141B] px-2.5 py-2 text-xs leading-relaxed text-white/85 outline-none placeholder:text-white/30 focus:border-[#C8A96B]/50"
+        />
+      </div>
+    </div>
+  );
+}
+
+function PanelAtajos({ onCierra, singleScene }: { onCierra: () => void; singleScene: boolean }) {
+  const filas: [string, string][] = [
+    ["V · C", "Mover · Cámara"],
+    ["A · P · L · F", "Flecha · Pase · Línea · Trazo libre"],
+    ["Z · T · E", "Zona · Texto · Borrar"],
+    ["Clic · Mayús+clic", "Elegir una ficha · añadir o quitar de la elección"],
+    ["Arrastrar en vacío", "Elegir varias con un recuadro"],
+    ["Segundo clic", "Cambiar la ficha por otro jugador"],
+    ["Mayús al arrastrar", "Pegar a la rejilla"],
+    ["Flechas · Mayús+flechas", "Mover lo elegido poco · mucho"],
+    ["Supr · Ctrl+D · Ctrl+A", "Quitar · duplicar · elegir todo"],
+    ["Esc", "Soltar la elección"],
+    ["Ctrl+Z · Ctrl+Y", "Deshacer · rehacer"],
+    ...(singleScene
+      ? []
+      : ([
+          ["→ · AvPág", "Siguiente escena, moviéndose (para presentar)"],
+          ["← · RePág", "Escena anterior"],
+          ["Espacio", "Reproducir o parar la jugada"],
+        ] as [string, string][])),
+  ];
+
+  return (
+    <div data-export-hide className="rounded-2xl border border-white/10 bg-[#11161D] p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">
+          <Keyboard size={13} className="text-[#C8A96B]" />
+          Atajos de teclado
+        </p>
+        <button
+          type="button"
+          onClick={onCierra}
+          aria-label="Cerrar los atajos"
+          className="rounded-lg p-1.5 text-white/40 transition hover:bg-white/[0.08] hover:text-white"
+        >
+          <X size={13} />
+        </button>
+      </div>
+
+      <dl className="grid gap-x-6 gap-y-1.5 text-[11px] sm:grid-cols-2">
+        {filas.map(([teclas, que]) => (
+          <div key={teclas} className="flex items-baseline gap-2">
+            <dt className="w-36 shrink-0 font-semibold text-white/80">{teclas}</dt>
+            <dd className="min-w-0 text-white/55">{que}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function Segmentado<T extends string>({
+  etiqueta,
+  valor,
+  onCambia,
+  opciones,
+}: {
+  etiqueta: string;
+  valor: T;
+  onCambia: (valor: T) => void;
+  opciones: [T, string][];
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">{etiqueta}</p>
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-white/[0.05] p-0.5">
+        {opciones.map(([id, texto]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onCambia(id)}
+            aria-pressed={valor === id}
+            className={cn(
+              "rounded-lg px-2 py-1.5 text-[11px] font-semibold transition",
+              valor === id ? "bg-[#C8A96B] text-[#0B0F14]" : "text-white/60 hover:text-white"
+            )}
+          >
+            {texto}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Chip({
+  activo,
+  onClick,
+  title,
+  children,
+}: {
+  activo: boolean;
+  onClick: () => void;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-pressed={activo}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition",
+        activo
+          ? "border-[#C8A96B]/50 bg-[#C8A96B]/12 text-[#C8A96B]"
+          : "border-white/10 bg-white/[0.03] text-white/55 hover:text-white"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Accion({
+  icono,
+  onClick,
+  titulo,
+  peligro = false,
+  children,
+}: {
+  icono: React.ReactNode;
+  onClick: () => void;
+  titulo: string;
+  peligro?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={titulo}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 font-semibold transition",
+        peligro
+          ? "text-white/65 hover:bg-red-500/15 hover:text-red-300"
+          : "text-white/70 hover:bg-white/[0.08] hover:text-white"
+      )}
+    >
+      {icono}
+      {children}
+    </button>
+  );
+}
+
+function OpcionExportar({
+  icono,
+  titulo,
+  detalle,
+  onClick,
+  deshabilitado = false,
+}: {
+  icono: React.ReactNode;
+  titulo: string;
+  detalle: string;
+  onClick: () => void;
+  deshabilitado?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={deshabilitado}
+      className="flex w-full items-start gap-2.5 rounded-xl px-2.5 py-2 text-left transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+    >
+      <span className="mt-0.5 text-[#C8A96B]">{icono}</span>
+      <span className="min-w-0">
+        <span className="block text-xs font-semibold text-white/85">{titulo}</span>
+        <span className="block text-[10px] leading-snug text-white/45">{detalle}</span>
+      </span>
+    </button>
   );
 }
 
@@ -1740,12 +2955,16 @@ function ShapeNode({
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === "Escape") onCloseEdit();
             }}
+            aria-label="Texto sobre el campo"
             className="w-full rounded border border-[#C8A96B] bg-[#0B0F14] px-1 text-center text-[3px] text-white outline-none"
             style={{ fontSize: "3px", height: "6px" }}
           />
         </foreignObject>
       );
     }
+
+    /* Un texto vacío no se exporta como «Texto»: en pantalla es el sitio para escribir. */
+    if (!shape.text && !interactive) return null;
 
     return (
       <text
@@ -1755,6 +2974,9 @@ function ShapeNode({
         fontSize={2.2 + width * 1.6}
         fontWeight={700}
         fill={shape.color}
+        stroke="rgba(0,0,0,.45)"
+        strokeWidth={0.3}
+        paintOrder="stroke"
         onPointerDown={(event) => {
           if (!interactive) return;
           event.stopPropagation();
@@ -1783,17 +3005,19 @@ function TokenButton({
   icon,
   onClick,
   className,
+  title,
 }: {
   label: string;
   icon: React.ReactNode;
   onClick: () => void;
   className?: string;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      title={label}
+      title={title ?? label}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 text-[11px] font-semibold text-white/70 transition hover:bg-white/[0.08] hover:text-white",
         className

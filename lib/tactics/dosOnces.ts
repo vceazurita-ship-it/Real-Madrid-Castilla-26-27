@@ -81,7 +81,7 @@ const NUMEROS_POR_PUESTO: Record<string, number[]> = {
  * no esté en la tabla— coge el número más bajo que quede. Así nunca se
  * repiten dos dentro del mismo equipo, que es lo único que no puede pasar.
  */
-function numeraOnce(puestos: { nombre: string }[]): string[] {
+export function numeraOnce(puestos: { nombre: string }[]): string[] {
   const dados = new Set<number>();
   const salida: (number | null)[] = puestos.map(() => null);
 

@@ -77,6 +77,12 @@ export interface TacticScene {
   nombre: string;
   tokens: TacticToken[];
   shapes: TacticShape[];
+  /**
+   * Lo que se cuenta en esta escena (21/10/2026): «el 6 salta al poseedor y
+   * el 8 cierra la línea de pase». Sale bajo el campo al presentar y en el
+   * PNG, el PDF, el PowerPoint y el vídeo; sin nota, no sale nada.
+   */
+  nota?: string;
 }
 
 export interface TacticsDoc {
@@ -111,6 +117,12 @@ export interface TacticsDoc {
    * último once.
    */
   semanaOnces?: string;
+
+  /**
+   * Sin nombres bajo las fichas (21/10/2026): con veintidós puestos, los
+   * rótulos se pisan unos a otros y tapan las flechas. El dorsal sigue.
+   */
+  sinNombres?: boolean;
 }
 
 export const PITCH_WIDTH = 100;
