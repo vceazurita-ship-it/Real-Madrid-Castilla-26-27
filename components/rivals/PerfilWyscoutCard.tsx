@@ -35,7 +35,27 @@ const LOS: Record<string, string> = {
 const VERDE = "#34D399";
 const ROJO = "#F87171";
 
-function Barra({ rasgo, color }: { rasgo: RasgoWyscout; color: string }) {
+/*
+| El sentido, dicho (21/10/2026). En «faltas cometidas» menos es mejor y el
+| percentil ya viene dado la vuelta: «p8» quería decir que hace más que el 92 %
+| de los centrales, y con «p80 = mejor que 8 de cada 10» al pie se leía justo lo
+| contrario. Ahora la fila lo cuenta con palabras y en las de «menos es mejor»
+| no sale el «p» suelto. Lo marcaron análisis y guion.
+*/
+function lectura(rasgo: RasgoWyscout, conArticulo: string) {
+  /* «de cada 100 centrales», sin el artículo de «contra los centrales». */
+  const los = conArticulo.replace(/^los /, "");
+
+  if (rasgo.mejorAlto) return `mejor que ${rasgo.percentil} de cada 100 ${los}`;
+
+  const peor = 100 - rasgo.percentil;
+
+  return rasgo.percentil < 50
+    ? `menos es mejor · más que ${peor} de cada 100 ${los}`
+    : `menos es mejor · menos que ${rasgo.percentil} de cada 100 ${los}`;
+}
+
+function Barra({ rasgo, color, los, minutos }: { rasgo: RasgoWyscout; color: string; los: string; minutos: number }) {
   return (
     <li title={rasgo.comoLeer} className="min-w-0">
       <div className="flex min-w-0 items-baseline justify-between gap-2 text-[12px]">
@@ -45,11 +65,20 @@ function Barra({ rasgo, color }: { rasgo: RasgoWyscout; color: string }) {
           {rasgo.unidad === "decimal" && Number.isInteger(rasgo.valor)
             ? String(rasgo.valor)
             : formatea(rasgo.valor, rasgo.unidad)}
-          <span className="ml-1.5 font-semibold" style={{ color: chipInk(color) }}>
-            p{rasgo.percentil}
-          </span>
+          {rasgo.casos !== null && (
+            <span className="ml-1 text-white/35">
+              ({rasgo.casos} en {minutos}′)
+            </span>
+          )}
+          {rasgo.mejorAlto && (
+            <span className="ml-1.5 font-semibold" style={{ color: chipInk(color) }}>
+              p{rasgo.percentil}
+            </span>
+          )}
         </span>
       </div>
+
+      <p className="mt-0.5 text-[10px] text-white/40">{lectura(rasgo, los)}</p>
 
       <div
         className="mt-1 h-1.5 overflow-hidden rounded-full"
@@ -62,8 +91,21 @@ function Barra({ rasgo, color }: { rasgo: RasgoWyscout; color: string }) {
   );
 }
 
-export function PerfilWyscoutCard({ perfil }: { perfil: PerfilWyscout }) {
+/** «… de 7 partidos y 615′»: lo que dice BeSoccer, para explicar por qué no cuadra con Wyscout. */
+export type MuestraBeSoccer = { partidos: number; minutos: number };
+
+export function PerfilWyscoutCard({ perfil, besoccer }: { perfil: PerfilWyscout; besoccer?: MuestraBeSoccer | null }) {
   const conRasgos = perfil.fuertes.length > 0 || perfil.flojos.length > 0;
+  const los = LOS[perfil.puesto] ?? perfil.puestoLabel.toLowerCase();
+
+  /*
+  | BeSoccer y Wyscout no dan los mismos minutos (21/10/2026): Carmona salía
+  | con 7 partidos y 615′ arriba y con 6 y 623′ aquí. BeSoccer cuenta por las
+  | actas y Wyscout sólo los partidos que tiene descargados. Se dice una vez,
+  | cuando no cuadran.
+  */
+  const noCuadra =
+    besoccer && besoccer.partidos > 0 && (besoccer.partidos !== perfil.partidos || Math.abs(besoccer.minutos - perfil.minutos) > 5);
 
   return (
     <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
@@ -91,7 +133,7 @@ export function PerfilWyscoutCard({ perfil }: { perfil: PerfilWyscout }) {
               </p>
               <ul className="space-y-2.5">
                 {perfil.fuertes.map((r) => (
-                  <Barra key={r.nombre} rasgo={r} color={VERDE} />
+                  <Barra key={r.nombre} rasgo={r} color={VERDE} los={los} minutos={perfil.minutos} />
                 ))}
               </ul>
             </div>
@@ -104,7 +146,7 @@ export function PerfilWyscoutCard({ perfil }: { perfil: PerfilWyscout }) {
               </p>
               <ul className="space-y-2.5">
                 {perfil.flojos.map((r) => (
-                  <Barra key={r.nombre} rasgo={r} color={ROJO} />
+                  <Barra key={r.nombre} rasgo={r} color={ROJO} los={los} minutos={perfil.minutos} />
                 ))}
               </ul>
             </div>
@@ -118,8 +160,14 @@ export function PerfilWyscoutCard({ perfil }: { perfil: PerfilWyscout }) {
 
       {!perfil.muestraCorta && (
         <p className="mt-3 text-[10px] text-white/35">
-          Percentil contra {perfil.iguales} de {LOS[perfil.puesto] ?? perfil.puestoLabel.toLowerCase()} con 90′ o más; las cifras son por 90′, salvo los porcentajes. p80 = mejor que 8 de cada 10.
-          {perfil.posicion && ` Wyscout le pone de ${perfil.posicion}.`}
+          Percentil contra {perfil.iguales} de {los} con 90′ o más; las cifras son por 90′, salvo los porcentajes, y entre paréntesis las veces en la temporada. Lo que pasa una o dos veces no entra.
+          {perfil.posicionTexto && ` Wyscout lo sitúa de ${perfil.posicionTexto}.`}
+        </p>
+      )}
+
+      {noCuadra && besoccer && (
+        <p className="mt-1 text-[10px] text-white/35">
+          BeSoccer le cuenta {besoccer.partidos} {besoccer.partidos === 1 ? "partido" : "partidos"} y {besoccer.minutos}′, y Wyscout {perfil.partidos} y {perfil.minutos}′: BeSoccer cuenta por las actas y Wyscout sólo los partidos que tiene descargados, así que no siempre cuadran.
         </p>
       )}
     </section>

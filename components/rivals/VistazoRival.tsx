@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { ArrowUpRight, Goal, LayoutGrid, Trophy } from "lucide-react";
+import { ArrowUpRight, Goal, LayoutGrid, Trophy, UserX } from "lucide-react";
 
 import { chipInk } from "@/lib/theme";
 import type { AspectoDestacado } from "@/lib/rivals/destacados-rival";
@@ -56,10 +56,32 @@ function Casilla({
 
       <div className="mt-1 min-w-0">{children}</div>
 
-      {pie && <p className="mt-1 truncate text-[11px] text-white/45">{pie}</p>}
+      {/* Dos renglones antes que «El último: 2-0 en casa co…» en el móvil. */}
+      {pie && <p className="mt-1 line-clamp-2 text-[11px] text-white/45">{pie}</p>}
     </div>
   );
 }
+
+/** «Destaca en dominio con balón y eficacia, pero se queda corto en producción de remate.» */
+function fraseDeAspectos(aspectos: AspectoDestacado[]) {
+  const lista = (nombres: string[]) =>
+    nombres.length === 1 ? nombres[0] : `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
+
+  const fuertes = aspectos.filter((a) => a.desviacion >= 0).map((a) => a.aspecto.toLowerCase());
+  const flojos = aspectos.filter((a) => a.desviacion < 0).map((a) => a.aspecto.toLowerCase());
+
+  if (fuertes.length && flojos.length) return `Destaca en ${lista(fuertes)}, pero se queda corto en ${lista(flojos)}.`;
+  if (fuertes.length) return `Destaca en ${lista(fuertes)}.`;
+  if (flojos.length) return `Se queda corto en ${lista(flojos)}.`;
+
+  return "";
+}
+
+export type AvisosRival = {
+  fuera: { nombre: string; estado: string }[];
+  apercibidos: { nombre: string; amarillas: number }[];
+  rojas: { nombre: string; rojas: number }[];
+};
 
 export function VistazoRival({
   equipo,
@@ -67,8 +89,11 @@ export function VistazoRival({
   jornada,
   aspectos = [],
   equipos = 0,
+  avisos = null,
   enlaces,
 }: {
+  /** Bajas de la hoja, apercibidos y rojas de BeSoccer; `null` si no hay nada. */
+  avisos?: AvisosRival | null;
   equipo: string;
   vistazo: Vistazo | null;
   jornada: JornadaDeEquipo | null;
@@ -190,33 +215,77 @@ export function VistazoRival({
 
       )}
 
+      {/*
+        Bajas y apercibidos en una tira a lo ancho: en una casilla más de la
+        rejilla los nombres se cortaban («F. C…»). Lo pidió el experto de fútbol.
+      */}
+      {avisos && (
+        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/40">Bajas y apercibidos</p>
+          {avisos.fuera.map((uno) => (
+            <span key={`f-${uno.nombre}`} className="flex items-center gap-1.5">
+              <UserX size={12} className="shrink-0 text-[#F87171]" aria-hidden />
+              {uno.nombre}
+              <span className="text-[11px] text-white/45">{uno.estado}</span>
+            </span>
+          ))}
+          {avisos.apercibidos.map((uno) => (
+            <span key={`a-${uno.nombre}`} className="flex items-center gap-1.5">
+              <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#FACC15]" aria-hidden />
+              {uno.nombre}
+              <span className="text-[11px] text-white/45">a una amarilla del ciclo ({uno.amarillas})</span>
+            </span>
+          ))}
+          {avisos.rojas.map((uno) => (
+            <span key={`r-${uno.nombre}`} className="flex items-center gap-1.5">
+              <span className="h-3 w-2 shrink-0 rounded-[2px] bg-[#EF4444]" aria-hidden />
+              {uno.nombre}
+              <span className="text-[11px] text-white/45">
+                {uno.rojas === 1 ? "una roja esta temporada" : `${uno.rojas} rojas esta temporada`}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {aspectos.length > 0 && (
         <div className="mt-3 min-w-0">
           <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-[0.18em] text-white/40">
             Lo que le hace distinto · Wyscout, contra {equipos > 0 ? `los ${equipos} de` : ""} la categoría
           </p>
 
-          <ul className="flex min-w-0 flex-wrap gap-2">
-            {aspectos.map((a) => {
-              /* Verde si se sale por arriba, rojo si va por detrás: lo mismo
-                 que las etiquetas de los jugadores. */
-              const color = a.desviacion >= 0 ? "#34D399" : "#F87171";
+          {/* Primero la frase, luego los dos grupos: una lista de «p15 · p80» no se leía (guion, 21/10). */}
+          {fraseDeAspectos(aspectos) && <p className="mb-2 text-sm text-white/75">{fraseDeAspectos(aspectos)}</p>}
 
-              return (
-                <li
-                  key={a.aspecto}
-                  title={`${a.explica}. ${a.filas.map((f) => `${f.nombre}: p${f.percentil}`).join(" · ")}`}
-                  className="flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
-                  style={{ borderColor: `${color}55`, background: `${color}14` }}
-                >
-                  <span className="min-w-0 truncate">{a.aspecto}</span>
-                  <span className="shrink-0 font-semibold tabular-nums" style={{ color: chipInk(color) }}>
-                    p{a.percentil}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
+            {[
+              { titulo: "Fuerte en", color: "#34D399", lista: aspectos.filter((a) => a.desviacion >= 0) },
+              { titulo: "Flojo en", color: "#F87171", lista: aspectos.filter((a) => a.desviacion < 0) },
+            ]
+              .filter((grupo) => grupo.lista.length > 0)
+              .map((grupo) => (
+                <div key={grupo.titulo} className="min-w-0">
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: chipInk(grupo.color) }}>
+                    {grupo.titulo}
+                  </p>
+                  <ul className="flex min-w-0 flex-wrap gap-1.5">
+                    {grupo.lista.map((a) => (
+                      <li
+                        key={a.aspecto}
+                        title={`${a.explica}. ${a.filas.map((f) => `${f.nombre}: p${f.percentil}`).join(" · ")}`}
+                        className="flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+                        style={{ borderColor: `${grupo.color}55`, background: `${grupo.color}14` }}
+                      >
+                        <span className="min-w-0 truncate">{a.aspecto}</span>
+                        <span className="shrink-0 tabular-nums text-white/50">
+                          {a.desviacion >= 0 ? `mejor que ${Math.round(a.percentil / 10)} de cada 10` : `peor que ${10 - Math.round(a.percentil / 10)} de cada 10`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+          </div>
         </div>
       )}
 

@@ -14,6 +14,7 @@ import { alertasDeData, seleccionaAlertas } from "@/lib/data-analisis/alertas";
 import { equiposConMuestra, golesAbpDeEquipo } from "@/lib/data-analisis/goles-abp";
 import { proponeTipologia } from "@/lib/rivals/tipologia-wyscout";
 import { perfilesDeEquipo } from "@/lib/rivals/perfil-wyscout";
+import { puestoEnPalabras } from "@/lib/informe-partido/rival-datos";
 import { readDoc } from "@/lib/docStore";
 import { alertasDeFichajes, type CotejoRival } from "@/lib/portada/alertas-fichajes";
 import { INFORME_KEY, type InformeDoc } from "@/lib/rivals/informe";
@@ -288,7 +289,7 @@ function perfilesDe(datos: Dataset, equipo: string) {
   const destacados = destacadosDe(datos, equipo, []);
 
   return {
-    ...perfilesDeEquipo(datos.jugadores, equipo),
+    ...perfilesDeEquipo(datos.jugadores, equipo, puestoEnPalabras),
     temporada: destacados.temporada,
     equipos: destacados.equipos,
     aspectos: destacados.equipo,
