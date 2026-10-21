@@ -10,8 +10,12 @@
  * del minuto 80 y el corte siguiente casi mudo suenen parecido.
  */
 
-/** El nivel al que se lleva cada corte: el de -16 LUFS en voz y ambiente. */
-const OBJETIVO_RMS = 10 ** (-17 / 20);
+/*
+| El nivel al que se lleva cada corte. Con -17 dB de media salía a -17,8 LUFS
+| medido con `ebur128` sobre el partido de prueba; con -16, cerca de los -16
+| del servidor.
+*/
+const OBJETIVO_RMS = 10 ** (-16 / 20);
 
 /** Ni se multiplica por más de 4 (ruido de fondo) ni se baja de una cuarta parte. */
 const GANANCIA_MAX = 4;
