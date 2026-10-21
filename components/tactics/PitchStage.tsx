@@ -85,6 +85,12 @@ interface Props {
   /** Reproductor y línea de tiempo (bajo el campo). */
   timeline?: ReactNode;
   /**
+   * Lo que se cuenta en la escena, justo bajo el campo (21/10/2026).
+   *
+   * Va fuera del césped a propósito: encima tapaba la jugada que explica.
+   */
+  pie?: ReactNode;
+  /**
    * Empezar con el campo ocupando la pantalla entera.
    *
    * Es lo que hace grande la pizarra **donde el navegador no da la pantalla
@@ -119,6 +125,7 @@ export default function PitchStage({
   dockToolbar,
   dockPanel,
   timeline,
+  pie,
   aPantallaCompleta = false,
   className,
 }: Props) {
@@ -344,7 +351,10 @@ export default function PitchStage({
         ref={stageRef}
         className={cn(
           "relative",
-          expanded && "flex min-h-0 flex-1 items-center justify-center"
+          expanded && "flex min-h-0 flex-1 items-center justify-center",
+          /* La paleta flota a la izquierda: el campo se aparta lo que ocupa
+             para que no tape al portero ni al lateral (21/10/2026). */
+          toolbar && "pitch-float:pl-[60px] lg:pl-[64px]"
         )}
       >
         {/* Fondo del estadio: al inclinar el campo queda hueco alrededor. */}
@@ -457,6 +467,11 @@ export default function PitchStage({
           </div>
         )}
       </div>
+
+      {/* LO QUE SE CUENTA EN LA ESCENA */}
+
+      {/* Sólo en grande: en la página, el panel de la escena ya está debajo con lo mismo. */}
+      {pie && expanded && <div className="shrink-0 border-t border-white/10 bg-[#0B0F14]/90">{pie}</div>}
 
       {/* MUELLE DEL MÓVIL */}
 

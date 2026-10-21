@@ -338,6 +338,13 @@ export type Trabajo = {
   /** `Tarea` de la hoja, para no importar dos veces lo mismo. */
   tareaId?: string;
   notas: string;
+  /**
+   * Qué tiene que pasar en la tarea para darla por buena (21/10/2026):
+   * «el primer palo gana el primer contacto», «nadie pierde su marca en el
+   * bloqueo». Es lo que el entrenador mira en el campo y lo que se revisa
+   * después; los documentos de antes no lo traen.
+   */
+  objetivo?: string;
 };
 
 export type PlanDia = {
@@ -517,7 +524,7 @@ export function etiquetaTrabajo(trabajo: Trabajo, corto = false) {
   /* En las fichas de la semana no cabe la lista entera: el primero y cuántos
      más. En el diálogo, donde hay ancho, van todos. */
   return corto
-    ? `${aspectos[0].short} +${aspectos.length - 1}`
+    ? `${aspectos[0].short} y ${aspectos.length - 1} más`
     : aspectos.map((aspecto) => aspecto.label).join(" · ");
 }
 
@@ -759,15 +766,17 @@ export function claveAspecto(aspecto: AspectoKey, lado: AbpLado) {
 /* ------------------------------------------------------------------ */
 
 export function fmtMin(minutos: number) {
-  if (!minutos) return "0'";
+  if (!minutos) return "0′";
 
   /* Se redondea antes de partir (19/10/2026): con minutos repartidos entre
-     aspectos salen decimales, y 119,5 se escribía «1h 60'». */
+     aspectos salen decimales, y 119,5 se escribía «1h 60'».
+     Con la prima (′) y «1 h 35′» desde el 21/10/2026: en la misma línea se
+     mezclaban «0'» y «60-67′». */
   const total = Math.round(minutos);
   const horas = Math.floor(total / 60);
   const resto = total % 60;
 
-  return horas > 0 ? `${horas}h ${resto}'` : `${total}'`;
+  return horas > 0 ? `${horas} h ${resto}′` : `${total}′`;
 }
 
 export function fmtPct(valor: number) {

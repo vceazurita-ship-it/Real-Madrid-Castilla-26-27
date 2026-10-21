@@ -46,7 +46,10 @@ import {
   Eraser,
   Eye,
   EyeOff,
+  FileDown,
+  FileUp,
   Film,
+  Grid3x3,
   Keyboard,
   ListVideo,
   Pause,
@@ -90,6 +93,7 @@ import {
 } from "@/components/coding/ExportaClips";
 import { FichaClip, ListaClips } from "@/components/coding/ListaClips";
 import { LineaDeTiempo } from "@/components/coding/LineaDeTiempo";
+import { MatrizCoding } from "@/components/coding/MatrizCoding";
 import {
   AyudaTeclado,
   PanelCategorias,
@@ -128,6 +132,12 @@ import {
 import { useSesionCoding } from "@/hooks/useSesionCoding";
 import { duracionDeVideoMs } from "@/lib/coding/duracion";
 import { abreMp4 } from "@/lib/coding/mp4";
+import {
+  csvDeClips,
+  leeXmlSportscode,
+  xmlDeClips,
+} from "@/lib/coding/intercambio";
+import { descarga } from "@/lib/export/lienzos";
 import { caratulaDeJugador } from "@/lib/coding/portada";
 import {
   CLAVE_CONFIG_CODING,
@@ -145,12 +155,17 @@ import {
   formateaTotal,
   mismaFuente,
   normalizaConfig,
+  hayFiltro,
+  pasaFiltro,
   porCategoria,
   porColectivo,
+  ordenIndividual,
   porJugador,
   reparteTeclas,
+  tagsDeClips,
   totalCodificadoMs,
   type AmbitoCoding,
+  type FiltroClips,
   type ClipCoding,
   type ConfigCoding,
   type FuenteVideo,
@@ -1030,6 +1045,30 @@ function Coding() {
   /* Filtros de la lista y de la exportación. */
   const [filtroSujeto, setFiltroSujeto] = useState<string | null>(null);
   const [filtroCategoria, setFiltroCategoria] = useState<string | null>(null);
+  /* Por descriptor o etiqueta, y los que se marcaron para revisar. */
+  const [filtroTag, setFiltroTag] = useState<string | null>(null);
+  const [soloRevisar, setSoloRevisar] = useState(false);
+
+  const filtro: FiltroClips = useMemo(
+    () => ({
+      sujeto: filtroSujeto,
+      categoria: filtroCategoria,
+      tag: filtroTag,
+      soloRevisar,
+    }),
+    [filtroCategoria, filtroSujeto, filtroTag, soloRevisar],
+  );
+
+  const quitaFiltros = useCallback(() => {
+    setFiltroSujeto(null);
+    setFiltroCategoria(null);
+    setFiltroTag(null);
+    setSoloRevisar(false);
+  }, []);
+
+  /* La lista guardada que se está mirando, si hay una. Manda sobre los filtros. */
+  const [listaActiva, setListaActiva] = useState<string | null>(null);
+  const [nombrandoLista, setNombrandoLista] = useState<string | null>(null);
 
   const [modoCorte, setModoCorte] = useState<ModoCorteUI>("preciso");
 
@@ -1086,6 +1125,13 @@ function Coding() {
   /* Lo que puede pesar cada fichero que salga. Vive en la pestaña, como el
      modo de corte: es una decisión del momento de exportar. */
   const [topeMegas, setTopeMegas] = useState<number>(TOPE_MEGAS_POR_DEFECTO);
+
+  /* El rótulo de cada corte (quién, qué, minuto). De partida, puesto: un
+     montaje para la sala sin decir de quién es cada jugada no se entiende. */
+  const [rotulos, setRotulos] = useState(true);
+
+  /* Fundido a negro entre jugadas del unificado: de partida, puesto. */
+  const [fundido, setFundido] = useState(true);
 
   /* Con qué medida sale la imagen. `0` es la del partido, sin encoger. */
   const [medidaVideo, setMedidaVideo] = useState<number>(MEDIDA_POR_DEFECTO);
@@ -1348,13 +1394,15 @@ function Coding() {
   );
 
   const clipsFiltrados = useMemo(
+    () => clips.filter((clip) => pasaFiltro(clip, filtro)),
+    [clips, filtro],
+  );
+
+  /* Lo que la línea de tiempo enseña encendido: sin filtro, todo. */
+  const resaltados = useMemo(
     () =>
-      clips.filter(
-        (clip) =>
-          (!filtroSujeto || clip.jugadorId === filtroSujeto) &&
-          (!filtroCategoria || clip.categoriaId === filtroCategoria),
-      ),
-    [clips, filtroCategoria, filtroSujeto],
+      hayFiltro(filtro) ? new Set(clipsFiltrados.map((clip) => clip.id)) : null,
+    [clipsFiltrados, filtro],
   );
 
   /*
@@ -1368,14 +1416,35 @@ function Coding() {
   */
   const videosFuera = sesion.sesion.videosFuera;
 
+  /*
+  | Una lista guardada se exporta y se enseña en SU orden, cortes de varios
+  | vídeos mezclados si hace falta: es un montaje, no un filtro. Sus cortes
+  | se buscan por id, así que uno borrado simplemente no sale.
+  */
+  const listaGuardada = useMemo(
+    () =>
+      (sesion.sesion.listas ?? []).find((lista) => lista.id === listaActiva) ??
+      null,
+    [listaActiva, sesion.sesion.listas],
+  );
+
+  const clipsDeLaListaGuardada = useMemo(() => {
+    if (!listaGuardada) return null;
+
+    const porId = new Map(sesion.sesion.clips.map((clip) => [clip.id, clip]));
+
+    return listaGuardada.clipIds
+      .map((id) => porId.get(id))
+      .filter((clip): clip is ClipCoding => Boolean(clip));
+  }, [listaGuardada, sesion.sesion.clips]);
+
   const clipsExportables = useMemo(
     () =>
+      clipsDeLaListaGuardada ??
       clipsParaExportar(sesion.sesion.clips, videosSesion, videosFuera).filter(
-        (clip) =>
-          (!filtroSujeto || clip.jugadorId === filtroSujeto) &&
-          (!filtroCategoria || clip.categoriaId === filtroCategoria),
+        (clip) => pasaFiltro(clip, filtro),
       ),
-    [filtroCategoria, filtroSujeto, sesion.sesion.clips, videosFuera, videosSesion],
+    [clipsDeLaListaGuardada, filtro, sesion.sesion.clips, videosFuera, videosSesion],
   );
 
 
@@ -1393,21 +1462,32 @@ function Coding() {
 
   const clipsDeLaLista = useMemo(
     () =>
-      verTodosEnLista
+      clipsDeLaListaGuardada ??
+      (verTodosEnLista
         ? clipsParaExportar(sesion.sesion.clips, videosSesion, []).filter(
-            (clip) =>
-              (!filtroSujeto || clip.jugadorId === filtroSujeto) &&
-              (!filtroCategoria || clip.categoriaId === filtroCategoria),
+            (clip) => pasaFiltro(clip, filtro),
           )
-        : clipsFiltrados,
+        : clipsFiltrados),
     [
+      clipsDeLaListaGuardada,
       clipsFiltrados,
-      filtroCategoria,
-      filtroSujeto,
+      filtro,
       sesion.sesion.clips,
       verTodosEnLista,
       videosSesion,
     ],
+  );
+
+  /*
+  | Lo que «Reproducir todos» encadena: el reproductor es de un vídeo, así que
+  | con una lista guardada son sus cortes del vídeo de delante, en su orden.
+  */
+  const colaParaReproducir = useMemo(
+    () =>
+      clipsDeLaListaGuardada
+        ? clipsDeVideo(clipsDeLaListaGuardada, videosSesion, sesion.sesion.fuente)
+        : clipsFiltrados,
+    [clipsDeLaListaGuardada, clipsFiltrados, sesion.sesion.fuente, videosSesion],
   );
 
   /* De qué vídeo es cada clip de la lista, por su nombre. */
@@ -1434,6 +1514,45 @@ function Coding() {
             : mayor,
         null,
       ),
+    [clips],
+  );
+
+  /*
+  | A qué corte van los descriptores (⇧1…⇧9).
+  |
+  | Al elegido en la lista, y si no hay ninguno, al último que se ha marcado:
+  | en directo se marca y se califica sin tocar el ratón. Marcar uno nuevo
+  | suelta la elección, así que la tecla no se va a un corte de hace diez
+  | minutos.
+  */
+  const objetivoDescriptor = useMemo(
+    () =>
+      (seleccionado
+        ? sesion.sesion.clips.find((uno) => uno.id === seleccionado)
+        : null) ?? ultimoMarcado,
+    [seleccionado, sesion.sesion.clips, ultimoMarcado],
+  );
+
+  /*
+  | Lo que cuenta la matriz: lo mismo que la lista, pero sin su propio filtro
+  | de quién y qué —si no, al pulsar un cruce se quedaría sola esa celda—.
+  */
+  const clipsDeLaMatriz = useMemo(
+    () =>
+      (verTodosEnLista
+        ? clipsParaExportar(sesion.sesion.clips, videosSesion, [])
+        : clips
+      ).filter((clip) =>
+        pasaFiltro(clip, { ...filtro, sujeto: null, categoria: null }),
+      ),
+    [clips, filtro, sesion.sesion.clips, verTodosEnLista, videosSesion],
+  );
+
+  /* Las etiquetas que hay, para filtrar por ellas. */
+  const tagsUsados = useMemo(() => tagsDeClips(clips), [clips]);
+
+  const porRevisar = useMemo(
+    () => clips.filter((clip) => clip.estado === "revisar").length,
     [clips],
   );
 
@@ -1569,6 +1688,7 @@ function Coding() {
     }
 
     setInicioMs(null);
+    setSeleccionado(null);
 
     /*
     | Cerrado el corte, la mesa queda recogida: se sale del modo de dibujo y
@@ -1586,6 +1706,113 @@ function Coding() {
     sujeto,
     tiempoAhoraMs,
   ]);
+
+  /*
+  | La marca de un toque (Intro).
+  |
+  | Para el directo: se ve la recuperación y se pulsa una vez. Coge lo que
+  | diga la configuración hacia atrás y hacia delante del instante —el
+  | «lead/lag» de SportsCode—, y luego se le suman los márgenes de siempre.
+  | Con una marca de inicio abierta no hace nada distinto: la cierra, que es
+  | lo que se quería.
+  */
+  const marcaToque = useCallback(() => {
+    if (inicioMs !== null) {
+      marcaFinal();
+      return;
+    }
+
+    if (!sujeto) {
+      toast.error(SIN_SUJETO);
+      setEligiendoMarca(true);
+      return;
+    }
+
+    const ahora = tiempoAhoraMs();
+    const duracion = estado.duracionMs || Number.POSITIVE_INFINITY;
+
+    const problema = sesion.añadeClip({
+      sujeto: sujeto.tipo,
+      jugadorId: sujeto.id,
+      jugadorNombre: sujeto.nombre,
+      jugadorDorsal: sujeto.dorsal,
+      categoriaId: categoriaActiva,
+      codingInicioMs: Math.max(0, ahora - config.toqueAntesMs),
+      codingFinMs: Math.max(1, Math.min(duracion, ahora + config.toqueDespuesMs)),
+      preRollMs: sesion.sesion.preRollMs,
+      postRollMs: sesion.sesion.postRollMs,
+      duracionVideoMs: estado.duracionMs || undefined,
+    });
+
+    if (problema) {
+      toast.error(problema);
+      return;
+    }
+
+    setSeleccionado(null);
+    cambiaPizarraEditando(null);
+  }, [
+    cambiaPizarraEditando,
+    categoriaActiva,
+    config.toqueAntesMs,
+    config.toqueDespuesMs,
+    estado.duracionMs,
+    inicioMs,
+    marcaFinal,
+    sesion,
+    sujeto,
+    tiempoAhoraMs,
+  ]);
+
+  /*
+  | Traer un timeline de SportsCode / Nacsport sobre el vídeo de delante.
+  |
+  | Los jugadores se reconocen por el nombre (con o sin dorsal); lo que no se
+  | reconoce entra como sujeto de equipo con su nombre, para no perderlo. Un
+  | solo paso de deshacer para todo lo importado.
+  */
+  const entradaXml = useRef<HTMLInputElement>(null);
+
+  const importaXml = useCallback(
+    async (fichero: File) => {
+      try {
+        const leido = leeXmlSportscode(await fichero.text(), {
+          jugadores,
+          comportamientos: config.comportamientos,
+          categorias: config.categorias,
+        });
+
+        const metidos = sesion.añadeImportados(
+          leido.clips,
+          estado.duracionMs || undefined,
+        );
+
+        if (metidos === 0) {
+          toast.error("El XML no trae ningún corte que se pueda usar.");
+          return;
+        }
+
+        const detalles = [
+          leido.descartadas > 0
+            ? `${leido.descartadas} sin tiempos válidos se han quedado fuera`
+            : "",
+          leido.sujetosNuevos.length > 0
+            ? `${leido.sujetosNuevos.length} ${leido.sujetosNuevos.length === 1 ? "código entra" : "códigos entran"} como equipo: ${leido.sujetosNuevos.slice(0, 4).join(", ")}${leido.sujetosNuevos.length > 4 ? "…" : ""}`
+            : "",
+          "Retroceso lo deshace todo de una vez",
+        ].filter(Boolean);
+
+        toast.success(`${metidos} ${metidos === 1 ? "corte importado" : "cortes importados"} de ${fichero.name}`, {
+          description: detalles.join(" · "),
+        });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "No se ha podido leer el XML.",
+        );
+      }
+    },
+    [config.categorias, config.comportamientos, estado.duracionMs, jugadores, sesion],
+  );
 
   const reproduceClip = useCallback(
     (clip: ClipCoding) => {
@@ -2112,14 +2339,34 @@ function Coding() {
     [config.comportamientos],
   );
 
-  const etiquetaFiltro = filtroSujeto
-    ? (jugadorDe(filtroSujeto)?.nombre ??
-      comportamientoDe(filtroSujeto)?.nombre ??
-      "sujeto")
-    : filtroCategoria
-      ? (config.categorias.find((una) => una.id === filtroCategoria)?.nombre ??
-        "categoría")
-      : "todo el partido";
+  /*
+  | Lo que se está mirando, dicho entero: «Mestre · Recuperación · Bien».
+  |
+  | Antes decía sólo el primer filtro, y con la matriz se cruzan dos: el
+  | subtítulo decía «Mestre» mientras la lista enseñaba sólo sus
+  | recuperaciones.
+  */
+  const etiquetaFiltro = listaGuardada
+    ? `lista «${listaGuardada.nombre}»`
+    : hayFiltro(filtro)
+    ? [
+        filtroSujeto
+          ? (jugadorDe(filtroSujeto)?.nombre ??
+            comportamientoDe(filtroSujeto)?.nombre ??
+            sesion.sesion.clips.find((uno) => uno.jugadorId === filtroSujeto)
+              ?.jugadorNombre ??
+            "sujeto")
+          : null,
+        filtroCategoria !== null
+          ? (config.categorias.find((una) => una.id === filtroCategoria)
+              ?.nombre ?? "Sin categoría")
+          : null,
+        filtroTag,
+        soloRevisar ? "por revisar" : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "todo el partido";
 
   /*
   | ------------------------------------------------------ YOUTUBE
@@ -2453,6 +2700,7 @@ function Coding() {
   const exportador = useExportador({
     fuente: sesion.sesion.fuente,
     categorias: config.categorias,
+    descriptores: config.descriptores,
     carpeta: apodoCoding(titulo),
     modo: modoCorte,
     topeMegas,
@@ -2463,6 +2711,9 @@ function Coding() {
     ficheros: ficherosLocales,
     fps: sesion.sesion.fps,
     titulo,
+    rotulos,
+    familiaRotulo: FAMILIA_PORTADA,
+    fundidoMs: fundido ? 300 : 0,
     /* El vídeo copiado a la carpeta entra en la sesión y se pone delante. */
     onAdopta: (fuente, src) => abreVideos([{ fuente, src }], { forzar: false }),
     alTerminarVideo,
@@ -2786,10 +3037,40 @@ function Coding() {
       ? caratulaPedida
       : caratulaPorDefecto;
 
-  const caratulaDe = useCallback(async (sujetoId: string) => {
+  const caratulaDe = useCallback(async (
+    sujetoId: string,
+    /** El vídeo de corrección de un jugador nuestro: firma propia y objetivo. */
+    individual?: { objetivo: string },
+  ) => {
     if (!sujetoId) return null;
 
-    const jugador = jugadorDe(sujetoId);
+    /*
+    | Si el corte se marcó con otro id —una sesión importada, un dorsal— se
+    | busca por el nombre en la plantilla: sin eso la carátula salía con la
+    | silueta aunque el jugador tiene su foto.
+    */
+    const sinTildes = (texto: string) =>
+      texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+    const nombreDelCorte = sujetosDeClips.find((uno) => uno.id === sujetoId)?.nombre ?? "";
+
+    const porNombre = () => {
+      const buscado = sinTildes(nombreDelCorte);
+
+      if (!buscado) return null;
+
+      const iguales = jugadores.filter((uno) => sinTildes(uno.nombre) === buscado);
+
+      if (iguales.length === 1) return iguales[0];
+
+      const parecidos = jugadores.filter((uno) =>
+        sinTildes(uno.nombre).split(" ").includes(buscado),
+      );
+
+      return parecidos.length === 1 ? parecidos[0] : null;
+    };
+
+    const jugador = jugadorDe(sujetoId) ?? porNombre();
     const comportamiento = jugador ? null : comportamientoDe(sujetoId);
 
     /*
@@ -2815,12 +3096,22 @@ function Coding() {
       dorsal: jugador?.dorsal !== undefined ? String(jugador.dorsal) : "",
       foto: jugador?.foto,
       contexto: titulo,
+      /*
+      | La firma dice para qué es el vídeo. Era siempre «SCOUTING RIVAL»,
+      | también en el vídeo de corrección de un jugador nuestro.
+      */
+      firma:
+        ambito === "rival"
+          ? undefined
+          : `RMCF CASTILLA · ${individual ? "FEEDBACK INDIVIDUAL" : "VÍDEO DE TRABAJO"} · ${titulo.replace(/^RMCF Castilla · /i, "")}`,
+      objetivo: individual?.objetivo,
     });
   }, [
     ambito,
     comportamientoDe,
     escudoDe,
     jugadorDe,
+    jugadores,
     rival,
     sujetosDeClips,
     titulo,
@@ -2876,6 +3167,12 @@ function Coding() {
   /* La vista previa: se pinta al pedirla y se queda hasta que se cierra. */
   const [caratulaVista, setCaratulaVista] = useState<string | null>(null);
 
+  /*
+  | Lo que se le pide al jugador en su vídeo individual. Se escribe al
+  | montarlo y va a la carátula; vacío, la carátula no lo nombra.
+  */
+  const [objetivoIndividual, setObjetivoIndividual] = useState("");
+
   const verCaratula = useCallback(async () => {
     /* Con «una por jugador» se enseña la del primero: son todas la misma
        plantilla, y lo que se comprueba es que la plantilla sale bien. */
@@ -2894,7 +3191,15 @@ function Coding() {
     setCaratulaVista(png);
   }, [caratulaDe, caratulaSujeto, sujetosDeClips]);
 
-  const exportaUnificado = useCallback(async () => {
+  const exportaUnificado = useCallback(async (individual = false) => {
+    /*
+    | El vídeo individual es el mismo montaje en otro orden: abre y cierra con
+    | lo bien hecho y deja en medio lo que corregir (`ordenIndividual`).
+    */
+    const lista = individual
+      ? ordenIndividual(clipsExportables, config.descriptores)
+      : clipsExportables;
+
     /*
     | El aviso es para la carátula, que es lo único que se dibuja aquí y tarda
     | —hay que traerse la foto y el escudo—. Estaba al revés: salía cuando NO
@@ -2902,11 +3207,29 @@ function Coding() {
     | única forma de que se quede colgado en pantalla. Y colgado tapaba el
     | error de verdad, el que llega justo después desde `exporta`.
     */
-    const aviso = caratulaSujeto
-      ? toast.loading("Montando la carátula del vídeo…")
-      : null;
+    /*
+    | El individual lleva SIEMPRE la carátula del jugador, con la firma de
+    | corrección y su objetivo de la semana: es la que dice para qué es.
+    */
+    const elJugador = individual
+      ? lista.find(
+          (clip) =>
+            clip.sujeto !== "colectivo" && clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id,
+        )?.jugadorId
+      : undefined;
 
-    const { portada, dentro, faltan } = await construyeCaratulas(clipsExportables);
+    const aviso =
+      caratulaSujeto || elJugador
+        ? toast.loading("Montando la carátula del vídeo…")
+        : null;
+
+    const { portada, dentro, faltan } = elJugador
+      ? {
+          portada: await caratulaDe(elJugador, { objetivo: objetivoIndividual }),
+          dentro: [] as { clipId: string; imagen: string }[],
+          faltan: 0,
+        }
+      : await construyeCaratulas(lista);
 
     if (aviso) toast.dismiss(aviso);
 
@@ -2949,7 +3272,7 @@ function Coding() {
     | Y van aunque las pizarras estén en «Fuera»: apagar las pizarras es no
     | quemar los dibujos, no renunciar a las diapositivas que se han pedido.
     */
-    const paradas = await componePizarras(clipsExportables);
+    const paradas = await componePizarras(lista);
 
     for (const { clipId, imagen } of dentro) {
       paradas.set(clipId, [
@@ -2959,19 +3282,22 @@ function Coding() {
     }
 
     await exporta({
-      clips: clipsExportables,
+      clips: lista,
       formato: "unificado",
-      nombre: `${apodoCoding(titulo)}-${apodoCoding(etiquetaFiltro)}`,
+      nombre: `${apodoCoding(titulo)}-${apodoCoding(etiquetaFiltro)}${individual ? "-individual" : ""}`,
       portada,
       paradas,
     });
   }, [
+    caratulaDe,
     caratulaSujeto,
     clipsExportables,
     componePizarras,
+    config.descriptores,
     construyeCaratulas,
     etiquetaFiltro,
     exporta,
+    objetivoIndividual,
     titulo,
   ]);
 
@@ -3016,6 +3342,30 @@ function Coding() {
         (destino.isContentEditable ||
           ["INPUT", "TEXTAREA", "SELECT"].includes(destino.tagName))
       ) {
+        return;
+      }
+
+      /*
+      | Alt + flecha: cinco segundos. Estaba en la ayuda desde el principio y
+      | no hacía nada —el Alt salía aquí abajo sin mirar—. Se cancela el
+      | evento porque, sin eso, Alt + ← es «atrás» en el navegador y la
+      | pantalla se iba con la marca a medias.
+      */
+      if (
+        evento.altKey &&
+        !evento.ctrlKey &&
+        !evento.metaKey &&
+        (evento.key === "ArrowLeft" || evento.key === "ArrowRight")
+      ) {
+        evento.preventDefault();
+
+        salta(
+          Math.max(
+            0,
+            tiempoAhoraMs() + (evento.key === "ArrowLeft" ? -5000 : 5000),
+          ),
+        );
+
         return;
       }
 
@@ -3091,10 +3441,51 @@ function Coding() {
       if (evento.key === "Backspace") {
         evento.preventDefault();
 
+        if (evento.shiftKey) {
+          if (sesion.rehacer()) toast.success("Rehecho");
+          else toast.info("No hay nada que rehacer");
+
+          return;
+        }
+
         if (sesion.deshacer()) toast.success("Deshecho");
         else toast.info("No hay nada que deshacer");
 
         return;
+      }
+
+      if (evento.key === "Enter") {
+        /* Intro sobre un botón es pulsar ese botón, no marcar. */
+        if (destino?.closest("button, a, [role=button]")) return;
+
+        evento.preventDefault();
+        marcaToque();
+        return;
+      }
+
+      /*
+      | ⇧ + cifra: un descriptor al corte elegido o al último.
+      |
+      | Se mira `code` y no `key`: con mayúscula, la tecla del 1 da «!» en un
+      | teclado español y «!» también en uno inglés, pero la del 3 da «·» en
+      | uno y «#» en otro.
+      */
+      const cifra = /^Digit([1-9])$/.exec(evento.code);
+
+      if (evento.shiftKey && cifra) {
+        const descriptor = config.descriptores[Number(cifra[1]) - 1];
+
+        if (descriptor) {
+          evento.preventDefault();
+
+          if (!objetivoDescriptor) {
+            toast.info("Marca antes un corte para ponerle un descriptor.");
+            return;
+          }
+
+          sesion.alternaDescriptor(objetivoDescriptor.id, descriptor.nombre);
+          return;
+        }
       }
 
       if (evento.key === "Escape") {
@@ -3175,14 +3566,19 @@ function Coding() {
     ajustaLanzadera,
     config.categorias,
     config.comportamientos,
+    config.descriptores,
     hayModal,
     inicioMs,
     jugadores,
     marcaFinal,
     marcaInicio,
+    marcaToque,
+    objetivoDescriptor,
     reproductor,
+    salta,
     sesion,
     teclas,
+    tiempoAhoraMs,
   ]);
 
   /* ---------------------------------------------------------- vista */
@@ -3239,7 +3635,7 @@ function Coding() {
               title={
                 ambito === "rival" ? "Coding de rival" : "Coding de partido"
               }
-              lead="Marca el inicio y el final de cada acción sin soltar el teclado. Los clips se guardan solos y se convierten en vídeo de verdad desde aquí."
+              lead="Marca el inicio y el final de cada acción sin soltar el teclado. Los cortes se guardan solos y se convierten en vídeo de verdad desde aquí."
               aside={
                 <div className="flex items-center gap-2">
                   <SaveState
@@ -3249,7 +3645,7 @@ function Coding() {
                     sinGuardar={sesion.sinGuardar}
                     onGuardar={() => {
                       void sesion.guardaYa().then((bien) => {
-                        if (bien) toast.success("Clips guardados");
+                        if (bien) toast.success("Cortes guardados");
                       });
                     }}
                   />
@@ -3430,7 +3826,7 @@ function Coding() {
 
               <div className="flex items-end gap-2">
                 <span className="rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/40">
-                  {clips.length} clips · {formateaTotal(totalCodificadoMs(clips))}
+                  {clips.length} {clips.length === 1 ? "corte" : "cortes"} · {formateaTotal(totalCodificadoMs(clips))}
                 </span>
               </div>
             </div>
@@ -3444,15 +3840,17 @@ function Coding() {
             {avisoSesion && sesion.sesion.abierta && clips.length > 0 && (
               <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2.5">
                 <p className="min-w-0 flex-1 text-[12px] leading-snug text-white/75">
-                  <b className="text-white">Sesión abierta</b> · {clips.length}{" "}
-                  {clips.length === 1 ? "clip guardado" : "clips guardados"} de la última vez.
-                  Sigue donde lo dejaste o márcala como terminada:{" "}
-                  <span className="text-white/50">cerrarla no borra ningún clip.</span>
+                  <b className="text-white">
+                    Retoma tu sesión: {clips.length}{" "}
+                    {clips.length === 1 ? "corte" : "cortes"} ·{" "}
+                    {formateaTotal(totalCodificadoMs(clips))}
+                  </b>{" "}
+                  <span className="text-white/50">· darla por terminada no borra ningún corte</span>
                 </p>
 
                 <div className="flex shrink-0 gap-2">
                   <Button tone="primary" onClick={() => setAvisoSesion(false)}>
-                    Continuar
+                    Seguir codificando
                   </Button>
 
                   <Button
@@ -3461,7 +3859,7 @@ function Coding() {
                       setAvisoSesion(false);
                     }}
                   >
-                    Terminada
+                    Dar por terminada
                   </Button>
                 </div>
               </div>
@@ -3496,8 +3894,15 @@ function Coding() {
                     touchAction: "pan-y",
                     maxWidth: enPantallaCompleta ? undefined : visor.anchoMaximo,
                   }}
+                  /*
+                  | En el teléfono el vídeo se queda arriba al bajar: la lista
+                  | de cortes, los marcadores y la matriz están debajo, y sin
+                  | esto se pulsaba un corte sin ver qué se reproducía.
+                  */
                   className={`relative mx-auto min-w-0 overflow-hidden border border-white/10 bg-black ${
-                    enPantallaCompleta ? "rounded-none border-0" : "rounded-2xl"
+                    enPantallaCompleta
+                      ? "rounded-none border-0"
+                      : "rounded-2xl max-sm:sticky max-sm:top-0 max-sm:z-30 max-sm:shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
                   }`}
                 >
                   {/*
@@ -3966,6 +4371,30 @@ function Coding() {
                     onVerUltimo={() => {
                       if (ultimoMarcado) reproduceClip(ultimoMarcado);
                     }}
+                    onRehacer={() => {
+                      if (sesion.rehacer()) toast.success("Rehecho");
+                      else toast.info("No hay nada que rehacer");
+                    }}
+                    toque={{
+                      antesMs: config.toqueAntesMs,
+                      despuesMs: config.toqueDespuesMs,
+                    }}
+                    onToque={marcaToque}
+                    descriptores={config.descriptores}
+                    objetivo={
+                      objetivoDescriptor
+                        ? {
+                            numero: objetivoDescriptor.numero,
+                            nombre: objetivoDescriptor.jugadorNombre,
+                            tags: objetivoDescriptor.tags,
+                          }
+                        : null
+                    }
+                    onDescriptor={(nombre) => {
+                      if (objetivoDescriptor) {
+                        sesion.alternaDescriptor(objetivoDescriptor.id, nombre);
+                      }
+                    }}
                   />
 
                   <div className="mt-3">
@@ -3977,6 +4406,7 @@ function Coding() {
                       categorias={config.categorias}
                       escenas={escenas}
                       seleccionado={seleccionado}
+                      resaltados={resaltados}
                       onSalta={salta}
                       onElegirClip={(id) => {
                         const clip = clips.find((uno) => uno.id === id);
@@ -3989,12 +4419,42 @@ function Coding() {
                   </div>
                 </div>
 
+                {/* -------------------------- MATRIZ -------------------- */}
+
+                {/* Sólo con cortes marcados: el «Vídeo completo» no es de nadie. */}
+                {clips.some(
+                  (clip) => clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id,
+                ) && (
+                  <Panel
+                    title="Matriz"
+                    subtitle="Quién por qué, agrupado por fase · pulsa un cruce y la lista, la línea de tiempo y la exportación se quedan con esos cortes"
+                    icon={Grid3x3}
+                    bodyClassName="p-3 sm:p-3"
+                  >
+                    <MatrizCoding
+                      clips={clipsDeLaMatriz}
+                      categorias={config.categorias}
+                      descriptores={config.descriptores}
+                      sujeto={filtroSujeto}
+                      categoria={filtroCategoria}
+                      onFiltra={(quien, que) => {
+                        /* Filtrar es mirar la sesión: se sale de la lista. */
+                        setListaActiva(null);
+                        setFiltroSujeto(quien);
+                        setFiltroCategoria(que);
+                      }}
+                    />
+                  </Panel>
+                )}
+
                 {/* --------------------------- CLIPS --------------------- */}
 
                 <Panel
-                  title="Clips"
+                  title="Cortes"
                   subtitle={
-                    verTodosEnLista
+                    listaGuardada
+                      ? `${clipsDeLaLista.length} ${clipsDeLaLista.length === 1 ? "corte" : "cortes"} · ${etiquetaFiltro} · en el orden de la lista`
+                      : verTodosEnLista
                       ? `${clipsDeLaLista.length} de ${sesion.sesion.clips.length} · de ${videosSesion.length} vídeos · ${etiquetaFiltro} · el orden de la lista es el del vídeo`
                       : `${clipsFiltrados.length} de ${clips.length} · ${etiquetaFiltro} · el orden de la lista es el del vídeo`
                   }
@@ -4008,8 +4468,8 @@ function Coding() {
                           onClick={() => setListaDeTodos((valor) => !valor)}
                           title={
                             listaDeTodos
-                              ? "Enseñar sólo los clips del vídeo que está delante"
-                              : "Enseñar los clips de todos los vídeos de la sesión"
+                              ? "Enseñar sólo los cortes del vídeo que está delante"
+                              : "Enseñar los cortes de todos los vídeos de la sesión"
                           }
                         >
                           {listaDeTodos
@@ -4018,13 +4478,10 @@ function Coding() {
                         </Button>
                       )}
 
-                      {(filtroSujeto || filtroCategoria) && (
-                        <Button
-                          onClick={() => {
-                            setFiltroSujeto(null);
-                            setFiltroCategoria(null);
-                          }}
-                        >
+                      {/* Con una lista abierta los filtros no mandan, y
+                          «Ordenar por tiempo» reordenaría la sesión, no ella. */}
+                      {!listaGuardada && hayFiltro(filtro) && (
+                        <Button icon={X} onClick={quitaFiltros}>
                           Quitar filtros
                         </Button>
                       )}
@@ -4036,14 +4493,14 @@ function Coding() {
                       | partido: en un coding recién hecho sería un botón que no
                       | hace nada.
                       */}
-                      {!ordenDePartido && (
+                      {!listaGuardada && !ordenDePartido && (
                         <Button
                           icon={ArrowDownWideNarrow}
                           onClick={() => {
                             /* Sólo los del vídeo de delante: el orden hecho a
                                mano en los demás vídeos se respeta. */
                             sesion.ordenaClipsPorTiempo(clips.map((clip) => clip.id));
-                            toast.success("Clips en el orden del partido");
+                            toast.success("Cortes en el orden del partido");
                           }}
                           title="Deshacer el orden a mano y volver al del partido"
                         >
@@ -4071,12 +4528,12 @@ function Coding() {
 
                       <Button
                         icon={Play}
-                        onClick={() => lanzaCola(clipsFiltrados)}
-                        disabled={clipsFiltrados.length === 0}
+                        onClick={() => lanzaCola(colaParaReproducir)}
+                        disabled={colaParaReproducir.length === 0}
                         title={
                           verTodosEnLista
-                            ? "Reproducir uno detrás de otro los clips del vídeo que está delante (el reproductor es de un vídeo)"
-                            : "Reproducir todos los clips filtrados, uno detrás de otro"
+                            ? "Reproducir uno detrás de otro los cortes del vídeo que está delante (el reproductor es de un vídeo)"
+                            : "Reproducir todos los cortes filtrados, uno detrás de otro"
                         }
                       >
                         {verTodosEnLista ? "Reproducir todos (este vídeo)" : "Reproducir todos"}
@@ -4084,6 +4541,203 @@ function Coding() {
                     </div>
                   }
                 >
+                  {/*
+                  | Los descriptores y etiquetas que hay, como filtro.
+                  |
+                  | Sólo los que de verdad llevan los clips: una fila con los
+                  | nueve descriptores a cero sería ruido.
+                  */}
+                  {/*
+                  | LAS LISTAS: montajes con nombre y su propio orden.
+                  |
+                  | «Guardar lo que se ve» se lleva la lista tal cual está
+                  | —filtros y orden incluidos—. Con una lista abierta, la lista
+                  | de abajo, la exportación y «Reproducir» son los de ella; la
+                  | papelera la saca de la lista sin borrar el corte.
+                  */}
+                  {(clipsDeLaLista.length > 0 || (sesion.sesion.listas ?? []).length > 0) && (
+                    <div className="mb-3 flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span className="mr-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+                        Listas
+                      </span>
+
+                      {(sesion.sesion.listas ?? []).length > 0 && (
+                        <button
+                          type="button"
+                          aria-pressed={!listaGuardada}
+                          onClick={() => setListaActiva(null)}
+                          className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
+                            !listaGuardada
+                              ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-white"
+                              : "border-white/10 text-white/60 hover:text-white"
+                          }`}
+                        >
+                          Todos los cortes
+                        </button>
+                      )}
+
+                      {(sesion.sesion.listas ?? []).map((lista) => {
+                        const activa = lista.id === listaActiva;
+
+                        return (
+                          <span key={lista.id} className="inline-flex items-center">
+                            <button
+                              type="button"
+                              aria-pressed={activa}
+                              onClick={() => setListaActiva(activa ? null : lista.id)}
+                              className={`flex items-center gap-1.5 border px-2.5 py-1 text-[11px] transition ${
+                                activa ? "rounded-l-full" : "rounded-full"
+                              } ${
+                                activa
+                                  ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-white"
+                                  : "border-white/10 text-white/60 hover:text-white"
+                              }`}
+                            >
+                              <ListVideo size={12} />
+                              {lista.nombre}
+                              <span className="font-mono tabular-nums text-white/40">
+                                {lista.clipIds.filter((id) => sesion.sesion.clips.some((clip) => clip.id === id)).length}
+                              </span>
+                            </button>
+
+                            {activa && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  sesion.borraLista(lista.id);
+                                  setListaActiva(null);
+                                  toast.success(`Lista «${lista.nombre}» borrada · los cortes siguen`);
+                                }}
+                                aria-label={`Borrar la lista ${lista.nombre}`}
+                                title="Borrar la lista (los cortes se quedan)"
+                                className="rounded-r-full border border-l-0 border-[#C8A96B] px-2 py-1 text-white/50 transition hover:text-red-300"
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
+
+                      {!listaGuardada &&
+                        clipsDeLaLista.length > 0 &&
+                        (nombrandoLista === null ? (
+                          <button
+                            type="button"
+                            onClick={() => setNombrandoLista(etiquetaFiltro === "todo el partido" ? "" : etiquetaFiltro)}
+                            title="Guardar los cortes que se ven, en este orden, como un montaje con nombre"
+                            className="flex items-center gap-1.5 rounded-full border border-dashed border-white/20 px-2.5 py-1 text-[11px] text-white/60 transition hover:border-[#C8A96B]/60 hover:text-white"
+                          >
+                            <Plus size={12} />
+                            Guardar lo que se ve ({clipsDeLaLista.length})
+                          </button>
+                        ) : (
+                          <form
+                            className="flex min-w-0 items-center gap-1.5"
+                            onSubmit={(evento) => {
+                              evento.preventDefault();
+
+                              const nombre = nombrandoLista.trim();
+
+                              if (!nombre) return;
+
+                              const id = sesion.guardaLista(
+                                nombre,
+                                clipsDeLaLista.map((clip) => clip.id),
+                              );
+
+                              setNombrandoLista(null);
+                              setListaActiva(id);
+                              toast.success(`Lista «${nombre}» guardada con ${clipsDeLaLista.length} cortes`);
+                            }}
+                          >
+                            <input
+                              autoFocus
+                              value={nombrandoLista}
+                              onChange={(evento) => setNombrandoLista(evento.target.value)}
+                              onKeyDown={(evento) => {
+                                if (evento.key === "Escape") setNombrandoLista(null);
+                              }}
+                              aria-label="Nombre de la lista"
+                              placeholder="Charla del martes"
+                              className="w-44 min-w-0 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1 text-[12px] text-white outline-none focus:border-[#C8A96B]/60"
+                            />
+                            <Button tone="primary" type="submit" disabled={!nombrandoLista.trim()}>
+                              Guardar
+                            </Button>
+                            <Button onClick={() => setNombrandoLista(null)}>Cancelar</Button>
+                          </form>
+                        ))}
+
+                      {listaGuardada && (
+                        <span className="text-[11px] text-white/40">
+                          Se exporta en este orden · la papelera la saca de la lista
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {!listaGuardada && (tagsUsados.length > 0 || porRevisar > 0) && (
+                    <div className="mb-3 flex min-w-0 flex-wrap items-center gap-1.5">
+                      <span className="mr-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+                        Filtrar
+                      </span>
+
+                      {tagsUsados.map((tag) => {
+                        const activo =
+                          filtroTag?.toLowerCase() === tag.nombre.toLowerCase();
+                        const color = config.descriptores.find(
+                          (uno) =>
+                            uno.nombre.toLowerCase() === tag.nombre.toLowerCase(),
+                        )?.color;
+
+                        return (
+                          <button
+                            key={tag.nombre}
+                            type="button"
+                            aria-pressed={activo}
+                            onClick={() => setFiltroTag(activo ? null : tag.nombre)}
+                            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+                              activo
+                                ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-white"
+                                : "border-white/10 text-white/60 hover:border-white/25 hover:text-white"
+                            }`}
+                          >
+                            {color && (
+                              <span
+                                aria-hidden
+                                className="h-2 w-2 rounded-full"
+                                style={{ background: color }}
+                              />
+                            )}
+                            {tag.nombre}
+                            <span className="font-mono tabular-nums text-white/40">
+                              {tag.clips}
+                            </span>
+                          </button>
+                        );
+                      })}
+
+                      {porRevisar > 0 && (
+                        <button
+                          type="button"
+                          aria-pressed={soloRevisar}
+                          onClick={() => setSoloRevisar((valor) => !valor)}
+                          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+                            soloRevisar
+                              ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-white"
+                              : "border-dashed border-white/20 text-white/60 hover:text-white"
+                          }`}
+                        >
+                          Por revisar
+                          <span className="font-mono tabular-nums text-white/40">
+                            {porRevisar}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   {cola && clipEnCola && (
                     <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-3 py-2">
                       <span className="text-[11px] text-[#C8A96B]">
@@ -4132,9 +4786,21 @@ function Coding() {
                     onEditar={editaClip}
                     onDuplicar={sesion.duplicaClip}
                     onBorrar={(id) => {
+                      if (listaGuardada) {
+                        sesion.quitaDeLista(listaGuardada.id, id);
+                        toast.success(`Fuera de «${listaGuardada.nombre}» · el corte sigue en la sesión`);
+                        return;
+                      }
+
                       sesion.borraClip(id);
-                      toast.success("Clip eliminado · se puede deshacer");
+                      toast.success("Corte eliminado · se puede deshacer");
                     }}
+                    libre={Boolean(listaGuardada)}
+                    tituloBorrar={
+                      listaGuardada
+                        ? `Sacar de la lista «${listaGuardada.nombre}» (el corte no se borra)`
+                        : undefined
+                    }
                     onExportar={(clip) =>
                       void (async () =>
                         exporta({
@@ -4144,12 +4810,87 @@ function Coding() {
                           paradas: await componePizarras([clip]),
                         }))()
                     }
-                    onMover={sesion.mueveClipA}
+                    onMover={(id, destinoId, donde) =>
+                      listaGuardada
+                        ? sesion.mueveEnLista(listaGuardada.id, id, destinoId, donde)
+                        : sesion.mueveClipA(id, destinoId, donde)
+                    }
                     /* Las pizarras son del vídeo que está delante: las de
                        otro no se pueden contar con estas escenas. */
                     pizarrasDe={(clip) => pizarrasDeClip(clip).length}
                     exportando={exportador.exportando}
                   />
+
+                  {/*
+                  | Lo que entra y sale de otras herramientas: el timeline de
+                  | SportsCode o Nacsport (XML) y la tabla para Excel (CSV).
+                  | Sale lo que se ve en la lista, con sus filtros.
+                  */}
+                  <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-white/10 pt-3">
+                    <span className="mr-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
+                      Intercambio
+                    </span>
+
+                    <input
+                      ref={entradaXml}
+                      type="file"
+                      accept=".xml,text/xml,application/xml"
+                      className="hidden"
+                      onChange={(evento) => {
+                        const fichero = evento.target.files?.[0];
+
+                        evento.target.value = "";
+
+                        if (fichero) void importaXml(fichero);
+                      }}
+                    />
+
+                    <Button
+                      icon={FileUp}
+                      onClick={() => entradaXml.current?.click()}
+                      disabled={!src}
+                      title={
+                        src
+                          ? "Traer un timeline de SportsCode, Hudl o Nacsport (XML) sobre el vídeo que está delante"
+                          : "Abre antes el vídeo sobre el que va el timeline"
+                      }
+                    >
+                      Importar XML
+                    </Button>
+
+                    <Button
+                      icon={FileDown}
+                      onClick={() =>
+                        descarga(
+                          new Blob([xmlDeClips(clipsDeLaLista, config.categorias)], {
+                            type: "application/xml",
+                          }),
+                          `${apodoCoding(titulo) || "coding"}-sportscode.xml`,
+                        )
+                      }
+                      disabled={clipsDeLaLista.length === 0}
+                      title="Los cortes de la lista como timeline de SportsCode (lo abren también Nacsport y Metrica Play)"
+                    >
+                      XML SportsCode
+                    </Button>
+
+                    <Button
+                      icon={FileDown}
+                      onClick={() =>
+                        descarga(
+                          new Blob(
+                            [csvDeClips(clipsDeLaLista, config.categorias, videoDeClip)],
+                            { type: "text/csv;charset=utf-8" },
+                          ),
+                          `${apodoCoding(titulo) || "coding"}-cortes.csv`,
+                        )
+                      }
+                      disabled={clipsDeLaLista.length === 0}
+                      title="Los cortes de la lista en una tabla para Excel"
+                    >
+                      CSV
+                    </Button>
+                  </div>
                 </Panel>
 
                 {/* ------------------------ EXPORTACIÓN ------------------ */}
@@ -4191,6 +4932,10 @@ function Coding() {
                     pizarras={pizarrasEnLaExportacion}
                     quema={quemaPizarras}
                     onQuema={setQuemaPizarras}
+                    rotulos={rotulos}
+                    onRotulos={setRotulos}
+                    fundido={fundido}
+                    onFundido={setFundido}
                     enNavegador={montaEnNavegador}
                     videos={videosSesion.map((video) => ({
                       nombre: video.nombre,
@@ -4222,6 +4967,11 @@ function Coding() {
                         }))()
                     }
                     onUnificado={() => void exportaUnificado()}
+                    onIndividual={() => void exportaUnificado(true)}
+                    objetivoIndividual={objetivoIndividual}
+                    onObjetivoIndividual={setObjetivoIndividual}
+                    ultimoVideo={exportador.ultimo}
+                    tituloMensaje={titulo}
                   />
                 </Panel>
 
@@ -4431,8 +5181,8 @@ function Coding() {
 
                 <Panel title="Por jugador" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
-                    filas={porJugador(clips)}
-                    vacio="Sin clips todavía."
+                    filas={porJugador(clips, config.descriptores)}
+                    vacio="Sin cortes todavía."
                     activa={filtroSujeto}
                     onElegir={(clave) =>
                       setFiltroSujeto((actual) =>
@@ -4446,8 +5196,8 @@ function Coding() {
                 {porColectivo(clips).length > 0 && (
                   <Panel title="Por comportamiento" bodyClassName="p-3 sm:p-3">
                     <TablaResumen
-                      filas={porColectivo(clips)}
-                      vacio="Sin clips todavía."
+                      filas={porColectivo(clips, config.descriptores)}
+                      vacio="Sin cortes todavía."
                       activa={filtroSujeto}
                       onElegir={(clave) =>
                         setFiltroSujeto((actual) =>
@@ -4460,8 +5210,8 @@ function Coding() {
 
                 <Panel title="Por categoría" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
-                    filas={porCategoria(clips, config.categorias)}
-                    vacio="Sin clips todavía."
+                    filas={porCategoria(clips, config.categorias, config.descriptores)}
+                    vacio="Sin cortes todavía."
                     activa={filtroCategoria}
                     onElegir={(clave) =>
                       setFiltroCategoria((actual) =>
@@ -4472,7 +5222,7 @@ function Coding() {
                 </Panel>
 
                 {seleccionado && (
-                  <Panel title="Clip elegido" bodyClassName="p-3 sm:p-3">
+                  <Panel title="Corte elegido" bodyClassName="p-3 sm:p-3">
                     {(() => {
                       const clip = clips.find((uno) => uno.id === seleccionado);
 
@@ -4743,6 +5493,7 @@ function Coding() {
           jugadores={jugadores}
           comportamientos={config.comportamientos}
           categorias={config.categorias}
+          descriptores={config.descriptores}
           tiempoActualMs={estado.tiempoMs}
           onCerrar={() => setEditando(null)}
           onGuardar={(cambios) => {
@@ -4761,7 +5512,7 @@ function Coding() {
 
             setEditando(null);
 
-            toast.success("Clip corregido");
+            toast.success("Corte corregido");
           }}
         />
       )}

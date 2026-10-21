@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import {
   TIPO_CODING,
+  alternaTag,
   borradorVideoCompleto,
   claveSesion,
   creaClip,
@@ -24,6 +25,7 @@ import {
   type FuenteVideo,
   type SesionCoding,
 } from "@/lib/coding/modelo";
+import type { ClipImportado } from "@/lib/coding/intercambio";
 import type { EscenaTel } from "@/lib/coding/telestracion";
 
 /**
@@ -84,11 +86,22 @@ export function useSesionCoding(opciones: {
     { clave: string; clips: ClipCoding[]; escenas: EscenaTel[] }[]
   >([]);
 
+  /*
+  | Lo deshecho, para rehacerlo (⇧ + retroceso).
+  |
+  | Cualquier cambio nuevo que entre en el deshacer la vacía: rehacer después
+  | de haber marcado otro corte devolvería un estado que ya no existe.
+  */
+  const rehechos = useRef<
+    { clave: string; clips: ClipCoding[]; escenas: EscenaTel[] }[]
+  >([]);
+
   const { setValue } = doc;
 
   const muta = useCallback(
     (cambio: (actual: SesionCoding) => SesionCoding, conDeshacer = false) => {
       if (conDeshacer) {
+        rehechos.current = [];
         historial.current = [
           ...historial.current
             .filter((paso) => paso.clave === clave)
@@ -149,6 +162,50 @@ export function useSesionCoding(opciones: {
       }, true);
 
       return null;
+    },
+    [muta, siguienteNumero],
+  );
+
+  /**
+   * Mete de una vez los clips de un timeline importado (XML de SportsCode).
+   *
+   * Un solo paso de deshacer para todos: si el fichero no era el bueno, se
+   * retira entero con una tecla. Van al vídeo que está delante, que es sobre
+   * el que se importó.
+   */
+  const añadeImportados = useCallback(
+    (lista: ClipImportado[], duracionVideoMs?: number) => {
+      const validos = lista.filter(
+        (uno) => problemaDeClip(uno.borrador) === null,
+      );
+
+      if (validos.length === 0) return 0;
+
+      muta((actual) => {
+        const video = nombreDeFuente(actual.fuente);
+        const ahora = new Date().toISOString();
+
+        let numero = siguienteNumero(actual.clips);
+
+        const nuevos = validos.map((uno) => {
+          const clip = creaClip(
+            { ...uno.borrador, duracionVideoMs },
+            numero++,
+            ahora,
+          );
+
+          return {
+            ...clip,
+            tags: uno.tags,
+            nota: uno.nota,
+            ...(video ? { video } : {}),
+          };
+        });
+
+        return { ...actual, clips: [...actual.clips, ...nuevos], abierta: true };
+      }, true);
+
+      return validos.length;
     },
     [muta, siguienteNumero],
   );
@@ -321,6 +378,22 @@ export function useSesionCoding(opciones: {
     [muta],
   );
 
+  /** Pone o quita un descriptor (⇧1…⇧9). Entra en el deshacer. */
+  const alternaDescriptor = useCallback(
+    (id: string, nombre: string) => {
+      muta(
+        (actual) => ({
+          ...actual,
+          clips: actual.clips.map((clip) =>
+            clip.id === id ? alternaTag(clip, nombre) : clip,
+          ),
+        }),
+        true,
+      );
+    },
+    [muta],
+  );
+
   const borraClip = useCallback(
     (id: string) => {
       muta(
@@ -425,6 +498,11 @@ export function useSesionCoding(opciones: {
 
     historial.current = propios.slice(0, -1);
 
+    rehechos.current = [
+      ...rehechos.current.filter((paso) => paso.clave === clave),
+      { clave, clips: sesion.clips, escenas: sesion.escenas },
+    ];
+
     muta((actual) => ({
       ...actual,
       clips: anterior.clips,
@@ -432,7 +510,36 @@ export function useSesionCoding(opciones: {
     }));
 
     return true;
-  }, [clave, muta]);
+  }, [clave, muta, sesion.clips, sesion.escenas]);
+
+  const rehacer = useCallback(() => {
+    const propios = rehechos.current.filter((paso) => paso.clave === clave);
+
+    const siguiente = propios[propios.length - 1];
+
+    if (!siguiente) {
+      rehechos.current = [];
+
+      return false;
+    }
+
+    rehechos.current = propios.slice(0, -1);
+
+    historial.current = [
+      ...historial.current
+        .filter((paso) => paso.clave === clave)
+        .slice(-(TOPE_DESHACER - 1)),
+      { clave, clips: sesion.clips, escenas: sesion.escenas },
+    ];
+
+    muta((actual) => ({
+      ...actual,
+      clips: siguiente.clips,
+      escenas: siguiente.escenas,
+    }));
+
+    return true;
+  }, [clave, muta, sesion.clips, sesion.escenas]);
 
   /**
    * Vacía los cortes para empezar otro bloque, dejando los vídeos puestos.
@@ -477,6 +584,83 @@ export function useSesionCoding(opciones: {
 
     return llevado;
   }, [muta, sesion.clips.length, sesion.escenas.length]);
+
+  /* ----------------------------------------------------- las listas */
+
+  /*
+  | Las listas van fuera del deshacer, como las pizarras: el Retroceso es del
+  | marcado, y que deshaga «guardar la lista de la charla» sería una sorpresa.
+  */
+  const guardaLista = useCallback(
+    (nombre: string, clipIds: string[]) => {
+      const id = `lista-${Date.now().toString(36)}`;
+
+      muta((actual) => ({
+        ...actual,
+        listas: [
+          ...(actual.listas ?? []),
+          { id, nombre: nombre.trim() || "Lista", clipIds: [...new Set(clipIds)] },
+        ],
+      }));
+
+      return id;
+    },
+    [muta],
+  );
+
+  const borraLista = useCallback(
+    (id: string) => {
+      muta((actual) => ({
+        ...actual,
+        listas: (actual.listas ?? []).filter((lista) => lista.id !== id),
+      }));
+    },
+    [muta],
+  );
+
+  /** Cambia el orden dentro de una lista; el de la sesión no se toca. */
+  const mueveEnLista = useCallback(
+    (
+      listaId: string,
+      id: string,
+      destinoId: string,
+      donde: "antes" | "despues",
+    ) => {
+      muta((actual) => ({
+        ...actual,
+        listas: (actual.listas ?? []).map((lista) => {
+          if (lista.id !== listaId || id === destinoId) return lista;
+
+          const resto = lista.clipIds.filter((uno) => uno !== id);
+          const posicion = resto.indexOf(destinoId);
+
+          if (posicion < 0) return lista;
+
+          const corte = donde === "antes" ? posicion : posicion + 1;
+
+          return {
+            ...lista,
+            clipIds: [...resto.slice(0, corte), id, ...resto.slice(corte)],
+          };
+        }),
+      }));
+    },
+    [muta],
+  );
+
+  const quitaDeLista = useCallback(
+    (listaId: string, id: string) => {
+      muta((actual) => ({
+        ...actual,
+        listas: (actual.listas ?? []).map((lista) =>
+          lista.id === listaId
+            ? { ...lista, clipIds: lista.clipIds.filter((uno) => uno !== id) }
+            : lista,
+        ),
+      }));
+    },
+    [muta],
+  );
 
   /* --------------------------------------------------- las pizarras */
 
@@ -719,6 +903,7 @@ export function useSesionCoding(opciones: {
     /** Manda ya lo pendiente (el botón «Guardar ahora» de la cabecera). */
     guardaYa: doc.guardaYa,
     añadeClip,
+    añadeImportados,
     ponCorteCompleto,
     ponCortesCompletos,
     ponVideoFuera,
@@ -729,7 +914,13 @@ export function useSesionCoding(opciones: {
     mueveClipA,
     ordenaClipsPorTiempo,
     deshacer,
+    rehacer,
+    alternaDescriptor,
     vaciaCortes,
+    guardaLista,
+    borraLista,
+    mueveEnLista,
+    quitaDeLista,
     guardaEscena,
     ajustaEscena,
     ponClipsDeEscena,

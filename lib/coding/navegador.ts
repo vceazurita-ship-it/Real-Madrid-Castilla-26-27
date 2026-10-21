@@ -78,10 +78,13 @@
 
 import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
 import { montaRapido, puedeIrRapido } from "@/lib/coding/rapido";
+import { pintaRotulo } from "@/lib/coding/rotulo";
+import { MEDIDA_VERTICAL, esVertical, pintaVertical } from "@/lib/coding/vertical";
 import {
   CORTE_ATASCADO as ATASCADO,
   CORTE_CANCELADO as CANCELADO,
   montaEscenario,
+  negroDeFundido,
   type PantallaMontaje,
   type ClipNavegador,
   type PeticionNavegador,
@@ -527,6 +530,14 @@ async function montaATiempoReal(
       ancho = techo;
     }
 
+    /* El vertical del móvil no encoge: es otro formato (`lib/coding/vertical`). */
+    const vertical = esVertical(peticion.topeAncho);
+
+    if (vertical) {
+      ancho = MEDIDA_VERTICAL.ancho;
+      alto = MEDIDA_VERTICAL.alto;
+    }
+
     /* Los codificadores quieren medidas pares. */
     ancho -= ancho % 2;
     alto -= alto % 2;
@@ -614,6 +625,12 @@ async function montaATiempoReal(
     /* ------------------------------------------------------- pintar */
 
     const pintaVideo = () => {
+      if (vertical) {
+        pintaVertical(ctx, video, video.videoWidth, video.videoHeight, ancho, alto);
+
+        return;
+      }
+
       ctx.drawImage(video, 0, 0, ancho, alto);
     };
 
@@ -1105,11 +1122,38 @@ async function montaATiempoReal(
 
         const media = await siguienteDelVideo(video);
 
+        const t = (media ?? video.currentTime) * 1000;
+
         pintaVideo();
 
-        empuja();
+        /* El fundido entre cortes del unificado, antes del rótulo. */
+        const negro =
+          peticion.formato === "unificado"
+            ? negroDeFundido(
+                t - clip.inicioMs,
+                clip.finMs - clip.inicioMs,
+                peticion.fundidoMs ?? 0,
+              )
+            : 0;
 
-        const t = (media ?? video.currentTime) * 1000;
+        if (negro > 0) {
+          ctx.fillStyle = `rgba(0,0,0,${negro.toFixed(3)})`;
+          ctx.fillRect(0, 0, ancho, alto);
+        }
+
+        /* El rótulo de los primeros segundos, encima del partido. */
+        if (clip.rotulo) {
+          pintaRotulo(
+            ctx,
+            ancho,
+            alto,
+            clip.rotulo,
+            t - clip.inicioMs,
+            peticion.familiaRotulo ?? "sans-serif",
+          );
+        }
+
+        empuja();
 
         /* Un cuarto de segundo de margen: el reloj del vídeo no es continuo. */
         if (t > ultimoT + 250) {

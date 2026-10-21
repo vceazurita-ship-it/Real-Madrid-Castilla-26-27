@@ -34,7 +34,7 @@ import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import { useRivalOnce } from "@/hooks/useRivalOnce";
 import type { AlineacionJugador } from "@/lib/rivals/alineacion-ppt";
-import { findStats, findTeam, highlightSeason } from "@/lib/rivals/stats";
+import { findStats, findTeam, highlightSeason, type RivalSeasonStats } from "@/lib/rivals/stats";
 import EscudoEquipo from "@/components/rivals/EscudoEquipo";
 import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import { EligeVideoDeLista } from "@/components/rivals/EligeVideoDeLista";
@@ -85,6 +85,7 @@ import {
   esElProximo,
   etiquetaDelProximo,
   jornadaDeEquipo,
+  JUGADO,
   SIN_ORDEN,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
@@ -100,6 +101,15 @@ import {
 } from "@/lib/rivals/posiciones-temporada";
 import type { InformeData } from "@/lib/rivals/informe-ppt";
 import { traeDestacadosRival } from "@/lib/rivals/destacados-rival";
+import { fraseDelVistazo, vistazoDe } from "@/lib/rivals/vistazo";
+import { asignaPerfiles, type PerfilWyscout } from "@/lib/rivals/perfil-wyscout";
+import { conTildes } from "@/lib/rivals/tildes";
+import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
+import VistazoRival from "@/components/rivals/VistazoRival";
+import { ParaLaSemana } from "@/components/rivals/ParaLaSemana";
+import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
+import { pieDominante } from "@/lib/rivals/pie";
+import { centimetros, kilos } from "@/lib/rivals/lienzo-club";
 import type { HojaInforme } from "@/lib/rivals/informe-elementos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import type { PartidoElegible } from "@/components/rivals/InformePartidosDialog";
@@ -218,6 +228,9 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { guardaDocumentoRival, type TipoDocumentoRival } from "@/lib/rivals/documentos";
 import { descarga } from "@/lib/export/lienzos";
+
+/** Amarillas que suspenden un partido en Primera y Segunda RFEF (la 5.ª, la 10.ª…). */
+const CICLO_AMARILLAS = 5;
 
 /*
 |--------------------------------------------------------------------------
@@ -550,7 +563,7 @@ const LINE_DEFINITIONS: {
       {
         key: "mp",
         code: "MP",
-        label: "Media punta",
+        label: "Mediapunta",
         match: [
           "media punta",
           "mediapunta",
@@ -939,6 +952,9 @@ export default function RivalPlayersPage() {
     alEntrar: true,
   });
 
+  /* Cada suyo contra los de su puesto en la categoría, y el equipo (Wyscout). */
+  const perfilesRival = useRivalPerfiles(selectedTeam);
+
   const [showPitch, setShowPitch] = useState(true);
 
   /* Plantilla (listado + campograma) o pizarra táctica del rival. */
@@ -1323,6 +1339,7 @@ export default function RivalPlayersPage() {
 
   /* Con el pop-up abierto, lo que se está preparando es el documento. */
   const [preparandoPdf, setPreparandoPdf] = useState(false);
+  const [exportarAbierto, setExportarAbierto] = useState(false);
 
   /* El PDF sale con el tema con el que se está viendo la plataforma: en modo
      día, sobre papel blanco; en modo noche, oscuro como la pantalla. */
@@ -1777,6 +1794,30 @@ export default function RivalPlayersPage() {
     ).length;
   }, [once.doc.puestos, plantillaCampo]);
 
+  /*
+  | Quién está colocado a mano en la banda contraria a la suya (21/10/2026).
+  |
+  | José Carlos es lateral izquierdo en la hoja y alguien lo dejó de lateral
+  | derecho; al preparar los duelos por banda, un perfil cambiado se lee como
+  | un dato erróneo (experto de fútbol). La colocación a mano manda —puede ser
+  | lo que se ha visto en vídeo— pero se avisa en la barra y al sugerir el once.
+  | Sólo cuenta la banda: un central de un lado o del otro no cambia la lectura.
+  */
+  const fueraDePerfil = useMemo(() => {
+    const bloques = dibujoDeCampo(dibujoDelEquipo);
+    const banda = (lado: number) => (lado < 0 ? "izquierda" : "derecha");
+
+    return Object.entries(once.doc.puestos ?? {}).flatMap(([clave, bloqueClave]) => {
+      const bloque = bloques.find((uno) => uno.key === bloqueClave);
+      const jugador = jugadoresPlantilla.find((uno) => uno.clave === clave);
+
+      if (!bloque || !jugador || !bloque.banda || bloque.lado === 0 || jugador.lado === 0) return [];
+      if (bloque.lado === jugador.lado) return [];
+
+      return [{ nombre: conTildes(jugador.nombre), suya: banda(jugador.lado), bloque: bloque.code }];
+    });
+  }, [dibujoDelEquipo, jugadoresPlantilla, once.doc.puestos]);
+
 
 
   /*
@@ -1860,11 +1901,22 @@ export default function RivalPlayersPage() {
 
       once.proponer(sugerido.titulares, sugerido.campo);
 
+      /* Quien siga colocado a mano en la otra banda se dice aquí también:
+         el once nuevo hereda esas colocaciones. */
+      const titulares = new Set(sugerido.titulares);
+      const avisoBanda = fueraDePerfil.filter((uno) =>
+        jugadoresPlantilla.some((j) => conTildes(j.nombre) === uno.nombre && titulares.has(j.clave)),
+      );
+
       toast.success(`Once probable propuesto · ${explicaSugerencia(sugerido)}`, {
-        description:
-          sugerido.sinFicha.length > 0
-            ? `Sin ficha: ${sugerido.sinFicha.join(", ")}`
-            : "Cámbialo pulsando a cualquiera de la lista.",
+        description: [
+          sugerido.sinFicha.length > 0 ? `Sin ficha: ${sugerido.sinFicha.join(", ")}` : "",
+          avisoBanda.length > 0
+            ? `Ojo: ${avisoBanda.map((uno) => `${uno.nombre} va de ${uno.bloque} (colocado a mano; su banda es la ${uno.suya})`).join(" · ")}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" · ") || "Cámbialo pulsando a cualquiera de la lista.",
       });
     } catch (error) {
       console.error("Error proponiendo el once del rival:", error);
@@ -1873,7 +1925,7 @@ export default function RivalPlayersPage() {
     } finally {
       setSugiriendo(false);
     }
-  }, [equipoDelOnce, once, proponeOnce]);
+  }, [equipoDelOnce, fueraDePerfil, jugadoresPlantilla, once, proponeOnce]);
 
   const exportarAlineacionPptx = useCallback(async () => {
     if (!plantillaCampo.length) return;
@@ -2960,20 +3012,120 @@ export default function RivalPlayersPage() {
       return texto && texto !== "." ? texto : "";
     };
 
+    /*
+    | Con su unidad y como se dice (21/10/2026): la hoja mezcla «1,87» y «187»,
+    | escribe el pie como «DCHO» y la fecha como la guarda el formulario
+    | («2024-07-12»). En la cabecera se lee «1,87 m», «Diestro», «12/07/2024»;
+    | lo que no se entienda se enseña tal cual, que es mejor que perderlo.
+    */
+    const cm = centimetros(limpio(editForm.ALTURA));
+    const kg = kilos(limpio(editForm.PESO));
+    const pie = pieDominante(limpio(editForm["PIE DOMINANTE"]));
+    const fecha = formatDateForInput(editForm["FECHA INCORPORACIÓN"]).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const estado = limpio(editForm.ESTADO);
+
     return [
-      { label: "Edad", valor: limpio(editForm.EDAD) },
-      { label: "Altura", valor: limpio(editForm.ALTURA) },
-      { label: "Peso", valor: limpio(editForm.PESO) },
-      { label: "Pie", valor: limpio(editForm["PIE DOMINANTE"]) },
-      { label: "Estado", valor: limpio(editForm.ESTADO) },
+      { label: "Edad", valor: /^\d+$/.test(limpio(editForm.EDAD)) ? `${limpio(editForm.EDAD)} años` : limpio(editForm.EDAD) },
+      { label: "Altura", valor: cm ? `${(cm / 100).toFixed(2).replace(".", ",")} m` : limpio(editForm.ALTURA) },
+      { label: "Peso", valor: kg ? `${kg} kg` : limpio(editForm.PESO) },
+      { label: "Pie", valor: pie ? pie.charAt(0) + pie.slice(1).toLowerCase() : limpio(editForm["PIE DOMINANTE"]) },
+      /* «ACTIVO» lo lleva todo el que está disponible: sólo se ve la excepción. */
+      { label: "Estado", valor: /^activ/i.test(estado) ? "" : estado },
       { label: "Procedencia", valor: limpio(editForm.PROCEDENCIA) },
       { label: "Nacimiento", valor: limpio(editForm["LUGAR DE NACIMIENTO"]) },
       {
         label: "Incorporación",
-        valor: limpio(editForm["FECHA INCORPORACIÓN"]),
+        valor: fecha ? `${fecha[3]}/${fecha[2]}/${fecha[1]}` : limpio(editForm["FECHA INCORPORACIÓN"]),
       },
     ].filter((dato) => dato.valor);
   }, [editForm]);
+
+  /*
+  | Cada ficha del equipo elegido con su entrada de Wyscout. Se casa la
+  | plantilla entera a la vez y uno a uno (`asignaPerfiles`): con tres Pérez en
+  | la hoja y uno en Wyscout, casar ficha a ficha les daba a los tres los datos
+  | del mismo.
+  */
+  const perfilesPorFicha = useMemo(
+    () =>
+      perfilesRival
+        ? asignaPerfiles(
+            players.filter((p) => p.NOMBRE_EQUIPO === selectedTeam),
+            perfilesRival.perfiles,
+            idDeJugador,
+          )
+        : new Map<string, PerfilWyscout>(),
+    [players, perfilesRival, selectedTeam],
+  );
+
+  /* La temporada en curso de cada uno, para el listado. */
+  const temporadaDe = (player: RivalPlayer) =>
+    statsDoc ? highlightSeason(findStats(statsDoc, player)?.temporadas ?? [], statsDoc.temporada) : null;
+
+  /* El jugador abierto, en Wyscout: sólo si es del equipo cuyos perfiles hay. */
+  const perfilDelEditado =
+    editForm && !isCreating ? (perfilesPorFicha.get(idDeJugador(editForm)) ?? null) : null;
+
+  /* Lo que dice BeSoccer de esta temporada, para explicar si no cuadra con Wyscout. */
+  const besoccerDelEditado = (() => {
+    if (!editForm || !statsDoc) return null;
+
+    const actual = (findStats(statsDoc, editForm)?.temporadas ?? []).find((t) => t.temporada === statsDoc.temporada);
+
+    return actual ? { partidos: actual.partidos, minutos: actual.minutos } : null;
+  })();
+
+  /* Cómo llega el rival: tabla, su campo en el partido, forma, dibujo, goles. */
+  const vistazoRival = useMemo(() => {
+    const partido = enfrentamientoDe(ordenRivales, selectedTeam);
+
+    /* Sólo si el partido está por venir: el de la vuelta pasada no dice dónde se juega el siguiente. */
+    const enCasa = partido && partido.grupo !== JUGADO ? partido.local : null;
+
+    return vistazoDe(findInforme(informeDoc, selectedTeam), enCasa);
+  }, [informeDoc, ordenRivales, selectedTeam]);
+
+  /*
+  | Bajas y apercibidos (21/10/2026), lo primero que se mira para cerrar el
+  | once probable. Lo pidió el experto de fútbol.
+  |
+  | - Fuera: lo que la hoja dice en ESTADO cuando no es «ACTIVO» (lesionado,
+  |   baja…), que lo escribe el cuerpo técnico.
+  | - A una amarilla: en Primera y Segunda RFEF el ciclo es de cinco (la
+  |   quinta, la décima… suspenden un partido), así que 4, 9, 14 amarillas de
+  |   esta temporada en BeSoccer.
+  | - Roja: quien la ha visto esta temporada. No se dice «sancionado»: BeSoccer
+  |   no trae de qué partido es ni cuánto le cayó.
+  | Sin nada de eso la casilla no sale.
+  */
+  const avisosRival = useMemo(() => {
+    const suyos = players.filter((player) => player.NOMBRE_EQUIPO === selectedTeam);
+    const nombre = (player: RivalPlayer) => conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "");
+
+    const fuera: { nombre: string; estado: string }[] = [];
+    const apercibidos: { nombre: string; amarillas: number }[] = [];
+    const rojas: { nombre: string; rojas: number }[] = [];
+
+    for (const player of suyos) {
+      const estado = textoUtil(player.ESTADO).toUpperCase();
+
+      if (estado && estado !== "ACTIVO") fuera.push({ nombre: nombre(player), estado: estado.toLowerCase() });
+
+      const temporada = statsDoc
+        ? (findStats(statsDoc, player)?.temporadas ?? []).find((t) => t.temporada === statsDoc.temporada)
+        : undefined;
+
+      if (!temporada) continue;
+
+      if (temporada.amarillas % CICLO_AMARILLAS === CICLO_AMARILLAS - 1) {
+        apercibidos.push({ nombre: nombre(player), amarillas: temporada.amarillas });
+      }
+
+      if (temporada.rojas > 0) rojas.push({ nombre: nombre(player), rojas: temporada.rojas });
+    }
+
+    return fuera.length || apercibidos.length || rojas.length ? { fuera, apercibidos, rojas } : null;
+  }, [players, selectedTeam, statsDoc]);
 
   /*
   | Estadísticas del jugador y, con ellas, su ficha en BeSoccer.
@@ -3701,6 +3853,7 @@ export default function RivalPlayersPage() {
                 {teams.map((team) => (
                   <button
                     key={team.name}
+                    aria-pressed={selectedTeam === team.name}
                     title={
                       esElProximo(ordenRivales, team.name)
                         ? etiquetaDelProximo(ordenRivales)
@@ -3769,6 +3922,79 @@ export default function RivalPlayersPage() {
 
             {view === "plantilla" && (
               <>
+              {/* CÓMO LLEGA — lo que se pregunta antes de mirar a nadie */}
+
+              {selectedTeam && !loading && (
+                <VistazoRival
+                  equipo={selectedTeam}
+                  vistazo={vistazoRival}
+                  jornada={jornadaDeEquipo(ordenRivales, selectedTeam)}
+                  aspectos={perfilesRival?.aspectos ?? []}
+                  equipos={perfilesRival?.equipos ?? 0}
+                  avisos={avisosRival}
+                  enlaces={[
+                    {
+                      href: `/scout-rival-abp?equipo=${encodeURIComponent(selectedTeam)}`,
+                      label: "Su balón parado",
+                    },
+                    /* Estas pantallas abren solas en el próximo rival: sólo se
+                       ofrecen cuando es éste, o llevarían a otro equipo. */
+                    ...(esElProximo(ordenRivales, selectedTeam)
+                      ? [
+                          { href: "/scout-rival-collective", label: "Cómo juega como equipo" },
+                          { href: "/duelos", label: "Duelos contra nuestro once" },
+                          { href: "/scout-rival-individual", label: "Vídeos de sus jugadores" },
+                        ]
+                      : []),
+                  ]}
+                />
+              )}
+
+              {/* PARA LA SEMANA — sólo del próximo rival: es el que se prepara. */}
+
+              {selectedTeam && !loading && esElProximo(ordenRivales, selectedTeam) && (
+                <ParaLaSemana
+                  equipo={selectedTeam}
+                  jornada={jornadaDeEquipo(ordenRivales, selectedTeam)}
+                  frase={fraseDelVistazo(vistazoRival)}
+                  ocupado={exportando}
+                  piezas={[
+                    {
+                      clave: "informe",
+                      etiqueta: "Informe del rival",
+                      explica: "Clasificación, resultados y los partidos que elijas; se retoca antes de exportar.",
+                      icono: "informe" as const,
+                      onClick: () => void abrirInforme(),
+                    },
+                    ...(plantillaCampo.length > 0
+                      ? [
+                          {
+                            clave: "once",
+                            etiqueta: "PDF del once probable",
+                            explica: "El once colocado, con un salto a la ficha de cada jugador.",
+                            icono: "once" as const,
+                            onClick: () => setPreparandoPdf(true),
+                          },
+                          {
+                            clave: "portero",
+                            etiqueta: "PDF para el portero",
+                            explica: "Quién les tira los penaltis y las faltas.",
+                            icono: "portero" as const,
+                            onClick: () => setPreparandoPortero(true),
+                          },
+                          {
+                            clave: "ppt",
+                            etiqueta: "PowerPoint de día de partido",
+                            explica: "La plantilla entera colocada, para borrar a los que no salgan.",
+                            icono: "ppt" as const,
+                            onClick: () => void exportarAlineacionPptx(),
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              )}
+
               {/* FILTROS */}
 
               <div className="mt-6 grid min-w-0 gap-3 md:grid-cols-2">
@@ -3832,7 +4058,7 @@ export default function RivalPlayersPage() {
                       ? "Se atenúan en el campo los que no las cumplen"
                       : etiquetasAbiertas
                         ? "Pulsa para filtrar · se editan en la ficha del jugador"
-                        : "Sin filtro"}
+                        : "Todas"}
                   </span>
                 </div>
 
@@ -4019,6 +4245,7 @@ export default function RivalPlayersPage() {
                                       onceEstado={onceDe(player)}
                                       onCiclarOnce={ciclarOnceDe(player)}
                                       onEtiquetas={abrirEtiquetasDe(player)}
+                                      temporada={temporadaDe(player)}
                                       onClick={() => openPlayer(player)}
                                     />
                                   ))}
@@ -4051,6 +4278,7 @@ export default function RivalPlayersPage() {
                               onceEstado={onceDe(player)}
                               onCiclarOnce={ciclarOnceDe(player)}
                               onEtiquetas={abrirEtiquetasDe(player)}
+                              temporada={temporadaDe(player)}
                               onClick={() => openPlayer(player)}
                             />
                           ))}
@@ -4111,7 +4339,7 @@ export default function RivalPlayersPage() {
                           )}
                         </h2>
 
-                        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 text-xs text-white/30 sm:gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 text-[13px] text-white/40 sm:gap-2">
                           {activeTags.length > 0 && (
                             <span className="text-[#C8A96B]">
                               {listPlayers.length} destacados
@@ -4189,6 +4417,49 @@ export default function RivalPlayersPage() {
                                 className="pointer-events-none absolute right-2 opacity-70 sm:right-1.5"
                               />
                             </label>
+                          )}
+
+                          {/*
+                            El dibujo puesto a mano, contra el suyo (21/10/2026).
+                            El Algeciras salía en 4-4-2 —lo eligió alguien en el
+                            desplegable— al lado de «Dibujo que más repite:
+                            1-4-2-3-1», y el experto de fútbol lo leyó como un
+                            fallo del dato. No se pisa la decisión: se dice cuál
+                            repite y se deja volver a él de un toque.
+                          */}
+                          {pitchPlayers.length > 0 &&
+                            once.doc.dibujo &&
+                            lecturaTemporada.dibujo &&
+                            once.doc.dibujo !== lecturaTemporada.dibujo && (
+                              <button
+                                type="button"
+                                data-export-hide
+                                onClick={() => once.ponDibujo("")}
+                                title={`El ${once.doc.dibujo} lo ha elegido una persona. El que más repite esta temporada es el ${lecturaTemporada.estructura} (${lecturaTemporada.alineaciones} ${
+                                  lecturaTemporada.alineaciones === 1 ? "alineación" : "alineaciones"
+                                } leídas). Pulsa para volver a él.`}
+                                className="flex items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-white/70 transition hover:border-[#C8A96B] hover:text-white"
+                              >
+                                <RotateCcw size={11} aria-hidden />
+                                Suele jugar {lecturaTemporada.dibujo}
+                              </button>
+                            )}
+
+                          {fueraDePerfil.length > 0 && (
+                            <span
+                              data-export-hide
+                              role="status"
+                              title={fueraDePerfil
+                                .map((uno) => `${uno.nombre}: la hoja le pone en la banda ${uno.suya}, y está colocado a mano en ${uno.bloque}`)
+                                .join(" · ")}
+                              className="flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-1 font-semibold"
+                              style={{ color: chipInk("#F59E0B") }}
+                            >
+                              <AlertTriangle size={11} aria-hidden />
+                              {fueraDePerfil.length === 1
+                                ? `${fueraDePerfil[0].nombre} fuera de su banda`
+                                : `${fueraDePerfil.length} fuera de su banda`}
+                            </span>
                           )}
 
                           {/*
@@ -4290,85 +4561,7 @@ export default function RivalPlayersPage() {
                               ) : (
                                 <Wand2 size={11} />
                               )}
-                              SUGERIR 11
-                            </button>
-                          )}
-
-                          {/*
-                            El once, en un PDF que salta a cada ficha.
-
-                            Sale para **todos** los equipos, no sólo para los
-                            que ya tienen once marcado: antes el botón aparecía
-                            con el primer jugador marcado, así que en un rival
-                            al que no se había mirado no había ni por dónde
-                            empezar. El once se monta ahora dentro del pop-up.
-                          */}
-
-                          {plantillaCampo.length > 0 && (
-                            <button
-                              type="button"
-                              data-export-hide
-                              /* No descarga: abre el pop-up donde se coloca
-                                 el once y se eligen las dudas que se pintan. */
-                              onClick={() => setPreparandoPdf(true)}
-                              disabled={exportando}
-                              title={`Preparar el PDF del once probable de ${equipoDelOnce}`}
-                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
-                            >
-                              {exportando ? (
-                                <Loader2 size={11} className="animate-spin" />
-                              ) : (
-                                <FileDown size={11} />
-                              )}
-                              PDF
-                            </button>
-                          )}
-
-                          {/* Y el que se lleva el portero: los que le tiran. */}
-
-                          {plantillaCampo.length > 0 && (
-                            <button
-                              type="button"
-                              data-export-hide
-                              /* Tampoco descarga: abre el pop-up donde se
-                                 elige a quién se lleva estudiado. */
-                              onClick={() => setPreparandoPortero(true)}
-                              disabled={exportando}
-                              title={`Preparar el PDF para el portero — quién tira de ${equipoDelOnce}`}
-                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
-                            >
-                              {exportando ? (
-                                <Loader2 size={11} className="animate-spin" />
-                              ) : (
-                                <Hand size={11} />
-                              )}
-                              PORTERO
-                            </button>
-                          )}
-
-                          {/*
-                            Y la plantilla entera en un PowerPoint, con cada
-                            jugador como imagen suelta: es el documento que se
-                            abre al cruzar alineaciones para borrar a los que
-                            no salen. No depende del once —sale todo el mundo—,
-                            así que está siempre que haya gente en el campo.
-                          */}
-
-                          {plantillaCampo.length > 0 && (
-                            <button
-                              type="button"
-                              data-export-hide
-                              onClick={() => void exportarAlineacionPptx()}
-                              disabled={exportando}
-                              title={`PowerPoint de día de partido de ${equipoDelOnce} — la plantilla entera colocada, para borrar a los que no salgan`}
-                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
-                            >
-                              {exportando ? (
-                                <Loader2 size={11} className="animate-spin" />
-                              ) : (
-                                <Presentation size={11} />
-                              )}
-                              PPT
+                              Sugerir 11
                             </button>
                           )}
 
@@ -4389,16 +4582,139 @@ export default function RivalPlayersPage() {
                               onClick={() => void abrirInforme()}
                               disabled={exportando}
                               title={`Informe de rival de ${equipoDelOnce} — clasificación, resultados, entrenador, estadio y los partidos que se marquen. Se eligen antes, y el documento se retoca antes de exportar`}
-                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
+                              className="flex items-center gap-1.5 rounded-full border border-[#C8A96B] bg-[#C8A96B] px-3 py-1 font-semibold text-black transition hover:bg-[#d8ba7c] disabled:opacity-50"
                             >
                               {exportando ? (
                                 <Loader2 size={11} className="animate-spin" />
                               ) : (
-                                <FileText size={11} />
+                                <FileText size={13} />
                               )}
-                              INFORME
+                              Informe
                             </button>
                           )}
+
+                          {/*
+                            Lo que se descarga, junto (21/10/2026): seis botones del mismo
+                            peso y en mayúsculas de 11 px se cortaban contra el borde y no
+                            decían qué era cada uno. El informe queda a la vista como
+                            botón principal y lo demás, con su nombre entero, en «Exportar».
+                            Lo pidieron marketing y el editor de vídeo.
+                          */}
+                          {plantillaCampo.length > 0 && (
+                            <div
+                              data-export-hide
+                              className="relative"
+                              onBlur={(evento) => {
+                                if (!evento.currentTarget.contains(evento.relatedTarget as Node | null)) setExportarAbierto(false);
+                              }}
+                              onKeyDown={(evento) => {
+                                if (evento.key === "Escape") setExportarAbierto(false);
+                              }}
+                            >
+                              <button
+                                type="button"
+                                aria-haspopup="menu"
+                                aria-expanded={exportarAbierto}
+                                onClick={() => setExportarAbierto((abierto) => !abierto)}
+                                disabled={exportando}
+                                className="flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50"
+                              >
+                                {exportando ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+                                Exportar
+                                <ChevronDown size={13} aria-hidden />
+                              </button>
+
+                              {exportarAbierto && (
+                                <div
+                                  role="menu"
+                                  className="absolute right-0 top-full z-30 mt-1 flex w-60 flex-col gap-0.5 rounded-xl border border-white/10 bg-[#11161D] p-1.5 shadow-xl"
+                                >
+                          {/*
+                            El once, en un PDF que salta a cada ficha.
+
+                            Sale para **todos** los equipos, no sólo para los
+                            que ya tienen once marcado: antes el botón aparecía
+                            con el primer jugador marcado, así que en un rival
+                            al que no se había mirado no había ni por dónde
+                            empezar. El once se monta ahora dentro del pop-up.
+                          */}
+
+                          {plantillaCampo.length > 0 && (
+                            <button
+                              type="button"
+                              data-export-hide
+                              /* No descarga: abre el pop-up donde se coloca
+                                 el once y se eligen las dudas que se pintan. */
+                              onClick={() => { setExportarAbierto(false); setPreparandoPdf(true); }}
+                              disabled={exportando}
+                              title={`Preparar el PDF del once probable de ${equipoDelOnce}`}
+                              role="menuitem"
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15 disabled:opacity-50"
+                            >
+                              {exportando ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <FileDown size={11} />
+                              )}
+                              PDF del once
+                            </button>
+                          )}
+
+                          {/* Y el que se lleva el portero: los que le tiran. */}
+
+                          {plantillaCampo.length > 0 && (
+                            <button
+                              type="button"
+                              data-export-hide
+                              /* Tampoco descarga: abre el pop-up donde se
+                                 elige a quién se lleva estudiado. */
+                              onClick={() => { setExportarAbierto(false); setPreparandoPortero(true); }}
+                              disabled={exportando}
+                              title={`Preparar el PDF para el portero — quién tira de ${equipoDelOnce}`}
+                              role="menuitem"
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15 disabled:opacity-50"
+                            >
+                              {exportando ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <Hand size={11} />
+                              )}
+                              PDF para el portero
+                            </button>
+                          )}
+
+                          {/*
+                            Y la plantilla entera en un PowerPoint, con cada
+                            jugador como imagen suelta: es el documento que se
+                            abre al cruzar alineaciones para borrar a los que
+                            no salen. No depende del once —sale todo el mundo—,
+                            así que está siempre que haya gente en el campo.
+                          */}
+
+                          {plantillaCampo.length > 0 && (
+                            <button
+                              type="button"
+                              data-export-hide
+                              onClick={() => { setExportarAbierto(false); void exportarAlineacionPptx(); }}
+                              disabled={exportando}
+                              title={`PowerPoint de día de partido de ${equipoDelOnce} — la plantilla entera colocada, para borrar a los que no salgan`}
+                              role="menuitem"
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15 disabled:opacity-50"
+                            >
+                              {exportando ? (
+                                <Loader2 size={11} className="animate-spin" />
+                              ) : (
+                                <Presentation size={11} />
+                              )}
+                              PowerPoint de día de partido
+                            </button>
+                          )}
+
+                                </div>
+                              )}
+                            </div>
+                          )}
+
 
                           {(onceResumen.titulares > 0 ||
                             onceResumen.dudas > 0) && (
@@ -4654,12 +4970,16 @@ export default function RivalPlayersPage() {
                     </span>
                   )
                 ) : (
-                  <AutoSaveStatus
-                    estado={autoFicha.status}
-                    guardadoEn={autoFicha.lastSavedAt}
-                    onReintentar={() => void autoFicha.flush()}
-                    className="hidden sm:inline-flex"
-                  />
+                  /* En una caja propia: el `inline-flex` del aviso le ganaba al
+                     `hidden` y en el móvil salía dos veces (arriba y al pie),
+                     comiéndose el nombre del jugador (21/10/2026). */
+                  <span className="hidden sm:inline-flex">
+                    <AutoSaveStatus
+                      estado={autoFicha.status}
+                      guardadoEn={autoFicha.lastSavedAt}
+                      onReintentar={() => void autoFicha.flush()}
+                    />
+                  </span>
                 )}
 
                 <button
@@ -4723,9 +5043,11 @@ export default function RivalPlayersPage() {
                       </span>
                     )}
 
-                    <span className="min-w-0 truncate text-sm text-white/50">
-                      {editForm["POSICIÓN"] || "Sin posición"}
-                    </span>
+                    {editForm["POSICIÓN"] && (
+                      <span className="min-w-0 truncate text-sm text-white/50">
+                        {editForm["POSICIÓN"]}
+                      </span>
+                    )}
 
                     {editForm["2º POSICIÓN"] &&
                       editForm["2º POSICIÓN"] !== "." && (
@@ -5061,6 +5383,14 @@ export default function RivalPlayersPage() {
                   temporadaActual={statsDoc?.temporada}
                 />
 
+                {/* Y cómo juega, contra los de su puesto en la categoría. */}
+
+                {perfilDelEditado && (
+                  <div className="mt-5">
+                    <PerfilWyscoutCard perfil={perfilDelEditado} besoccer={besoccerDelEditado} />
+                  </div>
+                )}
+
                 {/* El dictado es una herramienta de edición: fuera del PDF. */}
 
                 <div data-export-hide className="mt-5">
@@ -5160,7 +5490,9 @@ export default function RivalPlayersPage() {
                 {!isCreating && editForm.ID_JUGADOR && (
                   <div
                     data-export-hide
-                    className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4"
+                    /* Sin cortes, el bloque entero se esconde (guion, 21/10):
+                       la lista deja una marca y el `has-` la ve. */
+                    className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4 has-[[data-sin-cortes]]:hidden"
                   >
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0">
@@ -5189,6 +5521,7 @@ export default function RivalPlayersPage() {
                       key={textoUtil(editForm.ID_JUGADOR)}
                       jugadorId={textoUtil(editForm.ID_JUGADOR)}
                       ambito="rival"
+                      vacio={<span data-sin-cortes hidden />}
                       caratula={
                         datosPortada ?? {
                           equipo: textoUtil(editForm.NOMBRE_EQUIPO),
@@ -5210,7 +5543,9 @@ export default function RivalPlayersPage() {
               data-export-hide
               className="flex items-center justify-between gap-3 border-t border-white/10 p-3 sm:p-4 md:p-6"
             >
-              {!isCreating ? (
+              {/* «Eliminar» sólo con «Editar datos» abierto: al lado de «Hecho»
+                  invitaba a tocar lo que no tiene vuelta atrás (marketing, 21/10). */}
+              {!isCreating && editandoDatos ? (
                 <button
                   onClick={deletePlayer}
                   disabled={saving}
@@ -5328,7 +5663,7 @@ function EtiquetasDialog({
 
   const slotEntry = getSlot(player["POSICIÓN"]);
 
-  const nombre = player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre";
+  const nombre = conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "Sin nombre");
 
   /* Las debilidades primero, como en el campograma: es lo que se busca antes
      de un partido. El color de la chapa ya dice de cuál se trata. */
@@ -5373,16 +5708,18 @@ function EtiquetasDialog({
 
             <p className="truncate text-[11px] text-white/40">
               {player.DORSAL ? `${player.DORSAL} · ` : ""}
-              {slotEntry?.slot.label || player["POSICIÓN"] || "Sin posición"}
+              {slotEntry?.slot.label || player["POSICIÓN"] || ""}
             </p>
           </div>
 
-          <AutoSaveStatus
-            estado={estado}
-            guardadoEn={guardadoEn}
-            onReintentar={onReintentar}
-            className="hidden sm:inline-flex"
-          />
+          {/* En caja propia: ver el mismo aviso en la cabecera de la ficha. */}
+          <span className="hidden shrink-0 sm:inline-flex">
+            <AutoSaveStatus
+              estado={estado}
+              guardadoEn={guardadoEn}
+              onReintentar={onReintentar}
+            />
+          </span>
 
           <button
             type="button"
@@ -5519,12 +5856,104 @@ function SearchInput({
   );
 }
 
+/*
+| La cara de un jugador, con respaldo (21/10/2026).
+|
+| BeSoccer retira fotos de vez en cuando y la hoja sigue apuntando a ellas:
+| el navegador pintaba el texto alternativo cortado encima del círculo
+| («SERGI» sobre la ficha de Sergio García). Si la foto no carga, el mismo
+| muñeco que lleva quien no tiene foto.
+*/
+function CaraJugador({
+  foto,
+  alt,
+  icono,
+  className = "",
+}: {
+  foto: string | undefined;
+  alt: string;
+  icono: number;
+  className?: string;
+}) {
+  /* Se guarda QUÉ foto falló: si cambia la URL, se vuelve a intentar. */
+  const [rota, setRota] = useState("");
+
+  if (!foto || rota === foto) {
+    return (
+      <UserRound
+        size={icono}
+        aria-hidden
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/30"
+      />
+    );
+  }
+
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={foto}
+      alt={alt}
+      loading="lazy"
+      draggable={false}
+      onError={() => setRota(foto)}
+      className={`h-full w-full object-cover ${className}`}
+    />
+  );
+}
+
+/*
+| El nombre que cabe bajo la ficha del campograma (21/10/2026).
+|
+| El hueco lo fija el motor (el paso entre fichas) y no se toca. Lo que sí se
+| elige es QUÉ se escribe: «DIEGO IGL…» no dice quién es y «D. IGLESIAS» sí.
+| Se prueba el nombre entero, luego la inicial con los apellidos, luego la
+| inicial con el último, y si nada cabe, el apellido (que la caja corta).
+| La medida es una estimación de la letra en negrita: si se queda corta, la
+| caja sigue cortando con «…» como antes.
+*/
+/* Ancho medio de una letra en mayúscula y negrita, en cuerpos. Con 0,62 el
+   cálculo se quedaba corto y «JOE JAMES» se daba por bueno y salía «JOE JAM…». */
+const ANCHO_LETRA = 0.7;
+
+function nombreQueCabe(nombre: string, ancho: number, cuerpo: number, relleno: number) {
+  const limpio = nombre.trim().replace(/\s+/g, " ");
+  const cabe = (texto: string) => texto.length * cuerpo * ANCHO_LETRA + relleno <= ancho;
+
+  if (!limpio || cabe(limpio)) return limpio;
+
+  const partes = limpio.split(" ");
+
+  if (partes.length < 2) return limpio;
+
+  const inicial = partes[0].charAt(0);
+  const conApellidos = `${inicial}. ${partes.slice(1).join(" ")}`;
+
+  if (cabe(conApellidos)) return conApellidos;
+
+  const ultimo = partes[partes.length - 1];
+  const conUltimo = `${inicial}. ${ultimo}`;
+
+  /* Y si ni así, el apellido solo: «GARRIDO» dice más que «D. GARRID…». */
+  return cabe(conUltimo) ? conUltimo : ultimo;
+}
+
+/* El cuerpo de letra con el que el nombre elegido entra entero. Un apellido
+   largo («PARADOWSKI») no cabe ni solo: antes se cortaba en «PARADO…», que
+   en la charla no se lee; ahora baja la letra lo justo, hasta un mínimo que
+   todavía se lee en el proyector. */
+function cuerpoQueCabe(texto: string, ancho: number, cuerpo: number, relleno: number) {
+  const necesario = texto.length * cuerpo * ANCHO_LETRA + relleno;
+  if (!texto || necesario <= ancho) return cuerpo;
+  return Math.max(7, Math.floor(((ancho - relleno) / (texto.length * ANCHO_LETRA)) * 10) / 10);
+}
+
 function PlayerRow({
   player,
   showTeam,
   onceEstado = null,
   onCiclarOnce,
   onEtiquetas,
+  temporada = null,
   onClick,
 }: {
   player: RivalPlayer;
@@ -5534,6 +5963,8 @@ function PlayerRow({
   onCiclarOnce?: () => void;
   /** Abre el pop-up de etiquetas. Sin fila en la hoja no hay dónde escribir. */
   onEtiquetas?: () => void;
+  /** Su temporada en curso en BeSoccer: quién juega se ve sin abrir la ficha. */
+  temporada?: RivalSeasonStats | null;
   onClick: () => void;
 }) {
   const { tags } = parseTags(player.IMPACTO);
@@ -5559,48 +5990,51 @@ function PlayerRow({
           onClick();
         }
       }}
-      className="group flex min-w-0 cursor-pointer items-center gap-3 bg-[#11161D] p-3 text-left transition hover:bg-white/[0.07]"
+      className="group flex min-w-0 cursor-pointer items-center gap-2.5 bg-[#11161D] px-3 py-2.5 text-left transition hover:bg-white/[0.07]"
     >
-      {/* FOTO */}
+      {/* FOTO, con el dorsal en la esquina como en el campograma.
 
-      <div
-        className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border bg-[#0B0F14]"
-        style={{
-          borderColor: onceColor ?? "rgb(var(--rmcf-ink-rgb) / .1)",
-          borderWidth: onceEstado ? 2 : 1,
-          /* La duda va en línea discontinua: sin mirar el color ya se
-             distingue del titular confirmado. */
-          borderStyle: onceEstado === "duda" ? "dashed" : "solid",
-        }}
-      >
-        {player.FOTO ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={player.FOTO}
+          El dorsal iba en una columna propia y, con el listado a 236 px,
+          se comía el sitio del nombre: «IVAN M…», «PARIS A…» (21/10/2026).
+          Pegado a la cara se lee igual y el nombre sale entero. */}
+
+      <div className="relative h-11 w-11 shrink-0">
+        <div
+          className="relative h-full w-full overflow-hidden rounded-full border bg-[#0B0F14]"
+          style={{
+            borderColor: onceColor ?? "rgb(var(--rmcf-ink-rgb) / .1)",
+            borderWidth: onceEstado ? 2 : 1,
+            /* La duda va en línea discontinua: sin mirar el color ya se
+               distingue del titular confirmado. */
+            borderStyle: onceEstado === "duda" ? "dashed" : "solid",
+          }}
+        >
+          <CaraJugador
+            foto={player.FOTO}
             alt={player["NOMBRE DEPORTIVO"] || player.JUGADOR}
-            loading="lazy"
-            className="h-full w-full object-cover transition group-hover:scale-110"
+            icono={20}
+            className="transition group-hover:scale-110"
           />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <UserRound size={20} className="text-white/20" />
-          </div>
+        </div>
+
+        {player.DORSAL !== "" && player.DORSAL !== undefined && (
+          <span
+            aria-label={`Dorsal ${player.DORSAL}`}
+            className="absolute -bottom-1 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#C8A96B] px-1 text-[10px] font-bold tabular-nums text-black shadow"
+          >
+            {player.DORSAL}
+          </span>
         )}
-      </div>
-
-      {/* DORSAL */}
-
-      <div className="w-6 shrink-0 text-center">
-        <span className="text-lg font-bold text-white/30">
-          {player.DORSAL || "—"}
-        </span>
       </div>
 
       {/* NOMBRE Y POSICIÓN */}
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">
-          {player["NOMBRE DEPORTIVO"] || player.JUGADOR}
+        <p
+          className="truncate text-[13px] font-semibold leading-tight"
+          title={conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR)}
+        >
+          {conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR)}
         </p>
 
         <div className="mt-1 flex min-w-0 items-center gap-1.5">
@@ -5620,9 +6054,13 @@ function PlayerRow({
             </span>
           )}
 
-          <span className="min-w-0 truncate text-[10px] text-white/45">
-            {player["POSICIÓN"] || "—"}
-          </span>
+          {/* Con chapa, el puesto ya lo dicen ella y la cabecera del grupo:
+              el texto de la hoja sólo salía cortado («LATERAL …»). */}
+          {!slotEntry && player["POSICIÓN"] && (
+            <span className="min-w-0 truncate text-[10px] text-white/45">
+              {player["POSICIÓN"]}
+            </span>
+          )}
 
           {secondSlot && (
             <span
@@ -5640,6 +6078,23 @@ function PlayerRow({
           </p>
         )}
 
+        {/* CUÁNTO JUEGA — los minutos de esta temporada (21/10/2026). La
+            plantilla de un rival son 25 nombres y lo primero que se busca es
+            quién juega de verdad: con esto se ve sin abrir ninguna ficha. */}
+        {temporada && (
+          <p
+            className="mt-1 min-w-0 truncate text-[10px] tabular-nums text-white/45"
+            title={`${temporada.temporada}: ${temporada.partidos} partidos, titular en ${temporada.titular}, ${temporada.minutos} minutos (BeSoccer)`}
+          >
+            <span className="font-semibold text-white/70">{temporada.minutos.toLocaleString("es-ES")}′</span>
+            {/* «8 de 8 de titular» se tropezaba al leerlo (guion, 21/10). */}
+            {temporada.partidos > 0 &&
+              (temporada.titular > 0
+                ? ` · titular en ${temporada.titular} de ${temporada.partidos}`
+                : ` · ${temporada.partidos} ${temporada.partidos === 1 ? "partido" : "partidos"}, suplente`)}
+          </p>
+        )}
+
         {/* ETIQUETAS — se tocan aquí mismo, sin abrir la ficha */}
 
         {(tags.length > 0 || onEtiquetas) && (
@@ -5651,7 +6106,7 @@ function PlayerRow({
                 <span
                   key={tag.key}
                   title={tag.label}
-                  className="flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                  className="flex max-w-full items-center gap-1 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-medium"
                   style={{
                     background: `${tag.color}1F`,
                     color: chipInk(tag.color),
@@ -5684,10 +6139,14 @@ function PlayerRow({
                     ? "Añadir o quitar etiquetas"
                     : "Poner etiquetas a este jugador"
                 }
-                className="flex items-center gap-1 rounded-full border border-dashed border-white/15 px-1.5 py-0.5 text-[9px] text-white/35 transition hover:border-[#C8A96B] hover:text-[#C8A96B]"
+                aria-label={tags.length ? "Añadir o quitar etiquetas" : "Poner etiquetas a este jugador"}
+                /* Sin etiquetas no se escribe «Etiquetas»: lo que no tiene dato
+                   no se nombra. Queda el «+» y se aviva al pasar por la fila. */
+                className={`flex items-center gap-1 rounded-full border border-dashed border-white/15 px-1.5 py-0.5 text-[9px] text-white/35 transition hover:border-[#C8A96B] hover:text-[#C8A96B] focus-visible:opacity-100 ${
+                  tags.length ? "" : "opacity-40 group-hover:opacity-100"
+                }`}
               >
                 <Plus size={9} className="shrink-0" />
-                {tags.length === 0 && "Etiquetas"}
               </button>
             )}
           </div>
@@ -8089,7 +8548,7 @@ function TacticalPitch({
         const visibleTags = tagsByPriority(tags).slice(0, maxBadges);
         const hiddenCount = tags.length - visibleTags.length;
 
-        const name = player["NOMBRE DEPORTIVO"] || player.JUGADOR;
+        const name = conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR);
 
         const enElOnce = onceEstado?.(player) ?? null;
         const ciclar = onCiclarOnce?.(player);
@@ -8134,7 +8593,7 @@ function TacticalPitch({
                 onPlayerClick(player);
               }
             }}
-            title={`${name} · ${player["POSICIÓN"]}${
+            title={`${name} · ${getSlot(player["POSICIÓN"])?.slot.label || player["POSICIÓN"]}${
               enElOnce ? ` · ${ONCE_ETIQUETA[enElOnce]}` : ""
             }${
               tags.length ? ` · ${tags.map((tag) => tag.label).join(", ")}` : ""
@@ -8184,23 +8643,13 @@ function TacticalPitch({
                     : undefined,
                 }}
               >
-                {player.FOTO ? (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img
-                    src={player.FOTO}
-                    alt={name}
-                    loading="lazy"
-                    /* Ver el comentario del arrastre: sin esto, el navegador
-                       se lleva el gesto para arrastrar la imagen. */
-                    draggable={false}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <UserRound
-                    size={Math.round(avatar * 0.5)}
-                    className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white/30"
-                  />
-                )}
+                {/* Ver el comentario del arrastre: sin `draggable`, el
+                    navegador se lleva el gesto para arrastrar la imagen. */}
+                <CaraJugador
+                  foto={player.FOTO}
+                  alt={name}
+                  icono={Math.round(avatar * 0.5)}
+                />
               </div>
 
               {/* DORSAL */}
@@ -8325,9 +8774,17 @@ function TacticalPitch({
               className={`mt-1 truncate rounded bg-black/75 py-0.5 font-semibold leading-tight text-white ${
                 compact ? "px-1" : "px-1.5"
               }`}
-              style={{ fontSize: nameFont, maxWidth: nameWidth }}
+              style={{
+                fontSize: cuerpoQueCabe(
+                  nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12),
+                  nameWidth,
+                  nameFont,
+                  compact ? 8 : 12,
+                ),
+                maxWidth: nameWidth,
+              }}
             >
-              {name}
+              {nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12)}
             </span>
 
             {/* ETIQUETAS */}
@@ -8411,14 +8868,20 @@ function TacticalPitch({
               </span>
 
               <span className="mt-0.5 block truncate text-[10px] text-[#C8A96B]">
-                {player["POSICIÓN"] || "—"}
+                {getSlot(player["POSICIÓN"])?.slot.label || player["POSICIÓN"]}
 
-                {player["2º POSICIÓN"] && player["2º POSICIÓN"] !== "." && (
-                  <span className="text-white/35">
-                    {" "}
-                    · {player["2º POSICIÓN"]}
-                  </span>
-                )}
+                {(() => {
+                  /* La 2ª posición, con el mismo nombre de puesto que la
+                     1ª: la hoja la escribe a su manera («LATERAL DCHO»). */
+                  const segunda = getSlot(player["2º POSICIÓN"]);
+                  if (!segunda || segunda.slot.key === getSlot(player["POSICIÓN"])?.slot.key) return null;
+                  return (
+                    <span className="text-white/35">
+                      {" "}
+                      · también {segunda.slot.label.toLowerCase()}
+                    </span>
+                  );
+                })()}
               </span>
 
               {enElOnce && (

@@ -32,7 +32,7 @@
  * a mano —arrastrar seis bloques de un día a otro— caben más días a la vez.
  */
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -50,7 +50,7 @@ import { Copy, Monitor, Plus, Trash2 } from "lucide-react";
 
 import { chipInk } from "@/lib/theme";
 import { useTextosExplicativos } from "@/components/ui/textos-analisis";
-import { MARCA_BOCETO } from "@/lib/abp/boceto";
+import { porqueDe } from "@/lib/abp/semana-revision";
 
 import {
   DIAS,
@@ -88,6 +88,12 @@ import {
 const idBloque = (dia: DiaKey, trabajo: string) => `bloque:${dia}:${trabajo}`;
 const idColumna = (dia: DiaKey) => `columna:${dia}`;
 const idHueco = (dia: DiaKey, trabajo: string) => `hueco:${dia}:${trabajo}`;
+
+const ROTULO_TIPO: Record<TipoDia, string> = {
+  entreno: "Sesión",
+  descanso: "Libre",
+  partido: "Partido",
+};
 
 type DatosArrastre = { dia: DiaKey; id: string };
 type DatosDestino = { dia: DiaKey; antesDe: string | null };
@@ -133,13 +139,9 @@ function TrabajoCuerpo({
   | Lo escrito a mano en la nota se ve siempre.
   */
   const explicativos = useTextosExplicativos();
-  const notas = explicativos
-    ? trabajo.notas
-    : (trabajo.notas ?? "")
-        .split("\n")
-        .filter((l) => !l.trim().startsWith(MARCA_BOCETO))
-        .join("\n")
-        .trim();
+
+  /* El porqué del boceto se ve siempre, como «Por qué» (21/10/2026). */
+  const { porque, resto: notas } = porqueDe(trabajo.notas, explicativos);
 
   const desgaste = [
     trabajo.intensidad > 0 ? `intensidad ${trabajo.intensidad}/10` : "",
@@ -156,17 +158,33 @@ function TrabajoCuerpo({
             detalle ? "leading-snug" : "truncate leading-tight"
           }`}
         >
-          {detalle
-            ? aspectos.map((aspecto) => aspecto.label).join(" · ")
-            : etiquetaTrabajo(trabajo, true)}
+          {/* Dos aspectos como mucho y «y N más» (21/10/2026): cinco seguidos
+              ocupaban ocho líneas en una columna estrecha. */}
+          {detalle ? (
+            <span title={aspectos.map((aspecto) => aspecto.label).join(" · ")}>
+              {aspectos
+                .slice(0, 2)
+                .map((aspecto) => aspecto.label)
+                .join(" · ")}
+              {aspectos.length > 2 && (
+                <span className="font-medium text-white/45"> y {aspectos.length - 2} más</span>
+              )}
+            </span>
+          ) : (
+            etiquetaTrabajo(trabajo, true)
+          )}
         </p>
 
-        <span className="shrink-0 text-[11px] font-semibold tabular-nums text-white/70">
-          {trabajo.minutos}′
-        </span>
+        {trabajo.minutos > 0 && (
+          <span className="shrink-0 text-[11px] font-semibold tabular-nums text-white/70">
+            {trabajo.minutos}′
+          </span>
+        )}
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        {/* La chapa «Sin tiempo» se quitó el 21/10/2026: el hueco ya lo
+            avisa la revisión de la semana, y decirlo tres veces era ruido. */}
         {lados.map((lado) => (
           <span
             key={lado}
@@ -242,6 +260,22 @@ function TrabajoCuerpo({
             {notas}
           </p>
         ))}
+
+      {detalle && trabajo.objetivo?.trim() && (
+        <p className="mt-1 text-[10px] leading-snug text-white/60">
+          <span className="font-semibold text-emerald-300">Éxito · </span>
+          {trabajo.objetivo.trim()}
+        </p>
+      )}
+
+      {detalle && porque && (
+        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-white/50" title={porque}>
+          <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+            Por qué ·{" "}
+          </span>
+          {porque}
+        </p>
+      )}
 
       {detalle && desgaste.length > 0 && (
         <p className="mt-1 text-[9.5px] leading-snug tabular-nums text-white/35">
@@ -366,6 +400,7 @@ function DiaColumna({
   plan,
   detalle,
   etiqueta,
+  maximo,
   onCambiaTipo,
   onCambiaMd,
   onAbrir,
@@ -376,6 +411,8 @@ function DiaColumna({
   dia: DiaKey;
   plan: PlanDia;
   detalle: boolean;
+  /** Los minutos del día más cargado de la semana. */
+  maximo: number;
   /** "dom 20": la fecha real de ese día en este microciclo. */
   etiqueta?: string;
   onCambiaTipo: (tipo: TipoDia) => void;
@@ -417,7 +454,9 @@ function DiaColumna({
           ? "border-[#C8A96B]/60 bg-[#C8A96B]/[0.05]"
           : descansa
             ? "border-white/[0.06] bg-white/[0.01]"
-            : "border-white/10 bg-white/[0.025]"
+            : plan.tipo === "partido"
+              ? "border-emerald-400/30 bg-emerald-400/[0.05]"
+              : "border-white/10 bg-white/[0.025]"
       }`}
     >
       {/* ---------------------- CABECERA ---------------------- */}
@@ -438,37 +477,54 @@ function DiaColumna({
             onChange={(event) => onCambiaMd(event.target.value)}
             placeholder="MD"
             aria-label={`Día de partido de ${info?.label}`}
-            className="w-14 rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-right text-[10px] uppercase tracking-wide text-[#C8A96B] outline-none transition placeholder:text-white/20 focus:border-[#C8A96B]/50"
+            className="w-14 rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-right text-[12px] uppercase tracking-wide text-[#C8A96B] outline-none transition placeholder:text-white/20 focus:border-[#C8A96B]/50"
           />
         </div>
 
-        <div className="mt-1.5 grid grid-cols-3 gap-1">
-          {TIPOS_DIA.map((tipo) => {
-            const activo = tipo.key === plan.tipo;
+        {/* Un desplegable a 13 px (21/10/2026): los tres botones a 9,5 px no
+            se leían, y a 13 px no caben en una columna de 140. */}
+        <select
+          value={plan.tipo}
+          onChange={(event) => onCambiaTipo(event.target.value as TipoDia)}
+          aria-label={`Tipo de día del ${info?.label?.toLowerCase() ?? "día"}`}
+          className={`mt-1.5 w-full rounded-md border px-1.5 py-1 text-[13px] font-semibold outline-none transition focus:border-[#C8A96B]/60 ${
+            plan.tipo === "entreno"
+              ? "border-white/10 bg-white/[0.05] text-white/80"
+              : plan.tipo === "partido"
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                : "border-white/10 bg-white/[0.02] text-white/45"
+          }`}
+        >
+          {TIPOS_DIA.map((tipo) => (
+            <option key={tipo.key} value={tipo.key}>
+              {ROTULO_TIPO[tipo.key]}
+            </option>
+          ))}
+        </select>
 
-            return (
-              <button
-                key={tipo.key}
-                type="button"
-                onClick={() => onCambiaTipo(tipo.key)}
-                aria-pressed={activo}
-                title={tipo.label}
-                className={`truncate rounded-md px-1 py-1 text-[9px] font-semibold uppercase tracking-wide transition ${
-                  activo
-                    ? "bg-[#C8A96B] text-black"
-                    : "bg-white/[0.05] text-white/40 hover:text-white/70"
-                }`}
-              >
-                {tipo.label.slice(0, 4)}
-              </button>
-            );
-          })}
+        {/* El perfil de la semana de un vistazo: cuánto balón parado lleva
+            cada día frente al más cargado. */}
+        <div
+          className="mt-2 h-1 overflow-hidden rounded-full bg-white/[0.06]"
+          role="img"
+          aria-label={`${fmtMin(minutos)} de balón parado`}
+        >
+          <div
+            className="h-full rounded-full"
+            style={{
+              width: `${Math.round((minutos / maximo) * 100)}%`,
+              backgroundColor: "var(--rmcf-gold-ink)",
+            }}
+          />
         </div>
       </div>
 
       {/* ---------------------- TRABAJOS ---------------------- */}
 
-      <div ref={setNodeRef} className="flex min-h-[110px] flex-1 flex-col gap-1.5 p-2">
+      <div
+        ref={setNodeRef}
+        className={`flex flex-1 flex-col gap-1.5 p-2 ${plan.trabajos.length ? "min-h-[64px] md:min-h-[110px]" : "min-h-[40px]"}`}
+      >
         {plan.trabajos.map((trabajo) => (
           <TrabajoCard
             key={trabajo.id}
@@ -482,8 +538,8 @@ function DiaColumna({
         ))}
 
         {!plan.trabajos.length && (
-          <p className="px-1 py-3 text-center text-[10px] leading-relaxed text-white/35">
-            {descansa ? "Descanso" : "Sin ABP"}
+          <p className="px-1 py-2 text-center text-[13px] leading-snug text-white/45">
+            {descansa ? "Descanso" : plan.tipo === "partido" ? "Día de partido" : "Sin balón parado"}
           </p>
         )}
 
@@ -503,8 +559,8 @@ function DiaColumna({
         <div className="flex items-center justify-between gap-1 border-t border-white/10 px-2.5 py-1.5 text-[10px] tabular-nums">
           <span className="font-semibold text-white/75">{fmtMin(minutos)}</span>
 
-          <span className="text-white/35" title="Carga condicional · cognitiva">
-            {Math.round(carga)} · {Math.round(cargaCog)}
+          <span className="text-white/40">
+            carga {Math.round(carga)} · cognitiva {Math.round(cargaCog)}
           </span>
         </div>
       )}
@@ -541,8 +597,12 @@ export function SemanaGrid({
   orden?: DiaKey[];
   /** La fecha de cada día, para la cabecera ("dom 20"). */
   etiquetas?: Partial<Record<DiaKey, string>>;
-  /** Ficha completa —la de compartir— o corta —la de replanificar—. */
-  detalle?: boolean;
+  /**
+   * Ficha completa —la de compartir— o corta —la de replanificar—. «auto»
+   * (21/10/2026): completa salvo en los días con tres o más tareas, que en
+   * completa ocupaban columnas larguísimas con el porqué cortado.
+   */
+  detalle?: boolean | "auto";
   onCambiaTipo: (dia: DiaKey, tipo: TipoDia) => void;
   onCambiaMd: (dia: DiaKey, md: string) => void;
   onAbrir: (dia: DiaKey, trabajo: Trabajo) => void;
@@ -575,6 +635,14 @@ export function SemanaGrid({
         ),
       ]
     : DIA_KEYS;
+
+  /* El día con más minutos: la barra de cada cabecera se mide contra él. */
+  const maximoDia = Math.max(
+    1,
+    ...columnas.map((clave) =>
+      (dias[clave]?.trabajos ?? []).reduce((total, trabajo) => total + (trabajo.minutos || 0), 0),
+    ),
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -615,23 +683,34 @@ export function SemanaGrid({
       onDragEnd={termina}
       onDragCancel={() => setArrastrando(null)}
     >
-      <div className="overflow-x-auto pb-1">
+      {/*
+      | En el móvil los días van uno debajo de otro (21/10/2026): siete columnas
+      | de 180 px en 390 obligaban a desplazar de lado para encontrar el día, y
+      | la barra de cada cabecera ya deja comparar los días entre sí. Desde la
+      | tableta, la rejilla de siempre.
+      */}
+      <div className="pb-1 md:overflow-x-auto">
         {/* La ficha completa necesita columna ancha: con 140 px «Falta lateral
             indirecta» se parte en cuatro renglones. */}
         <div
-          className="grid items-stretch gap-2"
-          style={{
-            gridTemplateColumns: `repeat(${columnas.length}, minmax(0, 1fr))`,
-            minWidth: columnas.length * (detalle ? 180 : 140),
-          }}
+          className="grid grid-cols-1 items-start gap-2 md:min-w-(--ancho) md:grid-cols-(--columnas)"
+          style={
+            {
+              /* Todas iguales: se probó a estrechar los días libres y de partido
+                 y su selector «Sesión · Libre · Partido» ya no cabía. */
+              "--columnas": `repeat(${columnas.length}, minmax(0, 1fr))`,
+              "--ancho": `${columnas.length * (detalle !== false ? 170 : 140)}px`,
+            } as CSSProperties
+          }
         >
           {columnas.map((clave) => (
             <DiaColumna
               key={clave}
               dia={clave}
               plan={dias[clave]}
-              detalle={detalle}
+              detalle={detalle === "auto" ? dias[clave].trabajos.length < 3 : detalle}
               etiqueta={etiquetas?.[clave]}
+              maximo={maximoDia}
               onCambiaTipo={(tipo) => onCambiaTipo(clave, tipo)}
               onCambiaMd={(md) => onCambiaMd(clave, md)}
               onAbrir={(trabajo) => onAbrir(clave, trabajo)}

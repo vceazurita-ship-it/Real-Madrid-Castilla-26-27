@@ -65,7 +65,14 @@ export function ClipsDelJugador({
   nombres,
   caratula,
   ambito,
+  vacio,
 }: {
+  /**
+   * Lo que se pinta sin cortes. Por defecto, el aviso de cómo se crean; la
+   * ficha del rival pasa una marca para esconder el bloque entero, porque allí
+   * lo que no tiene dato no se nombra (21/10/2026).
+   */
+  vacio?: React.ReactNode;
   jugadorId: string;
   /**
    * Cómo se llama (el de la pantalla, el de la hoja, el apodo). Con esto la
@@ -174,7 +181,7 @@ export function ClipsDelJugador({
       const aviso = toast.loading(
         formato === "unificado"
           ? `Montando el vídeo con ${lista.length} cortes…`
-          : `Cortando ${lista.length} clips…`,
+          : `Cortando ${lista.length} cortes…`,
       );
 
       /* La carátula sube al bucket y se borra al terminar: ver más abajo. */
@@ -233,7 +240,7 @@ export function ClipsDelJugador({
 
         toast.success("Listo", { id: aviso });
       } catch (error) {
-        console.error("[clips del jugador]", error);
+        console.error("[cortes del jugador]", error);
 
         toast.error(
           error instanceof Error ? error.message : "No se ha podido exportar.",
@@ -257,6 +264,8 @@ export function ClipsDelJugador({
   }
 
   if (clips.length === 0) {
+    if (vacio !== undefined) return <>{vacio}</>;
+
     return (
       <p className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-[11px] leading-relaxed text-white/30">
         Todavía no hay cortes de este jugador. Se crean solos al codificar un

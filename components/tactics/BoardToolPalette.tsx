@@ -42,7 +42,7 @@ export const BOARD_TOOLS: {
     id: "select",
     label: "Mover",
     short: "Mover",
-    hint: "Arrastra las fichas; pincha una para cambiar al jugador",
+    hint: "Arrastra las fichas; un toque elige y el segundo cambia al jugador",
     icon: <MousePointer2 size={15} />,
   },
   {

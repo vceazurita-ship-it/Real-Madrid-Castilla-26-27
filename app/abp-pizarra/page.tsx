@@ -53,8 +53,10 @@ import {
   RotateCcw,
   Save,
   Shield,
+  Smartphone,
   Trash2,
   Type,
+  Users,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -74,6 +76,20 @@ import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { SelectorJugador } from "@/components/abp/pizarra/SelectorJugador";
 import { CambiaJugador } from "@/components/abp/pizarra/CambiaJugador";
 import { ExportaPizarra } from "@/components/abp/pizarra/ExportaPizarra";
+import {
+  BarraDibujo,
+  TECLA_HERRAMIENTA,
+  type Herramienta,
+} from "@/components/abp/pizarra/BarraDibujo";
+import { ProyectaPizarra } from "@/components/abp/pizarra/ProyectaPizarra";
+import { useReproduccionAbp } from "@/hooks/useReproduccionAbp";
+import {
+  arrastraTrazos,
+  fasesDe,
+  type FaseTrazo,
+  type RivalPizarra,
+  type TrazoPizarra,
+} from "@/lib/abp/trazos";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -87,7 +103,10 @@ import {
 } from "@/lib/ratings/matches";
 import { RATINGS_SEASON, type MatchMeta } from "@/lib/ratings/types";
 import {
+  CABECERA_H,
   EMPTY_PIZARRA_STORE,
+  TABLERO_H,
+  TABLERO_W,
   MOTIVO_LABEL,
   PLANTILLAS,
   PLANTILLA_BY_KEY,
@@ -120,12 +139,16 @@ import {
   revisaTablero,
   sinTextosPropios,
   slideDePlantilla,
+  avisosConsignas,
+  CASILLAS_GUION,
+  lineasConsignas,
   normalizaMemoria,
   normalizaTablero,
   tableroVacio,
   textosDeSlide,
   tieneFichas,
   tieneTextosPropios,
+  tituloVisible,
   type PizarraStore,
   type PuestoAbp,
   type SlidePizarra,
@@ -145,6 +168,17 @@ import {
   type JornadaRival,
 } from "@/lib/abp/jornada";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
+import {
+  colocaDefensa,
+  estructuraDefensiva,
+  familiaDePlantilla,
+  susCabeceadores,
+} from "@/lib/abp/defensa-rival";
+import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
+import { buildAerialThreats } from "@/lib/abp/rival";
+import { enElCampo } from "@/lib/abp/pizarra";
+import { traeJson } from "@/lib/hojaCsv";
+import { VideoJugada } from "@/components/abp/pizarra/VideoJugada";
 
 /**
  * Cuánto se espera, sin tocar nada, antes de congelar una versión.
@@ -507,9 +541,78 @@ export default function PizarraAbpPage() {
     [],
   );
 
+  /*
+  | DESHACER Y REHACER
+  |
+  | Se guardan las diapositivas de antes de cada cambio —no el documento
+  | entero: el histórico de versiones y lo aprendido no se deshacen con
+  | Ctrl+Z—, y sólo de la jornada abierta. Un gesto es UN paso: arrastrar una
+  | cara son cien escrituras y se deshace de una vez. Lo mismo al escribir un
+  | título o al afinar con las flechas: los cambios seguidos de la misma cosa
+  | se juntan mientras no pasen dos segundos.
+  |
+  | Las pilas viven en refs (no se pintan); lo que se pinta son sus largos,
+  | que van en estado para que los botones se enciendan y se apaguen.
+  */
+  const pilas = useRef<{
+    partido: string;
+    atras: SlidePizarra[][];
+    adelante: SlidePizarra[][];
+  }>({ partido: "", atras: [], adelante: [] });
+
+  const ultimoPaso = useRef<{ clave: string; cuando: number }>({ clave: "", cuando: 0 });
+
+  const [hayDeshacer, setHayDeshacer] = useState({ atras: 0, adelante: 0 });
+
+  const cuentaPilas = useCallback(() => {
+    setHayDeshacer({
+      atras: pilas.current.atras.length,
+      adelante: pilas.current.adelante.length,
+    });
+  }, []);
+
+  /** Apunta las diapositivas de ahora antes de un cambio. */
+  const anotaPaso = useCallback(
+    (clave?: string) => {
+      if (!partido || !tablero) return;
+
+      const pila = pilas.current;
+
+      if (pila.partido !== partido.id) {
+        pilas.current = { partido: partido.id, atras: [], adelante: [] };
+      }
+
+      const ahora = Date.now();
+      const previo = ultimoPaso.current;
+
+      const junta =
+        clave != null &&
+        clave === previo.clave &&
+        (clave.startsWith("gesto:") || ahora - previo.cuando < 2000);
+
+      ultimoPaso.current = { clave: clave ?? "", cuando: ahora };
+
+      if (junta) return;
+
+      const { atras } = pilas.current;
+
+      if (atras[atras.length - 1] !== tablero.slides) {
+        atras.push(tablero.slides);
+
+        if (atras.length > 80) atras.shift();
+      }
+
+      pilas.current.adelante = [];
+      cuentaPilas();
+    },
+    [partido, tablero, cuentaPilas],
+  );
+
   const mutaTablero = useCallback(
-    (fn: (actual: TableroPizarra) => TableroPizarra) => {
+    (fn: (actual: TableroPizarra) => TableroPizarra, clave?: string) => {
       if (!partido) return;
+
+      anotaPaso(clave);
 
       setStore((actual) => {
         const base = tableroAlDia(actual, partido.id, partido.opponent);
@@ -520,8 +623,71 @@ export default function PizarraAbpPage() {
         };
       });
     },
-    [tableroAlDia, partido, setStore],
+    [tableroAlDia, partido, setStore, anotaPaso],
   );
+
+  /** Pone unas diapositivas guardadas en la pila, sin anotar paso. */
+  const ponSlides = useCallback(
+    (slides: SlidePizarra[]) => {
+      if (!partido) return;
+
+      setStore((actual) => ({
+        ...actual,
+        tableros: {
+          ...actual.tableros,
+          [partido.id]: {
+            ...tableroAlDia(actual, partido.id, partido.opponent),
+            slides,
+            actualizado: new Date().toISOString(),
+          },
+        },
+      }));
+    },
+    [partido, setStore, tableroAlDia],
+  );
+
+  const deshaz = useCallback(() => {
+    if (!partido || !tablero || pilas.current.partido !== partido.id) return;
+
+    const { atras, adelante } = pilas.current;
+
+    let previo = atras.pop();
+
+    /* Los cambios que no tocaron las diapositivas (fijar una versión) dejan
+       pasos iguales a lo que hay: se saltan. */
+    while (previo && previo === tablero.slides) previo = atras.pop();
+
+    if (previo) {
+      adelante.push(tablero.slides);
+      ultimoPaso.current = { clave: "", cuando: 0 };
+      ponSlides(previo);
+    }
+
+    cuentaPilas();
+  }, [partido, tablero, ponSlides, cuentaPilas]);
+
+  const rehaz = useCallback(() => {
+    if (!partido || !tablero || pilas.current.partido !== partido.id) return;
+
+    const { atras, adelante } = pilas.current;
+
+    const siguiente = adelante.pop();
+
+    if (siguiente) {
+      atras.push(tablero.slides);
+      ultimoPaso.current = { clave: "", cuando: 0 };
+      ponSlides(siguiente);
+    }
+
+    cuentaPilas();
+  }, [partido, tablero, ponSlides, cuentaPilas]);
+
+  /* Cada gesto del tablero (arrastrar, tirar de una flecha) es un paso. */
+  const gesto = useRef(0);
+
+  const pasoNuevo = useCallback(() => {
+    gesto.current += 1;
+  }, []);
 
   /* ---------------------- RIVAL Y JORNADA -------------------------- */
 
@@ -571,15 +737,247 @@ export default function PizarraAbpPage() {
   const slide: SlidePizarra | null = tablero?.slides[activa] ?? null;
 
   const mutaSlide = useCallback(
-    (fn: (actual: SlidePizarra) => SlidePizarra) =>
-      mutaTablero((actual) => ({
-        ...actual,
-        slides: actual.slides.map((item, indice) =>
-          indice === activa ? fn(item) : item,
-        ),
-      })),
+    (fn: (actual: SlidePizarra) => SlidePizarra, clave?: string) =>
+      mutaTablero(
+        (actual) => ({
+          ...actual,
+          slides: actual.slides.map((item, indice) =>
+            indice === activa ? fn(item) : item,
+          ),
+        }),
+        clave,
+      ),
     [mutaTablero, activa],
   );
+
+  /*
+  | «Poner su defensa» (ronda del sobresaliente, 21/10/2026): coloca al rival
+  | como defiende esta acción según su scouting y con el dorsal de sus mejores
+  | por alto. Sólo lee; las chapas quedan como cualquier rival dibujado, y la
+  | colocación se deshace con Ctrl+Z.
+  */
+  const [poniendoDefensa, setPoniendoDefensa] = useState(false);
+
+  const ponSuDefensa = useCallback(async () => {
+    if (!slide) return;
+
+    const familia = familiaDePlantilla(slide.plantilla);
+    const equipo = tablero?.rival || partido?.opponent || "";
+
+    if (!familia || !equipo) return;
+
+    setPoniendoDefensa(true);
+
+    const aviso = toast.loading(`Leyendo cómo defiende ${equipo}…`);
+
+    try {
+      const [scout, plantillas] = await Promise.all([
+        fetch(`/api/docs?key=${SCOUT_DOC_KEY}`, { cache: "no-store" })
+          .then((respuesta) => (respuesta.ok ? respuesta.json() : null))
+          .catch(() => null),
+        traeJson<unknown>("/api/rivals?action=rivalesPlantillas").catch(() => []),
+      ]);
+
+      const estructura = estructuraDefensiva(actionsOf(scout?.data ?? null, equipo), familia);
+      const cabeceadores = susCabeceadores(buildAerialThreats(plantillas, [], equipo));
+      const hecho = colocaDefensa(slide.plantilla, slide.fichas.filter(enElCampo), estructura, cabeceadores, equipo);
+
+      if (!hecho) {
+        toast.info(
+          `De ${equipo} no hay registrado cómo defiende esta acción ni rematadores de ABP: colócalos a mano con la R.`,
+          { id: aviso },
+        );
+
+        return;
+      }
+
+      mutaSlide((actual) => ({ ...actual, rivales: hecho.rivales }), "rivales:defensa");
+      toast.success(hecho.aviso, { id: aviso, duration: 9_000 });
+    } finally {
+      setPoniendoDefensa(false);
+    }
+  }, [slide, tablero?.rival, partido?.opponent, mutaSlide]);
+
+  /* ---------------------- CARRERAS Y BALÓN ------------------------- */
+
+  const [herramienta, setHerramienta] = useState<Herramienta>("mover");
+  const [fase, setFase] = useState<FaseTrazo>(1);
+  const [trazoElegido, setTrazoElegido] = useState<string | null>(null);
+  const [rivalElegido, setRivalElegido] = useState<string | null>(null);
+
+  const rivalEnMano = useMemo(
+    () => (slide?.rivales ?? []).find((rival) => rival.id === rivalElegido) ?? null,
+    [slide, rivalElegido],
+  );
+
+  const creaRival = useCallback(
+    (rival: RivalPizarra) => {
+      mutaSlide((actual) => ({ ...actual, rivales: [...(actual.rivales ?? []), rival] }));
+      setRivalElegido(rival.id);
+    },
+    [mutaSlide],
+  );
+
+  const cambiaRivalDibujado = useCallback(
+    (id: string, cambio: Partial<RivalPizarra>, clave?: string) =>
+      mutaSlide(
+        (actual) => ({
+          ...actual,
+          rivales: (actual.rivales ?? []).map((rival) =>
+            rival.id === id ? { ...rival, ...cambio } : rival,
+          ),
+        }),
+        clave,
+      ),
+    [mutaSlide],
+  );
+
+  const quitaRivalDibujado = useCallback(
+    (id: string) => {
+      mutaSlide((actual) => ({
+        ...actual,
+        rivales: (actual.rivales ?? []).filter((rival) => rival.id !== id),
+      }));
+      setRivalElegido(null);
+    },
+    [mutaSlide],
+  );
+
+  const trazos = useMemo(() => slide?.trazos ?? [], [slide]);
+
+  const trazoEnMano = useMemo(
+    () => trazos.find((trazo) => trazo.id === trazoElegido) ?? null,
+    [trazos, trazoElegido],
+  );
+
+  const creaTrazo = useCallback(
+    (trazo: TrazoPizarra) => {
+      mutaSlide((actual) => ({ ...actual, trazos: [...(actual.trazos ?? []), trazo] }));
+
+      /* Recién dibujado queda elegido: lo normal es curvarlo o cambiarle la
+         fase justo después. La herramienta sigue en la mano para el siguiente. */
+      setTrazoElegido(trazo.id);
+    },
+    [mutaSlide],
+  );
+
+  const cambiaTrazo = useCallback(
+    (id: string, cambio: Partial<TrazoPizarra>, clave?: string) =>
+      mutaSlide(
+        (actual) => ({
+          ...actual,
+          trazos: (actual.trazos ?? []).map((trazo) => {
+            if (trazo.id !== id) return trazo;
+
+            const nuevo = { ...trazo, ...cambio };
+
+            /* «Enderezar» manda el control a undefined: se quita la clave. */
+            if (nuevo.cx == null || nuevo.cy == null) {
+              delete nuevo.cx;
+              delete nuevo.cy;
+            }
+
+            return nuevo;
+          }),
+        }),
+        clave,
+      ),
+    [mutaSlide],
+  );
+
+  const borraTrazo = useCallback(
+    (id: string) => {
+      mutaSlide((actual) => ({
+        ...actual,
+        trazos: (actual.trazos ?? []).filter((trazo) => trazo.id !== id),
+      }));
+
+      setTrazoElegido(null);
+    },
+    [mutaSlide],
+  );
+
+  /**
+   * Mueve una cara y, con ella, las flechas que salen de sus pies.
+   * La clave del gesto junta el arrastre entero en un paso de deshacer.
+   */
+  const mueveFicha = useCallback(
+    (id: string, x: number, y: number, clave: string) =>
+      mutaSlide((actual) => {
+        const antes = actual.fichas.find((ficha) => ficha.id === id);
+
+        if (!antes || (antes.x === x && antes.y === y)) return actual;
+
+        const movidos = arrastraTrazos(actual.trazos, antes, { x, y });
+
+        return {
+          ...actual,
+          fichas: actual.fichas.map((ficha) =>
+            ficha.id === id ? { ...ficha, x, y } : ficha,
+          ),
+          ...(movidos ? { trazos: movidos } : {}),
+        };
+      }, clave),
+    [mutaSlide],
+  );
+
+  /* ------------------------- REPRODUCIR ---------------------------- */
+
+  const fases = fasesDe(trazos);
+
+  const {
+    tiempo: tiempoReloj,
+    reproduce: reproduceReloj,
+    para: paraReloj,
+  } = useReproduccionAbp(fases);
+
+  /* De qué diapositiva es lo que se reproduce: cambiar de diapositiva lo
+     deja atrás sin tener que pararlo en cada sitio que cambia la activa. */
+  const [reproducida, setReproducida] = useState<string | null>(null);
+
+  const tiempo = slide && reproducida === slide.id ? tiempoReloj : null;
+
+  const reproduce = useCallback(() => {
+    if (!slide || fases === 0) return;
+
+    setReproducida(slide.id);
+    setTrazoElegido(null);
+    reproduceReloj();
+  }, [slide, fases, reproduceReloj]);
+
+  const paraReproduccion = useCallback(() => {
+    setReproducida(null);
+    paraReloj();
+  }, [paraReloj]);
+
+  /* Al acabar se queda un momento en la foto final y vuelve a la fija. */
+  useEffect(() => {
+    if (tiempo == null || tiempo < fases) return;
+
+    const vuelta = setTimeout(paraReproduccion, 1800);
+
+    return () => clearTimeout(vuelta);
+  }, [tiempo, fases, paraReproduccion]);
+
+  /* ---------------------------- TECLADO ---------------------------- */
+
+  /*
+  | Los atajos de la pizarra. No se atienden escribiendo en un campo, con un
+  | diálogo abierto ni con el proyector delante (que tiene los suyos).
+  */
+  const teclado = useRef<(event: KeyboardEvent) => void>(() => undefined);
+
+  useEffect(() => {
+    const atiende = (event: KeyboardEvent) => teclado.current(event);
+
+    window.addEventListener("keydown", atiende);
+
+    return () => window.removeEventListener("keydown", atiende);
+  }, []);
+
+  /* ------------------------- PROYECTOR ----------------------------- */
+
+  const [proyectando, setProyectando] = useState<number | null>(null);
 
   /* ---------------------- TEXTOS DE LA SLIDE ----------------------- */
 
@@ -1218,6 +1616,159 @@ export default function PizarraAbpPage() {
 
   const [encima, setEncima] = useState<number | null>(null);
 
+  /*
+  | Lo que hace cada tecla. Se vuelve a escribir en cada render —en un efecto,
+  | no al pintar— para leer siempre lo último sin re-suscribirse a `window`.
+  */
+  useEffect(() => {
+    teclado.current = (event: KeyboardEvent) => {
+      if (!slide || proyectando != null || editando || cambiando) return;
+
+      const blanco = event.target as HTMLElement | null;
+
+      if (
+        blanco &&
+        (blanco.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(blanco.tagName) ||
+          blanco.closest("[role=dialog]"))
+      ) {
+        return;
+      }
+
+      const control = event.ctrlKey || event.metaKey;
+      const tecla = event.key;
+
+      if (control && (tecla === "z" || tecla === "Z")) {
+        event.preventDefault();
+
+        if (event.shiftKey) rehaz();
+        else deshaz();
+
+        return;
+      }
+
+      if (control && (tecla === "y" || tecla === "Y")) {
+        event.preventDefault();
+        rehaz();
+
+        return;
+      }
+
+      if (control || event.altKey) return;
+
+      /* Herramientas: V, C, B, L. */
+      const herramientaDeTecla = (Object.keys(TECLA_HERRAMIENTA) as Herramienta[]).find(
+        (key) => TECLA_HERRAMIENTA[key] === tecla.toUpperCase(),
+      );
+
+      if (herramientaDeTecla) {
+        event.preventDefault();
+        setHerramienta(herramientaDeTecla);
+        setTrazoElegido(null);
+        setRivalElegido(null);
+
+        return;
+      }
+
+      if (tecla === "1" || tecla === "2" || tecla === "3") {
+        event.preventDefault();
+
+        const nueva = Number(tecla) as FaseTrazo;
+
+        if (trazoEnMano) cambiaTrazo(trazoEnMano.id, { fase: nueva });
+        else setFase(nueva);
+
+        return;
+      }
+
+      if (tecla === "p" || tecla === "P") {
+        event.preventDefault();
+        setProyectando(activa);
+
+        return;
+      }
+
+      /* Espacio reproduce; en un botón, el espacio es pulsarlo. */
+      if (tecla === " " && blanco?.tagName !== "BUTTON") {
+        event.preventDefault();
+
+        if (tiempo != null) paraReproduccion();
+        else reproduce();
+
+        return;
+      }
+
+      if (tecla === "Escape") {
+        if (tiempo != null) paraReproduccion();
+
+        setHerramienta("mover");
+        setTrazoElegido(null);
+        setRivalElegido(null);
+        setSeleccion(null);
+
+        return;
+      }
+
+      if (tecla === "Delete" || tecla === "Backspace") {
+        if (rivalEnMano) {
+          event.preventDefault();
+          quitaRivalDibujado(rivalEnMano.id);
+        } else if (trazoEnMano) {
+          event.preventDefault();
+          borraTrazo(trazoEnMano.id);
+        } else if (seleccion && slide.fichas.some((ficha) => ficha.id === seleccion)) {
+          event.preventDefault();
+          mutaSlide((actual) => ({
+            ...actual,
+            fichas: actual.fichas.filter((ficha) => ficha.id !== seleccion),
+          }));
+          setSeleccion(null);
+        }
+
+        return;
+      }
+
+      /* Las flechas afinan la cara elegida: 2 px, o 20 con Mayús. */
+      const paso = event.shiftKey ? 20 : 2;
+      const delta = {
+        ArrowLeft: [-paso, 0],
+        ArrowRight: [paso, 0],
+        ArrowUp: [0, -paso],
+        ArrowDown: [0, paso],
+      }[tecla];
+
+      if (delta && rivalEnMano && tiempo == null) {
+        event.preventDefault();
+
+        cambiaRivalDibujado(
+          rivalEnMano.id,
+          {
+            x: Math.max(30, Math.min(TABLERO_W - 30, rivalEnMano.x + delta[0])),
+            y: Math.max(CABECERA_H + 40, Math.min(TABLERO_H - 10, rivalEnMano.y + delta[1])),
+          },
+          `tecla:${rivalEnMano.id}`,
+        );
+
+        return;
+      }
+
+      if (delta && seleccion && tiempo == null) {
+        const ficha = slide.fichas.find((item) => item.id === seleccion);
+
+        if (!ficha) return;
+
+        event.preventDefault();
+
+        mueveFicha(
+          seleccion,
+          Math.max(40, Math.min(TABLERO_W - 40, ficha.x + delta[0])),
+          Math.max(CABECERA_H + 120, Math.min(TABLERO_H - 10, ficha.y + delta[1])),
+          `tecla:${seleccion}`,
+        );
+      }
+    };
+  });
+
   /* ---------------------------- RENDER ----------------------------- */
 
   const totales = useMemo(() => {
@@ -1541,7 +2092,13 @@ export default function PizarraAbpPage() {
                 <div className="mt-6">
                   <Panel
                     title="Diapositivas"
-                    subtitle={`${totales.cubiertos} de ${totales.total} puestos con jugador · arrástralas para cambiar el orden del PowerPoint`}
+                    subtitle={`${
+                      totales.cubiertos >= totales.total
+                        ? "Todos los puestos tienen jugador"
+                        : `${totales.total - totales.cubiertos} ${
+                            totales.total - totales.cubiertos === 1 ? "puesto sin jugador" : "puestos sin jugador"
+                          }`
+                    } · arrastra una diapositiva para cambiar el orden del PowerPoint`}
                     icon={LayoutGrid}
                   >
                     <div className="flex min-w-0 flex-wrap gap-1.5">
@@ -1608,13 +2165,16 @@ export default function PizarraAbpPage() {
                               />
 
                               <span className="block max-w-[176px] truncate text-[12px] font-semibold uppercase tracking-wide">
-                                {indice + 1}. {item.titulo}
+                                {indice + 1}. {tituloVisible(tablero.slides, indice)}
                               </span>
                             </span>
 
-                            <span className="block text-[10px] tabular-nums text-white/35">
-                              {total ? `${cubiertos}/${total} puestos` : "libre"}
-                            </span>
+                            {/* La cifra, sólo si falta alguien: completa no hace falta decir nada. */}
+                            {(!total || cubiertos < total) && (
+                              <span className="block text-[10px] tabular-nums text-amber-300/70">
+                                {total ? `Faltan ${total - cubiertos}` : "Libre"}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
@@ -1694,29 +2254,142 @@ export default function PizarraAbpPage() {
 
                 {slide && (
                   <div className="mt-5 min-w-0 overflow-hidden rounded-2xl border border-white/10">
+                    <BarraDibujo
+                      herramienta={herramienta}
+                      onHerramienta={(nueva) => {
+                        setHerramienta(nueva);
+                        setTrazoElegido(null);
+                        setRivalElegido(null);
+                      }}
+                      fase={fase}
+                      onFase={setFase}
+                      elegido={trazoEnMano}
+                      onCambiarElegido={(cambio) =>
+                        trazoEnMano && cambiaTrazo(trazoEnMano.id, cambio)
+                      }
+                      onBorrarElegido={() => trazoEnMano && borraTrazo(trazoEnMano.id)}
+                      puedeDeshacer={hayDeshacer.atras > 0}
+                      puedeRehacer={hayDeshacer.adelante > 0}
+                      onDeshacer={deshaz}
+                      onRehacer={rehaz}
+                      fases={fases}
+                      reproduciendo={tiempo != null}
+                      onReproducir={reproduce}
+                      onParar={paraReproduccion}
+                      onProyectar={() => setProyectando(activa)}
+                      trazos={trazos.length}
+                      rival={rivalEnMano}
+                      onDorsalRival={(dorsal) =>
+                        rivalEnMano &&
+                        cambiaRivalDibujado(
+                          rivalEnMano.id,
+                          { dorsal: dorsal.trim() ? dorsal.toUpperCase() : undefined },
+                          `texto:dorsal:${rivalEnMano.id}`,
+                        )
+                      }
+                      onBorrarRival={() => rivalEnMano && quitaRivalDibujado(rivalEnMano.id)}
+                    />
+
+                    {/*
+                    | Su defensa y el vídeo de la jugada, justo encima del
+                    | tablero: son las dos cosas que se hacen con la rutina ya
+                    | dibujada, antes de llevarla a la sala.
+                    */}
+                    {(familiaDePlantilla(slide.plantilla) || fases > 0) && (
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        {familiaDePlantilla(slide.plantilla) && (
+                          <Button
+                            icon={Users}
+                            onClick={() => void ponSuDefensa()}
+                            disabled={poniendoDefensa}
+                            title="Coloca al rival como defiende esta acción según su scouting de ABP, con el dorsal de sus rematadores"
+                          >
+                            {poniendoDefensa ? "Leyendo su scouting…" : "Poner su defensa"}
+                          </Button>
+                        )}
+
+                        <VideoJugada
+                          slide={slide}
+                          titulo={tablero ? tituloVisible(tablero.slides, activa) : slide.titulo}
+                          players={porId}
+                          temporada={temporadaCorta(RATINGS_SEASON)}
+                          rival={tablero?.rival || partido.opponent}
+                          jornada={tablero?.jornada ? `J${tablero.jornada}` : undefined}
+                        />
+                      </div>
+                    )}
+
                     <TableroSlide
                       slide={slide}
+                      titulo={tablero ? tituloVisible(tablero.slides, activa) : undefined}
                       players={porId}
                       temporada={temporadaCorta(RATINGS_SEASON)}
                       rival={tablero?.rival || partido.opponent}
                       seleccion={seleccion}
                       onSeleccionar={setSeleccion}
-                      onMover={(id, x, y) =>
-                        mutaSlide((actual) => ({
-                          ...actual,
-                          fichas: actual.fichas.map((ficha) =>
-                            ficha.id === id ? { ...ficha, x, y } : ficha,
-                          ),
-                        }))
-                      }
-                      onQuitar={(id) =>
+                      onMover={(id, x, y) => mueveFicha(id, x, y, `gesto:${gesto.current}`)}
+                      onQuitar={(id) => {
                         mutaSlide((actual) => ({
                           ...actual,
                           fichas: actual.fichas.filter((ficha) => ficha.id !== id),
-                        }))
-                      }
+                        }));
+
+                        setSeleccion(null);
+                      }}
                       onPulsarPuesto={setEditando}
+                      herramienta={herramienta}
+                      fase={fase}
+                      trazoElegido={trazoElegido}
+                      onElegirTrazo={setTrazoElegido}
+                      onCrearTrazo={creaTrazo}
+                      onCambiarTrazo={(id, cambio) =>
+                        cambiaTrazo(id, cambio, `gesto:${gesto.current}`)
+                      }
+                      onPasoNuevo={pasoNuevo}
+                      tiempo={tiempo}
+                      rivalElegido={rivalElegido}
+                      onElegirRival={setRivalElegido}
+                      onCrearRival={creaRival}
+                      onMoverRival={(id, x, y) =>
+                        cambiaRivalDibujado(id, { x, y }, `gesto:${gesto.current}`)
+                      }
                     />
+
+                    {/*
+                    | En el móvil en vertical la diapositiva es una miniatura: se
+                    | ofrece verla a pantalla completa (el proyector intenta girar
+                    | a horizontal) y las consignas van debajo como texto normal.
+                    */}
+                    <div className="mt-3 space-y-3 sm:hidden">
+                      <Button icon={Smartphone} onClick={() => setProyectando(activa)}>
+                        Ver en horizontal, a pantalla completa
+                      </Button>
+
+                      {lineasConsignas(slide.notas).length > 0 && (
+                        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                            Consignas
+                          </p>
+
+                          <ul className="space-y-1.5">
+                            {lineasConsignas(slide.notas).map((linea, indice) =>
+                              linea.tipo === "subtitulo" ? (
+                                <li
+                                  key={`${indice}-${linea.texto}`}
+                                  className="pt-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-white/45"
+                                >
+                                  {linea.texto}
+                                </li>
+                              ) : (
+                                <li key={`${indice}-${linea.texto}`} className="text-base leading-snug text-white/85">
+                                  {linea.texto}
+                                </li>
+                              ),
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -1773,10 +2446,21 @@ export default function PizarraAbpPage() {
                         store.textos?.[slide.plantilla],
                       )}
                       onTitulo={(titulo) =>
-                        mutaSlide((actual) => ({ ...actual, titulo }))
+                        mutaSlide((actual) => ({ ...actual, titulo }), "texto:titulo")
                       }
                       onNotas={(notas) =>
-                        mutaSlide((actual) => ({ ...actual, notas }))
+                        mutaSlide((actual) => ({ ...actual, notas }), "texto:notas")
+                      }
+                      onGuion={(clave, texto) =>
+                        mutaSlide((actual) => {
+                          const guion = { ...actual.guion, [clave]: texto };
+
+                          if (!texto.trim()) delete guion[clave];
+
+                          const { guion: _antes, ...resto } = actual;
+
+                          return Object.keys(guion).length ? { ...resto, guion } : resto;
+                        }, `texto:guion:${clave}`)
                       }
                       onTexto={cambiaTexto}
                       onDejarParaLasSiguientes={() =>
@@ -1936,6 +2620,20 @@ export default function PizarraAbpPage() {
           }
           onQuitar={() => vacia(puestoEditado.key)}
           onCerrar={() => setEditando(null)}
+        />
+      )}
+
+      {tablero && proyectando != null && (
+        <ProyectaPizarra
+          slides={tablero.slides}
+          inicial={proyectando}
+          players={porId}
+          temporada={temporadaCorta(RATINGS_SEASON)}
+          rival={tablero.rival || partido?.opponent || ""}
+          onCerrar={(indice) => {
+            setProyectando(null);
+            setPedida(indice);
+          }}
         />
       )}
 
@@ -2205,6 +2903,7 @@ function TextosDeLaSlide({
   guardadoParaSiguientes,
   onTitulo,
   onNotas,
+  onGuion,
   onTexto,
   onDejarParaLasSiguientes,
   onVolverALaPlantilla,
@@ -2213,6 +2912,7 @@ function TextosDeLaSlide({
   guardadoParaSiguientes: boolean;
   onTitulo: (titulo: string) => void;
   onNotas: (notas: string[]) => void;
+  onGuion: (clave: (typeof CASILLAS_GUION)[number]["key"], texto: string) => void;
   onTexto: (fn: (textos: TextosSlide) => TextosSlide) => void;
   onDejarParaLasSiguientes: () => void;
   onVolverALaPlantilla: () => void;
@@ -2246,6 +2946,35 @@ function TextosDeLaSlide({
           />
         </div>
 
+        {/*
+        | Señal, rutina e intención en casillas fijas: en la sala se leen en ese
+        | orden y separan la señal de lo que hay que hacer. Optativas; lo que se
+        | escriba sale antes de las consignas libres, cada una con su rótulo.
+        */}
+        <div>
+          <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-white/35">
+            Señal, rutina e intención · optativo
+          </p>
+
+          <div className="grid gap-2 sm:grid-cols-3">
+            {CASILLAS_GUION.map((casilla) => (
+              <label key={casilla.key} className="block">
+                <span className="mb-1 block text-xs font-semibold text-[#E4CE9B]">
+                  {casilla.rotulo}
+                </span>
+
+                <input
+                  value={slide.guion?.[casilla.key] ?? ""}
+                  onChange={(event) => onGuion(casilla.key, event.target.value)}
+                  placeholder={casilla.ejemplo}
+                  maxLength={120}
+                  className={campo}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+
         <div>
           <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-white/35">
             Consignas · una por línea
@@ -2262,6 +2991,18 @@ function TextosDeLaSlide({
             placeholder="Remate detrás de corta…"
             className={`${campo} leading-relaxed`}
           />
+
+          {/* En la sala se leen tres consignas cortas, no un párrafo. */}
+          {avisosConsignas(slide.notas).map((aviso) => (
+            <p key={aviso} className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-amber-300/80">
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+              {aviso}
+            </p>
+          ))}
+
+          <p className="mt-1.5 text-[11px] leading-relaxed text-white/35">
+            Una línea que acaba en «:» sale como rótulo de las que van detrás.
+          </p>
         </div>
 
         {grupos.length > 0 && (

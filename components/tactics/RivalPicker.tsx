@@ -16,6 +16,12 @@ interface Props {
   onClear: () => void;
   /** Equipo fijo: se oculta el selector (la pizarra ya vive dentro de él). */
   lockedTeam?: string;
+  /**
+   * Si arranca desplegado. El tablero lo arranca plegado cuando la escena ya
+   * tiene a los rivales puestos (21/10/2026): desplegado son dos filas de
+   * dorsales que empujan el campo media pantalla hacia abajo.
+   */
+  abiertoAlEmpezar?: boolean;
 }
 
 /**
@@ -32,10 +38,11 @@ export default function RivalPicker({
   onAddNumber,
   onClear,
   lockedTeam,
+  abiertoAlEmpezar = true,
 }: Props) {
   const [team, setTeam] = useState(lockedTeam ?? squads[0]?.equipo ?? "");
   const [manual, setManual] = useState("");
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(abiertoAlEmpezar);
 
   // El equipo elegido puede desaparecer al recargar la hoja.
   useEffect(() => {
@@ -70,6 +77,7 @@ export default function RivalPicker({
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
+          aria-expanded={open}
           className="inline-flex items-center gap-1.5 rounded-xl px-2 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55 transition hover:text-white"
         >
           <Shirt size={13} className="text-[#F87171]" />
@@ -110,11 +118,11 @@ export default function RivalPicker({
                 addManual();
               }
             }}
-            placeholder="nº"
+            placeholder="Dorsal"
             inputMode="numeric"
             title="Dorsal de un rival que no está en la hoja: escríbelo y pulsa Intro o +"
             aria-label="Dorsal suelto del rival"
-            className="w-12 rounded-xl border border-white/10 bg-[#0F141B] px-2 py-2 text-center text-[11px] text-white outline-none placeholder:text-white/25"
+            className="w-16 rounded-xl border border-white/10 bg-[#0F141B] px-2 py-2 text-center text-[11px] text-white outline-none placeholder:text-white/25"
           />
 
           <button
@@ -122,9 +130,10 @@ export default function RivalPicker({
             onClick={addManual}
             title="Añadir dorsal suelto"
             aria-label="Añadir dorsal suelto"
-            className="rounded-xl border border-white/10 bg-white/[0.03] p-2 text-white/55 transition hover:bg-white/[0.08] hover:text-white"
+            className="inline-flex items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2 text-[11px] font-semibold text-white/55 transition hover:bg-white/[0.08] hover:text-white"
           >
-            <Plus size={14} />
+            <Plus size={13} />
+            Añadir
           </button>
 
           {activeIds.length > 0 && (
@@ -135,7 +144,7 @@ export default function RivalPicker({
               className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-2.5 py-2 text-[11px] font-semibold text-white/50 transition hover:border-red-400/40 hover:text-red-300"
             >
               <X size={12} />
-              Quitar
+              Quitar rivales
             </button>
           )}
         </div>

@@ -513,6 +513,37 @@ export const AYUDAS: AyudaDePagina[] = [
     ],
   },
   {
+    ruta: "/pizarra-tactica",
+    titulo: "Pizarra Táctica",
+    resumen: "Dibujar una idea con fichas, flechas y escenas, y presentarla moviéndose.",
+    origen: "Las fichas propias salen de la plantilla y las rivales de Plantillas rivales. El tablero «Once 4-2-3-1» se rellena solo cada semana con nuestro último once (Valoraciones) y el teórico del rival.",
+    bloques: [
+      {
+        titulo: "Montar la jugada",
+        filas: [
+          { que: "Escenas", es: "Cada escena es un momento de la jugada; al reproducir, las fichas van de una a la siguiente" },
+          { que: "Duplicar escena", es: "Copia la escena justo detrás: se mueven las fichas en la copia y ese es el movimiento" },
+          { que: "Dibujo", es: "Coloca a un equipo en 4-4-2, 4-3-3… recolocando a los que ya están, cada uno al puesto más cercano" },
+          { que: "Qué se cuenta", es: "La nota de la escena: sale bajo el campo a pantalla completa y en todo lo que se exporta" },
+          { que: "Elegir varias", es: "Arrastrar sobre el césped vacío o Mayús + clic; luego se mueven, alinean, reparten o duplican juntas" },
+          { que: "Medidas del bloque", es: "Con varias elegidas, el largo y el ancho que ocupan en metros", cuenta: "El campo de la pizarra es 100 × 68; el largo se pasa a 105 m" },
+          { que: "Carriles", es: "Tercios y cinco carriles; los carriles salen del ancho del área grande y de la pequeña" },
+        ],
+      },
+      {
+        titulo: "Presentar y sacar",
+        filas: [
+          { que: "→ o AvPág", es: "Avanza a la siguiente escena moviéndose y se para; ← vuelve. Es lo que manda un mando de presentación" },
+          { que: "Exportar", es: "PNG o copia de la escena, PDF y PowerPoint (una hoja por escena) y vídeo MP4 de la jugada, todo en 1920 × 1080" },
+          { que: "Atajos", es: "La tecla ? enseña todos los atajos de teclado" },
+        ],
+      },
+    ],
+    ojo: [
+      "Las fichas se emparejan entre escenas por su identidad: una ficha duplicada con Ctrl+D es otra ficha y no se anima desde la original.",
+    ],
+  },
+  {
     ruta: "/coding",
     titulo: "Coding de Partido",
     resumen: "Marcar las acciones del partido y sacar los clips.",
@@ -536,11 +567,26 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/rivals",
     titulo: "Plantillas Rivales",
     resumen: "Fichas e informes de los jugadores del rival.",
-    origen: "Hoja RIVALES y datos de BeSoccer; los recursos, en Supabase.",
+    origen: "Hoja RIVALES, BeSoccer y Wyscout de toda la categoría; los recursos, en Supabase.",
     bloques: [
       {
         titulo: "Cómo se lee",
         filas: [
+          {
+            que: "«Cómo llega»",
+            es: "Tabla, su balance en el campo del partido, los últimos cinco de liga, el dibujo que más repite y quién le hace los goles",
+            cuenta: "BeSoccer; el dibujo, contando sus últimas alineaciones bajadas",
+          },
+          {
+            que: "«Lo que le hace distinto»",
+            es: "Aspectos del juego en los que el equipo se sale de la categoría, en verde por arriba y en rojo por detrás",
+            cuenta: "Percentil medio del aspecto entre los equipos de la categoría; sólo si se separa ±20 puntos (Wyscout)",
+          },
+          {
+            que: "«Cómo juega» (en la ficha)",
+            es: "Lo que más le separa de los de su puesto en la categoría: hasta tres por arriba y tres por abajo",
+            cuenta: "Percentil contra su puesto con 90′ o más, esta temporada; sólo por encima de 70 o por debajo de 30. Con menos de 90′ no se compara",
+          },
           { que: "Once probable", es: "Se propone con los últimos onces del rival" },
           { que: "Etiquetas", es: "Las pone el analista; no salen de ningún dato" },
         ],
@@ -1065,6 +1111,46 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Con dos o tres jornadas, una alerta es un indicio: dice dónde mirar, no qué hacer.",
       "El orden es por cuánto se sale de lo normal, no por importancia: eso lo pone el cuerpo técnico.",
+    ],
+  },
+
+  /* ==================== JUGADORES SESIÓN (21/10/2026) ==================== */
+  {
+    ruta: "/jugadores-sesion",
+    titulo: "Jugadores sesión",
+    resumen: "Los equipos de cada tarea del día, a partir de la lista del delegado, listos para proyectar o mandar.",
+    origen: "La lista que se pega (título, listado y apartados de bajas). Los puestos salen de la plantilla y de dónde coloca el cuerpo técnico a cada uno.",
+    bloques: [
+      {
+        titulo: "Hacer los equipos",
+        filas: [
+          { que: "Proponer equipos", es: "Reparte a todos los que hacen la tarea en equipos parejos", cuenta: "Porteros separados; laterales, centrales, medios y puntas repartidos; los comodines rotan entre quienes menos lo han sido" },
+          { que: "Completar", es: "Coloca sólo a los que faltan, en el equipo más corto, sin mover a nadie" },
+          { que: "Como la anterior", es: "Copia los equipos, colores y comodines de la tarea de antes" },
+          { que: "Soltar encima de otro", es: "«Cambiar»: los dos se intercambian el sitio. «Compartir puesto»: van juntos en el mismo hueco" },
+          { que: "Teclado", es: "Con un jugador elegido: 1-6 equipo, C comodín, F fuera, 0 sin colocar. Ctrl+Z deshace, Ctrl+Y rehace" },
+        ],
+      },
+      {
+        titulo: "El validador",
+        filas: [
+          { que: "Punto rojo", es: "Falta alguien por colocar, hay un equipo vacío o un nombre repetido en la lista" },
+          { que: "Punto ámbar", es: "Equipos o líneas descompensados, porteros juntos, colores repetidos o comodines de más o de menos", cuenta: "Línea descompensada: dos o más de diferencia entre equipos en defensas, medios, extremos o delanteros" },
+          { que: "Com. y Fuera", es: "En la plantilla del día, en cuántas tareas ha sido comodín o no ha participado cada uno" },
+        ],
+      },
+      {
+        titulo: "Mandarlo",
+        filas: [
+          { que: "Esta / Todas", es: "Imágenes .jpg a 1920×1080, una por tarea (dos si hay cambio a mitad)" },
+          { que: "PDF", es: "Todas las diapositivas en un solo archivo, una por página" },
+          { que: "Texto", es: "Los equipos en texto para el grupo de WhatsApp, un equipo por línea" },
+        ],
+      },
+    ],
+    ojo: [
+      "Los lesionados empiezan fuera de cada tarea; si alguno hace una, se le mete en un equipo y el validador lo señala.",
+      "Volver a pegar la lista manda: quien no esté en ella sale de todas las tareas.",
     ],
   },
 ];

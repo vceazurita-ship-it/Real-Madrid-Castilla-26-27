@@ -19,7 +19,7 @@
  * desplazamiento.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileDown, MonitorPlay, Printer } from "lucide-react";
 import { toast } from "sonner";
 
@@ -30,6 +30,7 @@ import {
   COLORES,
   TABLERO_H,
   TABLERO_W,
+  tituloVisible,
   type SlidePizarra,
 } from "@/lib/abp/pizarra";
 import { creaPptx } from "@/lib/export/pptx";
@@ -42,6 +43,7 @@ import {
   pintado,
 } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
+import { fasesDe } from "@/lib/abp/trazos";
 
 type Formato = "pptx" | "pdf";
 
@@ -85,6 +87,35 @@ export function ExportaPizarra({
   const [hechas, setHechas] = useState(0);
 
   /*
+  | «Una hoja por fase»: la jugada contada en orden, como se haría con las
+  | animaciones del PowerPoint, pero en hojas que valen también impresas. Cada
+  | diapositiva con dos fases o más sale una vez por fase, con las flechas
+  | acumuladas hasta ella; las de una sola fase salen como siempre.
+  */
+  const [porFases, setPorFases] = useState(false);
+
+  const conFases = slides.some((slide) => fasesDe(slide.trazos) > 1);
+
+  const hojas = useMemo(() => slides.flatMap((slide, orden) => {
+    const n = fasesDe(slide.trazos);
+
+    /* Dos córneres ofensivos no pueden llamarse igual en la hoja. */
+    const visible = tituloVisible(slides, orden);
+
+    if (!porFases || n < 2) {
+      return [{ key: slide.id, slide, visible, titulo: visible, hasta: undefined as number | undefined }];
+    }
+
+    return Array.from({ length: n }, (_, indice) => ({
+      key: `${slide.id}-${indice + 1}`,
+      slide,
+      visible,
+      hasta: indice + 1,
+      titulo: `${visible} · fase ${indice + 1} de ${n}`,
+    }));
+  }), [slides, porFases]);
+
+  /*
   | El trabajo va en un efecto y no en el `onClick` porque hace falta que React
   | haya montado el tablero de repuesto —el de fuera de pantalla— antes de
   | fotografiarlo. Pulsar sólo enciende la bandera; capturar es lo que pasa
@@ -117,7 +148,7 @@ export function ExportaPizarra({
 
       if (imagenes.length === 0) throw new Error("No hay diapositivas");
 
-      const titulos = slides.map((slide) => slide.titulo);
+      const titulos = hojas.map((hoja) => hoja.titulo);
 
       const nombre = `pizarra-abp-${apodo(rival, "pizarra")}${
         jornada ? `-${apodo(jornada)}` : ""
@@ -174,7 +205,7 @@ export function ExportaPizarra({
       setFormato(null);
       setHechas(0);
     }
-  }, [formato, jornada, rival, slides]);
+  }, [formato, jornada, rival, hojas]);
 
   useEffect(() => {
     if (!formato) return;
@@ -194,7 +225,7 @@ export function ExportaPizarra({
 
   const ocupado = formato !== null;
 
-  const total = slides.length;
+  const total = hojas.length;
 
   const botones = (
     <div className="flex flex-wrap items-center gap-2">
@@ -224,6 +255,19 @@ export function ExportaPizarra({
             ? "Imprimir en PDF"
             : "PDF para imprimir"}
       </Button>
+
+      {conFases && variante === "panel" && (
+        <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-white/65">
+          <input
+            type="checkbox"
+            checked={porFases}
+            onChange={(event) => setPorFases(event.target.checked)}
+            disabled={ocupado}
+            className="h-4 w-4 accent-[#C8A96B]"
+          />
+          Una hoja por fase ({total} {total === 1 ? "hoja" : "hojas"})
+        </label>
+      )}
     </div>
   );
 
@@ -245,10 +289,13 @@ export function ExportaPizarra({
         zIndex: -1,
       }}
     >
-      {slides.map((slide) => (
-        <div key={slide.id} style={{ width: TABLERO_W }}>
+      {hojas.map((hoja) => (
+        <div key={hoja.key} style={{ width: TABLERO_W }}>
           <TableroSlide
-            slide={slide}
+            slide={hoja.slide}
+            titulo={hoja.visible}
+            hastaFase={hoja.hasta}
+            soloVer
             players={players}
             temporada={temporada}
             rival={rival}

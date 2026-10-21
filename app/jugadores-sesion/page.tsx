@@ -39,6 +39,8 @@ import {
   Shuffle,
   Trash2,
   Undo2,
+  Redo2,
+  FileDown,
   MessageSquareText,
   Repeat2,
   UsersRound,
@@ -46,15 +48,18 @@ import {
   Wand2,
   X,
   Eraser,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { AbpHeader, Button, Dialog, Panel, SaveState, Segmented } from "@/components/abp/ui";
+import { AbpHeader, Button, Dialog, Panel, SaveState, Segmented, sePuedeDescartar } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { LAMINA_H, LAMINA_W, LaminaEquipos, LaminaEscalada } from "@/components/sesion-equipos/LaminaEquipos";
 import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
+import { loadRegistro, type RegistroTarea } from "@/lib/abp/registro";
+import { contextoDeSesion, detallesDeTareas, lineaDeDetalle, tareasDelDia } from "@/lib/sesion-equipos/registro";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   ESTRUCTURAS,
@@ -76,7 +81,7 @@ import {
 } from "@/lib/sesion-equipos/estructura";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { cambiosDe, creaCambio, guardaVistaCambio, quitaCambio, vistaCambio, type Fase } from "@/lib/sesion-equipos/cambio";
-import { apodo, capturaLienzos, descarga, pintado } from "@/lib/export/lienzos";
+import { apodo, capturaLienzos, descarga, pdfDeLienzos, pintado } from "@/lib/export/lienzos";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
 import {
   ALMACEN_VACIO,
@@ -88,6 +93,7 @@ import {
   completaReparto,
   conEquipos,
   limpiaJugador,
+  leeLista,
   anadeJugador,
   quitaJugador,
   reemplazaJugador,
@@ -108,6 +114,7 @@ import {
   tintaSobre,
   valida,
   type AlmacenEquipos,
+  type Aviso,
   type EquipoTarea,
   type JugadorSesion,
   type Puesto,
@@ -198,6 +205,8 @@ function Chip({
     <div
       role="button"
       tabIndex={0}
+      aria-pressed={seleccionado}
+      aria-label={`${jugador.nombre}${puesto ? `, ${puesto}` : ""}${conQuien ? `, comparte puesto con ${conQuien}` : ""}${jugador.baja ? `, ${jugador.baja.toLowerCase()}` : ""}`}
       data-destino={destino}
       onPointerDown={onPointerDown}
       onClick={onClick}
@@ -209,7 +218,7 @@ function Chip({
       }}
       title="Arrástralo a otro equipo, o tócalo y luego toca dónde va. Con él elegido: 1-6 equipo, C comodín, F fuera"
       style={{ touchAction: "pan-y" }}
-      className={`group flex min-w-0 cursor-grab select-none items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide transition active:cursor-grabbing ${
+      className={`group flex min-w-0 cursor-grab select-none items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide outline-none transition focus-visible:ring-2 focus-visible:ring-[#C8A96B] active:cursor-grabbing ${
         arrastrando
           ? "opacity-35"
           : encima
@@ -350,6 +359,7 @@ function Caja({
               {atajo}
             </kbd>
           )}
+          {!(compacta && cuenta === 0) && (
           <span
             className="inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12px] font-bold tabular-nums"
             style={{ background: color ? (tinta === "#FFFFFF" ? "rgba(0,0,0,0.22)" : "rgba(255,255,255,0.5)") : "rgba(255,255,255,0.08)" }}
@@ -357,19 +367,21 @@ function Caja({
             {cuenta}
             {objetivo !== undefined ? `/${objetivo}` : ""}
           </span>
+          )}
         </span>
       </div>
 
       {resumen}
 
       <div
-        className={`flex flex-1 flex-wrap content-start gap-1.5 ${compacta ? "min-h-[36px] px-2 py-1.5" : "min-h-[64px] p-2"}`}
+        className={`flex flex-1 flex-wrap content-start gap-1.5 ${compacta ? (cuenta === 0 && !activa ? "hidden" : "min-h-[36px] px-2 py-1.5") : "min-h-[64px] p-2"}`}
         onClick={(e) => {
           if (activa && e.target === e.currentTarget) onSoltar();
         }}
       >
         {children}
-        {cuenta === 0 && (
+        {/* Vacía y plegada, sin el texto de ayuda salvo con alguien en la mano (21/10/2026): dos cajas con un cero eran ruido. */}
+        {cuenta === 0 && (!compacta || activa) && (
           <span className="pointer-events-none self-center px-1 text-[11px] text-white/40">{vacio}</span>
         )}
       </div>
@@ -408,6 +420,32 @@ function sueltaPareja(t: TareaEquipos, id: string): TareaEquipos {
   });
 
   return tocada ? { ...t, equipos } : t;
+}
+
+/**
+ * Cambia a dos jugadores de sitio (21/10/2026): cada uno se va al del otro,
+ * equipo y hueco del dibujo incluidos. Antes, soltar a uno encima de otro en
+ * modo «Cambiar» sólo movía al primero y el segundo se quedaba donde estaba,
+ * con un equipo de más y otro de menos. Si el que llega no tenía sitio, el
+ * otro queda sin colocar.
+ */
+function intercambiaSitios(t0: TareaEquipos, a: string, b: string): TareaEquipos {
+  const t = sueltaPareja(sueltaPareja(t0, a), b);
+  const sa = t.sitio[a];
+  const sb = t.sitio[b];
+  const sitio = { ...t.sitio };
+
+  if (sb === undefined) delete sitio[a];
+  else sitio[a] = sb;
+
+  if (sa === undefined) delete sitio[b];
+  else sitio[b] = sa;
+
+  const equipos = t.equipos.map((e) =>
+    e.orden?.some((x) => x === a || x === b) ? { ...e, orden: e.orden.map((x) => (x === a ? b : x === b ? a : x)), autoOrden: undefined } : e,
+  );
+
+  return { ...t, sitio, equipos };
 }
 
 /** El titular con el que comparte puesto un jugador, si es compañero de alguien. */
@@ -512,6 +550,7 @@ function BarraReparto({
  */
 function EstructuraEquipo({
   equipo,
+  descompensado = false,
   jugadores,
   puestoDe,
   elegido,
@@ -526,6 +565,8 @@ function EstructuraEquipo({
   onBorraMia,
 }: {
   equipo: EquipoTarea;
+  /** Hay un aviso de líneas descompensadas: el «10/10» no va en verde. */
+  descompensado?: boolean;
   jugadores: JugadorSesion[];
   puestoDe: PuestoDe;
   elegido: number | null;
@@ -622,10 +663,10 @@ function EstructuraEquipo({
           {creando ? "Cerrar" : "Crear"}
         </button>
         <span
-          className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${deCampo === total ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
-          title="Jugadores de campo del equipo / huecos del dibujo (el portero no se dibuja)"
+          className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${deCampo === total && !descompensado ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
+          title={descompensado ? "Los huecos están llenos, pero las líneas no van parejas entre equipos: mira el validador" : "Jugadores de campo del equipo / huecos del dibujo (el portero no se dibuja)"}
         >
-          {deCampo}/{total}
+          {deCampo}/{total} huecos
         </span>
       </div>
 
@@ -702,6 +743,7 @@ function EstructuraEquipo({
       {total > 0 ? (
         <div ref={refCaja} className="flex w-full justify-center">
           <CampoEstructura
+            flecha
             huecos={huecos}
             color={equipo.color}
             ancho={anchoCampo}
@@ -839,6 +881,73 @@ function Contador({ valor, min, max, onCambia }: { valor: number; min: number; m
   );
 }
 
+/**
+ * Lo que se ha leído de la lista pegada, antes de crear nada (21/10/2026):
+ * título, cuántos hacen la sesión y cuántos son baja y por qué. Con la sesión
+ * ya hecha, además quién entra y quién sale. Así un listado mal copiado (sin
+ * guiones, o con el apartado de lesionados pegado al de disponibles) se ve
+ * antes de hacer equipos con él.
+ */
+function LecturaLista({ texto, sesion }: { texto: string; sesion?: SesionEquipos | null }) {
+  const lista = useMemo(() => leeLista(texto), [texto]);
+
+  if (!texto.trim()) return null;
+
+  const disponibles = lista.jugadores.filter((j) => !j.baja);
+  const motivos = new Map<string, number>();
+
+  for (const j of lista.jugadores) if (j.baja) motivos.set(j.baja, (motivos.get(j.baja) ?? 0) + 1);
+
+  const antes = new Set((sesion?.jugadores ?? []).map((j) => claveNombre(j.nombre)));
+  const ahora = new Set(lista.jugadores.map((j) => claveNombre(j.nombre)));
+  const entran = sesion ? lista.jugadores.filter((j) => !antes.has(claveNombre(j.nombre))) : [];
+  const salen = sesion ? sesion.jugadores.filter((j) => !ahora.has(claveNombre(j.nombre))) : [];
+
+  return (
+    <div aria-live="polite" className="mt-3 space-y-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[12px] text-white/70">
+      {lista.jugadores.length ? (
+        <>
+          <p>
+            <b className="text-white">{lista.titulo}</b>
+            {" · "}
+            <b className="tabular-nums text-white">{disponibles.length}</b> disponibles
+            {[...motivos].map(([m, n]) => (
+              <span key={m}>
+                {" · "}
+                <b className="tabular-nums text-white">{n}</b> {m.toLowerCase()}
+              </span>
+            ))}
+          </p>
+          {lista.repetidos.length > 0 && (
+            <p className="flex items-start gap-1.5 text-amber-200">
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" /> Sale dos veces: {lista.repetidos.join(", ")}
+            </p>
+          )}
+          {sesion && (entran.length > 0 || salen.length > 0) && (
+            <p>
+              {entran.length > 0 && (
+                <>
+                  Entran: <b className="text-emerald-300">{entran.map((j) => j.nombre).join(", ")}</b>.{" "}
+                </>
+              )}
+              {salen.length > 0 && (
+                <>
+                  Salen de todas las tareas: <b className="text-red-300">{salen.map((j) => j.nombre).join(", ")}</b>.
+                </>
+              )}
+            </p>
+          )}
+          {sesion && !entran.length && !salen.length && <p>Los mismos jugadores: nadie entra ni sale.</p>}
+        </>
+      ) : (
+        <p className="flex items-start gap-1.5 text-amber-200">
+          <AlertTriangle size={13} className="mt-0.5 shrink-0" /> No leo ningún jugador. Cada uno en su línea, empezando por un guion: «- OSCAR NAASEI».
+        </p>
+      )}
+    </div>
+  );
+}
+
 const ICONO_AVISO = {
   error: <X size={13} className="mt-0.5 shrink-0 text-red-300" />,
   aviso: <AlertTriangle size={13} className="mt-0.5 shrink-0 text-amber-300" />,
@@ -866,11 +975,20 @@ export default function JugadoresSesionPage() {
   });
 
   /*
-  | Deshacer. Con prisa se suelta a alguien en el equipo que no es, o se
-  | sortea sin querer encima de unos equipos hechos a mano: cada cambio guarda
-  | cómo estaba todo antes (las 40 últimas).
+  | Deshacer y rehacer. Con prisa se suelta a alguien en el equipo que no es,
+  | o se sortea sin querer encima de unos equipos hechos a mano: cada cambio
+  | guarda cómo estaba todo antes (los 60 últimos).
+  |
+  | 21/10/2026: escribir un nombre (de la tarea o de un equipo) es UN paso, no
+  | uno por letra: los cambios seguidos del mismo `grupo` en menos de 1,5 s se
+  | juntan. Y lo deshecho se puede rehacer (Ctrl+Y o Ctrl+Mayús+Z) hasta que
+  | se cambie otra cosa.
   */
   const historia = useRef<AlmacenEquipos[]>([]);
+
+  const futuro = useRef<AlmacenEquipos[]>([]);
+
+  const ultimoGrupo = useRef<{ clave: string; t: number } | null>(null);
 
   const almacenAhora = useRef(almacen);
 
@@ -878,13 +996,20 @@ export default function JugadoresSesionPage() {
     almacenAhora.current = almacen;
   }, [almacen]);
 
-  const [pasos, setPasos] = useState(0);
+  const [pasos, setPasos] = useState({ atras: 0, adelante: 0 });
 
   const setAlmacen = useCallback(
-    (cambio: (actual: AlmacenEquipos) => AlmacenEquipos) => {
-      historia.current = [...historia.current.slice(-39), almacenAhora.current];
+    (cambio: (actual: AlmacenEquipos) => AlmacenEquipos, grupo?: string) => {
+      const ahora = Date.now();
+      const previo = ultimoGrupo.current;
+      const seguido = Boolean(grupo) && previo !== null && previo.clave === grupo && ahora - previo.t < 1500;
 
-      setPasos(historia.current.length);
+      if (!seguido) historia.current = [...historia.current.slice(-59), almacenAhora.current];
+
+      ultimoGrupo.current = grupo ? { clave: grupo, t: ahora } : null;
+      futuro.current = [];
+
+      setPasos({ atras: historia.current.length, adelante: 0 });
 
       escribeAlmacen(cambio);
     },
@@ -894,9 +1019,25 @@ export default function JugadoresSesionPage() {
   const deshaz = useCallback(() => {
     const previo = historia.current.pop();
 
-    setPasos(historia.current.length);
+    if (previo) {
+      futuro.current = [...futuro.current, almacenAhora.current];
+      escribeAlmacen(previo);
+    }
 
-    if (previo) escribeAlmacen(previo);
+    ultimoGrupo.current = null;
+    setPasos({ atras: historia.current.length, adelante: futuro.current.length });
+  }, [escribeAlmacen]);
+
+  const rehaz = useCallback(() => {
+    const siguiente = futuro.current.pop();
+
+    if (siguiente) {
+      historia.current = [...historia.current, almacenAhora.current];
+      escribeAlmacen(siguiente);
+    }
+
+    ultimoGrupo.current = null;
+    setPasos({ atras: historia.current.length, adelante: futuro.current.length });
   }, [escribeAlmacen]);
 
   /* El puesto de cada uno: el puesto a mano manda; si no, el de la plantilla. */
@@ -1016,36 +1157,79 @@ export default function JugadoresSesionPage() {
 
   const [exportando, setExportando] = useState<null | { laminas: { i: number; fase: Fase }[]; paso: string }>(null);
 
-  /* Al exportar, sólo los equipos (lo de por defecto) o con la cabecera de la tarea (08/10/2026). */
-  const [conCabecera, setConCabecera] = useState(false);
+  /*
+  | Con la cabecera de la tarea por defecto (21/10/2026): la imagen que va al
+  | grupo tiene que decir qué tarea es y de qué día. Sólo equipos, desmarcándola.
+  */
+  const [conCabecera, setConCabecera] = useState(true);
+
+  /*
+  | LA TAREA DE LA HOJA (21/10/2026). Lo que el cuerpo técnico escribió en el
+  | registro de tareas para el día de la sesión (formato, espacio, tiempo,
+  | contenido) y el micro, el rival y el MD: salen en la diapositiva. Sólo se
+  | lee; si la hoja no tiene el día, la diapositiva queda como estaba.
+  */
+  const [registro, setRegistro] = useState<RegistroTarea[]>([]);
+
+  useEffect(() => {
+    let vivo = true;
+    loadRegistro()
+      .then((r) => {
+        if (vivo) setRegistro(r.tareas);
+      })
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   /* ---------------- escribir ---------------- */
 
   const cambiaSesion = useCallback(
-    (id: string, cambio: (s: SesionEquipos) => SesionEquipos) =>
-      setAlmacen((actual) => ({
-        ...actual,
-        sesiones: (actual.sesiones ?? []).map((s) => (s.id === id ? cambio(s) : s)),
-      })),
+    (id: string, cambio: (s: SesionEquipos) => SesionEquipos, grupo?: string) =>
+      setAlmacen(
+        (actual) => ({
+          ...actual,
+          sesiones: (actual.sesiones ?? []).map((s) => (s.id === id ? cambio(s) : s)),
+        }),
+        grupo,
+      ),
     [setAlmacen],
   );
 
   const cambiaTarea = useCallback(
-    (cambio: (t: TareaEquipos) => TareaEquipos) => {
+    (cambio: (t: TareaEquipos) => TareaEquipos, grupo?: string) => {
       if (!sesion || !tarea) return;
 
-      cambiaSesion(sesion.id, (s) => ({
-        ...s,
-        tareas: s.tareas.map((t) => {
-          if (t.id !== tarea.id) return t;
+      cambiaSesion(
+        sesion.id,
+        (s) => ({
+          ...s,
+          tareas: s.tareas.map((t) => {
+            if (t.id !== tarea.id) return t;
 
-          /* Tras el cambio: se edita la vista y se guarda en su sitio, sin tocar el inicio. */
-          return fase === "cambio" && t.cambio ? guardaVistaCambio(t, cambio(vistaCambio(t))) : cambio(t);
+            /* Tras el cambio: se edita la vista y se guarda en su sitio, sin tocar el inicio. */
+            return fase === "cambio" && t.cambio ? guardaVistaCambio(t, cambio(vistaCambio(t))) : cambio(t);
+          }),
         }),
-      }));
+        grupo,
+      );
     },
     [cambiaSesion, sesion, tarea, fase],
   );
+
+  /*
+  | Ir a otra tarea (21/10/2026): siempre por su inicio y sin nada elegido. Si
+  | no, quien estaba editando «tras el cambio» de una tarea seguía en «tras el
+  | cambio» en la siguiente sin darse cuenta, y el hueco tocado de un campo se
+  | quedaba esperando en otra tarea.
+  */
+  const irATarea = useCallback((i: number) => {
+    setPedida(i);
+    setFase("inicio");
+    setElegido(null);
+    setHuecoTocado(null);
+  }, []);
 
   /** Cambia la tarea guardada tal cual, sin pasar por el momento (marcar o quitar el cambio). */
   const cambiaTareaBase = useCallback(
@@ -1137,8 +1321,16 @@ export default function JugadoresSesionPage() {
 
         if (otro === jugadorId) return;
         if (modoSoltar === "compartir") return emparejaCon(jugadorId, otro);
+        if (!tarea || tarea.sitio[otro] === tarea.sitio[jugadorId]) return;
 
-        return coloca(jugadorId, tarea?.sitio[otro] ?? null);
+        cambiaTarea((t) => intercambiaSitios(t, jugadorId, otro));
+
+        const a = sesion?.jugadores.find((j) => j.id === jugadorId)?.nombre;
+        const b = sesion?.jugadores.find((j) => j.id === otro)?.nombre;
+
+        toast.success(`${a} ⇄ ${b}`, { description: "Cada uno ocupa el sitio del otro.", action: { label: "Deshacer", onClick: deshaz } });
+
+        return;
       }
       if (destino === COMODIN || destino === FUERA) return coloca(jugadorId, destino);
       if (destino.startsWith("eq:")) return coloca(jugadorId, destino.slice(3));
@@ -1208,12 +1400,39 @@ export default function JugadoresSesionPage() {
           const desplazado = nuevos[indice].jugador;
 
           if (antes >= 0) nuevos[antes].jugador = desplazado;
-          else if (desplazado) {
+
+          nuevos[indice].jugador = jugador;
+
+          /*
+          | Llega de fuera del equipo y el hueco estaba ocupado (21/10/2026): en
+          | modo «Cambiar», el de antes se va al sitio que deja el que llega
+          | (su equipo y su hueco, o sin colocar), como al soltar en una ficha.
+          */
+          if (antes < 0 && desplazado && modoSoltar === "cambiar") {
+            const desde = t.sitio[jugadorId];
+            const guardado = paraGuardar(equipo.estructura, guardaHuecos(nuevos));
+            const sitio = { ...t.sitio, [jugadorId]: equipoId };
+
+            if (desde === undefined) delete sitio[desplazado.id];
+            else sitio[desplazado.id] = desde;
+
+            return {
+              ...t,
+              sitio,
+              equipos: t.equipos.map((e) =>
+                e.id === equipoId
+                  ? { ...e, orden: guardado.orden, posiciones: guardado.posiciones, autoOrden: undefined }
+                  : e.orden?.includes(jugadorId)
+                    ? { ...e, orden: e.orden.map((x) => (x === jugadorId ? desplazado.id : x)), autoOrden: undefined }
+                    : e,
+              ),
+            };
+          }
+
+          if (antes < 0 && desplazado) {
             const libre = nuevos.findIndex((h, k) => !h.jugador && k !== indice);
             if (libre >= 0) nuevos[libre].jugador = desplazado;
           }
-
-          nuevos[indice].jugador = jugador;
 
           const guardado = paraGuardar(equipo.estructura, guardaHuecos(nuevos));
 
@@ -1228,7 +1447,7 @@ export default function JugadoresSesionPage() {
         });
       }
     },
-    [cambiaTarea, coloca, puestoDe, sesion, modoSoltar, emparejaCon, tarea],
+    [cambiaTarea, coloca, puestoDe, sesion, modoSoltar, emparejaCon, tarea, deshaz],
   );
 
   /** Quita los escuchadores del arrastre en curso (también si la pantalla se va a mitad). */
@@ -1290,6 +1509,40 @@ export default function JugadoresSesionPage() {
       /* Con el dedo, mantenerlo quieto un momento también lo coge. */
       const pulsacion = tactil ? window.setTimeout(activa, 250) : null;
 
+      /*
+      | La página se desplaza sola cerca del borde (21/10/2026): en el móvil la
+      | tarea es más alta que la pantalla y no había forma de llevar a alguien
+      | de un equipo de arriba a «No hacen esta tarea» de abajo. Encima de los
+      | dos botones del pie no se desplaza, para poder soltar ahí.
+      */
+      let velocidad = 0;
+      let bucle: number | null = null;
+
+      const desplaza = () => {
+        if (!velocidad) {
+          bucle = null;
+          return;
+        }
+
+        window.scrollBy(0, velocidad);
+        coloca(ultimo.x, ultimo.y);
+        bucle = window.requestAnimationFrame(desplaza);
+      };
+
+      const miraBorde = (y: number) => {
+        const alto = window.innerHeight;
+
+        velocidad = y > alto - 140 && y < alto - 76 ? 14 : y < 90 ? -14 : 0;
+
+        if (velocidad && bucle === null) bucle = window.requestAnimationFrame(desplaza);
+      };
+
+      const paraDesplazar = () => {
+        velocidad = 0;
+        if (bucle !== null) window.cancelAnimationFrame(bucle);
+        bucle = null;
+      };
+
       const mueve = (ev: PointerEvent) => {
         if (ev.pointerId !== puntero) return;
 
@@ -1311,6 +1564,7 @@ export default function JugadoresSesionPage() {
 
         ev.preventDefault();
         coloca(ev.clientX, ev.clientY);
+        miraBorde(ev.clientY);
       };
 
       /* Ya cogido, el dedo no desplaza la página. */
@@ -1322,6 +1576,7 @@ export default function JugadoresSesionPage() {
         if (ev && ev.pointerId !== puntero) return;
 
         if (pulsacion) window.clearTimeout(pulsacion);
+        paraDesplazar();
         window.removeEventListener("pointermove", mueve);
         window.removeEventListener("pointerup", alSoltar);
         window.removeEventListener("pointercancel", alCancelar);
@@ -1362,6 +1617,7 @@ export default function JugadoresSesionPage() {
       /* Si la pantalla se desmonta a mitad, se suelta sin aplicar nada. */
       limpiaArrastre.current = () => {
         if (pulsacion) window.clearTimeout(pulsacion);
+        paraDesplazar();
         window.removeEventListener("pointermove", mueve);
         window.removeEventListener("pointerup", alSoltar);
         window.removeEventListener("pointercancel", alCancelar);
@@ -1450,19 +1706,38 @@ export default function JugadoresSesionPage() {
 
       if (objetivo instanceof HTMLInputElement || objetivo instanceof HTMLTextAreaElement) return;
 
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
-        e.preventDefault();
+      if (!(e.ctrlKey || e.metaKey)) return;
 
+      const k = e.key.toLowerCase();
+
+      if (k === "z" && !e.shiftKey) {
+        e.preventDefault();
         deshaz();
+      } else if (k === "y" || (k === "z" && e.shiftKey)) {
+        e.preventDefault();
+        rehaz();
       }
     };
 
     window.addEventListener("keydown", tecla);
 
     return () => window.removeEventListener("keydown", tecla);
-  }, [deshaz, presentando]);
+  }, [deshaz, rehaz, presentando]);
 
   /* ---------------- sesiones ---------------- */
+
+  /* La lista llega por WhatsApp: copiarla allí y pegarla aquí de un toque. */
+  const pegaPortapapeles = async () => {
+    try {
+      const leido = await navigator.clipboard.readText();
+
+      if (!leido.trim()) return toast.error("El portapapeles está vacío", { description: "Copia la lista del grupo y vuelve a pulsar." });
+
+      setTexto(leido);
+    } catch {
+      toast.error("El navegador no deja leer el portapapeles", { description: "Pega con Ctrl+V (o mantén pulsado en el móvil) dentro del recuadro." });
+    }
+  };
 
   const creaSesion = () => {
     const nueva = nuevaSesion(texto);
@@ -1477,7 +1752,7 @@ export default function JugadoresSesionPage() {
 
     setAlmacen((actual) => ({ ...actual, sesiones: [nueva, ...(actual.sesiones ?? [])] }));
     setSesionId(nueva.id);
-    setPedida(0);
+    irATarea(0);
     setDialogo(null);
     setTexto("");
 
@@ -1544,7 +1819,7 @@ export default function JugadoresSesionPage() {
       : nueva;
 
     cambiaSesion(sesion.id, (s) => ({ ...s, tareas: [...s.tareas, conMolde] }));
-    setPedida(sesion.tareas.length);
+    irATarea(sesion.tareas.length);
   };
 
   const duplica = () => {
@@ -1560,7 +1835,7 @@ export default function JugadoresSesionPage() {
       return { ...s, tareas };
     });
 
-    setPedida(activa + 1);
+    irATarea(activa + 1);
   };
 
   const copiaAnterior = () => {
@@ -1590,6 +1865,14 @@ export default function JugadoresSesionPage() {
     } catch {
       toast.error("El navegador no deja copiar", { description: "Prueba otra vez con la página en primer plano." });
     }
+  };
+
+  /* WhatsApp con el texto de toda la sesión (21/10/2026): wa.me abre la app y se elige el grupo; aquí no se manda nada. */
+  const mandaAlGrupo = () => {
+    if (!sesion) return;
+    /* Primero WhatsApp, en el mismo toque (si no, el navegador lo bloquea); luego se descarga la imagen para adjuntarla. */
+    window.open(`https://wa.me/?text=${encodeURIComponent(textoDeSesion(sesion))}`, "_blank", "noopener");
+    void exporta(laminasDe(sesion.tareas.map((_, i) => i)), "vertical");
   };
 
   /*
@@ -1684,7 +1967,7 @@ export default function JugadoresSesionPage() {
     if (Object.keys(tarea.sitio).length > 3 && !window.confirm(`¿Quitar «${tarea.nombre}»?`)) return;
 
     cambiaSesion(sesion.id, (s) => ({ ...s, tareas: s.tareas.filter((t) => t.id !== tarea.id) }));
-    setPedida(Math.max(0, activa - 1));
+    irATarea(Math.max(0, activa - 1));
 
     /* Con tres o menos colocados se quita sin preguntar: que se pueda volver atrás. */
     toast.success(`«${tarea.nombre}» quitada`, { action: { label: "Deshacer", onClick: deshaz } });
@@ -1703,7 +1986,7 @@ export default function JugadoresSesionPage() {
       return { ...s, tareas };
     });
 
-    setPedida(hasta);
+    irATarea(hasta);
   };
 
   const tiraArrastrada = useRef<number | null>(null);
@@ -1716,7 +1999,7 @@ export default function JugadoresSesionPage() {
   const laminasDe = (indices: number[]) =>
     indices.flatMap((i) => (sesion?.tareas[i]?.cambio ? [{ i, fase: "inicio" as Fase }, { i, fase: "cambio" as Fase }] : [{ i, fase: "inicio" as Fase }]));
 
-  const exporta = async (laminas: { i: number; fase: Fase }[]) => {
+  const exporta = async (laminas: { i: number; fase: Fase }[], formato: "jpg" | "pdf" | "vertical" = "jpg") => {
     if (!sesion || exportando || !laminas.length) return;
 
     setExportando({ laminas, paso: "Preparando…" });
@@ -1733,9 +2016,73 @@ export default function JugadoresSesionPage() {
       const imagenes = await capturaLienzos(raiz, "[data-lamina-equipos]", {
         ancho: LAMINA_W,
         alto: LAMINA_H,
-        fondo: "#0B0F14",
+        /*
+        | Blanco, como la lámina (21/10/2026). `html-to-image` pone este color
+        | de fondo al nodo que captura, encima del suyo: con el azul noche de
+        | antes la imagen y el PDF salían con el marco oscuro que no se veía en
+        | la vista previa.
+        */
+        fondo: "#FFFFFF",
         alPaso: (hechas, total) => setExportando({ laminas, paso: `Imagen ${hechas} de ${total}…` }),
       });
+
+      /*
+      | En un solo PDF (21/10/2026): una página por diapositiva, en el orden de
+      | la sesión. Es lo que se manda al grupo o se deja en la tableta del campo
+      | de una vez, sin diez imágenes sueltas.
+      */
+      /*
+      | Para el móvil (21/10/2026): la sesión entera en una imagen vertical de
+      | 1080 × 1920, las diapositivas una debajo de otra. Es la que se adjunta
+      | al mensaje del grupo; se descarga y la adjunta el analista.
+      */
+      if (formato === "vertical") {
+        setExportando({ laminas, paso: "Montando la imagen vertical…" });
+
+        const lienzo = document.createElement("canvas");
+        lienzo.width = 1080;
+        lienzo.height = 1920;
+        const ctx = lienzo.getContext("2d");
+        if (!ctx) throw new Error("el navegador no deja dibujar la imagen");
+
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, 1080, 1920);
+        ctx.fillStyle = "#0B1A33";
+        ctx.fillRect(0, 0, 1080, 12);
+        ctx.font = "700 40px sans-serif";
+        ctx.fillText(sesion.titulo.toUpperCase(), 40, 80, 1000);
+
+        const arriba = 120;
+        const sitio = (1920 - arriba - 30) / imagenes.length;
+        const alto = Math.min(LAMINA_H * (1000 / LAMINA_W), sitio - 20);
+        const ancho = alto * (LAMINA_W / LAMINA_H);
+
+        for (let k = 0; k < imagenes.length; k += 1) {
+          const img = new Image();
+          img.src = imagenes[k];
+          await img.decode();
+          ctx.drawImage(img, (1080 - ancho) / 2, arriba + k * sitio, ancho, alto);
+        }
+
+        const blob = await new Promise<Blob | null>((listo) => lienzo.toBlob(listo, "image/png"));
+        if (!blob) throw new Error("no se ha podido montar la imagen");
+
+        descarga(blob, `${apodo(sesion.titulo, "sesion")}-movil.png`);
+        toast.success("Imagen para el móvil descargada", { description: "Adjúntala al mensaje del grupo." });
+
+        return;
+      }
+
+      if (formato === "pdf") {
+        setExportando({ laminas, paso: "Montando el PDF…" });
+
+        const doc = await pdfDeLienzos(imagenes, { ancho: LAMINA_W, alto: LAMINA_H, orientacion: "landscape", margen: 0 });
+
+        descarga(doc.output("blob") as Blob, `${apodo(sesion.titulo, "sesion")}-equipos.pdf`);
+        toast.success("PDF descargado", { description: `${imagenes.length} ${imagenes.length === 1 ? "página" : "páginas"}, una por diapositiva.` });
+
+        return;
+      }
 
       const nombreDe = ({ i, fase: f }: { i: number; fase: Fase }) =>
         `${String(i + 1).padStart(2, "0")}${f === "cambio" ? "b" : ""}-${apodo(sesion.tareas[i].nombre, "tarea")}${f === "cambio" ? "-tras-el-cambio" : ""}.jpg`;
@@ -1772,7 +2119,55 @@ export default function JugadoresSesionPage() {
 
   const reparto = sesion && tarea ? repartoDe(tarea, sesion.jugadores) : null;
 
-  const avisos = sesion && tarea ? valida(tarea, sesion, puestoDe) : [];
+  const delDia = useMemo(() => tareasDelDia(registro, sesion?.fecha), [registro, sesion?.fecha]);
+  const contexto = useMemo(() => contextoDeSesion(delDia), [delDia]);
+  const detalles = useMemo(() => (sesion ? detallesDeTareas(sesion.tareas.map((t) => t.nombre), delDia) : []), [sesion, delDia]);
+  const detalleDe = (i: number) => (sesion ? lineaDeDetalle(detalles[i], sesion.tareas[i]?.nombre ?? "") : "");
+
+  /* Los que hacen la tarea sin demarcación: el reparto «por puesto» no sabe dónde juegan (21/10/2026). */
+  const sinDemarcacion = sesion && reparto ? [...Object.values(reparto.porEquipo).flat(), ...reparto.comodines, ...reparto.sinSitio].filter((j) => !puestoDe(j)) : [];
+
+  const enLaTarea = reparto ? [...Object.values(reparto.porEquipo).flat(), ...reparto.comodines] : [];
+
+  /*
+  | El formato de la hoja contra los colocados (21/10/2026): «8v8+1» son 17, y
+  | si en la tarea hay 20, o sobran tres o son comodines. Lo pidió el entrenador:
+  | la diapositiva ya trae el formato de la hoja y no puede decir otra cosa.
+  */
+  const avisoDeFormato = ((): Aviso[] => {
+    const formato = detalles[activa]?.formato ?? "";
+    const m = formato.match(/(\d+)\s*v\s*(\d+)(?:\s*\+\s*(\d+))?/i);
+    if (!m || !reparto) return [];
+    const esperados = Number(m[1]) + Number(m[2]) + Number(m[3] ?? 0);
+    const hay = enLaTarea.length;
+    if (!hay || hay === esperados) return [];
+    const dif = Math.abs(hay - esperados);
+    return [
+      {
+        nivel: "aviso",
+        texto:
+          hay > esperados
+            ? `La hoja dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ¿${dif} ${dif === 1 ? "sobra o es comodín" : "sobran o son comodines"}?`
+            : `La hoja dice ${formato.trim()} (${esperados}) y hay ${hay} colocados: ${dif === 1 ? "falta 1" : `faltan ${dif}`}.`,
+      },
+    ];
+  })();
+
+  const avisos = sesion && tarea ? [...valida(tarea, sesion, puestoDe), ...avisoDeFormato] : [];
+
+  /* Hay líneas descompensadas: el «10/10 huecos» no puede quedarse en verde. */
+  const lineasDescompensadas = avisos.some((a) => a.nivel === "aviso" && /descompensad/i.test(a.texto));
+
+  /* De dónde sale el puesto de cada uno de la tarea: lo que el reparto sabe de ellos. */
+  const origenPuestos = enLaTarea.reduce(
+    (cuenta, j) => {
+      if (j.demarcacion || j.puesto || demarcacionesAuto[j.id] || puestosAuto[j.id]) cuenta.suya += 1;
+      else if (demarcacionDe(j)) cuenta.vuestra += 1;
+      else cuenta.sin += 1;
+      return cuenta;
+    },
+    { suya: 0, vuestra: 0, sin: 0 },
+  );
 
   const estadoTareas = useMemo(
     () => (sesion ? sesion.tareas.map((t) => valida(t, sesion, puestoDe)) : []),
@@ -1848,6 +2243,9 @@ export default function JugadoresSesionPage() {
     return ordenPorPuesto(lista.filter((j) => !companeros.has(j.id)), puestoDe).flatMap((j) => (parejas.has(j.id) ? [j, parejas.get(j.id)!] : [j]));
   };
 
+  /* Lo pegado en el diálogo que aún no se ha usado: nueva lista, o una lista cambiada sin «Actualizar». */
+  const listaSinUsar = dialogo === "nueva" ? Boolean(texto.trim()) : dialogo === "lista" && texto !== (sesion?.texto ?? "");
+
   const enTarea = reparto
     ? Object.values(reparto.porEquipo).reduce((s, l) => s + l.length, 0) + reparto.comodines.length
     : 0;
@@ -1881,7 +2279,7 @@ export default function JugadoresSesionPage() {
                     value={sesion.id}
                     onChange={(e) => {
                       setSesionId(e.target.value);
-                      setPedida(0);
+                      irATarea(0);
                       setElegido(null);
                     }}
                     className="max-w-[320px] truncate rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-white outline-none focus:border-[#C8A96B]/50"
@@ -1902,9 +2300,11 @@ export default function JugadoresSesionPage() {
 
                 <span className="flex-1" />
 
-                <Button icon={Undo2} disabled={pasos === 0} onClick={deshaz} title="Deshacer el último cambio (Ctrl+Z)">
+                <Button icon={Undo2} disabled={pasos.atras === 0} onClick={deshaz} title="Deshacer el último cambio (Ctrl+Z)">
                   Deshacer
                 </Button>
+                <Button icon={Redo2} disabled={pasos.adelante === 0} onClick={rehaz} title="Rehacer lo deshecho (Ctrl+Y)" aria-label="Rehacer" />
+
                 <Button icon={MessageSquareText} onClick={() => void copiaTexto(true)} title="Todas las tareas en texto, para el grupo">
                   Copiar todo
                 </Button>
@@ -1926,7 +2326,7 @@ export default function JugadoresSesionPage() {
                 >
                   Nueva sesión
                 </Button>
-                <Button tone="danger" icon={Trash2} onClick={borraSesion} title="Borrar esta sesión" />
+                <Button tone="danger" icon={Trash2} onClick={borraSesion} title="Borrar esta sesión" aria-label="Borrar esta sesión" />
               </div>
             )}
 
@@ -1940,9 +2340,14 @@ export default function JugadoresSesionPage() {
                     onChange={(e) => setTexto(e.target.value)}
                     rows={14}
                     placeholder={EJEMPLO}
+                    aria-label="Lista del día"
                     className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-[13px] text-white outline-none placeholder:text-white/20 focus:border-[#C8A96B]/50"
                   />
-                  <div className="mt-3 flex justify-end">
+                  <LecturaLista texto={texto} />
+                  <div className="mt-3 flex flex-wrap justify-end gap-2">
+                    <Button icon={ClipboardPaste} onClick={() => void pegaPortapapeles()} title="Pega lo que hayas copiado del grupo">
+                      Pegar del portapapeles
+                    </Button>
                     <Button tone="primary" icon={Wand2} disabled={!texto.trim()} onClick={creaSesion}>
                       Crear la sesión
                     </Button>
@@ -1989,10 +2394,12 @@ export default function JugadoresSesionPage() {
                           tiraArrastrada.current = null;
                         }}
                         onClick={() => {
-                          setPedida(i);
+                          irATarea(i);
                           setElegido(null);
                         }}
-                        title={`${t.nombre} — arrastra para cambiar el orden`}
+                        title={`${t.nombre}: ${suyos.filter((a) => a.nivel === "error" || a.nivel === "aviso").map((a) => a.texto).join(" · ") || "lista"}. Arrástrala para cambiar el orden.`}
+                        aria-label={`Tarea ${i + 1}: ${t.nombre}. ${!tareaLista(suyos) ? "Hay algo que corregir" : suyos.some((a) => a.nivel === "aviso") ? "Con avisos" : "Lista"}`}
+                        aria-current={i === activa ? "true" : undefined}
                         className={`flex min-w-0 cursor-grab items-center gap-2 rounded-xl border px-3 py-2 text-left transition active:cursor-grabbing ${
                           i === activa
                             ? "border-[#C8A96B] bg-[#C8A96B]/12 text-white"
@@ -2045,10 +2452,24 @@ export default function JugadoresSesionPage() {
                         <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Tarea</span>
                         <input
                           value={tarea.nombre}
-                          onChange={(e) => cambiaTarea((t) => ({ ...t, nombre: e.target.value }))}
+                          onChange={(e) => cambiaTarea((t) => ({ ...t, nombre: e.target.value }), `nombre:${tarea.id}`)}
                           placeholder="Rondo 4v4+3"
                           className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-base font-semibold text-white outline-none focus:border-[#C8A96B]/50"
                         />
+                      </label>
+
+                      {/* Las reglas en una línea (21/10/2026): salen bajo el título de la diapositiva, con lo que trae la hoja de registro. */}
+                      <label className="block min-w-[220px] flex-[2]">
+                        <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
+                          Reglas <span className="normal-case tracking-normal text-white/30">(salen en la diapositiva)</span>
+                        </span>
+                        <input
+                          value={tarea.reglas ?? ""}
+                          onChange={(e) => cambiaTarea((t) => ({ ...t, reglas: e.target.value || undefined }), `reglas:${tarea.id}`)}
+                          placeholder="Máx. 3 toques; gol = 8 pases seguidos"
+                          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[13px] text-white outline-none placeholder:text-white/30 focus:border-[#C8A96B]/50"
+                        />
+                        {detalleDe(activa) && <span className="mt-1 block truncate text-[11px] text-white/45" title="Lo que trae la hoja de registro para esta tarea">De la hoja: {detalleDe(activa)}</span>}
                       </label>
 
                       <div>
@@ -2216,23 +2637,28 @@ export default function JugadoresSesionPage() {
                         <Button
                           icon={Shuffle}
                           onClick={() => {
-                            if (enTarea > 0 && !window.confirm("Sortear de nuevo deshace los equipos de esta tarea. ¿Seguir?")) return;
+                            /* Sin preguntar (21/10/2026): con «Deshacer» a mano en el aviso, pulsar otra vez es pedir otra propuesta. */
                             cambiaTarea((t) => sorteaReparto(t, sesion.jugadores, opcionesReparto));
+                            toast.success(enTarea > 0 ? "Otra propuesta de equipos" : "Equipos propuestos", {
+                              description: `Parejos por puesto (por su demarcación; el nivel no se mide): porteros separados, laterales, centrales, medios y puntas repartidos.${sinDemarcacion.length ? ` ${sinDemarcacion.length} sin demarcación van donde haya sitio.` : ""} Pulsa otra vez para otra.`,
+                              action: enTarea > 0 ? { label: "Deshacer", onClick: deshaz } : undefined,
+                            });
                           }}
-                          title="Equipos al azar con todos los que hacen la tarea"
+                          title="Equipos parejos por puesto con todos los que hacen la tarea; cada vez, una propuesta distinta"
                         >
-                          Sortear
+                          {enTarea > 0 ? "Otra propuesta" : "Proponer equipos"}
                         </Button>
                         <Button
                           icon={Eraser}
                           disabled={enTarea === 0}
-                          onClick={() =>
+                          onClick={() => {
                             cambiaTarea((t) => ({
                               ...t,
                               sitio: Object.fromEntries(Object.entries(t.sitio).filter(([, d]) => d === FUERA)),
-                              equipos: t.equipos.map((e) => ({ ...e, orden: undefined, posiciones: undefined })),
-                            }))
-                          }
+                              equipos: t.equipos.map((e) => ({ ...e, orden: undefined, posiciones: undefined, pares: undefined, autoOrden: undefined })),
+                            }));
+                            toast.success("Tarea vaciada", { action: { label: "Deshacer", onClick: deshaz } });
+                          }}
                           title="Saca a todos de los equipos y los comodines de esta tarea (se puede deshacer)"
                         >
                           Vaciar
@@ -2243,9 +2669,62 @@ export default function JugadoresSesionPage() {
                         <Button icon={Plus} onClick={duplica} title="Duplicar esta tarea con sus equipos">
                           Duplicar
                         </Button>
-                        <Button tone="danger" icon={Trash2} disabled={sesion.tareas.length <= 1} onClick={quitaTarea} title="Quitar esta tarea" />
+                        {/* Reordenar sin arrastrar (21/10/2026): la tira sólo se arrastra con ratón; en la tableta y con teclado, así. */}
+                        <Button icon={ChevronLeft} disabled={activa === 0} onClick={() => mueveTarea(activa, activa - 1)} title="Mover esta tarea un puesto antes" aria-label="Mover la tarea antes" />
+                        <Button icon={ChevronRight} disabled={activa >= sesion.tareas.length - 1} onClick={() => mueveTarea(activa, activa + 1)} title="Mover esta tarea un puesto después" aria-label="Mover la tarea después" />
+                        <Button tone="danger" icon={Trash2} disabled={sesion.tareas.length <= 1} onClick={quitaTarea} title="Quitar esta tarea" aria-label="Quitar esta tarea" />
                       </div>
                     </div>
+
+                    {/*
+                    | --- estado de la tarea, a la vista (21/10/2026) ---
+                    | El validador iba al final de la página (o a la derecha sólo
+                    | en pantallas muy anchas): con el portátil o el móvil nadie
+                    | lo veía mientras hacía los equipos. Aquí, en una línea.
+                    */}
+                    {(() => {
+                      const problemas = avisos.filter((a) => a.nivel === "error" || a.nivel === "aviso");
+                      const grave = problemas.some((a) => a.nivel === "error");
+
+                      return (
+                        <div
+                          role="status"
+                          className={`flex min-w-0 items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-snug ${
+                            grave ? "border-red-400/30 bg-red-500/[0.06] text-red-200" : problemas.length ? "border-amber-400/40 bg-amber-400/[0.05] text-amber-100" : "border-emerald-400/30 bg-emerald-400/[0.05] text-emerald-200"
+                          }`}
+                        >
+                          {grave ? ICONO_AVISO.error : problemas.length ? ICONO_AVISO.aviso : ICONO_AVISO.ok}
+                          <span className="min-w-0">
+                            {problemas.length
+                              ? problemas.map((a) => a.texto).join(" · ")
+                              : "Lista para presentar: nadie olvidado, nadie repetido y equipos parejos por puesto."}
+                            {sinDemarcacion.length > 0 && (
+                              <span className="mt-1 block">
+                                {sinDemarcacion.length === 1 ? "1 sin demarcación" : `${sinDemarcacion.length} sin demarcación`} ({sinDemarcacion.map((j) => j.nombre).join(", ")}): el reparto por puesto no sabe dónde juegan.{" "}
+                                <button type="button" onClick={() => setVista("plantilla")} className="font-semibold underline underline-offset-2">
+                                  Asignar
+                                </button>
+                              </span>
+                            )}
+                            {problemas
+                              .filter((a) => a.arreglo)
+                              .map((a) => (
+                                <button
+                                  key={a.arreglo!.a}
+                                  type="button"
+                                  onClick={() => {
+                                    cambiaTarea((t) => intercambiaSitios(t, a.arreglo!.a, a.arreglo!.b));
+                                    toast.success(a.arreglo!.texto, { action: { label: "Deshacer", onClick: deshaz } });
+                                  }}
+                                  className="ml-1 mt-1 inline-flex rounded-md border border-current px-1.5 py-0.5 text-[11px] font-semibold"
+                                >
+                                  {a.arreglo!.texto}
+                                </button>
+                              ))}
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                     {/* --- sin colocar --- */}
                     <Caja
@@ -2370,7 +2849,7 @@ export default function JugadoresSesionPage() {
                                   cambiaTarea((t) => ({
                                     ...t,
                                     equipos: t.equipos.map((x) => (x.id === equipo.id ? { ...x, nombre: e.target.value.toUpperCase() } : x)),
-                                  }))
+                                  }), `equipo:${equipo.id}`)
                                 }
                                 className="w-full min-w-0 bg-transparent text-[12px] font-bold uppercase tracking-[0.12em] outline-none placeholder:opacity-50"
                                 style={{ color: "inherit" }}
@@ -2382,6 +2861,7 @@ export default function JugadoresSesionPage() {
                           {tarea.conEstructura && (
                             <EstructuraEquipo
                               equipo={equipo}
+                              descompensado={lineasDescompensadas}
                               jugadores={reparto.porEquipo[equipo.id] ?? []}
                               puestoDe={puestoDe}
                               elegido={huecoTocado?.equipo === equipo.id ? huecoTocado.hueco : null}
@@ -2501,7 +2981,7 @@ export default function JugadoresSesionPage() {
                     {vista === "equipos" && (
                     <Panel
                       title="Validador"
-                      subtitle={tareaLista(avisos) ? "Lista para presentar" : "Hay algo que corregir"}
+                      subtitle={!tareaLista(avisos) ? "Hay algo que corregir" : avisos.some((a) => a.nivel === "aviso") ? "Lista, con avisos que mirar" : "Lista para presentar"}
                       icon={tareaLista(avisos) ? Check : AlertTriangle}
                       bodyClassName="p-4"
                     >
@@ -2518,12 +2998,32 @@ export default function JugadoresSesionPage() {
                           </li>
                         ))}
                       </ul>
+                      {/*
+                      | El criterio, siempre a la vista (21/10/2026): «parejos» sólo lo decía
+                      | el aviso al proponer, y desaparecía. Y de dónde sale el puesto de los
+                      | de esta tarea, que es lo que el reparto sabe de ellos.
+                      */}
+                      <p className="mt-3 rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-2 text-[11px] leading-snug text-white/55">
+                        <span className="font-semibold text-white/75">Criterio del reparto:</span> misma demarcación, sí · nivel, no se mide.
+                        {enLaTarea.length > 0 && (
+                          <span className="mt-1 block text-white/45">
+                            {[
+                              origenPuestos.suya ? `${origenPuestos.suya} por su demarcación` : "",
+                              origenPuestos.vuestra ? `${origenPuestos.vuestra} por dónde los colocáis` : "",
+                              origenPuestos.sin ? `${origenPuestos.sin} sin demarcación, donde haya sitio` : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </span>
+                        )}
+                      </p>
                       {estadoTareas.some((s) => !tareaLista(s)) && (
                         <p className="mt-3 border-t border-white/8 pt-2 text-[11px] text-white/40">
                           Por revisar:{" "}
                           {sesion.tareas
-                            .filter((_, i) => !tareaLista(estadoTareas[i] ?? []))
-                            .map((t) => t.nombre)
+                            .map((t, i) => ({ t, error: (estadoTareas[i] ?? []).find((a) => a.nivel === "error") }))
+                            .filter((x) => x.error)
+                            .map((x) => `${x.t.nombre} (${x.error!.texto.charAt(0).toLowerCase()}${x.error!.texto.slice(1)})`)
                             .join(" · ")}
                         </p>
                       )}
@@ -2543,10 +3043,10 @@ export default function JugadoresSesionPage() {
                             Presentar
                           </Button>
                           <Button icon={MessageSquareText} onClick={() => void copiaTexto(false)} title="Los equipos de esta tarea en texto, para el grupo">
-                            Texto
+                            Copiar texto
                           </Button>
                           <Button icon={Download} disabled={Boolean(exportando)} onClick={() => void exporta([{ i: activa, fase }])} title="Esta tarea en imagen (.jpg), en el momento que estás viendo">
-                            Esta
+                            Descargar esta
                           </Button>
                           <Button
                             tone="primary"
@@ -2555,14 +3055,37 @@ export default function JugadoresSesionPage() {
                             onClick={() => void exporta(laminasDe(sesion.tareas.map((_, i) => i)))}
                             title="Todas las tareas, una imagen cada una (dos si hay cambio a mitad), descargadas una a una"
                           >
-                            {exportando ? exportando.paso : "Todas"}
+                            {exportando ? exportando.paso : `Descargar las ${laminasDe(sesion.tareas.map((_, i) => i)).length}`}
+                          </Button>
+                          <Button
+                            icon={FileDown}
+                            disabled={Boolean(exportando)}
+                            onClick={() => void exporta(laminasDe(sesion.tareas.map((_, i) => i)), "pdf")}
+                            title="Todas las tareas en un solo PDF, una página por diapositiva"
+                          >
+                            PDF de la sesión
+                          </Button>
+                          <Button
+                            icon={Send}
+                            onClick={mandaAlGrupo}
+                            title="Abre WhatsApp con los equipos de todas las tareas en texto y descarga la sesión en una imagen vertical para adjuntarla (no se manda nada solo)"
+                          >
+                            Mandar al grupo
                           </Button>
                         </div>
                       }
                     >
-                      <div ref={refPrevia} className="min-w-0 overflow-hidden rounded-xl">
+                      {/* En el móvil la diapositiva entera queda diminuta (21/10/2026): tocarla la abre en grande. */}
+                      <div
+                        ref={refPrevia}
+                        className="w-full min-w-0 cursor-zoom-in overflow-hidden rounded-xl sm:cursor-default"
+                        onClick={() => {
+                          if (window.innerWidth < 640) setPresentando(true);
+                        }}
+                        title="En el móvil, toca para verla en grande"
+                      >
                         {anchoPrevia > 0 && (
-                          <LaminaEscalada ancho={anchoPrevia} puestoDe={puestoDe} sesion={sesion} tarea={tareaBase ?? tarea} fase={fase} cabecera={conCabecera} indice={activa} total={sesion.tareas.length} />
+                          <LaminaEscalada ancho={anchoPrevia} puestoDe={puestoDe} sesion={sesion} tarea={tareaBase ?? tarea} fase={fase} cabecera={conCabecera} indice={activa} total={sesion.tareas.length} detalle={detalleDe(activa)} contexto={contexto} />
                         )}
                       </div>
                       <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[12px] text-white/75 transition hover:border-white/25">
@@ -2572,14 +3095,17 @@ export default function JugadoresSesionPage() {
                           onChange={(e) => setConCabecera(e.target.checked)}
                           className="h-3.5 w-3.5 accent-[#C8A96B]"
                         />
-                        Con cabecera <span className="text-white/40">(título de la tarea, sesión y pie). Sin marcar, la imagen lleva sólo los equipos.</span>
+                        <span className="min-w-0">
+                          Con cabecera <span className="text-white/40">(título de la tarea, sesión y pie). Sin marcar, la imagen lleva sólo los equipos.</span>
+                        </span>
                       </label>
                       <div className="mt-2 flex items-center justify-between text-[11px] text-white/40">
-                        <button type="button" disabled={activa === 0} onClick={() => { setPedida(activa - 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
+                        <button type="button" disabled={activa === 0} onClick={() => { irATarea(activa - 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
                           <ChevronLeft size={13} /> Anterior
                         </button>
-                        <span>Sólo nombres: lista para proyectar o mandar</span>
-                        <button type="button" disabled={activa >= sesion.tareas.length - 1} onClick={() => { setPedida(activa + 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
+                        <span className="sm:hidden">Toca la diapositiva para verla en grande</span>
+                        <span className="hidden sm:inline">Lista para proyectar o mandar</span>
+                        <button type="button" disabled={activa >= sesion.tareas.length - 1} onClick={() => { irATarea(activa + 1); setElegido(null); }} className="inline-flex items-center gap-1 hover:text-white disabled:opacity-30">
                           Siguiente <ChevronRight size={13} />
                         </button>
                       </div>
@@ -2624,9 +3150,9 @@ export default function JugadoresSesionPage() {
                           <thead className="sticky top-0 bg-[#11161C] text-[10px] uppercase tracking-[0.14em] text-white/35">
                             <tr>
                               <th className="px-4 py-2 text-left font-medium">Jugador</th>
-                              <th className="px-2 py-2 text-left font-medium">Puesto</th>
-                              <th className="px-2 py-2 text-center font-medium" title="Tareas como comodín">Com.</th>
-                              <th className="px-2 py-2 text-center font-medium" title="Tareas sin participar">Fuera</th>
+                              <th className="hidden px-2 py-2 text-left font-medium sm:table-cell">Puesto</th>
+                              <th className="px-2 py-2 text-center font-medium" title="Tareas de esta sesión como comodín (vacío: ninguna)">Com.</th>
+                              <th className="px-2 py-2 text-center font-medium" title="Tareas de esta sesión sin participar (vacío: ninguna)">Fuera</th>
                               <th className="px-2 py-2 text-right font-medium">
                                 <span className="sr-only">Reemplazar o quitar</span>
                               </th>
@@ -2640,6 +3166,38 @@ export default function JugadoresSesionPage() {
                               const r = rotacion.find((x) => x.jugador.id === j.id)!;
 
                               const auto = puestosAuto[j.id];
+
+                              /* En el móvil va debajo del nombre (21/10/2026): en su columna, la tabla no cabía y los botones de reemplazar y quitar quedaban fuera. */
+                              const selector = (
+                                      <select
+                                        value={j.demarcacion ?? (j.puesto ? `p:${j.puesto}` : "")}
+                                        onChange={(e) => ponDemarcacion(j.id, e.target.value)}
+                                        aria-label={`Demarcación de ${j.nombre}`}
+                                        className={`rounded-lg border bg-transparent px-1.5 py-1 text-[11px] outline-none focus:border-[#C8A96B]/50 ${
+                                          j.puesto || j.demarcacion ? "border-[#C8A96B]/40 text-white" : "border-white/10 text-white/50"
+                                        }`}
+                                      >
+                                        <option value="" className="bg-[#11161C]">
+                                          {demarcacionesAuto[j.id]
+                                            ? `${demarcacion(demarcacionesAuto[j.id])?.nombre} (plantilla)`
+                                            : auto
+                                              ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)`
+                                              : demarcacionDe(j)
+                                                ? `${demarcacion(demarcacionDe(j))?.nombre} (por dónde lo colocáis)`
+                                                : "Elige su demarcación"}
+                                        </option>
+                                        {DEMARCACIONES.map((d) => (
+                                          <option key={d.clave} value={d.clave} className="bg-[#11161C]">
+                                            {d.nombre}
+                                          </option>
+                                        ))}
+                                        {j.puesto && !j.demarcacion ? (
+                                          <option value={`p:${j.puesto}`} className="bg-[#11161C]">
+                                            {PUESTOS.find((p) => p.clave === j.puesto)?.nombre} (sin banda)
+                                          </option>
+                                        ) : null}
+                                      </select>
+                              );
 
                               return (
                                 <tr key={j.id} className="border-t border-white/[0.05]">
@@ -2678,40 +3236,16 @@ export default function JugadoresSesionPage() {
                                         {j.baja && <span className="ml-1.5 text-[10px] text-red-300">{j.baja.toLowerCase()}</span>}
                                       </span>
                                     )}
+                                    {reemplazando?.id !== j.id && <div className="mt-1 sm:hidden">{selector}</div>}
                                   </td>
-                                  <td className="px-2 py-1">
-                                    <select
-                                      value={j.demarcacion ?? (j.puesto ? `p:${j.puesto}` : "")}
-                                      onChange={(e) => ponDemarcacion(j.id, e.target.value)}
-                                      aria-label={`Demarcación de ${j.nombre}`}
-                                      className={`rounded-lg border bg-transparent px-1.5 py-1 text-[11px] outline-none focus:border-[#C8A96B]/50 ${
-                                        j.puesto || j.demarcacion ? "border-[#C8A96B]/40 text-white" : "border-white/10 text-white/50"
-                                      }`}
-                                    >
-                                      <option value="" className="bg-[#11161C]">
-                                        {demarcacionesAuto[j.id]
-                                          ? `${demarcacion(demarcacionesAuto[j.id])?.nombre} (plantilla)`
-                                          : auto
-                                            ? `${PUESTOS.find((p) => p.clave === auto)?.nombre} (plantilla)`
-                                            : "Sin demarcación"}
-                                      </option>
-                                      {DEMARCACIONES.map((d) => (
-                                        <option key={d.clave} value={d.clave} className="bg-[#11161C]">
-                                          {d.nombre}
-                                        </option>
-                                      ))}
-                                      {j.puesto && !j.demarcacion ? (
-                                        <option value={`p:${j.puesto}`} className="bg-[#11161C]">
-                                          {PUESTOS.find((p) => p.clave === j.puesto)?.nombre} (sin banda)
-                                        </option>
-                                      ) : null}
-                                    </select>
+                                  <td className="hidden px-2 py-1 sm:table-cell">
+                                    {selector}
                                   </td>
-                                  <td className={`px-2 py-1 text-center tabular-nums ${r.comodin >= 2 ? "font-bold text-amber-300" : "text-white/55"}`}>
-                                    {r.comodin || "·"}
+                                  <td className={`px-2 py-1 text-center tabular-nums ${r.comodin >= 2 ? "font-bold text-amber-300" : r.comodin ? "text-white/70" : "text-white/30"}`}>
+                                    {r.comodin || ""}
                                   </td>
-                                  <td className={`px-2 py-1 text-center tabular-nums ${r.fuera >= 2 && !j.baja ? "font-bold text-amber-300" : "text-white/55"}`}>
-                                    {r.fuera || "·"}
+                                  <td className={`px-2 py-1 text-center tabular-nums ${r.fuera >= 2 && !j.baja ? "font-bold text-amber-300" : r.fuera ? "text-white/70" : "text-white/30"}`}>
+                                    {r.fuera || ""}
                                   </td>
                                   <td className="whitespace-nowrap px-2 py-1 text-right">
                                     <button
@@ -2760,10 +3294,15 @@ export default function JugadoresSesionPage() {
               : "Los que siguen conservan su sitio en cada tarea; los nuevos quedan sin colocar"
           }
           onClose={() => setDialogo(null)}
-          sinGuardar={dialogo === "nueva" && Boolean(texto.trim())}
+          sinGuardar={listaSinUsar}
           footer={
-            <div className="flex justify-end gap-2">
-              <Button onClick={() => setDialogo(null)}>Cancelar</Button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button icon={ClipboardPaste} onClick={() => void pegaPortapapeles()} title="Pega lo que hayas copiado del grupo">
+                Pegar
+              </Button>
+              <span className="flex-1" />
+              {/* Como la X y Escape: si hay lista pegada sin usar, pregunta antes de tirarla. */}
+              <Button onClick={() => sePuedeDescartar(listaSinUsar) && setDialogo(null)}>Cancelar</Button>
               <Button tone="primary" icon={Wand2} disabled={!texto.trim()} onClick={dialogo === "nueva" ? creaSesion : cambiaLista}>
                 {dialogo === "nueva" ? "Crear la sesión" : "Actualizar"}
               </Button>
@@ -2776,8 +3315,10 @@ export default function JugadoresSesionPage() {
             onChange={(e) => setTexto(e.target.value)}
             rows={16}
             placeholder={EJEMPLO}
+            aria-label="Lista del día"
             className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 font-mono text-[13px] text-white outline-none placeholder:text-white/20 focus:border-[#C8A96B]/50"
           />
+          <LecturaLista texto={texto} sesion={dialogo === "lista" ? sesion : null} />
         </Dialog>
       )}
 
@@ -2788,9 +3329,11 @@ export default function JugadoresSesionPage() {
           sesion={sesion}
           inicial={activa}
           puestoDe={puestoDe}
+          detalleDe={detalleDe}
+          contexto={contexto}
           onCierra={(ultima) => {
             setPresentando(false);
-            setPedida(ultima);
+            irATarea(ultima);
           }}
         />
       )}
@@ -2804,7 +3347,7 @@ export default function JugadoresSesionPage() {
           style={{ position: "fixed", left: -30000, top: 0, width: LAMINA_W, pointerEvents: "none" }}
         >
           {exportando.laminas.map(({ i, fase: f }) => (
-            <LaminaEquipos key={`${sesion.tareas[i].id}-${f}`} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} fase={f} cabecera={conCabecera} indice={i} total={sesion.tareas.length} />
+            <LaminaEquipos key={`${sesion.tareas[i].id}-${f}`} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[i]} fase={f} cabecera={conCabecera} indice={i} total={sesion.tareas.length} detalle={detalleDe(i)} contexto={contexto} />
           ))}
         </div>
       )}
@@ -2827,7 +3370,7 @@ export default function JugadoresSesionPage() {
           </div>
 
           {/* Abajo, siempre a mano: quitarlo del equipo o dejarlo fuera de la tarea. */}
-          <div className="fixed inset-x-0 bottom-4 z-[80] flex justify-center gap-3 px-4">
+          <div className="fixed inset-x-0 bottom-3 z-[80] flex justify-center gap-2 px-4">
             {[
               { destino: "sin", rotulo: "Quitar del equipo", pie: "queda sin colocar" },
               { destino: FUERA, rotulo: "No hace esta tarea", pie: "descansa o va aparte" },
@@ -2835,7 +3378,7 @@ export default function JugadoresSesionPage() {
               <div
                 key={z.destino}
                 data-destino={z.destino}
-                className={`flex min-w-[170px] flex-col items-center rounded-2xl border-2 border-dashed px-5 py-3 text-center shadow-2xl backdrop-blur transition ${
+                className={`flex min-w-[140px] flex-col items-center rounded-2xl border-2 border-dashed px-4 py-1.5 text-center shadow-2xl backdrop-blur transition ${
                   sobre === z.destino ? "scale-105 border-red-300 bg-red-500/30 text-white" : "border-white/30 bg-[#0B0F14]/90 text-white/80"
                 }`}
               >
@@ -2859,11 +3402,15 @@ function Presentacion({
   inicial,
   onCierra,
   puestoDe,
+  detalleDe,
+  contexto,
 }: {
   sesion: SesionEquipos;
   inicial: number;
   onCierra: (ultima: number) => void;
   puestoDe: PuestoDe;
+  detalleDe: (i: number) => string;
+  contexto: ReturnType<typeof contextoDeSesion>;
 }) {
   /* Cada tarea es una diapositiva; con cambio a mitad, dos. */
   const pasos = useMemo(
@@ -2936,12 +3483,13 @@ function Presentacion({
   const ancho = Math.min(hueco.w, (hueco.h * 16) / 9);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black" onClick={() => setI((n) => Math.min(pasos.length - 1, n + 1))}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center" style={{ background: "#FFFFFF" }} onClick={() => setI((n) => Math.min(pasos.length - 1, n + 1))}>
       {ancho > 0 && pasos[i] && (
-        <LaminaEscalada ancho={ancho} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[pasos[i].k]} fase={pasos[i].fase} indice={pasos[i].k} total={sesion.tareas.length} />
+        <LaminaEscalada ancho={ancho} puestoDe={puestoDe} sesion={sesion} tarea={sesion.tareas[pasos[i].k]} fase={pasos[i].fase} indice={pasos[i].k} total={sesion.tareas.length} detalle={detalleDe(pasos[i].k)} contexto={contexto} />
       )}
 
-      <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/10 px-2 py-1 text-white/80 opacity-30 transition hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+      <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full px-2 py-1 opacity-80 shadow-lg transition hover:opacity-100"
+        style={{ background: "rgba(11,26,51,0.88)", color: "#FFFFFF" }} onClick={(e) => e.stopPropagation()}>
         <button type="button" aria-label="Anterior" onClick={() => setI((n) => Math.max(0, n - 1))} className="rounded-full p-1.5 hover:bg-white/15">
           <ArrowLeft size={16} />
         </button>
@@ -2951,7 +3499,8 @@ function Presentacion({
         <button type="button" aria-label="Siguiente" onClick={() => setI((n) => Math.min(pasos.length - 1, n + 1))} className="rounded-full p-1.5 hover:bg-white/15">
           <ArrowRight size={16} />
         </button>
-        <button type="button" aria-label="Salir" onClick={() => onCierra(i)} className="rounded-full p-1.5 hover:bg-white/15">
+        {/* La tarea, no el paso: con cambios a mitad hay más pasos que tareas y se volvía a otra. */}
+        <button type="button" aria-label="Salir" onClick={() => onCierra(pasos[i]?.k ?? 0)} className="rounded-full p-1.5 hover:bg-white/15">
           <X size={16} />
         </button>
       </div>

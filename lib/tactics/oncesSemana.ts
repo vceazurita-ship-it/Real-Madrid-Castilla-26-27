@@ -29,7 +29,7 @@ import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import type { RatingsSeason } from "@/lib/ratings/types";
 import type { Player } from "@/types/player";
 
-import { DIBUJO_DE_PARTIDA } from "./dosOnces";
+import { DIBUJO_DE_PARTIDA, numerosDelOnce } from "./dosOnces";
 import { rivalTokenId } from "./rivals";
 import { PITCH_HEIGHT, type TacticToken } from "./types";
 
@@ -86,11 +86,13 @@ async function leeDoc<T>(key: string): Promise<T | null> {
 }
 
 /** La semana del próximo partido, sin cargar nada más: para saber si hay que rellenar. */
-export async function semanaActual(): Promise<{ semana: string; rival: string; anteriorCuando: string | null } | null> {
+export async function semanaActual(): Promise<{ semana: string; rival: string; fecha: string; lado: "casa" | "fuera"; anteriorCuando: string | null } | null> {
   const partidos = await cargaCalendario();
   const { proximo, anterior } = alrededorDe(partidos, Date.now());
 
-  return proximo ? { semana: `${soloDia(proximo.cuando)}|${proximo.rival}`, rival: proximo.rival, anteriorCuando: anterior?.cuando ?? null } : null;
+  return proximo
+    ? { semana: `${soloDia(proximo.cuando)}|${proximo.rival}`, rival: proximo.rival, fecha: soloDia(proximo.cuando), lado: proximo.lado, anteriorCuando: anterior?.cuando ?? null }
+    : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -253,5 +255,93 @@ export async function oncesDeLaSemana(plantilla: Player[]): Promise<OncesSemana 
 
   const nuestro = nuestroUltimoOnce(temporada, plantilla);
 
-  return { semana: semana.semana, rival: suyo.equipo, tokens: [...nuestro.tokens, ...suyo.tokens], fuenteNuestra: nuestro.fuente, fuenteSuya: suyo.fuente };
+  return {
+    semana: semana.semana,
+    rival: suyo.equipo,
+    tokens: [...sinNumeroRepetido(nuestro.tokens), ...sinNumeroRepetido(suyo.tokens)],
+    fuenteNuestra: nuestro.fuente,
+    fuenteSuya: suyo.fuente,
+  };
+}
+
+/*
+| DOS «6» EN EL MISMO ONCE (21/10/2026)
+|
+| La hoja trae en DORSAL el número del puesto, no el de la camiseta (ver
+| `dorsales-plantilla-y-rivales`): los dos mediocentros salían con un 6 y en
+| la charla se leía como un dorsal repetido. Si dos del mismo equipo llevan el
+| mismo número, el que no está en su hueco natural se queda con el del hueco
+| (el doble pivote, 6 y 8) o, si ya está cogido, con el más bajo libre.
+*/
+export function sinNumeroRepetido(tokens: TacticToken[]): TacticToken[] {
+  const delHueco = numerosDelOnce(DIBUJO_DE_PARTIDA);
+  const huecoDe = (token: TacticToken) => delHueco[token.id];
+
+  const cuenta = new Map<string, number>();
+
+  for (const token of tokens) cuenta.set(token.label, (cuenta.get(token.label) ?? 0) + 1);
+
+  if ([...cuenta.values()].every((veces) => veces < 2)) return tokens;
+
+  const usados = new Set(tokens.map((token) => token.label));
+  const visto = new Set<string>();
+
+  /* Primero se queda el número quien lo tiene por su hueco. */
+  for (const token of tokens) if ((cuenta.get(token.label) ?? 0) > 1 && huecoDe(token) === token.label) visto.add(token.label);
+
+  return tokens.map((token) => {
+    if ((cuenta.get(token.label) ?? 0) < 2) return token;
+
+    if (!visto.has(token.label)) {
+      visto.add(token.label);
+
+      return token;
+    }
+
+    if (huecoDe(token) === token.label) return token;
+
+    let numero = huecoDe(token);
+
+    if (!numero || usados.has(numero)) {
+      let libre = 1;
+
+      while (usados.has(String(libre))) libre += 1;
+
+      numero = String(libre);
+    }
+
+    usados.add(numero);
+
+    return { ...token, label: numero };
+  });
+}
+
+/**
+ * Las escenas de un tablero ya guardado, sin números repetidos en ningún
+ * equipo. Devuelve `null` si no había nada que arreglar: el tablero de los
+ * onces que se rellenó antes del 21/10/2026 sigue con sus dos «6» hasta que
+ * cambie la semana, y así se arregla al abrirlo.
+ */
+export function escenasSinNumeroRepetido<E extends { tokens: TacticToken[] }>(escenas: E[]): E[] | null {
+  let cambio = false;
+
+  const salida = escenas.map((escena) => {
+    const nuevos = new Map<string, string>();
+
+    for (const kind of ["home", "away"] as const) {
+      const equipo = escena.tokens.filter((token) => token.kind === kind);
+
+      for (const token of sinNumeroRepetido(equipo)) {
+        if (token.label !== equipo.find((t) => t.id === token.id)?.label) nuevos.set(token.id, token.label);
+      }
+    }
+
+    if (nuevos.size === 0) return escena;
+
+    cambio = true;
+
+    return { ...escena, tokens: escena.tokens.map((token) => (nuevos.has(token.id) ? { ...token, label: nuevos.get(token.id)! } : token)) };
+  });
+
+  return cambio ? salida : null;
 }

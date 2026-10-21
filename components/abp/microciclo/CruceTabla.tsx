@@ -16,12 +16,15 @@ import { chipInk } from "@/lib/theme";
 import {
   LADO_COLOR,
   LADO_LABEL,
+  LADO_SHORT,
   fmtMin,
-  type AbpLado,
 } from "@/lib/abp/microciclo";
 import {
+  PESOS,
   colorUrgencia,
   etiquetaUrgencia,
+  formulaUrgencia,
+  partesUrgencia,
   type FilaCruce,
 } from "@/lib/abp/transferencia";
 
@@ -50,55 +53,96 @@ function Th({
   );
 }
 
-/** Las tres barras que explican la urgencia. */
-function Ingredientes({
-  ingredientes,
-  lado,
-  referencia,
-}: {
-  ingredientes: { volumen: number; deficit: number; desatencion: number };
-  lado: AbpLado;
-  referencia: number;
-}) {
+/** Las tres barras que explican la urgencia, cada una con su número (0-100). */
+function Ingredientes({ fila }: { fila: FilaCruce }) {
+  const { lado, referencia, peligroAjustado } = fila;
+
+  /*
+  | «Rinde peor» sólo cuando de verdad rinde peor que los suyos (21/10/2026).
+  | Defendiendo, peor es conceder MÁS peligro que la familia; atacando, generar
+  | MENOS. Antes la barra salía siempre, también en DEF Z3 (2 % frente a 3 %),
+  | que concede menos que su familia.
+  */
+  const diferencia =
+    lado === "ofensivo" ? referencia - peligroAjustado : peligroAjustado - referencia;
+
+  /* Con menos de cinco acciones no hay veredicto: es una tendencia (21/10/2026). */
+  const rinde =
+    fila.stats.acciones < 5 ? "sin" : diferencia >= 1 ? "peor" : diferencia <= -1 ? "mejor" : "igual";
+
+  const veredicto =
+    rinde === "sin" ? "Sin veredicto" : rinde === "peor" ? "Rinde peor" : rinde === "mejor" ? "Rinde mejor" : "En la media";
+
+  const partes = partesUrgencia(fila);
+
+  /*
+  | Cada barra es lo que esa parte SUMA a la urgencia, en puntos (21/10/2026):
+  | los tres números de la derecha dan la cifra de la columna siguiente. La
+  | barra se llena contra el máximo de su parte (50, 30 y 20).
+  */
   const barras = [
     {
-      label: "Volumen",
-      valor: ingredientes.volumen,
+      label: "Daño",
+      puntos: partes.dano,
+      max: 100 * PESOS.dano,
       color: "#5E7FB8",
-      ayuda: "Cuánto ocurre en competición, comparado con el aspecto que más ocurre",
-    },
-    {
-      label: "Peor que los suyos",
-      valor: ingredientes.deficit,
-      color: "#F87171",
       ayuda:
         lado === "ofensivo"
-          ? `Cuánto menos peligro genera que el resto de su familia, que va al ${referencia.toFixed(0)} %. La mitad de la barra es «como los demás».`
-          : `Cuánto más peligro concede que el resto de su familia, que va al ${referencia.toFixed(0)} %. La mitad de la barra es «como los demás».`,
+          ? "El peligro que nos falta frente a su familia, por las veces que ocurre, comparado con el aspecto en que más nos falta"
+          : "Las acciones con peligro que nos han hecho (cada gol cuenta tres veces), comparadas con el aspecto que más daño nos hace",
+    },
+    {
+      label: veredicto,
+      puntos: partes.deficit,
+      max: 100 * PESOS.deficit,
+      color: "#F87171",
+      ayuda: `${
+        lado === "ofensivo"
+          ? `Genera peligro en el ${peligroAjustado.toFixed(0)} % de sus acciones; su familia, en el ${referencia.toFixed(0)} %.`
+          : `Nos hacen peligro en el ${peligroAjustado.toFixed(0)} % de estas acciones; en su familia, en el ${referencia.toFixed(0)} %.`
+      } Ir como su familia ya suma la mitad de esta parte; con pocas acciones se rebaja.`,
     },
     {
       label: "Sin trabajar",
-      valor: ingredientes.desatencion,
+      puntos: partes.desatencion,
+      max: 100 * PESOS.desatencion,
       color: "#FBBF24",
-      ayuda: "Cuán pocos minutos se le han dedicado esta temporada",
+      ayuda: "Cuán pocos minutos se le han dedicado esta temporada, frente al aspecto más trabajado. Con pocas acciones se rebaja.",
     },
   ];
 
   return (
-    <div className="flex w-[112px] flex-col gap-[3px]">
+    <div className="flex w-[160px] flex-col gap-[3px]" data-urgencia-suma={partes.suma}>
       {barras.map((barra) => (
         <div
-          key={barra.label}
+          key={barra.max}
           className="flex items-center gap-1.5"
-          title={`${barra.label}: ${Math.round(barra.valor * 100)} % — ${barra.ayuda}`}
+          title={`${barra.label}: suma ${barra.puntos} de ${barra.max}. ${barra.ayuda}`}
+          data-parte-urgencia={barra.puntos}
         >
-          <span className="w-[62px] shrink-0 truncate text-[8.5px] uppercase tracking-wide text-white/45">
+          <span
+            className={`w-[76px] shrink-0 truncate text-[9px] uppercase tracking-wide ${
+              rinde === "mejor" && barra.max === 100 * PESOS.deficit
+                ? "font-semibold text-emerald-300"
+                : "text-white/45"
+            }`}
+          >
             {barra.label}
           </span>
 
-          <Meter value={barra.valor} max={1} color={barra.color} label={barra.label} />
+          <Meter value={barra.puntos} max={barra.max} color={barra.color} label={barra.label} />
+
+          <span className="w-5 shrink-0 text-right text-[9px] tabular-nums text-white/45">
+            {barra.puntos}
+          </span>
         </div>
       ))}
+
+      {partes.subidaPorGoles && (
+        <span className="text-right text-[9px] text-red-300/80">
+          {partes.suma} → {partes.urgencia} por gol en contra
+        </span>
+      )}
     </div>
   );
 }
@@ -108,14 +152,14 @@ function Transferencia({ fila }: { fila: FilaCruce }) {
   const t = fila.transferencia;
 
   if (!t) {
-    return <span className="text-[11px] text-white/20">—</span>;
+    return null;
   }
 
   if (t.delta === null) {
     return (
       <span
         className="text-[10px] text-white/40"
-        title={`Hacen falta al menos dos partidos comparables con tres acciones cada uno. Ahora mismo: ${t.partidosCon} partido(s) con trabajo previo (${t.accionesCon} acciones) y ${t.partidosSin} sin él (${t.accionesSin}).`}
+        title={`Hacen falta al menos dos partidos comparables con tres acciones cada uno. Ahora mismo: ${t.partidosCon} ${t.partidosCon === 1 ? "partido" : "partidos"} con trabajo previo (${t.accionesCon} acciones) y ${t.partidosSin} sin él (${t.accionesSin}).`}
       >
         sin muestra
       </span>
@@ -132,7 +176,7 @@ function Transferencia({ fila }: { fila: FilaCruce }) {
     <span
       className="inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums"
       style={{ color: chipInk(color) }}
-      title={`Con trabajo previo: ${t.pctCon.toFixed(0)} % en ${t.partidosCon} partido(s). Sin él: ${t.pctSin.toFixed(0)} % en ${t.partidosSin}.`}
+      title={`Con trabajo previo: ${t.pctCon.toFixed(0)} % en ${t.partidosCon} ${t.partidosCon === 1 ? "partido" : "partidos"}. Sin él: ${t.pctSin.toFixed(0)} % en ${t.partidosSin}.`}
     >
       <Icono size={11} />
       {t.delta > 0 ? "+" : ""}
@@ -156,17 +200,32 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
             <Th align="right" title="Minutos en todo lo planificado">
               Temporada
             </Th>
-            <Th align="right">Acciones</Th>
+            <Th
+              align="right"
+              title="Acciones del Castilla en nuestras hojas de ABP: atacando (ATA) son las nuestras y defendiendo (DEF) las del rival contra nosotros"
+            >
+              Acciones
+            </Th>
             <Th align="right">Remates</Th>
             <Th align="right">Goles</Th>
             <Th
               align="right"
-              title="Peligro por acción, suavizado para que una sola jugada no marque un 100 %, y al lado el de su familia"
+              title="Qué parte de las acciones acaba en peligro (suavizado para que una sola jugada no marque un 100 %), y al lado la media de su familia: córners con córners, faltas con faltas, bandas con bandas"
             >
-              Peligro / fam.
+              % peligro · familia
             </Th>
-            <Th align="center">Por qué</Th>
-            <Th align="right">Urgencia</Th>
+            <Th
+              align="center"
+              title="De 0 a 100 cada barra. Daño pesa el 50 %, rendir peor que los suyos el 30 % y lo poco trabajado el 20 %"
+            >
+              Por qué
+            </Th>
+            <Th
+              align="right"
+              title="Daño × 50 % + rinde peor × 30 % + sin trabajar × 20 %. Un aspecto con goles en contra nunca baja de alta ni del tercer puesto"
+            >
+              Urgencia
+            </Th>
             <Th
               align="right"
               title="Diferencia entre los partidos precedidos de trabajo y los que no lo tuvieron"
@@ -188,11 +247,15 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
               >
                 <td className="px-2.5 py-2">
                   <div className="flex min-w-0 items-center gap-2">
+                    {/* El lado escrito, no sólo un punto de color: dos filas de
+                        «Saque de banda Z2» seguidas no se distinguían. */}
                     <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: color }}
+                      className="w-9 shrink-0 rounded px-1 py-0.5 text-center text-[9px] font-semibold tracking-wide"
+                      style={{ backgroundColor: `${color}1F`, color: chipInk(color) }}
                       title={LADO_LABEL[fila.lado]}
-                    />
+                    >
+                      {LADO_SHORT[fila.lado]}
+                    </span>
 
                     <span className="truncate text-[12.5px] text-white">
                       {fila.aspecto.label}
@@ -201,7 +264,7 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                     {fila.stats.sinClasificar > 0 && (
                       <span
                         className="shrink-0 rounded bg-amber-400/12 px-1.5 py-0.5 text-[9px] font-semibold text-amber-300/80"
-                        title={`${fila.stats.sinClasificar} acción(es) de esta familia sin «Tipo_Envio» en la hoja: no se han repartido entre directo e indirecto.`}
+                        title={`${fila.stats.sinClasificar} ${fila.stats.sinClasificar === 1 ? "acción" : "acciones"} de esta familia sin «Tipo_Envio» en la hoja: no se han repartido entre directo e indirecto.`}
                       >
                         +{fila.stats.sinClasificar} s/c
                       </span>
@@ -215,12 +278,12 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                       fila.minutosMicro ? "text-white" : "text-white/20"
                     }
                   >
-                    {fila.minutosMicro ? fmtMin(fila.minutosMicro) : "—"}
+                    {fila.minutosMicro ? fmtMin(fila.minutosMicro) : ""}
                   </span>
                 </td>
 
                 <td className="px-2.5 py-2 text-right text-[12px] tabular-nums text-white/60">
-                  {fila.minutosTemporada ? fmtMin(fila.minutosTemporada) : "—"}
+                  {fila.minutosTemporada ? fmtMin(fila.minutosTemporada) : ""}
                 </td>
 
                 {sinRegistro ? (
@@ -251,7 +314,7 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                     </td>
 
                     <td className="px-2.5 py-2 text-right text-[12px] tabular-nums text-white/60">
-                      {fila.stats.remates || "—"}
+                      {fila.stats.remates || ""}
                     </td>
 
                     <td className="px-2.5 py-2 text-right text-[12px] font-semibold tabular-nums">
@@ -264,7 +327,7 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                             : "text-white/20"
                         }
                       >
-                        {fila.stats.goles || "—"}
+                        {fila.stats.goles || ""}
                       </span>
                     </td>
 
@@ -276,35 +339,49 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                         <>
                           {fila.peligroAjustado.toFixed(0)} %
                           <span className="ml-1 text-[10px] text-white/40">
-                            /{fila.referencia.toFixed(0)}
+                            · {fila.referencia.toFixed(0)} %
                           </span>
+                          {fila.stats.acciones < 5 && (
+                            <span
+                              className="ml-1.5 text-[9.5px] text-white/40"
+                              title="Con menos de cinco acciones es una tendencia, no un veredicto"
+                            >
+                              pocos casos ({fila.stats.acciones})
+                            </span>
+                          )}
+                          {fila.liga.acciones > 0 && fila.liga.acciones < fila.stats.acciones && (
+                            <span
+                              className="block text-[9.5px] text-white/40"
+                              title="Sólo los partidos de liga, sin la pretemporada"
+                            >
+                              en liga {Math.round((fila.liga.peligro / fila.liga.acciones) * 100)} % ({fila.liga.peligro} de{" "}
+                              {fila.liga.acciones})
+                            </span>
+                          )}
                         </>
                       ) : (
-                        "—"
+                        ""
                       )}
                     </td>
 
                     <td className="px-2.5 py-2">
                       <div className="flex justify-center">
-                        <Ingredientes
-                          ingredientes={fila.ingredientes}
-                          lado={fila.lado}
-                          referencia={fila.referencia}
-                        />
+                        {fila.stats.acciones > 0 && <Ingredientes fila={fila} />}
                       </div>
                     </td>
 
                     <td className="px-2.5 py-2 text-right">
-                      {fila.urgencia !== null && (
+                      {fila.urgencia !== null && fila.stats.acciones > 0 && (
                         <span
                           className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
                           style={{
                             backgroundColor: `${colorUrgencia(fila.urgencia)}1F`,
                             color: chipInk(colorUrgencia(fila.urgencia)),
                           }}
-                          title={`Urgencia ${etiquetaUrgencia(fila.urgencia)}`}
+                          title={`Urgencia ${etiquetaUrgencia(fila.urgencia).toLowerCase()}. ${formulaUrgencia(fila)}`}
+                          data-urgencia={partesUrgencia(fila).urgencia}
                         >
-                          {Math.round(fila.urgencia)}
+                          {partesUrgencia(fila).urgencia}
                         </span>
                       )}
                     </td>

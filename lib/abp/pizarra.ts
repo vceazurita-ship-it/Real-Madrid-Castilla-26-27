@@ -1,4 +1,13 @@
 import { idVigente } from "@/lib/fichajes";
+import {
+  arrastraTrazos,
+  clonaRivales,
+  clonaTrazos,
+  huellaRivales,
+  huellaTrazos,
+  type RivalPizarra,
+  type TrazoPizarra,
+} from "@/lib/abp/trazos";
 /**
  * Pizarra de balón parado: vocabulario, plantillas de diapositiva y memoria.
  *
@@ -799,6 +808,19 @@ export type SlidePizarra = {
   notas: string[];
   /** Rótulos reescritos a mano en esta jornada. */
   textos?: TextosSlide;
+  /**
+   * Carreras, balón y bloqueos dibujados encima, con su fase.
+   * Ver `lib/abp/trazos.ts`: van atados a las caras por dónde empiezan.
+   */
+  trazos?: TrazoPizarra[];
+  /** Los rivales dibujados: a quién se bloquea, quién defiende cada zona. */
+  rivales?: RivalPizarra[];
+  /**
+   * Señal, rutina e intención, cada una en su casilla (ronda del sobresaliente,
+   * 21/10/2026). Optativo: las consignas de texto libre siguen como estaban y
+   * se pintan detrás.
+   */
+  guion?: GuionConsigna;
   /** Con qué versión del dibujo de la plantilla se colocaron las fichas. */
   rev?: number;
 };
@@ -1045,6 +1067,9 @@ export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
       ]),
     );
 
+    /* Las carreras salen de los pies de quien se replanta: van con él. */
+    let trazos = slide.trazos;
+
     const fichas = slide.fichas.map((ficha) => {
       if (!ficha.puesto) return ficha;
 
@@ -1057,6 +1082,8 @@ export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
 
       const { x, y } = sitioDe(puesto);
 
+      trazos = arrastraTrazos(trazos, ficha, { x, y });
+
       return ficha.x === x && ficha.y === y && ficha.puesto === clave
         ? ficha
         : { ...ficha, puesto: clave, x, y };
@@ -1064,7 +1091,12 @@ export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
 
     tocado = true;
 
-    return { ...slide, fichas, rev: plantilla.rev };
+    return {
+      ...slide,
+      fichas,
+      ...(trazos ? { trazos } : {}),
+      rev: plantilla.rev,
+    };
   });
 
   return tocado ? { ...tablero, slides } : tablero;
@@ -1345,6 +1377,8 @@ export function copiaTablero(
          jornada es traerla entera. */
       ...(clonaTextos(slide.textos) ? { textos: clonaTextos(slide.textos)! } : {}),
       fichas: slide.fichas.map((ficha) => ({ ...ficha, id: nuevoId("FI") })),
+      ...(slide.trazos ? { trazos: clonaTrazos(slide.trazos) } : {}),
+      ...(slide.rivales ? { rivales: clonaRivales(slide.rivales) } : {}),
     })),
   };
 }
@@ -1381,6 +1415,10 @@ export function huellaTablero(rival: string, slides: SlidePizarra[]) {
       [...slide.fichas]
         .map((ficha) => [ficha.playerId, ficha.puesto, Math.round(ficha.x), Math.round(ficha.y)])
         .sort((a, b) => String(a).localeCompare(String(b))),
+      /* Sin trazos no se añade nada: las versiones guardadas antes de que
+         existieran conservan su huella y no salen como «distintas». */
+      ...(slide.trazos?.length ? [huellaTrazos(slide.trazos)] : []),
+      ...(slide.rivales?.length ? [huellaRivales(slide.rivales)] : []),
     ]),
   ]);
 }
@@ -1445,6 +1483,8 @@ export function registraVersion(
       ...slide,
       notas: [...slide.notas],
       fichas: slide.fichas.map((ficha) => ({ ...ficha })),
+      ...(slide.trazos ? { trazos: clonaTrazos(slide.trazos) } : {}),
+      ...(slide.rivales ? { rivales: clonaRivales(slide.rivales) } : {}),
     })),
   };
 
@@ -1489,6 +1529,8 @@ export function aplicaVersion(
       id: nuevoId("SL"),
       notas: [...slide.notas],
       fichas: slide.fichas.map((ficha) => ({ ...ficha, id: nuevoId("FI") })),
+      ...(slide.trazos ? { trazos: clonaTrazos(slide.trazos) } : {}),
+      ...(slide.rivales ? { rivales: clonaRivales(slide.rivales) } : {}),
     })),
   };
 }
@@ -1966,4 +2008,177 @@ export function cuentaPuestos(slide: SlidePizarra) {
     total: puestos.length,
     cubiertos: puestos.filter((puesto) => ocupados.has(puesto.key)).length,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  CONSIGNAS EN LA SALA                                               */
+/* ------------------------------------------------------------------ */
+
+/** Por encima de esto, una consigna no se lee de un vistazo en la sala. */
+export const CONSIGNA_LARGA = 90;
+
+/** Cuántas consignas caben en la franja sin que se lea como un párrafo. */
+export const CONSIGNAS_MAX = 3;
+
+/**
+ * Una consigna tal y como se pinta.
+ *
+ * Se escriben deprisa y a menudo en mayúsculas sostenidas, que a tamaño de
+ * proyección se leen peor que la caja normal. Si casi todas las letras son
+ * mayúsculas, la línea pasa a minúsculas con la primera en mayúscula; si no,
+ * se respeta como está (hay nombres y siglas que el cuerpo técnico escribe a
+ * posta). «1ª» pasa a «1.ª», como se escribe el ordinal.
+ */
+export function normalizaConsigna(texto: string) {
+  const limpio = texto.trim().replace(/(\d)([ªº])/g, "$1.$2");
+
+  const letras = limpio.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
+  const mayusculas = letras.replace(/[^A-ZÁÉÍÓÚÜÑ]/g, "").length;
+
+  if (letras.length < 4) return limpio;
+
+  if (mayusculas / letras.length >= 0.8) {
+    const bajada = limpio.toLocaleLowerCase("es-ES");
+
+    return bajada.charAt(0).toLocaleUpperCase("es-ES") + bajada.slice(1);
+  }
+
+  /*
+  | Una línea a medio escribir en mayúsculas («PORTERO LIDERA LA atención…»):
+  | se bajan las palabras en mayúsculas del arranque, que son las que se
+  | quedaron con el bloqueo puesto.
+  */
+  const palabras = limpio.split(" ");
+  let i = 0;
+
+  while (i < palabras.length && /^[A-ZÁÉÍÓÚÜÑ]{2,}[.,;:]?$/.test(palabras[i])) {
+    palabras[i] = palabras[i].toLocaleLowerCase("es-ES");
+    i += 1;
+  }
+
+  if (i < 2) return limpio;
+
+  const junta = palabras.join(" ");
+
+  return junta.charAt(0).toLocaleUpperCase("es-ES") + junta.slice(1);
+}
+
+export type LineaConsigna =
+  | { tipo: "subtitulo" | "consigna"; texto: string }
+  | { tipo: "guion"; rotulo: string; texto: string };
+
+/** Las tres casillas fijas de la jugada, en el orden en que se cuentan. */
+export type GuionConsigna = { senal?: string; rutina?: string; intencion?: string };
+
+export const CASILLAS_GUION = [
+  { key: "senal", rotulo: "Señal", ejemplo: "Brazo levantado desde el banquillo" },
+  { key: "rutina", rotulo: "Rutina", ejemplo: "Directa a zona 2 con bloqueo del 9" },
+  { key: "intencion", rotulo: "Intención", ejemplo: "Centro al segundo palo en movimiento" },
+] as const;
+
+/**
+ * Todo lo que va en la franja de consignas: primero la señal, la rutina y la
+ * intención que estén escritas, cada una con su rótulo, y después las
+ * consignas de texto libre.
+ */
+export function lineasDeSlide(slide: Pick<SlidePizarra, "notas" | "guion">): LineaConsigna[] {
+  const guion = CASILLAS_GUION.flatMap((casilla) => {
+    const texto = slide.guion?.[casilla.key]?.trim();
+
+    return texto ? [{ tipo: "guion" as const, rotulo: casilla.rotulo, texto: normalizaConsigna(texto) }] : [];
+  });
+
+  return [...guion, ...lineasConsignas(slide.notas)];
+}
+
+/**
+ * Las consignas de la diapositiva, listas para pintar.
+ *
+ * Una línea que acaba en dos puntos («ORDEN:») no es una consigna: es el
+ * rótulo de las que vienen detrás, y con viñeta se leía como una consigna
+ * vacía. Va como subtítulo, sin los dos puntos.
+ */
+export function lineasConsignas(notas: string[]): LineaConsigna[] {
+  return notas
+    .map((nota) => nota.trim())
+    .filter(Boolean)
+    .map((nota) =>
+      nota.endsWith(":")
+        ? { tipo: "subtitulo" as const, texto: normalizaConsigna(nota.slice(0, -1)) }
+        : { tipo: "consigna" as const, texto: normalizaConsigna(nota) },
+    );
+}
+
+/**
+ * Qué le sobra a las consignas para leerse en la sala: más de tres, o alguna
+ * de más de 90 caracteres. Se avisa en el editor; la diapositiva no se toca.
+ */
+export function avisosConsignas(notas: string[]) {
+  const lineas = lineasConsignas(notas).filter((linea) => linea.tipo === "consigna");
+
+  const largas = lineas.filter((linea) => linea.texto.length > CONSIGNA_LARGA).length;
+
+  const avisos: string[] = [];
+
+  if (lineas.length > CONSIGNAS_MAX) {
+    avisos.push(
+      `${lineas.length} consignas: en la sala se leen bien ${CONSIGNAS_MAX}. Junta o quita alguna.`,
+    );
+  }
+
+  if (largas > 0) {
+    avisos.push(
+      largas === 1
+        ? `Una consigna pasa de ${CONSIGNA_LARGA} caracteres: córtala en dos o resúmela.`
+        : `${largas} consignas pasan de ${CONSIGNA_LARGA} caracteres: córtalas o resúmelas.`,
+    );
+  }
+
+  return avisos;
+}
+
+/**
+ * El título que se ve en la cabecera.
+ *
+ * En una pizarra con dos córneres ofensivos, las dos diapositivas se llamaban
+ * igual y en el proyector no se distinguía una variante de la otra. Si el
+ * título se repite, se le añade la primera consigna que va detrás de «Orden»
+ * (o, si no la hay, la primera consigna), cortada por palabras.
+ */
+export function tituloVisible(slides: SlidePizarra[], indice: number) {
+  const slide = slides[indice];
+
+  if (!slide) return "";
+
+  const titulo = slide.titulo.trim();
+
+  const repetido = slides.some(
+    (otra, i) => i !== indice && otra.titulo.trim().toLowerCase() === titulo.toLowerCase(),
+  );
+
+  if (!repetido) return titulo;
+
+  const lineas = lineasConsignas(slide.notas);
+  const orden = lineas.findIndex(
+    (linea) => linea.tipo === "subtitulo" && /^orden/i.test(linea.texto),
+  );
+
+  const pista =
+    (orden >= 0 ? lineas.slice(orden + 1) : lineas).find((linea) => linea.tipo === "consigna")
+      ?.texto ?? "";
+
+  if (!pista) return titulo;
+
+  /* Hasta los dos puntos, si los hay («1.ª y 2.ª: …» → «1.ª y 2.ª»). */
+  const corta = pista.includes(":") ? pista.split(":")[0] : pista;
+
+  const palabras = corta.split(/\s+/);
+  let pie = "";
+
+  for (const palabra of palabras) {
+    if ((pie + " " + palabra).trim().length > 34) break;
+    pie = (pie + " " + palabra).trim();
+  }
+
+  return pie ? `${titulo} · ${pie}` : titulo;
 }

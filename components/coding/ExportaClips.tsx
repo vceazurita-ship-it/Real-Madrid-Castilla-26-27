@@ -39,6 +39,7 @@ import {
   PenTool,
   SkipForward,
   Snowflake,
+  Type,
   Upload,
   X,
   SquarePlay as Youtube,
@@ -47,7 +48,8 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/abp/ui";
 import { NOMBRE_PRIVACIDAD } from "@/lib/coding/youtube-cliente";
-import { descarga } from "@/lib/export/lienzos";
+import { descarga, descargaDataUrl } from "@/lib/export/lienzos";
+import { VERTICAL } from "@/lib/coding/vertical";
 import {
   borraImagenes,
   pesaDemasiado,
@@ -60,14 +62,23 @@ import {
   puedeCortarAqui,
 } from "@/lib/coding/navegador";
 import {
+  SUJETO_VIDEO_COMPLETO,
   duracionClip,
   formateaTotal,
   nombreDeClip,
   rutaDeClip,
   type CategoriaCoding,
   type ClipCoding,
+  type DescriptorCoding,
   type FuenteVideo,
 } from "@/lib/coding/modelo";
+import {
+  cargaEscudoRotulo,
+  imagenDeRotulo,
+  rotuloDeClip,
+} from "@/lib/coding/rotulo";
+import { posterDeVideo } from "@/lib/coding/poster";
+import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
 export type ModoCorteUI = "preciso" | "rapido";
 
@@ -109,10 +120,65 @@ export const MEDIDAS = [
   { px: 0, nombre: "La del partido" },
   { px: 1920, nombre: "1080p" },
   { px: 1280, nombre: "720p" },
+  { px: VERTICAL, nombre: "Vertical 9:16" },
 ];
+
+/*
+| Cuántos rótulos se mandan ya pintados al servidor.
+|
+| Cada uno es un PNG de unos 20 KB: cien caben de sobra en los 4,5 MB de la
+| petición. Por encima, el servidor los pinta él con su respaldo.
+*/
+const ROTULOS_PINTADOS_MAX = 120;
 
 /** La medida de partida: la del partido, sin tocar nada. */
 export const MEDIDA_POR_DEFECTO = 0;
+
+/** Peso y medida de cada destino, para no tener que pensarlo en megas. */
+const DESTINOS = [
+  {
+    nombre: "WhatsApp",
+    megas: 16,
+    medida: 1280,
+    explica: "720p y como mucho 16 MB por fichero: lo que WhatsApp manda sin recomprimir",
+  },
+  {
+    nombre: "Correo o grupo",
+    megas: 50,
+    medida: 1920,
+    explica: "1080p y como mucho 50 MB por fichero",
+  },
+  {
+    nombre: "Sala o YouTube",
+    megas: 0,
+    medida: 0,
+    explica: "Con la imagen del partido y sin tope: para el proyector o para subirlo",
+  },
+  {
+    nombre: "Móvil vertical",
+    megas: 16,
+    medida: VERTICAL,
+    explica:
+      "1080 × 1920 y como mucho 16 MB: el corte a todo el ancho con su propia imagen desenfocada detrás, para verlo en el teléfono",
+  },
+];
+
+/**
+ * Lo que va a pesar y el caudal que le toca, antes de pulsar.
+ *
+ * Con tope, el tope se reparte entre lo que dura: sale **un solo fichero** con
+ * ese caudal, no varios. Sin tope no se puede saber —pesa lo que pida la
+ * imagen— y no se inventa una cifra.
+ */
+export function pesoPrevisto(topeMegas: number, segundos: number) {
+  if (topeMegas <= 0 || segundos <= 0) return null;
+
+  const caudal = Math.max(0.4, (topeMegas * 8 * 0.94) / segundos - 0.16);
+
+  return `Sale en un fichero de hasta ${topeMegas} MB · ${caudal.toLocaleString("es-ES", {
+    maximumFractionDigits: 1,
+  })} Mb/s para ${Math.floor(segundos / 60)}:${String(Math.round(segundos % 60)).padStart(2, "0")}`;
+}
 
 /** Lo que dura una carátula en pantalla. */
 export const SEGUNDOS_CARATULA = 4;
@@ -181,6 +247,8 @@ export type PeticionExport = {
 export function useExportador(opciones: {
   fuente: FuenteVideo | null;
   categorias: CategoriaCoding[];
+  /** Para el rótulo: qué descriptores se leen y cómo («Mal» → «A corregir»). */
+  descriptores?: DescriptorCoding[];
   carpeta: string;
   modo: ModoCorteUI;
   /**
@@ -220,6 +288,15 @@ export function useExportador(opciones: {
   fps?: number;
   /** El partido, para la pantalla del montaje. */
   titulo?: string;
+  /**
+   * Un rótulo al empezar cada corte: quién, qué y en qué minuto
+   * (`lib/coding/rotulo.ts`). Vale para los tres caminos.
+   */
+  rotulos?: boolean;
+  /** La letra del rótulo en el navegador (`FAMILIA_PORTADA`). */
+  familiaRotulo?: string;
+  /** Fundido a negro entre cortes del unificado, en ms. `0`, corte seco. */
+  fundidoMs?: number;
   /** Adoptar el vídeo ya copiado: cambia la fuente de la sesión. */
   onAdopta?: (fuente: FuenteVideo, src: string) => void;
   /**
@@ -236,6 +313,7 @@ export function useExportador(opciones: {
   const {
     fuente,
     categorias,
+    descriptores,
     carpeta,
     modo,
     topeMegas = 0,
@@ -245,11 +323,17 @@ export function useExportador(opciones: {
     ficheros,
     fps,
     titulo,
+    rotulos = false,
+    familiaRotulo,
+    fundidoMs = 0,
     onAdopta,
     alTerminarVideo,
   } = opciones;
 
   const [exportando, setExportando] = useState(false);
+
+  /* El último MP4 que ha salido, para «Mandar». El ZIP no cuenta. */
+  const [ultimo, setUltimo] = useState<VideoListo | null>(null);
 
   /*
   | Cómo se llama cada corte. Vive aparte porque lo usan los dos caminos —el
@@ -268,6 +352,59 @@ export function useExportador(opciones: {
             : nombreDeClip(clip, categorias),
       })),
     [carpeta, categorias],
+  );
+
+  /*
+  | El rótulo de cada corte, o nada. El corte «Vídeo completo» no lo lleva:
+  | no es una jugada de nadie, es el partido.
+  */
+  const rotuloDe = useCallback(
+    (clip: ClipCoding) =>
+      rotulos && clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id
+        ? rotuloDeClip(clip, categorias, descriptores)
+        : undefined,
+    [categorias, descriptores, rotulos],
+  );
+
+  /*
+  | La carátula también como póster: la imagen que va en el correo o en el
+  | PDF con el enlace al vídeo. Es la misma que abre el montaje, así que el
+  | enlace y el vídeo empiezan igual.
+  */
+  /*
+  | Y TODO MP4 lleva el suyo. Sólo lo tenía el unificado con carátula; un
+  | corte suelto o un unificado sin carátula salían sin imagen que poner junto
+  | al enlace. Esos se quedan con un fotograma del propio vídeo, con el rótulo
+  | ya entrado (`lib/coding/poster.ts`). El ZIP no: es un paquete de cortes,
+  | no una pieza que se mande.
+  */
+  /*
+  | Se saca ANTES de descargar el vídeo, no a la vez: leer el fotograma del
+  | mismo fichero mientras el navegador lo está guardando dejaba la descarga
+  | del MP4 a medias (se quedaba en «.crdownload» y nunca terminaba).
+  */
+  const preparaPoster = useCallback(
+    async (peticion: PeticionExport, video?: Blob) => {
+      if (peticion.formato === "zip") return null;
+
+      if (peticion.formato === "unificado" && peticion.portada) return peticion.portada;
+
+      return video ? await posterDeVideo(video) : null;
+    },
+    [],
+  );
+
+  const descargaPoster = useCallback(
+    async (peticion: PeticionExport, imagen: string | null) => {
+      if (!imagen) return;
+
+      try {
+        await descargaDataUrl(imagen, `${peticion.nombre}-poster.jpg`);
+      } catch (error) {
+        console.warn("[coding] el póster no se ha podido guardar", error);
+      }
+    },
+    [],
   );
 
   /*
@@ -291,25 +428,33 @@ export function useExportador(opciones: {
       setExportando(true);
 
       try {
+        /* Sin la letra descargada, el lienzo pinta el rótulo con la de respaldo. */
+        if (rotulos) await Promise.all([esperaFuentePortada(), cargaEscudoRotulo()]);
+
         const resultado = await cortaEnElNavegador({
           fichero,
           titulo: titulo ? `${titulo} · ${peticion.nombre}` : peticion.nombre,
           formato: peticion.formato,
           portada: peticion.portada ?? null,
           portadaSegundos: SEGUNDOS_CARATULA,
+          fundidoMs,
           fps,
           topeMegas,
           topeAncho,
+          familiaRotulo,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
             inicioMs: clip.inicioMs,
             finMs: clip.finMs,
             paradas: peticion.paradas?.get(clip.id),
             fichero: ficheroDe?.(clip),
+            rotulo: rotuloDe(clip),
           })),
         });
 
         const nombre = `${peticion.nombre}.${resultado.extension}`;
+
+        const poster = await preparaPoster(peticion, resultado.blob);
 
         descarga(resultado.blob, nombre);
 
@@ -322,6 +467,12 @@ export function useExportador(opciones: {
               : ""
           }${resultado.conSonido ? "" : " · sin sonido: el partido viene mudo"}`,
         });
+
+        if (peticion.formato !== "zip") {
+          setUltimo({ nombre, segundos: resultado.segundos, bytes: resultado.blob.size });
+        }
+
+        await descargaPoster(peticion, poster);
 
         if (peticion.formato !== "zip") {
           await alTerminarVideo?.(resultado.blob, nombre);
@@ -344,7 +495,20 @@ export function useExportador(opciones: {
         setExportando(false);
       }
     },
-    [alTerminarVideo, fps, nombraClips, titulo, topeAncho, topeMegas],
+    [
+      alTerminarVideo,
+      descargaPoster,
+      preparaPoster,
+      familiaRotulo,
+      fps,
+      fundidoMs,
+      nombraClips,
+      rotuloDe,
+      rotulos,
+      titulo,
+      topeAncho,
+      topeMegas,
+    ],
   );
 
   /*
@@ -379,7 +543,7 @@ export function useExportador(opciones: {
       const faena =
         peticion.formato === "unificado"
           ? `Montando el vídeo de ${peticion.clips.length} cortes`
-          : `Cortando ${peticion.clips.length} ${peticion.clips.length === 1 ? "clip" : "clips"}`;
+          : `Cortando ${peticion.clips.length} ${peticion.clips.length === 1 ? "corte" : "cortes"}`;
 
       /* Con pizarras siempre se recodifica, aunque el modo diga `rapido`. */
       const conPizarras = (peticion.paradas?.size ?? 0) > 0;
@@ -420,6 +584,26 @@ export function useExportador(opciones: {
 
         rutas = imagenes.rutas;
 
+        /*
+        | El rótulo va ya pintado: el servidor lo pone encima tal cual, y así
+        | es el mismo de los dos motores del navegador. Hace falta la letra y
+        | el escudo antes de pintarlo.
+        */
+        const pintados = rotulos && peticion.clips.length <= ROTULOS_PINTADOS_MAX;
+
+        if (pintados) await Promise.all([esperaFuentePortada(), cargaEscudoRotulo()]);
+
+        const conImagen = (clip: ClipCoding) => {
+          const rotulo = rotuloDe(clip);
+
+          if (!rotulo || !pintados) return rotulo;
+
+          return {
+            ...rotulo,
+            imagen: imagenDeRotulo(rotulo, familiaRotulo ?? "sans-serif")?.imagen,
+          };
+        };
+
         const cuerpo = JSON.stringify({
           fuente: fuenteServidor,
           modo,
@@ -427,13 +611,16 @@ export function useExportador(opciones: {
           nombre: peticion.nombre,
           portada: imagenes.portada,
           portadaSegundos: SEGUNDOS_CARATULA,
+          fundidoMs,
           topeMegas,
+          medida: topeAncho,
           clips: nombraClips(peticion).map(({ clip, nombre }) => ({
             nombre,
             inicioMs: clip.inicioMs,
             finMs: clip.finMs,
             pizarras: imagenes.paradas.get(clip.id),
             fuente: fuenteDe?.(clip),
+            rotulo: conImagen(clip),
           })),
         });
 
@@ -506,6 +693,8 @@ export function useExportador(opciones: {
 
         const extension = peticion.formato === "zip" ? "zip" : "mp4";
 
+        const poster = await preparaPoster(peticion, blob);
+
         descarga(blob, `${peticion.nombre}.${extension}`);
 
         /*
@@ -535,6 +724,18 @@ export function useExportador(opciones: {
         });
 
         if (peticion.formato !== "zip") {
+          setUltimo({
+            nombre: `${peticion.nombre}.${extension}`,
+            /* Lo que dura de verdad: los cortes y, si la lleva, la carátula. */
+            segundos:
+              segundosDeVideo + (peticion.formato === "unificado" && peticion.portada ? SEGUNDOS_CARATULA : 0),
+            bytes: blob.size,
+          });
+        }
+
+        await descargaPoster(peticion, poster);
+
+        if (peticion.formato !== "zip") {
           await alTerminarVideo?.(blob, `${peticion.nombre}.${extension}`);
         }
       } catch (error) {
@@ -552,7 +753,19 @@ export function useExportador(opciones: {
         void borraImagenes(rutas);
       }
     },
-    [alTerminarVideo, modo, nombraClips, topeMegas],
+    [
+      alTerminarVideo,
+      descargaPoster,
+      preparaPoster,
+      familiaRotulo,
+      fundidoMs,
+      modo,
+      nombraClips,
+      rotuloDe,
+      rotulos,
+      topeAncho,
+      topeMegas,
+    ],
   );
 
   /*
@@ -631,7 +844,7 @@ export function useExportador(opciones: {
       if (exportando) return;
 
       if (peticion.clips.length === 0) {
-        toast.error("No hay clips que exportar.");
+        toast.error("No hay cortes que exportar.");
         return;
       }
 
@@ -805,7 +1018,26 @@ export function useExportador(opciones: {
     ],
   );
 
-  return { exporta, exportando };
+  return { exporta, exportando, ultimo };
+}
+
+/**
+ * El último vídeo que ha salido, para mandarlo.
+ *
+ * No se sube nada: el mensaje lleva qué es, cuánto dura y cuánto pesa, y el
+ * fichero y su póster se adjuntan desde Descargas. El enlace llegará cuando
+ * haya subida, que aún no está decidida.
+ */
+export type VideoListo = { nombre: string; segundos: number; bytes: number };
+
+export function mensajeDeVideo(video: VideoListo, titulo?: string) {
+  const pieza = video.nombre.replace(/\.mp4$/i, "");
+
+  return [
+    titulo ? `${titulo} · ${pieza}` : pieza,
+    `Dura ${reloj(Math.round(video.segundos))} y pesa ${megas(video.bytes)}.`,
+    "Va adjunto, con su póster.",
+  ].join("\n");
 }
 
 /* ------------------------------------------------------------------ */
@@ -824,6 +1056,7 @@ export function BarraExportacion({
   onMedida,
   onZip,
   onUnificado,
+  onIndividual,
   caratula,
   opcionesCaratula,
   cabePorJugador = false,
@@ -834,6 +1067,10 @@ export function BarraExportacion({
   pizarras,
   quema,
   onQuema,
+  rotulos = false,
+  onRotulos,
+  fundido = false,
+  onFundido,
   enNavegador,
   youtube,
   videos = [],
@@ -841,6 +1078,10 @@ export function BarraExportacion({
   onTodosLosVideos,
   plantillaCaratula = [],
   pistaCaratula,
+  objetivoIndividual = "",
+  onObjetivoIndividual,
+  ultimoVideo = null,
+  tituloMensaje,
 }: {
   clips: ClipCoding[];
   /** Qué se va a exportar: "todos", "Sergio Mestre", "Pase"… */
@@ -856,6 +1097,8 @@ export function BarraExportacion({
   onMedida: (px: number) => void;
   onZip: () => void;
   onUnificado: () => void;
+  /** El unificado de un jugador en orden de corrección (`ordenIndividual`). */
+  onIndividual?: () => void;
   /** Id del sujeto de la carátula; `""` es sin carátula. */
   caratula: string;
   opcionesCaratula: { id: string; nombre: string }[];
@@ -870,6 +1113,12 @@ export function BarraExportacion({
   pizarras: number;
   quema: boolean;
   onQuema: (quema: boolean) => void;
+  /** El rótulo de los primeros segundos de cada corte. */
+  rotulos?: boolean;
+  onRotulos?: (rotulos: boolean) => void;
+  /** Fundido a negro entre los cortes del vídeo unificado. */
+  fundido?: boolean;
+  onFundido?: (fundido: boolean) => void;
   /**
    * El vídeo está abierto del ordenador: el montaje se hace aquí.
    *
@@ -907,6 +1156,13 @@ export function BarraExportacion({
   plantillaCaratula?: { id: string; nombre: string }[];
   /** Por qué se ha puesto sola esa carátula, si se ha puesto sola. */
   pistaCaratula?: string;
+  /** Lo que se le pide al jugador: va a la carátula del vídeo individual. */
+  objetivoIndividual?: string;
+  onObjetivoIndividual?: (texto: string) => void;
+  /** El último MP4 que ha salido: se puede mandar con el mensaje ya escrito. */
+  ultimoVideo?: VideoListo | null;
+  /** El partido o el rival, para el mensaje. */
+  tituloMensaje?: string;
 }) {
   const total = clips.reduce((suma, clip) => suma + duracionClip(clip), 0);
 
@@ -918,6 +1174,14 @@ export function BarraExportacion({
         ?.nombre ?? "");
 
   const videosDentro = videos.filter((video) => video.dentro).length;
+
+  /* El individual tiene sentido con los cortes de un solo jugador. */
+  const jugadores = new Set(
+    clips
+      .filter((clip) => clip.sujeto !== "colectivo" && clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id)
+      .map((clip) => clip.jugadorId),
+  );
+  const deUno = jugadores.size === 1 ? clips.find((clip) => jugadores.has(clip.jugadorId)) : null;
 
   return (
     <div className="min-w-0 space-y-3">
@@ -936,20 +1200,82 @@ export function BarraExportacion({
           Vídeo unificado
         </Button>
 
+        {onIndividual && deUno && (
+          <Button
+            icon={Film}
+            onClick={onIndividual}
+            disabled={exportando}
+            title={`El vídeo de ${deUno.jugadorNombre} para corregirle: abre y cierra con lo bien hecho y deja en medio lo que hay que corregir`}
+          >
+            Vídeo individual
+          </Button>
+        )}
+
         <Button
           icon={Package}
           onClick={onZip}
           disabled={exportando || clips.length === 0}
           title="Un fichero por corte, en carpetas por jugador"
         >
-          Clips sueltos (ZIP)
+          Cortes sueltos (ZIP)
         </Button>
 
         <span className="text-[11px] text-white/35">
-          {clips.length} {clips.length === 1 ? "clip" : "clips"} ·{" "}
+          {clips.length} {clips.length === 1 ? "corte" : "cortes"} ·{" "}
           {formateaTotal(total)} · {etiqueta}
         </span>
       </div>
+
+      {/*
+      | El objetivo del vídeo individual: sin él, el vídeo de corrección es
+      | una lista de errores. Va a la carátula, debajo del nombre.
+      */}
+      {/*
+      | Mandar lo recién montado. No se sube nada: abre WhatsApp o el correo
+      | con qué es, cuánto dura y cuánto pesa, y el fichero y su póster se
+      | adjuntan desde Descargas.
+      */}
+      {ultimoVideo && (
+        <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-3 py-2 text-[11px] text-white/60">
+          <span className="min-w-0 truncate">
+            Listo: <span className="text-white/85">{ultimoVideo.nombre}</span> ·{" "}
+            {reloj(Math.round(ultimoVideo.segundos))} · {megas(ultimoVideo.bytes)}
+          </span>
+          <span className="text-white/35">Mandar:</span>
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(mensajeDeVideo(ultimoVideo, tituloMensaje))}`}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-full border border-white/15 px-2.5 py-1 text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white"
+          >
+            WhatsApp
+          </a>
+          <a
+            href={`mailto:?subject=${encodeURIComponent(
+              tituloMensaje ? `${tituloMensaje} · ${ultimoVideo.nombre}` : ultimoVideo.nombre,
+            )}&body=${encodeURIComponent(mensajeDeVideo(ultimoVideo, tituloMensaje))}`}
+            className="rounded-full border border-white/15 px-2.5 py-1 text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white"
+          >
+            Correo
+          </a>
+        </div>
+      )}
+
+      {onIndividual && deUno && onObjetivoIndividual && (
+        <label className="flex min-w-0 flex-wrap items-center gap-2 text-[11px] text-white/45">
+          <span className="shrink-0">
+            Objetivo de la semana de {deUno.jugadorNombre} (sale en la carátula del vídeo individual)
+          </span>
+          <input
+            type="text"
+            value={objetivoIndividual}
+            maxLength={140}
+            onChange={(evento) => onObjetivoIndividual(evento.target.value)}
+            placeholder="Perfilarse antes de recibir y vigilar al pívot tras pérdida"
+            className="min-w-0 flex-1 basis-60 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-[12px] text-white/85 placeholder:text-white/25 focus:border-[#C8A96B]/60 focus:outline-none"
+          />
+        </label>
+      )}
 
       {/* ------------------------- LOS VÍDEOS -------------------------- */}
 
@@ -1015,6 +1341,45 @@ export function BarraExportacion({
         </div>
       )}
 
+      {/* ----------------------------- PARA DÓNDE --------------------- */}
+
+      {/*
+      | El destino decide el peso y la medida a la vez, y quien exporta piensa
+      | en «esto va al grupo», no en megas. Pulsar uno pone los dos de abajo;
+      | se pueden seguir tocando sueltos.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+          <Film size={12} className="text-[#C8A96B]" />
+          Para
+        </span>
+
+        {DESTINOS.map((destino) => {
+          const elegido =
+            topeMegas === destino.megas && medida === destino.medida;
+
+          return (
+            <button
+              key={destino.nombre}
+              type="button"
+              aria-pressed={elegido}
+              onClick={() => {
+                onTopeMegas(destino.megas);
+                onMedida(destino.medida);
+              }}
+              title={destino.explica}
+              className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+                elegido
+                  ? "border-[#C8A96B] bg-[#C8A96B]/10 font-semibold text-[#C8A96B]"
+                  : "border-white/10 text-white/50 hover:text-white"
+              }`}
+            >
+              {destino.nombre}
+            </button>
+          );
+        })}
+      </div>
+
       {/* ------------------------- EL PESO DE CADA FICHERO ------------- */}
 
       {/*
@@ -1052,7 +1417,7 @@ export function BarraExportacion({
 
         <span className="text-[11px] text-white/30">
           {topeMegas > 0
-            ? "por fichero, apretando la imagen sólo si hace falta"
+            ? (pesoPrevisto(topeMegas, total / 1000) ?? "por fichero, apretando la imagen sólo si hace falta")
             : "el corte pesa lo que pida el partido"}
         </span>
       </div>
@@ -1079,7 +1444,9 @@ export function BarraExportacion({
             title={
               una.px === 0
                 ? "El corte sale con la imagen del partido, sin encogerla"
-                : `La imagen se baja a ${una.px} de ancho`
+                : una.px === VERTICAL
+                  ? "1080 × 1920 para el teléfono: el corte a todo el ancho y su imagen desenfocada detrás"
+                  : `La imagen se baja a ${una.px} de ancho`
             }
             className={`rounded-md border px-2 py-0.5 text-[11px] transition ${
               medida === una.px
@@ -1092,9 +1459,11 @@ export function BarraExportacion({
         ))}
 
         <span className="text-[11px] text-white/30">
-          {medida > 0
-            ? "se encoge sólo si el partido es más grande"
-            : "sin encoger: sale como se grabó"}
+          {medida === VERTICAL
+            ? "1080 × 1920: el corte a todo el ancho y su imagen desenfocada detrás"
+            : medida > 0
+              ? "se encoge sólo si el partido es más grande"
+              : "sin encoger: sale como se grabó"}
         </span>
       </div>
 
@@ -1130,6 +1499,78 @@ export function BarraExportacion({
             {quema
               ? `${pizarras} ${pizarras === 1 ? "parada" : "paradas"}: el vídeo se detiene, se ve lo pintado y sigue`
               : `${pizarras} ${pizarras === 1 ? "pizarra se queda" : "pizarras se quedan"} fuera: el vídeo sale como se grabó`}
+          </span>
+        </div>
+      )}
+
+      {/* ------------------------- LOS RÓTULOS ------------------------ */}
+
+      {onRotulos && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+            <Type size={12} className="text-[#C8A96B]" />
+            Rótulos
+          </span>
+
+          <button
+            type="button"
+            onClick={() => onRotulos(!rotulos)}
+            aria-pressed={rotulos}
+            title={
+              rotulos
+                ? "Cada corte empieza con un rótulo de 3,5 s: quién, qué y en qué minuto. Pulsa para sacarlos limpios."
+                : "Los cortes salen limpios. Pulsa para ponerles el rótulo."
+            }
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ${
+              rotulos
+                ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                : "border-white/10 text-white/40 hover:text-white"
+            }`}
+          >
+            <Type size={12} />
+            {rotulos ? "Con rótulo" : "Sin rótulo"}
+          </button>
+
+          <span className="text-[11px] text-white/35">
+            {rotulos
+              ? "3,5 s al empezar cada corte: dorsal y nombre, categoría, descriptores y minuto"
+              : "los cortes salen como se grabaron"}
+          </span>
+        </div>
+      )}
+
+      {/* ----------------------- ENTRE UN CORTE Y OTRO ---------------- */}
+
+      {onFundido && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.16em] text-white/30">
+            <Film size={12} className="text-[#C8A96B]" />
+            Transición
+          </span>
+
+          {[
+            { valor: true, texto: "Fundido" },
+            { valor: false, texto: "Corte seco" },
+          ].map((opcion) => (
+            <button
+              key={opcion.texto}
+              type="button"
+              onClick={() => onFundido(opcion.valor)}
+              aria-pressed={fundido === opcion.valor}
+              className={`rounded-md border px-2 py-0.5 text-[11px] transition ${
+                fundido === opcion.valor
+                  ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                  : "border-white/10 text-white/40 hover:text-white"
+              }`}
+            >
+              {opcion.texto}
+            </button>
+          ))}
+
+          <span className="text-[11px] text-white/30">
+            {fundido
+              ? "en el vídeo unificado, un fundido a negro de 0,3 s separa cada corte"
+              : "los cortes se pegan uno detrás de otro"}
           </span>
         </div>
       )}

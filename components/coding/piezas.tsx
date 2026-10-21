@@ -15,11 +15,13 @@
  */
 
 import Image from "next/image";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
+import { demarcacion, demarcacionDePosicion } from "@/lib/sesion-equipos/demarcacion";
 import {
   formateaDuracion,
   formateaTotal,
+  tasaDeAcierto,
   type CategoriaCoding,
   type ComportamientoColectivo,
   type JugadorCoding,
@@ -73,6 +75,8 @@ export function PanelJugadores({
   cuentas: Record<string, number>;
   onElegir: (id: string) => void;
 }) {
+  const [busca, setBusca] = useState("");
+
   if (jugadores.length === 0) {
     return (
       <p className="px-1 py-6 text-center text-xs text-white/35">
@@ -81,18 +85,62 @@ export function PanelJugadores({
     );
   }
 
+  /*
+  | Del undécimo en adelante, buscador. Las teclas que les tocan son signos
+  | sueltos —ñ , . - +— que en la tarjeta se leían como etiquetas vacías; la
+  | tecla sigue funcionando y se ve al pasar por encima, pero a esos se les
+  | encuentra mejor escribiendo el nombre o el dorsal.
+  */
+  const conBuscador = jugadores.length > 10;
+  const texto = busca.trim().toLowerCase();
+  const visibles = texto
+    ? jugadores.filter(
+        (jugador) =>
+          jugador.nombre.toLowerCase().includes(texto) ||
+          String(jugador.dorsal ?? "") === texto,
+      )
+    : jugadores;
+
   return (
+    <div className="space-y-2">
+      {conBuscador && (
+        <label className="block">
+          <span className="sr-only">Buscar jugador por nombre o dorsal</span>
+          <input
+            type="search"
+            value={busca}
+            onChange={(evento) => setBusca(evento.target.value)}
+            placeholder="Buscar por nombre o dorsal"
+            className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[13px] text-white placeholder:text-white/30 focus:border-[#C8A96B]/60 focus:outline-none"
+          />
+        </label>
+      )}
+
+      {visibles.length === 0 && (
+        <p className="px-1 py-3 text-center text-xs text-white/35">
+          Nadie con «{busca.trim()}».
+        </p>
+      )}
+
     <ul className="grid gap-1.5 sm:grid-cols-2">
-      {jugadores.map((jugador) => {
+      {visibles.map((jugador) => {
         const seleccionado = jugador.id === activo;
         const tecla = teclas[jugador.id] ?? "";
         const clips = cuentas[jugador.id] ?? 0;
+        /* La tecla a la vista sólo en los diez primeros de la convocatoria. */
+        const teclaVisible = tecla && jugadores.indexOf(jugador) < 10 ? tecla : "";
+        /* El puesto con su nombre: «6» es el rol, y se leía como dorsal. */
+        const puesto = jugador.posicion
+          ? (demarcacion(demarcacionDePosicion(jugador.posicion))?.nombre.replace(/ \(\d+\)$/, "") ??
+            jugador.posicion)
+          : "";
 
         return (
           <li key={jugador.id}>
             <button
               type="button"
               onClick={() => onElegir(jugador.id)}
+              title={tecla && !teclaVisible ? `Tecla: ${tecla}` : undefined}
               className={`flex w-full items-center gap-2.5 rounded-xl border px-2.5 py-2 text-left transition ${
                 seleccionado
                   ? "border-[#C8A96B] bg-[#C8A96B]/[0.12]"
@@ -105,9 +153,9 @@ export function PanelJugadores({
               | tecla guion»: se deja el hueco en blanco para que se vea que a
               | éste se le elige con el ratón, el dedo o desde la barra.
               */}
-              {tecla ? (
-                <Tecla activa={seleccionado}>{tecla}</Tecla>
-              ) : (
+              {teclaVisible ? (
+                <Tecla activa={seleccionado}>{teclaVisible}</Tecla>
+              ) : tecla ? null : (
                 <span
                   title="Sin tecla libre: se elige con el ratón o desde la barra de marcar"
                   aria-label="Sin tecla"
@@ -143,9 +191,9 @@ export function PanelJugadores({
                   {jugador.nombre}
                 </span>
 
-                {jugador.posicion && (
+                {puesto && (
                   <span className="block truncate text-[10px] uppercase tracking-[0.14em] text-white/30">
-                    {jugador.posicion}
+                    {puesto}
                   </span>
                 )}
               </span>
@@ -160,6 +208,7 @@ export function PanelJugadores({
         );
       })}
     </ul>
+    </div>
   );
 }
 
@@ -311,14 +360,17 @@ const ATAJOS: { teclas: string[]; que: string }[] = [
   { teclas: ["K"], que: "Pausar" },
   { teclas: ["J", "L"], que: "Bajar / subir velocidad" },
   { teclas: ["I"], que: "Marcar INICIO" },
-  { teclas: ["O"], que: "Marcar FINAL y crear el clip" },
+  { teclas: ["O"], que: "Marcar FINAL y crear el corte" },
+  { teclas: ["Intro"], que: "Un toque: la acción que acaba de pasar" },
   { teclas: ["←", "→"], que: "Un fotograma atrás / adelante" },
   { teclas: ["⇧ ←", "⇧ →"], que: "Diez fotogramas" },
-  { teclas: ["⌥ ←", "⌥ →"], que: "Cinco segundos" },
+  { teclas: ["Alt ←", "Alt →"], que: "Cinco segundos" },
   { teclas: ["1", "9"], que: "Elegir jugador" },
   { teclas: ["Q", "P"], que: "Elegir categoría" },
   { teclas: ["⇧ Q", "⇧ V"], que: "Elegir comportamiento colectivo" },
-  { teclas: ["⌫"], que: "Deshacer el último clip" },
+  { teclas: ["⇧ 1", "⇧ 9"], que: "Descriptor al último corte" },
+  { teclas: ["⌫"], que: "Deshacer lo último" },
+  { teclas: ["⇧ ⌫"], que: "Rehacer" },
   { teclas: ["Esc"], que: "Cancelar la marca en curso" },
   { teclas: ["?"], que: "Mostrar u ocultar esta ayuda" },
 ];
@@ -365,9 +417,28 @@ export function TablaResumen({
     return <p className="py-4 text-center text-xs text-white/30">{vacio}</p>;
   }
 
+  /* La columna del acierto sólo si alguien ha valorado algo. */
+  const conAcierto = filas.some(
+    (fila) => fila.valorados.bien + fila.valorados.mal > 0,
+  );
+
   return (
     <ul className="space-y-1">
-      {filas.map((fila) => (
+      <li
+        aria-hidden
+        className="flex items-center gap-3 px-2.5 text-[9px] uppercase tracking-[0.14em] text-white/30"
+      >
+        <span className="flex-1" />
+        <span className="shrink-0">Cortes</span>
+        {conAcierto && <span className="w-16 shrink-0 text-right">Acierto</span>}
+        <span className="w-14 shrink-0 text-right">Total</span>
+        <span className="w-14 shrink-0 text-right">Media</span>
+      </li>
+
+      {filas.map((fila) => {
+        const tasa = tasaDeAcierto(fila.valorados);
+
+        return (
         <li key={fila.clave}>
           <button
             type="button"
@@ -389,6 +460,17 @@ export function TablaResumen({
               {fila.clips}
             </span>
 
+            {conAcierto && (
+              <span
+                title={tasa?.largo}
+                className={`w-16 shrink-0 text-right text-[11px] tabular-nums ${
+                  tasa?.suficiente ? "text-white/70" : "text-white/35"
+                }`}
+              >
+                {tasa?.texto ?? ""}
+              </span>
+            )}
+
             <span className="w-14 shrink-0 text-right text-[11px] tabular-nums text-white/30">
               {formateaTotal(fila.totalMs)}
             </span>
@@ -398,7 +480,8 @@ export function TablaResumen({
             </span>
           </button>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

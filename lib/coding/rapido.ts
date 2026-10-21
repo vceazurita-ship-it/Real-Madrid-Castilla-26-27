@@ -45,11 +45,15 @@ import {
 import {
   CORTE_ATASCADO,
   CORTE_CANCELADO,
+  negroDeFundido,
   type ClipNavegador,
   type PantallaMontaje,
   type PeticionNavegador,
   type ResultadoNavegador,
 } from "@/lib/coding/pantalla-montaje";
+import { pintaRotulo } from "@/lib/coding/rotulo";
+import { igualaSonido } from "@/lib/coding/sonido";
+import { MEDIDA_VERTICAL, esVertical, pintaVertical } from "@/lib/coding/vertical";
 import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
 
 /* ------------------------------------------------------------------ */
@@ -192,6 +196,8 @@ type Plan = {
   fps: number;
   bitrate: number;
   codec: string;
+  /** El 9:16 del móvil: el corte en el centro y su imagen desenfocada detrás. */
+  vertical?: boolean;
 };
 
 type Salida = {
@@ -420,6 +426,14 @@ async function planea(
     ancho = techo;
   }
 
+  /* El vertical del móvil no encoge: es otro formato (`lib/coding/vertical`). */
+  const vertical = esVertical(topeAncho);
+
+  if (vertical) {
+    ancho = MEDIDA_VERTICAL.ancho;
+    alto = MEDIDA_VERTICAL.alto;
+  }
+
   ancho -= ancho % 2;
   alto -= alto % 2;
 
@@ -478,7 +492,7 @@ async function planea(
       const { supported } = await VideoEncoder.isConfigSupported(config);
 
       if (supported) {
-        return { ancho, alto, fps, bitrate, codec: nivel.codec };
+        return { ancho, alto, fps, bitrate, codec: nivel.codec, vertical };
       }
     } catch {
       /* Ese nivel no; se prueba el siguiente. */
@@ -664,6 +678,12 @@ export async function montaRapido(
   const plan = await planea(principal.video, peticion.fps, peticion.topeAncho);
 
   if (!plan) return null;
+
+  const familiaRotulo = peticion.familiaRotulo ?? "sans-serif";
+
+  /* Sólo en el unificado: un corte suelto no tiene vecino del que separarse. */
+  const fundidoMs =
+    peticion.formato === "unificado" ? Math.max(0, peticion.fundidoMs ?? 0) : 0;
 
   /* ------------------------------------------------------- el sonido */
 
@@ -972,9 +992,44 @@ export async function montaRapido(
           continue;
         }
 
-        pincel.drawImage(fotograma, 0, 0, plan.ancho, plan.alto);
+        if (plan.vertical) {
+          pintaVertical(
+            pincel,
+            fotograma,
+            fotograma.displayWidth,
+            fotograma.displayHeight,
+            plan.ancho,
+            plan.alto,
+          );
+        } else {
+          pincel.drawImage(fotograma, 0, 0, plan.ancho, plan.alto);
+        }
 
         fotograma.close();
+
+        /* El fundido entre cortes del unificado, antes del rótulo. */
+        const negro = negroDeFundido(
+          (t - inicioUs) / 1000,
+          clip.finMs - clip.inicioMs,
+          fundidoMs,
+        );
+
+        if (negro > 0) {
+          pincel.fillStyle = `rgba(0,0,0,${negro.toFixed(3)})`;
+          pincel.fillRect(0, 0, plan.ancho, plan.alto);
+        }
+
+        /* El rótulo de los primeros segundos, encima del partido. */
+        if (clip.rotulo) {
+          pintaRotulo(
+            pincel,
+            plan.ancho,
+            plan.alto,
+            clip.rotulo,
+            (t - inicioUs) / 1000,
+            familiaRotulo,
+          );
+        }
 
         asoma(lienzo);
 
@@ -1244,6 +1299,9 @@ export async function montaRapido(
 
       return;
     }
+
+    /* Cada corte a su nivel, y entrando y saliendo sin golpe (`sonido.ts`). */
+    igualaSonido(canales, frecuencia);
 
     /*
     | Los canales de la salida, aunque este vídeo traiga otros: un mono detrás

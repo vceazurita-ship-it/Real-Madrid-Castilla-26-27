@@ -233,6 +233,12 @@ export type HojaPdf = {
   pie?: { izquierda?: string; centro?: string; derecha?: string } | null;
   /** Zonas que se pueden pulsar, en fracciones de la imagen (0-1): el póster del vídeo, una fila de documentos… */
   enlaces?: { x: number; y: number; w: number; h: number; url: string }[];
+  /**
+   * Colores para lo que sobra arriba y abajo cuando la imagen no tiene la
+   * proporción del A4 (una lámina 16:9): con el de su cabecera y el de su pie,
+   * la banda llega al borde de la hoja en vez de quedar una franja blanca.
+   */
+  bandas?: { arriba: string; abajo: string };
 };
 
 /**
@@ -273,6 +279,15 @@ export async function pdfDeHojas(hojas: HojaPdf[]): Promise<jsPDF> {
 
     const w = hoja.ancho * escala;
     const h = hoja.alto * escala;
+
+    if (hoja.bandas) {
+      const y0 = (altoHoja - pie - h) / 2;
+
+      doc.setFillColor(hoja.bandas.arriba);
+      doc.rect(0, 0, anchoHoja, y0 + 1, "F");
+      doc.setFillColor(hoja.bandas.abajo);
+      doc.rect(0, y0 + h - 1, anchoHoja, altoHoja - y0 - h + 1, "F");
+    }
 
     /* El alias evita que jsPDF guarde la misma imagen dos veces. */
     doc.addImage(

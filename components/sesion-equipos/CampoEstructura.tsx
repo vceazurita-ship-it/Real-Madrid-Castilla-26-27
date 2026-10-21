@@ -65,6 +65,7 @@ export function CampoEstructura({
   sobre = null,
   onArrastra,
   campoDestino,
+  flecha = false,
   style,
 }: {
   huecos: Hueco[];
@@ -84,14 +85,50 @@ export function CampoEstructura({
   onArrastra?: (indice: number, e: ReactPointerEvent) => void;
   /** El destino del césped entero: soltar en un punto vacío deja al jugador ahí («campo:<equipo>»). */
   campoDestino?: string;
+  /** Una flecha discreta con el sentido del ataque (hacia arriba: la portería propia va abajo). */
+  flecha?: boolean;
   style?: CSSProperties;
 }) {
   const alto = ancho * PROPORCION_CAMPO;
-  const ficha = Math.max(16, Math.min(50, ancho / 10));
-  /* En la lámina exportada (`claro`) los nombres van más grandes: se leen en la tele del vestuario. */
-  const letra = claro ? Math.max(10, Math.min(36, ancho / 16)) : Math.max(9, Math.min(28, ancho / 21));
+  /*
+  | Lo que hay de una línea a la siguiente (21/10/2026). Con cuatro líneas y
+  | nombres en dos renglones, la etiqueta de una línea tapaba la ficha de la
+  | de delante (se veía en la diapositiva con cabecera, donde el campo es más
+  | bajo). Ficha + nombre caben ahora en ese hueco.
+  */
+  const alturas = [...new Set(huecos.filter((h) => !h.aMano).map((h) => Math.round(h.y * 1000)))].sort((a, b) => a - b);
+  const entreLineas = alturas.length > 1 ? Math.min(...alturas.slice(1).map((y, k) => y - alturas[k])) / 1000 : 1;
+  /*
+  | Con la ficha en su punto y el nombre colgando, la última línea se salía
+  | por abajo en la lámina (21/10/2026). Sin tocar (la lámina), las alturas se
+  | encogen lo justo para que el nombre de la línea de atrás quepa entero.
+  |
+  | Y al encogerlas, las líneas se juntan: la letra se calculaba con el hueco
+  | de antes de encoger, y el nombre de una línea acababa encima de las fichas
+  | de la siguiente («ÁNGEL CARVAJAL» sobre los tres de detrás). Se vuelve a
+  | calcular con el hueco ya encogido, y otra vez la escala con esa letra.
+  */
+  const yMax = Math.max(0.01, ...huecos.filter((h) => h.jugador).map((h) => h.y));
+  const medidas = (escala: number) => {
+    const hueco = entreLineas * alto * escala;
+    const ficha = Math.max(16, Math.min(50, ancho / 10, hueco * 0.38));
+    /* En la lámina exportada (`claro`) los nombres van más grandes: se leen en la tele del vestuario. */
+    const letra = Math.min(
+      claro ? Math.max(10, Math.min(36, ancho / 16)) : Math.max(9, Math.min(28, ancho / 21)),
+      /* Dos renglones (1,02 de alto cada uno, más el relleno) y una rendija antes de la ficha siguiente. */
+      Math.max(8, (hueco - ficha - 14) / 2.4),
+    );
+    const sitioAbajo = alto - 6 - ficha / 2 - letra * 2.5 - 8;
+    const escalaY = !onToca && yMax * alto > sitioAbajo ? sitioAbajo / (yMax * alto) : 1;
+    return { ficha, letra, escalaY };
+  };
+  const primera = medidas(1);
+  const { ficha, letra } = primera.escalaY < 1 ? medidas(primera.escalaY) : primera;
+  const escalaY = primera.escalaY < 1 ? medidas(primera.escalaY).escalaY : 1;
+
   const tinta = tintaSobre(color);
-  const trazo = claro ? "rgba(20,83,45,0.42)" : "rgba(255,255,255,0.5)";
+  /* Más pálidas en la lámina (21/10/2026): con 0,42 la línea del área y el semicírculo ensuciaban los nombres de encima. */
+  const trazo = claro ? "rgba(20,83,45,0.26)" : "rgba(255,255,255,0.5)";
   const encimaCampo = Boolean(campoDestino && sobre === campoDestino);
 
   return (
@@ -122,14 +159,46 @@ export function CampoEstructura({
     >
       <Lineas trazo={trazo} grosor={Math.max(1.5, ancho / 220)} />
 
+      {flecha && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            right: ancho * 0.015,
+            top: "34%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 2,
+            color: claro ? "rgba(20,83,45,0.55)" : "rgba(255,255,255,0.6)",
+            fontSize: Math.max(8, ancho / 34),
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            pointerEvents: "none",
+          }}
+        >
+          <svg width={Math.max(10, ancho / 26)} height={Math.max(22, ancho / 9)} viewBox="0 0 10 30" aria-hidden>
+            <path d="M5 29 V3 M1 8 L5 2 L9 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span style={{ writingMode: "vertical-rl", transform: "rotate(180deg)" }}>ATAQUE</span>
+        </div>
+      )}
+
       {huecos.map((h, i) => {
+        /* En la lámina (sin tocar), un hueco libre no se dibuja: ni círculo vacío ni guion en el campo que ven los jugadores (21/10/2026). */
+        if (!h.jugador && !onToca) return null;
+
         const es = elegido === i;
         const destino = destinoDe?.(i);
         const debajo = Boolean(destino && sobre === destino);
         /* Cada nombre cabe en su trozo de línea: con cuatro en fila, la cuarta parte del campo. */
         const enSuLinea = h.linea < 0 ? 3 : huecos.filter((x) => x.linea === h.linea && !x.aMano).length || 3;
-        /* El mismo ancho en la lámina: más ancho, los nombres de una línea se pisaban (14/10/2026). */
-        const anchoNombre = Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 1.1);
+        /*
+        | El mismo ancho en la lámina. Los huecos de una línea están a 1/(n+1)
+        | del campo uno de otro: con 1,1 veces eso, dos nombres largos vecinos
+        | se montaban (21/10/2026). Con 0,96 queda siempre una rendija.
+        */
+        const anchoNombre = Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 0.96);
         const nombre = h.jugador?.nombre ?? "";
         /* Con pareja, los dos nombres; la letra la manda el más largo. */
         const largo = Math.max(palabraMasLarga(nombre || "—"), h.pareja ? palabraMasLarga(h.pareja.nombre) : 0);
@@ -143,8 +212,9 @@ export function CampoEstructura({
             style={{
               position: "absolute",
               left: `${h.x * 100}%`,
-              top: `${h.y * 100}%`,
-              transform: "translate(-50%, -50%)",
+              top: `${h.y * escalaY * 100}%`,
+              /* La FICHA en el punto, el nombre colgando (21/10/2026): centrando el bloque entero, un nombre en dos renglones subía su ficha y la línea no quedaba recta. */
+              transform: `translate(-50%, ${-(ficha / 2 + (onToca ? 4 : 0))}px)`,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",

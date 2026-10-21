@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { creaZip, type EntradaZip } from "@/lib/export/zip";
 import {
+  ajustaAlTope,
   borraCarpetaTemporal,
   cortaClip,
   cortaClipConParadas,
@@ -15,13 +16,16 @@ import {
   hayFfmpeg,
   imagenComoVideo,
   leeBytes,
+  medidaDeSalida,
   pegaVideos,
+  preparaRotulo,
   respuestaDeFichero,
   segmentoNormalizado,
   sondeaVideo,
   type FuenteServidor,
   type ModoCorte,
   type ParadaPedida,
+  type RotuloServidor,
 } from "@/lib/coding/servidor";
 
 /**
@@ -74,6 +78,8 @@ type ClipPedido = {
    * 4,5 MB que aguanta el despliegue: ver `lib/coding/imagenes.ts`.
    */
   pizarras?: { imagen: string; enMs: number; duracionMs: number }[];
+  /** El rótulo de los primeros segundos: quién y qué. */
+  rotulo?: RotuloServidor;
 };
 
 type Peticion = {
@@ -92,6 +98,8 @@ type Peticion = {
    */
   portada?: string;
   portadaSegundos?: number;
+  /** Fundido a negro entre cortes del unificado, en ms. `0` es corte seco. */
+  fundidoMs?: number;
   /**
    * Lo que puede pesar cada fichero de salida, en megas. `0` es sin tope.
    *
@@ -101,6 +109,11 @@ type Peticion = {
    * hecho donde se haya hecho.
    */
   topeMegas?: number;
+  /**
+   * La medida de la barra: `0` la del partido, un ancho para encoger y `-1`
+   * el vertical 1080 × 1920 para el móvil (`medidaDeSalida`).
+   */
+  medida?: number;
 };
 
 const MAX_CLIPS = 400;
@@ -225,6 +238,11 @@ export async function POST(request: NextRequest) {
   /* Sin tope, 0. Y con tope no se puede copiar: hay que recodificar. */
   const topeMegas = Math.max(0, Number(peticion.topeMegas) || 0);
 
+  const medida = Number(peticion.medida) || 0;
+
+  /* Como mucho un segundo: más es una pantalla en negro, no una transición. */
+  const fundidoMs = Math.min(1000, Math.max(0, Number(peticion.fundidoMs) || 0));
+
   /** Lo que dura, en segundos, el fichero que va a salir de esos clips. */
   const duracionDe = (lista: ClipPedido[]) =>
     lista.reduce(
@@ -293,29 +311,48 @@ export async function POST(request: NextRequest) {
       return listas;
     };
 
-    /* ------------------------------------------------ un solo clip */
+    /* El rótulo del corte, medido para la medida con la que va a salir. */
+    const rotuloDe = async (
+      clip: ClipPedido,
+      indice: number,
+      salida: { ancho: number; alto: number },
+    ) => {
+      if (!clip.rotulo?.titulo) return null;
 
-    if (peticion.formato === "clip") {
-      const clip = clips[0];
+      return preparaRotulo({
+        rotulo: clip.rotulo,
+        carpeta,
+        prefijo: `rotulo-${indice}`,
+        ancho: salida.ancho,
+        alto: salida.alto,
+      });
+    };
 
-      const destino = path.join(carpeta, "clip.mp4");
-
-      const paradas = await paradasDe(clip, 0);
+    /*
+    | Un corte suelto, con o sin pizarras.
+    |
+    | Se sondea siempre: el sonido se iguala aunque se copie la imagen, y para
+    | eso hay que saber si el partido lo trae.
+    */
+    const cortaUno = async (clip: ClipPedido, indice: number, destino: string, prefijo: string) => {
+      const paradas = await paradasDe(clip, indice);
+      const datos = await sondeaUnaVez(entradaDe(clip)!);
+      const salida = medidaDeSalida(datos, medida);
 
       if (paradas.length > 0) {
-        const datos = await sondeaUnaVez(entradaDe(clip)!);
-
         await cortaClipConParadas({
+          rotulo: await rotuloDe(clip, indice, salida),
           entrada: entradaDe(clip)!,
           inicioMs: clip.inicioMs,
           finMs: clip.finMs,
-          ancho: datos.ancho,
-          alto: datos.alto,
+          ancho: salida.ancho,
+          alto: salida.alto,
+          vertical: salida.vertical,
           fps: datos.fps,
           audio: datos.audio,
           paradas,
           carpeta,
-          prefijo: "clip",
+          prefijo,
           destino,
           topeMegas,
         });
@@ -327,8 +364,25 @@ export async function POST(request: NextRequest) {
           modo,
           destino,
           topeMegas,
+          rotulo: await rotuloDe(clip, indice, salida),
+          salida,
+          original: datos,
+          audio: datos.audio,
         });
       }
+    };
+
+    /* ------------------------------------------------ un solo clip */
+
+    if (peticion.formato === "clip") {
+      const clip = clips[0];
+
+      const destino = path.join(carpeta, "clip.mp4");
+
+      await cortaUno(clip, 0, destino, "clip");
+
+      /* Si se ha pasado del tope, una segunda pasada con el caudal justo. */
+      await ajustaAlTope(destino, topeMegas);
 
       return respuestaDeFichero({
         archivo: destino,
@@ -349,6 +403,9 @@ export async function POST(request: NextRequest) {
        */
       const datos = await sondeaUnaVez(entradaDe(clips[0])!);
 
+      /* La medida del montaje: la del primer corte, o la pedida en la barra. */
+      const salida = medidaDeSalida(datos, medida);
+
       const trozos: string[] = [];
 
       if (peticion.portada) {
@@ -365,8 +422,9 @@ export async function POST(request: NextRequest) {
               1000,
               Math.round((peticion.portadaSegundos ?? 4) * 1000),
             ),
-            ancho: datos.ancho,
-            alto: datos.alto,
+            ancho: salida.ancho,
+            alto: salida.alto,
+            vertical: salida.vertical,
             fps: datos.fps,
             destino: path.join(carpeta, "000-portada.mp4"),
           }),
@@ -391,8 +449,9 @@ export async function POST(request: NextRequest) {
                 entrada: entradaClip,
                 inicioMs: clip.inicioMs,
                 finMs: clip.finMs,
-                ancho: datos.ancho,
-                alto: datos.alto,
+                ancho: salida.ancho,
+                alto: salida.alto,
+                vertical: salida.vertical,
                 fps: datos.fps,
                 audio: suyo.audio,
                 paradas,
@@ -403,18 +462,26 @@ export async function POST(request: NextRequest) {
                    entre todo lo que va a durar, no entre este trozo. */
                 topeMegas,
                 segundosDelTope: duracionDe(clips),
+                /* Medido a la medida del montaje, no a la de su vídeo. */
+                rotulo: await rotuloDe(clip, indice, salida),
+                fundidoMs,
               })
             : await segmentoNormalizado({
                 entrada: entradaClip,
                 inicioMs: clip.inicioMs,
                 finMs: clip.finMs,
-                ancho: datos.ancho,
-                alto: datos.alto,
+                ancho: salida.ancho,
+                alto: salida.alto,
+                vertical: salida.vertical,
                 fps: datos.fps,
                 audio: suyo.audio,
                 destino: destinoTrozo,
                 topeMegas,
                 segundosDelTope: duracionDe(clips),
+                rotulo: await rotuloDe(clip, indice, salida),
+                fundido: fundidoMs
+                  ? { ms: fundidoMs, entra: true, sale: true }
+                  : undefined,
               }),
         );
       }
@@ -423,6 +490,8 @@ export async function POST(request: NextRequest) {
         trozos,
         path.join(carpeta, "unificado.mp4"),
       );
+
+      await ajustaAlTope(destino, topeMegas);
 
       return respuestaDeFichero({
         archivo: destino,
@@ -439,35 +508,7 @@ export async function POST(request: NextRequest) {
     for (const [indice, clip] of clips.entries()) {
       const destino = path.join(carpeta, `${indice}.mp4`);
 
-      const paradas = await paradasDe(clip, indice);
-
-      if (paradas.length > 0) {
-        const datos = await sondeaUnaVez(entradaDe(clip)!);
-
-        await cortaClipConParadas({
-          entrada: entradaDe(clip)!,
-          inicioMs: clip.inicioMs,
-          finMs: clip.finMs,
-          ancho: datos.ancho,
-          alto: datos.alto,
-          fps: datos.fps,
-          audio: datos.audio,
-          paradas,
-          carpeta,
-          prefijo: `z${indice}`,
-          destino,
-          topeMegas,
-        });
-      } else {
-        await cortaClip({
-          entrada: entradaDe(clip)!,
-          inicioMs: clip.inicioMs,
-          finMs: clip.finMs,
-          modo,
-          destino,
-          topeMegas,
-        });
-      }
+      await cortaUno(clip, indice, destino, `z${indice}`);
 
       entradas.push({
         nombre: `${rutaSegura(clip.nombre, `clip-${indice + 1}`)}.mp4`,
