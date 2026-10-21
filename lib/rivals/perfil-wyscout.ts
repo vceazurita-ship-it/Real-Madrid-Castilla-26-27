@@ -49,6 +49,15 @@ const IGUALES_MINIMOS = 8;
 */
 export const MINUTOS_PARA_LEER = 270;
 
+/*
+| Lo que no es una virtud aunque «más» sea «mejor» (21/10/2026): que le hagan
+| faltas es la factura de otra cosa —conducir, aguantar de espaldas— y como
+| «Destaca en» se leía como un rasgo del jugador. Ya lo pidió quitar el experto
+| de análisis en la previa (ronda 11). Por abajo sí cuenta su espejo, las que
+| comete.
+*/
+const NO_ES_FORTALEZA = new Set(["Faltas recibidas/90"]);
+
 export type RasgoWyscout = {
   nombre: string;
   valor: number;
@@ -124,7 +133,10 @@ export function perfilesDeEquipo(jugadores: FilaJugador[], equipo: string): Perf
     return {
       ...base,
       muestraCorta: false,
-      fuertes: fuertes.filter((f) => f.percentil >= PERCENTIL_FUERTE).slice(0, 3).map(rasgo),
+      fuertes: fuertes
+        .filter((f) => f.percentil >= PERCENTIL_FUERTE && !NO_ES_FORTALEZA.has(f.metrica.columna))
+        .slice(0, 3)
+        .map(rasgo),
       flojos: flojos.filter((f) => f.percentil <= PERCENTIL_FLOJO).slice(0, 3).map(rasgo),
     };
   });
