@@ -1,4 +1,10 @@
 import { idVigente } from "@/lib/fichajes";
+import {
+  arrastraTrazos,
+  clonaTrazos,
+  huellaTrazos,
+  type TrazoPizarra,
+} from "@/lib/abp/trazos";
 /**
  * Pizarra de balón parado: vocabulario, plantillas de diapositiva y memoria.
  *
@@ -799,6 +805,11 @@ export type SlidePizarra = {
   notas: string[];
   /** Rótulos reescritos a mano en esta jornada. */
   textos?: TextosSlide;
+  /**
+   * Carreras, balón y bloqueos dibujados encima, con su fase.
+   * Ver `lib/abp/trazos.ts`: van atados a las caras por dónde empiezan.
+   */
+  trazos?: TrazoPizarra[];
   /** Con qué versión del dibujo de la plantilla se colocaron las fichas. */
   rev?: number;
 };
@@ -1045,6 +1056,9 @@ export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
       ]),
     );
 
+    /* Las carreras salen de los pies de quien se replanta: van con él. */
+    let trazos = slide.trazos;
+
     const fichas = slide.fichas.map((ficha) => {
       if (!ficha.puesto) return ficha;
 
@@ -1057,6 +1071,8 @@ export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
 
       const { x, y } = sitioDe(puesto);
 
+      trazos = arrastraTrazos(trazos, ficha, { x, y });
+
       return ficha.x === x && ficha.y === y && ficha.puesto === clave
         ? ficha
         : { ...ficha, puesto: clave, x, y };
@@ -1064,7 +1080,12 @@ export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
 
     tocado = true;
 
-    return { ...slide, fichas, rev: plantilla.rev };
+    return {
+      ...slide,
+      fichas,
+      ...(trazos ? { trazos } : {}),
+      rev: plantilla.rev,
+    };
   });
 
   return tocado ? { ...tablero, slides } : tablero;
@@ -1345,6 +1366,7 @@ export function copiaTablero(
          jornada es traerla entera. */
       ...(clonaTextos(slide.textos) ? { textos: clonaTextos(slide.textos)! } : {}),
       fichas: slide.fichas.map((ficha) => ({ ...ficha, id: nuevoId("FI") })),
+      ...(slide.trazos ? { trazos: clonaTrazos(slide.trazos) } : {}),
     })),
   };
 }
@@ -1381,6 +1403,9 @@ export function huellaTablero(rival: string, slides: SlidePizarra[]) {
       [...slide.fichas]
         .map((ficha) => [ficha.playerId, ficha.puesto, Math.round(ficha.x), Math.round(ficha.y)])
         .sort((a, b) => String(a).localeCompare(String(b))),
+      /* Sin trazos no se añade nada: las versiones guardadas antes de que
+         existieran conservan su huella y no salen como «distintas». */
+      ...(slide.trazos?.length ? [huellaTrazos(slide.trazos)] : []),
     ]),
   ]);
 }
@@ -1445,6 +1470,7 @@ export function registraVersion(
       ...slide,
       notas: [...slide.notas],
       fichas: slide.fichas.map((ficha) => ({ ...ficha })),
+      ...(slide.trazos ? { trazos: clonaTrazos(slide.trazos) } : {}),
     })),
   };
 
@@ -1489,6 +1515,7 @@ export function aplicaVersion(
       id: nuevoId("SL"),
       notas: [...slide.notas],
       fichas: slide.fichas.map((ficha) => ({ ...ficha, id: nuevoId("FI") })),
+      ...(slide.trazos ? { trazos: clonaTrazos(slide.trazos) } : {}),
     })),
   };
 }

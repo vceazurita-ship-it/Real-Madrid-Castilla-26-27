@@ -74,6 +74,19 @@ import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { SelectorJugador } from "@/components/abp/pizarra/SelectorJugador";
 import { CambiaJugador } from "@/components/abp/pizarra/CambiaJugador";
 import { ExportaPizarra } from "@/components/abp/pizarra/ExportaPizarra";
+import {
+  BarraDibujo,
+  TECLA_HERRAMIENTA,
+  type Herramienta,
+} from "@/components/abp/pizarra/BarraDibujo";
+import { ProyectaPizarra } from "@/components/abp/pizarra/ProyectaPizarra";
+import { useReproduccionAbp } from "@/hooks/useReproduccionAbp";
+import {
+  arrastraTrazos,
+  fasesDe,
+  type FaseTrazo,
+  type TrazoPizarra,
+} from "@/lib/abp/trazos";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -87,7 +100,10 @@ import {
 } from "@/lib/ratings/matches";
 import { RATINGS_SEASON, type MatchMeta } from "@/lib/ratings/types";
 import {
+  CABECERA_H,
   EMPTY_PIZARRA_STORE,
+  TABLERO_H,
+  TABLERO_W,
   MOTIVO_LABEL,
   PLANTILLAS,
   PLANTILLA_BY_KEY,
@@ -507,9 +523,78 @@ export default function PizarraAbpPage() {
     [],
   );
 
+  /*
+  | DESHACER Y REHACER
+  |
+  | Se guardan las diapositivas de antes de cada cambio —no el documento
+  | entero: el histórico de versiones y lo aprendido no se deshacen con
+  | Ctrl+Z—, y sólo de la jornada abierta. Un gesto es UN paso: arrastrar una
+  | cara son cien escrituras y se deshace de una vez. Lo mismo al escribir un
+  | título o al afinar con las flechas: los cambios seguidos de la misma cosa
+  | se juntan mientras no pasen dos segundos.
+  |
+  | Las pilas viven en refs (no se pintan); lo que se pinta son sus largos,
+  | que van en estado para que los botones se enciendan y se apaguen.
+  */
+  const pilas = useRef<{
+    partido: string;
+    atras: SlidePizarra[][];
+    adelante: SlidePizarra[][];
+  }>({ partido: "", atras: [], adelante: [] });
+
+  const ultimoPaso = useRef<{ clave: string; cuando: number }>({ clave: "", cuando: 0 });
+
+  const [hayDeshacer, setHayDeshacer] = useState({ atras: 0, adelante: 0 });
+
+  const cuentaPilas = useCallback(() => {
+    setHayDeshacer({
+      atras: pilas.current.atras.length,
+      adelante: pilas.current.adelante.length,
+    });
+  }, []);
+
+  /** Apunta las diapositivas de ahora antes de un cambio. */
+  const anotaPaso = useCallback(
+    (clave?: string) => {
+      if (!partido || !tablero) return;
+
+      const pila = pilas.current;
+
+      if (pila.partido !== partido.id) {
+        pilas.current = { partido: partido.id, atras: [], adelante: [] };
+      }
+
+      const ahora = Date.now();
+      const previo = ultimoPaso.current;
+
+      const junta =
+        clave != null &&
+        clave === previo.clave &&
+        (clave.startsWith("gesto:") || ahora - previo.cuando < 2000);
+
+      ultimoPaso.current = { clave: clave ?? "", cuando: ahora };
+
+      if (junta) return;
+
+      const { atras } = pilas.current;
+
+      if (atras[atras.length - 1] !== tablero.slides) {
+        atras.push(tablero.slides);
+
+        if (atras.length > 80) atras.shift();
+      }
+
+      pilas.current.adelante = [];
+      cuentaPilas();
+    },
+    [partido, tablero, cuentaPilas],
+  );
+
   const mutaTablero = useCallback(
-    (fn: (actual: TableroPizarra) => TableroPizarra) => {
+    (fn: (actual: TableroPizarra) => TableroPizarra, clave?: string) => {
       if (!partido) return;
+
+      anotaPaso(clave);
 
       setStore((actual) => {
         const base = tableroAlDia(actual, partido.id, partido.opponent);
@@ -520,8 +605,71 @@ export default function PizarraAbpPage() {
         };
       });
     },
-    [tableroAlDia, partido, setStore],
+    [tableroAlDia, partido, setStore, anotaPaso],
   );
+
+  /** Pone unas diapositivas guardadas en la pila, sin anotar paso. */
+  const ponSlides = useCallback(
+    (slides: SlidePizarra[]) => {
+      if (!partido) return;
+
+      setStore((actual) => ({
+        ...actual,
+        tableros: {
+          ...actual.tableros,
+          [partido.id]: {
+            ...tableroAlDia(actual, partido.id, partido.opponent),
+            slides,
+            actualizado: new Date().toISOString(),
+          },
+        },
+      }));
+    },
+    [partido, setStore, tableroAlDia],
+  );
+
+  const deshaz = useCallback(() => {
+    if (!partido || !tablero || pilas.current.partido !== partido.id) return;
+
+    const { atras, adelante } = pilas.current;
+
+    let previo = atras.pop();
+
+    /* Los cambios que no tocaron las diapositivas (fijar una versión) dejan
+       pasos iguales a lo que hay: se saltan. */
+    while (previo && previo === tablero.slides) previo = atras.pop();
+
+    if (previo) {
+      adelante.push(tablero.slides);
+      ultimoPaso.current = { clave: "", cuando: 0 };
+      ponSlides(previo);
+    }
+
+    cuentaPilas();
+  }, [partido, tablero, ponSlides, cuentaPilas]);
+
+  const rehaz = useCallback(() => {
+    if (!partido || !tablero || pilas.current.partido !== partido.id) return;
+
+    const { atras, adelante } = pilas.current;
+
+    const siguiente = adelante.pop();
+
+    if (siguiente) {
+      atras.push(tablero.slides);
+      ultimoPaso.current = { clave: "", cuando: 0 };
+      ponSlides(siguiente);
+    }
+
+    cuentaPilas();
+  }, [partido, tablero, ponSlides, cuentaPilas]);
+
+  /* Cada gesto del tablero (arrastrar, tirar de una flecha) es un paso. */
+  const gesto = useRef(0);
+
+  const pasoNuevo = useCallback(() => {
+    gesto.current += 1;
+  }, []);
 
   /* ---------------------- RIVAL Y JORNADA -------------------------- */
 
@@ -571,15 +719,160 @@ export default function PizarraAbpPage() {
   const slide: SlidePizarra | null = tablero?.slides[activa] ?? null;
 
   const mutaSlide = useCallback(
-    (fn: (actual: SlidePizarra) => SlidePizarra) =>
-      mutaTablero((actual) => ({
-        ...actual,
-        slides: actual.slides.map((item, indice) =>
-          indice === activa ? fn(item) : item,
-        ),
-      })),
+    (fn: (actual: SlidePizarra) => SlidePizarra, clave?: string) =>
+      mutaTablero(
+        (actual) => ({
+          ...actual,
+          slides: actual.slides.map((item, indice) =>
+            indice === activa ? fn(item) : item,
+          ),
+        }),
+        clave,
+      ),
     [mutaTablero, activa],
   );
+
+  /* ---------------------- CARRERAS Y BALÓN ------------------------- */
+
+  const [herramienta, setHerramienta] = useState<Herramienta>("mover");
+  const [fase, setFase] = useState<FaseTrazo>(1);
+  const [trazoElegido, setTrazoElegido] = useState<string | null>(null);
+
+  const trazos = useMemo(() => slide?.trazos ?? [], [slide]);
+
+  const trazoEnMano = useMemo(
+    () => trazos.find((trazo) => trazo.id === trazoElegido) ?? null,
+    [trazos, trazoElegido],
+  );
+
+  const creaTrazo = useCallback(
+    (trazo: TrazoPizarra) => {
+      mutaSlide((actual) => ({ ...actual, trazos: [...(actual.trazos ?? []), trazo] }));
+
+      /* Recién dibujado queda elegido: lo normal es curvarlo o cambiarle la
+         fase justo después. La herramienta sigue en la mano para el siguiente. */
+      setTrazoElegido(trazo.id);
+    },
+    [mutaSlide],
+  );
+
+  const cambiaTrazo = useCallback(
+    (id: string, cambio: Partial<TrazoPizarra>, clave?: string) =>
+      mutaSlide(
+        (actual) => ({
+          ...actual,
+          trazos: (actual.trazos ?? []).map((trazo) => {
+            if (trazo.id !== id) return trazo;
+
+            const nuevo = { ...trazo, ...cambio };
+
+            /* «Enderezar» manda el control a undefined: se quita la clave. */
+            if (nuevo.cx == null || nuevo.cy == null) {
+              delete nuevo.cx;
+              delete nuevo.cy;
+            }
+
+            return nuevo;
+          }),
+        }),
+        clave,
+      ),
+    [mutaSlide],
+  );
+
+  const borraTrazo = useCallback(
+    (id: string) => {
+      mutaSlide((actual) => ({
+        ...actual,
+        trazos: (actual.trazos ?? []).filter((trazo) => trazo.id !== id),
+      }));
+
+      setTrazoElegido(null);
+    },
+    [mutaSlide],
+  );
+
+  /**
+   * Mueve una cara y, con ella, las flechas que salen de sus pies.
+   * La clave del gesto junta el arrastre entero en un paso de deshacer.
+   */
+  const mueveFicha = useCallback(
+    (id: string, x: number, y: number, clave: string) =>
+      mutaSlide((actual) => {
+        const antes = actual.fichas.find((ficha) => ficha.id === id);
+
+        if (!antes || (antes.x === x && antes.y === y)) return actual;
+
+        const movidos = arrastraTrazos(actual.trazos, antes, { x, y });
+
+        return {
+          ...actual,
+          fichas: actual.fichas.map((ficha) =>
+            ficha.id === id ? { ...ficha, x, y } : ficha,
+          ),
+          ...(movidos ? { trazos: movidos } : {}),
+        };
+      }, clave),
+    [mutaSlide],
+  );
+
+  /* ------------------------- REPRODUCIR ---------------------------- */
+
+  const fases = fasesDe(trazos);
+
+  const {
+    tiempo: tiempoReloj,
+    reproduce: reproduceReloj,
+    para: paraReloj,
+  } = useReproduccionAbp(fases);
+
+  /* De qué diapositiva es lo que se reproduce: cambiar de diapositiva lo
+     deja atrás sin tener que pararlo en cada sitio que cambia la activa. */
+  const [reproducida, setReproducida] = useState<string | null>(null);
+
+  const tiempo = slide && reproducida === slide.id ? tiempoReloj : null;
+
+  const reproduce = useCallback(() => {
+    if (!slide || fases === 0) return;
+
+    setReproducida(slide.id);
+    setTrazoElegido(null);
+    reproduceReloj();
+  }, [slide, fases, reproduceReloj]);
+
+  const paraReproduccion = useCallback(() => {
+    setReproducida(null);
+    paraReloj();
+  }, [paraReloj]);
+
+  /* Al acabar se queda un momento en la foto final y vuelve a la fija. */
+  useEffect(() => {
+    if (tiempo == null || tiempo < fases) return;
+
+    const vuelta = setTimeout(paraReproduccion, 1800);
+
+    return () => clearTimeout(vuelta);
+  }, [tiempo, fases, paraReproduccion]);
+
+  /* ---------------------------- TECLADO ---------------------------- */
+
+  /*
+  | Los atajos de la pizarra. No se atienden escribiendo en un campo, con un
+  | diálogo abierto ni con el proyector delante (que tiene los suyos).
+  */
+  const teclado = useRef<(event: KeyboardEvent) => void>(() => undefined);
+
+  useEffect(() => {
+    const atiende = (event: KeyboardEvent) => teclado.current(event);
+
+    window.addEventListener("keydown", atiende);
+
+    return () => window.removeEventListener("keydown", atiende);
+  }, []);
+
+  /* ------------------------- PROYECTOR ----------------------------- */
+
+  const [proyectando, setProyectando] = useState<number | null>(null);
 
   /* ---------------------- TEXTOS DE LA SLIDE ----------------------- */
 
@@ -1218,6 +1511,139 @@ export default function PizarraAbpPage() {
 
   const [encima, setEncima] = useState<number | null>(null);
 
+  /*
+  | Lo que hace cada tecla. Se vuelve a escribir en cada render —en un efecto,
+  | no al pintar— para leer siempre lo último sin re-suscribirse a `window`.
+  */
+  useEffect(() => {
+    teclado.current = (event: KeyboardEvent) => {
+      if (!slide || proyectando != null || editando || cambiando) return;
+
+      const blanco = event.target as HTMLElement | null;
+
+      if (
+        blanco &&
+        (blanco.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(blanco.tagName) ||
+          blanco.closest("[role=dialog]"))
+      ) {
+        return;
+      }
+
+      const control = event.ctrlKey || event.metaKey;
+      const tecla = event.key;
+
+      if (control && (tecla === "z" || tecla === "Z")) {
+        event.preventDefault();
+
+        if (event.shiftKey) rehaz();
+        else deshaz();
+
+        return;
+      }
+
+      if (control && (tecla === "y" || tecla === "Y")) {
+        event.preventDefault();
+        rehaz();
+
+        return;
+      }
+
+      if (control || event.altKey) return;
+
+      /* Herramientas: V, C, B, L. */
+      const herramientaDeTecla = (Object.keys(TECLA_HERRAMIENTA) as Herramienta[]).find(
+        (key) => TECLA_HERRAMIENTA[key] === tecla.toUpperCase(),
+      );
+
+      if (herramientaDeTecla) {
+        event.preventDefault();
+        setHerramienta(herramientaDeTecla);
+        setTrazoElegido(null);
+
+        return;
+      }
+
+      if (tecla === "1" || tecla === "2" || tecla === "3") {
+        event.preventDefault();
+
+        const nueva = Number(tecla) as FaseTrazo;
+
+        if (trazoEnMano) cambiaTrazo(trazoEnMano.id, { fase: nueva });
+        else setFase(nueva);
+
+        return;
+      }
+
+      if (tecla === "p" || tecla === "P") {
+        event.preventDefault();
+        setProyectando(activa);
+
+        return;
+      }
+
+      /* Espacio reproduce; en un botón, el espacio es pulsarlo. */
+      if (tecla === " " && blanco?.tagName !== "BUTTON") {
+        event.preventDefault();
+
+        if (tiempo != null) paraReproduccion();
+        else reproduce();
+
+        return;
+      }
+
+      if (tecla === "Escape") {
+        if (tiempo != null) paraReproduccion();
+
+        setHerramienta("mover");
+        setTrazoElegido(null);
+        setSeleccion(null);
+
+        return;
+      }
+
+      if (tecla === "Delete" || tecla === "Backspace") {
+        if (trazoEnMano) {
+          event.preventDefault();
+          borraTrazo(trazoEnMano.id);
+        } else if (seleccion && slide.fichas.some((ficha) => ficha.id === seleccion)) {
+          event.preventDefault();
+          mutaSlide((actual) => ({
+            ...actual,
+            fichas: actual.fichas.filter((ficha) => ficha.id !== seleccion),
+          }));
+          setSeleccion(null);
+        }
+
+        return;
+      }
+
+      /* Las flechas afinan la cara elegida: 2 px, o 20 con Mayús. */
+      const paso = event.shiftKey ? 20 : 2;
+      const delta = {
+        ArrowLeft: [-paso, 0],
+        ArrowRight: [paso, 0],
+        ArrowUp: [0, -paso],
+        ArrowDown: [0, paso],
+      }[tecla];
+
+      if (delta && seleccion && tiempo == null) {
+        const ficha = slide.fichas.find((item) => item.id === seleccion);
+
+        if (!ficha) return;
+
+        event.preventDefault();
+
+        mueveFicha(
+          seleccion,
+          Math.max(40, Math.min(TABLERO_W - 40, ficha.x + delta[0])),
+          Math.max(CABECERA_H + 120, Math.min(TABLERO_H - 10, ficha.y + delta[1])),
+          `tecla:${seleccion}`,
+        );
+      }
+    };
+  });
+
   /* ---------------------------- RENDER ----------------------------- */
 
   const totales = useMemo(() => {
@@ -1694,6 +2120,31 @@ export default function PizarraAbpPage() {
 
                 {slide && (
                   <div className="mt-5 min-w-0 overflow-hidden rounded-2xl border border-white/10">
+                    <BarraDibujo
+                      herramienta={herramienta}
+                      onHerramienta={(nueva) => {
+                        setHerramienta(nueva);
+                        setTrazoElegido(null);
+                      }}
+                      fase={fase}
+                      onFase={setFase}
+                      elegido={trazoEnMano}
+                      onCambiarElegido={(cambio) =>
+                        trazoEnMano && cambiaTrazo(trazoEnMano.id, cambio)
+                      }
+                      onBorrarElegido={() => trazoEnMano && borraTrazo(trazoEnMano.id)}
+                      puedeDeshacer={hayDeshacer.atras > 0}
+                      puedeRehacer={hayDeshacer.adelante > 0}
+                      onDeshacer={deshaz}
+                      onRehacer={rehaz}
+                      fases={fases}
+                      reproduciendo={tiempo != null}
+                      onReproducir={reproduce}
+                      onParar={paraReproduccion}
+                      onProyectar={() => setProyectando(activa)}
+                      trazos={trazos.length}
+                    />
+
                     <TableroSlide
                       slide={slide}
                       players={porId}
@@ -1701,21 +2152,26 @@ export default function PizarraAbpPage() {
                       rival={tablero?.rival || partido.opponent}
                       seleccion={seleccion}
                       onSeleccionar={setSeleccion}
-                      onMover={(id, x, y) =>
-                        mutaSlide((actual) => ({
-                          ...actual,
-                          fichas: actual.fichas.map((ficha) =>
-                            ficha.id === id ? { ...ficha, x, y } : ficha,
-                          ),
-                        }))
-                      }
-                      onQuitar={(id) =>
+                      onMover={(id, x, y) => mueveFicha(id, x, y, `gesto:${gesto.current}`)}
+                      onQuitar={(id) => {
                         mutaSlide((actual) => ({
                           ...actual,
                           fichas: actual.fichas.filter((ficha) => ficha.id !== id),
-                        }))
-                      }
+                        }));
+
+                        setSeleccion(null);
+                      }}
                       onPulsarPuesto={setEditando}
+                      herramienta={herramienta}
+                      fase={fase}
+                      trazoElegido={trazoElegido}
+                      onElegirTrazo={setTrazoElegido}
+                      onCrearTrazo={creaTrazo}
+                      onCambiarTrazo={(id, cambio) =>
+                        cambiaTrazo(id, cambio, `gesto:${gesto.current}`)
+                      }
+                      onPasoNuevo={pasoNuevo}
+                      tiempo={tiempo}
                     />
                   </div>
                 )}
@@ -1773,10 +2229,10 @@ export default function PizarraAbpPage() {
                         store.textos?.[slide.plantilla],
                       )}
                       onTitulo={(titulo) =>
-                        mutaSlide((actual) => ({ ...actual, titulo }))
+                        mutaSlide((actual) => ({ ...actual, titulo }), "texto:titulo")
                       }
                       onNotas={(notas) =>
-                        mutaSlide((actual) => ({ ...actual, notas }))
+                        mutaSlide((actual) => ({ ...actual, notas }), "texto:notas")
                       }
                       onTexto={cambiaTexto}
                       onDejarParaLasSiguientes={() =>
@@ -1936,6 +2392,20 @@ export default function PizarraAbpPage() {
           }
           onQuitar={() => vacia(puestoEditado.key)}
           onCerrar={() => setEditando(null)}
+        />
+      )}
+
+      {tablero && proyectando != null && (
+        <ProyectaPizarra
+          slides={tablero.slides}
+          inicial={proyectando}
+          players={porId}
+          temporada={temporadaCorta(RATINGS_SEASON)}
+          rival={tablero.rival || partido?.opponent || ""}
+          onCerrar={(indice) => {
+            setProyectando(null);
+            setPedida(indice);
+          }}
         />
       )}
 

@@ -27,6 +27,24 @@ import { X } from "lucide-react";
 
 import type { Player } from "@/types/player";
 import {
+  BalonEnJuego,
+  CapaTrazos,
+  MandosTrazo,
+  type TiradorTrazo,
+} from "@/components/abp/pizarra/CapaTrazos";
+import {
+  TRAZO_MINIMO,
+  arranqueDe,
+  balonEn,
+  distancia,
+  nuevoTrazo,
+  posicionEn,
+  type FaseTrazo,
+  type Punto,
+  type TipoTrazo,
+  type TrazoPizarra,
+} from "@/lib/abp/trazos";
+import {
   CABECERA_H,
   CLUB,
   COLORES,
@@ -112,6 +130,7 @@ function Ficha({
   code,
   dorsal,
   seleccionada,
+  soloVer,
   onPointerDown,
   onQuitar,
 }: {
@@ -121,21 +140,26 @@ function Ficha({
   /** La diapositiva pide escribir a mano el dorsal del rival al que marca. */
   dorsal: boolean;
   seleccionada: boolean;
+  /** Proyector o exportación: ni se arrastra ni enseña la X. */
+  soloVer: boolean;
   onPointerDown: (event: React.PointerEvent) => void;
   onQuitar: () => void;
 }) {
+  const nombre = player?.apodo ?? player?.nombre ?? "";
+
   return (
     <div
+      data-ficha
       className="group absolute select-none"
       style={{
         left: ficha.x - FOTO_W / 2,
         top: ficha.y - FOTO_H,
         width: FOTO_W,
-        touchAction: "none",
-        cursor: "grab",
+        touchAction: soloVer ? undefined : "none",
+        cursor: soloVer ? "default" : "grab",
         zIndex: profundidad(ficha.x, ficha.y),
       }}
-      onPointerDown={onPointerDown}
+      onPointerDown={soloVer ? undefined : onPointerDown}
     >
       {dorsal && <CasillaDorsal />}
 
@@ -191,16 +215,24 @@ function Ficha({
         </span>
       </div>
 
-      <button
-        type="button"
-        data-export-hide
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={onQuitar}
-        aria-label="Quitar del tablero"
-        className="absolute -right-2 -top-2 hidden h-6 w-6 items-center justify-center rounded-full bg-black/80 text-white/70 transition hover:bg-rose-600 hover:text-white group-hover:flex"
-      >
-        <X size={13} />
-      </button>
+      {/*
+      | Se ve al pasar por encima y también con la ficha elegida: en una
+      | tableta no hay «pasar por encima», y la X tenía que poder tocarse.
+      */}
+      {!soloVer && (
+        <button
+          type="button"
+          data-export-hide
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={onQuitar}
+          aria-label={`Quitar a ${nombre || "este jugador"} del tablero`}
+          className={`absolute -right-2 -top-2 h-7 w-7 items-center justify-center rounded-full bg-black/80 text-white/70 transition hover:bg-rose-600 hover:text-white group-hover:flex ${
+            seleccionada ? "flex" : "hidden"
+          }`}
+        >
+          <X size={14} />
+        </button>
+      )}
     </div>
   );
 }
@@ -553,6 +585,15 @@ export function TableroSlide({
   onQuitar,
   onPulsarPuesto,
   onSeleccionar,
+  herramienta = "mover",
+  fase = 1,
+  trazoElegido = null,
+  onElegirTrazo,
+  onCrearTrazo,
+  onCambiarTrazo,
+  tiempo = null,
+  soloVer = false,
+  onPasoNuevo,
 }: {
   slide: SlidePizarra;
   players: Map<string, Player>;
@@ -564,6 +605,23 @@ export function TableroSlide({
   onQuitar: (id: string) => void;
   onPulsarPuesto: (puestoKey: string) => void;
   onSeleccionar: (id: string | null) => void;
+  /** Mover caras, o dibujar un tipo de trazo. */
+  herramienta?: "mover" | TipoTrazo;
+  /** La fase con la que nacen los trazos que se dibujan. */
+  fase?: FaseTrazo;
+  trazoElegido?: string | null;
+  onElegirTrazo?: (id: string | null) => void;
+  onCrearTrazo?: (trazo: TrazoPizarra) => void;
+  onCambiarTrazo?: (id: string, cambio: Partial<TrazoPizarra>) => void;
+  /** Instante de la reproducción, en fases. `null` = la foto fija. */
+  tiempo?: number | null;
+  /** Proyector y exportación: sin huecos, sin tiradores, sin arrastrar. */
+  soloVer?: boolean;
+  /**
+   * Empieza un gesto que se deshace de una vez (un arrastre entero, no cada
+   * píxel). Lo usa el deshacer de la página.
+   */
+  onPasoNuevo?: () => void;
 }) {
   const marcoRef = useRef<HTMLDivElement>(null);
 
@@ -591,56 +649,194 @@ export function TableroSlide({
   | del tablero —que pasa a menudo con las fichas del borde— el `pointerup` no
   | llegaría nunca y la ficha se quedaría pegada al ratón.
   */
-  const arrastre = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  /*
+  | Tres gestos comparten el seguimiento en `window`: arrastrar una cara,
+  | tirar de un extremo o de la curva de un trazo, y dibujar uno nuevo.
+  */
+  const arrastre = useRef<
+    | { modo: "ficha"; id: string; dx: number; dy: number }
+    | { modo: "tirador"; id: string; cual: TiradorTrazo }
+    | { modo: "dibujo"; desde: Punto }
+    | null
+  >(null);
+
+  /* Lo último pintado, para las guías y los imanes sin re-suscribirse. */
+  const fichasRef = useRef<FichaPizarra[]>(slide.fichas);
+  const trazosRef = useRef<TrazoPizarra[]>(slide.trazos ?? []);
+
+  useEffect(() => {
+    fichasRef.current = slide.fichas;
+    trazosRef.current = slide.trazos ?? [];
+  }, [slide.fichas, slide.trazos]);
+
+  /** Las líneas de alineación que se ven mientras se arrastra una cara. */
+  const [guias, setGuias] = useState<{ x: number | null; y: number | null }>({
+    x: null,
+    y: null,
+  });
+
+  /** El trazo que se está dibujando, antes de soltar. */
+  const [borrador, setBorradorEstado] = useState<TrazoPizarra | null>(null);
+
+  /* Su copia en una ref: al soltar hay que leerlo, y hacerlo dentro de un
+     actualizador de estado crearía el trazo dos veces en desarrollo. */
+  const borradorRef = useRef<TrazoPizarra | null>(null);
+
+  const setBorrador = useCallback((trazo: TrazoPizarra | null) => {
+    borradorRef.current = trazo;
+    setBorradorEstado(trazo);
+  }, []);
+
+  /** Del puntero al lienzo de 1920×1080. */
+  const alLienzo = useCallback((clientX: number, clientY: number): Punto | null => {
+    const marco = marcoRef.current;
+
+    if (!marco) return null;
+
+    const caja = marco.getBoundingClientRect();
+    const k = caja.width / TABLERO_W;
+
+    return { x: (clientX - caja.left) / k, y: (clientY - caja.top) / k };
+  }, []);
 
   const empieza = useCallback(
     (event: React.PointerEvent, ficha: FichaPizarra) => {
-      const marco = marcoRef.current;
+      const p = alLienzo(event.clientX, event.clientY);
 
-      if (!marco) return;
+      if (!p) return;
 
-      const caja = marco.getBoundingClientRect();
-      const k = caja.width / TABLERO_W;
+      arrastre.current = { modo: "ficha", id: ficha.id, dx: p.x - ficha.x, dy: p.y - ficha.y };
 
-      arrastre.current = {
-        id: ficha.id,
-        dx: (event.clientX - caja.left) / k - ficha.x,
-        dy: (event.clientY - caja.top) / k - ficha.y,
-      };
-
+      onPasoNuevo?.();
       onSeleccionar(ficha.id);
+      onElegirTrazo?.(null);
 
       event.preventDefault();
     },
-    [onSeleccionar],
+    [alLienzo, onSeleccionar, onElegirTrazo, onPasoNuevo],
+  );
+
+  const tira = useCallback(
+    (id: string, cual: TiradorTrazo) => {
+      arrastre.current = { modo: "tirador", id, cual };
+      onPasoNuevo?.();
+    },
+    [onPasoNuevo],
+  );
+
+  /* Dibujar: se pulsa en el arranque (se engancha a una cara o a una punta)
+     y se suelta en la punta. */
+  const empiezaDibujo = useCallback(
+    (event: React.PointerEvent) => {
+      if (herramienta === "mover") return;
+
+      const p = alLienzo(event.clientX, event.clientY);
+
+      if (!p) return;
+
+      const desde = arranqueDe(p, fichasRef.current.filter(enElCampo), trazosRef.current);
+
+      arrastre.current = { modo: "dibujo", desde };
+
+      setBorrador(nuevoTrazo(herramienta, fase, desde, desde));
+
+      event.preventDefault();
+    },
+    [herramienta, fase, alLienzo, setBorrador],
   );
 
   useEffect(() => {
     const mueve = (event: PointerEvent) => {
       const activo = arrastre.current;
-      const marco = marcoRef.current;
 
-      if (!activo || !marco) return;
+      if (!activo) return;
 
-      const caja = marco.getBoundingClientRect();
-      const k = caja.width / TABLERO_W;
+      const p = alLienzo(event.clientX, event.clientY);
+
+      if (!p) return;
+
+      if (activo.modo === "dibujo") {
+        const actual = borradorRef.current;
+
+        if (actual) setBorrador({ ...actual, x2: Math.round(p.x), y2: Math.round(p.y) });
+
+        return;
+      }
+
+      if (activo.modo === "tirador") {
+        const x = Math.round(Math.max(0, Math.min(TABLERO_W, p.x)));
+        const y = Math.round(Math.max(CABECERA_H, Math.min(TABLERO_H, p.y)));
+
+        onCambiarTrazo?.(
+          activo.id,
+          activo.cual === "inicio"
+            ? { x1: x, y1: y }
+            : activo.cual === "fin"
+              ? { x2: x, y2: y }
+              : { cx: x, cy: y },
+        );
+
+        return;
+      }
 
       /* Dentro del lienzo: una ficha fuera no se ve y no se puede recuperar. */
-      const x = Math.max(
-        40,
-        Math.min(TABLERO_W - 40, (event.clientX - caja.left) / k - activo.dx),
-      );
+      let x = Math.max(40, Math.min(TABLERO_W - 40, p.x - activo.dx));
+      let y = Math.max(CABECERA_H + FOTO_H, Math.min(TABLERO_H - 10, p.y - activo.dy));
 
-      const y = Math.max(
-        CABECERA_H + FOTO_H,
-        Math.min(TABLERO_H - 10, (event.clientY - caja.top) / k - activo.dy),
+      /*
+      | Imán de alineación: a menos de 10 px de la columna o de la fila de otra
+      | cara, se pega a ella. Una barrera o una línea de marcas se ve torcida
+      | en el proyector por tres píxeles. Con Alt pulsado no hay imán.
+      */
+      let guiaX: number | null = null;
+      let guiaY: number | null = null;
+
+      if (!event.altKey) {
+        let mejorX = 10;
+        let mejorY = 10;
+
+        for (const otra of fichasRef.current) {
+          if (otra.id === activo.id || !enElCampo(otra)) continue;
+
+          if (Math.abs(otra.x - x) < mejorX) {
+            mejorX = Math.abs(otra.x - x);
+            guiaX = otra.x;
+          }
+
+          if (Math.abs(otra.y - y) < mejorY) {
+            mejorY = Math.abs(otra.y - y);
+            guiaY = otra.y;
+          }
+        }
+
+        if (guiaX != null) x = guiaX;
+        if (guiaY != null) y = guiaY;
+      }
+
+      setGuias((actual) =>
+        actual.x === guiaX && actual.y === guiaY ? actual : { x: guiaX, y: guiaY },
       );
 
       onMover(activo.id, Math.round(x), Math.round(y));
     };
 
     const suelta = () => {
+      const activo = arrastre.current;
+
       arrastre.current = null;
+
+      setGuias((actual) => (actual.x == null && actual.y == null ? actual : { x: null, y: null }));
+
+      if (activo?.modo !== "dibujo") return;
+
+      const hecho = borradorRef.current;
+
+      setBorrador(null);
+
+      /* Por debajo del mínimo ha sido un clic, no una flecha. */
+      if (hecho && distancia({ x: hecho.x1, y: hecho.y1 }, { x: hecho.x2, y: hecho.y2 }) >= TRAZO_MINIMO) {
+        onCrearTrazo?.(hecho);
+      }
     };
 
     window.addEventListener("pointermove", mueve);
@@ -652,12 +848,32 @@ export function TableroSlide({
       window.removeEventListener("pointerup", suelta);
       window.removeEventListener("pointercancel", suelta);
     };
-  }, [onMover]);
+  }, [onMover, onCambiarTrazo, onCrearTrazo, alLienzo, setBorrador]);
 
   const puestos = puestosDe(slide);
   const grupos = gruposDe(slide);
 
-  const enCampo = slide.fichas.filter(enElCampo);
+  const trazos = slide.trazos ?? [];
+
+  /*
+  | Durante la reproducción cada cara está donde la lleva su carrera; parada,
+  | en su sitio. Lo que se mueve es sólo lo pintado: el documento no cambia.
+  */
+  const enCampo = slide.fichas.filter(enElCampo).map((ficha) => {
+    if (tiempo == null) return ficha;
+
+    const { x, y } = posicionEn(ficha, trazos, tiempo);
+
+    return x === ficha.x && y === ficha.y ? ficha : { ...ficha, x, y };
+  });
+
+  const balon = balonEn(trazos, tiempo);
+
+  const editaTrazos = !soloVer && tiempo == null;
+
+  const elegido = editaTrazos
+    ? (trazos.find((trazo) => trazo.id === trazoElegido) ?? null)
+    : null;
 
   const ocupados = new Set(
     slide.fichas.map((ficha) => ficha.puesto).filter(Boolean) as string[],
@@ -695,6 +911,17 @@ export function TableroSlide({
           transform: `scale(${escala})`,
           transformOrigin: "top left",
           backgroundColor: COLORES.tinta,
+        }}
+        /* Pinchar en el césped suelta lo elegido. */
+        onPointerDown={(event) => {
+          if (soloVer || herramienta !== "mover") return;
+
+          const blanco = event.target as Element;
+
+          if (blanco.closest("[data-ficha],[data-trazo],button")) return;
+
+          onSeleccionar(null);
+          onElegirTrazo?.(null);
         }}
       >
         {/* ------------------------- CAMPO ------------------------- */}
@@ -881,10 +1108,23 @@ export function TableroSlide({
           <Adorno key={`${adorno.tipo}-${indice}`} adorno={adorno} />
         ))}
 
+        {/* ----------------- CARRERAS, BALÓN, BLOQUEOS ----------------- */}
+
+        <CapaTrazos
+          trazos={borrador ? [...trazos, borrador] : trazos}
+          tiempo={tiempo}
+          elegido={elegido?.id ?? null}
+          editable={editaTrazos && herramienta === "mover"}
+          onElegir={(id) => {
+            onElegirTrazo?.(id);
+            onSeleccionar(null);
+          }}
+        />
+
         {/* ------------------ HUECOS Y FICHAS ---------------------- */}
 
         {puestos
-          .filter((puesto) => puesto.x != null && !ocupados.has(puesto.key))
+          .filter((puesto) => !soloVer && puesto.x != null && !ocupados.has(puesto.key))
           .map((puesto) => (
             <Hueco
               key={puesto.key}
@@ -903,11 +1143,65 @@ export function TableroSlide({
             player={players.get(ficha.playerId)}
             code={codeDe(ficha)}
             dorsal={dorsalDe(ficha)}
-            seleccionada={seleccion === ficha.id}
+            seleccionada={!soloVer && seleccion === ficha.id}
+            soloVer={soloVer || tiempo != null}
             onPointerDown={(event) => empieza(event, ficha)}
             onQuitar={() => onQuitar(ficha.id)}
           />
         ))}
+
+        {balon && <BalonEnJuego x={balon.x} y={balon.y} />}
+
+        {/* Las guías del imán, mientras se arrastra: no se exportan. */}
+        {guias.x != null && (
+          <div
+            data-export-hide
+            className="pointer-events-none absolute top-0"
+            style={{
+              left: guias.x - 1,
+              width: 2,
+              height: TABLERO_H,
+              zIndex: 2_950_000,
+              backgroundImage: `repeating-linear-gradient(180deg, ${COLORES.oroClaro} 0 10px, transparent 10px 18px)`,
+            }}
+          />
+        )}
+
+        {guias.y != null && (
+          <div
+            data-export-hide
+            className="pointer-events-none absolute left-0"
+            style={{
+              top: guias.y - 1,
+              height: 2,
+              width: TABLERO_W,
+              zIndex: 2_950_000,
+              backgroundImage: `repeating-linear-gradient(90deg, ${COLORES.oroClaro} 0 10px, transparent 10px 18px)`,
+            }}
+          />
+        )}
+
+        {/*
+        | La lona de dibujo: con una herramienta de trazo en la mano, todo el
+        | lienzo es para dibujar. Se pulsa en el arranque —si cae cerca de una
+        | cara, la carrera sale de sus pies— y se suelta en la punta.
+        */}
+        {editaTrazos && herramienta !== "mover" && (
+          <div
+            data-export-hide
+            className="absolute inset-0"
+            style={{ zIndex: 2_800_000, cursor: "crosshair", touchAction: "none" }}
+            onPointerDown={empiezaDibujo}
+          />
+        )}
+
+        {elegido && herramienta === "mover" && (
+          <MandosTrazo
+            trazo={elegido}
+            onTirar={(cual) => tira(elegido.id, cual)}
+            onEnderezar={() => onCambiarTrazo?.(elegido.id, { cx: undefined, cy: undefined })}
+          />
+        )}
 
         {/* --------------------- PANEL DERECHO --------------------- */}
 
