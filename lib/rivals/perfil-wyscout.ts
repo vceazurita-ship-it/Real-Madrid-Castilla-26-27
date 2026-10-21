@@ -58,18 +58,42 @@ export const MINUTOS_PARA_LEER = 270;
 */
 const NO_ES_FORTALEZA = new Set(["Faltas recibidas/90"]);
 
+/*
+| Un percentil sobre uno o dos casos no es un rasgo (21/10/2026).
+|
+| «Goles de cabeza 0,14 · p90» en un central de 623′ es UN gol: con eso sale
+| por delante del 90 % de los centrales y en verde, con el mismo peso que algo
+| que repite cada partido. Las métricas «por 90′» se vuelven a contar en casos
+| (valor × minutos / 90) y con menos de éstos no entran ni por arriba ni por
+| abajo. Lo pidió el experto de análisis.
+|
+| Y la misma cifra dos veces no es un fallo de lectura: Carmona lleva 13
+| faltas hechas y 13 recibidas en 623′ (1,88 las dos). Se comprobó contra el
+| .xlsx: son dos columnas distintas y 35 de 295 jugadores con 270′ repiten la
+| pareja por pura coincidencia. Por eso el rasgo lleva sus casos: «13 en 623′»
+| deja ver que son dos recuentos, no uno copiado.
+*/
+export const CASOS_MINIMOS = 3;
+
 export type RasgoWyscout = {
   nombre: string;
   valor: number;
   unidad: Unidad;
   percentil: number;
   comoLeer: string;
+  /** `false` cuando menos es mejor (faltas cometidas, pérdidas): el percentil ya va al revés. */
+  mejorAlto: boolean;
+  /** Cuántas veces en la temporada, si la métrica es «por 90′»; `null` en porcentajes. */
+  casos: number | null;
 };
 
 export type PerfilWyscout = {
   /** Cómo le llama Wyscout, por si no coincide con la hoja. */
   jugador: string;
+  /** La sigla de Wyscout («LCB»). */
   posicion: string;
+  /** La misma, en palabras de caseta («central izquierdo»); vacía si no hay equivalencia. */
+  posicionTexto: string;
   puesto: Puesto;
   puestoLabel: string;
   partidos: number;
@@ -88,16 +112,45 @@ export type PerfilesDeEquipo = {
   perfiles: PerfilWyscout[];
 };
 
-const rasgo = (r: { metrica: { nombre: string; unidad: Unidad; comoLeer: string }; valor: number; percentil: number }): RasgoWyscout => ({
-  nombre: r.metrica.nombre,
-  valor: r.valor,
-  unidad: r.metrica.unidad,
-  percentil: r.percentil,
-  comoLeer: r.metrica.comoLeer,
+type Candidato = {
+  metrica: { nombre: string; unidad: Unidad; comoLeer: string; columna: string; mejorAlto: boolean | null };
+  valor: number;
+  percentil: number;
+};
+
+/** Los casos de la temporada de una métrica «por 90′». */
+const casosDe = (c: Candidato, minutos: number) =>
+  c.metrica.columna.endsWith("/90") ? Math.round((c.valor * minutos) / 90) : null;
+
+const rasgo = (c: Candidato, minutos: number): RasgoWyscout => ({
+  nombre: c.metrica.nombre,
+  valor: c.valor,
+  unidad: c.metrica.unidad,
+  percentil: c.percentil,
+  comoLeer: c.metrica.comoLeer,
+  mejorAlto: c.metrica.mejorAlto !== false,
+  casos: casosDe(c, minutos),
 });
 
-/** En el servidor: los de un club, cada uno contra los de su puesto en la categoría. */
-export function perfilesDeEquipo(jugadores: FilaJugador[], equipo: string): PerfilesDeEquipo {
+/** Con un caso o dos, el percentil no dice nada de él. */
+const conCasos = (minutos: number) => (c: Candidato) => {
+  const casos = casosDe(c, minutos);
+
+  return casos === null || casos >= CASOS_MINIMOS;
+};
+
+/**
+ * En el servidor: los de un club, cada uno contra los de su puesto en la categoría.
+ *
+ * `traducePuesto` pasa la sigla de Wyscout a palabras. Se recibe de fuera para
+ * que este archivo, que también usa la pantalla, no arrastre al navegador el
+ * módulo del informe donde vive la tabla.
+ */
+export function perfilesDeEquipo(
+  jugadores: FilaJugador[],
+  equipo: string,
+  traducePuesto: (sigla: string) => string = () => "",
+): PerfilesDeEquipo {
   const actuales = jugadores.filter((j) => j.temporada === "actual");
 
   const suyos = actuales.filter((j) => j.minutos > 0 && mismoClub(j.equipo, equipo));
@@ -114,9 +167,12 @@ export function perfilesDeEquipo(jugadores: FilaJugador[], equipo: string): Perf
     const puesto = puestoDe(fila.posicion);
     const iguales = igualesDe.get(puesto) ?? [];
 
+    const sigla = fila.posicion.split(",")[0].trim();
+
     const base = {
       jugador: fila.jugador,
-      posicion: fila.posicion.split(",")[0].trim(),
+      posicion: sigla,
+      posicionTexto: traducePuesto(sigla),
       puesto,
       puestoLabel: PUESTOS.find((p) => p.key === puesto)?.label ?? puesto,
       partidos: fila.partidos,
@@ -128,16 +184,27 @@ export function perfilesDeEquipo(jugadores: FilaJugador[], equipo: string): Perf
       return { ...base, muestraCorta: true, fuertes: [], flojos: [] };
     }
 
-    const { fuertes, flojos } = fuertesYFlojos(fila, iguales, puesto);
+    /*
+    | De todas las métricas, no sólo de las cuatro de cada punta: quitar las de
+    | un caso dejaba la columna vacía cuando las cuatro de arriba eran rarezas.
+    */
+    const { todas } = fuertesYFlojos(fila, iguales, puesto);
+    const validas = todas.filter(conCasos(fila.minutos));
+    const minutos = Math.round(fila.minutos);
 
     return {
       ...base,
       muestraCorta: false,
-      fuertes: fuertes
+      fuertes: [...validas]
+        .sort((a, b) => b.percentil - a.percentil)
         .filter((f) => f.percentil >= PERCENTIL_FUERTE && !NO_ES_FORTALEZA.has(f.metrica.columna))
         .slice(0, 3)
-        .map(rasgo),
-      flojos: flojos.filter((f) => f.percentil <= PERCENTIL_FLOJO).slice(0, 3).map(rasgo),
+        .map((f) => rasgo(f, minutos)),
+      flojos: [...validas]
+        .sort((a, b) => a.percentil - b.percentil)
+        .filter((f) => f.percentil <= PERCENTIL_FLOJO)
+        .slice(0, 3)
+        .map((f) => rasgo(f, minutos)),
     };
   });
 
