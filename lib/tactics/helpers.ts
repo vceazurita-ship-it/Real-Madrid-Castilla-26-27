@@ -66,6 +66,7 @@ export function normalizeDoc(raw: unknown, titulo?: string): TacticsDoc {
     figuras: value.figuras,
     semanaOnces: value.semanaOnces,
     sinNombres: value.sinNombres,
+    guias: value.guias,
   };
 }
 

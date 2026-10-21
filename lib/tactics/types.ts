@@ -123,6 +123,14 @@ export interface TacticsDoc {
    * rótulos se pisan unos a otros y tapan las flechas. El dorsal sigue.
    */
   sinNombres?: boolean;
+
+  /**
+   * Los carriles y las alturas pintados sobre el césped (21/10/2026): tres
+   * tercios y cinco carriles (bandas, intervalos y centro, con el ancho del
+   * área grande y del área pequeña). Para explicar el juego de posición
+   * hablando de «el intervalo» sin tener que señalarlo con el dedo.
+   */
+  guias?: boolean;
 }
 
 export const PITCH_WIDTH = 100;

@@ -38,6 +38,7 @@ import {
   Film,
   Image as ImageIcon,
   Keyboard,
+  Grid3x3,
   LayoutGrid,
   Mic,
   Plus,
@@ -185,7 +186,7 @@ function nombreCorto(nombre: string) {
 function claveNombre(nombre?: string) {
   return String(nombre ?? "")
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
@@ -494,6 +495,28 @@ export default function TacticsBoard({
       tramoSuave(tramo)
     );
   }, [live, fotograma, nextScene, displayScene.tokens, tramo]);
+
+  /** De dónde salió cada ficha que se está moviendo en este tramo. */
+  const estelas = useMemo(() => {
+    if ((!live && !fotograma) || !nextScene || tramo === 0) return [];
+
+    const salida = new Map(displayScene.tokens.map((token) => [token.id, token]));
+
+    return visibleTokens.flatMap((token) => {
+      const desde = salida.get(token.id);
+
+      if (!desde || Math.hypot(token.x - desde.x, token.y - desde.y) < 1.2) return [];
+
+      return [{
+        id: token.id,
+        x1: desde.x,
+        y1: desde.y,
+        x2: token.x,
+        y2: token.y,
+        color: token.kind === "away" ? "#F87171" : token.kind === "ball" ? "#FDE68A" : "#F8FAFC",
+      }];
+    });
+  }, [live, fotograma, nextScene, tramo, displayScene.tokens, visibleTokens]);
 
   /*
    * Mientras la jugada corre, la escena en edición sigue al reproductor: al
@@ -1759,6 +1782,31 @@ export default function TacticsBoard({
 
   const unaElegida = elegidasVivas.length === 1 ? scene.tokens.find((token) => token.id === elegidasVivas[0]) : undefined;
 
+  /*
+  | Cuánto ocupan las elegidas, en metros (21/10/2026): el campo de la pizarra
+  | mide 100 × 68 y el de verdad 105 × 68, así que lo largo se estira un 5 %.
+  | Con dos, la distancia entre ellas; con más, el largo y el ancho del bloque
+  | —lo que se mira para saber si un equipo está junto—.
+  */
+  const medida = useMemo(() => {
+    const fichas = scene.tokens.filter((token) => elegidasSet.has(token.id));
+
+    if (fichas.length < 2) return "";
+
+    if (fichas.length === 2) {
+      const [a, b] = fichas;
+
+      return `a ${Math.round(Math.hypot((a.x - b.x) * 1.05, a.y - b.y))} m`;
+    }
+
+    const xs = fichas.map((token) => token.x);
+    const ys = fichas.map((token) => token.y);
+    const largo = Math.round((Math.max(...xs) - Math.min(...xs)) * 1.05);
+    const ancho = Math.round(Math.max(...ys) - Math.min(...ys));
+
+    return `${largo} m de largo × ${ancho} m de ancho`;
+  }, [elegidasSet, scene.tokens]);
+
   const ocupado = formato !== null;
 
   return (
@@ -1986,6 +2034,15 @@ export default function TacticsBoard({
                   </Chip>
 
                   <Chip
+                    activo={Boolean(doc.guias)}
+                    onClick={() => commit({ ...doc, guias: doc.guias ? undefined : true })}
+                    title="Tercios y carriles sobre el césped: bandas, intervalos y centro, con el ancho de las áreas"
+                  >
+                    <Grid3x3 size={12} />
+                    Carriles
+                  </Chip>
+
+                  <Chip
                     activo={entornoVisible}
                     onClick={() => commit({ ...doc, entorno: !entornoVisible })}
                     title={
@@ -2131,6 +2188,7 @@ export default function TacticsBoard({
               {elegidasVivas.length === 1
                 ? `${unaElegida?.nombre ? nombreCorto(unaElegida.nombre) : unaElegida?.label ? `Ficha ${unaElegida.label}` : "1 ficha"} elegida`
                 : `${elegidasVivas.length} fichas elegidas`}
+              {medida && <span className="ml-1.5 font-normal tabular-nums text-white/55">· {medida}</span>}
             </span>
 
             {elegidasVivas.length >= 2 && (
@@ -2349,6 +2407,46 @@ export default function TacticsBoard({
           </defs>
 
           <PitchMarkings campo={campoActivo} />
+
+          {/*
+            Carriles y alturas. Los carriles salen de las líneas que ya están
+            en el campo —el ancho del área grande (40,32 m) y el del área
+            pequeña (18,32 m)—, que es como se cuentan en el juego de posición.
+          */}
+          {doc.guias && (
+            <g style={{ pointerEvents: "none" }} stroke="rgba(255,255,255,.32)" strokeWidth={0.22} strokeDasharray="1.2 1">
+              {[100 / 3, 200 / 3].map((x) => (
+                <line key={`x${x}`} x1={x} y1={0} x2={x} y2={PITCH_HEIGHT} />
+              ))}
+              {[13.84, 24.84, 43.16, 54.16].map((y) => (
+                <line key={`y${y}`} x1={0} y1={y} x2={100} y2={y} />
+              ))}
+            </g>
+          )}
+
+          {/*
+            La estela del movimiento: mientras la jugada corre, cada ficha deja
+            una línea fina desde donde salió. En la charla se ve quién se ha
+            movido y cuánto, y en el vídeo se sigue sin perder a nadie.
+          */}
+          {estelas.length > 0 && (
+            <g style={{ pointerEvents: "none" }}>
+              {estelas.map((estela) => (
+                <line
+                  key={`estela-${estela.id}`}
+                  x1={estela.x1}
+                  y1={estela.y1}
+                  x2={estela.x2}
+                  y2={estela.y2}
+                  stroke={estela.color}
+                  strokeOpacity={0.55}
+                  strokeWidth={0.35}
+                  strokeDasharray="0.9 0.7"
+                  strokeLinecap="round"
+                />
+              ))}
+            </g>
+          )}
 
           {/* Formas */}
           <g>
