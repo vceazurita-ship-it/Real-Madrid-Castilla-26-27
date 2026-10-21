@@ -3103,9 +3103,7 @@ function Coding() {
       firma:
         ambito === "rival"
           ? undefined
-          : individual
-            ? `RMCF CASTILLA · FEEDBACK INDIVIDUAL · ${titulo}`
-            : `RMCF CASTILLA · VÍDEO DE TRABAJO · ${titulo}`,
+          : `RMCF CASTILLA · ${individual ? "FEEDBACK INDIVIDUAL" : "VÍDEO DE TRABAJO"} · ${titulo.replace(/^RMCF Castilla · /i, "")}`,
       objetivo: individual?.objetivo,
     });
   }, [

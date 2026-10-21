@@ -378,19 +378,28 @@ export function useExportador(opciones: {
   | ya entrado (`lib/coding/poster.ts`). El ZIP no: es un paquete de cortes,
   | no una pieza que se mande.
   */
-  const descargaPoster = useCallback(
+  /*
+  | Se saca ANTES de descargar el vídeo, no a la vez: leer el fotograma del
+  | mismo fichero mientras el navegador lo está guardando dejaba la descarga
+  | del MP4 a medias (se quedaba en «.crdownload» y nunca terminaba).
+  */
+  const preparaPoster = useCallback(
     async (peticion: PeticionExport, video?: Blob) => {
-      if (peticion.formato === "zip") return;
+      if (peticion.formato === "zip") return null;
+
+      if (peticion.formato === "unificado" && peticion.portada) return peticion.portada;
+
+      return video ? await posterDeVideo(video) : null;
+    },
+    [],
+  );
+
+  const descargaPoster = useCallback(
+    async (peticion: PeticionExport, imagen: string | null) => {
+      if (!imagen) return;
 
       try {
-        const imagen =
-          peticion.formato === "unificado" && peticion.portada
-            ? peticion.portada
-            : video
-              ? await posterDeVideo(video)
-              : null;
-
-        if (imagen) await descargaDataUrl(imagen, `${peticion.nombre}-poster.jpg`);
+        await descargaDataUrl(imagen, `${peticion.nombre}-poster.jpg`);
       } catch (error) {
         console.warn("[coding] el póster no se ha podido guardar", error);
       }
@@ -445,6 +454,8 @@ export function useExportador(opciones: {
 
         const nombre = `${peticion.nombre}.${resultado.extension}`;
 
+        const poster = await preparaPoster(peticion, resultado.blob);
+
         descarga(resultado.blob, nombre);
 
         toast.success("Vídeo listo", {
@@ -461,7 +472,7 @@ export function useExportador(opciones: {
           setUltimo({ nombre, segundos: resultado.segundos, bytes: resultado.blob.size });
         }
 
-        await descargaPoster(peticion, resultado.blob);
+        await descargaPoster(peticion, poster);
 
         if (peticion.formato !== "zip") {
           await alTerminarVideo?.(resultado.blob, nombre);
@@ -487,6 +498,7 @@ export function useExportador(opciones: {
     [
       alTerminarVideo,
       descargaPoster,
+      preparaPoster,
       familiaRotulo,
       fps,
       fundidoMs,
@@ -681,6 +693,8 @@ export function useExportador(opciones: {
 
         const extension = peticion.formato === "zip" ? "zip" : "mp4";
 
+        const poster = await preparaPoster(peticion, blob);
+
         descarga(blob, `${peticion.nombre}.${extension}`);
 
         /*
@@ -719,7 +733,7 @@ export function useExportador(opciones: {
           });
         }
 
-        await descargaPoster(peticion, blob);
+        await descargaPoster(peticion, poster);
 
         if (peticion.formato !== "zip") {
           await alTerminarVideo?.(blob, `${peticion.nombre}.${extension}`);
@@ -742,6 +756,7 @@ export function useExportador(opciones: {
     [
       alTerminarVideo,
       descargaPoster,
+      preparaPoster,
       familiaRotulo,
       fundidoMs,
       modo,
