@@ -1974,7 +1974,13 @@ export default function JugadoresSesionPage() {
       const imagenes = await capturaLienzos(raiz, "[data-lamina-equipos]", {
         ancho: LAMINA_W,
         alto: LAMINA_H,
-        fondo: "#0B0F14",
+        /*
+        | Blanco, como la lámina (21/10/2026). `html-to-image` pone este color
+        | de fondo al nodo que captura, encima del suyo: con el azul noche de
+        | antes la imagen y el PDF salían con el marco oscuro que no se veía en
+        | la vista previa.
+        */
+        fondo: "#FFFFFF",
         alPaso: (hechas, total) => setExportando({ laminas, paso: `Imagen ${hechas} de ${total}…` }),
       });
 
