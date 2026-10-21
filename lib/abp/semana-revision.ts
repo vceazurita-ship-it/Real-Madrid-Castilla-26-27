@@ -187,7 +187,10 @@ export function revisaSemana({
       id: "minutos",
       tono: faltan <= 5 ? "aviso" : "alerta",
       titulo: `Faltan ${faltan}′ para el objetivo`,
-      detalle: `${fmtMin(minutos)} de ${objetivo.minimo}-${objetivo.maximo}′.`,
+      /* Con tareas pero sin minutos, «0′ de 60-67′» repetía la tarjeta. */
+      detalle: minutos
+        ? `${fmtMin(minutos)} de ${objetivo.minimo}-${objetivo.maximo}′.`
+        : `Ninguna tarea tiene minutos todavía: ponle tiempo o pide el boceto.`,
     });
   } else if (minutos > objetivo.maximo) {
     puntos.push({

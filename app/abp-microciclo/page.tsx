@@ -1869,7 +1869,7 @@ export default function AbpMicrocicloPage() {
                             </p>
 
                             <p className="mt-0.5 text-[10.5px] tabular-nums text-white/40">
-                              {fila.stats.acciones} acciones
+                              {fila.stats.acciones} {fila.stats.acciones === 1 ? "acción" : "acciones"}
                               {fila.stats.remates
                                 ? ` · ${fila.stats.remates} ${fila.stats.remates === 1 ? "remate" : "remates"}`
                                 : ""}
