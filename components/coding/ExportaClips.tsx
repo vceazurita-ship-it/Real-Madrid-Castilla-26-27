@@ -723,6 +723,14 @@ export function useExportador(opciones: {
           )}`,
         });
 
+        /* Ni la segunda pasada lo mete: que se sepa antes de mandarlo. */
+        if (extension === "mp4" && topeMegas > 0 && blob.size > topeMegas * 1_000_000) {
+          toast.warning(`Pesa ${megas(blob.size)}, más que el tope de ${topeMegas} MB`, {
+            description: "Es demasiado largo para ese tope: pártelo en dos listas o elige un tope mayor.",
+            duration: 10_000,
+          });
+        }
+
         if (peticion.formato !== "zip") {
           setUltimo({
             nombre: `${peticion.nombre}.${extension}`,

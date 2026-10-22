@@ -3173,6 +3173,14 @@ function Coding() {
   */
   const [objetivoIndividual, setObjetivoIndividual] = useState("");
 
+  /* El objetivo es de un jugador: al cambiar de jugador no se arrastra a la carátula del siguiente. */
+  const [objetivoDe, setObjetivoDe] = useState(filtroSujeto);
+
+  if (objetivoDe !== filtroSujeto) {
+    setObjetivoDe(filtroSujeto);
+    setObjetivoIndividual("");
+  }
+
   const verCaratula = useCallback(async () => {
     /* Con «una por jugador» se enseña la del primero: son todas la misma
        plantilla, y lo que se comprueba es que la plantilla sale bien. */

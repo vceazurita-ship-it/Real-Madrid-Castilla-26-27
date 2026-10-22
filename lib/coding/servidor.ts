@@ -1254,6 +1254,8 @@ export async function ajustaAlTope(archivo: string, topeMegas: number) {
 
   const nuevo = archivo.replace(/\.mp4$/i, "") + "-ajustado.mp4";
 
+  /* Si la segunda pasada falla, vale el MP4 de la primera: se pasa del tope, pero es bueno. */
+  try {
   await ejecuta(FFMPEG, [
     "-hide_banner",
     "-loglevel",
@@ -1281,6 +1283,12 @@ export async function ajustaAlTope(archivo: string, topeMegas: number) {
   ]);
 
   await rename(nuevo, archivo);
+  } catch (error) {
+    console.warn("[coding] la segunda pasada para caber en el tope ha fallado", error);
+    await rm(nuevo, { force: true }).catch(() => {});
+
+    return { bytes: antes, reintento: false };
+  }
 
   return { bytes: (await stat(archivo)).size, reintento: true };
 }
