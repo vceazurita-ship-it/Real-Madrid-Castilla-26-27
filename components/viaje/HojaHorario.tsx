@@ -273,20 +273,20 @@ export function HojaHorario({
         */}
         <div style={{ display: "flex", gap: 14, marginTop: 22 }}>
           {[
-            { rotulo: "Jornada", dato: viaje.jornada || "—" },
+            { rotulo: "Jornada", dato: viaje.jornada || "" },
             esDelPartido
-              ? { rotulo: "Hora", dato: viaje.hora || "—" }
+              ? { rotulo: "Hora", dato: viaje.hora || "" }
               : {
                   rotulo: "Se juega",
                   dato: [diaCorto(viaje.fecha), viaje.hora]
                     .filter(Boolean)
-                    .join(" · ") || "—",
+                    .join(" · "),
                 },
             {
               rotulo: viaje.condicion === "local" ? "En casa" : "Fuera",
-              dato: viaje.estadio.nombre || "—",
+              dato: viaje.estadio.nombre || "",
             },
-          ].map((dato) => (
+          ].filter((dato) => dato.dato).map((dato) => (
             <div
               key={dato.rotulo}
               style={{
