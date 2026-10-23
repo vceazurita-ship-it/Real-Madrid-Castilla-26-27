@@ -141,6 +141,12 @@ export function Parrilla({
                       <span className="block max-w-[56px] truncate text-[9px] font-normal text-white/45">
                         {persona ? nombreCorto(persona) : slug}
                       </span>
+
+                      {filas.every((fila) => !fila.signos[slug]) && (
+                        <span className="block text-[9px] font-normal text-white/40">
+                          sin apostar
+                        </span>
+                      )}
                     </span>
                   </th>
                 );
@@ -277,8 +283,8 @@ export function Parrilla({
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-white/35">
-        Un punto es que no lo puso. Mientras no haya resultado, los signos van
-        en dorado: no hay nada que acertar todavía.
+        Un punto es que no lo puso. Los signos van en dorado hasta que se
+        juega el partido.
       </p>
     </Panel>
   );

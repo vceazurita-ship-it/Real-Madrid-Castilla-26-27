@@ -529,6 +529,106 @@ export default function QuinielaPage() {
           ? "error"
           : "saved";
 
+  /* El ranking es el mismo cerrada o abierta la jornada; cerrada sube justo
+     detrás de «Quién juega» (21/10/2026). */
+  const panelRanking = (
+    <>
+            {/* ---------------------- EL RANKING ---------------------- */}
+
+            {/* Sin un solo resultado en la temporada no hay ranking que
+                enseñar: el panel no sale. */}
+            {tabla.some((fila) => fila.total.jugados > 0) && (
+            <div className="mt-5">
+              <Panel
+                title="Ranking de acierto"
+                subtitle="Toda la temporada. Se ordena por porcentaje, no por aciertos: quien se incorpora tarde no arranca con una desventaja imposible"
+                icon={Trophy}
+              >
+                {(
+                  <div className="min-w-0 overflow-x-auto">
+                    <table className="w-full min-w-[520px] text-[12px]">
+                      <thead>
+                        <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">
+                          <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
+                          <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Quién</th>
+                          <th className="w-20 pb-2 pt-1.5 text-right font-medium">Acierto</th>
+                          <th className="w-20 pb-2 pt-1.5 text-right font-medium">Aciertos</th>
+                          {tabla.some((fila) => fila.semana.jugados > 0) && (
+                            <th className="w-24 pb-2 pt-1.5 text-right font-medium">Esta jornada</th>
+                          )}
+                          <th className="w-20 pb-2 pt-1.5 text-right font-medium">Jornadas</th>
+                        </tr>
+                      </thead>
+
+                      <tbody>
+                        {tabla.map((fila, indice) => {
+                          const persona = PERSONA_POR_SLUG.get(fila.slug);
+
+                          if (!persona) return null;
+
+                          const lider = indice === 0 && fila.total.jugados > 0;
+
+                          return (
+                            <tr
+                              key={fila.slug}
+                              className={`border-t border-white/[0.06] ${
+                                lider ? "bg-[#C8A96B]/[0.07]" : ""
+                              }`}
+                            >
+                              <td className="py-1.5 text-right text-[10px] tabular-nums text-white/25">
+                                {indice + 1}
+                              </td>
+
+                              <td className="py-1.5 pl-2">
+                                <span className="flex items-center gap-2">
+                                  <Avatar slug={fila.slug} lado={24} />
+
+                                  {/* Sólo el nombre: el puesto de cada uno no
+                                      pinta nada en una apuesta entre
+                                      compañeros (17/09/2026). */}
+                                  <span className="min-w-0 truncate text-white/85">
+                                    {persona.nombre}
+                                  </span>
+                                </span>
+                              </td>
+
+                              <td
+                                className={`py-1.5 text-right tabular-nums ${
+                                  lider ? "font-semibold text-[#C8A96B]" : "text-white/75"
+                                }`}
+                              >
+                                {`${fila.total.porcentaje.toFixed(0)} %`}
+                              </td>
+
+                              <td className="py-1.5 text-right tabular-nums text-white/55">
+                                {fila.total.aciertos}
+                                <span className="text-white/25">
+                                  /{fila.total.jugados}
+                                </span>
+                              </td>
+
+                              {tabla.some((otra) => otra.semana.jugados > 0) && (
+                                <td className="py-1.5 text-right tabular-nums text-white/55">
+                                  {`${fila.semana.aciertos}/${fila.semana.jugados}`}
+                                </td>
+                              )}
+
+                              <td className="py-1.5 text-right tabular-nums text-white/45">
+                                {fila.jornadasGanadas}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Panel>
+            </div>
+            )}
+    </>
+  );
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -794,6 +894,12 @@ export default function QuinielaPage() {
               </Panel>
             </div>
 
+            {plazo.cerrada && panelRanking}
+
+            {/* Cerrada y sin haber entrado, los 1-X-2 son casillas muertas: la tabla
+                de «Lo que ha puesto cada uno» ya lo cuenta todo. */}
+            {!(plazo.cerrada && !yo) && (
+            <>
             {/* --------------------- LOS PARTIDOS --------------------- */}
 
             <div className="mt-5">
@@ -801,9 +907,7 @@ export default function QuinielaPage() {
                 title="Los partidos"
                 subtitle={
                   !yo
-                    ? plazo.cerrada
-                      ? "Entra para meter los resultados"
-                      : "Entra con tu correo para apostar y meter resultados"
+                    ? "Entra con tu correo para apostar y meter resultados"
                     : plazo.cerrada
                       ? "Jornada cerrada: tu apuesta ya no se puede cambiar"
                       : !docAlDia
@@ -1104,8 +1208,10 @@ export default function QuinielaPage() {
                 )}
               </Panel>
             </div>
+            </>
+            )}
 
-            {plazo.cerrada && (
+            {plazo.cerrada && yo && (
               <div className="mt-5">
                 <Acceso
                   yo={sesion.yo}
@@ -1126,99 +1232,7 @@ export default function QuinielaPage() {
               />
             </div>
 
-            {/* ---------------------- EL RANKING ---------------------- */}
-
-            {/* Sin un solo resultado en la temporada no hay ranking que
-                enseñar: el panel no sale. */}
-            {tabla.some((fila) => fila.total.jugados > 0) && (
-            <div className="mt-5">
-              <Panel
-                title="Ranking de acierto"
-                subtitle="Toda la temporada. Se ordena por porcentaje, no por aciertos: quien se incorpora tarde no arranca con una desventaja imposible"
-                icon={Trophy}
-              >
-                {(
-                  <div className="min-w-0 overflow-x-auto">
-                    <table className="w-full min-w-[520px] text-[12px]">
-                      <thead>
-                        <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">
-                          <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
-                          <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Quién</th>
-                          <th className="w-20 pb-2 pt-1.5 text-right font-medium">Acierto</th>
-                          <th className="w-20 pb-2 pt-1.5 text-right font-medium">Aciertos</th>
-                          {tabla.some((fila) => fila.semana.jugados > 0) && (
-                            <th className="w-24 pb-2 pt-1.5 text-right font-medium">Esta jornada</th>
-                          )}
-                          <th className="w-20 pb-2 pt-1.5 text-right font-medium">Jornadas</th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {tabla.map((fila, indice) => {
-                          const persona = PERSONA_POR_SLUG.get(fila.slug);
-
-                          if (!persona) return null;
-
-                          const lider = indice === 0 && fila.total.jugados > 0;
-
-                          return (
-                            <tr
-                              key={fila.slug}
-                              className={`border-t border-white/[0.06] ${
-                                lider ? "bg-[#C8A96B]/[0.07]" : ""
-                              }`}
-                            >
-                              <td className="py-1.5 text-right text-[10px] tabular-nums text-white/25">
-                                {indice + 1}
-                              </td>
-
-                              <td className="py-1.5 pl-2">
-                                <span className="flex items-center gap-2">
-                                  <Avatar slug={fila.slug} lado={24} />
-
-                                  {/* Sólo el nombre: el puesto de cada uno no
-                                      pinta nada en una apuesta entre
-                                      compañeros (17/09/2026). */}
-                                  <span className="min-w-0 truncate text-white/85">
-                                    {persona.nombre}
-                                  </span>
-                                </span>
-                              </td>
-
-                              <td
-                                className={`py-1.5 text-right tabular-nums ${
-                                  lider ? "font-semibold text-[#C8A96B]" : "text-white/75"
-                                }`}
-                              >
-                                {`${fila.total.porcentaje.toFixed(0)} %`}
-                              </td>
-
-                              <td className="py-1.5 text-right tabular-nums text-white/55">
-                                {fila.total.aciertos}
-                                <span className="text-white/25">
-                                  /{fila.total.jugados}
-                                </span>
-                              </td>
-
-                              {tabla.some((otra) => otra.semana.jugados > 0) && (
-                                <td className="py-1.5 text-right tabular-nums text-white/55">
-                                  {`${fila.semana.aciertos}/${fila.semana.jugados}`}
-                                </td>
-                              )}
-
-                              <td className="py-1.5 text-right tabular-nums text-white/45">
-                                {fila.jornadasGanadas}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Panel>
-            </div>
-            )}
+            {!plazo.cerrada && panelRanking}
 
             {/* ---------------------- LA COMIDA ----------------------- */}
 
@@ -1307,6 +1321,18 @@ export default function QuinielaPage() {
                 dos.
               </Notice>
             </div>
+
+            {plazo.cerrada && !yo && (
+              <div className="mt-5">
+                <Acceso
+                  yo={sesion.yo}
+                  cargando={sesion.cargando}
+                  manda={sesion.manda}
+                  titulo="Entra para ver lo tuyo"
+                  subtitulo="Ver el ranking no necesita entrar"
+                />
+              </div>
+            )}
               </>
             )}
           </div>

@@ -166,7 +166,7 @@ export default function EscudosPage() {
               /* Desde el 13/10/2026 la lista trae los dos grupos de la
                  categoría (`escudos:categoria`), no sólo el nuestro: el
                  rótulo lo dice para que nadie busque «los veinte». */
-              lead="Los escudos de la categoría —nuestro grupo y el otro— en un .pptx, cada uno como un objeto suelto con su PNG transparente: se copia y se pega donde haga falta."
+              lead="Los escudos de la categoría en un .pptx, por orden alfabético: cada uno es un objeto suelto con su PNG transparente, que se copia y se pega donde haga falta."
             />
 
             {/* ---------------- mandos ---------------- */}
