@@ -264,7 +264,11 @@ export function describeRepeticion(alerta: Alerta) {
          justo lo contrario de lo que hace. */
       const dias = alerta.diasAntesDelPartido ?? 2;
 
-      return dias === 0 ? "El día del partido" : `MD-${dias}`;
+      return dias === 0
+        ? "El día del partido"
+        : dias === 1
+          ? "El día antes del partido"
+          : `${dias} días antes del partido`;
     }
     default:
       return "Una sola vez";

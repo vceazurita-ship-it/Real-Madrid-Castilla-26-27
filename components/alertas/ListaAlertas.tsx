@@ -76,10 +76,19 @@ export default function ListaAlertas({
     return String(a.proximoEnvio).localeCompare(String(b.proximoEnvio));
   });
 
-  return (
-    <div className="space-y-2.5">
-      {ordenadas.map((alerta) => {
+  const vivas = ordenadas.filter((a) => a.activa);
+  const silenciadas = ordenadas.filter((a) => !a.activa);
+
+  const pinta = (alerta: Alerta) => {
         const bloqueada = ocupada === alerta.id;
+
+        /* Se pintaba en minúsculas tal cual se apuntó, y el cuerpo repetía el
+           título cuando sólo se había escrito uno. */
+        const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+        const titulo = mayuscula(alerta.titulo.trim());
+        const mensaje = alerta.mensaje?.trim() ?? "";
+        const repiteTitulo =
+          mensaje.toLowerCase() === alerta.titulo.trim().toLowerCase();
 
         return (
           <article
@@ -91,12 +100,12 @@ export default function ListaAlertas({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <h3 className="truncate text-sm font-semibold text-white">
-                  {alerta.titulo}
+                  {titulo}
                 </h3>
 
-                {alerta.mensaje && (
+                {mensaje && !repiteTitulo && (
                   <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/50">
-                    {alerta.mensaje}
+                    {mayuscula(mensaje)}
                   </p>
                 )}
               </div>
@@ -123,7 +132,7 @@ export default function ListaAlertas({
               <span className="inline-flex items-center gap-1.5">
                 <AlarmClock className="h-3 w-3" aria-hidden />
                 {!alerta.activa
-                  ? "Silenciada"
+                  ? "Silenciada: no sonará hasta que la reactives"
                   : fechaValida(alerta.proximoEnvio)
                     ? fechaLegible(alerta.proximoEnvio)
                     : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo.
@@ -170,7 +179,9 @@ export default function ListaAlertas({
 
               {alerta.envios > 0 && (
                 <span title={`Último: ${fechaLegible(alerta.ultimoEnvio)}`}>
-                  {alerta.envios} {alerta.envios === 1 ? "envío" : "envíos"}
+                  {alerta.envios === 1
+                    ? "Enviada 1 vez"
+                    : `Enviada ${alerta.envios} veces`}
                 </span>
               )}
             </div>
@@ -210,7 +221,25 @@ export default function ListaAlertas({
             </div>
           </article>
         );
-      })}
+  };
+
+  return (
+    <div className="space-y-2.5">
+      {vivas.map((alerta) => pinta(alerta))}
+
+      {/* Las silenciadas no suenan: se apartan para que la lista diga lo que
+          sí va a salir. */}
+      {silenciadas.length > 0 && (
+        <details className="group pt-1" open={vivas.length === 0}>
+          <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-xs text-white/50 transition hover:text-white">
+            Silenciadas ({silenciadas.length})
+          </summary>
+
+          <div className="mt-2 space-y-2.5">
+            {silenciadas.map((alerta) => pinta(alerta))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
