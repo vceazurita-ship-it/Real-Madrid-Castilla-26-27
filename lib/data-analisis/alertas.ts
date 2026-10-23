@@ -160,15 +160,21 @@ export function alertasDeData(
       ? todos.filter((v) => (metrica.mejorAlto ? v > nuestro : v < nuestro)).length + 1
       : todos.filter((v) => (metrica.mejorAlto ? v < nuestro : v > nuestro)).length + 1;
 
+    /* Un decimal y coma: con dos, 69,88 parece una precisión que no hay. */
+    const valor =
+      metrica.unidad === "decimal"
+        ? nuestro.toFixed(1).replace(".", ",")
+        : formatea(nuestro, metrica.unidad);
+
     alertas.push({
       clave: `metrica-${metrica.key}`,
       tono: arriba ? "buena" : "mala",
       area: "Data · contra la liga",
       titulo: arriba
-        ? `${metrica.nombre}: ${puesto}º de ${todos.length}`
-        : `${metrica.nombre}: ${puesto}º por la cola de ${todos.length}`,
+        ? `${metrica.nombre}: ${valor}, ${puesto === 1 ? "la mejor" : `${puesto}º`} de ${todos.length} equipos`
+        : `${metrica.nombre}: ${valor}, ${puesto === 1 ? "la peor" : `${puesto}º por la cola`} de ${todos.length} equipos`,
       detalle: metrica.comoLeer,
-      cifra: `${formatea(nuestro, metrica.unidad)} · percentil ${p}`,
+      cifra: `${metrica.mejorAlto ? "más es mejor" : "menos es mejor"}`,
       fuerza: Math.min(100, Math.abs(p - 50) * 2),
       enlace: "/data-analisis?area=liga",
       mira: "La barra de esa métrica y el resto de su fase de juego.",

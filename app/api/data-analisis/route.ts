@@ -273,6 +273,13 @@ function resumenDePortada(datos: Dataset) {
     puesto: xg === null ? null : todos.indexOf(xg) + 1 || null,
     deCuantos: todos.length,
     tope: todos[0] ?? null,
+    /* La referencia de la liga: sin ella, 2,23 no dice si es mucho o poco. */
+    mediana:
+      todos.length === 0
+        ? null
+        : todos.length % 2 === 1
+          ? todos[(todos.length - 1) / 2]
+          : (todos[todos.length / 2 - 1] + todos[todos.length / 2]) / 2,
     golesMenosXg: metDif ? valorEnGrupo(metDif, nuestros) : null,
   };
 }

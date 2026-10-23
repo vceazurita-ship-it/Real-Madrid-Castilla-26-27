@@ -109,6 +109,7 @@ export default function Home() {
     puesto: number | null
     deCuantos: number
     tope: number | null
+    mediana?: number | null
     golesMenosXg: number | null
   }
 
@@ -446,7 +447,7 @@ export default function Home() {
                   href="/data-analisis"
                   onClick={() => trackModuleVisit("/data-analisis")}
                   title="Lo que dicen los informes de Opta y Wyscout: el Castilla contra su historia, contra la liga y la categoría entera"
-                  className="light-sweep group relative block min-h-[320px] overflow-hidden rounded-[28px] border border-white/10 xl:min-h-[400px]"
+                  className="light-sweep group relative block min-h-[440px] overflow-hidden rounded-[28px] border border-white/10 sm:min-h-[320px] xl:min-h-[400px]"
                 >
                   <div
                     aria-hidden
@@ -511,7 +512,7 @@ export default function Home() {
                     día el blanco por clase se volvía tinta oscura sobre negro.
                   */}
                   {(cargandoData || resumenData?.xg != null) && (
-                  <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-4 rounded-[22px] border border-white/10 bg-black/60 px-5 py-4 backdrop-blur-xl">
+                  <div className="absolute inset-x-4 bottom-4 flex flex-col gap-4 rounded-[22px] border border-white/10 bg-black/75 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-end sm:justify-between">
                     <div className="min-w-0">
                       <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.78)" }}>
                         Goles esperados (xG) por partido
@@ -542,14 +543,14 @@ export default function Home() {
                         <p className="mt-2 text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
                           {resumenData.partidos} {resumenData.partidos === 1 ? "partido" : "partidos"}
                           {resumenData.puesto
-                            ? ` · ${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría`
+                            ? ` · ${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría${resumenData.mediana != null ? ` · mediana de la liga: ${resumenData.mediana.toFixed(2).replace(".", ",")}` : ""}`
                             : ""}
                         </p>
                       )}
                     </div>
 
                     {(cargandoData || resumenData?.golesMenosXg != null) && (
-                      <div className="shrink-0 text-right">
+                      <div className="sm:shrink-0 sm:text-right">
                         <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.78)" }}>
                           Goles − xG
                         </p>
@@ -574,7 +575,7 @@ export default function Home() {
 
                         {resumenData?.golesMenosXg != null && (
                           <p className="mt-1 text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
-                            por partido ·{" "}
+                            {resumenData.xg != null && `${Math.round((resumenData.xg + resumenData.golesMenosXg) * resumenData.partidos)} goles frente a ${(resumenData.xg * resumenData.partidos).toFixed(1).replace(".", ",")} esperados en ${resumenData.partidos} partidos: tendencia, no verdad · `}
                             {resumenData.golesMenosXg >= 0
                               ? "marcamos más de lo esperado"
                               : "marcamos menos de lo esperado"}

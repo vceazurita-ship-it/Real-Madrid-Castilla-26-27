@@ -116,6 +116,10 @@ export function AlertasPortada({
   /* En la tira caben tres; el resto está a un clic. Y que se vea una de cada
      signo aunque las tres más fuertes sean del mismo. */
   const enLaTira = (() => {
+    /* Con cuatro o menos se ven todas: así las cifras de los chips («2 a
+       vigilar») cuadran con lo que hay a la vista. */
+    if (alertas.length <= 4) return alertas;
+
     const fuertes = alertas.slice(0, 3);
 
     if (fuertes.some((a) => a.tono === "mala") || malas.length === 0) return fuertes;
@@ -178,7 +182,11 @@ export function AlertasPortada({
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 lg:grid-cols-3">
+          <div
+            className={`mt-4 grid gap-2 ${
+              alertas.length === 4 ? "sm:grid-cols-2 xl:grid-cols-4" : "lg:grid-cols-3"
+            }`}
+          >
             {enLaTira.map((alerta) => (
               <button
                 key={alerta.clave}
@@ -193,11 +201,11 @@ export function AlertasPortada({
                 />
 
                 <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-medium text-white/85">
+                  <span className="line-clamp-2 block text-[13px] font-medium leading-snug text-white/85">
                     {alerta.titulo}
                   </span>
 
-                  <span className="mt-0.5 block truncate text-[11px] tabular-nums text-white/40">
+                  <span className="mt-0.5 line-clamp-2 block text-[11px] tabular-nums text-white/40">
                     {alerta.cifra}
                   </span>
                 </span>
