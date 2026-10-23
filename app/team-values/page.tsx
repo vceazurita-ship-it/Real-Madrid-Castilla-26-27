@@ -90,11 +90,34 @@ function rotuloSeccion(s: string): string {
   return frase.charAt(0).toUpperCase() + frase.slice(1);
 }
 
-/** Nombre corto para el stepper: «Marco», «Planificación», «S1». */
+/** Títulos de la hoja que van mejor dichos de otra forma. */
+const TITULOS: Record<string, string> = {
+  "rol del staff": "Papel del cuerpo técnico",
+  "enfoque elite": "Enfoque de élite",
+  "enfoque élite": "Enfoque de élite",
+};
+
+/** «Quién Queremos Ser» → «Quién queremos ser»; «Rol del Staff» → «Papel del cuerpo técnico». Sólo para pintar. */
+function tituloElemento(t: string): string {
+  const limpio = t.trim();
+  const mapa = TITULOS[limpio.toLowerCase()];
+
+  if (mapa) return mapa;
+
+  const frase = limpio
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => (w === "staff" ? "cuerpo técnico" : (TILDES[w] ?? w)))
+    .join(" ");
+
+  return frase.charAt(0).toUpperCase() + frase.slice(1);
+}
+
+/** Nombre corto para el stepper: «Marco», «Planificación», «Sem. 1». */
 function cortoSeccion(s: string): string {
   const semana = /^semana\s+(\d+)$/i.exec(s.trim());
 
-  return semana ? `S${semana[1]}` : rotuloSeccion(s);
+  return semana ? `Sem. ${semana[1]}` : rotuloSeccion(s);
 }
 
 const TIPO_STYLES: Record<string, string> = {
@@ -519,7 +542,7 @@ export default function TeamValuesPage() {
             )}
           >
             {/* Cabecera con stepper */}
-            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 lg:rounded-3xl lg:p-6">
+            <div className="hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 lg:block lg:rounded-3xl lg:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <SectionLabel className="text-[#C8A96B]">
                   Hoja de ruta de la cultura
@@ -709,10 +732,10 @@ export default function TeamValuesPage() {
                           <div className="min-w-0 flex-1">
                             <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2">
                               <h3 className="break-words text-base font-semibold text-white lg:text-lg">
-                                <Highlight text={p.TITULO} query={query} />
+                                <Highlight text={tituloElemento(p.TITULO)} query={query} />
                               </h3>
 
-                              {p.TIPO && (
+                              {p.TIPO && tipos.length > 1 && (
                                 <span
                                   className={cn(
                                     "inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-medium ring-1",
@@ -728,7 +751,7 @@ export default function TeamValuesPage() {
                               <>
                                 <AutoTextarea
                                   value={p.CONTENIDO}
-                                  aria-label={`Contenido de ${p.TITULO}`}
+                                  aria-label={`Contenido de ${tituloElemento(p.TITULO)}`}
                                   onChange={(e) =>
                                     setData((prev) =>
                                       prev.map((item) =>

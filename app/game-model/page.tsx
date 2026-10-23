@@ -735,8 +735,8 @@ export default function GameModelPage() {
                 {!editing &&
                   claves.length > 0 &&
                   claves.length < principios.length && (
-                    <p className="mb-3 text-sm text-gray-400">
-                      <span className="font-semibold text-[#C8A96B]">
+                    <p className="mb-4 border-l-2 border-[#C8A96B] pl-3 text-base font-medium text-gray-200 lg:text-lg">
+                      <span className="font-bold text-[#C8A96B]">
                         Lo que no se negocia:
                       </span>{" "}
                       {claves
