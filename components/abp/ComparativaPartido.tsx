@@ -105,7 +105,7 @@ export function ComparativaPartido({
       ) : (
         <>
           {/* La cabecera de las columnas, para que las dos cifras se lean sin leyenda. */}
-          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] gap-x-3 border-b border-white/10 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40 sm:px-5">
+          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] gap-x-3 border-b border-white/10 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40 sm:pl-5 sm:pr-16">
             <span>Métrica</span>
             <span className="text-right" style={{ color: ORO_TINTA }}>
               Este partido
@@ -134,7 +134,7 @@ export function ComparativaPartido({
               return (
                 <li
                   key={m.clave}
-                  className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-x-3 px-4 py-2.5 sm:px-5"
+                  className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-x-3 px-4 py-2.5 sm:pl-5 sm:pr-16"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm text-white/85">{m.nombre}</p>

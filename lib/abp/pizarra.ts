@@ -82,6 +82,8 @@ export const COLORES = {
   /** El oro de la casa: el mismo acento que usa toda la plataforma. */
   oro: "#C8A96B",
   oroClaro: "#E4CE9B",
+  /** El oro para texto sobre papel blanco: el de la casa sólo llega a 2,3 de contraste. */
+  oroTinta: "#7A5F26",
   /**
    * El fondo del lienzo, por debajo de las fotos de campo.
    *
@@ -1179,18 +1181,32 @@ export function revisaTablero(tablero: TableroPizarra): RevisionPizarra {
     }
   }
 
+  /*
+  | Una diapositiva con todos sus puestos ocupados no admite a nadie más: que
+  | «DIRECTAS A PORTERÍA», con cinco puestos, no lleve a los otros trece no es un
+  | gazapo, es lo esperado. Sólo cuenta como ausencia la de una diapositiva en la
+  | que cabría.
+  */
+  const llenas = new Set(
+    conGente
+      .filter((slide) => {
+        const cupo = puestosDe(slide).length;
+
+        return cupo > 0 && new Set(slide.fichas.map((ficha) => ficha.playerId)).size >= cupo;
+      })
+      .map((slide) => slide.id),
+  );
+
   const gazapos: GazapoPizarra[] = [];
 
   for (const [playerId, suyas] of donde) {
-    if (suyas.size === conGente.length) continue;
+    const falta = conGente
+      .filter((slide) => !suyas.has(slide.id) && !llenas.has(slide.id))
+      .map((slide) => ({ id: slide.id, titulo: slide.titulo }));
 
-    gazapos.push({
-      playerId,
-      sale: [...suyas],
-      falta: conGente
-        .filter((slide) => !suyas.has(slide.id))
-        .map((slide) => ({ id: slide.id, titulo: slide.titulo })),
-    });
+    if (!falta.length) continue;
+
+    gazapos.push({ playerId, sale: [...suyas], falta });
   }
 
   /* Primero el que falta en más sitios: es el que más canta. */

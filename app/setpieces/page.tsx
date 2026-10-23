@@ -1256,6 +1256,16 @@ const mejorSacador = [...sin()]
   }, [] as { name: string; xg: number }[])
   .sort((a, b) => b.xg - a.xg)[0]?.name;
 
+/* Su base: de cuántos envíos sale. Con pocos es una tendencia, no un dato. */
+const baseSacador = (() => {
+  if (!mejorSacador) return "";
+  const conSacador = sin().filter((r) => r.sacador);
+  const suyos = conSacador.filter((r) => r.sacador === mejorSacador).length;
+  return `${suyos} de ${conSacador.length} envíos${
+    conSacador.length < 5 ? " · tendencia" : ""
+  }`;
+})();
+
 // Calidad del envío (1-4) frente al peligro que genera
 const calidadEnvioData = useMemo(() => {
   const grouped: Record<
@@ -2341,7 +2351,7 @@ const conclusiones = useMemo(() => {
   const xg = filtered.reduce((a, r) => a + r.xg, 0);
 
   const frases: (string | null)[] = [
-    `${plural(filtered.length, "ABP", "ABP")}: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol", "goles")}, xG ${cifra(xg)}.`,
+    `${plural(filtered.length, "ABP", "ABP")}: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol", "goles")}, xG ${cifra(xg, 2)}.`,
   ];
 
   const zona = mejorGrupo(
@@ -2365,11 +2375,11 @@ const conclusiones = useMemo(() => {
 
   if (rutina && rutina.valor > 0) {
     frases.push(
-      `Rutina que más rinde: «${rutina.nombre}», ${Math.round(rutina.valor * 100)} % gol u ocasión.`,
+      `Rutina que más rinde: «${rutina.nombre}», ${Math.round(rutina.valor * rutina.n)} de ${rutina.n} en gol u ocasión.`,
     );
   } else if (intencion && intencion.valor > 0) {
     frases.push(
-      `Intención más eficaz: ${intencion.nombre.toLowerCase()}, ${Math.round(intencion.valor * 100)} % gol u ocasión.`,
+      `Intención más eficaz: ${intencion.nombre.toLowerCase()}, ${Math.round(intencion.valor * intencion.n)} de ${intencion.n} en gol u ocasión.`,
     );
   }
 
@@ -2381,7 +2391,7 @@ const conclusiones = useMemo(() => {
 
   if (lanzador && lanzador.valor > 0) {
     frases.push(
-      `Más xG por envío: ${lanzador.nombre} (${cifra(lanzador.valor, 2)}).`,
+      `Más xG por envío: ${lanzador.nombre} (${cifra(lanzador.valor, 2)} en ${lanzador.n} envíos${lanzador.n < 5 ? ", tendencia" : ""}).`,
     );
   }
 
@@ -2391,8 +2401,8 @@ const conclusiones = useMemo(() => {
   if (ganados + perdidos >= 3) {
     frases.push(
       perdidos >= ganados
-        ? `Segundo balón: perdemos el ${Math.round((perdidos / (ganados + perdidos)) * 100)} % de los disputados.`
-        : `Segundo balón: ganamos el ${Math.round((ganados / (ganados + perdidos)) * 100)} % de los disputados.`,
+        ? `Segundo balón: perdemos ${perdidos} de ${ganados + perdidos} segundos balones (${Math.round((perdidos / (ganados + perdidos)) * 100)} %).`
+        : `Segundo balón: ganamos ${ganados} de ${ganados + perdidos} segundos balones (${Math.round((ganados / (ganados + perdidos)) * 100)} %).`,
     );
   }
 
@@ -2630,7 +2640,7 @@ const pie = (
 
       <Card
         title="xG"
-        value={metrics.xg.toFixed(2)}
+        value={dosDecimales(metrics.xg)}
         hint="Goles esperados acumulados"
       />
 
@@ -2649,20 +2659,18 @@ const pie = (
       />
       <Card
   title="Conversión"
-  value={`${metrics.conversion.toFixed(
-    1
-  )}%`}
+  value={`${metrics.conversion.toFixed(1).replace(".", ",")} %`}
   hint="Goles sobre remates"
 />
 <Card
   title="xG / ABP"
-  value={metrics.xgAccion.toFixed(2)}
+  value={dosDecimales(metrics.xgAccion)}
   hint="Peligro medio de cada lanzamiento"
 />
 
 <Card
   title="Gol u ocasión"
-  value={`${tasaPeligro.toFixed(1)}%`}
+  value={`${tasaPeligro.toFixed(1).replace(".", ",")} %`}
   hint="ABP que terminan en peligro real"
 />
 
@@ -2695,6 +2703,9 @@ const pie = (
   >
     {mejorSacador || "-"}
   </h3>
+  {baseSacador && (
+    <p className="mt-2 text-[11px] leading-snug text-white/35">{baseSacador}</p>
+  )}
 </button>
     </div>
 

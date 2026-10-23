@@ -1038,6 +1038,24 @@ export default function AbpMicrocicloPage() {
   const entradas = useMemo(() => trabajosDelPlan(plan), [plan]);
   const totales = useMemo(() => totalesDe(entradas), [entradas]);
 
+  /* Con qué comparar las cargas: la media de los demás micros guardados que
+     las llevan puestas. Una cifra suelta no lleva a ninguna decisión. */
+  const mediaCargas = useMemo(() => {
+    const otras = Object.entries(store.micros ?? {})
+      .filter(([clave]) => clave !== claveActiva)
+      .map(([, otro]) => totalesDe(trabajosDelPlan(otro)));
+
+    const media = (campo: "carga" | "cargaCog") => {
+      const con = otras.filter((una) => una[campo] > 0);
+
+      return con.length
+        ? { valor: Math.round(con.reduce((suma, una) => suma + una[campo], 0) / con.length), n: con.length }
+        : null;
+    };
+
+    return { carga: media("carga"), cargaCog: media("cargaCog") };
+  }, [store.micros, claveActiva]);
+
   /* Los días que cuentan para el objetivo, y de dónde sale ese número. */
   const semana = useMemo(() => diasDeLaSemana(planVisto), [planVisto]);
 
@@ -1654,17 +1672,13 @@ export default function AbpMicrocicloPage() {
                     accent="var(--rmcf-gold-ink)"
                   />
 
-                  <StatCard
-                    label="Ofensivo / Defensivo"
-                    value={`${fmtMin(totales.porLado.ofensivo)} / ${fmtMin(totales.porLado.defensivo)}`}
-                    hint={`${Math.round((totales.porLado.ofensivo / totales.minutos) * 100)} % ofensivo`}
-                  />
-
+                  {/* El reparto ofensivo/defensivo ya va en la tarjeta del
+                      partido, justo encima: aquí se repetía. */}
                   {totales.carga > 0 && (
                     <StatCard
                       label="Carga condicional"
                       value={Math.round(totales.carga)}
-                      hint="tiempo × intensidad"
+                      hint={`tiempo × intensidad${mediaCargas.carga ? ` · media de ${mediaCargas.carga.n} micros: ${mediaCargas.carga.valor}` : ""}`}
                       accent={chipInk("#FBBF24")}
                     />
                   )}
@@ -1673,7 +1687,7 @@ export default function AbpMicrocicloPage() {
                     <StatCard
                       label="Carga cognitiva"
                       value={Math.round(totales.cargaCog)}
-                      hint="tiempo × exigencia"
+                      hint={`tiempo × exigencia${mediaCargas.cargaCog ? ` · media de ${mediaCargas.cargaCog.n} micros: ${mediaCargas.cargaCog.valor}` : ""}`}
                       accent={chipInk("#8B5CF6")}
                     />
                   )}

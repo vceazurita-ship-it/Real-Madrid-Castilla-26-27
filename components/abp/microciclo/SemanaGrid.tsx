@@ -559,9 +559,13 @@ function DiaColumna({
         <div className="flex items-center justify-between gap-1 border-t border-white/10 px-2.5 py-1.5 text-[10px] tabular-nums">
           <span className="font-semibold text-white/75">{fmtMin(minutos)}</span>
 
-          <span className="text-white/40">
-            carga {Math.round(carga)} · cognitiva {Math.round(cargaCog)}
-          </span>
+          {(carga > 0 || cargaCog > 0) && (
+            <span className="text-white/40">
+              {[carga > 0 ? `carga ${Math.round(carga)}` : "", cargaCog > 0 ? `cognitiva ${Math.round(cargaCog)}` : ""]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+          )}
         </div>
       )}
     </div>

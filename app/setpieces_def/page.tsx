@@ -2233,7 +2233,7 @@ const conclusiones = useMemo(() => {
   const xg = filtered.reduce((a, r) => a + r.xg, 0);
 
   const frases: (string | null)[] = [
-    `${plural(filtered.length, "ABP", "ABP")} en contra: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol encajado", "goles encajados")}, xG ${cifra(xg)}.`,
+    `${plural(filtered.length, "ABP", "ABP")} en contra: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol encajado", "goles encajados")}, xG ${cifra(xg, 2)}.`,
   ];
 
   const zona = mejorGrupo(
@@ -2256,7 +2256,7 @@ const conclusiones = useMemo(() => {
 
   if (envio && envio.valor > 0) {
     frases.push(
-      `Más daño con el envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción.`,
+      `Más daño con el envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción, sobre ${envio.n} acciones.`,
     );
   }
 
@@ -2272,8 +2272,8 @@ const conclusiones = useMemo(() => {
   if (ganados + perdidos >= 3) {
     frases.push(
       perdidos >= ganados
-        ? `Segundo balón: perdemos el ${Math.round((perdidos / (ganados + perdidos)) * 100)} % de los disputados.`
-        : `Segundo balón: ganamos el ${Math.round((ganados / (ganados + perdidos)) * 100)} % de los disputados.`,
+        ? `Segundo balón: perdemos ${perdidos} de ${ganados + perdidos} segundos balones (${Math.round((perdidos / (ganados + perdidos)) * 100)} %).`
+        : `Segundo balón: ganamos ${ganados} de ${ganados + perdidos} segundos balones (${Math.round((ganados / (ganados + perdidos)) * 100)} %).`,
     );
   }
 
@@ -2526,7 +2526,7 @@ const pie = (
           (metrics.shots /
             metrics.total) *
           100
-        ).toFixed(1)}%`
+        ).toFixed(1).replace(".", ",")} %`
       : "0%"
   }
   hint="ABP del rival que acaban en remate"
@@ -2536,10 +2536,7 @@ const pie = (
   title="xG / Remate"
   value={
     metrics.shots
-      ? (
-          metrics.xg /
-          metrics.shots
-        ).toFixed(2)
+      ? dosDecimales(metrics.xg / metrics.shots)
       : "0"
   }
   hint="Calidad media del remate concedido"
@@ -2547,7 +2544,7 @@ const pie = (
 
   <Card
     title="xG"
-    value={metrics.xg.toFixed(2)}
+    value={dosDecimales(metrics.xg)}
   hint="Goles esperados concedidos"
   />
 
@@ -2575,13 +2572,13 @@ const pie = (
 
 <Card
   title="Gol u ocasión"
-  value={`${tasaPeligro.toFixed(1)}%`}
+  value={`${tasaPeligro.toFixed(1).replace(".", ",")} %`}
   hint="ABP que nos generan peligro real"
   />
+  {(mayorPerfil || perfilGolpeoFilter !== "ALL") && (
   <button
 type="button"
 title={PULSA}
-disabled={!mayorPerfil && perfilGolpeoFilter === "ALL"}
 onClick={() => {
   const elegido =
     perfilGolpeoFilter !== "ALL" ? perfilGolpeoFilter : mayorPerfil;
@@ -2609,9 +2606,10 @@ className={`
 Mayor xG concedido  </p>
 
   <h3 className="mt-4 text-lg md:text-xl font-semibold text-[#C8A96B]">
-    {mayorPerfil || "-"}
+    {mayorPerfil || perfilGolpeoFilter}
   </h3>
 </button>
+  )}
 </div>
 
 

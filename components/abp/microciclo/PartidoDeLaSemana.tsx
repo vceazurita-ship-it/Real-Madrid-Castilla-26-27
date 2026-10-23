@@ -226,10 +226,10 @@ export function PartidoDeLaSemana({
         </p>
 
         <p className="mt-1 text-sm text-white/80">
-          <span className="text-xl font-semibold tabular-nums text-white">{fmtMin(minutos)}</span>
+          <span className="text-xl font-semibold tabular-nums text-white">{minutos}′</span>
           <span className="text-white/45">
             {" "}
-            de {objetivo.minimo}-{objetivo.maximo}′
+            · objetivo {objetivo.minimo}-{objetivo.maximo}′
           </span>
         </p>
 
