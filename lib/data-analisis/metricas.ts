@@ -999,6 +999,36 @@ export function recuentoEnPartido(metrica: Metrica, fila: FilaPartido) {
   return de === null || total === null ? null : { de, total };
 }
 
+/**
+ * La base de un porcentaje de varios partidos, en palabras: «0 de 5
+ * contraataques». Sólo cuando son pocos casos (hasta 30): con más, el
+ * porcentaje ya se sostiene solo. Si el denominador es un cálculo interno
+ * (empieza por «@») o la métrica no es un cociente, `null`.
+ */
+export function baseEnGrupo(metrica: Metrica, filas: FilaPartido[]) {
+  if (!metrica.numerador || !metrica.denominador || metrica.unidad !== "porcentaje") return null;
+  if (metrica.numerador.startsWith("@") || metrica.denominador.startsWith("@")) return null;
+
+  let de = 0;
+  let total = 0;
+
+  for (const fila of filas) {
+    const a = valorDe(metrica.numerador, fila);
+    const b = valorDe(metrica.denominador, fila);
+
+    if (a === null || b === null) continue;
+
+    de += a;
+    total += b;
+  }
+
+  if (total <= 0 || total > 30) return null;
+
+  const redondo = (n: number) => String(Math.round(n));
+
+  return `${redondo(de)} de ${redondo(total)} ${metrica.denominador.toLowerCase()}`;
+}
+
 export function valorEnGrupo(
   metrica: Metrica,
   filas: FilaPartido[],

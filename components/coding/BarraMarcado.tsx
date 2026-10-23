@@ -262,21 +262,22 @@ export function BarraMarcado({
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[12px] tabular-nums">
         {/* «Inicio» y «Final», no IN y OUT: son la I y la O del teclado y
             en castellano (19/10/2026). */}
-        <span className="font-sans text-white/35">
-          Inicio{" "}
-          <b className={`font-mono ${abierta ? "text-white/80" : "text-white/30"}`}>
-            {abierta ? formatea(inicioMs) : "—"}
-          </b>
-        </span>
+        {/* Sin corte abierto no hay inicio ni final que enseñar: nada de guiones. */}
+        {abierta ? (
+          <>
+            <span className="font-sans text-white/35">
+              Inicio{" "}
+              <b className="font-mono text-white/80">{formatea(inicioMs)}</b>
+            </span>
 
-        <span className="text-white/15">→</span>
+            <span className="text-white/15">→</span>
 
-        <span className="font-sans text-white/35">
-          Final{" "}
-          <b className={`font-mono ${abierta ? "text-white/80" : "text-white/30"}`}>
-            {abierta ? formatea(Math.max(inicioMs, tiempoMs)) : "—"}
-          </b>
-        </span>
+            <span className="font-sans text-white/35">
+              Final{" "}
+              <b className="font-mono text-white/80">{formatea(Math.max(inicioMs, tiempoMs))}</b>
+            </span>
+          </>
+        ) : null}
 
         <span className="ml-auto flex min-w-0 items-center gap-2 font-sans">
           {ultimo && onVerUltimo && !abierta && (

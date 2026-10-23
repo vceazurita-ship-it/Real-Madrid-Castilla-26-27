@@ -1037,7 +1037,8 @@ function Coding() {
   const [categoriaActiva, setCategoriaActiva] = useState("");
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
 
-  const [ayuda, setAyuda] = useState(true);
+  /* Plegada por defecto: con el teclado abierto, «Marcar», «Cortes» y «Sacar los vídeos» quedaban fuera de la vista. */
+  const [ayuda, setAyuda] = useState(false);
   const [ajustes, setAjustes] = useState(false);
   const [editando, setEditando] = useState<ClipCoding | null>(null);
   const [avisoSesion, setAvisoSesion] = useState(true);
@@ -5190,7 +5191,7 @@ function Coding() {
                 <Panel title="Por jugador" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
                     filas={porJugador(clips, config.descriptores)}
-                    vacio="Sin cortes todavía."
+                    vacio="Se llena al marcar el primer corte."
                     activa={filtroSujeto}
                     onElegir={(clave) =>
                       setFiltroSujeto((actual) =>
@@ -5205,7 +5206,7 @@ function Coding() {
                   <Panel title="Por comportamiento" bodyClassName="p-3 sm:p-3">
                     <TablaResumen
                       filas={porColectivo(clips, config.descriptores)}
-                      vacio="Sin cortes todavía."
+                      vacio="Se llena al marcar el primer corte."
                       activa={filtroSujeto}
                       onElegir={(clave) =>
                         setFiltroSujeto((actual) =>
@@ -5219,7 +5220,7 @@ function Coding() {
                 <Panel title="Por categoría" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
                     filas={porCategoria(clips, config.categorias, config.descriptores)}
-                    vacio="Sin cortes todavía."
+                    vacio="Se llena al marcar el primer corte."
                     activa={filtroCategoria}
                     onElegir={(clave) =>
                       setFiltroCategoria((actual) =>

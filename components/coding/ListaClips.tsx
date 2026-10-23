@@ -294,9 +294,7 @@ export function ListaClips({
         />
         {categoria.nombre}
       </span>
-    ) : (
-      <span className="text-[11px] text-white/20">—</span>
-    );
+    ) : null;
 
   /* Los descriptores y etiquetas: antes sólo se veían abriendo la ficha. */
   const chapaTags = (clip: ClipCoding) =>

@@ -83,7 +83,10 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
                 {completa ? "Jornada completa" : "Jornada incompleta"}
               </span>
             )}
-            {explicativos && <span className="text-white/55">{a.detalle}</span>}
+            {/* Si falta algo se dice qué, sin pedir los textos explicativos. */}
+            {(explicativos || a.estado === "incompleta") && a.detalle ? (
+              <span className="text-white/55">{a.detalle}</span>
+            ) : null}
             {explicativos && a.pendientes.length > 0 && (
               <span className="basis-full text-[11px]" style={{ color: chipInk("#E3A008") }}>
                 Ya jugada{a.pendientes.length > 1 ? "s" : ""} y sin datos todavía: {a.pendientes.join(" · ")}.
