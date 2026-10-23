@@ -4464,8 +4464,8 @@ function Coding() {
                     listaGuardada
                       ? `${clipsDeLaLista.length} ${clipsDeLaLista.length === 1 ? "corte" : "cortes"} · ${etiquetaFiltro} · en el orden de la lista`
                       : verTodosEnLista
-                      ? `${clipsDeLaLista.length} de ${sesion.sesion.clips.length} · de ${videosSesion.length} vídeos · ${etiquetaFiltro} · el orden de la lista es el del vídeo`
-                      : `${clipsFiltrados.length} de ${clips.length} · ${etiquetaFiltro} · el orden de la lista es el del vídeo`
+                      ? `${clipsDeLaLista.length} de ${sesion.sesion.clips.length} · de ${videosSesion.length} vídeos · ${etiquetaFiltro} · en el orden de la lista`
+                      : `${clipsFiltrados.length} de ${clips.length} · ${etiquetaFiltro} · en el orden de la lista`
                   }
                   icon={ListVideo}
                   action={

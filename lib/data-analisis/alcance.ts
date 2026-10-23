@@ -313,7 +313,13 @@ export function alcanceWyscout(partidos: FilaPartido[], calendario: PartidoCalen
     estado: faltan.length ? "incompleta" : "completa",
     detalle:
       (faltan.length
-        ? `${actual.con.size} de ${equipos.length} equipos con su partido de la J${cal.jornada}; faltan ${faltan.slice(0, 4).join(", ")}${faltan.length > 4 ? ` y ${faltan.length - 4} más` : ""}${actual.abierta ? " (la jornada aún puede tener partidos por jugar)" : ""}.`
+        ? `J${cal.jornada}: faltan ${
+            faltan.length > 4
+              ? `${faltan.slice(0, 4).join(", ")} y ${faltan.length - 4} más`
+              : faltan.length > 1
+                ? `${faltan.slice(0, -1).join(", ")} y ${faltan[faltan.length - 1]}`
+                : faltan[0]
+          }${actual.abierta ? " (la jornada aún puede tener partidos por jugar)" : ""}.`
         : `Los ${equipos.length} equipos del grupo tienen su partido de la J${cal.jornada}.`) +
       (huecos.length ? ` De jornadas anteriores falta ${huecos.join(" y ")}: aplazados que aún no están.` : ""),
     pendientes: pendientesDesde(calendario, hoy, cal.jornada ?? null),

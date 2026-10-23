@@ -85,7 +85,24 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
             )}
             {/* Si falta algo se dice qué, sin pedir los textos explicativos. */}
             {(explicativos || a.estado === "incompleta") && a.detalle ? (
-              <span className="text-white/55">{a.detalle}</span>
+              (() => {
+                /* Lo de esta jornada a la vista; los aplazados de otras, plegados. */
+                const corte = a.detalle.indexOf(" De jornadas anteriores");
+                const hoy = corte > 0 ? a.detalle.slice(0, corte) : a.detalle;
+                const aplazados = corte > 0 ? a.detalle.slice(corte + 1) : "";
+
+                return (
+                  <>
+                    <span className="text-white/55">{hoy}</span>
+                    {aplazados ? (
+                      <details className="basis-full text-white/55">
+                        <summary className="cursor-pointer select-none text-[11px] underline">ver aplazados</summary>
+                        <p className="mt-1">{aplazados}</p>
+                      </details>
+                    ) : null}
+                  </>
+                );
+              })()
             ) : null}
             {explicativos && a.pendientes.length > 0 && (
               <span className="basis-full text-[11px]" style={{ color: chipInk("#E3A008") }}>

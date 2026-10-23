@@ -456,7 +456,7 @@ export default function FaltasPage() {
 
       if (filtro === "todas" && favor !== null && contra !== null) {
         frases.push(
-          `Defensores por delante de media: ${decimal(favor)} en las faltas a favor y ${decimal(contra)} en las que hacemos.`,
+          `Defensores por delante de media: ${decimal(favor)} en las faltas a favor y ${decimal(contra)} en las faltas en contra.`,
         );
       } else {
         frases.push(
@@ -517,6 +517,8 @@ export default function FaltasPage() {
         media,
         mejorAlto: pocas ? null : mejorAlto,
         pie: pocas ? (pie ? `${pie} · muestra pequeña` : "muestra pequeña") : pie,
+        /* Con tan pocas, «igual» parece una conclusión: se dice la base. */
+        igualEn: pocas ? `de ${partido.faltas.length} faltas` : undefined,
       };
     };
 

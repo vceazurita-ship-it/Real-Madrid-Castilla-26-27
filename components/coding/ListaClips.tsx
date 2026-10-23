@@ -351,7 +351,7 @@ export function ListaClips({
             >
               <div className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0 text-[11px] tabular-nums text-white/35">
-                  {String(fila.clip.numero).padStart(3, "0")}
+                  {String(indice + 1).padStart(3, "0")}
                 </span>
 
                 <span className="min-w-0 flex-1">{quien(fila.clip)}</span>
@@ -429,7 +429,7 @@ export function ListaClips({
           </thead>
 
           <tbody>
-            {filas.map((fila) => {
+            {filas.map((fila, posicion) => {
               const { clip } = fila;
 
               const activo = clip.id === seleccionado;
@@ -534,7 +534,7 @@ export function ListaClips({
                   </td>
 
                   <td className="px-2 py-1.5 text-[11px] tabular-nums text-white/35">
-                    {String(clip.numero).padStart(3, "0")}
+                    {String(posicion + 1).padStart(3, "0")}
                   </td>
 
                   {videoDe && (

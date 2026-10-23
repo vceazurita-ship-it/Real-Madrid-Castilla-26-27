@@ -1388,6 +1388,13 @@ export function BarraExportacion({
         })}
       </div>
 
+      {/* Los ajustes, plegados: lo habitual es sacar los vídeos tal cual. */}
+      <details className="rounded-xl border border-white/10 px-3 py-2">
+        <summary className="cursor-pointer select-none text-xs font-medium text-white/70">
+          Ajustes de la exportación: peso, medida, rótulos, fundido y carátula
+        </summary>
+
+        <div className="mt-3 space-y-3">
       {/* ------------------------- EL PESO DE CADA FICHERO ------------- */}
 
       {/*
@@ -1642,6 +1649,8 @@ export function BarraExportacion({
               : "El vídeo empieza directo en el primer corte"}
         </span>
       </div>
+        </div>
+      </details>
 
       {vistaCaratula && (
         <div className="min-w-0 space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-2">

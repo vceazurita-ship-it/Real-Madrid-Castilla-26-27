@@ -10,12 +10,11 @@
 | parte en pocas vistas con nombre de pregunta, y la elegida va en la
 | dirección (`?vista=`) para que un enlace o un «atrás» vuelva a ella.
 |
-| `usePestanaUrl` lee la vista UNA vez al montar (`useState` con función, el
-| mismo patrón que `?area=` en Data análisis: nada de `setState` en efectos)
-| y al cambiarla reescribe la dirección sin recargar ni añadir historial.
+| `usePestanaUrl` lee la vista de la dirección (tras hidratar) y al cambiarla
+| la reescribe sin recargar ni añadir historial.
 */
 
-import { useState, type ComponentType } from "react";
+import { useSyncExternalStore, type ComponentType } from "react";
 
 export type OpcionPestana<K extends string> = {
   clave: K;
@@ -25,18 +24,36 @@ export type OpcionPestana<K extends string> = {
   cuenta?: number | string;
 };
 
+const EVENTO_PESTANA = "rmcf-pestana-url";
+
+function suscribe(aviso: () => void) {
+  window.addEventListener("popstate", aviso);
+  window.addEventListener(EVENTO_PESTANA, aviso);
+
+  return () => {
+    window.removeEventListener("popstate", aviso);
+    window.removeEventListener(EVENTO_PESTANA, aviso);
+  };
+}
+
+/*
+| La vista sale de la dirección, pero NO en el primer render: el servidor no la
+| ve, y si el cliente la leía al montar (`useState` con función) pintaba otra
+| vista que el HTML del servidor y React lanzaba el error #418 de hidratación
+| (visto en /laboratorio/perdidas con un enlace `?vista=`). Con
+| `useSyncExternalStore` el servidor y la hidratación usan `defecto` y, ya
+| montado, se lee la dirección sin ningún `setState` en un efecto.
+*/
 export function usePestanaUrl<K extends string>(parametro: string, claves: readonly K[], defecto: K): [K, (k: K) => void] {
-  const [valor, setValor] = useState<K>(() => {
-    if (typeof window === "undefined") return defecto;
+  const pedida = useSyncExternalStore(
+    suscribe,
+    () => new URLSearchParams(window.location.search).get(parametro) ?? "",
+    () => "",
+  );
 
-    const pedida = new URLSearchParams(window.location.search).get(parametro);
-
-    return claves.includes(pedida as K) ? (pedida as K) : defecto;
-  });
+  const valor: K = claves.includes(pedida as K) ? (pedida as K) : defecto;
 
   const cambia = (k: K) => {
-    setValor(k);
-
     try {
       const url = new URL(window.location.href);
 
@@ -45,8 +62,10 @@ export function usePestanaUrl<K extends string>(parametro: string, claves: reado
 
       window.history.replaceState(window.history.state, "", url);
     } catch {
-      /* Sin dirección que tocar (pruebas, vista previa): basta con el estado. */
+      /* Sin dirección que tocar (pruebas, vista previa): no hay nada que avisar. */
     }
+
+    window.dispatchEvent(new Event(EVENTO_PESTANA));
   };
 
   return [valor, cambia];

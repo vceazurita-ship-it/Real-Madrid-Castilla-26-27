@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { Play, Maximize2, ExternalLink } from "lucide-react";
 import { traeJson } from "@/lib/hojaCsv";
+import { useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
 import type { ClasificacionPortada } from "@/lib/portada/proximo-partido";
 
 export default function CollectiveHistoryPage() {
@@ -61,6 +63,24 @@ useEffect(() => {
     vivo = false;
   };
 }, []);
+
+/* Nuestros partidos jugados, con los puntos que llevamos tras cada uno. */
+const { partidos } = useCalendario();
+const jugados = useMemo(() => {
+  return ordenaPartidos(partidos)
+    .map(comoNuestro)
+    .filter((uno) => uno.jugado && uno.golesFavor !== null && uno.golesContra !== null)
+    .reduce<
+      (ReturnType<typeof comoNuestro> & { gf: number; gc: number; puntos: number; acumulados: number })[]
+    >((lista, uno) => {
+      const gf = uno.golesFavor as number;
+      const gc = uno.golesContra as number;
+      const puntos = gf > gc ? 3 : gf === gc ? 1 : 0;
+      const antes = lista.length ? lista[lista.length - 1].acumulados : 0;
+
+      return [...lista, { ...uno, gf, gc, puntos, acumulados: antes + puntos }];
+    }, []);
+}, [partidos]);
 
 const videoRef = useRef<HTMLDivElement | null>(null);
 const dashboardRef = useRef<HTMLDivElement | null>(null);
@@ -288,6 +308,51 @@ useEffect(() => {
   />
 </div>
 
+            {/* Jornada a jornada: sirve aunque Power BI no cargue */}
+            {jugados.length > 0 ? (
+              <div className="mt-10 sm:mt-14">
+                <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+                  Nuestra temporada
+                </p>
+
+                <h2 className="mt-3 mb-4 text-2xl sm:text-3xl font-semibold tracking-tight">
+                  Jornada a jornada
+                </h2>
+
+                <div className="overflow-x-auto rounded-[18px] border border-white/10">
+                  <table className="w-full min-w-[420px] text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/60">
+                        <th className="px-4 py-3 font-medium">Jornada</th>
+                        <th className="px-4 py-3 font-medium">Rival</th>
+                        <th className="px-4 py-3 text-center font-medium">Resultado</th>
+                        <th className="px-4 py-3 text-right font-medium">Puntos</th>
+                        <th className="px-4 py-3 text-right font-medium">Acumulados</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jugados.map((uno) => (
+                        <tr key={uno.jornada} className="border-b border-white/5 last:border-0">
+                          <td className="px-4 py-2.5">J{uno.jornada}</td>
+                          <td className="px-4 py-2.5">
+                            {uno.rival}
+                            <span className="ml-2 text-xs text-white/60">
+                              {uno.lado === "casa" ? "en casa" : "fuera"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-center font-semibold">
+                            {uno.gf}-{uno.gc}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">{uno.puntos}</td>
+                          <td className="px-4 py-2.5 text-right font-semibold">{uno.acumulados}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
             {/* Vídeo */}
             <div ref={videoRef} className="mt-14 sm:mt-20">
               <div className="mb-6">
@@ -304,34 +369,8 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Desktop */}
-              <div className="hidden lg:block rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden">
-                <iframe
-                  title="Vídeo explicativo"
-                  src="https://drive.google.com/file/d/1V-1mm_z7cM43ZXKaCHGRPlECx-IH1Nrt/preview"
-                  className="
-                    w-full
-                    border-0
-                    rounded-[18px] sm:rounded-[24px]
-                    bg-black
-                    h-[640px]
-                  "
-                  allow="autoplay"
-                  allowFullScreen
-                />
-                <a
-                  href={videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-flex items-center gap-2 px-2 text-sm text-[#C8A96B]"
-                >
-                  <ExternalLink size={14} />
-                  Si el vídeo no se ve, ábrelo en una pestaña nueva
-                </a>
-              </div>
-
-              {/* Móvil */}
-              <div className="lg:hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-6 text-center">
+              {/* Tarjeta con botón en todas las pantallas: el visor de Drive sale en negro dentro de un iframe */}
+              <div className="rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-6 text-center">
                 <p className="text-white/80 text-sm mb-4">
                   Ver la explicación completa del informe
                 </p>
