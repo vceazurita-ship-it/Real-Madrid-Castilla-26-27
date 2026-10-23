@@ -2270,10 +2270,12 @@ const conclusiones = useMemo(() => {
   const perdidos = filtered.filter((r) => /perd/i.test(r.segundoBalon)).length;
 
   if (ganados + perdidos >= 3) {
+    const indicio = ganados + perdidos < 5 ? " Indicio: muestra pequeña." : "";
+
     frases.push(
       perdidos >= ganados
-        ? `Segundo balón: perdemos ${perdidos} de ${ganados + perdidos} segundos balones (${Math.round((perdidos / (ganados + perdidos)) * 100)} %).`
-        : `Segundo balón: ganamos ${ganados} de ${ganados + perdidos} segundos balones (${Math.round((ganados / (ganados + perdidos)) * 100)} %).`,
+        ? `Segundo balón: perdemos ${perdidos} de ${ganados + perdidos} segundos balones (${Math.round((perdidos / (ganados + perdidos)) * 100)} %).${indicio}`
+        : `Segundo balón: ganamos ${ganados} de ${ganados + perdidos} segundos balones (${Math.round((ganados / (ganados + perdidos)) * 100)} %).${indicio}`,
     );
   }
 
@@ -2563,9 +2565,9 @@ const pie = (
   />
 
 <Card
-  title="Gol RMCF"
+  title="Goles nuestros tras su ABP"
   value={metrics.goalsRMCF.toLocaleString()}
-  hint="Marcados al contragolpe"
+  hint="Los marcamos al salir al contragolpe"
   activo={resultadoFilter === "Gol RMCF"}
   onClick={() => pulsa("resultado", "Gol RMCF")}
   />

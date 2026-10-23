@@ -1042,7 +1042,8 @@ export default function AbpMicrocicloPage() {
      las llevan puestas. Una cifra suelta no lleva a ninguna decisión. */
   const mediaCargas = useMemo(() => {
     const otras = Object.entries(store.micros ?? {})
-      .filter(([clave]) => clave !== claveActiva)
+      /* Sólo micros con rival: la semana introductoria o sin partido no es comparable. */
+      .filter(([clave, otro]) => clave !== claveActiva && Boolean(otro.rival))
       .map(([, otro]) => totalesDe(trabajosDelPlan(otro)));
 
     const media = (campo: "carga" | "cargaCog") => {
@@ -1678,7 +1679,7 @@ export default function AbpMicrocicloPage() {
                     <StatCard
                       label="Carga condicional"
                       value={Math.round(totales.carga)}
-                      hint={`tiempo × intensidad${mediaCargas.carga ? ` · media de ${mediaCargas.carga.n} micros: ${mediaCargas.carga.valor}` : ""}`}
+                      hint={`tiempo × intensidad (más carga = más trabajo, no mejor)${mediaCargas.carga ? ` · media de ${mediaCargas.carga.n} micros: ${mediaCargas.carga.valor}` : ""}`}
                       accent={chipInk("#FBBF24")}
                     />
                   )}

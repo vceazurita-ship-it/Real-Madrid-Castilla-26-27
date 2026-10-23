@@ -990,6 +990,8 @@ export default function PizarraAbpPage() {
   /* ------------------------- PROYECTOR ----------------------------- */
 
   const [proyectando, setProyectando] = useState<number | null>(null);
+  /* En el móvil la cabecera de «de quién es» va plegada: el campo antes que los datos. */
+  const [cabeceraAbierta, setCabeceraAbierta] = useState(false);
 
   /* ---------------------- TEXTOS DE LA SLIDE ----------------------- */
 
@@ -1926,7 +1928,18 @@ export default function PizarraAbpPage() {
             </div>
 
             {partido && (
-              <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => setCabeceraAbierta((antes) => !antes)}
+                aria-expanded={cabeceraAbierta}
+                className="mt-3 w-full rounded-xl border border-white/10 px-3 py-2 text-left text-xs font-medium text-white/65 sm:hidden"
+              >
+                {cabeceraAbierta ? "Ocultar de quién es la pizarra" : "Cambiar el rival o la jornada de la pizarra"}
+              </button>
+            )}
+
+            {partido && (
+              <div className={`mt-3 ${cabeceraAbierta ? "" : "max-sm:hidden"}`}>
                 <Panel
                   title="De quién es esta pizarra"
                   subtitle="El nombre que se lee en la diapositiva y la jornada con la que se cruza el resto de la semana"
