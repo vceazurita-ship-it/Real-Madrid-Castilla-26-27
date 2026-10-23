@@ -345,16 +345,19 @@ export function AnalisisSeccion<T>({
           {muestra.sinFiltro ? "Lectura · global" : "Lectura · según el filtro"}
         </p>
 
-        <span
-          className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-          style={{
-            color: colorVeredicto,
-            borderColor: `color-mix(in srgb, ${colorVeredicto} 35%, transparent)`,
-            background: `color-mix(in srgb, ${colorVeredicto} 10%, transparent)`,
-          }}
-        >
-          {FLECHA[tendencia.tono]} {tendencia.etiqueta}
-        </span>
+        {/* Con una sola jornada no hay tendencia que rotular: sin insignia. */}
+        {tendencia.veredicto === "insuficiente" && tendencia.serie.filter((punto) => punto.n > 0).length < 2 ? null : (
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            style={{
+              color: colorVeredicto,
+              borderColor: `color-mix(in srgb, ${colorVeredicto} 35%, transparent)`,
+              background: `color-mix(in srgb, ${colorVeredicto} 10%, transparent)`,
+            }}
+          >
+            {FLECHA[tendencia.tono]} {tendencia.etiqueta}
+          </span>
+        )}
       </div>
 
       <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">

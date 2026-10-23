@@ -1028,7 +1028,7 @@ const atenuado = tipoElegido
   style={{ cursor: "pointer" }}
 >
   <title>
-    {`${name} · ${value} acciones · ${(data?.xg || 0).toFixed(2)} xG${
+    {`${name} · ${value} acciones · ${(data?.xg || 0).toFixed(2).replace(".", ",")} xG${
       onFiltra ? " · Pulsa para filtrar" : ""
     }`}
   </title>
@@ -1186,7 +1186,7 @@ const atenuado = tipoElegido
             opacity={remateElegido && remateElegido !== name ? 0.3 : 1}
           >
             <title>
-              {`Remate desde ${name} · ${stat.xg.toFixed(2)} xG${
+              {`Remate desde ${name} · ${stat.xg.toFixed(2).replace(".", ",")} xG${
                 onFiltra ? " · Pulsa para filtrar" : ""
               }`}
             </title>

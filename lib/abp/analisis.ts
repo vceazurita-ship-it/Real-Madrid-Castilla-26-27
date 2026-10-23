@@ -805,7 +805,7 @@ function redactaTitular({
             : " Se defiende mejor de lo habitual."
           : sentido === "ofensivo"
             ? " Rinde por debajo de lo habitual."
-            : " Es por donde más peligro se genera.";
+            : " Es por donde más peligro nos hacen.";
 
     frases.push(
       `${principal.label} ${metrica.formatear(principal.filtro)}, ${relacion} ${metrica.formatear(principal.global)} global.${juicio}`,

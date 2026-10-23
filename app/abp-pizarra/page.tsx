@@ -1862,6 +1862,7 @@ export default function PizarraAbpPage() {
                 {anterior && (
                   <Button
                     icon={Copy}
+                    tone={!tablero || !tieneFichas(tablero.slides) ? "primary" : undefined}
                     onClick={copiaDelAnterior}
                     title={`Traer las diapositivas de ${matchLabel(anterior)}`}
                   >
@@ -2521,7 +2522,7 @@ export default function PizarraAbpPage() {
                     subtitle={
                       versiones.length
                         ? `${versiones.length} ${versiones.length === 1 ? "versión guardada" : "versiones guardadas"}${alDia ? " · lo que hay en pantalla ya está guardado" : " · hay cambios sin congelar"}`
-                        : "Todavía ninguna: la app congela sola la pizarra cuando la dejas quieta un rato"
+                        : undefined
                     }
                     icon={History}
                   >
@@ -3175,6 +3176,9 @@ function ControlDeGazapos({
   const revision = useMemo(() => revisaTablero(tablero), [tablero]);
 
   const limpio = revision.gazapos.length === 0 && revision.slidesConGente > 1;
+
+  /* Sin dos diapositivas con gente no hay nada que cotejar: no se pinta. */
+  if (revision.slidesConGente < 2) return null;
 
   return (
     <Panel

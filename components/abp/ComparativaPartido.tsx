@@ -75,6 +75,9 @@ function diferencia(actual: number, media: number, formato: (n: number) => strin
 
   if (Math.abs(d) < 0.05) return "igual";
 
+  /* Entre dos porcentajes la diferencia son puntos, no un «% más». */
+  if (formato === formatoPorcentaje) return `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))} pp`;
+
   return `${d > 0 ? "+" : "−"}${formato(Math.abs(d))}`;
 }
 
