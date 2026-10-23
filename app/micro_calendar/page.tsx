@@ -351,7 +351,7 @@ export default function MicroCalendar() {
   /** Tareas del día agrupadas por contenido principal. */
   const grouped = useMemo(() => {
     return selectedTasks.reduce((acc, task) => {
-      const key = task["Contenido Principal"] || "Sin contenido";
+      const key = task["Contenido Principal"] || "";
 
       if (!acc[key]) acc[key] = [];
       acc[key].push(task);
@@ -441,7 +441,7 @@ export default function MicroCalendar() {
         // Minutos por contenido principal, ordenados de mayor a menor.
         const blocks = new Map<string, number>();
         dayTasks.forEach((t) => {
-          const name = t["Contenido Principal"] || "Sin contenido";
+          const name = t["Contenido Principal"] || "";
           blocks.set(name, (blocks.get(name) ?? 0) + minutesOf(t));
         });
 
@@ -469,14 +469,19 @@ export default function MicroCalendar() {
           badges: (
             <div className="flex items-center gap-1">
               {md && (
-                <span className="rounded-full border border-white/15 bg-black/55 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-white/90">
+                <span
+                  className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase"
+                  style={{ background: "#1F2937", color: "#FFFFFF" }}
+                >
                   {md}
                 </span>
               )}
 
-              <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
-                {formatMinutes(totalMinutes)}
-              </span>
+              {totalMinutes > 0 && (
+                <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
+                  {formatMinutes(totalMinutes)}
+                </span>
+              )}
             </div>
           ),
           children: (
@@ -498,21 +503,27 @@ export default function MicroCalendar() {
 
               {orderedBlocks.map(([name, minutes]) => (
                 <div key={name}>
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-[10px] md:text-xs">{name}</span>
+                  {(name || minutes > 0) && (
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-[10px] md:text-xs">{name}</span>
 
-                    <span className="shrink-0 text-[9px] text-white/45">
-                      {minutes}&apos;
-                    </span>
-                  </div>
+                      {minutes > 0 && (
+                        <span className="shrink-0 text-[9px] text-white/45">
+                          {minutes}&apos;
+                        </span>
+                      )}
+                    </div>
+                  )}
 
-                  <div className="mt-1">
-                    <MetricBar
-                      value={minutes}
-                      max={totalMinutes}
-                      className={theme.bar}
-                    />
-                  </div>
+                  {minutes > 0 && (
+                    <div className="mt-1">
+                      <MetricBar
+                        value={minutes}
+                        max={totalMinutes}
+                        className={theme.bar}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </>
@@ -570,7 +581,8 @@ export default function MicroCalendar() {
                     <h3 className="font-semibold text-[#C8A96B]">{bloque}</h3>
 
                     <span className="shrink-0 text-xs text-white/45">
-                      {formatMinutes(bloqueMinutos)} · {tareas.length}{" "}
+                      {bloqueMinutos > 0 && <>{formatMinutes(bloqueMinutos)} · </>}
+                      {tareas.length}{" "}
                       {tareas.length === 1 ? "tarea" : "tareas"}
                     </span>
                   </div>
