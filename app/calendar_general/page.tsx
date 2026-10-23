@@ -30,6 +30,7 @@ import {
   recordDateKey,
 } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
+import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { CALENDARIO_CASTILLA_KEY, type PartidoBesoccer } from "@/lib/viaje/calendario";
 import type { ViajeStore } from "@/lib/viaje/modelo";
 
@@ -112,14 +113,6 @@ const TYPE_THEMES: Record<
 };
 
 const EVENT_TYPES = Object.keys(TYPE_THEMES) as EventType[];
-
-const LEGEND: CalendarLegendItem[] = [
-  { label: AUTO_THEMES.PARTIDO.label, color: AUTO_THEMES.PARTIDO.dot },
-  ...EVENT_TYPES.map((type) => ({
-    label: TYPE_THEMES[type].label,
-    color: TYPE_THEMES[type].dot,
-  })),
-];
 
 const EMPTY_FILES = { images: [] as DayFile[], pdfs: [] as DayFile[] };
 const EMPTY_DOC: EventsDoc = { events: [] };
@@ -245,8 +238,44 @@ export default function CalendarGeneralPage() {
         });
       }
 
-      for (const viaje of Object.values(viajes?.viajes ?? {})) {
-        if (!viaje || viaje.condicion !== "visitante") continue;
+      /* Los viajes guardados cuentan todos menos los de casa: Desplazamiento
+         guarda "visitante", pero un documento viejo puede traerlo de otra forma. */
+      const guardados = Object.values(viajes?.viajes ?? {}).filter((v) => v && v.condicion !== "local");
+
+      /* Los partidos fuera aún por jugar que no tienen viaje guardado salen con la
+         víspera propuesta: el calendario operativo tiene que servir antes de montar el viaje. */
+      const hoy = dateKey(new Date());
+
+      for (const p of calendario?.partidos ?? []) {
+        const m = typeof p?.cuando === "string" ? p.cuando.match(/^(\d{4}-\d{2}-\d{2})T/) : null;
+        if (!m || m[1] < hoy || /castilla/i.test(p.local)) continue;
+
+        const rival = p.local;
+        const [y, mo, d] = m[1].split("-").map(Number);
+        const vispera = dateKey(new Date(y, mo - 1, d - 1));
+
+        const yaGuardado = guardados.some(
+          (v) =>
+            mismoEquipo(v.rival ?? "", rival) &&
+            ((v.dias ?? []).some((dia) => dia.fecha === vispera || dia.fecha === m[1]) ||
+              v.fecha === vispera ||
+              v.fecha === m[1])
+        );
+
+        if (yaGuardado) continue;
+
+        lista.push({
+          id: `viaje-propuesto-${p.jornada}-${vispera}`,
+          fecha: vispera,
+          clase: "VIAJE",
+          titulo: `Viaje a ${rival}`,
+          detalle: "Víspera del partido",
+          hora: "",
+          enlace: "/desplazamiento",
+        });
+      }
+
+      for (const viaje of guardados) {
 
         const fechas = new Set(
           (viaje.dias ?? []).map((d) => d.fecha).filter(Boolean)
@@ -349,6 +378,37 @@ export default function CalendarGeneralPage() {
     return { eventos, dias: diasConActividad.size, imagenes, pdfs };
   }, [eventsByDay, autoByDay, filesByDay, active]);
 
+  /* La leyenda, sólo con los tipos que tienen algo en el mes que se mira. */
+  const legend = useMemo(() => {
+    const enMes = (key: string) => {
+      const date = parseDateKey(key);
+      return date.getMonth() === active.month && date.getFullYear() === active.year;
+    };
+
+    const tipos = new Set<EventType>();
+    eventsByDay.forEach((list, key) => {
+      if (enMes(key)) list.forEach((e) => tipos.add(e.tipo));
+    });
+
+    const claseAuto = new Set<EventoAuto["clase"]>();
+    autoByDay.forEach((list, key) => {
+      if (enMes(key)) list.forEach((e) => claseAuto.add(e.clase));
+    });
+
+    const items: CalendarLegendItem[] = [];
+    (Object.keys(AUTO_THEMES) as EventoAuto["clase"][]).forEach((clase) => {
+      /* El viaje ya está entre los tipos de evento con el mismo color y rótulo. */
+      if (claseAuto.has(clase) && !(clase === "VIAJE" && tipos.has("VIAJE"))) {
+        items.push({ label: AUTO_THEMES[clase].label, color: AUTO_THEMES[clase].dot });
+      }
+    });
+    EVENT_TYPES.forEach((type) => {
+      if (tipos.has(type)) items.push({ label: TYPE_THEMES[type].label, color: TYPE_THEMES[type].dot });
+    });
+
+    return items;
+  }, [eventsByDay, autoByDay, active]);
+
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
   const selectedEvents = selectedKey ? eventsByDay.get(selectedKey) ?? [] : [];
   const selectedFiles = selectedKey
@@ -433,7 +493,7 @@ export default function CalendarGeneralPage() {
       onMonthChange={setCurrentMonth}
       loading={status === "loading"}
       keyboardEnabled={!selectedKey}
-      legend={LEGEND}
+      legend={legend}
       stats={
         <>
           {/* El número de días iba dos veces: de pista y de tarjeta. */}
@@ -498,7 +558,10 @@ export default function CalendarGeneralPage() {
                       AUTO_THEMES[auto.clase].stripe
                     )}
                   >
-                    <p className="truncate text-[9px] font-semibold md:text-[11px]">
+                    <p
+                      title={auto.titulo}
+                      className="line-clamp-2 break-words text-[9px] font-semibold md:text-[11px]"
+                    >
                       {auto.titulo}
                     </p>
 
@@ -517,7 +580,10 @@ export default function CalendarGeneralPage() {
                       TYPE_THEMES[event.tipo]?.stripe ?? "border-l-white/30"
                     )}
                   >
-                    <p className="truncate text-[9px] font-semibold md:text-[11px]">
+                    <p
+                      title={event.titulo}
+                      className="line-clamp-2 break-words text-[9px] font-semibold md:text-[11px]"
+                    >
                       {event.titulo}
                     </p>
 
