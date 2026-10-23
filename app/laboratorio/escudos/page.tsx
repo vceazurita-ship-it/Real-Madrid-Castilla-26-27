@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, HardHat, Images, RefreshCw, ShieldCheck } from "lucide-react";
+import { Download, Images, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -161,18 +161,12 @@ export default function EscudosPage() {
 
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
-              area="RMCF Castilla · En obras"
+              area="RMCF Castilla · Laboratorio"
               title="Escudos de la liga"
               /* Desde el 13/10/2026 la lista trae los dos grupos de la
                  categoría (`escudos:categoria`), no sólo el nuestro: el
                  rótulo lo dice para que nadie busque «los veinte». */
               lead="Los escudos de la categoría —nuestro grupo y el otro— en un .pptx, cada uno como un objeto suelto con su PNG transparente: se copia y se pega donde haga falta."
-              aside={
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
-                  <HardHat size={12} />
-                  En obras
-                </span>
-              }
             />
 
             {/* ---------------- mandos ---------------- */}
@@ -197,7 +191,7 @@ export default function EscudosPage() {
                 className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white/70 transition hover:border-white/20 disabled:opacity-40"
               >
                 <RefreshCw size={16} className={estado === "cargando" ? "animate-spin" : undefined} />
-                Volver a pedir la lista
+                Actualizar escudos
               </button>
 
               <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50">
@@ -217,7 +211,7 @@ export default function EscudosPage() {
             <div className="mt-5">
               <Panel
                 title="Lo que va a llevar el documento"
-                subtitle="Sobre el azul noche de la plantilla, que es como se ve de un golpe si a algún escudo le quedara recuadro"
+                subtitle="Así salen en el documento: sobre azul noche, se ve al momento si alguno trae recuadro"
                 icon={ShieldCheck}
               >
                 {estado === "cargando" ? (
@@ -240,29 +234,45 @@ export default function EscudosPage() {
                 ) : null}
 
                 {estado === "listo" ? (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-                    {escudos.map((uno) => (
-                      <figure
-                        key={uno.url}
-                        className="flex flex-col items-center gap-2 rounded-xl border border-white/10 bg-[#04121F] p-3"
-                      >
-                        {/*
-                          Sin `next/image`: son imágenes de otro origen que van
-                          por el proxio de la casa, y aquí sólo hacen de vista
-                          previa del documento.
-                        */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={urlDeEscudo(uno.url)}
-                          alt={uno.equipo}
-                          className="h-16 w-16 object-contain"
-                          loading="lazy"
-                        />
-                        <figcaption className="text-center text-[11px] font-semibold uppercase tracking-[0.1em] text-[#E4CE9B]">
-                          {uno.equipo}
-                        </figcaption>
-                      </figure>
-                    ))}
+                  <div className="space-y-5">
+                    {Array.from({ length: hojas }, (_, h) => {
+                      const tanda = escudos.slice(h * 20, h * 20 + 20);
+
+                      return (
+                        <div key={h}>
+                          <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
+                            Diapositiva {h + 1} · {tanda.length}
+                          </h3>
+                          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+                            {tanda.map((uno) => (
+                              <figure
+                                key={uno.url}
+                                /* Fondo fijo: es el azul noche del documento y
+                                   el CSS del modo día no pisa un estilo en línea.
+                                   Sin `next/image`: imágenes de otro origen por
+                                   el proxy de la casa. */
+                                style={{ background: "#04121F" }}
+                                className="flex flex-col items-center gap-2 rounded-xl border border-white/10 p-3"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={urlDeEscudo(uno.url)}
+                                  alt={uno.equipo}
+                                  className="h-16 w-16 object-contain"
+                                  loading="lazy"
+                                />
+                                <figcaption
+                                  style={{ color: "#E4CE9B" }}
+                                  className="text-center text-[11px] font-semibold uppercase tracking-[0.1em]"
+                                >
+                                  {uno.equipo}
+                                </figcaption>
+                              </figure>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : null}
               </Panel>
@@ -271,13 +281,8 @@ export default function EscudosPage() {
             {/* ---------------- lectura ---------------- */}
 
             <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/45">
-              Los escudos son los de BeSoccer, los mismos que ya usan el informe
-              del rival y los gráficos de Data análisis, así que se ponen al día
-              con la jornada sin tocar nada. Llegan en PNG de 640×640 con canal
-              alfa: el fondo viene quitado de origen y aquí sólo se les recorta
-              el aire de los márgenes, sin reescalarlos, para que el escudo que
-              se pega conserve sus píxeles. Si alguno llegara con recuadro
-              opaco, se le quita el fondo por los bordes antes de meterlo.
+              Son los escudos de BeSoccer, los mismos del informe del rival: se
+              ponen al día solos cada jornada.
             </p>
           </div>
         </section>
