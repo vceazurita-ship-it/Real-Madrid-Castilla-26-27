@@ -37,6 +37,7 @@ import {
 import { Escalado } from "@/components/cultura/Escalado";
 import { ExportaCultura } from "@/components/cultura/ExportaCultura";
 import { HojaCultura } from "@/components/cultura/HojaCultura";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import {
   CLAVE_CULTURA,
@@ -65,6 +66,10 @@ type Pendiente = {
 };
 
 export function RepositorioCultura() {
+  /* Subir documentos y su explicación son cosa del administrador: el cuerpo
+     técnico sólo ve el documento y las descargas. */
+  const { admin } = useAdmin();
+
   const {
     value: guardado,
     setValue,
@@ -325,6 +330,7 @@ export function RepositorioCultura() {
 
           {/* ==================== SUBIR EL BRUTO ==================== */}
 
+          {admin === true && (
           <Panel
             title="Subir el bruto"
             subtitle="El HTML de la presentación, tal y como se redactó"
@@ -377,8 +383,9 @@ export function RepositorioCultura() {
               retoca.
             </p>
           </Panel>
+          )}
 
-          {!previa && (
+          {admin === true && !previa && (
             <Notice title="Cómo crece la estantería">
               Lo que se sube aquí queda guardado para todo el cuerpo técnico.
               Los documentos publicados en el código no se pueden borrar, pero
@@ -493,20 +500,21 @@ export function RepositorioCultura() {
                 }
               >
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <Dato
-                    rotulo="Temporada"
-                    valor={documento?.temporada || "—"}
-                  />
+                  {documento?.temporada && (
+                    <Dato rotulo="Temporada" valor={documento.temporada} />
+                  )}
 
                   <Dato
                     rotulo="Diapositivas"
                     valor={String(documento?.diapositivas.length ?? 0)}
                   />
 
-                  <Dato
-                    rotulo="Origen"
-                    valor={documento?.origen ?? "Redactado aquí"}
-                  />
+                  {admin === true && (
+                    <Dato
+                      rotulo="Origen"
+                      valor={documento?.origen ?? "Redactado aquí"}
+                    />
+                  )}
                 </div>
               </Panel>
             )}

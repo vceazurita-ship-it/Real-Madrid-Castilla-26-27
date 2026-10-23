@@ -35,7 +35,7 @@ export default function IdentidadCulturaPage() {
             <AbpHeader
               area="RMCF Castilla · Identidad"
               title="Identidad y Cultura"
-              lead="La estantería de documentos de cultura del vestuario. Se sube el bruto —el HTML de la presentación tal y como se redactó—, se redibuja con la plantilla del club a tamaño de proyección y se descarga en PDF para imprimir o en PowerPoint para la sala, sin pasar por el botón de imprimir del navegador."
+              lead="Los documentos de cultura del vestuario, listos para proyectar en la sala o imprimir: los cinco valores que votó la plantilla, con lo que suma y lo que no se admite. Se descargan en PDF o en PowerPoint."
             />
 
             <div className="mt-6">

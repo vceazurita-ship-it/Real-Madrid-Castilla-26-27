@@ -46,6 +46,17 @@ import {
 /*  PIEZAS                                                             */
 /* ------------------------------------------------------------------ */
 
+/** «Egoísmo (22)» → «Egoísmo (22 votos)»; «(+3 Amistad)» → «(+3 votos a Amistad)». */
+function conVotos(texto: string): string {
+  return texto
+    .replace(/\(\+(\d+)\s+([^)]+)\)/g, (_, n: string, a: string) =>
+      `(+${n} ${n === "1" ? "voto" : "votos"} a ${a})`,
+    )
+    .replace(/\((\d+)\)/g, (_, n: string) =>
+      `(${n} ${n === "1" ? "voto" : "votos"})`,
+    );
+}
+
 /** Rótulo pequeño con mucho espaciado: la voz de la plantilla. */
 function Rotulo({
   children,
@@ -424,7 +435,7 @@ function Portada({
           <p
             style={{
               margin: "20px 0 0",
-              color: C.rosaHondo,
+              color: C.rosaTexto,
               fontSize: 38,
               fontWeight: 700,
               lineHeight: 1.1,
@@ -459,7 +470,7 @@ function Portada({
             flexDirection: "column",
           }}
         >
-          <Rotulo tamano={18} color={C.rosaHondo}>
+          <Rotulo tamano={18} color={C.rosaTexto}>
             Lo que se vota, lo que se ve
           </Rotulo>
 
@@ -487,7 +498,7 @@ function Portada({
               >
                 <span
                   style={{
-                    color: C.rosaHondo,
+                    color: C.rosaTexto,
                     fontSize: 54,
                     fontWeight: 700,
                     lineHeight: 1,
@@ -523,7 +534,7 @@ function Portada({
                       textTransform: "uppercase",
                     }}
                   >
-                    {entrada.votos}
+                    {conVotos(entrada.votos)}
                   </span>
                 </span>
               </div>
@@ -558,7 +569,7 @@ function PortadaValor({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
-            <Rotulo tamano={20} color={C.rosaHondo}>
+            <Rotulo tamano={20} color={C.rosaTexto}>
               Valor n.º {valor.numero}
             </Rotulo>
 
@@ -572,7 +583,7 @@ function PortadaValor({
             />
 
             <Rotulo tamano={18} espaciado="0.2em">
-              {valor.votos}
+              {conVotos(valor.votos)}
             </Rotulo>
           </div>
 
@@ -600,7 +611,7 @@ function PortadaValor({
               letterSpacing: "0.04em",
             }}
           >
-            Frente a · {valor.antivalores}
+            Frente a · {conVotos(valor.antivalores)}
           </p>
 
           <div
@@ -804,7 +815,7 @@ function Conductas({
 
           <span
             style={{
-              color: C.rosaHondo,
+              color: C.rosaTexto,
               fontSize: 30,
               fontWeight: 600,
               lineHeight: 1,
