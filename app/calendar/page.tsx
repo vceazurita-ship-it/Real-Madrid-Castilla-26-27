@@ -203,7 +203,7 @@ export default function Calendar() {
 
     return players
       .filter((p) => esDeSeguimiento(p) && !conSeguimiento.has(p.id))
-      .map((p) => p.apodo || p.nombre);
+      .map((p) => p.nombre);
   }, [players, trackingData, crudoTrackingData, loading, error, hoy]);
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
@@ -245,7 +245,11 @@ export default function Calendar() {
       stats={
         <>
           <CalendarStat
-            label={`Seguimientos en ${MONTHS[active.month].toLowerCase()}`}
+            label={`Seguimientos en ${MONTHS[active.month].toLowerCase()}${
+              active.month === hoy.getMonth() && active.year === hoy.getFullYear()
+                ? " hasta hoy"
+                : ""
+            }`}
             value={monthStats.total}
           />
           <CalendarStat label="Jugadores" value={monthStats.jugadores} />
@@ -293,6 +297,9 @@ export default function Calendar() {
           badges: (
             <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
               {daySessions.length}
+              <span className="hidden md:inline">
+                {daySessions.length === 1 ? " seguimiento" : " seguimientos"}
+              </span>
             </span>
           ),
           children: (
@@ -335,9 +342,16 @@ export default function Calendar() {
               })}
 
               {hidden > 0 && (
-                <p className="pt-0.5 text-center text-[10px] font-medium text-[#C8A96B]/80">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedKey(key);
+                  }}
+                  className="w-full pt-0.5 text-center text-[10px] font-medium text-[#C8A96B]/80 underline-offset-2 hover:underline"
+                >
                   +{hidden} más · ver el día
-                </p>
+                </button>
               )}
             </>
           ),

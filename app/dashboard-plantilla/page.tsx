@@ -1,5 +1,6 @@
 "use client";
 import { traeCsv } from "@/lib/hojaCsv";
+import { coma } from "@/lib/formatoNumero";
 
 import { useEffect, useMemo, useState } from "react";
 import { chipInk } from "@/lib/theme";
@@ -539,12 +540,12 @@ export default function DashboardPlantilla() {
       valorados: valorados.length,
       sinValorar: total - valorados.length,
 
-      media: valorados.length ? media.toFixed(1) : "—",
+      media: valorados.length ? coma(media) : "—",
       mejor: valorados.length
-        ? Math.max(...valorados.map((p) => p.media)).toFixed(1)
+        ? coma(Math.max(...valorados.map((p) => p.media)))
         : "—",
       peor: valorados.length
-        ? Math.min(...valorados.map((p) => p.media)).toFixed(1)
+        ? coma(Math.min(...valorados.map((p) => p.media)))
         : "—",
       elite: valorados.filter((p) => p.media >= 8).length,
 
@@ -933,14 +934,6 @@ export default function DashboardPlantilla() {
 
                     <p className="mt-1 text-sm text-white/50">
                       Resumen general de la plantilla
-                      {stats.sinValorar > 0 && (
-                        <>
-                          {" · "}
-                          <span className="text-[#C8A96B]">
-                            {stats.sinValorar} sin ficha de scouting
-                          </span>
-                        </>
-                      )}
                     </p>
                   </div>
 
@@ -1071,8 +1064,8 @@ export default function DashboardPlantilla() {
                         selectedPlayer?.valorado
                           ? `${
                               selectedPlayer.apodo || selectedPlayer.nombre
-                            } vs. media de la plantilla filtrada`
-                          : `Media de la plantilla filtrada, sobre ${stats.valorados} jugadores con ficha`
+                            } vs. media de los ${stats.valorados} con ficha`
+                          : `Media de los ${stats.valorados} jugadores con ficha`
                       }
                     >
                       {radarData.length ? (
@@ -1117,7 +1110,7 @@ export default function DashboardPlantilla() {
 
                             <Tooltip
                               formatter={(value) =>
-                                `${Number(value).toFixed(1)}/10`
+                                `${coma(Number(value))}/10`
                               }
                               contentStyle={TOOLTIP_STYLE}
                               labelStyle={TOOLTIP_LABEL_STYLE}
@@ -1272,7 +1265,7 @@ export default function DashboardPlantilla() {
                             <Tooltip
                               cursor={{ fill: "rgba(255,255,255,0.04)" }}
                               formatter={(value) => [
-                                `${Number(value).toFixed(1)}/10`,
+                                `${coma(Number(value))}/10`,
                                 "Valoración",
                               ]}
                               contentStyle={TOOLTIP_STYLE}
@@ -1440,7 +1433,7 @@ export default function DashboardPlantilla() {
                           /* Cuántos controles se anotan no es bueno ni malo en
                              sí: dice si se está registrando o se ha dejado. */
                           sentido="neutro"
-                          formatea={(valor) => valor.toFixed(1).replace(".", ",")}
+                          formatea={(valor) => coma(valor)}
                           unidadSerie="por día"
                         />
                       }
@@ -1730,7 +1723,7 @@ function MetricBar({
         <span className="truncate text-white/50">{label}</span>
 
         <span className="shrink-0 font-semibold text-white">
-          {value ? value.toFixed(1) : "—"}
+          {value ? coma(value) : "—"}
 
           {diff !== null && value > 0 && (
             <span
@@ -1741,10 +1734,10 @@ function MetricBar({
                     ? "text-red-400"
                     : "text-white/30"
               }`}
-              title="Diferencia respecto a la media de la plantilla filtrada"
+              title="Frente a la media de los jugadores con ficha"
             >
               {diff > 0 ? "+" : ""}
-              {diff}
+              {coma(diff)}
             </span>
           )}
         </span>
@@ -1857,7 +1850,7 @@ function PlayerCard({
 
             <div className="text-3xl font-bold text-[#C8A96B]">
               {player.valorado
-                ? player.media.toFixed(1)
+                ? coma(player.media)
                 : formatRating(conPartidos!.avg)}
             </div>
           </div>
@@ -1892,14 +1885,20 @@ function PlayerCard({
 
       <div className="mt-5 space-y-3 border-t border-white/5 pt-5">
         {player.valorado ? (
-          METRICAS.map(({ key, label }) => (
-            <MetricBar
-              key={key}
-              label={label}
-              value={player[key]}
-              reference={media(key)}
-            />
-          ))
+          <>
+            {METRICAS.map(({ key, label }) => (
+              <MetricBar
+                key={key}
+                label={label}
+                value={player[key]}
+                reference={media(key)}
+              />
+            ))}
+            <p className="pt-1 text-[11px] text-white/45">
+              Los puntos en verde o rojo junto a cada nota son la diferencia
+              frente a la media de los jugadores con ficha.
+            </p>
+          </>
         ) : conPartidos ? (
           <p className="text-sm text-white/60">
             {conPartidos.played}{" "}

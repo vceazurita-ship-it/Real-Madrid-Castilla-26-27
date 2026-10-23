@@ -252,14 +252,14 @@ export default function ComparativaCategoria() {
      línea al pie, sin filas con guiones. */
   const comparables = useMemo(() => visibles.filter((x) => x.f.indice !== null), [visibles]);
   const pocosMinutos = useMemo(
-    () => visibles.filter((x) => x.f.indice === null).map((x) => x.ficha?.apodo || x.ficha?.nombre || x.f.jugador.jugador),
+    () => visibles.filter((x) => x.f.indice === null).map((x) => x.ficha?.nombre || x.f.jugador.jugador),
     [visibles],
   );
 
   /* Lectura de dos o tres frases que se calcula sola con lo que hay en la tabla. */
   const lectura = useMemo(() => {
     const frases: string[] = [];
-    const nombre = (x: (typeof comparables)[number]) => x.ficha?.apodo || x.ficha?.nombre || x.f.jugador.jugador;
+    const nombre = (x: (typeof comparables)[number]) => x.ficha?.nombre || x.f.jugador.jugador;
 
     const primeros = comparables.filter((x) => x.f.ranking?.posicion === 1 && x.f.ranking.de > 1);
     if (primeros.length)
@@ -1169,7 +1169,7 @@ function Detalle({
             ["Altura · peso", j.altura ? `${j.altura} cm · ${j.peso || "—"} kg` : "—"],
             ["Pie", j.pie || "—"],
             ["Contrato", j.contrato || "—"],
-            ["Nota media", nota && nota.played ? `${nota.avg.toFixed(1)} (${nota.played} partidos)` : "sin valorar"],
+            ["Nota media", nota && nota.played ? `${nota.avg.toFixed(1).replace(".", ",")} (${nota.played} partidos)` : "sin valorar"],
             ["Titularidades", nota ? String(nota.starts) : "—"],
             ["Goles · asist.", nota ? `${nota.goals} · ${nota.assists}` : "—"],
             ["Seguimientos", seg ? `${seg.n}${seg.ultima ? ` · último ${seg.ultima.split("-").reverse().join("/")}` : ""}` : "0"],

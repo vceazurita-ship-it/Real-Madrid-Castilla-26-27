@@ -3,7 +3,12 @@ import { traeJson } from "@/lib/hojaCsv";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
+import { nombrePuesto } from "@/lib/posiciones";
 import { chipInk } from "@/lib/theme";
+
+/* Cifras con coma decimal, como el resto del área de jugadores. */
+const cm = (v: ReactNode) =>
+  typeof v === "number" ? String(v).replace(".", ",") : v;
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -753,7 +758,7 @@ export default function DashboardSeguimiento() {
     out.push({
       icon: UserCheck,
       tone: "text-emerald-400",
-      text: `${cubiertos} de ${squadSize} jugadores de la plantilla han recibido seguimiento (${coverage}% de cobertura).`,
+      text: `${cubiertos} de ${squadSize} jugadores de la plantilla han recibido seguimiento (${cm(coverage)} % de cobertura).`,
     });
 
     if (untrackedPlayers.length) {
@@ -770,7 +775,7 @@ export default function DashboardSeguimiento() {
       out.push({
         icon: Layers,
         tone: "text-sky-400",
-        text: `"${strategyData[0].name}" es la estrategia dominante (${strategyData[0].percentage}% de los seguimientos).`,
+        text: `"${strategyData[0].name}" es la estrategia dominante (${cm(strategyData[0].percentage)} % de los seguimientos).`,
       });
     }
 
@@ -778,7 +783,7 @@ export default function DashboardSeguimiento() {
       out.push({
         icon: Clock,
         tone: "text-violet-400",
-        text: `El momento preferente de intervención es ${momentData[0].name.toLowerCase()} (${momentData[0].percentage}%).`,
+        text: `El momento preferente de intervención es ${momentData[0].name.toLowerCase()} (${cm(momentData[0].percentage)} %).`,
       });
     }
 
@@ -789,9 +794,9 @@ export default function DashboardSeguimiento() {
       out.push({
         icon: TrendingUp,
         tone: weeklyDelta >= 0 ? "text-emerald-400" : "text-rose-400",
-        text: `La última semana ${verb} ${Math.abs(
+        text: `La última semana ${verb} ${cm(Math.abs(
           weeklyDelta
-        )} seguimientos respecto a la anterior (media semanal: ${weeklyMean}).`,
+        ))} seguimientos respecto a la anterior (media semanal: ${cm(weeklyMean)}).`,
       });
     }
 
@@ -817,7 +822,7 @@ export default function DashboardSeguimiento() {
     });
 
     const menos = plantillaEnFoco
-      .map((p) => ({ nombre: p.apodo || p.nombre, n: dosSemanas.get(p.id) ?? 0 }))
+      .map((p) => ({ nombre: p.nombre, n: dosSemanas.get(p.id) ?? 0 }))
       .sort((a, b) => a.n - b.n || a.nombre.localeCompare(b.nombre, "es"))
       .slice(0, 3);
 
@@ -827,7 +832,7 @@ export default function DashboardSeguimiento() {
         tone: "text-amber-400",
         text: `Menos seguimiento en las últimas 2 semanas: ${menos
           .map((m) => `${m.nombre} (${m.n})`)
-          .join(", ")}. Conviene empezar por ahí esta semana.`,
+          .join(", ")}. Programa una sesión individual con ellos esta semana.`,
       });
     }
 
@@ -839,7 +844,7 @@ export default function DashboardSeguimiento() {
       out.push({
         icon: Target,
         tone: "text-sky-400",
-        text: `${menor.name} sólo aparece en el ${menor.percentage}% de los seguimientos, frente al ${mayor.percentage}% de ${mayor.name.toLowerCase()}: hay margen para trabajar más lo ${menor.name.toLowerCase()}.`,
+        text: `${menor.name} sólo aparece en el ${cm(menor.percentage)} % de los seguimientos, frente al ${cm(mayor.percentage)} % de ${mayor.name.toLowerCase()}: hay margen para trabajar más lo ${menor.name.toLowerCase()}.`,
       });
     }
 
@@ -1016,7 +1021,7 @@ export default function DashboardSeguimiento() {
                     { value: "", label: "Todas" },
                     ...filterOptions.positions.map((p) => ({
                       value: p,
-                      label: p,
+                      label: nombrePuesto(p),
                     })),
                   ]}
                 />
@@ -1162,14 +1167,14 @@ export default function DashboardSeguimiento() {
                   icon={Users}
                   title="Con seguimiento"
                   value={cubiertos}
-                  hint={`${avgPerPlayer} por jugador`}
+                  hint={`${cm(avgPerPlayer)} por jugador`}
                   accent="#6E7F99"
                 />
 
                 <StatCard
                   icon={UserCheck}
                   title="Cobertura"
-                  value={`${coverage}%`}
+                  value={`${cm(coverage)} %`}
                   hint={`${cubiertos} de ${squadSize} jugadores de campo del Castilla`}
                   accent={coverage >= 80 ? "#10B981" : coverage >= 50 ? "#C8A96B" : "#EF4444"}
                   progress={coverage}
@@ -1178,7 +1183,7 @@ export default function DashboardSeguimiento() {
                 <StatCard
                   icon={CalendarDays}
                   title="Media semanal"
-                  value={averageWeek}
+                  value={cm(averageWeek)}
                   hint={`${totalWeeks} semanas activas`}
                   accent="#4C7A67"
                   delta={weeklyDelta ?? undefined}
@@ -1187,8 +1192,8 @@ export default function DashboardSeguimiento() {
                 <StatCard
                   icon={Target}
                   title="Individualización"
-                  value={`${individualShare}%`}
-                  hint="modalidad individual"
+                  value={`${cm(individualShare)} %`}
+                  hint={`${cm(individualShare)} % de ${totalSessions} registros`}
                   accent="#8B5CF6"
                   progress={individualShare}
                 />
@@ -1375,7 +1380,7 @@ export default function DashboardSeguimiento() {
                               <span className="font-semibold text-[#C8A96B]">
                                 {f.value}
                               </span>{" "}
-                              registros · {f.percentage}%
+                              registros · {cm(f.percentage)} %
                             </span>
                           </div>
 
@@ -1448,7 +1453,7 @@ export default function DashboardSeguimiento() {
                             <p className="text-sm font-medium">{p.nombre}</p>
 
                             <p className="text-[11px] text-white/40">
-                              {p.posicion}
+                              {nombrePuesto(p.posicion)}
                             </p>
                           </div>
                         </div>
@@ -1501,7 +1506,7 @@ export default function DashboardSeguimiento() {
                               </p>
 
                               <span className="shrink-0 text-[11px] text-white/35">
-                                {p.posicion}
+                                {nombrePuesto(p.posicion)}
                               </span>
                             </div>
 
@@ -1524,7 +1529,7 @@ export default function DashboardSeguimiento() {
                             </p>
 
                             <p className="text-[10px] text-white/35">
-                              {p.percentage.toFixed(1)}%
+                              {cm(+p.percentage.toFixed(1))} %
                             </p>
                           </div>
 
@@ -1716,7 +1721,7 @@ export default function DashboardSeguimiento() {
                             </p>
 
                             <p className="text-xs text-white/40">
-                              {p.posicion} · {p.value} seguimientos
+                              {nombrePuesto(p.posicion)} · {p.value} seguimientos
                             </p>
                           </div>
 
@@ -2050,7 +2055,7 @@ export default function DashboardSeguimiento() {
                                 </p>
 
                                 <span className="text-[11px] text-white/35">
-                                  {jugador?.posicion}
+                                  {nombrePuesto(jugador?.posicion ?? "")}
                                 </span>
                               </div>
 
@@ -2253,7 +2258,7 @@ function StatCard({
             }`}
           >
             <DeltaIcon className="h-2.5 w-2.5" />
-            {Math.abs(delta)}
+            {cm(Math.abs(delta))}
           </span>
         )}
       </div>
@@ -2376,7 +2381,7 @@ function DonutWithLegend({
             <span className="text-sm font-semibold">{item.value}</span>
 
             <span className="w-12 text-right text-xs text-white/40">
-              {item.percentage}%
+              {cm(item.percentage)} %
             </span>
           </button>
         ))}
@@ -2419,14 +2424,14 @@ function DarkTooltip({
             className="text-xs"
             style={{ color: chipInk(p.color ?? "#CBD5E1") }}
           >
-            {p.name}: <span className="font-semibold">{p.value}</span>
+            {p.name}: <span className="font-semibold">{cm(p.value as ReactNode)}</span>
           </p>
         ))}
 
         {rows?.map(([rowLabel, key]) =>
           d[key] !== undefined && d[key] !== "" ? (
             <p key={key} className="text-xs text-white/50">
-              {rowLabel}: <span className="font-semibold">{d[key]}</span>
+              {rowLabel}: <span className="font-semibold">{cm(d[key])}</span>
             </p>
           ) : null
         )}
