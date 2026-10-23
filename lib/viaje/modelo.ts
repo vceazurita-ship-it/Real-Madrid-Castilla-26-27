@@ -67,6 +67,8 @@ export const COLORES_VIAJE = {
   navy: "#0F1E3D",
   rosa: "#F6AFB6",
   rosaHondo: "#D89AA6",
+  /** El rosa cuando hace de TEXTO sobre crema o papel: el hondo se quedaba en 2,1:1. Mismo tono que el de cultura. */
+  rosaTexto: "#A8445A",
   tinta: "#0B1420",
   /** Gris de los renglones sin cita: la columna de horas del PDF original. */
   humo: "#E4E0D6",

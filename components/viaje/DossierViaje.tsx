@@ -116,7 +116,7 @@ function Casilla({
       <p
         style={{
           margin: "10px 0 0",
-          color: destacado ? C.rosaHondo : C.navy,
+          color: destacado ? C.rosaTexto : C.navy,
           fontSize: destacado ? 40 : 34,
           fontWeight: 700,
           lineHeight: 1,
@@ -588,7 +588,7 @@ function Portada({ viaje }: { viaje: Desplazamiento }) {
           <p
             style={{
               margin: "18px 0 0",
-              color: C.rosaHondo,
+              color: C.rosaTexto,
               fontWeight: 700,
               lineHeight: 1,
               letterSpacing: "0.06em",
@@ -772,10 +772,23 @@ function SlideHotel({ viaje }: { viaje: Desplazamiento }) {
 /* ------------------------------------------------------------------ */
 
 /** Qué diapositivas lleva el dossier, en orden. Lo usa la exportación. */
+/** El hotel sólo se dibuja y se cuenta cuando hay algo que decir de él. */
+export function llevaHotel(viaje: Desplazamiento) {
+  if (!viaje.conHotel) return false;
+
+  const h = viaje.hotel;
+
+  return (
+    [h.nombre, h.direccion, h.telefono, h.enlace, h.distancia, h.tiempo, h.entrada].some((t) => (t ?? "").trim()) ||
+    Boolean(h.foto?.url) ||
+    Boolean(h.ruta?.url)
+  );
+}
+
 export function titulosDossier(viaje: Desplazamiento) {
   const titulos = ["Portada", "El estadio"];
 
-  if (viaje.conHotel) titulos.push("El hotel");
+  if (llevaHotel(viaje)) titulos.push("El hotel");
 
   return titulos;
 }
@@ -785,7 +798,7 @@ export function DossierViaje({ viaje }: { viaje: Desplazamiento }) {
     <>
       <Portada viaje={viaje} />
       <SlideEstadio viaje={viaje} />
-      {viaje.conHotel && <SlideHotel viaje={viaje} />}
+      {llevaHotel(viaje) && <SlideHotel viaje={viaje} />}
     </>
   );
 }

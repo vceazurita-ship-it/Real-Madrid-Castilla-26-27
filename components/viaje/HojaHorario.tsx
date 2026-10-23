@@ -254,7 +254,7 @@ export function HojaHorario({
         <p
           style={{
             margin: "14px 0 0",
-            color: C.rosaHondo,
+            color: C.rosaTexto,
             fontSize: 26,
             fontWeight: 700,
             lineHeight: 1,
