@@ -248,6 +248,42 @@ export default function ComparativaCategoria() {
       });
   }, [conFicha, filtroPuesto, orden]);
 
+  /* La tabla sólo lleva a quien tiene índice; los de pocos minutos van en una
+     línea al pie, sin filas con guiones. */
+  const comparables = useMemo(() => visibles.filter((x) => x.f.indice !== null), [visibles]);
+  const pocosMinutos = useMemo(
+    () => visibles.filter((x) => x.f.indice === null).map((x) => x.ficha?.apodo || x.ficha?.nombre || x.f.jugador.jugador),
+    [visibles],
+  );
+
+  /* Lectura de dos o tres frases que se calcula sola con lo que hay en la tabla. */
+  const lectura = useMemo(() => {
+    const frases: string[] = [];
+    const nombre = (x: (typeof comparables)[number]) => x.ficha?.apodo || x.ficha?.nombre || x.f.jugador.jugador;
+
+    const primeros = comparables.filter((x) => x.f.ranking?.posicion === 1 && x.f.ranking.de > 1);
+    if (primeros.length)
+      frases.push(`Primeros de su puesto: ${primeros.map(nombre).join(", ")}.`);
+
+    const baja = comparables
+      .filter((x) => x.f.evolucion?.fiable && x.f.evolucion.salto < -2)
+      .sort((a, b) => (a.f.evolucion?.salto ?? 0) - (b.f.evolucion?.salto ?? 0))[0];
+    if (baja?.f.evolucion)
+      frases.push(`Quien más baja respecto a 25/26: ${nombre(baja)} (${baja.f.evolucion.salto} puntos de índice).`);
+
+    const desajuste = comparables.find(
+      (x) => x.nota && x.nota.played >= 3 && ((x.nota.avg >= 7 && (x.f.indice ?? 0) < 50) || (x.nota.avg < 6 && (x.f.indice ?? 0) >= 60)),
+    );
+    if (desajuste?.nota)
+      frases.push(
+        `Nuestra nota y el índice no coinciden en ${nombre(desajuste)}: ${desajuste.nota.avg.toFixed(1).replace(".", ",")} de nota de partido y ${desajuste.f.indice} de índice${
+          desajuste.f.ranking ? ` (${ordinal(desajuste.f.ranking.posicion)} de ${desajuste.f.ranking.de})` : ""
+        }.`,
+      );
+
+    return frases;
+  }, [comparables]);
+
   /*
   | El jugador abierto obedece a los filtros de arriba (06/10/2026): antes, con
   | uno ya elegido, cambiar el puesto no hacía nada en la ficha. Si el elegido
@@ -392,6 +428,12 @@ export default function ComparativaCategoria() {
                       ))}
                     </div>
 
+                    {lectura.length > 0 && (
+                      <p className="mt-5 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm leading-relaxed text-white/80">
+                        {lectura.join(" ")}
+                      </p>
+                    )}
+
                     <p className="mt-5 text-xs text-white/40">Pincha en una columna para ordenar y en un jugador para abrir su ficha.</p>
                     <div className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
                       <table className="w-full min-w-[860px] text-sm">
@@ -406,7 +448,7 @@ export default function ComparativaCategoria() {
                                 ["nota", "Nota", "px-2 text-right"],
                                 ["indice", `Índice (${ref === "todos" ? "categoría" : ref === "u21" ? "sub-21" : "sub-23"})`, "w-44 px-3"],
                                 ["ranking", "Ranking", "px-2"],
-                                ["evolucion", "Evolución", "px-2"],
+                                ["evolucion", "Evolución (pts vs 25/26)", "px-2"],
                                 ["seguimientos", "Seguimientos", "px-2 text-right"],
                               ] as [Orden | null, string, string][]
                             ).map(([clave, texto, clase]) => (
@@ -430,7 +472,7 @@ export default function ComparativaCategoria() {
                           </tr>
                         </thead>
                         <tbody>
-                          {visibles.map(({ f, ficha, nota, seg }) => (
+                          {comparables.map(({ f, ficha, nota, seg }) => (
                             <tr
                               key={f.jugador.jugador}
                               onClick={() => abreFicha(f.jugador.jugador)}
@@ -454,7 +496,7 @@ export default function ComparativaCategoria() {
                               <td className="px-2 text-white/70">{f.jugador.edad}</td>
                               <td className="px-2 text-white/60">{PUESTOS.find((p) => p.key === f.puesto)?.corto}</td>
                               <td className="px-2 text-right tabular-nums text-white/70">{f.jugador.minutos}′</td>
-                              <td className="px-2 text-right tabular-nums text-white/70">{nota && nota.played ? nota.avg.toFixed(1) : "—"}</td>
+                              <td className="px-2 text-right tabular-nums text-white/70">{nota && nota.played ? nota.avg.toFixed(1).replace(".", ",") : "—"}</td>
                               <td className="px-3">
                                 <div className="flex items-center gap-2">
                                   <span className="w-7 text-right text-xs font-semibold tabular-nums" style={{ color: colorIndice(f.indice) }}>
@@ -485,6 +527,12 @@ export default function ComparativaCategoria() {
                         </tbody>
                       </table>
                     </div>
+
+                    {pocosMinutos.length > 0 && (
+                      <p className="mt-3 text-xs text-white/50">
+                        Con pocos minutos para compararse: {pocosMinutos.join(", ")}.
+                      </p>
+                    )}
                   </>
                 )}
 

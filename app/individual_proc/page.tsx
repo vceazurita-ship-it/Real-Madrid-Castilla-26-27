@@ -46,11 +46,6 @@ import {
   Line,
   AreaChart,
   Area,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
   LabelList,
   ReferenceLine,
 } from "recharts";
@@ -174,6 +169,22 @@ function daysAgo(v: string) {
   if (!d) return null;
 
   return Math.floor((Date.now() - d.getTime()) / 86400000);
+}
+
+/** «hoy», «ayer» o «hace N días»: lo que se dice en voz alta. */
+function hace(dias: number) {
+  if (dias <= 0) return "hoy";
+  if (dias === 1) return "ayer";
+
+  return `hace ${dias} días`;
+}
+
+/** Lo mismo para una cifra suelta: «hoy», «ayer», «5d». */
+function corto(dias: number) {
+  if (dias <= 0) return "hoy";
+  if (dias === 1) return "ayer";
+
+  return `${dias}d`;
 }
 
 function pct(part: number, total: number) {
@@ -788,9 +799,47 @@ export default function DashboardSeguimiento() {
       out.push({
         icon: CalendarDays,
         tone: "text-white/60",
-        text: `Último registro hace ${sinceLast} día${
-          sinceLast === 1 ? "" : "s"
-        } · ${nameOf(lastRecord!)}.`,
+        text: `Último registro ${hace(sinceLast)} · ${nameOf(lastRecord!)}.`,
+      });
+    }
+
+    /* Dos lecturas que llevan a una decisión, con los mismos registros. */
+    const dosSemanas = new Map<string, number>();
+
+    plantillaEnFoco.forEach((p) => dosSemanas.set(p.id, 0));
+
+    filteredTracking.forEach((s) => {
+      const d = daysAgo(s.FECHA);
+
+      if (d !== null && d <= 14 && dosSemanas.has(s.ID_JUGADOR)) {
+        dosSemanas.set(s.ID_JUGADOR, (dosSemanas.get(s.ID_JUGADOR) ?? 0) + 1);
+      }
+    });
+
+    const menos = plantillaEnFoco
+      .map((p) => ({ nombre: p.apodo || p.nombre, n: dosSemanas.get(p.id) ?? 0 }))
+      .sort((a, b) => a.n - b.n || a.nombre.localeCompare(b.nombre, "es"))
+      .slice(0, 3);
+
+    if (menos.length === 3) {
+      out.push({
+        icon: AlertTriangle,
+        tone: "text-amber-400",
+        text: `Menos seguimiento en las últimas 2 semanas: ${menos
+          .map((m) => `${m.nombre} (${m.n})`)
+          .join(", ")}. Conviene empezar por ahí esta semana.`,
+      });
+    }
+
+    const [mayor, , menor] = [...focusData].sort(
+      (a, b) => b.percentage - a.percentage
+    );
+
+    if (mayor && menor && mayor.percentage > menor.percentage) {
+      out.push({
+        icon: Target,
+        tone: "text-sky-400",
+        text: `${menor.name} sólo aparece en el ${menor.percentage}% de los seguimientos, frente al ${mayor.percentage}% de ${mayor.name.toLowerCase()}: hay margen para trabajar más lo ${menor.name.toLowerCase()}.`,
       });
     }
 
@@ -808,6 +857,9 @@ export default function DashboardSeguimiento() {
     sinceLast,
     lastRecord,
     nameOf,
+    plantillaEnFoco,
+    filteredTracking,
+    focusData,
   ]);
 
   /* ---------------- filter options ---------------- */
@@ -935,7 +987,7 @@ export default function DashboardSeguimiento() {
               {sinceLast !== null && (
                 <span className="inline-flex items-center gap-1.5 text-xs text-white/45">
                   <Clock className="h-3.5 w-3.5" />
-                  último hace {sinceLast}d
+                  último registro {hace(sinceLast)}
                 </span>
               )}
 
@@ -1118,7 +1170,7 @@ export default function DashboardSeguimiento() {
                   icon={UserCheck}
                   title="Cobertura"
                   value={`${coverage}%`}
-                  hint={`${untrackedPlayers.length} sin registro`}
+                  hint={`${cubiertos} de ${squadSize} jugadores de campo del Castilla`}
                   accent={coverage >= 80 ? "#10B981" : coverage >= 50 ? "#C8A96B" : "#EF4444"}
                   progress={coverage}
                 />
@@ -1144,7 +1196,7 @@ export default function DashboardSeguimiento() {
                 <StatCard
                   icon={Clock}
                   title="Último registro"
-                  value={sinceLast !== null ? `${sinceLast}d` : "—"}
+                  value={sinceLast !== null ? corto(sinceLast) : "—"}
                   hint={lastRecord ? nameOf(lastRecord) : "sin datos"}
                   accent="#F97316"
                 />
@@ -1311,56 +1363,31 @@ export default function DashboardSeguimiento() {
                     title="Foco de los objetivos"
                     subtitle="Cuántos registros abordan cada dimensión"
                   >
-                    <ChartBox>
-                      <RadarChart
-                        data={focusData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius="72%"
-                      >
-                        <PolarGrid stroke="rgba(255,255,255,.12)" />
-
-                        <PolarAngleAxis
-                          dataKey="name"
-                          tick={{ fill: "#E2E8F0", fontSize: 12 }}
-                        />
-
-                        <PolarRadiusAxis tick={false} axisLine={false} />
-
-                        <Tooltip
-                          content={
-                            <DarkTooltip rows={[["% del total", "percentage"]]} />
-                          }
-                        />
-
-                        <Radar
-                          name="Registros"
-                          dataKey="value"
-                          stroke={GOLD}
-                          strokeWidth={3}
-                          fill={GOLD}
-                          fillOpacity={0.35}
-                        />
-                      </RadarChart>
-                    </ChartBox>
-
-                    <div className="mt-4 grid grid-cols-3 gap-2">
+                    <div className="space-y-4 py-2">
                       {focusData.map((f) => (
-                        <div
-                          key={f.name}
-                          className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-center"
-                        >
-                          <p className="text-[10px] uppercase tracking-wider text-white/40">
-                            {f.name}
-                          </p>
+                        <div key={f.name}>
+                          <div className="mb-1.5 flex items-baseline justify-between gap-3 text-sm">
+                            <span className="font-medium text-white/80">
+                              {f.name}
+                            </span>
 
-                          <p className="text-lg font-semibold text-[#C8A96B]">
-                            {f.value}
-                          </p>
+                            <span className="tabular-nums text-white/60">
+                              <span className="font-semibold text-[#C8A96B]">
+                                {f.value}
+                              </span>{" "}
+                              registros · {f.percentage}%
+                            </span>
+                          </div>
 
-                          <p className="text-[11px] text-white/35">
-                            {f.percentage}%
-                          </p>
+                          <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${Math.min(100, f.percentage)}%`,
+                                background: GOLD,
+                              }}
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -1513,7 +1540,7 @@ export default function DashboardSeguimiento() {
                                   : "text-white/35"
                               }`}
                             >
-                              hace {p.dias}d
+                              {hace(p.dias ?? 0)}
                             </p>
                           </div>
                         </button>
@@ -1703,7 +1730,7 @@ export default function DashboardSeguimiento() {
                                   : "text-emerald-400"
                               }`}
                             >
-                              {p.dias}d
+                              {corto(p.dias ?? 0)}
                             </p>
 
                             <p className="text-[10px] text-white/30">

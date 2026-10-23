@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Users } from "lucide-react";
 import { usePlayers } from "@/hooks/usePlayers";
-import { alineaSeguimiento } from "@/lib/seguimiento";
+import { alineaSeguimiento, esDeSeguimiento } from "@/lib/seguimiento";
 import {
   CalendarShell,
   CalendarStat,
@@ -16,6 +16,7 @@ import {
   CalendarEmptyState,
 } from "@/components/ui/calendar-day-modal";
 import {
+  MONTHS,
   buildSeasonMonths,
   currentMonthIndex,
   normalizeText,
@@ -89,6 +90,7 @@ export default function Calendar() {
     () => alineaSeguimiento(crudoTrackingData, players),
     [crudoTrackingData, players],
   );
+  const [hoy] = useState(() => new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playerFilter, setPlayerFilter] = useState("");
@@ -179,6 +181,31 @@ export default function Calendar() {
     return { total: inMonth.length, jugadores, campo, video };
   }, [visibleData, active]);
 
+  /* Jugadores de campo del Castilla sin ningún seguimiento en los últimos 14
+     días: lo que se pregunta el lunes. Sale de la misma hoja, sin filtro de
+     jugador (con uno elegido la pregunta no tiene sentido). */
+  const sinSeguimiento = useMemo(() => {
+    if (loading || error || crudoTrackingData.length === 0) return [];
+
+    const limite = new Date(hoy);
+    limite.setDate(limite.getDate() - 14);
+    limite.setHours(0, 0, 0, 0);
+
+    const conSeguimiento = new Set<string>();
+
+    trackingData.forEach((s) => {
+      const key = recordDateKey(s.FECHA);
+      if (!key) return;
+
+      const d = parseDateKey(key);
+      if (d >= limite && d <= hoy) conSeguimiento.add(s.ID_JUGADOR);
+    });
+
+    return players
+      .filter((p) => esDeSeguimiento(p) && !conSeguimiento.has(p.id))
+      .map((p) => p.apodo || p.nombre);
+  }, [players, trackingData, crudoTrackingData, loading, error, hoy]);
+
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
   const selectedSessions = selectedKey ? sessionsByDay.get(selectedKey) ?? [] : [];
   const selectedIndex = selectedKey ? sessionDays.indexOf(selectedKey) : -1;
@@ -207,7 +234,7 @@ export default function Calendar() {
 
   return (
     <CalendarShell
-      eyebrow="RMCF CASTILLA INDIVIDUAL"
+      eyebrow="RMCF CASTILLA · INDIVIDUAL"
       title="Calendario de Seguimiento"
       months={months}
       monthIndex={currentMonth}
@@ -217,7 +244,10 @@ export default function Calendar() {
       legend={LEGEND}
       stats={
         <>
-          <CalendarStat label="Seguimientos" value={monthStats.total} />
+          <CalendarStat
+            label={`Seguimientos en ${MONTHS[active.month].toLowerCase()}`}
+            value={monthStats.total}
+          />
           <CalendarStat label="Jugadores" value={monthStats.jugadores} />
           <CalendarStat label="Campo" value={monthStats.campo} />
           <CalendarStat label="Vídeo" value={monthStats.video} />
@@ -306,7 +336,7 @@ export default function Calendar() {
 
               {hidden > 0 && (
                 <p className="pt-0.5 text-center text-[10px] font-medium text-[#C8A96B]/80">
-                  +{hidden} más
+                  +{hidden} más · ver el día
                 </p>
               )}
             </>
@@ -314,6 +344,17 @@ export default function Calendar() {
         };
       }}
     >
+      {!playerFilter && sinSeguimiento.length > 0 && (
+        <div className="px-4 pb-6 md:px-8">
+          <p className="rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80">
+            <span className="font-semibold text-[#C8A96B]">
+              Sin seguimiento en 14 días:
+            </span>{" "}
+            {sinSeguimiento.join(", ")}.
+          </p>
+        </div>
+      )}
+
       {error && !loading && (
         <div className="px-4 pb-6 md:px-8">
           <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
