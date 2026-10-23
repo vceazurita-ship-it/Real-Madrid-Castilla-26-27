@@ -203,7 +203,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     conclusiones: {
       adelante: (pct, n, de) => `El ${pct} % sale hacia delante tras robar (${n} de ${de}).`,
       zona: (zona, n, total, adelante, juegan) =>
-        `Más robos en ${zona} (${n} de ${total}); de los ${juegan} que se juegan, ${adelante} salen hacia delante.`,
+        `Más robos en ${zona}: ${n} de ${total}. De los ${juegan} que se juegan, ${adelante} salen hacia delante.`,
       acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % acaba en remate o área y ${pierden} % en pérdida.`,
       dura: (s) => `La transición dura ${s} s de media.`,
     },
@@ -264,7 +264,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     conclusiones: {
       adelante: (pct, n, de) => `El rival sale hacia delante en el ${pct} % de las pérdidas que llega a jugar (${n} de ${de}).`,
       zona: (zona, n, total, adelante, juegan) =>
-        `Más pérdidas en ${zona} (${n} de ${total}); de las ${juegan} que el rival juega, sale hacia delante en ${adelante}.`,
+        `Más pérdidas en ${zona}: ${n} de ${total}. De las ${juegan} que el rival llega a jugar, sale hacia delante en ${adelante}.`,
       acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % nos llegan al área o al remate y ${pierden} % las recuperamos.`,
       dura: (s) => `Su transición dura ${s} s de media.`,
     },

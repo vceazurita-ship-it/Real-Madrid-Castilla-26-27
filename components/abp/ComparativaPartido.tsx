@@ -44,6 +44,8 @@ export type MetricaComparada = {
   mejorAlto?: boolean | null;
   /** Una línea de contexto: «de 23 saques», «remates y goles». */
   pie?: string;
+  /** Lo que se lee en la diferencia cuando coinciden y la base es pequeña: «de 7 faltas». */
+  igualEn?: string;
 };
 
 export type ComparativaPartidoProps = {
@@ -164,7 +166,11 @@ export function ComparativaPartido({
                   </span>
 
                   <span className="text-right text-sm font-semibold tabular-nums" style={{ color: colorDiferencia }}>
-                    {d === null ? "—" : diferencia(m.actual!, m.media!, m.formatoDiferencia ?? formato)}
+                    {d === null
+                      ? "—"
+                      : m.igualEn && Math.abs(d) < 0.05
+                        ? m.igualEn
+                        : diferencia(m.actual!, m.media!, m.formatoDiferencia ?? formato)}
                   </span>
                 </li>
               );
