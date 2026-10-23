@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import Papa from "papaparse";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
+import { coma } from "@/lib/formatoNumero";
+import { posicionDe } from "@/lib/posiciones";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -80,6 +82,9 @@ const AXES: {
   },
 ];
 
+/* Por debajo de esto la media es una tendencia, no un diagnóstico. */
+const MUESTRA_MINIMA = 12;
+
 const SERIES_COLORS = ["#36DAFF", "#B66BFF", "#62E8FF", "#D17DFF"];
 
 /* Escala cromática compartida: el mismo valor se lee siempre con el mismo
@@ -91,18 +96,7 @@ const SCALE = [
   { min: 0, tone: "#FFB84D", label: "MEJORABLE" },
 ];
 
-/* Composición por defecto de cada panel. Si un jugador no está en el CSV
-   simplemente se ignora, así la página nunca queda vacía. */
-const DEFAULT_GROUPS = {
-  /* Ningún jugador repetido entre líneas. */
-  leftSide: ["Diego Aguado", "Alexis Ciria"],
-  defense: ["Mario Rivas", "Joan Martínez", "Fortea"],
-  rightSide: ["Yáñez"],
-  midfield: ["Cestero", "Pol Fortuny"],
-  strikers: ["Rachad"],
-} as const;
-
-type GroupKey = keyof typeof DEFAULT_GROUPS;
+type GroupKey = "leftSide" | "defense" | "rightSide" | "midfield" | "strikers";
 
 const EMPTY_GROUPS: Record<GroupKey, string[]> = {
   leftSide: [],
@@ -111,6 +105,41 @@ const EMPTY_GROUPS: Record<GroupKey, string[]> = {
   midfield: [],
   strikers: [],
 };
+
+/* Composición por defecto: sale de los jugadores que hay en la base emocional,
+   repartidos por su demarcación en la hoja (con las correcciones de
+   lib/posiciones.ts) y sin repetir a nadie. Perfil izquierdo = lateral
+   izquierdo y extremo izquierdo (11); perfil derecho = lateral derecho y
+   extremo derecho (7); defensa = centrales; mediocampo = 6, 8 y 10; puntas = 9. */
+function grupoDe(posicion: string): GroupKey | null {
+  const p = posicion.trim().toUpperCase();
+  if (p === "LATERAL I." || p === "11") return "leftSide";
+  if (p === "LATERAL D." || p === "7") return "rightSide";
+  if (p === "CENTRAL") return "defense";
+  if (p === "6" || p === "8" || p === "10") return "midfield";
+  if (p === "9") return "strikers";
+  return null;
+}
+
+function gruposPorDefecto(rows: Player[]): Record<GroupKey, string[]> {
+  const grupos: Record<GroupKey, string[]> = {
+    leftSide: [],
+    defense: [],
+    rightSide: [],
+    midfield: [],
+    strikers: [],
+  };
+  const vistos = new Set<string>();
+
+  for (const r of rows) {
+    const clave = grupoDe(posicionDe(r.jugador, r.posicion));
+    if (!clave || vistos.has(r.jugador)) continue;
+    vistos.add(r.jugador);
+    grupos[clave].push(r.jugador);
+  }
+
+  return grupos;
+}
 
 function num(v?: string) {
   return Number(String(v || "").replace(",", ".")) || 0;
@@ -196,17 +225,8 @@ export default function EmotionPage() {
         if (cancelled) return;
 
         const parsed = parseCSV(t);
-        const known = new Set(parsed.map((p) => p.jugador));
-
         setRows(parsed);
-
-        setGroups({
-          leftSide: DEFAULT_GROUPS.leftSide.filter((n) => known.has(n)),
-          defense: DEFAULT_GROUPS.defense.filter((n) => known.has(n)),
-          rightSide: DEFAULT_GROUPS.rightSide.filter((n) => known.has(n)),
-          midfield: DEFAULT_GROUPS.midfield.filter((n) => known.has(n)),
-          strikers: DEFAULT_GROUPS.strikers.filter((n) => known.has(n)),
-        });
+        setGroups(gruposPorDefecto(parsed));
 
         setError(false);
       })
@@ -279,16 +299,18 @@ export default function EmotionPage() {
   }, []);
 
   const resetGroups = useCallback(() => {
-    const known = new Set(names);
+    setGroups(gruposPorDefecto(rows));
+  }, [rows]);
 
-    setGroups({
-      leftSide: DEFAULT_GROUPS.leftSide.filter((n) => known.has(n)),
-      defense: DEFAULT_GROUPS.defense.filter((n) => known.has(n)),
-      rightSide: DEFAULT_GROUPS.rightSide.filter((n) => known.has(n)),
-      midfield: DEFAULT_GROUPS.midfield.filter((n) => known.has(n)),
-      strikers: DEFAULT_GROUPS.strikers.filter((n) => known.has(n)),
-    });
-  }, [names]);
+  /* Las líneas sin ningún jugador evaluado no se dibujan. Se decide con la
+     composición por defecto, no con lo que el usuario vaya quitando: una
+     línea vaciada a mano sigue ahí para volver a rellenarla. */
+  const lineasConJugadores = useMemo(() => {
+    const por = gruposPorDefecto(rows);
+    return new Set(
+      (Object.keys(por) as GroupKey[]).filter((k) => por[k].length > 0)
+    );
+  }, [rows]);
 
   const openVideo = () => {
     if (window.innerWidth < 1024) {
@@ -299,6 +321,14 @@ export default function EmotionPage() {
     setVerVideo(true);
     videoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  const centrales = (
+    [
+      { clave: "defense", titulo: "Defensa" },
+      { clave: "midfield", titulo: "Mediocampo" },
+      { clave: "strikers", titulo: "Puntas / Delanteros" },
+    ] as { clave: GroupKey; titulo: string }[]
+  ).filter((c) => lineasConJugadores.has(c.clave));
 
   const panelProps = (key: GroupKey) => ({
     players: names,
@@ -379,14 +409,22 @@ export default function EmotionPage() {
               <SummaryTile
                 label="Jugadores analizados"
                 value={loading ? "—" : String(rows.length)}
-                caption="Registros en la base emocional"
+                caption={
+                  rows.length > 0 && rows.length < MUESTRA_MINIMA
+                    ? "Pocos registros: es una tendencia"
+                    : "Registros en la base emocional"
+                }
                 icon={Users}
               />
 
               <SummaryTile
                 label="Media de plantilla"
-                value={loading ? "—" : teamScore.toFixed(1)}
-                caption={loading ? "Cargando datos" : labelFor(teamScore)}
+                value={loading ? "—" : coma(teamScore)}
+                caption={
+                  loading
+                    ? "Cargando datos"
+                    : `${labelFor(teamScore)} · sobre ${rows.length} jugadores`
+                }
                 tone={loading ? undefined : toneFor(teamScore)}
               />
 
@@ -451,28 +489,41 @@ export default function EmotionPage() {
               }}
             >
               <div className="space-y-4">
-                <RadarPanel
-                  horizontal
-                  title="Perfil izquierdo"
-                  {...panelProps("leftSide")}
-                />
-
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                  <RadarPanel title="Defensa" {...panelProps("defense")} />
-
-                  <RadarPanel title="Mediocampo" {...panelProps("midfield")} />
-
+                {lineasConJugadores.has("leftSide") && (
                   <RadarPanel
-                    title="Puntas / Delanteros"
-                    {...panelProps("strikers")}
+                    horizontal
+                    title="Perfil izquierdo"
+                    {...panelProps("leftSide")}
                   />
-                </div>
+                )}
 
-                <RadarPanel
-                  horizontal
-                  title="Perfil derecho"
-                  {...panelProps("rightSide")}
-                />
+                {centrales.length > 0 && (
+                  <div
+                    className={`grid grid-cols-1 gap-4 ${
+                      centrales.length === 1
+                        ? ""
+                        : centrales.length === 2
+                          ? "lg:grid-cols-2"
+                          : "lg:grid-cols-3"
+                    }`}
+                  >
+                    {centrales.map((c) => (
+                      <RadarPanel
+                        key={c.clave}
+                        title={c.titulo}
+                        {...panelProps(c.clave)}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {lineasConJugadores.has("rightSide") && (
+                  <RadarPanel
+                    horizontal
+                    title="Perfil derecho"
+                    {...panelProps("rightSide")}
+                  />
+                )}
               </div>
             </div>
 
@@ -505,7 +556,7 @@ export default function EmotionPage() {
 
                       {value !== null && (
                         <span className="tabular-nums text-white/70">
-                          {value.toFixed(1)}
+                          {coma(value)}
                         </span>
                       )}
                     </div>
@@ -525,6 +576,23 @@ export default function EmotionPage() {
                 );
               })}
             </div>
+
+            {/* Lectura: sale de las mismas medias que se muestran arriba. */}
+            {axisRanking && teamAverage && (
+              <p className="mt-4 text-sm leading-relaxed text-white/70">
+                <span className="font-semibold text-white">
+                  Dimensión a trabajar: {axisRanking.bottom.code}
+                </span>{" "}
+                ({axisRanking.bottom.detail.toLowerCase()}),{" "}
+                {coma(teamAverage[axisRanking.bottom.key])} de media frente a{" "}
+                {coma(teamAverage[axisRanking.top.key])} en{" "}
+                {axisRanking.top.code}. Media sobre {rows.length} jugadores
+                {rows.length < MUESTRA_MINIMA
+                  ? ": con tan pocos registros es una tendencia"
+                  : ""}
+                .
+              </p>
+            )}
 
             {/* ------------------------------------- Vídeo explicativo */}
             <div ref={videoRef} className="mt-14 sm:mt-20" data-export-hide>
@@ -549,19 +617,33 @@ export default function EmotionPage() {
                     allowFullScreen
                   />
                 ) : (
-                  <div className="flex flex-col items-center gap-4 rounded-[18px] px-6 py-12 text-center sm:rounded-[24px]">
-                    <p className="max-w-md text-sm text-white/70">
-                      Cómo se leen las cuatro dimensiones: EA (externo ·
-                      amplio), IE (interno · estrecho), IA (interno · amplio) y
-                      EE (externo · estrecho).
-                    </p>
-                    <button
-                      onClick={() => setVerVideo(true)}
-                      className="inline-flex items-center gap-2 rounded-full bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black shadow-xl"
-                    >
-                      <Play size={15} />
-                      Ver explicación
-                    </button>
+                  <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {AXES.map((axis) => (
+                      <div
+                        key={axis.code}
+                        className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                      >
+                        <p className="text-lg font-bold text-[#E4C977]">
+                          {axis.code}
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-white">
+                          {axis.label}
+                        </p>
+                        <p className="mt-2 text-xs leading-relaxed text-white/60">
+                          {axis.detail}. Se entrena en: {axis.moment.toLowerCase()}.
+                        </p>
+                      </div>
+                    ))}
+
+                    <div className="flex items-center justify-center sm:col-span-2 xl:col-span-4">
+                      <button
+                        onClick={() => setVerVideo(true)}
+                        className="inline-flex items-center gap-2 rounded-full bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black shadow-xl"
+                      >
+                        <Play size={15} />
+                        Ver el vídeo explicativo
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -668,7 +750,7 @@ function RadarTooltip({
             </span>
 
             <span className="tabular-nums text-white">
-              {Number(entry.value ?? 0).toFixed(1)}
+              {coma(Number(entry.value ?? 0))}
             </span>
           </div>
         ))}
@@ -805,7 +887,7 @@ function RadarPanel({
             >
               Media{" "}
               <span className="tabular-nums font-semibold text-white">
-                {synergyScore.toFixed(1)}
+                {coma(synergyScore)}
               </span>
               <span className="text-white/35"> / 10</span>
             </span>
@@ -948,7 +1030,7 @@ function RadarPanel({
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="h-[280px] w-full">
+          <div className="h-[280px] w-full sm:h-[300px]">
             {series.length === 0 && loading ? (
               <Hueso className="h-full w-full rounded-2xl" />
             ) : series.length === 0 ? (
@@ -963,14 +1045,38 @@ function RadarPanel({
               >
                 <RadarChart
                   data={chartData}
-                  outerRadius="78%"
+                  outerRadius="76%"
                   margin={{ top: 8, right: 16, bottom: 8, left: 16 }}
                 >
                   <PolarGrid stroke={`${radarTone}40`} />
 
                   <PolarAngleAxis
                     dataKey="key"
-                    tick={{ fill: "#ffffff", fontSize: 13, fontWeight: 700 }}
+                    tick={(props: {
+                      x?: number | string;
+                      y?: number | string;
+                      textAnchor?: "start" | "middle" | "end" | "inherit";
+                      payload?: { value?: string };
+                    }) => {
+                      const code = String(props.payload?.value ?? "");
+                      const media = groupAverages?.find(
+                        (g) => g.axis.code === code
+                      );
+
+                      return (
+                        <text
+                          x={props.x}
+                          y={props.y}
+                          textAnchor={props.textAnchor}
+                          fontSize={13}
+                          fontWeight={700}
+                          fill="#ffffff"
+                        >
+                          {code}
+                          {media ? ` ${coma(media.value)}` : ""}
+                        </text>
+                      );
+                    }}
                   />
 
                   <PolarRadiusAxis
@@ -1034,7 +1140,7 @@ function RadarPanel({
                   title={`${axis.label} · ${axis.detail}`}
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[10px] font-bold tracking-wider text-white/45">
+                    <span className="text-[11px] font-bold tracking-wider text-white/70">
                       {axis.code}
                     </span>
 
@@ -1042,7 +1148,7 @@ function RadarPanel({
                       className="text-[12px] font-semibold tabular-nums"
                       style={{ color: chipInk(toneFor(value)) }}
                     >
-                      {value.toFixed(1)}
+                      {coma(value)}
                     </span>
                   </div>
 

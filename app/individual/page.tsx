@@ -1,6 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import { traeCsv, traeJson } from "@/lib/hojaCsv";
+import { coma } from "@/lib/formatoNumero";
 
 import type { ReactNode } from "react";
 import {
@@ -888,7 +889,7 @@ function ScoreRing({ value, size = 56 }: { value: number; size?: number }) {
 
       <div className="absolute inset-0 flex items-center justify-center">
         <span className="text-sm font-semibold tabular-nums" style={{ color }}>
-          {clamped ? clamped.toFixed(1) : "—"}
+          {clamped ? coma(clamped) : "—"}
         </span>
       </div>
     </div>
@@ -1427,6 +1428,8 @@ function PlayerCard({
     .slice(0, 2)
     .map((p) => p.charAt(0).toUpperCase())
     .join("");
+  const hayFooter =
+    Boolean(player.sessions) || Boolean(player.videos) || Boolean(player.hasReport);
 
   return (
     <button
@@ -1479,7 +1482,9 @@ function PlayerCard({
               background: "rgba(0,0,0,0.78)",
             }}
           >
-            {player.score.toFixed(1)}
+            <span title="Media de competencias (no es la nota de partido)">
+              {coma(player.score)} comp.
+            </span>
           </span>
         )}
 
@@ -1494,48 +1499,35 @@ function PlayerCard({
         </div>
       </div>
 
-      <div className="flex min-w-0 items-center justify-between gap-1 border-t border-white/10 bg-white/[0.02] px-2.5 py-2">
-        <span
-          className={`flex items-center gap-1 text-[10px] tabular-nums ${
-            player.sessions ? "text-white/60" : "text-white/20"
-          }`}
-          title={
-            player.sessions === null
-              ? "Cargando los seguimientos…"
-              : `${player.sessions} sesiones de seguimiento`
-          }
-        >
-          <ClipboardList size={11} />
-          {player.sessions ?? "—"}
-        </span>
+      {hayFooter && (
+        <div className="flex min-w-0 items-center justify-start gap-3 border-t border-white/10 bg-white/[0.02] px-2.5 py-2">
+          {Boolean(player.sessions) && (
+            <span
+              className="flex items-center gap-1 text-[10px] tabular-nums text-white/60"
+              title={`${player.sessions} sesiones de seguimiento`}
+            >
+              <ClipboardList size={11} />
+              {player.sessions}
+            </span>
+          )}
 
-        <span
-          className={`flex items-center gap-1 text-[10px] tabular-nums ${
-            player.videos ? "text-white/60" : "text-white/20"
-          }`}
-          title={
-            player.videos === null ? "Cargando los vídeos…" : `${player.videos} vídeos`
-          }
-        >
-          <Video size={11} />
-          {player.videos ?? "—"}
-        </span>
+          {Boolean(player.videos) && (
+            <span
+              className="flex items-center gap-1 text-[10px] tabular-nums text-white/60"
+              title={`${player.videos} vídeos`}
+            >
+              <Video size={11} />
+              {player.videos}
+            </span>
+          )}
 
-        <span
-          className={
-            player.hasReport ? "text-[#C8A96B]" : "text-white/20"
-          }
-          title={
-            player.hasReport === null
-              ? "Cargando los informes…"
-              : player.hasReport
-                ? "Con informe"
-                : "Sin informe"
-          }
-        >
-          <FileText size={11} />
-        </span>
-      </div>
+          {player.hasReport && (
+            <span className="text-[#C8A96B]" title="Con informe">
+              <FileText size={11} />
+            </span>
+          )}
+        </div>
+      )}
     </button>
   );
 }
@@ -2898,14 +2890,14 @@ export default function IndividualPage() {
 
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-            Media
+            Media de competencias
           </p>
 
-          <p className="text-xs text-white/40">
-            {selected.score
-              ? "Sobre las competencias valoradas"
-              : "Sin valoración registrada"}
-          </p>
+          {selected.score > 0 && (
+            <p className="text-xs text-white/40">
+              Sobre las competencias valoradas, no es la nota de partido
+            </p>
+          )}
         </div>
       </div>
 
