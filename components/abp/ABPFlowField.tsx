@@ -769,17 +769,27 @@ const origen = `${tipo}__${perfil}`;
   // La clave es: "TipoAccion__perfil"
   const [name] = key.split("__");
 
-  const p = getOriginCoords(name, data?.perfil);
-  if (!p) return null;
+  const p0 = getOriginCoords(name, data?.perfil);
+  if (!p0) return null;
 
   // El tamaño responde a la métrica elegida: volumen de acciones o xG generado.
   const magnitud =
     metric === "xg" ? data?.xg || 0 : value;
 
+  /* Con pocas acciones (una jornada) la escala no se estira hasta el tope:
+     una sola acción no puede ser una burbuja que tape el campo. */
   const escala =
-    metric === "xg" ? Math.max(maxOriginXg, 0.01) : maxOrigin;
+    metric === "xg" ? Math.max(maxOriginXg, 0.4) : Math.max(maxOrigin, 5);
 
-  const r = 3 + Math.sqrt(magnitud / escala) * 6.2;
+  const r = 2.6 + Math.sqrt(magnitud / escala) * 4.6;
+
+  /* El nodo entero cabe dentro del campo: los córners (x = 2 y 138) salían
+     cortados por el borde. */
+  const p = {
+    ...p0,
+    x: Math.min(Math.max(p0.x, r + 2.4), 140 - r - 2.4),
+    y: Math.max(p0.y, r + 2.4),
+  };
 
   const ratioPeligro = value ? (data?.peligro || 0) / value : 0;
 
@@ -1163,7 +1173,7 @@ const atenuado = tipoElegido
         const p = remateCoords[name];
         if (!p || stat.xg <= 0) return null;
 
-        const r = 2.5 + Math.sqrt(stat.xg / maxXG) * 4;
+        const r = 2.2 + Math.sqrt(stat.xg / Math.max(maxXG, 0.3)) * 3.6;
 
 
 

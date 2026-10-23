@@ -633,9 +633,10 @@ function analizaReparto(
     frases.push(`Lo pierde «${baja.nombre}» (${signo(baja.deltaPp)} pp).`);
   }
 
-  if (masEficaz?.metrica != null && categorias.length > 1) {
+  /* Con 0 no hay «más» que decir: contradice el resto de la lectura. */
+  if (masEficaz?.metrica != null && masEficaz.metrica > 0 && categorias.length > 1) {
     frases.push(
-      `${sentido === "ofensivo" ? "Lo que más produce" : "Por donde más se concede"}: «${masEficaz.nombre}», ${metrica.formatear(masEficaz.metrica)}.`,
+      `${sentido === "ofensivo" ? "Lo que más produce" : "Por donde más se concede"}: «${masEficaz.nombre}», ${metrica.formatear(masEficaz.metrica)} sobre ${masEficaz.acciones} acciones.`,
     );
   }
 
