@@ -65,6 +65,34 @@ export function posicionDe(nombre: string, enLaHoja: string): string {
   return correccion.debeDecir;
 }
 
+const NOMBRE_DE_ROL: Record<number, string> = {
+  1: "Portero",
+  2: "Lateral derecho",
+  3: "Lateral izquierdo",
+  4: "Central",
+  5: "Central",
+  6: "Pivote",
+  7: "Extremo derecho",
+  8: "Interior",
+  9: "Delantero",
+  10: "Mediapunta",
+  11: "Extremo izquierdo",
+  13: "Portero",
+};
+
+/**
+ * El puesto dicho con palabras para enseñarlo en pantalla: «10» pasa a
+ * «Mediapunta». Lo que ya viene escrito (o un número sin rol conocido) se
+ * deja como está.
+ */
+export function nombrePuesto(posicion: string): string {
+  const limpio = (posicion || "").trim();
+
+  if (!/^\d+$/.test(limpio)) return limpio;
+
+  return NOMBRE_DE_ROL[Number(limpio)] ?? limpio;
+}
+
 /** Aplica las correcciones a una plantilla ya leída. */
 export function conPosiciones(jugadores: Player[]): Player[] {
   return jugadores.map((jugador) => {

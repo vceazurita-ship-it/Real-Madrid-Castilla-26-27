@@ -796,6 +796,10 @@ function averageScore(player: Player) {
 
   if (!values.length) return 0;
 
+  /* Todas las competencias en 5 es el valor por defecto de la hoja, no una
+     valoración: el jugador cuenta como «sin valorar» (ni chapa ni media). */
+  if (values.length === METRICS.length && values.every((v) => v === 5)) return 0;
+
   return values.reduce((a, b) => a + b, 0) / values.length;
 }
 
@@ -1416,6 +1420,14 @@ function PlayerCard({
   player: MergedPlayer;
   onSelect: (player: MergedPlayer) => void;
 }) {
+  const [sinFoto, setSinFoto] = useState(!player.photo);
+  const iniciales = player.name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p.charAt(0).toUpperCase())
+    .join("");
+
   return (
     <button
       onClick={() => onSelect(player)}
@@ -1426,24 +1438,35 @@ function PlayerCard({
       }`}
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#0B0F14]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={player.photo}
-          alt={player.name}
-          loading="lazy"
-          className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.04]"
-        />
+        {sinFoto ? (
+          <div
+            aria-hidden
+            className="flex h-full w-full items-center justify-center text-4xl font-semibold tracking-wide text-[#C8A96B]/70"
+          >
+            {iniciales}
+          </div>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={player.photo}
+            alt={player.name}
+            loading="lazy"
+            onError={() => setSinFoto(true)}
+            className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.04]"
+          />
+        )}
 
         <div className="absolute inset-0 bg-gradient-to-t from-[#0B0F14] via-[#0B0F14]/25 to-transparent" />
 
         {player.externo && (
           <span className="absolute right-1.5 top-1.5 rounded-full bg-[#C8A96B] px-1.5 py-0.5 text-[8px] font-bold uppercase text-black">
-            Otro
+            Otro equipo
           </span>
         )}
 
         {player.score > 0 && (
           <span
+            title="Media de competencias (no es la nota de partido)"
             className="absolute left-1.5 top-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums backdrop-blur"
             /* Este distintivo va siempre sobre un velo negro encima de la
                foto, en los dos temas: mantiene la escala luminosa. */
@@ -1891,6 +1914,7 @@ export default function IndividualPage() {
 
     return {
       players: mergedPlayers.length,
+      rated: rated.length,
       tracked: mergedPlayers.filter((p) => (p.sessions ?? 0) > 0).length,
       sessions: trackingData.length,
       videos: videoData.length,
@@ -3041,7 +3065,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `${stats.tracked} con seguimiento`
+                      : `${stats.tracked} con seguimiento, plantilla y otros equipos`
                   }
                 />
 
@@ -3049,7 +3073,7 @@ export default function IndividualPage() {
                   icon={ClipboardList}
                   label="Sesiones"
                   value={pendiente.seguimiento ? "—" : stats.sessions}
-                  hint="Registros de seguimiento"
+                  hint="registros de seguimiento de todos los jugadores"
                 />
 
                 <StatTile
@@ -3068,9 +3092,9 @@ export default function IndividualPage() {
 
                 <StatTile
                   icon={Gauge}
-                  label="Media plantilla"
-                  value={stats.avg ? stats.avg.toFixed(1) : "—"}
-                  hint="Competencias valoradas"
+                  label="Media competencias"
+                  value={stats.avg ? stats.avg.toFixed(1).replace(".", ",") : "—"}
+                  hint={`${stats.rated} jugadores con competencias valoradas`}
                 />
               </div>
 

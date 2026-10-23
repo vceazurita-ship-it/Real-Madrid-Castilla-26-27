@@ -4,12 +4,23 @@ import type { ReactNode } from "react";
 
 /** Rejilla, ejes y tooltip compartidos por todos los gráficos del módulo. */
 
+/* Con la tinta del tema: en modo día el blanco fijo no se veía (nombres y
+   fechas desaparecían). La variable va también en `style` porque un atributo
+   SVG no siempre resuelve var(). */
 export const AXIS = {
-  stroke: "rgba(255,255,255,0.25)",
-  tick: { fill: "rgba(255,255,255,0.45)", fontSize: 11 },
+  stroke: "rgb(var(--rmcf-ink-rgb) / 0.3)",
+  tick: {
+    fill: "rgb(var(--rmcf-ink-rgb) / 0.7)",
+    fontSize: 11,
+    style: { fill: "rgb(var(--rmcf-ink-rgb) / 0.7)" },
+  },
 } as const;
 
-export const GRID_STROKE = "rgba(255,255,255,0.06)";
+export const GRID_STROKE = "rgb(var(--rmcf-ink-rgb) / 0.1)";
+
+/** Cursor de los gráficos al pasar por encima. */
+export const CURSOR_LINEA = { stroke: "rgb(var(--rmcf-ink-rgb) / 0.2)" };
+export const CURSOR_BARRA = { fill: "rgb(var(--rmcf-ink-rgb) / 0.06)" };
 
 export function ChartTooltip({
   title,

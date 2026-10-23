@@ -94,11 +94,12 @@ const SCALE = [
 /* Composición por defecto de cada panel. Si un jugador no está en el CSV
    simplemente se ignora, así la página nunca queda vacía. */
 const DEFAULT_GROUPS = {
+  /* Ningún jugador repetido entre líneas. */
   leftSide: ["Diego Aguado", "Alexis Ciria"],
-  defense: ["Diego Aguado", "Mario Rivas", "Joan Martínez", "Fortea"],
-  rightSide: ["Fortea", "Yáñez"],
+  defense: ["Mario Rivas", "Joan Martínez", "Fortea"],
+  rightSide: ["Yáñez"],
   midfield: ["Cestero", "Pol Fortuny"],
-  strikers: ["Rachad", "Pol Fortuny"],
+  strikers: ["Rachad"],
 } as const;
 
 type GroupKey = keyof typeof DEFAULT_GROUPS;
@@ -134,6 +135,9 @@ function parseCSV(text: string): Player[] {
   */
   return parsed.data
     .filter((r) => [r[2], r[3], r[4], r[5]].every((v) => ES_NOTA.test(v ?? "")))
+    /* Las cuatro notas exactamente en 5 son el relleno de la hoja, no una
+       evaluación: no entran en radares ni en medias. */
+    .filter((r) => ![r[2], r[3], r[4], r[5]].every((v) => num(v) === 5))
     .map((r) => ({
       posicion: r[0]?.trim() || "",
       jugador: r[1]?.trim() || "",
@@ -175,6 +179,7 @@ export default function EmotionPage() {
   const [rows, setRows] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [verVideo, setVerVideo] = useState(false);
   const [showTeamAverage, setShowTeamAverage] = useState(true);
 
   const [groups, setGroups] = useState<Record<GroupKey, string[]>>(EMPTY_GROUPS);
@@ -291,6 +296,7 @@ export default function EmotionPage() {
       return;
     }
 
+    setVerVideo(true);
     videoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -534,13 +540,30 @@ export default function EmotionPage() {
               </div>
 
               <div className="hidden overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm sm:rounded-[32px] sm:p-4 lg:block">
-                <iframe
-                  title="Vídeo explicativo del análisis emocional"
-                  src={VIDEO_EMBED}
-                  className="h-[640px] w-full rounded-[18px] border-0 bg-black sm:rounded-[24px]"
-                  allow="autoplay"
-                  allowFullScreen
-                />
+                {verVideo ? (
+                  <iframe
+                    title="Vídeo explicativo del análisis emocional"
+                    src={VIDEO_EMBED}
+                    className="h-[640px] w-full rounded-[18px] border-0 bg-black sm:rounded-[24px]"
+                    allow="autoplay"
+                    allowFullScreen
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-4 rounded-[18px] px-6 py-12 text-center sm:rounded-[24px]">
+                    <p className="max-w-md text-sm text-white/70">
+                      Cómo se leen las cuatro dimensiones: EA (externo ·
+                      amplio), IE (interno · estrecho), IA (interno · amplio) y
+                      EE (externo · estrecho).
+                    </p>
+                    <button
+                      onClick={() => setVerVideo(true)}
+                      className="inline-flex items-center gap-2 rounded-full bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black shadow-xl"
+                    >
+                      <Play size={15} />
+                      Ver explicación
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-6 text-center lg:hidden">
@@ -679,6 +702,7 @@ function RadarPanel({
   horizontal?: boolean;
 }) {
   const [query, setQuery] = useState("");
+  const [abierto, setAbierto] = useState(false);
 
   const series = useMemo(
     () =>
@@ -832,9 +856,22 @@ function RadarPanel({
           }`}
           data-export-hide
         >
+          <button
+            onClick={() => setAbierto((v) => !v)}
+            aria-expanded={abierto}
+            className="inline-flex items-center justify-between gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[11px] font-medium text-white/80 transition hover:border-white/30 hover:text-white"
+          >
+            {abierto ? "Cerrar lista" : "Elegir jugadores"}
+            <span className="tabular-nums text-white/45">
+              {selected.length}/{players.length}
+            </span>
+          </button>
+
+          {abierto && (
+          <>
           <div className="flex items-center justify-between gap-2">
             <span className="text-[10px] uppercase tracking-[.18em] text-white/35">
-              {selected.length}/{players.length}
+              Jugadores
             </span>
 
             <button
@@ -906,10 +943,12 @@ function RadarPanel({
               );
             })}
           </div>
+          </>
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="h-[240px] w-full">
+          <div className="h-[280px] w-full">
             {series.length === 0 && loading ? (
               <Hueso className="h-full w-full rounded-2xl" />
             ) : series.length === 0 ? (
@@ -920,7 +959,7 @@ function RadarPanel({
               <ResponsiveContainer
                 width="100%"
                 height="100%"
-                initialDimension={{ width: horizontal ? 520 : 300, height: 240 }}
+                initialDimension={{ width: horizontal ? 520 : 300, height: 280 }}
               >
                 <RadarChart
                   data={chartData}
@@ -931,7 +970,7 @@ function RadarPanel({
 
                   <PolarAngleAxis
                     dataKey="key"
-                    tick={{ fill: "#ffffff", fontSize: 11 }}
+                    tick={{ fill: "#ffffff", fontSize: 13, fontWeight: 700 }}
                   />
 
                   <PolarRadiusAxis

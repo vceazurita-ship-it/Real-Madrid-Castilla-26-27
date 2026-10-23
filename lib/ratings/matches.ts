@@ -76,8 +76,37 @@ export function matchId(date: string, opponent: string, source: "csv" | "manual"
   return source === "manual" ? `m-${base}` : base;
 }
 
+/** Rivales escritos en mayúsculas («UD IBIZA») pasan a «UD Ibiza»; las siglas
+ *  de hasta tres letras se quedan como están. El id sale del slug, que ya
+ *  ignora las mayúsculas. */
+function nombreRival(nombre: string) {
+  if (nombre !== nombre.toUpperCase() || nombre === nombre.toLowerCase()) {
+    return nombre;
+  }
+
+  return nombre
+    .split(/\s+/)
+    .map((p) =>
+      /^(DE|DEL|LA|LAS|EL|LOS|Y)$/.test(p)
+        ? p.toLowerCase()
+        : p.length <= 3
+          ? p
+          : p.charAt(0) + p.slice(1).toLowerCase()
+    )
+    .join(" ");
+}
+
+/** Marcador siempre como «1-2», sin espacios. */
+function marcadorLimpio(resultado: string | undefined) {
+  const texto = (resultado ?? "").trim();
+  const m = texto.match(/^(\d+)\s*[-–:]\s*(\d+)$/);
+
+  return m ? `${m[1]}-${m[2]}` : texto;
+}
+
 export function rowToMatch(row: MatchRow): MatchMeta {
-  const { isHome, opponent } = splitSides(row.partido);
+  const { isHome, opponent: rival } = splitSides(row.partido);
+  const opponent = nombreRival(rival);
   const score = parseResult(row.resultado);
   const date = toDateKey(row.fecha);
 
@@ -87,7 +116,7 @@ export function rowToMatch(row: MatchRow): MatchMeta {
     opponent,
     competition: (row.microciclo ?? "").trim() || "Sin microciclo",
     isHome,
-    result: (row.resultado ?? "").trim(),
+    result: marcadorLimpio(row.resultado),
     gf: score ? (isHome ? score.home : score.away) : null,
     ga: score ? (isHome ? score.away : score.home) : null,
     source: "csv",

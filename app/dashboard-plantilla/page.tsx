@@ -8,7 +8,10 @@ import Papa from "papaparse";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { getPlayerImage, normalizePlayerName } from "@/lib/playerImages";
-import { posicionDe } from "@/lib/posiciones";
+import { nombrePuesto, posicionDe } from "@/lib/posiciones";
+import { useRatingsSeason } from "@/hooks/useRatings";
+import { summarizePlayer, formatRating } from "@/lib/ratings/compute";
+import type { RatingsSeason } from "@/lib/ratings/types";
 import { dorsalDe } from "@/lib/dorsales";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 
@@ -250,6 +253,7 @@ export default function DashboardPlantilla() {
   const [vista, setVista] = usePestanaUrl<"jugador" | "plantilla" | "valoracion" | "evolucion">("vista", ["jugador", "plantilla", "valoracion", "evolucion"], "jugador");
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const { season: ratingsSeason } = useRatingsSeason();
   const [playerSearch, setPlayerSearch] = useState("");
 
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -397,7 +401,9 @@ export default function DashboardPlantilla() {
 
           nombre,
           apodo: scout.APODO || estado.APODO || "",
-          posicion: posicionDe(nombre, scout.POSICION || estado.POSICION || ""),
+          posicion: nombrePuesto(
+            posicionDe(nombre, scout.POSICION || estado.POSICION || ""),
+          ),
           dorsal: scout.DORSAL || String(dorsalDe(nombre) ?? ""),
           foto:
             getPlayerImage(nombre, "cerca", scout.ID_JUGADOR) ||
@@ -418,14 +424,24 @@ export default function DashboardPlantilla() {
           fisica,
           tecnica,
           media,
-          valorado: valores.length > 0,
+          /* Las cinco a 5 es el valor por defecto de la hoja, no una ficha
+             de scouting: cuenta como «sin ficha» y no entra en medias. */
+          valorado:
+            valores.length > 0 &&
+            !(valores.length === 5 && valores.every((v) => v === 5)),
 
           fortalezas: scout?.FORTALEZAS ?? "",
           aspectosMejora: scout?.ASPECTOS_MEJORA ?? "",
           hudl: scout?.HUDL_PERFIL_URL ?? "",
         };
       })
-      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+      /* Con ficha primero: la pantalla abre en alguien con datos y los que
+         no la tienen quedan al final de la lista. */
+      .sort(
+        (a, b) =>
+          Number(b.valorado) - Number(a.valorado) ||
+          a.nombre.localeCompare(b.nombre),
+      );
   }, [estadoRows, scoutingRows]);
 
   const updateFilter = (key: keyof Filters, value: string) => {
@@ -689,6 +705,8 @@ export default function DashboardPlantilla() {
     value: string | number;
     filter?: { key: keyof Filters; value: string };
     tone?: string;
+    /** La base de la cifra, escrita bajo ella. */
+    base?: string;
   }[] = [
     { title: "Jugadores", value: stats.total },
     {
@@ -715,11 +733,19 @@ export default function DashboardPlantilla() {
       filter: { key: "estado", value: "LESIONADO" },
       tone: "text-red-300",
     },
-    { title: "Media", value: stats.media },
+    {
+      title: "Media",
+      value: stats.media,
+      base: `de ${stats.valorados} con ficha`,
+    },
     { title: "Mejor", value: stats.mejor },
     { title: "Peor", value: stats.peor },
     { title: "Élite (≥8)", value: stats.elite },
-    { title: "% Óptimos", value: `${stats.optimalPercentage}%` },
+    {
+      title: "% Óptimos",
+      value: `${stats.optimalPercentage}%`,
+      base: `${stats.optimos} de ${stats.total}`,
+    },
   ];
 
   /*
@@ -918,16 +944,11 @@ export default function DashboardPlantilla() {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
-                    <SummaryStat label="Jugadores" value={stats.total} />
-                    <SummaryStat label="Media" value={stats.media} />
+                  {/* Jugadores, media y % de óptimos van en las tarjetas de
+                      debajo: aquí sólo el veredicto, sin repetir cifras. */}
+                  <div className="grid grid-cols-1 gap-6">
                     <SummaryStat
-                      label="Disponibles"
-                      value={`${stats.optimalPercentage}%`}
-                      className="text-emerald-400"
-                    />
-                    <SummaryStat
-                      label="Estado general"
+                      label={`Estado general · ${stats.optimos} óptimos de ${stats.total}`}
                       value={overallStatus}
                       size="text-xl"
                       className={
@@ -979,9 +1000,9 @@ export default function DashboardPlantilla() {
                       <div className="mt-1 text-xs text-white/30">
                         {clickable
                           ? active
-                            ? "Filtro activo · click para quitar"
-                            : "Click para filtrar"
-                          : " "}
+                            ? "Filtro activo · pulsa para quitar"
+                            : "Pulsa para filtrar"
+                          : (kpi.base ?? " ")}
                       </div>
                     </>
                   );
@@ -1041,16 +1062,17 @@ export default function DashboardPlantilla() {
                       player={selectedPlayer}
                       onSelect={handlePlayerSelect}
                       players={filteredPlayers}
+                      ratingsSeason={ratingsSeason}
                     />
 
                     <ChartCard
                       title="Perfil comparado"
                       subtitle={
-                        selectedPlayer
+                        selectedPlayer?.valorado
                           ? `${
                               selectedPlayer.apodo || selectedPlayer.nombre
                             } vs. media de la plantilla filtrada`
-                          : undefined
+                          : `Media de la plantilla filtrada, sobre ${stats.valorados} jugadores con ficha`
                       }
                     >
                       {radarData.length ? (
@@ -1077,17 +1099,19 @@ export default function DashboardPlantilla() {
                               fillOpacity={0.18}
                             />
 
-                            <Radar
-                              name={
-                                selectedPlayer?.apodo ||
-                                selectedPlayer?.nombre ||
-                                "Jugador"
-                              }
-                              dataKey="jugador"
-                              stroke={THEME.gold}
-                              fill={THEME.gold}
-                              fillOpacity={0.35}
-                            />
+                            {selectedPlayer?.valorado && (
+                              <Radar
+                                name={
+                                  selectedPlayer.apodo ||
+                                  selectedPlayer.nombre ||
+                                  "Jugador"
+                                }
+                                dataKey="jugador"
+                                stroke={THEME.gold}
+                                fill={THEME.gold}
+                                fillOpacity={0.35}
+                              />
+                            )}
 
                             <Legend wrapperStyle={{ color: THEME.text }} />
 
@@ -1740,10 +1764,12 @@ function PlayerCard({
   player,
   players,
   onSelect,
+  ratingsSeason,
 }: {
   player: Player | null;
   players: Player[];
   onSelect: (id: string) => void;
+  ratingsSeason: RatingsSeason;
 }) {
   if (!player) {
     return (
@@ -1762,6 +1788,12 @@ function PlayerCard({
   };
 
   const referencia = players.filter((p) => p.valorado);
+
+  /* Sin ficha de scouting, lo que sí hay son sus notas de partido. */
+  const partidos = player.valorado
+    ? null
+    : summarizePlayer(ratingsSeason, player.id);
+  const conPartidos = partidos && partidos.played > 0 ? partidos : null;
 
   const media = (key: MetricaKey) =>
     referencia.length
@@ -1817,15 +1849,19 @@ function PlayerCard({
           </p>
         </div>
 
-        <div className="shrink-0 text-right">
-          <div className="text-[10px] uppercase tracking-wider text-white/30">
-            Media
-          </div>
+        {(player.valorado || conPartidos) && (
+          <div className="shrink-0 text-right">
+            <div className="text-[10px] uppercase tracking-wider text-white/30">
+              {player.valorado ? "Media" : "Nota de partido"}
+            </div>
 
-          <div className="text-3xl font-bold text-[#C8A96B]">
-            {player.valorado ? player.media.toFixed(1) : "—"}
+            <div className="text-3xl font-bold text-[#C8A96B]">
+              {player.valorado
+                ? player.media.toFixed(1)
+                : formatRating(conPartidos!.avg)}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* NAVEGACIÓN */}
@@ -1864,11 +1900,17 @@ function PlayerCard({
               reference={media(key)}
             />
           ))
-        ) : (
-          <p className="text-sm text-white/30">
-            Este jugador todavía no tiene ficha de scouting.
+        ) : conPartidos ? (
+          <p className="text-sm text-white/60">
+            {conPartidos.played}{" "}
+            {conPartidos.played === 1 ? "partido valorado" : "partidos valorados"}
+            , con una media de {formatRating(conPartidos.avg)}
+            {conPartidos.last
+              ? ` y ${formatRating(conPartidos.last.entry.rating)} en el último`
+              : ""}
+            .
           </p>
-        )}
+        ) : null}
       </div>
 
       {/* TEXTOS */}
