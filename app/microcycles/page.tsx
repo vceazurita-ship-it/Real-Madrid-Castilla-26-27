@@ -1000,8 +1000,8 @@ export default function Page() {
 
   const mdData = useMemo(() => {
     return mdOrder.map((md) => {
-      const set = filtered.filter((r) => r.md === md);
-      const totalLoad = sum(filtered.map((r) => r.carga)) || 1;
+      const set = work.filter((r) => r.md === md);
+      const totalLoad = sum(work.map((r) => r.carga)) || 1;
 
       return {
         md,
@@ -1015,7 +1015,7 @@ export default function Page() {
         pctCarga: +((sum(set.map((r) => r.carga)) / totalLoad) * 100).toFixed(1),
       };
     });
-  }, [filtered, mdOrder]);
+  }, [work, mdOrder]);
 
   const peakMD = useMemo(
     () =>
@@ -1060,7 +1060,7 @@ export default function Page() {
     () =>
       microStats.map((m) => ({
         micro: m.label,
-        value: m.eval,
+        value: m.eval > 0 ? m.eval : null,
         rival: m.rival,
         load: m.load,
         cog: m.cog,
@@ -1069,7 +1069,7 @@ export default function Page() {
     [microStats]
   );
 
-  const evalMean = avg(trendData.map((d) => d.value).filter((n) => n > 0));
+  const evalMean = avg(trendData.map((d) => d.value ?? 0).filter((n) => n > 0));
 
   const compareData = useMemo(
     () =>
@@ -1121,12 +1121,12 @@ export default function Page() {
       { metric: "Intensidad", value: metrics.intensidad, raw: metrics.intensidad },
       { metric: "Exig. Cognitiva", value: metrics.exigCog, raw: metrics.exigCog },
       {
-        metric: "Carga/Tarea",
+        metric: "Carga física por tarea",
         value: scale(avgLoadPerTask, maxLoadTask),
         raw: Math.round(avgLoadPerTask),
       },
       {
-        metric: "Cog/Tarea",
+        metric: "Carga cognitiva por tarea",
         value: scale(avgCogPerTask, maxCogTask),
         raw: Math.round(avgCogPerTask),
       },
@@ -1382,7 +1382,7 @@ export default function Page() {
       out.push({
         icon: Flame,
         tone: "text-[#C8A96B]",
-        text: `${peakMD.md} concentra el ${peakMD.pctCarga}% de la carga física del periodo.`,
+        text: `${peakMD.md} concentra el ${peakMD.pctCarga}% de la carga física del periodo${excludeComp ? "" : " (el partido cuenta en las cuentas)"}.`,
       });
     }
 
@@ -1413,9 +1413,12 @@ export default function Page() {
     out.push({
       icon: Brain,
       tone: "text-violet-400",
-      text: `Ratio cognitivo/físico de ${cogRatio.toFixed(
-        2
-      )} — ${cogRatio >= 0.7 ? "sesgo cognitivo alto" : cogRatio >= 0.5 ? "equilibrio adecuado" : "predominio del componente físico"}.`,
+      text:
+        cogRatio > 1.1
+          ? `Predomina la carga cognitiva: ratio cognitivo/físico de ${cogRatio.toFixed(2)}.`
+          : cogRatio >= 0.9
+            ? `Carga equilibrada: la cognitiva y la física van a la par (${cogRatio.toFixed(1)}).`
+            : `Predomina la carga física: ratio cognitivo/físico de ${cogRatio.toFixed(2)}.`,
     });
 
     const topContenido = contenidoPrincipalMetrics[0];
@@ -1429,16 +1432,22 @@ export default function Page() {
     }
 
     if (microDelta) {
-      const arrow = microDelta.eval > 0 ? "sube" : microDelta.eval < 0 ? "baja" : "se mantiene";
+      const prevM = `M${etiquetaMicro(microDelta.prev.micro)}`;
+      const evalTxt =
+        microDelta.prev.eval > 0
+          ? microDelta.eval === 0
+            ? "la evaluación se mantiene"
+            : `la evaluación ${microDelta.eval > 0 ? "sube" : "baja"} ${Math.abs(microDelta.eval)} pts`
+          : "";
+      const cargaTxt =
+        microDelta.load === 0
+          ? "la carga física se mantiene"
+          : `la carga física ${microDelta.load > 0 ? "sube" : "baja"} ${fmtInt(Math.abs(microDelta.load))}`;
 
       out.push({
         icon: Activity,
         tone: "text-amber-400",
-        text: `Respecto a M${etiquetaMicro(microDelta.prev.micro)}, la evaluación ${arrow} ${Math.abs(
-          microDelta.eval
-        )} pts y la carga varía ${microDelta.load >= 0 ? "+" : ""}${fmtInt(
-          microDelta.load
-        )}.`,
+        text: `Respecto al ${prevM}, ${evalTxt ? `${evalTxt} y ` : ""}${cargaTxt}.`,
       });
     }
 
@@ -1461,6 +1470,7 @@ export default function Page() {
     contenidoPrincipalMetrics,
     microDelta,
     metrics.evaluadas,
+    excludeComp,
   ]);
 
   /* ---------------- options ---------------- */
@@ -1675,15 +1685,17 @@ export default function Page() {
                             Micro {etiquetaMicro(m.micro)}
                           </p>
 
-                          <span
-                            className="rounded-md px-1.5 py-0.5 text-[11px] font-bold"
-                            style={{
-                              background: `${getEvalColor(m.eval)}22`,
-                              color: chipInk(getEvalColor(m.eval)),
-                            }}
-                          >
-                            {m.eval || "—"}
-                          </span>
+                          {m.eval > 0 && (
+                            <span
+                              className="rounded-md px-1.5 py-0.5 text-[11px] font-bold"
+                              style={{
+                                background: `${getEvalColor(m.eval)}22`,
+                                color: chipInk(getEvalColor(m.eval)),
+                              }}
+                            >
+                              {m.eval}
+                            </span>
+                          )}
                         </div>
 
                         <p
@@ -2079,6 +2091,7 @@ export default function Page() {
                           dataKey="carga"
                           name="Carga física"
                           fill={COLORS.gold}
+                          isAnimationActive={false}
                           radius={[8, 8, 0, 0]}
                         />
 
@@ -2087,6 +2100,7 @@ export default function Page() {
                           dataKey="cargaCog"
                           name="Carga cognitiva"
                           fill={COLORS.blue}
+                          isAnimationActive={false}
                           radius={[8, 8, 0, 0]}
                         />
 
@@ -2106,7 +2120,7 @@ export default function Page() {
 
                   <Panel
                     title="Perfil del microciclo"
-                    subtitle="Todas las dimensiones normalizadas a escala 0-10"
+                    subtitle="Cada eje de 0 a 10; la carga por tarea, respecto a la tarea más cargada"
                   >
                     <Chart>
                       <RadarChart
@@ -2155,7 +2169,7 @@ export default function Page() {
                           </p>
 
                           <p className="text-sm font-semibold text-[#C8A96B]">
-                            {d.raw}
+                            {d.value}
                           </p>
                         </div>
                       ))}
@@ -2224,6 +2238,7 @@ export default function Page() {
                           stroke={COLORS.gold}
                           strokeWidth={3}
                           fill="url(#evalGrad)"
+                          connectNulls={false}
                           dot={{ r: 4, fill: COLORS.gold }}
                           activeDot={{ r: 7 }}
                         />
