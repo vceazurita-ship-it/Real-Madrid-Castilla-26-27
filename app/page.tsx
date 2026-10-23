@@ -575,7 +575,7 @@ export default function Home() {
 
                         {resumenData?.golesMenosXg != null && (
                           <p className="mt-1 text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
-                            {resumenData.xg != null && `${Math.round((resumenData.xg + resumenData.golesMenosXg) * resumenData.partidos)} goles frente a ${(resumenData.xg * resumenData.partidos).toFixed(1).replace(".", ",")} esperados en ${resumenData.partidos} partidos: tendencia, no verdad · `}
+                            {resumenData.xg != null && `${Math.round((resumenData.xg + resumenData.golesMenosXg) * resumenData.partidos)} goles frente a ${(resumenData.xg * resumenData.partidos).toFixed(1).replace(".", ",")} esperados en ${resumenData.partidos} partidos · `}
                             {resumenData.golesMenosXg >= 0
                               ? "marcamos más de lo esperado"
                               : "marcamos menos de lo esperado"}
