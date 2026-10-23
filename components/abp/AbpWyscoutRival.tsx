@@ -40,10 +40,12 @@ type Datos = {
   golesAbp: { aFavor: GolesAbp; enContra: GolesAbp } | null;
 };
 
-/** «Mejor que 8 de cada 10» / «Peor que 8 de cada 10»: percentil ya orientado. */
-function lectura(percentil: number) {
+/** «Mejor que 8 de cada 10» / «Peor que 8 de cada 10»: percentil ya orientado. El extremo se dice como es: «el mejor/peor de los 20». */
+function lectura(percentil: number, equipos: number) {
+  if (percentil >= 97) return { texto: `el mejor de los ${equipos}`, bueno: true };
+  if (percentil <= 3) return { texto: `el peor de los ${equipos}`, bueno: false };
   if (percentil >= 60) return { texto: `mejor que ${Math.round(percentil / 10)} de cada 10`, bueno: true };
-  if (percentil <= 40) return { texto: `peor que ${Math.round((100 - percentil) / 10)} de cada 10`, bueno: false };
+  if (percentil <= 40) return { texto: `peor que ${Math.max(1, Math.round((100 - percentil) / 10))} de cada 10`, bueno: false };
 
   return { texto: "en la media de la liga", bueno: null };
 }
@@ -51,9 +53,12 @@ function lectura(percentil: number) {
 export function AbpWyscoutRival({
   equipo,
   plantilla,
+  ambito = "abp",
 }: {
   equipo: string;
   plantilla: RivalPlayerAerial[];
+  /** "area": sus centros laterales en vez de su balón parado (Área del rival). */
+  ambito?: "abp" | "area";
 }) {
   const [estado, setEstado] = useState<{ equipo: string; datos: Datos | null }>({
     equipo: "",
@@ -66,7 +71,7 @@ export function AbpWyscoutRival({
     let cancelado = false;
 
     traeJson<{ ok?: boolean } & Partial<Datos>>(
-      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}`,
+      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}`,
     )
       .then((r) => {
         if (cancelado) return;
@@ -85,7 +90,7 @@ export function AbpWyscoutRival({
     return () => {
       cancelado = true;
     };
-  }, [equipo]);
+  }, [equipo, ambito]);
 
   const datos = estado.equipo === equipo ? estado.datos : null;
 
@@ -95,6 +100,16 @@ export function AbpWyscoutRival({
 
   const rematan = plantilla.filter((uno) => uno.remataAbp);
   const sacan = plantilla.filter((uno) => uno.sacaAbp);
+
+  /* La consigna sale de lo etiquetado: marcar al más alto de los rematadores y vigilar al que saca. */
+  const alturaDe = (uno: RivalPlayerAerial) => Number(uno.altura) || 0;
+  const masAlto = [...rematan].sort((a, b) => alturaDe(b) - alturaDe(a))[0];
+  const consigna = [
+    masAlto ? `emparejar a nuestro central más alto con ${masAlto.nombre}${alturaDe(masAlto) ? ` (${alturaDe(masAlto)} cm)` : ""} en el córner` : "",
+    sacan.length > 0 ? `vigilar la trayectoria de ${sacan.map((uno) => uno.nombre).join(" y ")} en el saque` : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
 
   const hayGoles = !!goles && (goles.aFavor.abp > 0 || goles.enContra.abp > 0);
 
@@ -106,8 +121,8 @@ export function AbpWyscoutRival({
     <div className="space-y-5">
       {aspectos.length > 0 && (
         <Panel
-          title={`Su balón parado según Wyscout`}
-          subtitle={`${equipo} frente a los ${datos?.equipos ?? 20} equipos de la liga`}
+          title={ambito === "area" ? "Sus centros laterales según Wyscout" : "Su balón parado según Wyscout"}
+          subtitle={`${equipo} frente a los ${datos?.equipos ?? 20} equipos de la liga${(datos?.equipos ?? 20) === 20 ? ", el Castilla incluido" : ""}`}
           icon={BarChart3}
         >
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -119,7 +134,7 @@ export function AbpWyscoutRival({
 
                 <ul className="mt-2 space-y-2">
                   {aspecto.filas.map((fila) => {
-                    const lee = lectura(fila.percentil);
+                    const lee = lectura(fila.percentil, datos?.equipos ?? 20);
 
                     return (
                       <li
@@ -140,9 +155,9 @@ export function AbpWyscoutRival({
                           style={{
                             color:
                               lee.bueno === true
-                                ? "var(--rmcf-rate-high, #34D399)"
+                                ? "var(--rmcf-rate-good, #15803D)"
                                 : lee.bueno === false
-                                  ? "var(--rmcf-rate-low, #F87171)"
+                                  ? "var(--rmcf-rate-low, #DC2626)"
                                   : undefined,
                           }}
                         >
@@ -177,6 +192,10 @@ export function AbpWyscoutRival({
                     de {g.goles} goles en {g.partidos} partidos
                   </span>
                 </p>
+
+                {g.goles < 10 && (
+                  <p className="mt-0.5 text-[11px] italic text-white/50">Tendencia, pocos casos: no lo damos por hecho.</p>
+                )}
 
                 {g.hayOrigen && g.abp > 0 && (
                   <p className="mt-1 text-[12px] text-white/55">
@@ -216,6 +235,13 @@ export function AbpWyscoutRival({
               </div>
             )}
           </div>
+
+          {consigna && (
+            <p className="mt-3 border-t border-white/10 pt-3 text-sm text-white/85">
+              <b className="text-white">Qué hacemos: </b>
+              {consigna}
+            </p>
+          )}
         </Panel>
       )}
     </div>

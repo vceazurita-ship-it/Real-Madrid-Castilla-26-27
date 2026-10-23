@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { AbpWyscoutRival } from "@/components/abp/AbpWyscoutRival";
 import { AbpHeader, EmptyState, TeamPicker } from "@/components/abp/ui";
 import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
@@ -129,6 +130,9 @@ export default function AreaRivalPage() {
                 jornadaDe={jornadaDe}
                 proximo={proximoDe(equipos)}
               />
+
+              {/* Las cifras primero: lo que Wyscout dice de sus centros, con la mediana de la liga. Si no hay dato, no sale. */}
+              {equipo && <AbpWyscoutRival ambito="area" equipo={equipo} plantilla={[]} />}
 
               {equipo && (
                 <AnalisisRival

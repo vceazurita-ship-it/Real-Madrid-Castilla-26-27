@@ -913,7 +913,7 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
             </div>
 
             <div className="mt-1.5 space-y-2.5">
-              {b.facetas.map((f) => {
+              {b.facetas.filter((f) => f.nuestro !== null && f.suyo !== null).map((f) => {
                 const gana =
                   f.veredicto === "ventaja"
                     ? { texto: `gana ${nombresDe(d.nuestros)}`, color: MEJOR }
