@@ -38,6 +38,8 @@ export const COLORES_CULTURA = {
   navy: "#0F1E3D",
   rosa: "#F6AFB6",
   rosaHondo: "#D89AA6",
+  /** El rosa hondo oscurecido para texto sobre crema o papel (contraste mayor de 4,5); el claro queda para filos y bandas. */
+  rosaTexto: "#A8445A",
   tinta: "#0B1420",
   /**
    * El único color que la plantilla no trae.
