@@ -446,13 +446,13 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(personas, (g) => produccionTasa(g) * 2 + retencionDe(g), true);
 
       frases.push(
-        `Más eficaz: ${nombreDe(mejor.key, mejor.valor)} (${pctTexto(mejor.favorables, mejor.n)} conservados, ${mejor.produccion} a último tercio).`,
+        `Más eficaz: ${nombreDe(mejor.key, mejor.valor)} (${mejor.favorables} de ${mejor.n} conservados, ${mejor.produccion} a último tercio).`,
       );
     } else {
       const comodo = extremo(receptores.length >= 2 ? receptores : personas, retencionDe, false);
 
       frases.push(
-        `Su ${nombreDe(comodo.key, comodo.valor)}, el más cómodo: recuperamos solo el ${pctTexto(comodo.favorables, comodo.n)}.`,
+        `Su ${nombreDe(comodo.key, comodo.valor)}, el más cómodo: recuperamos ${comodo.favorables} de ${comodo.n}.`,
       );
     }
   }
@@ -471,7 +471,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
 
       if (retencionDe(peor) < global) {
         frases.push(
-          `Punto débil: ${nombreDe(peor.key, peor.valor)}, solo ${pctTexto(peor.favorables, peor.n)} conservados.`,
+          `Punto débil: ${nombreDe(peor.key, peor.valor)}, ${peor.favorables} de ${peor.n} conservados.`,
         );
       }
     }
@@ -1499,13 +1499,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 </p>
               ) : null}
 
-              <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-white/40">
-                <span>
-                  {filtered.length} de {rows.length} saques registrados
-                  {activos.length ? ` · ${activos.length} ${activos.length === 1 ? "filtro" : "filtros"} activos` : ""}
-                  {soloLiga ? " · sin pretemporada" : ""}
-                </span>
-
+              <div className="flex flex-wrap items-center justify-end gap-3 px-1 text-xs text-white/40">
                 {hayPretemporada && filters.__competicion !== PRETEMPORADA ? (
                   <label className="flex cursor-pointer items-center gap-2 text-white/70">
                     <input
@@ -1669,11 +1663,13 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                       hint="Robamos el saque rival y llegamos a último tercio, ocasión o gol"
                     />
                   ) : null}
-                  <MetricCard
-                    label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}
-                    value={totals.calidad === null ? "–" : totals.calidad.toFixed(1)}
-                    hint="Escala 1 a 4"
-                  />
+                  {totals.calidad === null ? null : (
+                    <MetricCard
+                      label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}
+                      value={totals.calidad.toFixed(1).replace(".", ",")}
+                      hint="Sobre 4, escala de la hoja"
+                    />
+                  )}
                 </div>
 
                 {/* La lectura de cabecera, justo debajo de los KPI: qué dicen
