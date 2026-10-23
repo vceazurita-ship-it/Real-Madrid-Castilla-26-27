@@ -107,9 +107,19 @@ export function seasonStats(
 
   const completed = weeks.filter(weekHasFiles).length;
 
+  // Pendientes: sólo semanas ya pasadas y sin archivos; las futuras no cuentan.
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const pending = weeks.filter((week) => {
+    if (weekHasFiles(week)) return false;
+    const fin = parseWeekDate(week.end);
+    return !!fin && fin < hoy;
+  }).length;
+
   return {
     totalWeeks: weeks.length,
     completed,
+    pending,
     images,
     pdfs,
     progress:

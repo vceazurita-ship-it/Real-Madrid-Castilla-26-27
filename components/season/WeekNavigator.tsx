@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { MonthData, WeekData } from "@/lib/season/types";
-import { weekFileCount, weekHasFiles } from "@/lib/season/utils";
+import { parseWeekDate, weekFileCount, weekHasFiles } from "@/lib/season/utils";
 
 type Filter = "all" | "with-files" | "pending";
 
@@ -67,12 +67,19 @@ export default function WeekNavigator({
   const normalizedQuery = query.trim().toLowerCase();
 
   const filteredMonths = useMemo(() => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
     return season
       .map((month) => ({
         ...month,
         weeks: month.weeks.filter((week) => {
           if (filter === "with-files" && !weekHasFiles(week)) return false;
-          if (filter === "pending" && weekHasFiles(week)) return false;
+          if (filter === "pending") {
+            // Sólo semanas ya pasadas: las futuras no están «pendientes».
+            const fin = parseWeekDate(week.end);
+            if (weekHasFiles(week) || !fin || fin >= hoy) return false;
+          }
 
           if (!normalizedQuery) return true;
 

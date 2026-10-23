@@ -18,6 +18,7 @@ interface Props {
   stats: {
     totalWeeks: number;
     completed: number;
+    pending: number;
     images: number;
     pdfs: number;
     progress: number;

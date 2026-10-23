@@ -18,6 +18,7 @@ import {
   findWeekForDate,
   flattenWeeks,
   seasonStats,
+  weekHasFiles,
 } from "@/lib/season/utils";
 import SeasonFilesViewer from "./SeasonFilesViewer";
 import SeasonHeader from "./SeasonHeader";
@@ -92,6 +93,18 @@ export default function SeasonWorkspace({ area }: Props) {
           null,
     [season, selectedWeekId]
   );
+
+  // Para el hueco vacío de una semana sin archivos: la más cercana anterior
+  // que sí los tiene.
+  const ultimaConArchivos = useMemo(() => {
+    if (!selectedWeek) return null;
+
+    const previas = flattenWeeks(season)
+      .filter((week) => week.id < selectedWeek.id && weekHasFiles(week))
+      .sort((a, b) => b.id - a.id);
+
+    return previas[0] ?? null;
+  }, [season, selectedWeek]);
 
   const stats = useMemo(
     () => seasonStats(season, currentWeek?.id ?? null),
@@ -236,6 +249,8 @@ export default function SeasonWorkspace({ area }: Props) {
                         selectedWeek !== null &&
                         selectedWeek.id === currentWeek?.id
                       }
+                      ultimaConArchivos={ultimaConArchivos}
+                      onSelectWeek={selectWeek}
                       onUpdateWeek={updateWeek}
                     />
                   </div>

@@ -31,7 +31,10 @@ interface Props {
   area: SeasonArea;
   week: WeekData | null;
   isCurrentWeek: boolean;
-  /** SÃ³lo lo que cambia: el servidor lo aplica sobre lo Ãºltimo guardado. */
+  /** Semana anterior más reciente con archivos, para no dejar el hueco vacío. */
+  ultimaConArchivos?: WeekData | null;
+  onSelectWeek?: (weekId: number) => void;
+  /** Sólo lo que cambia: el servidor lo aplica sobre lo último guardado. */
   onUpdateWeek: (cambio: CambioSemana) => Promise<void>;
 }
 
@@ -39,6 +42,8 @@ export default function WeekPanel({
   area,
   week,
   isCurrentWeek,
+  ultimaConArchivos,
+  onSelectWeek,
   onUpdateWeek,
 }: Props) {
   const [tab, setTab] = useState<Tab>("images");
@@ -54,7 +59,7 @@ export default function WeekPanel({
   const images = useMemo(() => week?.images ?? [], [week]);
   const pdfs = useMemo(() => week?.pdfs ?? [], [week]);
 
-  // Al cambiar de semana volvemos a la pestaÃ±a con contenido mÃ¡s relevante.
+  // Al cambiar de semana volvemos a la pestaña con contenido más relevante.
   // Se ajusta durante el render para no encadenar un repintado extra.
   const [lastWeekId, setLastWeekId] = useState(week?.id ?? null);
 
@@ -80,7 +85,7 @@ export default function WeekPanel({
           <h2 className="text-2xl font-semibold">Selecciona una semana</h2>
 
           <p className="mt-3 max-w-md leading-7 text-white/50">
-            Elige cualquier semana del listado para ver sus imÃ¡genes, sus
+            Elige cualquier semana del listado para ver sus imágenes, sus
             documentos y subir archivos nuevos.
           </p>
         </div>
@@ -143,10 +148,10 @@ export default function WeekPanel({
           { id: toastId }
         );
       } else if (uploaded.length === 0) {
-        toast.error("No se pudo subir ningÃºn archivo.", { id: toastId });
+        toast.error("No se pudo subir ningún archivo.", { id: toastId });
       } else {
         toast.warning(
-          `${uploaded.length} subidos Â· ${failed} con error.`,
+          `${uploaded.length} subidos · ${failed} con error.`,
           { id: toastId }
         );
       }
@@ -191,7 +196,7 @@ export default function WeekPanel({
     [
       {
         id: "images",
-        label: "ImÃ¡genes",
+        label: "Imágenes",
         icon: <ImageIcon size={16} />,
         count: images.length,
       },
@@ -245,7 +250,7 @@ export default function WeekPanel({
           </div>
         </div>
 
-        {/* PESTAÃ‘AS */}
+        {/* PESTAÑAS */}
 
         <div className="-mb-px mt-6 flex gap-1 overflow-x-auto">
           {tabs.map((item) => (
@@ -289,15 +294,23 @@ export default function WeekPanel({
           (images.length === 0 ? (
             <EmptyState
               icon={<ImageIcon size={34} />}
-              title="Sin imÃ¡genes en esta semana"
-              action="Subir imÃ¡genes"
+              title="Sin imágenes en esta semana"
+              action="Subir imágenes"
               onAction={() => setTab("upload")}
+              alternativa={
+                ultimaConArchivos && onSelectWeek
+                  ? {
+                      texto: `Ver ${ultimaConArchivos.week}, la última con archivos`,
+                      onClick: () => onSelectWeek(ultimaConArchivos.id),
+                    }
+                  : undefined
+              }
             />
           ) : (
             <>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <p className="text-sm text-white/50">
-                  {images.length} {images.length > 1 ? "imÃ¡genes" : "imagen"}
+                  {images.length} {images.length > 1 ? "imágenes" : "imagen"}
                 </p>
 
                 <button
@@ -381,7 +394,7 @@ export default function WeekPanel({
         items={images.map((url, i) => ({
           url,
           caption: humanFileName(url, `Imagen ${i + 1}`),
-          subtitle: `${week.week} Â· ${weekRangeLabel(week)}`,
+          subtitle: `${week.week} · ${weekRangeLabel(week)}`,
         }))}
         index={lightboxIndex}
         onIndexChange={setLightboxIndex}
@@ -392,12 +405,12 @@ export default function WeekPanel({
         open={pendingDelete !== null}
         title={
           pendingDelete?.kind === "pdfs"
-            ? "Â¿Eliminar este PDF?"
-            : "Â¿Eliminar esta imagen?"
+            ? "¿Eliminar este PDF?"
+            : "¿Eliminar esta imagen?"
         }
         description={
           pendingDelete
-            ? `"${humanFileName(pendingDelete.url, pendingDelete.kind === "images" ? "Esta imagen" : "Este documento")}" se borrarÃ¡ de ${week.week}. Esta acciÃ³n no se puede deshacer.`
+            ? `"${humanFileName(pendingDelete.url, pendingDelete.kind === "images" ? "Esta imagen" : "Este documento")}" se borrará de ${week.week}. Esta acción no se puede deshacer.`
             : undefined
         }
         loading={deleting}
@@ -413,11 +426,13 @@ function EmptyState({
   title,
   action,
   onAction,
+  alternativa,
 }: {
   icon: React.ReactNode;
   title: string;
   action: string;
   onAction: () => void;
+  alternativa?: { texto: string; onClick: () => void };
 }) {
   return (
     <div className="flex flex-col items-center rounded-2xl border border-dashed border-white/10 px-6 py-14 text-center">
@@ -433,6 +448,16 @@ function EmptyState({
         <UploadCloud size={16} />
         {action}
       </button>
+
+      {alternativa && (
+        <button
+          type="button"
+          onClick={alternativa.onClick}
+          className="mt-3 text-sm text-[#C8A96B] underline-offset-4 hover:underline"
+        >
+          {alternativa.texto}
+        </button>
+      )}
     </div>
   );
 }

@@ -1,6 +1,22 @@
 import { AREA_CONFIG } from "./config";
 import { CambioSemana } from "./fusion";
 import { MonthData, SeasonArea, WeekData } from "./types";
+import { parseWeekDate } from "./utils";
+
+const NOMBRES_MES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
 
 /**
  * Las dos áreas guardan la temporada con formas ligeramente distintas:
@@ -58,9 +74,8 @@ function fechasDeLaSemana(numero: number): { start: string; end: string } {
  * en `pdf`, que la interfaz nunca llegaba a mostrar porque sólo lee `pdfs`.
  */
 function normalizeSeason(season: MonthData[]): MonthData[] {
-  return season.map((month) => ({
-    ...month,
-    weeks: month.weeks.map((week) => {
+  const semanas = season.flatMap((month) =>
+    month.weeks.map((week) => {
       const pdfs = week.pdfs ?? [];
 
       const merged =
@@ -82,9 +97,46 @@ function normalizeSeason(season: MonthData[]): MonthData[] {
 
       delete normalized.pdf;
 
-      return normalized;
-    }),
-  }));
+      return { semana: normalized, mesGuardado: month };
+    })
+  );
+
+  // Cada semana va en el mes en que empieza (la 17, del 19 al 25 de octubre,
+  // en Octubre) y no en el bloque de cuatro donde se guardó. Los meses que se
+  // quedan sin semanas no se pintan.
+  const porMes = new Map<number, MonthData>();
+  const sinFecha: MonthData[] = [];
+
+  for (const { semana, mesGuardado } of semanas) {
+    const inicio = parseWeekDate(semana.start);
+
+    if (!inicio) {
+      let grupo = sinFecha.find((m) => m.id === mesGuardado.id);
+      if (!grupo) {
+        grupo = { ...mesGuardado, weeks: [] };
+        sinFecha.push(grupo);
+      }
+      grupo.weeks.push(semana);
+      continue;
+    }
+
+    const indice = inicio.getFullYear() * 12 + inicio.getMonth();
+    const nombre = NOMBRES_MES[inicio.getMonth()];
+    let grupo = porMes.get(indice);
+
+    if (!grupo) {
+      grupo = { id: indice, name: nombre, weeks: [] };
+      porMes.set(indice, grupo);
+    }
+
+    grupo.weeks.push({ ...semana, month: nombre });
+  }
+
+  const ordenados = [...porMes.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([, mes]) => mes);
+
+  return [...ordenados, ...sinFecha];
 }
 
 export async function loadSeasonData(
