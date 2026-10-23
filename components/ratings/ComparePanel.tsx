@@ -162,7 +162,7 @@ export function ComparePanel({
                 />
 
                 <span className="max-w-[120px] truncate font-medium">
-                  {entry.player.apodo || entry.player.nombre}
+                  {entry.player.nombre}
                 </span>
 
                 <span className="tabular-nums text-white/40">
@@ -190,7 +190,7 @@ export function ComparePanel({
             lectura={
               <LecturaGrafico
                 ranking={chosen.map((entry) => ({
-                  nombre: entry.player.apodo || entry.player.nombre,
+                  nombre: entry.player.nombre,
                   valor: entry.summary.avg,
                 }))}
                 unidadSerie="de media"
@@ -235,7 +235,7 @@ export function ComparePanel({
                           title={point.label}
                           rows={chosen
                             .map((entry) => ({
-                              label: entry.player.apodo || entry.player.nombre,
+                              label: entry.player.nombre,
                               value: formatRating(
                                 Number(point[entry.player.id]) || 0
                               ),
@@ -256,7 +256,7 @@ export function ComparePanel({
                       return (
                         <span className="text-[11px] text-white/60">
                           {entry
-                            ? entry.player.apodo || entry.player.nombre
+                            ? entry.player.nombre
                             : value}
                         </span>
                       );
@@ -289,7 +289,7 @@ export function ComparePanel({
               lectura={
                 <LecturaGrafico
                   ranking={chosen.map((entry) => ({
-                    nombre: entry.player.apodo || entry.player.nombre,
+                    nombre: entry.player.nombre,
                     valor: entry.summary.avg,
                   }))}
                   unidadSerie="de media"
@@ -340,7 +340,7 @@ export function ComparePanel({
                               title={point.area}
                               rows={chosen.map((entry) => ({
                                 label:
-                                  entry.player.apodo || entry.player.nombre,
+                                  entry.player.nombre,
                                 value: formatRating(
                                   Number(point[entry.player.id]) || 0
                                 ),
@@ -381,7 +381,7 @@ export function ComparePanel({
                             />
 
                             <span className="max-w-[92px] truncate text-[11px] font-medium text-white">
-                              {entry.player.apodo || entry.player.nombre}
+                              {entry.player.nombre}
                             </span>
                           </div>
                         </th>

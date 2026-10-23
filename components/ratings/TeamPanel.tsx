@@ -1,6 +1,7 @@
 "use client";
 
 import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
+import { nombrePuesto } from "@/lib/posiciones";
 import { useMemo, useState } from "react";
 import {
   Area,
@@ -84,7 +85,7 @@ const LINE_GROUPS: { key: LineaKey; label: string }[] = [
 ];
 
 /** Partidos mínimos para que una media entre en el «mejor» y en el podio. */
-const MIN_FIABLE = 3;
+const MIN_FIABLE = 4;
 
 function plural(n: number, uno: string, varios: string) {
   return `${n} ${n === 1 ? uno : varios}`;
@@ -133,13 +134,13 @@ export function TeamPanel({
     );
   }, [matchSummaries]);
 
-  /* Con menos de 3 partidos una media no dice nada: el «mejor» y el podio
-     cuentan sólo a quien tiene 3 o más (y la progresión, 4 o más). Si nadie
+  /* Con menos de 4 partidos una media no dice nada: el «mejor» y el podio
+     cuentan sólo a quien tiene 4 o más. Si nadie
      llega todavía, se usa a todos para no dejar el hueco vacío. */
   const fiables = useMemo(() => {
-    const con3 = ranked.filter((entry) => entry.summary.played >= MIN_FIABLE);
+    const fiablesAhora = ranked.filter((entry) => entry.summary.played >= MIN_FIABLE);
 
-    return con3.length > 0 ? con3 : ranked;
+    return fiablesAhora.length > 0 ? fiablesAhora : ranked;
   }, [ranked]);
 
   const bestSorted = useMemo(
@@ -150,10 +151,10 @@ export function TeamPanel({
   const best = bestSorted[0] ?? null;
 
   const mostImproved = useMemo(() => {
-    const con4 = ranked.filter((entry) => entry.summary.played >= MIN_FIABLE + 1);
+    const conMuestra = ranked.filter((entry) => entry.summary.played >= MIN_FIABLE);
 
     return (
-      [...(con4.length > 0 ? con4 : ranked)].sort(
+      [...(conMuestra.length > 0 ? conMuestra : ranked)].sort(
         (a, b) => b.summary.trend - a.summary.trend
       )[0] ?? null
     );
@@ -188,7 +189,7 @@ export function TeamPanel({
   const topChart = useMemo(
     () =>
       bestSorted.slice(0, 8).map((entry) => ({
-        name: entry.player.apodo || entry.player.nombre,
+        name: entry.player.nombre,
         value: entry.summary.avg,
         played: entry.summary.played,
       })),
@@ -238,7 +239,7 @@ export function TeamPanel({
 
         <StatCard
           label="Mejor media"
-          value={best ? best.player.apodo || best.player.nombre : "—"}
+          value={best ? best.player.nombre : "—"}
           hint={
             best
               ? `${formatRating(best.summary.avg)} en ${plural(best.summary.played, "partido", "partidos")}`
@@ -251,7 +252,7 @@ export function TeamPanel({
           label="Mayor progresión"
           value={
             mostImproved
-              ? mostImproved.player.apodo || mostImproved.player.nombre
+              ? mostImproved.player.nombre
               : "—"
           }
           hint={
@@ -265,7 +266,7 @@ export function TeamPanel({
         <StatCard
           label="Más decisivo"
           value={
-            topScorer ? topScorer.player.apodo || topScorer.player.nombre : "—"
+            topScorer ? topScorer.player.nombre : "—"
           }
           hint={
             topScorer
@@ -591,11 +592,11 @@ export function TeamPanel({
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-white">
-                      {entry.player.apodo || entry.player.nombre}
+                      {entry.player.nombre}
                     </p>
 
                     <p className="truncate text-[10px] uppercase tracking-[0.16em] text-white/30">
-                      {entry.player.posicion} · {entry.summary.played} PJ
+                      {nombrePuesto(entry.player.posicion)} · {entry.summary.played} PJ
                     </p>
                   </div>
 
@@ -676,11 +677,11 @@ export function TeamPanel({
 
                       <div className="min-w-0">
                         <p className="truncate font-medium text-white">
-                          {entry.player.apodo || entry.player.nombre}
+                          {entry.player.nombre}
                         </p>
 
                         <p className="truncate text-[10px] uppercase tracking-[0.14em] text-white/30">
-                          {entry.player.posicion}
+                          {nombrePuesto(entry.player.posicion)}
                         </p>
                       </div>
                     </div>
@@ -771,7 +772,8 @@ export function TeamPanel({
                     </p>
 
                     <p className="truncate text-[10px] text-white/30">
-                      {item.match.result || "Sin resultado"} · {item.rated} valorados
+                      {item.match.result ? `${item.match.result} · ` : ""}
+                      {item.rated} valorados
                     </p>
                   </div>
 
@@ -834,7 +836,7 @@ function BestPerformances({
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-white">
-                  {item.player.apodo || item.player.nombre}
+                  {item.player.nombre}
                 </p>
 
                 <p className="truncate text-[10px] text-white/30">

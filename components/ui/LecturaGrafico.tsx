@@ -193,7 +193,10 @@ export function lecturaDeSerie(
     `${formatea(reciente)}${cola} en ` +
     `${conDatos.length - corte === 1 ? "el último" : `los ${conDatos.length - corte} últimos`}`;
 
-  if (!mueve) return `Estable: ${cuanto}.`;
+  /* Con pocos puntos es una tendencia, y se dice. */
+  const base = conDatos.length < 8 ? ` Tendencia con ${conDatos.length} puntos.` : "";
+
+  if (!mueve) return `Estable: ${cuanto}.${base}`;
 
   const sube = delta > 0;
 
@@ -206,7 +209,7 @@ export function lecturaDeSerie(
         ? "mejora"
         : "empeora";
 
-  return `${juicio[0].toUpperCase()}${juicio.slice(1)}: ${cuanto}.`;
+  return `${juicio[0].toUpperCase()}${juicio.slice(1)}: ${cuanto}.${base}`;
 }
 
 /* ------------------------------------------------------------------ */

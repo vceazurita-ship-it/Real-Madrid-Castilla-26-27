@@ -1,5 +1,6 @@
 "use client";
 
+import { nombrePuesto } from "@/lib/posiciones";
 import {
   useCallback,
   useEffect,
@@ -346,7 +347,7 @@ export default function RatingsPage() {
 
                   <div className="min-w-0">
                     <p className="truncate text-[10px] uppercase tracking-[0.25em] text-[#C8A96B]">
-                      {selectedPlayer.posicion}
+                      {nombrePuesto(selectedPlayer.posicion)}
                     </p>
 
                     <h2 className="truncate text-lg font-semibold sm:text-xl">

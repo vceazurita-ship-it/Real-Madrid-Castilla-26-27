@@ -87,7 +87,7 @@ export function PitchPanel({
         return {
           id: player.id,
           position: player.posicion,
-          name: player.apodo || player.nombre,
+          name: player.nombre,
           photo: player.foto,
           dorsal: player.dorsal,
           value,

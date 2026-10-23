@@ -100,9 +100,7 @@ export function HistoryPanel({
                 <span className="hidden shrink-0 items-center gap-1.5 text-[11px] text-white/40 sm:flex">
                   MVP
                   <span className="font-medium text-white/70">
-                    {byId.get(item.top.playerId)?.apodo ??
-                      byId.get(item.top.playerId)?.nombre ??
-                      item.top.playerId}
+                    {byId.get(item.top.playerId)?.nombre ?? item.top.playerId}
                   </span>
                   <RatingBadge value={item.top.rating} size="sm" />
                 </span>
@@ -155,7 +153,7 @@ export function HistoryPanel({
 
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-xs font-medium text-white">
-                              {player?.apodo || player?.nombre || entry.playerId}
+                              {player?.nombre || entry.playerId}
                             </p>
 
                             <p className="truncate text-[10px] text-white/30">

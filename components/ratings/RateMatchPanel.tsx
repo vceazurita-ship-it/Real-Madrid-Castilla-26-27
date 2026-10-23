@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { nombrePuesto } from "@/lib/posiciones";
 import {
   CalendarPlus,
   Check,
@@ -696,7 +697,7 @@ export function RateMatchPanel({
 
                         <div className="min-w-0">
                           <p className="flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-white">
-                            {player.apodo || player.nombre}
+                            {player.nombre}
 
                             {rated && (
                               <Check
@@ -718,7 +719,7 @@ export function RateMatchPanel({
 
                           <p className="truncate text-[10px] uppercase tracking-[0.16em] text-white/30">
                             {player.dorsal ? `${player.dorsal} · ` : ""}
-                            {player.posicion}
+                            {nombrePuesto(player.posicion)}
                           </p>
                         </div>
                       </div>
