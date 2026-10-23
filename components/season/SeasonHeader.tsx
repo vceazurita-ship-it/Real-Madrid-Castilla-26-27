@@ -21,6 +21,9 @@ interface Props {
     images: number;
     pdfs: number;
     progress: number;
+    seasonWeek: number | null;
+    seasonTotal: number;
+    scopedToToday: boolean;
   };
   currentWeek: WeekData | null;
   saving: boolean;
@@ -117,7 +120,11 @@ export default function SeasonHeader({
         <StatCard
           icon={<CalendarRange size={18} />}
           value={`${stats.completed}/${stats.totalWeeks}`}
-          label="Semanas con archivos"
+          label={
+            stats.scopedToToday
+              ? "Semanas con archivos hasta hoy"
+              : "Semanas con archivos"
+          }
         />
 
         <StatCard
@@ -138,23 +145,33 @@ export default function SeasonHeader({
 
         <div className="rounded-2xl border border-white/10 bg-[#11161D] p-5">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-white/50">Progreso de temporada</span>
+            <span className="text-white/50">Temporada</span>
 
             <span className="font-semibold tabular-nums text-[#C8A96B]">
-              {stats.progress}%
+              {stats.seasonWeek !== null
+                ? `Semana ${stats.seasonWeek} de ${stats.seasonTotal}`
+                : `${stats.progress}%`}
             </span>
           </div>
 
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
             <div
               className="h-full rounded-full bg-[#C8A96B] transition-all duration-700"
-              style={{ width: `${stats.progress}%` }}
+              style={{
+                width: `${
+                  stats.seasonWeek !== null
+                    ? Math.round((stats.seasonWeek / stats.seasonTotal) * 100)
+                    : stats.progress
+                }%`,
+              }}
             />
           </div>
 
-          <p className="mt-3 text-xs text-white/30">
-            {stats.totalWeeks - stats.completed} semanas pendientes
-          </p>
+          {stats.seasonWeek !== null && (
+            <p className="mt-3 text-xs text-white/30">
+              Quedan {stats.seasonTotal - stats.seasonWeek} semanas
+            </p>
+          )}
         </div>
       </div>
     </header>

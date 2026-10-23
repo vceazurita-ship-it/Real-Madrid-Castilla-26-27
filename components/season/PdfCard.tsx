@@ -10,7 +10,7 @@ import {
   FileText,
   Trash2,
 } from "lucide-react";
-import { downloadUrl, fileNameFromUrl } from "@/lib/season/utils";
+import { downloadUrl, humanFileName } from "@/lib/season/utils";
 
 const PdfPreview = dynamic(
   () => import("@/components/performance/PdfPreview"),
@@ -43,7 +43,7 @@ export default function PdfCard({
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
 
-  const name = fileNameFromUrl(url);
+  const name = humanFileName(url, "Documento");
 
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14] transition hover:border-[#C8A96B]/40">

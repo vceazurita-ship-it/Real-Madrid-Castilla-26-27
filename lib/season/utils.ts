@@ -74,8 +74,26 @@ export function findWeekForDate(
   return match ?? null;
 }
 
-export function seasonStats(season: MonthData[]) {
-  const weeks = flattenWeeks(season);
+/**
+ * Con la semana en curso conocida, las cuentas son de lo que ya ha pasado
+ * («7 de 17 semanas con archivos») y no sobre las 52: medir contra la
+ * temporada entera hacía que lo normal pareciera un fallo.
+ */
+export function seasonStats(
+  season: MonthData[],
+  currentWeekId: number | null = null
+) {
+  const all = flattenWeeks(season);
+
+  const weeks =
+    currentWeekId === null
+      ? all
+      : all.filter((week) => week.id <= currentWeekId);
+
+  const seasonWeek =
+    currentWeekId === null
+      ? null
+      : all.findIndex((week) => week.id === currentWeekId) + 1 || null;
 
   const images = weeks.reduce(
     (total, week) => total + (week.images?.length ?? 0),
@@ -96,6 +114,10 @@ export function seasonStats(season: MonthData[]) {
     pdfs,
     progress:
       weeks.length > 0 ? Math.round((completed / weeks.length) * 100) : 0,
+    /** Semana de la temporada en la que estamos (1-52) y cuántas tiene. */
+    seasonWeek,
+    seasonTotal: all.length,
+    scopedToToday: currentWeekId !== null,
   };
 }
 
@@ -137,6 +159,25 @@ export function fileNameFromUrl(url: string) {
  * Fuerza la descarga. Los archivos de Supabase son otro origen, así que el
  * atributo `download` se ignora: hay que pedirlo con el parámetro `?download=`.
  */
+/**
+ * Nombre para enseñar. Los archivos subidos llevan un sello técnico
+ * («1783751973455-ozwumosqbm.jpeg», «informe-lk3j2h9s4abc.pdf»): se quita, y
+ * si no queda nada con sentido se usa el rótulo de reserva («Imagen 2»).
+ */
+export function humanFileName(url: string, fallback: string) {
+  const name = fileNameFromUrl(url);
+  const dot = name.lastIndexOf(".");
+
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const extension = dot > 0 ? name.slice(dot) : "";
+
+  if (/^\d{9,}/.test(base)) return fallback;
+
+  const sinSello = base.replace(/-(?=[a-z0-9]*\d)[a-z0-9]{10,14}$/i, "");
+
+  return sinSello ? `${sinSello}${extension}` : fallback;
+}
+
 export function downloadUrl(url: string) {
   const name = fileNameFromUrl(url);
 

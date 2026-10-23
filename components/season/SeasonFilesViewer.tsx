@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { FileText, ImageIcon, Search, X } from "lucide-react";
 import { FileKind, SeasonFile } from "@/lib/season/types";
-import { fileNameFromUrl } from "@/lib/season/utils";
+import { fileNameFromUrl, humanFileName } from "@/lib/season/utils";
 import { useBodyScrollLock } from "./useBodyScrollLock";
 import ImageGrid from "./ImageGrid";
 import Lightbox from "./Lightbox";
@@ -192,9 +192,9 @@ export default function SeasonFilesViewer({
 
       {isImages && (
         <Lightbox
-          items={visible.map((file) => ({
+          items={visible.map((file, i) => ({
             url: file.url,
-            caption: fileNameFromUrl(file.url),
+            caption: humanFileName(file.url, `Imagen ${i + 1}`),
             subtitle: `${file.week} · ${file.month}`,
           }))}
           index={lightboxIndex}

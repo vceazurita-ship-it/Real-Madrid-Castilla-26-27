@@ -155,7 +155,15 @@ export default function WeekNavigator({
         ) : (
           <div className="space-y-2">
             {filteredMonths.map((month) => {
-              const isOpen = searching || !collapsed[month.id];
+              /* Los meses que aún no han llegado y no tienen nada van plegados:
+                 40 semanas iguales no dicen nada. Se abren con un clic. */
+              const plegadoDeSalida =
+                currentWeekId !== null &&
+                month.weeks.every(
+                  (week) => week.id > currentWeekId && !weekHasFiles(week)
+                );
+
+              const isOpen = searching || !(collapsed[month.id] ?? plegadoDeSalida);
 
               const withFiles = month.weeks.filter(weekHasFiles).length;
 
@@ -166,7 +174,7 @@ export default function WeekNavigator({
                     onClick={() =>
                       setCollapsed((state) => ({
                         ...state,
-                        [month.id]: !state[month.id],
+                        [month.id]: !(state[month.id] ?? plegadoDeSalida),
                       }))
                     }
                     aria-expanded={isOpen}
@@ -256,16 +264,16 @@ function WeekRow({
 
           {isCurrent && (
             <span className="shrink-0 rounded-full bg-[#C8A96B] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0B0F14]">
-              Hoy
+              Esta semana
             </span>
           )}
         </span>
 
-        <span className="mt-0.5 block truncate text-xs text-white/40">
-          {week.start && week.end
-            ? `${week.start} · ${week.end}`
-            : "Sin fechas"}
-        </span>
+        {week.start && week.end && (
+          <span className="mt-0.5 block truncate text-xs text-white/40">
+            {week.start} · {week.end}
+          </span>
+        )}
       </span>
 
       <span className="flex shrink-0 items-center gap-2.5 text-xs tabular-nums text-white/40">
@@ -283,7 +291,6 @@ function WeekRow({
           </span>
         )}
 
-        {!hasFiles && <span className="text-white/25">Vacía</span>}
       </span>
     </button>
   );

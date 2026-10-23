@@ -15,7 +15,10 @@ import { CambioSemana } from "@/lib/season/fusion";
 import { SeasonArea, WeekData } from "@/lib/season/types";
 import { AREA_CONFIG } from "@/lib/season/config";
 import { deleteSeasonFile, uploadSeasonFile } from "@/lib/season/api";
-import { fileNameFromUrl, weekRangeLabel } from "@/lib/season/utils";
+import {
+  humanFileName,
+  weekRangeLabel,
+} from "@/lib/season/utils";
 import ConfirmDialog from "./ConfirmDialog";
 import ImageGrid from "./ImageGrid";
 import Lightbox from "./Lightbox";
@@ -28,7 +31,7 @@ interface Props {
   area: SeasonArea;
   week: WeekData | null;
   isCurrentWeek: boolean;
-  /** Sólo lo que cambia: el servidor lo aplica sobre lo último guardado. */
+  /** SÃ³lo lo que cambia: el servidor lo aplica sobre lo Ãºltimo guardado. */
   onUpdateWeek: (cambio: CambioSemana) => Promise<void>;
 }
 
@@ -51,7 +54,7 @@ export default function WeekPanel({
   const images = useMemo(() => week?.images ?? [], [week]);
   const pdfs = useMemo(() => week?.pdfs ?? [], [week]);
 
-  // Al cambiar de semana volvemos a la pestaña con contenido más relevante.
+  // Al cambiar de semana volvemos a la pestaÃ±a con contenido mÃ¡s relevante.
   // Se ajusta durante el render para no encadenar un repintado extra.
   const [lastWeekId, setLastWeekId] = useState(week?.id ?? null);
 
@@ -77,7 +80,7 @@ export default function WeekPanel({
           <h2 className="text-2xl font-semibold">Selecciona una semana</h2>
 
           <p className="mt-3 max-w-md leading-7 text-white/50">
-            Elige cualquier semana del listado para ver sus imágenes, sus
+            Elige cualquier semana del listado para ver sus imÃ¡genes, sus
             documentos y subir archivos nuevos.
           </p>
         </div>
@@ -140,10 +143,10 @@ export default function WeekPanel({
           { id: toastId }
         );
       } else if (uploaded.length === 0) {
-        toast.error("No se pudo subir ningún archivo.", { id: toastId });
+        toast.error("No se pudo subir ningÃºn archivo.", { id: toastId });
       } else {
         toast.warning(
-          `${uploaded.length} subidos · ${failed} con error.`,
+          `${uploaded.length} subidos Â· ${failed} con error.`,
           { id: toastId }
         );
       }
@@ -188,7 +191,7 @@ export default function WeekPanel({
     [
       {
         id: "images",
-        label: "Imágenes",
+        label: "ImÃ¡genes",
         icon: <ImageIcon size={16} />,
         count: images.length,
       },
@@ -242,7 +245,7 @@ export default function WeekPanel({
           </div>
         </div>
 
-        {/* PESTAÑAS */}
+        {/* PESTAÃ‘AS */}
 
         <div className="-mb-px mt-6 flex gap-1 overflow-x-auto">
           {tabs.map((item) => (
@@ -286,15 +289,15 @@ export default function WeekPanel({
           (images.length === 0 ? (
             <EmptyState
               icon={<ImageIcon size={34} />}
-              title="Sin imágenes en esta semana"
-              action="Subir imágenes"
+              title="Sin imÃ¡genes en esta semana"
+              action="Subir imÃ¡genes"
               onAction={() => setTab("upload")}
             />
           ) : (
             <>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <p className="text-sm text-white/50">
-                  {images.length} imagen{images.length > 1 ? "es" : ""}
+                  {images.length} {images.length > 1 ? "imÃ¡genes" : "imagen"}
                 </p>
 
                 <button
@@ -321,9 +324,9 @@ export default function WeekPanel({
               </div>
 
               <ImageGrid
-                items={images.map((url) => ({
+                items={images.map((url, i) => ({
                   url,
-                  caption: fileNameFromUrl(url),
+                  caption: humanFileName(url, `Imagen ${i + 1}`),
                 }))}
                 fit={fit}
                 onOpen={setLightboxIndex}
@@ -375,10 +378,10 @@ export default function WeekPanel({
       </div>
 
       <Lightbox
-        items={images.map((url) => ({
+        items={images.map((url, i) => ({
           url,
-          caption: fileNameFromUrl(url),
-          subtitle: `${week.week} · ${weekRangeLabel(week)}`,
+          caption: humanFileName(url, `Imagen ${i + 1}`),
+          subtitle: `${week.week} Â· ${weekRangeLabel(week)}`,
         }))}
         index={lightboxIndex}
         onIndexChange={setLightboxIndex}
@@ -389,12 +392,12 @@ export default function WeekPanel({
         open={pendingDelete !== null}
         title={
           pendingDelete?.kind === "pdfs"
-            ? "¿Eliminar este PDF?"
-            : "¿Eliminar esta imagen?"
+            ? "Â¿Eliminar este PDF?"
+            : "Â¿Eliminar esta imagen?"
         }
         description={
           pendingDelete
-            ? `"${fileNameFromUrl(pendingDelete.url)}" se borrará de ${week.week}. Esta acción no se puede deshacer.`
+            ? `"${humanFileName(pendingDelete.url, pendingDelete.kind === "images" ? "Esta imagen" : "Este documento")}" se borrarÃ¡ de ${week.week}. Esta acciÃ³n no se puede deshacer.`
             : undefined
         }
         loading={deleting}

@@ -23,6 +23,36 @@ function unwrapSeason(payload: unknown): MonthData[] {
   return [];
 }
 
+const MESES = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+];
+
+/**
+ * Fecha de las semanas que llegan sin ella. La temporada abre el miércoles
+ * 1 de julio de 2026 (semana 1: 1-5 Jul) y desde la semana 2 van de lunes a
+ * domingo: la 2 empieza el lunes 6 de julio. Las que ya traen fechas no se
+ * tocan.
+ */
+function fechasDeLaSemana(numero: number): { start: string; end: string } {
+  const lunes = new Date(2026, 6, 6 + (numero - 2) * 7);
+  const domingo = new Date(lunes.getFullYear(), lunes.getMonth(), lunes.getDate() + 6);
+
+  const texto = (d: Date) => `${d.getDate()} ${MESES[d.getMonth()]}`;
+
+  return { start: texto(lunes), end: texto(domingo) };
+}
+
 /**
  * Normaliza cada semana: las temporadas antiguas guardaban un único documento
  * en `pdf`, que la interfaz nunca llegaba a mostrar porque sólo lee `pdfs`.
@@ -36,8 +66,16 @@ function normalizeSeason(season: MonthData[]): MonthData[] {
       const merged =
         week.pdf && !pdfs.includes(week.pdf) ? [week.pdf, ...pdfs] : pdfs;
 
+      const numero = Number(/\d+/.exec(week.week ?? "")?.[0] ?? week.id);
+
+      const fechas =
+        !week.start && !week.end && numero >= 2
+          ? fechasDeLaSemana(numero)
+          : null;
+
       const normalized: WeekData = {
         ...week,
+        ...(fechas ?? {}),
         images: week.images ?? [],
         pdfs: merged,
       };

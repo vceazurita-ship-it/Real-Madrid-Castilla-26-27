@@ -93,7 +93,10 @@ export default function SeasonWorkspace({ area }: Props) {
     [season, selectedWeekId]
   );
 
-  const stats = useMemo(() => seasonStats(season), [season]);
+  const stats = useMemo(
+    () => seasonStats(season, currentWeek?.id ?? null),
+    [season, currentWeek]
+  );
 
   const allImages = useMemo(() => collectFiles(season, "images"), [season]);
   const allPdfs = useMemo(() => collectFiles(season, "pdfs"), [season]);
