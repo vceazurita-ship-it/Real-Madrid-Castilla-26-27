@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Plus, TriangleAlert } from "lucide-react";
+import { Loader2, Plus, RotateCw, TriangleAlert } from "lucide-react";
 
 import ConfirmDialog from "@/components/season/ConfirmDialog";
 import { useAlertas } from "@/hooks/useAlertas";
 import { nuevaAlerta, type Alerta } from "@/lib/alertas/modelo";
 import DialogoAlerta from "./DialogoAlerta";
 import {
+  fechaLegible,
   proximoDesdeElPartido,
   type PartidoParaAlerta,
 } from "@/lib/alertas/modelo";
@@ -28,6 +29,8 @@ export default function GestorAlertas() {
     agenda,
     cargando,
     motorCaido,
+    fallo,
+    reintentar,
     disparador,
     guardar,
     borrar,
@@ -183,6 +186,32 @@ export default function GestorAlertas() {
     setABorrar(null);
   };
 
+  /* El reloj se apunta en un efecto: mirarlo en el render es impuro. */
+  const [ahora, setAhora] = useState(0);
+
+  useEffect(() => {
+    const id = setTimeout(() => setAhora(Date.now()), 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
+  const resumen = (() => {
+    const vivas = alertas.filter((a) => a.activa);
+
+    if (vivas.length === 0) return null;
+
+    const proxima =
+      vivas
+        .filter((a) => {
+          const t = new Date(a.proximoEnvio).getTime();
+
+          return Number.isFinite(t) && ahora > 0 && t >= ahora;
+        })
+        .sort((a, b) => a.proximoEnvio.localeCompare(b.proximoEnvio))[0] ?? null;
+
+    return { activas: vivas.length, proxima };
+  })();
+
   return (
     <div className="space-y-4">
       {/* --------------------- MOTOR CAÍDO --------------------- */}
@@ -244,6 +273,23 @@ export default function GestorAlertas() {
         </div>
       )}
 
+      {/* ---------------------- RESUMEN ------------------------ */}
+
+      {/* Lo que dice la pantalla en cinco segundos. Sin alertas con fecha, no sale. */}
+      {!cargando && resumen && (
+        <p className="rounded-2xl bg-[#C8A96B]/10 px-4 py-3 text-xs leading-relaxed text-white/70">
+          <b className="font-semibold text-[#C8A96B]">
+            {resumen.activas} {resumen.activas === 1 ? "alerta activa" : "alertas activas"}
+          </b>
+          {resumen.proxima && (
+            <>
+              {" · "}próximo aviso: {resumen.proxima.titulo},{" "}
+              {fechaLegible(resumen.proxima.proximoEnvio)}
+            </>
+          )}
+        </p>
+      )}
+
       {/* ----------------------- NUEVA ------------------------- */}
 
       <button
@@ -261,6 +307,21 @@ export default function GestorAlertas() {
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/40">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
           Cargando…
+        </div>
+      ) : fallo ? (
+        <div className="rounded-3xl border border-dashed border-white/10 px-6 py-8 text-center">
+          <p className="text-sm text-white/60">
+            {fallo} Las tareas ya guardadas siguen en la hoja.
+          </p>
+
+          <button
+            type="button"
+            onClick={reintentar}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/50 px-4 py-2 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+          >
+            <RotateCw className="h-4 w-4" aria-hidden />
+            Reintentar
+          </button>
         </div>
       ) : (
         <ListaAlertas

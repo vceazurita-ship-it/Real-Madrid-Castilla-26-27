@@ -51,6 +51,26 @@ export function DatosEstado() {
     };
   }, []);
 
+  /*
+  | «Actualizando…» no puede quedarse fijo: una hoja lenta (Apps Script en
+  | frío tarda 30-70 s) o colgada lo dejaba así para siempre. Pasados 20 s se
+  | vuelve a decir de cuándo son los datos; si la bajada acaba, se actualiza.
+  */
+  const hayBajada = estado.bajando > 0;
+  const [cansado, setCansado] = useState(false);
+
+  useEffect(() => {
+    if (!hayBajada) return;
+
+    const inicio = window.setTimeout(() => setCansado(false), 0);
+    const tope = window.setTimeout(() => setCansado(true), 20_000);
+
+    return () => {
+      window.clearTimeout(inicio);
+      window.clearTimeout(tope);
+    };
+  }, [hayBajada]);
+
   if (estado.deCopia === 0 && estado.bajando === 0) return null;
 
   const recarga = () => {
@@ -97,9 +117,9 @@ export function DatosEstado() {
       className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/45 transition hover:border-white/20 hover:text-white/80"
       title="Lo que se ve viene de la copia guardada en este aparato. Pulsa para tirarla y bajarlo todo de nuevo."
     >
-      <RefreshCw size={12} className={estado.bajando > 0 ? "animate-spin" : ""} />
+      <RefreshCw size={12} className={hayBajada && !cansado ? "animate-spin" : ""} />
       <span className="hidden sm:inline">
-        {estado.bajando > 0
+        {hayBajada && !cansado
           ? "Actualizando…"
           : estado.masVieja !== null && ahora > 0
             ? `Datos ${haceCuanto(estado.masVieja, ahora)}`

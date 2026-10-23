@@ -22,7 +22,6 @@ import { pantallaCompletaAlNavegar } from "@/hooks/usePantallaCompleta";
 import { aJornada, buscaJornada, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
 import {
   alrededorDe,
-  comoSeLlama,
   formaSemana,
   type PartidoNuestro,
 } from "@/lib/castilla/calendario";
@@ -415,40 +414,36 @@ export function ProximoPartido() {
                 document.body,
               )}
 
-            <p className="mt-2 text-[11px] text-white/40">
-              Semana {comoSeLlama(semana, anterior?.cuando ?? null)}
-              {/* Los libres, y de dónde salen: del microciclo escrito en la
-                  hoja, o la propuesta de siempre mientras no se escriba. */}
-              {conTarea !== null && (
-                <>
-                  {" "}
-                  ·{" "}
-                  {libresEnTexto ? (
-                    <>
-                      libre {libresEnTexto}
-                      <span className="text-white/30">
-                        {delMicro ? " · del microciclo" : " · propuesto, sin microciclo aún"}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      sin día libre
-                      <span className="text-white/30">{delMicro ? " · del microciclo" : ""}</span>
-                    </>
-                  )}
-                </>
-              )}
-              {anterior && (
-                <>
-                  {" "}
-                  · el anterior:{" "}
-                  <span className="text-white/60">
-                    {anterior.lado === "casa" ? "" : "en "}
-                    {anterior.rival} {anterior.golesFavor}-{anterior.golesContra}
-                  </span>
-                </>
-              )}
-            </p>
+            {/* «Libre: sáb 10 y dom 11 · Último: Antequera CF 3-2 (V)». Los
+                libres salen del microciclo escrito en la hoja; mientras no se
+                escriba, se avisa de que son una propuesta. */}
+            {(conTarea !== null || anterior) && (
+              <p className="mt-2 text-[11px] text-white/40">
+                {conTarea !== null && (
+                  <>
+                    {libresEnTexto ? <>Libre: {libresEnTexto}</> : <>Sin día libre</>}
+                    {!delMicro && libresEnTexto && (
+                      <span className="text-white/30"> (propuesto, sin microciclo aún)</span>
+                    )}
+                  </>
+                )}
+                {anterior && (
+                  <>
+                    {conTarea !== null && " · "}
+                    Último:{" "}
+                    <span className="text-white/60">
+                      {anterior.lado === "casa" ? "" : "en "}
+                      {anterior.rival} {anterior.golesFavor}-{anterior.golesContra}
+                      {(() => {
+                        const signo = signoResultado(anterior.golesFavor, anterior.golesContra);
+
+                        return signo ? ` (${signo})` : "";
+                      })()}
+                    </span>
+                  </>
+                )}
+              </p>
+            )}
           </div>
         )}
 
@@ -634,6 +629,9 @@ function Atajo({ href, texto, title }: { href: string; texto: string; title?: st
  * por partido, con el marcador al pasar por encima. Lleva al histórico.
  */
 function Racha({ ultimos, cargando }: { ultimos: PartidoNuestro[]; cargando: boolean }) {
+  /* Sin partidos jugados no hay racha que enseñar. */
+  if (!cargando && ultimos.length === 0) return null;
+
   return (
     <Link
       href="/collective_history"
@@ -644,7 +642,7 @@ function Racha({ ultimos, cargando }: { ultimos: PartidoNuestro[]; cargando: boo
       <History className="h-4 w-4 shrink-0 text-white/35 transition-colors group-hover:text-[#D8B45A]" />
 
       <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/45">
-        Últimos
+        Últimos 5
       </span>
 
       <span className="flex items-center gap-1.5">
@@ -652,9 +650,7 @@ function Racha({ ultimos, cargando }: { ultimos: PartidoNuestro[]; cargando: boo
           ? Array.from({ length: 5 }, (_, i) => (
               <span key={i} className="h-7 w-7 animate-pulse rounded-lg bg-white/10" />
             ))
-          : ultimos.length === 0
-            ? <span className="text-[12px] text-white/40">sin partidos jugados</span>
-            : ultimos.map((partido) => {
+          : ultimos.map((partido) => {
                 const signo = signoResultado(partido.golesFavor, partido.golesContra);
 
                 const color = signo === "V" ? VERDE : signo === "D" ? NARANJA : "#94A3B8";
@@ -673,6 +669,11 @@ function Racha({ ultimos, cargando }: { ultimos: PartidoNuestro[]; cargando: boo
                 );
               })}
       </span>
+      {!cargando && ultimos.length > 0 && (
+        <span className="hidden text-[10px] text-white/35 sm:inline">
+          V ganado · E empate · D derrota
+        </span>
+      )}
     </Link>
   );
 }
@@ -680,6 +681,9 @@ function Racha({ ultimos, cargando }: { ultimos: PartidoNuestro[]; cargando: boo
 /** Nuestra fila de la tabla, en una línea. Lleva al equipo de un vistazo. */
 function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
   const fila = informe?.clasificacion ?? null;
+
+  /* Con la lectura hecha y sin fila nuestra no hay nada que decir. */
+  if (informe !== null && !fila) return null;
 
   return (
     <Link
@@ -711,12 +715,14 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
           </span>
           <span className="text-white/30">·</span>
           <span className="tabular-nums">
-            {fila.favor}-{fila.contra}
+            goles {fila.favor} a favor y {fila.contra} en contra
+          </span>
+          <span className="text-white/30">·</span>
+          <span className="tabular-nums text-white/40">
+            {fila.ganados + fila.empatados + fila.perdidos} partidos
           </span>
         </span>
-      ) : (
-        <span className="text-[12px] text-white/40">sin tabla todavía</span>
-      )}
+      ) : null}
     </Link>
   );
 }

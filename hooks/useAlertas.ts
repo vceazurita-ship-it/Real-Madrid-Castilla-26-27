@@ -26,6 +26,12 @@ interface Estado {
   /** El motor de envío no responde (falta instalar el Apps Script, o falló). */
   motorCaido: string | null;
   /**
+   * La lista no llegó: la hoja tardó más de la cuenta o no hay red. Distinto
+   * de `motorCaido` (el servidor contestó, pero con un error): aquí lo que
+   * toca es volver a pedirla, no instalar nada.
+   */
+  fallo: string | null;
+  /**
    * ¿Hay disparador horario en la hoja?
    *
    * `false` es el estado traicionero del montaje: la hoja contesta, guarda y
@@ -43,8 +49,13 @@ const VACIO: Estado = {
   agenda: [],
   cargando: true,
   motorCaido: null,
+  fallo: null,
   disparador: null,
 };
+
+/* Apps Script en frío tarda 30-70 s: pasados 15 s se deja de esperar y se
+   ofrece reintentar, en vez de un «Cargando…» sin final. */
+const TOPE_DE_ESPERA_MS = 15_000;
 
 export function useAlertas() {
   const [estado, setEstado] = useState<Estado>(VACIO);
@@ -59,8 +70,12 @@ export function useAlertas() {
     | guardar o borrar se pide fresco, que ahí lo que importa es ver lo que se
     | acaba de escribir.
     */
+    const control = new AbortController();
+    const reloj = setTimeout(() => control.abort(), TOPE_DE_ESPERA_MS);
+
     fetch(testigo > 0 ? "/api/alertas?fresco=1" : "/api/alertas", {
       cache: "no-store",
+      signal: control.signal,
     })
       .then((respuesta) => respuesta.json())
       .then((cuerpo) => {
@@ -73,6 +88,7 @@ export function useAlertas() {
           agenda: Array.isArray(cuerpo.agenda) ? cuerpo.agenda : [],
           cargando: false,
           motorCaido: null,
+          fallo: null,
           disparador:
             typeof cuerpo.disparador === "boolean" ? cuerpo.disparador : null,
         });
@@ -82,18 +98,30 @@ export function useAlertas() {
 
         console.error("[alertas] carga", error);
 
+        /* Sin respuesta a tiempo (o sin red): se puede reintentar. */
+        const sinRespuesta =
+          (error instanceof DOMException && error.name === "AbortError") ||
+          error instanceof TypeError;
+
         setEstado({
           alertas: [],
           agenda: [],
           cargando: false,
-          motorCaido:
-            error instanceof Error ? error.message : "No responde la hoja",
+          motorCaido: sinRespuesta
+            ? null
+            : error instanceof Error
+              ? error.message
+              : "No responde la hoja",
+          fallo: sinRespuesta ? "La hoja tarda demasiado en contestar." : null,
           disparador: null,
         });
-      });
+      })
+      .finally(() => clearTimeout(reloj));
 
     return () => {
       cancelado = true;
+      clearTimeout(reloj);
+      control.abort();
     };
   }, [testigo]);
 
@@ -201,5 +229,11 @@ export function useAlertas() {
     [recargar],
   );
 
-  return { ...estado, recargar, guardar, borrar, enviarAhora };
+  /** Tras un fallo de carga: vuelve a «cargando» y lo pide otra vez. */
+  const reintentar = useCallback(() => {
+    setEstado((e) => ({ ...e, cargando: true, fallo: null }));
+    setTestigo((n) => n + 1);
+  }, []);
+
+  return { ...estado, recargar, reintentar, guardar, borrar, enviarAhora };
 }

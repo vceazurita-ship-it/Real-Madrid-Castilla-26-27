@@ -488,7 +488,7 @@ export default function Home() {
                   {/* El césped de la foto es claro: sin fondo propio esta línea
                       se pierde. Va con el mismo cristal que la chapa. */}
                   <div className="absolute left-5 top-[58px] max-w-[calc(100%-40px)]">
-                    <p className="inline-block rounded-full border border-white/10 bg-black/60 px-3.5 py-1.5 text-[11px] leading-relaxed text-white/70 backdrop-blur-xl">
+                    <p className="inline-block rounded-full border border-white/10 bg-black/60 px-3.5 py-1.5 text-[11px] leading-relaxed backdrop-blur-xl" style={{ color: "rgba(255,255,255,.85)" }}>
                       {resumenData
                         ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido leído" : "partidos leídos"} de ${resumenData.temporada}, contra los ${resumenData.equipos} de la categoría`
                         : "Opta y Wyscout, leídos de la carpeta de datos"}
@@ -503,21 +503,25 @@ export default function Home() {
                     lo que valían las ocasiones, que es la otra mitad. La barra
                     mide contra el mejor de la liga, no contra cien: así el
                     trozo lleno significa algo.
+
+                    Sólo se pinta mientras carga (esqueleto) o si hay dato: sin
+                    informes, o si la lectura falló, la tarjeta se queda con la
+                    foto y su rótulo, sin un hueco a medias. Los textos van con
+                    color fijo (`style`): el panel es siempre oscuro y en modo
+                    día el blanco por clase se volvía tinta oscura sobre negro.
                   */}
-                  <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-4 rounded-[22px] border border-white/10 bg-black/50 px-5 py-4 backdrop-blur-xl">
+                  {(cargandoData || resumenData?.xg != null) && (
+                  <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-4 rounded-[22px] border border-white/10 bg-black/60 px-5 py-4 backdrop-blur-xl">
                     <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-white/50">
-                        xG por partido
+                      <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.78)" }}>
+                        Goles esperados (xG) por partido
                       </p>
 
-                      <p className="mt-2 text-3xl font-bold leading-none text-white">
-                        {cargandoData ? (
+                      <p className="mt-2 text-3xl font-bold leading-none" style={{ color: "#fff" }}>
+                        {cargandoData || resumenData?.xg == null ? (
                           <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
-                        ) : resumenData?.xg == null ? (
-                          /* Sin informes o sin respuesta: una raya, no un 0,00 que parezca medido. */
-                          <span className="text-white/40">—</span>
                         ) : (
-                          resumenData.xg.toFixed(2)
+                          resumenData.xg.toFixed(2).replace(".", ",")
                         )}
                       </p>
 
@@ -534,49 +538,52 @@ export default function Home() {
                         />
                       </div>
 
-                      <p className="mt-2 truncate text-[11px] text-white/45">
-                        {resumenData?.puesto
-                          ? `${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría`
-                          : errorData
-                            ? "sin datos: no se ha podido leer"
-                            : "sin informes de esta temporada"}
-                      </p>
+                      {resumenData?.xg != null && (
+                        <p className="mt-2 text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
+                          {resumenData.partidos} {resumenData.partidos === 1 ? "partido" : "partidos"}
+                          {resumenData.puesto
+                            ? ` · ${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría`
+                            : ""}
+                        </p>
+                      )}
                     </div>
 
-                    <div className="shrink-0 text-right">
-                      <p className="text-[10px] uppercase tracking-[0.24em] text-white/50">
-                        Goles − xG
-                      </p>
+                    {(cargandoData || resumenData?.golesMenosXg != null) && (
+                      <div className="shrink-0 text-right">
+                        <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.78)" }}>
+                          Goles − xG
+                        </p>
 
-                      <p
-                        className="mt-2 text-3xl font-bold leading-none"
-                        style={{
-                          color:
-                            resumenData?.golesMenosXg == null
-                              ? "rgb(255 255 255 / .4)"
-                              : resumenData.golesMenosXg >= 0
-                                ? "#1B9E77"
-                                : "#D95F02",
-                        }}
-                      >
-                        {cargandoData ? (
-                          <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
-                        ) : resumenData?.golesMenosXg == null ? (
-                          "—"
-                        ) : (
-                          `${resumenData.golesMenosXg >= 0 ? "+" : ""}${resumenData.golesMenosXg.toFixed(2)}`
+                        <p
+                          className="mt-2 text-3xl font-bold leading-none"
+                          style={{
+                            color:
+                              resumenData?.golesMenosXg == null
+                                ? "rgb(255 255 255 / .4)"
+                                : resumenData.golesMenosXg >= 0
+                                  ? "#34D399"
+                                  : "#FB923C",
+                          }}
+                        >
+                          {cargandoData || resumenData?.golesMenosXg == null ? (
+                            <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
+                          ) : (
+                            `${resumenData.golesMenosXg >= 0 ? "+" : "−"}${Math.abs(resumenData.golesMenosXg).toFixed(2).replace(".", ",")}`
+                          )}
+                        </p>
+
+                        {resumenData?.golesMenosXg != null && (
+                          <p className="mt-1 text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
+                            por partido ·{" "}
+                            {resumenData.golesMenosXg >= 0
+                              ? "marcamos más de lo esperado"
+                              : "marcamos menos de lo esperado"}
+                          </p>
                         )}
-                      </p>
-
-                      <p className="mt-1 text-[11px] text-white/45">
-                        {resumenData?.golesMenosXg == null
-                          ? "por partido"
-                          : resumenData.golesMenosXg >= 0
-                            ? "se marca de más"
-                            : "se falla de más"}
-                      </p>
-                    </div>
+                      </div>
+                    )}
                   </div>
+                  )}
 
                   <div className="scan-line" aria-hidden />
                 </Link>
