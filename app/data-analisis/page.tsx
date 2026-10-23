@@ -100,6 +100,7 @@ import {
   METRICAS,
   METRICA_POR_KEY,
   aFavorYEnContra,
+  baseEnGrupo,
   formatea,
   mediana,
   percentil,
@@ -643,6 +644,7 @@ export default function DataAnalisisPage() {
           mio === null ? null : orden.findIndex((v) => v === mio) + 1 || null,
         deCuantos: valores.length,
         comoLeer: met.comoLeer,
+        base: baseEnGrupo(met, filas),
       };
     });
     },
