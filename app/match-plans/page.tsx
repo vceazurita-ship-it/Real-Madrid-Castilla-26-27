@@ -459,8 +459,8 @@ export default function Page() {
       winPct: pct(wins),
       drawPct: pct(draws),
       lossPct: pct(losses),
-      avgFor: played > 0 ? (goalsFor / played).toFixed(1) : "0.0",
-      avgAgainst: played > 0 ? (goalsAgainst / played).toFixed(1) : "0.0",
+      avgFor: played > 0 ? (goalsFor / played).toFixed(1).replace(".", ",") : "0,0",
+      avgAgainst: played > 0 ? (goalsAgainst / played).toFixed(1).replace(".", ",") : "0,0",
       lastFive,
     };
   }, [filtered]);
