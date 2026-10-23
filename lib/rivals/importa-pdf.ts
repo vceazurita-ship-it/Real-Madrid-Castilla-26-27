@@ -411,6 +411,19 @@ const normaliza = (valor: unknown) =>
     .replace(/\s+/g, " ")
     .trim();
 
+/** ¿`corta` es `larga` abreviada? Misma inicial y sus letras, en orden. */
+function abrevia(corta: string, larga: string) {
+  if (!corta || corta[0] !== larga[0]) return false;
+
+  let i = 0;
+
+  for (const letra of larga) {
+    if (letra === corta[i]) i += 1;
+  }
+
+  return i === corta.length;
+}
+
 /**
  * Busca en la plantilla al jugador de una ficha.
  *
@@ -432,6 +445,31 @@ export function casaJugador(nombre: string, plantilla: FilaPlantilla[]): FilaPla
     (fila) =>
       buscado.length >= 3 && nombres(fila).some((n) => n.split(" ").some((pieza) => pieza.startsWith(buscado))),
     (fila) => buscado.length >= 4 && nombres(fila).some((n) => n.includes(buscado)),
+    /* «TOMAS SCHEZ.» es TOMAS SANCHEZ y «JAVI AVILES» es JAVIER AVILES: cada
+       palabra, abreviada, en el mismo orden (23/10/2026). */
+    (fila) => {
+      const palabras = buscado.split(" ");
+
+      return (
+        palabras.length >= 2 &&
+        nombres(fila).some((n) => {
+          const piezas = n.split(" ");
+
+          return piezas.length >= palabras.length && palabras.every((palabra, i) => abrevia(palabra, piezas[i]));
+        })
+      );
+    },
+    /* «JOSECA» es JOSE CARLOS: el nombre y el principio del apellido, pegados. */
+    (fila) =>
+      !buscado.includes(" ") &&
+      buscado.length >= 5 &&
+      nombres(fila).some((n) => {
+        const [primera, segunda] = n.split(" ");
+
+        return Boolean(
+          primera && segunda && buscado.length > primera.length && buscado.startsWith(primera) && segunda.startsWith(buscado.slice(primera.length)),
+        );
+      }),
   ];
 
   for (const prueba of pruebas) {
