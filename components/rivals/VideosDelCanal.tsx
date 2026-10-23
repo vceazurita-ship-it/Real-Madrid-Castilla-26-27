@@ -75,6 +75,9 @@ type Pieza = {
   /** Vacío cuando el título no dice de quién es. */
   jugador: string;
   dorsal: string;
+  /** Su puesto y sus etiquetas, para que la ficha diga qué mirar del corte. */
+  puesto: string;
+  etiquetas: string[];
 };
 
 type Estado =
@@ -407,6 +410,8 @@ export function VideosDelCanal({
         tema: temaDelTitulo(video.titulo, jugador),
         jugador: jugador?.nombre ?? "",
         dorsal: jugador?.dorsal ?? "",
+        puesto: jugador?.puesto ?? "",
+        etiquetas: jugador?.etiquetas ?? [],
       };
 
       if (!jugador) {
@@ -449,6 +454,18 @@ export function VideosDelCanal({
   const jugadoresVisibles = useMemo(
     () => grupos.jugadores.filter((grupo) => !soloDe || soloDe === grupo.jugador),
     [grupos.jugadores, soloDe],
+  );
+
+  /*
+  | Los jugadores con UN solo corte van juntos en una rejilla (23/10/2026): una
+  | ficha por fila, con su nombre encima, dejaba una columna de 260 px en una
+  | pantalla de 1440. Los que tienen varios siguen con su cabecera.
+  */
+  const variosCortes = useMemo(() => jugadoresVisibles.filter((g) => g.videos.length > 1), [jugadoresVisibles]);
+
+  const unCorte = useMemo(
+    () => jugadoresVisibles.filter((g) => g.videos.length === 1).flatMap((g) => g.videos),
+    [jugadoresVisibles],
   );
 
   const mostrados = useMemo(() => {
@@ -866,7 +883,17 @@ export function VideosDelCanal({
           </header>
 
           <div className="space-y-5">
-            {jugadoresVisibles.map((grupo) => (
+            {unCorte.length > 0 && (
+              <div className="min-w-0">
+                {variosCortes.length > 0 && (
+                  <p className="mb-2 text-[11px] text-white/35">Un corte por jugador</p>
+                )}
+
+                <Rejilla piezas={unCorte} columnas={columnas} conJugador onAbrir={setAbierto} onCopiar={copiaEnlace} />
+              </div>
+            )}
+
+            {variosCortes.map((grupo) => (
               <div key={grupo.jugador} className="min-w-0">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   {grupo.dorsal && (
@@ -1078,6 +1105,37 @@ function Chip({
 /*  LA REJILLA DE FICHAS                                               */
 /* ------------------------------------------------------------------ */
 
+/**
+ * La miniatura del corte. Si la propia no carga (en blanco: Paris Adot, Raúl
+ * Rubio), se prueba la de YouTube por el id del vídeo, y si tampoco, un
+ * fondo liso con el icono.
+ */
+function Miniatura({ video }: { video: Video }) {
+  const respaldo = `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`;
+
+  const [fuente, setFuente] = useState(video.miniatura || respaldo);
+  const [rota, setRota] = useState(false);
+
+  if (rota) {
+    return (
+      <span className="flex aspect-video w-full items-center justify-center bg-white/[0.04]">
+        <Youtube size={26} className="text-white/25" />
+      </span>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={fuente}
+      alt=""
+      loading="lazy"
+      onError={() => (fuente === respaldo ? setRota(true) : setFuente(respaldo))}
+      className="aspect-video w-full object-cover"
+    />
+  );
+}
+
 function Rejilla({
   piezas,
   columnas,
@@ -1096,7 +1154,7 @@ function Rejilla({
 }) {
   return (
     <div className={`grid min-w-0 gap-2.5 ${columnas}`}>
-      {piezas.map(({ video, tema, jugador, dorsal }) => (
+      {piezas.map(({ video, tema, jugador, dorsal, puesto, etiquetas }) => (
         <div
           key={video.id}
           className="group min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-[#C8A96B]/40"
@@ -1106,13 +1164,7 @@ function Rejilla({
             onClick={() => onAbrir(video)}
             className="relative block w-full"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={video.miniatura}
-              alt=""
-              loading="lazy"
-              className="aspect-video w-full object-cover"
-            />
+            <Miniatura video={video} />
 
             <span className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
               <Play size={26} className="text-white drop-shadow" />
@@ -1129,6 +1181,13 @@ function Rejilla({
                 <span className={jugador ? "text-[#C8A96B]" : "text-white/35"}>
                   {jugador || "Del equipo"}
                 </span>
+              </p>
+            )}
+
+            {/* Qué mirar: su puesto y sus etiquetas de la ficha. */}
+            {conJugador && (puesto || etiquetas.length > 0) && (
+              <p className="mb-1 line-clamp-2 text-[10px] leading-snug text-white/45">
+                {[puesto, ...etiquetas].filter(Boolean).join(" · ")}
               </p>
             )}
 
