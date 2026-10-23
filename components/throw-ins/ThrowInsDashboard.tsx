@@ -1666,8 +1666,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   {totals.calidad === null ? null : (
                     <MetricCard
                       label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}
-                      value={totals.calidad.toFixed(1).replace(".", ",")}
-                      hint="Sobre 4, escala de la hoja"
+                      value={`${totals.calidad.toFixed(1).replace(".", ",")} / 4`}
+                      hint="Escala de la hoja, de 1 a 4: más es mejor"
                     />
                   )}
                 </div>
