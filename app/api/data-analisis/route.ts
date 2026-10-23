@@ -311,7 +311,16 @@ function perfilesDe(datos: Dataset, equipo: string) {
  * balón parado frente a los veinte equipos, y sus goles a balón parado. Sin el
  * umbral de los destacados: aquí interesa el dato aunque esté en el montón.
  */
-function abpRivalDe(datos: Dataset, equipo: string) {
+/** Sus centros laterales (Área del rival, 23/10/2026): no está en el catálogo común, sólo se pide desde aquí. */
+const ASPECTO_CENTROS = {
+  key: "centrosOf",
+  label: "Sus centros laterales",
+  momento: "con",
+  metricas: ["centros", "centrosPrecisos"],
+  explica: "Cuánto centra y cuántos de esos centros encuentran a alguien",
+} as const;
+
+function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "abp") {
   const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
     .filter(Boolean)
     .sort();
@@ -326,11 +335,13 @@ function abpRivalDe(datos: Dataset, equipo: string) {
     equipo,
     liga,
     equipos,
-    ["abpOf", "abpDef"].flatMap((k) => {
-      const uno = ASPECTO_POR_KEY.get(k);
+    ambito === "area"
+      ? [{ ...ASPECTO_CENTROS, metricas: [...ASPECTO_CENTROS.metricas] }]
+      : ["abpOf", "abpDef"].flatMap((k) => {
+          const uno = ASPECTO_POR_KEY.get(k);
 
-      return uno ? [uno] : [];
-    }),
+          return uno ? [uno] : [];
+        }),
   ).map((d) => ({
     clave: d.aspecto.key,
     aspecto: d.aspecto.label,
@@ -343,14 +354,13 @@ function abpRivalDe(datos: Dataset, equipo: string) {
     })),
   }));
 
-  const goles = golesAbpDeEquipo(equipo, liga);
+  const goles = ambito === "area" ? null : golesAbpDeEquipo(equipo, liga);
 
   return {
     temporada: actual,
     equipos: equipos.length,
     aspectos,
-    golesAbp:
-      goles.aFavor.partidos > 0 || goles.enContra.partidos > 0 ? goles : null,
+    golesAbp: goles && (goles.aFavor.partidos > 0 || goles.enContra.partidos > 0) ? goles : null,
   };
 }
 
@@ -1023,6 +1033,7 @@ async function contesta(peticion: Request) {
 
   /* Su balón parado en Wyscout (23/10/2026), para el ABP del rival. */
   const equipoAbp = parametros.get("abpRival");
+  const ambitoAbp = parametros.get("ambito") === "area" ? "area" : "abp";
 
   const aspectosPedidos = (parametros.get("aspectos") ?? "")
     .split(",")
@@ -1033,7 +1044,7 @@ async function contesta(peticion: Request) {
 
   if (!fresco && guardado && ahora - guardado.en < VIDA) {
     if (equipoAbp) {
-      return NextResponse.json({ ok: true, ...abpRivalDe(guardado.datos, equipoAbp) });
+      return NextResponse.json({ ok: true, ...abpRivalDe(guardado.datos, equipoAbp, ambitoAbp) });
     }
 
     if (equipoPerfiles) {
@@ -1095,7 +1106,7 @@ async function contesta(peticion: Request) {
     guardado = { datos, en: ahora };
 
     if (equipoAbp) {
-      return NextResponse.json({ ok: true, origen, ...abpRivalDe(datos, equipoAbp) });
+      return NextResponse.json({ ok: true, origen, ...abpRivalDe(datos, equipoAbp, ambitoAbp) });
     }
 
     if (equipoPerfiles) {
