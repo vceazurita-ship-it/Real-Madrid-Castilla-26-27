@@ -271,6 +271,20 @@ export default function IdentidadPosicionalPage() {
 
   const filtrando = !editing && query.trim() !== "";
 
+  /** «Lo que le pedimos a los centrales: 9 con balón, 11 sin balón». Sin filtro de búsqueda y con las dos columnas llenas. */
+  const resumenPosicion = useMemo(() => {
+    if (!posicion || filtrando || editing) return "";
+
+    const cuenta = (b: string) =>
+      data.filter((r) => r.POSICION === posicion && r.BLOQUE === b).length;
+    const con = cuenta("CON BALÓN");
+    const sin = cuenta("SIN BALÓN");
+
+    if (con === 0 || sin === 0) return "";
+
+    return `Lo que pedimos a ${posicion.toLowerCase()}: ${con} con balón, ${sin} sin balón`;
+  }, [data, posicion, filtrando, editing]);
+
   const cambios = useMemo(
     () =>
       data.filter((item) => {
@@ -787,8 +801,8 @@ export default function IdentidadPosicionalPage() {
                   </h1>
 
                   <p className="mt-3 text-sm text-gray-400">
-                    Foco individual por posición
-                    {!loading && !error && totalPosicion > 0 && (
+                    {resumenPosicion || "Foco individual por posición"}
+                    {!loading && !error && totalPosicion > 0 && !resumenPosicion && (
                       <span className="text-gray-600">
                         {" · "}
                         {filtrando

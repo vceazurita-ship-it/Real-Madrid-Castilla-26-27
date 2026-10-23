@@ -4,15 +4,9 @@ import { olvidaCsv, traeCsv } from "@/lib/hojaCsv";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
-import {
-  BookOpen,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  SearchX,
-} from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, SearchX } from "lucide-react";
 
-import { RepositorioCultura } from "@/components/cultura/RepositorioCultura";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
@@ -54,18 +48,54 @@ const CSV_URL =
 /** Nombre de las notas de lo recién escrito en `localStorage`. */
 const ESPACIO_ESCRITAS = "team-values";
 
-/** Descripción de cada etapa del roadmap. Las secciones nuevas caen al texto por defecto. */
+/** Descripción de cada etapa de la hoja de ruta: qué se hace con el vestuario. Las secciones nuevas caen al texto por defecto. */
 const DESCRIPCIONES: Record<string, string> = {
-  MARCO: "Fundamentos conceptuales sobre identidad, propósito y cultura.",
-  PLANIFICACION: "Diseño del proceso y estructura de implementación.",
-  "SEMANA 1": "Construcción del significado de pertenecer al grupo.",
-  "SEMANA 2": "Definición de valores y comportamientos observables.",
-  "SEMANA 3": "Establecimiento de estándares e innegociables.",
-  "SEMANA 4": "Consolidación de hábitos y herramientas culturales.",
+  MARCO:
+    "Los conceptos de identidad, propósito y cultura que el cuerpo técnico comparte antes de tocar al vestuario.",
+  PLANIFICACION:
+    "Cómo se organiza el proceso: quién hace qué y en qué semana.",
+  "SEMANA 1": "Con el vestuario: qué significa pertenecer a este grupo.",
+  "SEMANA 2":
+    "Con el vestuario: los valores y los comportamientos que se pueden ver.",
+  "SEMANA 3": "Con el vestuario: los estándares y lo que no se negocia.",
+  "SEMANA 4":
+    "Con el vestuario: consolidar los hábitos y las herramientas de la cultura.",
 };
 
 const DESCRIPCION_POR_DEFECTO =
-  "Contenidos culturales de esta etapa del roadmap.";
+  "Contenidos culturales de esta etapa de la hoja de ruta.";
+
+/** Palabras que la hoja trae sin tilde. */
+const TILDES: Record<string, string> = {
+  planificacion: "planificación",
+  elite: "élite",
+  evaluacion: "evaluación",
+  comunicacion: "comunicación",
+  formacion: "formación",
+  accion: "acción",
+  organizacion: "organización",
+  reflexion: "reflexión",
+};
+
+/** «PLANIFICACION» → «Planificación»; «ENFOQUE ELITE» → «Enfoque élite». Sólo para pintar. */
+function rotuloSeccion(s: string): string {
+  const palabras = s
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => TILDES[w] ?? w);
+
+  const frase = palabras.join(" ");
+
+  return frase.charAt(0).toUpperCase() + frase.slice(1);
+}
+
+/** Nombre corto para el stepper: «Marco», «Planificación», «S1». */
+function cortoSeccion(s: string): string {
+  const semana = /^semana\s+(\d+)$/i.exec(s.trim());
+
+  return semana ? `S${semana[1]}` : rotuloSeccion(s);
+}
 
 const TIPO_STYLES: Record<string, string> = {
   VALOR: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/25",
@@ -86,9 +116,6 @@ export default function TeamValuesPage() {
 
   const [editing, setEditing] = useState(false);
 
-  /* La estantería de documentos, plegada: el roadmap es lo que se abre a
-     diario y el documento se saca de vez en cuando. */
-  const [documentos, setDocumentos] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -438,17 +465,17 @@ export default function TeamValuesPage() {
           {/* ---------------------------------------------- rail izquierdo */}
 
           <aside
-            aria-label="Etapas del roadmap cultural"
+            aria-label="Etapas de la hoja de ruta de la cultura"
             className="w-full border-white/10 p-4 lg:w-[300px] lg:shrink-0 lg:border-r lg:p-6 xl:w-[340px]"
           >
             <SectionLabel className="text-[#C8A96B]">
-              Roadmap cultural
+              Hoja de ruta de la cultura
             </SectionLabel>
 
             <SearchField
               value={query}
               onChange={setQuery}
-              placeholder="Buscar valor, hábito…"
+              placeholder="Buscar valor o conducta…"
               label="Buscar en los contenidos culturales"
               className={cn("mt-4", editing && "pointer-events-none opacity-40")}
             />
@@ -462,7 +489,7 @@ export default function TeamValuesPage() {
                     key={s}
                     active={s === seccion}
                     onClick={() => irASeccion(s)}
-                    label={s}
+                    label={rotuloSeccion(s)}
                     sublabel={`Etapa ${i + 1}`}
                     count={total}
                     dimmed={filtrando && total === 0}
@@ -491,59 +518,11 @@ export default function TeamValuesPage() {
               editing && "pb-32 lg:pb-32",
             )}
           >
-            {/*
-              Los documentos de cultura.
-
-              El roadmap de esta pantalla es el trabajo del día a día; los
-              documentos son lo que sale de él y se enseña en la sala, así que
-              se abren desde aquí en vez de obligar a cambiar de pantalla. La
-              estantería es la misma que la de Identidad y Cultura: lo que se
-              sube aquí aparece allí.
-            */}
-            <section className="mb-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] lg:rounded-3xl">
-              <button
-                type="button"
-                onClick={() => setDocumentos((abierto) => !abierto)}
-                aria-expanded={documentos}
-                className={cn(
-                  "flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-white/[0.03]",
-                  focusRing,
-                )}
-              >
-                <BookOpen className="h-4 w-4 shrink-0 text-[#C8A96B]" aria-hidden />
-
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-white">
-                    Documentos de cultura
-                  </span>
-
-                  <span className="mt-0.5 block text-[11px] leading-snug text-white/40">
-                    Sube el bruto de una presentación y sácala en PDF y en
-                    PowerPoint con la plantilla del club
-                  </span>
-                </span>
-
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 shrink-0 text-white/40 transition-transform",
-                    documentos && "rotate-180",
-                  )}
-                  aria-hidden
-                />
-              </button>
-
-              {documentos && (
-                <div className="border-t border-white/10 p-4 lg:p-5">
-                  <RepositorioCultura />
-                </div>
-              )}
-            </section>
-
             {/* Cabecera con stepper */}
             <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 lg:rounded-3xl lg:p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <SectionLabel className="text-[#C8A96B]">
-                  Roadmap cultural
+                  Hoja de ruta de la cultura
                 </SectionLabel>
 
                 {secciones.length > 0 && (
@@ -555,31 +534,46 @@ export default function TeamValuesPage() {
 
               <ol className="mt-4 flex items-center overflow-x-auto pb-1 scrollbar-none">
                 {secciones.map((s, i) => (
-                  <li key={s} className="flex shrink-0 items-center">
+                  <li key={s} className="flex shrink-0 items-start">
                     <button
                       type="button"
                       onClick={() => irASeccion(s)}
-                      title={s}
-                      aria-label={`Etapa ${i + 1}: ${s}`}
+                      title={rotuloSeccion(s)}
+                      aria-label={`Etapa ${i + 1}: ${rotuloSeccion(s)}`}
                       aria-current={s === seccion ? "step" : undefined}
                       className={cn(
-                        "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all lg:h-10 lg:w-10 lg:text-sm",
+                        "flex w-14 flex-col items-center gap-1.5 rounded-lg lg:w-16",
                         focusRing,
-                        s === seccion
-                          ? "bg-[#C8A96B] text-black shadow-[0_0_0_4px_rgba(200,169,107,0.18)]"
-                          : i < etapaIndex
-                            ? "bg-[#C8A96B]/25 text-[#C8A96B] hover:bg-[#C8A96B]/40"
-                            : "bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white",
                       )}
                     >
-                      {i + 1}
+                      <span
+                        className={cn(
+                          "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all lg:h-10 lg:w-10 lg:text-sm",
+                          s === seccion
+                            ? "bg-[#C8A96B] text-black shadow-[0_0_0_4px_rgba(200,169,107,0.18)]"
+                            : i < etapaIndex
+                              ? "bg-[#C8A96B]/25 text-[#C8A96B] hover:bg-[#C8A96B]/40"
+                              : "bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white",
+                        )}
+                      >
+                        {i + 1}
+                      </span>
+
+                      <span
+                        className={cn(
+                          "max-w-full truncate text-[10px] leading-none lg:text-[11px]",
+                          s === seccion ? "text-[#C8A96B]" : "text-gray-500",
+                        )}
+                      >
+                        {cortoSeccion(s)}
+                      </span>
                     </button>
 
                     {i < secciones.length - 1 && (
                       <div
                         aria-hidden
                         className={cn(
-                          "h-[2px] w-6 lg:w-10",
+                          "mt-4 h-[2px] w-3 lg:mt-5 lg:w-6",
                           i < etapaIndex ? "bg-[#C8A96B]/40" : "bg-white/10",
                         )}
                       />
@@ -593,7 +587,7 @@ export default function TeamValuesPage() {
             <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
-                  {seccion || "—"}
+                  {seccion ? rotuloSeccion(seccion) : ""}
                 </h1>
 
                 <p className="mt-3 max-w-2xl text-sm text-gray-400 lg:text-base">
@@ -606,7 +600,7 @@ export default function TeamValuesPage() {
             </div>
 
             {/* Filtros por tipo */}
-            {!editing && tipos.length > 0 && (
+            {!editing && tipos.length > 1 && (
               <div className="mt-6 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -668,7 +662,7 @@ export default function TeamValuesPage() {
                     title="Sin resultados en esta etapa"
                     hint={
                       totalSeccion > 0
-                        ? `«${seccion}» tiene ${totalSeccion} contenidos, pero ninguno coincide con el filtro. Prueba en otra etapa del rail izquierdo.`
+                        ? `«${rotuloSeccion(seccion)}» tiene ${totalSeccion} contenidos, pero ninguno coincide con el filtro. Prueba en otra etapa del rail izquierdo.`
                         : "Prueba con otra búsqueda o cambia de etapa."
                     }
                     action={
@@ -690,7 +684,7 @@ export default function TeamValuesPage() {
                 ) : (
                   <EmptyState
                     title="Esta etapa aún no tiene contenidos"
-                    hint="Añádelos desde la hoja de cálculo del roadmap cultural."
+                    hint="Añádelos desde la hoja de cálculo de la hoja de ruta de la cultura."
                   />
                 )
               ) : (
@@ -774,7 +768,9 @@ export default function TeamValuesPage() {
                   )}
                 >
                   <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="truncate">{secciones[etapaIndex - 1]}</span>
+                  <span className="truncate">
+                    {rotuloSeccion(secciones[etapaIndex - 1] ?? "")}
+                  </span>
                 </button>
 
                 <button
@@ -786,10 +782,26 @@ export default function TeamValuesPage() {
                     focusRing,
                   )}
                 >
-                  <span className="truncate">{secciones[etapaIndex + 1]}</span>
+                  <span className="truncate">
+                    {rotuloSeccion(secciones[etapaIndex + 1] ?? "")}
+                  </span>
                   <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />
                 </button>
               </div>
+            )}
+
+            {!editing && !loading && !error && (
+              <p className="mt-8 text-sm">
+                <Link
+                  href="/identidad-cultura"
+                  className={cn(
+                    "rounded text-[#C8A96B] underline-offset-4 hover:underline",
+                    focusRing,
+                  )}
+                >
+                  Ver los valores votados →
+                </Link>
+              </p>
             )}
           </main>
         </div>
