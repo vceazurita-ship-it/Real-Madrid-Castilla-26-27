@@ -47,7 +47,7 @@ export function RevisionSemana({
   /*
   | Por gravedad (21/10/2026): lo que hay que corregir, lo que conviene mirar y
   | lo que ya está bien, al final. Antes las cuatro tarjetas pesaban igual y la
-  | correcta («MD-1 de repaso») iba entre las urgentes. Se enseña la más grave
+  | correcta («MD-1 de repaso») iba entre las urgentes. Se enseñan las tres más graves
   | y el resto se pliega en «Ver N más»; el objetivo de minutos manda dentro de
   | su tono.
   */
@@ -55,7 +55,7 @@ export function RevisionSemana({
   const ordenados = [...puntos].sort(
     (a, b) => orden[a.tono] - orden[b.tono] || Number(b.id === "minutos") - Number(a.id === "minutos"),
   );
-  const visibles = todos ? ordenados : ordenados.slice(0, 1);
+  const visibles = todos ? ordenados : ordenados.slice(0, 3);
   const ocultos = ordenados.length - visibles.length;
 
   return (
