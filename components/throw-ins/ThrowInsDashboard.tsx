@@ -1635,7 +1635,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   />
                   <MetricCard
                     label={isOffensive ? "% Progresión" : "% Progresión concedida"}
-                    value={`${Math.round(totals.progresionPct)}%`}
+                    value={`${Math.round(totals.progresionPct)} %`}
                     hint={
                       isOffensive
                         ? "Envíos hacia delante o al área"
@@ -1644,12 +1644,12 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   />
                   <MetricCard
                     label={isOffensive ? "% Retención" : "% Recuperación"}
-                    value={`${Math.round(totals.favorablePct)}%`}
+                    value={`${Math.round(totals.favorablePct)} %`}
                     hint="Acaba con el balón para el RMCF"
                   />
                   <MetricCard
                     label={isOffensive ? "Producción" : "Peligro concedido"}
-                    value={`${totals.produccion} · ${Math.round(totals.produccionPct)}%`}
+                    value={`${totals.produccion} · ${Math.round(totals.produccionPct)} %`}
                     hint={
                       isOffensive
                         ? "Conquista de último tercio, ocasión o gol nuestro"
@@ -1659,7 +1659,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   {!isOffensive ? (
                     <MetricCard
                       label="Transición"
-                      value={`${totals.transicion} · ${Math.round(totals.transicionPct)}%`}
+                      value={`${totals.transicion} · ${Math.round(totals.transicionPct)} %`}
                       hint="Robamos el saque rival y llegamos a último tercio, ocasión o gol"
                     />
                   ) : null}

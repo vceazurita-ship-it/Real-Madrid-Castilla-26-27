@@ -2563,9 +2563,9 @@ const pie = (
   />
 
 <Card
-  title="Gol RMCF"
+  title="Goles nuestros tras su ABP"
   value={metrics.goalsRMCF.toLocaleString()}
-  hint="Marcados al contragolpe"
+  hint="Los marcamos al salir al contragolpe"
   activo={resultadoFilter === "Gol RMCF"}
   onClick={() => pulsa("resultado", "Gol RMCF")}
   />
