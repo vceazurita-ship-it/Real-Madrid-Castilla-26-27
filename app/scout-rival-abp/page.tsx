@@ -56,6 +56,7 @@ import { RivalPatterns } from "@/components/abp/RivalPatterns";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Explicativo } from "@/components/ui/textos-analisis";
 import type { PatternCatalog } from "@/components/abp/PatternCombo";
+import { AbpWyscoutRival } from "@/components/abp/AbpWyscoutRival";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
 import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
 import { ApuntesAbp } from "@/components/abp/apuntes/ApuntesAbp";
@@ -154,7 +155,7 @@ export default function ScoutRivalAbpPage() {
   const [vistaElegida, setVista] = usePestanaUrl<Vista>("vista", VISTAS, "resumen");
 
   /* Las láminas sólo existen en Liga: en Pretemporada se vuelve al resumen en vez de enseñar una pestaña vacía. */
-  const vista: Vista = vistaElegida === "laminas" && grupo !== "liga" ? "resumen" : vistaElegida;
+  const vistaPrevia: Vista = vistaElegida === "laminas" && grupo !== "liga" ? "resumen" : vistaElegida;
   const [side, setSide] = useState<AbpSide>("ofensivo");
   const [origen, setOrigen] = useState<Origen>("todo");
   const [jornada, setJornada] = useState(TODOS);
@@ -399,6 +400,13 @@ export default function ScoutRivalAbpPage() {
 
     return [...eventosScout, ...eventosDerivados];
   }, [origenActivo, eventosScout, eventosDerivados]);
+
+  /* Sin acciones no hay patrones, banda ni lanzadores que mirar: se vuelve al resumen. */
+  const vista: Vista =
+    delEquipo.length === 0 &&
+    (vistaPrevia === "patrones" || vistaPrevia === "banda" || vistaPrevia === "quien")
+      ? "resumen"
+      : vistaPrevia;
 
   const jornadas = useMemo(
     () => [
@@ -688,13 +696,9 @@ export default function ScoutRivalAbpPage() {
             }
             lead="Córners, faltas, penaltis y saques de banda del rival: lanzadores, rematadores y amenaza aérea."
             aside={
-              equipo ? (
+              equipo && (hayScout || hayDerivado) ? (
                 <SourceBadge tone={hayScout ? "scout" : "derivado"}>
-                  {hayScout
-                    ? "Scouting propio"
-                    : hayDerivado
-                      ? "Deducido"
-                      : "Sin datos"}
+                  {hayScout ? "Scouting propio" : "Deducido"}
                 </SourceBadge>
               ) : undefined
             }
@@ -768,12 +772,14 @@ export default function ScoutRivalAbpPage() {
                     />
                   )}
 
-                  <span className="text-[11px] text-white/35">
-                    {filtered.length} acciones ·{" "}
-                    {side === "ofensivo"
-                      ? "lo que genera el rival"
-                      : "lo que le generan al rival"}
-                  </span>
+                  {delEquipo.length > 0 && (
+                    <span className="text-[11px] text-white/35">
+                      {filtered.length} acciones ·{" "}
+                      {side === "ofensivo"
+                        ? "lo que genera el rival"
+                        : "lo que le generan al rival"}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -785,9 +791,14 @@ export default function ScoutRivalAbpPage() {
                   { clave: "resumen", label: "¿Cuánto peligro tiene?", icono: LayoutDashboard },
                   { clave: "apuntes", label: "Apuntes y vídeo", icono: NotebookPen },
                   ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Recoger y láminas", icono: Images }] : []),
-                  { clave: "patrones", label: "¿Qué repite?", icono: Shapes },
-                  { clave: "banda", label: "Saques de banda", icono: Flag },
-                  { clave: "quien", label: "¿Quién lo lanza y remata?", icono: Users },
+                  /* Sin acciones, las tres vistas que viven de ellas no salen. */
+                  ...(delEquipo.length > 0
+                    ? [
+                        { clave: "patrones" as const, label: "¿Qué repite?", icono: Shapes },
+                        { clave: "banda" as const, label: "Saques de banda", icono: Flag },
+                        { clave: "quien" as const, label: "¿Quién lo lanza y remata?", icono: Users },
+                      ]
+                    : []),
                   { clave: "registrar", label: "Registrar", icono: PenLine },
                 ]}
               />
@@ -873,10 +884,11 @@ export default function ScoutRivalAbpPage() {
               {/* ---------------------- totales --------------------- */}
 
               {vista === "laminas" || vista === "apuntes" || vista === "registrar" ? null : delEquipo.length === 0 ? (
-                <EmptyState
-                  title={`Todavía no hay balón parado registrado de ${equipo}`}
-                  description="Todavía no hay acciones de este rival. Se registran en la pestaña «Registrar»."
-                />
+                /* Sin acciones registradas: lo que ya se sabe de él (Wyscout,
+                   goles y etiquetas), en la vista de resumen. */
+                vista === "resumen" && equipo ? (
+                  <AbpWyscoutRival equipo={equipo} plantilla={aereos} />
+                ) : null
               ) : (
                 <>
                   {vista === "resumen" && (

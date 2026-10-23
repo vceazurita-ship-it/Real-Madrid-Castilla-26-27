@@ -83,7 +83,7 @@ const NAV = [
 ];
 
 function formatDate(value?: string) {
-  if (!value) return "—";
+  if (!value) return "";
 
   /* «05/10/2026» lo leía `new Date` a la americana (5 de mayo) y con día
      mayor que 12 no la entendía: se pasa antes por `claveFecha`, y se monta
@@ -140,6 +140,8 @@ export default function ScoutRivalCollective() {
   const [error, setError] = useState(false);
   /* «Reintentar» relanza la carga saltándose la copia del aparato. */
   const [intento, setIntento] = useState(0);
+  /* Última jornada que enseña el desplegable: la del próximo partido. */
+  const [limiteJornada, setLimiteJornada] = useState<number | null>(null);
 
   const escudoDe = useEscudos();
 
@@ -195,6 +197,12 @@ export default function ScoutRivalCollective() {
               )?.fila ?? null
             : null;
 
+        if (proximo && proximo.grupo === POR_VENIR) {
+          const n = Number(proximo.jornada);
+
+          setLimiteJornada(Number.isFinite(n) ? n : null);
+        }
+
         setRivalActivo(
           data.find((r) => String(r.ID) === String(enlazado)) ??
             filaProxima ??
@@ -229,12 +237,31 @@ export default function ScoutRivalCollective() {
      ha llegado a la hoja. */
   const flushPendiente = useRef<() => Promise<boolean>>(async () => true);
 
+  /*
+  | El desplegable: el partido que toca y los ya jugados, no las 38 jornadas.
+  | Se quedan también el rival abierto y, en edición, todos, por si el
+  | analista adelanta trabajo.
+  */
+  const visibles = useMemo(() => {
+    if (modoEdicion || limiteJornada === null) return rivales;
+
+    return rivales.filter((r) => {
+      const n = Number(r.JORNADA);
+
+      return (
+        !Number.isFinite(n) ||
+        n <= limiteJornada ||
+        String(r.ID) === String(rivalActivo?.ID)
+      );
+    });
+  }, [rivales, limiteJornada, modoEdicion, rivalActivo]);
+
   const indice = useMemo(
     () =>
       rivalActivo
-        ? rivales.findIndex((r) => String(r.ID) === String(rivalActivo.ID))
+        ? visibles.findIndex((r) => String(r.ID) === String(rivalActivo.ID))
         : -1,
-    [rivales, rivalActivo]
+    [visibles, rivalActivo]
   );
 
   /*
@@ -269,6 +296,22 @@ export default function ScoutRivalCollective() {
 
     return ALL_FIELDS.filter((f) => valorDe(f.campo).trim()).length;
   }, [rivalActivo, valorDe]);
+
+  const tiene = useCallback(
+    (f: FieldDef) => valorDe(f.campo).trim().length > 0,
+    [valorDe]
+  );
+
+  /* ¿Se pinta esta sección? En lectura, sólo si algún campo tiene texto. */
+  const seccionVisible = (id: string) => {
+    if (modoEdicion) return true;
+
+    if (id === "conclusiones") return CONCLUSIONES.some(tiene);
+
+    const seccion = SECTIONS.find((s) => s.id === id);
+
+    return !!seccion?.bloques.some((b) => b.campos.some(tiene));
+  };
 
   /* El rival abierto, al día, para quien lo lea después de un `await`. */
   const rivalActivoRef = useRef<Rival | null>(rivalActivo);
@@ -673,9 +716,18 @@ export default function ScoutRivalCollective() {
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/45">
                 <span>Informe del rival</span>
 
-                {rivalActivo && (
-                  <span className="tabular-nums">
+                {rivalActivo && modoEdicion && (
+                  <span className="tabular-nums" data-export-hide>
                     {completados}/{ALL_FIELDS.length} campos completados
+                  </span>
+                )}
+
+                {/* El dibujo que se nombra en el texto es el que el analista
+                    ha visto en vídeo; el más repetido según Wyscout sale en
+                    Plantillas. */}
+                {rivalActivo && !modoEdicion && (
+                  <span className="text-white/35">
+                    Dibujos y estructuras: lo que ha visto el analista en vídeo
                   </span>
                 )}
               </div>
@@ -744,7 +796,7 @@ export default function ScoutRivalCollective() {
             data-export-hide
             className="sticky top-0 z-20 -mx-4 mb-6 flex gap-2 overflow-x-auto border-b border-white/10 bg-[#0B0F14] px-4 py-3 scrollbar-none sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10"
           >
-            {NAV.map((item) => (
+            {NAV.filter((item) => item.id === "datos" || seccionVisible(item.id)).map((item) => (
               <a
                 key={item.id}
                 href={`#${item.id}`}
@@ -784,7 +836,7 @@ export default function ScoutRivalCollective() {
               <button
                 aria-label="Rival anterior"
                 disabled={indice <= 0}
-                onClick={() => cambiarRival(rivales[indice - 1])}
+                onClick={() => cambiarRival(visibles[indice - 1])}
                 className="flex h-[56px] w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[#111827] text-white/60 transition hover:border-white/25 hover:text-white disabled:opacity-30"
               >
                 <ChevronLeft size={18} />
@@ -806,7 +858,7 @@ export default function ScoutRivalCollective() {
                   </option>
                 )}
 
-                {rivales.map((r) => (
+                {visibles.map((r) => (
                   <option key={r.ID} value={r.ID}>
                     J{r.JORNADA} · {r.EQUIPO}
                   </option>
@@ -815,8 +867,8 @@ export default function ScoutRivalCollective() {
 
               <button
                 aria-label="Rival siguiente"
-                disabled={indice < 0 || indice >= rivales.length - 1}
-                onClick={() => cambiarRival(rivales[indice + 1])}
+                disabled={indice < 0 || indice >= visibles.length - 1}
+                onClick={() => cambiarRival(visibles[indice + 1])}
                 className="flex h-[56px] w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[#111827] text-white/60 transition hover:border-white/25 hover:text-white disabled:opacity-30"
               >
                 <ChevronRight size={18} />
@@ -851,7 +903,7 @@ export default function ScoutRivalCollective() {
             </div>
 
             {/* Recursos */}
-            <div className="mt-4 rounded-3xl border border-[#C8A96B]/15 bg-[#111827] p-5">
+            <div className="mt-4 hidden rounded-3xl border border-[#C8A96B]/15 bg-[#111827] p-5 has-[[data-recursos-con-datos]]:block">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[#C8A96B]">
                   Recursos
@@ -883,7 +935,9 @@ export default function ScoutRivalCollective() {
           </section>
 
           {/* ------------------------------------------ Bases de juego */}
-          {SECTIONS.map((section) => (
+          {/* En lectura sólo sale lo escrito: ni campos vacíos, ni bloques o
+              secciones enteras sin texto. En edición salen todos. */}
+          {SECTIONS.filter((section) => seccionVisible(section.id)).map((section) => (
             <section
               key={section.id}
               id={section.id}
@@ -904,7 +958,9 @@ export default function ScoutRivalCollective() {
               </div>
 
               <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-                {section.bloques.map((bloque) => (
+                {section.bloques
+                  .filter((bloque) => modoEdicion || bloque.campos.some(tiene))
+                  .map((bloque) => (
                   <div
                     key={bloque.titulo}
                     className="rounded-3xl border border-white/5 bg-[#0E141C] p-4 sm:p-5"
@@ -924,7 +980,7 @@ export default function ScoutRivalCollective() {
                     </div>
 
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      {bloque.campos.map((field) => (
+                      {bloque.campos.filter((f) => modoEdicion || tiene(f)).map((field) => (
                         <Campo
                           key={field.campo}
                           field={field}
@@ -942,6 +998,7 @@ export default function ScoutRivalCollective() {
           ))}
 
           {/* ------------------------------------------- Conclusiones */}
+          {(modoEdicion || CONCLUSIONES.some(tiene)) && (
           <section id="conclusiones" className="mt-12 scroll-mt-20">
             <div
               className="flex flex-col gap-1 rounded-2xl border-l-4 bg-white/[0.03] px-5 py-4"
@@ -960,7 +1017,7 @@ export default function ScoutRivalCollective() {
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {CONCLUSIONES.map((field) => (
+              {CONCLUSIONES.filter((f) => modoEdicion || tiene(f)).map((field) => (
                 <Campo
                   key={field.campo}
                   field={field}
@@ -973,6 +1030,7 @@ export default function ScoutRivalCollective() {
               ))}
             </div>
           </section>
+          )}
         </div>
         {avisoGuardado}
       </main>
@@ -997,6 +1055,9 @@ function DatoClave({
   editando: boolean;
   onChange: (value: string) => void;
 }) {
+  /* Sin dato y sin editar, la tarjeta no sale. */
+  if (!editando && !String(mostrar ?? valor ?? "").trim()) return null;
+
   return (
     <div className="rounded-3xl border border-white/5 bg-[#111827] p-5 shadow-lg transition-colors hover:border-[#C8A96B]/30">
       <p className="flex items-center gap-2 text-xs uppercase tracking-wider text-white/40">
@@ -1056,11 +1117,6 @@ function Campo({
           {field.titulo}
         </p>
 
-        {!editando && vacio && (
-          <span className="shrink-0 rounded-full border border-white/10 px-2 py-0.5 text-[9px] uppercase tracking-wider text-white/25">
-            Vacío
-          </span>
-        )}
       </div>
 
       {/* El nombre de la columna de la hoja (SALIDA_BALON…) no le dice nada
@@ -1082,12 +1138,8 @@ function Campo({
           className="w-full resize-y rounded-xl border border-amber-400/30 bg-black/40 p-3 text-sm leading-6 text-white outline-none focus:border-amber-400"
         />
       ) : (
-        <p
-          className={`whitespace-pre-wrap text-sm leading-6 ${
-            vacio ? "text-white/20" : "text-white/80"
-          }`}
-        >
-          {vacio ? "Sin información" : contenido}
+        <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
+          {contenido}
         </p>
       )}
     </div>

@@ -137,7 +137,28 @@ export function buscaLista(listas: ListaCanal[], equipo: string) {
 /*  DE QUÉ JUGADOR HABLA UN VÍDEO                                      */
 /* ------------------------------------------------------------------ */
 
-export type JugadorPlantilla = { nombre: string; dorsal?: string };
+export type JugadorPlantilla = {
+  nombre: string;
+  dorsal?: string;
+  /** Su puesto en la hoja, para decirlo bajo el nombre (23/10/2026). */
+  puesto?: string;
+  /** Sus etiquetas de la ficha (campo IMPACTO): lo que hay que mirar de él. */
+  etiquetas?: string[];
+};
+
+/**
+ * El dorsal que escribe el título: «ALGECIRAS CF Nº 19», «Nº7», «#18» o un
+ * número delante de todo («8 IVAN TRUJILLO», «3 JOSECA»). Vacío si no hay.
+ */
+export function dorsalDelTitulo(titulo: string) {
+  const marcado = /(?:\bn\s*[º°]\.?\s*|\bn\.\s*º\s*|#\s*)(\d{1,2})(?!\d)/i.exec(titulo);
+
+  if (marcado) return String(Number(marcado[1]));
+
+  const delante = /^\s*(\d{1,2})(?=\s|$)/.exec(titulo);
+
+  return delante ? String(Number(delante[1])) : "";
+}
 
 /**
  * Busca en el título a alguno de los jugadores de la plantilla.
@@ -201,7 +222,19 @@ export function jugadorDelTitulo(
     if (mejor) encontrados.push({ jugador, ...mejor });
   }
 
-  if (encontrados.length === 0) return null;
+  if (encontrados.length === 0) {
+    /*
+    | Sin nombre en el título, el dorsal (23/10/2026): «Nº 18», «8 IVAN…»,
+    | «6 OSCAR». Sólo si lo lleva UN jugador de la plantilla.
+    */
+    const dorsal = dorsalDelTitulo(titulo);
+
+    if (!dorsal) return null;
+
+    const suyos = plantilla.filter((jugador) => jugador.dorsal && String(Number(jugador.dorsal)) === dorsal);
+
+    return suyos.length === 1 ? suyos[0] : null;
+  }
 
   encontrados.sort(
     (a, b) =>

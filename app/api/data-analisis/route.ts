@@ -297,6 +297,57 @@ function perfilesDe(datos: Dataset, equipo: string) {
 }
 
 /**
+ * Su balón parado según Wyscout, para /scout-rival-abp (23/10/2026).
+ *
+ * Cuando el rival no tiene acciones registradas a mano, la pantalla enseña
+ * esto en vez de un hueco: córners, córners con remate y cuota de remates a
+ * balón parado frente a los veinte equipos, y sus goles a balón parado. Sin el
+ * umbral de los destacados: aquí interesa el dato aunque esté en el montón.
+ */
+function abpRivalDe(datos: Dataset, equipo: string) {
+  const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
+    .filter(Boolean)
+    .sort();
+
+  const actual = temporadas[temporadas.length - 1] ?? "";
+
+  const liga = datos.partidos.filter((p) => temporadaDe(p.fecha) === actual);
+
+  const equipos = [...new Set(liga.map((p) => p.equipo))];
+
+  const aspectos = destacadosDeEquipo(
+    equipo,
+    liga,
+    equipos,
+    ["abpOf", "abpDef"].flatMap((k) => {
+      const uno = ASPECTO_POR_KEY.get(k);
+
+      return uno ? [uno] : [];
+    }),
+  ).map((d) => ({
+    clave: d.aspecto.key,
+    aspecto: d.aspecto.label,
+    filas: d.filas.map((f) => ({
+      nombre: f.metrica.nombre,
+      valor: f.valor,
+      mediana: f.mediana,
+      unidad: f.metrica.unidad,
+      percentil: f.percentil,
+    })),
+  }));
+
+  const goles = golesAbpDeEquipo(equipo, liga);
+
+  return {
+    temporada: actual,
+    equipos: equipos.length,
+    aspectos,
+    golesAbp:
+      goles.aFavor.partidos > 0 || goles.enContra.partidos > 0 ? goles : null,
+  };
+}
+
+/**
  * Lo que destaca de un equipo, ya calculado.
  *
  * Lo pide el informe del rival, que se monta en el navegador: bajarse los dos
@@ -963,6 +1014,9 @@ async function contesta(peticion: Request) {
   /* La plantilla rival (21/10/2026): cada suyo contra su puesto, y el equipo. */
   const equipoPerfiles = parametros.get("perfiles");
 
+  /* Su balón parado en Wyscout (23/10/2026), para el ABP del rival. */
+  const equipoAbp = parametros.get("abpRival");
+
   const aspectosPedidos = (parametros.get("aspectos") ?? "")
     .split(",")
     .map((a) => a.trim())
@@ -971,6 +1025,10 @@ async function contesta(peticion: Request) {
   const ahora = Date.now();
 
   if (!fresco && guardado && ahora - guardado.en < VIDA) {
+    if (equipoAbp) {
+      return NextResponse.json({ ok: true, ...abpRivalDe(guardado.datos, equipoAbp) });
+    }
+
     if (equipoPerfiles) {
       return NextResponse.json({ ok: true, ...perfilesDe(guardado.datos, equipoPerfiles) });
     }
@@ -1028,6 +1086,10 @@ async function contesta(peticion: Request) {
     }
 
     guardado = { datos, en: ahora };
+
+    if (equipoAbp) {
+      return NextResponse.json({ ok: true, origen, ...abpRivalDe(datos, equipoAbp) });
+    }
 
     if (equipoPerfiles) {
       return NextResponse.json({ ok: true, origen, ...perfilesDe(datos, equipoPerfiles) });

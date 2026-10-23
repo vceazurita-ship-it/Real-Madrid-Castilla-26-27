@@ -3058,6 +3058,40 @@ export default function RivalPlayersPage() {
     [players, perfilesRival, selectedTeam],
   );
 
+  /*
+  | «Dónde hacerles daño» (23/10/2026): quien tiene a la vez etiquetas de
+  | debilidad en la ficha y rasgos flojos en Wyscout contra los de su puesto.
+  | Hasta tres, los que más suman. Lo que no tiene dato no se nombra: sin
+  | candidatos, la línea no sale.
+  */
+  const danoDelRival = useMemo(() => {
+    if (!perfilesRival) return [];
+
+    return players
+      .filter((p) => p.NOMBRE_EQUIPO === selectedTeam)
+      .map((p) => {
+        const perfil = perfilesPorFicha.get(idDeJugador(p));
+        const debilidades = parseTags(p.IMPACTO)
+          .tags.filter((tag) => tag.tone === "debilidad")
+          .map((tag) => tag.label.toLowerCase());
+        const flojos =
+          perfil && !perfil.muestraCorta
+            ? perfil.flojos.slice(0, 2).map((rasgo) => `flojo en ${rasgo.nombre.toLowerCase()}`)
+            : [];
+
+        return {
+          nombre: String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim(),
+          puesto: perfil?.posicionTexto || String(p["POSICIÓN"] ?? "").trim(),
+          rasgos: [...debilidades, ...flojos],
+          cruzan: debilidades.length > 0 && flojos.length > 0,
+        };
+      })
+      .filter((uno) => uno.nombre && uno.cruzan)
+      .sort((a, b) => b.rasgos.length - a.rasgos.length)
+      .slice(0, 3)
+      .map(({ nombre, puesto, rasgos }) => ({ nombre, puesto, rasgos }));
+  }, [players, perfilesRival, perfilesPorFicha, selectedTeam]);
+
   /* La temporada en curso de cada uno, para el listado. */
   const temporadaDe = (player: RivalPlayer) =>
     statsDoc ? highlightSeason(findStats(statsDoc, player)?.temporadas ?? [], statsDoc.temporada) : null;
@@ -3932,6 +3966,7 @@ export default function RivalPlayersPage() {
                   aspectos={perfilesRival?.aspectos ?? []}
                   equipos={perfilesRival?.equipos ?? 0}
                   avisos={avisosRival}
+                  dano={danoDelRival}
                   enlaces={[
                     {
                       href: `/scout-rival-abp?equipo=${encodeURIComponent(selectedTeam)}`,
@@ -4411,6 +4446,11 @@ export default function RivalPlayersPage() {
                                 ))}
                               </select>
 
+                              {/* De dónde sale el dibujo, dicho con palabras (23/10/2026). */}
+                              <span className="pr-3 text-[10px] font-normal opacity-70">
+                                {once.doc.dibujo ? "a mano" : lecturaTemporada.estructura ? "más repetido" : ""}
+                              </span>
+
                               <ChevronDown
                                 size={11}
                                 aria-hidden
@@ -4511,7 +4551,7 @@ export default function RivalPlayersPage() {
                               color: chipInk(ONCE_COLOR.titular),
                             }}
                           >
-                            {onceResumen.titulares}/11
+                            {onceResumen.titulares}/11 titulares
                           </span>
 
                           {onceResumen.dudas > 0 && (
@@ -4524,7 +4564,7 @@ export default function RivalPlayersPage() {
                                 color: chipInk(ONCE_COLOR.duda),
                               }}
                             >
-                              {onceResumen.dudas} ?
+                              {onceResumen.dudas} en duda
                             </span>
                           )}
 

@@ -27,6 +27,7 @@ import { PorQueDelBoceto } from "@/components/match-preparation/PorQueDelBoceto"
 import { KIND_MOTIVOS_PLAN, claveMotivosPlan, type BocetoPlan } from "@/lib/plan-partido/boceto";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
+import { useDuelosClave } from "@/hooks/useDuelosClave";
 
 import {
   Activity,
@@ -470,6 +471,9 @@ function Bloque({
   const t = TONES[tone];
 
   const completo = relleno(value);
+
+  /* En lectura, un bloque sin texto no se pinta (ni «pendiente» ni aviso). */
+  if (!editando && !completo) return null;
 
   return (
     <div
@@ -1173,6 +1177,9 @@ export default function MatchPreparation() {
 
   const cuentaAtras = etiquetaCuentaAtras(dias);
 
+  /* Los duelos de más ventaja y de más riesgo de /duelos, con jugador y cifra. */
+  const duelosClave = useDuelosClave(rivalActivo?.EQUIPO ?? "");
+
   const recursosDisponibles = [
     rivalActivo?.HUDL_PLAYLIST,
     rivalActivo?.HUDL_PARTIDO,
@@ -1755,6 +1762,19 @@ export default function MatchPreparation() {
 
   const editando = modoEdicion;
 
+  /* En lectura, una sección sin nada escrito no sale (ni su título). */
+  const hayEnLectura = (...campos: string[]) =>
+    editando || campos.some((campo) => relleno(rivalActivo?.[campo]));
+
+  const seccionVisible = (id: string) =>
+    id === "plan"
+      ? hayEnLectura("ATAQUE", "DEFENSA", "ABP_OF", "ABP_DEF")
+      : id === "duelos"
+        ? hayEnLectura("DUELOS_CB_FAVOR", "DUELOS_CB_CONTRA", "DUELOS_SB_FAVOR", "DUELOS_SB_CONTRA") || duelosClave !== null
+        : id === "rival"
+          ? hayEnLectura("FORTALEZAS", "DEBILIDADES", "ESTRUCTURA_OF", "ESTRUCTURA_DEF")
+          : true;
+
   /* ---------------------------------------------------------------- VISTA */
 
   return (
@@ -1840,53 +1860,56 @@ export default function MatchPreparation() {
                   </span>
                 )}
 
+                {/* Los enlaces del plan y la impresión, juntos: ocho botones en fila no caben (23/10/2026). */}
                 {rivalActivo && (
-                  <Link
-                    href={enlaceAnalisisRival(rivalActivo)}
-                    title="Abrir el informe completo del rival"
-                    className="
-                      flex items-center gap-2 rounded-xl border border-white/10
-                      bg-white/[0.03] px-3.5 py-2.5 text-sm text-white/70 transition
-                      hover:border-white/25 hover:text-white
-                    "
-                  >
-                    <Binoculars size={15} />
+                  <details className="mp-no-print group relative">
+                    <summary
+                      className="
+                        flex cursor-pointer list-none items-center gap-2 rounded-xl border
+                        border-white/10 bg-white/[0.03] px-3.5 py-2.5 text-sm text-white/70
+                        transition hover:border-white/25 hover:text-white
+                        [&::-webkit-details-marker]:hidden
+                      "
+                    >
+                      <Binoculars size={15} />
 
-                    <span className="hidden md:inline">Análisis rival</span>
-                  </Link>
-                )}
+                      <span className="hidden md:inline">Informe</span>
 
-                {rivalActivo && (
-                  <Link
-                    href={enlacePizarraAbp(rivalActivo)}
-                    title="Abrir la pizarra de balón parado de este partido"
-                    className="
-                      flex items-center gap-2 rounded-xl border border-white/10
-                      bg-white/[0.03] px-3.5 py-2.5 text-sm text-white/70 transition
-                      hover:border-white/25 hover:text-white
-                    "
-                  >
-                    <Flame size={15} />
+                      <ChevronDown size={13} className="transition group-open:rotate-180" />
+                    </summary>
 
-                    <span className="hidden md:inline">Pizarra ABP</span>
-                  </Link>
-                )}
+                    <div className="absolute right-0 top-full z-30 mt-2 w-60 space-y-1 rounded-xl border border-white/10 bg-[#0B0F14] p-1.5 shadow-xl">
+                      <Link
+                        href={enlaceAnalisisRival(rivalActivo)}
+                        title="Abrir el informe completo del rival"
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+                      >
+                        <Binoculars size={14} />
+                        Scout Colectivo
+                      </Link>
 
-                {!editando && (
-                  <button
-                    type="button"
-                    onClick={() => window.print()}
-                    title="Imprimir o exportar a PDF"
-                    className="
-                      flex items-center gap-2 rounded-xl border border-white/10
-                      bg-white/[0.03] px-3.5 py-2.5 text-sm text-white/70 transition
-                      hover:border-white/25 hover:text-white
-                    "
-                  >
-                    <Printer size={15} />
+                      <Link
+                        href={enlacePizarraAbp(rivalActivo)}
+                        title="Abrir la pizarra de balón parado de este partido"
+                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+                      >
+                        <Flame size={14} />
+                        Pizarra ABP
+                      </Link>
 
-                    <span className="hidden md:inline">Imprimir</span>
-                  </button>
+                      {!editando && (
+                        <button
+                          type="button"
+                          onClick={() => window.print()}
+                          title="Imprimir o exportar a PDF"
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+                        >
+                          <Printer size={14} />
+                          Imprimir o PDF
+                        </button>
+                      )}
+                    </div>
+                  </details>
                 )}
 
                 {!cargando && rivalActivo && (
@@ -2004,7 +2027,7 @@ export default function MatchPreparation() {
                 aria-label="Secciones del plan"
                 className="scrollbar-none mt-3 flex gap-1 overflow-x-auto"
               >
-                {SECCIONES.map(({ id, label, icon: Icon }) => (
+                {SECCIONES.filter(({ id }) => seccionVisible(id)).map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
                     type="button"
@@ -2181,13 +2204,16 @@ export default function MatchPreparation() {
                       )}
                     </div>
 
-                    <div className="shrink-0 rounded-2xl border border-white/10 bg-[#0B0F14]/50 px-5 py-4">
-                      <AnilloProgreso
-                        porcentaje={porcentaje}
-                        completados={completados}
-                        total={CAMPOS_PLAN.length}
-                      />
-                    </div>
+                    {/* El avance del plan es del analista: sólo en edición. */}
+                    {editando && (
+                      <div className="mp-no-print shrink-0 rounded-2xl border border-white/10 bg-[#0B0F14]/50 px-5 py-4">
+                        <AnilloProgreso
+                          porcentaje={porcentaje}
+                          completados={completados}
+                          total={CAMPOS_PLAN.length}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -2211,6 +2237,7 @@ export default function MatchPreparation() {
                       )}
                     </DatoCabecera>
 
+                    {(editando || rivalActivo.DIMENSIONES) && (
                     <DatoCabecera etiqueta="Dimensiones del campo" icon={Ruler}>
                       {editando ? (
                         <input
@@ -2227,12 +2254,12 @@ export default function MatchPreparation() {
                           "
                         />
                       ) : (
-                        rivalActivo.DIMENSIONES || (
-                          <span className="text-white/30">Sin definir</span>
-                        )
+                        rivalActivo.DIMENSIONES
                       )}
                     </DatoCabecera>
+                    )}
 
+                    {(editando || rivalActivo.LOCAL_VISITANTE) && (
                     <DatoCabecera etiqueta="Condición" icon={MapPin}>
                       {editando ? (
                         <input
@@ -2249,11 +2276,10 @@ export default function MatchPreparation() {
                           "
                         />
                       ) : (
-                        rivalActivo.LOCAL_VISITANTE || (
-                          <span className="text-white/30">Sin definir</span>
-                        )
+                        rivalActivo.LOCAL_VISITANTE
                       )}
                     </DatoCabecera>
+                    )}
                   </div>
                 </div>
 
@@ -2294,6 +2320,7 @@ export default function MatchPreparation() {
               </section>
 
               {/* ------------------------------------------------------ PLAN */}
+              {hayEnLectura("ATAQUE", "DEFENSA", "ABP_OF", "ABP_DEF") && (
               <section
                 id="plan"
                 className="mp-card scroll-mt-56 rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-7"
@@ -2375,8 +2402,10 @@ export default function MatchPreparation() {
                   </div>
                 </div>
               </section>
+              )}
 
               {/* ---------------------------------------------------- DUELOS */}
+              {(hayEnLectura("DUELOS_CB_FAVOR", "DUELOS_CB_CONTRA", "DUELOS_SB_FAVOR", "DUELOS_SB_CONTRA") || duelosClave !== null) && (
               <section
                 id="duelos"
                 className="mp-card scroll-mt-56 rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-7"
@@ -2395,7 +2424,43 @@ export default function MatchPreparation() {
                   </div>
                 </div>
 
+                {/* Lo que miden los datos: los dos duelos de más ventaja y los dos de más riesgo, con nombre y cifra (de /duelos). */}
+                {duelosClave && !editando && (
+                  <div className="mb-5 grid gap-4 md:grid-cols-2">
+                    {([
+                      ["Para buscar", "Con el balón nuestro, ventaja sobre su par", duelosClave.ventaja, "text-emerald-300"],
+                      ["Para vigilar", "Con el balón suyo, ventaja de su par sobre el nuestro", duelosClave.riesgo, "text-rose-300"],
+                    ] as const).map(([titulo, ayuda, lista, color]) =>
+                      lista.length ? (
+                        <div key={titulo} className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
+                          <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${color}`}>{titulo}</p>
+                          <p className="mt-0.5 text-[11px] text-white/40">{ayuda}</p>
+
+                          <ul className="mt-3 space-y-2.5 text-[13.5px] leading-6 text-white/80">
+                            {lista.map((d) => (
+                              <li key={d.clave} className="flex gap-2.5">
+                                <b className={`w-10 shrink-0 tabular-nums ${color}`}>
+                                  {d.valor > 0 ? "+" : ""}
+                                  {d.valor}
+                                </b>
+
+                                <span>
+                                  {d.titulo}
+                                  <span className="block text-[12px] text-white/50">
+                                    {d.nuestros.join(" y ")} contra {d.suyos.join(" y ")}
+                                  </span>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null,
+                    )}
+                  </div>
+                )}
+
                 <div className="grid gap-5 lg:grid-cols-2">
+                  {hayEnLectura("DUELOS_CB_FAVOR", "DUELOS_CB_CONTRA") && (
                   <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
                     <p className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
                       <Sparkles size={13} />
@@ -2426,7 +2491,9 @@ export default function MatchPreparation() {
                       />
                     </div>
                   </div>
+                  )}
 
+                  {hayEnLectura("DUELOS_SB_FAVOR", "DUELOS_SB_CONTRA") && (
                   <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
                     <p className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
                       <Shield size={13} />
@@ -2457,10 +2524,13 @@ export default function MatchPreparation() {
                       />
                     </div>
                   </div>
+                  )}
                 </div>
               </section>
+              )}
 
               {/* ----------------------------------------------------- RIVAL */}
+              {hayEnLectura("FORTALEZAS", "DEBILIDADES", "ESTRUCTURA_OF", "ESTRUCTURA_DEF") && (
               <section
                 id="rival"
                 className="mp-card scroll-mt-56 rounded-3xl border border-white/10 bg-white/[0.03] p-5 md:p-7"
@@ -2550,11 +2620,12 @@ export default function MatchPreparation() {
                   />
                 </div>
               </section>
+              )}
 
               {/* -------------------------------------------------- RECURSOS */}
               <section
                 id="recursos"
-                className="mp-card scroll-mt-56 rounded-3xl border border-[#C8A96B]/20 bg-gradient-to-br from-[#C8A96B]/[0.08] to-[#111827] p-5 md:p-7"
+                className="mp-card hidden scroll-mt-56 rounded-3xl border border-[#C8A96B]/20 bg-gradient-to-br from-[#C8A96B]/[0.08] to-[#111827] p-5 has-[[data-recursos-con-datos]]:block md:p-7"
               >
                 <div className="mb-6 flex flex-wrap items-center gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/10 text-[#C8A96B]">
@@ -2571,6 +2642,7 @@ export default function MatchPreparation() {
                     </p>
                   </div>
 
+                  {editando && (
                   <div className="flex items-center gap-2.5">
                     <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
                       <div
@@ -2583,6 +2655,7 @@ export default function MatchPreparation() {
                       {recursosDisponibles}/4
                     </span>
                   </div>
+                  )}
                 </div>
 
                 {/* Las columnas HUDL_* y DOC de la hoja se pintan dentro de la

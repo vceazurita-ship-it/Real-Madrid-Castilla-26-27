@@ -19,7 +19,7 @@
 
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { alrededorDe, soloDia } from "@/lib/castilla/calendario";
-import { HUECOS, casaNombre, proponeOnce, sitioDe, type Candidato } from "@/lib/data-analisis/once";
+import { HUECOS, casaNombre, proponeOnce, sitioDe } from "@/lib/data-analisis/once";
 import { formations } from "@/lib/formations";
 import { traeJson } from "@/lib/hojaCsv";
 import { findInforme, type InformeDoc } from "@/lib/rivals/informe";
@@ -30,6 +30,7 @@ import type { RatingsSeason } from "@/lib/ratings/types";
 import type { Player } from "@/types/player";
 
 import { DIBUJO_DE_PARTIDA, numerosDelOnce } from "./dosOnces";
+import { fuenteUltimoOnce, huecosDelUltimoOnce } from "./ultimoOnce";
 import { rivalTokenId } from "./rivals";
 import { PITCH_HEIGHT, type TacticToken } from "./types";
 
@@ -99,36 +100,10 @@ export async function semanaActual(): Promise<{ semana: string; rival: string; f
 /*  NUESTRO ÚLTIMO ONCE                                                */
 /* ------------------------------------------------------------------ */
 
-function nuestroUltimoOnce(temporada: RatingsSeason | null, plantilla: Player[]) {
-  const hoy = new Date().toISOString().slice(0, 10);
-  const partidos = Object.values(temporada?.matches ?? {})
-    .filter((m) => !(temporada?.ocultos ?? []).includes(m.match.id))
-    .filter((m) => m.match.date && m.match.date <= hoy)
-    .map((m) => ({ m, titulares: Object.values(m.players).filter((p) => p.starter) }))
-    /* Un partido a medio valorar (el J7 tenía seis titulares marcados) sigue siendo el último: lo que falte sale del anterior. */
-    .filter((x) => x.titulares.length >= 5)
-    .sort((a, b) => b.m.match.date.localeCompare(a.m.match.date));
 
-  const ultimo = partidos[0];
-  const anterior = partidos.find((x, i) => i > 0 && x.titulares.length >= 9) ?? partidos[1];
-  /* Toda la plantilla: un titular con licencia del RMC o del Juvenil A también cuenta (14/10/2026).
-     Para tapar un hueco, antes uno con ficha del Castilla (1 frente a 0). */
-  const delCastilla = plantilla.filter((p) => p.activo !== false);
-  const porId = new Map(plantilla.map((p) => [p.id, p]));
-
-  /*
-  | Los titulares del último partido primero; si no llegan a once, los del
-  | anterior; y el resto de la plantilla sólo para tapar un hueco que quede.
-  */
-  const peso = new Map<string, number>();
-
-  for (const t of anterior?.titulares ?? []) peso.set(t.playerId, 5_000);
-  for (const t of ultimo?.titulares ?? []) peso.set(t.playerId, 10_000);
-
-  const completado = (ultimo?.titulares.length ?? 0) < 11 && anterior && anterior !== ultimo;
-  const candidatos: Candidato[] = delCastilla.map((p) => ({ id: p.id, sitio: sitioDe(String(p.posicion ?? ""), null), minutos: peso.get(p.id) ?? (p.esCastilla === false ? 0 : 1) }));
-
-  const huecos = proponeOnce(candidatos);
+function nuestroUltimoOnce(temporada: RatingsSeason | null, plantilla: Player[], aMano: Record<string, string> = {}) {
+  const reparto = huecosDelUltimoOnce(temporada, plantilla, aMano);
+  const { huecos, porId } = reparto;
 
   const tokens: TacticToken[] = HUECOS.flatMap((h) => {
     const p = porId.get(huecos[h.clave]);
@@ -151,11 +126,7 @@ function nuestroUltimoOnce(temporada: RatingsSeason | null, plantilla: Player[])
     ];
   });
 
-  const fuente = ultimo
-    ? `Nuestro último once: ${ultimo.m.match.opponent}${ultimo.m.match.result ? ` (${ultimo.m.match.result})` : ""}, ${ultimo.m.match.date.split("-").reverse().join("/")}${completado ? ` (completado con el de ${anterior!.m.match.opponent}: faltan titulares por marcar en Valoraciones)` : ""}`
-    : "Sin titulares en Valoraciones: once por puesto de la plantilla";
-
-  return { tokens, fuente };
+  return { tokens, fuente: `${fuenteUltimoOnce(reparto)}${Object.keys(aMano).length ? ", con lo cambiado en Duelos" : ""}` };
 }
 
 /* ------------------------------------------------------------------ */
@@ -182,7 +153,7 @@ async function suOnceTeorico(rival: string) {
     };
   });
 
-  const [duelos, onceDoc] = await Promise.all([leeDoc<{ suyo?: Record<string, string> }>(`duelos:${slugClave(equipo)}`), leeDoc<unknown>(rivalOnceKey(equipo))]);
+  const [duelos, onceDoc] = await Promise.all([leeDoc<{ suyo?: Record<string, string>; nuestro?: Record<string, string> }>(`duelos:${slugClave(equipo)}`), leeDoc<unknown>(rivalOnceKey(equipo))]);
 
   /* La base: el once marcado; si no, su último once de BeSoccer. */
   let base = normalizarOnce(onceDoc).titulares;
@@ -237,7 +208,7 @@ async function suOnceTeorico(rival: string) {
     ];
   });
 
-  return { tokens, fuente, equipo };
+  return { tokens, fuente, equipo, nuestroAMano: duelos?.nuestro ?? {} };
 }
 
 /** Los veintidós de la semana. */
@@ -253,7 +224,7 @@ export async function oncesDeLaSemana(plantilla: Player[]): Promise<OncesSemana 
     suOnceTeorico(semana.rival),
   ]);
 
-  const nuestro = nuestroUltimoOnce(temporada, plantilla);
+  const nuestro = nuestroUltimoOnce(temporada, plantilla, suyo.nuestroAMano);
 
   return {
     semana: semana.semana,

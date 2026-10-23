@@ -34,6 +34,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PizarraLamina, type OpcionJugador } from "@/components/rivals/analisis/PizarraLamina";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { apodo, descarga, pdfDeLienzos } from "@/lib/export/lienzos";
 import { creaPptx } from "@/lib/export/pptx";
@@ -185,7 +186,31 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
   /* -------------------------- sección -------------------------- */
 
-  const [seccion, setSeccion] = useState<SeccionId>(secciones[0].id);
+  /*
+  | Lectura o edición (23/10/2026). El cuerpo técnico lee: lámina grande,
+  | consignas, vídeos y conclusión. Quien tiene la sesión de administrador
+  | —el analista— abre directamente en edición; el resto la activa con
+  | «Editar». En lectura no sale lo que está vacío ni el registro de la
+  | carpeta.
+  */
+  const { admin } = useAdmin();
+  const [editandoManual, setEditandoManual] = useState(false);
+  const edita = admin === true || editandoManual;
+
+  const [seccionElegida, setSeccion] = useState<SeccionId>(secciones[0].id);
+
+  const seccionesVistas = edita
+    ? secciones
+    : secciones.filter(
+        (s) =>
+          trabajo.laminas.some((l) => l.seccion === s.id && !laminaVacia(l)) ||
+          material.clips.some((c) => c.seccion === s.id) ||
+          Boolean(trabajo.notas?.[s.id]?.trim()),
+      );
+
+  const seccion: SeccionId = seccionesVistas.some((s) => s.id === seccionElegida)
+    ? seccionElegida
+    : (seccionesVistas[0]?.id ?? seccionElegida);
 
   const laminas = trabajo.laminas.filter((l) => l.seccion === seccion);
 
@@ -723,7 +748,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
             : "";
 
   return (
-    <section className="space-y-4 rounded-2xl border border-[#C8A96B]/20 bg-white/[0.03] p-4 md:p-5">
+    <section className="flex flex-col gap-4 rounded-2xl border border-[#C8A96B]/20 bg-white/[0.03] p-4 md:p-5">
       <input
         ref={entradaPdf}
         type="file"
@@ -745,13 +770,28 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
           </h2>
           <p className="text-xs text-white/45">
             Láminas, clips y conclusiones de la jornada.
-            {estadoGuardado && (
+            {edita && estadoGuardado && (
               <span className={doc.status === "error" ? " text-red-300" : " text-white/60"}> · {estadoGuardado}</span>
             )}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {admin !== true && (
+            <button
+              type="button"
+              onClick={() => setEditandoManual((v) => !v)}
+              aria-pressed={editandoManual}
+              data-export-hide
+              className={`${boton} border ${
+                editandoManual ? "border-[#C8A96B] bg-[#C8A96B]/15 text-[#C8A96B]" : "border-white/15 text-white/80 hover:bg-white/10"
+              }`}
+            >
+              <Pencil size={14} /> {editandoManual ? "Terminar" : "Editar"}
+            </button>
+          )}
+
+          {laminasJornada.length > 0 && (
           <div className="flex rounded-lg border border-white/10 p-0.5 text-[11px]" role="group" aria-label="Qué se exporta">
             {(["lamina", "jornada"] as const).map((uno) => (
               <button
@@ -766,25 +806,28 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
               </button>
             ))}
           </div>
+          )}
 
-
-
-          <button
-            type="button"
-            onClick={() => void exporta("pdf")}
-            disabled={!aExportar.length || Boolean(exportando)}
-            className={`${boton} border border-white/15 text-white/80 hover:bg-white/10`}
-          >
-            {exportando === "pdf" ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} PDF
-          </button>
-          <button
-            type="button"
-            onClick={() => void exporta("ppt")}
-            disabled={!aExportar.length || Boolean(exportando)}
-            className={`${boton} border border-white/15 text-white/80 hover:bg-white/10`}
-          >
-            {exportando === "ppt" ? <Loader2 size={14} className="animate-spin" /> : <Presentation size={14} />} PPT
-          </button>
+          {laminasJornada.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => void exporta("pdf")}
+                disabled={!aExportar.length || Boolean(exportando)}
+                className={`${boton} border border-white/15 text-white/80 hover:bg-white/10`}
+              >
+                {exportando === "pdf" ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => void exporta("ppt")}
+                disabled={!aExportar.length || Boolean(exportando)}
+                className={`${boton} border border-white/15 text-white/80 hover:bg-white/10`}
+              >
+                {exportando === "ppt" ? <Loader2 size={14} className="animate-spin" /> : <Presentation size={14} />} PPT
+              </button>
+            </>
+          )}
         </div>
       </header>
 
@@ -810,6 +853,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
           </button>
         ))}
 
+        {edita && (
         <div className="flex items-center gap-1">
           <input
             value={nuevaJornada}
@@ -823,11 +867,14 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
             <Plus size={13} /> Jornada
           </button>
         </div>
+        )}
       </div>
 
       {/* ------------------------ carpeta ------------------------ */}
+      {/* Es del analista y va la última: lo que se lee, primero. */}
 
-      <details className="group rounded-xl border border-white/10 bg-white/[0.03] p-3" open={!jornadas.length || carpetaOcupada}>
+      {edita && (
+      <details className={`group rounded-xl border border-white/10 bg-white/[0.03] p-3 ${jornada ? "order-last" : ""}`} open={!jornadas.length || carpetaOcupada}>
         <summary className="flex cursor-pointer list-none items-center gap-2 text-sm text-white/80">
           <FolderInput size={15} className="text-[#C8A96B]" /> Recoger la carpeta de la jornada
           <ChevronRight size={14} className="text-white/35 transition group-open:rotate-90" />
@@ -895,17 +942,20 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
           )}
         </div>
       </details>
+      )}
 
       {!jornada ? (
         <p className="text-sm text-white/45">
-          Todavía no hay nada de este rival. Recoge la carpeta de la jornada o crea una jornada para empezar a dibujar.
+          {edita
+            ? "Recoge la carpeta de la jornada o crea una jornada para empezar a dibujar."
+            : `El análisis visual de ${equipo} llega cuando se prepara su jornada. Si eres del cuerpo de análisis, pulsa «Editar» para recoger la carpeta.`}
         </p>
       ) : (
-        <>
+        <div className="flex flex-col gap-4">
           {/* ------------------------ secciones ------------------------ */}
 
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {secciones.map((s) => {
+            {seccionesVistas.map((s) => {
               const n = cuentaSeccion(s.id);
 
               return (
@@ -924,16 +974,22 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                   }`}
                 >
                   <span className="block text-sm font-medium text-white">{s.titulo}</span>
-                  <span className="mt-0.5 flex gap-2 text-[11px] text-white/45">
-                    <span className={n.laminas ? "text-[#C8A96B]" : ""}>
-                      {n.laminas} lámina{n.laminas === 1 ? "" : "s"}
+                  {(edita || n.laminas > 0 || n.clips > 0 || trabajo.notas?.[s.id]?.trim()) && (
+                    <span className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-white/45">
+                      {(edita || n.laminas > 0) && (
+                        <span className={n.laminas ? "text-[#C8A96B]" : ""}>
+                          {n.laminas} lámina{n.laminas === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      {(edita || n.clips > 0) && (
+                        <span className={n.clips ? "text-[#C8A96B]" : ""}>
+                          {n.laminas > 0 || edita ? "· " : ""}
+                          {n.clips} vídeo{n.clips === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      {trabajo.notas?.[s.id]?.trim() ? <span>· con conclusión</span> : null}
                     </span>
-                    ·
-                    <span className={n.clips ? "text-[#C8A96B]" : ""}>
-                      {n.clips} vídeo{n.clips === 1 ? "" : "s"}
-                    </span>
-                    {trabajo.notas?.[s.id]?.trim() ? <span>· con conclusión</span> : null}
-                  </span>
+                  )}
                 </button>
               );
             })}
@@ -998,26 +1054,30 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                   ),
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => anadeLamina()}
-                  className={`${boton} bg-[#C8A96B]/15 text-[#C8A96B] hover:bg-[#C8A96B]/25`}
-                >
-                  <Plus size={13} /> Nueva lámina
-                </button>
+                {edita && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => anadeLamina()}
+                      className={`${boton} bg-[#C8A96B]/15 text-[#C8A96B] hover:bg-[#C8A96B]/25`}
+                    >
+                      <Plus size={13} /> Nueva lámina
+                    </button>
 
-                <button
-                  type="button"
-                  onClick={() => entradaPdf.current?.click()}
-                  disabled={leyendoPdf}
-                  title="Convierte en láminas un informe hecho fuera (PowerPoint pasado a PDF)"
-                  className={`${boton} bg-white/[0.06] text-white/75 hover:bg-white/10`}
-                >
-                  {leyendoPdf ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />} Importar PDF
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => entradaPdf.current?.click()}
+                      disabled={leyendoPdf}
+                      title="Convierte en láminas un informe hecho fuera (PowerPoint pasado a PDF)"
+                      className={`${boton} bg-white/[0.06] text-white/75 hover:bg-white/10`}
+                    >
+                      {leyendoPdf ? <Loader2 size={13} className="animate-spin" /> : <FileUp size={13} />} Importar PDF
+                    </button>
+                  </>
+                )}
               </div>
 
-              {importacion && (
+              {edita && importacion && (
                 <div className="space-y-3 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.06] p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-medium text-white">
@@ -1110,7 +1170,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                 </div>
               )}
 
-              {lamina && (
+              {edita && lamina && (
                 <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-2 py-1.5">
                   <button
                     type="button"
@@ -1171,16 +1231,28 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
               )}
 
               {lamina ? (
-                <PizarraLamina
-                  lamina={lamina}
-                  onChange={cambiaLamina}
-                  ficha={ficha}
-                  plantilla={opciones}
-                  escudo={escudo}
-                  equipo={equipo}
-                  jornada={jornada}
-                />
-              ) : (
+                <>
+                  <PizarraLamina
+                    lamina={lamina}
+                    onChange={cambiaLamina}
+                    ficha={ficha}
+                    plantilla={opciones}
+                    escudo={escudo}
+                    equipo={equipo}
+                    jornada={jornada}
+                    soloLectura={!edita}
+                  />
+
+                  {/* Qué es cada símbolo: para quien lee la lámina sin haberla dibujado. */}
+                  {!edita && (
+                    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/50">
+                      <span>✕ Dónde remata o cae el balón</span>
+                      <span>● Desde dónde sale el balón</span>
+                      <span>El color de cada marca está en la leyenda de la lámina</span>
+                    </p>
+                  )}
+                </>
+              ) : !edita ? null : (
                 <div className="flex aspect-video flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-[#C8A96B]/30 bg-white/[0.03] text-center">
                   <p className="text-sm text-white/55">
                     No hay láminas de «{SECCION_POR_ID.get(seccion)?.titulo}» en la {jornada}.
@@ -1195,7 +1267,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                 </div>
               )}
 
-              {(trabajo.quitadas?.length ?? 0) > 0 && (
+              {edita && (trabajo.quitadas?.length ?? 0) > 0 && (
                 <details className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
                   <summary className="cursor-pointer text-xs text-white/55">
                     Quitadas en la {jornada} ({trabajo.quitadas?.length}) · se pueden recuperar
@@ -1229,6 +1301,14 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                 </details>
               )}
 
+              {!edita && trabajo.notas?.[seccion]?.trim() && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-wider text-white/40">Conclusión</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-white/85">{trabajo.notas[seccion]}</p>
+                </div>
+              )}
+
+              {edita && (
               <label className="block text-[11px] uppercase tracking-wider text-white/40">
                 Conclusión de la sección (va al informe)
                 <textarea
@@ -1244,11 +1324,13 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                   className="mt-1 w-full rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-2 text-sm normal-case tracking-normal text-white"
                 />
               </label>
+              )}
             </div>
 
             {/* ------------------------ vídeos ------------------------ */}
 
             <aside className="space-y-3 xl:sticky xl:top-4 xl:self-start">
+              {(edita || clipsEnOrden.length > 0) && (
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="flex items-center gap-1.5 text-xs font-medium text-white/70">
@@ -1338,6 +1420,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                   </div>
                 )}
               </div>
+              )}
 
               {docs.length > 0 && (
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
@@ -1381,7 +1464,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
               )}
             </aside>
           </div>
-        </>
+        </div>
       )}
     </section>
   );

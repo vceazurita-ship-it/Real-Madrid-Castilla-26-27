@@ -27,6 +27,7 @@ import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import { VideosDelCanal } from "@/components/rivals/VideosDelCanal";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
+import { traeJson } from "@/lib/hojaCsv";
 import {
   SIN_ORDEN,
   cargaOrdenRivales,
@@ -99,12 +100,50 @@ export default function ScoutRivalIndividual() {
     return equipos.filter((nombre) => nombre.toLowerCase().includes(termino));
   }, [buscaEquipo, equipos]);
 
+  /*
+  | Las etiquetas de cada jugador (campo IMPACTO de la hoja, separadas por «;»),
+  | para decir bajo cada corte qué mirar de él. La hoja ya está en la copia del
+  | aparato: `traeJson` no vuelve a pedirla.
+  */
+  const [etiquetasDe, setEtiquetasDe] = useState<Record<string, string[]>>({});
+
+  useEffect(() => {
+    let cancelado = false;
+
+    traeJson<unknown>("/api/rivals?action=rivalesPlantillas")
+      .then((filas) => {
+        if (cancelado || !Array.isArray(filas)) return;
+
+        const mapa: Record<string, string[]> = {};
+
+        for (const fila of filas as Record<string, unknown>[]) {
+          const nombre = String(fila["NOMBRE DEPORTIVO"] ?? "").trim() || String(fila.JUGADOR ?? "").trim();
+          const etiquetas = String(fila.IMPACTO ?? "")
+            .split(";")
+            .map((e) => e.trim())
+            .filter(Boolean);
+
+          if (nombre && etiquetas.length) mapa[`${String(fila.NOMBRE_EQUIPO ?? "").trim()}|${nombre}`] = etiquetas;
+        }
+
+        setEtiquetasDe(mapa);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
   const plantilla = useMemo(
     () =>
-      (squads.find((squad) => squad.equipo === equipo)?.players ?? []).map(
-        (jugador) => ({ nombre: jugador.nombre, dorsal: jugador.dorsal }),
-      ),
-    [squads, equipo],
+      (squads.find((squad) => squad.equipo === equipo)?.players ?? []).map((jugador) => ({
+        nombre: jugador.nombre,
+        dorsal: jugador.dorsal,
+        puesto: jugador.posicion,
+        etiquetas: etiquetasDe[`${equipo}|${jugador.nombre}`] ?? [],
+      })),
+    [squads, equipo, etiquetasDe],
   );
 
   return (
