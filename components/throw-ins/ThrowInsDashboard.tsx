@@ -291,6 +291,9 @@ function groupBy(rows: RecordRow[], key: string) {
 */
 const MIN_MUESTRA = 3;
 
+/** Con menos de cinco saques la cifra es un indicio, no un dato. */
+const indicio = (n: number) => (n < 5 ? " (indicio: muestra pequeña)" : "");
+
 type Grupo = { key: string; valor: string; n: number; favorables: number; produccion: number };
 
 const pctTexto = (parte: number, total: number) =>
@@ -395,7 +398,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(productivas, produccionTasa, true);
 
       frases.push(
-        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, la más productiva: ${mejor.produccion} de ${mejor.n} a último tercio.`,
+        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, la más productiva: ${mejor.produccion} de ${mejor.n} a último tercio.${indicio(mejor.n)}`,
       );
     }
 
@@ -423,7 +426,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const peor = extremo(peligrosas, produccionTasa, true);
 
       frases.push(
-        `Su vía más peligrosa: ${nombreDe(peor.key, peor.valor)}, ${peor.produccion} de ${peor.n} a último tercio.`,
+        `Su vía más peligrosa: ${nombreDe(peor.key, peor.valor)}, ${peor.produccion} de ${peor.n} a último tercio.${indicio(peor.n)}`,
       );
     }
 
@@ -446,13 +449,13 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(personas, (g) => produccionTasa(g) * 2 + retencionDe(g), true);
 
       frases.push(
-        `Más eficaz: ${nombreDe(mejor.key, mejor.valor)} (${mejor.favorables} de ${mejor.n} conservados, ${mejor.produccion} a último tercio).`,
+        `Más eficaz: ${nombreDe(mejor.key, mejor.valor)} (${mejor.favorables} de ${mejor.n} conservados, ${mejor.produccion} a último tercio).${indicio(mejor.n)}`,
       );
     } else {
       const comodo = extremo(receptores.length >= 2 ? receptores : personas, retencionDe, false);
 
       frases.push(
-        `Su ${nombreDe(comodo.key, comodo.valor)}, el más cómodo: recuperamos ${comodo.favorables} de ${comodo.n}.`,
+        `Su ${nombreDe(comodo.key, comodo.valor)}, el más cómodo: recuperamos ${comodo.favorables} de ${comodo.n}.${indicio(comodo.n)}`,
       );
     }
   }
@@ -471,7 +474,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
 
       if (retencionDe(peor) < global) {
         frases.push(
-          `Punto débil: ${nombreDe(peor.key, peor.valor)}, ${peor.favorables} de ${peor.n} conservados.`,
+          `Punto débil: ${nombreDe(peor.key, peor.valor)}, ${peor.favorables} de ${peor.n} conservados.${indicio(peor.n)}`,
         );
       }
     }
