@@ -73,3 +73,32 @@ export function conPosiciones(jugadores: Player[]): Player[] {
     return buena === jugador.posicion ? jugador : { ...jugador, posicion: buena };
   });
 }
+
+/** La sigla de Wyscout en palabras de caseta (25/10/2026): «LCB» → «central izquierdo». Sin equivalencia, vacío. */
+const SIGLA_PUESTO: Record<string, string> = {
+  GK: "portero",
+  CB: "central",
+  LCB: "central izquierdo",
+  RCB: "central derecho",
+  LB: "lateral izquierdo",
+  RB: "lateral derecho",
+  LWB: "carrilero izquierdo",
+  RWB: "carrilero derecho",
+  DMF: "mediocentro defensivo",
+  LDMF: "mediocentro defensivo",
+  RDMF: "mediocentro defensivo",
+  CMF: "mediocentro",
+  LCMF: "interior izquierdo",
+  RCMF: "interior derecho",
+  AMF: "mediapunta",
+  LAMF: "mediapunta izquierdo",
+  RAMF: "mediapunta derecho",
+  LW: "extremo izquierdo",
+  RW: "extremo derecho",
+  LWF: "extremo izquierdo",
+  RWF: "extremo derecho",
+  CF: "delantero centro",
+  SS: "segundo delantero",
+};
+
+export const puestoEnPalabras = (sigla: string) => SIGLA_PUESTO[sigla.trim().toUpperCase()] ?? "";

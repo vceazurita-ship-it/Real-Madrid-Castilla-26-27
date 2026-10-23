@@ -38,6 +38,9 @@ import { PUESTOS } from "@/lib/data-analisis/individual";
 import { HUECOS } from "@/lib/data-analisis/once";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import { baseSuyaDe, nuestrosDe, onceNuestroDe, onceSuyoDe, suyosDe } from "@/lib/duelos-onces";
+import { fuenteUltimoOnce, huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
+import { puestoEnPalabras } from "@/lib/posiciones";
+import type { RatingsSeason } from "@/lib/ratings/types";
 import {
   DUELOS_VACIO,
   HUECO_VACIO,
@@ -89,6 +92,13 @@ const apellido = (nombre: string) => {
   return t.length > 1 ? t.slice(1).join(" ") : nombre;
 };
 
+/** «RCB» → «central derecho». Lo que no se sabe traducir se deja como viene; vacío, vacío. */
+const puestoLegible = (sigla: string) => {
+  const primera = sigla.split(",")[0]?.trim() ?? "";
+
+  return puestoEnPalabras(primera) || primera;
+};
+
 async function leeDoc<T>(key: string): Promise<T | null> {
   try {
     const r = await fetch(`/api/docs?key=${encodeURIComponent(key)}`, { cache: "no-store" });
@@ -128,6 +138,8 @@ export default function DuelosPage() {
   const [plantillasLeidas, setPlantillas] = useState<Fila[] | null>(null);
   const plantillas = useMemo(() => plantillasLeidas ?? [], [plantillasLeidas]);
   const [informes, setInformes] = useState<InformeDoc | null>(null);
+  /* `undefined` = todavía no ha contestado Valoraciones; `null` = no hay temporada. */
+  const [temporada, setTemporada] = useState<RatingsSeason | null | undefined>(undefined);
   const [proximo, setProximo] = useState<{ rival: string; cuando: string; jornada?: number } | null>(null);
   /* Ya se sabe cuál es el próximo partido (o que no hay). */
   const [proximoListo, setProximoListo] = useState(false);
@@ -165,6 +177,14 @@ export default function DuelosPage() {
     leeDoc<InformeDoc>("rivals:informe").then((doc) => {
       if (vivo) setInformes(doc);
     });
+    /* Nuestro último once: el mismo que usa la pizarra (Valoraciones). */
+    traeJson<{ success?: boolean; season?: RatingsSeason }>("/api/ratings/load")
+      .then((r) => {
+        if (vivo) setTemporada(r?.success ? r.season ?? null : null);
+      })
+      .catch(() => {
+        if (vivo) setTemporada(null);
+      });
     void cargaCalendario().then((partidos: PartidoCal[]) => {
       if (!vivo) return;
       /* El día de aquí, no el de UTC: de 00:00 a 02:00 del día del partido
@@ -228,7 +248,17 @@ export default function DuelosPage() {
     () => baseSuyaDe(suyos, onceMarcado, findInforme(informes, equipoVisto)),
     [suyos, onceMarcado, informes, equipoVisto],
   );
-  const onceNuestro = useMemo(() => onceNuestroDe(nuestros, aMano.nuestro), [nuestros, aMano.nuestro]);
+  /* El punto de partida de nuestro once: el último de Valoraciones, como en la pizarra. */
+  const ultimoOnce = useMemo(() => (temporada ? huecosDelUltimoOnce(temporada, players) : null), [temporada, players]);
+  /* (`players` llega aparte de Valoraciones: hasta que está, la propuesta es la de Wyscout y se rehace sola.) */
+  const baseNuestra = useMemo(
+    () => (ultimoOnce?.ultimo ? Object.fromEntries(Object.entries(ultimoOnce.huecos).filter(([, id]) => id)) : null),
+    [ultimoOnce],
+  );
+  const fuenteNuestra = ultimoOnce?.ultimo
+    ? fuenteUltimoOnce(ultimoOnce)
+    : "Propuesto con los minutos de Wyscout en 4-2-3-1";
+  const onceNuestro = useMemo(() => onceNuestroDe(nuestros, aMano.nuestro, baseNuestra), [nuestros, aMano.nuestro, baseNuestra]);
   const onceSuyo = useMemo(() => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo), [suyos, baseSuya, aMano.suyo]);
 
   const duelos = useMemo(() => mideDuelos(onceNuestro, onceSuyo, referencias), [onceNuestro, onceSuyo, referencias]);
@@ -309,7 +339,7 @@ export default function DuelosPage() {
   const atacar = duelos.filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO).sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0));
   const vigilar = duelos.filter((d) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO).sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
 
-  const cargando = jugadores === null || plantillasLeidas === null || (!equipoVisto && !proximoListo);
+  const cargando = jugadores === null || plantillasLeidas === null || temporada === undefined || (!equipoVisto && !proximoListo);
   const escudo = equipoVisto ? escudoDe(equipoVisto) : null;
 
   return (
@@ -329,6 +359,10 @@ export default function DuelosPage() {
               Nuestro once contra el once probable del rival, duelo a duelo: dónde les podemos hacer daño y dónde nos lo pueden
               hacer.
               <Explicativo> Cada jugador se mide contra los de su puesto en la categoría (Wyscout, esta temporada).</Explicativo>
+            </p>
+            <p className="mt-2 max-w-3xl text-xs text-white/45">
+              Cada cifra es un percentil: P73 es mejor que el 73 % de los jugadores de su puesto con al menos 90′. Un +45 son
+              45 puntos de percentil a favor nuestro; un −28, 28 a favor del rival. Con pocos minutos, la cifra es menos fiable.
             </p>
 
             <div className="sticky top-[81px] z-20 -mx-4 mt-6 flex flex-wrap items-center gap-3 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-8 sm:px-8 md:top-[97px]">
@@ -381,16 +415,17 @@ export default function DuelosPage() {
                   </button>
                 ))}
               </div>
-              <span className="ml-auto flex items-center gap-3 text-xs">
+              <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                <span className="text-white/60" title="Duelos con datos en los dos lados">
+                  {conDato.length} duelos medidos
+                </span>
                 <span style={{ color: MEJOR }} title="Duelos en los que, con el balón nuestro, les sacamos ventaja">
-                  ● {atacar.length} para atacar
+                  ● {atacar.length} con ventaja nuestra con balón
                 </span>
                 <span style={{ color: PEOR }} title="Duelos en los que, con el balón suyo, nos sacan ventaja">
-                  ● {vigilar.length} para vigilar
+                  ● {vigilar.length} con ventaja suya con balón
                 </span>
-                <span className="text-white/40" title="Duelos medidos (con datos en los dos lados)">
-                  de {conDato.length} medidos
-                </span>
+                <span className="text-white/35">un mismo duelo puede salir en las dos</span>
               </span>
             </div>
 
@@ -456,6 +491,7 @@ export default function DuelosPage() {
                   suyos={suyos}
                   onceNuestro={onceNuestro}
                   onceSuyo={onceSuyo}
+                  fuenteNuestra={fuenteNuestra}
                   fuenteSuya={baseSuya.fuente}
                   equipo={equipoVisto}
                   aMano={aMano}
@@ -666,7 +702,10 @@ function Claves({
                 className="w-full text-left"
               >
                 <span className="flex items-baseline justify-between gap-2 text-sm text-white/85">
-                  <span>{d.def.titulo}</span>
+                  <span>
+                    {d.def.titulo}
+                    <span className="ml-1.5 text-[11px] font-normal text-white/40">{sentido === "con" ? "con balón nuestro" : "con balón suyo"}</span>
+                  </span>
                   <b className="shrink-0 tabular-nums" style={{ color }}>
                     {valor !== null && valor > 0 ? "+" : ""}
                     {valor}
@@ -750,7 +789,7 @@ function LadoOnce({
                         {gente.map((g) => (
                           <option key={g.clave} value={g.clave} className="bg-[#11161C]">
                             {g.dorsal ? `${g.dorsal}. ` : ""}
-                            {g.nombre} · {g.posicion || "—"} · {g.minutos ? `${g.minutos}′` : "sin datos"}
+                            {[g.nombre, puestoLegible(g.posicion), g.minutos ? `${g.minutos}′` : ""].filter(Boolean).join(" · ")}
                           </option>
                         ))}
                       </optgroup>
@@ -770,6 +809,7 @@ function Alineaciones({
   suyos,
   onceNuestro,
   onceSuyo,
+  fuenteNuestra,
   fuenteSuya,
   equipo,
   aMano,
@@ -780,6 +820,7 @@ function Alineaciones({
   suyos: JugadorDuelo[];
   onceNuestro: Record<string, JugadorDuelo | undefined>;
   onceSuyo: Record<string, JugadorDuelo | undefined>;
+  fuenteNuestra: string;
   fuenteSuya: string;
   equipo: string;
   aMano: DuelosDoc;
@@ -799,7 +840,7 @@ function Alineaciones({
       </button>
       {abierto && (
         <div className="mt-3 grid gap-4 lg:grid-cols-2">
-          <LadoOnce aMano={aMano} cambia={cambia} deshaz={deshaz} lado="nuestro" titulo="Nuestro once" fuente="Propuesto con los minutos de Wyscout en 4-2-3-1; los cambios se guardan para este rival." lista={nuestros} once={onceNuestro} />
+          <LadoOnce aMano={aMano} cambia={cambia} deshaz={deshaz} lado="nuestro" titulo="Nuestro once" fuente={`${fuenteNuestra}. Los cambios se guardan para este rival y la pizarra táctica los coge.`} lista={nuestros} once={onceNuestro} />
           <LadoOnce aMano={aMano} cambia={cambia} deshaz={deshaz} lado="suyo" titulo={`Once de ${equipo}`} fuente={fuenteSuya} lista={suyos} once={onceSuyo} />
         </div>
       )}
@@ -814,7 +855,7 @@ function Alineaciones({
 /** Qué se mira: con el balón nuestro, con el suyo, o los dos. */
 type Modo = "nuestro" | "suyo" | "ambos";
 
-const nombresDe = (lista: JugadorDuelo[]) => lista.map((j) => apellido(j.nombre)).join(" y ") || "—";
+const nombresDe = (lista: JugadorDuelo[]) => lista.map((j) => apellido(j.nombre)).join(" y ") || "nadie";
 
 const verbo = (lista: JugadorDuelo[], singular: string) => (lista.length > 1 ? `${singular}n` : singular);
 
@@ -945,6 +986,17 @@ function Tarjeta({
   const [pareja, setPareja] = useState<number | null>(null);
   const color = COLOR[d.veredicto];
 
+  const noEsMediapunta = (j: JugadorDuelo) => {
+    const puesto = puestoLegible(j.posicion);
+
+    return Boolean(puesto) && !/mediapunta|^AMF$|^AM$|^10$/i.test(puesto);
+  };
+
+  const enHuecoMedia = [
+    ...(d.def.nuestros.includes("media") ? d.nuestros.filter(noEsMediapunta).map((j) => ({ j, de: "nuestro" as const })) : []),
+    ...(d.def.suyos.includes("media") ? d.suyos.filter(noEsMediapunta).map((j) => ({ j, de: "suyo" as const })) : []),
+  ];
+
   const gente = (lista: JugadorDuelo[], nuestro: boolean) => (
     <div className={`flex min-w-0 flex-1 flex-col gap-1.5 ${nuestro ? "items-start" : "items-end text-right"}`}>
       {lista.length === 0 && <span className="text-xs text-white/35">Sin nadie en el hueco</span>}
@@ -954,9 +1006,14 @@ function Tarjeta({
           <div className="min-w-0">
             <p className={`truncate text-sm font-medium ${nuestro ? "text-[#C8A96B]" : "text-white/90"}`}>{j.nombre}</p>
             <p className="truncate text-[10px] text-white/40">
-              {j.posicion || "—"}
-              {j.altura ? ` · ${j.altura} cm` : ""}
-              {j.wyscout ? ` · ${j.minutos}′` : " · sin datos"}
+              {[
+                puestoLegible(j.posicion),
+                j.altura ? `${j.altura} cm` : "",
+                /* Con poca muestra el percentil engaña: se avisa. */
+                j.wyscout ? (j.minutos < 270 ? `${j.minutos}′, pocos minutos` : `${j.minutos}′`) : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           </div>
         </div>
@@ -990,6 +1047,13 @@ function Tarjeta({
         <span className="pt-2 text-[10px] uppercase tracking-wider text-white/30">vs</span>
         {gente(d.suyos, false)}
       </div>
+
+      {/* Si el rival no juega con mediapunta, el hueco lo ocupa otro puesto: se dice cuál. */}
+      {enHuecoMedia.map(({ j, de }) => (
+        <p key={j.clave} className="mt-2 text-[11px] text-white/50">
+          {de === "nuestro" ? "En nuestro once" : `En el once de ${equipo}`} no hay mediapunta: {apellido(j.nombre)} ocupa ese hueco y juega de {puestoLegible(j.posicion)}.
+        </p>
+      ))}
 
       <div className="mt-4">{bloquesDe(d, modo, equipo)}</div>
 

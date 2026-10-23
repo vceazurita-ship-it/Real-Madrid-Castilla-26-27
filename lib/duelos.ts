@@ -51,6 +51,8 @@ export type JugadorDuelo = {
   minutos: number;
   /** Su fila de Wyscout de esta temporada, si se ha encontrado. */
   wyscout: FilaJugador | null;
+  /** El id de su ficha en nuestra plantilla (sólo nuestros): para casar con el último once de Valoraciones. */
+  fichaId?: string;
 };
 
 /** «1,84», «1.84», «184», «184 cm» → 184. */
@@ -138,7 +140,7 @@ const E = {
   recibir: { titulo: "Recibir entre líneas", ataca: "Pases recibidos /90", defiende: "Interceptaciones/90", explica: "Cuánto la recibe contra cuánto corta el que le vigila." },
   ultimo: { titulo: "Último pase", ataca: "Jugadas claves/90", defiende: "Acciones defensivas realizadas/90", explica: "Pases clave contra la actividad defensiva del que tiene enfrente." },
   centro: { titulo: "Centro contra juego aéreo", ataca: "Precisión centros, %", defiende: "Duelos aéreos ganados, %", explica: "Acierto en el centro contra duelos aéreos ganados del que defiende." },
-  remate: { titulo: "Remate contra bloqueo", ataca: "xG/90", defiende: "Tiros interceptados/90", explica: "Peligro que genera contra remates que tapa el que defiende." },
+  remate: { titulo: "Remate contra bloqueo", ataca: "Goles esperados/90", defiende: "Tiros interceptados/90", explica: "Peligro que genera contra remates que tapa el que defiende." },
 } satisfies Record<string, Enfrentamiento>;
 
 /** El juego aéreo no tiene «con balón»: se disputa igual en los dos sentidos. */
@@ -304,7 +306,10 @@ const formatea = (columna: string, v: number) => {
 };
 
 /** El nombre corto de una columna, para decir qué se enfrenta con qué. */
-export const rotuloColumna = (columna: string) => METRICA_JUGADOR_POR_COLUMNA.get(columna)?.nombre ?? columna;
+/* «xG» no lo entiende todo el vestuario (23/10/2026). */
+const sinSiglas = (texto: string) => texto.replace(/\bxG\b/g, "goles esperados");
+
+export const rotuloColumna = (columna: string) => sinSiglas(METRICA_JUGADOR_POR_COLUMNA.get(columna)?.nombre ?? columna);
 
 const apellido = (nombre: string) => {
   const t = nombre.trim().split(/\s+/);

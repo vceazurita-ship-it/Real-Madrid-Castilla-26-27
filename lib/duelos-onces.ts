@@ -61,6 +61,7 @@ export function nuestrosDe(jugadores: FilaJugador[], fichas: FichaPropia[]): Jug
       pie: f.pie,
       minutos: f.minutos,
       wyscout: f,
+      fichaId: ficha?.id,
     };
   });
   /* Y los de la plantilla sin fila de Wyscout (un fichaje, uno sin minutos): se pueden poner, sin datos. */
@@ -79,6 +80,7 @@ export function nuestrosDe(jugadores: FilaJugador[], fichas: FichaPropia[]): Jug
         pie: "",
         minutos: 0,
         wyscout: null,
+        fichaId: p.id,
       };
     });
   return [...deWyscout, ...sinWyscout];
@@ -145,12 +147,39 @@ export function armaOnce(candidatos: JugadorDuelo[], todos: JugadorDuelo[], manu
   ) as Record<string, JugadorDuelo | undefined>;
 }
 
-export const onceNuestroDe = (nuestros: JugadorDuelo[], manual: Record<string, string>) =>
-  armaOnce(
+/**
+ * Nuestro once. Sin `base`, el propuesto con los minutos de Wyscout. Con
+ * `base` —hueco → id de ficha, el último once de Valoraciones que también usa
+ * la pizarra (`huecosDelUltimoOnce`)— arranca de ése, y lo cambiado a mano
+ * manda sobre él (23/10/2026: Duelos y la pizarra proponían dos onces
+ * distintos para el mismo partido).
+ */
+export const onceNuestroDe = (nuestros: JugadorDuelo[], manual: Record<string, string>, base?: Record<string, string> | null) => {
+  if (!base || Object.keys(base).length === 0) {
+    return armaOnce(
+      nuestros.filter((j) => j.wyscout),
+      nuestros,
+      manual,
+    );
+  }
+
+  const porFicha = new Map(nuestros.filter((j) => j.fichaId).map((j) => [j.fichaId as string, j.clave]));
+  const aMano = new Set(Object.values(manual).filter((c) => c !== HUECO_VACIO));
+
+  const deLaBase: Record<string, string> = {};
+
+  for (const [hueco, fichaId] of Object.entries(base)) {
+    const clave = porFicha.get(fichaId);
+
+    if (clave && !(hueco in manual) && !aMano.has(clave)) deLaBase[hueco] = clave;
+  }
+
+  return armaOnce(
     nuestros.filter((j) => j.wyscout),
     nuestros,
-    manual,
+    { ...deLaBase, ...manual },
   );
+};
 
 /** Su base va primero (le sobran minutos) y el resto de la plantilla completa los huecos que falten. */
 export function onceSuyoDe(suyos: JugadorDuelo[], base: JugadorDuelo[], manual: Record<string, string>) {
@@ -173,13 +202,15 @@ export function duelosDelPartido(entrada: {
   marcados: string[] | null;
   informe: InformeEquipo | null;
   aMano: DuelosDoc;
+  /** Nuestro último once de Valoraciones (hueco → id de ficha), si se conoce. */
+  baseNuestra?: Record<string, string> | null;
 }): { duelos: ResultadoDuelo[]; fuenteSuya: string } {
   const nuestros = nuestrosDe(entrada.jugadores, entrada.fichas);
   const suyos = suyosDe(entrada.filasHoja, entrada.equipo, entrada.jugadores);
   const base = baseSuyaDe(suyos, entrada.marcados, entrada.informe);
   const referencias = referenciasPorPuesto(entrada.jugadores);
   return {
-    duelos: mideDuelos(onceNuestroDe(nuestros, entrada.aMano.nuestro), onceSuyoDe(suyos, base.lista, entrada.aMano.suyo), referencias),
+    duelos: mideDuelos(onceNuestroDe(nuestros, entrada.aMano.nuestro, entrada.baseNuestra),onceSuyoDe(suyos, base.lista, entrada.aMano.suyo), referencias),
     fuenteSuya: base.fuente,
   };
 }

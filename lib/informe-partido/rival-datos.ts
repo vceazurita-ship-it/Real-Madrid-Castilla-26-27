@@ -22,6 +22,10 @@ import { perfilDe, plantillaDe, resumenDe, sintesisDe, type MetricaEquipo, type 
 import { alcanceWyscout, type PartidoCalendario } from "@/lib/data-analisis/alcance";
 import { duelosDelPartido, type FichaPropia } from "@/lib/duelos-onces";
 import { normalizaDuelos } from "@/lib/duelos";
+import { puestoEnPalabras } from "@/lib/posiciones";
+import { huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
+import type { RatingsSeason } from "@/lib/ratings/types";
+import type { Player } from "@/types/player";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 /* El «hoy» del alcance de Wyscout, con el día de aquí y no el de UTC (19/10/2026). */
 import { claveDeHoy } from "@/lib/rivals/orden-calendario";
@@ -49,6 +53,24 @@ async function leeWyscout(): Promise<{ partidos: FilaPartido[]; jugadores: FilaJ
     const j = (await r.json()) as { ok?: boolean; partidos?: FilaPartido[]; jugadores?: FilaJugador[] };
     if (!j?.ok && !j?.partidos) return null;
     return { partidos: j.partidos ?? [], jugadores: j.jugadores ?? [] };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Nuestro último once de Valoraciones, como en la pizarra y en Duelos
+ * (23/10/2026). Sin red o sin partidos valorados, `null` y Duelos propone con
+ * los minutos de Wyscout, como antes.
+ */
+async function baseNuestraDeValoraciones(fichas: FichaPropia[]): Promise<Record<string, string> | null> {
+  try {
+    const r = await fetch("/api/ratings/load", { cache: "no-store" });
+    const j = (await r.json()) as { success?: boolean; season?: RatingsSeason };
+    if (!j?.success || !j.season) return null;
+    const reparto = huecosDelUltimoOnce(j.season, fichas as unknown as Player[]);
+    if (!reparto.ultimo) return null;
+    return Object.fromEntries(Object.entries(reparto.huecos).filter(([, id]) => id));
   } catch {
     return null;
   }
@@ -82,34 +104,7 @@ function limpiaPerfil(perfil: PerfilColectivo | null): PerfilColectivo | null {
   return { ...perfil, fuertes: perfil.fuertes.filter(valeParaDestacar), flojos: perfil.flojos.filter(valeParaDestacar) };
 }
 
-/** La sigla de Wyscout en palabras de caseta (25/10/2026): «LCB» → «central izquierdo». Sin equivalencia, vacío. */
-const SIGLA_PUESTO: Record<string, string> = {
-  GK: "portero",
-  CB: "central",
-  LCB: "central izquierdo",
-  RCB: "central derecho",
-  LB: "lateral izquierdo",
-  RB: "lateral derecho",
-  LWB: "carrilero izquierdo",
-  RWB: "carrilero derecho",
-  DMF: "mediocentro defensivo",
-  LDMF: "mediocentro defensivo",
-  RDMF: "mediocentro defensivo",
-  CMF: "mediocentro",
-  LCMF: "interior izquierdo",
-  RCMF: "interior derecho",
-  AMF: "mediapunta",
-  LAMF: "mediapunta izquierdo",
-  RAMF: "mediapunta derecho",
-  LW: "extremo izquierdo",
-  RW: "extremo derecho",
-  LWF: "extremo izquierdo",
-  RWF: "extremo derecho",
-  CF: "delantero centro",
-  SS: "segundo delantero",
-};
-
-export const puestoEnPalabras = (sigla: string) => SIGLA_PUESTO[sigla.trim().toUpperCase()] ?? "";
+export { puestoEnPalabras };
 
 export async function duelosYVistazo(entrada: {
   rival: string;
@@ -139,6 +134,7 @@ export async function duelosYVistazo(entrada: {
       marcados: entrada.marcados,
       informe: entrada.informeRival,
       aMano: normalizaDuelos(manual),
+      baseNuestra: await baseNuestraDeValoraciones(entrada.fichas),
     });
     duelos = {
       fuenteSuya,
