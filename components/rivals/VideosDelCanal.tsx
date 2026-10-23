@@ -876,9 +876,9 @@ export function VideosDelCanal({
             </h2>
 
             <span className="text-[11px] text-white/35">
-              {jugadoresVisibles.length}{" "}
-              {jugadoresVisibles.length === 1 ? "jugador" : "jugadores"} con
-              vídeo
+              {!soloDe && plantilla.length >= grupos.jugadores.length && grupos.jugadores.length > 0
+                ? `${grupos.jugadores.length} de ${plantilla.length} con vídeo`
+                : `${jugadoresVisibles.length} ${jugadoresVisibles.length === 1 ? "jugador" : "jugadores"} con vídeo`}
             </span>
           </header>
 

@@ -302,6 +302,17 @@ export default function ScoutRivalCollective() {
     [valorDe]
   );
 
+  /* La primera línea de las tres conclusiones que más se buscan. */
+  const esencial = ["JUGADORES_CLAVE", "DEBILIDADES_INDIVIDUALES", "CLAVES_PARTIDO"].flatMap((campo) => {
+    const texto = valorDe(campo)
+      .split(/\r?\n/)
+      .map((l) => l.replace(/^[\s\-–•*·]+/, "").trim())
+      .find(Boolean);
+    const titulo = CONCLUSIONES.find((f) => f.campo === campo)?.titulo ?? "";
+
+    return texto ? [{ titulo, texto: texto.length > 180 ? `${texto.slice(0, 177).trimEnd()}…` : texto }] : [];
+  });
+
   /* ¿Se pinta esta sección? En lectura, sólo si algún campo tiene texto. */
   const seccionVisible = (id: string) => {
     if (modoEdicion) return true;
@@ -818,6 +829,22 @@ export default function ScoutRivalCollective() {
           )}
 
           <ColumnasPerdidas columnas={columnasPerdidas} />
+
+          {/* Lo esencial antes de recorrer las secciones: la primera línea de tres conclusiones (23/10/2026). */}
+          {!modoEdicion && rivalActivo && esencial.length > 0 && (
+            <section aria-label="Lo esencial del rival" className="mb-6 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-5 py-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Lo esencial, en tres ideas</p>
+              <ul className="mt-2 grid gap-3 md:grid-cols-3">
+                {esencial.map((e) => (
+                  <li key={e.titulo} className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">{e.titulo}</p>
+                    <p className="mt-0.5 text-sm leading-6 text-white/85">{e.texto}</p>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] text-white/40">Primera línea de cada conclusión; el detalle está abajo, en «Conclusiones».</p>
+            </section>
+          )}
 
           {modoEdicion && (
             <div

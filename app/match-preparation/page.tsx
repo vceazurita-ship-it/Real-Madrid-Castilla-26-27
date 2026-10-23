@@ -1801,6 +1801,26 @@ export default function MatchPreparation() {
             </p>
           </header>
 
+          {/* En una línea, lo que dicen los datos del cruce de onces; el detalle está en «Duelos» y en /duelos. */}
+          {duelosClave && !editando && (duelosClave.ventaja.length > 0 || duelosClave.riesgo.length > 0) && (
+            <div className="mp-no-print -mt-3 mb-5 flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] text-white/75">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">Los duelos, en una línea</span>
+              {duelosClave.ventaja[0] && (
+                <span className="min-w-0">
+                  <b className="text-emerald-300">Buscar:</b> {duelosClave.ventaja[0].titulo} ({duelosClave.ventaja[0].nuestros.join(" y ")}, +{duelosClave.ventaja[0].valor})
+                </span>
+              )}
+              {duelosClave.riesgo[0] && (
+                <span className="min-w-0">
+                  <b className="text-rose-300">Vigilar:</b> {duelosClave.riesgo[0].titulo} ({duelosClave.riesgo[0].suyos.join(" y ")}, {duelosClave.riesgo[0].valor > 0 ? "+" : ""}{duelosClave.riesgo[0].valor})
+                </span>
+              )}
+              <Link href="/duelos" className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
+                Ver todos los duelos
+              </Link>
+            </div>
+          )}
+
           {/* BARRA DE CONTROL */}
           <div className="mp-no-print sticky top-[81px] z-20 -mx-4 mb-6 border-b border-white/10 bg-[#0B0F14]/90 px-4 py-3 backdrop-blur-xl md:top-[97px] md:-mx-10 md:px-10">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
