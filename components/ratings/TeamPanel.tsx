@@ -40,7 +40,13 @@ import { formatMatchDateShort, matchLabel } from "@/lib/ratings/matches";
 import { lineaDe, type LineaKey } from "@/lib/ratings/pitch";
 import { Player } from "@/types/player";
 
-import { AXIS, ChartTooltip, GRID_STROKE } from "./charts";
+import {
+  AXIS,
+  CURSOR_BARRA,
+  CURSOR_LINEA,
+  ChartTooltip,
+  GRID_STROKE,
+} from "./charts";
 import {
   EmptyState,
   Panel,
@@ -76,6 +82,13 @@ const LINE_GROUPS: { key: LineaKey; label: string }[] = [
   { key: "med", label: "Medios" },
   { key: "del", label: "Ataque" },
 ];
+
+/** Partidos mínimos para que una media entre en el «mejor» y en el podio. */
+const MIN_FIABLE = 3;
+
+function plural(n: number, uno: string, varios: string) {
+  return `${n} ${n === 1 ? uno : varios}`;
+}
 
 function sortValue(entry: RankedPlayer, key: SortKey) {
   const { summary } = entry;
@@ -120,13 +133,31 @@ export function TeamPanel({
     );
   }, [matchSummaries]);
 
-  const best = sorted[0] ?? null;
+  /* Con menos de 3 partidos una media no dice nada: el «mejor» y el podio
+     cuentan sólo a quien tiene 3 o más (y la progresión, 4 o más). Si nadie
+     llega todavía, se usa a todos para no dejar el hueco vacío. */
+  const fiables = useMemo(() => {
+    const con3 = ranked.filter((entry) => entry.summary.played >= MIN_FIABLE);
 
-  const mostImproved = useMemo(
-    () =>
-      [...eligible].sort((a, b) => b.summary.trend - a.summary.trend)[0] ?? null,
-    [eligible]
+    return con3.length > 0 ? con3 : ranked;
+  }, [ranked]);
+
+  const bestSorted = useMemo(
+    () => [...fiables].sort((a, b) => b.summary.avg - a.summary.avg),
+    [fiables]
   );
+
+  const best = bestSorted[0] ?? null;
+
+  const mostImproved = useMemo(() => {
+    const con4 = ranked.filter((entry) => entry.summary.played >= MIN_FIABLE + 1);
+
+    return (
+      [...(con4.length > 0 ? con4 : ranked)].sort(
+        (a, b) => b.summary.trend - a.summary.trend
+      )[0] ?? null
+    );
+  }, [ranked]);
 
   const topScorer = useMemo(
     () =>
@@ -156,15 +187,12 @@ export function TeamPanel({
 
   const topChart = useMemo(
     () =>
-      [...eligible]
-        .sort((a, b) => b.summary.avg - a.summary.avg)
-        .slice(0, 8)
-        .map((entry) => ({
-          name: entry.player.apodo || entry.player.nombre,
-          value: entry.summary.avg,
-          played: entry.summary.played,
-        })),
-    [eligible]
+      bestSorted.slice(0, 8).map((entry) => ({
+        name: entry.player.apodo || entry.player.nombre,
+        value: entry.summary.avg,
+        played: entry.summary.played,
+      })),
+    [bestSorted]
   );
 
   const byLine = useMemo(() => {
@@ -213,7 +241,7 @@ export function TeamPanel({
           value={best ? best.player.apodo || best.player.nombre : "—"}
           hint={
             best
-              ? `${formatRating(best.summary.avg)} en ${best.summary.played} partidos`
+              ? `${formatRating(best.summary.avg)} en ${plural(best.summary.played, "partido", "partidos")}`
               : undefined
           }
           accent="var(--rmcf-gold-ink)"
@@ -227,7 +255,9 @@ export function TeamPanel({
               : "—"
           }
           hint={
-            mostImproved ? `${formatSigned(mostImproved.summary.trend)} últimas 3` : undefined
+            mostImproved
+              ? `${formatSigned(mostImproved.summary.trend)} en las últimas 3 · ${mostImproved.summary.played} PJ`
+              : undefined
           }
           accent="var(--rmcf-rate-good)"
         />
@@ -239,7 +269,7 @@ export function TeamPanel({
           }
           hint={
             topScorer
-              ? `${topScorer.summary.goals} goles · ${topScorer.summary.assists} asistencias`
+              ? `${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")}`
               : undefined
           }
           accent="var(--rmcf-rate-top)"
@@ -268,7 +298,12 @@ export function TeamPanel({
           <EmptyState title="Sin partidos valorados" />
         ) : (
           <div className="h-[260px] w-full min-w-0">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minHeight={160}
+                initialDimension={{ width: 320, height: 190 }}
+              >
               <ComposedChart
                 data={evolution}
                 margin={{ top: 10, right: 10, bottom: 0, left: -18 }}
@@ -301,12 +336,13 @@ export function TeamPanel({
 
                 <ReferenceLine
                   y={teamAverage}
-                  stroke="rgba(255,255,255,0.25)"
+                  stroke="rgb(var(--rmcf-ink-rgb) / 0.35)"
+                  style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.35)" }}
                   strokeDasharray="4 4"
                 />
 
                 <Tooltip
-                  cursor={{ stroke: "rgba(255,255,255,0.15)" }}
+                  cursor={CURSOR_LINEA}
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
 
@@ -336,6 +372,7 @@ export function TeamPanel({
                   dataKey="avg"
                   stroke="none"
                   fill="url(#teamAvgFill)"
+                  isAnimationActive={false}
                 />
 
                 <Line
@@ -345,6 +382,7 @@ export function TeamPanel({
                   strokeWidth={2.5}
                   dot={{ r: 3.5, fill: "#C8A96B", strokeWidth: 0 }}
                   activeDot={{ r: 5.5 }}
+                  isAnimationActive={false}
                 />
               </ComposedChart>
             </ResponsiveContainer>
@@ -357,7 +395,7 @@ export function TeamPanel({
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Panel
           title="Top valoraciones"
-          subtitle={`Jugadores con ${minMatches}+ partidos`}
+          subtitle={`Jugadores con ${MIN_FIABLE}+ partidos`}
           lectura={
             <LecturaGrafico
               ranking={topChart.map((punto) => ({
@@ -377,7 +415,12 @@ export function TeamPanel({
               className="w-full min-w-0"
               style={{ height: Math.max(200, topChart.length * 38 + 20) }}
             >
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minHeight={160}
+                initialDimension={{ width: 320, height: 190 }}
+              >
                 <BarChart
                   data={topChart}
                   layout="vertical"
@@ -403,7 +446,7 @@ export function TeamPanel({
                   />
 
                   <Tooltip
-                    cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                    cursor={CURSOR_BARRA}
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null;
 
@@ -425,7 +468,7 @@ export function TeamPanel({
                     }}
                   />
 
-                  <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={18}>
+                  <Bar dataKey="value" isAnimationActive={false} radius={[0, 8, 8, 0]} barSize={18}>
                     {topChart.map((point) => (
                       <Cell key={point.name} fill={ratingColorHex(point.value)} />
                     ))}
@@ -455,7 +498,12 @@ export function TeamPanel({
               <EmptyState title="Sin datos" />
             ) : (
               <div className="h-[190px] w-full min-w-0">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer
+                width="100%"
+                height="100%"
+                minHeight={160}
+                initialDimension={{ width: 320, height: 190 }}
+              >
                   <BarChart
                     data={byLine}
                     margin={{ top: 10, right: 6, bottom: 0, left: -22 }}
@@ -480,7 +528,7 @@ export function TeamPanel({
                     />
 
                     <Tooltip
-                      cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                      cursor={CURSOR_BARRA}
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
 
@@ -502,7 +550,7 @@ export function TeamPanel({
                       }}
                     />
 
-                    <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={34}>
+                    <Bar dataKey="value" isAnimationActive={false} radius={[8, 8, 0, 0]} barSize={34}>
                       {byLine.map((point) => (
                         <Cell key={point.name} fill={ratingColorHex(point.value)} />
                       ))}
@@ -515,7 +563,7 @@ export function TeamPanel({
 
           <Panel title="Podio de la temporada" icon={Crown}>
             <ol className="min-w-0 space-y-2">
-              {sorted.slice(0, 3).map((entry, index) => (
+              {bestSorted.slice(0, 3).map((entry, index) => (
                 <li
                   key={entry.player.id}
                   className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-[#0B0F14] px-3 py-2"
@@ -555,11 +603,6 @@ export function TeamPanel({
                 </li>
               ))}
 
-              {sorted.length === 0 && (
-                <li className="py-6 text-center text-xs text-white/35">
-                  Sin jugadores con ese mínimo de partidos
-                </li>
-              )}
             </ol>
           </Panel>
         </div>
