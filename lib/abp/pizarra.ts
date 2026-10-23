@@ -2048,6 +2048,13 @@ export const CONSIGNAS_MAX = 3;
  * posta). «1ª» pasa a «1.ª», como se escribe el ordinal.
  */
 export function normalizaConsigna(texto: string) {
+  const base = normalizaConsignaBase(texto);
+
+  /* Primera letra en mayúscula, sin tocar nada más del texto. */
+  return base.charAt(0).toLocaleUpperCase("es-ES") + base.slice(1);
+}
+
+function normalizaConsignaBase(texto: string) {
   const limpio = texto.trim().replace(/(\d)([ªº])/g, "$1.$2");
 
   const letras = limpio.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
@@ -2134,7 +2141,13 @@ export function lineasConsignas(notas: string[]): LineaConsigna[] {
 export function avisosConsignas(notas: string[]) {
   const lineas = lineasConsignas(notas).filter((linea) => linea.tipo === "consigna");
 
-  const largas = lineas.filter((linea) => linea.texto.length > CONSIGNA_LARGA).length;
+  const largasLineas = lineas.filter((linea) => linea.texto.length > CONSIGNA_LARGA);
+  const largas = largasLineas.length;
+
+  /* Cuáles son, por el arranque de cada una. */
+  const cuales = largasLineas
+    .map((linea) => `«${linea.texto.slice(0, 24).trimEnd()}…»`)
+    .join(", ");
 
   const avisos: string[] = [];
 
@@ -2147,8 +2160,8 @@ export function avisosConsignas(notas: string[]) {
   if (largas > 0) {
     avisos.push(
       largas === 1
-        ? `Una consigna pasa de ${CONSIGNA_LARGA} caracteres: córtala en dos o resúmela.`
-        : `${largas} consignas pasan de ${CONSIGNA_LARGA} caracteres: córtalas o resúmelas.`,
+        ? `Una consigna pasa de ${CONSIGNA_LARGA} caracteres (${cuales}): córtala en dos o resúmela.`
+        : `${largas} consignas pasan de ${CONSIGNA_LARGA} caracteres (${cuales}): córtalas o resúmelas.`,
     );
   }
 
