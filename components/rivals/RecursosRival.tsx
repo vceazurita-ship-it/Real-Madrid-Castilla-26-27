@@ -199,7 +199,7 @@ function FilaRecurso({
           />
         ) : (
           <p className="mt-0.5 min-w-0 truncate text-[11px] text-white/35">
-            {url || "Sin enlace"}
+            {url}
           </p>
         )}
       </div>
@@ -309,6 +309,10 @@ function BloqueRecursos({
   };
 
   const total = items.length + fijos.filter((f) => f.url.trim()).length;
+
+  /* En lectura, lo que no tiene nada no se pinta (ni «0», ni «Todavía no
+     hay…», ni filas sin enlace). */
+  if (!editando && total === 0) return null;
 
   return (
     <div className="min-w-0">
@@ -428,7 +432,9 @@ function BloqueRecursos({
             : ""
         }`}
       >
-        {fijos.map((fijo) => (
+        {fijos
+          .filter((fijo) => editando || fijo.url.trim())
+          .map((fijo) => (
           <FilaRecurso
             key={fijo.campo}
             nombre={fijo.nombre}
@@ -681,8 +687,16 @@ export function RecursosRival({
     />
   );
 
+  const hayAlgo =
+    doc.videos.length + doc.docs.length > 0 ||
+    fijos.some((fijo) => fijo.url.trim());
+
   return (
-    <div className="min-w-0 space-y-6">
+    <div
+      className="min-w-0 space-y-6"
+      /* Marca para que el marco de fuera se esconda si no hay nada que leer. */
+      {...(editando || hayAlgo ? { "data-recursos-con-datos": "" } : {})}
+    >
       {localOnly && (
         <p
           data-export-hide
