@@ -2002,7 +2002,7 @@ export function TableroSlide({
               <p
                 className="shrink-0 text-[15px] font-bold uppercase leading-none tracking-[0.3em]"
                 style={{
-                  color: COLORES.oro,
+                  color: COLORES.oroTinta,
                   writingMode: "vertical-rl",
                   transform: "rotate(180deg)",
                 }}
@@ -2029,7 +2029,7 @@ export function TableroSlide({
                     >
                       <span
                         className="mr-2.5 font-bold uppercase tracking-[0.12em]"
-                        style={{ color: COLORES.oro, fontSize: letra.rotulo }}
+                        style={{ color: COLORES.oroTinta, fontSize: letra.rotulo }}
                       >
                         {linea.rotulo}
                       </span>
@@ -2040,7 +2040,7 @@ export function TableroSlide({
                     <p
                       key={`${indice}-${linea.texto}`}
                       className="mb-1.5 mt-0.5 font-bold leading-tight tracking-[0.02em]"
-                      style={{ color: COLORES.oro, breakInside: "avoid", breakAfter: "avoid", fontSize: letra.sub }}
+                      style={{ color: COLORES.oroTinta, breakInside: "avoid", breakAfter: "avoid", fontSize: letra.sub }}
                     >
                       {linea.texto}
                     </p>

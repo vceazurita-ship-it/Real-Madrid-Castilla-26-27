@@ -428,10 +428,17 @@ export default function PizarraAbpPage() {
     */
     if (cargando || partidos.length === 0) return "";
 
+    /* Lo primero que se ve es lo que hay que preparar: el próximo partido del
+       calendario. Abrir el último ya jugado dejaba la semana del Algeciras con
+       el Antequera delante. Desde ahí, «Rehacer desde» trae el de antes. */
+    const proximo = partidos.find((item) => item.date && item.date >= hoy);
+
+    if (proximo) return proximo.id;
+
     const conTablero = partidos.filter((item) => store.tableros?.[item.id]);
 
-    /* El último **tocado**, que es a lo que se vuelve; no el último del
-       calendario, que es otra cosa y era lo que se estaba abriendo. */
+    /* Sin partido por delante, el último **tocado**, que es a lo que se
+       vuelve; no el último del calendario, que es otra cosa. */
     if (conTablero.length) {
       return conTablero.reduce((ultimo, item) =>
         tocadoEn(store.tableros?.[item.id]) >
@@ -3186,7 +3193,7 @@ function ControlDeGazapos({
         </p>
       ) : limpio ? (
         <p className="text-xs leading-relaxed text-emerald-300/80">
-          Cuadra: los mismos {revision.total} jugadores están en las{" "}
+          Cuadra: nadie falta donde cabe, con {revision.total} jugadores repartidos por las{" "}
           {revision.slidesConGente} diapositivas montadas.
         </p>
       ) : (
