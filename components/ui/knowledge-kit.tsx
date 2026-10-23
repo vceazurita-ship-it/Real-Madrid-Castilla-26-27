@@ -314,8 +314,8 @@ export function NavButton({
       onClick={onClick}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "group flex w-full shrink-0 snap-start items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-all",
-        "min-w-[150px] lg:min-w-0",
+        "group flex w-auto max-w-[75%] shrink-0 snap-start items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left transition-all",
+        "min-w-[150px] lg:w-full lg:min-w-0 lg:max-w-none",
         focusRing,
         active
           ? "bg-[#C8A96B] text-black shadow-[0_8px_24px_-12px_rgba(200,169,107,0.9)]"

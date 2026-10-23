@@ -70,6 +70,10 @@ const primerBloque = (rows: Principio[], fase: string) =>
 const primerApartado = (rows: Principio[], fase: string, bloque: string) =>
   rows.find((r) => r?.FASE === fase && r?.BLOQUE === bloque)?.APARTADO ?? "";
 
+const RE_CLAVE = /\s*CLAVE\.?\s*$/i;
+const esClave = (t: string) => RE_CLAVE.test(t);
+const quitaClave = (t: string) => t.replace(RE_CLAVE, "").trim();
+
 export default function GameModelPage() {
   const [data, setData] = useState<Principio[]>([]);
   const [originalData, setOriginalData] = useState<Principio[]>([]);
@@ -249,6 +253,25 @@ export default function GameModelPage() {
   );
 
   const filtrando = !editing && query.trim() !== "";
+
+  /** «Genérico» (o un apartado que repite el bloque) no es un titular: se usa fase y bloque. */
+  const titular = (() => {
+    const norm = (t: string) =>
+      t
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .trim()
+        .toLowerCase();
+    const generico =
+      norm(apartado) === "generico" || norm(apartado) === norm(bloque);
+
+    if (!generico || !bloque) return apartado;
+
+    return [fase, bloque].filter(Boolean).join(" · ");
+  })();
+
+  /** Principios marcados «CLAVE» en la hoja: lo que no se negocia. */
+  const claves = principios.filter((p) => esClave(p.PRINCIPIO));
 
   /* ------------------------------------------------------------ navegación */
 
@@ -569,6 +592,8 @@ export default function GameModelPage() {
                   (r) => r.FASE === fase && r.BLOQUE === b,
                 ).length;
 
+                if (!editing && !filtrando && total === 0) return null;
+
                 return (
                   <NavButton
                     key={b}
@@ -613,7 +638,7 @@ export default function GameModelPage() {
                         onClick={() => seleccionarApartado(a)}
                         aria-current={activo ? "true" : undefined}
                         className={cn(
-                          "flex w-full min-w-[150px] shrink-0 snap-start items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-left text-sm transition-all lg:min-w-0",
+                          "flex w-auto min-w-[150px] max-w-[75%] shrink-0 snap-start items-center justify-between gap-3 rounded-xl border px-4 py-2.5 text-left text-sm transition-all lg:w-full lg:min-w-0 lg:max-w-none",
                           focusRing,
                           activo
                             ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
@@ -646,7 +671,7 @@ export default function GameModelPage() {
                   aria-label="Ubicación"
                   className="flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.24em]"
                 >
-                  <span className="text-[#C8A96B]">{fase || "—"}</span>
+                  {fase && <span className="text-[#C8A96B]">{fase}</span>}
 
                   {bloque && (
                     <>
@@ -659,7 +684,7 @@ export default function GameModelPage() {
                 </nav>
 
                 <h1 className="mt-3 break-words text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">
-                  {apartado || "—"}
+                  {titular}
                 </h1>
 
                 {!loading && !error && (
@@ -706,11 +731,29 @@ export default function GameModelPage() {
                   />
                 )
               ) : (
+                <>
+                {!editing &&
+                  claves.length > 0 &&
+                  claves.length < principios.length && (
+                    <p className="mb-3 text-sm text-gray-400">
+                      <span className="font-semibold text-[#C8A96B]">
+                        Lo que no se negocia:
+                      </span>{" "}
+                      {claves
+                        .map((p) => quitaClave(p.PRINCIPIO).replace(/[.\s]+$/, ""))
+                        .join(" · ")}
+                    </p>
+                  )}
                 <ul className="space-y-3">
                   {principios.map((p) => (
                     <li
                       key={p.ID}
-                      className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition-colors hover:border-[#C8A96B]/30 hover:bg-white/[0.05] lg:p-5"
+                      className={cn(
+                        "rounded-2xl border bg-white/[0.03] p-4 transition-colors hover:border-[#C8A96B]/30 hover:bg-white/[0.05] lg:p-5",
+                        !editing && esClave(p.PRINCIPIO)
+                          ? "border-[#C8A96B]/50"
+                          : "border-white/10",
+                      )}
                     >
                       <div className="flex min-w-0 items-start gap-3 lg:gap-4">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#C8A96B] text-xs font-bold tabular-nums text-black lg:h-10 lg:w-10 lg:text-sm">
@@ -737,7 +780,15 @@ export default function GameModelPage() {
                             </>
                           ) : (
                             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white lg:text-base">
-                              <Highlight text={p.PRINCIPIO} query={query} />
+                              <Highlight
+                                text={quitaClave(p.PRINCIPIO)}
+                                query={query}
+                              />
+                              {esClave(p.PRINCIPIO) && (
+                                <span className="ml-2 inline-block rounded-md bg-[#C8A96B] px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-widest text-black">
+                                  Clave
+                                </span>
+                              )}
                             </p>
                           )}
                         </div>
@@ -745,6 +796,7 @@ export default function GameModelPage() {
                     </li>
                   ))}
                 </ul>
+                </>
               )}
             </div>
 
