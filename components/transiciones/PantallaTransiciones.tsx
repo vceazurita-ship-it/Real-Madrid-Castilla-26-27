@@ -66,6 +66,8 @@ import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
 import {
   ComparativaPartido,
   formatoPorcentaje,
+  formatoPuntos,
+  numeroCorto,
   mediaPorPartido,
   porcentajeAgregado,
   porcentajeDe,
@@ -141,9 +143,10 @@ type Textos = {
     rotuloSalida: string;
   };
   conclusiones: {
-    adelante: (pct: number) => string;
-    zona: (zona: string, pct: number, pctAdelante: number) => string;
-    acaba: (llegan: number, pierden: number) => string;
+    adelante: (pct: number, n: number, de: number) => string;
+    /** `juegan`: los de esa zona que se juegan con pase o conducción; `adelante`, los que salen hacia delante. */
+    zona: (zona: string, n: number, total: number, adelante: number, juegan: number) => string;
+    acaba: (llegan: number, pierden: number, de: number) => string;
     dura: (s: string) => string;
   };
   dudosos: string;
@@ -198,9 +201,10 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
       rotuloSalida: "Salida",
     },
     conclusiones: {
-      adelante: (pct) => `El ${pct} % sale hacia delante tras robar.`,
-      zona: (zona, pct, pctAdelante) => `Más robos en ${zona} (${pct} %); ${pctAdelante} % salen adelante.`,
-      acaba: (llegan, pierden) => `${llegan} % acaba en remate o área; ${pierden} % en pérdida.`,
+      adelante: (pct, n, de) => `El ${pct} % sale hacia delante tras robar (${n} de ${de}).`,
+      zona: (zona, n, total, adelante, juegan) =>
+        `Más robos en ${zona} (${n} de ${total}); de los ${juegan} que se juegan, ${adelante} salen hacia delante.`,
+      acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % acaba en remate o área y ${pierden} % en pérdida.`,
       dura: (s) => `La transición dura ${s} s de media.`,
     },
     dudosos:
@@ -258,9 +262,10 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
       rotuloSalida: "Su salida",
     },
     conclusiones: {
-      adelante: (pct) => `El rival sale hacia delante en el ${pct} % de las pérdidas que llega a jugar.`,
-      zona: (zona, pct, pctAdelante) => `Más pérdidas en ${zona} (${pct} %); en el ${pctAdelante} % el rival sale adelante.`,
-      acaba: (llegan, pierden) => `${llegan} % nos llegan al área o al remate; ${pierden} % las recuperamos.`,
+      adelante: (pct, n, de) => `El rival sale hacia delante en el ${pct} % de las pérdidas que llega a jugar (${n} de ${de}).`,
+      zona: (zona, n, total, adelante, juegan) =>
+        `Más pérdidas en ${zona} (${n} de ${total}); de las ${juegan} que el rival juega, sale hacia delante en ${adelante}.`,
+      acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % nos llegan al área o al remate y ${pierden} % las recuperamos.`,
       dura: (s) => `Su transición dura ${s} s de media.`,
     },
     dudosos:
@@ -451,7 +456,8 @@ function Cifra({
   valor,
   rotulo,
   pie,
-  color = ORO,
+  /* El oro como texto baja de luz en modo día (2,25 de contraste con el dorado claro). */
+  color = "var(--rmcf-gold-ink)",
   icono: Icono,
   onClick,
   activo = false,
@@ -939,6 +945,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         actual: porcentajeDe(actuales, (f) => adelante(jugadas(f)), (f) => jugadas(f).length),
         media: porcentajeAgregado(anteriores, (f) => adelante(jugadas(f)), (f) => jugadas(f).length),
         formato: formatoPorcentaje,
+        formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? true : false,
         pie: "de las que se juegan con pase o conducción",
       },
@@ -948,6 +955,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         actual: porcentajeDe(actuales, (f) => llegan(seguidas(f)), (f) => seguidas(f).length),
         media: porcentajeAgregado(anteriores, (f) => llegan(seguidas(f)), (f) => seguidas(f).length),
         formato: formatoPorcentaje,
+        formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? true : false,
         pie: "de las que tienen desenlace anotado",
       },
@@ -957,6 +965,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         actual: porcentajeDe(actuales, (f) => cortas(seguidas(f)), (f) => seguidas(f).length),
         media: porcentajeAgregado(anteriores, (f) => cortas(seguidas(f)), (f) => seguidas(f).length),
         formato: formatoPorcentaje,
+        formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? false : true,
       },
       {
@@ -1049,21 +1058,25 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     );
     const haciaDelante = salen.filter((r) => r.accion === "ADELANTE").length;
 
-    if (salen.length) frases.push(T.conclusiones.adelante(pct(haciaDelante, salen.length)));
+    if (salen.length) {
+      frases.push(T.conclusiones.adelante(pct(haciaDelante, salen.length), haciaDelante, salen.length));
+    }
 
     const zonas = ZONAS.map((z) => {
       const dentro = robos.filter((r) => zonaDe(r) === z);
       return {
         zona: z,
         total: dentro.length,
+        juegan: dentro.filter((r) => r.accion === "ADELANTE" || r.accion === "HORIZONTAL_ATRAS").length,
         adelante: dentro.filter((r) => r.accion === "ADELANTE").length,
       };
     }).sort((a, b) => b.total - a.total);
 
     const top = zonas[0];
 
+    /* Una sola base por cifra: los que salen adelante se cuentan sobre los que se juegan, como en la tabla. */
     if (top && top.total > 0) {
-      frases.push(T.conclusiones.zona(top.zona, pct(top.total, total), pct(top.adelante, top.total)));
+      frases.push(T.conclusiones.zona(top.zona, top.total, total, top.adelante, top.juegan));
     }
 
     const seguidas = robos.filter((r) => r.desenlace);
@@ -1076,7 +1089,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         modo === "robos" ? r.desenlace === "PERDIDA" : r.desenlace === "RECUPERAMOS",
       ).length;
 
-      frases.push(T.conclusiones.acaba(pct(llegan, seguidas.length), pct(pierden, seguidas.length)));
+      frases.push(T.conclusiones.acaba(pct(llegan, seguidas.length), pct(pierden, seguidas.length), seguidas.length));
 
       const tiempos = seguidas
         .map((r) => r.duracion)
@@ -1089,6 +1102,59 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     return frases;
   }, [robos, filtros, T, modo]);
+
+  /*
+  | Qué toca en la semana: la cifra que más se aleja de la media de los
+  | anteriores *hacia lo malo*, con la tarea que le corresponde y el atajo a
+  | las acciones concretas en «Robo a robo». Sin media, o si nada empeora,
+  | no se dice nada.
+  */
+  const queToca = useMemo(() => {
+    if (!comparativa) return null;
+
+    const TAREA: Record<string, { tarea: string; filtro: [string, string][] }> =
+      modo === "robos"
+        ? {
+            total: { tarea: "recuperación del balón", filtro: [] },
+            adelante: { tarea: "primera salida tras el robo", filtro: [["accion", "HORIZONTAL_ATRAS"]] },
+            llegan: { tarea: "acabar las transiciones en remate o área", filtro: [["accion", "ADELANTE"]] },
+            cortas: { tarea: "cuidar el balón recién robado", filtro: [["desenlace", "PERDIDA"]] },
+            campo: { tarea: "presión tras pérdida", filtro: [["zona", "campo rival"]] },
+          }
+        : {
+            total: { tarea: "seguridad con balón", filtro: [] },
+            adelante: { tarea: "contrapresión tras la pérdida", filtro: [["accion", "ADELANTE"]] },
+            llegan: { tarea: "protección del área tras pérdida", filtro: [["desenlace", "REMATE"], ["desenlace", "AREA"]] },
+            cortas: { tarea: "recuperación inmediata", filtro: [["accion", "RECUPERAMOS"]] },
+            campo: { tarea: "salida de balón desde campo propio", filtro: [["zona", "campo propio"]] },
+          };
+
+    let peor: { m: MetricaComparada; peso: number } | null = null;
+
+    for (const m of comparativa.metricas) {
+      if (m.mejorAlto !== true && m.mejorAlto !== false) continue;
+      if (m.actual === null || m.media === null || !TAREA[m.clave]) continue;
+
+      const d = m.actual - m.media;
+
+      if (Math.abs(d) < 0.05 || (d > 0) === m.mejorAlto) continue;
+
+      const peso = Math.abs(d) / Math.max(Math.abs(m.media), 1);
+
+      if (!peor || peso > peor.peso) peor = { m, peso };
+    }
+
+    if (!peor) return null;
+
+    const m = peor.m;
+    const formato = m.formato ?? numeroCorto;
+    const { tarea, filtro } = TAREA[m.clave];
+
+    return {
+      texto: `${m.nombre}: ${formato(m.actual!)} frente a ${formato(m.media!)} de media → tarea de ${tarea}.`,
+      filtro,
+    };
+  }, [comparativa, modo]);
 
   /* ------------------------------------------------------------------ */
   /*  Por jugador                                                        */
@@ -1162,7 +1228,18 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
           <Topbar />
 
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
-            <AbpHeader area="RMCF Castilla · Análisis del partido" title={T.titulo} />
+            <AbpHeader
+              area="RMCF Castilla · Análisis del partido"
+              title={T.titulo}
+              lead={
+                modo === "perdidas" ? (
+                  <p className="mt-2 max-w-2xl text-sm text-white/55">
+                    Pérdidas etiquetadas en vídeo, partido a partido: no son las pérdidas por partido de
+                    Wyscout que salen en Data Análisis, que cuentan con otro criterio.
+                  </p>
+                ) : undefined
+              }
+            />
 
             {/* ---------------- mandos ---------------- */}
 
@@ -1276,7 +1353,21 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               />
             )}
 
-            <Conclusiones items={conclusiones} className="mt-5" />
+            <Conclusiones items={[...conclusiones, queToca?.texto]} className="mt-5" />
+
+            {queToca ? (
+              <button
+                type="button"
+                onClick={() => {
+                  limpia();
+                  if (queToca.filtro.length) alternaVarios(queToca.filtro);
+                  setVista("lista");
+                }}
+                className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-white/75 transition hover:border-[#C8A96B]/40"
+              >
+                {modo === "robos" ? "Ver esos robos, uno a uno" : "Ver esas pérdidas, una a una"}
+              </button>
+            ) : null}
 
             {/* ---------------- cifras ---------------- */}
 
@@ -1313,11 +1404,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               <Cifra
                 valor={`${duracionMedia} s`}
                 rotulo={T.cifras.duracion}
-                pie={
-                  conDesenlace.length
-                    ? T.cifras.llegan(llegadas, conDesenlace.length)
-                    : "sin datos de desenlace todavía"
-                }
+                pie={conDesenlace.length ? T.cifras.llegan(llegadas, conDesenlace.length) : undefined}
                 icono={Timer}
               />
             </div>

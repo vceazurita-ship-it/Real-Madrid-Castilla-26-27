@@ -440,9 +440,29 @@ export default function FaltasPage() {
     }
 
     if (defensores) {
-      frases.push(
-        `${decimal(defensores.media)} defensores por delante de media (de ${defensores.minimo} a ${defensores.maximo}).`,
-      );
+      /*
+      | La tabla de comparación cuenta sólo las faltas a favor; esta frase
+      | decía la media de todas y las dos cifras no cuadraban. Con las dos
+      | caras a la vista se dan por separado.
+      */
+      const mediaDe = (lado: "ofensivo" | "defensivo") => {
+        const con = faltas.filter((f) => f.lado === lado && f.entre !== null).map((f) => f.entre as number);
+
+        return con.length ? con.reduce((a, b) => a + b, 0) / con.length : null;
+      };
+
+      const favor = mediaDe("ofensivo");
+      const contra = mediaDe("defensivo");
+
+      if (filtro === "todas" && favor !== null && contra !== null) {
+        frases.push(
+          `Defensores por delante de media: ${decimal(favor)} en las faltas a favor y ${decimal(contra)} en las que hacemos.`,
+        );
+      } else {
+        frases.push(
+          `${decimal(defensores.media)} defensores por delante de media${filtro === "ofensivo" ? " en las faltas a favor" : filtro === "defensivo" ? " en las faltas en contra" : ""} (de ${defensores.minimo} a ${defensores.maximo}).`,
+        );
+      }
     }
 
     frases.push(
@@ -483,14 +503,22 @@ export default function FaltasPage() {
       condicion: (f: Falta) => boolean,
       mejorAlto: boolean | null,
       pie?: string,
-    ): MetricaComparada => ({
-      clave,
-      nombre,
-      actual: cuenta(condicion)(partido.faltas),
-      media: mediaPorPartido(anteriores, cuenta(condicion)),
-      mejorAlto,
-      pie,
-    });
+    ): MetricaComparada => {
+      const actual = cuenta(condicion)(partido.faltas);
+      const media = mediaPorPartido(anteriores, cuenta(condicion));
+
+      /* Con 0–2 faltas una diferencia de una no es tendencia: no se juzga y se avisa. */
+      const pocas = Math.max(actual, media ?? 0) <= 2;
+
+      return {
+        clave,
+        nombre,
+        actual,
+        media,
+        mejorAlto: pocas ? null : mejorAlto,
+        pie: pocas ? (pie ? `${pie} · muestra pequeña` : "muestra pequeña") : pie,
+      };
+    };
 
     const metricas: MetricaComparada[] = [
       metrica("favor", "Faltas a favor", aFavor, null),
@@ -701,7 +729,10 @@ export default function FaltasPage() {
                     : `${partido.rival} · RM Castilla`}
                 </span>
 
-                <span className="rounded-lg border border-white/10 bg-black/55 px-2 py-0.5 font-mono text-[12px] tabular-nums text-white/90">
+                <span
+                  className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-0.5 font-mono text-[12px] tabular-nums"
+                  style={{ color: "rgb(var(--rmcf-ink-rgb) / .9)" }}
+                >
                   {partido.resultado}
                 </span>
 

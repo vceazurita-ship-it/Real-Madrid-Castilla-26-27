@@ -38,6 +38,8 @@ export type MetricaComparada = {
   media: number | null;
   /** Cómo se escribe el número: por defecto, entero o con un decimal. */
   formato?: (n: number) => string;
+  /** Cómo se escribe la diferencia: en un porcentaje es «puntos», no «%». */
+  formatoDiferencia?: (n: number) => string;
   /** `true`: más es mejor; `false`: menos es mejor; `null`/sin poner: no se juzga. */
   mejorAlto?: boolean | null;
   /** Una línea de contexto: «de 23 saques», «remates y goles». */
@@ -162,7 +164,7 @@ export function ComparativaPartido({
                   </span>
 
                   <span className="text-right text-sm font-semibold tabular-nums" style={{ color: colorDiferencia }}>
-                    {d === null ? "—" : diferencia(m.actual!, m.media!, formato)}
+                    {d === null ? "—" : diferencia(m.actual!, m.media!, m.formatoDiferencia ?? formato)}
                   </span>
                 </li>
               );
@@ -224,3 +226,6 @@ export function porcentajeDe<T>(filas: T[], numerador: (filas: T[]) => number, d
 
 /** «37 %», para las métricas en porcentaje. */
 export const formatoPorcentaje = (n: number) => `${Math.round(n)} %`;
+
+/** «5 puntos»: la diferencia entre dos porcentajes. */
+export const formatoPuntos = (n: number) => `${Math.round(n)} ${Math.round(n) === 1 ? "punto" : "puntos"}`;
