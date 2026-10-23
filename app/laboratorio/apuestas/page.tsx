@@ -96,6 +96,28 @@ export default function ApuestasPage() {
 
   const tabla = useMemo(() => marcador(doc.apuestas), [doc]);
 
+  /* El titular es el dato: cuántas hay abiertas y cuándo se comprueba la
+     primera. Sin apuestas, la descripción de siempre. */
+  const titular =
+    vivas.length > 0
+      ? `${vivas.length === 1 ? "Una apuesta abierta" : `${vivas.length} apuestas abiertas`} · próxima comprobación el ${fechaLarga(vivas[0].comprobar)}`
+      : "Uno tira una predicción y dice qué se juega. Los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón.";
+
+  /* Quien no ha entrado lee primero lo que hay; el acceso baja debajo de la
+     lista. Sin nada que leer, el acceso sigue arriba como invitación. */
+  const accesoAbajo = !yo && !sesion.cargando && estado === "listo" && doc.apuestas.length > 0;
+
+  const acceso = (
+    <div className="mt-5">
+      <Acceso
+        yo={sesion.yo}
+        cargando={sesion.cargando}
+        manda={sesion.manda}
+        subtitulo="Entra con tu cuenta de la quiniela"
+      />
+    </div>
+  );
+
   const pide = async (cuerpo: Record<string, unknown>, exito: string) => {
     try {
       await guarda(cuerpo);
@@ -118,7 +140,7 @@ export default function ApuestasPage() {
             <AbpHeader
               area="RMCF Castilla · Laboratorio"
               title="Apuestas del staff"
-              lead="Uno tira una predicción y dice qué se juega. Los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón."
+              lead={titular}
             />
 
             {/* ------------------------ CÓMO FUNCIONA ------------------ */}
@@ -144,14 +166,7 @@ export default function ApuestasPage() {
 
             {/* ------------------------ QUIÉN ERES --------------------- */}
 
-            <div className="mt-5">
-              <Acceso
-                yo={sesion.yo}
-                cargando={sesion.cargando}
-                manda={sesion.manda}
-                subtitulo="Entra con tu cuenta de la quiniela"
-              />
-            </div>
+            {!accesoAbajo && acceso}
 
             {/* ------------------------ LANZAR UNA --------------------- */}
 
@@ -281,6 +296,8 @@ export default function ApuestasPage() {
               </Panel>
             </div>
             )}
+
+            {accesoAbajo && acceso}
           </div>
         </section>
       </div>
@@ -289,7 +306,7 @@ export default function ApuestasPage() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  LANZAR                                                             */
+/*  LANZAR                                                            */
 /* ------------------------------------------------------------------ */
 
 function Lanzar({ guarda, hoy, ocupado }: { guarda: Guarda; hoy: string; ocupado: boolean }) {
