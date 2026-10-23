@@ -14,9 +14,8 @@
  * reglas están en `lib/apuestas/modelo.ts` y las aplica el servidor en
  * `/api/apuestas/guardar`; aquí sólo se enseña y se pide.
  *
- * Está en obras porque es lo primero que se lanza con esta forma: si el staff
- * pide otra cosa —puntos, apuestas con cuota, varias comprobaciones— se
- * cambia aquí sin tocar la quiniela.
+ * Si el staff pide otra cosa —puntos, apuestas con cuota, varias
+ * comprobaciones— se cambia aquí sin tocar la quiniela.
  */
 
 import { useMemo, useState } from "react";
@@ -24,7 +23,6 @@ import {
   CalendarCheck,
   Check,
   Dices,
-  HardHat,
   ListOrdered,
   Megaphone,
   ThumbsDown,
@@ -35,7 +33,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { AbpHeader, Button, EmptyState, Field, Notice, Panel, TextArea } from "@/components/abp/ui";
+import { AbpHeader, Button, Field, Notice, Panel, TextArea } from "@/components/abp/ui";
 import { Acceso } from "@/components/quiniela/Acceso";
 import { Avatar } from "@/components/quiniela/Avatar";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -118,16 +116,31 @@ export default function ApuestasPage() {
 
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
-              area="RMCF Castilla · En obras"
+              area="RMCF Castilla · Laboratorio"
               title="Apuestas del staff"
               lead="Uno tira una predicción y dice qué se juega. Los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón."
-              aside={
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
-                  <HardHat size={12} />
-                  En obras
-                </span>
-              }
             />
+
+            {/* ------------------------ CÓMO FUNCIONA ------------------ */}
+
+            <div className="mt-5">
+              <Notice tone="info" title="Cómo funciona">
+                <ol className="list-decimal space-y-1 pl-4">
+                  <li>
+                    Uno lanza una predicción, dice qué se juega y pone el día en
+                    que se comprueba.
+                  </li>
+                  <li>
+                    Los demás se ponen a favor o en contra, y pueden cambiar de
+                    bando hasta el día antes.
+                  </li>
+                  <li>
+                    Ese día cualquiera que haya entrado da el veredicto. Quien
+                    lanza sólo puede retirarla mientras nadie se haya mojado.
+                  </li>
+                </ol>
+              </Notice>
+            </div>
 
             {/* ------------------------ QUIÉN ERES --------------------- */}
 
@@ -136,7 +149,7 @@ export default function ApuestasPage() {
                 yo={sesion.yo}
                 cargando={sesion.cargando}
                 manda={sesion.manda}
-                subtitulo="Las mismas cuentas que la quiniela. Ver las apuestas no necesita entrar"
+                subtitulo="Entra con tu cuenta de la quiniela"
               />
             </div>
 
@@ -150,13 +163,16 @@ export default function ApuestasPage() {
 
             {/* ------------------------ EN JUEGO ----------------------- */}
 
+            {/* Sin apuestas en juego el panel no sale: la invitación a lanzar
+                la primera ya la hace el panel de arriba. */}
+            {(estado === "cargando" || estado === "error" || vivas.length > 0) && (
             <div className="mt-5">
               <Panel
                 title="En juego"
                 subtitle={
                   vivas.length
                     ? `${vivas.length === 1 ? "Una apuesta" : `${vivas.length} apuestas`} sin resolver, la que antes se comprueba primero`
-                    : "Todavía no hay ninguna apuesta en juego"
+                    : undefined
                 }
                 icon={Dices}
               >
@@ -168,17 +184,6 @@ export default function ApuestasPage() {
                   <p className="text-sm text-[#F6AFB6]">
                     No se han podido leer las apuestas. Recarga en un momento.
                   </p>
-                )}
-
-                {estado !== "cargando" && estado !== "error" && !vivas.length && (
-                  <EmptyState
-                    title="Nadie se ha mojado todavía"
-                    description={
-                      yo
-                        ? "Lanza la primera: una predicción, qué te juegas y el día en que se comprueba."
-                        : "Entra con tu cuenta de la quiniela para lanzar la primera."
-                    }
-                  />
                 )}
 
                 {vivas.length > 0 && (
@@ -197,6 +202,7 @@ export default function ApuestasPage() {
                 )}
               </Panel>
             </div>
+            )}
 
             {/* ------------------------ RESUELTAS ---------------------- */}
 
@@ -225,17 +231,14 @@ export default function ApuestasPage() {
 
             {/* ------------------------ MARCADOR ----------------------- */}
 
+            {tabla.length > 0 && resueltas.length > 0 && (
             <div className="mt-5">
               <Panel
                 title="Marcador"
                 subtitle="Sólo cuentan las resueltas. Quien lanza acierta si se cumple; quien va a favor, con él; quien va en contra, si falla"
                 icon={ListOrdered}
               >
-                {tabla.length === 0 ? (
-                  <p className="text-sm text-white/50">
-                    Se rellena en cuanto alguien lance una apuesta.
-                  </p>
-                ) : (
+                {(
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[480px] text-sm">
                       <thead>
@@ -277,16 +280,7 @@ export default function ApuestasPage() {
                 )}
               </Panel>
             </div>
-
-            <div className="mt-5">
-              <Notice tone="info" title="Cómo va">
-                Hasta el día de comprobación cada uno puede ponerse a favor o en
-                contra, y cambiar de bando las veces que quiera. Ese día se
-                cierran las posturas y cualquiera que haya entrado da el
-                veredicto. Quien lanza la apuesta sólo puede retirarla mientras
-                nadie se haya mojado.
-              </Notice>
-            </div>
+            )}
           </div>
         </section>
       </div>
@@ -664,8 +658,6 @@ function Bando({
         {gente.map((slug) => (
           <Avatar key={slug} slug={slug} lado={26} />
         ))}
-
-        {total === 0 && <span className="text-[11px] text-white/30">Nadie todavía</span>}
       </div>
     </div>
   );

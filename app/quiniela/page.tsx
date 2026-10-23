@@ -628,6 +628,9 @@ export default function QuinielaPage() {
                 ultimasHoras={plazo.ultimasHoras}
                 cuandoCierra={cuandoCierra(plazo.viernes)}
                 ahora={ahora}
+                primerPartido={[...partidos]
+                  .filter((uno) => uno.fecha)
+                  .sort((a, b) => a.fecha.localeCompare(b.fecha))[0]}
               />
             </div>
 
@@ -649,13 +652,17 @@ export default function QuinielaPage() {
               <>
             {/* ------------------------ QUIÉN ERES --------------------- */}
 
-            <div className="mt-5">
-              <Acceso
-                yo={sesion.yo}
-                cargando={sesion.cargando}
-                manda={sesion.manda}
-              />
-            </div>
+            {/* Con la jornada cerrada el acceso baja detrás de los partidos:
+                lo primero que se quiere ver es el resumen y el reparto. */}
+            {!plazo.cerrada && (
+              <div className="mt-5">
+                <Acceso
+                  yo={sesion.yo}
+                  cargando={sesion.cargando}
+                  manda={sesion.manda}
+                />
+              </div>
+            )}
 
             {/* ------------------------ QUIÉN JUEGA -------------------- */}
 
@@ -794,7 +801,9 @@ export default function QuinielaPage() {
                 title="Los partidos"
                 subtitle={
                   !yo
-                    ? "Entra con tu correo para apostar y meter resultados"
+                    ? plazo.cerrada
+                      ? "Entra para meter los resultados"
+                      : "Entra con tu correo para apostar y meter resultados"
                     : plazo.cerrada
                       ? "Jornada cerrada: tu apuesta ya no se puede cambiar"
                       : !docAlDia
@@ -848,8 +857,81 @@ export default function QuinielaPage() {
                   </div>
                 )}
 
-                <div className="min-w-0 overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-[12px]">
+                {/* En el móvil cada partido es una tarjeta: equipos arriba y
+                    los dos 1-X-2 debajo. La tabla de 720 px dejaba el 1-X-2
+                    fuera de la pantalla, tras un desplazamiento que no se ve. */}
+                <ul className="space-y-2.5 sm:hidden">
+                  {partidos.map((partido, indice) => {
+                    const resultado = laJornada.resultados[indice] ?? null;
+                    const mio = mios[indice] ?? null;
+
+                    const sinJugar =
+                      Boolean(partido.fecha) &&
+                      ahora.getTime() < Date.parse(`${partido.fecha}T12:00:00Z`);
+
+                    return (
+                      <li
+                        key={`${partido.local}-${partido.visitante}`}
+                        className={`rounded-xl border border-white/[0.08] p-3 ${
+                          resultado && mio === resultado
+                            ? "bg-emerald-400/[0.05]"
+                            : resultado && mio && mio !== resultado
+                              ? "bg-rose-400/[0.04]"
+                              : ""
+                        }`}
+                      >
+                        <p className="truncate text-[13px] text-white/85">
+                          <span className="mr-1.5 text-[10px] tabular-nums text-white/30">
+                            {indice + 1}
+                          </span>
+                          {partido.local}
+                        </p>
+
+                        <p className="truncate pl-4 text-[12px] text-white/45">
+                          {partido.visitante}
+                        </p>
+
+                        <div className="mt-2.5 grid grid-cols-2 gap-2">
+                          <div className="min-w-0 text-center">
+                            <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-white/40">
+                              Tu pronóstico
+                            </p>
+
+                            <Tripleta
+                              valor={mio}
+                              onElige={(signo) => ponPronostico(indice, signo)}
+                              apagado={!yo || plazo.cerrada || guardandoApuesta || !docAlDia}
+                              resultado={resultado}
+                            />
+                          </div>
+
+                          <div className="min-w-0 text-center">
+                            <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-white/40">
+                              Resultado
+                            </p>
+
+                            <Tripleta
+                              valor={resultado}
+                              onElige={(signo) => void ponResultado(indice, signo)}
+                              apagado={
+                                !yo || estado === "guardando" || (!resultado && sinJugar)
+                              }
+                              tono="neutro"
+                              motivo={
+                                yo && !resultado && sinJugar
+                                  ? `Se juega el ${fechaCorta(partido.fecha)}: el resultado se pone cuando se haya jugado`
+                                  : undefined
+                              }
+                            />
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <div className="hidden min-w-0 overflow-x-auto sm:block">
+                  <table className="w-full min-w-[560px] text-[12px]">
                     <thead>
                       <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">
                         <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
@@ -950,7 +1032,7 @@ export default function QuinielaPage() {
                             </td>
 
                             <td className="py-2 text-center text-[11px] tabular-nums text-white/45">
-                              {aciertan === null ? "—" : `${aciertan}/${jugadores.length}`}
+                              {aciertan === null ? "" : `${aciertan}/${jugadores.length}`}
                             </td>
                           </tr>
                         );
@@ -1023,6 +1105,16 @@ export default function QuinielaPage() {
               </Panel>
             </div>
 
+            {plazo.cerrada && (
+              <div className="mt-5">
+                <Acceso
+                  yo={sesion.yo}
+                  cargando={sesion.cargando}
+                  manda={sesion.manda}
+                />
+              </div>
+            )}
+
             {/* --------------------- LA PARRILLA ---------------------- */}
 
             <div className="mt-5">
@@ -1036,27 +1128,27 @@ export default function QuinielaPage() {
 
             {/* ---------------------- EL RANKING ---------------------- */}
 
+            {/* Sin un solo resultado en la temporada no hay ranking que
+                enseñar: el panel no sale. */}
+            {tabla.some((fila) => fila.total.jugados > 0) && (
             <div className="mt-5">
               <Panel
                 title="Ranking de acierto"
                 subtitle="Toda la temporada. Se ordena por porcentaje, no por aciertos: quien se incorpora tarde no arranca con una desventaja imposible"
                 icon={Trophy}
               >
-                {tabla.every((fila) => fila.total.jugados === 0) ? (
-                  <EmptyState
-                    title="Todavía no hay nada que contar"
-                    description="En cuanto se metan los resultados de una jornada, el ranking se calcula solo."
-                  />
-                ) : (
+                {(
                   <div className="min-w-0 overflow-x-auto">
-                    <table className="w-full min-w-[620px] text-[12px]">
+                    <table className="w-full min-w-[520px] text-[12px]">
                       <thead>
                         <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">
                           <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
                           <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Quién</th>
                           <th className="w-20 pb-2 pt-1.5 text-right font-medium">Acierto</th>
                           <th className="w-20 pb-2 pt-1.5 text-right font-medium">Aciertos</th>
-                          <th className="w-24 pb-2 pt-1.5 text-right font-medium">Esta jornada</th>
+                          {tabla.some((fila) => fila.semana.jugados > 0) && (
+                            <th className="w-24 pb-2 pt-1.5 text-right font-medium">Esta jornada</th>
+                          )}
                           <th className="w-20 pb-2 pt-1.5 text-right font-medium">Jornadas</th>
                         </tr>
                       </thead>
@@ -1098,9 +1190,7 @@ export default function QuinielaPage() {
                                   lider ? "font-semibold text-[#C8A96B]" : "text-white/75"
                                 }`}
                               >
-                                {fila.total.jugados > 0
-                                  ? `${fila.total.porcentaje.toFixed(0)} %`
-                                  : "—"}
+                                {`${fila.total.porcentaje.toFixed(0)} %`}
                               </td>
 
                               <td className="py-1.5 text-right tabular-nums text-white/55">
@@ -1110,14 +1200,14 @@ export default function QuinielaPage() {
                                 </span>
                               </td>
 
-                              <td className="py-1.5 text-right tabular-nums text-white/55">
-                                {fila.semana.jugados > 0
-                                  ? `${fila.semana.aciertos}/${fila.semana.jugados}`
-                                  : "—"}
-                              </td>
+                              {tabla.some((otra) => otra.semana.jugados > 0) && (
+                                <td className="py-1.5 text-right tabular-nums text-white/55">
+                                  {`${fila.semana.aciertos}/${fila.semana.jugados}`}
+                                </td>
+                              )}
 
                               <td className="py-1.5 text-right tabular-nums text-white/45">
-                                {fila.jornadasGanadas > 0 ? fila.jornadasGanadas : "—"}
+                                {fila.jornadasGanadas}
                               </td>
                             </tr>
                           );
@@ -1128,6 +1218,7 @@ export default function QuinielaPage() {
                 )}
               </Panel>
             </div>
+            )}
 
             {/* ---------------------- LA COMIDA ----------------------- */}
 
@@ -1196,6 +1287,8 @@ export default function QuinielaPage() {
                   {cerrado
                     ? "Las diez jornadas están jugadas, así que esto ya no cambia."
                     : `Provisional: faltan jornadas del bloque por jugar.`}{" "}
+                  Igual que en el ranking, cada uno cuenta desde su primera
+                  apuesta: lo que no jugó antes de entrar no suma como fallo.
                   Si hay empate en el segundo puesto no paga ninguno de los
                   empatados —inventar un desempate no lo acepta nadie—, salvo que
                   así no pagase nadie: entonces sólo se invita a quien va por

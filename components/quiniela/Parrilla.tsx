@@ -118,7 +118,7 @@ export function Parrilla({
       <div className="min-w-0 overflow-x-auto">
         <table
           className="w-full text-[12px]"
-          style={{ minWidth: `${320 + jugadores.length * 58}px` }}
+          style={{ minWidth: `${340 + jugadores.length * 58}px` }}
         >
           <thead>
             <tr>
@@ -126,7 +126,7 @@ export function Parrilla({
                 Partido
               </th>
 
-              <th className="w-[74px] pb-3 text-center text-[10px] uppercase tracking-[0.12em] font-medium text-white/40">
+              <th className="w-[96px] pb-3 text-center text-[10px] uppercase tracking-[0.12em] font-medium text-white/40">
                 Reparto
               </th>
 
@@ -200,16 +200,19 @@ export function Parrilla({
                 {/* La tira de reparto: 1 en dorado, X en gris, 2 en azul. */}
                 <td className="px-1 py-2">
                   <span
-                    className="flex h-[16px] w-full overflow-hidden rounded"
+                    className="flex h-[22px] w-full overflow-hidden rounded"
                     title={SIGNOS.map((signo) => `${signo}: ${fila.votos[signo]}`).join(" · ")}
                   >
                     {SIGNOS.map((signo) =>
                       fila.votos[signo] > 0 ? (
                         <span
                           key={signo}
-                          className="flex items-center justify-center text-[9px] font-semibold text-black/60"
+                          className="flex items-center justify-center text-[11px] font-semibold tabular-nums text-black/70"
+                          /* Cada tramo crece con sus votos pero nunca baja de
+                             16 px, para que el número se lea aunque sea 1 de 10. */
                           style={{
-                            width: `${(fila.votos[signo] / Math.max(1, fila.rellenado)) * 100}%`,
+                            flex: `${fila.votos[signo]} 1 0`,
+                            minWidth: 16,
                             background: COLOR_SIGNO[signo],
                           }}
                         >
