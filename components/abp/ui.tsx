@@ -671,12 +671,18 @@ export function TeamPicker({
           );
         })}
       </div>
+
+      {countOf && teams.some((team) => (countOf(team) ?? 0) > 0) && (
+        <p className="text-[11px] text-white/35">
+          El número de cada equipo son las acciones de balón parado registradas.
+        </p>
+      )}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  FORMULARIO                                                         */
+/*  FORMULARIO                                                        */
 /* ------------------------------------------------------------------ */
 
 /**
