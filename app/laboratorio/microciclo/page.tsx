@@ -125,6 +125,8 @@ import {
 } from "@/lib/registro/hoja";
 import {
   alrededorDe,
+  diaLargoDelCalendario,
+  horaDelCalendarioLocal,
   soloDia,
   type PartidoCastilla,
   type PartidoNuestro,
@@ -532,12 +534,34 @@ function FilaTarea({
 /*  ELEGIR UN MICROCICLO DE LA HOJA                                    */
 /* ------------------------------------------------------------------ */
 
+/** «Micro 17 · Antequera (18 tareas · 4 días de entreno · nota 6.8)»: para elegir con criterio qué semana copiar. */
+function etiquetaMicroHoja(uno: { micro: number; rival: string; tareas: number }, todas: RegistroTarea[]) {
+  const suyas = todas.filter((tarea) => tarea.micro === uno.micro);
+
+  const dias = new Set(
+    suyas.filter((tarea) => !/competici/i.test(tarea.fase)).map((tarea) => tarea.fecha).filter(Boolean),
+  ).size;
+
+  const notas = suyas.map((tarea) => tarea.evaluacion).filter((nota) => nota > 0);
+  const nota = notas.length ? (notas.reduce((suma, valor) => suma + valor, 0) / notas.length).toFixed(1) : "";
+
+  const partes = [
+    `${uno.tareas} ${uno.tareas === 1 ? "tarea" : "tareas"}`,
+    dias > 0 ? `${dias} ${dias === 1 ? "día" : "días"} de entreno` : "",
+    nota ? `nota ${nota}` : "",
+  ].filter(Boolean);
+
+  return `Micro ${uno.micro}${uno.rival ? ` · ${uno.rival}` : ""} (${partes.join(" · ")})`;
+}
+
 function EligeMicro({
   micros,
+  todas,
   abriendo,
   onAbrir,
 }: {
   micros: { micro: number; rival: string; tareas: number }[];
+  todas: RegistroTarea[];
   abriendo: boolean;
   onAbrir: (numero: number) => void;
 }) {
@@ -553,7 +577,7 @@ function EligeMicro({
           value={valor}
           options={micros.map((uno) => ({
             value: String(uno.micro),
-            label: `Micro ${uno.micro} · ${uno.rival || "sin rival"} (${uno.tareas} tareas)`,
+            label: etiquetaMicroHoja(uno, todas),
           }))}
           onChange={setElegido}
         />
@@ -1700,7 +1724,7 @@ export default function EditorMicrocicloPage() {
             {!micro && proximo && !cargando && (
               <Panel
                 title="1 · La semana: marca los días libres"
-                subtitle={`Microciclo ${ultimoMicro + 1} · contra ${proximo.rival} · J${proximo.jornada}, ${new Date(proximo.cuando).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}`}
+                subtitle={`Microciclo ${ultimoMicro + 1} · contra ${proximo.rival} · J${proximo.jornada}, ${diaLargoDelCalendario(proximo.cuando)}`}
                 icon={CalendarClock}
               >
                 <p className="mb-3 text-[12px] leading-relaxed text-white/50">
@@ -1737,7 +1761,7 @@ export default function EditorMicrocicloPage() {
                         .filter((uno) => uno.tareas > 0 && uno.micro !== ultimoConTareas)
                         .map((uno) => ({
                           value: String(uno.micro),
-                          label: `Micro ${uno.micro} · ${uno.rival || "sin rival"} (${uno.tareas} tareas)`,
+                          label: etiquetaMicroHoja(uno, registro?.tareas ?? []),
                         })),
                     ]}
                     onChange={setPartirDe}
@@ -1795,6 +1819,7 @@ export default function EditorMicrocicloPage() {
               >
                 <EligeMicro
                   micros={microsDeLaHoja}
+                  todas={registro?.tareas ?? []}
                   abriendo={abriendo}
                   onAbrir={(numero) => void abreParaEditar(numero)}
                 />
@@ -1818,7 +1843,7 @@ export default function EditorMicrocicloPage() {
                           .filter((uno) => uno.tareas > 0)
                           .map((uno) => ({
                             value: String(uno.micro),
-                            label: `Micro ${uno.micro} · ${uno.rival || "sin rival"} (${uno.tareas} tareas)`,
+                            label: etiquetaMicroHoja(uno, registro?.tareas ?? []),
                           })),
                       ]}
                       onChange={setCopiaOrigen}
@@ -1964,13 +1989,8 @@ export default function EditorMicrocicloPage() {
                           J{partidoDelMicro.jornada} · {partidoDelMicro.rival} ·{" "}
                           {partidoDelMicro.lado === "casa" ? "en casa" : "fuera"}
                           <br />
-                          {new Date(partidoDelMicro.cuando).toLocaleString("es-ES", {
-                            weekday: "long",
-                            day: "numeric",
-                            month: "long",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {diaLargoDelCalendario(partidoDelMicro.cuando)}
+                          {horaDelCalendarioLocal(partidoDelMicro.cuando) ? ` a las ${horaDelCalendarioLocal(partidoDelMicro.cuando)}` : ""}
                         </>
                       ) : (
                         "No lo encuentro en el calendario"
@@ -2024,7 +2044,7 @@ export default function EditorMicrocicloPage() {
                             .sort((a, b) => b.micro - a.micro)
                             .map((uno) => ({
                               value: String(uno.micro),
-                              label: `Micro ${uno.micro} · ${uno.rival || "sin rival"} (${uno.tareas} tareas)`,
+                              label: etiquetaMicroHoja(uno, registro?.tareas ?? []),
                             })),
                         ]}
                         onChange={(valor) => {

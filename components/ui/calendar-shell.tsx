@@ -214,6 +214,10 @@ export function CalendarShell({
                   del mes no caben, y con `hidden` no se podía filtrar. */}
               {toolbar && <div className="-mt-3 mb-5 md:hidden [&_select]:w-full [&_select]:max-w-none">{toolbar}</div>}
 
+              <p className="mb-2 text-center text-[11px] text-white/55 md:hidden">
+                Desliza hacia los lados para ver la semana entera
+              </p>
+
               <div className="overflow-x-auto">
                 <div className="min-w-[700px] md:min-w-[1100px]">
                   {/* Cabecera días */}

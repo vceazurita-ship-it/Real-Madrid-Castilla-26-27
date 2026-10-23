@@ -114,6 +114,32 @@ export function soloDia(cuando: string) {
 
 const aMedioDia = (dia: string) => Date.parse(`${dia}T12:00:00Z`);
 
+/**
+ * «sábado, 1 de noviembre», del día que dice BeSoccer (hora de Madrid) y sin
+ * pasar por la zona horaria del aparato: `new Date("…T00:30:00+01:00")` en un
+ * navegador en UTC caía en el día anterior y el microciclo y el viaje no
+ * coincidían.
+ */
+export function diaLargoDelCalendario(cuando: string) {
+  const dia = soloDia(cuando);
+
+  if (!dia) return "";
+
+  return new Date(aMedioDia(dia)).toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  });
+}
+
+/** «16:30» del partido, tal cual lo da BeSoccer; vacío si no hay hora oficial (00:00). */
+export function horaDelCalendarioLocal(cuando: string) {
+  const hora = (cuando || "").slice(11, 16);
+
+  return /^\d{2}:\d{2}$/.test(hora) && hora !== "00:00" ? hora : "";
+}
+
 export function diasEntre(desde: string, hasta: string) {
   return Math.round((aMedioDia(hasta) - aMedioDia(desde)) / DIA);
 }

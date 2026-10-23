@@ -117,6 +117,7 @@ import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { conSemilla, tieneSemilla } from "@/lib/viaje/semilla";
 import { CALENDARIO_CASTILLA_KEY, enlaceRuta, horaDelCalendario, type PartidoBesoccer } from "@/lib/viaje/calendario";
 import { barlowCondensed } from "@/lib/rivals/portada-font";
+import { equipoDelInforme, type EquipoPortada } from "@/lib/portada/proximo-partido";
 
 /** "J07 · 18 oct 2026 · @ Teruel", como se llama a la semana en la caseta. */
 function etiquetaPartido(partido: MatchMeta) {
@@ -386,6 +387,26 @@ export default function DesplazamientoPage() {
     };
   }, []);
 
+  /* El estadio y la ciudad del rival, de su informe (los mismos que enseña la portada). */
+  const [equiposInforme, setEquiposInforme] = useState<EquipoPortada[]>([]);
+
+  useEffect(() => {
+    let vivo = true;
+
+    fetch("/api/data-analisis?portada=1")
+      .then((r) => (r.ok ? (r.json() as Promise<{ equipos?: EquipoPortada[] }>) : null))
+      .then((d) => {
+        if (vivo) setEquiposInforme(d?.equipos ?? []);
+      })
+      .catch(() => {
+        if (vivo) setEquiposInforme([]);
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
   const partidos = useMemo(
     () => mezclaCalendario(jugados, jornadas),
     [jugados, jornadas],
@@ -418,6 +439,20 @@ export default function DesplazamientoPage() {
   const indiceElegido = partidos.findIndex((item) => item.id === elegido);
 
   const proximoId = useMemo(() => partidos.find((item) => item.date && item.date >= hoy)?.id ?? "", [partidos, hoy]);
+
+  /* El selector enseña las 5 próximas jornadas (y la que se esté mirando); las demás, bajo «Ver todas». */
+  const [verTodas, setVerTodas] = useState(false);
+
+  const visibles = useMemo(() => {
+    if (verTodas || !proximoId) return partidos;
+
+    const desde = partidos.findIndex((item) => item.id === proximoId);
+    const cinco = new Set(partidos.slice(desde, desde + 5).map((item) => item.id));
+
+    if (elegido) cinco.add(elegido);
+
+    return partidos.filter((item) => cinco.has(item.id));
+  }, [partidos, proximoId, verTodas, elegido]);
 
   const partido = useMemo(
     () => partidos.find((item) => item.id === elegido) ?? null,
@@ -479,16 +514,25 @@ export default function DesplazamientoPage() {
 
     /* La hoja RIVALES trae las dimensiones del campo del rival: es el único
        dato del dossier que ya está escrito en algún sitio. */
+    const delRival =
+      base.condicion === "visitante"
+        ? equipoDelInforme(equiposInforme, partido.opponent) ?? equipoDelInforme(equiposInforme, jornada?.equipo ?? "")
+        : null;
+
+    const conCampo = delRival?.estadio
+      ? { ...base, estadio: { ...base.estadio, nombre: delRival.estadio, ciudad: delRival.ciudad || base.estadio.ciudad } }
+      : base;
+
     const conDimensiones = jornada?.fila?.DIMENSIONES
       ? {
-          ...base,
-          estadio: { ...base.estadio, dimensiones: jornada.fila.DIMENSIONES },
+          ...conCampo,
+          estadio: { ...conCampo.estadio, dimensiones: jornada.fila.DIMENSIONES },
         }
-      : base;
+      : conCampo;
 
     /* Y la jornada 1 viene montada entera desde los documentos originales. */
     return conSemilla(conDimensiones);
-  }, [partido, store.viajes, jornada, delCalendario]);
+  }, [partido, store.viajes, jornada, delCalendario, equiposInforme]);
 
   const guardado = Boolean(partido && store.viajes?.[partido.id]);
 
@@ -797,7 +841,10 @@ export default function DesplazamientoPage() {
                 <select
                   aria-labelledby="etiqueta-partido"
                   value={elegido}
-                  onChange={(evento) => setPedido(evento.target.value)}
+                  onChange={(evento) => {
+                    if (evento.target.value === "__todas") setVerTodas(true);
+                    else setPedido(evento.target.value);
+                  }}
                   className="w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                 >
                   {partidos.length === 0 && (
@@ -806,13 +853,19 @@ export default function DesplazamientoPage() {
                     </option>
                   )}
 
-                  {partidos.map((item) => (
+                  {visibles.map((item) => (
                     <option key={item.id} value={item.id} className="bg-[#11161C]">
                       {etiquetaPartido(item)}
                       {store.viajes?.[item.id] ? " ✓" : ""}
                       {item.id === proximoId ? " · próximo" : ""}
                     </option>
                   ))}
+
+                  {!verTodas && visibles.length < partidos.length && (
+                    <option value="__todas" className="bg-[#11161C]">
+                      Ver todas las jornadas…
+                    </option>
+                  )}
                 </select>
 
                 <button
@@ -887,9 +940,8 @@ export default function DesplazamientoPage() {
                           lo escrito.
                         </Notice>
                       ) : (
-                        <Notice title="Todavía sin montar">
-                          Lo que se ve son los datos que trae el calendario y un
-                          viaje propuesto:{" "}
+                        <Notice title="Cambia los días; se guarda solo">
+                          Parte de los datos del calendario y de un viaje propuesto:{" "}
                           {viaje.condicion === "visitante"
                             ? "dos días —la víspera y el partido—, que es lo que se hace casi todas las jornadas fuera de casa"
                             : "un día, el del partido"}
@@ -1089,28 +1141,28 @@ export default function DesplazamientoPage() {
                           label="Nombre"
                           value={viaje.estadio.nombre}
                           onChange={(valor) => estadio({ nombre: valor })}
-                          placeholder="Campo Pinilla"
+                          placeholder="Nombre del estadio"
                         />
 
                         <Field
                           label="Ciudad"
                           value={viaje.estadio.ciudad}
                           onChange={(valor) => estadio({ ciudad: valor })}
-                          placeholder="Teruel"
+                          placeholder="Ciudad del estadio"
                         />
 
                         <Field
                           label="Superficie"
                           value={viaje.estadio.superficie}
                           onChange={(valor) => estadio({ superficie: valor })}
-                          placeholder="Natural"
+                          placeholder="Natural o artificial"
                         />
 
                         <Field
                           label="Dimensiones"
                           value={viaje.estadio.dimensiones}
                           onChange={(valor) => estadio({ dimensiones: valor })}
-                          placeholder="103 × 65"
+                          placeholder="105 × 68"
                           hint={
                             jornada?.fila?.DIMENSIONES
                               ? "Viene de la hoja RIVALES."
@@ -1124,21 +1176,21 @@ export default function DesplazamientoPage() {
                           label="Dirección"
                           value={viaje.estadio.direccion}
                           onChange={(valor) => estadio({ direccion: valor })}
-                          placeholder="Av. de Aragón, Teruel"
+                          placeholder="Calle, número y ciudad"
                         />
 
                         <Field
                           label="Distancia"
                           value={viaje.estadio.distancia}
                           onChange={(valor) => estadio({ distancia: valor })}
-                          placeholder="365 km"
+                          placeholder="Kilómetros"
                         />
 
                         <Field
                           label="Tiempo de viaje"
                           value={viaje.estadio.tiempo}
                           onChange={(valor) => estadio({ tiempo: valor })}
-                          placeholder="3 h 30"
+                          placeholder="Horas y minutos"
                         />
 
                         <Field
@@ -1167,7 +1219,7 @@ export default function DesplazamientoPage() {
                       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
                         <CampoImagen
                           etiqueta="Plano del estadio"
-                          ayuda="Pie: «Estadio Pinilla · acceso autobús»"
+                          ayuda="Pie: «Nombre del estadio · acceso autobús»"
                           carpeta={carpeta}
                           imagen={viaje.estadio.plano}
                           onCambio={(imagen) => estadio({ plano: imagen })}
@@ -1175,7 +1227,7 @@ export default function DesplazamientoPage() {
 
                         <CampoImagen
                           etiqueta="Ruta del autobús"
-                          ayuda="Pie: «Valdebebas · Teruel, 365 km»"
+                          ayuda="Pie: «Valdebebas · ciudad del estadio, kilómetros»"
                           carpeta={carpeta}
                           imagen={viaje.estadio.ruta}
                           onCambio={(imagen) => estadio({ ruta: imagen })}
@@ -1198,28 +1250,28 @@ export default function DesplazamientoPage() {
                             label="Nombre"
                             value={viaje.hotel.nombre}
                             onChange={(valor) => hotel({ nombre: valor })}
-                            placeholder="Hotel Palacio la Marquesa"
+                            placeholder="Nombre del hotel"
                           />
 
                           <Field
                             label="Dirección"
                             value={viaje.hotel.direccion}
                             onChange={(valor) => hotel({ direccion: valor })}
-                            placeholder="C/ Comunidad de Aragón, 10"
+                            placeholder="Calle, número y ciudad"
                           />
 
                           <Field
                             label="Teléfono"
                             value={viaje.hotel.telefono}
                             onChange={(valor) => hotel({ telefono: valor })}
-                            placeholder="978 60 00 00"
+                            placeholder="Teléfono de recepción"
                           />
 
                           <Field
                             label="Entrada"
                             value={viaje.hotel.entrada}
                             onChange={(valor) => hotel({ entrada: valor })}
-                            placeholder="Lunes 31 · 14:00"
+                            placeholder="Día y hora de entrada"
                           />
                         </div>
 
@@ -1228,14 +1280,14 @@ export default function DesplazamientoPage() {
                             label="Distancia al campo"
                             value={viaje.hotel.distancia}
                             onChange={(valor) => hotel({ distancia: valor })}
-                            placeholder="2,4 km"
+                            placeholder="Kilómetros al estadio"
                           />
 
                           <Field
                             label="Tiempo al campo"
                             value={viaje.hotel.tiempo}
                             onChange={(valor) => hotel({ tiempo: valor })}
-                            placeholder="7 minutos"
+                            placeholder="Minutos al estadio"
                           />
 
                           <Field
@@ -1257,7 +1309,7 @@ export default function DesplazamientoPage() {
                         <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2">
                           <CampoImagen
                             etiqueta="Foto del hotel"
-                            ayuda="Pie: «Hotel Palacio la Marquesa»"
+                            ayuda="Pie: «Nombre del hotel»"
                             carpeta={carpeta}
                             imagen={viaje.hotel.foto}
                             onCambio={(imagen) => hotel({ foto: imagen })}
@@ -1265,7 +1317,7 @@ export default function DesplazamientoPage() {
 
                           <CampoImagen
                             etiqueta="Ruta hotel · estadio"
-                            ayuda="Pie: «Hotel · Pinilla, 7 minutos»"
+                            ayuda="Pie: «Hotel · estadio, minutos»"
                             carpeta={carpeta}
                             imagen={viaje.hotel.ruta}
                             onCambio={(imagen) => hotel({ ruta: imagen })}

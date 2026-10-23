@@ -30,6 +30,8 @@ import {
   recordDateKey,
 } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
+import { CALENDARIO_CASTILLA_KEY, type PartidoBesoccer } from "@/lib/viaje/calendario";
+import type { ViajeStore } from "@/lib/viaje/modelo";
 
 type EventType =
   | "REUNION"
@@ -53,6 +55,22 @@ interface GeneralEvent {
 interface EventsDoc {
   events: GeneralEvent[];
 }
+
+/** Lo que ya existe en otras pantallas y aquí sólo se lee: partidos (BeSoccer) y viajes (/desplazamiento). */
+type EventoAuto = {
+  id: string;
+  fecha: string;
+  clase: "PARTIDO" | "VIAJE";
+  titulo: string;
+  detalle: string;
+  hora: string;
+  enlace: string;
+};
+
+const AUTO_THEMES: Record<EventoAuto["clase"], { label: string; stripe: string; dot: string }> = {
+  PARTIDO: { label: "Partido", stripe: "border-l-[#C8A96B]", dot: "bg-[#C8A96B]" },
+  VIAJE: { label: "Viaje", stripe: "border-l-purple-400", dot: "bg-purple-400" },
+};
 
 /** Documento del Área General, fechado en su día de subida por la API. */
 type DayFile = {
@@ -95,10 +113,13 @@ const TYPE_THEMES: Record<
 
 const EVENT_TYPES = Object.keys(TYPE_THEMES) as EventType[];
 
-const LEGEND: CalendarLegendItem[] = EVENT_TYPES.map((type) => ({
-  label: TYPE_THEMES[type].label,
-  color: TYPE_THEMES[type].dot,
-}));
+const LEGEND: CalendarLegendItem[] = [
+  { label: AUTO_THEMES.PARTIDO.label, color: AUTO_THEMES.PARTIDO.dot },
+  ...EVENT_TYPES.map((type) => ({
+    label: TYPE_THEMES[type].label,
+    color: TYPE_THEMES[type].dot,
+  })),
+];
 
 const EMPTY_FILES = { images: [] as DayFile[], pdfs: [] as DayFile[] };
 const EMPTY_DOC: EventsDoc = { events: [] };
@@ -132,6 +153,7 @@ export default function CalendarGeneralPage() {
     currentMonthIndex(months)
   );
   const [filesByDay, setFilesByDay] = useState<FilesByDay>({});
+  const [autoEventos, setAutoEventos] = useState<EventoAuto[]>([]);
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<GeneralEvent | null>(null);
@@ -182,6 +204,89 @@ export default function CalendarGeneralPage() {
     };
   }, []);
 
+  /* Partidos de BeSoccer y viajes ya montados: se leen, no se editan aquí. */
+  useEffect(() => {
+    let vivo = true;
+
+    const lee = async <T,>(key: string) => {
+      try {
+        const r = await fetch(`/api/docs?key=${encodeURIComponent(key)}`);
+        if (!r.ok) return null;
+        const body = (await r.json()) as { data?: T | null };
+        return body?.data ?? null;
+      } catch {
+        return null;
+      }
+    };
+
+    void Promise.all([
+      lee<{ partidos?: PartidoBesoccer[] }>(CALENDARIO_CASTILLA_KEY),
+      lee<ViajeStore>("desplazamientos"),
+    ]).then(([calendario, viajes]) => {
+      if (!vivo) return;
+
+      const lista: EventoAuto[] = [];
+
+      for (const p of calendario?.partidos ?? []) {
+        const m = typeof p?.cuando === "string" ? p.cuando.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/) : null;
+        if (!m) continue;
+
+        const enCasa = /castilla/i.test(p.local);
+        const rival = enCasa ? p.visitante : p.local;
+
+        lista.push({
+          id: `partido-${p.jornada}-${m[1]}`,
+          fecha: m[1],
+          clase: "PARTIDO",
+          titulo: `J${String(p.jornada).padStart(2, "0")} · ${enCasa ? "Castilla vs" : "en"} ${rival}`,
+          detalle: enCasa ? "En casa" : "A domicilio",
+          hora: m[2] + ":" + m[3] === "00:00" ? "" : `${m[2]}:${m[3]}`,
+          enlace: "",
+        });
+      }
+
+      for (const viaje of Object.values(viajes?.viajes ?? {})) {
+        if (!viaje || viaje.condicion !== "visitante") continue;
+
+        const fechas = new Set(
+          (viaje.dias ?? []).map((d) => d.fecha).filter(Boolean)
+        );
+
+        if (fechas.size === 0 && viaje.fecha) fechas.add(viaje.fecha);
+
+        for (const fecha of fechas) {
+          lista.push({
+            id: `viaje-${viaje.partidoId}-${fecha}`,
+            fecha,
+            clase: "VIAJE",
+            titulo: `Viaje a ${viaje.rival}`,
+            detalle: [viaje.estadio?.ciudad, viaje.hotel?.nombre].filter(Boolean).join(" · "),
+            hora: "",
+            enlace: "/desplazamiento",
+          });
+        }
+      }
+
+      setAutoEventos(lista);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const autoByDay = useMemo(() => {
+    const map = new Map<string, EventoAuto[]>();
+
+    autoEventos.forEach((e) => {
+      const list = map.get(e.fecha);
+      if (list) list.push(e);
+      else map.set(e.fecha, [e]);
+    });
+
+    return map;
+  }, [autoEventos]);
+
   const eventsByDay = useMemo(() => {
     const map = new Map<string, GeneralEvent[]>();
 
@@ -218,12 +323,18 @@ export default function CalendarGeneralPage() {
     };
 
     let eventos = 0;
-    let dias = 0;
+    const diasConActividad = new Set<string>();
 
     eventsByDay.forEach((list, key) => {
       if (!inMonth(key)) return;
       eventos += list.length;
-      dias += 1;
+      diasConActividad.add(key);
+    });
+
+    autoByDay.forEach((list, key) => {
+      if (!inMonth(key)) return;
+      eventos += list.length;
+      diasConActividad.add(key);
     });
 
     let imagenes = 0;
@@ -235,14 +346,16 @@ export default function CalendarGeneralPage() {
       pdfs += files.pdfs.length;
     });
 
-    return { eventos, dias, imagenes, pdfs };
-  }, [eventsByDay, filesByDay, active]);
+    return { eventos, dias: diasConActividad.size, imagenes, pdfs };
+  }, [eventsByDay, autoByDay, filesByDay, active]);
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
   const selectedEvents = selectedKey ? eventsByDay.get(selectedKey) ?? [] : [];
   const selectedFiles = selectedKey
     ? filesByDay[selectedKey] ?? EMPTY_FILES
     : EMPTY_FILES;
+
+  const selectedAuto = selectedKey ? autoByDay.get(selectedKey) ?? [] : [];
 
   const selectedFilesCount =
     selectedFiles.images.length + selectedFiles.pdfs.length;
@@ -324,15 +437,24 @@ export default function CalendarGeneralPage() {
       stats={
         <>
           {/* El número de días iba dos veces: de pista y de tarjeta. */}
-          <CalendarStat label="Eventos" value={monthStats.eventos} />
-          <CalendarStat label="Días con actividad" value={monthStats.dias} />
-          <CalendarStat label="Imágenes" value={monthStats.imagenes} />
-          <CalendarStat label="PDFs" value={monthStats.pdfs} />
+          {monthStats.eventos > 0 && (
+            <CalendarStat label="Eventos" value={monthStats.eventos} />
+          )}
+          {monthStats.dias > 0 && (
+            <CalendarStat label="Días con actividad" value={monthStats.dias} />
+          )}
+          {monthStats.imagenes > 0 && (
+            <CalendarStat label="Imágenes" value={monthStats.imagenes} />
+          )}
+          {monthStats.pdfs > 0 && (
+            <CalendarStat label="PDFs" value={monthStats.pdfs} />
+          )}
         </>
       }
       renderDay={({ key }) => {
         const dayEvents = eventsByDay.get(key) ?? [];
         const dayFiles = filesByDay[key] ?? EMPTY_FILES;
+        const dayAuto = autoByDay.get(key) ?? [];
 
         const imageCount = dayFiles.images.length;
         const pdfCount = dayFiles.pdfs.length;
@@ -342,7 +464,7 @@ export default function CalendarGeneralPage() {
 
         return {
           hasContent:
-            dayEvents.length > 0 || imageCount > 0 || pdfCount > 0,
+            dayEvents.length > 0 || dayAuto.length > 0 || imageCount > 0 || pdfCount > 0,
           onClick: () => openDay(key),
           badges: (
             <div className="flex items-center gap-1">
@@ -366,8 +488,27 @@ export default function CalendarGeneralPage() {
             </div>
           ),
           children:
-            dayEvents.length > 0 ? (
+            dayEvents.length > 0 || dayAuto.length > 0 ? (
               <>
+                {dayAuto.map((auto) => (
+                  <div
+                    key={auto.id}
+                    className={cn(
+                      "rounded-md border border-l-4 border-[#C8A96B]/20 bg-[#C8A96B]/10 px-1.5 py-1",
+                      AUTO_THEMES[auto.clase].stripe
+                    )}
+                  >
+                    <p className="truncate text-[9px] font-semibold md:text-[11px]">
+                      {auto.titulo}
+                    </p>
+
+                    <p className="text-[8px] text-white/60 md:text-[9px]">
+                      {AUTO_THEMES[auto.clase].label}
+                      {auto.hora ? ` · ${auto.hora}` : ""}
+                    </p>
+                  </div>
+                ))}
+
                 {visible.map((event) => (
                   <div
                     key={event.id}
@@ -422,8 +563,8 @@ export default function CalendarGeneralPage() {
           size="lg"
           sinGuardar={fichaSucia}
           subtitle={[
-            `${selectedEvents.length} ${
-              selectedEvents.length === 1 ? "evento" : "eventos"
+            `${selectedEvents.length + selectedAuto.length} ${
+              selectedEvents.length + selectedAuto.length === 1 ? "evento" : "eventos"
             }`,
             selectedFilesCount > 0
               ? `${selectedFilesCount} ${
@@ -485,6 +626,7 @@ export default function CalendarGeneralPage() {
 
           <div className="space-y-3">
             {selectedEvents.length === 0 &&
+              selectedAuto.length === 0 &&
               !isCreating &&
               !editingEvent &&
               selectedFiles.images.length === 0 &&
@@ -493,6 +635,33 @@ export default function CalendarGeneralPage() {
                   Sin operativa programada este día.
                 </CalendarEmptyState>
               )}
+
+            {selectedAuto.map((auto) => (
+              <div
+                key={auto.id}
+                className={cn(
+                  "rounded-xl border border-l-4 border-white/10 bg-[#10151C] p-4",
+                  AUTO_THEMES[auto.clase].stripe
+                )}
+              >
+                <p className="text-lg font-semibold">{auto.titulo}</p>
+
+                <p className="mt-1 text-sm text-[#C8A96B]">
+                  {AUTO_THEMES[auto.clase].label}
+                  {auto.hora ? ` · ${auto.hora}` : ""}
+                  {auto.detalle ? ` · ${auto.detalle}` : ""}
+                </p>
+
+                {auto.enlace && (
+                  <Link
+                    href={auto.enlace}
+                    className="mt-3 inline-block text-xs text-[#C8A96B] transition hover:underline"
+                  >
+                    Abrir el desplazamiento →
+                  </Link>
+                )}
+              </div>
+            ))}
 
             {selectedEvents.map((event) => {
               const theme = TYPE_THEMES[event.tipo];

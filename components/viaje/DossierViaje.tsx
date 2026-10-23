@@ -38,10 +38,16 @@ import {
   type ImagenViaje,
 } from "@/lib/viaje/modelo";
 
-/** Lo que se pinta donde falta un dato: el hueco se ve, no se disimula. */
-const HUECO = "—";
+/**
+ * Lo que no tiene dato no se pinta (22/10/2026): ni guion, ni «Sin plano», ni
+ * recuadro vacío. Antes el hueco se veía como «—» para que no se colara un
+ * olvido, pero el documento que sale al cuerpo técnico no puede llevar
+ * recuadros que dicen lo que falta; el aviso de lo que falta va en la pantalla
+ * de edición.
+ */
+const valor = (texto: string | undefined) => (texto?.trim() ? texto : "");
 
-const valor = (texto: string | undefined) => (texto?.trim() ? texto : HUECO);
+const hay = (texto: string | undefined) => Boolean(texto?.trim());
 
 /**
  * Una sola línea que cabe (19/10/2026): con un nombre largo —«Estadio
@@ -137,7 +143,7 @@ function Casilla({
 function BandaPartido({ viaje }: { viaje: Desplazamiento }) {
   const casa = viaje.condicion === "local";
 
-  const casillas = [
+  const todas = [
     { rotulo: "Equipo", dato: "RMCF Castilla" },
     { rotulo: "Rival", dato: valor(viaje.rival), destacado: true },
     { rotulo: "Jornada", dato: valor(viaje.jornada) },
@@ -145,6 +151,8 @@ function BandaPartido({ viaje }: { viaje: Desplazamiento }) {
     { rotulo: "Hora", dato: valor(viaje.hora) },
     { rotulo: casa ? "En casa" : "Fuera", dato: valor(viaje.estadio.nombre) },
   ];
+
+  const casillas = todas.filter((casilla) => hay(casilla.dato));
 
   return (
     <div
@@ -185,6 +193,8 @@ function BandaPartido({ viaje }: { viaje: Desplazamiento }) {
 
 /** Una fila de ficha: rótulo a la izquierda, dato a la derecha. */
 function Renglon({ rotulo, dato }: { rotulo: string; dato: string }) {
+  if (!hay(dato)) return null;
+
   return (
     <div
       style={{
@@ -221,6 +231,8 @@ function Renglon({ rotulo, dato }: { rotulo: string; dato: string }) {
 
 /** Un número que se lee de lejos: la distancia y el tiempo del viaje. */
 function Cifra({ dato, rotulo }: { dato: string; rotulo: string }) {
+  if (!hay(dato)) return null;
+
   return (
     <div
       style={{
@@ -269,6 +281,9 @@ function Plano({
   alto: number;
   respaldo: string;
 }) {
+  /* Sin imagen no se dibuja el recuadro: el documento no dice lo que falta. */
+  if (!imagen?.url) return null;
+
   return (
     <div style={{ minWidth: 0 }}>
       <div
@@ -424,9 +439,9 @@ function Marco({
               textTransform: "uppercase",
             }}
           >
-            {valor(viaje.competicion) === HUECO
-              ? "Desplazamiento de partido"
-              : viaje.competicion}
+            {hay(viaje.competicion)
+              ? viaje.competicion
+              : "Desplazamiento de partido"}
           </p>
         </div>
 
@@ -527,7 +542,7 @@ function Marco({
             textTransform: "uppercase",
           }}
         >
-          {valor(viaje.rival)} · {valor(diaLargo(viaje.fecha) || viaje.fecha)}
+          {[valor(viaje.rival), valor(diaLargo(viaje.fecha) || viaje.fecha)].filter(Boolean).join(" · ")}
         </p>
       </div>
     </div>
@@ -658,18 +673,20 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
             <Cifra rotulo="Tiempo" dato={valor(viaje.estadio.tiempo)} />
           </div>
 
-          <p
-            style={{
-              margin: "18px 0 0",
-              color: C.verde,
-              fontSize: 18,
-              fontWeight: 600,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-            }}
-          >
-            {valor(viaje.origen)} → {valor(viaje.estadio.nombre)}
-          </p>
+          {hay(viaje.origen) && hay(viaje.estadio.nombre) && (
+            <p
+              style={{
+                margin: "18px 0 0",
+                color: C.verde,
+                fontSize: 18,
+                fontWeight: 600,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+              }}
+            >
+              {valor(viaje.origen)} → {valor(viaje.estadio.nombre)}
+            </p>
+          )}
 
           <div style={{ marginTop: 20 }}>
             <Plano
@@ -722,18 +739,20 @@ function SlideHotel({ viaje }: { viaje: Desplazamiento }) {
             <Cifra rotulo="Tiempo" dato={valor(viaje.hotel.tiempo)} />
           </div>
 
-          <p
-            style={{
-              margin: "18px 0 0",
-              color: C.verde,
-              fontSize: 18,
-              fontWeight: 600,
-              letterSpacing: "0.16em",
-              textTransform: "uppercase",
-            }}
-          >
-            {valor(viaje.hotel.nombre)} → {valor(viaje.estadio.nombre)}
-          </p>
+          {hay(viaje.hotel.nombre) && hay(viaje.estadio.nombre) && (
+            <p
+              style={{
+                margin: "18px 0 0",
+                color: C.verde,
+                fontSize: 18,
+                fontWeight: 600,
+                letterSpacing: "0.16em",
+                textTransform: "uppercase",
+              }}
+            >
+              {valor(viaje.hotel.nombre)} → {valor(viaje.estadio.nombre)}
+            </p>
+          )}
 
           <div style={{ marginTop: 20 }}>
             <Plano
