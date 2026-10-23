@@ -25,6 +25,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CACHE = path.join(RAIZ, ".cache", "agentes");
@@ -410,6 +411,51 @@ async function main() {
       ),
     );
     hechos.push({ expertos: res.filter(Boolean).length });
+  }
+
+  /*
+  | LA APP POR ÁREAS (23/10/2026, lo pidió el usuario: «todas las áreas y la
+  | portada mínimo a un notable»). Cada área del menú la juzgan los dos o tres
+  | expertos que más saben de ella, con las capturas y el texto que deja
+  | scripts/agentes/captura-areas.cjs en .cache/expertos/areas/<grupo>/.
+  | El texto entra en la huella: si la pantalla no cambia, no se repite.
+  |   node scripts/agentes/red.mjs areas [--grupo portada,abp]
+  */
+  if (orden === "areas") {
+    const { GRUPOS } = createRequire(import.meta.url)("./captura-areas.cjs");
+    const JUECES = {
+      portada: ["experto-marketing", "experto-futbol", "experto-analisis"],
+      planificacion: ["experto-futbol", "experto-marketing"],
+      rival: ["experto-futbol", "experto-analisis"],
+      abp: ["experto-futbol", "experto-analisis"],
+      partido: ["experto-analisis", "experto-futbol"],
+      jugadores: ["experto-analisis", "experto-futbol"],
+      identidad: ["guionista", "experto-futbol"],
+      club: ["experto-marketing", "guionista"],
+    };
+    const solo = valor("grupo")?.split(",");
+    const trabajos = [];
+    for (const [g, rutas] of Object.entries(GRUPOS)) {
+      if (solo && !solo.includes(g)) continue;
+      const carpeta = path.join(RAIZ, ".cache", "expertos", "areas", g);
+      if (!fs.existsSync(carpeta)) continue;
+      const entradas = fs.readdirSync(carpeta).filter((f) => f.endsWith(".txt") || f === "medidas.json").map((f) => path.join(carpeta, f));
+      const rel = path.relative(RAIZ, carpeta).replace(/\\/g, "/");
+      for (const nombre of JUECES[g]) {
+        trabajos.push(() => agente({
+          nombre, salida: path.join(carpeta, `critica-${nombre}.json`), esquemaDe: "critica-area", entradas,
+          encargo: [
+            `Juzga el área «${g}» de la plataforma del Real Madrid Castilla como herramienta de trabajo del cuerpo técnico. Pantallas: ${rutas.join(", ")}.`,
+            `Material en ${rel}/: por pantalla, <nombre>-escritorio.jpg (1440 px, modo día, hasta 3 pantallas de alto), <nombre>-movil.jpg (390 px), <nombre>.txt (su texto visible) y medidas.json (errores de JS, desborde en el móvil, textos con contraste < 2,5). Las capturas se hacen sin sesión de administrador y sin escribir nada: un «cargando» eterno o un hueco sin datos SÍ cuenta como fallo; que falten botones de administrador, no.`,
+            "El código de cada pantalla está en app/<ruta>/ y lo que usa en components/ y lib/; mira el código sólo si hace falta para concretar el arreglo.",
+            "Contexto: AGENTS.md. Reglas del usuario: lo que no tiene dato no se nombra; español de España; todo gratis.",
+            "Pon la nota con la escala fija del esquema. El objetivo es un 8 (notable alto) en cada pantalla: para cada pantalla con menos de 8, «para_notable» es la lista cerrada y mínima de lo imprescindible para llegar a 8, programable y con el fichero. No subas el listón entre rondas: si lo que pediste está hecho, es un 8.",
+          ].join("\n"),
+        }));
+      }
+    }
+    const res = await enParalelo(trabajos);
+    hechos.push({ areas: res.filter(Boolean).length });
   }
 
   registro.fin = new Date().toISOString();

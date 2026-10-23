@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["nota", "veredicto", "pantallas", "mejoras"],
+  "properties": {
+    "nota": { "type": "integer", "minimum": 1, "maximum": 10, "description": "Nota del ÁREA entera con la escala fija: 5 = aprobado (se usa, pero con errores que confunden); 6 = bien (sin errores graves, pero le falta hilo o claridad); 7 = notable (útil, coherente y sin errores de dato, de lectura ni de diseño; quedan mejoras de pulido); 8 = notable alto (lo usaría tal cual un club profesional); 9-10 = excelente." },
+    "veredicto": { "type": "string", "description": "Dos frases: qué falla más en el área y qué la arreglaría" },
+    "pantallas": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ruta", "nota", "para_notable"],
+        "properties": {
+          "ruta": { "type": "string" },
+          "nota": { "type": "integer", "minimum": 1, "maximum": 10 },
+          "para_notable": { "type": "array", "maxItems": 4, "items": { "type": "string" }, "description": "Si la nota es < 8: la lista CERRADA y mínima de lo imprescindible para el 8, cada punto concreto y programable (qué fichero o componente, qué cambiar). Si se arregla eso, la próxima vez le pones un 8. Vacía si ya tiene 8 o más." }
+        }
+      }
+    },
+    "mejoras": {
+      "type": "array",
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ruta", "problema", "propuesta", "prioridad"],
+        "properties": {
+          "ruta": { "type": "string" },
+          "problema": { "type": "string" },
+          "propuesta": { "type": "string" },
+          "prioridad": { "type": "string", "enum": ["alta", "media", "baja"] }
+        }
+      }
+    }
+  }
+}
