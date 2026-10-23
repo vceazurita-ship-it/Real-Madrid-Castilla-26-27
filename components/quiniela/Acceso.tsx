@@ -70,6 +70,7 @@ export function Acceso({
   manda,
   subtitulo = "Cada uno pone sólo lo suyo. Ver el ranking no necesita entrar",
   titulo = "Entra para apostar",
+  sinPista = false,
 }: {
   yo: Yo | null;
   cargando: boolean;
@@ -78,6 +79,8 @@ export function Acceso({
   subtitulo?: string;
   /** El título del panel: otras pantallas lo usan para entrar con la misma cuenta (20/10/2026). */
   titulo?: string;
+  /** Pantallas públicas: no se dice cuál es la contraseña inicial (el repositorio es público). */
+  sinPista?: boolean;
 }) {
   const [modo, setModo] = useState<"entrar" | "registrar">("entrar");
   const [correo, setCorreo] = useState("");
@@ -131,7 +134,7 @@ export function Acceso({
           </div>
         }
       >
-        {yo.inicial ? (
+        {yo.inicial && !sinPista ? (
           <Notice tone="warn" title="Tu contraseña es la de registro">
             Es lo que va antes de la @ de tu correo, así que quien sepa tu
             correo puede entrar como tú. Cámbiala cuando puedas.
@@ -234,7 +237,9 @@ export function Acceso({
       </form>
 
       <p className="mt-3 text-[11px] leading-relaxed text-white/40">
-        {registrando ? (
+        {sinPista ? (
+          <>Si no recuerdas la contraseña, pídela al administrador.</>
+        ) : registrando ? (
           <>
             Tu contraseña será lo que va antes de la @ de tu correo
             {nombreCorreo && (
