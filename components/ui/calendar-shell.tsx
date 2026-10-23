@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -99,6 +99,7 @@ export function CalendarShell({
   renderDay,
   children,
 }: CalendarShellProps) {
+  const [rejilla, setRejilla] = useState(false);
   const active = months[monthIndex] ?? months[0];
   const calendar = buildCalendar(active.month, active.year);
 
@@ -214,11 +215,27 @@ export function CalendarShell({
                   del mes no caben, y con `hidden` no se podía filtrar. */}
               {toolbar && <div className="-mt-3 mb-5 md:hidden [&_select]:w-full [&_select]:max-w-none">{toolbar}</div>}
 
-              <p className="mb-2 text-center text-[11px] text-white/55 md:hidden">
+              {/* En el móvil la rejilla de 7 columnas no cabe y se pierde el fin de
+                  semana (los partidos): se enseña una lista de los días con algo,
+                  y la rejilla queda a un toque por si hay que abrir un día vacío. */}
+              <MobileDayList
+                date={active}
+                loading={loading}
+                renderDay={renderDay}
+                rejilla={rejilla}
+                onToggle={() => setRejilla((v) => !v)}
+              />
+
+              <p
+                className={cn(
+                  "mb-2 text-center text-[11px] text-white/55 md:hidden",
+                  !rejilla && "hidden"
+                )}
+              >
                 Desliza hacia los lados para ver la semana entera
               </p>
 
-              <div className="overflow-x-auto">
+              <div className={cn("overflow-x-auto", !rejilla && "hidden sm:block")}>
                 <div className="min-w-[700px] md:min-w-[1100px]">
                   {/* Cabecera días */}
                   <div className="mb-2 grid grid-cols-7 gap-1 md:gap-2">
@@ -278,6 +295,102 @@ export function CalendarShell({
         </section>
       </div>
     </main>
+  );
+}
+
+/** Sólo en móvil (< 640 px): los días del mes que tienen algo, uno debajo de otro. */
+function MobileDayList({
+  date,
+  loading,
+  renderDay,
+  rejilla,
+  onToggle,
+}: {
+  date: CalendarMonth;
+  loading: boolean;
+  renderDay: (ctx: CalendarDayContext) => CalendarDayCell;
+  rejilla: boolean;
+  onToggle: () => void;
+}) {
+  const diasDelMes = new Date(date.year, date.month + 1, 0).getDate();
+
+  const filas = loading || rejilla
+    ? []
+    : Array.from({ length: diasDelMes }, (_, i) => new Date(date.year, date.month, i + 1))
+        .map((d) => ({
+          d,
+          cell: renderDay({
+            date: d,
+            key: dateKey(d),
+            isCurrentMonth: true,
+            isToday: isTodayFn(d),
+            outOfSeason: isOutOfSeason(d),
+          }),
+        }))
+        .filter(({ d, cell }) => cell.hasContent && !isOutOfSeason(d));
+
+  return (
+    <div className="sm:hidden">
+      {loading && !rejilla && (
+        <div className="space-y-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl border border-white/5 bg-white/[0.03]" />
+          ))}
+        </div>
+      )}
+
+      {!loading && !rejilla && (
+        <div className="space-y-2">
+          {filas.length === 0 && (
+            <p className="rounded-xl border border-white/10 bg-[#10151C] px-4 py-5 text-center text-sm text-white/60">
+              Nada programado este mes.
+            </p>
+          )}
+
+          {filas.map(({ d, cell }) => (
+            <div
+              key={d.getTime()}
+              role={cell.onClick ? "button" : undefined}
+              tabIndex={cell.onClick ? 0 : undefined}
+              onClick={cell.onClick}
+              onKeyDown={(e) => {
+                if (cell.onClick && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  cell.onClick();
+                }
+              }}
+              className={cn(
+                "flex gap-3 rounded-xl border border-white/10 p-3",
+                cell.accentClass ?? "bg-[#141B24]",
+                cell.onClick && "cursor-pointer"
+              )}
+            >
+              <div className="w-11 shrink-0 text-center">
+                <p className="text-[11px] uppercase text-[#C8A96B]">
+                  {WEEK[(d.getDay() + 6) % 7].slice(0, 3)}
+                </p>
+                <p className={cn("text-xl font-semibold", isTodayFn(d) && "text-[#C8A96B]")}>
+                  {d.getDate()}
+                </p>
+              </div>
+
+              <div className="min-w-0 flex-1 space-y-1.5 [&_p]:!text-xs [&_span]:!text-xs">
+                {cell.badges && <div className="flex flex-wrap items-center gap-1">{cell.badges}</div>}
+                {cell.children}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onToggle}
+        className="mx-auto mb-3 mt-3 block rounded-xl border border-white/10 bg-[#11161D] px-4 py-2 text-sm transition hover:border-[#C8A96B]"
+      >
+        {rejilla ? "Ver la lista de días" : "Ver el mes en rejilla"}
+      </button>
+    </div>
   );
 }
 

@@ -120,12 +120,15 @@ import { barlowCondensed } from "@/lib/rivals/portada-font";
 import { equipoDelInforme, type EquipoPortada } from "@/lib/portada/proximo-partido";
 
 /** "J07 · 18 oct 2026 · @ Teruel", como se llama a la semana en la caseta. */
-function etiquetaPartido(partido: MatchMeta) {
+function etiquetaPartido(partido: MatchMeta, fechaReal?: string) {
   const numero = partido.competition.match(/^Jornada\s+(\d+)/i);
 
   const jornada = numero ? `J${numero[1].padStart(2, "0")} · ` : "";
 
-  return `${jornada}${formatMatchDate(partido)} · ${matchLabel(partido)}`;
+  /* Manda la fecha del calendario de BeSoccer: la hoja RIVALES a veces va un día corrida. */
+  const dia = formatMatchDate(fechaReal ? { ...partido, date: fechaReal } : partido);
+
+  return `${jornada}${dia} · ${matchLabel(partido)}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -412,6 +415,23 @@ export default function DesplazamientoPage() {
     [jugados, jornadas],
   );
 
+  /* Fecha de cada partido según BeSoccer (hora de Madrid), para el selector. */
+  const fechaBesoccer = useMemo(() => {
+    const mapa = new Map<string, string>();
+
+    for (const item of partidos) {
+      const hallado = horaDelCalendario(besoccer, {
+        fecha: item.date,
+        rival: item.opponent,
+        jornada: Number(item.competition.match(/^Jornada\s+(\d+)/i)?.[1]) || null,
+      });
+
+      if (hallado?.fecha) mapa.set(item.id, hallado.fecha);
+    }
+
+    return mapa;
+  }, [besoccer, partidos]);
+
   /* «Hoy», una vez al montar (en hora local, como todo `lib/viaje`: en UTC, a
      las 00:30 de un domingo español el «hoy» era el sábado). */
   const [hoy] = useState(() => comoIso(new Date()));
@@ -612,7 +632,7 @@ export default function DesplazamientoPage() {
         return {
           id,
           etiqueta: delCalendario
-            ? etiquetaPartido(delCalendario)
+            ? etiquetaPartido(delCalendario, fechaBesoccer.get(id))
             : `${suyo.rival || "Sin rival"} · ${suyo.fecha || "sin fecha"}`,
           fecha: suyo.fecha,
           dias: suyo.dias.length,
@@ -623,7 +643,7 @@ export default function DesplazamientoPage() {
         };
       })
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [partido, partidos, store.viajes, viaje]);
+  }, [partido, partidos, store.viajes, viaje, fechaBesoccer]);
 
   const [copiando, setCopiando] = useState(false);
   const [fuenteCopia, setFuenteCopia] = useState("");
@@ -855,7 +875,7 @@ export default function DesplazamientoPage() {
 
                   {visibles.map((item) => (
                     <option key={item.id} value={item.id} className="bg-[#11161C]">
-                      {etiquetaPartido(item)}
+                      {etiquetaPartido(item, fechaBesoccer.get(item.id))}
                       {store.viajes?.[item.id] ? " ✓" : ""}
                       {item.id === proximoId ? " · próximo" : ""}
                     </option>
@@ -1011,7 +1031,7 @@ export default function DesplazamientoPage() {
                           value={viaje.rival}
                           onChange={(valor) => campo("rival", valor)}
                           placeholder={partido.opponent}
-                          hint="Como se quiere leer: la hoja dice «CD Teruel» y en la caseta se dice «Teruel»."
+                          hint="Como se quiere leer: la hoja dice el nombre oficial y en la caseta se dice el corto."
                         />
 
                         <Field
@@ -1148,7 +1168,10 @@ export default function DesplazamientoPage() {
                           label="Ciudad"
                           value={viaje.estadio.ciudad}
                           onChange={(valor) => estadio({ ciudad: valor })}
-                          placeholder="Ciudad del estadio"
+                          placeholder={
+                            /* Sin la ciudad en el informe del rival, se sugiere su nombre corto (la hoja no la trae). */
+                            equipoDelInforme(equiposInforme, viaje.rival || partido.opponent)?.nombre || "Ciudad del estadio"
+                          }
                         />
 
                         <Field

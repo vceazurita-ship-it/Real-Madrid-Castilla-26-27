@@ -13,6 +13,7 @@ import {
   CalendarEmptyState,
 } from "@/components/ui/calendar-day-modal";
 import {
+  MONTHS,
   buildSeasonMonths,
   currentMonthIndex,
   formatMinutes,
@@ -412,23 +413,24 @@ export default function MicroCalendar() {
           <CalendarStat
             label="Sesiones"
             value={monthStats.sesiones}
-            hint={`${monthStats.tareas} tareas`}
+            hint={`${monthStats.tareas} tareas en ${MONTHS[active.month].toLowerCase()}`}
           />
           <CalendarStat
             label="Volumen"
             value={formatMinutes(monthStats.minutos)}
+            hint={`en ${MONTHS[active.month].toLowerCase()}`}
           />
           {/* Las dos cargas son puntos sin unidad: se dice de qué salen
               (19/10/2026), si no un 420 no le dice nada a nadie. */}
           <CalendarStat
             label="Carga física media / sesión"
             value={monthStats.cargaMedia}
-            hint="Minutos × intensidad de la tarea"
+            hint={`En ${MONTHS[active.month].toLowerCase()} · minutos × intensidad`}
           />
           <CalendarStat
             label="Carga cognitiva media / sesión"
             value={monthStats.cognitivaMedia}
-            hint="Minutos × demanda cognitiva"
+            hint={`En ${MONTHS[active.month].toLowerCase()} · minutos × demanda cognitiva`}
           />
         </>
       }
@@ -441,11 +443,14 @@ export default function MicroCalendar() {
         // Minutos por contenido principal, ordenados de mayor a menor.
         const blocks = new Map<string, number>();
         dayTasks.forEach((t) => {
-          const name = t["Contenido Principal"] || "";
+          /* Sin contenido principal se rotula con el tipo de tarea; sin ninguno, no se pinta. */
+          const name = (t["Contenido Principal"] || t["Tipo Tarea"] || "").trim();
           blocks.set(name, (blocks.get(name) ?? 0) + minutesOf(t));
         });
 
-        const orderedBlocks = [...blocks.entries()].sort((a, b) => b[1] - a[1]);
+        const orderedBlocks = [...blocks.entries()]
+          .filter(([name]) => name)
+          .sort((a, b) => b[1] - a[1]);
 
         // Fase dominante = la que más minutos acumula.
         const phases = new Map<string, number>();
@@ -470,7 +475,7 @@ export default function MicroCalendar() {
             <div className="flex items-center gap-1">
               {md && (
                 <span
-                  className="rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase"
+                  className="whitespace-nowrap rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase sm:text-[9px]"
                   style={{ background: "#1F2937", color: "#FFFFFF" }}
                 >
                   {md}
