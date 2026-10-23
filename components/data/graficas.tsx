@@ -100,6 +100,8 @@ export type FilaPercentil = {
   puesto: number | null;
   deCuantos: number;
   comoLeer: string;
+  /** «0 de 5 contraataques»: la base de un porcentaje de pocos casos. */
+  base?: string | null;
 };
 
 /**
@@ -184,6 +186,9 @@ export function BarraPercentil({
 
         <span className="shrink-0 text-[13px] font-semibold tabular-nums text-white">
           {formatea(fila.valor, fila.unidad)}
+          {fila.base ? (
+            <span className="ml-1.5 text-[10px] font-normal text-white/45">({fila.base})</span>
+          ) : null}
         </span>
 
         <span

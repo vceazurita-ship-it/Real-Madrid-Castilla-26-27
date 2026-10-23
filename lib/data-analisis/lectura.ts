@@ -6,6 +6,13 @@ import {
 } from "./metricas";
 
 /**
+ * El nombre de una métrica en medio de una frase: en minúsculas, pero «xG» no
+ * es «xg», y se dice qué es.
+ */
+const enFrase = (nombre: string) =>
+  nombre.toLowerCase().replace(/\bxg\b/g, "goles esperados (xG)");
+
+/**
  * Lo que dice cada gráfico, escrito.
  *
  * Un dibujo enseña una forma; no dice qué hacer con ella. Y en un cuerpo
@@ -80,14 +87,15 @@ export function lecturaDeGrupo(filas: FilaLectura[]) {
   const total = utiles.length;
 
   return {
-    resumen: `En ${porEncima} de ${total} métricas de este bloque se está por encima de la mediana de la liga.`,
+    /* La base es la de las que tienen mejor y peor; las de estilo no se cuentan y se dice. */
+    resumen: `De las ${total} métricas de este bloque que tienen mejor y peor, ${porEncima} ${porEncima === 1 ? "está" : "están"} por encima de la mediana de la liga${filas.length > total ? "; el resto son de estilo y no se juzgan" : ""}.`,
     fuerte:
       arriba.percentil >= 60
-        ? `Lo más fuerte: ${arriba.metrica.nombre.toLowerCase()} (p${Math.round(arriba.percentil)}).`
+        ? `Lo más fuerte: ${enFrase(arriba.metrica.nombre)} (p${Math.round(arriba.percentil)}).`
         : null,
     debil:
       abajo.percentil <= 40
-        ? `Lo más flojo: ${abajo.metrica.nombre.toLowerCase()} (p${Math.round(abajo.percentil)}).`
+        ? `Lo más flojo: ${enFrase(abajo.metrica.nombre)} (p${Math.round(abajo.percentil)}).`
         : null,
   };
 }
@@ -307,7 +315,7 @@ export function lecturaDeEvolucion(
     mejorAlto === false ? a.valor - b.valor : b.valor - a.valor,
   )[0];
 
-  return `De ${primero.etiqueta} a ${ultimo.etiqueta}, ${nombre.toLowerCase()} ${direccion} un ${Math.abs(relativo).toFixed(0)} % (${formatea(primero.valor, unidad)} → ${formatea(ultimo.valor, unidad)}).${juicio} El mejor registro es el de ${mejor.etiqueta} (${formatea(mejor.valor, unidad)}).`;
+  return `De ${primero.etiqueta} a ${ultimo.etiqueta}, ${enFrase(nombre)} ${direccion} un ${Math.abs(relativo).toFixed(0)} % (${formatea(primero.valor, unidad)} → ${formatea(ultimo.valor, unidad)}).${juicio} El mejor registro es el de ${mejor.etiqueta} (${formatea(mejor.valor, unidad)}).`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -390,7 +398,7 @@ export function lecturaDeDispersion(
 
   if (!nuestro) return relacion;
 
-  const cuadrante = `${nuestro.x >= medX ? "alto" : "bajo"} en ${metX.nombre.toLowerCase()} y ${nuestro.y >= medY ? "alto" : "bajo"} en ${metY.nombre.toLowerCase()}`;
+  const cuadrante = `${nuestro.x >= medX ? "alto" : "bajo"} en ${enFrase(metX.nombre)} y ${nuestro.y >= medY ? "alto" : "bajo"} en ${enFrase(metY.nombre)}`;
 
   return `El Castilla queda ${cuadrante} respecto a las medianas. ${relacion}`;
 }
