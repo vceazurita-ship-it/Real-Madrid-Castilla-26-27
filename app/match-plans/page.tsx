@@ -15,6 +15,9 @@ import { Topbar } from "@/components/ui/topbar";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { cn } from "@/lib/utils";
+import { useCalendario } from "@/hooks/useCalendario";
+import type { PartidoCastilla } from "@/lib/castilla/calendario";
+import Link from "next/link";
 
 import {
   ArrowUpDown,
@@ -71,6 +74,10 @@ type Match = {
   date: Date | null;
   link: string;
   embed: string;
+  /** Partido de liga: los amistosos de pretemporada no entran en los indicadores. */
+  esLiga: boolean;
+  /** Sin enlace propio en la hoja, pero con su lista de vídeos en /coding. */
+  enCoding: boolean;
 };
 
 type Metrics = {
@@ -205,7 +212,65 @@ function toMatch(row: MatchRow, index: number): Match {
     date: parseDate(row.fecha),
     link,
     embed: toEmbedUrl(link),
+    esLiga: true,
+    enCoding: false,
   };
+}
+
+function diaClave(fecha: Date) {
+  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+  const dia = String(fecha.getDate()).padStart(2, "0");
+
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
+}
+
+/**
+ * La hoja de vídeos y el calendario de BeSoccer, en una sola lista.
+ *
+ * La hoja sólo tiene lo que se ha subido (hoy, un amistoso), así que los
+ * partidos de liga ya jugados se completan con el calendario; cada uno enlaza
+ * a su lista de vídeos de /coding. Lo que la hoja trae de antes de la primera
+ * jornada es pretemporada y no cuenta en los indicadores.
+ */
+function unePartidos(deLaHoja: Match[], calendario: PartidoCastilla[]) {
+  const deLiga = calendario.filter((p) => p.jornada > 0 && p.cuando);
+
+  if (deLiga.length === 0) return deLaHoja;
+
+  const dias = new Set(deLiga.map((p) => p.cuando.slice(0, 10)));
+  const primero = deLiga.map((p) => p.cuando.slice(0, 10)).sort()[0];
+
+  const hoja = deLaHoja.map((m) => {
+    const dia = m.date ? diaClave(m.date) : "";
+
+    const esLiga = dias.has(dia) || (dia !== "" && dia >= primero);
+
+    return { ...m, esLiga, enCoding: esLiga && !m.link };
+  });
+
+  const cubiertos = new Set(hoja.map((m) => (m.date ? diaClave(m.date) : "")));
+
+  const extra = deLiga
+    .filter((p) => p.golesLocal !== null && p.golesVisitante !== null)
+    .filter((p) => !cubiertos.has(p.cuando.slice(0, 10)))
+    .map((p, i) => {
+      const [anio, mes, dia] = p.cuando.slice(0, 10).split("-");
+
+      const fila = toMatch(
+        {
+          microciclo: `Jornada ${p.jornada}`,
+          fecha: `${dia}/${mes}/${anio}`,
+          resultado: `${p.golesLocal}-${p.golesVisitante}`,
+          partido: `${p.local} - ${p.visitante}`,
+          enlace: "",
+        },
+        10000 + i
+      );
+
+      return { ...fila, enCoding: true };
+    });
+
+  return [...hoja, ...extra];
 }
 
 /* ------------------------------------------------------------------ */
@@ -238,13 +303,20 @@ const OUTCOME = {
 /* ------------------------------------------------------------------ */
 
 export default function Page() {
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [hojaMatches, setMatches] = useState<Match[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const { partidos: calendario } = useCalendario();
+
+  const matches = useMemo(
+    () => unePartidos(hojaMatches, calendario as PartidoCastilla[]),
+    [hojaMatches, calendario]
+  );
 
   const [search, setSearch] = useState("");
   const [selectedMicro, setSelectedMicro] = useState("ALL");
   const [outcomeFilter, setOutcomeFilter] = useState<"ALL" | Outcome>("ALL");
-  const [onlyWithVideo, setOnlyWithVideo] = useState(false);
+  /* Por defecto sólo los partidos que tienen vídeo: el lunes se viene a verlo. */
+  const [onlyWithVideo, setOnlyWithVideo] = useState(true);
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
 
   const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -319,7 +391,7 @@ export default function Page() {
     const list = matches.filter((m) => {
       if (selectedMicro !== "ALL" && m.microciclo !== selectedMicro) return false;
       if (outcomeFilter !== "ALL" && m.outcome !== outcomeFilter) return false;
-      if (onlyWithVideo && !m.link) return false;
+      if (onlyWithVideo && !m.link && !m.enCoding) return false;
 
       if (!q) return true;
 
@@ -352,7 +424,9 @@ export default function Page() {
     let withVideo = 0;
 
     filtered.forEach((m) => {
-      if (m.link) withVideo++;
+      if (m.link || m.enCoding) withVideo++;
+      /* La pretemporada se ve, pero no cuenta en victorias ni en goles. */
+      if (!m.esLiga) return;
       if (m.outcome === null || m.gf === null || m.ga === null) return;
 
       played++;
@@ -366,7 +440,7 @@ export default function Page() {
 
     // La racha siempre se lee del más reciente al más antiguo.
     const lastFive = [...filtered]
-      .filter((m) => m.outcome !== null)
+      .filter((m) => m.outcome !== null && m.esLiga)
       .sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0))
       .slice(0, 5);
 
@@ -470,7 +544,7 @@ export default function Page() {
             </header>
 
             {/* MÉTRICAS */}
-            <MetricsPanel metrics={metrics} />
+            {metrics.played > 0 ? <MetricsPanel metrics={metrics} /> : null}
 
             {/* FILTROS */}
             <div className="sticky top-20 z-20 -mx-4 mt-8 border-y border-white/[0.08] bg-[#0B0F14]/90 px-4 py-4 backdrop-blur-xl sm:-mx-8 sm:px-8 md:top-24">
@@ -731,13 +805,12 @@ function MetricsPanel({ metrics }: { metrics: Metrics }) {
 
         <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4">
           <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
-            Últimos 5
+            {metrics.lastFive.length >= 5
+              ? "Últimos 5"
+              : `Últimos ${metrics.lastFive.length} (de ${metrics.played} jugados)`}
           </p>
 
           <div className="mt-3 flex flex-wrap items-center gap-1.5">
-            {metrics.lastFive.length === 0 && (
-              <span className="text-sm text-white/35">Sin datos</span>
-            )}
 
             {metrics.lastFive.map((m) => {
               const token = OUTCOME[m.outcome as Outcome];
@@ -963,12 +1036,15 @@ function MatchCard({
             <Play className="h-4 w-4" />
             Ver vídeo análisis
           </span>
-        ) : (
-          <span className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.02] px-4 py-2.5 text-sm text-white/35">
-            <VideoOff className="h-4 w-4" />
-            Vídeo no disponible
-          </span>
-        )}
+        ) : match.enCoding ? (
+          <Link
+            href="/coding"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-black transition hover:opacity-90"
+          >
+            <Play className="h-4 w-4" />
+            Vídeo con jugadores en Coding
+          </Link>
+        ) : null}
       </span>
     </Wrapper>
   );
