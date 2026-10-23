@@ -14,7 +14,7 @@
  * BeSoccer el trabajo nocturno, o los ha puesto alguien a mano.
  */
 
-import { CheckCircle2, Clock, Lock, RefreshCw, Trophy } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock, Lock, RefreshCw, Trophy } from "lucide-react";
 
 import { Avatar } from "@/components/quiniela/Avatar";
 import { marcadorDe, type JornadaQuiniela } from "@/lib/quiniela/modelo";
@@ -37,6 +37,30 @@ function hace(iso: string, ahora: Date) {
   const dias = Math.round(horas / 24);
 
   return dias === 1 ? "ayer" : `hace ${dias} días`;
+}
+
+const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** «2026-10-25» -> { largo: "domingo 25", corto: "dom 25 oct" }. */
+function diaDe(fecha: string) {
+  const dia = new Date(`${fecha}T12:00:00Z`);
+
+  if (Number.isNaN(dia.getTime())) return null;
+
+  const nombre = DIAS[dia.getUTCDay()];
+
+  return {
+    largo: `${nombre} ${dia.getUTCDate()}`,
+    corto: `${nombre.slice(0, 3)} ${dia.getUTCDate()} ${MESES[dia.getUTCMonth()]}`,
+  };
+}
+
+/** «A», «A y B», «A, B y C». */
+function enLista(nombres: string[]) {
+  if (nombres.length <= 1) return nombres.join("");
+
+  return `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
 }
 
 function Ficha({
@@ -102,6 +126,7 @@ export function EstadoJornada({
   ultimasHoras,
   cuandoCierra: cierre,
   ahora,
+  primerPartido,
 }: {
   jornada: JornadaQuiniela;
   numero: number;
@@ -112,6 +137,8 @@ export function EstadoJornada({
   ultimasHoras: boolean;
   cuandoCierra: string;
   ahora: Date;
+  /** El primero que se juega: con 0 jugados es lo que cuenta la cuarta ficha. */
+  primerPartido?: { fecha: string; local: string; visitante: string };
 }) {
   const jugados = jornada.resultados.filter(Boolean).length;
 
@@ -139,9 +166,34 @@ export function EstadoJornada({
   const cuantosPuestos = (slug: string) =>
     jornada.puestos?.[slug] ?? (jornada.pronosticos[slug] ?? []).filter(Boolean).length;
 
-  const apostaron = jugadores.filter((slug) => cuantosPuestos(slug) > 0).length;
-
   const completas = jugadores.filter((slug) => cuantosPuestos(slug) === partidos).length;
+
+  /* Quién no ha acabado su apuesta, con nombre: «faltan 1» no decía quién. */
+  const incompletos = jugadores
+    .filter((slug) => cuantosPuestos(slug) < partidos)
+    .map((slug) => {
+      const persona = PERSONA_POR_SLUG.get(slug);
+
+      return persona ? nombreCorto(persona) : slug;
+    });
+
+  const lista =
+    incompletos.length > 3
+      ? `${incompletos.slice(0, 2).join(", ")} y ${incompletos.length - 2} más`
+      : enLista(incompletos);
+
+  const pieApuestas =
+    incompletos.length === 0
+      ? "Todos con la suya completa"
+      : cerrada
+        ? incompletos.length === 1
+          ? `${lista} no la completó`
+          : `Sin completar: ${lista}`
+        : incompletos.length === 1
+          ? `Falta ${lista}`
+          : `Faltan ${incompletos.length}: ${lista}`;
+
+  const diaPrimero = primerPartido ? diaDe(primerPartido.fecha) : null;
 
   const cuando = jornada.resultadosEn ? hace(jornada.resultadosEn, ahora) : "";
 
@@ -175,13 +227,7 @@ export function EstadoJornada({
             </span>
           </>
         }
-        pie={
-          completas === jugadores.length
-            ? "Todos con la suya completa"
-            : apostaron > completas
-              ? `${apostaron - completas} la tienen a medias`
-              : `Faltan ${jugadores.length - apostaron} por empezar`
-        }
+        pie={pieApuestas}
       >
         <span className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]">
           <span
@@ -203,9 +249,9 @@ export function EstadoJornada({
         }
         pie={
           jugados === 0
-            ? cerrada
-              ? "Todavía no ha rodado el balón"
-              : "Se juegan el fin de semana"
+            ? diaPrimero
+              ? `Empieza el ${diaPrimero.largo}`
+              : undefined
             : [cuando, deDonde].filter(Boolean).join(" · ")
         }
       >
@@ -217,15 +263,25 @@ export function EstadoJornada({
         </span>
       </Ficha>
 
-      {/* 4. Quién va ganando. */}
+      {/* 4. Quién va ganando; hasta el primer resultado, el primer partido. */}
+      {jugados === 0 ? (
+        diaPrimero && primerPartido ? (
+          <Ficha
+            icono={CalendarDays}
+            rotulo="Primer partido"
+            valor={diaPrimero.corto}
+            pie={`${primerPartido.local} – ${primerPartido.visitante}`}
+          />
+        ) : null
+      ) : (
       <Ficha
         icono={Trophy}
         rotulo="Va ganando"
-        tono={jugados > 0 ? "oro" : "normal"}
+        tono="oro"
         valor={
-          jugados === 0 || !mejor || mejor.marcador.aciertos === 0 ? (
+          !mejor || mejor.marcador.aciertos === 0 ? (
             <span className="text-base font-normal text-white/35">
-              {jugados === 0 ? "Aún nada" : "Nadie ha acertado"}
+              Nadie ha acertado
             </span>
           ) : (
             <span className="flex min-w-0 items-center gap-2">
@@ -246,13 +302,12 @@ export function EstadoJornada({
           )
         }
         pie={
-          jugados === 0
-            ? "Cuando haya resultados"
-            : lideres.length > 1
-              ? `Empatados ${lideres.length}, con ${mejor.marcador.aciertos} de ${jugados}`
-              : `${mejor.marcador.aciertos} de ${jugados}`
+          lideres.length > 1
+            ? `Empatados ${lideres.length}, con ${mejor.marcador.aciertos} de ${jugados}`
+            : `${mejor.marcador.aciertos} de ${jugados}`
         }
       />
+      )}
     </div>
   );
 }

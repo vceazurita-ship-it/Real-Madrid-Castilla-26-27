@@ -278,6 +278,18 @@ export type FilaRanking = {
 };
 
 /**
+ * La primera jornada en la que alguien puso un signo; Infinity si aún no ha
+ * apostado. Es el punto desde el que cuenta en el ranking y en la comida: una
+ * sola regla para los dos, para que la misma persona no salga con dos
+ * porcentajes distintos (23/10/2026).
+ */
+export function primeraJornadaDe(doc: DocumentoQuiniela, slug: string): number {
+  return Object.values(doc.jornadas)
+    .filter((jornada) => (jornada.pronosticos[slug] ?? []).some(Boolean))
+    .reduce((menor, jornada) => Math.min(menor, jornada.jornada), Infinity);
+}
+
+/**
  * El ranking de acierto de toda la temporada.
  *
  * Ordena por porcentaje y no por aciertos: quien se incorpora en la jornada
@@ -314,9 +326,7 @@ export function ranking(
     | Dentro de su participación, no pronosticar SÍ cuenta como fallo —es la
     | regla de la casa—: lo que no cuenta es lo que pasó antes de estar.
     */
-    const suyaPrimera = jornadas
-      .filter((jornada) => (jornada.pronosticos[slug] ?? []).some(Boolean))
-      .reduce((menor, jornada) => Math.min(menor, jornada.jornada), Infinity);
+    const suyaPrimera = primeraJornadaDe(doc, slug);
 
     for (const jornada of jornadas) {
       if (Number.isFinite(suyaPrimera) && jornada.jornada < suyaPrimera) continue;
@@ -528,7 +538,13 @@ export function rankingDeBloque(
       let aciertos = 0;
       let jugados = 0;
 
+      /* Misma regla que el ranking: cada uno cuenta desde su primera
+         apuesta, no desde el principio del bloque. */
+      const suyaPrimera = primeraJornadaDe(doc, slug);
+
       for (const jornada of jornadas) {
+        if (Number.isFinite(suyaPrimera) && jornada.jornada < suyaPrimera) continue;
+
         const marcador = marcadorDe(jornada, slug);
 
         aciertos += marcador.aciertos;
