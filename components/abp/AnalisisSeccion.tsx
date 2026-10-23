@@ -112,8 +112,8 @@ function ChapaComparativa({
         sinFiltro
           ? undefined
           : dato.delta == null || Math.abs(dato.delta) < 0.005
-            ? `= ${dato.globalTexto}`
-            : `${dato.deltaTexto} vs ${dato.globalTexto}`
+            ? `= global (${dato.globalTexto})`
+            : `${dato.deltaTexto} sobre el global de la temporada (${dato.globalTexto})`
       }
       color={dato.tono === "neutro" ? undefined : TONO_COLOR[dato.tono]}
     />

@@ -247,7 +247,12 @@ export function revisaSemana({
 
   /* ------------------- TRABAJO EN DÍAS SIN SESIÓN ------------------ */
 
-  const fueraDeSesion = entradas.filter(({ dia }) => dias[dia]?.tipo !== "entreno");
+  /* El vídeo previo (PRE) el día del partido es normal: no es un error de planificación. */
+  const fueraDeSesion = entradas.filter(
+    ({ dia, trabajo }) =>
+      dias[dia]?.tipo !== "entreno" &&
+      !(dias[dia]?.tipo === "partido" && trabajo.medio === "video" && trabajo.momento === "pre"),
+  );
 
   if (fueraDeSesion.length) {
     puntos.push({
