@@ -115,12 +115,9 @@ export default function ApuestasPage() {
 
   const pasos = (
     <ol className="list-decimal space-y-1 pl-4">
-      <li>Uno lanza una predicción, dice qué se juega y pone el día en que se comprueba.</li>
-      <li>Los demás se ponen a favor o en contra, y pueden cambiar de bando hasta el día antes.</li>
-      <li>
-        Ese día cualquiera que haya entrado da el veredicto. Quien lanza sólo puede retirarla mientras nadie se haya
-        mojado.
-      </li>
+      <li>Lanza tu predicción, di qué te juegas y pon el día de comprobación.</li>
+      <li>Los demás se ponen a favor o en contra hasta el día antes.</li>
+      <li>Ese día, cualquiera que haya entrado da el veredicto.</li>
     </ol>
   );
 
@@ -178,11 +175,14 @@ export default function ApuestasPage() {
               )}
             </div>
 
+            {/* El acceso va antes que el ejemplo: es lo útil. */}
+            {!accesoAbajo && acceso}
+
             {/* Sin ninguna apuesta publicada: el ejemplo, como tarjeta de
                 muestra, para que la pantalla enseñe qué se ve aquí. */}
             {estado === "listo" && doc.apuestas.length === 0 && (
               <div className="mt-5">
-                <Panel title="Así se ve una apuesta" subtitle="Un ejemplo; todavía no hay ninguna publicada" icon={Dices}>
+                <Panel title="Así se ve una apuesta" icon={Dices}>
                   <article className="flex max-w-xl flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-4">
                     <p className="text-[15px] font-medium leading-snug text-white/90">
                       «El Castilla acaba la primera vuelta entre los cinco primeros»
@@ -194,22 +194,12 @@ export default function ApuestasPage() {
                     <p className="text-[11px] text-white/45">
                       Se comprueba el último día de la vuelta. Hasta entonces, cada uno se pone a favor o en contra.
                     </p>
-                    {!yo && !sesion.cargando && (
-                      <a
-                        href="#acceso-apuestas"
-                        className="self-start rounded-lg border border-[#C8A96B]/40 px-3 py-1.5 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
-                      >
-                        Entrar para lanzar la primera
-                      </a>
-                    )}
                   </article>
                 </Panel>
               </div>
             )}
 
             {/* ------------------------ QUIÉN ERES --------------------- */}
-
-            {!accesoAbajo && acceso}
 
             {/* ------------------------ LANZAR UNA --------------------- */}
 
