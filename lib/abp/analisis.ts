@@ -232,7 +232,17 @@ export type Comparativa = {
   tono: Tono;
   /** Con poca muestra el número se enseña, pero no se juzga. */
   fiable: boolean;
+  /** Se mira desde el lado en el que menos es mejor (defensa, concedido). */
+  menosEsMejor: boolean;
 };
+
+/** Por debajo de esto, o con una sola jornada, una diferencia es indicio y no dato. */
+const MUESTRA_MINIMA_JUICIO = 10;
+
+const escasaDe = (eventos: EventoAnalisis[]) =>
+  eventos.length > 0 &&
+  (eventos.length < MUESTRA_MINIMA_JUICIO ||
+    new Set(eventos.map((uno) => uno.jornada.clave).filter(Boolean)).size <= 1);
 
 /** Convierte una diferencia en juicio, teniendo en cuenta desde dónde se mira. */
 function tonoDe(delta: number | null, sentido: Sentido, umbral: number): Tono {
@@ -257,6 +267,7 @@ function comparaMetrica(
   globales: EventoAnalisis[],
   sentido: Sentido,
   etiquetas: Etiquetas = {},
+  escasa = false,
 ): Comparativa {
   const metrica = METRICAS[clave];
 
@@ -273,7 +284,7 @@ function comparaMetrica(
   /* Un punto porcentual arriba o abajo no es una diferencia, es ruido. */
   const umbral = metrica.porcentual ? 4 : Math.max(0.02, Math.abs(global ?? 0) * 0.12);
 
-  const fiable = filtradas.length >= metrica.minimo;
+  const fiable = filtradas.length >= metrica.minimo && !escasa;
 
   return {
     clave,
@@ -294,6 +305,7 @@ function comparaMetrica(
           : signo(delta, 2),
     tono: fiable ? tonoDe(delta, sentidoDe(clave, sentido), umbral) : "neutro",
     fiable,
+    menosEsMejor: sentidoDe(clave, sentido) === "defensivo",
   };
 }
 
@@ -545,6 +557,7 @@ function analizaReparto(
   */
   derivada = false,
 ): Reparto | null {
+  const escasa = escasaDe(filtradas);
   const utiles = filtradas.filter((uno) => !SIN_VALOR.test(uno.categoria.trim()));
 
   if (utiles.length === 0) return null;
@@ -617,6 +630,11 @@ function analizaReparto(
 
   if (categorias.length === 1) {
     frases.push(`Todo se concentra en «${lider.nombre}».`);
+  } else if (escasa) {
+    /* Con tan poco, el peso sobre el global no se juzga: se enseña la base. */
+    frases.push(
+      `Manda «${lider.nombre}»: ${lider.acciones} de ${utiles.length} acciones (${formatoPct(lider.cuota)}).`,
+    );
   } else {
     frases.push(
       `Manda «${lider.nombre}» con el ${formatoPct(lider.cuota)} de las acciones${
@@ -625,20 +643,22 @@ function analizaReparto(
     );
   }
 
-  if (sube && sube.nombre !== lider.nombre && sube.deltaPp >= 5) {
+  if (!escasa && sube && sube.nombre !== lider.nombre && sube.deltaPp >= 5) {
     frases.push(`Gana peso «${sube.nombre}» (${signo(sube.deltaPp)} pp).`);
   }
 
-  if (baja && baja.deltaPp <= -5 && baja.nombre !== sube?.nombre && baja.nombre !== lider.nombre) {
+  if (!escasa && baja && baja.deltaPp <= -5 && baja.nombre !== sube?.nombre && baja.nombre !== lider.nombre) {
     frases.push(`Lo pierde «${baja.nombre}» (${signo(baja.deltaPp)} pp).`);
   }
 
   /* Con 0 no hay «más» que decir: contradice el resto de la lectura. */
-  if (masEficaz?.metrica != null && masEficaz.metrica > 0 && categorias.length > 1) {
+  if (!escasa && masEficaz?.metrica != null && masEficaz.metrica > 0 && categorias.length > 1) {
     frases.push(
       `${sentido === "ofensivo" ? "Lo que más produce" : "Por donde más se concede"}: «${masEficaz.nombre}», ${metrica.formatear(masEficaz.metrica)} sobre ${masEficaz.acciones} acciones.`,
     );
   }
+
+  if (escasa && categorias.length > 1) frases.push("Indicio: muestra corta.");
 
   return { etiqueta, categorias, lider, sube, baja, masEficaz, texto: frases.join(" ") };
 }
@@ -719,14 +739,16 @@ export function analizaSeccion({
     jornadas,
     jornadasTotal,
     sinFiltro: filtradas.length === globales.length,
-    corta: filtradas.length > 0 && filtradas.length < METRICAS[metrica].minimo,
+    corta: escasaDe(filtradas) || (filtradas.length > 0 && filtradas.length < METRICAS[metrica].minimo),
   };
 
-  const principal = comparaMetrica(metrica, filtradas, globales, sentido, etiquetas);
+  const escasa = escasaDe(filtradas);
+
+  const principal = comparaMetrica(metrica, filtradas, globales, sentido, etiquetas, escasa);
 
   const secundarias = (acompanan ?? ACOMPANAN[metrica])
     .filter((clave) => clave !== metrica)
-    .map((clave) => comparaMetrica(clave, filtradas, globales, sentido, etiquetas));
+    .map((clave) => comparaMetrica(clave, filtradas, globales, sentido, etiquetas, escasa));
 
   const tendencia = analizaTendencia(filtradas, metrica, sentido);
 
@@ -797,7 +819,7 @@ function redactaTitular({
         : "por debajo de";
 
     const juicio =
-      principal.tono === "neutro"
+      principal.tono === "neutro" || !principal.fiable
         ? ""
         : principal.tono === "bueno"
           ? sentido === "ofensivo"
@@ -808,7 +830,7 @@ function redactaTitular({
             : " Es por donde más peligro nos hacen.";
 
     frases.push(
-      `${principal.label} ${metrica.formatear(principal.filtro)}, ${relacion} ${metrica.formatear(principal.global)} global.${juicio}`,
+      `${principal.label} ${metrica.formatear(principal.filtro)}, ${relacion} ${metrica.formatear(principal.global)} global${principal.menosEsMejor ? " (menos es mejor)" : ""}.${juicio}`,
     );
   }
 
@@ -821,7 +843,9 @@ function redactaTitular({
   /* 5 · El aviso, al final, para que no se lea un porcentaje de tres acciones. */
   if (muestra.corta) {
     frases.push(
-      `Con ${muestra.filtradas} ${muestra.filtradas === 1 ? "acción" : "acciones"} cada una mueve mucho el porcentaje: tómalo como indicio, no como dato.`,
+      muestra.filtradas < MUESTRA_MINIMA_JUICIO
+        ? `Indicio, no dato: con ${muestra.filtradas} ${muestra.filtradas === 1 ? "acción" : "acciones"} cada una mueve mucho el porcentaje.`
+        : `Indicio, no dato: sale de una sola jornada (${muestra.filtradas} acciones).`,
     );
   }
 
