@@ -1162,7 +1162,7 @@ const atenuado = tipoElegido
     fontSize="2.2"
     fontWeight="700"
   >
-    {metric === "xg" ? (data?.xg || 0).toFixed(2) : value}
+    {metric === "xg" ? (data?.xg || 0).toFixed(2).replace(".", ",") : value}
   </text>
 </g>
     );
@@ -1215,7 +1215,7 @@ const atenuado = tipoElegido
               fontSize="1.9"
               fontWeight="700"
             >
-              {stat.xg.toFixed(2)}
+              {stat.xg.toFixed(2).replace(".", ",")}
             </text>
           </g>
         );
@@ -1309,7 +1309,7 @@ const atenuado = tipoElegido
           <div className="rounded-lg bg-white/5 px-2 py-1.5">
             <p className="text-[11px] text-slate-400">xG generado</p>
             <p className="mt-0.5 text-sm font-semibold text-white">
-              {(originEnvios[origenAbierto.key]?.xg || 0).toFixed(2)}
+              {(originEnvios[origenAbierto.key]?.xg || 0).toFixed(2).replace(".", ",")}
             </p>
           </div>
 
@@ -1475,7 +1475,7 @@ const atenuado = tipoElegido
 
         <div className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2">
           <p className="text-xs uppercase tracking-wide text-emerald-200">xG acumulado</p>
-          <p className="text-xl font-semibold text-emerald-100">{remateStats[remateAbierto].xg.toFixed(2)}</p>
+          <p className="text-xl font-semibold text-emerald-100">{remateStats[remateAbierto].xg.toFixed(2).replace(".", ",")}</p>
         </div>
 
         <div className="space-y-2">
@@ -1498,7 +1498,7 @@ const atenuado = tipoElegido
                 </div>
                 <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
                   <dt className="text-slate-400">xG</dt>
-                  <dd className="mt-0.5 font-medium">{Number(r.xG ?? 0).toFixed(2)}</dd>
+                  <dd className="mt-0.5 font-medium">{Number(r.xG ?? 0).toFixed(2).replace(".", ",")}</dd>
                 </div>
                 <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
                   <dt className="text-slate-400">Tipo de acción</dt>

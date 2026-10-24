@@ -1502,7 +1502,12 @@ export default function AbpMicrocicloPage() {
                       value={micro.clave}
                       className="bg-[#11161C]"
                     >
-                      {`Micro ${micro.micro} · ${micro.rival || "sin rival"}`}
+                      {/* La jornada junto al micro: el título dice «Jornada 9» y la lista «Micro 18». */}
+                      {`Micro ${micro.micro}${(() => {
+                        const j = micro.rival ? buscaPartido(micro.rival, partidos)?.jornada : null;
+
+                        return j ? ` (J${j})` : "";
+                      })()} · ${micro.rival || "sin rival"}`}
                       {micro.planificado ? " ✓" : ""}
                       {micro.enRegistro ? "" : " (nuevo)"}
                     </option>
@@ -1550,7 +1555,7 @@ export default function AbpMicrocicloPage() {
                   {semana.origen === "a mano"
                     ? "Fijados en el plan"
                     : semana.origen === "marcados"
-                      ? `${semana.dias} en el microciclo`
+                      ? `${semana.dias} de entreno + el partido`
                       : `${semana.dias} con balón parado`}
                 </span>
               </label>

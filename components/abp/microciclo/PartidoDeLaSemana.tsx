@@ -139,7 +139,7 @@ export function PartidoDeLaSemana({
       : minutos < objetivo.minimo
         ? { texto: `faltan ${objetivo.minimo - minutos}′`, clase: "text-amber-300" }
         : minutos > objetivo.maximo
-          ? { texto: `${minutos - objetivo.maximo}′ de más`, clase: "text-amber-300" }
+          ? { texto: `${minutos - objetivo.maximo}′ de más (${minutos}′ − ${objetivo.maximo}′ máximo)`, clase: "text-amber-300" }
           : { texto: "dentro del objetivo", clase: "text-emerald-300" };
 
   const ladoTotal = porLado.ofensivo + porLado.defensivo;
