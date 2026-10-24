@@ -29,6 +29,7 @@ export default function GestorAlertas() {
     alertas,
     agenda,
     cargando,
+    comprobando,
     motorCaido,
     fallo,
     reintentar,
@@ -103,7 +104,7 @@ export default function GestorAlertas() {
   | alertas de la portada).
   */
   useEffect(() => {
-    if (cargando || partidos.length === 0) return;
+    if (cargando || comprobando || partidos.length === 0) return;
 
     /*
     | Se recalculan TODAS, no sólo las vencidas.
@@ -141,7 +142,7 @@ export default function GestorAlertas() {
     }, 0);
 
     return () => clearTimeout(id);
-  }, [alertas, cargando, guardar, partidos]);
+  }, [alertas, cargando, comprobando, guardar, partidos]);
 
   const [editando, setEditando] = useState<Alerta | null>(null);
   const [esNueva, setEsNueva] = useState(false);
@@ -316,7 +317,7 @@ export default function GestorAlertas() {
           <button
             type="button"
             onClick={() => void reactivarTodas()}
-            disabled={ocupada !== null}
+            disabled={ocupada !== null || comprobando}
             className="mt-2.5 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#C8A96B] px-4 py-2 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-40"
           >
             <BellRing className="h-4 w-4 shrink-0" aria-hidden />
@@ -354,10 +355,32 @@ export default function GestorAlertas() {
 
       {/* ----------------------- LISTA ------------------------- */}
 
+      {comprobando && (
+        <p
+          role="status"
+          className="flex items-center gap-2 text-xs text-white/50"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+          Esto es lo último que se vio. Comprobando con la hoja…
+        </p>
+      )}
+
       {cargando ? (
-        <div className="flex items-center justify-center gap-2 py-10 text-sm text-white/40">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          Cargando…
+        <div
+          role="status"
+          aria-label="Cargando las tareas"
+          className="space-y-3"
+        >
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="h-24 animate-pulse rounded-3xl border border-white/10 bg-white/[0.04]"
+            />
+          ))}
+
+          <p className="text-center text-xs text-white/50">
+            Pidiendo las tareas a la hoja. Si tarda, podrás reintentar.
+          </p>
         </div>
       ) : fallo ? (
         <div className="rounded-3xl border border-dashed border-white/10 px-6 py-8 text-center">
@@ -377,6 +400,7 @@ export default function GestorAlertas() {
       ) : (
         <ListaAlertas
           alertas={alertas}
+          comprobando={comprobando}
           onEditar={abrirExistente}
           onEnviarAhora={setAEnviar}
           onAlternarActiva={(alerta) => void alternarActiva(alerta)}

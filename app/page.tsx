@@ -44,6 +44,31 @@ type Seguimiento = {
 
 const ENDPOINT_SEGUIMIENTO = "/api/rivals?action=seguimiento"
 
+/**
+ * Tiempo máximo de cada bloque lento. Con la copia del aparato la respuesta es
+ * inmediata; sin ella el Apps Script en frío puede tardar 30-70 s, y un bloque
+ * en esqueleto sin final no dice si hay algo roto. Pasado el tope el bloque
+ * pinta su fallo y el «Reintentar» de siempre (que se salta la copia).
+ */
+const TOPE_BLOQUE_MS = 20_000
+
+function conTope<T>(promesa: Promise<T>, ms = TOPE_BLOQUE_MS): Promise<T> {
+  return new Promise<T>((resuelve, rechaza) => {
+    const reloj = setTimeout(() => rechaza(new Error("tarda")), ms)
+
+    promesa.then(
+      (v) => {
+        clearTimeout(reloj)
+        resuelve(v)
+      },
+      (e) => {
+        clearTimeout(reloj)
+        rechaza(e)
+      },
+    )
+  })
+}
+
 const CSV_CULTURA =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv"
 
@@ -342,7 +367,7 @@ export default function Home() {
   useEffect(() => {
     let vivo = true
 
-    traeJson<unknown>(ENDPOINT_SEGUIMIENTO, { forzar: intentos > 0 })
+    conTope(traeJson<unknown>(ENDPOINT_SEGUIMIENTO, { forzar: intentos > 0 }))
       .then((data) => {
         if (!vivo) return
 
@@ -366,7 +391,7 @@ export default function Home() {
   useEffect(() => {
     let vivo = true
 
-    traeJson<{ ok?: boolean; resumen?: ResumenData }>("/api/data-analisis?resumen=1", { forzar: intentos > 0 })
+    conTope(traeJson<{ ok?: boolean; resumen?: ResumenData }>("/api/data-analisis?resumen=1", { forzar: intentos > 0 }))
       .then((r) => {
         if (!vivo) return
 
@@ -473,7 +498,12 @@ export default function Home() {
                       la casa, que es el color con el que Data Análisis pinta lo
                       nuestro en todos sus gráficos. */}
                   <div className="absolute left-5 top-5 max-w-[calc(100%-40px)]">
-                    <div className="flex items-center gap-2.5 rounded-full border border-[#D8B45A]/35 bg-black/60 px-4 py-2 backdrop-blur-xl transition group-hover:border-[#D8B45A]/70">
+                    <div
+                      className="flex items-center gap-2.5 rounded-full border border-[#D8B45A]/35 px-4 py-2 backdrop-blur-xl transition group-hover:border-[#D8B45A]/70"
+                      /* Fondo opaco en línea: ni el modo día ni la foto clara
+                         del césped lo aclaran (contraste medido 1,15). */
+                      style={{ backgroundColor: "rgba(2,6,13,.94)" }}
+                    >
                       <Sigma className="h-[15px] w-[15px] shrink-0 text-[#F7D98B]" />
 
                       <p className="truncate text-[11px] font-medium uppercase tracking-[0.22em] text-[#F7D98B]">
@@ -489,7 +519,7 @@ export default function Home() {
                   {/* El césped de la foto es claro: sin fondo propio esta línea
                       se pierde. Va con el mismo cristal que la chapa. */}
                   <div className="absolute left-5 top-[58px] max-w-[calc(100%-40px)]">
-                    <p className="inline-block rounded-full border border-white/10 bg-black/85 px-3.5 py-1.5 text-[11px] leading-relaxed backdrop-blur-xl" style={{ color: "rgba(255,255,255,.92)" }}>
+                    <p className="inline-block rounded-full border border-white/10 px-3.5 py-1.5 text-[11px] leading-relaxed backdrop-blur-xl" style={{ color: "#fff", backgroundColor: "rgba(2,6,13,.94)" }}>
                       {resumenData
                         ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido leído" : "partidos leídos"} de ${resumenData.temporada}, contra los ${resumenData.equipos} de la categoría`
                         : "Opta y Wyscout, leídos de la carpeta de datos"}
@@ -512,7 +542,10 @@ export default function Home() {
                     día el blanco por clase se volvía tinta oscura sobre negro.
                   */}
                   {(cargandoData || resumenData?.xg != null) && (
-                  <div className="absolute inset-x-4 bottom-4 flex flex-col gap-4 rounded-[22px] border border-white/10 bg-black/85 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-end sm:justify-between xl:flex-col xl:items-stretch xl:justify-start">
+                  <div
+                    className="absolute inset-x-4 bottom-4 flex flex-col gap-4 rounded-[22px] border border-white/10 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-end sm:justify-between xl:flex-col xl:items-stretch xl:justify-start"
+                    style={{ backgroundColor: "rgba(2,6,13,.94)" }}
+                  >
                     <div className="min-w-0">
                       <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.9)" }}>
                         Goles esperados (xG) por partido

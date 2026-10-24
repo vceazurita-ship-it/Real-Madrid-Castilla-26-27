@@ -967,6 +967,12 @@ export default function DashboardPlantilla() {
                     </p>
                   </div>
 
+                  <p className="max-w-md text-xs leading-relaxed text-white/55 md:text-right">
+                    El estado sale del porcentaje de jugadores óptimos: 80 % o
+                    más es muy bueno, 60 % o más bueno, 40 % o más mejorable y
+                    por debajo, crítico.
+                  </p>
+
                   {/* Jugadores, media y % de óptimos van en las tarjetas de
                       debajo: aquí sólo el veredicto, sin repetir cifras. */}
                   <div className="grid grid-cols-1 gap-6">
@@ -1657,6 +1663,41 @@ function Chip({
   );
 }
 
+/** La foto de la ficha; si no hay o no carga, las iniciales (nunca un recuadro vacío). */
+function FotoOIniciales({ foto, nombre }: { foto: string; nombre: string }) {
+  const [falla, setFalla] = useState(false);
+
+  if (foto && !falla) {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img
+        src={foto}
+        alt={nombre}
+        className="h-full w-full object-cover"
+        onError={() => setFalla(true)}
+      />
+    );
+  }
+
+  const iniciales = nombre
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((palabra) => palabra[0])
+    .join("")
+    .toUpperCase();
+
+  return (
+    <div
+      role="img"
+      aria-label={nombre}
+      className="flex h-full items-center justify-center bg-[#C8A96B]/15 text-xl font-bold text-[#C8A96B]"
+    >
+      {iniciales || <UserRound size={32} />}
+    </div>
+  );
+}
+
 function SummaryStat({
   label,
   value,
@@ -1839,18 +1880,7 @@ function PlayerCard({
 
       <div className="flex min-w-0 items-center gap-4">
         <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14]">
-          {player.foto ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={player.foto}
-              alt={player.nombre}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <UserRound size={32} className="text-white/20" />
-            </div>
-          )}
+          <FotoOIniciales foto={player.foto} nombre={player.nombre} />
         </div>
 
         <div className="min-w-0 flex-1">

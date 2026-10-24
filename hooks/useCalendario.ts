@@ -40,21 +40,42 @@ export async function cargaCalendario(opciones: { forzar?: boolean } = {}): Prom
 export function useCalendario() {
   const [partidos, setPartidos] = useState<PartidoCastilla[]>([]);
   const [cargando, setCargando] = useState(true);
+  /* No llegó a tiempo: la pantalla puede ofrecer «Reintentar» en vez de
+     quedarse en el esqueleto para siempre. */
+  const [fallo, setFallo] = useState(false);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     let vivo = true;
 
-    void cargaCalendario().then((lista) => {
+    const reloj = setTimeout(() => {
+      if (!vivo) return;
+
+      setFallo(true);
+      setCargando(false);
+    }, 12_000);
+
+    void cargaCalendario({ forzar: intento > 0 }).then((lista) => {
+      clearTimeout(reloj);
+
       if (!vivo) return;
 
       setPartidos(lista);
+      setFallo(false);
       setCargando(false);
     });
 
     return () => {
       vivo = false;
+      clearTimeout(reloj);
     };
-  }, []);
+  }, [intento]);
 
-  return { partidos, cargando };
+  const reintentar = () => {
+    setFallo(false);
+    setCargando(true);
+    setIntento((n) => n + 1);
+  };
+
+  return { partidos, cargando, fallo, reintentar };
 }

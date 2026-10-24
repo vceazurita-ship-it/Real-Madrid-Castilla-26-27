@@ -364,6 +364,18 @@ export default function Calendar() {
         };
       }}
     >
+      {!loading && !error && trackingData.length > 0 && (
+        <div className="px-4 pb-4 md:px-8">
+          <p className="text-xs leading-relaxed text-white/55">
+            Los totales cuentan los seguimientos registrados hasta hoy
+            ({visibleData.length} en la temporada).
+            La franja de color de cada tarjeta dice si fue de campo, de vídeo
+            u otro tipo; si un día tiene más de {MAX_VISIBLE_PER_DAY},
+            «+N más» abre el día completo.
+          </p>
+        </div>
+      )}
+
       {!playerFilter && sinSeguimiento.length > 0 && (
         <div className="px-4 pb-6 md:px-8">
           <p className="rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80">

@@ -97,6 +97,33 @@ const LINE_GROUPS: { key: LineaKey; label: string }[] = [
 /** Partidos mínimos para que una media entre en el «mejor» y en el podio. */
 const MIN_FIABLE = 4;
 
+/** Qué significa cada color de barra: los cortes de `ratingColorHex`. */
+function LeyendaColorNota() {
+  const tramos = [
+    { color: "#F87171", texto: "menos de 5" },
+    { color: "#FBBF24", texto: "5 a 6,4" },
+    { color: "#4ADE80", texto: "6,5 a 7,9" },
+    { color: "#22D3EE", texto: "8 o más" },
+  ];
+
+  return (
+    <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55">
+      <span>Color de la nota:</span>
+
+      {tramos.map((tramo) => (
+        <span key={tramo.texto} className="inline-flex items-center gap-1.5">
+          <span
+            aria-hidden
+            className="h-2.5 w-2.5 rounded-sm"
+            style={{ backgroundColor: tramo.color }}
+          />
+          {tramo.texto}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 function plural(n: number, uno: string, varios: string) {
   return `${n} ${n === 1 ? uno : varios}`;
 }
@@ -508,6 +535,8 @@ export function TeamPanel({
               </ResponsiveContainer>
             </div>
           )}
+
+          {topChart.length > 0 && <LeyendaColorNota />}
         </Panel>
 
         <div className="min-w-0 space-y-4">
@@ -547,6 +576,11 @@ export function TeamPanel({
                       tick={AXIS.tick}
                       tickLine={false}
                       axisLine={false}
+                      tickFormatter={(nombre: string) => {
+                        const linea = byLine.find((x) => x.name === nombre);
+
+                        return linea ? `${nombre} (${linea.players})` : nombre;
+                      }}
                     />
 
                     <YAxis
@@ -589,6 +623,22 @@ export function TeamPanel({
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+            )}
+
+            {byLine.length > 0 && (
+              <>
+                <LeyendaColorNota />
+
+                <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
+                  Entre paréntesis, los jugadores con nota en cada línea
+                  {byLine.some((x) => x.players < 3)
+                    ? `: ${byLine
+                        .filter((x) => x.players < 3)
+                        .map((x) => x.name)
+                        .join(" y ")} ${byLine.filter((x) => x.players < 3).length === 1 ? "es" : "son"} tendencia, no una media firme.`
+                    : "."}
+                </p>
+              </>
             )}
           </Panel>
 

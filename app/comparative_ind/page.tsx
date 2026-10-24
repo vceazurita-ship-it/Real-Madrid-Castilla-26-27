@@ -154,11 +154,27 @@ export default function ComparativaCategoria() {
 
   useEffect(() => {
     const control = new AbortController();
-    fetch("/api/data-analisis", { signal: control.signal })
-      .then((r) => r.json())
-      .then((r: Respuesta) => setDatos(r))
-      .catch(() => {
-        if (!control.signal.aborted) setDatos({ ok: false, error: "No se han podido leer los datos." });
+    /* Con la copia del aparato (traeJson) los datos de la última vez salen al
+       instante y se renuevan por detrás; y si ni siquiera hay copia, a los 25 s
+       se deja de esperar y se ofrece «Reintentar» en vez de un «Cargando…»
+       sin fin (el Apps Script en frío tarda 30-70 s). */
+    const espera = new Promise<never>((_, falla) => {
+      const reloj = setTimeout(() => falla(new Error("tarda")), 25_000);
+      control.signal.addEventListener("abort", () => clearTimeout(reloj));
+    });
+    Promise.race([traeJson<Respuesta>("/api/data-analisis", { forzar: intento > 0 }), espera])
+      .then((r) => {
+        if (!control.signal.aborted) setDatos(r);
+      })
+      .catch((e: unknown) => {
+        if (control.signal.aborted) return;
+        setDatos({
+          ok: false,
+          error:
+            e instanceof Error && e.message === "tarda"
+              ? "Los datos de la categoría tardan más de lo normal en llegar."
+              : "No se han podido leer los datos.",
+        });
       });
     traeJson<unknown>("/api/rivals?action=seguimiento")
       .then((d) => setSeguimientos(Array.isArray(d) ? (d as RegistroSeguimiento[]) : []))
@@ -321,6 +337,9 @@ export default function ComparativaCategoria() {
       top3: filas.filter((f) => f.ranking && f.ranking.posicion <= 3).length,
       media: conIndice.length ? Math.round(conIndice.reduce((s, f) => s + (f.indice ?? 0), 0) / conIndice.length) : null,
       mejoran: filas.filter((f) => f.evolucion?.fiable && f.evolucion.salto > 0).length,
+      /* Contra cuántos jugadores de su puesto se compara cada uno. */
+      grupoMin: Math.min(...filas.map((f) => f.ranking?.de ?? Infinity)),
+      grupoMax: Math.max(...filas.map((f) => f.ranking?.de ?? 0)),
     };
   }, [filas]);
 
@@ -387,9 +406,17 @@ export default function ComparativaCategoria() {
             </div>
 
             {cargando ? (
-              <p className="mt-10 flex items-center gap-2 text-sm text-white/50">
-                <Loader2 className="h-4 w-4 animate-spin" /> Cargando los datos de la categoría…
-              </p>
+              <div role="status" className="mt-8">
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="h-24 animate-pulse rounded-2xl border border-white/10 bg-white/[0.04]" />
+                  ))}
+                </div>
+                <p className="mt-4 flex items-center gap-2 text-sm text-white/50">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Cargando los datos de la categoría. Si tarda más de 25 s,
+                  podrás reintentar.
+                </p>
+              </div>
             ) : !datos?.ok ? (
               /* Un fallo de lectura se puede reintentar sin recargar la página (19/10/2026). */
               <div className="mt-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
@@ -417,8 +444,12 @@ export default function ComparativaCategoria() {
                   <>
                     <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
                       {[
-                        { t: "Jugadores comparados", v: kpis.comparados, h: `contra ${refLabel.toLowerCase()}` },
-                        { t: "Top 3 de su puesto", v: kpis.top3, h: "en el ranking de la referencia" },
+                        { t: "Jugadores comparados", v: kpis.comparados, h: `contra ${refLabel.toLowerCase()}${
+                          Number.isFinite(kpis.grupoMin) && kpis.grupoMax > 0
+                            ? `, ${kpis.grupoMin === kpis.grupoMax ? kpis.grupoMax : `${kpis.grupoMin}-${kpis.grupoMax}`} jugadores por puesto`
+                            : ""
+                        }` },
+                        { t: "Top 3 de su puesto", v: kpis.top3, h: "del ranking de su puesto; más índice es mejor" },
                         { t: "Índice medio", v: kpis.media ?? "—", h: "50 = en la media del grupo" },
                         { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: "con muestra suficiente el año pasado" },
                       ].map((k) => (

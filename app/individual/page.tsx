@@ -1936,6 +1936,8 @@ export default function IndividualPage() {
       sessions: trackingData.length,
       videos: videoData.length,
       reports: reportData.length,
+      withVideos: mergedPlayers.filter((p) => (p.videos ?? 0) > 0).length,
+      withReport: mergedPlayers.filter((p) => p.hasReport).length,
       avg: rated.length
         ? rated.reduce((acc, p) => acc + p.score, 0) / rated.length
         : 0,
@@ -3101,14 +3103,22 @@ export default function IndividualPage() {
                   icon={Video}
                   label="Vídeos"
                   value={pendiente.videos ? "—" : stats.videos}
-                  hint="Clips individuales"
+                  hint={
+                    pendiente.videos
+                      ? "cargando los vídeos…"
+                      : `clips individuales · ${stats.withVideos} de ${stats.players} jugadores`
+                  }
                 />
 
                 <StatTile
                   icon={FileText}
                   label="Informes"
                   value={pendiente.informes ? "—" : stats.reports}
-                  hint="Fichas completadas"
+                  hint={
+                    pendiente.informes
+                      ? "cargando los informes…"
+                      : `fichas completadas · ${stats.withReport} de ${stats.players} jugadores`
+                  }
                 />
 
                 <StatTile
@@ -3121,7 +3131,7 @@ export default function IndividualPage() {
                   }
                   hint={
                     stats.rated >= 3
-                      ? `sobre 10 · ${stats.rated} de ${stats.players} con ficha`
+                      ? `media de las competencias valoradas, sobre 10 ·${stats.rated} de ${stats.players} con ficha`
                       : "se muestra con 3 o más fichas valoradas"
                   }
                 />
