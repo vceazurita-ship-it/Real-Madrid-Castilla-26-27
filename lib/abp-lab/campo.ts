@@ -343,6 +343,17 @@ export function encuadre(r: Pick<Rutina, "roles" | "balon" | "tipo">, aspecto: n
   return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
+/** Los puntos donde pasa la jugada (sin la vigilancia), para encuadrar las cámaras en perspectiva. */
+export function focoDe(r: Pick<Rutina, "roles" | "balon" | "tipo">): Punto[] {
+  const desde = salidas(r.roles);
+
+  return [
+    ...desde.filter((_, i) => r.roles[i].papel !== "vigilancia"),
+    ...r.roles.filter((x) => x.papel !== "vigilancia" && x.hx !== undefined && x.hy !== undefined).map((x) => ({ x: x.hx!, y: x.hy! })),
+    ...recorridoBalon(r),
+  ];
+}
+
 /** La rutina vista desde el otro córner: todo reflejado de banda a banda. */
 export function reflejada<T extends Pick<Rutina, "roles" | "balon" | "tipo">>(r: T): T {
   const espejo = (x: number) => redondea(ANCHO - x);

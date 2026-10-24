@@ -1,0 +1,834 @@
+"use client";
+
+/**
+ * EL DIBUJO DE LA PIZARRA DEL LABORATORIO (24/10/2026).
+ *
+ * Un solo SVG que pinta la jugada en el instante `t` con la cámara que toque
+ * (`lib/abp-lab/camara.ts`): césped con franjas y luz, portería con red,
+ * sombras, el balón a su altura con su sombra en el suelo, carreras,
+ * bloqueos, la defensa simulada y, encima, las lecturas (espacio, duelos
+ * aéreos, xG del remate).
+ *
+ * No guarda estado ni sabe editar: la pizarra (`PizarraRutina`) le pasa los
+ * manejadores. Todo el color va en `style` y con valores fijos de su paleta
+ * —la de día o la de noche, según el tema—, para que el PNG, el PDF, el
+ * vídeo y el GIF salgan como se ven.
+ */
+
+import { useSyncExternalStore, type PointerEvent as PE, type KeyboardEvent as KE, type Ref } from "react";
+
+import { iniciales, type JugadorLab } from "@/components/abp-lab/comun";
+import { AREA, AREA_PEQUENA, PENALTI, PORTERIA, ANCHO, LARGO, TRAMOS, VUELO, recorridoBalon, salidas } from "@/lib/abp-lab/campo";
+import { curva, linea, poligono, type Camara, type P3 } from "@/lib/abp-lab/camara";
+import type { Envio, Fase, Papel, Punto, Rol } from "@/lib/abp-lab/modelo";
+import type { TipoAbp } from "@/lib/abp-lab/referentes";
+import { arcoTramo, estadoBalon, type Defensor, type EstadoDefensa } from "@/lib/abp-lab/simulacion";
+import type { Celda, Duelo, Remate } from "@/lib/abp-lab/ventaja";
+import { comaXg } from "@/lib/abp-lab/xg";
+
+/* ------------------------------------------------------------------ */
+/*  PALETAS                                                            */
+/* ------------------------------------------------------------------ */
+
+export type Paleta = {
+  nombre: "dia" | "noche";
+  cielo: string;
+  grada: string;
+  cesped: string;
+  franja: string;
+  orilla: string;
+  linea: string;
+  red: string;
+  luz: string;
+  vineta: string;
+  sombra: string;
+  oro: string;
+  tinta: string;
+  rival: string;
+  rivalTexto: string;
+  portero: string;
+  balon: string;
+  texto: string;
+  halo: string;
+  fase: Record<Fase, string>;
+  nuestro: string;
+  suyo: string;
+  bloqueo: string;
+};
+
+export const NOCHE: Paleta = {
+  nombre: "noche",
+  cielo: "#03070B",
+  grada: "#0B141C",
+  cesped: "#0E3A26",
+  franja: "#114631",
+  orilla: "#0B3020",
+  linea: "rgba(255,255,255,0.8)",
+  red: "rgba(255,255,255,0.34)",
+  luz: "rgba(255,247,222,0.17)",
+  vineta: "rgba(0,0,0,0.62)",
+  sombra: "rgba(0,0,0,0.5)",
+  oro: "#C8A96B",
+  tinta: "#0B0F14",
+  rival: "#A3203A",
+  rivalTexto: "#FFFFFF",
+  portero: "#E8B931",
+  balon: "#FFFFFF",
+  texto: "#FFFFFF",
+  halo: "rgba(0,0,0,0.7)",
+  fase: { 1: "#7DD3FC", 2: "#E7C98A", 3: "#86EFAC" },
+  nuestro: "200,169,107",
+  suyo: "232,64,92",
+  bloqueo: "#FF9F43",
+};
+
+export const DIA: Paleta = {
+  nombre: "dia",
+  cielo: "#C7D2CC",
+  grada: "#9FB0A8",
+  cesped: "#3C8A4E",
+  franja: "#459858",
+  orilla: "#357C46",
+  linea: "rgba(255,255,255,0.95)",
+  red: "rgba(255,255,255,0.55)",
+  luz: "rgba(255,252,228,0.22)",
+  vineta: "rgba(18,40,26,0.26)",
+  sombra: "rgba(8,30,16,0.36)",
+  oro: "#C8A96B",
+  tinta: "#0B0F14",
+  rival: "#9B1C31",
+  rivalTexto: "#FFFFFF",
+  portero: "#E8B931",
+  balon: "#FFFFFF",
+  texto: "#FFFFFF",
+  halo: "rgba(6,20,12,0.78)",
+  fase: { 1: "#0EA5E9", 2: "#FDE68A", 3: "#BBF7D0" },
+  nuestro: "253,224,140",
+  suyo: "190,24,60",
+  bloqueo: "#FB923C",
+};
+
+const suscribeTema = (aviso: () => void) => {
+  const observador = new MutationObserver(aviso);
+
+  observador.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  return () => observador.disconnect();
+};
+
+/** La paleta del tablero según el tema de la app: de día, partido a pleno sol; de noche, con focos. */
+export function usePaleta(): Paleta {
+  const tema = useSyncExternalStore(
+    suscribeTema,
+    () => document.documentElement.getAttribute("data-theme"),
+    () => "light",
+  );
+
+  return tema === "dark" ? NOCHE : DIA;
+}
+
+/* ------------------------------------------------------------------ */
+/*  PIEZAS                                                             */
+/* ------------------------------------------------------------------ */
+
+export const CODIGO_PAPEL: Record<Papel, string> = {
+  lanzador: "L",
+  rematador: "R",
+  bloqueador: "B",
+  senuelo: "S",
+  portero: "P",
+  corto: "C",
+  segunda: "2ª",
+  vigilancia: "V",
+  zonal: "Z",
+  marcador: "H",
+};
+
+/* Los papeles que no pisan el remate se pintan huecos. */
+const HUECO: Partial<Record<Papel, boolean>> = { senuelo: true, segunda: true, vigilancia: true };
+
+const nombreCorto = (n: string) => {
+  const partes = n.trim().split(/\s+/);
+
+  return partes.length > 1 && partes[0].length <= 3 ? partes.slice(0, 2).join(" ") : (partes[0] ?? n);
+};
+
+const FUENTE = "Barlow Condensed, Arial Narrow, Arial, sans-serif";
+
+const f3 = (v: number) => Number(v.toFixed(3));
+
+export type RutinaEscena = {
+  nombre: string;
+  tipo: TipoAbp;
+  roles: Rol[];
+  balon?: Punto[];
+  envio?: Envio;
+};
+
+export type Capas = {
+  nombres: boolean;
+  fotos: boolean;
+  ventaja: boolean;
+  duelos: boolean;
+};
+
+export type ManejadoresEscena = {
+  onFondo?: (e: PE<SVGSVGElement>) => void;
+  onMueve?: (e: PE<SVGSVGElement>) => void;
+  onSuelta?: (e: PE<SVGSVGElement>) => void;
+  onFicha?: (e: PE<SVGGElement>, i: number) => void;
+  onTeclaFicha?: (e: KE<SVGGElement>, i: number) => void;
+  onFocoFicha?: (i: number) => void;
+  onPuntoBalon?: (e: PE<SVGGElement>, i: number) => void;
+  onQuitaPunto?: (i: number) => void;
+  etiquetaFicha?: (i: number) => string;
+};
+
+export function Escena({
+  id,
+  rutina,
+  porId,
+  t,
+  cam,
+  paleta: P,
+  nuestros,
+  defensa,
+  capas,
+  celdas,
+  libres,
+  duelos,
+  remate,
+  seleccionado = null,
+  editaBalon = false,
+  fotos,
+  svgRef,
+  manejadores = {},
+  cursor,
+  etiqueta,
+  className = "",
+  quieta = false,
+}: {
+  id: string;
+  rutina: RutinaEscena;
+  porId: Map<string, JugadorLab>;
+  t: number;
+  cam: Camara;
+  paleta: Paleta;
+  /** Dónde está cada uno de los nuestros en `t`. */
+  nuestros: Punto[];
+  defensa: { plan: Defensor[]; estado: EstadoDefensa } | null;
+  capas: Capas;
+  celdas?: Celda[];
+  libres?: Punto[];
+  duelos?: Duelo[];
+  remate?: Remate | null;
+  seleccionado?: number | null;
+  editaBalon?: boolean;
+  /** Las fotos ya leídas como `data:` (para que salgan al exportar); si falta, se usa la URL. */
+  fotos?: Map<string, string>;
+  svgRef?: Ref<SVGSVGElement>;
+  manejadores?: ManejadoresEscena;
+  cursor?: string;
+  etiqueta: string;
+  className?: string;
+  /** Miniatura: sin lecturas ni rótulos. */
+  quieta?: boolean;
+}) {
+  const { caja } = cam;
+
+  /* Una unidad de pantalla fija para rótulos y grosores que no dependen de la distancia. */
+  const u = caja.w / 52;
+
+  /* El césped llega hasta pasado el medio campo (o hasta donde la cámara deja ver sin pasar por detrás). */
+  const fondo = Math.min(LARGO + 18, cam.yMax);
+
+  const desde = salidas(rutina.roles);
+
+  const camino = recorridoBalon(rutina);
+
+  const envio = rutina.envio ?? "tenso";
+
+  const balon = estadoBalon(camino, t, envio, rutina.tipo);
+
+  const M = manejadores;
+
+  /* ------------------------------ el campo ----------------------------- */
+
+  const g = (p: P3) => cam.proy(p);
+
+  const franjas = Array.from({ length: Math.ceil(fondo / 5.5) }, (_, i) => i);
+
+  const dxArco = Math.sqrt(9.15 ** 2 - (AREA.y - PENALTI.y) ** 2);
+
+  const anchoLinea = cam.tresD ? 0.13 * cam.escala : 0.14;
+
+  const estiloLinea = { fill: "none", stroke: P.linea, strokeWidth: anchoLinea, strokeLinecap: "round" as const };
+
+  /* La portería en tres dimensiones: palos, larguero y la red hacia atrás. */
+  const alto = 2.44;
+
+  const atras = -1.9;
+
+  const redes = [
+    poligono(cam, [
+      { x: PORTERIA.x0, y: 0, z: alto },
+      { x: PORTERIA.x1, y: 0, z: alto },
+      { x: PORTERIA.x1, y: atras, z: alto * 0.75 },
+      { x: PORTERIA.x0, y: atras, z: alto * 0.75 },
+    ]),
+    poligono(cam, [
+      { x: PORTERIA.x0, y: atras, z: 0 },
+      { x: PORTERIA.x1, y: atras, z: 0 },
+      { x: PORTERIA.x1, y: atras, z: alto * 0.75 },
+      { x: PORTERIA.x0, y: atras, z: alto * 0.75 },
+    ]),
+  ];
+
+  const mallas = [
+    ...Array.from({ length: 9 }, (_, i) => {
+      const x = PORTERIA.x0 + ((PORTERIA.x1 - PORTERIA.x0) * (i + 1)) / 10;
+
+      return linea(cam, { x, y: 0, z: alto }, { x, y: atras, z: alto * 0.75 }) + " " + linea(cam, { x, y: atras, z: alto * 0.75 }, { x, y: atras, z: 0 });
+    }),
+    ...Array.from({ length: 3 }, (_, i) => {
+      const z = (alto * 0.75 * (i + 1)) / 4;
+
+      return linea(cam, { x: PORTERIA.x0, y: atras, z }, { x: PORTERIA.x1, y: atras, z });
+    }),
+  ];
+
+  const palos = [
+    linea(cam, { x: PORTERIA.x0, y: 0, z: 0 }, { x: PORTERIA.x0, y: 0, z: alto }),
+    linea(cam, { x: PORTERIA.x1, y: 0, z: 0 }, { x: PORTERIA.x1, y: 0, z: alto }),
+    linea(cam, { x: PORTERIA.x0, y: 0, z: alto }, { x: PORTERIA.x1, y: 0, z: alto }),
+  ];
+
+  /* ---------------------------- las fichas ----------------------------- */
+
+  const levanta = cam.tresD ? 1.75 : 0;
+
+  type Pieza =
+    | { tipo: "nuestro"; i: number; p: Punto; prof: number }
+    | { tipo: "suyo"; k: number; p: Punto; prof: number }
+    | { tipo: "balon"; prof: number };
+
+  /* Con la cámara baja, lo que queda a la espalda del ojo no se pinta. */
+  const seVe = (p: Punto) => p.y < cam.yMax - 1;
+
+  const piezas: Pieza[] = [
+    ...rutina.roles.map((_, i) => ({ tipo: "nuestro" as const, i, p: nuestros[i], prof: g({ ...nuestros[i], z: 0 }).s })),
+    ...(defensa ? defensa.plan.map((_, k) => ({ tipo: "suyo" as const, k, p: defensa.estado.pos[k], prof: g({ ...defensa.estado.pos[k], z: 0 }).s })) : []),
+    { tipo: "balon" as const, prof: g({ ...balon.suelo, z: 0 }).s + (cam.tresD ? 0 : 1000) },
+  ].filter((p) => p.tipo === "balon" || seVe(p.p));
+
+  /* De lejos a cerca (en cenital, de arriba abajo): lo de delante tapa a lo de detrás. */
+  piezas.sort((a, b) => (cam.tresD ? a.prof - b.prof : (a.tipo === "balon" ? 1e9 : a.p.y) - (b.tipo === "balon" ? 1e9 : b.p.y)));
+
+  /* En perspectiva, la ficha mide lo que mediría a esa distancia, sin bajar de lo legible ni tapar media pantalla. */
+  const radioFicha = (s: number) => (cam.tresD ? Math.min(Math.max(0.78 * s, u * 0.62), u * 2.1) : 1.2);
+
+  const textoFicha = (r: Rol, j?: JugadorLab) => (j ? String(j.dorsal ?? iniciales(j.nombre)) : CODIGO_PAPEL[r.papel]);
+
+  const fotoDe = (j?: JugadorLab) => (capas.fotos && j?.foto ? (fotos?.get(j.foto) ?? j.foto) : null);
+
+  const sombra = (p: Punto, ancho: number) => {
+    const c = g({ ...p, z: 0 });
+
+    const lado = g({ x: p.x + ancho, y: p.y, z: 0 });
+
+    const fondoP = g({ x: p.x, y: p.y - ancho, z: 0 });
+
+    const rx = Math.abs(lado.x - c.x);
+
+    const ry = Math.max(rx * 0.32, Math.abs(fondoP.y - c.y));
+
+    return <ellipse cx={f3(c.x + (P.nombre === "dia" && !cam.tresD ? 0.28 : 0))} cy={f3(c.y + (cam.tresD ? 0 : 0.35))} rx={f3(rx)} ry={f3(cam.tresD ? ry : rx)} style={{ fill: P.sombra }} />;
+  };
+
+  const rotulo = (x: number, y: number, texto: string, tam: number, color = P.texto, peso = 700) => (
+    <text x={f3(x)} y={f3(y)} textAnchor="middle" style={{ fontSize: f3(tam), fontWeight: peso, fill: color, fontFamily: FUENTE, paintOrder: "stroke", stroke: P.halo, strokeWidth: f3(tam * 0.18), strokeLinejoin: "round", letterSpacing: f3(tam * 0.01) }}>
+      {texto}
+    </text>
+  );
+
+  const pintaNuestro = (i: number, p: Punto) => {
+    const r = rutina.roles[i];
+
+    const j = porId.get(r.jugador);
+
+    const suelo = g({ ...p, z: 0 });
+
+    const c = g({ ...p, z: levanta });
+
+    const R = radioFicha(c.s);
+
+    const hueco = HUECO[r.papel];
+
+    const foto = fotoDe(j);
+
+    const activa = seleccionado === i;
+
+    const texto = textoFicha(r, j);
+
+    const clip = `${id}-c${i}`;
+
+    const esRematador = remate?.quien === i && t >= VUELO[1] - 0.02;
+
+    return (
+      <g
+        key={`n${i}`}
+        role={M.onFicha ? "button" : undefined}
+        tabIndex={M.onFicha ? 0 : undefined}
+        aria-label={M.etiquetaFicha?.(i)}
+        aria-pressed={M.onFicha ? activa : undefined}
+        data-ficha={M.onFicha ? "" : undefined}
+        onPointerDown={M.onFicha ? (e) => M.onFicha!(e, i) : undefined}
+        onKeyDown={M.onTeclaFicha ? (e) => M.onTeclaFicha!(e, i) : undefined}
+        onFocus={M.onFocoFicha ? () => M.onFocoFicha!(i) : undefined}
+        style={{ cursor: cursor ?? "grab", outline: "none" }}
+      >
+        {sombra(p, cam.tresD ? 0.55 : 1.05)}
+        {cam.tresD && <path d={`M ${f3(suelo.x)} ${f3(suelo.y)} L ${f3(c.x)} ${f3(c.y + R)}`} style={{ stroke: hueco ? P.oro : "rgba(255,255,255,0.75)", strokeWidth: f3(Math.max(0.08 * c.s, u * 0.06)), opacity: 0.85 }} />}
+        {activa && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 1.5)} style={{ fill: "none", stroke: P.texto, strokeWidth: f3(R * 0.12), strokeDasharray: `${f3(R * 0.4)} ${f3(R * 0.28)}` }} />}
+        {esRematador && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 1.9)} style={{ fill: "none", stroke: P.oro, strokeWidth: f3(R * 0.14), opacity: 0.9 }} />}
+        <circle
+          cx={f3(c.x)}
+          cy={f3(c.y)}
+          r={f3(R)}
+          style={{
+            fill: hueco && !foto ? "rgba(200,169,107,0.22)" : P.oro,
+            stroke: hueco ? P.oro : "rgba(0,0,0,0.35)",
+            strokeWidth: f3(R * (hueco ? 0.14 : 0.08)),
+            strokeDasharray: r.papel === "senuelo" ? `${f3(R * 0.4)} ${f3(R * 0.26)}` : undefined,
+          }}
+        />
+        {foto ? (
+          <>
+            <clipPath id={clip}>
+              <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 0.86)} />
+            </clipPath>
+            <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 0.86)} style={{ fill: "#1B2430" }} />
+            <image href={foto} x={f3(c.x - R * 0.86)} y={f3(c.y - R * 0.86)} width={f3(R * 1.72)} height={f3(R * 1.72)} clipPath={`url(#${clip})`} preserveAspectRatio="xMidYMin slice" />
+            {j?.dorsal !== undefined && (
+              <>
+                <circle cx={f3(c.x + R * 0.72)} cy={f3(c.y + R * 0.62)} r={f3(R * 0.42)} style={{ fill: P.tinta, stroke: P.oro, strokeWidth: f3(R * 0.06) }} />
+                <text x={f3(c.x + R * 0.72)} y={f3(c.y + R * 0.62 + R * 0.15)} textAnchor="middle" style={{ fontSize: f3(R * 0.46), fontWeight: 800, fill: P.oro, fontFamily: FUENTE }}>
+                  {j.dorsal}
+                </text>
+              </>
+            )}
+          </>
+        ) : (
+          <text x={f3(c.x)} y={f3(c.y + R * 0.36)} textAnchor="middle" style={{ fontSize: f3(texto.length > 2 ? R * 0.8 : R * 1.02), fontWeight: 800, fill: hueco ? P.texto : P.tinta, fontFamily: FUENTE }}>
+            {texto}
+          </text>
+        )}
+        {capas.nombres && !quieta && j && rotulo(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), nombreCorto(j.nombre), Math.max(R * 0.8, u * 0.92))}
+        {/* Un blanco más grande que la ficha: con el dedo, la ficha es poca cosa */}
+        {M.onFicha && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(Math.max(R * 1.7, u * 1.8))} style={{ fill: "transparent" }} data-solo-pantalla="" />}
+      </g>
+    );
+  };
+
+  const pintaSuyo = (k: number, p: Punto) => {
+    if (!defensa) return null;
+
+    const d = defensa.plan[k];
+
+    const c = g({ ...p, z: levanta });
+
+    const suelo = g({ ...p, z: 0 });
+
+    const R = radioFicha(c.s) * (cam.tresD ? 0.92 : 0.86);
+
+    const bloqueado = defensa.estado.bloqueado[k];
+
+    const color = d.papel === "portero" ? P.portero : P.rival;
+
+    return (
+      <g key={`s${k}`} style={{ pointerEvents: "none" }}>
+        {sombra(p, cam.tresD ? 0.5 : 0.95)}
+        {cam.tresD && <path d={`M ${f3(suelo.x)} ${f3(suelo.y)} L ${f3(c.x)} ${f3(c.y + R)}`} style={{ stroke: color, strokeWidth: f3(Math.max(0.08 * c.s, u * 0.06)), opacity: 0.85 }} />}
+        {bloqueado && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 1.45)} style={{ fill: "none", stroke: P.bloqueo, strokeWidth: f3(R * 0.11), opacity: 0.9 }} />}
+        {cam.tresD ? (
+          <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R)} style={{ fill: color, stroke: "rgba(0,0,0,0.45)", strokeWidth: f3(R * 0.08) }} />
+        ) : (
+          <rect x={f3(c.x - R * 0.78)} y={f3(c.y - R * 0.78)} width={f3(R * 1.56)} height={f3(R * 1.56)} rx={f3(R * 0.28)} transform={`rotate(45 ${f3(c.x)} ${f3(c.y)})`} style={{ fill: color, stroke: "rgba(0,0,0,0.45)", strokeWidth: f3(R * 0.08) }} />
+        )}
+        {d.dorsal && (
+          <text x={f3(c.x)} y={f3(c.y + R * 0.34)} textAnchor="middle" style={{ fontSize: f3(R * 0.95), fontWeight: 800, fill: d.papel === "portero" ? P.tinta : P.rivalTexto, fontFamily: FUENTE }}>
+            {d.dorsal}
+          </text>
+        )}
+      </g>
+    );
+  };
+
+  const pintaBalon = () => {
+    const s = g({ ...balon.suelo, z: 0 });
+
+    const c = g({ ...balon.suelo, z: balon.z });
+
+    const R = cam.tresD ? Math.max(0.24 * c.s, u * 0.28) : 0.55 + balon.z * 0.04;
+
+    /* La estela: dónde estuvo un instante antes. */
+    const estela = balon.enVuelo
+      ? [0.012, 0.024, 0.036, 0.048].map((d) => {
+          const e = estadoBalon(camino, Math.max(0, t - d), envio, rutina.tipo);
+
+          return g({ ...e.suelo, z: e.z });
+        })
+      : [];
+
+    const sombraR = R * Math.max(0.45, 1 - balon.z * 0.05);
+
+    return (
+      <g key="balon" style={{ pointerEvents: "none" }}>
+        <ellipse cx={f3(s.x)} cy={f3(s.y)} rx={f3(sombraR)} ry={f3(cam.tresD ? sombraR * 0.4 : sombraR)} style={{ fill: P.sombra, opacity: Math.max(0.35, 1 - balon.z * 0.07) }} />
+        {balon.z > 0.3 && <path d={`M ${f3(s.x)} ${f3(s.y)} L ${f3(c.x)} ${f3(c.y)}`} style={{ stroke: "rgba(255,255,255,0.18)", strokeWidth: f3(R * 0.12), strokeDasharray: `${f3(R * 0.3)} ${f3(R * 0.3)}` }} />}
+        {estela.map((e, i) => (
+          <circle key={i} cx={f3(e.x)} cy={f3(e.y)} r={f3(R * (0.85 - i * 0.15))} style={{ fill: P.balon, opacity: 0.28 - i * 0.06 }} />
+        ))}
+        <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R)} style={{ fill: P.balon, stroke: P.tinta, strokeWidth: f3(R * 0.18) }} />
+        <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 0.34)} style={{ fill: P.tinta }} />
+      </g>
+    );
+  };
+
+  /* ----------------------------- carreras ------------------------------ */
+
+  const flecha = (de: Punto, a: Punto, color: string, discontinua: boolean, clave: string) => {
+    const d = Math.hypot(a.x - de.x, a.y - de.y);
+
+    if (d < 0.5 || !seVe(de) || !seVe(a)) return null;
+
+    const corto = Math.max(0, d - 1.1) / d;
+
+    const fin = { x: de.x + (a.x - de.x) * corto, y: de.y + (a.y - de.y) * corto };
+
+    const p = g({ ...de, z: 0 });
+
+    const q = g({ ...fin, z: 0 });
+
+    const ancho = cam.tresD ? Math.max(0.16 * q.s, u * 0.16) : 0.26;
+
+    /* La punta en pantalla, con la dirección del último tramo. */
+    const dx = q.x - p.x;
+    const dy = q.y - p.y;
+    const n = Math.hypot(dx, dy) || 1;
+    const ux = dx / n;
+    const uy = dy / n;
+    const L = ancho * 4.2;
+
+    const punta = `M ${f3(q.x + ux * L * 0.4)} ${f3(q.y + uy * L * 0.4)} L ${f3(q.x - ux * L * 0.6 - uy * L * 0.5)} ${f3(q.y - uy * L * 0.6 + ux * L * 0.5)} L ${f3(q.x - ux * L * 0.6 + uy * L * 0.5)} ${f3(q.y - uy * L * 0.6 - ux * L * 0.5)} Z`;
+
+    return (
+      <g key={clave} style={{ pointerEvents: "none" }}>
+        <path d={`M ${f3(p.x)} ${f3(p.y)} L ${f3(q.x - ux * L * 0.5)} ${f3(q.y - uy * L * 0.5)}`} style={{ fill: "none", stroke: P.halo, strokeWidth: f3(ancho * 2.1), strokeLinecap: "round", opacity: 0.35 }} />
+        <path d={`M ${f3(p.x)} ${f3(p.y)} L ${f3(q.x - ux * L * 0.5)} ${f3(q.y - uy * L * 0.5)}`} style={{ fill: "none", stroke: color, strokeWidth: f3(ancho), strokeLinecap: "round", strokeDasharray: discontinua ? `${f3(ancho * 2.6)} ${f3(ancho * 1.8)}` : undefined }} />
+        <path d={punta} style={{ fill: color }} />
+      </g>
+    );
+  };
+
+  /* El bloqueo: la barra en T al final de su carrera (o delante de él, si no corre). */
+  const bloqueos = rutina.roles.map((r, i) => {
+    if (r.papel !== "bloqueador") return null;
+
+    const fin = r.hx !== undefined && r.hy !== undefined ? { x: r.hx, y: r.hy } : desde[i];
+
+    const dir = r.hx !== undefined && r.hy !== undefined ? { x: r.hx - desde[i].x, y: r.hy - desde[i].y } : { x: 34 - desde[i].x, y: -desde[i].y };
+
+    const n = Math.hypot(dir.x, dir.y) || 1;
+
+    const nx = -dir.y / n;
+    const ny = dir.x / n;
+
+    const delante = { x: fin.x + (dir.x / n) * 0.7, y: fin.y + (dir.y / n) * 0.7 };
+
+    const a = { x: delante.x + nx * 0.95, y: delante.y + ny * 0.95 };
+    const b = { x: delante.x - nx * 0.95, y: delante.y - ny * 0.95 };
+
+    const ancho = cam.tresD ? Math.max(0.2 * g({ ...delante, z: 0 }).s, u * 0.18) : 0.34;
+
+    const activo = t >= (r.hx !== undefined ? TRAMOS[r.fase ?? 2][0] : 0);
+
+    return <path key={`bl${i}`} d={linea(cam, { ...a, z: 0 }, { ...b, z: 0 })} style={{ stroke: P.bloqueo, strokeWidth: f3(ancho), strokeLinecap: "round", opacity: activo ? 0.95 : 0.55, pointerEvents: "none" }} />;
+  });
+
+  /* ------------------------------- balón ------------------------------- */
+
+  const recorridos = camino.slice(1).map((_, i) => {
+    const arco = arcoTramo(camino, i, envio, rutina.tipo);
+
+    const ancho = cam.tresD ? 0.12 * cam.escala : 0.2;
+
+    return (
+      <g key={`rb${i}`} style={{ pointerEvents: "none" }}>
+        <path d={curva(cam, (v) => ({ ...arco(v), z: 0 }), 18)} style={{ fill: "none", stroke: P.sombra, strokeWidth: f3(ancho * 1.4), strokeDasharray: `${f3(ancho * 2.5)} ${f3(ancho * 2)}` }} />
+        <path d={curva(cam, arco, 30)} style={{ fill: "none", stroke: P.balon, strokeWidth: f3(ancho), strokeDasharray: `${f3(ancho * 3.6)} ${f3(ancho * 2.2)}`, opacity: 0.85 }} />
+      </g>
+    );
+  });
+
+  /* ------------------------------ lecturas ----------------------------- */
+
+  const verLecturas = !quieta;
+
+  const enRemate = t >= VUELO[1] - 0.12;
+
+  return (
+    <svg
+      ref={svgRef}
+      viewBox={`${f3(caja.x)} ${f3(caja.y)} ${f3(caja.w)} ${f3(caja.h)}`}
+      className={`block w-full select-none ${className}`}
+      style={{ touchAction: M.onFondo ? "none" : undefined, cursor, aspectRatio: `${caja.w} / ${caja.h}` }}
+      role={M.onFondo ? "application" : "img"}
+      aria-label={etiqueta}
+      onPointerDown={M.onFondo}
+      onPointerMove={M.onMueve}
+      onPointerUp={M.onSuelta}
+      onPointerCancel={M.onSuelta}
+      preserveAspectRatio="xMidYMid slice"
+    >
+      <defs>
+        <linearGradient id={`${id}-cielo`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={P.cielo} />
+          <stop offset="1" stopColor={P.grada} />
+        </linearGradient>
+        <radialGradient id={`${id}-luz`} cx="0.5" cy="0.32" r="0.75">
+          <stop offset="0" stopColor={P.luz} />
+          <stop offset="1" stopColor="rgba(255,255,255,0)" />
+        </radialGradient>
+        <radialGradient id={`${id}-foco1`} cx="0.08" cy="0" r="0.6">
+          <stop offset="0" stopColor={P.luz} />
+          <stop offset="1" stopColor="rgba(255,255,255,0)" />
+        </radialGradient>
+        <radialGradient id={`${id}-foco2`} cx="0.92" cy="0" r="0.6">
+          <stop offset="0" stopColor={P.luz} />
+          <stop offset="1" stopColor="rgba(255,255,255,0)" />
+        </radialGradient>
+        <radialGradient id={`${id}-vineta`} cx="0.5" cy="0.5" r="0.72">
+          <stop offset="0.6" stopColor="rgba(0,0,0,0)" />
+          <stop offset="1" stopColor={P.vineta} />
+        </radialGradient>
+        <filter id={`${id}-difumina`} x="-10%" y="-10%" width="120%" height="120%">
+          <feGaussianBlur stdDeviation={f3(cam.tresD ? 0.55 * cam.escala : 0.55)} />
+        </filter>
+      </defs>
+
+      {/* El estadio y el césped */}
+      <rect x={caja.x} y={caja.y} width={caja.w} height={caja.h} style={{ fill: `url(#${id}-cielo)` }} />
+      <path d={poligono(cam, [{ x: -4, y: -4 }, { x: ANCHO + 4, y: -4 }, { x: ANCHO + 4, y: Math.min(fondo + 4, cam.yMax) }, { x: -4, y: Math.min(fondo + 4, cam.yMax) }])} style={{ fill: P.orilla }} />
+      <path d={poligono(cam, [{ x: 0, y: 0 }, { x: ANCHO, y: 0 }, { x: ANCHO, y: fondo }, { x: 0, y: fondo }])} style={{ fill: P.cesped }} />
+      {franjas.map((i) =>
+        i % 2 ? (
+          <path
+            key={`fr${i}`}
+            d={poligono(cam, [
+              { x: 0, y: i * 5.5 },
+              { x: ANCHO, y: i * 5.5 },
+              { x: ANCHO, y: Math.min(fondo, (i + 1) * 5.5) },
+              { x: 0, y: Math.min(fondo, (i + 1) * 5.5) },
+            ])}
+            style={{ fill: P.franja }}
+          />
+        ) : null,
+      )}
+      <rect x={caja.x} y={caja.y} width={caja.w} height={caja.h} style={{ fill: `url(#${id}-luz)`, pointerEvents: "none" }} />
+      {P.nombre === "noche" && (
+        <>
+          <rect x={caja.x} y={caja.y} width={caja.w} height={caja.h} style={{ fill: `url(#${id}-foco1)`, pointerEvents: "none" }} />
+          <rect x={caja.x} y={caja.y} width={caja.w} height={caja.h} style={{ fill: `url(#${id}-foco2)`, pointerEvents: "none" }} />
+        </>
+      )}
+
+      {/* Las líneas */}
+      <g style={{ pointerEvents: "none" }}>
+        <path d={`${linea(cam, { x: 0, y: fondo }, { x: 0, y: 0 })} ${linea(cam, { x: 0, y: 0 }, { x: ANCHO, y: 0 })} ${linea(cam, { x: ANCHO, y: 0 }, { x: ANCHO, y: fondo })}`} style={estiloLinea} />
+        {fondo > LARGO && <path d={linea(cam, { x: 0, y: LARGO }, { x: ANCHO, y: LARGO })} style={estiloLinea} />}
+        <path d={poligono(cam, [{ x: AREA.x0, y: 0 }, { x: AREA.x1, y: 0 }, { x: AREA.x1, y: AREA.y }, { x: AREA.x0, y: AREA.y }])} style={estiloLinea} />
+        <path d={poligono(cam, [{ x: AREA_PEQUENA.x0, y: 0 }, { x: AREA_PEQUENA.x1, y: 0 }, { x: AREA_PEQUENA.x1, y: AREA_PEQUENA.y }, { x: AREA_PEQUENA.x0, y: AREA_PEQUENA.y }])} style={estiloLinea} />
+        <path
+          d={curva(cam, (v) => {
+            const a0 = Math.atan2(AREA.y - PENALTI.y, -dxArco);
+            const a1 = Math.atan2(AREA.y - PENALTI.y, dxArco);
+            const a = a0 + (a1 - a0) * v;
+
+            return { x: PENALTI.x + 9.15 * Math.cos(a), y: PENALTI.y + 9.15 * Math.sin(a) };
+          })}
+          style={estiloLinea}
+        />
+        <path d={curva(cam, (v) => ({ x: PENALTI.x + 0.18 * Math.cos(v * Math.PI * 2), y: PENALTI.y + 0.18 * Math.sin(v * Math.PI * 2) }), 10)} style={{ fill: P.linea }} />
+        <path d={curva(cam, (v) => ({ x: Math.sin((v * Math.PI) / 2), y: Math.cos((v * Math.PI) / 2) }), 8)} style={estiloLinea} />
+        <path d={curva(cam, (v) => ({ x: ANCHO - Math.sin((v * Math.PI) / 2), y: Math.cos((v * Math.PI) / 2) }), 8)} style={estiloLinea} />
+        {fondo > LARGO + 9.5 ? (
+          <path d={curva(cam, (v) => ({ x: 34 + 9.15 * Math.cos(v * Math.PI * 2), y: LARGO + 9.15 * Math.sin(v * Math.PI * 2) }), 40)} style={estiloLinea} />
+        ) : fondo > LARGO ? (
+          <path d={curva(cam, (v) => ({ x: 34 - 9.15 * Math.cos(v * Math.PI), y: LARGO - 9.15 * Math.sin(v * Math.PI) }))} style={estiloLinea} />
+        ) : null}
+        {/* Banderines */}
+        {[0, ANCHO].map((x) => (
+          <g key={`bd${x}`}>
+            <path d={linea(cam, { x, y: 0, z: 0 }, { x, y: 0, z: 1.5 })} style={{ stroke: P.linea, strokeWidth: f3(anchoLinea * 0.9) }} />
+            <path d={poligono(cam, [{ x, y: 0, z: 1.5 }, { x: x + (x ? -0.7 : 0.7), y: 0, z: 1.3 }, { x, y: 0, z: 1.1 }])} style={{ fill: P.oro }} />
+          </g>
+        ))}
+        {/* La portería */}
+        {redes.map((d, i) => (
+          <path key={`red${i}`} d={d} style={{ fill: P.red, opacity: 0.35 }} />
+        ))}
+        {mallas.map((d, i) => (
+          <path key={`m${i}`} d={d} style={{ stroke: P.red, strokeWidth: f3(anchoLinea * 0.45), fill: "none" }} />
+        ))}
+        {palos.map((d, i) => (
+          <path key={`p${i}`} d={d} style={{ stroke: "#FFFFFF", strokeWidth: f3(anchoLinea * 1.6), strokeLinecap: "round" }} />
+        ))}
+      </g>
+
+      {/* El espacio: quién llega antes a cada metro cuadrado del área */}
+      {verLecturas && capas.ventaja && celdas && celdas.length > 0 && (
+        <g filter={`url(#${id}-difumina)`} style={{ pointerEvents: "none" }}>
+          {celdas.map((c, i) => {
+            const nuestro = c.p > 0.5;
+
+            const a = Math.min(0.42, Math.abs(c.p - 0.5) * 0.95);
+
+            return (
+              <path
+                key={`cc${i}`}
+                d={poligono(cam, [
+                  { x: c.x - 0.52, y: c.y - 0.52 },
+                  { x: c.x + 0.52, y: c.y - 0.52 },
+                  { x: c.x + 0.52, y: c.y + 0.52 },
+                  { x: c.x - 0.52, y: c.y + 0.52 },
+                ])}
+                style={{ fill: `rgba(${nuestro ? P.nuestro : P.suyo},${a.toFixed(3)})` }}
+              />
+            );
+          })}
+        </g>
+      )}
+      {verLecturas && capas.ventaja && libres && libres.length > 0 && (
+        <g style={{ pointerEvents: "none" }}>
+          {libres.map((p, i) => {
+            const c = g({ ...p, z: 0 });
+
+            return <circle key={`lb${i}`} cx={f3(c.x)} cy={f3(c.y)} r={f3(cam.tresD ? 0.16 * c.s : 0.16)} style={{ fill: P.texto, opacity: 0.45 }} />;
+          })}
+        </g>
+      )}
+
+      {/* El balón: sombra por el suelo y vuelo por el aire */}
+      {recorridos}
+
+      {/* Las carreras y los bloqueos */}
+      {rutina.roles.map((r, i) => (r.hx !== undefined && r.hy !== undefined ? flecha(desde[i], { x: r.hx, y: r.hy }, P.fase[r.fase ?? 2], (r.fase ?? 2) === 1, `fl${i}`) : null))}
+      {bloqueos}
+
+      {/* Las salidas, en fantasma, cuando la jugada ya se ha movido */}
+      {t > 0 &&
+        rutina.roles.map((r, i) => {
+          if (r.hx === undefined || !seVe(desde[i])) return null;
+
+          const c = g({ ...desde[i], z: 0 });
+
+          return <circle key={`gh${i}`} cx={f3(c.x)} cy={f3(c.y)} r={f3(cam.tresD ? 0.6 * c.s : 1.1)} style={{ pointerEvents: "none", fill: "none", stroke: "rgba(255,255,255,0.3)", strokeWidth: f3(cam.tresD ? 0.06 * c.s : 0.12) }} />;
+        })}
+
+      {/* Los bloqueos en acción: la línea entre el bloqueador y el defensor que frena */}
+      {defensa &&
+        defensa.plan.map((d, k) => {
+          if (!defensa.estado.bloqueado[k]) return null;
+
+          const pk = defensa.estado.pos[k];
+
+          let mejor = -1;
+          let dist = Infinity;
+
+          rutina.roles.forEach((r, i) => {
+            if (r.papel !== "bloqueador") return;
+
+            const n = Math.hypot(nuestros[i].x - pk.x, nuestros[i].y - pk.y);
+
+            if (n < dist) {
+              dist = n;
+              mejor = i;
+            }
+          });
+
+          if (mejor < 0) return null;
+
+          return <path key={`bk${k}`} d={linea(cam, { ...nuestros[mejor], z: 0.2 }, { ...pk, z: 0.2 })} style={{ stroke: P.bloqueo, strokeWidth: f3(cam.tresD ? 0.22 * cam.escala : 0.32), strokeLinecap: "round", pointerEvents: "none" }} />;
+        })}
+
+      {/* Los duelos aéreos en el remate */}
+      {verLecturas && capas.duelos && enRemate && duelos && defensa && (
+        <g style={{ pointerEvents: "none" }}>
+          {duelos.map((d) => {
+            const a = g({ ...nuestros[d.nuestro], z: levanta });
+
+            const b = g({ ...defensa.estado.pos[d.suyo], z: levanta });
+
+            const color = d.difCm === null ? P.texto : d.difCm >= 3 ? "#34D399" : d.difCm <= -3 ? "#F87171" : P.oro;
+
+            const mx = (a.x + b.x) / 2;
+            const my = Math.min(a.y, b.y) - radioFicha(a.s) * 1.6;
+
+            return (
+              <g key={`du${d.nuestro}-${d.suyo}`}>
+                <path d={`M ${f3(a.x)} ${f3(a.y)} L ${f3(b.x)} ${f3(b.y)}`} style={{ stroke: color, strokeWidth: f3(u * 0.12), strokeDasharray: `${f3(u * 0.3)} ${f3(u * 0.2)}` }} />
+                {d.difCm !== null && rotulo(mx, my, `${d.difCm > 0 ? "+" : ""}${d.difCm} cm`, u * 1.05, color, 800)}
+              </g>
+            );
+          })}
+        </g>
+      )}
+
+      {/* Las fichas y el balón, de lejos a cerca */}
+      {piezas.map((p) => (p.tipo === "nuestro" ? pintaNuestro(p.i, p.p) : p.tipo === "suyo" ? pintaSuyo(p.k, p.p) : pintaBalon()))}
+
+      {/* El remate: dónde cae y su xG */}
+      {verLecturas && remate && enRemate && !remate.directo && (
+        <g style={{ pointerEvents: "none" }}>
+          {(() => {
+            const c = g({ ...remate.caida, z: 0 });
+
+            const R = cam.tresD ? 1.6 * c.s : 1.6;
+
+            const etiquetaXg = remate.quien === null ? "Nadie llega" : `xG ${comaXg(remate.xg)}`;
+
+            return (
+              <>
+                <ellipse cx={f3(c.x)} cy={f3(c.y)} rx={f3(R)} ry={f3(cam.tresD ? R * 0.42 : R)} style={{ fill: "none", stroke: P.oro, strokeWidth: f3(u * 0.14), strokeDasharray: `${f3(u * 0.45)} ${f3(u * 0.25)}` }} />
+                {rotulo(c.x, c.y - (cam.tresD ? R * 0.42 : R) - u * 2.6, etiquetaXg, u * 1.5, P.oro, 800)}
+              </>
+            );
+          })()}
+        </g>
+      )}
+
+      {/* Los puntos del recorrido del balón, para moverlos */}
+      {editaBalon &&
+        camino.map((p, i) => {
+          const c = g({ ...p, z: 0 });
+
+          const R = cam.tresD ? Math.max(0.5 * c.s, u * 0.55) : 0.75;
+
+          return (
+            <g key={`pb${i}`} data-solo-pantalla="" onPointerDown={M.onPuntoBalon ? (e) => M.onPuntoBalon!(e, i) : undefined} onDoubleClick={M.onQuitaPunto ? () => M.onQuitaPunto!(i) : undefined} style={{ cursor: "move" }}>
+              <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 2.1)} style={{ fill: "transparent" }} />
+              <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R)} style={{ fill: i === 0 ? P.balon : "rgba(255,255,255,0.18)", stroke: P.balon, strokeWidth: f3(R * 0.2) }} />
+              {rotulo(c.x, c.y - R * 1.6, i === 0 ? "golpeo" : String(i), Math.max(R * 1.1, u * 0.9))}
+            </g>
+          );
+        })}
+
+      {/* La viñeta, por encima de todo menos de lo que se toca */}
+      <rect x={caja.x} y={caja.y} width={caja.w} height={caja.h} style={{ fill: `url(#${id}-vineta)`, pointerEvents: "none" }} />
+    </svg>
+  );
+}
+
+/** Lo que se pinta de la defensa: «el rival tipo» o el próximo rival con sus jugadores. */
+export type DefensaEnEscena = { plan: Defensor[]; estado: EstadoDefensa } | null;

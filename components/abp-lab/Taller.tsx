@@ -19,7 +19,7 @@
  * llega ya dibujada si está en `lib/abp-lab/esquemas.ts`.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Check,
@@ -27,7 +27,10 @@ import {
   Copy,
   ExternalLink,
   FlaskConical,
+  GitBranch,
   Goal,
+  Redo2,
+  Undo2,
   Lightbulb,
   ListChecks,
   Plus,
@@ -45,8 +48,13 @@ import { Button, EmptyState, Field, Segmented, Select, TextArea, sePuedeDescarta
 import type { JugadorLab } from "@/components/abp-lab/comun";
 import { EncajeRival } from "@/components/abp-lab/EncajeRival";
 import { CODIGO_PAPEL, MiniPizarra, PizarraRutina } from "@/components/abp-lab/PizarraRutina";
+import { SelectorJugador, repartoPorAltura } from "@/components/abp-lab/SelectorJugador";
+import type { ContextoSim } from "@/components/abp-lab/useSimulacion";
 import type { GuardaLab } from "@/hooks/useAbpLab";
 import { useAbpLigas } from "@/hooks/useAbpLigas";
+import { useContextoLab } from "@/hooks/useContextoLab";
+import { encajeSistemas } from "@/lib/abp-lab/ventaja";
+import { comaXg } from "@/lib/abp-lab/xg";
 import { FASES, anclaDe } from "@/lib/abp-lab/campo";
 import {
   DEFENSAS,
@@ -162,16 +170,61 @@ export function Taller({
 
   const [busca, setBusca] = useState("");
 
+  const [orden, setOrden] = useState<"recientes" | "nombre" | "xg">("recientes");
+
+  /* Lo que la pizarra sabe de fuera (alturas, xG de nuestros partidos, próximo rival): se lee una vez. */
+  const { aereo, calibre, rival } = useContextoLab();
+
+  const ctx = useMemo<ContextoSim>(() => ({ aereo, calibre, rival }), [aereo, calibre, rival]);
+
+  /* El xG estimado de cada rutina contra su mejor sistema, para la biblioteca. */
+  const xgDe = useMemo(() => {
+    const alturaDe = (rol: Rol) => aereo.get(rol.jugador)?.altura ?? null;
+
+    return new Map(
+      rutinas.map((r) => {
+        if (r.lado !== "ofensivo" || !r.roles.length || (r.tipo !== "corner" && r.tipo !== "falta")) return [r.id, null] as const;
+
+        const encaje = encajeSistemas(r, calibre, alturaDe);
+
+        const contra = r.contra === "cualquiera" ? encaje[0] : encaje.find((e) => e.defensa === r.contra);
+
+        return [r.id, contra && contra.remate?.quien !== null ? contra.xg : null] as const;
+      }),
+    );
+  }, [rutinas, aereo, calibre]);
+
+  const porIdRutina = useMemo(() => new Map(rutinas.map((r) => [r.id, r])), [rutinas]);
+
   const visibles = useMemo(() => {
     const q = normaliza(busca.trim());
 
-    return rutinas.filter(
+    const lista = rutinas.filter(
       (r) =>
         (filtroTipo === "todos" || r.tipo === filtroTipo) &&
         (!filtroEstado || r.estado === filtroEstado) &&
         (!q || normaliza(`${r.nombre} ${r.idea} ${r.senal} ${r.variantes.join(" ")}`).includes(q)),
     );
-  }, [rutinas, filtroTipo, filtroEstado, busca]);
+
+    if (orden === "nombre") return [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+
+    if (orden === "xg") return [...lista].sort((a, b) => (xgDe.get(b.id) ?? -1) - (xgDe.get(a.id) ?? -1));
+
+    return [...lista].sort((a, b) => (b.actualizadaEn ?? "").localeCompare(a.actualizadaEn ?? ""));
+  }, [rutinas, filtroTipo, filtroEstado, busca, orden, xgDe]);
+
+  /* Una copia para empezar otra: sin id (es nueva), sin progreso ni usos; la variante recuerda de quién sale. */
+  const copiaDe = (r: Borrador, comoVariante: boolean): Borrador => ({
+    ...r,
+    id: undefined,
+    nombre: comoVariante ? `${r.nombre} · variante` : `${r.nombre} (copia)`,
+    estado: "idea",
+    progreso: [],
+    usos: [],
+    roles: r.roles.map((x) => ({ ...x })),
+    ...(r.balon ? { balon: r.balon.map((p) => ({ ...p })) } : {}),
+    ...(comoVariante && r.id ? { padre: r.padre ?? r.id } : {}),
+  });
 
   const porEstado = useMemo(() => ESTADOS.map((e) => ({ ...e, n: rutinas.filter((r) => r.estado === e.key).length })), [rutinas]);
 
@@ -201,6 +254,26 @@ export function Taller({
               className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-8 pr-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-[#C8A96B]/50"
             />
           </label>
+          <div role="radiogroup" aria-label="Orden de la biblioteca" className="inline-flex gap-0.5 rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
+            {(
+              [
+                { k: "recientes", label: "Recientes" },
+                { k: "nombre", label: "A-Z" },
+                { k: "xg", label: "xG" },
+              ] as const
+            ).map((o) => (
+              <button
+                key={o.k}
+                type="button"
+                role="radio"
+                aria-checked={orden === o.k}
+                onClick={() => setOrden(o.k)}
+                className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${orden === o.k ? "bg-white/[0.12] text-white" : "text-white/50 hover:text-white"}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
           {porEstado.map((e) => {
             const activo = filtroEstado === e.key;
 
@@ -243,14 +316,47 @@ export function Taller({
 
             const ultimo = PROGRESION.filter((p) => (r.progreso ?? []).includes(p.key)).at(-1);
 
+            const xg = xgDe.get(r.id);
+
+            const padre = r.padre ? porIdRutina.get(r.padre) : undefined;
+
+            const hijas = rutinas.filter((x) => x.padre === r.id).length;
+
             return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setAbierto({ ...r })}
-                className="lab-aparece group min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] text-left transition hover:-translate-y-0.5 hover:border-[#C8A96B]/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
-              >
-                <MiniPizarra rutina={r} porId={porId} />
+              <div key={r.id} className="lab-aparece group relative min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition hover:-translate-y-0.5 hover:border-[#C8A96B]/50">
+                <button type="button" onClick={() => setAbierto({ ...r })} className="block w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]" aria-label={`Abrir ${r.nombre}`}>
+                  <div className="relative">
+                    <MiniPizarra rutina={r} porId={porId} />
+                    {xg !== null && xg !== undefined && (
+                      <span className="absolute bottom-2 left-2 rounded-md px-1.5 py-0.5 text-[10.5px] font-black tabular-nums" style={{ background: "#C8A96B", color: "#0B0F14" }}>
+                        xG {comaXg(xg)}
+                      </span>
+                    )}
+                  </div>
+                </button>
+                {/* Duplicar y hacer variante, sin abrirla */}
+                <div className="absolute right-2 top-2 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={() => setAbierto(copiaDe(r, false))}
+                    title="Duplicar"
+                    aria-label={`Duplicar ${r.nombre}`}
+                    className="rounded-lg p-1.5 shadow"
+                    style={{ background: "rgba(11,15,20,0.82)", color: "#FFFFFF" }}
+                  >
+                    <Copy size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAbierto(copiaDe(r, true))}
+                    title="Crear una variante"
+                    aria-label={`Crear una variante de ${r.nombre}`}
+                    className="rounded-lg p-1.5 shadow"
+                    style={{ background: "rgba(11,15,20,0.82)", color: "#C8A96B" }}
+                  >
+                    <GitBranch size={13} />
+                  </button>
+                </div>
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <p className="min-w-0 truncate text-sm font-semibold text-white">{r.nombre}</p>
@@ -261,6 +367,12 @@ export function Taller({
                     {r.senal ? ` · señal «${r.senal}»` : ""}
                   </p>
                   {r.inspiracion && <p className="mt-1 truncate text-[11px] text-[#C8A96B]">Inspirada en {nombreInspiracion(r.inspiracion)}</p>}
+                  {(padre || hijas > 0) && (
+                    <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-white/50">
+                      <GitBranch size={11} className="shrink-0 text-[#C8A96B]" />
+                      {padre ? `Variante de ${padre.nombre}` : `${hijas} ${hijas === 1 ? "variante" : "variantes"}`}
+                    </p>
+                  )}
 
                   {/* El camino de la pizarra al partido */}
                   <div className="mt-3 flex items-center gap-1" role="img" aria-label={`Progresión: ${hechos} de ${PROGRESION.length}`}>
@@ -273,7 +385,7 @@ export function Taller({
                     {balance ? ` · ${balance.usos} ${balance.usos === 1 ? "uso" : "usos"} · ${balance.remates} con remate${balance.goles ? ` · ${balance.goles} ${balance.goles === 1 ? "gol" : "goles"}` : ""}` : ""}
                   </p>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -311,7 +423,10 @@ export function Taller({
                 }
               : undefined
           }
-          onDuplicar={(b) => setAbierto({ ...b, id: undefined, nombre: `${b.nombre} (variante)`, estado: "idea", progreso: [], usos: [] })}
+          onDuplicar={(b) => setAbierto(copiaDe(b, true))}
+          ctx={ctx}
+          familia={rutinas.filter((r) => abierto.id && r.id !== abierto.id && ((abierto.padre && (r.id === abierto.padre || r.padre === abierto.padre)) || r.padre === abierto.id))}
+          onAbre={(r) => setAbierto({ ...r })}
         />
       )}
     </div>
@@ -343,6 +458,9 @@ function Estudio({
   onGuardar,
   onBorrar,
   onDuplicar,
+  ctx,
+  familia,
+  onAbre,
 }: {
   inicial: Borrador;
   jugadores: JugadorLab[];
@@ -352,8 +470,66 @@ function Estudio({
   onGuardar: (b: Borrador) => void;
   onBorrar?: () => void;
   onDuplicar: (b: Borrador) => void;
+  ctx: ContextoSim;
+  /** Las otras rutinas de su familia (la madre y sus variantes). */
+  familia: Rutina[];
+  onAbre: (r: Rutina) => void;
 }) {
-  const [b, setB] = useState<Borrador>(inicial);
+  /*
+   * El borrador con deshacer y rehacer. La historia vive en refs y se apunta
+   * FUERA del actualizador de estado (en modo estricto React lo llama dos
+   * veces); los cambios que llegan seguidos —un arrastre son decenas— se
+   * juntan en un solo paso si no hay 0,7 s de pausa entre ellos.
+   */
+  const [b, setBEstado] = useState<Borrador>(inicial);
+
+  const actual = useRef<Borrador>(inicial);
+
+  const pasado = useRef<Borrador[]>([]);
+
+  const futuro = useRef<Borrador[]>([]);
+
+  const ultimoCambio = useRef(0);
+
+  const [pasos, setPasos] = useState({ atras: 0, adelante: 0 });
+
+  const setB = useCallback((f: Borrador | ((x: Borrador) => Borrador)) => {
+    const antes = actual.current;
+
+    const nuevo = typeof f === "function" ? f(antes) : f;
+
+    if (nuevo === antes) return;
+
+    const ahora = performance.now();
+
+    if (ahora - ultimoCambio.current > 700) {
+      pasado.current.push(antes);
+
+      if (pasado.current.length > 80) pasado.current.shift();
+    }
+
+    ultimoCambio.current = ahora;
+    futuro.current = [];
+    actual.current = nuevo;
+    setBEstado(nuevo);
+    setPasos({ atras: pasado.current.length, adelante: 0 });
+  }, []);
+
+  const deshaz = useCallback((sentido: 1 | -1) => {
+    const de = sentido < 0 ? pasado.current : futuro.current;
+
+    const a = sentido < 0 ? futuro.current : pasado.current;
+
+    const otro = de.pop();
+
+    if (!otro) return;
+
+    a.push(actual.current);
+    actual.current = otro;
+    ultimoCambio.current = 0;
+    setBEstado(otro);
+    setPasos({ atras: pasado.current.length, adelante: futuro.current.length });
+  }, []);
 
   /* Una rutina que llega dibujada (de un referente) abre en la pizarra con sus papeles; una vacía, en la ficha. */
   const [pestana, setPestana] = useState<Pestana>(inicial.roles.length && !inicial.id ? "papeles" : "ficha");
@@ -380,11 +556,19 @@ function Estudio({
     document.body.style.overflow = "hidden";
 
     const tecla = (e: globalThis.KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-
       const t = e.target as HTMLElement | null;
 
-      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
+      const escribe = t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement;
+
+      /* Deshacer y rehacer de la rutina; escribiendo, el del propio campo. */
+      if ((e.ctrlKey || e.metaKey) && !escribe && (e.key.toLowerCase() === "z" || e.key.toLowerCase() === "y")) {
+        e.preventDefault();
+        deshaz(e.key.toLowerCase() === "y" || e.shiftKey ? 1 : -1);
+
+        return;
+      }
+
+      if (e.key !== "Escape" || escribe || e.defaultPrevented) return;
 
       if (sePuedeDescartar(hayCambios.current)) onCerrar();
     };
@@ -395,7 +579,7 @@ function Estudio({
       document.body.style.overflow = antes;
       window.removeEventListener("keydown", tecla);
     };
-  }, [onCerrar]);
+  }, [onCerrar, deshaz]);
 
   const pon: Pon = (k, v) => setB((x) => ({ ...x, [k]: v }));
 
@@ -421,6 +605,14 @@ function Estudio({
           />
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-xl border border-white/10">
+            <button type="button" onClick={() => deshaz(-1)} disabled={!pasos.atras} title="Deshacer (Ctrl + Z)" aria-label="Deshacer" className="rounded-l-xl p-2 text-white/60 transition hover:text-white disabled:opacity-30">
+              <Undo2 size={15} />
+            </button>
+            <button type="button" onClick={() => deshaz(1)} disabled={!pasos.adelante} title="Rehacer (Ctrl + Mayús + Z)" aria-label="Rehacer" className="rounded-r-xl p-2 text-white/60 transition hover:text-white disabled:opacity-30">
+              <Redo2 size={15} />
+            </button>
+          </div>
           {onBorrar && (
             <Button tone="danger" icon={Trash2} onClick={onBorrar} disabled={ocupado} aria-label="Borrar la rutina">
               <span className="hidden sm:inline">Borrar</span>
@@ -446,11 +638,13 @@ function Estudio({
               porId={porId}
               seleccionado={elegido}
               onSelecciona={setElegido}
+              ctx={ctx}
               onCambia={(c) =>
                 setB((x) => ({
                   ...x,
                   ...(c.roles ? { roles: c.roles } : {}),
                   ...(c.balon ? { balon: c.balon } : {}),
+                  ...(c.envio ? { envio: c.envio } : {}),
                 }))
               }
             />
@@ -464,9 +658,35 @@ function Estudio({
           <div className="min-w-0 space-y-4">
             <Segmented ariaLabel="Partes de la rutina" value={pestana} onChange={setPestana} options={PESTANAS} />
 
-            {pestana === "ficha" && <Ficha b={b} pon={pon} />}
+            {pestana === "ficha" && (
+              <>
+                <Ficha b={b} pon={pon} />
+                {familia.length > 0 && (
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-3.5">
+                    <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                      <GitBranch size={12} className="text-[#C8A96B]" />
+                      Su familia
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {familia.map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => {
+                            if (sePuedeDescartar(sucio)) onAbre(r);
+                          }}
+                          className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11.5px] font-medium text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white"
+                        >
+                          {r.id === b.padre ? `Madre · ${r.nombre}` : r.nombre}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
 
-            {pestana === "papeles" && <Papeles b={b} setB={setB} jugadores={jugadores} porId={porId} elegido={elegido} setElegido={setElegido} />}
+            {pestana === "papeles" && <Papeles b={b} setB={setB} jugadores={jugadores} porId={porId} elegido={elegido} setElegido={setElegido} ctx={ctx} />}
 
             {pestana === "variantes" && <Variantes b={b} pon={pon} />}
 
@@ -476,7 +696,7 @@ function Estudio({
                 <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
                   <Select label="La pizarra la enseña contra" value={b.contra} options={DEFENSAS.map((d) => ({ value: d.key, label: d.label }))} onChange={(v) => pon("contra", v as Defensa)} />
                   <p className="mt-2 text-[12px] leading-snug text-white/50">
-                    Los rombos de la pizarra son esa defensa en esquema: en zona, las líneas del área pequeña; al hombre, un marcador pegado a cada atacante. Wyscout no dice cómo defiende cada rival: eso sale del vídeo.
+                    Las fichas granates de la pizarra son esa defensa: en zona, las líneas del área pequeña; al hombre, un marcador que persigue a cada atacante y al que un bloqueo frena. Wyscout no dice cómo defiende cada rival: el del próximo partido sale de su scouting de ABP.
                   </p>
                 </div>
               </div>
@@ -547,6 +767,7 @@ function Papeles({
   porId,
   elegido,
   setElegido,
+  ctx,
 }: {
   b: Borrador;
   setB: (f: (x: Borrador) => Borrador) => void;
@@ -554,8 +775,12 @@ function Papeles({
   porId: Map<string, JugadorLab>;
   elegido: number | null;
   setElegido: (i: number | null) => void;
+  ctx: ContextoSim;
 }) {
   const filas = useRef<(HTMLDivElement | null)[]>([]);
+
+  /* El reparto por altura sólo se ofrece si Wyscout da la altura de alguien y hay papeles de remate sin dueño. */
+  const reparto = useMemo(() => repartoPorAltura(b.roles, jugadores, ctx.aereo), [b.roles, jugadores, ctx.aereo]);
 
   /* Lo que se toca en la pizarra se ve en la lista. */
   useEffect(() => {
@@ -565,8 +790,6 @@ function Papeles({
   const papeles = PAPELES.filter((p) => p.lado === "ambos" || p.lado === b.lado);
 
   const ponRol = (i: number, cambio: Partial<Rol>) => setB((x) => ({ ...x, roles: x.roles.map((r, j) => (j === i ? { ...r, ...cambio } : r)) }));
-
-  const opcionesJugador = [{ value: "", label: "Sin dueño" }, ...jugadores.map((j) => ({ value: j.id, label: `${j.dorsal ? `${j.dorsal} · ` : ""}${j.nombre}` }))];
 
   const anade = (papel: Papel) => {
     const zona: Zona = papel === "lanzador" || papel === "corto" ? "corto" : papel === "segunda" ? "frontal" : papel === "vigilancia" ? "atras" : papel === "portero" ? "portero" : "centro";
@@ -597,6 +820,18 @@ function Papeles({
 
       {b.roles.length === 0 && <p className="text-[12.5px] text-white/45">Añade lanzador, rematador, bloqueadores, señuelos y quién se queda para la segunda jugada.</p>}
 
+      {reparto.cambios > 0 && (
+        <button
+          type="button"
+          onClick={() => setB((x) => ({ ...x, roles: repartoPorAltura(x.roles, jugadores, ctx.aereo).roles }))}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1.5 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+          title="Los más altos (Wyscout) a rematar, bloquear y atacar al portero; no toca lo que ya tiene dueño"
+        >
+          <ArrowUpRight size={13} />
+          Repartir por altura · {reparto.cambios} {reparto.cambios === 1 ? "papel" : "papeles"}
+        </button>
+      )}
+
       <div className="space-y-2">
         {b.roles.map((r, i) => {
           const activo = elegido === i;
@@ -623,15 +858,14 @@ function Papeles({
                 </span>
                 <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3">
                   <div className="col-span-2 min-w-0 sm:col-span-1">
-                    <Select
-                      label="Jugador"
-                      value={r.jugador}
-                      options={
-                        r.jugador && !opcionesJugador.some((o) => o.value === r.jugador)
-                          ? [...opcionesJugador, { value: r.jugador, label: porId.get(r.jugador)?.nombre ?? "Ya no está en la plantilla" }]
-                          : opcionesJugador
-                      }
-                      onChange={(v) => ponRol(i, { jugador: v })}
+                    <SelectorJugador
+                      valor={r.jugador}
+                      jugadores={jugadores}
+                      porId={porId}
+                      aereo={ctx.aereo}
+                      ocupados={new Set(b.roles.filter((_, j) => j !== i).map((o) => o.jugador).filter(Boolean))}
+                      papel={r.papel}
+                      onElige={(v) => ponRol(i, { jugador: v })}
                     />
                   </div>
                   <Select label="Papel" value={r.papel} options={papeles.some((p) => p.key === r.papel) ? papeles.map((p) => ({ value: p.key, label: p.label })) : PAPELES.map((p) => ({ value: p.key, label: p.label }))} onChange={(v) => ponRol(i, { papel: v as Papel })} />

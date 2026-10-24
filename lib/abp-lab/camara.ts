@@ -41,6 +41,8 @@ export type Camara = {
   desproy: (sx: number, sy: number) => Punto | null;
   /** Unidades de pantalla por metro, de media en la jugada (para grosores y desenfoques). */
   escala: number;
+  /** Hasta dónde se puede dibujar el césped hacia el medio campo sin pasar por detrás de la cámara. */
+  yMax: number;
 };
 
 /** En cenital la altura se dibuja como un desplazamiento hacia arriba: un tercio de metro por metro. */
@@ -92,25 +94,44 @@ function cajaCon(puntos: { x: number; y: number }[], aspecto: number, margen: nu
  * pantalla. Con «cenital» es la identidad; con las otras dos, una cámara de
  * agujero mirando a la portería, encuadrada para que el trozo quepa entero.
  */
-export function creaCamara(vista: Vista, marco: Marco, aspecto: number): Camara {
+export function creaCamara(vista: Vista, marco: Marco, aspecto: number, foco?: Punto[]): Camara {
   if (vista === "cenital") {
     return {
       vista,
       tresD: false,
       caja: marco,
       escala: 1,
+      yMax: Infinity,
       proy: (p) => ({ x: p.x, y: p.y - (p.z ?? 0) * OBLICUO, s: 1 }),
       desproy: (sx, sy) => ({ x: sx, y: sy }),
     };
   }
 
-  /* Lo que interesa: el centro del trozo, con la portería siempre a la vista. */
-  const cx = marco.x + marco.w / 2;
-  const fondo = Math.max(14, marco.y + marco.h);
+  /*
+   * Lo que interesa: los puntos de la jugada (`foco`) o, si no los hay, el
+   * trozo entero; con la portería siempre a la vista. Lo de muy atrás (la
+   * vigilancia) no manda en el plano.
+   */
+  const puntos = (
+    foco?.length
+      ? foco
+      : [
+          { x: marco.x, y: Math.max(0, marco.y) },
+          { x: marco.x + marco.w, y: Math.max(0, marco.y) },
+          { x: marco.x, y: Math.min(26, marco.y + marco.h) },
+          { x: marco.x + marco.w, y: Math.min(26, marco.y + marco.h) },
+        ]
+  ).filter((p) => p.y <= 26);
 
-  const ojo: V3 = vista === "tv" ? [cx * 0.75 + 34 * 0.25, fondo + 16, 19 + fondo * 0.18] : [cx * 0.6 + 34 * 0.4, Math.min(fondo, 30) + 9, 3.4];
+  const xs = puntos.length ? puntos.map((p) => p.x) : [20, 48];
 
-  const mira: V3 = vista === "tv" ? [cx * 0.85 + 34 * 0.15, Math.max(4, fondo * 0.32), 0] : [cx * 0.5 + 34 * 0.5, 2.5, 1.3];
+  const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+
+  const fondo = Math.max(10, Math.min(vista === "pie" ? 16 : 26, Math.max(...puntos.map((p) => p.y), 10)));
+
+  const ojo: V3 = vista === "tv" ? [cx * 0.7 + 34 * 0.3, fondo + 12, 10 + fondo * 0.2] : [cx * 0.4 + 34 * 0.6, fondo + 4, 2.8];
+
+  const mira: V3 = vista === "tv" ? [cx * 0.85 + 34 * 0.15, Math.max(3, fondo * 0.3), 0] : [cx * 0.3 + 34 * 0.7, 2, 1.2];
 
   const f = unidad(resta(mira, ojo));
 
@@ -132,27 +153,38 @@ export function creaCamara(vista: Vista, marco: Marco, aspecto: number): Camara 
     return { x: (FOCAL * punto3(v, r)) / zc, y: (-FOCAL * punto3(v, u)) / zc, s: FOCAL / zc };
   };
 
-  /* El encuadre: las cuatro esquinas del trozo en el suelo y a dos metros y medio de alto. */
+  /*
+   * El encuadre: los puntos de la jugada (en el suelo y a la altura de la
+   * cabeza, donde va la ficha) y la portería. A pie de campo sólo cuenta lo
+   * que queda delante del ojo.
+   */
+  const delante = puntos.filter((p) => p.y < ojo[1] - 4);
+
   const esquinas: P3[] = [
-    { x: marco.x, y: Math.max(-2, marco.y) },
-    { x: marco.x + marco.w, y: Math.max(-2, marco.y) },
-    { x: marco.x, y: marco.y + marco.h },
-    { x: marco.x + marco.w, y: marco.y + marco.h },
-    { x: 30, y: -1.8, z: 2.6 },
-    { x: 38, y: -1.8, z: 2.6 },
+    ...delante.flatMap((p) => [
+      { x: p.x, y: p.y, z: 0 },
+      { x: p.x, y: p.y, z: 2.6 },
+    ]),
+    { x: 29, y: -1.8, z: 2.8 },
+    { x: 39, y: -1.8, z: 2.8 },
+    { x: 29, y: 0, z: 0 },
+    { x: 39, y: 0, z: 0 },
   ];
 
   const enPantalla = esquinas.map(crudo);
 
-  const caja = cajaCon(enPantalla, aspecto, 2);
+  const borde = cajaCon(enPantalla, aspecto, 0);
 
-  const centro = crudo({ x: cx, y: marco.y + marco.h / 2 });
+  const caja = cajaCon(enPantalla, aspecto, borde.w * 0.07);
+
+  const centro = crudo({ x: cx, y: fondo * 0.4 });
 
   return {
     vista,
     tresD: true,
     caja,
     escala: centro.s,
+    yMax: ojo[1] - 3,
     proy: crudo,
     desproy: (sx, sy) => {
       /* El rayo desde el ojo por ese punto de la pantalla, cortado con el césped (z = 0). */

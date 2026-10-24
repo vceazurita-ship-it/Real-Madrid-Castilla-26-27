@@ -30,7 +30,7 @@ type RutinaSim = Pick<Rutina, "roles" | "balon" | "tipo"> & { envio?: Envio };
 export type Celda = { x: number; y: number; p: number };
 
 /** El trozo de campo que se mide: el área grande y un poco más. */
-export const ZONA_CONTROL = { x0: 11, x1: 57, y0: 0, y1: 21 };
+export const ZONA_CONTROL = { x0: 13.84, x1: 54.16, y0: 0, y1: 16.5 };
 
 const V = 7;
 
@@ -67,13 +67,13 @@ export function controlEspacio(nuestros: Punto[], rivales: Punto[], paso = 1): C
   return celdas;
 }
 
-/** Los huecos: dentro del área, a más de 2,8 m de cualquiera. Para señalar dónde no hay nadie. */
-export function espaciosLibres(todos: Punto[], paso = 1): Punto[] {
+/** Los huecos: donde se remata (del área pequeña al punto de penalti), a más de 3,5 m de cualquiera. */
+export function espaciosLibres(todos: Punto[], paso = 1.5): Punto[] {
   const libres: Punto[] = [];
 
-  for (let y = 1.5; y < 15; y += paso) {
-    for (let x = 18; x < 50; x += paso) {
-      if (todos.every((p) => Math.hypot(p.x - x, p.y - y) > 2.8)) libres.push({ x, y });
+  for (let y = 1.25; y < 12.5; y += paso) {
+    for (let x = 22.75; x < 45.5; x += paso) {
+      if (todos.every((p) => Math.hypot(p.x - x, p.y - y) > 3.5)) libres.push({ x, y });
     }
   }
 
