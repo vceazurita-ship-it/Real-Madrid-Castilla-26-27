@@ -19,6 +19,8 @@ import { useSyncExternalStore, type ComponentType } from "react";
 export type OpcionPestana<K extends string> = {
   clave: K;
   label: string;
+  /** Nombre más corto para el móvil: así la tira cabe entera sin cortarse. */
+  corto?: string;
   icono?: ComponentType<{ size?: number; className?: string }>;
   /** Un número pequeño al lado (cuántos goles, cuántas faltas). */
   cuenta?: number | string;
@@ -91,7 +93,7 @@ export function Pestanas<K extends string>({
   return (
     <div style={pegada ? { top: "var(--alto-cabecera, 0px)" } : undefined} className={`${pegada ? "sticky z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" : ""}`}>
       <div role="tablist" aria-label={etiqueta} className="flex min-w-0 gap-1 overflow-x-auto border-b border-white/10 scrollbar-none">
-        {opciones.map(({ clave, label, icono: Icono, cuenta }) => {
+        {opciones.map(({ clave, label, corto, icono: Icono, cuenta }) => {
           const activa = clave === valor;
 
           return (
@@ -107,12 +109,19 @@ export function Pestanas<K extends string>({
                  salían con la misma raya gris y la elegida no se distinguía
                  (19/10/2026). */
               style={{ borderBottomColor: activa ? "var(--rmcf-gold-ink, #C8A96B)" : "transparent" }}
-              className={`-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3.5 py-2.5 text-sm font-semibold transition ${
+              className={`-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-2.5 py-2.5 text-sm font-semibold transition sm:px-3.5 ${
                 activa ? "text-white" : "text-white/50 hover:text-white/80"
               }`}
             >
               {Icono ? <Icono size={14} className={activa ? "text-[#C8A96B]" : ""} /> : null}
-              {label}
+              {corto ? (
+                <>
+                  <span className="sm:hidden">{corto}</span>
+                  <span className="hidden sm:inline">{label}</span>
+                </>
+              ) : (
+                label
+              )}
               {cuenta !== undefined ? (
                 <span className={`rounded-full px-1.5 py-px text-[10px] tabular-nums ${activa ? "bg-[#C8A96B]/20 text-[#C8A96B]" : "bg-white/[0.06] text-white/45"}`}>{cuenta}</span>
               ) : null}

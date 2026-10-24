@@ -1159,6 +1159,21 @@ export default function EditorMicrocicloPage() {
     [micro],
   );
 
+  /* «Microciclo 19 · FC Cartagena · 5 días de entreno, 0 libres». */
+  const titularSemana = useMemo(() => {
+    if (!micro) return "";
+
+    const rival = (partidoDelMicro?.rival || micro.rival || "").trim();
+
+    return [
+      `Microciclo ${micro.micro}`,
+      rival,
+      `${plural(semana.sesiones, "día de entreno", "días de entreno")}, ${plural(semana.libres, "libre", "libres")}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  }, [micro, partidoDelMicro, semana.sesiones, semana.libres]);
+
   /* Cómo suele ser cada MD esta temporada, sin contar el microciclo que se edita. */
   const referencia = useMemo(
     () => referenciaPorMd(registro?.tareas ?? [], { sinMicro: micro?.micro, temporada: micro?.temporada }),
@@ -1728,6 +1743,8 @@ export default function EditorMicrocicloPage() {
             aside={
               micro ? (
                 <div className="text-right text-[11px] leading-relaxed text-white/45">
+                  {/* El resumen fijo de la semana: se rehace solo al marcar un día como libre. */}
+                  <p className="text-[13px] font-semibold text-white/90">{titularSemana}</p>
                   <p className="text-white/75">{textoDeCuentas(semana)}</p>
 
                   {semana.sinMinutos > 0 && (

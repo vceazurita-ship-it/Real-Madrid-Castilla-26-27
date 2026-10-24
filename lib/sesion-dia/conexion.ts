@@ -108,6 +108,17 @@ export const firmaTarea = (t: Pick<TareaPlan, "tipo" | "formato" | "contenidoPri
 /** El nombre que lleva en Jugadores sesión: el tipo en mayúsculas («RONDO»); si no hay, el contenido. */
 export const nombreEnSesion = (t: TareaPlan) => (t.tipo.trim() || t.contenidoPrincipal.trim() || t.codigo).toUpperCase();
 
+/**
+ * El nombre para ENSEÑAR una tarea: salta los «???» (con o sin «(copia)») y los
+ * vacíos que a veces trae la hoja, y cae al tipo, al contenido y, al final, al
+ * código. No toca `nombreEnSesion`: ése es la clave de unión y no debe moverse.
+ */
+export const nombreVisible = (...candidatos: Array<string | undefined>) => {
+  const vale = (s: string) => s !== "" && !/^[?¿\s]*(\(copia\))?$/i.test(s);
+
+  return candidatos.map((c) => (c ?? "").trim()).find(vale) ?? "";
+};
+
 /** Las tareas planificadas de un día en la hoja, en su orden y sin la fila del partido. */
 export function planDeRegistro(filas: FilaPlan[], fechaIso: string | undefined): TareaPlan[] {
   if (!fechaIso) return [];

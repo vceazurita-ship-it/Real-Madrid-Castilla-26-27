@@ -147,6 +147,7 @@ export default function CalendarGeneralPage() {
   );
   const [filesByDay, setFilesByDay] = useState<FilesByDay>({});
   const [autoEventos, setAutoEventos] = useState<EventoAuto[]>([]);
+  const [proximo, setProximo] = useState<{ jornada: number; rival: string; enCasa: boolean; fecha: string; hora: string; salida: string } | null>(null);
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<GeneralEvent | null>(null);
@@ -283,12 +284,21 @@ export default function CalendarGeneralPage() {
 
         if (fechas.size === 0 && viaje.fecha) fechas.add(viaje.fecha);
 
+        /* El día del partido de este viaje: los días de después son la vuelta, y se rotulan así
+           para que no parezca un segundo viaje. Sin partido en el calendario, todo es «Viaje a». */
+        const primero = [...fechas].sort()[0] ?? "";
+        const delPartido = (calendario?.partidos ?? [])
+          .filter((p) => !/castilla/i.test(p.local) && mismoEquipo(p.local, viaje.rival ?? ""))
+          .map((p) => (typeof p.cuando === "string" ? p.cuando.slice(0, 10) : ""))
+          .filter((f) => f && f >= primero)
+          .sort()[0];
+
         for (const fecha of fechas) {
           lista.push({
             id: `viaje-${viaje.partidoId}-${fecha}`,
             fecha,
             clase: "VIAJE",
-            titulo: `Viaje a ${viaje.rival}`,
+            titulo: delPartido && fecha > delPartido ? `Regreso de ${viaje.rival}` : `Viaje a ${viaje.rival}`,
             detalle: [viaje.estadio?.ciudad, viaje.hotel?.nombre].filter(Boolean).join(" · "),
             hora: "",
             enlace: "/desplazamiento",
@@ -297,6 +307,31 @@ export default function CalendarGeneralPage() {
       }
 
       setAutoEventos(lista);
+
+      /* El próximo partido, para la franja de arriba. */
+      const siguiente = (calendario?.partidos ?? [])
+        .filter((p) => typeof p?.cuando === "string" && p.cuando.slice(0, 10) >= hoy)
+        .sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
+
+      if (siguiente) {
+        const enCasa = /castilla/i.test(siguiente.local);
+        const fecha = siguiente.cuando.slice(0, 10);
+        const hora = siguiente.cuando.slice(11, 16);
+
+        setProximo({
+          jornada: siguiente.jornada,
+          rival: enCasa ? siguiente.visitante : siguiente.local,
+          enCasa,
+          fecha,
+          hora: hora === "00:00" ? "" : hora,
+          salida: enCasa
+            ? ""
+            : lista
+                .filter((e) => e.clase === "VIAJE" && e.fecha <= fecha && mismoEquipo(e.titulo.replace(/^(Viaje a|Regreso de) /, ""), siguiente.local))
+                .map((e) => e.fecha)
+                .sort()[0] ?? "",
+        });
+      }
     });
 
     return () => {
@@ -494,6 +529,28 @@ export default function CalendarGeneralPage() {
       loading={status === "loading"}
       keyboardEnabled={!selectedKey}
       legend={legend}
+      franja={
+        proximo ? (
+          <Link
+            href={proximo.enCasa ? "/calendar" : "/desplazamiento"}
+            className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-4 py-3 text-sm transition hover:border-[#C8A96B]/60"
+          >
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Próximo partido</span>
+            <span className="min-w-0 font-semibold text-white">
+              J{String(proximo.jornada).padStart(2, "0")} · {proximo.enCasa ? "Castilla vs" : "en"} {proximo.rival}
+            </span>
+            <span className="text-white/70">
+              {new Date(`${proximo.fecha}T12:00:00`).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })}
+              {proximo.hora ? `, ${proximo.hora}` : ""}
+            </span>
+            {proximo.salida ? (
+              <span className="text-white/55">
+                · viaje desde el {new Date(`${proximo.salida}T12:00:00`).toLocaleDateString("es-ES", { weekday: "short", day: "numeric" })}
+              </span>
+            ) : null}
+          </Link>
+        ) : null
+      }
       stats={
         <>
           {/* El número de días iba dos veces: de pista y de tarjeta. */}

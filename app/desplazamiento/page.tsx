@@ -829,7 +829,7 @@ export default function DesplazamientoPage() {
             <AbpHeader
               area="RMCF Castilla · Operativa"
               title="Desplazamiento de Partido"
-              lead="El dossier del viaje —campo, ruta y hotel— y el horario de cada día, rellenados de una vez y sacados en PowerPoint o en PDF para imprimir. El viaje puede durar uno, dos o más días: el horario se monta solo desde la hora del partido y sale una hoja por día."
+              lead="El dossier del viaje (campo, ruta y hotel) y el horario de cada día, listos para PowerPoint o PDF. El horario se monta solo desde la hora del partido, con una hoja por día."
               aside={
                 <SaveState
                   status={status}
@@ -949,6 +949,9 @@ export default function DesplazamientoPage() {
             ) : (
               viaje && (
                 <>
+                  {/* Cómo va el viaje, arriba y pegado al selector de partido. */}
+                  <ListaPendiente viaje={viaje} />
+
                   {!guardado && (
                     <div className="mt-4">
                       {tieneSemilla(viaje) ? (
@@ -971,8 +974,6 @@ export default function DesplazamientoPage() {
                       )}
                     </div>
                   )}
-
-                  <ListaPendiente viaje={viaje} />
 
                   {/* La hora guardada no es la del calendario (o no hay): se propone, no se cambia sola. */}
                   {guardado && delCalendario?.hora && (delCalendario.hora !== viaje.hora || (delCalendario.fecha && delCalendario.fecha !== viaje.fecha)) && (() => {
@@ -1228,7 +1229,7 @@ export default function DesplazamientoPage() {
                       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                         <EnlaceRuta
                           desde={viaje.origen || "Ciudad Real Madrid, Valdebebas"}
-                          hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad].filter(Boolean).join(", ")}
+                          hasta={viaje.estadio.direccion || [viaje.estadio.nombre, viaje.estadio.ciudad || equipoDelInforme(equiposInforme, viaje.rival || partido.opponent)?.nombre || viaje.rival || partido.opponent].filter(Boolean).join(", ")}
                           rotulo={`Ruta ${viaje.origen || "Valdebebas"} · estadio en Google Maps`}
                         />
 

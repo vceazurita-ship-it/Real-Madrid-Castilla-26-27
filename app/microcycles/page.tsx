@@ -2209,6 +2209,7 @@ export default function Page() {
                           type="monotone"
                           dataKey="intensidad"
                           name="Intensidad"
+                          isAnimationActive={false}
                           stroke={COLORS.purple}
                           strokeWidth={3}
                           dot={{ r: 4, fill: COLORS.purple }}
@@ -2336,6 +2337,7 @@ export default function Page() {
                         <Area
                           dataKey="value"
                           name="Evaluación"
+                          isAnimationActive={false}
                           stroke={COLORS.gold}
                           strokeWidth={3}
                           fill="url(#evalGrad)"

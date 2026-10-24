@@ -55,7 +55,7 @@ export function AccesoEntreno() {
             </ul>
             <p className="text-xs text-white/50">Es para el cuerpo técnico: entra con tu cuenta.</p>
 
-            <Acceso sinPista yo={yo} cargando={sesion.cargando} manda={sesion.manda} titulo="Entra con tu cuenta del cuerpo técnico" subtitulo="La misma cuenta que la quiniela y las apuestas del staff" />
+            <Acceso sinPista yo={yo} cargando={sesion.cargando} manda={sesion.manda} titulo="Entra para ver qué objetivo cumplió cada jugador" botonEntrar="Ver el análisis" subtitulo="La misma cuenta que la quiniela y las apuestas del staff" />
 
             {yo && !delCuerpoTecnico ? (
               <Notice tone="warn" title="Esta cuenta no es del cuerpo técnico">
