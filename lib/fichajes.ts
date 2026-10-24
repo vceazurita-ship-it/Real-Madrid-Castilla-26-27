@@ -119,6 +119,14 @@ export function licenciaDe(nombre: string, licencia?: string): string {
 }
 
 /**
+ * ¿Es del Castilla? Una sola regla para todas las pantallas (Dashboard
+ * Plantilla, Individual…): licencia «RMCF Castilla» o sin licencia escrita.
+ */
+export function esDelCastilla(nombre: string, licencia?: string): boolean {
+  return (licenciaDe(nombre, licencia).trim() || "RMCF Castilla") === "RMCF Castilla";
+}
+
+/**
  * IDs que ya no son de nadie y a quién corresponden hoy.
  *
  * Thiago Pitarch entró el 22/09 por el puente con JUG-54 y la hoja lo dio de

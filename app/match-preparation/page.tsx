@@ -1806,7 +1806,10 @@ export default function MatchPreparation() {
             <div className="mp-no-print -mt-3 mb-5 flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] text-white/75">
               <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">Los duelos, en una línea</span>
               <span className="min-w-0 tabular-nums text-white/60">
-                {duelosClave.conVentajaNuestra} con ventaja nuestra · {duelosClave.conVentajaSuya} con ventaja suya
+                De {duelosClave.medidos} duelos medidos: {duelosClave.conVentajaNuestra} con ventaja nuestra · {duelosClave.conVentajaSuya} con ventaja suya
+                {duelosClave.enLosDos > 0
+                  ? `; ${duelosClave.enLosDos === 1 ? "uno cuenta" : `${duelosClave.enLosDos} cuentan`} en los dos sentidos`
+                  : ""}
               </span>
               {duelosClave.ventaja[0] && (
                 <span className="min-w-0">

@@ -63,7 +63,7 @@ import { useRatingsSeason } from "@/hooks/useRatings";
 import { playerEntries } from "@/lib/ratings/compute";
 import { getPlayerImage, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
-import { idVigente } from "@/lib/fichajes";
+import { esDelCastilla, idVigente } from "@/lib/fichajes";
 import { alineaSeguimiento } from "@/lib/seguimiento";
 import { creaSeguimientos } from "@/lib/seguimiento-escribir";
 import { SeleccionJugadores } from "@/components/seguimiento/SeleccionJugadores";
@@ -1847,8 +1847,17 @@ export default function IndividualPage() {
         .map((s) => parseDate(s.FECHA))
         .filter((d): d is Date => Boolean(d));
 
+      /* La licencia de la hoja manda sobre la marca fija de la lista: la
+         misma regla que el Dashboard Plantilla, para que «del Castilla» sea
+         la misma cifra en las dos pantallas. */
+      const externo =
+        "ID_JUGADOR" in row
+          ? !esDelCastilla((row as Record<string, string>).NOMBRE || p.name, (row as Record<string, string>).LICENCIA)
+          : p.externo;
+
       const base = {
         ...p,
+        externo,
 
         conBalon: row.CON_BALON || DEFAULT_CON_BALON,
         sinBalon: row.SIN_BALON || DEFAULT_SIN_BALON,

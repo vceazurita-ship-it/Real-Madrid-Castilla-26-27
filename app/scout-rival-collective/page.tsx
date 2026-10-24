@@ -749,7 +749,7 @@ export default function ScoutRivalCollective() {
                     Plantillas. */}
                 {rivalActivo && !modoEdicion && (
                   <span className="text-white/35">
-                    Dibujos y estructuras: lo que ha visto el analista en vídeo
+                    Dibujos y estructuras: lo que ha visto el analista en vídeo (el dibujo habitual, el más repetido en sus alineaciones, está en el campograma de Plantillas)
                   </span>
                 )}
               </div>
@@ -868,7 +868,10 @@ export default function ScoutRivalCollective() {
                     </li>
                   ))}
               </ul>
-              {esencial.length > 1 && <p className="mt-2 text-[11px] text-white/40">El detalle está abajo, en «Conclusiones».</p>}
+              <p className="mt-2 text-[11px] text-white/40">
+                Fuente: las conclusiones que ha escrito el analista tras ver los partidos del rival
+                {esencial.length > 1 ? "; el detalle está abajo, en «Conclusiones»" : ""}.
+              </p>
             </section>
           )}
 

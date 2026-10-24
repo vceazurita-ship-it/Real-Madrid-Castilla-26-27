@@ -13,6 +13,7 @@ import { mismoClub } from "@/lib/rivals/mismoClub";
 import { normalizarOnce, rivalOnceKey } from "@/lib/rivals/once";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import type { RatingsSeason } from "@/lib/ratings/types";
+import { puestoEnPalabras } from "@/lib/posiciones";
 
 /*
 |--------------------------------------------------------------------------
@@ -43,6 +44,10 @@ export type DuelosClave = {
   /** Cuántos duelos, de todos los medidos, caen de cada lado (con balón nuestro / con balón suyo). */
   conVentajaNuestra: number;
   conVentajaSuya: number;
+  /** Duelos con dato en los dos lados: sobre ellos se cuentan los dos números de arriba. */
+  medidos: number;
+  /** Cuántos de ellos salen en los dos lados (ventaja con nuestro balón y riesgo con el suyo). */
+  enLosDos: number;
 };
 
 type Fila = Record<string, unknown>;
@@ -105,11 +110,31 @@ export function useDuelosClave(equipo: string) {
           baseNuestra: reparto?.ultimo ? Object.fromEntries(Object.entries(reparto.huecos).filter(([, id]) => id)) : null,
         });
 
+        /* Si dos jugadores distintos comparten apellido (Sergio y Joan Martínez, o un
+           «Martínez» a secas), se les pone el puesto: la línea no puede ser ambigua. */
+        const todos = duelos.flatMap((d) => [...d.nuestros, ...d.suyos]);
+        const apellidoDe = (nombre: string) => nombre.trim().split(/\s+/).slice(-1)[0]?.toLowerCase() ?? "";
+        const porApellido = new Map<string, Set<string>>();
+
+        todos.forEach((j) => {
+          const a = apellidoDe(j.nombre);
+          if (!porApellido.has(a)) porApellido.set(a, new Set());
+          porApellido.get(a)!.add(j.clave);
+        });
+
+        const rotulo = (j: (typeof todos)[number]) => {
+          if ((porApellido.get(apellidoDe(j.nombre))?.size ?? 0) < 2) return j.nombre;
+
+          const puesto = puestoEnPalabras(j.posicion.split(",")[0]?.trim() ?? "") || j.dorsal || "";
+
+          return puesto ? `${j.nombre} (${puesto})` : j.nombre;
+        };
+
         const aDuelo = (d: (typeof duelos)[number], valor: number): DueloClave => ({
           clave: d.def.clave,
           titulo: d.def.titulo,
-          nuestros: d.nuestros.map((j) => j.nombre),
-          suyos: d.suyos.map((j) => j.nombre),
+          nuestros: d.nuestros.map(rotulo),
+          suyos: d.suyos.map(rotulo),
           valor,
         });
 
@@ -127,11 +152,15 @@ export function useDuelosClave(equipo: string) {
 
         const conVentajaNuestra = duelos.filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO).length;
         const conVentajaSuya = duelos.filter((d) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO).length;
+        const medidos = duelos.filter((d) => d.veredicto !== "sin-datos").length;
+        const enLosDos = duelos.filter(
+          (d) => (d.conBalon ?? 0) >= UMBRAL_DUELO && (d.sinBalon ?? 0) <= -UMBRAL_DUELO,
+        ).length;
 
         if (vivo) {
           setEstado({
             equipo,
-            datos: ventaja.length || riesgo.length ? { ventaja, riesgo, conVentajaNuestra, conVentajaSuya } : null,
+            datos: ventaja.length || riesgo.length ? { ventaja, riesgo, conVentajaNuestra, conVentajaSuya, medidos, enLosDos } : null,
           });
         }
       } catch (error) {
