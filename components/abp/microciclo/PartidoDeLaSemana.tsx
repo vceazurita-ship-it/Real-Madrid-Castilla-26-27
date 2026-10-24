@@ -171,7 +171,7 @@ export function PartidoDeLaSemana({
           </p>
 
           {partido && (
-            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-white/55">
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 pr-12 text-[12px] text-white/55 sm:pr-0">
               <span className="inline-flex items-center gap-1">
                 <CalendarClock size={12} aria-hidden />
                 {cuandoSeJuega(partido.cuando)}

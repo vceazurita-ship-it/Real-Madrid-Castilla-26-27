@@ -7,6 +7,43 @@ import type { ReactNode } from "react";
 /* Con la tinta del tema: en modo día el blanco fijo no se veía (nombres y
    fechas desaparecían). La variable va también en `style` porque un atributo
    SVG no siempre resuelve var(). */
+/**
+ * El nombre de un jugador en el eje vertical, en una sola línea.
+ *
+ * El rótulo por defecto de Recharts parte «Diego Aguado» en dos tramos sueltos
+ * cuando no cabe, y al leerlos juntos (lector de pantalla, copiar, exportar)
+ * salía «DiegoAguado». Aquí va siempre un único texto y, si es largo, se corta
+ * con puntos suspensivos.
+ */
+export function TickNombre({
+  x,
+  y,
+  payload,
+  maximo = 15,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string | number };
+  maximo?: number;
+}) {
+  const texto = String(payload?.value ?? "");
+  const corto = texto.length > maximo ? `${texto.slice(0, maximo - 1).trimEnd()}…` : texto;
+
+  return (
+    <text
+      x={x}
+      y={y}
+      dy={4}
+      textAnchor="end"
+      fontSize={11}
+      style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.7)" }}
+    >
+      <title>{texto}</title>
+      {corto}
+    </text>
+  );
+}
+
 export const AXIS = {
   stroke: "rgb(var(--rmcf-ink-rgb) / 0.3)",
   tick: {

@@ -1422,6 +1422,53 @@ function ProfileText({ text }: { text?: string }) {
   );
 }
 
+const REJILLA =
+  "grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6";
+
+/**
+ * Las tarjetas de jugador, con el Castilla primero y, debajo, un subtítulo
+ * «De otros equipos» con los que no son de la plantilla: antes iban
+ * mezclados y sólo los distinguía una etiqueta pequeña sobre la foto.
+ */
+function RejillaJugadores({
+  jugadores,
+  onSelect,
+}: {
+  jugadores: MergedPlayer[];
+  onSelect: (player: MergedPlayer) => void;
+}) {
+  const propios = jugadores.filter((p) => !p.externo);
+  const externos = jugadores.filter((p) => p.externo);
+
+  return (
+    <div className="space-y-5">
+      {propios.length > 0 && (
+        <div className={REJILLA}>
+          {propios.map((player) => (
+            <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
+
+      {externos.length > 0 && (
+        <div>
+          {propios.length > 0 && (
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
+              De otros equipos · {externos.length}
+            </p>
+          )}
+
+          <div className={REJILLA}>
+            {externos.map((player) => (
+              <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PlayerCard({
   player,
   onSelect,
@@ -1497,7 +1544,7 @@ function PlayerCard({
             }}
           >
             <span title="Media de competencias (no es la nota de partido)">
-              {coma(player.score)} comp.
+              {coma(player.score)} media
             </span>
           </span>
         )}
@@ -1943,6 +1990,30 @@ export default function IndividualPage() {
         : 0,
     };
   }, [mergedPlayers, trackingData, videoData, reportData]);
+
+  /* La base de «X de N jugadores» sigue al filtro de equipo: con «Castilla»
+     elegido, 1 vídeo es «1 de 21 del Castilla» y no «1 de 40». */
+  const base = useMemo(() => {
+    const lista =
+      teamFilter === "castilla"
+        ? mergedPlayers.filter((p) => !p.externo)
+        : teamFilter === "externos"
+          ? mergedPlayers.filter((p) => p.externo)
+          : mergedPlayers;
+
+    return {
+      n: lista.length,
+      conVideos: lista.filter((p) => (p.videos ?? 0) > 0).length,
+      conInforme: lista.filter((p) => p.hasReport).length,
+      conFicha: lista.filter((p) => p.score > 0).length,
+      de:
+        teamFilter === "castilla"
+          ? " del Castilla"
+          : teamFilter === "externos"
+            ? " de otros equipos"
+            : "",
+    };
+  }, [mergedPlayers, teamFilter]);
 
   /*
   | Lo que se teclea entra al momento en la caja; la lista se rehace
@@ -3106,7 +3177,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.videos
                       ? "cargando los vídeos…"
-                      : `clips individuales · ${stats.withVideos} de ${stats.players} jugadores`
+                      : `clips individuales · ${base.conVideos} de ${base.n} jugadores${base.de}`
                   }
                 />
 
@@ -3117,7 +3188,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.informes
                       ? "cargando los informes…"
-                      : `fichas completadas · ${stats.withReport} de ${stats.players} jugadores`
+                      : `fichas completadas · ${base.conInforme} de ${base.n} jugadores${base.de}`
                   }
                 />
 
@@ -3131,7 +3202,7 @@ export default function IndividualPage() {
                   }
                   hint={
                     stats.rated >= 3
-                      ? `media de las competencias valoradas, sobre 10 ·${stats.rated} de ${stats.players} con ficha`
+                      ? `media de las competencias valoradas, sobre 10 · ${stats.rated} de ${stats.players} con ficha`
                       : "se muestra con 3 o más fichas valoradas"
                   }
                 />
@@ -3314,28 +3385,14 @@ export default function IndividualPage() {
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                          {linePlayers.map((player) => (
-                            <PlayerCard
-                              key={player.idJugador}
-                              player={player}
-                              onSelect={openPlayer}
-                            />
-                          ))}
-                        </div>
+                        <RejillaJugadores jugadores={linePlayers} onSelect={openPlayer} />
                       </section>
                     );
                   })}
                 </div>
               ) : (
-                <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                  {filtered.map((player) => (
-                    <PlayerCard
-                      key={player.idJugador}
-                      player={player}
-                      onSelect={openPlayer}
-                    />
-                  ))}
+                <div className="mt-8">
+                  <RejillaJugadores jugadores={filtered} onSelect={openPlayer} />
                 </div>
               )}
             </div>

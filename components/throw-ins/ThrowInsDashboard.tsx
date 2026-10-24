@@ -17,6 +17,7 @@ import {
   Explicativo,
   useTextosExplicativos,
 } from "@/components/ui/textos-analisis";
+import { LeyendaSaques } from "./LeyendaSaques";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, FilterDrawer, Select, TeamPicker } from "@/components/abp/ui";
@@ -292,7 +293,7 @@ function groupBy(rows: RecordRow[], key: string) {
 const MIN_MUESTRA = 3;
 
 /** Con menos de diez saques la cifra es un indicio, no un dato. */
-const indicio = (n: number) => (n < 10 ? " (indicio: muestra pequeña)" : "");
+const indicio = (n: number) => (n < 20 ? ` (indicio: sólo ${n} ${n === 1 ? "saque" : "saques"})` : "");
 
 type Grupo = { key: string; valor: string; n: number; favorables: number; produccion: number };
 
@@ -395,7 +396,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(productivas, produccionTasa, true);
 
       frases.push(
-        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, la más productiva: ${mejor.produccion} de ${mejor.n} a último tercio.${indicio(mejor.n)}`,
+        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, la más productiva: ${mejor.produccion} de ${mejor.n} a último tercio; repetirla.${indicio(mejor.n)}`,
       );
     }
 
@@ -403,7 +404,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(envios, retencionDe, true);
 
       frases.push(
-        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, el más fiable: retenemos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}).${indicio(mejor.n)}`,
+        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, el más fiable: retenemos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}); usarlo para conservar.${indicio(mejor.n)}`,
       );
     }
   } else {
@@ -412,7 +413,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
 
       if (mejor.favorables > 0) {
         frases.push(
-          `Más robos en ${nombreDe(mejor.key, mejor.valor)}: recuperamos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}).${indicio(mejor.n)}`,
+          `Más robos en ${nombreDe(mejor.key, mejor.valor)}: recuperamos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}); mantener la presión ahí.${indicio(mejor.n)}`,
         );
       }
     }
@@ -424,7 +425,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const peor = extremo(peligrosas, produccionTasa, true);
 
       frases.push(
-        `Su vía más peligrosa: ${nombreDe(peor.key, peor.valor)}, ${peor.produccion} de ${peor.n} a último tercio.${indicio(peor.n)}`,
+        `Su vía más peligrosa: ${nombreDe(peor.key, peor.valor)}, ${peor.produccion} de ${peor.n} a último tercio; hay que cerrarla.${indicio(peor.n)}`,
       );
     }
 
@@ -458,13 +459,13 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(personas, (g) => produccionTasa(g) * 2 + retencionDe(g), true);
 
       frases.push(
-        `Más eficaz: ${nombreDe(mejor.key, mejor.valor)} (retenemos ${mejor.favorables} de ${mejor.n}, ${mejor.produccion} a último tercio).${indicio(mejor.n)}`,
+        `Más eficaz: ${nombreDe(mejor.key, mejor.valor)} (retenemos ${mejor.favorables} de ${mejor.n}, ${mejor.produccion} a último tercio); buscarlo más.${indicio(mejor.n)}`,
       );
     } else {
       const comodo = extremo(receptores.length >= 2 ? receptores : personas, retencionDe, false);
 
       frases.push(
-        `Su ${nombreDe(comodo.key, comodo.valor)}, el más cómodo: recuperamos ${comodo.favorables} de ${comodo.n}.${indicio(comodo.n)}`,
+        `Su ${nombreDe(comodo.key, comodo.valor)}, el más cómodo: recuperamos ${comodo.favorables} de ${comodo.n}; hay que apretarle ahí.${indicio(comodo.n)}`,
       );
     }
   }
@@ -1659,9 +1660,15 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   />
                 ) : null}
 
-                <Conclusiones items={conclusiones} className="mb-7" />
+                <Conclusiones items={conclusiones} className="mb-4" />
+
+                <LeyendaSaques mode={mode} className="mb-7" />
 
                 <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                  {/* Con la tabla del partido encima, estas cifras sobran: son las mismas
+                      del filtro entero. Sólo salen cuando no hay con qué comparar. */}
+                  {comparativa ? null : (
+                    <>
                   <MetricCard
                     label={isOffensive ? "Saques registrados" : "Saques del rival"}
                     value={totals.acciones}
@@ -1697,6 +1704,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                       hint={`${totals.transicion} de ${totals.acciones} saques: robamos el del rival y llegamos a último tercio, ocasión o gol`}
                     />
                   ) : null}
+                    </>
+                  )}
                   {totals.calidad === null ? null : (
                     <MetricCard
                       label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}

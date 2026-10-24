@@ -2159,7 +2159,7 @@ export function avisosConsignas(notas: string[]) {
 
   if (lineas.length > CONSIGNAS_MAX) {
     avisos.push(
-      `${lineas.length} consignas: en la sala se leen bien ${CONSIGNAS_MAX}. Junta o quita alguna.`,
+      `Junta ${lineas.length - CONSIGNAS_MAX === 1 ? "una consigna" : `${lineas.length - CONSIGNAS_MAX} consignas`}: en la sala se leen bien ${CONSIGNAS_MAX}.`,
     );
   }
 

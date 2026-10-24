@@ -94,6 +94,7 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { usePlayers } from "@/hooks/usePlayers";
+import { ajustaNombres } from "@/lib/abp/nombresPlantilla";
 import type { Player } from "@/types/player";
 import {
   compareMatches,
@@ -198,7 +199,8 @@ const ESPERA_VERSION_MS = 45_000;
 function etiquetaPartido(partido: MatchMeta) {
   const numero = partido.competition.match(/^Jornada\s+(\d+)/i);
 
-  const jornada = numero ? `J${numero[1].padStart(2, "0")} · ` : "";
+  /* Un amistoso no tiene número de jornada: sin rótulo parecía un hueco. */
+  const jornada = numero ? `J${numero[1].padStart(2, "0")} · ` : "Pretemporada · ";
 
   return `${jornada}${formatMatchDate(partido)} · ${matchLabel(partido)}`;
 }
@@ -484,6 +486,13 @@ export default function PizarraAbpPage() {
     [partidos, hoy],
   );
 
+  /* Dentro de cada grupo, por fecha ascendente (antes salían J09, J10, J11, J06…). */
+  const porFechaPartido = (a: MatchMeta, b: MatchMeta) =>
+    (a.date || "").localeCompare(b.date || "") || a.id.localeCompare(b.id);
+
+  const etiquetaOpcion = (item: MatchMeta) =>
+    `${etiquetaPartido(item)}${item.id === proximoId ? " · próximo" : ""}`;
+
   const enPrimerPlano = (item: MatchMeta) =>
     item.id === proximoId ||
     item.id === elegido ||
@@ -583,7 +592,7 @@ export default function PizarraAbpPage() {
       resto: cercanas.filter((item) => !ids.has(item.id)).sort(porFecha),
       anteriores: jornadas
         .filter((item) => jornadasLejanas.has(item.id) && item.id !== jornada?.id)
-        .sort((a, b) => porFecha(b, a)),
+        .sort(porFecha),
     };
   }, [jornadas, jornadasLejanas, jornada, hoy]);
 
@@ -1582,7 +1591,7 @@ export default function PizarraAbpPage() {
     (texto: string) => {
       const lineas = texto
         .split(/\r?\n/)
-        .map((linea) => linea.replace(/^[-•·\s]+/, "").trim())
+        .map((linea) => ajustaNombres(linea.replace(/^[-•·\s]+/, "").trim(), players))
         .filter(Boolean);
 
       if (lineas.length === 0) return;
@@ -1597,7 +1606,7 @@ export default function PizarraAbpPage() {
 
       toast.success("Consignas traídas del plan de partido");
     },
-    [mutaSlide],
+    [mutaSlide, players],
   );
 
   /* ------------------------ DIAPOSITIVAS --------------------------- */
@@ -1881,6 +1890,13 @@ export default function PizarraAbpPage() {
     );
   }, [tablero]);
 
+  /* Cuántos jugadores no salen en todas las diapositivas: lo mismo que cuenta
+     el control de convocatoria, para que la cabecera no diga lo contrario. */
+  const faltantesEnDiapositivas = useMemo(
+    () => (tablero ? revisaTablero(tablero).gazapos.length : 0),
+    [tablero],
+  );
+
   const aprendidos = Object.keys(memoriaAlDia).length;
 
   return (
@@ -1936,22 +1952,24 @@ export default function PizarraAbpPage() {
                     </option>
                   )}
 
-                  {partidos
+                  {[...partidos]
                     .filter((item) => enPrimerPlano(item))
+                    .sort(porFechaPartido)
                     .map((item) => (
                       <option key={item.id} value={item.id} className="bg-[#11161C]">
-                        {etiquetaPartido(item)}
+                        {etiquetaOpcion(item)}
                         {marcaDeTablero(store.tableros?.[item.id])}
                       </option>
                     ))}
 
                   {partidos.some((item) => lejanosIds.has(item.id) && !enPrimerPlano(item)) && (
                     <optgroup label="Jornadas anteriores">
-                      {partidos
+                      {[...partidos]
                         .filter((item) => lejanosIds.has(item.id) && !enPrimerPlano(item))
+                        .sort(porFechaPartido)
                         .map((item) => (
                           <option key={item.id} value={item.id} className="bg-[#11161C]">
-                            {etiquetaPartido(item)}
+                            {etiquetaOpcion(item)}
                             {marcaDeTablero(store.tableros?.[item.id])}
                           </option>
                         ))}
@@ -1960,11 +1978,12 @@ export default function PizarraAbpPage() {
 
                   {partidos.some((item) => !lejanosIds.has(item.id) && !enPrimerPlano(item)) && (
                     <optgroup label="Más adelante en el calendario">
-                      {partidos
+                      {[...partidos]
                         .filter((item) => !lejanosIds.has(item.id) && !enPrimerPlano(item))
+                        .sort(porFechaPartido)
                         .map((item) => (
                           <option key={item.id} value={item.id} className="bg-[#11161C]">
-                            {etiquetaPartido(item)}
+                            {etiquetaOpcion(item)}
                             {marcaDeTablero(store.tableros?.[item.id])}
                           </option>
                         ))}
@@ -2277,7 +2296,9 @@ export default function PizarraAbpPage() {
                         : !guardado
                         ? "Plantilla en blanco"
                         : totales.cubiertos >= totales.total
-                        ? "Todos los puestos tienen jugador"
+                        ? faltantesEnDiapositivas > 0
+                          ? `Puestos completos; ${faltantesEnDiapositivas} ${faltantesEnDiapositivas === 1 ? "jugador no aparece" : "jugadores no aparecen"} en todas las diapositivas`
+                          : "Todos los puestos tienen jugador"
                         : `${totales.total - totales.cubiertos} ${
                             totales.total - totales.cubiertos === 1 ? "puesto sin jugador" : "puestos sin jugador"
                           }`

@@ -2271,6 +2271,18 @@ const conclusiones = useMemo(() => {
     `${plural(filtered.length, "ABP", "ABP")} en contra: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol encajado", "goles encajados")}, xG ${cifra(xg, 2)}.`,
   ];
 
+  /* «Remates concedidos» y «ocasiones» cuentan las mismas jugadas: se dice, y
+     se dice cuáles son, que es lo que se entrena. */
+  const conRemate = filtered.filter((r) => LECTOR.remate(r) && resultado(r) === "Ocasión");
+
+  if (conRemate.length > 0 && conRemate.length === ocasiones) {
+    frases.push(
+      `${plural(conRemate.length, "remate concedido", "remates concedidos")} y ${plural(ocasiones, "ocasión", "ocasiones")}: ${conRemate.length === 1 ? "es la misma jugada" : "son las mismas jugadas"}. ${conRemate
+        .map((r) => `${r.tipoAccion.toLowerCase()}${r.zonaCaida ? ` a ${r.zonaCaida.toLowerCase()}` : ""} (${cifra(r.xg, 2)} xG)`)
+        .join(" y ")}.`,
+    );
+  }
+
   const zona = mejorGrupo(
     filtered,
     (r) => (esSuperioridad(r.zonaCaida) ? "" : r.zonaCaida),
@@ -2298,7 +2310,7 @@ const conclusiones = useMemo(() => {
 
     frases.push(
       casiIgual || envio.n < 5
-        ? `Envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción sobre ${envio.n} acciones, indicio y no diferencia: la media de todas las ABP defendidas es ${cifra(mediaGlobal, 2)}.`
+        ? `Envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción en ${envio.n} acciones, igual que el resto (${cifra(mediaGlobal, 2)}; menos es mejor). No cambiar la marca por esto.`
         : `Más daño con el envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción, sobre ${envio.n} acciones (media de todas las ABP defendidas: ${cifra(mediaGlobal, 2)}).`,
     );
   }
