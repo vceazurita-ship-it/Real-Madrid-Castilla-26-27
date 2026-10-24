@@ -43,6 +43,7 @@ import { puestoEnPalabras } from "@/lib/posiciones";
 import type { RatingsSeason } from "@/lib/ratings/types";
 import {
   DUELOS_VACIO,
+  fraseRecuentoDuelos,
   HUECO_VACIO,
   UMBRAL_DUELO,
   ZONAS,
@@ -452,7 +453,11 @@ export default function DuelosPage() {
               </div>
               <span className={`ml-auto flex-wrap items-center gap-x-3 gap-y-1 text-xs ${cargando ? "hidden" : "flex"}`}>
                 <span className="text-white/60" title="Duelos con datos en los dos lados">
-                  {conDato.length} duelos medidos
+                  {(() => {
+                    const enLosDos = atacar.filter((a) => vigilar.some((v) => v.def.clave === a.def.clave)).length;
+
+                    return fraseRecuentoDuelos(conDato.length, atacar.length, vigilar.length, enLosDos);
+                  })()}
                 </span>
                 <span style={{ color: MEJOR }} title="Duelos en los que, con el balón nuestro, les sacamos ventaja">
                   ● {atacar.length} con ventaja nuestra con balón
@@ -460,15 +465,6 @@ export default function DuelosPage() {
                 <span style={{ color: PEOR }} title="Duelos en los que, con el balón suyo, nos sacan ventaja">
                   ● {vigilar.length} con ventaja suya con balón
                 </span>
-                {(() => {
-                  const enLosDos = atacar.filter((a) => vigilar.some((v) => v.def.clave === a.def.clave)).length;
-
-                  return enLosDos > 0 ? (
-                    <span className="text-white/50">
-                      {enLosDos === 1 ? "1 cuenta" : `${enLosDos} cuentan`} en los dos sentidos y sale en las dos cajas: por eso la suma pasa de {conDato.length}
-                    </span>
-                  ) : null;
-                })()}
               </span>
               {!cargando && temporada === undefined && (
                 <span className="basis-full text-[11px] text-white/45">

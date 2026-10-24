@@ -3081,7 +3081,7 @@ export default function RivalPlayersPage() {
           .tags.filter((tag) => tag.tone === "debilidad")
           .map((tag) => tag.label.toLowerCase());
         const flojos = perfil && !perfil.muestraCorta ? perfil.flojos.slice(0, 2).map((rasgo) => rasgo.nombre) : [];
-        const frase = fraseDeDano(debilidades, flojos);
+        const frase = fraseDeDano(debilidades, flojos, perfil?.posicionTexto || String(p["POSICIÓN"] ?? ""));
 
         return {
           nombre: conTildes(nombrePropio(String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim())),

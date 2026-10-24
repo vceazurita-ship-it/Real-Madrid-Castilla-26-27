@@ -501,3 +501,16 @@ export function normalizaDuelos(valor: unknown): DuelosDoc {
     );
   return { nuestro: limpio(v.nuestro), suyo: limpio(v.suyo) };
 }
+
+/**
+ * El recuento de duelos, escrito igual en el Plan de partido y en /duelos.
+ * «9 duelos: 6 a favor, 4 en contra (3 se cuentan en ambos); 9 duelos distintos»
+ * evita que 6 + 4 sobre 9 parezca un error.
+ */
+export function fraseRecuentoDuelos(medidos: number, aFavor: number, enContra: number, enLosDos: number): string {
+  const base = `${medidos} ${medidos === 1 ? "duelo" : "duelos"}: ${aFavor} a favor, ${enContra} en contra`;
+
+  return enLosDos > 0
+    ? `${base} (${enLosDos === 1 ? "1 se cuenta" : `${enLosDos} se cuentan`} en ambos; ${medidos} ${medidos === 1 ? "duelo distinto" : "duelos distintos"})`
+    : base;
+}

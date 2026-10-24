@@ -36,6 +36,8 @@ export type DueloClave = {
   nuestros: string[];
   suyos: string[];
   valor: number;
+  /** Minutos del jugador con menos minutos del cruce: la base del percentil. 0 si no consta. */
+  minutos: number;
 };
 
 export type DuelosClave = {
@@ -136,6 +138,11 @@ export function useDuelosClave(equipo: string) {
           nuestros: d.nuestros.map(rotulo),
           suyos: d.suyos.map(rotulo),
           valor,
+          minutos: (() => {
+            const todosMin = [...d.nuestros, ...d.suyos].map((j) => j.minutos).filter((m) => m > 0 && m < 1e5);
+
+            return todosMin.length ? Math.round(Math.min(...todosMin)) : 0;
+          })(),
         });
 
         const ventaja = duelos
