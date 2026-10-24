@@ -408,7 +408,7 @@ const makePolarTick =
     const centerX = Number(cx) || 0;
     const centerY = Number(cy) || 0;
 
-    const lines = label.length > 11 ? wrapLabel(label, 11, 2) : [label];
+    const lines = label.length > 11 ? wrapLabel(label, 14, 3) : [label];
 
     const anchor =
       Math.abs(px - centerX) < 14 ? "middle" : px > centerX ? "start" : "end";
@@ -2149,6 +2149,7 @@ export default function Page() {
 
                         <Radar
                           name="Perfil"
+                          isAnimationActive={false}
                           dataKey="value"
                           stroke={COLORS.gold}
                           strokeWidth={3}
