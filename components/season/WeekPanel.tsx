@@ -286,7 +286,7 @@ export default function WeekPanel({
               <span className="hidden sm:inline-flex">{item.icon}</span>
               {item.label}
 
-              {item.count !== undefined && (
+              {item.count !== undefined && item.count > 0 && (
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[11px] tabular-nums ${
                     tab === item.id
@@ -392,13 +392,8 @@ export default function WeekPanel({
 
         {tab === "upload" && images.length + pdfs.length === 0 && ultimaConArchivos && onSelectWeek && (
           <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <p className="text-sm text-white/60">
-              Lo último que hay es de la {ultimaConArchivos.week.toLowerCase()} (
-              {weekRangeLabel(ultimaConArchivos)}).
-            </p>
-
             {(ultimaConArchivos.pdfs ?? []).length > 0 && (
-              <ul className="mt-3 space-y-1.5">
+              <ul className="space-y-1.5">
                 {(ultimaConArchivos.pdfs ?? []).slice(-3).map((url) => (
                   <li key={url} className="min-w-0">
                     <a

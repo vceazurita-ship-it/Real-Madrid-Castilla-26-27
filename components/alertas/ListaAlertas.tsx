@@ -166,11 +166,27 @@ export default function ListaAlertas({
                           ? saldriaSiSeReactiva(alerta, partidos, new Date(ahora))
                           : null;
 
+                      /* La fecha, en negrita y una sola vez: el «N días antes del
+                         partido» ya lo dice la etiqueta de repetición. */
                       if (saldria)
-                        return `Silenciada · al reactivarla saldría ${fechaLegible(saldria.cuando.toISOString())}, ${saldria.dias === 0 ? "el día del partido" : `${saldria.dias} ${saldria.dias === 1 ? "día" : "días"} antes del partido`}`;
+                        return (
+                          <>
+                            Silenciada · saldría{" "}
+                            <b className="font-semibold text-white/80">
+                              {fechaLegible(saldria.cuando.toISOString())}
+                            </b>
+                          </>
+                        );
 
                       if (futura)
-                        return `Silenciada: no se enviará hasta reactivarla (sonaría ${fechaLegible(alerta.proximoEnvio)})`;
+                        return (
+                          <>
+                            Silenciada · sonaría{" "}
+                            <b className="font-semibold text-white/80">
+                              {fechaLegible(alerta.proximoEnvio)}
+                            </b>
+                          </>
+                        );
 
                       if (alerta.envios > 0 && fechaValida(alerta.ultimoEnvio))
                         return `Silenciada · última vez enviada: ${fechaLegible(alerta.ultimoEnvio)}`;
@@ -180,7 +196,7 @@ export default function ListaAlertas({
                         : "Silenciada: no se enviará hasta reactivarla";
                     })()
                   : fechaValida(alerta.proximoEnvio)
-                    ? fechaLegible(alerta.proximoEnvio)
+                    ? <b className="font-semibold text-white/80">{fechaLegible(alerta.proximoEnvio)}</b>
                     : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo.
                          La que va atada al partido no se arregla editándola: se queda sin
                          fecha cuando el calendario no tiene partido por delante, y la

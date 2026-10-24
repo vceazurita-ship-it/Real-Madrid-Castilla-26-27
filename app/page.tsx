@@ -27,6 +27,7 @@ import { ProximoPartido } from "@/components/portada/ProximoPartido"
 import { trackModuleVisit } from "@/lib/module-usage"
 import { usePlayers } from "@/hooks/usePlayers"
 import { alineaSeguimiento, esDeSeguimiento, filasDeSeguimiento } from "@/lib/seguimiento"
+import { SESIONES_CONTADAS_DESDE } from "@/lib/sesion-equipos/estadistica"
 import { traeCsv, traeJson } from "@/lib/hojaCsv"
 import { EstadoError } from "@/components/ui/estados"
 
@@ -212,7 +213,14 @@ export default function Home() {
       plantillaEntera,
     )
 
-    return filasDeSeguimiento(atados, plantilla)
+    /* Sólo cuentan los registros desde el día en que se empezó a contar. */
+    const desde = new Date(SESIONES_CONTADAS_DESDE).getTime()
+
+    return filasDeSeguimiento(atados, plantilla).filter((fila) => {
+      const fecha = new Date(fila.FECHA ?? "").getTime()
+
+      return Number.isFinite(fecha) && fecha >= desde
+    })
   }, [filasSeguimiento, plantillaEntera, plantilla])
 
   const { jugadoresSeguimiento, sesionesDeLaPlantilla } = useMemo(() => {
