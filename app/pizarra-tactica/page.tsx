@@ -924,10 +924,13 @@ function BoardEditor({
           {/* En el móvil, en su propia fila: al lado de los botones se quedaba en una palabra por renglón. */}
           <span className="min-w-0 sm:flex-1">
             {fuentes
-              ? `${fuentes.nuestra} (el Castilla ataca hacia la derecha) · vs ${fuentes.rival}, hacia la izquierda: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}. Toca dos veces una ficha para cambiar al jugador.`
+              ? `${fuentes.nuestra} (el Castilla ataca hacia la derecha) · vs ${fuentes.rival}, hacia la izquierda: ${fuentes.suya.charAt(0).toLowerCase()}${fuentes.suya.slice(1)}.`
               : doc.semanaOnces
-                ? `Nuestro once y el suyo para el ${diaYLugar(doc.semanaOnces.split("|")[0], doc.semanaOnces.split("|")[1], partido)}. Toca dos veces una ficha para cambiar al jugador.`
+                ? `Nuestro once y el suyo para el ${diaYLugar(doc.semanaOnces.split("|")[0], doc.semanaOnces.split("|")[1], partido)}.`
                 : "Se rellenan solos cada semana con nuestro último once y el teórico del rival."}
+            {doc.semanaOnces && (
+              <b className="ml-1 font-semibold text-white/85">Toca dos veces una ficha para cambiar al jugador.</b>
+            )}
           </span>
           <span className="flex items-center gap-3 text-white/70" aria-label="Leyenda de colores">
             <span className="inline-flex items-center gap-1.5">

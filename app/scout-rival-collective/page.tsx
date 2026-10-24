@@ -846,12 +846,27 @@ export default function ScoutRivalCollective() {
             <section aria-label="Lo esencial del rival" className="mb-6 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-5 py-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">{esencial.length === 1 ? "Lo esencial" : `Lo esencial, en ${esencial.length === 2 ? "dos" : "tres"} ideas`}</p>
               <ul className="mt-2 grid gap-3 md:grid-cols-3">
-                {esencial.map((e) => (
-                  <li key={`${e.titulo}-${e.texto}`} className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">{e.titulo}</p>
-                    <p className="mt-0.5 text-sm leading-6 text-white/85">{e.texto}</p>
-                  </li>
-                ))}
+                {esencial
+                  .reduce<{ titulo: string; textos: string[] }[]>((grupos, e) => {
+                    const g = grupos.find((x) => x.titulo === e.titulo);
+                    if (g) g.textos.push(e.texto);
+                    else grupos.push({ titulo: e.titulo, textos: [e.texto] });
+                    return grupos;
+                  }, [])
+                  .map((g) => (
+                    <li key={g.titulo} className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">{g.titulo}</p>
+                      {g.textos.length === 1 ? (
+                        <p className="mt-0.5 text-sm leading-6 text-white/85">{g.textos[0]}</p>
+                      ) : (
+                        <ol className="mt-0.5 list-decimal space-y-1 pl-5 text-sm leading-6 text-white/85">
+                          {g.textos.map((t) => (
+                            <li key={t}>{t}</li>
+                          ))}
+                        </ol>
+                      )}
+                    </li>
+                  ))}
               </ul>
               {esencial.length > 1 && <p className="mt-2 text-[11px] text-white/40">El detalle está abajo, en «Conclusiones».</p>}
             </section>

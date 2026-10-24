@@ -143,7 +143,7 @@ export function AbpWyscoutRival({
       {aspectos.length > 0 && (
         <Panel
           title={ambito === "area" ? "Sus centros laterales según Wyscout" : "Su balón parado según Wyscout"}
-          subtitle={`${equipo} frente a los ${datos?.equipos ?? 20} equipos de la liga${(datos?.equipos ?? 20) === 20 ? ", el Castilla incluido" : ""}`}
+          subtitle={`${equipo} frente a los ${datos?.equipos ?? 20} equipos de la liga${(datos?.equipos ?? 20) === 20 ? ", el Castilla incluido" : ""}. «Mejor» y «peor» ya tienen en cuenta el sentido de cada cifra.`}
           icon={BarChart3}
         >
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -151,9 +151,11 @@ export function AbpWyscoutRival({
               <div key={aspecto.clave} className="min-w-0">
                 <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
                   {aspecto.aspecto}
-                  {(aspecto.filas[0]?.partidos ?? 99) < 10 && (
+                  {aspecto.filas[0]?.partidos != null && (
                     <span className="ml-2 font-normal normal-case tracking-normal italic text-white/45">
-                      tendencia, {aspecto.filas[0].partidos} partidos
+                      {aspecto.filas[0].partidos < 10
+                        ? `tendencia, ${aspecto.filas[0].partidos} partidos`
+                        : `en ${aspecto.filas[0].partidos} partidos`}
                     </span>
                   )}
                 </h3>

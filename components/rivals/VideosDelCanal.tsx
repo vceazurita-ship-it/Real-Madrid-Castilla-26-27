@@ -67,6 +67,20 @@ type Video = {
   posicion: number;
 };
 
+/**
+ * El título en bruto del canal a veces es sólo el dorsal o «CLUB Nº7» una vez quitado el nombre:
+ * eso no dice qué mirar, así que se numera el corte.
+ */
+function temaLegible(tema: string, posicion: number) {
+  const limpio = tema
+    .replace(/\bN[º°o]\s*\d+\b/gi, " ")
+    .replace(/^\d+\b/, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return limpio.length >= 3 && /\p{L}{3}/u.test(limpio) && !/\bC\.?F\.?(\s|$)/i.test(limpio) ? tema : `Corte ${posicion + 1}`;
+}
+
 /** Un vídeo ya colocado: de quién es y de qué va, además del vídeo. */
 type Pieza = {
   video: Video;
@@ -1194,7 +1208,7 @@ function Rejilla({
             )}
 
             <p className="line-clamp-2 text-[13px] leading-snug text-white/85">
-              {tema}
+              {temaLegible(tema, video.posicion)}
             </p>
 
             <div className="mt-1.5 flex items-center justify-between gap-2">
