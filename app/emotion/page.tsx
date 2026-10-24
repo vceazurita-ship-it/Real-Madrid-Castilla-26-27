@@ -479,7 +479,7 @@ export default function EmotionPage() {
 
             {/* ---------------------------------------------- Radares */}
             <div
-              className="rounded-[34px] p-4 sm:p-5 lg:p-6"
+              className="siempre-oscuro rounded-[34px] p-4 sm:p-5 lg:p-6"
               style={{
                 backgroundImage:
                   "linear-gradient(rgba(5,14,24,.68), rgba(5,14,24,.68)), url('/emotional-field-bg.webp')",
@@ -862,7 +862,7 @@ function RadarPanel({
 
   return (
     <div
-      className="rounded-[24px] border p-3 sm:p-4"
+      className="siempre-oscuro rounded-[24px] border p-3 sm:p-4"
       style={{
         borderColor: series.length ? `${radarTone}55` : "rgba(255,255,255,.08)",
         background: series.length
@@ -894,11 +894,18 @@ function RadarPanel({
           )}
 
           {series.length > 0 && (
+            <span className="text-[11px] tabular-nums text-white/60">
+              {series.length} {series.length === 1 ? "jugador" : "jugadores"}
+            </span>
+          )}
+
+          {/* Con menos de tres jugadores el nivel es una tendencia, no un perfil de línea. */}
+          {series.length > 0 && (
             <span
               className="rounded-full px-2.5 py-1 text-[10px] font-bold"
               style={{ background: radarTone, color: "#031018" }}
             >
-              {synergyLabel}
+              {series.length < 3 ? `${synergyLabel} · tendencia` : synergyLabel}
             </span>
           )}
         </div>
@@ -1059,10 +1066,6 @@ function RadarPanel({
                       payload?: { value?: string };
                     }) => {
                       const code = String(props.payload?.value ?? "");
-                      const media = groupAverages?.find(
-                        (g) => g.axis.code === code
-                      );
-
                       return (
                         <text
                           x={props.x}
@@ -1073,7 +1076,6 @@ function RadarPanel({
                           fill="#ffffff"
                         >
                           {code}
-                          {media ? ` ${coma(media.value)}` : ""}
                         </text>
                       );
                     }}
@@ -1125,6 +1127,15 @@ function RadarPanel({
               </ResponsiveContainer>
             )}
           </div>
+
+          {teamAverage && series.length > 0 && (
+            <div className="mt-1 flex items-center justify-center gap-1.5 text-[10px] text-white/50">
+              <svg width="18" height="4" aria-hidden>
+                <line x1="0" y1="2" x2="18" y2="2" stroke="#8FA3B8" strokeWidth="1.5" strokeDasharray="4 3" />
+              </svg>
+              Media de la plantilla
+            </div>
+          )}
 
           {/* Lectura numérica: el radar da la forma, esto da el dato */}
           {groupAverages && (
