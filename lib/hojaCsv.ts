@@ -162,6 +162,11 @@ function cambia(parche: Partial<EstadoHojas>) {
   for (const oye of oyentes) oye();
 }
 
+/** El aviso de «hay datos nuevos» ya se ha atendido: se apaga hasta que llegue otra hoja distinta. */
+export function descartaNuevas() {
+  if (estado.hayNuevas) cambia({ hayNuevas: false });
+}
+
 /** Para `useSyncExternalStore`: el estado de las hojas de esta pestaña. */
 export function estadoHojas(): EstadoHojas {
   return estado;

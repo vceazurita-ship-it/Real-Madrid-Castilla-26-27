@@ -17,7 +17,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-import { estadoHojas, olvidaTodoElCsv, suscribeHojas } from "@/lib/hojaCsv";
+import { descartaNuevas, estadoHojas, olvidaTodoElCsv, suscribeHojas } from "@/lib/hojaCsv";
 
 const VACIO = { bajando: 0, deCopia: 0, masVieja: null, hayNuevas: false };
 
@@ -77,6 +77,7 @@ export function DatosEstado() {
     /* Las copias nuevas ya están guardadas: recargar es leerlas. Lo que se
        tira es sólo la memoria de la pestaña, para que ninguna pantalla se
        quede con la vieja. */
+    descartaNuevas();
     window.location.reload();
   };
 
@@ -93,6 +94,7 @@ export function DatosEstado() {
     }
 
     olvidaTodoElCsv();
+    descartaNuevas();
     window.location.reload();
   };
 

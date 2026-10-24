@@ -32,7 +32,7 @@ export type HuecoPlantilla = {
 export const HUECOS: HuecoPlantilla[] = [
   { clave: "{partido}", explica: "el partido del coding" },
   { clave: "{filtro}", explica: "el jugador, el comportamiento o la categoría" },
-  { clave: "{fecha}", explica: "el día en que se monta, 30/08/2026" },
+  { clave: "{fecha}", explica: "el día en que se monta, en formato día/mes/año" },
   { clave: "{fichero}", explica: "el nombre del vídeo descargado" },
 ];
 

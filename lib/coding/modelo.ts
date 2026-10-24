@@ -568,6 +568,21 @@ export function apodoCoding(valor: unknown) {
   return limpio || "sin-id";
 }
 
+/**
+ * El apodo del equipo sin las siglas del club: «CD Teruel», «C.D. Teruel» y
+ * «Teruel» son el mismo equipo y no deben salir dos veces en un desplegable.
+ * Sólo sirve para juntar duplicados; la clave que se guarda sigue siendo
+ * `apodoCoding`.
+ */
+const SIGLAS_CLUB = new Set(["cd", "ud", "cf", "sd", "fc", "ad", "cp", "rcd", "rc", "ce", "ue", "club"]);
+
+export function apodoSinSiglas(valor: unknown) {
+  const partes = apodoCoding(valor).split("-");
+  const sin = partes.filter((parte) => !SIGLAS_CLUB.has(parte));
+
+  return (sin.length > 0 ? sin : partes).join("-");
+}
+
 export function sesionVacia(
   ambito: AmbitoCoding,
   refId: string,

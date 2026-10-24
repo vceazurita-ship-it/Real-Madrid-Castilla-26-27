@@ -145,6 +145,7 @@ import {
   SUJETO_VIDEO_COMPLETO,
   TIPO_CODING,
   apodoCoding,
+  apodoSinSiglas,
   clipsDeVideo,
   clipsParaExportar,
   nombreDeFuente,
@@ -601,8 +602,16 @@ function Coding() {
       if (!limpio || esNuestroEquipo(limpio)) return;
 
       const clave = apodoCoding(limpio);
+      const parecido = apodoSinSiglas(limpio);
 
-      if (!vistos.has(clave)) vistos.set(clave, { clave, nombre: limpio, origen });
+      /* «CD Teruel» (amistoso) y «Teruel» (calendario) son el mismo rival. */
+      if (
+        vistos.has(clave) ||
+        [...vistos.values()].some((uno) => apodoSinSiglas(uno.nombre) === parecido)
+      )
+        return;
+
+      vistos.set(clave, { clave, nombre: limpio, origen });
     };
 
     partidos.forEach((uno) => añade(uno.opponent, "liga"));
@@ -624,7 +633,11 @@ function Coding() {
 
   const rival = useMemo(() => {
     /* Lo que diga el enlace manda. */
-    const pedido = rivales.find((uno) => uno.clave === apodoCoding(equipoRival));
+    const pedido = rivales.find(
+      (uno) =>
+        uno.clave === apodoCoding(equipoRival) ||
+        apodoSinSiglas(uno.nombre) === apodoSinSiglas(equipoRival),
+    );
 
     if (pedido) return pedido;
 
@@ -659,7 +672,11 @@ function Coding() {
   const rivalPropio = useMemo(
     () =>
       claveRivalPropio
-        ? (rivales.find((uno) => uno.clave === claveRivalPropio) ?? {
+        ? (rivales.find(
+            (uno) =>
+              uno.clave === claveRivalPropio ||
+              apodoSinSiglas(uno.nombre) === apodoSinSiglas(claveRivalPropio),
+          ) ?? {
             clave: claveRivalPropio,
             nombre: claveRivalPropio,
             origen: "propio" as const,
