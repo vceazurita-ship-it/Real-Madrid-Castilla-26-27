@@ -102,6 +102,9 @@ import type { RegistroTarea } from "@/lib/abp/registro";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
+import { DiaConectado } from "@/components/sesion-dia/DiaConectado";
+import { useDiasConectados } from "@/hooks/useDiasConectados";
+import { aplicaPropuesta, aplicaTodasLasPropuestas, planDeSesionNueva, propuestasDeLaSesion, sesionDeFecha, type Propuesta } from "@/lib/sesion-dia/conexion";
 import {
   FASES_ABP,
   copiaDeTarea,
@@ -1168,9 +1171,37 @@ export default function EditorMicrocicloPage() {
     [micro, referencia],
   );
 
+  /*
+  | LO QUE PASÓ EN LA SESIÓN (24/10/2026). Los equipos de Jugadores sesión y
+  | el análisis de entrenamiento de cada día, sólo leídos; lo que se cambió en
+  | la sesión llega como propuesta y se acepta con un clic: entra en el micro
+  | como cualquier otro cambio (con deshacer) y se escribe en la hoja con
+  | «Escribir en la hoja». Ver lib/sesion-dia/conexion.ts.
+  */
+  const fechasMicro = useMemo(() => (micro?.sesiones ?? []).map((s) => s.fecha), [micro]);
+
+  const { almacen: almacenEquipos, entrenos } = useDiasConectados(fechasMicro);
+
+  const aceptaPropuesta = (indice: number, p: Propuesta | "todas") => {
+    if (!micro) return;
+
+    const sesion = micro.sesiones[indice];
+    const equipos = sesionDeFecha(almacenEquipos?.sesiones, sesion.fecha);
+
+    if (!equipos) return;
+
+    const tareas = p === "todas" ? aplicaTodasLasPropuestas(sesion, micro, equipos) : aplicaPropuesta(sesion.tareas, planDeSesionNueva(sesion, micro), p, sesion.dia);
+
+    cambiaSesion(indice, { tareas });
+    toast.success(p === "todas" ? "Lo de la sesión, en el plan" : "Cambio de la sesión en el plan", {
+      description: "Se escribe en la hoja con «Escribir en la hoja».",
+      action: { label: "Deshacer", onClick: deshaz },
+    });
+  };
+
   /* ------------------------ EL TABLERO ------------------------ */
 
-  const alMover = (desde: { sesion: number; tarea: number }, hasta: { sesion: number; indice: number }) => {
+  const alMover =(desde: { sesion: number; tarea: number }, hasta: { sesion: number; indice: number }) => {
     if (!micro) return;
 
     const nuevo = mueveTareaEnSemana(micro, desde, hasta);
@@ -2264,6 +2295,22 @@ export default function EditorMicrocicloPage() {
                         />
                       </div>
                       )}
+
+                      {/* Lo que pasó en la sesión de ese día: equipos, análisis y lo cambiado, para aceptarlo (24/10/2026). */}
+                      {!sesion.libre && !esPartidoDelDia && sesion.tareas.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(sesion.fecha) ? (
+                        <div className="mb-3">
+                          <DiaConectado
+                            fecha={sesion.fecha}
+                            plan={planDeSesionNueva(sesion, micro)}
+                            sesion={sesionDeFecha(almacenEquipos?.sesiones, sesion.fecha)}
+                            entreno={entrenos[sesion.fecha]}
+                            micro={editando ?? micro.micro}
+                            propuestas={propuestasDeLaSesion(sesionDeFecha(almacenEquipos?.sesiones, sesion.fecha), planDeSesionNueva(sesion, micro))}
+                            onAcepta={(p) => aceptaPropuesta(indice, p)}
+                            onAceptaTodas={() => aceptaPropuesta(indice, "todas")}
+                          />
+                        </div>
+                      ) : null}
 
                       {sesion.libre ? (
                         <p className="flex flex-wrap items-center gap-2 text-[12px] text-white/45">

@@ -38,7 +38,7 @@
 
 import type { RegistroTarea } from "@/lib/abp/registro";
 import { cuentas, cumpleMeta, lecturaCuentas, porcentajeOTendencia, type AnalisisEntreno, type SesionEntreno } from "@/lib/entreno/modelo";
-import { TIPOS_TAREA, fechaIsoDeHoja, tareaVacia, type TareaNueva } from "@/lib/registro/hoja";
+import { TIPOS_TAREA, fechaIsoDeHoja, renumera, tareaVacia, type TareaNueva } from "@/lib/registro/hoja";
 import type { DetalleTarea } from "@/lib/sesion-equipos/registro";
 import { COLOR_COMODIN, COMODIN, FUERA, claveNombre, conEquipos, nuevaTarea, type JugadorSesion, type SesionEquipos, type TareaEquipos } from "@/lib/sesion-equipos/modelo";
 
@@ -519,6 +519,32 @@ export function aplicaPropuesta(tareas: TareaNueva[], plan: TareaPlan[], p: Prop
       return ordenaPorPlan(tareas, enlace);
     }
   }
+}
+
+/**
+ * «Aceptar todo» en un día del editor: una propuesta cada vez, recalculando
+ * el plan entre una y otra (cada una cambia los códigos). Una propuesta que
+ * vuelve a salir después de aplicarla corta la vuelta: no se mete dos veces.
+ */
+export function aplicaTodasLasPropuestas(
+  sesion: { tareas: TareaNueva[]; dia: string; md: string; rival?: string; fecha: string },
+  micro: { micro: number; rival: string },
+  equipos: SesionEquipos,
+): TareaNueva[] {
+  const hechas = new Set<string>();
+  let tareas = sesion.tareas;
+
+  for (let vuelta = 0; vuelta < 30; vuelta += 1) {
+    const plan = planDeSesionNueva({ ...sesion, tareas }, micro);
+    const p = propuestasDeLaSesion(equipos, plan)[0];
+
+    if (!p || hechas.has(p.clave)) break;
+
+    hechas.add(p.clave);
+    tareas = renumera({ ...sesion, tareas: aplicaPropuesta(tareas, plan, p, sesion.dia) }).tareas;
+  }
+
+  return tareas;
 }
 
 /* ------------------------------------------------------------------ */
