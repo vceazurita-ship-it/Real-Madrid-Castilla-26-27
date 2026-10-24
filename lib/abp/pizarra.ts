@@ -1389,7 +1389,9 @@ export function copiaTablero(
     slides: origen.slides.map((slide) => ({
       ...slide,
       id: nuevoId("SL"),
-      notas: [...slide.notas],
+      /* Las consignas heredadas se limpian al traerlas (mayúsculas sostenidas,
+         «2.DIRECTA:» sin espacio): se leen igual que se pintan. */
+      notas: slide.notas.map((nota) => (nota.trim() ? normalizaConsigna(nota) : nota)),
       /* Los rótulos reescritos viajan con la diapositiva: si la semana pasada
          se llamó «MARCAS AL SEGUNDO PALO» es porque se decidió así, y traer la
          jornada es traerla entera. */
@@ -2055,7 +2057,11 @@ export function normalizaConsigna(texto: string) {
 }
 
 function normalizaConsignaBase(texto: string) {
-  const limpio = texto.trim().replace(/(\d)([ªº])/g, "$1.$2");
+  const limpio = texto
+    .trim()
+    .replace(/(\d)([ªº])/g, "$1.$2")
+    /* «2.DIRECTA» sin espacio tras el número de orden. */
+    .replace(/(^|\s)(\d{1,2})\.(?=[A-Za-zÁÉÍÓÚÜÑáéíóúüñ])/g, "$1$2. ");
 
   const letras = limpio.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
   const mayusculas = letras.replace(/[^A-ZÁÉÍÓÚÜÑ]/g, "").length;
