@@ -95,7 +95,15 @@ export function numeroCorto(n: number): string {
  * La diferencia se resta de estas cifras vistas y no de las sin redondear,
  * para que 17 % frente a 14 % no ponga «+2 puntos» (22/10/2026).
  */
-function visto(n: number, porcentaje: boolean): number {
+function visto(n: number, porcentaje: boolean, formato?: (n: number) => string): number {
+  /* Si la fila se escribe con dos decimales (xG: 0,08 y 0,22), la diferencia
+     sale de esas mismas cifras y no de un redondeo a uno (−0,14, no −0,10). */
+  if (formato && !porcentaje) {
+    const leido = parseFloat(formato(n).replace(/\./g, "").replace(",", "."));
+
+    if (Number.isFinite(leido)) return leido;
+  }
+
   return porcentaje ? Math.round(n) : Math.round(n * 10) / 10;
 }
 
@@ -142,7 +150,7 @@ export function ComparativaPartido({
             <span className="text-right" style={{ color: ORO_TINTA }}>
               Este partido
             </span>
-            <span className="text-right">{anteriores.n === 1 ? "Anterior" : "Media anteriores"}</span>
+            <span className="text-right">{anteriores.n === 1 ? "Anterior" : `Media de las ${anteriores.n} anteriores`}</span>
             {/* La clave de colores va en la nota, que sólo sale con los textos
                 explicativos: al pasar por encima se lee igual. */}
             <span className="text-right" title="Verde: mejor que de costumbre · naranja: peor · gris: no se juzga">
@@ -165,7 +173,7 @@ export function ComparativaPartido({
               const porcentaje = formato === formatoPorcentaje;
               const d =
                 m.actual !== null && m.media !== null
-                  ? visto(m.actual, porcentaje) - visto(m.media, porcentaje)
+                  ? Math.round((visto(m.actual, porcentaje, formato) - visto(m.media, porcentaje, formato)) * 1000) / 1000
                   : null;
               /* Con menos de cinco acciones detrás, la fila se enseña pero no se juzga. */
               const indicio = m.de !== undefined && m.de < MUESTRA_MINIMA_FILA;
@@ -191,10 +199,20 @@ export function ComparativaPartido({
                 >
                   <div className="min-w-0">
                     <p className="text-sm text-white/85 sm:truncate">{m.nombre}</p>
-                    {(m.pie || baseTexto) && (
+                    {(m.pie || baseTexto || juzga) && (
                       <p className="text-[11px] text-white/35 sm:truncate">
-                        {[baseTexto, m.pie].filter(Boolean).join(" · ")}
+                        {[baseTexto, m.pie && !/^(más|menos) es mejor$/.test(m.pie) ? m.pie : null].filter(Boolean).join(" · ")}
                         {indicio ? " · indicio" : ""}
+                        {/* El sentido, siempre y con su color, para no mezclar filas de «más» y de «menos». */}
+                        {juzga && (
+                          <span
+                            className="font-medium"
+                            style={{ color: ORO_TINTA }}
+                          >
+                            {baseTexto || (m.pie && !/^(más|menos) es mejor$/.test(m.pie)) || indicio ? " · " : ""}
+                            {m.mejorAlto ? "▲ más es mejor" : "▼ menos es mejor"}
+                          </span>
+                        )}
                       </p>
                     )}
                     {m.tendencia ? (

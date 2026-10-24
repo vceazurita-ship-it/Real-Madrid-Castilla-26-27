@@ -2290,8 +2290,16 @@ const conclusiones = useMemo(() => {
   );
 
   if (envio && envio.valor > 0) {
+    /* Se compara con el mismo global que la lectura de abajo (todas las ABP
+       defendidas de la competición), para que la media sea una sola. */
+    const base = comparables.length ? comparables : filtered;
+    const mediaGlobal = base.reduce((a, r) => a + r.xg, 0) / base.length;
+    const casiIgual = Math.abs(envio.valor - mediaGlobal) < 0.02;
+
     frases.push(
-      `Más daño con el envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción, sobre ${envio.n} acciones (media de las ${filtered.length} defendidas: ${cifra(filtered.reduce((a, r) => a + r.xg, 0) / filtered.length, 2)}).`,
+      casiIgual || envio.n < 5
+        ? `Envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción sobre ${envio.n} acciones, indicio y no diferencia: la media de todas las ABP defendidas es ${cifra(mediaGlobal, 2)}.`
+        : `Más daño con el envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción, sobre ${envio.n} acciones (media de todas las ABP defendidas: ${cifra(mediaGlobal, 2)}).`,
     );
   }
 
@@ -2325,7 +2333,7 @@ const conclusiones = useMemo(() => {
   }
 
   return frases.filter(Boolean).slice(0, 5);
-}, [filtered]);
+}, [filtered, comparables]);
 
 /*
 | El pie de lectura de cada sección.
