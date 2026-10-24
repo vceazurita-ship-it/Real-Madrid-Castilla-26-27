@@ -1154,10 +1154,11 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     /* La base de la cifra («11 de 66») y, con pocos partidos detrás, que es tendencia. */
     const base = m.pie?.match(/^\d+ de \d+/)?.[0];
-    const aviso = comparativa.anteriores.n <= 6 ? `, tendencia con ${comparativa.anteriores.n === 1 ? "un solo partido" : `${comparativa.anteriores.n} partidos`} de referencia` : "";
+    const nRef = comparativa.anteriores.n;
+    const aviso = ` (media de ${nRef === 1 ? "un solo partido" : `${nRef} partidos`}${modo === "robos" ? "" : ", los etiquetados en vídeo"}${nRef <= 6 ? ", tendencia" : ""})`;
 
     return {
-      texto: `${m.nombre}: ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)} de media${aviso} → tarea de ${tarea}.`,
+      texto: `${m.nombre}: ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)}${aviso}. Conviene trabajar en la semana una tarea de ${tarea}.`,
       filtro,
     };
   }, [comparativa, modo]);

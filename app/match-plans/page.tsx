@@ -393,7 +393,7 @@ export default function Page() {
       {
         value: "ALL",
         label: `Todos los microciclos (${matches.length}${
-          matches.some((m) => !m.esLiga) ? `, con ${matches.filter((m) => !m.esLiga).length} de pretemporada` : ""
+          matches.some((m) => !m.esLiga) ? `, con ${matches.filter((m) => !m.esLiga).length} de pretemporada que no cuenta en los totales` : ""
         })`,
       },
       ...list,
@@ -1059,10 +1059,10 @@ function MatchCard({
         ) : match.enCoding ? (
           <Link
             href="/coding"
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-black transition hover:opacity-90"
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#C8A96B]/60 px-3 py-1.5 text-xs font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
           >
-            <Play className="h-4 w-4" />
-            Vídeo con jugadores en Coding
+            <Play className="h-3.5 w-3.5" />
+            Cortes en Coding
           </Link>
         ) : null}
       </span>

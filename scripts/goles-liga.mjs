@@ -76,11 +76,26 @@ async function principal() {
       const previo = porId.get(p.id);
 
       if (previo && previo.goles.length >= p.goles.length) continue;
-      if (p.goles.length > total) continue;
+
+      /* Si BeSoccer trae más goles que el marcador (uno anulado o repetido) se quitan los repetidos
+         (mismo minuto, jugador y lado); si aun así sobran, el partido NO se tira: se guarda con su
+         resultado y sin goles detallados, marcado como incompleto. */
+      const vistos = new Set();
+      let detalle = p.goles.filter((g) => {
+        const clave = `${g.minuto}|${g.jugador ?? ""}|${g.propio ? 1 : 0}`;
+
+        if (vistos.has(clave)) return false;
+
+        vistos.add(clave);
+
+        return true;
+      });
+
+      if (detalle.length > total) detalle = [];
 
       const ladoFicha = p.enCasa ? "local" : "visitante";
       const otro = ladoFicha === "local" ? "visitante" : "local";
-      const goles = p.goles
+      const goles = detalle
         .map((g) => ({ ...leeMinuto(g.minuto), lado: g.propio ? ladoFicha : otro, tipo: g.tipo === "penalti" || g.tipo === "propia" ? g.tipo : "", jugador: g.jugador ?? "", asistente: g.asistente || undefined }))
         .map((g, i) => ({ g, i }))
         .sort((a, b) => a.g.parte - b.g.parte || a.g.min - b.g.min || a.g.extra - b.g.extra || a.i - b.i)
