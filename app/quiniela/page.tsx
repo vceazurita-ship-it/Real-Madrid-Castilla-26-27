@@ -59,6 +59,7 @@ import {
   TextArea,
   sePuedeDescartar,
 } from "@/components/abp/ui";
+import { EnviarMiQuiniela } from "@/components/quiniela/EnviarMiQuiniela";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAhora, useQuinielaDoc } from "@/hooks/useQuinielaDoc";
@@ -1192,6 +1193,15 @@ export default function QuinielaPage() {
                       {guardandoApuesta ? "Guardando…" : "Guardar mi apuesta"}
                     </Button>
                   </div>
+                )}
+
+                {yo && guardados.some(Boolean) && !sinGuardar && (
+                  <EnviarMiQuiniela
+                    jornada={jornada}
+                    nombre={sesion.yo?.nombre ?? yo}
+                    guardados={guardados}
+                    telefono={sesion.yo?.telefono}
+                  />
                 )}
 
                 {yo && (

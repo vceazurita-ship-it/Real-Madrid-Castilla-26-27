@@ -87,6 +87,7 @@ const suyo = (cuenta: CuentaQuiniela) => ({
   correo: cuenta.correo,
   nombre: PERSONA_POR_SLUG.get(cuenta.slug)?.nombre ?? cuenta.slug,
   inicial: cuenta.inicial,
+  telefono: cuenta.telefono,
 });
 
 /** Quién ha entrado, si es que hay alguien. */

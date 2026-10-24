@@ -14,6 +14,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
 import { alineaSeguimiento, esDeSeguimiento } from "@/lib/seguimiento";
+import { SESIONES_CONTADAS_DESDE } from "@/lib/sesion-equipos/estadistica";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 
 import {
@@ -321,11 +322,19 @@ export default function DashboardSeguimiento() {
   | son al lado del total, para que no desaparezcan en silencio.
   */
   const tracking = useMemo(
-    () => delGrupo.filter((s) => fechaValida(s.FECHA)),
+    () => {
+      /* Sólo cuenta desde SESIONES_CONTADAS_DESDE; lo anterior (y lo que no
+         tiene fecha) no entra en ningún cálculo ni texto de la pantalla. */
+      const desde = new Date(`${SESIONES_CONTADAS_DESDE}T00:00:00`).getTime();
+      return delGrupo.filter((s) => {
+        const d = fechaValida(s.FECHA);
+        return d !== null && d.getTime() >= desde;
+      });
+    },
     [delGrupo],
   );
 
-  const sinFecha = delGrupo.length - tracking.length;
+  const sinFecha = 0;
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("resumen");
   const [search, setSearch] = useState("");

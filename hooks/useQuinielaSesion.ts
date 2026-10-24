@@ -27,6 +27,8 @@ export type Yo = {
   nombre: string;
   /** Si todavía tiene la contraseña con la que se registró. */
   inicial: boolean;
+  /** Si la cuenta lo tiene, el WhatsApp va a ese número. */
+  telefono?: string;
 };
 
 type Respuesta = { ok?: boolean; yo?: Yo | null; error?: string };

@@ -45,6 +45,8 @@ export type CuentaQuiniela = {
    * cuanto la cambia, esto pasa a `false` y la pantalla deja de insistir.
    */
   inicial: boolean;
+  /** Opcional: si está, el botón de WhatsApp abre ese número. */
+  telefono?: string;
 };
 
 export type DocumentoCuentas = {
