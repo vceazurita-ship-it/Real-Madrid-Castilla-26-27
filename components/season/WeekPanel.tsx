@@ -247,19 +247,25 @@ export default function WeekPanel({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-sm text-white/50">
-            <span className="text-xs">En esta semana:</span>
+          {images.length + pdfs.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-sm text-white/50">
+              {images.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5">
+                  <ImageIcon size={15} className="text-[#C8A96B]" />
+                  <span className="tabular-nums">{images.length}</span>{" "}
+                  {images.length === 1 ? "imagen" : "imágenes"}
+                </span>
+              )}
 
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5">
-              <ImageIcon size={15} className="text-[#C8A96B]" />
-              <span className="tabular-nums">{images.length}</span>
-            </span>
-
-            <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5">
-              <FileText size={15} className="text-[#C8A96B]" />
-              <span className="tabular-nums">{pdfs.length}</span>
-            </span>
-          </div>
+              {pdfs.length > 0 && (
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5">
+                  <FileText size={15} className="text-[#C8A96B]" />
+                  <span className="tabular-nums">{pdfs.length}</span>{" "}
+                  {pdfs.length === 1 ? "PDF" : "PDFs"}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* PESTAÑAS */}
@@ -385,13 +391,12 @@ export default function WeekPanel({
 
         {tab === "upload" && images.length + pdfs.length === 0 && ultimaConArchivos && onSelectWeek && (
           <p className="mb-5 text-sm text-white/60">
-            Esta semana aún no tiene archivos.{" "}
             <button
               type="button"
               onClick={() => onSelectWeek(ultimaConArchivos.id)}
               className="text-[#C8A96B] underline-offset-4 hover:underline"
             >
-              Ver {ultimaConArchivos.week}, la última con material
+              Ver {ultimaConArchivos.week} ({weekRangeLabel(ultimaConArchivos)}), la última con material
             </button>
           </p>
         )}
