@@ -39,6 +39,7 @@
 import type { RegistroTarea } from "@/lib/abp/registro";
 import { cuentas, cumpleMeta, lecturaCuentas, porcentajeOTendencia, type AnalisisEntreno, type SesionEntreno } from "@/lib/entreno/modelo";
 import { TIPOS_TAREA, fechaIsoDeHoja, tareaVacia, type TareaNueva } from "@/lib/registro/hoja";
+import type { DetalleTarea } from "@/lib/sesion-equipos/registro";
 import { COLOR_COMODIN, COMODIN, FUERA, claveNombre, conEquipos, nuevaTarea, type JugadorSesion, type SesionEquipos, type TareaEquipos } from "@/lib/sesion-equipos/modelo";
 
 /* ------------------------------------------------------------------ */
@@ -65,6 +66,18 @@ export type TareaPlan = {
   /** Su sitio en las tareas de la sesión del editor (sólo con `planDeSesionNueva`). */
   indice?: number;
 };
+
+/** Lo que la diapositiva de Jugadores sesión pinta bajo el título (lib/sesion-equipos/registro.ts). */
+export const detalleDePlan = (t: TareaPlan): DetalleTarea => ({
+  micro: t.micro,
+  rival: t.rival,
+  md: t.md,
+  tipo: t.tipo,
+  formato: t.formato,
+  espacio: t.espacio,
+  tiempo: t.tiempo,
+  contenido: [t.contenidoPrincipal, t.contenidoSecundario].filter(Boolean).join(" · "),
+});
 
 /** Lo que una tarea de Jugadores sesión recuerda de la del plan de la que salió. */
 export type VinculoPlan = {
