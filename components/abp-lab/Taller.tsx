@@ -750,6 +750,7 @@ function Estudio({
             {pestana === "rival" && (
               <div className="space-y-3">
                 <EncajeRival tipo={b.tipo} lado={b.lado} />
+                <SuDefensa ctx={ctx} tipo={b.tipo} />
                 <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
                   <Select label="La pizarra la enseña contra" value={b.contra} options={DEFENSAS.map((d) => ({ value: d.key, label: d.label }))} onChange={(v) => pon("contra", v as Defensa)} />
                   <p className="mt-2 text-[12px] leading-snug text-white/50">
@@ -764,6 +765,52 @@ function Estudio({
         </div>
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SU DEFENSA (el próximo rival)                                      */
+/* ------------------------------------------------------------------ */
+
+/** Cómo defiende el próximo rival esta acción (su scouting) y quiénes son sus mejores por alto. Lo que no se sabe no sale. */
+function SuDefensa({ ctx, tipo }: { ctx: ContextoSim; tipo: TipoAbp }) {
+  const rival = ctx.rival;
+
+  if (!rival || (tipo !== "corner" && tipo !== "falta")) return null;
+
+  const e = tipo === "corner" ? rival.corner : rival.falta;
+
+  const altos = rival.cabeceadores.filter((j) => j.altura);
+
+  if (!e && !altos.length) return null;
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4" aria-label={`Cómo defiende ${rival.equipo}`}>
+      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+        <Shield size={12} className="text-[#C8A96B]" />
+        {rival.equipo} · el próximo rival
+      </p>
+      {e && (
+        <p className="mt-2 text-[13px] leading-snug text-white/80">
+          Defiende {tipo === "corner" ? "el córner" : "la falta lateral"}{" "}
+          {e.tipo === "zonal" ? `en zona${e.enZona ? ` con ${e.enZona}` : ""}` : e.tipo === "hombre" ? "al hombre" : `en mixta${e.enZona ? `, ${e.enZona} en zona y el resto al hombre` : ""}`}.
+          <span className="mt-0.5 block text-[11.5px] text-white/45">
+            Scouting de ABP, {e.acciones === 1 ? "1 acción" : `${e.acciones} acciones`}: «{e.fuente}»
+          </span>
+        </p>
+      )}
+      {altos.length > 0 && (
+        <ul className="mt-3 flex flex-wrap gap-1.5">
+          {altos.map((j) => (
+            <li key={j.id} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[11.5px] text-white/75">
+              {j.dorsal && <span className="font-black text-[#C8A96B]">{j.dorsal}</span>}
+              {j.nombre} · {j.altura} cm{j.remataAbp ? " · rematador de ABP" : ""}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-2.5 text-[11.5px] leading-snug text-white/45">En la pizarra, «{rival.equipo}» en la barra de defensa los coloca así, con los más altos marcando a los nuestros más peligrosos.</p>
+    </section>
   );
 }
 
