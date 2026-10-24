@@ -2306,6 +2306,33 @@ export default function MatchPreparation() {
                   </div>
                 </div>
 
+                {!editando && (() => {
+                  const claves = String(rivalActivo.CLAVES_PARTIDO ?? "")
+                    .split(/\r?\n/)
+                    .map((l) => l.replace(/^[\s\-–•*·]+/, "").trim())
+                    .filter(Boolean)
+                    .slice(0, 3);
+
+                  if (!claves.length) return null;
+
+                  return (
+                    <div className="mp-no-print mb-5 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-5 py-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">
+                        {rivalActivo.EQUIPO ? `${rivalActivo.EQUIPO}` : "El rival"}
+                        {rivalActivo.LOCAL_VISITANTE ? ` · ${rivalActivo.LOCAL_VISITANTE}` : ""} · lo esencial
+                      </p>
+                      <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-6 text-white/85">
+                        {claves.map((c) => (
+                          <li key={c}>{c}</li>
+                        ))}
+                      </ol>
+                      <p className="mt-2 text-[11px] text-white/45">
+                        Del apartado «Claves del partido». Arriba, «Informe» abre el Scout Colectivo y la pizarra de ABP o imprime; «Proponer boceto» copia el plan de la jornada anterior con «?» en lo que puede cambiar y «*» en lo que se propone incorporar.
+                      </p>
+                    </div>
+                  );
+                })()}
+
                 <div className="grid gap-5 lg:grid-cols-3">
                   <Bloque
                     titulo="Estado del equipo"

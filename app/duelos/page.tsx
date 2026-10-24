@@ -150,6 +150,7 @@ export default function DuelosPage() {
   const [onceMarcado, setOnceMarcado] = useState<string[] | null>(null);
   const [elegido, setElegido] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lento, setLento] = useState(false);
 
   useEffect(() => {
     let vivo = true;
@@ -185,6 +186,15 @@ export default function DuelosPage() {
       .catch(() => {
         if (vivo) setTemporada(null);
       });
+    /* Valoraciones sale del Apps Script (30-70 s en frio): no se espera. A los 15 s
+       se pinta con el once de Wyscout y, si la respuesta llega despues, se rehace sola. */
+    const tope = window.setTimeout(() => {
+      if (vivo) setTemporada((t) => (t === undefined ? null : t));
+    }, 15_000);
+    /* Si lo esencial (Wyscout, plantillas, calendario) no llega en 25 s, se dice y se deja reintentar. */
+    const lentoT = window.setTimeout(() => {
+      if (vivo) setLento(true);
+    }, 25_000);
     void cargaCalendario().then((partidos: PartidoCal[]) => {
       if (!vivo) return;
       /* El día de aquí, no el de UTC: de 00:00 a 02:00 del día del partido
@@ -201,6 +211,8 @@ export default function DuelosPage() {
     });
     return () => {
       vivo = false;
+      window.clearTimeout(tope);
+      window.clearTimeout(lentoT);
     };
   }, []);
 
@@ -339,7 +351,7 @@ export default function DuelosPage() {
   const atacar = duelos.filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO).sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0));
   const vigilar = duelos.filter((d) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO).sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
 
-  const cargando = jugadores === null || plantillasLeidas === null || temporada === undefined || (!equipoVisto && !proximoListo);
+  const cargando = jugadores === null || plantillasLeidas === null || (!equipoVisto && !proximoListo);
   const escudo = equipoVisto ? escudoDe(equipoVisto) : null;
 
   return (
@@ -415,7 +427,7 @@ export default function DuelosPage() {
                   </button>
                 ))}
               </div>
-              <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+              <span className={`ml-auto flex-wrap items-center gap-x-3 gap-y-1 text-xs ${cargando ? "hidden" : "flex"}`}>
                 <span className="text-white/60" title="Duelos con datos en los dos lados">
                   {conDato.length} duelos medidos
                 </span>
@@ -427,9 +439,21 @@ export default function DuelosPage() {
                 </span>
                 <span className="text-white/35">un mismo duelo puede salir en las dos</span>
               </span>
+              {!cargando && temporada === undefined && (
+                <span className="basis-full text-[11px] text-white/45">
+                  Nuestro once: propuesto con los minutos de Wyscout; pasa al último once en cuanto llegue Valoraciones.
+                </span>
+              )}
             </div>
 
-            {cargando ? (
+            {cargando && lento ? (
+              <div className="mt-10 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                Los datos tardan más de lo normal en llegar (la hoja de Google está despertando).{" "}
+                <button type="button" onClick={() => window.location.reload()} className="font-semibold underline">
+                  Reintentar
+                </button>
+              </div>
+            ) : cargando ? (
               <div className="mt-6">
                 <EsqueletoPantalla titulo="los duelos" cifras={0} />
               </div>

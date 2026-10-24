@@ -25,6 +25,7 @@ import {
   num,
   teamKey,
 } from "./model";
+import { conTildes } from "@/lib/rivals/tildes";
 import { ABP_GIDS, RIVAL_SCOUT_GID, SheetRow, loadSheet } from "./sheets";
 import { contextoDeFila, type ContextoAccion } from "./partido";
 
@@ -402,6 +403,10 @@ export interface RivalPlayerAerial {
 
 const clean = (value: unknown) => String(value ?? "").trim();
 
+/** «RAUL RUBIO» -> «Raúl Rubio»: como se lee en Plantillas rivales. */
+const comoNombre = (t: string) =>
+  conTildes(t === t.toUpperCase() ? t.toLowerCase().replace(/(^|[\s\-'.])(\p{L})/gu, (_, a: string, b: string) => a + b.toUpperCase()) : t);
+
 /**
  * Cruza la plantilla del rival con sus eventos de ABP.
  *
@@ -435,7 +440,7 @@ export function buildAerialThreats(
     .filter((row) => teamKey(clean(row.NOMBRE_EQUIPO)) === target)
     .map((row) => {
       const nombre =
-        clean(row["NOMBRE DEPORTIVO"]) || clean(row.JUGADOR) || "Sin nombre";
+        comoNombre(clean(row["NOMBRE DEPORTIVO"]) || clean(row.JUGADOR)) || "Sin nombre";
 
       const impacto = norm(clean(row.IMPACTO));
 
