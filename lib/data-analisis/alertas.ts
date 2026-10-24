@@ -314,7 +314,7 @@ export function alertasDeData(
           /* «Acierto en corto % 97,6 %» llevaba el símbolo dos veces. */
           const nombre = v.includes("%") ? mejor.nombre.replace(/\s*%\s*$/, "") : mejor.nombre;
 
-          return `${nombre} ${v} · frente a ${iguales.length} de su puesto${/penalt/i.test(mejor.nombre) ? " · muestra pequeña" : ""}`;
+          return `${nombre} ${v} · entre ${iguales.length} jugadores de su puesto`;
         })(),
         fuerza: Math.min(100, (mejor.percentil - 50) * 2),
         enlace: "/data-analisis?area=individual",

@@ -109,9 +109,9 @@ export function alertasDeFichajes(cotejo: CotejoRival | null, ahora: number): Al
     clave: "cotejo-pendiente",
     tono: "mala",
     area: "Rivales · BeSoccer",
-    titulo: `${trozos.join(" y ")} sin escribir en plantillas rivales`,
+    titulo: `Plantillas rivales: ${trozos.join(" y ")} por revisar`,
     detalle: `${nombres}${equipos.length > 3 ? " y alguno más" : ""}. BeSoccer ya los tiene; la hoja no. No se escriben solos a propósito: hay que repasarlos antes.`,
-    cifra: `${equipos.length} ${equipos.length === 1 ? "equipo" : "equipos"}`,
+    cifra: `En ${equipos.length} ${equipos.length === 1 ? "equipo" : "equipos"}`,
     /*
     | Una baja pesa más que un alta: un jugador que ya no está sigue saliendo
     | en el informe del próximo rival, y ahí sí se prepara un partido contra
