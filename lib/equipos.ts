@@ -18,6 +18,7 @@ import { claveClub } from "@/lib/rivals/mismoClub";
 const EQUIPOS: string[][] = [
   ["Atlético Madrileño", "Atlético Madrid B", "ATL MADRID B", "At. Madrid B", "Atlético de Madrid B", "Atl. Madrileño"],
   ["CD Teruel", "Teruel", "C.D. Teruel", "CD TERUEL"],
+  ["Algeciras CF", "Algeciras"],
   ["Juventud de Torremolinos CF", "Juventud Torremolinos", "Torremolinos", "Juventud de Torremolinos"],
 ];
 

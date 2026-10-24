@@ -45,6 +45,7 @@ import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import type { JornadaDeEquipo } from "@/lib/rivals/orden-calendario";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { traeJson } from "@/lib/hojaCsv";
+import { nombreVisible } from "@/lib/nombreJugador";
 import { alineaSeguimiento } from "@/lib/seguimiento";
 import { summarizeAll } from "@/lib/ratings/compute";
 import { casaNombre } from "@/lib/data-analisis/once";
@@ -469,20 +470,20 @@ export default function ComparativaCategoria() {
 
                     <p className="mt-5 text-xs text-white/40">Pincha en una columna para ordenar y en un jugador para abrir su ficha. El índice va de 0 a 100 (50 es la media del grupo de comparación); los minutos son los de Wyscout en la liga, así que pueden diferir de los minutos con nota de Valoraciones; el ranking compara con los jugadores de su puesto.</p>
                     <div className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-                      <table className="w-full min-w-[860px] text-sm">
+                      <table className="w-full text-sm sm:min-w-[860px]">
                         <thead>
                           <tr className="text-left text-[11px] uppercase tracking-wider text-white/40">
                             {(
                               [
                                 ["nombre", "Jugador", "px-4"],
-                                ["edad", "Edad", "px-2"],
-                                [null, "Puesto", "px-2"],
-                                ["minutos", "Min. liga", "px-2 text-right"],
-                                ["nota", "Nota", "px-2 text-right"],
-                                ["indice", `Índice (${ref === "todos" ? "categoría" : ref === "u21" ? "sub-21" : "sub-23"})`, "w-44 px-3"],
+                                ["edad", "Edad", "hidden sm:table-cell px-2"],
+                                [null, "Puesto", "hidden sm:table-cell px-2"],
+                                ["minutos", "Min. liga", "hidden sm:table-cell px-2 text-right"],
+                                ["nota", "Nota", "hidden sm:table-cell px-2 text-right"],
+                                ["indice", `Índice (${ref === "todos" ? "categoría" : ref === "u21" ? "sub-21" : "sub-23"})`, "px-3 sm:w-44"],
                                 ["ranking", "Ranking en su puesto", "px-2"],
-                                ["evolucion", "Evolución (pts vs 25/26)", "px-2"],
-                                ["seguimientos", "Seguimientos", "px-2 text-right"],
+                                ["evolucion", "Evolución (pts vs 25/26)", "hidden sm:table-cell px-2"],
+                                ["seguimientos", "Seguimientos", "hidden sm:table-cell px-2 text-right"],
                               ] as [Orden | null, string, string][]
                             ).map(([clave, texto, clase]) => (
                               <th key={texto} className={`py-3 font-medium ${clase}`}>
@@ -523,13 +524,18 @@ export default function ComparativaCategoria() {
                               <td className="px-4 py-2.5">
                                 <div className="flex items-center gap-2.5">
                                   <Foto src={ficha?.foto} nombre={f.jugador.jugador} size={30} />
-                                  <span className="font-medium text-white/90">{ficha?.nombre ?? f.jugador.jugador}</span>
+                                  <div className="min-w-0">
+                                    <span className="font-medium text-white/90">{nombreVisible(ficha?.nombre ?? f.jugador.jugador)}</span>
+                                    <span className="block text-[10px] text-white/45 sm:hidden">
+                                      {PUESTOS.find((p) => p.key === f.puesto)?.corto} · {f.jugador.minutos}′
+                                    </span>
+                                  </div>
                                 </div>
                               </td>
-                              <td className="px-2 text-white/70">{f.jugador.edad}</td>
-                              <td className="px-2 text-white/60">{PUESTOS.find((p) => p.key === f.puesto)?.corto}</td>
-                              <td className="px-2 text-right tabular-nums text-white/70">{f.jugador.minutos}′</td>
-                              <td className="px-2 text-right tabular-nums text-white/70">{nota && nota.played ? nota.avg.toFixed(1).replace(".", ",") : "—"}</td>
+                              <td className="hidden sm:table-cell px-2 text-white/70">{f.jugador.edad}</td>
+                              <td className="hidden sm:table-cell px-2 text-white/60">{PUESTOS.find((p) => p.key === f.puesto)?.corto}</td>
+                              <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/70">{f.jugador.minutos}′</td>
+                              <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/70">{nota && nota.played ? nota.avg.toFixed(1).replace(".", ",") : "—"}</td>
                               <td className="px-3">
                                 <div className="flex items-center gap-2">
                                   <span className="w-7 text-right text-xs font-semibold tabular-nums" style={{ color: colorIndice(f.indice) }}>
@@ -539,7 +545,7 @@ export default function ComparativaCategoria() {
                                 </div>
                               </td>
                               <td className="px-2 text-xs text-white/70">{f.ranking ? `${ordinal(f.ranking.posicion)} de ${f.ranking.de}` : "—"}</td>
-                              <td className="px-2 text-xs">
+                              <td className="hidden sm:table-cell px-2 text-xs">
                                 {f.evolucion ? (
                                   <span
                                     className={`inline-flex items-center gap-0.5 ${f.evolucion.fiable ? "" : "opacity-45"}`}
@@ -554,7 +560,7 @@ export default function ComparativaCategoria() {
                                   <span className="text-white/30">nuevo</span>
                                 )}
                               </td>
-                              <td className="px-2 text-right tabular-nums text-white/60">{seg?.n ?? 0}</td>
+                              <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/60">{seg?.n ?? 0}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -576,7 +582,7 @@ export default function ComparativaCategoria() {
                     refLabel={refLabel}
                     puesto={filtroPuesto}
                     elegido={activo?.f.jugador.jugador ?? null}
-                    nombreDe={(j) => fichaDe(j)?.nombre ?? j.jugador}
+                    nombreDe={(j) => nombreVisible(fichaDe(j)?.nombre ?? j.jugador)}
                     onElige={abreFicha}
                     equipos={equipos}
                     equiposSel={equiposSel}

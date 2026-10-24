@@ -62,6 +62,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
+import { nombreEquipo } from "@/lib/equipos";
 import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
 import {
   ComparativaPartido,
@@ -694,7 +695,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
           {
             clave: "partido",
             rotulo: "Partido",
-            valor: `${partidoElegido.jornada} · ${partidoElegido.rival}`,
+            valor: `${partidoElegido.jornada} · ${nombreEquipo(partidoElegido.rival)}`,
             onQuitar: () => setQuien("todos"),
           },
         ]
@@ -989,7 +990,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     ];
 
     return {
-      partido: `${comparado.jornada} · ${comparado.rival}`,
+      partido: `${comparado.jornada} · ${nombreEquipo(comparado.rival)}`,
       anteriores: { n: anteriores.length },
       metricas,
       nota:
@@ -1271,7 +1272,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                       : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20"
                   }`}
                 >
-                  {p.jornada} · {p.rival}
+                  {p.jornada} · {nombreEquipo(p.rival)}
                 </button>
               ))}
 
@@ -1895,7 +1896,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                     : `${
                         quien === "todos"
                           ? `Temporada: suma de ${conJugador.length} ${conJugador.length === 1 ? "partido" : "partidos"} con jugador (${conJugador.map((p) => p.jornada).join(", ")})`
-                          : `${conJugador[0].jornada} · ${conJugador[0].rival}`
+                          : `${conJugador[0].jornada} · ${nombreEquipo(conJugador[0].rival)}`
                       }${sinJugador.length ? `. ${sinJugador.map((p) => p.jornada).join(" y ")} no ${sinJugador.length === 1 ? "entra" : "entran"}: se ${sinJugador.length === 1 ? "miró" : "miraron"} a ojo y no ${sinJugador.length === 1 ? "tiene" : "tienen"} jugador` : ""}. Pulsa un nombre para filtrar la pantalla por él; pulsa una cabecera para ordenar`
                 }
                 icon={Users}
