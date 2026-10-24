@@ -113,8 +113,19 @@ export default function ApuestasPage() {
       ? `${vivas.length === 1 ? "Una apuesta abierta" : `${vivas.length} apuestas abiertas`}: entra y ponte a favor o en contra`
       : "Entra para apostar";
 
+  const pasos = (
+    <ol className="list-decimal space-y-1 pl-4">
+      <li>Uno lanza una predicción, dice qué se juega y pone el día en que se comprueba.</li>
+      <li>Los demás se ponen a favor o en contra, y pueden cambiar de bando hasta el día antes.</li>
+      <li>
+        Ese día cualquiera que haya entrado da el veredicto. Quien lanza sólo puede retirarla mientras nadie se haya
+        mojado.
+      </li>
+    </ol>
+  );
+
   const acceso = (
-    <div className="mt-5">
+    <div id="acceso-apuestas" className="mt-5 scroll-mt-24">
       <Acceso
         yo={sesion.yo}
         cargando={sesion.cargando}
@@ -153,30 +164,48 @@ export default function ApuestasPage() {
             {/* ------------------------ CÓMO FUNCIONA ------------------ */}
 
             <div className="mt-5">
-              <Notice tone="info" title="Cómo funciona">
-                <ol className="list-decimal space-y-1 pl-4">
-                  <li>
-                    Uno lanza una predicción, dice qué se juega y pone el día en
-                    que se comprueba.
-                  </li>
-                  <li>
-                    Los demás se ponen a favor o en contra, y pueden cambiar de
-                    bando hasta el día antes.
-                  </li>
-                  <li>
-                    Ese día cualquiera que haya entrado da el veredicto. Quien
-                    lanza sólo puede retirarla mientras nadie se haya mojado.
-                  </li>
-                </ol>
-                {estado === "listo" && doc.apuestas.length === 0 && (
-                  <p className="mt-2">
-                    Un ejemplo: «El Castilla acaba la primera vuelta entre los
-                    cinco primeros», se juega un desayuno para todo el staff y
-                    se comprueba el último día de la vuelta.
-                  </p>
-                )}
-              </Notice>
+              {estado === "listo" && doc.apuestas.length > 0 ? (
+                <details className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70">
+                  <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                    Cómo funciona
+                  </summary>
+                  <div className="mt-2">{pasos}</div>
+                </details>
+              ) : (
+                <Notice tone="info" title="Cómo funciona">
+                  {pasos}
+                </Notice>
+              )}
             </div>
+
+            {/* Sin ninguna apuesta publicada: el ejemplo, como tarjeta de
+                muestra, para que la pantalla enseñe qué se ve aquí. */}
+            {estado === "listo" && doc.apuestas.length === 0 && (
+              <div className="mt-5">
+                <Panel title="Así se ve una apuesta" subtitle="Un ejemplo; todavía no hay ninguna publicada" icon={Dices}>
+                  <article className="flex max-w-xl flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-4">
+                    <p className="text-[15px] font-medium leading-snug text-white/90">
+                      «El Castilla acaba la primera vuelta entre los cinco primeros»
+                    </p>
+                    <p className="text-[12px] text-white/55">
+                      <span className="uppercase tracking-[0.14em] text-white/35">Se juega</span>{" "}
+                      <span className="text-[#E4CE9B]">Un desayuno para todo el staff</span>
+                    </p>
+                    <p className="text-[11px] text-white/45">
+                      Se comprueba el último día de la vuelta. Hasta entonces, cada uno se pone a favor o en contra.
+                    </p>
+                    {!yo && !sesion.cargando && (
+                      <a
+                        href="#acceso-apuestas"
+                        className="self-start rounded-lg border border-[#C8A96B]/40 px-3 py-1.5 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                      >
+                        Entrar para lanzar la primera
+                      </a>
+                    )}
+                  </article>
+                </Panel>
+              </div>
+            )}
 
             {/* ------------------------ QUIÉN ERES --------------------- */}
 

@@ -479,7 +479,7 @@ export default function EmotionPage() {
 
             {/* ---------------------------------------------- Radares */}
             <div
-              className="siempre-oscuro rounded-[34px] p-4 sm:p-5 lg:p-6"
+              className="campo-emotion rounded-[34px] p-4 sm:p-5 lg:p-6"
               style={{
                 backgroundImage:
                   "linear-gradient(rgba(5,14,24,.68), rgba(5,14,24,.68)), url('/emotional-field-bg.webp')",
@@ -862,21 +862,23 @@ function RadarPanel({
 
   return (
     <div
-      className="siempre-oscuro rounded-[24px] border p-3 sm:p-4"
-      style={{
-        borderColor: series.length ? `${radarTone}55` : "rgba(255,255,255,.08)",
-        background: series.length
-          ? `radial-gradient(circle at center, ${radarTone}15 0%, transparent 75%)`
-          : "rgba(8,19,31,.5)",
-        boxShadow: series.length ? `0 0 30px ${radarTone}20` : undefined,
-      }}
+      className={`rounded-[24px] border p-3 sm:p-4 ${series.length ? "" : "emo-panel-vacio"}`}
+      style={
+        series.length
+          ? {
+              borderColor: `${radarTone}55`,
+              background: `radial-gradient(circle at center, ${radarTone}15 0%, transparent 75%)`,
+              boxShadow: `0 0 30px ${radarTone}20`,
+            }
+          : undefined
+      }
     >
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div className="min-w-0 text-[12px] font-semibold uppercase tracking-[.15em] text-[#E4C977]">
           {title}
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Es la media de los elegidos, no una medida de cómo encajan:
               «Sinergia» prometía algo que no se calcula (19/10/2026). Sin
               jugadores no se enseña un 0,0 que parece una nota. */}
@@ -1073,7 +1075,7 @@ function RadarPanel({
                           textAnchor={props.textAnchor}
                           fontSize={13}
                           fontWeight={700}
-                          fill="#ffffff"
+                          style={{ fill: "var(--rmcf-ink)" }}
                         >
                           {code}
                         </text>
@@ -1147,7 +1149,7 @@ function RadarPanel({
               {groupAverages.map(({ axis, value }) => (
                 <div
                   key={axis.code}
-                  className="rounded-xl border border-white/10 bg-black/25 px-2.5 py-1.5"
+                  className="rounded-xl border border-white/10 bg-white/[0.06] px-2.5 py-1.5"
                   title={`${axis.label} · ${axis.detail}`}
                 >
                   <div className="flex items-baseline justify-between gap-2">

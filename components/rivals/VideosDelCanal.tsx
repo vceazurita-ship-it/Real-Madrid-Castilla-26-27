@@ -51,6 +51,7 @@ import {
   enlaceLista,
   enlaceVideo,
   jugadorDelTitulo,
+  resumenDeTemporada,
   temaDelTitulo,
   type JugadorPlantilla,
   type ListaCanal,
@@ -92,6 +93,8 @@ type Pieza = {
   /** Su puesto y sus etiquetas, para que la ficha diga qué mirar del corte. */
   puesto: string;
   etiquetas: string[];
+  /** «titular en 5 de 8 · 540 min», para decidir a quién ver primero. */
+  resumen: string;
 };
 
 type Estado =
@@ -403,7 +406,7 @@ export function VideosDelCanal({
   const termino = busca.trim().toLowerCase();
 
   const grupos = useMemo(() => {
-    const porJugador = new Map<string, { jugador: string; dorsal: string; titular: boolean; videos: Pieza[] }>();
+    const porJugador = new Map<string, { jugador: string; dorsal: string; titular: boolean; resumen: string; videos: Pieza[] }>();
 
     const sueltos: Pieza[] = [];
 
@@ -426,6 +429,7 @@ export function VideosDelCanal({
         dorsal: jugador?.dorsal ?? "",
         puesto: jugador?.puesto ?? "",
         etiquetas: jugador?.etiquetas ?? [],
+        resumen: resumenDeTemporada(jugador),
       };
 
       if (!jugador) {
@@ -438,6 +442,7 @@ export function VideosDelCanal({
         jugador: jugador.nombre,
         dorsal: jugador.dorsal ?? "",
         titular: Boolean(jugador.titular),
+        resumen: resumenDeTemporada(jugador),
         videos: [],
       };
 
@@ -926,6 +931,8 @@ export function VideosDelCanal({
                     {grupo.videos.length}{" "}
                     {grupo.videos.length === 1 ? "vídeo" : "vídeos"}
                   </span>
+
+                  {grupo.resumen && <span className="text-[11px] text-white/45">· {grupo.resumen}</span>}
                 </div>
 
                 <Rejilla
@@ -1170,7 +1177,7 @@ function Rejilla({
 }) {
   return (
     <div className={`grid min-w-0 gap-2.5 ${columnas}`}>
-      {piezas.map(({ video, tema, jugador, dorsal, puesto, etiquetas }) => (
+      {piezas.map(({ video, tema, jugador, dorsal, puesto, etiquetas, resumen }) => (
         <div
           key={video.id}
           className="group min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-[#C8A96B]/40"
@@ -1200,6 +1207,8 @@ function Rejilla({
               </p>
             )}
 
+            {conJugador && resumen && <p className="mb-1 text-[10px] tabular-nums text-white/55">{resumen}</p>}
+
             {/* Qué mirar: su puesto y sus etiquetas de la ficha. */}
             {conJugador && (puesto || etiquetas.length > 0) && (
               <p className="mb-1 line-clamp-2 text-[10px] leading-snug text-white/45">
@@ -1207,7 +1216,8 @@ function Rejilla({
               </p>
             )}
 
-            <p className="line-clamp-2 text-[13px] leading-snug text-white/85">
+            {/* El título original del vídeo, en pequeño: lo que manda es quién es. */}
+            <p className={`line-clamp-2 leading-snug ${conJugador ? "text-[11px] text-white/55" : "text-[13px] text-white/85"}`}>
               {temaLegible(tema, video.posicion)}
             </p>
 

@@ -8,6 +8,7 @@ import { traeJson } from "@/lib/hojaCsv";
 import { formatea, type Unidad } from "@/lib/data-analisis/metricas";
 import type { GolesAbp } from "@/lib/data-analisis/goles-abp";
 import type { RivalPlayerAerial } from "@/lib/abp/rival";
+import { casaNombre } from "@/lib/data-analisis/once";
 
 /*
 |--------------------------------------------------------------------------
@@ -30,6 +31,8 @@ type Fila = {
   mediana: number;
   unidad: Unidad;
   percentil: number;
+  /** Si más es mejor; null cuando es un estilo y no hay «bueno». */
+  mejorAlto?: boolean | null;
   /** «x de y» de un porcentaje, y los partidos que lo respaldan. */
   base?: { arriba: number; abajo: number } | null;
   partidos?: number;
@@ -37,16 +40,19 @@ type Fila = {
 
 type Aspecto = { clave: string; aspecto: string; filas: Fila[] };
 
+type Lanzador = { nombre: string; tipo: "corner" | "falta"; total: number; partidos: number; pie?: string };
+
 type Datos = {
   equipos: number;
+  lanzadores?: Lanzador[];
   aspectos: Aspecto[];
   golesAbp: { aFavor: GolesAbp; enContra: GolesAbp } | null;
 };
 
 /** «Mejor que 8 de cada 10» / «Peor que 8 de cada 10»: percentil ya orientado. El extremo se dice como es: «el mejor/peor de los 20». */
 function lectura(percentil: number, equipos: number) {
-  if (percentil >= 97) return { texto: `el mejor de los ${equipos}`, bueno: true };
-  if (percentil <= 3) return { texto: `el peor de los ${equipos}`, bueno: false };
+  if (percentil >= 97) return { texto: `el mejor de los ${equipos} en esta cifra`, bueno: true };
+  if (percentil <= 3) return { texto: `el peor de los ${equipos} en esta cifra`, bueno: false };
   if (percentil >= 60) return { texto: `mejor que ${Math.round(percentil / 10)} de cada 10`, bueno: true };
   if (percentil <= 40) return { texto: `peor que ${Math.max(1, Math.round((100 - percentil) / 10))} de cada 10`, bueno: false };
 
@@ -120,7 +126,25 @@ export function AbpWyscoutRival({
   const goles = datos?.golesAbp ?? null;
 
   const rematan = plantilla.filter((uno) => uno.remataAbp);
-  const sacan = plantilla.filter((uno) => uno.sacaAbp);
+  const sacanEtiquetados = plantilla.filter((uno) => uno.sacaAbp);
+
+  /* Sin etiquetas de «sacador», los lanza quien más saca según Wyscout, con el
+     nombre cruzado con la plantilla (Wyscout escribe «O. Castro»). */
+  const lanzadoresWyscout = datos?.lanzadores ?? [];
+  const nombreDeLanzador = (nombre: string) =>
+    casaNombre(nombre, plantilla, (uno) => uno.nombre)?.nombre ?? nombre;
+  const lanzanDeTipo = (tipo: Lanzador["tipo"]) =>
+    lanzadoresWyscout.filter((uno) => uno.tipo === tipo);
+  const textoLanzadores = (tipo: Lanzador["tipo"]) =>
+    lanzanDeTipo(tipo)
+      .map((uno) => `${nombreDeLanzador(uno.nombre)} (${uno.total} en ${uno.partidos} partidos)`)
+      .join(", ");
+
+  const sacan: { nombre: string }[] =
+    sacanEtiquetados.length > 0
+      ? sacanEtiquetados
+      : [...new Set(lanzadoresWyscout.map((uno) => nombreDeLanzador(uno.nombre)))].map((nombre) => ({ nombre }));
+  const lanzaDeWyscout = sacanEtiquetados.length === 0 && sacan.length > 0;
 
   /* La consigna sale de lo etiquetado: marcar al más alto de los rematadores y vigilar al que saca. */
   const alturaDe = (uno: RivalPlayerAerial) => Number(uno.altura) || 0;
@@ -169,10 +193,26 @@ export function AbpWyscoutRival({
                         key={fila.nombre}
                         className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
                       >
-                        <span className="min-w-0 text-sm text-white/80">{fila.nombre}</span>
+                        <span className="min-w-0 text-sm text-white/80">
+                          {fila.nombre}
+                          {fila.mejorAlto != null && (
+                            <span className="ml-2 text-[11px] font-normal text-white/40">
+                              {fila.mejorAlto ? "más es mejor" : "menos es mejor"}
+                            </span>
+                          )}
+                        </span>
 
                         <span className="text-sm font-semibold tabular-nums text-white">
                           {formatea(fila.valor, fila.unidad)}
+                          {ambito === "area" && fila.unidad !== "porcentaje" && (
+                            <span className="ml-1 text-[11px] font-normal text-white/55">por partido</span>
+                          )}
+                          {ambito === "area" && fila.partidos != null && (
+                            <span className="ml-2 text-[11px] font-normal text-white/55">
+                              en {fila.partidos} {fila.partidos === 1 ? "partido" : "partidos"}
+                              {fila.partidos < 6 ? " · tendencia, pocos partidos" : ""}
+                            </span>
+                          )}
                           {fila.unidad === "porcentaje" && fila.base && (
                             <span className="ml-2 text-[11px] font-normal text-white/55">
                               {Math.round(fila.base.arriba)} de {Math.round(fila.base.abajo)}
@@ -257,14 +297,21 @@ export function AbpWyscoutRival({
       {(rematan.length > 0 || sacan.length > 0) && (
         <Panel
           title={sacan.length > 0 && rematan.length > 0 ? "Quién lo lanza y quién remata" : sacan.length > 0 ? "Quién lo lanza" : "Quién remata"}
-          subtitle="Según las etiquetas de la plantilla"
+          subtitle={lanzaDeWyscout ? "Lanzamientos de la temporada según Wyscout; rematan, según las etiquetas de la plantilla" : "Según las etiquetas de la plantilla"}
           icon={BarChart3}
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {sacan.length > 0 && (
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Lanzan</p>
-                <p className="mt-1 text-sm text-white/85">{sacan.map((uno) => uno.nombre).join(", ")}</p>
+                {lanzaDeWyscout ? (
+                  <div className="mt-1 space-y-0.5 text-sm text-white/85">
+                    {textoLanzadores("corner") && <p>Córner: {textoLanzadores("corner")}</p>}
+                    {textoLanzadores("falta") && <p>Falta: {textoLanzadores("falta")}</p>}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-white/85">{sacan.map((uno) => uno.nombre).join(", ")}</p>
+                )}
               </div>
             )}
 
