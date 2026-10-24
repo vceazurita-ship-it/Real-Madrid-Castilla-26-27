@@ -70,9 +70,13 @@ async function principal() {
 
       const total = (p.local?.goles ?? 0) + (p.visitante?.goles ?? 0);
 
-      /* Cada partido sale una vez por equipo: se queda la copia con el detalle completo. */
-      if (p.goles.length !== total) continue;
-      if (porId.has(p.id)) continue;
+      /* Cada partido sale una vez por equipo: se queda la copia con más goles detallados.
+         Si ninguna los trae todos, el partido se guarda igual (cuenta en partidos y en
+         goles a favor y en contra) con los que sí tienen minuto, marcado como incompleto. */
+      const previo = porId.get(p.id);
+
+      if (previo && previo.goles.length >= p.goles.length) continue;
+      if (p.goles.length > total) continue;
 
       const ladoFicha = p.enCasa ? "local" : "visitante";
       const otro = ladoFicha === "local" ? "visitante" : "local";
@@ -93,6 +97,7 @@ async function principal() {
         gl: p.local.goles,
         gv: p.visitante.goles,
         goles,
+        ...(goles.length < total ? { golesIncompletos: true } : {}),
       });
     }
   }

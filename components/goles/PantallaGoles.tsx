@@ -26,6 +26,8 @@ import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-anali
 import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasTipologia";
 import { avisoMuestra, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro } from "@/lib/castilla/calendario";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import {
   CASTILLA,
@@ -266,6 +268,15 @@ export function PantallaGoles() {
   const jDesde = Math.min(jA, jB);
   const jHasta = Math.max(jA, jB);
 
+  /* Los desplegables no ofrecen una jornada que el equipo elegido todavía no ha jugado
+     (la liga puede traer algún partido adelantado de la siguiente). */
+  const jornadasJugadas = useMemo(() => {
+    const tope = ultimaDelEquipo || ultima;
+    const hasta = Math.max(tope, jDesde, jHasta);
+
+    return jornadas.filter((j) => j <= hasta);
+  }, [jornadas, ultimaDelEquipo, ultima, jDesde, jHasta]);
+
   const lista = useMemo(() => franjasACortes(cortes, descuentos) ?? franjas(tamano, descuentos), [cortes, descuentos, tamano]);
 
   /* Los partidos del tramo de jornadas: la liga entera y los del equipo con la condición. */
@@ -288,8 +299,17 @@ export function PantallaGoles() {
   );
 
   const goles = useMemo(() => golesDe(delEquipo, equipo), [delEquipo, equipo]);
-  const gf = goles.filter((g) => g.aFavor).length;
-  const gc = goles.length - gf;
+  /* Los totales salen del marcador de cada partido; las franjas, de los goles con minuto. */
+  const gf = delEquipo.reduce((s, p) => s + (ladoDe(p, equipo) === "local" ? p.gl : p.gv), 0);
+  const gc = delEquipo.reduce((s, p) => s + (ladoDe(p, equipo) === "local" ? p.gv : p.gl), 0);
+  const sinMinuto = delEquipo.filter((p) => p.golesIncompletos);
+
+  /* El calendario manda en cuántos partidos ha jugado el Castilla: si la lista no los tiene todos, se dice. */
+  const { partidos: calendario } = useCalendario();
+  const jugadosCalendario = useMemo(
+    () => (esNuestro && condicion === "todos" ? calendario.map(comoNuestro).filter((u) => u.jugado && u.jornada >= jDesde && u.jornada <= jHasta).length : 0),
+    [calendario, esNuestro, condicion, jDesde, jHasta],
+  );
 
   /* La liga, con la misma condición: goles por equipo y partido en cada franja. */
   const ligaPorFranja = useMemo(() => {
@@ -345,12 +365,15 @@ export function PantallaGoles() {
     [lista, goles, ligaPorFranja, ligaContraPorFranja, delEquipo.length],
   );
 
+  /* Del marcador, no de la lista de goles: un partido al que BeSoccer le quita el
+     detalle de algún gol cuenta igual en los totales. */
+  const golesDelLado = (p: { gl: number; gv: number }, lado: Lado) => (lado === "local" ? p.gl : p.gv);
   const ligaGolesPP = media(
-    liga.reduce((s, p) => s + p.goles.filter((g) => condicion === "todos" || g.lado === condicion).length, 0),
+    liga.reduce((s, p) => s + (condicion === "todos" ? p.gl + p.gv : golesDelLado(p, condicion)), 0),
     ligaPorFranja.equiposPartido,
   );
   const ligaContraPP = media(
-    liga.reduce((s, p) => s + p.goles.filter((g) => condicion === "todos" || g.lado !== condicion).length, 0),
+    liga.reduce((s, p) => s + (condicion === "todos" ? p.gl + p.gv : golesDelLado(p, condicion === "local" ? "visitante" : "local")), 0),
     ligaPorFranja.equiposPartido,
   );
 
@@ -519,7 +542,10 @@ export function PantallaGoles() {
     const eq = { propio: vacio(), rival: vacio(), nadie: vacio() };
     const lg = { propio: vacio(), rival: vacio(), nadie: vacio() };
 
+    /* Sin el detalle completo no se sabe quién abrió el marcador: esos partidos no entran aquí. */
     for (const p of delEquipo) {
+      if (p.golesIncompletos) continue;
+
       const lado = ladoDe(p, equipo)!;
       const r = primerGol(p, lado);
 
@@ -528,6 +554,8 @@ export function PantallaGoles() {
     }
 
     for (const p of liga) {
+      if (p.golesIncompletos) continue;
+
       for (const lado of ["local", "visitante"] as Lado[]) {
         if (condicion !== "todos" && lado !== condicion) continue;
 
@@ -597,8 +625,8 @@ export function PantallaGoles() {
       {/* ---------------- mandos ---------------- */}
       <div className="mt-6 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Select label="Equipo" value={equipo} options={equipos} onChange={(v) => setEquipo(v)} />
-        <Select label="Desde la jornada" value={String(jDesde)} options={jornadas.map((j) => ({ value: String(j), label: `Jornada ${j}` }))} onChange={(v) => setDesde(Number(v))} />
-        <Select label="Hasta la jornada" value={String(jHasta)} options={jornadas.map((j) => ({ value: String(j), label: `Jornada ${j}` }))} onChange={(v) => setHasta(Number(v))} />
+        <Select label="Desde la jornada" value={String(jDesde)} options={jornadasJugadas.map((j) => ({ value: String(j), label: `Jornada ${j}` }))} onChange={(v) => setDesde(Number(v))} />
+        <Select label="Hasta la jornada" value={String(jHasta)} options={jornadasJugadas.map((j) => ({ value: String(j), label: `Jornada ${j}` }))} onChange={(v) => setHasta(Number(v))} />
         <div className="min-w-0">
           <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Condición</span>
           <Segmented<Condicion>
@@ -684,7 +712,7 @@ export function PantallaGoles() {
           </StatRow>
 
           {/* ---------------- lo importante ---------------- */}
-          <Panel title="Lo importante" subtitle={`${equipo} · ${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}${jUltimaEquipo > 0 ? `, hasta la J${jUltimaEquipo}` : ""}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}. Siempre comparado con la media de la liga.`} icon={Lightbulb}>
+          <Panel title="Lo importante" subtitle={`${equipo} · ${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaEquipo > 0 ? `, hasta la J${jUltimaEquipo}` : ""}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}. Siempre comparado con la media de la liga.${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
             <ul className="space-y-2.5">
               {importante.map((frase, i) => (
                 <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-white/80">

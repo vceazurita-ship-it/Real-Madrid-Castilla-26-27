@@ -70,6 +70,8 @@ export type PartidoGoles = {
   gl: number;
   gv: number;
   goles: Gol[];
+  /** BeSoccer no trae el detalle de todos los goles: el marcador manda y `goles` es una lista parcial. */
+  golesIncompletos?: boolean;
   /** Wyscout, por lado (si está descargado). */
   wys?: Partial<Record<Lado, RematesWyscout>>;
 };
