@@ -351,6 +351,31 @@ export function proximoDesdeElPartido(
   return candidatos.find((aviso) => aviso.getTime() > desde.getTime()) ?? null;
 }
 
+/**
+ * Cuándo saldría una tarea atada al partido si se reactivara ahora: la fecha
+ * y los días de antelación. Sin calendario o sin partido por delante, `null`
+ * (y entonces la tarjeta no inventa nada).
+ */
+export function saldriaSiSeReactiva(
+  alerta: Pick<Alerta, "repeticion" | "diasAntesDelPartido" | "proximoEnvio">,
+  partidos: PartidoParaAlerta[],
+  desde: Date,
+): { cuando: Date; dias: number } | null {
+  if (alerta.repeticion !== "partido" || partidos.length === 0) return null;
+
+  const previa = new Date(alerta.proximoEnvio);
+
+  const hora = Number.isNaN(previa.getTime())
+    ? { horas: 9, minutos: 0 }
+    : { horas: previa.getHours(), minutos: previa.getMinutes() };
+
+  const dias = Math.max(0, Math.round(alerta.diasAntesDelPartido ?? 2));
+
+  const cuando = proximoDesdeElPartido(partidos, dias, hora, desde);
+
+  return cuando ? { cuando, dias } : null;
+}
+
 /** "vie 28 ago · 09:30", en horario del navegador. */
 export function fechaLegible(iso: string | null) {
   if (!iso) return "—";

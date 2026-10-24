@@ -18,7 +18,9 @@ import {
   describeRepeticion,
   fechaLegible,
   normalizaAvisos,
+  saldriaSiSeReactiva,
   type Alerta,
+  type PartidoParaAlerta,
 } from "@/lib/alertas/modelo";
 
 /** ¿Lleva una fecha de verdad? Vacía o ilegible, la alerta no suena. */
@@ -41,6 +43,8 @@ interface Props {
   onBorrar: (alerta: Alerta) => void;
   /** Deshabilita los botones mientras hay una operación en vuelo. */
   ocupada: string | null;
+  /** El calendario, para decir cuándo saldría una tarea silenciada al reactivarla. */
+  partidos?: PartidoParaAlerta[];
 }
 
 export default function ListaAlertas({
@@ -50,6 +54,7 @@ export default function ListaAlertas({
   onAlternarActiva,
   onBorrar,
   ocupada,
+  partidos = [],
 }: Props) {
   /* El reloj se apunta en un efecto: mirarlo en el render es impuro. */
   const [ahora, setAhora] = useState(0);
@@ -161,6 +166,14 @@ export default function ListaAlertas({
                         fechaValida(alerta.proximoEnvio) &&
                         ahora > 0 &&
                         new Date(alerta.proximoEnvio).getTime() > ahora;
+
+                      const saldria =
+                        ahora > 0
+                          ? saldriaSiSeReactiva(alerta, partidos, new Date(ahora))
+                          : null;
+
+                      if (saldria)
+                        return `Silenciada · al reactivarla saldría ${fechaLegible(saldria.cuando.toISOString())}, ${saldria.dias === 0 ? "el día del partido" : `${saldria.dias} ${saldria.dias === 1 ? "día" : "días"} antes del partido`}`;
 
                       if (futura)
                         return `Silenciada: no se enviará hasta reactivarla (sonaría ${fechaLegible(alerta.proximoEnvio)})`;

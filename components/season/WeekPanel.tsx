@@ -276,13 +276,14 @@ export default function WeekPanel({
               key={item.id}
               type="button"
               onClick={() => setTab(item.id)}
-              className={`flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
+              className={`flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition sm:px-4 ${
                 tab === item.id
                   ? "border-[#C8A96B] text-white"
                   : "border-transparent text-white/45 hover:text-white/80"
               }`}
             >
-              {item.icon}
+              {/* Sin icono en el móvil: con él, «Subir» se salía de la caja. */}
+              <span className="hidden sm:inline-flex">{item.icon}</span>
               {item.label}
 
               {item.count !== undefined && (
@@ -390,15 +391,38 @@ export default function WeekPanel({
           ))}
 
         {tab === "upload" && images.length + pdfs.length === 0 && ultimaConArchivos && onSelectWeek && (
-          <p className="mb-5 text-sm text-white/60">
+          <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <p className="text-sm text-white/60">
+              Lo último que hay es de la {ultimaConArchivos.week.toLowerCase()} (
+              {weekRangeLabel(ultimaConArchivos)}).
+            </p>
+
+            {(ultimaConArchivos.pdfs ?? []).length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {(ultimaConArchivos.pdfs ?? []).slice(-3).map((url) => (
+                  <li key={url} className="min-w-0">
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex max-w-full items-center gap-2 text-sm text-[#C8A96B] underline-offset-4 hover:underline"
+                    >
+                      <FileText size={14} className="shrink-0" />
+                      <span className="truncate">{humanFileName(url, "Documento")}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+
             <button
               type="button"
               onClick={() => onSelectWeek(ultimaConArchivos.id)}
-              className="text-[#C8A96B] underline-offset-4 hover:underline"
+              className="mt-3 text-sm text-[#C8A96B] underline-offset-4 hover:underline"
             >
-              Ver {ultimaConArchivos.week} ({weekRangeLabel(ultimaConArchivos)}), la última con material
+              Abrir la {ultimaConArchivos.week.toLowerCase()} entera
             </button>
-          </p>
+          </div>
         )}
 
         {tab === "upload" && (

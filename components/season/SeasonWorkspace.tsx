@@ -109,6 +109,26 @@ export default function SeasonWorkspace({ area }: Props) {
     return previas[0] ?? null;
   }, [season, selectedWeek]);
 
+  // Para la cabecera de la semana en curso: la última anterior con material.
+  const ultimaConMaterial = useMemo(() => {
+    if (!currentWeek) return null;
+
+    return (
+      flattenWeeks(season)
+        .filter((week) => week.id < currentWeek.id && weekHasFiles(week))
+        .sort((a, b) => b.id - a.id)[0] ?? null
+    );
+  }, [season, currentWeek]);
+
+  const semanasCon = useMemo(() => {
+    const semanas = flattenWeeks(season);
+
+    return {
+      images: semanas.filter((week) => (week.images?.length ?? 0) > 0).length,
+      pdfs: semanas.filter((week) => (week.pdfs?.length ?? 0) > 0).length,
+    };
+  }, [season]);
+
   const stats = useMemo(
     () => seasonStats(season, currentWeek?.id ?? null),
     [season, currentWeek]
@@ -197,6 +217,8 @@ export default function SeasonWorkspace({ area }: Props) {
                   area={area}
                   stats={stats}
                   currentWeek={currentWeek}
+                  ultimaConMaterial={ultimaConMaterial}
+                  semanasCon={semanasCon}
                   saving={saving}
                   onGoToCurrentWeek={() =>
                     currentWeek && selectWeek(currentWeek.id)

@@ -259,10 +259,11 @@ export function ProximoPartido() {
               style={{ background: ORO, color: "#0B0F14" }}
             >
               Hoy {diaDeHoy.rotulo}
-              <span className="font-medium normal-case tracking-normal opacity-80">
-                · {diaDeHoy.nombre}
-                {libres.has(diaDeHoy.fecha) ? " · libre" : ""}
-              </span>
+              {libres.has(diaDeHoy.fecha) && (
+                <span className="font-medium normal-case tracking-normal opacity-80">
+                  · libre
+                </span>
+              )}
             </span>
           )}
         </div>

@@ -29,9 +29,8 @@ export default function AlertasPage() {
             <h1 className="mt-2 text-3xl font-semibold">Tareas y alertas</h1>
 
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/50">
-              Recordatorios que se envían solos por correo, con la foto, el
-              vídeo o el audio que haga falta. Se repiten hasta que los
-              silencies, y avisan aunque no tengas la app abierta.
+              Recordatorios que salen solos por correo, aunque no tengas la app
+              abierta, hasta que los silencies.
             </p>
           </div>
 

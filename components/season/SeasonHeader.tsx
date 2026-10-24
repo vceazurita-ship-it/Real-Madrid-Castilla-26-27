@@ -27,6 +27,10 @@ interface Props {
     scopedToToday: boolean;
   };
   currentWeek: WeekData | null;
+  /** Última semana anterior a la actual con archivos. */
+  ultimaConMaterial?: WeekData | null;
+  /** En cuántas semanas hay imágenes y en cuántas PDFs. */
+  semanasCon?: { images: number; pdfs: number };
   saving: boolean;
   onGoToCurrentWeek: () => void;
   onOpenImages: () => void;
@@ -38,6 +42,8 @@ export default function SeasonHeader({
   area,
   stats,
   currentWeek,
+  ultimaConMaterial = null,
+  semanasCon,
   saving,
   onGoToCurrentWeek,
   onOpenImages,
@@ -75,7 +81,11 @@ export default function SeasonHeader({
             <p className="mt-3 text-base font-medium text-white/85">
               {weekHasFiles(currentWeek)
                 ? `${currentWeek.week} ya tiene material.`
-                : `Sube el material de la ${currentWeek.week.toLowerCase()}.`}{" "}
+                : `Sube el material de la ${currentWeek.week.toLowerCase()}.${
+                    ultimaConMaterial
+                      ? ` La última con material fue la ${ultimaConMaterial.week.toLowerCase()}.`
+                      : ""
+                  }`}{" "}
               <span className="text-sm font-normal text-white/50">
                 {stats.completed} de {stats.totalWeeks}{" "}
                 {stats.totalWeeks === 1 ? "semana con material" : "semanas con material"}
@@ -138,6 +148,7 @@ export default function SeasonHeader({
           icon={<ImageIcon size={18} />}
           value={stats.images}
           label="Imágenes de la temporada"
+          detalle={semanasCon ? enSemanas(semanasCon.images) : undefined}
           action="Ver todas"
           onClick={onOpenImages}
         />
@@ -146,6 +157,7 @@ export default function SeasonHeader({
           icon={<FileText size={18} />}
           value={stats.pdfs}
           label="PDFs de la temporada"
+          detalle={semanasCon ? enSemanas(semanasCon.pdfs) : undefined}
           action="Ver todos"
           onClick={onOpenPdfs}
         />
@@ -185,16 +197,22 @@ export default function SeasonHeader({
   );
 }
 
+function enSemanas(n: number) {
+  return n === 0 ? undefined : `en ${n} ${n === 1 ? "semana" : "semanas"}`;
+}
+
 function StatCard({
   icon,
   value,
   label,
+  detalle,
   action,
   onClick,
 }: {
   icon: React.ReactNode;
   value: string | number;
   label: string;
+  detalle?: string;
   action?: string;
   onClick?: () => void;
 }) {
@@ -207,7 +225,11 @@ function StatCard({
         </span>
       </div>
 
-      <div className="mt-3 text-3xl font-semibold tabular-nums">{value}</div>
+      <div className="mt-3 flex items-baseline gap-2">
+        <span className="text-3xl font-semibold tabular-nums">{value}</span>
+
+        {detalle && <span className="text-xs text-white/45">{detalle}</span>}
+      </div>
 
       {action && (
         <div className="mt-2 text-xs text-[#C8A96B] opacity-70 transition group-hover:opacity-100">

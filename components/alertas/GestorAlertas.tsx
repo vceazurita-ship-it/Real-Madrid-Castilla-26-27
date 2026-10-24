@@ -10,6 +10,7 @@ import DialogoAlerta from "./DialogoAlerta";
 import {
   fechaLegible,
   proximoDesdeElPartido,
+  saldriaSiSeReactiva,
   type PartidoParaAlerta,
 } from "@/lib/alertas/modelo";
 import { CLAVE_CALENDARIO } from "@/lib/castilla/calendario";
@@ -218,6 +219,20 @@ export default function GestorAlertas() {
     return { activas: vivas.length, proxima };
   })();
 
+  /* Si todas están silenciadas: la que saldría antes al reactivarlas. */
+  const primeraAlReactivar = (() => {
+    if (ahora === 0) return null;
+
+    const salidas = alertas
+      .map((a) => ({ a, s: saldriaSiSeReactiva(a, partidos, new Date(ahora)) }))
+      .filter((x): x is { a: Alerta; s: { cuando: Date; dias: number } } => Boolean(x.s))
+      .sort((x, y) => x.s.cuando.getTime() - y.s.cuando.getTime());
+
+    return salidas[0]
+      ? { titulo: salidas[0].a.titulo.trim(), cuando: salidas[0].s.cuando }
+      : null;
+  })();
+
   return (
     <div className="space-y-4">
       {/* --------------------- MOTOR CAÍDO --------------------- */}
@@ -283,25 +298,33 @@ export default function GestorAlertas() {
 
       {/* Lo que dice la pantalla en cinco segundos. Sin alertas con fecha, no sale. */}
       {!cargando && !fallo && !resumen && alertas.length > 0 && (
-        <p className="rounded-2xl bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-200">
-          <b className="font-semibold">
-            {alertas.length === 1
-              ? "1 tarea, silenciada"
-              : `${alertas.length} tareas, todas silenciadas`}
-          </b>
-          {" · "}ningún aviso sonará.
-          {alertas.length > 1 && (
-            <button
-              type="button"
-              onClick={() => void reactivarTodas()}
-              disabled={ocupada !== null}
-              className="mt-2 flex max-w-full items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1.5 font-medium text-amber-100 transition hover:bg-amber-500/30 disabled:opacity-40"
-            >
-              <BellRing className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="truncate">Reactivar todas</span>
-            </button>
-          )}
-        </p>
+        <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-200">
+          <p>
+            <b className="font-semibold">
+              {alertas.length === 1
+                ? "Ningún aviso sonará: la tarea está silenciada."
+                : `Ningún aviso sonará: las ${alertas.length} tareas están silenciadas.`}
+            </b>
+            {primeraAlReactivar && (
+              <>
+                {" "}Al reactivar, la primera en salir sería «{primeraAlReactivar.titulo}»,{" "}
+                {fechaLegible(primeraAlReactivar.cuando.toISOString())}.
+              </>
+            )}
+          </p>
+
+          <button
+            type="button"
+            onClick={() => void reactivarTodas()}
+            disabled={ocupada !== null}
+            className="mt-2.5 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#C8A96B] px-4 py-2 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-40"
+          >
+            <BellRing className="h-4 w-4 shrink-0" aria-hidden />
+            <span className="truncate">
+              {alertas.length === 1 ? "Reactivar" : "Reactivar todas"}
+            </span>
+          </button>
+        </div>
       )}
 
       {!cargando && resumen && (
@@ -359,6 +382,7 @@ export default function GestorAlertas() {
           onAlternarActiva={(alerta) => void alternarActiva(alerta)}
           onBorrar={(alerta) => void borrarConfirmada(alerta)}
           ocupada={ocupada}
+          partidos={partidos}
         />
       )}
 
