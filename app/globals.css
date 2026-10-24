@@ -1819,3 +1819,10 @@ scrollbar-width:none;
 :root[data-theme="light"] .siempre-oscuro [class~="bg-black/20"], :root[data-theme="light"] .siempre-oscuro [class~="bg-black/25"] { background-color: rgb(0 0 0 / .25); }
 :root[data-theme="light"] .siempre-oscuro [class~="bg-[#08131F]/70"], :root[data-theme="light"] .siempre-oscuro [class~="bg-[#08131F]/85"] { background-color: rgb(8 19 31 / .8); }
 :root[data-theme="light"] .siempre-oscuro [class~="hover:text-white"]:hover { color: #fff; }
+/* Los chips y cifras de color (chipInk) se oscurecen en el día para leerse
+   sobre papel; dentro de una zona oscura hay que aclararlos, no oscurecerlos,
+   o el azul y el morado se borran sobre el campo (24/10/2026). */
+:root[data-theme="light"] .siempre-oscuro {
+  --rmcf-chip-keep: 72%;
+  --rmcf-chip-mix: #fff;
+}
