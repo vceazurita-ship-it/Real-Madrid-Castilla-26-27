@@ -419,7 +419,7 @@ export default function FaltasPage() {
 
     if (zona && carril) {
       frases.push(
-        `Se concentran en ${nombreZona(zona.clave)} (${zona.veces}) y ${carril.clave === "centro" ? "por el centro" : `por la ${carril.clave}`} (${carril.veces}).`,
+        `Se concentran en ${nombreZona(zona.clave)} (${zona.veces} de ${total}) y ${carril.clave === "centro" ? "por el centro" : `por la ${carril.clave}`} (${carril.veces} de ${total}).`,
       );
     }
 
@@ -435,7 +435,7 @@ export default function FaltasPage() {
             : "en último tercio";
 
       frases.push(
-        `${ultimoTercio} ${donde}; ${frontales} ${frontales === 1 ? "frontal" : "frontales"}.`,
+        `${ultimoTercio} de ${total} ${donde}; ${frontales} de ${total} ${frontales === 1 ? "frontal" : "frontales"}.`,
       );
     }
 
@@ -516,19 +516,18 @@ export default function FaltasPage() {
         actual,
         media,
         mejorAlto: pocas ? null : mejorAlto,
-        pie: pocas ? (pie ? `${pie} · muestra pequeña` : "muestra pequeña") : pie,
-        /* Con tan pocas, «igual» parece una conclusión: se dice la base. */
-        igualEn: pocas ? `de ${partido.faltas.length} faltas` : undefined,
+        /* Con tan pocas, «igual» parece una conclusión: la base va en la descripción de la fila. */
+        pie: pocas ? `${pie} · muestra pequeña, de ${partido.faltas.length} faltas` : pie,
       };
     };
 
     const metricas: MetricaComparada[] = [
-      metrica("favor", "Faltas a favor", aFavor, null),
-      metrica("contra", "Faltas en contra", enContra, false),
-      metrica("favor-frontal", "A favor frontales", (f) => aFavor(f) && f.distancia === "frontal", true, "de cara a la portería rival"),
-      metrica("contra-frontal", "En contra frontales", (f) => enContra(f) && f.distancia === "frontal", false, "de cara a nuestra portería"),
-      metrica("contra-nuestro", "En contra en nuestro campo", (f) => enContra(f) && sitioEnCampo(f).zona === "nuestro campo", false),
-      metrica("favor-rival", "A favor en campo rival", (f) => aFavor(f) && sitioEnCampo(f).zona === "campo rival", true),
+      metrica("favor", "Faltas a favor", aFavor, null, "sin juicio: depende del estilo"),
+      metrica("contra", "Faltas en contra", enContra, false, "menos, mejor"),
+      metrica("favor-frontal", "A favor frontales", (f) => aFavor(f) && f.distancia === "frontal", true, "de cara a la portería rival · más, mejor"),
+      metrica("contra-frontal", "En contra frontales", (f) => enContra(f) && f.distancia === "frontal", false, "de cara a nuestra portería · menos, mejor"),
+      metrica("contra-nuestro", "En contra en nuestro campo", (f) => enContra(f) && sitioEnCampo(f).zona === "nuestro campo", false, "menos, mejor"),
+      metrica("favor-rival", "A favor en campo rival", (f) => aFavor(f) && sitioEnCampo(f).zona === "campo rival", true, "más, mejor"),
     ];
 
     /*
@@ -547,7 +546,28 @@ export default function FaltasPage() {
         media: conDefensores.length === 0 ? null : conDefensores.reduce((a, b) => a + b, 0) / conDefensores.length,
         formato: decimal,
         mejorAlto: false,
-        pie: "entre la falta y la portería, portero incluido",
+        pie: "entre la falta y la portería, portero incluido · menos, mejor",
+      });
+    }
+
+    /* Los de las faltas en contra: la conclusión cita su media y la tabla la tiene que enseñar. */
+    const defensoresEnContra = (faltas: Falta[]) => {
+      const con = faltas.filter((f) => enContra(f) && f.entre !== null).map((f) => f.entre as number);
+
+      return con.length === 0 ? null : con.reduce((a, b) => a + b, 0) / con.length;
+    };
+    const actualContra = defensoresEnContra(partido.faltas);
+    const mediasContra = anteriores.map(defensoresEnContra).filter((n): n is number => n !== null);
+
+    if (actualContra !== null || mediasContra.length > 0) {
+      metricas.push({
+        clave: "defensores-contra",
+        nombre: "Defensores por delante (en contra)",
+        actual: actualContra,
+        media: mediasContra.length === 0 ? null : mediasContra.reduce((a, b) => a + b, 0) / mediasContra.length,
+        formato: decimal,
+        mejorAlto: null,
+        pie: "los nuestros entre la falta y nuestra portería · sin juicio",
       });
     }
 
