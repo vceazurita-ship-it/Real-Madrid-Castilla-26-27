@@ -178,13 +178,11 @@ export default function ApuestasPage() {
               )}
             </div>
 
-            {/* El acceso va antes que el ejemplo: es lo útil. */}
-            {!accesoAbajo && acceso}
-
-            {/* Sin ninguna apuesta publicada: el ejemplo, como tarjeta de
-                muestra, para que la pantalla enseñe qué se ve aquí. */}
+            {/* Sin ninguna apuesta publicada: el ejemplo, abierto y encima del
+                acceso, para que la pantalla enseñe qué se ve aquí antes de pedir
+                que entres. */}
             {estado === "listo" && doc.apuestas.length === 0 && (
-              <details className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              <details open className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                 <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
                   Cómo se ve una apuesta
                 </summary>
@@ -227,6 +225,8 @@ export default function ApuestasPage() {
                 </div>
               </details>
             )}
+
+            {!accesoAbajo && acceso}
 
             {/* ------------------------ QUIÉN ERES --------------------- */}
 

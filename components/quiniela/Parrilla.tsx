@@ -47,7 +47,7 @@ function tono(signo: Signo | null, resultado: Signo | null) {
 
 const COLOR_SIGNO: Record<Signo, string> = {
   "1": "rgb(200 169 107 / 0.85)",
-  X: "rgb(255 255 255 / 0.28)",
+  X: "rgb(148 163 184 / 0.6)",
   "2": "rgb(120 170 255 / 0.55)",
 };
 
@@ -109,10 +109,15 @@ export function Parrilla({
 
   const hayResultados = jornada.resultados.some(Boolean);
 
+  /* La leyenda pone un caso real de esta jornada; si nadie se la jugó solo, no sale. */
+  const slugSolo = filas.flatMap((fila) => fila.solitarios)[0];
+  const personaSolo = slugSolo ? PERSONA_POR_SLUG.get(slugSolo) : undefined;
+  const ejemploSolo = slugSolo ? (personaSolo ? nombreCorto(personaSolo) : slugSolo) : "";
+
   return (
     <Panel
       title="Lo que ha puesto cada uno"
-      subtitle="Jornada cerrada: esto ya no se toca"
+      subtitle="Así votó cada uno la jornada"
       icon={Users}
     >
       {/* La leyenda, arriba: se lee antes de la tabla, no después. */}
@@ -132,12 +137,14 @@ export function Parrilla({
           Pendiente de jugarse
         </li>
 
-        <li className="flex items-center gap-1.5">
-          <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] text-[#C8A96B]">
-            Solo Nombre
-          </span>
-          : el único que puso ese signo en ese partido
-        </li>
+        {ejemploSolo && (
+          <li className="flex items-center gap-1.5">
+            <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] text-[#C8A96B]">
+              Solo {ejemploSolo}
+            </span>
+            : el único que puso ese signo en ese partido
+          </li>
+        )}
 
         <li className="flex items-center gap-1.5">
           <span className="flex h-3 w-10 overflow-hidden rounded-sm">
@@ -164,7 +171,7 @@ export function Parrilla({
                 Partido
               </th>
 
-              <th className="w-[96px] pb-3 text-center text-[10px] uppercase tracking-[0.12em] font-medium text-white/40">
+              <th className="w-[112px] pb-3 text-center text-[10px] uppercase tracking-[0.12em] font-medium text-white/40">
                 Reparto
               </th>
 
@@ -242,9 +249,9 @@ export function Parrilla({
                 </td>
 
                 {/* La tira de reparto: 1 en dorado, X en gris, 2 en azul. */}
-                <td className="min-w-[92px] px-1 py-2">
+                <td className="min-w-[112px] px-1 py-2 pr-3">
                   <span
-                    className="flex h-[22px] w-full min-w-[84px] overflow-hidden rounded"
+                    className="flex h-[22px] w-full min-w-[96px] overflow-hidden rounded"
                     title={SIGNOS.map((signo) => `${signo}: ${fila.votos[signo]}`).join(" · ")}
                   >
                     {SIGNOS.map((signo) =>
