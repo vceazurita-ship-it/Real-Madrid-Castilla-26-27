@@ -193,14 +193,13 @@ export default function GestorAlertas() {
     return () => clearTimeout(id);
   }, []);
 
-  /* Si no queda ninguna viva, la tarea más reciente es la candidata a
-     reactivar: la última que se envió o se programó. */
-  const reciente =
-    [...alertas].sort((a, b) =>
-      String(b.ultimoEnvio || b.proximoEnvio).localeCompare(
-        String(a.ultimoEnvio || a.proximoEnvio),
-      ),
-    )[0] ?? null;
+  const reactivarTodas = async () => {
+    setOcupada("todas");
+    for (const a of alertas.filter((x) => !x.activa)) {
+      await guardar({ ...a, activa: true });
+    }
+    setOcupada(null);
+  };
 
   const resumen = (() => {
     const vivas = alertas.filter((a) => a.activa);
@@ -290,16 +289,16 @@ export default function GestorAlertas() {
               ? "1 tarea, silenciada"
               : `${alertas.length} tareas, todas silenciadas`}
           </b>
-          {" · "}ningún aviso sonará: reactiva los que quieras que salgan.
-          {reciente && (
+          {" · "}ningún aviso sonará.
+          {alertas.length > 1 && (
             <button
               type="button"
-              onClick={() => void alternarActiva(reciente)}
-              disabled={ocupada === reciente.id}
+              onClick={() => void reactivarTodas()}
+              disabled={ocupada !== null}
               className="mt-2 flex max-w-full items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1.5 font-medium text-amber-100 transition hover:bg-amber-500/30 disabled:opacity-40"
             >
               <BellRing className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              <span className="truncate">Reactivar «{reciente.titulo.trim()}»</span>
+              <span className="truncate">Reactivar todas</span>
             </button>
           )}
         </p>

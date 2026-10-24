@@ -98,7 +98,9 @@ export default function ListaAlertas({
            título cuando sólo se había escrito uno. */
         const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
         /* Un título escrito todo en mayúsculas se lee a gritos: se pasa a frase. */
-        const frase = (t: string) => {
+        const siglas = (t: string) => t.replace(/\brmcf\b/gi, "RMCF");
+        const frase = (t: string) => siglas(fraseBase(t));
+        const fraseBase = (t: string) => {
           const letras = t.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
 
           return letras.length > 3 && t === t.toUpperCase()

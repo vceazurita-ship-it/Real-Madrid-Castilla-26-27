@@ -268,7 +268,7 @@ export function describeRepeticion(alerta: Alerta) {
         ? "El día del partido"
         : dias === 1
           ? "El día antes del partido"
-          : `Antes del partido: ${dias} días`;
+          : `Sale ${dias} días antes del partido`;
     }
     default:
       return "Una sola vez";
