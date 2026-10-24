@@ -321,6 +321,34 @@ const ASPECTO_CENTROS = {
   explica: "Cuánto centra y cuántos de esos centros encuentran a alguien",
 } as const;
 
+/**
+ * Quién saca los córners y las faltas del equipo, según la descarga de Wyscout.
+ *
+ * La descarga da «Córneres/90» y «Tiros libres/90» por jugador: multiplicados
+ * por los minutos y divididos entre 90 salen los lanzamientos de la temporada.
+ * Se quedan los dos que más sacan de cada tipo y se quitan los que no sacan.
+ */
+function lanzadoresDe(datos: Dataset, equipo: string) {
+  const suyos = datos.jugadores.filter(
+    (j) => j.temporada === "actual" && j.minutos > 0 && mismoEquipo(j.equipo, equipo),
+  );
+
+  const saca = (columna: string, tipo: "corner" | "falta") =>
+    suyos
+      .map((j) => ({
+        nombre: j.jugador,
+        tipo,
+        total: Math.round(((j.datos[columna] ?? 0) * j.minutos) / 90),
+        partidos: j.partidos,
+        pie: j.pie,
+      }))
+      .filter((uno) => uno.total > 0)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 2);
+
+  return [...saca("Córneres/90", "corner"), ...saca("Tiros libres/90", "falta")];
+}
+
 function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "abp") {
   const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
     .filter(Boolean)
@@ -355,6 +383,7 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "ab
       mediana: f.mediana,
       unidad: f.metrica.unidad,
       percentil: f.percentil,
+      mejorAlto: f.metrica.mejorAlto,
       /* «x de y»: la base del porcentaje y los partidos que lo respaldan. */
       base: cocienteEnGrupo(f.metrica, d.aspecto.key === "abpDef" ? contraDe : suyosDe),
       partidos: (d.aspecto.key === "abpDef" ? contraDe : suyosDe).length,
@@ -367,6 +396,7 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "ab
     temporada: actual,
     equipos: equipos.length,
     aspectos,
+    lanzadores: ambito === "area" ? [] : lanzadoresDe(datos, equipo),
     golesAbp: goles && (goles.aFavor.partidos > 0 || goles.enContra.partidos > 0) ? goles : null,
   };
 }
