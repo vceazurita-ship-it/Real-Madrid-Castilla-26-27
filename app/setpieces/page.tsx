@@ -1736,7 +1736,7 @@ doc.text(
     metrics.xgAccion.toFixed(2),
   ],
   [
-    "Mejor Sacador",
+    "Sacador con más xG",
     mejorSacador || "-",
   ],
   [
@@ -1932,7 +1932,7 @@ const resumen = [
   `• Conversión del ${metrics.conversion.toFixed(1)}%`,
   `• ${metrics.shots} remates totales`,
   `• ${metrics.goals} goles obtenidos`,
-  `• Mejor sacador: ${mejorSacador || "-"}`,
+  `• Sacador con más xG: ${mejorSacador || "-"}`,
   `• xG por acción: ${metrics.xgAccion.toFixed(2)}`,
   `• ${tasaPeligro.toFixed(1)}% acaban en gol u ocasión`,
 ];
@@ -2688,7 +2688,7 @@ const pie = (
   }`}
 >
   <p className="text-sm text-zinc-400">
-    Mejor sacador
+    Sacador con más xG
   </p>
   <h3
     className="

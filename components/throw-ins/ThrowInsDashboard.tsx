@@ -378,10 +378,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       ? `${total} ${total === 1 ? "saque" : "saques"}: ${pctTexto(favorables, total)} conservados, ${llegan}${
           goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"})` : ""
         }.`
-      : `${total} ${total === 1 ? "saque" : "saques"} del rival: recuperamos el ${pctTexto(
-          favorables,
-          total,
-        )}, ${llegan}${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"} en contra)` : ""}.`,
+      : `${total} ${total === 1 ? "saque" : "saques"} del rival: recuperamos ${favorables} de ${total} (${pctTexto(favorables, total)}), ${llegan}${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"} en contra)` : ""}.`,
   );
 
   /* 2. Dónde y cómo funciona mejor (para nosotros). */
@@ -406,7 +403,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(envios, retencionDe, true);
 
       frases.push(
-        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, el más fiable: ${pctTexto(mejor.favorables, mejor.n)} conservados.`,
+        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, el más fiable: ${mejor.favorables} de ${mejor.n} conservados (${pctTexto(mejor.favorables, mejor.n)}).${indicio(mejor.n)}`,
       );
     }
   } else {
@@ -415,7 +412,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
 
       if (mejor.favorables > 0) {
         frases.push(
-          `Más robos en ${nombreDe(mejor.key, mejor.valor)}: recuperamos el ${pctTexto(mejor.favorables, mejor.n)}.`,
+          `Más robos en ${nombreDe(mejor.key, mejor.valor)}: recuperamos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}).${indicio(mejor.n)}`,
         );
       }
     }

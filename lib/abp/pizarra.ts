@@ -2146,7 +2146,7 @@ export function avisosConsignas(notas: string[]) {
 
   /* Cuáles son, por el arranque de cada una. */
   const cuales = largasLineas
-    .map((linea) => `«${linea.texto.slice(0, 24).trimEnd()}…»`)
+    .map((linea) => `«${linea.texto.slice(0, 24).trimEnd()}…» ${linea.texto.length}`)
     .join(", ");
 
   const avisos: string[] = [];

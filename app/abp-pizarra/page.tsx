@@ -456,6 +456,17 @@ export default function PizarraAbpPage() {
 
   const setElegido = setPedido;
 
+  /* El desplegable abre con lo jugado, el próximo partido y el que esté
+     abierto; el resto del calendario (hasta 38 jornadas) va plegado en un
+     grupo aparte para que en el móvil no sean 38 filas seguidas. */
+  const proximoId = useMemo(
+    () => partidos.find((item) => item.date && item.date >= hoy)?.id ?? "",
+    [partidos, hoy],
+  );
+
+  const enPrimerPlano = (item: MatchMeta) =>
+    !item.date || item.date < hoy || item.id === proximoId || item.id === elegido;
+
   const partido = useMemo(
     () => partidos.find((item) => item.id === elegido) ?? null,
     [partidos, elegido],
@@ -1851,12 +1862,27 @@ export default function PizarraAbpPage() {
                     </option>
                   )}
 
-                  {partidos.map((item) => (
-                    <option key={item.id} value={item.id} className="bg-[#11161C]">
-                      {etiquetaPartido(item)}
-                      {marcaDeTablero(store.tableros?.[item.id])}
-                    </option>
-                  ))}
+                  {partidos
+                    .filter((item) => enPrimerPlano(item))
+                    .map((item) => (
+                      <option key={item.id} value={item.id} className="bg-[#11161C]">
+                        {etiquetaPartido(item)}
+                        {marcaDeTablero(store.tableros?.[item.id])}
+                      </option>
+                    ))}
+
+                  {partidos.some((item) => !enPrimerPlano(item)) && (
+                    <optgroup label="Más adelante en el calendario">
+                      {partidos
+                        .filter((item) => !enPrimerPlano(item))
+                        .map((item) => (
+                          <option key={item.id} value={item.id} className="bg-[#11161C]">
+                            {etiquetaPartido(item)}
+                            {marcaDeTablero(store.tableros?.[item.id])}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
                 </select>
               </label>
 
@@ -2109,6 +2135,18 @@ export default function PizarraAbpPage() {
                       Se está viendo la plantilla de siete diapositivas en
                       blanco. En cuanto coloques a alguien —o copies el partido
                       anterior— se guarda sola.
+                      {anterior && (
+                        <span className="mt-3 block">
+                          <Button
+                            icon={Copy}
+                            tone="primary"
+                            onClick={copiaDelAnterior}
+                            title={`Traer las diapositivas de ${matchLabel(anterior)}`}
+                          >
+                            Copiar de {matchLabel(anterior)}
+                          </Button>
+                        </span>
+                      )}
                     </Notice>
                   </div>
                 )}
@@ -2119,7 +2157,9 @@ export default function PizarraAbpPage() {
                   <Panel
                     title="Diapositivas"
                     subtitle={`${
-                      totales.cubiertos >= totales.total
+                      !guardado
+                        ? "Plantilla en blanco"
+                        : totales.cubiertos >= totales.total
                         ? "Todos los puestos tienen jugador"
                         : `${totales.total - totales.cubiertos} ${
                             totales.total - totales.cubiertos === 1 ? "puesto sin jugador" : "puestos sin jugador"
