@@ -1449,14 +1449,16 @@ function PlayerCard({
       }`}
     >
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-[#0B0F14]">
-        {sinFoto ? (
-          <div
-            aria-hidden
-            className="flex h-full w-full items-center justify-center text-4xl font-semibold tracking-wide text-[#C8A96B]/70"
-          >
-            {iniciales}
-          </div>
-        ) : (
+        {/* Las iniciales van siempre debajo y la foto, si llega, las tapa: con
+            loading="lazy" una foto fuera de pantalla ni carga ni falla, y la
+            tarjeta quedaba en blanco. */}
+        <div
+          aria-hidden
+          className="absolute inset-0 flex items-center justify-center text-4xl font-semibold tracking-wide text-[#C8A96B]/70"
+        >
+          {iniciales}
+        </div>
+        {!sinFoto && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={player.photo}
@@ -1467,7 +1469,7 @@ function PlayerCard({
               /* Una imagen que «carga» pero es un punto o un hueco: iniciales. */
               if (e.currentTarget.naturalWidth < 20) setSinFoto(true);
             }}
-            className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.04]"
+            className="absolute inset-0 h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.04]"
           />
         )}
 
