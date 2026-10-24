@@ -27,7 +27,9 @@ import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import { VideosDelCanal } from "@/components/rivals/VideosDelCanal";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
+import { useRivalStats } from "@/hooks/useRivalStats";
 import { traeJson } from "@/lib/hojaCsv";
+import { findStats, highlightSeason } from "@/lib/rivals/stats";
 import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import {
   SIN_ORDEN,
@@ -111,6 +113,11 @@ export default function ScoutRivalIndividual() {
   /* Su clave de jugador (la del once marcado), por «equipo|nombre». */
   const [clavesDe, setClavesDe] = useState<Record<string, string>>({});
 
+  /* La fila de la hoja de cada jugador, para cruzarla con sus números de BeSoccer. */
+  const [filasDe, setFilasDe] = useState<Record<string, Record<string, unknown>>>({});
+
+  const { doc: statsDoc } = useRivalStats();
+
   /* Los titulares del once probable marcado en Plantillas rivales (sólo se lee). */
   const [titularesDe, setTitularesDe] = useState<{ equipo: string; claves: string[] }>({ equipo: "", claves: [] });
 
@@ -140,6 +147,7 @@ export default function ScoutRivalIndividual() {
 
         const mapa: Record<string, string[]> = {};
         const claves: Record<string, string> = {};
+        const filasPorClave: Record<string, Record<string, unknown>> = {};
 
         for (const fila of filas as Record<string, unknown>[]) {
           const nombre = String(fila["NOMBRE DEPORTIVO"] ?? "").trim() || String(fila.JUGADOR ?? "").trim();
@@ -150,10 +158,12 @@ export default function ScoutRivalIndividual() {
 
           if (nombre && etiquetas.length) mapa[`${String(fila.NOMBRE_EQUIPO ?? "").trim()}|${nombre}`] = etiquetas;
           if (nombre) claves[`${String(fila.NOMBRE_EQUIPO ?? "").trim()}|${nombre}`] = playerKey(fila);
+          if (nombre) filasPorClave[`${String(fila.NOMBRE_EQUIPO ?? "").trim()}|${nombre}`] = fila;
         }
 
         setEtiquetasDe(mapa);
         setClavesDe(claves);
+        setFilasDe(filasPorClave);
       })
       .catch(() => undefined);
 
@@ -164,15 +174,24 @@ export default function ScoutRivalIndividual() {
 
   const plantilla = useMemo(
     () =>
-      (squads.find((squad) => squad.equipo === equipo)?.players ?? []).map((jugador) => ({
+      (squads.find((squad) => squad.equipo === equipo)?.players ?? []).map((jugador) => {
+        const fila = filasDe[`${equipo}|${jugador.nombre}`];
+        const stats = fila ? findStats(statsDoc, fila) : null;
+        const temporada = stats ? highlightSeason(stats.temporadas, statsDoc?.temporada) : null;
+
+        return {
+        partidos: temporada?.partidos,
+        titularidades: temporada?.titular,
+        minutos: temporada?.minutos,
         nombre: jugador.nombre,
         dorsal: jugador.dorsal,
         puesto: jugador.posicion,
         etiquetas: etiquetasDe[`${equipo}|${jugador.nombre}`] ?? [],
         titular:
           titularesDe.equipo === equipo && titularesDe.claves.includes(clavesDe[`${equipo}|${jugador.nombre}`] ?? "\u0000"),
-      })),
-    [squads, equipo, etiquetasDe, clavesDe, titularesDe],
+        };
+      }),
+    [squads, equipo, etiquetasDe, clavesDe, titularesDe, filasDe, statsDoc],
   );
 
   return (

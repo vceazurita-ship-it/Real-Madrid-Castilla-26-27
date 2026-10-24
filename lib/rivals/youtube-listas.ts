@@ -146,7 +146,22 @@ export type JugadorPlantilla = {
   etiquetas?: string[];
   /** Está en el once probable marcado: sus cortes salen primero. */
   titular?: boolean;
+  /** Su temporada en curso: partidos jugados, de titular y minutos. */
+  partidos?: number;
+  titularidades?: number;
+  minutos?: number;
 };
+
+/** «titular en 5 de 8 · 540 min». Vacío si no ha jugado: no se nombra lo que no hay. */
+export function resumenDeTemporada(jugador: Pick<JugadorPlantilla, "partidos" | "titularidades" | "minutos"> | null) {
+  if (!jugador?.partidos) return "";
+
+  const partes = [`titular en ${jugador.titularidades ?? 0} de ${jugador.partidos}`];
+
+  if (jugador.minutos) partes.push(`${jugador.minutos.toLocaleString("es-ES")} min`);
+
+  return partes.join(" · ");
+}
 
 /**
  * El dorsal que escribe el título: «ALGECIRAS CF Nº 19», «Nº7», «#18» o un
