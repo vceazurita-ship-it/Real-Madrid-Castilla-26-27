@@ -46,8 +46,16 @@ export default function WeekPanel({
   onSelectWeek,
   onUpdateWeek,
 }: Props) {
+  /* Se abre en la pestaña que tiene contenido; si la semana está vacía, en
+     «Subir», que es lo que hay que hacer. */
   const [tab, setTab] = useState<Tab>(
-    (week?.images?.length ?? 0) === 0 && (week?.pdfs?.length ?? 0) > 0 ? "pdfs" : "images"
+    (week?.images?.length ?? 0) > 0
+      ? "images"
+      : (week?.pdfs?.length ?? 0) > 0
+        ? "pdfs"
+        : week
+          ? "upload"
+          : "images"
   );
   const [fit, setFit] = useState<"contain" | "cover">("contain");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -239,7 +247,9 @@ export default function WeekPanel({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-white/50">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-white/50">
+            <span className="text-xs">En esta semana:</span>
+
             <span className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5">
               <ImageIcon size={15} className="text-[#C8A96B]" />
               <span className="tabular-nums">{images.length}</span>
@@ -372,6 +382,19 @@ export default function WeekPanel({
               ))}
             </div>
           ))}
+
+        {tab === "upload" && images.length + pdfs.length === 0 && ultimaConArchivos && onSelectWeek && (
+          <p className="mb-5 text-sm text-white/60">
+            Esta semana aún no tiene archivos.{" "}
+            <button
+              type="button"
+              onClick={() => onSelectWeek(ultimaConArchivos.id)}
+              className="text-[#C8A96B] underline-offset-4 hover:underline"
+            >
+              Ver {ultimaConArchivos.week}, la última con material
+            </button>
+          </p>
+        )}
 
         {tab === "upload" && (
           <div className="grid gap-5 lg:grid-cols-2">

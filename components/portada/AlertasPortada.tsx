@@ -120,11 +120,16 @@ export function AlertasPortada({
        vigilar») cuadran con lo que hay a la vista. */
     if (alertas.length <= 4) return alertas;
 
-    const fuertes = alertas.slice(0, 3);
+    /* Cuatro: las dos más fuertes de cada signo, y se rellena con las demás
+       hasta cuatro. Con «3 a vigilar» en el chip, que no se vea sólo una. */
+    const elegidas = [...buenas.slice(0, 2), ...malas.slice(0, 2)];
 
-    if (fuertes.some((a) => a.tono === "mala") || malas.length === 0) return fuertes;
+    for (const a of alertas) {
+      if (elegidas.length >= 4) break;
+      if (!elegidas.includes(a)) elegidas.push(a);
+    }
 
-    return [...fuertes.slice(0, 2), malas[0]];
+    return elegidas.sort((a, b) => b.fuerza - a.fuerza);
   })();
 
   return (
@@ -184,7 +189,7 @@ export function AlertasPortada({
 
           <div
             className={`mt-4 grid gap-2 ${
-              alertas.length === 4 ? "sm:grid-cols-2 xl:grid-cols-4" : "lg:grid-cols-3"
+              enLaTira.length === 4 ? "sm:grid-cols-2 xl:grid-cols-4" : "lg:grid-cols-3"
             }`}
           >
             {enLaTira.map((alerta) => (

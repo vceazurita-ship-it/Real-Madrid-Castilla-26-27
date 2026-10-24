@@ -54,15 +54,15 @@ export default function PdfCard({
           <FileText size={20} />
         </div>
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-medium" title={name}>
+        <div className="min-w-0 flex-1 basis-40">
+          <p className="line-clamp-2 break-all font-medium" title={name}>
             {name}
           </p>
 
           {meta && <p className="mt-0.5 text-xs text-white/40">{meta}</p>}
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setOpen((value) => !value)}

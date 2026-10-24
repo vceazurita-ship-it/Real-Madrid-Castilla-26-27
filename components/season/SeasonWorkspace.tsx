@@ -40,8 +40,6 @@ export default function SeasonWorkspace({ area }: Props) {
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
   const [filesViewer, setFilesViewer] = useState<FileKind | null>(null);
   const [navOpen, setNavOpen] = useState(false);
-  /** La semana abierta no es la actual: se eligió sola porque la actual está vacía. */
-  const [abiertaPorVacia, setAbiertaPorVacia] = useState(false);
 
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -57,17 +55,10 @@ export default function SeasonWorkspace({ area }: Props) {
           const weeks = flattenWeeks(data);
           const current = findWeekForDate(data) ?? weeks[0] ?? null;
 
-          /* Si la semana en curso aún no tiene nada, se abre la última que sí
-             tiene material: abrir con tres ceros obligaba a un clic más. */
-          const ultima =
-            current && !weekHasFiles(current)
-              ? weeks
-                  .filter((w) => w.id < current.id && weekHasFiles(w))
-                  .sort((a, b) => b.id - a.id)[0] ?? null
-              : null;
-
-          setSelectedWeekId((ultima ?? current)?.id ?? null);
-          setAbiertaPorVacia(Boolean(ultima));
+          /* Se abre la semana en curso aunque esté vacía (21/10/2026): abrir
+             otra distinta escondía que a esta le falta el material. La cabecera
+             dice qué subir y el panel ofrece la última semana con archivos. */
+          setSelectedWeekId(current?.id ?? null);
         }
       } catch (error) {
         console.error(error);
@@ -129,7 +120,6 @@ export default function SeasonWorkspace({ area }: Props) {
   const selectWeek = useCallback(
     (weekId: number, options: { scroll?: boolean } = {}) => {
       setSelectedWeekId(weekId);
-      setAbiertaPorVacia(false);
       setNavOpen(false);
 
       if (options.scroll !== false) {
@@ -255,25 +245,6 @@ export default function SeasonWorkspace({ area }: Props) {
                   </div>
 
                   <div ref={panelRef} className="scroll-mt-6 min-w-0">
-                    {abiertaPorVacia && currentWeek && selectedWeek && (
-                      <p className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80">
-                        <span>
-                          Esta semana ({currentWeek.week}) aún no tiene archivos. Se
-                          muestra la {selectedWeek.week.toLowerCase()}, la última con
-                          material ({currentWeek.id - selectedWeek.id}{" "}
-                          {currentWeek.id - selectedWeek.id === 1 ? "semana" : "semanas"} antes).
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={() => selectWeek(currentWeek.id)}
-                          className="shrink-0 rounded-xl bg-[#C8A96B] px-3.5 py-1.5 text-xs font-semibold text-[#0B0F14] transition hover:brightness-110"
-                        >
-                          Subir a esta semana
-                        </button>
-                      </p>
-                    )}
-
                     <WeekPanel
                       area={area}
                       week={selectedWeek}
