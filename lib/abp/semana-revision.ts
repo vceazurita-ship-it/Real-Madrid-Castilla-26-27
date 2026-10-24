@@ -27,7 +27,6 @@ import {
   cargaCondicional,
   claveAspecto,
   diasCompletos,
-  fmtMin,
   ladosDe,
   type AbpLado,
   type AspectoKey,
@@ -190,7 +189,7 @@ export function revisaSemana({
       titulo: `Faltan ${faltan}′ para el objetivo`,
       /* Con tareas pero sin minutos, «0′ de 60-67′» repetía la tarjeta. */
       detalle: minutos
-        ? `${fmtMin(minutos)} de ${objetivo.minimo}-${objetivo.maximo}′.`
+        ? `${minutos}′ de ${objetivo.minimo}-${objetivo.maximo}′.`
         : `Ninguna tarea tiene minutos todavía: ponle tiempo o pide el boceto.`,
     });
   } else if (minutos > objetivo.maximo) {
@@ -198,14 +197,14 @@ export function revisaSemana({
       id: "minutos",
       tono: "aviso",
       titulo: `${minutos - objetivo.maximo}′ por encima del objetivo`,
-      detalle: `${fmtMin(minutos)} para ${objetivo.minimo}-${objetivo.maximo}′: lo que sobra se le quita al resto de la sesión.`,
+      detalle: `${minutos}′ para ${objetivo.minimo}-${objetivo.maximo}′: lo que sobra se le quita al resto de la sesión.`,
     });
   } else {
     puntos.push({
       id: "minutos",
       tono: "bien",
       titulo: "Minutos dentro del objetivo",
-      detalle: `${fmtMin(minutos)} de ${objetivo.minimo}-${objetivo.maximo}′.`,
+      detalle: `${minutos}′ de ${objetivo.minimo}-${objetivo.maximo}′.`,
     });
   }
 

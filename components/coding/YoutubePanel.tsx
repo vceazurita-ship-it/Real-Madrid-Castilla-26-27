@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import { useAdmin } from "@/hooks/useAdmin";
 import {
   Check,
   Link2,
@@ -244,6 +245,14 @@ export function PanelYoutube({
   onGuarda: (cambios: Partial<EstadoYoutube>) => void;
   onDesconecta: () => void;
 }) {
+  const { admin } = useAdmin();
+
+  /* El alta de la aplicación en Google es una tarea de administrador: al
+     cuerpo técnico no se le enseña jerga de consola, y mientras no esté dada
+     de alta el bloque no tiene nada que ofrecerle. Las instrucciones siguen
+     para quien administra. */
+  if (!estado.configurado && !admin) return null;
+
   return (
     <Panel
       title="YouTube"

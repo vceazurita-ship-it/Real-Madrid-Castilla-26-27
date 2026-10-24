@@ -1071,7 +1071,18 @@ export function TableroSlide({
 
     if (!marco) return;
 
-    const medir = () => setEscala(marco.clientWidth / TABLERO_W);
+    /* Se encaja al más estrecho de los dos anchos —el del marco y el del
+       contenedor que lo recorta—: si el marco se midió antes de asentarse la
+       maquetación, la lámina se salía por la derecha y quedaban fuera la
+       columna de asignaciones y el final de las consignas. */
+    const medir = () => {
+      const disponible = Math.min(
+        marco.clientWidth,
+        marco.parentElement?.clientWidth || Infinity,
+      );
+
+      setEscala(Math.max(disponible, 1) / TABLERO_W);
+    };
 
     medir();
 
@@ -1079,7 +1090,14 @@ export function TableroSlide({
 
     observer.observe(marco);
 
-    return () => observer.disconnect();
+    if (marco.parentElement) observer.observe(marco.parentElement);
+
+    window.addEventListener("resize", medir);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", medir);
+    };
   }, []);
 
   /*
@@ -1463,7 +1481,7 @@ export function TableroSlide({
   };
 
   return (
-    <div ref={marcoRef} className="w-full" style={{ height: TABLERO_H * escala }}>
+    <div ref={marcoRef} className="w-full min-w-0 max-w-full" style={{ height: TABLERO_H * escala }}>
       <div
         data-abp-tablero
         className="relative overflow-hidden"

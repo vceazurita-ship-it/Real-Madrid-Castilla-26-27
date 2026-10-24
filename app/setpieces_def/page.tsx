@@ -2315,10 +2315,9 @@ const conclusiones = useMemo(() => {
   if (ganados + perdidos >= 3) {
     const indicio = ganados + perdidos < 5 ? " Indicio: muestra pequeña." : "";
 
+    /* Siempre en el mismo sentido que la tabla: los que ganamos. */
     frases.push(
-      perdidos >= ganados
-        ? `Segundo balón: perdemos ${perdidos} de ${ganados + perdidos} segundos balones (${Math.round((perdidos / (ganados + perdidos)) * 100)} %).${indicio}`
-        : `Segundo balón: ganamos ${ganados} de ${ganados + perdidos} segundos balones (${Math.round((ganados / (ganados + perdidos)) * 100)} %).${indicio}`,
+      `Segundo balón: ganamos ${ganados} de ${ganados + perdidos} segundos balones (${Math.round((ganados / (ganados + perdidos)) * 100)} %)${perdidos > ganados ? ", menos de la mitad" : ""}.${indicio}`,
     );
   }
 

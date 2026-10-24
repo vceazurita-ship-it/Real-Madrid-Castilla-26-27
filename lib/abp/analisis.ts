@@ -830,7 +830,7 @@ function redactaTitular({
             : " Es por donde más peligro nos hacen.";
 
     frases.push(
-      `${principal.label} ${metrica.formatear(principal.filtro)}, ${relacion} ${metrica.formatear(principal.global)} global${principal.menosEsMejor ? " (menos es mejor)" : ""}.${juicio}`,
+      `${principal.label} ${metrica.formatear(principal.filtro)}, ${relacion} ${metrica.formatear(principal.global)} de media en toda la temporada${principal.menosEsMejor ? " (menos es mejor)" : ""}.${juicio}`,
     );
   }
 

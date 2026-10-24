@@ -3690,17 +3690,22 @@ function Coding() {
               lead="Marca el inicio y el final de cada acción sin soltar el teclado. Los cortes se guardan solos y se convierten en vídeo de verdad desde aquí."
               aside={
                 <div className="flex items-center gap-2">
-                  <SaveState
-                    status={sesion.status}
-                    localOnly={sesion.localOnly}
-                    savedAt={sesion.lastSavedAt}
-                    sinGuardar={sesion.sinGuardar}
-                    onGuardar={() => {
-                      void sesion.guardaYa().then((bien) => {
-                        if (bien) toast.success("Cortes guardados");
-                      });
-                    }}
-                  />
+                  {/* Mientras lee la sesión no hay nada que contar: un
+                      «Cargando…» fijo junto al título parecía un cuelgue. El
+                      estado sale en cuanto hay lectura, buena o mala. */}
+                  {sesion.status !== "loading" && (
+                    <SaveState
+                      status={sesion.status}
+                      localOnly={sesion.localOnly}
+                      savedAt={sesion.lastSavedAt}
+                      sinGuardar={sesion.sinGuardar}
+                      onGuardar={() => {
+                        void sesion.guardaYa().then((bien) => {
+                          if (bien) toast.success("Cortes guardados");
+                        });
+                      }}
+                    />
+                  )}
 
                   <Button icon={Settings2} onClick={() => setAjustes(true)}>
                     Configuración

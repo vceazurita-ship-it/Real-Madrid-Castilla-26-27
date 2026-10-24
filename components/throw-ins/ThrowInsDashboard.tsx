@@ -549,7 +549,10 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
     actual: cuentaDe(criterio)(actual),
     media: mediaPorPartido(anteriores, cuentaDe(criterio)),
     mejorAlto,
-    ...(conBase ? { de: actual.length, unidad: "saques" } : {}),
+    /* Con la base a la vista, como en las tarjetas: «3 de 13 saques». */
+    ...(conBase
+      ? { n: cuentaDe(criterio)(actual), de: actual.length, unidad: "saques" }
+      : {}),
     pie: juntaPie(pie, sentidoTexto(mejorAlto)),
   });
 
@@ -1650,6 +1653,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                           : `la media de las ${comparativa.anteriores.length} jornadas anteriores`,
                     }}
                     metricas={comparativa.metricas}
+                    /* Un partido da 10-20 saques: con menos de 20 es indicio. */
+                    muestraMinima={20}
                     nota={notaComparativa}
                   />
                 ) : null}

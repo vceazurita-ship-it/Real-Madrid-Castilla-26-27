@@ -291,7 +291,7 @@ useEffect(() => {
                   ["Balance", `${tabla.ganados} G · ${tabla.empatados} E · ${tabla.perdidos} P`],
                   [
                     "Goles",
-                    `${tabla.favor} a favor · ${tabla.contra} en contra · diferencia ${tabla.favor - tabla.contra > 0 ? "+" : tabla.favor - tabla.contra < 0 ? "−" : ""}${Math.abs(tabla.favor - tabla.contra)}${liga.mediaGoles !== null ? ` · liga ${liga.mediaGoles.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por equipo y partido` : ""}`,
+                    `${tabla.favor} a favor (más, mejor) · ${tabla.contra} en contra (menos, mejor) en ${tabla.jugados} partidos · diferencia ${tabla.favor - tabla.contra > 0 ? "+" : tabla.favor - tabla.contra < 0 ? "−" : ""}${Math.abs(tabla.favor - tabla.contra)}${liga.mediaGoles !== null ? ` · liga ${liga.mediaGoles.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por equipo y partido` : ""}`,
                   ],
                 ].map(([etiqueta, valor]) => (
                   <div
