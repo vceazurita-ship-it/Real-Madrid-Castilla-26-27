@@ -107,12 +107,19 @@ export default function ApuestasPage() {
      lista. Sin nada que leer, el acceso sigue arriba como invitación. */
   const accesoAbajo = !yo && !sesion.cargando && estado === "listo" && doc.apuestas.length > 0;
 
+  /* Con apuestas abiertas, el acceso lo dice con el dato y el verbo. */
+  const tituloAcceso =
+    vivas.length > 0
+      ? `${vivas.length === 1 ? "Una apuesta abierta" : `${vivas.length} apuestas abiertas`}: entra y ponte a favor o en contra`
+      : "Entra para apostar";
+
   const acceso = (
     <div className="mt-5">
       <Acceso
         yo={sesion.yo}
         cargando={sesion.cargando}
         manda={sesion.manda}
+        titulo={tituloAcceso}
         subtitulo="Entra con tu cuenta de la quiniela"
       />
     </div>
@@ -161,6 +168,13 @@ export default function ApuestasPage() {
                     lanza sólo puede retirarla mientras nadie se haya mojado.
                   </li>
                 </ol>
+                {estado === "listo" && doc.apuestas.length === 0 && (
+                  <p className="mt-2">
+                    Un ejemplo: «El Castilla acaba la primera vuelta entre los
+                    cinco primeros», se juega un desayuno para todo el staff y
+                    se comprueba el último día de la vuelta.
+                  </p>
+                )}
               </Notice>
             </div>
 
