@@ -45,6 +45,8 @@ interface Props {
   ocupada: string | null;
   /** El calendario, para decir cuándo saldría una tarea silenciada al reactivarla. */
   partidos?: PartidoParaAlerta[];
+  /** Se pinta la última copia: nada se edita hasta que conteste la hoja. */
+  comprobando?: boolean;
 }
 
 export default function ListaAlertas({
@@ -55,6 +57,7 @@ export default function ListaAlertas({
   onBorrar,
   ocupada,
   partidos = [],
+  comprobando = false,
 }: Props) {
   /* El reloj se apunta en un efecto: mirarlo en el render es impuro. */
   const [ahora, setAhora] = useState(0);
@@ -73,7 +76,7 @@ export default function ListaAlertas({
         <AlarmClock className="mx-auto h-7 w-7 text-white/20" aria-hidden />
 
         <p className="mt-3 text-sm text-white/50">
-          Todavía no hay ninguna tarea con alerta.
+          Crea la primera tarea con alerta y el correo saldrá solo el día que elijas.
         </p>
       </div>
     );
@@ -97,7 +100,7 @@ export default function ListaAlertas({
   const silenciadas = ordenadas.filter((a) => !a.activa);
 
   const pinta = (alerta: Alerta) => {
-        const bloqueada = ocupada === alerta.id;
+        const bloqueada = comprobando || ocupada === alerta.id;
 
         /* Se pintaba en minúsculas tal cual se apuntó, y el cuerpo repetía el
            título cuando sólo se había escrito uno. */

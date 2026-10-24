@@ -8,11 +8,12 @@ import type { Alerta, ContactoAgenda } from "@/lib/alertas/modelo";
 /**
  * Las tareas con alerta y la agenda de correos aprendidos.
  *
- * A diferencia del resto de pantallas, aquí no hay caché en `localStorage` ni
- * autoguardado: el calendario vive en la hoja, que es quien envía. Una copia
- * local que se editase sin llegar a la hoja daría una alarma que en pantalla
- * existe y en la realidad no suena nunca, que es el peor fallo posible en algo
- * cuyo único trabajo es acordarse por ti.
+ * A diferencia del resto de pantallas, aquí no hay autoguardado: el calendario
+ * vive en la hoja, que es quien envía. Una copia local que se editase sin
+ * llegar a la hoja daría una alarma que en pantalla existe y en la realidad no
+ * suena nunca. Por eso la única copia local (`alertas:ultima-lista`) es de SOLO
+ * LECTURA: se pinta con `comprobando` y nada se puede editar hasta que la hoja
+ * conteste.
  *
  * La carga va dentro del efecto y `recargar()` solo mueve un contador, igual
  * que en `useRemoteDoc`: llamar desde el efecto a una función que hace
@@ -23,6 +24,8 @@ interface Estado {
   alertas: Alerta[];
   agenda: ContactoAgenda[];
   cargando: boolean;
+  /** Se ve la última lista guardada en el aparato; la hoja aún no ha contestado. */
+  comprobando: boolean;
   /** El motor de envío no responde (falta instalar el Apps Script, o falló). */
   motorCaido: string | null;
   /**
@@ -44,10 +47,51 @@ interface Estado {
   disparador: boolean | null;
 }
 
+type Copia = Pick<Estado, "alertas" | "agenda" | "disparador">;
+
+const CLAVE_COPIA = "alertas:ultima-lista";
+
+/** La última lista que contestó la hoja, para pintarla mientras llega la nueva. */
+function leeCopia(): Copia | null {
+  try {
+    const crudo = window.localStorage.getItem(CLAVE_COPIA);
+
+    if (!crudo) return null;
+
+    const c = JSON.parse(crudo);
+
+    if (!Array.isArray(c?.alertas)) return null;
+
+    return {
+      alertas: c.alertas,
+      agenda: Array.isArray(c.agenda) ? c.agenda : [],
+      disparador: typeof c.disparador === "boolean" ? c.disparador : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function guardaCopia(e: Estado) {
+  try {
+    window.localStorage.setItem(
+      CLAVE_COPIA,
+      JSON.stringify({
+        alertas: e.alertas,
+        agenda: e.agenda,
+        disparador: e.disparador,
+      }),
+    );
+  } catch {
+    /* sin copia: la pantalla funciona igual */
+  }
+}
+
 const VACIO: Estado = {
   alertas: [],
   agenda: [],
   cargando: true,
+  comprobando: false,
   motorCaido: null,
   fallo: null,
   disparador: null,
@@ -73,6 +117,25 @@ export function useAlertas() {
     const control = new AbortController();
     const reloj = setTimeout(() => control.abort(), TOPE_DE_ESPERA_MS);
 
+    /*
+    | La última lista recibida se pinta al instante, SOLO PARA LEER: mientras
+    | `comprobando` es true nada se edita (la lista deshabilita sus botones), así
+    | que la hoja sigue siendo el único origen. Va con un `setTimeout` de cero
+    | por la regla de `set-state-in-effect`.
+    */
+    const copia = testigo === 0 ? leeCopia() : null;
+    const pinta = copia
+      ? setTimeout(() => {
+          if (cancelado) return;
+
+          setEstado((e) =>
+            e.cargando
+              ? { ...e, ...copia, cargando: false, comprobando: true }
+              : e,
+          );
+        }, 0)
+      : null;
+
     fetch(testigo > 0 ? "/api/alertas?fresco=1" : "/api/alertas", {
       cache: "no-store",
       signal: control.signal,
@@ -83,15 +146,19 @@ export function useAlertas() {
 
         if (!cuerpo?.ok) throw new Error(cuerpo?.error ?? "Respuesta no válida");
 
-        setEstado({
+        const fresco: Estado = {
           alertas: Array.isArray(cuerpo.alertas) ? cuerpo.alertas : [],
           agenda: Array.isArray(cuerpo.agenda) ? cuerpo.agenda : [],
           cargando: false,
+          comprobando: false,
           motorCaido: null,
           fallo: null,
           disparador:
             typeof cuerpo.disparador === "boolean" ? cuerpo.disparador : null,
-        });
+        };
+
+        guardaCopia(fresco);
+        setEstado(fresco);
       })
       .catch((error: unknown) => {
         if (cancelado) return;
@@ -107,6 +174,7 @@ export function useAlertas() {
           alertas: [],
           agenda: [],
           cargando: false,
+          comprobando: false,
           motorCaido: sinRespuesta
             ? null
             : error instanceof Error
@@ -120,6 +188,7 @@ export function useAlertas() {
 
     return () => {
       cancelado = true;
+      if (pinta) clearTimeout(pinta);
       clearTimeout(reloj);
       control.abort();
     };

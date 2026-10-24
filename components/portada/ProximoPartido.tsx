@@ -68,7 +68,7 @@ const VERDE = "#1B9E77";
 const NARANJA = "#D95F02";
 
 export function ProximoPartido() {
-  const { partidos, cargando: sinCalendario } = useCalendario();
+  const { partidos, cargando: sinCalendario, fallo: calendarioTarda, reintentar: reintentaCalendario } = useCalendario();
   const [informe, setInforme] = useState<RespuestaPortada | null>(null);
 
   /* Las jornadas de la hoja RIVALES, sólo para dar con el `ID` del rival. */
@@ -312,6 +312,25 @@ export function ProximoPartido() {
                     {cuantoFalta(proximo.cuando, ahora)}
                   </span>
                 </p>
+              </>
+            ) : calendarioTarda && partidos.length === 0 ? (
+              <>
+                <h1 className="mt-1.5 text-[30px] font-bold leading-[1] tracking-[-0.03em] text-white sm:text-[38px]">
+                  El calendario tarda en llegar
+                </h1>
+
+                <p className="mt-3 text-[14px] text-white/60">
+                  No hemos podido leer el calendario de BeSoccer a tiempo.
+                  Vuelve a pedirlo para ver el próximo partido.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={reintentaCalendario}
+                  className="mt-3 rounded-lg border border-[#D8B45A]/50 px-3 py-1.5 text-xs font-semibold text-[#F7D98B] transition hover:bg-[#D8B45A]/10"
+                >
+                  Reintentar
+                </button>
               </>
             ) : (
               <>

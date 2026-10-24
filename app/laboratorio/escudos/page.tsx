@@ -38,6 +38,21 @@ import {
 
 type Estado = "cargando" | "listo" | "vacio" | "error";
 
+/** Dos letras para el relleno de un escudo que aún no llega o que no llega. */
+function inicialesDe(equipo: string) {
+  const palabras = equipo
+    .replace(/\b(CD|CF|UD|SD|AD|RC|FC|UE|CP|SC)\b/gi, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const letras =
+    palabras.length > 1
+      ? palabras[0][0] + palabras[1][0]
+      : (palabras[0] ?? equipo).slice(0, 2);
+
+  return letras.toUpperCase();
+}
+
 export default function EscudosPage() {
   const [escudos, setEscudos] = useState<EscudoLiga[]>([]);
   const [estado, setEstado] = useState<Estado>("cargando");
@@ -61,6 +76,7 @@ export default function EscudosPage() {
   const pideLista = useCallback(() => {
     setEstado("cargando");
     setAviso(null);
+    setImagenes({});
     setTestigo((n) => n + 1);
   }, []);
 
@@ -101,6 +117,21 @@ export default function EscudosPage() {
       cancelado = true;
     };
   }, [testigo]);
+
+  /* Qué le ha pasado a cada imagen: sin entrada = aún llegando. */
+  const [imagenes, setImagenes] = useState<Record<string, "listo" | "fallo">>(
+    {},
+  );
+
+  const marca = useCallback((url: string, como: "listo" | "fallo") => {
+    setImagenes((previo) =>
+      previo[url] === como ? previo : { ...previo, [url]: como },
+    );
+  }, []);
+
+  const faltan = escudos.filter((e) => imagenes[e.url] === "fallo");
+  const conImagen = escudos.filter((e) => imagenes[e.url] === "listo").length;
+  const pendientes = escudos.length - conImagen - faltan.length;
 
   const hojas = useMemo(() => Math.max(1, Math.ceil(escudos.length / 20)), [
     escudos.length,
@@ -180,7 +211,7 @@ export default function EscudosPage() {
               >
                 <Download size={16} />
                 {haciendo === null
-                  ? `Descargar .pptx${escudos.length ? ` · ${escudos.length} escudos` : ""}`
+                  ? `Descargar .pptx${escudos.length ? ` · ${escudos.length - faltan.length} escudos` : ""}`
                   : `Preparando ${haciendo} de ${escudos.length}…`}
               </button>
 
@@ -198,7 +229,28 @@ export default function EscudosPage() {
                 <Images size={12} />
                 {hojas === 1 ? "Una diapositiva" : `${hojas} diapositivas`}
               </span>
+
+              {estado === "listo" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50">
+                  <ShieldCheck size={12} />
+                  {pendientes > 0
+                    ? `${conImagen} de ${escudos.length} escudos cargados · ${pendientes} por llegar`
+                    : `${conImagen} de ${escudos.length} escudos cargados`}
+                </span>
+              ) : null}
             </div>
+
+            {estado === "listo" && faltan.length ? (
+              <p
+                style={{ color: "#F6AFB6" }}
+                className="mt-3 rounded-xl border border-[#F6AFB6]/30 px-3 py-2 text-sm"
+              >
+                {faltan.length === 1 ? "Falta 1: " : `Faltan ${faltan.length}: `}
+                {faltan.map((f) => f.equipo).join(", ")}. El .pptx saldrá sin{" "}
+                {faltan.length === 1 ? "él" : "ellos"}; pulsa «Actualizar
+                escudos» para reintentarlo.
+              </p>
+            ) : null}
 
             {aviso ? (
               <p className="mt-3 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.07] px-3 py-2 text-sm text-[#E4CE9B]">
@@ -215,7 +267,20 @@ export default function EscudosPage() {
                 icon={ShieldCheck}
               >
                 {estado === "cargando" ? (
-                  <p className="text-sm text-white/50">Pidiendo los escudos…</p>
+                  <div role="status" aria-label="Pidiendo los escudos">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+                      {Array.from({ length: 20 }, (_, i) => (
+                        <div
+                          key={i}
+                          style={{ background: "#04121F" }}
+                          className="h-[118px] animate-pulse rounded-xl border border-white/10"
+                        />
+                      ))}
+                    </div>
+                    <p className="mt-3 text-sm text-white/50">
+                      Pidiendo los escudos…
+                    </p>
+                  </div>
                 ) : null}
 
                 {estado === "error" ? (
@@ -251,22 +316,57 @@ export default function EscudosPage() {
                                    el CSS del modo día no pisa un estilo en línea.
                                    Sin `next/image`: imágenes de otro origen por
                                    el proxy de la casa. */
-                                style={{ background: "#04121F" }}
+                                style={{
+                                  background: "#04121F",
+                                  borderColor:
+                                    imagenes[uno.url] === "fallo"
+                                      ? "#F6AFB6"
+                                      : undefined,
+                                }}
                                 className="flex flex-col items-center gap-2 rounded-xl border border-white/10 p-3"
                               >
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={urlDeEscudo(uno.url)}
-                                  alt={uno.equipo}
-                                  className="h-16 w-16 object-contain"
-                                  loading="lazy"
-                                />
+                                <div className="relative h-16 w-16">
+                                  {/* Iniciales detrás: mientras llega la imagen,
+                                      o para siempre si no llega, la casilla
+                                      nunca se queda vacía. */}
+                                  {imagenes[uno.url] !== "listo" ? (
+                                    <span
+                                      aria-hidden
+                                      style={{
+                                        background: "rgba(228,206,155,0.3)",
+                                        color: "#E4CE9B",
+                                      }}
+                                      className="absolute inset-0 flex items-center justify-center rounded-full text-lg font-bold"
+                                    >
+                                      {inicialesDe(uno.equipo)}
+                                    </span>
+                                  ) : null}
+                                  {imagenes[uno.url] !== "fallo" ? (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img
+                                      src={urlDeEscudo(uno.url)}
+                                      alt={uno.equipo}
+                                      className="relative h-16 w-16 object-contain"
+                                      loading="eager"
+                                      onLoad={() => marca(uno.url, "listo")}
+                                      onError={() => marca(uno.url, "fallo")}
+                                    />
+                                  ) : null}
+                                </div>
                                 <figcaption
                                   style={{ color: "#E4CE9B" }}
                                   className="text-center text-[11px] font-semibold uppercase tracking-[0.1em]"
                                 >
                                   {uno.equipo}
                                 </figcaption>
+                                {imagenes[uno.url] === "fallo" ? (
+                                  <span
+                                    style={{ color: "#F6AFB6" }}
+                                    className="text-center text-[11px]"
+                                  >
+                                    No llega el escudo
+                                  </span>
+                                ) : null}
                               </figure>
                             ))}
                           </div>
