@@ -3,6 +3,7 @@
   import { useMemo, useState } from "react";
 
   import BoardViewport from "@/components/board/BoardViewport";
+  import { fraseCaida, fraseRemate, fraseResultado } from "@/lib/abp/accionFrase";
 
   export type ABPRow = {
     jornada?: string;
@@ -562,14 +563,12 @@ const origen = `${tipo}__${perfil}`;
                 <span className="font-semibold">{accion}</span>
                 {minuto !== "" && <span className="text-white/55">{minuto}′</span>}
                 {jornada && <span className="text-white/55">{jornada}</span>}
-                {caida && <span>cae en {caida}</span>}
-                {remate && <span>remate desde {remate}</span>}
-                {resultado && <span className="text-white/65">{resultado}</span>}
-                {xg > 0 && (
-                  <span className="ml-auto text-white/55">
-                    {xg.toFixed(2).replace(".", ",")} xG
-                  </span>
-                )}
+                <span>{fraseCaida(caida)}</span>
+                <span>{fraseRemate(remate)}</span>
+                <span className="text-white/65">{fraseResultado(resultado)}</span>
+                <span className="ml-auto text-white/55">
+                  xG {xg.toFixed(2).replace(".", ",")}
+                </span>
               </li>
             );
           })}

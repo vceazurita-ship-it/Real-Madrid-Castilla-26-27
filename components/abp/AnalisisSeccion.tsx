@@ -97,8 +97,11 @@ function Chapa({
 function ChapaComparativa({
   dato,
   sinFiltro,
+  base,
 }: {
   dato: Comparativa;
+  /** Con qué se compara, dicho en voz alta: «la media de la temporada, 68 acciones». */
+  base: string;
   /** Sin filtro, lo filtrado y el global son lo mismo: la comparación sobra. */
   sinFiltro: boolean;
 }) {
@@ -113,11 +116,11 @@ function ChapaComparativa({
           ? undefined
           : dato.delta == null || Math.abs(dato.delta) < 0.005
             ? dato.valorTexto === dato.globalTexto
-              ? `igual que la media de la temporada (${dato.globalTexto})`
-              : `casi igual que la media de la temporada (${dato.globalTexto})`
+              ? `igual que ${base} (${dato.globalTexto})`
+              : `casi igual que ${base} (${dato.globalTexto})`
             : !dato.fiable
-              ? `indicio · ${dato.deltaTexto} sobre la media de la temporada (${dato.globalTexto})`
-              : `${dato.deltaTexto} sobre la media de toda la temporada (${dato.globalTexto})${dato.menosEsMejor ? " · menos es mejor" : ""}`
+              ? `indicio · ${dato.deltaTexto} sobre ${base} (${dato.globalTexto})`
+              : `${dato.deltaTexto} sobre ${base} (${dato.globalTexto})${dato.menosEsMejor ? " · menos es mejor" : ""}`
       }
       color={dato.tono === "neutro" ? undefined : TONO_COLOR[dato.tono]}
     />
@@ -295,7 +298,7 @@ export function AnalisisSeccion<T>({
     acompanan,
   ]);
 
-  const { muestra, principal, secundarias, tendencia, reparto } = analisis;
+  const { muestra, principal, tendencia, reparto } = analisis;
 
   if (muestra.total === 0) return null;
 
@@ -377,15 +380,13 @@ export function AnalisisSeccion<T>({
               }
             />
 
-            <ChapaComparativa dato={principal} sinFiltro={muestra.sinFiltro} />
-
-            {secundarias.map((dato) => (
-              <ChapaComparativa
-                key={dato.clave}
-                dato={dato}
-                sinFiltro={muestra.sinFiltro}
-              />
-            ))}
+            {/* Una sola referencia: las demás cifras (remates, xG, goles) ya
+                están en las tarjetas y en la tabla del partido. */}
+            <ChapaComparativa
+              dato={principal}
+              sinFiltro={muestra.sinFiltro}
+              base={`la media de la temporada, ${muestra.total} ${muestra.total === 1 ? "acción" : "acciones"}`}
+            />
           </div>
 
           <p

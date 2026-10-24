@@ -388,12 +388,17 @@ export function revisaSemana({
       id: "video",
       tono: "aviso",
       titulo: (() => {
-        const dias = [...new Set(tarde.map(({ dia }) => nombreDia(dia)))];
-        const cuando = enLista(dias);
+        const dePartido = tarde.every(({ dia }) => dias[dia]?.tipo === "partido");
+        const cuando = enLista([...new Set(tarde.map(({ dia }) => nombreDia(dia)))]);
 
-        return `${cuando.replace(/^./, (letra) => letra.toUpperCase())}: el vídeo va después del campo`;
+        /* En el día del partido no se entrena: el consejo habla de salir al campo. */
+        return dePartido
+          ? `Día del partido (${cuando}): el vídeo va después del campo`
+          : `${cuando.replace(/^./, (letra) => letra.toUpperCase())}: el vídeo va después del campo`;
       })(),
-      detalle: "Ponlo antes: primero se ve, luego se entrena.",
+      detalle: tarde.every(({ dia }) => dias[dia]?.tipo === "partido")
+        ? "Ponlo antes: primero se ve, luego se sale al campo."
+        : "Ponlo antes: primero se ve, luego se entrena.",
       dia: tarde[0].dia,
       trabajo: tarde[0].trabajo,
     });
@@ -439,7 +444,14 @@ export function revisaSemana({
       id: `urgente-${fila.aspecto.key}-${fila.lado}`,
       tono: "aviso",
       titulo: `${fila.aspecto.label} ${fila.lado === "ofensivo" ? "atacando" : "defendiendo"}, fuera de la semana`,
-      detalle: `De lo más urgente: ${fila.stats.acciones} acciones en competición y ${Math.round(fila.peligroAjustado)} % de peligro.`,
+      detalle: `De lo más urgente: ${fila.stats.acciones} acciones en competición y ${Math.round(fila.peligroAjustado)} % de peligro.${(() => {
+        /* Si el mismo aspecto sí se trabaja del otro lado, se dice: si no, parece un olvido sin motivo. */
+        const otro = fila.lado === "ofensivo" ? "defensivo" : "ofensivo";
+
+        return enSemana.has(claveAspecto(fila.aspecto.key, otro))
+          ? ` Esta semana se trabaja ${otro === "ofensivo" ? "atacando" : "defendiendo"}, pero ${fila.lado === "ofensivo" ? "atacando" : "defendiendo"} no entra.`
+          : "";
+      })()}`,
       falta: { aspecto: fila.aspecto.key, lado: fila.lado },
     });
   }
