@@ -94,7 +94,7 @@ export function VistazoRival({
   enlaces,
 }: {
   /** Dónde hacerles daño: jugadores con etiquetas de debilidad y rasgos flojos en Wyscout. */
-  dano?: { nombre: string; puesto: string; rasgos: string[] }[];
+  dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string }[];
   /** Bajas de la hoja, apercibidos y rojas de BeSoccer; `null` si no hay nada. */
   avisos?: AvisosRival | null;
   equipo: string;
@@ -300,7 +300,8 @@ export function VistazoRival({
             {dano.map((uno) => (
               <li key={uno.nombre}>
                 <b className="font-semibold text-white">{uno.nombre}</b>
-                {uno.puesto ? <span className="text-white/45"> ({uno.puesto})</span> : null}: {uno.rasgos.join(", ")}
+                {uno.puesto ? <span className="text-white/45"> ({uno.puesto})</span> : null}: {uno.rasgos.join(" y ")}
+                {uno.accion ? <span className="text-white/80"> → {uno.accion}</span> : null}
               </li>
             ))}
           </ul>
