@@ -36,6 +36,15 @@ export type Zona = "primer-palo" | "centro" | "segundo-palo" | "portero" | "fron
 /** Cuándo arranca la carrera: antes del saque, con el golpeo o a por el rechace. */
 export type Fase = 1 | 2 | 3;
 
+/** Cómo va el balón por el aire: define la altura del vuelo en la simulación. */
+export type Envio = "tenso" | "bombeado" | "raso";
+
+export const ENVIOS: { key: Envio; label: string }[] = [
+  { key: "tenso", label: "Tenso" },
+  { key: "bombeado", label: "Bombeado" },
+  { key: "raso", label: "Raso" },
+];
+
 /** Un punto del medio campo en metros: x de banda a banda (0-68), y desde la línea de fondo (0-52,5). */
 export type Punto = { x: number; y: number };
 
@@ -91,6 +100,10 @@ export type Rutina = {
   estado: Estado;
   /** El recorrido del balón: el primer punto es donde se golpea. */
   balon?: Punto[];
+  /** Cómo va el balón por el aire (si no se dice, tenso). */
+  envio?: Envio;
+  /** La rutina de la que es variante (su id), para la biblioteca. */
+  padre?: string;
   /** Los pasos de `PROGRESION` ya dados. */
   progreso?: string[];
   /** Las veces que se ha usado compitiendo. */
@@ -294,6 +307,8 @@ export function rutinaDe(v: unknown, ahora: string, previa?: Rutina): Rutina {
     roles: (Array.isArray(r.roles) ? r.roles : []).map(rol).filter((x): x is Rol => Boolean(x)).slice(0, 14),
     variantes: (Array.isArray(r.variantes) ? r.variantes : []).map((x) => texto(x, 240)).filter(Boolean).slice(0, 8),
     estado: de(ESTADOS, r.estado, "idea"),
+    ...(r.envio === "tenso" || r.envio === "bombeado" || r.envio === "raso" ? { envio: r.envio as Envio } : {}),
+    ...(texto(r.padre, 40) ? { padre: texto(r.padre, 40) } : {}),
     ...listaSi("balon", (Array.isArray(r.balon) ? r.balon : []).map(punto).filter((x): x is Punto => Boolean(x)).slice(0, 6)),
     ...listaSi("progreso", [...new Set((Array.isArray(r.progreso) ? r.progreso : []).filter((x): x is string => PROGRESION.some((p) => p.key === x)))]),
     ...listaSi(
