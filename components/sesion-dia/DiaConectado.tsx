@@ -17,6 +17,7 @@ import type { EntrenoDelDia } from "@/hooks/useDiasConectados";
 import {
   enlaza,
   equiposDeTarea,
+  nombreVisible,
   resultadosPorTarea,
   textoDePropuesta,
   type Propuesta,
@@ -76,10 +77,13 @@ export function DiaConectado({
   const conEquipos = sesion ? sesion.tareas.filter((t) => Object.values(t.sitio).some((s) => s !== "fuera")).length : 0;
   const hayAlgo = Boolean(sesion) || porTarea.size > 0 || sinTarea.length > 0;
 
+  /* Sin nada que contar no se dibuja la caja: sólo la fila con los accesos. */
+  const vacio = !hayAlgo && propuestas.length === 0;
+
   return (
-    <div className="min-w-0 space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+    <div className={vacio ? "min-w-0" : "min-w-0 space-y-2 rounded-xl border border-white/10 bg-white/[0.02] p-3"}>
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-        <p className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">En la sesión</p>
+        {vacio ? null : <p className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45">En la sesión</p>}
         {sesion ? (
           <p className="min-w-0 text-[12px] text-white/70">
             {disponibles} jugadores{bajas ? ` · ${bajas} de baja` : ""}
@@ -104,7 +108,7 @@ export function DiaConectado({
               <li key={`${p.codigo}-${k}`} className="min-w-0 rounded-lg border border-white/[0.06] px-2.5 py-1.5">
                 <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
                   <span className="font-semibold text-[#C8A96B]">{p.codigo}</span>
-                  <span className="min-w-0 truncate text-white/80">{t?.nombre || p.tipo || p.contenidoPrincipal}</span>
+                  <span className="min-w-0 truncate text-white/80">{nombreVisible(t?.nombre, p.tipo, p.contenidoPrincipal, p.formato) || "Tarea sin nombre"}</span>
                   {colocados.map((e) => (
                     <span key={e.nombre + e.color} className="inline-flex items-center gap-1 text-[11px] text-white/60" title={e.jugadores.join(", ")}>
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/20" style={{ background: e.color }} aria-hidden />

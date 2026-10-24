@@ -308,38 +308,61 @@ export default function MicroCalendar() {
 
   const active = months[currentMonth];
 
-  const monthStats = useMemo(() => {
-    let sesiones = 0;
-    let minutos = 0;
-    let carga = 0;
-    let cognitiva = 0;
-    let tareas = 0;
+  const statsDelMes = useCallback(
+    (month: number, year: number) => {
+      let sesiones = 0;
+      let minutos = 0;
+      let carga = 0;
+      let cognitiva = 0;
+      let tareas = 0;
 
-    sessionDays.forEach((key) => {
-      const date = parseDateKey(key);
-      if (date.getMonth() !== active.month || date.getFullYear() !== active.year)
-        return;
+      sessionDays.forEach((key) => {
+        const date = parseDateKey(key);
+        if (date.getMonth() !== month || date.getFullYear() !== year) return;
 
-      const dayTasks = tasksByDay.get(key) ?? [];
+        const dayTasks = tasksByDay.get(key) ?? [];
 
-      sesiones += 1;
-      tareas += dayTasks.length;
+        sesiones += 1;
+        tareas += dayTasks.length;
 
-      dayTasks.forEach((t) => {
-        minutos += minutesOf(t);
-        carga += Number(t["Carga Ponderada"]) || 0;
-        cognitiva += Number(t["Carga cognitiva"]) || 0;
+        dayTasks.forEach((t) => {
+          minutos += minutesOf(t);
+          carga += Number(t["Carga Ponderada"]) || 0;
+          cognitiva += Number(t["Carga cognitiva"]) || 0;
+        });
       });
-    });
 
-    return {
-      sesiones,
-      tareas,
-      minutos,
-      cargaMedia: sesiones > 0 ? Math.round(carga / sesiones) : 0,
-      cognitivaMedia: sesiones > 0 ? Math.round(cognitiva / sesiones) : 0,
-    };
-  }, [sessionDays, tasksByDay, active]);
+      return {
+        sesiones,
+        tareas,
+        minutos,
+        cargaMedia: sesiones > 0 ? Math.round(carga / sesiones) : 0,
+        cognitivaMedia: sesiones > 0 ? Math.round(cognitiva / sesiones) : 0,
+      };
+    },
+    [sessionDays, tasksByDay]
+  );
+
+  const monthStats = useMemo(
+    () => statsDelMes(active.month, active.year),
+    [statsDelMes, active]
+  );
+
+  /* El mes anterior, para decir contra qué se comparan las cargas medias. */
+  const mesPrevio = useMemo(() => {
+    const month = active.month === 0 ? 11 : active.month - 1;
+    const year = active.month === 0 ? active.year - 1 : active.year;
+    return { month, stats: statsDelMes(month, year) };
+  }, [statsDelMes, active]);
+
+  /** «+12 % sobre septiembre»; vacío si el mes anterior no tuvo sesiones. */
+  const frente = (actual: number, previo: number) => {
+    if (mesPrevio.stats.sesiones === 0 || previo <= 0) return "";
+    const pct = Math.round(((actual - previo) / previo) * 100);
+    const nombre = MONTHS[mesPrevio.month].toLowerCase();
+    if (pct === 0) return ` · igual que en ${nombre}`;
+    return ` · ${pct > 0 ? "+" : "−"}${Math.abs(pct)} % sobre ${nombre}`;
+  };
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
   const selectedIndex = selectedKey ? sessionDays.indexOf(selectedKey) : -1;
@@ -401,7 +424,11 @@ export default function MicroCalendar() {
   return (
     <CalendarShell
       eyebrow="RMCF CASTILLA · ENTRENAMIENTO"
-      title="Calendario de Microciclo"
+      title={
+        monthStats.sesiones > 0
+          ? `${monthStats.sesiones} ${monthStats.sesiones === 1 ? "sesión" : "sesiones"} y ${formatMinutes(monthStats.minutos)} en ${MONTHS[active.month].toLowerCase()}`
+          : "Calendario de Microciclo"
+      }
       months={months}
       monthIndex={currentMonth}
       onMonthChange={setCurrentMonth}
@@ -425,12 +452,12 @@ export default function MicroCalendar() {
           <CalendarStat
             label="Carga física media / sesión"
             value={monthStats.cargaMedia}
-            hint={`En ${MONTHS[active.month].toLowerCase()} · minutos × intensidad`}
+            hint={`Minutos × intensidad${frente(monthStats.cargaMedia, mesPrevio.stats.cargaMedia)}`}
           />
           <CalendarStat
             label="Carga cognitiva media / sesión"
             value={monthStats.cognitivaMedia}
-            hint={`En ${MONTHS[active.month].toLowerCase()} · minutos × demanda cognitiva`}
+            hint={`Minutos × demanda cognitiva${frente(monthStats.cognitivaMedia, mesPrevio.stats.cognitivaMedia)}`}
           />
         </>
       }

@@ -71,7 +71,10 @@ export function Acceso({
   subtitulo = "Cada uno pone sólo lo suyo. Ver el ranking no necesita entrar",
   titulo = "Entra para apostar",
   sinPista = false,
+  botonEntrar = "Entrar",
 }: {
+  /** El texto del botón de enviar al entrar: distinto de la pestaña «Entrar» cuando hace falta (no repetirlo). */
+  botonEntrar?: string;
   yo: Yo | null;
   cargando: boolean;
   manda: Manda;
@@ -232,7 +235,7 @@ export function Acceso({
             (registrando ? !quien : !clave)
           }
         >
-          {enviando ? "Un momento…" : registrando ? "Registrarme" : "Entrar"}
+          {enviando ? "Un momento…" : registrando ? "Registrarme" : botonEntrar}
         </Button>
       </form>
 

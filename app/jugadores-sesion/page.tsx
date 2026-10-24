@@ -2359,11 +2359,18 @@ export default function JugadoresSesionPage() {
                     }}
                     className="max-w-[320px] truncate rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-white outline-none focus:border-[#C8A96B]/50"
                   >
-                    {sesiones.map((s) => (
-                      <option key={s.id} value={s.id} className="bg-[#11161C]">
-                        {s.titulo}
-                      </option>
-                    ))}
+                    {sesiones.map((s, i) => {
+                      /* Dos sesiones sin título se llaman igual («Sesión»): se distinguen por la fecha o, si no hay, por su número. */
+                      const repetida = sesiones.filter((o) => o.titulo === s.titulo).length > 1;
+                      const fechaCorta = s.fecha ? new Date(`${s.fecha}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "";
+                      const etiqueta = repetida ? `${s.titulo} · ${fechaCorta || `nº ${sesiones.length - i}`}` : s.titulo;
+
+                      return (
+                        <option key={s.id} value={s.id} className="bg-[#11161C]">
+                          {etiqueta}
+                        </option>
+                      );
+                    })}
                   </select>
                 </label>
 
@@ -2581,8 +2588,8 @@ export default function JugadoresSesionPage() {
                     onCambia={setVista}
                     opciones={[
                       { clave: "equipos", label: "Equipos", icono: UsersRound },
-                      { clave: "diapositivas", label: "Diapositivas", icono: Expand, cuenta: sesion.tareas.length },
-                      { clave: "plantilla", label: "Plantilla del día", icono: Repeat2, cuenta: sesion.jugadores.length },
+                      { clave: "diapositivas", label: "Diapositivas", corto: "Diapos", icono: Expand, cuenta: sesion.tareas.length },
+                      { clave: "plantilla", label: "Plantilla del día", corto: "Plantilla", icono: Repeat2, cuenta: sesion.jugadores.length },
                     ]}
                   />
                 </div>
@@ -2590,7 +2597,7 @@ export default function JugadoresSesionPage() {
                 <div className={`mt-4 grid min-w-0 gap-5 ${vista === "equipos" ? "2xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]" : ""}`}>
                   {/* ================= EDITOR ================= */}
                   {vista === "equipos" && (
-                  <div className="min-w-0 space-y-4">
+                  <div className="flex min-w-0 flex-col gap-4">
                     {/* --- configuración de la tarea --- */}
                     <div className="flex min-w-0 flex-wrap items-end gap-x-5 gap-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                       <label className="block min-w-[200px] flex-1">
@@ -2856,7 +2863,8 @@ export default function JugadoresSesionPage() {
                       return (
                         <div
                           role="status"
-                          className={`flex min-w-0 items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-snug ${
+                          /* En el móvil el aviso va DEBAJO de los campos (order-last): encima ocupaba media pantalla antes de ver los equipos. */
+                          className={`flex min-w-0 items-start gap-2 rounded-xl border px-3 py-2 text-[12px] leading-snug max-md:order-last ${
                             grave ? "border-red-400/30 bg-red-500/[0.06] text-red-200" : problemas.length ? "border-amber-400/40 bg-amber-400/[0.05] text-amber-100" : "border-emerald-400/30 bg-emerald-400/[0.05] text-emerald-200"
                           }`}
                         >
