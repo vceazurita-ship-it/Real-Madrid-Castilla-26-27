@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   AlarmClock,
   BellOff,
@@ -50,6 +51,17 @@ export default function ListaAlertas({
   onBorrar,
   ocupada,
 }: Props) {
+  /* El reloj se apunta en un efecto: mirarlo en el render es impuro. */
+  const [ahora, setAhora] = useState(0);
+  /* La tarjeta que está pidiendo confirmación para borrarse. */
+  const [borrando, setBorrando] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = setTimeout(() => setAhora(Date.now()), 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
   if (!alertas.length) {
     return (
       <div className="rounded-3xl border border-dashed border-white/10 px-6 py-10 text-center">
@@ -85,7 +97,15 @@ export default function ListaAlertas({
         /* Se pintaba en minúsculas tal cual se apuntó, y el cuerpo repetía el
            título cuando sólo se había escrito uno. */
         const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-        const titulo = mayuscula(alerta.titulo.trim());
+        /* Un título escrito todo en mayúsculas se lee a gritos: se pasa a frase. */
+        const frase = (t: string) => {
+          const letras = t.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
+
+          return letras.length > 3 && t === t.toUpperCase()
+            ? mayuscula(t.toLowerCase())
+            : mayuscula(t);
+        };
+        const titulo = frase(alerta.titulo.trim());
         const mensaje = alerta.mensaje?.trim() ?? "";
         const repiteTitulo =
           mensaje.toLowerCase() === alerta.titulo.trim().toLowerCase();
@@ -105,7 +125,7 @@ export default function ListaAlertas({
 
                 {mensaje && !repiteTitulo && (
                   <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/50">
-                    {mayuscula(mensaje)}
+                    {frase(mensaje)}
                   </p>
                 )}
               </div>
@@ -132,9 +152,24 @@ export default function ListaAlertas({
               <span className="inline-flex items-center gap-1.5">
                 <AlarmClock className="h-3 w-3" aria-hidden />
                 {!alerta.activa
-                  ? fechaValida(alerta.proximoEnvio)
-                    ? `Silenciada: no se enviará hasta reactivarla (sonaría ${fechaLegible(alerta.proximoEnvio)})`
-                    : "Silenciada: no se enviará hasta reactivarla"
+                  ? (() => {
+                      /* «Sonaría» solo con fecha futura: una pasada es un resto
+                         de cuando estaba viva, no un dato. */
+                      const futura =
+                        fechaValida(alerta.proximoEnvio) &&
+                        ahora > 0 &&
+                        new Date(alerta.proximoEnvio).getTime() > ahora;
+
+                      if (futura)
+                        return `Silenciada: no se enviará hasta reactivarla (sonaría ${fechaLegible(alerta.proximoEnvio)})`;
+
+                      if (alerta.envios > 0 && fechaValida(alerta.ultimoEnvio))
+                        return `Silenciada · última vez enviada: ${fechaLegible(alerta.ultimoEnvio)}`;
+
+                      return alerta.repeticion === "partido"
+                        ? "Silenciada: reactívala para fijar el próximo aviso"
+                        : "Silenciada: no se enviará hasta reactivarla";
+                    })()
                   : fechaValida(alerta.proximoEnvio)
                     ? fechaLegible(alerta.proximoEnvio)
                     : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo.
@@ -180,7 +215,7 @@ export default function ListaAlertas({
                 </span>
               )}
 
-              {alerta.envios > 0 && (
+              {alerta.envios > 0 && (alerta.activa || !fechaValida(alerta.ultimoEnvio)) && (
                 <span title={`Último: ${fechaLegible(alerta.ultimoEnvio)}`}>
                   {alerta.envios === 1
                     ? "Enviada 1 vez"
@@ -193,7 +228,35 @@ export default function ListaAlertas({
 
             {/* ------------------ ACCIONES ----------------- */}
 
-            <div className="mt-3 flex items-center gap-1 border-t border-white/[0.06] pt-3">
+            {borrando === alerta.id ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-red-400/20 pt-3">
+                <p className="min-w-0 flex-1 basis-full text-xs leading-relaxed text-red-300 sm:basis-0">
+                  ¿Borrar «{titulo}»? Dejará de avisar y desaparece de la hoja.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBorrando(null);
+                    onBorrar(alerta);
+                  }}
+                  disabled={bloqueada}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-3 py-1.5 text-xs font-medium text-red-300 transition hover:bg-red-500/30 disabled:opacity-40"
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  Sí, borrar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBorrando(null)}
+                  className="rounded-full px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.06] hover:text-white"
+                >
+                  Cancelar
+                </button>
+              </div>
+            ) : (
+            <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-white/[0.06] pt-3">
               <button
                 type="button"
                 onClick={() => onEditar(alerta)}
@@ -228,14 +291,15 @@ export default function ListaAlertas({
 
               <button
                 type="button"
-                onClick={() => onBorrar(alerta)}
+                onClick={() => setBorrando(alerta.id)}
                 disabled={bloqueada}
-                className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/40 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
+                className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-red-300/80 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
               >
                 <Trash2 className="h-3.5 w-3.5" aria-hidden />
                 Borrar
               </button>
             </div>
+            )}
           </article>
         );
   };

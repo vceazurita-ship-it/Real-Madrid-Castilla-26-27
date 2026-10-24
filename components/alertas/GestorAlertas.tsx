@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Plus, RotateCw, TriangleAlert } from "lucide-react";
+import { BellRing, Loader2, Plus, RotateCw, TriangleAlert } from "lucide-react";
 
 import ConfirmDialog from "@/components/season/ConfirmDialog";
 import { useAlertas } from "@/hooks/useAlertas";
@@ -144,7 +144,6 @@ export default function GestorAlertas() {
 
   const [editando, setEditando] = useState<Alerta | null>(null);
   const [esNueva, setEsNueva] = useState(false);
-  const [aBorrar, setABorrar] = useState<Alerta | null>(null);
   const [ocupada, setOcupada] = useState<string | null>(null);
 
   const abrirNueva = () => {
@@ -177,13 +176,12 @@ export default function GestorAlertas() {
     setAEnviar(null);
   };
 
-  const confirmarBorrado = async () => {
-    if (!aBorrar) return;
-
-    setOcupada(aBorrar.id);
-    await borrar(aBorrar.id);
+  /* La confirmación vive en la propia tarjeta (ListaAlertas): aquí ya llega
+     confirmada. */
+  const borrarConfirmada = async (alerta: Alerta) => {
+    setOcupada(alerta.id);
+    await borrar(alerta.id);
     setOcupada(null);
-    setABorrar(null);
   };
 
   /* El reloj se apunta en un efecto: mirarlo en el render es impuro. */
@@ -194,6 +192,15 @@ export default function GestorAlertas() {
 
     return () => clearTimeout(id);
   }, []);
+
+  /* Si no queda ninguna viva, la tarea más reciente es la candidata a
+     reactivar: la última que se envió o se programó. */
+  const reciente =
+    [...alertas].sort((a, b) =>
+      String(b.ultimoEnvio || b.proximoEnvio).localeCompare(
+        String(a.ultimoEnvio || a.proximoEnvio),
+      ),
+    )[0] ?? null;
 
   const resumen = (() => {
     const vivas = alertas.filter((a) => a.activa);
@@ -284,6 +291,17 @@ export default function GestorAlertas() {
               : `${alertas.length} tareas, todas silenciadas`}
           </b>
           {" · "}ningún aviso sonará: reactiva los que quieras que salgan.
+          {reciente && (
+            <button
+              type="button"
+              onClick={() => void alternarActiva(reciente)}
+              disabled={ocupada === reciente.id}
+              className="mt-2 flex max-w-full items-center gap-1.5 rounded-full bg-amber-500/20 px-3 py-1.5 font-medium text-amber-100 transition hover:bg-amber-500/30 disabled:opacity-40"
+            >
+              <BellRing className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <span className="truncate">Reactivar «{reciente.titulo.trim()}»</span>
+            </button>
+          )}
         </p>
       )}
 
@@ -340,7 +358,7 @@ export default function GestorAlertas() {
           onEditar={abrirExistente}
           onEnviarAhora={setAEnviar}
           onAlternarActiva={(alerta) => void alternarActiva(alerta)}
-          onBorrar={setABorrar}
+          onBorrar={(alerta) => void borrarConfirmada(alerta)}
           ocupada={ocupada}
         />
       )}
@@ -358,19 +376,6 @@ export default function GestorAlertas() {
           onCerrar={() => setEditando(null)}
         />
       )}
-
-      <ConfirmDialog
-        open={Boolean(aBorrar)}
-        title="Borrar la tarea"
-        description={
-          aBorrar
-            ? `«${aBorrar.titulo}» dejará de avisar y desaparece de la hoja.`
-            : undefined
-        }
-        loading={Boolean(aBorrar && ocupada === aBorrar.id)}
-        onConfirm={() => void confirmarBorrado()}
-        onCancel={() => setABorrar(null)}
-      />
 
       <ConfirmDialog
         open={Boolean(aEnviar)}
