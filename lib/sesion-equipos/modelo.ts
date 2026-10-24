@@ -178,6 +178,8 @@ export type TareaEquipos = {
   reglas?: string;
   /** Cómo queda la tarea tras el cambio a mitad (08/10/2026). */
   cambio?: FaseCambio;
+  /** La tarea del microciclo de la que sale (24/10/2026): código, firma y el nombre que trajo. Ver lib/sesion-dia/conexion.ts. */
+  plan?: import("@/lib/sesion-dia/conexion").VinculoPlan;
 };
 
 export type SesionEquipos = {
@@ -191,6 +193,8 @@ export type SesionEquipos = {
   jugadores: JugadorSesion[];
   tareas: TareaEquipos[];
   creadaEn: string;
+  /** Firmas de las tareas del microciclo que se quitaron en la sesión (24/10/2026): el microciclo propone quitarlas. */
+  planQuitadas?: string[];
 };
 
 export type AlmacenEquipos = {
@@ -552,6 +556,8 @@ export function duplicaTarea(tarea: TareaEquipos, nombre: string): TareaEquipos 
     ...tarea,
     id: nuevoId("ta"),
     nombre,
+    /* La copia no es la tarea del microciclo de la original: si se queda, es una tarea más de la sesión. */
+    plan: undefined,
     equipos: tarea.equipos.map((e) => ({ ...e, id: ids.get(e.id)! })),
     sitio,
     ...(cambio ? { cambio } : {}),
