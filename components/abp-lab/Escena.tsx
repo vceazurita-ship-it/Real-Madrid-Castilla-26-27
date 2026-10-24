@@ -18,11 +18,11 @@
 import { useSyncExternalStore, type PointerEvent as PE, type KeyboardEvent as KE, type Ref } from "react";
 
 import { iniciales, type JugadorLab } from "@/components/abp-lab/comun";
-import { AREA, AREA_PEQUENA, PENALTI, PORTERIA, ANCHO, LARGO, TRAMOS, VUELO, recorridoBalon, salidas } from "@/lib/abp-lab/campo";
+import { AREA, AREA_PEQUENA, PENALTI, PORTERIA, ANCHO, LARGO, TRAMOS, VUELO, posicionesEn, recorridoBalon, salidas } from "@/lib/abp-lab/campo";
 import { curva, linea, poligono, type Camara, type P3 } from "@/lib/abp-lab/camara";
 import type { Envio, Fase, Papel, Punto, Rol } from "@/lib/abp-lab/modelo";
 import type { TipoAbp } from "@/lib/abp-lab/referentes";
-import { arcoTramo, estadoBalon, type Defensor, type EstadoDefensa } from "@/lib/abp-lab/simulacion";
+import { estadoBalon, type Defensor, type EstadoDefensa } from "@/lib/abp-lab/simulacion";
 import type { Celda, Duelo, Remate } from "@/lib/abp-lab/ventaja";
 import { comaXg } from "@/lib/abp-lab/xg";
 
@@ -54,6 +54,13 @@ export type Paleta = {
   nuestro: string;
   suyo: string;
   bloqueo: string;
+  /** El césped pisado de la boca de gol. */
+  gastado: string;
+  /** De dónde viene la luz: hacia dónde cae cada sombra (en metros por metro de alto) y cuánto pesa. De día, el sol; de noche, las torres. */
+  luces: { dx: number; dy: number; a: number }[];
+  /** Las vallas de publicidad y la grada, en las cámaras de televisión. */
+  valla: string;
+  publico: string;
 };
 
 export const NOCHE: Paleta = {
@@ -80,6 +87,14 @@ export const NOCHE: Paleta = {
   nuestro: "200,169,107",
   suyo: "232,64,92",
   bloqueo: "#FF9F43",
+  gastado: "rgba(150,140,100,0.1)",
+  luces: [
+    { dx: -0.42, dy: 0.38, a: 0.55 },
+    { dx: 0.42, dy: 0.38, a: 0.55 },
+    { dx: 0.05, dy: -0.5, a: 0.35 },
+  ],
+  valla: "#0A1118",
+  publico: "#070D13",
 };
 
 export const DIA: Paleta = {
@@ -106,6 +121,10 @@ export const DIA: Paleta = {
   nuestro: "253,224,140",
   suyo: "190,24,60",
   bloqueo: "#FB923C",
+  gastado: "rgba(214,196,136,0.22)",
+  luces: [{ dx: 0.55, dy: 0.42, a: 1 }],
+  valla: "#1D2A33",
+  publico: "#6E8079",
 };
 
 const suscribeTema = (aviso: () => void) => {
@@ -170,6 +189,8 @@ export type Capas = {
   fotos: boolean;
   ventaja: boolean;
   duelos: boolean;
+  /** El mapa de calor de llegada (`mapaLlegada`). */
+  llegada?: boolean;
 };
 
 export type ManejadoresEscena = {
@@ -197,6 +218,7 @@ export function Escena({
   celdas,
   libres,
   duelos,
+  llegada,
   remate,
   seleccionado = null,
   editaBalon = false,
@@ -221,6 +243,8 @@ export function Escena({
   celdas?: Celda[];
   libres?: Punto[];
   duelos?: Duelo[];
+  /** El mapa de calor de llegada, si se pinta. */
+  llegada?: Celda[];
   remate?: Remate | null;
   seleccionado?: number | null;
   editaBalon?: boolean;
@@ -305,7 +329,8 @@ export function Escena({
 
   /* ---------------------------- las fichas ----------------------------- */
 
-  const levanta = cam.tresD ? 1.75 : 0;
+  /* La altura a la que se miden los duelos: la cabeza en perspectiva. */
+  const levanta = cam.tresD ? 1.7 : 0;
 
   type Pieza =
     | { tipo: "nuestro"; i: number; p: Punto; prof: number }
@@ -324,26 +349,42 @@ export function Escena({
   /* De lejos a cerca (en cenital, de arriba abajo): lo de delante tapa a lo de detrás. */
   piezas.sort((a, b) => (cam.tresD ? a.prof - b.prof : (a.tipo === "balon" ? 1e9 : a.p.y) - (b.tipo === "balon" ? 1e9 : b.p.y)));
 
-  /* En perspectiva, la ficha mide lo que mediría a esa distancia, sin bajar de lo legible ni tapar media pantalla. */
+  /* En cenital, la ficha mide 1,2 m; en perspectiva, lo que mide a esa distancia, sin bajar de lo legible ni tapar media pantalla. */
   const radioFicha = (s: number) => (cam.tresD ? Math.min(Math.max(0.78 * s, u * 0.62), u * 2.1) : 1.2);
+
+  /* Unidades de pantalla por metro de un jugador en perspectiva, con los mismos topes. */
+  const metroDe = (s: number) => Math.min(Math.max(s, u * 1.02), u * 2.8);
 
   const textoFicha = (r: Rol, j?: JugadorLab) => (j ? String(j.dorsal ?? iniciales(j.nombre)) : CODIGO_PAPEL[r.papel]);
 
   const fotoDe = (j?: JugadorLab) => (capas.fotos && j?.foto ? (fotos?.get(j.foto) ?? j.foto) : null);
 
-  const sombra = (p: Punto, ancho: number) => {
-    const c = g({ ...p, z: 0 });
+  /** Una elipse tumbada en el césped, en metros (se deforma con la perspectiva como la de verdad). */
+  const elipseSuelo = (c: Punto, a: number, b: number, giro = 0, pasos = 16) => {
+    const cs = Math.cos(giro);
+    const sn = Math.sin(giro);
 
-    const lado = g({ x: p.x + ancho, y: p.y, z: 0 });
+    return curva(cam, (v) => {
+      const ang = v * Math.PI * 2;
 
-    const fondoP = g({ x: p.x, y: p.y - ancho, z: 0 });
+      const x = a * Math.cos(ang);
+      const y = b * Math.sin(ang);
 
-    const rx = Math.abs(lado.x - c.x);
-
-    const ry = Math.max(rx * 0.32, Math.abs(fondoP.y - c.y));
-
-    return <ellipse cx={f3(c.x + (P.nombre === "dia" && !cam.tresD ? 0.28 : 0))} cy={f3(c.y + (cam.tresD ? 0 : 0.35))} rx={f3(rx)} ry={f3(cam.tresD ? ry : rx)} style={{ fill: P.sombra }} />;
+      return { x: c.x + x * cs - y * sn, y: c.y + x * sn + y * cs, z: 0 };
+    }, pasos).concat(" Z");
   };
+
+  /** Las sombras de un jugador: una por cada luz (el sol de día, las torres de noche), alargadas hacia donde caen. */
+  const sombras = (p: Punto, alto: number, ancho: number, clave: string) =>
+    P.luces.map((l, n) => {
+      const largo = Math.hypot(l.dx, l.dy) * alto;
+
+      const giro = Math.atan2(l.dy, l.dx);
+
+      const centro = { x: p.x + l.dx * alto * 0.5, y: p.y + l.dy * alto * 0.5 };
+
+      return <path key={`${clave}-${n}`} d={elipseSuelo(centro, Math.max(ancho, largo * 0.55), ancho, giro, 14)} style={{ fill: P.sombra, opacity: l.a }} />;
+    });
 
   const rotulo = (x: number, y: number, texto: string, tam: number, color = P.texto, peso = 700) => (
     <text x={f3(x)} y={f3(y)} textAnchor="middle" style={{ fontSize: f3(tam), fontWeight: peso, fill: color, fontFamily: FUENTE, paintOrder: "stroke", stroke: P.halo, strokeWidth: f3(tam * 0.18), strokeLinejoin: "round", letterSpacing: f3(tam * 0.01) }}>
@@ -351,16 +392,70 @@ export function Escena({
     </text>
   );
 
+  /** Un aro en el césped, como el que pinta la realización alrededor del protagonista. */
+  const aroSuelo = (p: Punto, r: number, color: string, discontinuo: boolean, grosor = 0.12) => {
+    const w = cam.tresD ? grosor * Math.max(g({ ...p, z: 0 }).s, u * 0.5) : grosor;
+
+    return <path d={elipseSuelo(p, r, r, 0, 28)} style={{ fill: "none", stroke: color, strokeWidth: f3(w), strokeDasharray: discontinuo ? `${f3(w * 3)} ${f3(w * 2)}` : undefined, opacity: 0.95 }} />;
+  };
+
+  /**
+   * Un jugador de pie, en perspectiva: medias, pantalón, camiseta con su
+   * dorsal a la espalda (la cámara mira desde detrás de los atacantes),
+   * brazos y cabeza, con luz de un lado y sombra del otro.
+   */
+  const figura = (p: Punto, ropa: { camiseta: string; pantalon: string; medias: string; dorsal: string | null; tinta: string }, opacidad: number) => {
+    const pie = g({ ...p, z: 0 });
+
+    const m = metroDe(pie.s);
+
+    const X = (dx: number) => f3(pie.x + dx * m);
+    const Y = (z: number) => f3(pie.y - z * m);
+
+    const contorno = { stroke: "rgba(0,0,0,0.38)", strokeWidth: f3(0.025 * m), strokeLinejoin: "round" as const };
+
+    const torso = `M ${X(-0.17)} ${Y(0.9)} L ${X(-0.25)} ${Y(1.4)} Q ${X(-0.24)} ${Y(1.5)} ${X(-0.12)} ${Y(1.5)} L ${X(0.12)} ${Y(1.5)} Q ${X(0.24)} ${Y(1.5)} ${X(0.25)} ${Y(1.4)} L ${X(0.17)} ${Y(0.9)} Z`;
+
+    const shorts = `M ${X(-0.18)} ${Y(0.94)} L ${X(0.18)} ${Y(0.94)} L ${X(0.2)} ${Y(0.66)} L ${X(0.02)} ${Y(0.66)} L ${X(0)} ${Y(0.78)} L ${X(-0.02)} ${Y(0.66)} L ${X(-0.2)} ${Y(0.66)} Z`;
+
+    return (
+      <g style={{ opacity: opacidad }}>
+        {/* Piernas: muslo y media */}
+        {[-1, 1].map((l) => (
+          <g key={l}>
+            <path d={`M ${X(l * 0.1)} ${Y(0.68)} L ${X(l * 0.11)} ${Y(0.42)}`} style={{ stroke: "#B9855F", strokeWidth: f3(0.12 * m), strokeLinecap: "round" }} />
+            <path d={`M ${X(l * 0.11)} ${Y(0.44)} L ${X(l * 0.12)} ${Y(0.05)}`} style={{ stroke: ropa.medias, strokeWidth: f3(0.12 * m), strokeLinecap: "round" }} />
+            <path d={`M ${X(l * 0.12)} ${Y(0.04)} L ${X(l * 0.12 + 0.06)} ${Y(0.02)}`} style={{ stroke: "#111", strokeWidth: f3(0.1 * m), strokeLinecap: "round" }} />
+          </g>
+        ))}
+        <path d={shorts} style={{ fill: ropa.pantalon, ...contorno }} />
+        {/* Brazos */}
+        {[-1, 1].map((l) => (
+          <g key={`b${l}`}>
+            <path d={`M ${X(l * 0.23)} ${Y(1.42)} L ${X(l * 0.3)} ${Y(1.16)}`} style={{ stroke: ropa.camiseta, strokeWidth: f3(0.13 * m), strokeLinecap: "round" }} />
+            <path d={`M ${X(l * 0.3)} ${Y(1.16)} L ${X(l * 0.32)} ${Y(0.92)}`} style={{ stroke: "#B9855F", strokeWidth: f3(0.09 * m), strokeLinecap: "round" }} />
+          </g>
+        ))}
+        <path d={torso} style={{ fill: ropa.camiseta, ...contorno }} />
+        <path d={torso} style={{ fill: `url(#${id}-volumen)` }} />
+        <path d={shorts} style={{ fill: `url(#${id}-volumen)` }} />
+        {ropa.dorsal && (
+          <text x={X(0)} y={Y(1.06)} textAnchor="middle" style={{ fontSize: f3(0.34 * m), fontWeight: 800, fill: ropa.tinta, fontFamily: FUENTE }}>
+            {ropa.dorsal}
+          </text>
+        )}
+        {/* Cuello y cabeza (de espaldas: pelo) */}
+        <path d={`M ${X(0)} ${Y(1.5)} L ${X(0)} ${Y(1.56)}`} style={{ stroke: "#B9855F", strokeWidth: f3(0.1 * m) }} />
+        <circle cx={X(0)} cy={Y(1.67)} r={f3(0.125 * m)} style={{ fill: "#2B211B", ...contorno }} />
+        <circle cx={X(-0.04)} cy={Y(1.71)} r={f3(0.05 * m)} style={{ fill: "rgba(255,255,255,0.14)" }} />
+      </g>
+    );
+  };
+
   const pintaNuestro = (i: number, p: Punto) => {
     const r = rutina.roles[i];
 
     const j = porId.get(r.jugador);
-
-    const suelo = g({ ...p, z: 0 });
-
-    const c = g({ ...p, z: levanta });
-
-    const R = radioFicha(c.s);
 
     const hueco = HUECO[r.papel];
 
@@ -374,21 +469,60 @@ export function Escena({
 
     const esRematador = remate?.quien === i && t >= VUELO[1] - 0.02;
 
+    const comun = {
+      role: M.onFicha ? "button" : undefined,
+      tabIndex: M.onFicha ? 0 : undefined,
+      "aria-label": M.etiquetaFicha?.(i),
+      "aria-pressed": M.onFicha ? activa : undefined,
+      "data-ficha": M.onFicha ? "" : undefined,
+      onPointerDown: M.onFicha ? (e: PE<SVGGElement>) => M.onFicha!(e, i) : undefined,
+      onKeyDown: M.onTeclaFicha ? (e: KE<SVGGElement>) => M.onTeclaFicha!(e, i) : undefined,
+      onFocus: M.onFocoFicha ? () => M.onFocoFicha!(i) : undefined,
+      style: { cursor: cursor ?? "grab", outline: "none" },
+    };
+
+    /* --- En perspectiva: el jugador de pie, con su aro en el césped --- */
+    if (cam.tresD) {
+      const pie = g({ ...p, z: 0 });
+
+      const m = metroDe(pie.s);
+
+      const cabeza = pie.y - 1.85 * m;
+
+      const R = Math.max(0.3 * m, u * 0.55);
+
+      const placa = foto ? cabeza - R * 1.25 : cabeza;
+
+      return (
+        <g key={`n${i}`} {...comun}>
+          {sombras(p, 1.85, 0.32, `sn${i}`)}
+          {activa && aroSuelo(p, 0.95, P.texto, true)}
+          {esRematador && aroSuelo(p, 1.25, P.oro, false, 0.16)}
+          {r.papel === "senuelo" && aroSuelo(p, 0.6, P.oro, true, 0.08)}
+          {figura(p, { camiseta: P.oro, pantalon: "#F4F1EA", medias: "#F4F1EA", dorsal: j?.dorsal !== undefined ? String(j.dorsal) : CODIGO_PAPEL[r.papel], tinta: P.tinta }, hueco ? 0.82 : 1)}
+          {foto && (
+            <>
+              <clipPath id={clip}>
+                <circle cx={f3(pie.x)} cy={f3(placa)} r={f3(R * 0.88)} />
+              </clipPath>
+              <circle cx={f3(pie.x)} cy={f3(placa)} r={f3(R)} style={{ fill: "#1B2430", stroke: P.oro, strokeWidth: f3(R * 0.12) }} />
+              <image href={foto} x={f3(pie.x - R * 0.88)} y={f3(placa - R * 0.88)} width={f3(R * 1.76)} height={f3(R * 1.76)} clipPath={`url(#${clip})`} preserveAspectRatio="xMidYMin slice" />
+            </>
+          )}
+          {capas.nombres && !quieta && j && rotulo(pie.x, placa - (foto ? R * 1.35 : m * 0.28), nombreCorto(j.nombre), Math.max(m * 0.32, u * 0.92))}
+          {M.onFicha && <rect x={f3(pie.x - Math.max(0.55 * m, u * 1.4))} y={f3(cabeza - 0.3 * m)} width={f3(Math.max(1.1 * m, u * 2.8))} height={f3(2.25 * m)} style={{ fill: "transparent" }} data-solo-pantalla="" />}
+        </g>
+      );
+    }
+
+    /* --- En cenital: la ficha redonda, con volumen --- */
+    const c = g({ ...p, z: 0 });
+
+    const R = radioFicha(c.s);
+
     return (
-      <g
-        key={`n${i}`}
-        role={M.onFicha ? "button" : undefined}
-        tabIndex={M.onFicha ? 0 : undefined}
-        aria-label={M.etiquetaFicha?.(i)}
-        aria-pressed={M.onFicha ? activa : undefined}
-        data-ficha={M.onFicha ? "" : undefined}
-        onPointerDown={M.onFicha ? (e) => M.onFicha!(e, i) : undefined}
-        onKeyDown={M.onTeclaFicha ? (e) => M.onTeclaFicha!(e, i) : undefined}
-        onFocus={M.onFocoFicha ? () => M.onFocoFicha!(i) : undefined}
-        style={{ cursor: cursor ?? "grab", outline: "none" }}
-      >
-        {sombra(p, cam.tresD ? 0.55 : 1.05)}
-        {cam.tresD && <path d={`M ${f3(suelo.x)} ${f3(suelo.y)} L ${f3(c.x)} ${f3(c.y + R)}`} style={{ stroke: hueco ? P.oro : "rgba(255,255,255,0.75)", strokeWidth: f3(Math.max(0.08 * c.s, u * 0.06)), opacity: 0.85 }} />}
+      <g key={`n${i}`} {...comun}>
+        {sombras(p, 0.9, R * 0.95, `sn${i}`)}
         {activa && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 1.5)} style={{ fill: "none", stroke: P.texto, strokeWidth: f3(R * 0.12), strokeDasharray: `${f3(R * 0.4)} ${f3(R * 0.28)}` }} />}
         {esRematador && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 1.9)} style={{ fill: "none", stroke: P.oro, strokeWidth: f3(R * 0.14), opacity: 0.9 }} />}
         <circle
@@ -402,6 +536,7 @@ export function Escena({
             strokeDasharray: r.papel === "senuelo" ? `${f3(R * 0.4)} ${f3(R * 0.26)}` : undefined,
           }}
         />
+        {!hueco && !foto && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R)} style={{ fill: `url(#${id}-esfera)` }} />}
         {foto ? (
           <>
             <clipPath id={clip}>
@@ -435,26 +570,30 @@ export function Escena({
 
     const d = defensa.plan[k];
 
-    const c = g({ ...p, z: levanta });
-
-    const suelo = g({ ...p, z: 0 });
-
-    const R = radioFicha(c.s) * (cam.tresD ? 0.92 : 0.86);
-
     const bloqueado = defensa.estado.bloqueado[k];
 
     const color = d.papel === "portero" ? P.portero : P.rival;
 
+    if (cam.tresD) {
+      return (
+        <g key={`s${k}`} style={{ pointerEvents: "none" }}>
+          {sombras(p, 1.85, 0.32, `ss${k}`)}
+          {bloqueado && aroSuelo(p, 0.85, P.bloqueo, false, 0.12)}
+          {figura(p, { camiseta: color, pantalon: d.papel === "portero" ? "#1B1B1B" : "#2A0A12", medias: color, dorsal: d.dorsal ?? null, tinta: d.papel === "portero" ? P.tinta : P.rivalTexto }, 1)}
+        </g>
+      );
+    }
+
+    const c = g({ ...p, z: 0 });
+
+    const R = radioFicha(c.s) * 0.86;
+
     return (
       <g key={`s${k}`} style={{ pointerEvents: "none" }}>
-        {sombra(p, cam.tresD ? 0.5 : 0.95)}
-        {cam.tresD && <path d={`M ${f3(suelo.x)} ${f3(suelo.y)} L ${f3(c.x)} ${f3(c.y + R)}`} style={{ stroke: color, strokeWidth: f3(Math.max(0.08 * c.s, u * 0.06)), opacity: 0.85 }} />}
+        {sombras(p, 0.9, R * 0.9, `ss${k}`)}
         {bloqueado && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 1.45)} style={{ fill: "none", stroke: P.bloqueo, strokeWidth: f3(R * 0.11), opacity: 0.9 }} />}
-        {cam.tresD ? (
-          <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R)} style={{ fill: color, stroke: "rgba(0,0,0,0.45)", strokeWidth: f3(R * 0.08) }} />
-        ) : (
-          <rect x={f3(c.x - R * 0.78)} y={f3(c.y - R * 0.78)} width={f3(R * 1.56)} height={f3(R * 1.56)} rx={f3(R * 0.28)} transform={`rotate(45 ${f3(c.x)} ${f3(c.y)})`} style={{ fill: color, stroke: "rgba(0,0,0,0.45)", strokeWidth: f3(R * 0.08) }} />
-        )}
+        <rect x={f3(c.x - R * 0.78)} y={f3(c.y - R * 0.78)} width={f3(R * 1.56)} height={f3(R * 1.56)} rx={f3(R * 0.28)} transform={`rotate(45 ${f3(c.x)} ${f3(c.y)})`} style={{ fill: color, stroke: "rgba(0,0,0,0.45)", strokeWidth: f3(R * 0.08) }} />
+        <rect x={f3(c.x - R * 0.78)} y={f3(c.y - R * 0.78)} width={f3(R * 1.56)} height={f3(R * 1.56)} rx={f3(R * 0.28)} transform={`rotate(45 ${f3(c.x)} ${f3(c.y)})`} style={{ fill: `url(#${id}-esfera)` }} />
         {d.dorsal && (
           <text x={f3(c.x)} y={f3(c.y + R * 0.34)} textAnchor="middle" style={{ fontSize: f3(R * 0.95), fontWeight: 800, fill: d.papel === "portero" ? P.tinta : P.rivalTexto, fontFamily: FUENTE }}>
             {d.dorsal}
@@ -464,33 +603,34 @@ export function Escena({
     );
   };
 
+  /* El vuelo entero, muestreado en el tiempo: lo ya recorrido y lo que falta. */
+  const vuelo = (de: number, a: number, n = 22) =>
+    a <= de
+      ? []
+      : Array.from({ length: n + 1 }, (_, k) => {
+          const e = estadoBalon(camino, de + ((a - de) * k) / n, envio, rutina.tipo);
+
+          return { aire: g({ ...e.suelo, z: e.z }), suelo: g({ ...e.suelo, z: 0 }) };
+        });
+
+  const trazo = (pts: { x: number; y: number }[]) => pts.map((q, k) => `${k ? "L" : "M"} ${f3(q.x)} ${f3(q.y)}`).join(" ");
+
   const pintaBalon = () => {
     const s = g({ ...balon.suelo, z: 0 });
 
     const c = g({ ...balon.suelo, z: balon.z });
 
-    const R = cam.tresD ? Math.max(0.24 * c.s, u * 0.28) : 0.55 + balon.z * 0.04;
-
-    /* La estela: dónde estuvo un instante antes. */
-    const estela = balon.enVuelo
-      ? [0.012, 0.024, 0.036, 0.048].map((d) => {
-          const e = estadoBalon(camino, Math.max(0, t - d), envio, rutina.tipo);
-
-          return g({ ...e.suelo, z: e.z });
-        })
-      : [];
+    const R = cam.tresD ? Math.max(0.24 * c.s, u * 0.3) : 0.55 + balon.z * 0.04;
 
     const sombraR = R * Math.max(0.45, 1 - balon.z * 0.05);
 
     return (
       <g key="balon" style={{ pointerEvents: "none" }}>
         <ellipse cx={f3(s.x)} cy={f3(s.y)} rx={f3(sombraR)} ry={f3(cam.tresD ? sombraR * 0.4 : sombraR)} style={{ fill: P.sombra, opacity: Math.max(0.35, 1 - balon.z * 0.07) }} />
-        {balon.z > 0.3 && <path d={`M ${f3(s.x)} ${f3(s.y)} L ${f3(c.x)} ${f3(c.y)}`} style={{ stroke: "rgba(255,255,255,0.18)", strokeWidth: f3(R * 0.12), strokeDasharray: `${f3(R * 0.3)} ${f3(R * 0.3)}` }} />}
-        {estela.map((e, i) => (
-          <circle key={i} cx={f3(e.x)} cy={f3(e.y)} r={f3(R * (0.85 - i * 0.15))} style={{ fill: P.balon, opacity: 0.28 - i * 0.06 }} />
-        ))}
-        <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R)} style={{ fill: P.balon, stroke: P.tinta, strokeWidth: f3(R * 0.18) }} />
-        <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 0.34)} style={{ fill: P.tinta }} />
+        {balon.z > 0.3 && <path d={`M ${f3(s.x)} ${f3(s.y)} L ${f3(c.x)} ${f3(c.y)}`} style={{ stroke: "rgba(255,255,255,0.22)", strokeWidth: f3(R * 0.12), strokeDasharray: `${f3(R * 0.3)} ${f3(R * 0.3)}` }} />}
+        {balon.enVuelo && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 2.1)} style={{ fill: `url(#${id}-brillo)` }} />}
+        <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R)} style={{ fill: `url(#${id}-bola)`, stroke: "rgba(11,15,20,0.75)", strokeWidth: f3(R * 0.1) }} />
+        <path d={`M ${f3(c.x - R * 0.22)} ${f3(c.y - R * 0.3)} l ${f3(R * 0.3)} ${f3(-R * 0.05)} l ${f3(R * 0.12)} ${f3(R * 0.28)} l ${f3(-R * 0.2)} ${f3(R * 0.22)} l ${f3(-R * 0.26)} ${f3(-R * 0.1)} Z`} style={{ fill: "rgba(11,15,20,0.8)" }} />
       </g>
     );
   };
@@ -558,18 +698,60 @@ export function Escena({
 
   /* ------------------------------- balón ------------------------------- */
 
-  const recorridos = camino.slice(1).map((_, i) => {
-    const arco = arcoTramo(camino, i, envio, rutina.tipo);
+  /*
+   * La trayectoria: la sombra por el suelo, lo que falta por volar en
+   * discontinuo y lo ya volado en trazo lleno con su estela de luz, como el
+   * grafismo de una retransmisión. Antes del golpeo se ve entera, de aviso.
+   */
+  const anchoVuelo = cam.tresD ? Math.max(0.12 * cam.escala, u * 0.1) : 0.2;
 
-    const ancho = cam.tresD ? 0.12 * cam.escala : 0.2;
+  const tVuelo = Math.min(Math.max(t, VUELO[0]), VUELO[1]);
 
-    return (
-      <g key={`rb${i}`} style={{ pointerEvents: "none" }}>
-        <path d={curva(cam, (v) => ({ ...arco(v), z: 0 }), 18)} style={{ fill: "none", stroke: P.sombra, strokeWidth: f3(ancho * 1.4), strokeDasharray: `${f3(ancho * 2.5)} ${f3(ancho * 2)}` }} />
-        <path d={curva(cam, arco, 30)} style={{ fill: "none", stroke: P.balon, strokeWidth: f3(ancho), strokeDasharray: `${f3(ancho * 3.6)} ${f3(ancho * 2.2)}`, opacity: 0.85 }} />
-      </g>
-    );
-  });
+  const volado = vuelo(VUELO[0], tVuelo);
+
+  const porVolar = vuelo(tVuelo, VUELO[1]);
+
+  const entero = vuelo(VUELO[0], VUELO[1], 30);
+
+  const recorridos = (
+    <g key="rb" style={{ pointerEvents: "none" }}>
+      {entero.length > 1 && <path d={trazo(entero.map((q) => q.suelo))} style={{ fill: "none", stroke: P.sombra, strokeWidth: f3(anchoVuelo * 1.4), strokeDasharray: `${f3(anchoVuelo * 2.5)} ${f3(anchoVuelo * 2)}` }} />}
+      {porVolar.length > 1 && <path d={trazo(porVolar.map((q) => q.aire))} style={{ fill: "none", stroke: P.balon, strokeWidth: f3(anchoVuelo), strokeDasharray: `${f3(anchoVuelo * 3.6)} ${f3(anchoVuelo * 2.2)}`, opacity: t < VUELO[0] ? 0.8 : 0.55 }} />}
+      {volado.length > 1 && (
+        <>
+          <path d={trazo(volado.map((q) => q.aire))} style={{ fill: "none", stroke: P.oro, strokeWidth: f3(anchoVuelo * 3.2), strokeLinecap: "round", opacity: 0.28 }} />
+          <path d={trazo(volado.map((q) => q.aire))} style={{ fill: "none", stroke: P.balon, strokeWidth: f3(anchoVuelo * 1.15), strokeLinecap: "round", opacity: 0.95 }} />
+        </>
+      )}
+    </g>
+  );
+
+  /* Dónde va a caer: una diana en el césped desde un poco antes del golpeo hasta que llega el remate. */
+  const caida = camino.at(-1)!;
+
+  const verDiana = !quieta && camino.length > 1 && t >= VUELO[0] - 0.15 && t < VUELO[1] - 0.12;
+
+  /* Las estelas de carrera: por dónde ha pasado cada uno que corre, apagándose hacia atrás. */
+  const estelas = quieta
+    ? []
+    : rutina.roles.flatMap((r, i) => {
+        if (r.hx === undefined || r.hy === undefined || !seVe(nuestros[i])) return [];
+
+        const atras = Array.from({ length: 8 }, (_, k) => posicionesEn([r], Math.max(0, t - k * 0.018))[0]);
+
+        if (Math.hypot(atras[0].x - atras[7].x, atras[0].y - atras[7].y) < 0.6) return [];
+
+        const color = P.fase[r.fase ?? 2];
+
+        return atras.slice(1).map((q, k) => {
+          const pa = g({ ...atras[k], z: 0 });
+          const pb = g({ ...q, z: 0 });
+
+          const w = (cam.tresD ? Math.max(0.3 * pa.s, u * 0.24) : 0.5) * (1 - k / 8);
+
+          return <path key={`es${i}-${k}`} d={`M ${f3(pa.x)} ${f3(pa.y)} L ${f3(pb.x)} ${f3(pb.y)}`} style={{ stroke: color, strokeWidth: f3(w), strokeLinecap: "round", opacity: 0.5 * (1 - k / 7), pointerEvents: "none" }} />;
+        });
+      });
 
   /* ------------------------------ lecturas ----------------------------- */
 
@@ -612,6 +794,31 @@ export function Escena({
           <stop offset="0.6" stopColor="rgba(0,0,0,0)" />
           <stop offset="1" stopColor={P.vineta} />
         </radialGradient>
+        {/* El volumen de camisetas y fichas: luz por la izquierda, sombra por la derecha */}
+        <linearGradient id={`${id}-volumen`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="rgba(255,255,255,0.32)" />
+          <stop offset="0.45" stopColor="rgba(255,255,255,0)" />
+          <stop offset="1" stopColor="rgba(0,0,0,0.34)" />
+        </linearGradient>
+        <radialGradient id={`${id}-esfera`} cx="0.36" cy="0.32" r="0.75">
+          <stop offset="0" stopColor="rgba(255,255,255,0.42)" />
+          <stop offset="0.5" stopColor="rgba(255,255,255,0)" />
+          <stop offset="1" stopColor="rgba(0,0,0,0.3)" />
+        </radialGradient>
+        <radialGradient id={`${id}-bola`} cx="0.35" cy="0.32" r="0.8">
+          <stop offset="0" stopColor="#FFFFFF" />
+          <stop offset="0.6" stopColor="#E3E7EB" />
+          <stop offset="1" stopColor="#9AA3AD" />
+        </radialGradient>
+        <radialGradient id={`${id}-brillo`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="rgba(255,255,255,0.5)" />
+          <stop offset="1" stopColor="rgba(255,255,255,0)" />
+        </radialGradient>
+        {/* La profundidad: el césped de lejos, más apagado */}
+        <linearGradient id={`${id}-lejos`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={P.nombre === "noche" ? "rgba(0,0,0,0.4)" : "rgba(40,70,50,0.28)"} />
+          <stop offset="0.55" stopColor="rgba(0,0,0,0)" />
+        </linearGradient>
         <filter id={`${id}-difumina`} x="-10%" y="-10%" width="120%" height="120%">
           <feGaussianBlur stdDeviation={f3(cam.tresD ? 0.55 * cam.escala : 0.55)} />
         </filter>
@@ -621,6 +828,17 @@ export function Escena({
       <rect x={caja.x} y={caja.y} width={caja.w} height={caja.h} style={{ fill: `url(#${id}-cielo)` }} />
       <path d={poligono(cam, [{ x: -4, y: -4 }, { x: ANCHO + 4, y: -4 }, { x: ANCHO + 4, y: Math.min(fondo + 4, cam.yMax) }, { x: -4, y: Math.min(fondo + 4, cam.yMax) }])} style={{ fill: P.orilla }} />
       <path d={poligono(cam, [{ x: 0, y: 0 }, { x: ANCHO, y: 0 }, { x: ANCHO, y: fondo }, { x: 0, y: fondo }])} style={{ fill: P.cesped }} />
+      {cam.tresD && (
+        <>
+          {/* La grada y las vallas de detrás de la portería */}
+          <path d={poligono(cam, [{ x: -14, y: -4.2, z: 1 }, { x: ANCHO + 14, y: -4.2, z: 1 }, { x: ANCHO + 14, y: -16, z: 11 }, { x: -14, y: -16, z: 11 }])} style={{ fill: P.publico }} />
+          {Array.from({ length: 5 }, (_, k) => (
+            <path key={`gr${k}`} d={linea(cam, { x: -14, y: -4.2 - k * 2.4, z: 1 + k * 2 }, { x: ANCHO + 14, y: -4.2 - k * 2.4, z: 1 + k * 2 })} style={{ stroke: "rgba(255,255,255,0.06)", strokeWidth: f3(u * 0.08) }} />
+          ))}
+          <path d={poligono(cam, [{ x: 2, y: -3.4, z: 0 }, { x: ANCHO - 2, y: -3.4, z: 0 }, { x: ANCHO - 2, y: -3.4, z: 0.9 }, { x: 2, y: -3.4, z: 0.9 }])} style={{ fill: P.valla }} />
+          <path d={linea(cam, { x: 2, y: -3.4, z: 0.62 }, { x: ANCHO - 2, y: -3.4, z: 0.62 })} style={{ stroke: P.oro, strokeWidth: f3(u * 0.1), opacity: 0.85 }} />
+        </>
+      )}
       {franjas.map((i) =>
         i % 2 ? (
           <path
@@ -635,6 +853,13 @@ export function Escena({
           />
         ) : null,
       )}
+      {/* El damero del corte, muy suave, y la boca de gol pisada */}
+      {Array.from({ length: 12 }, (_, k) =>
+        k % 2 ? <path key={`dm${k}`} d={poligono(cam, [{ x: k * 5.67, y: 0 }, { x: (k + 1) * 5.67, y: 0 }, { x: (k + 1) * 5.67, y: fondo }, { x: k * 5.67, y: fondo }])} style={{ fill: "rgba(255,255,255,0.025)" }} /> : null,
+      )}
+      <path d={elipseSuelo({ x: 34, y: 2.6 }, 6.5, 2.3)} style={{ fill: P.gastado }} />
+      <path d={elipseSuelo({ x: 34, y: 11 }, 1.6, 1.1)} style={{ fill: P.gastado }} />
+      {cam.tresD && <path d={poligono(cam, [{ x: 0, y: 0 }, { x: ANCHO, y: 0 }, { x: ANCHO, y: fondo }, { x: 0, y: fondo }])} style={{ fill: `url(#${id}-lejos)`, pointerEvents: "none" }} />}
       <rect x={caja.x} y={caja.y} width={caja.w} height={caja.h} style={{ fill: `url(#${id}-luz)`, pointerEvents: "none" }} />
       {P.nombre === "noche" && (
         <>
@@ -719,8 +944,33 @@ export function Escena({
         </g>
       )}
 
+      {/* La llegada: dónde pisan los nuestros mientras vuela el balón */}
+      {verLecturas && llegada && llegada.length > 0 && (
+        <g filter={`url(#${id}-difumina)`} style={{ pointerEvents: "none" }}>
+          {llegada.map((c, i) => (
+            <path
+              key={`ll${i}`}
+              d={poligono(cam, [
+                { x: c.x - 0.52, y: c.y - 0.52 },
+                { x: c.x + 0.52, y: c.y - 0.52 },
+                { x: c.x + 0.52, y: c.y + 0.52 },
+                { x: c.x - 0.52, y: c.y + 0.52 },
+              ])}
+              style={{ fill: c.p > 0.75 ? `rgba(255,244,214,${(0.3 + c.p * 0.4).toFixed(3)})` : `rgba(${P.nuestro},${(0.12 + c.p * 0.5).toFixed(3)})` }}
+            />
+          ))}
+        </g>
+      )}
+
       {/* El balón: sombra por el suelo y vuelo por el aire */}
       {recorridos}
+      {verDiana && (
+        <g style={{ pointerEvents: "none" }}>
+          <path d={elipseSuelo(caida, 1.1, 1.1, 0, 28)} style={{ fill: "rgba(255,255,255,0.08)", stroke: P.balon, strokeWidth: f3(anchoVuelo * 0.9), opacity: 0.85 }} />
+          <path d={elipseSuelo(caida, 0.45, 0.45, 0, 20)} style={{ fill: P.oro, opacity: 0.6 }} />
+        </g>
+      )}
+      {estelas}
 
       {/* Las carreras y los bloqueos */}
       {rutina.roles.map((r, i) => (r.hx !== undefined && r.hy !== undefined ? flecha(desde[i], { x: r.hx, y: r.hy }, P.fase[r.fase ?? 2], (r.fase ?? 2) === 1, `fl${i}`) : null))}
