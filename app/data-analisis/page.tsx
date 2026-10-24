@@ -386,14 +386,36 @@ export default function DataAnalisisPage() {
         */
         if (intento) olvidaCsv("/api/data-analisis");
 
-        const r = await traeJson<Respuesta>(
+        const pide = traeJson<Respuesta>(
           `/api/data-analisis${intento ? "?refrescar=1" : ""}`,
           { forzar: intento > 0 },
         );
 
+        /*
+        | Tiempo máximo: si el servidor no contesta en 25 s no se deja el
+        | indicador de carga eterno. Se dice qué pasa y se ofrece «Releer la
+        | carpeta»; si la respuesta llega tarde, entra igualmente.
+        */
+        const TARDA = Symbol("tarda");
+        const primero = await Promise.race([
+          pide,
+          new Promise<typeof TARDA>((ok) => setTimeout(() => ok(TARDA), 25000)),
+        ]);
+
         if (!vivo) return;
 
-        setDatos(r);
+        if (primero === TARDA) {
+          setDatos({ ok: false, error: "La carpeta de datos tarda más de lo normal en abrirse. Pulsa «Releer la carpeta» para volver a intentarlo; si llega la lectura que sigue en marcha, los informes aparecerán solos." });
+          setCargando(false);
+
+          const r = await pide;
+
+          if (vivo) setDatos(r);
+
+          return;
+        }
+
+        setDatos(primero);
         setCargando(false);
       } catch (error) {
         if (!vivo) return;

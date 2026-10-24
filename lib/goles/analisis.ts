@@ -81,9 +81,9 @@ export const FASES = [
   {
     fase: "AT. ORGANIZADO",
     tipos: [
-      { clave: "dentro", nombre: "Dentro" },
-      { clave: "bandaD", nombre: "Banda D" },
-      { clave: "bandaI", nombre: "Banda I" },
+      { clave: "dentro", nombre: "Por dentro" },
+      { clave: "bandaD", nombre: "Banda derecha" },
+      { clave: "bandaI", nombre: "Banda izquierda" },
       { clave: "espalda", nombre: "Espalda" },
       { clave: "caida", nombre: "Caída / 2ª acción" },
       { clave: "error", nombre: "Tras error" },

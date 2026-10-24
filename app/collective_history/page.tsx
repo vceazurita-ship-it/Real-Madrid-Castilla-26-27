@@ -143,6 +143,9 @@ const liga = useMemo(() => {
   return { mediaPuntos, puestos };
 }, [golesLiga.value.partidos, jugados]);
 
+/* La columna del puesto sólo se dibuja si hay puesto en todas las jornadas: una celda suelta en blanco es un hueco. */
+const conPuesto = jugados.length > 0 && jugados.every((u) => liga.puestos.has(u.jornada));
+
 const videoRef = useRef<HTMLDivElement | null>(null);
 const dashboardRef = useRef<HTMLDivElement | null>(null);
 
@@ -320,12 +323,15 @@ useEffect(() => {
                         <th className="px-4 py-3 text-center font-medium">Resultado</th>
                         <th className="px-4 py-3 text-right font-medium">Puntos</th>
                         <th className="px-4 py-3 text-right font-medium">Acumulados</th>
-                        {liga.puestos.size > 0 ? <th className="px-4 py-3 text-right font-medium">Puesto</th> : null}
+                        {conPuesto ? <th className="px-4 py-3 text-right font-medium">Puesto</th> : null}
                       </tr>
                     </thead>
                     <tbody>
-                      {jugados.map((uno) => (
-                        <tr key={uno.jornada} className="border-b border-white/5 last:border-0">
+                      {jugados.map((uno, i) => (
+                        <tr
+                          key={uno.jornada}
+                          className={`border-b border-white/5 last:border-0 ${i === jugados.length - 1 ? "bg-white/[0.06]" : ""}`}
+                        >
                           <td className="px-4 py-2.5">J{uno.jornada}</td>
                           <td className="px-4 py-2.5">
                             {uno.rival}
@@ -333,13 +339,23 @@ useEffect(() => {
                               {uno.lado === "casa" ? "en casa" : "fuera"}
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 text-center font-semibold">
-                            {uno.gf}-{uno.gc}
+                          <td className="px-4 py-2.5 text-center">
+                            <span
+                              className={`inline-block min-w-[3rem] rounded-md px-2 py-0.5 text-xs font-semibold ${
+                                uno.puntos === 3
+                                  ? "bg-emerald-500/20 text-emerald-600"
+                                  : uno.puntos === 1
+                                    ? "bg-amber-500/20 text-amber-600"
+                                    : "bg-red-500/20 text-red-600"
+                              }`}
+                            >
+                              {uno.gf}-{uno.gc}
+                            </span>
                           </td>
                           <td className="px-4 py-2.5 text-right">{uno.puntos}</td>
                           <td className="px-4 py-2.5 text-right font-semibold">{uno.acumulados}</td>
-                          {liga.puestos.size > 0 ? (
-                            <td className="px-4 py-2.5 text-right">{liga.puestos.get(uno.jornada) ?? ""}{liga.puestos.has(uno.jornada) ? "º" : ""}</td>
+                          {conPuesto ? (
+                            <td className="px-4 py-2.5 text-right">{liga.puestos.get(uno.jornada)}º</td>
                           ) : null}
                         </tr>
                       ))}

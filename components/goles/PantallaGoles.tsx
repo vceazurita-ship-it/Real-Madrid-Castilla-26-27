@@ -311,6 +311,15 @@ export function PantallaGoles() {
     [calendario, esNuestro, condicion, jDesde, jHasta],
   );
 
+  /* Qué jornadas jugadas por el Castilla no están en la lista de goles. */
+  const jornadasFaltan = useMemo(() => {
+    if (!(esNuestro && condicion === "todos")) return [] as number[];
+
+    const hay = new Set(delEquipo.map((p) => p.jornada));
+
+    return calendario.map(comoNuestro).filter((u) => u.jugado && u.jornada >= jDesde && u.jornada <= jHasta && !hay.has(u.jornada)).map((u) => u.jornada);
+  }, [calendario, esNuestro, condicion, jDesde, jHasta, delEquipo]);
+
   /* La liga, con la misma condición: goles por equipo y partido en cada franja. */
   const ligaPorFranja = useMemo(() => {
     const cuenta = new Map<string, number>();
@@ -694,19 +703,19 @@ export function PantallaGoles() {
           {vista === "resumen" ? (
             <>
           <StatRow>
-            <StatCard label="Partidos" value={delEquipo.length} hint={condicion === "todos" ? "local y visitante" : condicion} />
+            <StatCard label="Partidos" value={jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario}` : delEquipo.length} hint={jugadosCalendario > delEquipo.length ? (jornadasFaltan.length ? `falta la ${jornadasFaltan.map((j) => `J${j}`).join(", ")}` : "faltan partidos por cargar") : condicion === "todos" ? "local y visitante" : condicion} />
             <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido · liga ${fmt(ligaGolesPP)}`} accent={ORO} />
             <StatCard label="Goles en contra" value={gc} hint={`${fmt(media(gc, delEquipo.length))} por partido · liga ${fmt(ligaContraPP)}`} accent={PEOR} />
             <StatCard
               label="Su mejor tramo"
               value={tramos.fuerte ? tramos.fuerte.franja.nombre : "—"}
-              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor · más que la liga` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
+              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor, ${fmt(media(tramos.fuerte.gf, delEquipo.length))} por partido · liga ${fmt(tramos.fuerte.ligaPP)}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
               accent={tramos.fuerte ? MEJOR : undefined}
             />
             <StatCard
               label="Su tramo más débil"
               value={tramos.flojo ? tramos.flojo.franja.nombre : "—"}
-              hint={tramos.flojo ? `${tramos.flojo.gc} en contra · más que la liga` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
+              hint={tramos.flojo ? `${tramos.flojo.gc} en contra, ${fmt(media(tramos.flojo.gc, delEquipo.length))} por partido · liga ${fmt(tramos.flojo.ligaContraPP)}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
               accent={tramos.flojo ? PEOR : undefined}
             />
           </StatRow>
