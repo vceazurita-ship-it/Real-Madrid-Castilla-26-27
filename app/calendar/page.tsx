@@ -1,5 +1,6 @@
 "use client";
 import { traeJson } from "@/lib/hojaCsv";
+import { nombreVisible } from "@/lib/nombreJugador";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -333,7 +334,7 @@ export default function Calendar() {
                     )}
                   >
                     <p className="truncate text-[9px] font-semibold md:text-[11px]">
-                      {jugador?.nombre ?? session.NOMBRE ?? session.ID_JUGADOR}
+                      {nombreVisible(jugador?.nombre ?? session.NOMBRE ?? session.ID_JUGADOR)}
                     </p>
 
                     <p className="text-[8px] text-white/60 md:text-[9px]">
@@ -431,7 +432,7 @@ export default function Calendar() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-lg font-semibold">
-                        {jugador?.nombre ?? session.NOMBRE ?? session.ID_JUGADOR}
+                        {nombreVisible(jugador?.nombre ?? session.NOMBRE ?? session.ID_JUGADOR)}
                       </p>
 
                       <p className="mt-1 text-sm text-[#C8A96B]">

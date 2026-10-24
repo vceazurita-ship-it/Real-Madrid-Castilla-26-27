@@ -2,6 +2,7 @@
 
 import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
 import { nombrePuesto } from "@/lib/posiciones";
+import { nombreVisible } from "@/lib/nombreJugador";
 import { useMemo, useState } from "react";
 import {
   Area,
@@ -758,7 +759,7 @@ export function TeamPanel({
 
                       <div className="min-w-0">
                         <p className="truncate font-medium text-white">
-                          {entry.player.nombre}
+                          {nombreVisible(entry.player.nombre)}
                         </p>
 
                         <p className="truncate text-[10px] uppercase tracking-[0.14em] text-white/30">
@@ -785,8 +786,14 @@ export function TeamPanel({
 
                   <td className="px-2 py-2.5">
                     <div className="flex min-w-[132px] items-center gap-2">
-                      <RatingBadge value={entry.summary.avg} size="sm" />
-                      <RatingBar value={entry.summary.avg} />
+                      {/* Con pocos partidos la media es tendencia: se atenúa y lleva sus PJ al lado. */}
+                      <div className={`flex min-w-0 flex-1 items-center gap-2 ${entry.summary.played < MIN_FIABLE ? "opacity-50" : ""}`}>
+                        <RatingBadge value={entry.summary.avg} size="sm" />
+                        <RatingBar value={entry.summary.avg} />
+                      </div>
+                      {entry.summary.played < MIN_FIABLE ? (
+                        <span className="shrink-0 text-[10px] font-semibold tabular-nums text-white/60">{entry.summary.played} PJ</span>
+                      ) : null}
                     </div>
                   </td>
 
