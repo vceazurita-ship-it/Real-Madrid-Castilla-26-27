@@ -27,6 +27,7 @@ const GRUPOS = {
   jugadores: ["/individual", "/dashboard-plantilla", "/ratings", "/calendar", "/individual_proc", "/comparative_ind", "/emotion"],
   identidad: ["/game-model", "/identidad-posicional", "/team-values", "/identidad-cultura"],
   club: ["/laboratorio/escudos", "/quiniela", "/laboratorio/apuestas"],
+  laboratorio: ["/laboratorio/abp"],
 };
 module.exports = { GRUPOS };
 if (require.main !== module) return;
@@ -88,6 +89,8 @@ const MIDE = `(() => {
   await envia("Runtime.enable");
   await envia("Page.enable");
   await envia("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
+  /* Con CAPTURA_ADMIN=<cookie> se ven también las pantallas sólo de administrador. */
+  if (process.env.CAPTURA_ADMIN) await envia("Network.setCookie", { name: "admin_sesion", value: process.env.CAPTURA_ADMIN, url: BASE });
   await envia("Page.addScriptToEvaluateOnNewDocument", { source: `try{localStorage.setItem("rmcf-theme","light")}catch(e){}` });
 
   const medidas = {};
