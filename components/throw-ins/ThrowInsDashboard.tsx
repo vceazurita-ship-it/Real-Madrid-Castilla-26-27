@@ -291,8 +291,8 @@ function groupBy(rows: RecordRow[], key: string) {
 */
 const MIN_MUESTRA = 3;
 
-/** Con menos de cinco saques la cifra es un indicio, no un dato. */
-const indicio = (n: number) => (n < 5 ? " (indicio: muestra pequeña)" : "");
+/** Con menos de diez saques la cifra es un indicio, no un dato. */
+const indicio = (n: number) => (n < 10 ? " (indicio: muestra pequeña)" : "");
 
 type Grupo = { key: string; valor: string; n: number; favorables: number; produccion: number };
 
@@ -375,7 +375,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
 
   frases.push(
     ofensivo
-      ? `${total} ${total === 1 ? "saque" : "saques"}: ${pctTexto(favorables, total)} conservados, ${llegan}${
+      ? `${total} ${total === 1 ? "saque" : "saques"}: retenemos ${favorables} de ${total} (${pctTexto(favorables, total)}), ${llegan}${
           goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"})` : ""
         }.`
       : `${total} ${total === 1 ? "saque" : "saques"} del rival: recuperamos ${favorables} de ${total} (${pctTexto(favorables, total)}), ${llegan}${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"} en contra)` : ""}.`,
@@ -403,7 +403,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(envios, retencionDe, true);
 
       frases.push(
-        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, el más fiable: ${mejor.favorables} de ${mejor.n} conservados (${pctTexto(mejor.favorables, mejor.n)}).${indicio(mejor.n)}`,
+        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, el más fiable: retenemos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}).${indicio(mejor.n)}`,
       );
     }
   } else {
@@ -417,7 +417,8 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       }
     }
 
-    const peligrosas = [...zonas, ...envios].filter((g) => g.produccion > 0);
+    /* Con menos de cinco saques una «vía peligrosa» es una anécdota: no se nombra. */
+    const peligrosas = [...zonas, ...envios].filter((g) => g.produccion > 0 && g.n >= 5);
 
     if (peligrosas.length) {
       const peor = extremo(peligrosas, produccionTasa, true);
@@ -446,7 +447,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(personas, (g) => produccionTasa(g) * 2 + retencionDe(g), true);
 
       frases.push(
-        `Más eficaz: ${nombreDe(mejor.key, mejor.valor)} (${mejor.favorables} de ${mejor.n} conservados, ${mejor.produccion} a último tercio).${indicio(mejor.n)}`,
+        `Más eficaz: ${nombreDe(mejor.key, mejor.valor)} (retenemos ${mejor.favorables} de ${mejor.n}, ${mejor.produccion} a último tercio).${indicio(mejor.n)}`,
       );
     } else {
       const comodo = extremo(receptores.length >= 2 ? receptores : personas, retencionDe, false);
@@ -471,7 +472,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
 
       if (retencionDe(peor) < global) {
         frases.push(
-          `Punto débil: ${nombreDe(peor.key, peor.valor)}, ${peor.favorables} de ${peor.n} conservados.${indicio(peor.n)}`,
+          `Punto débil: ${nombreDe(peor.key, peor.valor)}, retenemos ${peor.favorables} de ${peor.n}.${indicio(peor.n)}`,
         );
       }
     }
@@ -503,7 +504,7 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
   const conserva = (row: RecordRow) => {
     const resultado = resultadoDe(row);
 
-    return ofensivo ? esFavorable(resultado) : resultado.owner === "rival" && resultado.rank > 0;
+    return esFavorable(resultado);
   };
   const produce = (row: RecordRow) => esProduccion(resultadoDe(row), mode);
   const ocasion = (row: RecordRow) => {
@@ -518,6 +519,12 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
   };
   const total = (filas: RecordRow[]) => filas.length;
 
+  /* Hacia dónde es mejor, escrito en la propia fila. */
+  const sentidoTexto = (mejorAlto: boolean | null) =>
+    mejorAlto === true ? "más es mejor" : mejorAlto === false ? "menos es mejor" : "";
+
+  const juntaPie = (...partes: (string | undefined)[]) => partes.filter(Boolean).join(" · ");
+
   const cuenta = (
     clave: string,
     nombre: string,
@@ -530,7 +537,7 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
     actual: cuentaDe(criterio)(actual),
     media: mediaPorPartido(anteriores, cuentaDe(criterio)),
     mejorAlto,
-    pie,
+    pie: juntaPie(pie, sentidoTexto(mejorAlto)),
   });
 
   /* Un porcentaje de los anteriores se saca sumando los dos lados de todos
@@ -548,17 +555,25 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
     media: porcentajeAgregado(anteriores, cuentaDe(criterio), total),
     formato: formatoPorcentaje,
     mejorAlto,
-    pie,
+    /* La base de cada porcentaje a la vista: «8 de 17 saques». */
+    pie: juntaPie(
+      `${cuentaDe(criterio)(actual)} de ${actual.length} ${actual.length === 1 ? "saque" : "saques"}`,
+      pie,
+      sentidoTexto(mejorAlto),
+    ),
   });
 
   return [
     cuenta("saques", ofensivo ? "Saques" : "Saques del rival", () => true, null),
+    /* Una sola medida del balón: el que acaba en nuestras manos. En defensa
+       es la recuperación de la tarjeta de arriba, no «lo que conserva el rival»,
+       que contaba otra cosa y no sumaba 100 con ella. */
     porcentaje(
       "conserva",
-      ofensivo ? "% conservados" : "% que conserva el rival",
+      ofensivo ? "% retención" : "% recuperación",
       conserva,
-      ofensivo,
-      ofensivo ? "el balón sigue siendo nuestro" : "el rival no pierde el balón",
+      true,
+      ofensivo ? "el balón sigue siendo nuestro" : "recuperamos el saque del rival",
     ),
     porcentaje(
       "progresion",
@@ -1639,13 +1654,13 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     hint={
                       isOffensive
                         ? "Envíos hacia delante o al área"
-                        : "Envíos del rival hacia delante o al área"
+                        : "Envíos del rival hacia delante o al área · menos es mejor"
                     }
                   />
                   <MetricCard
                     label={isOffensive ? "% Retención" : "% Recuperación"}
                     value={`${Math.round(totals.favorablePct)} %`}
-                    hint="Acaba con el balón para el RMCF"
+                    hint={`${Math.round((totals.favorablePct / 100) * totals.acciones)} de ${totals.acciones} saques · acaba con el balón para el RMCF`}
                   />
                   <MetricCard
                     label={isOffensive ? "Producción" : "Peligro concedido"}
@@ -1653,7 +1668,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     hint={
                       isOffensive
                         ? "Conquista de último tercio, ocasión o gol nuestro"
-                        : "Conquista de último tercio, ocasión o gol del rival"
+                        : "Conquista de último tercio, ocasión o gol del rival · menos es mejor"
                     }
                   />
                   {!isOffensive ? (
