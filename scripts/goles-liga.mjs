@@ -66,7 +66,10 @@ async function principal() {
     for (const p of equipo.partidos ?? []) {
       const jornada = Number(String(p.competicion ?? "").match(/Primera Federaci[oó]n\. Jornada (\d+)/)?.[1]);
 
-      if (!p.jugado || !jornada || !Array.isArray(p.goles)) continue;
+      if (!p.jugado || !jornada) continue;
+
+      /* Un partido jugado sin goles detallados también cuenta (con la lista vacía y marcado como incompleto). */
+      const lista = Array.isArray(p.goles) ? p.goles : [];
 
       const total = (p.local?.goles ?? 0) + (p.visitante?.goles ?? 0);
 
@@ -75,13 +78,13 @@ async function principal() {
          goles a favor y en contra) con los que sí tienen minuto, marcado como incompleto. */
       const previo = porId.get(p.id);
 
-      if (previo && previo.goles.length >= p.goles.length) continue;
+      if (previo && previo.goles.length >= lista.length) continue;
 
       /* Si BeSoccer trae más goles que el marcador (uno anulado o repetido) se quitan los repetidos
          (mismo minuto, jugador y lado); si aun así sobran, el partido NO se tira: se guarda con su
          resultado y sin goles detallados, marcado como incompleto. */
       const vistos = new Set();
-      let detalle = p.goles.filter((g) => {
+      let detalle = lista.filter((g) => {
         const clave = `${g.minuto}|${g.jugador ?? ""}|${g.propio ? 1 : 0}`;
 
         if (vistos.has(clave)) return false;

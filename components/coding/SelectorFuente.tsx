@@ -37,6 +37,7 @@ import { Check, FolderOpen, Layers, Link2, RefreshCw, Upload } from "lucide-reac
 
 import { Button } from "@/components/abp/ui";
 import type { FuenteVideo } from "@/lib/coding/modelo";
+import { NotaPlegable } from "@/components/coding/piezas";
 
 type VideoDePartido = {
   ruta: string;
@@ -325,11 +326,10 @@ export function SelectorFuente({
           </Button>
         </div>
 
-        <p className="mt-1.5 text-[10px] leading-relaxed text-white/25">
-          Tiene que ser el vídeo en sí, no la página que lo enseña: una URL de
-          YouTube o de HUDL no se puede reproducir ni cortar desde aquí. Se
-          pueden pegar varias de una vez, una por línea.
-        </p>
+        <NotaPlegable className="mt-1.5 text-white/40" resumen="Tiene que ser el vídeo en sí, no la página que lo enseña.">
+          Una URL de YouTube o de HUDL no se puede reproducir ni cortar desde
+          aquí. Se pueden pegar varias de una vez, una por línea.
+        </NotaPlegable>
       </div>
 
       {/* ------------------------ DEL ORDENADOR ----------------------- */}
@@ -368,15 +368,13 @@ export function SelectorFuente({
           }}
         />
 
-        <p className="mt-1.5 text-[10px] leading-relaxed text-white/25">
-          Se pueden abrir varios a la vez —las dos partes, la cámara táctica—:
-          quedan todos en la sesión y se pasa de uno a otro con un toque, cada
-          uno con sus cortes. No se sube nada: el navegador los lee del disco.
-          Se codifica y se montan los vídeos aquí mismo —a tiempo real, con la
-          pantalla delante, y salen en .webm con sonido—, así que funciona
-          igual con la app abierta desde internet. Al recargar hay que volver a
+        <NotaPlegable className="mt-1.5 text-white/40" resumen="Se pueden abrir varios a la vez. No se sube nada: el navegador los lee del disco.">
+          Las dos partes, la cámara táctica: quedan todos en la sesión y se
+          pasa de uno a otro con un toque, cada uno con sus cortes. Se
+          codifica y se montan los vídeos aquí mismo, así que funciona igual
+          con la app abierta desde internet. Al recargar hay que volver a
           abrirlos: el navegador no guarda el permiso.
-        </p>
+        </NotaPlegable>
       </div>
     </div>
   );

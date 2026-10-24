@@ -99,6 +99,10 @@ const liga = useMemo(() => {
   const mediaPuntos =
     hasta.length > 0 ? hasta.reduce((s, p) => s + (p.gl === p.gv ? 2 : 3), 0) / (hasta.length * 2) : null;
 
+  /* Goles a favor por equipo y partido de toda la liga. */
+  const mediaGoles =
+    hasta.length > 0 ? hasta.reduce((s, p) => s + p.gl + p.gv, 0) / (hasta.length * 2) : null;
+
   const equipos = new Set(ps.flatMap((p) => [p.local, p.visitante]));
   const porPartidosJornada = Math.floor(equipos.size / 2);
   const puestos = new Map<number, number>();
@@ -140,7 +144,7 @@ const liga = useMemo(() => {
     puestos.set(uno.jornada, orden.findIndex(([n]) => n === nuestro) + 1);
   }
 
-  return { mediaPuntos, puestos };
+  return { mediaPuntos, mediaGoles, puestos };
 }, [golesLiga.value.partidos, jugados]);
 
 /* La columna del puesto sólo se dibuja si hay puesto en todas las jornadas: una celda suelta en blanco es un hueco. */
@@ -282,12 +286,12 @@ useEffect(() => {
                   ["Puesto", `${tabla.puesto}º de ${tabla.deCuantos}`],
                   [
                     "Puntos",
-                    `${tabla.puntos} en ${tabla.jugados} partidos${tabla.jugados > 0 ? ` · ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por partido${liga.mediaPuntos !== null ? ` · liga ${liga.mediaPuntos.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : ""}` : ""}`,
+                    `${tabla.puntos} en ${tabla.jugados} partidos${tabla.jugados > 0 ? ` · ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por partido${liga.mediaPuntos !== null ? ` · liga ${liga.mediaPuntos.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} · más, mejor` : ""}` : ""}`,
                   ],
                   ["Balance", `${tabla.ganados} G · ${tabla.empatados} E · ${tabla.perdidos} P`],
                   [
                     "Goles",
-                    `${tabla.favor} a favor · ${tabla.contra} en contra · diferencia ${tabla.favor - tabla.contra > 0 ? "+" : tabla.favor - tabla.contra < 0 ? "−" : ""}${Math.abs(tabla.favor - tabla.contra)}`,
+                    `${tabla.favor} a favor · ${tabla.contra} en contra · diferencia ${tabla.favor - tabla.contra > 0 ? "+" : tabla.favor - tabla.contra < 0 ? "−" : ""}${Math.abs(tabla.favor - tabla.contra)}${liga.mediaGoles !== null ? ` · liga ${liga.mediaGoles.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por equipo y partido` : ""}`,
                   ],
                 ].map(([etiqueta, valor]) => (
                   <div
@@ -447,42 +451,15 @@ useEffect(() => {
             ) : null}
 
             {/* Vídeo */}
-            <div ref={videoRef} className="mt-14 sm:mt-20">
-              <div className="mb-6">
-                <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                  Explicación visual
-                </p>
-
-                <div className="mt-4 flex items-center gap-3 sm:gap-5">
-                  <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-                    Cómo se usa el informe
-                  </h2>
-
-                  <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
-                </div>
-              </div>
-
-              {/* Tarjeta con botón en todas las pantallas: el visor de Drive sale en negro dentro de un iframe */}
-              <div className="rounded-[24px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-6 text-center">
-                <p className="text-white/80 text-sm mb-4">
-                  Ver la explicación completa del informe
-                </p>
-
-                <button
-                  onClick={() => window.open(videoUrl, "_blank")}
-                  className="
-                    rounded-full
-                    bg-[#C8A96B]
-                    text-black
-                    px-5 py-3
-                    text-sm
-                    font-semibold
-                    shadow-xl
-                  "
-                >
-                  ▶ Abrir vídeo
-                </button>
-              </div>
+            <div ref={videoRef} className="mt-10 sm:mt-14 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">Explicación visual</span>
+              <button
+                onClick={() => window.open(videoUrl, "_blank")}
+                className="inline-flex items-center gap-1.5 font-semibold text-[#C8A96B] underline-offset-4 hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                Cómo se usa el informe (vídeo)
+              </button>
             </div>
           </div>
         </section>
