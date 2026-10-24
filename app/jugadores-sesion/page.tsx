@@ -52,14 +52,18 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { AbpHeader, Button, Dialog, Panel, SaveState, Segmented, sePuedeDescartar } from "@/components/abp/ui";
+import { AbpHeader, Button, Dialog, Notice, Panel, SaveState, Segmented, sePuedeDescartar } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { LAMINA_H, LAMINA_W, LaminaEquipos, LaminaEscalada } from "@/components/sesion-equipos/LaminaEquipos";
 import { CampoEstructura } from "@/components/sesion-equipos/CampoEstructura";
 import { loadRegistro, type RegistroTarea } from "@/lib/abp/registro";
-import { contextoDeSesion, detallesDeTareas, lineaDeDetalle, tareasDelDia } from "@/lib/sesion-equipos/registro";
+import { lineaDeDetalle, type ContextoSesion } from "@/lib/sesion-equipos/registro";
+import { apuntaQuitada, cambiosDelPlan, detalleDePlan, enlaza, hayCambiosDelPlan, planDeRegistro, resultadosPorTarea, sesionDeFecha, traeDelPlan } from "@/lib/sesion-dia/conexion";
+import { useDiasConectados } from "@/hooks/useDiasConectados";
+import { EnlacesDia } from "@/components/sesion-dia/EnlacesDia";
+import { LineaResultado } from "@/components/sesion-dia/DiaConectado";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   ESTRUCTURAS,
@@ -1054,7 +1058,27 @@ export default function JugadoresSesionPage() {
 
   const [sesionId, setSesionId] = useState<string | null>(null);
 
-  const sesion = sesiones.find((s) => s.id === sesionId) ?? sesiones[0] ?? null;
+  /*
+  | LA FECHA PEDIDA (24/10/2026): «?fecha=2026-10-21» abre la sesión de ese
+  | día (los enlaces del microciclo y del análisis llegan así). Si no la hay,
+  | se ofrece crearla y sus tareas salen del microciclo. Se lee tras montar:
+  | en el servidor no hay dirección.
+  */
+  const [fechaPedida, setFechaPedida] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const f = new URLSearchParams(window.location.search).get("fecha");
+
+      if (f && /^\d{4}-\d{2}-\d{2}$/.test(f)) setFechaPedida(f);
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
+  const sesion = sesiones.find((s) => s.id === sesionId) ?? (fechaPedida ? sesionDeFecha(sesiones, fechaPedida) : null) ?? sesiones[0] ?? null;
+
+  const faltaLaPedida = Boolean(fechaPedida) && !sesionDeFecha(sesiones, fechaPedida ?? "");
 
   const [pedida, setPedida] = useState(0);
 
@@ -1182,6 +1206,36 @@ export default function JugadoresSesionPage() {
       vivo = false;
     };
   }, []);
+
+  /*
+  | EL MICROCICLO DEL DÍA (24/10/2026). Las tareas planificadas para la fecha
+  | de la sesión, cada tarea de la sesión atada a la suya (por la firma que
+  | guarda, el código, el nombre o el orden: lib/sesion-dia/conexion.ts), y
+  | lo que concluyó el análisis de entrenamiento de ese día por tarea.
+  */
+  const fechaSesion = sesion?.fecha;
+
+  const planSesion = useMemo(() => planDeRegistro(registro, fechaSesion), [registro, fechaSesion]);
+
+  const enlacePlan = useMemo(() => (sesion ? enlaza(sesion.tareas, planSesion) : []), [sesion, planSesion]);
+
+  const cambiosPlan = useMemo(() => (sesion ? cambiosDelPlan(sesion, planSesion) : null), [sesion, planSesion]);
+
+  const fechasSesion = useMemo(() => (fechaSesion ? [fechaSesion] : []), [fechaSesion]);
+
+  const { entrenos } = useDiasConectados(fechasSesion, { equipos: false });
+
+  const resultados = useMemo(() => {
+    const dia = fechaSesion ? entrenos[fechaSesion] : undefined;
+
+    return resultadosPorTarea(dia?.sesion, dia?.analisis, planSesion);
+  }, [entrenos, fechaSesion, planSesion]);
+
+  const resultadosDe = (i: number) => {
+    const k = enlacePlan[i];
+
+    return k === null || k === undefined ? [] : (resultados.porTarea.get(k) ?? []);
+  };
 
   /* ---------------- escribir ---------------- */
 
@@ -1740,15 +1794,25 @@ export default function JugadoresSesionPage() {
   };
 
   const creaSesion = () => {
-    const nueva = nuevaSesion(texto);
+    const leida = nuevaSesion(texto);
 
-    if (!nueva.jugadores.length) {
+    if (!leida.jugadores.length) {
       toast.error("No he encontrado jugadores", {
         description: "Cada jugador en su línea, empezando por un guion: «- OSCAR NAASEI».",
       });
 
       return;
     }
+
+    /*
+    | Las tareas salen del microciclo de ese día (24/10/2026): nombre, equipos
+    | y comodines del formato, en el orden del plan. Si la lista no trae fecha,
+    | vale la del enlace por el que se llegó.
+    */
+    const fecha = leida.fecha ?? fechaPedida ?? undefined;
+    const delPlan = planDeRegistro(registro, fecha);
+    const conFecha = fecha ? { ...leida, fecha } : leida;
+    const nueva = delPlan.length ? traeDelPlan(conFecha, delPlan) : conFecha;
 
     setAlmacen((actual) => ({ ...actual, sesiones: [nueva, ...(actual.sesiones ?? [])] }));
     setSesionId(nueva.id);
@@ -1759,8 +1823,17 @@ export default function JugadoresSesionPage() {
     const bajas = nueva.jugadores.filter((j) => j.baja).length;
 
     toast.success(nueva.titulo, {
-      description: `${nueva.jugadores.length - bajas} jugadores${bajas ? ` y ${bajas} de baja` : ""}.`,
+      description: `${nueva.jugadores.length - bajas} jugadores${bajas ? ` y ${bajas} de baja` : ""}.${delPlan.length ? ` ${delPlan.length} ${delPlan.length === 1 ? "tarea" : "tareas"} del microciclo.` : ""}`,
     });
+  };
+
+  /* «Traer del microciclo»: ata, añade lo que falta, pone los nombres y el orden del plan. Se puede deshacer. */
+  const traeDelMicrociclo = () => {
+    if (!sesion || !planSesion.length) return;
+
+    cambiaSesion(sesion.id, (s) => traeDelPlan(s, planSesion));
+    irATarea(0);
+    toast.success("Tareas al día con el microciclo", { description: "Nadie pierde su sitio en las que ya estaban.", action: { label: "Deshacer", onClick: deshaz } });
   };
 
   const cambiaLista = () => {
@@ -1845,7 +1918,7 @@ export default function JugadoresSesionPage() {
 
     const molde = duplicaTarea(previa, tarea.nombre);
 
-    cambiaTarea((t) => ({ ...molde, id: t.id, nombre: t.nombre }));
+    cambiaTarea((t) => ({ ...molde, id: t.id, nombre: t.nombre, plan: t.plan }));
 
     toast.success(`Equipos de «${previa.nombre}» copiados`);
   };
@@ -1966,7 +2039,8 @@ export default function JugadoresSesionPage() {
 
     if (Object.keys(tarea.sitio).length > 3 && !window.confirm(`¿Quitar «${tarea.nombre}»?`)) return;
 
-    cambiaSesion(sesion.id, (s) => ({ ...s, tareas: s.tareas.filter((t) => t.id !== tarea.id) }));
+    /* Si salía del microciclo, se apunta: el microciclo propone quitarla y «Traer» no la devuelve. */
+    cambiaSesion(sesion.id, (s) => apuntaQuitada({ ...s, tareas: s.tareas.filter((t) => t.id !== tarea.id) }, tareaBase ?? tarea));
     irATarea(Math.max(0, activa - 1));
 
     /* Con tres o menos colocados se quita sin preguntar: que se pueda volver atrás. */
@@ -2119,9 +2193,9 @@ export default function JugadoresSesionPage() {
 
   const reparto = sesion && tarea ? repartoDe(tarea, sesion.jugadores) : null;
 
-  const delDia = useMemo(() => tareasDelDia(registro, sesion?.fecha), [registro, sesion?.fecha]);
-  const contexto = useMemo(() => contextoDeSesion(delDia), [delDia]);
-  const detalles = useMemo(() => (sesion ? detallesDeTareas(sesion.tareas.map((t) => t.nombre), delDia) : []), [sesion, delDia]);
+  /* Con el mismo enlace que el microciclo (24/10/2026): antes la diapositiva casaba por su cuenta, sólo por el nombre. */
+  const contexto = useMemo<ContextoSesion | null>(() => (planSesion[0] ? { micro: planSesion[0].micro, rival: planSesion[0].rival, md: planSesion[0].md } : null), [planSesion]);
+  const detalles = useMemo(() => enlacePlan.map((k) => (k === null ? null : detalleDePlan(planSesion[k]))), [enlacePlan, planSesion]);
   const detalleDe = (i: number) => (sesion ? lineaDeDetalle(detalles[i], sesion.tareas[i]?.nombre ?? "") : "");
 
   /* Los que hacen la tarea sin demarcación: el reparto «por puesto» no sabe dónde juegan (21/10/2026). */
@@ -2279,6 +2353,7 @@ export default function JugadoresSesionPage() {
                     value={sesion.id}
                     onChange={(e) => {
                       setSesionId(e.target.value);
+                      setFechaPedida(null);
                       irATarea(0);
                       setElegido(null);
                     }}
@@ -2327,6 +2402,60 @@ export default function JugadoresSesionPage() {
                   Nueva sesión
                 </Button>
                 <Button tone="danger" icon={Trash2} onClick={borraSesion} title="Borrar esta sesión" aria-label="Borrar esta sesión" />
+              </div>
+            )}
+
+            {/* ---------------- LA FECHA PEDIDA, SIN SESIÓN ---------------- */}
+
+            {faltaLaPedida && fechaPedida && sesion && status !== "loading" && (
+              <div className="mt-4">
+                <Notice title={`No hay sesión del ${fechaPedida.split("-").reverse().slice(0, 2).join("/")}`}>
+                  <p>Pega la lista del delegado para crearla{planDeRegistro(registro, fechaPedida).length ? ": las tareas salen del microciclo de ese día" : ""}.</p>
+                  <div className="mt-2">
+                    <Button
+                      icon={Plus}
+                      onClick={() => {
+                        setTexto("");
+                        setDialogo("nueva");
+                      }}
+                    >
+                      Crear la sesión
+                    </Button>
+                  </div>
+                </Notice>
+              </div>
+            )}
+
+            {/* ---------------- EL MICROCICLO DEL DÍA ---------------- */}
+
+            {sesion?.fecha && (
+              <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                {contexto ? (
+                  <p className="min-w-0 text-[12px] text-white/70">
+                    <span className="font-semibold text-[#C8A96B]">Micro {contexto.micro}</span>
+                    {contexto.md ? ` · ${contexto.md}` : ""}
+                    {contexto.rival ? ` · ${contexto.rival}` : ""}
+                    {` · ${planSesion.length} ${planSesion.length === 1 ? "tarea planificada" : "tareas planificadas"}`}
+                  </p>
+                ) : null}
+                {cambiosPlan && planSesion.length > 0 && hayCambiosDelPlan(cambiosPlan) ? (
+                  <p className="min-w-0 text-[12px] text-amber-300">
+                    {[
+                      cambiosPlan.nuevas.length ? `${cambiosPlan.nuevas.length} ${cambiosPlan.nuevas.length === 1 ? "tarea del plan que no está aquí" : "tareas del plan que no están aquí"}` : "",
+                      cambiosPlan.renombradas.length ? `${cambiosPlan.renombradas.length} ${cambiosPlan.renombradas.length === 1 ? "renombrada" : "renombradas"} en el plan` : "",
+                      cambiosPlan.orden ? "otro orden en el plan" : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                ) : null}
+                {cambiosPlan && planSesion.length > 0 && (hayCambiosDelPlan(cambiosPlan) || cambiosPlan.sinVinculo > 0) ? (
+                  <Button icon={Repeat2} onClick={traeDelMicrociclo} title="Añade las tareas del plan que faltan, pone sus nombres y su orden y ata cada tarea a la suya. Nadie pierde su sitio; se puede deshacer.">
+                    Traer del microciclo
+                  </Button>
+                ) : null}
+                <span className="flex-1" />
+                <EnlacesDia fecha={sesion.fecha} micro={contexto?.micro} actual="sesion" />
               </div>
             )}
 
@@ -2411,6 +2540,22 @@ export default function JugadoresSesionPage() {
                         <span className="max-w-[170px] truncate text-[12px] font-semibold uppercase tracking-wide">
                           {i + 1}. {t.nombre}
                         </span>
+                        {/* Su tarea del microciclo y, si el análisis la midió, su resultado (24/10/2026). */}
+                        {enlacePlan[i] !== null && enlacePlan[i] !== undefined ? (
+                          <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]/80" title="La tarea del microciclo">
+                            {planSesion[enlacePlan[i] as number]?.codigo}
+                          </span>
+                        ) : null}
+                        {(() => {
+                          const r = resultadosDe(i);
+                          const pct = r.map((x) => x.porcentaje).filter(Boolean)[0];
+
+                          return r.length && pct ? (
+                            <span className={`shrink-0 text-[10px] font-semibold ${r.some((x) => x.cumple === false) ? "text-amber-300" : r.some((x) => x.cumple === true) ? "text-emerald-300" : "text-white/55"}`} title={r.map((x) => `${x.objetivo}: ${x.lectura}`).join("\n")}>
+                              {pct}
+                            </span>
+                          ) : null;
+                        })()}
                         <span className="flex shrink-0 -space-x-1">
                           {t.equipos.map((e) => (
                             <span key={e.id} className="h-3 w-3 rounded-full border border-[#0B0F14]" style={{ background: e.color }} />
@@ -2471,6 +2616,28 @@ export default function JugadoresSesionPage() {
                         />
                         {detalleDe(activa) && <span className="mt-1 block truncate text-[11px] text-white/45" title="Lo que trae la hoja de registro para esta tarea">De la hoja: {detalleDe(activa)}</span>}
                       </label>
+
+                      {/* Lo que concluyó el análisis de entrenamiento en esta tarea (24/10/2026), y su valoración en la hoja. */}
+                      {(() => {
+                        const k = enlacePlan[activa];
+                        const p = k === null || k === undefined ? null : planSesion[k];
+                        const suyos = resultadosDe(activa);
+
+                        if (!suyos.length && !(p && (p.evaluacion > 0 || p.analisisPost))) return null;
+
+                        return (
+                          <div className="w-full min-w-0 space-y-1 rounded-xl border border-white/[0.06] px-3 py-2">
+                            {p && (p.evaluacion > 0 || p.analisisPost) ? (
+                              <p className="text-[11px] text-white/60">
+                                Valoración en el microciclo: {[p.evaluacion > 0 ? String(p.evaluacion) : "", p.analisisPost].filter(Boolean).join(" · ")}
+                              </p>
+                            ) : null}
+                            {suyos.map((r) => (
+                              <LineaResultado key={r.id} r={r} />
+                            ))}
+                          </div>
+                        );
+                      })()}
 
                       <div>
                         <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Equipos</span>
@@ -3410,7 +3577,7 @@ function Presentacion({
   onCierra: (ultima: number) => void;
   puestoDe: PuestoDe;
   detalleDe: (i: number) => string;
-  contexto: ReturnType<typeof contextoDeSesion>;
+  contexto: ContextoSesion | null;
 }) {
   /* Cada tarea es una diapositiva; con cambio a mitad, dos. */
   const pasos = useMemo(

@@ -67,7 +67,11 @@ import { estadoEncargo, vigiaVivo, type EstadoEncargo, type Encargo, type Vigia 
 import { duracion, vistaProgreso, type VistaProgreso } from "@/lib/progreso";
 import { fechaIsoDeHoja } from "@/lib/registro/hoja";
 
+import { useDiasConectados } from "@/hooks/useDiasConectados";
+import { planDeRegistro, sesionDeFecha } from "@/lib/sesion-dia/conexion";
+
 import { CAMPO, ObjetivoEditor, type TareaDelDia } from "./ObjetivoEditor";
+import { SesionDelDia } from "./SesionDelDia";
 import { QueTocaDelPost } from "./QueTocaDelPost";
 import { VistaJugador } from "./VistaJugador";
 
@@ -315,6 +319,13 @@ export default function AnalisisEntrenamientoPage() {
     return [...vistas.values()];
   }, [registro, fecha]);
 
+  /* El plan del día y los equipos de Jugadores sesión (24/10/2026): ver ./SesionDelDia.tsx y lib/sesion-dia/conexion.ts. */
+  const planDelDia = useMemo(() => (Array.isArray(registro) ? planDeRegistro(registro, fecha) : []), [registro, fecha]);
+  const fechasDelDia = useMemo(() => [fecha], [fecha]);
+  const { almacen: almacenEquipos } = useDiasConectados(fechasDelDia, { entreno: false });
+  const equiposDelDia = sesionDeFecha(almacenEquipos?.sesiones, fecha);
+  const plantillaCastilla = useMemo(() => players.filter((p) => p.esCastilla && p.activo !== false).map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo })), [players]);
+
   const anteriorConObjetivos = ultimoDiaConObjetivos(dias, fecha);
 
   const copiaObjetivos = () => {
@@ -501,6 +512,22 @@ export default function AnalisisEntrenamientoPage() {
                     El vídeo sale de la cámara táctica si hay una grabación de ese día en la carpeta SESIONES del ordenador del club; si no, del entrenamiento subido a Hudl con la fecha en el título («16102026 RM CASTILLA…»). La IA propone cada acción y su veredicto; se corta un clip de ejemplo correcto y otro mejorable por objetivo. Lo que valides aquí manda en los números.
                   </p>
                 </Explicativo>
+
+                {/* ---------------- la sesión del día ---------------- */}
+                <SesionDelDia
+                  fecha={fecha}
+                  plan={planDelDia}
+                  equipos={equiposDelDia}
+                  entreno={sesion}
+                  analisis={analisis}
+                  plantilla={plantillaCastilla}
+                  nombreDe={(id) => jugadores.find((j) => j.id === id)?.nombre ?? ""}
+                  onObjetivo={(o) => {
+                    if (status === "loading") return;
+                    cambia((s) => ({ ...s, objetivos: [...s.objetivos, { ...o, id: nuevoId() }] }));
+                    toast.success("Objetivo creado", { description: `${o.jugadores.length} jugadores · ${o.tarea}. Escribe qué se busca.` });
+                  }}
+                />
 
                 {/* ---------------- los objetivos ---------------- */}
                 <div className="space-y-3">
