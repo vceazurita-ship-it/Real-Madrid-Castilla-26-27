@@ -199,7 +199,7 @@ function Tabla({ cabeza, filas, pie }: { cabeza: string[]; filas: FilaTabla[]; p
  * si es peor (más de un 10 %), y nada si está en la media. La flecha va por
  * si el color no se distingue (modo día, pantalla del vestuario).
  */
-function Contra({ valor, liga, mejorAlto, dec = 2, sufijo = "" }: { valor: number; liga: number; mejorAlto: boolean; dec?: number; sufijo?: string }) {
+function Contra({ valor, liga, mejorAlto, dec = 1, sufijo = "" }: { valor: number; liga: number; mejorAlto: boolean; dec?: number; sufijo?: string }) {
   /* Con valores que pueden ser negativos (goles menos xG) el 10 % no vale: se mira la diferencia. */
   const margen = liga > 0 ? liga * 0.1 : 0.1;
   const mejor = mejorAlto ? valor > liga + margen : valor < liga - margen;
@@ -272,6 +272,13 @@ export function PantallaGoles() {
         return lado && (condicion === "todos" || lado === condicion);
       }),
     [liga, equipo, condicion],
+  );
+
+  /* Hasta qué jornada llegan los datos DEL EQUIPO: si le falta alguna, se dice
+     en el resumen para que nadie compare un partido de menos con la liga. */
+  const jUltimaEquipo = useMemo(
+    () => liga.reduce((m, p) => (ladoDe(p, equipo) ? Math.max(m, p.jornada) : m), 0),
+    [liga, equipo],
   );
 
   const goles = useMemo(() => golesDe(delEquipo, equipo), [delEquipo, equipo]);
@@ -575,6 +582,7 @@ export function PantallaGoles() {
           <Explicativo>
             Goles de {equipo} y de toda la liga por franjas de minutos, como local y como visitante, con los remates de Wyscout y la tipología de los goles de nuestros
             partidos (Hudl). Jornadas {jDesde} a {jHasta}
+            {jUltimaEquipo > 0 && jUltimaEquipo < jHasta ? ` (los datos de ${equipo} llegan hasta la J${jUltimaEquipo})` : ""}
             {doc.actualizado ? ` · actualizado el ${new Date(doc.actualizado).toLocaleDateString("es-ES", { day: "numeric", month: "long" })}` : ""}.
           </Explicativo>
         }

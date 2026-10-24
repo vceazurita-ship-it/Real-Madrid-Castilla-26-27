@@ -83,7 +83,10 @@ export function LineaDeTiempo({
   onElegirClip,
   onElegirEscena,
   onMueveEscena,
+  cortesDeEsteVideo = false,
 }: {
+  /** Con varios vídeos en la sesión, el contador aclara que son los de ESTE (el total va en la cabecera y en la lista). */
+  cortesDeEsteVideo?: boolean;
   duracionMs: number;
   tiempoMs: number;
   inicioPendienteMs: number | null;
@@ -586,7 +589,7 @@ export function LineaDeTiempo({
               ? formateaMs(encima)
               : lupa > 1
                 ? `${formateaMs(ventana.desde)} – ${formateaMs(ventana.desde + ventana.tramo)}`
-                : `${acciones.length} ${acciones.length === 1 ? "corte" : "cortes"}`}
+                : `${acciones.length} ${acciones.length === 1 ? "corte" : "cortes"}${cortesDeEsteVideo ? " en este vídeo" : ""}`}
         </span>
 
         <span>{formateaMs(duracionMs)}</span>
