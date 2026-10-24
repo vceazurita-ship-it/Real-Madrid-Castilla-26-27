@@ -1805,14 +1805,17 @@ export default function MatchPreparation() {
           {duelosClave && !editando && (duelosClave.ventaja.length > 0 || duelosClave.riesgo.length > 0) && (
             <div className="mp-no-print -mt-3 mb-5 flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] text-white/75">
               <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">Los duelos, en una línea</span>
+              <span className="min-w-0 tabular-nums text-white/60">
+                {duelosClave.conVentajaNuestra} con ventaja nuestra · {duelosClave.conVentajaSuya} con ventaja suya
+              </span>
               {duelosClave.ventaja[0] && (
                 <span className="min-w-0">
-                  <b className="text-emerald-300">Buscar:</b> {duelosClave.ventaja[0].titulo} ({duelosClave.ventaja[0].nuestros.join(" y ")}, +{duelosClave.ventaja[0].valor})
+                  <b className="text-emerald-300">Buscar</b> <span className="text-white/45">(con balón nuestro)</span>: {duelosClave.ventaja[0].titulo} ({duelosClave.ventaja[0].nuestros.join(" y ")}, +{duelosClave.ventaja[0].valor})
                 </span>
               )}
               {duelosClave.riesgo[0] && (
                 <span className="min-w-0">
-                  <b className="text-rose-300">Vigilar:</b> {duelosClave.riesgo[0].titulo} ({duelosClave.riesgo[0].suyos.join(" y ")}, {duelosClave.riesgo[0].valor > 0 ? "+" : ""}{duelosClave.riesgo[0].valor})
+                  <b className="text-rose-300">Vigilar</b> <span className="text-white/45">(con balón suyo)</span>: {duelosClave.riesgo[0].titulo} ({duelosClave.riesgo[0].suyos.join(" y ")}, {duelosClave.riesgo[0].valor > 0 ? "+" : ""}{duelosClave.riesgo[0].valor})
                 </span>
               )}
               <Link href="/duelos" className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
