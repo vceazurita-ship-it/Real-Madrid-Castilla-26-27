@@ -134,9 +134,9 @@ export function Parrilla({
 
         <li className="flex items-center gap-1.5">
           <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] text-[#C8A96B]">
-            Solo …
+            Solo Nombre
           </span>
-          el único que puso ese signo
+          : el único que puso ese signo en ese partido
         </li>
 
         <li className="flex items-center gap-1.5">

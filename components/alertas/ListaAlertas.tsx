@@ -19,6 +19,7 @@ import {
   fechaLegible,
   normalizaAvisos,
   saldriaSiSeReactiva,
+  tituloLegible,
   type Alerta,
   type PartidoParaAlerta,
 } from "@/lib/alertas/modelo";
@@ -104,17 +105,7 @@ export default function ListaAlertas({
 
         /* Se pintaba en minúsculas tal cual se apuntó, y el cuerpo repetía el
            título cuando sólo se había escrito uno. */
-        const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
-        /* Un título escrito todo en mayúsculas se lee a gritos: se pasa a frase. */
-        const siglas = (t: string) => t.replace(/\brmcf\b/gi, "RMCF");
-        const frase = (t: string) => siglas(fraseBase(t));
-        const fraseBase = (t: string) => {
-          const letras = t.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
-
-          return letras.length > 3 && t === t.toUpperCase()
-            ? mayuscula(t.toLowerCase())
-            : mayuscula(t);
-        };
+        const frase = tituloLegible;
         const titulo = frase(alerta.titulo.trim());
         const mensaje = alerta.mensaje?.trim() ?? "";
         const repiteTitulo =

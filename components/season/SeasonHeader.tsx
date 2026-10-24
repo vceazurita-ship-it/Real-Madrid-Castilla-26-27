@@ -81,11 +81,9 @@ export default function SeasonHeader({
             <p className="mt-3 text-base font-medium text-white/85">
               {weekHasFiles(currentWeek)
                 ? `${currentWeek.week} ya tiene material.`
-                : `Sube el material de la ${currentWeek.week.toLowerCase()}.${
-                    ultimaConMaterial
-                      ? ` La última con material fue la ${ultimaConMaterial.week.toLowerCase()}.`
-                      : ""
-                  }`}{" "}
+                : ultimaConMaterial
+                  ? `Última semana con material: la ${ultimaConMaterial.week.toLowerCase()}.`
+                  : ""}{" "}
               <span className="text-sm font-normal text-white/50">
                 {stats.completed} de {stats.totalWeeks}{" "}
                 {stats.totalWeeks === 1 ? "semana con material" : "semanas con material"}

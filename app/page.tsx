@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react"
 import Papa from "papaparse"
 import {
   Activity,
+  ArrowRight,
   BarChart3,
   ChevronRight,
   Handshake,
@@ -763,9 +764,10 @@ export default function Home() {
             <div className="flex justify-center pb-2 pt-6">
               <Link
                 href="/coding?ambito=rival"
-                className="text-[11px] uppercase tracking-[0.24em] text-white/40 transition-colors hover:text-white/70"
+                className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.24em] text-white/40 transition-colors hover:text-white/70"
               >
-                Coding de rival
+                Coding de rival · herramienta del analista
+                <ArrowRight className="h-3 w-3" aria-hidden />
               </Link>
             </div>
           </section>

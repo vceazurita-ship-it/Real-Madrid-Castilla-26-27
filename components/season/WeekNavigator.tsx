@@ -141,7 +141,10 @@ export default function WeekNavigator({
 
           <span className="font-medium">{month.name}</span>
 
-          <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/40">
+          <span
+            className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/40"
+            title={`${withFiles} de ${month.weeks.length} semanas con material`}
+          >
             {withFiles}/{month.weeks.length}
           </span>
 
@@ -282,7 +285,10 @@ export default function WeekNavigator({
                 month,
                 month.id !== selectedMonthId &&
                   posicion !== posicionActual &&
-                  posicion !== posicionActual - 1,
+                  /* El mes anterior sólo se despliega si trae material: uno
+                     con 0 archivos no aporta nada abierto. */
+                  (posicion !== posicionActual - 1 ||
+                    month.weeks.every((week) => !weekHasFiles(week))),
               );
             })}
           </div>

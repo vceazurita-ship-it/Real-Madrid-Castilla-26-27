@@ -183,7 +183,11 @@ export function humanFileName(url: string, fallback: string) {
 
   if (/^\d{9,}/.test(base)) return fallback;
 
-  const sinSello = base.replace(/-(?=[a-z0-9]*\d)[a-z0-9]{10,14}$/i, "");
+  /* Sello largo de la subida, o un número suelto de 5-6 cifras al final
+     («RMCF-HOJA-FIRMAS-53245» → «RMCF-HOJA-FIRMAS»). */
+  const sinSello = base
+    .replace(/-(?=[a-z0-9]*\d)[a-z0-9]{10,14}$/i, "")
+    .replace(/-\d{5,6}$/, "");
 
   return sinSello ? `${sinSello}${extension}` : fallback;
 }

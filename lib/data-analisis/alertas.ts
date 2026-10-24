@@ -200,7 +200,7 @@ export function alertasDeData(
             ? mediana.toFixed(1).replace(".", ",")
             : formatea(mediana, metrica.unidad);
 
-        return `${metrica.mejorAlto ? "más es mejor" : "menos es mejor"} · mediana de la liga ${med} · contra ${todos.length} equipos`;
+        return `${metrica.mejorAlto ? "más es mejor" : "menos es mejor"} · mediana de la liga ${med} · contra ${todos.length} equipos · en ${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} del Castilla`;
       })(),
       fuerza: Math.min(100, Math.abs(p - 50) * 2),
       enlace: "/data-analisis?area=liga",
@@ -229,7 +229,8 @@ export function alertasDeData(
       detalle: arriba
         ? "Acierto por delante de lo generado. Sostenido es un buen delantero; en tres partidos, casi siempre vuelve a su sitio."
         : "Se generan ocasiones que no se terminan. Si el xG sostiene, es cuestión de tiempo; si no, el problema está antes del remate.",
-      cifra: `${dif >= 0 ? "+" : ""}${dif.toFixed(2)} goles por partido sobre el xG`,
+      /* Coma decimal y signo «−» como en la portada; con la base de partidos. */
+      cifra: `${dif >= 0 ? "+" : "−"}${Math.abs(dif).toFixed(2).replace(".", ",")} goles por partido sobre el xG · en ${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"}`,
       fuerza: Math.min(100, Math.abs(dif) * 60),
       enlace: "/data-analisis?area=historia",
       mira: "La serie por temporadas y el partido a partido de este curso.",

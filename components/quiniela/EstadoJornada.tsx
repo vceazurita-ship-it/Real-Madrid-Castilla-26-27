@@ -199,7 +199,7 @@ export function EstadoJornada({
 
   const deDonde =
     jornada.origenResultados === "besoccer"
-      ? "de BeSoccer, solo"
+      ? "BeSoccer"
       : jornada.origenResultados === "mano"
         ? "puestos a mano"
         : "";
@@ -252,7 +252,9 @@ export function EstadoJornada({
             ? diaPrimero
               ? `Empieza el ${diaPrimero.largo}`
               : undefined
-            : [cuando, deDonde].filter(Boolean).join(" · ")
+            : cuando
+              ? `Actualizado ${cuando}${deDonde ? ` (${deDonde})` : ""}`
+              : deDonde
         }
       >
         <span className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]">
@@ -285,7 +287,7 @@ export function EstadoJornada({
             </span>
           ) : lideres.length > 1 ? (
             <span className="truncate text-[17px]">
-              {lideres.length} empatados
+              Empate entre {lideres.length}
             </span>
           ) : (
             <span className="flex min-w-0 items-center gap-2">
@@ -308,6 +310,11 @@ export function EstadoJornada({
         pie={
           lideres.length > 1
             ? (() => {
+                /* Con tantos empatados la lista de nombres no informa: se dice
+                   el empate y ya. Con pocos, los nombres completos. */
+                if (lideres.length > 3)
+                  return `Empate a ${mejor.marcador.aciertos} ${mejor.marcador.aciertos === 1 ? "acierto" : "aciertos"} de ${jugados}`;
+
                 const nombres = lideres.slice(0, 3).map((lider) => {
                   const persona = PERSONA_POR_SLUG.get(lider.slug);
 

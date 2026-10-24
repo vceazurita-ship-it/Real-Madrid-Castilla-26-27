@@ -154,7 +154,7 @@ export default function ModulesExplorer() {
 
         {/* FILTROS POR ÁREA */}
 
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-none lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-none [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 lg:[mask-image:none]">
           <button
             type="button"
             onClick={() => setArea(null)}

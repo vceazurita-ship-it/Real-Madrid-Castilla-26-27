@@ -105,13 +105,16 @@ export default function ApuestasPage() {
 
   /* Quien no ha entrado lee primero lo que hay; el acceso baja debajo de la
      lista. Sin nada que leer, el acceso sigue arriba como invitación. */
-  const accesoAbajo = !yo && !sesion.cargando && estado === "listo";
+  const accesoAbajo =
+    !yo && !sesion.cargando && estado === "listo" && doc.apuestas.length > 0;
 
   /* Con apuestas abiertas, el acceso lo dice con el dato y el verbo. */
   const tituloAcceso =
     vivas.length > 0
       ? `${vivas.length === 1 ? "Una apuesta abierta" : `${vivas.length} apuestas abiertas`}: entra y ponte a favor o en contra`
-      : "Entra para apostar";
+      : estado === "listo" && doc.apuestas.length === 0
+        ? "Entra y lanza la primera"
+        : "Entra para apostar";
 
   const pasos = (
     <ol className="list-decimal space-y-1 pl-4">
@@ -181,8 +184,11 @@ export default function ApuestasPage() {
             {/* Sin ninguna apuesta publicada: el ejemplo, como tarjeta de
                 muestra, para que la pantalla enseñe qué se ve aquí. */}
             {estado === "listo" && doc.apuestas.length === 0 && (
-              <div className="mt-5">
-                <Panel title="Así se ve una apuesta" icon={Dices}>
+              <details className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                  Cómo se ve una apuesta
+                </summary>
+                <div className="mt-3">
                   <article className="flex max-w-xl flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-4">
                     <span className="inline-flex w-fit items-center rounded-full border border-white/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
                       Ejemplo
@@ -218,8 +224,8 @@ export default function ApuestasPage() {
                       </button>
                     </div>
                   </article>
-                </Panel>
-              </div>
+                </div>
+              </details>
             )}
 
             {/* ------------------------ QUIÉN ERES --------------------- */}

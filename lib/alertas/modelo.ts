@@ -376,6 +376,28 @@ export function saldriaSiSeReactiva(
   return cuando ? { cuando, dias } : null;
 }
 
+/**
+ * El título tal como se pinta (el dato guardado no se toca): primera letra en
+ * mayúscula, frase normal si se escribió a gritos, «RMCF» en siglas y el
+ * nombre propio con mayúscula cuando va tras «avisar a», «llamar a»…
+ */
+export function tituloLegible(texto: string) {
+  const t = texto.trim();
+  const mayuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const letras = t.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
+  const base =
+    letras.length > 3 && t === t.toUpperCase()
+      ? mayuscula(t.toLowerCase())
+      : mayuscula(t);
+
+  return base
+    .replace(/\brmcf\b/gi, "RMCF")
+    .replace(
+      /\b(avisar a|llamar a|hablar con|escribir a|informar a|decir a|preguntar a|recordar a) ([a-záéíóúüñ]+)/gi,
+      (_m, verbo: string, nombre: string) => `${verbo} ${mayuscula(nombre)}`,
+    );
+}
+
 /** "vie 28 ago · 09:30", en horario del navegador. */
 export function fechaLegible(iso: string | null) {
   if (!iso) return "—";
