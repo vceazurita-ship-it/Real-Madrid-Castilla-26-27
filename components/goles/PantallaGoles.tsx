@@ -256,7 +256,13 @@ export function PantallaGoles() {
      quedaba entera a cero sin decir por qué. Se lee como el tramo entre las
      dos, en el orden que sea. */
   const jA = desde ?? jornadas[0] ?? 1;
-  const jB = hasta ?? ultima;
+  /* «Hasta» abre en la última jornada con partido DEL EQUIPO, no en la última de la
+     liga: si a él le falta la J9, decir «jornadas 1 a 9» lo cuenta como jugada. */
+  const ultimaDelEquipo = useMemo(
+    () => todos.reduce((m, p) => (ladoDe(p, equipo) ? Math.max(m, p.jornada) : m), 0),
+    [todos, equipo],
+  );
+  const jB = hasta ?? (ultimaDelEquipo || ultima);
   const jDesde = Math.min(jA, jB);
   const jHasta = Math.max(jA, jB);
 
@@ -678,7 +684,7 @@ export function PantallaGoles() {
           </StatRow>
 
           {/* ---------------- lo importante ---------------- */}
-          <Panel title="Lo importante" subtitle={`${equipo} · jornadas ${jDesde} a ${jHasta}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}. Siempre comparado con la media de la liga.`} icon={Lightbulb}>
+          <Panel title="Lo importante" subtitle={`${equipo} · ${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}${jUltimaEquipo > 0 ? `, hasta la J${jUltimaEquipo}` : ""}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}. Siempre comparado con la media de la liga.`} icon={Lightbulb}>
             <ul className="space-y-2.5">
               {importante.map((frase, i) => (
                 <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-white/80">

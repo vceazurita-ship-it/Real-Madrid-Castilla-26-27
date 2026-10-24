@@ -82,8 +82,8 @@ export function lecturaFranjas(filas: FilaFranja[]) {
   const fuerte = [...conDif].filter((f) => f.gf > 0).sort((a, b) => b.df - a.df)[0];
   const flojo = [...conDif].filter((f) => f.gc > 0).sort((a, b) => b.dc - a.dc)[0];
 
-  if (fuerte && fuerte.df > 0) frases.push(`Su mejor tramo en ataque es el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}, ${n2(media(fuerte.gf, partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga.`);
-  if (flojo && flojo.dc > 0) frases.push(`Donde más sufre es en el ${flojo.franja.nombre}: ${veces(flojo.gc)} en contra, ${n2(media(flojo.gc, partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga.`);
+  if (fuerte && fuerte.df > 0) frases.push(`Su mejor tramo en ataque es el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}, ${n2(media(fuerte.gf, partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga (tendencia, ${partidos} ${partidos === 1 ? "partido" : "partidos"}).`);
+  if (flojo && flojo.dc > 0) frases.push(`Donde más sufre es en el ${flojo.franja.nombre}: ${veces(flojo.gc)} en contra, ${n2(media(flojo.gc, partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga (tendencia, ${partidos} ${partidos === 1 ? "partido" : "partidos"}).`);
 
   /* Antes y después del descanso. */
   const parte = (p: 1 | 2, k: "gf" | "gc") => filas.filter((f) => f.franja.parte === p).reduce((s, f) => s + f[k], 0);
@@ -122,7 +122,7 @@ export function lecturaCondicion(corto: string, cL: Condicion, cV: Condicion, lL
       else if (p < 0 && frente(c.tiros, l.tiros) < 0) porque = ` Genera poco: ${n1(c.tiros)} remates por partido frente a ${n1(l.tiros)}.`;
       else if (p < 0 && frente(c.gc, l.gc) > 0) porque = ` Lo que pesa es lo que encaja: ${n2(c.gc)} por partido frente a ${n2(l.gc)}.`;
       else if (p < 0 && c.golesMenosXg < -0.3) porque = ` Marca menos de lo que generan sus ocasiones (${n2(c.golesMenosXg)} goles por partido por debajo de su xG).`;
-      else if (p > 0 && frente(c.xg, l.xg) > 0) porque = ` Lo sostiene el volumen de ocasiones: ${n2(c.xg)} de xG por partido frente a ${n2(l.xg)}.`;
+      else if (p > 0 && frente(c.xg, l.xg) > 0) porque = ` Lo sostiene el volumen de ocasiones: ${n2(c.xg)} goles esperados (xG) por partido frente a ${n2(l.xg)}.`;
       else if (p > 0 && frente(c.gc, l.gc) < 0) porque = ` Lo sostiene la defensa: ${n2(c.gc)} goles en contra por partido frente a ${n2(l.gc)}.`;
     }
 
