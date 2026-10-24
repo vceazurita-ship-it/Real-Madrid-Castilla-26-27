@@ -33,6 +33,7 @@ import {
   isResolved,
   marcadorDe,
 } from "@/lib/ratings/types";
+import { huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
 import { Player } from "@/types/player";
 
 import { RatingSlider } from "./RatingSlider";
@@ -79,6 +80,31 @@ function draftFromSeason(season: RatingsSeason, id: string): Draft {
       { ...entry, areas: { ...entry.areas } },
     ])
   );
+}
+
+/**
+ * El borrador de partida de un partido que aún no tiene valoraciones
+ * guardadas (24/10/2026): titulares = el once de la pizarra (el mismo reparto
+ * de `huecosDelUltimoOnce`) con 90 minutos, y los jugadores que no son del
+ * Castilla, «sin valorar». Todo se puede cambiar a mano.
+ */
+function borradorPorDefecto(season: RatingsSeason, players: Player[]): Draft {
+  if (players.length === 0) return {};
+
+  const draft: Draft = {};
+  const { huecos } = huecosDelUltimoOnce(season, players);
+
+  for (const id of Object.values(huecos)) {
+    if (id) draft[id] = { ...emptyRating(id), starter: true, minutes: 90 };
+  }
+
+  for (const player of players) {
+    if (player.esCastilla !== false || draft[player.id]) continue;
+
+    draft[player.id] = { ...emptyRating(player.id), unrated: true };
+  }
+
+  return draft;
 }
 
 export function RateMatchPanel({
@@ -153,22 +179,35 @@ export function RateMatchPanel({
   | al cambiar de partido y cuando llega un histórico nuevo del servidor,
   | pero nunca pisa lo que se está escribiendo.
   */
+  const semilla = useMemo(
+    () => (season.matches[selectedId] ? null : borradorPorDefecto(season, players)),
+    [season, selectedId, players],
+  );
+
+  /* Cambia cuando llega la plantilla o el histórico: rehace el de partida. */
+  const semillaKey = semilla ? Object.keys(semilla).length : -1;
+
+  const nuevoBorrador = (): Draft =>
+    season.matches[selectedId] ? draftFromSeason(season, selectedId) : (semilla ?? {});
+
   const [state, setState] = useState<{
     matchId: string;
     season: RatingsSeason;
     draft: Draft;
     dirty: boolean;
-  }>({ matchId: selectedId, season, draft: draftFromSeason(season, selectedId), dirty: false });
+    semillaKey: number;
+  }>({ matchId: selectedId, season, draft: nuevoBorrador(), dirty: false, semillaKey });
 
   if (
     state.matchId !== selectedId ||
-    (state.season !== season && !state.dirty)
+    ((state.season !== season || state.semillaKey !== semillaKey) && !state.dirty)
   ) {
     setState({
       matchId: selectedId,
       season,
-      draft: draftFromSeason(season, selectedId),
+      draft: nuevoBorrador(),
       dirty: false,
+      semillaKey,
     });
   }
 
@@ -266,8 +305,9 @@ export function RateMatchPanel({
     setState({
       matchId: selectedId,
       season,
-      draft: draftFromSeason(season, selectedId),
+      draft: nuevoBorrador(),
       dirty: false,
+      semillaKey,
     });
   };
 
@@ -315,10 +355,33 @@ export function RateMatchPanel({
     });
   }
 
+  /*
+  | Los de otros equipos (RMC, juvenil…) quedan ocultos, «sin valorar», salvo
+  | que se desplieguen o que ya tengan algún dato en este partido (minutos,
+  | nota, titular…): ése nunca se esconde.
+  */
+  const [showOthers, setShowOthers] = useState(false);
+
+  const isOculto = (player: Player) => {
+    if (player.esCastilla !== false) return false;
+
+    const entry = draft[player.id];
+
+    return !entry || !hasContent({ ...entry, unrated: false });
+  };
+
+  const hiddenCount = useMemo(
+    () => players.filter(isOculto).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [players, draft],
+  );
+
   const visible = useMemo(() => {
     const query = normalize(search);
 
     return players.filter((player) => {
+      if (!showOthers && isOculto(player)) return false;
+
       if (line !== "todas" && lineOf(player.posicion) !== line) return false;
 
       if (status !== "todos" && !frozen?.ids.has(player.id)) return false;
@@ -331,7 +394,8 @@ export function RateMatchPanel({
         normalize(player.posicion).includes(query)
       );
     });
-  }, [players, search, line, status, frozen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [players, search, line, status, frozen, showOthers, draft]);
 
   const grouped = useMemo(() => {
     return LINES.map((group) => {
@@ -360,10 +424,19 @@ export function RateMatchPanel({
   | El avance se mide contra la convocatoria, no contra los 40 y pico de la
   | plantilla: cuenta el que tiene algún dato del partido (minutos, titular…).
   */
-  const called = useMemo(
-    () => Object.values(draft).filter(hasContent).length,
-    [draft]
-  );
+  const contados = useMemo(() => {
+    const ajenos = new Set(
+      players.filter((p) => p.esCastilla === false).map((p) => p.id),
+    );
+
+    /* Un «sin valorar» de otro equipo sin más datos no es convocado. */
+    return Object.values(draft).filter(
+      (entry) =>
+        !(ajenos.has(entry.playerId) && !hasContent({ ...entry, unrated: false })),
+    );
+  }, [draft, players]);
+
+  const called = useMemo(() => contados.filter(hasContent).length, [contados]);
 
   /*
   | Resueltos = con nota + marcados «sin valorar». Es lo que mide el avance:
@@ -371,13 +444,13 @@ export function RateMatchPanel({
   | llegaría nunca al 100 % y la barra dejaría de servir para nada.
   */
   const resolved = useMemo(
-    () => Object.values(draft).filter(isResolved).length,
-    [draft]
+    () => contados.filter(isResolved).length,
+    [contados]
   );
 
   const unratedCount = useMemo(
-    () => Object.values(draft).filter((entry) => entry.unrated).length,
-    [draft]
+    () => contados.filter((entry) => entry.unrated).length,
+    [contados]
   );
 
   const progress = called ? Math.round((resolved / called) * 100) : 0;
@@ -638,6 +711,19 @@ export function RateMatchPanel({
               value={status}
               onChange={pickStatus}
             />
+
+            {(hiddenCount > 0 || showOthers) && (
+              <button
+                type="button"
+                onClick={() => setShowOthers((value) => !value)}
+                aria-pressed={showOthers}
+                className="rounded-xl border border-white/10 px-3 py-2 text-xs font-medium text-white/60 transition-colors hover:text-white"
+              >
+                {showOthers
+                  ? "Ocultar jugadores de otros equipos"
+                  : `Mostrar ${hiddenCount} ${hiddenCount === 1 ? "jugador" : "jugadores"} de otros equipos`}
+              </button>
+            )}
 
             {status !== "todos" && (
               <span className="w-full text-[10px] text-white/25 sm:w-auto">
