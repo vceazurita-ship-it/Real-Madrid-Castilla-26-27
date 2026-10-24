@@ -460,7 +460,15 @@ export default function DuelosPage() {
                 <span style={{ color: PEOR }} title="Duelos en los que, con el balón suyo, nos sacan ventaja">
                   ● {vigilar.length} con ventaja suya con balón
                 </span>
-                <span className="text-white/35">los marcados «cuenta en los dos sentidos» salen en las dos cajas</span>
+                {(() => {
+                  const enLosDos = atacar.filter((a) => vigilar.some((v) => v.def.clave === a.def.clave)).length;
+
+                  return enLosDos > 0 ? (
+                    <span className="text-white/50">
+                      {enLosDos === 1 ? "1 cuenta" : `${enLosDos} cuentan`} en los dos sentidos y sale en las dos cajas: por eso la suma pasa de {conDato.length}
+                    </span>
+                  ) : null;
+                })()}
               </span>
               {!cargando && temporada === undefined && (
                 <span className="basis-full text-[11px] text-white/45">
@@ -773,7 +781,7 @@ function Claves({
                   onElige(d.def.clave);
                   document.getElementById(`duelo-${d.def.clave}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
                 }}
-                className="w-full text-left"
+                className={`w-full text-left ${pocaMuestra ? "opacity-70" : ""}`}
               >
                 <span className="flex items-baseline justify-between gap-2 text-sm text-white/85">
                   <span>
@@ -801,7 +809,7 @@ function Claves({
                   )}
                   {pocaMuestra && (
                     <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: "rgba(200,169,107,0.18)", color: ORO }}>
-                      poca muestra
+                      poca muestra: léelo como pista, no como hecho
                     </span>
                   )}
                   <span className="text-white/35">{base.texto}</span>
