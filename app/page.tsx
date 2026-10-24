@@ -543,7 +543,7 @@ export default function Home() {
                         <p className="mt-2 break-words text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
                           {resumenData.partidos} {resumenData.partidos === 1 ? "partido" : "partidos"}
                           {resumenData.puesto
-                            ? ` · ${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría${resumenData.mediana != null ? ` · mediana de la liga: ${resumenData.mediana.toFixed(2).replace(".", ",")}` : ""}`
+                            ? ` · ${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría${resumenData.mediana != null ? ` · mediana de los ${resumenData.deCuantos} equipos: ${resumenData.mediana.toFixed(2).replace(".", ",")}` : ""}`
                             : ""}
                         </p>
                       )}

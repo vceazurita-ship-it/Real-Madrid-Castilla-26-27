@@ -287,6 +287,10 @@ export function alertasDeData(
 
       if (p <= 10) flojas += 1;
 
+      /* Un penalti acertado de un solo lanzado da un 100 % que no es dato: sin
+         el número de casos detrás, no se destaca. */
+      if (/penalt/i.test(metrica.nombre)) continue;
+
       if (p >= 95 && (!mejor || p > mejor.percentil)) {
         mejor = {
           nombre: metrica.nombre,
