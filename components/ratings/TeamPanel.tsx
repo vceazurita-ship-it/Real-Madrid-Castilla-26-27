@@ -38,6 +38,16 @@ import {
   round,
 } from "@/lib/ratings/compute";
 import { formatMatchDateShort, matchLabel } from "@/lib/ratings/matches";
+
+/** «vs JUVENTUD DE TORREMOLINOS CF»: el rival siempre en mayúsculas. */
+function rivalEnMayusculas(match: Parameters<typeof matchLabel>[0]) {
+  return `${match.isHome ? "vs" : "@"} ${match.opponent.toUpperCase()}`;
+}
+
+/** «1 - 2» y «1-2» salen siempre como «1-2». */
+function marcadorUniforme(result: string) {
+  return result.replace(/\s*-\s*/, "-");
+}
 import { lineaDe, type LineaKey } from "@/lib/ratings/pitch";
 import { Player } from "@/types/player";
 
@@ -781,11 +791,13 @@ export function TeamPanel({
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-xs font-medium text-white/80">
-                      {matchLabel(item.match)}
+                      {rivalEnMayusculas(item.match)}
                     </p>
 
                     <p className="truncate text-[10px] text-white/30">
-                      {item.match.result ? `${item.match.result} · ` : ""}
+                      {item.match.result
+                        ? `${marcadorUniforme(item.match.result)} · `
+                        : ""}
                       {item.rated} valorados
                     </p>
                   </div>
@@ -853,7 +865,8 @@ function BestPerformances({
                 </p>
 
                 <p className="truncate text-[10px] text-white/30">
-                  {matchLabel(item.match)} · {formatMatchDateShort(item.match)}
+                  {rivalEnMayusculas(item.match)} ·{" "}
+                  {formatMatchDateShort(item.match)}
                 </p>
               </div>
 

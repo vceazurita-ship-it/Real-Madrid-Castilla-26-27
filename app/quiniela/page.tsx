@@ -546,17 +546,17 @@ export default function QuinielaPage() {
               >
                 {(
                   <div className="min-w-0 overflow-x-auto">
-                    <table className="w-full min-w-[520px] text-[12px]">
+                    <table className="w-full text-[12px] sm:min-w-[520px]">
                       <thead>
                         <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">
                           <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
                           <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Quién</th>
                           <th className="w-20 pb-2 pt-1.5 text-right font-medium">Acierto</th>
-                          <th className="w-20 pb-2 pt-1.5 text-right font-medium">Aciertos</th>
+                          <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Aciertos</th>
                           {tabla.some((fila) => fila.semana.jugados > 0) && (
-                            <th className="w-24 pb-2 pt-1.5 text-right font-medium">Esta jornada</th>
+                            <th className="hidden w-24 pb-2 pt-1.5 text-right font-medium sm:table-cell">Esta jornada</th>
                           )}
-                          <th className="w-20 pb-2 pt-1.5 text-right font-medium">Jornadas</th>
+                          <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Jornadas</th>
                         </tr>
                       </thead>
 
@@ -586,8 +586,21 @@ export default function QuinielaPage() {
                                   {/* Sólo el nombre: el puesto de cada uno no
                                       pinta nada en una apuesta entre
                                       compañeros (17/09/2026). */}
-                                  <span className="min-w-0 truncate text-white/85">
-                                    {persona.nombre}
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-white/85">
+                                      {persona.nombre}
+                                    </span>
+
+                                    {/* En el móvil no caben las columnas de
+                                        aciertos y jornadas: van aquí, pequeñas. */}
+                                    <span className="block truncate text-[10px] tabular-nums text-white/40 sm:hidden">
+                                      {fila.total.aciertos}/{fila.total.jugados}
+                                      {fila.jornadasGanadas > 0
+                                        ? ` · ${fila.jornadasGanadas} ${
+                                            fila.jornadasGanadas === 1 ? "jornada" : "jornadas"
+                                          }`
+                                        : ""}
+                                    </span>
                                   </span>
                                 </span>
                               </td>
@@ -600,7 +613,7 @@ export default function QuinielaPage() {
                                 {`${fila.total.porcentaje.toFixed(0)} %`}
                               </td>
 
-                              <td className="py-1.5 text-right tabular-nums text-white/55">
+                              <td className="hidden py-1.5 text-right tabular-nums text-white/55 sm:table-cell">
                                 {fila.total.aciertos}
                                 <span className="text-white/25">
                                   /{fila.total.jugados}
@@ -608,12 +621,12 @@ export default function QuinielaPage() {
                               </td>
 
                               {tabla.some((otra) => otra.semana.jugados > 0) && (
-                                <td className="py-1.5 text-right tabular-nums text-white/55">
+                                <td className="hidden py-1.5 text-right tabular-nums text-white/55 sm:table-cell">
                                   {`${fila.semana.aciertos}/${fila.semana.jugados}`}
                                 </td>
                               )}
 
-                              <td className="py-1.5 text-right tabular-nums text-white/45">
+                              <td className="hidden py-1.5 text-right tabular-nums text-white/45 sm:table-cell">
                                 {fila.jornadasGanadas}
                               </td>
                             </tr>

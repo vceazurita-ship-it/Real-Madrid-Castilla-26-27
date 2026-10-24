@@ -923,7 +923,7 @@ function RadarPanel({
               key={s.name}
               onClick={() => toggle(s.name)}
               title={`Quitar ${s.name}`}
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-medium transition hover:brightness-125"
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition hover:brightness-125"
               style={{
                 background: `${s.color}25`,
                 color: chipInk(s.color),
@@ -1151,12 +1151,12 @@ function RadarPanel({
                   title={`${axis.label} · ${axis.detail}`}
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[11px] font-bold tracking-wider text-white/70">
+                    <span className="text-[12px] font-bold tracking-wider text-white/85">
                       {axis.code}
                     </span>
 
                     <span
-                      className="text-[12px] font-semibold tabular-nums"
+                      className="text-[15px] font-bold tabular-nums"
                       style={{ color: chipInk(toneFor(value)) }}
                     >
                       {coma(value)}

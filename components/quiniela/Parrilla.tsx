@@ -204,9 +204,9 @@ export function Parrilla({
                 </td>
 
                 {/* La tira de reparto: 1 en dorado, X en gris, 2 en azul. */}
-                <td className="px-1 py-2">
+                <td className="min-w-[92px] px-1 py-2">
                   <span
-                    className="flex h-[22px] w-full overflow-hidden rounded"
+                    className="flex h-[22px] w-full min-w-[84px] overflow-hidden rounded"
                     title={SIGNOS.map((signo) => `${signo}: ${fila.votos[signo]}`).join(" · ")}
                   >
                     {SIGNOS.map((signo) =>
@@ -218,7 +218,7 @@ export function Parrilla({
                              16 px, para que el número se lea aunque sea 1 de 10. */
                           style={{
                             flex: `${fila.votos[signo]} 1 0`,
-                            minWidth: 16,
+                            minWidth: 18,
                             background: COLOR_SIGNO[signo],
                           }}
                         >
