@@ -1455,6 +1455,10 @@ function PlayerCard({
             alt={player.name}
             loading="lazy"
             onError={() => setSinFoto(true)}
+            onLoad={(e) => {
+              /* Una imagen que «carga» pero es un punto o un hueco: iniciales. */
+              if (e.currentTarget.naturalWidth < 20) setSinFoto(true);
+            }}
             className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-[1.04]"
           />
         )}
@@ -1906,6 +1910,8 @@ export default function IndividualPage() {
 
     return {
       players: mergedPlayers.length,
+      castilla: mergedPlayers.filter((p) => !p.externo).length,
+      externos: mergedPlayers.filter((p) => p.externo).length,
       rated: rated.length,
       tracked: mergedPlayers.filter((p) => (p.sessions ?? 0) > 0).length,
       sessions: trackingData.length,
@@ -1961,7 +1967,11 @@ export default function IndividualPage() {
       return [...list].sort((a, b) => b.score - a.score);
     }
 
-    return list;
+    /* Sin otro orden, el Castilla va primero y los de otros equipos al final
+       (el orden relativo de cada grupo se conserva). */
+    return [...list].sort(
+      (a, b) => Number(Boolean(a.externo)) - Number(Boolean(b.externo)),
+    );
   }, [baseList, lineFilter, sortBy]);
 
   const hasFilters =
@@ -3057,7 +3067,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `${stats.tracked} con seguimiento, plantilla y otros equipos`
+                      : `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ${stats.tracked} con seguimiento`
                   }
                 />
 
@@ -3085,8 +3095,16 @@ export default function IndividualPage() {
                 <StatTile
                   icon={Gauge}
                   label="Media competencias"
-                  value={stats.avg ? stats.avg.toFixed(1).replace(".", ",") : "—"}
-                  hint={`${stats.rated} jugadores con competencias valoradas`}
+                  value={
+                    stats.rated >= 3 && stats.avg
+                      ? stats.avg.toFixed(1).replace(".", ",")
+                      : "—"
+                  }
+                  hint={
+                    stats.rated >= 3
+                      ? `sobre 10 · ${stats.rated} de ${stats.players} con ficha`
+                      : "se muestra con 3 o más fichas valoradas"
+                  }
                 />
               </div>
 

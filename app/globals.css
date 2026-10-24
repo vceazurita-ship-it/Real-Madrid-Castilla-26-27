@@ -1777,3 +1777,45 @@ scrollbar-width:none;
     display: none;
   }
 }
+
+
+/* ===========================
+   ZONA SIEMPRE OSCURA (24/10/2026)
+
+   Un contenedor con `siempre-oscuro` conserva dentro el aspecto del modo
+   noche aunque el tema sea el día: es para fondos que SON oscuros por imagen
+   o por diseño (el campo de /emotion). Sin esto, la tabla de equivalencias
+   pinta de tinta oscura el `text-white` y el texto se borra sobre el fondo
+   negro. Lleva una clase más que la tabla, así que gana sin !important.
+=========================== */
+:root[data-theme="light"] .siempre-oscuro [class~="text-white"] { color: #fff; }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/90"] { color: rgb(255 255 255 / .90); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/85"] { color: rgb(255 255 255 / .85); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/80"] { color: rgb(255 255 255 / .80); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/75"] { color: rgb(255 255 255 / .75); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/70"] { color: rgb(255 255 255 / .70); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/65"] { color: rgb(255 255 255 / .65); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/60"] { color: rgb(255 255 255 / .60); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/55"] { color: rgb(255 255 255 / .55); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/50"] { color: rgb(255 255 255 / .50); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/45"] { color: rgb(255 255 255 / .45); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/40"] { color: rgb(255 255 255 / .40); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/35"] { color: rgb(255 255 255 / .35); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/30"] { color: rgb(255 255 255 / .30); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/25"] { color: rgb(255 255 255 / .25); }
+:root[data-theme="light"] .siempre-oscuro [class~="text-white/20"] { color: rgb(255 255 255 / .20); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/[0.04]"] { background-color: rgb(255 255 255 / .04); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/[0.05]"] { background-color: rgb(255 255 255 / .05); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/5"] { background-color: rgb(255 255 255 / .05); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/[0.06]"] { background-color: rgb(255 255 255 / .06); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/[0.08]"] { background-color: rgb(255 255 255 / .08); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/10"] { background-color: rgb(255 255 255 / .1); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/15"] { background-color: rgb(255 255 255 / .15); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-white/20"] { background-color: rgb(255 255 255 / .2); }
+:root[data-theme="light"] .siempre-oscuro [class~="border-white/5"] { border-color: rgb(255 255 255 / .05); }
+:root[data-theme="light"] .siempre-oscuro [class~="border-white/10"] { border-color: rgb(255 255 255 / .1); }
+:root[data-theme="light"] .siempre-oscuro [class~="border-white/15"] { border-color: rgb(255 255 255 / .15); }
+:root[data-theme="light"] .siempre-oscuro [class~="border-white/20"] { border-color: rgb(255 255 255 / .2); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-black/20"], :root[data-theme="light"] .siempre-oscuro [class~="bg-black/25"] { background-color: rgb(0 0 0 / .25); }
+:root[data-theme="light"] .siempre-oscuro [class~="bg-[#08131F]/70"], :root[data-theme="light"] .siempre-oscuro [class~="bg-[#08131F]/85"] { background-color: rgb(8 19 31 / .8); }
+:root[data-theme="light"] .siempre-oscuro [class~="hover:text-white"]:hover { color: #fff; }

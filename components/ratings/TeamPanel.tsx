@@ -170,6 +170,14 @@ export function TeamPanel({
     [ranked]
   );
 
+  /* «Más decisivo» sólo se nombra con 3 o más acciones (goles + asistencias):
+     con una o dos no hay diferencia que merezca un nombre. */
+  const decisivoClaro = useMemo(() => {
+    if (!topScorer) return false;
+
+    return topScorer.summary.goals + topScorer.summary.assists >= 3;
+  }, [topScorer]);
+
   /* ---------------- series ---------------- */
 
   const evolution = useMemo(
@@ -266,10 +274,12 @@ export function TeamPanel({
         <StatCard
           label="Más decisivo"
           value={
-            topScorer ? topScorer.player.nombre : "—"
+            decisivoClaro && topScorer
+              ? topScorer.player.nombre
+              : "Sin diferencia clara"
           }
           hint={
-            topScorer
+            decisivoClaro && topScorer
               ? `${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")}`
               : undefined
           }
@@ -613,7 +623,7 @@ export function TeamPanel({
 
       <Panel
         title="Ranking de la plantilla"
-        subtitle="Pulsa un jugador para ver su ficha de valoraciones"
+        subtitle={`Media del equipo ${formatRating(teamAverage)} · con menos de ${MIN_FIABLE} partidos, tendencia · pulsa un jugador para ver su ficha`}
         icon={ArrowDownWideNarrow}
         bodyClassName="p-0"
         action={
@@ -682,6 +692,9 @@ export function TeamPanel({
 
                         <p className="truncate text-[10px] uppercase tracking-[0.14em] text-white/30">
                           {nombrePuesto(entry.player.posicion)}
+                          {entry.summary.played < MIN_FIABLE
+                            ? ` · tendencia (${entry.summary.played} PJ)`
+                            : ""}
                         </p>
                       </div>
                     </div>
