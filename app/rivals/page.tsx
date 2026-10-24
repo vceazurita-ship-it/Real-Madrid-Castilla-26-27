@@ -4460,7 +4460,7 @@ export default function RivalPlayersPage() {
 
                               {/* De dónde sale el dibujo, dicho con palabras (23/10/2026). */}
                               <span className="pr-3 text-[10px] font-normal opacity-70">
-                                {once.doc.dibujo ? "a mano" : lecturaTemporada.estructura ? "más repetido" : ""}
+                                {once.doc.dibujo ? "a mano" : lecturaTemporada.estructura ? `más repetido (${lecturaTemporada.veces} de ${lecturaTemporada.alineaciones})` : ""}
                               </span>
 
                               <ChevronDown
@@ -4493,7 +4493,7 @@ export default function RivalPlayersPage() {
                                 className="flex items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-white/70 transition hover:border-[#C8A96B] hover:text-white"
                               >
                                 <RotateCcw size={11} aria-hidden />
-                                Suele jugar {lecturaTemporada.dibujo} ({lecturaTemporada.alineaciones} {lecturaTemporada.alineaciones === 1 ? "alineación leída" : "alineaciones leídas"})
+                                Suele jugar {lecturaTemporada.dibujo} ({lecturaTemporada.veces} de {lecturaTemporada.alineaciones})
                               </button>
                             )}
 

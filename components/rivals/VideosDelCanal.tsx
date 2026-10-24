@@ -91,6 +91,18 @@ function temaLegible(tema: string, posicion: number, descripcion = "") {
   return linea ? (linea.length > 90 ? `${linea.slice(0, 87)}...` : linea) : `Corte ${posicion + 1}`;
 }
 
+/** Orden de los puestos para los chips: portero, defensa, medio, delantero; lo desconocido, al final. */
+function rangoDePuesto(puesto: string) {
+  const p = puesto.toLowerCase();
+
+  if (/portero/.test(p)) return 0;
+  if (/lateral|central|defensa/.test(p)) return 1;
+  if (/medio|pivote|interior|mediapunta/.test(p)) return 2;
+  if (/extremo|delantero|punta|banda/.test(p)) return 3;
+
+  return 4;
+}
+
 /** Un vídeo ya colocado: de quién es y de qué va, además del vídeo. */
 type Pieza = {
   video: Video;
@@ -415,7 +427,7 @@ export function VideosDelCanal({
   const termino = busca.trim().toLowerCase();
 
   const grupos = useMemo(() => {
-    const porJugador = new Map<string, { jugador: string; dorsal: string; titular: boolean; minutos: number; resumen: string; videos: Pieza[] }>();
+    const porJugador = new Map<string, { jugador: string; dorsal: string; puesto: string; titular: boolean; minutos: number; resumen: string; videos: Pieza[] }>();
 
     const sueltos: Pieza[] = [];
 
@@ -450,6 +462,7 @@ export function VideosDelCanal({
       const grupo = porJugador.get(jugador.nombre) ?? {
         jugador: jugador.nombre,
         dorsal: jugador.dorsal ?? "",
+        puesto: jugador.puesto ?? "",
         titular: Boolean(jugador.titular),
         minutos: jugador.minutos ?? 0,
         resumen: resumenDeTemporada(jugador),
@@ -482,6 +495,15 @@ export function VideosDelCanal({
   const [soloDe, setSoloDe] = useState<string>("");
 
   const SUELTOS = "__equipo";
+
+  /* Los chips van por puesto (portero, defensas, medios, delanteros) y dentro de cada puesto por minutos. */
+  const jugadoresPorPuesto = useMemo(
+    () =>
+      [...grupos.jugadores].sort(
+        (a, b) => rangoDePuesto(a.puesto) - rangoDePuesto(b.puesto) || b.minutos - a.minutos,
+      ),
+    [grupos.jugadores],
+  );
 
   const jugadoresVisibles = useMemo(
     () => grupos.jugadores.filter((grupo) => !soloDe || soloDe === grupo.jugador),
@@ -795,6 +817,16 @@ export function VideosDelCanal({
       {/* ---------------------- QUIÉN TIENE VÍDEO ---------------------- */}
 
       {lista && !cargandoVideos && videos.length > 0 && (
+        <p className="mt-3 text-[11px] text-white/45">
+          En cada ficha:{" "}
+          <span className="font-semibold" style={{ color: MEJOR }}>verde = lo que hace bien</span>
+          {" · "}
+          <span className="font-semibold" style={{ color: PEOR }}>naranja = lo que podemos explotar</span>
+          . Los jugadores van por puesto.
+        </p>
+      )}
+
+      {lista && !cargandoVideos && videos.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <Chip
             activo={!soloDe}
@@ -806,7 +838,7 @@ export function VideosDelCanal({
             }
           />
 
-          {grupos.jugadores.map((grupo) => (
+          {jugadoresPorPuesto.map((grupo) => (
             <Chip
               key={grupo.jugador}
               activo={soloDe === grupo.jugador}
@@ -894,6 +926,7 @@ export function VideosDelCanal({
             piezas={mostrados}
             columnas={columnas}
             conJugador
+            equipo={equipo}
             onAbrir={setAbierto}
             onCopiar={copiaEnlace}
           />
@@ -921,7 +954,7 @@ export function VideosDelCanal({
                   <p className="mb-2 text-[11px] text-white/35">Un corte por jugador</p>
                 )}
 
-                <Rejilla piezas={unCorte} columnas={columnas} conJugador onAbrir={setAbierto} onCopiar={copiaEnlace} />
+                <Rejilla piezas={unCorte} columnas={columnas} conJugador equipo={equipo} onAbrir={setAbierto} onCopiar={copiaEnlace} />
               </div>
             )}
 
@@ -1174,10 +1207,13 @@ function Rejilla({
   piezas,
   columnas,
   conJugador,
+  equipo,
   onAbrir,
   onCopiar,
 }: {
   piezas: Pieza[];
+  /** El rival: un título que sólo dice su nombre no se repite en la ficha. */
+  equipo?: string;
   /** Las clases de columnas, ya resueltas: ver `TAMANOS`. */
   columnas: string;
   /** Pone el nombre del jugador en la ficha: en la vista seguida no hay
@@ -1240,9 +1276,17 @@ function Rejilla({
             )}
 
             {/* El título original del vídeo, en pequeño: lo que manda es quién es. */}
-            <p className={`line-clamp-2 leading-snug ${conJugador ? "text-[11px] text-white/55" : "text-[13px] text-white/85"}`}>
-              {temaLegible(tema, video.posicion, video.descripcion)}
-            </p>
+            {/* «Corte 14» o el nombre del equipo no dicen qué enseña el clip: no se pintan en la ficha de un jugador. */}
+            {(() => {
+              const texto = temaLegible(tema, video.posicion, video.descripcion);
+              const vacio = conJugador && jugador && (/^Corte \d+$/.test(texto) || (equipo && desnuda(texto) === desnuda(equipo)));
+
+              return vacio ? null : (
+                <p className={`line-clamp-2 leading-snug ${conJugador ? "text-[11px] text-white/55" : "text-[13px] text-white/85"}`}>
+                  {texto}
+                </p>
+              );
+            })()}
 
             <div className="mt-1.5 flex items-center justify-between gap-2">
               <span className="text-[10px] uppercase tracking-wide text-white/30">

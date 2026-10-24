@@ -81,6 +81,8 @@ export type LecturaDeLaTemporada = {
   dibujo: string | null;
   /** Tal y como lo escribe BeSoccer: "1-4-2-3-1". Para poder decirlo. */
   estructura: string | null;
+  /** En cuántas de ellas salió con ese dibujo («3 de 8»). */
+  veces: number;
   /** Cuántas alineaciones se han contado. */
   alineaciones: number;
   /** Han entrado amistosos porque no había partidos oficiales suficientes. */
@@ -92,6 +94,7 @@ export type LecturaDeLaTemporada = {
 export const LECTURA_VACIA: LecturaDeLaTemporada = {
   dibujo: null,
   estructura: null,
+  veces: 0,
   alineaciones: 0,
   conAmistosos: false,
   porJugador: new Map(),
@@ -433,6 +436,7 @@ export function leePosicionesDeLaTemporada(
   return {
     dibujo: estructura ? dibujoParecido(estructura) : null,
     estructura,
+    veces: estructura ? elegidas.filter((once) => once.estructura === estructura).length : 0,
     alineaciones: elegidas.length,
     conAmistosos,
     porJugador,

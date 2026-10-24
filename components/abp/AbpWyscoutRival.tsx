@@ -78,11 +78,14 @@ function queHacemosConCentros(aspectos: Aspecto[]) {
   const muchos = volumen.valor > volumen.mediana;
   const bien = acierto.valor > acierto.mediana;
 
-  if (muchos && bien) return "Centra mucho y con acierto: cerrar el carril exterior y proteger el segundo palo.";
-  if (muchos) return "Centra mucho y acierta poco: dejarle centrar y ganar el área, sin perseguir el balón hasta la banda.";
-  if (bien) return "Centra poco pero con acierto: cuando lo hace, tapar al rematador del segundo palo.";
+  /* La cifra que sostiene la consigna, con su mediana. */
+  const cifra = ` (${formatea(volumen.valor, volumen.unidad)} centros por partido frente a una mediana de ${formatea(volumen.mediana, volumen.unidad)}; acierto ${formatea(acierto.valor, acierto.unidad)} frente a ${formatea(acierto.mediana, acierto.unidad)})`;
 
-  return "Centra poco y mal: cerrar el pase interior antes que el centro.";
+  if (muchos && bien) return `Centra mucho y con acierto: cerrar el carril exterior y proteger el segundo palo${cifra}.`;
+  if (muchos) return `Centra mucho y acierta poco: dejarle centrar y ganar el área, sin perseguir el balón hasta la banda${cifra}.`;
+  if (bien) return `Centra poco pero con acierto: cuando lo hace, tapar al rematador del segundo palo${cifra}.`;
+
+  return `Centra poco y mal: cerrar el pase interior antes que el centro${cifra}.`;
 }
 
 export function AbpWyscoutRival({

@@ -19,7 +19,10 @@ export default function EstadoGuardado({
   localOnly,
   sinGuardar = false,
   onGuardar,
+  ocultoSiGuardado = false,
 }: {
+  /** No pinta nada mientras todo esté guardado. */
+  ocultoSiGuardado?: boolean;
   status: string;
   localOnly: boolean;
   /** Hay cambios que aún no están en el servidor. */
@@ -56,6 +59,9 @@ export default function EstadoGuardado({
     "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-medium",
     tonos[tono],
   );
+
+  /* Con todo guardado no hay nada que avisar: sólo se habla cuando hay algo pendiente o roto. */
+  if (tono === "verde" && ocultoSiGuardado) return null;
 
   const pulsable = onGuardar && (tono === "ambar" || tono === "rojo" || tono === "oro");
 
