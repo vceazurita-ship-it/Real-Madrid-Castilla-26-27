@@ -15,7 +15,7 @@
  * El candado está en `layout.tsx` (servidor) y en el menú (`soloAdmin`).
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BarChart3, BookMarked, FlaskConical, Swords, Trophy } from "lucide-react";
 import Link from "next/link";
 
@@ -27,6 +27,7 @@ import { useJugadoresLab } from "@/components/abp-lab/comun";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAbpLab } from "@/hooks/useAbpLab";
+import { rutinaDeEnlace } from "@/lib/abp-lab/enlace";
 import { ESQUEMAS } from "@/lib/abp-lab/esquemas";
 import type { Defensa } from "@/lib/abp-lab/modelo";
 
@@ -59,6 +60,26 @@ export default function LaboratorioAbpPage() {
   const { jugadores, porId } = useJugadoresLab();
 
   const ocupado = estado === "guardando";
+
+  /* Un enlace compartido (`#rutina=…`) abre esa rutina en el taller, como borrador sin guardar. */
+  useEffect(() => {
+    if (!window.location.hash.includes("rutina=")) return;
+
+    void rutinaDeEnlace(window.location.hash).then((r) => {
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+
+      if (!r) return;
+
+      const { id: _id, creadaEn: _c, actualizadaEn: _a, ...borrador } = r;
+
+      void _id;
+      void _c;
+      void _a;
+
+      setBorrador({ ...borradorVacio(), ...borrador });
+      setPestana("taller");
+    });
+  }, []);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">

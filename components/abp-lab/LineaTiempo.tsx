@@ -6,7 +6,7 @@
  * reloj lo lleva `useReloj`, que respeta «reducir movimiento» del sistema.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { Pause, Play, Repeat, RotateCcw, SkipBack, SkipForward } from "lucide-react";
 
 import { MARCAS, SEGUNDOS, VELOCIDADES } from "@/lib/abp-lab/simulacion";
@@ -15,9 +15,38 @@ const coma = (v: number, d = 1) => v.toFixed(d).replace(".", ",");
 
 const quieto = () => typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 
-/** El reloj de la jugada: `t` de 0 a 1, con su velocidad y su bucle. */
+/**
+ * El instante de la jugada como almacén externo: quien lo pinta se suscribe
+ * (`useT`) y sólo él se vuelve a dibujar en cada fotograma. La pizarra, la
+ * barra de herramientas y las lecturas no dependen de `t` y se quedan quietas
+ * mientras corre la animación.
+ */
+function creaTiempo(inicial: number) {
+  let t = inicial;
+
+  const oyentes = new Set<() => void>();
+
+  return {
+    lee: () => t,
+    pon: (v: number) => {
+      if (v === t) return;
+
+      t = v;
+      oyentes.forEach((f) => f());
+    },
+    suscribe: (f: () => void) => {
+      oyentes.add(f);
+
+      return () => {
+        oyentes.delete(f);
+      };
+    },
+  };
+}
+
+/** El reloj de la jugada: `t` de 0 a 1 (en un almacén, ver `useT`), con su velocidad y su bucle. */
 export function useReloj(inicial = 0) {
-  const [t, setTRaw] = useState(inicial);
+  const [tiempo] = useState(() => creaTiempo(inicial));
 
   const [reproduciendo, setReproduciendo] = useState(false);
 
@@ -25,12 +54,9 @@ export function useReloj(inicial = 0) {
 
   const [bucle, setBucle] = useState(false);
 
-  const tRef = useRef(inicial);
+  const setT = tiempo.pon;
 
-  const setT = useCallback((v: number) => {
-    tRef.current = v;
-    setTRaw(v);
-  }, []);
+  const ahora = tiempo.lee;
 
   useEffect(() => {
     if (!reproduciendo) return;
@@ -40,30 +66,31 @@ export function useReloj(inicial = 0) {
     let antes = performance.now();
 
     const paso = (ms: number) => {
-      const dt = ms - antes;
+      /* Una pestaña que vuelve de segundo plano trae un salto enorme: se recorta a un fotograma largo. */
+      const dt = Math.min(100, Math.max(0, ms - antes));
 
       antes = ms;
 
-      let u = tRef.current + (dt / (SEGUNDOS * 1000)) * velocidad;
+      let u = tiempo.lee() + (dt / (SEGUNDOS * 1000)) * velocidad;
 
       if (u >= 1) {
         if (bucle) u = 0;
         else {
-          setT(1);
+          tiempo.pon(1);
           setReproduciendo(false);
 
           return;
         }
       }
 
-      setT(u);
+      tiempo.pon(u);
       marco = requestAnimationFrame(paso);
     };
 
     marco = requestAnimationFrame(paso);
 
     return () => cancelAnimationFrame(marco);
-  }, [reproduciendo, velocidad, bucle, setT]);
+  }, [reproduciendo, velocidad, bucle, tiempo]);
 
   const alterna = useCallback(() => {
     if (reproduciendo) {
@@ -74,15 +101,15 @@ export function useReloj(inicial = 0) {
 
     /* Con «reducir movimiento», salta del principio al final sin animar. */
     if (quieto()) {
-      setT(tRef.current >= 1 ? 0 : 1);
+      tiempo.pon(tiempo.lee() >= 1 ? 0 : 1);
 
       return;
     }
 
-    if (tRef.current >= 1) setT(0);
+    if (tiempo.lee() >= 1) tiempo.pon(0);
 
     setReproduciendo(true);
-  }, [reproduciendo, setT]);
+  }, [reproduciendo, tiempo]);
 
   const para = useCallback(() => setReproduciendo(false), []);
 
@@ -90,21 +117,21 @@ export function useReloj(inicial = 0) {
     (sentido: 1 | -1) => {
       setReproduciendo(false);
 
-      const ahora = tRef.current;
+      const t = tiempo.lee();
 
-      const destino = sentido > 0 ? MARCAS.find((m) => m.t > ahora + 0.005) : [...MARCAS].reverse().find((m) => m.t < ahora - 0.005);
+      const destino = sentido > 0 ? MARCAS.find((m) => m.t > t + 0.005) : [...MARCAS].reverse().find((m) => m.t < t - 0.005);
 
-      setT(destino?.t ?? (sentido > 0 ? 1 : 0));
+      tiempo.pon(destino?.t ?? (sentido > 0 ? 1 : 0));
     },
-    [setT],
+    [tiempo],
   );
 
   const empuja = useCallback(
     (d: number) => {
       setReproduciendo(false);
-      setT(Math.min(1, Math.max(0, tRef.current + d)));
+      tiempo.pon(Math.min(1, Math.max(0, tiempo.lee() + d)));
     },
-    [setT],
+    [tiempo],
   );
 
   const cambiaVelocidad = useCallback((sentido: 1 | -1) => {
@@ -115,13 +142,20 @@ export function useReloj(inicial = 0) {
     });
   }, []);
 
-  return { t, setT, tRef, reproduciendo, alterna, para, salta, empuja, velocidad, setVelocidad, cambiaVelocidad, bucle, setBucle };
+  return { setT, ahora, suscribe: tiempo.suscribe, reproduciendo, alterna, para, salta, empuja, velocidad, setVelocidad, cambiaVelocidad, bucle, setBucle };
 }
 
 export type Reloj = ReturnType<typeof useReloj>;
 
+/** El instante del reloj, para el que pinta: se vuelve a dibujar sólo él en cada fotograma. */
+export function useT(reloj: Pick<Reloj, "suscribe" | "ahora">) {
+  return useSyncExternalStore(reloj.suscribe, reloj.ahora, reloj.ahora);
+}
+
 export function LineaTiempo({ reloj, oscuro = false }: { reloj: Reloj; oscuro?: boolean }) {
-  const { t, setT, reproduciendo, alterna, para, salta, velocidad, setVelocidad, bucle, setBucle } = reloj;
+  const { setT, reproduciendo, alterna, para, salta, velocidad, setVelocidad, bucle, setBucle } = reloj;
+
+  const t = useT(reloj);
 
   /* En la presentación (siempre oscura) los colores van fijos; en el estudio, por clases del tema. */
   const tenue = oscuro ? { color: "rgba(255,255,255,0.6)" } : undefined;

@@ -35,8 +35,10 @@ import {
   ListChecks,
   Plus,
   Save,
+  Scale,
   Search,
   Shield,
+  Sparkles,
   Swords,
   Trash2,
   Users,
@@ -46,14 +48,17 @@ import { toast } from "sonner";
 
 import { Button, EmptyState, Field, Segmented, Select, TextArea, sePuedeDescartar } from "@/components/abp/ui";
 import type { JugadorLab } from "@/components/abp-lab/comun";
+import { Comparador } from "@/components/abp-lab/Comparador";
 import { EncajeRival } from "@/components/abp-lab/EncajeRival";
 import { CODIGO_PAPEL, MiniPizarra, PizarraRutina } from "@/components/abp-lab/PizarraRutina";
 import { SelectorJugador, repartoPorAltura } from "@/components/abp-lab/SelectorJugador";
-import { defensaRivalDe, type ContextoSim } from "@/components/abp-lab/useSimulacion";
+import { defensaRivalDe, estructuraPara, type ContextoSim } from "@/components/abp-lab/useSimulacion";
 import type { GuardaLab } from "@/hooks/useAbpLab";
 import { useAbpLigas } from "@/hooks/useAbpLigas";
 import { useContextoLab } from "@/hooks/useContextoLab";
-import { encajeSistemas, evaluaRemate, planCon } from "@/lib/abp-lab/ventaja";
+import { nombreParaFrase, proponer } from "@/lib/abp-lab/asistente";
+import { enlaceDe } from "@/lib/abp-lab/enlace";
+import { encajeSistemas } from "@/lib/abp-lab/ventaja";
 import { comaXg } from "@/lib/abp-lab/xg";
 import { FASES, anclaDe } from "@/lib/abp-lab/campo";
 import {
@@ -134,6 +139,29 @@ export function balanceUsos(r: Pick<Rutina, "usos">) {
   return { usos: usos.length, remates, goles };
 }
 
+/** La rutina contada como tarea, para pegarla en el microciclo: sólo lo que tiene escrito. */
+export function textoDeTarea(r: Borrador, porId: Map<string, JugadorLab>) {
+  const lineas = [`ABP · ${r.nombre || "Rutina"} (${etiqueta(TIPOS, r.tipo).toLowerCase()} ${r.lado === "ofensivo" ? "a favor" : "en contra"})`];
+
+  if (r.senal) lineas.push(`Señal: ${r.senal}`);
+
+  if (r.idea.trim()) lineas.push(r.idea.trim());
+
+  const papeles = r.roles.map((x) => {
+    const j = porId.get(x.jugador);
+
+    return `- ${etiqueta(PAPELES, x.papel)}${j ? `: ${j.nombre}` : ""}${x.nota ? ` (${x.nota})` : ""}`;
+  });
+
+  if (papeles.length) lineas.push("Papeles:", ...papeles);
+
+  const variantes = r.variantes.map((v) => v.trim()).filter(Boolean);
+
+  if (variantes.length) lineas.push("Variantes:", ...variantes.map((v, i) => `${String.fromCharCode(65 + i)}. ${v}`));
+
+  return lineas.join("\n");
+}
+
 const normaliza = (s: string) =>
   s
     .normalize("NFD")
@@ -197,28 +225,35 @@ export function Taller({
   const porIdRutina = useMemo(() => new Map(rutinas.map((r) => [r.id, r])), [rutinas]);
 
   /*
-   * El encaje automático con el próximo rival: cada rutina a favor de córner o
-   * falta, contra su defensa (la de su scouting, con sus jugadores más altos).
-   * Sólo sale si hay rival y algo suyo con que medir.
+   * El asistente: contra el próximo rival, cada rutina a favor de córner o
+   * falta tal cual y con los retoques de pizarra (otro lado, otro envío, al
+   * primer o al segundo palo), medida contra su defensa (su scouting y sus
+   * jugadores más altos). Propone la mejor con su porqué. Sólo sale si hay
+   * rival y algo suyo con que medir.
    */
-  const contraProximo = useMemo(() => {
+  const propuestas = useMemo(() => {
     if (!rival) return [];
 
     const alturaDe = (rol: Rol) => aereo.get(rol.jugador)?.altura ?? null;
 
-    return rutinas
-      .flatMap((r) => {
-        const def = defensaRivalDe("proximo", r, ctx);
+    return proponer(
+      rutinas,
+      (r) => defensaRivalDe("proximo", r, ctx),
+      calibre,
+      alturaDe,
+      (r) => estructuraPara(rival, r.tipo),
+      (rol) => nombreParaFrase(porId.get(rol.jugador)?.nombre),
+    ).slice(0, 4);
+  }, [rival, rutinas, aereo, calibre, ctx, porId]);
 
-        if (!def || !r.roles.length || (r.tipo !== "corner" && r.tipo !== "falta")) return [];
+  /* Comparar: se eligen dos tarjetas y se abren lado a lado. */
+  const [comparando, setComparando] = useState(false);
 
-        const remate = evaluaRemate(r, planCon(r, def), calibre, alturaDe);
+  const [elegidas, setElegidas] = useState<string[]>([]);
 
-        return remate && remate.quien !== null && remate.xg > 0 ? [{ r, xg: remate.xg }] : [];
-      })
-      .sort((a, b) => b.xg - a.xg)
-      .slice(0, 3);
-  }, [rival, rutinas, aereo, calibre, ctx]);
+  const [pareja, setPareja] = useState<[Rutina, Rutina] | null>(null);
+
+  const eligeParaComparar = (id: string) => setElegidas((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id].slice(-2)));
 
   const estructuraCorner = rival?.corner ?? null;
 
@@ -263,10 +298,44 @@ export function Taller({
           onChange={setFiltroTipo}
           options={[{ key: "todos" as const, label: "Todas" }, ...TIPOS.map((t) => ({ key: t.key, label: t.label }))]}
         />
-        <Button tone="primary" icon={Plus} onClick={() => setAbierto(borradorVacio())}>
-          Nueva rutina
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {rutinas.length > 1 && (
+            <Button
+              icon={Scale}
+              onClick={() => {
+                setComparando((v) => !v);
+                setElegidas([]);
+              }}
+              aria-pressed={comparando}
+            >
+              {comparando ? "Dejar de comparar" : "Comparar"}
+            </Button>
+          )}
+          <Button tone="primary" icon={Plus} onClick={() => setAbierto(borradorVacio())}>
+            Nueva rutina
+          </Button>
+        </div>
       </div>
+
+      {comparando && (
+        <div className="sticky top-2 z-10 flex flex-wrap items-center gap-2 rounded-2xl border border-[#C8A96B]/40 bg-[#11161C] px-3.5 py-2.5 shadow-xl">
+          <Scale size={15} className="shrink-0 text-[#C8A96B]" />
+          <p className="min-w-0 flex-1 text-[12.5px] text-white/75">
+            {elegidas.length < 2 ? `Toca dos rutinas para verlas lado a lado · ${elegidas.length} de 2` : `${porIdRutina.get(elegidas[0])?.nombre} frente a ${porIdRutina.get(elegidas[1])?.nombre}`}
+          </p>
+          <Button
+            tone="primary"
+            disabled={elegidas.length < 2}
+            onClick={() => {
+              const [x, y] = elegidas.map((id) => porIdRutina.get(id));
+
+              if (x && y) setPareja([x, y]);
+            }}
+          >
+            Comparar
+          </Button>
+        </div>
+      )}
 
       {rutinas.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
@@ -318,34 +387,75 @@ export function Taller({
         </div>
       )}
 
-      {!cargando && rival && contraProximo.length > 0 && (
-        <section className="overflow-hidden rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06]" aria-label={`Las mejores contra ${rival.equipo}`}>
+      {!cargando && rival && propuestas.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06]" aria-label={`El asistente: la mejor contra ${rival.equipo}`}>
           <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 pt-3.5">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Encaje con el próximo rival</p>
-            <p className="text-[11.5px] text-white/55">
-              {rival.equipo}
-              {estructuraCorner
-                ? ` · córner ${estructuraCorner.tipo === "zonal" ? `en zona${estructuraCorner.enZona ? ` con ${estructuraCorner.enZona}` : ""}` : estructuraCorner.tipo === "hombre" ? "al hombre" : "en mixta"} (scouting)`
-                : ""}
+            <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">
+              <Sparkles size={12} />
+              El asistente · contra {rival.equipo}
             </p>
+            {estructuraCorner && (
+              <p className="text-[11.5px] text-white/55">
+                Córner {estructuraCorner.tipo === "zonal" ? `en zona${estructuraCorner.enZona ? ` con ${estructuraCorner.enZona}` : ""}` : estructuraCorner.tipo === "hombre" ? "al hombre" : "en mixta"} (scouting)
+              </p>
+            )}
           </div>
-          <ol className="grid gap-2 p-3 sm:grid-cols-3">
-            {contraProximo.map(({ r, xg }, i) => (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => setAbierto({ ...r })}
-                  className="flex w-full min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left transition hover:border-[#C8A96B]/50"
-                >
-                  <span className="text-lg font-black tabular-nums text-[#C8A96B]">{i + 1}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-semibold text-white/90">{r.nombre}</span>
-                    <span className="block text-[11px] text-white/50">xG estimado {comaXg(xg)}</span>
-                  </span>
+          {(() => {
+            const p = propuestas[0];
+
+            const abre = () =>
+              setAbierto(
+                p.retoque.key === "tal"
+                  ? { ...p.original }
+                  : {
+                      ...copiaDe({ ...p.original, ...p.retoque.rutina }, true),
+                      nombre: `${p.original.nombre} · ${p.retoque.nombre.toLowerCase()}`.slice(0, 80),
+                    },
+              );
+
+            return (
+              <div className="grid gap-3 p-3 sm:grid-cols-[minmax(0,15rem)_1fr] sm:items-center">
+                <button type="button" onClick={abre} className="block overflow-hidden rounded-xl border border-white/10 text-left" aria-label={`Abrir la propuesta: ${p.original.nombre}`}>
+                  <MiniPizarra rutina={p.retoque.rutina} porId={porId} />
                 </button>
-              </li>
-            ))}
-          </ol>
+                <div className="min-w-0">
+                  <p className="flex flex-wrap items-baseline gap-x-2 text-[15px] font-semibold text-white">
+                    <span className="min-w-0 truncate">{p.original.nombre}</span>
+                    {p.retoque.key !== "tal" && <span className="text-[12px] font-semibold text-[#C8A96B]">{p.retoque.nombre}</span>}
+                  </p>
+                  <p className="mt-1 text-[13.5px] leading-snug text-white/80">«{p.porque}»</p>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <Button tone="primary" onClick={abre}>
+                      {p.retoque.key === "tal" ? "Abrirla" : "Abrir la variante"}
+                    </Button>
+                    <span className="text-[11px] text-white/45">Medido con la simulación de la pizarra contra su defensa y sus jugadores más altos.</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+          {propuestas.length > 1 && (
+            <ol className="grid gap-2 px-3 pb-3 sm:grid-cols-3">
+              {propuestas.slice(1).map((p, i) => (
+                <li key={p.original.id}>
+                  <button
+                    type="button"
+                    onClick={() => setAbierto({ ...p.original })}
+                    title={p.porque}
+                    className="flex w-full min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left transition hover:border-[#C8A96B]/50"
+                  >
+                    <span className="text-lg font-black tabular-nums text-[#C8A96B]">{i + 2}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] font-semibold text-white/90">{p.original.nombre}</span>
+                      <span className="block truncate text-[11px] text-white/50">
+                        {p.retoque.key === "tal" ? "" : `${p.retoque.nombre} · `}xG {comaXg(p.remate.xg)}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
         </section>
       )}
 
@@ -379,11 +489,27 @@ export function Taller({
 
             const hijas = rutinas.filter((x) => x.padre === r.id).length;
 
+            const elegida = elegidas.indexOf(r.id);
+
             return (
-              <div key={r.id} className="lab-aparece group relative min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition hover:-translate-y-0.5 hover:border-[#C8A96B]/50">
-                <button type="button" onClick={() => setAbierto({ ...r })} className="block w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]" aria-label={`Abrir ${r.nombre}`}>
+              <div
+                key={r.id}
+                className={`lab-aparece group relative min-w-0 overflow-hidden rounded-2xl border bg-white/[0.03] transition hover:-translate-y-0.5 hover:border-[#C8A96B]/50 ${elegida >= 0 ? "border-[#C8A96B] ring-2 ring-[#C8A96B]/60" : "border-white/10"}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => (comparando ? eligeParaComparar(r.id) : setAbierto({ ...r }))}
+                  aria-pressed={comparando ? elegida >= 0 : undefined}
+                  className="block w-full text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
+                  aria-label={comparando ? `Elegir ${r.nombre} para comparar` : `Abrir ${r.nombre}`}
+                >
                   <div className="relative">
                     <MiniPizarra rutina={r} porId={porId} />
+                    {elegida >= 0 && (
+                      <span className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-md text-[12px] font-black" style={{ background: "#C8A96B", color: "#0B0F14" }}>
+                        {elegida ? "B" : "A"}
+                      </span>
+                    )}
                     {xg !== null && xg !== undefined && (
                       <span className="absolute bottom-2 left-2 rounded-md px-1.5 py-0.5 text-[10.5px] font-black tabular-nums" style={{ background: "#C8A96B", color: "#0B0F14" }}>
                         xG {comaXg(xg)}
@@ -446,6 +572,20 @@ export function Taller({
             );
           })}
         </div>
+      )}
+
+      {pareja && (
+        <Comparador
+          a={pareja[0]}
+          b={pareja[1]}
+          porId={porId}
+          ctx={ctx}
+          onCerrar={() => setPareja(null)}
+          onAbre={(r) => {
+            setPareja(null);
+            setAbierto({ ...r });
+          }}
+        />
       )}
 
       {abierto && (
@@ -696,6 +836,19 @@ function Estudio({
               seleccionado={elegido}
               onSelecciona={setElegido}
               ctx={ctx}
+              textoTarea={textoDeTarea(b, porId)}
+              onComparte={() => {
+                if (!b.nombre.trim()) {
+                  toast.error("Ponle nombre a la rutina antes de compartirla");
+
+                  return;
+                }
+
+                void enlaceDe(b, window.location.origin)
+                  .then((url) => navigator.clipboard.writeText(url))
+                  .then(() => toast.success("Enlace copiado", { description: "Abre la rutina tal cual está ahora, sin guardarla. Sólo con sesión de administrador." }))
+                  .catch(() => toast.error("No se ha podido copiar el enlace"));
+              }}
               onCambia={(c) =>
                 setB((x) => ({
                   ...x,

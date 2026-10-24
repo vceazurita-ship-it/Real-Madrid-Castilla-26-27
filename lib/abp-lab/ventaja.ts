@@ -81,6 +81,68 @@ export function espaciosLibres(todos: Punto[], paso = 1.5): Punto[] {
 }
 
 /* ------------------------------------------------------------------ */
+/*  LLEGADA                                                            */
+/* ------------------------------------------------------------------ */
+
+/** Los papeles que atacan el balón: los que cuentan para el mapa de llegada. */
+const LLEGAN: Rol["papel"][] = ["rematador", "bloqueador", "senuelo", "portero", "segunda"];
+
+/**
+ * El mapa de calor de llegada: dónde pisan los nuestros mientras el balón
+ * vuela y en el remate (con más peso cuanto más cerca del remate), sumado con
+ * un núcleo gaussiano de 1,1 m sobre el área. Devuelve celdas de 1 m con su
+ * intensidad de 0 a 1 (la más ocupada es 1); las casi vacías no salen.
+ */
+export function mapaLlegada(roles: Rol[], paso = 1): Celda[] {
+  const quienes = roles.map((r, i) => (LLEGAN.includes(r.papel) ? i : -1)).filter((i) => i >= 0);
+
+  if (!quienes.length) return [];
+
+  const muestras: { p: Punto; w: number }[] = [];
+
+  const desde = VUELO[0] - 0.08;
+
+  const hasta = VUELO[1] + 0.05;
+
+  for (let k = 0; k <= 16; k++) {
+    const t = desde + ((hasta - desde) * k) / 16;
+
+    const w = 0.35 + 0.65 * Math.exp(-(((t - VUELO[1]) / 0.12) ** 2));
+
+    const pos = posicionesEn(roles, t);
+
+    for (const i of quienes) muestras.push({ p: pos[i], w });
+  }
+
+  const s2 = 2 * 1.1 ** 2;
+
+  const crudas: Celda[] = [];
+
+  let max = 0;
+
+  for (let y = ZONA_CONTROL.y0 + paso / 2; y < ZONA_CONTROL.y1 + 2; y += paso) {
+    for (let x = ZONA_CONTROL.x0 + paso / 2; x < ZONA_CONTROL.x1; x += paso) {
+      let v = 0;
+
+      for (const m of muestras) {
+        const d2 = (m.p.x - x) ** 2 + (m.p.y - y) ** 2;
+
+        if (d2 < 16) v += m.w * Math.exp(-d2 / s2);
+      }
+
+      if (v > 0) {
+        crudas.push({ x, y, p: v });
+        max = Math.max(max, v);
+      }
+    }
+  }
+
+  if (!max) return [];
+
+  return crudas.map((c) => ({ ...c, p: c.p / max })).filter((c) => c.p > 0.1);
+}
+
+/* ------------------------------------------------------------------ */
 /*  DUELOS AÉREOS                                                      */
 /* ------------------------------------------------------------------ */
 
