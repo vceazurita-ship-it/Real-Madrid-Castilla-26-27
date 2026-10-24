@@ -47,6 +47,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/abp/ui";
+import { NotaPlegable } from "@/components/coding/piezas";
 import { NOMBRE_PRIVACIDAD } from "@/lib/coding/youtube-cliente";
 import { descarga, descargaDataUrl } from "@/lib/export/lienzos";
 import { VERTICAL } from "@/lib/coding/vertical";
@@ -1711,16 +1712,22 @@ export function BarraExportacion({
       {/* --------------------------- EL CORTE -------------------------- */}
 
       {enNavegador ? (
-        <p className="rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-3 py-2 text-[11px] leading-relaxed text-white/55">
-          <span className="text-[#C8A96B]">Se monta aquí, en tu navegador.</span>{" "}
-          El partido no se sube a ningún sitio: sale del fichero que tienes
-          abierto. Sale en <span className="text-white/75">.mp4</span> con
+        <NotaPlegable
+          className="rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-3 py-2 text-white/55"
+          resumen={
+            <>
+              <span className="text-[#C8A96B]">Se monta aquí, en tu navegador.</span> El
+              partido no se sube a ningún sitio.
+            </>
+          }
+        >
+          Sale del fichero que tienes abierto, en <span className="text-white/75">.mp4</span> con
           sonido, a la calidad y a los fotogramas del partido, y tarda bastante
           menos de lo que dura el vídeo —no hay que reproducirlo—. Se ve
           mientras se hace y se puede cancelar. Si el fichero no se deja leer
           así (un .mkv, un formato raro), se graba a tiempo real —tarda{" "}
           {formateaTotal(total)}— y entonces sale en .webm.
-        </p>
+        </NotaPlegable>
       ) : (
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[10px] uppercase tracking-[0.16em] text-white/30">

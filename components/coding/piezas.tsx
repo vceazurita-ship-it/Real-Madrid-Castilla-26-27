@@ -57,6 +57,39 @@ export function Tecla({
   );
 }
 
+/**
+ * Texto explicativo largo plegado a una línea con «Ver más» (24/10/2026,
+ * crítica del analista): quien sólo quiere marcar cortes no tiene que leerlo.
+ */
+export function NotaPlegable({
+  resumen,
+  children,
+  className = "",
+}: {
+  resumen: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  const [abierta, setAbierta] = useState(false);
+
+  return (
+    <div className={className}>
+      <p className="text-[11px] leading-relaxed">
+        {resumen}{" "}
+        <button
+          type="button"
+          onClick={() => setAbierta((v) => !v)}
+          aria-expanded={abierta}
+          className="text-[#C8A96B] underline-offset-2 hover:underline"
+        >
+          {abierta ? "Ver menos" : "Ver más"}
+        </button>
+      </p>
+      {abierta ? <div className="mt-1 text-[11px] leading-relaxed">{children}</div> : null}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  JUGADORES                                                          */
 /* ------------------------------------------------------------------ */
