@@ -302,11 +302,7 @@ export function AbpWyscoutRival({
           )}
         </Panel>
       )}
-    </div>
-  );
-}
 
-export default AbpWyscoutRival;
       {hayGoles && goles && (
         <Panel
           title="Goles a balón parado esta temporada"
@@ -335,8 +331,8 @@ export default AbpWyscoutRival;
                   <p className="mt-1 text-[12px] text-white/55">
                     {[
                       g.penalti > 0 ? `${g.penalti} de penalti` : "",
-                      g.corner > 0 ? `${g.corner} de córner` : "",
-                      g.falta > 0 ? `${g.falta} de falta` : "",
+                      g.corner > 0 ? `${g.corner} de córner (estimado)` : "",
+                      g.falta > 0 ? `${g.falta} de falta (estimado)` : "",
                     ]
                       .filter(Boolean)
                       .join(" · ")}
@@ -347,5 +343,8 @@ export default AbpWyscoutRival;
           </div>
         </Panel>
       )}
+    </div>
+  );
+}
 
-
+export default AbpWyscoutRival;

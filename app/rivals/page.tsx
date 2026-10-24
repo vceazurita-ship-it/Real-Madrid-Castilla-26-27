@@ -4493,7 +4493,7 @@ export default function RivalPlayersPage() {
                                 className="flex items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-white/70 transition hover:border-[#C8A96B] hover:text-white"
                               >
                                 <RotateCcw size={11} aria-hidden />
-                                Suele jugar {lecturaTemporada.dibujo}
+                                Suele jugar {lecturaTemporada.dibujo} ({lecturaTemporada.alineaciones} {lecturaTemporada.alineaciones === 1 ? "alineación leída" : "alineaciones leídas"})
                               </button>
                             )}
 

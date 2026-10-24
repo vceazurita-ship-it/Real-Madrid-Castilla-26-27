@@ -281,7 +281,9 @@ export function VistazoRival({
                       >
                         <span className="min-w-0 truncate">{a.aspecto}</span>
                         <span className="shrink-0 tabular-nums text-white/50">
-                          {a.desviacion >= 0 ? `mejor que ${Math.round(a.percentil / 10)} de cada 10` : `peor que ${10 - Math.round(a.percentil / 10)} de cada 10`}
+                          {a.desviacion >= 0
+                            ? `mejor que ${Math.round(a.percentil / 10)} de cada 10${equipos > 0 ? ` (sobre ${equipos} equipos)` : ""}`
+                            : `peor que ${10 - Math.round(a.percentil / 10)} de cada 10${equipos > 0 ? ` (sobre ${equipos} equipos)` : ""}`}
                         </span>
                       </li>
                     ))}
