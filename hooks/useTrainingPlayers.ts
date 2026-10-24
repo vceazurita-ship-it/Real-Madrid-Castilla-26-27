@@ -7,6 +7,7 @@ import { getPlayerImage, getPlayerPhotoSrc } from "../lib/playerImages";
 import { isHiddenPlayer } from "../lib/hiddenPlayers";
 import { posicionDe } from "../lib/posiciones";
 import { traeCsv } from "../lib/hojaCsv";
+import { licenciaDe } from "../lib/fichajes";
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=1978494160&single=true&output=csv";
@@ -104,10 +105,10 @@ export function useTrainingPlayers() {
           fotoLejos:
             getPlayerImage(p.NOMBRE, "lejos", p.ID_JUGADOR) ?? undefined,
 
-          licencia: p.LICENCIA || "RMCF Castilla",
+          licencia: licenciaDe(p.NOMBRE, p.LICENCIA),
 
           esCastilla:
-            (p.LICENCIA || "RMCF Castilla") === "RMCF Castilla",
+            licenciaDe(p.NOMBRE, p.LICENCIA) === "RMCF Castilla",
 
           estado: p.ESTADO,
 

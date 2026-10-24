@@ -10,6 +10,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { getPlayerImage, normalizePlayerName } from "@/lib/playerImages";
 import { nombrePuesto, posicionDe } from "@/lib/posiciones";
+import { licenciaDe } from "@/lib/fichajes";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { summarizePlayer, formatRating } from "@/lib/ratings/compute";
 import type { RatingsSeason } from "@/lib/ratings/types";
@@ -394,7 +395,7 @@ export default function DashboardPlantilla() {
           : 0;
 
         const nombre = scout.NOMBRE || estado.NOMBRE || "";
-        const licencia = scout.LICENCIA || estado.LICENCIA || "";
+        const licencia = licenciaDe(nombre, scout.LICENCIA || estado.LICENCIA || "");
 
         return {
           id: scout.ID_JUGADOR,

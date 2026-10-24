@@ -82,7 +82,41 @@ const FICHAS: Ficha[] = [
     */
     alias: ["Thiago"],
   },
+  /*
+  | Hugo de Llanos, 24/10/2026. Centrocampista del Castilla (ficha del club:
+  | dorsal 8) que la hoja JUGADORES todavía no trae. Si la hoja lo da de alta,
+  | el nombre de ahí manda: copiar su grafía aquí o saldrá dos veces.
+  */
+  {
+    id: "JUG-55",
+    nombre: "Hugo de Llanos",
+    apodo: "Hugo",
+    posicion: "8",
+    licencia: "RMCF Castilla",
+    dorsal: 8,
+    alias: ["Hugo", "De Llanos", "Hugo Llanos"],
+  },
 ];
+
+/*
+| Jugadores que cuentan como del Castilla aunque la hoja diga otra licencia.
+| Izan Regueira (JUG-46) está en JUGADORES con licencia «RMC» y por eso
+| `esCastilla` salía falso y desaparecía de valoraciones, seguimiento, pizarra
+| y demás pantallas que sólo cuentan al Castilla. Mientras la hoja no lo corrija
+| (LICENCIA = RMCF Castilla) se fuerza aquí. Nombres ya normalizados.
+*/
+const CASTILLA_FIJOS = new Set([
+  "izan regueira",
+  "izan",
+  "hugo de llanos",
+  "hugo llanos",
+]);
+
+/** La licencia efectiva: la de la hoja, salvo para los fijos del Castilla. */
+export function licenciaDe(nombre: string, licencia?: string): string {
+  if (CASTILLA_FIJOS.has(normalizePlayerName(nombre))) return "RMCF Castilla";
+  return licencia || "RMCF Castilla";
+}
 
 /**
  * IDs que ya no son de nadie y a quién corresponden hoy.
@@ -128,6 +162,14 @@ const PENDIENTES: Player[] = FICHAS.map((ficha) => ({
  * añadirse, así que no hay forma de que salga dos veces.
  */
 export function conFichajes(deLaHoja: Player[]): Player[] {
+  deLaHoja = deLaHoja.map((jugador) => {
+    const licencia = licenciaDe(jugador.nombre, jugador.licencia);
+
+    return licencia === jugador.licencia && jugador.esCastilla
+      ? jugador
+      : { ...jugador, licencia, esCastilla: licencia === "RMCF Castilla" };
+  });
+
   if (PENDIENTES.length === 0) return deLaHoja;
 
   const posicionEnLaHoja = new Map(

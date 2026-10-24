@@ -61,7 +61,7 @@ import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import { PlayerRatingsTab } from "@/components/ratings/PlayerRatingsTab";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { playerEntries } from "@/lib/ratings/compute";
-import { getPlayerImage } from "@/lib/playerImages";
+import { getPlayerImage, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { idVigente } from "@/lib/fichajes";
 import { alineaSeguimiento } from "@/lib/seguimiento";
@@ -512,6 +512,14 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
   position: "Centrocampista",
   photo:
     "https://assets.realmadrid.com/is/image/realmadrid/IZAN_REGUEIRA_380x501?$Desktop$&fit=wrap&wid=288&hei=384",
+},
+{
+  /* Hugo de Llanos: la hoja JUGADORES aún no lo trae (puente en
+     `lib/fichajes.ts`, JUG-55); la foto sale del recorte propio. */
+  idJugador: "JUG-55",
+  name: "Hugo de Llanos",
+  position: "Centrocampista",
+  photo: PLAYER_PHOTO_FALLBACK,
 },
 {
   idJugador: "JUG-47",

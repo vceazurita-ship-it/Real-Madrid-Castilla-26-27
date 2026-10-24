@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPlayerImage, normalizePlayerName } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
+import { licenciaDe } from "@/lib/fichajes";
 
 /**
  * Plantilla y disponibilidad de la sesión.
@@ -55,7 +56,7 @@ function toClient(player: SheetPlayer) {
       getPlayerImage(player.NOMBRE, "cerca", player.ID_JUGADOR) ??
       player.FOTO_URL ??
       "",
-    licencia: player.LICENCIA || "RMCF Castilla",
+    licencia: licenciaDe(player.NOMBRE, player.LICENCIA),
     activo: String(player.ACTIVO ?? "").toUpperCase() !== "FALSE",
     estado: player.ESTADO || "NO CONVOCADO",
   };
