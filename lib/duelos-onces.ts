@@ -14,6 +14,7 @@ import { esNuestro } from "@/lib/data-analisis/individual";
 import { HUECOS, casaNombre, proponeOnce, sitioDe } from "@/lib/data-analisis/once";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { playerKey } from "@/lib/rivals/once";
+import { conTildes } from "@/lib/rivals/tildes";
 import type { InformeEquipo } from "@/lib/rivals/informe";
 import {
   HUECO_VACIO,
@@ -92,7 +93,7 @@ export function suyosDe(filasHoja: Fila[], equipo: string, jugadores: FilaJugado
   return filasHoja
     .filter((f) => texto(f.NOMBRE_EQUIPO) === equipo)
     .map((f) => {
-      const nombre = comoNombre(texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR));
+      const nombre = conTildes(comoNombre(texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR)));
       const wy =
         casaNombre(nombre, filasWy, (r) => r.jugador) ??
         (texto(f.JUGADOR) && texto(f.JUGADOR) !== nombre ? casaNombre(comoNombre(texto(f.JUGADOR)), filasWy, (r) => r.jugador) : null);
@@ -154,7 +155,13 @@ export function armaOnce(candidatos: JugadorDuelo[], todos: JugadorDuelo[], manu
  * manda sobre él (23/10/2026: Duelos y la pizarra proponían dos onces
  * distintos para el mismo partido).
  */
-export const onceNuestroDe = (nuestros: JugadorDuelo[], manual: Record<string, string>, base?: Record<string, string> | null) => {
+export const onceNuestroDe = (
+  nuestros: JugadorDuelo[],
+  manual: Record<string, string>,
+  base?: Record<string, string> | null,
+  /** La plantilla: si el id de la base no casa (los JUG-XX se renumeran), se resuelve por nombre. */
+  fichas: FichaPropia[] = [],
+) => {
   if (!base || Object.keys(base).length === 0) {
     return armaOnce(
       nuestros.filter((j) => j.wyscout),
@@ -169,7 +176,10 @@ export const onceNuestroDe = (nuestros: JugadorDuelo[], manual: Record<string, s
   const deLaBase: Record<string, string> = {};
 
   for (const [hueco, fichaId] of Object.entries(base)) {
-    const clave = porFicha.get(fichaId);
+    const ficha = fichas.find((f) => f.id === fichaId);
+    const clave =
+      porFicha.get(fichaId) ??
+      (ficha ? (casaNombre(ficha.nombre, nuestros, (j) => j.nombre) ?? casaNombre(ficha.apodo ?? "", nuestros, (j) => j.nombre))?.clave : undefined);
 
     if (clave && !(hueco in manual) && !aMano.has(clave)) deLaBase[hueco] = clave;
   }
@@ -210,7 +220,7 @@ export function duelosDelPartido(entrada: {
   const base = baseSuyaDe(suyos, entrada.marcados, entrada.informe);
   const referencias = referenciasPorPuesto(entrada.jugadores);
   return {
-    duelos: mideDuelos(onceNuestroDe(nuestros, entrada.aMano.nuestro, entrada.baseNuestra),onceSuyoDe(suyos, base.lista, entrada.aMano.suyo), referencias),
+    duelos: mideDuelos(onceNuestroDe(nuestros, entrada.aMano.nuestro, entrada.baseNuestra, entrada.fichas), onceSuyoDe(suyos, base.lista, entrada.aMano.suyo), referencias),
     fuenteSuya: base.fuente,
   };
 }

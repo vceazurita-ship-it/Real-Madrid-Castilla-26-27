@@ -5,6 +5,7 @@ import { esNuestro } from "@/lib/data-analisis/individual";
 import { expandeIndice, leeDatos, type Dataset } from "@/lib/data-analisis/leer";
 import {
   METRICA_POR_KEY,
+  cocienteEnGrupo,
   percentil,
   recuentoEnPartido,
   temporadaDe,
@@ -331,6 +332,9 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "ab
 
   const equipos = [...new Set(liga.map((p) => p.equipo))];
 
+  const suyosDe = liga.filter((p) => mismoEquipo(p.equipo, equipo));
+  const contraDe = liga.filter((p) => mismoEquipo(p.rival, equipo));
+
   const aspectos = destacadosDeEquipo(
     equipo,
     liga,
@@ -351,6 +355,9 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "ab
       mediana: f.mediana,
       unidad: f.metrica.unidad,
       percentil: f.percentil,
+      /* «x de y»: la base del porcentaje y los partidos que lo respaldan. */
+      base: cocienteEnGrupo(f.metrica, d.aspecto.key === "abpDef" ? contraDe : suyosDe),
+      partidos: (d.aspecto.key === "abpDef" ? contraDe : suyosDe).length,
     })),
   }));
 

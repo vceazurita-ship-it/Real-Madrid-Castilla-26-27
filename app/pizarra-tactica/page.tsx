@@ -929,6 +929,14 @@ function BoardEditor({
                 ? `Nuestro once y el suyo para el ${diaYLugar(doc.semanaOnces.split("|")[0], doc.semanaOnces.split("|")[1], partido)}. Toca dos veces una ficha para cambiar al jugador.`
                 : "Se rellenan solos cada semana con nuestro último once y el teórico del rival."}
           </span>
+          <span className="flex items-center gap-3 text-white/70" aria-label="Leyenda de colores">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded-full border-2" style={{ background: "#F8FAFC", borderColor: "#0B0F14" }} aria-hidden /> Ficha blanca: Castilla
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-3 w-3 rounded-full border-2" style={{ background: "#1E293B", borderColor: "#F87171" }} aria-hidden /> Ficha oscura con borde rojo: rival
+            </span>
+          </span>
           <span className="flex flex-wrap items-center gap-2">
           {antesDelRelleno && (
             <button

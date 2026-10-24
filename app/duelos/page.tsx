@@ -258,7 +258,7 @@ export default function DuelosPage() {
   const fuenteNuestra = ultimoOnce?.ultimo
     ? fuenteUltimoOnce(ultimoOnce)
     : "Propuesto con los minutos de Wyscout en 4-2-3-1";
-  const onceNuestro = useMemo(() => onceNuestroDe(nuestros, aMano.nuestro, baseNuestra), [nuestros, aMano.nuestro, baseNuestra]);
+  const onceNuestro = useMemo(() => onceNuestroDe(nuestros, aMano.nuestro, baseNuestra, players), [nuestros, aMano.nuestro, baseNuestra, players]);
   const onceSuyo = useMemo(() => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo), [suyos, baseSuya, aMano.suyo]);
 
   const duelos = useMemo(() => mideDuelos(onceNuestro, onceSuyo, referencias), [onceNuestro, onceSuyo, referencias]);
@@ -907,9 +907,9 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
               </p>
             )}
 
-            <div className="mt-2 flex justify-between text-[9.5px] font-semibold uppercase tracking-wider text-white/35">
-              <span>Castilla · {aire ? "por arriba" : nuestroBalon ? "con balón" : "sin balón"}</span>
-              <span>{equipo} · {aire ? "por arriba" : nuestroBalon ? "sin balón" : "con balón"}</span>
+            <div className="mt-2 flex justify-between gap-2 text-[9.5px] font-semibold uppercase tracking-wider text-white/35">
+              <span className="min-w-0">Castilla · {aire ? "por arriba" : nuestroBalon ? "con balón" : "sin balón"}</span>
+              <span className="min-w-0 text-right">{equipo} · {aire ? "por arriba" : nuestroBalon ? "sin balón" : "con balón"}</span>
             </div>
 
             <div className="mt-1.5 space-y-2.5">
@@ -939,8 +939,8 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
                     </div>
                     {f.sentido !== "aire" && (
                       <div className="flex justify-between gap-2 text-[9.5px] text-white/35">
-                        <span className="truncate">{rotuloColumna(f.columnaNuestra)}</span>
-                        <span className="truncate text-right">{rotuloColumna(f.columnaSuya)}</span>
+                        <span className="min-w-0 flex-1 truncate">{rotuloColumna(f.columnaNuestra)}</span>
+                        <span className="min-w-0 flex-1 truncate text-right">{rotuloColumna(f.columnaSuya)}</span>
                       </div>
                     )}
                     <div className="mt-1 flex h-1.5 gap-1">
@@ -998,10 +998,10 @@ function Tarjeta({
   ];
 
   const gente = (lista: JugadorDuelo[], nuestro: boolean) => (
-    <div className={`flex min-w-0 flex-1 flex-col gap-1.5 ${nuestro ? "items-start" : "items-end text-right"}`}>
+    <div className={`flex min-w-0 flex-1 flex-col gap-1.5 ${nuestro ? "items-start" : "items-start sm:items-end sm:text-right"}`}>
       {lista.length === 0 && <span className="text-xs text-white/35">Sin nadie en el hueco</span>}
       {lista.map((j) => (
-        <div key={j.clave} className={`flex min-w-0 items-center gap-2 ${nuestro ? "" : "flex-row-reverse"}`}>
+        <div key={j.clave} className={`flex min-w-0 max-w-full items-center gap-2 ${nuestro ? "" : "sm:flex-row-reverse"}`}>
           <Foto src={j.foto} nombre={j.nombre} size={34} borde={nuestro ? ORO : tinta(0.5)} />
           <div className="min-w-0">
             <p className={`truncate text-sm font-medium ${nuestro ? "text-[#C8A96B]" : "text-white/90"}`}>{j.nombre}</p>
@@ -1031,7 +1031,7 @@ function Tarjeta({
       className={`scroll-mt-48 cursor-pointer rounded-2xl border bg-white/[0.03] p-4 transition ${activo ? "border-white/40" : "border-white/10"}`}
       style={{ borderLeftColor: color, borderLeftWidth: 4 }}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold">{d.def.titulo}</p>
           <p className="text-[11px] text-white/40">{d.def.subtitulo}</p>
@@ -1042,9 +1042,9 @@ function Tarjeta({
         </span>
       </div>
 
-      <div className="mt-3 flex items-start gap-3">
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
         {gente(d.nuestros, true)}
-        <span className="pt-2 text-[10px] uppercase tracking-wider text-white/30">vs</span>
+        <span className="text-[10px] uppercase tracking-wider text-white/30 sm:pt-2">vs</span>
         {gente(d.suyos, false)}
       </div>
 

@@ -104,6 +104,7 @@ import { traeDestacadosRival } from "@/lib/rivals/destacados-rival";
 import { fraseDelVistazo, vistazoDe } from "@/lib/rivals/vistazo";
 import { asignaPerfiles, type PerfilWyscout } from "@/lib/rivals/perfil-wyscout";
 import { conTildes } from "@/lib/rivals/tildes";
+import { fraseDeDano, nombrePropio } from "@/lib/rivals/dano";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import VistazoRival from "@/components/rivals/VistazoRival";
 import { ParaLaSemana } from "@/components/rivals/ParaLaSemana";
@@ -3074,22 +3075,21 @@ export default function RivalPlayersPage() {
         const debilidades = parseTags(p.IMPACTO)
           .tags.filter((tag) => tag.tone === "debilidad")
           .map((tag) => tag.label.toLowerCase());
-        const flojos =
-          perfil && !perfil.muestraCorta
-            ? perfil.flojos.slice(0, 2).map((rasgo) => `flojo en ${rasgo.nombre.toLowerCase()}`)
-            : [];
+        const flojos = perfil && !perfil.muestraCorta ? perfil.flojos.slice(0, 2).map((rasgo) => rasgo.nombre) : [];
+        const frase = fraseDeDano(debilidades, flojos);
 
         return {
-          nombre: String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim(),
+          nombre: conTildes(nombrePropio(String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim())),
           puesto: perfil?.posicionTexto || String(p["POSICIÓN"] ?? "").trim(),
-          rasgos: [...debilidades, ...flojos],
+          rasgos: frase?.frases ?? [],
+          accion: frase?.accion ?? "",
           cruzan: debilidades.length > 0 && flojos.length > 0,
         };
       })
-      .filter((uno) => uno.nombre && uno.cruzan)
+      .filter((uno) => uno.nombre && uno.cruzan && uno.accion)
       .sort((a, b) => b.rasgos.length - a.rasgos.length)
       .slice(0, 3)
-      .map(({ nombre, puesto, rasgos }) => ({ nombre, puesto, rasgos }));
+      .map(({ nombre, puesto, rasgos, accion }) => ({ nombre, puesto, rasgos, accion }));
   }, [players, perfilesRival, perfilesPorFicha, selectedTeam]);
 
   /* La temporada en curso de cada uno, para el listado. */

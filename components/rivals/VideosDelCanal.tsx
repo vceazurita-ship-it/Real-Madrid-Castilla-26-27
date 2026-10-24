@@ -389,7 +389,7 @@ export function VideosDelCanal({
   const termino = busca.trim().toLowerCase();
 
   const grupos = useMemo(() => {
-    const porJugador = new Map<string, { jugador: string; dorsal: string; videos: Pieza[] }>();
+    const porJugador = new Map<string, { jugador: string; dorsal: string; titular: boolean; videos: Pieza[] }>();
 
     const sueltos: Pieza[] = [];
 
@@ -423,6 +423,7 @@ export function VideosDelCanal({
       const grupo = porJugador.get(jugador.nombre) ?? {
         jugador: jugador.nombre,
         dorsal: jugador.dorsal ?? "",
+        titular: Boolean(jugador.titular),
         videos: [],
       };
 
@@ -433,6 +434,7 @@ export function VideosDelCanal({
     return {
       jugadores: [...porJugador.values()].sort(
         (a, b) =>
+          Number(b.titular) - Number(a.titular) ||
           b.videos.length - a.videos.length ||
           a.jugador.localeCompare(b.jugador, "es"),
       ),

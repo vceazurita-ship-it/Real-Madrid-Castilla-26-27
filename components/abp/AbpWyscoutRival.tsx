@@ -30,6 +30,9 @@ type Fila = {
   mediana: number;
   unidad: Unidad;
   percentil: number;
+  /** «x de y» de un porcentaje, y los partidos que lo respaldan. */
+  base?: { arriba: number; abajo: number } | null;
+  partidos?: number;
 };
 
 type Aspecto = { clave: string; aspecto: string; filas: Fila[] };
@@ -48,6 +51,24 @@ function lectura(percentil: number, equipos: number) {
   if (percentil <= 40) return { texto: `peor que ${Math.max(1, Math.round((100 - percentil) / 10))} de cada 10`, bueno: false };
 
   return { texto: "en la media de la liga", bueno: null };
+}
+
+/** La lectura de los centros: qué hacemos según cuánto centra y con qué acierto. */
+function queHacemosConCentros(aspectos: Aspecto[]) {
+  const filas = aspectos.flatMap((a) => a.filas);
+  const volumen = filas.find((f) => f.nombre === "Centros laterales");
+  const acierto = filas.find((f) => f.nombre === "Centros precisos %");
+
+  if (!volumen || !acierto) return "";
+
+  const muchos = volumen.valor > volumen.mediana;
+  const bien = acierto.valor > acierto.mediana;
+
+  if (muchos && bien) return "Centra mucho y con acierto: cerrar el carril exterior y proteger el segundo palo.";
+  if (muchos) return "Centra mucho y acierta poco: dejarle centrar y ganar el área, sin perseguir el balón hasta la banda.";
+  if (bien) return "Centra poco pero con acierto: cuando lo hace, tapar al rematador del segundo palo.";
+
+  return "Centra poco y mal: cerrar el pase interior antes que el centro.";
 }
 
 export function AbpWyscoutRival({
@@ -130,6 +151,11 @@ export function AbpWyscoutRival({
               <div key={aspecto.clave} className="min-w-0">
                 <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
                   {aspecto.aspecto}
+                  {(aspecto.filas[0]?.partidos ?? 99) < 10 && (
+                    <span className="ml-2 font-normal normal-case tracking-normal italic text-white/45">
+                      tendencia, {aspecto.filas[0].partidos} partidos
+                    </span>
+                  )}
                 </h3>
 
                 <ul className="mt-2 space-y-2">
@@ -145,6 +171,11 @@ export function AbpWyscoutRival({
 
                         <span className="text-sm font-semibold tabular-nums text-white">
                           {formatea(fila.valor, fila.unidad)}
+                          {fila.unidad === "porcentaje" && fila.base && (
+                            <span className="ml-2 text-[11px] font-normal text-white/55">
+                              {Math.round(fila.base.arriba)} de {Math.round(fila.base.abajo)}
+                            </span>
+                          )}
                           <span className="ml-2 text-[11px] font-normal text-white/40">
                             mediana {formatea(fila.mediana, fila.unidad)}
                           </span>
@@ -170,6 +201,13 @@ export function AbpWyscoutRival({
               </div>
             ))}
           </div>
+
+          {ambito === "area" && queHacemosConCentros(aspectos) && (
+            <p className="mt-4 border-t border-white/10 pt-3 text-sm text-white/85">
+              <b className="text-white">Qué hacemos: </b>
+              {queHacemosConCentros(aspectos)}
+            </p>
+          )}
         </Panel>
       )}
 
@@ -193,7 +231,7 @@ export function AbpWyscoutRival({
                   </span>
                 </p>
 
-                {g.goles < 10 && (
+                {(g.goles < 10 || g.partidos < 10) && (
                   <p className="mt-0.5 text-[11px] italic text-white/50">Tendencia, pocos casos: no lo damos por hecho.</p>
                 )}
 
@@ -215,7 +253,11 @@ export function AbpWyscoutRival({
       )}
 
       {(rematan.length > 0 || sacan.length > 0) && (
-        <Panel title="Quién lo lanza y quién remata" subtitle="Según las etiquetas de la plantilla" icon={BarChart3}>
+        <Panel
+          title={sacan.length > 0 && rematan.length > 0 ? "Quién lo lanza y quién remata" : sacan.length > 0 ? "Quién lo lanza" : "Quién remata"}
+          subtitle="Según las etiquetas de la plantilla"
+          icon={BarChart3}
+        >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {sacan.length > 0 && (
               <div>

@@ -1074,8 +1074,31 @@ export function valorEnGrupo(
   return (arriba / abajo) * (metrica.factor ?? 1);
 }
 
+/**
+ * La base de un porcentaje: «x de y» (córners con remate de córners, centros
+ * precisos de centros). Sólo para las métricas que son un cociente.
+ */
+export function cocienteEnGrupo(metrica: Metrica, filas: FilaPartido[]): { arriba: number; abajo: number } | null {
+  if (!metrica.numerador || !metrica.denominador) return null;
+
+  let arriba = 0;
+  let abajo = 0;
+
+  for (const fila of filas) {
+    const a = valorDe(metrica.numerador, fila);
+    const b = valorDe(metrica.denominador, fila);
+
+    if (a === null || b === null) continue;
+
+    arriba += a;
+    abajo += b;
+  }
+
+  return abajo > 0 ? { arriba, abajo } : null;
+}
+
 /* ------------------------------------------------------------------ */
-/*  TEMPORADAS Y FORMATO                                               */
+/*  TEMPORADAS Y FORMATO                                             */
 /* ------------------------------------------------------------------ */
 
 /**

@@ -144,6 +144,8 @@ export type JugadorPlantilla = {
   puesto?: string;
   /** Sus etiquetas de la ficha (campo IMPACTO): lo que hay que mirar de él. */
   etiquetas?: string[];
+  /** Está en el once probable marcado: sus cortes salen primero. */
+  titular?: boolean;
 };
 
 /**
@@ -222,18 +224,28 @@ export function jugadorDelTitulo(
     if (mejor) encontrados.push({ jugador, ...mejor });
   }
 
-  if (encontrados.length === 0) {
-    /*
-    | Sin nombre en el título, el dorsal (23/10/2026): «Nº 18», «8 IVAN…»,
-    | «6 OSCAR». Sólo si lo lleva UN jugador de la plantilla.
-    */
-    const dorsal = dorsalDelTitulo(titulo);
+  /*
+  | El dorsal (23/10/2026): «Nº 18», «Nº19 DIEGO I.», «8 IVAN…». Sólo vale si lo
+  | lleva UN jugador de la plantilla. Sin nombre en el título decide solo; y
+  | desde el 24/10 manda también cuando el nombre no decide: un empate («Diego»
+  | y «Diego I.») o un apellido mal escrito («Trujillo» por Turrillo).
+  */
+  const dorsal = dorsalDelTitulo(titulo);
 
-    if (!dorsal) return null;
+  const delDorsal = dorsal
+    ? plantilla.filter((jugador) => jugador.dorsal && String(Number(jugador.dorsal)) === dorsal)
+    : [];
 
-    const suyos = plantilla.filter((jugador) => jugador.dorsal && String(Number(jugador.dorsal)) === dorsal);
+  const porDorsal = delDorsal.length === 1 ? delDorsal[0] : null;
 
-    return suyos.length === 1 ? suyos[0] : null;
+  if (encontrados.length === 0) return porDorsal;
+
+  if (porDorsal) {
+    const esDelDorsal = encontrados.some((item) => item.jugador === porDorsal);
+    const hayOtroEntero = encontrados.some((item) => item.jugador !== porDorsal && item.completo && item.texto.includes(" "));
+
+    /* Un nombre y apellido enteros de OTRO jugador siguen mandando sobre el dorsal. */
+    if (esDelDorsal || !hayOtroEntero) return porDorsal;
   }
 
   encontrados.sort(

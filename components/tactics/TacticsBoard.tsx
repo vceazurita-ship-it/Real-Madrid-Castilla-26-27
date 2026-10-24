@@ -2021,12 +2021,27 @@ export default function TacticsBoard({
           >
             <option value="">Añadir jugador…</option>
 
-            {roster.map((player) => (
-              <option key={player.id} value={player.id}>
-                {player.dorsal ? `${player.dorsal} · ` : ""}
-                {player.apodo || player.nombre}
-              </option>
-            ))}
+            {/* Los que ya están en el campo, aparte del resto de la plantilla. */}
+            {(() => {
+              const puestos = new Set(scene.tokens.filter((t) => t.kind === "home" && t.nombre).map((t) => t.nombre));
+              const enCampo = roster.filter((p) => puestos.has(p.apodo || p.nombre));
+              const resto = roster.filter((p) => !puestos.has(p.apodo || p.nombre));
+              const opcion = (player: (typeof roster)[number]) => (
+                <option key={player.id} value={player.id}>
+                  {player.dorsal ? `${player.dorsal} · ` : ""}
+                  {player.apodo || player.nombre}
+                </option>
+              );
+
+              return enCampo.length > 0 && resto.length > 0 ? (
+                <>
+                  <optgroup label="En el campo">{enCampo.map(opcion)}</optgroup>
+                  <optgroup label="Resto de la plantilla">{resto.map(opcion)}</optgroup>
+                </>
+              ) : (
+                roster.map(opcion)
+              );
+            })()}
           </select>
         )}
 

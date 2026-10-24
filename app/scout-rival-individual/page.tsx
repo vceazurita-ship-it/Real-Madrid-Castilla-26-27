@@ -28,6 +28,7 @@ import { VideosDelCanal } from "@/components/rivals/VideosDelCanal";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
 import { traeJson } from "@/lib/hojaCsv";
+import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import {
   SIN_ORDEN,
   cargaOrdenRivales,
@@ -107,6 +108,29 @@ export default function ScoutRivalIndividual() {
   */
   const [etiquetasDe, setEtiquetasDe] = useState<Record<string, string[]>>({});
 
+  /* Su clave de jugador (la del once marcado), por «equipo|nombre». */
+  const [clavesDe, setClavesDe] = useState<Record<string, string>>({});
+
+  /* Los titulares del once probable marcado en Plantillas rivales (sólo se lee). */
+  const [titularesDe, setTitularesDe] = useState<{ equipo: string; claves: string[] }>({ equipo: "", claves: [] });
+
+  useEffect(() => {
+    if (!equipo) return;
+
+    let vivo = true;
+
+    fetch(`/api/docs?key=${encodeURIComponent(rivalOnceKey(equipo))}`, { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ data?: unknown }>)
+      .then((j) => {
+        if (vivo) setTitularesDe({ equipo, claves: normalizarOnce(j?.data ?? null).titulares });
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, [equipo]);
+
   useEffect(() => {
     let cancelado = false;
 
@@ -115,6 +139,7 @@ export default function ScoutRivalIndividual() {
         if (cancelado || !Array.isArray(filas)) return;
 
         const mapa: Record<string, string[]> = {};
+        const claves: Record<string, string> = {};
 
         for (const fila of filas as Record<string, unknown>[]) {
           const nombre = String(fila["NOMBRE DEPORTIVO"] ?? "").trim() || String(fila.JUGADOR ?? "").trim();
@@ -124,9 +149,11 @@ export default function ScoutRivalIndividual() {
             .filter(Boolean);
 
           if (nombre && etiquetas.length) mapa[`${String(fila.NOMBRE_EQUIPO ?? "").trim()}|${nombre}`] = etiquetas;
+          if (nombre) claves[`${String(fila.NOMBRE_EQUIPO ?? "").trim()}|${nombre}`] = playerKey(fila);
         }
 
         setEtiquetasDe(mapa);
+        setClavesDe(claves);
       })
       .catch(() => undefined);
 
@@ -142,8 +169,10 @@ export default function ScoutRivalIndividual() {
         dorsal: jugador.dorsal,
         puesto: jugador.posicion,
         etiquetas: etiquetasDe[`${equipo}|${jugador.nombre}`] ?? [],
+        titular:
+          titularesDe.equipo === equipo && titularesDe.claves.includes(clavesDe[`${equipo}|${jugador.nombre}`] ?? "\u0000"),
       })),
-    [squads, equipo, etiquetasDe],
+    [squads, equipo, etiquetasDe, clavesDe, titularesDe],
   );
 
   return (

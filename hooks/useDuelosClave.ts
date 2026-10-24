@@ -37,7 +37,13 @@ export type DueloClave = {
   valor: number;
 };
 
-export type DuelosClave = { ventaja: DueloClave[]; riesgo: DueloClave[] };
+export type DuelosClave = {
+  ventaja: DueloClave[];
+  riesgo: DueloClave[];
+  /** Cuántos duelos, de todos los medidos, caen de cada lado (con balón nuestro / con balón suyo). */
+  conVentajaNuestra: number;
+  conVentajaSuya: number;
+};
 
 type Fila = Record<string, unknown>;
 
@@ -119,7 +125,15 @@ export function useDuelosClave(equipo: string) {
           .slice(0, 2)
           .map((d) => aDuelo(d, d.sinBalon ?? 0));
 
-        if (vivo) setEstado({ equipo, datos: ventaja.length || riesgo.length ? { ventaja, riesgo } : null });
+        const conVentajaNuestra = duelos.filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO).length;
+        const conVentajaSuya = duelos.filter((d) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO).length;
+
+        if (vivo) {
+          setEstado({
+            equipo,
+            datos: ventaja.length || riesgo.length ? { ventaja, riesgo, conVentajaNuestra, conVentajaSuya } : null,
+          });
+        }
       } catch (error) {
         console.error("[plan] duelos clave", error);
 
