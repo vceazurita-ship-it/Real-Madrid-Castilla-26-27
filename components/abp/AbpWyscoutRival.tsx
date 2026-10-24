@@ -50,7 +50,15 @@ type Datos = {
 };
 
 /** «Mejor que 8 de cada 10» / «Peor que 8 de cada 10»: percentil ya orientado. El extremo se dice como es: «el mejor/peor de los 20». */
-function lectura(percentil: number, equipos: number) {
+function lectura(percentil: number, equipos: number, mejorAlto?: boolean | null) {
+  /* Métrica de estilo: se compara, no se juzga (que te centren más no es una virtud). */
+  if (mejorAlto === null) {
+    if (percentil >= 60) return { texto: `más que ${Math.round(percentil / 10)} de cada 10`, bueno: null };
+    if (percentil <= 40) return { texto: `menos que ${Math.max(1, Math.round((100 - percentil) / 10))} de cada 10`, bueno: null };
+
+    return { texto: "en la media de la liga", bueno: null };
+  }
+
   if (percentil >= 97) return { texto: `el mejor de los ${equipos} en esta cifra`, bueno: true };
   if (percentil <= 3) return { texto: `el peor de los ${equipos} en esta cifra`, bueno: false };
   if (percentil >= 60) return { texto: `mejor que ${Math.round(percentil / 10)} de cada 10`, bueno: true };
@@ -70,11 +78,14 @@ function queHacemosConCentros(aspectos: Aspecto[]) {
   const muchos = volumen.valor > volumen.mediana;
   const bien = acierto.valor > acierto.mediana;
 
-  if (muchos && bien) return "Centra mucho y con acierto: cerrar el carril exterior y proteger el segundo palo.";
-  if (muchos) return "Centra mucho y acierta poco: dejarle centrar y ganar el área, sin perseguir el balón hasta la banda.";
-  if (bien) return "Centra poco pero con acierto: cuando lo hace, tapar al rematador del segundo palo.";
+  /* La cifra que sostiene la consigna, con su mediana. */
+  const cifra = ` (${formatea(volumen.valor, volumen.unidad)} centros por partido frente a una mediana de ${formatea(volumen.mediana, volumen.unidad)}; acierto ${formatea(acierto.valor, acierto.unidad)} frente a ${formatea(acierto.mediana, acierto.unidad)})`;
 
-  return "Centra poco y mal: cerrar el pase interior antes que el centro.";
+  if (muchos && bien) return `Centra mucho y con acierto: cerrar el carril exterior y proteger el segundo palo${cifra}.`;
+  if (muchos) return `Centra mucho y acierta poco: dejarle centrar y ganar el área, sin perseguir el balón hasta la banda${cifra}.`;
+  if (bien) return `Centra poco pero con acierto: cuando lo hace, tapar al rematador del segundo palo${cifra}.`;
+
+  return `Centra poco y mal: cerrar el pase interior antes que el centro${cifra}.`;
 }
 
 export function AbpWyscoutRival({
@@ -98,7 +109,7 @@ export function AbpWyscoutRival({
     let cancelado = false;
 
     traeJson<{ ok?: boolean } & Partial<Datos>>(
-      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=3`,
+      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=4`,
     )
       .then((r) => {
         if (cancelado) return;
@@ -167,7 +178,7 @@ export function AbpWyscoutRival({
       {aspectos.length > 0 && (
         <Panel
           title={ambito === "area" ? "Sus centros laterales, los que hace y los que recibe, según Wyscout" : "Su balón parado según Wyscout"}
-          subtitle={`${equipo} frente a los ${datos?.equipos ?? 20} equipos de la liga${(datos?.equipos ?? 20) === 20 ? ", el Castilla incluido" : ""}. «Mejor» y «peor» ya tienen en cuenta el sentido de cada cifra.`}
+          subtitle={`${equipo} frente a los ${datos?.equipos ?? 20} equipos de la liga${(datos?.equipos ?? 20) === 20 ? ", el Castilla incluido" : ""}. «Mejor» y «peor» ya tienen en cuenta el sentido de cada cifra; «de cada 10» compara siempre con esos equipos, y «x de y» es la cantidad real que hay detrás de cada porcentaje.`}
           icon={BarChart3}
         >
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -186,7 +197,7 @@ export function AbpWyscoutRival({
 
                 <ul className="mt-2 space-y-2">
                   {aspecto.filas.map((fila) => {
-                    const lee = lectura(fila.percentil, datos?.equipos ?? 20);
+                    const lee = lectura(fila.percentil, datos?.equipos ?? 20, fila.mejorAlto);
 
                     return (
                       <li
@@ -253,47 +264,6 @@ export function AbpWyscoutRival({
         </Panel>
       )}
 
-      {hayGoles && goles && (
-        <Panel
-          title="Goles a balón parado esta temporada"
-          subtitle="Penaltis y goles, del marcador; córner y falta, estimados"
-        >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {([
-              ["Los que marca", goles.aFavor],
-              ["Los que encaja", goles.enContra],
-            ] as const).map(([titulo, g]) => (
-              <div key={titulo} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">{titulo}</p>
-
-                <p className="mt-1 text-2xl font-black tabular-nums text-white">
-                  {g.abp}
-                  <span className="ml-2 text-sm font-normal text-white/45">
-                    de {g.goles} goles en {g.partidos} partidos
-                  </span>
-                </p>
-
-                {(g.goles < 10 || g.partidos < 10) && (
-                  <p className="mt-0.5 text-[11px] italic text-white/50">Tendencia, pocos casos: no lo damos por hecho.</p>
-                )}
-
-                {g.hayOrigen && g.abp > 0 && (
-                  <p className="mt-1 text-[12px] text-white/55">
-                    {[
-                      g.penalti > 0 ? `${g.penalti} de penalti` : "",
-                      g.corner > 0 ? `${g.corner} de córner` : "",
-                      g.falta > 0 ? `${g.falta} de falta` : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </Panel>
-      )}
-
       {(rematan.length > 0 || sacan.length > 0) && (
         <Panel
           title={sacan.length > 0 && rematan.length > 0 ? "Quién lo lanza y quién remata" : sacan.length > 0 ? "Quién lo lanza" : "Quién remata"}
@@ -333,6 +303,47 @@ export function AbpWyscoutRival({
               {consigna}
             </p>
           )}
+        </Panel>
+      )}
+
+      {hayGoles && goles && (
+        <Panel
+          title="Goles a balón parado esta temporada"
+          subtitle="Penaltis y goles, del marcador; el reparto entre córner y falta es una ESTIMACIÓN calibrada con Opta, no un dato contado"
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {([
+              ["Los que marca · más es mejor", goles.aFavor],
+              ["Los que encaja · menos es mejor", goles.enContra],
+            ] as const).map(([titulo, g]) => (
+              <div key={titulo} className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">{titulo}</p>
+
+                <p className="mt-1 text-2xl font-black tabular-nums text-white">
+                  {g.abp}
+                  <span className="ml-2 text-sm font-normal text-white/45">
+                    de {g.goles} goles en {g.partidos} partidos
+                  </span>
+                </p>
+
+                {(g.goles < 10 || g.partidos < 10) && (
+                  <p className="mt-0.5 text-[11px] italic text-white/50">Tendencia, pocos casos: no lo damos por hecho.</p>
+                )}
+
+                {g.hayOrigen && g.abp > 0 && (
+                  <p className="mt-1 text-[12px] text-white/55">
+                    {[
+                      g.penalti > 0 ? `${g.penalti} de penalti` : "",
+                      g.corner > 0 ? `${g.corner} de córner (estimado)` : "",
+                      g.falta > 0 ? `${g.falta} de falta (estimado)` : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
         </Panel>
       )}
     </div>

@@ -411,7 +411,11 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
       mediana: f.mediana,
       unidad: f.metrica.unidad,
       percentil: f.percentil,
-      mejorAlto: f.metrica.mejorAlto,
+      /* En lo que RECIBE el sentido se gira: más córners concedidos no es mejor. */
+      mejorAlto:
+        (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef") && f.metrica.mejorAlto != null
+          ? !f.metrica.mejorAlto
+          : f.metrica.mejorAlto,
       /* «x de y»: la base del porcentaje y los partidos que lo respaldan. */
       base: cocienteEnGrupo(f.metrica, d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef" ? contraDe : suyosDe),
       partidos: (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef" ? contraDe : suyosDe).length,

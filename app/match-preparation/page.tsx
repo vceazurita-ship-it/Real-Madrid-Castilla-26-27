@@ -199,6 +199,22 @@ function relleno(valor: unknown) {
   return String(valor ?? "").trim().length > 0;
 }
 
+/** Frases genéricas de plantilla que se leerían como dato del partido («Buena energía…», «Foco de todos…»). */
+function esTextoDePlantilla(valor: unknown) {
+  const lineas = String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .split(/\r?\n|;/)
+    .map((l) => l.replace(/^[\s\-–•*\d.)]+/, "").trim())
+    .filter(Boolean);
+
+  return (
+    lineas.length > 0 &&
+    lineas.every((l) => /^(buena energia o mentalidad|foco de todos)/.test(l))
+  );
+}
+
 function normalizar(valor: unknown) {
   return String(valor ?? "")
     .normalize("NFD")
@@ -308,7 +324,7 @@ function aVinetas(valor: unknown, separarPorPuntoYComa = false) {
     : texto.split(/\r?\n+/);
 
   return partes
-    .map((linea) => linea.replace(/^[\s•\-–·]+/, "").trim())
+    .map((linea) => linea.replace(/^[\s•\-–·]+/, "").replace(/^\d{1,2}[.)]\s+/, "").trim())
     .filter(Boolean);
 }
 
@@ -475,8 +491,8 @@ function Bloque({
 
   const completo = relleno(value);
 
-  /* En lectura, un bloque sin texto no se pinta (ni «pendiente» ni aviso). */
-  if (!editando && !completo) return null;
+  /* En lectura, un bloque sin texto no se pinta (ni «pendiente» ni aviso). Tampoco si sólo trae frases de plantilla que nadie escribió para este partido. */
+  if (!editando && (!completo || esTextoDePlantilla(value))) return null;
 
   return (
     <div
@@ -1809,9 +1825,9 @@ export default function MatchPreparation() {
             <div className="mp-no-print -mt-3 mb-5 flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] text-white/75">
               <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">Los duelos, en una línea</span>
               <span className="min-w-0 tabular-nums text-white/60">
-                De {duelosClave.medidos} duelos medidos: {duelosClave.conVentajaNuestra} con ventaja nuestra · {duelosClave.conVentajaSuya} con ventaja suya
+                {duelosClave.medidos} duelos: {duelosClave.conVentajaNuestra} a nuestro favor, {duelosClave.conVentajaSuya} a favor suyo
                 {duelosClave.enLosDos > 0
-                  ? `; ${duelosClave.enLosDos === 1 ? "uno cuenta" : `${duelosClave.enLosDos} cuentan`} en los dos sentidos`
+                  ? `, ${duelosClave.enLosDos === 1 ? "uno de ellos cuenta" : `${duelosClave.enLosDos} de ellos cuentan`} en los dos sentidos (por eso la suma pasa de ${duelosClave.medidos})`
                   : ""}
               </span>
               {duelosClave.ventaja[0] && duelosClave.riesgo[0] && duelosClave.ventaja[0].clave === duelosClave.riesgo[0].clave ? (

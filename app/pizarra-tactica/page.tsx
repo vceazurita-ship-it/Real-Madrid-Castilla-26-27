@@ -914,9 +914,21 @@ function BoardEditor({
           localOnly={localOnly}
           sinGuardar={sinGuardar}
           onGuardar={() => void guardaYa()}
+          ocultoSiGuardado
         />
         </div>
       </div>
+
+      {!deLaSemana && (
+        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/60" aria-label="Leyenda de colores">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full border-2" style={{ background: "#F8FAFC", borderColor: "#0B0F14" }} aria-hidden /> Ficha blanca: Castilla
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full border-2" style={{ background: "#1E293B", borderColor: "#F87171" }} aria-hidden /> Ficha oscura con borde rojo: rival
+          </span>
+        </p>
+      )}
 
       {deLaSemana && (
         <div className="flex flex-col gap-2 rounded-2xl border border-[#C8A96B]/20 bg-[#C8A96B]/[0.05] px-3 py-2 text-[11px] text-white/60 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">

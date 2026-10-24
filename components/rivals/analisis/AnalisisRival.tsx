@@ -1261,7 +1261,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
                   {/* Qué es cada símbolo: para quien lee la lámina sin haberla dibujado. */}
                   {!edita && (
-                    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/50">
+                    <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-white/70">
                       <span>✕ Dónde remata o cae el balón</span>
                       <span>● Desde dónde sale el balón</span>
                       <span>El color de cada marca está en la leyenda de la lámina</span>

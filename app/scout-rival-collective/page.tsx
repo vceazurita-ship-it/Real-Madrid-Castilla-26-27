@@ -944,9 +944,20 @@ export default function ScoutRivalCollective() {
               </ul>
               {contexto.length > 0 && (
                 <p className="mt-3 border-t border-[#C8A96B]/15 pt-2 text-xs text-white/70">
-                  <span className="text-white/45">Wyscout, frente a la mediana de la liga: </span>
+                  <span className="text-white/45">Wyscout, frente a la mediana de la liga:</span>
                   {contexto
-                    .map((f) => `${f.nombre === "PPDA" ? "presión (PPDA)" : f.nombre.toLowerCase()} ${formatea(f.valor, f.unidad)} (mediana ${formatea(f.mediana, f.unidad)})`)
+                    .map((f) => {
+                      const esPpda = f.nombre === "PPDA";
+                      const nombre = esPpda ? "presión (PPDA)" : f.nombre.toLowerCase();
+                      const cerca = Math.abs(f.valor - f.mediana) <= Math.max(Math.abs(f.mediana) * 0.05, 0.0001);
+                      const lectura = cerca
+                        ? esPpda ? "presiona igual que la media" : "en la media"
+                        : esPpda
+                          ? f.valor < f.mediana ? "presiona más arriba que la media" : "presiona más abajo que la media"
+                          : f.valor > f.mediana ? "más que la mediana" : "menos que la mediana";
+
+                      return `${nombre} ${formatea(f.valor, f.unidad)} frente a ${formatea(f.mediana, f.unidad)}: ${lectura}`;
+                    })
                     .join(" · ")}
                   {contexto.some((f) => f.nombre === "PPDA") && <span className="text-white/45"> · PPDA bajo = presiona más arriba</span>}
                 </p>
@@ -1119,17 +1130,26 @@ export default function ScoutRivalCollective() {
                     </div>
 
                     <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
-                      {bloque.campos.filter((f) => modoEdicion || tiene(f)).map((field) => (
-                        <Campo
-                          key={field.campo}
-                          field={field}
-                          valor={valorDe(field.campo)}
-                          editando={modoEdicion}
-                          accent={section.accent}
-                          nombres={nombresRival}
-                          onChange={(v) => setCampo(field.campo, v)}
-                        />
-                      ))}
+                      {(() => {
+                        const visibles = bloque.campos.filter((f) => modoEdicion || tiene(f));
+
+                        /* Con un número impar, el último ocupa todo el ancho: sin columna vacía al lado. */
+                        return visibles.map((field, i) => (
+                          <div
+                            key={field.campo}
+                            className={`min-w-0 ${visibles.length % 2 === 1 && i === visibles.length - 1 ? "sm:col-span-2" : ""}`}
+                          >
+                            <Campo
+                              field={field}
+                              valor={valorDe(field.campo)}
+                              editando={modoEdicion}
+                              accent={section.accent}
+                              nombres={nombresRival}
+                              onChange={(v) => setCampo(field.campo, v)}
+                            />
+                          </div>
+                        ));
+                      })()}
                     </div>
                   </div>
                 ))}
