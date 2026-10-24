@@ -44,6 +44,8 @@ export type MetricaComparada = {
   mejorAlto?: boolean | null;
   /** Una línea de contexto: «de 23 saques», «remates y goles». */
   pie?: string;
+  /** `true`: base pequeña; se escribe «tendencia» y no se dibujan las barras de comparación. */
+  tendencia?: boolean;
   /** Lo que se lee en la diferencia cuando coinciden y la base es pequeña: «de 7 faltas». */
   igualEn?: string;
 };
@@ -171,6 +173,9 @@ export function ComparativaPartido({
                   <div className="min-w-0">
                     <p className="truncate text-sm text-white/85">{m.nombre}</p>
                     {m.pie && <p className="truncate text-[11px] text-white/35">{m.pie}</p>}
+                    {m.tendencia ? (
+                      <p className="mt-1 text-[11px] font-medium" style={{ color: "rgb(var(--rmcf-ink-rgb) / .55)" }}>tendencia, pocos casos</p>
+                    ) : (
                     <div className="mt-1.5 space-y-1">
                       <span className="block h-1 overflow-hidden rounded-full bg-white/[0.06]">
                         <span
@@ -185,6 +190,7 @@ export function ComparativaPartido({
                         />
                       </span>
                     </div>
+                    )}
                   </div>
 
                   <span className="text-right text-lg font-semibold tabular-nums" style={{ color: ORO_TINTA }}>

@@ -509,12 +509,15 @@ export default function FaltasPage() {
 
       /* Con 0–2 faltas una diferencia de una no es tendencia: no se juzga y se avisa. */
       const pocas = Math.max(actual, media ?? 0) <= 2;
+      /* Con menos de 5 casos tampoco se dibuja la barra: se marca como tendencia. */
+      const tendencia = Math.max(actual, media ?? 0) < 5;
 
       return {
         clave,
         nombre,
         actual,
         media,
+        tendencia,
         mejorAlto: pocas ? null : mejorAlto,
         /* Con tan pocas, «igual» parece una conclusión: la base va en la descripción de la fila. */
         pie: pocas ? `${pie} · muestra pequeña, de ${partido.faltas.length} faltas` : pie,
