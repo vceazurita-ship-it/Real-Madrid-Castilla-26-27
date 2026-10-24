@@ -1826,3 +1826,26 @@ scrollbar-width:none;
   --rmcf-chip-keep: 72%;
   --rmcf-chip-mix: #fff;
 }
+
+
+/* ===========================
+   CAMPO DE /emotion EN MODO DÍA (24/10/2026)
+
+   El campo es una foto con un velo encima. De noche el velo es azul casi
+   negro; de día pasa a ser claro y los radares se leen con la tinta normal
+   (ya no es una zona siempre-oscuro). Los paneles vacíos usan una caja
+   clara con borde de papel en lugar del azul oscuro fijo.
+=========================== */
+.emo-panel-vacio {
+  background: rgba(8, 19, 31, 0.5);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme="light"] .campo-emotion {
+  background-image:
+    linear-gradient(rgba(244, 247, 250, 0.9), rgba(244, 247, 250, 0.9)),
+    url('/emotional-field-bg.webp') !important;
+}
+:root[data-theme="light"] .emo-panel-vacio {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: var(--rmcf-border);
+}
