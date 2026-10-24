@@ -78,6 +78,8 @@ export type ComparativaPartidoProps = {
   /** Las últimas jornadas una tras otra, para ver tendencia y no un solo punto. */
   tira?: TiraJornadas;
   className?: string;
+  /** Desde cuántas acciones una fila deja de ser indicio (por defecto, cinco). */
+  muestraMinima?: number;
 };
 
 /** 8.43 → «8,4»; 8 → «8». */
@@ -126,6 +128,7 @@ export function ComparativaPartido({
   nota,
   tira,
   className = "",
+  muestraMinima = MUESTRA_MINIMA_FILA,
 }: ComparativaPartidoProps) {
   const hayMedia = anteriores.n > 0 && metricas.some((m) => m.media !== null);
   const rotuloMedia =
@@ -175,9 +178,14 @@ export function ComparativaPartido({
                 m.actual !== null && m.media !== null
                   ? Math.round((visto(m.actual, porcentaje, formato) - visto(m.media, porcentaje, formato)) * 1000) / 1000
                   : null;
-              /* Con menos de cinco acciones detrás, la fila se enseña pero no se juzga. */
-              const indicio = m.de !== undefined && m.de < MUESTRA_MINIMA_FILA;
+              /* Con pocas acciones detrás (cinco, salvo que la página pida más),
+                 la fila se enseña pero no se juzga. */
+              const indicio = m.de !== undefined && m.de < muestraMinima;
               const mejor = !indicio && d !== null && juzga && Math.abs(d) >= 0.05 ? (d > 0) === m.mejorAlto : null;
+              /* El sentido ya sale con flecha y color: no se repite en el pie. */
+              const pie = m.pie
+                ?.replace(/(?:^|\s·\s)(?:más|menos) es mejor$/, "")
+                .trim();
               const baseTexto =
                 m.de === undefined
                   ? null
@@ -199,9 +207,9 @@ export function ComparativaPartido({
                 >
                   <div className="min-w-0">
                     <p className="text-sm text-white/85 sm:truncate">{m.nombre}</p>
-                    {(m.pie || baseTexto || juzga) && (
+                    {(pie || baseTexto || juzga) && (
                       <p className="text-[11px] text-white/35 sm:truncate">
-                        {[baseTexto, m.pie && !/^(más|menos) es mejor$/.test(m.pie) ? m.pie : null].filter(Boolean).join(" · ")}
+                        {[baseTexto, pie || null].filter(Boolean).join(" · ")}
                         {indicio ? " · indicio" : ""}
                         {/* El sentido, siempre y con su color, para no mezclar filas de «más» y de «menos». */}
                         {juzga && (
@@ -209,7 +217,7 @@ export function ComparativaPartido({
                             className="font-medium"
                             style={{ color: ORO_TINTA }}
                           >
-                            {baseTexto || (m.pie && !/^(más|menos) es mejor$/.test(m.pie)) || indicio ? " · " : ""}
+                            {baseTexto || pie || indicio ? " · " : ""}
                             {m.mejorAlto ? "▲ más es mejor" : "▼ menos es mejor"}
                           </span>
                         )}

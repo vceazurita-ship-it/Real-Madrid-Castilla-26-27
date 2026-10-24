@@ -112,10 +112,12 @@ function ChapaComparativa({
         sinFiltro
           ? undefined
           : dato.delta == null || Math.abs(dato.delta) < 0.005
-            ? `= global (${dato.globalTexto})`
+            ? dato.valorTexto === dato.globalTexto
+              ? `igual que la media de la temporada (${dato.globalTexto})`
+              : `casi igual que la media de la temporada (${dato.globalTexto})`
             : !dato.fiable
-              ? `indicio · ${dato.deltaTexto} sobre el global (${dato.globalTexto})`
-              : `${dato.deltaTexto} sobre el global de la temporada, con todas las jornadas (${dato.globalTexto})${dato.menosEsMejor ? " · menos es mejor" : ""}`
+              ? `indicio · ${dato.deltaTexto} sobre la media de la temporada (${dato.globalTexto})`
+              : `${dato.deltaTexto} sobre la media de toda la temporada (${dato.globalTexto})${dato.menosEsMejor ? " · menos es mejor" : ""}`
       }
       color={dato.tono === "neutro" ? undefined : TONO_COLOR[dato.tono]}
     />

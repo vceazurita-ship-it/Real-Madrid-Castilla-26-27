@@ -122,7 +122,13 @@ import {
   loadRegistro,
   type RegistroDataset,
 } from "@/lib/abp/registro";
-import { etiquetaDia, ventanaDelMicro } from "@/lib/abp/ventana";
+import {
+  buscaPartidoDelMicro,
+  esSinPartido,
+  etiquetaDia,
+  fechaHoja,
+  ventanaDelMicro,
+} from "@/lib/abp/ventana";
 import {
   conVentana,
   lecturaDelPartido,
@@ -392,6 +398,47 @@ export default function AbpMicrocicloPage() {
         a.temporada.localeCompare(b.temporada, "es") || a.micro - b.micro,
     );
   }, [registro, store.micros]);
+
+  /*
+  | La jornada de liga de cada microciclo, para el desplegable.
+  |
+  | Sale de NUESTRO calendario cruzando rival y fecha de las tareas de la hoja:
+  | contra un mismo rival se juega dos veces y por el nombre solo salía la
+  | jornada equivocada (el Atlético Madrileño B de la J6 se leía como
+  | «pretemporada 01», el del amistoso de julio). Si el partido más cercano
+  | queda a más de diez días de las tareas, no es de esa semana y no se pone.
+  */
+  const jornadaDeMicro = useMemo(() => {
+    const mapa = new Map<string, number>();
+
+    micros.forEach((micro) => {
+      if (!micro.rival || esSinPartido(micro.rival)) return;
+
+      const fechas = (registro?.tareas ?? [])
+        .filter((tarea) => tarea.micro === micro.micro && tarea.temporada === micro.temporada)
+        .map((tarea) => fechaHoja(tarea.fecha))
+        .filter(Boolean)
+        .sort();
+
+      const ultima = fechas[fechas.length - 1] ?? "";
+      const partido = buscaPartidoDelMicro(micro.rival, ultima, calendario);
+
+      if (!partido || !partido.jornada) return;
+
+      if (ultima) {
+        const lejos = Math.abs(
+          Date.parse(`${partido.cuando.slice(0, 10)}T12:00:00Z`) -
+            Date.parse(`${ultima}T12:00:00Z`),
+        );
+
+        if (lejos > 10 * 86_400_000) return;
+      }
+
+      mapa.set(micro.clave, partido.jornada);
+    });
+
+    return mapa;
+  }, [micros, registro, calendario]);
 
   const [seleccion, setSeleccion] = useState<string | null>(null);
 
@@ -1503,11 +1550,11 @@ export default function AbpMicrocicloPage() {
                       className="bg-[#11161C]"
                     >
                       {/* La jornada junto al micro: el título dice «Jornada 9» y la lista «Micro 18». */}
-                      {`Micro ${micro.micro}${(() => {
-                        const j = micro.rival ? buscaPartido(micro.rival, partidos)?.jornada : null;
-
-                        return j ? ` (J${j})` : "";
-                      })()} · ${micro.rival || "sin rival"}`}
+                      {`Micro ${micro.micro}${
+                        jornadaDeMicro.has(micro.clave)
+                          ? ` (J${jornadaDeMicro.get(micro.clave)})`
+                          : ""
+                      } · ${micro.rival || "sin rival"}`}
                       {micro.planificado ? " ✓" : ""}
                       {micro.enRegistro ? "" : " (nuevo)"}
                     </option>

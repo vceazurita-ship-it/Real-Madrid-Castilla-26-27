@@ -256,6 +256,7 @@ export default function PizarraAbpPage() {
     status,
     localOnly,
     lastSavedAt,
+    reload,
   } = useRemoteDoc<PizarraStore>({
     key: "abp-pizarra",
     kind: "abp",
@@ -398,7 +399,12 @@ export default function PizarraAbpPage() {
   | jornadas que faltan salen de la hoja RIVALES, la misma del plan de partido.
   */
   const partidos = useMemo(
-    () => mezclaCalendario(jugados, jornadas),
+    () =>
+      /* Por fecha ascendente, y los que no la tienen al final: así el
+         desplegable se lee de arriba abajo como el calendario. */
+      [...mezclaCalendario(jugados, jornadas)].sort((a, b) =>
+        (a.date || "9999").localeCompare(b.date || "9999"),
+      ),
     [jugados, jornadas],
   );
 
@@ -538,6 +544,10 @@ export default function PizarraAbpPage() {
   }, [partido, partidos, store.tableros]);
 
   const guardado = Boolean(partido && store.tableros?.[partido.id]);
+
+  /* Mientras el documento no ha llegado, «sin empezar» no es verdad: puede
+     haber trabajo guardado. Ni el aviso ni «Copiar de…» salen hasta entonces. */
+  const leyendo = status === "loading";
 
   /* --------------------------- JORNADA ----------------------------- */
 
@@ -1898,6 +1908,8 @@ export default function PizarraAbpPage() {
                   status={status}
                   localOnly={localOnly}
                   savedAt={lastSavedAt}
+                  errorDe={Object.keys(store.tableros ?? {}).length === 0 ? "lectura" : "guardado"}
+                  onReleer={reload}
                 />
               }
             />
@@ -1962,7 +1974,7 @@ export default function PizarraAbpPage() {
               </label>
 
               <div className="flex flex-wrap items-end gap-2">
-                {anterior && guardado && (
+                {anterior && !leyendo && (
                   <Button
                     icon={Copy}
                     tone={!tablero || !tieneFichas(tablero.slides) ? "primary" : undefined}
@@ -2224,7 +2236,15 @@ export default function PizarraAbpPage() {
               </div>
             ) : (
               <>
-                {!guardado && (
+                {!guardado && leyendo && (
+                  <div className="mt-4">
+                    <Notice tone="info" title={`Cargando la pizarra de ${matchLabel(partido)}…`}>
+                      Se está leyendo lo que ya hay guardado de este partido.
+                    </Notice>
+                  </div>
+                )}
+
+                {!guardado && !leyendo && (
                   <div className="mt-4">
                     <Notice tone="info" title="Pizarra sin empezar">
                       Se está viendo la plantilla de siete diapositivas en
@@ -2252,7 +2272,9 @@ export default function PizarraAbpPage() {
                   <Panel
                     title="Diapositivas"
                     subtitle={`${
-                      !guardado
+                      leyendo
+                        ? "Cargando lo guardado"
+                        : !guardado
                         ? "Plantilla en blanco"
                         : totales.cubiertos >= totales.total
                         ? "Todos los puestos tienen jugador"

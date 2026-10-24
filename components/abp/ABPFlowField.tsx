@@ -533,6 +533,51 @@ const origen = `${tipo}__${perfil}`;
   ...Object.values(remateStats).map((v) => v.xg),
   0.01
   );
+
+  /* Con menos de 8 acciones el campo es casi un lienzo vacío y los anillos no
+     se leen: se enseña la lista de cada acción con su zona y su resultado. */
+  if (rows.length > 0 && rows.length < 8) {
+    return (
+      <div className="w-full">
+        <p className="mb-3 text-xs text-white/55">
+          Con {rows.length} {rows.length === 1 ? "acción" : "acciones"} el mapa
+          de zonas no dice nada: estas son una a una.
+        </p>
+
+        <ul className="divide-y divide-white/10 overflow-hidden rounded-xl border border-white/10">
+          {rows.map((r, indice) => {
+            const accion = r.tipoAccion ?? r.Tipo_Accion ?? "";
+            const caida = r.zonaCaida ?? r.Zona_Caida ?? "";
+            const remate = r.zonaRemate ?? r.Zona_Remate ?? "";
+            const resultado = r.resultadoFinal ?? r.Resultado_Final ?? "";
+            const minuto = r.minuto ?? r.Minuto ?? "";
+            const jornada = r.jornada ?? r.JORNADA ?? "";
+            const xg = Number(r.xG ?? 0);
+
+            return (
+              <li
+                key={indice}
+                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-sm text-white/85"
+              >
+                <span className="font-semibold">{accion}</span>
+                {minuto !== "" && <span className="text-white/55">{minuto}′</span>}
+                {jornada && <span className="text-white/55">{jornada}</span>}
+                {caida && <span>cae en {caida}</span>}
+                {remate && <span>remate desde {remate}</span>}
+                {resultado && <span className="text-white/65">{resultado}</span>}
+                {xg > 0 && (
+                  <span className="ml-auto text-white/55">
+                    {xg.toFixed(2).replace(".", ",")} xG
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    );
+  }
+
   return (
   <div className="w-full">
   {/* Selector de métrica y leyenda */}
