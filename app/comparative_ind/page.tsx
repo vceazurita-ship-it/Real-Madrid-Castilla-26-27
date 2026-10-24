@@ -259,19 +259,21 @@ export default function ComparativaCategoria() {
   /* Lectura de dos o tres frases que se calcula sola con lo que hay en la tabla. */
   const lectura = useMemo(() => {
     const frases: string[] = [];
+    /* La lectura sólo nombra a quien está en nuestra plantilla. */
+    const propios = comparables.filter((x) => x.ficha);
     const nombre = (x: (typeof comparables)[number]) => x.ficha?.nombre || x.f.jugador.jugador;
 
-    const primeros = comparables.filter((x) => x.f.ranking?.posicion === 1 && x.f.ranking.de > 1);
+    const primeros = propios.filter((x) => x.f.ranking?.posicion === 1 && x.f.ranking.de > 1);
     if (primeros.length)
       frases.push(`Primeros de su puesto: ${primeros.map(nombre).join(", ")}.`);
 
-    const baja = comparables
+    const baja = propios
       .filter((x) => x.f.evolucion?.fiable && x.f.evolucion.salto < -2)
       .sort((a, b) => (a.f.evolucion?.salto ?? 0) - (b.f.evolucion?.salto ?? 0))[0];
     if (baja?.f.evolucion)
       frases.push(`Quien más baja respecto a 25/26: ${nombre(baja)} (${baja.f.evolucion.salto} puntos de índice).`);
 
-    const desajuste = comparables.find(
+    const desajuste = propios.find(
       (x) => x.nota && x.nota.played >= 3 && ((x.nota.avg >= 7 && (x.f.indice ?? 0) < 50) || (x.nota.avg < 6 && (x.f.indice ?? 0) >= 60)),
     );
     if (desajuste?.nota)
@@ -434,7 +436,7 @@ export default function ComparativaCategoria() {
                       </p>
                     )}
 
-                    <p className="mt-5 text-xs text-white/40">Pincha en una columna para ordenar y en un jugador para abrir su ficha.</p>
+                    <p className="mt-5 text-xs text-white/40">Pincha en una columna para ordenar y en un jugador para abrir su ficha. El índice va de 0 a 100 (50 es la media del grupo de comparación); los minutos son los de Wyscout en la liga, así que pueden diferir de los minutos con nota de Valoraciones; el ranking compara con los jugadores de su puesto.</p>
                     <div className="mt-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
                       <table className="w-full min-w-[860px] text-sm">
                         <thead>
@@ -444,10 +446,10 @@ export default function ComparativaCategoria() {
                                 ["nombre", "Jugador", "px-4"],
                                 ["edad", "Edad", "px-2"],
                                 [null, "Puesto", "px-2"],
-                                ["minutos", "Minutos", "px-2 text-right"],
+                                ["minutos", "Min. liga", "px-2 text-right"],
                                 ["nota", "Nota", "px-2 text-right"],
                                 ["indice", `Índice (${ref === "todos" ? "categoría" : ref === "u21" ? "sub-21" : "sub-23"})`, "w-44 px-3"],
-                                ["ranking", "Ranking", "px-2"],
+                                ["ranking", "Ranking en su puesto", "px-2"],
                                 ["evolucion", "Evolución (pts vs 25/26)", "px-2"],
                                 ["seguimientos", "Seguimientos", "px-2 text-right"],
                               ] as [Orden | null, string, string][]
