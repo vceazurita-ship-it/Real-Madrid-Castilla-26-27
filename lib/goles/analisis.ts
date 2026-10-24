@@ -273,5 +273,5 @@ export function primerGol(p: PartidoGoles, lado: Lado): { primero: "propio" | "r
 
 export const media = (n: number, d: number) => (d > 0 ? n / d : 0);
 
-export const fmt = (n: number, dec = 2) =>
+export const fmt = (n: number, dec = 1) =>
   Number.isFinite(n) ? n.toLocaleString("es-ES", { minimumFractionDigits: dec, maximumFractionDigits: dec }) : "—";

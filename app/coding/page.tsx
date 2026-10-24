@@ -147,6 +147,7 @@ import {
   apodoCoding,
   clipsDeVideo,
   clipsParaExportar,
+  nombreDeFuente,
   clipsPorVideo,
   dorsalDeVideos,
   duracionClip,
@@ -1393,6 +1394,31 @@ function Coding() {
     () => clipsPorVideo(sesion.sesion.clips, videosSesion),
     [sesion.sesion.clips, videosSesion],
   );
+
+  /*
+  | Las fichas de vídeo van en el orden de la lista de cortes (que es el de la
+  | exportación): el vídeo del primer corte, el del siguiente... Los que aún no
+  | tienen cortes, al final y como estaban.
+  */
+  const videosEnOrden = useMemo(() => {
+    const primero = nombreDeFuente(videosSesion[0]);
+    const posicion = new Map<string, number>();
+
+    sesion.sesion.clips.forEach((clip, i) => {
+      const nombre = clip.video ?? primero;
+
+      if (!posicion.has(nombre)) posicion.set(nombre, i);
+    });
+
+    return videosSesion
+      .map((video, i) => ({ video, i }))
+      .sort(
+        (a, b) =>
+          (posicion.get(nombreDeFuente(a.video)) ?? Infinity) -
+            (posicion.get(nombreDeFuente(b.video)) ?? Infinity) || a.i - b.i,
+      )
+      .map(({ video }) => video);
+  }, [sesion.sesion.clips, videosSesion]);
 
   const clipsFiltrados = useMemo(
     () => clips.filter((clip) => pasaFiltro(clip, filtro)),
@@ -3835,7 +3861,7 @@ function Coding() {
 
               <div className="flex items-end gap-2">
                 <span className="rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/40">
-                  {clips.length} {clips.length === 1 ? "corte" : "cortes"} · {formateaTotal(totalCodificadoMs(clips))}
+                  {sesion.sesion.clips.length} {sesion.sesion.clips.length === 1 ? "corte" : "cortes"} · {formateaTotal(totalCodificadoMs(sesion.sesion.clips))}
                 </span>
               </div>
             </div>
@@ -4073,7 +4099,7 @@ function Coding() {
                         Vídeos
                       </span>
 
-                      {videosSesion.map((video) => {
+                      {videosEnOrden.map((video) => {
                         const activo = mismaFuente(video, sesion.sesion.fuente);
 
                         const cuantos = clipsPorFuente.get(video.nombre) ?? 0;
@@ -4408,6 +4434,7 @@ function Coding() {
 
                   <div className="mt-3">
                     <LineaDeTiempo
+                      cortesDeEsteVideo={videosSesion.length > 1}
                       duracionMs={estado.duracionMs}
                       tiempoMs={estado.tiempoMs}
                       inicioPendienteMs={inicioMs}
@@ -4946,7 +4973,7 @@ function Coding() {
                     fundido={fundido}
                     onFundido={setFundido}
                     enNavegador={montaEnNavegador}
-                    videos={videosSesion.map((video) => ({
+                    videos={videosEnOrden.map((video) => ({
                       nombre: video.nombre,
                       dentro: !(videosFuera ?? []).includes(video.nombre),
                       clips: clipsPorFuente.get(video.nombre) ?? 0,

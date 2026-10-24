@@ -233,6 +233,51 @@ useEffect(() => {
               </div>
             ) : null}
 
+            {/* Jornada a jornada, ANTES del informe: es lo que sirve aunque Power BI no cargue */}
+            {jugados.length > 0 ? (
+              <div className="mb-8">
+                <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
+                  Nuestra temporada
+                </p>
+
+                <h2 className="mt-3 mb-4 text-2xl sm:text-3xl font-semibold tracking-tight">
+                  Jornada a jornada
+                </h2>
+
+                <div className="overflow-x-auto rounded-[18px] border border-white/10">
+                  <table className="w-full min-w-[420px] text-sm">
+                    <thead>
+                      <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/60">
+                        <th className="px-4 py-3 font-medium">Jornada</th>
+                        <th className="px-4 py-3 font-medium">Rival</th>
+                        <th className="px-4 py-3 text-center font-medium">Resultado</th>
+                        <th className="px-4 py-3 text-right font-medium">Puntos</th>
+                        <th className="px-4 py-3 text-right font-medium">Acumulados</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jugados.map((uno) => (
+                        <tr key={uno.jornada} className="border-b border-white/5 last:border-0">
+                          <td className="px-4 py-2.5">J{uno.jornada}</td>
+                          <td className="px-4 py-2.5">
+                            {uno.rival}
+                            <span className="ml-2 text-xs text-white/60">
+                              {uno.lado === "casa" ? "en casa" : "fuera"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-center font-semibold">
+                            {uno.gf}-{uno.gc}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">{uno.puntos}</td>
+                          <td className="px-4 py-2.5 text-right font-semibold">{uno.acumulados}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
             {!informeCargado && informeTarda ? (
               <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-[#C8A96B]/40 bg-white/[0.04] px-4 py-3 text-sm text-white/80">
                 <span className="min-w-0 flex-1">
@@ -300,58 +345,15 @@ useEffect(() => {
       ${
         isFullscreen
           ? "h-screen"
-          : "h-[72vh] sm:h-[78vh] lg:h-[840px]"
+          : !informeCargado && informeTarda
+          ? "h-40"
+          : "h-[60vh] sm:h-[68vh] lg:h-[680px]"
       }
     `}
     allowFullScreen
     onLoad={() => setInformeCargado(true)}
   />
 </div>
-
-            {/* Jornada a jornada: sirve aunque Power BI no cargue */}
-            {jugados.length > 0 ? (
-              <div className="mt-10 sm:mt-14">
-                <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                  Nuestra temporada
-                </p>
-
-                <h2 className="mt-3 mb-4 text-2xl sm:text-3xl font-semibold tracking-tight">
-                  Jornada a jornada
-                </h2>
-
-                <div className="overflow-x-auto rounded-[18px] border border-white/10">
-                  <table className="w-full min-w-[420px] text-sm">
-                    <thead>
-                      <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/60">
-                        <th className="px-4 py-3 font-medium">Jornada</th>
-                        <th className="px-4 py-3 font-medium">Rival</th>
-                        <th className="px-4 py-3 text-center font-medium">Resultado</th>
-                        <th className="px-4 py-3 text-right font-medium">Puntos</th>
-                        <th className="px-4 py-3 text-right font-medium">Acumulados</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {jugados.map((uno) => (
-                        <tr key={uno.jornada} className="border-b border-white/5 last:border-0">
-                          <td className="px-4 py-2.5">J{uno.jornada}</td>
-                          <td className="px-4 py-2.5">
-                            {uno.rival}
-                            <span className="ml-2 text-xs text-white/60">
-                              {uno.lado === "casa" ? "en casa" : "fuera"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2.5 text-center font-semibold">
-                            {uno.gf}-{uno.gc}
-                          </td>
-                          <td className="px-4 py-2.5 text-right">{uno.puntos}</td>
-                          <td className="px-4 py-2.5 text-right font-semibold">{uno.acumulados}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : null}
 
             {/* Vídeo */}
             <div ref={videoRef} className="mt-14 sm:mt-20">

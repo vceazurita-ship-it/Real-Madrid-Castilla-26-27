@@ -36,7 +36,7 @@ export type Condicion = {
 export type ResumenPrimero = Record<"propio" | "rival" | "nadie", { n: number; G: number; E: number; P: number }>;
 
 const n1 = (v: number) => fmt(v, 1);
-const n2 = (v: number) => fmt(v, 2);
+const n2 = (v: number) => fmt(v, 1);
 
 /** −1 por debajo, 0 en la media, 1 por encima (más de un 10 %). */
 function frente(valor: number, liga: number) {
