@@ -64,7 +64,13 @@ async function principal() {
 
   for (const equipo of Object.values(informe.porId)) {
     for (const p of equipo.partidos ?? []) {
-      const jornada = Number(String(p.competicion ?? "").match(/Primera Federaci[oó]n\. Jornada (\d+)/)?.[1]);
+      /* «Primera Federación. Jornada 6», con o sin punto y con cualquier espacio
+         (un partido con otra escritura se quedaba fuera y descuadraba los totales);
+         copas y amistosos no llevan «Primera Federación» y siguen fuera. */
+      const competicion = String(p.competicion ?? "");
+      const jornada = /Primera Federaci[oó]n/i.test(competicion)
+        ? Number(competicion.match(/Jornada\s*(\d+)/i)?.[1])
+        : 0;
 
       if (!p.jugado || !jornada) continue;
 
