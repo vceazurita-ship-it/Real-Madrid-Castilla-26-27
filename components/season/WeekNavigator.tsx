@@ -164,11 +164,11 @@ export default function WeekNavigator({
             {filteredMonths.map((month) => {
               /* Los meses que aún no han llegado y no tienen nada van plegados:
                  40 semanas iguales no dicen nada. Se abren con un clic. */
+              /* Y los pasados sin un solo archivo: el primer vistazo enseña lo
+                 que hay y la semana en la que se está. */
               const plegadoDeSalida =
-                currentWeekId !== null &&
-                month.weeks.every(
-                  (week) => week.id > currentWeekId && !weekHasFiles(week)
-                );
+                month.id !== selectedMonthId &&
+                month.weeks.every((week) => !weekHasFiles(week) && week.id !== currentWeekId);
 
               const isOpen = searching || !(collapsed[month.id] ?? plegadoDeSalida);
 
@@ -246,6 +246,12 @@ function WeekRow({
 
   const hasFiles = images + pdfs > 0;
 
+  /* Una semana que ya acabó sin material se marca: es lo que falta por subir. */
+  const fin = parseWeekDate(week.end);
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const sinSubir = !hasFiles && !isCurrent && fin !== null && fin < hoy;
+
   return (
     <button
       ref={rowRef}
@@ -297,6 +303,8 @@ function WeekRow({
             {pdfs}
           </span>
         )}
+
+        {sinSubir && <span className="text-[11px] text-white/45">sin subir</span>}
 
       </span>
     </button>

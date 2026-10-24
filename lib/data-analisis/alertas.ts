@@ -125,7 +125,18 @@ export function alertasDeData(
         ? `${uno.aspecto.label}: de lo mejor de la categoría`
         : `${uno.aspecto.label}: de lo peor de la categoría`,
       detalle: `${uno.aspecto.explica}. Lo dicen ${uno.filas.length} métricas a la vez, no una suelta.`,
-      cifra: `percentil ${Math.round(uno.percentil)} de ${equipos.length} equipos`,
+      cifra: (() => {
+        /* Sin jerga: cuántos de los demás equipos quedan por detrás o por
+           delante. «Percentil 2,5» no lo entiende quien no es analista. */
+        const otros = equipos.length - 1;
+        const detras = Math.round((uno.percentil / 100) * otros);
+
+        if (arriba) return `por delante de ${detras} de los otros ${otros} equipos`;
+
+        return detras === 0
+          ? `por detrás de los otros ${otros} equipos`
+          : `por detrás de ${otros - detras} de los otros ${otros} equipos`;
+      })(),
       fuerza: Math.min(100, Math.abs(uno.desviacion) * 2),
       enlace: "/data-analisis?area=destacados",
       mira: "El aspecto abierto métrica a métrica, y qué equipos se le parecen.",
@@ -166,15 +177,20 @@ export function alertasDeData(
         ? nuestro.toFixed(1).replace(".", ",")
         : formatea(nuestro, metrica.unidad);
 
+    /* El nombre ya trae «%» y el valor también: se dice una vez. */
+    const nombreMetrica = valor.includes("%")
+      ? metrica.nombre.replace(/\s*%\s*$/, "")
+      : metrica.nombre;
+
     alertas.push({
       clave: `metrica-${metrica.key}`,
       tono: arriba ? "buena" : "mala",
       area: "Data · contra la liga",
       titulo: arriba
-        ? `${metrica.nombre}: ${valor}, ${puesto === 1 ? "la mejor" : `${puesto}º`} de ${todos.length} equipos`
-        : `${metrica.nombre}: ${valor}, ${puesto === 1 ? "la peor" : `${puesto}º por la cola`} de ${todos.length} equipos`,
+        ? `${nombreMetrica}: ${valor}, ${puesto === 1 ? "la mejor" : `${puesto}º`} de ${todos.length} equipos`
+        : `${nombreMetrica}: ${valor}, ${puesto === 1 ? "la peor" : `${puesto}º por la cola`} de ${todos.length} equipos`,
       detalle: metrica.comoLeer,
-      cifra: `${metrica.mejorAlto ? "más es mejor" : "menos es mejor"}`,
+      cifra: `${metrica.mejorAlto ? "más es mejor" : "menos es mejor"} · contra ${todos.length} equipos`,
       fuerza: Math.min(100, Math.abs(p - 50) * 2),
       enlace: "/data-analisis?area=liga",
       mira: "La barra de esa métrica y el resto de su fase de juego.",
@@ -277,7 +293,14 @@ export function alertasDeData(
         area: "Data · jugador a jugador",
         titulo: `${jugador.jugador} está entre los mejores de su puesto`,
         detalle: `${mejor.nombre} en el percentil ${mejor.percentil} de los ${iguales.length} de su puesto en la categoría. Con ${jugador.minutos}′ jugados no es una casualidad de un rato.`,
-        cifra: `${mejor.nombre} ${formatea(mejor.valor, mejor.unidad as never)}`,
+        cifra: (() => {
+          const v = formatea(mejor.valor, mejor.unidad as never);
+
+          /* «Acierto en corto % 97,6 %» llevaba el símbolo dos veces. */
+          const nombre = v.includes("%") ? mejor.nombre.replace(/\s*%\s*$/, "") : mejor.nombre;
+
+          return `${nombre} ${v} · frente a ${iguales.length} de su puesto${/penalt/i.test(mejor.nombre) ? " · muestra pequeña" : ""}`;
+        })(),
         fuerza: Math.min(100, (mejor.percentil - 50) * 2),
         enlace: "/data-analisis?area=individual",
         mira: "Su ficha entera, métrica a métrica, y su evolución respecto al año pasado.",

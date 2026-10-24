@@ -157,7 +157,7 @@ export function AlertasPortada({
 
               <div className="min-w-0">
                 <h2 className="text-[13px] font-semibold uppercase tracking-[0.3em] text-white/85">
-                  Alertas
+                  Datos destacados
                 </h2>
 
                 <p className="mt-1 text-[12px] text-white/45">
