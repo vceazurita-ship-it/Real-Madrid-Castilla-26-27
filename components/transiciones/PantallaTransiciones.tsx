@@ -1232,12 +1232,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               area="RMCF Castilla · Análisis del partido"
               title={T.titulo}
               lead={
-                modo === "perdidas" ? (
-                  <p className="mt-2 max-w-2xl text-sm text-white/55">
-                    Pérdidas etiquetadas en vídeo, partido a partido: no son las pérdidas por partido de
-                    Wyscout que salen en Data Análisis, que cuentan con otro criterio.
-                  </p>
-                ) : undefined
+                modo === "perdidas"
+                  ? "Pérdidas etiquetadas en vídeo, partido a partido: no son las pérdidas por partido de Wyscout que salen en Data Análisis, que cuentan con otro criterio."
+                  : undefined
               }
             />
 
