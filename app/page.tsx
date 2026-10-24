@@ -552,7 +552,7 @@ export default function Home() {
                     {(cargandoData || resumenData?.golesMenosXg != null) && (
                       <div className="min-w-0 sm:shrink-0 sm:text-right xl:text-left">
                         <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.9)" }}>
-                          Goles − xG
+                          Goles − xG por partido
                         </p>
 
                         <p

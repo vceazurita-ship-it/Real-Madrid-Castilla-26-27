@@ -38,6 +38,7 @@ export default function WeekNavigator({
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
 
   const selectedRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const selectedMonthId = useMemo(
     () =>
@@ -61,7 +62,15 @@ export default function WeekNavigator({
   }
 
   useEffect(() => {
-    selectedRef.current?.scrollIntoView({ block: "nearest" });
+    /* Se desplaza sólo la lista: scrollIntoView movía también la ventana y la
+       cabecera tapaba el título y los totales. 48 px = rótulo de mes fijo. */
+    const cont = listRef.current;
+    const el = selectedRef.current;
+    if (!cont || !el) return;
+    const cr = cont.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    if (er.top - cr.top < 48) cont.scrollTop += er.top - cr.top - 48;
+    else if (er.bottom - cr.top > cont.clientHeight) cont.scrollTop += er.bottom - cr.top - cont.clientHeight;
   }, [selectedWeekId]);
 
   const normalizedQuery = query.trim().toLowerCase();
@@ -154,7 +163,7 @@ export default function WeekNavigator({
 
       {/* LISTA */}
 
-      <div className="max-h-[min(70vh,760px)] overflow-y-auto p-3 xl:max-h-[calc(100vh-260px)]">
+      <div ref={listRef} className="max-h-[min(70vh,760px)] overflow-y-auto p-3 xl:max-h-[calc(100vh-260px)]">
         {filteredMonths.length === 0 ? (
           <p className="px-3 py-10 text-center text-sm text-white/40">
             No hay semanas que coincidan con la búsqueda.
@@ -304,7 +313,7 @@ function WeekRow({
           </span>
         )}
 
-        {sinSubir && <span className="text-[11px] text-white/45">sin subir</span>}
+        {sinSubir && <span className="text-[11px] font-medium text-amber-400" title="Semana ya pasada sin material">pendiente</span>}
 
       </span>
     </button>

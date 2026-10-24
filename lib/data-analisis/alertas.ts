@@ -190,7 +190,18 @@ export function alertasDeData(
         ? `${nombreMetrica}: ${valor}, ${puesto === 1 ? "la mejor" : `${puesto}º`} de ${todos.length} equipos`
         : `${nombreMetrica}: ${valor}, ${puesto === 1 ? "la peor" : `${puesto}º por la cola`} de ${todos.length} equipos`,
       detalle: metrica.comoLeer,
-      cifra: `${metrica.mejorAlto ? "más es mejor" : "menos es mejor"} · contra ${todos.length} equipos`,
+      cifra: (() => {
+        /* La referencia: la mediana de la liga, con el mismo formato que la cifra. */
+        const orden = [...todos].sort((a, b) => a - b);
+        const mitad = Math.floor(orden.length / 2);
+        const mediana = orden.length % 2 ? orden[mitad] : (orden[mitad - 1] + orden[mitad]) / 2;
+        const med =
+          metrica.unidad === "decimal"
+            ? mediana.toFixed(1).replace(".", ",")
+            : formatea(mediana, metrica.unidad);
+
+        return `${metrica.mejorAlto ? "más es mejor" : "menos es mejor"} · mediana de la liga ${med} · contra ${todos.length} equipos`;
+      })(),
       fuerza: Math.min(100, Math.abs(p - 50) * 2),
       enlace: "/data-analisis?area=liga",
       mira: "La barra de esa métrica y el resto de su fase de juego.",

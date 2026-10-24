@@ -94,7 +94,7 @@ export default function ListaAlertas({
           <article
             key={alerta.id}
             className={`rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition ${
-              alerta.activa ? "" : "opacity-55"
+              alerta.activa ? "" : "opacity-75"
             }`}
           >
             <div className="flex items-start justify-between gap-3">
@@ -132,7 +132,9 @@ export default function ListaAlertas({
               <span className="inline-flex items-center gap-1.5">
                 <AlarmClock className="h-3 w-3" aria-hidden />
                 {!alerta.activa
-                  ? "Silenciada"
+                  ? fechaValida(alerta.proximoEnvio)
+                    ? `Silenciada: no se enviará hasta reactivarla (sonaría ${fechaLegible(alerta.proximoEnvio)})`
+                    : "Silenciada: no se enviará hasta reactivarla"
                   : fechaValida(alerta.proximoEnvio)
                     ? fechaLegible(alerta.proximoEnvio)
                     : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo.

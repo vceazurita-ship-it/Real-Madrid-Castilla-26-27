@@ -46,7 +46,9 @@ export default function WeekPanel({
   onSelectWeek,
   onUpdateWeek,
 }: Props) {
-  const [tab, setTab] = useState<Tab>("images");
+  const [tab, setTab] = useState<Tab>(
+    (week?.images?.length ?? 0) === 0 && (week?.pdfs?.length ?? 0) > 0 ? "pdfs" : "images"
+  );
   const [fit, setFit] = useState<"contain" | "cover">("contain");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState<"images" | "pdfs" | null>(null);
@@ -298,7 +300,7 @@ export default function WeekPanel({
               action="Subir imágenes"
               onAction={() => setTab("upload")}
               alternativa={
-                ultimaConArchivos && onSelectWeek
+                ultimaConArchivos && onSelectWeek && pdfs.length === 0
                   ? {
                       texto: `Ver ${ultimaConArchivos.week}, la última con archivos`,
                       onClick: () => onSelectWeek(ultimaConArchivos.id),

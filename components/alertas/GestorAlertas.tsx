@@ -283,7 +283,7 @@ export default function GestorAlertas() {
               ? "1 tarea, silenciada"
               : `${alertas.length} tareas, todas silenciadas`}
           </b>
-          {" · "}ninguna sonará hasta que la reactives.
+          {" · "}ningún aviso sonará: reactiva los que quieras que salgan.
         </p>
       )}
 
