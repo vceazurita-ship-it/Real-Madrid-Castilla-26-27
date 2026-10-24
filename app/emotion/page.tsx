@@ -1165,6 +1165,10 @@ function RadarPanel({
                     </span>
                   </div>
 
+                  <p className="mt-0.5 truncate text-[10px] leading-tight text-white/55">
+                    {axis.label}
+                  </p>
+
                   <div className="mt-1 h-[3px] w-full overflow-hidden rounded-full bg-white/10">
                     <div
                       className="h-full rounded-full"

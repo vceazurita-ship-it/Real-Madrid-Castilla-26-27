@@ -121,10 +121,12 @@ export function DatosEstado() {
     >
       <RefreshCw size={12} className={hayBajada && !cansado ? "animate-spin" : ""} />
       <span className="hidden sm:inline">
-        {hayBajada && !cansado
-          ? "Actualizando…"
-          : estado.masVieja !== null && ahora > 0
-            ? `Datos ${haceCuanto(estado.masVieja, ahora)}`
+        {/* En cuanto hay copia se dice de cuándo es (el icono que gira ya
+            avisa de que se renueva); «Actualizando…» solo si no hay fecha. */}
+        {estado.masVieja !== null && ahora > 0
+          ? `Datos ${haceCuanto(estado.masVieja, ahora)}`
+          : hayBajada && !cansado
+            ? "Actualizando…"
             : "Datos guardados"}
       </span>
     </button>

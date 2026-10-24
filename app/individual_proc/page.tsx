@@ -129,6 +129,24 @@ function getSeasonWeek(fecha: string) {
   return Math.floor(diffDays / 7) + 1;
 }
 
+/** «8 jul»: el primer día de la semana de temporada `week`; la fecha de un registro da el año. */
+function inicioDeSemana(week: number, referencia: string) {
+  const d = new Date(referencia);
+
+  const año =
+    d.getMonth() >= SEASON_START_MONTH ? d.getFullYear() : d.getFullYear() - 1;
+
+  const inicio = new Date(
+    año,
+    SEASON_START_MONTH,
+    SEASON_START_DAY + (week - 1) * 7
+  );
+
+  return inicio
+    .toLocaleDateString("es-ES", { day: "numeric", month: "short" })
+    .replace(".", "");
+}
+
 const norm = (v?: string) =>
   (v || "")
     .normalize("NFD")
@@ -641,6 +659,7 @@ export default function DashboardSeguimiento() {
 
     const out: {
       week: string;
+      desde: string;
       value: number;
       jugadores: number;
       percentage: number;
@@ -649,6 +668,7 @@ export default function DashboardSeguimiento() {
     for (let w = weeks[0]; w <= weeks[weeks.length - 1]; w++) {
       out.push({
         week: `S${w}`,
+        desde: inicioDeSemana(w, filteredTracking[0].FECHA),
         value: map[w]?.value ?? 0,
         jugadores: map[w]?.jugadores.size ?? 0,
         percentage: pct(map[w]?.value ?? 0, totalSessions),
@@ -755,10 +775,15 @@ export default function DashboardSeguimiento() {
 
     if (!totalSessions) return out;
 
+    /* Con toda la plantilla cubierta no se repite el 100 % y el «18 de 18»:
+       una sola frase. */
     out.push({
       icon: UserCheck,
       tone: "text-emerald-400",
-      text: `${cubiertos} de ${squadSize} jugadores de la plantilla han recibido seguimiento (${cm(coverage)} % de cobertura).`,
+      text:
+        cubiertos >= squadSize
+          ? `Toda la plantilla (${squadSize} jugadores) ha recibido seguimiento.`
+          : `${cubiertos} de ${squadSize} jugadores de la plantilla han recibido seguimiento (${cm(coverage)} % de cobertura).`,
     });
 
     if (untrackedPlayers.length) {
@@ -1347,6 +1372,12 @@ export default function DashboardSeguimiento() {
                           tick={AXIS}
                           axisLine={false}
                           tickLine={false}
+                          interval="preserveStartEnd"
+                          tickFormatter={(w: string) => {
+                            const fila = weeklyData.find((x) => x.week === w);
+
+                            return fila ? `${w} · ${fila.desde}` : w;
+                          }}
                         />
 
                         <YAxis tick={AXIS} axisLine={false} tickLine={false} />
@@ -1361,8 +1392,14 @@ export default function DashboardSeguimiento() {
 
                         <ReferenceLine
                           y={weeklyMean}
-                          stroke="rgba(255,255,255,.3)"
+                          stroke="rgba(255,255,255,.45)"
                           strokeDasharray="4 4"
+                          label={{
+                            value: `Media ${cm(weeklyMean)}`,
+                            position: "insideTopRight",
+                            fill: "#94A3B8",
+                            fontSize: 11,
+                          }}
                         />
 
                         <Area

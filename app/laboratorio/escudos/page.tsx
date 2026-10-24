@@ -57,6 +57,11 @@ export default function EscudosPage() {
   const [escudos, setEscudos] = useState<EscudoLiga[]>([]);
   const [estado, setEstado] = useState<Estado>("cargando");
 
+  /* Qué le ha pasado a cada imagen: sin entrada = aún llegando. */
+  const [imagenes, setImagenes] = useState<Record<string, "listo" | "fallo">>(
+    {},
+  );
+
   /** Cuántos escudos llevamos preparados mientras se arma el documento. */
   const [haciendo, setHaciendo] = useState<number | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -117,11 +122,6 @@ export default function EscudosPage() {
       cancelado = true;
     };
   }, [testigo]);
-
-  /* Qué le ha pasado a cada imagen: sin entrada = aún llegando. */
-  const [imagenes, setImagenes] = useState<Record<string, "listo" | "fallo">>(
-    {},
-  );
 
   const marca = useCallback((url: string, como: "listo" | "fallo") => {
     setImagenes((previo) =>
