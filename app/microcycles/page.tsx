@@ -1376,8 +1376,13 @@ export default function Page() {
 
   /* ---------------- insights ---------------- */
 
+  /*
+  | LECTURAS ORDENADAS Y CON QUÉ HACER (24/10/2026). Cada lectura lleva su
+  | peso —lo que pide actuar va arriba: lo peor valorado, lo que falta por
+  | valorar, el cambio de carga— y, cuando hay algo que hacer, lo dice.
+  */
   const insights = useMemo(() => {
-    const out: { icon: LucideIcon; text: string; tone: string }[] = [];
+    const out: { icon: LucideIcon; text: string; tone: string; peso: number }[] = [];
 
     if (!filtered.length) return out;
 
@@ -1385,7 +1390,8 @@ export default function Page() {
       out.push({
         icon: Flame,
         tone: "text-[#C8A96B]",
-        text: `${peakMD.md} concentra el ${peakMD.pctCarga}% de la carga física del periodo${excludeComp ? "" : " (el partido cuenta en las cuentas)"}.`,
+        peso: peakMD.pctCarga >= 50 ? 65 : 35,
+        text: `${peakMD.md} concentra el ${peakMD.pctCarga}% de la carga física del periodo${excludeComp ? "" : " (el partido cuenta en las cuentas)"}${peakMD.pctCarga >= 50 ? ": comprobar que el pico cae en el día que se quiere." : "."}`,
       });
     }
 
@@ -1397,7 +1403,8 @@ export default function Page() {
       out.push({
         icon: Star,
         tone: "text-emerald-400",
-        text: `"${bestTipo.name}" es el tipo de tarea mejor valorado (${bestTipo.eval} de media en ${bestTipo.tareas} tareas).`,
+        peso: 50,
+        text: `"${bestTipo.name}", el mejor valorado (${bestTipo.eval} de media en ${bestTipo.tareas} tareas): mantenerlo en el plan.`,
       });
     }
 
@@ -1409,13 +1416,15 @@ export default function Page() {
       out.push({
         icon: Target,
         tone: "text-rose-400",
-        text: `"${worstTipo.name}" es el peor valorado (${worstTipo.eval}) — revisar diseño o momento de aplicación.`,
+        peso: 90,
+        text: `"${worstTipo.name}", valorado ${worstTipo.eval}: revisar el diseño o el día en que se aplica.`,
       });
     }
 
     out.push({
       icon: Brain,
       tone: "text-violet-400",
+      peso: 30,
       text:
         cogRatio > 1.1
           ? `Predomina la carga cognitiva: ratio cognitivo/físico de ${cogRatio.toFixed(2)}.`
@@ -1430,6 +1439,7 @@ export default function Page() {
       out.push({
         icon: Layers,
         tone: "text-sky-400",
+        peso: 20,
         text: `El contenido más trabajado es "${topContenido.name}" (${topContenido.tareas} tareas · ${topContenido.pctTareas}% del total).`,
       });
     }
@@ -1450,7 +1460,8 @@ export default function Page() {
       out.push({
         icon: Activity,
         tone: "text-amber-400",
-        text: `Respecto al ${prevM}, ${evalTxt ? `${evalTxt} y ` : ""}${cargaTxt}.`,
+        peso: 70,
+        text: `Respecto al ${prevM}, ${evalTxt ? `${evalTxt} y ` : ""}${cargaTxt}${microDelta.load < 0 ? ": confirmar que es la descarga buscada." : microDelta.load > 0 ? ": vigilar la recuperación." : "."}`,
       });
     }
 
@@ -1460,11 +1471,12 @@ export default function Page() {
       out.push({
         icon: ListChecks,
         tone: "text-white/60",
-        text: `${sinEval} tarea${sinEval === 1 ? "" : "s"} sin evaluación registrada.`,
+        peso: 80,
+        text: `${sinEval} tarea${sinEval === 1 ? "" : "s"} sin evaluación: valorarla${sinEval === 1 ? "" : "s"} en «Editar este micro».`,
       });
     }
 
-    return out;
+    return out.sort((a, b) => b.peso - a.peso);
   }, [
     filtered,
     peakMD,
@@ -1499,6 +1511,16 @@ export default function Page() {
     micro === "ALL"
       ? null
       : microStats.find((m) => String(m.micro) === micro) ?? null;
+
+  /* El titular del micro elegido: «Micro 18: 19 tareas y 3h 14'; carga física 1.165, 704 por debajo del M17». */
+  const titular =
+    selectedMicroStat && metrics.tasks > 0
+      ? `Micro ${etiquetaMicro(selectedMicroStat.micro)}: ${metrics.tasks} tareas${metrics.tiempo > 0 ? ` y ${fmtMin(metrics.tiempo)}` : ""}${
+          metrics.load > 0
+            ? `; carga física ${fmtInt(metrics.load)}${microDelta && microDelta.load !== 0 ? `, ${fmtInt(Math.abs(microDelta.load))} ${microDelta.load < 0 ? "por debajo" : "por encima"} del M${etiquetaMicro(microDelta.prev.micro)}` : ""}`
+            : ""
+        }`
+      : null;
 
   /*
   | LA SEMANA EN SESIÓN (24/10/2026). Por cada día del micro elegido, sus
@@ -1603,12 +1625,13 @@ export default function Page() {
 
             <div className="mb-6">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-                RMCF CASTILLA · METODOLOGÍA
+                RMCF CASTILLA · METODOLOGÍA{titular ? " · MICROCICLOS" : ""}
               </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-3 sm:gap-5">
-                <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-                  Microciclos
+                {/* Con un micro elegido, el título es su lectura (24/10/2026): qué se hizo y cómo va contra el anterior. */}
+                <h1 className={`min-w-0 font-semibold tracking-tight ${titular ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl"}`}>
+                  {titular ?? "Microciclos"}
                 </h1>
 
                 {selectedMicroStat && (
@@ -2330,7 +2353,7 @@ export default function Page() {
                   >
                     <div className="flex flex-col lg:flex-row items-center gap-4">
                       <div className="h-[260px] w-full lg:w-1/2">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 300, height: 260 }}>
                           <PieChart>
                             <Pie
                               data={faseMetrics}
@@ -2771,7 +2794,7 @@ export default function Page() {
                     }`}
                   >
                     <div style={{ height: contenidoPrincipalHeight }}>
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 560, height: contenidoPrincipalHeight }}>
                         <BarChart
                           data={sortedByMetric(
                             contenidoPrincipalMetrics,
@@ -2881,7 +2904,7 @@ export default function Page() {
                     subtitle="Top 15 subcontenidos trabajados"
                   >
                     <div style={{ height: contenidoSecundarioHeight }}>
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 560, height: contenidoSecundarioHeight }}>
                         <BarChart
                           data={contenidoSecundarioTop}
                           layout="vertical"
@@ -3860,9 +3883,15 @@ function Chart({
   children: ReactNode;
   height?: number;
 }) {
+  /*
+  | Con medida de partida (24/10/2026): sin ella, ResponsiveContainer no pinta
+  | nada hasta que el navegador le dice cuánto mide, y en una captura (o un
+  | móvil lento) las tarjetas salían en blanco. Al llegar la medida de verdad
+  | se redibuja con ella.
+  */
   return (
     <div className="w-full" style={{ height: height ?? 380 }}>
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 560, height: height ?? 380 }}>
         {children}
       </ResponsiveContainer>
     </div>
