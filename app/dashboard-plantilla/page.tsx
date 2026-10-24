@@ -714,17 +714,20 @@ export default function DashboardPlantilla() {
       /* Es la licencia del Castilla (ver arriba), no «activo» en la hoja. */
       title: "Del Castilla",
       value: stats.activos,
+      base: `de ${stats.total} en la lista`,
       filter: { key: "activo", value: "true" },
     },
     {
       title: "Óptimos",
       value: stats.optimos,
+      base: "estado ÓPTIMO en la hoja",
       filter: { key: "estado", value: "ÓPTIMO" },
       tone: "text-emerald-300",
     },
     {
       title: "Selección",
       value: stats.seleccion,
+      base: "estado SELECCIÓN en la hoja",
       filter: { key: "estado", value: "SELECCIÓN" },
       tone: "text-sky-300",
     },
@@ -991,6 +994,7 @@ export default function DashboardPlantilla() {
                       </div>
 
                       <div className="mt-1 text-xs text-white/30">
+                        {clickable && kpi.base ? `${kpi.base} · ` : ""}
                         {clickable
                           ? active
                             ? "Filtro activo · pulsa para quitar"
@@ -1064,8 +1068,8 @@ export default function DashboardPlantilla() {
                         selectedPlayer?.valorado
                           ? `${
                               selectedPlayer.apodo || selectedPlayer.nombre
-                            } vs. media de los ${stats.valorados} con ficha`
-                          : `Media de los ${stats.valorados} jugadores con ficha`
+                            } vs. media de los ${stats.valorados} con ficha · escala de 0 a 10`
+                          : `Media de los ${stats.valorados} jugadores con ficha · escala de 0 a 10`
                       }
                     >
                       {radarData.length ? (
@@ -1080,7 +1084,9 @@ export default function DashboardPlantilla() {
 
                             <PolarRadiusAxis
                               domain={[0, 10]}
-                              tick={{ fill: THEME.axis, fontSize: 10 }}
+                              tickCount={3}
+                              angle={90}
+                              tick={{ fill: THEME.axis, fontSize: 11 }}
                               stroke={THEME.grid}
                             />
 
@@ -1728,11 +1734,11 @@ function MetricBar({
           {diff !== null && value > 0 && (
             <span
               className={`ml-2 font-normal ${
-                diff > 0
-                  ? "text-emerald-400"
-                  : diff < 0
-                    ? "text-red-400"
-                    : "text-white/30"
+                Math.abs(diff) < 1
+                  ? "text-white/45"
+                  : diff > 0
+                    ? "text-emerald-400"
+                    : "text-red-400"
               }`}
               title="Frente a la media de los jugadores con ficha"
             >
@@ -1821,15 +1827,19 @@ function PlayerCard({
               </span>
             )}
 
-            <span
-              className="min-w-0 truncate rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-              style={{
-                background: `${estadoColor(player.estado)}22`,
-                color: chipInk(estadoColor(player.estado)),
-              }}
-            >
-              {player.estado || "SIN ESTADO"}
-            </span>
+            {/* «OTROS» no es un estado que atender (se confundía con la
+                etiqueta «Otro equipo» de Plantilla): sin chapa. */}
+            {player.estado && player.estado.toUpperCase() !== "OTROS" && (
+              <span
+                className="min-w-0 truncate rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+                style={{
+                  background: `${estadoColor(player.estado)}22`,
+                  color: chipInk(estadoColor(player.estado)),
+                }}
+              >
+                {player.estado}
+              </span>
+            )}
           </div>
 
           <h3 className="mt-1 truncate text-lg font-semibold">
@@ -1895,8 +1905,9 @@ function PlayerCard({
               />
             ))}
             <p className="pt-1 text-[11px] text-white/45">
-              Los puntos en verde o rojo junto a cada nota son la diferencia
-              frente a la media de los jugadores con ficha.
+              {player.fecha ? `Último control: ${player.fecha}. ` : ""}
+              La diferencia junto a cada nota es frente a la media de los
+              jugadores con ficha; en gris, si es menor de 1 punto.
             </p>
           </>
         ) : conPartidos ? (
