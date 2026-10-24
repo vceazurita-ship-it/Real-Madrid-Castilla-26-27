@@ -546,7 +546,7 @@ export default function QuinielaPage() {
                 icon={Trophy}
               >
                 {(
-                  <div className="min-w-0 overflow-x-auto">
+                  <div className="min-w-0 overflow-x-auto sm:pr-14">
                     <table className="w-full text-[12px] sm:min-w-[520px]">
                       <thead>
                         <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">

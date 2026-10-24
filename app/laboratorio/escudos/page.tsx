@@ -262,8 +262,8 @@ export default function EscudosPage() {
 
             <div className="mt-5">
               <Panel
-                title="Lo que va a llevar el documento"
-                subtitle="Así salen en el documento: sobre azul noche, se ve al momento si alguno trae recuadro"
+                title="Vista previa del documento"
+                subtitle="Así salen sobre azul noche: revisa que ninguno traiga recuadro y descarga el .pptx"
                 icon={ShieldCheck}
               >
                 {estado === "cargando" ? (

@@ -393,12 +393,12 @@ export function revisaSemana({
 
         /* En el día del partido no se entrena: el consejo habla de salir al campo. */
         return dePartido
-          ? `Día del partido (${cuando}): el vídeo va después del campo`
-          : `${cuando.replace(/^./, (letra) => letra.toUpperCase())}: el vídeo va después del campo`;
+          ? `Día del partido (${cuando}): el vídeo está después del campo`
+          : `${cuando.replace(/^./, (letra) => letra.toUpperCase())}: el vídeo está después del campo`;
       })(),
       detalle: tarde.every(({ dia }) => dias[dia]?.tipo === "partido")
-        ? "Ponlo antes: primero se ve, luego se sale al campo."
-        : "Ponlo antes: primero se ve, luego se entrena.",
+        ? "Muévelo antes: primero se ve, luego se sale al campo."
+        : "Muévelo antes: primero se ve, luego se entrena.",
       dia: tarde[0].dia,
       trabajo: tarde[0].trabajo,
     });

@@ -2620,7 +2620,7 @@ const pie = (
     </FilterDrawer>
 <div className="mt-5">
   <p className="text-sm text-zinc-400 mb-3">
-    Equipos visualizados (
+    Nuestro ABP contra (
     {[...new Set(filasRival.map((r) => r.rival))]
       .length}
     )

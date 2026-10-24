@@ -212,7 +212,11 @@ export function EstadoJornada({
         rotulo={`Jornada ${numero}`}
         valor={cerrada ? "Cerrada" : ultimasHoras ? "Hoy cierra" : "Abierta"}
         tono={cerrada ? "normal" : ultimasHoras ? "aviso" : "oro"}
-        pie={cerrada ? "Las apuestas ya no se tocan" : `Se cierra el ${cierre}`}
+        pie={
+          cerrada
+            ? `${completas} de ${jugadores.length} han apostado: ya no se tocan`
+            : `Se cierra el ${cierre}`
+        }
       />
 
       {/* 2. Quién ha apostado. */}
@@ -278,7 +282,7 @@ export function EstadoJornada({
       ) : (
       <Ficha
         icono={Trophy}
-        rotulo="Va ganando"
+        rotulo={lideres.length > 1 ? "En cabeza" : "Va ganando"}
         tono="oro"
         valor={
           !mejor || mejor.marcador.aciertos === 0 ? (
@@ -287,7 +291,9 @@ export function EstadoJornada({
             </span>
           ) : lideres.length > 1 ? (
             <span className="truncate text-[17px]">
-              Empate entre {lideres.length}
+              {lideres.length > 3
+                ? `${lideres.length} empatados a ${mejor.marcador.aciertos}`
+                : `Empate entre ${lideres.length}`}
             </span>
           ) : (
             <span className="flex min-w-0 items-center gap-2">
@@ -310,10 +316,10 @@ export function EstadoJornada({
         pie={
           lideres.length > 1
             ? (() => {
-                /* Con tantos empatados la lista de nombres no informa: se dice
-                   el empate y ya. Con pocos, los nombres completos. */
+                /* Con tantos empatados la lista de nombres no informa y el valor
+                   ya dice el empate: el pie da la base, cuántos partidos van. */
                 if (lideres.length > 3)
-                  return `Empate a ${mejor.marcador.aciertos} ${mejor.marcador.aciertos === 1 ? "acierto" : "aciertos"} de ${jugados}`;
+                  return `${jugados} de ${partidos} ${partidos === 1 ? "partido jugado" : "partidos jugados"}`;
 
                 const nombres = lideres.slice(0, 3).map((lider) => {
                   const persona = PERSONA_POR_SLUG.get(lider.slug);
