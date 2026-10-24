@@ -551,6 +551,32 @@ export default function PizarraAbpPage() {
     });
   }, [jornadas, tablero, partido]);
 
+  /*
+  | El selector de jornada con orden: primero la de la pizarra y las dos que
+  | vienen detrás, luego el resto de la temporada por fecha y, al final, las
+  | ya jugadas hace tiempo (antes salían en el orden de la hoja: J06→J38→J01-J05).
+  */
+  const gruposJornada = useMemo(() => {
+    const porFecha = (a: JornadaRival, b: JornadaRival) =>
+      (a.fecha || "9999").localeCompare(b.fecha || "9999");
+    const cercanas = jornadas.filter((item) => !jornadasLejanas.has(item.id) || item.id === jornada?.id);
+    const desde = jornada?.fecha || hoy;
+    const siguientes = cercanas
+      .filter((item) => item.id !== jornada?.id && item.fecha && item.fecha >= desde)
+      .sort(porFecha)
+      .slice(0, 2);
+    const primeras = [...(jornada ? [jornada] : []), ...siguientes];
+    const ids = new Set(primeras.map((item) => item.id));
+
+    return {
+      primeras,
+      resto: cercanas.filter((item) => !ids.has(item.id)).sort(porFecha),
+      anteriores: jornadas
+        .filter((item) => jornadasLejanas.has(item.id) && item.id !== jornada?.id)
+        .sort((a, b) => porFecha(b, a)),
+    };
+  }, [jornadas, jornadasLejanas, jornada, hoy]);
+
   /** Atada a mano: manda sobre el parecido de nombres. */
   const atada = Boolean(tablero?.rivalId);
 
@@ -2077,23 +2103,33 @@ export default function PizarraAbpPage() {
                             : "No se ha podido leer la hoja de rivales"}
                         </option>
 
-                        {jornadas
-                          .filter((item) => !jornadasLejanas.has(item.id) || item.id === jornada?.id)
-                          .map((item) => (
-                            <option key={item.id} value={item.id} className="bg-[#11161C]">
-                              {etiquetaJornada(item)}
-                            </option>
-                          ))}
+                        {gruposJornada.primeras.length > 0 && (
+                          <optgroup label="Esta y las siguientes">
+                            {gruposJornada.primeras.map((item) => (
+                              <option key={item.id} value={item.id} className="bg-[#11161C]">
+                                {etiquetaJornada(item)}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
 
-                        {jornadas.some((item) => jornadasLejanas.has(item.id) && item.id !== jornada?.id) && (
+                        {gruposJornada.resto.length > 0 && (
+                          <optgroup label="Resto de la temporada">
+                            {gruposJornada.resto.map((item) => (
+                              <option key={item.id} value={item.id} className="bg-[#11161C]">
+                                {etiquetaJornada(item)}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+
+                        {gruposJornada.anteriores.length > 0 && (
                           <optgroup label="Jornadas anteriores">
-                            {jornadas
-                              .filter((item) => jornadasLejanas.has(item.id) && item.id !== jornada?.id)
-                              .map((item) => (
-                                <option key={item.id} value={item.id} className="bg-[#11161C]">
-                                  {etiquetaJornada(item)}
-                                </option>
-                              ))}
+                            {gruposJornada.anteriores.map((item) => (
+                              <option key={item.id} value={item.id} className="bg-[#11161C]">
+                                {etiquetaJornada(item)}
+                              </option>
+                            ))}
                           </optgroup>
                         )}
                       </select>
@@ -2522,7 +2558,7 @@ export default function PizarraAbpPage() {
 
                 {slide && (
                   <div className="mt-5">
-                    <FichasSueltasPlegables plegado={!guardado}>
+                    <FichasSueltasPlegables plegado>
                     <Panel
                       title="Fichas sueltas"
                       subtitle="Alguien que no ocupa un puesto de la plantilla: se coloca a mano donde haga falta"
@@ -2714,7 +2750,15 @@ export default function PizarraAbpPage() {
                         mismo sitio: el mismo tirador puede estar en los tres—.
                       </p>
                     ) : (
-                      <MemoriaResumen store={store} porId={porId} />
+                      <details className="group">
+                        <summary className="cursor-pointer select-none text-xs font-medium text-white/60">
+                          Ver a quién recuerda en cada puesto
+                        </summary>
+
+                        <div className="mt-3">
+                          <MemoriaResumen store={store} porId={porId} />
+                        </div>
+                      </details>
                     )}
                   </Panel>
                 </div>
@@ -2788,7 +2832,7 @@ function FichasSueltasPlegables({ plegado, children }: { plegado: boolean; child
   return (
     <details className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
       <summary className="cursor-pointer select-none text-xs font-medium text-white/60">
-        Fichas sueltas (alguien que no ocupa un puesto de la plantilla)
+        Fichas sueltas: alguien que no ocupa un puesto de la plantilla
       </summary>
       <div className="mt-3">{children}</div>
     </details>
@@ -2847,9 +2891,18 @@ function HistorialVersiones({
     setRenombrando(null);
   };
 
-  return (
-    <ul className="space-y-1.5">
-      {versiones.map((version) => {
+  /* Las automáticas y las de «antes de restaurar» van en una sola línea; a la
+     vista quedan las guardadas a mano, las traídas de otra jornada, las fijadas
+     y la que está en pantalla. */
+  const destacada = (version: VersionPizarra) =>
+    version.fijada ||
+    version.id === enPantalla ||
+    version.motivo === "mano" ||
+    version.motivo === "copia";
+  const visibles = versiones.filter(destacada);
+  const agrupadas = versiones.filter((version) => !destacada(version));
+
+  const fila = (version: VersionPizarra) => {
         const fichas = version.slides.reduce(
           (total, slide) => total + slide.fichas.length,
           0,
@@ -2934,13 +2987,28 @@ function HistorialVersiones({
             />
           </li>
         );
-      })}
-    </ul>
+  };
+
+  return (
+    <div>
+      {visibles.length > 0 && <ul className="space-y-1.5">{visibles.map(fila)}</ul>}
+
+      {agrupadas.length > 0 && (
+        <details className={visibles.length > 0 ? "mt-2" : ""}>
+          <summary className="cursor-pointer select-none text-xs font-medium text-white/60">
+            {agrupadas.length === 1 ? "1 versión automática" : `${agrupadas.length} versiones automáticas`}
+            {agrupadas.some((version) => version.motivo === "previa") ? " y de antes de restaurar" : ""}
+          </summary>
+
+          <ul className="mt-2 space-y-1.5">{agrupadas.map(fila)}</ul>
+        </details>
+      )}
+    </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  RESUMEN DE LA MEMORIA                                              */
+/*  RESUMEN DE LA MEMORIA                                             */
 /* ------------------------------------------------------------------ */
 
 /**
