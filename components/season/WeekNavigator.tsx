@@ -10,14 +10,13 @@ import {
   X,
 } from "lucide-react";
 import { MonthData, WeekData } from "@/lib/season/types";
-import { parseWeekDate, weekFileCount, weekHasFiles } from "@/lib/season/utils";
+import { weekFileCount, weekHasFiles } from "@/lib/season/utils";
 
-type Filter = "all" | "with-files" | "pending";
+type Filter = "all" | "with-files";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "Todas" },
   { id: "with-files", label: "Con archivos" },
-  { id: "pending", label: "Pendientes" },
 ];
 
 interface Props {
@@ -36,6 +35,7 @@ export default function WeekNavigator({
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
+  const [restoAbierto, setRestoAbierto] = useState(false);
 
   const selectedRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -76,19 +76,11 @@ export default function WeekNavigator({
   const normalizedQuery = query.trim().toLowerCase();
 
   const filteredMonths = useMemo(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
     return season
       .map((month) => ({
         ...month,
         weeks: month.weeks.filter((week) => {
           if (filter === "with-files" && !weekHasFiles(week)) return false;
-          if (filter === "pending") {
-            // Sólo semanas ya pasadas: las futuras no están «pendientes».
-            const fin = parseWeekDate(week.end);
-            if (weekHasFiles(week) || !fin || fin >= hoy) return false;
-          }
 
           if (!normalizedQuery) return true;
 
@@ -107,6 +99,77 @@ export default function WeekNavigator({
   );
 
   const searching = normalizedQuery.length > 0 || filter !== "all";
+
+  /* Posición del mes en curso dentro de la lista visible. */
+  const posicionActual = filteredMonths.findIndex((month) =>
+    month.weeks.some((week) => week.id === currentWeekId)
+  );
+
+  /* Meses futuros sin un solo archivo: una sola fila en vez de uno por mes. */
+  const futurosEnGrupo = new Set(
+    searching || posicionActual < 0
+      ? []
+      : filteredMonths
+          .filter(
+            (month, posicion) =>
+              posicion > posicionActual &&
+              month.id !== selectedMonthId &&
+              month.weeks.every((week) => !weekHasFiles(week))
+          )
+          .map((month) => month.id)
+  );
+
+  const pintaMes = (month: MonthData, plegadoDeSalida: boolean) => {
+    const isOpen = searching || !(collapsed[month.id] ?? plegadoDeSalida);
+
+    const withFiles = month.weeks.filter(weekHasFiles).length;
+
+    return (
+      <section key={month.id}>
+        <button
+          type="button"
+          onClick={() =>
+            setCollapsed((state) => ({
+              ...state,
+              [month.id]: !(state[month.id] ?? plegadoDeSalida),
+            }))
+          }
+          aria-expanded={isOpen}
+          className="sticky top-0 z-10 flex w-full items-center gap-3 rounded-xl bg-[#11161D] px-3 py-2.5 text-left transition hover:bg-white/[0.04]"
+        >
+          <CalendarDays size={16} className="text-[#C8A96B]" />
+
+          <span className="font-medium">{month.name}</span>
+
+          <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/40">
+            {withFiles}/{month.weeks.length}
+          </span>
+
+          <ChevronDown
+            size={16}
+            className={`ml-auto text-white/30 transition-transform ${
+              isOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        {isOpen && (
+          <div className="mt-1 space-y-1 pl-1">
+            {month.weeks.map((week) => (
+              <WeekRow
+                key={week.id}
+                rowRef={week.id === selectedWeekId ? selectedRef : undefined}
+                week={week}
+                selected={week.id === selectedWeekId}
+                isCurrent={week.id === currentWeekId}
+                onSelect={() => onSelectWeek(week)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    );
+  };
 
   return (
     <div className="rounded-3xl border border-white/10 bg-[#11161D]">
@@ -170,65 +233,56 @@ export default function WeekNavigator({
           </p>
         ) : (
           <div className="space-y-2">
-            {filteredMonths.map((month) => {
-              /* Los meses que aún no han llegado y no tienen nada van plegados:
-                 40 semanas iguales no dicen nada. Se abren con un clic. */
-              /* Y los pasados sin un solo archivo: el primer vistazo enseña lo
-                 que hay y la semana en la que se está. */
-              const plegadoDeSalida =
+            {filteredMonths.map((month, posicion) => {
+              /* Al abrir sólo se despliegan el mes actual y el anterior (y el
+                 de la semana elegida): el resto, plegado, y los meses futuros
+                 vacíos van juntos en «Resto de la temporada». */
+              if (futurosEnGrupo.has(month.id)) {
+                if (futurosEnGrupo.values().next().value !== month.id) return null;
+
+                const meses = filteredMonths.filter((m) => futurosEnGrupo.has(m.id));
+                const semanas = meses.reduce((n, m) => n + m.weeks.length, 0);
+
+                return (
+                  <section key="resto">
+                    <button
+                      type="button"
+                      onClick={() => setRestoAbierto((v) => !v)}
+                      aria-expanded={restoAbierto}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-white/[0.04]"
+                    >
+                      <CalendarDays size={16} className="text-white/30" />
+
+                      <span className="font-medium text-white/60">
+                        Resto de la temporada
+                      </span>
+
+                      <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/40">
+                        {semanas} semanas
+                      </span>
+
+                      <ChevronDown
+                        size={16}
+                        className={`ml-auto text-white/30 transition-transform ${
+                          restoAbierto ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {restoAbierto && (
+                      <div className="mt-1 space-y-2 pl-1">
+                        {meses.map((m) => pintaMes(m, true))}
+                      </div>
+                    )}
+                  </section>
+                );
+              }
+
+              return pintaMes(
+                month,
                 month.id !== selectedMonthId &&
-                month.weeks.every((week) => !weekHasFiles(week) && week.id !== currentWeekId);
-
-              const isOpen = searching || !(collapsed[month.id] ?? plegadoDeSalida);
-
-              const withFiles = month.weeks.filter(weekHasFiles).length;
-
-              return (
-                <section key={month.id}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCollapsed((state) => ({
-                        ...state,
-                        [month.id]: !(state[month.id] ?? plegadoDeSalida),
-                      }))
-                    }
-                    aria-expanded={isOpen}
-                    className="sticky top-0 z-10 flex w-full items-center gap-3 rounded-xl bg-[#11161D] px-3 py-2.5 text-left transition hover:bg-white/[0.04]"
-                  >
-                    <CalendarDays size={16} className="text-[#C8A96B]" />
-
-                    <span className="font-medium">{month.name}</span>
-
-                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/40">
-                      {withFiles}/{month.weeks.length}
-                    </span>
-
-                    <ChevronDown
-                      size={16}
-                      className={`ml-auto text-white/30 transition-transform ${
-                        isOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-
-                  {isOpen && (
-                    <div className="mt-1 space-y-1 pl-1">
-                      {month.weeks.map((week) => (
-                        <WeekRow
-                          key={week.id}
-                          rowRef={
-                            week.id === selectedWeekId ? selectedRef : undefined
-                          }
-                          week={week}
-                          selected={week.id === selectedWeekId}
-                          isCurrent={week.id === currentWeekId}
-                          onSelect={() => onSelectWeek(week)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </section>
+                  posicion !== posicionActual &&
+                  posicion !== posicionActual - 1,
               );
             })}
           </div>
@@ -236,6 +290,7 @@ export default function WeekNavigator({
       </div>
     </div>
   );
+
 }
 
 function WeekRow({
@@ -254,12 +309,6 @@ function WeekRow({
   const { images, pdfs } = weekFileCount(week);
 
   const hasFiles = images + pdfs > 0;
-
-  /* Una semana que ya acabó sin material se marca: es lo que falta por subir. */
-  const fin = parseWeekDate(week.end);
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  const sinSubir = !hasFiles && !isCurrent && fin !== null && fin < hoy;
 
   return (
     <button
@@ -312,8 +361,6 @@ function WeekRow({
             {pdfs}
           </span>
         )}
-
-        {sinSubir && <span className="text-[11px] font-medium text-amber-400" title="Semana ya pasada sin material">pendiente</span>}
 
       </span>
     </button>

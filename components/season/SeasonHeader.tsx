@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   Bus,
   CalendarCheck,
-  CalendarRange,
   FileText,
   ImageIcon,
   Loader2,
@@ -74,10 +73,13 @@ export default function SeasonHeader({
 
           {currentWeek && (
             <p className="mt-3 text-base font-medium text-white/85">
-              {currentWeek.week}{" "}
-              {weekHasFiles(currentWeek) ? "con archivos" : "sin archivos"} ·{" "}
-              {stats.completed} de {stats.totalWeeks}{" "}
-              {stats.totalWeeks === 1 ? "semana con material" : "semanas con material"}
+              {weekHasFiles(currentWeek)
+                ? `${currentWeek.week} ya tiene material.`
+                : `Esta semana no tiene archivos: sube el material de la ${currentWeek.week.toLowerCase()}.`}{" "}
+              <span className="text-sm font-normal text-white/50">
+                {stats.completed} de {stats.totalWeeks}{" "}
+                {stats.totalWeeks === 1 ? "semana con material" : "semanas con material"}
+              </span>
             </p>
           )}
 
@@ -91,11 +93,14 @@ export default function SeasonHeader({
             <button
               type="button"
               onClick={onGoToCurrentWeek}
-              className="inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+              className={`inline-flex items-center justify-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20 ${
+                weekHasFiles(currentWeek) ? "" : "w-full sm:w-auto"
+              }`}
             >
               <CalendarCheck size={17} />
-              {weekHasFiles(currentWeek) ? "Semana actual" : "Subir a la semana actual"} ·{" "}
-              {currentWeek.week}
+              {weekHasFiles(currentWeek)
+                ? `Semana actual · ${currentWeek.week}`
+                : `Subir a la ${currentWeek.week.toLowerCase()}`}
             </button>
           )}
 
@@ -128,21 +133,11 @@ export default function SeasonHeader({
 
       {/* MÉTRICAS */}
 
-      <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={<CalendarRange size={18} />}
-          value={`${stats.completed}/${stats.totalWeeks}`}
-          label={
-            stats.scopedToToday
-              ? "Semanas con archivos hasta hoy"
-              : "Semanas con archivos"
-          }
-        />
-
+      <div className="mt-7 grid gap-3 sm:grid-cols-3">
         <StatCard
           icon={<ImageIcon size={18} />}
           value={stats.images}
-          label="Imágenes"
+          label="Imágenes de la temporada"
           action="Ver todas"
           onClick={onOpenImages}
         />
@@ -150,7 +145,7 @@ export default function SeasonHeader({
         <StatCard
           icon={<FileText size={18} />}
           value={stats.pdfs}
-          label="PDFs"
+          label="PDFs de la temporada"
           action="Ver todos"
           onClick={onOpenPdfs}
         />
