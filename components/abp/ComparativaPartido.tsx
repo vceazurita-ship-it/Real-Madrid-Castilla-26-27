@@ -71,14 +71,21 @@ export function numeroCorto(n: number): string {
   });
 }
 
-/** +2,5 / −1 / 0, con el signo que se lee. */
-function diferencia(actual: number, media: number, formato: (n: number) => string): string {
-  const d = actual - media;
+/**
+ * Lo que se lee en pantalla: un porcentaje sin decimales, el resto con uno.
+ * La diferencia se resta de estas cifras vistas y no de las sin redondear,
+ * para que 17 % frente a 14 % no ponga «+2 puntos» (22/10/2026).
+ */
+function visto(n: number, porcentaje: boolean): number {
+  return porcentaje ? Math.round(n) : Math.round(n * 10) / 10;
+}
 
+/** +2,5 / −1 / 0, con el signo que se lee. */
+function diferencia(d: number, formato: (n: number) => string, entrePorcentajes: boolean): string {
   if (Math.abs(d) < 0.05) return "igual";
 
   /* Entre dos porcentajes la diferencia son puntos, no un «% más». */
-  if (formato === formatoPorcentaje) return `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))} pp`;
+  if (entrePorcentajes) return `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))} pp`;
 
   return `${d > 0 ? "+" : "−"}${formato(Math.abs(d))}`;
 }
@@ -123,11 +130,22 @@ export function ComparativaPartido({
             </span>
           </div>
 
+          {/* Con pocos partidos detrás, la media es una tendencia y no una regla. */}
+          {anteriores.n > 0 && anteriores.n <= 6 && (
+            <p className="border-b border-white/10 px-4 py-2 text-[11px] italic text-white/50 sm:px-5">
+              Tendencia: la media sale de {anteriores.n === 1 ? "un solo partido" : `${anteriores.n} partidos`}.
+            </p>
+          )}
+
           <ul className="divide-y divide-white/[0.06]">
             {metricas.map((m) => {
               const formato = m.formato ?? numeroCorto;
               const juzga = m.mejorAlto === true || m.mejorAlto === false;
-              const d = m.actual !== null && m.media !== null ? m.actual - m.media : null;
+              const porcentaje = formato === formatoPorcentaje;
+              const d =
+                m.actual !== null && m.media !== null
+                  ? visto(m.actual, porcentaje) - visto(m.media, porcentaje)
+                  : null;
               const mejor = d !== null && juzga && Math.abs(d) >= 0.05 ? (d > 0) === m.mejorAlto : null;
               /* Como texto y en `style`, que la tabla del modo día no alcanza
                  (19/10/2026): el gris de «igual» era blanco y no se veía, y
@@ -173,7 +191,7 @@ export function ComparativaPartido({
                       ? "—"
                       : m.igualEn && Math.abs(d) < 0.05
                         ? m.igualEn
-                        : diferencia(m.actual!, m.media!, m.formatoDiferencia ?? formato)}
+                        : diferencia(d, m.formatoDiferencia ?? formato, porcentaje)}
                   </span>
                 </li>
               );

@@ -43,14 +43,14 @@ const [isFullscreen, setIsFullscreen] = useState(false);
 | se ofrece abrirlo en pestaña nueva; y la clasificación del Castilla sale
 | del propio informe de rivales, para que la pantalla sirva aunque falle.
 */
-const [informeCargado, setInformeCargado] = useState(false);
-const [informeTarda, setInformeTarda] = useState(false);
+/*
+| 24/10/2026: el `onLoad` del iframe salta cuando carga el marco de Power BI,
+| aunque el informe siga en «Cargando datos…», así que no vale para saber si
+| ha cargado. El informe va plegado tras un botón y la tarjeta con el enlace
+| a pestaña nueva está siempre; la tabla y las cifras de arriba bastan solas.
+*/
+const [verInforme, setVerInforme] = useState(false);
 const [tabla, setTabla] = useState<ClasificacionPortada | null>(null);
-
-useEffect(() => {
-  const t = window.setTimeout(() => setInformeTarda(true), 8000);
-  return () => window.clearTimeout(t);
-}, []);
 
 useEffect(() => {
   let vivo = true;
@@ -216,9 +216,15 @@ useEffect(() => {
               <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[
                   ["Puesto", `${tabla.puesto}º de ${tabla.deCuantos}`],
-                  ["Puntos", `${tabla.puntos} en ${tabla.jugados} partidos`],
+                  [
+                    "Puntos",
+                    `${tabla.puntos} en ${tabla.jugados} partidos${tabla.jugados > 0 ? ` · ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por partido` : ""}`,
+                  ],
                   ["Balance", `${tabla.ganados} G · ${tabla.empatados} E · ${tabla.perdidos} P`],
-                  ["Goles", `${tabla.favor} a favor · ${tabla.contra} en contra`],
+                  [
+                    "Goles",
+                    `${tabla.favor} a favor · ${tabla.contra} en contra · diferencia ${tabla.favor - tabla.contra > 0 ? "+" : tabla.favor - tabla.contra < 0 ? "−" : ""}${Math.abs(tabla.favor - tabla.contra)}`,
+                  ],
                 ].map(([etiqueta, valor]) => (
                   <div
                     key={etiqueta}
@@ -278,23 +284,29 @@ useEffect(() => {
               </div>
             ) : null}
 
-            {!informeCargado && informeTarda ? (
-              <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-[#C8A96B]/40 bg-white/[0.04] px-4 py-3 text-sm text-white/80">
-                <span className="min-w-0 flex-1">
-                  El informe tarda en cargar. Puedes abrirlo en una pestaña nueva.
-                </span>
-                <a
-                  href={src}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-full bg-[#C8A96B] px-4 py-2 font-semibold text-black"
-                >
-                  <ExternalLink size={14} />
-                  Abrir el informe
-                </a>
-              </div>
-            ) : null}
+            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-[#C8A96B]/40 bg-white/[0.04] px-4 py-3 text-sm text-white/80">
+              <span className="min-w-0 flex-1">
+                Informe completo de la competición en Power BI. Se abre mejor en una pestaña nueva.
+              </span>
+              <button
+                type="button"
+                onClick={() => setVerInforme((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-full border border-[#C8A96B]/40 px-4 py-2 font-semibold text-white"
+              >
+                {verInforme ? "Ocultar el informe" : "Ver el informe aquí"}
+              </button>
+              <a
+                href={src}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-[#C8A96B] px-4 py-2 font-semibold text-black"
+              >
+                <ExternalLink size={14} />
+                Abrir el informe
+              </a>
+            </div>
 
+            {verInforme ? (
             <div
   ref={dashboardRef}
   className="relative rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden"
@@ -345,15 +357,13 @@ useEffect(() => {
       ${
         isFullscreen
           ? "h-screen"
-          : !informeCargado && informeTarda
-          ? "h-40"
           : "h-[60vh] sm:h-[68vh] lg:h-[680px]"
       }
     `}
     allowFullScreen
-    onLoad={() => setInformeCargado(true)}
   />
 </div>
+            ) : null}
 
             {/* Vídeo */}
             <div ref={videoRef} className="mt-14 sm:mt-20">

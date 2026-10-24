@@ -947,7 +947,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? true : false,
-        pie: "de las que se juegan con pase o conducción",
+        pie: `${adelante(jugadas(actuales))} de ${jugadas(actuales).length} que se juegan con pase o conducción · ${robosMode ? "más, mejor" : "menos, mejor"}`,
       },
       {
         clave: "llegan",
@@ -957,7 +957,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? true : false,
-        pie: "de las que tienen desenlace anotado",
+        pie: `${llegan(seguidas(actuales))} de ${seguidas(actuales).length} con desenlace anotado · ${robosMode ? "más, mejor" : "menos, mejor"}`,
       },
       {
         clave: "cortas",
@@ -967,6 +967,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? false : true,
+        pie: `${cortas(seguidas(actuales))} de ${seguidas(actuales).length} con desenlace anotado · ${robosMode ? "menos, mejor" : "más, mejor"}`,
       },
       {
         clave: "campo",
@@ -982,7 +983,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         actual: duracion(actuales),
         media: duracionMediaDe(anteriores),
         formato: segundos,
-        mejorAlto: null,
+        mejorAlto: robosMode ? null : false,
+        pie: robosMode ? "según el estilo, sin juicio" : "cuanto menos dure su posesión, mejor",
       },
     ];
 
@@ -1150,8 +1152,12 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     const formato = m.formato ?? numeroCorto;
     const { tarea, filtro } = TAREA[m.clave];
 
+    /* La base de la cifra («11 de 66») y, con pocos partidos detrás, que es tendencia. */
+    const base = m.pie?.match(/^\d+ de \d+/)?.[0];
+    const aviso = comparativa.anteriores.n <= 6 ? `, tendencia con ${comparativa.anteriores.n === 1 ? "un solo partido" : `${comparativa.anteriores.n} partidos`} de referencia` : "";
+
     return {
-      texto: `${m.nombre}: ${formato(m.actual!)} frente a ${formato(m.media!)} de media → tarea de ${tarea}.`,
+      texto: `${m.nombre}: ${formato(m.actual!)}${base ? ` (${base})` : ""} frente a ${formato(m.media!)} de media${aviso} → tarea de ${tarea}.`,
       filtro,
     };
   }, [comparativa, modo]);
@@ -1232,12 +1238,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               area="RMCF Castilla · Análisis del partido"
               title={T.titulo}
               lead={
-                modo === "perdidas" ? (
-                  <p className="mt-2 max-w-2xl text-sm text-white/55">
-                    Pérdidas etiquetadas en vídeo, partido a partido: no son las pérdidas por partido de
-                    Wyscout que salen en Data Análisis, que cuentan con otro criterio.
-                  </p>
-                ) : undefined
+                modo === "perdidas"
+                  ? "Pérdidas etiquetadas en vídeo, partido a partido: no son las pérdidas por partido de Wyscout que salen en Data Análisis, que cuentan con otro criterio."
+                  : undefined
               }
             />
 

@@ -380,7 +380,12 @@ export default function Page() {
       }));
 
     return [
-      { value: "ALL", label: `Todos los microciclos (${matches.length})` },
+      {
+        value: "ALL",
+        label: `Todos los microciclos (${matches.length}${
+          matches.some((m) => !m.esLiga) ? `, con ${matches.filter((m) => !m.esLiga).length} de pretemporada` : ""
+        })`,
+      },
       ...list,
     ];
   }, [matches]);
@@ -458,7 +463,8 @@ export default function Page() {
       diff: goalsFor - goalsAgainst,
       winPct: pct(wins),
       drawPct: pct(draws),
-      lossPct: pct(losses),
+      /* El tercero se calcula por resta: tres porcentajes redondeados sumaban 101 %. */
+      lossPct: played > 0 ? Math.max(0, 100 - pct(wins) - pct(draws)) : 0,
       avgFor: played > 0 ? (goalsFor / played).toFixed(1).replace(".", ",") : "0,0",
       avgAgainst: played > 0 ? (goalsAgainst / played).toFixed(1).replace(".", ",") : "0,0",
       lastFive,
