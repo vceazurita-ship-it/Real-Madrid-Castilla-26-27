@@ -248,12 +248,15 @@ function fechaLarga(raw: unknown) {
 
   if (!fecha) return "Sin fecha";
 
-  return fecha.toLocaleDateString("es-ES", {
+  /* «Domingo, 25 de octubre de 2026»: sólo la inicial en mayúscula, que en español «de» no la lleva. */
+  const larga = fecha.toLocaleDateString("es-ES", {
     weekday: "long",
     day: "numeric",
     month: "long",
     year: "numeric",
   });
+
+  return larga.charAt(0).toUpperCase() + larga.slice(1);
 }
 
 function fechaCorta(raw: unknown) {
@@ -649,7 +652,7 @@ function RivalPicker({
             {activo?.EQUIPO || "Selecciona un partido"}
           </span>
 
-          <span className="block truncate text-[11px] capitalize text-white/40">
+          <span className="block truncate text-[11px] text-white/40">
             {fechaLarga(activo?.FECHA)}
           </span>
         </span>
@@ -1811,6 +1814,14 @@ export default function MatchPreparation() {
                   ? `; ${duelosClave.enLosDos === 1 ? "uno cuenta" : `${duelosClave.enLosDos} cuentan`} en los dos sentidos`
                   : ""}
               </span>
+              {duelosClave.ventaja[0] && duelosClave.riesgo[0] && duelosClave.ventaja[0].clave === duelosClave.riesgo[0].clave ? (
+                <span className="min-w-0">
+                  <b className="text-white/85">En los dos sentidos</b>: {duelosClave.ventaja[0].titulo} ({duelosClave.ventaja[0].nuestros.join(" y ")} contra {duelosClave.ventaja[0].suyos.join(" y ")}):{" "}
+                  <span className="text-emerald-300">+{duelosClave.ventaja[0].valor}</span> <span className="text-white/45">con balón nuestro</span> ·{" "}
+                  <span className="text-rose-300">{duelosClave.riesgo[0].valor > 0 ? "+" : ""}{duelosClave.riesgo[0].valor}</span> <span className="text-white/45">con el suyo</span>
+                </span>
+              ) : (
+                <>
               {duelosClave.ventaja[0] && (
                 <span className="min-w-0">
                   <b className="text-emerald-300">Buscar</b> <span className="text-white/45">(con balón nuestro)</span>: {duelosClave.ventaja[0].titulo} ({duelosClave.ventaja[0].nuestros.join(" y ")}, +{duelosClave.ventaja[0].valor})
@@ -1820,6 +1831,8 @@ export default function MatchPreparation() {
                 <span className="min-w-0">
                   <b className="text-rose-300">Vigilar</b> <span className="text-white/45">(con balón suyo)</span>: {duelosClave.riesgo[0].titulo} ({duelosClave.riesgo[0].suyos.join(" y ")}, {duelosClave.riesgo[0].valor > 0 ? "+" : ""}{duelosClave.riesgo[0].valor})
                 </span>
+              )}
+                </>
               )}
               <Link href="/duelos" className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
                 Ver todos los duelos
@@ -2257,9 +2270,7 @@ export default function MatchPreparation() {
                           "
                         />
                       ) : (
-                        <span className="capitalize">
-                          {fechaLarga(rivalActivo.FECHA)}
-                        </span>
+                        <span>{fechaLarga(rivalActivo.FECHA)}</span>
                       )}
                     </DatoCabecera>
 
@@ -2336,7 +2347,7 @@ export default function MatchPreparation() {
                   );
                 })()}
 
-                <div className="grid gap-5 lg:grid-cols-3">
+                <div className="grid items-start gap-5 lg:grid-cols-3">
                   <Bloque
                     titulo="Estado del equipo"
                     icon={Activity}
@@ -2475,6 +2486,10 @@ export default function MatchPreparation() {
                       Dónde ganamos y dónde nos exponemos en el uno contra uno
                     </p>
                   </div>
+
+                  <Link href="/duelos" className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
+                    Quién contra quién, con percentil
+                  </Link>
                 </div>
 
                 {/* Lo que miden los datos: los dos duelos de más ventaja y los dos de más riesgo, con nombre y cifra (de /duelos). */}

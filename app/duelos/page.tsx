@@ -16,7 +16,7 @@
  * en `lib/duelos.ts`.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, CircleDot, RotateCcw, Swords } from "lucide-react";
 
 import { EsqueletoPantalla } from "@/components/ui/estados";
@@ -95,9 +95,29 @@ const apellido = (nombre: string) => {
   return t.length > 1 ? t.slice(1).join(" ") : nombre;
 };
 
+/** Con la inicial del nombre cuando el apellido se repite en el once (J. Martínez, S. Martínez). */
+const apellidoDe = (j: JugadorDuelo): string => j.corto ?? apellido(j.nombre);
+
 /** «RCB» → «central derecho». Lo que no se sabe traducir se deja como viene; vacío, vacío. */
+const ROL_NUMERO: Record<string, string> = {
+  "1": "portero",
+  "2": "lateral derecho",
+  "3": "lateral izquierdo",
+  "4": "central",
+  "5": "central",
+  "6": "mediocentro defensivo",
+  "7": "extremo derecho",
+  "8": "interior",
+  "9": "delantero centro",
+  "10": "mediapunta",
+  "11": "extremo izquierdo",
+};
+
 const puestoLegible = (sigla: string) => {
   const primera = sigla.split(",")[0]?.trim() ?? "";
+
+  /* El número de rol de la hoja («6») se traduce; si no se sabe, no se pinta (24/10/2026). */
+  if (/^\d+$/.test(primera)) return ROL_NUMERO[primera] ?? "";
 
   return puestoEnPalabras(primera) || primera;
 };
@@ -440,7 +460,7 @@ export default function DuelosPage() {
                 <span style={{ color: PEOR }} title="Duelos en los que, con el balón suyo, nos sacan ventaja">
                   ● {vigilar.length} con ventaja suya con balón
                 </span>
-                <span className="text-white/35">un mismo duelo puede salir en las dos</span>
+                <span className="text-white/35">los marcados «cuenta en los dos sentidos» salen en las dos cajas</span>
               </span>
               {!cargando && temporada === undefined && (
                 <span className="basis-full text-[11px] text-white/45">
@@ -623,7 +643,7 @@ function Campo({
           {j ? (nuestro ? (PUESTOS.find((q) => q.key === j.puesto)?.corto ?? "") : j.dorsal || "") : "?"}
         </text>
         <text x={x} y={y + 29} textAnchor="middle" fontSize={11} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"} fontWeight={600}>
-          {j ? apellido(j.nombre) : "—"}
+          {j ? apellidoDe(j) : "—"}
         </text>
       </g>
     );
@@ -690,6 +710,26 @@ function Campo({
 /*  LAS CLAVES                                                         */
 /* ------------------------------------------------------------------ */
 
+/** Los minutos de quien menos ha jugado, contando sólo a los cruzados con Wyscout: sin fila no hay percentil. */
+function baseDe(d: ResultadoDuelo) {
+  const lado = (l: JugadorDuelo[]) => {
+    const con = l.filter((j) => j.wyscout);
+
+    return { min: con.length ? Math.min(...con.map((j) => j.minutos || 0)) : 0, solo: con.length < l.length && con.length === 1 ? apellidoDe(con[0]) : "" };
+  };
+  const n = lado(d.nuestros);
+  const s = lado(d.suyos);
+  const partes = [
+    n.min > 0 ? `${n.min}′${n.solo ? ` (sólo ${n.solo})` : ""} los nuestros` : "",
+    s.min > 0 ? `${s.min}′${s.solo ? ` (sólo ${s.solo})` : ""} los suyos` : "",
+  ].filter(Boolean);
+
+  return {
+    poca: (n.min > 0 && n.min < MINUTOS_MUESTRA) || (s.min > 0 && s.min < MINUTOS_MUESTRA) || n.min === 0 || s.min === 0,
+    texto: partes.length ? `Base: ${partes.join(" · ")}` : "",
+  };
+}
+
 function Claves({
   titulo,
   lista,
@@ -717,16 +757,14 @@ function Claves({
         <p className="mt-2 text-sm text-white/45">{vacio}</p>
       ) : (
         <ul className="mt-2 space-y-2.5">
-          {lista.slice(0, 4).map((d) => {
+          {[...lista].sort((a, b) => Number(baseDe(a).poca) - Number(baseDe(b).poca)).slice(0, 4).map((d) => {
             const bloque = d.bloques.find((b) => b.sentido === sentido);
             const valor = bloque?.balance ?? null;
             const marcadas = (bloque?.facetas ?? []).filter((f) => f.veredicto === (sentido === "con" ? "ventaja" : "desventaja"));
             const tambien = contraria.some((o) => o.def.clave === d.def.clave);
             /* Los minutos de quien menos ha jugado en cada lado: de ahí sale el percentil. */
-            const minutosDe = (l: JugadorDuelo[]) => (l.length ? Math.min(...l.map((j) => j.minutos || 0)) : 0);
-            const minNuestros = minutosDe(d.nuestros);
-            const minSuyos = minutosDe(d.suyos);
-            const pocaMuestra = minNuestros < MINUTOS_MUESTRA || minSuyos < MINUTOS_MUESTRA;
+            const base = baseDe(d);
+            const pocaMuestra = base.poca;
             return (
             <li key={d.def.clave}>
               <button
@@ -752,15 +790,21 @@ function Claves({
                     ? marcadas.map((f) => `${f.titulo} (P${f.nuestro} contra P${f.suyo})`).join(" · ")
                     : "Ventaja repartida, sin un enfrentamiento que se despegue."}
                 </span>
-                {tambien && (
-                  <span className="mt-0.5 block text-xs text-white/50">
-                    Es el mismo duelo en los dos sentidos: {d.conBalon !== null && d.conBalon > 0 ? "+" : ""}
-                    {d.conBalon} con el balón nuestro y {d.sinBalon !== null && d.sinBalon > 0 ? "+" : ""}
-                    {d.sinBalon} con el suyo; depende de quién lo tenga.
-                  </span>
-                )}
-                <span className="mt-0.5 block text-[11px] text-white/35">
-                  Base: {minNuestros}′ los nuestros · {minSuyos}′ los suyos{pocaMuestra ? " · poca muestra, tómalo como indicio" : ""}
+                <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-white/45">
+                  {tambien && (
+                    <span
+                      className="rounded-full border border-white/15 px-2 py-0.5 font-semibold text-white/60"
+                      title={`Con el balón nuestro ${d.conBalon !== null && d.conBalon > 0 ? "+" : ""}${d.conBalon}; con el suyo ${d.sinBalon !== null && d.sinBalon > 0 ? "+" : ""}${d.sinBalon}`}
+                    >
+                      cuenta en los dos sentidos
+                    </span>
+                  )}
+                  {pocaMuestra && (
+                    <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: "rgba(200,169,107,0.18)", color: ORO }}>
+                      poca muestra
+                    </span>
+                  )}
+                  <span className="text-white/35">{base.texto}</span>
                 </span>
               </button>
             </li>
@@ -901,7 +945,7 @@ function Alineaciones({
 /** Qué se mira: con el balón nuestro, con el suyo, o los dos. */
 type Modo = "nuestro" | "suyo" | "ambos";
 
-const nombresDe = (lista: JugadorDuelo[]) => lista.map((j) => apellido(j.nombre)).join(" y ") || "nadie";
+const nombresDe = (lista: JugadorDuelo[]) => lista.map(apellidoDe).join(" y ") || "nadie";
 
 const verbo = (lista: JugadorDuelo[], singular: string) => (lista.length > 1 ? `${singular}n` : singular);
 
@@ -958,8 +1002,11 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
               <span className="min-w-0 text-right">{equipo} · {aire ? "por arriba" : nuestroBalon ? "sin balón" : "con balón"}</span>
             </div>
 
-            <div className="mt-1.5 space-y-2.5">
-              {b.facetas.filter((f) => f.nuestro !== null && f.suyo !== null).map((f) => {
+            <FacetasRecortadas
+              items={b.facetas.filter((f) => f.nuestro !== null && f.suyo !== null).map((f) => ({
+                diff: Math.abs((f.nuestro ?? 0) - (f.suyo ?? 0)),
+                key: f.titulo,
+                nodo: (() => {
                 const gana =
                   f.veredicto === "ventaja"
                     ? { texto: `gana ${nombresDe(d.nuestros)}`, color: MEJOR }
@@ -970,7 +1017,7 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
                         : { texto: "sin datos", color: tinta(0.3) };
 
                 return (
-                  <div key={f.titulo} title={`${f.explica}\n${f.frase}`}>
+                  <div title={`${f.explica}\n${f.frase}`}>
                     <div className="flex items-baseline justify-between gap-2 text-[11px]">
                       <span className="w-10 tabular-nums" style={{ color: f.nuestro === null ? tinta(0.3) : ORO }}>
                         {f.nuestro === null ? "—" : `P${f.nuestro}`}
@@ -999,11 +1046,40 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
                     </div>
                   </div>
                 );
-              })}
-            </div>
+                })(),
+              }))}
+            />
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* Las dos métricas con más diferencia a la vista; el resto, desplegable (24/10/2026). */
+function FacetasRecortadas({ items }: { items: { diff: number; key: string; nodo: ReactNode }[] }) {
+  const [todas, setTodas] = useState(false);
+  const orden = [...items].sort((a, b) => b.diff - a.diff);
+  const vistas = todas ? items : orden.slice(0, 2);
+  const resto = items.length - 2;
+
+  return (
+    <div className="mt-1.5 space-y-2.5">
+      {vistas.map((i) => (
+        <div key={i.key}>{i.nodo}</div>
+      ))}
+      {resto > 0 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setTodas((v) => !v);
+          }}
+          className="text-[11px] font-semibold text-[#C8A96B] hover:underline"
+        >
+          {todas ? "Ver sólo las dos de más diferencia" : `Ver las ${resto} restantes`}
+        </button>
+      )}
     </div>
   );
 }
@@ -1097,7 +1173,7 @@ function Tarjeta({
       {/* Si el rival no juega con mediapunta, el hueco lo ocupa otro puesto: se dice cuál. */}
       {enHuecoMedia.map(({ j, de }) => (
         <p key={j.clave} className="mt-2 text-[11px] text-white/50">
-          {de === "nuestro" ? "En nuestro once" : `En el once de ${equipo}`} no hay mediapunta: {apellido(j.nombre)} ocupa ese hueco y juega de {puestoLegible(j.posicion)}.
+          {de === "nuestro" ? "En nuestro once" : `En el once de ${equipo}`} no hay mediapunta: {apellidoDe(j)} ocupa ese hueco y juega de {puestoLegible(j.posicion)}.
         </p>
       ))}
 

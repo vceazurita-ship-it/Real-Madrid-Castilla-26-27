@@ -51,6 +51,8 @@ export type JugadorDuelo = {
   minutos: number;
   /** Su fila de Wyscout de esta temporada, si se ha encontrado. */
   wyscout: FilaJugador | null;
+  /** Apellido con inicial cuando se repite en el once («J. Martínez»); si no, el apellido a secas. */
+  corto?: string;
   /** El id de su ficha en nuestra plantilla (sólo nuestros): para casar con el último once de Valoraciones. */
   fichaId?: string;
 };
@@ -316,7 +318,24 @@ const apellido = (nombre: string) => {
   return t.length > 1 ? t.slice(1).join(" ") : nombre;
 };
 
-const nombres = (lista: JugadorDuelo[]) => lista.map((j) => apellido(j.nombre)).join(" y ");
+const nombres = (lista: JugadorDuelo[]) => lista.map((j) => j.corto ?? apellido(j.nombre)).join(" y ");
+
+/** Pone la inicial del nombre a quien comparte apellido con otro de la lista: «J. Martínez» y «S. Martínez». */
+export function conApellidosClaros(lista: JugadorDuelo[]): JugadorDuelo[] {
+  const cuenta = new Map<string, number>();
+
+  lista.forEach((j) => {
+    const a = apellido(j.nombre).toLowerCase();
+    cuenta.set(a, (cuenta.get(a) ?? 0) + 1);
+  });
+
+  return lista.map((j) => {
+    const a = apellido(j.nombre);
+    const inicial = j.nombre.trim().split(/\s+/).length > 1 ? j.nombre.trim()[0] : "";
+
+    return (cuenta.get(a.toLowerCase()) ?? 0) > 1 && inicial ? { ...j, corto: `${inicial.toUpperCase()}. ${a}` } : j;
+  });
+}
 
 /** «ataca» / «atacan», según sean uno o dos. */
 const verbo = (lista: JugadorDuelo[], singular: string) => (lista.length > 1 ? singular + "n" : singular);
@@ -327,7 +346,7 @@ function fraseDe(f: Omit<ResultadoFaceta, "frase">): string {
     return `${f.titulo}: sin datos fiables de ${falta}.`;
   }
   const lado = (ms: Medida[], col: string) =>
-    ms.map((m) => `${apellido(m.jugador.nombre)} ${formatea(col, m.valor)} (P${m.percentil})`).join(", ");
+    ms.map((m) => `${m.jugador.corto ?? apellido(m.jugador.nombre)} ${formatea(col, m.valor)} (P${m.percentil})`).join(", ");
   const inicio = f.veredicto === "ventaja" ? "Ventaja" : f.veredicto === "desventaja" ? "Desventaja" : "Parejo";
   return `${inicio} en ${f.titulo.toLowerCase()}: ${lado(f.nuestros, f.columnaNuestra)} en ${rotuloColumna(f.columnaNuestra).toLowerCase()} frente a ${lado(f.suyos, f.columnaSuya)} en ${rotuloColumna(f.columnaSuya).toLowerCase()}.`;
 }

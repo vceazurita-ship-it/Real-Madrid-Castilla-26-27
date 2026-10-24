@@ -19,6 +19,7 @@ import type { InformeEquipo } from "@/lib/rivals/informe";
 import {
   HUECO_VACIO,
   alturaEnCm,
+  conApellidosClaros,
   mideDuelos,
   referenciasPorPuesto,
   type DuelosDoc,
@@ -84,7 +85,7 @@ export function nuestrosDe(jugadores: FilaJugador[], fichas: FichaPropia[]): Jug
         fichaId: p.id,
       };
     });
-  return [...deWyscout, ...sinWyscout];
+  return conApellidosClaros([...deWyscout, ...sinWyscout]);
 }
 
 /** Los suyos: la plantilla de la hoja RIVALES, cada uno con su fila de Wyscout si se encuentra. */
