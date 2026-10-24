@@ -87,6 +87,9 @@ const ROTULO: Record<Veredicto, string> = {
   "sin-datos": "Sin datos",
 };
 
+/** Por debajo de estos minutos un percentil sale de muy pocos partidos. */
+const MINUTOS_MUESTRA = 450;
+
 const apellido = (nombre: string) => {
   const t = nombre.trim().split(/\s+/);
   return t.length > 1 ? t.slice(1).join(" ") : nombre;
@@ -505,8 +508,8 @@ export default function DuelosPage() {
                   </div>
 
                   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                    {modo !== "suyo" && <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" lista={atacar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo claramente a favor." onElige={setElegido} />}
-                    {modo !== "nuestro" && <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" lista={vigilar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo claramente en contra." onElige={setElegido} />}
+                    {modo !== "suyo" && <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" lista={atacar} contraria={vigilar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo claramente a favor." onElige={setElegido} />}
+                    {modo !== "nuestro" && <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" lista={vigilar} contraria={atacar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo claramente en contra." onElige={setElegido} />}
                   </div>
                 </div>
 
@@ -694,6 +697,7 @@ function Claves({
   color,
   vacio,
   onElige,
+  contraria = [],
 }: {
   titulo: string;
   lista: ResultadoDuelo[];
@@ -701,6 +705,8 @@ function Claves({
   color: string;
   vacio: string;
   onElige: (clave: string) => void;
+  /** La otra caja: un duelo que sale en las dos se dice como uno solo, no como una contradicción. */
+  contraria?: ResultadoDuelo[];
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4" style={{ borderTopColor: color, borderTopWidth: 3 }}>
@@ -715,6 +721,12 @@ function Claves({
             const bloque = d.bloques.find((b) => b.sentido === sentido);
             const valor = bloque?.balance ?? null;
             const marcadas = (bloque?.facetas ?? []).filter((f) => f.veredicto === (sentido === "con" ? "ventaja" : "desventaja"));
+            const tambien = contraria.some((o) => o.def.clave === d.def.clave);
+            /* Los minutos de quien menos ha jugado en cada lado: de ahí sale el percentil. */
+            const minutosDe = (l: JugadorDuelo[]) => (l.length ? Math.min(...l.map((j) => j.minutos || 0)) : 0);
+            const minNuestros = minutosDe(d.nuestros);
+            const minSuyos = minutosDe(d.suyos);
+            const pocaMuestra = minNuestros < MINUTOS_MUESTRA || minSuyos < MINUTOS_MUESTRA;
             return (
             <li key={d.def.clave}>
               <button
@@ -739,6 +751,16 @@ function Claves({
                   {marcadas.length
                     ? marcadas.map((f) => `${f.titulo} (P${f.nuestro} contra P${f.suyo})`).join(" · ")
                     : "Ventaja repartida, sin un enfrentamiento que se despegue."}
+                </span>
+                {tambien && (
+                  <span className="mt-0.5 block text-xs text-white/50">
+                    Es el mismo duelo en los dos sentidos: {d.conBalon !== null && d.conBalon > 0 ? "+" : ""}
+                    {d.conBalon} con el balón nuestro y {d.sinBalon !== null && d.sinBalon > 0 ? "+" : ""}
+                    {d.sinBalon} con el suyo; depende de quién lo tenga.
+                  </span>
+                )}
+                <span className="mt-0.5 block text-[11px] text-white/35">
+                  Base: {minNuestros}′ los nuestros · {minSuyos}′ los suyos{pocaMuestra ? " · poca muestra, tómalo como indicio" : ""}
                 </span>
               </button>
             </li>

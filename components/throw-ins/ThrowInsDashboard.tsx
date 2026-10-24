@@ -428,6 +428,17 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       );
     }
 
+    /* La consigna: dónde nos hacen más daño, no sólo dónde más robamos. */
+    const zonasPeligro = gruposDe(rows, "Zona_Saque", mode).filter((g) => g.produccion > 0 && g.n >= 3);
+
+    if (zonasPeligro.length) {
+      const peorZona = extremo(zonasPeligro, produccionTasa, true);
+
+      frases.push(
+        `Más peligro concedido: saques desde ${nombreDe(peorZona.key, peorZona.valor)}, ${peorZona.produccion} de ${peorZona.n} a último tercio; ahí hay que cerrar.${indicio(peorZona.n)}`,
+      );
+    }
+
     if (resumen.transicion > 0) {
       frases.push(
         `Tras robar: ${resumen.transicion} ${resumen.transicion === 1 ? "transición" : "transiciones"} a último tercio o más.`,
@@ -531,12 +542,14 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
     criterio: (row: RecordRow) => boolean,
     mejorAlto: boolean | null,
     pie?: string,
+    conBase = true,
   ): MetricaComparada => ({
     clave,
     nombre,
     actual: cuentaDe(criterio)(actual),
     media: mediaPorPartido(anteriores, cuentaDe(criterio)),
     mejorAlto,
+    ...(conBase ? { de: actual.length, unidad: "saques" } : {}),
     pie: juntaPie(pie, sentidoTexto(mejorAlto)),
   });
 
@@ -555,16 +568,15 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
     media: porcentajeAgregado(anteriores, cuentaDe(criterio), total),
     formato: formatoPorcentaje,
     mejorAlto,
-    /* La base de cada porcentaje a la vista: «8 de 17 saques». */
-    pie: juntaPie(
-      `${cuentaDe(criterio)(actual)} de ${actual.length} ${actual.length === 1 ? "saque" : "saques"}`,
-      pie,
-      sentidoTexto(mejorAlto),
-    ),
+    /* La base de cada porcentaje a la vista, en la propia fila: «8 de 17». */
+    n: cuentaDe(criterio)(actual),
+    de: actual.length,
+    unidad: "saques",
+    pie: juntaPie(pie, sentidoTexto(mejorAlto)),
   });
 
   return [
-    cuenta("saques", ofensivo ? "Saques" : "Saques del rival", () => true, null),
+    cuenta("saques", ofensivo ? "Saques" : "Saques del rival", () => true, null, undefined, false),
     /* Una sola medida del balón: el que acaba en nuestras manos. En defensa
        es la recuperación de la tarjeta de arriba, no «lo que conserva el rival»,
        que contaba otra cosa y no sumaba 100 con ella. */
@@ -1224,6 +1236,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   );
 
   const totals = useMemo(() => resumenDe(filtered, mode), [filtered, mode]);
+  /* La calidad media de todos los saques, para saber si la del filtro es alta o baja. */
+  const calidadGlobal = useMemo(() => resumenDe(rows, mode).calidad, [rows, mode]);
 
   /* Las frases de arriba, con las mismas filas filtradas que los gráficos. */
   const conclusiones = useMemo(() => conclusionesDe(filtered, mode), [filtered, mode]);
@@ -1667,22 +1681,24 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     value={`${totals.produccion} · ${Math.round(totals.produccionPct)} %`}
                     hint={
                       isOffensive
-                        ? "Conquista de último tercio, ocasión o gol nuestro"
-                        : "Conquista de último tercio, ocasión o gol del rival · menos es mejor"
+                        ? `${totals.produccion} de ${totals.acciones} saques llegan a último tercio, ocasión o gol nuestro`
+                        : `${totals.produccion} de ${totals.acciones} saques le llegan a último tercio, ocasión o gol del rival · menos es mejor`
                     }
                   />
                   {!isOffensive ? (
                     <MetricCard
-                      label="Transición"
+                      label="Transiciones tras robo"
                       value={`${totals.transicion} · ${Math.round(totals.transicionPct)} %`}
-                      hint="Robamos el saque rival y llegamos a último tercio, ocasión o gol"
+                      hint={`${totals.transicion} de ${totals.acciones} saques: robamos el del rival y llegamos a último tercio, ocasión o gol`}
                     />
                   ) : null}
                   {totals.calidad === null ? null : (
                     <MetricCard
                       label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}
                       value={`${totals.calidad.toFixed(1).replace(".", ",")} / 4`}
-                      hint="Escala de la hoja, de 1 a 4: más es mejor"
+                      hint={`Escala de la hoja: 1 (peor) a 4 (mejor envío)${
+                        calidadGlobal === null ? "" : ` · global ${calidadGlobal.toFixed(1).replace(".", ",")} / 4`
+                      }`}
                     />
                   )}
                 </div>

@@ -10,7 +10,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { getPlayerImage, normalizePlayerName } from "@/lib/playerImages";
 import { nombrePuesto, posicionDe } from "@/lib/posiciones";
-import { licenciaDe } from "@/lib/fichajes";
+import { esDelCastilla, licenciaDe } from "@/lib/fichajes";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { summarizePlayer, formatRating } from "@/lib/ratings/compute";
 import type { RatingsSeason } from "@/lib/ratings/types";
@@ -439,7 +439,7 @@ export default function DashboardPlantilla() {
           /* Sin licencia escrita cuenta como del Castilla, igual que en
              `hooks/usePlayers` (19/10/2026): si no, «la misma regla que el
              resto» dejaba fuera de «Del Castilla» a quien la tuviera vacía. */
-          activo: (licencia.trim() || "RMCF Castilla") === "RMCF Castilla",
+          activo: esDelCastilla(nombre, licencia),
 
           mentalidad,
           habitos,

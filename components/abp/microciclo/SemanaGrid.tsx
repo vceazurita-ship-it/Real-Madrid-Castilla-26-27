@@ -440,9 +440,10 @@ function DiaColumna({
   );
 
   /* Tareas con minutos pero sin carga calculable (falta la intensidad). */
-  const sinCarga = plan.trabajos.filter(
+  const trabajosSinCarga = plan.trabajos.filter(
     (trabajo) => (trabajo.minutos || 0) > 0 && cargaCondicional(trabajo) <= 0,
-  ).length;
+  );
+  const sinCarga = trabajosSinCarga.length;
 
   const descansa = plan.tipo === "descanso";
 
@@ -565,7 +566,7 @@ function DiaColumna({
           <span className="font-semibold text-white/75">{fmtMin(minutos)}</span>
 
           {(carga > 0 || cargaCog > 0 || sinCarga > 0) && (
-            <span className="text-white/40">
+            <span className="text-white/40" title="Carga = intensidad × minutos. La cognitiva usa la exigencia en lugar de la intensidad.">
               {[
                 carga > 0 ? `carga ${Math.round(carga)}` : "",
                 cargaCog > 0 ? `cognitiva ${Math.round(cargaCog)}` : "",
@@ -573,7 +574,7 @@ function DiaColumna({
                 sinCarga > 0
                   ? sinCarga === plan.trabajos.length
                     ? "sin intensidad anotada"
-                    : `${sinCarga} sin intensidad`
+                    : `${trabajosSinCarga.map((trabajo) => fmtMin(trabajo.minutos)).join(" + ")} sin intensidad`
                   : "",
               ]
                 .filter(Boolean)

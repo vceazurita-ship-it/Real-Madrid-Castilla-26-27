@@ -869,6 +869,7 @@ const comparativa = (() => {
       actual: remates(actual),
       media: mediaPorPartido(anteriores, remates),
       mejorAlto: true,
+      de: total(actual),
     },
     {
       clave: "conRemate",
@@ -877,6 +878,8 @@ const comparativa = (() => {
       media: porcentajeAgregado(anteriores, remates, total),
       formato: formatoPorcentaje,
       mejorAlto: true,
+      n: remates(actual),
+      de: total(actual),
     },
     {
       clave: "xg",
@@ -885,6 +888,7 @@ const comparativa = (() => {
       media: mediaPorPartido(anteriores, xg),
       formato: dosDecimales,
       mejorAlto: true,
+      de: total(actual),
     },
     {
       clave: "goles",
@@ -892,6 +896,7 @@ const comparativa = (() => {
       actual: goles(actual),
       media: mediaPorPartido(anteriores, goles),
       mejorAlto: true,
+      de: total(actual),
     },
     {
       clave: "peligro",
@@ -900,7 +905,9 @@ const comparativa = (() => {
       media: porcentajeAgregado(anteriores, peligro, total),
       formato: formatoPorcentaje,
       mejorAlto: true,
-      pie: "sobre las acciones · más es mejor · frente a la media de los partidos anteriores",
+      n: peligro(actual),
+      de: total(actual),
+      pie: "más es mejor",
     },
   ];
 
@@ -1275,8 +1282,10 @@ const mejorSacador = [...sin()]
 const baseSacador = (() => {
   if (!mejorSacador) return "";
   const conSacador = sin().filter((r) => r.sacador);
-  const suyos = conSacador.filter((r) => r.sacador === mejorSacador).length;
-  return `${suyos} de ${conSacador.length} envíos${
+  const suyas = conSacador.filter((r) => r.sacador === mejorSacador);
+  const suyos = suyas.length;
+  const xgEnvio = suyos ? suyas.reduce((t, r) => t + r.xg, 0) / suyos : 0;
+  return `${dosDecimales(xgEnvio)} xG por envío · ${suyos} de ${conSacador.length} envíos${
     conSacador.length < 5 ? " · tendencia" : ""
   }`;
 })();
@@ -2648,9 +2657,9 @@ const pie = (
 </div>
     <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-5 sm:mt-6">
       <Card
-        title="ABP"
+        title="Acciones lanzadas"
         value={metrics.total}
-        hint="Acciones lanzadas"
+        hint="Córners y faltas a favor"
       />
 
       <Card
@@ -2662,7 +2671,7 @@ const pie = (
       <Card
         title="Remates"
         value={metrics.shots}
-        hint="Acciones que acaban en remate"
+        hint={`Remates sobre ${metrics.total} acciones`}
       />
 
       <Card
@@ -2686,7 +2695,7 @@ const pie = (
 <Card
   title="Gol u ocasión"
   value={`${tasaPeligro.toFixed(1).replace(".", ",")} %`}
-  hint="ABP que terminan en peligro real"
+  hint={`Gol u ocasión en ${accionesPeligrosas} de ${metrics.total} acciones`}
 />
 
 <button

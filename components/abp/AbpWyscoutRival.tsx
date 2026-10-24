@@ -98,7 +98,7 @@ export function AbpWyscoutRival({
     let cancelado = false;
 
     traeJson<{ ok?: boolean } & Partial<Datos>>(
-      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}`,
+      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=2`,
     )
       .then((r) => {
         if (cancelado) return;

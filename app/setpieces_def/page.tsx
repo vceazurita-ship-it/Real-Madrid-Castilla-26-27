@@ -813,6 +813,8 @@ const comparativa = (() => {
   const golesRmcf = (filas: Row[]) =>
     filas.filter((r) => normalizaResultado(r.resultadoFinal) === "Gol RMCF").length;
   const peligro = (filas: Row[]) => filas.filter(LECTOR.peligro).length;
+  const segundosGanados = (filas: Row[]) => filas.filter((r) => /gan/i.test(r.segundoBalon)).length;
+  const segundosJugados = (filas: Row[]) => filas.filter((r) => /gan|perd/i.test(r.segundoBalon)).length;
   const xg = (filas: Row[]) => filas.reduce((a, r) => a + r.xg, 0);
 
   /* Las últimas cinco jornadas, la elegida incluida: tendencia y no un punto. */
@@ -844,6 +846,7 @@ const comparativa = (() => {
       actual: remates(actual),
       media: mediaPorPartido(anteriores, remates),
       mejorAlto: false,
+      de: total(actual),
     },
     {
       clave: "conRemate",
@@ -852,6 +855,8 @@ const comparativa = (() => {
       media: porcentajeAgregado(anteriores, remates, total),
       formato: formatoPorcentaje,
       mejorAlto: false,
+      n: remates(actual),
+      de: total(actual),
     },
     {
       clave: "xg",
@@ -860,6 +865,7 @@ const comparativa = (() => {
       media: mediaPorPartido(anteriores, xg),
       formato: dosDecimales,
       mejorAlto: false,
+      de: total(actual),
     },
     {
       clave: "golesRival",
@@ -867,6 +873,7 @@ const comparativa = (() => {
       actual: golesRival(actual),
       media: mediaPorPartido(anteriores, golesRival),
       mejorAlto: false,
+      de: total(actual),
     },
     {
       clave: "peligro",
@@ -875,7 +882,9 @@ const comparativa = (() => {
       media: porcentajeAgregado(anteriores, peligro, total),
       formato: formatoPorcentaje,
       mejorAlto: false,
-      pie: "sobre las acciones · menos es mejor · frente a la media de los partidos anteriores",
+      n: peligro(actual),
+      de: total(actual),
+      pie: "menos es mejor",
     },
     {
       clave: "golesRmcf",
@@ -884,6 +893,17 @@ const comparativa = (() => {
       media: mediaPorPartido(anteriores, golesRmcf),
       mejorAlto: true,
       pie: "tras transición",
+    },
+    {
+      clave: "segundoBalon",
+      nombre: "Segundos balones ganados",
+      actual: porcentajeDe(actual, segundosGanados, segundosJugados),
+      media: porcentajeAgregado(anteriores, segundosGanados, segundosJugados),
+      formato: formatoPorcentaje,
+      mejorAlto: true,
+      n: segundosGanados(actual),
+      de: segundosJugados(actual),
+      pie: "más es mejor",
     },
   ];
 
@@ -2271,7 +2291,7 @@ const conclusiones = useMemo(() => {
 
   if (envio && envio.valor > 0) {
     frases.push(
-      `Más daño con el envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción, sobre ${envio.n} acciones.`,
+      `Más daño con el envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción, sobre ${envio.n} acciones (media de las ${filtered.length} defendidas: ${cifra(filtered.reduce((a, r) => a + r.xg, 0) / filtered.length, 2)}).`,
     );
   }
 
@@ -2546,7 +2566,7 @@ const pie = (
         ).toFixed(1).replace(".", ",")} %`
       : "0%"
   }
-  hint="ABP del rival que acaban en remate"
+  hint="ABP del rival que acaban en remate · menos es mejor"
   />
 
 <Card
@@ -2556,23 +2576,23 @@ const pie = (
       ? dosDecimales(metrics.xg / metrics.shots)
       : "0"
   }
-  hint="Calidad media del remate concedido"
+  hint="Calidad media del remate concedido · menos es mejor"
   />
 
   <Card
     title="xG"
     value={dosDecimales(metrics.xg)}
-  hint="Goles esperados concedidos"
+  hint="Goles esperados concedidos · menos es mejor"
   />
 
   <Card
     title="Remates"
     value={metrics.shots.toLocaleString()}
-  hint="Concedidos a balón parado"
+  hint="Concedidos a balón parado · menos es mejor"
   />
 
   <Card
-  title="Gol Rival"
+  title="Goles encajados de ABP"
   value={metrics.goalsAgainst.toLocaleString()}
   hint="Encajados desde su ABP"
   activo={resultadoFilter === "Gol Rival"}
@@ -2580,7 +2600,7 @@ const pie = (
   />
 
 <Card
-  title="Goles nuestros tras su ABP"
+  title="Goles nuestros tras robar su ABP"
   value={metrics.goalsRMCF.toLocaleString()}
   hint="Los marcamos al salir al contragolpe"
   activo={resultadoFilter === "Gol RMCF"}
@@ -2590,7 +2610,7 @@ const pie = (
 <Card
   title="Gol u ocasión"
   value={`${tasaPeligro.toFixed(1).replace(".", ",")} %`}
-  hint="ABP que nos generan peligro real"
+  hint="ABP que nos generan peligro real · menos es mejor"
   />
   {(mayorPerfil || perfilGolpeoFilter !== "ALL") && (
   <button

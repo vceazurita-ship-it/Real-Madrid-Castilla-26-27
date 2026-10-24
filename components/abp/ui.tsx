@@ -1085,12 +1085,18 @@ export function SaveState({
     );
   }
 
-  const hora = savedAt
-    ? new Date(savedAt).toLocaleTimeString("es-ES", {
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : null;
+  /* Siempre la hora de Madrid, y una marca sin huso se lee como UTC: la
+     misma versión guardada daba 06:41 en una pantalla y 16:41 en otra. */
+  const marca = savedAt && !/(Z|[+-]\d{2}:?\d{2})$/.test(savedAt) ? `${savedAt}Z` : savedAt;
+  const fecha = marca ? new Date(marca) : null;
+  const hora =
+    fecha && !Number.isNaN(fecha.getTime())
+      ? fecha.toLocaleTimeString("es-ES", {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Europe/Madrid",
+        })
+      : null;
 
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] text-white/40">

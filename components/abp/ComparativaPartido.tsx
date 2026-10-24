@@ -48,7 +48,16 @@ export type MetricaComparada = {
   tendencia?: boolean;
   /** Lo que se lee en la diferencia cuando coinciden y la base es pequeña: «de 7 faltas». */
   igualEn?: string;
+  /** Sobre cuántas acciones sale la cifra de este partido: «de 4 acciones». */
+  de?: number;
+  /** Del porcentaje, cuántas de esas acciones cumplen: «0 de 4». */
+  n?: number;
+  /** Cómo se llaman esas acciones: por defecto «acciones». */
+  unidad?: string;
 };
+
+/** Con menos acciones que éstas, una diferencia es un indicio y no un dato. */
+export const MUESTRA_MINIMA_FILA = 5;
 
 export type TiraJornadas = {
   /** Cabecera de cada columna: «J3», «J4»… */
@@ -95,7 +104,7 @@ function diferencia(d: number, formato: (n: number) => string, entrePorcentajes:
   if (Math.abs(d) < 0.05) return "igual";
 
   /* Entre dos porcentajes la diferencia son puntos, no un «% más». */
-  if (entrePorcentajes) return `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))} pp`;
+  if (entrePorcentajes) return `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))} pts`;
 
   return `${d > 0 ? "+" : "−"}${formato(Math.abs(d))}`;
 }
@@ -137,7 +146,8 @@ export function ComparativaPartido({
             {/* La clave de colores va en la nota, que sólo sale con los textos
                 explicativos: al pasar por encima se lee igual. */}
             <span className="text-right" title="Verde: mejor que de costumbre · naranja: peor · gris: no se juzga">
-              Diferencia
+              <span className="sm:hidden">Dif.</span>
+              <span className="hidden sm:inline">Diferencia</span>
             </span>
           </div>
 
@@ -157,7 +167,15 @@ export function ComparativaPartido({
                 m.actual !== null && m.media !== null
                   ? visto(m.actual, porcentaje) - visto(m.media, porcentaje)
                   : null;
-              const mejor = d !== null && juzga && Math.abs(d) >= 0.05 ? (d > 0) === m.mejorAlto : null;
+              /* Con menos de cinco acciones detrás, la fila se enseña pero no se juzga. */
+              const indicio = m.de !== undefined && m.de < MUESTRA_MINIMA_FILA;
+              const mejor = !indicio && d !== null && juzga && Math.abs(d) >= 0.05 ? (d > 0) === m.mejorAlto : null;
+              const baseTexto =
+                m.de === undefined
+                  ? null
+                  : m.n !== undefined
+                    ? `${m.n} de ${m.de}`
+                    : `de ${m.de} ${m.unidad ?? "acciones"}`;
               /* Como texto y en `style`, que la tabla del modo día no alcanza
                  (19/10/2026): el gris de «igual» era blanco y no se veía, y
                  el verde y el naranja puros no llegaban a leerse sobre blanco. */
@@ -168,11 +186,17 @@ export function ComparativaPartido({
               return (
                 <li
                   key={m.clave}
+                  style={indicio ? { opacity: 0.7 } : undefined}
                   className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-x-3 px-4 py-2.5 sm:pl-5 sm:pr-16"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-white/85">{m.nombre}</p>
-                    {m.pie && <p className="truncate text-[11px] text-white/35">{m.pie}</p>}
+                    <p className="text-sm text-white/85 sm:truncate">{m.nombre}</p>
+                    {(m.pie || baseTexto) && (
+                      <p className="text-[11px] text-white/35 sm:truncate">
+                        {[baseTexto, m.pie].filter(Boolean).join(" · ")}
+                        {indicio ? " · indicio" : ""}
+                      </p>
+                    )}
                     {m.tendencia ? (
                       <p className="mt-1 text-[11px] font-medium" style={{ color: "rgb(var(--rmcf-ink-rgb) / .55)" }}>tendencia, pocos casos</p>
                     ) : (

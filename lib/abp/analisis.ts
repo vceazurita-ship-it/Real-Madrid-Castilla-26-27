@@ -130,7 +130,7 @@ const formatoXg = (valor: number) => valor.toFixed(2).replace(".", ",");
 
 export const METRICAS: Record<ClaveMetrica, Metrica> = {
   peligro: {
-    label: "Peligro",
+    label: "Gol u ocasión",
     glosa: "acciones que acaban en gol u ocasión",
     medir: (e) => (e.length ? pct(e.filter((uno) => uno.peligro).length, e.length) : null),
     formatear: formatoPct,
@@ -301,7 +301,7 @@ function comparaMetrica(
       delta == null
         ? ""
         : metrica.porcentual
-          ? `${signo(delta, Math.abs(delta) < 10 ? 1 : 0)} pp`
+          ? `${signo(delta, Math.abs(delta) < 10 ? 1 : 0)} puntos`
           : signo(delta, 2),
     tono: fiable ? tonoDe(delta, sentidoDe(clave, sentido), umbral) : "neutro",
     fiable,
@@ -638,17 +638,17 @@ function analizaReparto(
   } else {
     frases.push(
       `Manda «${lider.nombre}» con el ${formatoPct(lider.cuota)} de las acciones${
-        Math.abs(lider.deltaPp) >= 5 ? ` (${signo(lider.deltaPp)} pp sobre su peso global)` : ""
+        Math.abs(lider.deltaPp) >= 5 ? ` (${signo(lider.deltaPp)} puntos sobre su peso global)` : ""
       }.`,
     );
   }
 
   if (!escasa && sube && sube.nombre !== lider.nombre && sube.deltaPp >= 5) {
-    frases.push(`Gana peso «${sube.nombre}» (${signo(sube.deltaPp)} pp).`);
+    frases.push(`Gana peso «${sube.nombre}» (${signo(sube.deltaPp)} puntos).`);
   }
 
   if (!escasa && baja && baja.deltaPp <= -5 && baja.nombre !== sube?.nombre && baja.nombre !== lider.nombre) {
-    frases.push(`Lo pierde «${baja.nombre}» (${signo(baja.deltaPp)} pp).`);
+    frases.push(`Lo pierde «${baja.nombre}» (${signo(baja.deltaPp)} puntos).`);
   }
 
   /* Con 0 no hay «más» que decir: contradice el resto de la lectura. */
