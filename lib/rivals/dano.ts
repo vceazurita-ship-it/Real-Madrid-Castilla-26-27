@@ -27,6 +27,23 @@ const REGLAS: Regla[] = [
   { patron: /tarjeteable|amarillas|faltas cometidas|tarjetas/, frase: "se carga de amarillas", accion: "provocarle el 1 contra 1" },
 ];
 
+/* Orden de acciones para un central; lo que no esté aquí va detrás, en su orden de siempre. */
+const PRIORIDAD_CENTRAL = ["es lento", "sufre la presión", "sufre por alto", "pierde duelos"];
+const rango = (frase: string) => {
+  const i = PRIORIDAD_CENTRAL.indexOf(frase);
+
+  return i < 0 ? PRIORIDAD_CENTRAL.length : i;
+};
+
+function adaptaAccion(regla: Regla, esCentral: boolean, esLateral: boolean) {
+  if (regla.frase === "pierde duelos") {
+    if (esCentral) return "que nuestro 9 le fije de espaldas y le gane la primera";
+    if (esLateral) return "aislar a nuestro extremo contra él";
+  }
+
+  return regla.accion;
+}
+
 const sinTildes = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /** «ANGEL GOMEZ» → «Angel Gomez»; las tildes las pone `conTildes` aparte. */
@@ -38,9 +55,13 @@ export const nombrePropio = (t: string) =>
  * equivalencia. `debilidades` son las etiquetas de la ficha y `flojos` los
  * nombres de los rasgos flojos en Wyscout.
  */
-export function fraseDeDano(debilidades: string[], flojos: string[]): { frases: string[]; accion: string } | null {
+export function fraseDeDano(debilidades: string[], flojos: string[], puesto = ""): { frases: string[]; accion: string } | null {
   const frases: string[] = [];
   let accion = "";
+  const halladas: Regla[] = [];
+  const lugar = sinTildes(puesto);
+  const esCentral = /central|\bdfc\b|\bcb\b/.test(lugar);
+  const esLateral = !esCentral && /lateral|carrilero|\bld\b|\bli\b|\brb\b|\blb\b/.test(lugar);
 
   for (const texto of [...debilidades, ...flojos]) {
     const limpio = sinTildes(texto);
@@ -50,8 +71,13 @@ export function fraseDeDano(debilidades: string[], flojos: string[]): { frases: 
 
     frases.push(regla.frase);
 
-    if (!accion) accion = regla.accion;
+    halladas.push(regla);
   }
+
+  /* El central se ataca por su espalda y presionándole al recibir: manda la acción de mayor rango. Los demás, la primera que salió. */
+  const elegida = esCentral ? [...halladas].sort((x, y) => rango(x.frase) - rango(y.frase))[0] : halladas[0];
+
+  if (elegida) accion = adaptaAccion(elegida, esCentral, esLateral);
 
   return accion ? { frases: frases.slice(0, 3), accion } : null;
 }
