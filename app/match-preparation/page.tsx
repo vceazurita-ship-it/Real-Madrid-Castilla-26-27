@@ -28,6 +28,8 @@ import { KIND_MOTIVOS_PLAN, claveMotivosPlan, type BocetoPlan } from "@/lib/plan
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useDuelosClave } from "@/hooks/useDuelosClave";
+import { useContrasteRival } from "@/hooks/useContrasteRival";
+import { fraseRecuentoDuelos } from "@/lib/duelos";
 
 import {
   Activity,
@@ -1198,6 +1200,7 @@ export default function MatchPreparation() {
 
   /* Los duelos de más ventaja y de más riesgo de /duelos, con jugador y cifra. */
   const duelosClave = useDuelosClave(rivalActivo?.EQUIPO ?? "");
+  const contraste = useContrasteRival(rivalActivo?.EQUIPO ?? "");
 
   const recursosDisponibles = [
     rivalActivo?.HUDL_PLAYLIST,
@@ -1825,10 +1828,7 @@ export default function MatchPreparation() {
             <div className="mp-no-print -mt-3 mb-5 flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] text-white/75">
               <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">Los duelos, en una línea</span>
               <span className="min-w-0 tabular-nums text-white/60">
-                {duelosClave.medidos} duelos: {duelosClave.conVentajaNuestra} a nuestro favor, {duelosClave.conVentajaSuya} a favor suyo
-                {duelosClave.enLosDos > 0
-                  ? `, ${duelosClave.enLosDos === 1 ? "uno de ellos cuenta" : `${duelosClave.enLosDos} de ellos cuentan`} en los dos sentidos (por eso la suma pasa de ${duelosClave.medidos})`
-                  : ""}
+                {fraseRecuentoDuelos(duelosClave.medidos, duelosClave.conVentajaNuestra, duelosClave.conVentajaSuya, duelosClave.enLosDos)}
               </span>
               {duelosClave.ventaja[0] && duelosClave.riesgo[0] && duelosClave.ventaja[0].clave === duelosClave.riesgo[0].clave ? (
                 <span className="min-w-0">
@@ -2533,6 +2533,11 @@ export default function MatchPreparation() {
                                   <span className="block text-[12px] text-white/50">
                                     {d.nuestros.join(" y ")} contra {d.suyos.join(" y ")}
                                   </span>
+                                  {d.minutos > 0 && (
+                                    <span className="block text-[11px] text-white/40">
+                                      Percentil sobre {d.minutos} min o más jugados
+                                    </span>
+                                  )}
                                 </span>
                               </li>
                             ))}
@@ -2703,6 +2708,34 @@ export default function MatchPreparation() {
                     minHeight={120}
                   />
                 </div>
+
+                {/* Sólo para el analista (no sale en el PDF ni en el PPT): lo medido, al lado de lo escrito. */}
+                {contraste && !editando && (
+                  <p className="mp-no-print mt-4 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[12.5px] leading-6 text-white/60">
+                    <b className="text-white/75">Contraste con los datos</b>
+                    {contraste.dibujo && (
+                      <>
+                        {" · "}En sus alineaciones: {contraste.dibujo.estructura.replace(/^1-/, "")} ({contraste.dibujo.veces} de {contraste.dibujo.de}).
+                      </>
+                    )}
+                    {contraste.abp && (
+                      <>
+                        {" · "}Su balón parado según Wyscout: {contraste.abp.valor.toFixed(1).replace(".", ",")} % de sus remates
+                        {contraste.abp.arriba != null && contraste.abp.abajo != null ? ` (${contraste.abp.arriba} de ${contraste.abp.abajo})` : ""}
+                        {contraste.abp.percentil <= 3
+                          ? `, el que menos de los ${contraste.abp.equipos}`
+                          : contraste.abp.percentil >= 97
+                            ? `, el que más de los ${contraste.abp.equipos}`
+                            : contraste.abp.percentil >= 60
+                              ? `, más que ${Math.round(contraste.abp.percentil / 10)} de cada 10 equipos`
+                              : contraste.abp.percentil <= 40
+                                ? `, menos que ${Math.max(1, Math.round((100 - contraste.abp.percentil) / 10))} de cada 10 equipos`
+                                : ", en la media de la liga"}
+                        .
+                      </>
+                    )}
+                  </p>
+                )}
               </section>
               )}
 
