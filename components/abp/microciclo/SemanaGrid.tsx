@@ -439,6 +439,11 @@ function DiaColumna({
     0,
   );
 
+  /* Tareas con minutos pero sin carga calculable (falta la intensidad). */
+  const sinCarga = plan.trabajos.filter(
+    (trabajo) => (trabajo.minutos || 0) > 0 && cargaCondicional(trabajo) <= 0,
+  ).length;
+
   const descansa = plan.tipo === "descanso";
 
   /* Soltar en la columna, fuera de cualquier ficha: va al final del día. */
@@ -559,9 +564,18 @@ function DiaColumna({
         <div className="flex items-center justify-between gap-1 border-t border-white/10 px-2.5 py-1.5 text-[10px] tabular-nums">
           <span className="font-semibold text-white/75">{fmtMin(minutos)}</span>
 
-          {(carga > 0 || cargaCog > 0) && (
+          {(carga > 0 || cargaCog > 0 || sinCarga > 0) && (
             <span className="text-white/40">
-              {[carga > 0 ? `carga ${Math.round(carga)}` : "", cargaCog > 0 ? `cognitiva ${Math.round(cargaCog)}` : ""]
+              {[
+                carga > 0 ? `carga ${Math.round(carga)}` : "",
+                cargaCog > 0 ? `cognitiva ${Math.round(cargaCog)}` : "",
+                /* Qué tarea falta de dato, en vez de dejar el hueco. */
+                sinCarga > 0
+                  ? sinCarga === plan.trabajos.length
+                    ? "sin intensidad anotada"
+                    : `${sinCarga} sin intensidad`
+                  : "",
+              ]
                 .filter(Boolean)
                 .join(" · ")}
             </span>

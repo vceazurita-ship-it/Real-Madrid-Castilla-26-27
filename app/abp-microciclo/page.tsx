@@ -1661,8 +1661,38 @@ export default function AbpMicrocicloPage() {
               {/* Con la semana vacía no hay resumen (21/10/2026): cinco tarjetas
                   con «0′», «0′ / 0′» y «—» parecían una pantalla rota. Lo que
                   queda por hacer ya lo dice la tarjeta del partido. */}
+              {/* ================ LO QUE DEJÓ EL PARTIDO ================ */}
+
+              {lectura && ventana.partido && (
+                <div className="mt-6">
+                  <LecturaDelPartido
+                    lectura={lectura}
+                    rival={ventana.partido.rival}
+                    marcador={
+                      ventana.partido.golesFavor != null && ventana.partido.golesContra != null
+                        ? `${ventana.partido.golesFavor}-${ventana.partido.golesContra}`
+                        : null
+                    }
+                  />
+                </div>
+              )}
+
+              {/* ======================= REVISIÓN ======================= */}
+
+              <div className="mt-6">
+                <RevisionSemana
+                  puntos={puntosRevision}
+                  onAbrir={(dia, trabajo) => setEditor({ trabajo, dia, origen: dia })}
+                  onPlanificar={(falta) => planificaAspecto(falta.aspecto, falta.lado)}
+                />
+              </div>
+
               {totales.minutos > 0 && (
-              <div className="mt-7">
+              <details className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2 sm:px-4">
+                <summary className="cursor-pointer select-none text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">
+                  Carga y minutos de la semana
+                </summary>
+                <div className="mt-3">
                 {/* Dos por fila en el móvil: cinco tarjetas apiladas eran una
                     pantalla entera antes de llegar a la semana. */}
                 <div className="grid min-w-0 grid-cols-2 gap-3 lg:auto-cols-fr lg:grid-flow-col">
@@ -1703,34 +1733,9 @@ export default function AbpMicrocicloPage() {
                     }
                   />
                 </div>
-              </div>
-              )}
-
-              {/* ================ LO QUE DEJÓ EL PARTIDO ================ */}
-
-              {lectura && ventana.partido && (
-                <div className="mt-6">
-                  <LecturaDelPartido
-                    lectura={lectura}
-                    rival={ventana.partido.rival}
-                    marcador={
-                      ventana.partido.golesFavor != null && ventana.partido.golesContra != null
-                        ? `${ventana.partido.golesFavor}-${ventana.partido.golesContra}`
-                        : null
-                    }
-                  />
                 </div>
+              </details>
               )}
-
-              {/* ======================= REVISIÓN ======================= */}
-
-              <div className="mt-6">
-                <RevisionSemana
-                  puntos={puntosRevision}
-                  onAbrir={(dia, trabajo) => setEditor({ trabajo, dia, origen: dia })}
-                  onPlanificar={(falta) => planificaAspecto(falta.aspecto, falta.lado)}
-                />
-              </div>
 
               {/* ====================== SEMANA ===================== */}
 
