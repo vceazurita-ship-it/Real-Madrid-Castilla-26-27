@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { AREA_CONFIG, SEASON_LABEL } from "@/lib/season/config";
 import { SeasonArea, WeekData } from "@/lib/season/types";
+import { weekHasFiles } from "@/lib/season/utils";
 
 interface Props {
   area: SeasonArea;
@@ -71,7 +72,16 @@ export default function SeasonHeader({
             {config.title}
           </h1>
 
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/50">
+          {currentWeek && (
+            <p className="mt-3 text-base font-medium text-white/85">
+              {currentWeek.week}{" "}
+              {weekHasFiles(currentWeek) ? "con archivos" : "sin archivos"} ·{" "}
+              {stats.completed} de {stats.totalWeeks}{" "}
+              {stats.totalWeeks === 1 ? "semana con material" : "semanas con material"}
+            </p>
+          )}
+
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
             {config.description}
           </p>
         </div>
@@ -84,7 +94,8 @@ export default function SeasonHeader({
               className="inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
             >
               <CalendarCheck size={17} />
-              Semana actual · {currentWeek.week}
+              {weekHasFiles(currentWeek) ? "Semana actual" : "Subir a la semana actual"} ·{" "}
+              {currentWeek.week}
             </button>
           )}
 

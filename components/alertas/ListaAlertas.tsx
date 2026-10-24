@@ -132,7 +132,7 @@ export default function ListaAlertas({
               <span className="inline-flex items-center gap-1.5">
                 <AlarmClock className="h-3 w-3" aria-hidden />
                 {!alerta.activa
-                  ? "Silenciada: no sonará hasta que la reactives"
+                  ? "Silenciada"
                   : fechaValida(alerta.proximoEnvio)
                     ? fechaLegible(alerta.proximoEnvio)
                     : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo.
@@ -173,7 +173,8 @@ export default function ListaAlertas({
                   title={`${alerta.adjuntos.length} ${alerta.adjuntos.length === 1 ? "adjunto" : "adjuntos"}`}
                 >
                   <Paperclip className="h-3 w-3" aria-hidden />
-                  {alerta.adjuntos.length}
+                  {alerta.adjuntos.length}{" "}
+                  {alerta.adjuntos.length === 1 ? "adjunto" : "adjuntos"}
                 </span>
               )}
 
@@ -182,6 +183,8 @@ export default function ListaAlertas({
                   {alerta.envios === 1
                     ? "Enviada 1 vez"
                     : `Enviada ${alerta.envios} veces`}
+                  {fechaValida(alerta.ultimoEnvio) &&
+                    ` · la última, ${fechaLegible(alerta.ultimoEnvio)}`}
                 </span>
               )}
             </div>
@@ -198,6 +201,18 @@ export default function ListaAlertas({
                 <Pencil className="h-3.5 w-3.5" aria-hidden />
                 Editar
               </button>
+
+              {!alerta.activa && (
+                <button
+                  type="button"
+                  onClick={() => onAlternarActiva(alerta)}
+                  disabled={bloqueada}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B]/15 px-3 py-1.5 text-xs font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/25 disabled:opacity-40"
+                >
+                  <BellRing className="h-3.5 w-3.5" aria-hidden />
+                  Reactivar
+                </button>
+              )}
 
               <button
                 type="button"

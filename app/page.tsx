@@ -489,7 +489,7 @@ export default function Home() {
                   {/* El césped de la foto es claro: sin fondo propio esta línea
                       se pierde. Va con el mismo cristal que la chapa. */}
                   <div className="absolute left-5 top-[58px] max-w-[calc(100%-40px)]">
-                    <p className="inline-block rounded-full border border-white/10 bg-black/60 px-3.5 py-1.5 text-[11px] leading-relaxed backdrop-blur-xl" style={{ color: "rgba(255,255,255,.85)" }}>
+                    <p className="inline-block rounded-full border border-white/10 bg-black/85 px-3.5 py-1.5 text-[11px] leading-relaxed backdrop-blur-xl" style={{ color: "rgba(255,255,255,.92)" }}>
                       {resumenData
                         ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido leído" : "partidos leídos"} de ${resumenData.temporada}, contra los ${resumenData.equipos} de la categoría`
                         : "Opta y Wyscout, leídos de la carpeta de datos"}
@@ -512,9 +512,9 @@ export default function Home() {
                     día el blanco por clase se volvía tinta oscura sobre negro.
                   */}
                   {(cargandoData || resumenData?.xg != null) && (
-                  <div className="absolute inset-x-4 bottom-4 flex flex-col gap-4 rounded-[22px] border border-white/10 bg-black/75 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-end sm:justify-between">
+                  <div className="absolute inset-x-4 bottom-4 flex flex-col gap-4 rounded-[22px] border border-white/10 bg-black/85 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-end sm:justify-between xl:flex-col xl:items-stretch xl:justify-start">
                     <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.78)" }}>
+                      <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.9)" }}>
                         Goles esperados (xG) por partido
                       </p>
 
@@ -540,7 +540,7 @@ export default function Home() {
                       </div>
 
                       {resumenData?.xg != null && (
-                        <p className="mt-2 text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
+                        <p className="mt-2 break-words text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
                           {resumenData.partidos} {resumenData.partidos === 1 ? "partido" : "partidos"}
                           {resumenData.puesto
                             ? ` · ${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría${resumenData.mediana != null ? ` · mediana de la liga: ${resumenData.mediana.toFixed(2).replace(".", ",")}` : ""}`
@@ -550,8 +550,8 @@ export default function Home() {
                     </div>
 
                     {(cargandoData || resumenData?.golesMenosXg != null) && (
-                      <div className="sm:shrink-0 sm:text-right">
-                        <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.78)" }}>
+                      <div className="min-w-0 sm:shrink-0 sm:text-right xl:text-left">
+                        <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.9)" }}>
                           Goles − xG
                         </p>
 
@@ -574,11 +574,12 @@ export default function Home() {
                         </p>
 
                         {resumenData?.golesMenosXg != null && (
-                          <p className="mt-1 text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
+                          <p className="mt-1 break-words text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
                             {resumenData.xg != null && `${Math.round((resumenData.xg + resumenData.golesMenosXg) * resumenData.partidos)} goles frente a ${(resumenData.xg * resumenData.partidos).toFixed(1).replace(".", ",")} esperados en ${resumenData.partidos} partidos · `}
                             {resumenData.golesMenosXg >= 0
                               ? "marcamos más de lo esperado"
                               : "marcamos menos de lo esperado"}
+                            {resumenData.partidos < 15 && ` · con ${resumenData.partidos} ${resumenData.partidos === 1 ? "partido" : "partidos"} es tendencia, no veredicto`}
                           </p>
                         )}
                       </div>
@@ -729,7 +730,7 @@ export default function Home() {
             <div className="flex justify-center pb-2 pt-6">
               <Link
                 href="/coding?ambito=rival"
-                className="text-[11px] uppercase tracking-[0.24em] text-white/20 transition-colors hover:text-white/50"
+                className="text-[11px] uppercase tracking-[0.24em] text-white/40 transition-colors hover:text-white/70"
               >
                 Coding de rival
               </Link>

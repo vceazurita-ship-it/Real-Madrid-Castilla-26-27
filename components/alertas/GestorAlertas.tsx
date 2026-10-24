@@ -276,6 +276,17 @@ export default function GestorAlertas() {
       {/* ---------------------- RESUMEN ------------------------ */}
 
       {/* Lo que dice la pantalla en cinco segundos. Sin alertas con fecha, no sale. */}
+      {!cargando && !fallo && !resumen && alertas.length > 0 && (
+        <p className="rounded-2xl bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-200">
+          <b className="font-semibold">
+            {alertas.length === 1
+              ? "1 tarea, silenciada"
+              : `${alertas.length} tareas, todas silenciadas`}
+          </b>
+          {" · "}ninguna sonará hasta que la reactives.
+        </p>
+      )}
+
       {!cargando && resumen && (
         <p className="rounded-2xl bg-[#C8A96B]/10 px-4 py-3 text-xs leading-relaxed text-white/70">
           <b className="font-semibold text-[#C8A96B]">
