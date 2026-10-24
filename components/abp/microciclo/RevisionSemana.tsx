@@ -117,9 +117,13 @@ export function RevisionSemana({
       </ul>
 
       {ocultos > 0 && (
-        <p className="mt-2 text-[11.5px] leading-snug text-white/45">
-          Plegadas: {ordenados.slice(visibles.length).map((punto) => punto.titulo).join(" · ")}
-        </p>
+        <ul className="mt-2 grid gap-0.5 text-[11.5px] leading-snug text-white/45">
+          {ordenados.slice(visibles.length).map((punto) => (
+            <li key={punto.id}>
+              <span className="font-medium text-white/60">{punto.titulo}.</span> {punto.detalle}
+            </li>
+          ))}
+        </ul>
       )}
 
       {(ocultos > 0 || todos) && ordenados.length > 1 && (

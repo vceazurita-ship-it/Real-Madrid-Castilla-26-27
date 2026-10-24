@@ -2276,10 +2276,32 @@ const conclusiones = useMemo(() => {
   const conRemate = filtered.filter((r) => LECTOR.remate(r) && resultado(r) === "Ocasión");
 
   if (conRemate.length > 0 && conRemate.length === ocasiones) {
+    /* Las jugadas iguales se agrupan y cada una lleva su minuto: es lo que se busca en el vídeo. */
+    const zonaDicha = (z: string) => (/^z\d+$/i.test(z.trim()) ? z.trim().toUpperCase() : z.trim().toLowerCase());
+    const grupos = new Map<string, Row[]>();
+
+    for (const r of conRemate) {
+      const clave = `${r.tipoAccion.trim().toLowerCase()}${r.zonaCaida ? ` a ${zonaDicha(r.zonaCaida)}` : ""}`;
+
+      grupos.set(clave, [...(grupos.get(clave) ?? []), r]);
+    }
+
+    const jugadas = [...grupos.entries()].map(([clave, filas]) => {
+      const detalle = filas
+        .map((r) => {
+          const minuto = r.contexto.minuto.minuto;
+
+          return `${minuto != null ? `${minuto}′, ` : ""}${cifra(r.xg, 2)} xG`;
+        })
+        .join("; ");
+
+      return `${filas.length > 1 ? `${filas.length} × ` : ""}${clave} (${detalle})`;
+    });
+
     frases.push(
-      `${plural(conRemate.length, "remate concedido", "remates concedidos")} y ${plural(ocasiones, "ocasión", "ocasiones")}: ${conRemate.length === 1 ? "es la misma jugada" : "son las mismas jugadas"}. ${conRemate
-        .map((r) => `${r.tipoAccion.toLowerCase()}${r.zonaCaida ? ` a ${r.zonaCaida.toLowerCase()}` : ""} (${cifra(r.xg, 2)} xG)`)
-        .join(" y ")}.`,
+      `${plural(conRemate.length, "remate concedido", "remates concedidos")} y ${plural(ocasiones, "ocasión", "ocasiones")}: ${conRemate.length === 1 ? "es la misma jugada" : "son las mismas jugadas"}. ${jugadas
+        .map((t) => t.charAt(0).toLocaleUpperCase("es-ES") + t.slice(1))
+        .join(". ")}.`,
     );
   }
 
@@ -2512,7 +2534,7 @@ const pie = (
     </FilterDrawer>
 <div className="mt-5">
   <p className="text-sm text-zinc-400 mb-3">
-    Equipos visualizados (
+    ABP en contra, ante (
     {equiposVisualizados.length}
     )
   </p>

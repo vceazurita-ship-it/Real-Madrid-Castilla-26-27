@@ -556,8 +556,28 @@ function analizaReparto(
   | se calla es la eficacia.
   */
   derivada = false,
+  /* Saques de banda: el desenlace de Hudl se explica en lenguaje de vestuario. */
+  conGlosa = false,
 ): Reparto | null {
   const escasa = escasaDe(filtradas);
+
+  const glosa = (nombre: string) => {
+    if (!conGlosa) return `«${nombre}»`;
+
+    const clave = nombre.toLowerCase().replace(/\s+/g, " ");
+    const ofensivo = sentido === "ofensivo";
+
+    const dicho =
+      clave === "posicional rival"
+        ? ofensivo ? "perdemos la posesión" : "el rival mantiene el balón"
+        : clave === "posicional"
+          ? ofensivo ? "mantenemos el balón" : "recuperamos el balón"
+          : clave.startsWith("conquista último tercio")
+            ? ofensivo ? "llegamos al último tercio rival" : "el rival llega a nuestro último tercio"
+            : "";
+
+    return dicho ? `«${nombre}» (${dicho})` : `«${nombre}»`;
+  };
   const utiles = filtradas.filter((uno) => !SIN_VALOR.test(uno.categoria.trim()));
 
   if (utiles.length === 0) return null;
@@ -633,22 +653,22 @@ function analizaReparto(
   } else if (escasa) {
     /* Con tan poco, el peso sobre el global no se juzga: se enseña la base. */
     frases.push(
-      `Manda «${lider.nombre}»: ${lider.acciones} de ${utiles.length} acciones (${formatoPct(lider.cuota)}).`,
+      `Manda ${glosa(lider.nombre)}: ${lider.acciones} de ${utiles.length} acciones (${formatoPct(lider.cuota)}).`,
     );
   } else {
     frases.push(
-      `Manda «${lider.nombre}» con el ${formatoPct(lider.cuota)} de las acciones${
+      `Manda ${glosa(lider.nombre)} con el ${formatoPct(lider.cuota)} de las acciones${
         Math.abs(lider.deltaPp) >= 5 ? ` (${signo(lider.deltaPp)} puntos sobre su peso global)` : ""
       }.`,
     );
   }
 
   if (!escasa && sube && sube.nombre !== lider.nombre && sube.deltaPp >= 5) {
-    frases.push(`Gana peso «${sube.nombre}» (${signo(sube.deltaPp)} puntos).`);
+    frases.push(`Gana peso ${glosa(sube.nombre)} (${signo(sube.deltaPp)} puntos).`);
   }
 
   if (!escasa && baja && baja.deltaPp <= -5 && baja.nombre !== sube?.nombre && baja.nombre !== lider.nombre) {
-    frases.push(`Lo pierde «${baja.nombre}» (${signo(baja.deltaPp)} puntos).`);
+    frases.push(`Lo pierde ${glosa(baja.nombre)} (${signo(baja.deltaPp)} puntos).`);
   }
 
   /* Con 0 no hay «más» que decir: contradice el resto de la lectura. */
@@ -753,7 +773,7 @@ export function analizaSeccion({
   const tendencia = analizaTendencia(filtradas, metrica, sentido);
 
   const reparto = dimension
-    ? analizaReparto(filtradas, globales, dimension, metrica, sentido, dimensionDerivada)
+    ? analizaReparto(filtradas, globales, dimension, metrica, sentido, dimensionDerivada, unidad === "saques")
     : null;
 
   return {
@@ -838,7 +858,10 @@ function redactaTitular({
   frases.push(tendencia.texto);
 
   /* 4 · Dónde se concentra, si la sección reparte por algo. */
-  if (reparto?.texto) frases.push(reparto.texto);
+  /* El aviso de muestra corta sale una sola vez, al final (paso 5). */
+  if (reparto?.texto) {
+    frases.push(muestra.corta ? reparto.texto.replace(/\s*Indicio: muestra corta\.$/, "") : reparto.texto);
+  }
 
   /* 5 · El aviso, al final, para que no se lea un porcentaje de tres acciones. */
   if (muestra.corta) {

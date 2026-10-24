@@ -142,6 +142,8 @@ import {
   slideDePlantilla,
   avisosConsignas,
   CASILLAS_GUION,
+  CONSIGNAS_MAX,
+  juntaConsignas,
   lineasConsignas,
   normalizaMemoria,
   normalizaTablero,
@@ -472,20 +474,6 @@ export default function PizarraAbpPage() {
     [partidos, hoy],
   );
 
-  /* Los jugados hace más de tres partidos se pliegan en «Jornadas anteriores»:
-     38 filas seguidas no se leen, y casi siempre se trabaja la última o la próxima. */
-  const lejanosIds = useMemo(
-    () =>
-      new Set(
-        partidos
-          .filter((item) => item.date && item.date < hoy)
-          .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
-          .slice(3)
-          .map((item) => item.id),
-      ),
-    [partidos, hoy],
-  );
-
   /* Dentro de cada grupo, por fecha ascendente (antes salían J09, J10, J11, J06…). */
   const porFechaPartido = (a: MatchMeta, b: MatchMeta) =>
     (a.date || "").localeCompare(b.date || "") || a.id.localeCompare(b.id);
@@ -493,23 +481,7 @@ export default function PizarraAbpPage() {
   const etiquetaOpcion = (item: MatchMeta) =>
     `${etiquetaPartido(item)}${item.id === proximoId ? " · próximo" : ""}`;
 
-  const enPrimerPlano = (item: MatchMeta) =>
-    item.id === proximoId ||
-    item.id === elegido ||
-    (!lejanosIds.has(item.id) && (!item.date || item.date < hoy));
-
-  /* En el plan de partido, lo mismo: las jugadas hace más de tres quedan plegadas. */
-  const jornadasLejanas = useMemo(
-    () =>
-      new Set(
-        jornadas
-          .filter((item) => item.fecha && item.fecha < hoy)
-          .sort((a, b) => b.fecha.localeCompare(a.fecha))
-          .slice(3)
-          .map((item) => item.id),
-      ),
-    [jornadas, hoy],
-  );
+  const esJugado = (item: MatchMeta) => item.id !== proximoId && Boolean(item.date) && (item.date as string) < hoy;
 
   const partido = useMemo(
     () => partidos.find((item) => item.id === elegido) ?? null,
@@ -577,24 +549,12 @@ export default function PizarraAbpPage() {
   */
   const gruposJornada = useMemo(() => {
     const porFecha = (a: JornadaRival, b: JornadaRival) =>
-      (a.fecha || "9999").localeCompare(b.fecha || "9999");
-    const cercanas = jornadas.filter((item) => !jornadasLejanas.has(item.id) || item.id === jornada?.id);
-    const desde = jornada?.fecha || hoy;
-    const siguientes = cercanas
-      .filter((item) => item.id !== jornada?.id && item.fecha && item.fecha >= desde)
-      .sort(porFecha)
-      .slice(0, 2);
-    const primeras = [...(jornada ? [jornada] : []), ...siguientes];
-    const ids = new Set(primeras.map((item) => item.id));
+      (a.fecha || "9999").localeCompare(b.fecha || "9999") || a.id.localeCompare(b.id);
+    const jugadas = jornadas.filter((item) => item.fecha && item.fecha < hoy).sort(porFecha);
+    const proximas = jornadas.filter((item) => !item.fecha || item.fecha >= hoy).sort(porFecha);
 
-    return {
-      primeras,
-      resto: cercanas.filter((item) => !ids.has(item.id)).sort(porFecha),
-      anteriores: jornadas
-        .filter((item) => jornadasLejanas.has(item.id) && item.id !== jornada?.id)
-        .sort(porFecha),
-    };
-  }, [jornadas, jornadasLejanas, jornada, hoy]);
+    return { jugadas, proximas, siguienteId: proximas.find((item) => item.fecha)?.id ?? "" };
+  }, [jornadas, hoy]);
 
   /** Atada a mano: manda sobre el parecido de nombres. */
   const atada = Boolean(tablero?.rivalId);
@@ -1952,20 +1912,11 @@ export default function PizarraAbpPage() {
                     </option>
                   )}
 
-                  {[...partidos]
-                    .filter((item) => enPrimerPlano(item))
-                    .sort(porFechaPartido)
-                    .map((item) => (
-                      <option key={item.id} value={item.id} className="bg-[#11161C]">
-                        {etiquetaOpcion(item)}
-                        {marcaDeTablero(store.tableros?.[item.id])}
-                      </option>
-                    ))}
-
-                  {partidos.some((item) => lejanosIds.has(item.id) && !enPrimerPlano(item)) && (
-                    <optgroup label="Jornadas anteriores">
+                  {/* En orden de calendario: lo jugado (pretemporada primero) y, debajo, el próximo y lo que viene. */}
+                  {partidos.some(esJugado) && (
+                    <optgroup label="Ya jugados">
                       {[...partidos]
-                        .filter((item) => lejanosIds.has(item.id) && !enPrimerPlano(item))
+                        .filter(esJugado)
                         .sort(porFechaPartido)
                         .map((item) => (
                           <option key={item.id} value={item.id} className="bg-[#11161C]">
@@ -1976,10 +1927,10 @@ export default function PizarraAbpPage() {
                     </optgroup>
                   )}
 
-                  {partidos.some((item) => !lejanosIds.has(item.id) && !enPrimerPlano(item)) && (
-                    <optgroup label="Más adelante en el calendario">
+                  {partidos.some((item) => !esJugado(item)) && (
+                    <optgroup label="Próximo y siguientes">
                       {[...partidos]
-                        .filter((item) => !lejanosIds.has(item.id) && !enPrimerPlano(item))
+                        .filter((item) => !esJugado(item))
                         .sort(porFechaPartido)
                         .map((item) => (
                           <option key={item.id} value={item.id} className="bg-[#11161C]">
@@ -2134,9 +2085,9 @@ export default function PizarraAbpPage() {
                             : "No se ha podido leer la hoja de rivales"}
                         </option>
 
-                        {gruposJornada.primeras.length > 0 && (
-                          <optgroup label="Esta y las siguientes">
-                            {gruposJornada.primeras.map((item) => (
+                        {gruposJornada.jugadas.length > 0 && (
+                          <optgroup label="Ya jugadas">
+                            {gruposJornada.jugadas.map((item) => (
                               <option key={item.id} value={item.id} className="bg-[#11161C]">
                                 {etiquetaJornada(item)}
                               </option>
@@ -2144,21 +2095,12 @@ export default function PizarraAbpPage() {
                           </optgroup>
                         )}
 
-                        {gruposJornada.resto.length > 0 && (
-                          <optgroup label="Resto de la temporada">
-                            {gruposJornada.resto.map((item) => (
+                        {gruposJornada.proximas.length > 0 && (
+                          <optgroup label="Próxima y siguientes">
+                            {gruposJornada.proximas.map((item) => (
                               <option key={item.id} value={item.id} className="bg-[#11161C]">
                                 {etiquetaJornada(item)}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-
-                        {gruposJornada.anteriores.length > 0 && (
-                          <optgroup label="Jornadas anteriores">
-                            {gruposJornada.anteriores.map((item) => (
-                              <option key={item.id} value={item.id} className="bg-[#11161C]">
-                                {etiquetaJornada(item)}
+                                {item.id === gruposJornada.siguienteId ? " · próxima" : ""}
                               </option>
                             ))}
                           </optgroup>
@@ -2586,7 +2528,7 @@ export default function PizarraAbpPage() {
                                 </li>
                               ) : (
                                 <li key={`${indice}-${linea.texto}`} className="text-base leading-snug text-white/85">
-                                  {linea.texto}
+                                  {ajustaNombres(linea.texto, players)}
                                 </li>
                               ),
                             )}
@@ -3269,6 +3211,12 @@ function TextosDeLaSlide({
               {aviso}
             </p>
           ))}
+
+          {juntaConsignas(slide.notas).length !== slide.notas.length && (
+            <div className="mt-1.5">
+              <Button onClick={() => onNotas(juntaConsignas(slide.notas))}>Juntar en {CONSIGNAS_MAX}</Button>
+            </div>
+          )}
 
           <p className="mt-1.5 text-[11px] leading-relaxed text-white/35">
             Una línea que acaba en «:» sale como rótulo de las que van detrás.

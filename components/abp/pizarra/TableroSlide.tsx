@@ -28,6 +28,7 @@ import { User, X } from "lucide-react";
 import { apartaRivales, separaFichas } from "@/lib/abp/separa";
 
 import type { Player } from "@/types/player";
+import { ajustaNombres } from "@/lib/abp/nombresPlantilla";
 import {
   BalonEnJuego,
   CapaTrazos,
@@ -1042,7 +1043,12 @@ export function TableroSlide({
   const marcoRef = useRef<HTMLDivElement>(null);
 
   const grupos = gruposDe(slide);
-  const lineas = lineasDeSlide(slide);
+  /* Los nombres de las consignas, como en la plantilla («mario» pasa a «Mario»). Lo guardado no se toca. */
+  const lineas = lineasDeSlide(slide, (texto) => {
+    const ajustado = ajustaNombres(texto, [...players.values()]);
+
+    return ajustado.charAt(0).toLocaleUpperCase("es-ES") + ajustado.slice(1);
+  });
 
   const conPanel = panel && grupos.length > 0;
   const conNotas = lineas.length > 0;

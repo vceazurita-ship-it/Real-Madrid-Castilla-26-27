@@ -2112,14 +2112,54 @@ export const CASILLAS_GUION = [
  * intención que estén escritas, cada una con su rótulo, y después las
  * consignas de texto libre.
  */
-export function lineasDeSlide(slide: Pick<SlidePizarra, "notas" | "guion">): LineaConsigna[] {
+export function lineasDeSlide(
+  slide: Pick<SlidePizarra, "notas" | "guion">,
+  ajusta?: (texto: string) => string,
+): LineaConsigna[] {
   const guion = CASILLAS_GUION.flatMap((casilla) => {
     const texto = slide.guion?.[casilla.key]?.trim();
 
     return texto ? [{ tipo: "guion" as const, rotulo: casilla.rotulo, texto: normalizaConsigna(texto) }] : [];
   });
 
-  return [...guion, ...lineasConsignas(slide.notas)];
+  return [...guion, ...lineasConsignas(slide.notas)].map((linea) =>
+    ajusta ? { ...linea, texto: ajusta(linea.texto) } : linea,
+  );
+}
+
+/**
+ * Junta las consignas que sobran (más de `CONSIGNAS_MAX`) en la última que
+ * cabe, separadas por « · ». Los rótulos (líneas que acaban en «:») se quedan
+ * donde están. Si no sobra nada, devuelve las notas tal cual.
+ */
+export function juntaConsignas(notas: string[]): string[] {
+  const lineas = notas.map((nota) => nota.trim()).filter(Boolean);
+  const total = lineas.filter((nota) => !nota.endsWith(":")).length;
+
+  if (total <= CONSIGNAS_MAX) return notas;
+
+  const sinPunto = (nota: string) => nota.replace(/[.;]+$/, "");
+  const salida: string[] = [];
+  let vistas = 0;
+  let ultima = 0;
+
+  for (const nota of lineas) {
+    if (nota.endsWith(":")) {
+      salida.push(nota);
+      continue;
+    }
+
+    vistas += 1;
+
+    if (vistas <= CONSIGNAS_MAX) {
+      salida.push(nota);
+      ultima = salida.length - 1;
+    } else {
+      salida[ultima] = `${sinPunto(salida[ultima])} · ${sinPunto(nota)}`;
+    }
+  }
+
+  return salida;
 }
 
 /**
