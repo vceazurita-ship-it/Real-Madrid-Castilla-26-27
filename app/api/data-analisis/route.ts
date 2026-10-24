@@ -321,6 +321,29 @@ const ASPECTO_CENTROS = {
   explica: "Cuánto centra y cuántos de esos centros encuentran a alguien",
 } as const;
 
+/** Los centros que recibe (24/10/2026): lo que centran sus rivales contra él, con el mismo sentido que el balón parado en contra. */
+const ASPECTO_CENTROS_DEF = {
+  key: "centrosDef",
+  label: "Los centros que recibe",
+  momento: "sin",
+  metricas: ["centros", "centrosPrecisos"],
+  explica: "Cuánto le centran y cuántos de esos centros encuentran a alguien",
+} as const;
+
+/** Posesión y presión (24/10/2026): la cifra de contexto que va junto a «Lo esencial» del Scout Colectivo. */
+const ASPECTO_ESTILO = {
+  key: "estilo",
+  label: "Cómo juega",
+  momento: "con",
+  metricas: ["posesion", "ppda"],
+  explica: "Cuánto balón tiene y cuánto aprieta sin él",
+} as const;
+
+const NOMBRE_EN_CONTRA: Record<string, string> = {
+  centros: "Centros que recibe",
+  centrosPrecisos: "Acierto de los centros que recibe %",
+};
+
 /**
  * Quién saca los córners y las faltas del equipo, según la descarga de Wyscout.
  *
@@ -349,7 +372,7 @@ function lanzadoresDe(datos: Dataset, equipo: string) {
   return [...saca("Córneres/90", "corner"), ...saca("Tiros libres/90", "falta")];
 }
 
-function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "abp") {
+function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "estilo" = "abp") {
   const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
     .filter(Boolean)
     .sort();
@@ -367,8 +390,13 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "ab
     equipo,
     liga,
     equipos,
-    ambito === "area"
-      ? [{ ...ASPECTO_CENTROS, metricas: [...ASPECTO_CENTROS.metricas] }]
+    ambito === "estilo"
+      ? [{ ...ASPECTO_ESTILO, metricas: [...ASPECTO_ESTILO.metricas] }]
+      : ambito === "area"
+      ? [
+          { ...ASPECTO_CENTROS, metricas: [...ASPECTO_CENTROS.metricas] },
+          { ...ASPECTO_CENTROS_DEF, metricas: [...ASPECTO_CENTROS_DEF.metricas] },
+        ]
       : ["abpOf", "abpDef"].flatMap((k) => {
           const uno = ASPECTO_POR_KEY.get(k);
 
@@ -378,25 +406,25 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "ab
     clave: d.aspecto.key,
     aspecto: d.aspecto.label,
     filas: d.filas.map((f) => ({
-      nombre: f.metrica.nombre,
+      nombre: d.aspecto.key === "centrosDef" ? (NOMBRE_EN_CONTRA[f.metrica.key] ?? f.metrica.nombre) : f.metrica.nombre,
       valor: f.valor,
       mediana: f.mediana,
       unidad: f.metrica.unidad,
       percentil: f.percentil,
       mejorAlto: f.metrica.mejorAlto,
       /* «x de y»: la base del porcentaje y los partidos que lo respaldan. */
-      base: cocienteEnGrupo(f.metrica, d.aspecto.key === "abpDef" ? contraDe : suyosDe),
-      partidos: (d.aspecto.key === "abpDef" ? contraDe : suyosDe).length,
+      base: cocienteEnGrupo(f.metrica, d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef" ? contraDe : suyosDe),
+      partidos: (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef" ? contraDe : suyosDe).length,
     })),
   }));
 
-  const goles = ambito === "area" ? null : golesAbpDeEquipo(equipo, liga);
+  const goles = ambito !== "abp" ? null : golesAbpDeEquipo(equipo, liga);
 
   return {
     temporada: actual,
     equipos: equipos.length,
     aspectos,
-    lanzadores: ambito === "area" ? [] : lanzadoresDe(datos, equipo),
+    lanzadores: ambito !== "abp" ? [] : lanzadoresDe(datos, equipo),
     golesAbp: goles && (goles.aFavor.partidos > 0 || goles.enContra.partidos > 0) ? goles : null,
   };
 }
@@ -1070,7 +1098,7 @@ async function contesta(peticion: Request) {
 
   /* Su balón parado en Wyscout (23/10/2026), para el ABP del rival. */
   const equipoAbp = parametros.get("abpRival");
-  const ambitoAbp = parametros.get("ambito") === "area" ? "area" : "abp";
+  const ambitoAbp = parametros.get("ambito") === "area" ? "area" : parametros.get("ambito") === "estilo" ? "estilo" : "abp";
 
   const aspectosPedidos = (parametros.get("aspectos") ?? "")
     .split(",")

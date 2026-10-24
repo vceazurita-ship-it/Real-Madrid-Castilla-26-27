@@ -58,6 +58,7 @@ import {
   type ListasRivales,
 } from "@/lib/rivals/youtube-listas";
 import { Explicativo } from "@/components/ui/textos-analisis";
+import { MEJOR, PEOR } from "@/components/data/graficas";
 
 type Video = {
   id: string;
@@ -72,14 +73,22 @@ type Video = {
  * El título en bruto del canal a veces es sólo el dorsal o «CLUB Nº7» una vez quitado el nombre:
  * eso no dice qué mirar, así que se numera el corte.
  */
-function temaLegible(tema: string, posicion: number) {
+function temaLegible(tema: string, posicion: number, descripcion = "") {
   const limpio = tema
     .replace(/\bN[º°o]\s*\d+\b/gi, " ")
     .replace(/^\d+\b/, " ")
     .replace(/\s+/g, " ")
     .trim();
 
-  return limpio.length >= 3 && /\p{L}{3}/u.test(limpio) && !/\bC\.?F\.?(\s|$)/i.test(limpio) ? tema : `Corte ${posicion + 1}`;
+  if (limpio.length >= 3 && /\p{L}{3}/u.test(limpio) && !/\bC\.?F\.?(\s|$)/i.test(limpio)) return tema;
+
+  /* Sin título que diga algo, la primera línea de la descripción (24/10/2026); si tampoco, el número del corte. */
+  const linea = descripcion
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .find((l) => l.length >= 8 && !/^https?:/i.test(l) && /\p{L}{4}/u.test(l));
+
+  return linea ? (linea.length > 90 ? `${linea.slice(0, 87)}...` : linea) : `Corte ${posicion + 1}`;
 }
 
 /** Un vídeo ya colocado: de quién es y de qué va, además del vídeo. */
@@ -406,7 +415,7 @@ export function VideosDelCanal({
   const termino = busca.trim().toLowerCase();
 
   const grupos = useMemo(() => {
-    const porJugador = new Map<string, { jugador: string; dorsal: string; titular: boolean; resumen: string; videos: Pieza[] }>();
+    const porJugador = new Map<string, { jugador: string; dorsal: string; titular: boolean; minutos: number; resumen: string; videos: Pieza[] }>();
 
     const sueltos: Pieza[] = [];
 
@@ -442,6 +451,7 @@ export function VideosDelCanal({
         jugador: jugador.nombre,
         dorsal: jugador.dorsal ?? "",
         titular: Boolean(jugador.titular),
+        minutos: jugador.minutos ?? 0,
         resumen: resumenDeTemporada(jugador),
         videos: [],
       };
@@ -454,6 +464,7 @@ export function VideosDelCanal({
       jugadores: [...porJugador.values()].sort(
         (a, b) =>
           Number(b.titular) - Number(a.titular) ||
+          b.minutos - a.minutos ||
           b.videos.length - a.videos.length ||
           a.jugador.localeCompare(b.jugador, "es"),
       ),
@@ -1175,7 +1186,13 @@ function Rejilla({
   onAbrir: (video: Video) => void;
   onCopiar: (video: Video) => void;
 }) {
+  /* Si todos los cortes se subieron el mismo día, la fecha se dice una vez y no en cada tarjeta. */
+  const fechas = new Set(piezas.map((p) => fecha(p.video.publicado)));
+  const fechaUnica = piezas.length > 1 && fechas.size === 1 ? [...fechas][0] : "";
+
   return (
+    <>
+    {fechaUnica && <p className="mb-1.5 text-[11px] text-white/40">Subidos el {fechaUnica}</p>}
     <div className={`grid min-w-0 gap-2.5 ${columnas}`}>
       {piezas.map(({ video, tema, jugador, dorsal, puesto, etiquetas, resumen }) => (
         <div
@@ -1207,23 +1224,29 @@ function Rejilla({
               </p>
             )}
 
-            {conJugador && resumen && <p className="mb-1 text-[10px] tabular-nums text-white/55">{resumen}</p>}
+            {conJugador && resumen && <p className="mb-1 text-[11px] tabular-nums text-white/60 sm:text-[10px]">{resumen}</p>}
 
             {/* Qué mirar: su puesto y sus etiquetas de la ficha. */}
             {conJugador && (puesto || etiquetas.length > 0) && (
-              <p className="mb-1 line-clamp-2 text-[10px] leading-snug text-white/45">
-                {[puesto, ...etiquetas].filter(Boolean).join(" · ")}
+              <p className="mb-1 line-clamp-3 text-[11px] leading-snug text-white/55 sm:text-[10px]">
+                {puesto}
+                {etiquetas.map((e, i) => (
+                  <span key={e} className="font-semibold" style={{ color: /d[eé]bil|flojo|pierd|lento|falla|sufre|malo/i.test(e) ? PEOR : MEJOR }}>
+                    {puesto || i > 0 ? " · " : ""}
+                    {e}
+                  </span>
+                ))}
               </p>
             )}
 
             {/* El título original del vídeo, en pequeño: lo que manda es quién es. */}
             <p className={`line-clamp-2 leading-snug ${conJugador ? "text-[11px] text-white/55" : "text-[13px] text-white/85"}`}>
-              {temaLegible(tema, video.posicion)}
+              {temaLegible(tema, video.posicion, video.descripcion)}
             </p>
 
             <div className="mt-1.5 flex items-center justify-between gap-2">
               <span className="text-[10px] uppercase tracking-wide text-white/30">
-                {fecha(video.publicado)}
+                {fechaUnica ? "" : fecha(video.publicado)}
               </span>
 
               <button
@@ -1239,5 +1262,6 @@ function Rejilla({
         </div>
       ))}
     </div>
+    </>
   );
 }
