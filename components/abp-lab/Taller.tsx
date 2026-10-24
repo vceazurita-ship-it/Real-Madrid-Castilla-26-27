@@ -49,11 +49,11 @@ import type { JugadorLab } from "@/components/abp-lab/comun";
 import { EncajeRival } from "@/components/abp-lab/EncajeRival";
 import { CODIGO_PAPEL, MiniPizarra, PizarraRutina } from "@/components/abp-lab/PizarraRutina";
 import { SelectorJugador, repartoPorAltura } from "@/components/abp-lab/SelectorJugador";
-import type { ContextoSim } from "@/components/abp-lab/useSimulacion";
+import { defensaRivalDe, type ContextoSim } from "@/components/abp-lab/useSimulacion";
 import type { GuardaLab } from "@/hooks/useAbpLab";
 import { useAbpLigas } from "@/hooks/useAbpLigas";
 import { useContextoLab } from "@/hooks/useContextoLab";
-import { encajeSistemas } from "@/lib/abp-lab/ventaja";
+import { encajeSistemas, evaluaRemate, planCon } from "@/lib/abp-lab/ventaja";
 import { comaXg } from "@/lib/abp-lab/xg";
 import { FASES, anclaDe } from "@/lib/abp-lab/campo";
 import {
@@ -196,6 +196,32 @@ export function Taller({
 
   const porIdRutina = useMemo(() => new Map(rutinas.map((r) => [r.id, r])), [rutinas]);
 
+  /*
+   * El encaje automático con el próximo rival: cada rutina a favor de córner o
+   * falta, contra su defensa (la de su scouting, con sus jugadores más altos).
+   * Sólo sale si hay rival y algo suyo con que medir.
+   */
+  const contraProximo = useMemo(() => {
+    if (!rival) return [];
+
+    const alturaDe = (rol: Rol) => aereo.get(rol.jugador)?.altura ?? null;
+
+    return rutinas
+      .flatMap((r) => {
+        const def = defensaRivalDe("proximo", r, ctx);
+
+        if (!def || !r.roles.length || (r.tipo !== "corner" && r.tipo !== "falta")) return [];
+
+        const remate = evaluaRemate(r, planCon(r, def), calibre, alturaDe);
+
+        return remate && remate.quien !== null && remate.xg > 0 ? [{ r, xg: remate.xg }] : [];
+      })
+      .sort((a, b) => b.xg - a.xg)
+      .slice(0, 3);
+  }, [rival, rutinas, aereo, calibre, ctx]);
+
+  const estructuraCorner = rival?.corner ?? null;
+
   const visibles = useMemo(() => {
     const q = normaliza(busca.trim());
 
@@ -290,6 +316,37 @@ export function Taller({
             );
           })}
         </div>
+      )}
+
+      {!cargando && rival && contraProximo.length > 0 && (
+        <section className="overflow-hidden rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06]" aria-label={`Las mejores contra ${rival.equipo}`}>
+          <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 pt-3.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Encaje con el próximo rival</p>
+            <p className="text-[11.5px] text-white/55">
+              {rival.equipo}
+              {estructuraCorner
+                ? ` · córner ${estructuraCorner.tipo === "zonal" ? `en zona${estructuraCorner.enZona ? ` con ${estructuraCorner.enZona}` : ""}` : estructuraCorner.tipo === "hombre" ? "al hombre" : "en mixta"} (scouting)`
+                : ""}
+            </p>
+          </div>
+          <ol className="grid gap-2 p-3 sm:grid-cols-3">
+            {contraProximo.map(({ r, xg }, i) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => setAbierto({ ...r })}
+                  className="flex w-full min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left transition hover:border-[#C8A96B]/50"
+                >
+                  <span className="text-lg font-black tabular-nums text-[#C8A96B]">{i + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-semibold text-white/90">{r.nombre}</span>
+                    <span className="block text-[11px] text-white/50">xG estimado {comaXg(xg)}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
 
       {cargando ? (
