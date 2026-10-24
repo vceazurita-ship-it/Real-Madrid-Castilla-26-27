@@ -16,6 +16,9 @@ import {
 } from "react";
 import Papa from "papaparse";
 import Link from "next/link";
+import { DiaConectado } from "@/components/sesion-dia/DiaConectado";
+import { useDiasConectados } from "@/hooks/useDiasConectados";
+import { planDeRegistro, propuestasDeLaSesion, sesionDeFecha, type FilaPlan } from "@/lib/sesion-dia/conexion";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
@@ -1497,6 +1500,47 @@ export default function Page() {
       ? null
       : microStats.find((m) => String(m.micro) === micro) ?? null;
 
+  /*
+  | LA SEMANA EN SESIÓN (24/10/2026). Por cada día del micro elegido, sus
+  | tareas con los equipos de Jugadores sesión y lo que concluyó el análisis de
+  | entrenamiento, y lo que se cambió en la sesión (se acepta en el editor, que
+  | es el que escribe en la hoja). Ver lib/sesion-dia/conexion.ts.
+  */
+  const diasDelMicro = useMemo(() => {
+    if (micro === "ALL") return [];
+
+    const suyas: FilaPlan[] = rows
+      .filter((r) => String(r.micro) === micro)
+      .map((r) => ({
+        fecha: r.fecha,
+        tarea: r.tarea,
+        tipoTarea: r.tipo,
+        formato: r.formato,
+        espacio: r.espacio,
+        tiempo: r.tiempo,
+        contenidoPrincipal: r.contenidoPrincipal,
+        contenidoSecundario: r.contenidoSecundario,
+        nComodines: r.nComodines,
+        evaluacion: r.evaluacion,
+        analisisPost: r.analisisPost,
+        observaciones: r.observaciones,
+        micro: Math.floor(r.micro),
+        rival: r.rival,
+        md: r.md,
+        fase: r.fase,
+      }));
+
+    const fechas = [...new Set(suyas.map((r) => fechaIso(r.fecha)).filter(Boolean))].sort();
+
+    return fechas
+      .map((fecha) => ({ fecha, md: suyas.find((r) => fechaIso(r.fecha) === fecha)?.md ?? "", plan: planDeRegistro(suyas, fecha) }))
+      .filter((d) => d.plan.length > 0);
+  }, [rows, micro]);
+
+  const fechasDelMicro = useMemo(() => diasDelMicro.map((d) => d.fecha), [diasDelMicro]);
+
+  const { almacen: almacenEquipos, entrenos } = useDiasConectados(fechasDelMicro);
+
   const yAxisWidth = isMobile ? 120 : isNarrow ? 160 : 220;
 
   const tipoAxisWidth = isMobile ? 140 : isNarrow ? 170 : 220;
@@ -2013,6 +2057,39 @@ export default function Page() {
 
             {!loading && filtered.length > 0 && tab === "resumen" && (
               <div className="mt-8 space-y-6">
+                {diasDelMicro.length > 0 && (
+                  <Panel
+                    title="La semana en sesión"
+                    subtitle="Los equipos de Jugadores sesión y lo que midió el análisis de entrenamiento, junto a cada tarea"
+                  >
+                    <div className="grid min-w-0 grid-cols-1 gap-3 xl:grid-cols-2">
+                      {diasDelMicro.map((d) => {
+                        const equipos = sesionDeFecha(almacenEquipos?.sesiones, d.fecha);
+
+                        return (
+                          <div key={d.fecha} className="min-w-0 space-y-1.5">
+                            <p className="text-sm font-semibold">
+                              {new Date(`${d.fecha}T12:00:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "short" })}
+                              {d.md ? <span className="ml-2 text-xs font-normal text-[#C8A96B]">{d.md}</span> : null}
+                              <span className="ml-2 text-xs font-normal text-white/45">
+                                {d.plan.length} {d.plan.length === 1 ? "tarea" : "tareas"}
+                              </span>
+                            </p>
+                            <DiaConectado
+                              fecha={d.fecha}
+                              plan={d.plan}
+                              sesion={equipos}
+                              entreno={entrenos[d.fecha]}
+                              micro={d.plan[0]?.micro}
+                              propuestas={propuestasDeLaSesion(equipos, d.plan)}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </Panel>
+                )}
+
                 {insights.length > 0 && (
                   <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#C8A96B]/[0.07] to-white/[0.02] p-6 sm:p-7">
                     <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold">
