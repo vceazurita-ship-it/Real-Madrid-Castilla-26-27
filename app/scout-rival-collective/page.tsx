@@ -9,6 +9,11 @@ import { useAutoSave } from "@/hooks/useAutoSave";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { guardaEnLaHoja, leeRivales } from "@/lib/hojaRivales";
 import { traeJson } from "@/lib/hojaCsv";
+import { mismoClub } from "@/lib/rivals/mismoClub";
+import { conTildes } from "@/lib/rivals/tildes";
+import { completaNombres } from "@/lib/rivals/completa-nombres";
+import { comoNombre } from "@/lib/duelos-onces";
+import { formatea } from "@/lib/data-analisis/metricas";
 import { aJornada, claveFecha } from "@/lib/abp/jornada";
 import { POR_VENIR, claveDeHoy, jornadaJugada, proximosEnfrentamientos } from "@/lib/rivals/orden-calendario";
 import { toast } from "sonner";
@@ -232,6 +237,64 @@ export default function ScoutRivalCollective() {
     setIntento((n) => n + 1);
   }, []);
 
+  /*
+  | Contexto del rival (24/10/2026): los nombres de su plantilla, para completar
+  | «Ángel, Aleix» con el apellido, y su posesión y presión frente a la liga.
+  */
+  const [plantillaRival, setPlantillaRival] = useState<Record<string, unknown>[]>([]);
+  const [estilo, setEstilo] = useState<{
+    equipo: string;
+    filas: { nombre: string; valor: number; mediana: number; unidad: "porcentaje" | "decimal" | "entero" | "minutos" }[];
+  }>({ equipo: "", filas: [] });
+
+  useEffect(() => {
+    let cancelado = false;
+
+    traeJson<unknown>("/api/rivals?action=rivalesPlantillas")
+      .then((filas) => {
+        if (!cancelado && Array.isArray(filas)) setPlantillaRival(filas as Record<string, unknown>[]);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const equipoActivo = String(rivalActivo?.EQUIPO ?? "");
+
+  useEffect(() => {
+    if (!equipoActivo) return;
+
+    let cancelado = false;
+
+    traeJson<{
+      ok?: boolean;
+      aspectos?: { filas: { nombre: string; valor: number; mediana: number; unidad: "porcentaje" | "decimal" | "entero" | "minutos" }[] }[];
+    }>(`/api/data-analisis?abpRival=${encodeURIComponent(equipoActivo)}&ambito=estilo&v=1`)
+      .then((r) => {
+        if (!cancelado) setEstilo({ equipo: equipoActivo, filas: r?.ok ? (r.aspectos ?? []).flatMap((a) => a.filas) : [] });
+      })
+      .catch(() => {
+        if (!cancelado) setEstilo({ equipo: equipoActivo, filas: [] });
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [equipoActivo]);
+
+  const nombresRival = useMemo(
+    () =>
+      plantillaRival
+        .filter((f) => mismoClub(String(f.NOMBRE_EQUIPO ?? ""), equipoActivo))
+        .map((f) => conTildes(comoNombre(String(f["NOMBRE DEPORTIVO"] ?? "").trim() || String(f.JUGADOR ?? "").trim())))
+        .filter(Boolean),
+    [plantillaRival, equipoActivo],
+  );
+
+  const contexto = estilo.equipo === equipoActivo ? estilo.filas : [];
+
   /* Puente hacia el `flush` del autoguardado: `cambiarRival` se declara antes
      que el hook y necesita poder consolidar lo pendiente. Dice si lo pendiente
      ha llegado a la hoja. */
@@ -311,7 +374,11 @@ export default function ScoutRivalCollective() {
         .map((l) => l.replace(/^[\s\-–•*·]+/, "").trim())
         .filter(Boolean),
     }));
-    const corta = (t: string) => (t.length > 180 ? `${t.slice(0, 177).trimEnd()}…` : t);
+    const corta = (t: string) => {
+      const completo = completaNombres(t, nombresRival);
+
+      return completo.length > 180 ? `${completo.slice(0, 177).trimEnd()}…` : completo;
+    };
     /* La primera línea de cada conclusión; si faltan, las siguientes de las que tengan más hasta llegar a tres. */
     const ideas = campos.flatMap((c) => (c.lineas[0] ? [{ titulo: c.titulo, texto: corta(c.lineas[0]) }] : []));
 
@@ -868,6 +935,15 @@ export default function ScoutRivalCollective() {
                     </li>
                   ))}
               </ul>
+              {contexto.length > 0 && (
+                <p className="mt-3 border-t border-[#C8A96B]/15 pt-2 text-xs text-white/70">
+                  <span className="text-white/45">Wyscout, frente a la mediana de la liga: </span>
+                  {contexto
+                    .map((f) => `${f.nombre === "PPDA" ? "presión (PPDA)" : f.nombre.toLowerCase()} ${formatea(f.valor, f.unidad)} (mediana ${formatea(f.mediana, f.unidad)})`)
+                    .join(" · ")}
+                  {contexto.some((f) => f.nombre === "PPDA") && <span className="text-white/45"> · PPDA bajo = presiona más arriba</span>}
+                </p>
+              )}
               <p className="mt-2 text-[11px] text-white/40">
                 Fuente: las conclusiones que ha escrito el analista tras ver los partidos del rival
                 {esencial.length > 1 ? "; el detalle está abajo, en «Conclusiones»" : ""}.
@@ -1035,7 +1111,7 @@ export default function ScoutRivalCollective() {
                       <span className="h-px flex-1 bg-white/10" />
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
                       {bloque.campos.filter((f) => modoEdicion || tiene(f)).map((field) => (
                         <Campo
                           key={field.campo}
@@ -1043,6 +1119,7 @@ export default function ScoutRivalCollective() {
                           valor={valorDe(field.campo)}
                           editando={modoEdicion}
                           accent={section.accent}
+                          nombres={nombresRival}
                           onChange={(v) => setCampo(field.campo, v)}
                         />
                       ))}
@@ -1072,7 +1149,7 @@ export default function ScoutRivalCollective() {
               </p>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
               {CONCLUSIONES.filter((f) => modoEdicion || tiene(f)).map((field) => (
                 <Campo
                   key={field.campo}
@@ -1081,6 +1158,7 @@ export default function ScoutRivalCollective() {
                   editando={modoEdicion}
                   accent="#C8A96B"
                   destacado
+                  nombres={nombresRival}
                   onChange={(v) => setCampo(field.campo, v)}
                 />
               ))}
@@ -1141,6 +1219,7 @@ function Campo({
   editando,
   accent,
   destacado = false,
+  nombres = [],
   onChange,
 }: {
   field: FieldDef;
@@ -1148,6 +1227,7 @@ function Campo({
   editando: boolean;
   accent: string;
   destacado?: boolean;
+  nombres?: string[];
   onChange: (value: string) => void;
 }) {
   const contenido = String(valor ?? "").trim();
@@ -1157,7 +1237,7 @@ function Campo({
     <div
       className={`rounded-2xl border bg-[#111827] p-4 transition-colors ${
         field.ancho ? "sm:col-span-2" : ""
-      } ${destacado ? "min-h-[190px]" : "min-h-[120px]"} ${
+      } ${editando ? (destacado ? "min-h-[190px]" : "min-h-[120px]") : ""} ${
         editando
           ? "border-amber-400/60"
           : vacio
@@ -1195,7 +1275,7 @@ function Campo({
         />
       ) : (
         <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
-          {contenido}
+          {completaNombres(contenido, nombres)}
         </p>
       )}
     </div>

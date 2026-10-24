@@ -330,6 +330,15 @@ const ASPECTO_CENTROS_DEF = {
   explica: "Cuánto le centran y cuántos de esos centros encuentran a alguien",
 } as const;
 
+/** Posesión y presión (24/10/2026): la cifra de contexto que va junto a «Lo esencial» del Scout Colectivo. */
+const ASPECTO_ESTILO = {
+  key: "estilo",
+  label: "Cómo juega",
+  momento: "con",
+  metricas: ["posesion", "ppda"],
+  explica: "Cuánto balón tiene y cuánto aprieta sin él",
+} as const;
+
 const NOMBRE_EN_CONTRA: Record<string, string> = {
   centros: "Centros que recibe",
   centrosPrecisos: "Acierto de los centros que recibe %",
@@ -363,7 +372,7 @@ function lanzadoresDe(datos: Dataset, equipo: string) {
   return [...saca("Córneres/90", "corner"), ...saca("Tiros libres/90", "falta")];
 }
 
-function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "abp") {
+function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "estilo" = "abp") {
   const temporadas = [...new Set(datos.partidos.map((p) => temporadaDe(p.fecha)))]
     .filter(Boolean)
     .sort();
@@ -381,7 +390,9 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "ab
     equipo,
     liga,
     equipos,
-    ambito === "area"
+    ambito === "estilo"
+      ? [{ ...ASPECTO_ESTILO, metricas: [...ASPECTO_ESTILO.metricas] }]
+      : ambito === "area"
       ? [
           { ...ASPECTO_CENTROS, metricas: [...ASPECTO_CENTROS.metricas] },
           { ...ASPECTO_CENTROS_DEF, metricas: [...ASPECTO_CENTROS_DEF.metricas] },
@@ -407,13 +418,13 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "ab
     })),
   }));
 
-  const goles = ambito === "area" ? null : golesAbpDeEquipo(equipo, liga);
+  const goles = ambito !== "abp" ? null : golesAbpDeEquipo(equipo, liga);
 
   return {
     temporada: actual,
     equipos: equipos.length,
     aspectos,
-    lanzadores: ambito === "area" ? [] : lanzadoresDe(datos, equipo),
+    lanzadores: ambito !== "abp" ? [] : lanzadoresDe(datos, equipo),
     golesAbp: goles && (goles.aFavor.partidos > 0 || goles.enContra.partidos > 0) ? goles : null,
   };
 }
@@ -1087,7 +1098,7 @@ async function contesta(peticion: Request) {
 
   /* Su balón parado en Wyscout (23/10/2026), para el ABP del rival. */
   const equipoAbp = parametros.get("abpRival");
-  const ambitoAbp = parametros.get("ambito") === "area" ? "area" : "abp";
+  const ambitoAbp = parametros.get("ambito") === "area" ? "area" : parametros.get("ambito") === "estilo" ? "estilo" : "abp";
 
   const aspectosPedidos = (parametros.get("aspectos") ?? "")
     .split(",")
