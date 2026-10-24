@@ -31,6 +31,9 @@ interface Props {
   ultimaConMaterial?: WeekData | null;
   /** En cuántas semanas hay imágenes y en cuántas PDFs. */
   semanasCon?: { images: number; pdfs: number };
+  /** Una casilla por semana transcurrida, para ver de un vistazo cuáles tienen material. */
+  tiraSemanas?: { id: number; nombre: string; conMaterial: boolean; actual: boolean }[];
+  onSelectWeek?: (id: number) => void;
   saving: boolean;
   onGoToCurrentWeek: () => void;
   onOpenImages: () => void;
@@ -44,6 +47,8 @@ export default function SeasonHeader({
   currentWeek,
   ultimaConMaterial = null,
   semanasCon,
+  tiraSemanas = [],
+  onSelectWeek,
   saving,
   onGoToCurrentWeek,
   onOpenImages,
@@ -89,6 +94,29 @@ export default function SeasonHeader({
                 {stats.totalWeeks === 1 ? "semana con material" : "semanas con material"}
               </span>
             </p>
+          )}
+
+          {tiraSemanas.length > 1 && (
+            <div
+              className="mt-3 flex max-w-full flex-wrap items-center gap-1"
+              role="group"
+              aria-label="Semanas con y sin material"
+            >
+              {tiraSemanas.map((semana) => (
+                <button
+                  key={semana.id}
+                  type="button"
+                  onClick={() => onSelectWeek?.(semana.id)}
+                  title={`${semana.nombre}${semana.conMaterial ? " · con material" : " · sin material"}`}
+                  aria-label={`${semana.nombre}${semana.conMaterial ? ", con material" : ", sin material"}`}
+                  className={`h-3.5 w-3.5 rounded-[4px] transition hover:scale-125 ${
+                    semana.conMaterial
+                      ? "bg-emerald-400"
+                      : "border border-white/20 bg-white/[0.04]"
+                  } ${semana.actual ? "ring-2 ring-[#C8A96B] ring-offset-1 ring-offset-[#0B0F14]" : ""}`}
+                />
+              ))}
+            </div>
           )}
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">

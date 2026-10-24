@@ -101,8 +101,13 @@ export function AlertasPortada({
     [ahora, plantilla, seguimiento],
   );
 
+  /* «Goles menos xG» ya lo enseña la tarjeta de Data Análisis que está justo
+     encima: repetirlo aquí era contar dos veces lo mismo. */
   const alertas = useMemo(
-    () => [...(deData ?? []), ...otras].sort((a, b) => b.fuerza - a.fuerza),
+    () =>
+      [...(deData ?? []).filter((a) => a.clave !== "goles-menos-xg"), ...otras].sort(
+        (a, b) => b.fuerza - a.fuerza,
+      ),
     [deData, otras],
   );
 

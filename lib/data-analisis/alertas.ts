@@ -182,13 +182,20 @@ export function alertasDeData(
       ? metrica.nombre.replace(/\s*%\s*$/, "")
       : metrica.nombre;
 
+    /* Un total de Wyscout es por partido: sin decirlo, «69,9 recuperaciones»
+       parece el total de la temporada. */
+    const nombreTitulo =
+      metrica.acumulable && metrica.unidad === "decimal"
+        ? `${nombreMetrica} por partido`
+        : nombreMetrica;
+
     alertas.push({
       clave: `metrica-${metrica.key}`,
       tono: arriba ? "buena" : "mala",
       area: "Data · contra la liga",
       titulo: arriba
-        ? `${nombreMetrica}: ${valor}, ${puesto === 1 ? "la mejor" : `${puesto}º`} de ${todos.length} equipos`
-        : `${nombreMetrica}: ${valor}, ${puesto === 1 ? "la peor" : `${puesto}º por la cola`} de ${todos.length} equipos`,
+        ? `${nombreTitulo}: ${valor}, ${puesto === 1 ? "la mejor" : `${puesto}º`} de ${todos.length} equipos`
+        : `${nombreTitulo}: ${valor}, ${puesto === 1 ? "la más baja" : `${puesto}º por la cola`} de ${todos.length} equipos`,
       detalle: metrica.comoLeer,
       cifra: (() => {
         /* La referencia: la mediana de la liga, con el mismo formato que la cifra. */
@@ -203,8 +210,11 @@ export function alertasDeData(
         return `${metrica.mejorAlto ? "más es mejor" : "menos es mejor"} · mediana de la liga ${med} · contra ${todos.length} equipos · en ${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} del Castilla`;
       })(),
       fuerza: Math.min(100, Math.abs(p - 50) * 2),
-      enlace: "/data-analisis?area=liga",
-      mira: "La barra de esa métrica y el resto de su fase de juego.",
+      enlace: metrica.key === "recuperaciones" ? "/laboratorio/transiciones" : "/data-analisis?area=liga",
+      mira:
+        metrica.key === "recuperaciones"
+          ? "A qué altura se roba: los robos de Hudl por zona."
+          : "La barra de esa métrica y el resto de su fase de juego.",
     });
   }
 

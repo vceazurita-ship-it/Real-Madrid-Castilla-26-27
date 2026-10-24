@@ -11,7 +11,6 @@ import {
   fechaLegible,
   proximoDesdeElPartido,
   saldriaSiSeReactiva,
-  tituloLegible,
   type PartidoParaAlerta,
 } from "@/lib/alertas/modelo";
 import { CLAVE_CALENDARIO } from "@/lib/castilla/calendario";
@@ -304,14 +303,12 @@ export default function GestorAlertas() {
           <p>
             <b className="font-semibold">
               {alertas.length === 1
-                ? "Ningún aviso saldrá hasta reactivar la tarea."
-                : `Ningún aviso saldrá hasta reactivarlas: las ${alertas.length} tareas están silenciadas.`}
+                ? "No saldrá ningún aviso hasta reactivar la tarea."
+                : `No saldrá ningún aviso: las ${alertas.length} tareas están silenciadas.`}
             </b>
             {primeraAlReactivar && (
               <>
-                {" "}Al reactivar, el primer envío sería{" "}
-                {fechaLegible(primeraAlReactivar.cuando.toISOString())}, con «
-                {tituloLegible(primeraAlReactivar.titulo)}».
+                {" "}El primero, {fechaLegible(primeraAlReactivar.cuando.toISOString())}.
               </>
             )}
           </p>

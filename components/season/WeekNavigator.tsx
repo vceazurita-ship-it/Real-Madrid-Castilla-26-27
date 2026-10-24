@@ -141,12 +141,14 @@ export default function WeekNavigator({
 
           <span className="font-medium">{month.name}</span>
 
-          <span
-            className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/40"
-            title={`${withFiles} de ${month.weeks.length} semanas con material`}
-          >
-            {withFiles}/{month.weeks.length}
-          </span>
+          {withFiles > 0 && (
+            <span
+              className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/40"
+              title={`${withFiles} de ${month.weeks.length} semanas con material`}
+            >
+              {withFiles}/{month.weeks.length}
+            </span>
+          )}
 
           <ChevronDown
             size={16}

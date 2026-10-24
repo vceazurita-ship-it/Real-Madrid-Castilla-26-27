@@ -129,6 +129,20 @@ export default function SeasonWorkspace({ area }: Props) {
     };
   }, [season]);
 
+  // Una casilla por semana ya transcurrida: con material o sin él.
+  const tiraSemanas = useMemo(() => {
+    if (!currentWeek) return [];
+
+    return flattenWeeks(season)
+      .filter((week) => week.id <= currentWeek.id)
+      .map((week) => ({
+        id: week.id,
+        nombre: week.week,
+        conMaterial: weekHasFiles(week),
+        actual: week.id === currentWeek.id,
+      }));
+  }, [season, currentWeek]);
+
   const stats = useMemo(
     () => seasonStats(season, currentWeek?.id ?? null),
     [season, currentWeek]
@@ -219,6 +233,8 @@ export default function SeasonWorkspace({ area }: Props) {
                   currentWeek={currentWeek}
                   ultimaConMaterial={ultimaConMaterial}
                   semanasCon={semanasCon}
+                  tiraSemanas={tiraSemanas}
+                  onSelectWeek={(id) => selectWeek(id)}
                   saving={saving}
                   onGoToCurrentWeek={() =>
                     currentWeek && selectWeek(currentWeek.id)

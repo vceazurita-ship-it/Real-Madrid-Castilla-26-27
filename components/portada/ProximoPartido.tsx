@@ -283,12 +283,12 @@ export function ProximoPartido() {
                 {/* Del alto del nombre y de la línea de debajo (que en el
                     móvil ocupa dos renglones): si no, todo lo de abajo
                     saltaba al llegar el calendario (14/10/2026). */}
-                <span className="mt-1.5 block h-[34px] w-64 max-w-full animate-pulse rounded-lg bg-white/10 sm:h-[42px] xl:h-[48px]" />
-                <span className="mt-3 block h-[46px] w-80 max-w-full animate-pulse rounded bg-white/10 sm:h-[23px]" />
+                <span className="mt-1.5 block h-[34px] w-64 max-w-full animate-pulse rounded-lg bg-white/10 sm:h-[48px] xl:h-[56px]" />
+                <span className="mt-3 block h-[46px] w-80 max-w-full animate-pulse rounded bg-white/10 sm:h-[30px]" />
               </>
             ) : proximo ? (
               <>
-                <h1 className="mt-1.5 text-[34px] font-bold leading-[1] tracking-[-0.03em] text-white sm:text-[42px] xl:text-[48px]">
+                <h1 className="mt-1.5 text-[34px] font-bold leading-[1] tracking-[-0.03em] text-white sm:text-[48px] xl:text-[56px]">
                   {proximo.rival}
                 </h1>
 
@@ -308,7 +308,7 @@ export function ProximoPartido() {
                   {/* Con clases y no con un color fijo: en modo día el dorado
                       claro sobre fondo claro no se veía, y la tabla de
                       `globals.css` sí sabe oscurecer `text-[#F7D98B]`. */}
-                  <span className="ml-1 inline-flex items-center rounded-md border border-[#D8B45A]/50 bg-[#D8B45A]/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.18em] text-[#F7D98B]">
+                  <span className="ml-1 inline-flex items-center rounded-lg border border-[#D8B45A]/60 bg-[#D8B45A]/15 px-3 py-1 text-[13px] font-bold uppercase tracking-[0.18em] text-[#F7D98B] shadow-[0_0_24px_rgba(216,180,90,0.25)]">
                     {cuantoFalta(proximo.cuando, ahora)}
                   </span>
                 </p>
@@ -354,9 +354,9 @@ export function ProximoPartido() {
             un salto de 0,2 en la portada, 14/10/2026). */}
         {cargando && semana.length === 0 && (
           <div aria-hidden className="mt-6">
-            <div className="flex gap-1.5 pb-1">
+            <div className="grid grid-cols-7 gap-1 pb-1 sm:gap-1.5">
               {Array.from({ length: 7 }, (_, i) => (
-                <div key={i} className="h-[69px] min-w-[46px] flex-1 animate-pulse rounded-xl border border-white/[0.08] bg-white/[0.03]" />
+                <div key={i} className="h-[69px] min-w-0 animate-pulse rounded-xl border border-white/[0.08] bg-white/[0.03]" />
               ))}
             </div>
             <div className="mt-2 h-[17px]" />
@@ -365,7 +365,7 @@ export function ProximoPartido() {
 
         {semana.length > 0 && (
           <div className="mt-6">
-            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 scrollbar-none">
+            <div className="grid grid-cols-7 gap-1 pb-1 sm:gap-1.5">
               {semana.map((dia) => {
                 const esHoy = dia.fecha === hoy;
                 const esPartido = dia.md === 0;
@@ -386,7 +386,7 @@ export function ProximoPartido() {
                           ? " · partido"
                           : ""
                     } · pincha para la sesión o un seguimiento`}
-                    className={`flex min-w-[46px] flex-1 flex-col items-center rounded-xl border px-1 py-2 transition hover:-translate-y-0.5 hover:border-[#D8B45A]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#D8B45A] ${
+                    className={`flex min-w-0 flex-col items-center rounded-xl border px-0.5 py-2 transition hover:-translate-y-0.5 sm:px-1 hover:border-[#D8B45A]/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#D8B45A] ${
                       esHoy
                         ? "border-transparent"
                         : esPartido
@@ -396,7 +396,7 @@ export function ProximoPartido() {
                     style={esHoy ? { background: ORO, color: "#0B0F14" } : undefined}
                   >
                     <span
-                      className={`text-[9px] font-bold uppercase tracking-[0.14em] ${
+                      className={`text-[9px] font-bold uppercase tracking-[0.06em] sm:tracking-[0.14em] ${
                         esHoy ? "" : esPartido ? "text-[#F7D98B]" : "text-white/45"
                       }`}
                     >
@@ -411,10 +411,12 @@ export function ProximoPartido() {
                       {Number(dia.fecha.slice(8, 10))}
                     </span>
 
+                    {/* En el móvil sólo «libre»: con el día de la semana debajo
+                        no caben las siete casillas. */}
                     <span
                       className={`mt-1 text-[9px] uppercase ${
-                        esHoy ? "opacity-80" : "text-white/40"
-                      }`}
+                        libre ? "" : "hidden sm:inline"
+                      } ${esHoy ? "opacity-80" : "text-white/40"}`}
                     >
                       {libre ? "libre" : dia.nombre.slice(0, 3)}
                     </span>
@@ -422,6 +424,19 @@ export function ProximoPartido() {
                 );
               })}
             </div>
+
+            {diaDeHoy && (
+              <button
+                type="button"
+                onClick={() =>
+                  setDiaAbierto({ fecha: diaDeHoy.fecha, nombre: diaDeHoy.nombre, rotulo: diaDeHoy.rotulo })
+                }
+                className="group mt-3 inline-flex items-center gap-2 rounded-xl border border-[#D8B45A]/50 bg-[#D8B45A]/10 px-4 py-2 text-[13px] font-semibold text-[#F7D98B] transition hover:-translate-y-0.5 hover:bg-[#D8B45A]/20"
+              >
+                Qué toca hoy
+                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </button>
+            )}
 
             {diaAbierto &&
               createPortal(
@@ -579,7 +594,7 @@ function Escudos({
 }) {
   return (
     <div className="flex shrink-0 items-center gap-3">
-      <span className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_0_40px_rgba(200,169,107,0.10)] sm:h-[84px] sm:w-[84px]">
+      <span className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl border border-[#D8B45A]/30 bg-white/[0.04] shadow-[0_0_56px_rgba(216,180,90,0.22)] sm:h-[96px] sm:w-[96px]">
         <Image src="/logo.png" alt="Real Madrid Castilla" width={48} height={48} priority />
       </span>
 
@@ -587,7 +602,7 @@ function Escudos({
         vs
       </span>
 
-      <span className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] sm:h-[84px] sm:w-[84px]">
+      <span className="flex h-[72px] w-[72px] items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] sm:h-[96px] sm:w-[96px]">
         {cargando ? (
           <span className="h-12 w-12 animate-pulse rounded-full bg-white/10" />
         ) : (
