@@ -826,12 +826,26 @@ export default function DashboardSeguimiento() {
       .sort((a, b) => a.n - b.n || a.nombre.localeCompare(b.nombre, "es"))
       .slice(0, 3);
 
-    if (menos.length === 3) {
+    /* Misma regla y misma ventana (14 días) que el aviso de /calendar: quien
+       no tiene ningún seguimiento. Sólo si nadie está a cero se nombran los
+       tres con menos. */
+    const aCero = plantillaEnFoco
+      .filter((p) => (dosSemanas.get(p.id) ?? 0) === 0)
+      .map((p) => p.nombre)
+      .sort((a, b) => a.localeCompare(b, "es"));
+
+    if (aCero.length > 0) {
       out.push({
         icon: AlertTriangle,
         tone: "text-amber-400",
-        text: `Menos seguimiento en las últimas 2 semanas: ${menos
-          .map((m) => `${m.nombre} (${m.n})`)
+        text: `Sin seguimiento en 14 días: ${aCero.join(", ")}. Programa una sesión individual con ellos esta semana.`,
+      });
+    } else if (menos.length === 3) {
+      out.push({
+        icon: AlertTriangle,
+        tone: "text-amber-400",
+        text: `Menos seguimiento en 14 días: ${menos
+          .map((m) => `${m.nombre} (${m.n} ${m.n === 1 ? "seguimiento" : "seguimientos"})`)
           .join(", ")}. Programa una sesión individual con ellos esta semana.`,
       });
     }
@@ -1193,7 +1207,7 @@ export default function DashboardSeguimiento() {
                   icon={Target}
                   title="Individualización"
                   value={`${cm(individualShare)} %`}
-                  hint={`${cm(individualShare)} % de ${totalSessions} registros`}
+                  hint={`de ${totalSessions} registros, los individuales`}
                   accent="#8B5CF6"
                   progress={individualShare}
                 />

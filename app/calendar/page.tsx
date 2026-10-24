@@ -255,6 +255,12 @@ export default function Calendar() {
           <CalendarStat label="Jugadores" value={monthStats.jugadores} />
           <CalendarStat label="Campo" value={monthStats.campo} />
           <CalendarStat label="Vídeo" value={monthStats.video} />
+          {monthStats.total - monthStats.campo - monthStats.video > 0 && (
+            <CalendarStat
+              label="Charla y otros"
+              value={monthStats.total - monthStats.campo - monthStats.video}
+            />
+          )}
         </>
       }
       toolbar={
@@ -362,7 +368,7 @@ export default function Calendar() {
         <div className="px-4 pb-6 md:px-8">
           <p className="rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80">
             <span className="font-semibold text-[#C8A96B]">
-              Sin seguimiento en 14 días:
+              Sin seguimiento en 14 días ({sinSeguimiento.length}):
             </span>{" "}
             {sinSeguimiento.join(", ")}.
           </p>
