@@ -236,6 +236,21 @@ export function Acceso({
         </Button>
       </form>
 
+      {/* Por qué «Entrar» está apagado (24/10/2026): el botón pálido no decía qué faltaba. */}
+      {!enviando && (!correo.trim() || (registrando ? !quien : !clave)) ? (
+        <p className="mt-2 text-[12px] text-white/60" aria-live="polite">
+          {registrando
+            ? !quien
+              ? "Elige tu nombre y escribe tu correo para registrarte."
+              : "Escribe tu correo para registrarte."
+            : !correo.trim() && !clave
+              ? "Escribe tu correo y tu contraseña para entrar."
+              : !correo.trim()
+                ? "Falta tu correo."
+                : "Falta la contraseña."}
+        </p>
+      ) : null}
+
       <p className="mt-3 text-[11px] leading-relaxed text-white/40">
         {sinPista ? (
           <>Si no recuerdas la contraseña, pídela al administrador.</>
