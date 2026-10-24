@@ -285,7 +285,7 @@ export function EstadoJornada({
             </span>
           ) : lideres.length > 1 ? (
             <span className="truncate text-[17px]">
-              Empate en cabeza · {lideres.length}
+              {lideres.length} empatados
             </span>
           ) : (
             <span className="flex min-w-0 items-center gap-2">
@@ -307,8 +307,17 @@ export function EstadoJornada({
         }
         pie={
           lideres.length > 1
-            ? `Con ${mejor.marcador.aciertos} de ${jugados} cada uno`
-            : `${mejor.marcador.aciertos} de ${jugados}`
+            ? (() => {
+                const nombres = lideres.slice(0, 3).map((lider) => {
+                  const persona = PERSONA_POR_SLUG.get(lider.slug);
+
+                  return persona ? nombreCorto(persona) : lider.slug;
+                });
+                const resto = lideres.length - nombres.length;
+
+                return `Con ${mejor.marcador.aciertos} de ${jugados}: ${nombres.join(", ")}${resto > 0 ? ` y ${resto} más` : ""}`;
+              })()
+            :`${mejor.marcador.aciertos} de ${jugados}`
         }
       />
       )}

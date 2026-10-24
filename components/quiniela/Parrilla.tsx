@@ -115,6 +115,44 @@ export function Parrilla({
       subtitle="Jornada cerrada: esto ya no se toca"
       icon={Users}
     >
+      {/* La leyenda, arriba: se lee antes de la tabla, no después. */}
+      <ul className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-white/60">
+        <li className="flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-sm border border-emerald-400/40 bg-emerald-400/[0.14]" />
+          Acierto
+        </li>
+
+        <li className="flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-sm border border-rose-400/30 bg-rose-400/[0.10]" />
+          Fallo
+        </li>
+
+        <li className="flex items-center gap-1.5">
+          <span className="h-3 w-3 rounded-sm border border-[#C8A96B]/30 bg-[#C8A96B]/[0.10]" />
+          Pendiente de jugarse
+        </li>
+
+        <li className="flex items-center gap-1.5">
+          <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] text-[#C8A96B]">
+            Solo …
+          </span>
+          el único que puso ese signo
+        </li>
+
+        <li className="flex items-center gap-1.5">
+          <span className="flex h-3 w-10 overflow-hidden rounded-sm">
+            {SIGNOS.map((signo) => (
+              <span
+                key={signo}
+                className="flex-1"
+                style={{ background: COLOR_SIGNO[signo] }}
+              />
+            ))}
+          </span>
+          Reparto de 1 · X · 2
+        </li>
+      </ul>
+
       <div className="min-w-0 overflow-x-auto">
         <table
           className="w-full text-[12px]"
@@ -282,9 +320,8 @@ export function Parrilla({
         </table>
       </div>
 
-      <p className="mt-3 text-[11px] leading-relaxed text-white/35">
-        · sin apostar · dorado = pendiente de jugarse · copa = el que más
-        acertó.
+      <p className="mt-3 text-[11px] leading-relaxed text-white/50">
+        · = no apostó · copa = el que más acertó.
       </p>
     </Panel>
   );
