@@ -207,6 +207,29 @@ function formatFecha(value: unknown) {
   });
 }
 
+/**
+ * «Último control: 24 ago 2026 · hace 61 días · control antiguo».
+ *
+ * Las notas se leen contra una ficha: si la ficha tiene dos meses, la
+ * diferencia con la media no habla de hoy. Pasado el mes se dice. `ahora` viene
+ * de fuera para no leer el reloj dentro del render.
+ */
+const DIAS_CONTROL_ANTIGUO = 30;
+
+const nombreCorto = (p: { apodo?: string; nombre?: string }) => p.apodo || p.nombre || "";
+
+function textoControl(fecha: unknown, ahora: number) {
+  const marca = parseFecha(fecha);
+
+  if (!marca) return `Último control: ${String(fecha)}`;
+
+  const dias = Math.max(0, Math.floor((ahora - marca) / 86_400_000));
+
+  return `Último control: ${formatFecha(fecha)} · ${
+    dias === 0 ? "hoy" : `hace ${dias} ${dias === 1 ? "día" : "días"}`
+  }${dias > DIAS_CONTROL_ANTIGUO ? " · control antiguo" : ""}`;
+}
+
 function toNumber(value: unknown) {
   const parsed = Number(String(value ?? "").replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
@@ -575,6 +598,12 @@ export default function DashboardPlantilla() {
         ? coma(Math.min(...valorados.map((p) => p.media)))
         : "—",
       elite: valorados.filter((p) => p.media >= 8).length,
+      mejorNombre: valorados.length
+        ? nombreCorto([...valorados].sort((a, b) => b.media - a.media)[0])
+        : "",
+      peorNombre: valorados.length
+        ? nombreCorto([...valorados].sort((a, b) => a.media - b.media)[0])
+        : "",
 
       optimalPercentage,
     };
@@ -769,8 +798,8 @@ export default function DashboardPlantilla() {
       value: stats.media,
       base: `de ${stats.valorados} con ficha`,
     },
-    { title: "Mejor", value: stats.mejor },
-    { title: "Peor", value: stats.peor },
+    { title: "Mejor", value: stats.mejor, base: stats.mejorNombre || undefined },
+    { title: "Peor", value: stats.peor, base: stats.peorNombre || undefined },
     { title: "Élite (≥8)", value: stats.elite },
     {
       title: "% Óptimos",
@@ -1102,8 +1131,12 @@ export default function DashboardPlantilla() {
                         selectedPlayer?.valorado
                           ? `${
                               selectedPlayer.apodo || selectedPlayer.nombre
-                            } vs. media de los ${stats.valorados} con ficha · escala de 0 a 10`
-                          : `Media de los ${stats.valorados} jugadores con ficha · escala de 0 a 10`
+                            } vs. media de los ${stats.valorados} con ficha${
+                              stats.valorados < stats.total ? ` (de ${stats.total} en la lista)` : ""
+                            }${stats.valorados < 5 ? " · con tan pocas fichas es sólo una tendencia" : ""} · escala de 0 a 10`
+                          : `Media de los ${stats.valorados} jugadores con ficha${
+                            stats.valorados < stats.total ? ` (de ${stats.total} en la lista)` : ""
+                          }${stats.valorados < 5 ? " · con tan pocas fichas es sólo una tendencia" : ""} · escala de 0 a 10`
                       }
                     >
                       {radarData.length ? (
@@ -1845,6 +1878,9 @@ function PlayerCard({
   ratingsSeason: RatingsSeason;
   sesiones: ResumenSesiones;
 }) {
+  /* Una sola lectura del reloj al montar la ficha. */
+  const [ahora] = useState(() => Date.now());
+
   if (!player) {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-10 text-center text-sm text-white/30">
@@ -1969,7 +2005,7 @@ function PlayerCard({
               />
             ))}
             <p className="pt-1 text-[11px] text-white/45">
-              {player.fecha ? `Último control: ${player.fecha}. ` : ""}
+              {player.fecha ? `${textoControl(player.fecha, ahora)}. ` : ""}
               La diferencia junto a cada nota es frente a la media de los
               jugadores con ficha; en gris, si es menor de 1 punto.
             </p>
@@ -2022,7 +2058,7 @@ function PlayerCard({
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/5 pt-4 text-xs text-white/30">
         <span className="truncate">
           {player.fecha
-            ? `Último control: ${formatFecha(player.fecha)}`
+            ? textoControl(player.fecha, ahora)
             : "Sin control registrado"}
         </span>
 

@@ -57,6 +57,7 @@ import {
   CURSOR_LINEA,
   ChartTooltip,
   GRID_STROKE,
+  TickNombre,
 } from "./charts";
 import {
   EmptyState,
@@ -496,9 +497,9 @@ export function TeamPanel({
                   <YAxis
                     type="category"
                     dataKey="name"
-                    width={92}
+                    width={104}
                     stroke={AXIS.stroke}
-                    tick={AXIS.tick}
+                    tick={<TickNombre />}
                     tickLine={false}
                     axisLine={false}
                   />

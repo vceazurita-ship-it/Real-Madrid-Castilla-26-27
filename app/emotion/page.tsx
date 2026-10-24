@@ -82,6 +82,9 @@ const AXES: {
   },
 ];
 
+/** «Control emocional (qué siento)» -> «Control emocional»: el nombre que se entiende sin la sigla. */
+const nombreLargo = (axis: { detail: string }) => axis.detail.replace(/\s*\(.*\)\s*$/, "");
+
 /* Por debajo de esto la media es una tendencia, no un diagnóstico. */
 const MUESTRA_MINIMA = 12;
 
@@ -411,7 +414,7 @@ export default function EmotionPage() {
                 value={loading ? "—" : String(rows.length)}
                 caption={
                   rows.length > 0 && rows.length < MUESTRA_MINIMA
-                    ? "Pocos registros: es una tendencia"
+                    ? `Sólo ${rows.length} jugadores medidos: es una tendencia, no un diagnóstico`
                     : "Registros en la base emocional"
                 }
                 icon={Users}
@@ -430,16 +433,22 @@ export default function EmotionPage() {
 
               <SummaryTile
                 label="Dimensión más fuerte"
-                value={axisRanking ? axisRanking.top.code : "—"}
-                caption={axisRanking ? axisRanking.top.label : "Cargando datos"}
+                value={axisRanking ? nombreLargo(axisRanking.top) : "—"}
+                caption={
+                  axisRanking
+                    ? `${axisRanking.top.code} · ${axisRanking.top.label}`
+                    : "Cargando datos"
+                }
                 tone="#3BEA9A"
               />
 
               <SummaryTile
                 label="Dimensión a desarrollar"
-                value={axisRanking ? axisRanking.bottom.code : "—"}
+                value={axisRanking ? nombreLargo(axisRanking.bottom) : "—"}
                 caption={
-                  axisRanking ? axisRanking.bottom.label : "Cargando datos"
+                  axisRanking
+                    ? `${axisRanking.bottom.code} · ${axisRanking.bottom.label}`
+                    : "Cargando datos"
                 }
                 tone="#FFB84D"
               />
