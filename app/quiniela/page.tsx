@@ -661,12 +661,16 @@ export default function QuinielaPage() {
                    rótulo de siempre de `SaveState` —«No se pudo guardar ·
                    reintentando»— decía lo contrario y no reintentaba nada
                    solo; por eso `errorDe="lectura"` (19/10/2026). */
-                <SaveState
-                  status={estadoGuardado}
-                  savedAt={guardadoEn}
-                  errorDe="lectura"
-                  onReleer={recarga}
-                />
+                /* Sin sesión es una página de lectura: «Guardado 09:31» no
+                   dice nada; sólo se enseña si hay algo que contar. */
+                yo || estadoGuardado !== "saved" ? (
+                  <SaveState
+                    status={estadoGuardado}
+                    savedAt={guardadoEn}
+                    errorDe="lectura"
+                    onReleer={recarga}
+                  />
+                ) : undefined
               }
             />
 

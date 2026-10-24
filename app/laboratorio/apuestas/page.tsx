@@ -105,7 +105,7 @@ export default function ApuestasPage() {
 
   /* Quien no ha entrado lee primero lo que hay; el acceso baja debajo de la
      lista. Sin nada que leer, el acceso sigue arriba como invitación. */
-  const accesoAbajo = !yo && !sesion.cargando && estado === "listo" && doc.apuestas.length > 0;
+  const accesoAbajo = !yo && !sesion.cargando && estado === "listo";
 
   /* Con apuestas abiertas, el acceso lo dice con el dato y el verbo. */
   const tituloAcceso =
@@ -184,6 +184,9 @@ export default function ApuestasPage() {
               <div className="mt-5">
                 <Panel title="Así se ve una apuesta" icon={Dices}>
                   <article className="flex max-w-xl flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-4">
+                    <span className="inline-flex w-fit items-center rounded-full border border-white/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                      Ejemplo
+                    </span>
                     <p className="text-[15px] font-medium leading-snug text-white/90">
                       «El Castilla acaba la primera vuelta entre los cinco primeros»
                     </p>
@@ -194,6 +197,26 @@ export default function ApuestasPage() {
                     <p className="text-[11px] text-white/45">
                       Se comprueba el último día de la vuelta. Hasta entonces, cada uno se pone a favor o en contra.
                     </p>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        disabled
+                        title="Entra para apostar"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 px-2 py-1.5 text-[11px] font-semibold text-white/45"
+                      >
+                        <ThumbsUp size={13} />
+                        A favor
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        title="Entra para apostar"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 px-2 py-1.5 text-[11px] font-semibold text-white/45"
+                      >
+                        <ThumbsDown size={13} />
+                        En contra
+                      </button>
+                    </div>
                   </article>
                 </Panel>
               </div>
@@ -575,6 +598,7 @@ function Tarjeta({
           tono="emerald"
           activo={miPostura === "favor"}
           puedo={puedoPosicionarme && !ocupado}
+          pideEntrar={!yo && estado === "abierta"}
           onPulsa={() => postura("favor")}
         />
 
@@ -585,6 +609,7 @@ function Tarjeta({
           tono="rose"
           activo={miPostura === "contra"}
           puedo={puedoPosicionarme && !ocupado}
+          pideEntrar={!yo && estado === "abierta"}
           onPulsa={() => postura("contra")}
         />
       </div>
@@ -646,6 +671,7 @@ function Bando({
   tono,
   activo,
   puedo,
+  pideEntrar = false,
   onPulsa,
 }: {
   titulo: string;
@@ -656,6 +682,8 @@ function Bando({
   tono: "emerald" | "rose";
   activo: boolean;
   puedo: boolean;
+  /** Sin sesión y abierta: el botón sale apagado y dice por qué. */
+  pideEntrar?: boolean;
   onPulsa: () => void;
 }) {
   const total = gente.length + (autor ? 1 : 0);
@@ -691,6 +719,17 @@ function Bando({
             }`}
           >
             {activo ? "Quitarme" : titulo === "A favor" ? "Me apunto" : "Lo dudo"}
+          </button>
+        )}
+
+        {pideEntrar && (
+          <button
+            type="button"
+            disabled
+            title="Entra para apostar"
+            className="rounded-lg border border-white/10 px-2 py-1 text-[11px] font-semibold text-white/45"
+          >
+            Entra para apostar
           </button>
         )}
       </div>

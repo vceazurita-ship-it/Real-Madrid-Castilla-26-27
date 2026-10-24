@@ -128,7 +128,18 @@ export function TeamPanel({
 
   const sorted = useMemo(
     () =>
-      [...eligible].sort((a, b) => sortValue(b, sortKey) - sortValue(a, sortKey)),
+      [...eligible].sort((a, b) => {
+        /* En las clasificaciones por nota, quien tiene 4 o más partidos va
+           primero y la tendencia (1-3 PJ) se queda al final del grupo. */
+        if (sortKey !== "played" && sortKey !== "minutes" && sortKey !== "goals") {
+          const fa = a.summary.played >= MIN_FIABLE ? 1 : 0;
+          const fb = b.summary.played >= MIN_FIABLE ? 1 : 0;
+
+          if (fa !== fb) return fb - fa;
+        }
+
+        return sortValue(b, sortKey) - sortValue(a, sortKey);
+      }),
     [eligible, sortKey]
   );
 
@@ -247,7 +258,11 @@ export function TeamPanel({
     <div className="min-w-0 space-y-4">
       {/* INDICADORES */}
 
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div
+        className={`grid min-w-0 gap-3 sm:grid-cols-2 ${
+          decisivoClaro ? "xl:grid-cols-4" : "xl:grid-cols-3"
+        }`}
+      >
         <StatCard
           label="Media del equipo"
           value={formatRating(teamAverage)}
@@ -281,20 +296,14 @@ export function TeamPanel({
           accent="var(--rmcf-rate-good)"
         />
 
-        <StatCard
-          label="Más decisivo"
-          value={
-            decisivoClaro && topScorer
-              ? topScorer.player.nombre
-              : "Sin diferencia clara"
-          }
-          hint={
-            decisivoClaro && topScorer
-              ? `${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")}`
-              : undefined
-          }
-          accent="var(--rmcf-rate-top)"
-        />
+        {decisivoClaro && topScorer && (
+          <StatCard
+            label="Más decisivo"
+            value={topScorer.player.nombre}
+            hint={`${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")}`}
+            accent="var(--rmcf-rate-top)"
+          />
+        )}
       </div>
 
       {/* EVOLUCIÓN */}
@@ -347,8 +356,9 @@ export function TeamPanel({
                 />
 
                 <YAxis
-                  domain={[0, 10]}
-                  ticks={[0, 2, 4, 6, 8, 10]}
+                  domain={[4, 9]}
+                  ticks={[4, 5, 6, 7, 8, 9]}
+                  allowDataOverflow
                   stroke={AXIS.stroke}
                   tick={AXIS.tick}
                   tickLine={false}
