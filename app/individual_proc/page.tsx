@@ -14,7 +14,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
 import { alineaSeguimiento, esDeSeguimiento } from "@/lib/seguimiento";
-import { SESIONES_CONTADAS_DESDE } from "@/lib/sesion-equipos/estadistica";
+import { SESIONES_CONTADAS_DESDE, SESIONES_DESDE_TEXTO } from "@/lib/sesion-equipos/estadistica";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 
 import {
@@ -847,7 +847,7 @@ export default function DashboardSeguimiento() {
 
     plantillaEnFoco.forEach((p) => dosSemanas.set(p.id, 0));
 
-    filteredTracking.forEach((s) => {
+    delGrupo.forEach((s) => {
       const d = daysAgo(s.FECHA);
 
       if (d !== null && d <= 14 && dosSemanas.has(s.ID_JUGADOR)) {
@@ -898,6 +898,7 @@ export default function DashboardSeguimiento() {
 
     return out;
   }, [
+    delGrupo,
     totalSessions,
     cubiertos,
     squadSize,
@@ -911,7 +912,6 @@ export default function DashboardSeguimiento() {
     lastRecord,
     nameOf,
     plantillaEnFoco,
-    filteredTracking,
     focusData,
   ]);
 
@@ -1208,7 +1208,7 @@ export default function DashboardSeguimiento() {
                   icon={MessageSquareText}
                   title="Seguimientos"
                   value={totalSessions}
-                  hint={`${withFeedback} con feedback`}
+                  hint={`${SESIONES_DESDE_TEXTO} · ${withFeedback} con feedback`}
                 />
 
                 <StatCard
@@ -1232,7 +1232,7 @@ export default function DashboardSeguimiento() {
                   icon={CalendarDays}
                   title="Media semanal"
                   value={cm(averageWeek)}
-                  hint={`${totalWeeks} semanas activas`}
+                  hint={totalWeeks === 1 ? "1 semana activa" : `${totalWeeks} semanas activas`}
                   accent="#4C7A67"
                   delta={weeklyDelta ?? undefined}
                 />

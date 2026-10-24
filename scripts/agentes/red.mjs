@@ -432,6 +432,7 @@ async function main() {
       jugadores: ["experto-analisis", "experto-futbol"],
       identidad: ["guionista", "experto-futbol"],
       club: ["experto-marketing", "guionista"],
+      laboratorio: ["experto-futbol", "experto-marketing"],
     };
     const solo = valor("grupo")?.split(",");
     const trabajos = [];
