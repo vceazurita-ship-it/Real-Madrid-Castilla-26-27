@@ -183,3 +183,102 @@ export function lecturaPrimero(eq: ResumenPrimero, lg: ResumenPrimero) {
 
 /** El aviso de muestra corta. */
 export const avisoMuestra = (partidos: number) => (partidos > 0 && partidos < 10 ? `Son ${partidos} partidos: un gol mueve mucho una franja, léelo como tendencia.` : "");
+
+/* ------------------------------------------------------------------ */
+/*  Lo importante: tres frases, cada una con su acción (24/10/2026)     */
+/* ------------------------------------------------------------------ */
+
+export type Importante = { texto: string; accion: string };
+
+const TAREA_FINALIZACION = "finalización con oposición; criterio de éxito, remate entre los tres palos.";
+const TAREA_DEFENSA = "defensa del área y del último tercio; criterio de éxito, ningún remate cómodo dentro del área.";
+const TAREA_VENTAJA = "tarea de gestión del resultado en los últimos 15 minutos con ventaja.";
+
+type EntradaImportante = {
+  corto: string;
+  partidos: number;
+  gf: number;
+  gc: number;
+  ligaGF: number;
+  ligaGC: number;
+  filas: FilaFranja[];
+  cL: Condicion;
+  cV: Condicion;
+  lL: Condicion;
+  lV: Condicion;
+  primeroEq: ResumenPrimero;
+  primeroLg: ResumenPrimero;
+  favor: Map<string, number>;
+  contra: Map<string, number>;
+  totalContra: number;
+  /** Nuestros partidos: la tipología sólo existe para ellos. */
+  conTipologia: boolean;
+  /** Al equipo le falta algún partido jugado: los totales no son comparables con la liga. */
+  incompleto: boolean;
+};
+
+/**
+ * Las tres conclusiones que más pesan, cada una con la tarea que sale de ella.
+ * Con partidos sin incluir no se comparan los goles a favor y en contra con la
+ * media ni quién marca primero: un total al que le falta un partido invierte
+ * la lectura. Quedan las que no dependen del total (tramos y tipología).
+ */
+export function loImportante(e: EntradaImportante): Importante[] {
+  const filas: Importante[] = [];
+  const base = (n: number) => `${n} ${n === 1 ? "partido" : "partidos"}`;
+
+  if (e.partidos && !e.incompleto) {
+    const a = frente(media(e.gf, e.partidos), e.ligaGF);
+    const d = frente(media(e.gc, e.partidos), e.ligaGC);
+
+    if (a < 0) filas.push({ texto: lecturaBalance(e.corto, e.partidos, e.gf, e.gc, e.ligaGF, e.ligaGC), accion: `Esta semana, ${TAREA_FINALIZACION}` });
+    else if (d > 0) filas.push({ texto: lecturaBalance(e.corto, e.partidos, e.gf, e.gc, e.ligaGF, e.ligaGC), accion: `Esta semana, ${TAREA_DEFENSA}` });
+  }
+
+  const { flojo, fuerte } = tramosClave(e.filas);
+
+  if (flojo) {
+    const nombre = flojo.franja.nombre;
+
+    filas.push({
+      texto: `Donde más sufre es en el ${nombre}: ${veces(flojo.gc)} en contra, ${n2(media(flojo.gc, e.partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga${flojo.gc <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
+      accion: flojo.franja.parte === 2 && flojo.franja.desde >= 61 ? `Esta semana, ${TAREA_VENTAJA}` : `Esta semana, tarea de concentración y de ajuste defensivo en el tramo ${nombre}, con el partido en marcha.`,
+    });
+  } else if (fuerte) {
+    filas.push({
+      texto: `Su mejor tramo es el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}, ${n2(media(fuerte.gf, e.partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga${fuerte.gf <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
+      accion: `Esta semana, repetir en el entrenamiento lo que ocurre en el tramo ${fuerte.franja.nombre} y llevarlo a otros momentos del partido.`,
+    });
+  }
+
+  const condicion = lecturaCondicion(e.corto, e.cL, e.cV, e.lL, e.lV).find((f) => f.includes("por debajo de"));
+
+  if (condicion) {
+    const accion = condicion.includes("falla la puntería")
+      ? TAREA_FINALIZACION
+      : condicion.includes("Genera poco")
+        ? "llegadas al área con superioridad en el último tercio; criterio de éxito, tres remates desde dentro del área."
+        : condicion.includes("lo que encaja")
+          ? TAREA_DEFENSA
+          : "revisar con el vídeo qué cambia entre sus partidos como local y como visitante y llevarlo a la tarea de la semana.";
+
+    filas.push({ texto: condicion, accion: `Esta semana, ${accion}` });
+  }
+
+  if (!e.incompleto && e.primeroEq.propio.n && frente(media(e.primeroEq.propio.G * 3 + e.primeroEq.propio.E, e.primeroEq.propio.n), media(e.primeroLg.propio.G * 3 + e.primeroLg.propio.E, e.primeroLg.propio.n)) < 0) {
+    filas.push({ texto: lecturaPrimero(e.primeroEq, e.primeroLg)[0], accion: `Esta semana, ${TAREA_VENTAJA}` });
+  }
+
+  if (e.conTipologia && e.totalContra > 0) {
+    const frases = lecturaTipologia(e.favor, e.contra, 0, e.totalContra);
+    const enContra = frases.find((f) => f.startsWith("En contra"));
+
+    if (enContra) {
+      const fase = enContra.includes("balón parado") ? "las acciones de balón parado defensivo" : enContra.includes("transición") ? "la transición defensiva tras pérdida" : "la defensa del ataque organizado del rival";
+
+      filas.push({ texto: enContra, accion: `Esta semana, trabajar ${fase}, que es de donde más le llega.` });
+    }
+  }
+
+  return filas.slice(0, 3);
+}

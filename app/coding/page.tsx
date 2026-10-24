@@ -664,6 +664,9 @@ function Coding() {
   const [añadiendoRival, setAñadiendoRival] = useState(false);
   const [rivalNuevo, setRivalNuevo] = useState("");
 
+  /* Sacar los vídeos y subirlos a YouTube se pliega por defecto: arriba, vídeo, marcar y cortes. */
+  const [verExportacion, setVerExportacion] = useState(false);
+
   /* Vaciar los cortes para empezar otra tanda sobre el mismo vídeo: se
      pregunta antes, porque se lleva el trabajo de toda una tanda. */
   const [vaciando, setVaciando] = useState(false);
@@ -1365,6 +1368,19 @@ function Coding() {
   /* Los vídeos abiertos en esta sesión: uno normalmente, dos o tres cuando
      el partido viene partido en ficheros. */
   const videosSesion = sesion.sesion.videos;
+
+  /*
+  | El rival que se ve es el de la jornada (nadie lo ha elegido) y ningún vídeo
+  | abierto lo nombra: los cortes y el título saldrían a su nombre. Se avisa en
+  | vez de darlo por bueno; el rival de la semana sigue siendo el de partida.
+  */
+  const rivalSinElegir = useMemo(() => {
+    if (ambito !== "rival" || !rival || equipoRival || videosSesion.length === 0) return false;
+
+    const nombre = apodoSinSiglas(rival.nombre);
+
+    return !videosSesion.some((video) => apodoCoding(video.nombre).includes(nombre));
+  }, [ambito, rival, equipoRival, videosSesion]);
 
   /*
   | Las pizarras del vídeo que se está mirando.
@@ -3684,9 +3700,8 @@ function Coding() {
                   ? "RMCF Castilla · Rival"
                   : "RMCF Castilla · Competición"
               }
-              title={
-                ambito === "rival" ? "Coding de rival" : "Coding de partido"
-              }
+              /* El mismo nombre que en el menú; qué se codifica lo dice el conmutador de debajo. */
+              title="Coding de Partido"
               lead="Marca el inicio y el final de cada acción sin soltar el teclado. Los cortes se guardan solos y se convierten en vídeo de verdad desde aquí."
               aside={
                 <div className="flex items-center gap-2">
@@ -3887,6 +3902,14 @@ function Coding() {
                 </span>
               </div>
             </div>
+
+            {rivalSinElegir && rival ? (
+              <div className="mt-4">
+                <Notice tone="warn" title={`Rival de la jornada: ${rival.nombre}`}>
+                  Ningún vídeo abierto lleva su nombre. Si son de otro equipo, elígelo arriba antes de sacar los cortes: el título y el rótulo salen con el rival que se ve.
+                </Notice>
+              </div>
+            ) : null}
 
             {/* Sesión que quedó a medias (FASE 19). */}
             {/*
@@ -4953,6 +4976,23 @@ function Coding() {
 
                 {/* ------------------------ EXPORTACIÓN ------------------ */}
 
+                <button
+                  type="button"
+                  onClick={() => setVerExportacion((v) => !v)}
+                  aria-expanded={verExportacion || exportador.exportando}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm font-medium text-white/80 transition hover:border-white/20"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Film size={15} className="text-[#C8A96B]" />
+                    Sacar los vídeos y subir a YouTube
+                  </span>
+                  <span className="text-[11px] text-white/45">
+                    {verExportacion || exportador.exportando ? "Ocultar" : "Mostrar"}
+                  </span>
+                </button>
+
+                {verExportacion || exportador.exportando ? (
+                  <>
                 <Panel
                   title="Sacar los vídeos"
                   subtitle={
@@ -5043,6 +5083,8 @@ function Coding() {
                   onGuarda={(cambios) => void youtube.guarda(cambios)}
                   onDesconecta={() => void youtube.desconecta()}
                 />
+                  </>
+                ) : null}
               </div>
 
               {/* -------------------------- DERECHA -------------------- */}

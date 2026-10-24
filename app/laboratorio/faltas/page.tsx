@@ -519,8 +519,11 @@ export default function FaltasPage() {
         media,
         tendencia,
         mejorAlto: pocas ? null : mejorAlto,
-        /* Con tan pocas, «igual» parece una conclusión: la base va en la descripción de la fila. */
-        pie: pocas ? `${pie} · muestra pequeña, de ${partido.faltas.length} faltas` : pie,
+        /* La base («9 de 28») va en la descripción de cada fila, igual que en robos y pérdidas. */
+        n: actual,
+        de: partido.faltas.length,
+        unidad: "faltas",
+        pie: pocas ? `${pie} · muestra pequeña` : pie,
       };
     };
 

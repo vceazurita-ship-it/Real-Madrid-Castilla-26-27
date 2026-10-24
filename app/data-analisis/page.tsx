@@ -59,7 +59,8 @@ import {
 } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
-import { Explicativo } from "@/components/ui/textos-analisis";
+import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
+import { nombreEquipo } from "@/lib/equipos";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
@@ -100,7 +101,9 @@ import {
   METRICAS,
   METRICA_POR_KEY,
   aFavorYEnContra,
+  CASOS_MINIMOS,
   baseEnGrupo,
+  casosEnGrupo,
   formatea,
   mediana,
   percentil,
@@ -338,7 +341,7 @@ function etiquetaDePartido(fila: FilaPartido) {
 
   const donde = fila.partido.startsWith(fila.equipo) ? "vs" : "en";
 
-  return `${dia}/${mes} · ${donde} ${fila.rival} (${fila.golesFavor}-${fila.golesContra})`;
+  return `${dia}/${mes} · ${donde} ${nombreEquipo(fila.rival)} (${fila.golesFavor}-${fila.golesContra})`;
 }
 
 export default function DataAnalisisPage() {
@@ -667,6 +670,7 @@ export default function DataAnalisisPage() {
         deCuantos: valores.length,
         comoLeer: met.comoLeer,
         base: baseEnGrupo(met, filas),
+        casos: casosEnGrupo(met, filas),
       };
     });
     },
@@ -693,6 +697,40 @@ export default function DataAnalisisPage() {
     () => (otroCampo ? percentilesDe(otroCampo.suyos) : []),
     [otroCampo, percentilesDe],
   );
+
+  /*
+  | Tres conclusiones del Castilla antes de las barras (24/10/2026): lo más
+  | fuerte, lo más flojo y qué se hace. Sólo con las métricas que tienen mejor
+  | y peor y casos de sobra: un porcentaje de cinco contraataques no manda.
+  */
+  const conclusionesCastilla = useMemo(() => {
+    const utiles = percentiles
+      .map((fila) => ({ fila, met: METRICA_POR_KEY.get(fila.key) }))
+      .filter(
+        (x): x is { fila: FilaPercentil; met: Metrica } =>
+          Boolean(x.met) &&
+          x.met!.mejorAlto !== null &&
+          x.fila.percentil !== null &&
+          !(x.fila.casos != null && x.fila.casos < CASOS_MINIMOS),
+      )
+      .sort((a, b) => (b.fila.percentil as number) - (a.fila.percentil as number));
+
+    if (utiles.length < 6) return [];
+
+    const arriba = utiles[0];
+    const abajo = utiles[utiles.length - 1];
+
+    const dice = (x: { fila: FilaPercentil; met: Metrica }) =>
+      `${x.fila.nombre}: ${formatea(x.fila.valor, x.fila.unidad)} frente a ${formatea(x.fila.mediana, x.fila.unidad)} de mediana de la liga${x.fila.puesto ? `, ${x.fila.puesto}º de ${x.fila.deCuantos}` : ""}`;
+
+    return [
+      (arriba.fila.percentil as number) >= 60 ? `Lo más fuerte, ${dice(arriba)}.` : null,
+      (abajo.fila.percentil as number) <= 40 ? `Lo más flojo, ${dice(abajo)}.` : null,
+      (abajo.fila.percentil as number) <= 40
+        ? `Qué hacemos: llevar a la semana una tarea de ${(FASES.find((f) => f.key === abajo.met.fase)?.label ?? "juego").toLowerCase()} que mejore ${abajo.fila.nombre.toLowerCase()} y comprobarlo en el próximo partido.`
+        : null,
+    ];
+  }, [percentiles]);
 
   const avisoMuestra = useMemo(
     () => avisoDeMuestra(nuestros.length),
@@ -1302,7 +1340,7 @@ export default function DataAnalisisPage() {
                           .filter((e) => e !== NOSOTROS)
                           .map((e) => (
                             <option key={e} value={e} className="bg-[#11161C]">
-                              {e}
+                              {nombreEquipo(e)}
                             </option>
                           ))}
                       </select>
@@ -1726,6 +1764,12 @@ export default function DataAnalisisPage() {
                       </div>
                     ) : (
                       <>
+                        <Conclusiones
+                          className="mt-5"
+                          titulo={`El Castilla en ${laQueMando}`}
+                          items={conclusionesCastilla}
+                        />
+
                         {/*
                           LAS FASES DEL JUEGO
 

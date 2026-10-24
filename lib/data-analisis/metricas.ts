@@ -1029,6 +1029,28 @@ export function baseEnGrupo(metrica: Metrica, filas: FilaPartido[]) {
   return `${redondo(de)} de ${redondo(total)} ${metrica.denominador.toLowerCase()}`;
 }
 
+/** Con menos casos que éstos, un porcentaje es una tendencia: no se pone ni percentil ni color. */
+export const CASOS_MINIMOS = 10;
+
+/**
+ * Cuántos casos hay detrás de un porcentaje de varios partidos («5» en «0 de 5
+ * contraataques»); `null` si la métrica no es un cociente o son tantos que se
+ * sostiene sola.
+ */
+export function casosEnGrupo(metrica: Metrica, filas: FilaPartido[]): number | null {
+  if (!baseEnGrupo(metrica, filas)) return null;
+
+  let total = 0;
+
+  for (const fila of filas) {
+    const b = valorDe(metrica.denominador!, fila);
+
+    if (b !== null) total += b;
+  }
+
+  return Math.round(total);
+}
+
 export function valorEnGrupo(
   metrica: Metrica,
   filas: FilaPartido[],

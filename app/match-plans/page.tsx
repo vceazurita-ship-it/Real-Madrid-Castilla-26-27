@@ -12,6 +12,7 @@ import Papa from "papaparse";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { nombreEquipo } from "@/lib/equipos";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { cn } from "@/lib/utils";
@@ -189,6 +190,12 @@ function toEmbedUrl(url: string) {
 
 function toMatch(row: MatchRow, index: number): Match {
   const sides = splitSides(row.partido);
+
+  /* Un solo nombre por equipo en toda la plataforma (lib/equipos.ts). */
+  sides.home = nombreEquipo(sides.home);
+  sides.away = nombreEquipo(sides.away);
+  sides.opponent = nombreEquipo(sides.opponent);
+
   const score = parseScore(row.resultado);
 
   const gf = score ? (sides.isHome ? score.home : score.away) : null;
@@ -203,7 +210,7 @@ function toMatch(row: MatchRow, index: number): Match {
     id: `${index}-${row.partido}-${row.fecha}`,
     microciclo: (row.microciclo ?? "").trim() || "Sin microciclo",
     fecha: (row.fecha ?? "").trim(),
-    partido: (row.partido ?? "").trim(),
+    partido: sides.away ? `${sides.home} - ${sides.away}` : (row.partido ?? "").trim(),
     resultado: (row.resultado ?? "").trim(),
     ...sides,
     homeGoals: score?.home ?? null,
@@ -773,7 +780,7 @@ function MetricsPanel({ metrics, ligaPP }: { metrics: Metrics; ligaPP: number | 
         <Stat
           title="Victorias"
           value={metrics.wins}
-          hint={`${base(metrics.wins)} · ${metrics.winPct}%`}
+          hint={base(metrics.wins)}
           icon={<Trophy className="h-4 w-4" />}
           accent="text-emerald-400"
         />
@@ -781,7 +788,7 @@ function MetricsPanel({ metrics, ligaPP }: { metrics: Metrics; ligaPP: number | 
         <Stat
           title="Empates"
           value={metrics.draws}
-          hint={`${base(metrics.draws)} · ${metrics.drawPct}%`}
+          hint={base(metrics.draws)}
           icon={<Minus className="h-4 w-4" />}
           accent="text-amber-400"
         />
@@ -789,7 +796,7 @@ function MetricsPanel({ metrics, ligaPP }: { metrics: Metrics; ligaPP: number | 
         <Stat
           title="Derrotas"
           value={metrics.losses}
-          hint={`${base(metrics.losses)} · ${metrics.lossPct}%`}
+          hint={base(metrics.losses)}
           icon={<XCircle className="h-4 w-4" />}
           accent="text-rose-400"
         />
@@ -799,14 +806,14 @@ function MetricsPanel({ metrics, ligaPP }: { metrics: Metrics; ligaPP: number | 
         <Stat
           title="Goles a favor"
           value={metrics.goalsFor}
-          hint={`${metrics.avgFor} por partido${liga}`}
+          hint={`${metrics.avgFor} por partido · ${metrics.played} partidos · más, mejor${liga}`}
           icon={<Goal className="h-4 w-4" />}
         />
 
         <Stat
           title="Goles en contra"
           value={metrics.goalsAgainst}
-          hint={`${metrics.avgAgainst} por partido${liga}`}
+          hint={`${metrics.avgAgainst} por partido · ${metrics.played} partidos · menos, mejor${liga}`}
           icon={<Target className="h-4 w-4" />}
         />
 
@@ -863,9 +870,9 @@ function MetricsPanel({ metrics, ligaPP }: { metrics: Metrics; ligaPP: number | 
 
             <span className="text-white/70">
               <span className="font-semibold text-[#C8A96B]">
-                {metrics.winPct}%
+                {metrics.wins} de {metrics.played}
               </span>{" "}
-              de victorias
+              victorias
             </span>
           </div>
 
