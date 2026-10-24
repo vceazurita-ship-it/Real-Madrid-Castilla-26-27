@@ -732,12 +732,15 @@ export function Escena({
   const verDiana = !quieta && camino.length > 1 && t >= VUELO[0] - 0.15 && t < VUELO[1] - 0.12;
 
   /* Las estelas de carrera: por dónde ha pasado cada uno que corre, apagándose hacia atrás. */
-  const estelas = quieta
+  /* Los ocho instantes de atrás, de todos a la vez: la salida de cada uno depende de los demás de su zona. */
+  const pasados = quieta || !rutina.roles.some((r) => r.hx !== undefined) ? [] : Array.from({ length: 8 }, (_, k) => posicionesEn(rutina.roles, Math.max(0, t - k * 0.018)));
+
+  const estelas = !pasados.length
     ? []
     : rutina.roles.flatMap((r, i) => {
         if (r.hx === undefined || r.hy === undefined || !seVe(nuestros[i])) return [];
 
-        const atras = Array.from({ length: 8 }, (_, k) => posicionesEn([r], Math.max(0, t - k * 0.018))[0]);
+        const atras = pasados.map((pos) => pos[i]);
 
         if (Math.hypot(atras[0].x - atras[7].x, atras[0].y - atras[7].y) < 0.6) return [];
 
