@@ -16,6 +16,8 @@ import { summarizePlayer, formatRating } from "@/lib/ratings/compute";
 import type { RatingsSeason } from "@/lib/ratings/types";
 import { dorsalDe } from "@/lib/dorsales";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
+import { ALMACEN_VACIO, type AlmacenEquipos } from "@/lib/sesion-equipos/modelo";
+import { SESIONES_DESDE_TEXTO, resumenDeSesiones, type ResumenSesiones, type SesionesDeJugador } from "@/lib/sesion-equipos/estadistica";
 
 import {
   AlertTriangle,
@@ -255,6 +257,25 @@ export default function DashboardPlantilla() {
   const [vista, setVista] = usePestanaUrl<"jugador" | "plantilla" | "valoracion" | "evolucion">("vista", ["jugador", "plantilla", "valoracion", "evolucion"], "jugador");
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+
+  /* Sesiones registradas en /jugadores-sesion (sólo lectura). Si no llegan,
+     el dashboard sigue igual y no se nombra lo que falta. */
+  const [almacenSesiones, setAlmacenSesiones] = useState<AlmacenEquipos>(ALMACEN_VACIO);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/docs?key=jugadores-sesion", { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ data?: AlmacenEquipos | null }>)
+      .then((d) => {
+        if (!cancelled && d?.data && Array.isArray(d.data.sesiones)) setAlmacenSesiones(d.data);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const { season: ratingsSeason } = useRatingsSeason();
   const [playerSearch, setPlayerSearch] = useState("");
 
@@ -500,6 +521,11 @@ export default function DashboardPlantilla() {
   }, [players, filters, playerSearch]);
 
   /* El jugador seleccionado siempre debe existir dentro del filtro activo. */
+  const sesionesReg = useMemo(
+    () => resumenDeSesiones(almacenSesiones, players.map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo }))),
+    [almacenSesiones, players],
+  );
+
   const selectedPlayer = useMemo(() => {
     if (!filteredPlayers.length) return null;
 
@@ -1061,6 +1087,7 @@ export default function DashboardPlantilla() {
                       onSelect={handlePlayerSelect}
                       players={filteredPlayers}
                       ratingsSeason={ratingsSeason}
+                      sesiones={sesionesReg}
                     />
 
                     <ChartCard
@@ -1130,6 +1157,10 @@ export default function DashboardPlantilla() {
                     </ChartCard>
                   </div>
                   </>
+                  )}
+
+                  {vista === "plantilla" && (
+                    <ResumenSesionesPlantilla resumen={sesionesReg} players={filteredPlayers} />
                   )}
 
                   {/* GRÁFICOS */}
@@ -1765,11 +1796,13 @@ function PlayerCard({
   players,
   onSelect,
   ratingsSeason,
+  sesiones,
 }: {
   player: Player | null;
   players: Player[];
   onSelect: (id: string) => void;
   ratingsSeason: RatingsSeason;
+  sesiones: ResumenSesiones;
 }) {
   if (!player) {
     return (
@@ -1924,6 +1957,12 @@ function PlayerCard({
         ) : null}
       </div>
 
+      {/* SESIONES REGISTRADAS */}
+
+      {sesiones.porJugador.has(player.id) && (
+        <FilaSesiones datos={sesiones.porJugador.get(player.id)!} total={sesiones.totalSesiones} />
+      )}
+
       {/* TEXTOS */}
 
       {(player.fortalezas || player.aspectosMejora) && (
@@ -1969,6 +2008,56 @@ function PlayerCard({
           </a>
         )}
       </div>
+    </div>
+  );
+}
+
+/** «Sesiones desde el 21/10 · N sesiones»: lo que dice el registro de /jugadores-sesion de un jugador. */
+function FilaSesiones({ datos, total }: { datos: SesionesDeJugador; total: number }) {
+  return (
+    <div className="mt-5 border-t border-white/5 pt-5 text-sm">
+      <p className="text-[10px] uppercase tracking-wider text-white/45">
+        Sesiones registradas · {SESIONES_DESDE_TEXTO} · {total} {total === 1 ? "sesión" : "sesiones"}
+      </p>
+
+      <p className="mt-1 text-white/70">
+        Estuvo en {datos.sesiones} de {total}
+        {datos.tareasTotales > 0 ? `; hizo ${datos.tareasHechas} de ${datos.tareasTotales} tareas` : ""}
+        {datos.comodin > 0 ? `, ${datos.comodin} como comodín` : ""}.
+      </p>
+    </div>
+  );
+}
+
+/** Resumen de plantilla: asistencia a las sesiones registradas, de los jugadores filtrados que tienen registro. */
+function ResumenSesionesPlantilla({ resumen, players }: { resumen: ResumenSesiones; players: Player[] }) {
+  const filas = players
+    .map((p) => ({ p, d: resumen.porJugador.get(p.id) }))
+    .filter((f): f is { p: Player; d: SesionesDeJugador } => Boolean(f.d))
+    .sort((a, b) => b.d.sesiones - a.d.sesiones || a.p.nombre.localeCompare(b.p.nombre, "es"));
+
+  if (!resumen.totalSesiones || !filas.length) return null;
+
+  const media = filas.reduce((acc, f) => acc + f.d.sesiones, 0) / filas.length;
+
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-5">
+      <h3 className="text-sm font-semibold">Asistencia a las sesiones registradas</h3>
+
+      <p className="mt-1 text-xs text-white/45">
+        {SESIONES_DESDE_TEXTO} · {resumen.totalSesiones} {resumen.totalSesiones === 1 ? "sesión" : "sesiones"} · media de {coma(media)} por jugador
+      </p>
+
+      <ul className="mt-4 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-3">
+        {filas.map(({ p, d }) => (
+          <li key={p.id} className="flex min-w-0 items-baseline justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate text-white/70">{p.apodo || p.nombre}</span>
+            <span className="shrink-0 tabular-nums text-white/50">
+              {d.sesiones} de {resumen.totalSesiones}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
