@@ -186,7 +186,7 @@ export function RatingBar({ value }: { value: number }) {
 
 export function TrendPill({ value }: { value: number }) {
   if (!value) {
-    return <span className="text-[11px] tabular-nums text-white/25">—</span>;
+    return <span className="text-[11px] tabular-nums text-white/40" title="Sin cambio">=</span>;
   }
 
   const positive = value > 0;
