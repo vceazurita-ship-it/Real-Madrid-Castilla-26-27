@@ -815,6 +815,20 @@ const comparativa = (() => {
   const peligro = (filas: Row[]) => filas.filter(LECTOR.peligro).length;
   const xg = (filas: Row[]) => filas.reduce((a, r) => a + r.xg, 0);
 
+  /* Las últimas cinco jornadas, la elegida incluida: tendencia y no un punto. */
+  const ultimas = [...jornadasAnteriores(jornadas, elegida.clave), elegida]
+    .map((una) => ({ una, filas: filasDeJornada(una.clave) }))
+    .filter((j) => j.filas.length > 0)
+    .slice(-5);
+  const tira = {
+    jornadas: ultimas.map((j) => j.una.etiqueta),
+    filas: [
+      { clave: "acciones", nombre: "Acciones", valores: ultimas.map((j) => total(j.filas)) },
+      { clave: "remates", nombre: "Remates", valores: ultimas.map((j) => remates(j.filas)) },
+      { clave: "xg", nombre: "xG", valores: ultimas.map((j) => xg(j.filas)), formato: dosDecimales },
+    ],
+  };
+
   const metricas: MetricaComparada[] = [
     {
       clave: "acciones",
@@ -861,7 +875,7 @@ const comparativa = (() => {
       media: porcentajeAgregado(anteriores, peligro, total),
       formato: formatoPorcentaje,
       mejorAlto: false,
-      pie: "sobre las acciones",
+      pie: "sobre las acciones · menos es mejor · frente a la media de los partidos anteriores",
     },
     {
       clave: "golesRmcf",
@@ -877,6 +891,7 @@ const comparativa = (() => {
     partido: rivalDe ? `${elegida.etiqueta} · ${rivalDe}` : elegida.etiqueta,
     anteriores: anteriores.length,
     metricas,
+    tira,
   };
 })();
 
@@ -2678,6 +2693,7 @@ Mayor xG concedido  </p>
       partido={comparativa.partido}
       anteriores={{ n: comparativa.anteriores }}
       metricas={comparativa.metricas}
+      tira={comparativa.tira}
       nota={
         jornada === "ALL"
           ? "Con «Todas las jornadas» elegido, aquí se compara la última; el resto de la página suma todos los partidos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor; gris: no se juzga."

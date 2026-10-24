@@ -1293,7 +1293,14 @@ export default function PizarraAbpPage() {
 
     setPedida(0);
 
-    toast.success(`Copiado de ${matchLabel(anterior)}`);
+    /* Si alguna consigna heredada no cabe en la sala, se avisa ya. */
+    const conAviso = origen.slides.filter((s) => avisosConsignas(s.notas).length > 0).length;
+
+    toast.success(`Copiado de ${matchLabel(anterior)}`, {
+      description: conAviso
+        ? `${conAviso} ${conAviso === 1 ? "diapositiva trae" : "diapositivas traen"} consignas largas o de más: revísalas en «Textos».`
+        : undefined,
+    });
   }, [partido, anterior, store.tableros, mutaTablero]);
 
   /* --------------------------- VERSIONES --------------------------- */
@@ -1887,7 +1894,7 @@ export default function PizarraAbpPage() {
               </label>
 
               <div className="flex flex-wrap items-end gap-2">
-                {anterior && (
+                {anterior && guardado && (
                   <Button
                     icon={Copy}
                     tone={!tablero || !tieneFichas(tablero.slides) ? "primary" : undefined}
@@ -2502,6 +2509,9 @@ export default function PizarraAbpPage() {
                   </div>
                 )}
 
+                {/* Con la pizarra sin empezar, textos, histórico y lo aprendido
+                    van plegados: no hay nada que ajustar hasta que haya contenido. */}
+                <PlegadoSiVacio vacio={!guardado}>
                 {/* ====================== TEXTOS ====================== */}
 
                 {slide && (
@@ -2654,6 +2664,7 @@ export default function PizarraAbpPage() {
                     )}
                   </Panel>
                 </div>
+                </PlegadoSiVacio>
               </>
             )}
           </div>
@@ -2713,6 +2724,20 @@ export default function PizarraAbpPage() {
         />
       )}
     </main>
+  );
+}
+
+/** Pliega sus hijos bajo un resumen mientras no haya contenido que ajustar. */
+function PlegadoSiVacio({ vacio, children }: { vacio: boolean; children: React.ReactNode }) {
+  if (!vacio) return <>{children}</>;
+
+  return (
+    <details className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+      <summary className="cursor-pointer select-none text-xs font-medium text-white/60">
+        Textos, histórico y lo que ha aprendido (se abren en cuanto haya contenido)
+      </summary>
+      {children}
+    </details>
   );
 }
 

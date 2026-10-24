@@ -113,7 +113,9 @@ function ChapaComparativa({
           ? undefined
           : dato.delta == null || Math.abs(dato.delta) < 0.005
             ? `= global (${dato.globalTexto})`
-            : `${dato.deltaTexto} sobre el global de la temporada (${dato.globalTexto})`
+            : !dato.fiable
+              ? `indicio · ${dato.deltaTexto} sobre el global (${dato.globalTexto})`
+              : `${dato.deltaTexto} sobre el global de la temporada (${dato.globalTexto})${dato.menosEsMejor ? " · menos es mejor" : ""}`
       }
       color={dato.tono === "neutro" ? undefined : TONO_COLOR[dato.tono]}
     />

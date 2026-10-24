@@ -48,6 +48,12 @@ export type MetricaComparada = {
   igualEn?: string;
 };
 
+export type TiraJornadas = {
+  /** Cabecera de cada columna: «J3», «J4»… */
+  jornadas: string[];
+  filas: { clave: string; nombre: string; valores: (number | null)[]; formato?: (n: number) => string }[];
+};
+
 export type ComparativaPartidoProps = {
   /** «J7 · UD Ibiza», o lo que lea el usuario como el partido elegido. */
   partido: string;
@@ -58,6 +64,8 @@ export type ComparativaPartidoProps = {
   subtitle?: string;
   /** Una nota al pie: con qué filtros está hecha la media, o de dónde sale. */
   nota?: string;
+  /** Las últimas jornadas una tras otra, para ver tendencia y no un solo punto. */
+  tira?: TiraJornadas;
   className?: string;
 };
 
@@ -97,6 +105,7 @@ export function ComparativaPartido({
   title = "Este partido frente a los anteriores",
   subtitle,
   nota,
+  tira,
   className = "",
 }: ComparativaPartidoProps) {
   const hayMedia = anteriores.n > 0 && metricas.some((m) => m.media !== null);
@@ -197,6 +206,46 @@ export function ComparativaPartido({
               );
             })}
           </ul>
+
+          {tira && tira.jornadas.length > 1 && (
+            <div className="overflow-x-auto border-t border-white/10 px-4 py-3 sm:px-5">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+                Últimas {tira.jornadas.length} jornadas
+              </p>
+              <table className="w-full min-w-[260px] text-[12px] tabular-nums">
+                <thead>
+                  <tr className="text-white/40">
+                    <th className="pb-1 text-left font-normal" />
+                    {tira.jornadas.map((j, i) => (
+                      <th
+                        key={j}
+                        className="pb-1 text-right font-medium"
+                        style={i === tira.jornadas.length - 1 ? { color: ORO_TINTA } : undefined}
+                      >
+                        {j}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tira.filas.map((fila) => (
+                    <tr key={fila.clave} className="border-t border-white/[0.06]">
+                      <th className="py-1 pr-2 text-left font-normal text-white/70">{fila.nombre}</th>
+                      {fila.valores.map((v, i) => (
+                        <td
+                          key={i}
+                          className="py-1 text-right text-white/70"
+                          style={i === fila.valores.length - 1 ? { color: ORO_TINTA, fontWeight: 600 } : undefined}
+                        >
+                          {v === null ? "" : (fila.formato ?? numeroCorto)(v)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Cómo se calcula la media: método, sólo con los textos explicativos encendidos (14/10/2026). */}
           {hayMedia ? (
