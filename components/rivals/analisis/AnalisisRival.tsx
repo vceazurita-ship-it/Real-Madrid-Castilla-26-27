@@ -1243,6 +1243,22 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                     soloLectura={!edita}
                   />
 
+                  {/* El dato que dibuja la lámina, contado (24/10/2026): sin él sólo se ve un dibujo. */}
+                  {!edita && (() => {
+                    const cuenta = (tipo: string) => lamina.marcas.filter((m) => m.tipo === tipo).length;
+                    const partes = [
+                      cuenta("cruz") > 0 ? `${cuenta("cruz")} ${cuenta("cruz") === 1 ? "remate o caída de balón" : "remates o caídas de balón"}` : "",
+                      cuenta("balon") > 0 ? `${cuenta("balon")} ${cuenta("balon") === 1 ? "salida de balón" : "salidas de balón"}` : "",
+                      cuenta("flecha") > 0 ? `${cuenta("flecha")} ${cuenta("flecha") === 1 ? "trayectoria" : "trayectorias"}` : "",
+                    ].filter(Boolean);
+
+                    return partes.length > 0 ? (
+                      <p className="text-xs font-medium text-white/75">
+                        En esta lámina ({jornada}): {partes.join(" · ")}.
+                      </p>
+                    ) : null;
+                  })()}
+
                   {/* Qué es cada símbolo: para quien lee la lámina sin haberla dibujado. */}
                   {!edita && (
                     <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/50">

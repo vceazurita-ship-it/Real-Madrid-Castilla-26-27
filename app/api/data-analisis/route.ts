@@ -321,6 +321,20 @@ const ASPECTO_CENTROS = {
   explica: "Cuánto centra y cuántos de esos centros encuentran a alguien",
 } as const;
 
+/** Los centros que recibe (24/10/2026): lo que centran sus rivales contra él, con el mismo sentido que el balón parado en contra. */
+const ASPECTO_CENTROS_DEF = {
+  key: "centrosDef",
+  label: "Los centros que recibe",
+  momento: "sin",
+  metricas: ["centros", "centrosPrecisos"],
+  explica: "Cuánto le centran y cuántos de esos centros encuentran a alguien",
+} as const;
+
+const NOMBRE_EN_CONTRA: Record<string, string> = {
+  centros: "Centros que recibe",
+  centrosPrecisos: "Acierto de los centros que recibe %",
+};
+
 /**
  * Quién saca los córners y las faltas del equipo, según la descarga de Wyscout.
  *
@@ -368,7 +382,10 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "ab
     liga,
     equipos,
     ambito === "area"
-      ? [{ ...ASPECTO_CENTROS, metricas: [...ASPECTO_CENTROS.metricas] }]
+      ? [
+          { ...ASPECTO_CENTROS, metricas: [...ASPECTO_CENTROS.metricas] },
+          { ...ASPECTO_CENTROS_DEF, metricas: [...ASPECTO_CENTROS_DEF.metricas] },
+        ]
       : ["abpOf", "abpDef"].flatMap((k) => {
           const uno = ASPECTO_POR_KEY.get(k);
 
@@ -378,15 +395,15 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" = "ab
     clave: d.aspecto.key,
     aspecto: d.aspecto.label,
     filas: d.filas.map((f) => ({
-      nombre: f.metrica.nombre,
+      nombre: d.aspecto.key === "centrosDef" ? (NOMBRE_EN_CONTRA[f.metrica.key] ?? f.metrica.nombre) : f.metrica.nombre,
       valor: f.valor,
       mediana: f.mediana,
       unidad: f.metrica.unidad,
       percentil: f.percentil,
       mejorAlto: f.metrica.mejorAlto,
       /* «x de y»: la base del porcentaje y los partidos que lo respaldan. */
-      base: cocienteEnGrupo(f.metrica, d.aspecto.key === "abpDef" ? contraDe : suyosDe),
-      partidos: (d.aspecto.key === "abpDef" ? contraDe : suyosDe).length,
+      base: cocienteEnGrupo(f.metrica, d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef" ? contraDe : suyosDe),
+      partidos: (d.aspecto.key === "abpDef" || d.aspecto.key === "centrosDef" ? contraDe : suyosDe).length,
     })),
   }));
 

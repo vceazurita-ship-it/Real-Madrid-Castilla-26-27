@@ -98,7 +98,7 @@ export function AbpWyscoutRival({
     let cancelado = false;
 
     traeJson<{ ok?: boolean } & Partial<Datos>>(
-      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=2`,
+      `/api/data-analisis?abpRival=${encodeURIComponent(equipo)}${ambito === "area" ? "&ambito=area" : ""}&v=3`,
     )
       .then((r) => {
         if (cancelado) return;
@@ -166,7 +166,7 @@ export function AbpWyscoutRival({
     <div className="space-y-5">
       {aspectos.length > 0 && (
         <Panel
-          title={ambito === "area" ? "Sus centros laterales según Wyscout" : "Su balón parado según Wyscout"}
+          title={ambito === "area" ? "Sus centros laterales, los que hace y los que recibe, según Wyscout" : "Su balón parado según Wyscout"}
           subtitle={`${equipo} frente a los ${datos?.equipos ?? 20} equipos de la liga${(datos?.equipos ?? 20) === 20 ? ", el Castilla incluido" : ""}. «Mejor» y «peor» ya tienen en cuenta el sentido de cada cifra.`}
           icon={BarChart3}
         >

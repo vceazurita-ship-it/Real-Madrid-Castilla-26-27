@@ -278,7 +278,7 @@ export function destacadosDeEquipo(
     .map((aspecto) => {
       const filas: DesviacionMetrica[] = [];
 
-      const enContra = aspecto.key === "abpDef";
+      const enContra = aspecto.key === "abpDef" || aspecto.key === "centrosDef";
 
       for (const key of aspecto.metricas) {
         const metrica = METRICA_POR_KEY.get(key);
@@ -377,7 +377,7 @@ export function nubeDeAspecto(
 
   /* En «balón parado en contra» las cifras de cada equipo son las de sus
      rivales, igual que en el cálculo de arriba. */
-  const enContra = destacado.aspecto.key === "abpDef";
+  const enContra = destacado.aspecto.key === "abpDef" || destacado.aspecto.key === "centrosDef";
 
   const puntos: PuntoNube[] = [];
 
