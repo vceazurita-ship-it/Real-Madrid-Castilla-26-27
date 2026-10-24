@@ -1,7 +1,7 @@
 "use client";
 import { traeJson } from "@/lib/hojaCsv";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { buildRivalSquads, RivalSquad } from "@/lib/tactics/rivals";
 import { cargaOrdenRivales, comparaPorCalendario } from "@/lib/rivals/orden-calendario";
@@ -15,6 +15,16 @@ import { cargaOrdenRivales, comparaPorCalendario } from "@/lib/rivals/orden-cale
 export function useRivalSquads() {
   const [squads, setSquads] = useState<RivalSquad[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  /* «Reintentar»: vuelve a pedir saltándose la copia del aparato. */
+  const [intento, setIntento] = useState(0);
+
+  const reintenta = useCallback(() => {
+    setLoading(true);
+    setError(false);
+    setIntento((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -25,7 +35,7 @@ export function useRivalSquads() {
            se pide a la vez: los equipos salen por calendario, con el rival
            de la semana el primero, igual que en `/rivals`. */
         const [data, orden] = await Promise.all([
-          traeJson("/api/rivals?action=rivalesPlantillas"),
+          traeJson("/api/rivals?action=rivalesPlantillas", { forzar: intento > 0 }),
           cargaOrdenRivales(),
         ]);
 
@@ -38,7 +48,7 @@ export function useRivalSquads() {
         if (cancelled) return;
 
         console.error("[useRivalSquads]", error);
-        setSquads([]);
+        setError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -49,7 +59,7 @@ export function useRivalSquads() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [intento]);
 
-  return { squads, loading };
+  return { squads, loading, error, reintenta };
 }

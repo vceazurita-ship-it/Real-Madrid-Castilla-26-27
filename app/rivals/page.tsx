@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useSaveGuard } from "@/hooks/useSaveGuard";
+import { useLento } from "@/hooks/useLento";
+import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
 import RivalBoardPanel from "@/components/tactics/RivalBoardPanel";
 import RivalVoicePanel from "@/components/voice/RivalVoicePanel";
@@ -879,6 +881,9 @@ export default function RivalPlayersPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+
+  /* Si la plantilla tarda más de 25 s se avisa y se deja reintentar (24/10/2026). */
+  const lento = useLento(loading);
 
   /*
   | El enlace directo se resuelve antes del primer render: así la carga de
@@ -3866,6 +3871,10 @@ export default function RivalPlayersPage() {
 
             {/* ERROR */}
 
+            {lento && !loadError && (
+              <AvisoLento className="mt-6" onReintentar={() => setReloadKey((key) => key + 1)} />
+            )}
+
             {loadError && (
               <div className="mt-6 flex flex-wrap items-center gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
                 <span className="min-w-0 flex-1">{loadError}</span>
@@ -4148,10 +4157,13 @@ export default function RivalPlayersPage() {
 
               <div className="mt-6 flex min-w-0 flex-wrap items-center justify-between gap-4">
                 <div className="flex min-w-0 flex-wrap items-center gap-3">
-                  <p className="shrink-0 text-sm text-white/50">
-                    {listPlayers.length}{" "}
-                    {listPlayers.length === 1 ? "jugador" : "jugadores"}
-                  </p>
+                  {/* Mientras la plantilla no ha contestado no se cuenta: «0 jugadores» decía que no había nadie. */}
+                  {!loading && (
+                    <p className="shrink-0 text-sm text-white/50">
+                      {listPlayers.length}{" "}
+                      {listPlayers.length === 1 ? "jugador" : "jugadores"}
+                    </p>
+                  )}
 
                   {search && teamsInResults.length > 1 && (
                     <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-xs text-[#C8A96B]">

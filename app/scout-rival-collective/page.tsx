@@ -23,7 +23,9 @@ import RecursosRival, {
   type RecursoFijo,
 } from "@/components/rivals/RecursosRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { useEscudos } from "@/hooks/useEscudos";
+import { useLento } from "@/hooks/useLento";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -236,6 +238,9 @@ export default function ScoutRivalCollective() {
     setError(false);
     setIntento((n) => n + 1);
   }, []);
+
+  /* A los 25 s sin respuesta se avisa y se deja reintentar (24/10/2026). */
+  const lento = useLento(cargando);
 
   /*
   | Contexto del rival (24/10/2026): los nombres de su plantilla, para completar
@@ -896,6 +901,8 @@ export default function ScoutRivalCollective() {
             ))}
           </nav>
 
+          {lento && !error && <AvisoLento className="mb-6" onReintentar={reintenta} />}
+
           {error && (
             <EstadoError
               className="mb-6"
@@ -974,6 +981,9 @@ export default function ScoutRivalCollective() {
                 <ChevronLeft size={18} />
               </button>
 
+              {rivales.length === 0 && cargando ? (
+                <Hueso className="h-[56px] w-full rounded-2xl" />
+              ) : (
               <select
                 aria-label="Seleccionar rival"
                 value={rivalActivo?.ID ?? ""}
@@ -984,11 +994,7 @@ export default function ScoutRivalCollective() {
                 }
                 className="h-[56px] w-full rounded-2xl border border-white/10 bg-[#111827] px-4 text-base font-semibold text-white shadow-lg outline-none transition focus:border-[#C8A96B]/60"
               >
-                {rivales.length === 0 && (
-                  <option value="">
-                    {cargando ? "Cargando rivales…" : "Sin rivales"}
-                  </option>
-                )}
+                {rivales.length === 0 && <option value="">Sin rivales</option>}
 
                 {visibles.map((r) => (
                   <option key={r.ID} value={r.ID}>
@@ -996,6 +1002,7 @@ export default function ScoutRivalCollective() {
                   </option>
                 ))}
               </select>
+              )}
 
               <button
                 aria-label="Rival siguiente"

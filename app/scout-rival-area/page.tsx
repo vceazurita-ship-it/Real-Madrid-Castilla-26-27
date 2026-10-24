@@ -19,7 +19,9 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { EsqueletoPantalla, EstadoError } from "@/components/ui/estados";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
+import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { useEscudos } from "@/hooks/useEscudos";
+import { useLento } from "@/hooks/useLento";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { traeJson } from "@/lib/hojaCsv";
 
@@ -42,7 +44,7 @@ export default function AreaRivalPage() {
   const escudoDe = useEscudos();
 
   /* El orden del calendario y el rival de la semana: la regla de `/rivals`. */
-  const { ordena, proximoDe, jornadaDe } = useOrdenRivales();
+  const { ordena, proximoDe, jornadaDe, listo } = useOrdenRivales();
 
   useEffect(() => {
     let cancelado = false;
@@ -85,8 +87,12 @@ export default function AreaRivalPage() {
     );
   }, [plantilla, ordena]);
 
+  /* Sin elegir a mano, nada hasta saber el calendario: antes caía en el primero
+     por alfabeto (Alcorcón) y luego saltaba al rival de la semana (24/10/2026). */
   const equipo =
-    elegido && equipos.includes(elegido) ? elegido : proximoDe(equipos) || (equipos[0] ?? "");
+    elegido && equipos.includes(elegido) ? elegido : listo ? proximoDe(equipos) || (equipos[0] ?? "") : "";
+
+  const lento = useLento(cargando);
 
   const elige = useCallback((nombre: string) => setElegido(nombre), []);
 
@@ -106,7 +112,8 @@ export default function AreaRivalPage() {
           />
 
           {cargando ? (
-            <div className="mt-8">
+            <div className="mt-8 space-y-4">
+              {lento && <AvisoLento onReintentar={reintenta} />}
               <EsqueletoPantalla titulo="los rivales" cifras={0} />
             </div>
           ) : error ? (

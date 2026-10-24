@@ -43,15 +43,6 @@ const VIDA_RANCIA = 10 * 60_000;
 */
 type Guardado = { data: unknown; hecha: number; sucia?: boolean; suciaDesde?: number };
 
-/*
-| Una copia recién ensuciada (se acaba de escribir en la hoja) NO se sirve a
-| los lectores normales durante estos minutos (06/10/2026): quien guarda y
-| recarga tiene que ver lo suyo, y una pantalla que lee y luego autoguarda
-| (el informe colectivo) reescribiría lo de antes. Pasado ese rato, el refresco
-| por detrás ya ha tenido tiempo y la sucia se sirve al momento.
-*/
-const SUCIA_RECIENTE = 3 * 60_000;
-
 const cache = new Map<string, Guardado>();
 const enVuelo = new Map<string, Promise<unknown>>();
 
@@ -351,16 +342,13 @@ async function lee(consulta: string, fresco: boolean, rancia = false) {
     | `fresco=1` después: no hace falta pedirla dos veces.
     */
     if (deFuera.sucia) {
-      const reciente = !rancia && Date.now() - (deFuera.suciaDesde ?? 0) < SUCIA_RECIENTE;
-
-      if (reciente) {
-        try {
-          return await pide(consulta);
-        } catch {
-          return deFuera.data;
-        }
-      }
-
+      /*
+      | 24/10/2026: ya NO se espera a Google cuando la sucia es reciente. Con
+      | el autoguardado del plan escribiendo cada pocos segundos, "reciente"
+      | era casi siempre, y las pantallas de rival se quedaban en «Cargando…»
+      | 30-70 s. Se sirve la copia y se pide la buena por detrás. Quien
+      | necesita la verdad tras guardar pide `fresco=1`, que no pasa por aquí.
+      */
       if (!rancia) renueva(consulta);
 
       return deFuera.data;

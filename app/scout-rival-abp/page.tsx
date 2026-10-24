@@ -63,6 +63,8 @@ import { ApuntesAbp } from "@/components/abp/apuntes/ApuntesAbp";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
+import { useLento } from "@/hooks/useLento";
+import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { AbpFamily, FAMILY_LABEL, teamKey } from "@/lib/abp/model";
 import {
@@ -151,6 +153,17 @@ export default function ScoutRivalAbpPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /* «Reintentar»: vuelve a pedir las plantillas saltándose la copia del aparato. */
+  const [intento, setIntento] = useState(0);
+
+  const reintenta = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setIntento((n) => n + 1);
+  }, []);
+
+  const lento = useLento(loading);
+
   const [grupo, setGrupo] = useState<Grupo>("liga");
   const [vistaElegida, setVista] = usePestanaUrl<Vista>("vista", VISTAS, "resumen");
 
@@ -185,7 +198,7 @@ export default function ScoutRivalAbpPage() {
   const escudoDe = useEscudos();
 
   /* El orden del calendario y el rival de la semana: la regla de `/rivals`. */
-  const { ordena, proximoDe, jornadaDe } = useOrdenRivales();
+  const { ordena, proximoDe, jornadaDe, listo } = useOrdenRivales();
 
   /* --------------------------- scouting ---------------------------- */
 
@@ -217,7 +230,7 @@ export default function ScoutRivalAbpPage() {
       try {
         const [dataset, squadResponse] = await Promise.all([
           loadRivalAbp(),
-          traeJson("/api/rivals?action=rivalesPlantillas").catch(() => []),
+          traeJson("/api/rivals?action=rivalesPlantillas", { forzar: intento > 0 }),
         ]);
 
         if (cancelled) return;
@@ -283,7 +296,7 @@ export default function ScoutRivalAbpPage() {
     return () => {
       cancelled = true;
     };
-  }, [pickTeam]);
+  }, [pickTeam, intento]);
 
   /* ---------------------------- equipos ---------------------------- */
 
@@ -346,8 +359,11 @@ export default function ScoutRivalAbpPage() {
       return equipoElegido;
     }
 
+    /* Hasta saber el calendario no se elige ninguno: abría con el primero por alfabeto y luego saltaba. */
+    if (!listo) return "";
+
     return proximoDe(equiposVisibles) || (equiposVisibles[0] ?? "");
-  }, [equipoElegido, equiposVisibles, proximoDe]);
+  }, [equipoElegido, equiposVisibles, proximoDe, listo]);
 
   /* Al cambiar de grupo no hace falta reelegir equipo: como `equipo` es
      derivado, cae solo en el primero del grupo nuevo y recupera el anterior
@@ -705,13 +721,17 @@ export default function ScoutRivalAbpPage() {
           />
 
           {loading ? (
-            <div className="mt-8">
+            <div className="mt-8 space-y-4">
+              {lento && <AvisoLento onReintentar={reintenta} />}
               <EsqueletoPantalla titulo="los datos de ABP del rival" />
             </div>
           ) : error ? (
             <div className="mt-8">
               <Notice tone="warn" title={error}>
                 <Explicativo>Revisa que las hojas sigan publicadas en Google Sheets.</Explicativo>
+                <button type="button" onClick={reintenta} className="mt-2 font-semibold underline">
+                  Reintentar
+                </button>
               </Notice>
             </div>
           ) : sinEquipos ? (

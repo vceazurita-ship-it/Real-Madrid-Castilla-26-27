@@ -25,7 +25,9 @@ import { Topbar } from "@/components/ui/topbar";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import { VideosDelCanal } from "@/components/rivals/VideosDelCanal";
+import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { useEscudos } from "@/hooks/useEscudos";
+import { useLento } from "@/hooks/useLento";
 import { useRivalSquads } from "@/hooks/useRivalSquads";
 import { useRivalStats } from "@/hooks/useRivalStats";
 import { traeJson } from "@/lib/hojaCsv";
@@ -45,7 +47,9 @@ import { Explicativo } from "@/components/ui/textos-analisis";
 export default function ScoutRivalIndividual() {
   const escudoDe = useEscudos();
 
-  const { squads, loading } = useRivalSquads();
+  const { squads, loading, error, reintenta } = useRivalSquads();
+
+  const lento = useLento(loading);
 
   const [equipoPedido, setEquipoPedido] = useState("");
   const [buscaEquipo, setBuscaEquipo] = useState("");
@@ -223,6 +227,11 @@ export default function ScoutRivalIndividual() {
             <p className="mt-3 max-w-2xl text-white/60">Los cortes de cada rival, jugador a jugador.</p>
           </header>
 
+          {/* Si la hoja tarda más de 25 s, o falla, se dice y se deja reintentar. */}
+          {(lento || (error && !loading)) && (
+            <AvisoLento className="mt-6" onReintentar={reintenta} />
+          )}
+
           {/* ---------------------- A QUIÉN SE MIRA ------------------------ */}
 
           <section className="mt-6 min-w-0 rounded-3xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
@@ -247,9 +256,7 @@ export default function ScoutRivalIndividual() {
               </div>
 
               <span className="text-[11px] tabular-nums text-white/30">
-                {loading
-                  ? "cargando plantillas…"
-                  : `${visibles.length} de ${equipos.length}`}
+                {loading ? "" : `${visibles.length} de ${equipos.length}`}
               </span>
             </div>
 
