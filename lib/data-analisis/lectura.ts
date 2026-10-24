@@ -1,4 +1,5 @@
 import {
+  CASOS_MINIMOS,
   METRICA_POR_KEY,
   formatea,
   type Metrica,
@@ -54,6 +55,8 @@ export type FilaLectura = {
   percentil: number | null;
   valor: number | null;
   mediana: number | null;
+  /** Casos detrás de un porcentaje de pocos casos: con menos de 10 no entra en lo más fuerte ni en lo más flojo. */
+  casos?: number | null;
 };
 
 /**
@@ -71,6 +74,7 @@ export function lecturaDeGrupo(filas: FilaLectura[]) {
     .filter(
       (fila): fila is typeof fila & { percentil: number; metrica: Metrica } =>
         fila.percentil !== null &&
+        !(fila.casos != null && fila.casos < CASOS_MINIMOS) &&
         Boolean(fila.metrica) &&
         fila.metrica!.mejorAlto !== null,
     );

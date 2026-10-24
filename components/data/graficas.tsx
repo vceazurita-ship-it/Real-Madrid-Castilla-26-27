@@ -25,7 +25,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 
-import { formatea, type Unidad } from "@/lib/data-analisis/metricas";
+import { CASOS_MINIMOS, formatea, type Unidad } from "@/lib/data-analisis/metricas";
 import {
   buscadorDeEscudos,
   traeEscudos,
@@ -102,6 +102,8 @@ export type FilaPercentil = {
   comoLeer: string;
   /** «0 de 5 contraataques»: la base de un porcentaje de pocos casos. */
   base?: string | null;
+  /** Casos detrás de un porcentaje de pocos casos; con menos de 10 se lee como tendencia, sin percentil ni color. */
+  casos?: number | null;
 };
 
 /**
@@ -130,7 +132,10 @@ export function BarraPercentil({
 
   const esEstilo = fila.mejorAlto === null;
 
-  const color = esEstilo
+  /* Con muy pocos casos («0 de 5 contraataques») el percentil engaña: tendencia, sin color ni raya. */
+  const pocos = fila.casos != null && fila.casos < CASOS_MINIMOS;
+
+  const color = esEstilo || pocos
     ? tinta(0.45)
     : pct === null
       ? tinta(0.25)
@@ -234,7 +239,7 @@ export function BarraPercentil({
             />
           )}
 
-          {pct !== null && (
+          {pct !== null && !pocos && (
             <span
               className="absolute inset-y-0 rounded-full"
               style={{
@@ -249,11 +254,11 @@ export function BarraPercentil({
         </div>
 
         <span
-          className="w-9 shrink-0 text-right text-[10px] tabular-nums"
+          className={`shrink-0 text-right text-[10px] tabular-nums ${pocos ? "whitespace-nowrap" : "w-9"}`}
           style={{ color: tinta(0.4) }}
-          title={quePercentil(pct, "el Castilla")}
+          title={pocos ? `Con ${fila.casos} casos el percentil no se sostiene: es una tendencia` : quePercentil(pct, "el Castilla")}
         >
-          {pct === null ? "—" : `p${Math.round(pct)}`}
+          {pocos ? `tendencia, ${fila.casos} casos` : pct === null ? "—" : `p${Math.round(pct)}`}
         </span>
       </div>
 
