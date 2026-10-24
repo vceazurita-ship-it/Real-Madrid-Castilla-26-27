@@ -1744,8 +1744,8 @@ export default function AbpMicrocicloPage() {
                   title="La semana"
                   subtitle={
                     vistaSemana !== "compacta"
-                      ? "Cada bloque enseña todo lo que se trabaja, para que un pantallazo se entienda sin entrar en la app. Pulsa uno para editarlo y arrástralo para cambiarlo de día"
-                      : "Fichas cortas, para mover bloques de día. Pulsa uno para editarlo; cada uno se puede duplicar o quitar"
+                      ? "Cada bloque enseña todo lo que se trabaja, para que un pantallazo se entienda sin entrar en la app. Pulsa uno para editarlo y arrástralo para cambiarlo de día. Carga = intensidad × minutos"
+                      : "Fichas cortas, para mover bloques de día. Pulsa uno para editarlo; cada uno se puede duplicar o quitar. Carga = intensidad × minutos"
                   }
                   icon={CalendarDays}
                   action={

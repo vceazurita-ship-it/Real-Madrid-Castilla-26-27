@@ -116,6 +116,12 @@ export function RevisionSemana({
         })}
       </ul>
 
+      {ocultos > 0 && (
+        <p className="mt-2 text-[11.5px] leading-snug text-white/45">
+          Plegadas: {ordenados.slice(visibles.length).map((punto) => punto.titulo).join(" · ")}
+        </p>
+      )}
+
       {(ocultos > 0 || todos) && ordenados.length > 1 && (
         <button
           type="button"

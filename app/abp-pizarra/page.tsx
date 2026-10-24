@@ -464,8 +464,37 @@ export default function PizarraAbpPage() {
     [partidos, hoy],
   );
 
+  /* Los jugados hace más de tres partidos se pliegan en «Jornadas anteriores»:
+     38 filas seguidas no se leen, y casi siempre se trabaja la última o la próxima. */
+  const lejanosIds = useMemo(
+    () =>
+      new Set(
+        partidos
+          .filter((item) => item.date && item.date < hoy)
+          .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))
+          .slice(3)
+          .map((item) => item.id),
+      ),
+    [partidos, hoy],
+  );
+
   const enPrimerPlano = (item: MatchMeta) =>
-    !item.date || item.date < hoy || item.id === proximoId || item.id === elegido;
+    item.id === proximoId ||
+    item.id === elegido ||
+    (!lejanosIds.has(item.id) && (!item.date || item.date < hoy));
+
+  /* En el plan de partido, lo mismo: las jugadas hace más de tres quedan plegadas. */
+  const jornadasLejanas = useMemo(
+    () =>
+      new Set(
+        jornadas
+          .filter((item) => item.fecha && item.fecha < hoy)
+          .sort((a, b) => b.fecha.localeCompare(a.fecha))
+          .slice(3)
+          .map((item) => item.id),
+      ),
+    [jornadas, hoy],
+  );
 
   const partido = useMemo(
     () => partidos.find((item) => item.id === elegido) ?? null,
@@ -1878,10 +1907,23 @@ export default function PizarraAbpPage() {
                       </option>
                     ))}
 
-                  {partidos.some((item) => !enPrimerPlano(item)) && (
+                  {partidos.some((item) => lejanosIds.has(item.id) && !enPrimerPlano(item)) && (
+                    <optgroup label="Jornadas anteriores">
+                      {partidos
+                        .filter((item) => lejanosIds.has(item.id) && !enPrimerPlano(item))
+                        .map((item) => (
+                          <option key={item.id} value={item.id} className="bg-[#11161C]">
+                            {etiquetaPartido(item)}
+                            {marcaDeTablero(store.tableros?.[item.id])}
+                          </option>
+                        ))}
+                    </optgroup>
+                  )}
+
+                  {partidos.some((item) => !lejanosIds.has(item.id) && !enPrimerPlano(item)) && (
                     <optgroup label="Más adelante en el calendario">
                       {partidos
-                        .filter((item) => !enPrimerPlano(item))
+                        .filter((item) => !lejanosIds.has(item.id) && !enPrimerPlano(item))
                         .map((item) => (
                           <option key={item.id} value={item.id} className="bg-[#11161C]">
                             {etiquetaPartido(item)}
@@ -2035,15 +2077,25 @@ export default function PizarraAbpPage() {
                             : "No se ha podido leer la hoja de rivales"}
                         </option>
 
-                        {jornadas.map((item) => (
-                          <option
-                            key={item.id}
-                            value={item.id}
-                            className="bg-[#11161C]"
-                          >
-                            {etiquetaJornada(item)}
-                          </option>
-                        ))}
+                        {jornadas
+                          .filter((item) => !jornadasLejanas.has(item.id) || item.id === jornada?.id)
+                          .map((item) => (
+                            <option key={item.id} value={item.id} className="bg-[#11161C]">
+                              {etiquetaJornada(item)}
+                            </option>
+                          ))}
+
+                        {jornadas.some((item) => jornadasLejanas.has(item.id) && item.id !== jornada?.id) && (
+                          <optgroup label="Jornadas anteriores">
+                            {jornadas
+                              .filter((item) => jornadasLejanas.has(item.id) && item.id !== jornada?.id)
+                              .map((item) => (
+                                <option key={item.id} value={item.id} className="bg-[#11161C]">
+                                  {etiquetaJornada(item)}
+                                </option>
+                              ))}
+                          </optgroup>
+                        )}
                       </select>
 
                       <span className="mt-1 block text-[10px] text-white/30">
@@ -2245,7 +2297,7 @@ export default function PizarraAbpPage() {
                             {/* La cifra, sólo si falta alguien: completa no hace falta decir nada. */}
                             {(!total || cubiertos < total) && (
                               <span className="block text-[10px] tabular-nums text-amber-300/70">
-                                {total ? `Faltan ${total - cubiertos}` : "Libre"}
+                                {total ? `${cubiertos} de ${total} colocados` : "Libre"}
                               </span>
                             )}
                           </button>
@@ -2470,6 +2522,7 @@ export default function PizarraAbpPage() {
 
                 {slide && (
                   <div className="mt-5">
+                    <FichasSueltasPlegables plegado={!guardado}>
                     <Panel
                       title="Fichas sueltas"
                       subtitle="Alguien que no ocupa un puesto de la plantilla: se coloca a mano donde haga falta"
@@ -2506,6 +2559,7 @@ export default function PizarraAbpPage() {
                         ))}
                       </div>
                     </Panel>
+                    </FichasSueltasPlegables>
                   </div>
                 )}
 
@@ -2728,6 +2782,19 @@ export default function PizarraAbpPage() {
 }
 
 /** Pliega sus hijos bajo un resumen mientras no haya contenido que ajustar. */
+function FichasSueltasPlegables({ plegado, children }: { plegado: boolean; children: React.ReactNode }) {
+  if (!plegado) return <>{children}</>;
+
+  return (
+    <details className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+      <summary className="cursor-pointer select-none text-xs font-medium text-white/60">
+        Fichas sueltas (alguien que no ocupa un puesto de la plantilla)
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
+  );
+}
+
 function PlegadoSiVacio({ vacio, children }: { vacio: boolean; children: React.ReactNode }) {
   if (!vacio) return <>{children}</>;
 
