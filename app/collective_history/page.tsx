@@ -7,6 +7,8 @@ import { Play, Maximize2, ExternalLink } from "lucide-react";
 import { traeJson } from "@/lib/hojaCsv";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import type { ClasificacionPortada } from "@/lib/portada/proximo-partido";
 
 export default function CollectiveHistoryPage() {
@@ -81,6 +83,65 @@ const jugados = useMemo(() => {
       return [...lista, { ...uno, gf, gc, puntos, acumulados: antes + puntos }];
     }, []);
 }, [partidos]);
+
+/*
+| La liga entera (goles:analisis, de BeSoccer) para dos cosas: la media de
+| puntos por partido de los 20 equipos y el puesto tras cada jornada. El
+| puesto sólo se da si de esa jornada están todos los partidos de la liga.
+*/
+const golesLiga = useRemoteDoc<GolesDoc>({ key: DOC_GOLES, kind: "goles", fallback: GOLES_VACIO });
+const liga = useMemo(() => {
+  const ps = golesLiga.value.partidos ?? [];
+  const ultimaNuestra = jugados.at(-1)?.jornada ?? 0;
+  const hasta = ps.filter((p) => p.jornada <= ultimaNuestra);
+
+  /* Puntos repartidos por equipo y partido: 3 si hay ganador, 2 si empatan. */
+  const mediaPuntos =
+    hasta.length > 0 ? hasta.reduce((s, p) => s + (p.gl === p.gv ? 2 : 3), 0) / (hasta.length * 2) : null;
+
+  const equipos = new Set(ps.flatMap((p) => [p.local, p.visitante]));
+  const porPartidosJornada = Math.floor(equipos.size / 2);
+  const puestos = new Map<number, number>();
+
+  for (const uno of jugados) {
+    const dePartidos = ps.filter((p) => p.jornada <= uno.jornada);
+    const completa =
+      porPartidosJornada > 0 &&
+      ps.filter((p) => p.jornada === uno.jornada).length === porPartidosJornada &&
+      dePartidos.length === porPartidosJornada * uno.jornada;
+
+    if (!completa) continue;
+
+    const tabla = new Map<string, { pts: number; dif: number; gf: number }>();
+    const fila = (n: string) => {
+      if (!tabla.has(n)) tabla.set(n, { pts: 0, dif: 0, gf: 0 });
+
+      return tabla.get(n)!;
+    };
+
+    for (const p of dePartidos) {
+      const a = fila(p.local);
+      const b = fila(p.visitante);
+
+      a.pts += p.gl > p.gv ? 3 : p.gl === p.gv ? 1 : 0;
+      b.pts += p.gv > p.gl ? 3 : p.gl === p.gv ? 1 : 0;
+      a.dif += p.gl - p.gv;
+      b.dif += p.gv - p.gl;
+      a.gf += p.gl;
+      b.gf += p.gv;
+    }
+
+    const nuestro = [...tabla.keys()].find((n) => /castilla/i.test(n));
+
+    if (!nuestro) continue;
+
+    const orden = [...tabla.entries()].sort((x, y) => y[1].pts - x[1].pts || y[1].dif - x[1].dif || y[1].gf - x[1].gf);
+
+    puestos.set(uno.jornada, orden.findIndex(([n]) => n === nuestro) + 1);
+  }
+
+  return { mediaPuntos, puestos };
+}, [golesLiga.value.partidos, jugados]);
 
 const videoRef = useRef<HTMLDivElement | null>(null);
 const dashboardRef = useRef<HTMLDivElement | null>(null);
@@ -158,7 +219,7 @@ useEffect(() => {
             onClick={scrollToVideo}
             className="
               hidden lg:flex
-              fixed right-6 top-1/2 -translate-y-1/2 z-50
+              fixed right-6 bottom-6 z-50
               items-center gap-3
               rounded-full
               border border-[#C8A96B]/40
@@ -218,7 +279,7 @@ useEffect(() => {
                   ["Puesto", `${tabla.puesto}º de ${tabla.deCuantos}`],
                   [
                     "Puntos",
-                    `${tabla.puntos} en ${tabla.jugados} partidos${tabla.jugados > 0 ? ` · ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por partido` : ""}`,
+                    `${tabla.puntos} en ${tabla.jugados} partidos${tabla.jugados > 0 ? ` · ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por partido${liga.mediaPuntos !== null ? ` · liga ${liga.mediaPuntos.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : ""}` : ""}`,
                   ],
                   ["Balance", `${tabla.ganados} G · ${tabla.empatados} E · ${tabla.perdidos} P`],
                   [
@@ -259,6 +320,7 @@ useEffect(() => {
                         <th className="px-4 py-3 text-center font-medium">Resultado</th>
                         <th className="px-4 py-3 text-right font-medium">Puntos</th>
                         <th className="px-4 py-3 text-right font-medium">Acumulados</th>
+                        {liga.puestos.size > 0 ? <th className="px-4 py-3 text-right font-medium">Puesto</th> : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -276,6 +338,9 @@ useEffect(() => {
                           </td>
                           <td className="px-4 py-2.5 text-right">{uno.puntos}</td>
                           <td className="px-4 py-2.5 text-right font-semibold">{uno.acumulados}</td>
+                          {liga.puestos.size > 0 ? (
+                            <td className="px-4 py-2.5 text-right">{liga.puestos.get(uno.jornada) ?? ""}{liga.puestos.has(uno.jornada) ? "º" : ""}</td>
+                          ) : null}
                         </tr>
                       ))}
                     </tbody>
