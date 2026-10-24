@@ -23,6 +23,7 @@
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { flushSync } from "react-dom";
 import {
   Box,
   Download,
@@ -30,9 +31,13 @@ import {
   FileImage,
   FileText,
   Film,
+  Flame,
   FlipHorizontal2,
   Image as ImageIcon,
   Keyboard,
+  LayoutTemplate,
+  Link2,
+  ListPlus,
   MousePointer2,
   Route,
   ScanEye,
@@ -48,12 +53,13 @@ import { toast } from "sonner";
 
 import type { JugadorLab } from "@/components/abp-lab/comun";
 import { CODIGO_PAPEL, Escena, usePaleta, type Capas } from "@/components/abp-lab/Escena";
+import { EscenaViva } from "@/components/abp-lab/EscenaViva";
 import { LineaTiempo, useReloj } from "@/components/abp-lab/LineaTiempo";
 import { Presentacion } from "@/components/abp-lab/Presentacion";
-import { estructuraPara, useSimulacion, type ContextoSim, type QueDefensa, type RutinaSimulable } from "@/components/abp-lab/useSimulacion";
-import { ANCHO, VUELO, encuadre, focoDe, fondoVisible, golpeoDe, limita, recorridoBalon, reflejada, salidas, type Marco } from "@/lib/abp-lab/campo";
+import { estructuraPara, useSimulacionFija, type ContextoSim, type QueDefensa, type RutinaSimulable } from "@/components/abp-lab/useSimulacion";
+import { ANCHO, VUELO, encuadre, focoDe, fondoVisible, golpeoDe, limita, posicionesEn, recorridoBalon, reflejada, salidas, type Marco } from "@/lib/abp-lab/campo";
 import { VISTAS, creaCamara, type Vista } from "@/lib/abp-lab/camara";
-import { exportaGif, exportaPdf, exportaPng, exportaVideo, sabeVideo, type Rodaje, type Rotulo } from "@/lib/abp-lab/exporta";
+import { exportaGif, exportaPdf, exportaPng, exportaVideo, pngDe, sabeVideo, type Rodaje, type Rotulo } from "@/lib/abp-lab/exporta";
 import { DEFENSAS, ENVIOS, PAPELES, TIPOS, etiqueta, type Envio, type Punto, type Rol } from "@/lib/abp-lab/modelo";
 import { MARCAS, momentoDe } from "@/lib/abp-lab/simulacion";
 import { PRESION_LABEL } from "@/lib/abp-lab/ventaja";
@@ -74,7 +80,7 @@ const MODOS: { key: Modo; label: string; icon: typeof MousePointer2; ayuda: stri
 
 const ASPECTO = 1.62;
 
-const CAPAS_INICIALES: Capas = { nombres: true, fotos: true, ventaja: false, duelos: true };
+const CAPAS_INICIALES: Capas = { nombres: true, fotos: true, ventaja: false, duelos: true, llegada: false };
 
 export const ATAJOS: { teclas: string; que: string }[] = [
   { teclas: "Espacio", que: "Reproducir / pausa" },
@@ -86,7 +92,7 @@ export const ATAJOS: { teclas: string; que: string }[] = [
   { teclas: "1 2 3", que: "Colocar · Carreras · Balón" },
   { teclas: "C", que: "Cambiar de cámara" },
   { teclas: "R", que: "Defensa: tipo · próximo rival · ninguna" },
-  { teclas: "V · D", que: "Espacio · duelos aéreos" },
+  { teclas: "V · D · H", que: "Espacio · duelos aéreos · mapa de llegada" },
   { teclas: "N · F", que: "Nombres · fotos" },
   { teclas: "M", que: "La misma desde el otro lado" },
   { teclas: "P", que: "Presentar a pantalla completa" },
@@ -221,9 +227,15 @@ export function PizarraRutina({
   seleccionado,
   onSelecciona,
   ctx,
+  onComparte,
+  textoTarea,
 }: {
   rutina: RutinaEnPizarra;
   porId: Map<string, JugadorLab>;
+  /** Copia el enlace que abre esta rutina (lo arma el estudio, que tiene la rutina entera). */
+  onComparte?: () => void;
+  /** La rutina contada como tarea, para pegarla en el microciclo. */
+  textoTarea?: string;
   /** Cambia los papeles, el recorrido del balón o el envío. */
   onCambia: (cambio: { roles?: Rol[]; balon?: Punto[]; envio?: Envio }) => void;
   seleccionado: number | null;
@@ -258,7 +270,7 @@ export function PizarraRutina({
 
   const reloj = useReloj(0);
 
-  const { t, setT, para } = reloj;
+  const { setT, para } = reloj;
 
   /*
    * El encuadre: la jugada de cerca o el medio campo entero. El de la jugada
@@ -292,7 +304,8 @@ export function PizarraRutina({
 
   const queEfectiva: QueDefensa = ofensiva ? que : "ninguna";
 
-  const sim = useSimulacion(rutina, t, queEfectiva, ctx, capas.ventaja);
+  /* Lo que no cambia con el instante; lo que sí lo calcula `EscenaViva`, que es la única que se redibuja al reproducir. */
+  const sim = useSimulacionFija(rutina, queEfectiva, ctx);
 
   const desde = useMemo(() => salidas(rutina.roles), [rutina.roles]);
 
@@ -312,7 +325,14 @@ export function PizarraRutina({
 
   const hayProximo = Boolean(ofensiva && ctx.rival && (estructura || ctx.rival.plantilla.length) && (rutina.tipo === "corner" || rutina.tipo === "falta"));
 
-  const fuera = sim.nuestros.filter((p) => p.x < marco.x || p.x > marco.x + marco.w || p.y < marco.y || p.y > marco.y + marco.h).length;
+  /* Los que salen o acaban fuera del encuadre (no depende del instante: así la pizarra no se redibuja al reproducir). */
+  const fuera = useMemo(() => {
+    const dentro = (p: Punto) => p.x >= marco.x && p.x <= marco.x + marco.w && p.y >= marco.y && p.y <= marco.y + marco.h;
+
+    const fin = posicionesEn(rutina.roles, 1);
+
+    return salidas(rutina.roles).filter((p, i) => !dentro(p) || !dentro(fin[i])).length;
+  }, [rutina.roles, marco]);
 
   /* --------------------------- coordenadas ---------------------------- */
 
@@ -504,12 +524,19 @@ export function PizarraRutina({
     [rutina.nombre, rutina.tipo, rutina.senal, ofensiva, textoDefensa, sim.remate, paleta.cielo],
   );
 
+  /*
+   * El rodaje pone cada instante con `flushSync`: el SVG queda pintado al
+   * volver, sin esperar a un fotograma de pantalla (que en una pestaña en
+   * segundo plano no llega nunca y dejaba la exportación colgada).
+   */
+  const rodajeDe = (): Rodaje => ({ pon: (v) => flushSync(() => setT(v)), svg: () => svg.current, rotulo, familia: FAMILIA_PORTADA });
+
   const exporta = async (formato: "png" | "pdf" | "video" | "gif") => {
     if (exportando) return;
 
     setMenuExporta(false);
 
-    const antes = reloj.tRef.current;
+    const antes = reloj.ahora();
 
     para();
 
@@ -517,7 +544,7 @@ export function PizarraRutina({
 
     await esperaFuentePortada().catch(() => undefined);
 
-    const rodaje: Rodaje = { pon: setT, svg: () => svg.current, rotulo, familia: FAMILIA_PORTADA };
+    const rodaje = rodajeDe();
 
     const nombre = rutina.nombre || "rutina";
 
@@ -544,6 +571,64 @@ export function PizarraRutina({
       setT(antes);
       setExportando(null);
     }
+  };
+
+  /** La jugada como imagen en el portapapeles (o descargada, si el navegador no deja) y la pizarra de ABP abierta al lado. */
+  const aLaPizarraAbp = async () => {
+    if (exportando) return;
+
+    setMenuExporta(false);
+
+    const antes = reloj.ahora();
+
+    para();
+
+    setExportando({ que: "png", avance: 0 });
+
+    try {
+      await esperaFuentePortada().catch(() => undefined);
+
+      const blob = await pngDe(rodajeDe(), antes);
+
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        toast.success("Jugada copiada como imagen", { description: "Pégala en la diapositiva o en el PowerPoint de la pizarra de ABP." });
+      } else {
+        await exportaPng(rodajeDe(), antes, rutina.nombre || "rutina");
+        toast.success("Jugada descargada en PNG", { description: "Este navegador no deja copiar imágenes: añádela desde la carpeta de descargas." });
+      }
+
+      window.open("/abp-pizarra", "_blank", "noopener");
+    } catch (error) {
+      console.error("[laboratorio-abp] a la pizarra", error);
+      toast.error("No se ha podido copiar la jugada");
+    } finally {
+      setT(antes);
+      setExportando(null);
+    }
+  };
+
+  /** La rutina contada como tarea, al portapapeles, y el microciclo de ABP abierto al lado. */
+  const alMicrociclo = async () => {
+    setMenuExporta(false);
+
+    if (!textoTarea) return;
+
+    try {
+      await navigator.clipboard.writeText(textoTarea);
+      toast.success("Tarea copiada", { description: "Pégala en la tarea de ABP del día en el microciclo." });
+      window.open("/abp-microciclo", "_blank", "noopener");
+    } catch {
+      toast.error("El navegador no deja copiar: selecciona el texto a mano");
+    }
+  };
+
+  const llevaA = (k: string) => {
+    if (k === "enlace") {
+      setMenuExporta(false);
+      onComparte?.();
+    } else if (k === "pizarra") void aLaPizarraAbp();
+    else void alMicrociclo();
   };
 
   /* --------------------------- atajos globales -------------------------- */
@@ -610,6 +695,9 @@ export function PizarraRutina({
           break;
         case "d":
           conmuta("duelos");
+          break;
+        case "h":
+          if (ofensiva) conmuta("llegada");
           break;
         case "n":
           conmuta("nombres");
@@ -715,7 +803,7 @@ export function PizarraRutina({
               {exportando ? `${Math.round(exportando.avance * 100)} %` : "Exportar"}
             </button>
             {menuExporta && (
-              <div role="menu" className="absolute right-0 top-full z-20 mt-1.5 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#11161C] p-1 shadow-2xl">
+              <div role="menu" className="absolute right-0 top-full z-20 mt-1.5 w-60 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-white/10 bg-[#11161C] p-1 shadow-2xl">
                 {[
                   { k: "png" as const, label: "Imagen PNG", detalle: "El instante que se ve (E)", icon: ImageIcon },
                   { k: "pdf" as const, label: "PDF por momentos", detalle: "Salida, golpeo, remate y final", icon: FileText },
@@ -723,6 +811,20 @@ export function PizarraRutina({
                   { k: "gif" as const, label: "GIF animado", detalle: "Para WhatsApp, sin reproductor", icon: FileImage },
                 ].map((o) => (
                   <button key={o.k} type="button" role="menuitem" onClick={() => void exporta(o.k)} className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-white/[0.06]">
+                    <o.icon size={15} className="mt-0.5 shrink-0 text-[#C8A96B]" />
+                    <span className="min-w-0">
+                      <span className="block text-[12.5px] font-semibold text-white/90">{o.label}</span>
+                      <span className="block text-[11px] text-white/45">{o.detalle}</span>
+                    </span>
+                  </button>
+                ))}
+                <p className="mx-2.5 mt-1.5 border-t border-white/10 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">Llevar a</p>
+                {[
+                  ...(onComparte ? [{ k: "enlace", label: "Copiar enlace", detalle: "Abre esta rutina tal cual, sin guardarla", icon: Link2 }] : []),
+                  { k: "pizarra", label: "Pizarra de ABP", detalle: "Copia la imagen y abre la pizarra", icon: LayoutTemplate },
+                  ...(textoTarea ? [{ k: "micro", label: "Microciclo de ABP", detalle: "Copia la tarea y abre el microciclo", icon: ListPlus }] : []),
+                ].map((o) => (
+                  <button key={o.k} type="button" role="menuitem" onClick={() => llevaA(o.k)} className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-white/[0.06]">
                     <o.icon size={15} className="mt-0.5 shrink-0 text-[#C8A96B]" />
                     <span className="min-w-0">
                       <span className="block text-[12.5px] font-semibold text-white/90">{o.label}</span>
@@ -771,7 +873,13 @@ export function PizarraRutina({
           <UserRound size={13} />
           <span className="hidden sm:inline">Fotos</span>
         </button>
-        {ofensiva && sim.defensa && (
+        {ofensiva && rutina.roles.length > 0 && (
+          <button type="button" onClick={() => conmuta("llegada")} aria-pressed={Boolean(capas.llegada)} title="Mapa de calor: dónde llegan los nuestros mientras vuela el balón (H)" className={boton(Boolean(capas.llegada))}>
+            <Flame size={13} />
+            Llegada
+          </button>
+        )}
+        {ofensiva && sim.plan && (
           <>
             <button type="button" onClick={() => conmuta("ventaja")} aria-pressed={capas.ventaja} title="Quién gana cada espacio del área (V)" className={boton(capas.ventaja)}>
               <Waves size={13} />
@@ -804,21 +912,17 @@ export function PizarraRutina({
 
       {/* ----------------------------- EL CAMPO ---------------------------- */}
       <div className="relative overflow-hidden rounded-2xl border border-white/10 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.65)]" style={{ background: paleta.cielo }}>
-        <Escena
+        <EscenaViva
           id={id}
           svgRef={svg}
+          reloj={reloj}
           rutina={rutina}
           porId={porId}
-          t={t}
           cam={cam}
           paleta={paleta}
-          nuestros={sim.nuestros}
-          defensa={sim.defensa}
+          fija={sim}
           capas={capas}
-          celdas={sim.celdas}
-          libres={sim.libres}
-          duelos={sim.duelos}
-          remate={remate}
+          sinTransicion={Boolean(exportando)}
           seleccionado={seleccionado}
           editaBalon={modo === "balon"}
           fotos={fotos}
@@ -907,7 +1011,7 @@ export function PizarraRutina({
       {/* --------------------------- LA LECTURA --------------------------- */}
       {ofensiva && rutina.roles.length > 0 && (remate || sim.encaje.length > 0) && (
         <div className="grid gap-3 sm:grid-cols-2">
-          {remate && sim.defensa && (
+          {remate && sim.plan && (
             <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5" aria-label="El remate">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">El remate · {textoDefensa || "sin rival"}</p>
               {remate.quien === null ? (

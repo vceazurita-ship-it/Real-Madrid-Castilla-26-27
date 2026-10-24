@@ -14,7 +14,7 @@ import { posicionesEn, recorridoBalon } from "@/lib/abp-lab/campo";
 import type { Defensa, Envio, Lado, Punto, Rol } from "@/lib/abp-lab/modelo";
 import type { TipoAbp } from "@/lib/abp-lab/referentes";
 import { defensaEn, estadoBalon } from "@/lib/abp-lab/simulacion";
-import { controlEspacio, duelosAereos, encajeSistemas, espaciosLibres, evaluaRemate, planCon, type DefensaRival } from "@/lib/abp-lab/ventaja";
+import { controlEspacio, duelosAereos, encajeSistemas, espaciosLibres, evaluaRemate, mapaLlegada, planCon, type DefensaRival } from "@/lib/abp-lab/ventaja";
 import type { CalibreXg } from "@/lib/abp-lab/xg";
 
 export type RutinaSimulable = {
@@ -60,7 +60,11 @@ export function defensaRivalDe(que: QueDefensa, r: RutinaSimulable, ctx: Context
   return { defensa: r.contra === "cualquiera" ? "mixta" : r.contra };
 }
 
-export function useSimulacion(r: RutinaSimulable, t: number, que: QueDefensa, ctx: ContextoSim, conEspacio: boolean) {
+/**
+ * Lo que no depende del instante: el plan de la defensa, el remate, el encaje
+ * y la llegada. Se calcula al cambiar la rutina, no en cada fotograma.
+ */
+export function useSimulacionFija(r: RutinaSimulable, que: QueDefensa, ctx: ContextoSim) {
   const alturaDe = useMemo(() => (rol: Rol) => ctx.aereo.get(rol.jugador)?.altura ?? null, [ctx.aereo]);
 
   const camino = useMemo(() => recorridoBalon(r), [r]);
@@ -68,6 +72,21 @@ export function useSimulacion(r: RutinaSimulable, t: number, que: QueDefensa, ct
   const rivalDef = useMemo(() => defensaRivalDe(que, r, ctx), [que, r, ctx]);
 
   const plan = useMemo(() => (rivalDef ? planCon(r, rivalDef) : null), [r, rivalDef]);
+
+  const remate = useMemo(() => (r.lado === "ofensivo" && plan ? evaluaRemate(r, plan, ctx.calibre, alturaDe) : null), [r, plan, ctx.calibre, alturaDe]);
+
+  const encaje = useMemo(() => (r.lado === "ofensivo" && r.roles.length && (r.tipo === "corner" || r.tipo === "falta") ? encajeSistemas(r, ctx.calibre, alturaDe) : []), [r, ctx.calibre, alturaDe]);
+
+  const llegada = useMemo(() => (r.lado === "ofensivo" ? mapaLlegada(r.roles) : []), [r.lado, r.roles]);
+
+  return { alturaDe, camino, rivalDef, plan, remate, encaje, llegada };
+}
+
+export type SimulacionFija = ReturnType<typeof useSimulacionFija>;
+
+/** Lo que cambia con el instante: dónde está cada uno, la defensa y las lecturas que se pintan. */
+export function useSimulacionEn(r: RutinaSimulable, fija: SimulacionFija, t: number, conEspacio: boolean) {
+  const { plan, camino, alturaDe } = fija;
 
   const nuestros = useMemo(() => posicionesEn(r.roles, t), [r.roles, t]);
 
@@ -78,19 +97,24 @@ export function useSimulacion(r: RutinaSimulable, t: number, que: QueDefensa, ct
     [plan, r.roles, r.tipo, t, camino, envio],
   );
 
-  const defensa = plan && estado ? { plan, estado } : null;
+  const defensa = useMemo(() => (plan && estado ? { plan, estado } : null), [plan, estado]);
 
   const atacantes = useMemo(() => nuestros.filter((_, i) => !["vigilancia", "lanzador"].includes(r.roles[i]?.papel)), [nuestros, r.roles]);
 
-  const celdas = useMemo(() => (conEspacio && estado ? controlEspacio(atacantes, estado.pos.filter((_, k) => plan![k].papel !== "barrera")) : []), [conEspacio, estado, atacantes, plan]);
+  const celdas = useMemo(() => (conEspacio && estado && plan ? controlEspacio(atacantes, estado.pos.filter((_, k) => plan[k].papel !== "barrera")) : []), [conEspacio, estado, atacantes, plan]);
 
   const libres = useMemo(() => (conEspacio && estado ? espaciosLibres([...nuestros, ...estado.pos]) : []), [conEspacio, estado, nuestros]);
 
   const duelos = useMemo(() => (plan && estado ? duelosAereos(r.roles, nuestros, plan, estado.pos, alturaDe) : []), [plan, estado, r.roles, nuestros, alturaDe]);
 
-  const remate = useMemo(() => (r.lado === "ofensivo" && plan ? evaluaRemate(r, plan, ctx.calibre, alturaDe) : null), [r, plan, ctx.calibre, alturaDe]);
+  return { nuestros, defensa, celdas, libres, duelos };
+}
 
-  const encaje = useMemo(() => (r.lado === "ofensivo" && r.roles.length && (r.tipo === "corner" || r.tipo === "falta") ? encajeSistemas(r, ctx.calibre, alturaDe) : []), [r, ctx.calibre, alturaDe]);
+/** Las dos cosas juntas, para quien pinta y lee a la vez (la presentación). */
+export function useSimulacion(r: RutinaSimulable, t: number, que: QueDefensa, ctx: ContextoSim, conEspacio: boolean) {
+  const fija = useSimulacionFija(r, que, ctx);
 
-  return { nuestros, defensa, celdas, libres, duelos, remate, encaje, rivalDef, alturaDe };
+  const en = useSimulacionEn(r, fija, t, conEspacio);
+
+  return { ...fija, ...en };
 }

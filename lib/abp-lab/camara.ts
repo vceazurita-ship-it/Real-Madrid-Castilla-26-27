@@ -227,3 +227,42 @@ export function curva(cam: Camara, f: (u: number) => P3, pasos = 24) {
     return `${i ? "L" : "M"} ${q.x.toFixed(3)} ${q.y.toFixed(3)}`;
   }).join(" ");
 }
+
+/**
+ * El paso de una cámara a otra (la transición suave al cambiar de plano o de
+ * encuadre): cada punto se proyecta con las dos, se lleva a la caja de la de
+ * llegada y se interpola. Las rectas siguen siendo rectas en las dos puntas;
+ * por el camino el campo «vuela» de un plano al otro, como una grúa.
+ * Mientras dura no se edita (`desproy` no devuelve nada).
+ */
+export function mezclaCamaras(a: Camara, b: Camara, k: number): Camara {
+  if (k >= 1) return b;
+
+  const enB = (c: Camara, p: P3): Proyectado => {
+    const q = c.proy(p);
+
+    const ex = b.caja.w / c.caja.w;
+
+    const ey = b.caja.h / c.caja.h;
+
+    return { x: b.caja.x + (q.x - c.caja.x) * ex, y: b.caja.y + (q.y - c.caja.y) * ey, s: q.s * ex };
+  };
+
+  const mezcla = (x: number, y: number) => x + (y - x) * k;
+
+  return {
+    vista: b.vista,
+    tresD: b.tresD,
+    caja: b.caja,
+    escala: mezcla(a.escala * (b.caja.w / a.caja.w), b.escala),
+    yMax: Math.min(a.yMax, b.yMax),
+    proy: (p) => {
+      const pa = enB(a, p);
+
+      const pb = enB(b, p);
+
+      return { x: mezcla(pa.x, pb.x), y: mezcla(pa.y, pb.y), s: mezcla(pa.s, pb.s) };
+    },
+    desproy: () => null,
+  };
+}

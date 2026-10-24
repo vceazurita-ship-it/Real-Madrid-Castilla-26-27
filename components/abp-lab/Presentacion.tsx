@@ -19,7 +19,8 @@ import { Maximize2, X } from "lucide-react";
 
 import type { JugadorLab } from "@/components/abp-lab/comun";
 import { Escena, NOCHE, type Capas } from "@/components/abp-lab/Escena";
-import { LineaTiempo, useReloj } from "@/components/abp-lab/LineaTiempo";
+import { useCamaraSuave } from "@/components/abp-lab/EscenaViva";
+import { LineaTiempo, useReloj, useT } from "@/components/abp-lab/LineaTiempo";
 import { useSimulacion, type ContextoSim, type QueDefensa, type RutinaSimulable } from "@/components/abp-lab/useSimulacion";
 import { VUELO, encuadre, focoDe } from "@/lib/abp-lab/campo";
 import { VISTAS, creaCamara, type Vista } from "@/lib/abp-lab/camara";
@@ -50,17 +51,23 @@ export function Presentacion({
 
   const [vista, setVista] = useState<Vista>("tv");
 
-  const [capas, setCapas] = useState<Capas>({ nombres: true, fotos: true, ventaja: false, duelos: true });
+  const [capas, setCapas] = useState<Capas>({ nombres: true, fotos: true, ventaja: false, duelos: true, llegada: false });
 
   const reloj = useReloj(0);
 
-  const { t, alterna, salta, empuja, setBucle } = reloj;
+  const { alterna, salta, empuja, setBucle } = reloj;
+
+  /* La presentación entera vive del instante (rótulos incluidos): es pequeña y se redibuja con él. */
+  const t = useT(reloj);
 
   const marco = useMemo(() => encuadre(rutina, ASPECTO, 7), [rutina]);
 
   const foco = useMemo(() => focoDe(rutina), [rutina]);
 
-  const cam = useMemo(() => creaCamara(vista, marco, ASPECTO, foco), [vista, marco, foco]);
+  const destino = useMemo(() => creaCamara(vista, marco, ASPECTO, foco), [vista, marco, foco]);
+
+  /* Al cambiar de cámara, el plano vuela al nuevo como una grúa. */
+  const cam = useCamaraSuave(destino);
 
   const sim = useSimulacion(rutina, t, que, ctx, capas.ventaja);
 
@@ -107,6 +114,7 @@ export function Presentacion({
       } else if (k === "1" || k === "2" || k === "3") setVista(VISTAS[Number(k) - 1].key);
       else if (k === "v") setCapas((c) => ({ ...c, ventaja: !c.ventaja }));
       else if (k === "d") setCapas((c) => ({ ...c, duelos: !c.duelos }));
+      else if (k === "h") setCapas((c) => ({ ...c, llegada: !c.llegada }));
       else if (k === "n") setCapas((c) => ({ ...c, nombres: !c.nombres }));
       else if (k === "f") grande();
     };
@@ -152,6 +160,7 @@ export function Presentacion({
               celdas={sim.celdas}
               libres={sim.libres}
               duelos={sim.duelos}
+              llegada={capas.llegada ? sim.llegada : undefined}
               remate={remate}
               fotos={fotos}
               etiqueta={`Jugada ${rutina.nombre}`}
@@ -231,6 +240,17 @@ export function Presentacion({
               style={capas.ventaja ? { background: "#C8A96B", color: "#0B0F14" } : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)" }}
             >
               V · Espacio
+            </button>
+          )}
+          {rutina.lado === "ofensivo" && sim.llegada.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setCapas((c) => ({ ...c, llegada: !c.llegada }))}
+              aria-pressed={Boolean(capas.llegada)}
+              className="rounded-full px-2.5 py-1 font-semibold transition"
+              style={capas.llegada ? { background: "#C8A96B", color: "#0B0F14" } : { background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.75)" }}
+            >
+              H · Llegada
             </button>
           )}
           <span className="ml-auto hidden sm:inline">Espacio: reproducir · ← →: fotograma · Mayús + ← →: momento · Esc: salir</span>

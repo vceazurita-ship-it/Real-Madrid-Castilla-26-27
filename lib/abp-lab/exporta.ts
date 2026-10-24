@@ -156,8 +156,23 @@ function lienzo(W: number, H: number) {
   return { c, ctx };
 }
 
-/** Espera a que React pinte el instante pedido (dos fotogramas, como la pizarra de ABP). */
-const pintado = () => new Promise<void>((listo) => requestAnimationFrame(() => requestAnimationFrame(() => listo())));
+/**
+ * Espera a que React pinte el instante pedido. La pizarra lo pone con
+ * `flushSync` y ya está pintado al volver; por si otro rodaje no lo hace,
+ * se cede un fotograma, pero nunca más de 60 ms: en una pestaña en segundo
+ * plano `requestAnimationFrame` no llega y la exportación se quedaba colgada.
+ */
+const pintado = () =>
+  new Promise<void>((listo) => {
+    const hecho = () => {
+      clearTimeout(reloj);
+      listo();
+    };
+
+    const reloj = setTimeout(hecho, 60);
+
+    requestAnimationFrame(hecho);
+  });
 
 /** Lo que el exportador necesita de la pizarra: poner un instante y leer el SVG ya pintado. */
 export type Rodaje = {
@@ -182,7 +197,8 @@ async function fotograma(rodaje: Rodaje, t: number, ancho: number) {
 /*  PNG Y PDF                                                          */
 /* ------------------------------------------------------------------ */
 
-export async function exportaPng(rodaje: Rodaje, t: number, nombre: string) {
+/** El instante `t` como PNG de 1920 × 1080 con sus rótulos (para descargar o copiar). */
+export async function pngDe(rodaje: Rodaje, t: number): Promise<Blob> {
   const { c, ctx } = lienzo(1920, 1080);
 
   pintaCuadro(ctx, 1920, 1080, await fotograma(rodaje, t, 1800), rodaje.rotulo(t), rodaje.familia);
@@ -191,7 +207,11 @@ export async function exportaPng(rodaje: Rodaje, t: number, nombre: string) {
 
   if (!blob) throw new Error("No se ha podido montar la imagen");
 
-  descarga(blob, `${nombreFichero(nombre)}.png`);
+  return blob;
+}
+
+export async function exportaPng(rodaje: Rodaje, t: number, nombre: string) {
+  descarga(await pngDe(rodaje, t), `${nombreFichero(nombre)}.png`);
 }
 
 /** Una hoja por momento: salida, golpeo, remate y final. */
@@ -390,21 +410,28 @@ export async function exportaGif(rodaje: Rodaje, nombre: string, avance: (fracci
 
   const instantes = guion(fps).filter((t, i, todos) => i === 0 || t !== todos[i - 1]);
 
-  const crudos: { datos: Uint8ClampedArray; centesimas: number }[] = [];
-
-  for (const [n, t] of instantes.entries()) {
+  const cuadro = async (t: number) => {
     pintaCuadro(ctx, ancho, alto, await fotograma(rodaje, t, 680), rodaje.rotulo(t), rodaje.familia);
 
+    return ctx.getImageData(0, 0, ancho, alto).data;
+  };
+
+  /*
+   * La paleta sale antes, de tres instantes (salida, remate y final); luego
+   * cada fotograma se indexa al momento y su RGBA se suelta. Guardarlos todos
+   * en crudo eran más de 100 MB, demasiado para un móvil.
+   */
+  const { paleta, indice } = paletaDe([await cuadro(0), await cuadro(0.76), await cuadro(1)]);
+
+  const fotogramas: { indices: Uint8Array; centesimas: number }[] = [];
+
+  for (const [n, t] of instantes.entries()) {
     const quieta = n === 0 ? 100 : n === instantes.length - 1 ? 220 : Math.round(100 / fps);
 
-    crudos.push({ datos: ctx.getImageData(0, 0, ancho, alto).data, centesimas: quieta });
+    fotogramas.push({ indices: indexa(await cuadro(t), indice), centesimas: quieta });
 
-    avance(((n + 1) / instantes.length) * 0.85);
+    avance(((n + 1) / instantes.length) * 0.92);
   }
-
-  const { paleta, indice } = paletaDe([crudos[0].datos, crudos[Math.floor(crudos.length / 2)].datos, crudos.at(-1)!.datos]);
-
-  const fotogramas = crudos.map((f) => ({ indices: indexa(f.datos, indice), centesimas: f.centesimas }));
 
   avance(0.95);
 
