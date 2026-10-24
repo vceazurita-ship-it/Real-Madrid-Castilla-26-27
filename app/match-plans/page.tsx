@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { useCalendario } from "@/hooks/useCalendario";
 import type { PartidoCastilla } from "@/lib/castilla/calendario";
 import Link from "next/link";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 
 import {
   ArrowUpDown,
@@ -307,6 +309,14 @@ export default function Page() {
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const { partidos: calendario } = useCalendario();
 
+  /* La media de goles por equipo y partido de toda la liga, para tener con qué comparar los nuestros. */
+  const golesLiga = useRemoteDoc<GolesDoc>({ key: DOC_GOLES, kind: "goles", fallback: GOLES_VACIO });
+  const ligaPP = useMemo(() => {
+    const ps = golesLiga.value.partidos ?? [];
+
+    return ps.length > 0 ? ps.reduce((s, p) => s + p.gl + p.gv, 0) / (ps.length * 2) : null;
+  }, [golesLiga.value.partidos]);
+
   const matches = useMemo(
     () => unePartidos(hojaMatches, calendario as PartidoCastilla[]),
     [hojaMatches, calendario]
@@ -550,7 +560,7 @@ export default function Page() {
             </header>
 
             {/* MÉTRICAS */}
-            {metrics.played > 0 ? <MetricsPanel metrics={metrics} /> : null}
+            {metrics.played > 0 ? <MetricsPanel metrics={metrics} ligaPP={ligaPP} /> : null}
 
             {/* FILTROS */}
             <div className="sticky top-20 z-20 -mx-4 mt-8 border-y border-white/[0.08] bg-[#0B0F14]/90 px-4 py-4 backdrop-blur-xl sm:-mx-8 sm:px-8 md:top-24">
@@ -745,7 +755,11 @@ export default function Page() {
 /* Métricas                                                            */
 /* ------------------------------------------------------------------ */
 
-function MetricsPanel({ metrics }: { metrics: Metrics }) {
+function MetricsPanel({ metrics, ligaPP }: { metrics: Metrics; ligaPP: number | null }) {
+  /* Con pocos partidos los porcentajes son una tendencia, no un dato firme. */
+  const base = (n: number) => `${n} de ${metrics.played}${metrics.played < 10 ? " · tendencia" : ""}`;
+  const liga = ligaPP !== null ? ` · liga ${ligaPP.toFixed(1).replace(".", ",")}` : "";
+
   return (
     <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 sm:p-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -759,7 +773,7 @@ function MetricsPanel({ metrics }: { metrics: Metrics }) {
         <Stat
           title="Victorias"
           value={metrics.wins}
-          hint={`${metrics.winPct}% de los disputados`}
+          hint={`${base(metrics.wins)} · ${metrics.winPct}%`}
           icon={<Trophy className="h-4 w-4" />}
           accent="text-emerald-400"
         />
@@ -767,7 +781,7 @@ function MetricsPanel({ metrics }: { metrics: Metrics }) {
         <Stat
           title="Empates"
           value={metrics.draws}
-          hint={`${metrics.drawPct}% de los disputados`}
+          hint={`${base(metrics.draws)} · ${metrics.drawPct}%`}
           icon={<Minus className="h-4 w-4" />}
           accent="text-amber-400"
         />
@@ -775,7 +789,7 @@ function MetricsPanel({ metrics }: { metrics: Metrics }) {
         <Stat
           title="Derrotas"
           value={metrics.losses}
-          hint={`${metrics.lossPct}% de los disputados`}
+          hint={`${base(metrics.losses)} · ${metrics.lossPct}%`}
           icon={<XCircle className="h-4 w-4" />}
           accent="text-rose-400"
         />
@@ -785,14 +799,14 @@ function MetricsPanel({ metrics }: { metrics: Metrics }) {
         <Stat
           title="Goles a favor"
           value={metrics.goalsFor}
-          hint={`${metrics.avgFor} por partido`}
+          hint={`${metrics.avgFor} por partido${liga}`}
           icon={<Goal className="h-4 w-4" />}
         />
 
         <Stat
           title="Goles en contra"
           value={metrics.goalsAgainst}
-          hint={`${metrics.avgAgainst} por partido`}
+          hint={`${metrics.avgAgainst} por partido${liga}`}
           icon={<Target className="h-4 w-4" />}
         />
 
