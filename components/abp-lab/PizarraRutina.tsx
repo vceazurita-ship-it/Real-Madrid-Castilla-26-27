@@ -1,101 +1,68 @@
 "use client";
 
 /**
- * LA PIZARRA VIVA DEL TALLER (21/10/2026).
+ * LA PIZARRA VIVA DEL TALLER (21/10/2026; segunda generación el 24/10/2026).
  *
- * La rutina sobre el medio campo, en metros (`lib/abp-lab/campo.ts`):
- * - **Colocar**: se arrastra a cada uno a su sitio de salida.
- * - **Carreras**: se arrastra desde un jugador hasta donde acaba su carrera;
- *   la fase dice cuándo arranca (antes del saque, con el golpeo, al rechace).
- * - **Balón**: cada toque en el campo añade un punto al recorrido; el primero
- *   es donde se golpea. Los puntos se arrastran; doble toque, se quitan.
- * - **Reproducir** mueve la jugada entera; la barra la para en cualquier
- *   instante para explicarla en la charla. Con «reducir movimiento» en el
- *   sistema, salta al final sin animar.
- * - **Rival tipo**: la defensa contra la que se pensó (zona, mixta, al
- *   hombre), en esquema; los marcadores al hombre siguen a su atacante.
- * - **PNG**: la pizarra tal cual, con el nombre y la señal, para la charla.
+ * La rutina sobre el medio campo, en metros (`lib/abp-lab/campo.ts`), dibujada
+ * por `Escena` con la cámara que se elija (cenital, televisión o a pie de
+ * campo) y simulada en el tiempo (`lib/abp-lab/simulacion.ts`):
+ * - **Colocar / Carreras / Balón**: se edita igual en las tres cámaras (el
+ *   puntero se traduce a metros con la inversa de la proyección).
+ * - **Línea de tiempo**: reproducir, pausa, velocidad, bucle y saltos a los
+ *   momentos (salida, golpeo, remate, final).
+ * - **Defensa**: la tipo de la rutina, la del próximo rival (su scouting de
+ *   ABP y sus jugadores más altos) o ninguna; se mueve, persigue y se deja
+ *   bloquear.
+ * - **Lecturas**: el espacio que gana cada uno, los duelos aéreos con la
+ *   altura de verdad y el xG estimado del remate; y el encaje contra zona,
+ *   mixta y al hombre.
+ * - **Exportar**: PNG, PDF por momentos, vídeo MP4 y GIF (`lib/abp-lab/exporta.ts`).
+ * - **Presentar**: pantalla completa tipo retransmisión (`Presentacion`).
  *
- * Todo el color va en `style` y con valores fijos: es un tablero (oscuro en
- * los dos temas, como la pizarra de ABP), y así el PNG sale igual que la
- * pantalla. Se maneja también con teclado: cada ficha es un botón y las
- * flechas la mueven medio metro (con Mayúsculas, dos).
+ * Atajos: espacio, ← →, 1-2-3, C, V, D, N, F, R, [ ], L, M, P, E y «?».
  */
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { Download, Eye, EyeOff, FlipHorizontal2, MousePointer2, Pause, Play, RotateCcw, Route, Tag, Trash2, ZoomIn, ZoomOut } from "lucide-react";
-
-import { iniciales, type JugadorLab } from "@/components/abp-lab/comun";
 import {
-  ANCHO,
-  AREA,
-  AREA_PEQUENA,
-  DURACION_MS,
-  FASES,
-  PENALTI,
-  PORTERIA,
-  LARGO,
-  balonEn,
-  curvaBalon,
-  encuadre,
-  fondoVisible,
-  golpeoDe,
-  limita,
-  posicionesEn,
-  recorridoBalon,
-  reflejada,
-  rivalTipo,
-  salidas,
-  type Marco,
-} from "@/lib/abp-lab/campo";
-import { PAPELES, etiqueta, type Defensa, type Fase, type Lado, type Papel, type Punto, type Rol } from "@/lib/abp-lab/modelo";
-import type { TipoAbp } from "@/lib/abp-lab/referentes";
+  Box,
+  Download,
+  Eye,
+  FileImage,
+  FileText,
+  Film,
+  FlipHorizontal2,
+  Image as ImageIcon,
+  Keyboard,
+  MousePointer2,
+  Route,
+  ScanEye,
+  Tag,
+  Trash2,
+  Tv,
+  UserRound,
+  Waves,
+  ZoomIn,
+  ZoomOut,
+} from "lucide-react";
+import { toast } from "sonner";
 
-/* ------------------------------------------------------------------ */
-/*  COLORES DEL TABLERO (fijos: es una superficie oscura en los dos temas) */
-/* ------------------------------------------------------------------ */
+import type { JugadorLab } from "@/components/abp-lab/comun";
+import { CODIGO_PAPEL, Escena, usePaleta, type Capas } from "@/components/abp-lab/Escena";
+import { LineaTiempo, useReloj } from "@/components/abp-lab/LineaTiempo";
+import { Presentacion } from "@/components/abp-lab/Presentacion";
+import { estructuraPara, useSimulacion, type ContextoSim, type QueDefensa, type RutinaSimulable } from "@/components/abp-lab/useSimulacion";
+import { ANCHO, VUELO, encuadre, focoDe, fondoVisible, golpeoDe, limita, recorridoBalon, reflejada, salidas, type Marco } from "@/lib/abp-lab/campo";
+import { VISTAS, creaCamara, type Vista } from "@/lib/abp-lab/camara";
+import { exportaGif, exportaPdf, exportaPng, exportaVideo, sabeVideo, type Rodaje, type Rotulo } from "@/lib/abp-lab/exporta";
+import { DEFENSAS, ENVIOS, PAPELES, TIPOS, etiqueta, type Envio, type Punto, type Rol } from "@/lib/abp-lab/modelo";
+import { MARCAS, momentoDe } from "@/lib/abp-lab/simulacion";
+import { PRESION_LABEL } from "@/lib/abp-lab/ventaja";
+import { ZONAS_REMATE, comaXg } from "@/lib/abp-lab/xg";
+import { FAMILIA_PORTADA, esperaFuentePortada } from "@/lib/rivals/portada-font";
 
-const C = {
-  fondo: "#0B1A14",
-  cesped: "#103224",
-  franja: "#12382A",
-  linea: "rgba(255,255,255,0.55)",
-  red: "rgba(255,255,255,0.18)",
-  oro: "#C8A96B",
-  tinta: "#0B0F14",
-  rival: "#E7EAF0",
-  rivalPortero: "#F2C94C",
-  balon: "#FFFFFF",
-  texto: "#FFFFFF",
-  fase: { 1: "#7DD3FC", 2: "#C8A96B", 3: "#86EFAC" } as Record<Fase, string>,
-};
+export { CODIGO_PAPEL };
 
-/** El código de cada papel en la ficha cuando no tiene dueño (lo repite la lista de papeles). */
-export const CODIGO_PAPEL: Record<Papel, string> = {
-  lanzador: "L",
-  rematador: "R",
-  bloqueador: "B",
-  senuelo: "S",
-  portero: "P",
-  corto: "C",
-  segunda: "2ª",
-  vigilancia: "V",
-  zonal: "Z",
-  marcador: "H",
-};
-
-/* Los papeles que no pisan el remate se pintan huecos. */
-const HUECO: Partial<Record<Papel, boolean>> = { senuelo: true, segunda: true, vigilancia: true };
-
-export type RutinaEnPizarra = {
-  nombre: string;
-  senal: string;
-  tipo: TipoAbp;
-  lado: Lado;
-  contra: Defensa;
-  roles: Rol[];
-  balon?: Punto[];
-};
+export type RutinaEnPizarra = RutinaSimulable;
 
 type Modo = "colocar" | "carreras" | "balon";
 
@@ -105,167 +72,133 @@ const MODOS: { key: Modo; label: string; icon: typeof MousePointer2; ayuda: stri
   { key: "balon", label: "Balón", icon: Tag, ayuda: "Toca el campo para añadir puntos al recorrido; arrástralos para moverlos y doble toque para quitarlos." },
 ];
 
-const nombreCorto = (n: string) => n.split(/\s+/)[0] ?? n;
+const ASPECTO = 1.62;
+
+const CAPAS_INICIALES: Capas = { nombres: true, fotos: true, ventaja: false, duelos: true };
+
+export const ATAJOS: { teclas: string; que: string }[] = [
+  { teclas: "Espacio", que: "Reproducir / pausa" },
+  { teclas: "← →", que: "Un fotograma atrás / adelante" },
+  { teclas: "Mayús + ← →", que: "Momento anterior / siguiente" },
+  { teclas: "Inicio / Fin", que: "Salida / final" },
+  { teclas: "[ ]", que: "Más lento / más rápido" },
+  { teclas: "L", que: "Repetir en bucle" },
+  { teclas: "1 2 3", que: "Colocar · Carreras · Balón" },
+  { teclas: "C", que: "Cambiar de cámara" },
+  { teclas: "R", que: "Defensa: tipo · próximo rival · ninguna" },
+  { teclas: "V · D", que: "Espacio · duelos aéreos" },
+  { teclas: "N · F", que: "Nombres · fotos" },
+  { teclas: "M", que: "La misma desde el otro lado" },
+  { teclas: "P", que: "Presentar a pantalla completa" },
+  { teclas: "E", que: "Exportar en PNG" },
+  { teclas: "Ctrl + Z · Ctrl + Mayús + Z", que: "Deshacer · rehacer" },
+  { teclas: "?", que: "Esta ayuda" },
+];
 
 /* ------------------------------------------------------------------ */
-/*  EL DIBUJO (lo comparten la pizarra grande y la miniatura)           */
+/*  FOTOS LEÍDAS (para que salgan al exportar)                          */
 /* ------------------------------------------------------------------ */
 
-function Lineas({ fondo }: { fondo: number }) {
-  const l = { fill: "none", stroke: C.linea, strokeWidth: 0.14 };
+const leidas = new Map<string, Promise<string | null>>();
 
-  const franjas = Math.ceil(fondo / 5.5);
+function leeFoto(url: string) {
+  let p = leidas.get(url);
 
-  /* Los puntos del arco del área: donde la circunferencia de 9,15 m corta la línea del área. */
-  const dx = Math.sqrt(9.15 ** 2 - (AREA.y - PENALTI.y) ** 2);
+  if (!p) {
+    const ruta = url.startsWith("/") || url.startsWith("data:") ? url : `/api/rivals/foto?url=${encodeURIComponent(url)}`;
 
-  return (
-    <g>
-      <rect x={0} y={0} width={ANCHO} height={fondo} style={{ fill: C.cesped }} />
-      {Array.from({ length: franjas }, (_, i) =>
-        i % 2 ? <rect key={i} x={0} y={i * 5.5} width={ANCHO} height={Math.min(5.5, fondo - i * 5.5)} style={{ fill: C.franja }} /> : null,
-      )}
-      <rect x={0} y={0} width={ANCHO} height={fondo} style={l} />
-      <rect x={AREA.x0} y={0} width={AREA.x1 - AREA.x0} height={AREA.y} style={l} />
-      <rect x={AREA_PEQUENA.x0} y={0} width={AREA_PEQUENA.x1 - AREA_PEQUENA.x0} height={AREA_PEQUENA.y} style={l} />
-      <path d={`M ${PENALTI.x - dx} ${AREA.y} A 9.15 9.15 0 0 0 ${PENALTI.x + dx} ${AREA.y}`} style={l} />
-      <circle cx={PENALTI.x} cy={PENALTI.y} r={0.18} style={{ fill: C.linea }} />
-      <path d="M 0 1 A 1 1 0 0 0 1 0" style={l} />
-      <path d={`M ${ANCHO - 1} 0 A 1 1 0 0 0 ${ANCHO} 1`} style={l} />
-      {fondo > 52 && <path d={`M ${34 - 9.15} 52.5 A 9.15 9.15 0 0 1 ${34 + 9.15} 52.5`} style={l} />}
-      {/* La portería, con su red */}
-      <rect x={PORTERIA.x0} y={-1.6} width={PORTERIA.x1 - PORTERIA.x0} height={1.6} style={{ fill: C.red, stroke: C.linea, strokeWidth: 0.16 }} />
-    </g>
-  );
+    p = fetch(ruta)
+      .then((r) => (r.ok ? r.blob() : null))
+      .then(
+        (blob) =>
+          blob &&
+          new Promise<string | null>((listo) => {
+            const lector = new FileReader();
+
+            lector.onload = () => listo(typeof lector.result === "string" ? lector.result : null);
+            lector.onerror = () => listo(null);
+            lector.readAsDataURL(blob);
+          }),
+      )
+      .catch(() => null);
+
+    leidas.set(url, p);
+  }
+
+  return p;
 }
 
-function Ficha({
-  p,
-  rol,
-  jugador,
-  nombres,
-  activa,
-  r = 1.15,
-}: {
-  p: Punto;
-  rol: Rol;
-  jugador?: JugadorLab;
-  nombres: boolean;
-  activa: boolean;
-  r?: number;
-}) {
-  const hueco = HUECO[rol.papel];
+/** Las fotos de los jugadores con papel, ya como `data:`; las que no se leen se quedan con su URL. */
+function useFotos(urls: string[], activo: boolean) {
+  const [fotos, setFotos] = useState<Map<string, string>>(() => new Map());
 
-  const texto = jugador ? String(jugador.dorsal ?? iniciales(jugador.nombre)) : CODIGO_PAPEL[rol.papel];
+  const clave = urls.join("|");
 
-  return (
-    <g transform={`translate(${p.x} ${p.y})`}>
-      {activa && <circle r={r + 0.65} style={{ fill: "none", stroke: C.texto, strokeWidth: 0.16, strokeDasharray: "0.5 0.35" }} />}
-      <circle
-        r={r}
-        style={{
-          fill: hueco ? "rgba(200,169,107,0.18)" : C.oro,
-          stroke: hueco ? C.oro : "rgba(0,0,0,0.35)",
-          strokeWidth: hueco ? 0.18 : 0.1,
-          strokeDasharray: rol.papel === "senuelo" ? "0.45 0.3" : undefined,
-        }}
-      />
-      {rol.papel === "bloqueador" && <path d={`M ${-r * 0.7} ${r + 0.45} L ${r * 0.7} ${r + 0.45}`} style={{ stroke: C.oro, strokeWidth: 0.3, strokeLinecap: "round" }} />}
-      <text textAnchor="middle" dy={r * 0.36} style={{ fontSize: texto.length > 2 ? r * 0.82 : r * 1.02, fontWeight: 800, fill: hueco ? C.texto : C.tinta, fontFamily: "Barlow Condensed, Arial, sans-serif" }}>
-        {texto}
-      </text>
-      {nombres && jugador && (
-        <text textAnchor="middle" y={r + (rol.papel === "bloqueador" ? 1.75 : 1.35)} style={{ fontSize: 0.95, fontWeight: 700, fill: C.texto, fontFamily: "Barlow Condensed, Arial, sans-serif", paintOrder: "stroke", stroke: "rgba(0,0,0,0.65)", strokeWidth: 0.25 }}>
-          {nombreCorto(jugador.nombre)}
-        </text>
-      )}
-    </g>
-  );
-}
+  useEffect(() => {
+    if (!activo) return;
 
-function Flecha({ id, de, a, fase }: { id: string; de: Punto; a: Punto; fase: Fase }) {
-  const color = C.fase[fase];
+    let vivo = true;
 
-  /* La punta se queda un poco antes del destino para no tapar la ficha que llega. */
-  const d = Math.hypot(a.x - de.x, a.y - de.y);
+    const lista = clave ? clave.split("|") : [];
 
-  if (d < 0.5) return null;
+    void Promise.all(lista.map(async (u) => [u, await leeFoto(u)] as const)).then((pares) => {
+      if (!vivo) return;
 
-  const corto = Math.max(0, d - 0.9) / d;
+      setFotos((antes) => {
+        const nuevo = new Map(antes);
 
-  const fin = { x: de.x + (a.x - de.x) * corto, y: de.y + (a.y - de.y) * corto };
+        let cambia = false;
 
-  return <path d={`M ${de.x} ${de.y} L ${fin.x} ${fin.y}`} markerEnd={`url(#${id}-punta-${fase})`} style={{ pointerEvents: "none", fill: "none", stroke: color, strokeWidth: 0.24, strokeDasharray: fase === 1 ? "0.6 0.4" : undefined, opacity: 0.95 }} />;
-}
+        for (const [u, d] of pares) {
+          if (d && nuevo.get(u) !== d) {
+            nuevo.set(u, d);
+            cambia = true;
+          }
+        }
 
-function Recorrido({ camino }: { camino: Punto[] }) {
-  return (
-    <g style={{ pointerEvents: "none" }}>
-      {camino.slice(1).map((p, i) => (
-        <path key={i} d={curvaBalon(camino[i], p)} style={{ fill: "none", stroke: C.balon, strokeWidth: 0.2, strokeDasharray: "0.7 0.45", opacity: 0.8 }} />
-      ))}
-    </g>
-  );
-}
+        return cambia ? nuevo : antes;
+      });
+    });
 
-function Balon({ p }: { p: Punto }) {
-  return (
-    <g transform={`translate(${p.x} ${p.y})`} style={{ pointerEvents: "none" }}>
-      <circle r={0.62} style={{ fill: C.balon, stroke: C.tinta, strokeWidth: 0.14 }} />
-      <circle r={0.2} style={{ fill: C.tinta }} />
-    </g>
-  );
-}
+    return () => {
+      vivo = false;
+    };
+  }, [clave, activo]);
 
-function Rival({ p, papel }: { p: Punto; papel: "portero" | "zonal" | "marcador" }) {
-  return (
-    <g transform={`translate(${p.x} ${p.y})`} style={{ pointerEvents: "none" }}>
-      <rect x={-0.85} y={-0.85} width={1.7} height={1.7} rx={0.35} transform="rotate(45)" style={{ fill: papel === "portero" ? C.rivalPortero : C.rival, stroke: "rgba(0,0,0,0.45)", strokeWidth: 0.1, opacity: 0.9 }} />
-    </g>
-  );
-}
-
-function Puntas({ id }: { id: string }) {
-  return (
-    <defs>
-      {([1, 2, 3] as Fase[]).map((f) => (
-        <marker key={f} id={`${id}-punta-${f}`} viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: C.fase[f] }} />
-        </marker>
-      ))}
-    </defs>
-  );
+  return fotos;
 }
 
 /* ------------------------------------------------------------------ */
-/*  LA MINIATURA (tarjetas del taller)                                  */
+/*  LA MINIATURA (tarjetas de la biblioteca)                            */
 /* ------------------------------------------------------------------ */
+
+const SIN_CAPAS: Capas = { nombres: false, fotos: false, ventaja: false, duelos: false };
 
 /** La rutina quieta: salidas, carreras y balón, recortada a donde pasa todo. */
 export function MiniPizarra({ rutina, porId, className = "" }: { rutina: RutinaEnPizarra; porId: Map<string, JugadorLab>; className?: string }) {
   const id = useId().replace(/:/g, "");
 
-  const desde = useMemo(() => salidas(rutina.roles), [rutina.roles]);
+  const paleta = usePaleta();
 
-  const camino = useMemo(() => recorridoBalon(rutina), [rutina]);
+  const cam = useMemo(() => creaCamara("cenital", encuadre(rutina, 16 / 9), 16 / 9), [rutina]);
 
-  /* El trozo de campo donde pasa la jugada, siempre en 16:9: todas las tarjetas del mismo alto. */
-  const m = useMemo(() => encuadre(rutina, 16 / 9), [rutina]);
-
-  const fondo = Math.min(LARGO, Math.max(20, m.y + m.h));
+  const nuestros = useMemo(() => salidas(rutina.roles), [rutina.roles]);
 
   return (
-    <svg viewBox={`${m.x} ${m.y} ${m.w} ${m.h}`} className={`block w-full ${className}`} style={{ aspectRatio: "16 / 9" }} role="img" aria-label={`Esquema de ${rutina.nombre || "la rutina"}`}>
-      <Puntas id={id} />
-      <rect x={m.x} y={m.y} width={m.w} height={m.h} style={{ fill: C.fondo }} />
-      <Lineas fondo={fondo} />
-      <Recorrido camino={camino} />
-      {rutina.roles.map((r, i) => (r.hx !== undefined && r.hy !== undefined ? <Flecha key={i} id={id} de={desde[i]} a={{ x: r.hx, y: r.hy }} fase={r.fase ?? 2} /> : null))}
-      {rutina.roles.map((r, i) => (
-        <Ficha key={i} p={desde[i]} rol={r} jugador={porId.get(r.jugador)} nombres={false} activa={false} r={1.25} />
-      ))}
-      <Balon p={camino[0]} />
-    </svg>
+    <Escena
+      id={`mini${id}`}
+      rutina={rutina}
+      porId={porId}
+      t={0}
+      cam={cam}
+      paleta={paleta}
+      nuestros={nuestros}
+      defensa={null}
+      capas={SIN_CAPAS}
+      etiqueta={`Esquema de ${rutina.nombre || "la rutina"}`}
+      className={className}
+      quieta
+    />
   );
 }
 
@@ -275,19 +208,27 @@ export function MiniPizarra({ rutina, porId, className = "" }: { rutina: RutinaE
 
 type Arrastre = { que: "salida" | "carrera" | "balon"; i: number; desde: Punto; movido: boolean } | null;
 
+const escribiendo = (el: EventTarget | null) => {
+  const t = el as HTMLElement | null;
+
+  return Boolean(t && (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement || t.isContentEditable));
+};
+
 export function PizarraRutina({
   rutina,
   porId,
   onCambia,
   seleccionado,
   onSelecciona,
+  ctx,
 }: {
   rutina: RutinaEnPizarra;
   porId: Map<string, JugadorLab>;
-  /** Cambia los papeles y el recorrido del balón. */
-  onCambia: (cambio: { roles?: Rol[]; balon?: Punto[] }) => void;
+  /** Cambia los papeles, el recorrido del balón o el envío. */
+  onCambia: (cambio: { roles?: Rol[]; balon?: Punto[]; envio?: Envio }) => void;
   seleccionado: number | null;
   onSelecciona: (i: number | null) => void;
+  ctx: ContextoSim;
 }) {
   const id = useId().replace(/:/g, "");
 
@@ -295,17 +236,29 @@ export function PizarraRutina({
 
   const arrastre = useRef<Arrastre>(null);
 
+  const paleta = usePaleta();
+
   const [modo, setModo] = useState<Modo>("colocar");
 
-  const [t, setT] = useState(0);
+  const [vistaCam, setVistaCam] = useState<Vista>("cenital");
 
-  const [reproduciendo, setReproduciendo] = useState(false);
+  const [capas, setCapas] = useState<Capas>(CAPAS_INICIALES);
 
-  const [verRival, setVerRival] = useState(true);
+  const conmuta = (k: keyof Capas) => setCapas((c) => ({ ...c, [k]: !c[k] }));
 
-  const [nombres, setNombres] = useState(true);
+  const [que, setQue] = useState<QueDefensa>("tipo");
 
-  const fondo = fondoVisible(rutina.tipo);
+  const [presentando, setPresentando] = useState(false);
+
+  const [ayuda, setAyuda] = useState(false);
+
+  const [menuExporta, setMenuExporta] = useState(false);
+
+  const [exportando, setExportando] = useState<{ que: string; avance: number } | null>(null);
+
+  const reloj = useReloj(0);
+
+  const { t, setT, para } = reloj;
 
   /*
    * El encuadre: la jugada de cerca o el medio campo entero. El de la jugada
@@ -317,95 +270,71 @@ export function PizarraRutina({
 
   const [vuelta, setVuelta] = useState(0);
 
-  const calculaMarco = (): Marco => (vista === "todo" ? { x: -2, y: -3, w: ANCHO + 4, h: fondo + 4 } : encuadre(rutina, 1.62, 6));
+  const fondo = fondoVisible(rutina.tipo);
+
+  const calculaMarco = (): Marco => (vista === "todo" ? { x: -2, y: -3, w: ANCHO + 4, h: fondo + 4 } : encuadre(rutina, ASPECTO, 6));
 
   const claveMarco = `${vista}|${rutina.tipo}|${rutina.roles.length}|${vuelta}`;
 
-  const [marco, setMarco] = useState<Marco>(calculaMarco);
+  const [{ marco, foco }, setEncuadre] = useState<{ marco: Marco; foco: Punto[] }>(() => ({ marco: calculaMarco(), foco: focoDe(rutina) }));
 
   const [claveVista, setClaveVista] = useState(claveMarco);
 
   if (claveVista !== claveMarco) {
     setClaveVista(claveMarco);
-    setMarco(calculaMarco());
+    setEncuadre({ marco: calculaMarco(), foco: focoDe(rutina) });
   }
+
+  /* En perspectiva se encuadra la jugada, no el medio campo; con «Medio campo», todo. */
+  const cam = useMemo(() => creaCamara(vistaCam, marco, ASPECTO, vista === "todo" ? undefined : foco), [vistaCam, marco, foco, vista]);
+
+  const ofensiva = rutina.lado === "ofensivo";
+
+  const queEfectiva: QueDefensa = ofensiva ? que : "ninguna";
+
+  const sim = useSimulacion(rutina, t, queEfectiva, ctx, capas.ventaja);
 
   const desde = useMemo(() => salidas(rutina.roles), [rutina.roles]);
 
-  const ahora = useMemo(() => posicionesEn(rutina.roles, t), [rutina.roles, t]);
-
   const camino = useMemo(() => recorridoBalon(rutina), [rutina]);
 
-  const balon = balonEn(camino, t);
-
-  const fuera = ahora.filter((p) => p.x < marco.x || p.x > marco.x + marco.w || p.y < marco.y || p.y > marco.y + marco.h).length;
-
-  const rivales = useMemo(
-    () => (verRival && rutina.lado === "ofensivo" ? rivalTipo(rutina.contra, ahora, rutina.roles, rutina.tipo, camino[0]) : []),
-    [verRival, rutina.lado, rutina.contra, ahora, rutina.roles, rutina.tipo, camino],
+  const urls = useMemo(
+    () =>
+      [...new Set(rutina.roles.map((r) => porId.get(r.jugador)?.foto ?? "").filter(Boolean))]
+        .sort()
+        .slice(0, 14),
+    [rutina.roles, porId],
   );
 
-  /* ---------------------------- reproducir ---------------------------- */
+  const fotos = useFotos(urls, capas.fotos);
 
-  useEffect(() => {
-    if (!reproduciendo) return;
+  const estructura = estructuraPara(ctx.rival, rutina.tipo);
 
-    let marco = 0;
+  const hayProximo = Boolean(ofensiva && ctx.rival && (estructura || ctx.rival.plantilla.length) && (rutina.tipo === "corner" || rutina.tipo === "falta"));
 
-    const inicio = performance.now() - t * DURACION_MS;
-
-    const paso = (ms: number) => {
-      const u = Math.min(1, (ms - inicio) / DURACION_MS);
-
-      setT(u);
-
-      if (u < 1) marco = requestAnimationFrame(paso);
-      else setReproduciendo(false);
-    };
-
-    marco = requestAnimationFrame(paso);
-
-    return () => cancelAnimationFrame(marco);
-    /* `t` sólo se lee al arrancar: si entrara en las dependencias, cada fotograma reiniciaría el reloj. */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reproduciendo]);
-
-  const play = () => {
-    if (reproduciendo) {
-      setReproduciendo(false);
-
-      return;
-    }
-
-    const quieto = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-
-    if (quieto) {
-      setT(t >= 1 ? 0 : 1);
-
-      return;
-    }
-
-    if (t >= 1) setT(0);
-
-    setReproduciendo(true);
-  };
+  const fuera = sim.nuestros.filter((p) => p.x < marco.x || p.x > marco.x + marco.w || p.y < marco.y || p.y > marco.y + marco.h).length;
 
   /* --------------------------- coordenadas ---------------------------- */
 
-  const enMetros = useCallback((e: { clientX: number; clientY: number }): Punto | null => {
-    const el = svg.current;
+  const enMetros = useCallback(
+    (e: { clientX: number; clientY: number }): Punto | null => {
+      const el = svg.current;
 
-    const m = el?.getScreenCTM();
+      const m = el?.getScreenCTM();
 
-    if (!el || !m) return null;
+      if (!el || !m) return null;
 
-    const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
+      const p = new DOMPoint(e.clientX, e.clientY).matrixTransform(m.inverse());
 
-    return limita({ x: p.x, y: p.y });
-  }, []);
+      const suelo = cam.desproy(p.x, p.y);
+
+      return suelo ? limita(suelo) : null;
+    },
+    [cam],
+  );
 
   const pararTiempo = () => {
-    setReproduciendo(false);
+    para();
     setT(0);
   };
 
@@ -413,7 +342,16 @@ export function PizarraRutina({
 
   const ponRol = (i: number, cambio: Partial<Rol>) => onCambia({ roles: rutina.roles.map((r, j) => (j === i ? { ...r, ...cambio } : r)) });
 
-  const empiezaEnFicha = (e: PointerEvent, i: number) => {
+  const sinCarrera = (i: number) => {
+    const { hx: _hx, hy: _hy, ...sin } = rutina.roles[i];
+
+    void _hx;
+    void _hy;
+
+    onCambia({ roles: rutina.roles.map((r, j) => (j === i ? sin : r)) });
+  };
+
+  const empiezaEnFicha = (e: PointerEvent<SVGGElement>, i: number) => {
     /* En modo balón, tocar a un jugador es mandarle el balón: lo atiende el campo. */
     if (modo === "balon") return;
 
@@ -429,7 +367,7 @@ export function PizarraRutina({
     arrastre.current = { que: modo === "carreras" ? "carrera" : "salida", i, desde: p, movido: false };
   };
 
-  const empiezaEnBalon = (e: PointerEvent, i: number) => {
+  const empiezaEnBalon = (e: PointerEvent<SVGGElement>, i: number) => {
     e.stopPropagation();
 
     if (modo !== "balon") return;
@@ -443,7 +381,7 @@ export function PizarraRutina({
     arrastre.current = { que: "balon", i, desde: p, movido: false };
   };
 
-  const enCampo = (e: PointerEvent) => {
+  const enCampo = (e: PointerEvent<SVGSVGElement>) => {
     if (modo !== "balon") {
       onSelecciona(null);
 
@@ -464,7 +402,7 @@ export function PizarraRutina({
     onCambia({ balon: [...base, p] });
   };
 
-  const mueve = (e: PointerEvent) => {
+  const mueve = (e: PointerEvent<SVGSVGElement>) => {
     const a = arrastre.current;
 
     if (!a) return;
@@ -486,7 +424,7 @@ export function PizarraRutina({
     }
   };
 
-  const suelta = (e: PointerEvent) => {
+  const suelta = (e: PointerEvent<SVGSVGElement>) => {
     const a = arrastre.current;
 
     arrastre.current = null;
@@ -494,30 +432,20 @@ export function PizarraRutina({
     if (svg.current?.hasPointerCapture(e.pointerId)) svg.current.releasePointerCapture(e.pointerId);
 
     /* Un toque sin arrastrar en modo carreras borra la carrera de ese jugador. */
-    if (a && a.que === "carrera" && !a.movido && rutina.roles[a.i].hx !== undefined) {
-      const { hx: _hx, hy: _hy, ...sin } = rutina.roles[a.i];
-
-      void _hx;
-      void _hy;
-
-      onCambia({ roles: rutina.roles.map((r, j) => (j === a.i ? sin : r)) });
-    }
+    if (a && a.que === "carrera" && !a.movido && rutina.roles[a.i].hx !== undefined) sinCarrera(a.i);
   };
 
   const quitaPunto = (i: number) => {
-    if (modo !== "balon") return;
+    if (modo !== "balon" || i === 0) return;
 
     const actual = rutina.balon?.length ? rutina.balon : camino;
-
-    /* El golpeo no se quita: se mueve. */
-    if (i === 0) return;
 
     onCambia({ balon: actual.filter((_, j) => j !== i) });
   };
 
   /* ------------------------------ teclado ----------------------------- */
 
-  const teclaEnFicha = (e: KeyboardEvent, i: number) => {
+  const teclaEnFicha = (e: KeyboardEvent<SVGGElement>, i: number) => {
     const paso = e.shiftKey ? 2 : 0.5;
 
     const d: Record<string, [number, number]> = { ArrowLeft: [-paso, 0], ArrowRight: [paso, 0], ArrowUp: [0, -paso], ArrowDown: [0, paso] };
@@ -525,13 +453,7 @@ export function PizarraRutina({
     if (e.key === "Delete" || e.key === "Backspace") {
       if (modo === "carreras" && rutina.roles[i].hx !== undefined) {
         e.preventDefault();
-
-        const { hx: _hx, hy: _hy, ...sin } = rutina.roles[i];
-
-        void _hx;
-        void _hy;
-
-        onCambia({ roles: rutina.roles.map((r, j) => (j === i ? sin : r)) });
+        sinCarrera(i);
       }
 
       return;
@@ -540,6 +462,7 @@ export function PizarraRutina({
     if (!d[e.key]) return;
 
     e.preventDefault();
+    e.stopPropagation();
     pararTiempo();
     onSelecciona(i);
 
@@ -562,110 +485,187 @@ export function PizarraRutina({
 
   /* ------------------------------ exportar ---------------------------- */
 
-  const exporta = () => {
-    const el = svg.current;
+  const textoDefensa = !ofensiva
+    ? ""
+    : queEfectiva === "proximo" && ctx.rival
+      ? `contra ${ctx.rival.equipo}`
+      : queEfectiva === "tipo"
+        ? etiqueta(DEFENSAS, rutina.contra).toLowerCase()
+        : "";
 
-    if (!el) return;
+  const rotulo = useCallback(
+    (tt: number): Rotulo => ({
+      titulo: rutina.nombre || "Rutina",
+      sub: [`${etiqueta(TIPOS, rutina.tipo)} ${ofensiva ? "a favor" : "en contra"}`, rutina.senal ? `señal «${rutina.senal}»` : "", textoDefensa].filter(Boolean).join(" · "),
+      momento: momentoDe(tt),
+      ...(sim.remate && !sim.remate.directo && sim.remate.quien !== null && tt >= VUELO[1] - 0.02 ? { dato: `xG ${comaXg(sim.remate.xg)}` } : {}),
+      fondo: paleta.cielo,
+    }),
+    [rutina.nombre, rutina.tipo, rutina.senal, ofensiva, textoDefensa, sim.remate, paleta.cielo],
+  );
 
-    const clon = el.cloneNode(true) as SVGSVGElement;
+  const exporta = async (formato: "png" | "pdf" | "video" | "gif") => {
+    if (exportando) return;
 
-    clon.querySelectorAll("[data-solo-pantalla]").forEach((n) => n.remove());
+    setMenuExporta(false);
 
-    const [vx, vy, vw, vh] = (clon.getAttribute("viewBox") ?? "0 0 72 44").split(/\s+/).map(Number);
+    const antes = reloj.tRef.current;
 
-    const banda = 6.5;
+    para();
 
-    const ns = "http://www.w3.org/2000/svg";
+    setExportando({ que: formato, avance: 0 });
 
-    clon.setAttribute("viewBox", `${vx} ${vy - banda} ${vw} ${vh + banda}`);
-    clon.setAttribute("xmlns", ns);
+    await esperaFuentePortada().catch(() => undefined);
 
-    const fondoEl = document.createElementNS(ns, "rect");
+    const rodaje: Rodaje = { pon: setT, svg: () => svg.current, rotulo, familia: FAMILIA_PORTADA };
 
-    fondoEl.setAttribute("x", String(vx));
-    fondoEl.setAttribute("y", String(vy - banda));
-    fondoEl.setAttribute("width", String(vw));
-    fondoEl.setAttribute("height", String(vh + banda));
-    fondoEl.setAttribute("style", `fill:${C.fondo}`);
+    const nombre = rutina.nombre || "rutina";
 
-    const titulo = document.createElementNS(ns, "text");
+    try {
+      if (formato === "png") {
+        await exportaPng(rodaje, antes, nombre);
+        toast.success("PNG descargado");
+      } else if (formato === "pdf") {
+        await exportaPdf(rodaje, MARCAS, nombre, `RM Castilla · Laboratorio de ABP · ${nombre}`);
+        toast.success("PDF descargado: una hoja por momento");
+      } else if (formato === "video") {
+        const r = await exportaVideo(rodaje, nombre, (a) => setExportando({ que: formato, avance: a }));
 
-    titulo.setAttribute("x", String(vx + 1.6));
-    titulo.setAttribute("y", String(vy - banda + 3.4));
-    titulo.setAttribute("style", `fill:${C.texto};font-size:2.6px;font-weight:800;font-family:Barlow Condensed, Arial, sans-serif`);
-    titulo.textContent = (rutina.nombre || "Rutina").toUpperCase();
+        toast.success(`Vídeo ${r.formato} · ${r.segundos.toFixed(1).replace(".", ",")} s · ${(r.bytes / 1_000_000).toFixed(1).replace(".", ",")} MB`);
+      } else {
+        const r = await exportaGif(rodaje, nombre, (a) => setExportando({ que: formato, avance: a }));
 
-    const sub = document.createElementNS(ns, "text");
-
-    sub.setAttribute("x", String(vx + 1.6));
-    sub.setAttribute("y", String(vy - banda + 5.4));
-    sub.setAttribute("style", `fill:${C.oro};font-size:1.4px;font-weight:700;font-family:Barlow Condensed, Arial, sans-serif;letter-spacing:0.1px`);
-    sub.textContent = ["RM CASTILLA · LABORATORIO DE ABP", rutina.senal ? `SEÑAL «${rutina.senal.toUpperCase()}»` : ""].filter(Boolean).join(" · ");
-
-    clon.insertBefore(sub, clon.firstChild);
-    clon.insertBefore(titulo, clon.firstChild);
-    clon.insertBefore(fondoEl, clon.firstChild);
-
-    const ancho = 1800;
-
-    const alto = Math.round((ancho * (vh + banda)) / vw);
-
-    clon.setAttribute("width", String(ancho));
-    clon.setAttribute("height", String(alto));
-
-    const datos = new XMLSerializer().serializeToString(clon);
-
-    const img = new Image();
-
-    img.onload = () => {
-      const lienzo = document.createElement("canvas");
-
-      lienzo.width = ancho;
-      lienzo.height = alto;
-
-      const ctx = lienzo.getContext("2d");
-
-      if (!ctx) return;
-
-      ctx.drawImage(img, 0, 0, ancho, alto);
-      lienzo.toBlob((blob) => {
-        if (!blob) return;
-
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement("a");
-
-        a.href = url;
-        a.download = `${(rutina.nombre || "rutina")
-          .normalize("NFD")
-          .replace(/[̀-ͯ]/g, "")
-          .replace(/[^a-z0-9]+/gi, "-")
-          .replace(/^-|-$/g, "")
-          .toLowerCase()}.png`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-      }, "image/png");
-    };
-
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(datos)}`;
+        toast.success(`GIF · ${(r.bytes / 1_000_000).toFixed(1).replace(".", ",")} MB`);
+      }
+    } catch (error) {
+      console.error("[laboratorio-abp] exportar", error);
+      toast.error(error instanceof Error && error.message ? error.message : "No se ha podido exportar");
+    } finally {
+      setT(antes);
+      setExportando(null);
+    }
   };
+
+  /* --------------------------- atajos globales -------------------------- */
+
+  const atajos = useRef<(e: globalThis.KeyboardEvent) => void>(() => undefined);
+
+  useEffect(() => {
+    atajos.current = (e) => {
+      if (presentando || exportando || e.defaultPrevented || escribiendo(e.target)) return;
+
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+      const enFicha = (e.target as HTMLElement | null)?.closest?.("[data-ficha]");
+
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+      const hecho = () => e.preventDefault();
+
+      switch (k) {
+        case " ":
+        case "k":
+          hecho();
+          reloj.alterna();
+          break;
+        case "ArrowRight":
+        case "ArrowLeft":
+          if (enFicha) return;
+          hecho();
+          if (e.shiftKey) reloj.salta(k === "ArrowRight" ? 1 : -1);
+          else reloj.empuja(k === "ArrowRight" ? 1 / 90 : -1 / 90);
+          break;
+        case "Home":
+          hecho();
+          para();
+          setT(0);
+          break;
+        case "End":
+          hecho();
+          para();
+          setT(1);
+          break;
+        case "[":
+          reloj.cambiaVelocidad(-1);
+          break;
+        case "]":
+          reloj.cambiaVelocidad(1);
+          break;
+        case "l":
+          reloj.setBucle(!reloj.bucle);
+          break;
+        case "1":
+        case "2":
+        case "3":
+          setModo(MODOS[Number(k) - 1].key);
+          break;
+        case "c":
+          setVistaCam((v) => VISTAS[(VISTAS.findIndex((x) => x.key === v) + 1) % VISTAS.length].key);
+          break;
+        case "r":
+          if (ofensiva) setQue((q) => (q === "tipo" ? (hayProximo ? "proximo" : "ninguna") : q === "proximo" ? "ninguna" : "tipo"));
+          break;
+        case "v":
+          conmuta("ventaja");
+          break;
+        case "d":
+          conmuta("duelos");
+          break;
+        case "n":
+          conmuta("nombres");
+          break;
+        case "f":
+          conmuta("fotos");
+          break;
+        case "m":
+          pararTiempo();
+          onCambia(reflejada(rutina));
+          setVuelta((v) => v + 1);
+          break;
+        case "p":
+          setPresentando(true);
+          break;
+        case "e":
+          void exporta("png");
+          break;
+        case "?":
+          setAyuda((a) => !a);
+          break;
+        default:
+          return;
+      }
+    };
+  });
+
+  useEffect(() => {
+    const oye = (e: globalThis.KeyboardEvent) => atajos.current(e);
+
+    window.addEventListener("keydown", oye);
+
+    return () => window.removeEventListener("keydown", oye);
+  }, []);
 
   /* ------------------------------ pintar ------------------------------ */
 
-  const ayuda = MODOS.find((m) => m.key === modo)?.ayuda ?? "";
+  const ayudaModo = MODOS.find((m) => m.key === modo)?.ayuda ?? "";
 
-  const puntosBalon = rutina.balon?.length ? rutina.balon : camino;
+  const boton = (activo: boolean) =>
+    `inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition ${activo ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-[#C8A96B]" : "border-white/10 text-white/65 hover:text-white"}`;
 
-  const elegido = seleccionado !== null ? rutina.roles[seleccionado] : null;
+  const remate = sim.remate;
+
+  const rematador = remate?.quien !== null && remate?.quien !== undefined ? porId.get(rutina.roles[remate.quien]?.jugador ?? "") : undefined;
+
+  const calibreZona = remate && ctx.calibre ? ctx.calibre.zonas[remate.zona] : null;
+
+  const mejorEncaje = sim.encaje[0];
 
   return (
-    <div className="min-w-0 space-y-2.5">
+    <div className="min-w-0 space-y-3">
       {/* ------------------------------ BARRA ----------------------------- */}
       <div className="flex flex-wrap items-center gap-2">
         <div role="radiogroup" aria-label="Qué se edita en la pizarra" className="inline-flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
-          {MODOS.map((m) => {
+          {MODOS.map((m, i) => {
             const Icono = m.icon;
 
             const activo = m.key === modo;
@@ -677,6 +677,7 @@ export function PizarraRutina({
                 role="radio"
                 aria-checked={activo}
                 onClick={() => setModo(m.key)}
+                title={`${m.label} (${i + 1})`}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition ${activo ? "bg-[#C8A96B] text-black" : "text-white/60 hover:text-white"}`}
               >
                 <Icono size={13} />
@@ -686,184 +687,311 @@ export function PizarraRutina({
           })}
         </div>
 
+        <div role="radiogroup" aria-label="Cámara" className="inline-flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+          {VISTAS.map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              role="radio"
+              aria-checked={vistaCam === v.key}
+              onClick={() => setVistaCam(v.key)}
+              title={`${v.label} (C)`}
+              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition ${vistaCam === v.key ? "bg-[#C8A96B] text-black" : "text-white/60 hover:text-white"}`}
+            >
+              {v.key === "cenital" ? <ScanEye size={13} /> : v.key === "tv" ? <Tv size={13} /> : <Box size={13} />}
+              {v.corto}
+            </button>
+          ))}
+        </div>
+
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setVerRival((v) => !v)}
-            aria-pressed={verRival}
-            disabled={rutina.lado !== "ofensivo"}
-            title={rutina.lado !== "ofensivo" ? "El rival tipo sale en las rutinas a favor" : "La defensa contra la que se pensó, en esquema"}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1.5 text-[11px] font-medium text-white/65 transition hover:text-white disabled:opacity-40"
-          >
-            {verRival ? <Eye size={13} /> : <EyeOff size={13} />}
-            Rival tipo
+          <button type="button" onClick={() => setPresentando(true)} title="Presentar a pantalla completa (P)" className="inline-flex items-center gap-1.5 rounded-lg bg-[#C8A96B] px-2.5 py-1.5 text-[11.5px] font-bold text-black transition hover:brightness-110">
+            <Tv size={13} />
+            Presentar
           </button>
-          <button
-            type="button"
-            onClick={() => setVista((v) => (v === "jugada" ? "todo" : "jugada"))}
-            title={vista === "jugada" ? "Ver el medio campo entero" : "Acercar a donde pasa la jugada"}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1.5 text-[11px] font-medium text-white/65 transition hover:text-white"
-          >
-            {vista === "jugada" ? <ZoomOut size={13} /> : <ZoomIn size={13} />}
-            {vista === "jugada" ? "Medio campo" : "Acercar"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setNombres((v) => !v)}
-            aria-pressed={nombres}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1.5 text-[11px] font-medium text-white/65 transition hover:text-white"
-          >
-            <Tag size={13} />
-            Nombres
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              pararTiempo();
-              onCambia(reflejada(rutina));
-              setVuelta((v) => v + 1);
-            }}
-            title="La misma rutina desde el otro córner"
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1.5 text-[11px] font-medium text-white/65 transition hover:text-white"
-          >
-            <FlipHorizontal2 size={13} />
-            Otro lado
-          </button>
-          <button
-            type="button"
-            onClick={exporta}
-            className="inline-flex items-center gap-1 rounded-lg border border-white/10 px-2 py-1.5 text-[11px] font-medium text-white/65 transition hover:text-white"
-          >
-            <Download size={13} />
-            PNG
+          <div className="relative">
+            <button type="button" onClick={() => setMenuExporta((v) => !v)} aria-expanded={menuExporta} aria-haspopup="menu" disabled={Boolean(exportando)} className={boton(menuExporta)}>
+              <Download size={13} />
+              {exportando ? `${Math.round(exportando.avance * 100)} %` : "Exportar"}
+            </button>
+            {menuExporta && (
+              <div role="menu" className="absolute right-0 top-full z-20 mt-1.5 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#11161C] p-1 shadow-2xl">
+                {[
+                  { k: "png" as const, label: "Imagen PNG", detalle: "El instante que se ve (E)", icon: ImageIcon },
+                  { k: "pdf" as const, label: "PDF por momentos", detalle: "Salida, golpeo, remate y final", icon: FileText },
+                  ...(sabeVideo() ? [{ k: "video" as const, label: "Vídeo", detalle: "MP4 1920 × 1080 con rótulos", icon: Film }] : []),
+                  { k: "gif" as const, label: "GIF animado", detalle: "Para WhatsApp, sin reproductor", icon: FileImage },
+                ].map((o) => (
+                  <button key={o.k} type="button" role="menuitem" onClick={() => void exporta(o.k)} className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-white/[0.06]">
+                    <o.icon size={15} className="mt-0.5 shrink-0 text-[#C8A96B]" />
+                    <span className="min-w-0">
+                      <span className="block text-[12.5px] font-semibold text-white/90">{o.label}</span>
+                      <span className="block text-[11px] text-white/45">{o.detalle}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button type="button" onClick={() => setAyuda((a) => !a)} aria-pressed={ayuda} title="Atajos de teclado (?)" aria-label="Atajos de teclado" className={boton(ayuda)}>
+            <Keyboard size={13} />
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {ofensiva && (
+          <div role="radiogroup" aria-label="Defensa" className="inline-flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+            {(
+              [
+                { k: "tipo" as const, label: "Rival tipo", titulo: `${etiqueta(DEFENSAS, rutina.contra)}, en esquema` },
+                ...(hayProximo ? [{ k: "proximo" as const, label: ctx.rival!.equipo, titulo: "El próximo rival: su scouting de ABP y sus jugadores" }] : []),
+                { k: "ninguna" as const, label: "Sin rival", titulo: "Sólo los nuestros" },
+              ] as const
+            ).map((o) => (
+              <button
+                key={o.k}
+                type="button"
+                role="radio"
+                aria-checked={que === o.k}
+                onClick={() => setQue(o.k)}
+                title={`${o.titulo} (R)`}
+                className={`max-w-[11rem] truncate rounded-lg px-2 py-1 text-[11px] font-semibold transition ${que === o.k ? "bg-white/[0.12] text-white" : "text-white/55 hover:text-white"}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <button type="button" onClick={() => conmuta("nombres")} aria-pressed={capas.nombres} title="Nombres (N)" className={boton(capas.nombres)}>
+          <Tag size={13} />
+          <span className="hidden sm:inline">Nombres</span>
+        </button>
+        <button type="button" onClick={() => conmuta("fotos")} aria-pressed={capas.fotos} title="Fotos (F)" className={boton(capas.fotos)}>
+          <UserRound size={13} />
+          <span className="hidden sm:inline">Fotos</span>
+        </button>
+        {ofensiva && sim.defensa && (
+          <>
+            <button type="button" onClick={() => conmuta("ventaja")} aria-pressed={capas.ventaja} title="Quién gana cada espacio del área (V)" className={boton(capas.ventaja)}>
+              <Waves size={13} />
+              Espacio
+            </button>
+            <button type="button" onClick={() => conmuta("duelos")} aria-pressed={capas.duelos} title="Duelos aéreos en el remate (D)" className={boton(capas.duelos)}>
+              <Eye size={13} />
+              Duelos
+            </button>
+          </>
+        )}
+        <button type="button" onClick={() => setVista((v) => (v === "jugada" ? "todo" : "jugada"))} title={vista === "jugada" ? "Ver el medio campo entero" : "Acercar a donde pasa la jugada"} className={boton(false)}>
+          {vista === "jugada" ? <ZoomOut size={13} /> : <ZoomIn size={13} />}
+          <span className="hidden sm:inline">{vista === "jugada" ? "Medio campo" : "Acercar"}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            pararTiempo();
+            onCambia(reflejada(rutina));
+            setVuelta((v) => v + 1);
+          }}
+          title="La misma rutina desde el otro córner (M)"
+          className={boton(false)}
+        >
+          <FlipHorizontal2 size={13} />
+          <span className="hidden sm:inline">Otro lado</span>
+        </button>
       </div>
 
       {/* ----------------------------- EL CAMPO ---------------------------- */}
-      <div className="overflow-hidden rounded-2xl border border-white/10" style={{ background: C.fondo }}>
-        <svg
-          ref={svg}
-          viewBox={`${marco.x} ${marco.y} ${marco.w} ${marco.h}`}
-          className="block w-full select-none"
-          style={{ touchAction: "none", cursor: modo === "balon" ? "crosshair" : "default" }}
-          role="application"
-          aria-label={`Pizarra de ${rutina.nombre || "la rutina"}. ${ayuda}`}
-          onPointerDown={enCampo}
-          onPointerMove={mueve}
-          onPointerUp={suelta}
-          onPointerCancel={suelta}
-        >
-          <Puntas id={id} />
-          <rect x={marco.x} y={marco.y} width={marco.w} height={marco.h} style={{ fill: C.fondo }} />
-          <Lineas fondo={fondo} />
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.65)]" style={{ background: paleta.cielo }}>
+        <Escena
+          id={id}
+          svgRef={svg}
+          rutina={rutina}
+          porId={porId}
+          t={t}
+          cam={cam}
+          paleta={paleta}
+          nuestros={sim.nuestros}
+          defensa={sim.defensa}
+          capas={capas}
+          celdas={sim.celdas}
+          libres={sim.libres}
+          duelos={sim.duelos}
+          remate={remate}
+          seleccionado={seleccionado}
+          editaBalon={modo === "balon"}
+          fotos={fotos}
+          cursor={modo === "balon" ? "crosshair" : undefined}
+          etiqueta={`Pizarra de ${rutina.nombre || "la rutina"}. ${ayudaModo}`}
+          manejadores={{
+            onFondo: enCampo,
+            onMueve: mueve,
+            onSuelta: suelta,
+            onFicha: empiezaEnFicha,
+            onTeclaFicha: teclaEnFicha,
+            onFocoFicha: onSelecciona,
+            onPuntoBalon: empiezaEnBalon,
+            onQuitaPunto: quitaPunto,
+            etiquetaFicha: (i) => {
+              const r = rutina.roles[i];
 
-          {rivales.map((x, i) => (
-            <Rival key={`r${i}`} p={x.punto} papel={x.papel} />
-          ))}
-
-          <Recorrido camino={camino} />
-
-          {rutina.roles.map((r, i) => (r.hx !== undefined && r.hy !== undefined ? <Flecha key={`f${i}`} id={id} de={desde[i]} a={{ x: r.hx, y: r.hy }} fase={r.fase ?? 2} /> : null))}
-
-          {/* Las salidas, en fantasma, cuando la jugada ya se ha movido */}
-          {t > 0 &&
-            rutina.roles.map((r, i) =>
-              r.hx !== undefined ? <circle key={`g${i}`} cx={desde[i].x} cy={desde[i].y} r={1.15} style={{ pointerEvents: "none", fill: "none", stroke: "rgba(255,255,255,0.25)", strokeWidth: 0.12 }} /> : null,
-            )}
-
-          {rutina.roles.map((r, i) => {
-            const jugador = porId.get(r.jugador);
-
-            const nombre = jugador?.nombre ?? "sin dueño";
-
-            return (
-              <g
-                key={`j${i}`}
-                role="button"
-                tabIndex={0}
-                aria-label={`${etiqueta(PAPELES, r.papel)}: ${nombre}. Flechas para mover${modo === "carreras" ? " el final de la carrera; Suprimir la borra" : ""}.`}
-                aria-pressed={seleccionado === i}
-                onPointerDown={(e) => empiezaEnFicha(e, i)}
-                onKeyDown={(e) => teclaEnFicha(e, i)}
-                onFocus={() => onSelecciona(i)}
-                style={{ cursor: modo === "balon" ? "crosshair" : "grab", outline: "none" }}
-              >
-                <Ficha p={ahora[i]} rol={r} jugador={jugador} nombres={nombres} activa={seleccionado === i} />
-                {/* Un blanco más grande que la ficha: con el dedo, 1,15 m de radio es poco */}
-                <circle cx={ahora[i].x} cy={ahora[i].y} r={2} style={{ fill: "transparent" }} data-solo-pantalla />
-              </g>
-            );
-          })}
-
-          {/* Los puntos del recorrido del balón, para moverlos (sólo en modo balón) */}
-          {modo === "balon" &&
-            puntosBalon.map((p, i) => (
-              <g key={`b${i}`} data-solo-pantalla onPointerDown={(e) => empiezaEnBalon(e, i)} onDoubleClick={() => quitaPunto(i)} style={{ cursor: "move" }}>
-                <circle cx={p.x} cy={p.y} r={1.6} style={{ fill: "transparent" }} />
-                <circle cx={p.x} cy={p.y} r={0.75} style={{ fill: i === 0 ? C.balon : "rgba(255,255,255,0.15)", stroke: C.balon, strokeWidth: 0.16 }} />
-                <text x={p.x} y={p.y - 1.1} textAnchor="middle" style={{ fontSize: 0.9, fill: C.texto, fontWeight: 700, fontFamily: "Arial, sans-serif" }}>
-                  {i === 0 ? "golpeo" : i}
-                </text>
-              </g>
-            ))}
-
-          <Balon p={balon} />
-        </svg>
+              return `${etiqueta(PAPELES, r.papel)}: ${porId.get(r.jugador)?.nombre ?? "sin dueño"}. Flechas para mover${modo === "carreras" ? " el final de la carrera; Suprimir la borra" : ""}.`;
+            },
+          }}
+        />
+        {exportando && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1" style={{ background: "rgba(0,0,0,0.35)" }}>
+            <div className="h-full" style={{ width: `${Math.round(exportando.avance * 100)}%`, background: "#C8A96B" }} />
+          </div>
+        )}
+        {ayuda && (
+          <div data-abp-tablero="" className="absolute inset-0 overflow-y-auto p-3 sm:p-5" style={{ background: "rgba(5,9,12,0.9)", color: "#FFFFFF" }}>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em]" style={{ color: "#C8A96B" }}>
+                Atajos de teclado
+              </p>
+              <button type="button" onClick={() => setAyuda(false)} className="rounded-lg px-2 py-1 text-[11px] font-semibold" style={{ background: "rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
+                Cerrar
+              </button>
+            </div>
+            <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-[12px] sm:grid-cols-2">
+              {ATAJOS.map((a) => (
+                <div key={a.teclas} className="flex items-baseline gap-2">
+                  <dt className="shrink-0 rounded px-1.5 py-0.5 font-mono text-[11px]" style={{ background: "rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
+                    {a.teclas}
+                  </dt>
+                  <dd style={{ color: "rgba(255,255,255,0.75)" }}>{a.que}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        )}
       </div>
 
       {/* --------------------------- EL TIEMPO ---------------------------- */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={play}
-          aria-label={reproduciendo ? "Pausa" : "Reproducir la jugada"}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#C8A96B] text-black transition hover:brightness-110"
-        >
-          {reproduciendo ? <Pause size={16} /> : t >= 1 ? <RotateCcw size={16} /> : <Play size={16} className="translate-x-px" />}
-        </button>
-        <input
-          type="range"
-          min={0}
-          max={1000}
-          value={Math.round(t * 1000)}
-          onChange={(e) => {
-            setReproduciendo(false);
-            setT(Number(e.target.value) / 1000);
-          }}
-          aria-label="Instante de la jugada"
-          className="min-w-0 flex-1 accent-[#C8A96B]"
-        />
-        <div className="hidden shrink-0 items-center gap-2 sm:flex" aria-hidden>
-          {FASES.map((f) => (
-            <span key={f.key} className="inline-flex items-center gap-1 text-[10.5px] text-white/50">
-              <span className="inline-block h-0.5 w-3.5 rounded" style={{ background: C.fase[f.key] }} />
-              {f.corto}
-            </span>
-          ))}
-        </div>
+      <LineaTiempo reloj={reloj} />
+
+      <div className="flex flex-wrap items-center gap-2">
+        {modo === "balon" && (
+          <div role="radiogroup" aria-label="Envío" className="inline-flex gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+            {ENVIOS.map((o) => (
+              <button
+                key={o.key}
+                type="button"
+                role="radio"
+                aria-checked={(rutina.envio ?? "tenso") === o.key}
+                onClick={() => onCambia({ envio: o.key })}
+                className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${(rutina.envio ?? "tenso") === o.key ? "bg-white/[0.12] text-white" : "text-white/55 hover:text-white"}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="min-w-0 flex-1 text-[11.5px] leading-snug text-white/45">
+          {ayudaModo}
+          {fuera > 0 ? ` ${fuera === 1 ? "Uno se queda" : `${fuera} se quedan`} fuera del encuadre: «Medio campo» para verlo todo.` : ""}
+          {modo === "balon" && rutina.balon?.length ? (
+            <>
+              {" "}
+              <button type="button" onClick={() => onCambia({ balon: [rutina.balon![0] ?? golpeoDe(rutina.tipo)] })} className="inline-flex items-center gap-1 font-semibold text-white/65 underline-offset-2 hover:text-white hover:underline">
+                <Trash2 size={11} />
+                Borrar el recorrido
+              </button>
+            </>
+          ) : null}
+        </p>
       </div>
 
-      <p className="text-[11.5px] leading-snug text-white/45">
-        {ayuda}
-        {rivales.length > 1 ? " Los rombos son la defensa tipo (no un rival concreto)." : ""}
-        {fuera > 0 ? ` ${fuera === 1 ? "Uno se queda" : `${fuera} se quedan`} fuera del encuadre: «Medio campo» para verlo todo.` : ""}
-        {modo === "balon" && rutina.balon?.length ? (
-          <>
-            {" "}
-            <button type="button" onClick={() => onCambia({ balon: [rutina.balon![0] ?? golpeoDe(rutina.tipo)] })} className="inline-flex items-center gap-1 font-semibold text-white/65 underline-offset-2 hover:text-white hover:underline">
-              <Trash2 size={11} />
-              Borrar el recorrido
-            </button>
-          </>
-        ) : null}
-      </p>
+      {/* --------------------------- LA LECTURA --------------------------- */}
+      {ofensiva && rutina.roles.length > 0 && (remate || sim.encaje.length > 0) && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {remate && sim.defensa && (
+            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5" aria-label="El remate">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">El remate · {textoDefensa || "sin rival"}</p>
+              {remate.quien === null ? (
+                <p className="mt-2 text-[13px] leading-snug text-white/75">Con este dibujo nadie llega a donde cae el balón: acerca una carrera o mueve el último punto del recorrido.</p>
+              ) : (
+                <>
+                  <div className="mt-1.5 flex items-baseline gap-2">
+                    <span className="text-3xl font-black tabular-nums text-[#C8A96B]">{comaXg(remate.xg)}</span>
+                    <span className="text-[12px] text-white/55">xG estimado</span>
+                  </div>
+                  <ul className="mt-1.5 space-y-0.5 text-[12px] leading-snug text-white/65">
+                    <li>
+                      {remate.directo ? "Golpeo directo" : `${etiqueta(ZONAS_REMATE, remate.zona)}${rematador ? ` · ${rematador.nombre}` : ""}`}
+                    </li>
+                    {!remate.directo && (
+                      <li>
+                        {PRESION_LABEL[remate.presion]}
+                        {remate.marca !== null && remate.presion !== "libre" ? ` (a ${remate.marca.toFixed(1).replace(".", ",")} m)` : ""}
+                        {remate.disputan > 1 ? ` · lo disputan ${remate.disputan}` : ""}
+                      </li>
+                    )}
+                    {remate.difCm !== null && (
+                      <li>
+                        Duelo aéreo: {remate.difCm >= 0 ? `le saca ${remate.difCm} cm` : `le sacan ${-remate.difCm} cm`}
+                      </li>
+                    )}
+                  </ul>
+                  {calibreZona && calibreZona.remates > 0 && (
+                    <p className="mt-2 text-[11px] leading-snug text-white/40">
+                      Geometría del remate corregida con {calibreZona.remates} {calibreZona.remates === 1 ? "remate" : "remates"} a balón parado de nuestros partidos en esa zona
+                      {calibreZona.goles ? ` (${calibreZona.goles} ${calibreZona.goles === 1 ? "gol" : "goles"})` : ""}.
+                    </p>
+                  )}
+                </>
+              )}
+            </section>
+          )}
 
-      {elegido && (
+          {sim.encaje.length > 0 && (
+            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-3.5" aria-label="Encaje con los sistemas">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">Encaje automático</p>
+              <ul className="mt-2 space-y-1.5">
+                {sim.encaje.map((e) => {
+                  const max = Math.max(0.01, mejorEncaje?.xg ?? 0.01);
+
+                  const suyo = estructura && (estructura.tipo === "zonal" ? "zona" : estructura.tipo) === e.defensa;
+
+                  return (
+                    <li key={e.defensa} className="grid grid-cols-[5.6rem_1fr_2.6rem] items-center gap-2 text-[12px]">
+                      <span className={`truncate ${suyo ? "font-semibold text-[#C8A96B]" : "text-white/70"}`}>{etiqueta(DEFENSAS, e.defensa)}</span>
+                      <span className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                        <span className="block h-full rounded-full" style={{ width: `${Math.max(4, (e.xg / max) * 100)}%`, background: e === mejorEncaje ? "#C8A96B" : "rgba(200,169,107,0.45)" }} />
+                      </span>
+                      <span className="text-right tabular-nums text-white/70">{comaXg(e.xg)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {mejorEncaje && mejorEncaje.xg > 0 && <p className="mt-2 text-[12px] leading-snug text-white/65">Funciona mejor {etiqueta(DEFENSAS, mejorEncaje.defensa).toLowerCase()}.</p>}
+              {ctx.rival && estructura && (
+                <p className="mt-1.5 text-[12px] leading-snug text-white/65">
+                  {ctx.rival.equipo} defiende {estructura.tipo === "zonal" ? `en zona${estructura.enZona ? ` con ${estructura.enZona}` : ""}` : estructura.tipo === "hombre" ? "al hombre" : `en mixta${estructura.enZona ? `, ${estructura.enZona} en zona` : ""}`} (scouting, {estructura.acciones === 1 ? "1 acción" : `${estructura.acciones} acciones`}).
+                  {que !== "proximo" && (
+                    <>
+                      {" "}
+                      <button type="button" onClick={() => setQue("proximo")} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                        Verla contra ellos
+                      </button>
+                    </>
+                  )}
+                </p>
+              )}
+            </section>
+          )}
+        </div>
+      )}
+
+      {seleccionado !== null && rutina.roles[seleccionado] && (
         <p className="sr-only" aria-live="polite">
-          {etiqueta(PAPELES, elegido.papel)} seleccionado
+          {etiqueta(PAPELES, rutina.roles[seleccionado].papel)} seleccionado
         </p>
       )}
+
+      {presentando && <Presentacion rutina={rutina} porId={porId} ctx={ctx} que={queEfectiva} fotos={fotos} onCerrar={() => setPresentando(false)} />}
     </div>
   );
 }
