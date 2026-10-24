@@ -10,6 +10,79 @@ import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import type { ClasificacionPortada } from "@/lib/portada/proximo-partido";
+import { nombreEquipo } from "@/lib/equipos";
+
+/* Puntos acumulados del Castilla frente a la media de un equipo de la liga, jornada a jornada. */
+function GraficaPuntos({
+  jugados,
+  liga,
+}: {
+  jugados: { jornada: number; acumulados: number }[];
+  liga: Map<number, number>;
+}) {
+  if (jugados.length < 2) return null;
+
+  const W = 640;
+  const H = 220;
+  const M = { l: 34, r: 14, t: 14, b: 28 };
+  const maximo = Math.max(3, ...jugados.map((u) => u.acumulados), ...jugados.map((u) => liga.get(u.jornada) ?? 0));
+  const tope = Math.ceil(maximo / 3) * 3;
+  const x = (i: number) => M.l + (i * (W - M.l - M.r)) / (jugados.length - 1);
+  const y = (v: number) => H - M.b - (v * (H - M.t - M.b)) / tope;
+  const nuestra = jugados.map((u, i) => `${x(i)},${y(u.acumulados)}`).join(" ");
+  const puntosLiga = jugados.flatMap((u, i) => (liga.has(u.jornada) ? [`${x(i)},${y(liga.get(u.jornada)!)}`] : []));
+
+  return (
+    <div className="mt-4 min-w-0 rounded-[18px] border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Puntos acumulados</p>
+      <p className="mt-1 text-xs text-white/60">
+        Castilla frente a lo que lleva de media un equipo de la liga tras cada jornada (más, mejor).
+      </p>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="mt-3 h-auto w-full"
+        role="img"
+        aria-label="Puntos acumulados del Castilla frente a la media de la liga"
+      >
+        {Array.from({ length: tope / 3 + 1 }, (_, k) => k * 3).map((v) => (
+          <g key={v}>
+            <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.12} />
+            <text x={M.l - 6} y={y(v) + 3} textAnchor="end" fontSize={10} fill="currentColor" fillOpacity={0.6}>
+              {v}
+            </text>
+          </g>
+        ))}
+        {jugados.map((u, i) => (
+          <text key={u.jornada} x={x(i)} y={H - 10} textAnchor="middle" fontSize={10} fill="currentColor" fillOpacity={0.6}>
+            J{u.jornada}
+          </text>
+        ))}
+        {puntosLiga.length > 1 ? (
+          <polyline
+            points={puntosLiga.join(" ")}
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity={0.55}
+            strokeWidth={2}
+            strokeDasharray="5 4"
+          />
+        ) : null}
+        <polyline points={nuestra} fill="none" stroke="#C8A96B" strokeWidth={2.5} />
+        {jugados.map((u, i) => (
+          <circle key={u.jornada} cx={x(i)} cy={y(u.acumulados)} r={3.5} fill="#C8A96B" />
+        ))}
+      </svg>
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-white/70">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-0.5 w-5 bg-[#C8A96B]" aria-hidden /> Castilla
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-0 w-5 border-t-2 border-dashed border-current opacity-60" aria-hidden /> Media de la liga
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function CollectiveHistoryPage() {
   /*
@@ -106,6 +179,19 @@ const liga = useMemo(() => {
   const equipos = new Set(ps.flatMap((p) => [p.local, p.visitante]));
   const porPartidosJornada = Math.floor(equipos.size / 2);
   const puestos = new Map<number, number>();
+  /* Puntos que lleva de media un equipo de la liga tras cada una de nuestras jornadas. */
+  const acumuladaLiga = new Map<number, number>();
+
+  jugados.forEach((uno, i) => {
+    const hastaAqui = ps.filter((p) => p.jornada <= uno.jornada);
+
+    if (hastaAqui.length === 0) return;
+
+    acumuladaLiga.set(
+      uno.jornada,
+      (hastaAqui.reduce((s, p) => s + (p.gl === p.gv ? 2 : 3), 0) / (hastaAqui.length * 2)) * (i + 1),
+    );
+  });
 
   for (const uno of jugados) {
     const dePartidos = ps.filter((p) => p.jornada <= uno.jornada);
@@ -144,11 +230,35 @@ const liga = useMemo(() => {
     puestos.set(uno.jornada, orden.findIndex(([n]) => n === nuestro) + 1);
   }
 
-  return { mediaPuntos, mediaGoles, puestos };
+  return { mediaPuntos, mediaGoles, puestos, acumuladaLiga };
 }, [golesLiga.value.partidos, jugados]);
 
 /* La columna del puesto sólo se dibuja si hay puesto en todas las jornadas: una celda suelta en blanco es un hueco. */
 const conPuesto = jugados.length > 0 && jugados.every((u) => liga.puestos.has(u.jornada));
+
+/*
+| La suma de la tabla de jornadas tiene que dar lo mismo que las tarjetas de
+| arriba (goles a favor, en contra y partidos). Si el calendario se queda sin
+| un partido, la diferencia queda en la consola en vez de pasar inadvertida.
+*/
+const golesTabla = useMemo(
+  () => ({
+    favor: jugados.reduce((s, u) => s + u.gf, 0),
+    contra: jugados.reduce((s, u) => s + u.gc, 0),
+    puntos: jugados.reduce((s, u) => s + u.puntos, 0),
+  }),
+  [jugados],
+);
+
+useEffect(() => {
+  if (!tabla || jugados.length === 0) return;
+
+  if (jugados.length !== tabla.jugados || golesTabla.favor !== tabla.favor || golesTabla.contra !== tabla.contra) {
+    console.warn(
+      `Histórico: la tabla de jornadas suma ${golesTabla.favor}-${golesTabla.contra} en ${jugados.length} partidos y la clasificación ${tabla.favor}-${tabla.contra} en ${tabla.jugados}.`,
+    );
+  }
+}, [tabla, jugados, golesTabla]);
 
 const videoRef = useRef<HTMLDivElement | null>(null);
 const dashboardRef = useRef<HTMLDivElement | null>(null);
@@ -338,7 +448,7 @@ useEffect(() => {
                         >
                           <td className="px-4 py-2.5">J{uno.jornada}</td>
                           <td className="px-4 py-2.5">
-                            {uno.rival}
+                            {nombreEquipo(uno.rival)}
                             <span className="ml-2 text-xs text-white/60">
                               {uno.lado === "casa" ? "en casa" : "fuera"}
                             </span>
@@ -364,8 +474,22 @@ useEffect(() => {
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot>
+                      <tr className="border-t border-white/10 bg-white/[0.04] font-semibold">
+                        <td className="px-4 py-2.5" colSpan={2}>
+                          Total · {jugados.length} partidos
+                        </td>
+                        <td className="px-4 py-2.5 text-center">
+                          {golesTabla.favor}-{golesTabla.contra}
+                        </td>
+                        <td className="px-4 py-2.5 text-right">{golesTabla.puntos}</td>
+                        <td className="px-4 py-2.5" colSpan={conPuesto ? 2 : 1} />
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
+
+                <GraficaPuntos jugados={jugados} liga={liga.acumuladaLiga} />
               </div>
             ) : null}
 

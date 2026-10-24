@@ -41,7 +41,7 @@ const DISTANCIAS = ["frontal", "media", "lejana"];
 const PARTIDOS = [
   {
     id: "sant-andreu",
-    jornada: "LIGA 04",
+    jornada: "J4",
     rival: "UE Sant Andreu",
     local: false,
     fecha: "2026-09-21",
@@ -54,7 +54,7 @@ const PARTIDOS = [
   },
   {
     id: "alcorcon",
-    jornada: "LIGA 05",
+    jornada: "J5",
     rival: "AD Alcorcón",
     local: true,
     fecha: "2026-09-27",

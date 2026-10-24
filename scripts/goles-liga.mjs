@@ -72,7 +72,12 @@ async function principal() {
         ? Number(competicion.match(/Jornada\s*(\d+)/i)?.[1])
         : 0;
 
-      if (!p.jugado || !jornada) continue;
+      /* `jugado` de BeSoccer no basta: una ficha sin marcador en su página pero con fecha pasada y goles
+         numéricos (la J6, 3-2 al Atlético Madrileño) es un partido jugado y debe contar. */
+      const hayMarcador = Number.isFinite(p.local?.goles) && Number.isFinite(p.visitante?.goles);
+      const fechaPasada = Boolean(p.fecha) && Date.parse(String(p.fecha)) < Date.now();
+
+      if (!(p.jugado || (hayMarcador && fechaPasada)) || !jornada) continue;
 
       /* Un partido jugado sin goles detallados también cuenta (con la lista vacía y marcado como incompleto). */
       const lista = Array.isArray(p.goles) ? p.goles : [];
@@ -250,6 +255,33 @@ async function principal() {
     sinTimeline,
   };
 
+  /*
+  | Control (24/10/2026): los partidos y los goles de cada equipo tienen que casar con la
+  | clasificación de BeSoccer. Si no casan (un partido sin marcador en su ficha, como la
+  | J6 del Castilla), se dice en el registro y el documento lleva `descuadre`: la pantalla
+  | no compara con la media un total al que le falta un partido.
+  */
+  const tablaLiga = Object.values(informe.porId).find((e) => e?.clasificacion?.total?.length)?.clasificacion.total ?? [];
+  const descuadre = [];
+
+  for (const fila of tablaLiga) {
+    const suyos = partidos.filter((p) => mismoEquipo(p.local, fila.equipo) || mismoEquipo(p.visitante, fila.equipo));
+    const favor = suyos.reduce((s, p) => s + (mismoEquipo(p.local, fila.equipo) ? p.gl : p.gv), 0);
+    const contra = suyos.reduce((s, p) => s + (mismoEquipo(p.local, fila.equipo) ? p.gv : p.gl), 0);
+
+    if (suyos.length !== fila.jugados || favor !== fila.favor || contra !== fila.contra) {
+      descuadre.push({ equipo: fila.equipo, partidos: suyos.length, favor, contra, claPartidos: fila.jugados, claFavor: fila.favor, claContra: fila.contra });
+    }
+  }
+
+  if (descuadre.length) {
+    doc.descuadre = descuadre;
+
+    for (const d of descuadre) {
+      console.log(`AVISO: ${d.equipo} no casa con la clasificación: ${d.partidos} partidos y ${d.favor}-${d.contra} goles frente a ${d.claPartidos} y ${d.claFavor}-${d.claContra}.`);
+    }
+  }
+
   const clasificados = Object.values(tipologia).filter((x) => x.tipo).length;
 
   console.log(`Hudl: timeline de ${Object.keys(remates).length} de ${nuestros.length} partidos nuestros; ${clasificados} de ${Object.keys(tipologia).length} goles clasificados.`);
@@ -273,7 +305,7 @@ async function principal() {
 
   if (e2) throw new Error(`no se guarda en Supabase (${e2.message})`);
 
-  console.log(`RESUMEN: ${partidos.length} partidos y ${partidos.reduce((s, p) => s + p.goles.length, 0)} goles de la liga; tipología de ${clasificados} goles de nuestros partidos.`);
+  console.log(`RESUMEN: ${partidos.length} partidos y ${partidos.reduce((s, p) => s + p.goles.length, 0)} goles de la liga; tipología de ${clasificados} goles de nuestros partidos.${descuadre.length ? ` OJO: ${descuadre.length} ${descuadre.length === 1 ? "equipo no casa" : "equipos no casan"} con la clasificación (${descuadre.map((d) => d.equipo).join(", ")}).` : ""}`);
 }
 
 /* ------------------------------------------------------------------ */

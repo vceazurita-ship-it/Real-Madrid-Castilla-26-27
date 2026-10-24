@@ -24,7 +24,7 @@ import { Lectura } from "@/components/data/formas";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasTipologia";
-import { avisoMuestra, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramosClave } from "@/lib/goles/lecturas";
+import { avisoMuestra, loImportante, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro } from "@/lib/castilla/calendario";
@@ -601,14 +601,35 @@ export function PantallaGoles() {
   const corto = esNuestro ? "El Castilla" : equipo;
   const enCasa = esNuestro ? "Castilla en casa" : `${equipo} en casa`;
   const fuera = esNuestro ? "Castilla fuera" : `${equipo} fuera`;
-  const balance = lecturaBalance(corto, delEquipo.length, gf, gc, ligaGolesPP, ligaContraPP);
-  const deFranjas = lecturaFranjas(filasFranja);
+  /* Si al equipo le falta un partido jugado, los totales no son comparables con la liga: sin la J6 el Castilla
+     "marca menos que la media" cuando con ella marca más. Se quedan sólo las lecturas que no dependen del total. */
+  const incompleto = jugadosCalendario > delEquipo.length;
+  const deFranjas = lecturaFranjas(filasFranja).filter((f) => !incompleto || !/llegan en la|Marca sobre todo/.test(f));
   const deCondicion = lecturaCondicion(corto, cL, cV, lL, lV);
   const deTipologia = lecturaTipologia(tipologia.cuenta.favor, tipologia.cuenta.contra, tipologia.totalFavor, tipologia.totalContra);
-  const dePrimero = lecturaPrimero(primero.eq, primero.lg);
+  const dePrimero = incompleto ? [] : lecturaPrimero(primero.eq, primero.lg);
   const aviso = avisoMuestra(delEquipo.length);
   const tramos = tramosClave(filasFranja);
-  const importante = [balance, ...deFranjas.filter((f) => !f.startsWith("En los descuentos")), ...deCondicion, ...(esNuestro ? deTipologia : []), ...dePrimero.slice(0, 1)].filter(Boolean);
+  const importante = loImportante({
+    corto,
+    partidos: delEquipo.length,
+    gf,
+    gc,
+    ligaGF: ligaGolesPP,
+    ligaGC: ligaContraPP,
+    filas: filasFranja,
+    cL,
+    cV,
+    lL,
+    lV,
+    primeroEq: primero.eq,
+    primeroLg: primero.lg,
+    favor: tipologia.cuenta.favor,
+    contra: tipologia.cuenta.contra,
+    totalContra: tipologia.totalContra,
+    conTipologia: esNuestro,
+    incompleto,
+  });
   const conLigaContra = condicion !== "todos";
 
   /* Los goles con tipología (los de nuestros partidos), con la corrección a mano encima de la de Hudl. */
@@ -702,6 +723,16 @@ export function PantallaGoles() {
 
           {vista === "resumen" ? (
             <>
+          {jugadosCalendario > delEquipo.length ? (
+            <Notice
+              tone="warn"
+              title={`${jornadasFaltan.length ? `Falta ${jornadasFaltan.map((j) => `la J${j}`).join(" y ")}` : "Faltan partidos por cargar"}: ${delEquipo.length} de ${jugadosCalendario} partidos jugados`}
+            >
+              Los goles a favor y en contra no cuadran con la clasificación, así que no se comparan con la media de la liga ni se dice quién marca primero hasta que llegue{" "}
+              {jornadasFaltan.length === 1 ? "ese partido" : "esos partidos"}.
+            </Notice>
+          ) : null}
+
           <StatRow>
             <StatCard label="Partidos" value={jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario}` : delEquipo.length} hint={jugadosCalendario > delEquipo.length ? (jornadasFaltan.length ? `falta la ${jornadasFaltan.map((j) => `J${j}`).join(", ")}` : "faltan partidos por cargar") : condicion === "todos" ? "local y visitante" : condicion} />
             <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido · liga ${fmt(ligaGolesPP)}`} accent={ORO} />
@@ -709,29 +740,36 @@ export function PantallaGoles() {
             <StatCard
               label="Su mejor tramo"
               value={tramos.fuerte ? tramos.fuerte.franja.nombre : "—"}
-              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor, ${fmt(media(tramos.fuerte.gf, delEquipo.length))} por partido · liga ${fmt(tramos.fuerte.ligaPP)}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
+              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${tramos.fuerte.gf <= 3 ? " · tendencia" : ""}, ${fmt(media(tramos.fuerte.gf, delEquipo.length))} por partido · liga ${fmt(tramos.fuerte.ligaPP)}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
               accent={tramos.fuerte ? MEJOR : undefined}
             />
             <StatCard
               label="Su tramo más débil"
               value={tramos.flojo ? tramos.flojo.franja.nombre : "—"}
-              hint={tramos.flojo ? `${tramos.flojo.gc} en contra, ${fmt(media(tramos.flojo.gc, delEquipo.length))} por partido · liga ${fmt(tramos.flojo.ligaContraPP)}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
+              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${tramos.flojo.gc <= 3 ? " · tendencia" : ""}, ${fmt(media(tramos.flojo.gc, delEquipo.length))} por partido · liga ${fmt(tramos.flojo.ligaContraPP)}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
               accent={tramos.flojo ? PEOR : undefined}
             />
           </StatRow>
 
           {/* ---------------- lo importante ---------------- */}
-          <Panel title="Lo importante" subtitle={`${jugadosCalendario > delEquipo.length ? `Sin ${jornadasFaltan.length ? jornadasFaltan.map((j) => `la J${j}`).join(" ni ") : "algún partido"}: las cifras de goles no cuadran con la clasificación. ` : ""}${equipo} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaEquipo > 0 ? `, hasta la J${jUltimaEquipo}` : ""}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}. Siempre comparado con la media de la liga.${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
+          {importante.length > 0 ? (
+          <Panel title="Lo importante"subtitle={`${equipo} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaEquipo > 0 ? `, hasta la J${jUltimaEquipo}` : ""}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}. Siempre comparado con la media de la liga.${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
             <ul className="space-y-2.5">
               {importante.map((frase, i) => (
                 <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-white/80">
                   <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
-                  <span>{frase}</span>
+                  <span>
+                    {frase.texto}
+                    <span className="mt-0.5 block text-[12px] font-medium" style={{ color: "var(--rmcf-gold-ink)" }}>
+                      {frase.accion}
+                    </span>
+                  </span>
                 </li>
               ))}
             </ul>
             {aviso ? <p className="mt-3 text-[11px] text-white/40">{aviso}</p> : null}
           </Panel>
+          ) : null}
 
           {/* ---------------- marcar primero ---------------- */}
           <Panel

@@ -53,7 +53,7 @@ export type PartidoFaltas = {
 export const PARTIDOS: PartidoFaltas[] = [
   {
     "id": "sant-andreu",
-    "jornada": "LIGA 04",
+    "jornada": "J4",
     "rival": "UE Sant Andreu",
     "local": false,
     "fecha": "2026-09-21",
@@ -298,7 +298,7 @@ export const PARTIDOS: PartidoFaltas[] = [
   },
   {
     "id": "alcorcon",
-    "jornada": "LIGA 05",
+    "jornada": "J5",
     "rival": "AD Alcorcón",
     "local": true,
     "fecha": "2026-09-27",
@@ -621,7 +621,7 @@ export const PARTIDOS: PartidoFaltas[] = [
     ]
   },
   {
-    "jornada": "LIGA 06",
+    "jornada": "J6",
     "rival": "Atlético Madrileño",
     "local": true,
     "fecha": "2026-10-02",
@@ -998,7 +998,7 @@ export const PARTIDOS: PartidoFaltas[] = [
     ]
   },
   {
-    "jornada": "LIGA 07",
+    "jornada": "J7",
     "rival": "UD Ibiza",
     "local": false,
     "fecha": "2026-10-09",
@@ -1384,7 +1384,7 @@ export const PARTIDOS: PartidoFaltas[] = [
     ]
   },
   {
-    "jornada": "LIGA 08",
+    "jornada": "J8",
     "rival": "Antequera CF",
     "local": true,
     "fecha": "2026-10-18",

@@ -552,7 +552,7 @@ async function principal() {
     fichaFaltas,
     JSON.stringify(
       {
-        jornada: datos.etiqueta,
+        jornada: `J${datos.jornada}`,
         rival: partido.rival,
         local: datos.local,
         fecha,

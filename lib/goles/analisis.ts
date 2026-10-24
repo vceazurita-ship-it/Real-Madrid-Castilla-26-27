@@ -134,6 +134,8 @@ export type GolesDoc = {
   remates: Record<string, RemateHudl[]>;
   /** Partidos nuestros sin timeline todavía (para decirlo en pantalla). */
   sinTimeline: string[];
+  /** Equipos cuyos partidos o goles no casan con la clasificación de BeSoccer (los avisa el script). */
+  descuadre?: { equipo: string; partidos: number; favor: number; contra: number; claPartidos: number; claFavor: number; claContra: number }[];
 };
 
 export const GOLES_VACIO: GolesDoc = { actualizado: "", temporada: "", partidos: [], tipologia: {}, remates: {}, sinTimeline: [] };
