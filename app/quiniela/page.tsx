@@ -1314,24 +1314,40 @@ export default function QuinielaPage() {
                   {cerrado
                     ? "Las diez jornadas están jugadas, así que esto ya no cambia."
                     : `Provisional: faltan jornadas del bloque por jugar.`}{" "}
-                  Igual que en el ranking, cada uno cuenta desde su primera
-                  apuesta: lo que no jugó antes de entrar no suma como fallo.
-                  Si hay empate en el segundo puesto no paga ninguno de los
-                  empatados —inventar un desempate no lo acepta nadie—, salvo que
-                  así no pagase nadie: entonces sólo se invita a quien va por
-                  delante. Con cero aciertos no se invita a nadie.
+                  Cada uno cuenta desde su primera apuesta.
                 </p>
+
+                <details className="mt-1 text-[11px] leading-relaxed text-white/40">
+                  <summary className="cursor-pointer select-none text-white/50 hover:text-white">
+                    Ver reglas
+                  </summary>
+                  <p className="mt-1">
+                    Lo que no jugó antes de entrar no suma como fallo. Si hay
+                    empate en el segundo puesto no paga ninguno de los
+                    empatados —inventar un desempate no lo acepta nadie—, salvo
+                    que así no pagase nadie: entonces sólo se invita a quien va
+                    por delante. Con cero aciertos no se invita a nadie.
+                  </p>
+                </details>
               </Panel>
             </div>
 
             <div className="mt-5">
               <Notice tone="info" title="Cómo se cuenta">
-                Un partido sin resultado no cuenta para nadie, ni a favor ni en
-                contra: el porcentaje del lunes es el de los partidos ya
-                jugados. No pronosticar sí cuenta como fallo, pero sólo cuando
-                el partido se ha jugado. «Jornadas» son las que se han ganado —
-                acertar más que todos los demás—; si empatan dos, la ganan los
-                dos.
+                Sólo cuentan los partidos ya jugados. No pronosticar cuenta como
+                fallo. «Jornadas» son las que se han ganado: acertar más que
+                todos los demás.
+                <details className="mt-1 text-white/60">
+                  <summary className="cursor-pointer select-none">
+                    Ver reglas
+                  </summary>
+                  <p className="mt-1">
+                    Un partido sin resultado no cuenta para nadie, ni a favor
+                    ni en contra. No pronosticar sólo es fallo cuando el
+                    partido se ha jugado. Si empatan dos en una jornada, la
+                    ganan los dos.
+                  </p>
+                </details>
               </Notice>
             </div>
 

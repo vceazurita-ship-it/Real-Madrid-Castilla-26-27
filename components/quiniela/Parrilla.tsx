@@ -283,8 +283,8 @@ export function Parrilla({
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-white/35">
-        Un punto es que no lo puso. Los signos van en dorado hasta que se
-        juega el partido.
+        · sin apostar · dorado = pendiente de jugarse · copa = el que más
+        acertó.
       </p>
     </Panel>
   );

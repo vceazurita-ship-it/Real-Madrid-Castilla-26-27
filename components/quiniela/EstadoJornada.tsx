@@ -283,6 +283,10 @@ export function EstadoJornada({
             <span className="text-base font-normal text-white/35">
               Nadie ha acertado
             </span>
+          ) : lideres.length > 1 ? (
+            <span className="truncate text-[17px]">
+              Empate en cabeza · {lideres.length}
+            </span>
           ) : (
             <span className="flex min-w-0 items-center gap-2">
               <Avatar slug={lideres[0].slug} lado={24} />
@@ -303,7 +307,7 @@ export function EstadoJornada({
         }
         pie={
           lideres.length > 1
-            ? `Empatados ${lideres.length}, con ${mejor.marcador.aciertos} de ${jugados}`
+            ? `Con ${mejor.marcador.aciertos} de ${jugados} cada uno`
             : `${mejor.marcador.aciertos} de ${jugados}`
         }
       />
