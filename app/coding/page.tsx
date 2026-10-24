@@ -1060,6 +1060,9 @@ function Coding() {
 
   /* Plegada por defecto: con el teclado abierto, «Marcar», «Cortes» y «Sacar los vídeos» quedaban fuera de la vista. */
   const [ayuda, setAyuda] = useState(false);
+  /* Los paneles de apoyo van plegados: la primera pantalla es vídeo, marcar y cortes. */
+  const [verColectivos, setVerColectivos] = useState(false);
+  const [verCategorias, setVerCategorias] = useState(false);
   const [ajustes, setAjustes] = useState(false);
   const [editando, setEditando] = useState<ClipCoding | null>(null);
   const [avisoSesion, setAvisoSesion] = useState(true);
@@ -3861,13 +3864,19 @@ function Coding() {
 
                   <div className="flex min-w-0 gap-2">
                     <select
-                      value={rival?.clave ?? ""}
+                      value={rivalSinElegir ? "" : (rival?.clave ?? "")}
                       aria-label="Rival"
                       onChange={(evento) => cambiaUrl("equipo", evento.target.value)}
                       className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                     >
                       {rivales.length === 0 && (
                         <option value="">Cargando el calendario…</option>
+                      )}
+
+                      {rivales.length > 0 && rivalSinElegir && (
+                        <option value="" className="bg-[#11161C]">
+                          Elige rival
+                        </option>
                       )}
 
                       {rivales.map((uno) => (
@@ -3905,8 +3914,8 @@ function Coding() {
 
             {rivalSinElegir && rival ? (
               <div className="mt-4">
-                <Notice tone="warn" title={`Rival de la jornada: ${rival.nombre}`}>
-                  Ningún vídeo abierto lleva su nombre. Si son de otro equipo, elígelo arriba antes de sacar los cortes: el título y el rótulo salen con el rival que se ve.
+                <Notice tone="warn" title="Elige el rival de estos vídeos">
+                  Ningún vídeo abierto lleva el nombre de {rival.nombre}, el rival de la jornada, con el que se guardarían los cortes. Elige arriba el equipo de estos vídeos antes de sacarlos: el título y el rótulo salen con el rival elegido.
                 </Notice>
               </div>
             ) : null}
@@ -5166,7 +5175,13 @@ function Coding() {
                   title="Comportamientos colectivos"
                   subtitle="Del equipo, no de un jugador · se eligen con ⇧"
                   bodyClassName="p-3 sm:p-3"
+                  action={
+                    <Button onClick={() => setVerColectivos((abierto) => !abierto)}>
+                      {verColectivos || sujetoActivo?.tipo === "colectivo" ? "Ocultar" : "Ver"}
+                    </Button>
+                  }
                 >
+                  {verColectivos || sujetoActivo?.tipo === "colectivo" ? (
                   <PanelColectivos
                     comportamientos={config.comportamientos}
                     activo={
@@ -5183,13 +5198,24 @@ function Coding() {
                       )
                     }
                   />
+                  ) : (
+                    <p className="text-[11px] text-white/45">
+                      Se eligen con ⇧ o con este botón.
+                    </p>
+                  )}
                 </Panel>
 
                 <Panel
                   title="Categorías"
                   subtitle="Opcional: se puede codificar sólo con el sujeto"
                   bodyClassName="p-3 sm:p-3"
+                  action={
+                    <Button onClick={() => setVerCategorias((abierto) => !abierto)}>
+                      {verCategorias || categoriaActiva ? "Ocultar" : "Ver"}
+                    </Button>
+                  }
                 >
+                  {verCategorias || categoriaActiva ? (
                   <PanelCategorias
                     categorias={config.categorias}
                     activa={categoriaActiva}
@@ -5198,6 +5224,11 @@ function Coding() {
                       setCategoriaActiva((actual) => (actual === id ? "" : id))
                     }
                   />
+                  ) : (
+                    <p className="text-[11px] text-white/45">
+                      Opcional: despliégalas si quieres añadir una categoría al corte.
+                    </p>
+                  )}
                 </Panel>
 
                 <Panel

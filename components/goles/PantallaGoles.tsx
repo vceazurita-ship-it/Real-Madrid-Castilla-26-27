@@ -27,6 +27,7 @@ import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasT
 import { avisoMuestra, loImportante, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useCalendario } from "@/hooks/useCalendario";
+import { nombreEquipo } from "@/lib/equipos";
 import { comoNuestro } from "@/lib/castilla/calendario";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import {
@@ -599,8 +600,8 @@ export function PantallaGoles() {
 
   /* Lo que dicen los números, en frases (`lib/goles/lecturas.ts`). */
   const corto = esNuestro ? "El Castilla" : equipo;
-  const enCasa = esNuestro ? "Castilla en casa" : `${equipo} en casa`;
-  const fuera = esNuestro ? "Castilla fuera" : `${equipo} fuera`;
+  const enCasa = esNuestro ? "Castilla en casa" : `${nombreEquipo(equipo)} en casa`;
+  const fuera = esNuestro ? "Castilla fuera" : `${nombreEquipo(equipo)} fuera`;
   /* Si al equipo le falta un partido jugado, los totales no son comparables con la liga: sin la J6 el Castilla
      "marca menos que la media" cuando con ella marca más. Se quedan sólo las lecturas que no dependen del total. */
   const incompleto = jugadosCalendario > delEquipo.length;
@@ -644,9 +645,9 @@ export function PantallaGoles() {
         crest={escudo ? <img src={escudo} alt="" className="h-9 w-9 shrink-0 object-contain" /> : undefined}
         lead={
           <Explicativo>
-            Goles de {equipo} y de toda la liga por franjas de minutos, como local y como visitante, con los remates de Wyscout y la tipología de los goles de nuestros
+            Goles de {nombreEquipo(equipo)} y de toda la liga por franjas de minutos, como local y como visitante, con los remates de Wyscout y la tipología de los goles de nuestros
             partidos (Hudl). Jornadas {jDesde} a {jHasta}
-            {jUltimaEquipo > 0 && jUltimaEquipo < jHasta ? ` (los datos de ${equipo} llegan hasta la J${jUltimaEquipo})` : ""}
+            {jUltimaEquipo > 0 && jUltimaEquipo < jHasta ? ` (los datos de ${nombreEquipo(equipo)} llegan hasta la J${jUltimaEquipo})` : ""}
             {doc.actualizado ? ` · actualizado el ${new Date(doc.actualizado).toLocaleDateString("es-ES", { day: "numeric", month: "long" })}` : ""}.
           </Explicativo>
         }
@@ -654,7 +655,7 @@ export function PantallaGoles() {
 
       {/* ---------------- mandos ---------------- */}
       <div className="mt-6 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Select label="Equipo" value={equipo} options={equipos} onChange={(v) => setEquipo(v)} />
+        <Select label="Equipo" value={equipo} options={equipos.map((e) => ({ value: e, label: nombreEquipo(e) }))} onChange={(v) => setEquipo(v)} />
         <Select label="Desde la jornada" value={String(jDesde)} options={jornadasJugadas.map((j) => ({ value: String(j), label: `Jornada ${j}` }))} onChange={(v) => setDesde(Number(v))} />
         <Select label="Hasta la jornada" value={String(jHasta)} options={jornadasJugadas.map((j) => ({ value: String(j), label: `Jornada ${j}` }))} onChange={(v) => setHasta(Number(v))} />
         <div className="min-w-0">
@@ -740,20 +741,20 @@ export function PantallaGoles() {
             <StatCard
               label="Su mejor tramo"
               value={tramos.fuerte ? tramos.fuerte.franja.nombre : "—"}
-              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${tramos.fuerte.gf <= 3 ? " · tendencia" : ""}, ${fmt(media(tramos.fuerte.gf, delEquipo.length))} por partido · liga ${fmt(tramos.fuerte.ligaPP)}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
+              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${tramos.fuerte.gf <= 3 ? " · tendencia" : ""}${incompleto ? "" : `, ${fmt(media(tramos.fuerte.gf, delEquipo.length))} por partido · liga ${fmt(tramos.fuerte.ligaPP)}`}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
               accent={tramos.fuerte ? MEJOR : undefined}
             />
             <StatCard
               label="Su tramo más débil"
               value={tramos.flojo ? tramos.flojo.franja.nombre : "—"}
-              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${tramos.flojo.gc <= 3 ? " · tendencia" : ""}, ${fmt(media(tramos.flojo.gc, delEquipo.length))} por partido · liga ${fmt(tramos.flojo.ligaContraPP)}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
+              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${tramos.flojo.gc <= 3 ? " · tendencia" : ""}${incompleto ? "" : `, ${fmt(media(tramos.flojo.gc, delEquipo.length))} por partido · liga ${fmt(tramos.flojo.ligaContraPP)}`}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
               accent={tramos.flojo ? PEOR : undefined}
             />
           </StatRow>
 
           {/* ---------------- lo importante ---------------- */}
           {importante.length > 0 ? (
-          <Panel title="Lo importante"subtitle={`${equipo} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaEquipo > 0 ? `, hasta la J${jUltimaEquipo}` : ""}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}. Siempre comparado con la media de la liga.${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
+          <Panel title="Lo importante"subtitle={`${nombreEquipo(equipo)} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaEquipo > 0 ? `, hasta la J${jUltimaEquipo}` : ""}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}. Siempre comparado con la media de la liga.${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
             <ul className="space-y-2.5">
               {importante.map((frase, i) => (
                 <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-white/80">
@@ -772,6 +773,7 @@ export function PantallaGoles() {
           ) : null}
 
           {/* ---------------- marcar primero ---------------- */}
+          {incompleto ? null : (
           <Panel
             title="¿Qué pasa cuando marca primero?"
             subtitle="Cómo acaban los partidos según quién abre el marcador, frente a la liga con la misma condición."
@@ -796,6 +798,7 @@ export function PantallaGoles() {
               })}
             />
           </Panel>
+          )}
             </>
           ) : null}
 
