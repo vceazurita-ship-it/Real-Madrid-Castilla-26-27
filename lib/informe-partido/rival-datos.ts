@@ -31,6 +31,7 @@ import { mismoClub } from "@/lib/rivals/mismoClub";
 import { claveDeHoy } from "@/lib/rivals/orden-calendario";
 import { slugClave } from "@/lib/rivals/media";
 import type { InformeEquipo } from "@/lib/rivals/informe";
+import type { PizarraOnces } from "@/lib/informe-partido/onces-pizarra";
 import type { DuelosInforme, EnfrentamientoInforme, VistazoRival } from "@/lib/informe-partido/modelo";
 
 type Fila = Record<string, unknown>;
@@ -106,6 +107,17 @@ function limpiaPerfil(perfil: PerfilColectivo | null): PerfilColectivo | null {
 
 export { puestoEnPalabras };
 
+/** El tablero de la pizarra pisa lo cambiado a mano en Duelos, por lado, cuando trae un once entero de esa semana. */
+function aManoConPizarra(manual: ReturnType<typeof normalizaDuelos>, pizarra: PizarraOnces | null | undefined) {
+  if (!pizarra) return manual;
+
+  return {
+    ...manual,
+    nuestro: Object.keys(pizarra.nuestro).length >= 7 ? {} : manual.nuestro,
+    suyo: Object.keys(pizarra.suyo).length >= 7 ? pizarra.suyo : manual.suyo,
+  };
+}
+
 export async function duelosYVistazo(entrada: {
   rival: string;
   equipoHoja: string;
@@ -114,6 +126,8 @@ export async function duelosYVistazo(entrada: {
   marcados: string[];
   calendario: PartidoCalendario[];
   fichas: FichaPropia[];
+  /** El once del tablero de la pizarra táctica de esta semana (hueco → ficha / clave): manda sobre lo de hoy. Sólo lectura. */
+  pizarra?: PizarraOnces | null;
 }): Promise<{ duelos: DuelosInforme | null; vistazo: VistazoRival | null; avisos: string[] }> {
   const avisos: string[] = [];
   const [wy, manual] = await Promise.all([leeWyscout(), leeDoc<unknown>(`duelos:${slugClave(entrada.equipoHoja || "sin-equipo")}`)]);
@@ -133,11 +147,11 @@ export async function duelosYVistazo(entrada: {
       equipo: entrada.equipoHoja,
       marcados: entrada.marcados,
       informe: entrada.informeRival,
-      aMano: normalizaDuelos(manual),
-      baseNuestra: await baseNuestraDeValoraciones(entrada.fichas),
+      aMano: aManoConPizarra(normalizaDuelos(manual), entrada.pizarra),
+      baseNuestra: entrada.pizarra && Object.keys(entrada.pizarra.nuestro).length >= 7 ? entrada.pizarra.nuestro : await baseNuestraDeValoraciones(entrada.fichas),
     });
     duelos = {
-      fuenteSuya,
+      fuenteSuya: entrada.pizarra && Object.keys(entrada.pizarra.suyo).length >= 7 ? "el once del tablero de la pizarra táctica" : fuenteSuya,
       lista: lista.map((d) => ({
         clave: d.def.clave,
         titulo: d.def.titulo,

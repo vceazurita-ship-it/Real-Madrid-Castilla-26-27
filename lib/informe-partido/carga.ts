@@ -27,6 +27,8 @@ import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import { reparteCampo, type OnceLinea } from "@/lib/rivals/once-campo";
 import { cargaPlantilla } from "@/hooks/usePlayers";
 import { duelosYVistazo } from "@/lib/informe-partido/rival-datos";
+import { leePizarraOnces } from "@/lib/informe-partido/onces-pizarra";
+import { rivalTokenId } from "@/lib/tactics/rivals";
 import { CONCLUSIONES, SECTIONS } from "@/lib/rivals/scout-colectivo-campos";
 import { findStats, highlightSeason, type RivalStatsDoc } from "@/lib/rivals/stats";
 import { golesTemporadaDe } from "./goles-temporada";
@@ -762,7 +764,26 @@ export async function cargaInforme(entrada: {
 
   let once: InformePartido["once"] = { jugadores: [], fuente: null, detalle: "" };
 
-  const marcado = normalizarOnce(onceDoc);
+  /*
+  | El once de la pizarra táctica (26/10/2026): si el tablero «Once 4-2-3-1» es
+  | de este partido, sus dos onces y su colocación mandan sobre lo de hoy. Sólo
+  | en la previa y sólo lectura; si no es de este partido, no se dice nada.
+  */
+  const pizarra =
+    momento === "previa" && partido
+      ? await leePizarraOnces({
+          cuando: partido.cuando,
+          rival,
+          fichas: (await cargaPlantilla().catch(() => [])).map((f) => ({ id: f.id, nombre: f.nombre, apodo: f.apodo })),
+          filasRival: suyas,
+          claveDe: (f) => playerKey(f as never),
+          idFichaRival: (f) => rivalTokenId(texto(f.ID_JUGADOR) || `${equipoHoja}-${texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR) || "Sin nombre"}`),
+        })
+      : null;
+
+  const marcadoBase = normalizarOnce(onceDoc);
+
+  const marcado = pizarra?.titulares.length ? { ...marcadoBase, titulares: pizarra.titulares, dudas: [], enCampo: [], campo: pizarra.campo } : marcadoBase;
 
   /*
   | Los duelos y el rival de un vistazo (06/10/2026): se lanzan ya y se
@@ -779,6 +800,7 @@ export async function cargaInforme(entrada: {
         marcados: marcado.titulares,
         calendario,
         fichas: fichas.map((f) => ({ id: f.id, nombre: f.nombre, apodo: f.apodo, foto: f.foto, posicion: f.posicion })),
+        pizarra,
       }),
     )
     .catch(() => ({ duelos: null, vistazo: null, avisos: ["No se han podido calcular los duelos ni el rival de un vistazo."] }));
@@ -805,7 +827,7 @@ export async function cargaInforme(entrada: {
     once = {
       jugadores: conCampo,
       fuente: "marcado",
-      detalle: "Once probable marcado por el cuerpo técnico en Plantillas",
+      detalle: pizarra?.titulares.length ? "Su once, como está en el tablero de la pizarra táctica" : "Once probable marcado por el cuerpo técnico en Plantillas",
     };
   } else if (informeRival?.onces?.length) {
     const ultimo = informeRival.onces[0];

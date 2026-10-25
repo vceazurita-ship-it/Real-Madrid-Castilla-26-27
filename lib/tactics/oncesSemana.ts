@@ -65,6 +65,9 @@ function sitioDeFicha(ficha: string) {
   return puesto ? { x: comprime(Number.parseFloat(puesto.left)), y: (Number.parseFloat(puesto.top) / 100) * PITCH_HEIGHT } : { x: 30, y: PITCH_HEIGHT / 2 };
 }
 
+/** Dónde cae cada hueco en el tablero, para nuestro equipo (el rival, media vuelta). */
+export const sitioDelHueco = (clave: string) => sitioDeFicha(FICHA_DEL_HUECO[clave] ?? "");
+
 export type OncesSemana = {
   /** «2026-10-18|UD Ibiza»: con esto se sabe si el tablero ya es de esta semana. */
   semana: string;
