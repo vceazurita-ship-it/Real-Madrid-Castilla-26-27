@@ -229,11 +229,14 @@ export function PizarraRutina({
   ctx,
   onComparte,
   textoTarea,
+  onAPizarra,
 }: {
   rutina: RutinaEnPizarra;
   porId: Map<string, JugadorLab>;
   /** Copia el enlace que abre esta rutina (lo arma el estudio, que tiene la rutina entera). */
   onComparte?: () => void;
+  /** La manda a la pizarra de ABP como diapositiva (nueva o sustituyendo una): lo arma el estudio. */
+  onAPizarra?: () => void;
   /** La rutina contada como tarea, para pegarla en el microciclo. */
   textoTarea?: string;
   /** Cambia los papeles, el recorrido del balón o el envío. */
@@ -627,6 +630,9 @@ export function PizarraRutina({
     if (k === "enlace") {
       setMenuExporta(false);
       onComparte?.();
+    } else if (k === "diapositiva") {
+      setMenuExporta(false);
+      onAPizarra?.();
     } else if (k === "pizarra") void aLaPizarraAbp();
     else void alMicrociclo();
   };
@@ -821,7 +827,8 @@ export function PizarraRutina({
                 <p className="mx-2.5 mt-1.5 border-t border-white/10 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">Llevar a</p>
                 {[
                   ...(onComparte ? [{ k: "enlace", label: "Copiar enlace", detalle: "Abre esta rutina tal cual, sin guardarla", icon: Link2 }] : []),
-                  { k: "pizarra", label: "Pizarra de ABP", detalle: "Copia la imagen y abre la pizarra", icon: LayoutTemplate },
+                  ...(onAPizarra ? [{ k: "diapositiva", label: "Pizarra de ABP", detalle: "Como diapositiva nueva o sustituyendo una, con jugadores y consignas", icon: LayoutTemplate }] : []),
+                  { k: "pizarra", label: onAPizarra ? "Imagen para la pizarra" : "Pizarra de ABP", detalle: "Copia la imagen y abre la pizarra", icon: onAPizarra ? ImageIcon : LayoutTemplate },
                   ...(textoTarea ? [{ k: "micro", label: "Microciclo de ABP", detalle: "Copia la tarea y abre el microciclo", icon: ListPlus }] : []),
                 ].map((o) => (
                   <button key={o.k} type="button" role="menuitem" onClick={() => llevaA(o.k)} className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-white/[0.06]">

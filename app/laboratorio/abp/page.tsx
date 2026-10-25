@@ -10,6 +10,9 @@
  * - **Lo mejor de cada jornada**: las cinco mejores acciones a balón parado de
  *   cada jornada de Primera RFEF, LaLiga, Segunda, Premier y Champions (Wyscout),
  *   con el resumen oficial de YouTube de cada partido.
+ * - **En la pizarra**: las jugadas de la pizarra de ABP que usamos de verdad,
+ *   traídas con «Abrir en el laboratorio» y con lo que dice la pizarra de
+ *   cada una; vuelven con «Enviar a la pizarra» (`lib/abp-lab/puente-*.ts`).
  * - **Taller**: nuestras rutinas, de la idea al partido.
  * - **Retos**: la competición de la plantilla, con podio, rachas e insignias.
  * - **Datos**: el balón parado de Primera RFEF y la Premier en Wyscout
@@ -18,11 +21,13 @@
  * El candado está en `layout.tsx` (servidor) y en el menú (`soloAdmin`).
  */
 
-import { useEffect, useState } from "react";
-import { BarChart3, BookMarked, FlaskConical, Swords, Target, Trophy } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BarChart3, BookMarked, FlaskConical, LayoutTemplate, Swords, Target, Trophy } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 import { AbpHeader, Notice } from "@/components/abp/ui";
+import { traeDeLaPizarra } from "@/components/abp-lab/EnLaPizarra";
 import { MejorJornada } from "@/components/abp-lab/MejorJornada";
 import { Referentes } from "@/components/abp-lab/Referentes";
 import { Retos } from "@/components/abp-lab/Retos";
@@ -31,9 +36,12 @@ import { useJugadoresLab } from "@/components/abp-lab/comun";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAbpLab } from "@/hooks/useAbpLab";
+import { usePizarraAbpLectura } from "@/hooks/usePizarraAbpLectura";
+import { tituloVisible, type SlidePizarra, type TableroPizarra } from "@/lib/abp/pizarra";
 import { rutinaDeEnlace } from "@/lib/abp-lab/enlace";
 import { ESQUEMAS } from "@/lib/abp-lab/esquemas";
 import type { Defensa } from "@/lib/abp-lab/modelo";
+import { borraRecado, leeRecado } from "@/lib/abp-lab/puente-envio";
 
 /** La defensa que cuenta la fuente («Southampton (cinco zonales, tres al hombre)» es mixta). */
 function defensaDe(texto?: string): Defensa {
@@ -46,11 +54,12 @@ function defensaDe(texto?: string): Defensa {
   return zona && hombre ? "mixta" : zona ? "zona" : hombre ? "hombre" : "cualquiera";
 }
 
-type Pestana = "referentes" | "jornada" | "taller" | "retos";
+type Pestana = "referentes" | "jornada" | "pizarra" | "taller" | "retos";
 
 const PESTANAS: { key: Pestana; label: string; icon: typeof Trophy; lema: string }[] = [
   { key: "referentes", label: "Referentes", icon: BookMarked, lema: "Lo que hacen los mejores" },
   { key: "jornada", label: "Lo mejor de cada jornada", icon: Target, lema: "Wyscout, cada mañana" },
+  { key: "pizarra", label: "En la pizarra", icon: LayoutTemplate, lema: "Nuestras jugadas en uso" },
   { key: "taller", label: "Taller", icon: FlaskConical, lema: "Nuestras rutinas" },
   { key: "retos", label: "Retos", icon: Swords, lema: "La competición" },
 ];
@@ -65,6 +74,128 @@ export default function LaboratorioAbpPage() {
   const { jugadores, porId } = useJugadoresLab();
 
   const ocupado = estado === "guardando";
+
+  /*
+   * «En la pizarra»: la pizarra de ABP se LEE (para saber si cada jugada
+   * sigue allí y traer otras); no se escribe nunca desde aquí. Se lee al
+   * entrar en esa pestaña o al llegar desde la pizarra.
+   */
+  const [leePizarra, setLeePizarra] = useState(false);
+
+  const pizarra = usePizarraAbpLectura(leePizarra || pestana === "pizarra");
+
+  const releePizarra = pizarra.recarga;
+
+  const trae = useCallback(
+    async (
+      partidoId: string,
+      tablero: Pick<TableroPizarra, "rival" | "jornada"> & { slides?: SlidePizarra[] },
+      slide: SlidePizarra,
+      extra?: { fecha?: string; titulo?: string; jugadores?: [string, { nombre: string; dorsal?: number }][] },
+    ) => {
+      try {
+        const indice = tablero.slides?.findIndex((s) => s.id === slide.id) ?? -1;
+
+        const titulo = extra?.titulo ?? (tablero.slides && indice >= 0 ? tituloVisible(tablero.slides, indice) : undefined);
+
+        const jugadores = new Map(extra?.jugadores ?? slide.fichas.flatMap((f) => (porId.get(f.playerId) ? [[f.playerId, { nombre: porId.get(f.playerId)!.nombre, dorsal: porId.get(f.playerId)!.dorsal }] as const] : [])));
+
+        const rutina = await traeDeLaPizarra(doc.rutinas, guarda, {
+          slide,
+          partidoId,
+          rival: tablero.rival,
+          ...(tablero.jornada ? { jornada: tablero.jornada } : {}),
+          ...(extra?.fecha ? { fecha: extra.fecha } : {}),
+          ...(titulo ? { titulo } : {}),
+          jugadores,
+          ahora: new Date().toISOString(),
+        });
+
+        releePizarra();
+        setPestana("pizarra");
+
+        if (rutina) setBorrador({ ...rutina });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "No se ha podido traer la diapositiva");
+      }
+    },
+    [doc.rutinas, guarda, porId, releePizarra],
+  );
+
+  /*
+   * Llegada desde la pizarra: `?desdePizarra=<token>&partido=…&diapositiva=…`.
+   * Se espera a tener el laboratorio leído (para no duplicar una que ya está)
+   * y se procesa UNA vez. Si el recado no está —otro aparato—, la diapositiva
+   * se busca en el documento de la pizarra.
+   */
+  const llegada = useRef<{ token: string; partido: string; diapositiva: string } | null>(null);
+
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+
+    const partido = q.get("partido") ?? "";
+
+    const diapositiva = q.get("diapositiva") ?? "";
+
+    if (!partido || !diapositiva) return;
+
+    llegada.current = { token: q.get("desdePizarra") ?? "", partido, diapositiva };
+
+    window.history.replaceState(null, "", window.location.pathname);
+
+    void Promise.resolve().then(() => {
+      setPestana("pizarra");
+      setLeePizarra(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    const l = llegada.current;
+
+    if (!l || estado !== "listo") return;
+
+    const recado = l.token ? leeRecado(l.token, "traida") : null;
+
+    if (recado && recado.partidoId === l.partido && recado.slide.id === l.diapositiva) {
+      llegada.current = null;
+
+      void trae(recado.partidoId, { rival: recado.rival, jornada: recado.jornada }, recado.slide, { fecha: recado.fecha, titulo: recado.titulo, jugadores: recado.jugadores }).then(() =>
+        borraRecado(l.token),
+      );
+
+      return;
+    }
+
+    /* Sin recado: de la pizarra guardada, en cuanto se haya leído. */
+    if (!pizarra.tableros && !pizarra.error) return;
+
+    llegada.current = null;
+
+    const tablero = pizarra.tableros?.[l.partido];
+
+    const slide = tablero?.slides.find((s) => s.id === l.diapositiva);
+
+    if (!tablero || !slide) {
+      void Promise.resolve().then(() =>
+        toast.error("No se ha encontrado esa diapositiva en la pizarra", { description: "Puede que aún no se haya guardado: espera a que la pizarra diga «Guardado» y vuelve a pulsar «Abrir en el laboratorio»." }),
+      );
+
+      return;
+    }
+
+    void trae(l.partido, tablero, slide);
+  }, [estado, pizarra.tableros, pizarra.error, trae]);
+
+  /* Lo que la sección «En la pizarra» necesita del documento de la pizarra. */
+  const enPizarra = useMemo(
+    () => ({
+      tableros: pizarra.tableros,
+      error: pizarra.error,
+      recarga: pizarra.recarga,
+      onTrae: (partidoId: string, tablero: TableroPizarra, slide: SlidePizarra) => void trae(partidoId, tablero, slide),
+    }),
+    [pizarra.tableros, pizarra.error, pizarra.recarga, trae],
+  );
 
   /* Un enlace compartido (`#rutina=…`) abre esa rutina en el taller, como borrador sin guardar. */
   useEffect(() => {
@@ -108,7 +239,7 @@ export default function LaboratorioAbpPage() {
             />
 
             {/* ------------------------ PESTAÑAS ------------------------------ */}
-            <nav className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" aria-label="Secciones del laboratorio">
+            <nav className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Secciones del laboratorio">
               {PESTANAS.map((p) => {
                 const activa = p.key === pestana;
 
@@ -183,6 +314,20 @@ export default function LaboratorioAbpPage() {
                     setBorrador(b);
                     setPestana("taller");
                   }}
+                />
+              )}
+
+              {pestana === "pizarra" && (
+                <Taller
+                  rutinas={doc.rutinas}
+                  jugadores={jugadores}
+                  porId={porId}
+                  guarda={guarda}
+                  ocupado={ocupado}
+                  cargando={estado === "cargando"}
+                  abierto={borrador}
+                  setAbierto={setBorrador}
+                  enPizarra={enPizarra}
                 />
               )}
 

@@ -29,6 +29,7 @@ import {
   FlaskConical,
   GitBranch,
   Goal,
+  LayoutTemplate,
   Redo2,
   Undo2,
   Lightbulb,
@@ -50,6 +51,8 @@ import { Button, EmptyState, Field, Segmented, Select, TextArea, sePuedeDescarta
 import type { JugadorLab } from "@/components/abp-lab/comun";
 import { Comparador } from "@/components/abp-lab/Comparador";
 import { EncajeRival } from "@/components/abp-lab/EncajeRival";
+import { CabeceraEnLaPizarra, ChipPizarra, enviaALaPizarra, estadoEnPizarra, rotuloOrigen } from "@/components/abp-lab/EnLaPizarra";
+import type { SlidePizarra, TableroPizarra } from "@/lib/abp/pizarra";
 import { CODIGO_PAPEL, MiniPizarra, PizarraRutina } from "@/components/abp-lab/PizarraRutina";
 import { SelectorJugador, repartoPorAltura } from "@/components/abp-lab/SelectorJugador";
 import { defensaRivalDe, estructuraPara, type ContextoSim } from "@/components/abp-lab/useSimulacion";
@@ -181,6 +184,7 @@ export function Taller({
   cargando,
   abierto,
   setAbierto,
+  enPizarra,
 }: {
   rutinas: Rutina[];
   jugadores: JugadorLab[];
@@ -191,6 +195,16 @@ export function Taller({
   /** El borrador en el estudio (lo abre también «Al taller» desde Referentes). */
   abierto: Borrador | null;
   setAbierto: (b: Borrador | null) => void;
+  /**
+   * La sección «En la pizarra»: sólo las rutinas que vienen de la pizarra de
+   * ABP (y sus variantes), con lo que dice la pizarra de cada una.
+   */
+  enPizarra?: {
+    tableros: Record<string, TableroPizarra> | null;
+    error: boolean;
+    recarga: () => void;
+    onTrae: (partidoId: string, tablero: TableroPizarra, slide: SlidePizarra) => void;
+  };
 }) {
   const [filtroTipo, setFiltroTipo] = useState<TipoAbp | "todos">("todos");
 
@@ -199,6 +213,15 @@ export function Taller({
   const [busca, setBusca] = useState("");
 
   const [orden, setOrden] = useState<"recientes" | "nombre" | "xg">("recientes");
+
+  /* Lo que enseña esta sección: todo el taller, o sólo lo que viene de la pizarra (y sus variantes). */
+  const deLaSeccion = useMemo(() => (enPizarra ? rutinas.filter((r) => r.origen) : rutinas), [rutinas, enPizarra]);
+
+  /* Qué dice la pizarra de cada una (sólo en «En la pizarra»). */
+  const estadoDe = useMemo(
+    () => new Map(enPizarra ? deLaSeccion.map((r) => [r.id, estadoEnPizarra(r, enPizarra.tableros)] as const) : []),
+    [deLaSeccion, enPizarra],
+  );
 
   /* Lo que la pizarra sabe de fuera (alturas, xG de nuestros partidos, próximo rival): se lee una vez. */
   const { aereo, calibre, rival } = useContextoLab();
@@ -237,14 +260,14 @@ export function Taller({
     const alturaDe = (rol: Rol) => aereo.get(rol.jugador)?.altura ?? null;
 
     return proponer(
-      rutinas,
+      deLaSeccion,
       (r) => defensaRivalDe("proximo", r, ctx),
       calibre,
       alturaDe,
       (r) => estructuraPara(rival, r.tipo),
       (rol) => nombreParaFrase(porId.get(rol.jugador)?.nombre),
     ).slice(0, 4);
-  }, [rival, rutinas, aereo, calibre, ctx, porId]);
+  }, [rival, deLaSeccion, aereo, calibre, ctx, porId]);
 
   /* Comparar: se eligen dos tarjetas y se abren lado a lado. */
   const [comparando, setComparando] = useState(false);
@@ -260,23 +283,39 @@ export function Taller({
   const visibles = useMemo(() => {
     const q = normaliza(busca.trim());
 
-    const lista = rutinas.filter(
+    const lista = deLaSeccion.filter(
       (r) =>
         (filtroTipo === "todos" || r.tipo === filtroTipo) &&
         (!filtroEstado || r.estado === filtroEstado) &&
-        (!q || normaliza(`${r.nombre} ${r.idea} ${r.senal} ${r.variantes.join(" ")}`).includes(q)),
+        (!q || normaliza(`${r.nombre} ${r.idea} ${r.senal} ${r.variantes.join(" ")} ${r.origen ? rotuloOrigen(r.origen) : ""}`).includes(q)),
     );
 
-    if (orden === "nombre") return [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+    const ordenada =
+      orden === "nombre"
+        ? [...lista].sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+        : orden === "xg"
+          ? [...lista].sort((a, b) => (xgDe.get(b.id) ?? -1) - (xgDe.get(a.id) ?? -1))
+          : [...lista].sort((a, b) => (b.actualizadaEn ?? "").localeCompare(a.actualizadaEn ?? ""));
 
-    if (orden === "xg") return [...lista].sort((a, b) => (xgDe.get(b.id) ?? -1) - (xgDe.get(a.id) ?? -1));
+    if (!enPizarra) return ordenada;
 
-    return [...lista].sort((a, b) => (b.actualizadaEn ?? "").localeCompare(a.actualizadaEn ?? ""));
-  }, [rutinas, filtroTipo, filtroEstado, busca, orden, xgDe]);
+    /* En «En la pizarra» cada jugada va seguida de sus variantes, para leerlas como familia. */
+    const ids = new Set(ordenada.map((r) => r.id));
 
-  /* Una copia para empezar otra: sin id (es nueva), sin progreso ni usos; la variante recuerda de quién sale. */
-  const copiaDe = (r: Borrador, comoVariante: boolean): Borrador => ({
+    const madres = ordenada.filter((r) => !r.padre || !ids.has(r.padre));
+
+    return madres.flatMap((m) => [m, ...ordenada.filter((r) => r.padre === m.id && r.id !== m.id)]);
+  }, [deLaSeccion, filtroTipo, filtroEstado, busca, orden, xgDe, enPizarra]);
+
+  /*
+   * Una copia para empezar otra: sin id (es nueva), sin progreso ni usos; la
+   * variante recuerda de quién sale. Las dos se llevan lo guardado de la
+   * pizarra (puestos, rótulos, rivales), así vuelven a ella enteras; sólo la
+   * variante conserva el origen y sale con su madre en «En la pizarra».
+   */
+  const copiaDe = ({ origen, ...r }: Borrador, comoVariante: boolean): Borrador => ({
     ...r,
+    ...(comoVariante && origen ? { origen } : {}),
     id: undefined,
     nombre: comoVariante ? `${r.nombre} · variante` : `${r.nombre} (copia)`,
     estado: "idea",
@@ -287,10 +326,21 @@ export function Taller({
     ...(comoVariante && r.id ? { padre: r.padre ?? r.id } : {}),
   });
 
-  const porEstado = useMemo(() => ESTADOS.map((e) => ({ ...e, n: rutinas.filter((r) => r.estado === e.key).length })), [rutinas]);
+  const porEstado = useMemo(() => ESTADOS.map((e) => ({ ...e, n: deLaSeccion.filter((r) => r.estado === e.key).length })), [deLaSeccion]);
 
   return (
     <div className="space-y-5">
+      {enPizarra && (
+        <CabeceraEnLaPizarra
+          rutinas={rutinas}
+          tableros={enPizarra.tableros}
+          error={enPizarra.error}
+          ocupado={ocupado}
+          onTrae={enPizarra.onTrae}
+          onRecarga={enPizarra.recarga}
+        />
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Segmented
           ariaLabel="Tipo de balón parado"
@@ -299,7 +349,7 @@ export function Taller({
           options={[{ key: "todos" as const, label: "Todas" }, ...TIPOS.map((t) => ({ key: t.key, label: t.label }))]}
         />
         <div className="flex flex-wrap items-center gap-2">
-          {rutinas.length > 1 && (
+          {deLaSeccion.length > 1 && (
             <Button
               icon={Scale}
               onClick={() => {
@@ -311,9 +361,11 @@ export function Taller({
               {comparando ? "Dejar de comparar" : "Comparar"}
             </Button>
           )}
-          <Button tone="primary" icon={Plus} onClick={() => setAbierto(borradorVacio())}>
-            Nueva rutina
-          </Button>
+          {!enPizarra && (
+            <Button tone="primary" icon={Plus} onClick={() => setAbierto(borradorVacio())}>
+              Nueva rutina
+            </Button>
+          )}
         </div>
       </div>
 
@@ -337,7 +389,7 @@ export function Taller({
         </div>
       )}
 
-      {rutinas.length > 0 && (
+      {deLaSeccion.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <label className="relative min-w-0 flex-1 sm:max-w-xs">
             <span className="sr-only">Buscar rutina</span>
@@ -467,11 +519,13 @@ export function Taller({
         </div>
       ) : visibles.length === 0 ? (
         <EmptyState
-          title={rutinas.length ? "Ninguna rutina con ese filtro" : "El taller está vacío"}
+          title={deLaSeccion.length ? "Ninguna rutina con ese filtro" : enPizarra ? "Todavía no hay jugadas de la pizarra" : "El taller está vacío"}
           description={
-            rutinas.length
+            deLaSeccion.length
               ? "Quita el filtro o busca otra palabra."
-              : "Empieza una desde cero o lleva al taller una rutina de un referente: llega dibujada y lista para reproducir."
+              : enPizarra
+                ? "Tráelas desde aquí arriba o con «Abrir en el laboratorio» en cada diapositiva de la pizarra de ABP: llegan con sus jugadores, carreras y consignas."
+                : "Empieza una desde cero o lleva al taller una rutina de un referente: llega dibujada y lista para reproducir."
           }
         />
       ) : (
@@ -550,6 +604,43 @@ export function Taller({
                     {r.senal ? ` · señal «${r.senal}»` : ""}
                   </p>
                   {r.inspiracion && <p className="mt-1 truncate text-[11px] text-[#C8A96B]">Inspirada en {nombreInspiracion(r.inspiracion)}</p>}
+                  {r.origen && (
+                    <p className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-white/55">
+                      <LayoutTemplate size={11} className="shrink-0 text-[#C8A96B]" />
+                      <span className="min-w-0 truncate">
+                        De la pizarra · {rotuloOrigen(r.origen)}
+                      </span>
+                    </p>
+                  )}
+                  {enPizarra && estadoDe.get(r.id) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <ChipPizarra estado={estadoDe.get(r.id)!} />
+                      {(() => {
+                        const e = estadoDe.get(r.id)!;
+
+                        const tablero = r.origen ? enPizarra.tableros?.[r.origen.partidoId] : undefined;
+
+                        return e.estado === "cambiada" && tablero && r.origen && !r.padre ? (
+                          <button
+                            type="button"
+                            disabled={ocupado}
+                            onClick={() => enPizarra.onTrae(r.origen!.partidoId, tablero, e.slide)}
+                            className="rounded-full border border-white/12 px-2 py-0.5 text-[10.5px] font-semibold text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white disabled:opacity-50"
+                          >
+                            Traer lo nuevo
+                          </button>
+                        ) : null;
+                      })()}
+                      <button
+                        type="button"
+                        onClick={() => enviaALaPizarra(r)}
+                        className="rounded-full border border-white/12 px-2 py-0.5 text-[10.5px] font-semibold text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
+                        title="Como diapositiva nueva o sustituyendo una: se elige en la pizarra"
+                      >
+                        Enviar a la pizarra
+                      </button>
+                    </div>
+                  )}
                   {(padre || hijas > 0) && (
                     <p className="mt-1 flex items-center gap-1 truncate text-[11px] text-white/50">
                       <GitBranch size={11} className="shrink-0 text-[#C8A96B]" />
@@ -624,6 +715,7 @@ export function Taller({
           ctx={ctx}
           familia={rutinas.filter((r) => abierto.id && r.id !== abierto.id && ((abierto.padre && (r.id === abierto.padre || r.padre === abierto.padre)) || r.padre === abierto.id))}
           onAbre={(r) => setAbierto({ ...r })}
+          onAPizarra={enviaALaPizarra}
         />
       )}
     </div>
@@ -658,6 +750,7 @@ function Estudio({
   ctx,
   familia,
   onAbre,
+  onAPizarra,
 }: {
   inicial: Borrador;
   jugadores: JugadorLab[];
@@ -671,6 +764,8 @@ function Estudio({
   /** Las otras rutinas de su familia (la madre y sus variantes). */
   familia: Rutina[];
   onAbre: (r: Rutina) => void;
+  /** Deja la rutina tal y como está en pantalla para la pizarra de ABP (nueva o sustituyendo una). */
+  onAPizarra: (b: Borrador) => void;
 }) {
   /*
    * El borrador con deshacer y rehacer. La historia vive en refs y se apunta
@@ -790,6 +885,7 @@ function Estudio({
         <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)] sm:basis-auto">
           <p className="text-[9.5px] font-semibold uppercase tracking-[0.28em] text-[#C8A96B]">
             Taller · {etiqueta(TIPOS, b.tipo)} {b.lado === "ofensivo" ? "a favor" : "en contra"}
+            {b.origen ? ` · de la pizarra: ${rotuloOrigen(b.origen)}` : ""}
           </p>
           <input
             value={b.nombre}
@@ -815,6 +911,15 @@ function Estudio({
               <span className="hidden sm:inline">Borrar</span>
             </Button>
           )}
+          <Button
+            icon={LayoutTemplate}
+            onClick={() => onAPizarra(b)}
+            disabled={!b.roles.length}
+            title="Llévala a la pizarra de ABP con todos los jugadores, carreras y consignas: como diapositiva nueva o sustituyendo una (se elige allí). Va tal y como está en pantalla."
+            aria-label="Enviar a la pizarra"
+          >
+            <span className="hidden sm:inline">Enviar a la pizarra</span>
+          </Button>
           {b.id && (
             <Button icon={Copy} onClick={() => onDuplicar(b)} title="Copia esta rutina como punto de partida de otra" aria-label="Hacer una variante">
               <span className="hidden sm:inline">Hacer una variante</span>
@@ -837,6 +942,7 @@ function Estudio({
               onSelecciona={setElegido}
               ctx={ctx}
               textoTarea={textoDeTarea(b, porId)}
+              onAPizarra={b.roles.length ? () => onAPizarra(b) : undefined}
               onComparte={() => {
                 if (!b.nombre.trim()) {
                   toast.error("Ponle nombre a la rutina antes de compartirla");
