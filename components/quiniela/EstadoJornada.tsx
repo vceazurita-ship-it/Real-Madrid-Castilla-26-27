@@ -214,7 +214,7 @@ export function EstadoJornada({
         tono={cerrada ? "normal" : ultimasHoras ? "aviso" : "oro"}
         pie={
           cerrada
-            ? `${completas} de ${jugadores.length} han apostado: ya no se tocan`
+            ? `${completas} de ${jugadores.length} apostaron`
             : `Se cierra el ${cierre}`
         }
       />
@@ -307,9 +307,6 @@ export function EstadoJornada({
                 })()}
               </span>
 
-              <span className="shrink-0 text-[17px]">
-                {mejor.marcador.aciertos}
-              </span>
             </span>
           )
         }
@@ -330,7 +327,7 @@ export function EstadoJornada({
 
                 return `Con ${mejor.marcador.aciertos} de ${jugados}: ${nombres.join(", ")}${resto > 0 ? ` y ${resto} más` : ""}`;
               })()
-            :`${mejor.marcador.aciertos} de ${jugados}`
+            :`${mejor.marcador.aciertos} ${mejor.marcador.aciertos === 1 ? "acierto" : "aciertos"} de ${jugados}`
         }
       />
       )}

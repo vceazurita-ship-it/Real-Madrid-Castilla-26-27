@@ -286,8 +286,8 @@ export default function ApuestasPage() {
             {resueltas.length > 0 && (
               <div className="mt-5">
                 <Panel
-                  title="Resueltas"
-                  subtitle="Lo que ya se ha comprobado, de la última a la primera"
+                  title="Quién tenía razón"
+                  subtitle="Las apuestas ya comprobadas, de la última a la primera"
                   icon={CalendarCheck}
                 >
                   <div className="grid gap-3 lg:grid-cols-2">

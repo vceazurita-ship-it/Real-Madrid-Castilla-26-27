@@ -47,7 +47,7 @@ function tono(signo: Signo | null, resultado: Signo | null) {
 
 const COLOR_SIGNO: Record<Signo, string> = {
   "1": "rgb(200 169 107 / 0.85)",
-  X: "rgb(148 163 184 / 0.6)",
+  X: "rgb(148 163 184 / 0.85)",
   "2": "rgb(120 170 255 / 0.55)",
 };
 
@@ -117,7 +117,7 @@ export function Parrilla({
   return (
     <Panel
       title="Lo que ha puesto cada uno"
-      subtitle="Así votó cada uno la jornada"
+      subtitle={`Así votó cada uno la jornada ${jornada.jornada}`}
       icon={Users}
     >
       {/* La leyenda, arriba: se lee antes de la tabla, no después. */}
