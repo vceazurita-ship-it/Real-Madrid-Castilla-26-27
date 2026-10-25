@@ -114,7 +114,7 @@ function diferencia(d: number, formato: (n: number) => string, entrePorcentajes:
   if (Math.abs(d) < 0.05) return "igual";
 
   /* Entre dos porcentajes la diferencia son puntos, no un «% más». */
-  if (entrePorcentajes) return `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))} pts`;
+  if (entrePorcentajes) return `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))} puntos`;
 
   return `${d > 0 ? "+" : "−"}${formato(Math.abs(d))}`;
 }
@@ -241,7 +241,7 @@ export function ComparativaPartido({
                             {m.mejorAlto ? "▲ más es mejor" : "▼ menos es mejor"}
                           </span>
                         )}
-                        {m.mejorAlto === null && (
+                        {m.mejorAlto === null && !m.tendencia && (
                           <span className="font-medium">
                             {baseTexto || pie || indicio ? " · " : ""}
                             sin juicio
@@ -292,8 +292,8 @@ export function ComparativaPartido({
                     className={`text-right text-sm tabular-nums ${destaca ? "font-semibold" : "font-normal"}`}
                     style={{ color: colorDiferencia }}
                   >
-                    {m.tendencia
-                      ? ""
+                    {m.tendencia && d !== null
+                      ? diferencia(d, m.formatoDiferencia ?? formato, porcentaje)
                       : d === null
                       ? "—"
                       : sinPuntos

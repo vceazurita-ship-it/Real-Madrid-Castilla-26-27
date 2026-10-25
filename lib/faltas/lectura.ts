@@ -94,7 +94,7 @@ export function comparativaFaltas(partido: PartidoFaltas, partidos: PartidoFalta
   const anteriores = anterioresPorFecha(partidos, partido).map((p) => p.faltas);
   const cuenta = (condicion: (f: Falta) => boolean) => (faltas: Falta[]) => faltas.filter(condicion).length;
 
-  const metrica = (clave: string, nombre: string, condicion: (f: Falta) => boolean, mejorAlto: boolean | null, pie?: string): MetricaComparada => {
+  const metrica = (clave: string, nombre: string, condicion: (f: Falta) => boolean, mejorAlto: boolean | null, pie?: string, base?: (f: Falta) => boolean): MetricaComparada => {
     const actual = cuenta(condicion)(partido.faltas);
     const media = mediaPorPartido(anteriores, cuenta(condicion));
 
@@ -111,19 +111,20 @@ export function comparativaFaltas(partido: PartidoFaltas, partidos: PartidoFalta
       tendencia,
       mejorAlto: pocas ? null : mejorAlto,
       n: actual,
-      de: partido.faltas.length,
+      /* La base es el grupo propio (a favor o en contra), no el partido entero. */
+      de: base ? partido.faltas.filter(base).length : partido.faltas.length,
       unidad: "faltas",
-      pie: pocas ? `${pie} · muestra pequeña` : pie,
+      pie: pocas ? [pie, "muestra pequeña"].filter(Boolean).join(" · ") : pie,
     };
   };
 
   const metricas: MetricaComparada[] = [
     metrica("favor", "Faltas a favor", aFavor, null, "el volumen depende del estilo; lo que se juzga es dónde, en las filas de zona"),
-    metrica("contra", "Faltas en contra", enContra, false, "menos, mejor"),
-    metrica("favor-frontal", "A favor frontales", (f) => aFavor(f) && f.distancia === "frontal", true, "de cara a la portería rival · más, mejor"),
-    metrica("contra-frontal", "En contra frontales", (f) => enContra(f) && f.distancia === "frontal", false, "de cara a nuestra portería · menos, mejor"),
-    metrica("contra-nuestro", "En contra en nuestro campo", (f) => enContra(f) && sitioEnCampo(f).zona === "nuestro campo", false, "menos, mejor"),
-    metrica("favor-rival", "A favor en campo rival", (f) => aFavor(f) && sitioEnCampo(f).zona === "campo rival", true, "más, mejor"),
+    metrica("contra", "Faltas en contra", enContra, false),
+    metrica("favor-frontal", "A favor frontales", (f) => aFavor(f) && f.distancia === "frontal", true, "de cara a la portería rival", aFavor),
+    metrica("contra-frontal", "En contra frontales", (f) => enContra(f) && f.distancia === "frontal", false, "de cara a nuestra portería", enContra),
+    metrica("contra-nuestro", "En contra en nuestro campo", (f) => enContra(f) && sitioEnCampo(f).zona === "nuestro campo", false, undefined, enContra),
+    metrica("favor-rival", "A favor en campo rival", (f) => aFavor(f) && sitioEnCampo(f).zona === "campo rival", true, undefined, aFavor),
   ];
 
   /* Entre partidos se promedian las medias (una por partido): cómo fue este frente a uno típico. */
@@ -134,8 +135,8 @@ export function comparativaFaltas(partido: PartidoFaltas, partidos: PartidoFalta
     if (actual !== null || medias.length > 0) metricas.push({ clave, nombre, actual, media: mediaDe(medias), formato: decimal, mejorAlto, pie });
   };
 
-  conDefensores("defensores", "Defensores por delante (a favor)", aFavor, false, "entre la falta y la portería, portero incluido · menos, mejor");
-  conDefensores("defensores-contra", "Defensores por delante (en contra)", enContra, null, "los nuestros entre la falta y nuestra portería · sin juicio");
+  conDefensores("defensores", "Defensores por delante (a favor)", aFavor, false, "entre la falta y la portería, portero incluido");
+  conDefensores("defensores-contra", "Defensores por delante (en contra)", enContra, null, "los nuestros entre la falta y nuestra portería");
 
   return { partido: `${partido.jornada} · ${partido.rival}`, anteriores: anteriores.length, metricas };
 }

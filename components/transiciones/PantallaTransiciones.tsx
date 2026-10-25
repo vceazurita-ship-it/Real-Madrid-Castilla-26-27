@@ -960,7 +960,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? true : false,
-        pie: `${llegan(seguidas(actuales))} de ${seguidas(actuales).length} con desenlace anotado${pequena(seguidas(actuales).length)} ·${robosMode ? "más, mejor" : "menos, mejor"}`,
+        pie: `${llegan(seguidas(actuales))} de ${seguidas(actuales).length} con desenlace anotado${pequena(seguidas(actuales).length)} · ${robosMode ? "más, mejor" : "menos, mejor"}`,
       },
       {
         clave: "cortas",
@@ -970,7 +970,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? false : true,
-        pie: `${cortas(seguidas(actuales))} de ${seguidas(actuales).length} con desenlace anotado${pequena(seguidas(actuales).length)} ·${robosMode ? "menos, mejor" : "más, mejor"}`,
+        pie: `${cortas(seguidas(actuales))} de ${seguidas(actuales).length} con desenlace anotado${pequena(seguidas(actuales).length)} · ${robosMode ? "menos, mejor" : "más, mejor"}`,
       },
       {
         clave: "campo",

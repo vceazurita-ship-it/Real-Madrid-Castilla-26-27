@@ -71,6 +71,27 @@ function GraficaPuntos({
         {jugados.map((u, i) => (
           <circle key={u.jornada} cx={x(i)} cy={y(u.acumulados)} r={3.5} fill="#C8A96B" />
         ))}
+        {/* Rótulos directos en el último punto de cada línea. */}
+        {(() => {
+          const i = jugados.length - 1;
+          const ultimo = jugados[i];
+          const media = liga.get(ultimo.jornada);
+          const encima = media === undefined || ultimo.acumulados >= media;
+          const fmt = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
+
+          return (
+            <>
+              <text x={x(i)} y={y(ultimo.acumulados) + (encima ? -9 : 15)} textAnchor="end" fontSize={11} fontWeight={600} fill="#C8A96B">
+                Castilla {fmt(ultimo.acumulados)}
+              </text>
+              {media !== undefined ? (
+                <text x={x(i)} y={y(media) + (encima ? 15 : -9)} textAnchor="end" fontSize={11} fill="currentColor" fillOpacity={0.7}>
+                  Media liga {fmt(media)}
+                </text>
+              ) : null}
+            </>
+          );
+        })()}
       </svg>
       <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-white/70">
         <span className="inline-flex items-center gap-1.5">
@@ -393,7 +414,7 @@ useEffect(() => {
             {tabla ? (
               <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {[
-                  ["Puesto", `${tabla.puesto}º de ${tabla.deCuantos}`],
+                  ["Puesto", `${tabla.puesto}º de ${tabla.deCuantos} · tendencia, tras ${tabla.jugados} jornadas`],
                   [
                     "Puntos",
                     `${tabla.puntos} en ${tabla.jugados} partidos${tabla.jugados > 0 ? ` · ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por partido${liga.mediaPuntos !== null ? ` · liga ${liga.mediaPuntos.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} · más, mejor` : ""}` : ""}`,
@@ -437,6 +458,7 @@ useEffect(() => {
                         <th className="px-4 py-3 text-center font-medium">Resultado</th>
                         <th className="px-4 py-3 text-right font-medium">Puntos</th>
                         <th className="px-4 py-3 text-right font-medium">Acumulados</th>
+                        {liga.acumuladaLiga.size > 0 ? <th className="px-4 py-3 text-right font-medium">Media liga</th> : null}
                         {conPuesto ? <th className="px-4 py-3 text-right font-medium">Puesto</th> : null}
                       </tr>
                     </thead>
@@ -468,6 +490,11 @@ useEffect(() => {
                           </td>
                           <td className="px-4 py-2.5 text-right">{uno.puntos}</td>
                           <td className="px-4 py-2.5 text-right font-semibold">{uno.acumulados}</td>
+                          {liga.acumuladaLiga.size > 0 ? (
+                            <td className="px-4 py-2.5 text-right">
+                              {liga.acumuladaLiga.has(uno.jornada) ? liga.acumuladaLiga.get(uno.jornada)!.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : ""}
+                            </td>
+                          ) : null}
                           {conPuesto ? (
                             <td className="px-4 py-2.5 text-right">{liga.puestos.get(uno.jornada)}º</td>
                           ) : null}
@@ -483,7 +510,7 @@ useEffect(() => {
                           {golesTabla.favor}-{golesTabla.contra}
                         </td>
                         <td className="px-4 py-2.5 text-right">{golesTabla.puntos}</td>
-                        <td className="px-4 py-2.5" colSpan={conPuesto ? 2 : 1} />
+                        <td className="px-4 py-2.5" colSpan={(conPuesto ? 1 : 0) + (liga.acumuladaLiga.size > 0 ? 1 : 0) + 1} />
                       </tr>
                     </tfoot>
                   </table>
