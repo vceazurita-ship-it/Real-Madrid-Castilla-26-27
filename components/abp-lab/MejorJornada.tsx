@@ -17,9 +17,11 @@
  */
 
 import { useMemo, useState } from "react";
-import { FlaskConical, PlayCircle, Target } from "lucide-react";
+import { FlaskConical, Target } from "lucide-react";
 
 import { Notice } from "@/components/abp/ui";
+import { ClipAccion } from "@/components/abp-lab/ClipAccion";
+import { Patrones } from "@/components/abp-lab/Patrones";
 import type { JugadorLab } from "@/components/abp-lab/comun";
 import { MiniPizarra } from "@/components/abp-lab/PizarraRutina";
 import { borradorVacio, type Borrador } from "@/components/abp-lab/Taller";
@@ -33,7 +35,6 @@ import {
   relatoDe,
   rutinaDeAccion,
   ultimaJornada,
-  videoDe,
   xgTexto,
   zonaDe,
   type Accion,
@@ -90,8 +91,6 @@ function Tarjeta({
 
   const directo = a.t === "directa" || a.t === "penalti";
 
-  const video = videoDe(a, competicion);
-
   const zona = caida && !directo ? ZONA_TEXTO[zonaDe(caida, saque)] : "";
 
   const alTaller = () =>
@@ -127,9 +126,6 @@ function Tarjeta({
             {a.eq ?? a.p}
             {a.rival && <span className="font-normal text-white/50"> ante {a.rival}</span>}
           </p>
-          <p className="truncate text-[11px] text-white/50">
-            {a.p} · {fecha(a.fecha)} · min {a.min}&apos;
-          </p>
         </div>
 
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-[12px]">
@@ -162,23 +158,12 @@ function Tarjeta({
           )}
         </dl>
 
-        <div className={`mt-auto grid gap-2 ${video ? "grid-cols-2" : "grid-cols-1"}`}>
-          {video && (
-            <a
-              href={video.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={`${video.etiqueta} en YouTube${video.canal ? ` · ${video.canal}` : ""}`}
-              className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] font-semibold text-white/80 transition hover:bg-white/[0.08]"
-            >
-              <PlayCircle size={14} className="shrink-0" />
-              <span className="truncate">{video.etiqueta}</span>
-            </a>
-          )}
+        <div className="mt-auto space-y-2">
+          <ClipAccion accion={a} competicion={competicion.nombre} jornada={jornada.etiqueta} videos={competicion.videos} />
           <button
             type="button"
             onClick={alTaller}
-            className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-white/[0.08]"
+            className="inline-flex w-full min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-white/[0.08]"
           >
             <FlaskConical size={14} className="shrink-0" />
             Al taller
@@ -195,6 +180,8 @@ export function MejorJornada({ onAlTaller }: { onAlTaller: (b: Borrador) => void
   const [slug, setSlug] = useState<string | null>(null);
 
   const [indice, setIndice] = useState<number | null>(null);
+
+  const [vista, setVista] = useState<"top" | "patrones">("top");
 
   const competiciones = (datos?.competiciones ?? []).filter((c) => c.jornadas.length);
 
@@ -236,6 +223,32 @@ export function MejorJornada({ onAlTaller }: { onAlTaller: (b: Borrador) => void
         <p className="mt-1 text-[13px] text-white/55">Las cinco mejores acciones a balón parado de cada jornada, según Wyscout: goles primero y luego por xG. Llévate la que te guste al taller.</p>
       </div>
 
+      <div className="flex min-w-0 flex-wrap gap-1.5" role="tablist" aria-label="Vista">
+        {(
+          [
+            ["top", "Lo mejor de cada jornada"],
+            ["patrones", "Patrones que más rinden"],
+          ] as const
+        ).map(([k, etiqueta]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={vista === k}
+            onClick={() => setVista(k)}
+            className={`rounded-xl border px-3 py-2 text-[13px] font-semibold transition ${
+              vista === k ? "border-[#C8A96B]/60 bg-[#C8A96B]/10 text-[#C8A96B]" : "border-white/10 bg-white/[0.03] text-white/65 hover:bg-white/[0.06]"
+            }`}
+          >
+            {etiqueta}
+          </button>
+        ))}
+      </div>
+
+      {vista === "patrones" && <Patrones onAlTaller={onAlTaller} />}
+
+      {vista === "top" && (
+        <>
       <div className="-mx-1 flex min-w-0 gap-1.5 overflow-x-auto px-1 pb-1" role="tablist" aria-label="Competición">
         {competiciones.map((c) => {
           const activa = c.slug === comp.slug;
@@ -287,6 +300,8 @@ export function MejorJornada({ onAlTaller }: { onAlTaller: (b: Borrador) => void
             <Tarjeta key={`${a.id}-${a.seg}-${k}`} accion={a} puesto={k + 1} competicion={comp} jornada={jornada} onAlTaller={onAlTaller} />
           ))}
         </div>
+      )}
+        </>
       )}
     </section>
   );

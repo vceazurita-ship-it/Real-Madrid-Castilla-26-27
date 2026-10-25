@@ -9,6 +9,43 @@
 import { useEffect, useState } from "react";
 
 import type { AbpAcciones } from "@/lib/abp-lab/acciones";
+import type { AbpTodas } from "@/lib/abp-lab/patrones";
+
+let todasEnVuelo: Promise<AbpTodas> | null = null;
+
+const traeTodas = () => {
+  todasEnVuelo ??= fetch("/data/abp-acciones-todas.json", { cache: "no-store" })
+    .then((r) => (r.ok ? (r.json() as Promise<AbpTodas>) : Promise.reject(new Error(String(r.status)))))
+    .catch((error) => {
+      todasEnVuelo = null;
+
+      throw error;
+    });
+
+  return todasEnVuelo;
+};
+
+/** TODAS las acciones (para «Patrones que más rinden»): sólo se piden si `activo`. */
+export function useAbpTodas(activo: boolean) {
+  const [datos, setDatos] = useState<AbpTodas | null>(null);
+  const [fallo, setFallo] = useState(false);
+
+  useEffect(() => {
+    if (!activo) return;
+
+    let vivo = true;
+
+    traeTodas()
+      .then((j) => vivo && setDatos(j))
+      .catch(() => vivo && setFallo(true));
+
+    return () => {
+      vivo = false;
+    };
+  }, [activo]);
+
+  return { datos, fallo };
+}
 
 let enVuelo: Promise<AbpAcciones> | null = null;
 

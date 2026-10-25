@@ -222,7 +222,7 @@ export function relatoDe(a: Accion, competicion: string, jornada: string) {
  * resumen oficial del partido en YouTube; con `vt`, en el segundo de la acción.
  * Sin resumen encontrado no hay vídeo (y no se enseña el botón).
  */
-export function videoDe(a: Accion, c: CompeticionAcciones): { url: string; etiqueta: string; canal: string } | null {
+export function videoDe(a: Accion, c: Pick<CompeticionAcciones, "videos">): { url: string; etiqueta: string; canal: string } | null {
   const v = c.videos?.[a.id];
 
   if (!v || !/^[\w-]{11}$/.test(v.v)) return null;
@@ -235,6 +235,24 @@ export function videoDe(a: Accion, c: CompeticionAcciones): { url: string; etiqu
     canal: v.c,
   };
 }
+
+/** «58:47»: los segundos de partido que trae Wyscout. */
+export const mmss = (seg: number) => `${Math.floor(seg / 60)}:${String(Math.round(seg % 60)).padStart(2, "0")}`;
+
+/** «Antequera - Ibiza 3-2» → nombre y marcador por separado. */
+export function partidoSinMarcador(p: string) {
+  const m = p.match(/^(.*?)\s+(\d+-\d+)\s*$/);
+
+  return m ? { nombre: m[1], marcador: m[2] } : { nombre: p, marcador: "" };
+}
+
+/** «Antequera - Ibiza · Jornada 1 · min 54' (58:47) · Córner»: lo que se pega en el buscador de Wyscout. */
+export function textoParaBuscar(a: Accion, jornada: string) {
+  return `${partidoSinMarcador(a.p).nombre} · ${jornada} · min ${a.min}' (${mmss(a.seg)}) · ${TIPO_ACCION[a.t]}`;
+}
+
+/** «12:03» del resumen de YouTube, sólo si consta. */
+export const tiempoVideo = (a: Accion) => (typeof a.vt === "number" && a.vt >= 0 ? mmss(a.vt) : "");
 
 /** La jornada que se abre por defecto: la última con acciones. */
 export function ultimaJornada(c: CompeticionAcciones) {

@@ -32,11 +32,17 @@ const path = require("node:path");
 
 const RAIZ = path.join(__dirname, "..");
 
-const ORIGEN = path.join(RAIZ, ".cache", "wyscout", "abp-acciones");
+/* La caché de Wyscout vive en el repositorio principal; en un worktree se apunta con ABP_CACHE_RAIZ. */
+const RAIZ_CACHE = process.env.ABP_CACHE_RAIZ || RAIZ;
 
-const VIDEOS = path.join(RAIZ, ".cache", "abp-videos");
+const ORIGEN = path.join(RAIZ_CACHE, ".cache", "wyscout", "abp-acciones");
+
+const VIDEOS = path.join(RAIZ_CACHE, ".cache", "abp-videos");
 
 const SALIDA = path.join(RAIZ, "public", "data", "abp-acciones.json");
+
+/** TODAS las acciones (para «Patrones que más rinden»), en un JSON aparte que sólo se pide al abrir esa vista. */
+const SALIDA_TODAS = path.join(RAIZ, "public", "data", "abp-acciones-todas.json");
 
 /** Cuántas por jornada. */
 const TOP = 5;
@@ -311,6 +317,11 @@ function competicion(def) {
   /** Id del partido → { v: id de YouTube, c: canal }. */
   const videos = {};
 
+  /** Todas las acciones, con el partido en una tabla aparte. */
+  const todas = [];
+
+  const tabla = {};
+
   let partidos = 0;
 
   for (const f of fs.readdirSync(dir)) {
@@ -352,10 +363,14 @@ function competicion(def) {
 
     if (resumen && resumen.id) videos[String(p.id)] = { v: resumen.id, c: resumen.canal || "" };
 
+    if (acciones.length) tabla[String(p.id)] = { p: titulo, f: fecha, j: p.jornada ? `Jornada ${p.jornada}` : `Partidos del ${fecha.slice(8, 10)}/${fecha.slice(5, 7)}` };
+
     for (const a of acciones) {
       const vt = resumen ? segundoDe(a, resumen.marcas, acciones) : null;
 
       j.acciones.push({ ...a, p: titulo, id: String(p.id), fecha, ...(vt !== null ? { vt } : {}) });
+
+      todas.push({ ...a, id: String(p.id), ...(vt !== null ? { vt } : {}) });
     }
   }
 
@@ -398,6 +413,7 @@ function competicion(def) {
     conVideo: Object.keys(videos).length,
     jornadas: lista,
     videos: suyos,
+    todas: { slug: def.slug, corto: def.corto, nombre: def.nombre, partidos: tabla, videos, acciones: todas },
   };
 }
 
@@ -432,11 +448,30 @@ function principal() {
     return;
   }
 
+  const todasComp = competiciones.map((c) => c.todas).filter(Boolean);
+
+  const anteriorTodas = leeJson(SALIDA_TODAS);
+
+  for (const c of competiciones) delete c.todas;
+
+  /* Una competición sin carpeta conserva sus acciones de antes. */
+  for (const def of COMPETICIONES) {
+    if (todasComp.some((t) => t.slug === def.slug)) continue;
+
+    const vieja = anteriorTodas && Array.isArray(anteriorTodas.competiciones) ? anteriorTodas.competiciones.find((t) => t.slug === def.slug) : null;
+
+    if (vieja) todasComp.push(vieja);
+  }
+
+  todasComp.sort((a, b) => COMPETICIONES.findIndex((d) => d.slug === a.slug) - COMPETICIONES.findIndex((d) => d.slug === b.slug));
+
   const salida = { generado: new Date().toISOString(), temporada: "2026/2027", competiciones };
 
   fs.mkdirSync(path.dirname(SALIDA), { recursive: true });
 
   fs.writeFileSync(SALIDA, JSON.stringify(salida), "utf8");
+
+  fs.writeFileSync(SALIDA_TODAS, JSON.stringify({ generado: salida.generado, temporada: salida.temporada, competiciones: todasComp }), "utf8");
 
   const kb = Math.round(fs.statSync(SALIDA).size / 1024);
 
