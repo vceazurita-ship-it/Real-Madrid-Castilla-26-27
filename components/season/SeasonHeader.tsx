@@ -87,7 +87,7 @@ export default function SeasonHeader({
               {weekHasFiles(currentWeek)
                 ? `${currentWeek.week} ya tiene material.`
                 : ultimaConMaterial
-                  ? `Sin material esta semana. Lo último, en la ${ultimaConMaterial.week.toLowerCase()}.`
+                  ? `Lo último subido, en la ${ultimaConMaterial.week.toLowerCase()}.`
                   : ""}{" "}
               <span className="text-sm font-normal text-white/50">
                 {stats.completed} de {stats.totalWeeks}{" "}

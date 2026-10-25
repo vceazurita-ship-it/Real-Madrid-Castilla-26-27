@@ -176,7 +176,7 @@ export function ProximoPartido() {
   /* «sáb 10 y dom 11», para el pie de la tira. */
   const libresEnTexto = (() => {
     const nombres = semana
-      .filter((dia) => libres.has(dia.fecha))
+      .filter((dia) => libres.has(dia.fecha) && (!hoy || dia.fecha >= hoy))
       .map((dia) => `${dia.nombre.slice(0, 3)} ${Number(dia.fecha.slice(8, 10))}`);
 
     if (nombres.length <= 1) return nombres.join("");
@@ -308,9 +308,11 @@ export function ProximoPartido() {
                   {/* Con clases y no con un color fijo: en modo día el dorado
                       claro sobre fondo claro no se veía, y la tabla de
                       `globals.css` sí sabe oscurecer `text-[#F7D98B]`. */}
+                  {!(diaDeHoy && cuantoFalta(proximo.cuando, ahora) === "hoy") && (
                   <span className="ml-1 inline-flex items-center rounded-lg border border-[#D8B45A]/60 bg-[#D8B45A]/15 px-3 py-1 text-[13px] font-bold uppercase tracking-[0.18em] text-[#F7D98B] shadow-[0_0_24px_rgba(216,180,90,0.25)]">
                     {cuantoFalta(proximo.cuando, ahora)}
                   </span>
+                  )}
                 </p>
               </>
             ) : calendarioTarda && partidos.length === 0 ? (
@@ -452,19 +454,12 @@ export function ProximoPartido() {
             {/* «Libre: sáb 10 y dom 11 · Último: Antequera CF 3-2 (V)». Los
                 libres salen del microciclo escrito en la hoja; mientras no se
                 escriba, se avisa de que son una propuesta. */}
-            {(conTarea !== null || anterior) && (
+            {((conTarea !== null && libresEnTexto) || anterior) && (
               <p className="mt-2 text-[11px] text-white/40">
-                {conTarea !== null && (
-                  <>
-                    {libresEnTexto ? <>Libre: {libresEnTexto}</> : <>Sin día libre</>}
-                    {!delMicro && libresEnTexto && (
-                      <span className="text-white/30"> (propuesto, sin microciclo aún)</span>
-                    )}
-                  </>
-                )}
+                {conTarea !== null && libresEnTexto && <>Libre: {libresEnTexto}</>}
                 {anterior && (
                   <>
-                    {conTarea !== null && " · "}
+                    {conTarea !== null && libresEnTexto && " · "}
                     Último:{" "}
                     <span className="text-white/60">
                       {anterior.lado === "casa" ? "" : "en "}

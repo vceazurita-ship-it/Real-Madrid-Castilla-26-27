@@ -328,7 +328,7 @@ export function Parrilla({
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-white/50">
-        · = no apostó · copa = el que más acertó.
+        Casilla vacía: no apostó. Copa: el que más acertó en la jornada.
       </p>
     </Panel>
   );

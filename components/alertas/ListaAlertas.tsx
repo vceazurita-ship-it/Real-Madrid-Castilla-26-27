@@ -177,7 +177,7 @@ export default function ListaAlertas({
 
             {/* ------------------- DATOS ------------------- */}
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px] text-white/40">
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-white/50">
               <span className="inline-flex items-center gap-1.5">
                 <AlarmClock className="h-3 w-3" aria-hidden />
                 {!alerta.activa
@@ -199,7 +199,7 @@ export default function ListaAlertas({
                       if (saldria)
                         return (
                           <>
-                            Silenciada · si la reactivas, saldrá{" "}
+                            Saldría el{" "}
                             <b className="font-semibold text-white/80">
                               {fechaLegible(saldria.cuando.toISOString())}
                             </b>
@@ -209,7 +209,7 @@ export default function ListaAlertas({
                       if (futura)
                         return (
                           <>
-                            Silenciada · si la reactivas, sonará{" "}
+                            Saldría el{" "}
                             <b className="font-semibold text-white/80">
                               {fechaLegible(alerta.proximoEnvio)}
                             </b>
@@ -315,7 +315,7 @@ export default function ListaAlertas({
                 type="button"
                 onClick={() => onEditar(alerta)}
                 disabled={bloqueada}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 sm:px-3"
               >
                 <Pencil className="h-3.5 w-3.5" aria-hidden />
                 Editar
@@ -326,7 +326,7 @@ export default function ListaAlertas({
                   type="button"
                   onClick={() => onAlternarActiva(alerta)}
                   disabled={bloqueada}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B]/15 px-3 py-1.5 text-xs font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/25 disabled:opacity-40"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B]/15 px-2.5 py-1.5 text-xs font-medium sm:px-3 text-[#C8A96B] transition hover:bg-[#C8A96B]/25 disabled:opacity-40"
                 >
                   <BellRing className="h-3.5 w-3.5" aria-hidden />
                   Reactivar
@@ -337,7 +337,7 @@ export default function ListaAlertas({
                 type="button"
                 onClick={() => onEnviarAhora(alerta)}
                 disabled={bloqueada}
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40 sm:px-3"
               >
                 <Send className="h-3.5 w-3.5" aria-hidden />
                 Enviar ahora
@@ -347,7 +347,7 @@ export default function ListaAlertas({
                 type="button"
                 onClick={() => setBorrando(alerta.id)}
                 disabled={bloqueada}
-                className="ml-auto inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-red-300/80 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
+                className="ml-auto inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs text-red-300/80 sm:px-3 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
               >
                 <Trash2 className="h-3.5 w-3.5" aria-hidden />
                 Borrar

@@ -303,12 +303,12 @@ export default function GestorAlertas() {
           <p>
             <b className="font-semibold">
               {alertas.length === 1
-                ? "No saldrá ningún aviso hasta reactivar la tarea."
-                : `No saldrá ningún aviso: las ${alertas.length} tareas están silenciadas.`}
+                ? "La tarea está silenciada: no saldrá ningún correo."
+                : `Las ${alertas.length} tareas están silenciadas: no saldrá ningún correo.`}
             </b>
             {primeraAlReactivar && (
               <>
-                {" "}El primero, {fechaLegible(primeraAlReactivar.cuando.toISOString())}.
+                {" "}Si las reactivas, el primero saldría el {fechaLegible(primeraAlReactivar.cuando.toISOString())}.
               </>
             )}
           </p>

@@ -68,6 +68,14 @@ export default function WeekPanel({
   const images = useMemo(() => week?.images ?? [], [week]);
   const pdfs = useMemo(() => week?.pdfs ?? [], [week]);
 
+  /* «Lo último subido» sólo si es del tipo de la pestaña abierta. */
+  const hayUltimo =
+    tab !== "upload" &&
+    images.length + pdfs.length === 0 &&
+    !!ultimaConArchivos &&
+    !!onSelectWeek &&
+    ((tab === "images" ? ultimaConArchivos.images : ultimaConArchivos.pdfs) ?? []).length > 0;
+
   // Al cambiar de semana volvemos a la pestaña con contenido más relevante.
   // Se ajusta durante el render para no encadenar un repintado extra.
   const [lastWeekId, setLastWeekId] = useState(week?.id ?? null);
@@ -308,7 +316,7 @@ export default function WeekPanel({
       {/* CONTENIDO */}
 
       <div className="p-6 sm:p-8">
-        {tab !== "upload" && images.length + pdfs.length === 0 && ultimaConArchivos && onSelectWeek && (
+        {hayUltimo && ultimaConArchivos && onSelectWeek && (
           <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <p className="mb-3 text-xs uppercase tracking-wider text-white/45">
               Lo último subido · {ultimaConArchivos.week}
@@ -348,6 +356,7 @@ export default function WeekPanel({
               icon={<ImageIcon size={34} />}
               title="Sin imágenes en esta semana"
               action="Subir imágenes"
+              compacto={hayUltimo}
               onAction={() => setTab("upload")}
             />
           ) : (
@@ -400,6 +409,7 @@ export default function WeekPanel({
               icon={<FileText size={34} />}
               title="Sin documentos en esta semana"
               action="Subir PDFs"
+              compacto={hayUltimo}
               onAction={() => setTab("upload")}
             />
           ) : (
@@ -471,13 +481,27 @@ function EmptyState({
   action,
   onAction,
   alternativa,
+  compacto,
 }: {
   icon: React.ReactNode;
   title: string;
   action: string;
   onAction: () => void;
   alternativa?: { texto: string; onClick: () => void };
+  compacto?: boolean;
 }) {
+  if (compacto)
+    return (
+      <button
+        type="button"
+        onClick={onAction}
+        className="inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+      >
+        <UploadCloud size={16} />
+        {action}
+      </button>
+    );
+
   return (
     <div className="flex flex-col items-center rounded-2xl border border-dashed border-white/10 px-6 py-14 text-center">
       <div className="text-white/20">{icon}</div>
