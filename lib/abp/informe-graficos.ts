@@ -1757,7 +1757,9 @@ export type AreaGrafico =
   | "contenidos"
   | "seguimiento"
   /** Las láminas del análisis del rival que se ha preparado para la semana. */
-  | "rival";
+  | "rival"
+  /** Las diapositivas de la pizarra de ABP de ese partido (25/10/2026). */
+  | "pizarra";
 
 export type GraficoInforme = {
   /** El identificador con el que el correo lo llama: `src="cid:…"`. */

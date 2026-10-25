@@ -4495,9 +4495,28 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
       }
     : null;
 
+  /*
+  | La pizarra de ABP del partido (25/10/2026): las diapositivas de
+  | `/abp-pizarra` tal y como se proyectan. En la previa es lo que se va a
+  | contar en la charla; en el post, con lo que fuimos al partido, para leerlo
+  | al lado de lo que pasó.
+  */
+  const laminasPizarra = informe.graficos.filter((grafico) => grafico.area === "pizarra");
+
+  const pizarra: Seccion | null = laminasPizarra.length
+    ? {
+        titulo: esPost ? "La pizarra con la que fuimos al partido" : "La pizarra del partido",
+        pie: esPost
+          ? "Las diapositivas de la pizarra de balón parado de esta jornada, para compararlas con lo que pasó."
+          : "Las diapositivas de la pizarra de balón parado de esta jornada, tal y como se proyectan en la charla.",
+        html: graficos("pizarra"),
+        texto: laminasPizarra.map((grafico) => `- ${grafico.titulo}`),
+      }
+    : null;
+
   const orden: (Seccion | null)[] = esPost
-    ? [claves, partido, faltas, rival, cruce, valoracion, tiempo, semana, apuntes, acumulado, equipo, categoria, seguimiento, cierre]
-    : [claves, prioridades, tiempo, semana, valoracion, rival, suBalonParado, emparejamientos, cierre, apuntes, categoria, acumulado, seguimiento];
+    ? [claves, partido, faltas, pizarra, rival, cruce, valoracion, tiempo, semana, apuntes, acumulado, equipo, categoria, seguimiento, cierre]
+    : [claves, prioridades, tiempo, semana, valoracion, rival, suBalonParado, emparejamientos, pizarra, cierre, apuntes, categoria, acumulado, seguimiento];
 
   orden.forEach((una) => {
     if (una) mete(una);

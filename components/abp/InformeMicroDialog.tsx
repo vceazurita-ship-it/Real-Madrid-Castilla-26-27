@@ -38,6 +38,7 @@ import { traeJson } from "@/lib/hojaCsv";
 import { teamKey } from "@/lib/abp/model";
 import { normalizarOnce, rivalOnceKey } from "@/lib/rivals/once";
 import { useAnalisisRivalInforme } from "@/hooks/useAnalisisRivalInforme";
+import { usePizarraInforme } from "@/components/abp/PizarraInforme";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
 import { Destinatarios } from "@/components/correo/Destinatarios";
@@ -254,6 +255,17 @@ async function imagenesQueCaben(informe: InformeMicro, tope: number) {
       avisos.push("Las páginas de los PDF del rival no caben: van como enlace a cada PDF.");
 
       graficos = sinPdf;
+    }
+  }
+
+  /* Después, la pizarra: se abre en la app, y nueve diapositivas echarían a los gráficos. */
+  if (peso(graficos) >= tope) {
+    const sinPizarra = graficos.filter((grafico) => grafico.area !== "pizarra");
+
+    if (sinPizarra.length < graficos.length) {
+      avisos.push("La pizarra del partido no cabe: se ve en la pizarra de ABP de la app.");
+
+      graficos = sinPizarra;
     }
   }
 
@@ -785,6 +797,13 @@ export function InformeMicroDialog({
      van como un gráfico más y sus conclusiones, en su propia sección. */
   const rivalInforme = useAnalisisRivalInforme(datos.rival);
 
+  /* La pizarra de ABP de ese partido, en la previa y en el post (25/10/2026). */
+  const pizarraInforme = usePizarraInforme(
+    datos.partidoCalendario?.rival || datos.rival || "",
+    datos.partidoCalendario?.jornada ?? null,
+    players,
+  );
+
   /*
   | La segunda vuelta, ya con los dibujos y con lo del rival: sus conclusiones
   | entran en las claves de la previa, así que no basta con pegarlas al final.
@@ -797,9 +816,12 @@ export function InformeMicroDialog({
       construyeInforme({
         ...base,
         rivalAnalisis: rivalInforme.cargando ? undefined : rivalInforme.rivalAnalisis,
-        graficos: modo === "post" ? graficos : [...graficos, ...rivalInforme.graficos],
+        graficos:
+          modo === "post"
+            ? [...graficos, ...pizarraInforme.graficos]
+            : [...graficos, ...rivalInforme.graficos, ...pizarraInforme.graficos],
       }),
-    [base, graficos, rivalInforme, modo],
+    [base, graficos, rivalInforme, modo, pizarraInforme.graficos],
   );
 
   /* En la vista previa, el enlace a nuestro vídeo tal cual irá (sin el póster, que en el correo va por cid). */
@@ -824,7 +846,7 @@ export function InformeMicroDialog({
   | —tarda más o menos lo que dura el vídeo— y al enviar se usa el que haya o
   | se espera al que va por la mitad. Si no sale, va nuestro vídeo tal cual.
   */
-  const informeListo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando;
+  const informeListo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando && !pizarraInforme.cargando;
   const claveMontaje =
     conVideo && videoJugadores && informeListo && puedeMontarVideo() ? [videoJugadores.url, informe.modo, informe.titulo, ...informe.resumen.map((c) => c.valor)].join("|") : "";
   const montaje = useRef<Montaje | null>(null);
@@ -892,7 +914,20 @@ export function InformeMicroDialog({
 
       const caben = peso(ligeros) < TOPE_CORREO;
 
-      const paraEnviar = { ...informe, graficos: caben ? ligeros : sinPdf };
+      let paraEnviar = { ...informe, graficos: caben ? ligeros : sinPdf };
+
+      /* Lo siguiente que sale es la pizarra: se puede abrir en la app, el resto del informe no. */
+      if (peso(paraEnviar.graficos) >= TOPE_CORREO) {
+        const sinPizarra = paraEnviar.graficos.filter((g) => g.area !== "pizarra");
+
+        if (sinPizarra.length < paraEnviar.graficos.length && peso(sinPizarra) < TOPE_CORREO) {
+          paraEnviar = construyeInforme({ ...base, rivalAnalisis: informe.rivalAnalisis, graficos: sinPizarra });
+
+          toast.message("La pizarra del partido no cabe en el correo", {
+            description: "Se ve en la pizarra de ABP de la app; el resto del informe va entero.",
+          });
+        }
+      }
 
       if (peso(paraEnviar.graficos) >= TOPE_CORREO) {
         throw new Error("El informe pesa demasiado para mandarlo por correo, incluso sin las páginas de los PDF.");
@@ -1117,7 +1152,7 @@ export function InformeMicroDialog({
 
   const entregado = useRef(false);
 
-  const listo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando;
+  const listo = !cargandoSeguimiento && !cargandoComparativa && !cargandoPropio && !rivalInforme.cargando && !pizarraInforme.cargando;
 
 
   const alListo = incrustado?.alListo;
@@ -1232,7 +1267,8 @@ export function InformeMicroDialog({
                 cargandoComparativa ||
                 cargandoPropio ||
                 /* Sin esto el correo salía sin las láminas del rival si se pulsaba pronto. */
-                rivalInforme.cargando
+                rivalInforme.cargando ||
+                pizarraInforme.cargando
               }
             >
               {enviando ? (pasoVideo ? `Vídeo: ${pasoVideo}` : "Enviando…") : canal === "whatsapp" ? "Preparar WhatsApp" : "Enviar por correo"}
@@ -1336,7 +1372,9 @@ export function InformeMicroDialog({
           </div>
         )}
 
-        {cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando ? (
+        {pizarraInforme.deck}
+
+        {cargandoSeguimiento || cargandoComparativa || cargandoPropio || rivalInforme.cargando || pizarraInforme.cargando ? (
           <p className="flex items-center gap-2 text-xs text-white/45">
             <RefreshCw size={13} className="animate-spin" />
             {cargandoSeguimiento
@@ -1345,7 +1383,9 @@ export function InformeMicroDialog({
                 ? "Cargando nuestras hojas de balón parado…"
                 : rivalInforme.cargando
                   ? "Preparando el análisis del rival…"
-                  : "Cargando la comparación con la categoría…"}
+                  : pizarraInforme.cargando && !cargandoComparativa
+                    ? "Fotografiando la pizarra del partido…"
+                    : "Cargando la comparación con la categoría…"}
           </p>
         ) : (
           /*
