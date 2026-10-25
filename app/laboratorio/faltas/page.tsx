@@ -391,7 +391,19 @@ export default function FaltasPage() {
     const ultimoTercio = faltas.filter((f) => f.zona === "campo rival").length;
     const frontales = faltas.filter((f) => f.distancia === "frontal").length;
 
-    if (ultimoTercio || frontales) {
+    if (filtro === "todas" && (ultimoTercio || frontales)) {
+      /* Con las dos caras juntas, cada cifra lleva su base: a favor sobre las a favor y en contra sobre las en contra. */
+      const aF = faltas.filter((f) => f.lado === "ofensivo");
+      const eC = faltas.filter((f) => f.lado === "defensivo");
+      const parte = (lote: typeof faltas, texto: string) =>
+        lote.length
+          ? `${lote.filter((f) => f.zona === texto).length} de ${lote.length} ${texto === "campo rival" ? "en campo rival" : "en nuestro campo"}; ${lote.filter((f) => f.distancia === "frontal").length} de ${lote.length} frontales`
+          : "";
+
+      frases.push(
+        [aF.length ? `A favor, ${parte(aF, "campo rival")}` : "", eC.length ? `en contra, ${parte(eC, "nuestro campo")}` : ""].filter(Boolean).join("; ") + ".",
+      );
+    } else if (ultimoTercio || frontales) {
       const donde =
         filtro === "ofensivo"
           ? "en campo rival"
