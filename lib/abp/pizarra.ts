@@ -825,6 +825,12 @@ export type SlidePizarra = {
   guion?: GuionConsigna;
   /** Con qué versión del dibujo de la plantilla se colocaron las fichas. */
   rev?: number;
+  /**
+   * La rutina del laboratorio de ABP de la que salió (o con la que se
+   * sustituyó), para que «Abrir en el laboratorio» vuelva a ella y no cree
+   * otra. Ver `lib/abp-lab/puente-pizarra.ts`.
+   */
+  laboratorio?: { rutinaId?: string; enviada: string };
 };
 
 /**

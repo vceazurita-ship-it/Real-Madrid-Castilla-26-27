@@ -42,6 +42,7 @@ import {
   GripVertical,
   Copy,
   CopyPlus,
+  FlaskConical,
   History,
   LayoutGrid,
   Link2,
@@ -182,6 +183,17 @@ import { buildAerialThreats } from "@/lib/abp/rival";
 import { enElCampo } from "@/lib/abp/pizarra";
 import { traeJson } from "@/lib/hojaCsv";
 import { VideoJugada } from "@/components/abp/pizarra/VideoJugada";
+import {
+  RecibeDelLaboratorio,
+  type DestinoEnvio,
+} from "@/components/abp/pizarra/RecibeDelLaboratorio";
+import { useAdmin } from "@/hooks/useAdmin";
+import {
+  borraRecado,
+  dejaRecado,
+  leeRecado,
+  type EnvioAPizarra,
+} from "@/lib/abp-lab/puente-envio";
 
 /**
  * Cuánto se espera, sin tocar nada, antes de congelar una versión.
@@ -309,6 +321,9 @@ export default function PizarraAbpPage() {
     storeRef.current = store;
   });
 
+  /* La jornada de la que salió lo que llega del laboratorio (`?desdeLab=`). */
+  const destinoLab = useRef("");
+
   /*
   | Las dos fuentes se piden a la vez y **fallan por separado**.
   |
@@ -348,6 +363,13 @@ export default function PizarraAbpPage() {
       setJugados([...jugadosCsv].sort(compareMatches));
       setJornadas(hoja);
       setCargando(false);
+
+      /* Lo que llega del laboratorio abre la jornada de la que salió, si está en el calendario. */
+      const deLab = destinoLab.current;
+
+      if (deLab && mezclaCalendario(jugadosCsv, hoja).some((item) => item.id === deLab)) {
+        setPedido(deLab);
+      }
 
       /*
       | Llegada desde el plan de partido o desde el informe del rival:
@@ -1635,6 +1657,144 @@ export default function PizarraAbpPage() {
     });
   }, [tablero, activa, mutaTablero]);
 
+  /* ------------------- PUENTE CON EL LABORATORIO ------------------- */
+
+  /*
+  | «Abrir en el laboratorio» (25/10/2026, sólo administrador, como el
+  | laboratorio). La diapositiva tal y como se ve —ya puesta al día con su
+  | plantilla— se deja como recado y se abre el laboratorio en otra pestaña;
+  | allí se convierte en rutina y se guarda en «En la pizarra». Esta pantalla
+  | no escribe nada: ver `lib/abp-lab/puente-envio.ts`.
+  */
+  const { admin } = useAdmin();
+
+  const abreEnLab = useCallback(() => {
+    if (!slide || !partido) return;
+
+    const token = dejaRecado({
+      tipo: "traida",
+      creado: new Date().toISOString(),
+      partidoId: partido.id,
+      rival: tablero?.rival || partido.opponent,
+      ...(tablero?.jornada ? { jornada: tablero.jornada } : {}),
+      ...(partido.date ? { fecha: partido.date } : {}),
+      slide,
+      jugadores: slide.fichas
+        .map((ficha) => porId.get(ficha.playerId))
+        .filter((player): player is Player => Boolean(player))
+        .map((player) => [
+          player.id,
+          {
+            nombre: player.apodo?.trim() || player.nombre,
+            ...(player.dorsal !== undefined ? { dorsal: player.dorsal } : {}),
+          },
+        ]),
+    });
+
+    const consulta = new URLSearchParams({
+      ...(token ? { desdePizarra: token } : {}),
+      partido: partido.id,
+      diapositiva: slide.id,
+    });
+
+    window.open(`/laboratorio/abp?${consulta.toString()}`, "_blank", "noopener");
+  }, [slide, partido, tablero, porId]);
+
+  /*
+  | Lo que llega del laboratorio: /abp-pizarra?desdeLab=<token>. Se enseña un
+  | diálogo para elegir jornada y si entra como nueva o sustituyendo una; nada
+  | se escribe hasta pulsar el botón, y entonces va por `mutaTablero` (con su
+  | paso de deshacer) como cualquier otro cambio.
+  */
+  const [recibido, setRecibido] = useState<{ token: string; recado: EnvioAPizarra } | null>(null);
+
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("desdeLab");
+
+    if (!token) return;
+
+    void Promise.resolve().then(() => {
+      const recado = leeRecado(token, "envio");
+
+      window.history.replaceState({}, "", "/abp-pizarra");
+
+      if (!recado) {
+        toast.error("No ha llegado nada del laboratorio", {
+          description: "Vuelve a pulsar «Enviar a la pizarra» desde el laboratorio, en este mismo navegador.",
+        });
+
+        return;
+      }
+
+      setRecibido({ token, recado });
+
+      /* Si salió de una jornada, se abre ésa en cuanto llegue el calendario (ver la carga). */
+      destinoLab.current = recado.destino?.partidoId ?? "";
+    });
+  }, []);
+
+  const cierraRecibido = useCallback(() => {
+    if (recibido) borraRecado(recibido.token);
+
+    setRecibido(null);
+  }, [recibido]);
+
+  const aplicaRecibido = useCallback(
+    (destino: DestinoEnvio) => {
+      if (!recibido || !tablero) return;
+
+      const llega = recibido.recado.slide;
+
+      if (destino.modo === "nueva") {
+        const nueva: SlidePizarra = { ...llega, id: `SL-${Math.random().toString(36).slice(2, 10)}` };
+
+        mutaTablero((actual) => ({ ...actual, slides: [...actual.slides, nueva] }));
+        setPedida(tablero.slides.length);
+
+        toast.success(`Añadida: ${nueva.titulo}`, {
+          action: {
+            label: "Deshacer",
+            onClick: () =>
+              mutaTablero((actual) => ({
+                ...actual,
+                slides: actual.slides.filter((item) => item.id !== nueva.id),
+              })),
+          },
+        });
+      } else {
+        const indice = tablero.slides.findIndex((item) => item.id === destino.slideId);
+
+        const antes = tablero.slides[indice];
+
+        if (!antes) return;
+
+        /* Conserva el id: así la rutina del laboratorio sigue sabiendo cuál es la suya. */
+        const nueva: SlidePizarra = { ...llega, id: antes.id };
+
+        mutaTablero((actual) => ({
+          ...actual,
+          slides: actual.slides.map((item) => (item.id === antes.id ? nueva : item)),
+        }));
+        setPedida(indice);
+
+        toast.success(`Sustituida: ${antes.titulo}`, {
+          action: {
+            label: "Deshacer",
+            onClick: () =>
+              mutaTablero((actual) => ({
+                ...actual,
+                slides: actual.slides.map((item) => (item.id === antes.id ? antes : item)),
+              })),
+          },
+        });
+      }
+
+      borraRecado(recibido.token);
+      setRecibido(null);
+    },
+    [recibido, tablero, mutaTablero],
+  );
+
   /**
    * Cambia una diapositiva de sitio.
    *
@@ -2378,6 +2538,17 @@ export default function PizarraAbpPage() {
                         Duplicar
                       </Button>
 
+                      {admin && (
+                        <Button
+                          icon={FlaskConical}
+                          onClick={abreEnLab}
+                          disabled={!slide}
+                          title="Llévala al laboratorio de ABP: escena 3D, simulación, xG, variantes y comparador. Desde allí vuelve a la pizarra como nueva o sustituyendo ésta."
+                        >
+                          Abrir en el laboratorio
+                        </Button>
+                      )}
+
                       <Button
                         icon={ChevronLeft}
                         onClick={() => mueveSlide(-1)}
@@ -2841,6 +3012,19 @@ export default function PizarraAbpPage() {
           inicial={cambiando.sale}
           onAplicar={aplicaCambio}
           onCerrar={() => setCambiando(null)}
+        />
+      )}
+
+      {/* Hasta que no están el calendario y el documento no se puede elegir dónde entra. */}
+      {recibido && !cargando && !leyendo && (
+        <RecibeDelLaboratorio
+          recado={recibido.recado}
+          partidos={partidos.map((item) => ({ id: item.id, label: etiquetaOpcion(item) }))}
+          elegido={elegido}
+          onElige={setElegido}
+          tablero={tablero}
+          onAplica={aplicaRecibido}
+          onCerrar={cierraRecibido}
         />
       )}
     </main>

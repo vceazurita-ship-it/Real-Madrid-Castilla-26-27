@@ -15,6 +15,7 @@
  * administrador.
  */
 
+import { extraPizarraDe, origenDe, type ExtraPizarra, type OrigenPizarra } from "@/lib/abp-lab/puente-tipos";
 import type { TipoAbp } from "@/lib/abp-lab/referentes";
 
 export const CLAVE_LAB = "abp-laboratorio";
@@ -61,6 +62,8 @@ export type Rol = {
   hx?: number;
   hy?: number;
   fase?: Fase;
+  /** La ficha de la pizarra de ABP de la que salió (su id), para devolverla a su sitio. */
+  ref?: string;
 };
 
 /** El camino de entrenamiento de una rutina, de la pizarra al partido. */
@@ -108,6 +111,10 @@ export type Rutina = {
   progreso?: string[];
   /** Las veces que se ha usado compitiendo. */
   usos?: Uso[];
+  /** La diapositiva de la pizarra de ABP de la que salió (ver `puente-pizarra.ts`). */
+  origen?: OrigenPizarra;
+  /** Lo de esa diapositiva que el laboratorio no pinta, para devolverlo sin perder nada. */
+  pizarra?: ExtraPizarra;
   creadaEn: string;
   actualizadaEn: string;
 };
@@ -275,6 +282,7 @@ function rol(v: unknown): Rol | null {
     ...(inicio ? { x: inicio.x, y: inicio.y } : {}),
     ...(destino ? { hx: destino.x, hy: destino.y } : {}),
     ...(fase === 1 || fase === 2 || fase === 3 ? { fase: fase as Fase } : {}),
+    ...(texto(r.ref, 40) ? { ref: texto(r.ref, 40) } : {}),
   };
 }
 
@@ -288,12 +296,19 @@ function uso(v: unknown): Uso | null {
   return { fecha: u.fecha, rival: texto(u.rival, 60), desenlace: de(DESENLACES, u.desenlace, "nada") };
 }
 
+/** Cuántos papeles caben en una rutina (una diapositiva de la pizarra puede traer más de catorce caras). */
+export const MAX_ROLES = 24;
+
 export function rutinaDe(v: unknown, ahora: string, previa?: Rutina): Rutina {
   const r = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
 
   const nombre = texto(r.nombre, 80);
 
   if (!nombre) throw new Rechazo("La rutina necesita un nombre.");
+
+  const origen = origenDe(r.origen);
+
+  const pizarra = extraPizarraDe(r.pizarra);
 
   return {
     id: previa?.id ?? (texto(r.id, 40) || `rut-${Date.parse(ahora).toString(36)}${Math.random().toString(36).slice(2, 6)}`),
@@ -304,7 +319,7 @@ export function rutinaDe(v: unknown, ahora: string, previa?: Rutina): Rutina {
     contra: de(DEFENSAS, r.contra, "cualquiera"),
     senal: texto(r.senal, 80),
     idea: texto(r.idea, 1200),
-    roles: (Array.isArray(r.roles) ? r.roles : []).map(rol).filter((x): x is Rol => Boolean(x)).slice(0, 14),
+    roles: (Array.isArray(r.roles) ? r.roles : []).map(rol).filter((x): x is Rol => Boolean(x)).slice(0, MAX_ROLES),
     variantes: (Array.isArray(r.variantes) ? r.variantes : []).map((x) => texto(x, 240)).filter(Boolean).slice(0, 8),
     estado: de(ESTADOS, r.estado, "idea"),
     ...(r.envio === "tenso" || r.envio === "bombeado" || r.envio === "raso" ? { envio: r.envio as Envio } : {}),
@@ -319,6 +334,8 @@ export function rutinaDe(v: unknown, ahora: string, previa?: Rutina): Rutina {
         .sort((a, b) => b.fecha.localeCompare(a.fecha))
         .slice(0, 60),
     ),
+    ...(origen ? { origen } : {}),
+    ...(pizarra ? { pizarra } : {}),
     creadaEn: previa?.creadaEn ?? ahora,
     actualizadaEn: ahora,
   };
