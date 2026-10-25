@@ -282,7 +282,10 @@ export default function IdentidadPosicionalPage() {
 
     if (con === 0 || sin === 0) return "";
 
-    return `Lo que pedimos a ${posicion.toLowerCase()}: ${con} con balón, ${sin} sin balón`;
+    const p = posicion.toLowerCase();
+    const plural = /^(central|lateral|extremo|delantero|portero|interior|pivote|mediapunta|mediocentro)/.test(p) ? `los ${p}` : p;
+
+    return `Lo que pedimos a ${plural}: ${con} con balón y ${sin} sin balón`;
   }, [data, posicion, filtrando, editing]);
 
   const cambios = useMemo(
@@ -710,7 +713,10 @@ export default function IdentidadPosicionalPage() {
                     />
 
                     <p className="min-w-0 whitespace-pre-wrap break-words leading-relaxed text-gray-200">
-                      <Highlight text={item.CONTENIDO} query={query} />
+                      <Highlight
+                        text={item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}
+                        query={query}
+                      />
                     </p>
                   </div>
                 )}

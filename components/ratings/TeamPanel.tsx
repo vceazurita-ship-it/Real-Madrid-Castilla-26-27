@@ -923,13 +923,13 @@ function BestPerformances({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.player.foto}
-                alt={item.player.nombre}
+                alt={nombreVisible(item.player.nombre)}
                 className="h-8 w-8 shrink-0 rounded-lg border border-white/10 object-cover object-top"
               />
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-white">
-                  {item.player.nombre}
+                  {nombreVisible(item.player.nombre)}
                 </p>
 
                 <p className="truncate text-[10px] text-white/30">

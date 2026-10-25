@@ -1124,12 +1124,12 @@ export default function Page() {
       { metric: "Intensidad", value: metrics.intensidad, raw: metrics.intensidad },
       { metric: "Exig. Cognitiva", value: metrics.exigCog, raw: metrics.exigCog },
       {
-        metric: "Carga física por tarea",
+        metric: "Física/tarea",
         value: scale(avgLoadPerTask, maxLoadTask),
         raw: Math.round(avgLoadPerTask),
       },
       {
-        metric: "Carga cognitiva por tarea",
+        metric: "Cognitiva/tarea",
         value: scale(avgCogPerTask, maxCogTask),
         raw: Math.round(avgCogPerTask),
       },

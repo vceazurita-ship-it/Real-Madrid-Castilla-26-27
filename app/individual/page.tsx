@@ -1,5 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
+import { nombreVisible } from "@/lib/nombreJugador";
 import { traeCsv, traeJson } from "@/lib/hojaCsv";
 import { coma } from "@/lib/formatoNumero";
 
@@ -1551,7 +1552,7 @@ function PlayerCard({
 
         <div className="absolute inset-x-0 bottom-0 min-w-0 p-2.5">
           <h3 className="truncate text-sm font-semibold leading-tight">
-            {player.name}
+            {nombreVisible(player.name)}
           </h3>
 
           <p className="truncate text-[9px] uppercase tracking-[0.2em] text-white/40">
@@ -3061,7 +3062,7 @@ export default function IndividualPage() {
       {[
         {
           icon: ClipboardList,
-          label: "Sesiones",
+          label: "Seguimientos",
           value: selected.sessions ?? "—",
         },
         { icon: Video, label: "Vídeos", value: selected.videos ?? "—" },
@@ -3165,7 +3166,7 @@ export default function IndividualPage() {
 
                 <StatTile
                   icon={ClipboardList}
-                  label="Sesiones"
+                  label="Seguimientos"
                   value={pendiente.seguimiento ? "—" : stats.sessions}
                   hint="registros de seguimiento de todos los jugadores"
                 />
@@ -3461,7 +3462,7 @@ export default function IndividualPage() {
                     </p>
 
                     <h2 className="truncate text-lg font-semibold sm:text-2xl">
-                      {selected.name}
+                      {nombreVisible(selected.name)}
                     </h2>
                   </div>
 

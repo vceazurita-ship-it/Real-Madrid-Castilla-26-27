@@ -4,6 +4,7 @@ import { traeJson } from "@/lib/hojaCsv";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { nombrePuesto } from "@/lib/posiciones";
+import { nombreVisible } from "@/lib/nombreJugador";
 import { chipInk } from "@/lib/theme";
 
 /* Cifras con coma decimal, como el resto del área de jugadores. */
@@ -1057,7 +1058,7 @@ export default function DashboardSeguimiento() {
                   onChange={(v: string) => updateFilter("player", v)}
                   options={[
                     { value: "", label: "Todos" },
-                    ...players.map((p) => ({ value: p.id, label: p.nombre })),
+                    ...players.map((p) => ({ value: p.id, label: nombreVisible(p.nombre) })),
                   ]}
                 />
 
@@ -1345,9 +1346,16 @@ export default function DashboardSeguimiento() {
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   <Panel
                     title="Evolución semanal"
-                    subtitle={`Media de ${weeklyMean} seguimientos por semana`}
+                    subtitle={weeklyData.length < 2 ? "Seguimientos de la semana en curso" : `Media de ${weeklyMean} seguimientos por semana`}
                   >
-                    <ChartBox>
+                    {weeklyData.length < 2 ? (
+                      <div className="flex min-h-[140px] flex-col items-center justify-center gap-1 py-6 text-center">
+                        <p className="text-5xl font-semibold text-[#C8A96B]">{cm(weeklyData[0]?.value ?? totalSessions)}</p>
+                        <p className="text-sm text-white/60">seguimientos esta semana</p>
+                        <p className="text-xs text-white/40">La gráfica aparece cuando haya dos semanas con registros.</p>
+                      </div>
+                    ) : (
+                      <ChartBox>
                       <AreaChart
                         data={weeklyData}
                         onClick={(state) => {
@@ -1422,6 +1430,7 @@ export default function DashboardSeguimiento() {
                         />
                       </AreaChart>
                     </ChartBox>
+                    )}
                   </Panel>
 
                   <Panel
@@ -1510,7 +1519,7 @@ export default function DashboardSeguimiento() {
                           />
 
                           <div className="leading-tight">
-                            <p className="text-sm font-medium">{p.nombre}</p>
+                            <p className="text-sm font-medium">{nombreVisible(p.nombre)}</p>
 
                             <p className="text-[11px] text-white/40">
                               {nombrePuesto(p.posicion)}

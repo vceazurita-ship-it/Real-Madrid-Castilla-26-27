@@ -29,7 +29,11 @@ export function Escalado({
 
     if (!marco) return;
 
-    const mide = () => setEscala(marco.clientWidth / ancho);
+    const mide = () => {
+      /* Un ancho 0 (aún sin pintar, o en móvil) no sirve: se conserva la escala y se vuelve a medir. */
+      if (marco.clientWidth > 0) setEscala(marco.clientWidth / ancho);
+      else requestAnimationFrame(() => marco.clientWidth > 0 && setEscala(marco.clientWidth / ancho));
+    };
 
     mide();
 
@@ -41,7 +45,11 @@ export function Escalado({
   }, [ancho]);
 
   return (
-    <div ref={marcoRef} className="w-full" style={{ height: alto * escala }}>
+    <div
+      ref={marcoRef}
+      className="w-full min-w-0 overflow-hidden"
+      style={{ aspectRatio: `${ancho} / ${alto}` }}
+    >
       <div
         style={{
           width: ancho,
