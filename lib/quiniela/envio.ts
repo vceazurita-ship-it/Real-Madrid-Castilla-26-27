@@ -19,3 +19,13 @@ export function enlaceWhatsapp(texto: string, telefono?: string | null) {
 
   return `https://wa.me/${digitos}?text=${encodeURIComponent(texto)}`;
 }
+
+/** El mensaje corto que acompaña a la lámina (la quiniela va en la imagen). */
+export function mensajeCorto(jornada: number) {
+  return `Mi quiniela · Jornada ${jornada}`;
+}
+
+/** Sin poder compartir archivos: abre WhatsApp pidiendo que se adjunte la imagen descargada. */
+export function enlaceWhatsappConImagen(jornada: number, telefono?: string | null) {
+  return enlaceWhatsapp(`${mensajeCorto(jornada)} (adjunta la imagen que se acaba de descargar)`, telefono);
+}

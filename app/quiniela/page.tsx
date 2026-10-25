@@ -1209,6 +1209,9 @@ export default function QuinielaPage() {
                   <EnviarMiQuiniela
                     jornada={jornada}
                     nombre={sesion.yo?.nombre ?? yo}
+                    slug={yo}
+                    cierre={cuandoCierra(plazo.viernes)}
+                    cerrada={plazo.cerrada}
                     guardados={guardados}
                     telefono={sesion.yo?.telefono}
                   />
