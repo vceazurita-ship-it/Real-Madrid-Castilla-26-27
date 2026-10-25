@@ -38,7 +38,7 @@ async function cargaImagen(src: string) {
 }
 
 /** «Vídeo y documentos»: la imagen y las zonas que se pueden pulsar (en fracciones). */
-export async function paginaDeEnlaces(o: { titulo: string; video: VideoInforme | null; enlaces: EnlaceInforme[] }): Promise<{ imagen: string; enlaces: NonNullable<HojaPdf["enlaces"]> }> {
+export async function paginaDeEnlaces(o: { titulo: string; video: VideoInforme | null; enlaces: EnlaceInforme[]; /** Qué vídeo es, encima del póster (25/10/2026): «Balón parado · J9». */ rotuloVideo?: string }): Promise<{ imagen: string; enlaces: NonNullable<HojaPdf["enlaces"]> }> {
   const lienzo = document.createElement("canvas");
 
   lienzo.width = W;
@@ -80,6 +80,12 @@ export async function paginaDeEnlaces(o: { titulo: string; video: VideoInforme |
 
     dibujaQr(ctx, o.video.url, 96, 750, 230);
     zona(96, 750, 230, 230, o.video.url);
+
+    if (o.rotuloVideo) {
+      ctx.font = `700 26px "Barlow Condensed", Arial, sans-serif`;
+      ctx.fillStyle = ORO;
+      ctx.fillText(o.rotuloVideo.toUpperCase(), 96, 256);
+    }
 
     ctx.font = `700 40px "Barlow Condensed", Arial, sans-serif`;
     ctx.fillStyle = "#FFFFFF";

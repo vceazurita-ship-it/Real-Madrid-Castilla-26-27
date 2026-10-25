@@ -48,3 +48,14 @@ export function ultimoPorFecha<T extends { fecha: string }>(partidos: T[]): T | 
 export function anterioresPorFecha<T extends { fecha: string }>(partidos: T[], elegido: T): T[] {
   return partidos.filter((p) => p !== elegido && p.fecha < elegido.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
+
+/**
+ * La media por partido de una cifra: se calcula sobre cada partido anterior
+ * y se promedia. Vive aquí (25/10/2026) para que la usen también los informes
+ * sin cargar el componente de la comparativa; `ComparativaPartido` la reexporta.
+ */
+export function mediaPorPartido<T>(partidos: T[][], cuenta: (filas: T[]) => number): number | null {
+  if (partidos.length === 0) return null;
+
+  return partidos.reduce((a, filas) => a + cuenta(filas), 0) / partidos.length;
+}

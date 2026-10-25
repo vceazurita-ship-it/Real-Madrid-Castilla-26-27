@@ -44,9 +44,10 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
-import { ComparativaPartido, mediaPorPartido, type MetricaComparada } from "@/components/abp/ComparativaPartido";
-import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
+import { ComparativaPartido } from "@/components/abp/ComparativaPartido";
+import { ultimoPorFecha } from "@/lib/abp/ultimo-partido";
 import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
+import { CORTE_TRANSICION, aFavor, comparativaFaltas, cortaTransicion, decimal, enContra, laQueMas } from "@/lib/faltas/lectura";
 import { CampoFaltas, CARRILES_CAMPO, sitioEnCampo, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
 import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
@@ -87,16 +88,6 @@ const NOMBRE_LADO: Record<LadoFalta, string> = {
   ofensivo: "A favor",
   defensivo: "En contra",
 };
-
-/**
- * Por debajo de esto, la falta cortó una transición.
- *
- * Tres defensores contando al portero es un campo abierto: si ahí hubo falta,
- * no se estaba defendiendo un balón parado, se estaba frenando una carrera. El
- * corte está puesto a mano y se dice en pantalla, que es lo honesto con un
- * umbral que nadie ha calibrado con nada.
- */
-const CORTE_TRANSICION = 3;
 
 type Filtro = "todas" | LadoFalta;
 
@@ -140,13 +131,6 @@ const VISTAS = ["resumen", "campo", "detalle", "jugadores", "lista"] as const;
 
 type FaltaVista = Falta & { partido: string };
 
-const enContra = (f: Falta) => f.lado === "defensivo";
-const aFavor = (f: Falta) => f.lado === "ofensivo";
-
-/** La que frenó una transición: con el campo abierto y fuera del último tercio (ver `cortes`). */
-const cortaTransicion = (f: Falta) =>
-  f.zona !== "campo rival" && f.entre !== null && f.entre <= CORTE_TRANSICION;
-
 /*
 | Lo que pregunta el entrenador de cada jugador: cuántas comete y cuántas
 | recibe, dónde, y cuáles traen peligro. El etiquetado NO apunta en qué
@@ -174,25 +158,6 @@ const partidoDeFalta = (f: FaltaVista) => f.partido;
 
 /** Si hay algún partido de pretemporada en los datos (hoy, ninguno). */
 const HAY_PRETEMPORADA = PARTIDOS.some((p) => esPretemporada(p.jornada));
-
-/** 6.25 → "6,3". */
-const decimal = (n: number) =>
-  n.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-
-/** La clave que más se repite, con cuántas veces. */
-function laQueMas(valores: string[]) {
-  const cuenta = new Map<string, number>();
-
-  for (const v of valores) if (v) cuenta.set(v, (cuenta.get(v) ?? 0) + 1);
-
-  let mejor: { clave: string; veces: number } | null = null;
-
-  for (const [clave, veces] of cuenta) {
-    if (!mejor || veces > mejor.veces) mejor = { clave, veces };
-  }
-
-  return mejor;
-}
 
 /** "2026-09-21" → "21 sep". */
 function fechaCorta(iso: string) {
@@ -481,104 +446,7 @@ export default function FaltasPage() {
   | va en el campo de verdad (`sitioEnCampo`), para que «campo rival» sea lo
   | mismo en una falta nuestra que en una del rival.
   */
-  const comparativa = useMemo(() => {
-    if (!partido) return null;
-
-    const anteriores = anterioresPorFecha(partidosVisibles, partido).map((p) => p.faltas);
-    const aFavor = (f: Falta) => f.lado === "ofensivo";
-    const enContra = (f: Falta) => f.lado === "defensivo";
-    const cuenta = (condicion: (f: Falta) => boolean) => (faltas: Falta[]) =>
-      faltas.filter(condicion).length;
-
-    /** Los defensores por delante en las faltas a favor, de media; `null` sin ninguna contada. */
-    const defensoresAFavor = (faltas: Falta[]) => {
-      const con = faltas.filter((f) => aFavor(f) && f.entre !== null).map((f) => f.entre as number);
-
-      return con.length === 0 ? null : con.reduce((a, b) => a + b, 0) / con.length;
-    };
-
-    const metrica = (
-      clave: string,
-      nombre: string,
-      condicion: (f: Falta) => boolean,
-      mejorAlto: boolean | null,
-      pie?: string,
-    ): MetricaComparada => {
-      const actual = cuenta(condicion)(partido.faltas);
-      const media = mediaPorPartido(anteriores, cuenta(condicion));
-
-      /* Con 0–2 faltas una diferencia de una no es tendencia: no se juzga y se avisa. */
-      const pocas = Math.max(actual, media ?? 0) <= 2;
-      /* Con menos de 5 casos tampoco se dibuja la barra: se marca como tendencia. */
-      const tendencia = Math.max(actual, media ?? 0) < 5;
-
-      return {
-        clave,
-        nombre,
-        actual,
-        media,
-        tendencia,
-        mejorAlto: pocas ? null : mejorAlto,
-        /* La base («9 de 28») va en la descripción de cada fila, igual que en robos y pérdidas. */
-        n: actual,
-        de: partido.faltas.length,
-        unidad: "faltas",
-        pie: pocas ? `${pie} · muestra pequeña` : pie,
-      };
-    };
-
-    const metricas: MetricaComparada[] = [
-      metrica("favor", "Faltas a favor", aFavor, null, "el volumen depende del estilo; lo que se juzga es dónde, en las filas de zona"),
-      metrica("contra", "Faltas en contra", enContra, false, "menos, mejor"),
-      metrica("favor-frontal", "A favor frontales", (f) => aFavor(f) && f.distancia === "frontal", true, "de cara a la portería rival · más, mejor"),
-      metrica("contra-frontal", "En contra frontales", (f) => enContra(f) && f.distancia === "frontal", false, "de cara a nuestra portería · menos, mejor"),
-      metrica("contra-nuestro", "En contra en nuestro campo", (f) => enContra(f) && sitioEnCampo(f).zona === "nuestro campo", false, "menos, mejor"),
-      metrica("favor-rival", "A favor en campo rival", (f) => aFavor(f) && sitioEnCampo(f).zona === "campo rival", true, "más, mejor"),
-    ];
-
-    /*
-    | La media de defensores sólo si hay alguna falta a favor contada. Entre
-    | partidos se promedian las medias (una por partido), que es lo que mide
-    | el panel: cómo fue este partido frente a uno típico.
-    */
-    const actualDefensores = defensoresAFavor(partido.faltas);
-    const conDefensores = anteriores.map(defensoresAFavor).filter((n): n is number => n !== null);
-
-    if (actualDefensores !== null || conDefensores.length > 0) {
-      metricas.push({
-        clave: "defensores",
-        nombre: "Defensores por delante (a favor)",
-        actual: actualDefensores,
-        media: conDefensores.length === 0 ? null : conDefensores.reduce((a, b) => a + b, 0) / conDefensores.length,
-        formato: decimal,
-        mejorAlto: false,
-        pie: "entre la falta y la portería, portero incluido · menos, mejor",
-      });
-    }
-
-    /* Los de las faltas en contra: la conclusión cita su media y la tabla la tiene que enseñar. */
-    const defensoresEnContra = (faltas: Falta[]) => {
-      const con = faltas.filter((f) => enContra(f) && f.entre !== null).map((f) => f.entre as number);
-
-      return con.length === 0 ? null : con.reduce((a, b) => a + b, 0) / con.length;
-    };
-    const actualContra = defensoresEnContra(partido.faltas);
-    const mediasContra = anteriores.map(defensoresEnContra).filter((n): n is number => n !== null);
-
-    if (actualContra !== null || mediasContra.length > 0) {
-      metricas.push({
-        clave: "defensores-contra",
-        nombre: "Defensores por delante (en contra)",
-        actual: actualContra,
-        media: mediasContra.length === 0 ? null : mediasContra.reduce((a, b) => a + b, 0) / mediasContra.length,
-        formato: decimal,
-        mejorAlto: null,
-        pie: "los nuestros entre la falta y nuestra portería · sin juicio",
-      });
-    }
-
-    return { partido: `${partido.jornada} · ${partido.rival}`, anteriores: anteriores.length, metricas };
-  }, [partido, partidosVisibles]);
+  const comparativa = useMemo(() => (partido ? comparativaFaltas(partido, partidosVisibles) : null), [partido, partidosVisibles]);
 
   /*
   | Por jugador: con el lado y todo lo pinchado menos el propio jugador (así

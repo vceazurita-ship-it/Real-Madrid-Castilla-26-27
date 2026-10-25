@@ -31,6 +31,7 @@
 import type { Falta, LadoFalta } from "@/lib/faltas/datos";
 import { TITULO_FILTRO, marcaPieza } from "@/components/faltas/FiltrosCruzados";
 import { CampoZonas, type PuntoCampo } from "@/components/campo/CampoZonas";
+import { sitioEnCampo } from "@/lib/faltas/lectura";
 
 /* ------------------------------------------------------------------ */
 /*  DÓNDE ESTÁ CADA FALTA EN EL CAMPO DE VERDAD (05/10/2026)           */
@@ -42,34 +43,8 @@ export const ZONAS_CAMPO = ["nuestro campo", "medio campo", "campo rival"];
 /** Los carriles del Castilla atacando hacia la derecha: la izquierda, arriba. */
 export const CARRILES_CAMPO = ["izquierda", "centro", "derecha"];
 
-/**
- * El tercio y el carril de una falta en el campo de verdad.
- *
- * El etiquetado los guarda hacia la portería que ataca QUIEN SACA. Si la
- * sacamos nosotros, coinciden con nuestro campo. Si la saca el rival, ataca
- * hacia nuestra portería: su «campo propio» es nuestro campo rival, y su
- * izquierda, nuestra derecha.
- */
-export function sitioEnCampo(f: Pick<Falta, "lado" | "zona" | "carril">): { zona: string; carril: string } {
-  const nuestra = f.lado === "ofensivo";
-
-  const zona =
-    f.zona === "medio campo"
-      ? "medio campo"
-      : f.zona === "campo propio"
-        ? nuestra
-          ? "nuestro campo"
-          : "campo rival"
-        : f.zona === "campo rival"
-          ? nuestra
-            ? "campo rival"
-            : "nuestro campo"
-          : "";
-
-  const carril = nuestra || f.carril === "centro" ? f.carril : f.carril === "izquierda" ? "derecha" : f.carril === "derecha" ? "izquierda" : "";
-
-  return { zona, carril };
-}
+/** El tercio y el carril en el campo de verdad: vive en `lib/faltas/lectura.ts` desde el 25/10/2026 (lo usan también los informes). */
+export { sitioEnCampo };
 
 export type CampoFaltasProps = {
   faltas: Falta[];

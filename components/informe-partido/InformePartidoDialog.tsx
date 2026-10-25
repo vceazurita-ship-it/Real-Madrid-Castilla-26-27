@@ -20,6 +20,11 @@
  *   - Los adjuntos: los PDF y PPT del rival que estén en sus Recursos, más los
  *     que se suban aquí. Van directos a Supabase (`subeAdjunto`) y el servidor
  *     los adjunta al correo: por Vercel no caben.
+ *   - El vídeo de balón parado de la jornada (25/10/2026): el del analista
+ *     («ABP/VIDEO - JUGADORES», lo sube el vigía a `abp:video-jugadores`).
+ *     Va en la previa y en el post, con póster en el correo, página con QR en
+ *     el PDF y enlace en WhatsApp. Sólo el de ESTA jornada: si no lo hay, no
+ *     se nombra.
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -42,6 +47,7 @@ import { consignasDePost, sinConsignasDeAbp } from "@/lib/video-informe/piezas";
 import { buscadorDeEscudos, traeEscudos } from "@/lib/data-analisis/escudos";
 import { montaVideoInforme, puedeMontarVideo, type VideoMontado } from "@/lib/video-informe/monta";
 import { bloqueVideoHtml } from "@/lib/video-informe/portada-video";
+import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
 import { cargaInforme, microsDisponibles, type MicroDisponible } from "@/lib/informe-partido/carga";
 import { completoEnHojas, type HojasCompleto } from "@/lib/informe-partido/pdf-completo";
 import { informeUnicoPdf, paginaDeEnlaces, paginaDelVideo, type EnlaceInforme } from "@/lib/informe-partido/pdf-unico";
@@ -288,6 +294,42 @@ export function InformePartidoDialog({
       cancelado = true;
     };
   }, [elegido, momentoPedido, testigo]);
+
+  /* ---------------- el vídeo de balón parado de la jornada ---------------- */
+
+  /*
+  | El del analista para los jugadores (25/10/2026): se elige por la jornada
+  | del partido del informe (`eligeVideoJugadores`; sin número en el nombre,
+  | por el rival). Nunca el de otra jornada. Sólo se lee.
+  */
+  const jornadaVideoAbp = informe?.partido.jornada ?? null;
+  const rivalVideoAbp = informe?.partido.rival ?? "";
+  const [videoAbpLeido, setVideoAbpLeido] = useState<{ clave: string; video: VideoJugadores | null } | null>(null);
+  const claveVideoAbp = informe ? `${jornadaVideoAbp ?? ""}|${rivalVideoAbp}` : "";
+
+  useEffect(() => {
+    if (!claveVideoAbp) return;
+
+    let cancelado = false;
+
+    fetch(`/api/docs?key=${encodeURIComponent(VIDEO_JUGADORES_KEY)}`, { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ data?: unknown }>)
+      .then((d) => {
+        if (!cancelado) setVideoAbpLeido({ clave: claveVideoAbp, video: eligeVideoJugadores(normalizaVideosJugadores(d?.data), jornadaVideoAbp, rivalVideoAbp) });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelado = true;
+    };
+  }, [claveVideoAbp, jornadaVideoAbp, rivalVideoAbp]);
+
+  const videoAbp = videoAbpLeido?.clave === claveVideoAbp ? videoAbpLeido.video : null;
+
+  /** «Vídeo de balón parado · J9»: cómo se nombra en el correo, el PDF y WhatsApp. */
+  const nombreVideoAbp = `Vídeo de balón parado${jornadaVideoAbp ? ` · J${jornadaVideoAbp}` : ""}`;
+
+  const rotuloVideoAbp = `Ver el vídeo de balón parado${jornadaVideoAbp ? ` · J${jornadaVideoAbp}` : ""}`;
 
   /* ---------------- el informe de ABP, de su pantalla ---------------- */
 
@@ -538,11 +580,12 @@ export function InformePartidoDialog({
     return informeHtml(informeVisto, {
       abpCuerpo,
       adjuntos,
+      video: videoAbp ? bloqueVideoHtml({ url: videoAbp.url, cid: "", segundos: videoAbp.segundos, claro: true, relleno: "18px 32px 0", sinCopia: true, rotulo: rotuloVideoAbp }) : undefined,
       capitulos: envio.completo.capitulos ?? undefined,
       mensaje: envio.completo.mensaje,
       firma: (ajustes.firma ?? "").trim() || undefined,
     });
-  }, [informeVisto, abpCuerpo, listaVista, envio.completo.capitulos, envio.completo.mensaje, ajustes.firma]);
+  }, [informeVisto, abpCuerpo, listaVista, envio.completo.capitulos, envio.completo.mensaje, ajustes.firma, videoAbp, rotuloVideoAbp]);
 
   const htmlVista = sinCid(htmlCrudo);
 
@@ -1158,13 +1201,17 @@ export function InformePartidoDialog({
           const enlaces: EnlaceInforme[] = r.ppt ? [{ nombre: (await pptEnlace()).nombre, url: (await pptEnlace()).url, detalle: "PowerPoint del resumen, para proyectarlo" }] : [];
           const video = v && infoVideo ? (infoVideo as { url: string; segundos: number; poster: string | null }) : null;
 
-          if (!video && !enlaces.length) return pdfDe(imagenes);
+          if (!video && !enlaces.length && !infoAbp) return pdfDe(imagenes);
 
           const tituloEnlaces = `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`;
 
           /* El vídeo abre el PDF (22/10/2026): póster grande y QR en la primera página; al final, sólo los documentos. */
           const inicio = video ? await paginaDelVideo({ titulo: tituloEnlaces, video }).catch(() => null) : null;
-          const final = enlaces.length || !inicio ? await paginaDeEnlaces({ titulo: tituloEnlaces, video: inicio ? null : video, enlaces }).catch(() => null) : null;
+          /* La página final lleva el vídeo de balón parado de la jornada con su póster y su QR (25/10/2026). */
+          const final =
+            enlaces.length || !inicio || infoAbp
+              ? await paginaDeEnlaces({ titulo: tituloEnlaces, video: infoAbp ?? (inicio ? null : video), enlaces, rotuloVideo: infoAbp ? rotuloPdfAbp : undefined }).catch(() => null)
+              : null;
 
           return informeUnicoPdf({ titulo: tituloPdf, diapos: imagenes, final, inicio });
         })());
@@ -1240,7 +1287,26 @@ export function InformePartidoDialog({
       /* El bloque del vídeo para un correo (con el póster por cid si lo hay). */
       const bloqueVideo = (relleno?: string) => (infoVideo ? bloqueVideoHtml({ url: infoVideo.url, cid: infoVideo.poster ? "video-poster" : "", segundos: infoVideo.segundos, relleno, sinCopia: true }) : "");
 
-      const posterCid = () => (infoVideo?.poster ? [{ cid: "video-poster", tipo: "image/jpeg", base64: infoVideo.poster.replace(/^data:[^;]+;base64,/, "") }] : []);
+      /*
+      | El vídeo de balón parado de la jornada (25/10/2026): su póster por cid
+      | en el correo y en la página del PDF. Se prepara una vez.
+      */
+      const infoAbp: { url: string; segundos: number; poster: string | null } | null = videoAbp
+        ? { url: videoAbp.url, segundos: videoAbp.segundos, poster: videoAbp.poster ? await aDataUrl(videoAbp.poster) : null }
+        : null;
+
+      const rotuloPdfAbp = `Balón parado${jornadaVideoAbp ? ` · J${jornadaVideoAbp}` : ""}`;
+
+      const bloqueVideoAbp = (relleno?: string, claro?: boolean) =>
+        infoAbp ? bloqueVideoHtml({ url: infoAbp.url, cid: infoAbp.poster ? "video-abp-poster" : "", segundos: infoAbp.segundos, relleno, claro, sinCopia: true, rotulo: rotuloVideoAbp }) : "";
+
+      /** El vídeo de ABP como un enlace más (WhatsApp, texto plano). */
+      const enlaceAbp = infoAbp ? [{ nombre: nombreVideoAbp, url: infoAbp.url }] : [];
+
+      const posterCid = () => [
+        ...(infoVideo?.poster ? [{ cid: "video-poster", tipo: "image/jpeg", base64: infoVideo.poster.replace(/^data:[^;]+;base64,/, "") }] : []),
+        ...(infoAbp?.poster ? [{ cid: "video-abp-poster", tipo: "image/jpeg", base64: infoAbp.poster.replace(/^data:[^;]+;base64,/, "") }] : []),
+      ];
 
       /* Se monta UNA vez aunque vaya en los dos correos: la promesa se comparte. */
       let videoP: Promise<{ nombre: string; url: string; tipo: string; tamano: number | null } | null> | null = null;
@@ -1290,7 +1356,7 @@ export function InformePartidoDialog({
         paso("resumen", "mandando…");
 
         const html = resumenHtml(informeVisto, cids, {
-          video: bloqueVideo(),
+          video: bloqueVideo() + bloqueVideoAbp(),
           conCompleto: c.activo,
           mensaje: r.mensaje,
           firma,
@@ -1302,7 +1368,7 @@ export function InformePartidoDialog({
           para: aResumen,
           asunto: asuntoResumen,
           html,
-          texto: `${r.mensaje?.trim() ? `${r.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}`,
+          texto: `${r.mensaje?.trim() ? `${r.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}${enlaceAbp.map((e) => `\n\n${e.nombre}: ${e.url}`).join("")}`,
           imagenes: usadas(html, [...diapositivasCid, ...posterCid()]),
           adjuntosUrl: archivos.filter((a) => a.tipo !== "video/mp4").map((a) => ({ nombre: a.nombre, url: a.url, tipo: a.tipo })),
         }, {
@@ -1314,7 +1380,7 @@ export function InformePartidoDialog({
           mensaje: r.mensaje,
           firma,
           video: (infoVideo as { url: string } | null)?.url ?? null,
-          enlaces: [...archivos, ...(pptSubido ? [pptSubido] : [])],
+          enlaces: [...enlaceAbp, ...archivos, ...(pptSubido ? [pptSubido] : [])],
         });
 
         paso("resumen", "mandado ✓");
@@ -1356,7 +1422,7 @@ export function InformePartidoDialog({
         /* Sin diapositivas, sin completo, sin vídeo y sin documentos que
            enlazar, el PDF saldría vacío (o sin páginas, y el correo fallaba):
            entonces no se arma ni se adjunta (19/10/2026). */
-        const hayPdf = c.pdfResumen || c.pdfCompleto || Boolean(video) || soloEnlace.length > 0;
+        const hayPdf = c.pdfResumen || c.pdfCompleto || Boolean(video) || Boolean(infoAbp) || soloEnlace.length > 0;
 
         const pdfUnico = !hayPdf ? null : await subeUnaVez(nombreInformePdf, "application/pdf", async () =>
           informeUnicoPdf({
@@ -1365,10 +1431,11 @@ export function InformePartidoDialog({
             hojas: c.pdfCompleto ? await dameHojasCompleto((h, t) => paso("completo", `PDF ${h}/${t}…`)) : null,
             inicio: video ? await paginaDelVideo({ titulo: `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`, video }).catch(() => null) : null,
             final:
-              soloEnlace.length || !video
+              soloEnlace.length || !video || infoAbp
                 ? await paginaDeEnlaces({
                     titulo: `${informeVisto.momento === "post" ? "Post partido" : "Previa"} · ${informeVisto.partido.rival}`,
-                    video: null,
+                    video: infoAbp,
+                    rotuloVideo: infoAbp ? rotuloPdfAbp : undefined,
                     enlaces: soloEnlace.map((d) => ({ nombre: d.nombre, url: d.url, detalle: `${d.detalle}${d.tamano ? ` · ${mb(d.tamano)}` : ""}` })),
                   }).catch(() => null)
                 : null,
@@ -1401,7 +1468,7 @@ export function InformePartidoDialog({
           diapositivas: cids,
           adjuntos: descargas,
           capitulos: capitulosElegidos ?? undefined,
-          video: bloqueVideo("22px 32px 0"),
+          video: bloqueVideo("22px 32px 0") + bloqueVideoAbp("14px 32px 0", true),
           mensaje: c.mensaje,
           firma,
         };
@@ -1446,10 +1513,10 @@ export function InformePartidoDialog({
           para: aCompleto,
           asunto: asuntoCompleto,
           html: pieza.html,
-          texto: `${c.mensaje?.trim() ? `${c.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}\n\n— DOCUMENTOS —\n${descargas.map((d) => `${d.nombre}: ${d.url}`).join("\n")}`,
+          texto: `${c.mensaje?.trim() ? `${c.mensaje.trim()}${firma ? `\n— ${firma}` : ""}\n\n` : ""}${informeTexto(informeVisto)}${abpActual?.ok ? `\n\n— BALÓN PARADO —\n${abpActual.texto}` : ""}\n\n— DOCUMENTOS —\n${[...enlaceAbp, ...descargas].map((d) => `${d.nombre}: ${d.url}`).join("\n")}`,
           imagenes: pieza.imagenes,
           adjuntosUrl: reparto.filter((d) => d.adjunto).map((d) => ({ nombre: d.nombre, url: d.url, tipo: d.tipo })),
-        }, { titulo: "Informe completo", mensaje: c.mensaje, firma, video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: descargas.flatMap((d) => (d.url ? [{ nombre: d.nombre, url: d.url }] : [])) });
+        }, { titulo: "Informe completo", mensaje: c.mensaje, firma, video: (infoVideo as { url: string } | null)?.url ?? null, enlaces: [...enlaceAbp, ...descargas.flatMap((d) => (d.url ? [{ nombre: d.nombre, url: d.url }] : []))] });
 
         paso("completo", "mandado ✓");
 
@@ -1933,7 +2000,7 @@ export function InformePartidoDialog({
           </div>
         )}
 
-        {informeVisto && !cargando ? <VideosDeLaSemana piezas={piezasDeVideo} jornada={informeVisto.partido.jornada ?? null} rival={informeVisto.partido.rival} momento={informeVisto.momento} ocupado={Boolean(trabajando) || Boolean(preparando)} /> : null}
+        {informeVisto && !cargando ? <VideosDeLaSemana abp={videoAbp} piezas={piezasDeVideo} momento={informeVisto.momento} ocupado={Boolean(trabajando) || Boolean(preparando)} /> : null}
 
         {/* El estado del balón parado, que llega aparte. */}
         {informe && !cargando && (

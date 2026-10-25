@@ -16,7 +16,7 @@ import { Check, Clapperboard, Download, ExternalLink, Loader2, RefreshCw } from 
 
 import { Button } from "@/components/abp/ui";
 import { descarga } from "@/lib/export/lienzos";
-import { VIDEO_JUGADORES_KEY, eligeVideoJugadores, normalizaVideosJugadores, type VideoJugadores } from "@/lib/abp/video-jugadores";
+import type { VideoJugadores } from "@/lib/abp/video-jugadores";
 import type { VideoMontado } from "@/lib/video-informe/monta";
 import { CALENDARIO_SEMANAL, diaDePieza } from "@/lib/video-informe/piezas";
 
@@ -39,10 +39,10 @@ const minutos = (s: number) => (s >= 60 ? `${Math.floor(s / 60)}:${String(Math.r
 
 const megas = (b: number) => `${(b / 1048576).toFixed(b >= 10485760 ? 0 : 1).replace(".", ",")} MB`;
 
-export function VideosDeLaSemana({ piezas, jornada, rival, ocupado, momento }: { piezas: PiezaDeVideo[]; jornada: number | null; rival: string; ocupado: boolean; momento: "previa" | "post" }) {
+/** `abp`: el vídeo de balón parado de la jornada, ya elegido por el diálogo (el mismo que va en el informe). */
+export function VideosDeLaSemana({ piezas, abp, ocupado, momento }: { piezas: PiezaDeVideo[]; abp: VideoJugadores | null; ocupado: boolean; momento: "previa" | "post" }) {
   const [estados, setEstados] = useState<Record<string, Estado>>({});
   const [enCola, setEnCola] = useState(false);
-  const [abp, setAbp] = useState<VideoJugadores | null>(null);
   const vivo = useRef(true);
 
   useEffect(() => {
@@ -52,22 +52,6 @@ export function VideosDeLaSemana({ piezas, jornada, rival, ocupado, momento }: {
       vivo.current = false;
     };
   }, []);
-
-  /* El vídeo de ABP del analista: sólo se lee. */
-  useEffect(() => {
-    let cancelado = false;
-
-    fetch(`/api/docs?key=${encodeURIComponent(VIDEO_JUGADORES_KEY)}`, { cache: "no-store" })
-      .then((r) => r.json() as Promise<{ data?: unknown }>)
-      .then((d) => {
-        if (!cancelado) setAbp(eligeVideoJugadores(normalizaVideosJugadores(d?.data), jornada, rival));
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelado = true;
-    };
-  }, [jornada, rival]);
 
   const pon = (id: string, e: Estado) => vivo.current && setEstados((x) => ({ ...x, [id]: e }));
 

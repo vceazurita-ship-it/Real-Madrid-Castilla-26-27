@@ -372,11 +372,7 @@ export function ComparativaPartido({
  * y se promedia. Un cociente (porcentaje) se calcula sumando los dos lados
  * de todos los partidos, nunca promediando porcentajes.
  */
-export function mediaPorPartido<T>(partidos: T[][], cuenta: (filas: T[]) => number): number | null {
-  if (partidos.length === 0) return null;
-
-  return partidos.reduce((a, filas) => a + cuenta(filas), 0) / partidos.length;
-}
+export { mediaPorPartido } from "@/lib/abp/ultimo-partido";
 
 /** Un porcentaje sumando numerador y denominador de todos los partidos. */
 export function porcentajeAgregado<T>(

@@ -82,6 +82,7 @@ import { agrupa, enlaceEnSegundo, rotuloRef, segundoEnVideo, type Apunte, type V
 import { buildAerialThreats } from "./rival";
 import { teamKey } from "./model";
 import { playerKey } from "@/lib/rivals/once";
+import { faltasDeJornada, lecturaFaltas, type LecturaFaltas } from "@/lib/faltas/lectura";
 
 /* ------------------------------------------------------------------ */
 /*  LO QUE RECIBE                                                      */
@@ -809,6 +810,12 @@ export type InformeMicro = {
   propio: PropioAbp | null;
   /** Sólo en el post: el partido de la semana, acción por acción. */
   partidoAbp: PartidoAbpInforme | null;
+  /**
+   * Sólo en el post (25/10/2026): las faltas del partido etiquetadas en
+   * /laboratorio/faltas, con su comparativa y qué hacer (`lib/faltas/lectura.ts`).
+   * `null` si la jornada no está etiquetada: entonces no se nombran.
+   */
+  faltas: LecturaFaltas | null;
   /** Los gráficos, cada uno con el área de la sección en la que va. */
   graficos: GraficoInforme[];
   /** Lo que el informe no sabe, dicho donde se lee. */
@@ -3398,6 +3405,12 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
       : []
     : clavesPrevia(datos, prioridades, tiempo.porAspecto, comparativa, sinMinutos, planificado);
 
+  /* Las faltas del partido (post, 25/10/2026): si dejan algo que hacer, la primera va también en las claves. */
+  const etiquetadoFaltas = esPost ? faltasDeJornada(calendario?.jornada ?? null) : null;
+  const faltasPartido = etiquetadoFaltas ? lecturaFaltas(etiquetadoFaltas) : null;
+
+  if (faltasPartido?.queHacer.length) claves.push(`Faltas · ${faltasPartido.queHacer[0]}`);
+
   const modoRotulo = esPost ? "Post partido" : "Previa del partido";
 
   const titulo = `Balón parado · Microciclo ${datos.micro}`;
@@ -3593,6 +3606,7 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     comparativa,
     propio,
     partidoAbp,
+    faltas: faltasPartido,
     graficos,
     avisos,
     rivalAnalisis: datos.rivalAnalisis ?? null,
@@ -3840,7 +3854,7 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
 
   const partido: Seccion | null = p
     ? {
-        titulo: "El partido a balón parado",
+        titulo: "Qué pasó a balón parado",
         pie: `${p.jornada}, de nuestras hojas de ABP. «Peligro» es gol u ocasión para quien saca.`,
         html:
           tabla(
@@ -3908,6 +3922,38 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
         ],
       }
     : null;
+
+  /* ---------- las faltas del partido (post, 25/10/2026) ---------- */
+
+  const fa = informe.faltas;
+
+  const LECTURA_FALTA = { mejor: ["Mejor que la media", "bien"], peor: ["Peor que la media", "mal"], igual: ["Como siempre", "neutro"] } as const;
+
+  const faltas: Seccion | null =
+    esPost && fa
+      ? {
+          titulo: "Las faltas del partido",
+          pie: `${fa.partido}, etiquetadas viendo el vídeo (Análisis de faltas)${fa.anteriores ? `; la media es de los ${fa.anteriores} partidos anteriores` : ""}. El campo, con el Castilla atacando hacia la portería rival.`,
+          html:
+            (fa.queHacer.length
+              ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;background:${CREMA};border-left:3px solid ${ORO}"><tr><td style="padding:10px 14px"><p style="margin:0 0 4px;font:700 11px/1.3 Arial,sans-serif;color:${NAVY};letter-spacing:.12em;text-transform:uppercase">Qué hacer</p>${fa.queHacer.map((una) => `<p style="margin:0 0 4px;font:400 14px/1.5 Arial,sans-serif;color:${TINTA}">${esc(una)}</p>`).join("")}</td></tr></table>`
+              : "") +
+            (fa.hechos.length ? `<ul style="margin:0 0 12px;padding-left:20px">${fa.hechos.map((una) => `<li style="margin:0 0 5px;font:400 13px/1.5 Arial,sans-serif;color:${TINTA}">${esc(una)}</li>`).join("")}</ul>` : "") +
+            tabla(
+              fa.anteriores ? ["Faltas", "Este partido", "Media anteriores", "Lectura"] : ["Faltas", "Este partido"],
+              fa.filas.map((una) =>
+                fa.anteriores
+                  ? [esc(una.nombre), `<b>${esc(una.actual)}</b>`, esc(una.media), una.lectura ? tonoHtml(LECTURA_FALTA[una.lectura][0], LECTURA_FALTA[una.lectura][1]) : ""]
+                  : [esc(una.nombre), `<b>${esc(una.actual)}</b>`],
+              ),
+            ),
+          texto: [
+            ...fa.queHacer.map((una) => `- Qué hacer: ${una}`),
+            ...fa.hechos.map((una) => `- ${una}`),
+            ...fa.filas.map((una) => `- ${una.nombre}: ${una.actual}${una.media ? ` (media ${una.media})` : ""}${una.lectura ? ` · ${LECTURA_FALTA[una.lectura][0].toLowerCase()}` : ""}`),
+          ],
+        }
+      : null;
 
   /* Sólo los aspectos que nuestras hojas registran: de lo que no hay dato, nada (17/10/2026). */
   const cruceMedible = p ? p.cruce.filter((una) => una.medible) : [];
@@ -4450,7 +4496,7 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
     : null;
 
   const orden: (Seccion | null)[] = esPost
-    ? [claves, partido, rival, cruce, valoracion, tiempo, semana, apuntes, acumulado, equipo, categoria, seguimiento, cierre]
+    ? [claves, partido, faltas, rival, cruce, valoracion, tiempo, semana, apuntes, acumulado, equipo, categoria, seguimiento, cierre]
     : [claves, prioridades, tiempo, semana, valoracion, rival, suBalonParado, emparejamientos, cierre, apuntes, categoria, acumulado, seguimiento];
 
   orden.forEach((una) => {
