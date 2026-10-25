@@ -530,7 +530,7 @@ export default function Home() {
                   <div className="absolute left-5 top-[58px] max-w-[calc(100%-40px)]">
                     <p className="inline-block rounded-full border border-white/10 px-3.5 py-1.5 text-[11px] leading-relaxed backdrop-blur-xl" style={{ color: "#fff", backgroundColor: "rgba(2,6,13,.94)" }}>
                       {resumenData
-                        ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido leído" : "partidos leídos"} de ${resumenData.temporada}, contra los ${resumenData.equipos} de la categoría`
+                        ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido leído" : "partidos leídos"} de ${resumenData.temporada}, comparado con los ${resumenData.equipos} equipos del grupo`
                         : "Opta y Wyscout, leídos de la carpeta de datos"}
                     </p>
                   </div>
@@ -594,7 +594,7 @@ export default function Home() {
                     {(cargandoData || resumenData?.golesMenosXg != null) && (
                       <div className="min-w-0 sm:shrink-0 sm:text-right xl:text-left">
                         <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.9)" }}>
-                          Goles − xG por partido
+                          Goles por partido frente a lo esperado
                         </p>
 
                         <p
@@ -698,7 +698,7 @@ export default function Home() {
                       href: "/individual_proc",
                       label: "Promedio",
                       value: errorSeguimiento ? null : promedioSeguimientos,
-                      caption: errorSeguimiento ? "sin datos" : "Seguimientos por jugador",
+                      caption: errorSeguimiento ? "sin datos" : `${seguimientos} seguimientos entre ${jugadoresSeguimiento} jugadores`,
                       destino: "Dashboard Seguimiento",
                       loading: loadingSeguimiento,
                       icon: BarChart3,

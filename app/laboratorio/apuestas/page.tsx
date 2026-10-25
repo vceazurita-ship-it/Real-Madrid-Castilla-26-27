@@ -171,7 +171,7 @@ export default function ApuestasPage() {
                   </summary>
                   <div className="mt-2">{pasos}</div>
                 </details>
-              ) : (
+              ) : estado === "listo" ? null : (
                 <Notice tone="info" title="Cómo funciona">
                   {pasos}
                 </Notice>
@@ -184,9 +184,13 @@ export default function ApuestasPage() {
             {estado === "listo" && doc.apuestas.length === 0 && (
               <details open className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                 <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
-                  Cómo se ve una apuesta
+                  Aún nadie ha lanzado una apuesta
                 </summary>
-                <div className="mt-3">
+                <div className="mt-3 space-y-3 text-sm text-white/70">
+                  {pasos}
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                    Así se ve una apuesta
+                  </p>
                   <article className="flex max-w-xl flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-4">
                     <span className="inline-flex w-fit items-center rounded-full border border-white/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
                       Ejemplo

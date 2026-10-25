@@ -68,7 +68,7 @@ export function Acceso({
   yo,
   cargando,
   manda,
-  subtitulo = "Cada uno pone sólo lo suyo. Ver el ranking no necesita entrar",
+  subtitulo = "Cada uno pone sólo lo suyo. Para ver el ranking no hace falta entrar.",
   titulo = "Entra para apostar",
   sinPista = false,
   botonEntrar = "Entrar",

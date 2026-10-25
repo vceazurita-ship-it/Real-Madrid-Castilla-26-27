@@ -544,7 +544,7 @@ export default function QuinielaPage() {
             <div className="mt-5">
               <Panel
                 title="Ranking de acierto"
-                subtitle="Toda la temporada. Se ordena por porcentaje, no por aciertos: quien se incorpora tarde no arranca con una desventaja imposible"
+                subtitle="Toda la temporada. Se ordena por porcentaje, no por aciertos: quien se incorpora tarde no arranca con una desventaja imposible."
                 icon={Trophy}
               >
                 {(
@@ -559,7 +559,7 @@ export default function QuinielaPage() {
                           {tabla.some((fila) => fila.semana.jugados > 0) && (
                             <th className="hidden w-24 pb-2 pt-1.5 text-right font-medium sm:table-cell">Esta jornada</th>
                           )}
-                          <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Jornadas</th>
+                          <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Jornadas ganadas</th>
                         </tr>
                       </thead>
 
@@ -797,7 +797,7 @@ export default function QuinielaPage() {
             <div className="mt-5">
               <Panel
                 title="Quién juega"
-                subtitle={`Cómo va cada uno con la jornada ${jornada}. La carita abre su canción, su frase y su foto de broma`}
+                subtitle={`Cómo va cada uno en la jornada ${jornada}. Pulsa la carita para ver su canción, su frase y su foto.`}
                 icon={Users}
               >
                 <div className="flex flex-wrap gap-2">
@@ -1356,7 +1356,7 @@ export default function QuinielaPage() {
 
                 <details className="mt-1 text-[11px] leading-relaxed text-white/40">
                   <summary className="cursor-pointer select-none text-white/50 hover:text-white">
-                    Ver reglas
+                    Ver reglas de la comida
                   </summary>
                   <p className="mt-1">
                     Lo que no jugó antes de entrar no suma como fallo. Si hay
@@ -1376,7 +1376,7 @@ export default function QuinielaPage() {
                 todos los demás.
                 <details className="mt-1 text-white/60">
                   <summary className="cursor-pointer select-none">
-                    Ver reglas
+                    Ver reglas del acierto
                   </summary>
                   <p className="mt-1">
                     Un partido sin resultado no cuenta para nadie, ni a favor
@@ -1395,7 +1395,7 @@ export default function QuinielaPage() {
                   cargando={sesion.cargando}
                   manda={sesion.manda}
                   titulo="Entra para ver lo tuyo"
-                  subtitulo="Ver el ranking no necesita entrar"
+                  subtitulo="Para ver el ranking no hace falta entrar."
                 />
               </div>
             )}
