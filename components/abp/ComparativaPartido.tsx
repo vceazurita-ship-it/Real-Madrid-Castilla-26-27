@@ -206,9 +206,9 @@ export function ComparativaPartido({
                   className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-x-3 px-4 py-2.5 sm:pl-5 sm:pr-16"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm text-white/85 sm:truncate">{m.nombre}</p>
-                    {(pie || baseTexto || juzga) && (
-                      <p className="text-[11px] text-white/35 sm:truncate">
+                    <p className="text-sm text-white/85 sm:truncate" title={m.nombre}>{m.nombre}</p>
+                    {(pie || baseTexto || juzga || m.mejorAlto === null) && (
+                      <p className="text-[11px] text-white/35">
                         {[baseTexto, pie || null].filter(Boolean).join(" · ")}
                         {indicio ? " · indicio" : ""}
                         {/* El sentido, siempre y con su color, para no mezclar filas de «más» y de «menos». */}
@@ -219,6 +219,12 @@ export function ComparativaPartido({
                           >
                             {baseTexto || pie || indicio ? " · " : ""}
                             {m.mejorAlto ? "▲ más es mejor" : "▼ menos es mejor"}
+                          </span>
+                        )}
+                        {m.mejorAlto === null && (
+                          <span className="font-medium">
+                            {baseTexto || pie || indicio ? " · " : ""}
+                            sin juicio
                           </span>
                         )}
                       </p>
@@ -252,7 +258,9 @@ export function ComparativaPartido({
                   </span>
 
                   <span className="text-right text-sm font-semibold tabular-nums" style={{ color: colorDiferencia }}>
-                    {d === null
+                    {m.tendencia
+                      ? ""
+                      : d === null
                       ? "—"
                       : m.igualEn && Math.abs(d) < 0.05
                         ? m.igualEn

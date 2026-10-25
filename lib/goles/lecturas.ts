@@ -241,12 +241,12 @@ export function loImportante(e: EntradaImportante): Importante[] {
     const nombre = flojo.franja.nombre;
 
     filas.push({
-      texto: `Donde más sufre es en el ${nombre}: ${veces(flojo.gc)} en contra, ${n2(media(flojo.gc, e.partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga${flojo.gc <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
+      texto: `Donde más sufre es en el ${nombre}: ${veces(flojo.gc)} en contra${e.incompleto ? "" : `, ${n2(media(flojo.gc, e.partidos))} por partido frente a ${n2(flojo.ligaContraPP)} de la liga`}${flojo.gc <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
       accion: flojo.franja.parte === 2 && flojo.franja.desde >= 61 ? `Esta semana, ${TAREA_VENTAJA}` : `Esta semana, tarea de concentración y de ajuste defensivo en el tramo ${nombre}, con el partido en marcha.`,
     });
   } else if (fuerte) {
     filas.push({
-      texto: `Su mejor tramo es el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}, ${n2(media(fuerte.gf, e.partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga${fuerte.gf <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
+      texto: `Su mejor tramo es el ${fuerte.franja.nombre}: ${veces(fuerte.gf)}${e.incompleto ? "" : `, ${n2(media(fuerte.gf, e.partidos))} por partido frente a ${n2(fuerte.ligaPP)} de la liga`}${fuerte.gf <= 3 ? ` (tendencia, ${base(e.partidos)})` : ""}.`,
       accion: `Esta semana, repetir en el entrenamiento lo que ocurre en el tramo ${fuerte.franja.nombre} y llevarlo a otros momentos del partido.`,
     });
   }

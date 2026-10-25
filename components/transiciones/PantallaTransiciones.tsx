@@ -204,7 +204,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     conclusiones: {
       adelante: (pct, n, de) => `El ${pct} % sale hacia delante tras robar (${n} de ${de}).`,
       zona: (zona, n, total, adelante, juegan) =>
-        `Más robos en ${zona}: ${n} de ${total}. De los ${juegan} que se juegan, ${adelante} salen hacia delante.`,
+        `Más robos en ${zona}: ${n} de ${total}. De los ${n} robos en ${zona}, ${juegan} se juegan con pase o conducción y ${adelante} salen hacia delante.`,
       acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % acaba en remate o área y ${pierden} % en pérdida.`,
       dura: (s) => `La transición dura ${s} s de media.`,
     },
@@ -265,7 +265,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     conclusiones: {
       adelante: (pct, n, de) => `El rival sale hacia delante en el ${pct} % de las pérdidas que llega a jugar (${n} de ${de}).`,
       zona: (zona, n, total, adelante, juegan) =>
-        `Más pérdidas en ${zona}: ${n} de ${total}. De las ${juegan} que el rival llega a jugar, sale hacia delante en ${adelante}.`,
+        `Más pérdidas en ${zona}: ${n} de ${total}. De las ${n} pérdidas en ${zona}, el rival llega a jugar ${juegan} y sale hacia delante en ${adelante}.`,
       acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % nos llegan al área o al remate y ${pierden} % las recuperamos.`,
       dura: (s) => `Su transición dura ${s} s de media.`,
     },
@@ -930,6 +930,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     const robosMode = modo === "robos";
     const segundos = (n: number) => `${decimal(n)} s`;
+    /* Un porcentaje apoyado en pocas acciones es un indicio: se dice en la propia fila. */
+    const pequena = (base: number) => (base < 15 ? " · muestra pequeña" : "");
 
     const metricas: MetricaComparada[] = [
       {
@@ -948,7 +950,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? true : false,
-        pie: `${adelante(jugadas(actuales))} de ${jugadas(actuales).length} que se juegan con pase o conducción · ${robosMode ? "más, mejor" : "menos, mejor"}`,
+        pie: `${adelante(jugadas(actuales))} de ${jugadas(actuales).length} que se juegan con pase o conducción${pequena(jugadas(actuales).length)} · ${robosMode ? "más, mejor" : "menos, mejor"}`,
       },
       {
         clave: "llegan",
@@ -958,7 +960,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? true : false,
-        pie: `${llegan(seguidas(actuales))} de ${seguidas(actuales).length} con desenlace anotado · ${robosMode ? "más, mejor" : "menos, mejor"}`,
+        pie: `${llegan(seguidas(actuales))} de ${seguidas(actuales).length} con desenlace anotado${pequena(seguidas(actuales).length)} ·${robosMode ? "más, mejor" : "menos, mejor"}`,
       },
       {
         clave: "cortas",
@@ -968,7 +970,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? false : true,
-        pie: `${cortas(seguidas(actuales))} de ${seguidas(actuales).length} con desenlace anotado · ${robosMode ? "menos, mejor" : "más, mejor"}`,
+        pie: `${cortas(seguidas(actuales))} de ${seguidas(actuales).length} con desenlace anotado${pequena(seguidas(actuales).length)} ·${robosMode ? "menos, mejor" : "más, mejor"}`,
       },
       {
         clave: "campo",
@@ -985,7 +987,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         media: duracionMediaDe(anteriores),
         formato: segundos,
         mejorAlto: robosMode ? null : false,
-        pie: robosMode ? "según el estilo, sin juicio" : "cuanto menos dure su posesión, mejor",
+        pie: robosMode ? "según el estilo" : "cuanto menos dure su posesión, mejor",
       },
     ];
 
@@ -1351,7 +1353,13 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             {comparativa && (
               <ComparativaPartido
                 partido={comparativa.partido}
-                anteriores={comparativa.anteriores}
+                anteriores={{
+                  ...comparativa.anteriores,
+                  rotulo:
+                    comparativa.anteriores.n > 1
+                      ? `media de los ${comparativa.anteriores.n} anteriores con vídeo etiquetado (de ${partidos.length} etiquetados en la temporada)`
+                      : undefined,
+                }}
                 metricas={comparativa.metricas}
                 nota={explicativos ? comparativa.nota : undefined}
                 className="mt-5"
@@ -1399,7 +1407,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 valor={`${pct(jugados.length - adelante, jugados.length)}%`}
                 rotulo={T.cifras.horizontal}
                 pie={`${jugados.length - adelante} de ${jugados.length}`}
-                color={COLOR_ACCION.HORIZONTAL_ATRAS}
+                color={ACERO}
                 icono={ArrowLeftRight}
                 onClick={() => alterna("accion", "HORIZONTAL_ATRAS")}
                 activo={estaActivo(filtros, "accion", "HORIZONTAL_ATRAS")}

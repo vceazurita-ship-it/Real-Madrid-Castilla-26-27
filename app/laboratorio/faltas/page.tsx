@@ -528,7 +528,7 @@ export default function FaltasPage() {
     };
 
     const metricas: MetricaComparada[] = [
-      metrica("favor", "Faltas a favor", aFavor, null, "sin juicio: depende del estilo"),
+      metrica("favor", "Faltas a favor", aFavor, null, "el volumen depende del estilo; lo que se juzga es dónde, en las filas de zona"),
       metrica("contra", "Faltas en contra", enContra, false, "menos, mejor"),
       metrica("favor-frontal", "A favor frontales", (f) => aFavor(f) && f.distancia === "frontal", true, "de cara a la portería rival · más, mejor"),
       metrica("contra-frontal", "En contra frontales", (f) => enContra(f) && f.distancia === "frontal", false, "de cara a nuestra portería · menos, mejor"),

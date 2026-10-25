@@ -3916,6 +3916,11 @@ function Coding() {
               <div className="mt-4">
                 <Notice tone="warn" title="Elige el rival de estos vídeos">
                   Ningún vídeo abierto lleva el nombre de {rival.nombre}, el rival de la jornada, con el que se guardarían los cortes. Elige arriba el equipo de estos vídeos antes de sacarlos: el título y el rótulo salen con el rival elegido.
+                  <span className="mt-2 block">
+                    <Button onClick={() => cambiaUrl("equipo", rival.clave)} title={`Fijar ${rival.nombre} como rival de estos vídeos`}>
+                      Usar {rival.nombre}
+                    </Button>
+                  </span>
                 </Notice>
               </div>
             ) : null}

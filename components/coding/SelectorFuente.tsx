@@ -209,8 +209,8 @@ export function SelectorFuente({
         </div>
 
         {carpeta && (
-          <p className="mb-2 break-all text-[10px] text-white/25">
-            {carpeta.carpeta}
+          <p className="mb-2 break-all text-[10px] text-white/25" title={carpeta.carpeta}>
+            {carpeta.carpeta.split(/[\\/]+/).filter(Boolean).pop() ?? carpeta.carpeta}
             {!carpeta.existe && " · todavía no existe: créala y deja ahí los partidos"}
           </p>
         )}
@@ -244,12 +244,12 @@ export function SelectorFuente({
                     }`}
                   >
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12px] text-white/80">
+                      <span className="block break-all text-[12px] text-white/80" title={video.nombre}>
                         {video.nombre}
                       </span>
 
-                      <span className="block truncate text-[10px] text-white/30">
-                        {video.ruta}
+                      <span className="block truncate text-[10px] text-white/30" title={video.ruta}>
+                        {video.ruta.split(/[\\/]+/).slice(-2, -1)[0] ?? ""}
                       </span>
                     </span>
 
