@@ -2608,6 +2608,7 @@ const pie = (
       : "0%"
   }
   hint="ABP del rival que acaban en remate · menos es mejor"
+  muestra={{ n: metrics.shots, de: metrics.total, unidad: "acciones" }}
   />
 
 <Card
@@ -2652,6 +2653,7 @@ const pie = (
   title="Gol u ocasión"
   value={`${tasaPeligro.toFixed(1).replace(".", ",")} %`}
   hint="ABP que nos generan peligro real · menos es mejor"
+  muestra={{ n: accionesPeligrosas, de: metrics.total, unidad: "acciones" }}
   />
   {(mayorPerfil || perfilGolpeoFilter !== "ALL") && (
   <button
@@ -4184,12 +4186,15 @@ function Card({
   title,
   value,
   hint,
+  muestra,
   onClick,
   activo = false,
 }: {
   title: string;
   value: React.ReactNode;
   hint?: string;
+  /** De cuántas acciones sale la cifra: con menos de 10 va en gris, con «tendencia». */
+  muestra?: { n: number; de: number; unidad: string };
   /** Las tarjetas que son un resultado concreto («Gol Rival») filtran por él. */
   onClick?: () => void;
   activo?: boolean;
@@ -4231,11 +4236,29 @@ function Card({
           text-white
         "
       >
-        {value}
+        {muestra && muestra.de < 10 ? (
+          <span style={{ color: "rgb(var(--rmcf-ink-rgb) / .55)" }}>{value}</span>
+        ) : (
+          value
+        )}
       </h3>
 
+      {muestra && (
+        <p className="mt-1.5 text-[11px] font-medium leading-snug text-white/55">
+          {muestra.n} de {muestra.de} {muestra.unidad}
+          {muestra.de < 10 ? " · tendencia" : ""}
+        </p>
+      )}
+      {/* El sentido («menos es mejor») en su propia línea, que en el móvil se lee. */}
       {hint && (
-        <p className="mt-1.5 text-[10px] leading-snug text-white/35">{hint}</p>
+        <p className={`${muestra ? "mt-1" : "mt-1.5"} text-[11px] leading-snug text-white/35`}>
+          {hint.replace(/\s·\s(?:más|menos) es mejor$/, "")}
+        </p>
+      )}
+      {hint && /(?:más|menos) es mejor$/.test(hint) && (
+        <p className="mt-0.5 text-[11px] font-medium leading-snug" style={{ color: "var(--rmcf-gold-ink)" }}>
+          {hint.endsWith("menos es mejor") ? "▼ menos es mejor" : "▲ más es mejor"}
+        </p>
       )}
     </Caja>
   );

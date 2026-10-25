@@ -510,11 +510,12 @@ export default function ThrowInZoneMap({
                         x={box.x + box.w - 1.4}
                         y={box.y + 3.2}
                         textAnchor="end"
-                        fontSize="1.9"
-                        fill={textoSuave}
+                        fontSize="2.4"
+                        fontWeight="700"
+                        fill={textoFuerte}
                         pointerEvents="none"
                       >
-                        {cell.total} saques
+                        {cell.total} {cell.total === 1 ? "saque" : "saques"}
                       </text>
                     ) : null}
                   </g>

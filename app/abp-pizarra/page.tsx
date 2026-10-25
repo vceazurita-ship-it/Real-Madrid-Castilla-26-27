@@ -1944,35 +1944,17 @@ export default function PizarraAbpPage() {
               </label>
 
               <div className="flex flex-wrap items-end gap-2">
-                {anterior && !leyendo && (
+                {/* Con la pizarra vacía, traer la del partido anterior es lo primero que se hace. */}
+                {anterior && !leyendo && (!tablero || !tieneFichas(tablero.slides)) && (
                   <Button
                     icon={Copy}
-                    tone={!tablero || !tieneFichas(tablero.slides) ? "primary" : undefined}
+                    tone="primary"
                     onClick={copiaDelAnterior}
                     title={`Traer las diapositivas de ${matchLabel(anterior)}`}
                   >
-                    {guardado ? "Rehacer desde" : "Copiar de"}{" "}
-                    {matchLabel(anterior)}
+                    Copiar de {matchLabel(anterior)}
                   </Button>
                 )}
-
-                <Button
-                  icon={Save}
-                  onClick={guardaVersionAhora}
-                  disabled={!tablero || !tieneFichas(tablero.slides)}
-                  title="Congelar la pizarra tal y como está en el histórico de la jornada"
-                >
-                  Guardar versión
-                </Button>
-
-                <Button
-                  icon={Repeat}
-                  onClick={() => setCambiando({ sale: null })}
-                  disabled={!tablero || !tieneFichas(tablero.slides)}
-                  title="Poner a otro jugador en el sitio de uno del once, en todas las diapositivas"
-                >
-                  Cambiar jugador
-                </Button>
 
                 <Button
                   tone="primary"
@@ -1987,6 +1969,47 @@ export default function PizarraAbpPage() {
                 >
                   Colocar todo
                 </Button>
+
+                {/* Lo menos usado, en un menú: una sola fila de botones a la vista. */}
+                <details className="relative">
+                  <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/12 px-3 text-sm text-white/70 transition hover:border-white/25 hover:text-white marker:hidden">
+                    Más
+                    <ChevronRight size={13} className="rotate-90" />
+                  </summary>
+
+                  <div
+                    className="absolute left-0 z-30 mt-1 flex min-w-[220px] flex-col items-stretch gap-2 rounded-2xl border border-white/10 bg-[#0B0F14] p-2 shadow-xl"
+                    onClick={(event) => event.currentTarget.closest("details")?.removeAttribute("open")}
+                  >
+                    {anterior && !leyendo && tablero && tieneFichas(tablero.slides) && (
+                      <Button
+                        icon={Copy}
+                        onClick={copiaDelAnterior}
+                        title={`Traer las diapositivas de ${matchLabel(anterior)}`}
+                      >
+                        {guardado ? "Rehacer desde" : "Copiar de"} {matchLabel(anterior)}
+                      </Button>
+                    )}
+
+                    <Button
+                      icon={Save}
+                      onClick={guardaVersionAhora}
+                      disabled={!tablero || !tieneFichas(tablero.slides)}
+                      title="Congelar la pizarra tal y como está en el histórico de la jornada"
+                    >
+                      Guardar versión
+                    </Button>
+
+                    <Button
+                      icon={Repeat}
+                      onClick={() => setCambiando({ sale: null })}
+                      disabled={!tablero || !tieneFichas(tablero.slides)}
+                      title="Poner a otro jugador en el sitio de uno del once, en todas las diapositivas"
+                    >
+                      Cambiar jugador
+                    </Button>
+                  </div>
+                </details>
 
                 {/*
                   Imprimir, arriba. Los mismos dos botones que la caja del final
@@ -2590,7 +2613,12 @@ export default function PizarraAbpPage() {
                 {/* ====================== TEXTOS ====================== */}
 
                 {slide && (
-                  <div className="mt-5">
+                  <details className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+                    <summary className="cursor-pointer select-none text-xs font-medium text-white/70">
+                      Textos de la diapositiva
+                      <span className="ml-2 text-white/40">· título, señal, rutina y consignas</span>
+                    </summary>
+                    <div className="mt-3">
                     <TextosDeLaSlide
                       slide={slide}
                       guardadoParaSiguientes={Boolean(
@@ -2619,7 +2647,8 @@ export default function PizarraAbpPage() {
                       }
                       onVolverALaPlantilla={() => vuelveALaPlantilla(slide)}
                     />
-                  </div>
+                    </div>
+                  </details>
                 )}
 
                 {/* ================== CONTROL DE GAZAPOS ============== */}
@@ -2630,6 +2659,14 @@ export default function PizarraAbpPage() {
                       tablero={tablero}
                       players={porId}
                       onCambiar={(playerId) => setCambiando({ sale: playerId })}
+                      onIrA={(slideId) => {
+                        const indice = tablero.slides.findIndex((una) => una.id === slideId);
+
+                        if (indice < 0) return;
+
+                        setPedida(indice);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
                     />
                   </div>
                 )}
@@ -3371,11 +3408,14 @@ function ControlDeGazapos({
   tablero,
   players,
   onCambiar,
+  onIrA,
 }: {
   tablero: TableroPizarra;
   players: Map<string, Player>;
   /** Abre el cambio de jugador con éste como el que sale. */
   onCambiar: (playerId: string) => void;
+  /** Lleva a una diapositiva del tablero. */
+  onIrA: (slideId: string) => void;
 }) {
   const revision = useMemo(() => revisaTablero(tablero), [tablero]);
 
@@ -3384,8 +3424,30 @@ function ControlDeGazapos({
   /* Sin dos diapositivas con gente no hay nada que cotejar: no se pinta. */
   if (revision.slidesConGente < 2) return null;
 
+  /* Plegado por defecto para acortar la página; si hay avisos, el rótulo los
+     dice con el número y los nombres, para que no pasen inadvertidos. */
+  const nombres = revision.gazapos
+    .map((gazapo) => {
+      const player = players.get(gazapo.playerId);
+
+      return player?.apodo || player?.nombre || "";
+    })
+    .filter(Boolean);
+
   return (
+    <details className="group rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+      <summary className="cursor-pointer select-none text-xs font-medium text-white/70">
+        Control de la convocatoria
+        <span className={`ml-2 ${limpio ? "text-emerald-300/80" : "text-amber-300/90"}`}>
+          {limpio
+            ? "· cuadra"
+            : `· ${revision.gazapos.length === 1 ? "1 jugador no está" : `${revision.gazapos.length} jugadores no están`} en todas las diapositivas${
+                nombres.length ? `: ${nombres.slice(0, 4).join(", ")}${nombres.length > 4 ? "…" : ""}` : ""
+              }`}
+        </span>
+      </summary>
     <Panel
+      className="mt-3"
       title="Control de la convocatoria"
       subtitle={
         revision.slidesConGente < 2
@@ -3430,8 +3492,18 @@ function ControlDeGazapos({
                     falta en {gazapo.falta.length} de {revision.slidesConGente}:
                   </span>
 
-                  <span className="min-w-0 text-[11px] text-amber-200/70">
-                    {gazapo.falta.map((slide) => slide.titulo).join(" · ")}
+                  <span className="flex min-w-0 flex-wrap gap-x-2 text-[11px] text-amber-200/70">
+                    {gazapo.falta.map((slide) => (
+                      <button
+                        key={slide.id}
+                        type="button"
+                        onClick={() => onIrA(slide.id)}
+                        title="Ir a esta diapositiva"
+                        className="underline decoration-dotted underline-offset-2 transition hover:text-white"
+                      >
+                        {slide.titulo}
+                      </button>
+                    ))}
                   </span>
 
                   <button
@@ -3459,5 +3531,6 @@ function ControlDeGazapos({
         ))}
       </div>
     </Panel>
+    </details>
   );
 }

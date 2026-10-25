@@ -443,8 +443,13 @@ export function revisaSemana({
     puntos.push({
       id: `urgente-${fila.aspecto.key}-${fila.lado}`,
       tono: "aviso",
-      titulo: `${fila.aspecto.label} ${fila.lado === "ofensivo" ? "atacando" : "defendiendo"}, fuera de la semana`,
-      detalle: `De lo más urgente: ${fila.stats.acciones} acciones en competición y ${Math.round(fila.peligroAjustado)} % de peligro.${(() => {
+      titulo: `${fila.aspecto.label} ${fila.lado === "ofensivo" ? "a favor" : "en contra"}: no entran en la semana`,
+      detalle: `${
+        /* Una o dos acciones no hacen urgente nada: se dice el hecho y no se apremia. */
+        fila.stats.acciones < 3
+          ? `Sólo ${fila.stats.acciones === 1 ? "hay 1 en competición" : `hay ${fila.stats.acciones} en competición`}${fila.peligroAjustado >= 50 ? ", y acabó en peligro" : ""}: es poca muestra.`
+          : `Es de lo más urgente: ${fila.stats.acciones} acciones en competición y ${Math.round(fila.peligroAjustado)} % de peligro.`
+      }${(() => {
         /* Si el mismo aspecto sí se trabaja del otro lado, se dice: si no, parece un olvido sin motivo. */
         const otro = fila.lado === "ofensivo" ? "defensivo" : "ofensivo";
 
