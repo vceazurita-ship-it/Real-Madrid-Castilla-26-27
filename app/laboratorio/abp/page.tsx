@@ -56,16 +56,93 @@ function defensaDe(texto?: string): Defensa {
 
 type Pestana = "referentes" | "jornada" | "pizarra" | "taller" | "retos";
 
-const PESTANAS: { key: Pestana; label: string; icon: typeof Trophy; lema: string }[] = [
-  { key: "referentes", label: "Referentes", icon: BookMarked, lema: "Lo que hacen los mejores" },
-  { key: "jornada", label: "Lo mejor de cada jornada", icon: Target, lema: "Wyscout, cada mañana" },
-  { key: "pizarra", label: "En la pizarra", icon: LayoutTemplate, lema: "Nuestras jugadas en uso" },
-  { key: "taller", label: "Taller", icon: FlaskConical, lema: "Nuestras rutinas" },
-  { key: "retos", label: "Retos", icon: Swords, lema: "La competición" },
+const PESTANAS: { key: Pestana; label: string; corto: string; icon: typeof Trophy; lema: string }[] = [
+  { key: "referentes", label: "Referentes", corto: "Referentes", icon: BookMarked, lema: "Lo que hacen los mejores" },
+  { key: "jornada", label: "Lo mejor de cada jornada", corto: "Jornada", icon: Target, lema: "Wyscout, cada mañana" },
+  { key: "pizarra", label: "En la pizarra", corto: "Pizarra", icon: LayoutTemplate, lema: "Nuestras jugadas en uso" },
+  { key: "taller", label: "Taller", corto: "Taller", icon: FlaskConical, lema: "Nuestras rutinas" },
+  { key: "retos", label: "Retos", corto: "Retos", icon: Swords, lema: "La competición" },
 ];
+
+function esPestana(valor: string | null): valor is Pestana {
+  return PESTANAS.some((p) => p.key === valor);
+}
 
 export default function LaboratorioAbpPage() {
   const [pestana, setPestana] = useState<Pestana>("referentes");
+
+  /* Dónde empieza el contenido: al cambiar de sección se vuelve aquí, no al final de la anterior. */
+  const contenido = useRef<HTMLDivElement>(null);
+
+  /* Alto de la cabecera fija: es donde se pega la barra de secciones. */
+  const [tope, setTope] = useState(97);
+
+  const fila = useRef<HTMLDivElement>(null);
+
+  /*
+   * NAVEGACIÓN (25/10/2026). La sección va en la dirección (`?seccion=jornada`):
+   * «atrás» vuelve a la sección anterior en vez de sacarte del laboratorio, al
+   * recargar no se vuelve a Referentes y una sección se puede enlazar.
+   */
+  const irA = useCallback((p: Pestana, como: "push" | "replace" = "push") => {
+    setPestana(p);
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get("seccion") !== p) {
+      url.searchParams.set("seccion", p);
+
+      if (p !== "jornada") url.searchParams.delete("vista");
+
+      window.history[como === "push" ? "pushState" : "replaceState"]({ seccion: p }, "", url.pathname + url.search + url.hash);
+    }
+
+    const arriba = contenido.current?.getBoundingClientRect().top ?? 0;
+
+    /* Sólo si ya se ha bajado: si el contenido está a la vista, no se mueve nada. */
+    if (arriba < tope) window.scrollTo({ top: window.scrollY + arriba - tope - 70 });
+  }, [tope]);
+
+  useEffect(() => {
+    const desdeUrl = () => {
+      const s = new URLSearchParams(window.location.search).get("seccion");
+
+      setPestana(esPestana(s) ? s : "referentes");
+    };
+
+    void Promise.resolve().then(desdeUrl);
+
+    /* La cabecera de esta página lleva debajo la franja «Balón parado»: la barra se pega bajo su alto real, no bajo un número fijo. */
+    const cabecera = document.querySelector("header");
+
+    const mide = () => setTope(cabecera?.getBoundingClientRect().height ?? 0);
+
+    const observador = cabecera ? new ResizeObserver(mide) : null;
+
+    if (cabecera) observador?.observe(cabecera);
+
+    window.addEventListener("popstate", desdeUrl);
+
+    return () => {
+      window.removeEventListener("popstate", desdeUrl);
+      observador?.disconnect();
+    };
+  }, []);
+
+  /* En el móvil la fila se desliza: la sección abierta siempre a la vista. */
+  useEffect(() => {
+    const caja = fila.current;
+
+    const boton = caja?.querySelector<HTMLElement>('[aria-current="page"]');
+
+    if (!caja || !boton) return;
+
+    const izquierda = boton.offsetLeft - caja.offsetLeft;
+
+    if (izquierda < caja.scrollLeft || izquierda + boton.offsetWidth > caja.scrollLeft + caja.clientWidth) {
+      caja.scrollTo({ left: Math.max(0, izquierda - 16), behavior: "smooth" });
+    }
+  }, [pestana]);
 
   const [borrador, setBorrador] = useState<Borrador | null>(null);
 
@@ -112,14 +189,14 @@ export default function LaboratorioAbpPage() {
         });
 
         releePizarra();
-        setPestana("pizarra");
+        irA("pizarra");
 
         if (rutina) setBorrador({ ...rutina });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "No se ha podido traer la diapositiva");
       }
     },
-    [doc.rutinas, guarda, porId, releePizarra],
+    [doc.rutinas, guarda, porId, releePizarra, irA],
   );
 
   /*
@@ -144,10 +221,10 @@ export default function LaboratorioAbpPage() {
     window.history.replaceState(null, "", window.location.pathname);
 
     void Promise.resolve().then(() => {
-      setPestana("pizarra");
+      irA("pizarra", "replace");
       setLeePizarra(true);
     });
-  }, []);
+  }, [irA]);
 
   useEffect(() => {
     const l = llegada.current;
@@ -213,9 +290,9 @@ export default function LaboratorioAbpPage() {
       void _a;
 
       setBorrador({ ...borradorVacio(), ...borrador });
-      setPestana("taller");
+      irA("taller", "replace");
     });
-  }, []);
+  }, [irA]);
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -239,45 +316,55 @@ export default function LaboratorioAbpPage() {
             />
 
             {/* ------------------------ PESTAÑAS ------------------------------ */}
-            <nav className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="Secciones del laboratorio">
-              {PESTANAS.map((p) => {
-                const activa = p.key === pestana;
+            {/*
+              Pegada bajo la cabecera (25/10/2026): las secciones largas —lo
+              mejor de cada jornada, el taller— obligaban a subir hasta arriba
+              para cambiar. En el móvil es una fila que se desliza, en vez de
+              seis tarjetas que se comían media pantalla.
+            */}
+            <nav
+              className="sticky z-20 -mx-4 mt-5 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 py-2.5 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10"
+              style={{ top: tope }}
+              aria-label="Secciones del laboratorio"
+            >
+              <div ref={fila} className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
+                {PESTANAS.map((p) => {
+                  const activa = p.key === pestana;
 
-                const Icono = p.icon;
+                  const Icono = p.icon;
 
-                return (
-                  <button
-                    key={p.key}
-                    type="button"
-                    aria-current={activa ? "page" : undefined}
-                    onClick={() => setPestana(p.key)}
-                    className={`group flex min-w-0 items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition ${
-                      activa ? "border-[#C8A96B]/60 bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
-                    }`}
-                  >
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${activa ? "bg-[#C8A96B]/20 text-[#C8A96B]" : "bg-white/5 text-white/50"}`}>
-                      <Icono size={17} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className={`block line-clamp-2 text-sm font-semibold ${activa ? "text-[#C8A96B]" : "text-white/85"}`}>{p.label}</span>
-                      <span className="block line-clamp-2 text-[11px] text-white/45">{p.lema}</span>
-                    </span>
-                  </button>
-                );
-              })}
-              <Link
-                href="/laboratorio/abp/datos"
-                className="group flex min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3 transition hover:bg-white/[0.06]"
-              >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/50">
-                  <BarChart3 size={17} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-white/85">Datos</span>
-                  <span className="block line-clamp-2 text-[11px] text-white/45">Primera RFEF y Premier</span>
-                </span>
-              </Link>
+                  return (
+                    <button
+                      key={p.key}
+                      type="button"
+                      aria-current={activa ? "page" : undefined}
+                      title={p.lema}
+                      onClick={() => irA(p.key)}
+                      className={`flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                        activa ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-[#C8A96B]" : "border-white/10 bg-white/[0.03] text-white/75 hover:bg-white/[0.07] hover:text-white"
+                      }`}
+                    >
+                      <Icono size={15} />
+                      <span className="sm:hidden">{p.corto}</span>
+                      <span className="hidden sm:inline">{p.label}</span>
+                    </button>
+                  );
+                })}
+                <Link
+                  href="/laboratorio/abp/datos"
+                  title="Primera RFEF y Premier"
+                  className="flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/[0.07] hover:text-white"
+                >
+                  <BarChart3 size={15} />
+                  Datos
+                </Link>
+              </div>
             </nav>
+
+            {/* Lo que es la sección abierta, en una línea: antes iba en cada tarjeta. */}
+            <p ref={contenido} className="mt-3 text-xs text-white/45">
+              {PESTANAS.find((p) => p.key === pestana)?.lema}
+            </p>
 
             {estado === "error" && (
               <div className="mt-5">
@@ -287,7 +374,7 @@ export default function LaboratorioAbpPage() {
               </div>
             )}
 
-            <div className="mt-6">
+            <div className="mt-4">
               {pestana === "referentes" && (
                 <Referentes
                   onAlTaller={(rutina, referente) => {
@@ -303,7 +390,7 @@ export default function LaboratorioAbpPage() {
                       idea: rutina.pasos.map((p, i) => `${i + 1}. ${p}`).join("\n"),
                       ...(esquema ? { roles: esquema.roles.map((r) => ({ ...r })), balon: esquema.balon.map((p) => ({ ...p })) } : {}),
                     });
-                    setPestana("taller");
+                    irA("taller");
                   }}
                 />
               )}
@@ -312,7 +399,7 @@ export default function LaboratorioAbpPage() {
                 <MejorJornada
                   onAlTaller={(b) => {
                     setBorrador(b);
-                    setPestana("taller");
+                    irA("taller");
                   }}
                 />
               )}

@@ -16,7 +16,7 @@
  * sabe sin duda. Sin resumen encontrado, el botón no sale.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FlaskConical, Target } from "lucide-react";
 
 import { Notice } from "@/components/abp/ui";
@@ -181,7 +181,23 @@ export function MejorJornada({ onAlTaller }: { onAlTaller: (b: Borrador) => void
 
   const [indice, setIndice] = useState<number | null>(null);
 
-  const [vista, setVista] = useState<"top" | "patrones">("top");
+  const [vista, setVistaEstado] = useState<"top" | "patrones">("top");
+
+  /* La vista va en la dirección (`&vista=patrones`): al recargar o enlazar se abre la misma (25/10/2026). */
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("vista") === "patrones") void Promise.resolve().then(() => setVistaEstado("patrones"));
+  }, []);
+
+  const setVista = (v: "top" | "patrones") => {
+    setVistaEstado(v);
+
+    const url = new URL(window.location.href);
+
+    if (v === "patrones") url.searchParams.set("vista", v);
+    else url.searchParams.delete("vista");
+
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  };
 
   const competiciones = (datos?.competiciones ?? []).filter((c) => c.jornadas.length);
 
