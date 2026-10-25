@@ -267,6 +267,8 @@ export default function QuinielaPage() {
     [doc, jugadores, jornada],
   );
 
+  const maxJugados = tabla.reduce((max, fila) => Math.max(max, fila.total.jugados), 0);
+
   const rarezas = useMemo(
     () => rarezasDe(laJornada, jugadores),
     [laJornada, jugadores],
@@ -592,6 +594,14 @@ export default function QuinielaPage() {
                                       {persona.nombre}
                                     </span>
 
+                                    {/* Quien apostó poco sale abajo con un
+                                        porcentaje engañoso: se dice por qué. */}
+                                    {fila.total.jugados * 2 < maxJugados && (
+                                      <span className="block truncate text-[10px] text-white/40">
+                                        {`apostó ${fila.total.jugados} de ${maxJugados} partidos`}
+                                      </span>
+                                    )}
+
                                     {/* En el móvil no caben las columnas de
                                         aciertos y jornadas: van aquí, pequeñas. */}
                                     <span className="block truncate text-[10px] tabular-nums text-white/40 sm:hidden">
@@ -671,13 +681,6 @@ export default function QuinielaPage() {
                     errorDe="lectura"
                     onReleer={recarga}
                   />
-                ) : !sesion.cargando ? (
-                  <a
-                    href="#acceso-quiniela"
-                    className="inline-flex items-center rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
-                  >
-                    Entrar
-                  </a>
                 ) : undefined
               }
             />
@@ -1280,8 +1283,16 @@ export default function QuinielaPage() {
                 }
                 icon={UtensilsCrossed}
               >
+                {/* Con el bloque en marcha sólo importan los dos que van
+                    comiendo gratis; el resto, plegado. */}
+                {[cerrado ? tablaBloque : tablaBloque.slice(0, 2), cerrado ? [] : tablaBloque.slice(2)].map((grupo, parte) => grupo.length === 0 ? null : (
+                <details key={parte} open={parte === 0} className={parte === 1 ? "mt-2" : undefined}>
+                <summary className={parte === 0 ? "hidden" : "cursor-pointer select-none text-[11px] text-white/50 hover:text-white"}>
+                  {`Ver los otros ${grupo.length}`}
+                </summary>
                 <div className="flex flex-wrap gap-2">
-                  {tablaBloque.map((fila, indice) => {
+                  {grupo.map((fila, i) => {
+                    const indice = i + parte * 2;
                     const persona = PERSONA_POR_SLUG.get(fila.slug);
 
                     if (!persona) return null;
@@ -1330,6 +1341,8 @@ export default function QuinielaPage() {
                     );
                   })}
                 </div>
+                </details>
+                ))}
 
                 <p className="mt-3 text-[11px] leading-relaxed text-white/40">
                   {cerrado
