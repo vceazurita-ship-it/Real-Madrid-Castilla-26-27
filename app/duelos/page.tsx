@@ -1081,7 +1081,7 @@ function FacetasRecortadas({ items }: { items: { diff: number; key: string; nodo
           }}
           className="text-[11px] font-semibold text-[#C8A96B] hover:underline"
         >
-          {todas ? "Ver sólo las dos de más diferencia" : `Ver las ${resto} restantes`}
+          {todas ? "Ver sólo las dos de más diferencia" : resto === 1 ? "Ver la restante" : `Ver las ${resto} restantes`}
         </button>
       )}
     </div>

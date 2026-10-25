@@ -1849,3 +1849,18 @@ scrollbar-width:none;
   background: rgba(255, 255, 255, 0.75);
   border-color: var(--rmcf-border);
 }
+
+/*
+| La pizarra táctica en móvil: el botón de herramientas se ponía encima del
+| campo y tapaba a un jugador. Se aparta a la esquina de abajo, pequeño y
+| algo transparente.
+*/
+@media (max-width: 767px) {
+  body:has([data-pizarra-tactica]) [data-menu-flotante] {
+    bottom: 0.5rem;
+    right: 0.5rem;
+    transform: scale(0.8);
+    transform-origin: bottom right;
+    opacity: 0.8;
+  }
+}

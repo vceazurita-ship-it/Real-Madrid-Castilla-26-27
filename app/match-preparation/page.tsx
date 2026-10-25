@@ -670,7 +670,7 @@ function RivalPicker({
             {activo?.EQUIPO || "Selecciona un partido"}
           </span>
 
-          <span className="block truncate text-[11px] text-white/40">
+          <span className="block text-[11px] text-white/40">
             {fechaLarga(activo?.FECHA)}
           </span>
         </span>
@@ -2080,7 +2080,7 @@ export default function MatchPreparation() {
             {rivalActivo && !cargando && (
               <nav
                 aria-label="Secciones del plan"
-                className="scrollbar-none mt-3 flex gap-1 overflow-x-auto"
+                className="scrollbar-none mt-3 flex gap-1 overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%-28px),transparent)] pr-6 sm:[mask-image:none] sm:pr-0"
               >
                 {SECCIONES.filter(({ id }) => seccionVisible(id)).map(({ id, label, icon: Icon }) => (
                   <button

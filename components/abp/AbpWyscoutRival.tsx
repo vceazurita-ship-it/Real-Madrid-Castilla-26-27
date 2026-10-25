@@ -49,10 +49,21 @@ type Datos = {
   golesAbp: { aFavor: GolesAbp; enContra: GolesAbp } | null;
 };
 
+/** Cifras por partido a un decimal (16,1 y no 16,08); porcentajes, enteros y minutos, como siempre. */
+function cifra1(valor: number | null, unidad: Unidad) {
+  if (valor === null || !Number.isFinite(valor) || unidad === "porcentaje" || unidad === "entero" || unidad === "minutos") {
+    return formatea(valor, unidad);
+  }
+
+  return valor.toFixed(1).replace(".", ",");
+}
+
 /** «Mejor que 8 de cada 10» / «Peor que 8 de cada 10»: percentil ya orientado. El extremo se dice como es: «el mejor/peor de los 20». */
 function lectura(percentil: number, equipos: number, mejorAlto?: boolean | null) {
   /* Métrica de estilo: se compara, no se juzga (que te centren más no es una virtud). */
   if (mejorAlto === null) {
+    if (percentil >= 97) return { texto: `el que más de los ${equipos}`, bueno: null };
+    if (percentil <= 3) return { texto: `el que menos de los ${equipos}`, bueno: null };
     if (percentil >= 60) return { texto: `más que ${Math.round(percentil / 10)} de cada 10`, bueno: null };
     if (percentil <= 40) return { texto: `menos que ${Math.max(1, Math.round((100 - percentil) / 10))} de cada 10`, bueno: null };
 
@@ -79,13 +90,13 @@ function queHacemosConCentros(aspectos: Aspecto[]) {
   const bien = acierto.valor > acierto.mediana;
 
   /* La cifra que sostiene la consigna, con su mediana. */
-  const cifra = ` (${formatea(volumen.valor, volumen.unidad)} centros por partido frente a una mediana de ${formatea(volumen.mediana, volumen.unidad)}; acierto ${formatea(acierto.valor, acierto.unidad)} frente a ${formatea(acierto.mediana, acierto.unidad)})`;
+  const cifra = ` (${cifra1(volumen.valor, volumen.unidad)} centros por partido frente a una mediana de ${cifra1(volumen.mediana, volumen.unidad)}; acierto ${cifra1(acierto.valor, acierto.unidad)} frente a ${cifra1(acierto.mediana, acierto.unidad)})`;
 
-  if (muchos && bien) return `Centra mucho y con acierto: cerrar el carril exterior y proteger el segundo palo${cifra}.`;
-  if (muchos) return `Centra mucho y acierta poco: dejarle centrar y ganar el área, sin perseguir el balón hasta la banda${cifra}.`;
-  if (bien) return `Centra poco pero con acierto: cuando lo hace, tapar al rematador del segundo palo${cifra}.`;
+  if (muchos && bien) return `centra mucho y con acierto: cerrar el carril exterior y proteger el segundo palo${cifra}.`;
+  if (muchos) return `centra mucho y acierta poco: dejarle centrar y ganar el área, sin perseguir el balón hasta la banda${cifra}.`;
+  if (bien) return `centra poco pero con acierto: cuando lo hace, tapar al rematador del segundo palo${cifra}.`;
 
-  return `Centra poco y mal: cerrar el pase interior antes que el centro${cifra}.`;
+  return `centra poco y mal: cerrar el pase interior antes que el centro${cifra}.`;
 }
 
 export function AbpWyscoutRival({
@@ -214,7 +225,7 @@ export function AbpWyscoutRival({
                         </span>
 
                         <span className="text-sm font-semibold tabular-nums text-white">
-                          {formatea(fila.valor, fila.unidad)}
+                          {cifra1(fila.valor, fila.unidad)}
                           {ambito === "area" && fila.unidad !== "porcentaje" && (
                             <span className="ml-1 text-[11px] font-normal text-white/55">por partido</span>
                           )}
@@ -230,7 +241,7 @@ export function AbpWyscoutRival({
                             </span>
                           )}
                           <span className="ml-2 text-[11px] font-normal text-white/40">
-                            mediana {formatea(fila.mediana, fila.unidad)}
+                            mediana {cifra1(fila.mediana, fila.unidad)}
                           </span>
                         </span>
 
