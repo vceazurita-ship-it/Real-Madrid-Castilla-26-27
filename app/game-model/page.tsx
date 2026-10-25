@@ -781,7 +781,7 @@ export default function GameModelPage() {
                           ) : (
                             <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white lg:text-base">
                               <Highlight
-                                text={quitaClave(p.PRINCIPIO)}
+                                text={quitaClave(p.PRINCIPIO).replace(/\.$/, "")}
                                 query={query}
                               />
                               {esClave(p.PRINCIPIO) && (

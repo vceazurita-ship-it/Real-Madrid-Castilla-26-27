@@ -10,6 +10,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { getPlayerImage, normalizePlayerName } from "@/lib/playerImages";
 import { nombrePuesto, posicionDe } from "@/lib/posiciones";
+import { nombreVisible } from "@/lib/nombreJugador";
 import { esDelCastilla, licenciaDe } from "@/lib/fichajes";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { summarizePlayer, formatRating } from "@/lib/ratings/compute";
@@ -888,7 +889,7 @@ export default function DashboardPlantilla() {
                 onChange={(value) => updateFilter("jugador", value)}
                 options={players.map((p) => ({
                   value: p.id,
-                  label: p.nombre || p.apodo,
+                  label: nombreVisible(p.nombre || p.apodo),
                 }))}
               />
 
@@ -2005,7 +2006,6 @@ function PlayerCard({
               />
             ))}
             <p className="pt-1 text-[11px] text-white/45">
-              {player.fecha ? `${textoControl(player.fecha, ahora)}. ` : ""}
               La diferencia junto a cada nota es frente a la media de los
               jugadores con ficha; en gris, si es menor de 1 punto.
             </p>

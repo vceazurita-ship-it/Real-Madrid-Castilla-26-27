@@ -1047,8 +1047,8 @@ function RadarPanel({
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="h-[280px] w-full sm:h-[300px]">
+        <div className="w-full min-w-0 flex-1">
+          <div className="h-[280px] w-full min-w-[240px] sm:h-[300px]">
             {series.length === 0 && loading ? (
               <Hueso className="h-full w-full rounded-2xl" />
             ) : series.length === 0 ? (
@@ -1057,7 +1057,7 @@ function RadarPanel({
               </div>
             ) : (
               <ResponsiveContainer
-                width="100%"
+                width="100%" minWidth={200}
                 height="100%"
                 initialDimension={{ width: horizontal ? 520 : 300, height: 280 }}
               >

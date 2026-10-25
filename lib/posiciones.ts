@@ -85,6 +85,18 @@ const NOMBRE_DE_ROL: Record<number, string> = {
  * «Mediapunta». Lo que ya viene escrito (o un número sin rol conocido) se
  * deja como está.
  */
+/** «CENTRAL» y «LATERAL D.» salen como «Central» y «Lateral derecho», igual que el resto de puestos. */
+function enCaja(puesto: string): string {
+  if (!puesto) return puesto;
+
+  const bajo = puesto
+    .toLowerCase()
+    .replace(/(lateral|carrilero|extremo)s+d.?$/, "$1 derecho")
+    .replace(/(lateral|carrilero|extremo)s+i.?$/, "$1 izquierdo");
+
+  return bajo.charAt(0).toUpperCase() + bajo.slice(1);
+}
+
 export function nombrePuesto(posicion: string): string {
   const limpio = (posicion || "").trim();
 

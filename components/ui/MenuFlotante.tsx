@@ -85,7 +85,7 @@ export function MenuFlotante({ children }: { children: ReactNode }) {
       | el móvil. Uno solo no tapa nada, y esconderlo dejaría sin exportar
       | justo el pop-up que se quería exportar.
       */
-      className="fixed bottom-20 right-5 z-[60] flex flex-col items-end gap-2 print:hidden"
+      className="fixed bottom-4 right-3 z-[60] sm:bottom-20 sm:right-5 flex flex-col items-end gap-2 print:hidden"
     >
       {abierto && (
         <div className="w-[268px] overflow-hidden rounded-2xl border border-white/10 bg-[#121820]/95 shadow-2xl backdrop-blur">

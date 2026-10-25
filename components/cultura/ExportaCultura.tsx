@@ -197,10 +197,8 @@ export function ExportaCultura({ documento }: { documento: DocumentoCultura }) {
       </div>
 
       <p className="mt-3 text-xs leading-relaxed text-white/40">
-        Las dos salidas se montan del mismo dibujo, así que no pueden
-        separarse. El PowerPoint lleva cada diapositiva como imagen a tamaño de
-        proyección: se abre en cualquier portátil aunque no tenga la app ni la
-        tipografía de la plantilla.
+        El PowerPoint se abre en cualquier portátil, aunque no tenga la
+        tipografía del club.
       </p>
 
       {/*
