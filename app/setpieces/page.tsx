@@ -861,7 +861,7 @@ const comparativa = (() => {
       actual: total(actual),
       media: mediaPorPartido(anteriores, total),
       mejorAlto: true,
-      pie: "córners y faltas lanzados",
+      pie: `córners y faltas lanzados · muestra de ${anteriores.length === 1 ? "1 partido" : `${anteriores.length} partidos`}`,
     },
     {
       clave: "remates",
@@ -1285,7 +1285,8 @@ const baseSacador = (() => {
   const suyas = conSacador.filter((r) => r.sacador === mejorSacador);
   const suyos = suyas.length;
   const xgEnvio = suyos ? suyas.reduce((t, r) => t + r.xg, 0) / suyos : 0;
-  return `${dosDecimales(xgEnvio)} xG por envío · ${suyos} de ${conSacador.length} envíos${
+  const xgMedio = conSacador.length ? conSacador.reduce((t, r) => t + r.xg, 0) / conSacador.length : 0;
+  return `${dosDecimales(xgEnvio)} xG por envío frente a ${dosDecimales(xgMedio)} de media del equipo · ${suyos} de ${conSacador.length} envíos${
     conSacador.length < 5 ? " · tendencia" : ""
   }`;
 })();
@@ -2685,6 +2686,7 @@ const pie = (
   title="Conversión"
   value={`${metrics.conversion.toFixed(1).replace(".", ",")} %`}
   hint="Goles sobre remates"
+  muestra={{ n: metrics.goals, de: metrics.shots, unidad: "remates" }}
 />
 <Card
   title="xG / ABP"
@@ -2695,7 +2697,8 @@ const pie = (
 <Card
   title="Gol u ocasión"
   value={`${tasaPeligro.toFixed(1).replace(".", ",")} %`}
-  hint={`Gol u ocasión en ${accionesPeligrosas} de ${metrics.total} acciones`}
+  hint="Acciones que acaban en gol u ocasión"
+  muestra={{ n: accionesPeligrosas, de: metrics.total, unidad: "acciones" }}
 />
 
 <button
@@ -4515,12 +4518,15 @@ function Card({
   title,
   value,
   hint,
+  muestra,
   onClick,
   activo = false,
 }: {
   title: string;
   value: React.ReactNode;
   hint?: string;
+  /** De cuántas acciones sale la cifra: con menos de 10 va en gris, con «tendencia». */
+  muestra?: { n: number; de: number; unidad: string };
   /** Las tarjetas que son un valor concreto («Goles») filtran por él. */
   onClick?: () => void;
   activo?: boolean;
@@ -4547,11 +4553,21 @@ function Card({
     leading-tight
   "
 >
-        {value}
+        {muestra && muestra.de < 10 ? (
+          <span style={{ color: "rgb(var(--rmcf-ink-rgb) / .55)" }}>{value}</span>
+        ) : (
+          value
+        )}
       </h3>
 
+      {muestra && (
+        <p className="mt-2 text-[11px] font-medium leading-snug text-white/55">
+          {muestra.n} de {muestra.de} {muestra.unidad}
+          {muestra.de < 10 ? " · tendencia" : ""}
+        </p>
+      )}
       {hint && (
-        <p className="mt-2 text-[11px] leading-snug text-white/35">{hint}</p>
+        <p className={`${muestra ? "mt-1" : "mt-2"} text-[11px] leading-snug text-white/35`}>{hint}</p>
       )}
     </Caja>
   );

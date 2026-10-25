@@ -135,6 +135,12 @@ export function ComparativaPartido({
     anteriores.rotulo ??
     (anteriores.n === 1 ? "el partido anterior" : `media de los ${anteriores.n} anteriores`);
 
+  /* La base más grande entre las filas con muestra corta: es la del partido. */
+  const filasCortas = metricas.filter((m) => m.de !== undefined && m.de < muestraMinima);
+  const hayIndicios = filasCortas.length > 0;
+  const basePequena = Math.max(0, ...filasCortas.map((m) => m.de ?? 0));
+  const unidadCorta = filasCortas.find((m) => m.unidad)?.unidad ?? "acciones";
+
   return (
     <Panel
       title={title}
@@ -169,6 +175,13 @@ export function ComparativaPartido({
             </p>
           )}
 
+          {/* Muestra corta: se dice a la vista, no sólo en el método. */}
+          {hayIndicios && (
+            <p className="border-b border-white/10 px-4 py-2 text-[11px] text-white/55 sm:px-5">
+              Muestra corta: este partido da {basePequena} {unidadCorta}. Las filas en gris son un indicio, no un dato firme; verde es mejor que de costumbre y naranja, peor.
+            </p>
+          )}
+
           <ul className="divide-y divide-white/[0.06]">
             {metricas.map((m) => {
               const formato = m.formato ?? numeroCorto;
@@ -182,6 +195,13 @@ export function ComparativaPartido({
                  la fila se enseña pero no se juzga. */
               const indicio = m.de !== undefined && m.de < muestraMinima;
               const mejor = !indicio && d !== null && juzga && Math.abs(d) >= 0.05 ? (d > 0) === m.mejorAlto : null;
+              /* Una sola regla para la negrita: sólo si la diferencia pesa de
+                 verdad (10 puntos en un porcentaje; un 15 % de la media, y al
+                 menos medio punto, en un recuento) y la base no es un indicio. */
+              const umbral = porcentaje ? 10 : Math.max(0.5, Math.abs(m.media ?? 0) * 0.15);
+              const destaca = !indicio && d !== null && Math.abs(d) >= umbral;
+              /* Un porcentaje de muy pocas acciones no se resta en puntos. */
+              const sinPuntos = porcentaje && m.de !== undefined && m.de < MUESTRA_MINIMA_FILA;
               /* El sentido ya sale con flecha y color: no se repite en el pie. */
               const pie = m.pie
                 ?.replace(/(?:^|\s·\s)(?:más|menos) es mejor$/, "")
@@ -249,20 +269,36 @@ export function ComparativaPartido({
                     )}
                   </div>
 
-                  <span className="text-right text-lg font-semibold tabular-nums" style={{ color: ORO_TINTA }}>
-                    {m.actual === null ? "—" : formato(m.actual)}
+                  <span className="text-right tabular-nums">
+                    <span
+                      className="block text-lg font-semibold"
+                      style={{ color: sinPuntos ? "rgb(var(--rmcf-ink-rgb) / .55)" : ORO_TINTA }}
+                    >
+                      {m.actual === null ? "—" : formato(m.actual)}
+                    </span>
+                    {/* El porcentaje de pocas acciones va con su base al lado. */}
+                    {porcentaje && m.n !== undefined && m.de !== undefined && m.de < 10 && (
+                      <span className="block text-[11px] font-medium" style={{ color: "rgb(var(--rmcf-ink-rgb) / .55)" }}>
+                        {m.n} de {m.de}
+                      </span>
+                    )}
                   </span>
 
                   <span className="text-right text-lg tabular-nums text-white/70">
                     {m.media === null ? "—" : formato(m.media)}
                   </span>
 
-                  <span className="text-right text-sm font-semibold tabular-nums" style={{ color: colorDiferencia }}>
+                  <span
+                    className={`text-right text-sm tabular-nums ${destaca ? "font-semibold" : "font-normal"}`}
+                    style={{ color: colorDiferencia }}
+                  >
                     {m.tendencia
                       ? ""
                       : d === null
                       ? "—"
-                      : m.igualEn && Math.abs(d) < 0.05
+                      : sinPuntos
+                        ? "indicio"
+                        : m.igualEn && Math.abs(d) < 0.05
                         ? m.igualEn
                         : diferencia(d, m.formatoDiferencia ?? formato, porcentaje)}
                   </span>

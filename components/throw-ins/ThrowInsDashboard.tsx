@@ -408,13 +408,28 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       );
     }
   } else {
+    /* La zona de más peligro concedido se calcula antes: si es la misma que la
+       de más robos, las dos cosas van en una sola frase y no se contradicen. */
+    const zonasPeligro = gruposDe(rows, "Zona_Saque", mode).filter((g) => g.produccion > 0 && g.n >= 3);
+    const peorZona = zonasPeligro.length ? extremo(zonasPeligro, produccionTasa, true) : null;
+    let zonaDicha = false;
+
     if (zonas.length >= 2) {
       const mejor = extremo(zonas, retencionDe, true);
 
       if (mejor.favorables > 0) {
-        frases.push(
-          `Más robos en ${nombreDe(mejor.key, mejor.valor)}: recuperamos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}); mantener la presión ahí.${indicio(mejor.n)}`,
-        );
+        if (peorZona && peorZona.key === mejor.key && peorZona.valor === mejor.valor) {
+          zonaDicha = true;
+          frases.push(
+            `${mayuscula(nombreDe(mejor.key, mejor.valor))}: robamos ${mejor.favorables} de sus ${mejor.n} saques (${pctTexto(mejor.favorables, mejor.n)}), pero ${
+              peorZona.produccion === 1 ? "el que se nos escapa llega" : `${peorZona.produccion} se nos escapan y llegan`
+            } a último tercio. Presión con vigilancia a la espalda del que salta.${indicio(mejor.n)}`,
+          );
+        } else {
+          frases.push(
+            `Más robos en ${nombreDe(mejor.key, mejor.valor)}: recuperamos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}); mantener la presión ahí.${indicio(mejor.n)}`,
+          );
+        }
       }
     }
 
@@ -430,11 +445,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
     }
 
     /* La consigna: dónde nos hacen más daño, no sólo dónde más robamos. */
-    const zonasPeligro = gruposDe(rows, "Zona_Saque", mode).filter((g) => g.produccion > 0 && g.n >= 3);
-
-    if (zonasPeligro.length) {
-      const peorZona = extremo(zonasPeligro, produccionTasa, true);
-
+    if (peorZona && !zonaDicha) {
       frases.push(
         `Más peligro concedido: saques desde ${nombreDe(peorZona.key, peorZona.valor)}, ${peorZona.produccion} de ${peorZona.n} a último tercio; ahí hay que cerrar.${indicio(peorZona.n)}`,
       );
@@ -1710,9 +1721,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     <MetricCard
                       label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}
                       value={`${totals.calidad.toFixed(1).replace(".", ",")} / 4`}
-                      hint={`Escala de la hoja: 1 (peor) a 4 (mejor envío)${
-                        calidadGlobal === null ? "" : ` · global ${calidadGlobal.toFixed(1).replace(".", ",")} / 4`
-                      }`}
+                      hint={`1 = envío malo, 4 = perfecto${
+                        calidadGlobal === null ? "" : ` · media de la temporada ${calidadGlobal.toFixed(1).replace(".", ",")} / 4`
+                      } · ${isOffensive ? "más es mejor" : "menos es mejor"}`}
                     />
                   )}
                 </div>
@@ -1734,21 +1745,22 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
                 {(exporting || vista === "donde") && (
                   <>
-                <ThrowInField rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />
-
-                <div className="mb-7 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-                  {pie({
-                    dimension: "zona de saque",
-                    categoria: (row) => valorDe(row, "Zona_Saque"),
-                  })}
-                </div>
-
+                {/* Abre con el mapa por zonas, que lleva el número de saques de cada una. */}
                 <ThrowInZoneMap rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />
 
                 <div className="mb-7 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
                   {pie({
                     dimension: "dirección del envío",
                     categoria: (row) => valorDe(row, "Zona_Caida"),
+                  })}
+                </div>
+
+                <ThrowInField rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />
+
+                <div className="mb-7 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                  {pie({
+                    dimension: "zona de saque",
+                    categoria: (row) => valorDe(row, "Zona_Saque"),
                   })}
                 </div>
 
