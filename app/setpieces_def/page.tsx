@@ -2268,7 +2268,7 @@ const conclusiones = useMemo(() => {
   const xg = filtered.reduce((a, r) => a + r.xg, 0);
 
   const frases: (string | null)[] = [
-    `${plural(filtered.length, "ABP", "ABP")} en contra: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol encajado", "goles encajados")}, xG ${cifra(xg, 2)}.`,
+    `${plural(filtered.length, "ABP", "ABP")} en contra: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol encajado", "goles encajados")}, ${cifra(xg, 2)} goles esperados (xG).`,
   ];
 
   /* «Remates concedidos» y «ocasiones» cuentan las mismas jugadas: se dice, y
@@ -2277,7 +2277,7 @@ const conclusiones = useMemo(() => {
 
   if (conRemate.length > 0 && conRemate.length === ocasiones) {
     /* Las jugadas iguales se agrupan y cada una lleva su minuto: es lo que se busca en el vídeo. */
-    const zonaDicha = (z: string) => (/^z\d+$/i.test(z.trim()) ? z.trim().toUpperCase() : z.trim().toLowerCase());
+    const zonaDicha = (z: string) => (/^z\d+$/i.test(z.trim()) ? `zona ${z.trim().slice(1)}` : z.trim().toLowerCase());
     const grupos = new Map<string, Row[]>();
 
     for (const r of conRemate) {

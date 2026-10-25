@@ -178,7 +178,7 @@ export function ComparativaPartido({
           {/* Muestra corta: se dice a la vista, no sólo en el método. */}
           {hayIndicios && (
             <p className="border-b border-white/10 px-4 py-2 text-[11px] text-white/55 sm:px-5">
-              Muestra corta: este partido da {basePequena} {unidadCorta}. Las filas en gris son un indicio, no un dato firme; verde es mejor que de costumbre y naranja, peor.
+              Muestra corta en {filasCortas.length === 1 ? filasCortas[0].nombre.toLowerCase() : "algunas filas"}: sólo {basePequena} {unidadCorta} en el partido. Las filas en gris son un indicio, no un dato firme; verde es mejor que de costumbre y naranja, peor.
             </p>
           )}
 

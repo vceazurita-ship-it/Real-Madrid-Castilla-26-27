@@ -7,6 +7,9 @@
  */
 
 import { useMemo, useState, useSyncExternalStore } from "react";
+import { useAbpLigas, useProximoRival } from "@/hooks/useAbpLigas";
+import { METRICA, equipoQueCasa, posicionEn, tablaDe } from "@/lib/abp-ligas/modelo";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 import { ArrowUpRight, BookOpen, CalendarClock, Check, ChevronDown, FlaskConical, GraduationCap, Library, Route, Search, Shield, Sparkles, X } from "lucide-react";
 
 import { Button, Panel } from "@/components/abp/ui";
@@ -428,7 +431,6 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
                           </li>
                         ))}
                       </ol>
-                      <TareaRutina r={r} />
                       <Cita fuente={r.fuente} />
                     </article>
                   ))}

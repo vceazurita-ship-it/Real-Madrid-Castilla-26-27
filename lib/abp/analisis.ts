@@ -578,6 +578,24 @@ function analizaReparto(
 
     return dicho ? `«${nombre}» (${dicho})` : `«${nombre}»`;
   };
+  /* En saques de banda se cuenta lo que pasó, sin la etiqueta de Hudl. */
+  const frasePlana = (nombre: string, pesa: string) => {
+    if (!conGlosa) return null;
+
+    const clave = nombre.toLowerCase().replace(/\s+/g, " ");
+    const ofensivo = sentido === "ofensivo";
+
+    const dicho =
+      clave === "posicional rival"
+        ? "acaban con el balón en poder del rival"
+        : clave === "posicional"
+          ? ofensivo ? "acaban con nosotros jugando en corto" : "acaban con nosotros recuperando y jugando en corto"
+          : clave.startsWith("conquista último tercio")
+            ? ofensivo ? "acaban con nosotros en el último tercio rival" : "acaban con el rival en nuestro último tercio"
+            : "";
+
+    return dicho ? `${pesa} ${dicho}.` : null;
+  };
   const utiles = filtradas.filter((uno) => !SIN_VALOR.test(uno.categoria.trim()));
 
   if (utiles.length === 0) return null;
@@ -653,10 +671,14 @@ function analizaReparto(
   } else if (escasa) {
     /* Con tan poco, el peso sobre el global no se juzga: se enseña la base. */
     frases.push(
-      `Manda ${glosa(lider.nombre)}: ${lider.acciones} de ${utiles.length} acciones (${formatoPct(lider.cuota)}).`,
+      frasePlana(lider.nombre, `${lider.acciones} de ${utiles.length} saques (${formatoPct(lider.cuota)})`) ??
+        `Manda ${glosa(lider.nombre)}: ${lider.acciones} de ${utiles.length} acciones (${formatoPct(lider.cuota)}).`,
     );
   } else {
     frases.push(
+      (Math.abs(lider.deltaPp) < 5
+        ? frasePlana(lider.nombre, `El ${formatoPct(lider.cuota)} de los saques`)
+        : null) ??
       `Manda ${glosa(lider.nombre)} con el ${formatoPct(lider.cuota)} de las acciones${
         Math.abs(lider.deltaPp) >= 5 ? ` (${signo(lider.deltaPp)} puntos sobre su peso global)` : ""
       }.`,

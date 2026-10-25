@@ -2376,7 +2376,7 @@ const conclusiones = useMemo(() => {
   const xg = filtered.reduce((a, r) => a + r.xg, 0);
 
   const frases: (string | null)[] = [
-    `${plural(filtered.length, "ABP", "ABP")}: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol", "goles")}, xG ${cifra(xg, 2)}.`,
+    `${plural(filtered.length, "ABP", "ABP")}: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol", "goles")}, ${cifra(xg, 2)} goles esperados (xG).`,
   ];
 
   const zona = mejorGrupo(

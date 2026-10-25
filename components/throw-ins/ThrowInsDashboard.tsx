@@ -313,7 +313,13 @@ function nombreDe(key: string, valor: string) {
     case "Zona_Caida":
       return valor.toLowerCase();
     case "Receptor":
-      return `receptor «${valor}»`;
+      return /^medios?$/i.test(valor)
+        ? "saque a mediocentros"
+        : /^defensas?$/i.test(valor)
+          ? "saque a defensas"
+          : /^delanteros?$/i.test(valor)
+            ? "saque a delanteros"
+            : `receptor «${valor}»`;
     case "Intencion":
       return `intención «${valor}»`;
     default:

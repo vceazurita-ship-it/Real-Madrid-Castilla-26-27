@@ -42,7 +42,7 @@ export function LeyendaSaques({ mode, className = "" }: { mode: Mode; className?
       ];
 
   return (
-    <details open className={`group rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 ${className}`}>
+    <details className={`group rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 ${className}`}>
       <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-[0.18em] text-[#C8A96B] marker:hidden">
         Qué significan las zonas y los tipos de saque
         <span className="ml-2 text-white/40 group-open:hidden">· desplegar</span>

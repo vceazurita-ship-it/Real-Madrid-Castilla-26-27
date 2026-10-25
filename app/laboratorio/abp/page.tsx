@@ -259,8 +259,8 @@ export default function LaboratorioAbpPage() {
                       <Icono size={17} />
                     </span>
                     <span className="min-w-0">
-                      <span className={`block truncate text-sm font-semibold ${activa ? "text-[#C8A96B]" : "text-white/85"}`}>{p.label}</span>
-                      <span className="block truncate text-[11px] text-white/45">{p.lema}</span>
+                      <span className={`block line-clamp-2 text-sm font-semibold ${activa ? "text-[#C8A96B]" : "text-white/85"}`}>{p.label}</span>
+                      <span className="block line-clamp-2 text-[11px] text-white/45">{p.lema}</span>
                     </span>
                   </button>
                 );
@@ -274,7 +274,7 @@ export default function LaboratorioAbpPage() {
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-sm font-semibold text-white/85">Datos</span>
-                  <span className="block truncate text-[11px] text-white/45">Primera RFEF y Premier</span>
+                  <span className="block line-clamp-2 text-[11px] text-white/45">Primera RFEF y Premier</span>
                 </span>
               </Link>
             </nav>
