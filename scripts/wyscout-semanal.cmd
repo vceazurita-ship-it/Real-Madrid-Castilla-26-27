@@ -234,7 +234,7 @@ for /f %%n in ('git rev-list --count "@{u}..HEAD" 2^>NUL') do set "PENDIENTES=%%
 rem  Los del analisis del partido tambien son datos: si cada proceso dejaba un
 rem  commit sin subir, se bloqueaban el uno al otro para siempre. (Sin la A
 rem  acentuada: findstr no casa la tilde de la salida de git.)
-for /f %%n in ('git log "@{u}..HEAD" "--format=%%s" 2^>NUL ^| findstr /v /b /c:"Los datos de Wyscout" ^| findstr /v /c:"lisis del partido: " ^| find /c /v ""') do set "AJENOS=%%n"
+for /f %%n in ('git log "@{u}..HEAD" "--format=%%s" 2^>NUL ^| findstr /v /b /c:"Los datos de Wyscout" ^| findstr /v /c:"lisis del partido: " ^| findstr /v /b /c:"ABP de cada jornada" ^| find /c /v ""') do set "AJENOS=%%n"
 
 if "%PENDIENTES%"=="0" (
   echo No habia nada nuevo que publicar. >> "%LOG%"
