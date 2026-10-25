@@ -582,7 +582,13 @@ export function fraseDuelo(x: DueloJugadores, lado: "con" | "sin") {
   const conducta = conductaDuelo(x, lado);
   const cifras = cifrasDuelo(x, lado);
 
-  return `${quien} (${donde})${conducta ? `: ${conducta}` : ""}${cifras ? ` (${cifras})` : ""}`;
+  /*
+  | Dónde delante y una sola pausa (25/10/2026): «Fortuny ante el 11 Sanchez
+  | (delantero) (nuestra banda derecha): centramos: pierde por alto» llevaba
+  | dos paréntesis seguidos y dos dos puntos. Ahora: «Nuestra banda derecha ·
+  | Fortuny ante el 11 Sanchez. Centramos: pierde por alto (cifras)».
+  */
+  return `${primeraMayuscula(donde)} · ${quien}${conducta ? `. ${primeraMayuscula(conducta)}` : ""}${cifras ? ` (${cifras})` : ""}`;
 }
 
 export type Sintesis = {
@@ -715,6 +721,8 @@ export type PinceladaAbp = {
   minutos?: { confirmados: number; propuestos: number; texto: string };
   /** Post: el aspecto que nos dio peligro en contra en el partido, ya como consigna y dato, para «Qué toca en el microciclo» (22/10/2026). */
   sustoEnContra?: { consigna: string; dato: string; /** Sin muestra: para vigilar, no la prioridad (25/10/2026). */ corta?: boolean } | null;
+  /** Post: la primera acción del análisis de faltas, «consigna · dato» (25/10/2026). */
+  faltas?: string;
   /** Post: los goles esperados del partido a balón parado (25/10/2026), para revisar la palanca del pronóstico. */
   xgPartido?: { favor: number; contra: number } | null;
   /** Post: lo mismo en la temporada (26/10/2026): con una jornada no se juzga el balón parado; con la temporada, sí. */
@@ -3088,7 +3096,13 @@ export function queTocaEnElMicro(inf: Omit<InformePartido, "sintesis">, cumplimi
   | llegaron a su meta y el balón parado (con muestra, «Defendemos…»; sin
   | ella, «Vigilamos…»); luego las palancas, la métrica y el duelo.
   */
-  return [cierre, ...plan, abp, abpCorto, ...metas, metrica, duelo].filter(Boolean).slice(0, 3);
+  /*
+  | Las faltas del partido (25/10/2026): la primera acción del análisis de
+  | faltas que trae el post de ABP, la última en prioridad.
+  */
+  const faltas = inf.abp?.pincelada?.faltas ?? "";
+
+  return [cierre, ...plan, abp, abpCorto, ...metas, metrica, duelo, faltas].filter(Boolean).slice(0, 3);
 }
 
 /**

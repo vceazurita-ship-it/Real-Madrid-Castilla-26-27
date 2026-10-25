@@ -4668,6 +4668,8 @@ export type PinceladaAbp = {
   minutos?: { confirmados: number; propuestos: number; texto: string };
   /** Post: lo que nos dio peligro en contra, como consigna y dato, para «Qué toca» del informe del partido (22/10/2026). */
   sustoEnContra?: { consigna: string; dato: string; /** Sin muestra: para vigilar, no la prioridad (25/10/2026). */ corta?: boolean } | null;
+  /** Post (25/10/2026): la primera acción del análisis de faltas, «consigna · dato», para «Qué toca» del informe del partido. */
+  faltas?: string;
   /** Post: los goles esperados del partido a balón parado (25/10/2026), para revisar la palanca del pronóstico. */
   xgPartido?: { favor: number; contra: number } | null;
   /** Post: lo mismo en la temporada (26/10/2026): el informe del partido juzga el balón parado con esto, no con una jornada. */
@@ -5091,6 +5093,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
     return {
       modo: "post",
       titular,
+      faltas: informe.faltas?.queHacer[0]?.replace(/: /, " · ").replace(/\.$/, "") || undefined,
       /* Con muestra o sin ella (25/10/2026, ronda 7): «corta» le dice al informe del partido que es para vigilar, no la prioridad. */
       /*
       | La misma frase y la misma etiqueta que «Para la semana que viene» del

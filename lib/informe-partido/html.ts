@@ -351,9 +351,9 @@ function piezasInforme(inf: InformePartido, extras: ExtrasInforme = {}): { capit
     */
     clavesDeLaPrevia(inf).length ? `${etiqueta("Cómo lo ganamos")}${lista(clavesDeLaPrevia(inf))}` : ""
   }${duelosEsencial}${
-    s.ventajas.length ? `${etiqueta("Donde ganamos el cruce", VERDE)}${lista(s.ventajas)}` : ""
+    s.ventajas.length ? `${etiqueta("Dónde ganamos el cruce", VERDE)}${lista(s.ventajas)}` : ""
   }${
-    s.amenazas.length ? `${etiqueta("Donde nos pueden hacer daño", ROJO)}${lista(s.amenazas)}` : ""
+    s.amenazas.length ? `${etiqueta("Dónde nos pueden hacer daño", ROJO)}${lista(s.amenazas)}` : ""
   }${
     inf.sintesis.vigilar.length
       ? `<p style="margin:12px 0 4px;font:700 12px/1.3 Arial,sans-serif;color:${ROJO};text-transform:uppercase;letter-spacing:.08em">A vigilar</p>${lista(
@@ -1192,8 +1192,8 @@ export function informeTexto(inf: InformePartido) {
   if (inf.sintesis.microciclo.length) l.push("", "QUÉ TOCA EN EL MICROCICLO", ...inf.sintesis.microciclo.map((v, i) => `${i + 1}. ${v}`));
   if (inf.sintesis.notaRoja) l.push(`(${inf.sintesis.notaRoja}.)`);
   if (inf.sintesis.frenados.length) l.push("", "A QUIÉN TENÍAMOS QUE FRENAR", ...inf.sintesis.frenados.map((f) => `- ${f.bien ? "Sí" : "No"} · ${f.jugador.nombre}: ${f.texto}`));
-  if (inf.sintesis.ventajas.length) l.push("", "DONDE GANAMOS EL CRUCE", ...inf.sintesis.ventajas.map((v) => `- ${v}`));
-  if (inf.momento !== "post" && inf.sintesis.amenazas.length) l.push("", "DONDE NOS PUEDEN HACER DAÑO", ...inf.sintesis.amenazas.map((v) => `- ${v}`));
+  if (inf.sintesis.ventajas.length) l.push("", "DÓNDE GANAMOS EL CRUCE", ...inf.sintesis.ventajas.map((v) => `- ${v}`));
+  if (inf.momento !== "post" && inf.sintesis.amenazas.length) l.push("", "DÓNDE NOS PUEDEN HACER DAÑO", ...inf.sintesis.amenazas.map((v) => `- ${v}`));
   if (inf.momento !== "post" && inf.sintesis.vigilar.length) l.push("", "A VIGILAR", ...inf.sintesis.vigilar.map((j) => `- ${j.dorsal ? `${j.dorsal} ` : ""}${j.nombre}${j.posicion ? ` (${j.posicion})` : ""}`));
   if (inf.sintesis.partido.length) l.push("", "EL PARTIDO EN DATOS", ...inf.sintesis.partido.map((v) => `- ${v}`));
   const atacarTxt = atacarDe(inf).slice(0, 3);
