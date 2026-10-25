@@ -2932,8 +2932,22 @@ async function principal() {
   }
 }
 
-principal().catch((error) => {
-  console.error("\n  Se ha roto:", error.message, "\n");
+/*
+| Importable (25/10/2026): `wyscout-abp-acciones.mjs` reutiliza la conexión,
+| la sesión y el login de aquí en vez de copiarlos. La descarga sólo arranca
+| cuando se lanza este fichero, no cuando se importa.
+*/
+export {
+  PUERTO, CACHE, abreChrome, conecta, recupera, reponeLasCookies, guardaLasCookies,
+  esperaLogin, estaDentro, abreAplicacion, temporadaDeHoy,
+};
 
-  process.exit(1);
-});
+const soyYo = Boolean(process.argv[1]) && path.resolve(process.argv[1]) === path.resolve(import.meta.filename);
+
+if (soyYo) {
+  principal().catch((error) => {
+    console.error("\n  Se ha roto:", error.message, "\n");
+
+    process.exit(1);
+  });
+}
