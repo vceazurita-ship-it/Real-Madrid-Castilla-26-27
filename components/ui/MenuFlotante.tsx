@@ -76,6 +76,7 @@ export function MenuFlotante({ children }: { children: ReactNode }) {
     <div
       ref={caja}
       data-export-hide
+      data-menu-flotante
       /*
       | NO lleva `data-flotante`.
       |

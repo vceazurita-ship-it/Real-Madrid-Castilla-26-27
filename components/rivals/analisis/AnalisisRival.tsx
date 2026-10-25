@@ -974,16 +974,16 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                   }`}
                 >
                   <span className="block text-sm font-medium text-white">{s.titulo}</span>
-                  {(edita || n.laminas > 0 || n.clips > 0 || trabajo.notas?.[s.id]?.trim()) && (
+                  {(n.laminas > 0 || n.clips > 0 || trabajo.notas?.[s.id]?.trim()) && (
                     <span className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-white/45">
-                      {(edita || n.laminas > 0) && (
-                        <span className={n.laminas ? "text-[#C8A96B]" : ""}>
+                      {n.laminas > 0 && (
+                        <span className="text-[#C8A96B]">
                           {n.laminas} lámina{n.laminas === 1 ? "" : "s"}
                         </span>
                       )}
-                      {(edita || n.clips > 0) && (
-                        <span className={n.clips ? "text-[#C8A96B]" : ""}>
-                          {n.laminas > 0 || edita ? "· " : ""}
+                      {n.clips > 0 && (
+                        <span className="text-[#C8A96B]">
+                          {n.laminas > 0 ? "· " : ""}
                           {n.clips} vídeo{n.clips === 1 ? "" : "s"}
                         </span>
                       )}
@@ -1408,9 +1408,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                 ) : null}
 
                 {porPartido.length === 0 ? (
-                  <p className="text-xs text-white/40">
-                    Sin vídeos en esta sección. Llegan al recoger la carpeta de la jornada.
-                  </p>
+                  null
                 ) : (
                   <div className="space-y-2.5">
                     {porPartido.map(([partido, lista]) => (

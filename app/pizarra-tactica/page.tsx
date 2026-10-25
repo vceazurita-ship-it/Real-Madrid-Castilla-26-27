@@ -390,7 +390,7 @@ export default function PizarraTacticaPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-white">
+    <main data-pizarra-tactica className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
         {!sinCromo && <Sidebar />}
 

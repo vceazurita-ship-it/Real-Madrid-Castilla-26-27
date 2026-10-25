@@ -508,9 +508,11 @@ export function normalizaDuelos(valor: unknown): DuelosDoc {
  * evita que 6 + 4 sobre 9 parezca un error.
  */
 export function fraseRecuentoDuelos(medidos: number, aFavor: number, enContra: number, enLosDos: number): string {
+  /* Que la cuenta cuadre: a favor + en contra - los dos + parejos = total. */
+  const parejos = Math.max(0, medidos - (aFavor + enContra - enLosDos));
   const base = `${medidos} ${medidos === 1 ? "duelo" : "duelos"}: ${aFavor} a favor, ${enContra} en contra`;
+  const dosSentidos = enLosDos > 0 ? ` (${enLosDos === 1 ? "1 de ellos" : `${enLosDos} de ellos`} en los dos sentidos)` : "";
+  const parejo = parejos > 0 ? ` y ${parejos} ${parejos === 1 ? "parejo" : "parejos"}` : "";
 
-  return enLosDos > 0
-    ? `${base} (${enLosDos === 1 ? "1 se cuenta" : `${enLosDos} se cuentan`} en ambos; ${medidos} ${medidos === 1 ? "duelo distinto" : "duelos distintos"})`
-    : base;
+  return `${base}${dosSentidos}${parejo}`;
 }

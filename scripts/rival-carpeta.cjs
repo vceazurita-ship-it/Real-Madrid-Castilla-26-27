@@ -435,7 +435,10 @@ async function principal() {
   }
 
   const partes = [
-    `${equipo} ${jornada}: ${subidos} vídeo${subidos === 1 ? "" : "s"} subido${subidos === 1 ? "" : "s"} (${megas.toFixed(0)} MB)`,
+    /* Lo que no tiene nada no se pinta: sin vídeos nuevos no se dice «0 vídeos». */
+    subidos
+      ? `${equipo} ${jornada}: ${subidos} vídeo${subidos === 1 ? "" : "s"} subido${subidos === 1 ? "" : "s"} (${megas.toFixed(0)} MB)`
+      : `${equipo} ${jornada}`,
   ];
 
   if (saltados) partes.push(`${saltados} ya estaban`);
