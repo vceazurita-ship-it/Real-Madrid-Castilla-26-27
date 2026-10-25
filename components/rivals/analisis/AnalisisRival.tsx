@@ -126,7 +126,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
      forma que admite el linter (ver `useRemoteDoc`). */
   const [testigoClips, setTestigoClips] = useState(0);
 
-  const cargaClips = useCallback(() => setTestigoClips((n) => n + 1), []);
+  const cargaClips = useCallback(() => setTestigoClips((n) => n + 1), [setTestigoClips]);
 
   useEffect(() => {
     let cancelado = false;
