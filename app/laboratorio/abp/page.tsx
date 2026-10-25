@@ -93,7 +93,7 @@ export default function LaboratorioAbpPage() {
             <AbpHeader
               area="RMCF Castilla · Balón parado"
               title="Laboratorio de ABP"
-              lead="Aprender de los mejores, inventar lo nuestro y convertir el balón parado en una competición de la plantilla."
+              lead="Mira qué rutina encaja esta semana contra el próximo rival, ábrela en el taller y llévala al microciclo."
               aside={
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
                   <FlaskConical size={12} />
