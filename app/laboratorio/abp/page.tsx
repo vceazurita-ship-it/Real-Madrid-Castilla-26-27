@@ -7,6 +7,8 @@
  * - **Referentes**: lo que hacen Jover (Arsenal), Cueva (Chelsea), Brentford,
  *   Georgson, Vio, Grønnemark y Coulston, con la fuente de cada cosa y lo que
  *   se puede estudiar gratis.
+ * - **Lo mejor de cada jornada**: las cinco mejores acciones a balón parado de
+ *   cada jornada de Primera RFEF, Segunda, Premier y Champions (Wyscout).
  * - **Taller**: nuestras rutinas, de la idea al partido.
  * - **Retos**: la competición de la plantilla, con podio, rachas e insignias.
  * - **Datos**: el balón parado de Primera RFEF y la Premier en Wyscout
@@ -16,10 +18,11 @@
  */
 
 import { useEffect, useState } from "react";
-import { BarChart3, BookMarked, FlaskConical, Swords, Trophy } from "lucide-react";
+import { BarChart3, BookMarked, FlaskConical, Swords, Target, Trophy } from "lucide-react";
 import Link from "next/link";
 
 import { AbpHeader, Notice } from "@/components/abp/ui";
+import { MejorJornada } from "@/components/abp-lab/MejorJornada";
 import { Referentes } from "@/components/abp-lab/Referentes";
 import { Retos } from "@/components/abp-lab/Retos";
 import { Taller, borradorVacio, type Borrador } from "@/components/abp-lab/Taller";
@@ -42,10 +45,11 @@ function defensaDe(texto?: string): Defensa {
   return zona && hombre ? "mixta" : zona ? "zona" : hombre ? "hombre" : "cualquiera";
 }
 
-type Pestana = "referentes" | "taller" | "retos";
+type Pestana = "referentes" | "jornada" | "taller" | "retos";
 
 const PESTANAS: { key: Pestana; label: string; icon: typeof Trophy; lema: string }[] = [
   { key: "referentes", label: "Referentes", icon: BookMarked, lema: "Lo que hacen los mejores" },
+  { key: "jornada", label: "Lo mejor de cada jornada", icon: Target, lema: "Wyscout, cada mañana" },
   { key: "taller", label: "Taller", icon: FlaskConical, lema: "Nuestras rutinas" },
   { key: "retos", label: "Retos", icon: Swords, lema: "La competición" },
 ];
@@ -103,7 +107,7 @@ export default function LaboratorioAbpPage() {
             />
 
             {/* ------------------------ PESTAÑAS ------------------------------ */}
-            <nav className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Secciones del laboratorio">
+            <nav className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5" aria-label="Secciones del laboratorio">
               {PESTANAS.map((p) => {
                 const activa = p.key === pestana;
 
@@ -167,6 +171,15 @@ export default function LaboratorioAbpPage() {
                       idea: rutina.pasos.map((p, i) => `${i + 1}. ${p}`).join("\n"),
                       ...(esquema ? { roles: esquema.roles.map((r) => ({ ...r })), balon: esquema.balon.map((p) => ({ ...p })) } : {}),
                     });
+                    setPestana("taller");
+                  }}
+                />
+              )}
+
+              {pestana === "jornada" && (
+                <MejorJornada
+                  onAlTaller={(b) => {
+                    setBorrador(b);
                     setPestana("taller");
                   }}
                 />
