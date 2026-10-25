@@ -5,8 +5,10 @@
  * cuatro caras apiladas no dejan leer ni el puesto ni el nombre. Sólo al
  * enseñar —al editar, cada cara está donde se ha puesto—: las que se pisan se
  * abren un poco hacia los lados (como mucho 30 px, para que sigan sobre el
- * arranque de su flecha) y, si aun así no caben, se pintan compactas: el puesto
- * en un disco y el nombre debajo, sin foto.
+ * arranque de su flecha) y, si aun así no caben, se pintan más pequeñas y se
+ * abren algo más. Nunca sin foto: el 25/10/2026 el cuerpo técnico echó en falta
+ * caras en la exportación y en los informes (antes se pintaban como un disco
+ * con el puesto, sin foto).
  *
  * Los rivales (ronda del sobresaliente, 21/10/2026): la marca de un rival
  * colocada a menos de metro y medio de uno de los nuestros le tapaba la cara
@@ -30,7 +32,11 @@ const EMPUJE_MAX = 30;
 | disco compacto, 54 más el nombre; el rival, su chapa de 52 encima del punto.
 */
 const CARA = { w: 84, arriba: 118, abajo: 22 };
-const DISCO = { w: 64, arriba: 66, abajo: 10 };
+
+/** Cuánto se encoge una cara que, ya abierta, sigue pisando a otra. */
+export const ESCALA_APRETADA = 0.74;
+
+const DISCO = { w: Math.round(84 * ESCALA_APRETADA), arriba: Math.round(118 * ESCALA_APRETADA), abajo: Math.round(22 * ESCALA_APRETADA) };
 const RIVAL = { w: 52, arriba: 56, abajo: -2 };
 
 
@@ -89,15 +95,15 @@ export function separaFichas(fichas: Punto[]): Separadas {
   }
 
   /*
-  | Las compactas son más estrechas (un disco de 54 px): entre ellas basta con
-  | 64 px, y se les deja abrirse un poco más, que ya no tapan ninguna foto.
+  | Las apretadas son más estrechas (la cara a menos tamaño): se les deja
+  | abrirse un poco más para que se pisen lo menos posible.
   */
   const forma = (p: { id: string }) => (compactas.has(p.id) ? DISCO : CARA);
   const tope = (p: { id: string }) => (compactas.has(p.id) ? 48 : EMPUJE_MAX);
 
   /*
-  | Segunda pasada, con lo que de verdad ocupa cada uno: dos discos, o un disco
-  | junto a una cara, se abren hasta no pisarse (los discos, hasta 48 px).
+  | Segunda pasada, con lo que de verdad ocupa cada uno: dos caras apretadas, o
+  | una apretada junto a una normal, se abren hasta no pisarse (hasta 48 px).
   */
   for (let vuelta = 0; vuelta < 32; vuelta += 1) {
     let movido = false;

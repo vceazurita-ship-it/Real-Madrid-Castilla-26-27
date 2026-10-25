@@ -25,7 +25,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { User, X } from "lucide-react";
 
-import { apartaRivales, separaFichas } from "@/lib/abp/separa";
+import { apartaRivales, ESCALA_APRETADA, separaFichas } from "@/lib/abp/separa";
 
 import type { Player } from "@/types/player";
 import { ajustaNombres } from "@/lib/abp/nombresPlantilla";
@@ -318,7 +318,7 @@ function Ficha({
   ficha: FichaPizarra;
   player: Player | undefined;
   code: string;
-  /** Proyector: se pisa con otra cara y se pinta sin foto. */
+  /** Proyector y exportación: se pisa con otra cara y se pinta más pequeña (con foto). */
   compacta?: boolean;
   /** La diapositiva pide escribir a mano el dorsal del rival al que marca. */
   dorsal: boolean;
@@ -330,44 +330,6 @@ function Ficha({
 }) {
   const nombre = player?.apodo ?? player?.nombre ?? "";
 
-  if (compacta) {
-    return (
-      <div
-        data-ficha
-        className="pointer-events-none absolute flex select-none flex-col items-center"
-        style={{
-          left: ficha.x - 40,
-          top: ficha.y - 66,
-          width: 80,
-          zIndex: profundidad(ficha.x, ficha.y),
-        }}
-      >
-        <div
-          className="flex items-center justify-center rounded-full"
-          style={{
-            width: 54,
-            height: 54,
-            backgroundImage: `linear-gradient(180deg, ${COLORES.nocheAlto} 0%, ${COLORES.noche} 100%)`,
-            boxShadow: `0 0 0 2.5px ${COLORES.oro}, 0 8px 14px rgba(0,0,0,.55)`,
-          }}
-        >
-          <span className="text-[19px] font-bold leading-none tracking-[0.02em] text-white">
-            {code}
-          </span>
-        </div>
-
-        {nombre && (
-          <span
-            className="mt-1 max-w-[96px] truncate rounded px-1.5 py-[1px] text-[14px] font-bold uppercase leading-[17px] tracking-wide"
-            style={{ backgroundColor: "rgba(15,32,54,.88)", color: COLORES.oroClaro }}
-          >
-            {nombre}
-          </span>
-        )}
-      </div>
-    );
-  }
-
   return (
     <div
       data-ficha
@@ -376,6 +338,9 @@ function Ficha({
         left: ficha.x - FOTO_W / 2,
         top: ficha.y - FOTO_H,
         width: FOTO_W,
+        /* Encoge desde los pies, que es donde está el punto del jugador. */
+        transform: compacta ? `scale(${ESCALA_APRETADA})` : undefined,
+        transformOrigin: `50% ${FOTO_H}px`,
         touchAction: soloVer ? undefined : "none",
         cursor: soloVer ? "default" : "grab",
         zIndex: profundidad(ficha.x, ficha.y),

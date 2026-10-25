@@ -122,7 +122,9 @@ export function cargaSvg(svg: string) {
       decodificada.then(async () => {
         await fotograma();
 
-        if (esWebKit()) await pausa(250);
+        /* Tanto WebKit como Chrome con tarjeta gráfica (un PC con Windows,
+           25/10/2026) pueden tener aún sin decodificar alguna foto de dentro. */
+        await pausa(250);
 
         resolve(img);
       });
@@ -204,8 +206,8 @@ function dibuja(
  *
  * Es `toPng`/`toJpeg` de `html-to-image` abierto en dos mitades —el SVG se
  * hace una vez; el lienzo, las veces que hagan falta— para poder meter en
- * medio lo que Safari necesita: el segundo dibujo y el tope de tamaño. En
- * Chrome el resultado es el mismo de antes, píxel a píxel.
+ * medio el segundo dibujo (Safari y Chrome con tarjeta gráfica) y el tope de
+ * tamaño.
  */
 export async function capturaNodo(nodo: HTMLElement, opciones: OpcionesCapturaNodo = {}): Promise<Captura> {
   const { formato = "png", quality, pixelRatio, ...resto } = opciones;
@@ -229,8 +231,10 @@ export async function capturaNodo(nodo: HTMLElement, opciones: OpcionesCapturaNo
      vez de fallar: se repite más pequeña. */
   for (const nitidez of [base, base * 0.7, base * 0.5]) {
     try {
-      /* WebKit: la primera pasada puede salir sin fotos; se tira y se repite. */
-      if (esWebKit()) {
+      /* La primera pasada puede salir sin alguna foto (WebKit, y Chrome con
+         tarjeta gráfica: una cara en rojo en la pizarra de ABP); se tira y se
+         repite. */
+      {
         dibuja(imagen, ancho, alto, nitidez, fondo);
 
         await fotograma();
