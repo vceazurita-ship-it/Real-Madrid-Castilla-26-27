@@ -426,11 +426,11 @@ async function main() {
     const JUECES = {
       portada: ["experto-marketing", "experto-futbol", "experto-analisis"],
       planificacion: ["experto-futbol", "experto-marketing"],
-      rival: ["experto-futbol", "experto-analisis"],
-      abp: ["experto-futbol", "experto-analisis"],
-      partido: ["experto-analisis", "experto-futbol"],
-      jugadores: ["experto-analisis", "experto-futbol"],
-      identidad: ["guionista", "experto-futbol"],
+      rival: ["experto-futbol", "experto-analisis", "experto-marketing"],
+      abp: ["experto-futbol", "experto-analisis", "experto-marketing"],
+      partido: ["experto-analisis", "experto-futbol", "experto-marketing"],
+      jugadores: ["experto-analisis", "experto-futbol", "experto-marketing"],
+      identidad: ["guionista", "experto-futbol", "experto-marketing"],
       club: ["experto-marketing", "guionista"],
       laboratorio: ["experto-futbol", "experto-marketing"],
     };
@@ -450,7 +450,7 @@ async function main() {
             `Material en ${rel}/: por pantalla, <nombre>-escritorio.jpg (1440 px, modo día, hasta 3 pantallas de alto), <nombre>-movil.jpg (390 px), <nombre>.txt (su texto visible) y medidas.json (errores de JS, desborde en el móvil, textos con contraste < 2,5). Las capturas se hacen sin sesión de administrador y sin escribir nada: un «cargando» eterno o un hueco sin datos SÍ cuenta como fallo; que falten botones de administrador, no.`,
             "El código de cada pantalla está en app/<ruta>/ y lo que usa en components/ y lib/; mira el código sólo si hace falta para concretar el arreglo.",
             "Contexto: AGENTS.md. Reglas del usuario: lo que no tiene dato no se nombra; español de España; todo gratis.",
-            "Pon la nota con la escala fija del esquema. El objetivo es un 8 (notable alto) en cada pantalla: para cada pantalla con menos de 8, «para_notable» es la lista cerrada y mínima de lo imprescindible para llegar a 8, programable y con el fichero. No subas el listón entre rondas: si lo que pediste está hecho, es un 8.",
+            "Pon la nota con la escala fija del esquema. El objetivo es un 9 (sobresaliente) en cada pantalla: para cada pantalla con menos de 9, «para_notable» es la lista cerrada y mínima de lo imprescindible para llegar a 9, programable y con el fichero. No subas el listón entre rondas: si lo que pediste en la ronda anterior está hecho y no hay errores nuevos, es un 9. Un 9 exige también diseño visual y usabilidad de nivel profesional (jerarquía, legibilidad, móvil a 390 px, estados de carga y vacíos, acciones claras): si fallan, van en «para_notable».",
           ].join("\n"),
         }));
       }

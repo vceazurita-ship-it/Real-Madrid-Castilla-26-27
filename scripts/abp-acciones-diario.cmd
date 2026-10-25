@@ -39,6 +39,7 @@ for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd"') d
 set "LOG=%REGISTRO%\%SELLO%.log"
 set "HECHO=%REGISTRO%\hecho-%HOY%.txt"
 set "FICHERO=public/data/abp-acciones.json"
+set "TODAS=public/data/abp-acciones-todas.json"
 set "CODIGO=1"
 set "INCOMPLETO=0"
 
@@ -128,13 +129,13 @@ if not "%AJENOS%"=="0" (
   goto :limpieza
 )
 
-git add "%FICHERO%" >> "%LOG%" 2>&1
+git add "%FICHERO%" "%TODAS%" >> "%LOG%" 2>&1
 
 set "HAYCAMBIOS=0"
-git diff --cached --quiet -- "%FICHERO%" || set "HAYCAMBIOS=1"
+git diff --cached --quiet -- "%FICHERO%" "%TODAS%" || set "HAYCAMBIOS=1"
 
 if "%HAYCAMBIOS%"=="1" (
-  git commit -m "ABP de cada jornada: lo mejor a balon parado (Wyscout, %HOY%)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- "%FICHERO%" >> "%LOG%" 2>&1
+  git commit -m "ABP de cada jornada: lo mejor a balon parado (Wyscout, %HOY%)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- "%FICHERO%" "%TODAS%" >> "%LOG%" 2>&1
   if errorlevel 1 (
     echo EL COMMIT HA FALLADO: no se publica. >> "%LOG%"
     set "CODIGO=4"
