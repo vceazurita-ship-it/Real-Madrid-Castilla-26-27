@@ -5,8 +5,9 @@
 |--------------------------------------------------------------------------
 |
 | El laboratorio de ABP (/laboratorio/abp, «Lo mejor de cada jornada») enseña
-| las mejores acciones a balón parado de cada jornada de cinco competiciones:
-| los dos grupos de Primera RFEF, Segunda División, Premier League y Champions.
+| las mejores acciones a balón parado de cada jornada de seis competiciones:
+| los dos grupos de Primera RFEF, LaLiga EA Sports, Segunda División, Premier
+| League y Champions.
 | Esto las baja de Wyscout, partido a partido, y las deja en
 | `.cache/wyscout/abp-acciones/`; `scripts/abp-acciones.cjs` las compacta en
 | `public/data/abp-acciones.json`.
@@ -72,7 +73,8 @@ const INICIO_TEMPORADA = "2026-07-01";
 
 /*
 | Las fuentes. Los ids son los del motor de la plataforma (aengine), comprobados
-| el 25/10/2026 en la cuenta del club: Primera RFEF es una sola competición con
+| el 25/10/2026 en la cuenta del club (LaLiga EA Sports es la 7): Primera RFEF
+| es una sola competición con
 | los dos grupos dentro (el grupo se reparte al compactar, por equipo).
 */
 const FUENTES = [
@@ -80,6 +82,7 @@ const FUENTES = [
     slug: "primera-rfef", nombre: "Primera RFEF (los dos grupos)", competicion: "-602",
     grupos: { "primera-rfef-g1": "51723", "primera-rfef-g2": "51724" },
   },
+  { slug: "laliga", nombre: "LaLiga EA Sports", competicion: "7" },
   { slug: "segunda", nombre: "Segunda División", competicion: "12" },
   { slug: "premier-league", nombre: "Premier League", competicion: "8" },
   { slug: "champions", nombre: "UEFA Champions League", competicion: "10" },

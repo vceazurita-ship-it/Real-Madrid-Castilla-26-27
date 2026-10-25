@@ -48,6 +48,8 @@ export type Accion = {
   saque?: PuntoWy;
   caida?: PuntoWy;
   remate?: PuntoWy;
+  /** Segundo del resumen de YouTube en el que se ve (sólo si una marca del vídeo la nombra sin duda). */
+  vt?: number;
 };
 
 export type JornadaAcciones = {
@@ -69,7 +71,11 @@ export type CompeticionAcciones = {
   partidos: number;
   acciones: number;
   goles: number;
+  /** Partidos de la competición con su resumen oficial encontrado en YouTube. */
+  conVideo?: number;
   jornadas: JornadaAcciones[];
+  /** Id del partido en Wyscout → resumen oficial en YouTube (vídeo y canal). */
+  videos?: Record<string, { v: string; c: string }>;
 };
 
 export type AbpAcciones = { generado: string; temporada: string; competiciones: CompeticionAcciones[] };
@@ -209,6 +215,25 @@ export function relatoDe(a: Accion, competicion: string, jornada: string) {
   partes.push(`Resultado: ${RESULTADO_ACCION[a.r].toLowerCase()}${a.xg ? ` (xG ${xgTexto(a.xg)})` : ""}.`);
 
   return partes.join(" ");
+}
+
+/**
+ * El vídeo de una acción. Wyscout no da enlaces a sus clips, así que es el
+ * resumen oficial del partido en YouTube; con `vt`, en el segundo de la acción.
+ * Sin resumen encontrado no hay vídeo (y no se enseña el botón).
+ */
+export function videoDe(a: Accion, c: CompeticionAcciones): { url: string; etiqueta: string; canal: string } | null {
+  const v = c.videos?.[a.id];
+
+  if (!v || !/^[\w-]{11}$/.test(v.v)) return null;
+
+  const exacto = typeof a.vt === "number" && a.vt >= 0;
+
+  return {
+    url: `https://www.youtube.com/watch?v=${v.v}${exacto ? `&t=${Math.max(0, Math.round(a.vt as number) - 2)}s` : ""}`,
+    etiqueta: exacto ? "Ver la acción" : "Resumen del partido",
+    canal: v.c,
+  };
 }
 
 /** La jornada que se abre por defecto: la última con acciones. */

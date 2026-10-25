@@ -3,7 +3,7 @@
  *
  * `scripts/wyscout-abp-acciones.mjs` deja en `.cache/wyscout/abp-acciones/`
  * los remates y los saques de cada partido de la temporada (Primera RFEF,
- * Segunda, Premier y Champions), tal y como los da Wyscout. Esto los convierte
+ * LaLiga EA Sports, Segunda, Premier y Champions), tal y como los da Wyscout. Esto los convierte
  * en acciones a balón parado —córner, falta, falta directa, saque de banda
  * largo y penalti que acaban en remate— y, por competición y jornada, se queda
  * con las cinco mejores: primero los goles (los de penalti detrás de los
@@ -19,6 +19,13 @@
  * Igual que `abp-ligas.cjs`: si la carpeta no está (Vercel), se conserva el
  * JSON anterior; una competición sin carpeta se queda como estaba. Y no tumba
  * la compilación si algo falla.
+ *
+ * EL VÍDEO (25/10/2026). `scripts/abp-videos-youtube.mjs` deja en
+ * `.cache/abp-videos/<fuente>/<id>.json` el resumen oficial de YouTube de cada
+ * partido. Cada competición lleva `videos` (id del partido → vídeo y canal) y
+ * una acción lleva `vt` (segundo del resumen) sólo si una marca del vídeo
+ * —capítulo o línea con minuto de la descripción— la nombra sin duda. Sin
+ * resumen, el partido no sale en `videos` y la tarjeta no enseña el botón.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -26,6 +33,8 @@ const path = require("node:path");
 const RAIZ = path.join(__dirname, "..");
 
 const ORIGEN = path.join(RAIZ, ".cache", "wyscout", "abp-acciones");
+
+const VIDEOS = path.join(RAIZ, ".cache", "abp-videos");
 
 const SALIDA = path.join(RAIZ, "public", "data", "abp-acciones.json");
 
@@ -36,6 +45,7 @@ const TOP = 5;
 const COMPETICIONES = [
   { slug: "primera-rfef-g2", nombre: "Primera RFEF · Grupo 2", corto: "1.ª RFEF G2", fuente: "primera-rfef", grupo: "primera-rfef-g2" },
   { slug: "primera-rfef-g1", nombre: "Primera RFEF · Grupo 1", corto: "1.ª RFEF G1", fuente: "primera-rfef", grupo: "primera-rfef-g1" },
+  { slug: "laliga", nombre: "LaLiga EA Sports", corto: "LaLiga", fuente: "laliga" },
   { slug: "segunda", nombre: "Segunda División", corto: "LaLiga Hypermotion", fuente: "segunda" },
   { slug: "premier-league", nombre: "Premier League", corto: "Premier", fuente: "premier-league" },
   { slug: "champions", nombre: "UEFA Champions League", corto: "Champions", fuente: "champions" },
@@ -213,6 +223,50 @@ function accionesDe(partido) {
   return acciones;
 }
 
+/* ---------------------------- EL VÍDEO ---------------------------- */
+
+const plano = (s) =>
+  ` ${String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9']+/g, " ")
+    .trim()} `;
+
+/** El apellido con el que se reconoce a un jugador en un texto («B. Saka» → «saka»). */
+const apellido = (nombreCorto) => {
+  const partes = plano(nombreCorto).trim().replace(/'/g, "").split(" ").filter((p) => p.length >= 4);
+
+  return partes.length ? partes[partes.length - 1] : "";
+};
+
+/*
+| El segundo del resumen en el que está la acción, sólo si una marca la nombra
+| sin duda: por su minuto («23'», «min 23»), o —si es gol— por el goleador
+| cuando ése sólo marcó uno en el partido. Dos marcas posibles = ninguna.
+*/
+function segundoDe(a, marcas, accionesDelPartido) {
+  if (!Array.isArray(marcas) || !marcas.length) return null;
+
+  const porMinuto = marcas.filter(([, texto]) => new RegExp(`(^|[^0-9])${a.min}(\\+\\d+)?'|\\bmin\\.? ?${a.min}\\b|\\bminuto ${a.min}\\b`, "i").test(texto));
+
+  if (porMinuto.length === 1) return porMinuto[0][0];
+
+  if (porMinuto.length > 1 || a.r !== "gol" || !a.rm) return null;
+
+  const ap = apellido(a.rm);
+
+  if (!ap) return null;
+
+  const susGoles = accionesDelPartido.filter((b) => b.r === "gol" && b.rm && apellido(b.rm) === ap).length;
+
+  if (susGoles !== 1) return null;
+
+  const porNombre = marcas.filter(([, texto]) => plano(texto).replace(/'/g, "").includes(` ${ap} `));
+
+  return porNombre.length === 1 ? porNombre[0][0] : null;
+}
+
 /* --------------------------- EL RANKING --------------------------- */
 
 /** Goles primero (los de penalti detrás), luego xG, luego a puerta. */
@@ -252,6 +306,11 @@ function competicion(def) {
 
   const jornadas = new Map();
 
+  const dirVideos = path.join(VIDEOS, def.fuente);
+
+  /** Id del partido → { v: id de YouTube, c: canal }. */
+  const videos = {};
+
   let partidos = 0;
 
   for (const f of fs.readdirSync(dir)) {
@@ -287,7 +346,17 @@ function competicion(def) {
 
     const titulo = String(p.partido.name || p.titulo || "").replace(/(\d+):(\d+)\s*$/, "$1-$2");
 
-    for (const a of accionesDe(p)) j.acciones.push({ ...a, p: titulo, id: String(p.id), fecha });
+    const acciones = accionesDe(p);
+
+    const resumen = (leeJson(path.join(dirVideos, `${p.id}.json`)) || {}).video;
+
+    if (resumen && resumen.id) videos[String(p.id)] = { v: resumen.id, c: resumen.canal || "" };
+
+    for (const a of acciones) {
+      const vt = resumen ? segundoDe(a, resumen.marcas, acciones) : null;
+
+      j.acciones.push({ ...a, p: titulo, id: String(p.id), fecha, ...(vt !== null ? { vt } : {}) });
+    }
   }
 
   if (!partidos) return null;
@@ -314,6 +383,11 @@ function competicion(def) {
       };
     });
 
+  /* Sólo los vídeos de los partidos que salen en algún top: el resto no se enseña. */
+  const enTop = new Set(lista.flatMap((j) => j.top.map((a) => a.id)));
+
+  const suyos = Object.fromEntries(Object.entries(videos).filter(([id]) => enTop.has(id)));
+
   return {
     slug: def.slug,
     nombre: def.nombre,
@@ -321,7 +395,9 @@ function competicion(def) {
     partidos,
     acciones: lista.reduce((s, j) => s + j.acciones, 0),
     goles: lista.reduce((s, j) => s + j.goles, 0),
+    conVideo: Object.keys(videos).length,
     jornadas: lista,
+    videos: suyos,
   };
 }
 
@@ -365,7 +441,7 @@ function principal() {
   const kb = Math.round(fs.statSync(SALIDA).size / 1024);
 
   console.log(
-    `  abp-acciones: ${competiciones.map((c) => `${c.corto} ${c.partidos} partidos/${c.acciones} acciones`).join(" · ")} → public/data/abp-acciones.json (${kb} KB)`,
+    `  abp-acciones: ${competiciones.map((c) => `${c.corto} ${c.partidos} partidos (${c.conVideo ?? 0} con resumen)/${c.acciones} acciones`).join(" · ")} → public/data/abp-acciones.json (${kb} KB)`,
   );
 }
 

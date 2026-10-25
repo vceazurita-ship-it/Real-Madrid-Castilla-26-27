@@ -4,18 +4,20 @@
  * LO MEJOR DE CADA JORNADA (laboratorio de ABP, 25/10/2026).
  *
  * Las cinco mejores acciones a balón parado de cada jornada de Primera RFEF
- * (los dos grupos), Segunda, la Premier y la Champions, sacadas de Wyscout
- * cada mañana (`scripts/wyscout-abp-acciones.mjs` → `abp-acciones.cjs`).
- * Goles primero, luego xG. Cada tarjeta dibuja la acción si Wyscout da los
- * puntos y la lleva al taller como borrador de rutina: lanzador, rematador y
- * el vuelo del balón hasta donde cayó.
+ * (los dos grupos), LaLiga EA Sports, Segunda, la Premier y la Champions,
+ * sacadas de Wyscout cada mañana (`scripts/wyscout-abp-acciones.mjs` →
+ * `abp-acciones.cjs`). Goles primero, luego xG. Cada tarjeta dibuja la acción
+ * si Wyscout da los puntos y la lleva al taller como borrador de rutina:
+ * lanzador, rematador y el vuelo del balón hasta donde cayó.
  *
- * Los clips de Wyscout no tienen enlace (ver la memoria de la descarga): se
- * da el minuto, que sirve para buscarla en el vídeo del partido.
+ * Los clips de Wyscout no tienen enlace (ver la memoria de la descarga): el
+ * botón de vídeo lleva al resumen oficial del partido en YouTube
+ * (`scripts/abp-videos-youtube.mjs`), en el segundo de la acción cuando se
+ * sabe sin duda. Sin resumen encontrado, el botón no sale.
  */
 
 import { useMemo, useState } from "react";
-import { FlaskConical, Target } from "lucide-react";
+import { FlaskConical, PlayCircle, Target } from "lucide-react";
 
 import { Notice } from "@/components/abp/ui";
 import type { JugadorLab } from "@/components/abp-lab/comun";
@@ -31,6 +33,7 @@ import {
   relatoDe,
   rutinaDeAccion,
   ultimaJornada,
+  videoDe,
   xgTexto,
   zonaDe,
   type Accion,
@@ -86,6 +89,8 @@ function Tarjeta({
   const { saque, caida } = enMetros(a);
 
   const directo = a.t === "directa" || a.t === "penalti";
+
+  const video = videoDe(a, competicion);
 
   const zona = caida && !directo ? ZONA_TEXTO[zonaDe(caida, saque)] : "";
 
@@ -157,14 +162,28 @@ function Tarjeta({
           )}
         </dl>
 
-        <button
-          type="button"
-          onClick={alTaller}
-          className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-white/[0.08]"
-        >
-          <FlaskConical size={14} />
-          Al taller
-        </button>
+        <div className={`mt-auto grid gap-2 ${video ? "grid-cols-2" : "grid-cols-1"}`}>
+          {video && (
+            <a
+              href={video.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`${video.etiqueta} en YouTube${video.canal ? ` · ${video.canal}` : ""}`}
+              className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] font-semibold text-white/80 transition hover:bg-white/[0.08]"
+            >
+              <PlayCircle size={14} className="shrink-0" />
+              <span className="truncate">{video.etiqueta}</span>
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={alTaller}
+            className="inline-flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-white/[0.08]"
+          >
+            <FlaskConical size={14} className="shrink-0" />
+            Al taller
+          </button>
+        </div>
       </div>
     </article>
   );

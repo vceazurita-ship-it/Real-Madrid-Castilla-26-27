@@ -8,7 +8,8 @@
  *   Georgson, Vio, Grønnemark y Coulston, con la fuente de cada cosa y lo que
  *   se puede estudiar gratis.
  * - **Lo mejor de cada jornada**: las cinco mejores acciones a balón parado de
- *   cada jornada de Primera RFEF, Segunda, Premier y Champions (Wyscout).
+ *   cada jornada de Primera RFEF, LaLiga, Segunda, Premier y Champions (Wyscout),
+ *   con el resumen oficial de YouTube de cada partido.
  * - **Taller**: nuestras rutinas, de la idea al partido.
  * - **Retos**: la competición de la plantilla, con podio, rachas e insignias.
  * - **Datos**: el balón parado de Primera RFEF y la Premier en Wyscout

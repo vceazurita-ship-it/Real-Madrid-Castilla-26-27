@@ -9,8 +9,12 @@ rem  Lo lanza cada dia la tarea "RMCF Castilla - ABP de cada jornada"
 rem  (scripts\instalar-tarea-abp-acciones.ps1). A mano, doble clic.
 rem
 rem    1. Baja de Wyscout los partidos nuevos de Primera RFEF (los dos
-rem       grupos), Segunda, Premier y Champions: scripts\wyscout-abp-acciones.mjs
-rem       (mismo Chrome, perfil y cuenta que la descarga de los martes).
+rem       grupos), LaLiga, Segunda, Premier y Champions:
+rem       scripts\wyscout-abp-acciones.mjs (mismo Chrome, perfil y cuenta que
+rem       la descarga de los martes).
+rem    1b. Busca el resumen oficial en YouTube de los partidos nuevos:
+rem       scripts\abp-videos-youtube.mjs (sin API ni cuota; si YouTube corta,
+rem       sigue en la siguiente pasada y no para nada).
 rem    2. Compacta: scripts\abp-acciones.cjs -> public/data/abp-acciones.json
 rem    3. Publica SOLO ese fichero (commit + push a main).
 rem
@@ -87,6 +91,14 @@ if not "%SALIDA%"=="0" (
   set "CODIGO=1"
   goto :limpieza
 )
+
+rem ------------------------------------------------------------------
+rem  1b. El resumen de YouTube de cada partido (no para nada si falla)
+rem ------------------------------------------------------------------
+
+echo. >> "%LOG%"
+call node scripts\abp-videos-youtube.mjs >> "%LOG%" 2>&1
+if errorlevel 4 echo Los videos de YouTube no han terminado: siguen en la siguiente pasada. >> "%LOG%"
 
 rem ------------------------------------------------------------------
 rem  2. Compactar
