@@ -87,7 +87,7 @@ export default function SeasonHeader({
               {weekHasFiles(currentWeek)
                 ? `${currentWeek.week} ya tiene material.`
                 : ultimaConMaterial
-                  ? `Última semana con material: la ${ultimaConMaterial.week.toLowerCase()}.`
+                  ? `Sin material esta semana. Lo último, en la ${ultimaConMaterial.week.toLowerCase()}.`
                   : ""}{" "}
               <span className="text-sm font-normal text-white/50">
                 {stats.completed} de {stats.totalWeeks}{" "}
@@ -97,8 +97,15 @@ export default function SeasonHeader({
           )}
 
           {tiraSemanas.length > 1 && (
+            <p className="mt-3 text-xs text-white/45">
+              <span className="mr-1 inline-block h-2.5 w-2.5 rounded-[3px] bg-emerald-400 align-[-1px]" />
+              Verde: semana con material. Pulsa una para abrirla.
+            </p>
+          )}
+
+          {tiraSemanas.length > 1 && (
             <div
-              className="mt-3 flex max-w-full flex-wrap items-center gap-1"
+              className="mt-2 flex max-w-full flex-wrap items-center gap-1"
               role="group"
               aria-label="Semanas con y sin material"
             >
@@ -174,7 +181,7 @@ export default function SeasonHeader({
           icon={<ImageIcon size={18} />}
           value={stats.images}
           label="Imágenes de la temporada"
-          detalle={semanasCon ? enSemanas(semanasCon.images) : undefined}
+          detalle={semanasCon ? enSemanas(semanasCon.images, stats.totalWeeks) : undefined}
           action="Ver todas"
           onClick={onOpenImages}
         />
@@ -183,7 +190,7 @@ export default function SeasonHeader({
           icon={<FileText size={18} />}
           value={stats.pdfs}
           label="PDFs de la temporada"
-          detalle={semanasCon ? enSemanas(semanasCon.pdfs) : undefined}
+          detalle={semanasCon ? enSemanas(semanasCon.pdfs, stats.totalWeeks) : undefined}
           action="Ver todos"
           onClick={onOpenPdfs}
         />
@@ -223,8 +230,8 @@ export default function SeasonHeader({
   );
 }
 
-function enSemanas(n: number) {
-  return n === 0 ? undefined : `en ${n} ${n === 1 ? "semana" : "semanas"}`;
+function enSemanas(n: number, total: number) {
+  return n === 0 ? undefined : `en ${n} de ${total} semanas`;
 }
 
 function StatCard({

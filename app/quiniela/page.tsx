@@ -671,6 +671,13 @@ export default function QuinielaPage() {
                     errorDe="lectura"
                     onReleer={recarga}
                   />
+                ) : !sesion.cargando ? (
+                  <a
+                    href="#acceso-quiniela"
+                    className="inline-flex items-center rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+                  >
+                    Entrar
+                  </a>
                 ) : undefined
               }
             />
@@ -1366,7 +1373,7 @@ export default function QuinielaPage() {
             </div>
 
             {plazo.cerrada && !yo && (
-              <div className="mt-5">
+              <div id="acceso-quiniela" className="mt-5 scroll-mt-24">
                 <Acceso
                   yo={sesion.yo}
                   cargando={sesion.cargando}

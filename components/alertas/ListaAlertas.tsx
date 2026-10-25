@@ -29,6 +29,17 @@ function fechaValida(iso: string | null | undefined) {
   return Boolean(iso) && !Number.isNaN(new Date(String(iso)).getTime());
 }
 
+/** Quién recibe el correo, por nombre: «ana, luis y 2 más». */
+function nombresDestino(destinatarios: string[]) {
+  const nombres = destinatarios.map((d) => d.split("@")[0].replace(/[._-]+/g, " ").trim()).filter(Boolean);
+
+  if (nombres.length === 0) return "Sin destinatarios";
+  if (nombres.length === 1) return nombres[0];
+  if (nombres.length === 2) return `${nombres[0]} y ${nombres[1]}`;
+
+  return `${nombres[0]}, ${nombres[1]} y ${nombres.length - 2} más`;
+}
+
 /**
  * Las tareas con alerta, ordenadas por lo que suena antes.
  *
@@ -98,7 +109,24 @@ export default function ListaAlertas({
   });
 
   const vivas = ordenadas.filter((a) => a.activa);
-  const silenciadas = ordenadas.filter((a) => !a.activa);
+
+  /* Las silenciadas, por cuándo saldrían al reactivarlas: la próxima primero y
+     las que no tienen fecha al final. */
+  const cuandoSaldria = (a: Alerta): number => {
+    if (ahora === 0) return Infinity;
+
+    const s = saldriaSiSeReactiva(a, partidos, new Date(ahora));
+
+    if (s) return s.cuando.getTime();
+
+    const t = fechaValida(a.proximoEnvio) ? new Date(a.proximoEnvio).getTime() : NaN;
+
+    return Number.isFinite(t) && t > ahora ? t : Infinity;
+  };
+
+  const silenciadas = ordenadas
+    .filter((a) => !a.activa)
+    .sort((a, b) => cuandoSaldria(a) - cuandoSaldria(b));
 
   const pinta = (alerta: Alerta) => {
         const bloqueada = comprobando || ocupada === alerta.id;
@@ -171,7 +199,7 @@ export default function ListaAlertas({
                       if (saldria)
                         return (
                           <>
-                            Silenciada · saldría{" "}
+                            Silenciada · si la reactivas, saldrá{" "}
                             <b className="font-semibold text-white/80">
                               {fechaLegible(saldria.cuando.toISOString())}
                             </b>
@@ -181,7 +209,7 @@ export default function ListaAlertas({
                       if (futura)
                         return (
                           <>
-                            Silenciada · sonaría{" "}
+                            Silenciada · si la reactivas, sonará{" "}
                             <b className="font-semibold text-white/80">
                               {fechaLegible(alerta.proximoEnvio)}
                             </b>
@@ -196,7 +224,9 @@ export default function ListaAlertas({
                         : "Silenciada: no se enviará hasta reactivarla";
                     })()
                   : fechaValida(alerta.proximoEnvio)
-                    ? <b className="font-semibold text-white/80">{fechaLegible(alerta.proximoEnvio)}</b>
+                    ? ahora > 0 && new Date(alerta.proximoEnvio).getTime() < ahora
+                      ? <b className="font-semibold text-red-300">Debería haber salido: {fechaLegible(alerta.proximoEnvio)}</b>
+                      : <b className="font-semibold text-white/80">{fechaLegible(alerta.proximoEnvio)}</b>
                     : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo.
                          La que va atada al partido no se arregla editándola: se queda sin
                          fecha cuando el calendario no tiene partido por delante, y la
@@ -223,10 +253,9 @@ export default function ListaAlertas({
                 </span>
               )}
 
-              <span className="inline-flex items-center gap-1.5" title={alerta.destinatarios.join(", ")}>
-                <Users className="h-3 w-3" aria-hidden />
-                {alerta.destinatarios.length}{" "}
-                {alerta.destinatarios.length === 1 ? "destinatario" : "destinatarios"}
+              <span className="inline-flex min-w-0 items-center gap-1.5" title={alerta.destinatarios.join(", ")}>
+                <Users className="h-3 w-3 shrink-0" aria-hidden />
+                <span className="truncate">{nombresDestino(alerta.destinatarios)}</span>
               </span>
 
               {alerta.adjuntos.length > 0 && (

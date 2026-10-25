@@ -47,15 +47,14 @@ export default function WeekPanel({
   onUpdateWeek,
 }: Props) {
   /* Se abre en la pestaña que tiene contenido; si la semana está vacía, en
-     «Subir», que es lo que hay que hacer. */
+     «Imágenes», con lo último subido a la vista y «Subir» a un botón de
+     distancia: el cuerpo técnico entra a consultar antes que a subir. */
   const [tab, setTab] = useState<Tab>(
     (week?.images?.length ?? 0) > 0
       ? "images"
       : (week?.pdfs?.length ?? 0) > 0
         ? "pdfs"
-        : week
-          ? "upload"
-          : "images"
+        : "images"
   );
   const [fit, setFit] = useState<"contain" | "cover">("contain");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -82,7 +81,7 @@ export default function WeekPanel({
         ? "images"
         : (week.pdfs?.length ?? 0) > 0
           ? "pdfs"
-          : "upload"
+          : "images"
     );
   }
 
@@ -309,6 +308,40 @@ export default function WeekPanel({
       {/* CONTENIDO */}
 
       <div className="p-6 sm:p-8">
+        {tab !== "upload" && images.length + pdfs.length === 0 && ultimaConArchivos && onSelectWeek && (
+          <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+            <p className="mb-3 text-xs uppercase tracking-wider text-white/45">
+              Lo último subido · {ultimaConArchivos.week}
+            </p>
+
+            {(ultimaConArchivos.pdfs ?? []).length > 0 && (
+              <ul className="space-y-1.5">
+                {(ultimaConArchivos.pdfs ?? []).slice(-3).map((url) => (
+                  <li key={url} className="min-w-0">
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex max-w-full items-center gap-2 text-sm text-[#C8A96B] underline-offset-4 hover:underline"
+                    >
+                      <FileText size={14} className="shrink-0" />
+                      <span className="truncate">{humanFileName(url, "Documento")}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <button
+              type="button"
+              onClick={() => onSelectWeek(ultimaConArchivos.id)}
+              className="mt-3 text-sm text-[#C8A96B] underline-offset-4 hover:underline"
+            >
+              Abrir la {ultimaConArchivos.week.toLowerCase()} entera
+            </button>
+          </div>
+        )}
+
         {tab === "images" &&
           (images.length === 0 ? (
             <EmptyState
@@ -316,14 +349,6 @@ export default function WeekPanel({
               title="Sin imágenes en esta semana"
               action="Subir imágenes"
               onAction={() => setTab("upload")}
-              alternativa={
-                ultimaConArchivos && onSelectWeek && pdfs.length === 0
-                  ? {
-                      texto: `Ver ${ultimaConArchivos.week}, la última con archivos`,
-                      onClick: () => onSelectWeek(ultimaConArchivos.id),
-                    }
-                  : undefined
-              }
             />
           ) : (
             <>
@@ -389,36 +414,6 @@ export default function WeekPanel({
               ))}
             </div>
           ))}
-
-        {tab === "upload" && images.length + pdfs.length === 0 && ultimaConArchivos && onSelectWeek && (
-          <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            {(ultimaConArchivos.pdfs ?? []).length > 0 && (
-              <ul className="space-y-1.5">
-                {(ultimaConArchivos.pdfs ?? []).slice(-3).map((url) => (
-                  <li key={url} className="min-w-0">
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex max-w-full items-center gap-2 text-sm text-[#C8A96B] underline-offset-4 hover:underline"
-                    >
-                      <FileText size={14} className="shrink-0" />
-                      <span className="truncate">{humanFileName(url, "Documento")}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <button
-              type="button"
-              onClick={() => onSelectWeek(ultimaConArchivos.id)}
-              className="mt-3 text-sm text-[#C8A96B] underline-offset-4 hover:underline"
-            >
-              Abrir la {ultimaConArchivos.week.toLowerCase()} entera
-            </button>
-          </div>
-        )}
 
         {tab === "upload" && (
           <div className="grid gap-5 lg:grid-cols-2">
