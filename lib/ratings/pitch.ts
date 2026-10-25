@@ -83,8 +83,29 @@ function normalize(value: string) {
     .toUpperCase();
 }
 
-export function detectRow(position: string): PitchRowKey {
+/*
+| La hoja escribe el puesto con palabras o con su número de rol, y de números
+| no sólo usa 1, 6-11: también 2 y 3 (laterales), 4 y 5 (centrales) y 13 (el
+| portero suplente). Antes esos caían en el «resto» —el interior—, así que un
+| lateral escrito «2» salía dibujado entre los centrocampistas.
+*/
+const PUESTO_DE_ROL: Record<string, string> = {
+  "1": "PORTERO",
+  "13": "PORTERO",
+  "2": "LATERAL D",
+  "3": "LATERAL I",
+  "4": "CENTRAL",
+  "5": "CENTRAL",
+};
+
+function puestoLeido(position: string) {
   const p = normalize(position);
+
+  return PUESTO_DE_ROL[p] ?? p;
+}
+
+export function detectRow(position: string): PitchRowKey {
+  const p = puestoLeido(position);
 
   if (p.startsWith("PORTERO") || p === "1") return "por";
   if (p.startsWith("LATERAL") || p.startsWith("CENTRAL") || p.startsWith("DEFENSA")) {
@@ -139,13 +160,14 @@ export type PlacedItem<T extends PitchItem> = {
 
 export type PitchLayout<T extends PitchItem> = {
   placed: PlacedItem<T>[];
+  clusters: PitchCluster[];
   avatar: number;
   /** Con la plantilla entera no caben los pies de ficha: se ocultan. */
   compact: boolean;
 };
 
 function empty<T extends PitchItem>(): PitchLayout<T> {
-  return { placed: [], avatar: 0, compact: false };
+  return { placed: [], clusters: [], avatar: 0, compact: false };
 }
 
 /** El eje que reparte cada línea: su tamaño, su margen y su hueco mínimo. */
@@ -264,11 +286,11 @@ export function recommendedHeight<T extends PitchItem>(
 
 /** De nuestra posición al slot del motor de rivales. */
 function slotDePosicion(position: string): string {
-  const p = normalize(position);
+  const p = puestoLeido(position);
 
   if (p.startsWith("PORTERO") || p === "1") return "por";
-  if (p.startsWith("LATERAL I")) return "li";
-  if (p.startsWith("LATERAL D")) return "ld";
+  if (p.startsWith("LATERAL I") || p.startsWith("CARRILERO I")) return "li";
+  if (p.startsWith("LATERAL D") || p.startsWith("CARRILERO D")) return "ld";
   if (p.startsWith("CENTRAL") || p.startsWith("DEFENSA")) return "dfc";
   if (p === "6" || p.startsWith("PIVOTE")) return "mcd";
   if (p === "10" || p.startsWith("MEDIAPUNTA")) return "mp";
@@ -282,6 +304,45 @@ function slotDePosicion(position: string): string {
 
 /** Orden de los slots en el campo, para leer el reparto de atrás adelante. */
 const ORDEN_SLOT = ["por", "li", "dfc", "ld", "mcd", "int", "mp", "ei", "ed", "dc"];
+
+/*
+| La chapa de cada bloque: el mismo código y el mismo color de línea que en
+| Plantillas rivales, para que los dos campogramas se lean igual.
+*/
+const PORTERO = "#D4A017";
+const DEFENSA = "#7DA6D9";
+const MEDIO = "#52B788";
+const ATAQUE = "#D46A6A";
+
+const CHAPA_DE_SLOT: Record<string, { code: string; color: string }> = {
+  por: { code: "POR", color: PORTERO },
+  li: { code: "LI", color: DEFENSA },
+  dfc: { code: "DFC", color: DEFENSA },
+  ld: { code: "LD", color: DEFENSA },
+  mcd: { code: "MCD", color: MEDIO },
+  int: { code: "INT", color: MEDIO },
+  mp: { code: "MP", color: MEDIO },
+  ei: { code: "EI", color: ATAQUE },
+  ed: { code: "ED", color: ATAQUE },
+  dc: { code: "DC", color: ATAQUE },
+};
+
+const CHAPA_ALTO = 15;
+
+/** El fondo y la chapa que agrupan a los de una posición. */
+export type PitchCluster = {
+  key: string;
+  code: string;
+  color: string;
+  count: number;
+  /** Centro de la chapa: va justo encima de su bloque. */
+  x: number;
+  y: number;
+  boxX: number;
+  boxTop: number;
+  boxWidth: number;
+  boxHeight: number;
+};
 
 export function layoutPitch<T extends PitchItem>(
   items: T[],
@@ -320,6 +381,16 @@ export function layoutPitch<T extends PitchItem>(
     });
   });
 
+  /* Ancho de la chapa, medido como en rivales: px-1.5, borde, código a 9 px y
+     el contador al lado. */
+  bloques.forEach((bloque) => {
+    bloque.anchoChapa =
+      14 +
+      (CHAPA_DE_SLOT[bloque.key]?.code.length ?? 3) * 5.6 +
+      4 +
+      String(bloque.jugadores.length).length * 5.4;
+  });
+
   const entradas = [...bloques.values()]
     .sort((a, b) => ORDEN_SLOT.indexOf(a.key) - ORDEN_SLOT.indexOf(b.key))
     .map((bloque) => ({
@@ -341,10 +412,12 @@ export function layoutPitch<T extends PitchItem>(
       horizontal,
       padAncho: PAD_X,
       padAlto: PAD_Y,
-      chapaAlto: () => 0,
+      chapaAlto: () => CHAPA_ALTO,
       huecoFila: () => ROW_GAP,
       huecoBanda: () => (horizontal ? 10 : 12),
-      huecoBloque: (tamano) => (horizontal ? ROW_GAP + 10 : tamano * 0.5),
+      /* Tumbado, el aire de más es para que se vea el corte entre dos fondos
+         del mismo color, como en rivales. */
+      huecoBloque: (tamano) => (horizontal ? ROW_GAP + 12 : tamano * 0.5),
       paso: (tamano) => Math.max(tamano * 1.45, tamano + 8),
       altoFicha: (tamano) =>
         tamano + (etiquetaAlta ? LABEL_FULL : LABEL_COMPACT),
@@ -386,5 +459,22 @@ export function layoutPitch<T extends PitchItem>(
     slot: Math.max(MIN_SLOT_X * 0.75, reparto.paso),
   }));
 
-  return { placed, avatar, compact };
+  const clusters: PitchCluster[] = reparto.bloques.map((bloque) => {
+    const chapa = CHAPA_DE_SLOT[bloque.key] ?? { code: "S/P", color: "#9AA3AD" };
+
+    return {
+      key: bloque.key,
+      code: chapa.code,
+      color: chapa.color,
+      count: bloque.cuantos,
+      x: bloque.chapaX,
+      y: bloque.arriba - 3,
+      boxX: bloque.cajaX,
+      boxTop: bloque.cajaArriba,
+      boxWidth: bloque.cajaAncho,
+      boxHeight: bloque.cajaAlto,
+    };
+  });
+
+  return { placed, clusters, avatar, compact };
 }

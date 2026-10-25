@@ -103,7 +103,7 @@ export function SquadPitch({
     );
   }, [players, width, viewport, horizontal]);
 
-  const { placed, avatar, compact } = useMemo(
+  const { placed, clusters, avatar, compact } = useMemo(
     () => layoutPitch(players, width, height, horizontal ? "horizontal" : "vertical"),
     [players, width, height, horizontal]
   );
@@ -166,6 +166,47 @@ export function SquadPitch({
       {/* Modo día: aclara el césped hasta los tonos del tema claro (globals.css) */}
 
       <div className="pitch-photo-wash" />
+
+      {/* BLOQUES — un fondo por posición, como en Plantillas rivales.
+          Los colores van en `style`: las utilidades `bg-white/[0.0x]` se
+          resuelven al mismo blanco en modo día y el fondo desaparecería. */}
+
+      {clusters.map((cluster) => (
+        <div
+          key={`caja-${cluster.key}`}
+          className="pointer-events-none absolute rounded-2xl border"
+          style={{
+            left: cluster.boxX - cluster.boxWidth / 2,
+            top: cluster.boxTop,
+            width: cluster.boxWidth,
+            height: cluster.boxHeight,
+            borderColor: `${cluster.color}59`,
+            background: `${cluster.color}1F`,
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,0.07), 0 0 0 1px rgba(8,12,16,0.35)",
+          }}
+        />
+      ))}
+
+      {/* CHAPA DE POSICIÓN — una por bloque, encima de su gente */}
+
+      {clusters.map((cluster) => (
+        <span
+          key={cluster.key}
+          className="pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full border px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm"
+          style={{
+            left: cluster.x,
+            top: cluster.y,
+            color: "#0B0F14",
+            borderColor: "rgba(8,12,16,0.45)",
+            background: cluster.color,
+          }}
+        >
+          {cluster.code}
+
+          <span className="font-semibold text-black/45">{cluster.count}</span>
+        </span>
+      ))}
 
       {/* JUGADORES */}
 
