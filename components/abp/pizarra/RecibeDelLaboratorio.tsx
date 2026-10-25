@@ -18,7 +18,7 @@ import { useMemo, useState } from "react";
 import { FlaskConical, Plus, Repeat } from "lucide-react";
 
 import { Button, Dialog, Notice } from "@/components/abp/ui";
-import type { SlidePizarra, TableroPizarra } from "@/lib/abp/pizarra";
+import { tituloVisible, type SlidePizarra, type TableroPizarra } from "@/lib/abp/pizarra";
 import { huellaSlide } from "@/lib/abp-lab/puente-pizarra";
 import type { EnvioAPizarra } from "@/lib/abp-lab/puente-envio";
 
@@ -53,7 +53,11 @@ export function RecibeDelLaboratorio({
   /* Al cambiar de jornada la elección anterior ya no vale: se vuelve a la propuesta. */
   const marcada = eleccion && eleccion.partido === elegido ? eleccion.slideId : propuesta;
 
-  const objetivo = tablero?.slides.find((s) => s.id === marcada) ?? null;
+  const indiceObjetivo = tablero?.slides.findIndex((s) => s.id === marcada) ?? -1;
+
+  const objetivo = tablero && indiceObjetivo >= 0 ? tablero.slides[indiceObjetivo] : null;
+
+  const nombreObjetivo = objetivo && tablero ? tituloVisible(tablero.slides, indiceObjetivo) : "";
 
   const cambiadaAqui = objetivo && esOrigen(objetivo) && recado.huellaOrigen && huellaSlide(objetivo) !== recado.huellaOrigen;
 
@@ -87,7 +91,7 @@ export function RecibeDelLaboratorio({
             disabled={!tablero}
             onClick={() => onAplica(objetivo ? { modo: "sustituir", slideId: objetivo.id } : { modo: "nueva" })}
           >
-            {objetivo ? `Sustituir «${objetivo.titulo}»` : "Añadir como diapositiva nueva"}
+            {objetivo ? `Sustituir la ${indiceObjetivo + 1}.ª` : "Añadir como diapositiva nueva"}
           </Button>
         </>
       }
@@ -137,7 +141,7 @@ export function RecibeDelLaboratorio({
               key={s.id}
               marcada={objetivo?.id === s.id}
               onMarca={() => setEleccion({ partido: elegido, slideId: s.id })}
-              titulo={`Sustituir la ${i + 1}.ª · ${s.titulo}`}
+              titulo={`Sustituir la ${i + 1}.ª · ${tituloVisible(tablero?.slides ?? [], i)}`}
               detalle={[esOrigen(s) ? "De aquí salió" : "", `${s.fichas.length} jugadores`].filter(Boolean).join(" · ")}
               destacada={esOrigen(s)}
             />
@@ -145,7 +149,7 @@ export function RecibeDelLaboratorio({
         </fieldset>
 
         {objetivo && (
-          <Notice tone={cambiadaAqui ? "warn" : "info"} title={cambiadaAqui ? "Esta diapositiva ha cambiado en la pizarra desde que la llevaste al laboratorio" : `Se sustituye «${objetivo.titulo}» entera`}>
+          <Notice tone={cambiadaAqui ? "warn" : "info"} title={cambiadaAqui ? "Esta diapositiva ha cambiado en la pizarra desde que la llevaste al laboratorio" : `Se sustituye «${nombreObjetivo}» entera`}>
             {cambiadaAqui
               ? "Lo que se cambió aquí después se sustituye por lo del laboratorio. Si no es lo que quieres, añádela como nueva; si te equivocas, Ctrl + Z."
               : "Jugadores, flechas, rivales y consignas pasan a ser los del laboratorio. Se deshace con Ctrl + Z o con el aviso que sale al sustituir."}

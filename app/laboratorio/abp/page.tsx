@@ -36,7 +36,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAbpLab } from "@/hooks/useAbpLab";
 import { usePizarraAbpLectura } from "@/hooks/usePizarraAbpLectura";
-import type { SlidePizarra, TableroPizarra } from "@/lib/abp/pizarra";
+import { tituloVisible, type SlidePizarra, type TableroPizarra } from "@/lib/abp/pizarra";
 import { rutinaDeEnlace } from "@/lib/abp-lab/enlace";
 import { ESQUEMAS } from "@/lib/abp-lab/esquemas";
 import type { Defensa } from "@/lib/abp-lab/modelo";
@@ -86,8 +86,17 @@ export default function LaboratorioAbpPage() {
   const releePizarra = pizarra.recarga;
 
   const trae = useCallback(
-    async (partidoId: string, tablero: Pick<TableroPizarra, "rival" | "jornada">, slide: SlidePizarra, extra?: { fecha?: string; jugadores?: [string, { nombre: string; dorsal?: number }][] }) => {
+    async (
+      partidoId: string,
+      tablero: Pick<TableroPizarra, "rival" | "jornada"> & { slides?: SlidePizarra[] },
+      slide: SlidePizarra,
+      extra?: { fecha?: string; titulo?: string; jugadores?: [string, { nombre: string; dorsal?: number }][] },
+    ) => {
       try {
+        const indice = tablero.slides?.findIndex((s) => s.id === slide.id) ?? -1;
+
+        const titulo = extra?.titulo ?? (tablero.slides && indice >= 0 ? tituloVisible(tablero.slides, indice) : undefined);
+
         const jugadores = new Map(extra?.jugadores ?? slide.fichas.flatMap((f) => (porId.get(f.playerId) ? [[f.playerId, { nombre: porId.get(f.playerId)!.nombre, dorsal: porId.get(f.playerId)!.dorsal }] as const] : [])));
 
         const rutina = await traeDeLaPizarra(doc.rutinas, guarda, {
@@ -96,6 +105,7 @@ export default function LaboratorioAbpPage() {
           rival: tablero.rival,
           ...(tablero.jornada ? { jornada: tablero.jornada } : {}),
           ...(extra?.fecha ? { fecha: extra.fecha } : {}),
+          ...(titulo ? { titulo } : {}),
           jugadores,
           ahora: new Date().toISOString(),
         });
@@ -148,7 +158,9 @@ export default function LaboratorioAbpPage() {
     if (recado && recado.partidoId === l.partido && recado.slide.id === l.diapositiva) {
       llegada.current = null;
 
-      void trae(recado.partidoId, { rival: recado.rival, jornada: recado.jornada }, recado.slide, { fecha: recado.fecha, jugadores: recado.jugadores }).then(() => borraRecado(l.token));
+      void trae(recado.partidoId, { rival: recado.rival, jornada: recado.jornada }, recado.slide, { fecha: recado.fecha, titulo: recado.titulo, jugadores: recado.jugadores }).then(() =>
+        borraRecado(l.token),
+      );
 
       return;
     }

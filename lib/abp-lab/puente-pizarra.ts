@@ -320,6 +320,12 @@ export type EntradaPizarra = {
   rival: string;
   jornada?: string;
   fecha?: string;
+  /**
+   * El título como se lee en la pizarra (`tituloVisible`): con tres «CÓRNER
+   * OFENSIVO» en la jornada, el que lleva su orden («· 2.º Y 3.º»). Si no se
+   * da, el de la diapositiva.
+   */
+  titulo?: string;
   /** Para apuntar el nombre y el dorsal de cada ficha (los ids de la hoja se renumeran). */
   jugadores?: Map<string, { nombre: string; dorsal?: number }>;
   /** ISO de ahora (se pasa para que la función sea pura). */
@@ -401,7 +407,9 @@ export function rutinaDeSlide(e: EntradaPizarra): RutinaPuente {
     };
   });
 
-  const nombre = limpia(`${capitaliza(slide.titulo || plantilla?.titulo || "Acción")}${e.rival.trim() ? ` · ${e.rival.trim()}` : ""}`, 80);
+  const visible = e.titulo?.trim() || slide.titulo || plantilla?.titulo || "Acción";
+
+  const nombre = limpia(`${capitaliza(visible)}${e.rival.trim() ? ` · ${e.rival.trim()}` : ""}`, 80);
 
   const notas = slide.notas.slice(0, 20);
 
@@ -428,7 +436,7 @@ export function rutinaDeSlide(e: EntradaPizarra): RutinaPuente {
   const origen: OrigenPizarra = {
     partidoId: e.partidoId,
     slideId: slide.id,
-    titulo: slide.titulo,
+    titulo: visible,
     rival: e.rival,
     ...(e.jornada ? { jornada: e.jornada } : {}),
     ...(e.fecha ? { fecha: e.fecha } : {}),

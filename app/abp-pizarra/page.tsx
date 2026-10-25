@@ -1678,6 +1678,7 @@ export default function PizarraAbpPage() {
       rival: tablero?.rival || partido.opponent,
       ...(tablero?.jornada ? { jornada: tablero.jornada } : {}),
       ...(partido.date ? { fecha: partido.date } : {}),
+      ...(tablero ? { titulo: tituloVisible(tablero.slides, activa) } : {}),
       slide,
       jugadores: slide.fichas
         .map((ficha) => porId.get(ficha.playerId))
@@ -1698,7 +1699,7 @@ export default function PizarraAbpPage() {
     });
 
     window.open(`/laboratorio/abp?${consulta.toString()}`, "_blank", "noopener");
-  }, [slide, partido, tablero, porId]);
+  }, [slide, partido, tablero, porId, activa]);
 
   /*
   | Lo que llega del laboratorio: /abp-pizarra?desdeLab=<token>. Se enseña un

@@ -33,6 +33,8 @@ export type TraidaDePizarra = {
   rival: string;
   jornada?: string;
   fecha?: string;
+  /** El título como se lee en la pizarra (`tituloVisible`). */
+  titulo?: string;
   slide: SlidePizarra;
   /** Nombre y dorsal de cada jugador de la diapositiva. */
   jugadores: [string, { nombre: string; dorsal?: number }][];

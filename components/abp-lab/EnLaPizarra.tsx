@@ -21,7 +21,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/abp/ui";
 import type { GuardaLab } from "@/hooks/useAbpLab";
-import type { SlidePizarra, TableroPizarra } from "@/lib/abp/pizarra";
+import { tituloVisible, type SlidePizarra, type TableroPizarra } from "@/lib/abp/pizarra";
 import type { Rutina } from "@/lib/abp-lab/modelo";
 import { dejaRecado } from "@/lib/abp-lab/puente-envio";
 import { estadoEnPizarra, fusionaDesdePizarra, huellaSlide, rutinaDeSlide, sinJugador, slideDeRutina, type EntradaPizarra, type EstadoEnPizarra, type RutinaPuente } from "@/lib/abp-lab/puente-pizarra";
@@ -221,8 +221,8 @@ export function CabeceraEnLaPizarra({
                 return (
                   <li key={s.id} className="flex min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[12.5px] font-semibold text-white/85">
-                        {i + 1}. {s.titulo}
+                      <span className="block truncate text-[12.5px] font-semibold text-white/85" title={tituloVisible(jornada.t.slides, i)}>
+                        {i + 1}. {tituloVisible(jornada.t.slides, i)}
                       </span>
                       <span className="block truncate text-[11px] text-white/45">
                         {vacia ? "Sin jugadores" : traida ? (igual ? "Ya en el laboratorio" : "En el laboratorio · ha cambiado aquí") : `${s.fichas.length} jugadores`}

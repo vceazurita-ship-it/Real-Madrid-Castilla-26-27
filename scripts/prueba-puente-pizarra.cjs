@@ -364,6 +364,47 @@ console.log("4. Del laboratorio a la pizarra y vuelta");
   ok(P.estadoEnPizarra(variante, { "riv-8": { ...tableros["riv-8"], slides: [slide, comoNueva] } }).estado === "enviada", "variante enviada como diapositiva nueva");
 }
 
+/* ------------------------------------------------------------------ */
+/* 6. Con la pizarra de verdad, si se le pasa (sólo se LEE):
+      curl "<web>/api/docs?key=abp-pizarra" > pizarra.json
+      node scripts/prueba-puente-pizarra.cjs pizarra.json                 */
+
+if (process.argv[2]) {
+  console.log("6. Ida y vuelta con la pizarra de verdad");
+
+  const { normalizaTablero } = require("../lib/abp/pizarra.ts");
+
+  const crudo = JSON.parse(require("fs").readFileSync(process.argv[2], "utf8"));
+
+  const store = crudo.data ?? crudo;
+
+  let diapositivas = 0;
+
+  let malas = 0;
+
+  for (const [partidoId, t] of Object.entries(store.tableros ?? {})) {
+    for (const slide of normalizaTablero(t).slides) {
+      diapositivas += 1;
+
+      const guardada = porElServidor(P.rutinaDeSlide({ slide, partidoId, rival: t.rival ?? "", ahora: AHORA }));
+
+      const vuelta = P.slideDeRutina(guardada, { id: slide.id, ahora: AHORA });
+
+      if (comparable(vuelta) !== comparable(slide)) {
+        malas += 1;
+
+        if (malas <= 3) {
+          console.error(`  ✗ ${partidoId} · ${slide.titulo}`);
+          console.error("    antes ", comparable(slide).slice(0, 400));
+          console.error("    vuelta", comparable(vuelta).slice(0, 400));
+        }
+      }
+    }
+  }
+
+  ok(malas === 0, `${diapositivas - malas} de ${diapositivas} diapositivas reales vuelven idénticas`);
+}
+
 console.log(`\n${pruebas - fallos} de ${pruebas} bien`);
 
 process.exit(fallos ? 1 : 0);
