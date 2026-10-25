@@ -35,11 +35,19 @@ export type RutinaReferente = {
   pasos: string[];
   /** Contra qué defensa se vio funcionar. */
   contra?: string;
+  /** Contra qué tipo de defensa funciona, si la fuente lo deja claro. */
+  defensa?: "zona" | "hombre" | "mixta";
+  /** Cómo se entrena: la tarea, en una frase. */
+  tarea: string;
+  /** El criterio de éxito observable de esa tarea. */
+  exito: string;
   fuente: Fuente;
 };
 
 export type Recurso = {
   titulo: string;
+  /** El título original (casi siempre en inglés), si el de arriba es la traducción. */
+  original?: string;
   tipo: "artículo" | "análisis" | "curso" | "datos" | "entrevista";
   url: string;
   gratis: boolean;
@@ -219,6 +227,9 @@ export const REFERENTES: Referente[] = [
           "Gabriel queda solo en el segundo palo.",
         ],
         contra: "Nottingham Forest, que marcaba en zona e ignoraba a los que entraban",
+        defensa: "zona",
+        tarea: "Seis contra seis en zona: cuatro atacantes entran a bloquear a su marcador y el quinto sale solo al segundo palo.",
+        exito: "El rematador llega al segundo palo sin contacto en 3 de 5 saques.",
         fuente: F.plGabriel,
       },
       {
@@ -231,6 +242,9 @@ export const REFERENTES: Referente[] = [
           "Gabriel pierde a su marcador y cabecea libre a seis metros.",
         ],
         contra: "Tottenham",
+        defensa: "hombre",
+        tarea: "Seis contra seis al hombre: dos atacantes se plantan delante del portero y bloquean a los dos marcadores más cercanos.",
+        exito: "El portero no sale a por el balón y el rematador cabecea libre en 3 de 5 saques.",
         fuente: F.plGabriel,
       },
       {
@@ -243,14 +257,17 @@ export const REFERENTES: Referente[] = [
           "Ben White bloquea al portero.",
         ],
         contra: "Crystal Palace (enero de 2024)",
+        defensa: "hombre",
+        tarea: "Cinco contra cinco al hombre: un señuelo corre por delante del primer palo para sacar a su marcador y un segundo atacante bloquea tarde y bajo.",
+        exito: "El señuelo arrastra a su par fuera de la zona y el rematador queda sin marca en 3 de 5 saques.",
         fuente: F.tggBloqueos,
       },
     ],
     recursos: [
-      { titulo: "Blocking, decoys and brute force", tipo: "análisis", url: F.plGabriel.url, gratis: true, medio: F.plGabriel.medio, fecha: F.plGabriel.fecha },
-      { titulo: "Arsenal and the art of blocking at corners", tipo: "análisis", url: F.tggBloqueos.url, gratis: true, medio: F.tggBloqueos.medio, fecha: F.tggBloqueos.fecha },
-      { titulo: "How Nicolas Jover made Arsenal the kings of corners", tipo: "artículo", url: F.plJover.url, gratis: true, medio: F.plJover.medio, fecha: F.plJover.fecha },
-      { titulo: "Arteta: set pieces y «engañar al rival»", tipo: "entrevista", url: F.arteta.url, gratis: true, medio: F.arteta.medio, fecha: F.arteta.fecha },
+      { titulo: "Bloqueos, señuelos y fuerza bruta", original: "Blocking, decoys and brute force", tipo: "análisis", url: F.plGabriel.url, gratis: true, medio: F.plGabriel.medio, fecha: F.plGabriel.fecha },
+      { titulo: "Arsenal y el arte de bloquear en los córners", original: "Arsenal and the art of blocking at corners", tipo: "análisis", url: F.tggBloqueos.url, gratis: true, medio: F.tggBloqueos.medio, fecha: F.tggBloqueos.fecha },
+      { titulo: "Cómo Nicolas Jover hizo del Arsenal el rey de los córners", original: "How Nicolas Jover made Arsenal the kings of corners", tipo: "artículo", url: F.plJover.url, gratis: true, medio: F.plJover.medio, fecha: F.plJover.fecha },
+      { titulo: "Arteta: balón parado y «engañar al rival»", tipo: "entrevista", url: F.arteta.url, gratis: true, medio: F.arteta.medio, fecha: F.arteta.fecha },
     ],
   },
   {
@@ -297,6 +314,9 @@ export const REFERENTES: Referente[] = [
           "Centro cerrado con curva moderada a la zona del segundo palo.",
         ],
         contra: "Tottenham, en zona",
+        defensa: "zona",
+        tarea: "Siete contra siete en zona: el paquete sale junto, se abre a sus sitios y el centro cae cerrado al segundo palo; uno espera en la frontal.",
+        exito: "Tres de cada cinco centros llegan a un rematador sin marca y la frontal recoge el rechace.",
         fuente: F.tfaChelsea,
       },
       {
@@ -309,6 +329,9 @@ export const REFERENTES: Referente[] = [
           "El rematador da un paso atrás para soltarse de su marcador y ataca la peinada en carrera.",
         ],
         contra: "Southampton (cinco zonales, tres al hombre)",
+        defensa: "mixta",
+        tarea: "Cinco contra cinco con tres zonales: dos bloqueos por el lado ciego abren el primer palo para la peinada.",
+        exito: "El rematador conecta la peinada en carrera en 3 de 5 saques.",
         fuente: F.tfaChelsea,
       },
       {
@@ -322,12 +345,15 @@ export const REFERENTES: Referente[] = [
           "Pase atrás al borde del área.",
         ],
         contra: "Fulham",
+        defensa: "zona",
+        tarea: "Córner en corto con superioridad: pared en la frontal, dos frenan su salida y tres atacan el segundo palo.",
+        exito: "El pase atrás llega al borde del área con el rematador de cara en 3 de 5 saques.",
         fuente: F.tfaChelsea,
       },
     ],
     recursos: [
-      { titulo: "Short corners: Chelsea's overloads (con vídeo)", tipo: "análisis", url: F.fifaChelsea.url, gratis: true, medio: F.fifaChelsea.medio, fecha: F.fifaChelsea.fecha },
-      { titulo: "Bernardo Cueva Corner Tactics At Chelsea 2024/2025", tipo: "análisis", url: F.tfaChelsea.url, gratis: true, medio: F.tfaChelsea.medio, fecha: F.tfaChelsea.fecha },
+      { titulo: "Córners en corto: las superioridades del Chelsea (con vídeo)", original: "Short corners: Chelsea's overloads (con vídeo)", tipo: "análisis", url: F.fifaChelsea.url, gratis: true, medio: F.fifaChelsea.medio, fecha: F.fifaChelsea.fecha },
+      { titulo: "Los córners de Bernardo Cueva en el Chelsea 2024/25", original: "Bernardo Cueva Corner Tactics At Chelsea 2024/2025", tipo: "análisis", url: F.tfaChelsea.url, gratis: true, medio: F.tfaChelsea.medio, fecha: F.tfaChelsea.fecha },
     ],
   },
   {
@@ -358,7 +384,7 @@ export const REFERENTES: Referente[] = [
       },
     ],
     rutinas: [],
-    recursos: [{ titulo: "Brentford bring their set piece prowess to the Premier League", tipo: "artículo", url: F.tggBrentford.url, gratis: true, medio: F.tggBrentford.medio, fecha: F.tggBrentford.fecha }],
+    recursos: [{ titulo: "Brentford lleva su dominio del balón parado a la Premier League", original: "Brentford bring their set piece prowess to the Premier League", tipo: "artículo", url: F.tggBrentford.url, gratis: true, medio: F.tggBrentford.medio, fecha: F.tggBrentford.fecha }],
   },
   {
     id: "georgson",
@@ -384,10 +410,12 @@ export const REFERENTES: Referente[] = [
         nombre: "Segundo palo para Pinnock",
         tipo: "corner",
         pasos: ["La rutina al segundo palo para Ethan Pinnock en Brentford: su favorita de la carrera, «muy efectiva»."],
+        tarea: "Repetir la rutina al segundo palo con el cabeceador de la plantilla, primero sin oposición y luego con una defensa en zona.",
+        exito: "El cabeceador remata a puerta en 3 de 5 saques sin oposición y en 2 de 5 con ella.",
         fuente: F.georgson,
       },
     ],
-    recursos: [{ titulo: "Andreas Georgson Q&A", tipo: "entrevista", url: F.georgson.url, gratis: true, medio: F.georgson.medio, fecha: F.georgson.fecha }],
+    recursos: [{ titulo: "Andreas Georgson: preguntas y respuestas", original: "Andreas Georgson Q&A", tipo: "entrevista", url: F.georgson.url, gratis: true, medio: F.georgson.medio, fecha: F.georgson.fecha }],
   },
   {
     id: "vio",
@@ -413,10 +441,12 @@ export const REFERENTES: Referente[] = [
           "Golpeo directo: así marcó Mascara al Torino.",
         ],
         contra: "Torino (Catania 2-1)",
+        tarea: "Falta frontal: al pitido se mueven seis, dos cruzan por delante y cuatro forman la segunda barrera.",
+        exito: "El portero pierde de vista el golpeo y el tiro sale a puerta en 3 de 5 intentos.",
         fuente: F.vio,
       },
     ],
-    recursos: [{ titulo: "Fiorentina banking on Italy's set-piece guru", tipo: "artículo", url: F.vio.url, gratis: true, medio: F.vio.medio, fecha: F.vio.fecha }],
+    recursos: [{ titulo: "La Fiorentina apuesta por el gurú italiano del balón parado", original: "Fiorentina banking on Italy's set-piece guru", tipo: "artículo", url: F.vio.url, gratis: true, medio: F.vio.medio, fecha: F.vio.fecha }],
   },
   {
     id: "gronnemark",
@@ -435,7 +465,7 @@ export const REFERENTES: Referente[] = [
       { titulo: "Movimiento y estrategia", detalle: "Sin movimiento ni plan, el saque regala el balón: hay que planear también la acción siguiente.", fuente: F.gronnemark },
     ],
     rutinas: [],
-    recursos: [{ titulo: "An Interview With Liverpool's Throw-In Coach", tipo: "entrevista", url: F.gronnemark.url, gratis: true, medio: F.gronnemark.medio, fecha: F.gronnemark.fecha }],
+    recursos: [{ titulo: "Entrevista con el entrenador de saques de banda del Liverpool", original: "An Interview With Liverpool's Throw-In Coach", tipo: "entrevista", url: F.gronnemark.url, gratis: true, medio: F.gronnemark.medio, fecha: F.gronnemark.fecha }],
   },
   {
     id: "coulston",
@@ -456,7 +486,7 @@ export const REFERENTES: Referente[] = [
     ],
     rutinas: [],
     recursos: [
-      { titulo: "Incorporating set pieces into your game model", tipo: "artículo", url: F.coulston.url, gratis: true, medio: F.coulston.medio, fecha: F.coulston.fecha },
+      { titulo: "Meter el balón parado en tu modelo de juego", original: "Incorporating set pieces into your game model", tipo: "artículo", url: F.coulston.url, gratis: true, medio: F.coulston.medio, fecha: F.coulston.fecha },
       { titulo: "Set Piece Masterclass (14 tipos de ABP, plantilla de rutinas)", tipo: "curso", url: "https://trainingground.guru/event/set-piece-masterclass", gratis: false, medio: "Training Ground Guru", fecha: "2024" },
     ],
   },

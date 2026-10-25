@@ -7,9 +7,10 @@
  */
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { ArrowUpRight, BookOpen, Check, FlaskConical, GraduationCap, Library, Route, Search, Shield, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarClock, Check, ChevronDown, FlaskConical, GraduationCap, Library, Route, Search, Shield, Sparkles, X } from "lucide-react";
 
 import { Button, Panel } from "@/components/abp/ui";
+import { useContextoLab } from "@/hooks/useContextoLab";
 import { fechaFuente, type JugadorLab } from "@/components/abp-lab/comun";
 import { MiniPizarra } from "@/components/abp-lab/PizarraRutina";
 import { ESQUEMAS } from "@/lib/abp-lab/esquemas";
@@ -107,6 +108,75 @@ const normaliza = (s: string) =>
 
 const SIN_JUGADORES = new Map<string, JugadorLab>();
 
+const DEFENSA_TEXTO = { zona: "en zona", hombre: "al hombre", mixta: "en mixta" } as const;
+
+/** Por qué una rutina que funciona contra ese tipo de defensa encaja con el rival. */
+const POR_QUE = {
+  zona: "su zona no sigue a los que entran, así que un bloqueo deja al rematador sin marca",
+  hombre: "cada uno va pegado a su par, y un bloqueo o un señuelo lo deja sin pareja",
+  mixta: "los de zona y los de hombre se estorban entre sí, y un bloqueo por el lado ciego abre el hueco",
+} as const;
+
+/** «Contra quién funciona» y «Se entrena así… Éxito si…»: lo que convierte la rutina en una tarea. */
+function TareaRutina({ r }: { r: RutinaReferente }) {
+  return (
+    <div className="mt-2 space-y-1 text-[12px] leading-snug text-white/65">
+      {r.defensa && (
+        <p>
+          <span className="font-semibold text-white/85">Contra quién funciona:</span> defensa {DEFENSA_TEXTO[r.defensa]}
+        </p>
+      )}
+      <p>
+        <span className="font-semibold text-white/85">Se entrena así:</span> {r.tarea}
+      </p>
+      <p>
+        <span className="font-semibold text-white/85">Éxito si:</span> {r.exito.charAt(0).toLowerCase() + r.exito.slice(1)}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * «Esta semana, contra [rival]»: la rutina de la biblioteca que mejor encaja con
+ * cómo defiende el córner el próximo rival según su scouting. Si no hay rival o
+ * su scouting no dice cómo defiende, no sale.
+ */
+function EstaSemana({ onAlTaller }: { onAlTaller: (rutina: RutinaReferente, referente: string) => void }) {
+  const { rival } = useContextoLab();
+
+  const estructura = rival?.corner ?? null;
+
+  if (!rival || !estructura) return null;
+
+  const defensa = estructura.tipo === "zonal" ? "zona" : estructura.tipo;
+
+  const encaje = REFERENTES.flatMap((r) => r.rutinas.map((x) => ({ r, x }))).find(({ x }) => x.tipo === "corner" && x.defensa === defensa);
+
+  if (!encaje) return null;
+
+  const { r, x } = encaje;
+
+  return (
+    <section aria-label={`Esta semana, contra ${rival.equipo}`} className="lab-aparece rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] p-4 sm:p-5">
+      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+        <CalendarClock size={13} />
+        Esta semana, contra {rival.equipo}
+      </p>
+      <p className="mt-2 text-[13.5px] leading-snug text-white/75">
+        {rival.equipo} defiende el córner {DEFENSA_TEXTO[defensa]}
+        {estructura.enZona ? ` (${estructura.enZona} en zona)` : ""}. Prueba <span className="font-semibold text-white">{x.nombre}</span> ({r.nombre}, {r.club}). Por qué: {POR_QUE[defensa]}.
+      </p>
+      <TareaRutina r={x} />
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+        <Cita fuente={x.fuente} />
+        <Button icon={FlaskConical} onClick={() => onAlTaller(x, r.id)}>
+          Al taller
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 function Cita({ fuente }: { fuente: Fuente }) {
   return (
     <a
@@ -149,6 +219,8 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
 
     return todo.filter((x) => normaliza(`${x.titulo} ${x.texto} ${x.de}`).includes(q));
   }, [busca]);
+
+  const [todosLosDatos, setTodosLosDatos] = useState(false);
 
   const biblioteca = REFERENTES.flatMap((r) => r.rutinas.map((x) => ({ r, x })));
 
@@ -203,16 +275,33 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
         </section>
       )}
 
-      {/* ------------------------ LOS DATOS QUE MANDAN --------------------- */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {DATOS_CLAVE.map((d) => (
-          <div key={d.texto} className="lab-aparece min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-            <p className="tabular-nums text-3xl font-bold tracking-tight text-[#C8A96B]">{d.valor}</p>
-            <p className="mt-1 text-[12.5px] leading-snug text-white/70">{d.texto}</p>
-            <Cita fuente={d.fuente} />
-          </div>
-        ))}
-      </div>
+      {/* ------------------------ ESTA SEMANA ------------------------------ */}
+      <EstaSemana onAlTaller={onAlTaller} />
+
+      {/* ------------------------ EL DATO DE FONDO ------------------------- */}
+      <section aria-label="El dato de fondo" className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">El dato de fondo</p>
+          <button
+            type="button"
+            aria-expanded={todosLosDatos}
+            onClick={() => setTodosLosDatos((v) => !v)}
+            className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-white/55 hover:text-white"
+          >
+            {todosLosDatos ? "Ver menos" : `Ver ${DATOS_CLAVE.length - 3} más`}
+            <ChevronDown size={13} className={todosLosDatos ? "rotate-180" : ""} />
+          </button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {DATOS_CLAVE.map((d, i) => (
+            <div key={d.texto} className={`lab-aparece min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${i >= 3 && !todosLosDatos ? "hidden" : ""}`}>
+              <p className="tabular-nums text-3xl font-bold tracking-tight text-[#C8A96B]">{d.valor}</p>
+              <p className="mt-1 text-[12.5px] leading-snug text-white/70">{d.texto}</p>
+              <Cita fuente={d.fuente} />
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* ------------------------ LA BIBLIOTECA --------------------------- */}
       <Panel title="Biblioteca de rutinas" subtitle="Las de los referentes, dibujadas a partir de su fuente: al taller llegan colocadas y listas para reproducir" icon={Library}>
@@ -232,6 +321,7 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
                     {etiqueta(TIPOS, x.tipo)}
                     {x.contra ? ` · contra ${x.contra}` : ""}
                   </p>
+                  <TareaRutina r={x} />
                   <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2.5">
                     <Cita fuente={x.fuente} />
                     <Button icon={FlaskConical} onClick={() => onAlTaller(x, r.id)}>
@@ -246,7 +336,7 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
       </Panel>
 
       {/* ------------------------ ELEGIR REFERENTE ------------------------ */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none" role="tablist" aria-label="Referentes">
+      <div className="flex flex-wrap gap-2 pb-1" role="tablist" aria-label="Referentes">
         {REFERENTES.map((r) => {
           const activo = r.id === elegido;
 
@@ -262,7 +352,7 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
               }`}
             >
               <span className={`block text-sm font-semibold ${activo ? "text-[#C8A96B]" : "text-white/85"}`}>{r.nombre}</span>
-              <span className="block text-[11px] text-white/45">{r.club}</span>
+              {r.club !== r.nombre && <span className="block text-[11px] text-white/45">{r.club}</span>}
             </button>
           );
         })}
@@ -338,6 +428,7 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
                           </li>
                         ))}
                       </ol>
+                      <TareaRutina r={r} />
                       <Cita fuente={r.fuente} />
                     </article>
                   ))}
@@ -363,6 +454,7 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
                         <BookOpen size={15} className="shrink-0 text-[#C8A96B]" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium text-white/85">{r.titulo}</span>
+                          {r.original && <span className="block truncate text-[11px] italic text-white/40">{r.original}</span>}
                           <span className="block truncate text-[11px] text-white/45">
                             {r.medio} · {r.tipo}
                             {r.fecha ? ` · ${fechaFuente(r.fecha)}` : ""}
