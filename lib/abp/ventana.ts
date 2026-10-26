@@ -50,9 +50,32 @@ export function etiquetaDia(fecha: string) {
   return `${NOMBRES[dia.getUTCDay()]} ${dia.getUTCDate()}`;
 }
 
+const DIA_MADRID = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" });
+
+/**
+ * El día de Madrid de un instante con huso («2026-10-31T22:00:00Z»), o `null`
+ * si el texto no lleva hora y huso. La hoja guarda las fechas como instantes:
+ * leer sólo los diez primeros caracteres dejaba el partido un día antes o un
+ * día después según el huso, y la pizarra y el microciclo no coincidían
+ * (26/10/2026).
+ */
+export function diaDeMadrid(valor: string): string | null {
+  const limpio = (valor || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}.*(?:Z|[+-]\d{2}:?\d{2})$/.test(limpio)) return null;
+
+  const instante = new Date(limpio);
+
+  return Number.isNaN(instante.getTime()) ? null : DIA_MADRID.format(instante);
+}
+
 /** "20/09/2026" o "2026-09-20" → "2026-09-20". Vacío si no se entiende. */
 export function fechaHoja(valor: string): string {
   const limpio = (valor || "").trim();
+
+  const deMadrid = diaDeMadrid(limpio);
+
+  if (deMadrid) return deMadrid;
 
   const iso = limpio.match(/^(\d{4})-(\d{2})-(\d{2})/);
 

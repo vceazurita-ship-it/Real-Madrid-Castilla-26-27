@@ -27,7 +27,7 @@ import {
   AnalisisSeccion,
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
-import type { ClaveMetrica } from "@/lib/abp/analisis";
+import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
 import ABPObjectiveFlow, {
   type ABPFlowCol,
 } from "@/components/abp/ABPObjectiveFlow";
@@ -2268,7 +2268,7 @@ const conclusiones = useMemo(() => {
   const xg = filtered.reduce((a, r) => a + r.xg, 0);
 
   const frases: (string | null)[] = [
-    `${plural(filtered.length, "ABP", "ABP")} en contra: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol encajado", "goles encajados")}, ${cifra(xg, 2)} goles esperados (xG).`,
+    `${plural(filtered.length, "ABP", "ABP")} en contra: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol encajado", "goles encajados")}, ${cifra(xg, 2)} goles esperados.`,
   ];
 
   /* «Remates concedidos» y «ocasiones» cuentan las mismas jugadas: se dice, y
@@ -2281,7 +2281,7 @@ const conclusiones = useMemo(() => {
     const grupos = new Map<string, Row[]>();
 
     for (const r of conRemate) {
-      const clave = `${r.tipoAccion.trim().toLowerCase()}${r.zonaCaida ? ` a ${zonaDicha(r.zonaCaida)}` : ""}`;
+      const clave = hablado(`${r.tipoAccion.trim().toLowerCase()}${r.zonaCaida ? ` a ${zonaDicha(r.zonaCaida)}` : ""}`);
 
       grupos.set(clave, [...(grupos.get(clave) ?? []), r]);
     }
@@ -2291,7 +2291,7 @@ const conclusiones = useMemo(() => {
         .map((r) => {
           const minuto = r.contexto.minuto.minuto;
 
-          return `${minuto != null ? `${minuto}′, ` : ""}${cifra(r.xg, 2)} xG`;
+          return `${minuto != null ? `${minuto}′, ` : ""}${cifra(r.xg, 2)} goles esperados`;
         })
         .join("; ");
 
@@ -2313,7 +2313,7 @@ const conclusiones = useMemo(() => {
 
   if (zona && zona.valor > 0) {
     frases.push(
-      `Zona que más concede: ${zona.nombre}, ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión.`,
+      `Zona que más concede: ${hablado(zona.nombre)},${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión.`,
     );
   }
 
@@ -2332,8 +2332,8 @@ const conclusiones = useMemo(() => {
 
     frases.push(
       casiIgual || envio.n < 5
-        ? `Envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción en ${envio.n} acciones, igual que el resto (${cifra(mediaGlobal, 2)}; menos es mejor). No cambiar la marca por esto.`
-        : `Más daño con el envío ${envio.nombre.toLowerCase()}: xG ${cifra(envio.valor, 2)} por acción, sobre ${envio.n} acciones (media de todas las ABP defendidas: ${cifra(mediaGlobal, 2)}).`,
+        ? `Envío ${envio.nombre.toLowerCase()}: ${cifra(envio.valor, 2)} goles esperados por acción en ${envio.n} acciones, igual que el resto (${cifra(mediaGlobal, 2)}; menos es mejor). No cambiar la marca por esto.`
+        : `Más daño con el envío ${envio.nombre.toLowerCase()}: ${cifra(envio.valor, 2)} goles esperados por acción, sobre ${envio.n} acciones (media de todas las ABP defendidas: ${cifra(mediaGlobal, 2)}).`,
     );
   }
 
@@ -2365,7 +2365,19 @@ const conclusiones = useMemo(() => {
     );
   }
 
-  return frases.filter(Boolean).slice(0, 5);
+  /* Las conclusiones acaban en tarea: qué jugadas se ven en el vídeo de la
+     semana. Va fuera del recorte a cinco para que no se pierda. */
+  const minutosRemate = filtered
+    .filter((r) => LECTOR.remate(r) || LECTOR.peligro(r))
+    .map((r) => r.contexto.minuto.minuto)
+    .filter((m): m is number => m != null)
+    .sort((a, b) => a - b);
+  const cierre =
+    minutosRemate.length > 0
+      ? `Al vídeo de la semana: ${plural(minutosRemate.length, "jugada", "jugadas")} con remate o peligro (${minutosRemate.map((m) => `${m}′`).join(", ")}) y cómo se defendió cada una.`
+      : null;
+
+  return [...frases.filter(Boolean).slice(0, 4), cierre].filter(Boolean);
 }, [filtered, comparables]);
 
 /*

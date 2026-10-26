@@ -671,21 +671,30 @@ function SelectFilter({
   );
 }
 
+/** «9,6 %» por debajo de 10 y «35 %» desde ahí: la misma cifra que la frase de la lectura. */
+function pctVisto(n: number): string {
+  return `${(n > 0 && n < 10 ? n.toFixed(1) : Math.round(n).toString()).replace(".", ",")} %`;
+}
+
 function MetricCard({
   label,
   value,
   hint,
   accent = false,
+  visible,
 }: {
   label: string;
   value: string | number;
   hint?: string;
   accent?: boolean;
+  /** Una línea que se ve siempre (la escala de una nota), a diferencia de `hint`. */
+  visible?: string;
 }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-5">
       <p className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{label}</p>
       <p className={`mt-2 text-2xl font-semibold ${accent ? "text-[#E7D2A0]" : "text-white"}`}>{value}</p>
+      {visible ? <p className="mt-1 text-[11px] leading-snug text-slate-500">{visible}</p> : null}
       {/* La ayuda de cada KPI cuenta cómo se mide: va con los textos explicativos. */}
       {hint ? <Explicativo><p className="mt-1 text-[11px] leading-snug text-slate-500">{hint}</p></Explicativo> : null}
     </div>
@@ -1693,7 +1702,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   />
                   <MetricCard
                     label={isOffensive ? "% Progresión" : "% Progresión concedida"}
-                    value={`${Math.round(totals.progresionPct)} %`}
+                    value={pctVisto(totals.progresionPct)}
                     hint={
                       isOffensive
                         ? "Envíos hacia delante o al área"
@@ -1702,12 +1711,12 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   />
                   <MetricCard
                     label={isOffensive ? "% Retención" : "% Recuperación"}
-                    value={`${Math.round(totals.favorablePct)} %`}
+                    value={pctVisto(totals.favorablePct)}
                     hint={`${Math.round((totals.favorablePct / 100) * totals.acciones)} de ${totals.acciones} saques · acaba con el balón para el RMCF`}
                   />
                   <MetricCard
                     label={isOffensive ? "Producción" : "Peligro concedido"}
-                    value={`${totals.produccion} · ${Math.round(totals.produccionPct)} %`}
+                    value={`${totals.produccion} · ${pctVisto(totals.produccionPct)}`}
                     hint={
                       isOffensive
                         ? `${totals.produccion} de ${totals.acciones} saques llegan a último tercio, ocasión o gol nuestro`
@@ -1717,7 +1726,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   {!isOffensive ? (
                     <MetricCard
                       label="Transiciones tras robo"
-                      value={`${totals.transicion} · ${Math.round(totals.transicionPct)} %`}
+                      value={`${totals.transicion} · ${pctVisto(totals.transicionPct)}`}
                       hint={`${totals.transicion} de ${totals.acciones} saques: robamos el del rival y llegamos a último tercio, ocasión o gol`}
                     />
                   ) : null}
@@ -1726,10 +1735,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   {totals.calidad === null ? null : (
                     <MetricCard
                       label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}
-                      value={`${totals.calidad.toFixed(1).replace(".", ",")} / 4`}
-                      hint={`1 = envío malo, 4 = perfecto${
-                        calidadGlobal === null ? "" : ` · media de la temporada ${calidadGlobal.toFixed(1).replace(".", ",")} / 4`
-                      } · ${isOffensive ? "más es mejor" : "menos es mejor"}`}
+                      value={`${totals.calidad.toFixed(1).replace(".", ",")} de 4`}
+                      visible={`1 = envío malo, 4 = perfecto${
+                        calidadGlobal === null ? "" : ` · media de la temporada ${calidadGlobal.toFixed(1).replace(".", ",")}`
+                      }`}
+                      hint={isOffensive ? "Más es mejor." : "Menos es mejor."}
                     />
                   )}
                 </div>

@@ -27,7 +27,7 @@ import {
   AnalisisSeccion,
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
-import type { ClaveMetrica } from "@/lib/abp/analisis";
+import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
 import ABPObjectiveFlow, {
   type ABPFlowCol,
 } from "@/components/abp/ABPObjectiveFlow";
@@ -2376,7 +2376,7 @@ const conclusiones = useMemo(() => {
   const xg = filtered.reduce((a, r) => a + r.xg, 0);
 
   const frases: (string | null)[] = [
-    `${plural(filtered.length, "ABP", "ABP")}: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol", "goles")}, ${cifra(xg, 2)} goles esperados (xG).`,
+    `${plural(filtered.length, "ABP", "ABP")}: ${plural(ocasiones, "ocasión", "ocasiones")} y ${plural(goles, "gol", "goles")}, ${cifra(xg, 2)} goles esperados.`,
   ];
 
   const zona = mejorGrupo(
@@ -2387,7 +2387,7 @@ const conclusiones = useMemo(() => {
 
   if (zona && zona.valor > 0) {
     frases.push(
-      `Más peligro cayendo en ${zona.nombre}: ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión.`,
+      `Más peligro cayendo en ${hablado(zona.nombre)}:${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión.`,
     );
   }
 
@@ -2416,7 +2416,7 @@ const conclusiones = useMemo(() => {
 
   if (lanzador && lanzador.valor > 0) {
     frases.push(
-      `Más xG por envío: ${lanzador.nombre} (${cifra(lanzador.valor, 2)} en ${lanzador.n} envíos${lanzador.n < 5 ? ", tendencia" : ""}).`,
+      `Más goles esperados por envío: ${lanzador.nombre} (${cifra(lanzador.valor, 2)} en ${lanzador.n} envíos${lanzador.n < 5 ? ", tendencia" : ""}).`,
     );
   }
 
@@ -2441,7 +2441,23 @@ const conclusiones = useMemo(() => {
     );
   }
 
-  return frases.filter(Boolean).slice(0, 5);
+  /* Las conclusiones acaban en tarea: qué jugadas se ven en el vídeo de la
+     semana. Con peligro, las que lo crearon; sin él, las que llegaron sin
+     remate. Va fuera del recorte a cinco para que no se pierda. */
+  const conPeligro = filtered.filter((r) => LECTOR.peligro(r) || LECTOR.remate(r));
+  const paraVideo = conPeligro.length > 0 ? conPeligro : filtered;
+  const minutosVideo = paraVideo
+    .map((r) => r.contexto.minuto.minuto)
+    .filter((m): m is number => m != null)
+    .sort((a, b) => a - b);
+  const cierre =
+    minutosVideo.length > 0
+      ? conPeligro.length > 0
+        ? `Al vídeo de la semana: ${plural(conPeligro.length, "jugada", "jugadas")} con remate o peligro (${minutosVideo.map((m) => `${m}′`).join(", ")}), para repetir lo que funcionó.`
+        : `Al vídeo de la semana: cómo se lanzaron las ${filtered.length} acciones sin remate (${minutosVideo.map((m) => `${m}′`).join(", ")}) y qué ajuste las acerca al área.`
+      : null;
+
+  return [...frases.filter(Boolean).slice(0, 4), cierre].filter(Boolean);
 }, [filtered]);
 
 /*

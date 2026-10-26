@@ -20,14 +20,16 @@ import { GitCompareArrows } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
 import { Explicativo } from "@/components/ui/textos-analisis";
-import { chipInk } from "@/lib/theme";
 
 const ORO = "#C8A96B";
 /** El oro como texto: en modo día baja de luz para leerse sobre blanco. */
 const ORO_TINTA = "var(--rmcf-gold-ink)";
 /** Los dos de las gráficas de datos: separan bien también para daltonismo. */
-const MEJOR = "#1B9E77";
-const PEOR = "#D95F02";
+/* Como texto de la diferencia llevan su variable (globals.css): el mando de
+   los chips los dejaba en marrón oscuro sobre blanco y no se leían como
+   verde y naranja (26/10/2026). */
+const DIF_MEJOR = "var(--rmcf-dif-mejor)";
+const DIF_PEOR = "var(--rmcf-dif-peor)";
 
 export type MetricaComparada = {
   clave: string;
@@ -170,15 +172,15 @@ export function ComparativaPartido({
 
           {/* Con pocos partidos detrás, la media es una tendencia y no una regla. */}
           {anteriores.n > 0 && anteriores.n <= 6 && (
-            <p className="border-b border-white/10 px-4 py-2 text-[11px] italic text-white/50 sm:px-5">
+            <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[11px] italic text-white/50 sm:pl-5 sm:pr-5">
               Tendencia: la media sale de {anteriores.n === 1 ? "un solo partido" : `${anteriores.n} partidos`}.
             </p>
           )}
 
           {/* Muestra corta: se dice a la vista, no sólo en el método. */}
           {hayIndicios && (
-            <p className="border-b border-white/10 px-4 py-2 text-[11px] text-white/55 sm:px-5">
-              Muestra corta en {filasCortas.length === 1 ? filasCortas[0].nombre.toLowerCase() : "algunas filas"}: sólo {basePequena} {unidadCorta} en el partido. Las filas en gris son un indicio, no un dato firme; verde es mejor que de costumbre y naranja, peor.
+            <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[11px] text-white/55 sm:pl-5 sm:pr-5">
+              Muestra corta en {filasCortas.length === 1 ? filasCortas[0].nombre.toLowerCase() : "algunas filas"}: cada fila sale de un solo partido ({basePequena} {unidadCorta}). Las filas en gris son un indicio, no un dato firme; verde es mejor que de costumbre y naranja, peor.
             </p>
           )}
 
@@ -215,7 +217,7 @@ export function ComparativaPartido({
               /* Como texto y en `style`, que la tabla del modo día no alcanza
                  (19/10/2026): el gris de «igual» era blanco y no se veía, y
                  el verde y el naranja puros no llegaban a leerse sobre blanco. */
-              const colorDiferencia = mejor === null ? "rgb(var(--rmcf-ink-rgb) / .55)" : chipInk(mejor ? MEJOR : PEOR);
+              const colorDiferencia = mejor === null ? "rgb(var(--rmcf-ink-rgb) / .55)" : mejor ? DIF_MEJOR : DIF_PEOR;
               /* Las dos barras comparten escala: la más larga es el mayor de los dos. */
               const tope = Math.max(m.actual ?? 0, m.media ?? 0, 0.0001);
 
@@ -350,12 +352,12 @@ export function ComparativaPartido({
           {/* Cómo se calcula la media: método, sólo con los textos explicativos encendidos (14/10/2026). */}
           {hayMedia ? (
             <Explicativo>
-              <p className="border-t border-white/10 px-4 py-2 text-[11px] text-white/35 sm:px-5">
+              <p className="border-t border-white/10 py-2 pl-4 pr-14 text-[11px] text-white/35 sm:pl-5 sm:pr-5">
                 {nota ?? "La media es por partido, con los mismos filtros que lo que se está viendo. Verde: mejor que la media; naranja: peor; gris: no se juzga."}
               </p>
             </Explicativo>
           ) : (
-            <p className="border-t border-white/10 px-4 py-2 text-[11px] text-white/35 sm:px-5">Es el primer partido: en cuanto haya otro saldrá aquí la media de los anteriores.</p>
+            <p className="border-t border-white/10 py-2 pl-4 pr-14 text-[11px] text-white/35 sm:pl-5 sm:pr-5">Es el primer partido: en cuanto haya otro saldrá aquí la media de los anteriores.</p>
           )}
         </>
       )}

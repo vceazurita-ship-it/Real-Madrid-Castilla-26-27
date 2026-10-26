@@ -13,6 +13,7 @@
  * análisis en el sitio correcto.
  */
 
+import { diaDeMadrid } from "@/lib/abp/ventana";
 import { compareMatches } from "@/lib/ratings/matches";
 import type { MatchMeta } from "@/lib/ratings/types";
 
@@ -46,6 +47,11 @@ export function claveFecha(raw: unknown) {
 
   if (!valor) return "";
 
+  /* Un instante con huso se lee en Madrid, como en el microciclo. */
+  const deMadrid = diaDeMadrid(valor);
+
+  if (deMadrid) return deMadrid;
+
   const iso = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
@@ -62,9 +68,8 @@ export function claveFecha(raw: unknown) {
 
   if (Number.isNaN(fecha.getTime())) return "";
 
-  const local = new Date(fecha.getTime() - fecha.getTimezoneOffset() * 60000);
-
-  return local.toISOString().slice(0, 10);
+  /* El día de Madrid y no el del aparato: el mismo partido sale el mismo día en toda la app. */
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(fecha);
 }
 
 export function aJornada(fila: FilaRival): JornadaRival {

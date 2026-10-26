@@ -139,8 +139,8 @@ export const METRICAS: Record<ClaveMetrica, Metrica> = {
   },
 
   xg: {
-    label: "xG por acción",
-    glosa: "xG acumulado dividido entre las acciones",
+    label: "Goles esperados (xG) por acción",
+    glosa: "goles esperados acumulados dividido entre las acciones",
     medir: (e) => (e.length ? e.reduce((suma, uno) => suma + uno.xg, 0) / e.length : null),
     formatear: formatoXg,
     porcentual: false,
@@ -672,14 +672,14 @@ function analizaReparto(
     /* Con tan poco, el peso sobre el global no se juzga: se enseña la base. */
     frases.push(
       frasePlana(lider.nombre, `${lider.acciones} de ${utiles.length} saques (${formatoPct(lider.cuota)})`) ??
-        `Manda ${glosa(lider.nombre)}: ${lider.acciones} de ${utiles.length} acciones (${formatoPct(lider.cuota)}).`,
+        `Lo más frecuente es ${glosa(lider.nombre)}: ${lider.acciones} de ${utiles.length} acciones (${formatoPct(lider.cuota)}).`,
     );
   } else {
     frases.push(
       (Math.abs(lider.deltaPp) < 5
         ? frasePlana(lider.nombre, `El ${formatoPct(lider.cuota)} de los saques`)
         : null) ??
-      `Manda ${glosa(lider.nombre)} con el ${formatoPct(lider.cuota)} de las acciones${
+      `Lo más frecuente es ${glosa(lider.nombre)}, con el ${formatoPct(lider.cuota)} de las acciones${
         Math.abs(lider.deltaPp) >= 5 ? ` (${signo(lider.deltaPp)} puntos sobre su peso global)` : ""
       }.`,
     );
@@ -895,4 +895,13 @@ function redactaTitular({
   }
 
   return frases.join(" ");
+}
+
+/**
+ * Una etiqueta de la hoja dicha en llano: «Falta lateral interior Z4» pasa a
+ * «Falta lateral interior zona 4». Las conclusiones se leen en la sala y no
+ * todos conocen la clave de las zonas (26/10/2026).
+ */
+export function hablado(texto: string): string {
+  return texto.replace(/\bz(\d+)\b/gi, "zona $1");
 }

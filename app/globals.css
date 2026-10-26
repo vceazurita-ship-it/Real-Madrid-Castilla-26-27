@@ -51,6 +51,10 @@
   --rmcf-chip-keep: 100%;
   --rmcf-chip-mix: #000;
 
+  /* Verde y naranja de la columna «Diferencia» de las comparativas de ABP. */
+  --rmcf-dif-mejor: #1B9E77;
+  --rmcf-dif-peor: #D95F02;
+
   /* Escala de color de las notas (0-10). Se consume desde JS
      (`lib/ratings/compute.ts`) para que cambie con el tema. */
   --rmcf-rate-none: #64748B;
@@ -93,6 +97,10 @@
      Al 62 % los verdes y turquesas se quedaban en 3,8-4:1 (14/10/2026). */
   --rmcf-chip-keep: 54%;
   --rmcf-chip-mix: #000;
+
+  /* Más oscuros para leerse sobre blanco, pero aún verde y naranja (no marrón). */
+  --rmcf-dif-mejor: #0B7A55;
+  --rmcf-dif-peor: #C2410C;
 
   /* Los tonos 400 de la escala de notas se apagan sobre blanco (contraste
      ~1,6:1), así que en modo día se bajan a la familia 600-700. */

@@ -238,9 +238,7 @@ export function ExportaPizarra({
       >
         {formato === "pptx"
           ? `Montando… ${hechas}/${total}`
-          : variante === "barra"
-            ? "Imprimir en PPT"
-            : "Exportar a PowerPoint"}
+          : "Exportar a PowerPoint"}
       </Button>
 
       <Button
@@ -251,12 +249,10 @@ export function ExportaPizarra({
       >
         {formato === "pdf"
           ? `Montando… ${hechas}/${total}`
-          : variante === "barra"
-            ? "Imprimir en PDF"
-            : "PDF para imprimir"}
+          : "Exportar a PDF"}
       </Button>
 
-      {conFases && variante === "panel" && (
+      {conFases && (
         <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-white/65">
           <input
             type="checkbox"
@@ -325,18 +321,12 @@ export function ExportaPizarra({
       subtitle={`Las ${total} ${total === 1 ? "diapositiva" : "diapositivas"} del tablero, tal y como están: el PowerPoint para proyectar y el PDF para imprimir`}
       icon={FileDown}
     >
-      {botones}
-
-      <p className="mt-3 text-xs leading-relaxed text-white/40">
-        Salen las diapositivas enteras —campo, chapas, panel de puestos y
-        consignas—, no sólo la que estás viendo, y en el orden en que
-        están en la tira. El PowerPoint lleva cada acción como una imagen a tamaño de
-        proyección: se abre en cualquier portátil sin la app. El PDF va a una
-        hoja por acción, con el rival y el número de diapositiva al pie, para
-        colgarlo en el vestuario.
+      {/* Los botones son los de arriba, en la cabecera de la pizarra: un solo juego. */}
+      <p className="text-xs leading-relaxed text-white/40">
+        Con «Exportar a PowerPoint» y «Exportar a PDF», arriba, salen las diapositivas enteras
+        y en el orden de la tira: el PowerPoint para proyectar en cualquier portátil sin la app y
+        el PDF, una hoja por acción, para colgarlo en el vestuario.
       </p>
-
-      {deck}
     </Panel>
   );
 }

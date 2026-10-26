@@ -116,16 +116,7 @@ export function RevisionSemana({
         })}
       </ul>
 
-      {ocultos > 0 && (
-        <ul className="mt-2 grid gap-0.5 text-[11.5px] leading-snug text-white/45">
-          {ordenados.slice(visibles.length).map((punto) => (
-            <li key={punto.id}>
-              <span className="font-medium text-white/60">{punto.titulo}.</span> {punto.detalle}
-            </li>
-          ))}
-        </ul>
-      )}
-
+      {/* Lo que no cabe en las tres primeras tarjetas va dentro de «Ver N más», con la misma tarjeta, no en líneas sueltas. */}
       {(ocultos > 0 || todos) && ordenados.length > 1 && (
         <button
           type="button"

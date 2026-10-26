@@ -1334,12 +1334,20 @@ export default function PizarraAbpPage() {
 
     const cuando = new Date().toISOString();
 
+    /* La jornada del plan de partido es la del partido elegido (J10 · Cartagena),
+       no la que arrastrara el tablero ni la de la pizarra de la que se copia.
+       Sin fila en la hoja para este partido, queda sin atar y no se enseña el
+       plan de otro rival. */
+    const delPartido =
+      jornadas.find((item) => `riv-${item.id}` === partido.id) ??
+      buscaJornada(jornadas, { rival: partido.opponent, fecha: partido.date });
+
     mutaTablero((actual) => {
       const conPrevia = tieneFichas(actual.slides)
         ? registraVersion(actual, { cuando, motivo: "previa" })
         : actual;
 
-      return registraVersion(copiaTablero(origen, conPrevia, cuando), {
+      return registraVersion({ ...copiaTablero(origen, conPrevia, cuando), rivalId: delPartido?.id ?? "", jornada: delPartido?.jornada ?? "" }, {
         cuando,
         motivo: "copia",
         etiqueta: `Traída de ${matchLabel(anterior)}`,
@@ -1357,7 +1365,7 @@ export default function PizarraAbpPage() {
         ? `${conAviso} ${conAviso === 1 ? "diapositiva trae" : "diapositivas traen"} consignas largas o de más: revísalas en «Textos».`
         : undefined,
     });
-  }, [partido, anterior, store.tableros, mutaTablero]);
+  }, [partido, anterior, store.tableros, mutaTablero, jornadas]);
 
   /* --------------------------- VERSIONES --------------------------- */
 
@@ -2011,13 +2019,6 @@ export default function PizarraAbpPage() {
     );
   }, [tablero]);
 
-  /* Cuántos jugadores no salen en todas las diapositivas: lo mismo que cuenta
-     el control de convocatoria, para que la cabecera no diga lo contrario. */
-  const faltantesEnDiapositivas = useMemo(
-    () => (tablero ? revisaTablero(tablero).gazapos.length : 0),
-    [tablero],
-  );
-
   const aprendidos = Object.keys(memoriaAlDia).length;
 
   return (
@@ -2422,9 +2423,8 @@ export default function PizarraAbpPage() {
                         : !guardado
                         ? "Plantilla en blanco"
                         : totales.cubiertos >= totales.total
-                        ? faltantesEnDiapositivas > 0
-                          ? `Puestos completos; ${faltantesEnDiapositivas} ${faltantesEnDiapositivas === 1 ? "jugador no aparece" : "jugadores no aparecen"} en todas las diapositivas`
-                          : "Todos los puestos tienen jugador"
+                        ? /* Quién no aparece en alguna diapositiva se dice una sola vez, en «Control de la convocatoria». */
+                          "Todos los puestos tienen jugador"
                         : `${totales.total - totales.cubiertos} ${
                             totales.total - totales.cubiertos === 1 ? "puesto sin jugador" : "puestos sin jugador"
                           }`

@@ -448,7 +448,9 @@ export function revisaSemana({
         /* Una o dos acciones no hacen urgente nada: se dice el hecho y no se apremia. */
         fila.stats.acciones < 3
           ? `Sólo ${fila.stats.acciones === 1 ? "hay 1 en competición" : `hay ${fila.stats.acciones} en competición`}${fila.peligroAjustado >= 50 ? ", y acabó en peligro" : ""}: es poca muestra.`
-          : `Es de lo más urgente: ${fila.stats.acciones} acciones en competición y ${Math.round(fila.peligroAjustado)} % de peligro.`
+          : fila.peligroAjustado < 15
+            ? `Se repite mucho en competición (${fila.stats.acciones} acciones) pero casi nunca acaba en peligro (${Math.round(fila.peligroAjustado)} %): un repaso corto basta.`
+            : `Es de lo más urgente: ${fila.stats.acciones} acciones en competición y ${Math.round(fila.peligroAjustado)} % de peligro.`
       }${(() => {
         /* Si el mismo aspecto sí se trabaja del otro lado, se dice: si no, parece un olvido sin motivo. */
         const otro = fila.lado === "ofensivo" ? "defensivo" : "ofensivo";
@@ -457,8 +459,24 @@ export function revisaSemana({
           ? ` Esta semana se trabaja ${otro === "ofensivo" ? "atacando" : "defendiendo"}, pero ${fila.lado === "ofensivo" ? "atacando" : "defendiendo"} no entra.`
           : "";
       })()}`,
-      falta: { aspecto: fila.aspecto.key, lado: fila.lado },
+      /* Con tan poca muestra no se ofrece añadirla a la semana: sería la acción principal de un dato que ni se fía. */
+      ...(fila.stats.acciones < 3 ? {} : { falta: { aspecto: fila.aspecto.key, lado: fila.lado } }),
     });
+  }
+
+  /* «Faltan 60′» y «2 tareas sin tiempo» dicen lo mismo: una sola tarjeta que abre la tarea. */
+  const iFaltan = puntos.findIndex((punto) => punto.id === "minutos" && punto.titulo.startsWith("Faltan"));
+  const iSinTiempo = puntos.findIndex((punto) => punto.id === "sin-tiempo");
+
+  if (iFaltan >= 0 && iSinTiempo >= 0) {
+    const sin = puntos[iSinTiempo];
+
+    puntos[iFaltan] = {
+      ...sin,
+      id: "minutos",
+      titulo: `${puntos[iFaltan].titulo} · ${sin.titulo}`,
+    };
+    puntos.splice(iSinTiempo, 1);
   }
 
   const orden2: Record<TonoRevision, number> = { alerta: 0, aviso: 1, bien: 2 };

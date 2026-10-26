@@ -77,7 +77,7 @@ function Chapa({
   color?: string;
 }) {
   return (
-    <span className="inline-flex min-w-0 items-baseline gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5">
+    <span className="inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1.5 gap-y-0.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5">
       <span className="text-[10px] uppercase tracking-[0.14em] text-white/40">{label}</span>
 
       <span
@@ -88,7 +88,7 @@ function Chapa({
       </span>
 
       {detalle && (
-        <span className="truncate text-[11px] tabular-nums text-white/40">{detalle}</span>
+        <span className="min-w-0 break-words text-[11px] tabular-nums text-white/40">{detalle}</span>
       )}
     </span>
   );
