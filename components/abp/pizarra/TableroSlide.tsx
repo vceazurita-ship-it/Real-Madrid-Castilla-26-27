@@ -312,9 +312,12 @@ function Ficha({
   seleccionada,
   soloVer,
   compacta = false,
+  foco,
   onPointerDown,
   onQuitar,
 }: {
+  /** Pizarra de un jugador: «si» es él (rosa y delante), «no» el resto (apagado). */
+  foco?: "si" | "no";
   ficha: FichaPizarra;
   player: Player | undefined;
   code: string;
@@ -339,11 +342,18 @@ function Ficha({
         top: ficha.y - FOTO_H,
         width: FOTO_W,
         /* Encoge desde los pies, que es donde está el punto del jugador. */
-        transform: compacta ? `scale(${ESCALA_APRETADA})` : undefined,
+        transform:
+          foco === "si"
+            ? "scale(1.22)"
+            : compacta
+              ? `scale(${ESCALA_APRETADA})`
+              : undefined,
         transformOrigin: `50% ${FOTO_H}px`,
         touchAction: soloVer ? undefined : "none",
         cursor: soloVer ? "default" : "grab",
-        zIndex: profundidad(ficha.x, ficha.y),
+        /* El resaltado va por delante de todo; los demás, en su sitio y apagados. */
+        zIndex: foco === "si" ? 1_000_000 : profundidad(ficha.x, ficha.y),
+        opacity: foco === "no" ? 0.42 : undefined,
       }}
       onPointerDown={soloVer ? undefined : onPointerDown}
     >
@@ -371,9 +381,14 @@ function Ficha({
         draggable={false}
         className="relative block h-[120px] w-[96px] object-contain object-bottom"
         style={{
-          filter: seleccionada
-            ? `drop-shadow(0 0 6px ${COLORES.oro}) drop-shadow(0 8px 12px rgba(0,0,0,.6))`
-            : "drop-shadow(0 8px 12px rgba(0,0,0,.5))",
+          filter:
+            foco === "si"
+              ? `drop-shadow(0 0 10px ${COLORES.rosa}) drop-shadow(0 0 4px ${COLORES.rosa}) drop-shadow(0 8px 12px rgba(0,0,0,.6))`
+              : foco === "no"
+                ? "grayscale(1) drop-shadow(0 8px 12px rgba(0,0,0,.5))"
+                : seleccionada
+                  ? `drop-shadow(0 0 6px ${COLORES.oro}) drop-shadow(0 8px 12px rgba(0,0,0,.6))`
+                  : "drop-shadow(0 8px 12px rgba(0,0,0,.5))",
         }}
       />
 
@@ -382,20 +397,24 @@ function Ficha({
         className="relative mx-auto -mt-2 flex flex-col items-center rounded-md px-1.5 py-0.5 text-center"
         style={{
           backgroundImage: `linear-gradient(180deg, ${COLORES.nocheAlto} 0%, ${COLORES.noche} 100%)`,
-          boxShadow: seleccionada
-            ? `0 0 0 2px ${COLORES.oro}, 0 6px 14px rgba(0,0,0,.55)`
-            : "0 0 0 1px rgba(200,169,107,.42), 0 6px 12px rgba(0,0,0,.5)",
+          ...(foco === "si" ? { backgroundImage: `linear-gradient(180deg, ${COLORES.rosa} 0%, ${COLORES.rosaHondo} 100%)` } : null),
+          boxShadow:
+            foco === "si"
+              ? `0 0 0 3px ${COLORES.crema}, 0 0 18px ${COLORES.rosa}, 0 6px 14px rgba(0,0,0,.55)`
+              : seleccionada
+                ? `0 0 0 2px ${COLORES.oro}, 0 6px 14px rgba(0,0,0,.55)`
+                : "0 0 0 1px rgba(200,169,107,.42), 0 6px 12px rgba(0,0,0,.5)",
           minWidth: 54,
           height: CHAPA_H,
         }}
       >
-        <span className="text-[15px] font-bold leading-[15px] tracking-[0.04em] text-white">
+        <span className="text-[15px] font-bold leading-[15px] tracking-[0.04em] text-white" style={foco === "si" ? { color: COLORES.navy } : undefined}>
           {code}
         </span>
 
         <span
           className="max-w-[124px] truncate text-[14px] font-semibold uppercase leading-[16px] tracking-wide"
-          style={{ color: "rgba(228,206,155,.95)" }}
+          style={{ color: foco === "si" ? COLORES.navy : "rgba(228,206,155,.95)" }}
         >
           {player?.apodo ?? player?.nombre ?? ""}
         </span>
@@ -963,6 +982,7 @@ export function TableroSlide({
   onMoverRival,
   panel = true,
   titulo,
+  destacado = null,
 }: {
   slide: SlidePizarra;
   players: Map<string, Player>;
@@ -1004,6 +1024,11 @@ export function TableroSlide({
   panel?: boolean;
   /** El título de la cabecera, si no es el de la diapositiva (ver `tituloVisible`). */
   titulo?: string;
+  /**
+   * La pizarra de UN jugador (PDF por jugador): su cara resaltada en rosa y
+   * las demás apagadas, para que en el móvil se encuentre de un vistazo.
+   */
+  destacado?: string | null;
 }) {
   const marcoRef = useRef<HTMLDivElement>(null);
 
@@ -1618,6 +1643,7 @@ export function TableroSlide({
             dorsal={dorsalDe(ficha)}
             compacta={separada?.compacta ?? false}
             seleccionada={!soloVer && seleccion === ficha.id}
+            foco={destacado ? (ficha.playerId === destacado ? "si" : "no") : undefined}
             soloVer={soloVer || tiempo != null}
             onPointerDown={(event) => empieza(event, ficha)}
             onQuitar={() => onQuitar(ficha.id)}

@@ -77,6 +77,7 @@ import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { SelectorJugador } from "@/components/abp/pizarra/SelectorJugador";
 import { CambiaJugador } from "@/components/abp/pizarra/CambiaJugador";
 import { ExportaPizarra } from "@/components/abp/pizarra/ExportaPizarra";
+import { PizarrasJugadores } from "@/components/abp/pizarra/PizarrasJugadores";
 import {
   BarraDibujo,
   TECLA_HERRAMIENTA,
@@ -2202,6 +2203,22 @@ export default function PizarraAbpPage() {
                     players={porId}
                     temporada={temporadaCorta(RATINGS_SEASON)}
                     rival={tablero.rival || partido?.opponent || ""}
+                    jornada={
+                      tablero.jornada
+                        ? `J${String(tablero.jornada).padStart(2, "0")}`
+                        : undefined
+                    }
+                  />
+                )}
+
+                {/* Un PDF vertical por jugador, para el WhatsApp de antes del partido. */}
+                {tablero && tablero.slides.length > 0 && (
+                  <PizarrasJugadores
+                    tablero={tablero}
+                    players={porId}
+                    temporada={temporadaCorta(RATINGS_SEASON)}
+                    rival={tablero.rival || partido?.opponent || ""}
+                    escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
                     jornada={
                       tablero.jornada
                         ? `J${String(tablero.jornada).padStart(2, "0")}`
