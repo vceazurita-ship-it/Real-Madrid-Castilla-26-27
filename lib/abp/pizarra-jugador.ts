@@ -228,10 +228,22 @@ export function cometidosDe(
       : "";
 
     const transicion = adornosDe(slide).find((adorno) => adorno.tipo === "transicion");
+    /*
+    | Sin flecha de transición dibujada, lo que le toca por su papel (agente
+    | experto-futbol): en un córner a favor el riesgo es la contra, y en uno en
+    | contra, quedarse dentro del área tras despejar.
+    */
+    const papeles = plano(puestos.map((p) => `${p.grupo} ${p.label}`).join(" "));
+    const porPapel =
+      lado === "defensivo"
+        ? "Si despejamos: salimos juntos del área, nadie se queda dentro"
+        : /equilibr|rechace|cierra|zaguero|defensa/.test(papeles)
+          ? "Si despejan: cierras la contra, que nadie corra a tu espalda"
+          : "Si despejan: segunda jugada y repliegas rápido";
     const despues =
       transicion && transicion.tipo === "transicion"
         ? [transicion.label, transicion.remate].map((t) => t?.trim()).filter(Boolean).join(": ")
-        : "";
+        : porPapel;
 
     const claves = [
       ...new Set(
@@ -605,9 +617,10 @@ function dibujaAccion(
   const tx = MARGEN + 40 + discoR * 2 + 40;
   const maxW = HOJA_W - MARGEN - 30 - tx;
 
-  fuente(ctx, 40, 600);
+  /* Letra grande: es lo que se lee en el móvil y abajo sobraba sitio (editor-video). */
+  fuente(ctx, 48, 600);
   const lineasMision = accion.mision ? renglones(ctx, accion.mision, maxW) : [];
-  const altoCaja = Math.max(230, 150 + lineasMision.length * 48 + (accion.rival ? 66 : 0));
+  const altoCaja = Math.max(240, 156 + lineasMision.length * 58 + (accion.rival ? 78 : 0));
 
   ctx.fillStyle = C.crema;
   rectRedondo(ctx, MARGEN, y, HOJA_W - MARGEN * 2, altoCaja, 22);
@@ -633,23 +646,23 @@ function dibujaAccion(
   ajusta(ctx, papel, maxW, 72, 700, 1);
   textoEspaciado(ctx, papel, tx, ty, 1);
 
-  ty += 60;
+  ty += 66;
   ctx.fillStyle = colorLado(accion.lado);
-  fuente(ctx, 40, 600);
+  fuente(ctx, 48, 600);
 
   for (const linea of lineasMision) {
     ctx.fillText(linea, tx, ty);
-    ty += 48;
+    ty += 58;
   }
 
   if (accion.rival) {
     chapa(ctx, accion.rival.toUpperCase(), {
       x: tx,
       y: ty - 30,
-      alto: 50,
+      alto: 58,
       fondo: "#7A1F2B",
       tinta: C.crema,
-      tamano: 30,
+      tamano: 34,
       espaciado: 2,
       padding: 20,
       anchoMax: maxW,
@@ -663,7 +676,7 @@ function dibujaAccion(
     rotuloSeccion(ctx, "PROPÓSITO COLECTIVO", y);
     y += 40;
 
-    const cuerpo = 44;
+    const cuerpo = 52;
     const salto = cuerpo * 1.18;
 
     if (accion.senal) {
@@ -723,13 +736,13 @@ function dibujaAccion(
     y += 40;
 
     ctx.fillStyle = C.verde;
-    fuente(ctx, 42, 600);
+    fuente(ctx, 50, 600);
 
-    let ly = y + 34;
+    let ly = y + 40;
 
     for (const linea of renglones(ctx, accion.despues, HOJA_W - MARGEN * 2)) {
       ctx.fillText(linea, MARGEN, ly);
-      ly += 50;
+      ly += 60;
     }
   }
 
