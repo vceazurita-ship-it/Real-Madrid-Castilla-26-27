@@ -96,6 +96,57 @@ const FICHAS: Ficha[] = [
     dorsal: 8,
     alias: ["Hugo", "De Llanos", "Hugo Llanos"],
   },
+  /*
+  | Los cinco de la ficha del Castilla en BeSoccer que no estaban en la hoja
+  | (26/10/2026). Dorsal, puesto y nombre de BeSoccer, que de Arroyo,
+  | Santamaría y Pérez sólo publica la inicial: corregidlo aquí
+  | o en la hoja, que gana.
+  */
+  {
+    id: "JUG-56",
+    nombre: "D. Arroyo",
+    apodo: "Arroyo",
+    posicion: "PORTERO",
+    licencia: "RMCF Castilla",
+    dorsal: 12,
+    alias: ["Arroyo"],
+  },
+  {
+    id: "JUG-57",
+    nombre: "Jorge Rajado",
+    apodo: "Rajado",
+    posicion: "11",
+    licencia: "RMCF Castilla",
+    dorsal: 34,
+    alias: ["J. Rajado"],
+  },
+  {
+    id: "JUG-58",
+    nombre: "José Luis Sáez Espinosa",
+    apodo: "Espinosa",
+    posicion: "LATERAL I",
+    licencia: "RMCF Castilla",
+    dorsal: 35,
+    alias: ["J. Espinosa", "Jose Luis Espinosa"],
+  },
+  {
+    id: "JUG-59",
+    nombre: "F. Santamaría",
+    apodo: "Santamaría",
+    posicion: "9",
+    licencia: "RMCF Castilla",
+    dorsal: 38,
+    alias: ["F. Santamaria", "Santamaria"],
+  },
+  {
+    id: "JUG-60",
+    nombre: "A. Pérez",
+    apodo: "Pérez",
+    posicion: "11",
+    licencia: "RMCF Castilla",
+    dorsal: 39,
+    alias: [],
+  },
 ];
 
 /*

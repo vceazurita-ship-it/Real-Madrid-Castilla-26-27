@@ -522,6 +522,12 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
   position: "Centrocampista",
   photo: PLAYER_PHOTO_FALLBACK,
 },
+/* Los cinco de BeSoccer que no estaban en la hoja (26/10/2026, puente en `lib/fichajes.ts`). */
+{ idJugador: "JUG-56", name: "D. Arroyo", position: "Portero", photo: PLAYER_PHOTO_FALLBACK },
+{ idJugador: "JUG-57", name: "Jorge Rajado", position: "Delantero", photo: PLAYER_PHOTO_FALLBACK },
+{ idJugador: "JUG-58", name: "José Luis Sáez Espinosa", position: "Defensa", photo: PLAYER_PHOTO_FALLBACK },
+{ idJugador: "JUG-59", name: "F. Santamaría", position: "Delantero", photo: PLAYER_PHOTO_FALLBACK },
+{ idJugador: "JUG-60", name: "A. Pérez", position: "Delantero", photo: PLAYER_PHOTO_FALLBACK },
 {
   idJugador: "JUG-47",
   name: "Cherif",
