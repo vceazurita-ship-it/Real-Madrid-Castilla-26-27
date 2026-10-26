@@ -607,10 +607,14 @@ function Portada({ viaje }: { viaje: Desplazamiento }) {
               dato={valor(diaLargo(viaje.fecha) || viaje.fecha)}
             />
             <Renglon rotulo="Hora" dato={valor(viaje.hora)} />
-            <Renglon
-              rotulo="Sale de"
-              dato={fuera ? valor(viaje.origen) : "No hay viaje"}
-            />
+            {fuera ? (
+              <Renglon rotulo="Sale de" dato={valor(viaje.origen)} />
+            ) : (
+              <Renglon
+                rotulo="Ciudad"
+                dato={valor(viaje.estadio.ciudad.trim() || "Madrid")}
+              />
+            )}
           </div>
 
           <div style={{ marginTop: "auto", display: "flex", gap: 20 }}>

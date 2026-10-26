@@ -509,9 +509,17 @@ export default function MicroCalendar() {
                 </span>
               )}
 
-              {totalMinutes > 0 && (
+              {/* Mismo formato con o sin minutos; el total del mes sólo suma los que los tienen. */}
+              {totalMinutes > 0 ? (
                 <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
                   {formatMinutes(totalMinutes)}
+                </span>
+              ) : (
+                <span
+                  className="rounded-full border border-white/15 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold text-white/45"
+                  title="Esta sesión no tiene los minutos apuntados en la hoja"
+                >
+                  sin tiempo
                 </span>
               )}
             </div>
@@ -539,23 +547,19 @@ export default function MicroCalendar() {
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="truncate text-[10px] md:text-xs">{name}</span>
 
-                      {minutes > 0 && (
-                        <span className="shrink-0 text-[9px] text-white/45">
-                          {minutes}&apos;
-                        </span>
-                      )}
+                      <span className="shrink-0 text-[9px] text-white/45">
+                        {minutes > 0 ? <>{minutes}&apos;</> : "—"}
+                      </span>
                     </div>
                   )}
 
-                  {minutes > 0 && (
-                    <div className="mt-1">
-                      <MetricBar
-                        value={minutes}
-                        max={totalMinutes}
-                        className={theme.bar}
-                      />
-                    </div>
-                  )}
+                  <div className="mt-1">
+                    <MetricBar
+                      value={minutes}
+                      max={totalMinutes}
+                      className={theme.bar}
+                    />
+                  </div>
                 </div>
               ))}
             </>

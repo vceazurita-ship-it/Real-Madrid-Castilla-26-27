@@ -319,6 +319,30 @@ export default function AnalisisEntrenamientoPage() {
     return [...vistas.values()];
   }, [registro, fecha]);
 
+  /*
+  | ABRE EN EL ÚLTIMO DÍA CON SESIÓN (26/10/2026). Si no se pidió un día en la
+  | dirección y hoy no hay sesión en el registro, se abría un día vacío: ahora
+  | salta al último día con tareas, sin pasar de hoy. Una sola vez, para no
+  | pelearse con quien elija otro día a mano.
+  */
+  const [saltoHecho, setSaltoHecho] = useState(() => deLaDireccion("fecha") !== null);
+
+  useEffect(() => {
+    if (saltoHecho || !Array.isArray(registro)) return;
+
+    const id = setTimeout(() => {
+      setSaltoHecho(true);
+
+      const dias = registro.map((t) => fechaIsoDeHoja(t.fecha)).filter((f): f is string => Boolean(f) && f <= hoyDia);
+
+      if (dias.includes(hoyDia) || dias.length === 0) return;
+
+      setFechaEstado(dias.reduce((a, b) => (b > a ? b : a)));
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, [registro, saltoHecho, hoyDia]);
+
   /* El plan del día y los equipos de Jugadores sesión (24/10/2026): ver ./SesionDelDia.tsx y lib/sesion-dia/conexion.ts. */
   const planDelDia = useMemo(() => (Array.isArray(registro) ? planDeRegistro(registro, fecha) : []), [registro, fecha]);
   const fechasDelDia = useMemo(() => [fecha], [fecha]);
