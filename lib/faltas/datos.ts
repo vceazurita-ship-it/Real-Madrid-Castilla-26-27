@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-10-19
+ * Generado: 2026-10-26
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -621,7 +621,7 @@ export const PARTIDOS: PartidoFaltas[] = [
     ]
   },
   {
-    "jornada": "J6",
+    "jornada": "LIGA 06",
     "rival": "Atlético Madrileño",
     "local": true,
     "fecha": "2026-10-02",
@@ -998,7 +998,7 @@ export const PARTIDOS: PartidoFaltas[] = [
     ]
   },
   {
-    "jornada": "J7",
+    "jornada": "LIGA 07",
     "rival": "UD Ibiza",
     "local": false,
     "fecha": "2026-10-09",
@@ -1384,7 +1384,7 @@ export const PARTIDOS: PartidoFaltas[] = [
     ]
   },
   {
-    "jornada": "J8",
+    "jornada": "LIGA 08",
     "rival": "Antequera CF",
     "local": true,
     "fecha": "2026-10-18",
@@ -1703,6 +1703,284 @@ export const PARTIDOS: PartidoFaltas[] = [
         "nota": "T2 min 95. Min 95 (94:37, añadido): Agüero (14) derriba a Fortea (2) en un balón dividido tras un saque de puerta de Alcover, en el carril derecho, unos metros por detrás de la divisoria en campo propio, y ve la amarilla. Fortea se queda en el suelo junto al banquillo y el saque no se llega a ver.",
         "minuto": "90+4'37\" (táctica 97:35)",
         "jugador": "Jesús Fortea"
+      }
+    ]
+  },
+  {
+    "jornada": "J9",
+    "rival": "Algeciras CF",
+    "local": false,
+    "fecha": "2026-10-25",
+    "resultado": "2-0",
+    "clips": "Hudl · Castilla · «2026-10-25 Algeciras - Real Madrid Castilla 2 - 0» (timeline de Sportscode) y la cámara táctica J 09 - ALGECIRAS - CASTILLA.mov",
+    "notas": [
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se mira después en la retransmisión y en la cámara táctica del club: zona, carril, distancia, defensores y la nota salen de la imagen.",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
+    ],
+    "id": "j09-algeciras",
+    "faltas": [
+      {
+        "clip": "of-c01",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 11,
+        "nota": "T1 min 2. Diego Iglesias (19) derriba a Aguado en la banda izquierda a la altura del borde del área propia del Castilla (min 2, 1:09). Al final del corte aún no se ha sacado, con todo el Algeciras por delante del balón.",
+        "minuto": "1'07\" (táctica 1:10)",
+        "jugador": "Diego Aguado"
+      },
+      {
+        "clip": "def-c01",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "T1 min 4. Leiva entra a Paris Adot (22) por la derecha del ataque del Algeciras, recién pasado el medio campo (min 4, 3:57), y ve amarilla. El árbitro deja seguir un instante y luego para el juego, el corte acaba sin que se saque.",
+        "minuto": "3'56\" (táctica 3:59)",
+        "jugador": "Álvaro Leiva"
+      },
+      {
+        "clip": "def-c02",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "T1 min 5. Martínez (16) derriba a Martínez (18) del Algeciras por la derecha del ataque rival, unos 10 m dentro del campo del Castilla (min 5, 4:44). Se saca rápido hacia la banda derecha y Diego Iglesias acaba centrando (según Hudl).",
+        "minuto": "4'42\" (táctica 4:45)",
+        "jugador": "Martínez"
+      },
+      {
+        "clip": "of-c02",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": 8,
+        "nota": "T1 min 15. José Carlos Márquez (3) derriba a Yáñez cuando conducía por la derecha en campo del Algeciras, unos 20 m fuera del área (min 15, 14:37). Yáñez queda en el suelo y el corte acaba sin que se saque.",
+        "minuto": "14'35\" (táctica 14:38)"
+      },
+      {
+        "clip": "of-c03",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T1 min 17. Carmona (2) derriba a Ciria por el carril izquierdo a pocos metros del medio campo, en campo propio del Castilla (min 17, 16:25), y ve amarilla. Ciria queda en el suelo y el corte acaba sin que se saque.",
+        "minuto": "16'22\" (táctica 16:26)",
+        "jugador": "Alexis Ciria"
+      },
+      {
+        "clip": "of-c04",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "T1 min 19. Carmona derriba a Leiva en la banda izquierda nada más pasar la línea de medio campo (min 19). Cestero la saca en corto y el Castilla sigue jugando sin peligro.",
+        "minuto": "18'54\" (táctica 18:57)",
+        "jugador": "Álvaro Leiva"
+      },
+      {
+        "clip": "of-c05",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": 8,
+        "nota": "T1 min 23. Martínez (18) entra con falta a Fortea en la banda derecha, unos metros por fuera del área del Algeciras (min 23). Fortea se queda sentado dolorido y el saque no llega a verse en los cortes.",
+        "minuto": "22'55\" (táctica 22:59)",
+        "jugador": "Jesús Fortea"
+      },
+      {
+        "clip": "of-c06",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "T1 min 29. Martínez (18) vuelve a derribar a Fortea pegado a la banda derecha, unos metros dentro del campo del Castilla (min 29). Fortea la saca en corto para Mario Rivas y el Castilla reinicia hacia atrás.",
+        "minuto": "28'04\" (táctica 28:07)",
+        "jugador": "Jesús Fortea"
+      },
+      {
+        "clip": "of-c07",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "T1 min 32. Iván Turrillo derriba a Leiva en el carril izquierdo, en campo propio a unos 15 m de la línea de medio campo (min 32). Leiva se queda en el suelo dolorido y el saque no llega a verse en los cortes.",
+        "minuto": "31'25\" (táctica 31:28)",
+        "jugador": "Álvaro Leiva"
+      },
+      {
+        "clip": "of-c08",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": 8,
+        "nota": "T1 min 40. Iván Turrillo derriba a Fortea en el carril derecho, unos metros por fuera del pico derecho del área del Algeciras (TV 39:23, min 40). A +16 s de la táctica aún no se ha sacado, así que el saque no se ve en los cortes (en la táctica se cuentan los 11 del Algeciras: portero y 7 más por delante del balón, sin contar a Turrillo, que está a su altura).",
+        "minuto": "39'21\" (táctica 38:47)",
+        "jugador": "Jesús Fortea"
+      },
+      {
+        "clip": "of-c09",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "T2 min 48. Min 48 (47:24): Juanma García (7) derriba a Ciria (17) por la izquierda unos metros dentro del campo del Algeciras, ~38 m de la portería. Ventaja breve con Cestero con el balón y el árbitro para el juego para sacar amarilla a Juanma García.",
+        "minuto": "47'23\" (táctica 51:03)",
+        "jugador": "Alexis Ciria"
+      },
+      {
+        "clip": "def-c03",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "T2 min 50. Min 50 (49:44): Aguado (3) derriba a Paris Adot (22) por el carril derecho del Algeciras, pocos metros dentro del campo del Castilla. La saca Carmona en largo hacia la banda derecha, Diego Iglesias entra en el área y remata y para Navarro.",
+        "minuto": "49'43\" (táctica 53:23)",
+        "jugador": "Diego Aguado"
+      },
+      {
+        "clip": "of-c10",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "T2 min 53. Min 53 (52:55): tras un córner del Algeciras, Raúl Rubio (9) entra por detrás a Fati Joao (23) cuando sacaba el balón por la izquierda a la altura del borde del área propia. No se ve pitar la falta: Rubio sigue con el balón hacia la línea de fondo, Joao protesta y la jugada acaba en lo que parece un saque de puerta de Navarro.",
+        "minuto": "52'52\" (táctica 56:33)",
+        "jugador": "Fati Joao"
+      },
+      {
+        "clip": "of-c11",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T2 min 57. Min 57 (56:59): tras un saque de banda de Aguado, Aleix Coch (4) derriba a Carvajal (19) pegado a la banda izquierda, a unos 30 m de la portería del Algeciras, y el árbitro la pita. En la táctica la jugada queda muy lejos y pequeña y no se distinguen todos los jugadores del Algeciras.",
+        "minuto": "56'57\" (táctica 60:38)",
+        "jugador": "Ángel Carvajal"
+      },
+      {
+        "clip": "def-c04",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 62. Min 62 (61:14): tras un centro de Aguado, Roberto Martín (20) derriba a Ramón (21) en la presión junto a la media luna del área del Algeciras, a unos 20 m de su portería. Falta defensiva para el Algeciras que corta el ataque del Castilla. En la táctica no se ve al portero Navarro (fuera de imagen), por eso entre va con ?.",
+        "minuto": "61'12\" (táctica 64:52)",
+        "jugador": "Roberto Martín"
+      },
+      {
+        "clip": "def-c05",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "T2 min 67. Min 67 (66:12): tras la salida de Iván Moreno y pase de Coch, Yáñez (7) derriba a Tomás Sánchez (11) pegado a la banda izquierda del Algeciras, en su propio campo a unos 30 m de su portería. Falta en la presión alta del Castilla. En las imágenes no se llega a ver el saque.",
+        "minuto": "66'10\" (táctica 69:51)",
+        "jugador": "Daniel Yáñez"
+      },
+      {
+        "clip": "of-c12",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T2 min 68. Tras un saque de banda de Aguado, Carmona derriba a Rachad junto a la banda izquierda en campo del Algeciras (TV 67:36, unos 35-40 m de la portería). Según Hudl la saca Ciria en corto para Joao, que conduce y pierde el balón.",
+        "minuto": "67'33\" (táctica 71:14)",
+        "jugador": "Rachad Fettal"
+      },
+      {
+        "clip": "of-c13",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T2 min 69. Diego Iglesias derriba a Leiva por detrás junto a la banda izquierda, fuera del área y cerca de la línea de fondo (TV 68:29), y ve la amarilla. En la táctica la falta es casi a la altura del área y varios defensores quedan en la misma línea que el balón, así que no se pueden contar los «entre» con seguridad.",
+        "minuto": "68'27\" (táctica 72:08)",
+        "jugador": "Álvaro Leiva"
+      },
+      {
+        "clip": "of-c14",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "T2 min 76. Avilés, que conducía tras un balón largo, choca con Leiva y lo derriba a la altura del área del Castilla por la izquierda, fuera del área (TV 75:27). Falta defensiva para el Castilla en su propio campo, con todo el Algeciras por delante del balón salvo el infractor.",
+        "minuto": "75'24\" (táctica 78:04)",
+        "jugador": "Álvaro Leiva"
+      },
+      {
+        "clip": "def-c06",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "T2 min 76. Tras un saque largo de Navarro, Rachad derriba a Carmona en la disputa del balón dividido, junto al círculo central en campo del Algeciras (TV 75:57). Según Hudl la saca Aleix Coch unos 20 s después.",
+        "minuto": "75'56\" (táctica 78:36)",
+        "jugador": "Rachad Fettal"
+      },
+      {
+        "clip": "def-c07",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "T2 min 79. Rachad derriba a Carmona en la conducción junto al círculo central, sobre la línea de medio campo, y ve la amarilla (min 79). Carmona se queda en el suelo y el saque no llega a verse en el corte.",
+        "minuto": "78'25\" (táctica 81:05)",
+        "jugador": "Rachad Fettal"
+      },
+      {
+        "clip": "of-c15",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "T2 min 81. Falta en ataque de Carmona sobre Fati Joao en un córner del Algeciras, en la línea del área pequeña del Castilla (min 81). La saca Navarro en corto desde dentro del área y el Castilla sale jugando desde atrás (en el instante sólo un jugador del Algeciras estaba más cerca de la línea de fondo que el balón).",
+        "minuto": "80'46\" (táctica 83:26)",
+        "jugador": "Fati Joao"
+      },
+      {
+        "clip": "def-c08",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "T2 min 92. Fortea derriba a Ramón junto a la banda, a la altura del área del Algeciras, cuando éste le encaraba (min 92). El saque no se ve en el corte. En el recuento hay un jugador del Castilla prácticamente a la misma altura que el balón que no se ha contado.",
+        "minuto": "90+1'36\" (táctica 94:17)",
+        "jugador": "Jesús Fortea"
+      },
+      {
+        "clip": "of-c16",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T2 min 93. Raúl Rubio derriba a Fati Joao en un duelo aéreo tras un saque largo del portero del Algeciras, junto al círculo central y apenas en campo del Castilla (min 93). Fati queda en el suelo y el saque no se ve en el corte. En la táctica se ven 9 de campo del Algeciras por delante del balón, pero el portero queda fuera de imagen.",
+        "minuto": "90+2'08\" (táctica 94:48)",
+        "jugador": "Fati Joao"
       }
     ]
   }
