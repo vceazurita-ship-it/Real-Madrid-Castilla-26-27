@@ -6,11 +6,11 @@
  * cada cosa; una rutina se lleva al taller con un botón.
  */
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useAbpLigas, useProximoRival } from "@/hooks/useAbpLigas";
 import { METRICA, equipoQueCasa, posicionEn, tablaDe } from "@/lib/abp-ligas/modelo";
 import { mismoClub } from "@/lib/rivals/mismoClub";
-import { ArrowUpRight, BookOpen, CalendarClock, Check, ChevronDown, FlaskConical, GraduationCap, Library, Route, Search, Shield, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, BookOpen, CalendarClock, Check, ChevronDown, FlaskConical, GraduationCap, Library, Route, Search, Shield, Sparkles, Users, X } from "lucide-react";
 
 import { Button, Panel } from "@/components/abp/ui";
 import { useContextoLab } from "@/hooks/useContextoLab";
@@ -121,7 +121,18 @@ const POR_QUE = {
 } as const;
 
 /** «Contra quién funciona» y «Se entrena así… Éxito si…»: lo que convierte la rutina en una tarea. */
-function TareaRutina({ r }: { r: RutinaReferente }) {
+function TareaRutina({ r, plegable = false }: { r: RutinaReferente; plegable?: boolean }) {
+  const tarea = (
+    <>
+      <p>
+        <span className="font-semibold text-white/85">Se entrena así:</span> {r.tarea}
+      </p>
+      <p>
+        <span className="font-semibold text-white/85">Éxito si:</span> {r.exito.charAt(0).toLowerCase() + r.exito.slice(1)}
+      </p>
+    </>
+  );
+
   return (
     <div className="mt-2 space-y-1 text-[12px] leading-snug text-white/65">
       {r.defensa && (
@@ -129,53 +140,114 @@ function TareaRutina({ r }: { r: RutinaReferente }) {
           <span className="font-semibold text-white/85">Contra quién funciona:</span> defensa {DEFENSA_TEXTO[r.defensa]}
         </p>
       )}
-      <p>
-        <span className="font-semibold text-white/85">Se entrena así:</span> {r.tarea}
-      </p>
-      <p>
-        <span className="font-semibold text-white/85">Éxito si:</span> {r.exito.charAt(0).toLowerCase() + r.exito.slice(1)}
-      </p>
+      {plegable ? (
+        <details className="group">
+          <summary className="cursor-pointer list-none text-[11.5px] font-semibold text-[#C8A96B] hover:underline [&::-webkit-details-marker]:hidden">
+            Cómo se entrena <span className="group-open:hidden">(ver)</span>
+            <span className="hidden group-open:inline">(ocultar)</span>
+          </summary>
+          <div className="mt-1 space-y-1">{tarea}</div>
+        </details>
+      ) : (
+        tarea
+      )}
     </div>
   );
 }
 
+/** Quién firma una rutina: una persona, o la escuela de un club (que se dice como tal). */
+const firma = (r: { id: string; nombre: string; club: string }) => (r.id === "brentford" ? `${r.nombre} (club)` : `${r.nombre} · ${r.club}`);
+
+/** Un número con un decimal y coma, como se escribe aquí. */
+const coma = (v: number) => v.toFixed(1).replace(".", ",");
+
 /**
- * «Esta semana, contra [rival]»: la rutina de la biblioteca que mejor encaja con
- * cómo defiende el córner el próximo rival según su scouting. Si no hay rival o
- * su scouting no dice cómo defiende, no sale.
+ * «Esta semana, contra [rival]»: sale siempre que haya próximo rival. Si su
+ * scouting dice cómo defiende el córner, se propone la rutina que encaja con esa
+ * defensa; si no, se mira lo que concede a balón parado según Wyscout (valor por
+ * partido, puesto en la liga y mediana) y se propone una rutina de córner de la
+ * biblioteca: en corto si lo defienden bien, un bloqueo si les cuesta.
  */
 function EstaSemana({ onAlTaller }: { onAlTaller: (rutina: RutinaReferente, referente: string) => void }) {
   const { rival } = useContextoLab();
 
+  const proximo = useProximoRival();
+
+  const { datos } = useAbpLigas();
+
+  const nombre = rival?.equipo || proximo || "";
+
   const estructura = rival?.corner ?? null;
 
-  if (!rival || !estructura) return null;
+  const liga = useMemo(() => datos?.ligas.find((l) => equipoQueCasa(l, "Castilla")) ?? null, [datos]);
 
-  const defensa = estructura.tipo === "zonal" ? "zona" : estructura.tipo;
+  const tabla = useMemo(() => (liga ? tablaDe(liga) : []), [liga]);
 
-  const encaje = REFERENTES.flatMap((r) => r.rutinas.map((x) => ({ r, x }))).find(({ x }) => x.tipo === "corner" && x.defensa === defensa);
+  const equipo = liga ? (liga.equipos.find((e) => mismoClub(e, nombre)) ?? "") : "";
 
-  if (!encaje) return null;
+  if (!nombre) return null;
 
-  const { r, x } = encaje;
+  const concede = equipo ? posicionEn(tabla, equipo, METRICA.corPctC) : null;
+
+  const volumen = equipo ? posicionEn(tabla, equipo, METRICA.corC) : null;
+
+  const defensa = estructura ? (estructura.tipo === "zonal" ? "zona" : estructura.tipo) : null;
+
+  const corners = REFERENTES.flatMap((r) => r.rutinas.map((x) => ({ r, x }))).filter(({ x }) => x.tipo === "corner");
+
+  const porDefensa = defensa ? corners.find(({ x }) => x.defensa === defensa) : undefined;
+
+  const duro = concede?.percentil != null && concede.percentil >= 67;
+
+  const porDato = duro ? (corners.find(({ x }) => /corto/i.test(x.nombre)) ?? corners[0]) : (corners.find(({ x }) => /bloque/i.test(x.nombre)) ?? corners[0]);
+
+  const encaje = porDefensa ?? (concede?.valor != null ? porDato : undefined);
+
+  const { r, x } = encaje ?? { r: null, x: null };
 
   return (
-    <section aria-label={`Esta semana, contra ${rival.equipo}`} className="lab-aparece rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] p-4 sm:p-5">
+    <section aria-label={`Esta semana, contra ${nombre}`} className="lab-aparece rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] p-4 sm:p-5">
       <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
         <CalendarClock size={13} />
-        Esta semana, contra {rival.equipo}
+        Esta semana, contra {nombre}
       </p>
-      <p className="mt-2 text-[13.5px] leading-snug text-white/75">
-        {rival.equipo} defiende el córner {DEFENSA_TEXTO[defensa]}
-        {estructura.enZona ? ` (${estructura.enZona} en zona)` : ""}. Prueba <span className="font-semibold text-white">{x.nombre}</span> ({r.nombre}, {r.club}). Por qué: {POR_QUE[defensa]}.
-      </p>
-      <TareaRutina r={x} />
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-        <Cita fuente={x.fuente} />
-        <Button icon={FlaskConical} onClick={() => onAlTaller(x, r.id)}>
-          Al taller
-        </Button>
-      </div>
+      {defensa && estructura && (
+        <p className="mt-2 text-[13.5px] leading-snug text-white/75">
+          {nombre} defiende el córner {DEFENSA_TEXTO[defensa]}
+          {estructura.enZona ? ` (${estructura.enZona} en zona)` : ""}.
+          {porDefensa && x ? (
+            <>
+              {" "}
+              Prueba <span className="font-semibold text-white">{x.nombre}</span> ({r ? firma(r) : ""}). Por qué: {POR_QUE[defensa]}.
+            </>
+          ) : null}
+        </p>
+      )}
+      {concede?.valor != null && concede.puesto != null && (
+        <p className="mt-2 text-[13.5px] leading-snug text-white/75">
+          {nombre} concede {coma(concede.valor)} remates de cada 100 córners en contra ({concede.puesto}.º de {concede.de} que menos concede
+          {concede.mediana != null ? `; la mediana, ${coma(concede.mediana)}` : ""})
+          {volumen?.valor != null ? ` y regala ${coma(volumen.valor)} córners por partido` : ""}. Wyscout, {liga?.nombre}.
+          {!porDefensa && x ? (
+            <>
+              {" "}
+              {duro ? "Lo defienden bien: " : "Les cuesta: "}prueba <span className="font-semibold text-white">{x.nombre}</span> ({r ? firma(r) : ""}).
+            </>
+          ) : null}
+        </p>
+      )}
+      {!defensa && concede?.valor == null && <p className="mt-2 text-[13.5px] leading-snug text-white/60">Aún no hay datos de balón parado de este rival.</p>}
+      {x && r && (
+        <>
+          <TareaRutina r={x} />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <Cita fuente={x.fuente} />
+            <Button icon={FlaskConical} onClick={() => onAlTaller(x, r.id)}>
+              Al taller
+            </Button>
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -225,7 +297,30 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
 
   const [todosLosDatos, setTodosLosDatos] = useState(false);
 
-  const biblioteca = REFERENTES.flatMap((r) => r.rutinas.map((x) => ({ r, x })));
+  const [soloDe, setSoloDe] = useState("");
+
+  const [tarjeta, setTarjeta] = useState(0);
+
+  const carrusel = useRef<HTMLDivElement>(null);
+
+  const biblioteca = REFERENTES.flatMap((r) => r.rutinas.map((x) => ({ r, x }))).filter(({ r }) => !soloDe || r.id === soloDe);
+
+  const alScroll = () => {
+    const c = carrusel.current;
+
+    if (!c || !c.firstElementChild) return;
+
+    const ancho = (c.firstElementChild as HTMLElement).offsetWidth + 12;
+
+    setTarjeta(Math.min(biblioteca.length - 1, Math.max(0, Math.round(c.scrollLeft / ancho))));
+  };
+
+  const verEnBiblioteca = (id: string) => {
+    setSoloDe(id);
+    setTarjeta(0);
+    carrusel.current?.scrollTo({ left: 0 });
+    document.getElementById("biblioteca-rutinas")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div className="space-y-5">
@@ -307,24 +402,40 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
       </section>
 
       {/* ------------------------ LA BIBLIOTECA --------------------------- */}
+      <div id="biblioteca-rutinas" className="scroll-mt-32">
       <Panel title="Biblioteca de rutinas" subtitle="Las de los referentes, dibujadas a partir de su fuente: al taller llegan colocadas y listas para reproducir" icon={Library}>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {soloDe && (
+          <p className="mb-3 flex flex-wrap items-center gap-2 text-[12px] text-white/60">
+            Sólo las de {REFERENTES.find((r) => r.id === soloDe)?.nombre}.
+            <button type="button" onClick={() => setSoloDe("")} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+              Ver todas
+            </button>
+          </p>
+        )}
+        <p className="mb-2 text-right text-[11px] tabular-nums text-white/45 sm:hidden" aria-live="polite">
+          {Math.min(tarjeta + 1, biblioteca.length)} de {biblioteca.length}
+        </p>
+        <div
+          ref={carrusel}
+          onScroll={alScroll}
+          className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 sm:mx-0 sm:grid sm:snap-none sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-4"
+        >
           {biblioteca.map(({ r, x }) => {
             const esquema = ESQUEMAS[x.id];
 
             return (
-              <article key={x.id} className="lab-aparece flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+              <article key={x.id} className="lab-aparece flex w-[85%] shrink-0 snap-center flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] sm:w-auto sm:min-w-0 sm:shrink">
                 {esquema && <MiniPizarra rutina={{ nombre: x.nombre, senal: "", tipo: x.tipo, lado: "ofensivo", contra: "cualquiera", roles: esquema.roles, balon: esquema.balon }} porId={SIN_JUGADORES} />}
                 <div className="flex flex-1 flex-col p-3.5">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
-                    {r.nombre} · {r.club}
+                    {firma(r)}
                   </p>
                   <p className="mt-1 text-[13.5px] font-semibold leading-snug text-white/90">{x.nombre}</p>
                   <p className="mt-0.5 text-[11.5px] text-white/45">
                     {etiqueta(TIPOS, x.tipo)}
                     {x.contra ? ` · contra ${x.contra}` : ""}
                   </p>
-                  <TareaRutina r={x} />
+                  <TareaRutina r={x} plegable />
                   <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2.5">
                     <Cita fuente={x.fuente} />
                     <Button icon={FlaskConical} onClick={() => onAlTaller(x, r.id)}>
@@ -337,6 +448,7 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
           })}
         </div>
       </Panel>
+      </div>
 
       {/* ------------------------ ELEGIR REFERENTE ------------------------ */}
       <div className="flex flex-wrap gap-2 pb-1" role="tablist" aria-label="Referentes">
@@ -350,12 +462,15 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
               role="tab"
               aria-selected={activo}
               onClick={() => setElegido(r.id)}
-              className={`shrink-0 rounded-2xl border px-4 py-2.5 text-left transition ${
+              className={`shrink-0 rounded-2xl border px-4 py-2.5 text-left transition ${r.id === "brentford" ? "border-dashed " : ""}${
                 activo ? "border-[#C8A96B]/60 bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
               }`}
             >
-              <span className={`block text-sm font-semibold ${activo ? "text-[#C8A96B]" : "text-white/85"}`}>{r.nombre}</span>
-              {r.club !== r.nombre && <span className="block text-[11px] text-white/45">{r.club}</span>}
+              <span className={`flex items-center gap-1.5 text-sm font-semibold ${activo ? "text-[#C8A96B]" : "text-white/85"}`}>
+                {r.id === "brentford" && <Users size={13} aria-hidden />}
+                {r.nombre}
+              </span>
+              {r.id === "brentford" ? <span className="block text-[11px] text-white/45">Club · escuela</span> : r.club !== r.nombre && <span className="block text-[11px] text-white/45">{r.club}</span>}
             </button>
           );
         })}
@@ -404,38 +519,14 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
 
           <div className="min-w-0 space-y-4">
             {ref.rutinas.length > 0 && (
-              <div>
-                <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
-                  <FlaskConical size={13} className="text-[#C8A96B]" />
-                  Rutinas para copiar
-                </h3>
-                <div className="mt-3 space-y-3">
-                  {ref.rutinas.map((r) => (
-                    <article key={r.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-white">{r.nombre}</p>
-                          <p className="text-[11px] text-white/45">
-                            {etiqueta(TIPOS, r.tipo)}
-                            {r.contra ? ` · contra ${r.contra}` : ""}
-                          </p>
-                        </div>
-                        <Button icon={FlaskConical} onClick={() => onAlTaller(r, ref.id)}>
-                          Al taller
-                        </Button>
-                      </div>
-                      <ol className="mt-3 space-y-1.5 border-l border-[#C8A96B]/30 pl-3">
-                        {r.pasos.map((paso) => (
-                          <li key={paso} className="text-[13px] leading-snug text-white/70">
-                            {paso}
-                          </li>
-                        ))}
-                      </ol>
-                      <Cita fuente={r.fuente} />
-                    </article>
-                  ))}
-                </div>
-              </div>
+              <button
+                type="button"
+                onClick={() => verEnBiblioteca(ref.id)}
+                className="inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.08] px-3.5 py-2.5 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15"
+              >
+                <Library size={14} />
+                Ver sus rutinas en la biblioteca
+              </button>
             )}
 
             {ref.recursos.length > 0 && (
@@ -456,14 +547,13 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
                         <BookOpen size={15} className="shrink-0 text-[#C8A96B]" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium text-white/85">{r.titulo}</span>
-                          {r.original && <span className="block truncate text-[11px] italic text-white/40">{r.original}</span>}
                           <span className="block truncate text-[11px] text-white/45">
                             {r.medio} · {r.tipo}
                             {r.fecha ? ` · ${fechaFuente(r.fecha)}` : ""}
                           </span>
                         </span>
                         <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             r.gratis ? "bg-emerald-400/15 text-emerald-300" : "bg-white/10 text-white/50"
                           }`}
                         >

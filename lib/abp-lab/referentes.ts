@@ -359,7 +359,7 @@ export const REFERENTES: Referente[] = [
   {
     id: "brentford",
     nombre: "Escuela Brentford",
-    club: "El club",
+    club: "Brentford FC",
     rol: "La escuela: Vio, Jover, Georgson y Cueva pasaron por su departamento",
     lema: "Diez a la frontal o dentro, segunda jugada y medir el córner por lo que genera.",
     cifras: [
