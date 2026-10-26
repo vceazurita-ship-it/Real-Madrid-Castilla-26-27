@@ -9,8 +9,10 @@
  * - Portada: los dos escudos, «BALÓN PARADO», su foto, su nombre y la lista de
  *   sus acciones con su puesto en cada una (el resumen de un vistazo).
  * - Una hoja por acción en la que aparece: la diapositiva con SU cara
- *   resaltada (`TableroSlide destacado`), TU COMETIDO (sigla, puesto, con
- *   quién y su movimiento) y PROPÓSITO COLECTIVO (guion y consignas).
+ *   resaltada (`TableroSlide destacado`), TU COMETIDO (sigla, puesto y una
+ *   frase-misión: qué hace, con quién y para qué) y PROPÓSITO COLECTIVO (la
+ *   señal y como mucho dos consignas, las que le tocan). Criterio de los
+ *   agentes experto-futbol y experto-marketing: se lee en 5 segundos.
  *
  * Lenguaje de `INDIVIDUAL.pptx` (papel blanco, Barlow Condensed, chapas de
  * `lib/rivals/lienzo-club.ts`), el mismo que la portada del rival. Lo que no
@@ -20,15 +22,16 @@
 
 import type { Player } from "@/types/player";
 import {
-  CASILLAS_GUION,
   LADO_PIZARRA_LABEL,
   PLANTILLA_BY_KEY,
   gruposDe,
-  lineasDeSlide,
+  lineasConsignas,
+  normalizaConsigna,
   puestoDe,
   siglaDe,
   tituloVisible,
   type LadoPizarra,
+  type LineaConsigna,
   type TableroPizarra,
 } from "@/lib/abp/pizarra";
 import type { TipoTrazo } from "@/lib/abp/trazos";
@@ -51,8 +54,6 @@ export const HOJA_H = 1920;
 
 const MARGEN = 64;
 
-const ROSA_TINTA = "#9C4A57";
-
 /* ------------------------------------------------------------------ */
 /*  LOS DATOS                                                          */
 /* ------------------------------------------------------------------ */
@@ -64,24 +65,83 @@ export type CometidoAccion = {
   lado: LadoPizarra;
   /** Sus puestos en la acción: casi siempre uno; en directas, varios. */
   puestos: { sigla: string; label: string; grupo: string }[];
-  companeros: string[];
-  movimientos: string[];
-  /** Guion (señal, rutina, intención) y consignas, ya normalizados. */
-  guion: { rotulo: string; texto: string }[];
+  /**
+   * Su misión en una línea: qué hace (de sus flechas), con quién y para qué
+   * (la intención). Vacía si no hay nada de eso: el puesto ya lo dice.
+   */
+  mision: string;
+  /** La señal de la jugada, sólo en las ofensivas. */
+  senal: string;
+  /** Las consignas que le tocan a él (máximo 2), sin el «X:» de su grupo. */
   consignas: string[];
 };
 
-const MOVIMIENTO: Record<TipoTrazo, string> = {
-  carrera: "Carrera",
-  balon: "Golpeo",
-  bloqueo: "Bloqueo",
+/** Lo que hace, por el tipo de su flecha. */
+const VERBO: Record<LadoPizarra, Record<TipoTrazo, string>> = {
+  ofensivo: { carrera: "Atacas", bloqueo: "Bloqueas", balon: "Sacas" },
+  defensivo: { carrera: "Sales", bloqueo: "Bloqueas", balon: "Despejas" },
 };
 
 /** Un trazo es suyo si arranca a sus pies (igual que lo ata la pizarra). */
 const PIES = 40;
 
+/** Consignas que caben en la hoja sin encoger la letra. */
+const MAX_CONSIGNAS = 2;
+
 export const nombreCorto = (player: Player | undefined) =>
   (player?.apodo || player?.nombre || "").trim();
+
+const plano = (texto: string) =>
+  texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+const conPalabra = (texto: string, palabra: string) =>
+  palabra.length > 1 &&
+  new RegExp(`(^|[^a-z0-9])${palabra.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z0-9]|$)`).test(texto);
+
+/** «a, b y c». */
+const lista = (nombres: string[]) =>
+  nombres.length < 2 ? nombres.join("") : `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
+
+/**
+ * Las consignas que le tocan (criterio del cuerpo técnico, 26/10/2026): las que
+ * cuelgan de un rótulo «X:» —subtítulo o prefijo— que nombra su grupo o su
+ * puesto, y las que nombran su puesto, su nombre o su sigla (de dos letras o
+ * más: una «C» suelta da falsos positivos). Si no le toca ninguna, la primera
+ * consigna colectiva, la que no es de ningún grupo.
+ */
+function consignasSuyas(
+  lineas: LineaConsigna[],
+  claves: string[],
+  siglas: string[],
+): string[] {
+  let rotulo = "";
+
+  const todas = lineas.flatMap((linea) => {
+    if (linea.tipo === "subtitulo") {
+      rotulo = plano(linea.texto);
+
+      return [];
+    }
+
+    if (linea.tipo !== "consigna") return [];
+
+    const prefijo = /^([^:]{2,30}):\s*(.+)$/.exec(linea.texto);
+    const deQuien = prefijo ? plano(prefijo[1]) : rotulo;
+    const cuerpo = (prefijo ? prefijo[2] : linea.texto).replace(/^\d+[.)]\s*/, "");
+    const texto = plano(linea.texto);
+
+    const suya =
+      claves.some((clave) => (deQuien && conPalabra(deQuien, clave)) || conPalabra(texto, clave)) ||
+      siglas.some((sigla) => new RegExp(`(^|[^A-ZÑ])${sigla}([^A-ZÑ]|$)`).test(linea.texto));
+
+    return [{ suya, colectiva: !deQuien, cuerpo: cuerpo.charAt(0).toLocaleUpperCase("es-ES") + cuerpo.slice(1) }];
+  });
+
+  const suyas = todas.filter((c) => c.suya);
+  const elegidas = suyas.length ? suyas : todas.filter((c) => c.colectiva).slice(0, 1);
+
+  return elegidas.slice(0, MAX_CONSIGNAS).map((c) => c.cuerpo);
+}
 
 /** Las acciones en las que sale un jugador, en el orden de la charla. */
 export function cometidosDe(
@@ -94,6 +154,7 @@ export function cometidosDe(
 
     if (suyas.length === 0) return [];
 
+    const lado = PLANTILLA_BY_KEY.get(slide.plantilla)?.lado ?? "ofensivo";
     const grupos = gruposDe(slide);
     const etiquetaGrupo = (key: string) => grupos.find((grupo) => grupo.key === key)?.label ?? "";
 
@@ -118,38 +179,49 @@ export function cometidosDe(
           .map((ficha) => nombreCorto(players.get(ficha.playerId)))
           .filter(Boolean),
       ),
+    ].slice(0, 2);
+
+    const verbos = [
+      ...new Set(
+        (slide.trazos ?? [])
+          .filter((trazo) =>
+            suyas.some((ficha) => Math.hypot(trazo.x1 - ficha.x, trazo.y1 - ficha.y) <= PIES),
+          )
+          .sort((a, b) => a.fase - b.fase)
+          .map((trazo) => VERBO[lado][trazo.tipo]),
+      ),
     ];
 
-    const movimientos = (slide.trazos ?? [])
-      .filter((trazo) =>
-        suyas.some((ficha) => Math.hypot(trazo.x1 - ficha.x, trazo.y1 - ficha.y) <= PIES),
-      )
-      .sort((a, b) => a.fase - b.fase)
-      .map((trazo) => {
-        const fases = new Set((slide.trazos ?? []).map((t) => t.fase)).size;
+    const intencion = slide.guion?.intencion?.trim() ? normalizaConsigna(slide.guion.intencion.trim()) : "";
+    const senal = lado === "ofensivo" && slide.guion?.senal?.trim() ? normalizaConsigna(slide.guion.senal.trim()) : "";
 
-        return fases > 1 ? `${MOVIMIENTO[trazo.tipo]} (fase ${trazo.fase})` : MOVIMIENTO[trazo.tipo];
-      });
+    const mision = [
+      verbos.length ? lista(verbos.map((v, i) => (i ? v.toLowerCase() : v))) : "",
+      companeros.length ? `con ${lista(companeros)}` : "",
+      intencion ? `para ${intencion.charAt(0).toLowerCase()}${intencion.slice(1).replace(/\.$/, "")}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
 
-    const lineas = lineasDeSlide(slide);
-    const rotulos = new Set<string>(CASILLAS_GUION.map((casilla) => casilla.rotulo));
+    const claves = [
+      ...new Set(
+        [...puestos.flatMap((p) => [p.label, p.grupo]), nombreCorto(players.get(playerId))]
+          .map(plano)
+          .filter((clave) => clave.length > 2),
+      ),
+    ];
+
+    const siglas = puestos.map((p) => p.sigla).filter((sigla) => sigla.length >= 2 && sigla === sigla.toUpperCase());
 
     return [
       {
         indice,
         titulo: tituloVisible(tablero.slides, indice),
-        lado: PLANTILLA_BY_KEY.get(slide.plantilla)?.lado ?? "ofensivo",
+        lado,
         puestos,
-        companeros,
-        movimientos: [...new Set(movimientos)],
-        guion: lineas.flatMap((linea) =>
-          linea.tipo === "guion" && rotulos.has(linea.rotulo)
-            ? [{ rotulo: linea.rotulo, texto: linea.texto }]
-            : [],
-        ),
-        consignas: lineas.flatMap((linea) =>
-          linea.tipo === "consigna" ? [linea.texto] : linea.tipo === "subtitulo" ? [`${linea.texto}:`] : [],
-        ),
+        mision: mision.charAt(0).toLocaleUpperCase("es-ES") + mision.slice(1),
+        senal,
+        consignas: consignasSuyas(lineasConsignas(slide.notas), claves, siglas),
       },
     ];
   });
@@ -221,23 +293,12 @@ type Contexto = {
   escudos: Escudos;
 };
 
-function pie(ctx: Ctx, cx: Contexto, pagina: number, total: number) {
-  const y = HOJA_H - 44;
-
-  ctx.fillStyle = "rgba(15,30,61,.55)";
-  fuente(ctx, 26, 600);
-  textoEspaciado(
-    ctx,
-    [nombreCorto(cx.player), cx.jornada, `vs ${cx.rival}`].filter(Boolean).join("  ·  ").toUpperCase(),
-    MARGEN,
-    y,
-    2,
-  );
-
-  const n = `${pagina} / ${total}`;
-
+/** Sólo «2 / 4» abajo: la cabecera ya dice quién, contra quién y qué. */
+function numeroPagina(ctx: Ctx, pagina: number, total: number) {
+  ctx.fillStyle = "rgba(15,30,61,.5)";
+  fuente(ctx, 28, 600);
   ctx.textAlign = "right";
-  ctx.fillText(n, HOJA_W - MARGEN, y);
+  ctx.fillText(`${pagina} / ${total}`, HOJA_W - MARGEN, HOJA_H - 44);
   ctx.textAlign = "left";
 
   filoRosa(ctx);
@@ -269,7 +330,6 @@ function dibujaPortada(
   cx: Contexto,
   foto: HTMLImageElement | null,
   acciones: CometidoAccion[],
-  total: number,
 ) {
   /* Cabecera: nuestro escudo · VS · el suyo. */
   const lado = 150;
@@ -377,12 +437,6 @@ function dibujaPortada(
     });
   }
 
-  if (cx.player?.nombre && cx.player.apodo && cx.player.nombre !== cx.player.apodo) {
-    ctx.fillStyle = C.verde;
-    ajusta(ctx, cx.player.nombre.toUpperCase(), anchoTexto, 32, 600, 2);
-    textoEspaciado(ctx, cx.player.nombre.toUpperCase(), izq, fotoY + 520, 2);
-  }
-
   /* TUS ACCIONES: el resumen que se lee sin pasar de página. */
   let y = fotoY + fotoH + 70;
 
@@ -405,11 +459,18 @@ function dibujaPortada(
     rectRedondo(ctx, MARGEN, top, 12, alto, 6);
     ctx.fill();
 
-    const numero = `${orden + 2}`;
+    /* El número de la hoja donde está explicada, en un disco. */
+    const r = Math.min(26, alto * 0.3);
 
-    ctx.fillStyle = "rgba(15,30,61,.45)";
-    fuente(ctx, Math.min(30, alto * 0.42), 600);
-    ctx.fillText(`P.${numero}`, MARGEN + 30, top + alto / 2 + 10);
+    ctx.fillStyle = colorLado(accion.lado);
+    ctx.beginPath();
+    ctx.arc(MARGEN + 30 + r, top + alto / 2, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = C.crema;
+    fuente(ctx, r * 1.2, 700);
+    ctx.textAlign = "center";
+    ctx.fillText(String(orden + 2), MARGEN + 30 + r, top + alto / 2 + r * 0.42);
+    ctx.textAlign = "left";
 
     const sigla = accion.puestos.map((p) => p.sigla).join(" · ");
     const derecha = HOJA_W - MARGEN - 18;
@@ -443,7 +504,7 @@ function dibujaPortada(
     }
   });
 
-  pie(ctx, cx, 1, total);
+  filoRosa(ctx);
 }
 
 /* ----------------------------- una acción ----------------------------- */
@@ -497,30 +558,30 @@ function dibujaAccion(
   ctx.fillStyle = C.rosa;
   ctx.fillRect(0, TABLERO_Y + TABLERO_ALTO, HOJA_W, 8);
 
-  /* TU COMETIDO */
+  /* TU COMETIDO: la sigla, el puesto y la misión en una línea. */
   let y = TABLERO_Y + TABLERO_ALTO + 78;
 
   rotuloSeccion(ctx, "TU COMETIDO", y);
 
   y += 30;
 
-  const puestos = accion.puestos.length ? accion.puestos : [];
-  const extra = [
-    accion.companeros.length ? `Con ${accion.companeros.join(", ")}` : "",
-    accion.movimientos.length ? `Tu movimiento: ${accion.movimientos.join(" · ")}` : "",
-  ].filter(Boolean);
+  const puestos = accion.puestos;
+  const sigla = puestos.map((p) => p.sigla).join("·") || "★";
+  const papel = puestos.map((p) => p.label).join(" · ").toUpperCase() || "EN LA PIZARRA";
 
-  fuente(ctx, 34, 500);
-  const lineasExtra = extra.flatMap((texto) => renglones(ctx, texto, HOJA_W - MARGEN * 2 - 260));
-  const altoCaja = Math.max(220, 150 + lineasExtra.length * 42);
+  const discoR = 92;
+  const tx = MARGEN + 40 + discoR * 2 + 40;
+  const maxW = HOJA_W - MARGEN - 30 - tx;
+
+  fuente(ctx, 40, 600);
+  const lineasMision = accion.mision ? renglones(ctx, accion.mision, maxW) : [];
+  const altoCaja = Math.max(230, 150 + lineasMision.length * 48);
 
   ctx.fillStyle = C.crema;
   rectRedondo(ctx, MARGEN, y, HOJA_W - MARGEN * 2, altoCaja, 22);
   ctx.fill();
 
   /* La sigla en un disco grande: es lo que se busca en la pizarra. */
-  const sigla = puestos.map((p) => p.sigla).join("·") || "★";
-  const discoR = 92;
   const discoX = MARGEN + 40 + discoR;
   const discoY = y + altoCaja / 2;
 
@@ -534,110 +595,58 @@ function dibujaAccion(
   ctx.fillText(sigla, discoX, discoY + pxSigla * 0.35);
   ctx.textAlign = "left";
 
-  const tx = discoX + discoR + 40;
-  const maxW = HOJA_W - MARGEN - 30 - tx;
-  let ty = y + 82;
-
-  const papel = puestos.map((p) => p.label).join(" · ").toUpperCase() || "EN LA PIZARRA";
+  let ty = y + (lineasMision.length ? 92 : altoCaja / 2 + 24);
 
   ctx.fillStyle = C.navy;
-  ajusta(ctx, papel, maxW, 66, 700, 1);
+  ajusta(ctx, papel, maxW, 72, 700, 1);
   textoEspaciado(ctx, papel, tx, ty, 1);
 
-  const grupo = [...new Set(puestos.map((p) => p.grupo).filter(Boolean))].join(" · ").toUpperCase();
+  ty += 60;
+  ctx.fillStyle = colorLado(accion.lado);
+  fuente(ctx, 40, 600);
 
-  /* «CORTA» dentro de «CORTA» no dice nada: el grupo sólo si añade algo. */
-  if (grupo && grupo !== papel) {
-    chapa(ctx, grupo, {
-      x: tx,
-      y: ty + 18,
-      alto: 46,
-      fondo: colorLado(accion.lado),
-      tinta: C.crema,
-      tamano: 26,
-      espaciado: 3,
-      padding: 20,
-      anchoMax: maxW,
-    });
-    ty += 64;
-  }
-
-  ty += 50;
-  ctx.fillStyle = C.verde;
-  fuente(ctx, 34, 500);
-
-  for (const linea of lineasExtra) {
+  for (const linea of lineasMision) {
     ctx.fillText(linea, tx, ty);
-    ty += 42;
+    ty += 48;
   }
 
   y += altoCaja + 84;
 
-  /* PROPÓSITO COLECTIVO: sólo si hay algo escrito. */
-  const fondoPagina = HOJA_H - 90;
-
-  if (accion.guion.length || accion.consignas.length) {
+  /* PROPÓSITO COLECTIVO: la señal y lo que le toca. Sólo si hay algo. */
+  if (accion.senal || accion.consignas.length) {
     rotuloSeccion(ctx, "PROPÓSITO COLECTIVO", y);
     y += 40;
 
-    /* Se encoge todo junto si no cabe, en vez de cortar una consigna. */
-    const cabe = (cuerpo: number) => {
-      fuente(ctx, cuerpo, 500);
-      let alto = 0;
-
-      for (const g of accion.guion) alto += renglones(ctx, g.texto, HOJA_W - MARGEN * 2 - 210).length * cuerpo * 1.18 + 26;
-      for (const c of accion.consignas) alto += renglones(ctx, c, HOJA_W - MARGEN * 2 - 90).length * cuerpo * 1.18 + 22;
-
-      return alto <= fondoPagina - y;
-    };
-
-    let cuerpo = 42;
-
-    while (cuerpo > 24 && !cabe(cuerpo)) cuerpo -= 2;
-
+    const cuerpo = 44;
     const salto = cuerpo * 1.18;
 
-    for (const g of accion.guion) {
-      chapa(ctx, g.rotulo.toUpperCase(), {
+    if (accion.senal) {
+      chapa(ctx, "SEÑAL", {
         x: MARGEN,
-        y: y,
-        alto: 46,
+        y,
+        alto: 50,
         fondo: C.navy,
         tinta: C.crema,
-        tamano: 26,
+        tamano: 28,
         espaciado: 3,
-        padding: 18,
-        anchoMin: 180,
+        padding: 20,
+        anchoMin: 150,
       });
 
       ctx.fillStyle = C.navy;
       fuente(ctx, cuerpo, 600);
 
-      let ly = y + 36;
+      let ly = y + 40;
 
-      for (const linea of renglones(ctx, g.texto, HOJA_W - MARGEN * 2 - 210)) {
-        ctx.fillText(linea, MARGEN + 210, ly);
+      for (const linea of renglones(ctx, accion.senal, HOJA_W - MARGEN * 2 - 180)) {
+        ctx.fillText(linea, MARGEN + 180, ly);
         ly += salto;
       }
 
-      y = Math.max(y + 46, ly - salto + 10) + 22;
+      y = Math.max(y + 50, ly - salto + 10) + 30;
     }
 
-    let numero = 0;
-
-    for (const consigna of accion.consignas) {
-      const esRotulo = consigna.endsWith(":");
-
-      if (esRotulo) {
-        ctx.fillStyle = ROSA_TINTA;
-        fuente(ctx, cuerpo * 0.8, 700);
-        textoEspaciado(ctx, consigna.slice(0, -1).toUpperCase(), MARGEN, y + cuerpo * 0.8, 3);
-        y += cuerpo + 14;
-        continue;
-      }
-
-      numero += 1;
-
+    accion.consignas.forEach((consigna, orden) => {
       ctx.fillStyle = C.rosa;
       ctx.beginPath();
       ctx.arc(MARGEN + 30, y + cuerpo * 0.42, 30, 0, Math.PI * 2);
@@ -645,26 +654,24 @@ function dibujaAccion(
       ctx.fillStyle = C.navy;
       fuente(ctx, 34, 700);
       ctx.textAlign = "center";
-      ctx.fillText(String(numero), MARGEN + 30, y + cuerpo * 0.42 + 12);
+      ctx.fillText(String(orden + 1), MARGEN + 30, y + cuerpo * 0.42 + 12);
       ctx.textAlign = "left";
 
       ctx.fillStyle = C.navy;
       fuente(ctx, cuerpo, 500);
 
-      /* Quita el «1.» del principio: ya va en el disco. */
-      const limpio = consigna.replace(/^\d+[.)]\s*/, "");
       let ly = y + cuerpo * 0.78;
 
-      for (const linea of renglones(ctx, limpio, HOJA_W - MARGEN * 2 - 90)) {
+      for (const linea of renglones(ctx, consigna, HOJA_W - MARGEN * 2 - 90)) {
         ctx.fillText(linea, MARGEN + 90, ly);
         ly += salto;
       }
 
-      y = ly - salto + cuerpo * 0.3 + 22;
-    }
+      y = ly - salto + cuerpo * 0.3 + 28;
+    });
   }
 
-  pie(ctx, cx, pagina, total);
+  numeroPagina(ctx, pagina, total);
 }
 
 /* ------------------------------------------------------------------ */
@@ -727,7 +734,7 @@ export async function pdfJugador(opciones: {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: [HOJA_W / 2, HOJA_H / 2], compress: true });
 
   const portada = lienzo();
-  dibujaPortada(portada.ctx, cx, retrato, acciones, total);
+  dibujaPortada(portada.ctx, cx, retrato, acciones);
   doc.addImage(portada.canvas.toDataURL("image/jpeg", 0.9), "JPEG", 0, 0, HOJA_W / 2, HOJA_H / 2);
 
   for (const [orden, accion] of acciones.entries()) {
