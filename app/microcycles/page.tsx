@@ -141,6 +141,18 @@ function normalizeMD(v?: string) {
   return String(v).trim().toUpperCase().replace(/\s+/g, "");
 }
 
+/** Número con coma decimal y punto de millar («6,6», «58,5»). */
+function fmtDec(n: number, d = 1) {
+  return n.toLocaleString("es-ES", {
+    minimumFractionDigits: d,
+    maximumFractionDigits: d,
+  });
+}
+
+function pctCambio(cur: number, prev: number) {
+  return prev > 0 ? +(((cur - prev) / prev) * 100).toFixed(1) : 0;
+}
+
 function fmtInt(n: number) {
   return Math.round(n).toLocaleString("es-ES");
 }
@@ -993,7 +1005,9 @@ export default function Page() {
       prev,
       eval: +(cur.eval - prev.eval).toFixed(1),
       load: cur.load - prev.load,
+      loadPct: pctCambio(cur.load, prev.load),
       cog: cur.cog - prev.cog,
+      cogPct: pctCambio(cur.cog, prev.cog),
       tareas: cur.tareas - prev.tareas,
       tiempo: cur.tiempo - prev.tiempo,
     };
@@ -1012,13 +1026,24 @@ export default function Page() {
         carga: sum(set.map((r) => r.carga)),
         cargaCog: sum(set.map((r) => r.cargaCog)),
         tiempo: sum(set.map((r) => r.tiempo)),
-        intensidad: avg(set.map((r) => r.intensidad).filter((n) => n > 0)),
+        /* null (no 0) si ese día no tiene intensidad medida: la línea se corta. */
+        intensidad:
+          avg(set.map((r) => r.intensidad).filter((n) => n > 0)) || null,
         exigCog: avg(set.map((r) => r.exigCog).filter((n) => n > 0)),
         eval: avg(set.map((r) => r.evaluacion).filter((n) => n > 0)),
         pctCarga: +((sum(set.map((r) => r.carga)) / totalLoad) * 100).toFixed(1),
       };
     });
   }, [work, mdOrder]);
+
+  /* Días con tareas pero sin tiempo o intensidad medidos: se avisa en una línea. */
+  const diasSinMedida = useMemo(
+    () =>
+      mdData
+        .filter((d) => d.tareas > 0 && (d.intensidad === null || d.tiempo <= 0))
+        .map((d) => d.md),
+    [mdData]
+  );
 
   const peakMD = useMemo(
     () =>
@@ -1122,14 +1147,14 @@ export default function Page() {
     return [
       { metric: "Evaluación", value: metrics.eval, raw: metrics.eval },
       { metric: "Intensidad", value: metrics.intensidad, raw: metrics.intensidad },
-      { metric: "Exig. Cognitiva", value: metrics.exigCog, raw: metrics.exigCog },
+      { metric: "Exig. cog.", value: metrics.exigCog, raw: metrics.exigCog },
       {
-        metric: "Física/tarea",
+        metric: "Fís./tarea",
         value: scale(avgLoadPerTask, maxLoadTask),
         raw: Math.round(avgLoadPerTask),
       },
       {
-        metric: "Cognitiva/tarea",
+        metric: "Cog./tarea",
         value: scale(avgCogPerTask, maxCogTask),
         raw: Math.round(avgCogPerTask),
       },
@@ -1391,7 +1416,7 @@ export default function Page() {
         icon: Flame,
         tone: "text-[#C8A96B]",
         peso: peakMD.pctCarga >= 50 ? 65 : 35,
-        text: `${peakMD.md} concentra el ${peakMD.pctCarga}% de la carga física del periodo${excludeComp ? "" : " (el partido cuenta en las cuentas)"}${peakMD.pctCarga >= 50 ? ": comprobar que el pico cae en el día que se quiere." : "."}`,
+        text: `${peakMD.md} concentra el ${fmtDec(peakMD.pctCarga)} % de la carga física del periodo${excludeComp ? "" : " (el partido cuenta en las cuentas)"}${peakMD.pctCarga >= 50 ? ": comprobar que el pico cae en el día que se quiere." : "."}`,
       });
     }
 
@@ -1427,10 +1452,10 @@ export default function Page() {
       peso: 30,
       text:
         cogRatio > 1.1
-          ? `Predomina la carga cognitiva: ratio cognitivo/físico de ${cogRatio.toFixed(2)}.`
+          ? `Predomina la carga cognitiva: ratio cognitivo/físico de ${fmtDec(cogRatio, 2)}.`
           : cogRatio >= 0.9
-            ? `Carga equilibrada: la cognitiva y la física van a la par (${cogRatio.toFixed(1)}).`
-            : `Predomina la carga física: ratio cognitivo/físico de ${cogRatio.toFixed(2)}.`,
+            ? `Carga equilibrada: la cognitiva y la física van a la par (${fmtDec(cogRatio, 1)}).`
+            : `Predomina la carga física: ratio cognitivo/físico de ${fmtDec(cogRatio, 2)}.`,
     });
 
     const topContenido = contenidoPrincipalMetrics[0];
@@ -1450,12 +1475,12 @@ export default function Page() {
         microDelta.prev.eval > 0
           ? microDelta.eval === 0
             ? "la evaluación se mantiene"
-            : `la evaluación ${microDelta.eval > 0 ? "sube" : "baja"} ${Math.abs(microDelta.eval)} pts`
+            : `la evaluación ${microDelta.eval > 0 ? "sube" : "baja"} ${fmtDec(Math.abs(microDelta.eval))} pts`
           : "";
       const cargaTxt =
         microDelta.load === 0
           ? "la carga física se mantiene"
-          : `la carga física ${microDelta.load > 0 ? "sube" : "baja"} ${fmtInt(Math.abs(microDelta.load))}`;
+          : `la carga física ${microDelta.load > 0 ? "sube" : "baja"} ${fmtDec(Math.abs(microDelta.loadPct))} %`;
 
       out.push({
         icon: Activity,
@@ -1512,12 +1537,12 @@ export default function Page() {
       ? null
       : microStats.find((m) => String(m.micro) === micro) ?? null;
 
-  /* El titular del micro elegido: «Micro 18: 19 tareas y 3h 14'; carga física 1.165, 704 por debajo del M17». */
+  /* El titular del micro elegido: «Micro 18: 19 tareas y 3h 14'; carga física 1.165 (−37,7 % sobre el M17)». */
   const titular =
     selectedMicroStat && metrics.tasks > 0
       ? `Micro ${etiquetaMicro(selectedMicroStat.micro)}: ${metrics.tasks} tareas${metrics.tiempo > 0 ? ` y ${fmtMin(metrics.tiempo)}` : ""}${
           metrics.load > 0
-            ? `; carga física ${fmtInt(metrics.load)}${microDelta && microDelta.load !== 0 ? `, ${fmtInt(Math.abs(microDelta.load))} ${microDelta.load < 0 ? "por debajo" : "por encima"} del M${etiquetaMicro(microDelta.prev.micro)}` : ""}`
+            ? `; carga física ${fmtInt(metrics.load)}${microDelta && microDelta.load !== 0 ? ` (${microDelta.load < 0 ? "−" : "+"}${fmtDec(Math.abs(microDelta.loadPct))} % sobre el M${etiquetaMicro(microDelta.prev.micro)})` : ""}`
             : ""
         }`
       : null;
@@ -1980,7 +2005,7 @@ export default function Page() {
                 <StatCard
                   icon={Star}
                   title="Evaluación media"
-                  value={metrics.eval || "—"}
+                  value={metrics.eval ? fmtDec(metrics.eval) : "—"}
                   hint={`${metrics.evaluadas} evaluadas`}
                   accent={getEvalColor(metrics.eval)}
                   delta={microDelta?.eval}
@@ -1993,7 +2018,9 @@ export default function Page() {
                   value={fmtInt(metrics.load)}
                   hint={`${Math.round(avgLoadPerTask)} / tarea`}
                   accent={COLORS.blue}
-                  delta={microDelta?.load}
+                  delta={microDelta?.loadPct}
+                  deltaSuffix=" %"
+                  decimals={1}
                 />
 
                 <StatCard
@@ -2002,14 +2029,16 @@ export default function Page() {
                   value={fmtInt(metrics.cog)}
                   hint={`${Math.round(avgCogPerTask)} / tarea`}
                   accent={COLORS.purple}
-                  delta={microDelta?.cog}
+                  delta={microDelta?.cogPct}
+                  deltaSuffix=" %"
+                  decimals={1}
                 />
 
                 <StatCard
                   icon={Gauge}
                   title="Cognitiva / física"
-                  value={cogRatio.toFixed(2)}
-                  hint={`Intensidad media ${metrics.intensidad || "sin valorar"}`}
+                  value={fmtDec(cogRatio, 2)}
+                  hint={`Intensidad media ${metrics.intensidad ? fmtDec(metrics.intensidad) : "sin valorar"}`}
                   accent={COLORS.green}
                 />
               </div>
@@ -2145,6 +2174,12 @@ export default function Page() {
                     title="Distribución de carga en el microciclo"
                     subtitle="Carga física y cognitiva por día, con intensidad media"
                   >
+                    {diasSinMedida.length > 0 && (
+                      <p className="mb-2 text-[11px] text-white/45">
+                        {diasSinMedida.join(", ")}: sesión sin tiempo o
+                        intensidad medidos; la línea de intensidad se corta ahí.
+                      </p>
+                    )}
                     <Chart>
                       <ComposedChart
                         data={mdData}
@@ -3987,7 +4022,7 @@ function StatCard({
             }`}
           >
             <DeltaIcon className="h-2.5 w-2.5" />
-            {Math.abs(delta).toFixed(decimals)}
+            {fmtDec(Math.abs(delta), decimals)}
             {deltaSuffix}
           </span>
         )}

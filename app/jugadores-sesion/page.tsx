@@ -2871,7 +2871,11 @@ export default function JugadoresSesionPage() {
                           {grave ? ICONO_AVISO.error : problemas.length ? ICONO_AVISO.aviso : ICONO_AVISO.ok}
                           <span className="min-w-0">
                             {problemas.length
-                              ? problemas.map((a) => a.texto).join(" · ")
+                              ? problemas.map((a) => (
+                                  <span key={a.texto} className="block">
+                                    {a.texto}
+                                  </span>
+                                ))
                               : "Lista para presentar: nadie olvidado, nadie repetido y equipos parejos por puesto."}
                             {sinDemarcacion.length > 0 && (
                               <span className="mt-1 block">
@@ -2881,21 +2885,26 @@ export default function JugadoresSesionPage() {
                                 </button>
                               </span>
                             )}
-                            {problemas
-                              .filter((a) => a.arreglo)
-                              .map((a) => (
-                                <button
-                                  key={a.arreglo!.a}
-                                  type="button"
-                                  onClick={() => {
-                                    cambiaTarea((t) => intercambiaSitios(t, a.arreglo!.a, a.arreglo!.b));
-                                    toast.success(a.arreglo!.texto, { action: { label: "Deshacer", onClick: deshaz } });
-                                  }}
-                                  className="ml-1 mt-1 inline-flex rounded-md border border-current px-1.5 py-0.5 text-[11px] font-semibold"
-                                >
-                                  {a.arreglo!.texto}
-                                </button>
-                              ))}
+                            {/* La propuesta de cambio, en su propio botón y en su propia línea. */}
+                            {problemas.some((a) => a.arreglo) && (
+                              <span className="mt-1.5 flex flex-wrap gap-1.5">
+                                {problemas
+                                  .filter((a) => a.arreglo)
+                                  .map((a) => (
+                                    <button
+                                      key={a.arreglo!.a}
+                                      type="button"
+                                      onClick={() => {
+                                        cambiaTarea((t) => intercambiaSitios(t, a.arreglo!.a, a.arreglo!.b));
+                                        toast.success(a.arreglo!.texto, { action: { label: "Deshacer", onClick: deshaz } });
+                                      }}
+                                      className="inline-flex rounded-md border border-current px-2 py-1 text-[11px] font-semibold"
+                                    >
+                                      {a.arreglo!.texto}
+                                    </button>
+                                  ))}
+                              </span>
+                            )}
                           </span>
                         </div>
                       );
@@ -3161,7 +3170,11 @@ export default function JugadoresSesionPage() {
                       bodyClassName="p-4"
                     >
                       <ul className="space-y-1.5 text-[12px] leading-snug">
-                        {avisos.map((a) => (
+                        {/* Los errores y avisos ya van en la franja de arriba: aquí, sólo el resto. */}
+                        {avisos.some((a) => a.nivel === "error" || a.nivel === "aviso") && (
+                          <li className="text-white/60">Lo que hay que corregir está en la franja sobre los campos.</li>
+                        )}
+                        {avisos.filter((a) => a.nivel !== "error" && a.nivel !== "aviso").map((a) => (
                           <li
                             key={a.texto}
                             className={`flex items-start gap-2 ${
