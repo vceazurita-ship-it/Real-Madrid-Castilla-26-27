@@ -336,6 +336,7 @@ function Ficha({
   return (
     <div
       data-ficha
+      data-destacado={foco === "si" ? "" : undefined}
       className="group absolute select-none"
       style={{
         left: ficha.x - FOTO_W / 2,

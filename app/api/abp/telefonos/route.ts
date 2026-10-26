@@ -34,17 +34,35 @@ export async function POST(request: NextRequest) {
   const playerId = String(body?.playerId ?? "").trim();
   const telefono = String(body?.telefono ?? "").trim();
 
-  if (!playerId || (telefono && !esTelefono(telefono))) {
+  if (!/^[\w-]{1,40}$/.test(playerId) || (telefono && !esTelefono(telefono))) {
     return NextResponse.json({ ok: false, error: "Teléfono no válido." }, { status: 400 });
   }
 
-  const { data } = await readDoc<Telefonos>(CLAVE);
-  const telefonos: Telefonos = { ...(data ?? {}) };
+  /*
+  | Leer, cambiar uno y escribir el mapa entero: dos guardados casi a la vez
+  | se pisarían. Se escribe «sobre» la versión leída y, si otro ha escrito
+  | entre medias, se vuelve a leer y a aplicar (hasta tres veces).
+  */
+  for (let intento = 0; intento < 3; intento += 1) {
+    const leido = await readDoc<Telefonos>(CLAVE);
 
-  if (telefono) telefonos[playerId] = normalizaTelefono(telefono);
-  else delete telefonos[playerId];
+    if (leido.missingTable) {
+      return NextResponse.json({ ok: false, error: "El almacén no está disponible." }, { status: 500 });
+    }
 
-  await writeDoc(CLAVE, "telefonos-jugadores", telefonos);
+    const telefonos: Telefonos = { ...(leido.data ?? {}) };
 
-  return NextResponse.json({ ok: true, telefonos });
+    if (telefono) telefonos[playerId] = normalizaTelefono(telefono);
+    else delete telefonos[playerId];
+
+    const escrito = await writeDoc(CLAVE, "telefonos-jugadores", telefonos, leido.updatedAt ?? null);
+
+    if (escrito.missingTable) {
+      return NextResponse.json({ ok: false, error: "El almacén no está disponible." }, { status: 500 });
+    }
+
+    if (!escrito.conflicto) return NextResponse.json({ ok: true, telefonos });
+  }
+
+  return NextResponse.json({ ok: false, error: "Otro guardado a la vez: vuelve a intentarlo." }, { status: 409 });
 }

@@ -24,6 +24,7 @@ import type { Player } from "@/types/player";
 import {
   LADO_PIZARRA_LABEL,
   PLANTILLA_BY_KEY,
+  adornosDe,
   gruposDe,
   lineasConsignas,
   normalizaConsigna,
@@ -74,7 +75,14 @@ export type CometidoAccion = {
   senal: string;
   /** Las consignas que le tocan a él (máximo 2), sin el «X:» de su grupo. */
   consignas: string[];
+  /** El rival dibujado a su lado: «Marcas al 4» / «Te vigila el 4». */
+  rival: string;
+  /** Lo que viene después: la flecha de transición de las defensivas. */
+  despues: string;
 };
+
+/** A cuánto de su ficha un rival dibujado es «el suyo». */
+const CERCA_RIVAL = 170;
 
 /** Lo que hace, por el tipo de su flecha. */
 const VERBO: Record<LadoPizarra, Record<TipoTrazo, string>> = {
@@ -201,7 +209,29 @@ export function cometidosDe(
       intencion ? `para ${intencion.charAt(0).toLowerCase()}${intencion.slice(1).replace(/\.$/, "")}` : "",
     ]
       .filter(Boolean)
-      .join(" · ");
+      .join(" ");
+
+    /* El rival con dorsal más cercano a cualquiera de sus fichas en el campo. */
+    const cercano = (slide.rivales ?? [])
+      .filter((otro) => otro.dorsal?.trim())
+      .map((otro) => ({
+        dorsal: otro.dorsal!.trim(),
+        d: Math.min(...suyas.filter((f) => f.x >= 0).map((f) => Math.hypot(otro.x - f.x, otro.y - f.y))),
+      }))
+      .filter((otro) => otro.d <= CERCA_RIVAL)
+      .sort((a, b) => a.d - b.d)[0];
+
+    const rival = cercano
+      ? lado === "defensivo"
+        ? `Marcas al ${cercano.dorsal}`
+        : `Te vigila el ${cercano.dorsal}`
+      : "";
+
+    const transicion = adornosDe(slide).find((adorno) => adorno.tipo === "transicion");
+    const despues =
+      transicion && transicion.tipo === "transicion"
+        ? [transicion.label, transicion.remate].map((t) => t?.trim()).filter(Boolean).join(": ")
+        : "";
 
     const claves = [
       ...new Set(
@@ -222,6 +252,8 @@ export function cometidosDe(
         mision: mision.charAt(0).toLocaleUpperCase("es-ES") + mision.slice(1),
         senal,
         consignas: consignasSuyas(lineasConsignas(slide.notas), claves, siglas),
+        rival,
+        despues: despues ? despues.charAt(0).toLocaleUpperCase("es-ES") + despues.slice(1).toLowerCase() : "",
       },
     ];
   });
@@ -295,8 +327,8 @@ type Contexto = {
 
 /** Sólo «2 / 4» abajo: la cabecera ya dice quién, contra quién y qué. */
 function numeroPagina(ctx: Ctx, pagina: number, total: number) {
-  ctx.fillStyle = "rgba(15,30,61,.5)";
-  fuente(ctx, 28, 600);
+  ctx.fillStyle = "rgba(15,30,61,.8)";
+  fuente(ctx, 34, 600);
   ctx.textAlign = "right";
   ctx.fillText(`${pagina} / ${total}`, HOJA_W - MARGEN, HOJA_H - 44);
   ctx.textAlign = "left";
@@ -575,7 +607,7 @@ function dibujaAccion(
 
   fuente(ctx, 40, 600);
   const lineasMision = accion.mision ? renglones(ctx, accion.mision, maxW) : [];
-  const altoCaja = Math.max(230, 150 + lineasMision.length * 48);
+  const altoCaja = Math.max(230, 150 + lineasMision.length * 48 + (accion.rival ? 66 : 0));
 
   ctx.fillStyle = C.crema;
   rectRedondo(ctx, MARGEN, y, HOJA_W - MARGEN * 2, altoCaja, 22);
@@ -608,6 +640,20 @@ function dibujaAccion(
   for (const linea of lineasMision) {
     ctx.fillText(linea, tx, ty);
     ty += 48;
+  }
+
+  if (accion.rival) {
+    chapa(ctx, accion.rival.toUpperCase(), {
+      x: tx,
+      y: ty - 30,
+      alto: 50,
+      fondo: "#7A1F2B",
+      tinta: C.crema,
+      tamano: 30,
+      espaciado: 2,
+      padding: 20,
+      anchoMax: maxW,
+    });
   }
 
   y += altoCaja + 84;
@@ -671,6 +717,22 @@ function dibujaAccion(
     });
   }
 
+  if (accion.despues) {
+    y += 56;
+    rotuloSeccion(ctx, "Y DESPUÉS", y);
+    y += 40;
+
+    ctx.fillStyle = C.verde;
+    fuente(ctx, 42, 600);
+
+    let ly = y + 34;
+
+    for (const linea of renglones(ctx, accion.despues, HOJA_W - MARGEN * 2)) {
+      ctx.fillText(linea, MARGEN, ly);
+      ly += 50;
+    }
+  }
+
   numeroPagina(ctx, pagina, total);
 }
 
@@ -717,6 +779,8 @@ export async function pdfJugador(opciones: {
   player: Player | undefined;
   acciones: CometidoAccion[];
   capturas: string[];
+  /** Dónde está su cara en cada diapositiva (1920×1080), para el aro «TÚ». */
+  puntos?: ({ x: number; y: number } | null)[];
   rival: string;
   jornada?: string;
   escudos: Escudos;
@@ -743,6 +807,10 @@ export async function pdfJugador(opciones: {
 
     dibujaAccion(hoja.ctx, cx, accion, imagen, orden + 2, total);
 
+    const punto = opciones.puntos?.[orden];
+
+    if (punto) marcaJugador(hoja.ctx, punto, 0.25);
+
     doc.addPage([HOJA_W / 2, HOJA_H / 2], "portrait");
     doc.addImage(hoja.canvas.toDataURL("image/jpeg", 0.9), "JPEG", 0, 0, HOJA_W / 2, HOJA_H / 2);
   }
@@ -756,4 +824,68 @@ export async function pdfJugador(opciones: {
     .join("-")}.pdf`;
 
   return { nombre, blob: doc.output("blob"), acciones: acciones.length };
+}
+
+/* ------------------------------------------------------------------ */
+/*  PARA EL VÍDEO (lib/abp/video-jugador.ts)                           */
+/* ------------------------------------------------------------------ */
+
+export type { Contexto as ContextoJugador, Escudos };
+
+/** El contexto y el retrato, cargados una vez para todos los fotogramas. */
+export async function preparaJugador(opciones: {
+  player: Player | undefined;
+  rival: string;
+  jornada?: string;
+  escudos: Escudos;
+}) {
+  const foto = opciones.player?.fotoLejos || opciones.player?.foto;
+  const retrato = foto ? await cargaImagen(foto).catch(() => null) : null;
+
+  return { cx: { ...opciones } as Contexto, retrato };
+}
+
+export const pintaPortada = dibujaPortada;
+export const pintaAccion = dibujaAccion;
+
+/**
+ * El aro «TÚ» sobre su cara, que late. `punto` va en coordenadas de la
+ * diapositiva (1920×1080): el centro de su foto, medido en el tablero.
+ */
+export function marcaJugador(ctx: Ctx, punto: { x: number; y: number }, segundos: number) {
+  const k = HOJA_W / 1920;
+  const x = punto.x * k;
+  /* Algo por debajo del centro de la foto: la cara queda dentro, no en el filo. */
+  const y = TABLERO_Y + punto.y * k + 10;
+  const latido = 0.5 + 0.5 * Math.sin(segundos * Math.PI * 2);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, TABLERO_Y, HOJA_W, TABLERO_ALTO);
+  ctx.clip();
+
+  /* Rosa macizo con halo blanco: sobre el césped un aro fino se perdía (editor-video). */
+  const radio = 34 + latido * 10;
+
+  ctx.strokeStyle = "rgba(255,255,255,.9)";
+  ctx.lineWidth = 12;
+  ctx.beginPath();
+  ctx.arc(x, y, radio, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = "#F7B0B8";
+  ctx.lineWidth = 6;
+  ctx.stroke();
+  ctx.restore();
+
+  chapa(ctx, "TÚ", {
+    x,
+    y: Math.max(TABLERO_Y + 8, y - radio - 52),
+    alto: 40,
+    fondo: C.rosa,
+    tinta: C.navy,
+    tamano: 26,
+    espaciado: 2,
+    padding: 16,
+    desdeCentro: true,
+  });
 }
