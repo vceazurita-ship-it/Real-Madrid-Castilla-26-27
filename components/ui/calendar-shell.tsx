@@ -459,7 +459,8 @@ function DayCell({
               interactive &&
                 "cursor-pointer hover:-translate-y-0.5 hover:border-[#C8A96B]/40 focus:outline-none focus-visible:border-[#C8A96B]"
             ),
-        !isCurrentMonth && !outOfSeason && "opacity-60"
+        /* Días del mes de al lado: más apagados, pero legibles (antes 60 % × 35 %). */
+        !isCurrentMonth && !outOfSeason && "opacity-80"
       )}
     >
       <div className="mb-2 flex items-center justify-between gap-2 md:mb-3">
@@ -470,7 +471,7 @@ function DayCell({
               ? "bg-[#C8A96B] text-black"
               : isCurrentMonth
               ? "text-white"
-              : "text-white/35"
+              : "text-white/60"
           )}
         >
           {date.getDate()}

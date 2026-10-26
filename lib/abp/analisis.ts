@@ -562,21 +562,25 @@ function analizaReparto(
   const escasa = escasaDe(filtradas);
 
   const glosa = (nombre: string) => {
-    if (!conGlosa) return `«${nombre}»`;
+    /* Sin comillas ni mayúscula de etiqueta: «Lo más frecuente es córner». */
+    const llano = /[a-záéíóúñ]/.test(nombre.slice(1)) ? nombre.charAt(0).toLowerCase() + nombre.slice(1) : nombre;
+
+    if (!conGlosa) return llano;
 
     const clave = nombre.toLowerCase().replace(/\s+/g, " ");
     const ofensivo = sentido === "ofensivo";
 
     const dicho =
       clave === "posicional rival"
-        ? ofensivo ? "perdemos la posesión" : "el rival mantiene el balón"
+        ? ofensivo ? "perder la posesión" : "que el rival mantenga el balón"
         : clave === "posicional"
-          ? ofensivo ? "mantenemos el balón" : "recuperamos el balón"
+          ? ofensivo ? "mantener el balón" : "recuperar el balón"
           : clave.startsWith("conquista último tercio")
-            ? ofensivo ? "llegamos al último tercio rival" : "el rival llega a nuestro último tercio"
+            ? ofensivo ? "llegar al último tercio rival" : "que el rival llegue a nuestro último tercio"
             : "";
 
-    return dicho ? `«${nombre}» (${dicho})` : `«${nombre}»`;
+    /* La etiqueta de Hudl no se nombra: sólo lo que pasó. */
+    return dicho || llano;
   };
   /* En saques de banda se cuenta lo que pasó, sin la etiqueta de Hudl. */
   const frasePlana = (nombre: string, pesa: string) => {

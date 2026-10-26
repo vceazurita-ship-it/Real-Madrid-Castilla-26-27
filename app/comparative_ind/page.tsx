@@ -92,6 +92,9 @@ const colorIndice = (i: number | null) => (i === null ? tinta(0.2) : i >= 60 ? M
 
 const ordinal = (n: number) => `${n}º`;
 
+/** Por debajo, el índice se marca con asterisco: muestra corta. */
+const MUESTRA_CORTA = 300;
+
 const apellido = (nombre: string) => nombre.split(" ").slice(-1)[0];
 
 const formatea = (v: number) => (Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(2).replace(/\.?0+$/, ""));
@@ -268,6 +271,8 @@ export default function ComparativaCategoria() {
   /* La tabla sólo lleva a quien tiene índice; los de pocos minutos van en una
      línea al pie, sin filas con guiones. */
   const comparables = useMemo(() => visibles.filter((x) => x.f.indice !== null), [visibles]);
+  /* Menos de 300′: el índice vale, pero con muestra corta (asterisco y atenuado). */
+  const cortos = comparables.some((x) => x.f.jugador.minutos < MUESTRA_CORTA);
   const pocosMinutos = useMemo(
     () => visibles.filter((x) => x.f.indice === null).map((x) => x.ficha?.nombre || x.f.jugador.jugador),
     [visibles],
@@ -519,13 +524,13 @@ export default function ComparativaCategoria() {
                                 }
                               }}
                               aria-label={`Abrir la ficha de ${ficha?.nombre ?? f.jugador.jugador}`}
-                              className="cursor-pointer border-t border-white/[0.06] transition hover:bg-white/[0.04] focus-visible:bg-white/[0.06] focus-visible:outline-none"
+                              className={`cursor-pointer border-t border-white/[0.06] transition hover:bg-white/[0.04] focus-visible:bg-white/[0.06] focus-visible:outline-none ${f.jugador.minutos < MUESTRA_CORTA ? "opacity-60" : ""}`}
                             >
                               <td className="px-4 py-2.5">
                                 <div className="flex items-center gap-2.5">
                                   <Foto src={ficha?.foto} nombre={f.jugador.jugador} size={30} />
                                   <div className="min-w-0">
-                                    <span className="font-medium text-white/90">{nombreVisible(ficha?.nombre ?? f.jugador.jugador)}</span>
+                                    <span className="font-medium text-white/90">{nombreVisible(ficha?.nombre ?? f.jugador.jugador)}{f.jugador.minutos < MUESTRA_CORTA && <span className="text-[#C8A96B]" title={`Menos de ${MUESTRA_CORTA}′: muestra corta`}>*</span>}</span>
                                     <span className="block text-[10px] text-white/45 sm:hidden">
                                       {PUESTOS.find((p) => p.key === f.puesto)?.corto} · {f.jugador.minutos}′
                                     </span>
@@ -566,6 +571,12 @@ export default function ComparativaCategoria() {
                         </tbody>
                       </table>
                     </div>
+
+                    {cortos && (
+                      <p className="mt-3 text-xs text-white/50">
+                        <span className="text-[#C8A96B]">*</span> Menos de {MUESTRA_CORTA}′: muestra corta, el índice puede moverse mucho. El índice compara con su puesto en la categoría; la nota, sólo nuestras valoraciones.
+                      </p>
+                    )}
 
                     {pocosMinutos.length > 0 && (
                       <p className="mt-3 text-xs text-white/50">

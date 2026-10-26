@@ -72,3 +72,43 @@ export function ajustaNombres(texto: string, jugadores: Jugador[]): string {
 
   return salida;
 }
+
+/**
+ * Los jugadores de la plantilla que una consigna nombra y que no tienen ficha
+ * en la diapositiva («Cestero frontal» sin Cestero en el campo). Un apellido
+ * que comparten dos jugadores no cuenta: no se sabe de quién se habla.
+ */
+export function nombresSinFicha(
+  textos: string[],
+  jugadores: (Jugador & { id: string })[],
+  enDiapositiva: Set<string>,
+): string[] {
+  const duenos = new Map<string, Set<string>>();
+
+  for (const jugador of jugadores) {
+    for (const campo of [jugador.apodo, jugador.nombre]) {
+      const valor = sinTildes((campo ?? "").trim());
+
+      if (!valor) continue;
+
+      for (const clave of [valor, ...valor.split(/\s+/).filter((p) => p.length >= 4)]) {
+        duenos.set(clave, (duenos.get(clave) ?? new Set()).add(jugador.id));
+      }
+    }
+  }
+
+  const limpio = ` ${sinTildes(textos.join(" ")).replace(/[^a-zñ]+/g, " ")} `;
+  const fuera = new Set<string>();
+
+  for (const [clave, ids] of duenos) {
+    if (ids.size !== 1 || !limpio.includes(` ${clave} `)) continue;
+
+    const [id] = ids;
+
+    if (!enDiapositiva.has(id)) fuera.add(id);
+  }
+
+  return jugadores
+    .filter((jugador) => fuera.has(jugador.id))
+    .map((jugador) => jugador.apodo || jugador.nombre || "");
+}

@@ -95,7 +95,7 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { usePlayers } from "@/hooks/usePlayers";
-import { ajustaNombres } from "@/lib/abp/nombresPlantilla";
+import { ajustaNombres, nombresSinFicha } from "@/lib/abp/nombresPlantilla";
 import type { Player } from "@/types/player";
 import {
   compareMatches,
@@ -799,6 +799,23 @@ export default function PizarraAbpPage() {
     },
     [jornadas, mutaTablero],
   );
+
+  /* Un tablero atado a la jornada de OTRO rival (la del Cartagena se quedó
+     con el plan del Algeciras al copiarla, antes del 26/10/2026) se reata
+     solo al partido que se está viendo. */
+  useEffect(() => {
+    if (leyendo || !partido || !tablero?.rivalId || !jornadas.length) return;
+
+    const atadaA = jornadas.find((item) => item.id === tablero.rivalId);
+
+    if (!atadaA || mismoEquipo(atadaA.equipo, partido.opponent)) return;
+
+    const buena =
+      jornadas.find((item) => `riv-${item.id}` === partido.id) ??
+      buscaJornada(jornadas, { rival: partido.opponent, fecha: partido.date });
+
+    if (buena && mismoEquipo(buena.equipo, partido.opponent)) ata(buena.id);
+  }, [leyendo, partido, tablero?.rivalId, jornadas, ata]);
 
   const [pedida, setPedida] = useState(0);
 
@@ -2793,6 +2810,7 @@ export default function PizarraAbpPage() {
                     <div className="mt-3">
                     <TextosDeLaSlide
                       slide={slide}
+                      jugadores={players}
                       guardadoParaSiguientes={Boolean(
                         store.textos?.[slide.plantilla],
                       )}
@@ -3333,6 +3351,7 @@ function MemoriaResumen({
  */
 function TextosDeLaSlide({
   slide,
+  jugadores,
   guardadoParaSiguientes,
   onTitulo,
   onNotas,
@@ -3342,6 +3361,8 @@ function TextosDeLaSlide({
   onVolverALaPlantilla,
 }: {
   slide: SlidePizarra;
+  /** La plantilla, para avisar de quien sale en las consignas sin ficha. */
+  jugadores: { id: string; nombre?: string; apodo?: string }[];
   guardadoParaSiguientes: boolean;
   onTitulo: (titulo: string) => void;
   onNotas: (notas: string[]) => void;
@@ -3433,6 +3454,21 @@ function TextosDeLaSlide({
               {aviso}
             </p>
           ))}
+
+          {(() => {
+            const sinFicha = nombresSinFicha(
+              [...slide.notas, ...Object.values(slide.guion ?? {}).map(String)],
+              jugadores,
+              new Set(slide.fichas.map((ficha) => ficha.playerId)),
+            );
+
+            return sinFicha.length > 0 && slide.fichas.length > 0 ? (
+              <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-amber-300/80">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                {sinFicha.join(", ")} {sinFicha.length === 1 ? "sale" : "salen"} en las consignas y no {sinFicha.length === 1 ? "está" : "están"} en esta diapositiva.
+              </p>
+            ) : null;
+          })()}
 
           {juntaConsignas(slide.notas).length !== slide.notas.length && (
             <div className="mt-1.5">
