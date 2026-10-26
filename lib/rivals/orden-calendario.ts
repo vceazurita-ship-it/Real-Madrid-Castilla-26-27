@@ -128,6 +128,8 @@ export const JUGADO = 2;
 
 /** Cuándo toca el siguiente partido contra un equipo. */
 export type Enfrentamiento = {
+  /** `ID` de su fila en la hoja RIVALES: con él se abren el plan y el análisis. */
+  id?: string;
   equipo: string;
   jornada: string;
   fecha: string;
@@ -186,6 +188,7 @@ export function proximosEnfrentamientos(
       );
 
       const como = (partido: JornadaRival, grupo: Enfrentamiento["grupo"]) => ({
+        id: partido.id,
         equipo: partido.equipo,
         jornada: partido.jornada,
         fecha: partido.fecha,

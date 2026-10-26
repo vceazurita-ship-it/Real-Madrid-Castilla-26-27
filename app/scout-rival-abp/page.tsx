@@ -219,6 +219,15 @@ export default function ScoutRivalAbpPage() {
     } catch {
       /* modo privado o cuota llena: la selección sólo dura la sesión */
     }
+
+    /* La barra dice qué rival se mira (26/10/2026): recargar o copiar el
+       enlace abre el mismo, como en el plan de partido. */
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get("equipo") !== nombre) {
+      url.searchParams.set("equipo", nombre);
+      window.history.replaceState(window.history.state, "", url);
+    }
   }, []);
 
   /* ----------------------------- carga ----------------------------- */
@@ -277,10 +286,9 @@ export default function ScoutRivalAbpPage() {
             setGrupo("pretemporada");
           }
 
+          /* `pickTeam` deja `?equipo=` en la barra con el nombre de la hoja. */
           pickTeam(encontrado);
         }
-
-        window.history.replaceState({}, "", "/scout-rival-abp");
       } catch (caught) {
         if (cancelled) return;
 

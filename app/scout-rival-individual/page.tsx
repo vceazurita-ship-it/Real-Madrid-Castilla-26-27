@@ -16,7 +16,8 @@
  * debajo están sus vídeos repartidos por jugador (`VideosDelCanal`).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Search, Users } from "lucide-react";
 
 import { EsqueletoPantalla, EstadoVacio } from "@/components/ui/estados";
@@ -43,6 +44,23 @@ import {
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
 import { Explicativo } from "@/components/ui/textos-analisis";
+import { mismoClub } from "@/lib/rivals/mismoClub";
+
+/*
+| `?equipo=<NOMBRE>` (26/10/2026): desde la ficha del rival o la portada se
+| llega con el equipo puesto. Se lee como en el microciclo ABP, con
+| `useSyncExternalStore` y la instantánea de servidor vacía: sin `Suspense` y
+| sin desajuste al hidratar.
+*/
+const leeEquipoEnlazado = () => new URLSearchParams(window.location.search).get("equipo") ?? "";
+
+const sinEquipoEnlazado = () => "";
+
+function seSabraAlLlegar(avisa: () => void) {
+  const aviso = setTimeout(avisa, 0);
+
+  return () => clearTimeout(aviso);
+}
 
 export default function ScoutRivalIndividual() {
   const escudoDe = useEscudos();
@@ -95,7 +113,14 @@ export default function ScoutRivalIndividual() {
   /* Sin pedir ninguno, el de por defecto es el primero POR CALENDARIO: hasta
      que llega el orden no se elige, o se montaban y pedían a YouTube los
      vídeos del primero por alfabeto y luego se cambiaba (19/10/2026). */
-  const equipo = equipoPedido || (ordenListo ? equipos[0] : "") || "";
+  const equipoEnlazado = useSyncExternalStore(seSabraAlLlegar, leeEquipoEnlazado, sinEquipoEnlazado);
+
+  /* El de la URL manda sobre el del calendario, si está en las plantillas. */
+  const delEnlace = equipoEnlazado
+    ? (equipos.find((e) => e === equipoEnlazado) ?? equipos.find((e) => mismoClub(e, equipoEnlazado)) ?? "")
+    : "";
+
+  const equipo = equipoPedido || delEnlace || (ordenListo ? equipos[0] : "") || "";
 
   /* La tira de escudos se filtra al teclear: con treinta y ocho equipos,
      buscar el escudo a ojo es más lento que escribir tres letras. */
@@ -258,6 +283,16 @@ export default function ScoutRivalIndividual() {
               <span className="text-[11px] tabular-nums text-white/30">
                 {loading ? "" : `${visibles.length} de ${equipos.length}`}
               </span>
+
+              {/* Su plantilla, con las fichas de cada jugador. */}
+              {equipo && (
+                <Link
+                  href={`/rivals?equipo=${encodeURIComponent(equipo)}`}
+                  className="ml-auto text-[11px] text-[#C8A96B] transition hover:underline"
+                >
+                  Plantilla y fichas de {equipo} →
+                </Link>
+              )}
             </div>
 
             {/*

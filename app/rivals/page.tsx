@@ -3981,15 +3981,30 @@ export default function RivalPlayersPage() {
                       href: `/scout-rival-abp?equipo=${encodeURIComponent(selectedTeam)}`,
                       label: "Su balón parado",
                     },
-                    /* Estas pantallas abren solas en el próximo rival: sólo se
-                       ofrecen cuando es éste, o llevarían a otro equipo. */
-                    ...(esElProximo(ordenRivales, selectedTeam)
+                    /* El colectivo se abre por el `ID` de su fila en RIVALES:
+                       sin él, sólo se ofrece si es el próximo (que es donde
+                       abre solo), o llevaría a otro equipo. */
+                    ...(enfrentamientoDe(ordenRivales, selectedTeam)?.id
                       ? [
-                          { href: "/scout-rival-collective", label: "Cómo juega como equipo" },
-                          { href: "/duelos", label: "Duelos contra nuestro once" },
-                          { href: "/scout-rival-individual", label: "Vídeos de sus jugadores" },
+                          {
+                            href: `/scout-rival-collective?rival=${encodeURIComponent(
+                              enfrentamientoDe(ordenRivales, selectedTeam)?.id ?? "",
+                            )}`,
+                            label: "Cómo juega como equipo",
+                          },
                         ]
-                      : []),
+                      : esElProximo(ordenRivales, selectedTeam)
+                        ? [{ href: "/scout-rival-collective", label: "Cómo juega como equipo" }]
+                        : []),
+                    /* Duelos e individual se eligen por nombre de equipo. */
+                    {
+                      href: `/duelos?equipo=${encodeURIComponent(selectedTeam)}`,
+                      label: "Duelos contra nuestro once",
+                    },
+                    {
+                      href: `/scout-rival-individual?equipo=${encodeURIComponent(selectedTeam)}`,
+                      label: "Vídeos de sus jugadores",
+                    },
                   ]}
                 />
               )}

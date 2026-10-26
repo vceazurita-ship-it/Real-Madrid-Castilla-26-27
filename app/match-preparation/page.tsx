@@ -1200,6 +1200,8 @@ export default function MatchPreparation() {
 
   /* Los duelos de más ventaja y de más riesgo de /duelos, con jugador y cifra. */
   const duelosClave = useDuelosClave(rivalActivo?.EQUIPO ?? "");
+  /* `/duelos` se abre con el mismo rival que este plan, no con el próximo. */
+  const enlaceDuelos = rivalActivo?.EQUIPO ? `/duelos?equipo=${encodeURIComponent(rivalActivo.EQUIPO)}` : "/duelos";
   const contraste = useContrasteRival(rivalActivo?.EQUIPO ?? "");
 
   const recursosDisponibles = [
@@ -1850,7 +1852,7 @@ export default function MatchPreparation() {
               )}
                 </>
               )}
-              <Link href="/duelos" className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
+              <Link href={enlaceDuelos} className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
                 Ver todos los duelos
               </Link>
             </div>
@@ -2503,7 +2505,7 @@ export default function MatchPreparation() {
                     </p>
                   </div>
 
-                  <Link href="/duelos" className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
+                  <Link href={enlaceDuelos} className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
                     Quién contra quién, con percentil
                   </Link>
                 </div>

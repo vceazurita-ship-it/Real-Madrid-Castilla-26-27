@@ -16,7 +16,7 @@
  * en `lib/duelos.ts`.
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, CircleDot, RotateCcw, Swords } from "lucide-react";
 
 import { EsqueletoPantalla } from "@/components/ui/estados";
@@ -154,6 +154,18 @@ function Foto({ src, nombre, size = 32, borde }: { src?: string; nombre: string;
   );
 }
 
+/* El `?equipo=` de la URL, como en el microciclo ABP: sin `Suspense` y con la
+   instantánea de servidor vacía, para no desajustar la hidratación. */
+const leeEquipoEnlazado = () => new URLSearchParams(window.location.search).get("equipo") ?? "";
+
+const sinEquipoEnlazado = () => "";
+
+function seSabraAlLlegar(avisa: () => void) {
+  const aviso = setTimeout(avisa, 0);
+
+  return () => clearTimeout(aviso);
+}
+
 export default function DuelosPage() {
   const { players } = usePlayers();
   const escudoDe = useEscudos();
@@ -251,8 +263,20 @@ export default function DuelosPage() {
   | caía un momento en `equipos[0]`: el documento de duelos de ESE equipo se
   | cargaba —y se podía escribir— hasta que llegaba el calendario y cambiaba.
   */
+  /*
+  | `?equipo=<NOMBRE>` (26/10/2026): llegando desde la ficha del rival, la
+  | portada o el plan de partido, ese equipo manda sobre el próximo rival si
+  | está en Plantillas. Elegir otro a mano sigue mandando sobre los dos.
+  */
+  const equipoEnlazado = useSyncExternalStore(seSabraAlLlegar, leeEquipoEnlazado, sinEquipoEnlazado);
+  const delEnlace = equipoEnlazado
+    ? (equipos.find((e) => e === equipoEnlazado) ?? equipos.find((e) => mismoClub(e, equipoEnlazado)) ?? "")
+    : "";
+
   const equipoVisto =
-    equipo || (proximoListo ? (proximo ? equipos.find((e) => mismoClub(e, proximo.rival)) ?? "" : "") || equipos[0] || "" : "");
+    equipo ||
+    delEnlace ||
+    (proximoListo ? (proximo ? equipos.find((e) => mismoClub(e, proximo.rival)) ?? "" : "") || equipos[0] || "" : "");
 
   /* El once marcado en Plantillas rivales (sólo se lee). */
   useEffect(() => {

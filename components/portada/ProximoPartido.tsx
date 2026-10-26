@@ -528,8 +528,9 @@ export function ProximoPartido() {
 
         {/*
           Lo que ya se sabe del rival, en una línea. Sólo van las pantallas
-          que saben abrirse con el rival puesto: el área, el individual y los
-          duelos no leen nada de la URL y aquí serían un enlace más del menú.
+          que saben abrirse con el rival puesto: el área no lee nada de la URL
+          y aquí sería un enlace más del menú. Duelos e individual se abren
+          por `?equipo=` desde el 26/10/2026.
         */}
         {proximo && (
           <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
@@ -557,6 +558,22 @@ export function ProximoPartido() {
               href={conRival("/abp-pizarra")}
               texto="Pizarra ABP"
               title={`Las diapositivas de balón parado del partido contra ${nombreRival}`}
+            />
+
+            <span className="text-white/20">·</span>
+
+            <Atajo
+              href={conEquipo("/duelos")}
+              texto="Duelos"
+              title={`Nuestro once contra el de ${nombreRival}, puesto a puesto`}
+            />
+
+            <span className="text-white/20">·</span>
+
+            <Atajo
+              href={conEquipo("/scout-rival-individual")}
+              texto="Individual"
+              title={`Los vídeos de los jugadores de ${nombreRival}`}
             />
           </p>
         )}
