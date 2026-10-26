@@ -8,6 +8,7 @@ import { isHiddenPlayer } from "../lib/hiddenPlayers";
 import { posicionDe } from "../lib/posiciones";
 import { traeCsv } from "../lib/hojaCsv";
 import { licenciaDe } from "../lib/fichajes";
+import { dorsalDe } from "../lib/dorsales";
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=1978494160&single=true&output=csv";
@@ -94,7 +95,7 @@ export function useTrainingPlayers() {
           nombre: p.NOMBRE,
           apodo: p.APODO || p.NOMBRE,
           posicion: posicionDe(p.NOMBRE, p.POSICION),
-          dorsal: Number(p.DORSAL) || undefined,
+          dorsal: Number(p.DORSAL) || dorsalDe(p.NOMBRE),
 
           foto: getPlayerPhotoSrc(p.NOMBRE, {
             id: p.ID_JUGADOR,

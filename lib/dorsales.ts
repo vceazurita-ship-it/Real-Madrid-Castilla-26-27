@@ -59,10 +59,20 @@ const DORSALES: Dorsal[] = [
   { id: "JUG-17", nombre: "Mesonero", dorsal: 22 },
   { id: "JUG-09", nombre: "Lamini", dorsal: 23 },
   { id: "JUG-25", nombre: "F. Quetglas", dorsal: 25 },
-  { id: "JUG-19", nombre: "Alexis Ciria", dorsal: 26 },
+  { id: "JUG-19", nombre: "Alexis Ciria", dorsal: 17 },
   { id: "JUG-06", nombre: "Álvaro Lezcano", dorsal: 27 },
   { id: "JUG-13", nombre: "Diego Lacosta", dorsal: 28 },
   { id: "JUG-14", nombre: "M. Rezola", dorsal: 29 },
+  /* Revisados con la ficha del Castilla en BeSoccer el 26/10/2026. */
+  { id: "JUG-52", nombre: "Hugo de LLanos", dorsal: 8 },
+  { id: "JUG-46", nombre: "Izan Regueira", dorsal: 14 },
+  { id: "JUG-50", nombre: "Sergio Martínez", dorsal: 16 },
+  { id: "JUG-51", nombre: "Thiago", dorsal: 24 },
+  { id: "JUG-35", nombre: 'Diego Martínez "Beto"', dorsal: 26 },
+  { id: "JUG-35", nombre: "Beto", dorsal: 26 },
+  { id: "JUG-39", nombre: "Liberto Navascues", dorsal: 30 },
+  { id: "JUG-45", nombre: "Alfredo Sotres", dorsal: 32 },
+  { id: "JUG-02", nombre: "Melvin Ukpeigbe", dorsal: 36 },
 ];
 
 const POR_NOMBRE = new Map(
