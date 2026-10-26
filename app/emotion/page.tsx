@@ -48,6 +48,8 @@ type Player = {
 const AXES: {
   key: MetricKey;
   code: string;
+  /** Nombre corto en español: es el que se rotula en el radar y en los cuadros (las siglas sólo quedan para quien las conozca). */
+  corto: string;
   label: string;
   detail: string;
   moment: string;
@@ -55,6 +57,7 @@ const AXES: {
   {
     key: "ea",
     code: "EA",
+    corto: "Observar",
     label: "Externo · Amplio",
     detail: "Observación / lectura (qué ocurre)",
     moment: "Antes de intervenir",
@@ -62,6 +65,7 @@ const AXES: {
   {
     key: "ie",
     code: "IE",
+    corto: "Controlar",
     label: "Interno · Estrecho",
     detail: "Control emocional (qué siento)",
     moment: "Adversidad",
@@ -69,6 +73,7 @@ const AXES: {
   {
     key: "ia",
     code: "IA",
+    corto: "Analizar",
     label: "Interno · Amplio",
     detail: "Análisis / reflexión (qué hacer)",
     moment: "Juego parado",
@@ -76,6 +81,7 @@ const AXES: {
   {
     key: "ee",
     code: "EE",
+    corto: "Ejecutar",
     label: "Externo · Estrecho",
     detail: "Ejecución de acción (1v1)",
     moment: "Participación",
@@ -343,7 +349,7 @@ export default function EmotionPage() {
   });
 
   return (
-    <main className="min-h-screen bg-[#030811] text-white">
+    <main className="min-h-screen bg-[#030811] text-white max-sm:pb-20">
       <div className="flex flex-col md:flex-row">
         <Sidebar />
 
@@ -436,7 +442,7 @@ export default function EmotionPage() {
                 value={axisRanking ? nombreLargo(axisRanking.top) : "—"}
                 caption={
                   axisRanking
-                    ? `${axisRanking.top.code} · ${axisRanking.top.label}`
+                    ? `${axisRanking.top.corto} · ${axisRanking.top.label}`
                     : "Cargando datos"
                 }
                 tone="#3BEA9A"
@@ -447,7 +453,7 @@ export default function EmotionPage() {
                 value={axisRanking ? nombreLargo(axisRanking.bottom) : "—"}
                 caption={
                   axisRanking
-                    ? `${axisRanking.bottom.code} · ${axisRanking.bottom.label}`
+                    ? `${axisRanking.bottom.corto} · ${axisRanking.bottom.label}`
                     : "Cargando datos"
                 }
                 tone="#FFB84D"
@@ -488,15 +494,9 @@ export default function EmotionPage() {
 
             {/* ---------------------------------------------- Radares */}
             <div
-              className="campo-emotion rounded-[34px] p-4 sm:p-5 lg:p-6"
-              style={{
-                backgroundImage:
-                  "linear-gradient(rgba(5,14,24,.68), rgba(5,14,24,.68)), url('/emotional-field-bg.webp')",
-                backgroundSize: "100% 100%",
-                backgroundPosition: "center",
-                backgroundRepeat: "no-repeat",
-              }}
+              className="rounded-[34px] border border-white/10 bg-[#08131F]/60 p-4 sm:p-5 lg:p-6"
             >
+              {/* Sin imagen de campo detrás (26/10/2026): ensuciaba los radares y los chips. */}
               <div className="space-y-4">
                 {lineasConJugadores.has("leftSide") && (
                   <RadarPanel
@@ -552,7 +552,7 @@ export default function EmotionPage() {
                       </div>
 
                       <span className="rounded-md border border-[#E1C77B]/30 px-1.5 py-0.5 text-[10px] font-bold text-[#E1C77B]">
-                        {axis.code}
+                        {axis.corto}
                       </span>
                     </div>
 
@@ -590,12 +590,11 @@ export default function EmotionPage() {
             {axisRanking && teamAverage && (
               <p className="mt-4 text-sm leading-relaxed text-white/70">
                 <span className="font-semibold text-white">
-                  Dimensión a trabajar: {axisRanking.bottom.code}
-                </span>{" "}
-                ({axisRanking.bottom.detail.toLowerCase()}),{" "}
-                {coma(teamAverage[axisRanking.bottom.key])} de media frente a{" "}
+                  Dimensión a trabajar: {nombreLargo(axisRanking.bottom).toLowerCase()}
+                </span>
+                , {coma(teamAverage[axisRanking.bottom.key])} de media frente a{" "}
                 {coma(teamAverage[axisRanking.top.key])} en{" "}
-                {axisRanking.top.code}. Media sobre {rows.length} jugadores
+                {nombreLargo(axisRanking.top).toLowerCase()}. Media sobre {rows.length} jugadores
                 {rows.length < MUESTRA_MINIMA
                   ? ": con tan pocos registros es una tendencia"
                   : ""}
@@ -633,7 +632,7 @@ export default function EmotionPage() {
                         className="rounded-2xl border border-white/10 bg-black/20 p-4"
                       >
                         <p className="text-lg font-bold text-[#E4C977]">
-                          {axis.code}
+                          {axis.corto}
                         </p>
                         <p className="mt-1 text-sm font-medium text-white">
                           {axis.label}
@@ -733,7 +732,7 @@ function RadarTooltip({
 }) {
   if (!active || !payload || payload.length === 0) return null;
 
-  const axis = AXES.find((a) => a.code === label);
+  const axis = AXES.find((a) => a.corto === label);
 
   return (
     <div className="rounded-xl border border-white/15 bg-[#050E18]/95 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,.45)] backdrop-blur">
@@ -813,7 +812,7 @@ function RadarPanel({
   const chartData = useMemo(
     () =>
       AXES.map((axis) => {
-        const row: Record<string, string | number> = { key: axis.code };
+        const row: Record<string, string | number> = { key: axis.corto };
 
         series.forEach((s) => {
           row[s.name] = s.values[axis.key];
@@ -1048,7 +1047,7 @@ function RadarPanel({
         </div>
 
         <div className="w-full min-w-0 flex-1">
-          <div className="h-[280px] w-full min-w-[240px] sm:h-[300px]">
+          <div className="h-[320px] w-full min-w-[240px] sm:h-[380px]">
             {series.length === 0 && loading ? (
               <Hueso className="h-full w-full rounded-2xl" />
             ) : series.length === 0 ? (
@@ -1059,12 +1058,12 @@ function RadarPanel({
               <ResponsiveContainer
                 width="100%" minWidth={200}
                 height="100%"
-                initialDimension={{ width: horizontal ? 520 : 300, height: 280 }}
+                initialDimension={{ width: horizontal ? 520 : 300, height: 320 }}
               >
                 <RadarChart
                   data={chartData}
-                  outerRadius="76%"
-                  margin={{ top: 8, right: 16, bottom: 8, left: 16 }}
+                  outerRadius="80%"
+                  margin={{ top: 8, right: 24, bottom: 8, left: 24 }}
                 >
                   <PolarGrid stroke={`${radarTone}40`} />
 
@@ -1162,8 +1161,8 @@ function RadarPanel({
                   title={`${axis.label} · ${axis.detail}`}
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[12px] font-bold tracking-wider text-white/85">
-                      {axis.code}
+                    <span className="text-[13px] font-bold text-white/85">
+                      {axis.corto}
                     </span>
 
                     <span

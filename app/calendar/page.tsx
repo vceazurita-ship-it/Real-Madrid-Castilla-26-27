@@ -204,7 +204,7 @@ export default function Calendar() {
 
     return players
       .filter((p) => esDeSeguimiento(p) && !conSeguimiento.has(p.id))
-      .map((p) => p.nombre);
+      .map((p) => ({ id: p.id, nombre: nombreVisible(p.nombre) }));
   }, [players, trackingData, crudoTrackingData, loading, error, hoy]);
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
@@ -243,6 +243,34 @@ export default function Calendar() {
       loading={loading}
       keyboardEnabled={!selectedKey}
       legend={LEGEND}
+      statsColumnas={5}
+      franja={
+        /* La alerta va ENCIMA del calendario (26/10/2026): al final de la
+           página quedaba fuera de la vista y es lo que se pregunta el lunes.
+           Cada nombre lleva a su ficha. */
+        !playerFilter && sinSeguimiento.length > 0 ? (
+          <div
+            role="status"
+            className="rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80"
+          >
+            <span className="font-semibold text-[#C8A96B]">
+              Sin seguimiento en 14 días ({sinSeguimiento.length}):
+            </span>{" "}
+            {sinSeguimiento.map((j, i) => (
+              <span key={j.id}>
+                <button
+                  type="button"
+                  onClick={() => openPlayer(j.id)}
+                  className="underline-offset-2 hover:text-[#C8A96B] hover:underline"
+                >
+                  {j.nombre}
+                </button>
+                {i < sinSeguimiento.length - 1 ? ", " : "."}
+              </span>
+            ))}
+          </div>
+        ) : undefined
+      }
       stats={
         <>
           <CalendarStat
@@ -253,15 +281,13 @@ export default function Calendar() {
             }`}
             value={monthStats.total}
           />
-          <CalendarStat label="Jugadores" value={monthStats.jugadores} />
+          <CalendarStat label="Jugadores con seguimiento" value={monthStats.jugadores} />
           <CalendarStat label="Campo" value={monthStats.campo} />
           <CalendarStat label="Vídeo" value={monthStats.video} />
-          {monthStats.total - monthStats.campo - monthStats.video > 0 && (
-            <CalendarStat
-              label="Charla y otros"
-              value={monthStats.total - monthStats.campo - monthStats.video}
-            />
-          )}
+          <CalendarStat
+            label="Otros"
+            value={monthStats.total - monthStats.campo - monthStats.video}
+          />
         </>
       }
       toolbar={
@@ -283,7 +309,7 @@ export default function Calendar() {
 
             {players.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.nombre}
+                {nombreVisible(p.nombre)}
               </option>
             ))}
           </select>
@@ -373,17 +399,6 @@ export default function Calendar() {
             La franja de color de cada tarjeta dice si fue de campo, de vídeo
             u otro tipo; si un día tiene más de {MAX_VISIBLE_PER_DAY},
             «+N más» abre el día completo.
-          </p>
-        </div>
-      )}
-
-      {!playerFilter && sinSeguimiento.length > 0 && (
-        <div className="px-4 pb-6 md:px-8">
-          <p className="rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80">
-            <span className="font-semibold text-[#C8A96B]">
-              Sin seguimiento en 14 días ({sinSeguimiento.length}):
-            </span>{" "}
-            {sinSeguimiento.join(", ")}.
           </p>
         </div>
       )}

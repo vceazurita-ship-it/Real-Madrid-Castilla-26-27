@@ -854,13 +854,13 @@ function StatTile({
     <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4 transition hover:border-white/20">
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.25em] text-white/40">
         <Icon size={13} className="shrink-0 text-[#C8A96B]" />
-        <span className="truncate">{label}</span>
+        <span className="min-w-0 break-words leading-snug">{label}</span>
       </div>
 
       <p className="mt-2 text-2xl font-semibold tabular-nums">{value}</p>
 
       {hint && (
-        <p className="mt-0.5 truncate text-[11px] text-white/30">{hint}</p>
+        <p className="mt-0.5 break-words text-[11px] leading-snug text-white/40">{hint}</p>
       )}
     </div>
   );
@@ -1502,9 +1502,12 @@ function PlayerCard({
             tarjeta quedaba en blanco. */}
         <div
           aria-hidden
-          className="absolute inset-0 flex items-center justify-center text-4xl font-semibold tracking-wide text-[#C8A96B]/70"
+          className="absolute inset-0 flex items-center justify-center pb-10"
         >
-          {iniciales}
+          {/* Círculo pequeño con las iniciales, no letras gigantes (26/10/2026). */}
+          <span className="flex h-14 w-14 items-center justify-center rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 text-base font-semibold tracking-wide text-[#C8A96B]">
+            {iniciales}
+          </span>
         </div>
         {!sinFoto && (
           // eslint-disable-next-line @next/next/no-img-element
@@ -2370,7 +2373,7 @@ export default function IndividualPage() {
       const idRegistro = editingTracking?.ID_REGISTRO ?? result.id;
 
       const verificacion = await verificarGuardado({
-        titulo: `Seguimiento · ${selected.name}`,
+        titulo: `Seguimiento · ${nombreVisible(selected.name)}`,
         enviado: payload,
         releer: async () => {
           const respuesta = await fetch(
@@ -2591,7 +2594,7 @@ export default function IndividualPage() {
       }
 
       const verificacion = await verificarGuardado({
-        titulo: `Perfil · ${selected.name}`,
+        titulo: `Perfil · ${nombreVisible(selected.name)}`,
         enviado,
         releer: async () => {
           const respuesta = await fetch(`${APPS_SCRIPT_URL}?action=jugadores`, {
@@ -2652,7 +2655,7 @@ export default function IndividualPage() {
 
       /* Igual que los vídeos: el informe solo se lee del CSV cacheado. */
       const verificacion = await verificarGuardado({
-        titulo: `Informe · ${selected.name}`,
+        titulo: `Informe · ${nombreVisible(selected.name)}`,
         enviado,
         soloColumnas: true,
         releer: () =>
@@ -3094,7 +3097,7 @@ export default function IndividualPage() {
 
   return (
     <>
-      <main className="min-h-screen overflow-x-clip bg-[#0B0F14] text-white">
+      <main className="min-h-screen overflow-x-clip bg-[#0B0F14] text-white max-sm:pb-20">
         <div className="flex min-h-screen w-full">
           <Sidebar />
 
@@ -3152,7 +3155,7 @@ export default function IndividualPage() {
 
               {/* INDICADORES */}
 
-              <div className="mt-8 grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+              <div className="mt-8 grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
                 <StatTile
                   icon={Users}
                   label="Jugadores"
@@ -4137,7 +4140,7 @@ export default function IndividualPage() {
             title={
               editingTracking ? "Editar seguimiento" : "Nuevo seguimiento"
             }
-            subtitle={selected.name}
+            subtitle={nombreVisible(selected.name)}
             saving={saving}
             submitLabel={editingTracking ? "Actualizar" : "Guardar"}
             maxWidth="max-w-5xl"
@@ -4369,7 +4372,7 @@ export default function IndividualPage() {
         createPortal(
           <FormModal
             title="Editar perfil"
-            subtitle={selected.name}
+            subtitle={nombreVisible(selected.name)}
             saving={saving}
             submitLabel="Guardar perfil"
             maxWidth="max-w-4xl"
@@ -4508,7 +4511,7 @@ export default function IndividualPage() {
         createPortal(
           <FormModal
             title={editingVideo ? "Editar vídeo" : "Nuevo vídeo"}
-            subtitle={selected.name}
+            subtitle={nombreVisible(selected.name)}
             saving={saving}
             submitLabel={editingVideo ? "Actualizar" : "Guardar"}
             onClose={() => {
@@ -4614,7 +4617,7 @@ export default function IndividualPage() {
         createPortal(
           <FormModal
             title={playerReport ? "Editar informe" : "Nuevo informe"}
-            subtitle={selected.name}
+            subtitle={nombreVisible(selected.name)}
             saving={saving}
             submitLabel="Guardar informe"
             maxWidth="max-w-4xl"
