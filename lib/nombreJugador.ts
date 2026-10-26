@@ -23,6 +23,13 @@ const GRAFIAS: Record<string, string> = {
   [CLAVE("Oscar Nassei")]: "Óscar Naasei",
   [CLAVE("Oscar Naasei")]: "Óscar Naasei",
   [CLAVE("Hugo de LLanos")]: "Hugo de Llanos",
+  /* Los apodos con que la hoja y las fichas llaman a quien tiene nombre
+     completo (26/10/2026): el cuerpo técnico no debe dudar si es la misma persona. */
+  [CLAVE("Thiago")]: "Thiago Pitarch",
+  [CLAVE("Izan")]: "Izan Regueira",
+  [CLAVE("Carvajal")]: "Ángel Carvajal",
+  [CLAVE("Ciria")]: "Alexis Ciria",
+  [CLAVE("Melvin")]: "Melvin Ukpeigbe",
 };
 
 /** El nombre con el que se pinta a un jugador; el que no está en la tabla se queda como viene. */

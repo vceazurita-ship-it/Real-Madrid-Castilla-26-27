@@ -179,7 +179,7 @@ export default function RatingsPage() {
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1">
+      <main className="min-w-0 flex-1 max-sm:pb-20">
         <Topbar />
 
         <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 md:px-8 md:py-8">

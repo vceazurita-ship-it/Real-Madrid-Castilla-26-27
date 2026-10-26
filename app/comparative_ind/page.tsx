@@ -352,7 +352,7 @@ export default function ComparativaCategoria() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-white">
+    <main className="min-h-screen bg-[#0B0F14] text-white max-sm:pb-20">
       <div className="flex">
         <Sidebar />
         <div className="min-w-0 flex-1">

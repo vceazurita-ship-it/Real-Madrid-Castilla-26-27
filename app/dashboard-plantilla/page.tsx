@@ -217,7 +217,7 @@ function formatFecha(value: unknown) {
  */
 const DIAS_CONTROL_ANTIGUO = 30;
 
-const nombreCorto = (p: { apodo?: string; nombre?: string }) => p.apodo || p.nombre || "";
+const nombreCorto = (p: { apodo?: string; nombre?: string }) => nombreVisible(p.apodo || p.nombre || "");
 
 function textoControl(fecha: unknown, ahora: number) {
   const marca = parseFecha(fecha);
@@ -269,6 +269,7 @@ export default function DashboardPlantilla() {
   const [scoutingRows, setScoutingRows] = useState<ScoutingCSV[]>([]);
 
   const [loading, setLoading] = useState(true);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -684,7 +685,7 @@ export default function DashboardPlantilla() {
       .map((player, index) => ({
         puesto: index + 1,
         id: player.id,
-        name: player.apodo || player.nombre,
+        name: nombreVisible(player.apodo || player.nombre),
         value: Number(player.media.toFixed(1)),
       }));
   }, [filteredPlayers]);
@@ -697,7 +698,7 @@ export default function DashboardPlantilla() {
         y: player.fisica,
         z: Number(player.media.toFixed(1)),
         id: player.id,
-        name: player.apodo || player.nombre,
+        name: nombreVisible(player.apodo || player.nombre),
         estado: player.estado,
         color: estadoColor(player.estado),
       }));
@@ -731,7 +732,7 @@ export default function DashboardPlantilla() {
       let value = filters[key];
 
       if (key === "jugador") {
-        value = players.find((p) => p.id === value)?.nombre ?? value;
+        value = nombreVisible(players.find((p) => p.id === value)?.nombre ?? value);
       }
 
       if (key === "activo") {
@@ -819,7 +820,7 @@ export default function DashboardPlantilla() {
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1">
+      <main className="min-w-0 flex-1 max-sm:pb-20">
         <Topbar />
 
         <div className="w-full min-w-0 space-y-6 px-4 py-6 sm:px-6 md:px-8 md:py-8">
@@ -883,6 +884,29 @@ export default function DashboardPlantilla() {
                 />
               </div>
 
+              {/* En el móvil los cinco filtros van plegados tras «Filtros»
+                  (con cuántos hay activos) y a la vista queda sólo el buscador.
+                  El desplegable «Jugador» hacía lo mismo que «Buscar», así que
+                  en el móvil no sale. Desde 640 px, todo como antes. */}
+              <button
+                type="button"
+                onClick={() => setFiltrosAbiertos((v) => !v)}
+                aria-expanded={filtrosAbiertos}
+                className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-[#11161D] px-4 py-3 text-sm text-white/80 sm:hidden"
+              >
+                <span>
+                  Filtros
+                  {activeFilters.filter((f) => f.key !== "jugador").length > 0
+                    ? ` (${activeFilters.filter((f) => f.key !== "jugador").length})`
+                    : ""}
+                </span>
+                <span aria-hidden>{filtrosAbiertos ? "−" : "+"}</span>
+              </button>
+
+              <div
+                className={`${filtrosAbiertos ? "grid gap-3" : "hidden"} min-w-0 sm:contents`}
+              >
+              <div className="hidden min-w-0 sm:block">
               <FilterSelect
                 label="Jugador"
                 value={filters.jugador}
@@ -892,6 +916,7 @@ export default function DashboardPlantilla() {
                   label: nombreVisible(p.nombre || p.apodo),
                 }))}
               />
+              </div>
 
               <FilterSelect
                 label="Posición"
@@ -943,6 +968,7 @@ export default function DashboardPlantilla() {
                   { value: "false", label: "Promocionados a entrenar" },
                 ]}
               />
+              </div>
             </div>
 
             {/* CHIPS DE FILTROS ACTIVOS */}
@@ -1026,7 +1052,7 @@ export default function DashboardPlantilla() {
 
               {/* KPIs */}
 
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-5">
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-5 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
                 {kpis.map((kpi) => {
                   const clickable = Boolean(kpi.filter);
 
@@ -1131,7 +1157,7 @@ export default function DashboardPlantilla() {
                       subtitle={
                         selectedPlayer?.valorado
                           ? `${
-                              selectedPlayer.apodo || selectedPlayer.nombre
+                              nombreVisible(selectedPlayer.apodo || selectedPlayer.nombre)
                             } vs. media de los ${stats.valorados} con ficha${
                               stats.valorados < stats.total ? ` (de ${stats.total} en la lista)` : ""
                             }${stats.valorados < 5 ? " · con tan pocas fichas es sólo una tendencia" : ""} · escala de 0 a 10`
@@ -1169,9 +1195,11 @@ export default function DashboardPlantilla() {
                             {selectedPlayer?.valorado && (
                               <Radar
                                 name={
-                                  selectedPlayer.apodo ||
-                                  selectedPlayer.nombre ||
-                                  "Jugador"
+                                  nombreVisible(
+                                    selectedPlayer.apodo ||
+                                      selectedPlayer.nombre ||
+                                      "Jugador",
+                                  )
                                 }
                                 dataKey="jugador"
                                 stroke={THEME.gold}
@@ -1944,7 +1972,7 @@ function PlayerCard({
           </div>
 
           <h3 className="mt-1 truncate text-lg font-semibold">
-            {player.apodo || player.nombre}
+            {nombreVisible(player.apodo || player.nombre)}
           </h3>
 
           <p className="truncate text-xs text-white/40">
@@ -2117,7 +2145,7 @@ function ResumenSesionesPlantilla({ resumen, players }: { resumen: ResumenSesion
       <ul className="mt-4 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-3">
         {filas.map(({ p, d }) => (
           <li key={p.id} className="flex min-w-0 items-baseline justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate text-white/70">{p.apodo || p.nombre}</span>
+            <span className="min-w-0 truncate text-white/70">{nombreVisible(p.apodo || p.nombre)}</span>
             <span className="shrink-0 tabular-nums text-white/50">
               {d.sesiones} de {resumen.totalSesiones}
             </span>

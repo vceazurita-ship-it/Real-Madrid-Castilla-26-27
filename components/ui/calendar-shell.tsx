@@ -52,6 +52,8 @@ type CalendarShellProps = {
   onMonthChange: (index: number) => void;
   /** Resumen del mes (usa CalendarStat). */
   stats?: ReactNode;
+  /** Columnas del resumen en pantalla ancha: 4 por defecto, 5 si hay cinco tarjetas (que no caiga una sola abajo). */
+  statsColumnas?: 4 | 5;
   /** Una franja sobre el calendario (p. ej. el próximo partido), antes del resumen del mes. */
   franja?: ReactNode;
   legend?: CalendarLegendItem[];
@@ -94,6 +96,7 @@ export function CalendarShell({
   monthIndex,
   onMonthChange,
   stats,
+  statsColumnas = 4,
   franja,
   legend,
   toolbar,
@@ -162,7 +165,11 @@ export function CalendarShell({
             {franja ? <div className="mt-5">{franja}</div> : null}
 
             {stats && (
-              <div className="mt-5 grid grid-cols-2 gap-2 md:gap-3 lg:grid-cols-4">
+              <div
+                className={`mt-5 grid grid-cols-2 gap-2 md:gap-3 ${
+                  statsColumnas === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"
+                }`}
+              >
                 {stats}
               </div>
             )}

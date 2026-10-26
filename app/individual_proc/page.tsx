@@ -997,7 +997,7 @@ export default function DashboardSeguimiento() {
   /* ------------------------------------------------------------------ */
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-white">
+    <main className="min-h-screen bg-[#0B0F14] text-white max-sm:pb-20">
       <div className="flex">
         <Sidebar />
 
@@ -1204,7 +1204,7 @@ export default function DashboardSeguimiento() {
 
               {/* KPIs */}
 
-              <div className="mt-7 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4">
+              <div className="mt-7 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 md:gap-4 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
                 <StatCard
                   icon={MessageSquareText}
                   title="Seguimientos"
@@ -1231,7 +1231,7 @@ export default function DashboardSeguimiento() {
 
                 <StatCard
                   icon={CalendarDays}
-                  title="Media semanal"
+                  title={totalWeeks === 1 ? "Esta semana" : "Media semanal"}
                   value={cm(averageWeek)}
                   hint={totalWeeks === 1 ? "1 semana activa" : `${totalWeeks} semanas activas`}
                   accent="#4C7A67"
@@ -2315,7 +2315,7 @@ function StatCard({
 
       <div className="mt-2.5 flex items-center gap-2">
         {hint && (
-          <span className="truncate text-[11px] text-white/40">{hint}</span>
+          <span className="min-w-0 break-words text-[11px] leading-snug text-white/40">{hint}</span>
         )}
 
         {showDelta && (
@@ -2392,16 +2392,23 @@ function DonutWithLegend({
 
   return (
     <div className="flex flex-col lg:flex-row items-center gap-4">
-      <div className="relative h-[240px] w-full lg:w-1/2">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
+      <div className="relative flex h-[240px] w-full items-center justify-center lg:w-1/2">
+        {/* Tamaño fijo y sin animación de entrada (26/10/2026): con
+            ResponsiveContainer el anillo salía vacío —sólo el total y la
+            leyenda— cuando el ancho medido llegaba a 0 o la animación no
+            arrancaba. Los arcos se dibujan siempre. */}
+        <div className="h-[240px] w-[240px]">
+          <PieChart width={240} height={240}>
             <Pie
               data={data}
               dataKey="value"
               nameKey="name"
+              cx={120}
+              cy={120}
               innerRadius={62}
               outerRadius={100}
               paddingAngle={2}
+              isAnimationActive={false}
               cursor="pointer"
               onClick={(d) => {
                 const name = d?.payload?.name ?? d?.name;
@@ -2420,7 +2427,7 @@ function DonutWithLegend({
 
             <Tooltip content={<DarkTooltip rows={[["% del total", "percentage"]]} />} />
           </PieChart>
-        </ResponsiveContainer>
+        </div>
 
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           <p className="text-2xl font-bold text-[#C8A96B]">{total}</p>

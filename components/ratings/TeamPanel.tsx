@@ -99,13 +99,17 @@ const LINE_GROUPS: { key: LineaKey; label: string }[] = [
 /** Partidos mínimos para que una media entre en el «mejor» y en el podio. */
 const MIN_FIABLE = 4;
 
-/** Qué significa cada color de barra: los cortes de `ratingColorHex`. */
+/**
+ * Qué significa cada color de barra. Los tonos salen de la MISMA función que
+ * pinta barras y chips (`ratingColor`, con la variable del tema), no de
+ * hexadecimales copiados: así la leyenda no se desvía en modo día.
+ */
 function LeyendaColorNota() {
   const tramos = [
-    { color: "#F87171", texto: "menos de 5" },
-    { color: "#FBBF24", texto: "5 a 6,4" },
-    { color: "#4ADE80", texto: "6,5 a 7,9" },
-    { color: "#22D3EE", texto: "8 o más" },
+    { color: ratingColor(4), texto: "menos de 5" },
+    { color: ratingColor(6), texto: "5 a 6,4" },
+    { color: ratingColor(7), texto: "6,5 a 7,9" },
+    { color: ratingColor(9), texto: "8 o más" },
   ];
 
   return (
@@ -530,7 +534,7 @@ export function TeamPanel({
 
                   <Bar dataKey="value" isAnimationActive={false} radius={[0, 8, 8, 0]} barSize={18}>
                     {topChart.map((point) => (
-                      <Cell key={point.name} fill={ratingColorHex(point.value)} />
+                      <Cell key={point.name} fill={ratingColorHex(point.value)} style={{ fill: ratingColor(point.value) }} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -619,7 +623,7 @@ export function TeamPanel({
 
                     <Bar dataKey="value" isAnimationActive={false} radius={[8, 8, 0, 0]} barSize={34}>
                       {byLine.map((point) => (
-                        <Cell key={point.name} fill={ratingColorHex(point.value)} />
+                        <Cell key={point.name} fill={ratingColorHex(point.value)} style={{ fill: ratingColor(point.value) }} />
                       ))}
                     </Bar>
                   </BarChart>
