@@ -101,6 +101,8 @@ const FICHAS: Ficha[] = [
   | (26/10/2026). Dorsal, puesto y nombre de BeSoccer, que de Arroyo,
   | Santamaría y Pérez sólo publica la inicial: corregidlo aquí
   | o en la hoja, que gana.
+  | Licencias (27/10/2026, el analista): Arroyo es del Castilla, Rajado del
+  | RMC y Espinosa, Santamaría y Pérez del Juvenil A.
   */
   {
     id: "JUG-56",
@@ -116,7 +118,7 @@ const FICHAS: Ficha[] = [
     nombre: "Jorge Rajado",
     apodo: "Rajado",
     posicion: "11",
-    licencia: "RMCF Castilla",
+    licencia: "RMC",
     dorsal: 34,
     alias: ["J. Rajado"],
   },
@@ -125,7 +127,7 @@ const FICHAS: Ficha[] = [
     nombre: "José Luis Sáez Espinosa",
     apodo: "Espinosa",
     posicion: "LATERAL I",
-    licencia: "RMCF Castilla",
+    licencia: "JUV A",
     dorsal: 35,
     alias: ["J. Espinosa", "Jose Luis Espinosa"],
   },
@@ -134,7 +136,7 @@ const FICHAS: Ficha[] = [
     nombre: "F. Santamaría",
     apodo: "Santamaría",
     posicion: "9",
-    licencia: "RMCF Castilla",
+    licencia: "JUV A",
     dorsal: 38,
     alias: ["F. Santamaria", "Santamaria"],
   },
@@ -143,7 +145,7 @@ const FICHAS: Ficha[] = [
     nombre: "A. Pérez",
     apodo: "Pérez",
     posicion: "11",
-    licencia: "RMCF Castilla",
+    licencia: "JUV A",
     dorsal: 39,
     alias: [],
   },
