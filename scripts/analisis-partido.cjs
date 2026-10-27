@@ -447,7 +447,19 @@ async function principal() {
   } else {
     paso(2, "Wyscout: bajando la liga (se abre un Chrome que se mueve solo)");
 
-    const w = await corre("cmd.exe", ["/d", "/c", path.join(RAIZ, "scripts", "wyscout-semanal.cmd"), "--forzar"]);
+    /*
+    | Hasta tres intentos (27/10/2026): la web de Wyscout falla a ratos («No
+    | sale Platform en el menú», el Chrome colgado) y la pasada siguiente sale
+    | bien. Sólo se repite lo que puede ser pasajero (código 1, 7 o uno sin
+    | nombre); la sesión caducada o la cuenta sin columnas no se arreglan solas.
+    */
+    let w = await corre("cmd.exe", ["/d", "/c", path.join(RAIZ, "scripts", "wyscout-semanal.cmd"), "--forzar"]);
+
+    for (let intento = 2; intento <= 3 && ![0, 2, 3, 4, 5, 6, 8, 9].includes(w.codigo); intento += 1) {
+      console.log(`Wyscout: ha fallado (código ${w.codigo}); intento ${intento} de 3 en 2 minutos`);
+      await new Promise((listo) => setTimeout(listo, 120_000));
+      w = await corre("cmd.exe", ["/d", "/c", path.join(RAIZ, "scripts", "wyscout-semanal.cmd"), "--forzar"]);
+    }
 
     const MOTIVO = {
       0: [true, "bajado y publicado"],
@@ -661,8 +673,12 @@ async function principal() {
       "No escribas en las hojas ni hagas git: eso lo hace el script que te ha llamado cuando acabes. Tu trabajo son los ficheros que pide el manual.",
     ].join("\n");
 
-    /* Un `.cmd` no se puede lanzar sin shell en Node 24 (EINVAL). */
-    const c = await corre(
+    /*
+    | Con el límite de sesión de Claude (J07, 10/10/2026: «You've hit your
+    | session limit · resets 11:40pm») ya no se pierde la pasada: se espera a
+    | la hora que dice, como mucho 6 h, y se sigue donde se quedó. Dos veces.
+    */
+    const lanza = () => corre(
       CLAUDE.endsWith(".cmd") ? "cmd.exe" : CLAUDE,
       [
         ...(CLAUDE.endsWith(".cmd") ? ["/d", "/c", CLAUDE] : []),
@@ -681,6 +697,19 @@ async function principal() {
          descarga de Wyscout hasta reiniciar el vigía. */
       { cwd: CARPETA, stdio: ["ignore", "pipe", "pipe"], plazoMs: 8 * 3_600_000 },
     );
+
+    /* Un `.cmd` no se puede lanzar sin shell en Node 24 (EINVAL). */
+    let c = await lanza();
+
+    for (let vuelta = 0; vuelta < 2 && c.codigo !== 0; vuelta += 1) {
+      const ms = esperaAlLimite(c.texto);
+
+      if (ms === null) break;
+
+      console.log(`Claude Code ha topado con su límite: sigo en ${Math.round(ms / 60_000)} min, donde se quedó`);
+      await new Promise((listo) => setTimeout(listo, ms));
+      c = await lanza();
+    }
 
     clearInterval(reloj);
 
@@ -764,6 +793,34 @@ async function principal() {
   paso(8, "comprobando sección por sección");
 
   return termina(CARPETA, null);
+}
+
+/**
+ * Si Claude ha salido por su límite de uso, cuánto esperar (ms) hasta la hora
+ * que dice («resets 11:40pm», «resets 3am») más dos minutos. `null` si no es eso
+ * o si faltan más de 6 h.
+ */
+function esperaAlLimite(texto) {
+  if (!/(session|usage|weekly) limit|hit your limit/i.test(texto ?? "")) return null;
+
+  const m = /resets\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i.exec(texto);
+  const ahora = new Date();
+
+  if (!m) return 30 * 60_000;
+
+  let hora = Number(m[1]) % 12;
+
+  if (m[3].toLowerCase() === "pm") hora += 12;
+
+  const cuando = new Date(ahora);
+
+  cuando.setHours(hora, Number(m[2] ?? 0), 0, 0);
+
+  if (cuando <= ahora) cuando.setDate(cuando.getDate() + 1);
+
+  const ms = cuando - ahora + 120_000;
+
+  return ms <= 6 * 3_600_000 ? ms : null;
 }
 
 async function termina(carpeta, codigoForzado) {

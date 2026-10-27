@@ -285,6 +285,38 @@ function eligeMomentos(timeline, nosotros = "Real Madrid Castilla") {
 /*  LOS CORTES, DESDE HUDL                                             */
 /* ------------------------------------------------------------------ */
 
+/*
+| ¿El corte sirve? (27/10/2026) En la J09 dos cortes de Hudl salieron rotos
+| —uno de 290 bytes sin imagen— y al sacar sus fotogramas ffmpeg tumbaba el
+| vídeo entero a las tres horas de trabajo. Se mira que tenga imagen y que
+| dure al menos la mitad de lo pedido.
+*/
+async function corteValido(fichero, dura) {
+  if (!fs.existsSync(fichero) || fs.statSync(fichero).size < 100_000) return false;
+
+  /* ffmpeg -i sin salida sale con error, pero lo que importa es lo que cuenta del fichero. */
+  const info = await ejecuta(FFMPEG, ["-hide_banner", "-i", fichero]).then(
+    (r) => r.stderr,
+    (e) => String(e.stderr ?? ""),
+  );
+  const d = info.match(/Duration: (\d+):(\d+):([\d.]+)/);
+  const segundos = d ? Number(d[1]) * 3600 + Number(d[2]) * 60 + Number(d[3]) : 0;
+
+  return /Stream #.*Video:/.test(info) && segundos >= Math.min(dura ?? 0, 30) * 0.5;
+}
+
+/** Los momentos cuyo corte no sirve se quedan fuera, con aviso: mejor un vídeo con uno menos que ninguno. */
+async function soloCortesValidos(momentos) {
+  const buenos = [];
+
+  for (const m of momentos) {
+    if (m.fichero && (await corteValido(m.fichero, m.dura))) buenos.push(m);
+    else console.log(`  (fuera el corte ${m.tipo} ${m.minuto}: el fichero de Hudl salió roto)`);
+  }
+
+  return buenos;
+}
+
 async function cortaDeHudl(carpeta, momentos, destino) {
   const hls = JSON.parse(fs.readFileSync(path.join(carpeta, "hls.json"), "utf8"));
   const acumulado = [0];
@@ -314,12 +346,19 @@ async function cortaDeHudl(carpeta, momentos, destino) {
     for (const [i, m] of momentos.entries()) {
       m.fichero = path.join(destino, `${String(i + 1).padStart(2, "0")}-${m.tipo}-${m.minuto.replace(/[^0-9+]/g, "")}.mp4`);
 
-      if (fs.existsSync(m.fichero)) continue;
+      if (await corteValido(m.fichero, m.dura)) continue;
 
-      const s0 = Math.max(0, acumulado.findIndex((a) => a > m.desde) - 1);
-      const s1 = Math.min(hls.segs.length - 1, acumulado.findIndex((a) => a >= m.desde + m.dura + 0.5) - 1);
+      /* Uno roto de una pasada anterior se vuelve a cortar. */
+      fs.rmSync(m.fichero, { force: true });
+
+      /* Hasta tres intentos: Hudl a veces devuelve un trozo vacío o a medias. */
+      for (let intento = 0; intento < 3; intento += 1) {
+      const s0 = Math.max(0, acumulado.findIndex((a) => a > m.desde) - 1 - intento);
+      const fin = acumulado.findIndex((a) => a >= m.desde + m.dura + 0.5);
+      const s1 = Math.min(hls.segs.length - 1, (fin < 0 ? hls.segs.length : fin) - 1 + intento);
       const trozos = [init];
 
+      try {
       for (let s = s0; s <= (s1 < s0 ? s0 + 2 : s1); s += 1) trozos.push(await baja(hls.segs[s]));
 
       const crudo = path.join(tmp, "crudo.mp4");
@@ -336,8 +375,17 @@ async function cortaDeHudl(carpeta, momentos, destino) {
         "-movflags", "+faststart",
         m.fichero,
       ]);
+      } catch (error) {
+        console.log(`  (corte ${i + 1}, intento ${intento + 1}: ${String(error.message).split("\n")[0].slice(0, 120)})`);
+      }
 
-      console.log(`  corte ${i + 1}/${momentos.length}: ${m.tipo} ${m.minuto} (Hudl ${m.desde.toFixed(1)} s)`);
+      if (await corteValido(m.fichero, m.dura)) break;
+
+      fs.rmSync(m.fichero, { force: true });
+      await espera(1500);
+      }
+
+      console.log(`  corte ${i + 1}/${momentos.length}: ${m.tipo} ${m.minuto} (Hudl ${m.desde.toFixed(1)} s)${fs.existsSync(m.fichero) ? "" : " · ROTO tras 3 intentos"}`);
     }
 
     fs.rmSync(tmp, { recursive: true, force: true });
@@ -445,7 +493,7 @@ async function escribeLocuciones(ai, guion) {
           responseJsonSchema: { type: "object", properties: { locuciones: { type: "array", items: { type: "object", properties: { id: { type: "string" }, texto: { type: "string" } }, required: ["id", "texto"] } } }, required: ["locuciones"] },
         },
       }),
-    ["gemini-2.5-pro", "gemini-2.5-flash"],
+    ["gemini-2.5-flash"],
   );
 
   const porId = new Map((JSON.parse(r.text ?? "{}").locuciones ?? []).map((l) => [l.id, String(l.texto).trim()]));
@@ -613,7 +661,9 @@ async function extraeFotogramas(fichero, destino) {
 
   if (fs.existsSync(path.join(destino, "f_0001.jpg"))) return;
 
-  await ejecuta(FFMPEG, ["-y", "-loglevel", "error", "-i", fichero, "-vf", `fps=${FPS},scale='min(${ANCHO_HD},iw)':-2`, "-q:v", "4", path.join(destino, "f_%04d.jpg")], { maxBuffer: 1 << 24 });
+  await ejecuta(FFMPEG, ["-y", "-loglevel", "error", "-i", fichero, "-vf", `fps=${FPS},scale='min(${ANCHO_HD},iw)':-2`, "-q:v", "4", path.join(destino, "f_%04d.jpg")], { maxBuffer: 1 << 24 }).catch((error) => {
+    throw new Error(`no salen los fotogramas de ${path.basename(fichero)}: ${String(error.stderr || error.message).split("\n")[0]}`);
+  });
 }
 
 async function extraeSonido(fichero) {
@@ -1107,6 +1157,10 @@ async function principal() {
 
   if (DE_CACHE && fs.existsSync(cacheCortes)) momentos = JSON.parse(fs.readFileSync(cacheCortes, "utf8"));
   else await cortaDeHudl(carpeta, momentos, carpetaCortes);
+
+  momentos = await soloCortesValidos(momentos);
+
+  if (!momentos.length) return fin(1, "ningún corte de Hudl ha salido bien: vuelve a pedirlo en un rato");
 
   /* 2. La lectura táctica de cada corte (Gemini viendo el vídeo). */
   if (ai) await leeCortes(ai, partido, momentos);

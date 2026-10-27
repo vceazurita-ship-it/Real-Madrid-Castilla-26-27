@@ -522,12 +522,13 @@ const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
   position: "Centrocampista",
   photo: PLAYER_PHOTO_FALLBACK,
 },
-/* Los cinco de BeSoccer que no estaban en la hoja (26/10/2026, puente en `lib/fichajes.ts`). */
+/* Los cinco de BeSoccer que no estaban en la hoja (26/10/2026, puente en `lib/fichajes.ts`).
+   Sólo Arroyo es del Castilla: Rajado es del RMC y los otros tres, del Juvenil A. */
 { idJugador: "JUG-56", name: "D. Arroyo", position: "Portero", photo: PLAYER_PHOTO_FALLBACK },
-{ idJugador: "JUG-57", name: "Jorge Rajado", position: "Delantero", photo: PLAYER_PHOTO_FALLBACK },
-{ idJugador: "JUG-58", name: "José Luis Sáez Espinosa", position: "Defensa", photo: PLAYER_PHOTO_FALLBACK },
-{ idJugador: "JUG-59", name: "F. Santamaría", position: "Delantero", photo: PLAYER_PHOTO_FALLBACK },
-{ idJugador: "JUG-60", name: "A. Pérez", position: "Delantero", photo: PLAYER_PHOTO_FALLBACK },
+{ idJugador: "JUG-57", name: "Jorge Rajado", position: "Delantero", photo: PLAYER_PHOTO_FALLBACK, externo: true },
+{ idJugador: "JUG-58", name: "José Luis Sáez Espinosa", position: "Defensa", photo: PLAYER_PHOTO_FALLBACK, externo: true },
+{ idJugador: "JUG-59", name: "F. Santamaría", position: "Delantero", photo: PLAYER_PHOTO_FALLBACK, externo: true },
+{ idJugador: "JUG-60", name: "A. Pérez", position: "Delantero", photo: PLAYER_PHOTO_FALLBACK, externo: true },
 {
   idJugador: "JUG-47",
   name: "Cherif",
@@ -1447,6 +1448,11 @@ function RejillaJugadores({
   const propios = jugadores.filter((p) => !p.externo);
   const externos = jugadores.filter((p) => p.externo);
 
+  /* Por defecto sólo los del Castilla (27/10/2026): los del RMC y el Juvenil
+     que han ido convocados, a un clic. */
+  const [verExternos, setVerExternos] = useState(false);
+  const muestraExternos = verExternos || propios.length === 0;
+
   return (
     <div className="space-y-5">
       {propios.length > 0 && (
@@ -1457,12 +1463,26 @@ function RejillaJugadores({
         </div>
       )}
 
-      {externos.length > 0 && (
+      {externos.length > 0 && !muestraExternos && (
+        <button
+          type="button"
+          onClick={() => setVerExternos(true)}
+          className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45 underline decoration-white/20 underline-offset-4 hover:text-[#F7D98B]"
+        >
+          Ver los de otros equipos (RMC, Juvenil) · {externos.length}
+        </button>
+      )}
+
+      {externos.length > 0 && muestraExternos && (
         <div>
           {propios.length > 0 && (
-            <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
-              De otros equipos · {externos.length}
-            </p>
+            <button
+              type="button"
+              onClick={() => setVerExternos(false)}
+              className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45 hover:text-[#F7D98B]"
+            >
+              De otros equipos · {externos.length} · ocultar
+            </button>
           )}
 
           <div className={REJILLA}>
