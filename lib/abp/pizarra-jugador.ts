@@ -827,7 +827,10 @@ export async function pdfJugador(opciones: {
 
     const punto = opciones.puntos?.[orden];
 
-    if (punto) marcaJugador(hoja.ctx, punto, 0.25);
+    if (punto) {
+      focoJugador(hoja.ctx, punto);
+      marcaJugador(hoja.ctx, punto, 0.25);
+    }
 
     doc.addPage([HOJA_W / 2, HOJA_H / 2], "portrait");
     doc.addImage(hoja.canvas.toDataURL("image/jpeg", 0.9), "JPEG", 0, 0, HOJA_W / 2, HOJA_H / 2);
@@ -870,6 +873,29 @@ export const pintaAccion = dibujaAccion;
  * El aro «TÚ» sobre su cara, que late. `punto` va en coordenadas de la
  * diapositiva (1920×1080): el centro de su foto, medido en el tablero.
  */
+/**
+ * Él en foco: el resto del tablero, en penumbra (27/10/2026). Antes se
+ * fotografiaba un tablero por jugador con los demás apagados; ahora la foto es
+ * la misma para todos y el foco se pinta aquí.
+ */
+export function focoJugador(ctx: Ctx, punto: { x: number; y: number }) {
+  const k = HOJA_W / 1920;
+  const x = punto.x * k;
+  const y = TABLERO_Y + punto.y * k + 10;
+  const luz = ctx.createRadialGradient(x, y, 70, x, y, 300);
+
+  luz.addColorStop(0, "rgba(8,14,28,0)");
+  luz.addColorStop(1, "rgba(8,14,28,.5)");
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, TABLERO_Y, HOJA_W, TABLERO_ALTO);
+  ctx.clip();
+  ctx.fillStyle = luz;
+  ctx.fillRect(0, TABLERO_Y, HOJA_W, TABLERO_ALTO);
+  ctx.restore();
+}
+
 export function marcaJugador(ctx: Ctx, punto: { x: number; y: number }, segundos: number) {
   const k = HOJA_W / 1920;
   const x = punto.x * k;

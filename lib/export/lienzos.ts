@@ -82,10 +82,25 @@ export async function descargaDataUrl(dataUrl: string, nombre: string) {
 /*  ESPERAS                                                            */
 /* ------------------------------------------------------------------ */
 
-/** Espera a que el navegador haya pintado lo que se acaba de montar. */
+/**
+ * Espera a que el navegador haya pintado lo que se acaba de montar.
+ *
+ * Con la pestaña oculta no hay fotogramas y `requestAnimationFrame` no llega
+ * nunca: un PDF pedido en segundo plano se quedaba colgado. El reloj de
+ * respaldo lo suelta (27/10/2026).
+ */
 export function pintado() {
   return new Promise<void>((listo) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => listo()));
+    let hecho = false;
+    const suelta = () => {
+      if (!hecho) {
+        hecho = true;
+        listo();
+      }
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(suelta));
+    setTimeout(suelta, 150);
   });
 }
 

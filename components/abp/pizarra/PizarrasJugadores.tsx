@@ -4,10 +4,11 @@
  * Un PDF de balón parado por jugador, para mandarlo por WhatsApp antes del
  * partido (26/10/2026). El dibujo vive en `lib/abp/pizarra-jugador.ts`.
  *
- * Al abrir la ventana se preparan TODOS de golpe, jugador a jugador: se monta
- * fuera de pantalla sólo su tablero (con su cara resaltada), se fotografía,
- * se arma su PDF y se sube al almacén (como los informes: enlace que dura 30
- * días). Montar los once a la vez serían ~80 diapositivas con fotos en el DOM.
+ * Al abrir la ventana se preparan TODOS de golpe, en segundo plano (27/10/2026):
+ * el trabajo lo hace `TrabajoPdfs` desde el layout, así que se puede cerrar la
+ * ventana y seguir por la app; al terminar avisa (y con notificación del
+ * sistema si la pestaña no está a la vista). Cada PDF se sube al almacén
+ * (como los informes: enlace que dura 30 días).
  *
  * El envío rápido es `wa.me/<su móvil>?text=<mensaje con el enlace>`: un toque
  * abre su chat con todo escrito y otro en «Enviar». Los móviles se guardan una
@@ -17,7 +18,7 @@
  * ventana—, por eso la subida va antes.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Download, Film, MessageCircle, Send, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
@@ -36,12 +37,11 @@ import {
   cargaEscudos,
   cometidosDe,
   nombreCorto,
-  pdfJugador,
-  type PdfJugador,
 } from "@/lib/abp/pizarra-jugador";
 import { enlaceWhatsapp, esTelefono, telefonoLegible } from "@/lib/correo/whatsapp";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
-import { capturaLienzos, descarga, esperaFotos, pintado } from "@/lib/export/lienzos";
+import { descarga, esperaFotos, pintado } from "@/lib/export/lienzos";
+import { trabajoPdfs, type HechoPdf } from "@/lib/abp/trabajo-pdfs";
 import { creaZip } from "@/lib/export/zip";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 import { capturaNodo } from "@/lib/export/captura";
@@ -51,10 +51,7 @@ import { preparaJugador } from "@/lib/abp/pizarra-jugador";
 import { videoJugador, type FotoDiapositiva } from "@/lib/abp/video-jugador";
 import { puedeHacerVideo } from "@/lib/tactics/lamina";
 
-/* La diapositiva va a lo ancho de una hoja de 1080: 1440 px deja hacer zoom en el móvil. */
-const NITIDEZ = 0.75;
-
-type Hecho = PdfJugador & { url?: string };
+type Hecho = HechoPdf;
 
 /** El vídeo de un jugador: su PDF en movimiento (`lib/abp/video-jugador.ts`). */
 type VideoHecho = { nombre: string; blob: Blob; url?: string; fallo?: boolean };
@@ -87,9 +84,6 @@ export function PizarrasJugadores({
   escudoRival?: string;
 }) {
   const [abierto, setAbierto] = useState(false);
-  const [cola, setCola] = useState<string[] | null>(null);
-  const [paso, setPaso] = useState(0);
-  const [hechos, setHechos] = useState<Record<string, Hecho>>({});
   const [enviados, setEnviados] = useState<Set<string>>(new Set());
 
   /* Los móviles: `null` mientras no se han leído; sin sesión, `sinPermiso`. */
@@ -97,7 +91,6 @@ export function PizarrasJugadores({
   const [sinPermiso, setSinPermiso] = useState(false);
   const [borradores, setBorradores] = useState<Record<string, string>>({});
 
-  const deckRef = useRef<HTMLDivElement>(null);
 
   /* El vídeo que se está montando: de quién, qué acción y en qué instante. */
   const [rodaje, setRodaje] = useState<{ playerId: string; indice: number; tiempo: number } | null>(null);
@@ -122,15 +115,14 @@ export function PizarrasJugadores({
     [tablero, players],
   );
 
-  const actual = cola && paso < cola.length ? cola[paso] : null;
-
-  const acciones = useMemo(
-    () => (actual ? cometidosDe(tablero, actual, players) : []),
-    [actual, tablero, players],
-  );
-
   /* Lo que cambia al mover la pizarra deja viejos los PDF ya hechos. */
   const huella = `${tablero.partidoId}|${tablero.actualizado ?? ""}|${rival}`;
+
+  /* Los PDF viven en el trabajo de segundo plano: sólo valen los de ESTA pizarra. */
+  const trabajo = useSyncExternalStore(trabajoPdfs.suscribe, trabajoPdfs.foto, trabajoPdfs.foto);
+  const hechos: Record<string, Hecho> = trabajo.huella === huella ? trabajo.hechos : {};
+  const enMarcha = trabajo.encargo !== null && trabajo.huella === huella;
+  const actual = enMarcha ? trabajo.enCurso : null;
   const [huellaHechos, setHuellaHechos] = useState(huella);
 
   useEffect(() => {
@@ -139,25 +131,38 @@ export function PizarrasJugadores({
 
   if (huellaHechos !== huella) {
     setHuellaHechos(huella);
-    setHechos({});
     setVideos({});
     setEnviados(new Set());
   }
 
   const prepara = (ids: string[]) => {
-    if (cola || ids.length === 0) return;
+    if (ids.length === 0) return;
 
-    setPaso(0);
-    setCola(ids);
+    if (trabajo.encargo && !enMarcha) {
+      toast.info("Ya se están preparando los PDF de otra pizarra: en cuanto acaben, vuelve a pedirlos.");
+
+      return;
+    }
+
+    /* El aviso del sistema, si se deja: se pide aquí, con el clic. */
+    if (typeof Notification !== "undefined" && Notification.permission === "default") void Notification.requestPermission().catch(() => undefined);
+
+    trabajoPdfs.encarga({
+      huella,
+      tablero,
+      players,
+      temporada,
+      rival,
+      jornada,
+      escudoRival,
+      ids,
+      vuelta: `${window.location.pathname}${window.location.search.replace(/[?&]pdfs=1/, "")}`,
+    });
   };
 
-  const abre = () => {
+  /* Sólo la ventana, con los móviles: sin pedir nada. */
+  const abreVentana = () => {
     setAbierto(true);
-
-    /* De golpe: lo que falte se prepara solo al abrir. */
-    const faltan = jugadores.map((fila) => fila.playerId).filter((id) => !hechos[id]);
-
-    prepara(faltan);
 
     if (telefonos === null) {
       fetch("/api/abp/telefonos", { cache: "no-store" })
@@ -177,82 +182,40 @@ export function PizarrasJugadores({
     }
   };
 
+  const abre = () => {
+    abreVentana();
+
+    /* De golpe: lo que falte se prepara solo al abrir. */
+    prepara(jugadores.map((fila) => fila.playerId).filter((id) => !hechos[id]));
+  };
+
+  /* El aviso de «listos» abre esta ventana: en esta pantalla, o al llegar con `?pdfs=1`. */
+  const abrirVisto = useRef(trabajo.abrir);
+
   useEffect(() => {
-    if (!actual || !cola) return;
+    if (trabajo.abrir === abrirVisto.current) return;
 
-    let vivo = true;
+    abrirVisto.current = trabajo.abrir;
+    abreVentana();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trabajo.abrir]);
 
-    const id = window.setTimeout(async () => {
-      try {
-        const raiz = deckRef.current;
-        let capturas: string[] = [];
-        let puntos: ({ x: number; y: number } | null)[] = [];
+  useEffect(() => {
+    const url = new URL(window.location.href);
 
-        if (raiz && acciones.length) {
-          await pintado();
-          await esperaFuentePortada();
-          await esperaFotos(raiz);
+    if (url.searchParams.get("pdfs") !== "1") return;
 
-          /* Dónde cae su cara en cada diapositiva, para el aro «TÚ» del PDF. */
-          puntos = Array.from(raiz.querySelectorAll<HTMLElement>("[data-abp-tablero]")).map((nodo) => {
-            const caja = nodo.getBoundingClientRect();
-            const cara = nodo.querySelector<HTMLElement>("[data-destacado] img")?.getBoundingClientRect();
-            const escala = TABLERO_W / Math.max(1, caja.width);
+    const id = window.setTimeout(() => {
+      url.searchParams.delete("pdfs");
+      window.history.replaceState(window.history.state, "", url.pathname + url.search);
+      abreVentana();
+    }, 0);
 
-            return cara
-              ? { x: (cara.left + cara.width / 2 - caja.left) * escala, y: (cara.top + cara.height / 2 - caja.top) * escala }
-              : null;
-          });
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-          capturas = await capturaLienzos(raiz, "[data-abp-tablero]", {
-            ancho: TABLERO_W,
-            alto: TABLERO_H,
-            fondo: COLORES.tinta,
-            nitidez: NITIDEZ,
-          });
-        }
-
-        const escudos = await cargaEscudos(escudoRival);
-
-        const pdf = await pdfJugador({
-          player: players.get(actual),
-          acciones,
-          capturas,
-          puntos,
-          rival,
-          jornada,
-          escudos,
-        });
-
-        if (vivo) setHechos((antes) => ({ ...antes, [actual]: pdf }));
-
-        /* Subido ya, para que el toque de WhatsApp abra el chat al instante. */
-        subeAdjunto(new File([pdf.blob], pdf.nombre, { type: "application/pdf" }))
-          .then((subido) => setHechos((antes) => (antes[actual]?.blob === pdf.blob ? { ...antes, [actual]: { ...antes[actual], url: subido.url } } : antes)))
-          .catch((error) => console.warn("[abp-pizarra] subida del PDF", error));
-      } catch (error) {
-        console.error("[abp-pizarra] PDF del jugador", error);
-
-        if (vivo) toast.error(`No se ha podido preparar el PDF de ${nombreCorto(players.get(actual)) || "un jugador"}`);
-      } finally {
-        if (vivo) {
-          if (paso + 1 >= cola.length) {
-            setCola(null);
-            setPaso(0);
-          } else {
-            setPaso(paso + 1);
-          }
-        }
-      }
-    }, 80);
-
-    return () => {
-      vivo = false;
-      window.clearTimeout(id);
-    };
-  }, [actual, acciones, cola, paso, players, rival, jornada, escudoRival]);
-
-  const ocupado = cola !== null;
+  const ocupado = enMarcha;
   const listos = jugadores.filter((fila) => hechos[fila.playerId]);
 
   const telefonoDe = (playerId: string) => telefonos?.[playerId] ?? "";
@@ -502,7 +465,7 @@ export function PizarrasJugadores({
           title="Pizarra de cada jugador"
           subtitle={
             ocupado
-              ? `Preparando ${paso + 1} de ${cola?.length ?? 0}…`
+              ? `Preparando ${Math.min(trabajo.hecho + 1, trabajo.total)} de ${trabajo.total}… Puedes cerrar y seguir por la app: te aviso al terminar.`
               : `${listos.length} PDF listos contra ${rival}. Un toque por jugador abre su WhatsApp con el enlace.`
           }
           onClose={() => setAbierto(false)}
@@ -649,35 +612,6 @@ export function PizarrasJugadores({
         </div>
       )}
 
-      {/* Sólo el tablero del jugador que se está preparando, fuera de pantalla. */}
-      {actual && acciones.length > 0 && (
-        <div
-          ref={deckRef}
-          aria-hidden
-          data-export-hide
-          className="pointer-events-none"
-          style={{ position: "fixed", top: 0, left: -(TABLERO_W + 200), width: TABLERO_W, zIndex: -1 }}
-        >
-          {acciones.map((accion) => (
-            <div key={`${actual}-${accion.indice}`} style={{ width: TABLERO_W }}>
-              <TableroSlide
-                slide={tablero.slides[accion.indice]}
-                titulo={tituloVisible(tablero.slides, accion.indice)}
-                soloVer
-                destacado={actual}
-                players={players}
-                temporada={temporada}
-                rival={rival}
-                seleccion={null}
-                onMover={() => undefined}
-                onQuitar={() => undefined}
-                onPulsarPuesto={() => undefined}
-                onSeleccionar={() => undefined}
-              />
-            </div>
-          ))}
-        </div>
-      )}
     </>
   );
 }

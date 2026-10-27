@@ -13,6 +13,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemedToaster } from "@/components/themed-toaster";
 import { ServiceWorker } from "@/components/service-worker";
 import { SinConexion } from "@/components/sin-conexion";
+import { TrabajoPdfs } from "@/components/abp/pizarra/TrabajoPdfs";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -127,6 +128,8 @@ export default function RootLayout({
             <ThemedToaster />
             <ServiceWorker />
             <SinConexion />
+            {/* Los PDF de ABP por jugador siguen preparándose al cambiar de pantalla. */}
+            <TrabajoPdfs />
           </DataProvider>
         </ThemeProvider>
       </body>

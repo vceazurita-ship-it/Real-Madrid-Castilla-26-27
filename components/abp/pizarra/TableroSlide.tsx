@@ -345,6 +345,7 @@ function Ficha({
   return (
     <div
       data-ficha
+      data-player={ficha.playerId}
       data-destacado={foco === "si" ? "" : undefined}
       className="group absolute select-none"
       style={{
