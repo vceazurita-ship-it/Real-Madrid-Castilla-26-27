@@ -130,6 +130,14 @@ export const FASES: { key: Fase; label: string; corto: string }[] = [
 
 const suave = (u: number) => (u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2);
 
+/**
+ * Cuándo corre un papel: su fase o, si es una acción real (`llega`), los
+ * 0,3 de antes de que le llegue el balón (y nunca antes de su toque
+ * anterior, `sale`), para que esté justo en el toque.
+ */
+export const tramoDe = (r: Pick<Rol, "fase" | "llega" | "sale">): [number, number] =>
+  r.llega !== undefined ? [Math.min(r.llega - 0.02, Math.max(0.04, r.sale ?? 0, r.llega - 0.3)), r.llega] : TRAMOS[r.fase ?? 2];
+
 const avance = (t: number, [a, b]: [number, number]) => suave(Math.min(1, Math.max(0, (t - a) / (b - a))));
 
 /** Dónde está cada papel en el instante `t`. */
@@ -139,7 +147,7 @@ export function posicionesEn(roles: Rol[], t: number): Punto[] {
   return roles.map((r, i) => {
     if (r.hx === undefined || r.hy === undefined) return desde[i];
 
-    const u = avance(t, TRAMOS[r.fase ?? 2]);
+    const u = avance(t, tramoDe(r));
 
     return { x: desde[i].x + (r.hx - desde[i].x) * u, y: desde[i].y + (r.hy - desde[i].y) * u };
   });

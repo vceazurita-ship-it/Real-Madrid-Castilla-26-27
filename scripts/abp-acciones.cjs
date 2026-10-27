@@ -144,6 +144,59 @@ const punto = (x, y) => (Number.isFinite(x) && Number.isFinite(y) && !(x === 0 &
 /** Donde cae un saque: además, 100,100 es «fue a portería» (el final de un tiro), no un sitio. */
 const caidaDe = (x, y) => (x === 100 && y === 100 ? null : punto(x, y));
 
+/*
+| Los toques entre el saque y el remate (27/10/2026), para dibujar la acción
+| tal como fue: córner en corto, prolongación, despeje que vuelve… Cada uno,
+| [x, y, jugador] y un 1 detrás si lo toca el rival. Wyscout da las
+| coordenadas de cada equipo hacia SU portería: las del rival se giran.
+| Un duelo se apunta dos veces (uno por jugador) en el mismo sitio: se queda
+| uno, el que no es sólo el duelo (el pase o el despeje) o el del que ataca.
+*/
+const SIN_BALON = /^(infraction|foul|offside|game_interruption|substitution|yellow_card|red_card)$/;
+
+const MAX_PASOS = 10;
+
+function pasosEntre(jugadas, saque, tiro) {
+  if (!Array.isArray(jugadas)) return [];
+
+  const tramo = jugadas.filter(
+    (e) =>
+      e.half === tiro.half &&
+      e.eventSec > saque.eventSec &&
+      e.eventSec < tiro.eventSec &&
+      String(e.id) !== String(saque.id) &&
+      String(e.id) !== String(tiro.id) &&
+      !(e.types || []).some((t) => SIN_BALON.test(t)),
+  );
+
+  const pasos = [];
+
+  for (const e of tramo) {
+    const rival = e.teamId !== tiro.teamId;
+
+    const p = rival ? punto(100 - e.x, 100 - e.y) : punto(e.x, e.y);
+
+    if (!p) continue;
+
+    const paso = { p, j: nombre(e), rival, seg: e.eventSec, soloDuelo: (e.types || []).every((t) => /duel|^action$|^touch/.test(t)) };
+
+    const previo = pasos.at(-1);
+
+    if (previo && paso.seg - previo.seg < 0.8 && Math.hypot((paso.p[0] - previo.p[0]) * 1.05, (paso.p[1] - previo.p[1]) * 0.68) < 3) {
+      const mejor = previo.soloDuelo !== paso.soloDuelo ? (previo.soloDuelo ? paso : previo) : previo.rival ? paso : previo;
+
+      pasos[pasos.length - 1] = mejor;
+
+      continue;
+    }
+
+    pasos.push(paso);
+  }
+
+  /* Si son demasiados no es la acción del saque: se quedan los últimos. */
+  return pasos.slice(-MAX_PASOS).map((x) => (x.rival ? [x.p[0], x.p[1], x.j, 1] : [x.p[0], x.p[1], x.j]));
+}
+
 function accionesDe(partido) {
   const tiros = Array.isArray(partido.tiros) ? partido.tiros : [];
 
@@ -222,6 +275,12 @@ function accionesDe(partido) {
     const rem = punto(tiro.x, tiro.y);
 
     if (rem) a.remate = rem;
+
+    if (saque && saque !== tiro) {
+      const pasos = pasosEntre(partido.jugadas, saque, tiro);
+
+      if (pasos.length) a.pasos = pasos;
+    }
 
     acciones.push(a);
   }

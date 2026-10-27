@@ -16,7 +16,7 @@
  * en pasos de 0,02, así que la barra de tiempo puede ir y volver.
  */
 
-import { AREA, DURACION_MS, VUELO, TRAMOS, golpeoDe, posicionesEn } from "@/lib/abp-lab/campo";
+import { AREA, DURACION_MS, VUELO, TRAMOS, golpeoDe, posicionesEn, tramoDe } from "@/lib/abp-lab/campo";
 import type { TipoAbp } from "@/lib/abp-lab/referentes";
 import type { Defensa, Envio, Papel, Punto, Rol } from "@/lib/abp-lab/modelo";
 
@@ -280,7 +280,7 @@ export function defensaEn(plan: Defensor[], roles: Rol[], t: number, caida: Punt
       const tapado = bloqueadores.some((i) => {
         const r = roles[i];
 
-        const empieza = r.hx !== undefined ? TRAMOS[r.fase ?? 2][0] : 0;
+        const empieza = r.hx !== undefined ? tramoDe(r)[0] : 0;
 
         return s >= empieza && Math.hypot(nuestros[i].x - pos[k].x, nuestros[i].y - pos[k].y) < 1.2;
       });
@@ -310,7 +310,7 @@ export function defensaEn(plan: Defensor[], roles: Rol[], t: number, caida: Punt
       bloqueadores.some((i) => {
         const r = roles[i];
 
-        const empieza = r.hx !== undefined ? TRAMOS[r.fase ?? 2][0] : 0;
+        const empieza = r.hx !== undefined ? tramoDe(r)[0] : 0;
 
         return t >= empieza && Math.hypot(nuestros[i].x - pos[k].x, nuestros[i].y - pos[k].y) < 1.6;
       }),

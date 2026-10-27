@@ -33,6 +33,7 @@ import {
   dibujable,
   enMetros,
   relatoDe,
+  cadenaTexto,
   rutinaDeAccion,
   ultimaJornada,
   xgTexto,
@@ -142,6 +143,12 @@ function Tarjeta({
                 {a.rm}
                 {a.cabeza ? " · de cabeza" : ""}
               </dd>
+            </>
+          )}
+          {a.pasos && a.pasos.length > 0 && (
+            <>
+              <dt className="text-white/45">Toques</dt>
+              <dd className="text-white/80">{cadenaTexto(a)}</dd>
             </>
           )}
           {zona && (

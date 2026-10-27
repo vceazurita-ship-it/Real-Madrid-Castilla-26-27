@@ -222,11 +222,107 @@ const CONSULTA_SIN_POSESION = CONSULTA_PARTIDO.replace(" possession { firstEvent
 
 /*
 | Lo que se bajó con una consulta vieja se vuelve a pedir: la de antes del
-| 25/10 no traía las faltas sin centro (`any_free_kick`).
+| 25/10 no traía las faltas sin centro (`any_free_kick`); la de antes del
+| 27/10 no traía la cadena de toques (`jugadas`), y se completa sin repetir
+| lo demás.
 */
-const VERSION_CONSULTA = 2;
+const VERSION_CONSULTA = 3;
 
-async function bajaPartido(nav, id) {
+/*
+| LA CADENA DE TOQUES (27/10/2026)
+|
+| Para dibujar la acción tal como fue (córner en corto, prolongación,
+| rechace…) hacen falta todos los toques entre el saque y el remate. Pedir
+| el partido entero sin `type` no contesta en 30 s, pero `eventSec` admite
+| un rango (absoluto en todo el partido): un tramo por remate que tenga un
+| saque en los 30 s de antes, todos en una consulta con alias.
+*/
+const CAMPOS_CADENA = "id eventSec half teamId player { shortName } x y rX rY types";
+
+async function cadenasDe(nav, id, datos) {
+  const saques = Array.isArray(datos.abp) ? datos.abp : [];
+
+  const tramos = [];
+
+  for (const tiro of Array.isArray(datos.tiros) ? datos.tiros : []) {
+    const antes = saques.filter((s) => s.half === tiro.half && s.eventSec < tiro.eventSec && tiro.eventSec - s.eventSec <= 30);
+
+    if (antes.length === 0) continue;
+
+    const desde = Math.min(...antes.map((s) => s.eventSec)) - 0.05;
+
+    const hasta = tiro.eventSec + 0.05;
+
+    const ultimo = tramos.at(-1);
+
+    if (ultimo && desde <= ultimo[1]) ultimo[1] = Math.max(ultimo[1], hasta);
+    else tramos.push([desde, hasta]);
+  }
+
+  if (tramos.length === 0) return [];
+
+  /*
+  | Muchos tramos juntos dan 500 o no contestan en 30 s: van de 3 en 3 y, si
+  | un lote falla, uno a uno. Un tramo que falla solo se deja (esa acción se
+  | dibuja sin cadena) y el partido no se da por roto.
+  */
+  const pide = async (lote) => {
+    const consulta = `query($m: [ID!]) { ${lote
+      .map(([a, b], i) => `w${i}: events(match: $m, eventSec: { gte: ${a.toFixed(3)}, lte: ${b.toFixed(3)} }, limit: 150) { ${CAMPOS_CADENA} }`)
+      .join(" ")} }`;
+
+    try {
+      const r = await nav.js(`
+        const j = await window.__rmcfAbp.grafo(${JSON.stringify(consulta)}, { m: [${JSON.stringify(id)}] });
+        if (j.__roto) return { roto: j.__roto };
+        if (j.errors && j.errors.length) return { roto: j.errors.map((e) => e.message).join("; ").slice(0, 200) };
+        return j.data;
+      `);
+
+      return r?.roto ? null : Object.values(r ?? {}).flat();
+    } catch {
+      return null;
+    }
+  };
+
+  const vistos = new Map();
+
+  let perdidos = 0;
+
+  for (let i = 0; i < tramos.length; i += 3) {
+    const lote = tramos.slice(i, i + 3);
+
+    let eventos = await pide(lote);
+
+    if (!eventos && lote.length > 1) {
+      eventos = [];
+
+      for (const tramo of lote) {
+        const uno = await pide([tramo]);
+
+        if (uno) eventos.push(...uno);
+        else perdidos++;
+      }
+    } else if (!eventos) {
+      perdidos++;
+    }
+
+    for (const e of eventos ?? []) if (e) vistos.set(e.id, e);
+  }
+
+  if (perdidos) console.log(`    (partido ${id}: ${perdidos} de ${tramos.length} tramos sin cadena)`);
+
+  return [...vistos.values()].sort((a, b) => a.eventSec - b.eventSec);
+}
+
+async function bajaPartido(nav, id, previo) {
+  /* De la versión 2 vale todo menos la cadena: sólo se pide ésta. */
+  if (previo?.version === 2 && Array.isArray(previo.tiros) && Array.isArray(previo.abp)) {
+    const { tiros, abp, partido } = previo;
+
+    return { tiros, abp, partido, jugadas: await cadenasDe(nav, id, previo) };
+  }
+
   const pide = (consulta) =>
     nav.js(`
       const j = await window.__rmcfAbp.grafo(${JSON.stringify(consulta)}, { m: [${JSON.stringify(id)}], id: ${JSON.stringify(id)} });
@@ -241,15 +337,23 @@ async function bajaPartido(nav, id) {
 
   if (r?.roto) throw new Error(r.roto.replace(/\s+/g, " ").slice(0, 120));
 
-  return r;
+  return { ...r, jugadas: await cadenasDe(nav, id, r) };
 }
 
 const fichero = (fuente, id) => path.join(CARPETA, fuente.slug, `${id}.json`);
 
 /** ¿Hace falta pedirlo? No, si ya está y se bajó con el partido asentado. */
+const leePrevio = (fuente, id) => {
+  try {
+    return JSON.parse(fs.readFileSync(fichero(fuente, id), "utf8"));
+  } catch {
+    return null;
+  }
+};
+
 function yaEsta(fuente, partido) {
   try {
-    const previo = JSON.parse(fs.readFileSync(fichero(fuente, partido.id), "utf8"));
+    const previo = leePrevio(fuente, partido.id);
 
     const asentado = Date.parse(previo.bajadoEn) - Date.parse(String(partido.fecha).replace(" ", "T")) > 36 * 3_600_000;
 
@@ -376,7 +480,12 @@ async function principal() {
 
       for (const p of MAX ? pendientes.slice(0, MAX) : pendientes) {
         try {
-          const datos = await bajaPartido(nav, p.id);
+          const previo = leePrevio(fuente, p.id);
+
+          /* Un partido sin asentar se pide entero aunque sea de la versión 2. */
+          const asentado = previo && Date.parse(previo.bajadoEn) - Date.parse(String(p.fecha).replace(" ", "T")) > 36 * 3_600_000;
+
+          const datos = await bajaPartido(nav, p.id, asentado ? previo : null);
 
           fs.writeFileSync(
             fichero(fuente, p.id),

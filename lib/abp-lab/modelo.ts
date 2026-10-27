@@ -62,6 +62,10 @@ export type Rol = {
   hx?: number;
   hy?: number;
   fase?: Fase;
+  /** Acción real (Wyscout): el instante (0-1) en que le llega el balón; corre justo antes. */
+  llega?: number;
+  /** Y el de su toque anterior: no sale antes (el que saca y vuelve a tocar). */
+  sale?: number;
   /** La ficha de la pizarra de ABP de la que salió (su id), para devolverla a su sitio. */
   ref?: string;
 };
@@ -274,6 +278,10 @@ function rol(v: unknown): Rol | null {
 
   const fase = Number(r.fase);
 
+  const llega = Number(r.llega);
+
+  const sale = Number(r.sale);
+
   return {
     jugador: texto(r.jugador, 60),
     papel: de(PAPELES, r.papel, "rematador"),
@@ -282,6 +290,8 @@ function rol(v: unknown): Rol | null {
     ...(inicio ? { x: inicio.x, y: inicio.y } : {}),
     ...(destino ? { hx: destino.x, hy: destino.y } : {}),
     ...(fase === 1 || fase === 2 || fase === 3 ? { fase: fase as Fase } : {}),
+    ...(r.llega != null && llega >= 0 && llega <= 1 ? { llega } : {}),
+    ...(r.llega != null && r.sale != null && sale >= 0 && sale <= 1 ? { sale } : {}),
     ...(texto(r.ref, 40) ? { ref: texto(r.ref, 40) } : {}),
   };
 }

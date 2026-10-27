@@ -1244,7 +1244,7 @@ function Papeles({
                     }}
                   />
                   {r.hx !== undefined && (
-                    <Select label="Su carrera arranca" value={String(r.fase ?? 2)} options={FASES.map((f) => ({ value: String(f.key), label: f.label }))} onChange={(v) => ponRol(i, { fase: Number(v) as Fase })} />
+                    <Select label="Su carrera arranca" value={String(r.fase ?? 2)} options={FASES.map((f) => ({ value: String(f.key), label: f.label }))} onChange={(v) => ponRol(i, { fase: Number(v) as Fase, llega: undefined, sale: undefined })} />
                   )}
                   <div className={r.hx !== undefined ? "min-w-0 sm:col-span-2" : "col-span-2 min-w-0 sm:col-span-3"}>
                     <Field label="Nota" value={r.nota ?? ""} onChange={(v) => ponRol(i, { nota: v || undefined })} placeholder="Detalle para el jugador (opcional)" />

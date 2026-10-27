@@ -18,7 +18,7 @@
 import { useSyncExternalStore, type PointerEvent as PE, type KeyboardEvent as KE, type Ref } from "react";
 
 import { iniciales, type JugadorLab } from "@/components/abp-lab/comun";
-import { AREA, AREA_PEQUENA, PENALTI, PORTERIA, ANCHO, LARGO, TRAMOS, VUELO, posicionesEn, recorridoBalon, salidas } from "@/lib/abp-lab/campo";
+import { AREA, AREA_PEQUENA, PENALTI, PORTERIA, ANCHO, LARGO, VUELO, posicionesEn, recorridoBalon, salidas, tramoDe } from "@/lib/abp-lab/campo";
 import { curva, linea, poligono, type Camara, type P3 } from "@/lib/abp-lab/camara";
 import type { Envio, Fase, Lado, Papel, Punto, Rol } from "@/lib/abp-lab/modelo";
 import type { TipoAbp } from "@/lib/abp-lab/referentes";
@@ -729,7 +729,7 @@ export function Escena({
 
     const ancho = cam.tresD ? Math.max(0.2 * g({ ...delante, z: 0 }).s, u * 0.18) : 0.34;
 
-    const activo = t >= (r.hx !== undefined ? TRAMOS[r.fase ?? 2][0] : 0);
+    const activo = t >= (r.hx !== undefined ? tramoDe(r)[0] : 0);
 
     return <path key={`bl${i}`} d={linea(cam, { ...a, z: 0 }, { ...b, z: 0 })} style={{ stroke: P.bloqueo, strokeWidth: f3(ancho), strokeLinecap: "round", opacity: activo ? 0.95 : 0.55, pointerEvents: "none" }} />;
   });
