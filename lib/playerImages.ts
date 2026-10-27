@@ -89,6 +89,12 @@ export const PLAYER_IMAGE_SLUGS = [
   "thiago-pitarch",
   "tirso-lorente",
   "victor-cea",
+  /* 27/10/2026: los cinco de BeSoccer, con la foto de realmadrid.com sin fondo. */
+  "diego-arroyo",
+  "jorge-rajado",
+  "jose-luis-espinosa",
+  "fran-santamaria",
+  "adri-perez",
 ] as const;
 
 export type PlayerImageSlug = (typeof PLAYER_IMAGE_SLUGS)[number];
@@ -151,6 +157,11 @@ const ID_TO_SLUG: Record<string, PlayerImageSlug> = {
   "JUG-50": "sergio-martinez",
   // Thiago Pitarch vuelve el 22/09/2026 con ID nuevo: su JUG-13 es hoy de Diego Lacosta.
   "JUG-54": "thiago-pitarch",
+  "JUG-56": "diego-arroyo",
+  "JUG-57": "jorge-rajado",
+  "JUG-58": "jose-luis-espinosa",
+  "JUG-59": "fran-santamaria",
+  "JUG-60": "adri-perez",
 };
 
 /**
