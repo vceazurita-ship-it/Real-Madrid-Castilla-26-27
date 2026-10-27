@@ -281,7 +281,7 @@ function profundidad(x: number, y: number) {
  * el papel crema con filo de oro es el mismo de la caja de consignas, así que
  * se ve que es un hueco para escribir y no un dato que falta.
  */
-function CasillaDorsal() {
+function CasillaDorsal({ numero }: { numero?: string }) {
   return (
     <div
       className="pointer-events-none absolute left-1/2 flex -translate-x-1/2 flex-col items-center justify-center rounded-[5px]"
@@ -298,8 +298,14 @@ function CasillaDorsal() {
         className="text-[9px] font-bold uppercase leading-none tracking-[0.18em]"
         style={{ color: "rgba(15,30,61,.42)" }}
       >
-        Nº
+        {numero ? "" : "Nº"}
       </span>
+
+      {numero && (
+        <span className="text-[22px] font-black leading-none tabular-nums" style={{ color: "#0F1E3D", marginTop: -9 }}>
+          {numero}
+        </span>
+      )}
     </div>
   );
 }
@@ -313,6 +319,7 @@ function Ficha({
   soloVer,
   compacta = false,
   foco,
+  marca,
   onPointerDown,
   onQuitar,
 }: {
@@ -325,6 +332,8 @@ function Ficha({
   compacta?: boolean;
   /** La diapositiva pide escribir a mano el dorsal del rival al que marca. */
   dorsal: boolean;
+  /** El dorsal ya decidido («Quién marca a quién»). */
+  marca?: string;
   seleccionada: boolean;
   /** Proyector o exportación: ni se arrastra ni enseña la X. */
   soloVer: boolean;
@@ -358,7 +367,7 @@ function Ficha({
       }}
       onPointerDown={soloVer ? undefined : onPointerDown}
     >
-      {dorsal && <CasillaDorsal />}
+      {dorsal && <CasillaDorsal numero={marca} />}
 
       {/*
       | Sombra de suelo. Sin ella las caras flotan sobre el césped y el campo
@@ -1642,6 +1651,7 @@ export function TableroSlide({
             player={players.get(ficha.playerId)}
             code={codeDe(ficha)}
             dorsal={dorsalDe(ficha)}
+            marca={ficha.puesto ? slide.marcas?.[ficha.puesto] : undefined}
             compacta={separada?.compacta ?? false}
             seleccionada={!soloVer && seleccion === ficha.id}
             foco={destacado ? (ficha.playerId === destacado ? "si" : "no") : undefined}
@@ -1973,14 +1983,17 @@ export function TableroSlide({
                             */}
                             {pideDorsal(slide, puesto) && (
                               <span
-                                className="shrink-0 rounded-[4px]"
+                                className="flex shrink-0 items-center justify-center rounded-[4px] text-[18px] font-black tabular-nums"
                                 style={{
                                   width: 44,
                                   height: 24,
                                   backgroundColor: "rgba(247,244,236,.92)",
                                   boxShadow: "inset 0 0 0 1.5px rgba(200,169,107,.85)",
+                                  color: "#0F1E3D",
                                 }}
-                              />
+                              >
+                                {slide.marcas?.[puesto.key] ?? ""}
+                              </span>
                             )}
                           </button>
                         );

@@ -221,7 +221,12 @@ export function cometidosDe(
       .filter((otro) => otro.d <= CERCA_RIVAL)
       .sort((a, b) => a.d - b.d)[0];
 
-    const rival = cercano
+    /* La marca decidida en «Quién marca a quién» manda sobre la chapa más cercana. */
+    const marcado = suyas.map((f) => (f.puesto ? slide.marcas?.[f.puesto] : "")).find(Boolean);
+
+    const rival = marcado
+      ? `Marcas al ${marcado}`
+      : cercano
       ? lado === "defensivo"
         ? `Marcas al ${cercano.dorsal}`
         : `Te vigila el ${cercano.dorsal}`

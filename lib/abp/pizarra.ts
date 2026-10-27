@@ -818,6 +818,11 @@ export type SlidePizarra = {
   /** Los rivales dibujados: a quién se bloquea, quién defiende cada zona. */
   rivales?: RivalPizarra[];
   /**
+   * Puesto → dorsal del rival al que marca (27/10/2026, «Quién marca a
+   * quién»). Rellena la casilla del dorsal; vacía, se imprime en blanco.
+   */
+  marcas?: Record<string, string>;
+  /**
    * Señal, rutina e intención, cada una en su casilla (ronda del sobresaliente,
    * 21/10/2026). Optativo: las consignas de texto libre siguen como estaban y
    * se pintan detrás.

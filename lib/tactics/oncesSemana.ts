@@ -136,7 +136,7 @@ function nuestroUltimoOnce(temporada: RatingsSeason | null, plantilla: Player[],
 /*  SU ONCE TEÓRICO                                                    */
 /* ------------------------------------------------------------------ */
 
-async function suOnceTeorico(rival: string) {
+export async function suOnceTeorico(rival: string) {
   const filas = await traeJson<Fila[]>("/api/rivals?action=rivalesPlantillas").catch(() => [] as Fila[]);
   const suyas = (Array.isArray(filas) ? filas : []).filter((f) => mismoClub(texto(f.NOMBRE_EQUIPO), rival));
   const equipo = texto(suyas[0]?.NOMBRE_EQUIPO) || rival;

@@ -78,6 +78,7 @@ import { SelectorJugador } from "@/components/abp/pizarra/SelectorJugador";
 import { CambiaJugador } from "@/components/abp/pizarra/CambiaJugador";
 import { ExportaPizarra } from "@/components/abp/pizarra/ExportaPizarra";
 import { PizarrasJugadores } from "@/components/abp/pizarra/PizarrasJugadores";
+import { PropuestaMarcas } from "@/components/abp/pizarra/PropuestaMarcas";
 import {
   BarraDibujo,
   TECLA_HERRAMIENTA,
@@ -2670,7 +2671,7 @@ export default function PizarraAbpPage() {
                     | tablero: son las dos cosas que se hacen con la rutina ya
                     | dibujada, antes de llevarla a la sala.
                     */}
-                    {(familiaDePlantilla(slide.plantilla) || fases > 0) && (
+                    {(familiaDePlantilla(slide.plantilla) || fases > 0 || slide.plantilla === "corner-def") && (
                       <div className="mb-3 flex flex-wrap items-center gap-2">
                         {familiaDePlantilla(slide.plantilla) && (
                           <Button
@@ -2681,6 +2682,27 @@ export default function PizarraAbpPage() {
                           >
                             {poniendoDefensa ? "Leyendo su scouting…" : "Poner su defensa"}
                           </Button>
+                        )}
+
+                        {slide.plantilla === "corner-def" && (
+                          <PropuestaMarcas
+                            slide={slide}
+                            rival={tablero?.rival || partido?.opponent || ""}
+                            players={players}
+                            onAplicar={({ marcas, nuevos }) =>
+                              mutaSlide((actual) => {
+                                const ocupados = new Set(nuevos.map((n) => n.puesto));
+                                const quienes = new Set(nuevos.map((n) => n.playerId));
+                                const fichas = actual.fichas.filter((f) => !(f.puesto && ocupados.has(f.puesto)) && !quienes.has(f.playerId));
+
+                                return {
+                                  ...actual,
+                                  fichas: [...fichas, ...nuevos.map((n) => fichaNueva(n.playerId, puestoDe(actual, n.puesto)))],
+                                  marcas: { ...(actual.marcas ?? {}), ...marcas },
+                                };
+                              }, "marcas:propuesta")
+                            }
+                          />
                         )}
 
                         <VideoJugada
