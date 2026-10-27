@@ -2392,7 +2392,7 @@ export default function IndividualPage() {
       /* Crear, con reintentos que no duplican (lib/seguimiento-escribir.ts); editar, por postToScript. */
       const result = editingTracking
         ? await postToScript(payload)
-        : await creaSeguimientos([selected.idJugador], formulario).then((r) =>
+        : await creaSeguimientos([selected.idJugador], formulario, undefined, () => selected.name).then((r) =>
             r.hechos.length ? { success: true, id: r.hechos[0].idRegistro } : { success: false, error: r.fallidos[0]?.motivo },
           );
 
@@ -2451,7 +2451,7 @@ export default function IndividualPage() {
         ]);
 
         if (otros.length) {
-          const r = await creaSeguimientos(otros, formulario);
+          const r = await creaSeguimientos(otros, formulario, undefined, (id) => mergedPlayers.find((p) => p.idJugador === id)?.name);
           const nombreDe = (id: string) => mergedPlayers.find((p) => p.idJugador === id)?.name ?? id;
 
           setTrackingData((prev) => [

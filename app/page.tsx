@@ -201,7 +201,22 @@ export default function Home() {
 
   const totalJugadores = plantilla.length
 
-  /* Los registros que son de los nuestros, ya atados a su jugador de ahora. */
+  /* Los registros que son de los nuestros, ya atados a su jugador de ahora (todos, sin corte de fecha). */
+  const seguimientoTodo = useMemo(() => {
+    if (plantillaEntera.length === 0) return []
+
+    return filasDeSeguimiento(
+      alineaSeguimiento(
+        filasSeguimiento.flatMap((fila) =>
+          fila.ID_JUGADOR ? [{ ...fila, ID_JUGADOR: fila.ID_JUGADOR }] : [],
+        ),
+        plantillaEntera,
+      ),
+      plantilla,
+    )
+  }, [filasSeguimiento, plantillaEntera, plantilla])
+
+  /* Los de las cifras: sólo desde el 21/10. */
   const seguimientoCastilla = useMemo(() => {
     if (plantillaEntera.length === 0) return []
 
@@ -643,7 +658,9 @@ export default function Home() {
               es lo que hace que abrir la aplicación sirva para algo aunque no
               se venga a nada concreto. Si no hay nada que avisar, no se pinta.
             */}
-            <AlertasPortada plantilla={plantilla} seguimiento={seguimientoCastilla} />
+            {/* Las alertas miran la última vez de cada uno, aunque sea de antes del 21/10:
+                con el corte, quien no tenía registro esta semana salía «más de 45 días». */}
+            <AlertasPortada plantilla={plantilla} seguimiento={seguimientoTodo} />
 
             {/* ========================= ACCESO RÁPIDO ========================= */}
 

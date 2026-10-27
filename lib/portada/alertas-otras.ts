@@ -72,11 +72,17 @@ export function alertasDeSeguimiento(
     if (cuando > previa) ultima.set(fila.ID_JUGADOR, cuando);
   }
 
-  const conRegistro = plantilla.filter((j) => ultima.has(j.id));
+  /*
+  | Cobertura y olvidados miden lo mismo (27/10/2026): quién tiene algún
+  | registro en los últimos 45 días. Antes la cobertura contaba «alguna vez»
+  | y, como la portada pasaba sólo lo escrito desde el 21/10, los dos avisos
+  | señalaban a quien tenía su último registro hace un mes.
+  */
+  const limite = ahora - DIAS_SIN_SEGUIMIENTO * 24 * 60 * 60 * 1000;
+
+  const conRegistro = plantilla.filter((j) => (ultima.get(j.id) ?? 0) >= limite);
 
   const cobertura = Math.round((conRegistro.length / plantilla.length) * 100);
-
-  const limite = ahora - DIAS_SIN_SEGUIMIENTO * 24 * 60 * 60 * 1000;
 
   const olvidados = plantilla.filter((j) => (ultima.get(j.id) ?? 0) < limite);
 
@@ -91,7 +97,7 @@ export function alertasDeSeguimiento(
       area: "Individual · seguimiento",
       titulo: `${olvidados.length} ${olvidados.length === 1 ? "jugador lleva" : "jugadores llevan"} más de ${DIAS_SIN_SEGUIMIENTO} días sin seguimiento`,
       detalle: `${nombres}${olvidados.length > 4 ? " y alguno más" : ""}. Sin registro no hay conversación que preparar ni evolución que enseñar.`,
-      cifra: `${conRegistro.length} de ${plantilla.length} con registro`,
+      cifra: `${conRegistro.length} de ${plantilla.length} con registro en ${DIAS_SIN_SEGUIMIENTO} días`,
       /* Cuantos más y más plantilla afectada, más arriba en la lista. */
       fuerza: Math.min(95, 45 + (olvidados.length / plantilla.length) * 100),
       enlace: "/individual_proc",
@@ -104,7 +110,7 @@ export function alertasDeSeguimiento(
       clave: "seguimiento-cobertura",
       tono: "mala",
       area: "Individual · seguimiento",
-      titulo: `Sólo ${cobertura} % de los jugadores de campo del Castilla tiene seguimiento`,
+      titulo: `Sólo ${cobertura} % de los jugadores de campo del Castilla tiene seguimiento en los últimos ${DIAS_SIN_SEGUIMIENTO} días`,
       detalle:
         "El seguimiento que no llega a todos no compara: de los que faltan no hay con qué contrastar lo que se ve en el campo.",
       cifra: `${conRegistro.length} de ${plantilla.length} jugadores`,
@@ -119,7 +125,7 @@ export function alertasDeSeguimiento(
       clave: "seguimiento-al-dia",
       tono: "buena",
       area: "Individual · seguimiento",
-      titulo: `El seguimiento llega al ${cobertura} % de los jugadores de campo del Castilla`,
+      titulo: `El seguimiento llega al ${cobertura} % de los jugadores de campo del Castilla en los últimos ${DIAS_SIN_SEGUIMIENTO} días`,
       detalle:
         "Casi nadie se queda sin registro, así que lo que se dice en la charla individual se puede sostener con lo escrito.",
       cifra: `${conRegistro.length} de ${plantilla.length} jugadores`,

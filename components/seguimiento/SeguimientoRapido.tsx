@@ -69,7 +69,7 @@ export function SeguimientoRapido({ fecha, jugadores, onHecho }: { fecha: string
     setGuardando(`0/${elegidos.length}`);
 
     try {
-      const r = await creaSeguimientos(elegidos, { ...campos, MODALIDAD: grupal ? "GRUPAL" : "INDIVIDUAL" }, (n, total) => setGuardando(`${n}/${total}`));
+      const r = await creaSeguimientos(elegidos, { ...campos, MODALIDAD: grupal ? "GRUPAL" : "INDIVIDUAL" }, (n, total) => setGuardando(`${n}/${total}`), (id) => jugadores.find((j) => j.id === id)?.nombre);
       const nombre = (id: string) => jugadores.find((j) => j.id === id)?.nombre ?? id;
 
       if (r.fallidos.length) {

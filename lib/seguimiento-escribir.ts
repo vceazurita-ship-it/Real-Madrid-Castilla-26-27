@@ -141,7 +141,7 @@ async function yaEscrito(idJugador: string, campos: CamposSeguimiento): Promise<
   }
 }
 
-async function creaUno(idJugador: string, campos: CamposSeguimiento) {
+async function creaUno(idJugador: string, campos: CamposSeguimiento, nombre = "") {
   let ultimo: Error | null = null;
 
   for (let intento = 0; intento <= ESPERAS.length; intento += 1) {
@@ -155,7 +155,12 @@ async function creaUno(idJugador: string, campos: CamposSeguimiento) {
     }
 
     try {
-      const datos = await llamaScript({ action: "crearSeguimiento", ID_JUGADOR: idJugador, ...campos });
+      /*
+      | Con el nombre (27/10/2026): desde el 12/10 ningún registro lo llevaba y
+      | sólo se ataban por ID, que la hoja renumera. Con nombre, el cruce por
+      | nombre de `alineaSeguimiento` los sigue llevando a su jugador.
+      */
+      const datos = await llamaScript({ action: "crearSeguimiento", ID_JUGADOR: idJugador, ...(nombre ? { NOMBRE: nombre } : {}), ...campos });
 
       if (datos.success) return String(datos.id ?? "");
 
@@ -184,6 +189,8 @@ export async function creaSeguimientos(
   idsJugador: string[],
   campos: CamposSeguimiento,
   alProgreso?: (hechos: number, total: number) => void,
+  /** El nombre de cada uno, para la columna NOMBRE de la hoja. */
+  nombreDe?: (idJugador: string) => string | undefined,
 ): Promise<ResultadoSeguimientos> {
   const ids = [...new Set(idsJugador.filter(Boolean))];
   const modalidad = campos.MODALIDAD || (ids.length > 1 ? "GRUPAL" : "INDIVIDUAL");
@@ -191,7 +198,7 @@ export async function creaSeguimientos(
 
   for (const [i, id] of ids.entries()) {
     try {
-      resultado.hechos.push({ idJugador: id, idRegistro: await creaUno(id, { ...campos, MODALIDAD: modalidad }) });
+      resultado.hechos.push({ idJugador: id, idRegistro: await creaUno(id, { ...campos, MODALIDAD: modalidad }, nombreDe?.(id) ?? "") });
     } catch (error) {
       resultado.fallidos.push({ idJugador: id, motivo: error instanceof Error ? error.message : String(error) });
     }
