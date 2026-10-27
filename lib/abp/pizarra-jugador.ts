@@ -868,6 +868,7 @@ export async function preparaJugador(opciones: {
 
 export const pintaPortada = dibujaPortada;
 export const pintaAccion = dibujaAccion;
+export { renglones, escudo as pintaEscudo, archivo as nombreArchivo };
 
 /**
  * El aro «TÚ» sobre su cara, que late. `punto` va en coordenadas de la

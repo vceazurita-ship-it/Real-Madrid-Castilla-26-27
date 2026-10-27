@@ -20,7 +20,7 @@ import { useSyncExternalStore, type PointerEvent as PE, type KeyboardEvent as KE
 import { iniciales, type JugadorLab } from "@/components/abp-lab/comun";
 import { AREA, AREA_PEQUENA, PENALTI, PORTERIA, ANCHO, LARGO, TRAMOS, VUELO, posicionesEn, recorridoBalon, salidas } from "@/lib/abp-lab/campo";
 import { curva, linea, poligono, type Camara, type P3 } from "@/lib/abp-lab/camara";
-import type { Envio, Fase, Papel, Punto, Rol } from "@/lib/abp-lab/modelo";
+import type { Envio, Fase, Lado, Papel, Punto, Rol } from "@/lib/abp-lab/modelo";
 import type { TipoAbp } from "@/lib/abp-lab/referentes";
 import { estadoBalon, type Defensor, type EstadoDefensa } from "@/lib/abp-lab/simulacion";
 import type { Celda, Duelo, Remate } from "@/lib/abp-lab/ventaja";
@@ -176,12 +176,17 @@ const FUENTE = "Barlow Condensed, Arial Narrow, Arial, sans-serif";
 
 const f3 = (v: number) => Number(v.toFixed(3));
 
+/** El color del protagonista en los vídeos por jugador (el rosa del PDF por jugador). */
+const ROSA = "#FF4FA3";
+
 export type RutinaEscena = {
   nombre: string;
   tipo: TipoAbp;
   roles: Rol[];
   balon?: Punto[];
   envio?: Envio;
+  /** A favor o en contra: cambia el rótulo del rival que le toca al protagonista. */
+  lado?: Lado;
 };
 
 export type Capas = {
@@ -221,6 +226,7 @@ export function Escena({
   llegada,
   remate,
   seleccionado = null,
+  destacado = null,
   editaBalon = false,
   fotos,
   svgRef,
@@ -247,6 +253,8 @@ export function Escena({
   llegada?: Celda[];
   remate?: Remate | null;
   seleccionado?: number | null;
+  /** El vídeo de un jugador: él con su aro y «TÚ»; los demás nuestros, apagados. */
+  destacado?: number | null;
   editaBalon?: boolean;
   /** Las fotos ya leídas como `data:` (para que salgan al exportar); si falta, se usa la URL. */
   fotos?: Map<string, string>;
@@ -349,6 +357,16 @@ export function Escena({
   /* De lejos a cerca (en cenital, de arriba abajo): lo de delante tapa a lo de detrás. */
   piezas.sort((a, b) => (cam.tresD ? a.prof - b.prof : (a.tipo === "balon" ? 1e9 : a.p.y) - (b.tipo === "balon" ? 1e9 : b.p.y)));
 
+  /* El protagonista del vídeo va encima de todo: que nadie le tape. */
+  if (destacado !== null) {
+    const suyo = piezas.findIndex((p) => p.tipo === "nuestro" && p.i === destacado);
+
+    if (suyo >= 0) piezas.push(...piezas.splice(suyo, 1));
+  }
+
+  /* Los demás nuestros, en segundo plano cuando hay protagonista. */
+  const apagado = (i: number) => destacado !== null && i !== destacado;
+
   /* En cenital, la ficha mide 1,2 m; en perspectiva, lo que mide a esa distancia, sin bajar de lo legible ni tapar media pantalla. */
   const radioFicha = (s: number) => (cam.tresD ? Math.min(Math.max(0.78 * s, u * 0.62), u * 2.1) : 1.2);
 
@@ -398,6 +416,16 @@ export function Escena({
 
     return <path d={elipseSuelo(p, r, r, 0, 28)} style={{ fill: "none", stroke: color, strokeWidth: f3(w), strokeDasharray: discontinuo ? `${f3(w * 3)} ${f3(w * 2)}` : undefined, opacity: 0.95 }} />;
   };
+
+  /** El «TÚ» del vídeo de un jugador: una placa rosa encima de él, legible en el móvil. */
+  const etiquetaTu = (x: number, y: number, tam: number, texto = "TÚ") => (
+    <g style={{ pointerEvents: "none" }}>
+      <rect x={f3(x - tam * (0.35 + texto.length * 0.3))} y={f3(y - tam * 1.05)} width={f3(tam * (0.7 + texto.length * 0.6))} height={f3(tam * 1.2)} rx={f3(tam * 0.3)} style={{ fill: ROSA, stroke: "#FFFFFF", strokeWidth: f3(tam * 0.08) }} />
+      <text x={f3(x)} y={f3(y - tam * 0.12)} textAnchor="middle" style={{ fontSize: f3(tam * 0.88), fontWeight: 800, fill: "#FFFFFF", fontFamily: FUENTE, letterSpacing: f3(tam * 0.04) }}>
+        {texto}
+      </text>
+    </g>
+  );
 
   /**
    * Un jugador de pie, en perspectiva: medias, pantalón, camiseta con su
@@ -478,8 +506,13 @@ export function Escena({
       onPointerDown: M.onFicha ? (e: PE<SVGGElement>) => M.onFicha!(e, i) : undefined,
       onKeyDown: M.onTeclaFicha ? (e: KE<SVGGElement>) => M.onTeclaFicha!(e, i) : undefined,
       onFocus: M.onFocoFicha ? () => M.onFocoFicha!(i) : undefined,
-      style: { cursor: cursor ?? "grab", outline: "none" },
+      style: { cursor: cursor ?? "grab", outline: "none", opacity: apagado(i) ? 0.3 : undefined },
     };
+
+    const protagonista = destacado === i;
+
+    /* El aro late justo antes del remate: «ahora te toca». */
+    const latido = protagonista && t > VUELO[1] - 0.2 && t < VUELO[1] + 0.05 ? 1 + 0.18 * Math.abs(Math.sin(t * 60)) : 1;
 
     /* --- En perspectiva: el jugador de pie, con su aro en el césped --- */
     if (cam.tresD) {
@@ -497,6 +530,7 @@ export function Escena({
         <g key={`n${i}`} {...comun}>
           {sombras(p, 1.85, 0.32, `sn${i}`)}
           {activa && aroSuelo(p, 0.95, P.texto, true)}
+          {protagonista && aroSuelo(p, 1.15 * latido, ROSA, false, 0.24)}
           {esRematador && aroSuelo(p, 1.25, P.oro, false, 0.16)}
           {r.papel === "senuelo" && aroSuelo(p, 0.6, P.oro, true, 0.08)}
           {figura(p, { camiseta: P.oro, pantalon: "#F4F1EA", medias: "#F4F1EA", dorsal: j?.dorsal !== undefined ? String(j.dorsal) : CODIGO_PAPEL[r.papel], tinta: P.tinta }, hueco ? 0.82 : 1)}
@@ -509,7 +543,8 @@ export function Escena({
               <image href={foto} x={f3(pie.x - R * 0.88)} y={f3(placa - R * 0.88)} width={f3(R * 1.76)} height={f3(R * 1.76)} clipPath={`url(#${clip})`} preserveAspectRatio="xMidYMin slice" />
             </>
           )}
-          {capas.nombres && !quieta && j && rotulo(pie.x, placa - (foto ? R * 1.35 : m * 0.28), nombreCorto(j.nombre), Math.max(m * 0.32, u * 0.92))}
+          {capas.nombres && !quieta && j && !protagonista && rotulo(pie.x, placa - (foto ? R * 1.35 : m * 0.28), nombreCorto(j.nombre), Math.max(m * 0.32, u * 0.92))}
+          {protagonista && etiquetaTu(pie.x, placa - (foto ? R * 1.3 : m * 0.25), Math.max(m * 0.45, u * 1.6))}
           {M.onFicha && <rect x={f3(pie.x - Math.max(0.55 * m, u * 1.4))} y={f3(cabeza - 0.3 * m)} width={f3(Math.max(1.1 * m, u * 2.8))} height={f3(2.25 * m)} style={{ fill: "transparent" }} data-solo-pantalla="" />}
         </g>
       );
@@ -523,6 +558,7 @@ export function Escena({
     return (
       <g key={`n${i}`} {...comun}>
         {sombras(p, 0.9, R * 0.95, `sn${i}`)}
+        {protagonista && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 1.55)} style={{ fill: "rgba(255,79,163,0.18)", stroke: ROSA, strokeWidth: f3(R * 0.2) }} />}
         {activa && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 1.5)} style={{ fill: "none", stroke: P.texto, strokeWidth: f3(R * 0.12), strokeDasharray: `${f3(R * 0.4)} ${f3(R * 0.28)}` }} />}
         {esRematador && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(R * 1.9)} style={{ fill: "none", stroke: P.oro, strokeWidth: f3(R * 0.14), opacity: 0.9 }} />}
         <circle
@@ -558,7 +594,8 @@ export function Escena({
             {texto}
           </text>
         )}
-        {capas.nombres && !quieta && j && rotulo(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), nombreCorto(j.nombre), Math.max(R * 0.8, u * 0.92))}
+        {capas.nombres && !quieta && j && !protagonista && rotulo(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), nombreCorto(j.nombre), Math.max(R * 0.8, u * 0.92))}
+        {protagonista && etiquetaTu(c.x, c.y - R * 1.75, Math.max(R * 0.95, u * 1.2))}
         {/* Un blanco más grande que la ficha: con el dedo, la ficha es poca cosa */}
         {M.onFicha && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(Math.max(R * 1.7, u * 1.8))} style={{ fill: "transparent" }} data-solo-pantalla="" />}
       </g>
@@ -573,6 +610,7 @@ export function Escena({
     const bloqueado = defensa.estado.bloqueado[k];
 
     const color = d.papel === "portero" ? P.portero : P.rival;
+
 
     if (cam.tresD) {
       return (
@@ -758,7 +796,8 @@ export function Escena({
 
   /* ------------------------------ lecturas ----------------------------- */
 
-  const verLecturas = !quieta;
+  /* En el vídeo de un jugador no van las lecturas (xG, «Nadie llega»): a ese tamaño no se leen y tapan la jugada. */
+  const verLecturas = !quieta && destacado === null;
 
   const enRemate = t >= VUELO[1] - 0.12;
 
@@ -976,7 +1015,13 @@ export function Escena({
       {estelas}
 
       {/* Las carreras y los bloqueos */}
-      {rutina.roles.map((r, i) => (r.hx !== undefined && r.hy !== undefined ? flecha(desde[i], { x: r.hx, y: r.hy }, P.fase[r.fase ?? 2], (r.fase ?? 2) === 1, `fl${i}`) : null))}
+      {rutina.roles.map((r, i) =>
+        r.hx !== undefined && r.hy !== undefined ? (
+          <g key={`gfl${i}`} opacity={apagado(i) ? 0.3 : undefined}>
+            {flecha(desde[i], { x: r.hx, y: r.hy }, destacado === i ? ROSA : P.fase[r.fase ?? 2], (r.fase ?? 2) === 1, `fl${i}`)}
+          </g>
+        ) : null,
+      )}
       {bloqueos}
 
       {/* Las salidas, en fantasma, cuando la jugada ya se ha movido */}
@@ -1040,6 +1085,28 @@ export function Escena({
 
       {/* Las fichas y el balón, de lejos a cerca */}
       {piezas.map((p) => (p.tipo === "nuestro" ? pintaNuestro(p.i, p.p) : p.tipo === "suyo" ? pintaSuyo(p.k, p.p) : pintaBalon()))}
+
+      {/* Su par (el que le marca o al que marca), por encima de todo: si no, los muñecos lo tapaban. */}
+      {cam.tresD && destacado !== null && defensa && (() => {
+        const k = defensa.plan.findIndex((d) => d.sigue === destacado);
+
+        if (k < 0) return null;
+
+        const p = defensa.estado.pos[k];
+        const pie = g({ ...p, z: 0 });
+        const m = metroDe(pie.s);
+        const suyo = g({ ...nuestros[destacado], z: 0 });
+
+        /* La etiqueta donde no choca con su «TÚ»: debajo del par o, si el par está detrás de él, a un lado. */
+        const abajo = pie.y >= suyo.y;
+
+        return (
+          <g style={{ pointerEvents: "none" }}>
+            <path d={`M ${f3(suyo.x)} ${f3(suyo.y)} L ${f3(pie.x)} ${f3(pie.y)}`} style={{ stroke: ROSA, strokeWidth: f3(Math.max(0.12 * m, u * 0.16)), strokeLinecap: "round" }} />
+            {etiquetaTu(abajo ? pie.x : pie.x + (pie.x >= suyo.x ? 1 : -1) * u * 4.2, abajo ? pie.y + Math.max(1.1 * m, u * 2.6) : pie.y - 1.2 * m, Math.max(m * 0.45, u * 1.6), rutina.lado === "ofensivo" ? "TE MARCA" : "TU HOMBRE")}
+          </g>
+        );
+      })()}
 
       {/* El remate: dónde cae y su xG */}
       {verLecturas && remate && enRemate && !remate.directo && (

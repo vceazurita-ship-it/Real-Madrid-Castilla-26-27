@@ -59,6 +59,7 @@ import { Presentacion } from "@/components/abp-lab/Presentacion";
 import { estructuraPara, useSimulacionFija, type ContextoSim, type QueDefensa, type RutinaSimulable } from "@/components/abp-lab/useSimulacion";
 import { ANCHO, VUELO, encuadre, focoDe, fondoVisible, golpeoDe, limita, posicionesEn, recorridoBalon, reflejada, salidas, type Marco } from "@/lib/abp-lab/campo";
 import { VISTAS, creaCamara, type Vista } from "@/lib/abp-lab/camara";
+import { leeFoto } from "@/lib/abp-lab/fotos";
 import { exportaGif, exportaPdf, exportaPng, exportaVideo, pngDe, sabeVideo, type Rodaje, type Rotulo } from "@/lib/abp-lab/exporta";
 import { DEFENSAS, ENVIOS, PAPELES, TIPOS, etiqueta, type Envio, type Punto, type Rol } from "@/lib/abp-lab/modelo";
 import { MARCAS, momentoDe } from "@/lib/abp-lab/simulacion";
@@ -104,35 +105,6 @@ export const ATAJOS: { teclas: string; que: string }[] = [
 /* ------------------------------------------------------------------ */
 /*  FOTOS LEÍDAS (para que salgan al exportar)                          */
 /* ------------------------------------------------------------------ */
-
-const leidas = new Map<string, Promise<string | null>>();
-
-function leeFoto(url: string) {
-  let p = leidas.get(url);
-
-  if (!p) {
-    const ruta = url.startsWith("/") || url.startsWith("data:") ? url : `/api/rivals/foto?url=${encodeURIComponent(url)}`;
-
-    p = fetch(ruta)
-      .then((r) => (r.ok ? r.blob() : null))
-      .then(
-        (blob) =>
-          blob &&
-          new Promise<string | null>((listo) => {
-            const lector = new FileReader();
-
-            lector.onload = () => listo(typeof lector.result === "string" ? lector.result : null);
-            lector.onerror = () => listo(null);
-            lector.readAsDataURL(blob);
-          }),
-      )
-      .catch(() => null);
-
-    leidas.set(url, p);
-  }
-
-  return p;
-}
 
 /** Las fotos de los jugadores con papel, ya como `data:`; las que no se leen se quedan con su URL. */
 function useFotos(urls: string[], activo: boolean) {

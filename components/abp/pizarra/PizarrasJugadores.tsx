@@ -24,49 +24,16 @@ import { toast } from "sonner";
 
 import type { Player } from "@/types/player";
 import { Button, Dialog } from "@/components/abp/ui";
-import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
-import {
-  COLORES,
-  TABLERO_H,
-  TABLERO_W,
-  jugadoresDelTablero,
-  tituloVisible,
-  type TableroPizarra,
-} from "@/lib/abp/pizarra";
-import {
-  cargaEscudos,
-  cometidosDe,
-  nombreCorto,
-} from "@/lib/abp/pizarra-jugador";
+import { jugadoresDelTablero, type TableroPizarra } from "@/lib/abp/pizarra";
+import { nombreCorto } from "@/lib/abp/pizarra-jugador";
 import { enlaceWhatsapp, esTelefono, telefonoLegible } from "@/lib/correo/whatsapp";
-import { subeAdjunto } from "@/lib/correo/subeAdjunto";
-import { descarga, esperaFotos, pintado } from "@/lib/export/lienzos";
-import { trabajoPdfs, type HechoPdf } from "@/lib/abp/trabajo-pdfs";
+import { descarga } from "@/lib/export/lienzos";
+import { trabajoPdfs, type HechoPdf, type HechoVideo } from "@/lib/abp/trabajo-pdfs";
+import { descargaVideos, guardaVideo } from "@/lib/abp/descarga-videos";
 import { creaZip } from "@/lib/export/zip";
-import { esperaFuentePortada } from "@/lib/rivals/portada-font";
-import { capturaNodo } from "@/lib/export/captura";
-import { PIXEL_VACIO } from "@/lib/export/lienzos";
-import { fasesDe } from "@/lib/abp/trazos";
-import { preparaJugador } from "@/lib/abp/pizarra-jugador";
-import { videoJugador, type FotoDiapositiva } from "@/lib/abp/video-jugador";
 import { puedeHacerVideo } from "@/lib/tactics/lamina";
 
 type Hecho = HechoPdf;
-
-/** El vídeo de un jugador: su PDF en movimiento (`lib/abp/video-jugador.ts`). */
-type VideoHecho = { nombre: string; blob: Blob; url?: string; fallo?: boolean };
-
-/* La diapositiva va a 1080 de ancho en la hoja: 0,75 da 1440 y aguanta el zoom. */
-const NITIDEZ_VIDEO = 0.75;
-
-const cargaFoto = (src: string) =>
-  new Promise<HTMLImageElement>((listo, falla) => {
-    const imagen = new Image();
-
-    imagen.onload = () => listo(imagen);
-    imagen.onerror = () => falla(new Error("No se ha podido leer un fotograma"));
-    imagen.src = src;
-  });
 
 export function PizarrasJugadores({
   tablero,
@@ -92,14 +59,6 @@ export function PizarrasJugadores({
   const [borradores, setBorradores] = useState<Record<string, string>>({});
 
 
-  /* El vídeo que se está montando: de quién, qué acción y en qué instante. */
-  const [rodaje, setRodaje] = useState<{ playerId: string; indice: number; tiempo: number } | null>(null);
-  const [videos, setVideos] = useState<Record<string, VideoHecho>>({});
-  const [progresoVideo, setProgresoVideo] = useState("");
-  const rodajeRef = useRef<HTMLDivElement>(null);
-  const rodando = useRef(false);
-  /* La versión de la pizarra con la que se empezó a rodar: si cambia, se descarta. */
-  const huellaRef = useRef("");
   const sabeVideo = typeof window !== "undefined" && puedeHacerVideo();
 
   /* Los del tablero, por dorsal: es como se nombran en el vestuario. */
@@ -121,33 +80,25 @@ export function PizarrasJugadores({
   /* Los PDF viven en el trabajo de segundo plano: sólo valen los de ESTA pizarra. */
   const trabajo = useSyncExternalStore(trabajoPdfs.suscribe, trabajoPdfs.foto, trabajoPdfs.foto);
   const hechos: Record<string, Hecho> = trabajo.huella === huella ? trabajo.hechos : {};
+  const videos: Record<string, HechoVideo> = trabajo.huella === huella ? trabajo.videos : {};
+  const enMarchaVideos = trabajo.encargoVideos !== null && trabajo.huella === huella;
+  const videoActual = enMarchaVideos ? trabajo.enCursoVideo : null;
   const enMarcha = trabajo.encargo !== null && trabajo.huella === huella;
   const actual = enMarcha ? trabajo.enCurso : null;
   const [huellaHechos, setHuellaHechos] = useState(huella);
 
-  useEffect(() => {
-    huellaRef.current = huella;
-  }, [huella]);
-
   if (huellaHechos !== huella) {
     setHuellaHechos(huella);
-    setVideos({});
     setEnviados(new Set());
   }
 
-  const prepara = (ids: string[]) => {
+  const prepara = (ids: string[], que: "pdf" | "video" = "pdf") => {
     if (ids.length === 0) return;
-
-    if (trabajo.encargo && !enMarcha) {
-      toast.info("Ya se están preparando los PDF de otra pizarra: en cuanto acaben, vuelve a pedirlos.");
-
-      return;
-    }
 
     /* El aviso del sistema, si se deja: se pide aquí, con el clic. */
     if (typeof Notification !== "undefined" && Notification.permission === "default") void Notification.requestPermission().catch(() => undefined);
 
-    trabajoPdfs.encarga({
+    const pedido = {
       huella,
       tablero,
       players,
@@ -157,7 +108,13 @@ export function PizarrasJugadores({
       escudoRival,
       ids,
       vuelta: `${window.location.pathname}${window.location.search.replace(/[?&]pdfs=1/, "")}`,
-    });
+    };
+
+    const aceptado = que === "pdf" ? trabajoPdfs.encarga(pedido) : trabajoPdfs.encargaVideos(pedido);
+
+    if (!aceptado && (que === "pdf" ? trabajo.encargo && !enMarcha : trabajo.encargoVideos)) {
+      toast.info(que === "pdf" ? "Ya se están preparando los PDF de otra pizarra: en cuanto acaben, vuelve a pedirlos." : "Ya se están montando otros vídeos: en cuanto acaben, vuelve a pedirlos.");
+    }
   };
 
   /* Sólo la ventana, con los móviles: sin pedir nada. */
@@ -257,7 +214,7 @@ export function PizarrasJugadores({
   | El mensaje (agente experto-marketing): una línea de para qué y los enlaces
   | con su rótulo, el vídeo primero —es lo que se abre en el autobús—.
   */
-  const mensaje = (player: Player | undefined, pdf: Hecho, video?: VideoHecho) =>
+  const mensaje = (player: Player | undefined, pdf: Hecho, video?: HechoVideo) =>
     [
       `${nombreCorto(player)}, tus ${pdf.acciones} ${pdf.acciones === 1 ? "acción" : "acciones"} a balón parado vs ${rival}. Míralo antes de salir.`,
       video?.url ? `▶ Vídeo: ${video.url}` : "",
@@ -266,129 +223,14 @@ export function PizarrasJugadores({
       .filter(Boolean)
       .join("\n");
 
-  /*
-  | Una foto de la diapositiva que se está rodando, con él medido: el centro de
-  | su cara en coordenadas del tablero (1920×1080), que es donde va el aro.
-  */
-  const fotoRodaje = async (playerId: string, indice: number, tiempo: number): Promise<FotoDiapositiva> => {
-    setRodaje({ playerId, indice, tiempo });
-    await pintado();
-    await pintado();
+  const videosListos = jugadores.flatMap((fila) => (videos[fila.playerId] ? [videos[fila.playerId]] : []));
+  const faltanVideos = listos.map((fila) => fila.playerId).filter((id) => !videos[id]);
 
-    const raiz = rodajeRef.current;
-    const nodo = raiz?.querySelector<HTMLElement>("[data-abp-tablero]");
+  const reintentaSubida = async (playerId: string) => {
+    const { subeVideo } = await import("@/components/abp/pizarra/MesaVideos");
 
-    if (!raiz || !nodo) throw new Error("No hay diapositiva que grabar");
-
-    const caja = nodo.getBoundingClientRect();
-    const cara = raiz.querySelector<HTMLElement>("[data-destacado] img")?.getBoundingClientRect();
-    const escala = TABLERO_W / Math.max(1, caja.width);
-
-    const { dataUrl } = await capturaNodo(nodo, {
-      backgroundColor: COLORES.tinta,
-      imagePlaceholder: PIXEL_VACIO,
-      includeQueryParams: true,
-      formato: "jpeg",
-      quality: 0.88,
-      width: TABLERO_W,
-      height: TABLERO_H,
-      pixelRatio: NITIDEZ_VIDEO,
-      style: { margin: "0", transform: "none", transformOrigin: "top left" },
-      filter: (n: HTMLElement) => !(n instanceof HTMLElement) || !n.hasAttribute("data-export-hide"),
-    });
-
-    return {
-      imagen: await cargaFoto(dataUrl),
-      punto: cara
-        ? { x: (cara.left + cara.width / 2 - caja.left) * escala, y: (cara.top + cara.height / 2 - caja.top) * escala }
-        : null,
-    };
+    subeVideo(playerId, videos[playerId].blob, videos[playerId].nombre);
   };
-
-  /* Monta, guarda y sube el vídeo de un jugador. Devuelve si salió. */
-  const hazVideo = async (playerId: string) => {
-    const acciones = cometidosDe(tablero, playerId, players);
-    const version = huellaRef.current;
-
-    if (acciones.length === 0) return false;
-
-    try {
-      setProgresoVideo(`${nombreCorto(players.get(playerId))} 0 %`);
-      setRodaje({ playerId, indice: acciones[0].indice, tiempo: 0 });
-      await pintado();
-      await esperaFuentePortada();
-
-      if (rodajeRef.current) await esperaFotos(rodajeRef.current);
-
-      const { cx, retrato } = await preparaJugador({
-        player: players.get(playerId),
-        rival,
-        jornada,
-        escudos: await cargaEscudos(escudoRival),
-      });
-
-      const blob = await videoJugador({
-        cx,
-        retrato,
-        acciones,
-        fases: acciones.map((accion) => fasesDe(tablero.slides[accion.indice]?.trazos)),
-        foto: (orden, tiempo) => fotoRodaje(playerId, acciones[orden].indice, tiempo),
-        alProgreso: (fraccion) => setProgresoVideo(`${nombreCorto(players.get(playerId))} ${Math.round(fraccion * 100)} %`),
-      });
-
-      const pdf = hechos[playerId];
-      const nombre = (pdf?.nombre ?? `ABP-${playerId}.pdf`).replace(/\.pdf$/, ".mp4");
-
-      /* La pizarra cambió mientras se rodaba: este vídeo ya no cuenta lo que hay. */
-      if (version !== huellaRef.current) return false;
-
-      setVideos((antes) => ({ ...antes, [playerId]: { nombre, blob } }));
-      subeVideo(playerId, blob, nombre);
-
-      return true;
-    } catch (error) {
-      console.error("[abp-pizarra] vídeo del jugador", error);
-      toast.error(`No se ha podido montar el vídeo de ${nombreCorto(players.get(playerId)) || "un jugador"}`);
-
-      return false;
-    }
-  };
-
-  /* Sube el vídeo y apunta su enlace, sólo si sigue siendo ESE vídeo. */
-  const subeVideo = (playerId: string, blob: Blob, nombre: string) => {
-    setVideos((antes) => (antes[playerId]?.blob === blob ? { ...antes, [playerId]: { ...antes[playerId], fallo: false } } : antes));
-
-    subeAdjunto(new File([blob], nombre, { type: "video/mp4" }))
-      .then((subido) =>
-        setVideos((antes) => (antes[playerId]?.blob === blob ? { ...antes, [playerId]: { ...antes[playerId], url: subido.url } } : antes)),
-      )
-      .catch((error) => {
-        console.warn("[abp-pizarra] subida del vídeo", error);
-        toast.error(`No se ha podido subir el vídeo de ${nombreCorto(players.get(playerId))}: pulsa «Reintentar»`);
-        setVideos((antes) => (antes[playerId]?.blob === blob ? { ...antes, [playerId]: { ...antes[playerId], fallo: true } } : antes));
-      });
-  };
-
-  /* En serie: dos codificadores a la vez dejan a Chrome sin ninguno. */
-  const ruedaVideos = async (ids: string[]) => {
-    if (rodando.current || ids.length === 0) return;
-
-    rodando.current = true;
-
-    let bien = 0;
-
-    try {
-      for (const id of ids) if (await hazVideo(id)) bien += 1;
-    } finally {
-      rodando.current = false;
-      setRodaje(null);
-      setProgresoVideo("");
-    }
-
-    if (bien) toast.success(`${bien} ${bien === 1 ? "vídeo listo" : "vídeos listos"}`);
-  };
-
-  const grabando = rodaje !== null;
 
   /* El chat con todo escrito. Se abre en el mismo clic: si no, el navegador lo bloquea. */
   const porWhatsapp = (playerId: string) => {
@@ -480,18 +322,28 @@ export function PizarrasJugadores({
                 </>
               )}
 
-              {sabeVideo && listos.length > 0 && !ocupado && (
+              {sabeVideo && faltanVideos.length > 0 && (
                 <Button
                   icon={Film}
-                  onClick={() => void ruedaVideos(listos.map((fila) => fila.playerId).filter((id) => !videos[id]))}
-                  disabled={grabando || listos.every((fila) => videos[fila.playerId])}
-                  title="Un vídeo vertical por jugador: su pizarra en movimiento, con un aro que le sigue"
+                  onClick={() => prepara(faltanVideos, "video")}
+                  disabled={enMarchaVideos}
+                  title="Un vídeo vertical por jugador: cada acción pintada como en el laboratorio, con él resaltado. Se monta en segundo plano"
                 >
-                  {grabando ? `Vídeo · ${progresoVideo}` : "Vídeos de todos"}
+                  {enMarchaVideos ? `Vídeo ${Math.min(trabajo.hechoVideos + 1, trabajo.totalVideos)}/${trabajo.totalVideos} · ${Math.round(trabajo.avanceVideo * 100)} %` : "Vídeos de todos"}
                 </Button>
               )}
 
-              {siguiente && !ocupado && !grabando && (
+              {videosListos.length > 1 && (
+                <Button
+                  icon={Download}
+                  onClick={() => void descargaVideos(videosListos, `ABP-videos-${jornada ?? ""}-${rival}.zip`)}
+                  title="Todos los vídeos hechos, en un .zip de una vez"
+                >
+                  Vídeos (.zip)
+                </Button>
+              )}
+
+              {siguiente && !ocupado && (
                 <Button tone="primary" icon={Send} onClick={() => porWhatsapp(siguiente.playerId)}>
                   Enviar a {nombreCorto(siguiente.player)}
                 </Button>
@@ -557,16 +409,16 @@ export function PizarrasJugadores({
                         )}
                         {sabeVideo && (
                           videos[fila.playerId]?.fallo ? (
-                            <Button icon={Film} onClick={() => subeVideo(fila.playerId, videos[fila.playerId].blob, videos[fila.playerId].nombre)} title="No se subió: el mensaje saldría sin el vídeo">
+                            <Button icon={Film} onClick={() => void reintentaSubida(fila.playerId)} title="No se subió: el mensaje saldría sin el vídeo">
                               Reintentar
                             </Button>
                           ) : videos[fila.playerId] ? (
-                            <Button icon={Film} onClick={() => descarga(videos[fila.playerId].blob, videos[fila.playerId].nombre)} title="Descargar su vídeo">
+                            <Button icon={Film} onClick={() => void guardaVideo(videos[fila.playerId])} title="Guardar su vídeo (en el móvil, «Guardar vídeo» lo deja en la galería)">
                               {videos[fila.playerId].url ? "Vídeo ✓" : "Vídeo…"}
                             </Button>
                           ) : (
-                            <Button icon={Film} onClick={() => void ruedaVideos([fila.playerId])} disabled={grabando} title="Su pizarra en movimiento, en vídeo vertical">
-                              {rodaje?.playerId === fila.playerId ? progresoVideo.replace(/^.* /, "") : "Vídeo"}
+                            <Button icon={Film} onClick={() => prepara([fila.playerId], "video")} disabled={enMarchaVideos} title="Sus acciones como en el laboratorio, con él resaltado, en vídeo vertical">
+                              {videoActual === fila.playerId ? `${Math.round(trabajo.avanceVideo * 100)} %` : enMarchaVideos && trabajo.encargoVideos?.ids.includes(fila.playerId) ? "En cola" : "Vídeo"}
                             </Button>
                           )
                         )}
@@ -585,32 +437,6 @@ export function PizarrasJugadores({
         </Dialog>
       )}
 
-      {/* El tablero que se está rodando para un vídeo, con su reloj. */}
-      {rodaje && tablero.slides[rodaje.indice] && (
-        <div
-          ref={rodajeRef}
-          aria-hidden
-          data-export-hide
-          className="pointer-events-none"
-          style={{ position: "fixed", top: 0, left: -(TABLERO_W * 2 + 400), width: TABLERO_W, zIndex: -1 }}
-        >
-          <TableroSlide
-            slide={tablero.slides[rodaje.indice]}
-            titulo={tituloVisible(tablero.slides, rodaje.indice)}
-            tiempo={rodaje.tiempo}
-            soloVer
-            destacado={rodaje.playerId}
-            players={players}
-            temporada={temporada}
-            rival={rival}
-            seleccion={null}
-            onMover={() => undefined}
-            onQuitar={() => undefined}
-            onPulsarPuesto={() => undefined}
-            onSeleccionar={() => undefined}
-          />
-        </div>
-      )}
 
     </>
   );

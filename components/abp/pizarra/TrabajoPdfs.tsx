@@ -16,17 +16,19 @@ import { useSyncExternalStore } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { trabajoPdfs } from "@/lib/abp/trabajo-pdfs";
+import { descargaVideos } from "@/lib/abp/descarga-videos";
+import { trabajoPdfs, type EncargoPdfs } from "@/lib/abp/trabajo-pdfs";
 
 const MesaPdfs = dynamic(() => import("@/components/abp/pizarra/MesaPdfs").then((m) => m.MesaPdfs), { ssr: false });
+const MesaVideos = dynamic(() => import("@/components/abp/pizarra/MesaVideos").then((m) => m.MesaVideos), { ssr: false });
 
 /** La pizarra con la ventana de los PDF abierta. */
 const conVentana = (vuelta: string) => `${vuelta}${vuelta.includes("?") ? "&" : "?"}pdfs=1`;
 
-async function notificaSistema(titulo: string, cuerpo: string, url: string) {
+async function notificaSistema(titulo: string, cuerpo: string, url: string, tag: string) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
 
-  const opciones = { body: cuerpo, icon: "/logo.png", badge: "/logo.png", tag: "abp-pdfs", data: { url } };
+  const opciones = { body: cuerpo, icon: "/logo.png", badge: "/logo.png", tag, data: { url } };
 
   try {
     const registro = await navigator.serviceWorker?.getRegistration();
@@ -48,8 +50,9 @@ export function TrabajoPdfs() {
     else router.push(conVentana(vuelta));
   };
 
-  const alTerminar = (vuelta: string) => ({ listos, fallos }: { listos: number; fallos: number }) => {
-    const titulo = listos ? `PDF de ABP listos: ${listos}` : "No se han podido preparar los PDF de ABP";
+  const alTerminar = (encargo: EncargoPdfs, que: "PDF" | "Vídeos") => ({ listos, fallos }: { listos: number; fallos: number }) => {
+    const { vuelta } = encargo;
+    const titulo = listos ? `${que} de ABP listos: ${listos}` : `No se han podido preparar los ${que.toLowerCase()} de ABP`;
     const cuerpo = `${fallos ? `${fallos} no han salido. ` : ""}Toca para enviarlos por WhatsApp.`;
 
     navigator.vibrate?.(200);
@@ -58,30 +61,51 @@ export function TrabajoPdfs() {
       description: cuerpo,
       duration: 30_000,
       action: listos ? { label: "Abrir", onClick: () => abre(vuelta) } : undefined,
+      /* En el ordenador, los vídeos se bajan desde el aviso, sin volver a la pizarra. */
+      cancel:
+        listos && que === "Vídeos" && !window.matchMedia?.("(pointer: coarse)").matches
+          ? {
+              label: "Descargar",
+              onClick: () =>
+                void descargaVideos(Object.values(trabajoPdfs.foto().videos), `ABP-videos-${encargo.jornada ?? ""}-${encargo.rival}.zip`),
+            }
+          : undefined,
     });
 
     if (document.hidden || window.location.pathname !== vuelta.split("?")[0]) {
-      void notificaSistema(titulo, cuerpo, conVentana(vuelta));
+      void notificaSistema(titulo, cuerpo, conVentana(vuelta), que === "PDF" ? "abp-pdfs" : "abp-videos");
     }
   };
 
-  const encargo = estado.encargo;
+  const { encargo, encargoVideos } = estado;
 
-  if (!encargo) return null;
+  if (!encargo && !encargoVideos) return null;
+
+  const vuelta = (encargo ?? encargoVideos)!.vuelta;
+
+  const texto = [
+    encargo ? `PDF ${Math.min(estado.hecho + 1, estado.total)}/${estado.total}` : "",
+    encargoVideos
+      ? `Vídeo ${Math.min(estado.hechoVideos + 1, estado.totalVideos)}/${estado.totalVideos} · ${Math.round(estado.avanceVideo * 100)} %`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <>
-      <MesaPdfs encargo={encargo} alTerminar={alTerminar(encargo.vuelta)} />
+      {encargo && <MesaPdfs encargo={encargo} alTerminar={alTerminar(encargo, "PDF")} />}
+      {encargoVideos && <MesaVideos encargo={encargoVideos} alTerminar={alTerminar(encargoVideos, "Vídeos")} />}
 
       <button
         type="button"
-        onClick={() => abre(encargo.vuelta)}
-        title="Los PDF de balón parado se están preparando: puedes seguir usando la app, te aviso al terminar"
+        onClick={() => abre(vuelta)}
+        title="Los PDF y vídeos de balón parado se están preparando: puedes seguir usando la app, te aviso al terminar"
         className="fixed bottom-4 left-4 z-50 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold shadow-lg"
         style={{ backgroundColor: "#0F1E3D", color: "#FFFFFF", boxShadow: "0 0 0 1px rgba(216,180,90,.5), 0 8px 24px rgba(0,0,0,.35)" }}
       >
         <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: "#D8B45A" }} />
-        PDF ABP · {Math.min(estado.hecho + 1, estado.total)}/{estado.total}
+        ABP · {texto}
       </button>
     </>
   );
