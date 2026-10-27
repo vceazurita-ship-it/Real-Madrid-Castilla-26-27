@@ -196,6 +196,22 @@ export const IDS_ANTERIORES: Record<string, string> = {
 
 export const idVigente = (id: string) => IDS_ANTERIORES[id] ?? id;
 
+const llano = (texto: string) =>
+  texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z ]/g, " ").trim().split(/s+/);
+
+/**
+ * ¿Es el mismo jugador? Wyscout escribe «J. Rajado» y la hoja «Jorge Rajado»:
+ * manda el apellido (la última palabra) y, si hay inicial, que case.
+ */
+export function mismoJugador(a: string, b: string) {
+  const x = llano(a);
+  const y = llano(b);
+
+  if (!x[0] || !y[0] || x[x.length - 1] !== y[y.length - 1]) return false;
+
+  return x[0][0] === y[0][0] || x.length === 1 || y.length === 1;
+}
+
 /** Los fichajes convertidos en jugadores, con sus recortes. */
 const PENDIENTES: Player[] = FICHAS.map((ficha) => ({
   id: ficha.id,

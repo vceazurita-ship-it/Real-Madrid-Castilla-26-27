@@ -224,6 +224,47 @@ export function ProximoPartido() {
 
   const enlacePlantilla = conEquipo("/rivals");
 
+  /*
+  | Lo que toca hoy según el día de la semana (MD-n): la víspera, la pizarra
+  | para mandar a los jugadores; el día después, el post. Días naturales en
+  | Madrid, como `cuantoFalta`.
+  */
+  const diasEntre = (desde: string, hasta: string) =>
+    Math.round((Date.parse(`${hasta.slice(0, 10)}T12:00:00Z`) - Date.parse(`${desde.slice(0, 10)}T12:00:00Z`)) / 86_400_000);
+
+  const faltan = proximo && hoy ? diasEntre(hoy, proximo.cuando) : null;
+  const pasados = anterior && hoy ? diasEntre(anterior.cuando, hoy) : null;
+
+  const hoyToca: { rotulo: string; atajos: { href: string; texto: string; title: string }[] } | null =
+    faltan !== null && faltan <= 1
+      ? {
+          rotulo: faltan <= 0 ? "MD" : "MD-1",
+          atajos: [
+            { href: conRival("/abp-pizarra"), texto: "PDF y vídeo ABP por jugador", title: "La pizarra de balón parado: «PDF por jugador» para mandarlo por WhatsApp" },
+            { href: conRival("/match-preparation"), texto: "Plan de partido", title: `El plan contra ${nombreRival}` },
+            { href: conEquipo("/duelos"), texto: "Duelos", title: `Nuestro once contra el de ${nombreRival}` },
+          ],
+        }
+      : pasados !== null && pasados >= 1 && pasados <= 2 && anterior
+        ? {
+            rotulo: `MD+${pasados}`,
+            atajos: [
+              { href: "/microcycles", texto: "Informe post", title: `El informe del partido contra ${anterior.rival}, desde Microciclos` },
+              { href: "/data-analisis", texto: "Data análisis", title: "Los datos del último partido" },
+              { href: "/collective_history", texto: "Histórico", title: "Todos los partidos de la temporada" },
+            ],
+          }
+        : faltan !== null && faltan <= 4
+          ? {
+              rotulo: `MD-${faltan}`,
+              atajos: [
+                { href: conRival("/scout-rival-collective"), texto: "Scout colectivo", title: `El informe colectivo de ${nombreRival}` },
+                { href: conEquipo("/scout-rival-abp"), texto: "ABP rival", title: `El balón parado de ${nombreRival}` },
+                { href: "/abp-microciclo", texto: "Microciclo ABP", title: "Qué se trabaja cada día a balón parado" },
+              ],
+            }
+          : null;
+
   return (
     /* `min-w-0`: es un hijo de un grid, y sin esto la tira de días —que es
        más ancha que un teléfono— empuja la columna fuera de la pantalla en vez
@@ -532,6 +573,21 @@ export function ProximoPartido() {
           y aquí sería un enlace más del menú. Duelos e individual se abren
           por `?equipo=` desde el 26/10/2026.
         */}
+        {hoyToca && (
+          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
+            <span className="rounded-md bg-[#D8B45A]/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D8B45A]">
+              Hoy · {hoyToca.rotulo}
+            </span>
+
+            {hoyToca.atajos.map((atajo, i) => (
+              <span key={atajo.texto} className="inline-flex items-center gap-2">
+                {i > 0 && <span className="text-white/20">·</span>}
+                <Atajo href={atajo.href} texto={atajo.texto} title={atajo.title} />
+              </span>
+            ))}
+          </p>
+        )}
+
         {proximo && (
           <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
             <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">

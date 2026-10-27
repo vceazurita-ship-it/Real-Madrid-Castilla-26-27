@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Scale, TrendingUp, User, Users } from "lucide-react";
 
@@ -7,6 +8,7 @@ import { Notice, Panel } from "@/components/abp/ui";
 import { Lectura } from "@/components/data/formas";
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { formatea } from "@/lib/data-analisis/metricas";
+import { mismoJugador } from "@/lib/fichajes";
 import {
   AMBITOS,
   gruposDe,
@@ -43,7 +45,6 @@ import { Explicativo } from "@/components/ui/textos-analisis";
  *   extrapolación de tres acciones.
  */
 export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
-  const [cual, setCual] = useState(0);
   const [grupo, setGrupo] = useState<string>("todos");
 
   /* Se compara contra la categoría por defecto: es la pregunta que importa. */
@@ -58,6 +59,13 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
         .sort((a, b) => b.minutos - a.minutos),
     [jugadores],
   );
+
+  /* Desde la ficha de Individual llega `?jugador=`: se abre con él. */
+  const [cual, setCual] = useState(() => {
+    const pedido = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("jugador");
+
+    return pedido ? Math.max(0, ordenados.findIndex((j) => mismoJugador(j.jugador, pedido))) : 0;
+  });
 
   const jugador = ordenados[Math.min(cual, Math.max(0, ordenados.length - 1))] ?? null;
 
@@ -184,6 +192,15 @@ export function PanelIndividual({ jugadores }: { jugadores: FilaJugador[] }) {
             ))}
           </select>
         </label>
+
+        {jugador && (
+          <Link
+            href={`/individual?nombre=${encodeURIComponent(jugador.jugador)}`}
+            className="text-xs text-white/50 underline decoration-white/20 underline-offset-4 hover:text-[#F7D98B]"
+          >
+            Su ficha en Individual
+          </Link>
+        )}
 
         <div className="flex flex-wrap items-center rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
           {AMBITOS.map((a) => (

@@ -64,7 +64,7 @@ import { useRatingsSeason } from "@/hooks/useRatings";
 import { playerEntries } from "@/lib/ratings/compute";
 import { getPlayerImage, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
-import { esDelCastilla, idVigente } from "@/lib/fichajes";
+import { esDelCastilla, idVigente, mismoJugador } from "@/lib/fichajes";
 import { alineaSeguimiento } from "@/lib/seguimiento";
 import { creaSeguimientos } from "@/lib/seguimiento-escribir";
 import { SeleccionJugadores } from "@/components/seguimiento/SeleccionJugadores";
@@ -1818,7 +1818,13 @@ export default function IndividualPage() {
           const pedido = new URLSearchParams(window.location.search).get(
             "player",
           );
-          const wanted = pedido ? idVigente(pedido) : pedido;
+          /* Desde Data análisis llega el nombre de Wyscout («J. Rajado»). */
+          const porNombre = new URLSearchParams(window.location.search).get("nombre");
+          const wanted = pedido
+            ? idVigente(pedido)
+            : porNombre
+              ? (players.find((p) => mismoJugador(p.name, porNombre))?.idJugador ?? null)
+              : null;
 
           if (wanted && players.some((p) => p.idJugador === wanted)) {
             setSelectedId(wanted);
@@ -3602,6 +3608,13 @@ export default function IndividualPage() {
                               Plan de desarrollo del jugador
                             </p>
                           </div>
+
+                          <Link
+                            href={`/data-analisis?area=individual&jugador=${encodeURIComponent(selected.name)}`}
+                            className="ml-auto text-xs text-white/50 underline decoration-white/20 underline-offset-4 hover:text-[#F7D98B]"
+                          >
+                            Sus datos en Data análisis
+                          </Link>
 
                           <GoldButton icon={Pencil} onClick={openProfileForm}>
                             Editar perfil
