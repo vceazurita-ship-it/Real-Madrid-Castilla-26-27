@@ -5,21 +5,34 @@
  *
  * Lee su once, sus remates de ABP, la plantilla con alturas y Wyscout; lee
  * nuestro once (Valoraciones + lo cambiado en Duelos) y propone las marcas
- * (`lib/abp/marcas-corner.ts`). Al aplicar, cada marca lleva el dorsal de su
- * rival en la casilla de encima de la cabeza y en el panel, y los huecos de
- * marca vacíos se rellenan con nuestros mejores por alto. Se deshace con Ctrl+Z.
+ * (`lib/abp/marcas-corner.ts`). En la ventana, cada marca se puede cambiar —a
+ * quién ponemos y a quién marca— o dejar en blanco, con la altura y los
+ * aéreos de cada uno a la vista. La altura de los nuestros que Wyscout no trae
+ * se escribe aquí y se guarda (`abp:alturas-nuestros`).
+ *
+ * Al aplicar, cada marca lleva el dorsal de su rival en la casilla de encima
+ * de la cabeza y en el panel. Se deshace con Ctrl+Z.
  */
 
 import { useState } from "react";
-import { Crosshair } from "lucide-react";
+import { Crosshair, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, Dialog } from "@/components/abp/ui";
-import { poderAereo, proponMarcas, type Atacante, type Emparejamiento, type Marcador } from "@/lib/abp/marcas-corner";
+import {
+  motivoAtacante,
+  motivoMarcador,
+  ordenaAtacantes,
+  ordenaMarcadores,
+  proponMarcas,
+  type Atacante,
+  type Emparejamiento,
+  type Marcador,
+} from "@/lib/abp/marcas-corner";
 import { puestosDeGrupo, type SlidePizarra } from "@/lib/abp/pizarra";
 import { buildAerialThreats, loadRivalAbp } from "@/lib/abp/rival";
 import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
-import { casaNombre } from "@/lib/data-analisis/once";
+import { casaNombre, sitioDe } from "@/lib/data-analisis/once";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
 import { nuestrosDe } from "@/lib/duelos-onces";
 import { traeJson } from "@/lib/hojaCsv";
@@ -27,22 +40,36 @@ import type { RatingsSeason } from "@/lib/ratings/types";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { suOnceTeorico } from "@/lib/tactics/oncesSemana";
 import { huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import type { Player } from "@/types/player";
-
-const PORTERO = /portero|^po?r?$|^gk$/i;
 
 const numero = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
 
 const norma = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
-export type MarcasAplicadas = {
-  /** puesto → dorsal del rival al que marca. */
-  marcas: Record<string, string>;
-  /** Huecos de marca vacíos que se llenan: puesto → jugador. */
-  nuevos: { puesto: string; playerId: string }[];
+/** Duelos aéreos que hay detrás del %: por noventa × minutos. */
+const duelosDe = (fila: FilaJugador | null | undefined) => {
+  const por90 = numero(fila?.datos["Duelos aéreos en los 90"]);
+
+  return por90 && fila ? (por90 * fila.minutos) / 90 : null;
 };
 
-type Propuesta = { pares: (Emparejamiento & { puesto: string })[]; fuente: string };
+export type FilaMarca = {
+  puesto: string;
+  /** `null`: el hueco se queda vacío. */
+  playerId: string | null;
+  /** "" : la casilla del dorsal, en blanco. */
+  dorsal: string;
+};
+
+type Datos = {
+  plantel: Marcador[];
+  atacantes: Atacante[];
+  /** Lo que ya había en la diapositiva. */
+  yaPuestos: Map<string, string>;
+  ocupados: Set<string>;
+  fuente: string;
+};
 
 export function PropuestaMarcas({
   slide,
@@ -53,10 +80,34 @@ export function PropuestaMarcas({
   slide: SlidePizarra;
   rival: string;
   players: Player[];
-  onAplicar: (cambio: MarcasAplicadas) => void;
+  onAplicar: (filas: FilaMarca[]) => void;
 }) {
   const [cargando, setCargando] = useState(false);
-  const [propuesta, setPropuesta] = useState<Propuesta | null>(null);
+  const [datos, setDatos] = useState<Datos | null>(null);
+  const [filas, setFilas] = useState<Emparejamiento[] | null>(null);
+
+  /* Las alturas de los nuestros que Wyscout no trae, escritas aquí (cm por id). */
+  const { value: alturas, setValue: setAlturas } = useRemoteDoc<Record<string, number>>({
+    key: "abp:alturas-nuestros",
+    kind: "abp",
+    fallback: {},
+  });
+
+  const puestos = puestosDeGrupo(slide, "marcas");
+
+  /* La altura escrita a mano manda sobre la de Wyscout. */
+  const conAltura = (m: Marcador): Marcador => (alturas[m.playerId] ? { ...m, altura: alturas[m.playerId] } : m);
+
+  const propone = (d: Datos) =>
+    setFilas(
+      proponMarcas({
+        puestos: puestos.map((p) => p.key),
+        yaPuestos: d.yaPuestos,
+        ocupados: d.ocupados,
+        plantel: d.plantel.map(conAltura),
+        atacantes: d.atacantes,
+      }),
+    );
 
   const calcula = async () => {
     if (!rival) return;
@@ -110,20 +161,16 @@ export function PropuestaMarcas({
             altura: hoja?.altura ?? numero(wy?.altura),
             aereoPct: numero(wy?.datos["Duelos aéreos ganados, %"]),
             aereos90: numero(wy?.datos["Duelos aéreos en los 90"]),
+            duelos: duelosDe(wy),
             remates: (hoja?.remates ?? 0) + (delScout.get(norma(nombre)) ?? 0),
             remataAbp: hoja?.remataAbp ?? false,
           };
         });
 
-      /* ---------- Nosotros: los de las marcas y, si faltan, nuestro once ---------- */
+      /* ---------- Nosotros: toda la plantilla, marcando los del once ---------- */
 
-      const huecosMarca = puestosDeGrupo(slide, "marcas");
-      const enMarca = new Map(slide.fichas.filter((f) => f.puesto && huecosMarca.some((p) => p.key === f.puesto)).map((f) => [f.playerId, f.puesto!]));
-      const enOtroSitio = new Set(slide.fichas.filter((f) => f.puesto && !enMarca.has(f.playerId)).map((f) => f.playerId));
-
-      const porId = new Map(players.map((p) => [p.id, p]));
       const { huecos } = huecosDelUltimoOnce(temporada, players, once.nuestroAMano);
-      const delOnce = Object.values(huecos).filter((id) => id && porId.has(id) && !PORTERO.test(porId.get(id)!.posicion ?? ""));
+      const titulares = new Set(Object.values(huecos).filter(Boolean));
 
       const aereo = new Map(
         nuestrosDe(
@@ -134,41 +181,45 @@ export function PropuestaMarcas({
           .map((j) => [j.fichaId!, j]),
       );
 
-      const marcador = (playerId: string, puesto: string | null): Marcador => {
-        const j = aereo.get(playerId);
-        const p = porId.get(playerId);
+      const plantel: Marcador[] = players
+        .filter((p) => p.activo !== false && (p.esCastilla || titulares.has(p.id)))
+        .map((p) => {
+          const j = aereo.get(p.id);
 
-        return {
-          playerId,
-          nombre: p?.apodo || p?.nombre || playerId,
-          altura: j?.altura ?? null,
-          aereoPct: numero(j?.wyscout?.datos["Duelos aéreos ganados, %"]),
-          aereos90: numero(j?.wyscout?.datos["Duelos aéreos en los 90"]),
-          puesto,
-        };
-      };
+          return {
+            playerId: p.id,
+            nombre: p.apodo || p.nombre,
+            rol: j?.puesto ?? sitioDe(p.posicion ?? "", null).puesto,
+            posicion: j?.posicion || p.posicion || "",
+            altura: j?.altura ?? null,
+            aereoPct: numero(j?.wyscout?.datos["Duelos aéreos ganados, %"]),
+            aereos90: numero(j?.wyscout?.datos["Duelos aéreos en los 90"]),
+            duelos: duelosDe(j?.wyscout),
+            titular: titulares.has(p.id),
+          };
+        });
 
-      const fijos = [...enMarca].map(([id, puesto]) => marcador(id, puesto));
-      const libres = huecosMarca.filter((p) => ![...enMarca.values()].includes(p.key));
-      const candidatos = delOnce.filter((id) => !enMarca.has(id) && !enOtroSitio.has(id)).map((id) => marcador(id, null));
+      const claves = new Set(puestos.map((p) => p.key));
+      const yaPuestos = new Map(slide.fichas.filter((f) => f.puesto && claves.has(f.puesto)).map((f) => [f.puesto!, f.playerId]));
+      const enMarca = new Set(yaPuestos.values());
+      const ocupados = new Set(slide.fichas.filter((f) => f.puesto && !enMarca.has(f.playerId)).map((f) => f.playerId));
 
-      /* Los que faltan, nuestros mejores por alto del once. */
-      const extra = [...candidatos].sort((a, b) => poderAereo(b) - poderAereo(a)).slice(0, libres.length);
-
-      const pares = proponMarcas(atacantes, [...fijos, ...extra]);
-
-      /* Puesto de cada marcador: el suyo, o los huecos libres por orden (M1 primero, para el mejor). */
-      let i = 0;
-
-      const conPuesto = pares.map((par) => ({ ...par, puesto: par.marcador.puesto ?? libres[i++]?.key ?? "" })).filter((par) => par.puesto);
-
-      if (!conPuesto.length) {
+      if (!atacantes.length && !plantel.length) {
         toast.info(`De ${equipo} no hay once ni plantilla para proponer marcas.`);
 
         return;
       }
 
-      setPropuesta({ pares: conPuesto, fuente: `${once.fuente}. Remates: hojas de ABP y su scouting; alturas y duelos aéreos: plantilla y Wyscout.` });
+      const nuevos: Datos = {
+        plantel,
+        atacantes,
+        yaPuestos,
+        ocupados,
+        fuente: `${once.fuente}. Ellos: remates de ABP (hojas y scouting), altura y aéreos de Wyscout. Nosotros: puesto, altura y aéreos de Wyscout (el % pesa según los duelos que tiene detrás).`,
+      };
+
+      setDatos(nuevos);
+      propone(nuevos);
     } catch (error) {
       console.error("[abp-pizarra] propuesta de marcas", error);
       toast.error("No se ha podido preparar la propuesta de marcas");
@@ -177,19 +228,49 @@ export function PropuestaMarcas({
     }
   };
 
+  const cierra = () => {
+    setFilas(null);
+    setDatos(null);
+  };
+
   const aplica = () => {
-    if (!propuesta) return;
+    if (!filas) return;
 
-    onAplicar({
-      marcas: Object.fromEntries(propuesta.pares.filter((p) => p.atacante.dorsal).map((p) => [p.puesto, p.atacante.dorsal])),
-      nuevos: propuesta.pares.filter((p) => !p.marcador.puesto).map((p) => ({ puesto: p.puesto, playerId: p.marcador.playerId })),
-    });
-
-    setPropuesta(null);
+    onAplicar(filas.map((fila) => ({ puesto: fila.puesto, playerId: fila.marcador?.playerId ?? null, dorsal: fila.atacante?.dorsal ?? "" })));
+    cierra();
     toast.success("Marcas puestas: el dorsal va en la casilla de cada uno. Ctrl+Z lo deshace.");
   };
 
-  const sigla = (puesto: string) => puestosDeGrupo(slide, "marcas").find((p) => p.key === puesto)?.sigla ?? "";
+  const cambiaFila = (puesto: string, cambio: Partial<Emparejamiento>) =>
+    setFilas((antes) => antes?.map((fila) => (fila.puesto === puesto ? { ...fila, ...cambio } : fila)) ?? null);
+
+  const guardaAltura = (playerId: string, texto: string) => {
+    const cm = Math.round(Number(texto.replace(",", ".")) * (Number(texto.replace(",", ".")) < 3 ? 100 : 1));
+
+    setAlturas((antes) => {
+      const resto = { ...antes };
+
+      if (cm >= 150 && cm <= 215) resto[playerId] = cm;
+      else delete resto[playerId];
+
+      return resto;
+    });
+
+    /* Que la fila enseñe ya la altura nueva. */
+    setFilas(
+      (antes) =>
+        antes?.map((fila) =>
+          fila.marcador?.playerId === playerId ? { ...fila, marcador: { ...fila.marcador, altura: cm >= 150 && cm <= 215 ? cm : null } } : fila,
+        ) ?? null,
+    );
+  };
+
+  const sigla = (puesto: string) => puestos.find((p) => p.key === puesto)?.sigla ?? "";
+
+  const plantel = datos ? ordenaMarcadores(datos.plantel.map(conAltura)) : [];
+  const atacantes = datos ? ordenaAtacantes(datos.atacantes) : [];
+  const selector =
+    "min-w-0 max-w-full rounded-lg border border-white/15 bg-white/[0.04] px-2 py-1.5 text-sm text-white outline-none focus:border-[#C8A96B]/60";
 
   return (
     <>
@@ -197,19 +278,22 @@ export function PropuestaMarcas({
         icon={Crosshair}
         onClick={() => void calcula()}
         disabled={cargando || !rival}
-        title="Propone quién marca a quién: su once por remates de ABP, altura y duelos aéreos, contra nuestro once por alto"
+        title="Propone quién marca a quién: su once por remates de ABP, altura y aéreos, contra los nuestros por puesto, altura y aéreos"
       >
         {cargando ? "Cruzando onces…" : "Quién marca a quién"}
       </Button>
 
-      {propuesta && (
+      {filas && datos && (
         <Dialog
           title="Quién marca a quién"
-          subtitle={`Su más peligroso por arriba, para nuestro mejor por alto. ${propuesta.fuente}`}
-          onClose={() => setPropuesta(null)}
+          subtitle={`Su más peligroso por arriba, para nuestro mejor defendiendo el área. Cambia lo que quieras o deja una marca en blanco. ${datos.fuente}`}
+          onClose={cierra}
           footer={
             <div className="flex flex-wrap items-center justify-end gap-2">
-              <Button onClick={() => setPropuesta(null)}>Cerrar</Button>
+              <Button icon={RefreshCw} onClick={() => propone(datos)} title="Vuelve a proponer con las alturas escritas">
+                Volver a proponer
+              </Button>
+              <Button onClick={cierra}>Cerrar</Button>
               <Button icon={Crosshair} onClick={aplica}>
                 Poner en la pizarra
               </Button>
@@ -217,22 +301,65 @@ export function PropuestaMarcas({
           }
         >
           <ol className="space-y-2">
-            {propuesta.pares.map((par) => (
-              <li
-                key={par.puesto}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
-              >
-                <span className="w-9 shrink-0 font-semibold text-[#D8B45A]">{sigla(par.puesto)}</span>
-                <span className="min-w-0 font-medium text-white">
-                  {par.marcador.nombre}
-                  {!par.marcador.puesto && <span className="ml-1 text-[11px] text-white/40">(del once)</span>}
-                </span>
-                <span className="text-white/35">→</span>
-                <span className="min-w-0 text-white">
-                  {par.atacante.dorsal && <strong className="mr-1 text-[#F7B0B8]">{par.atacante.dorsal}</strong>}
-                  {par.atacante.nombre}
-                </span>
-                {par.motivo && <span className="w-full pl-12 text-[11px] text-white/45">{par.motivo}</span>}
+            {filas.map((fila) => (
+              <li key={fila.puesto} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="w-9 shrink-0 font-semibold text-[#D8B45A]">{sigla(fila.puesto)}</span>
+
+                  <select
+                    aria-label={`Quién va en ${sigla(fila.puesto)}`}
+                    value={fila.marcador?.playerId ?? ""}
+                    onChange={(e) => cambiaFila(fila.puesto, { marcador: plantel.find((m) => m.playerId === e.target.value) ?? null })}
+                    className={`${selector} flex-1`}
+                  >
+                    <option value="" className="bg-[#11161C]">— En blanco —</option>
+                    {plantel.map((m) => (
+                      <option key={m.playerId} value={m.playerId} className="bg-[#11161C]">
+                        {m.nombre}
+                        {m.titular ? " · once" : ""}
+                      </option>
+                    ))}
+                  </select>
+
+                  <span className="text-white/35">→</span>
+
+                  <select
+                    aria-label={`A quién marca ${sigla(fila.puesto)}`}
+                    value={fila.atacante?.clave ?? ""}
+                    onChange={(e) => cambiaFila(fila.puesto, { atacante: atacantes.find((a) => a.clave === e.target.value) ?? null })}
+                    className={`${selector} flex-1`}
+                  >
+                    <option value="" className="bg-[#11161C]">— En blanco —</option>
+                    {atacantes.map((a) => (
+                      <option key={a.clave} value={a.clave} className="bg-[#11161C]">
+                        {a.dorsal ? `${a.dorsal} · ` : ""}
+                        {a.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mt-1.5 grid gap-1 pl-11 text-[11px] text-white/50 sm:grid-cols-2">
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    {fila.marcador && (
+                      <>
+                        {motivoMarcador(fila.marcador)}
+                        {!fila.marcador.altura && (
+                          <input
+                            key={fila.marcador.playerId}
+                            inputMode="decimal"
+                            placeholder="Altura (1,85)"
+                            aria-label={`Altura de ${fila.marcador.nombre}`}
+                            onBlur={(e) => e.target.value.trim() && guardaAltura(fila.marcador!.playerId, e.target.value.trim())}
+                            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+                            className="w-24 rounded border border-white/15 bg-white/5 px-1.5 py-0.5 text-[11px] text-white placeholder:text-white/30"
+                          />
+                        )}
+                      </>
+                    )}
+                  </span>
+                  <span>{fila.atacante ? motivoAtacante(fila.atacante) : ""}</span>
+                </div>
               </li>
             ))}
           </ol>

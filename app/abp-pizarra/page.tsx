@@ -2689,16 +2689,27 @@ export default function PizarraAbpPage() {
                             slide={slide}
                             rival={tablero?.rival || partido?.opponent || ""}
                             players={players}
-                            onAplicar={({ marcas, nuevos }) =>
+                            onAplicar={(filas) =>
                               mutaSlide((actual) => {
-                                const ocupados = new Set(nuevos.map((n) => n.puesto));
-                                const quienes = new Set(nuevos.map((n) => n.playerId));
-                                const fichas = actual.fichas.filter((f) => !(f.puesto && ocupados.has(f.puesto)) && !quienes.has(f.playerId));
+                                /* Quien ya estaba en esa marca se queda tal cual (con sus carreras). */
+                                const cambian = filas.filter((fila) => !actual.fichas.some((f) => f.puesto === fila.puesto && f.playerId === fila.playerId));
+                                const huecos = new Set(cambian.map((fila) => fila.puesto));
+                                const entran = new Set(cambian.map((fila) => fila.playerId).filter(Boolean));
+                                const fichas = actual.fichas.filter((f) => !(f.puesto && huecos.has(f.puesto)) && !entran.has(f.playerId));
+                                const marcas = { ...(actual.marcas ?? {}) };
+
+                                for (const fila of filas) {
+                                  if (fila.dorsal && fila.playerId) marcas[fila.puesto] = fila.dorsal;
+                                  else delete marcas[fila.puesto];
+                                }
 
                                 return {
                                   ...actual,
-                                  fichas: [...fichas, ...nuevos.map((n) => fichaNueva(n.playerId, puestoDe(actual, n.puesto)))],
-                                  marcas: { ...(actual.marcas ?? {}), ...marcas },
+                                  fichas: [
+                                    ...fichas,
+                                    ...cambian.flatMap((fila) => (fila.playerId ? [fichaNueva(fila.playerId, puestoDe(actual, fila.puesto))] : [])),
+                                  ],
+                                  marcas,
                                 };
                               }, "marcas:propuesta")
                             }
