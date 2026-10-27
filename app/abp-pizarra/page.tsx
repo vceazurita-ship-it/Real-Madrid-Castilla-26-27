@@ -3363,7 +3363,7 @@ function MemoriaResumen({
                 className="flex min-w-0 items-baseline gap-2 text-xs"
               >
                 <span
-                  className="shrink-0 rounded bg-white/8 px-1.5 py-0.5 text-[10px] font-semibold text-white/60"
+                  className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/60"
                   title={puesto.label}
                 >
                   {puesto.code}
@@ -3464,7 +3464,7 @@ function TextosDeLaSlide({
           <div className="grid gap-2">
             {CASILLAS_GUION.map((casilla) => (
               <label key={casilla.key} className="block">
-                <span className="mb-1 block text-xs font-semibold text-[#E4CE9B]">
+                <span className="mb-1 block text-xs font-semibold text-[#D8B45A]">
                   {casilla.rotulo}
                 </span>
 

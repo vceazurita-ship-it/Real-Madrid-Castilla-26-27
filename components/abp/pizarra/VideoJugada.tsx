@@ -353,7 +353,7 @@ export function VideoJugada({
       {abierto && !destino && (
         <div
           role="menu"
-          className="absolute left-0 top-full z-40 mt-1.5 w-[min(320px,calc(100vw-32px))] rounded-xl border border-white/10 bg-[#0F2036] p-1.5 shadow-2xl"
+          className="absolute left-0 top-full z-40 mt-1.5 w-[min(320px,calc(100vw-32px))] rounded-xl border border-white/10 bg-[#11161C] p-1.5 shadow-2xl"
         >
           {(Object.keys(DESTINOS) as Destino[]).map((clave) => (
             <button
