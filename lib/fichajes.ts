@@ -199,7 +199,7 @@ export const IDS_ANTERIORES: Record<string, string> = {
 export const idVigente = (id: string) => IDS_ANTERIORES[id] ?? id;
 
 const llano = (texto: string) =>
-  texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z ]/g, " ").trim().split(/s+/);
+  texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z ]/g, " ").trim().split(/\s+/);
 
 /**
  * ¿Es el mismo jugador? Wyscout escribe «J. Rajado» y la hoja «Jorge Rajado»:
