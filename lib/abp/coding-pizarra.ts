@@ -20,6 +20,8 @@ const ZONA: Record<string, [number, number]> = {
 
 const COLOR: Record<string, string> = { Izquierda: "#5AA9FF", Derecha: "#D8B45A", Central: "#9AE6B4", "Sin lado": "#E5E7EB" };
 
+const x0 = (l: string) => l === "Izquierda" || l === "Derecha" || l === "Central";
+
 export const tableroDeJornada = (jornada: number) => `riv-RIV-${String(jornada).padStart(2, "0")}`;
 
 function caidas(clips: [number, ClipEstado][], defensivo: boolean): CaidaPizarra[] {
@@ -33,9 +35,9 @@ function caidas(clips: [number, ClipEstado][], defensivo: boolean): CaidaPizarra
 
       if (!base) return [];
 
-      const x = (lado === "Derecha" ? 68 - base[0] : base[0]) + (lados.length > 1 ? (k - (lados.length - 1) / 2) * 4 : 0);
+      const x = (lado === "Derecha" ? 68 - base[0] : base[0]) + (lados.length > 1 ? (k - (lados.length - 1) / 2) * 6 : 0);
 
-      return [{ ...aLienzo("porteria", { x, y: base[1] + k * 1.5 }), n, color: COLOR[lado] ?? "#FFFFFF" }];
+      return [{ ...aLienzo("porteria", { x, y: base[1] + (lados.length > 1 ? k * 2.5 : 0) }), n, color: COLOR[lado] ?? "#FFFFFF" }];
     }),
   );
 
@@ -65,7 +67,18 @@ export function slidesDeCaidas(porCarpeta: Map<CarpetaKey, [number, ClipEstado][
 
     const base = slideDePlantilla("libre");
 
-    const notas = [resumenDe(c.key, clips), ...rutinasDe(clips).map((r) => `Rutina que repite (${r.clips.length}): ${r.texto}`)].filter(Boolean);
+    /* En la consigna, «primer palo» y no «1.er palo»: el limpiador de consignas lo partía en «1. er». */
+    const llano = (t: string) => t.replace(/1\.er palo/g, "primer palo").replace(/2\.º palo/g, "segundo palo");
+
+    const leyenda = [...new Set(clips.map(([, x]) => x.etiquetas?.lado).filter((l): l is string => Boolean(l && x0(l))))]
+      .map((l) => `${l === "Izquierda" ? "Azul" : l === "Derecha" ? "Oro" : "Verde"}: desde la ${l.toLowerCase()}`)
+      .join(" · ");
+
+    const notas = [
+      llano(resumenDe(c.key, clips)),
+      ...rutinasDe(clips).map((r) => llano(`Rutina que repite (${r.clips.length}): ${r.texto}`)),
+      leyenda ? `Bolas: ${leyenda}${c.fase === "def" ? " · Rojo: zona que dejan sin nadie" : ""}` : "",
+    ].filter(Boolean);
 
     return [
       {

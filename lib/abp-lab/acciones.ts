@@ -200,7 +200,7 @@ function papelDelToque(p: Punto, golpeo?: Punto): Rol["papel"] {
  * de dónde arranca el rematador que no había tocado antes: unos metros por
  * detrás de su remate, para que se vea la carrera.
  */
-export function rutinaDeAccion(a: Accion): { nombre: string; tipo: TipoAbp; roles: Rol[]; balon: Punto[] } {
+export function rutinaDeAccion(a: Accion): { nombre: string; tipo: TipoAbp; roles: Rol[]; balon: Punto[]; rivales: { x: number; y: number; nombre: string }[] } {
   const tipo = tipoAbpDe(a.t);
 
   const { saque, caida, remate } = enMetros(a);
@@ -218,7 +218,7 @@ export function rutinaDeAccion(a: Accion): { nombre: string; tipo: TipoAbp; role
 
     if (final) roles.push({ jugador: "", papel: "lanzador", zona: zonaDe(final, golpeo), x: final.x, y: final.y, ...(a.rm ? { nota: a.rm } : {}) });
 
-    return { nombre, tipo, roles, balon: golpeo ? [golpeo, PORTERIA_CENTRO] : [] };
+    return { nombre, tipo, roles, balon: golpeo ? [golpeo, PORTERIA_CENTRO] : [], rivales: [] };
   }
 
   const toques = (a.pasos ?? []).map(([x, y, j, r]) => ({ p: aMetros([x, y]), j, rival: r === 1 }));
@@ -291,7 +291,10 @@ export function rutinaDeAccion(a: Accion): { nombre: string; tipo: TipoAbp; role
     });
   }
 
-  return { nombre, tipo, roles, balon };
+  /* Los toques del rival (despejes, paradas): se pintan aparte, en su color (experto de fútbol, 28/10/2026). */
+  const rivales = toques.filter((x) => x.rival).map((x) => ({ x: x.p.x, y: x.p.y, nombre: x.j }));
+
+  return { nombre, tipo, roles, balon, rivales };
 }
 
 /** «Saca Saka en corto a Lewis-Skelly; Saka; White; despeja Thomas (rival)…», en orden. */
@@ -299,6 +302,43 @@ export function cadenaTexto(a: Accion) {
   if (!a.pasos?.length) return "";
 
   return a.pasos.map(([, , j, r]) => (r === 1 ? `${j || "un rival"} (rival)` : j || "un compañero")).join(" → ");
+}
+
+const ZONA_CORTA: Record<Zona, string> = {
+  "primer-palo": "1.er palo",
+  centro: "centro del área pequeña",
+  "segundo-palo": "2.º palo",
+  portero: "encima del portero",
+  frontal: "frontal",
+  corto: "en corto",
+  atras: "atrás",
+};
+
+/**
+ * La jugada en una línea, como la cuenta el cuerpo técnico (28/10/2026):
+ * «Saca Slater → Egan, 1.er palo → despeja Tielemans (rival) → McBurnie →
+ * para Lammens (rival) → remata Ajayi de cabeza, centro del área pequeña».
+ */
+export function jugadaTexto(a: Accion) {
+  const { saque, remate } = enMetros(a);
+
+  const directo = a.t === "directa" || a.t === "penalti";
+
+  const partes: string[] = [];
+
+  if (a.lz && !directo) partes.push(`Saca ${a.lz}`);
+  else if (!directo && a.rm && saque) partes.push(`Saca ${a.rm}`);
+
+  for (const [x, y, j, r] of a.pasos ?? []) {
+    const zona = ZONA_CORTA[zonaDe(aMetros([x, y]), saque)];
+
+    if (r === 1) partes.push(`${y > 0 && zona === "encima del portero" ? "para" : "despeja"} ${j || "un rival"} (rival)`);
+    else partes.push(`${j || "un compañero"}, ${zona}`);
+  }
+
+  if (a.rm) partes.push(`${directo ? "lanza" : "remata"} ${a.rm}${a.cabeza ? " de cabeza" : ""}${remate && !directo ? `, ${ZONA_CORTA[zonaDe(remate, saque)]}` : ""}`);
+
+  return partes.join(" → ");
 }
 
 /** El texto de la acción para la idea de la rutina: sólo lo que consta. */
@@ -313,7 +353,7 @@ export function relatoDe(a: Accion, competicion: string, jornada: string) {
 
   if (caida && a.t !== "directa" && a.t !== "penalti") partes.push(`El balón cae ${ZONA_TEXTO[zonaDe(caida, saque)]}.`);
 
-  if (a.pasos?.length) partes.push(`Toques antes del remate: ${cadenaTexto(a)}.`);
+  if (a.pasos?.length) partes.push(`Jugada: ${jugadaTexto(a)}.`);
 
   if (a.rm) partes.push(`Remata ${a.rm}${a.cabeza ? " de cabeza" : ""}${a.tras && a.tras > 4 ? `, a los ${a.tras} s del saque` : ""}.`);
 

@@ -153,7 +153,20 @@ function useFotos(urls: string[], activo: boolean) {
 const SIN_CAPAS: Capas = { nombres: false, fotos: false, ventaja: false, duelos: false };
 
 /** La rutina quieta: salidas, carreras y balón, recortada a donde pasa todo. */
-export function MiniPizarra({ rutina, porId, className = "" }: { rutina: RutinaEnPizarra; porId: Map<string, JugadorLab>; className?: string }) {
+export function MiniPizarra({
+  rutina,
+  porId,
+  className = "",
+  toquesRival,
+  rotulosNota = false,
+}: {
+  rutina: RutinaEnPizarra;
+  porId: Map<string, JugadorLab>;
+  className?: string;
+  /** Acción real de Wyscout: los toques del rival y el nombre de cada uno de los nuestros. */
+  toquesRival?: { x: number; y: number; nombre: string }[];
+  rotulosNota?: boolean;
+}) {
   const id = useId().replace(/:/g, "");
 
   const paleta = usePaleta();
@@ -176,6 +189,8 @@ export function MiniPizarra({ rutina, porId, className = "" }: { rutina: RutinaE
       etiqueta={`Esquema de ${rutina.nombre || "la rutina"}`}
       className={className}
       quieta
+      toquesRival={toquesRival}
+      rotulosNota={rotulosNota}
     />
   );
 }

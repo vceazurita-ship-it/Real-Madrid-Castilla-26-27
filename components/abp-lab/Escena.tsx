@@ -235,6 +235,8 @@ export function Escena({
   etiqueta,
   className = "",
   quieta = false,
+  toquesRival = [],
+  rotulosNota = false,
 }: {
   id: string;
   rutina: RutinaEscena;
@@ -265,6 +267,10 @@ export function Escena({
   className?: string;
   /** Miniatura: sin lecturas ni rótulos. */
   quieta?: boolean;
+  /** Acción real: dónde tocó el balón el rival (en su color, con su nombre). */
+  toquesRival?: { x: number; y: number; nombre: string }[];
+  /** Acción real: el nombre de cada uno (va en la nota del papel) bajo su ficha, también en la miniatura. */
+  rotulosNota?: boolean;
 }) {
   const { caja } = cam;
 
@@ -595,6 +601,7 @@ export function Escena({
           </text>
         )}
         {capas.nombres && !quieta && j && !protagonista && rotulo(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), nombreCorto(j.nombre), Math.max(R * 0.8, u * 0.92))}
+        {rotulosNota && !j && r.nota && rotulo(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), r.nota, Math.max(R * 0.85, u * 0.95))}
         {protagonista && etiquetaTu(c.x, c.y - R * 1.75, Math.max(R * 0.95, u * 1.2))}
         {/* Un blanco más grande que la ficha: con el dedo, la ficha es poca cosa */}
         {M.onFicha && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(Math.max(R * 1.7, u * 1.8))} style={{ fill: "transparent" }} data-solo-pantalla="" />}
@@ -1003,6 +1010,20 @@ export function Escena({
           ))}
         </g>
       )}
+
+      {/* Los toques del rival en una acción real: rombo en su color y su nombre */}
+      {toquesRival.map((tq, k) => {
+        const c = g({ x: tq.x, y: tq.y, z: 0 });
+
+        const R = radioFicha(c.s) * 0.8;
+
+        return (
+          <g key={`tr${k}`} style={{ pointerEvents: "none" }}>
+            <rect x={f3(c.x - R * 0.78)} y={f3(c.y - R * 0.78)} width={f3(R * 1.56)} height={f3(R * 1.56)} rx={f3(R * 0.28)} transform={`rotate(45 ${f3(c.x)} ${f3(c.y)})`} style={{ fill: P.rival, stroke: "rgba(0,0,0,0.45)", strokeWidth: f3(R * 0.08) }} />
+            {tq.nombre && rotulo(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), tq.nombre, Math.max(R * 0.85, u * 0.95))}
+          </g>
+        );
+      })}
 
       {/* El balón: sombra por el suelo y vuelo por el aire */}
       {recorridos}

@@ -33,7 +33,7 @@ import {
   dibujable,
   enMetros,
   relatoDe,
-  cadenaTexto,
+  jugadaTexto,
   rutinaDeAccion,
   ultimaJornada,
   xgTexto,
@@ -108,7 +108,7 @@ function Tarjeta({
     <article className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
       {dibujable(a) && (
         <div className="border-b border-white/10">
-          <MiniPizarra rutina={{ nombre: dibujo.nombre, senal: "", tipo: dibujo.tipo, lado: "ofensivo", contra: "cualquiera", roles: dibujo.roles, balon: dibujo.balon }} porId={SIN_JUGADORES} />
+          <MiniPizarra rutina={{ nombre: dibujo.nombre, senal: "", tipo: dibujo.tipo, lado: "ofensivo", contra: "cualquiera", roles: dibujo.roles, balon: dibujo.balon }} porId={SIN_JUGADORES} toquesRival={dibujo.rivales} rotulosNota />
         </div>
       )}
 
@@ -147,8 +147,8 @@ function Tarjeta({
           )}
           {a.pasos && a.pasos.length > 0 && (
             <>
-              <dt className="text-white/45">Toques</dt>
-              <dd className="text-white/80">{cadenaTexto(a)}</dd>
+              <dt className="text-white/45">Jugada</dt>
+              <dd className="text-white/80">{jugadaTexto(a)}</dd>
             </>
           )}
           {zona && (

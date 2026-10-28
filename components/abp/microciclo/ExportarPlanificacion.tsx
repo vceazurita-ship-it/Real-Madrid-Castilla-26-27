@@ -64,7 +64,7 @@ function Pie() {
  * con trabajo y el del partido, titular con el dato y el objetivo de cada
  * tarea dentro de su bloque (en el campo nadie pasa de página).
  */
-function Calendario({ dias, micro, rival }: { dias: DiaPlanificado[]; micro: number; rival: string }) {
+export function Calendario({ dias, micro, rival }: { dias: DiaPlanificado[]; micro: number; rival: string }) {
   const visibles = dias.filter((d) => d.tareas.length || d.tipo === "partido");
 
   const max = Math.max(30, ...dias.map((d) => d.minutos));
@@ -140,7 +140,7 @@ function Calendario({ dias, micro, rival }: { dias: DiaPlanificado[]; micro: num
 
 /** El detalle, para llevar al campo: objetivo en negro, quién la trabaja y su casilla de revisión. */
 /* `casillas`: sólo en el PDF, que se imprime; en la imagen de WhatsApp no se pueden rellenar y doblaban el alto. */
-function Lamina({ dias, micro, rival, casillas = false }: { dias: DiaPlanificado[]; micro: number; rival: string; casillas?: boolean }) {
+export function Lamina({ dias, micro, rival, casillas = false }: { dias: DiaPlanificado[]; micro: number; rival: string; casillas?: boolean }) {
   const visibles = dias.filter((d) => d.tareas.length || d.tipo === "partido");
 
   const { titulo, partido } = titular(dias, rival);
