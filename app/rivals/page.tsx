@@ -1672,10 +1672,10 @@ export default function RivalPlayersPage() {
   */
   const plantillaDelEquipo = useMemo(
     () =>
+      /* También sin puesto escrito en la hoja (28/10/2026): va al centro del
+         campo («otros») antes que faltar en la hoja de toda la plantilla. */
       players.filter(
-        (player) =>
-          player.NOMBRE_EQUIPO === (pitchTeam || selectedTeam) &&
-          player["POSICIÓN"],
+        (player) => player.NOMBRE_EQUIPO === (pitchTeam || selectedTeam),
       ),
     [players, pitchTeam, selectedTeam],
   );

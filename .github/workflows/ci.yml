@@ -56,3 +56,7 @@ jobs:
 
       - name: Lint (eslint)
         run: npx eslint .
+
+      # La hoja «Plantilla» del informe del rival saca a todos (28/10/2026).
+      - name: Plantilla entera en el informe del rival
+        run: node scripts/comprueba-plantilla-informe.cjs
