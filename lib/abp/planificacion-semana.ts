@@ -59,7 +59,7 @@ function enFrase(texto: string) {
   if (letras.length < 8 || mayusculas / letras.length < 0.6) return texto;
 
   /* Sólo las palabras en mayúsculas sostenidas: un nombre ya escrito con su mayúscula («Edu») se queda. */
-  const bajo = texto.replace(/[A-Za-zÁÉÍÓÚÑÜáéíóúñü]+/g, (palabra) => (palabra.length > 1 && palabra === palabra.toUpperCase() ? palabra.toLowerCase() : palabra));
+  const bajo = texto.replace(/[A-Za-z0-9ÁÉÍÓÚÑÜáéíóúñü]+/g, (palabra) => (!/\d/.test(palabra) && palabra === palabra.toUpperCase() ? palabra.toLowerCase() : palabra));
 
   return bajo.charAt(0).toUpperCase() + bajo.slice(1);
 }
@@ -77,7 +77,7 @@ function porFamilias(aspectos: Trabajo["aspectos"]) {
 
   const texto = enLista(familias);
 
-  return `${texto.charAt(0).toUpperCase()}${texto.slice(1)} · ${aspectos.length} acciones`;
+  return `${texto.charAt(0).toUpperCase()}${texto.slice(1)}\u00a0· ${aspectos.length}\u00a0acciones`;
 }
 
 function tarea(t: Trabajo): TareaPlanificada {

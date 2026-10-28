@@ -15,7 +15,7 @@
  * vídeo y el GIF salgan como se ven.
  */
 
-import { useSyncExternalStore, type PointerEvent as PE, type KeyboardEvent as KE, type Ref } from "react";
+import { useSyncExternalStore, type PointerEvent as PE, type KeyboardEvent as KE, type Ref, type ReactNode } from "react";
 
 import { iniciales, type JugadorLab } from "@/components/abp-lab/comun";
 import { AREA, AREA_PEQUENA, PENALTI, PORTERIA, ANCHO, LARGO, VUELO, posicionesEn, recorridoBalon, salidas, tramoDe } from "@/lib/abp-lab/campo";
@@ -385,6 +385,9 @@ export function Escena({
   */
   const ocupados: { x: number; y: number; w: number; h: number }[] = [];
 
+  /* Se pintan al final, encima de las trayectorias del balón (experto de fútbol). */
+  const rotulosEncima: ReactNode[] = [];
+
   const rotuloLibre = (x: number, abajo: number, arriba: number, texto: string, tam: number) => {
     const w = texto.length * tam * 0.52;
     const h = tam * 1.15;
@@ -393,7 +396,9 @@ export function Escena({
 
     ocupados.push({ x, y, w, h });
 
-    return rotulo(x, y, texto, tam);
+    rotulosEncima.push(<g key={`re${rotulosEncima.length}`}>{rotulo(x, y, texto, tam)}</g>);
+
+    return null;
   };
 
   const textoFicha = (r: Rol, j?: JugadorLab) => (j ? String(j.dorsal ?? iniciales(j.nombre)) : CODIGO_PAPEL[r.papel]);
@@ -1184,6 +1189,7 @@ export function Escena({
 
       {/* La viñeta, por encima de todo menos de lo que se toca */}
       <rect x={caja.x} y={caja.y} width={caja.w} height={caja.h} style={{ fill: `url(#${id}-vineta)`, pointerEvents: "none" }} />
+      {rotulosEncima}
     </svg>
   );
 }
