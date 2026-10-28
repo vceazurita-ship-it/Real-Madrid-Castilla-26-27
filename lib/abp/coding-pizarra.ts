@@ -33,9 +33,9 @@ function caidas(clips: [number, ClipEstado][], defensivo: boolean): CaidaPizarra
 
       if (!base) return [];
 
-      const x = (lado === "Derecha" ? 68 - base[0] : base[0]) + (lados.length > 1 ? (k - (lados.length - 1) / 2) * 2.5 : 0);
+      const x = (lado === "Derecha" ? 68 - base[0] : base[0]) + (lados.length > 1 ? (k - (lados.length - 1) / 2) * 4 : 0);
 
-      return [{ ...aLienzo("porteria", { x, y: base[1] + k * 1 }), n, color: COLOR[lado] ?? "#FFFFFF" }];
+      return [{ ...aLienzo("porteria", { x, y: base[1] + k * 1.5 }), n, color: COLOR[lado] ?? "#FFFFFF" }];
     }),
   );
 

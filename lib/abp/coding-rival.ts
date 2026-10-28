@@ -290,7 +290,7 @@ export function etiquetasEnTexto(e: Etiquetas | undefined) {
 
   const tray = trayectoria(e);
 
-  return [e.envio, e.zona, tray, e.mecanismo !== "Ninguno" ? e.mecanismo : "", e.estructura, e.libre ? `${e.libre} sin nadie` : "", e.desenlace]
+  return [e.envio, e.zona, tray, e.mecanismo !== "Ninguno" ? e.mecanismo : "", e.estructura, e.libre ? `${e.libre} sin nadie` : "", e.desenlace === "Gol" ? "" : e.desenlace]
     .filter(Boolean)
     .join(" · ");
 }

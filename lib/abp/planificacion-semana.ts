@@ -47,7 +47,12 @@ function tarea(t: Trabajo): TareaPlanificada {
     donde: [MEDIO.get(t.medio), MOMENTO.get(t.momento)].filter(Boolean).join(" · "),
     minutos: t.minutos,
     objetivo: (t.objetivo ?? "").trim(),
-    notas: t.notas.trim(),
+    /* Sin la nota del boceto («Boceto · A favor: 25 acciones, 41 % con peligro…»): es método, no planificación. */
+    notas: t.notas
+      .split(/\n+/)
+      .filter((linea) => linea.trim() && !/^boceto\b/i.test(linea.trim()))
+      .join(" ")
+      .trim(),
   };
 }
 
