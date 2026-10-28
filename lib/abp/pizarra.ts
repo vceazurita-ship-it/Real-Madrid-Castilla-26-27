@@ -799,8 +799,18 @@ export type TextosSlide = {
   adornos?: { label?: string; remate?: string }[];
 };
 
+/**
+ * Una bola del campograma de caídas (28/10/2026): la pinta sola el coding del
+ * ABP del rival. En píxeles del lienzo; `libre` = zona que el rival deja sin
+ * nadie al defender.
+ */
+export type CaidaPizarra = { x: number; y: number; n: number; color: string; libre?: boolean };
+
 export type SlidePizarra = {
   id: string;
+  /** Campograma de caídas del coding del rival (y de qué carpeta sale: la diapositiva se rehace sola). */
+  caidas?: CaidaPizarra[];
+  deCoding?: string;
   /** De qué plantilla salió: manda la vista, los grupos y los puestos. */
   plantilla: string;
   /** Se puede cambiar sin tocar la plantilla. */

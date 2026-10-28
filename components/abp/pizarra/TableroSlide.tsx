@@ -1663,6 +1663,36 @@ export function TableroSlide({
           );
         })}
 
+        {/* Campograma de caídas del coding del rival (28/10/2026): bolas con su cuenta. */}
+        {(slide.caidas ?? []).map((caida, i) => {
+          const r = caida.libre ? 70 + caida.n * 8 : Math.min(62, 26 + Math.sqrt(caida.n) * 14);
+
+          return (
+            <div
+              key={`caida${i}`}
+              className="pointer-events-none absolute flex items-center justify-center rounded-full"
+              style={{
+                left: caida.x - r,
+                top: caida.y - r,
+                width: r * 2,
+                height: r * 2,
+                zIndex: 900,
+                background: caida.libre ? "rgba(255,77,77,.22)" : caida.color,
+                border: caida.libre ? "4px dashed #FF4D4D" : "3px solid #0B0F14",
+                boxShadow: caida.libre ? "none" : "0 6px 18px rgba(0,0,0,.45)",
+                color: caida.libre ? "#FFB3B3" : "#0B0F14",
+                fontWeight: 900,
+                fontSize: caida.libre ? 26 : Math.max(26, r * 0.9),
+                fontFamily: "var(--font-barlow, 'Barlow Condensed'), sans-serif",
+                textAlign: "center",
+                lineHeight: 1,
+              }}
+            >
+              {caida.libre ? `SIN NADIE · ${caida.n}` : caida.n}
+            </div>
+          );
+        })}
+
         {(slide.rivales ?? []).map((rival) => (
           <ChapaRival
             key={rival.id}

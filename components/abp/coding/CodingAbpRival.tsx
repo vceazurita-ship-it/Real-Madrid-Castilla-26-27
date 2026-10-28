@@ -19,6 +19,8 @@ import { toast } from "sonner";
 
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { CampogramaCaidas } from "@/components/abp/coding/CampogramaCaidas";
+import { conCaidas, slidesDeCaidas, tableroDeJornada } from "@/lib/abp/coding-pizarra";
+import { EMPTY_PIZARRA_STORE, type PizarraStore } from "@/lib/abp/pizarra";
 import { APUNTES_KIND, APUNTES_RIVAL_VACIO, apuntesRivalKey, normalizaCuaderno, nuevoId, type ApuntesRivalDoc } from "@/lib/abp/apuntes";
 import {
   CARPETAS,
@@ -426,7 +428,37 @@ export function CodingAbpRival({ equipo }: { equipo: string | null }) {
   const decididos = todos.filter(([, c]) => c.estado !== "pendiente").length;
   const descartados = CARPETAS.flatMap((c) => (abierta?.porCarpeta.get(c.key) ?? []).filter((a) => doc.clips[idClip(c.key, a.n)]?.estado === "descartado" && !doc.clips[idClip(c.key, a.n)]?.fuera).map((a) => ({ c: c.key, a })));
 
-  const texto = useMemo(() => textoCoding(rival || equipo || "", porCarpeta, conResumen), [rival, equipo, porCarpeta, conResumen]);
+  const texto = textoCoding(rival || equipo || "", porCarpeta, conResumen);
+
+  /*
+  | EL CAMPOGRAMA, SOLO EN LA PIZARRA DE LA JORNADA (28/10/2026). Una
+  | diapositiva «DÓNDE CAEN» por carpeta en el tablero riv-RIV-NN; se rehace
+  | (con un respiro) cada vez que cambian las caídas. Sin tablero de esa
+  | jornada no se crea nada: se avisa.
+  */
+  const { value: pizarra, setValue: setPizarra, status: estadoPizarra } = useRemoteDoc<PizarraStore>({
+    key: "abp-pizarra",
+    kind: "abp",
+    fallback: EMPTY_PIZARRA_STORE,
+  });
+
+  const claveTablero = jornada ? tableroDeJornada(jornada) : "";
+
+  const hayTablero = Boolean(claveTablero && pizarra.tableros?.[claveTablero]);
+
+  const nombreRival = rival || equipo || "rival";
+
+  const nuevasCaidas = useMemo(() => slidesDeCaidas(porCarpeta, nombreRival), [porCarpeta, nombreRival]);
+
+  useEffect(() => {
+    if (!abierta || !hayTablero || estadoPizarra === "loading") return;
+
+    const id = setTimeout(() => {
+      setPizarra((store) => conCaidas(store, claveTablero, nuevasCaidas) ?? store);
+    }, 1500);
+
+    return () => clearTimeout(id);
+  }, [abierta, hayTablero, estadoPizarra, claveTablero, nuevasCaidas, setPizarra]);
 
   /* --------------------------- apuntes y borrado --------------------------- */
 
@@ -754,7 +786,14 @@ export function CodingAbpRival({ equipo }: { equipo: string | null }) {
           )}
 
           <div className="pt-2">
-            <h4 className="mb-2 text-sm font-bold text-white">Dónde caen · {CARPETAS.find((c) => c.key === carpeta)?.corto}</h4>
+            <h4 className="mb-1 text-sm font-bold text-white">Dónde caen · {CARPETAS.find((c) => c.key === carpeta)?.corto}</h4>
+            <p className="mb-2 text-xs text-white/55">
+              {!jornada
+                ? "La carpeta no dice la jornada: no se lleva a la pizarra."
+                : hayTablero
+                  ? `Va sola a la pizarra de la J${jornada}: ${nuevasCaidas.length} diapositiva${nuevasCaidas.length === 1 ? "" : "s"} «Dónde caen», al final.`
+                  : `Aún no hay pizarra de la J${jornada}: ábrela en Pizarra ABP y las caídas entrarán solas.`}
+            </p>
             <CampogramaCaidas
               titulo={`${rival || equipo || "Rival"} · ${CARPETAS.find((c) => c.key === carpeta)?.corto ?? carpeta}`}
               clips={porCarpeta.get(carpeta) ?? []}
