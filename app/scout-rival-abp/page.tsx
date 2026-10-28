@@ -19,6 +19,7 @@ import { EsqueletoPantalla } from "@/components/ui/estados";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
+  Clapperboard,
   CornerDownRight,
   Flag,
   FolderInput,
@@ -60,6 +61,7 @@ import { AbpWyscoutRival } from "@/components/abp/AbpWyscoutRival";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
 import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
 import { ApuntesAbp } from "@/components/abp/apuntes/ApuntesAbp";
+import { CodingAbpRival } from "@/components/abp/coding/CodingAbpRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
@@ -123,7 +125,7 @@ type Grupo = "liga" | "pretemporada";
 | Las vistas (14/10/2026): antes era un scroll de once paneles y el registro
 | editable quedaba al fondo. Ahora cada pregunta en su pestaña (?vista=).
 */
-const VISTAS = ["resumen", "apuntes", "laminas", "patrones", "banda", "quien", "registrar"] as const;
+const VISTAS = ["resumen", "coding", "apuntes", "laminas", "patrones", "banda", "quien", "registrar"] as const;
 type Vista = (typeof VISTAS)[number];
 
 const GRUPOS: { key: Grupo; label: string }[] = [
@@ -817,6 +819,7 @@ export default function ScoutRivalAbpPage() {
                 onCambia={setVista}
                 opciones={[
                   { clave: "resumen", label: "¿Cuánto peligro tiene?", icono: LayoutDashboard },
+                  { clave: "coding", label: "Coding de clips", icono: Clapperboard },
                   { clave: "apuntes", label: "Apuntes y vídeo", icono: NotebookPen },
                   ...(grupo === "liga" ? [{ clave: "laminas" as const, label: "Recoger y láminas", icono: Images }] : []),
                   /* Sin acciones, las tres vistas que viven de ellas no salen. */
@@ -847,6 +850,10 @@ export default function ScoutRivalAbpPage() {
               )}
 
               {/* ----------- apuntes con su vídeo (16/10/2026) ----------- */}
+
+              {/* ----------- coding de los clips de la jornada (28/10/2026) ----------- */}
+
+              {vista === "coding" && <CodingAbpRival equipo={equipo || null} />}
 
               {vista === "apuntes" && equipo && <ApuntesAbp key={`${equipo}|${jornadaDe(equipo)?.etiqueta ?? ""}`} equipo={equipo} jornadaPartido={jornadaDe(equipo)?.etiqueta ?? null} />}
 
@@ -911,7 +918,7 @@ export default function ScoutRivalAbpPage() {
 
               {/* ---------------------- totales --------------------- */}
 
-              {vista === "laminas" || vista === "apuntes" || vista === "registrar" ? null : delEquipo.length === 0 ? (
+              {vista === "laminas" || vista === "apuntes" || vista === "coding" || vista === "registrar" ? null : delEquipo.length === 0 ? (
                 /* Sin acciones registradas: lo que ya se sabe de él (Wyscout,
                    goles y etiquetas), en la vista de resumen. */
                 vista === "resumen" && equipo ? (
