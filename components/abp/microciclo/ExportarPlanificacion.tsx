@@ -20,66 +20,98 @@ import { apodo, descarga, descargaDataUrl, pdfDeHojas } from "@/lib/export/lienz
 
 const TINTA = "#0B1E3A";
 const ORO = "#B8963E";
-const GRIS = "#5B6676";
+const GRIS = "#4A5568";
 const DEF = "#C0392B";
 const OF = "#1E8E5A";
+const FUENTE = "var(--font-barlow, 'Barlow Condensed'), Arial, sans-serif";
+
+/** Un color por lado, igual en las dos láminas: los dos lados van en oro. */
+function colorLado(lado: string) {
+  const ofe = /ofensivo/i.test(lado);
+  const def = /defensivo/i.test(lado);
+
+  return ofe && def ? ORO : def ? DEF : OF;
+}
+
+/** «Cartagena: 2 h 10′ de balón parado en 4 días · partido el sábado 31/10». */
+function titular(dias: DiaPlanificado[], rival: string) {
+  const total = dias.reduce((suma, d) => suma + d.minutos, 0);
+  const conTrabajo = dias.filter((d) => d.tareas.length).length;
+  const partido = dias.find((d) => d.tipo === "partido");
+
+  return {
+    titulo: `${rival ? `${rival}: ` : ""}${fmtMin(total)} de balón parado en ${conTrabajo} ${conTrabajo === 1 ? "día" : "días"}`,
+    partido: partido ? `Partido el ${partido.dia.toLowerCase()}` : "",
+  };
+}
+
+/** El pie de las dos láminas: viaja con la captura de WhatsApp. */
+function Pie() {
+  const hoy = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18, paddingTop: 10, borderTop: "1px solid #E3E7ED", fontSize: 14, color: GRIS }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/logo.png" alt="" width={26} height={26} style={{ objectFit: "contain" }} />
+      <span>Real Madrid Castilla · Cuerpo técnico · Uso interno · {hoy}</span>
+    </div>
+  );
+}
 
 /**
- * El calendario de la semana (28/10/2026): una columna por día con su MD y
- * sus bloques de balón parado, del alto de sus minutos. Apaisado: la primera
- * imagen o la primera página del PDF.
+ * El calendario de la semana (28/10/2026, revisado con los expertos de fútbol
+ * y de comunicación): 1080 de ancho para que se lea en el móvil, sólo los días
+ * con trabajo y el del partido, titular con el dato y el objetivo de cada
+ * tarea dentro de su bloque (en el campo nadie pasa de página).
  */
 function Calendario({ dias, micro, rival }: { dias: DiaPlanificado[]; micro: number; rival: string }) {
-  const total = dias.reduce((suma, d) => suma + d.minutos, 0);
+  const visibles = dias.filter((d) => d.tareas.length || d.tipo === "partido");
 
   const max = Math.max(30, ...dias.map((d) => d.minutos));
 
+  const { titulo, partido } = titular(dias, rival);
+
   return (
-    <div style={{ width: 1400, background: "#FFFFFF", color: TINTA, fontFamily: "var(--font-barlow, 'Barlow Condensed'), Arial, sans-serif", padding: 32 }}>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", borderBottom: `3px solid ${ORO}`, paddingBottom: 10, marginBottom: 18 }}>
-        <div>
-          <div style={{ fontSize: 13, letterSpacing: 2, color: ORO, fontWeight: 700 }}>REAL MADRID CASTILLA · CALENDARIO DE LA SEMANA</div>
-          <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.1, marginTop: 4 }}>{tituloPlanificacion(micro, rival).toUpperCase()}</div>
-        </div>
-        {total > 0 && <div style={{ fontSize: 18, color: GRIS, fontWeight: 700 }}>{fmtMin(total)} de balón parado</div>}
+    <div style={{ width: 1080, background: "#FFFFFF", color: TINTA, fontFamily: FUENTE, padding: 32 }}>
+      <div style={{ borderBottom: `3px solid ${ORO}`, paddingBottom: 12, marginBottom: 18 }}>
+        <div style={{ fontSize: 16, letterSpacing: 2, color: ORO, fontWeight: 700 }}>ABP · MICROCICLO {micro} · CALENDARIO</div>
+        <div style={{ fontSize: 40, fontWeight: 800, lineHeight: 1.05, marginTop: 4 }}>{titulo}</div>
+        {partido && <div style={{ fontSize: 20, color: GRIS, fontWeight: 700, marginTop: 4 }}>{partido}</div>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: `repeat(${dias.length}, minmax(0, 1fr))`, gap: 10 }}>
-        {dias.map((d) => {
-          const partido = d.tipo === "partido";
-          const descanso = d.tipo === "descanso";
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${visibles.length}, minmax(0, 1fr))`, gap: 10, alignItems: "start" }}>
+        {visibles.map((d) => {
+          const esPartido = d.tipo === "partido";
 
           return (
-            <div key={d.clave} style={{ border: "1px solid #E3E7ED", borderRadius: 12, overflow: "hidden", background: partido ? "#0B1E3A" : descanso ? "#F4F6F9" : "#FFFFFF", minHeight: 420 }}>
-              <div style={{ padding: "8px 10px", borderBottom: "1px solid #E3E7ED", background: partido ? "#0B1E3A" : "#F8F5EC", color: partido ? "#FFFFFF" : TINTA }}>
-                <div style={{ fontSize: 17, fontWeight: 800 }}>{d.dia}</div>
-                <div style={{ fontSize: 13, color: partido ? ORO : GRIS, fontWeight: 700 }}>
-                  {[d.md, partido ? "PARTIDO" : descanso ? "DESCANSO" : d.tareas.length ? fmtMin(d.minutos) : ""].filter(Boolean).join(" · ")}
+            <div key={d.clave} style={{ border: "1px solid #E3E7ED", borderRadius: 12, overflow: "hidden", background: esPartido ? TINTA : "#FFFFFF" }}>
+              <div style={{ padding: "8px 10px", background: esPartido ? TINTA : "#F8F5EC", color: esPartido ? "#FFFFFF" : TINTA }}>
+                <div style={{ fontSize: 22, fontWeight: 800 }}>{d.dia}</div>
+                <div style={{ fontSize: 16, color: esPartido ? ORO : GRIS, fontWeight: 700 }}>
+                  {[d.md, esPartido ? "PARTIDO" : fmtMin(d.minutos)].filter(Boolean).join(" · ")}
                 </div>
               </div>
-              <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 8 }}>
                 {d.tareas.map((t, i) => {
-                  const ofe = /ofensivo/i.test(t.lado);
-                  const def = /defensivo/i.test(t.lado);
-                  const color = ofe && def ? ORO : def ? DEF : OF;
+                  const color = colorLado(t.lado);
 
                   return (
                     <div
                       key={i}
                       style={{
-                        borderLeft: `5px solid ${color}`,
-                        background: partido ? "rgba(255,255,255,.08)" : `${color}14`,
+                        borderLeft: `6px solid ${color}`,
+                        background: esPartido ? "rgba(255,255,255,.08)" : `${color}14`,
                         borderRadius: 8,
-                        padding: "6px 8px",
-                        minHeight: Math.max(48, (t.minutos / max) * 300),
+                        padding: "8px 10px",
+                        minHeight: Math.max(64, (t.minutos / max) * 260),
                       }}
                     >
-                      {/* El día de partido la columna es oscura: el texto, claro. */}
-                      <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.15, color: partido ? "#FFFFFF" : TINTA }}>{t.que}</div>
-                      <div style={{ fontSize: 12, color, fontWeight: 700 }}>{t.lado}</div>
-                      <div style={{ fontSize: 12, color: partido ? "#C9D3E0" : GRIS }}>
-                        {t.donde} · {fmtMin(t.minutos)}
+                      <div style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.15, color: esPartido ? "#FFFFFF" : TINTA }}>{t.queCorto}</div>
+                      <div style={{ fontSize: 16, color, fontWeight: 700 }}>
+                        {t.lado} · {fmtMin(t.minutos)}
                       </div>
+                      <div style={{ fontSize: 16, color: esPartido ? "#C9D3E0" : GRIS }}>{t.donde}</div>
+                      {t.objetivo && <div style={{ fontSize: 16, fontWeight: 700, marginTop: 4, color: esPartido ? "#FFFFFF" : TINTA }}>✔ {t.objetivo}</div>}
                     </div>
                   );
                 })}
@@ -89,7 +121,7 @@ function Calendario({ dias, micro, rival }: { dias: DiaPlanificado[]; micro: num
         })}
       </div>
 
-      <div style={{ display: "flex", gap: 16, marginTop: 14, fontSize: 13, color: GRIS }}>
+      <div style={{ display: "flex", gap: 18, marginTop: 14, fontSize: 16, color: GRIS }}>
         <span>
           <b style={{ color: OF }}>■</b> Ofensivo
         </span>
@@ -99,57 +131,62 @@ function Calendario({ dias, micro, rival }: { dias: DiaPlanificado[]; micro: num
         <span>
           <b style={{ color: ORO }}>■</b> Los dos
         </span>
-        <span>El alto de cada bloque va por sus minutos.</span>
       </div>
+
+      <Pie />
     </div>
   );
 }
 
-function Lamina({ dias, micro, rival }: { dias: DiaPlanificado[]; micro: number; rival: string }) {
-  const total = dias.reduce((suma, d) => suma + d.minutos, 0);
+/** El detalle, para llevar al campo: objetivo en negro, quién la trabaja y su casilla de revisión. */
+/* `casillas`: sólo en el PDF, que se imprime; en la imagen de WhatsApp no se pueden rellenar y doblaban el alto. */
+function Lamina({ dias, micro, rival, casillas = false }: { dias: DiaPlanificado[]; micro: number; rival: string; casillas?: boolean }) {
+  const visibles = dias.filter((d) => d.tareas.length || d.tipo === "partido");
 
-  const visibles = dias.filter((d) => d.tareas.length || d.tipo !== "entreno");
+  const { titulo, partido } = titular(dias, rival);
 
   return (
-    <div style={{ width: 720, background: "#FFFFFF", color: TINTA, fontFamily: "var(--font-barlow, 'Barlow Condensed'), Arial, sans-serif", padding: 32 }}>
-      <div style={{ borderBottom: `3px solid ${ORO}`, paddingBottom: 12, marginBottom: 18 }}>
-        <div style={{ fontSize: 13, letterSpacing: 2, color: ORO, fontWeight: 700 }}>REAL MADRID CASTILLA · PLANIFICACIÓN DE LA SEMANA</div>
-        <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.1, marginTop: 4 }}>{tituloPlanificacion(micro, rival).toUpperCase()}</div>
-        {total > 0 && <div style={{ fontSize: 15, color: GRIS, marginTop: 4 }}>{fmtMin(total)} de balón parado</div>}
+    <div style={{ width: 1080, background: "#FFFFFF", color: TINTA, fontFamily: FUENTE, padding: 32 }}>
+      <div style={{ borderBottom: `3px solid ${ORO}`, paddingBottom: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 16, letterSpacing: 2, color: ORO, fontWeight: 700 }}>ABP · MICROCICLO {micro} · DETALLE</div>
+        <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1.05, marginTop: 4 }}>{titulo}</div>
+        {partido && <div style={{ fontSize: 20, color: GRIS, fontWeight: 700, marginTop: 4 }}>{partido}</div>}
       </div>
 
       {visibles.map((d) => (
-        <div key={d.clave} style={{ display: "flex", gap: 16, padding: "10px 0", borderBottom: "1px solid #E3E7ED" }}>
-          <div style={{ width: 150, flexShrink: 0 }}>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>{d.dia}</div>
-            <div style={{ fontSize: 13, color: GRIS }}>
-              {[d.md, d.tipo === "partido" ? "Partido" : d.tipo === "descanso" ? "Descanso" : d.tareas.length ? fmtMin(d.minutos) : ""].filter(Boolean).join(" · ")}
-            </div>
+        <div key={d.clave} style={{ display: "flex", gap: 20, padding: "14px 0", borderBottom: "1px solid #E3E7ED" }}>
+          <div style={{ width: 190, flexShrink: 0 }}>
+            <div style={{ fontSize: 24, fontWeight: 800 }}>{d.dia}</div>
+            <div style={{ fontSize: 17, color: GRIS }}>{[d.md, d.tipo === "partido" ? "Partido" : fmtMin(d.minutos)].filter(Boolean).join(" · ")}</div>
           </div>
 
           <div style={{ flex: 1, minWidth: 0 }}>
             {d.tareas.map((t, i) => (
-              <div key={i} style={{ marginBottom: i === d.tareas.length - 1 ? 0 : 8 }}>
-                <div style={{ fontSize: 17, fontWeight: 700 }}>
-                  {t.que}{" "}
-                  <span style={{ color: /defensivo/i.test(t.lado) && !/ofensivo/i.test(t.lado) ? DEF : OF, fontWeight: 600 }}>· {t.lado.toLowerCase()}</span>
+              <div key={i} style={{ marginBottom: i === d.tareas.length - 1 ? 0 : 14 }}>
+                <div style={{ fontSize: 21, fontWeight: 800, lineHeight: 1.2 }}>
+                  {t.que} <span style={{ color: colorLado(t.lado), fontWeight: 700 }}>· {t.lado.toLowerCase()}</span>
                 </div>
-                <div style={{ fontSize: 14, color: GRIS }}>
-                  {t.donde} · {fmtMin(t.minutos)}
+                <div style={{ fontSize: 18, color: GRIS }}>
+                  {[t.donde, fmtMin(t.minutos), t.quien].filter(Boolean).join(" · ")}
                 </div>
-                {t.objetivo && <div style={{ fontSize: 14, marginTop: 2 }}>Objetivo: {t.objetivo}</div>}
-                {t.notas && <div style={{ fontSize: 14, color: GRIS, marginTop: 2 }}>{t.notas}</div>}
+                {t.objetivo && <div style={{ fontSize: 19, fontWeight: 700, marginTop: 3 }}>✔ {t.objetivo}</div>}
+                {t.notas && <div style={{ fontSize: 16, color: GRIS, marginTop: 2 }}>{t.notas}</div>}
+                {casillas && <div style={{ fontSize: 16, color: GRIS, marginTop: 6 }}>☐ Conseguido &nbsp;&nbsp; ☐ A repetir &nbsp;&nbsp; Nota: ______________________________</div>}
               </div>
             ))}
           </div>
         </div>
       ))}
+
+      <Pie />
     </div>
   );
 }
 
 export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: DiaPlanificado[]; micro: number; rival: string; onCerrar: () => void }) {
   const lamina = useRef<HTMLDivElement>(null);
+
+  const laminaPdf = useRef<HTMLDivElement>(null);
 
   const calendario = useRef<HTMLDivElement>(null);
 
@@ -162,12 +199,14 @@ export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: 
   const nombre = `ABP-planificacion-micro-${micro}${rival ? `-${apodo(rival)}` : ""}`;
 
   /* Las dos láminas: el calendario (apaisado) y el detalle (vertical). */
-  const capturas = async () => {
-    if (!lamina.current || !calendario.current) throw new Error("Sin láminas");
+  const capturas = async (imprimible = false) => {
+    const detalle = imprimible ? laminaPdf.current : lamina.current;
+
+    if (!detalle || !calendario.current) throw new Error("Sin láminas");
 
     const cal = await capturaNodo(calendario.current, { pixelRatio: 2, backgroundColor: "#FFFFFF" });
 
-    const det = await capturaNodo(lamina.current, { pixelRatio: 2, backgroundColor: "#FFFFFF" });
+    const det = await capturaNodo(detalle, { pixelRatio: 2, backgroundColor: "#FFFFFF" });
 
     return [cal, det] as const;
   };
@@ -211,7 +250,7 @@ export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: 
     setHaciendo(true);
 
     try {
-      const [cal, det] = await capturas();
+      const [cal, det] = await capturas(true);
 
       const documento = await pdfDeHojas([
         { imagen: cal.dataUrl, ancho: cal.ancho, alto: cal.alto, orientacion: "landscape", margen: 18 },
@@ -241,7 +280,7 @@ export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: 
   const whatsapp = () => window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank", "noopener");
 
   const correo = () => {
-    const asunto = `${tituloPlanificacion(micro, rival)} · planificación`;
+    const asunto = `ABP Micro ${micro}${rival ? ` vs ${rival}` : ""}: ${fmtMin(dias.reduce((suma, d) => suma + d.minutos, 0))} de balón parado`;
 
     window.location.href = `mailto:?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(textoPlanificacion(dias, micro, rival, false))}`;
   };
@@ -284,6 +323,9 @@ export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: 
         </div>
         <div ref={lamina}>
           <Lamina dias={dias} micro={micro} rival={rival} />
+        </div>
+        <div ref={laminaPdf}>
+          <Lamina dias={dias} micro={micro} rival={rival} casillas />
         </div>
       </div>
     </Dialog>
