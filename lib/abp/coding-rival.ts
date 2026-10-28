@@ -173,6 +173,67 @@ export function resumenDe(carpeta: CarpetaKey, clips: [number, ClipEstado][]): s
 }
 
 /* ------------------------------------------------------------------ */
+/*  RUTINAS QUE REPITE Y CAMPOGRAMA (segunda fase, 28/10/2026)          */
+/* ------------------------------------------------------------------ */
+
+export type Rutina = { clave: string; texto: string; clips: number[] };
+
+/**
+ * La misma acción en dos o más clips de la carpeta (también descartados): el
+ * mismo envío, la misma caída y el mismo mecanismo, y el mismo lado del
+ * envío (cerrado/abierto) si consta. Hacen falta al menos dos de esos datos
+ * para llamarla rutina: «aéreo al 1.er palo» a secas lo hace todo el mundo.
+ */
+export function rutinasDe(clips: [number, ClipEstado][]): Rutina[] {
+  const grupos = new Map<string, { texto: string; clips: number[] }>();
+
+  for (const [n, c] of clips) {
+    const e = c.etiquetas ?? {};
+
+    const partes = [e.envio, e.zona ? al(e.zona) : "", trayectoria(e), e.mecanismo && e.mecanismo !== "Ninguno" ? `con ${e.mecanismo.toLowerCase()}` : ""].filter(Boolean) as string[];
+
+    const conMecanismo = Boolean(e.mecanismo && e.mecanismo !== "Ninguno");
+
+    if (partes.length < 2 || (!conMecanismo && partes.length < 3)) continue;
+
+    const clave = partes.join("|");
+
+    const g = grupos.get(clave) ?? { texto: [e.envio?.toLowerCase(), e.zona ? al(e.zona) : "", trayectoria(e), conMecanismo ? `con ${e.mecanismo!.toLowerCase()}` : ""].filter(Boolean).join(", "), clips: [] };
+
+    g.clips.push(n);
+    grupos.set(clave, g);
+  }
+
+  return [...grupos]
+    .filter(([, g]) => g.clips.length >= 2)
+    .map(([clave, g]) => ({ clave, texto: g.texto, clips: g.clips.sort((a, b) => a - b) }))
+    .sort((a, b) => b.clips.length - a.clips.length);
+}
+
+export const ZONAS_CAIDA = ["1.er palo", "Centro", "2.º palo", "Frontal / rechace"] as const;
+
+/** Cuántas caen en cada zona, por el lado del saque (también descartados): para el campograma. */
+export function caidasDe(clips: [number, ClipEstado][]) {
+  const cuenta: Record<string, Record<string, number>> = {};
+
+  let total = 0;
+
+  for (const [, c] of clips) {
+    const z = c.etiquetas?.zona;
+
+    if (!z) continue;
+
+    const lado = c.etiquetas?.lado ?? "Sin lado";
+
+    cuenta[lado] ??= {};
+    cuenta[lado][z] = (cuenta[lado][z] ?? 0) + 1;
+    total++;
+  }
+
+  return { cuenta, total };
+}
+
+/* ------------------------------------------------------------------ */
 /*  EL TEXTO PARA EL CUERPO TÉCNICO                                    */
 /* ------------------------------------------------------------------ */
 
@@ -201,6 +262,9 @@ export function textoCoding(rival: string, porCarpeta: Map<CarpetaKey, [number, 
         return [
           `        ${c.titulo}`,
           ...(resumen ? [`            (${resumen.replace(/\.$/, "")})`] : []),
+          ...(conResumen
+            ? rutinasDe(porCarpeta.get(c.key) ?? []).map((r) => `            RUTINA QUE REPITE (${r.clips.length} veces: ${r.clips.join(", ")}): ${r.texto.toUpperCase()}`)
+            : []),
           ...elegidos.map(([n, e]) => {
             const gol = e.etiquetas?.desenlace === "Gol" && !/^gol\b/i.test(e.nota ?? "") ? "GOL: " : "";
 

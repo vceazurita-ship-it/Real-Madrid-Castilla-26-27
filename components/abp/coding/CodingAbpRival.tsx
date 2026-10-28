@@ -18,6 +18,7 @@ import { ClipboardCopy, FolderOpen, Keyboard, NotebookPen, Trash2 } from "lucide
 import { toast } from "sonner";
 
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { CampogramaCaidas } from "@/components/abp/coding/CampogramaCaidas";
 import { APUNTES_KIND, APUNTES_RIVAL_VACIO, apuntesRivalKey, normalizaCuaderno, nuevoId, type ApuntesRivalDoc } from "@/lib/abp/apuntes";
 import {
   CARPETAS,
@@ -29,6 +30,7 @@ import {
   idClip,
   numeroDeArchivo,
   resumenDe,
+  rutinasDe,
   textoCoding,
   trayectoria,
   type CarpetaKey,
@@ -735,6 +737,31 @@ export function CodingAbpRival({ equipo }: { equipo: string | null }) {
           ) : (
             <p className="text-sm text-white/50">Etiqueta los clips y aquí sale lo que más se repite en cada tipo.</p>
           )}
+          {/* Rutinas que repite: la misma acción en 2+ clips (segunda fase, 28/10/2026). */}
+          {CARPETAS.some((c) => rutinasDe(porCarpeta.get(c.key) ?? []).length) && (
+            <div className="space-y-1 pt-2">
+              <h4 className="text-sm font-bold text-white">Rutinas que repite</h4>
+              <ul className="space-y-1 text-sm text-white/80">
+                {CARPETAS.flatMap((c) =>
+                  rutinasDe(porCarpeta.get(c.key) ?? []).map((r) => (
+                    <li key={`${c.key}${r.clave}`}>
+                      <b className="text-[#D8B45A]">{c.corto}</b> · {r.texto} — {r.clips.length} veces (clips {r.clips.join(", ")})
+                    </li>
+                  )),
+                )}
+              </ul>
+            </div>
+          )}
+
+          <div className="pt-2">
+            <h4 className="mb-2 text-sm font-bold text-white">Dónde caen · {CARPETAS.find((c) => c.key === carpeta)?.corto}</h4>
+            <CampogramaCaidas
+              titulo={`${rival || equipo || "Rival"} · ${CARPETAS.find((c) => c.key === carpeta)?.corto ?? carpeta}`}
+              clips={porCarpeta.get(carpeta) ?? []}
+              defensivo={CARPETAS.find((c) => c.key === carpeta)?.fase === "def"}
+            />
+          </div>
+
           <div className="flex flex-wrap gap-2 pt-2">
             <button
               type="button"
