@@ -24,6 +24,8 @@ import QuickAccess from "@/components/ui/QuickAccess"
 import { AlertasPortada } from "@/components/portada/AlertasPortada"
 import { Cifras } from "@/components/portada/Cifras"
 import { ProximoPartido } from "@/components/portada/ProximoPartido"
+import { MisTareas } from "@/components/portada/MisTareas"
+import { useAdmin } from "@/hooks/useAdmin"
 import { trackModuleVisit } from "@/lib/module-usage"
 import { usePlayers } from "@/hooks/usePlayers"
 import { alineaSeguimiento, esDeSeguimiento, filasDeSeguimiento } from "@/lib/seguimiento"
@@ -114,6 +116,11 @@ function SectionHeader({
 }
 
 export default function Home() {
+  /* «Mis tareas» del microciclo: una pestaña sólo para el administrador (28/10/2026). */
+  const { admin } = useAdmin()
+  const [vista, setVista] = useState<"portada" | "tareas">("portada")
+  const enTareas = admin && vista === "tareas"
+
   /*
   |------------------------------------------------------------------------
   | DATA ANÁLISIS EN LA PORTADA
@@ -449,6 +456,24 @@ export default function Home() {
           <Topbar />
 
           <section className="space-y-12 p-4 sm:p-6 xl:space-y-14 xl:p-10">
+            {admin && (
+              <div role="tablist" className="-mb-6 flex gap-2 xl:-mb-8">
+                {(["portada", "tareas"] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    role="tab"
+                    aria-selected={vista === v}
+                    onClick={() => setVista(v)}
+                    className={`rounded-full px-4 py-1.5 text-sm font-semibold ${vista === v ? "bg-[#D8B45A] text-[#0B0F14]" : "bg-white/5 text-white/70 hover:bg-white/10"}`}
+                  >
+                    {v === "portada" ? "Portada" : "Mis tareas"}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {enTareas ? <MisTareas /> : (<>
             {/* ============================ PORTADA ============================ */}
 
             <div className="relative overflow-hidden rounded-[28px] border border-[#173A61]/60 bg-[#030B15] shadow-[0_0_80px_rgba(0,80,255,.08)] xl:rounded-[36px]">
@@ -795,6 +820,7 @@ export default function Home() {
                 <ArrowRight className="h-3 w-3" aria-hidden />
               </Link>
             </div>
+            </>)}
           </section>
         </div>
       </div>
