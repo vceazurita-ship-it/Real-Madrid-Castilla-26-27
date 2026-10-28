@@ -79,9 +79,9 @@ export type ElementoInforme = {
    */
   texto?: TextoElemento;
   /**
-   * No se borra en el editor ni se esconde con un repaso guardado: las fichas
-   * de la hoja «Plantilla», que existe para enseñar a la plantilla entera
-   * (28/10/2026: el repaso del Cartagena la dejaba en 15 de 30).
+   * Ficha de jugador de la hoja «Plantilla». Se puede borrar y restablecer en
+   * el editor, pero un repaso viejo sin nombre no la esconde (28/10/2026: el
+   * del Cartagena la dejaba en 15 de 30).
    */
   fija?: boolean;
 };

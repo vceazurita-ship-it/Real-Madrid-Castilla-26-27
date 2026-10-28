@@ -48,6 +48,7 @@ import {
 } from "react";
 
 import {
+  ArchiveRestore,
   ChevronDown,
   ChevronUp,
   Copy,
@@ -492,9 +493,8 @@ export default function InformePptEditor({
   const borra = useCallback(() => {
     if (seleccion.length === 0) return;
 
-    /* Las fichas de «Plantilla» no se borran: esa hoja es la plantilla entera. */
     cambia((elementos) =>
-      elementos.filter((uno) => uno.fija || !seleccion.includes(uno.id)),
+      elementos.filter((uno) => !seleccion.includes(uno.id)),
     );
 
     setSeleccion([]);
@@ -558,6 +558,49 @@ export default function InformePptEditor({
       });
     },
     [cambia, seleccion],
+  );
+
+  /*
+  | RESTABLECER LO BORRADO (28/10/2026).
+  |
+  | Lo que falta de la hoja abierta respecto al guion —un jugador quitado de la
+  | plantilla, una fila de la tabla—, para traer de vuelta sólo lo que se elija
+  | sin deshacer el resto del repaso. Vuelve a su sitio y a su capa.
+  */
+  const [restableciendo, setRestableciendo] = useState(false);
+
+  const [aRestablecer, setARestablecer] = useState<string[]>([]);
+
+  const borradas = useMemo(() => {
+    const vivas = new Set((hoja?.elementos ?? []).map((uno) => uno.id));
+
+    return (hojasIniciales[activa]?.elementos ?? []).filter((uno) => !vivas.has(uno.id));
+  }, [activa, hoja, hojasIniciales]);
+
+  const restablece = useCallback(
+    (ids: string[]) => {
+      const base = hojasIniciales[activa]?.elementos ?? [];
+      const vuelven = new Set(ids);
+
+      cambia((elementos) => {
+        const porId = new Map(elementos.map((uno) => [uno.id, uno]));
+        const delGuion = new Set(base.map((uno) => uno.id));
+
+        return [
+          ...base.flatMap((uno) => {
+            const ahora = porId.get(uno.id);
+
+            return ahora ? [ahora] : vuelven.has(uno.id) ? [uno] : [];
+          }),
+          ...elementos.filter((uno) => !delGuion.has(uno.id)),
+        ];
+      });
+
+      setSeleccion(ids);
+      setARestablecer([]);
+      setRestableciendo(false);
+    },
+    [activa, cambia, hojasIniciales],
   );
 
   const restauraHoja = useCallback(() => {
@@ -1185,6 +1228,66 @@ export default function InformePptEditor({
                 <Type size={13} />
               )}
             </BotonBarra>
+
+            <div className="relative">
+              <button
+                type="button"
+                title="Restablecer lo borrado de esta hoja"
+                onClick={() => {
+                  setARestablecer([]);
+                  setRestableciendo((abierto) => !abierto);
+                }}
+                disabled={borradas.length === 0}
+                className="flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-white/60 transition hover:border-white/30 hover:text-white disabled:opacity-30"
+              >
+                <ArchiveRestore size={13} />
+                Restablecer{borradas.length > 0 && ` (${borradas.length})`}
+              </button>
+
+              {restableciendo && borradas.length > 0 && (
+                <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-white/10 bg-[#0d1117] p-3 shadow-2xl">
+                  <div className="mb-2 flex items-center justify-between text-[11px] text-white/50">
+                    <span>Borrado de esta hoja</span>
+                    <button
+                      type="button"
+                      className="text-[#C8A96B] hover:underline"
+                      onClick={() => setARestablecer(aRestablecer.length === borradas.length ? [] : borradas.map((uno) => uno.id))}
+                    >
+                      {aRestablecer.length === borradas.length ? "Ninguno" : "Todos"}
+                    </button>
+                  </div>
+
+                  <ul className="max-h-64 space-y-0.5 overflow-y-auto">
+                    {borradas.map((uno) => (
+                      <li key={uno.id}>
+                        <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs text-white/80 hover:bg-white/5">
+                          <input
+                            type="checkbox"
+                            className="accent-[#C8A96B]"
+                            checked={aRestablecer.includes(uno.id)}
+                            onChange={(evento) =>
+                              setARestablecer((previo) =>
+                                evento.target.checked ? [...previo, uno.id] : previo.filter((id) => id !== uno.id),
+                              )
+                            }
+                          />
+                          <span className="truncate">{uno.nombre}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    type="button"
+                    disabled={aRestablecer.length === 0}
+                    onClick={() => restablece(aRestablecer)}
+                    className="mt-2 w-full rounded-full bg-[#C8A96B] px-3 py-1.5 text-xs font-semibold text-black transition hover:brightness-110 disabled:opacity-30"
+                  >
+                    Restablecer {aRestablecer.length || ""}
+                  </button>
+                </div>
+              )}
+            </div>
 
             <BotonBarra titulo="Dejar la hoja como estaba" onClick={restauraHoja}>
               <RotateCcw size={13} />

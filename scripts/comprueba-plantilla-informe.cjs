@@ -5,7 +5,7 @@
 | borradas en el editor que se escondían cada vez que se montaba). Esto lo
 | comprueba en cada push (CI) sin navegador:
 |   1. el reparto coloca a todos, con cualquier tamaño y puesto (también sin puesto);
-|   2. un repaso guardado con borrados no esconde ninguna ficha fija.
+|   2. un borrado sólo esconde al jugador que se borró (por nombre), nunca a otro.
 |
 |   node scripts/comprueba-plantilla-informe.cjs
 */
@@ -58,13 +58,24 @@ const DIBUJOS = [undefined, "1-4-2-3-1", "1-4-4-2", "1-4-3-3", "1-3-5-2", "1-5-3
       ...Array.from({ length: 30 }, (_, i) => ({ id: `h10-${i + 2}`, nombre: `Nº${i} · J${i}`, x: i, y: i, w: 10, h: 10, imagen: "", fija: true })),
     ],
   };
-  const borrados = hoja.elementos.map((e) => e.id);
-  const [tras] = await aplicaAjustes([hoja], { Plantilla: { borrados } }, async () => null);
-  const quedan = tras.elementos.filter((e) => e.fija).length;
+  const fichas = (lista) => lista[0].elementos.filter((e) => e.fija).length;
+  const ids = hoja.elementos.map((e) => e.id);
+  const casos = [
+    /* Repaso viejo, sin nombres: no esconde ninguna ficha. */
+    ["borrados sin nombre", { borrados: ids }, 30],
+    /* Borrados de verdad (con su nombre): se respetan. */
+    ["borrados con su nombre", { borrados: ["h10-2", "h10-3"], borradosNombre: { "h10-2": "Nº0 · J0", "h10-3": "Nº1 · J1" } }, 28],
+    /* El id ya es otro jugador (la plantilla ha cambiado): no se esconde. */
+    ["borrados con el id movido", { borrados: ["h10-2"], borradosNombre: { "h10-2": "Nº9 · OTRO" } }, 30],
+  ];
 
-  if (quedan !== 30) {
-    fallos++;
-    console.error(`✗ Un repaso con borrados deja ${quedan}/30 fichas en «Plantilla»`);
+  for (const [que, ajuste, esperado] of casos) {
+    const quedan = fichas(await aplicaAjustes([hoja], { Plantilla: ajuste }, async () => null));
+
+    if (quedan !== esperado) {
+      fallos++;
+      console.error(`✗ Repaso con ${que}: ${quedan}/30 fichas en «Plantilla» (tocaban ${esperado})`);
+    }
   }
 
   if (fallos) {

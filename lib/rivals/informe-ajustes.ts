@@ -57,6 +57,12 @@ export type NotaAjuste = {
 export type AjustesHoja = {
   cajas?: Record<string, CajaAjuste>;
   borrados?: string[];
+  /**
+   * Qué era cada borrado (id → nombre), 28/10/2026. Los ids son posicionales:
+   * con un jugador más en la plantilla, «h10-12» pasa a ser otro, y un borrado
+   * sin nombre escondía a quien no se había borrado.
+   */
+  borradosNombre?: Record<string, string>;
   copias?: CopiaAjuste[];
   notas?: NotaAjuste[];
 };
@@ -202,9 +208,9 @@ export function extraeAjustes(
 
     const vivos = new Set(hoja.elementos.map((e) => e.id));
 
-    const borrados = original.elementos
-      .map((e) => e.id)
-      .filter((id) => !vivos.has(id));
+    const quitados = original.elementos.filter((e) => !vivos.has(e.id));
+    const borrados = quitados.map((e) => e.id);
+    const borradosNombre = Object.fromEntries(quitados.map((e) => [e.id, e.nombre]));
 
     if (
       Object.keys(cajas).length === 0 &&
@@ -217,7 +223,7 @@ export function extraeAjustes(
 
     porHoja[clave] = {
       ...(Object.keys(cajas).length ? { cajas } : {}),
-      ...(borrados.length ? { borrados } : {}),
+      ...(borrados.length ? { borrados, borradosNombre } : {}),
       ...(copias.length ? { copias } : {}),
       ...(notas.length ? { notas } : {}),
     };
@@ -290,7 +296,15 @@ export async function aplicaAjustes(
     const borrados = new Set(ajuste.borrados ?? []);
 
     const elementos = hoja.elementos
-      .filter((el) => el.fija || !borrados.has(el.id))
+      .filter((el) => {
+        if (!borrados.has(el.id)) return true;
+
+        const era = ajuste.borradosNombre?.[el.id];
+
+        /* Con nombre, sólo si sigue siendo esa pieza. Sin nombre (repasos de
+           antes del 28/10) no se fía con las fichas de jugador. */
+        return era ? era !== el.nombre : Boolean(el.fija);
+      })
       .map((el) => {
         const caja = ajuste.cajas?.[el.id];
 
