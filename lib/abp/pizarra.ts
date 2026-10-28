@@ -1623,6 +1623,9 @@ export function puestosDe(slide: SlidePizarra): PuestoAbp[] {
 | que el documento saliera con el viejo sería el gazapo más caro de todos.
 */
 export function gruposDe(slide: SlidePizarra): GrupoAbp[] {
+  /* «Dónde caen» (coding del rival) no lleva fichas: sin caja de asignaciones, el campo a lo ancho. */
+  if (slide.caidas?.length) return [];
+
   const base = PLANTILLA_BY_KEY.get(slide.plantilla)?.grupos ?? [];
 
   const cambios = slide.textos?.grupos;

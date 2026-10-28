@@ -56,6 +56,61 @@ function caidas(clips: [number, ClipEstado][], defensivo: boolean): CaidaPizarra
   return bolas;
 }
 
+const masVeces = (valores: (string | undefined)[]) => {
+  const cuenta = new Map<string, number>();
+
+  for (const v of valores) if (v) cuenta.set(v, (cuenta.get(v) ?? 0) + 1);
+
+  return [...cuenta].sort((a, b) => b[1] - a[1])[0] ?? null;
+};
+
+const ZONA_FRASE: Record<string, string> = {
+  "1.er palo": "el primer palo",
+  Centro: "el centro del área pequeña",
+  "2.º palo": "el segundo palo",
+  "Frontal / rechace": "la frontal",
+  Frontal: "la frontal",
+};
+
+/**
+ * La consigna en lenguaje de vestuario (experto de fútbol, 28/10/2026): en
+ * lo suyo, dónde cargan; en su defensa, dónde les hacemos daño.
+ */
+function consignaDe(defensivo: boolean, clips: [number, ClipEstado][]) {
+  const et = clips.map(([, c]) => c.etiquetas ?? {});
+
+  if (defensivo) {
+    const libre = masVeces(et.map((e) => e.libre));
+
+    const estructura = masVeces(et.map((e) => e.estructura));
+
+    return libre ? `Atacamos ${ZONA_FRASE[libre[0]] ?? libre[0].toLowerCase()}: ${estructura ? `con su ${estructura[0].toLowerCase()} ` : ""}lo dejan sin nadie` : "";
+  }
+
+  const zona = masVeces(et.map((e) => e.zona));
+
+  const goles = et.filter((e) => e.desenlace === "Gol").length;
+
+  return zona ? `Cuidado con ${ZONA_FRASE[zona[0]] ?? zona[0].toLowerCase()}: ahí cargan ${zona[1]} de ${clips.length}${goles ? ` (${goles === 1 ? "un gol" : `${goles} goles`})` : ""}` : "";
+}
+
+/** El reparto por zona, para las consignas: «Primer palo: 2 · Gol: 1». */
+function repartoDe(clips: [number, ClipEstado][]) {
+  const cuenta = new Map<string, number>();
+
+  for (const [, c] of clips) {
+    const z = c.etiquetas?.zona;
+
+    if (z) cuenta.set(z, (cuenta.get(z) ?? 0) + 1);
+  }
+
+  const goles = clips.filter(([, c]) => c.etiquetas?.desenlace === "Gol").length;
+
+  return [...[...cuenta].sort((a, b) => b[1] - a[1]).map(([z, n]) => `${(ZONA_FRASE[z] ?? z).replace(/^el |^la /, "")}: ${n}`), ...(goles ? [`Gol: ${goles}`] : [])]
+    .map((l) => l.charAt(0).toUpperCase() + l.slice(1))
+    .join(" · ");
+}
+
 /** Las diapositivas «DÓNDE CAEN» que tocan ahora, una por carpeta con algo marcado. */
 export function slidesDeCaidas(porCarpeta: Map<CarpetaKey, [number, ClipEstado][]>, rival: string): SlidePizarra[] {
   return CARPETAS.flatMap((c) => {
@@ -75,6 +130,8 @@ export function slidesDeCaidas(porCarpeta: Map<CarpetaKey, [number, ClipEstado][
       .join(" · ");
 
     const notas = [
+      consignaDe(c.fase === "def", clips),
+      repartoDe(clips) ? `Reparto: ${repartoDe(clips)}` : "",
       llano(resumenDe(c.key, clips)),
       ...rutinasDe(clips).map((r) => llano(`Rutina que repite (${r.clips.length}): ${r.texto}`)),
       leyenda ? `Bolas: ${leyenda}${c.fase === "def" ? " · Rojo: zona que dejan sin nadie" : ""}` : "",

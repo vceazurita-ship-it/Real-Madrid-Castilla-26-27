@@ -43,7 +43,6 @@ const MOMENTO = new Map(MOMENTOS.map((m) => [m.key, m.label]));
 const ROL = new Map(ROLES.map((r) => [r.key, r.label]));
 const NOMBRE_DIA = new Map(DIAS.map((d) => [d.key, d.label]));
 
-const CORTO = new Map(ASPECTOS.map((a) => [a.key, a.short]));
 const ORDEN_MOMENTO = new Map(MOMENTOS.map((m, i) => [m.key, i]));
 
 const enLista = (partes: string[]) => (partes.length > 1 ? `${partes.slice(0, -1).join(", ")} y ${partes.at(-1)}` : partes[0] ?? "");
@@ -59,9 +58,26 @@ function enFrase(texto: string) {
 
   if (letras.length < 8 || mayusculas / letras.length < 0.6) return texto;
 
-  const bajo = texto.toLowerCase();
+  /* Sólo las palabras en mayúsculas sostenidas: un nombre ya escrito con su mayúscula («Edu») se queda. */
+  const bajo = texto.replace(/[A-Za-zÁÉÍÓÚÑÜáéíóúñü]+/g, (palabra) => (palabra.length > 1 && palabra === palabra.toUpperCase() ? palabra.toLowerCase() : palabra));
 
   return bajo.charAt(0).toUpperCase() + bajo.slice(1);
+}
+
+const GRUPO = new Map(ASPECTOS.map((a) => [a.key, a.grupo]));
+
+const FAMILIA: Record<string, string> = { corner: "córners", falta: "faltas", banda: "saques de banda" };
+
+/**
+ * Con 4 aspectos o más, por familias y cuántos (comunicación, 28/10/2026):
+ * «Córners, faltas y saques de banda · 6 acciones». La lista exacta va en el detalle.
+ */
+function porFamilias(aspectos: Trabajo["aspectos"]) {
+  const familias = [...new Set(aspectos.map((a) => FAMILIA[GRUPO.get(a) ?? ""] ?? (ASPECTO.get(a) ?? a).toLowerCase()))];
+
+  const texto = enLista(familias);
+
+  return `${texto.charAt(0).toUpperCase()}${texto.slice(1)} · ${aspectos.length} acciones`;
 }
 
 function tarea(t: Trabajo): TareaPlanificada {
@@ -70,7 +86,7 @@ function tarea(t: Trabajo): TareaPlanificada {
   return {
     que: enLista(aspectos.map((a, i) => (i === 0 ? a : minusculaInicial(a)))),
     /* Con 4 aspectos o más, las etiquetas cortas: el título largo tapaba el criterio (expertos, 28/10/2026). */
-    queCorto: t.aspectos.length >= 4 ? t.aspectos.map((a) => CORTO.get(a) ?? ASPECTO.get(a) ?? a).join(" · ") : enLista(aspectos.map((a, i) => (i === 0 ? a : minusculaInicial(a)))),
+    queCorto: t.aspectos.length >= 4 ? porFamilias(t.aspectos) : enLista(aspectos.map((a, i) => (i === 0 ? a : minusculaInicial(a)))),
     momento: ORDEN_MOMENTO.get(t.momento) ?? 9,
     lado: enLista(t.lados.map((l, i) => (i === 0 ? LADO.get(l) ?? l : (LADO.get(l) ?? l).toLowerCase()))),
     donde: [MEDIO.get(t.medio), MOMENTO.get(t.momento)].filter(Boolean).join(" · "),

@@ -379,6 +379,23 @@ export function Escena({
   /* Unidades de pantalla por metro de un jugador en perspectiva, con los mismos topes. */
   const metroDe = (s: number) => Math.min(Math.max(s, u * 1.02), u * 2.8);
 
+  /*
+  | Rótulos de una acción real (nombres de Wyscout): si chocan con uno ya
+  | puesto, suben encima de la ficha y, si tampoco cabe, bajan otra línea.
+  */
+  const ocupados: { x: number; y: number; w: number; h: number }[] = [];
+
+  const rotuloLibre = (x: number, abajo: number, arriba: number, texto: string, tam: number) => {
+    const w = texto.length * tam * 0.52;
+    const h = tam * 1.15;
+    const choca = (y: number) => ocupados.some((o) => Math.abs(o.x - x) < (o.w + w) / 2 && Math.abs(o.y - y) < (o.h + h) / 2);
+    const y = !choca(abajo) ? abajo : !choca(arriba) ? arriba : abajo + h;
+
+    ocupados.push({ x, y, w, h });
+
+    return rotulo(x, y, texto, tam);
+  };
+
   const textoFicha = (r: Rol, j?: JugadorLab) => (j ? String(j.dorsal ?? iniciales(j.nombre)) : CODIGO_PAPEL[r.papel]);
 
   const fotoDe = (j?: JugadorLab) => (capas.fotos && j?.foto ? (fotos?.get(j.foto) ?? j.foto) : null);
@@ -601,7 +618,7 @@ export function Escena({
           </text>
         )}
         {capas.nombres && !quieta && j && !protagonista && rotulo(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), nombreCorto(j.nombre), Math.max(R * 0.8, u * 0.92))}
-        {rotulosNota && !j && r.nota && rotulo(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), r.nota, Math.max(R * 0.85, u * 0.95))}
+        {rotulosNota && !j && r.nota && rotuloLibre(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), c.y - R - Math.max(R * 0.35, u * 0.4), r.nota, Math.max(R * 0.85, u * 0.95))}
         {protagonista && etiquetaTu(c.x, c.y - R * 1.75, Math.max(R * 0.95, u * 1.2))}
         {/* Un blanco más grande que la ficha: con el dedo, la ficha es poca cosa */}
         {M.onFicha && <circle cx={f3(c.x)} cy={f3(c.y)} r={f3(Math.max(R * 1.7, u * 1.8))} style={{ fill: "transparent" }} data-solo-pantalla="" />}
@@ -1020,7 +1037,7 @@ export function Escena({
         return (
           <g key={`tr${k}`} style={{ pointerEvents: "none" }}>
             <rect x={f3(c.x - R * 0.78)} y={f3(c.y - R * 0.78)} width={f3(R * 1.56)} height={f3(R * 1.56)} rx={f3(R * 0.28)} transform={`rotate(45 ${f3(c.x)} ${f3(c.y)})`} style={{ fill: P.rival, stroke: "rgba(0,0,0,0.45)", strokeWidth: f3(R * 0.08) }} />
-            {tq.nombre && rotulo(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), tq.nombre, Math.max(R * 0.85, u * 0.95))}
+            {tq.nombre && rotuloLibre(c.x, c.y + R + Math.max(R * 0.95, u * 0.95), c.y - R - Math.max(R * 0.35, u * 0.4), tq.nombre, Math.max(R * 0.85, u * 0.95))}
           </g>
         );
       })}

@@ -1688,7 +1688,13 @@ export function TableroSlide({
                 lineHeight: 1,
               }}
             >
-              {caida.libre ? `SIN NADIE · ${caida.n}` : caida.n}
+              {caida.libre ? (
+                <span style={{ position: "absolute", bottom: "100%", marginBottom: 8, whiteSpace: "nowrap", background: "#FF4D4D", color: "#FFFFFF", borderRadius: 8, padding: "2px 10px", fontSize: 26 }}>
+                  SIN NADIE · {caida.n}
+                </span>
+              ) : (
+                caida.n
+              )}
             </div>
           );
         })}
