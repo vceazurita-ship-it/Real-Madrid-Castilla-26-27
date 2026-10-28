@@ -492,8 +492,9 @@ export default function InformePptEditor({
   const borra = useCallback(() => {
     if (seleccion.length === 0) return;
 
+    /* Las fichas de «Plantilla» no se borran: esa hoja es la plantilla entera. */
     cambia((elementos) =>
-      elementos.filter((uno) => !seleccion.includes(uno.id)),
+      elementos.filter((uno) => uno.fija || !seleccion.includes(uno.id)),
     );
 
     setSeleccion([]);

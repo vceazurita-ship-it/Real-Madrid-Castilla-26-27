@@ -3271,6 +3271,7 @@ function pintaPlantilla(
         FICHA_W * k,
         FICHA_H * k,
       ),
+      true,
     );
   }
 

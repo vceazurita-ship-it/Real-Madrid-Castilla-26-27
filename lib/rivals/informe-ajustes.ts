@@ -290,7 +290,7 @@ export async function aplicaAjustes(
     const borrados = new Set(ajuste.borrados ?? []);
 
     const elementos = hoja.elementos
-      .filter((el) => !borrados.has(el.id))
+      .filter((el) => el.fija || !borrados.has(el.id))
       .map((el) => {
         const caja = ajuste.cajas?.[el.id];
 

@@ -78,6 +78,12 @@ export type ElementoInforme = {
    * caja de texto de verdad y se corrige en PowerPoint.
    */
   texto?: TextoElemento;
+  /**
+   * No se borra en el editor ni se esconde con un repaso guardado: las fichas
+   * de la hoja «Plantilla», que existe para enseñar a la plantilla entera
+   * (28/10/2026: el repaso del Cartagena la dejaba en 15 de 30).
+   */
+  fija?: boolean;
 };
 
 /** Un texto de la hoja, que se puede volver a escribir. */
@@ -362,7 +368,7 @@ export class GuionHoja {
    * `alineacion-ppt.ts` con el mismo cartón del campograma de día de partido—:
    * ni se repinta ni se recorta, porque la caja ya es la suya.
    */
-  imagen(nombre: string, caja: CajaInforme, dataUrl: string) {
+  imagen(nombre: string, caja: CajaInforme, dataUrl: string, fija = false) {
     this.contador += 1;
 
     const pieza: ElementoInforme = {
@@ -373,6 +379,7 @@ export class GuionHoja {
       w: caja.w,
       h: caja.h,
       imagen: dataUrl,
+      ...(fija ? { fija } : {}),
     };
 
     this.piezas.push(pieza);
