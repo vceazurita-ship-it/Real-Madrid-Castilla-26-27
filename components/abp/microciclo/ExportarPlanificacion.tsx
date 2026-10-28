@@ -288,12 +288,12 @@ export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: 
   return (
     <Dialog
       title="Exportar la planificación"
-      subtitle={`Sólo lo planificado · Micro ${micro}${rival ? ` · ${rival}` : ""}`}
+      subtitle={`Calendario y detalle (imágenes o PDF de 2 páginas) · Micro ${micro}${rival ? ` · ${rival}` : ""}`}
       onClose={onCerrar}
       footer={
         <>
           <Button icon={ClipboardCopy} onClick={copia} disabled={sinTareas}>
-            Copiar texto
+            Copiar
           </Button>
           <Button icon={Mail} onClick={correo} disabled={sinTareas}>
             Correo
@@ -302,10 +302,10 @@ export function ExportarPlanificacion({ dias, micro, rival, onCerrar }: { dias: 
             WhatsApp
           </Button>
           <Button icon={ImageDown} onClick={imagenes} disabled={sinTareas || haciendo}>
-            {haciendo ? "Haciendo…" : "2 imágenes"}
+            {haciendo ? "…" : "Imágenes"}
           </Button>
           <Button tone="primary" icon={FileDown} onClick={pdf} disabled={sinTareas || haciendo}>
-            {haciendo ? "Haciendo…" : "PDF (2 páginas)"}
+            {haciendo ? "Haciendo…" : "PDF"}
           </Button>
         </>
       }

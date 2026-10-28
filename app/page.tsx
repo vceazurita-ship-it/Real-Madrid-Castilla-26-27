@@ -457,7 +457,7 @@ export default function Home() {
 
           <section className="space-y-12 p-4 sm:p-6 xl:space-y-14 xl:p-10">
             {admin && (
-              <div role="tablist" className="-mb-6 flex gap-2 xl:-mb-8">
+              <div role="tablist" className="flex gap-2">
                 {(["portada", "tareas"] as const).map((v) => (
                   <button
                     key={v}

@@ -536,6 +536,9 @@ export function CodingAbpRival({ equipo }: { equipo: string | null }) {
         <p className="text-sm text-white/65">
           Abre la carpeta de la jornada (por ejemplo <b>ABP\RIVAL\ABP - 10 CARTAGENA</b>). Los clips no se suben: se ven desde tu ordenador.
         </p>
+        <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200 md:hidden">
+          En el móvil no se pueden abrir carpetas: el coding se hace en el ordenador, con Chrome o Edge. Aquí puedes ver el texto y los apuntes ya hechos.
+        </p>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={elige} className="flex items-center gap-2 rounded-lg bg-[#D8B45A] px-4 py-2 text-sm font-bold text-[#0B0F14]">
             <FolderOpen size={16} /> Abrir carpeta de la jornada

@@ -90,7 +90,10 @@ export function agendaSemana(anterior: string | null, proximo: string, quinielaC
 
   if (n <= 0) return [];
 
-  const corta = n < 6;
+  /* Partido en sábado tras uno en domingo = 5 días: semana normal. Corta es de 4 o menos. */
+  const corta = n < 5;
+
+  /* Con 5 días el MD-4 es el MD+2: lo del rival (once, plan) pasa al día siguiente para no cargar ese día. */
 
   const dias: DiaAgenda[] = [];
 
@@ -99,8 +102,8 @@ export function agendaSemana(anterior: string | null, proximo: string, quinielaC
     const hasta = n - k;
 
     const fijas = corta
-      ? (GRUPOS[Math.min(k, GRUPOS.length - 1)] ?? []).concat(k === n - 1 ? GRUPOS.slice(k + 1).flat() : [])
-      : POR_DIA.filter((r) => r.desde === desde || r.hasta === hasta).flatMap((r) => r.ids);
+      ? (GRUPOS[k] ?? []).concat(k === n - 1 ? GRUPOS.slice(k + 1).flat() : [])
+      : POR_DIA.filter((r) => r.desde === desde || (r.hasta === 4 ? hasta === Math.min(4, n - 2) : r.hasta === hasta)).flatMap((r) => r.ids);
 
     /* Lo de grupos que no tuvieron día (semana de 2-3 días) cae en el último. */
     const tareas = fijas.map((id) => ({ ...T[id], recortable: corta ? T[id].recortable : undefined }));
