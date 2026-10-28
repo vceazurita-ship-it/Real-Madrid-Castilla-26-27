@@ -32,6 +32,7 @@ import {
   Dumbbell,
   Flame,
   Mail,
+  Share2,
   Plus,
   Download,
   Sparkles,
@@ -78,6 +79,8 @@ import {
 } from "@/components/abp/microciclo/ImportarRegistro";
 import { CruceTabla } from "@/components/abp/microciclo/CruceTabla";
 import { CopiarMicro } from "@/components/abp/microciclo/CopiarMicro";
+import { ExportarPlanificacion } from "@/components/abp/microciclo/ExportarPlanificacion";
+import { planificacion } from "@/lib/abp/planificacion-semana";
 import { copiaPlan, type MdPorDia, type ModoCopia } from "@/lib/abp/copia-micro";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -987,6 +990,9 @@ export default function AbpMicrocicloPage() {
 
   const [copiando, setCopiando] = useState(false);
 
+  /* Sólo la planificación, para mandarla por correo o WhatsApp (28/10/2026). */
+  const [exportando, setExportando] = useState(false);
+
   /** El MD de cada día de una ventana, por su letra. */
   const mdDeVentana = useCallback((dias: { clave: DiaKey; rotulo: string; md: number | null }[]) => {
     const mapa: MdPorDia = {};
@@ -1629,6 +1635,15 @@ export default function AbpMicrocicloPage() {
               </Button>
 
               <Button
+                icon={Share2}
+                onClick={() => setExportando(true)}
+                disabled={!claveActiva}
+                title="Exportar sólo la planificación de la semana (imagen, WhatsApp o correo)"
+              >
+                Exportar planificación
+              </Button>
+
+              <Button
                 icon={Download}
                 onClick={() => setImportando(true)}
                 disabled={!tareasAbpDelMicro.length}
@@ -2106,6 +2121,15 @@ export default function AbpMicrocicloPage() {
           }}
           onAplicar={aplicaBoceto}
           onCerrar={() => setBocetoAbierto(false)}
+        />
+      )}
+
+      {exportando && (
+        <ExportarPlanificacion
+          dias={planificacion(planVisto, ventana.dias.filter((dia, i, todos) => todos.findIndex((otro) => otro.clave === dia.clave) === i))}
+          micro={plan.micro || microActivo?.micro || 0}
+          rival={plan.rival || microActivo?.rival || ""}
+          onCerrar={() => setExportando(false)}
         />
       )}
 

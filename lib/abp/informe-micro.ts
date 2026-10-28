@@ -5268,7 +5268,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
         titularConRival ? "" : delRival,
         enElPlan,
         otraQueSube,
-        banda && banda !== primera ? `Saques de banda, aparte: ${nombre(banda)}, ${banda.base} con peligro` : "",
+        banda && banda !== primera ? `Saques de banda, aparte: ${nombre(banda)}` : "",
         conRemate[1] && !conRemate[1].segundoPlano ? `Después: ${nombre(conRemate[1])}, ${baseDe(conRemate[1])}` : "",
       ]
     )
@@ -5287,7 +5287,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
       .sort((a, b) => b.peligros / b.acciones - a.peligros / a.acciones)[0];
 
     const ofensivo = mejorOfensivo
-      ? `Atacando, lo mejor que tenemos: ${aspectoCorto(mejorOfensivo.aspecto)}, ${mejorOfensivo.base} con peligro${mejorOfensivo.sentidoRival === "sube" && mejorOfensivo.contraRivalCorto ? `, y ${mejorOfensivo.contraRivalCorto}` : ""}`
+      ? `Atacando, lo mejor que tenemos: ${aspectoCorto(mejorOfensivo.aspecto)}${mejorOfensivo.sentidoRival === "sube" && mejorOfensivo.contraRivalCorto ? `, y ${mejorOfensivo.contraRivalCorto}` : ""}`
       : "";
 
     const clavesConOfensivo = ofensivo && !claves.some((una) => una.startsWith("Atacando")) ? [...claves.slice(0, 3), ofensivo] : claves;
@@ -5322,7 +5322,8 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
 
   const claves = [
     primera
-      ? `${consignaDe(primera.aspecto, primera.lado)}: ${primera.base} con peligro · ${primera.minSemana > 0 ? `${fmtMin(primera.minSemana)} esta semana` : "sin trabajar esta semana"}`
+      ? /* Sin «4 de 32 con peligro · 3′ esta semana» (28/10/2026, el analista): esa medida no es del todo real; la prioridad, dicha. */
+        `${consignaDe(primera.aspecto, primera.lado)}: la prioridad${primera.minSemana > 0 ? "" : ", aún sin trabajar esta semana"}`
       : "",
     porQue,
     delRival,
