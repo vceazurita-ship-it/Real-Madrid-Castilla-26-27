@@ -673,6 +673,22 @@ export default function FaltasPage() {
             {/* ---------------- frente a los anteriores ---------------- */}
 
             {comparativa && (
+              <>
+              {/* 29/10/2026: el titular antes de las filas, para leer lo esencial en cinco segundos (marketing). */}
+              {(() => {
+                const f = comparativa.metricas.find((m) => m.clave === "favor");
+                const c = comparativa.metricas.find((m) => m.clave === "contra");
+
+                if (!f || !c || f.actual === null || c.actual === null) return null;
+
+                const frente = (m: typeof f) => (m.media !== null && comparativa.anteriores > 0 ? ` (media ${decimal(m.media)})` : "");
+
+                return (
+                  <p className="mt-3 text-sm font-medium text-white/80">
+                    {f.actual} a favor{frente(f)} y {c.actual} en contra{frente(c)} en {comparativa.partido}.
+                  </p>
+                );
+              })()}
               <ComparativaPartido
                 partido={comparativa.partido}
                 anteriores={{ n: comparativa.anteriores }}
@@ -680,6 +696,7 @@ export default function FaltasPage() {
                 nota={`Sobre el partido entero, sin el filtro de ${filtro === "todas" ? "lado" : `«${NOMBRE_LADO[filtro]}»`} ni lo pinchado abajo. La media es por partido. Verde: mejor que la media; naranja: peor; gris: no se juzga.`}
                 className="mt-3"
               />
+              </>
             )}
 
             {partido?.notas.length ? (

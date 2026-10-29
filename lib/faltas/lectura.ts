@@ -114,7 +114,8 @@ export function comparativaFaltas(partido: PartidoFaltas, partidos: PartidoFalta
       /* La base es el grupo propio (a favor o en contra), no el partido entero. */
       de: base ? partido.faltas.filter(base).length : partido.faltas.length,
       unidad: "faltas",
-      pie: pocas ? [pie, "muestra pequeña"].filter(Boolean).join(" · ") : pie,
+      /* 29/10/2026: en muestra pequeña la fila ya dice «tendencia, pocos casos»; no se repite en el pie. */
+      pie,
     };
   };
 

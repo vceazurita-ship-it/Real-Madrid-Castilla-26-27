@@ -94,7 +94,7 @@ export function VistazoRival({
   enlaces,
 }: {
   /** Dónde hacerles daño: jugadores con etiquetas de debilidad y rasgos flojos en Wyscout. */
-  dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string }[];
+  dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string; base?: string }[];
   /** Bajas de la hoja, apercibidos y rojas de BeSoccer; `null` si no hay nada. */
   avisos?: AvisosRival | null;
   equipo: string;
@@ -259,7 +259,7 @@ export function VistazoRival({
           </p>
 
           {/* Primero la frase, luego los dos grupos: una lista de «p15 · p80» no se leía (guion, 21/10). */}
-          {fraseDeAspectos(aspectos) && <p className="mb-2 text-sm text-white/75">{fraseDeAspectos(aspectos)}</p>}
+          {fraseDeAspectos(aspectos) && <p className="mb-2 pr-10 text-sm text-white/75 md:pr-0">{fraseDeAspectos(aspectos)}</p>}
 
           <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             {[
@@ -309,6 +309,8 @@ export function VistazoRival({
                 <b className="font-semibold text-white">{uno.nombre}</b>
                 {uno.puesto ? <span className="text-white/45"> ({uno.puesto})</span> : null}: {uno.rasgos.join(" y ")}
                 {uno.accion ? <span className="text-white/80"> → {uno.accion}</span> : null}
+                {/* La base de la frase (29/10/2026): no es lo mismo «pierde duelos» en 8 partidos que en 2. */}
+                {uno.base ? <span className="text-[11px] text-white/45"> ({uno.base})</span> : null}
               </li>
             ))}
           </ul>

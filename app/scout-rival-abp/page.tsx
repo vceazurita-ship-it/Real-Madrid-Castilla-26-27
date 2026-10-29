@@ -151,6 +151,9 @@ const pct = (value: number) => `${value.toFixed(0)}%`;
 export default function ScoutRivalAbpPage() {
   const [derived, setDerived] = useState<AbpEvent[]>([]);
   const [equiposHoja, setEquiposHoja] = useState<string[]>([]);
+  /* Móvil (29/10/2026): con un equipo elegido la lista de 19 se pliega y deja
+     el elegido con «Cambiar equipo»; en escritorio no cambia nada. */
+  const [cambiandoEquipo, setCambiandoEquipo] = useState(false);
   const [squad, setSquad] = useState<unknown>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -215,6 +218,7 @@ export default function ScoutRivalAbpPage() {
   /** Elegir rival a mano; se recuerda para volver al de la semana. */
   const pickTeam = useCallback((nombre: string) => {
     setEquipoElegido(nombre);
+    setCambiandoEquipo(false);
 
     try {
       window.localStorage.setItem(LAST_TEAM_KEY, nombre);
@@ -774,15 +778,32 @@ export default function ScoutRivalAbpPage() {
                 {equiposVisibles.length === 0 ? (
                   <EmptyState title="No hay equipos en esta lista" />
                 ) : (
-                  <TeamPicker
-                    teams={equiposVisibles}
-                    value={equipo}
-                    onChange={pickTeam}
-                    countOf={(nombre) => registradas.get(scoutKey(nombre)) ?? 0}
-                    escudoDe={escudoDe}
-                    jornadaDe={jornadaDe}
-                    proximo={proximoDe(equiposVisibles)}
-                  />
+                  <>
+                    {equipo && !cambiandoEquipo && (
+                      <button
+                        type="button"
+                        onClick={() => setCambiandoEquipo(true)}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3.5 py-2.5 text-left sm:hidden"
+                      >
+                        <span className="min-w-0 truncate text-sm font-semibold text-white">{equipo}</span>
+                        <span className="flex shrink-0 items-center gap-1 text-[12px] text-[#C8A96B]">
+                          Cambiar equipo <ChevronDown size={14} />
+                        </span>
+                      </button>
+                    )}
+
+                    <div className={equipo && !cambiandoEquipo ? "hidden sm:block" : undefined}>
+                      <TeamPicker
+                        teams={equiposVisibles}
+                        value={equipo}
+                        onChange={pickTeam}
+                        countOf={(nombre) => registradas.get(scoutKey(nombre)) ?? 0}
+                        escudoDe={escudoDe}
+                        jornadaDe={jornadaDe}
+                        proximo={proximoDe(equiposVisibles)}
+                      />
+                    </div>
+                  </>
                 )}
 
                 {/* En el coding no pinta nada: allí manda la carpeta (29/10/2026). */}

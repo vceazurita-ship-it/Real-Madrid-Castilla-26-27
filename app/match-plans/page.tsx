@@ -399,8 +399,8 @@ export default function Page() {
     return [
       {
         value: "ALL",
-        label: `Todos los microciclos (${matches.length}${
-          matches.some((m) => !m.esLiga) ? `, con ${matches.filter((m) => !m.esLiga).length} de pretemporada que no cuenta en los totales` : ""
+        label: `Todos (${matches.filter((m) => m.esLiga).length}${
+          matches.some((m) => !m.esLiga) ? ` + ${matches.filter((m) => !m.esLiga).length} de pretemporada` : ""
         })`,
       },
       ...list,

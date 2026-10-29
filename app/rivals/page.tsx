@@ -3103,12 +3103,13 @@ export default function RivalPlayersPage() {
           rasgos: frase?.frases ?? [],
           accion: frase?.accion ?? "",
           cruzan: debilidades.length > 0 && flojos.length > 0,
+          base: perfil && perfil.minutos > 0 ? `${Math.round(perfil.minutos)}′, ${perfil.partidos} ${perfil.partidos === 1 ? "partido" : "partidos"}` : "",
         };
       })
       .filter((uno) => uno.nombre && uno.cruzan && uno.accion)
       .sort((a, b) => b.rasgos.length - a.rasgos.length)
       .slice(0, 3)
-      .map(({ nombre, puesto, rasgos, accion }) => ({ nombre, puesto, rasgos, accion }));
+      .map(({ nombre, puesto, rasgos, accion, base }) => ({ nombre, puesto, rasgos, accion, base }));
   }, [players, perfilesRival, perfilesPorFicha, selectedTeam]);
 
   /* La temporada en curso de cada uno, para el listado. */
@@ -3962,7 +3963,7 @@ export default function RivalPlayersPage() {
                       }`}
                       title={`${team.count} jugadores en su plantilla`}
                     >
-                      {team.count} jug.
+                      {team.count} en plantilla
                     </span>
                   </button>
                 ))}
@@ -4197,7 +4198,8 @@ export default function RivalPlayersPage() {
                   {!loading && (
                     <p className="shrink-0 text-sm text-white/50">
                       {listPlayers.length}{" "}
-                      {listPlayers.length === 1 ? "jugador" : "jugadores"}
+                      {/* «26 en plantilla · 2 ya no están»: la misma cifra que la pestaña del equipo (29/10/2026). */}
+                      {bajasLista.length > 0 ? "en plantilla" : listPlayers.length === 1 ? "jugador" : "jugadores"}
                       {bajasLista.length > 0 && ` · ${bajasLista.length} ya no ${bajasLista.length === 1 ? "está" : "están"}`}
                     </p>
                   )}

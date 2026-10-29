@@ -1674,7 +1674,7 @@ export default function IndividualPage() {
   const [lineFilter, setLineFilter] = useState("todas");
   const [teamFilter, setTeamFilter] = useState<
     "todos" | "castilla" | "externos"
-  >("todos");
+  >("castilla"); // 29/10/2026: abre con la plantilla; los de otros equipos, un clic en «Otros».
   const [sortBy, setSortBy] = useState<
     "posicion" | "nombre" | "seguimientos" | "valoracion"
   >("posicion");

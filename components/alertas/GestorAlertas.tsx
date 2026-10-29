@@ -203,6 +203,8 @@ export default function GestorAlertas() {
     setOcupada(null);
   };
 
+  const todasSilenciadas = !cargando && !fallo && alertas.length > 0 && !alertas.some((a) => a.activa);
+
   const resumen = (() => {
     const vivas = alertas.filter((a) => a.activa);
 
@@ -346,7 +348,12 @@ export default function GestorAlertas() {
       <button
         type="button"
         onClick={abrirNueva}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#C8A96B] px-4 py-3 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110"
+        className={
+          /* 29/10/2026: con todo silenciado el botón principal es «Reactivar todas»; el de nueva tarea baja de jerarquía. */
+          todasSilenciadas
+            ? "flex w-full items-center justify-center gap-2 rounded-2xl border border-white/15 px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white @3xl:inline-flex @3xl:w-auto"
+            : "flex w-full items-center justify-center gap-2 rounded-2xl bg-[#C8A96B] px-4 py-3 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 @3xl:inline-flex @3xl:w-auto"
+        }
       >
         <Plus className="h-4 w-4" aria-hidden />
         Nueva tarea con alerta

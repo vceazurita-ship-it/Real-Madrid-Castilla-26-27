@@ -359,18 +359,18 @@ export default function ListaAlertas({
   };
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0">
       {vivas.map((alerta) => pinta(alerta))}
 
       {/* Las silenciadas no suenan: se apartan para que la lista diga lo que
           sí va a salir. */}
       {silenciadas.length > 0 && (
-        <details className="group pt-1" open={vivas.length === 0}>
+        <details className="group pt-1 @3xl:col-span-2" open={vivas.length === 0}>
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-xs text-white/50 transition hover:text-white">
             Silenciadas ({silenciadas.length})
           </summary>
 
-          <div className="mt-2 space-y-2.5">
+          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0">
             {silenciadas.map((alerta) => pinta(alerta))}
           </div>
         </details>

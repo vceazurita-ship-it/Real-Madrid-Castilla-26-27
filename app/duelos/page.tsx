@@ -1187,8 +1187,11 @@ function Tarjeta({
           <p className="text-[11px] text-white/40">{d.def.subtitulo}</p>
         </div>
         <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: `${color}22`, color: textoDe(color) }}>
-          {ROTULO[d.veredicto]}
-          {d.balance !== null ? ` ${d.balance > 0 ? "+" : ""}${d.balance}` : ""}
+          {/* 29/10/2026: «Parejo 0» con +47 y −47 debajo parecía un duelo sin nada;
+              si cada sentido pesa y se compensan, se dice que se anulan. */}
+          {d.veredicto === "parejo" && (d.conBalon ?? 0) >= UMBRAL_DUELO && (d.sinBalon ?? 0) <= -UMBRAL_DUELO
+            ? "Se anulan"
+            : `${ROTULO[d.veredicto]}${d.balance !== null ? ` ${d.balance > 0 ? "+" : ""}${d.balance}` : ""}`}
         </span>
       </div>
 

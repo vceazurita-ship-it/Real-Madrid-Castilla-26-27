@@ -248,6 +248,9 @@ export default function GameModelPage() {
     return out;
   }, [data, fase]);
 
+  /* 29/10/2026: si el bloque sólo tiene un apartado («GENÉRICO»), repetirlo en el botón no aporta nada. */
+  const apartadoUnico = (b?: string) => ruta.filter((x) => x.bloque === b).length === 1;
+
   const rutaIndex = ruta.findIndex(
     (r) => r.bloque === bloque && r.apartado === apartado,
   );
@@ -616,7 +619,7 @@ export default function GameModelPage() {
             </nav>
 
             {/* Apartados */}
-            {apartados.length > 0 && (
+            {apartados.length > 1 && (
               <>
                 <SectionLabel className="mt-6 mb-3">Apartados</SectionLabel>
 
@@ -818,9 +821,11 @@ export default function GameModelPage() {
                     <span className="block text-[10px] uppercase tracking-widest text-gray-600">
                       {ruta[rutaIndex - 1]?.bloque}
                     </span>
-                    <span className="block truncate">
-                      {ruta[rutaIndex - 1]?.apartado}
-                    </span>
+                    {!apartadoUnico(ruta[rutaIndex - 1]?.bloque) && (
+                      <span className="block truncate">
+                        {ruta[rutaIndex - 1]?.apartado}
+                      </span>
+                    )}
                   </span>
                 </button>
 
@@ -837,9 +842,11 @@ export default function GameModelPage() {
                     <span className="block text-[10px] uppercase tracking-widest text-gray-600">
                       {ruta[rutaIndex + 1]?.bloque}
                     </span>
-                    <span className="block truncate">
-                      {ruta[rutaIndex + 1]?.apartado}
-                    </span>
+                    {!apartadoUnico(ruta[rutaIndex + 1]?.bloque) && (
+                      <span className="block truncate">
+                        {ruta[rutaIndex + 1]?.apartado}
+                      </span>
+                    )}
                   </span>
 
                   <ChevronRight className="h-4 w-4 shrink-0" aria-hidden />

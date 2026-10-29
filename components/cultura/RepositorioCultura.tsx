@@ -247,7 +247,11 @@ export function RepositorioCultura() {
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         {/* =================== LA ESTANTERÍA =================== */}
 
-        <div className="min-w-0 space-y-4">
+        {/* 29/10/2026: en el móvil el cuerpo técnico quiere el documento, no la
+            subida; la columna se disuelve (contents) y el orden pone la lista,
+            el documento y, al final, lo que sólo toca al administrador. */}
+        <div className="min-w-0 space-y-4 max-lg:contents">
+          <div className="min-w-0 max-lg:order-1">
           <Panel
             title="Documentos"
             subtitle={`${documentos.length} en el repositorio`}
@@ -327,10 +331,12 @@ export function RepositorioCultura() {
               })}
             </ul>
           </Panel>
+          </div>
 
           {/* ==================== SUBIR EL BRUTO ==================== */}
 
           {admin === true && (
+          <div className="min-w-0 max-lg:order-3">
           <Panel
             title="Subir el bruto"
             subtitle="El HTML de la presentación, tal y como se redactó"
@@ -383,22 +389,25 @@ export function RepositorioCultura() {
               retoca.
             </p>
           </Panel>
+          </div>
           )}
 
           {admin === true && !previa && (
+            <div className="min-w-0 max-lg:order-3">
             <Notice title="Cómo crece la estantería">
               Lo que se sube aquí queda guardado para todo el cuerpo técnico.
               Los documentos publicados en el código no se pueden borrar, pero
               sí corregir: sube uno con el mismo número y título y pisará al
               anterior.
             </Notice>
+            </div>
           )}
         </div>
 
         {/* ================== EL DOCUMENTO ================== */}
 
         {aLaVista && (
-          <div className="min-w-0 space-y-4">
+          <div className="min-w-0 space-y-4 max-lg:order-2">
             {previa ? (
               <Panel
                 title="Revisar antes de publicar"

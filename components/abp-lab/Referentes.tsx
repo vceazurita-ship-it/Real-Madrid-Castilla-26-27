@@ -470,7 +470,7 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
                 {r.id === "brentford" && <Users size={13} aria-hidden />}
                 {r.nombre}
               </span>
-              {r.id === "brentford" ? <span className="block text-[11px] text-white/45">Club · escuela</span> : r.club !== r.nombre && <span className="block text-[11px] text-white/45">{r.club}</span>}
+              {r.id === "brentford" ? <span className="block text-[11px] text-white/45">Córners del Brentford, de Jover y Georgson</span> : r.club !== r.nombre && <span className="block text-[11px] text-white/45">{r.club}</span>}
             </button>
           );
         })}

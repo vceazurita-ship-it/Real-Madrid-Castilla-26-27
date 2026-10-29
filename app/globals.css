@@ -1872,3 +1872,22 @@ scrollbar-width:none;
     opacity: 0.8;
   }
 }
+/*
+| El botón de herramientas en el móvil, en todas las pantallas (29/10/2026,
+| expertos: tapaba texto en identidad, calendario, laboratorio…). Más pequeño,
+| en la esquina y algo transparente mientras está cerrado; y la página deja
+| sitio al final para que lo último nunca quede debajo.
+*/
+@media (max-width: 767px) {
+  [data-menu-flotante]:not(:has([aria-expanded="true"])) {
+    bottom: 0.5rem;
+    right: 0.5rem;
+    transform: scale(0.82);
+    transform-origin: bottom right;
+    opacity: 0.85;
+  }
+
+  body {
+    padding-bottom: 3.25rem;
+  }
+}

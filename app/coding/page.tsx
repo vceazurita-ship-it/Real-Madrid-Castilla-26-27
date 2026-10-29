@@ -1385,6 +1385,19 @@ function Coding() {
     return !videosSesion.some((video) => apodoCoding(video.nombre).includes(nombre));
   }, [ambito, rival, equipoRival, videosSesion]);
 
+  /* 29/10/2026: el aviso sólo sale si un vídeo abierto lleva el nombre de OTRO
+     equipo del calendario; si ninguno nombra a nadie, el desplegable ya viene
+     con el rival de la jornada y no hay nada que avisar. */
+  const rivalEnConflicto = useMemo(() => {
+    if (!rivalSinElegir || !rival) return false;
+
+    return rivales.some(
+      (uno) =>
+        uno.clave !== rival.clave &&
+        videosSesion.some((video) => apodoCoding(video.nombre).includes(apodoSinSiglas(uno.nombre))),
+    );
+  }, [rivalSinElegir, rival, rivales, videosSesion]);
+
   /*
   | Las pizarras del vídeo que se está mirando.
   |
@@ -3864,7 +3877,7 @@ function Coding() {
 
                   <div className="flex min-w-0 gap-2">
                     <select
-                      value={rivalSinElegir ? "" : (rival?.clave ?? "")}
+                      value={rivalEnConflicto ? "" : (rival?.clave ?? "")}
                       aria-label="Rival"
                       onChange={(evento) => cambiaUrl("equipo", evento.target.value)}
                       className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
@@ -3873,7 +3886,7 @@ function Coding() {
                         <option value="">Cargando el calendario…</option>
                       )}
 
-                      {rivales.length > 0 && rivalSinElegir && (
+                      {rivales.length > 0 && rivalEnConflicto && (
                         <option value="" className="bg-[#11161C]">
                           Elige rival
                         </option>
@@ -3912,16 +3925,15 @@ function Coding() {
               </div>
             </div>
 
-            {rivalSinElegir && rival ? (
-              <div className="mt-4">
-                <Notice tone="warn" title="Elige el rival de estos vídeos">
-                  Los cortes se guardarán con el rival que elijas, y el título y el rótulo saldrán con su nombre. Ningún vídeo abierto lleva el de {rival.nombre}, el rival de la jornada.
-                  <span className="mt-2 block">
-                    <Button onClick={() => cambiaUrl("equipo", rival.clave)} title={`Fijar ${rival.nombre} como rival de estos vídeos`}>
-                      Usar {rival.nombre}
-                    </Button>
-                  </span>
-                </Notice>
+            {rivalEnConflicto && rival ? (
+              <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2.5">
+                <p className="min-w-0 flex-1 text-[12px] leading-snug text-white/75">
+                  <b className="text-white">Los {sesion.sesion.clips.length} cortes se guardarán con el rival que elijas.</b>{" "}
+                  Un vídeo abierto lleva el nombre de otro equipo, no el de {rival.nombre}, el rival de la jornada.
+                </p>
+                <Button onClick={() => cambiaUrl("equipo", rival.clave)} title={`Fijar ${rival.nombre} como rival de estos vídeos`}>
+                  Usar {rival.nombre}
+                </Button>
               </div>
             ) : null}
 
@@ -5315,6 +5327,8 @@ function Coding() {
                   )}
                 </Panel>
 
+                {/* 29/10/2026: sin cortes estas tablas son sólo «se llena al marcar…»; no se enseñan hasta que haya algo. */}
+                {clips.length > 0 && (
                 <Panel title="Por jugador" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
                     filas={porJugador(clips, config.descriptores)}
@@ -5327,6 +5341,7 @@ function Coding() {
                     }
                   />
                 </Panel>
+                )}
 
                 {/* Sólo cuando hay algo: una tabla vacía más es ruido. */}
                 {porColectivo(clips).length > 0 && (
@@ -5344,6 +5359,7 @@ function Coding() {
                   </Panel>
                 )}
 
+                {clips.length > 0 && (
                 <Panel title="Por categoría" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
                     filas={porCategoria(clips, config.categorias, config.descriptores)}
@@ -5356,6 +5372,7 @@ function Coding() {
                     }
                   />
                 </Panel>
+                )}
 
                 {seleccionado && (
                   <Panel title="Corte elegido" bodyClassName="p-3 sm:p-3">

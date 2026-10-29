@@ -762,6 +762,34 @@ export default function QuinielaPage() {
               />
             </div>
 
+            {/* 29/10/2026 (marketing): lo primero son los partidos y el ranking;
+                «entrar» es una franja baja encima, no un formulario que los
+                empuje hacia abajo. Con la jornada cerrada el acceso baja al
+                final (lo que se quiere ver es el resumen y el reparto). */}
+            {vista === "jornada" && !plazo.cerrada && (
+              <div className="mt-5">
+                <Acceso
+                  compacto
+                  yo={sesion.yo}
+                  cargando={sesion.cargando}
+                  manda={sesion.manda}
+                />
+              </div>
+            )}
+
+            {/* --------------------- LA PARRILLA ---------------------- */}
+
+            <div className="mt-5">
+              <Parrilla
+                jornada={laJornada}
+                jugadores={jugadores}
+                cerrada={plazo.cerrada}
+                cuandoSeAbre={cuandoCierra(plazo.viernes)}
+              />
+            </div>
+
+            {!plazo.cerrada && panelRanking}
+
             {vista === "historico" && (
               <div className="mt-5">
                 <Historico
@@ -778,20 +806,6 @@ export default function QuinielaPage() {
 
             {vista === "jornada" && (
               <>
-            {/* ------------------------ QUIÉN ERES --------------------- */}
-
-            {/* Con la jornada cerrada el acceso baja detrás de los partidos:
-                lo primero que se quiere ver es el resumen y el reparto. */}
-            {!plazo.cerrada && (
-              <div className="mt-5">
-                <Acceso
-                  yo={sesion.yo}
-                  cargando={sesion.cargando}
-                  manda={sesion.manda}
-                />
-              </div>
-            )}
-
             {/* ------------------------ QUIÉN JUEGA -------------------- */}
 
             <div className="mt-5">
@@ -1285,19 +1299,6 @@ export default function QuinielaPage() {
               </div>
             )}
 
-            {/* --------------------- LA PARRILLA ---------------------- */}
-
-            <div className="mt-5">
-              <Parrilla
-                jornada={laJornada}
-                jugadores={jugadores}
-                cerrada={plazo.cerrada}
-                cuandoSeAbre={cuandoCierra(plazo.viernes)}
-              />
-            </div>
-
-            {!plazo.cerrada && panelRanking}
-
             {/* ---------------------- LA COMIDA ----------------------- */}
 
             <div className="mt-5">
@@ -1753,7 +1754,7 @@ function Tripleta({
             /* Apagado, lo elegido sigue leyéndose entero: con la jornada
                cerrada es justo lo que se viene a mirar —tu signo en verde o
                en rojo— y al 30 % no se distinguía (19/10/2026). */
-            className={`h-7 w-9 rounded-md text-[12px] font-semibold transition disabled:cursor-not-allowed ${
+            className={`h-11 w-12 rounded-md text-[13px] font-semibold transition disabled:cursor-not-allowed sm:h-7 sm:w-9 sm:text-[12px] ${
               puesto ? "" : "disabled:opacity-30"
             } ${estilo}`}
           >

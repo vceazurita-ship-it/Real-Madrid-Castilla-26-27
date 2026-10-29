@@ -1041,8 +1041,8 @@ export default function ScoutRivalCollective() {
               </ul>
               {contexto.length > 0 && (
                 /* Cada cifra en su línea y dicha como en el vestuario (29/10/2026). */
-                <div className="mt-3 border-t border-[#C8A96B]/15 pt-2 text-xs text-white/70">
-                  <p className="text-white/45">Wyscout, frente a la liga{equiposLiga ? ` (sobre ${equiposLiga} equipos)` : ""}</p>
+                <div className="mt-3 border-t border-[#C8A96B]/15 pt-2 text-sm text-white/85">
+                  <p className="text-xs text-white/55">Wyscout, frente a la liga{equiposLiga ? ` (sobre ${equiposLiga} equipos)` : ""}</p>
                   <ul className="mt-1 space-y-0.5">
                     {contexto.map((f) => (
                       <li key={f.nombre}>{lineaEstilo(f)}</li>

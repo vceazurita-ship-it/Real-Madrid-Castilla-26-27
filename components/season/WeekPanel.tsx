@@ -495,12 +495,12 @@ function EmptyState({
       <button
         type="button"
         onClick={onAction}
-        className="inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+        className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-white/70 transition hover:border-white/30 hover:text-white"
       >
         <UploadCloud size={16} />
         {action}
       </button>
-    );
+    ); /* 29/10/2026: la acción principal de subida es la de la cabecera; ésta, secundaria. */
 
   return (
     <div className="flex flex-col items-center rounded-2xl border border-dashed border-white/10 px-6 py-14 text-center">

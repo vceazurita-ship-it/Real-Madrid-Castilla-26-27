@@ -741,7 +741,8 @@ export function valida(tarea: TareaEquipos, sesion: SesionEquipos, puestoDe: Pue
       return [`${plural} ${p === "DEF" ? "descompensadas" : "descompensados"}: ${tarea.equipos.map((e, i) => `${nombreEq(e)} ${n[i]}`).join(", ")}. Pasa uno de ${nombreEq(mas)} a ${nombreEq(menos)}.`];
     });
 
-    if (descompensadas.length) avisos.push({ nivel: "aviso", texto: descompensadas.join(" "), arreglo });
+    /* 29/10/2026: un aviso por línea (antes iban todos pegados en un párrafo); el botón de cambio cuelga del primero. */
+    descompensadas.forEach((texto, i) => avisos.push({ nivel: "aviso", texto, arreglo: i === 0 ? arreglo : undefined }));
   }
 
   /* 7. Bajas que hacen la tarea: no es un error, pero que se vea. */

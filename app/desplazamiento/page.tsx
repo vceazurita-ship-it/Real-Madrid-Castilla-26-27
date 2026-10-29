@@ -539,9 +539,13 @@ export default function DesplazamientoPage() {
         ? equipoDelInforme(equiposInforme, partido.opponent) ?? equipoDelInforme(equiposInforme, jornada?.equipo ?? "")
         : null;
 
+    /* 29/10/2026: en casa la ficha «El estadio» salía con el nombre vacío (y la
+       ciudad del rival de ejemplo). Se rellena con el campo propio del club. */
     const conCampo = delRival?.estadio
       ? { ...base, estadio: { ...base.estadio, nombre: delRival.estadio, ciudad: delRival.ciudad || base.estadio.ciudad } }
-      : base;
+      : base.condicion === "local" && !base.estadio.nombre.trim()
+        ? { ...base, estadio: { ...base.estadio, nombre: "Estadio Alfredo Di Stéfano", ciudad: base.estadio.ciudad.trim() || "Madrid" } }
+        : base;
 
     const conDimensiones = jornada?.fila?.DIMENSIONES
       ? {

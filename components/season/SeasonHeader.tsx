@@ -91,13 +91,13 @@ export default function SeasonHeader({
                   : ""}{" "}
               <span className="text-sm font-normal text-white/50">
                 {stats.completed} de {stats.totalWeeks}{" "}
-                {stats.totalWeeks === 1 ? "semana con material" : "semanas con material"}
+                {stats.totalWeeks === 1 ? "semana transcurrida con material" : "semanas transcurridas con material"}
               </span>
             </p>
           )}
 
           {tiraSemanas.length > 1 && (
-            <p className="mt-3 text-xs text-white/45">
+            <p className="mt-3 text-[13px] text-white/55">
               <span className="mr-1 inline-block h-2.5 w-2.5 rounded-[3px] bg-emerald-400 align-[-1px]" />
               Verde: semana con material. Pulsa una para abrirla.
             </p>
@@ -105,7 +105,7 @@ export default function SeasonHeader({
 
           {tiraSemanas.length > 1 && (
             <div
-              className="mt-2 flex max-w-full flex-wrap items-center gap-1"
+              className="mt-2 flex max-w-full flex-wrap items-center gap-1.5 sm:gap-1"
               role="group"
               aria-label="Semanas con y sin material"
             >
@@ -116,7 +116,7 @@ export default function SeasonHeader({
                   onClick={() => onSelectWeek?.(semana.id)}
                   title={`${semana.nombre}${semana.conMaterial ? " · con material" : " · sin material"}`}
                   aria-label={`${semana.nombre}${semana.conMaterial ? ", con material" : ", sin material"}`}
-                  className={`h-3.5 w-3.5 rounded-[4px] transition hover:scale-125 ${
+                  className={`h-6 w-6 rounded-[5px] transition hover:scale-125 sm:h-3.5 sm:w-3.5 sm:rounded-[4px] ${
                     semana.conMaterial
                       ? "bg-emerald-400"
                       : "border border-white/20 bg-white/[0.04]"
@@ -197,7 +197,7 @@ export default function SeasonHeader({
 
         <div className="rounded-2xl border border-white/10 bg-[#11161D] p-5">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-white/50">Temporada</span>
+            <span className="text-white/50">Temporada completa</span>
 
             <span className="font-semibold tabular-nums text-[#C8A96B]">
               {stats.seasonWeek !== null

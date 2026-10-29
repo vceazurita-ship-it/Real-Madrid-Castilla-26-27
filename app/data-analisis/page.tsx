@@ -156,7 +156,16 @@ import {
   type PartidoEventos,
 } from "@/lib/data-analisis/eventos";
 
+/* 29/10/2026: una tarea con nombre por fase, no «una tarea de sin balón» (fútbol). */
+const TAREA_POR_FASE: Record<string, string> = {
+    con: "llevar a la semana una tarea de progresión y finalización por dentro, con superioridades en tres cuartos",
+    sin: "llevar a la semana una tarea de defensa de líneas de pase en bloque medio",
+    abp: "llevar a la semana una tarea de balón parado con rutina de ataque y marcas del córner defensivo",
+    general: "llevar a la semana una tarea de partido reducido con el plan del próximo rival",
+  };
+
 /** Cómo se llama el Castilla en los informes de Wyscout. */
+
 const NOSOTROS = "Real Madrid Castilla";
 
 type Respuesta = {
@@ -720,14 +729,20 @@ export default function DataAnalisisPage() {
     const arriba = utiles[0];
     const abajo = utiles[utiles.length - 1];
 
+    /* Un decimal cuando la cifra pasa de 10 (26,63 -> 26,6). */
+    const cifra = (v: number | null, u: Parameters<typeof formatea>[1]) =>
+      v !== null && Number.isFinite(v) && Math.abs(v) >= 10 && u !== "entero" && u !== "porcentaje" && u !== "minutos"
+        ? v.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+        : formatea(v, u);
+
     const dice = (x: { fila: FilaPercentil; met: Metrica }) =>
-      `${x.fila.nombre}: ${formatea(x.fila.valor, x.fila.unidad)} frente a ${formatea(x.fila.mediana, x.fila.unidad)} de mediana de la liga${x.fila.puesto ? `, ${x.fila.puesto}º de ${x.fila.deCuantos}` : ""}`;
+      `${x.fila.nombre}: ${cifra(x.fila.valor, x.fila.unidad)} frente a ${cifra(x.fila.mediana, x.fila.unidad)} de mediana de la liga${x.fila.puesto ? `, ${x.fila.puesto}º de ${x.fila.deCuantos}` : ""}`;
 
     return [
       (arriba.fila.percentil as number) >= 60 ? `Lo más fuerte, ${dice(arriba)}.` : null,
       (abajo.fila.percentil as number) <= 40 ? `Lo más flojo, ${dice(abajo)}.` : null,
       (abajo.fila.percentil as number) <= 40
-        ? `Qué hacemos: llevar a la semana una tarea de ${(FASES.find((f) => f.key === abajo.met.fase)?.label ?? "juego").toLowerCase()} que mejore ${abajo.fila.nombre.toLowerCase()} y comprobarlo en el próximo partido.`
+        ? `Qué hacemos: ${TAREA_POR_FASE[abajo.met.fase] ?? "una tarea de juego"}; criterio de éxito, ${abajo.fila.nombre.toLowerCase()} por partido por encima de la mediana de la liga en el próximo partido.`
         : null,
     ];
   }, [percentiles]);

@@ -1188,8 +1188,10 @@ export default function DashboardPlantilla() {
                               name="Plantilla"
                               dataKey="plantilla"
                               stroke="#7DA6D9"
+                              strokeWidth={2.5}
                               fill="#7DA6D9"
-                              fillOpacity={0.18}
+                              // 29/10/2026: sin relleno, para que el dorado del jugador no la tape.
+                              fillOpacity={0}
                             />
 
                             {selectedPlayer?.valorado && (

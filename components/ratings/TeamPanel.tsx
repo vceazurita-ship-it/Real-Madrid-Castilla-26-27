@@ -623,7 +623,8 @@ export function TeamPanel({
 
                     <Bar dataKey="value" isAnimationActive={false} radius={[8, 8, 0, 0]} barSize={34}>
                       {byLine.map((point) => (
-                        <Cell key={point.name} fill={ratingColorHex(point.value)} style={{ fill: ratingColor(point.value) }} />
+                        /* 29/10/2026: la línea con menos de 3 jugadores con nota (tendencia) va atenuada, como el ranking. */
+                        <Cell key={point.name} fill={ratingColorHex(point.value)} fillOpacity={point.players < 3 ? 0.5 : 1} style={{ fill: ratingColor(point.value) }} />
                       ))}
                     </Bar>
                   </BarChart>

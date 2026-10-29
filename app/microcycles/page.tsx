@@ -2920,7 +2920,7 @@ export default function Page() {
                               formatter={(v) =>
                                 typeof v === "number"
                                   ? contentMetric === "eval"
-                                    ? v.toFixed(1)
+                                    ? fmtDec(v)
                                     : fmtInt(v)
                                   : v ?? ""
                               }
@@ -3006,7 +3006,7 @@ export default function Page() {
                               formatter={(v) =>
                                 typeof v === "number"
                                   ? contentMetric === "eval"
-                                    ? v.toFixed(1)
+                                    ? fmtDec(v)
                                     : fmtInt(v)
                                   : v ?? ""
                               }
@@ -3212,7 +3212,7 @@ export default function Page() {
                               dataKey="eval"
                               position="right"
                               formatter={(v) =>
-                                typeof v === "number" ? v.toFixed(1) : v ?? ""
+                                typeof v === "number" ? fmtDec(v) : v ?? ""
                               }
                               style={{
                                 fill: "#fff",

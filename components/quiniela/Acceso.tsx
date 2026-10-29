@@ -72,7 +72,10 @@ export function Acceso({
   titulo = "Entra para apostar",
   sinPista = false,
   botonEntrar = "Entrar",
+  compacto = false,
 }: {
+  /** Franja baja en vez de panel (29/10/2026, marketing): el formulario no debe tapar el ranking y los partidos. */
+  compacto?: boolean;
   /** El texto del botón de enviar al entrar: distinto de la pestaña «Entrar» cuando hace falta (no repetirlo). */
   botonEntrar?: string;
   yo: Yo | null;
@@ -112,6 +115,31 @@ export function Acceso({
       <Panel title="Tu cuenta" subtitle="Comprobando si ya habías entrado…" icon={KeyRound}>
         <div className="h-10" />
       </Panel>
+    );
+  }
+
+  if (yo && compacto) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5">
+        <p className="flex min-w-0 items-center gap-2 text-[12.5px] text-white/75">
+          <KeyRound className="h-3.5 w-3.5 shrink-0 text-[#C8A96B]" />
+          <span className="truncate">
+            Has entrado como <strong className="text-white">{yo.nombre}</strong>
+          </span>
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          <Button icon={KeyRound} onClick={() => setCambiando(true)}>
+            Cambiar contraseña
+          </Button>
+
+          <Button icon={LogOut} disabled={enviando} onClick={() => void envia({ accion: "salir" }, "Has salido")}>
+            Salir
+          </Button>
+        </div>
+
+        {cambiando && <CambiarClave manda={manda} onCerrar={() => setCambiando(false)} />}
+      </div>
     );
   }
 
@@ -163,7 +191,7 @@ export function Acceso({
   return (
     <Panel
       title={titulo}
-      subtitle={subtitulo}
+      subtitle={compacto ? undefined : subtitulo}
       icon={KeyRound}
       action={
         <Segmented
@@ -254,8 +282,10 @@ export function Acceso({
         </p>
       ) : null}
 
-      <p className="mt-3 text-[11px] leading-relaxed text-white/40">
-        {sinPista ? (
+      <p className={`${compacto ? "mt-2" : "mt-3"} text-[11px] leading-relaxed text-white/40`}>
+        {compacto && !registrando ? (
+          <>¿Primera vez? Pulsa «Registrarme». Para ver el ranking no hace falta entrar.</>
+        ) : sinPista ? (
           <>Si no recuerdas la contraseña, pídela al administrador.</>
         ) : registrando ? (
           <>

@@ -302,7 +302,7 @@ export default function LaboratorioAbpPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 pb-28 pt-6 sm:px-6 sm:pb-6 lg:px-10">
+          <div className="min-w-0 pl-4 pr-12 pb-28 pt-6 sm:px-6 sm:pb-6 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Balón parado"
               title="Laboratorio de ABP"

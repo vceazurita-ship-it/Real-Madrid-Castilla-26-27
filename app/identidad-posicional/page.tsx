@@ -336,6 +336,16 @@ export default function IdentidadPosicionalPage() {
     baseRef.current = originalData;
   });
 
+  /* 29/10/2026: en el móvil el carril de puestos corta el último; al cambiar de
+     puesto se lleva el activo al centro para que se vea que el carril sigue. */
+  const carrilRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const activo = carrilRef.current?.querySelector<HTMLElement>('[aria-current="true"]');
+
+    activo?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [posicion]);
+
   /* Si el último guardado llegó a la hoja. Lo lee `terminarEdicion` tras el
      `flush`: el estado del hook todavía no se ha repintado en ese momento. */
   const ultimoGuardadoOk = useRef(true);
@@ -766,7 +776,7 @@ export default function IdentidadPosicionalPage() {
               className={cn("mt-4", editing && "pointer-events-none opacity-40")}
             />
 
-            <nav className="mt-4 flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 scrollbar-none lg:mt-5 lg:block lg:space-y-2 lg:overflow-visible">
+            <nav ref={carrilRef} className="mt-4 flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 scrollbar-none [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)] lg:mt-5 lg:block lg:space-y-2 lg:overflow-visible lg:[mask-image:none]">
               {posiciones.map((p) => {
                 const total = visibles.filter((x) => x.POSICION === p).length;
 

@@ -198,28 +198,46 @@ export function AlertasPortada({
             }`}
           >
             {enLaTira.map((alerta) => (
-              <button
+              /* Cada dato dice qué hacemos y lleva a la pantalla donde se
+                 trabaja (29/10/2026): antes sólo describía. El cuerpo abre el
+                 detalle y la línea de abajo es un enlace aparte (un enlace no
+                 puede ir dentro de un botón). */
+              <div
                 key={alerta.clave}
-                type="button"
-                onClick={() => setAbierto(true)}
-                className="group flex min-w-0 items-start gap-2.5 rounded-2xl border border-white/[0.07] bg-white/[0.03] px-3.5 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
+                className="group flex min-w-0 flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] transition hover:border-white/20 hover:bg-white/[0.06]"
               >
-                <span
-                  aria-hidden
-                  className="mt-1 h-2 w-2 shrink-0 rounded-full"
-                  style={{ background: alerta.tono === "buena" ? VERDE : NARANJA }}
-                />
+                <button
+                  type="button"
+                  onClick={() => setAbierto(true)}
+                  className="flex min-w-0 flex-1 items-start gap-2.5 px-3.5 pb-2 pt-3 text-left"
+                >
+                  <span
+                    aria-hidden
+                    className="mt-1 h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: alerta.tono === "buena" ? VERDE : NARANJA }}
+                  />
 
-                <span className="min-w-0">
-                  <span className="line-clamp-2 block text-[13px] font-medium leading-snug text-white/85">
-                    {alerta.titulo}
-                  </span>
+                  <span className="min-w-0">
+                    <span className="line-clamp-2 block text-[13px] font-medium leading-snug text-white/85">
+                      {alerta.titulo}
+                    </span>
 
-                  <span className="mt-0.5 line-clamp-2 block text-[11px] tabular-nums text-white/40">
-                    {alerta.cifra}
+                    <span className="mt-0.5 line-clamp-2 block text-[11px] tabular-nums text-white/40">
+                      {alerta.cifra}
+                    </span>
                   </span>
-                </span>
-              </button>
+                </button>
+
+                {alerta.mira && alerta.enlace && (
+                  <Link
+                    href={alerta.enlace}
+                    className="mx-3.5 mb-3 mt-auto inline-flex min-w-0 items-start gap-1 border-t border-white/[0.06] pt-2 text-[11.5px] leading-snug text-[#C8A96B] hover:underline"
+                  >
+                    <ArrowUpRight className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span className="line-clamp-2">{alerta.mira}</span>
+                  </Link>
+                )}
+              </div>
             ))}
           </div>
         </div>

@@ -339,6 +339,9 @@ export default function DashboardSeguimiento() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("resumen");
   const [search, setSearch] = useState("");
+  // 29/10/2026: en el móvil los 8 desplegables ocupaban casi dos pantallas
+  // antes del primer dato; van plegados tras un botón «Filtros (n)».
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
 
@@ -1051,7 +1054,21 @@ export default function DashboardSeguimiento() {
             {/* ---------------- Filters ---------------- */}
 
             <div className="mt-6 rounded-[24px] md:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-5 md:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+              <button
+                type="button"
+                onClick={() => setFiltrosAbiertos((v) => !v)}
+                aria-expanded={filtrosAbiertos}
+                className="mb-3 flex w-full items-center justify-between rounded-2xl border border-white/10 bg-[#11161C] px-4 py-3 text-sm font-semibold md:hidden"
+              >
+                <span>
+                  Filtros{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+                </span>
+                <span className="text-white/50">{filtrosAbiertos ? "Ocultar" : "Mostrar"}</span>
+              </button>
+
+              <div
+                className={`${filtrosAbiertos ? "grid" : "hidden"} md:grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3`}
+              >
                 <Select
                   label="Jugador"
                   value={filters.player}

@@ -118,7 +118,7 @@ export function lecturaCondicion(corto: string, cL: Condicion, cV: Condicion, lL
     let porque = "";
 
     if (c.nw) {
-      if (p < 0 && frente(c.tiros, l.tiros) >= 0 && frente(c.precision, l.precision) < 0) porque = ` Remata ${n1(c.tiros)} veces por partido (liga ${n1(l.tiros)}) pero sólo ${n1(c.aPuerta)} a puerta (liga ${n1(l.aPuerta)}): falla la puntería, no el volumen.`;
+      if (p < 0 && frente(c.tiros, l.tiros) >= 0 && frente(c.precision, l.precision) < 0) porque = ` En los ${c.nw} partidos con remates medidos remata ${n1(c.tiros)} veces por partido (liga ${n1(l.tiros)}) pero sólo ${n1(c.aPuerta)} a puerta (liga ${n1(l.aPuerta)}): falla la puntería, no el volumen.`;
       else if (p < 0 && frente(c.tiros, l.tiros) < 0) porque = ` Genera poco: ${n1(c.tiros)} remates por partido frente a ${n1(l.tiros)}.`;
       else if (p < 0 && frente(c.gc, l.gc) > 0) porque = ` Lo que pesa es lo que encaja: ${n2(c.gc)} por partido frente a ${n2(l.gc)}.`;
       else if (p < 0 && c.golesMenosXg < -0.3) porque = ` Marca menos de lo que generan sus ocasiones (${n2(c.golesMenosXg)} goles por partido por debajo de su xG).`;

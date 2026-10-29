@@ -741,13 +741,13 @@ export function PantallaGoles() {
             <StatCard
               label="Su mejor tramo"
               value={tramos.fuerte ? tramos.fuerte.franja.nombre : "—"}
-              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${tramos.fuerte.gf <= 3 ? " · tendencia" : ""}${incompleto ? "" : `, ${fmt(media(tramos.fuerte.gf, delEquipo.length))} por partido · liga ${fmt(tramos.fuerte.ligaPP)}`}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
+              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${tramos.fuerte.gf <= 3 ? " · tendencia" : ""}${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
               accent={tramos.fuerte ? MEJOR : undefined}
             />
             <StatCard
               label="Su tramo más débil"
               value={tramos.flojo ? tramos.flojo.franja.nombre : "—"}
-              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${tramos.flojo.gc <= 3 ? " · tendencia" : ""}${incompleto ? "" : `, ${fmt(media(tramos.flojo.gc, delEquipo.length))} por partido · liga ${fmt(tramos.flojo.ligaContraPP)}`}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
+              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${tramos.flojo.gc <= 3 ? " · tendencia" : ""}${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
               accent={tramos.flojo ? PEOR : undefined}
             />
           </StatRow>

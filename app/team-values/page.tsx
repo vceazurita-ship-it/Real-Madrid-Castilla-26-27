@@ -503,7 +503,15 @@ export default function TeamValuesPage() {
               className={cn("mt-4", editing && "pointer-events-none opacity-40")}
             />
 
-            <nav className="mt-4 flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 scrollbar-none lg:mt-5 lg:block lg:space-y-2 lg:overflow-visible">
+            {/* 29/10/2026: el stepper de arriba sólo existe en escritorio; en el móvil
+                se dice aquí cuántas etapas hay, porque el carril corta la tercera. */}
+            {etapaIndex >= 0 && secciones.length > 1 && (
+              <p className="mt-4 text-xs text-gray-400 lg:hidden">
+                Etapa {etapaIndex + 1} de {secciones.length}
+              </p>
+            )}
+
+            <nav className="mt-4 flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 scrollbar-none [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)] lg:mt-5 lg:block lg:space-y-2 lg:overflow-visible lg:[mask-image:none]">
               {secciones.map((s, i) => {
                 const total = visibles.filter((r) => r.SECCION === s).length;
 

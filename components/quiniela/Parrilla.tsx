@@ -71,12 +71,8 @@ export function Parrilla({
         subtitle="Se abre al cerrarse la jornada"
         icon={Lock}
       >
-        <p className="text-[12px] leading-relaxed text-white/45">
-          Hasta el cierre —{cuandoSeAbre}— cada uno ve sólo su apuesta. No es
-          por misterio: el servidor no manda la de los demás mientras se pueda
-          copiar. En cuanto pase esa hora, aquí sale la parrilla entera y ya se
-          puede discutir.
-        </p>
+        {/* Una línea (29/10/2026, marketing): el párrafo largo no decía nada que el título no dijera. */}
+        <p className="text-[12px] text-white/60">Se abre el {cuandoSeAbre}.</p>
       </Panel>
     );
   }

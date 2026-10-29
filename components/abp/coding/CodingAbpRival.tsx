@@ -700,7 +700,7 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
     ];
 
     return (
-      <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+      <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 pb-14 sm:p-6 md:pb-6">
         <div className="pr-12 md:pr-0">
           <h3 className="text-lg font-bold text-white">Coding del ABP{equipo ? ` de ${equipo}` : " del rival"}</h3>
           <p className="mt-1 hidden text-sm text-white/65 md:block">
