@@ -41,7 +41,17 @@ export type ClipEstado = {
   fuera?: boolean;
 };
 
-export type CodingDoc = { clips: Record<string, ClipEstado>; actualizado?: string };
+export type CodingDoc = {
+  clips: Record<string, ClipEstado>;
+  actualizado?: string;
+  /**
+   * El texto para el cuerpo técnico retocado a mano (29/10/2026). Mientras
+   * exista manda sobre el automático; `textoBase` es el automático de cuando
+   * se empezó a escribir, para avisar si las etiquetas lo han cambiado después.
+   */
+  texto?: string;
+  textoBase?: string;
+};
 
 export const CODING_VACIO: CodingDoc = { clips: {} };
 
@@ -67,20 +77,73 @@ export function numeroDeArchivo(nombre: string): number | null {
 /*  LAS ETIQUETAS DE UN TOQUE (experto de fútbol, 28/10/2026)          */
 /* ------------------------------------------------------------------ */
 
-export type GrupoKey = "lado" | "pie" | "envio" | "zona" | "mecanismo" | "estructura" | "arriba" | "libre" | "desenlace" | "uso";
+export type GrupoKey =
+  | "lado" | "pie" | "envio" | "zona" | "mecanismo" | "estructura" | "arriba" | "libre" | "desenlace" | "uso"
+  | "golpeo" | "distancia" | "ritmo" | "senal" | "bloqueo" | "llegada" | "rematadores" | "corto" | "frontal" | "vigilancias" | "segunda"
+  | "zonales" | "alMejor" | "anteBloqueo" | "palos" | "portero" | "barrera" | "linea" | "trasDespeje" | "presionSdb";
 
-export const GRUPOS: { key: GrupoKey; titulo: string; soloDef?: boolean; opciones: string[] }[] = [
+export type Grupo = {
+  key: GrupoKey;
+  titulo: string;
+  soloDef?: boolean;
+  /** Sólo en estas carpetas; sin él, en todas. */
+  carpetas?: CarpetaKey[];
+  /** De «Más detalle»: plegado para no tapar los de siempre. */
+  detalle?: boolean;
+  /** Cómo entra en el texto, con {v} donde va el valor. */
+  frase?: string;
+  opciones: string[];
+};
+
+const OF: CarpetaKey[] = ["CORNER OF", "FALTA OF", "SDB OF"];
+const C_F_OF: CarpetaKey[] = ["CORNER OF", "FALTA OF"];
+const C_F_DEF: CarpetaKey[] = ["CORNER DEF", "FALTA DEF"];
+
+/*
+| Las etiquetas. Las diez primeras son las de siempre; las de «Más detalle»
+| las propuso el experto de fútbol el 29/10/2026 (el analista decía que se
+| quedaban cortas para definir la acción y escribir el texto).
+*/
+export const GRUPOS: Grupo[] = [
   { key: "lado", titulo: "Lado", opciones: ["Izquierda", "Derecha", "Central"] },
   { key: "pie", titulo: "Sacador", opciones: ["Zurdo", "Diestro"] },
-  { key: "envio", titulo: "Envío", opciones: ["Aéreo al área", "Corto / 2 sacadores", "Raso atrás", "Directo a portería"] },
-  { key: "zona", titulo: "Caída", opciones: ["1.er palo", "Centro", "2.º palo", "Frontal / rechace"] },
-  { key: "mecanismo", titulo: "Mecanismo", opciones: ["Bloqueos", "Arrastres", "Cruce", "Desde palo / línea de fondo", "Ninguno"] },
+  { key: "envio", titulo: "Envío", opciones: ["Aéreo al área", "Corto / 2 sacadores", "Raso atrás", "Directo a portería", "Saque largo", "Al espacio / espalda", "Apoyo y devuelve", "Cambio de orientación"] },
+  { key: "zona", titulo: "Caída", opciones: ["1.er palo", "Centro", "2.º palo", "Frontal / rechace", "Área pequeña", "Punto de penalti", "Al portero", "Pasado del 2.º palo"] },
+  { key: "mecanismo", titulo: "Mecanismo", opciones: ["Bloqueos", "Arrastres", "Cruce", "Desde palo / línea de fondo", "Peinada al 2.º palo", "Salida desde la nube", "Amago de sacador", "Ninguno"] },
   { key: "estructura", titulo: "Estructura", soloDef: true, opciones: ["Zonal", "Individual", "Mixta"] },
-  { key: "arriba", titulo: "Se quedan arriba", soloDef: true, opciones: ["0", "1", "2", "3"] },
-  { key: "libre", titulo: "Zona sin nadie", soloDef: true, opciones: ["1.er palo", "Centro", "2.º palo", "Frontal"] },
-  { key: "desenlace", titulo: "Desenlace", opciones: ["Gol", "Remate a puerta", "Remate fuera", "Despeje", "Segunda jugada", "Falta"] },
-  { key: "uso", titulo: "Para qué", opciones: ["Charla", "Entrenar nuestra defensa", "Explotar nosotros"] },
+  { key: "arriba", titulo: "Se quedan arriba", soloDef: true, opciones: ["0", "1", "2", "3", "4+"] },
+  { key: "libre", titulo: "Zona sin nadie", soloDef: true, opciones: ["1.er palo", "Centro", "2.º palo", "Frontal", "Área pequeña", "Penalti", "Espalda zonales", "Corto sin presión"] },
+  { key: "desenlace", titulo: "Desenlace", opciones: ["Gol", "Remate a puerta", "Remate fuera", "Despeje", "Segunda jugada", "Falta", "Atrapa el portero", "Fuera de juego"] },
+  { key: "uso", titulo: "Para qué", opciones: ["Charla", "Entrenar nuestra defensa", "Explotar nosotros", "Vídeo a jugadores", "Aviso al portero"] },
+
+  { key: "golpeo", titulo: "Golpeo", detalle: true, carpetas: ["CORNER OF", "FALTA OF", "CORNER DEF", "FALTA DEF"], frase: "golpeo {v}", opciones: ["Tenso", "Bombeado", "Raso", "Con rosca", "Al hueco", "A media altura"] },
+  { key: "distancia", titulo: "Altura del saque", detalle: true, carpetas: ["FALTA OF", "FALTA DEF", "SDB OF", "SDB DEF"], frase: "desde {v}", opciones: ["Frontal directa", "Frontal lejana", "Lateral cerca", "Lateral lejana", "Medio campo", "Campo propio", "Altura del área"] },
+  { key: "ritmo", titulo: "Ritmo", detalle: true, carpetas: OF, frase: "saque {v}", opciones: ["Rápido / sorpresa", "Pausa y ordenan", "Pierden tiempo"] },
+  { key: "senal", titulo: "Señal previa", detalle: true, carpetas: OF, frase: "señal: {v}", opciones: ["Brazo arriba", "Dos brazos", "Toca media / pelo", "Código hablado", "Mira al banquillo", "Sin señal"] },
+  { key: "bloqueo", titulo: "Bloqueo", detalle: true, carpetas: C_F_OF, frase: "bloqueo {v}", opciones: ["Al marcador", "Al portero", "Pantalla al portero", "Cortina en línea", "Doble bloqueo", "Bloquea y sale", "Fila india"] },
+  { key: "llegada", titulo: "Llegada", detalle: true, carpetas: OF, frase: "llegan {v}", opciones: ["Desde la frontal", "Desde la nube", "Ruptura 1.er palo", "Desde el 2.º palo", "Carrera cruzada", "Arrastre y vuelve", "Estáticos"] },
+  { key: "rematadores", titulo: "Rematadores", detalle: true, carpetas: C_F_OF, frase: "{v} atacando el área", opciones: ["1", "2", "3", "4", "5", "6+"] },
+  { key: "corto", titulo: "En corto", detalle: true, carpetas: OF, frase: "en corto: {v}", opciones: ["Pared y centro", "Conduce y centra", "Al pico del área", "Atrás a la frontal", "Cambio de lado", "Tiro tras pase"] },
+  { key: "frontal", titulo: "Frontal", detalle: true, carpetas: C_F_OF, frase: "frontal: {v}", opciones: ["Nadie", "1 jugador", "2 jugadores", "3+"] },
+  { key: "vigilancias", titulo: "Vigilancias", detalle: true, carpetas: C_F_OF, frase: "vigilancias: {v}", opciones: ["1 vigilante", "2 vigilantes", "3 vigilantes", "4+", "En igualdad", "Con +1 atrás"] },
+  { key: "segunda", titulo: "Segunda jugada", detalle: true, carpetas: OF, frase: "en la segunda: {v}", opciones: ["Tiro de frontal", "Vuelven a centrar", "Reinician atrás", "Ganan 2.ª en área", "La pierden"] },
+  { key: "zonales", titulo: "Zonales", detalle: true, carpetas: C_F_DEF, frase: "{v} zonales", opciones: ["1", "2", "3", "4", "5+", "Línea en área peq."] },
+  { key: "alMejor", titulo: "Al hombre", detalle: true, carpetas: C_F_DEF, frase: "marca al hombre: {v}", opciones: ["Al mejor rematador", "Por altura", "Por dorsal fijo", "Ceden a zona", "Agarran"] },
+  { key: "anteBloqueo", titulo: "Ante bloqueo", detalle: true, carpetas: C_F_DEF, frase: "ante el bloqueo {v}", opciones: ["Cambian marca", "Persiguen", "Se quedan clavados", "Falta al bloqueador", "Ceden al zonal"] },
+  { key: "palos", titulo: "Palos", detalle: true, carpetas: C_F_DEF, frase: "palos: {v}", opciones: ["Nadie", "1.er palo", "2.º palo", "Los dos", "Sale del palo"] },
+  { key: "portero", titulo: "Portero", detalle: true, carpetas: C_F_DEF, frase: "portero {v}", opciones: ["Sale y bloca", "Sale y despeja", "No sale", "Bajo palos", "Adelantado", "Tapado"] },
+  { key: "barrera", titulo: "Barrera", detalle: true, carpetas: ["FALTA DEF"], frase: "barrera de {v}", opciones: ["Sin barrera", "1-2", "3-4", "5+", "Tumbado detrás", "Salta / abre"] },
+  { key: "linea", titulo: "Línea", detalle: true, carpetas: ["FALTA DEF"], frase: "línea {v}", opciones: ["Dentro del área", "Fuera del área", "Adelantada", "Salen al golpeo", "Hunden la línea"] },
+  { key: "trasDespeje", titulo: "Tras despejar", detalle: true, carpetas: ["CORNER DEF", "FALTA DEF", "SDB DEF"], frase: "tras despejar, {v}", opciones: ["Contra de primeras", "Lanzan al punta", "Salen conduciendo", "Salen en bloque", "Se quedan dentro", "Despejan a banda"] },
+  { key: "presionSdb", titulo: "Presión banda", detalle: true, carpetas: ["SDB DEF"], frase: "en banda: {v}", opciones: ["Al hombre", "Zonal", "Encima del sacador", "Dejan el corto", "Cierran dentro", "Ceden la espalda"] },
 ];
+
+/** Las etiquetas que tocan en una carpeta. */
+export const gruposDe = (carpeta: CarpetaKey) => {
+  const def = CARPETAS.find((c) => c.key === carpeta)?.fase === "def";
+
+  return GRUPOS.filter((g) => (!g.soloDef || def) && (!g.carpetas || g.carpetas.includes(carpeta)));
+};
 
 /** El cerrado/abierto sale solo del lado y del pie (córner desde la izquierda con diestro = cerrado). */
 export function trayectoria(e: Etiquetas | undefined): "cerrado" | "abierto" | null {
@@ -290,7 +353,10 @@ export function etiquetasEnTexto(e: Etiquetas | undefined) {
 
   const tray = trayectoria(e);
 
-  return [e.envio, e.zona, tray, e.mecanismo !== "Ninguno" ? e.mecanismo : "", e.estructura, e.libre ? `${e.libre} sin nadie` : "", e.desenlace === "Gol" ? "" : e.desenlace]
+  /* Las de «Más detalle», cada una con su frase («bloqueo al portero»). */
+  const detalle = GRUPOS.filter((g) => g.frase && e[g.key]).map((g) => g.frase!.replace("{v}", /^\d/.test(e[g.key]!) ? e[g.key]! : e[g.key]!.toLowerCase()));
+
+  return [e.envio, e.zona, tray, e.mecanismo !== "Ninguno" ? e.mecanismo : "", e.estructura, e.libre ? `${e.libre} sin nadie` : "", ...detalle, e.desenlace === "Gol" ? "" : e.desenlace]
     .filter(Boolean)
     .join(" · ");
 }

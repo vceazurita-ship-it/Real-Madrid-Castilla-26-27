@@ -14,10 +14,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardCopy, FolderOpen, Keyboard, NotebookPen, Trash2 } from "lucide-react";
+import { ClipboardCopy, FolderOpen, Keyboard, MessageCircle, NotebookPen, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { avisaHecho } from "@/lib/aviso-hecho";
 import { CampogramaCaidas } from "@/components/abp/coding/CampogramaCaidas";
 import { conCaidas, slidesDeCaidas, tableroDeJornada } from "@/lib/abp/coding-pizarra";
 import { EMPTY_PIZARRA_STORE, type PizarraStore } from "@/lib/abp/pizarra";
@@ -25,7 +26,7 @@ import { APUNTES_KIND, APUNTES_RIVAL_VACIO, apuntesRivalKey, normalizaCuaderno, 
 import {
   CARPETAS,
   CODING_VACIO,
-  GRUPOS,
+  gruposDe,
   aApuntes,
   codingKey,
   etiquetasEnTexto,
@@ -162,6 +163,7 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
   const [comparar, setComparar] = useState<string[]>([]);
   const [conResumen, setConResumen] = useState(true);
   const [ayuda, setAyuda] = useState(false);
+  const [masDetalle, setMasDetalle] = useState(false);
   const [moviendo, setMoviendo] = useState(false);
   const [fallo, setFallo] = useState("");
   const video = useRef<HTMLVideoElement>(null);
@@ -429,7 +431,12 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
   const decididos = todos.filter(([, c]) => c.estado !== "pendiente").length;
   const descartados = CARPETAS.flatMap((c) => (abierta?.porCarpeta.get(c.key) ?? []).filter((a) => doc.clips[idClip(c.key, a.n)]?.estado === "descartado" && !doc.clips[idClip(c.key, a.n)]?.fuera).map((a) => ({ c: c.key, a })));
 
-  const texto = textoCoding(rival || equipo || "", porCarpeta, conResumen);
+  const automatico = textoCoding(rival || equipo || "", porCarpeta, conResumen);
+
+  /* Lo escrito a mano manda; el automático queda para volver a él. */
+  const aMano = typeof doc.texto === "string";
+  const texto = aMano ? doc.texto! : automatico;
+  const cambiadoDetras = aMano && doc.textoBase !== undefined && doc.textoBase !== automatico;
 
   /*
   | EL CAMPOGRAMA, SOLO EN LA PIZARRA DE LA JORNADA (28/10/2026). Una
@@ -482,6 +489,81 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
     setApuntes((d) => ({ ...d, jornadas: { ...d.jornadas, [clave]: { ...cuaderno, apuntes: [...cuaderno.apuntes.filter((a) => a.ref?.clase !== "clip"), ...nuevos], actualizado: new Date().toISOString() } } }));
 
     toast.success(`${nuevos.length} apuntes en «Apuntes y vídeo» (J${jornada})`);
+  };
+
+  /*
+  | COPIAR LOS ELEGIDOS (29/10/2026, lo pidió el analista): a
+  | «ABP\RIVAL\CLIPS SELECCIONADOS\J10 - CARTAGENA», una subcarpeta por tipo.
+  | El navegador no deja escribir fuera de la carpeta abierta sin permiso, así
+  | que «CLIPS SELECCIONADOS» se elige una vez y se recuerda. Lo que ya está
+  | copiado (mismo nombre y tamaño) no se vuelve a copiar.
+  */
+  const [copiando, setCopiando] = useState(false);
+
+  const copiaElegidos = async () => {
+    if (!abierta) return;
+
+    const lista = CARPETAS.flatMap((c) => (abierta.porCarpeta.get(c.key) ?? []).filter((a) => doc.clips[idClip(c.key, a.n)]?.estado === "elegido").map((a) => ({ c: c.key, a })));
+
+    if (!lista.length) return;
+
+    let destino = await idb<ConPermiso>("readonly", (st) => st.get("seleccionados"));
+
+    try {
+      if (destino?.queryPermission && (await destino.queryPermission({ mode: "readwrite" })) !== "granted") {
+        if ((await destino.requestPermission?.({ mode: "readwrite" })) !== "granted") destino = undefined;
+      }
+
+      if (!destino) {
+        const picker = (window as unknown as { showDirectoryPicker?: (o: object) => Promise<ConPermiso> }).showDirectoryPicker;
+
+        if (!picker) return;
+
+        toast.info("Elige la carpeta «CLIPS SELECCIONADOS» (dentro de ABP\\RIVAL). Se recuerda para las próximas jornadas.");
+        destino = await picker({ id: "abp-seleccionados", mode: "readwrite", startIn: abierta.raiz });
+        void idb("readwrite", (st) => st.put(destino, "seleccionados"));
+      }
+    } catch {
+      return;
+    }
+
+    setCopiando(true);
+
+    const nombre = (jornada ? `J${jornada} - ${rival}` : rival || abierta.nombre).toUpperCase().replace(/[\\/:*?"<>|]/g, "");
+    let copiados = 0;
+    let fallos = 0;
+
+    try {
+      const jornadaDir = await destino!.getDirectoryHandle(nombre, { create: true });
+
+      for (const { c, a } of lista) {
+        try {
+          const dir = await jornadaDir.getDirectoryHandle(c, { create: true });
+          const origen = await a.handle.getFile();
+          const ya = await dir.getFileHandle(a.nombre).then((h) => h.getFile()).catch(() => null);
+
+          if (ya && ya.size === origen.size) {
+            copiados++;
+            continue;
+          }
+
+          const w = await (await dir.getFileHandle(a.nombre, { create: true })).createWritable();
+
+          await origen.stream().pipeTo(w);
+          copiados++;
+        } catch (error) {
+          fallos++;
+          console.warn("[coding-abp] copiar", a.nombre, error);
+        }
+      }
+    } finally {
+      setCopiando(false);
+      avisaHecho({
+        titulo: fallos ? `Copiados ${copiados} de ${lista.length} clips` : `${copiados} clips copiados`,
+        texto: `En «${destino!.name}\\${nombre}»${fallos ? `; ${fallos} no se han podido copiar` : ""}.`,
+        ok: !fallos,
+      });
+    }
   };
 
   const mueveDescartados = async () => {
@@ -645,7 +727,6 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
   }
 
   const est = actual ? estadoDe(idActual) : null;
-  const def = CARPETAS.find((c) => c.key === carpeta)?.fase === "def";
   const pct = total ? Math.round((elegidos / total) * 1000) / 10 : 0;
 
   return (
@@ -823,7 +904,7 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
                 </label>
               ))}
             </div>
-            {GRUPOS.filter((g) => !g.soloDef || def).map((g) => (
+            {gruposDe(carpeta).filter((g) => !g.detalle || masDetalle || est?.etiquetas?.[g.key]).map((g) => (
               <div key={g.key}>
                 <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-white/45">{g.titulo}</p>
                 <div className="flex flex-wrap gap-1">
@@ -843,6 +924,11 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
                 </div>
               </div>
             ))}
+            {gruposDe(carpeta).some((g) => g.detalle) && (
+              <button type="button" onClick={() => setMasDetalle((v) => !v)} className="text-xs font-semibold text-[#D8B45A] hover:underline">
+                {masDetalle ? "Menos detalle ▴" : `Más detalle (${gruposDe(carpeta).filter((g) => g.detalle).length} grupos: golpeo, bloqueos, llegada, vigilancias…) ▾`}
+              </button>
+            )}
             {trayectoria(est?.etiquetas) && <p className="text-xs text-white/60">Envío {trayectoria(est?.etiquetas)} (por lado y pie)</p>}
           </div>
         </div>
@@ -904,6 +990,15 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
             >
               <Trash2 size={14} /> {moviendo ? "Moviendo…" : `Mover ${descartados.length} descartados a «_descartados»`}
             </button>
+            <button
+              type="button"
+              disabled={!elegidos || copiando}
+              onClick={() => void copiaElegidos()}
+              title="Copia los elegidos a CLIPS SELECCIONADOS, en una carpeta «J10 - CARTAGENA» con una subcarpeta por tipo"
+              className="flex items-center gap-1.5 rounded-lg border border-[#D8B45A]/50 px-3 py-1.5 text-sm text-[#D8B45A] hover:bg-[#D8B45A]/10 disabled:opacity-40"
+            >
+              <FolderOpen size={14} /> {copiando ? "Copiando…" : `Copiar ${elegidos} elegidos a «CLIPS SELECCIONADOS»`}
+            </button>
           </div>
         </div>
 
@@ -914,15 +1009,50 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
               <input type="checkbox" checked={conResumen} onChange={(e) => setConResumen(e.target.checked)} /> con lo que repite
             </label>
           </div>
-          <pre className="max-h-[40vh] overflow-auto whitespace-pre-wrap rounded-lg bg-black/30 p-3 font-mono text-[12px] text-white/85">{elegidos ? texto : "Aún no hay elegidos."}</pre>
+          {elegidos || aMano ? (
+            <textarea
+              value={texto}
+              onChange={(e) => {
+                const nuevo = e.target.value;
+
+                setDoc((d) => ({ ...d, texto: nuevo, textoBase: typeof d.texto === "string" ? d.textoBase : automatico }));
+              }}
+              spellCheck
+              aria-label="Texto para el cuerpo técnico (se puede escribir)"
+              className="h-[40vh] w-full resize-y rounded-lg border border-white/10 bg-black/30 p-3 font-mono text-[12px] leading-relaxed text-white/85 outline-none focus:border-[#D8B45A]/60"
+            />
+          ) : (
+            <p className="rounded-lg bg-black/30 p-3 text-[12px] text-white/50">Aún no hay elegidos.</p>
+          )}
+          {aMano && (
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-white/55">
+              <span>{cambiadoDetras ? "Escrito a mano · las etiquetas han cambiado desde entonces" : "Escrito a mano"}</span>
+              <button
+                type="button"
+                onClick={() => setDoc((d) => ({ ...d, texto: undefined, textoBase: undefined }))}
+                className="flex items-center gap-1 text-[#D8B45A] hover:underline"
+              >
+                <RotateCcw size={11} /> Volver al automático
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={!elegidos}
+              disabled={!texto.trim()}
               onClick={() => void navigator.clipboard.writeText(texto).then(() => toast.success("Texto copiado"))}
               className="flex items-center gap-1.5 rounded-lg bg-[#D8B45A] px-3 py-1.5 text-sm font-bold text-[#0B0F14] disabled:opacity-40"
             >
               <ClipboardCopy size={14} /> Copiar
+            </button>
+            <button
+              type="button"
+              disabled={!texto.trim()}
+              onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank", "noopener")}
+              title="Abre WhatsApp con el texto escrito para elegir a quién va"
+              className="flex items-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-1.5 text-sm font-bold text-[#0B0F14] disabled:opacity-40"
+            >
+              <MessageCircle size={14} /> WhatsApp
             </button>
             <button
               type="button"
