@@ -31,7 +31,16 @@ function fechaValida(iso: string | null | undefined) {
 
 /** Quién recibe el correo, por nombre: «ana, luis y 2 más». */
 function nombresDestino(destinatarios: string[]) {
-  const nombres = destinatarios.map((d) => d.split("@")[0].replace(/[._-]+/g, " ").trim()).filter(Boolean);
+  /* 29/10/2026: «v ceazurita» se lee «V. Ceazurita»: palabras con mayúscula y la inicial suelta con punto. */
+  const legible = (usuario: string) =>
+    usuario
+      .replace(/[._-]+/g, " ")
+      .trim()
+      .split(/s+/)
+      .map((p) => (p.length === 1 ? `${p.toUpperCase()}.` : p.charAt(0).toUpperCase() + p.slice(1)))
+      .join(" ");
+
+  const nombres = destinatarios.map((d) => legible(d.split("@")[0])).filter(Boolean);
 
   if (nombres.length === 0) return "Sin destinatarios";
   if (nombres.length === 1) return nombres[0];
@@ -310,7 +319,7 @@ export default function ListaAlertas({
                 </button>
               </div>
             ) : (
-            <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-white/[0.06] pt-3">
+            <div className="mt-3 flex flex-nowrap items-center gap-1 border-t border-white/[0.06] pt-3">
               <button
                 type="button"
                 onClick={() => onEditar(alerta)}
@@ -321,18 +330,7 @@ export default function ListaAlertas({
                 Editar
               </button>
 
-              {!alerta.activa && (
-                <button
-                  type="button"
-                  onClick={() => onAlternarActiva(alerta)}
-                  disabled={bloqueada}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B]/15 px-2.5 py-1.5 text-xs font-medium sm:px-3 text-[#C8A96B] transition hover:bg-[#C8A96B]/25 disabled:opacity-40"
-                >
-                  <BellRing className="h-3.5 w-3.5" aria-hidden />
-                  Reactivar
-                </button>
-              )}
-
+              {/* 29/10/2026: «Reactivar» ya está en la campana de la tarjeta y en «Reactivar todas»; aquí no se repite. */}
               <button
                 type="button"
                 onClick={() => onEnviarAhora(alerta)}
@@ -347,10 +345,12 @@ export default function ListaAlertas({
                 type="button"
                 onClick={() => setBorrando(alerta.id)}
                 disabled={bloqueada}
+                aria-label="Borrar"
+                title="Borrar"
                 className="ml-auto inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs text-red-300/80 sm:px-3 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
               >
                 <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                Borrar
+                <span className="hidden sm:inline">Borrar</span>
               </button>
             </div>
             )}

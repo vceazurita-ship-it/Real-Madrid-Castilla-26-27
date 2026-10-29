@@ -46,6 +46,8 @@ export type DueloClave = {
   minutos: number;
   /** Cuántos jugadores tiene esa referencia: uno si todos los del cruce comparten puesto, el menor y el mayor si no. Vacío si no consta. */
   muestra: number[];
+  /** «Base: 709′ los nuestros · 578′ los suyos», como en /duelos. Vacío si ninguno tiene minutos de Wyscout. */
+  base: string;
 };
 
 export type DuelosClave = {
@@ -151,8 +153,19 @@ export function useDuelosClave(equipo: string) {
           const menor = tamanos.length ? Math.min(...tamanos) : 0;
           const mayor = tamanos.length ? Math.max(...tamanos) : 0;
 
+          /* Los minutos de quien menos ha jugado de cada lado, sólo entre los cruzados con Wyscout (como /duelos). */
+          const minLado = (l: (typeof d.nuestros)) => {
+            const con = l.filter((j) => j.wyscout);
+
+            return con.length ? Math.min(...con.map((j) => j.minutos || 0)) : 0;
+          };
+          const mn = minLado(d.nuestros);
+          const ms = minLado(d.suyos);
+          const trozos = [mn > 0 ? `${mn}′ los nuestros` : "", ms > 0 ? `${ms}′ los suyos` : ""].filter(Boolean);
+
           return {
             clave: d.def.clave,
+            base: trozos.length ? `Base: ${trozos.join(" · ")}${mn < 450 || ms < 450 ? " · muestra corta" : ""}` : "",
             titulo: d.def.titulo,
             nuestros: d.nuestros.map(rotulo),
             suyos: d.suyos.map(rotulo),

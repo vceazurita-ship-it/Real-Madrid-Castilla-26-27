@@ -585,9 +585,22 @@ export default function DashboardSeguimiento() {
 
   /* ---------------- categorical breakdowns ---------------- */
 
+  /* 29/10/2026: los porcentajes de estrategia y momento se calculan sobre los
+     registros que traen ese dato, que es lo que suma el anillo (31 de 34 y no
+     «11 = 32,4 %» con 31 en el centro). */
+  const conEstrategia = useMemo(
+    () => filteredTracking.filter((s) => String(s.ESTRATEGIA ?? "").trim()).length,
+    [filteredTracking]
+  );
+
+  const conMomento = useMemo(
+    () => filteredTracking.filter((s) => String(s.MOMENTO ?? "").trim()).length,
+    [filteredTracking]
+  );
+
   const strategyData = useMemo(
-    () => countBy(filteredTracking, "ESTRATEGIA", totalSessions),
-    [filteredTracking, totalSessions]
+    () => countBy(filteredTracking, "ESTRATEGIA", conEstrategia),
+    [filteredTracking, conEstrategia]
   );
 
   const modalityData = useMemo(
@@ -596,8 +609,8 @@ export default function DashboardSeguimiento() {
   );
 
   const momentData = useMemo(
-    () => countBy(filteredTracking, "MOMENTO", totalSessions),
-    [filteredTracking, totalSessions]
+    () => countBy(filteredTracking, "MOMENTO", conMomento),
+    [filteredTracking, conMomento]
   );
 
   const coachData = useMemo(
@@ -698,7 +711,7 @@ export default function DashboardSeguimiento() {
     : 0;
 
   const weeklyDelta = useMemo(() => {
-    if (weeklyData.length < 2) return null;
+    if (weeklyData.length < 3) return null;
 
     const last = weeklyData[weeklyData.length - 1].value;
     const prev = weeklyData[weeklyData.length - 2].value;
@@ -813,7 +826,7 @@ export default function DashboardSeguimiento() {
       out.push({
         icon: Layers,
         tone: "text-sky-400",
-        text: `"${strategyData[0].name}" es la estrategia dominante (${cm(strategyData[0].percentage)} % de los seguimientos).`,
+        text: `"${strategyData[0].name}" es la estrategia dominante (${cm(strategyData[0].percentage)} % de los registros que la anotan).`,
       });
     }
 
@@ -1183,15 +1196,18 @@ export default function DashboardSeguimiento() {
                   />
                 </div>
 
-                <button
-                  onClick={() => {
-                    setFilters(emptyFilters);
-                    setSearch("");
-                  }}
-                  className="rounded-2xl bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90"
-                >
-                  Limpiar
-                </button>
+                {/* 29/10/2026: «Limpiar» sólo cuando hay algo que limpiar. */}
+                {(activeFilterCount > 0 || search) && (
+                  <button
+                    onClick={() => {
+                      setFilters(emptyFilters);
+                      setSearch("");
+                    }}
+                    className="rounded-2xl bg-[#C8A96B] px-5 py-3 text-sm font-semibold text-black transition hover:opacity-90"
+                  >
+                    Limpiar
+                  </button>
+                )}
               </div>
 
               {activeFilterCount > 0 && (
@@ -1363,13 +1379,17 @@ export default function DashboardSeguimiento() {
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   <Panel
                     title="Evolución semanal"
-                    subtitle={weeklyData.length < 2 ? "Seguimientos de la semana en curso" : `Media de ${weeklyMean} seguimientos por semana`}
+                    subtitle={weeklyData.length < 3 ? "Seguimientos de la semana en curso" : `Media de ${weeklyMean} seguimientos por semana`}
                   >
-                    {weeklyData.length < 2 ? (
+                    {/* 29/10/2026: con dos semanas la última está incompleta y la caída (32 a 4) se leía como alarma: la gráfica espera a la tercera. */}
+                    {weeklyData.length < 3 ? (
                       <div className="flex min-h-[140px] flex-col items-center justify-center gap-1 py-6 text-center">
-                        <p className="text-5xl font-semibold text-[#C8A96B]">{cm(weeklyData[0]?.value ?? totalSessions)}</p>
-                        <p className="text-sm text-white/60">seguimientos esta semana</p>
-                        <p className="text-xs text-white/40">La gráfica aparece cuando haya dos semanas con registros.</p>
+                        <p className="text-5xl font-semibold text-[#C8A96B]">{cm(weeklyData[weeklyData.length - 1]?.value ?? totalSessions)}</p>
+                        <p className="text-sm text-white/60">seguimientos esta semana (en curso)</p>
+                        {weeklyData.length === 2 && (
+                          <p className="text-xs text-white/50">La semana anterior tuvo {cm(weeklyData[0].value)}.</p>
+                        )}
+                        <p className="text-xs text-white/40">La gráfica aparece cuando haya tres semanas con registros.</p>
                       </div>
                     ) : (
                       <ChartBox>
@@ -1486,7 +1506,7 @@ export default function DashboardSeguimiento() {
 
                   <Panel
                     title="Estrategias utilizadas"
-                    subtitle="Pulsa un segmento para filtrar"
+                    subtitle={`${conEstrategia}${conEstrategia < totalSessions ? ` de ${totalSessions}` : ""} registros con estrategia anotada · pulsa un segmento para filtrar`}
                   >
                     <DonutWithLegend
                       data={strategyData}
@@ -1502,7 +1522,7 @@ export default function DashboardSeguimiento() {
 
                   <Panel
                     title="Momento de la intervención"
-                    subtitle="Cuándo se produce el contacto con el jugador"
+                    subtitle={`Cuándo se produce el contacto con el jugador${conMomento < totalSessions ? ` · ${conMomento} de ${totalSessions} registros con momento anotado` : ""}`}
                   >
                     <DonutWithLegend
                       data={momentData}

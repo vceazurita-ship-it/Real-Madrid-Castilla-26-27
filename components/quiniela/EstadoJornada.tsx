@@ -191,7 +191,7 @@ export function EstadoJornada({
           : `Sin completar: ${lista}`
         : incompletos.length === 1
           ? `Falta ${lista}`
-          : `Faltan ${incompletos.length}: ${lista}`;
+          : `Faltan ${incompletos.length}`;
 
   const diaPrimero = primerPartido ? diaDe(primerPartido.fecha) : null;
 
@@ -205,7 +205,7 @@ export function EstadoJornada({
         : "";
 
   return (
-    <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4">
       {/* 1. El plazo. */}
       <Ficha
         icono={cerrada ? Lock : Clock}

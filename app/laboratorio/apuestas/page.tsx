@@ -182,7 +182,7 @@ export default function ApuestasPage() {
                 acceso, para que la pantalla enseñe qué se ve aquí antes de pedir
                 que entres. */}
             {estado === "listo" && doc.apuestas.length === 0 && (
-              <details open className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              <details className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                 <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
                   Aún nadie ha lanzado una apuesta
                 </summary>
@@ -205,26 +205,11 @@ export default function ApuestasPage() {
                     <p className="text-[11px] text-white/45">
                       Se comprueba el último día de la vuelta. Hasta entonces, cada uno se pone a favor o en contra.
                     </p>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        disabled
-                        title="Entra para apostar"
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 px-2 py-1.5 text-[11px] font-semibold text-white/45"
-                      >
-                        <ThumbsUp size={13} />
-                        A favor
-                      </button>
-                      <button
-                        type="button"
-                        disabled
-                        title="Entra para apostar"
-                        className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 px-2 py-1.5 text-[11px] font-semibold text-white/45"
-                      >
-                        <ThumbsDown size={13} />
-                        En contra
-                      </button>
-                    </div>
+                    {/* 29/10/2026: etiquetas del ejemplo, no botones que parezcan pulsables. */}
+                    <p aria-hidden className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] italic text-white/40">
+                      <span className="inline-flex items-center gap-1.5"><ThumbsUp size={12} />Los demás eligen a favor</span>
+                      <span className="inline-flex items-center gap-1.5"><ThumbsDown size={12} />o en contra</span>
+                    </p>
                   </article>
                 </div>
               </details>

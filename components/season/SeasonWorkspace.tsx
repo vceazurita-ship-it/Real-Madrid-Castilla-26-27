@@ -19,6 +19,7 @@ import {
   flattenWeeks,
   seasonStats,
   weekHasFiles,
+  weekRangeLabel,
 } from "@/lib/season/utils";
 import SeasonFilesViewer from "./SeasonFilesViewer";
 import SeasonHeader from "./SeasonHeader";
@@ -140,6 +141,7 @@ export default function SeasonWorkspace({ area }: Props) {
         nombre: week.week,
         conMaterial: weekHasFiles(week),
         actual: week.id === currentWeek.id,
+        fechas: week.start || week.end ? weekRangeLabel(week) : undefined,
       }));
   }, [season, currentWeek]);
 

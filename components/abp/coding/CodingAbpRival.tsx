@@ -702,7 +702,7 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
     return (
       <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 pb-14 sm:p-6 md:pb-6">
         <div className="pr-12 md:pr-0">
-          <h3 className="text-lg font-bold text-white">Coding del ABP{equipo ? ` de ${equipo}` : " del rival"}</h3>
+          <h3 className="text-lg font-bold text-white">Carpeta de la jornada</h3>
           <p className="mt-1 hidden text-sm text-white/65 md:block">
             Abre en tu ordenador la carpeta de {equipo ?? "el rival"} de esta jornada. Los clips no se suben: se ven desde tu ordenador.
           </p>
@@ -726,7 +726,6 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
                 <span className="text-sm font-semibold text-white">{p.titulo}</span>
                 <span className="block text-[12px] leading-snug text-white/55">
                   {p.texto}
-                  {p.soloOrdenador && <span className="md:hidden"> En el ordenador, con Chrome o Edge.</span>}
                 </span>
               </span>
               {p.accion &&
@@ -745,7 +744,7 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
                   <button
                     type="button"
                     onClick={p.accion.onClick}
-                    className={`${p.soloOrdenador ? "hidden md:inline" : ""} whitespace-nowrap text-[13px] font-semibold text-[#D8B45A] hover:underline`}
+                    className={`${p.soloOrdenador ? "hidden md:inline" : ""} whitespace-nowrap text-[13px] font-semibold text-[#D8B45A] hover:underline max-md:w-full max-md:rounded-lg max-md:border max-md:border-[#D8B45A]/40 max-md:bg-[#D8B45A]/10 max-md:py-2.5 max-md:text-center`}
                   >
                     {p.accion.texto} →
                   </button>
@@ -753,6 +752,9 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
             </li>
           ))}
         </ol>
+
+        {/* Una sola vez y en una línea (29/10/2026), no repetido en cada paso. */}
+        <p className="text-[12px] text-white/55 md:hidden">Abrir la carpeta y cribar los clips se hace en el ordenador, con Chrome o Edge.</p>
 
         {hechosRival.length > 0 && (
           <div className="space-y-2">

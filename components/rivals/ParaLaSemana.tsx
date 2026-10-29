@@ -1,6 +1,7 @@
 "use client";
 
-import { FileDown, FileText, Hand, Mail, MessageCircle, Presentation } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, FileDown, FileText, Hand, Mail, MessageCircle, Presentation } from "lucide-react";
 
 import type { JornadaDeEquipo } from "@/lib/rivals/orden-calendario";
 
@@ -50,6 +51,9 @@ export function ParaLaSemana({
   piezas: PiezaDeLaSemana[];
   ocupado: boolean;
 }) {
+  /* Plegado en el móvil por defecto (29/10/2026): el campograma quedaba a tres pantallas del inicio. */
+  const [abierto, setAbierto] = useState(false);
+
   if (piezas.length === 0) return null;
 
   const cabecera = [`Rival de la semana: ${equipo}`, jornada?.titulo].filter(Boolean).join(" · ");
@@ -65,12 +69,15 @@ export function ParaLaSemana({
     >
       <header className="mb-3 flex min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">
-          Para la semana
+          <button type="button" onClick={() => setAbierto((v) => !v)} aria-expanded={abierto} className="inline-flex items-center gap-1.5 uppercase tracking-[0.25em] sm:pointer-events-none">
+            Para la semana
+            <ChevronDown size={13} className={`transition sm:hidden ${abierto ? "rotate-180" : ""}`} />
+          </button>
         </h2>
         <p className="text-[11px] text-white/45">Lo que se saca de {equipo}, cada uno con su botón</p>
       </header>
 
-      <ul className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <ul className={`min-w-0 grid-cols-1 gap-2 sm:grid sm:grid-cols-2 xl:grid-cols-4 ${abierto ? "grid" : "hidden"}`}>
         {piezas.map((pieza) => {
           const Icono = ICONOS[pieza.icono];
 

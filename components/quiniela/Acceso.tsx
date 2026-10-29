@@ -209,6 +209,23 @@ export function Acceso({
         onSubmit={(evento) => {
           evento.preventDefault();
 
+          /* El botón ya no se apaga (beige sobre beige, 29/10/2026): si falta algo, lo dice al pulsar. */
+          if (!correo.trim() || (registrando ? !quien : !clave)) {
+            toast.error(
+              registrando
+                ? !quien
+                  ? "Elige tu nombre y escribe tu correo para registrarte."
+                  : "Escribe tu correo para registrarte."
+                : !correo.trim() && !clave
+                  ? "Escribe tu correo y tu contraseña para entrar."
+                  : !correo.trim()
+                    ? "Falta tu correo."
+                    : "Falta la contraseña.",
+            );
+
+            return;
+          }
+
           if (registrando) {
             void envia(
               { accion: "registrar", slug: quien, correo },
@@ -257,11 +274,7 @@ export function Acceso({
         <Button
           type="submit"
           tone="primary"
-          disabled={
-            enviando ||
-            !correo.trim() ||
-            (registrando ? !quien : !clave)
-          }
+          disabled={enviando}
         >
           {enviando ? "Un momento…" : registrando ? "Registrarme" : botonEntrar}
         </Button>

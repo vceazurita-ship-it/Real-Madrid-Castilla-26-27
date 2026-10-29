@@ -217,7 +217,7 @@ function formatFecha(value: unknown) {
  */
 const DIAS_CONTROL_ANTIGUO = 30;
 
-const nombreCorto = (p: { apodo?: string; nombre?: string }) => nombreVisible(p.apodo || p.nombre || "");
+const nombreCorto = (p: { apodo?: string; nombre?: string }) => nombreVisible(p.nombre || p.apodo || "");
 
 function textoControl(fecha: unknown, ahora: number) {
   const marca = parseFecha(fecha);
@@ -685,7 +685,7 @@ export default function DashboardPlantilla() {
       .map((player, index) => ({
         puesto: index + 1,
         id: player.id,
-        name: nombreVisible(player.apodo || player.nombre),
+        name: nombreVisible(player.nombre || player.apodo),
         value: Number(player.media.toFixed(1)),
       }));
   }, [filteredPlayers]);
@@ -698,7 +698,7 @@ export default function DashboardPlantilla() {
         y: player.fisica,
         z: Number(player.media.toFixed(1)),
         id: player.id,
-        name: nombreVisible(player.apodo || player.nombre),
+        name: nombreVisible(player.nombre || player.apodo),
         estado: player.estado,
         color: estadoColor(player.estado),
       }));
@@ -798,10 +798,10 @@ export default function DashboardPlantilla() {
     {
       title: "Media",
       value: stats.media,
-      base: `de ${stats.valorados} con ficha`,
+      base: `de ${stats.valorados} con ficha · competencias del scout, no la nota de partido`,
     },
-    { title: "Mejor", value: stats.mejor, base: stats.mejorNombre || undefined },
-    { title: "Peor", value: stats.peor, base: stats.peorNombre || undefined },
+    { title: "Mejor", value: stats.mejor, base: stats.mejorNombre ? `${stats.mejorNombre} · ficha de competencias` : undefined },
+    { title: "Peor", value: stats.peor, base: stats.peorNombre ? `${stats.peorNombre} · ficha de competencias` : undefined },
     { title: "Élite (≥8)", value: stats.elite },
     {
       title: "% Óptimos",
@@ -906,18 +906,7 @@ export default function DashboardPlantilla() {
               <div
                 className={`${filtrosAbiertos ? "grid gap-3" : "hidden"} min-w-0 sm:contents`}
               >
-              <div className="hidden min-w-0 sm:block">
-              <FilterSelect
-                label="Jugador"
-                value={filters.jugador}
-                onChange={(value) => updateFilter("jugador", value)}
-                options={players.map((p) => ({
-                  value: p.id,
-                  label: nombreVisible(p.nombre || p.apodo),
-                }))}
-              />
-              </div>
-
+              {/* 29/10/2026: fuera el desplegable «Jugador»: duplicaba a «Buscar». */}
               <FilterSelect
                 label="Posición"
                 value={filters.posicion}
@@ -1157,7 +1146,7 @@ export default function DashboardPlantilla() {
                       subtitle={
                         selectedPlayer?.valorado
                           ? `${
-                              nombreVisible(selectedPlayer.apodo || selectedPlayer.nombre)
+                              nombreVisible(selectedPlayer.nombre || selectedPlayer.apodo)
                             } vs. media de los ${stats.valorados} con ficha${
                               stats.valorados < stats.total ? ` (de ${stats.total} en la lista)` : ""
                             }${stats.valorados < 5 ? " · con tan pocas fichas es sólo una tendencia" : ""} · escala de 0 a 10`
@@ -1167,13 +1156,13 @@ export default function DashboardPlantilla() {
                       }
                     >
                       {radarData.length ? (
-                        <ResponsiveContainer width="100%" height={340}>
-                          <RadarChart data={radarData} outerRadius="72%">
+                        <ResponsiveContainer width="100%" height={400}>
+                          <RadarChart data={radarData} outerRadius="80%">
                             <PolarGrid stroke={THEME.grid} />
 
                             <PolarAngleAxis
                               dataKey="subject"
-                              tick={{ fill: THEME.axis, fontSize: 12 }}
+                              tick={{ fill: THEME.axis, fontSize: 13 }}
                             />
 
                             <PolarRadiusAxis
@@ -1198,8 +1187,8 @@ export default function DashboardPlantilla() {
                               <Radar
                                 name={
                                   nombreVisible(
-                                    selectedPlayer.apodo ||
-                                      selectedPlayer.nombre ||
+                                    selectedPlayer.nombre ||
+                                      selectedPlayer.apodo ||
                                       "Jugador",
                                   )
                                 }
@@ -1974,7 +1963,7 @@ function PlayerCard({
           </div>
 
           <h3 className="mt-1 truncate text-lg font-semibold">
-            {nombreVisible(player.apodo || player.nombre)}
+            {nombreVisible(player.nombre || player.apodo)}
           </h3>
 
           <p className="truncate text-xs text-white/40">
@@ -2004,7 +1993,7 @@ function PlayerCard({
         <button
           onClick={() => go(-1)}
           disabled={index <= 0}
-          className="rounded-lg border border-white/10 px-3 py-1.5 transition hover:border-[#C8A96B] hover:text-white disabled:opacity-20"
+          className="min-h-[44px] min-w-[44px] rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 transition hover:border-[#C8A96B] hover:text-white disabled:opacity-40"
         >
           ← Anterior
         </button>
@@ -2016,7 +2005,7 @@ function PlayerCard({
         <button
           onClick={() => go(1)}
           disabled={index >= players.length - 1}
-          className="rounded-lg border border-white/10 px-3 py-1.5 transition hover:border-[#C8A96B] hover:text-white disabled:opacity-20"
+          className="min-h-[44px] min-w-[44px] rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 transition hover:border-[#C8A96B] hover:text-white disabled:opacity-40"
         >
           Siguiente →
         </button>
@@ -2147,7 +2136,7 @@ function ResumenSesionesPlantilla({ resumen, players }: { resumen: ResumenSesion
       <ul className="mt-4 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-3">
         {filas.map(({ p, d }) => (
           <li key={p.id} className="flex min-w-0 items-baseline justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate text-white/70">{nombreVisible(p.apodo || p.nombre)}</span>
+            <span className="min-w-0 truncate text-white/70">{nombreVisible(p.nombre || p.apodo)}</span>
             <span className="shrink-0 tabular-nums text-white/50">
               {d.sesiones} de {resumen.totalSesiones}
             </span>

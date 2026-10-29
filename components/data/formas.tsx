@@ -119,7 +119,7 @@ export function Composicion({
             return (
               <div
                 key={trozo.etiqueta}
-                title={`${trozo.etiqueta}: ${trozo.valor.toFixed(1)} (${parte.toFixed(1)}%)`}
+                title={`${trozo.etiqueta}: ${trozo.valor.toFixed(1).replace(".", ",")} (${parte.toFixed(1).replace(".", ",")} %)`}
                 onMouseEnter={() => setEncima(`${rotulo}|${trozo.etiqueta}`)}
                 onMouseLeave={() => setEncima(null)}
                 className="flex items-center justify-center"
@@ -194,7 +194,7 @@ export function Composicion({
             {trozo.etiqueta}
 
             <span className="tabular-nums text-white/35">
-              {trozo.valor.toFixed(1)}
+              {trozo.valor.toFixed(1).replace(".", ",")}
             </span>
           </span>
         ))}

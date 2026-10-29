@@ -30,6 +30,7 @@ import { useEscudos } from "@/hooks/useEscudos";
 import { useDuelosClave } from "@/hooks/useDuelosClave";
 import { useContrasteRival } from "@/hooks/useContrasteRival";
 import { fraseRecuentoDuelos } from "@/lib/duelos";
+import { cargaOrdenRivales } from "@/lib/rivals/orden-calendario";
 
 import {
   Activity,
@@ -79,6 +80,20 @@ import type { LucideIcon } from "lucide-react";
 */
 
 type Rival = Record<string, string>;
+
+/*
+| La fecha del partido, la de BeSoccer (29/10/2026, experto de fútbol). La
+| hoja guarda «…T23:00:00Z» (la medianoche de Madrid del 1/11) y el partido es
+| el sábado 31/10 a las 18:45: así lo dicen /rivals, /duelos y la pizarra. Sólo
+| se cambia lo que se ve; el campo FECHA de la hoja no se toca (se autoguarda).
+*/
+const FECHAS_REALES = new Map<string, string>();
+
+function fechaDe(r: Rival | null | undefined): string {
+  if (!r) return "";
+
+  return FECHAS_REALES.get(`${r.EQUIPO}|${r.JORNADA}`) ?? r.FECHA;
+}
 
 /* Campos que cuentan para el porcentaje de preparación del informe. */
 const CAMPOS_PLAN = [
@@ -765,7 +780,7 @@ function RivalPicker({
           </span>
 
           <span className="block text-[11px] text-white/40">
-            {fechaLarga(activo?.FECHA)}
+            {fechaLarga(fechaDe(activo))}
           </span>
         </span>
 
@@ -847,7 +862,7 @@ function RivalPicker({
                   </span>
 
                   <span className="shrink-0 text-[11px] text-white/35">
-                    {fechaCorta(r.FECHA)}
+                    {fechaCorta(fechaDe(r))}
                   </span>
                 </button>
               );
@@ -1068,6 +1083,26 @@ function ReplicarPlan({
 
 export default function MatchPreparation() {
   const [rivales, setRivales] = useState<Rival[]>([]);
+  /* Sólo para repintar cuando llega el calendario de BeSoccer. */
+  const [, setCalendarioListo] = useState(0);
+
+  useEffect(() => {
+    let vivo = true;
+
+    void cargaOrdenRivales().then((orden) => {
+      if (!vivo) return;
+
+      for (const partido of orden.partidos) {
+        if (partido.fecha && partido.jornada) FECHAS_REALES.set(`${partido.equipo}|${partido.jornada}`, partido.fecha);
+      }
+
+      setCalendarioListo((n) => n + 1);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
   const [rivalActivo, setRivalActivo] = useState<Rival | null>(null);
 
   const [modoEdicion, setModoEdicion] = useState(false);
@@ -1203,7 +1238,7 @@ export default function MatchPreparation() {
         /* Por defecto abrimos el próximo partido, no el primero de la lista. */
         const proximo =
           lista.find((r) => {
-            const dias = diasHasta(r.FECHA);
+            const dias = diasHasta(fechaDe(r));
 
             return dias !== null && dias >= 0;
           }) ?? lista[lista.length - 1];
@@ -1289,7 +1324,7 @@ export default function MatchPreparation() {
     [rivales, rivalActivo]
   );
 
-  const dias = diasHasta(rivalActivo?.FECHA);
+  const dias = diasHasta(fechaDe(rivalActivo));
 
   const cuentaAtras = etiquetaCuentaAtras(dias);
 
@@ -1875,6 +1910,13 @@ export default function MatchPreparation() {
     return () => observador.disconnect();
   }, [cargando, rivalActivo]);
 
+  /* La pestaña activa se centra en la tira (29/10/2026): en el móvil la tira se corta y la activa quedaba fuera. */
+  useEffect(() => {
+    document
+      .querySelector('nav[aria-label="Secciones del plan"] [data-activa="true"]')
+      ?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [seccionActiva]);
+
   const irASeccion = (id: string) => {
     document.getElementById(id)?.scrollIntoView({ block: "start" });
   };
@@ -2066,6 +2108,8 @@ export default function MatchPreparation() {
 
                 {!cargando && rivalActivo && (
                   <>
+                    {/* En el móvil, Boceto y Replicar van en un menú «Más» y sólo «Informe» y «Editar» quedan a la vista (29/10/2026). */}
+                    <div className="hidden items-center gap-2 md:flex">
                     <button
                       type="button"
                       onClick={() => setBocetoAbierto(true)}
@@ -2093,6 +2137,28 @@ export default function MatchPreparation() {
                       jornadas={jornadasReplicables}
                       onElegir={replicarDe}
                     />
+                    </div>
+
+                    <details className="group relative md:hidden">
+                      <summary className="flex cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/15 px-3.5 py-2.5 text-sm text-white/75 [&::-webkit-details-marker]:hidden">
+                        Más
+                        <ChevronDown size={13} className="transition group-open:rotate-180" />
+                      </summary>
+
+                      <div className="absolute right-0 top-full z-30 mt-2 flex w-56 flex-col gap-2 rounded-xl border border-white/10 bg-[#0B0F14] p-2 shadow-xl">
+                        <button
+                          type="button"
+                          onClick={() => setBocetoAbierto(true)}
+                          disabled={jornadasReplicables.length === 0}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[#C8A96B] hover:bg-white/[0.06] disabled:opacity-40"
+                        >
+                          <Sparkles size={14} />
+                          Proponer boceto
+                        </button>
+
+                        <ReplicarPlan jornadas={jornadasReplicables} onElegir={replicarDe} />
+                      </div>
+                    </details>
 
                     {bocetoAbierto && (
                       <BocetoPlanDialog
@@ -2186,6 +2252,7 @@ export default function MatchPreparation() {
                     key={id}
                     type="button"
                     onClick={() => irASeccion(id)}
+                    data-activa={seccionActiva === id}
                     className={`
                       flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5
                       text-[12px] font-medium transition
@@ -2385,7 +2452,7 @@ export default function MatchPreparation() {
                           "
                         />
                       ) : (
-                        <span>{fechaLarga(rivalActivo.FECHA)}</span>
+                        <span>{fechaLarga(fechaDe(rivalActivo))}</span>
                       )}
                     </DatoCabecera>
 
@@ -2598,22 +2665,50 @@ export default function MatchPreparation() {
                       minHeight={150}
                     />
 
-                    {!editando && (
-                      <Link
-                        href={enlacePizarraAbp(rivalActivo)}
-                        className="
-                          mp-no-print flex items-center justify-center gap-2 rounded-xl
-                          border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3.5 py-2.5
-                          text-xs font-semibold text-[#E4C977] transition
-                          hover:border-[#C8A96B] hover:bg-[#C8A96B]/20
-                        "
-                      >
-                        <Flame size={14} />
-                        Montar las diapositivas de balón parado
-                      </Link>
-                    )}
                   </div>
                 </div>
+
+                {/* Fuera de la tarjeta de ABP defensivo y como botón primario (29/10/2026). */}
+                {!editando && (
+                  <div className="mp-no-print mt-5 flex justify-end">
+                    <Link
+                      href={enlacePizarraAbp(rivalActivo)}
+                      className="
+                        inline-flex items-center justify-center gap-2 rounded-xl
+                        bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-black
+                        transition hover:bg-[#D8B97B]
+                      "
+                    >
+                      <Flame size={15} />
+                      Montar las diapositivas de balón parado
+                    </Link>
+                  </div>
+                )}
+
+                {/* Las siglas que se usan arriba (29/10/2026). */}
+                {!editando && (
+                  <details className="mp-no-print mt-4 text-[12px] text-white/55">
+                    <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
+                      Siglas
+                    </summary>
+                    <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                      {Object.entries(SIGLAS_PLAN).map(([sigla, significado]) => (
+                        <li key={sigla}>
+                          <b className="text-white/75">{sigla}</b> · {significado}
+                        </li>
+                      ))}
+                      <li>
+                        <b className="text-white/75">Z1, Z2…</b> · Zonas del campo
+                      </li>
+                      <li>
+                        <b className="text-white/75">Meso</b> · Mesociclo: el bloque de semanas de trabajo
+                      </li>
+                      <li>
+                        <b className="text-white/75">MdJ</b> · Día de partido (MD-1, un día antes; MD+1, un día después)
+                      </li>
+                    </ul>
+                  </details>
+                )}
               </section>
               )}
 
@@ -2642,6 +2737,11 @@ export default function MatchPreparation() {
                 </div>
 
                 {/* Lo que miden los datos: los dos duelos de más ventaja y los dos de más riesgo, con nombre y cifra (de /duelos). */}
+                {duelosClave && !editando && (
+                  <p className="mb-3 text-[11px] text-white/50">
+                    El número de cada duelo es la diferencia de percentil con su par, frente a los jugadores de su puesto con {duelosClave.ventaja[0]?.minutos || duelosClave.riesgo[0]?.minutos || 90} min o más: positivo, ventaja nuestra; negativo, ventaja suya.
+                  </p>
+                )}
                 {duelosClave && !editando && (
                   <div className="mb-5 grid gap-4 md:grid-cols-2">
                     {([
@@ -2679,12 +2779,8 @@ export default function MatchPreparation() {
                                   <span className="block text-[12px] text-white/50">
                                     {d.nuestros.join(" y ")} contra {d.suyos.join(" y ")}
                                   </span>
-                                  {d.minutos > 0 && (
-                                    <span className="block text-[11px] text-white/40">
-                                      Percentil frente a los jugadores de su puesto con {d.minutos} min o más
-                                      {d.muestra.length > 0 && ` (n = ${d.muestra.join("–")})`}
-                                    </span>
-                                  )}
+                                  {/* La base de cada duelo, como en /duelos; qué es el número, una vez arriba. */}
+                                  {d.base && <span className="block text-[11px] text-white/40">{d.base}</span>}
                                 </span>
                               </li>
                             ))}
@@ -2862,7 +2958,7 @@ export default function MatchPreparation() {
                     <b className="text-white/75">Contraste con los datos</b>
                     {contraste.dibujo && (
                       <>
-                        {" · "}En sus alineaciones: {contraste.dibujo.estructura.replace(/^1-/, "")} ({contraste.dibujo.veces} de {contraste.dibujo.de}).
+                        {" · "}En sus alineaciones: {contraste.dibujo.estructura.replace(/^1-/, "")} ({contraste.dibujo.veces} de las {contraste.dibujo.de} alineaciones con dibujo registrado).
                       </>
                     )}
                     {contraste.abp && (

@@ -68,11 +68,11 @@ export function Parrilla({
     return (
       <Panel
         title="Lo que ha puesto cada uno"
-        subtitle="Se abre al cerrarse la jornada"
+        subtitle={`Se abre el ${cuandoSeAbre}, al cerrarse la jornada.`}
         icon={Lock}
       >
-        {/* Una línea (29/10/2026, marketing): el párrafo largo no decía nada que el título no dijera. */}
-        <p className="text-[12px] text-white/60">Se abre el {cuandoSeAbre}.</p>
+        {/* Sin párrafo (29/10/2026): el subtítulo ya dice cuándo; repetirlo era ruido. */}
+        {null}
       </Panel>
     );
   }

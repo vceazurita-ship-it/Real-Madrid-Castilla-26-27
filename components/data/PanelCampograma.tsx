@@ -226,7 +226,7 @@ export function PanelCampograma({
 
             {jugados.map((p, i) => (
               <option key={p.fecha + p.rival} value={i} className="bg-[#11161C]">
-                {p.fecha.slice(5)} · {p.rival} {p.golesFavor}-{p.golesContra}
+                {p.fecha.slice(8, 10)}/{p.fecha.slice(5, 7)} · {p.rival} {p.golesFavor}-{p.golesContra}
               </option>
             ))}
           </select>

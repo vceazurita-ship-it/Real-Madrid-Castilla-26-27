@@ -1268,7 +1268,7 @@ const tasaPeligroResultado = filasResultado.length
   : 0;
 
 /* El sacador que más xG suma con lo que se está viendo. */
-const mejorSacador = [...sin()]
+const mejorSacadorBruto = [...sin()]
   .reduce((acc, r) => {
     if (!r.sacador) return acc;
     const previo = acc.find((uno) => uno.name === r.sacador);
@@ -1277,6 +1277,18 @@ const mejorSacador = [...sin()]
     return acc;
   }, [] as { name: string; xg: number }[])
   .sort((a, b) => b.xg - a.xg)[0]?.name;
+
+/* 29/10/2026: si no supera la media del equipo en al menos 0,02 por envío, no
+   lleva a ninguna decisión y ni la tarjeta ni la frase salen. */
+const mejorSacador = (() => {
+  if (!mejorSacadorBruto) return undefined;
+  const conSacador = sin().filter((r) => r.sacador);
+  const suyas = conSacador.filter((r) => r.sacador === mejorSacadorBruto);
+  if (!suyas.length || !conSacador.length) return undefined;
+  const suyo = suyas.reduce((t, r) => t + r.xg, 0) / suyas.length;
+  const medio = conSacador.reduce((t, r) => t + r.xg, 0) / conSacador.length;
+  return suyo - medio >= 0.02 ? mejorSacadorBruto : undefined;
+})();
 
 /* Su base: de cuántos envíos sale. Con pocos es una tendencia, no un dato. */
 const baseSacador = (() => {
@@ -2398,9 +2410,14 @@ const conclusiones = useMemo(() => {
     ? null
     : mejorGrupo(filtered, (r) => r.intencion, tasaPeligroDe);
 
+  /* 29/10/2026: «NADA» es el valor crudo de la hoja: se dice en llano. */
+  const sinRutina = rutina ? /^(nada|ninguna|ninguno|sin rutina)?$/i.test(rutina.nombre.trim()) : false;
+
   if (rutina && rutina.valor > 0) {
     frases.push(
-      `Rutina que más rinde: «${rutina.nombre}», ${Math.round(rutina.valor * rutina.n)} de ${rutina.n} en gol u ocasión.`,
+      sinRutina
+        ? `Lo que más rinde es el envío sin rutina marcada (balón directo): ${Math.round(rutina.valor * rutina.n)} de ${rutina.n} en gol u ocasión.`
+        : `Rutina que más rinde: ${rutina.nombre}, ${Math.round(rutina.valor * rutina.n)} de ${rutina.n} en gol u ocasión.`,
     );
   } else if (intencion && intencion.valor > 0) {
     frases.push(
@@ -2414,7 +2431,9 @@ const conclusiones = useMemo(() => {
     (grupo) => grupo.reduce((a, r) => a + r.xg, 0) / grupo.length,
   );
 
-  if (lanzador && lanzador.valor > 0) {
+  const xgMedioEnvio = filtered.length ? xg / filtered.length : 0;
+
+  if (lanzador && lanzador.valor > 0 && lanzador.valor - xgMedioEnvio >= 0.02) {
     frases.push(
       `Más goles esperados por envío: ${lanzador.nombre} (${cifra(lanzador.valor, 2)} en ${lanzador.n} envíos${lanzador.n < 5 ? ", tendencia" : ""}).`,
     );
@@ -2423,10 +2442,16 @@ const conclusiones = useMemo(() => {
   const ganados = filtered.filter((r) => /gan/i.test(r.segundoBalon)).length;
   const perdidos = filtered.filter((r) => /perd/i.test(r.segundoBalon)).length;
 
+  const minutosPerdidos = filtered
+    .filter((r) => /perd/i.test(r.segundoBalon))
+    .map((r) => r.contexto.minuto.minuto)
+    .filter((m): m is number => m != null)
+    .sort((a, b) => a - b);
+
   if (ganados + perdidos >= 3) {
     frases.push(
       perdidos >= ganados
-        ? `Segundo balón: perdemos ${perdidos} de ${ganados + perdidos} segundos balones (${Math.round((perdidos / (ganados + perdidos)) * 100)} %).`
+        ? `Segundo balón: perdemos ${perdidos} de ${ganados + perdidos} segundos balones (${Math.round((perdidos / (ganados + perdidos)) * 100)} %)${minutosPerdidos.length ? `; al vídeo, minutos ${minutosPerdidos.map((m) => `${m}′`).join(", ")}` : ""}.`
         : `Segundo balón: ganamos ${ganados} de ${ganados + perdidos} segundos balones (${Math.round((ganados / (ganados + perdidos)) * 100)} %).`,
     );
   }

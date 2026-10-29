@@ -499,6 +499,14 @@ export function TeamPanel({
                     hide
                   />
 
+                  {/* 29/10/2026: la media del equipo como referencia vertical. */}
+                  <ReferenceLine
+                    x={teamAverage}
+                    stroke="rgb(var(--rmcf-ink-rgb) / 0.35)"
+                    style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.35)" }}
+                    strokeDasharray="4 4"
+                  />
+
                   <YAxis
                     type="category"
                     dataKey="name"
@@ -598,6 +606,13 @@ export function TeamPanel({
                       axisLine={false}
                     />
 
+                    <ReferenceLine
+                      y={teamAverage}
+                      stroke="rgb(var(--rmcf-ink-rgb) / 0.35)"
+                      style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.35)" }}
+                      strokeDasharray="4 4"
+                    />
+
                     <Tooltip
                       cursor={CURSOR_BARRA}
                       content={({ active, payload }) => {
@@ -637,7 +652,7 @@ export function TeamPanel({
                 <LeyendaColorNota />
 
                 <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
-                  Entre paréntesis, los jugadores con nota en cada línea
+                  La línea de puntos es la media del equipo. Entre paréntesis, los jugadores con nota en cada línea
                   {byLine.some((x) => x.players < 3)
                     ? `: ${byLine
                         .filter((x) => x.players < 3)

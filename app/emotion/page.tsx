@@ -494,7 +494,7 @@ export default function EmotionPage() {
 
             {/* ---------------------------------------------- Radares */}
             <div
-              className="rounded-[34px] border border-white/10 bg-[#08131F]/60 p-4 sm:p-5 lg:p-6"
+              className="rounded-[34px] border border-white/10 bg-[#08131F]/60 p-4 sm:p-5 lg:p-6 [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white/80"
             >
               {/* Sin imagen de campo detrás (26/10/2026): ensuciaba los radares y los chips. */}
               <div className="space-y-4">
@@ -544,7 +544,7 @@ export default function EmotionPage() {
                 return (
                   <div
                     key={axis.code}
-                    className="rounded-2xl border border-white/10 bg-[#08131F]/85 px-4 py-4 transition hover:border-[#E1C77B]/30"
+                    className="rounded-2xl border border-white/10 bg-[#08131F]/85 [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white px-4 py-4 transition hover:border-[#E1C77B]/30"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="text-[11px] uppercase tracking-[.15em] text-[#E1C77B]">
@@ -913,9 +913,12 @@ function RadarPanel({
           {series.length > 0 && (
             <span
               className="rounded-full px-2.5 py-1 text-[10px] font-bold"
-              style={{ background: radarTone, color: "#031018" }}
+              /* 29/10/2026: con menos de 3 jugadores el chip no lleva el color del nivel (sería una etiqueta de perfil sin base). */
+              style={series.length < 3 ? { background: "rgba(148,163,184,.25)", color: "#E2E8F0", border: "1px solid rgba(148,163,184,.4)" } : { background: radarTone, color: "#031018" }}
             >
-              {series.length < 3 ? `${synergyLabel} · tendencia` : synergyLabel}
+              {series.length < 3
+                ? `${series.length} ${series.length === 1 ? "jugador" : "jugadores"} · tendencia`
+                : synergyLabel}
             </span>
           )}
         </div>
@@ -1062,8 +1065,9 @@ function RadarPanel({
               >
                 <RadarChart
                   data={chartData}
-                  outerRadius="80%"
-                  margin={{ top: 8, right: 24, bottom: 8, left: 24 }}
+                  outerRadius="74%"
+                  /* 29/10/2026: más margen lateral; «Controlar» salía cortado en los radares de dos columnas. */
+                  margin={{ top: 12, right: 44, bottom: 12, left: 44 }}
                 >
                   <PolarGrid stroke={`${radarTone}40`} />
 

@@ -1843,6 +1843,11 @@ export default function AbpMicrocicloPage() {
                     </div>
                   )}
 
+                  {/* 29/10/2026: las siglas de las fichas, explicadas una sola vez. */}
+                  <p className="mb-2 text-[11px] leading-relaxed text-white/45">
+                    OF = ofensivo · DEF = defensivo · SAC = sacadores · FIJ = fijadores · REM = rematadores · PRE y POST = vídeo antes o después del campo
+                  </p>
+
                   <SemanaGrid
                     dias={planVisto.dias}
                     orden={ordenDias}

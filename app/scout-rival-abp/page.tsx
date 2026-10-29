@@ -714,7 +714,7 @@ export default function ScoutRivalAbpPage() {
         <div className="mx-auto min-w-0 max-w-[1500px] px-4 py-6 md:px-8 md:py-8">
           <AbpHeader
             area="RMCF Castilla · Rival"
-            title={equipo ? `ABP · ${equipo}` : "ABP del Rival"}
+            title={vista === "coding" ? (equipo ? `Coding del ABP · ${equipo}` : "Coding del ABP") : equipo ? `ABP · ${equipo}` : "ABP del Rival"}
             crest={
               equipo ? (
                 <EscudoEquipo
@@ -724,7 +724,7 @@ export default function ScoutRivalAbpPage() {
                 />
               ) : undefined
             }
-            lead="Córners, faltas, penaltis y saques de banda del rival: lanzadores, rematadores y amenaza aérea."
+            lead={vista === "coding" ? "Criba los clips de la jornada, etiquétalos y pásalos a apuntes." : "Córners, faltas, penaltis y saques de banda del rival: lanzadores, rematadores y amenaza aérea."}
             aside={
               equipo && (hayScout || hayDerivado) ? (
                 <SourceBadge tone={hayScout ? "scout" : "derivado"}>

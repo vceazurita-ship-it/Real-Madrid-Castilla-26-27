@@ -302,6 +302,10 @@ export function alertasDeData(
          el número de casos detrás, no se destaca. */
       if (/penalt/i.test(metrica.nombre)) continue;
 
+      /* Lo mismo con las faltas directas a portería (29/10/2026, fútbol): un 100 % de 2 de 2
+         no es dato, y la alerta no lleva el número de intentos. */
+      if (/falta.*directa|directa.*portería/i.test(metrica.nombre)) continue;
+
       if (p >= 95 && (!mejor || p > mejor.percentil)) {
         mejor = {
           nombre: metrica.nombre,
@@ -329,7 +333,13 @@ export function alertasDeData(
         })(),
         fuerza: Math.min(100, (mejor.percentil - 50) * 2),
         enlace: "/data-analisis?area=individual",
-        mira: "Su ficha entera, métrica a métrica, y su evolución respecto al año pasado.",
+        /* Una acción concreta y no el pie genérico (29/10/2026, fútbol). */
+        mira: (() => {
+          const v = formatea(mejor.valor, mejor.unidad as never);
+          const nombre = v.includes("%") ? mejor.nombre.replace(/s*%s*$/, "") : mejor.nombre;
+
+          return `${jugador.jugador}: ${nombre.toLowerCase()} ${v} → ver su ficha en Data análisis`;
+        })(),
       });
     }
 

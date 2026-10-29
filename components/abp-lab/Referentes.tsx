@@ -121,7 +121,7 @@ const POR_QUE = {
 } as const;
 
 /** «Contra quién funciona» y «Se entrena así… Éxito si…»: lo que convierte la rutina en una tarea. */
-function TareaRutina({ r, plegable = false }: { r: RutinaReferente; plegable?: boolean }) {
+function TareaRutina({ r, plegable = false, porDato = false }: { r: RutinaReferente; plegable?: boolean; porDato?: boolean }) {
   const tarea = (
     <>
       <p>
@@ -137,7 +137,12 @@ function TareaRutina({ r, plegable = false }: { r: RutinaReferente; plegable?: b
     <div className="mt-2 space-y-1 text-[12px] leading-snug text-white/65">
       {r.defensa && (
         <p>
-          <span className="font-semibold text-white/85">Contra quién funciona:</span> defensa {DEFENSA_TEXTO[r.defensa]}
+          {porDato ? (
+            /* 29/10/2026: elegida por el dato, no por su defensa: no se dice que el rival defienda así. */
+            <><span className="font-semibold text-white/85">Funciona contra defensa {DEFENSA_TEXTO[r.defensa]}:</span> compruébalo en su vídeo de córners</>
+          ) : (
+            <><span className="font-semibold text-white/85">Contra quién funciona:</span> defensa {DEFENSA_TEXTO[r.defensa]}</>
+          )}
         </p>
       )}
       {plegable ? (
@@ -199,6 +204,9 @@ function EstaSemana({ onAlTaller }: { onAlTaller: (rutina: RutinaReferente, refe
 
   const duro = concede?.percentil != null && concede.percentil >= 67;
 
+  /* 29/10/2026: los tres tonos de EncajeRival (p ≤ 33 les cuesta; 34-66 en la media; ≥ 67 lo defienden bien). */
+  const tono = concede?.percentil == null ? "" : concede.percentil >= 67 ? "Lo defienden bien: " : concede.percentil <= 33 ? "Les cuesta: " : "En la media de la liga: ";
+
   const porDato = duro ? (corners.find(({ x }) => /corto/i.test(x.nombre)) ?? corners[0]) : (corners.find(({ x }) => /bloque/i.test(x.nombre)) ?? corners[0]);
 
   const encaje = porDefensa ?? (concede?.valor != null ? porDato : undefined);
@@ -225,21 +233,20 @@ function EstaSemana({ onAlTaller }: { onAlTaller: (rutina: RutinaReferente, refe
       )}
       {concede?.valor != null && concede.puesto != null && (
         <p className="mt-2 text-[13.5px] leading-snug text-white/75">
-          {nombre} concede {coma(concede.valor)} remates de cada 100 córners en contra ({concede.puesto}.º de {concede.de} que menos concede
+          {nombre} concede {coma(concede.valor)} remates de cada 100 córners en contra ({concede.puesto}.º de {concede.de}, donde el 1.º es el que menos concede
           {concede.mediana != null ? `; la mediana, ${coma(concede.mediana)}` : ""})
           {volumen?.valor != null ? ` y regala ${coma(volumen.valor)} córners por partido` : ""}. Wyscout, {liga?.nombre}.
           {!porDefensa && x ? (
             <>
               {" "}
-              {duro ? "Lo defienden bien: " : "Les cuesta: "}prueba <span className="font-semibold text-white">{x.nombre}</span> ({r ? firma(r) : ""}).
+              {tono}prueba <span className="font-semibold text-white">{x.nombre}</span> ({r ? firma(r) : ""}).
             </>
           ) : null}
         </p>
       )}
-      {!defensa && concede?.valor == null && <p className="mt-2 text-[13.5px] leading-snug text-white/60">Aún no hay datos de balón parado de este rival.</p>}
       {x && r && (
         <>
-          <TareaRutina r={x} />
+          <TareaRutina r={x} porDato={!porDefensa} />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <Cita fuente={x.fuente} />
             <Button icon={FlaskConical} onClick={() => onAlTaller(x, r.id)}>

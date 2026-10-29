@@ -222,7 +222,7 @@ export function AlertasPortada({
                       {alerta.titulo}
                     </span>
 
-                    <span className="mt-0.5 line-clamp-2 block text-[11px] tabular-nums text-white/40">
+                    <span className="mt-0.5 line-clamp-2 block text-[12px] tabular-nums text-white/60">
                       {alerta.cifra}
                     </span>
                   </span>

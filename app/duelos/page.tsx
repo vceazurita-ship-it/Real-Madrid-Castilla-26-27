@@ -390,6 +390,8 @@ export default function DuelosPage() {
   };
 
   const conDato = duelosVistos.filter((d) => d.veredicto !== "sin-datos");
+  /* 29/10/2026: lo que no se ha podido medir no se pinta como tarjeta; va en una línea al final. */
+  const fueraDeLectura = duelos.filter((d) => d.veredicto === "sin-datos" && d.nuestros.length > 0 && d.suyos.length > 0);
   /*
   | Las dos cajas leen cada duelo por su lado (06/10/2026): «dónde les podemos
   | hacer daño» es nuestro con balón contra su sin balón; «dónde nos lo pueden
@@ -579,13 +581,20 @@ export default function DuelosPage() {
                     <p className="mb-3 text-[11px] uppercase tracking-[0.25em] text-white/40">{z.label}</p>
                     <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                       {duelosVistos
-                        .filter((d) => d.def.zona === z.key)
+                        .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos")
                         .map((d) => (
                           <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} />
                         ))}
                     </div>
                   </div>
                 ))}
+
+                {fueraDeLectura.length > 0 && (
+                  <p className="mt-6 text-[11px] text-white/40">
+                    Fuera de la lectura:{" "}
+                    {fueraDeLectura.map((d) => `${nombresDe(d.nuestros)} y ${nombresDe(d.suyos)}`).join("; ")} (minutos insuficientes).
+                  </p>
+                )}
 
                 <Explicativo>
                 <p className="mt-8 border-t border-white/[0.06] pt-4 text-[11px] leading-relaxed text-white/35">
@@ -785,7 +794,8 @@ function Claves({
         <p className="mt-2 text-sm text-white/45">{vacio}</p>
       ) : (
         <ul className="mt-2 space-y-2.5">
-          {[...lista].sort((a, b) => Number(baseDe(a).poca) - Number(baseDe(b).poca)).slice(0, 4).map((d) => {
+          {[...lista].sort((a, b) => Number(baseDe(a).poca) - Number(baseDe(b).poca)).map((d) => {
+            /* 29/10/2026: ya no se recortan a cuatro: la leyenda de arriba cuenta los mismos duelos que la caja enseña. */
             const bloque = d.bloques.find((b) => b.sentido === sentido);
             const valor = bloque?.balance ?? null;
             const marcadas = (bloque?.facetas ?? []).filter((f) => f.veredicto === (sentido === "con" ? "ventaja" : "desventaja"));
@@ -1189,8 +1199,12 @@ function Tarjeta({
         <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: `${color}22`, color: textoDe(color) }}>
           {/* 29/10/2026: «Parejo 0» con +47 y −47 debajo parecía un duelo sin nada;
               si cada sentido pesa y se compensan, se dice que se anulan. */}
-          {d.veredicto === "parejo" && (d.conBalon ?? 0) >= UMBRAL_DUELO && (d.sinBalon ?? 0) <= -UMBRAL_DUELO
-            ? "Se anulan"
+          {modo === "ambos" && (d.conBalon ?? 0) >= UMBRAL_DUELO && (d.sinBalon ?? 0) <= -UMBRAL_DUELO
+            ? Math.abs((d.conBalon ?? 0) + (d.sinBalon ?? 0)) < UMBRAL_DUELO
+              ? "Se anulan"
+              : (d.conBalon ?? 0) + (d.sinBalon ?? 0) < 0
+                ? `En contra ${(d.conBalon ?? 0) + (d.sinBalon ?? 0)} (${d.sinBalon} con su balón)`
+                : `A favor +${(d.conBalon ?? 0) + (d.sinBalon ?? 0)} (+${d.conBalon} con balón nuestro)`
             : `${ROTULO[d.veredicto]}${d.balance !== null ? ` ${d.balance > 0 ? "+" : ""}${d.balance}` : ""}`}
         </span>
       </div>
@@ -1278,7 +1292,7 @@ function Tarjeta({
       )}
       {d.cobertura.con < d.cobertura.de && d.veredicto !== "sin-datos" && (
         <p className="mt-2 text-[10px] text-white/35">
-          Medido en {d.cobertura.con} de {d.cobertura.de} enfrentamientos: en el resto falta muestra de alguno.
+          Medido en {d.cobertura.con} de {d.cobertura.de} enfrentamientos.
         </p>
       )}
     </div>

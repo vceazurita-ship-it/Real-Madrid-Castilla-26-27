@@ -73,6 +73,8 @@ export function DatosEstado() {
   }, [hayBajada]);
 
   /*
+  | Ronda 2 (29/10/2026): vale para todas las pantallas, no sólo la portada;
+  | si no se ha tocado nada, la hoja nueva se aplica sola y el aviso no queda fijo.
   | En la portada lo nuevo se pone solo (29/10/2026, experto de fútbol): la
   | cabecera del próximo partido llegó a mezclar la clasificación de la
   | jornada 8 con el último resultado de la 9. Es de sólo lectura, así que si
@@ -83,7 +85,7 @@ export function DatosEstado() {
   const ruta = usePathname();
 
   useEffect(() => {
-    if (ruta !== "/" || !estado.hayNuevas) return;
+    if (!estado.hayNuevas) return;
 
     try {
       if (performance.now() > 45_000 || sessionStorage.getItem("rmcf-tocado") === ruta) return;

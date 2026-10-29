@@ -193,11 +193,40 @@ export function revisaSemana({
         : `Ninguna tarea tiene minutos todavía: ponle tiempo o pide el boceto.`,
     });
   } else if (minutos > objetivo.maximo) {
+    /* 29/10/2026: la tarjeta decía cuánto sobra pero no de dónde quitarlo. Se
+       señala el día con más minutos y lo que se repite, y se puede abrir. */
+    const porDia = new Map<DiaKey, number>();
+
+    for (const { dia, trabajo } of entradas) porDia.set(dia, (porDia.get(dia) ?? 0) + (trabajo.minutos || 0));
+
+    const [diaMayor, minutosMayor] = [...porDia.entries()].sort((x, y) => y[1] - x[1])[0];
+    const delMayor = entradas.filter(({ dia }) => dia === diaMayor);
+    const masLarga = [...delMayor].sort((x, y) => (y.trabajo.minutos || 0) - (x.trabajo.minutos || 0))[0];
+
+    const repetidas = new Map<string, { dias: Set<DiaKey>; minutos: number }>();
+
+    for (const { dia, trabajo } of entradas) {
+      const clave = [...trabajo.aspectos].sort().join("+");
+      const previa = repetidas.get(clave) ?? { dias: new Set<DiaKey>(), minutos: 0 };
+
+      previa.dias.add(dia);
+      previa.minutos += trabajo.minutos || 0;
+      repetidas.set(clave, previa);
+    }
+
+    const repetida = [...repetidas.entries()].filter(([, v]) => v.dias.size >= 3).sort((x, y) => y[1].minutos - x[1].minutos)[0];
+
     puntos.push({
       id: "minutos",
       tono: "aviso",
       titulo: `${minutos - objetivo.maximo}′ por encima del objetivo`,
-      detalle: `${minutos}′ para ${objetivo.minimo}-${objetivo.maximo}′: lo que sobra se le quita al resto de la sesión.`,
+      detalle: `${minutos}′ para ${objetivo.minimo}-${objetivo.maximo}′. El ${nombreDia(diaMayor)} lleva ${minutosMayor}′ en ${plural(delMayor.length, "tarea", "tareas")}${
+        repetida
+          ? `; ${repetida[0].split("+").map((a) => nombreAspecto(a as AspectoKey)).join(" y ").toLowerCase()} sale ${repetida[1].dias.size} días (${repetida[1].minutos}′): dejar uno`
+          : ""
+      }.`,
+      dia: diaMayor,
+      trabajo: masLarga?.trabajo,
     });
   } else {
     puntos.push({

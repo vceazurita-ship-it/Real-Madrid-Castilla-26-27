@@ -49,7 +49,7 @@ export default function WeekPanel({
   /* Se abre en la pestaña que tiene contenido; si la semana está vacía, en
      «Imágenes», con lo último subido a la vista y «Subir» a un botón de
      distancia: el cuerpo técnico entra a consultar antes que a subir. */
-  const [tab, setTab] = useState<Tab>(
+  const [tabElegida, setTab] = useState<Tab>(
     (week?.images?.length ?? 0) > 0
       ? "images"
       : (week?.pdfs?.length ?? 0) > 0
@@ -68,13 +68,26 @@ export default function WeekPanel({
   const images = useMemo(() => week?.images ?? [], [week]);
   const pdfs = useMemo(() => week?.pdfs ?? [], [week]);
 
-  /* «Lo último subido» sólo si es del tipo de la pestaña abierta. */
+  /* 29/10/2026: una semana sin nada no enseña pestañas vacías ni rótulos de
+     hueco: sólo «Subir» y, si lo hay, lo último subido. Con material, se
+     ocultan las pestañas sin archivos. */
+  const vacia = images.length + pdfs.length === 0;
+
+  const visibles: Tab[] = vacia
+    ? ["upload"]
+    : [
+        ...(images.length > 0 ? (["images"] as Tab[]) : []),
+        ...(pdfs.length > 0 ? (["pdfs"] as Tab[]) : []),
+        "upload",
+      ];
+
+  const tab: Tab = visibles.includes(tabElegida) ? tabElegida : visibles[0];
+
   const hayUltimo =
-    tab !== "upload" &&
-    images.length + pdfs.length === 0 &&
+    vacia &&
     !!ultimaConArchivos &&
     !!onSelectWeek &&
-    ((tab === "images" ? ultimaConArchivos.images : ultimaConArchivos.pdfs) ?? []).length > 0;
+    (ultimaConArchivos.images.length + (ultimaConArchivos.pdfs ?? []).length) > 0;
 
   // Al cambiar de semana volvemos a la pestaña con contenido más relevante.
   // Se ajusta durante el render para no encadenar un repintado extra.
@@ -226,6 +239,8 @@ export default function WeekPanel({
       { id: "upload", label: "Subir", icon: <UploadCloud size={16} /> },
     ];
 
+  const pestanas = tabs.filter((item) => visibles.includes(item.id));
+
   return (
     <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#11161D]">
       {/* CABECERA */}
@@ -278,7 +293,7 @@ export default function WeekPanel({
         {/* PESTAÑAS */}
 
         <div className="-mb-px mt-6 flex gap-1 overflow-x-auto">
-          {tabs.map((item) => (
+          {pestanas.map((item) => (
             <button
               key={item.id}
               type="button"
@@ -320,6 +335,16 @@ export default function WeekPanel({
           <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <p className="mb-3 text-xs uppercase tracking-wider text-white/45">
               Lo último subido · {ultimaConArchivos.week}
+              {(ultimaConArchivos.start || ultimaConArchivos.end) && ` · ${weekRangeLabel(ultimaConArchivos)}`}
+              {" · "}
+              {[
+                ultimaConArchivos.images.length > 0 &&
+                  `${ultimaConArchivos.images.length} ${ultimaConArchivos.images.length === 1 ? "imagen" : "imágenes"}`,
+                (ultimaConArchivos.pdfs ?? []).length > 0 &&
+                  `${(ultimaConArchivos.pdfs ?? []).length} ${(ultimaConArchivos.pdfs ?? []).length === 1 ? "PDF" : "PDFs"}`,
+              ]
+                .filter(Boolean)
+                .join(" y ")}
             </p>
 
             {(ultimaConArchivos.pdfs ?? []).length > 0 && (

@@ -27,6 +27,9 @@ import { slugClave } from "@/lib/rivals/media";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import type { RatingsSeason } from "@/lib/ratings/types";
+import type { FilaJugador } from "@/lib/data-analisis/leer";
+import { baseSuyaDe, onceNuestroDe, onceSuyoDe, nuestrosDe, suyosDe } from "@/lib/duelos-onces";
+import { normalizaDuelos, type JugadorDuelo } from "@/lib/duelos";
 import type { Player } from "@/types/player";
 
 import { DIBUJO_DE_PARTIDA, numerosDelOnce } from "./dosOnces";
@@ -214,19 +217,99 @@ export async function suOnceTeorico(rival: string) {
   return { tokens, fuente, equipo, nuestroAMano: duelos?.nuestro ?? {} };
 }
 
-/** Los veintidós de la semana. */
+/**
+ * Los veintidós de la semana, con el MISMO motor que /duelos (29/10/2026).
+ *
+ * El cuerpo técnico no puede proyectar un once distinto del que se analiza:
+ * antes la pizarra armaba el suyo con otra regla y salían diez fichas, o
+ * titulares que /duelos y /rivals no ponían. Aquí se llama a las mismas
+ * funciones de `lib/duelos-onces`. Si Wyscout no contesta, queda la vía
+ * anterior (`oncesPorLaVieja`).
+ */
 export async function oncesDeLaSemana(plantilla: Player[]): Promise<OncesSemana | null> {
   const semana = await semanaActual();
 
   if (!semana) return null;
 
-  const [temporada, suyo] = await Promise.all([
+  const [datos, filas, informeDoc, temporada] = await Promise.all([
+    traeJson<{ ok?: boolean; jugadores?: FilaJugador[] }>("/api/data-analisis").catch(() => null),
+    traeJson<Fila[]>("/api/rivals?action=rivalesPlantillas").catch(() => [] as Fila[]),
+    leeDoc<InformeDoc>("rivals:informe"),
     traeJson<{ success?: boolean; season?: RatingsSeason }>("/api/ratings/load")
       .then((r) => (r?.success ? r.season ?? null : null))
       .catch(() => null),
-    suOnceTeorico(semana.rival),
   ]);
 
+  const jugadores = datos?.jugadores ?? [];
+  const hoja = Array.isArray(filas) ? filas : [];
+  const equipo = texto(hoja.find((f) => mismoClub(texto(f.NOMBRE_EQUIPO), semana.rival))?.NOMBRE_EQUIPO) || semana.rival;
+
+  /* Sin Wyscout no hay forma de repartir igual que Duelos: la vía anterior. */
+  if (jugadores.length === 0 || !hoja.some((f) => texto(f.NOMBRE_EQUIPO) === equipo)) return oncesPorLaVieja(plantilla, semana, temporada);
+
+  const [onceDoc, duelosDoc] = await Promise.all([
+    leeDoc<unknown>(rivalOnceKey(equipo)),
+    leeDoc<unknown>(`duelos:${slugClave(equipo)}`),
+  ]);
+  const aMano = normalizaDuelos(duelosDoc);
+
+  const nuestros = nuestrosDe(jugadores, plantilla);
+  const suyos = suyosDe(hoja, equipo, jugadores);
+  const baseSuya = baseSuyaDe(suyos, normalizarOnce(onceDoc).titulares, findInforme(informeDoc, equipo));
+  const reparto = huecosDelUltimoOnce(temporada, plantilla);
+  const baseNuestra = reparto.ultimo ? Object.fromEntries(Object.entries(reparto.huecos).filter(([, id]) => id)) : null;
+
+  const onceNuestro = onceNuestroDe(nuestros, aMano.nuestro, baseNuestra, plantilla);
+  const onceSuyo = onceSuyoDe(suyos, baseSuya.lista, aMano.suyo);
+
+  const fichaDe = new Map(plantilla.map((p) => [p.id, p]));
+  const idHoja = new Map(hoja.map((f) => [playerKey(f as never), texto(f.ID_JUGADOR)]));
+
+  const tokens: TacticToken[] = HUECOS.flatMap((h) => {
+    const ficha = FICHA_DEL_HUECO[h.clave];
+    const nuestro: JugadorDuelo | undefined = onceNuestro[h.clave];
+    const suyo: JugadorDuelo | undefined = onceSuyo[h.clave];
+
+    if (!ficha) return [];
+
+    const sitio = sitioDeFicha(ficha);
+    const p = nuestro?.fichaId ? fichaDe.get(nuestro.fichaId) : undefined;
+
+    return [
+      {
+        id: `once-home-${ficha}`,
+        kind: "home" as const,
+        label: p?.dorsal ? String(p.dorsal) : NUMERO_DEL_HUECO[h.clave],
+        nombre: p ? p.apodo || p.nombre : nuestro?.nombre,
+        foto: p?.foto ?? nuestro?.foto,
+        posicion: p?.posicion ?? nuestro?.posicion,
+        ...sitio,
+      },
+      {
+        id: suyo ? rivalTokenId(idHoja.get(suyo.clave) || `${equipo}-${suyo.nombre}`) : `once-away-${ficha}`,
+        kind: "away" as const,
+        label: suyo?.dorsal || NUMERO_DEL_HUECO[h.clave],
+        nombre: suyo?.nombre,
+        foto: suyo?.foto,
+        posicion: suyo?.posicion,
+        x: 100 - sitio.x,
+        y: PITCH_HEIGHT - sitio.y,
+      },
+    ];
+  });
+
+  return {
+    semana: semana.semana,
+    rival: equipo,
+    tokens: [...sinNumeroRepetido(tokens.filter((t) => t.kind === "home")), ...sinNumeroRepetido(tokens.filter((t) => t.kind === "away"))],
+    fuenteNuestra: `${fuenteUltimoOnce(reparto)}${Object.keys(aMano.nuestro).length ? ", con lo cambiado en Duelos" : ""}`,
+    fuenteSuya: `${baseSuya.fuente}${Object.keys(aMano.suyo).length ? ", con lo cambiado en Duelos" : ""}`,
+  };
+}
+
+/** La vía anterior, sólo si Wyscout o las plantillas no contestan. */
+async function oncesPorLaVieja(plantilla: Player[], semana: { semana: string; rival: string }, temporada: RatingsSeason | null): Promise<OncesSemana> {
+  const suyo = await suOnceTeorico(semana.rival);
   const nuestro = nuestroUltimoOnce(temporada, plantilla, suyo.nuestroAMano);
 
   return {

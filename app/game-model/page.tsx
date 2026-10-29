@@ -249,6 +249,20 @@ export default function GameModelPage() {
   }, [data, fase]);
 
   /* 29/10/2026: si el bloque sólo tiene un apartado («GENÉRICO»), repetirlo en el botón no aporta nada. */
+  const normaliza = (t: string) =>
+    t
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .trim()
+      .toLowerCase();
+
+  /* 29/10/2026: «GENÉRICO» (o un apartado igual al bloque) tampoco se repite en el botón aunque el bloque tenga varios. */
+  const esGenerico = (a?: string, b?: string) =>
+    !!a && (normaliza(a) === "generico" || normaliza(a) === normaliza(b ?? ""));
+
+  const sinRotuloApartado = (i: number) =>
+    apartadoUnico(ruta[i]?.bloque) || esGenerico(ruta[i]?.apartado, ruta[i]?.bloque);
+
   const apartadoUnico = (b?: string) => ruta.filter((x) => x.bloque === b).length === 1;
 
   const rutaIndex = ruta.findIndex(
@@ -821,7 +835,7 @@ export default function GameModelPage() {
                     <span className="block text-[10px] uppercase tracking-widest text-gray-600">
                       {ruta[rutaIndex - 1]?.bloque}
                     </span>
-                    {!apartadoUnico(ruta[rutaIndex - 1]?.bloque) && (
+                    {!sinRotuloApartado(rutaIndex - 1) && (
                       <span className="block truncate">
                         {ruta[rutaIndex - 1]?.apartado}
                       </span>
@@ -842,7 +856,7 @@ export default function GameModelPage() {
                     <span className="block text-[10px] uppercase tracking-widest text-gray-600">
                       {ruta[rutaIndex + 1]?.bloque}
                     </span>
-                    {!apartadoUnico(ruta[rutaIndex + 1]?.bloque) && (
+                    {!sinRotuloApartado(rutaIndex + 1) && (
                       <span className="block truncate">
                         {ruta[rutaIndex + 1]?.apartado}
                       </span>

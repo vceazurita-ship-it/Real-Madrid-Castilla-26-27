@@ -2313,7 +2313,7 @@ const conclusiones = useMemo(() => {
 
   if (zona && zona.valor > 0) {
     frases.push(
-      `Zona que más concede: ${hablado(zona.nombre)},${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión.`,
+      `Zona que más concede: ${hablado(zona.nombre).toLowerCase()}, ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión${zona.n < 5 ? " (tendencia, pocas acciones)" : ""}. Se trabaja la vigilancia de esa zona y la salida del portero; al vídeo del lunes.`,
     );
   }
 
@@ -2609,7 +2609,7 @@ const pie = (
   hint="Acciones defendidas"
   />
   <Card
-  title="% Remate"
+  title="Remate concedido"
   value={
     metrics.total
       ? `${(
@@ -2624,7 +2624,7 @@ const pie = (
   />
 
 <Card
-  title="xG / Remate"
+  title="Goles esperados por remate"
   value={
     metrics.shots
       ? dosDecimales(metrics.xg / metrics.shots)

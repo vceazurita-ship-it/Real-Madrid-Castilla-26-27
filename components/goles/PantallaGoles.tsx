@@ -202,17 +202,20 @@ function Tabla({ cabeza, filas, pie }: { cabeza: string[]; filas: FilaTabla[]; p
  * si es peor (más de un 10 %), y nada si está en la media. La flecha va por
  * si el color no se distingue (modo día, pantalla del vestuario).
  */
-function Contra({ valor, liga, mejorAlto, dec = 1, sufijo = "" }: { valor: number; liga: number; mejorAlto: boolean; dec?: number; sufijo?: string }) {
+function Contra({ valor, liga, mejorAlto, dec = 1, sufijo = "", n }: { valor: number; liga: number; mejorAlto: boolean; dec?: number; sufijo?: string; n?: number }) {
+  /* 29/10/2026: con menos de 5 partidos la flecha no juzga: gris y con los partidos a la vista. */
+  const corta = n !== undefined && n < 5;
   /* Con valores que pueden ser negativos (goles menos xG) el 10 % no vale: se mira la diferencia. */
   const margen = liga > 0 ? liga * 0.1 : 0.1;
-  const mejor = mejorAlto ? valor > liga + margen : valor < liga - margen;
-  const peor = mejorAlto ? valor < liga - margen : valor > liga + margen;
+  const mejor = !corta && (mejorAlto ? valor > liga + margen : valor < liga - margen);
+  const peor = !corta && (mejorAlto ? valor < liga - margen : valor > liga + margen);
 
   return (
     <span style={{ color: mejor ? MEJOR : peor ? PEOR : undefined }} title={`Liga: ${fmt(liga, dec)}${sufijo}`}>
       {mejor ? "▲ " : peor ? "▼ " : ""}
       {fmt(valor, dec)}
       {sufijo}
+      {corta ? ` (${n} ${n === 1 ? "partido" : "partidos"})` : ""}
     </span>
   );
 }
@@ -754,7 +757,7 @@ export function PantallaGoles() {
 
           {/* ---------------- lo importante ---------------- */}
           {importante.length > 0 ? (
-          <Panel title="Lo importante"subtitle={`${nombreEquipo(equipo)} ·${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaEquipo > 0 ? `, hasta la J${jUltimaEquipo}` : ""}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}.${incompleto ? "" : " Siempre comparado con la media de la liga."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
+          <Panel title="Lo importante"subtitle={`${nombreEquipo(equipo)} · ${jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario} partidos jugados` : `${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}`}${jUltimaEquipo > 0 ? `, hasta la J${jUltimaEquipo}` : ""}${condicion === "todos" ? "" : ` · sólo de ${condicion}`}.${incompleto ? "" : " Siempre comparado con la media de la liga."}${sinMinuto.length ? ` En ${sinMinuto.length === 1 ? "un partido" : `${sinMinuto.length} partidos`} falta el minuto de algún gol: cuenta en los totales y no en las franjas.` : ""}`} icon={Lightbulb}>
             <ul className="space-y-2.5">
               {importante.map((frase, i) => (
                 <li key={i} className="flex gap-2.5 text-[13px] leading-relaxed text-white/80">
@@ -792,7 +795,7 @@ export function PantallaGoles() {
                   e.G,
                   e.E,
                   e.P,
-                  <Contra key={k} valor={media(e.G * 3 + e.E, e.n)} liga={media(l.G * 3 + l.E, l.n)} mejorAlto />,
+                  <Contra key={k} valor={media(e.G * 3 + e.E, e.n)} liga={media(l.G * 3 + l.E, l.n)} mejorAlto n={e.n} />,
                   fmt(media(l.G * 3 + l.E, l.n)),
                 ];
               })}

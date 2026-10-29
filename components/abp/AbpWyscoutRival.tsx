@@ -83,20 +83,35 @@ function queHacemosConCentros(aspectos: Aspecto[]) {
   const filas = aspectos.flatMap((a) => a.filas);
   const volumen = filas.find((f) => f.nombre === "Centros laterales");
   const acierto = filas.find((f) => f.nombre === "Centros precisos %");
+  const recibe = filas.find((f) => f.nombre === "Centros que recibe");
 
   if (!volumen || !acierto) return "";
 
   const muchos = volumen.valor > volumen.mediana;
-  const bien = acierto.valor > acierto.mediana;
+  /* 29/10/2026: «bien» o «mal» sólo si el acierto se separa de la mediana más de
+     2 puntos; con 33,8 % frente a 33,9 % no es poco, es lo de la liga. */
+  const dif = acierto.valor - acierto.mediana;
+  const bien = dif > 2;
+  const mal = dif < -2;
 
   /* La cifra que sostiene la consigna, con su mediana. */
   const cifra = ` (${cifra1(volumen.valor, volumen.unidad)} centros por partido frente a una mediana de ${cifra1(volumen.mediana, volumen.unidad)}; acierto ${cifra1(acierto.valor, acierto.unidad)} frente a ${cifra1(acierto.mediana, acierto.unidad)})`;
 
-  if (muchos && bien) return `centra mucho y con acierto: cerrar el carril exterior y proteger el segundo palo${cifra}.`;
-  if (muchos) return `centra mucho y acierta poco: dejarle centrar y ganar el área, sin perseguir el balón hasta la banda${cifra}.`;
-  if (bien) return `centra poco pero con acierto: cuando lo hace, tapar al rematador del segundo palo${cifra}.`;
+  let propio: string;
 
-  return `centra poco y mal: cerrar el pase interior antes que el centro${cifra}.`;
+  if (muchos && bien) propio = `centra mucho y con acierto: cerrar el carril exterior y proteger el segundo palo${cifra}.`;
+  else if (muchos && mal) propio = `centra mucho y acierta poco: dejarle centrar y ganar el área, sin perseguir el balón hasta la banda${cifra}.`;
+  else if (muchos) propio = `centra mucho, con un acierto como el de la liga: cerrar el carril exterior y ganar el área${cifra}.`;
+  else if (bien) propio = `centra poco pero con acierto: cuando lo hace, tapar al rematador del segundo palo${cifra}.`;
+  else if (mal) propio = `centra poco y mal: cerrar el pase interior antes que el centro${cifra}.`;
+  else propio = `centra poco, con un acierto como el de la liga: cerrar el pase interior antes que el centro${cifra}.`;
+
+  /* Lo que recibe (menos es mejor): si es más que la mediana, se le ataca por fuera. */
+  if (recibe && recibe.valor > recibe.mediana) {
+    propio += ` Recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}): atacarle por fuera, con extremo y lateral doblando y tres hombres en el área.`;
+  }
+
+  return propio;
 }
 
 export function AbpWyscoutRival({

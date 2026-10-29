@@ -15,7 +15,7 @@ import { completaNombres } from "@/lib/rivals/completa-nombres";
 import { comoNombre } from "@/lib/duelos-onces";
 import { formatea } from "@/lib/data-analisis/metricas";
 import { aJornada, claveFecha } from "@/lib/abp/jornada";
-import { POR_VENIR, claveDeHoy, jornadaJugada, proximosEnfrentamientos } from "@/lib/rivals/orden-calendario";
+import { POR_VENIR, cargaOrdenRivales, claveDeHoy, jornadaJugada, proximosEnfrentamientos } from "@/lib/rivals/orden-calendario";
 import { toast } from "sonner";
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
@@ -133,6 +133,9 @@ const SIGLAS: { sigla: string; patron: RegExp; significado: string }[] = [
   { sigla: "DC", patron: /(?<![\p{L}\d])DCs?(?![\p{L}\d])/u, significado: "delantero centro" },
   { sigla: "CP", patron: /(?<![\p{L}\d])CP(?![\p{L}\d])/u, significado: "ataque posicional" },
   { sigla: "CR", patron: /(?<![\p{L}\d])CR(?![\p{L}\d])/u, significado: "contraataque" },
+  { sigla: "MdJ", patron: /(?<![p{L}d])MdJ(?![p{L}d])/u, significado: "día de partido (MD-1: un día antes)" },
+  { sigla: "Z1 / Z2", patron: /(?<![p{L}d])Z[123](?![p{L}d])/u, significado: "zonas del campo" },
+  { sigla: "PTO", patron: /(?<![p{L}d])PTO(?![p{L}d])/u, significado: "portero" },
   { sigla: "ABP", patron: /(?<![\p{L}\d])ABPs?(?![\p{L}\d])/u, significado: "balón parado" },
 ];
 
@@ -150,7 +153,7 @@ type FilaEstilo = {
 */
 function lineaEstilo(f: FilaEstilo) {
   if (f.nombre !== "PPDA") {
-    return `${f.nombre}: ${formatea(f.valor, f.unidad)} (la mediana de la liga es ${formatea(f.mediana, f.unidad)})`;
+    return `${f.nombre}: ${formatea(f.valor, f.unidad)} (la mediana de la liga es ${formatea(f.mediana, f.unidad)})${/posesi/i.test(f.nombre) ? " · más posesión, más control del juego" : ""}`;
   }
 
   const uno = (n: number) => n.toFixed(1).replace(".", ",");
@@ -161,7 +164,7 @@ function lineaEstilo(f: FilaEstilo) {
       ? "aprieta más arriba que la mayoría"
       : "espera más abajo que la mayoría";
 
-  return `Presión: ${lectura} (deja ${uno(f.valor)} pases por acción defensiva; la mediana deja ${uno(f.mediana)})`;
+  return `Presión: ${lectura} (deja ${uno(f.valor)} pases por acción defensiva; la mediana deja ${uno(f.mediana)}) · menos pases, más presión`;
 }
 
 /**
@@ -191,8 +194,34 @@ function enlacePizarraAbp(rival: Rival | null) {
 }
 
 export default function ScoutRivalCollective() {
+  /* La fecha del partido, la de BeSoccer (29/10/2026, experto de fútbol): la
+     hoja trae «…T23:00:00Z» (el 1/11 en Madrid) y se juega el sábado 31/10.
+     Sólo cambia lo que se ve; el campo FECHA de la hoja no se toca. */
+  const [fechasReales, setFechasReales] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let vivo = true;
+
+    void cargaOrdenRivales().then((orden) => {
+      if (!vivo) return;
+
+      const mapa: Record<string, string> = {};
+
+      for (const partido of orden.partidos) {
+        if (partido.fecha && partido.jornada) mapa[`${partido.equipo}|${partido.jornada}`] = partido.fecha;
+      }
+
+      setFechasReales(mapa);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
   const [rivales, setRivales] = useState<Rival[]>([]);
   const [rivalActivo, setRivalActivo] = useState<Rival | null>(null);
+  const fechaVista = fechasReales[`${rivalActivo?.EQUIPO}|${rivalActivo?.JORNADA}`] ?? rivalActivo?.FECHA;
 
   const [modoEdicion, setModoEdicion] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -437,7 +466,7 @@ export default function ScoutRivalCollective() {
 
   /* La primera línea de las tres conclusiones que más se buscan. */
   const esencial = (() => {
-    const campos = ["JUGADORES_CLAVE", "DEBILIDADES_INDIVIDUALES", "CLAVES_PARTIDO"].map((campo) => ({
+    const campos = ["JUGADORES_CLAVE", "DEBILIDADES_INDIVIDUALES"].map((campo) => ({
       campo,
       titulo: CONCLUSIONES.find((f) => f.campo === campo)?.titulo ?? "",
       lineas: valorDe(campo)
@@ -484,7 +513,10 @@ export default function ScoutRivalCollective() {
       .join("\n");
   };
 
-  const conclusionesVisibles = CONCLUSIONES.filter((f) => modoEdicion || !esVacio(restoConclusion(f.campo)));
+  /* Estado del equipo y claves emocionales ya están en el Plan de partido (29/10/2026): en lectura no se repiten aquí. */
+  const conclusionesVisibles = CONCLUSIONES.filter(
+    (f) => modoEdicion || (f.campo !== "ESTADO_EQUIPO" && f.campo !== "CLAVES_EMOCIONALES" && !esVacio(restoConclusion(f.campo))),
+  );
 
   /* Las siglas que aparecen en lo que ha escrito el analista. */
   const siglasUsadas = (() => {
@@ -1050,6 +1082,9 @@ export default function ScoutRivalCollective() {
                   </ul>
                 </div>
               )}
+              <Link href={enlacePlanDePartido(rivalActivo)} className="mt-3 inline-block text-sm font-semibold text-[#C8A96B] hover:underline">
+                Ver Plan de partido →
+              </Link>
               <p className="mt-2 text-[11px] text-white/40">
                 Fuente: las conclusiones que ha escrito el analista tras ver los partidos del rival
                 {conclusionesVisibles.length > 0 ? "; el resto está abajo, en «Conclusiones»" : ""}.
@@ -1120,7 +1155,7 @@ export default function ScoutRivalCollective() {
               const lado = String(rivalActivo?.LOCAL_VISITANTE ?? "").trim();
               const partes = [
                 jornada ? (/^\d+$/.test(jornada) ? `J${jornada}` : jornada) : "",
-                formatDate(rivalActivo?.FECHA, true),
+                formatDate(fechaVista, true),
                 lado ? lado.charAt(0).toUpperCase() + lado.slice(1).toLowerCase() : "",
               ].filter(Boolean);
 
@@ -1145,7 +1180,7 @@ export default function ScoutRivalCollective() {
                 icon={CalendarDays}
                 label="Fecha"
                 valor={rivalActivo?.FECHA}
-                mostrar={formatDate(rivalActivo?.FECHA)}
+                mostrar={formatDate(fechaVista)}
                 editando={modoEdicion}
                 onChange={(v) => setCampo("FECHA", v)}
               />

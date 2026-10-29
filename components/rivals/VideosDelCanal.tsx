@@ -184,6 +184,26 @@ const fecha = (iso: string) => {
       });
 };
 
+
+/*
+| «J 06 ATLÉTICO DE MADRID B» → «J6 · Atlético de Madrid B» y fuera el
+| «INDIVIDUAL» del final (29/10/2026): un solo formato en el desplegable.
+*/
+function nombreDeLista(nombre: string) {
+  const m = /^s*Js*0*(d+)s+(.*)$/i.exec(nombre);
+  const resto = (m ? m[2] : nombre).replace(/s+INDIVIDUALs*$/i, "").trim();
+  const chicas = new Set(["de", "del", "la", "el", "los", "las", "y"]);
+  const bonito = resto === resto.toUpperCase()
+    ? resto
+        .toLowerCase()
+        .split(/s+/)
+        .map((w, k) => (w.length <= 2 && k > 0 && !chicas.has(w) ? w.toUpperCase() : k > 0 && chicas.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+        .join(" ")
+    : resto;
+
+  return m ? `J${Number(m[1])} · ${bonito}` : bonito;
+}
+
 export function VideosDelCanal({
   equipo,
   plantilla,
@@ -717,7 +737,7 @@ export function VideosDelCanal({
 
           {estado.listas.map((item) => (
             <option key={item.id} value={item.id} className="bg-[#11161C]">
-              {item.nombre} ({item.cuenta})
+              {nombreDeLista(item.nombre)} · {item.cuenta} {item.cuenta === 1 ? "vídeo" : "vídeos"}
             </option>
           ))}
         </select>
@@ -862,7 +882,7 @@ export function VideosDelCanal({
       )}
 
       {lista && !cargandoVideos && videos.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <div className="scrollbar-none mt-3 flex items-center gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_88%,transparent)] [&_button]:shrink-0 [&_span]:shrink-0 sm:flex-wrap sm:overflow-visible sm:pb-0 sm:[mask-image:none]">
           <Chip
             activo={!soloDe}
             onClick={() => setSoloDe("")}

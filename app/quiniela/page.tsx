@@ -262,12 +262,22 @@ export default function QuinielaPage() {
   const laJornada: JornadaQuiniela =
     doc.jornadas[String(jornada)] ?? jornadaVacia(jornada);
 
-  const tabla = useMemo(
+  const tablaBase = useMemo(
     () => ranking(doc, jugadores, jornada),
     [doc, jugadores, jornada],
   );
 
-  const maxJugados = tabla.reduce((max, fila) => Math.max(max, fila.total.jugados), 0);
+  const maxJugados = tablaBase.reduce((max, fila) => Math.max(max, fila.total.jugados), 0);
+
+  /* Quien ha apostado menos de la mitad que el que más sale al final, fuera de la
+     ordenación por porcentaje (29/10/2026): un 9 % sobre 5 apuestas no es un último
+     puesto, es poca muestra. */
+  const pocasApuestas = (fila: (typeof tablaBase)[number]) => maxJugados > 0 && fila.total.jugados * 2 < maxJugados;
+
+  const tabla = useMemo(
+    () => [...tablaBase.filter((f) => !(maxJugados > 0 && f.total.jugados * 2 < maxJugados)), ...tablaBase.filter((f) => maxJugados > 0 && f.total.jugados * 2 < maxJugados)],
+    [tablaBase, maxJugados],
+  );
 
   const rarezas = useMemo(
     () => rarezasDe(laJornada, jugadores),
@@ -598,6 +608,7 @@ export default function QuinielaPage() {
                                         porcentaje engañoso: se dice por qué. */}
                                     {fila.total.jugados < maxJugados && (
                                       <span className="block truncate text-[10px] text-white/40">
+                                        {pocasApuestas(fila) ? "pocas apuestas · " : ""}
                                         {`apostó ${fila.total.jugados} de ${maxJugados} partidos`}
                                       </span>
                                     )}
@@ -665,7 +676,7 @@ export default function QuinielaPage() {
             <AbpHeader
               area="RMCF Castilla · Entre nosotros"
               title="La Quiniela de la Semana"
-              lead="Los nueve partidos de la jornada —la liga sin el Castilla—, el 1-X-2 de cada uno y el ranking de acierto de la temporada."
+              lead="Los nueve partidos de la jornada (la liga sin el Castilla), el 1-X-2 de cada uno y el ranking de acierto de la temporada."
               aside={
                 /* El «error» de aquí es siempre de LEER: un guardado fallido
                    se cuenta en su aviso y deja el estado en «listo». El
@@ -1379,35 +1390,29 @@ export default function QuinielaPage() {
                   Cada uno cuenta desde su primera apuesta.
                 </p>
 
-                <details className="mt-1 text-[11px] leading-relaxed text-white/40">
-                  <summary className="cursor-pointer select-none text-white/50 hover:text-white">
-                    Ver reglas de la comida
-                  </summary>
-                  <p className="mt-1">
-                    Lo que no jugó antes de entrar no suma como fallo. Si hay
-                    empate en el segundo puesto no paga ninguno de los
-                    empatados —inventar un desempate no lo acepta nadie—, salvo
-                    que así no pagase nadie: entonces sólo se invita a quien va
-                    por delante. Con cero aciertos no se invita a nadie.
-                  </p>
-                </details>
               </Panel>
             </div>
 
             <div className="mt-5">
               <Notice tone="info" title="Cómo se cuenta">
                 Sólo cuentan los partidos ya jugados. No pronosticar cuenta como
-                fallo. «Jornadas» son las que se han ganado: acertar más que
-                todos los demás.
+                fallo.
                 <details className="mt-1 text-white/60">
                   <summary className="cursor-pointer select-none">
-                    Ver reglas del acierto
+                    Reglas
                   </summary>
                   <p className="mt-1">
                     Un partido sin resultado no cuenta para nadie, ni a favor
                     ni en contra. No pronosticar sólo es fallo cuando el
                     partido se ha jugado. Si empatan dos en una jornada, la
                     ganan los dos.
+                  </p>
+                  <p className="mt-1">
+                    La comida: lo que no jugó antes de entrar no suma como
+                    fallo. Si hay empate en el segundo puesto no paga ninguno
+                    de los empatados, salvo que así no pagase nadie: entonces
+                    sólo se invita a quien va por delante. Con cero aciertos
+                    no se invita a nadie.
                   </p>
                 </details>
               </Notice>

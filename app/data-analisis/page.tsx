@@ -891,7 +891,7 @@ export default function DataAnalisisPage() {
         .filter((p) => temporadaDe(p.fecha) === laQueMando)
         .sort((a, b) => a.fecha.localeCompare(b.fecha))
         .map((p) => ({
-          etiqueta: p.fecha.slice(5),
+          etiqueta: `${p.fecha.slice(8, 10)}/${p.fecha.slice(5, 7)}`,
           valor: valorEnPartido(met, p),
           nota: `${p.rival} · ${p.golesFavor}-${p.golesContra}`,
         }));
@@ -1608,7 +1608,7 @@ export default function DataAnalisisPage() {
                                     >
                                       {diff === null
                                         ? "—"
-                                        : `${diff >= 0 ? "+" : ""}${diff.toFixed(2)}`}
+                                        : `${diff >= 0 ? "+" : "−"}${Math.abs(diff).toFixed(2).replace(".", ",")}`}
                                     </td>
                                   </tr>
                                 );
@@ -3170,7 +3170,7 @@ function DistribucionDeMetrica({
   const puntos = [...nuestros]
     .sort((a, b) => a.fecha.localeCompare(b.fecha))
     .map((fila) => ({
-      etiqueta: `${fila.fecha.slice(5)} ${fila.rival}`,
+      etiqueta: `${fila.fecha.slice(8, 10)}/${fila.fecha.slice(5, 7)} · ${fila.rival}`,
       valor: valorEnPartido(met, fila),
       nota: `${fila.golesFavor}-${fila.golesContra}`,
     }))

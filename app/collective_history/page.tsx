@@ -24,7 +24,7 @@ function GraficaPuntos({
 
   const W = 640;
   const H = 220;
-  const M = { l: 34, r: 14, t: 14, b: 28 };
+  const M = { l: 34, r: 96, t: 14, b: 28 };
   const maximo = Math.max(3, ...jugados.map((u) => u.acumulados), ...jugados.map((u) => liga.get(u.jornada) ?? 0));
   const tope = Math.ceil(maximo / 3) * 3;
   const x = (i: number) => M.l + (i * (W - M.l - M.r)) / (jugados.length - 1);
@@ -76,16 +76,27 @@ function GraficaPuntos({
           const i = jugados.length - 1;
           const ultimo = jugados[i];
           const media = liga.get(ultimo.jornada);
-          const encima = media === undefined || ultimo.acumulados >= media;
+          /* 29/10/2026: los rótulos a la derecha del último punto y, si las líneas están juntas, separados en vertical. */
+          let yC = y(ultimo.acumulados);
+          let yM = media === undefined ? 0 : y(media);
+
+          if (media !== undefined && Math.abs(yC - yM) < 15) {
+            const medio = (yC + yM) / 2;
+            const signo = yM >= yC ? 1 : -1;
+
+            yC = medio - 7.5 * signo;
+            yM = medio + 7.5 * signo;
+          }
+
           const fmt = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
 
           return (
             <>
-              <text x={x(i)} y={y(ultimo.acumulados) + (encima ? -9 : 15)} textAnchor="end" fontSize={11} fontWeight={600} fill="#C8A96B">
+              <text x={x(i) + 9} y={yC + 4} textAnchor="start" fontSize={11} fontWeight={600} fill="#C8A96B">
                 Castilla {fmt(ultimo.acumulados)}
               </text>
               {media !== undefined ? (
-                <text x={x(i)} y={y(media) + (encima ? 15 : -9)} textAnchor="end" fontSize={11} fill="currentColor" fillOpacity={0.7}>
+                <text x={x(i) + 9} y={yM + 4} textAnchor="start" fontSize={11} fill="currentColor" fillOpacity={0.7}>
                   Media liga {fmt(media)}
                 </text>
               ) : null}
@@ -413,19 +424,28 @@ useEffect(() => {
 
             {tabla ? (
               <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {[
-                  ["Puesto", `${tabla.puesto}º de ${tabla.deCuantos} · tendencia, tras ${tabla.jugados} jornadas`],
-                  [
-                    "Puntos",
-                    `${tabla.puntos} en ${tabla.jugados} partidos${tabla.jugados > 0 ? ` · ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por partido${liga.mediaPuntos !== null ? ` · liga ${liga.mediaPuntos.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} · más, mejor` : ""}` : ""}`,
-                  ],
-                  ["Balance", `${tabla.ganados} G · ${tabla.empatados} E · ${tabla.perdidos} P`],
-                  [
-                    "Goles",
-                    `${tabla.favor} a favor (más, mejor) · ${tabla.contra} en contra (menos, mejor)
-en ${tabla.jugados} partidos · diferencia ${tabla.favor - tabla.contra > 0 ? "+" : tabla.favor - tabla.contra < 0 ? "−" : ""}${Math.abs(tabla.favor - tabla.contra)}${liga.mediaGoles !== null ? ` · liga ${liga.mediaGoles.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por equipo y partido` : ""}`,
-                  ],
-                ].map(([etiqueta, valor]) => (
+                {(() => {
+                  const dec = (n: number) => n.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+                  const dif = tabla.favor - tabla.contra;
+
+                  /* 29/10/2026: la cifra grande es el dato y debajo, pequeña, la referencia (fútbol y marketing). */
+                  return [
+                    ["Puesto", `${tabla.puesto}º`, `de ${tabla.deCuantos} · tendencia, tras ${tabla.jugados} jornadas`],
+                    [
+                      "Puntos",
+                      String(tabla.puntos),
+                      tabla.jugados > 0
+                        ? `en ${tabla.jugados} partidos · ${dec(tabla.puntos / tabla.jugados)} por partido${liga.mediaPuntos !== null ? ` · liga ${dec(liga.mediaPuntos)}` : ""}`
+                        : "",
+                    ],
+                    ["Balance", `${tabla.ganados}-${tabla.empatados}-${tabla.perdidos}`, "ganados · empatados · perdidos"],
+                    [
+                      "Goles",
+                      `${tabla.favor}-${tabla.contra}`,
+                      `${tabla.favor} a favor · ${tabla.contra} en contra · diferencia ${dif > 0 ? "+" : dif < 0 ? "−" : ""}${Math.abs(dif)}${liga.mediaGoles !== null ? ` · liga ${dec(liga.mediaGoles)} por equipo y partido` : ""}`,
+                    ],
+                  ];
+                })().map(([etiqueta, valor, referencia]) => (
                   <div
                     key={etiqueta}
                     className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3"
@@ -433,7 +453,8 @@ en ${tabla.jugados} partidos · diferencia ${tabla.favor - tabla.contra > 0 ? "+
                     <p className="text-[11px] uppercase tracking-[0.25em] text-[#C8A96B]">
                       {etiqueta}
                     </p>
-                    <p className="mt-1 whitespace-pre-line text-sm font-semibold text-white">{valor}</p>
+                    <p className="mt-1 text-3xl font-semibold leading-none text-white">{valor}</p>
+                    {referencia ? <p className="mt-1.5 text-[12px] leading-snug text-white/60">{referencia}</p> : null}
                   </div>
                 ))}
               </div>
@@ -450,7 +471,8 @@ en ${tabla.jugados} partidos · diferencia ${tabla.favor - tabla.contra > 0 ? "+
                   Jornada a jornada
                 </h2>
 
-                <div className="overflow-x-auto rounded-[18px] border border-white/10">
+                {/* lg:pr-44: el botón «Ver explicación» flota abajo a la derecha y tapaba la última columna. */}
+                <div className="overflow-x-auto rounded-[18px] border border-white/10 lg:pr-44">
                   <table className="w-full min-w-[420px] text-sm">
                     <thead>
                       <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/60">

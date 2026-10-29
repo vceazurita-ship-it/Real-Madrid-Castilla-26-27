@@ -156,6 +156,13 @@ const COLUMNAS_RECIBE: ColumnaJugador<FaltaVista>[] = [
 const jugadorDeFalta = (f: FaltaVista) => f.jugador ?? "";
 const partidoDeFalta = (f: FaltaVista) => f.partido;
 
+/* 29/10/2026: todas las jornadas se rotulan «J6», como en Robos y Pérdidas («LIGA 06» pasa a «J6»). */
+const jornadaCorta = (j: string) => {
+  const m = j.trim().match(/^(?:LIGA|J)\s*0*(\d+)$/i);
+
+  return m ? `J${m[1]}` : j;
+};
+
 /** Si hay algún partido de pretemporada en los datos (hoy, ninguno). */
 const HAY_PRETEMPORADA = PARTIDOS.some((p) => esPretemporada(p.jornada));
 
@@ -460,6 +467,20 @@ export default function FaltasPage() {
   */
   const comparativa = useMemo(() => (partido ? comparativaFaltas(partido, partidosVisibles) : null), [partido, partidosVisibles]);
 
+  /* 29/10/2026: «Qué hacemos» al final de las conclusiones, con tarea y criterio de éxito (mismo formato que Robos y Pérdidas). */
+  const queHacemos = useMemo(() => {
+    const c = comparativa?.metricas.find((m) => m.clave === "contra");
+
+    if (!comparativa || !c || c.actual === null || c.media === null || comparativa.anteriores < 1) return null;
+
+    const tope = Math.max(1, Math.round(c.media));
+    const mas = c.actual > c.media;
+
+    return `Qué hacemos: en contra ${c.actual} frente a ${decimal(c.media)} de media. ${
+      mas ? "Trabajar en la semana la defensa de duelos sin falta en medio campo" : "Mantener la defensa de duelos sin falta en medio campo"
+    }; criterio de éxito, ${mas ? "menos" : "no más"} de ${tope} faltas en contra.`;
+  }, [comparativa]);
+
   /*
   | Por jugador: con el lado y todo lo pinchado menos el propio jugador (así
   | al elegir uno se siguen viendo los demás). En temporada, todos los
@@ -555,7 +576,7 @@ export default function FaltasPage() {
                       : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/20"
                   }`}
                 >
-                  {p.jornada} · {p.rival}
+                  {jornadaCorta(p.jornada)} · {p.rival}
                 </button>
               ))}
 
@@ -628,7 +649,7 @@ export default function FaltasPage() {
             {partido && (
               <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
-                  {partido.jornada}
+                  {jornadaCorta(partido.jornada)}
                 </span>
 
                 <span className="text-sm font-semibold text-white">
@@ -709,7 +730,7 @@ export default function FaltasPage() {
               </Explicativo>
             ) : null}
 
-            <Conclusiones items={conclusiones} className="mt-4" />
+            <Conclusiones items={queHacemos ? [...conclusiones, queHacemos] : conclusiones} className="mt-4" />
             </>
             )}
 

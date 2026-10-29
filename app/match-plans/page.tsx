@@ -764,7 +764,7 @@ export default function Page() {
 
 function MetricsPanel({ metrics, ligaPP }: { metrics: Metrics; ligaPP: number | null }) {
   /* Con pocos partidos los porcentajes son una tendencia, no un dato firme. */
-  const base = (n: number) => `${n} de ${metrics.played}${metrics.played < 10 ? " · tendencia" : ""}`;
+  const base = (n: number) => `${n} de ${metrics.played}`;
   const liga = ligaPP !== null ? ` · liga ${ligaPP.toFixed(1).replace(".", ",")}` : "";
 
   return (

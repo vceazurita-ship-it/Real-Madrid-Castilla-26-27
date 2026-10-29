@@ -905,6 +905,9 @@ export default function RivalPlayersPage() {
     () => enlaceDirecto?.equipo ?? "",
   );
 
+  /* Móvil (29/10/2026): con un equipo elegido, la fila se pliega en «Cambiar equipo». */
+  const [cambiandoEquipo, setCambiandoEquipo] = useState(false);
+
   /*
   | En qué orden salen los equipos: por el calendario de la ida, empezando por
   | el rival de esta semana. Se lee de la hoja RIVALES junto con las plantillas
@@ -3907,7 +3910,23 @@ export default function RivalPlayersPage() {
 
             {/* SELECTOR DE EQUIPO */}
 
-            <div className="mt-8 flex max-w-full items-center gap-2">
+            {selectedTeam && !cambiandoEquipo && (
+              <button
+                type="button"
+                onClick={() => setCambiandoEquipo(true)}
+                className="mt-8 flex w-full items-center justify-between gap-3 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3.5 py-2.5 text-left sm:hidden"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <EscudoEquipo nombre={selectedTeam} escudo={escudoDe(selectedTeam)} lado={22} />
+                  <span className="truncate text-sm font-semibold text-white">{selectedTeam}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1 text-[12px] text-[#C8A96B]">
+                  Cambiar equipo <ChevronDown size={14} />
+                </span>
+              </button>
+            )}
+
+            <div className={`mt-8 max-w-full items-center gap-2 ${selectedTeam && !cambiandoEquipo ? "hidden sm:flex" : "flex"}`}>
               <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-2">
                 {teams.map((team) => (
                   <button
@@ -3920,6 +3939,7 @@ export default function RivalPlayersPage() {
                     }
                     onClick={() => {
                       setSelectedTeam(team.name);
+                      setCambiandoEquipo(false);
                       setPositionSearch("");
                       setSearch("");
                     }}
@@ -3963,7 +3983,7 @@ export default function RivalPlayersPage() {
                       }`}
                       title={`${team.count} jugadores en su plantilla`}
                     >
-                      {team.count} en plantilla
+                      {team.count}<span className="hidden sm:inline"> en plantilla</span>
                     </span>
                   </button>
                 ))}
@@ -6146,7 +6166,7 @@ function PlayerRow({
 
       <div className="min-w-0 flex-1">
         <p
-          className="truncate text-[13px] font-semibold leading-tight"
+          className="line-clamp-2 break-words text-[13px] font-semibold leading-tight"
           title={conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR)}
         >
           {conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR)}

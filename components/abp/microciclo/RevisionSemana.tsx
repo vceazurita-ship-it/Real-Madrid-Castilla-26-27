@@ -18,7 +18,7 @@ import { useState } from "react";
 import { CheckCircle2, CircleAlert, Plus, TriangleAlert } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
-import { LADO_COLOR, LADO_LABEL, fmtMin, type DiaKey, type Trabajo } from "@/lib/abp/microciclo";
+import { DIAS, LADO_COLOR, LADO_LABEL, fmtMin, type DiaKey, type Trabajo } from "@/lib/abp/microciclo";
 import { chipInk } from "@/lib/theme";
 import { enFrase } from "@/lib/abp/primera-plural";
 import type { LecturaAspecto, LecturaPartido, PuntoRevision, TonoRevision } from "@/lib/abp/semana-revision";
@@ -94,7 +94,10 @@ export function RevisionSemana({
                         onClick={abre}
                         className="rounded-lg border border-white/12 px-2 py-0.5 text-[10.5px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
                       >
-                        Abrir la tarea
+                        {/* 29/10/2026: el botón dice qué abre; dos «Abrir la tarea» seguidos no se distinguían. */}
+                        {punto.dia
+                          ? `Abrir el ${(DIAS.find((dia) => dia.key === punto.dia)?.label ?? "día").toLowerCase()}`
+                          : "Abrir la tarea"}
                       </button>
                     )}
 

@@ -31,6 +31,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cargaCalendario } from "@/hooks/useCalendario";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -135,6 +136,7 @@ import {
   memoriaDeGrupo,
   ocupantesDeGrupo,
   puestoDe,
+  puestosDe,
   puestosDeGrupo,
   puestosQueHereda,
   quitaVersion,
@@ -212,13 +214,17 @@ const ESPERA_VERSION_MS = 45_000;
  * La jornada va delante porque es como el cuerpo técnico llama a la semana. Los
  * amistosos de pretemporada no la tienen y empiezan por la fecha.
  */
-function etiquetaPartido(partido: MatchMeta) {
+function etiquetaPartido(partido: MatchMeta, fechas?: Map<number, string>) {
   const numero = partido.competition.match(/^Jornada\s+(\d+)/i);
 
   /* Un amistoso no tiene número de jornada: sin rótulo parecía un hueco. */
   const jornada = numero ? `J${numero[1].padStart(2, "0")} · ` : "Pretemporada · ";
 
-  return `${jornada}${formatMatchDate(partido)} · ${matchLabel(partido)}`;
+  /* 29/10/2026: manda la fecha del calendario de BeSoccer (la del microciclo): la hoja
+     RIVALES va un día corrida («01 nov» frente a «sábado 31 de octubre»). */
+  const real = numero ? fechas?.get(Number(numero[1])) : undefined;
+
+  return `${jornada}${formatMatchDate(real ? { ...partido, date: real } : partido)} · ${matchLabel(partido)}`;
 }
 
 /**
@@ -426,6 +432,29 @@ export default function PizarraAbpPage() {
   | la jornada que viene, que es justo para lo que sirve esta página. Las
   | jornadas que faltan salen de la hoja RIVALES, la misma del plan de partido.
   */
+  /* La fecha real de cada jornada, del calendario de BeSoccer. */
+  const [fechasReales, setFechasReales] = useState<Map<number, string>>(() => new Map());
+
+  useEffect(() => {
+    let vivo = true;
+
+    void cargaCalendario().then((lista) => {
+      if (!vivo) return;
+
+      const mapa = new Map<number, string>();
+
+      for (const item of lista) {
+        if (item.jornada && item.cuando) mapa.set(Number(item.jornada), item.cuando.slice(0, 10));
+      }
+
+      setFechasReales(mapa);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
   const partidos = useMemo(
     () =>
       /* Por fecha ascendente, y los que no la tienen al final: así el
@@ -503,7 +532,7 @@ export default function PizarraAbpPage() {
     (a.date || "").localeCompare(b.date || "") || a.id.localeCompare(b.id);
 
   const etiquetaOpcion = (item: MatchMeta) =>
-    `${etiquetaPartido(item)}${item.id === proximoId ? " · próximo" : ""}`;
+    `${etiquetaPartido(item, fechasReales)}${item.id === proximoId ? " · próximo" : ""}`;
 
   const esJugado = (item: MatchMeta) => item.id !== proximoId && Boolean(item.date) && (item.date as string) < hoy;
 
@@ -2773,6 +2802,29 @@ export default function PizarraAbpPage() {
                         Ver en horizontal, a pantalla completa
                       </Button>
 
+                      {/* 29/10/2026: la miniatura no deja leer los rótulos de las asignaciones; van también en texto. */}
+                      {slide.fichas.length > 0 && (
+                        <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                            Asignaciones
+                          </p>
+
+                          <ul className="space-y-1">
+                            {puestosDe(slide).flatMap((puesto) => {
+                              const ficha = slide.fichas.find((item) => item.puesto === puesto.key);
+                              const jugador = ficha ? players.find((item) => item.id === ficha.playerId) : undefined;
+
+                              return ficha ? [
+                                <li key={puesto.key} className="flex gap-2 text-base leading-snug text-white/85">
+                                  <b className="w-10 shrink-0 text-[#C8A96B]">{puesto.sigla ?? puesto.code}</b>
+                                  <span className="min-w-0">{jugador?.apodo || jugador?.nombre || ficha.playerId}</span>
+                                </li>,
+                              ] : [];
+                            })}
+                          </ul>
+                        </div>
+                      )}
+
                       {lineasConsignas(slide.notas).length > 0 && (
                         <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
                           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
@@ -3713,7 +3765,7 @@ function ControlDeGazapos({
           {limpio
             ? "· cuadra"
             : `· ${revision.gazapos.length === 1 ? "1 jugador no está" : `${revision.gazapos.length} jugadores no están`} en todas las diapositivas${
-                nombres.length ? `: ${nombres.slice(0, 4).join(", ")}${nombres.length > 4 ? "…" : ""}` : ""
+                nombres.length ? `: ${nombres.join(", ")}` : ""
               }`}
         </span>
       </summary>

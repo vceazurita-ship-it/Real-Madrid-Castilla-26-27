@@ -212,6 +212,17 @@ type PlantillaRival = {
   jugadores: JugadorCoding[];
 };
 
+/* 29/10/2026: el nombre del fichero, legible: sin «.mp4», sin guiones bajos y con
+   las tildes que el nombre del fichero perdió («Duelos_a_reos» -> «Duelos aéreos»). */
+function nombreLimpio(nombre: string) {
+  return nombre
+    .replace(/\.mp4$/i, "")
+    .replace(/_/g, " ")
+    .replace(/\ba reos\b/gi, "aéreos")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /**
  * Las plantillas del scouting, con foto.
  *
@@ -646,8 +657,24 @@ function Coding() {
       ? rivales.find((uno) => uno.clave === apodoCoding(ordenRivales.actual))
       : undefined;
 
-    return deLaJornada ?? rivales[0] ?? null;
-  }, [equipoRival, ordenRivales.actual, rivales]);
+    if (deLaJornada) return deLaJornada;
+
+    /* 29/10/2026: sin próximo rival anunciado se codifica el último partido jugado
+       (el Algeciras), no el primero de la lista por orden alfabético (el Cartagena). */
+    const ultimo = partidos
+      .filter((uno) => uno.gf !== null && uno.date)
+      .sort((a, b) => b.date.localeCompare(a.date))[0];
+
+    const delUltimo = ultimo
+      ? rivales.find(
+          (uno) =>
+            uno.clave === apodoCoding(ultimo.opponent) ||
+            apodoSinSiglas(uno.nombre) === apodoSinSiglas(ultimo.opponent),
+        )
+      : undefined;
+
+    return delUltimo ?? rivales[0] ?? null;
+  }, [equipoRival, ordenRivales.actual, rivales, partidos]);
 
   /** La plantilla del scouting de ese rival, si la hay. */
   const plantilla = useMemo(
@@ -1060,6 +1087,9 @@ function Coding() {
 
   /* Plegada por defecto: con el teclado abierto, «Marcar», «Cortes» y «Sacar los vídeos» quedaban fuera de la vista. */
   const [ayuda, setAyuda] = useState(false);
+
+  /* 29/10/2026: con más de 6 vídeos la tira se pliega (en el móvil ocupaba una pantalla). */
+  const [verTodosVideos, setVerTodosVideos] = useState(false);
   /* Los paneles de apoyo van plegados: la primera pantalla es vídeo, marcar y cortes. */
   const [verColectivos, setVerColectivos] = useState(false);
   const [verCategorias, setVerCategorias] = useState(false);
@@ -3944,8 +3974,9 @@ function Coding() {
             | párrafo y dos botones, empujaba el vídeo media pantalla abajo.
             */}
             {avisoSesion && sesion.sesion.abierta && clips.length > 0 && (
-              <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2.5">
-                <p className="min-w-0 flex-1 text-[12px] leading-snug text-white/75">
+              /* 29/10/2026: en el móvil el texto va a todo el ancho y los botones debajo, en fila. */
+              <div className="mt-4 flex min-w-0 flex-col gap-x-4 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+                <p className="min-w-0 text-[12px] leading-snug text-white/75 sm:flex-1">
                   <b className="text-white">
                     Retoma tu sesión: {clips.length}{" "}
                     {clips.length === 1 ? "corte" : "cortes"} ·{" "}
@@ -4170,7 +4201,15 @@ function Coding() {
                         Vídeos
                       </span>
 
-                      {videosEnOrden.map((video) => {
+                      {videosEnOrden
+                        .filter(
+                          (video, i) =>
+                            verTodosVideos ||
+                            videosEnOrden.length <= 6 ||
+                            i < 6 ||
+                            mismaFuente(video, sesion.sesion.fuente),
+                        )
+                        .map((video) => {
                         const activo = mismaFuente(video, sesion.sesion.fuente);
 
                         const cuantos = clipsPorFuente.get(video.nombre) ?? 0;
@@ -4221,8 +4260,8 @@ function Coding() {
                                 className={`max-w-[168px] truncate text-[11.5px] ${
                                   activo ? "text-white" : "text-white/70"
                                 } ${listo ? "" : "line-through decoration-white/30"}`}
-                              >
-                                {video.nombre}
+              >
+                                {nombreLimpio(video.nombre)}
                               </span>
 
                               <span className="shrink-0 text-[10px] tabular-nums text-white/40">
@@ -4254,6 +4293,12 @@ function Coding() {
                           </span>
                         );
                       })}
+
+                      {videosEnOrden.length > 6 && (
+                        <Button onClick={() => setVerTodosVideos((v) => !v)}>
+                          {verTodosVideos ? "Ver menos" : `${videosEnOrden.length} vídeos · ver todos`}
+                        </Button>
+                      )}
 
                       <Button
                         icon={Plus}
@@ -5359,7 +5404,7 @@ function Coding() {
                   </Panel>
                 )}
 
-                {clips.length > 0 && (
+                {clips.some((uno) => uno.categoriaId) && (
                 <Panel title="Por categoría" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
                     filas={porCategoria(clips, config.categorias, config.descriptores)}

@@ -284,10 +284,10 @@ export function VistazoRival({
                         <span className="shrink-0 tabular-nums text-white/50">
                           {a.desviacion >= 0
                             ? equipos > 0
-                              ? `mejor que ${Math.round((a.percentil / 100) * equipos)} de los ${equipos} equipos`
+                              ? `mejor que ${Math.round((a.percentil / 100) * equipos)} de los ${equipos} equipos (puesto ${Math.max(1, equipos - Math.round((a.percentil / 100) * equipos))}.º)`
                               : `mejor que ${Math.round(a.percentil / 10)} de cada 10`
                             : equipos > 0
-                              ? `peor que ${equipos - Math.round((a.percentil / 100) * equipos)} de los ${equipos} equipos`
+                              ? `peor que ${equipos - Math.round((a.percentil / 100) * equipos)} de los ${equipos} equipos (puesto ${Math.min(equipos, equipos - Math.round((a.percentil / 100) * equipos) + 1)}.º, abajo)`
                               : `peor que ${10 - Math.round(a.percentil / 10)} de cada 10`}
                         </span>
                       </li>
@@ -310,7 +310,12 @@ export function VistazoRival({
                 {uno.puesto ? <span className="text-white/45"> ({uno.puesto})</span> : null}: {uno.rasgos.join(" y ")}
                 {uno.accion ? <span className="text-white/80"> → {uno.accion}</span> : null}
                 {/* La base de la frase (29/10/2026): no es lo mismo «pierde duelos» en 8 partidos que en 2. */}
-                {uno.base ? <span className="text-[11px] text-white/45"> ({uno.base})</span> : null}
+                {uno.base ? (
+                  <span className="ml-1.5 inline-block rounded-md bg-white/[0.07] px-1.5 py-0.5 align-middle text-[11px] tabular-nums text-white/60">
+                    {uno.base}
+                    {(Number(/^(d+)/.exec(uno.base)?.[1]) || 0) < 500 ? " · muestra corta" : ""}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>

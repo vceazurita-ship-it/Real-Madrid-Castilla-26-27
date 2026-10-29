@@ -159,7 +159,7 @@ export const METRICAS: Metrica[] = [
   {
     key: "xg",
     acumulable: true,
-    nombre: "xG a favor",
+    nombre: "Goles esperados (xG) a favor",
     grupo: "Valor gol",
     fase: "con",
     unidad: "decimal",
@@ -173,7 +173,8 @@ export const METRICAS: Metrica[] = [
     grupo: "Valor gol",
     fase: "con",
     unidad: "decimal",
-    mejorAlto: null,
+    /* 29/10/2026: se juzga (más es mejor); como estilo se ordenaba con puesto y percentil sin sentido. */
+    mejorAlto: true,
     comoLeer: "Lo que se marcó por encima de lo que valían las ocasiones. Positivo sostenido es un delantero fino; positivo puntual, una racha que se corregirá sola.",
     numerador: "@goles-xg",
     denominador: "@partidos",
@@ -1149,7 +1150,10 @@ export function formatea(valor: number | null, unidad: Unidad) {
   if (unidad === "entero") return String(Math.round(valor));
   if (unidad === "minutos") return `${coma(valor.toFixed(1))}′`;
 
-  return coma(valor.toFixed(2));
+  /* 29/10/2026: un decimal como mucho (488,56 -> 488,6); las razones por debajo de 1 (0,07) conservan dos. */
+  const grande = Math.abs(valor) >= 1;
+
+  return coma(valor.toFixed(grande ? 1 : 2)).replace(/^-/, "−");
 }
 
 /**

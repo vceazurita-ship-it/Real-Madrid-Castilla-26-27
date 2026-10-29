@@ -116,7 +116,7 @@ function diferencia(d: number, formato: (n: number) => string, entrePorcentajes:
   if (Math.abs(d) < 0.05) return "igual";
 
   /* Entre dos porcentajes la diferencia son puntos, no un «% más». */
-  if (entrePorcentajes) return `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))} puntos`;
+  if (entrePorcentajes) return `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))} ${Math.round(Math.abs(d)) === 1 ? "punto" : "puntos"}`;
 
   return `${d > 0 ? "+" : "−"}${formato(Math.abs(d))}`;
 }
@@ -180,7 +180,7 @@ export function ComparativaPartido({
           {/* Muestra corta: se dice a la vista, no sólo en el método. */}
           {hayIndicios && (
             <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[11px] text-white/55 sm:pl-5 sm:pr-5">
-              Muestra corta en {filasCortas.length === 1 ? filasCortas[0].nombre.toLowerCase() : "algunas filas"}: cada fila sale de un solo partido ({basePequena} {unidadCorta}). Las filas en gris son un indicio, no un dato firme; verde es mejor que de costumbre y naranja, peor.
+              Cada fila es de un solo partido ({basePequena} {unidadCorta}).{filasCortas.length === 1 ? ` ${filasCortas[0].nombre}: pocas acciones.` : ""} En gris es un indicio, no un dato firme; verde es mejor que de costumbre y naranja, peor.
             </p>
           )}
 
@@ -205,8 +205,11 @@ export function ComparativaPartido({
               /* Un porcentaje de muy pocas acciones no se resta en puntos. */
               const sinPuntos = porcentaje && m.de !== undefined && m.de < MUESTRA_MINIMA_FILA;
               /* El sentido ya sale con flecha y color: no se repite en el pie. */
+              /* 29/10/2026: el sentido sale una sola vez, con flecha («▲ más es mejor»); fuera «más, mejor» del pie. */
               const pie = m.pie
-                ?.replace(/(?:^|\s·\s)(?:más|menos) es mejor$/, "")
+                ?.split(" · ")
+                .filter((trozo) => !(juzga && /^(?:cuant[oa]s )?(?:más|menos),? (?:es )?mejor$/i.test(trozo.trim())))
+                .join(" · ")
                 .trim();
               const baseTexto =
                 m.de === undefined
