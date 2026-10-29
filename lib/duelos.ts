@@ -504,15 +504,23 @@ export function normalizaDuelos(valor: unknown): DuelosDoc {
 
 /**
  * El recuento de duelos, escrito igual en el Plan de partido y en /duelos.
- * «9 duelos: 6 a favor, 4 en contra (3 se cuentan en ambos); 9 duelos distintos»
- * evita que 6 + 4 sobre 9 parezca un error.
+ * Las partes no se pisan, así que suman el total sin hacer cuentas:
+ * «8 duelos: 1 sólo a favor, 4 que ganamos con balón y perdemos sin él, 3 parejos».
+ * Las partes a 0 no se nombran.
  */
 export function fraseRecuentoDuelos(medidos: number, aFavor: number, enContra: number, enLosDos: number): string {
-  /* Que la cuenta cuadre: a favor + en contra - los dos + parejos = total. */
-  const parejos = Math.max(0, medidos - (aFavor + enContra - enLosDos));
-  const base = `${medidos} ${medidos === 1 ? "duelo" : "duelos"}: ${aFavor} a favor, ${enContra} en contra`;
-  const dosSentidos = enLosDos > 0 ? ` (${enLosDos === 1 ? "1 de ellos" : `${enLosDos} de ellos`} en los dos sentidos)` : "";
-  const parejo = parejos > 0 ? ` y ${parejos} ${parejos === 1 ? "parejo" : "parejos"}` : "";
+  const ambos = Math.max(0, enLosDos);
+  const soloAFavor = Math.max(0, aFavor - ambos);
+  const soloEnContra = Math.max(0, enContra - ambos);
+  const parejos = Math.max(0, medidos - (soloAFavor + soloEnContra + ambos));
 
-  return `${base}${dosSentidos}${parejo}`;
+  const partes = [
+    soloAFavor > 0 ? `${soloAFavor} sólo a favor` : "",
+    soloEnContra > 0 ? `${soloEnContra} sólo en contra` : "",
+    ambos > 0 ? `${ambos} que ganamos con balón y perdemos sin él` : "",
+    parejos > 0 ? `${parejos} ${parejos === 1 ? "parejo" : "parejos"}` : "",
+  ].filter(Boolean);
+  const base = `${medidos} ${medidos === 1 ? "duelo" : "duelos"}`;
+
+  return partes.length > 0 ? `${base}: ${partes.join(", ")}` : base;
 }

@@ -271,8 +271,10 @@ export function Acceso({
           </>
         ) : (
           <>
-            ¿Primera vez? Pulsa «Registrarme». Si ya te registraste y no
-            cambiaste la contraseña, es lo que va antes de la @ de tu correo.
+            {/* Sin decir cómo es la contraseña de partida: a la vista de
+                cualquiera, daba la de todas las cuentas sin cambiar (29/10/2026). */}
+            ¿Primera vez? Pulsa «Registrarme». ¿No recuerdas la contraseña?
+            Pídesela a Víctor.
           </>
         )}
       </p>

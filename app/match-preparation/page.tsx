@@ -330,6 +330,62 @@ function aVinetas(valor: unknown, separarPorPuntoYComa = false) {
     .filter(Boolean);
 }
 
+/* Cuántas claves del partido salen arriba, en «Lo esencial». */
+const CLAVES_ESENCIALES = 3;
+
+/* Las claves del partido, una por línea y sin la viñeta que traiga escrita. */
+function lineasDeClaves(valor: unknown) {
+  return String(valor ?? "")
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^[\s\-–•*·]+/, "").trim())
+    .filter(Boolean);
+}
+
+/*
+ * Una línea que es sólo un título (ATAQUE CP, ÁREA, DEFENSA CR…): en
+ * mayúsculas, corta y sin punto final. Se pinta como subtítulo y no como
+ * viñeta.
+ */
+function esTituloDeApartado(linea: string) {
+  const texto = linea.replace(/:\s*$/, "").trim();
+
+  if (texto.length < 2 || texto.length > 40 || /[.;]$/.test(texto)) return false;
+
+  return /\p{Lu}/u.test(texto) && !/\p{Ll}/u.test(texto);
+}
+
+/* Lo que quieren decir las siglas que el cuerpo técnico usa en el plan de juego. */
+const SIGLAS_PLAN: Record<string, string> = {
+  CP: "Ataque posicional u organizado",
+  CR: "Contraataque o transición",
+  ABP: "Acciones a balón parado",
+  PTO: "Portero",
+};
+
+/*
+ * El texto tal cual lo escribió el analista, con un `title` en cada sigla
+ * conocida (y en Z1, Z2…: zonas del campo). No cambia ni una letra.
+ */
+function ConSiglas({ texto }: { texto: string }) {
+  const partes = texto.split(/(?<![\p{L}\d])(CP|CR|ABP|PTO|Z\d)(?![\p{L}\d])/u);
+
+  return (
+    <>
+      {partes.map((p, i) => {
+        const significado = i % 2 === 1 ? (SIGLAS_PLAN[p] ?? (/^Z\d$/.test(p) ? `Zona ${p.slice(1)} del campo` : "")) : "";
+
+        return significado ? (
+          <abbr key={i} title={significado} className="cursor-help no-underline decoration-dotted underline-offset-2 hover:underline">
+            {p}
+          </abbr>
+        ) : (
+          p
+        );
+      })}
+    </>
+  );
+}
+
 /**
  * Informe colectivo del rival de este partido.
  *
@@ -421,10 +477,13 @@ function ReadText({
   value,
   separarPorPuntoYComa = false,
   vacio = "Sin escribir todavía. Se rellena con «Editar informe».",
+  apartados = false,
 }: {
   value: unknown;
   separarPorPuntoYComa?: boolean;
   vacio?: string;
+  /* Las líneas en mayúsculas son títulos de apartado y las siglas llevan su significado. */
+  apartados?: boolean;
 }) {
   const items = useMemo(
     () => aVinetas(value, separarPorPuntoYComa),
@@ -439,6 +498,38 @@ function ReadText({
         <CircleAlert size={15} />
         {vacio}
       </div>
+    );
+  }
+
+  if (apartados) {
+    /* El título sin viñeta y en negrita; lo que cuelga de él, sangrado. */
+    return (
+      <ul className="space-y-2.5 text-[13.5px] leading-6 text-white/80">
+        {items.map((item, indice) => {
+          const titulo = esTituloDeApartado(item);
+          const dentro = items.slice(0, indice).some(esTituloDeApartado);
+
+          return titulo ? (
+            <li
+              key={`${indice}-${item.slice(0, 12)}`}
+              className={`font-bold tracking-wide text-white ${indice > 0 ? "pt-2" : ""}`}
+            >
+              <ConSiglas texto={item} />
+            </li>
+          ) : (
+            <li key={`${indice}-${item.slice(0, 12)}`} className={`flex gap-2.5 ${dentro ? "pl-4" : ""}`}>
+              <span
+                aria-hidden
+                className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]/70"
+              />
+
+              <span>
+                <ConSiglas texto={item} />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     );
   }
 
@@ -475,6 +566,7 @@ function Bloque({
   minHeight = 150,
   separarPorPuntoYComa = false,
   vacio,
+  apartados = false,
   className = "",
 }: {
   titulo: string;
@@ -487,6 +579,7 @@ function Bloque({
   minHeight?: number;
   separarPorPuntoYComa?: boolean;
   vacio?: string;
+  apartados?: boolean;
   className?: string;
 }) {
   const t = TONES[tone];
@@ -532,6 +625,7 @@ function Bloque({
           value={value}
           separarPorPuntoYComa={separarPorPuntoYComa}
           vacio={vacio}
+          apartados={apartados}
         />
       )}
     </div>
@@ -928,6 +1022,7 @@ function ReplicarPlan({
       >
         <Copy size={15} />
 
+        <span className="md:hidden">Replicar</span>
         <span className="hidden md:inline">Replicar de otra jornada</span>
       </button>
 
@@ -1905,8 +2000,8 @@ export default function MatchPreparation() {
                 </button>
               </div>
 
-              {/* Acciones */}
-              <div className="flex items-center gap-2">
+              {/* Acciones: en el móvil, con rótulo, no caben en una fila y bajan. */}
+              <div className="flex flex-wrap items-center gap-2">
                 {/* El estado del autoguardado ya se pinta al lado de «Hecho»;
                     esta chapa sólo tiene sentido fuera de la edición, cuando
                     algo se ha quedado sin escribir en la hoja. */}
@@ -1930,7 +2025,7 @@ export default function MatchPreparation() {
                     >
                       <Binoculars size={15} />
 
-                      <span className="hidden md:inline">Informe</span>
+                      <span>Informe</span>
 
                       <ChevronDown size={13} className="transition group-open:rotate-180" />
                     </summary>
@@ -1989,6 +2084,8 @@ export default function MatchPreparation() {
                     >
                       <Sparkles size={15} />
 
+                      {/* En el móvil, rótulo corto: el icono solo no se entiende (29/10/2026). */}
+                      <span className="md:hidden">Boceto</span>
                       <span className="hidden md:inline">Proponer boceto</span>
                     </button>
 
@@ -2339,11 +2436,7 @@ export default function MatchPreparation() {
                 </div>
 
                 {!editando && (() => {
-                  const claves = String(rivalActivo.CLAVES_PARTIDO ?? "")
-                    .split(/\r?\n/)
-                    .map((l) => l.replace(/^[\s\-–•*·]+/, "").trim())
-                    .filter(Boolean)
-                    .slice(0, 3);
+                  const claves = lineasDeClaves(rivalActivo.CLAVES_PARTIDO).slice(0, CLAVES_ESENCIALES);
 
                   if (!claves.length) return null;
 
@@ -2358,14 +2451,19 @@ export default function MatchPreparation() {
                           <li key={c}>{c}</li>
                         ))}
                       </ol>
-                      <p className="mt-2 text-[11px] text-white/45">
-                        Del apartado «Claves del partido». Arriba, «Informe» abre el Scout Colectivo y la pizarra de ABP o imprime; «Proponer boceto» copia el plan de la jornada anterior con «?» en lo que puede cambiar y «*» en lo que se propone incorporar.
-                      </p>
                     </div>
                   );
                 })()}
 
-                <div className="grid items-start gap-5 lg:grid-cols-3">
+                {(() => {
+                  /* Las claves que ya salen en «Lo esencial» no se repiten debajo: la
+                     tarjeta sólo lleva las que no caben arriba (29/10/2026). */
+                  const lineas = lineasDeClaves(rivalActivo.CLAVES_PARTIDO);
+                  const resto = editando ? [] : lineas.slice(CLAVES_ESENCIALES);
+                  const sinTarjeta = !editando && lineas.length > 0 && resto.length === 0;
+
+                  return (
+                <div className={`grid items-start gap-5 ${sinTarjeta ? "lg:grid-cols-2 print:grid-cols-3" : "lg:grid-cols-3"}`}>
                   <Bloque
                     titulo="Estado del equipo"
                     icon={Activity}
@@ -2377,16 +2475,45 @@ export default function MatchPreparation() {
                     minHeight={170}
                   />
 
-                  <Bloque
-                    titulo="Claves del partido"
-                    icon={Target}
-                    tone="gold"
-                    value={rivalActivo.CLAVES_PARTIDO}
-                    editando={editando}
-                    onChange={(v) => setCampo("CLAVES_PARTIDO", v)}
-                    placeholder="Una clave por línea..."
-                    minHeight={170}
-                  />
+                  {sinTarjeta || resto.length > 0 ? (
+                    <>
+                      {resto.length > 0 && (
+                        <div className="print:hidden">
+                          <Bloque
+                            titulo="Más claves del partido"
+                            icon={Target}
+                            tone="gold"
+                            value={resto.join("\n")}
+                            editando={false}
+                            onChange={() => {}}
+                          />
+                        </div>
+                      )}
+
+                      {/* «Lo esencial» no sale en el papel: ahí van todas las claves. */}
+                      <div className="hidden print:block">
+                        <Bloque
+                          titulo="Claves del partido"
+                          icon={Target}
+                          tone="gold"
+                          value={rivalActivo.CLAVES_PARTIDO}
+                          editando={false}
+                          onChange={() => {}}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <Bloque
+                      titulo="Claves del partido"
+                      icon={Target}
+                      tone="gold"
+                      value={rivalActivo.CLAVES_PARTIDO}
+                      editando={editando}
+                      onChange={(v) => setCampo("CLAVES_PARTIDO", v)}
+                      placeholder="Una clave por línea..."
+                      minHeight={170}
+                    />
+                  )}
 
                   <Bloque
                     titulo="Claves emocionales"
@@ -2399,6 +2526,8 @@ export default function MatchPreparation() {
                     minHeight={170}
                   />
                 </div>
+                  );
+                })()}
               </section>
 
               {/* ------------------------------------------------------ PLAN */}
@@ -2431,6 +2560,7 @@ export default function MatchPreparation() {
                     onChange={(v) => setCampo("ATAQUE", v)}
                     placeholder="Inicio, progresión, finalización..."
                     minHeight={360}
+                    apartados
                   />
 
                   <Bloque
@@ -2442,6 +2572,7 @@ export default function MatchPreparation() {
                     onChange={(v) => setCampo("DEFENSA", v)}
                     placeholder="Presión, bloque, repliegue, vigilancias..."
                     minHeight={360}
+                    apartados
                   />
 
                   <div className="grid content-start gap-5">
@@ -2514,9 +2645,9 @@ export default function MatchPreparation() {
                 {duelosClave && !editando && (
                   <div className="mb-5 grid gap-4 md:grid-cols-2">
                     {([
-                      ["Para buscar", "Con el balón nuestro, ventaja sobre su par", duelosClave.ventaja, "text-emerald-300"],
-                      ["Para vigilar", "Con el balón suyo, ventaja de su par sobre el nuestro", duelosClave.riesgo, "text-rose-300"],
-                    ] as const).map(([titulo, ayuda, lista, color]) =>
+                      ["Para buscar", "Con el balón nuestro, ventaja sobre su par", duelosClave.ventaja, "text-emerald-300", "con nuestro balón"],
+                      ["Para vigilar", "Con el balón suyo, ventaja de su par sobre el nuestro", duelosClave.riesgo, "text-rose-300", "con su balón"],
+                    ] as const).map(([titulo, ayuda, lista, color, sentido]) =>
                       lista.length ? (
                         <div key={titulo} className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
                           <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${color}`}>{titulo}</p>
@@ -2531,13 +2662,21 @@ export default function MatchPreparation() {
                                 </b>
 
                                 <span>
-                                  {d.titulo}
+                                  {d.titulo}{" "}
+                                  <span className="text-[11px] text-white/45">· {sentido}</span>
+                                  {/* El mismo cruce en las dos columnas: que no parezcan dos duelos distintos. */}
+                                  {lista === duelosClave.riesgo && duelosClave.ventaja.some((v) => v.clave === d.clave) && (
+                                    <span className="ml-1.5 inline-block rounded-md border border-white/15 px-1.5 text-[10.5px] text-white/60">
+                                      el mismo duelo, con su balón
+                                    </span>
+                                  )}
                                   <span className="block text-[12px] text-white/50">
                                     {d.nuestros.join(" y ")} contra {d.suyos.join(" y ")}
                                   </span>
                                   {d.minutos > 0 && (
                                     <span className="block text-[11px] text-white/40">
-                                      Percentil sobre {d.minutos} min o más jugados
+                                      Percentil frente a los jugadores de su puesto con {d.minutos} min o más
+                                      {d.muestra.length > 0 && ` (n = ${d.muestra.join("–")})`}
                                     </span>
                                   )}
                                 </span>

@@ -30,6 +30,8 @@ const GRUPOS = {
   laboratorio: ["/laboratorio/abp"],
   /* Ronda dirigida (29/10/2026): portada, coding de clips del ABP rival y plantillas rivales. */
   foco: ["/", "/scout-rival-abp?vista=coding", "/rivals"],
+  /* Segunda ronda dirigida (29/10/2026): plan de partido, scout del rival y quiniela. */
+  foco2: ["/match-preparation", "/scout-rival-collective", "/scout-rival-individual", "/quiniela"],
 };
 module.exports = { GRUPOS };
 if (require.main !== module) return;

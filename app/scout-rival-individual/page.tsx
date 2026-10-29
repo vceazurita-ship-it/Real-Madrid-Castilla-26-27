@@ -266,7 +266,9 @@ export default function ScoutRivalIndividual() {
                 Rival
               </span>
 
-              <div className="relative min-w-0 flex-1 sm:max-w-xs">
+              {/* En el móvil el buscador baja a su fila, a todo el ancho: en la
+                  misma línea que el rótulo y la cuenta, «19 de 19» salía cortado. */}
+              <div className="relative order-last w-full min-w-0 sm:order-none sm:w-auto sm:max-w-xs sm:flex-1">
                 <Search
                   size={14}
                   className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
@@ -280,7 +282,7 @@ export default function ScoutRivalIndividual() {
                 />
               </div>
 
-              <span className="text-[11px] tabular-nums text-white/30">
+              <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-white/30">
                 {loading ? "" : `${visibles.length} de ${equipos.length}`}
               </span>
 
@@ -299,9 +301,12 @@ export default function ScoutRivalIndividual() {
               Una tira de escudos y no un desplegable: el escudo se reconoce
               antes que el nombre, y con el desplegable había que abrirlo,
               leer treinta y ocho líneas y acertar. Se desplaza en horizontal
-              para no comerse media pantalla con la lista entera.
+              para no comerse media pantalla con la lista entera. En el móvil
+              se desvanece a la derecha: cortada a ras parecía que no había
+              más equipos (29/10/2026). La máscara no lleva color, así que
+              vale igual en el modo día.
             */}
-            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_82%,transparent)] sm:[mask-image:none]">
               {loading && equipos.length === 0 && (
                 <div className="flex gap-2">
                   {Array.from({ length: 8 }).map((_, i) => (

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 
 import { cargaPlantilla } from "@/hooks/usePlayers";
 import { traeJson } from "@/lib/hojaCsv";
-import { UMBRAL_DUELO, normalizaDuelos } from "@/lib/duelos";
+import { UMBRAL_DUELO, normalizaDuelos, referenciasPorPuesto } from "@/lib/duelos";
+import { MINUTOS_MINIMOS, puestoDe } from "@/lib/data-analisis/individual";
 import { duelosDelPartido } from "@/lib/duelos-onces";
 import { huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
 import { findInforme, type InformeDoc } from "@/lib/rivals/informe";
@@ -36,8 +37,15 @@ export type DueloClave = {
   nuestros: string[];
   suyos: string[];
   valor: number;
-  /** Minutos del jugador con menos minutos del cruce: la base del percentil. 0 si no consta. */
+  /**
+   * Los minutos que pide la referencia del percentil (los de su puesto en la
+   * categoría con al menos esos minutos, `referenciasPorPuesto`). 0 si nadie del
+   * cruce tiene fila de Wyscout. Antes eran los minutos del que menos tenía del
+   * cruce, que no es contra lo que se mide (29/10/2026).
+   */
   minutos: number;
+  /** Cuántos jugadores tiene esa referencia: uno si todos los del cruce comparten puesto, el menor y el mayor si no. Vacío si no consta. */
+  muestra: number[];
 };
 
 export type DuelosClave = {
@@ -132,18 +140,27 @@ export function useDuelosClave(equipo: string) {
           return puesto ? `${j.nombre} (${puesto})` : j.nombre;
         };
 
-        const aDuelo = (d: (typeof duelos)[number], valor: number): DueloClave => ({
-          clave: d.def.clave,
-          titulo: d.def.titulo,
-          nuestros: d.nuestros.map(rotulo),
-          suyos: d.suyos.map(rotulo),
-          valor,
-          minutos: (() => {
-            const todosMin = [...d.nuestros, ...d.suyos].map((j) => j.minutos).filter((m) => m > 0 && m < 1e5);
+        /* La misma referencia con la que `duelosDelPartido` saca los percentiles. */
+        const referencias = referenciasPorPuesto(jugadores);
 
-            return todosMin.length ? Math.round(Math.min(...todosMin)) : 0;
-          })(),
-        });
+        const aDuelo = (d: (typeof duelos)[number], valor: number): DueloClave => {
+          const tamanos = [...d.nuestros, ...d.suyos]
+            .filter((j) => j.wyscout && j.wyscout.minutos >= MINUTOS_MINIMOS)
+            .map((j) => referencias.get(puestoDe(j.wyscout!.posicion))?.length ?? 0)
+            .filter((n) => n > 0);
+          const menor = tamanos.length ? Math.min(...tamanos) : 0;
+          const mayor = tamanos.length ? Math.max(...tamanos) : 0;
+
+          return {
+            clave: d.def.clave,
+            titulo: d.def.titulo,
+            nuestros: d.nuestros.map(rotulo),
+            suyos: d.suyos.map(rotulo),
+            valor,
+            minutos: tamanos.length ? MINUTOS_MINIMOS : 0,
+            muestra: !tamanos.length ? [] : menor === mayor ? [menor] : [menor, mayor],
+          };
+        };
 
         const ventaja = duelos
           .filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO)

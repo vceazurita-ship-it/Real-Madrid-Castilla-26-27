@@ -50,7 +50,9 @@ import {
   enlaceIncrustado,
   enlaceLista,
   enlaceVideo,
+  esEtiquetaDebil,
   jugadorDelTitulo,
+  tituloSoloRepite,
   resumenDeTemporada,
   temaDelTitulo,
   type JugadorPlantilla,
@@ -93,15 +95,18 @@ function temaLegible(tema: string, posicion: number, descripcion = "") {
 
 /** Orden de los puestos para los chips: portero, defensa, medio, delantero; lo desconocido, al final. */
 function rangoDePuesto(puesto: string) {
-  const p = puesto.toLowerCase();
+  const p = puesto.toLowerCase().trim();
 
-  if (/portero/.test(p)) return 0;
-  if (/lateral|central|defensa/.test(p)) return 1;
-  if (/medio|pivote|interior|mediapunta/.test(p)) return 2;
-  if (/extremo|delantero|punta|banda/.test(p)) return 3;
+  if (/portero|^(por|pt|gk)$/.test(p)) return 0;
+  if (/lateral|central|defensa|carrilero|^(df|dfc|dfd|dfi|ld|li|lb|rb|cb)$/.test(p)) return 1;
+  if (/medio|pivote|interior|mediapunta|centrocampista|volante|^(mc|mcd|mco|mp|cmf|dmf|amf)$/.test(p)) return 2;
+  if (/extremo|delantero|punta|banda|^(dc|ed|ei|ex|cf|lw|rw)$/.test(p)) return 3;
 
   return 4;
 }
+
+/** El rótulo de cada línea, por el rango de `rangoDePuesto`. */
+const LINEAS = ["Porteros", "Defensas", "Centrocampistas", "Delanteros", "Otros"] as const;
 
 /** Un vídeo ya colocado: de quién es y de qué va, además del vídeo. */
 type Pieza = {
@@ -156,7 +161,7 @@ const TAMANOS = [
 
 type TamanoKey = (typeof TAMANOS)[number]["key"];
 
-/** Lo que se guarda cuando se elige «Ninguna» lista para un rival. */
+/** La marca que se guardaba al elegir «Ninguna» lista: ya no se ofrece, pero puede quedar guardada. */
 const SIN_LISTA = "-";
 
 const CLAVE_TAMANO = "rmcf-videos-tamano";
@@ -338,11 +343,10 @@ export function VideosDelCanal({
     /* Lo elegido a mano manda sobre lo que se adivine por el nombre. */
     const aMano = elegidas.porEquipo?.[clave];
 
-    /* «Ninguna» se guarda con su marca: guardada como vacío, la de por
-       nombre volvía a salir y elegir «Ninguna» no hacía nada (19/10/2026). */
-    if (aMano === SIN_LISTA) return null;
-
-    const puesta = aMano ? listas.find((item) => item.id === aMano) : null;
+    /* Sin lista elegida —o con la vieja marca de «Ninguna»— se abre la de la
+       jornada del rival si la hay: un selector en «Ninguna» teniendo el rival
+       su lista en el canal era una pantalla vacía sin motivo (29/10/2026). */
+    const puesta = aMano && aMano !== SIN_LISTA ? listas.find((item) => item.id === aMano) : null;
 
     return puesta ?? buscaLista(listas, equipo);
   }, [clave, elegidas.porEquipo, equipo, estado]);
@@ -505,23 +509,40 @@ export function VideosDelCanal({
     [grupos.jugadores],
   );
 
+  /* Las fichas salen en el mismo orden que los chips y la leyenda: por puesto.
+     Antes iban por minutos y la leyenda decía otra cosa (29/10/2026). */
   const jugadoresVisibles = useMemo(
-    () => grupos.jugadores.filter((grupo) => !soloDe || soloDe === grupo.jugador),
-    [grupos.jugadores, soloDe],
+    () => jugadoresPorPuesto.filter((grupo) => !soloDe || soloDe === grupo.jugador),
+    [jugadoresPorPuesto, soloDe],
   );
 
   /*
-  | Los jugadores con UN solo corte van juntos en una rejilla (23/10/2026): una
-  | ficha por fila, con su nombre encima, dejaba una columna de 260 px en una
-  | pantalla de 1440. Los que tienen varios siguen con su cabecera.
+  | Una sección por línea, con su rótulo.
+  |
+  | Dentro de cada una, los jugadores con UN solo corte van juntos en una
+  | rejilla (23/10/2026): una ficha por fila, con su nombre encima, dejaba una
+  | columna de 260 px en una pantalla de 1440. Los que tienen varios siguen con
+  | su cabecera.
   */
-  const variosCortes = useMemo(() => jugadoresVisibles.filter((g) => g.videos.length > 1), [jugadoresVisibles]);
+  const porLinea = useMemo(
+    () =>
+      LINEAS.map((rotulo, rango) => {
+        const suyos = jugadoresVisibles.filter((g) => rangoDePuesto(g.puesto) === rango);
 
-  const unCorte = useMemo(
-    () => jugadoresVisibles.filter((g) => g.videos.length === 1).flatMap((g) => g.videos),
+        return {
+          rango,
+          rotulo,
+          unCorte: suyos.filter((g) => g.videos.length === 1).flatMap((g) => g.videos),
+          variosCortes: suyos.filter((g) => g.videos.length > 1),
+        };
+      }).filter((linea) => linea.unCorte.length > 0 || linea.variosCortes.length > 0),
     [jugadoresVisibles],
   );
 
+  /* Con varias líneas se rotula cada una; con una sola, el rótulo sobra. */
+  const conRotulos = porLinea.length > 1;
+
+  /* El orden de ← y → en el reproductor es el que se ve en pantalla. */
   const mostrados = useMemo(() => {
     if (soloDe === SUELTOS) return grupos.sueltos;
 
@@ -532,10 +553,16 @@ export function VideosDelCanal({
     }
 
     return [
-      ...grupos.jugadores.flatMap((grupo) => grupo.videos),
+      ...porLinea.flatMap((linea) => [...linea.unCorte, ...linea.variosCortes.flatMap((grupo) => grupo.videos)]),
       ...grupos.sueltos,
     ];
-  }, [grupos, soloDe]);
+  }, [grupos, porLinea, soloDe]);
+
+  /* Si todos tienen un corte, el «1» de cada chip no dice nada. */
+  const cuentaEnChips = jugadoresPorPuesto.some((grupo) => grupo.videos.length > 1);
+
+  /* Los chips llevan el rótulo de línea si hay más de una, como las fichas. */
+  const variasLineas = new Set(jugadoresPorPuesto.map((grupo) => rangoDePuesto(grupo.puesto))).size > 1;
 
   const copiaEnlace = async (video: Video) => {
     try {
@@ -658,6 +685,8 @@ export function VideosDelCanal({
     <div className="min-w-0">
       {/* ---------------------- QUÉ LISTA SE MIRA --------------------- */}
 
+      {/* En el móvil el selector va en su fila y a todo el ancho: en la misma
+          línea que el rótulo y el canal salía «J10 Cartag…» (29/10/2026). */}
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
         <ListVideo size={15} className="shrink-0 text-[#C8A96B]" />
 
@@ -668,18 +697,23 @@ export function VideosDelCanal({
         <select
           value={lista?.id ?? ""}
           onChange={(evento) => {
-            const id = evento.target.value || SIN_LISTA;
+            const id = evento.target.value;
+
+            if (!id) return;
 
             setElegidas((actual) => ({
               ...actual,
               porEquipo: { ...actual.porEquipo, [clave]: id },
             }));
           }}
-          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+          className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white outline-none transition focus:border-[#C8A96B]/50 sm:w-auto sm:flex-1"
         >
-          <option value="" className="bg-[#11161C]">
-            {lista ? "Ninguna" : "Elige la lista de este rival…"}
-          </option>
+          {/* Sin «Ninguna»: con lista, se cambia por otra; sin ella, se elige. */}
+          {!lista && (
+            <option value="" className="bg-[#11161C]">
+              Elige la lista de este rival…
+            </option>
+          )}
 
           {estado.listas.map((item) => (
             <option key={item.id} value={item.id} className="bg-[#11161C]">
@@ -735,7 +769,8 @@ export function VideosDelCanal({
 
       {lista && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-0 flex-1">
+          {/* A todo el ancho en el móvil: compartiendo fila con los botones se quedaba en «Buscar en l…». */}
+          <div className="relative w-full min-w-0 sm:w-auto sm:flex-1">
             <Search
               size={14}
               className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
@@ -838,18 +873,31 @@ export function VideosDelCanal({
             }
           />
 
-          {jugadoresPorPuesto.map((grupo) => (
-            <Chip
-              key={grupo.jugador}
-              activo={soloDe === grupo.jugador}
-              onClick={() =>
-                setSoloDe(soloDe === grupo.jugador ? "" : grupo.jugador)
-              }
-              texto={grupo.jugador}
-              dorsal={grupo.dorsal}
-              cuenta={grupo.videos.length}
-            />
-          ))}
+          {jugadoresPorPuesto.map((grupo, i) => {
+            const rango = rangoDePuesto(grupo.puesto);
+            const empiezaLinea = i === 0 || rangoDePuesto(jugadoresPorPuesto[i - 1].puesto) !== rango;
+
+            return (
+              <span key={grupo.jugador} className="contents">
+                {/* El separador de línea, el mismo rótulo que en las fichas. */}
+                {empiezaLinea && variasLineas && (
+                  <span className="ml-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/35">
+                    {LINEAS[rango]}
+                  </span>
+                )}
+
+                <Chip
+                  activo={soloDe === grupo.jugador}
+                  onClick={() =>
+                    setSoloDe(soloDe === grupo.jugador ? "" : grupo.jugador)
+                  }
+                  texto={grupo.jugador}
+                  dorsal={grupo.dorsal}
+                  cuenta={cuentaEnChips ? grupo.videos.length : undefined}
+                />
+              </span>
+            );
+          })}
 
           {grupos.sueltos.length > 0 && (
             <Chip
@@ -918,7 +966,7 @@ export function VideosDelCanal({
             </h2>
 
             <span className="text-[11px] text-white/35">
-              {mostrados.length} en orden de la lista del canal
+              {mostrados.length} por puesto, del portero a la delantera
             </span>
           </header>
 
@@ -947,7 +995,16 @@ export function VideosDelCanal({
             </span>
           </header>
 
-          <div className="space-y-5">
+          <div className="space-y-6">
+            {porLinea.map(({ rango, rotulo, unCorte, variosCortes }) => (
+            <div key={rango} className="min-w-0 space-y-4">
+            {conRotulos && (
+              <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                {rotulo}
+                <span className="h-px flex-1 bg-white/10" />
+              </p>
+            )}
+
             {unCorte.length > 0 && (
               <div className="min-w-0">
                 {variosCortes.length > 0 && (
@@ -982,10 +1039,13 @@ export function VideosDelCanal({
                 <Rejilla
                   piezas={grupo.videos}
                   columnas={columnas}
+                  equipo={equipo}
                   onAbrir={setAbierto}
                   onCopiar={copiaEnlace}
                 />
               </div>
+            ))}
+            </div>
             ))}
           </div>
         </section>
@@ -1144,7 +1204,8 @@ function Chip({
   onClick: () => void;
   texto: string;
   dorsal?: string;
-  cuenta: number;
+  /** Sin cuenta no se pinta el número: cuando todos valen 1 no dice nada. */
+  cuenta?: number;
 }) {
   return (
     <button
@@ -1163,7 +1224,7 @@ function Chip({
 
       <span className="max-w-[14rem] truncate">{texto}</span>
 
-      <span className="tabular-nums opacity-50">{cuenta}</span>
+      {cuenta !== undefined && <span className="tabular-nums opacity-50">{cuenta}</span>}
     </button>
   );
 }
@@ -1222,17 +1283,14 @@ function Rejilla({
   onAbrir: (video: Video) => void;
   onCopiar: (video: Video) => void;
 }) {
-  /* Si todos los cortes se subieron el mismo día, la fecha se dice una vez y no en cada tarjeta. */
-  const fechas = new Set(piezas.map((p) => fecha(p.video.publicado)));
-  const fechaUnica = piezas.length > 1 && fechas.size === 1 ? [...fechas][0] : "";
-
+  /* El título en bruto y el día de subida no van en la ficha —no dicen qué
+     mirar—, pero se leen al pasar el cursor (29/10/2026). */
   return (
-    <>
-    {fechaUnica && <p className="mb-1.5 text-[11px] text-white/40">Subidos el {fechaUnica}</p>}
     <div className={`grid min-w-0 gap-2.5 ${columnas}`}>
       {piezas.map(({ video, tema, jugador, dorsal, puesto, etiquetas, resumen }) => (
         <div
           key={video.id}
+          title={[video.titulo, fecha(video.publicado) && `subido el ${fecha(video.publicado)}`].filter(Boolean).join(" · ")}
           className="group min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-[#C8A96B]/40"
         >
           <button
@@ -1267,7 +1325,7 @@ function Rejilla({
               <p className="mb-1 line-clamp-3 text-[11px] leading-snug text-white/55 sm:text-[10px]">
                 {puesto}
                 {etiquetas.map((e, i) => (
-                  <span key={e} className="font-semibold" style={{ color: /d[eé]bil|flojo|pierd|lento|falla|sufre|malo/i.test(e) ? PEOR : MEJOR }}>
+                  <span key={e} className="font-semibold" style={{ color: esEtiquetaDebil(e) ? PEOR : MEJOR }}>
                     {puesto || i > 0 ? " · " : ""}
                     {e}
                   </span>
@@ -1276,9 +1334,11 @@ function Rejilla({
             )}
 
             {/* El título original del vídeo, en pequeño: lo que manda es quién es. */}
-            {/* «Corte 14» o el nombre del equipo no dicen qué enseña el clip: no se pintan en la ficha de un jugador. */}
+            {/* «Corte 14», el nombre del equipo o un título que sólo repite al jugador
+                («8 BLASSIS», «FC CARTAGENA Nº 20 RUBÉN») no dicen qué enseña el clip. */}
             {(() => {
-              const texto = temaLegible(tema, video.posicion, video.descripcion);
+              const repite = Boolean(jugador) && tituloSoloRepite(video.titulo, jugador, equipo);
+              const texto = repite ? `Corte ${video.posicion + 1}` : temaLegible(tema, video.posicion, video.descripcion);
               const vacio = conJugador && jugador && (/^Corte \d+$/.test(texto) || (equipo && desnuda(texto) === desnuda(equipo)));
 
               return vacio ? null : (
@@ -1288,11 +1348,7 @@ function Rejilla({
               );
             })()}
 
-            <div className="mt-1.5 flex items-center justify-between gap-2">
-              <span className="text-[10px] uppercase tracking-wide text-white/30">
-                {fechaUnica ? "" : fecha(video.publicado)}
-              </span>
-
+            <div className="mt-1.5 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => onCopiar(video)}
@@ -1306,6 +1362,5 @@ function Rejilla({
         </div>
       ))}
     </div>
-    </>
   );
 }

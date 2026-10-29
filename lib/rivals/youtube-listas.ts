@@ -125,12 +125,24 @@ export function buscaLista(listas: ListaCanal[], equipo: string) {
   for (const lista of listas) {
     const punto = parecido(lista.nombre, equipo);
 
-    if (punto >= 0.6 && (!mejor || punto > mejor.punto)) {
+    /* A igual parecido gana la de la jornada más reciente: «J10 Cartagena»
+       antes que «J3 Cartagena» o que una suelta sin jornada (29/10/2026). */
+    if (
+      punto >= 0.6 &&
+      (!mejor || punto > mejor.punto || (punto === mejor.punto && jornadaDeLista(lista.nombre) > jornadaDeLista(mejor.lista.nombre)))
+    ) {
       mejor = { lista, punto };
     }
   }
 
   return mejor?.lista ?? null;
+}
+
+/** El número de jornada del nombre de una lista («J10 Cartagena» → 10); 0 si no lo dice. */
+function jornadaDeLista(nombre: string) {
+  const casa = /\bJ(?:ORNADA)?\s*(\d{1,2})\b/i.exec(nombre);
+
+  return casa ? Number(casa[1]) : 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -151,6 +163,76 @@ export type JugadorPlantilla = {
   titularidades?: number;
   minutos?: number;
 };
+
+/*
+| ¿La etiqueta es de las que podemos explotar?
+|
+| Las etiquetas del campo IMPACTO se definen en `app/rivals/page.tsx`: las
+| fortalezas por un lado y `DEBILIDADES` («Por dónde se le gana») por otro.
+| La ficha de vídeo las pinta con el color de la leyenda —verde lo que hace
+| bien, naranja lo que podemos explotar— y antes lo adivinaba con seis
+| palabras sueltas: «Perdedor de duelos», «No repliega» o «Deja centrar»
+| salían en verde (29/10/2026). Aquí van las etiquetas de `DEBILIDADES` y sus
+| alias, desnudos; si se añade una allí, se añade aquí. Lo escrito a mano que
+| no esté en la lista se juzga por cómo suena.
+*/
+const DEBILIDADES_IMPACTO = new Set(
+  [
+    "perdedor de duelos", "perdedor de duelo", "pierde duelos", "pierde los duelos", "flojo en el duelo", "debil en el duelo",
+    "lento", "lentitud", "poca velocidad", "falta de ritmo", "le ganan la espalda",
+    "comete errores no forzados", "errores no forzados", "errores", "impreciso", "regala balones", "perdidas",
+    "lesionado", "lesion", "baja", "de baja", "no disponible",
+    "tocado", "con molestias", "molestias", "entre algodones", "duda fisica",
+    "tarjeteable", "apercibido", "amonestado", "tarjetas", "ve muchas tarjetas",
+    "flojo por alto", "flojo de cabeza", "no gana por alto", "debil en el juego aereo", "bajo",
+    "solo una pierna", "solo un perfil", "perfil unico", "no usa la otra pierna", "monopierna",
+    "sufre la presion", "presionable", "se le presiona bien", "no sale bajo presion", "se atasca con presion",
+    "no repliega", "no vuelve", "no defiende", "deja la espalda", "poco trabajo defensivo",
+    "se cae fisicamente", "se cae", "baja el ritmo", "le falta fondo", "poco fondo",
+    "se descentra", "nervioso", "se calienta", "pierde la cabeza", "reactivo",
+    "inseguro con los pies", "malo con los pies", "no sale jugando", "se le presiona la salida",
+    "no sale de la linea", "no sale a los centros", "se queda en la linea", "no domina el area",
+    "se le cuela a su palo", "flojo a su palo", "su palo", "primer palo",
+    "suelta rechaces", "rechaces", "no bloca", "escupe balones",
+    "deja centrar", "no tapa el centro", "le centran facil",
+    "se tira al suelo", "va al suelo", "entra a destiempo", "se precipita",
+    "descoordina el fuera de juego", "mal el fuera de juego", "rompe la linea", "no sube la linea",
+    "no salta al hombre", "no salta", "espera atras", "no aprieta",
+    "tarda en soltarla", "tarda", "se duerme", "juega lento",
+    "no se gira con el balon", "no se gira", "siempre juega hacia atras",
+    "no ayuda al pivote", "no ayuda", "deja solo al pivote",
+    "no cierra el pasillo interior", "no cierra por dentro", "deja el pasillo",
+    "cae en fuera de juego", "se pasa de largo", "muchos fueras de juego",
+    "no participa en el juego", "no participa", "desaparece", "se pierde",
+    "falla ocasiones claras", "falla mucho", "poco acierto", "mal definidor",
+    "no ataca el area", "no pisa area", "se queda fuera del area",
+  ].map(desnuda),
+);
+
+/** Cómo suena una debilidad escrita a mano que no está en la lista. */
+const SUENA_A_DEBILIDAD =
+  /^no\s|\bpierde|\bperdedor|\blent[oa]\b|\bfloj|\bdebil|\bfalla|\bsufre|\btarda|\bdeja\b|\bse tira\b|\bse cae\b|\berror|\binsegur|\bsuelta\b|\bdescoordin|\blesion|\btocad|\btarjete|\bmal[oa]?\b|\bimprecis|\bnervios|\bregala|\bpresionable|\bdespist|\bblando/;
+
+/** `true` si la etiqueta de la ficha es de las que podemos explotar (naranja). */
+export function esEtiquetaDebil(etiqueta: string) {
+  const limpia = desnuda(etiqueta);
+
+  return DEBILIDADES_IMPACTO.has(limpia) || SUENA_A_DEBILIDAD.test(limpia);
+}
+
+/**
+ * `true` si el título del vídeo no dice más que quién es: «8 BLASSIS»,
+ * «24 LUCA», «FC CARTAGENA Nº 20 RUBÉN». Quitados el nombre, el dorsal, el
+ * equipo y el «Nº», no queda nada que leer, y en la ficha sólo repetiría lo
+ * que ya pone encima.
+ */
+export function tituloSoloRepite(titulo: string, jugador: string, equipo = "") {
+  const fuera = new Set([...desnuda(jugador).split(" "), ...desnuda(equipo).split(" "), "n", "no", "num"]);
+
+  return !desnuda(titulo)
+    .split(" ")
+    .some((palabra) => palabra.length >= 3 && /[a-z]/.test(palabra) && !fuera.has(palabra) && !RUIDO.has(palabra));
+}
 
 /** «titular en 5 de 8 · 540 min». Vacío si no ha jugado: no se nombra lo que no hay. */
 export function resumenDeTemporada(jugador: Pick<JugadorPlantilla, "partidos" | "titularidades" | "minutos"> | null) {

@@ -596,7 +596,7 @@ export default function QuinielaPage() {
 
                                     {/* Quien apostó poco sale abajo con un
                                         porcentaje engañoso: se dice por qué. */}
-                                    {fila.total.jugados * 2 < maxJugados && (
+                                    {fila.total.jugados < maxJugados * 0.8 && (
                                       <span className="block truncate text-[10px] text-white/40">
                                         {`apostó ${fila.total.jugados} de ${maxJugados} partidos`}
                                       </span>
@@ -1023,7 +1023,11 @@ export default function QuinielaPage() {
                           {partido.visitante}
                         </p>
 
-                        <div className="mt-2.5 grid grid-cols-2 gap-2">
+                        {/* Sin sesión no hay casillas: los 1-X-2 apagados no se leían y
+                            no servían (experto de fútbol, 29/10/2026). */}
+                        {(yo || resultado) && (
+                        <div className={`mt-2.5 grid gap-2 ${yo ? "grid-cols-2" : "grid-cols-1"}`}>
+                          {yo && (
                           <div className="min-w-0 text-center">
                             <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-white/40">
                               Tu pronóstico
@@ -1036,6 +1040,7 @@ export default function QuinielaPage() {
                               resultado={resultado}
                             />
                           </div>
+                          )}
 
                           <div className="min-w-0 text-center">
                             <p className="mb-1 text-[10px] uppercase tracking-[0.12em] text-white/40">
@@ -1057,6 +1062,7 @@ export default function QuinielaPage() {
                             />
                           </div>
                         </div>
+                        )}
                       </li>
                     );
                   })}
@@ -1068,9 +1074,11 @@ export default function QuinielaPage() {
                       <tr className="text-[10px] uppercase tracking-[0.12em] text-white/40">
                         <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
                         <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Partido</th>
-                        <th className="w-[132px] pb-2 pt-1.5 text-center font-medium">
-                          Tu pronóstico
-                        </th>
+                        {yo && (
+                          <th className="w-[132px] pb-2 pt-1.5 text-center font-medium">
+                            Tu pronóstico
+                          </th>
+                        )}
                         <th className="w-[132px] pb-2 pt-1.5 text-center font-medium">
                           Resultado
                         </th>
@@ -1128,6 +1136,7 @@ export default function QuinielaPage() {
                               </span>
                             </td>
 
+                            {yo && (
                             <td className="py-2 text-center">
                               <Tripleta
                                 valor={mio}
@@ -1136,6 +1145,7 @@ export default function QuinielaPage() {
                                 resultado={resultado}
                               />
                             </td>
+                            )}
 
                             <td className="py-2 text-center">
                               {/* Con la misma regla que el servidor: un

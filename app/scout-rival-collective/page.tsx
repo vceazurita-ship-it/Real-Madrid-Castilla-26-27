@@ -89,7 +89,7 @@ const NAV = [
   { id: "conclusiones", label: "Conclusiones" },
 ];
 
-function formatDate(value?: string) {
+function formatDate(value?: string, sinAnio = false) {
   if (!value) return "";
 
   /* «05/10/2026» lo leía `new Date` a la americana (5 de mayo) y con día
@@ -104,11 +104,64 @@ function formatDate(value?: string) {
 
   return Number.isNaN(date.getTime())
     ? value
-    : date.toLocaleDateString("es-ES", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      });
+    : date
+        .toLocaleDateString("es-ES", {
+          day: "2-digit",
+          month: "short",
+          ...(sinAnio ? {} : { year: "numeric" }),
+        })
+        .replace(/\.$/, "");
+}
+
+/* Un campo con sólo «-», «—», «–» o «.» es un hueco que dejó el analista, no un dato (29/10/2026). */
+function esVacio(texto: string) {
+  return /^[\s\-—–.]*$/.test(texto);
+}
+
+/*
+| Las siglas que usa el analista al escribir (29/10/2026). Al pie del informe
+| salen sólo las que aparecen en el texto: lo que no está no se explica.
+| La sigla tiene que ir suelta, no dentro de otra palabra («CRUCE» no es CR).
+*/
+const SIGLAS: { sigla: string; patron: RegExp; significado: string }[] = [
+  { sigla: "PT", patron: /(?<![\p{L}\d])PTs?(?![\p{L}\d])/u, significado: "portero" },
+  { sigla: "CT", patron: /(?<![\p{L}\d])CTs?(?![\p{L}\d])/u, significado: "central" },
+  { sigla: "LT", patron: /(?<![\p{L}\d])LTs?(?![\p{L}\d])/u, significado: "lateral" },
+  { sigla: "MC / MCs", patron: /(?<![\p{L}\d])MCs?(?![\p{L}\d])/u, significado: "mediocentro(s)" },
+  { sigla: "MP", patron: /(?<![\p{L}\d])MPs?(?![\p{L}\d])/u, significado: "mediapunta" },
+  { sigla: "EX", patron: /(?<![\p{L}\d])EXs?(?![\p{L}\d])/u, significado: "extremo" },
+  { sigla: "DC", patron: /(?<![\p{L}\d])DCs?(?![\p{L}\d])/u, significado: "delantero centro" },
+  { sigla: "CP", patron: /(?<![\p{L}\d])CP(?![\p{L}\d])/u, significado: "ataque posicional" },
+  { sigla: "CR", patron: /(?<![\p{L}\d])CR(?![\p{L}\d])/u, significado: "contraataque" },
+  { sigla: "ABP", patron: /(?<![\p{L}\d])ABPs?(?![\p{L}\d])/u, significado: "balón parado" },
+];
+
+type FilaEstilo = {
+  nombre: string;
+  valor: number;
+  mediana: number;
+  unidad: "porcentaje" | "decimal" | "entero" | "minutos";
+};
+
+/*
+| Una cifra de Wyscout en lenguaje de vestuario, una por línea (29/10/2026).
+| El PPDA son los pases que deja dar el equipo por cada acción defensiva:
+| cuantos menos, más arriba aprieta. Se dice así y no con la sigla.
+*/
+function lineaEstilo(f: FilaEstilo) {
+  if (f.nombre !== "PPDA") {
+    return `${f.nombre}: ${formatea(f.valor, f.unidad)} (la mediana de la liga es ${formatea(f.mediana, f.unidad)})`;
+  }
+
+  const uno = (n: number) => n.toFixed(1).replace(".", ",");
+  const cerca = Math.abs(f.valor - f.mediana) <= Math.max(Math.abs(f.mediana) * 0.05, 0.0001);
+  const lectura = cerca
+    ? "aprieta como la mayoría"
+    : f.valor < f.mediana
+      ? "aprieta más arriba que la mayoría"
+      : "espera más abajo que la mayoría";
+
+  return `Presión: ${lectura} (deja ${uno(f.valor)} pases por acción defensiva; la mediana deja ${uno(f.mediana)})`;
 }
 
 /**
@@ -249,7 +302,9 @@ export default function ScoutRivalCollective() {
   const [plantillaRival, setPlantillaRival] = useState<Record<string, unknown>[]>([]);
   const [estilo, setEstilo] = useState<{
     equipo: string;
-    filas: { nombre: string; valor: number; mediana: number; unidad: "porcentaje" | "decimal" | "entero" | "minutos" }[];
+    filas: FilaEstilo[];
+    /* Cuántos equipos entran en la mediana, si la respuesta lo trae. */
+    equipos?: number;
   }>({ equipo: "", filas: [] });
 
   useEffect(() => {
@@ -275,10 +330,16 @@ export default function ScoutRivalCollective() {
 
     traeJson<{
       ok?: boolean;
-      aspectos?: { filas: { nombre: string; valor: number; mediana: number; unidad: "porcentaje" | "decimal" | "entero" | "minutos" }[] }[];
+      equipos?: number;
+      aspectos?: { filas: FilaEstilo[] }[];
     }>(`/api/data-analisis?abpRival=${encodeURIComponent(equipoActivo)}&ambito=estilo&v=1`)
       .then((r) => {
-        if (!cancelado) setEstilo({ equipo: equipoActivo, filas: r?.ok ? (r.aspectos ?? []).flatMap((a) => a.filas) : [] });
+        if (!cancelado)
+          setEstilo({
+            equipo: equipoActivo,
+            filas: r?.ok ? (r.aspectos ?? []).flatMap((a) => a.filas) : [],
+            equipos: r?.ok && typeof r.equipos === "number" && r.equipos > 0 ? r.equipos : undefined,
+          });
       })
       .catch(() => {
         if (!cancelado) setEstilo({ equipo: equipoActivo, filas: [] });
@@ -299,6 +360,7 @@ export default function ScoutRivalCollective() {
   );
 
   const contexto = estilo.equipo === equipoActivo ? estilo.filas : [];
+  const equiposLiga = estilo.equipo === equipoActivo ? estilo.equipos : undefined;
 
   /* Puente hacia el `flush` del autoguardado: `cambiarRival` se declara antes
      que el hook y necesita poder consolidar lo pendiente. Dice si lo pendiente
@@ -362,45 +424,80 @@ export default function ScoutRivalCollective() {
   const completados = useMemo(() => {
     if (!rivalActivo) return 0;
 
-    return ALL_FIELDS.filter((f) => valorDe(f.campo).trim()).length;
+    return ALL_FIELDS.filter((f) => !esVacio(valorDe(f.campo))).length;
   }, [rivalActivo, valorDe]);
 
   const tiene = useCallback(
-    (f: FieldDef) => valorDe(f.campo).trim().length > 0,
+    (f: FieldDef) => !esVacio(valorDe(f.campo)),
     [valorDe]
   );
+
+  /* Una línea de conclusión sin la viñeta del principio. */
+  const limpiaLinea = (l: string) => l.replace(/^[\s\-–•*·]+/, "").trim();
 
   /* La primera línea de las tres conclusiones que más se buscan. */
   const esencial = (() => {
     const campos = ["JUGADORES_CLAVE", "DEBILIDADES_INDIVIDUALES", "CLAVES_PARTIDO"].map((campo) => ({
+      campo,
       titulo: CONCLUSIONES.find((f) => f.campo === campo)?.titulo ?? "",
       lineas: valorDe(campo)
         .split(/\r?\n/)
-        .map((l) => l.replace(/^[\s\-–•*·]+/, "").trim())
-        .filter(Boolean),
+        .map(limpiaLinea)
+        .filter((l) => !esVacio(l)),
     }));
     const corta = (t: string) => {
       const completo = completaNombres(t, nombresRival);
 
       return completo.length > 180 ? `${completo.slice(0, 177).trimEnd()}…` : completo;
     };
+    /* `entera`: la línea cabe sin recortar, así que en «Conclusiones» ya no hace falta repetirla. */
+    const idea = (c: (typeof campos)[number], l: string) => ({ campo: c.campo, titulo: c.titulo, texto: corta(l), linea: l, entera: completaNombres(l, nombresRival).length <= 180 });
     /* La primera línea de cada conclusión; si faltan, las siguientes de las que tengan más hasta llegar a tres. */
-    const ideas = campos.flatMap((c) => (c.lineas[0] ? [{ titulo: c.titulo, texto: corta(c.lineas[0]) }] : []));
+    const ideas = campos.flatMap((c) => (c.lineas[0] ? [idea(c, c.lineas[0])] : []));
 
     for (let n = 1; ideas.length < 3 && campos.some((c) => c.lineas[n]); n++) {
       for (const c of campos) {
-        if (ideas.length < 3 && c.lineas[n]) ideas.push({ titulo: c.titulo, texto: corta(c.lineas[n]) });
+        if (ideas.length < 3 && c.lineas[n]) ideas.push(idea(c, c.lineas[n]));
       }
     }
 
     return ideas;
   })();
 
+  /*
+  | Lo que queda de cada conclusión tras «Lo esencial» (29/10/2026): las
+  | líneas que ya salen enteras arriba no se repiten abajo. En edición se ve
+  | el campo entero, que es lo que se escribe.
+  */
+  const restoConclusion = (campo: string) => {
+    const valor = valorDe(campo);
+
+    if (modoEdicion) return valor;
+
+    const arriba = new Set(esencial.filter((e) => e.campo === campo && e.entera).map((e) => e.linea));
+
+    if (!arriba.size) return valor;
+
+    return valor
+      .split(/\r?\n/)
+      .filter((l) => !arriba.has(limpiaLinea(l)))
+      .join("\n");
+  };
+
+  const conclusionesVisibles = CONCLUSIONES.filter((f) => modoEdicion || !esVacio(restoConclusion(f.campo)));
+
+  /* Las siglas que aparecen en lo que ha escrito el analista. */
+  const siglasUsadas = (() => {
+    const texto = ALL_FIELDS.map((f) => valorDe(f.campo)).join("\n");
+
+    return SIGLAS.filter((s) => s.patron.test(texto));
+  })();
+
   /* ¿Se pinta esta sección? En lectura, sólo si algún campo tiene texto. */
   const seccionVisible = (id: string) => {
     if (modoEdicion) return true;
 
-    if (id === "conclusiones") return CONCLUSIONES.some(tiene);
+    if (id === "conclusiones") return conclusionesVisibles.length > 0;
 
     const seccion = SECTIONS.find((s) => s.id === id);
 
@@ -943,28 +1040,19 @@ export default function ScoutRivalCollective() {
                   ))}
               </ul>
               {contexto.length > 0 && (
-                <p className="mt-3 border-t border-[#C8A96B]/15 pt-2 text-xs text-white/70">
-                  <span className="text-white/45">Wyscout, frente a la mediana de la liga:</span>
-                  {contexto
-                    .map((f) => {
-                      const esPpda = f.nombre === "PPDA";
-                      const nombre = esPpda ? "presión (PPDA)" : f.nombre.toLowerCase();
-                      const cerca = Math.abs(f.valor - f.mediana) <= Math.max(Math.abs(f.mediana) * 0.05, 0.0001);
-                      const lectura = cerca
-                        ? esPpda ? "presiona igual que la media" : "en la media"
-                        : esPpda
-                          ? f.valor < f.mediana ? "presiona más arriba que la media" : "presiona más abajo que la media"
-                          : f.valor > f.mediana ? "más que la mediana" : "menos que la mediana";
-
-                      return `${nombre} ${formatea(f.valor, f.unidad)} frente a ${formatea(f.mediana, f.unidad)}: ${lectura}`;
-                    })
-                    .join(" · ")}
-                  {contexto.some((f) => f.nombre === "PPDA") && <span className="text-white/45"> · PPDA bajo = presiona más arriba</span>}
-                </p>
+                /* Cada cifra en su línea y dicha como en el vestuario (29/10/2026). */
+                <div className="mt-3 border-t border-[#C8A96B]/15 pt-2 text-xs text-white/70">
+                  <p className="text-white/45">Wyscout, frente a la liga{equiposLiga ? ` (sobre ${equiposLiga} equipos)` : ""}</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {contexto.map((f) => (
+                      <li key={f.nombre}>{lineaEstilo(f)}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
               <p className="mt-2 text-[11px] text-white/40">
                 Fuente: las conclusiones que ha escrito el analista tras ver los partidos del rival
-                {esencial.length > 1 ? "; el detalle está abajo, en «Conclusiones»" : ""}.
+                {conclusionesVisibles.length > 0 ? "; el resto está abajo, en «Conclusiones»" : ""}.
               </p>
             </section>
           )}
@@ -982,7 +1070,8 @@ export default function ScoutRivalCollective() {
 
           {/* ----------------------------------- Selector + datos clave */}
           <section id="datos" className="scroll-mt-20">
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row" data-export-hide>
+            {/* En el móvil, flechas y desplegable en una sola fila (29/10/2026). */}
+            <div className="mb-6 flex flex-nowrap items-center gap-2 sm:gap-3" data-export-hide>
               <button
                 aria-label="Rival anterior"
                 disabled={indice <= 0}
@@ -993,7 +1082,7 @@ export default function ScoutRivalCollective() {
               </button>
 
               {rivales.length === 0 && cargando ? (
-                <Hueso className="h-[56px] w-full rounded-2xl" />
+                <Hueso className="h-[56px] min-w-0 flex-1 rounded-2xl" />
               ) : (
               <select
                 aria-label="Seleccionar rival"
@@ -1003,7 +1092,7 @@ export default function ScoutRivalCollective() {
                     rivales.find((r) => String(r.ID) === e.target.value)
                   )
                 }
-                className="h-[56px] w-full rounded-2xl border border-white/10 bg-[#111827] px-4 text-base font-semibold text-white shadow-lg outline-none transition focus:border-[#C8A96B]/60"
+                className="h-[56px] min-w-0 flex-1 rounded-2xl border border-white/10 bg-[#111827] px-3 text-base sm:px-4 font-semibold text-white shadow-lg outline-none transition focus:border-[#C8A96B]/60"
               >
                 {rivales.length === 0 && <option value="">Sin rivales</option>}
 
@@ -1025,7 +1114,25 @@ export default function ScoutRivalCollective() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {/* En el móvil, en lectura, los tres datos en una línea: «J10 · 01 nov · Local» (29/10/2026). */}
+            {!modoEdicion && (() => {
+              const jornada = String(rivalActivo?.JORNADA ?? "").trim();
+              const lado = String(rivalActivo?.LOCAL_VISITANTE ?? "").trim();
+              const partes = [
+                jornada ? (/^\d+$/.test(jornada) ? `J${jornada}` : jornada) : "",
+                formatDate(rivalActivo?.FECHA, true),
+                lado ? lado.charAt(0).toUpperCase() + lado.slice(1).toLowerCase() : "",
+              ].filter(Boolean);
+
+              return partes.length > 0 ? (
+                <p className="flex items-center gap-2 rounded-2xl border border-white/5 bg-[#111827] px-4 py-3 text-base font-bold sm:hidden">
+                  <CalendarDays size={14} className="shrink-0 text-white/40" />
+                  {partes.join(" · ")}
+                </p>
+              ) : null;
+            })()}
+
+            <div className={`grid-cols-1 gap-4 sm:grid-cols-3 ${modoEdicion ? "grid" : "hidden sm:grid"}`}>
               <DatoClave
                 icon={CalendarDays}
                 label="Jornada"
@@ -1107,7 +1214,7 @@ export default function ScoutRivalCollective() {
                 <p className="text-sm text-white/50">{section.subtitulo}</p>
               </div>
 
-              <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <div className="mt-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
                 {section.bloques
                   .filter((bloque) => modoEdicion || bloque.campos.some(tiene))
                   .map((bloque) => (
@@ -1158,7 +1265,7 @@ export default function ScoutRivalCollective() {
           ))}
 
           {/* ------------------------------------------- Conclusiones */}
-          {(modoEdicion || CONCLUSIONES.some(tiene)) && (
+          {conclusionesVisibles.length > 0 && (
           <section id="conclusiones" className="mt-12 scroll-mt-20">
             <div
               className="flex flex-col gap-1 rounded-2xl border-l-4 bg-white/[0.03] px-5 py-4"
@@ -1177,11 +1284,11 @@ export default function ScoutRivalCollective() {
             </div>
 
             <div className="mt-6 grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-              {CONCLUSIONES.filter((f) => modoEdicion || tiene(f)).map((field) => (
+              {conclusionesVisibles.map((field) => (
                 <Campo
                   key={field.campo}
                   field={field}
-                  valor={valorDe(field.campo)}
+                  valor={restoConclusion(field.campo)}
                   editando={modoEdicion}
                   accent="#C8A96B"
                   destacado
@@ -1191,6 +1298,21 @@ export default function ScoutRivalCollective() {
               ))}
             </div>
           </section>
+          )}
+
+          {/* Las siglas del texto del analista, sólo las que salen (29/10/2026). */}
+          {!modoEdicion && siglasUsadas.length > 0 && (
+            <details data-export-hide className="mt-10 rounded-2xl border border-white/10 bg-[#111827] px-5 py-3 text-sm text-white/70">
+              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Siglas</summary>
+              <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+                {siglasUsadas.map((s) => (
+                  <div key={s.sigla} className="flex gap-2">
+                    <dt className="w-20 shrink-0 font-semibold text-white/85">{s.sigla}</dt>
+                    <dd>{s.significado}</dd>
+                  </div>
+                ))}
+              </dl>
+            </details>
           )}
         </div>
         {avisoGuardado}

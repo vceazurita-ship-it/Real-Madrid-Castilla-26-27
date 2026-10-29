@@ -505,6 +505,25 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "Documentos propios y lo que se trae del análisis del rival.",
     bloques: [
       {
+        titulo: "Arriba",
+        filas: [
+          { que: "Lo esencial", es: "Las claves del apartado «Claves del partido», arriba del todo" },
+          { que: "Informe", es: "Abre el Scout Colectivo y la pizarra de ABP, o imprime el plan" },
+          { que: "Boceto", es: "Copia el plan de la jornada anterior con «?» en lo que puede cambiar y «*» en lo que se propone incorporar" },
+          { que: "Replicar", es: "Copia el plan de otra jornada que se elija" },
+        ],
+      },
+      {
+        titulo: "Siglas del plan de juego",
+        filas: [
+          { que: "CP", es: "Ataque posicional u organizado" },
+          { que: "CR", es: "Contraataque o transición" },
+          { que: "ABP", es: "Acciones a balón parado" },
+          { que: "PTO", es: "Portero" },
+          { que: "Z1, Z2…", es: "Zonas del campo" },
+        ],
+      },
+      {
         titulo: "Cómo se guarda",
         filas: [
           { que: "Autoguardado", es: "Lo que se escribe se guarda solo, con copia local si falla la red" },
