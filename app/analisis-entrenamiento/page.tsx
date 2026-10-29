@@ -72,6 +72,7 @@ import { planDeRegistro, sesionDeFecha } from "@/lib/sesion-dia/conexion";
 
 import { CAMPO, ObjetivoEditor, type TareaDelDia } from "./ObjetivoEditor";
 import { SesionDelDia } from "./SesionDelDia";
+import { PanelVisual } from "./PanelVisual";
 import { QueTocaDelPost } from "./QueTocaDelPost";
 import { VistaJugador } from "./VistaJugador";
 
@@ -531,6 +532,19 @@ export default function AnalisisEntrenamientoPage() {
               )
             ) : (
               <>
+                {/* El día de un vistazo, arriba (29/10/2026): titular, gráficos y cada marca abre sus clips. El detalle por objetivo sigue más abajo. */}
+                {analisis && !cargando && vivas.length > 0 ? (
+                  <PanelVisual
+                    dias={dias}
+                    fecha={fecha}
+                    onValida={valida}
+                    onIrAlDia={(f) => {
+                      setFecha(f);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                  />
+                ) : null}
+
                 <Explicativo>
                   <p className="text-xs text-white/50">
                     El vídeo sale de la cámara táctica si hay una grabación de ese día en la carpeta SESIONES del ordenador del club; si no, del entrenamiento subido a Hudl con la fecha en el título («16102026 RM CASTILLA…»). La IA propone cada acción y su veredicto; se corta un clip de ejemplo correcto y otro mejorable por objetivo. Lo que valides aquí manda en los números.
@@ -690,21 +704,9 @@ export default function AnalisisEntrenamientoPage() {
                       </Explicativo>
                     </div>
 
-                    {/* El día de un vistazo. */}
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                      {[
-                        ["Acciones", String(cuentanDia), "text-white"],
-                        ["Correctas", String(cuantas.correcta), "text-emerald-300"],
-                        ["Mejorables", String(cuantas.mejorable), "text-amber-300"],
-                        ["Acierto del día", pctDia === null ? (cuentanDia ? "Tendencia" : "Sin acciones") : `${pctDia} %`, "text-white"],
-                      ].map(([t, v, c]) => (
-                        <div key={t} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-                          <p className={`truncate text-xl font-semibold tabular-nums ${c}`}>{v}</p>
-                          <p className="text-[10px] uppercase tracking-wider text-white/50">{t}</p>
-                        </div>
-                      ))}
-                    </div>
+                    {/* Las cifras del día viven arriba, en el panel visual (29/10/2026); aquí queda la cuenta de lo validado. */}
                     <p className="text-xs text-white/60">
+                      {pctDia !== null ? `Acierto del día ${pctDia} % · ` : ""}
                       {cuentanDia ? `${cuantas.correcta} de ${cuentanDia} correctas · ${validadasDia === cuentanDia ? "todas validadas" : `${validadasDia} validadas`}` : "Ninguna acción cuenta"}
                       {cuantas["sin-validar"] ? ` · ${cuantas["sin-validar"]} propuestas por la IA sin validar: cuentan con su veredicto hasta que las valides` : ""}
                       {cuentanDia && cuentanDia < MINIMO_PORCENTAJE ? ` · con menos de ${MINIMO_PORCENTAJE} acciones no se da porcentaje` : ""}
