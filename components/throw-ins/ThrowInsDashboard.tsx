@@ -362,6 +362,22 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
   if (!rows.length) return [];
 
   const ofensivo = mode === "offensive";
+  /* 29/10/2026: «zona 3» se explica dentro de la propia conclusión la primera
+     vez que sale (la leyenda va plegada y nadie la abría): «zona 3 (último
+     tercio, junto al área rival)». Mismos textos que LeyendaSaques. */
+  const zonasExplicadas = new Set<string>();
+  const QUE_ES_ZONA: Record<string, string> = ofensivo
+    ? { "1": "tercio propio, cerca de nuestra portería", "2": "tercio central", "3": "último tercio, junto al área rival" }
+    : { "1": "tercio del rival, cerca de su portería", "2": "tercio central", "3": "junto a nuestra área" };
+  const nombre = (key: string, valor: string) => {
+    const texto = nombreDe(key, valor);
+    const numero = key === "Zona_Saque" ? /(\d)/.exec(valor)?.[1] : undefined;
+
+    if (!numero || !QUE_ES_ZONA[numero] || zonasExplicadas.has(numero)) return texto;
+    zonasExplicadas.add(numero);
+
+    return `${texto} (${QUE_ES_ZONA[numero]})`;
+  };
   const resumen = resumenDe(rows, mode);
   const total = rows.length;
   const favorables = Math.round((resumen.favorablePct / 100) * total);
@@ -402,7 +418,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(productivas, produccionTasa, true);
 
       frases.push(
-        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, la más productiva: ${mejor.produccion} de ${mejor.n} a último tercio; repetirla.${indicio(mejor.n)}`,
+        `${mayuscula(nombre(mejor.key, mejor.valor))}, la más productiva: ${mejor.produccion} de ${mejor.n} a último tercio; repetirla.${indicio(mejor.n)}`,
       );
     }
 
@@ -410,7 +426,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(envios, retencionDe, true);
 
       frases.push(
-        `${mayuscula(nombreDe(mejor.key, mejor.valor))}, el más fiable: retenemos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}); usarlo para conservar.${indicio(mejor.n)}`,
+        `${mayuscula(nombre(mejor.key, mejor.valor))}, el más fiable: retenemos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}); usarlo para conservar.${indicio(mejor.n)}`,
       );
     }
   } else {
@@ -419,21 +435,25 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
     const zonasPeligro = gruposDe(rows, "Zona_Saque", mode).filter((g) => g.produccion > 0 && g.n >= 3);
     const peorZona = zonasPeligro.length ? extremo(zonasPeligro, produccionTasa, true) : null;
     let zonaDicha = false;
+    /* 29/10/2026: el grupo de más robos se guarda para no contradecirlo luego
+       con «su vía más peligrosa» si es el mismo (banda derecha en las dos). */
+    let masRobos: Grupo | null = null;
 
     if (zonas.length >= 2) {
       const mejor = extremo(zonas, retencionDe, true);
 
       if (mejor.favorables > 0) {
+        masRobos = mejor;
         if (peorZona && peorZona.key === mejor.key && peorZona.valor === mejor.valor) {
           zonaDicha = true;
           frases.push(
-            `${mayuscula(nombreDe(mejor.key, mejor.valor))}: robamos ${mejor.favorables} de sus ${mejor.n} saques (${pctTexto(mejor.favorables, mejor.n)}), pero ${
+            `${mayuscula(nombre(mejor.key, mejor.valor))}: robamos ${mejor.favorables} de sus ${mejor.n} saques (${pctTexto(mejor.favorables, mejor.n)}), pero ${
               peorZona.produccion === 1 ? "el que se nos escapa llega" : `${peorZona.produccion} se nos escapan y llegan`
             } a último tercio. Presión con vigilancia a la espalda del que salta.${indicio(mejor.n)}`,
           );
         } else {
           frases.push(
-            `Más robos en ${nombreDe(mejor.key, mejor.valor)}: recuperamos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}); mantener la presión ahí.${indicio(mejor.n)}`,
+            `Más robos en ${nombre(mejor.key, mejor.valor)}: recuperamos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}); mantener la presión ahí.${indicio(mejor.n)}`,
           );
         }
       }
@@ -442,18 +462,39 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
     /* Con menos de cinco saques una «vía peligrosa» es una anécdota: no se nombra. */
     const peligrosas = [...zonas, ...envios].filter((g) => g.produccion > 0 && g.n >= 5);
 
+    /* 29/10/2026: con muestra corta se dice «tendencia», sin imperativo, y se
+       dice cómo cerrarla. Si la vía peligrosa es la misma donde más robamos,
+       va en una sola frase; si todo el peligro sale de la misma zona que la
+       vía, tampoco se repite en otra frase. */
+    const COMO_CERRAR = "Saltar al receptor con el más cercano y vigilancia a la espalda del lateral.";
+    const mismo = (a: Grupo | null, b: Grupo | null) => !!a && !!b && a.key === b.key && a.valor === b.valor;
+    let viaDicha: Grupo | null = null;
+
     if (peligrosas.length) {
       const peor = extremo(peligrosas, produccionTasa, true);
+      viaDicha = peor;
 
-      frases.push(
-        `Su vía más peligrosa: ${nombreDe(peor.key, peor.valor)}, ${peor.produccion} de ${peor.n} a último tercio; hay que cerrarla.${indicio(peor.n)}`,
-      );
+      if (mismo(peor, masRobos) && !zonaDicha && masRobos) {
+        /* La frase de «más robos» ya está: se cambia por la que junta las dos. */
+        const i = frases.findIndex((f) => f.startsWith("Más robos en "));
+
+        if (i >= 0) frases.splice(i, 1);
+        /* La explicación de la zona iba en la frase quitada: se vuelve a dar. */
+        zonasExplicadas.clear();
+        frases.push(
+          `${mayuscula(nombre(peor.key, peor.valor))}: es donde más robamos (${masRobos.favorables} de ${masRobos.n}) y por donde más llegan (${peor.produccion} de ${peor.n}). ${COMO_CERRAR}${indicio(peor.n)}`,
+        );
+      } else if (!mismo(peor, masRobos)) {
+        frases.push(
+          `${peor.n < 20 ? "Tendencia: su" : "Su"} vía más peligrosa es ${nombre(peor.key, peor.valor)} (${peor.produccion} de ${peor.n} a último tercio). ${COMO_CERRAR}${indicio(peor.n)}`,
+        );
+      }
     }
 
     /* La consigna: dónde nos hacen más daño, no sólo dónde más robamos. */
-    if (peorZona && !zonaDicha) {
+    if (peorZona && !zonaDicha && !mismo(peorZona, viaDicha)) {
       frases.push(
-        `Más peligro concedido: saques desde ${nombreDe(peorZona.key, peorZona.valor)}, ${peorZona.produccion} de ${peorZona.n} a último tercio; ahí hay que cerrar.${indicio(peorZona.n)}`,
+        `${peorZona.n < 20 ? "Tendencia: más" : "Más"} peligro concedido en saques desde ${nombre(peorZona.key, peorZona.valor)} (${peorZona.produccion} de ${peorZona.n} a último tercio).${indicio(peorZona.n)}`,
       );
     }
 
@@ -476,13 +517,13 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(personas, (g) => produccionTasa(g) * 2 + retencionDe(g), true);
 
       frases.push(
-        `Más eficaz: ${nombreDe(mejor.key, mejor.valor)} (retenemos ${mejor.favorables} de ${mejor.n}, ${mejor.produccion} a último tercio); buscarlo más.${indicio(mejor.n)}`,
+        `Más eficaz: ${nombre(mejor.key, mejor.valor)} (retenemos ${mejor.favorables} de ${mejor.n}, ${mejor.produccion} a último tercio); buscarlo más.${indicio(mejor.n)}`,
       );
     } else {
       const comodo = extremo(receptores.length >= 2 ? receptores : personas, retencionDe, false);
 
       frases.push(
-        `Su ${nombreDe(comodo.key, comodo.valor)}, el más cómodo: recuperamos ${comodo.favorables} de ${comodo.n}; hay que apretarle ahí.${indicio(comodo.n)}`,
+        `Su ${nombre(comodo.key, comodo.valor)}, el más cómodo: recuperamos ${comodo.favorables} de ${comodo.n}; hay que apretarle ahí.${indicio(comodo.n)}`,
       );
     }
   }
@@ -501,7 +542,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
 
       if (retencionDe(peor) < global) {
         frases.push(
-          `Punto débil: ${nombreDe(peor.key, peor.valor)}, retenemos ${peor.favorables} de ${peor.n}.${indicio(peor.n)}`,
+          `Punto débil: ${nombre(peor.key, peor.valor)}, retenemos ${peor.favorables} de ${peor.n}.${indicio(peor.n)}`,
         );
       }
     }
@@ -613,11 +654,16 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
       ofensivo ? "% progresión" : "% progresión concedida",
       esProgresion,
       ofensivo,
-      "envíos hacia delante o al área",
+      /* 29/10/2026: con menos de 25 saques el porcentaje baila mucho; se dice
+         en la propia fila. */
+      juntaPie("envíos hacia delante o al área", actual.length < 25 ? "muestra corta" : undefined),
     ),
-    cuenta(
+    /* 29/10/2026: la producción y el peligro concedido van en porcentaje, como
+       la retención y la progresión: «52 % · 12 de 23» frente a la media en %,
+       la misma unidad que la píldora de la lectura (antes 12 frente a 4,6). */
+    porcentaje(
       "produccion",
-      ofensivo ? "Producción" : "Peligro concedido",
+      ofensivo ? "% producción" : "% peligro concedido",
       produce,
       ofensivo,
       "último tercio, ocasión o gol",
@@ -628,13 +674,22 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
     ...(ofensivo
       ? []
       : [
-          cuenta(
-            "transiciones",
-            "Transiciones tras robo",
-            (row) => esTransicion(resultadoDe(row)),
-            true,
-            "robamos y llegamos a último tercio",
-          ),
+          /* 29/10/2026: la base son los saques que robamos, no todos los del
+             rival: «0 de 8 robos» se lee junto a la conclusión (8
+             recuperaciones, ninguna llega arriba); «0 de 21» no casaba. */
+          {
+            ...cuenta(
+              "transiciones",
+              "Transiciones tras robo",
+              (row) => esTransicion(resultadoDe(row)),
+              true,
+              "de los saques que robamos, los que llegan a último tercio",
+              false,
+            ),
+            ...(cuentaDe(conserva)(actual) > 0
+              ? { n: cuentaDe((row) => esTransicion(resultadoDe(row)))(actual), de: cuentaDe(conserva)(actual), unidad: "robos" }
+              : {}),
+          },
         ]),
   ];
 }
@@ -1653,7 +1708,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                         { clave: "resumen", label: "Resumen", icono: LayoutDashboard },
                         { clave: "donde", label: "Dónde", icono: MapaIcono },
                         { clave: "como", label: "Cómo acaban", icono: Workflow },
-                        { clave: "lista", label: "Saque a saque", icono: ListOrdered, cuenta: filtered.length },
+                        /* 29/10/2026: sin la cuenta en la pestaña: en el móvil
+                           se leía como un «23» suelto sobre la tabla. */
+                        { clave: "lista", label: "Saque a saque", icono: ListOrdered },
                       ]}
                     />
                   </div>
@@ -1666,11 +1723,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 {comparativa ? (
                   <ComparativaPartido
                     className="mb-7"
-                    title={
-                      isOffensive
-                        ? "Nuestros saques: este partido frente a los anteriores"
-                        : "Los saques del rival: este partido frente a los anteriores"
-                    }
+                    /* 29/10/2026: título corto para que no se corte en el móvil;
+                       de quién son los saques ya lo dice la cabecera. */
+                    title="Este partido frente a los anteriores"
                     partido={`${comparativa.elegida.etiqueta}${comparativa.rival ? ` · ${comparativa.rival}` : ""}`}
                     anteriores={{
                       n: comparativa.anteriores.length,

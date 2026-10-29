@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Bell,
@@ -63,12 +63,50 @@ export function AlertasPortada({
 
   /* Por `traeJson`: la tira sale al momento con la copia del aparato y las
      alertas nuevas llegan por detrás. Es la pantalla que más se abre. */
+  /*
+  | 29/10/2026 (fútbol): `v=2` en la llamada para que no se usen las copias
+  | viejas del aparato, que enseñaban «Faltas directas a portería 100,0 %» sin
+  | la muestra. Y, sin pedir «Recargar», se vuelve a pedir detrás: si llegan
+  | alertas distintas y el bloque no se ha abierto, se cambian solas.
+  */
+  const tocado = useRef(false);
+
+  useEffect(() => {
+    if (abierto) tocado.current = true;
+  }, [abierto]);
+
   useEffect(() => {
     let vivo = true;
+    const URL_ALERTAS = "/api/data-analisis?alertas=1&v=2";
+    const lista = (r: { alertas?: Alerta[] } | null) => (Array.isArray(r?.alertas) ? r.alertas : []);
+    let pintadas = "";
+    const relojes: ReturnType<typeof setTimeout>[] = [];
 
-    traeJson<{ alertas?: Alerta[] }>("/api/data-analisis?alertas=1")
+    /* `traeJson` renueva por detrás una copia vieja y deja la nueva en
+       memoria: volver a preguntar al rato es gratis y trae la renovada, sin
+       borrar la copia (sin red seguiría valiendo). */
+    const relee = () =>
+      traeJson<{ alertas?: Alerta[] }>(URL_ALERTAS)
+        .then((nuevo) => {
+          const frescas = lista(nuevo);
+          const firma = JSON.stringify(frescas);
+
+          if (vivo && !tocado.current && firma !== pintadas) {
+            pintadas = firma;
+            setDeData(frescas);
+          }
+        })
+        .catch(() => {});
+
+    traeJson<{ alertas?: Alerta[] }>(URL_ALERTAS)
       .then((r) => {
-        if (vivo) setDeData(Array.isArray(r?.alertas) ? r.alertas : []);
+        if (!vivo) return;
+
+        const primeras = lista(r);
+
+        pintadas = JSON.stringify(primeras);
+        setDeData(primeras);
+        relojes.push(setTimeout(relee, 6000), setTimeout(relee, 25000));
       })
       .catch(() => {
         /* Sin las de Data se pintan las del seguimiento, que se arman aquí. */
@@ -77,6 +115,7 @@ export function AlertasPortada({
 
     return () => {
       vivo = false;
+      relojes.forEach(clearTimeout);
     };
   }, []);
 
@@ -231,7 +270,7 @@ export function AlertasPortada({
                 {alerta.mira && alerta.enlace && (
                   <Link
                     href={alerta.enlace}
-                    className="mx-3.5 mb-3 mt-auto inline-flex min-w-0 items-start gap-1 border-t border-white/[0.06] pt-2 text-[11.5px] leading-snug text-[#C8A96B] hover:underline"
+                    className="mx-3.5 mb-3 mt-auto inline-flex min-w-0 items-start gap-1 border-t border-white/[0.06] pt-2 text-[12px] font-medium leading-snug text-[#C8A96B] hover:underline"
                   >
                     <ArrowUpRight className="mt-0.5 h-3 w-3 shrink-0" />
                     <span className="line-clamp-2">{alerta.mira}</span>
@@ -406,7 +445,7 @@ function Columna({
                 {alerta.detalle}
               </p>
 
-              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px]">
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12px]">
                 <span
                   className="rounded-lg px-2 py-1 font-medium tabular-nums"
                   style={{ background: `${color}14`, color: chipInk(color) }}
@@ -414,11 +453,11 @@ function Columna({
                   {alerta.cifra}
                 </span>
 
-                <span className="text-white/30">{alerta.area}</span>
+                <span className="text-white/45">{alerta.area}</span>
               </div>
 
-              <p className="mt-2 text-[11px] text-white/35">
-                <span className="text-white/50">Al abrir:</span> {alerta.mira}
+              <p className="mt-2 text-[12px] text-white/60">
+                <span className="text-white/45">Al abrir:</span> {alerta.mira}
               </p>
             </Link>
           ))}

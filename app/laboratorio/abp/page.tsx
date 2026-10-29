@@ -302,7 +302,9 @@ export default function LaboratorioAbpPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 pl-4 pr-12 pb-28 pt-6 sm:px-6 sm:pb-6 lg:px-10">
+          {/* lg:pr-16 (29/10/2026, fútbol): a 1440 px el ⋮ flotante se montaba
+              sobre la esquina de «Biblioteca de rutinas». */}
+          <div className="min-w-0 pl-4 pr-12 pb-28 pt-6 sm:px-6 sm:pb-6 lg:pl-10 lg:pr-16">
             <AbpHeader
               area="RMCF Castilla · Balón parado"
               title="Laboratorio de ABP"
@@ -323,7 +325,7 @@ export default function LaboratorioAbpPage() {
               seis tarjetas que se comían media pantalla.
             */}
             <nav
-              className="sticky z-20 -mx-4 mt-5 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 py-2.5 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10"
+              className="sticky z-20 -mx-4 mt-5 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 py-2.5 backdrop-blur sm:-mx-6 sm:px-6 lg:-ml-10 lg:-mr-16 lg:pl-10 lg:pr-16"
               style={{ top: tope }}
               aria-label="Secciones del laboratorio"
             >

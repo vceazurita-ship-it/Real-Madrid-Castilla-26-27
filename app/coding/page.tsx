@@ -652,15 +652,11 @@ function Coding() {
 
     if (pedido) return pedido;
 
-    /* Y si no dice nada, el de la jornada en la que estamos. */
-    const deLaJornada = ordenRivales.actual
-      ? rivales.find((uno) => uno.clave === apodoCoding(ordenRivales.actual))
-      : undefined;
-
-    if (deLaJornada) return deLaJornada;
-
-    /* 29/10/2026: sin próximo rival anunciado se codifica el último partido jugado
-       (el Algeciras), no el primero de la lista por orden alfabético (el Cartagena). */
+    /* 29/10/2026: y si no dice nada, el del último partido jugado (el Algeciras):
+       lo que se codifica en la semana es el vídeo del partido que acaba de
+       pasar, no el del próximo rival (el Cartagena). Si el vídeo abierto nombra a
+       otro equipo, `rivalEnConflicto` pide elegir. Sin partidos jugados, el de
+       la jornada. */
     const ultimo = partidos
       .filter((uno) => uno.gf !== null && uno.date)
       .sort((a, b) => b.date.localeCompare(a.date))[0];
@@ -673,7 +669,13 @@ function Coding() {
         )
       : undefined;
 
-    return delUltimo ?? rivales[0] ?? null;
+    if (delUltimo) return delUltimo;
+
+    const deLaJornada = ordenRivales.actual
+      ? rivales.find((uno) => uno.clave === apodoCoding(ordenRivales.actual))
+      : undefined;
+
+    return deLaJornada ?? rivales[0] ?? null;
   }, [equipoRival, ordenRivales.actual, rivales, partidos]);
 
   /** La plantilla del scouting de ese rival, si la hay. */
@@ -4196,7 +4198,9 @@ function Coding() {
                 */}
                 {videosSesion.length > 1 && (
                   <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5">
-                    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                    {/* 29/10/2026: en el móvil, una sola fila que se desliza; apilados eran
+                        seis renglones y los mandos quedaban fuera de la primera pantalla. */}
+                    <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto [scrollbar-width:thin] sm:flex-wrap sm:overflow-visible [&>*]:shrink-0 sm:[&>*]:shrink">
                       <span className="px-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
                         Vídeos
                       </span>
@@ -5373,7 +5377,12 @@ function Coding() {
                 </Panel>
 
                 {/* 29/10/2026: sin cortes estas tablas son sólo «se llena al marcar…»; no se enseñan hasta que haya algo. */}
-                {clips.length > 0 && (
+                {/* 29/10/2026: y tampoco si todos son «Vídeo completo»: la tabla sólo decía eso. */}
+                {clips.some(
+                  (uno) =>
+                    uno.sujeto !== "colectivo" &&
+                    uno.jugadorId !== SUJETO_VIDEO_COMPLETO.id,
+                ) && (
                 <Panel title="Por jugador" bodyClassName="p-3 sm:p-3">
                   <TablaResumen
                     filas={porJugador(clips, config.descriptores)}

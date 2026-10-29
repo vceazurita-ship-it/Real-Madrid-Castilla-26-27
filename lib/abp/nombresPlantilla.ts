@@ -112,3 +112,56 @@ export function nombresSinFicha(
     .filter((jugador) => fuera.has(jugador.id))
     .map((jugador) => jugador.apodo || jugador.nombre || "");
 }
+
+/*
+| 29/10/2026: «Cestero y Yáñez frontal» nombraba a Yáñez, que no estaba en la
+| plantilla cargada ni en ningún puesto, y no saltaba ningún aviso: la función
+| de arriba sólo mira a los de la plantilla. Ésta busca además los nombres
+| propios sueltos de las consignas (palabra con mayúscula que no abre la frase,
+| o la que abre una pareja «X y Y») que no son de ninguna ficha de la
+| diapositiva ni una palabra del oficio.
+*/
+const DEL_OFICIO = new Set(
+  [
+    "primer", "segundo", "palo", "palos", "frontal", "corner", "corners", "falta", "faltas", "saque", "saques",
+    "bloqueo", "bloqueos", "zona", "zonas", "rechace", "rechaces", "equilibrio", "corta", "corto", "portero",
+    "barrera", "marca", "marcas", "directa", "directo", "lateral", "laterales", "area", "punto", "penalti",
+    "defensa", "ataque", "izquierda", "derecha", "izquierdo", "derecho", "centro", "central", "todos", "resto",
+    "remate", "rematador", "rematadores", "lanzador", "sacador", "banda", "linea", "pequena", "grande",
+    "salida", "vigilancia", "arrastre", "pantalla", "carrera", "espalda", "fuera", "dentro", "atras", "delante",
+  ],
+);
+
+export function nombresSueltos(textos: string[], enDiapositiva: Jugador[]): string[] {
+  const conocidas = new Set<string>();
+
+  for (const jugador of enDiapositiva) {
+    for (const campo of [jugador.apodo, jugador.nombre]) {
+      for (const palabra of sinTildes((campo ?? "").trim()).split(/\s+/)) {
+        if (palabra) conocidas.add(palabra);
+      }
+    }
+  }
+
+  const sueltos = new Map<string, string>();
+
+  for (const texto of textos) {
+    for (const frase of String(texto ?? "").split(/[.:;!?\n]+/)) {
+      const palabras = frase.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+/g) ?? [];
+
+      palabras.forEach((palabra, i) => {
+        const mayuscula = /^[A-ZÁÉÍÓÚÜÑ]/.test(palabra) && palabra !== palabra.toUpperCase();
+        const abrePareja = i === 0 && sinTildes(palabras[1] ?? "") === "y" && /^[A-ZÁÉÍÓÚÜÑ]/.test(palabras[2] ?? "");
+
+        if (!mayuscula || (i === 0 && !abrePareja) || palabra.length < 3) return;
+
+        const clave = sinTildes(palabra);
+
+        if (DEL_OFICIO.has(clave) || conocidas.has(clave)) return;
+        sueltos.set(clave, palabra);
+      });
+    }
+  }
+
+  return [...sueltos.values()];
+}

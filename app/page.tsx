@@ -87,6 +87,20 @@ const CSV_PRINCIPIOS =
    identifica algo —el área de un módulo, la fase de juego—.
 --------------------------------------------------------------- */
 
+/**
+ * Goles, esperados y la diferencia por partido con los MISMOS totales que se
+ * leen en la tarjeta (29/10/2026): goles enteros y xG con un decimal. Sin xG
+ * o sin partidos, la diferencia es la que llega.
+ */
+function golesFrenteXg(xg: number | null, golesMenosXg: number, partidos: number) {
+  if (xg == null || !partidos) return { goles: 0, esperados: 0, diferencia: golesMenosXg }
+
+  const goles = Math.round((xg + golesMenosXg) * partidos)
+  const esperados = Math.round(xg * partidos * 10) / 10
+
+  return { goles, esperados, diferencia: (goles - esperados) / partidos }
+}
+
 function SectionHeader({
   icon: Icon,
   title,
@@ -119,6 +133,8 @@ export default function Home() {
   /* «Mis tareas» del microciclo: una pestaña sólo para el administrador (28/10/2026). */
   const { admin } = useAdmin()
   const [vista, setVista] = useState<"portada" | "tareas">("portada")
+  /* En el móvil las áreas de trabajo arrancan plegadas (29/10/2026). */
+  const [verAreas, setVerAreas] = useState(false)
   const enTareas = admin && vista === "tareas"
 
   /*
@@ -264,6 +280,20 @@ export default function Home() {
     if (ahora === 0) return 0
 
     const limite = ahora - 30 * 24 * 60 * 60 * 1000
+
+    return seguimientoCastilla.filter((fila) => {
+      const fecha = new Date(fila.FECHA ?? "").getTime()
+
+      return Number.isFinite(fecha) && fecha >= limite
+    }).length
+  }, [seguimientoCastilla, ahora])
+
+  /* Los de la última semana (29/10/2026, análisis): con la temporada empezada
+     hace menos de un mes, «34» y «34 en los últimos 30 días» decían lo mismo. */
+  const ultimos7Dias = useMemo(() => {
+    if (ahora === 0) return 0
+
+    const limite = ahora - 7 * 24 * 60 * 60 * 1000
 
     return seguimientoCastilla.filter((fila) => {
       const fecha = new Date(fila.FECHA ?? "").getTime()
@@ -568,7 +598,7 @@ export default function Home() {
                   {/* El césped de la foto es claro: sin fondo propio esta línea
                       se pierde. Va con el mismo cristal que la chapa. */}
                   <div className="absolute left-5 top-[58px] max-w-[calc(100%-40px)]">
-                    <p className="inline-block rounded-full border border-white/10 px-3.5 py-1.5 text-[11px] leading-relaxed backdrop-blur-xl" style={{ color: "#fff", backgroundColor: "rgba(2,6,13,.94)" }}>
+                    <p className="inline-block rounded-full border border-white/10 px-3.5 py-1.5 text-[12px] leading-relaxed backdrop-blur-xl" style={{ color: "#fff", backgroundColor: "rgba(2,6,13,.94)" }}>
                       {resumenData
                         ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido leído" : "partidos leídos"} de ${resumenData.temporada}, comparado con los ${resumenData.equipos} equipos del grupo`
                         : "Opta y Wyscout, leídos de la carpeta de datos"}
@@ -596,7 +626,7 @@ export default function Home() {
                     style={{ backgroundColor: "rgba(2,6,13,.94)" }}
                   >
                     <div className="min-w-0">
-                      <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.9)" }}>
+                      <p className="text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
                         Goles esperados (xG) por partido
                       </p>
 
@@ -622,7 +652,7 @@ export default function Home() {
                       </div>
 
                       {resumenData?.xg != null && (
-                        <p className="mt-2 break-words text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
+                        <p className="mt-2 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
                           {resumenData.partidos} {resumenData.partidos === 1 ? "partido" : "partidos"}
                           {resumenData.puesto
                             ? ` · ${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría${resumenData.mediana != null ? ` · mediana de los ${resumenData.deCuantos} equipos: ${resumenData.mediana.toFixed(2).replace(".", ",")}` : ""}`
@@ -633,7 +663,7 @@ export default function Home() {
 
                     {(cargandoData || resumenData?.golesMenosXg != null) && (
                       <div className="min-w-0 sm:shrink-0 sm:text-right xl:text-left">
-                        <p className="text-[10px] uppercase tracking-[0.2em]" style={{ color: "rgba(255,255,255,.9)" }}>
+                        <p className="text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
                           Goles por partido frente a lo esperado
                         </p>
 
@@ -651,13 +681,24 @@ export default function Home() {
                           {cargandoData || resumenData?.golesMenosXg == null ? (
                             <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
                           ) : (
-                            `${resumenData.golesMenosXg >= 0 ? "+" : "−"}${Math.abs(resumenData.golesMenosXg).toFixed(2).replace(".", ",")}`
+                            /* 29/10/2026 (análisis): la cifra sale de los mismos totales
+                               redondeados que se leen debajo (11 y 18,8 en 9 → −0,87),
+                               para que la cuenta cuadre al hacerla a mano. */
+                            (() => {
+                              const d = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg, resumenData.partidos).diferencia;
+
+                              return `${d >= 0 ? "+" : "−"}${Math.abs(d).toFixed(2).replace(".", ",")}`;
+                            })()
                           )}
                         </p>
 
                         {resumenData?.golesMenosXg != null && (
-                          <p className="mt-1 break-words text-[11px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
-                            {resumenData.xg != null && `${Math.round((resumenData.xg + resumenData.golesMenosXg) * resumenData.partidos)} goles frente a ${(resumenData.xg * resumenData.partidos).toFixed(1).replace(".", ",")} esperados en ${resumenData.partidos} partidos · `}
+                          <p className="mt-1 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
+                            {resumenData.xg != null && (() => {
+                              const t = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg, resumenData.partidos);
+
+                              return `${t.goles} goles frente a ${t.esperados.toFixed(1).replace(".", ",")} esperados en ${resumenData.partidos} partidos · `;
+                            })()}
                             {resumenData.golesMenosXg >= 0
                               ? "marcamos más de lo esperado"
                               : "marcamos menos de lo esperado"}
@@ -722,7 +763,11 @@ export default function Home() {
                       href: "/calendar",
                       label: "Seguimientos",
                       value: errorSeguimiento ? null : seguimientos,
-                      caption: errorSeguimiento ? "sin datos" : `${ultimos30Dias} en los últimos 30 días`,
+                      caption: errorSeguimiento
+                        ? "sin datos"
+                        : ultimos30Dias === seguimientos
+                          ? `${ultimos7Dias} en la última semana`
+                          : `${ultimos30Dias} en los últimos 30 días`,
                       destino: "Calendario Seguimiento",
                       loading: loadingSeguimiento,
                       icon: Activity,
@@ -800,7 +845,35 @@ export default function Home() {
                 caption="Pulsa / para buscar"
               />
 
-              <ModulesExplorer />
+              {/* Móvil (29/10/2026, análisis): las 46 tarjetas eran pantallas y
+                  pantallas de scroll. Se enseña el buscador y las primeras, y el
+                  resto detrás de un botón; en escritorio, todas. */}
+              <div
+                className={
+                  verAreas
+                    ? ""
+                    : "relative max-h-[560px] overflow-hidden sm:max-h-none sm:overflow-visible"
+                }
+              >
+                <ModulesExplorer />
+
+                {!verAreas && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0B0F14] to-transparent sm:hidden"
+                  />
+                )}
+              </div>
+
+              {!verAreas && (
+                <button
+                  type="button"
+                  onClick={() => setVerAreas(true)}
+                  className="mt-3 w-full rounded-xl border border-white/15 px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white sm:hidden"
+                >
+                  Ver todas las áreas
+                </button>
+              )}
             </div>
 
             {/*

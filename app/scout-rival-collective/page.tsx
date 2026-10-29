@@ -134,9 +134,11 @@ const SIGLAS: { sigla: string; patron: RegExp; significado: string }[] = [
   { sigla: "DC", patron: /(?<![\p{L}\d])DCs?(?![\p{L}\d])/u, significado: "delantero centro" },
   { sigla: "CP", patron: /(?<![\p{L}\d])CP(?![\p{L}\d])/u, significado: "ataque posicional" },
   { sigla: "CR", patron: /(?<![\p{L}\d])CR(?![\p{L}\d])/u, significado: "contraataque" },
-  { sigla: "MdJ", patron: /(?<![p{L}d])MdJ(?![p{L}d])/u, significado: "día de partido (MD-1: un día antes)" },
-  { sigla: "Z1 / Z2", patron: /(?<![p{L}d])Z[123](?![p{L}d])/u, significado: "zonas del campo" },
-  { sigla: "PTO", patron: /(?<![p{L}d])PTO(?![p{L}d])/u, significado: "portero" },
+  /* 29/10/2026: a estas tres se les habían caído las barras del patrón ([p{L}d]). */
+  { sigla: "MdJ", patron: /(?<![\p{L}\d])MdJ(?![\p{L}\d])/u, significado: "día de partido (MD-1: un día antes)" },
+  { sigla: "Z1 / Z2", patron: /(?<![\p{L}\d])Z[123](?![\p{L}\d])/u, significado: "zonas del campo" },
+  { sigla: "PTO", patron: /(?<![\p{L}\d])PTO(?![\p{L}\d])/u, significado: "portero" },
+  { sigla: "Intervalo", patron: /(?<![\p{L}\d])intervalos?(?![\p{L}\d])/iu, significado: "distancia entre líneas (o entre dos jugadores de la misma línea)" },
   { sigla: "ABP", patron: /(?<![\p{L}\d])ABPs?(?![\p{L}\d])/u, significado: "balón parado" },
 ];
 
@@ -514,9 +516,11 @@ export default function ScoutRivalCollective() {
       .join("\n");
   };
 
-  /* Estado del equipo y claves emocionales ya están en el Plan de partido (29/10/2026): en lectura no se repiten aquí. */
+  /* Estado del equipo y claves emocionales ya están en el Plan de partido (29/10/2026): en lectura no se repiten aquí.
+     Tampoco «Claves del partido», que es la misma frase de «Lo lleva el Plan de Partido»: en su sitio, el enlace. */
+  const YA_EN_EL_PLAN = ["ESTADO_EQUIPO", "CLAVES_EMOCIONALES", "CLAVES_PARTIDO"];
   const conclusionesVisibles = CONCLUSIONES.filter(
-    (f) => modoEdicion || (f.campo !== "ESTADO_EQUIPO" && f.campo !== "CLAVES_EMOCIONALES" && !esVacio(restoConclusion(f.campo))),
+    (f) => modoEdicion || (!YA_EN_EL_PLAN.includes(f.campo) && !esVacio(restoConclusion(f.campo))),
   );
 
   /* Las siglas que aparecen en lo que ha escrito el analista. */
@@ -1318,7 +1322,15 @@ export default function ScoutRivalCollective() {
               </h2>
 
               <p className="text-sm text-white/50">
-                Lectura individual, claves del partido y mensaje al grupo
+                Lectura individual y plan
+                {!modoEdicion && (
+                  <>
+                    {" · "}
+                    <Link href={enlacePlanDePartido(rivalActivo)} data-export-hide className="font-semibold text-[#C8A96B] hover:underline">
+                      las claves del partido, en el Plan de partido →
+                    </Link>
+                  </>
+                )}
               </p>
             </div>
 

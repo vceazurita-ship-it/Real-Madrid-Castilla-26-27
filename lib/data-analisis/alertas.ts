@@ -336,7 +336,7 @@ export function alertasDeData(
         /* Una acción concreta y no el pie genérico (29/10/2026, fútbol). */
         mira: (() => {
           const v = formatea(mejor.valor, mejor.unidad as never);
-          const nombre = v.includes("%") ? mejor.nombre.replace(/s*%s*$/, "") : mejor.nombre;
+          const nombre = v.includes("%") ? mejor.nombre.replace(/\s*%\s*$/, "") : mejor.nombre;
 
           return `${jugador.jugador}: ${nombre.toLowerCase()} ${v} → ver su ficha en Data análisis`;
         })(),

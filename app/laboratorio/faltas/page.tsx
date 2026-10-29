@@ -615,6 +615,9 @@ export default function FaltasPage() {
               </span>
             </div>
 
+            {/* 29/10/2026: sin nada pinchado la barra sólo decía «Filtrando nada más»; no se
+                enseña salvo que haya pretemporada que meter o sacar. */}
+            {(chips.length > 0 || HAY_PRETEMPORADA) && (
             <BarraFiltros
               chips={chips}
               onLimpiar={quitaTodo}
@@ -626,6 +629,7 @@ export default function FaltasPage() {
               }
               className="mt-3"
             />
+            )}
 
             <div className="mt-4">
               <Pestanas
@@ -652,17 +656,18 @@ export default function FaltasPage() {
                   {jornadaCorta(partido.jornada)}
                 </span>
 
-                <span className="text-sm font-semibold text-white">
-                  {partido.local
-                    ? `RM Castilla · ${partido.rival}`
-                    : `${partido.rival} · RM Castilla`}
-                </span>
-
-                <span
-                  className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-0.5 font-mono text-[12px] tabular-nums"
-                  style={{ color: "rgb(var(--rmcf-ink-rgb) / .9)" }}
-                >
-                  {partido.resultado}
+                {/* 29/10/2026: el marcador entre los dos nombres («Algeciras 2-0 RM Castilla»):
+                    suelto, «2-0 · fuera» se leía como victoria y contradecía el 0-2 de
+                    Histórico Competición y Data análisis. */}
+                <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
+                  <span>{partido.local ? "RM Castilla" : partido.rival}</span>
+                  <span
+                    className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-0.5 font-mono text-[12px] tabular-nums"
+                    style={{ color: "rgb(var(--rmcf-ink-rgb) / .9)" }}
+                  >
+                    {partido.resultado}
+                  </span>
+                  <span>{partido.local ? partido.rival : "RM Castilla"}</span>
                 </span>
 
                 <span className="text-[11px] uppercase tracking-[0.12em] text-white/35">

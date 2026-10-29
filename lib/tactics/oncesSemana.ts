@@ -92,14 +92,39 @@ async function leeDoc<T>(key: string): Promise<T | null> {
   }
 }
 
+/*
+| EL MOTOR VA EN LA MARCA DE LA SEMANA (29/10/2026)
+|
+| El tablero sólo se rellena solo cuando cambia `semanaOnces`. Al pasar al
+| motor de /duelos, el tablero de esta semana ya estaba rellenado con la regla
+| vieja (diez fichas con nombre, Martínez y Ramírez en vez de Corral y
+| Ribeiro) y no se volvía a tocar hasta la semana siguiente: el cuerpo técnico
+| seguía viendo el once que no era. Con el motor dentro de la marca, cada
+| cambio de motor rellena una vez (con «Deshacer» a mano). Los lectores que
+| parten la marca por «|» siguen leyendo día y rival en [0] y [1].
+*/
+const MOTOR_ONCES = "duelos";
+
 /** La semana del próximo partido, sin cargar nada más: para saber si hay que rellenar. */
 export async function semanaActual(): Promise<{ semana: string; rival: string; fecha: string; lado: "casa" | "fuera"; anteriorCuando: string | null } | null> {
   const partidos = await cargaCalendario();
   const { proximo, anterior } = alrededorDe(partidos, Date.now());
 
   return proximo
-    ? { semana: `${soloDia(proximo.cuando)}|${proximo.rival}`, rival: proximo.rival, fecha: soloDia(proximo.cuando), lado: proximo.lado, anteriorCuando: anterior?.cuando ?? null }
+    ? { semana: `${soloDia(proximo.cuando)}|${proximo.rival}|${MOTOR_ONCES}`, rival: proximo.rival, fecha: soloDia(proximo.cuando), lado: proximo.lado, anteriorCuando: anterior?.cuando ?? null }
     : null;
+}
+
+/**
+ * Un tablero de onces al que le falta gente: menos de once fichas con nombre
+ * en algún equipo (29/10/2026). No se da por bueno: al abrirlo se rellena otra
+ * vez, aunque la semana sea la misma.
+ */
+export function onceIncompleto(tokens: TacticToken[] | undefined): boolean {
+  const lista = tokens ?? [];
+  const conNombre = (kind: "home" | "away") => lista.filter((t) => t.kind === kind && texto(t.nombre)).length;
+
+  return conNombre("home") < 11 || conNombre("away") < 11;
 }
 
 /* ------------------------------------------------------------------ */

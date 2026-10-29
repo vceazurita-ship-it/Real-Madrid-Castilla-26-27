@@ -32,7 +32,7 @@ import {
   DIBUJO_DE_PARTIDA,
 } from "@/lib/tactics/dosOnces";
 import { emptyDoc, normalizeDoc, tacticId } from "@/lib/tactics/helpers";
-import { escenasSinNumeroRepetido, oncesDeLaSemana, semanaActual } from "@/lib/tactics/oncesSemana";
+import { escenasSinNumeroRepetido, onceIncompleto, oncesDeLaSemana, semanaActual } from "@/lib/tactics/oncesSemana";
 import type { RivalSquad } from "@/lib/tactics/rivals";
 import type { TacticsDoc } from "@/lib/tactics/types";
 import { cn } from "@/lib/utils";
@@ -721,8 +721,14 @@ function BoardEditor({
     docVivo.current = doc;
   }, [doc]);
 
+  /*
+  | `siCompleta` (29/10/2026): el tablero de esta semana tiene menos de once
+  | fichas con nombre en un equipo. Se rellena otra vez SÓLO si el relleno
+  | nuevo trae más: si el motor tampoco llega a once (plantilla rival corta),
+  | abrir la pizarra no puede borrar cada vez lo movido a mano.
+  */
   const rellenaSemana = useCallback(
-    async (forzar: boolean) => {
+    async (forzar: boolean, siCompleta = false) => {
       setRellenando(true);
 
       try {
@@ -737,13 +743,16 @@ function BoardEditor({
         setFuentes({ rival: onces.rival, nuestra: onces.fuenteNuestra, suya: onces.fuenteSuya });
 
         const previo = normalizeDoc(docVivo.current, nombre);
+        const conNombre = (tokens: TacticsDoc["scenes"][number]["tokens"] | undefined) => (tokens ?? []).filter((t) => (t.nombre ?? "").trim()).length;
+        const mejora = (base: TacticsDoc) => conNombre(onces.tokens) > conNombre(base.scenes[0]?.tokens);
+        const toca = (base: TacticsDoc) => forzar || base.semanaOnces !== onces.semana || (siCompleta && mejora(base));
 
-        if (forzar || previo.semanaOnces !== onces.semana) setAntesDelRelleno(previo);
+        if (toca(previo)) setAntesDelRelleno(previo);
 
         setValue((actual) => {
           const base = normalizeDoc(actual, nombre);
 
-          if (!forzar && base.semanaOnces === onces.semana) return base;
+          if (!toca(base)) return base;
 
           return {
             ...base,
@@ -800,9 +809,13 @@ function BoardEditor({
     semanaMirada.current = true;
 
     void semanaActual().then((s) => {
-      if (s && s.semana !== doc.semanaOnces) void rellenaSemana(false);
+      if (!s) return;
+
+      if (s.semana !== doc.semanaOnces) void rellenaSemana(false);
+      /* Misma semana pero con menos de once en un equipo: no se da por bueno (29/10/2026). */
+      else if (onceIncompleto(doc.scenes[0]?.tokens)) void rellenaSemana(false, true);
     });
-  }, [deLaSemana, status, localOnly, roster.length, doc.semanaOnces, rellenaSemana]);
+  }, [deLaSemana, status, localOnly, roster.length, doc.semanaOnces, doc.scenes, rellenaSemana]);
 
   useEffect(() => {
     if (deLaSemana || !conOnces || yaSeIntento.current) return;
@@ -876,6 +889,31 @@ function BoardEditor({
   */
   const { marco, enPantallaCompleta, disponible, alterna } =
     usePantallaCompleta<HTMLDivElement>();
+
+  /*
+  | EL BOTÓN ⋮ NO SE PLANTA EN EL CAMPO (29/10/2026)
+  |
+  | En el móvil el menú de herramientas flotante (`MenuFlotante`, abajo a la
+  | derecha) caía encima del campo, al lado del lateral: se tocaba sin querer
+  | al mover una ficha y tapaba al jugador. Mientras el lienzo está a la vista
+  | se esconde con una regla `:has` (como se hizo con `.modal-veil`); al bajar
+  | o subir fuera del campo vuelve. Sólo en el móvil: en el portátil va en el
+  | margen y no estorba. Exportar la pizarra tiene su botón propio.
+  */
+  const lienzo = useRef<HTMLDivElement | null>(null);
+  const [lienzoALaVista, setLienzoALaVista] = useState(false);
+
+  useEffect(() => {
+    const nodo = lienzo.current;
+
+    if (!nodo || typeof IntersectionObserver === "undefined") return;
+
+    const vigia = new IntersectionObserver(([entrada]) => setLienzoALaVista(Boolean(entrada?.isIntersecting)), { threshold: 0.2 });
+
+    vigia.observe(nodo);
+
+    return () => vigia.disconnect();
+  }, []);
 
   return (
     <div
@@ -982,15 +1020,19 @@ function BoardEditor({
         </div>
       )}
 
-      <TacticsBoard
-        doc={doc}
-        onChange={setValue}
-        aPantallaCompleta={aPantallaCompleta}
-        roster={roster}
-        rivalSquads={rivalSquads}
-        partido={partido}
-        hint="Para animar: duplica la escena, mueve las fichas en la copia y pulsa ▶. Para presentar: pantalla completa y → (o el mando) avanza la jugada escena a escena."
-      />
+      <div ref={lienzo} data-lienzo-pizarra={lienzoALaVista ? "a-la-vista" : undefined}>
+        <TacticsBoard
+          doc={doc}
+          onChange={setValue}
+          aPantallaCompleta={aPantallaCompleta}
+          roster={roster}
+          rivalSquads={rivalSquads}
+          partido={partido}
+          hint="Para animar: duplica la escena, mueve las fichas en la copia y pulsa ▶. Para presentar: pantalla completa y → (o el mando) avanza la jugada escena a escena."
+        />
+      </div>
+
+      <style>{`@media (max-width: 639px) { body:has([data-lienzo-pizarra="a-la-vista"]) [data-menu-flotante] { opacity: 0; pointer-events: none; transform: translateY(16px); transition: opacity .2s, transform .2s; } }`}</style>
     </div>
   );
 }

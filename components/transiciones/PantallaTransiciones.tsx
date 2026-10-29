@@ -1124,7 +1124,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             adelante: { tarea: "primera salida tras el robo", filtro: [["accion", "HORIZONTAL_ATRAS"]] },
             llegan: { tarea: "acabar las transiciones en remate o área", filtro: [["accion", "ADELANTE"]] },
             cortas: { tarea: "cuidar el balón recién robado", filtro: [["desenlace", "PERDIDA"]] },
-            campo: { tarea: "presión tras pérdida", filtro: [["zona", "campo rival"]] },
+            campo: { tarea: "presión alta tras pérdida en campo rival", filtro: [["zona", "campo rival"]] },
           }
         : {
             total: { tarea: "seguridad con balón", filtro: [] },
@@ -1350,7 +1350,10 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             <>
             {/* ---------------- este partido frente a los anteriores ---------------- */}
 
+            {/* 29/10/2026: en el móvil se deja a la derecha el ancho del botón ⋮
+                flotante, que tapaba la columna DIFERENCIA («−5,3» salía «−5,»). */}
             {comparativa && (
+              <div className="pr-12 sm:pr-0">
               <ComparativaPartido
                 partido={comparativa.partido}
                 anteriores={{
@@ -1364,6 +1367,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 nota={explicativos ? comparativa.nota : undefined}
                 className="mt-5"
               />
+              </div>
             )}
 
             <Conclusiones items={[...conclusiones, queToca?.texto]} className="mt-5" />

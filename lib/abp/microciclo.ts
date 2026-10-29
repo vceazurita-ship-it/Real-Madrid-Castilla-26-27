@@ -519,12 +519,15 @@ export function etiquetaTrabajo(trabajo: Trabajo, corto = false) {
   const aspectos = aspectosDe(trabajo);
 
   if (aspectos.length === 0) return "Sin aspecto";
-  if (aspectos.length === 1) return corto ? aspectos[0].short : aspectos[0].label;
+  /* 29/10/2026: la acción va escrita entera también en las fichas («Falta
+     lateral directa», no «F. lat. dir.»): las abreviaturas no se entendían
+     fuera del analista. */
+  if (aspectos.length === 1) return aspectos[0].label;
 
   /* En las fichas de la semana no cabe la lista entera: el primero y cuántos
      más. En el diálogo, donde hay ancho, van todos. */
   return corto
-    ? `${aspectos[0].short} y ${aspectos.length - 1} más`
+    ? `${aspectos[0].label} + ${aspectos.length - 1}`
     : aspectos.map((aspecto) => aspecto.label).join(" · ");
 }
 

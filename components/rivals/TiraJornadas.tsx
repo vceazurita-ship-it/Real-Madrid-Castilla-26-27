@@ -50,24 +50,36 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
 
   if (!jornadas.length) return null;
 
+  /*
+  | 29/10/2026: cada casilla dice también contra quién («J9 Algeciras 1-4»), sin
+  | tener que pasar el ratón, y debajo va la leyenda de V/E/D: sólo con la letra
+  | y el marcador no se sabía de qué partido era cada uno.
+  */
   return (
-    <ol
-      aria-label={`Resultados de ${equipo} jornada a jornada`}
-      className="mb-6 flex min-w-0 gap-1.5 overflow-x-auto pb-1 scrollbar-none"
-    >
-      {jornadas.map((j) => (
-        <li
-          key={j.n}
-          title={`J${j.n} · ${PALABRA[j.resultado]} ${j.marcador} ${j.enCasa ? "en casa" : "fuera"} contra ${j.rival}`}
-          aria-label={`Jornada ${j.n}: ${PALABRA[j.resultado]} ${j.marcador} contra ${j.rival}`}
-          className="flex shrink-0 flex-col items-center rounded-lg px-2 py-1 text-[11px] font-bold leading-tight"
-          style={{ background: `${COLOR[j.resultado]}26`, color: chipInk(COLOR[j.resultado]) }}
-        >
-          <span className="text-[9px] font-medium opacity-70">J{j.n}</span>
-          <span>{LETRA[j.resultado]}</span>
-          <span className="tabular-nums">{j.marcador}</span>
-        </li>
-      ))}
-    </ol>
+    <div className="mb-6 min-w-0">
+      <ol
+        aria-label={`Resultados de ${equipo} jornada a jornada`}
+        className="flex min-w-0 gap-1.5 overflow-x-auto pb-1 scrollbar-none"
+      >
+        {jornadas.map((j) => (
+          <li
+            key={j.n}
+            title={`J${j.n} · ${PALABRA[j.resultado]} ${j.marcador} ${j.enCasa ? "en casa" : "fuera"} contra ${j.rival}`}
+            aria-label={`Jornada ${j.n}: ${PALABRA[j.resultado]} ${j.marcador} contra ${j.rival}`}
+            className="flex w-[4.75rem] shrink-0 flex-col items-center rounded-lg px-1.5 py-1 text-[11px] font-bold leading-tight"
+            style={{ background: `${COLOR[j.resultado]}26`, color: chipInk(COLOR[j.resultado]) }}
+          >
+            <span className="text-[10px] font-medium opacity-70">
+              J{j.n} · {j.enCasa ? "casa" : "fuera"}
+            </span>
+            <span className="w-full truncate text-center text-[10px] font-semibold">{j.rival}</span>
+            <span className="tabular-nums">
+              {LETRA[j.resultado]} {j.marcador}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="mt-1 text-[11px] text-white/45">V: ganó · E: empató · D: perdió. El marcador va con sus goles primero.</p>
+    </div>
   );
 }

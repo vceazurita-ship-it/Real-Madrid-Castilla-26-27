@@ -729,9 +729,11 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
                 </span>
               </span>
               {p.accion &&
+                /* 29/10/2026: en el móvil los botones de los pasos 1 y 2 también se ven, a todo el ancho;
+                   antes desaparecían y el paso se quedaba sin acción. El aviso de Chrome o Edge va una vez, abajo. */
                 (p.principal ? (
-                  <span className="hidden flex-col items-end gap-1 md:flex">
-                    <button type="button" onClick={p.accion.onClick} className="flex items-center gap-2 rounded-lg bg-[#D8B45A] px-3 py-1.5 text-[13px] font-bold text-[#0B0F14]">
+                  <span className="flex flex-col gap-1 max-md:w-full md:items-end">
+                    <button type="button" onClick={p.accion.onClick} className="flex items-center justify-center gap-2 rounded-lg bg-[#D8B45A] px-3 py-1.5 text-[13px] font-bold text-[#0B0F14] max-md:w-full max-md:py-2.5">
                       <FolderOpen size={14} /> {p.accion.texto}
                     </button>
                     {guardada && (
@@ -744,7 +746,7 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
                   <button
                     type="button"
                     onClick={p.accion.onClick}
-                    className={`${p.soloOrdenador ? "hidden md:inline" : ""} whitespace-nowrap text-[13px] font-semibold text-[#D8B45A] hover:underline max-md:w-full max-md:rounded-lg max-md:border max-md:border-[#D8B45A]/40 max-md:bg-[#D8B45A]/10 max-md:py-2.5 max-md:text-center`}
+                    className={`whitespace-nowrap text-[13px] font-semibold text-[#D8B45A] hover:underline max-md:w-full max-md:rounded-lg max-md:border max-md:border-[#D8B45A]/40 max-md:bg-[#D8B45A]/10 max-md:py-2.5 max-md:text-center`}
                   >
                     {p.accion.texto} →
                   </button>

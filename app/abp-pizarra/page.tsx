@@ -98,7 +98,7 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { usePlayers } from "@/hooks/usePlayers";
-import { ajustaNombres, nombresSinFicha } from "@/lib/abp/nombresPlantilla";
+import { ajustaNombres, nombresSinFicha, nombresSueltos } from "@/lib/abp/nombresPlantilla";
 import type { Player } from "@/types/player";
 import {
   compareMatches,
@@ -234,6 +234,135 @@ function etiquetaPartido(partido: MatchMeta, fechas?: Map<number, string>) {
  * de un vistazo qué jornadas se trabajaron de verdad y cuáles se quedaron a
  * medias.
  */
+/*
+| EL SELECTOR DE JORNADA, UNO PARA LOS DOS DESPLEGABLES (29/10/2026)
+|
+| El de partido y el de «Jornada del plan de partido» eran dos listas de 38
+| jornadas iguales. Ahora es el mismo componente: lo jugado sin nada guardado
+| va plegado (se abre con «ver todas»), arriba van tres atajos a un toque —la
+| última jugada, la próxima y la siguiente— y lo demás queda igual.
+*/
+type OpcionJornada = {
+  id: string;
+  /** Lo que se lee en la lista: «J09 · Algeciras · 25/10». */
+  label: string;
+  /** Lo que se lee en el atajo: «J09». */
+  corto: string;
+  jugado: boolean;
+  /** Tiene algo guardado (pizarra o versiones): no se pliega. */
+  conAlgo?: boolean;
+  proximo?: boolean;
+};
+
+function SelectorJornada({
+  rotulo,
+  opciones,
+  valor,
+  onCambia,
+  vacio,
+  pie,
+  junto,
+}: {
+  rotulo: string;
+  /** Lo que va a la derecha del desplegable, en su misma línea (el chip del rival). */
+  junto?: React.ReactNode;
+  /** En orden de calendario. */
+  opciones: OpcionJornada[];
+  valor: string;
+  onCambia: (id: string) => void;
+  /** La opción en blanco, si se puede no elegir ninguna. */
+  vacio?: string;
+  pie?: React.ReactNode;
+}) {
+  const [todas, setTodas] = useState(false);
+  const iProximo = opciones.findIndex((una) => una.proximo);
+  const ultimaJugada = [...opciones].reverse().find((una) => una.jugado);
+  const atajos = [
+    ultimaJugada,
+    ...(iProximo >= 0 ? opciones.slice(iProximo, iProximo + 2) : opciones.filter((una) => !una.jugado).slice(0, 2)),
+  ].filter((una, i, lista): una is OpcionJornada => !!una && lista.findIndex((otra) => otra?.id === una.id) === i);
+  const visibles = (una: OpcionJornada) => todas || !una.jugado || una.conAlgo || una.id === valor || una.id === ultimaJugada?.id;
+  const jugadas = opciones.filter((una) => una.jugado && visibles(una));
+  const plegadas = opciones.filter((una) => una.jugado && !visibles(una)).length;
+  const porJugar = opciones.filter((una) => !una.jugado);
+
+  return (
+    <div className="block min-w-0">
+      <span className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] uppercase tracking-[0.16em] text-white/40">
+        {rotulo}
+        {atajos.length > 1 && (
+          <span className="flex flex-wrap gap-1 normal-case tracking-normal">
+            {atajos.map((una) => (
+              <button
+                key={una.id}
+                type="button"
+                onClick={() => onCambia(una.id)}
+                aria-pressed={una.id === valor}
+                className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold transition ${
+                  una.id === valor
+                    ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-[color:var(--rmcf-gold-ink)]"
+                    : "border-white/12 text-white/60 hover:border-white/30 hover:text-white"
+                }`}
+              >
+                {una.corto}
+                {una.proximo ? " · próximo" : ""}
+              </button>
+            ))}
+          </span>
+        )}
+      </span>
+
+      <div className="flex min-w-0 items-center gap-2">
+      <select
+        value={valor}
+        aria-label={rotulo}
+        onChange={(event) => onCambia(event.target.value)}
+        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+      >
+        {vacio !== undefined && (
+          <option value="" className="bg-[#11161C]">
+            {vacio}
+          </option>
+        )}
+
+        {jugadas.length > 0 && (
+          <optgroup label="Ya jugadas">
+            {jugadas.map((una) => (
+              <option key={una.id} value={una.id} className="bg-[#11161C]">
+                {una.label}
+              </option>
+            ))}
+          </optgroup>
+        )}
+
+        {porJugar.length > 0 && (
+          <optgroup label="Próxima y siguientes">
+            {porJugar.map((una) => (
+              <option key={una.id} value={una.id} className="bg-[#11161C]">
+                {una.label}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </select>
+      {junto}
+      </div>
+
+      {(plegadas > 0 || todas) && (
+        <button
+          type="button"
+          onClick={() => setTodas((antes) => !antes)}
+          className="mt-1 text-[11px] text-white/45 underline decoration-dotted underline-offset-2 transition hover:text-white"
+        >
+          {todas ? "Plegar las jugadas sin nada guardado" : `Ver también ${plegadas} ${plegadas === 1 ? "jugada" : "jugadas"} sin nada guardado`}
+        </button>
+      )}
+
+      {pie}
+    </div>
+  );
+}
+
 function marcaDeTablero(tablero?: TableroPizarra) {
   if (!tablero) return "";
 
@@ -2103,55 +2232,45 @@ export default function PizarraAbpPage() {
             {/* ===================== PARTIDO ===================== */}
 
             <div className="mt-6 grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-              <label className="block min-w-0">
-                <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
-                  Partido
-                </span>
+              {/* 29/10/2026: el mismo selector que el de la jornada del plan;
+                  lo jugado sin pizarra va plegado y hay atajos a la última
+                  jugada, la próxima y la siguiente. El rival, en un chip al
+                  lado, para no tener que abrir «De quién es esta pizarra». */}
+              <div className="min-w-0">
+                  <SelectorJornada
+                    rotulo="Partido"
+                    valor={elegido}
+                    onCambia={(id) => {
+                      setElegido(id);
+                      setPedida(0);
+                    }}
+                    vacio={partidos.length === 0 || !elegido ? (cargando ? "Cargando calendario…" : "Sin partidos") : undefined}
+                    opciones={[...partidos].sort(porFechaPartido).map((item) => {
+                      const numero = item.competition.match(/^Jornada\s+(\d+)/i);
 
-                <select
-                  value={elegido}
-                  onChange={(event) => {
-                    setElegido(event.target.value);
-                    setPedida(0);
-                  }}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
-                >
-                  {(partidos.length === 0 || !elegido) && (
-                    <option value="">
-                      {cargando ? "Cargando calendario…" : "Sin partidos"}
-                    </option>
-                  )}
-
-                  {/* En orden de calendario: lo jugado (pretemporada primero) y, debajo, el próximo y lo que viene. */}
-                  {partidos.some(esJugado) && (
-                    <optgroup label="Ya jugados">
-                      {[...partidos]
-                        .filter(esJugado)
-                        .sort(porFechaPartido)
-                        .map((item) => (
-                          <option key={item.id} value={item.id} className="bg-[#11161C]">
-                            {etiquetaOpcion(item)}
-                            {marcaDeTablero(store.tableros?.[item.id])}
-                          </option>
-                        ))}
-                    </optgroup>
-                  )}
-
-                  {partidos.some((item) => !esJugado(item)) && (
-                    <optgroup label="Próximo y siguientes">
-                      {[...partidos]
-                        .filter((item) => !esJugado(item))
-                        .sort(porFechaPartido)
-                        .map((item) => (
-                          <option key={item.id} value={item.id} className="bg-[#11161C]">
-                            {etiquetaOpcion(item)}
-                            {marcaDeTablero(store.tableros?.[item.id])}
-                          </option>
-                        ))}
-                    </optgroup>
-                  )}
-                </select>
-              </label>
+                      return {
+                        id: item.id,
+                        label: `${etiquetaOpcion(item)}${marcaDeTablero(store.tableros?.[item.id])}`,
+                        corto: numero ? `J${numero[1].padStart(2, "0")}` : "PRE",
+                        jugado: esJugado(item),
+                        conAlgo: Boolean(store.tableros?.[item.id]),
+                        proximo: item.id === proximoId,
+                      };
+                    })}
+                    junto={
+                      partido ? (
+                        <span className="inline-flex h-9 max-w-[45%] shrink-0 items-center gap-1.5 rounded-full border border-white/10 px-2.5 text-xs font-semibold text-white/75">
+                          <EscudoEquipo
+                            nombre={tablero?.rival || partido.opponent}
+                            escudo={escudoDe(tablero?.rival || partido.opponent)}
+                            lado={20}
+                          />
+                          <span className="truncate">{tablero?.rival || partido.opponent}</span>
+                        </span>
+                      ) : null
+                    }
+                  />
+              </div>
 
               <div className="flex flex-wrap items-end gap-2">
                 {/* Con la pizarra vacía, traer la del partido anterior es lo primero que se hace. */}
@@ -2264,14 +2383,17 @@ export default function PizarraAbpPage() {
                 type="button"
                 onClick={() => setCabeceraAbierta((antes) => !antes)}
                 aria-expanded={cabeceraAbierta}
-                className="mt-3 w-full rounded-xl border border-white/10 px-3 py-2 text-left text-xs font-medium text-white/65 sm:hidden"
+                /* 29/10/2026: plegado también en el ordenador; el rival ya va
+                   en el chip junto al partido y el bloque empujaba el tablero
+                   fuera de la primera vista. */
+                className="mt-2 inline-flex rounded-lg px-1 py-1 text-left text-[11px] font-medium text-white/50 underline decoration-dotted underline-offset-2 transition hover:text-white"
               >
-                {cabeceraAbierta ? "Ocultar de quién es la pizarra" : "Cambiar el rival o la jornada de la pizarra"}
+                {cabeceraAbierta ? "Ocultar el rival y la jornada de la pizarra" : "Cambiar el rival o la jornada de la pizarra"}
               </button>
             )}
 
             {partido && (
-              <div className={`mt-3 ${cabeceraAbierta ? "" : "max-sm:hidden"}`}>
+              <div className={`mt-3 ${cabeceraAbierta ? "" : "hidden"}`}>
                 <Panel
                   title="De quién es esta pizarra"
                   subtitle="El nombre que se lee en la diapositiva y la jornada con la que se cruza el resto de la semana"
@@ -2318,52 +2440,28 @@ export default function PizarraAbpPage() {
                         )}
                     </div>
 
-                    <label className="block min-w-0">
-                      <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">
-                        Jornada del plan de partido
-                      </span>
-
-                      <select
-                        value={jornada?.id ?? ""}
-                        onChange={(event) => ata(event.target.value)}
-                        className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
-                      >
-                        <option value="" className="bg-[#11161C]">
-                          {jornadas.length
-                            ? "Sin atar a ninguna jornada"
-                            : "No se ha podido leer la hoja de rivales"}
-                        </option>
-
-                        {gruposJornada.jugadas.length > 0 && (
-                          <optgroup label="Ya jugadas">
-                            {gruposJornada.jugadas.map((item) => (
-                              <option key={item.id} value={item.id} className="bg-[#11161C]">
-                                {etiquetaJornada(item)}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-
-                        {gruposJornada.proximas.length > 0 && (
-                          <optgroup label="Próxima y siguientes">
-                            {gruposJornada.proximas.map((item) => (
-                              <option key={item.id} value={item.id} className="bg-[#11161C]">
-                                {etiquetaJornada(item)}
-                                {item.id === gruposJornada.siguienteId ? " · próxima" : ""}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </select>
-
-                      <span className="mt-1 block text-[10px] text-white/30">
-                        {jornada
-                          ? atada
-                            ? "Atada a mano: manda sobre el nombre y la fecha."
-                            : "Cruzada sola por fecha o por nombre. Eligiéndola aquí queda fijada."
-                          : "Sin jornada no hay enlaces al plan ni al informe del rival."}
-                      </span>
-                    </label>
+                    <SelectorJornada
+                      rotulo="Jornada del plan de partido"
+                      valor={jornada?.id ?? ""}
+                      onCambia={ata}
+                      vacio={jornadas.length ? "Sin atar a ninguna jornada" : "No se ha podido leer la hoja de rivales"}
+                      opciones={[...gruposJornada.jugadas, ...gruposJornada.proximas].map((item) => ({
+                        id: item.id,
+                        label: `${etiquetaJornada(item)}${item.id === gruposJornada.siguienteId ? " · próxima" : ""}`,
+                        corto: item.jornada ? `J${String(item.jornada).padStart(2, "0")}` : item.equipo,
+                        jugado: gruposJornada.jugadas.includes(item),
+                        proximo: item.id === gruposJornada.siguienteId,
+                      }))}
+                      pie={
+                        <span className="mt-1 block text-[10px] text-white/30">
+                          {jornada
+                            ? atada
+                              ? "Atada a mano: manda sobre el nombre y la fecha."
+                              : "Cruzada sola por fecha o por nombre. Eligiéndola aquí queda fijada."
+                            : "Sin jornada no hay enlaces al plan ni al informe del rival."}
+                        </span>
+                      }
+                    />
                   </div>
 
                   {jornada && (
@@ -2809,19 +2907,37 @@ export default function PizarraAbpPage() {
                             Asignaciones
                           </p>
 
-                          <ul className="space-y-1">
-                            {puestosDe(slide).flatMap((puesto) => {
-                              const ficha = slide.fichas.find((item) => item.puesto === puesto.key);
-                              const jugador = ficha ? players.find((item) => item.id === ficha.playerId) : undefined;
+                          {/* 29/10/2026: agrupadas como en la diapositiva
+                              (Equilibrio, Bloqueos, Rechace…), con el rótulo
+                              del grupo encima y el puesto escrito entero: las
+                              siglas sueltas (BZ, RL, D1) no se entendían. */}
+                          <div className="space-y-2.5">
+                            {[
+                              ...gruposDePlantilla(slide),
+                              ...[...new Set(puestosDe(slide).map((puesto) => puesto.grupo))]
+                                .filter((key) => !gruposDePlantilla(slide).some((grupo) => grupo.key === key))
+                                .map((key) => ({ key, label: key })),
+                            ].flatMap((grupo) => {
+                              const filas = puestosDeGrupo(slide, grupo.key).flatMap((puesto) => {
+                                const ficha = slide.fichas.find((item) => item.puesto === puesto.key);
+                                const jugador = ficha ? players.find((item) => item.id === ficha.playerId) : undefined;
 
-                              return ficha ? [
-                                <li key={puesto.key} className="flex gap-2 text-base leading-snug text-white/85">
-                                  <b className="w-10 shrink-0 text-[#C8A96B]">{puesto.sigla ?? puesto.code}</b>
-                                  <span className="min-w-0">{jugador?.apodo || jugador?.nombre || ficha.playerId}</span>
-                                </li>,
+                                return ficha ? [
+                                  <li key={puesto.key} className="flex gap-2 text-base leading-snug text-white/85">
+                                    <span className="w-28 shrink-0 text-sm text-[color:var(--rmcf-gold-ink)]">{puesto.label}</span>
+                                    <span className="min-w-0 font-semibold">{jugador?.apodo || jugador?.nombre || ficha.playerId}</span>
+                                  </li>,
+                                ] : [];
+                              });
+
+                              return filas.length ? [
+                                <div key={grupo.key}>
+                                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">{grupo.label}</p>
+                                  <ul className="space-y-1">{filas}</ul>
+                                </div>,
                               ] : [];
                             })}
-                          </ul>
+                          </div>
                         </div>
                       )}
 
@@ -2963,23 +3079,8 @@ export default function PizarraAbpPage() {
                   </div>
                 )}
 
-                {/* ==================== EXPORTAR ====================== */}
-
-                {tablero && tablero.slides.length > 0 && (
-                  <div className="mt-5">
-                    <ExportaPizarra
-                      slides={tablero.slides}
-                      players={porId}
-                      temporada={temporadaCorta(RATINGS_SEASON)}
-                      rival={tablero.rival || partido.opponent}
-                      jornada={
-                        tablero.jornada
-                          ? `J${String(tablero.jornada).padStart(2, "0")}`
-                          : undefined
-                      }
-                    />
-                  </div>
-                )}
+                {/* 29/10/2026: fuera la caja «Llevárselo a la sala» del final:
+                    repetía los mismos botones de exportar de la cabecera. */}
 
                 {/* ==================== HISTÓRICO ===================== */}
 
@@ -3558,16 +3659,12 @@ function TextosDeLaSlide({
           ))}
 
           {(() => {
-            const sinFicha = nombresSinFicha(
-              [...slide.notas, ...Object.values(slide.guion ?? {}).map(String)],
-              jugadores,
-              new Set(slide.fichas.map((ficha) => ficha.playerId)),
-            );
+            const sinFicha = consignasSinPuesto(slide, jugadores);
 
             return sinFicha.length > 0 && slide.fichas.length > 0 ? (
               <p className="mt-1.5 flex items-start gap-1.5 text-xs leading-relaxed text-amber-300/80">
                 <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-                {sinFicha.join(", ")} {sinFicha.length === 1 ? "sale" : "salen"} en las consignas y no {sinFicha.length === 1 ? "está" : "están"} en esta diapositiva.
+                {sinFicha.join(", ")} {sinFicha.length === 1 ? "sale" : "salen"} en las consignas y no {sinFicha.length === 1 ? "tiene" : "tienen"} puesto en esta diapositiva.
               </p>
             ) : null;
           })()}
@@ -3727,6 +3824,32 @@ function conAdorno(
  * —un lesionado que entra en la lista a última hora—, y quien decide es el
  * entrenador; esto sólo lo enseña, con el nombre y en qué diapositivas falta.
  */
+/**
+ * Los nombres de las consignas de una diapositiva que no tienen puesto en
+ * ella: los de la plantilla que no están en el campo y cualquier nombre propio
+ * suelto que no es de ninguna ficha («Yáñez», aunque no esté en la plantilla).
+ * 29/10/2026: lo usan el editor de textos y «Control de la convocatoria».
+ */
+function consignasSinPuesto(
+  slide: SlidePizarra,
+  jugadores: { id: string; nombre?: string; apodo?: string }[],
+): string[] {
+  const textos = [...slide.notas, ...Object.values(slide.guion ?? {}).map(String)];
+  const ids = new Set(slide.fichas.map((ficha) => ficha.playerId));
+  const enCampo = jugadores.filter((jugador) => ids.has(jugador.id));
+  const todos = [...nombresSinFicha(textos, jugadores, ids), ...nombresSueltos(textos, enCampo)];
+  const vistos = new Set<string>();
+
+  return todos.filter((nombre) => {
+    const clave = nombre.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+    if (!nombre || vistos.has(clave)) return false;
+    vistos.add(clave);
+
+    return true;
+  });
+}
+
 function ControlDeGazapos({
   tablero,
   players,
@@ -3741,11 +3864,22 @@ function ControlDeGazapos({
   onIrA: (slideId: string) => void;
 }) {
   const revision = useMemo(() => revisaTablero(tablero), [tablero]);
+  /* 29/10/2026: los nombres de las consignas sin puesto también se dicen
+     aquí, a la vista en el resumen; antes sólo salían dentro del desplegable
+     cerrado de «Textos de la diapositiva». */
+  const consignas = useMemo(() => {
+    const lista = [...players.entries()].map(([id, player]) => ({ id, nombre: player.nombre, apodo: player.apodo }));
 
-  const limpio = revision.gazapos.length === 0 && revision.slidesConGente > 1;
+    return tablero.slides
+      .filter((slide) => slide.fichas.length > 0)
+      .map((slide) => ({ slide, nombres: consignasSinPuesto(slide, lista) }))
+      .filter((uno) => uno.nombres.length > 0);
+  }, [tablero, players]);
+
+  const limpio = revision.gazapos.length === 0 && revision.slidesConGente > 1 && consignas.length === 0;
 
   /* Sin dos diapositivas con gente no hay nada que cotejar: no se pinta. */
-  if (revision.slidesConGente < 2) return null;
+  if (revision.slidesConGente < 2 && consignas.length === 0) return null;
 
   /* Plegado por defecto para acortar la página; si hay avisos, el rótulo los
      dice con el número y los nombres, para que no pasen inadvertidos. */
@@ -3764,9 +3898,20 @@ function ControlDeGazapos({
         <span className={`ml-2 ${limpio ? "text-emerald-300/80" : "text-amber-300/90"}`}>
           {limpio
             ? "· cuadra"
-            : `· ${revision.gazapos.length === 1 ? "1 jugador no está" : `${revision.gazapos.length} jugadores no están`} en todas las diapositivas${
-                nombres.length ? `: ${nombres.join(", ")}` : ""
-              }`}
+            : [
+                revision.gazapos.length
+                  ? `${revision.gazapos.length === 1 ? "1 jugador no está" : `${revision.gazapos.length} jugadores no están`} en todas las diapositivas${
+                      nombres.length ? `: ${nombres.join(", ")}` : ""
+                    }`
+                  : "",
+                ...consignas.map(
+                  (uno) =>
+                    `${uno.nombres.join(", ")} ${uno.nombres.length === 1 ? "sale" : "salen"} en las consignas de «${uno.slide.titulo}» y no ${uno.nombres.length === 1 ? "tiene" : "tienen"} puesto`,
+                ),
+              ]
+                .filter(Boolean)
+                .map((texto) => `· ${texto}`)
+                .join(" ")}
         </span>
       </summary>
     <Panel
@@ -3784,7 +3929,7 @@ function ControlDeGazapos({
           Cuando haya al menos dos diapositivas montadas se comprueba aquí que
           en todas salga la misma gente.
         </p>
-      ) : limpio ? (
+      ) : revision.gazapos.length === 0 ? (
         <p className="text-xs leading-relaxed text-emerald-300/80">
           Cuadra: nadie falta donde cabe, con {revision.total} jugadores repartidos por las{" "}
           {revision.slidesConGente} diapositivas montadas.
@@ -3842,6 +3987,29 @@ function ControlDeGazapos({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {consignas.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {consignas.map((uno) => (
+            <p key={uno.slide.id} className="flex items-start gap-1.5 text-xs leading-relaxed text-amber-300/80">
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+              <span>
+                {uno.nombres.join(", ")} {uno.nombres.length === 1 ? "sale" : "salen"} en las consignas y no{" "}
+                {uno.nombres.length === 1 ? "tiene" : "tienen"} puesto en{" "}
+                <button
+                  type="button"
+                  onClick={() => onIrA(uno.slide.id)}
+                  title="Ir a esta diapositiva"
+                  className="underline decoration-dotted underline-offset-2 transition hover:text-white"
+                >
+                  {uno.slide.titulo}
+                </button>
+                : ficha suelta o quitarlo del texto.
+              </span>
+            </p>
+          ))}
         </div>
       )}
 

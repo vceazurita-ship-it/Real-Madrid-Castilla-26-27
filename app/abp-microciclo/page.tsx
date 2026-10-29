@@ -1756,8 +1756,10 @@ export default function AbpMicrocicloPage() {
 
               {totales.minutos > 0 && (
               <details className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2 sm:px-4">
-                <summary className="cursor-pointer select-none text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">
-                  Carga y minutos de la semana
+                {/* 29/10/2026: titular con el dato, no un rótulo diminuto en mayúsculas. */}
+                <summary className="cursor-pointer select-none text-sm font-semibold text-white/80">
+                  Carga: {totales.diasConAbp} {totales.diasConAbp === 1 ? "día" : "días"}, {fmtMin(totales.minutos)}
+                  <span className="ml-2 text-[11px] font-normal text-white/40">· carga y minutos de la semana</span>
                 </summary>
                 <div className="mt-3">
                 {/* Dos por fila en el móvil: cinco tarjetas apiladas eran una
@@ -1845,7 +1847,7 @@ export default function AbpMicrocicloPage() {
 
                   {/* 29/10/2026: las siglas de las fichas, explicadas una sola vez. */}
                   <p className="mb-2 text-[11px] leading-relaxed text-white/45">
-                    OF = ofensivo · DEF = defensivo · SAC = sacadores · FIJ = fijadores · REM = rematadores · PRE y POST = vídeo antes o después del campo
+                    OF = ofensivo · DEF = defensivo · SAC = sacadores · FIJ = fijadores · REM = rematadores · PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · HOJA = viene del registro de tareas
                   </p>
 
                   <SemanaGrid

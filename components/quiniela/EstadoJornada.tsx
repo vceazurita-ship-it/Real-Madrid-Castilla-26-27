@@ -3,7 +3,7 @@
 /**
  * CÓMO VA LA JORNADA, DE UN VISTAZO.
  *
- * Una tira de cuatro fichas encima de los partidos. Existe porque el fin de
+ * Una franja compacta (antes cuatro fichas; 29/10/2026) encima de los partidos. Existe porque el fin de
  * semana la pregunta no es «cuál es el ranking de la temporada» sino **qué está
  * pasando ahora**: si aún se puede apostar, cuántos partidos se han jugado,
  * quién va ganando la jornada y de cuándo son los números que se están mirando.
@@ -63,20 +63,20 @@ function enLista(nombres: string[]) {
   return `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
 }
 
-function Ficha({
+/*
+| Un dato de la franja (29/10/2026, análisis y marketing): las cuatro fichas
+| ocupaban casi una pantalla en el móvil y cortaban el texto con puntos
+| suspensivos («Se cierra el viernes 30 de…»). Ahora es una franja compacta
+| donde cada dato es una frase completa que baja de línea si no cabe.
+*/
+function Dato({
   icono: Icono,
-  rotulo,
-  valor,
-  pie,
   tono = "normal",
   children,
 }: {
   icono: typeof Clock;
-  rotulo: string;
-  valor: React.ReactNode;
-  pie?: string;
   tono?: "normal" | "oro" | "aviso";
-  children?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   /* Con la tinta del tema (19/10/2026): el oro y el amarillo claros, sobre la
      ficha del modo día, se quedaban en 1,9:1. Así oscurecen de día y siguen
@@ -89,31 +89,10 @@ function Ficha({
         : undefined;
 
   return (
-    <div
-      className={`min-w-0 rounded-2xl border px-4 py-3.5 ${
-        tono === "oro"
-          ? "border-[#C8A96B]/35 bg-[#C8A96B]/[0.06]"
-          : tono === "aviso"
-            ? "border-amber-400/30 bg-amber-400/[0.05]"
-            : "border-white/10 bg-white/[0.03]"
-      }`}
-    >
-      <p className="flex items-center gap-1.5 truncate text-[10px] uppercase tracking-[0.2em] text-white/40">
-        <Icono size={11} aria-hidden />
-        {rotulo}
-      </p>
-
-      <p
-        className="mt-1.5 flex min-w-0 items-center gap-2 truncate text-[22px] font-semibold leading-tight tabular-nums"
-        style={color ? { color } : undefined}
-      >
-        {valor}
-      </p>
-
-      {children}
-
-      {pie && <p className="mt-1 truncate text-[11px] text-white/35">{pie}</p>}
-    </div>
+    <p className="flex min-w-0 items-start gap-1.5 text-[12.5px] leading-snug text-white/70">
+      <Icono size={13} aria-hidden className="mt-0.5 shrink-0" style={color ? { color } : undefined} />
+      <span className="min-w-0">{children}</span>
+    </p>
   );
 }
 
@@ -168,30 +147,8 @@ export function EstadoJornada({
 
   const completas = jugadores.filter((slug) => cuantosPuestos(slug) === partidos).length;
 
-  /* Quién no ha acabado su apuesta, con nombre: «faltan 1» no decía quién. */
-  const incompletos = jugadores
-    .filter((slug) => cuantosPuestos(slug) < partidos)
-    .map((slug) => {
-      const persona = PERSONA_POR_SLUG.get(slug);
-
-      return persona ? nombreCorto(persona) : slug;
-    });
-
-  const lista =
-    incompletos.length > 3
-      ? `${incompletos.slice(0, 2).join(", ")} y ${incompletos.length - 2} más`
-      : enLista(incompletos);
-
-  const pieApuestas =
-    incompletos.length === 0
-      ? "Todos con la suya completa"
-      : cerrada
-        ? incompletos.length === 1
-          ? `${lista} no la completó`
-          : `Sin completar: ${lista}`
-        : incompletos.length === 1
-          ? `Falta ${lista}`
-          : `Faltan ${incompletos.length}`;
+  /* Quién falta ya no se dice aquí (29/10/2026, marketing): sale una sola vez,
+     en «Quién juega». La franja se queda con la cuenta y la barra. */
 
   const diaPrimero = primerPartido ? diaDe(primerPartido.fecha) : null;
 
@@ -204,132 +161,88 @@ export function EstadoJornada({
         ? "puestos a mano"
         : "";
 
+  const nombreDe = (slug: string) => {
+    const persona = PERSONA_POR_SLUG.get(slug);
+
+    return persona ? nombreCorto(persona) : slug;
+  };
+
   return (
-    <div className="grid min-w-0 grid-cols-2 gap-3 xl:grid-cols-4">
-      {/* 1. El plazo. */}
-      <Ficha
-        icono={cerrada ? Lock : Clock}
-        rotulo={`Jornada ${numero}`}
-        valor={cerrada ? "Cerrada" : ultimasHoras ? "Hoy cierra" : "Abierta"}
-        tono={cerrada ? "normal" : ultimasHoras ? "aviso" : "oro"}
-        pie={
-          cerrada
-            ? `${completas} de ${jugadores.length} apostaron`
-            : `Se cierra el ${cierre}`
-        }
-      />
+    <div
+      className={`flex min-w-0 flex-col gap-2 rounded-2xl border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 ${
+        cerrada
+          ? "border-white/10 bg-white/[0.03]"
+          : ultimasHoras
+            ? "border-amber-400/30 bg-amber-400/[0.05]"
+            : "border-[#C8A96B]/30 bg-[#C8A96B]/[0.05]"
+      }`}
+    >
+      {/* 1. El plazo: es lo que más se pregunta, va primero y entero. */}
+      <Dato icono={cerrada ? Lock : Clock} tono={cerrada ? "normal" : ultimasHoras ? "aviso" : "oro"}>
+        <strong className="font-semibold text-white">
+          Jornada {numero} {cerrada ? "cerrada" : ultimasHoras ? "· hoy cierra" : "abierta"}
+        </strong>
+        {!cerrada && cierre ? ` · se cierra el ${cierre}` : ""}
+      </Dato>
 
-      {/* 2. Quién ha apostado. */}
-      <Ficha
-        icono={CheckCircle2}
-        rotulo="Apuestas"
-        valor={
-          <>
-            {completas}
-            <span className="text-base font-normal text-white/30">
-              /{jugadores.length}
-            </span>
-          </>
-        }
-        pie={pieApuestas}
-      >
-        <span className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]">
-          <span
-            className="h-full rounded-full bg-[#C8A96B]/80"
-            style={{ width: `${(completas / Math.max(1, jugadores.length)) * 100}%` }}
-          />
+      {/* 2. Quién ha apostado: la cuenta y la barra, sin nombres. */}
+      <Dato icono={CheckCircle2}>
+        <span className="inline-flex items-center gap-2">
+          <span>
+            <strong className="font-semibold tabular-nums text-white">
+              {completas}/{jugadores.length}
+            </strong>{" "}
+            {cerrada ? "apostaron" : "con la apuesta completa"}
+          </span>
+          <span className="inline-flex h-1.5 w-16 overflow-hidden rounded-full bg-white/[0.07]" aria-hidden>
+            <span
+              className="h-full rounded-full bg-[#C8A96B]/80"
+              style={{ width: `${(completas / Math.max(1, jugadores.length)) * 100}%` }}
+            />
+          </span>
         </span>
-      </Ficha>
+      </Dato>
 
-      {/* 3. Los partidos jugados. */}
-      <Ficha
-        icono={RefreshCw}
-        rotulo="Partidos jugados"
-        valor={
-          <>
-            {jugados}
-            <span className="text-base font-normal text-white/30">/{partidos}</span>
-          </>
-        }
-        pie={
-          jugados === 0
-            ? diaPrimero
-              ? `Empieza el ${diaPrimero.largo}`
-              : undefined
-            : cuando
-              ? `Actualizado ${cuando}${deDonde ? ` (${deDonde})` : ""}`
-              : deDonde
-        }
-      >
-        <span className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]">
-          <span
-            className="h-full rounded-full bg-emerald-400/70"
-            style={{ width: `${(jugados / Math.max(1, partidos)) * 100}%` }}
-          />
-        </span>
-      </Ficha>
-
-      {/* 4. Quién va ganando; hasta el primer resultado, el primer partido. */}
+      {/* 3. Los partidos jugados; con 0, cuándo empieza y cuál es el primero. */}
       {jugados === 0 ? (
         diaPrimero && primerPartido ? (
-          <Ficha
-            icono={CalendarDays}
-            rotulo="Primer partido"
-            valor={diaPrimero.corto}
-            pie={`${primerPartido.local} – ${primerPartido.visitante}`}
-          />
+          <Dato icono={CalendarDays}>
+            Empieza el {diaPrimero.largo}: {primerPartido.local} – {primerPartido.visitante}
+          </Dato>
         ) : null
       ) : (
-      <Ficha
-        icono={Trophy}
-        rotulo={lideres.length > 1 ? "En cabeza" : "Va ganando"}
-        tono="oro"
-        valor={
-          !mejor || mejor.marcador.aciertos === 0 ? (
-            <span className="text-base font-normal text-white/35">
-              Nadie ha acertado
-            </span>
-          ) : lideres.length > 1 ? (
-            <span className="truncate text-[17px]">
-              {lideres.length > 3
-                ? `${lideres.length} empatados a ${mejor.marcador.aciertos}`
-                : `Empate entre ${lideres.length}`}
-            </span>
-          ) : (
-            <span className="flex min-w-0 items-center gap-2">
-              <Avatar slug={lideres[0].slug} lado={24} />
+        <Dato icono={RefreshCw}>
+          <strong className="font-semibold tabular-nums text-white">
+            {jugados}/{partidos}
+          </strong>{" "}
+          jugados
+          {cuando ? ` · actualizado ${cuando}${deDonde ? ` (${deDonde})` : ""}` : deDonde ? ` · ${deDonde}` : ""}
+        </Dato>
+      )}
 
-              <span className="truncate text-[17px]">
-                {(() => {
-                  const persona = PERSONA_POR_SLUG.get(lideres[0].slug);
+      {/* Abierta, «Lo que ha puesto cada uno» ya no es una tarjeta vacía: es esta
+          línea (29/10/2026, marketing). */}
+      {!cerrada && (
+        <Dato icono={Lock}>Lo que ha puesto cada uno se verá al cerrar</Dato>
+      )}
 
-                  return persona ? nombreCorto(persona) : lideres[0].slug;
-                })()}
+      {/* 4. Quién va ganando la jornada, con la base. */}
+      {jugados > 0 && mejor && mejor.marcador.aciertos > 0 && (
+        <Dato icono={Trophy} tono="oro">
+          {lideres.length === 1 ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Avatar slug={lideres[0].slug} lado={18} />
+              <span>
+                Va ganando <strong className="font-semibold text-white">{nombreDe(lideres[0].slug)}</strong>
+                {` · ${mejor.marcador.aciertos} de ${jugados}`}
               </span>
-
             </span>
-          )
-        }
-        pie={
-          lideres.length > 1
-            ? (() => {
-                /* Con tantos empatados la lista de nombres no informa y el valor
-                   ya dice el empate: el pie da la base, cuántos partidos van. */
-                if (lideres.length > 3)
-                  return `${jugados} de ${partidos} ${partidos === 1 ? "partido jugado" : "partidos jugados"}`;
-
-                const nombres = lideres.slice(0, 3).map((lider) => {
-                  const persona = PERSONA_POR_SLUG.get(lider.slug);
-
-                  return persona ? nombreCorto(persona) : lider.slug;
-                });
-                const resto = lideres.length - nombres.length;
-
-                return `Con ${mejor.marcador.aciertos} de ${jugados}: ${nombres.join(", ")}${resto > 0 ? ` y ${resto} más` : ""}`;
-              })()
-            :`${mejor.marcador.aciertos} ${mejor.marcador.aciertos === 1 ? "acierto" : "aciertos"} de ${jugados}`
-        }
-      />
+          ) : lideres.length > 3 ? (
+            `${lideres.length} empatados a ${mejor.marcador.aciertos} de ${jugados}`
+          ) : (
+            `En cabeza con ${mejor.marcador.aciertos} de ${jugados}: ${enLista(lideres.map((uno) => nombreDe(uno.slug)))}`
+          )}
+        </Dato>
       )}
     </div>
   );

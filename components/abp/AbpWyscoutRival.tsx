@@ -9,6 +9,7 @@ import { formatea, type Unidad } from "@/lib/data-analisis/metricas";
 import type { GolesAbp } from "@/lib/data-analisis/goles-abp";
 import type { RivalPlayerAerial } from "@/lib/abp/rival";
 import { casaNombre } from "@/lib/data-analisis/once";
+import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 
 /*
 |--------------------------------------------------------------------------
@@ -72,10 +73,58 @@ function lectura(percentil: number, equipos: number, mejorAlto?: boolean | null)
 
   if (percentil >= 97) return { texto: `el mejor de los ${equipos} en esta cifra`, bueno: true };
   if (percentil <= 3) return { texto: `el peor de los ${equipos} en esta cifra`, bueno: false };
-  if (percentil >= 60) return { texto: `mejor que ${Math.round(percentil / 10)} de cada 10`, bueno: true };
-  if (percentil <= 40) return { texto: `peor que ${Math.max(1, Math.round((100 - percentil) / 10))} de cada 10`, bueno: false };
+  /* Tope en 9 (29/10/2026): con P95 salía «mejor que 10 de cada 10». */
+  if (percentil >= 60) return { texto: `mejor que ${Math.min(9, Math.round(percentil / 10))} de cada 10`, bueno: true };
+  if (percentil <= 40) return { texto: `peor que ${Math.min(9, Math.max(1, Math.round((100 - percentil) / 10)))} de cada 10`, bueno: false };
 
   return { texto: "en la media de la liga", bueno: null };
+}
+
+/*
+| LO QUE RECIBE SE LEE AL REVÉS (29/10/2026)
+|
+| «Centros que recibe» llega de Wyscout como métrica de estilo (sin «bueno»):
+| con 18,2 frente a 13,6 de mediana decía «más que 9 de cada 10», como si
+| fuera una virtud. Que te centren más es peor: se le pone «menos es mejor» y
+| el percentil se gira para que diga «peor que 9 de cada 10».
+*/
+const RECIBE_MENOS_ES_MEJOR = new Set(["Centros que recibe"]);
+
+function orientada(fila: Fila): Fila {
+  if (!RECIBE_MENOS_ES_MEJOR.has(fila.nombre) || fila.mejorAlto != null) return fila;
+
+  return { ...fila, mejorAlto: false, percentil: 100 - fila.percentil };
+}
+
+/* «Córners con remate %» → «Córners con remate»: la cifra ya lleva el «%» (29/10/2026). */
+const rotuloDe = (fila: Fila) => (fila.unidad === "porcentaje" ? fila.nombre.replace(/\s*%\s*$/, "") : fila.nombre);
+
+/*
+| Si concede como los peores de la liga, eso también es nuestro balón parado
+| (29/10/2026): la consigna ofensiva va debajo de «Balón parado en contra».
+| Sólo en el peor tramo (peor que 8 de cada 10).
+*/
+function consignaOfensiva(aspecto: Aspecto, equipos: number) {
+  if (aspecto.clave !== "abpDef") return "";
+
+  const peor = (fila: Fila | undefined) => (fila && fila.mejorAlto === false && fila.percentil <= 20 ? fila : null);
+  const corners = peor(aspecto.filas.find((f) => f.nombre === "Córners"));
+  const conRemate = peor(aspecto.filas.find((f) => f.nombre === "Córners con remate %"));
+  const partes: string[] = [];
+
+  if (corners) {
+    partes.push(
+      `Concede ${cifra1(corners.valor, corners.unidad)} córners por partido (mediana ${cifra1(corners.mediana, corners.unidad)}; ${lectura(corners.percentil, equipos, false).texto}): llegar a línea de fondo y forzar córner; preparar dos rutinas de córner ofensivo.`,
+    );
+  }
+
+  if (conRemate) {
+    partes.push(
+      `Le rematan el ${cifra1(conRemate.valor, conRemate.unidad)} de los córners (mediana ${cifra1(conRemate.mediana, conRemate.unidad)}; ${lectura(conRemate.percentil, equipos, false).texto}): cargar el área con nuestros mejores rematadores en cada córner.`,
+    );
+  }
+
+  return partes.join(" ");
 }
 
 /** La lectura de los centros: qué hacemos según cuánto centra y con qué acierto. */
@@ -156,6 +205,39 @@ export function AbpWyscoutRival({
     };
   }, [equipo, ambito]);
 
+  /*
+  | Su once probable (29/10/2026), el mismo documento que /rivals y /duelos:
+  | «Rematan» y la consigna se cruzan con los titulares. Si el único
+  | rematador etiquetado no es titular, la consigna no puede emparejar a
+  | nuestro central con alguien que empieza en el banquillo.
+  */
+  const [titularesDe, setTitularesDe] = useState<{ equipo: string; claves: Set<string> | null }>({ equipo: "", claves: null });
+
+  useEffect(() => {
+    if (!equipo) return;
+
+    let vivo = true;
+
+    fetch(`/api/docs?key=${encodeURIComponent(rivalOnceKey(equipo))}`, { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ data?: unknown }>)
+      .then((j) => {
+        const titulares = normalizarOnce(j?.data ?? null).titulares;
+
+        if (vivo) setTitularesDe({ equipo, claves: titulares.length >= 7 ? new Set(titulares) : null });
+      })
+      .catch(() => {
+        if (vivo) setTitularesDe({ equipo, claves: null });
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [equipo]);
+
+  const titulares = titularesDe.equipo === equipo ? titularesDe.claves : null;
+  const esTitular = (uno: RivalPlayerAerial) =>
+    titulares ? titulares.has(playerKey({ FOTO: uno.foto, NOMBRE_EQUIPO: equipo, JUGADOR: uno.nombre })) : null;
+
   const datos = estado.equipo === equipo ? estado.datos : null;
 
   const aspectos = datos?.aspectos ?? [];
@@ -185,9 +267,24 @@ export function AbpWyscoutRival({
 
   /* La consigna sale de lo etiquetado: marcar al más alto de los rematadores y vigilar al que saca. */
   const alturaDe = (uno: RivalPlayerAerial) => Number(uno.altura) || 0;
-  const masAlto = [...rematan].sort((a, b) => alturaDe(b) - alturaDe(a))[0];
+  const conCm = (uno: RivalPlayerAerial) => `${uno.nombre}${alturaDe(uno) ? ` (${alturaDe(uno)} cm)` : ""}`;
+  const porAltura = (lista: RivalPlayerAerial[]) => [...lista].sort((a, b) => alturaDe(b) - alturaDe(a));
+
+  /*
+  | Con once probable: primero los titulares que rematan (etiquetados, con
+  | remates en los datos o de 186 cm o más, sin el portero); los etiquetados
+  | que no son titulares van aparte, «si entra…». Sin once, como antes.
+  */
+  const esPortero = (uno: RivalPlayerAerial) => /portero|^po?r?$|^gk$/i.test(uno.posicion.trim());
+  const titularesQueRematan = titulares
+    ? porAltura(plantilla.filter((uno) => esTitular(uno) && !esPortero(uno) && (uno.remataAbp || uno.remates > 0 || alturaDe(uno) >= 186)))
+    : [];
+  const rematanFuera = titulares ? porAltura(rematan.filter((uno) => !esTitular(uno))) : [];
+  const rematanVisibles = titulares ? [...titularesQueRematan, ...rematanFuera] : rematan;
+  const masAlto = titulares ? titularesQueRematan[0] : porAltura(rematan)[0];
   const consigna = [
-    masAlto ? `emparejar a nuestro central más alto con ${masAlto.nombre}${alturaDe(masAlto) ? ` (${alturaDe(masAlto)} cm)` : ""} en el córner` : "",
+    masAlto ? `emparejar a nuestro central más alto con ${conCm(masAlto)} en el córner` : "",
+    ...rematanFuera.slice(0, 2).map((uno) => `si entra ${conCm(uno)}: nuestro central más alto con él`),
     sacan.length > 0 ? `vigilar la trayectoria de ${sacan.map((uno) => uno.nombre).join(" y ")} en el saque` : "",
   ]
     .filter(Boolean)
@@ -222,7 +319,7 @@ export function AbpWyscoutRival({
                 </h3>
 
                 <ul className="mt-2 space-y-2">
-                  {aspecto.filas.map((fila) => {
+                  {aspecto.filas.map(orientada).map((fila) => {
                     const lee = lectura(fila.percentil, datos?.equipos ?? 20, fila.mejorAlto);
 
                     return (
@@ -231,7 +328,7 @@ export function AbpWyscoutRival({
                         className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2"
                       >
                         <span className="min-w-0 text-sm text-white/80">
-                          {fila.nombre}
+                          {rotuloDe(fila)}
                           {fila.mejorAlto != null && (
                             <span className="ml-2 text-[11px] font-normal text-white/40">
                               {fila.mejorAlto ? "más es mejor" : "menos es mejor"}
@@ -277,6 +374,13 @@ export function AbpWyscoutRival({
                     );
                   })}
                 </ul>
+
+                {consignaOfensiva(aspecto, datos?.equipos ?? 20) && (
+                  <p className="mt-2 text-sm text-white/85">
+                    <b className="text-white">Qué hacemos: </b>
+                    {consignaOfensiva(aspecto, datos?.equipos ?? 20)}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -311,13 +415,18 @@ export function AbpWyscoutRival({
               </div>
             )}
 
-            {rematan.length > 0 && (
+            {rematanVisibles.length > 0 && (
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Rematan</p>
                 <p className="mt-1 text-sm text-white/85">
-                  {rematan
-                    .map((uno) => (uno.altura ? `${uno.nombre} (${uno.altura} cm)` : uno.nombre))
-                    .join(", ")}
+                  {titulares
+                    ? [
+                        titularesQueRematan.length ? `Titulares: ${titularesQueRematan.map(conCm).join(", ")}` : "",
+                        rematanFuera.length ? `Fuera del once probable: ${rematanFuera.map(conCm).join(", ")}` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(". ")
+                    : rematan.map(conCm).join(", ")}
                 </p>
               </div>
             )}

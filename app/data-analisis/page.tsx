@@ -730,9 +730,11 @@ export default function DataAnalisisPage() {
     const arriba = utiles[0];
     const abajo = utiles[utiles.length - 1];
 
-    /* Un decimal cuando la cifra pasa de 10 (26,63 -> 26,6). */
+    /* Un decimal cuando la cifra pasa de 10 (26,63 -> 26,6). 29/10/2026: también en
+       las de unidad «entero», que aquí son medias por partido: salía «25 frente a
+       16,9» (o 17) y debe leerse «25,0 frente a 16,9». */
     const cifra = (v: number | null, u: Parameters<typeof formatea>[1]) =>
-      v !== null && Number.isFinite(v) && Math.abs(v) >= 10 && u !== "entero" && u !== "porcentaje" && u !== "minutos"
+      v !== null && Number.isFinite(v) && (Math.abs(v) >= 10 || u === "entero") && u !== "porcentaje" && u !== "minutos"
         ? v.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
         : formatea(v, u);
 
@@ -1223,7 +1225,7 @@ export default function DataAnalisisPage() {
 
                   {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && (
                     <label className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                      <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Temporada
                       </span>
 
@@ -1253,7 +1255,7 @@ export default function DataAnalisisPage() {
                   */}
                   {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && competiciones.length > 1 && (
                     <label className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                      <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Competición
                       </span>
 
@@ -1286,7 +1288,7 @@ export default function DataAnalisisPage() {
                   */}
                   {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && area !== "equipo" && nuestrosPartidos.length > 1 && (
                     <label className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                      <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Partido
                       </span>
 
@@ -1335,7 +1337,7 @@ export default function DataAnalisisPage() {
                   {AREAS_CON_EQUIPO.includes(area) && equiposLiga.length > 1 && (
                     <label className="flex items-center gap-2">
                       <span
-                        className={`text-[10px] uppercase tracking-[0.16em] ${otroEquipo ? "" : "text-white/40"}`}
+                        className={`text-[11px] uppercase tracking-[0.16em] ${otroEquipo ? "" : "text-white/40"}`}
                         style={otroEquipo ? { color: COMPARADO } : undefined}
                       >
                         Comparar con
@@ -1366,7 +1368,7 @@ export default function DataAnalisisPage() {
                   {area === "historia" && temporadas.length > 1 && (
                     <label className="flex items-center gap-2">
                       <span
-                        className="text-[10px] uppercase tracking-[0.16em]"
+                        className="text-[11px] uppercase tracking-[0.16em]"
                         style={{ color: COMPARADO }}
                       >
                         Comparar con el Castilla de
@@ -1392,7 +1394,7 @@ export default function DataAnalisisPage() {
 
                   {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && sistemas.length > 1 && (
                     <label className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                      <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Sistema
                       </span>
 
@@ -1545,7 +1547,7 @@ export default function DataAnalisisPage() {
                         <div className="overflow-x-auto">
                           <table className="w-full min-w-[680px] text-sm">
                             <thead>
-                              <tr className="text-left text-[10px] uppercase tracking-[0.16em] text-white/40">
+                              <tr className="text-left text-[11px] uppercase tracking-[0.16em] text-white/40">
                                 {/* 19/10/2026: las siglas, explicadas al pasar por encima. */}
                                 <th className="pb-2 pr-3 font-medium">Temporada</th>
                                 <th className="pb-2 pr-3 text-right font-medium" title="Partidos jugados">PJ</th>
@@ -1716,7 +1718,7 @@ export default function DataAnalisisPage() {
                                 key={lado.rotulo}
                                 className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
                               >
-                                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                                <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                                   {lado.rotulo} · {lado.dato.n} partidos
                                 </p>
 
@@ -1865,6 +1867,40 @@ export default function DataAnalisisPage() {
                           </div>
                         )}
 
+                        {/*
+                          29/10/2026: el detalle son más de tres pantallas de alto. Una
+                          barra fija con los bloques de esta fase (Valor gol, Creación,
+                          Ocupación del área…) lleva a cada uno sin bajar a ciegas.
+                        */}
+                        {(() => {
+                          const conFilas = GRUPOS.filter((grupo) =>
+                            percentiles.some((f) => {
+                              const met = METRICA_POR_KEY.get(f.key);
+
+                              return met?.grupo === grupo && met?.fase === fase;
+                            }),
+                          );
+
+                          if (conFilas.length < 2) return null;
+
+                          return (
+                            <nav
+                              aria-label="Bloques de métricas"
+                              className="sticky top-0 z-20 -mx-1 mt-5 flex min-w-0 gap-1.5 overflow-x-auto rounded-xl border border-white/10 bg-[#11161C] px-1.5 py-1.5"
+                            >
+                              {conFilas.map((grupo) => (
+                                <a
+                                  key={grupo}
+                                  href={`#bloque-${grupo.toLowerCase().replace(/\s+/g, "-")}`}
+                                  className="shrink-0 rounded-full border border-white/10 px-3 py-1 text-[12px] text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
+                                >
+                                  {grupo}
+                                </a>
+                              ))}
+                            </nav>
+                          );
+                        })()}
+
                         {/* Y el detalle métrica a métrica. */}
                         {GRUPOS.map((grupo) => {
                           const filas = percentiles.filter((f) => {
@@ -1878,7 +1914,7 @@ export default function DataAnalisisPage() {
                           const lectura = lecturaDeGrupo(filas);
 
                           return (
-                            <div key={grupo} className="mt-5">
+                            <div key={grupo} id={`bloque-${grupo.toLowerCase().replace(/\s+/g, "-")}`} className="mt-5 scroll-mt-16">
                               <Panel
                                 title={grupo}
                                 subtitle={
@@ -2249,7 +2285,7 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
                 }
               >
                 <p
-                  className="text-[10px] uppercase tracking-[0.16em]"
+                  className="text-[11px] uppercase tracking-[0.16em]"
                   style={{ color: lado.oro ? ORO : tinta(0.4) }}
                 >
                   {lado.rotulo} · {lado.r.partidos} partidos
@@ -2316,7 +2352,7 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
             </p>
           ) : (
             <>
-              <div className="mb-3 flex items-center gap-4 text-[10px] uppercase tracking-[0.16em]">
+              <div className="mb-3 flex items-center gap-4 text-[11px] uppercase tracking-[0.16em]">
                 <span className="flex items-center gap-1.5" style={{ color: ORO }}>
                   <span
                     className="inline-block h-2.5 w-2.5 rounded-[2px]"
@@ -2337,7 +2373,7 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
               <div className="space-y-5">
                 {grupos.map((grupo) => (
                   <div key={grupo} className="min-w-0">
-                    <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                    <p className="mb-2 text-[11px] uppercase tracking-[0.16em] text-white/40">
                       {grupo}
                     </p>
 
@@ -2386,7 +2422,7 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
                   key={m.columna}
                   className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
                 >
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                     {m.nombre}
                   </p>
 
@@ -2443,7 +2479,7 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
                 key={t.etiqueta}
                 className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
               >
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                   Posesión {t.etiqueta}
                 </p>
 
@@ -2498,7 +2534,7 @@ function PanelOpta({ historico }: { historico: HistoricoOpta[] }) {
                 key={c.rotulo}
                 className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
               >
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                   {c.rotulo}
                 </p>
 
@@ -2572,10 +2608,10 @@ function FilaContraLaLiga({
         <span className="min-w-0 truncate text-[12.5px] text-white/70">
           {metrica.nombre}
           {metrica.mejorAlto === false && (
-            <span className="ml-1.5 text-[10px] text-white/40">(menos es mejor)</span>
+            <span className="ml-1.5 text-[11px] text-white/40">(menos es mejor)</span>
           )}
           {metrica.mejorAlto === null && (
-            <span className="ml-1.5 text-[10px] text-white/40">(estilo)</span>
+            <span className="ml-1.5 text-[11px] text-white/40">(estilo)</span>
           )}
         </span>
 
@@ -2607,7 +2643,7 @@ function FilaContraLaLiga({
           { rotulo: "Liga", valor: liga, oro: false },
         ].map((lado) => (
           <div key={lado.rotulo} className="flex items-center gap-2">
-            <span className="w-16 shrink-0 text-[10px] uppercase tracking-[0.12em] text-white/35">
+            <span className="w-16 shrink-0 text-[11px] uppercase tracking-[0.12em] text-white/35">
               {lado.rotulo}
             </span>
 
@@ -3315,7 +3351,7 @@ function CaraACara({
       <span className="shrink-0 font-semibold tabular-nums" style={{ color: COMPARADO }}>
         {formatea(p.s.valor, p.s.unidad)}
       </span>
-      <span className="w-20 shrink-0 text-right text-[10px] tabular-nums text-white/40">
+      <span className="w-20 shrink-0 text-right text-[11px] tabular-nums text-white/40">
         {p.n.puesto ?? "—"}º vs {p.s.puesto ?? "—"}º
       </span>
     </div>
@@ -3325,7 +3361,7 @@ function CaraACara({
     <>
       <div className="grid min-w-0 gap-5 lg:grid-cols-2">
         <div className="min-w-0">
-          <p className="mb-1 text-[10px] uppercase tracking-[0.16em]" style={{ color: MEJOR }}>
+          <p className="mb-1 text-[11px] uppercase tracking-[0.16em]" style={{ color: MEJOR }}>
             Donde le sacamos ventaja
           </p>
           {nuestrasMejores.length ? (
@@ -3336,7 +3372,7 @@ function CaraACara({
         </div>
 
         <div className="min-w-0">
-          <p className="mb-1 text-[10px] uppercase tracking-[0.16em]" style={{ color: PEOR }}>
+          <p className="mb-1 text-[11px] uppercase tracking-[0.16em]" style={{ color: PEOR }}>
             Donde nos saca ventaja
           </p>
           {suyasMejores.length ? (
@@ -3418,7 +3454,7 @@ function PanelTemporadasCaraACara({
 
   const cabecera = (t: ResumenTemporada, color: string) => (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
-      <p className="text-[10px] uppercase tracking-[0.16em]" style={{ color }}>
+      <p className="text-[11px] uppercase tracking-[0.16em]" style={{ color }}>
         Castilla {t.temporada}
       </p>
       <p className="mt-1 text-sm tabular-nums text-white/80">
@@ -3467,7 +3503,7 @@ function PanelTemporadasCaraACara({
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[520px] text-sm">
           <thead>
-            <tr className="text-left text-[10px] uppercase tracking-[0.16em] text-white/40">
+            <tr className="text-left text-[11px] uppercase tracking-[0.16em] text-white/40">
               <th className="pb-2 pr-3 font-medium">Métrica</th>
               <th className="pb-2 pr-3 text-right font-medium" style={{ color: ORO }}>
                 {a.temporada}
@@ -3546,7 +3582,7 @@ function SelectorMetrica({
   return (
     <label className="flex items-center gap-1.5">
       {rotulo && (
-        <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+        <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
           {rotulo}
         </span>
       )}
@@ -3658,7 +3694,7 @@ function PanelEventos({
                   key={c.rotulo}
                   className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5"
                 >
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                     {c.rotulo}
                   </p>
 

@@ -543,9 +543,11 @@ export default function TeamValuesPage() {
 
           {/* ---------------------------------------------- contenido */}
 
+          {/* pr-12 por debajo de lg (29/10/2026, marketing): el ⋮ flotante del
+              menú de herramientas tapaba el final de las líneas de las tarjetas. */}
           <main
             className={cn(
-              "min-w-0 flex-1 p-4 lg:p-8",
+              "min-w-0 flex-1 p-4 pr-12 lg:p-8",
               editing && "pb-32 lg:pb-32",
             )}
           >

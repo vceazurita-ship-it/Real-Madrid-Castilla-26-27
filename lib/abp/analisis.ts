@@ -595,10 +595,40 @@ function analizaReparto(
         : clave === "posicional"
           ? ofensivo ? "acaban con nosotros jugando en corto" : "acaban con nosotros recuperando y jugando en corto"
           : clave.startsWith("conquista último tercio")
-            ? ofensivo ? "acaban con nosotros en el último tercio rival" : "acaban con el rival en nuestro último tercio"
+            /* 29/10/2026: este reparto cuenta sólo los que se quedan en el último
+               tercio; la producción de la píldora suma además ocasión y gol (12
+               frente a 11). Se dice, para que no parezcan dos cifras de lo mismo. */
+            ? ofensivo
+              ? "acaban con nosotros en el último tercio rival, sin contar los que llegan a ocasión o gol"
+              : "acaban con el rival en nuestro último tercio, sin contar los que llegan a ocasión o gol"
             : "";
 
     return dicho ? `${pesa} ${dicho}.` : null;
+  };
+  /*
+  | 29/10/2026: en la banda defensiva «8 de 21 acaban con el balón en poder del
+  | rival» se leía al lado de «recuperamos 8 de 21» y parecía lo mismo dicho al
+  | revés. Son grupos distintos y se dicen juntos, en una sola frase.
+  */
+  const fraseGruposDefensa = (cats: { nombre: string; acciones: number }[], total: number) => {
+    if (!conGlosa || sentido === "ofensivo") return null;
+
+    const de = (prueba: (c: string) => boolean) =>
+      cats.filter((una) => prueba(una.nombre.toLowerCase().replace(/\s+/g, " "))).reduce((a, una) => a + una.acciones, 0);
+    const recuperamos = de((c) => c === "posicional");
+    const conserva = de((c) => c === "posicional rival");
+    const llegan = de((c) => c.startsWith("conquista último tercio"));
+    const partes = [
+      recuperamos ? `${recuperamos} los recuperamos` : "",
+      conserva ? `${conserva} ${conserva === 1 ? "lo conserva" : "los conserva"} el rival` : "",
+      llegan ? `${llegan} le ${llegan === 1 ? "llega" : "llegan"} a último tercio` : "",
+    ].filter(Boolean);
+
+    if (partes.length < 2) return null;
+
+    const lista = partes.length === 2 ? partes.join(" y ") : `${partes.slice(0, -1).join(", ")} y ${partes[partes.length - 1]}`;
+
+    return `De ${total} saques del rival: ${lista}.`;
   };
   const utiles = filtradas.filter((uno) => !SIN_VALOR.test(uno.categoria.trim()));
 
@@ -670,8 +700,12 @@ function analizaReparto(
 
   const frases: string[] = [];
 
+  const grupos = categorias.length > 1 ? fraseGruposDefensa(categorias, utiles.length) : null;
+
   if (categorias.length === 1) {
     frases.push(`Todo se concentra en «${lider.nombre}».`);
+  } else if (grupos) {
+    frases.push(grupos);
   } else if (escasa) {
     /* Con tan poco, el peso sobre el global no se juzga: se enseña la base. */
     frases.push(

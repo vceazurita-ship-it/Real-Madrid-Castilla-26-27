@@ -295,6 +295,27 @@ useEffect(() => {
 const videoRef = useRef<HTMLDivElement | null>(null);
 const dashboardRef = useRef<HTMLDivElement | null>(null);
 
+/*
+| 29/10/2026: el botón flotante «Ver explicación» tapaba la columna PUESTO de
+| las últimas filas, y el hueco que se le dejó a la derecha (lg:pr-44) dejaba la
+| tabla sin ocupar la tarjeta. Ahora la tabla va a todo el ancho y los botones
+| flotantes se apartan mientras la tabla está en pantalla.
+*/
+const tablaRef = useRef<HTMLDivElement | null>(null);
+const [tablaEnPantalla, setTablaEnPantalla] = useState(false);
+
+useEffect(() => {
+  const nodo = tablaRef.current;
+
+  if (!nodo || typeof IntersectionObserver === "undefined") return;
+
+  const vigia = new IntersectionObserver(([entrada]) => setTablaEnPantalla(entrada.isIntersecting), { rootMargin: "0px 0px -40px 0px" });
+
+  vigia.observe(nodo);
+
+  return () => vigia.disconnect();
+}, [jugados.length]);
+
   useEffect(() => {
   const handleFullscreen = () => {
     setIsFullscreen(!!document.fullscreenElement);
@@ -366,7 +387,9 @@ useEffect(() => {
           {/* Botón desktop */}
           <button
             onClick={scrollToVideo}
-            className="
+            aria-hidden={tablaEnPantalla || undefined}
+            tabIndex={tablaEnPantalla ? -1 : undefined}
+            className={`${tablaEnPantalla ? "pointer-events-none opacity-0" : ""}
               hidden lg:flex
               fixed right-6 bottom-6 z-50
               items-center gap-3
@@ -381,7 +404,7 @@ useEffect(() => {
               hover:border-[#C8A96B]
               hover:bg-[#161D26]
               transition-all
-            "
+            `}
           >
             <Play size={16} className="text-[#C8A96B]" />
             Ver explicación
@@ -390,7 +413,9 @@ useEffect(() => {
           {/* Botón móvil */}
           <button
             onClick={scrollToVideo}
-            className="
+            aria-hidden={tablaEnPantalla || undefined}
+            tabIndex={tablaEnPantalla ? -1 : undefined}
+            className={`${tablaEnPantalla ? "pointer-events-none opacity-0" : ""}
               lg:hidden
               fixed bottom-5 right-5 z-50
               rounded-full
@@ -401,7 +426,7 @@ useEffect(() => {
               shadow-xl
               hover:opacity-90
               transition
-            "
+            `}
           >
             Ver vídeo
           </button>
@@ -430,7 +455,7 @@ useEffect(() => {
 
                   /* 29/10/2026: la cifra grande es el dato y debajo, pequeña, la referencia (fútbol y marketing). */
                   return [
-                    ["Puesto", `${tabla.puesto}º`, `de ${tabla.deCuantos} · tendencia, tras ${tabla.jugados} jornadas`],
+                    ["Puesto", `${tabla.puesto}º de ${tabla.deCuantos}`, `tendencia, tras ${tabla.jugados} jornadas`],
                     [
                       "Puntos",
                       String(tabla.puntos),
@@ -442,7 +467,8 @@ useEffect(() => {
                     [
                       "Goles",
                       `${tabla.favor}-${tabla.contra}`,
-                      `${tabla.favor} a favor · ${tabla.contra} en contra · diferencia ${dif > 0 ? "+" : dif < 0 ? "−" : ""}${Math.abs(dif)}${liga.mediaGoles !== null ? ` · liga ${dec(liga.mediaGoles)} por equipo y partido` : ""}`,
+                      /* 29/10/2026: en dos renglones; en uno solo no se leía. */
+                      `${tabla.favor} a favor · ${tabla.contra} en contra\ndiferencia ${dif > 0 ? "+" : dif < 0 ? "−" : ""}${Math.abs(dif)}${liga.mediaGoles !== null ? ` · liga ${dec(liga.mediaGoles)} por partido` : ""}`,
                     ],
                   ];
                 })().map(([etiqueta, valor, referencia]) => (
@@ -454,7 +480,7 @@ useEffect(() => {
                       {etiqueta}
                     </p>
                     <p className="mt-1 text-3xl font-semibold leading-none text-white">{valor}</p>
-                    {referencia ? <p className="mt-1.5 text-[12px] leading-snug text-white/60">{referencia}</p> : null}
+                    {referencia ? <p className="mt-1.5 whitespace-pre-line text-[12px] leading-snug text-white/60">{referencia}</p> : null}
                   </div>
                 ))}
               </div>
@@ -471,8 +497,8 @@ useEffect(() => {
                   Jornada a jornada
                 </h2>
 
-                {/* lg:pr-44: el botón «Ver explicación» flota abajo a la derecha y tapaba la última columna. */}
-                <div className="overflow-x-auto rounded-[18px] border border-white/10 lg:pr-44">
+                {/* A todo el ancho: el botón flotante se aparta mientras se ve la tabla (29/10/2026). */}
+                <div ref={tablaRef} className="overflow-x-auto rounded-[18px] border border-white/10">
                   <table className="w-full min-w-[420px] text-sm">
                     <thead>
                       <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/60">

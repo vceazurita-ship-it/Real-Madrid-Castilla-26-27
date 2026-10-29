@@ -1111,6 +1111,23 @@ export default function MatchPreparation() {
   const [error, setError] = useState<string | null>(null);
   const [seccionActiva, setSeccionActiva] = useState("contexto");
 
+  /*
+  | La pestaña activa, centrada en la barra (29/10/2026): en el móvil la barra
+  | se desliza y «Análisis rival» quedaba cortada en «An» aunque fuera la
+  | sección en pantalla. Se mueve sólo el `scrollLeft` de la barra, nunca la
+  | página.
+  */
+  const barraSecciones = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const barra = barraSecciones.current;
+    const activa = barra?.querySelector<HTMLElement>('[data-activa="true"]');
+
+    if (!barra || !activa || barra.scrollWidth <= barra.clientWidth) return;
+
+    barra.scrollTo({ left: activa.offsetLeft - (barra.clientWidth - activa.offsetWidth) / 2, behavior: "smooth" });
+  }, [seccionActiva]);
+
   /* El escudo del club, que la hoja no trae: ver `hooks/useEscudos`. */
   const escudoDeRival = useEscudos();
 
@@ -2042,8 +2059,10 @@ export default function MatchPreparation() {
                 </button>
               </div>
 
-              {/* Acciones: en el móvil, con rótulo, no caben en una fila y bajan. */}
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Acciones: en el móvil, en UNA fila (29/10/2026): Informe, Más y Editar,
+                  con rótulos cortos; antes bajaban en tres filas antes del contenido. */}
+              <div className="flex flex-nowrap items-center gap-2 sm:flex-wrap">
+
                 {/* El estado del autoguardado ya se pinta al lado de «Hecho»;
                     esta chapa sólo tiene sentido fuera de la edición, cuando
                     algo se ha quedado sin escribir en la hoja. */}
@@ -2228,14 +2247,15 @@ export default function MatchPreparation() {
                     disabled={!rivalActivo}
                     title="Editar informe (Ctrl+E)"
                     className="
-                      flex items-center gap-2 rounded-xl border border-[#C8A96B]/50
-                      bg-[#C8A96B]/10 px-4 py-2.5 text-sm font-semibold text-[#C8A96B]
+                      flex shrink-0 items-center gap-2 rounded-xl border border-[#C8A96B]/50
+                      bg-[#C8A96B]/10 px-3.5 py-2.5 text-sm font-semibold text-[#C8A96B] sm:px-4
                       transition hover:bg-[#C8A96B]/20
                       disabled:cursor-not-allowed disabled:opacity-40
                     "
                   >
                     <Pencil size={15} />
-                    Editar informe
+                    <span className="sm:hidden">Editar</span>
+                    <span className="hidden sm:inline">Editar informe</span>
                   </button>
                 )}
               </div>
@@ -2244,8 +2264,9 @@ export default function MatchPreparation() {
             {/* Índice de secciones */}
             {rivalActivo && !cargando && (
               <nav
+                ref={barraSecciones}
                 aria-label="Secciones del plan"
-                className="scrollbar-none mt-3 flex gap-1 overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%-28px),transparent)] pr-6 sm:[mask-image:none] sm:pr-0"
+                className="scrollbar-none relative mt-3 flex gap-1 overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%-28px),transparent)] pr-6 sm:[mask-image:none] sm:pr-0"
               >
                 {SECCIONES.filter(({ id }) => seccionVisible(id)).map(({ id, label, icon: Icon }) => (
                   <button
@@ -2902,7 +2923,8 @@ export default function MatchPreparation() {
                   </Link>
                 </div>
 
-                <div className="grid gap-5 lg:grid-cols-2">
+                {/* items-start (29/10/2026): con una sola debilidad la caja se estiraba al alto de las fortalezas y dejaba un hueco. */}
+                <div className="grid items-start gap-5 lg:grid-cols-2">
                   <Bloque
                     titulo="Fortalezas"
                     icon={ThumbsUp}
@@ -2958,7 +2980,8 @@ export default function MatchPreparation() {
                     <b className="text-white/75">Contraste con los datos</b>
                     {contraste.dibujo && (
                       <>
-                        {" · "}En sus alineaciones: {contraste.dibujo.estructura.replace(/^1-/, "")} ({contraste.dibujo.veces} de las {contraste.dibujo.de} alineaciones con dibujo registrado).
+                        {/* La misma frase y cuenta que el campograma de /rivals (29/10/2026). */}
+                        {" · "}En sus alineaciones: {contraste.dibujo.estructura.replace(/^1-/, "")}, el más repetido ({contraste.dibujo.veces} de sus {contraste.dibujo.de} alineaciones).
                       </>
                     )}
                     {contraste.abp && (

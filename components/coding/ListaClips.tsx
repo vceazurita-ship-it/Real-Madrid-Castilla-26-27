@@ -66,6 +66,18 @@ function leeTags(texto: string) {
     });
 }
 
+/* 29/10/2026: el nombre del vídeo legible en la tabla y en la tarjeta del móvil,
+   igual que en los chips de la página: «4-R._Richarte_Remates» sale «4-R. Richarte
+   Remates». El nombre entero del fichero sigue en el title. */
+function nombreLegible(nombre: string) {
+  return nombre
+    .replace(/\.[^.]+$/, "")
+    .replace(/_/g, " ")
+    .replace(/\ba reos\b/gi, "aéreos")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function ListaClips({
   clips,
   categorias,
@@ -378,7 +390,7 @@ export function ListaClips({
                     className="min-w-0 max-w-full truncate text-[11px] text-white/35"
                     title={videoDe(fila.clip)}
                   >
-                    {videoDe(fila.clip).replace(/\.[^.]+$/, "")}
+                    {nombreLegible(videoDe(fila.clip))}
                   </span>
                 )}
               </div>
@@ -543,7 +555,7 @@ export function ListaClips({
                         className="block truncate text-[11px] text-white/45"
                         title={videoDe(clip)}
                       >
-                        {videoDe(clip).replace(/\.[^.]+$/, "")}
+                        {nombreLegible(videoDe(clip))}
                       </span>
                     </td>
                   )}

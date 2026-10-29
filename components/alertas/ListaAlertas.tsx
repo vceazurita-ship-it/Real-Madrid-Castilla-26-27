@@ -21,26 +21,79 @@ import {
   saldriaSiSeReactiva,
   tituloLegible,
   type Alerta,
+  type ContactoAgenda,
   type PartidoParaAlerta,
 } from "@/lib/alertas/modelo";
+import { STAFF } from "@/lib/quiniela/staff";
 
 /** ¿Lleva una fecha de verdad? Vacía o ilegible, la alerta no suena. */
 function fechaValida(iso: string | null | undefined) {
   return Boolean(iso) && !Number.isNaN(new Date(String(iso)).getTime());
 }
 
+/** Minúsculas, sin tildes y sólo letras: «López de Lerma» -> «lopezdelerma». */
+function plano(texto: string) {
+  return texto
+    /* NFD separa la tilde de la letra y el filtro de abajo la quita. */
+    .normalize("NFD")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+/*
+| El nombre del cuerpo técnico que corresponde a un usuario de correo
+| (29/10/2026, análisis): «jlopezdelerma» es Julián López de Lerma y
+| «mbarrio.trainer», Miguel Barrio. Se acepta si el usuario empieza por el
+| nombre o por su inicial y lleva el primer apellido.
+*/
+function nombreDelStaff(usuario: string) {
+  const alias = plano(usuario);
+
+  if (alias.length < 4) return null;
+
+  for (const persona of STAFF) {
+    const partes = persona.nombre
+      .split(/\s+/)
+      .map(plano)
+      .filter((p) => p && !["de", "del", "la", "las", "los"].includes(p));
+    const [nombre, apellido] = partes;
+
+    if (!nombre || !apellido) continue;
+
+    if ((alias.startsWith(nombre) || alias.startsWith(nombre[0] + apellido)) && alias.includes(apellido))
+      return persona.nombre;
+  }
+
+  return null;
+}
+
 /** Quién recibe el correo, por nombre: «ana, luis y 2 más». */
-function nombresDestino(destinatarios: string[]) {
-  /* 29/10/2026: «v ceazurita» se lee «V. Ceazurita»: palabras con mayúscula y la inicial suelta con punto. */
+function nombresDestino(destinatarios: string[], agenda: ContactoAgenda[] = []) {
+  /* Lo que no se reconoce se lee «V. Ceazurita»: palabras con mayúscula, la
+     inicial suelta con punto y sin los números del usuario. La expresión
+     había perdido su barra invertida y no partía las palabras (29/10/2026). */
   const legible = (usuario: string) =>
     usuario
-      .replace(/[._-]+/g, " ")
+      .replace(/[._\-\d]+/g, " ")
       .trim()
-      .split(/s+/)
+      .split(/\s+/)
+      .filter(Boolean)
       .map((p) => (p.length === 1 ? `${p.toUpperCase()}.` : p.charAt(0).toUpperCase() + p.slice(1)))
       .join(" ");
 
-  const nombres = destinatarios.map((d) => legible(d.split("@")[0])).filter(Boolean);
+  const porCorreo = new Map(
+    agenda
+      .filter((c) => c.nombre?.trim())
+      .map((c) => [c.email.trim().toLowerCase(), c.nombre.trim()] as const),
+  );
+
+  const nombres = destinatarios
+    .map((d) => {
+      const usuario = d.split("@")[0];
+
+      return porCorreo.get(d.trim().toLowerCase()) ?? nombreDelStaff(usuario) ?? legible(usuario);
+    })
+    .filter(Boolean);
 
   if (nombres.length === 0) return "Sin destinatarios";
   if (nombres.length === 1) return nombres[0];
@@ -68,6 +121,8 @@ interface Props {
   partidos?: PartidoParaAlerta[];
   /** Se pinta la última copia: nada se edita hasta que conteste la hoja. */
   comprobando?: boolean;
+  /** La agenda de la hoja: da el nombre de cada correo cuando lo tiene. */
+  agenda?: ContactoAgenda[];
 }
 
 export default function ListaAlertas({
@@ -79,6 +134,7 @@ export default function ListaAlertas({
   ocupada,
   partidos = [],
   comprobando = false,
+  agenda = [],
 }: Props) {
   /* El reloj se apunta en un efecto: mirarlo en el render es impuro. */
   const [ahora, setAhora] = useState(0);
@@ -133,9 +189,16 @@ export default function ListaAlertas({
     return Number.isFinite(t) && t > ahora ? t : Infinity;
   };
 
-  const silenciadas = ordenadas
+  const todasSilenciadas = ordenadas
     .filter((a) => !a.activa)
     .sort((a, b) => cuandoSaldria(a) - cuandoSaldria(b));
+
+  /* Caducadas (29/10/2026, análisis): silenciadas que ya no saldrían aunque se
+     reactivaran —«Avisar a Mikel», enviada por última vez en agosto—. Van
+     aparte y plegadas para que no se mezclen con las que sí volverían. */
+  const caducada = (a: Alerta) => ahora > 0 && cuandoSaldria(a) === Infinity;
+  const silenciadas = todasSilenciadas.filter((a) => !caducada(a));
+  const caducadas = todasSilenciadas.filter(caducada);
 
   const pinta = (alerta: Alerta) => {
         const bloqueada = comprobando || ocupada === alerta.id;
@@ -264,7 +327,7 @@ export default function ListaAlertas({
 
               <span className="inline-flex min-w-0 items-center gap-1.5" title={alerta.destinatarios.join(", ")}>
                 <Users className="h-3 w-3 shrink-0" aria-hidden />
-                <span className="truncate">{nombresDestino(alerta.destinatarios)}</span>
+                <span className="truncate">{nombresDestino(alerta.destinatarios, agenda)}</span>
               </span>
 
               {alerta.adjuntos.length > 0 && (
@@ -372,6 +435,18 @@ export default function ListaAlertas({
 
           <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0">
             {silenciadas.map((alerta) => pinta(alerta))}
+          </div>
+        </details>
+      )}
+
+      {caducadas.length > 0 && (
+        <details className="group pt-1 @3xl:col-span-2">
+          <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-xs text-white/50 transition hover:text-white">
+            Caducadas ({caducadas.length}) · no volverían a salir aunque se reactiven
+          </summary>
+
+          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0">
+            {caducadas.map((alerta) => pinta(alerta))}
           </div>
         </details>
       )}

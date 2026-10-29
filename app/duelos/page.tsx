@@ -398,8 +398,15 @@ export default function DuelosPage() {
   | hacer», su con balón contra nuestro sin balón. Un duelo puede estar en las
   | dos: el lateral que les desborda y al que también le desbordan.
   */
-  const atacar = duelos.filter((d) => (d.conBalon ?? 0) >= UMBRAL_DUELO).sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0));
-  const vigilar = duelos.filter((d) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO).sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
+  /*
+  | UN SOLO RECUENTO (29/10/2026): la cabecera decía «8 duelos» y se pintaban
+  | 7 tarjetas. Ahora todo cuenta lo que se pinta (con dato y en una zona), y
+  | las dos cajas sólo llevan duelos que tienen tarjeta.
+  */
+  const pintados = conDato.filter((d) => ZONAS.some((z) => z.key === d.def.zona));
+  const clavesPintadas = new Set(duelos.filter((d) => d.veredicto !== "sin-datos" && ZONAS.some((z) => z.key === d.def.zona)).map((d) => d.def.clave));
+  const atacar = duelos.filter((d) => clavesPintadas.has(d.def.clave) && (d.conBalon ?? 0) >= UMBRAL_DUELO).sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0));
+  const vigilar = duelos.filter((d) => clavesPintadas.has(d.def.clave) && (d.sinBalon ?? 0) <= -UMBRAL_DUELO).sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0));
 
   const cargando = jugadores === null || plantillasLeidas === null || (!equipoVisto && !proximoListo);
   const escudo = equipoVisto ? escudoDe(equipoVisto) : null;
@@ -482,14 +489,15 @@ export default function DuelosPage() {
                   {(() => {
                     const enLosDos = atacar.filter((a) => vigilar.some((v) => v.def.clave === a.def.clave)).length;
 
-                    return fraseRecuentoDuelos(conDato.length, atacar.length, vigilar.length, enLosDos);
+                    return fraseRecuentoDuelos(pintados.length, atacar.length, vigilar.length, enLosDos);
                   })()}
                 </span>
-                <span style={{ color: MEJOR }} title="Duelos en los que, con el balón nuestro, les sacamos ventaja">
-                  ● {atacar.length} con ventaja nuestra con balón
+                {/* «Momentos», no duelos (29/10/2026): un duelo puede contar a favor con balón y en contra sin él. */}
+                <span style={{ color: MEJOR }} title="Momentos con el balón nuestro en los que les sacamos ventaja (un duelo puede estar a favor y en contra)">
+                  ● {atacar.length} {atacar.length === 1 ? "momento" : "momentos"} a favor
                 </span>
-                <span style={{ color: PEOR }} title="Duelos en los que, con el balón suyo, nos sacan ventaja">
-                  ● {vigilar.length} con ventaja suya con balón
+                <span style={{ color: PEOR }} title="Momentos con el balón suyo en los que nos sacan ventaja">
+                  ● {vigilar.length} en contra
                 </span>
               </span>
               {!cargando && temporada === undefined && (
@@ -794,7 +802,8 @@ function Claves({
         <p className="mt-2 text-sm text-white/45">{vacio}</p>
       ) : (
         <ul className="mt-2 space-y-2.5">
-          {[...lista].sort((a, b) => Number(baseDe(a).poca) - Number(baseDe(b).poca)).map((d) => {
+          {/* Por la cifra que se ve (29/10/2026): con la poca muestra al final salía −21 antes que −34; la poca muestra ya lleva su aviso. */}
+          {[...lista].sort((a, b) => Math.abs(b.bloques.find((x) => x.sentido === sentido)?.balance ?? 0) - Math.abs(a.bloques.find((x) => x.sentido === sentido)?.balance ?? 0)).map((d) => {
             /* 29/10/2026: ya no se recortan a cuatro: la leyenda de arriba cuenta los mismos duelos que la caja enseña. */
             const bloque = d.bloques.find((b) => b.sentido === sentido);
             const valor = bloque?.balance ?? null;
@@ -994,7 +1003,10 @@ const verbo = (lista: JugadorDuelo[], singular: string) => (lista.length > 1 ? `
  */
 function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string) {
   const visibles = d.bloques.filter(
-    (b) => modo === "ambos" || b.sentido === "aire" || (modo === "nuestro" ? b.sentido === "con" : b.sentido === "sin"),
+    (b) =>
+      /* Por arriba sin percentil aéreo de los dos lados (29/10/2026): el bloque salía con los rótulos y nada; queda la línea de altura media. */
+      !(b.sentido === "aire" && !b.facetas.some((f) => f.diferencia !== null)) &&
+      (modo === "ambos" || b.sentido === "aire" || (modo === "nuestro" ? b.sentido === "con" : b.sentido === "sin")),
   );
 
   return (
@@ -1292,7 +1304,8 @@ function Tarjeta({
       )}
       {d.cobertura.con < d.cobertura.de && d.veredicto !== "sin-datos" && (
         <p className="mt-2 text-[10px] text-white/35">
-          Medido en {d.cobertura.con} de {d.cobertura.de} enfrentamientos.
+          {/* Sin «de N» (29/10/2026): el total incluía enfrentamientos sin dato, y lo que no tiene dato no se nombra. */}
+          Medido en {d.cobertura.con} {d.cobertura.con === 1 ? "enfrentamiento" : "enfrentamientos"}.
         </p>
       )}
     </div>

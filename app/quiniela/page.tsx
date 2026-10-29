@@ -230,6 +230,8 @@ export default function QuinielaPage() {
   const [guardandoApuesta, setGuardandoApuesta] = useState(false);
 
   const [eligiendoJugadores, setEligiendoJugadores] = useState(false);
+  /* Las caritas de «Quién juega», plegadas por defecto (29/10/2026). */
+  const [verCaritas, setVerCaritas] = useState(false);
 
   /* De quién se está viendo la canción, la frase y la foto de broma. */
   const [viendoExtras, setViendoExtras] = useState<string | null>(null);
@@ -664,6 +666,196 @@ export default function QuinielaPage() {
     </>
   );
 
+  /* «Quién juega» abierta la jornada va detrás de los partidos (29/10/2026,
+     marketing): quien no ha entrado veía cuatro secciones antes de la lista.
+     Cerrada sigue arriba, con el resumen. */
+  const panelQuienJuega = (
+            <div className="mt-5">
+              <Panel
+                title="Quién juega"
+                subtitle={(() => {
+                  /* El estado en una línea (29/10/2026, experto de análisis):
+                     once fichas con «Sin apostar» no se leían de un vistazo. */
+                  const cuenta = (slug: string) => laJornada.puestos?.[slug] ?? (laJornada.pronosticos[slug] ?? []).filter(Boolean).length;
+                  const completas = jugadores.filter((x) => cuenta(x) === partidos.length).length;
+                  const nada = jugadores.filter((x) => cuenta(x) === 0).length;
+                  const medias = jugadores.length - completas - nada;
+                  const trozos = [
+                    completas && `${completas} con la quiniela completa`,
+                    medias && `${medias} a medias`,
+                    nada && `${nada} sin apostar`,
+                  ].filter(Boolean);
+
+                  return `Jornada ${jornada}: ${trozos.join(" · ")}.`;
+                })()}
+                icon={Users}
+              >
+                {/* Plegado en una línea (29/10/2026, análisis y marketing): once
+                    fichas con el mismo «Sin apostar» repetían lo que dice el
+                    subtítulo. Quién falta se nombra aquí, una sola vez. */}
+                {(() => {
+                  const cuenta = (slug: string) => laJornada.puestos?.[slug] ?? (laJornada.pronosticos[slug] ?? []).filter(Boolean).length;
+                  const faltan = jugadores
+                    .filter((slug) => cuenta(slug) < partidos.length)
+                    .map((slug) => {
+                      const persona = PERSONA_POR_SLUG.get(slug);
+
+                      return persona ? nombreCorto(persona) : slug;
+                    });
+
+                  return (
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      {faltan.length > 0 && (
+                        <p className="min-w-0 text-[12.5px] leading-snug text-white/65">
+                          <span className="text-white/45">{plazo.cerrada ? "No la completaron: " : "Les falta: "}</span>
+                          {faltan.join(", ")}
+                        </p>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setVerCaritas((v) => !v)}
+                        aria-expanded={verCaritas}
+                        className="inline-flex items-center gap-1 text-[12px] text-white/60 transition hover:text-white"
+                      >
+                        <Smile size={13} aria-hidden />
+                        {verCaritas ? "Ocultar las caritas" : `Ver las caritas (${jugadores.length})`}
+                      </button>
+                    </div>
+                  );
+                })()}
+
+                {verCaritas && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {jugadores.map((slug) => {
+                    const persona = PERSONA_POR_SLUG.get(slug);
+
+                    if (!persona) return null;
+
+                    /* Con la jornada abierta, de los demás sólo llega el
+                       recuento: los signos no viajan hasta que se cierra. */
+                    const suyos = laJornada.pronosticos[slug] ?? [];
+
+                    const puestos =
+                      laJornada.puestos?.[slug] ?? suyos.filter(Boolean).length;
+                    const soyYo = yo === slug;
+                    const conExtras =
+                      extras[slug] && Object.keys(extras[slug]).length > 0;
+
+                    return (
+                      <button
+                        key={slug}
+                        type="button"
+                        onClick={() => setViendoExtras(slug)}
+                        title={`${persona.nombre} — su canción, su frase y su foto de broma`}
+                        className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 transition ${
+                          soyYo
+                            ? "border-[#C8A96B] bg-[#C8A96B]/[0.12]"
+                            : "border-white/10 bg-white/[0.02] hover:border-white/25"
+                        }`}
+                      >
+                        <Avatar slug={slug} lado={28} />
+
+                        <span className="text-left">
+                          <span className="block text-[12px] font-medium text-white">
+                            {nombreCorto(persona)}
+                            {soyYo && (
+                              <span className="ml-1 text-[10px] font-normal text-[#C8A96B]">
+                                (tú)
+                              </span>
+                            )}
+                          </span>
+
+                          <span
+                            className={`block text-[10px] ${
+                              puestos === partidos.length
+                                ? "text-emerald-300/70"
+                                : "text-white/40"
+                            }`}
+                          >
+                            {puestos === partidos.length
+                              ? "Completa"
+                              : puestos === 0
+                                ? "Sin apostar"
+                                : `${puestos}/${partidos.length}`}
+                          </span>
+                        </span>
+
+                        <Smile
+                          size={13}
+                          aria-hidden
+                          className={`shrink-0 ${
+                            conExtras ? "text-[#C8A96B]" : "text-white/20"
+                          }`}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+                )}
+
+                {verCaritas && (
+                  <p className="mt-2 text-[11px] text-white/40">
+                    Pulsa una carita para ver su canción, su frase y su foto.
+                  </p>
+                )}
+
+                {eligiendoJugadores && (
+                  <div className="mt-4 border-t border-white/10 pt-4">
+                    <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
+                      Quién juega esta temporada
+                    </p>
+
+                    {!yo && (
+                      <p className="mb-2 text-[11px] text-white/35">
+                        Entra con tu correo para poder cambiar la lista.
+                      </p>
+                    )}
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {STAFF.map((persona) => {
+                        const dentro = jugadores.includes(persona.slug);
+
+                        return (
+                          <button
+                            key={persona.slug}
+                            type="button"
+                            disabled={!yo || estado === "guardando"}
+                            onClick={() =>
+                              void cambiaJugadores(
+                                dentro
+                                  ? jugadores.filter((uno) => uno !== persona.slug)
+                                  : [...jugadores, persona.slug],
+                              )
+                            }
+                            className={`rounded-lg border px-2 py-1 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                              dentro
+                                ? "border-[#C8A96B]/50 bg-[#C8A96B]/10 text-[#C8A96B]"
+                                : "border-white/10 text-white/45 hover:border-white/25"
+                            }`}
+                          >
+                            {dentro && <Check size={10} className="mr-1 inline" />}
+                            {persona.nombre}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {INICIALES_SIN_DUENO.length > 0 && (
+                      <p className="mt-3 text-[11px] leading-relaxed text-white/35">
+                        Del Excel del cuerpo técnico queda sin dueño{" "}
+                        <strong className="text-white/55">
+                          {INICIALES_SIN_DUENO.join(", ")}
+                        </strong>
+                        : dinos quién es y entra con su foto.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </Panel>
+            </div>
+  );
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -790,6 +982,9 @@ export default function QuinielaPage() {
 
             {/* --------------------- LA PARRILLA ---------------------- */}
 
+            {/* Abierta no sale (29/10/2026, marketing y análisis): era una
+                tarjeta con un título y un hueco. Lo dice la franja de arriba. */}
+            {plazo.cerrada && (
             <div className="mt-5">
               <Parrilla
                 jornada={laJornada}
@@ -798,6 +993,7 @@ export default function QuinielaPage() {
                 cuandoSeAbre={cuandoCierra(plazo.viernes)}
               />
             </div>
+            )}
 
             {!plazo.cerrada && panelRanking}
 
@@ -819,147 +1015,7 @@ export default function QuinielaPage() {
               <>
             {/* ------------------------ QUIÉN JUEGA -------------------- */}
 
-            <div className="mt-5">
-              <Panel
-                title="Quién juega"
-                subtitle={(() => {
-                  /* El estado en una línea (29/10/2026, experto de análisis):
-                     once fichas con «Sin apostar» no se leían de un vistazo. */
-                  const cuenta = (slug: string) => laJornada.puestos?.[slug] ?? (laJornada.pronosticos[slug] ?? []).filter(Boolean).length;
-                  const completas = jugadores.filter((x) => cuenta(x) === partidos.length).length;
-                  const nada = jugadores.filter((x) => cuenta(x) === 0).length;
-                  const medias = jugadores.length - completas - nada;
-                  const trozos = [
-                    completas && `${completas} con la quiniela completa`,
-                    medias && `${medias} a medias`,
-                    nada && `${nada} sin apostar`,
-                  ].filter(Boolean);
-
-                  return `Jornada ${jornada}: ${trozos.join(" · ")}. Pulsa una carita para ver su canción, su frase y su foto.`;
-                })()}
-                icon={Users}
-              >
-                <div className="flex flex-wrap gap-2">
-                  {jugadores.map((slug) => {
-                    const persona = PERSONA_POR_SLUG.get(slug);
-
-                    if (!persona) return null;
-
-                    /* Con la jornada abierta, de los demás sólo llega el
-                       recuento: los signos no viajan hasta que se cierra. */
-                    const suyos = laJornada.pronosticos[slug] ?? [];
-
-                    const puestos =
-                      laJornada.puestos?.[slug] ?? suyos.filter(Boolean).length;
-                    const soyYo = yo === slug;
-                    const conExtras =
-                      extras[slug] && Object.keys(extras[slug]).length > 0;
-
-                    return (
-                      <button
-                        key={slug}
-                        type="button"
-                        onClick={() => setViendoExtras(slug)}
-                        title={`${persona.nombre} — su canción, su frase y su foto de broma`}
-                        className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 transition ${
-                          soyYo
-                            ? "border-[#C8A96B] bg-[#C8A96B]/[0.12]"
-                            : "border-white/10 bg-white/[0.02] hover:border-white/25"
-                        }`}
-                      >
-                        <Avatar slug={slug} lado={28} />
-
-                        <span className="text-left">
-                          <span className="block text-[12px] font-medium text-white">
-                            {nombreCorto(persona)}
-                            {soyYo && (
-                              <span className="ml-1 text-[10px] font-normal text-[#C8A96B]">
-                                (tú)
-                              </span>
-                            )}
-                          </span>
-
-                          <span
-                            className={`block text-[10px] ${
-                              puestos === partidos.length
-                                ? "text-emerald-300/70"
-                                : "text-white/40"
-                            }`}
-                          >
-                            {puestos === partidos.length
-                              ? "Completa"
-                              : puestos === 0
-                                ? "Sin apostar"
-                                : `${puestos}/${partidos.length}`}
-                          </span>
-                        </span>
-
-                        <Smile
-                          size={13}
-                          aria-hidden
-                          className={`shrink-0 ${
-                            conExtras ? "text-[#C8A96B]" : "text-white/20"
-                          }`}
-                        />
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {eligiendoJugadores && (
-                  <div className="mt-4 border-t border-white/10 pt-4">
-                    <p className="mb-2 text-[10px] uppercase tracking-[0.16em] text-white/40">
-                      Quién juega esta temporada
-                    </p>
-
-                    {!yo && (
-                      <p className="mb-2 text-[11px] text-white/35">
-                        Entra con tu correo para poder cambiar la lista.
-                      </p>
-                    )}
-
-                    <div className="flex flex-wrap gap-1.5">
-                      {STAFF.map((persona) => {
-                        const dentro = jugadores.includes(persona.slug);
-
-                        return (
-                          <button
-                            key={persona.slug}
-                            type="button"
-                            disabled={!yo || estado === "guardando"}
-                            onClick={() =>
-                              void cambiaJugadores(
-                                dentro
-                                  ? jugadores.filter((uno) => uno !== persona.slug)
-                                  : [...jugadores, persona.slug],
-                              )
-                            }
-                            className={`rounded-lg border px-2 py-1 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                              dentro
-                                ? "border-[#C8A96B]/50 bg-[#C8A96B]/10 text-[#C8A96B]"
-                                : "border-white/10 text-white/45 hover:border-white/25"
-                            }`}
-                          >
-                            {dentro && <Check size={10} className="mr-1 inline" />}
-                            {persona.nombre}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {INICIALES_SIN_DUENO.length > 0 && (
-                      <p className="mt-3 text-[11px] leading-relaxed text-white/35">
-                        Del Excel del cuerpo técnico queda sin dueño{" "}
-                        <strong className="text-white/55">
-                          {INICIALES_SIN_DUENO.join(", ")}
-                        </strong>
-                        : dinos quién es y entra con su foto.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </Panel>
-            </div>
+            {plazo.cerrada && panelQuienJuega}
 
             {plazo.cerrada && panelRanking}
 
@@ -1051,15 +1107,18 @@ export default function QuinielaPage() {
                               : ""
                         }`}
                       >
-                        <p className="truncate text-[13px] text-white/85">
+                        <p className="text-[13px] text-white/85">
                           <span className="mr-1.5 text-[10px] tabular-nums text-white/30">
                             {indice + 1}
                           </span>
                           {partido.local}
                         </p>
 
-                        <p className="truncate pl-4 text-[12px] text-white/45">
+                        <p className="pl-4 text-[12px] text-white/45">
                           {partido.visitante}
+                          {!yo && partido.fecha ? (
+                            <span className="text-white/35">{` · ${fechaCorta(partido.fecha)}`}</span>
+                          ) : null}
                         </p>
 
                         {/* Sin sesión no hay casillas: los 1-X-2 apagados no se leían y
@@ -1118,10 +1177,24 @@ export default function QuinielaPage() {
                             Tu pronóstico
                           </th>
                         )}
+                        {/* Sin sesión es una lista simple (29/10/2026, análisis):
+                            partido y fecha; las casillas no se podían usar. El
+                            resultado sale como texto sólo si ya lo hay. */}
+                        {yo ? (
+                          <>
                         <th className="w-[132px] pb-2 pt-1.5 text-center font-medium">
                           Resultado
                         </th>
                         <th className="w-16 pb-2 pt-1.5 text-center font-medium">Aciertos</th>
+                          </>
+                        ) : (
+                          <>
+                            <th className="w-24 pb-2 pt-1.5 text-right font-medium">Fecha</th>
+                            {laJornada.resultados.some(Boolean) && (
+                              <th className="w-20 pb-2 pt-1.5 text-center font-medium">Resultado</th>
+                            )}
+                          </>
+                        )}
                       </tr>
                     </thead>
 
@@ -1166,6 +1239,8 @@ export default function QuinielaPage() {
                             </td>
 
                             <td className="py-2 pl-2">
+                              {yo ? (
+                                <>
                               <span className="block truncate text-white/85">
                                 {partido.local}
                               </span>
@@ -1173,7 +1248,26 @@ export default function QuinielaPage() {
                               <span className="block truncate text-[11px] text-white/40">
                                 {partido.visitante}
                               </span>
+                                </>
+                              ) : (
+                                <span className="text-white/85">
+                                  {partido.local} <span className="text-white/35">–</span> {partido.visitante}
+                                </span>
+                              )}
                             </td>
+
+                            {!yo && (
+                              <>
+                                <td className="py-2 text-right text-[12px] tabular-nums text-white/55">
+                                  {fechaCorta(partido.fecha)}
+                                </td>
+                                {laJornada.resultados.some(Boolean) && (
+                                  <td className="py-2 text-center text-[13px] font-semibold tabular-nums text-white/80">
+                                    {resultado ?? ""}
+                                  </td>
+                                )}
+                              </>
+                            )}
 
                             {yo && (
                             <td className="py-2 text-center">
@@ -1186,6 +1280,8 @@ export default function QuinielaPage() {
                             </td>
                             )}
 
+                            {yo && (
+                            <>
                             <td className="py-2 text-center">
                               {/* Con la misma regla que el servidor: un
                                   partido sin jugar no admite resultado. Antes
@@ -1215,6 +1311,8 @@ export default function QuinielaPage() {
                             <td className="py-2 text-center text-[11px] tabular-nums text-white/45">
                               {aciertan === null ? "" : `${aciertan}/${jugadores.length}`}
                             </td>
+                            </>
+                            )}
                           </tr>
                         );
                       })}
@@ -1299,6 +1397,8 @@ export default function QuinielaPage() {
             </div>
             </>
             )}
+
+            {!plazo.cerrada && panelQuienJuega}
 
             {plazo.cerrada && yo && (
               <div className="mt-5">

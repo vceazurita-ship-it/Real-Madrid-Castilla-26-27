@@ -368,7 +368,10 @@ export default function WeekPanel({
             <button
               type="button"
               onClick={() => onSelectWeek(ultimaConArchivos.id)}
-              className="mt-3 text-sm text-[#C8A96B] underline-offset-4 hover:underline"
+              /* Un botón y no un enlace suelto (29/10/2026, análisis): se viene a
+                 consultar lo último antes que a subir. El dorado relleno lo
+                 lleva la cabecera; aquí, contorno, para no tener dos iguales. */
+              className="mt-3 inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/50 px-4 py-2 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
             >
               Abrir la {ultimaConArchivos.week.toLowerCase()} entera
             </button>
@@ -450,7 +453,27 @@ export default function WeekPanel({
             </div>
           ))}
 
-        {tab === "upload" && (
+        {/* Semana vacía: una sola zona para todo (29/10/2026, análisis): dos
+            zonas iguales más el botón de la cabecera eran tres «subir». Los
+            archivos se reparten por tipo al soltarlos. */}
+        {tab === "upload" && vacia && (
+          <UploadZone
+            type="todo"
+            maxFiles={20}
+            busy={uploading !== null}
+            onUpload={(files) => {
+              const imagenes = files.filter((file) => file.type.startsWith("image/"));
+              const documentos = files.filter((file) => file.type === "application/pdf");
+
+              void (async () => {
+                if (imagenes.length) await handleUpload("images", imagenes);
+                if (documentos.length) await handleUpload("pdfs", documentos);
+              })();
+            }}
+          />
+        )}
+
+        {tab === "upload" && !vacia && (
           <div className="grid gap-5 lg:grid-cols-2">
             <UploadZone
               type="images"

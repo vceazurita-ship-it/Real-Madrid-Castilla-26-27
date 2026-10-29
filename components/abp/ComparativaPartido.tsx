@@ -140,8 +140,15 @@ export function ComparativaPartido({
   /* La base más grande entre las filas con muestra corta: es la del partido. */
   const filasCortas = metricas.filter((m) => m.de !== undefined && m.de < muestraMinima);
   const hayIndicios = filasCortas.length > 0;
-  const basePequena = Math.max(0, ...filasCortas.map((m) => m.de ?? 0));
-  const unidadCorta = filasCortas.find((m) => m.unidad)?.unidad ?? "acciones";
+  /* 29/10/2026: las acciones del partido son la base más grande de todas las
+     filas (el total), no la de la fila corta: decía «(4 acciones)» con 7 en la
+     tabla, porque los segundos balones sólo eran 4. La fila corta va aparte. */
+  const accionesPartido = Math.max(0, ...metricas.map((m) => m.de ?? 0));
+  const unidadPartido = metricas.find((m) => m.de === accionesPartido && m.unidad)?.unidad ?? "acciones";
+  const notaCortas = filasCortas
+    .filter((m) => (m.de ?? 0) < accionesPartido)
+    .map((m) => `${m.nombre}: sólo ${m.de}`)
+    .join(" · ");
 
   return (
     <Panel
@@ -156,8 +163,11 @@ export function ComparativaPartido({
       ) : (
         <>
           {/* La cabecera de las columnas, para que las dos cifras se lean sin leyenda. */}
-          <div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] gap-x-3 border-b border-white/10 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40 sm:pl-5 sm:pr-16">
-            <span>Métrica</span>
+          {/* 29/10/2026: en el móvil cada métrica es una tarjeta (el nombre a lo
+              ancho y las tres cifras debajo) y se deja 40 px a la derecha para
+              el botón flotante, que tapaba la diferencia. */}
+          <div className="grid grid-cols-3 gap-x-3 border-b border-white/10 py-2 pl-4 pr-10 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] sm:pl-5 sm:pr-16">
+            <span className="hidden sm:block">Métrica</span>
             <span className="text-right" style={{ color: ORO_TINTA }}>
               Este partido
             </span>
@@ -180,7 +190,7 @@ export function ComparativaPartido({
           {/* Muestra corta: se dice a la vista, no sólo en el método. */}
           {hayIndicios && (
             <p className="border-b border-white/10 py-2 pl-4 pr-14 text-[11px] text-white/55 sm:pl-5 sm:pr-5">
-              Cada fila es de un solo partido ({basePequena} {unidadCorta}).{filasCortas.length === 1 ? ` ${filasCortas[0].nombre}: pocas acciones.` : ""} En gris es un indicio, no un dato firme; verde es mejor que de costumbre y naranja, peor.
+              Cada fila es de un solo partido ({accionesPartido} {unidadPartido}).{notaCortas ? ` ${notaCortas}.` : ""} En gris = indicio, no un dato firme; verde es mejor que de costumbre y naranja, peor.
             </p>
           )}
 
@@ -228,10 +238,10 @@ export function ComparativaPartido({
                 <li
                   key={m.clave}
                   style={indicio ? { opacity: 0.7 } : undefined}
-                  className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] items-center gap-x-3 px-4 py-2.5 sm:pl-5 sm:pr-16"
+                  className="grid grid-cols-3 items-center gap-x-3 gap-y-1.5 py-2.5 pl-4 pr-10 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] sm:pl-5 sm:pr-16"
                 >
-                  <div className="min-w-0">
-                    <p className="text-sm text-white/85 sm:truncate" title={m.nombre}>{m.nombre}</p>
+                  <div className="col-span-3 min-w-0 sm:col-span-1">
+                    <p className="text-sm font-medium text-white/85 sm:truncate sm:font-normal" title={m.nombre}>{m.nombre}</p>
                     {(pie || baseTexto || juzga || m.mejorAlto === null) && (
                       <p className="text-[11px] text-white/35">
                         {[baseTexto, pie || null].filter(Boolean).join(" · ")}
@@ -279,18 +289,15 @@ export function ComparativaPartido({
                       className="block text-lg font-semibold"
                       style={{ color: sinPuntos ? "rgb(var(--rmcf-ink-rgb) / .55)" : ORO_TINTA }}
                     >
-                      {m.actual === null ? "—" : formato(m.actual)}
+                      {m.actual === null ? "" : formato(m.actual)}
                     </span>
-                    {/* El porcentaje de pocas acciones va con su base al lado. */}
-                    {porcentaje && m.n !== undefined && m.de !== undefined && m.de < 10 && (
-                      <span className="block text-[11px] font-medium" style={{ color: "rgb(var(--rmcf-ink-rgb) / .55)" }}>
-                        {m.n} de {m.de}
-                      </span>
-                    )}
+                    {/* 29/10/2026: la base («3 de 7») va una sola vez, en el pie
+                        de la métrica, igual en todas las filas; repetirla bajo
+                        la cifra la duplicaba sólo en algunas. */}
                   </span>
 
                   <span className="text-right text-lg tabular-nums text-white/70">
-                    {m.media === null ? "—" : formato(m.media)}
+                    {m.media === null ? "" : formato(m.media)}
                   </span>
 
                   <span
@@ -300,7 +307,7 @@ export function ComparativaPartido({
                     {m.tendencia && d !== null
                       ? diferencia(d, m.formatoDiferencia ?? formato, porcentaje)
                       : d === null
-                      ? "—"
+                      ? ""
                       : sinPuntos
                         ? "indicio"
                         : m.igualEn && Math.abs(d) < 0.05

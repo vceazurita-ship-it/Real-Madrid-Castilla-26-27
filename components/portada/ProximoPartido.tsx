@@ -502,8 +502,8 @@ export function ProximoPartido() {
 
         {/* ---------- Lo que se prepara para ese partido ---------- */}
 
-        {/* En el móvil, rejilla de dos y hueco a la derecha para el botón flotante (29/10/2026). */}
-        <div className="mt-6 grid grid-cols-2 gap-2.5 pr-12 sm:flex sm:flex-wrap sm:pr-0 [&>a:first-child]:col-span-2">
+        {/* Móvil: el azul ocupa la fila y debajo los otros tres en una sola fila (29/10/2026, fútbol); hueco a la derecha para el botón flotante. En escritorio, una sola línea. */}
+        <div className="mt-6 grid grid-cols-3 gap-2 pr-12 sm:flex sm:flex-wrap sm:gap-2.5 sm:pr-0 xl:flex-nowrap [&>a:first-child]:col-span-3">
           <Link
             href={enlacePlantilla}
             title={nombreRival ? `La plantilla de ${nombreRival}` : undefined}
@@ -543,7 +543,7 @@ export function ProximoPartido() {
               pantallaCompletaAlNavegar();
             }}
             title="Abre la pizarra táctica a pantalla completa, con los dos onces puestos en 4-2-3-1"
-            className="group inline-flex items-center justify-center gap-2 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-5 py-3 text-[14px] font-medium text-[#C8A96B] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20"
+            className="group inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-1.5 py-2.5 text-center text-[12.5px] leading-tight sm:flex-row sm:gap-2 sm:px-4 sm:py-3 sm:text-[14px] font-medium text-[#C8A96B] transition-all duration-300 hover:-translate-y-0.5 hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20"
           >
             <Maximize2 className="h-[17px] w-[17px]" />
             Pizarra táctica
@@ -590,14 +590,9 @@ export function ProximoPartido() {
 
           return (
             <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-              {hoyToca && deHoy.length > 0 && (
-                <>
-                  <span className="rounded-md bg-[#D8B45A]/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D8B45A]">
-                    Hoy · {hoyToca.rotulo}
-                  </span>
-                  {lista(deHoy)}
-                </>
-              )}
+              {/* Sin la cápsula «Hoy · MD-2» (29/10/2026, fútbol): ya sale
+                  arriba. Los atajos de hoy van solos, delante de «Del rival». */}
+              {hoyToca && deHoy.length > 0 && lista(deHoy)}
 
               {delRival.length > 0 && (
                 <>
@@ -682,7 +677,7 @@ function Accion({
       href={href}
       title={title}
       onClick={() => trackModuleVisit(modulo(href))}
-      className="group inline-flex items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.04] px-5 py-3 text-[14px] font-medium text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/[0.07] hover:text-white"
+      className="group inline-flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl border border-white/12 bg-white/[0.04] px-1.5 py-2.5 text-center text-[12.5px] leading-tight sm:flex-row sm:gap-2 sm:px-4 sm:py-3 sm:text-[14px] font-medium text-white/85 transition-all duration-300 hover:-translate-y-0.5 hover:border-white/25 hover:bg-white/[0.07] hover:text-white"
     >
       <Icono className="h-[17px] w-[17px] text-[#D8B45A]" />
       {texto}

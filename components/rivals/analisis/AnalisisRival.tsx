@@ -428,7 +428,8 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
   /* -------------------------- carpeta -------------------------- */
 
-  const [ruta, setRuta] = useState(() => (typeof window === "undefined" ? "" : leeLocal(ULTIMA_RUTA)));
+  /* La última ruta, por rival (29/10/2026): con una sola para todos, en Cartagena salía puesta la del J6 de otro equipo. */
+  const [ruta, setRuta] = useState(() => (typeof window === "undefined" ? "" : leeLocal(`${ULTIMA_RUTA}:${equipo}`)));
   const [jornadaCarpeta, setJornadaCarpeta] = useState("");
   const [encargo, setEncargo] = useState<Mantenimiento["carpeta"] | null>(null);
   const [pidiendo, setPidiendo] = useState(false);
@@ -469,6 +470,13 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
   const estadoCarpeta = encargo ? estadoEncargo("carpeta", encargo) : "libre";
   const carpetaOcupada = estadoCarpeta === "pedido" || estadoCarpeta === "en-marcha";
+  /*
+  | El encargo es uno para toda la app (29/10/2026): dentro de Área · Cartagena
+  | salía «Algeciras J9: 0 vídeos subidos (0 MB)». Lo de otro equipo no se
+  | enseña; si el ordenador está con otra carpeta, sólo se dice que está ocupado.
+  */
+  const equipoDelEncargo = String((encargo?.datos as { equipo?: string } | undefined)?.equipo ?? "");
+  const encargoDeEste = Boolean(encargo) && (!equipoDelEncargo || equipoDelEncargo === equipo);
 
   /* Mientras el ordenador del club trabaja, se mira cada cinco segundos y se
      recargan los vídeos para que vayan apareciendo según se suben. */
@@ -512,7 +520,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
         return;
       }
 
-      guardaLocal(ULTIMA_RUTA, limpia);
+      guardaLocal(`${ULTIMA_RUTA}:${equipo}`, limpia);
       toast.success("Encargado: el ordenador del club lo recoge en unos segundos.");
       leeEncargo();
     } catch {
@@ -878,14 +886,19 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
         <summary className="flex cursor-pointer list-none items-center gap-2 text-sm text-white/80">
           <FolderInput size={15} className="text-[#C8A96B]" /> Recoger la carpeta de la jornada
           <ChevronRight size={14} className="text-white/35 transition group-open:rotate-90" />
-          {carpetaOcupada ? (
+          {carpetaOcupada && !encargoDeEste ? (
+            <span className="ml-2 flex items-center gap-1 text-xs text-white/50">
+              <Loader2 size={12} className="animate-spin" />
+              el ordenador del club está con otra carpeta
+            </span>
+          ) : carpetaOcupada ? (
             <span className="ml-2 flex items-center gap-1 text-xs text-[#C8A96B]">
               <Loader2 size={12} className="animate-spin" />
               {estadoCarpeta === "pedido"
                 ? "esperando al ordenador del club…"
                 : `subiendo vídeos… (${material.clips.length} ya en la ${jornada || "jornada"})`}
             </span>
-          ) : encargo?.resultado ? (
+          ) : encargoDeEste && encargo?.resultado ? (
             <span className={`ml-2 truncate text-xs ${encargo.ok ? "text-emerald-300/80" : "text-red-300"}`}>
               {encargo.resultado}
             </span>
@@ -910,7 +923,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
               value={ruta}
               onChange={(e) => setRuta(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && (e.preventDefault(), void pideCarpeta())}
-              placeholder={"C:\\Users\\Usuario\\Downloads\\J6 INFORME COMPLEMENTARIO ABP.pdf\nC:\\Users\\Usuario\\Downloads\\J6 INFORME CEN LAT.pdf"}
+              placeholder="Ruta de la carpeta de la jornada o de los PDF, uno por línea"
               aria-label="Ruta de la carpeta o de los PDF"
               rows={Math.min(4, Math.max(1, ruta.split("\n").length))}
               className="min-w-[260px] flex-1 resize-y rounded-lg border border-white/15 bg-white/[0.06] px-2.5 py-1.5 text-sm text-white"

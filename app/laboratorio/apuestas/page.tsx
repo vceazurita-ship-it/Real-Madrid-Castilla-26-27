@@ -182,16 +182,14 @@ export default function ApuestasPage() {
                 acceso, para que la pantalla enseñe qué se ve aquí antes de pedir
                 que entres. */}
             {estado === "listo" && doc.apuestas.length === 0 && (
-              <details className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-                <summary className="cursor-pointer text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
-                  Aún nadie ha lanzado una apuesta
-                </summary>
+              /* 29/10/2026 (marketing): ya no es un desplegable que parecía un aviso
+                 y escondía el ejemplo. Frase fija y el ejemplo atenuado a la vista. */
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+                <p className="text-[15px] font-semibold text-white/85">
+                  Aún nadie ha lanzado una apuesta. Así se verá la primera:
+                </p>
                 <div className="mt-3 space-y-3 text-sm text-white/70">
-                  {pasos}
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
-                    Así se ve una apuesta
-                  </p>
-                  <article className="flex max-w-xl flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] p-4">
+                  <article aria-label="Ejemplo de apuesta" className="flex max-w-xl select-none flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4 opacity-75">
                     <span className="inline-flex w-fit items-center rounded-full border border-white/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
                       Ejemplo
                     </span>
@@ -211,8 +209,9 @@ export default function ApuestasPage() {
                       <span className="inline-flex items-center gap-1.5"><ThumbsDown size={12} />o en contra</span>
                     </p>
                   </article>
+                  {pasos}
                 </div>
-              </details>
+              </div>
             )}
 
             {!accesoAbajo && acceso}

@@ -240,6 +240,21 @@ export type Veredicto = "ventaja" | "parejo" | "desventaja" | "sin-datos";
 export const UMBRAL_FACETA = 15;
 export const UMBRAL_DUELO = 10;
 
+/**
+ * El veredicto que enseña la cabecera de la tarjeta (29/10/2026), para que el
+ * pie diga lo mismo: si pesan los dos sentidos (ganamos con balón y perdemos
+ * sin él) manda la suma, y si se compensan, «se anulan».
+ */
+export function veredictoDeCabecera(conBalon: number | null, sinBalon: number | null, veredicto: Veredicto): Veredicto | "anulan" {
+  if ((conBalon ?? 0) >= UMBRAL_DUELO && (sinBalon ?? 0) <= -UMBRAL_DUELO) {
+    const suma = (conBalon ?? 0) + (sinBalon ?? 0);
+
+    return Math.abs(suma) < UMBRAL_DUELO ? "anulan" : suma < 0 ? "desventaja" : "ventaja";
+  }
+
+  return veredicto;
+}
+
 export type Sentido = "con" | "sin" | "aire";
 
 export type ResultadoFaceta = {
@@ -423,21 +438,62 @@ export function mideDuelo(
   const resumen = (() => {
     if (!nuestros.length || !suyos.length) return "Falta poner a alguien en uno de los dos lados.";
     if (balance === null) return `No hay datos de Wyscout suficientes de ${quienN} o de ${quienS} para medir este duelo.`;
+    /*
+    | EL PIE DICE LO MISMO QUE LA CABECERA, Y DESDE EL QUE GANA (29/10/2026)
+    |
+    | Antes el pie salía del promedio (`veredicto`) y la cabecera, de la suma
+    | de los dos sentidos: «En contra −12 (−34 con su balón)» arriba y «Duelo
+    | parejo» abajo. Y los «+»/«−» eran siempre del Castilla, así que «Ventaja
+    | para Dacosta: con balón + regate contra entrada» se leía al revés (ese
+    | «+» era de Fortea). Ahora el veredicto es `veredictoDeCabecera` y la
+    | frase cuenta en qué gana el que gana y, aparte, en qué le gana el otro.
+    */
     const lista = (b: BloqueDuelo | undefined, v: Veredicto) =>
       (b?.facetas ?? []).filter((f) => f.veredicto === v).map((f) => f.titulo.toLowerCase());
     const con = bloques.find((b) => b.sentido === "con");
     const sin = bloques.find((b) => b.sentido === "sin");
-    const partes: string[] = [];
-    const atacando = [...lista(con, "ventaja").map((t) => `+ ${t}`), ...lista(con, "desventaja").map((t) => `− ${t}`)];
-    const defendiendo = [...lista(sin, "ventaja").map((t) => `+ ${t}`), ...lista(sin, "desventaja").map((t) => `− ${t}`)];
-    if (atacando.length) partes.push(`con balón ${atacando.join(", ")}`);
-    if (defendiendo.length) partes.push(`sin balón ${defendiendo.join(", ")}`);
     const aire = bloques.find((b) => b.sentido === "aire")?.facetas[0];
-    if (aire && aire.veredicto !== "parejo" && aire.veredicto !== "sin-datos") partes.push(`por arriba ${aire.veredicto === "ventaja" ? "+" : "−"}`);
-    if (altura && CON_ALTURA.has(def.tipo) && Math.abs(altura.nuestra - altura.suya) >= 4)
-      partes.push(`${altura.nuestra > altura.suya ? "les sacamos" : "nos sacan"} ${Math.abs(altura.nuestra - altura.suya)} cm de media`);
-    const cabeza =
-      veredicto === "ventaja" ? `Ventaja para ${quienN}` : veredicto === "desventaja" ? `Ventaja para ${quienS}` : "Duelo parejo";
+    const leido = veredictoDeCabecera(conBalon, sinBalon, veredicto);
+    const y = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} y ${xs[xs.length - 1]}` : xs[0] ?? "");
+
+    /* En qué gana cada lado, contado desde ese lado: «con su balón» es el balón de quien se nombra. */
+    const ganaDe = (nuestro: boolean) => {
+      const v: Veredicto = nuestro ? "ventaja" : "desventaja";
+      const conSuBalon = lista(nuestro ? con : sin, v);
+      const sinBalonSuyo = lista(nuestro ? sin : con, v);
+      const partes = [
+        conSuBalon.length ? `con su balón gana en ${y(conSuBalon)}` : "",
+        sinBalonSuyo.length ? `sin balón gana en ${y(sinBalonSuyo)}` : "",
+        aire && aire.veredicto === v ? "gana por arriba" : "",
+      ].filter(Boolean);
+      return { partes, todo: [...conSuBalon, ...sinBalonSuyo, ...(aire && aire.veredicto === v ? ["por arriba"] : [])] };
+    };
+    const deN = ganaDe(true);
+    const deS = ganaDe(false);
+    const talla =
+      altura && CON_ALTURA.has(def.tipo) && Math.abs(altura.nuestra - altura.suya) >= 4
+        ? `${altura.nuestra > altura.suya ? quienN : quienS} saca ${Math.abs(altura.nuestra - altura.suya)} cm de media`
+        : "";
+
+    if (leido === "ventaja" || leido === "desventaja") {
+      const nuestro = leido === "ventaja";
+      const gana = nuestro ? deN : deS;
+      const pierde = nuestro ? deS : deN;
+      const partes = [
+        gana.partes.join("; "),
+        pierde.todo.length ? `${nuestro ? quienS : quienN} sólo le gana en ${y(pierde.todo)}` : "",
+        talla,
+      ].filter(Boolean);
+      const cabeza = `Ventaja para ${nuestro ? quienN : quienS}`;
+      return partes.length ? `${cabeza}: ${partes.join("; ")}.` : `${cabeza}.`;
+    }
+
+    const cabeza = leido === "anulan" ? "Se anulan" : "Duelo parejo";
+    const partes = [
+      deN.partes.length ? `${quienN} ${deN.partes.join("; ")}` : "",
+      deS.partes.length ? `${quienS} ${deS.partes.join("; ")}` : "",
+      talla,
+    ].filter(Boolean);
     return partes.length ? `${cabeza}: ${partes.join("; ")}.` : `${cabeza}: ningún enfrentamiento se despega.`;
   })();
 
@@ -520,7 +576,8 @@ export function fraseRecuentoDuelos(medidos: number, aFavor: number, enContra: n
     ambos > 0 ? `${ambos} que ganamos con balón y perdemos sin él` : "",
     parejos > 0 ? `${parejos} ${parejos === 1 ? "parejo" : "parejos"}` : "",
   ].filter(Boolean);
-  const base = `${medidos} ${medidos === 1 ? "duelo" : "duelos"}`;
+  /* «medidos» (29/10/2026): la cifra tiene que ser la de tarjetas pintadas, no la de huecos del once. */
+  const base = `${medidos} ${medidos === 1 ? "duelo medido" : "duelos medidos"}`;
 
   return partes.length > 0 ? `${base}: ${partes.join(", ")}` : base;
 }

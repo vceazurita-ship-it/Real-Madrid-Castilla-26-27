@@ -141,12 +141,25 @@ function normalizeMD(v?: string) {
   return String(v).trim().toUpperCase().replace(/\s+/g, "");
 }
 
+/*
+| 29/10/2026: los tres formateadores van con «de-DE» a propósito. Separa igual
+| que el español (coma decimal, punto de millar), pero «es-ES» no pone el punto
+| en las cifras de cuatro dígitos (deja «1098» en vez de «1.098»), que es lo que
+| se veía en el titular y en el indicador de carga física.
+*/
+const LOCALE_CIFRAS = "de-DE";
+
 /** Número con coma decimal y punto de millar («6,6», «58,5»). */
 function fmtDec(n: number, d = 1) {
-  return n.toLocaleString("es-ES", {
+  return n.toLocaleString(LOCALE_CIFRAS, {
     minimumFractionDigits: d,
     maximumFractionDigits: d,
   });
+}
+
+/** Hasta un decimal, sin ceros de relleno: «6,5», «7», «1.098». */
+function fmt1(n: number) {
+  return n.toLocaleString(LOCALE_CIFRAS, { maximumFractionDigits: 1 });
 }
 
 function pctCambio(cur: number, prev: number) {
@@ -154,7 +167,7 @@ function pctCambio(cur: number, prev: number) {
 }
 
 function fmtInt(n: number) {
-  return Math.round(n).toLocaleString("es-ES");
+  return Math.round(n).toLocaleString(LOCALE_CIFRAS);
 }
 
 function fmtMin(n: number) {
@@ -789,6 +802,8 @@ export default function Page() {
   const [mdFilter, setMdFilter] = useState("ALL");
   const [search, setSearch] = useState("");
   const [excludeComp, setExcludeComp] = useState(true);
+  /* 29/10/2026: en el móvil los filtros van plegados tras «Filtros (n)». */
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
   const [contentMetric, setContentMetric] =
     useState<ContentMetricKey>("tareas");
@@ -1429,7 +1444,7 @@ export default function Page() {
         icon: Star,
         tone: "text-emerald-400",
         peso: 50,
-        text: `"${bestTipo.name}", el mejor valorado (${bestTipo.eval} de media en ${bestTipo.tareas} tareas): mantenerlo en el plan.`,
+        text: `"${bestTipo.name}", el mejor valorado (${fmt1(bestTipo.eval)} de media en ${bestTipo.tareas} tarea${bestTipo.tareas === 1 ? "" : "s"}): mantenerlo en el plan.`,
       });
     }
 
@@ -1442,7 +1457,7 @@ export default function Page() {
         icon: Target,
         tone: "text-rose-400",
         peso: 90,
-        text: `"${worstTipo.name}", valorado ${worstTipo.eval}: revisar el diseño o el día en que se aplica.`,
+        text: `"${worstTipo.name}", valorado ${fmt1(worstTipo.eval)}: revisar el diseño o el día en que se aplica.`,
       });
     }
 
@@ -1465,7 +1480,7 @@ export default function Page() {
         icon: Layers,
         tone: "text-sky-400",
         peso: 20,
-        text: `El contenido más trabajado es "${topContenido.name}" (${topContenido.tareas} tareas · ${topContenido.pctTareas}% del total).`,
+        text: `El contenido más trabajado es "${topContenido.name}" (${topContenido.tareas} tarea${topContenido.tareas === 1 ? "" : "s"} · ${fmt1(topContenido.pctTareas)} % del total).`,
       });
     }
 
@@ -1785,7 +1800,7 @@ export default function Page() {
                                 color: chipInk(getEvalColor(m.eval)),
                               }}
                             >
-                              {m.eval}
+                              {fmt1(m.eval)}
                             </span>
                           )}
                         </div>
@@ -1798,7 +1813,7 @@ export default function Page() {
                         </p>
 
                         <p className="mt-3 text-[11px] text-white/50">
-                          {m.tareas} tareas · {fmtMin(m.tiempo)}
+                          {m.tareas} tarea{m.tareas === 1 ? "" : "s"} · {fmtMin(m.tiempo)}
                         </p>
 
                         <div className="mt-2 h-1.5 rounded-full bg-white/10">
@@ -1833,6 +1848,25 @@ export default function Page() {
                   ]}
                 />
 
+                {/*
+                | 29/10/2026: en el móvil (por debajo de sm) los seis desplegables,
+                | el buscador y «Competición excluida» ocupaban una pantalla entera
+                | antes de los indicadores. Ahí sólo queda a la vista el microciclo
+                | y las píldoras de lo que está filtrado; el resto, tras el botón.
+                */}
+                <button
+                  type="button"
+                  onClick={() => setFiltrosAbiertos((v) => !v)}
+                  aria-expanded={filtrosAbiertos}
+                  className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-left text-sm text-white/70 transition hover:border-white/25 sm:hidden"
+                >
+                  {filtrosAbiertos ? "Ocultar filtros" : "Filtros"}
+                  {activeFilters - (micro !== "ALL" ? 1 : 0) > 0
+                    ? ` (${activeFilters - (micro !== "ALL" ? 1 : 0)})`
+                    : ""}
+                </button>
+
+                <div className={filtrosAbiertos ? "contents" : "hidden sm:contents"}>
                 <Select
                   value={mdFilter}
                   onChange={setMdFilter}
@@ -1888,9 +1922,10 @@ export default function Page() {
                     })),
                   ]}
                 />
+                </div>
               </div>
 
-              <div className="mt-4 flex flex-col sm:flex-row gap-3">
+              <div className={`mt-4 flex-col sm:flex sm:flex-row gap-3 ${filtrosAbiertos ? "flex" : "hidden"}`}>
                 <div className="relative flex-1">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
 
@@ -2306,7 +2341,7 @@ export default function Page() {
                           </p>
 
                           <p className="text-sm font-semibold text-[#C8A96B]">
-                            {d.value}
+                            {typeof d.value === "number" ? fmt1(d.value) : d.value}
                           </p>
                         </div>
                       ))}
@@ -2315,7 +2350,7 @@ export default function Page() {
 
                   <Panel
                     title="Tendencia de evaluación por microciclo"
-                    subtitle={`Media de la temporada: ${evalMean}`}
+                    subtitle={`Media de la temporada: ${fmt1(evalMean)}`}
                   >
                     <Chart>
                       <ComposedChart data={trendData}>
@@ -2451,7 +2486,7 @@ export default function Page() {
                             </span>
 
                             <span className="w-12 text-right text-xs text-white/45">
-                              {f.pctTareas}%
+                              {fmt1(f.pctTareas)} %
                             </span>
                           </button>
                         ))}
@@ -2648,11 +2683,11 @@ export default function Page() {
 
                                 <div className="mt-2 space-y-0.5 text-xs">
                                   <p style={{ color: chipInk(getEvalColor(d.eval)) }}>
-                                    Evaluación: {d.eval}
+                                    Evaluación: {typeof d.eval === "number" ? fmt1(d.eval) : d.eval}
                                   </p>
 
                                   <p className="text-slate-300">
-                                    Carga física: {d.carga}
+                                    Carga física: {typeof d.carga === "number" ? fmt1(d.carga) : d.carga}
                                   </p>
 
                                   <p className="text-slate-300">
@@ -3092,7 +3127,7 @@ export default function Page() {
                                 </div>
 
                                 <span className="w-11 text-white/60">
-                                  {c.pctTareas}%
+                                  {fmt1(c.pctTareas)} %
                                 </span>
                               </div>
                             </td>
@@ -3102,7 +3137,7 @@ export default function Page() {
                             </td>
 
                             <td className="px-3 text-right text-white/50">
-                              {c.pctTiempo}%
+                              {fmt1(c.pctTiempo)} %
                             </td>
 
                             <td className="px-3 text-right text-white/75">
@@ -3484,9 +3519,9 @@ export default function Page() {
                                 </p>
 
                                 <div className="mt-2 space-y-0.5 text-xs text-slate-300">
-                                  <p>Demanda cognitiva: {d.demandaCog}</p>
+                                  <p>Demanda cognitiva: {typeof d.demandaCog === "number" ? fmt1(d.demandaCog) : d.demandaCog}</p>
                                   <p style={{ color: chipInk(getEvalColor(d.eval)) }}>
-                                    Evaluación: {d.eval}
+                                    Evaluación: {typeof d.eval === "number" ? fmt1(d.eval) : d.eval}
                                   </p>
                                   <p>Tiempo: {d.tiempo}&apos;</p>
                                 </div>
@@ -4158,7 +4193,7 @@ function DarkTooltip({
             className="text-xs"
             style={{ color: chipInk(p.color ?? "#CBD5E1") }}
           >
-            {p.name}: <span className="font-semibold">{p.value}</span>
+            {p.name}: <span className="font-semibold">{typeof p.value === "number" ? fmt1(p.value) : p.value}</span>
           </p>
         ))}
 
@@ -4243,9 +4278,9 @@ function FragmentRow({
             disabled={!v.tareas}
             title={
               v.tareas
-                ? `M${etiquetaMicro(row.micro)} · ${v.md}\n${v.tareas} tareas · ${v.tiempo}'\nCarga ${fmtInt(
+                ? `M${etiquetaMicro(row.micro)} · ${v.md}\n${v.tareas} tarea${v.tareas === 1 ? "" : "s"} · ${v.tiempo}'\nCarga ${fmtInt(
                     v.carga
-                  )} · Cog ${fmtInt(v.cog)}${v.eval ? `\nEval ${v.eval}` : ""}`
+                  )} · Cog ${fmtInt(v.cog)}${v.eval ? `\nEval ${fmt1(v.eval)}` : ""}`
                 : "Sin tareas"
             }
             className="flex h-[54px] flex-col items-center justify-center rounded-xl border border-white/5 transition hover:border-white/30 disabled:cursor-default disabled:hover:border-white/5"

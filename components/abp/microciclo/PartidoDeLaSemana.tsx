@@ -73,7 +73,8 @@ export function PartidoDeLaSemana({
   /** «AAAA-MM-DD» de hoy, o vacío mientras no se sabe. */
   hoy: string;
   minutos: number;
-  objetivo: { minimo: number; maximo: number };
+  /** `diasEntreno`: sobre cuántos días se prorratea la referencia (90-100′ en 6). */
+  objetivo: { minimo: number; maximo: number; diasEntreno?: number };
   porLado: { ofensivo: number; defensivo: number };
   enlaces: { pizarra: string; abpRival: string; plan: string | null };
   /** Abre el informe del partido ya jugado. */
@@ -139,7 +140,7 @@ export function PartidoDeLaSemana({
       : minutos < objetivo.minimo
         ? { texto: `faltan ${objetivo.minimo - minutos}′`, clase: "text-amber-300" }
         : minutos > objetivo.maximo
-          ? { texto: `${minutos - objetivo.maximo}′ de más (${minutos}′ − ${objetivo.maximo}′ máximo)`, clase: "text-amber-300" }
+          ? { texto: `${minutos - objetivo.maximo}′ de más`, clase: "text-amber-300" }
           : { texto: "dentro del objetivo", clase: "text-emerald-300" };
 
   const ladoTotal = porLado.ofensivo + porLado.defensivo;
@@ -217,21 +218,25 @@ export function PartidoDeLaSemana({
         </div>
       ) : (
       <div className="min-w-0">
-        <p className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-          <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">Balón parado de la semana</span>
+        <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">Balón parado de la semana</p>
 
+        {/* 29/10/2026: una sola línea con la cifra, el objetivo y cómo va
+            (antes «72′ de más (139′ − 67′ máximo)» repetía lo de debajo), y
+            de dónde sale el objetivo, para que no parezca un número suelto. */}
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-sm text-white/80">
+          <span className="text-xl font-semibold tabular-nums text-white">{minutos}′</span>
+          <span className="text-white/45">· objetivo {objetivo.minimo}-{objetivo.maximo}′</span>
           {estadoMinutos && (
-            <span className={`text-[11px] font-medium ${estadoMinutos.clase}`}>{estadoMinutos.texto}</span>
+            <span className={`text-[12px] font-medium ${estadoMinutos.clase}`}>· {estadoMinutos.texto}</span>
           )}
         </p>
 
-        <p className="mt-1 text-sm text-white/80">
-          <span className="text-xl font-semibold tabular-nums text-white">{minutos}′</span>
-          <span className="text-white/45">
-            {" "}
-            · objetivo {objetivo.minimo}-{objetivo.maximo}′
-          </span>
-        </p>
+        {objetivo.diasEntreno ? (
+          <p className="mt-0.5 text-[10.5px] text-white/35">
+            Referencia del cuerpo técnico: 90-100′ en 6 entrenamientos
+            {objetivo.diasEntreno < 6 ? `, prorrateada a ${objetivo.diasEntreno} ${objetivo.diasEntreno === 1 ? "día" : "días"}` : ""}.
+          </p>
+        ) : null}
 
         <div
           className="relative mt-2 h-2 rounded-full bg-white/[0.07]"

@@ -2298,10 +2298,16 @@ const conclusiones = useMemo(() => {
       return `${filas.length > 1 ? `${filas.length} × ` : ""}${clave} (${detalle})`;
     });
 
+    /* 29/10/2026: los remates se cuentan todos (los de las tarjetas y la
+       tabla) y se dice cuántos fueron ocasión; «1 remate concedido y 1
+       ocasión: es la misma jugada» contradecía los 3 remates de arriba. */
+    const rematesTodos = filtered.filter(LECTOR.remate).length;
+    const cuales = jugadas.join("; ");
+
     frases.push(
-      `${plural(conRemate.length, "remate concedido", "remates concedidos")} y ${plural(ocasiones, "ocasión", "ocasiones")}: ${conRemate.length === 1 ? "es la misma jugada" : "son las mismas jugadas"}. ${jugadas
-        .map((t) => t.charAt(0).toLocaleUpperCase("es-ES") + t.slice(1))
-        .join(". ")}.`,
+      rematesTodos > conRemate.length
+        ? `${plural(rematesTodos, "remate concedido", "remates concedidos")}; sólo ${conRemate.length === 1 ? "uno fue ocasión" : `${conRemate.length} fueron ocasión`}: ${cuales}.`
+        : `${plural(rematesTodos, "remate concedido", "remates concedidos")}, ${rematesTodos === 1 ? "y fue ocasión" : "todos ocasión"}: ${cuales}.`,
     );
   }
 
@@ -2313,7 +2319,7 @@ const conclusiones = useMemo(() => {
 
   if (zona && zona.valor > 0) {
     frases.push(
-      `Zona que más concede: ${hablado(zona.nombre).toLowerCase()}, ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión${zona.n < 5 ? " (tendencia, pocas acciones)" : ""}. Se trabaja la vigilancia de esa zona y la salida del portero; al vídeo del lunes.`,
+      `Zona que más concede: ${hablado(zona.nombre).toLowerCase()}, ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión${zona.n < 5 ? " (tendencia, pocas acciones)" : ""}. Vídeo el lunes y tarea de vigilancia de esa zona y salida del portero el martes.`,
     );
   }
 
@@ -2330,11 +2336,17 @@ const conclusiones = useMemo(() => {
     const mediaGlobal = base.reduce((a, r) => a + r.xg, 0) / base.length;
     const casiIgual = Math.abs(envio.valor - mediaGlobal) < 0.02;
 
-    frases.push(
-      casiIgual || envio.n < 5
-        ? `Envío ${envio.nombre.toLowerCase()}: ${cifra(envio.valor, 2)} goles esperados por acción en ${envio.n} acciones, igual que el resto (${cifra(mediaGlobal, 2)}; menos es mejor). No cambiar la marca por esto.`
-        : `Más daño con el envío ${envio.nombre.toLowerCase()}: ${cifra(envio.valor, 2)} goles esperados por acción, sobre ${envio.n} acciones (media de todas las ABP defendidas: ${cifra(mediaGlobal, 2)}).`,
-    );
+    /* 29/10/2026: si la diferencia es menor de 0,02 (el mismo umbral que el
+       sacador en ofensivo) no lleva a ninguna decisión y no se dice; «0,01
+       igual que el resto (0,03)» se leía como un error. Con pocas acciones,
+       «parecido», no «igual». */
+    if (!casiIgual) {
+      frases.push(
+        envio.n < 5
+          ? `Envío ${envio.nombre.toLowerCase()}: ${cifra(envio.valor, 2)} goles esperados por acción en ${envio.n} acciones, frente a ${cifra(mediaGlobal, 2)} del resto (indicio, pocas acciones).`
+          : `Más daño con el envío ${envio.nombre.toLowerCase()}: ${cifra(envio.valor, 2)} goles esperados por acción, sobre ${envio.n} acciones (media de todas las ABP defendidas: ${cifra(mediaGlobal, 2)}).`,
+      );
+    }
   }
 
   const remates = filtered.filter(LECTOR.remate).length;
@@ -4227,19 +4239,23 @@ function Card({
         sm:p-4
         flex
         flex-col
+        justify-start
         text-left
         ${activo ? "border-[#C8A96B]" : "border-white/10"}
         ${onClick ? "cursor-pointer transition hover:bg-white/[0.05]" : ""}
       `}
     >
-      <p className="text-[11px] sm:text-xs text-zinc-400 leading-tight">
+      {/* 29/10/2026: el título reserva dos líneas y el número va justo debajo
+          (sin mt-auto): en «ABP 7» la cifra caía al fondo y no se alineaba
+          con las tarjetas de título largo. */}
+      <p className="min-h-[2.4em] text-[11px] sm:text-xs text-zinc-400 leading-tight">
         {title}
       </p>
 
       <h3
         className="
-          mt-auto
-          pt-2
+          mt-1
+          pt-1
           text-lg
           sm:text-xl
           xl:text-2xl
@@ -4258,7 +4274,8 @@ function Card({
       {muestra && (
         <p className="mt-1.5 text-[11px] font-medium leading-snug text-white/55">
           {muestra.n} de {muestra.de} {muestra.unidad}
-          {muestra.de < 10 ? " · tendencia" : ""}
+          {/* 29/10/2026: con menos de 5, «indicio» (la regla de toda la pantalla); hasta 10, «tendencia». */}
+          {muestra.de < 5 ? " · indicio" : muestra.de < 10 ? " · tendencia" : ""}
         </p>
       )}
       {/* El sentido («menos es mejor») en su propia línea, que en el móvil se lee. */}

@@ -20,6 +20,22 @@ import { nombreDeColor, type SesionEquipos } from "@/lib/sesion-equipos/modelo";
 
 type Ficha = { id: string; nombre: string; apodo?: string };
 
+/*
+| 29/10/2026: el nombre de la tarea es el que tiene en la sesión (el que dicen
+| Microciclos y Jugadores sesión), no el de la hoja: el jueves 29 la hoja decía
+| «Rondo Complejo 6v3+1» y en el campo fue el Juego de Posición. Sin el código
+| delante, que ya va en su chapa.
+*/
+function nombreEnSesion(nombre: string, codigo: string) {
+  const limpio = nombre.trim();
+
+  if (!limpio || limpio === "Tarea" || /^tarea\s*\d*$/i.test(limpio)) return "";
+
+  return codigo && limpio.toUpperCase().startsWith(codigo.toUpperCase())
+    ? limpio.slice(codigo.length).replace(/^[\s·:.-]+/, "").trim()
+    : limpio;
+}
+
 export function SesionDelDia({
   fecha,
   plan,
@@ -51,6 +67,13 @@ export function SesionDelDia({
   }
 
   const enlace = equipos ? enlaza(equipos.tareas, plan) : [];
+  /*
+  | 29/10/2026: en el orden de la sesión (J-T2 → J-T1 → J-T3), que es como se
+  | entrenó y como lo cuentan Microciclos y Jugadores sesión; detrás, las tareas
+  | de la hoja que no se hicieron en la sesión.
+  */
+  const enSesion = enlace.filter((k): k is number => k !== null);
+  const orden = [...enSesion, ...plan.map((_, k) => k).filter((k) => !enSesion.includes(k))];
   const { porTarea } = resultadosPorTarea(entreno, analisis, plan);
   const presentes = equipos ? equipos.jugadores.filter((j) => !j.baja) : [];
   const bajas = equipos ? equipos.jugadores.filter((j) => j.baja) : [];
@@ -87,19 +110,24 @@ export function SesionDelDia({
 
       {plan.length ? (
         <ul className="min-w-0 space-y-2">
-          {plan.map((p, k) => {
+          {orden.map((k) => {
+            const p = plan[k];
             const i = enlace.indexOf(k);
             const t = i >= 0 && equipos ? equipos.tareas[i] : null;
             const eq = t && equipos ? equiposDeTarea(equipos, t) : null;
             const suyos = porTarea.get(k) ?? [];
+            const deHoja = textoDeTareaPlan(p);
+            const nombre = nombreEnSesion(t?.nombre ?? "", p.codigo) || deHoja;
+            const cambiada = nombre.toLowerCase() !== deHoja.toLowerCase();
 
             return (
               <li key={`${p.codigo}-${k}`} className="min-w-0 rounded-xl border border-white/[0.06] px-3 py-2">
                 <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[13px]">
                   <span className="font-semibold text-[#C8A96B]">{p.codigo}</span>
-                  <span className="min-w-0 font-medium text-white/85">{textoDeTareaPlan(p)}</span>
+                  <span className="min-w-0 font-medium text-white/85">{nombre}</span>
                   {p.tiempo > 0 ? <span className="text-[12px] text-white/50">{p.tiempo}′</span> : null}
                 </p>
+                {cambiada && deHoja ? <p className="text-[11px] text-white/45">En la hoja: {deHoja}</p> : null}
                 {p.contenidoPrincipal || p.contenidoSecundario ? (
                   <p className="mt-0.5 text-[12px] text-white/55">{[p.contenidoPrincipal, p.contenidoSecundario].filter(Boolean).join(" · ")}</p>
                 ) : null}
@@ -118,7 +146,7 @@ export function SesionDelDia({
                               jugadores: deLaPlantilla(e.jugadores),
                               reconocer: `peto ${nombreDeColor(e.color).toLowerCase()}`,
                               tarea: p.codigo,
-                              tareaTexto: textoDeTareaPlan(p),
+                              tareaTexto: nombre,
                             })
                           }
                           title={`${e.jugadores.join(", ")}\nCrear un objetivo para este equipo en ${p.codigo}`}

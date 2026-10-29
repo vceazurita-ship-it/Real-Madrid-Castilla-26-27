@@ -19,7 +19,7 @@
  * `components/sesion-equipos/LaminaEquipos.tsx`.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -617,7 +617,10 @@ function EstructuraEquipo({
 
   return (
     <div className="basis-full space-y-2" onClick={(e) => e.stopPropagation()}>
-      <div className="flex flex-wrap items-center gap-1.5">
+      {/* 29/10/2026: con tres equipos y comodines a 1440 px se cortaban «6/6 huecos» y
+          «Recolocar según el dibujo»: el desplegable tiene un ancho base y, si no cabe,
+          «Crear» y el contador bajan a otra línea enteros; el pie va en dos renglones. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <select
           value={enLista ? actual : "otra"}
           onChange={(e) => {
@@ -626,7 +629,7 @@ function EstructuraEquipo({
             setCreando(null);
             onEstructura(e.target.value);
           }}
-          className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[13px] font-semibold text-white outline-none focus:border-[#C8A96B]/50"
+          className="min-w-[8rem] flex-1 basis-[10rem] rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[13px] font-semibold text-white outline-none focus:border-[#C8A96B]/50"
           aria-label={`Estructura de ${equipo.nombre}`}
         >
           {!enLista && (
@@ -661,13 +664,13 @@ function EstructuraEquipo({
         <button
           type="button"
           onClick={() => (creando ? setCreando(null) : abreCreador())}
-          className={`rounded-lg border px-2 py-1.5 text-[12px] font-semibold transition ${creando ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-[#E9D5A8]" : "border-white/10 text-white/70 hover:bg-white/[0.06]"}`}
+          className={`shrink-0 whitespace-nowrap rounded-lg border px-2 py-1.5 text-[12px] font-semibold transition ${creando ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-[#E9D5A8]" : "border-white/10 text-white/70 hover:bg-white/[0.06]"}`}
           title="Crear o retocar la estructura línea a línea"
         >
           {creando ? "Cerrar" : "Crear"}
         </button>
         <span
-          className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${deCampo === total && !descompensado ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
+          className={`shrink-0 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${deCampo === total && !descompensado ? "bg-emerald-400/10 text-emerald-300/90" : "bg-amber-400/10 text-amber-300/90"}`}
           title={descompensado ? "Los huecos están llenos, pero las líneas no van parejas entre equipos: mira el validador" : "Jugadores de campo del equipo / huecos del dibujo (el portero no se dibuja)"}
         >
           {deCampo}/{total} huecos
@@ -777,14 +780,14 @@ function EstructuraEquipo({
       )}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {elegido !== null ? (
-          <p className="flex-1 text-[11px] text-[#C8A96B]">Toca otro jugador o un hueco libre para cambiarlos.</p>
+          <p className="min-w-0 basis-full text-[11px] text-[#C8A96B]">Toca otro jugador o un hueco libre para cambiarlos.</p>
         ) : (
-          <p className="flex-1 text-[11px] text-white/40">
+          <p className="min-w-0 basis-full text-[11px] text-white/40">
             Arrastra a un jugador a cualquier punto del campo, a otro hueco o a otro equipo; o toca dos para cambiarlos.
           </p>
         )}
         {tocado && (
-          <button type="button" onClick={onRecoloca} className="text-[11px] font-semibold text-white/60 underline-offset-2 hover:text-white hover:underline">
+          <button type="button" onClick={onRecoloca} className="whitespace-normal text-left text-[11px] font-semibold text-white/60 underline-offset-2 hover:text-white hover:underline">
             Recolocar según el dibujo
           </button>
         )}
@@ -1216,6 +1219,27 @@ export default function JugadoresSesionPage() {
   const fechaSesion = sesion?.fecha;
 
   const planSesion = useMemo(() => planDeRegistro(registro, fechaSesion), [registro, fechaSesion]);
+
+  /*
+  | 29/10/2026: el selector de sesiones, agrupado por microciclo
+  | («Micro 19 · FC Cartagena»). El micro sale del plan de ese día en la hoja;
+  | las sesiones seguidas del mismo micro van juntas (ya vienen por fecha). Una
+  | sesión sin plan en la hoja va suelta, sin grupo.
+  */
+  const gruposSesiones = useMemo(() => {
+    const grupos: { clave: string; rotulo: string; sesiones: { s: (typeof sesiones)[number]; i: number }[] }[] = [];
+
+    sesiones.forEach((s, i) => {
+      const plan = planDeRegistro(registro, s.fecha)[0];
+      const rotulo = plan?.micro ? `Micro ${plan.micro}${plan.rival ? ` · ${plan.rival}` : ""}` : "";
+      const ultimo = grupos[grupos.length - 1];
+
+      if (ultimo && ultimo.rotulo === rotulo) ultimo.sesiones.push({ s, i });
+      else grupos.push({ clave: `${rotulo || "suelta"}-${i}`, rotulo, sesiones: [{ s, i }] });
+    });
+
+    return grupos;
+  }, [sesiones, registro]);
 
   const enlacePlan = useMemo(() => (sesion ? enlaza(sesion.tareas, planSesion) : []), [sesion, planSesion]);
 
@@ -2210,9 +2234,21 @@ export default function JugadoresSesionPage() {
   */
   const avisoDeFormato = ((): Aviso[] => {
     const formato = detalles[activa]?.formato ?? "";
-    const m = formato.match(/(\d+)\s*v\s*(\d+)(?:\s*\+\s*(\d+))?/i);
-    if (!m || !reparto) return [];
-    const esperados = Number(m[1]) + Number(m[2]) + Number(m[3] ?? 0);
+    /* «10v10», «8v8+1» y también «6v6v6+2» (29/10/2026). */
+    const m = formato.match(/\d+(?:\s*v\s*\d+)+(?:\s*\+\s*\d+)?/i);
+    if (!m || !reparto || !tarea) return [];
+    /*
+    | 29/10/2026: si la tarea se ha cambiado en la sesión —renombrada (el
+    | «Juego de Posesión 10v10» que pasó a REDUCIDOS) o con otro número de
+    | equipos que el formato de la hoja (6+6+6 y comodín contra un 10v10)—, la
+    | hoja ya no describe la tarea y el aviso era falso: el validador decía
+    | «todo en verde» y la franja ámbar, «falta 1». Entonces no se compara.
+    */
+    const renombrada = Boolean(tarea.plan && tarea.plan.nombre.trim() && tarea.plan.nombre.trim() !== tarea.nombre.trim());
+    const [lados, extra = "0"] = m[0].split("+");
+    const porEquipo = lados.split(/v/i).map((n) => Number(n.trim()));
+    if (renombrada || tarea.equipos.length !== porEquipo.length) return [];
+    const esperados = porEquipo.reduce((s, n) => s + n, 0) + Number(extra.trim());
     const hay = enLaTarea.length;
     if (!hay || hay === esperados) return [];
     const dif = Math.abs(hay - esperados);
@@ -2359,16 +2395,28 @@ export default function JugadoresSesionPage() {
                     }}
                     className="max-w-[320px] truncate rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-white outline-none focus:border-[#C8A96B]/50"
                   >
-                    {sesiones.map((s, i) => {
-                      /* Dos sesiones sin título se llaman igual («Sesión»): se distinguen por la fecha o, si no hay, por su número. */
-                      const repetida = sesiones.filter((o) => o.titulo === s.titulo).length > 1;
-                      const fechaCorta = s.fecha ? new Date(`${s.fecha}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "";
-                      const etiqueta = repetida ? `${s.titulo} · ${fechaCorta || `nº ${sesiones.length - i}`}` : s.titulo;
+                    {gruposSesiones.map((grupo) => {
+                      const opciones = grupo.sesiones.map(({ s, i }) => {
+                        /* 29/10/2026: una sesión sin título lleva SIEMPRE su fecha («Sesión · 15 oct»);
+                           sola entre dos fechas parecía un separador. Las repetidas, igual. */
+                        const repetida = sesiones.filter((o) => o.titulo === s.titulo).length > 1;
+                        const sinTitulo = !s.titulo || s.titulo === "Sesión";
+                        const fechaCorta = s.fecha ? new Date(`${s.fecha}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "";
+                        const etiqueta = repetida || sinTitulo ? `${s.titulo || "Sesión"} · ${fechaCorta || `nº ${sesiones.length - i}`}` : s.titulo;
 
-                      return (
-                        <option key={s.id} value={s.id} className="bg-[#11161C]">
-                          {etiqueta}
-                        </option>
+                        return (
+                          <option key={s.id} value={s.id} className="bg-[#11161C]">
+                            {etiqueta}
+                          </option>
+                        );
+                      });
+
+                      return grupo.rotulo ? (
+                        <optgroup key={grupo.clave} label={grupo.rotulo} className="bg-[#11161C]">
+                          {opciones}
+                        </optgroup>
+                      ) : (
+                        <Fragment key={grupo.clave}>{opciones}</Fragment>
                       );
                     })}
                   </select>

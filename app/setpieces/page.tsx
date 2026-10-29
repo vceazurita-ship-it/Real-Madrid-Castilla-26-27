@@ -1298,8 +1298,9 @@ const baseSacador = (() => {
   const suyos = suyas.length;
   const xgEnvio = suyos ? suyas.reduce((t, r) => t + r.xg, 0) / suyos : 0;
   const xgMedio = conSacador.length ? conSacador.reduce((t, r) => t + r.xg, 0) / conSacador.length : 0;
-  return `${dosDecimales(xgEnvio)} xG por envío frente a ${dosDecimales(xgMedio)} de media del equipo · ${suyos} de ${conSacador.length} envíos${
-    conSacador.length < 5 ? " · tendencia" : ""
+  /* 29/10/2026: «goles esperados», no «xG»; con menos de 5, «indicio» como en el resto de la pantalla. */
+  return `${dosDecimales(xgEnvio)} goles esperados por envío frente a ${dosDecimales(xgMedio)} de media del equipo · ${suyos} de ${conSacador.length} envíos${
+    conSacador.length < 5 ? " · indicio" : ""
   }`;
 })();
 
@@ -1772,10 +1773,8 @@ doc.text(
     "xG / Acción",
     metrics.xgAccion.toFixed(2),
   ],
-  [
-    "Sacador con más xG",
-    mejorSacador || "-",
-  ],
+  /* 29/10/2026: sin sacador con dato no hay tarjeta (antes salía «-»). */
+  ...(mejorSacador ? [["Sacador con más goles esperados", mejorSacador]] : []),
   [
     "Remates / ABP",
     (
@@ -1969,7 +1968,7 @@ const resumen = [
   `• Conversión del ${metrics.conversion.toFixed(1)}%`,
   `• ${metrics.shots} remates totales`,
   `• ${metrics.goals} goles obtenidos`,
-  `• Sacador con más xG: ${mejorSacador || "-"}`,
+  ...(mejorSacador ? [`• Sacador con más goles esperados: ${mejorSacador}`] : []),
   `• xG por acción: ${metrics.xgAccion.toFixed(2)}`,
   `• ${tasaPeligro.toFixed(1)}% acaban en gol u ocasión`,
 ];
@@ -2697,7 +2696,8 @@ const pie = (
       ))}
   </div>
 </div>
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-5 sm:mt-6">
+    {/* 29/10/2026: 40 px a la derecha en el móvil para el botón flotante, que tapaba la tarjeta de la esquina. */}
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-5 sm:mt-6 max-sm:pr-10">
       <Card
         title="Acciones lanzadas"
         value={metrics.total}
@@ -2705,9 +2705,9 @@ const pie = (
       />
 
       <Card
-        title="xG"
+        title="Goles esperados"
         value={dosDecimales(metrics.xg)}
-        hint="Goles esperados acumulados"
+        hint="Acumulados en todas las acciones"
       />
 
       <Card
@@ -2730,7 +2730,7 @@ const pie = (
   muestra={{ n: metrics.goals, de: metrics.shots, unidad: "remates" }}
 />
 <Card
-  title="xG / ABP"
+  title="Goles esperados por ABP"
   value={dosDecimales(metrics.xgAccion)}
   hint="Peligro medio de cada lanzamiento"
 />
@@ -2742,6 +2742,8 @@ const pie = (
   muestra={{ n: accionesPeligrosas, de: metrics.total, unidad: "acciones" }}
 />
 
+{/* 29/10/2026: la tarjeta del sacador sólo sale si hay uno con dato o uno filtrado; sin él, la rejilla se queda en las demás sin hueco ni «-». */}
+{(mejorSacador || sacador !== "ALL") && (
 <button
   type="button"
   title={PULSA}
@@ -2756,7 +2758,7 @@ const pie = (
   }`}
 >
   <p className="text-sm text-zinc-400">
-    Sacador con más xG
+    Sacador con más goles esperados
   </p>
   <h3
     className="
@@ -2769,12 +2771,13 @@ const pie = (
       break-words
     "
   >
-    {mejorSacador || "-"}
+    {sacador !== "ALL" ? sacador : mejorSacador}
   </h3>
   {baseSacador && (
     <p className="mt-2 text-[11px] leading-snug text-white/35">{baseSacador}</p>
   )}
 </button>
+)}
     </div>
 
   </div>
@@ -4604,7 +4607,8 @@ function Card({
       {muestra && (
         <p className="mt-2 text-[11px] font-medium leading-snug text-white/55">
           {muestra.n} de {muestra.de} {muestra.unidad}
-          {muestra.de < 10 ? " · tendencia" : ""}
+          {/* 29/10/2026: con menos de 5, «indicio» (la regla de toda la pantalla); hasta 10, «tendencia». */}
+          {muestra.de < 5 ? " · indicio" : muestra.de < 10 ? " · tendencia" : ""}
         </p>
       )}
       {hint && (

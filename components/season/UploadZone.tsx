@@ -6,7 +6,8 @@ import { FileText, ImageIcon, Loader2, UploadCloud } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
-  type: "images" | "pdf";
+  /** «todo»: una sola zona para imágenes y PDF (29/10/2026, /general). */
+  type: "images" | "pdf" | "todo";
   maxFiles?: number;
   busy?: boolean;
   busyLabel?: string;
@@ -20,6 +21,12 @@ const ACCEPT = {
     "image/webp": [],
   },
   pdf: {
+    "application/pdf": [],
+  },
+  todo: {
+    "image/jpeg": [],
+    "image/png": [],
+    "image/webp": [],
     "application/pdf": [],
   },
 } as const;
@@ -73,6 +80,8 @@ export default function UploadZone({
         <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-[#11161D] text-[#C8A96B]">
           {busy ? (
             <Loader2 size={28} className="animate-spin" />
+          ) : type === "todo" ? (
+            <UploadCloud size={28} />
           ) : type === "images" ? (
             <ImageIcon size={28} />
           ) : (
@@ -81,7 +90,7 @@ export default function UploadZone({
         </div>
 
         <h3 className="text-lg font-semibold">
-          {type === "images" ? "Subir imágenes" : "Subir PDFs"}
+          {type === "todo" ? "Subir imágenes o PDFs" : type === "images" ? "Subir imágenes" : "Subir PDFs"}
         </h3>
 
         <p className="mt-2 max-w-xs text-sm leading-6 text-white/50">
@@ -103,7 +112,9 @@ export default function UploadZone({
         </button>
 
         <p className="mt-4 text-xs text-white/30">
-          {type === "images"
+          {type === "todo"
+            ? `JPG · PNG · WEBP · PDF · hasta ${maxFiles} archivos`
+            : type === "images"
             ? `JPG · PNG · WEBP · hasta ${maxFiles} archivos`
             : `PDF · hasta ${maxFiles} archivos`}
         </p>

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { AREA_CONFIG, SEASON_LABEL } from "@/lib/season/config";
 import { SeasonArea, WeekData } from "@/lib/season/types";
-import { weekHasFiles } from "@/lib/season/utils";
+import { weekHasFiles, weekRangeLabel } from "@/lib/season/utils";
 
 interface Props {
   area: SeasonArea;
@@ -87,26 +87,49 @@ export default function SeasonHeader({
             {config.description}
           </p>
 
-          {currentWeek && (
+          {/* 29/10/2026 (análisis): «Lo último subido, en la semana 9» abría la
+              cabecera y parecía contradecir la semana actual. Ahora dice qué
+              semana es, que está vacía, y qué se subió por última vez y cuándo. */}
+          {currentWeek && (weekHasFiles(currentWeek) || ultimaConMaterial) && (
             <p className="mt-3 text-base font-medium text-white/85">
               {weekHasFiles(currentWeek)
                 ? `${currentWeek.week} ya tiene material.`
                 : ultimaConMaterial
-                  ? `Lo último subido, en la ${ultimaConMaterial.week.toLowerCase()}.`
+                  ? (() => {
+                      const pdfs = (ultimaConMaterial.pdfs ?? []).length;
+                      const imagenes = ultimaConMaterial.images.length;
+                      const tipo =
+                        pdfs && imagenes
+                          ? "imágenes y PDF subidos"
+                          : pdfs
+                            ? pdfs === 1 ? "un PDF subido" : `${pdfs} PDF subidos`
+                            : imagenes === 1 ? "una imagen subida" : `${imagenes} imágenes subidas`;
+                      const fechas =
+                        ultimaConMaterial.start || ultimaConMaterial.end
+                          ? ` (${weekRangeLabel(ultimaConMaterial)})`
+                          : "";
+
+                      return `${currentWeek.week} aún sin material. Lo último, ${tipo} en la ${ultimaConMaterial.week.toLowerCase()}${fechas}.`;
+                    })()
                   : ""}
             </p>
           )}
 
           {tiraSemanas.length > 1 && (
-            <p className="mt-3 text-[13px] text-white/55">
-              <span className="mr-1 inline-block h-2.5 w-2.5 rounded-[3px] bg-emerald-400 align-[-1px]" />
-              Verde: semana con material. Pulsa una para abrirla.
-              {" "}
-              <span className="font-medium text-white/75">
-                {stats.completed} de {stats.totalWeeks} semanas transcurridas con material
-                {stats.seasonWeek !== null && ` · semana ${stats.seasonWeek} de ${stats.seasonTotal} de la temporada`}
-              </span>
-            </p>
+            <div className="mt-3 space-y-1 text-sm text-white/60">
+              <p className="font-medium text-white/80">
+                {stats.completed} de {stats.totalWeeks} semanas transcurridas tienen material.
+              </p>
+              {stats.seasonWeek !== null && (
+                <p>
+                  Vamos por la semana {stats.seasonWeek} de {stats.seasonTotal} de la temporada.
+                </p>
+              )}
+              <p className="text-[13px] text-white/55">
+                <span className="mr-1.5 inline-block h-3 w-3 rounded-[3px] bg-emerald-400 align-[-1px]" />
+                Verde: semana con material. Pulsa una para abrirla.
+              </p>
+            </div>
           )}
 
           {tiraSemanas.length > 1 && (
@@ -143,7 +166,19 @@ export default function SeasonHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {currentWeek && (
+          {/* Semana actual vacía (29/10/2026, análisis): la acción principal es
+              abrir la última con material; subir se hace en la zona de abajo,
+              una sola, sin otro «Subir a la semana…» aquí. */}
+          {currentWeek && !weekHasFiles(currentWeek) && ultimaConMaterial && onSelectWeek ? (
+            <button
+              type="button"
+              onClick={() => onSelectWeek(ultimaConMaterial.id)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 sm:w-auto"
+            >
+              <CalendarCheck size={17} />
+              Abrir la {ultimaConMaterial.week.toLowerCase()} entera
+            </button>
+          ) : currentWeek && (
             <button
               type="button"
               onClick={onGoToCurrentWeek}

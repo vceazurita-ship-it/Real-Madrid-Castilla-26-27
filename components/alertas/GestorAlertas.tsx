@@ -413,6 +413,7 @@ export default function GestorAlertas() {
           onBorrar={(alerta) => void borrarConfirmada(alerta)}
           ocupada={ocupada}
           partidos={partidos}
+          agenda={agenda}
         />
       )}
 

@@ -149,14 +149,16 @@ function GraficaFranjas({ filas }: { filas: { franja: Franja; gf: number; gc: nu
 
 type FilaTabla = ReactNode[] | { seccion: string };
 
-function Tabla({ cabeza, filas, pie }: { cabeza: string[]; filas: FilaTabla[]; pie?: ReactNode[] }) {
+/* 29/10/2026: `ocultaMovil` quita columnas por debajo de sm (a 390 px se perdían sin aviso las de la derecha). */
+function Tabla({ cabeza, filas, pie, ocultaMovil = [] }: { cabeza: string[]; filas: FilaTabla[]; pie?: ReactNode[]; ocultaMovil?: number[] }) {
+  const oculta = (i: number) => (ocultaMovil.includes(i) ? " hidden sm:table-cell" : "");
   return (
     <div className="min-w-0 overflow-x-auto">
-      <table className="w-full min-w-[420px] text-sm">
+      <table className={`w-full text-sm ${ocultaMovil.length ? "sm:min-w-[420px]" : "min-w-[420px]"}`}>
         <thead>
           <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.14em] text-white/40">
             {cabeza.map((c, i) => (
-              <th key={i} className={`px-3 py-2 font-medium ${i === 0 ? "text-left" : "text-right"}`}>
+              <th key={i} className={`px-3 py-2 font-medium ${i === 0 ? "text-left" : "text-right"}${oculta(i)}`}>
                 {c}
               </th>
             ))}
@@ -167,7 +169,7 @@ function Tabla({ cabeza, filas, pie }: { cabeza: string[]; filas: FilaTabla[]; p
             Array.isArray(fila) ? (
               <tr key={i} className="border-b border-white/[0.06] last:border-0">
                 {fila.map((celda, j) => (
-                  <td key={j} className={`px-3 py-1.5 tabular-nums ${j === 0 ? "text-left text-white/75" : "text-right text-white/85"}`}>
+                  <td key={j} className={`px-3 py-1.5 tabular-nums ${j === 0 ? "text-left text-white/75" : "text-right text-white/85"}${oculta(j)}`}>
                     {celda}
                   </td>
                 ))}
@@ -185,7 +187,7 @@ function Tabla({ cabeza, filas, pie }: { cabeza: string[]; filas: FilaTabla[]; p
           <tfoot>
             <tr className="border-t border-white/15 font-semibold">
               {pie.map((celda, j) => (
-                <td key={j} className={`px-3 py-2 tabular-nums ${j === 0 ? "text-left text-white/75" : "text-right text-white"}`}>
+                <td key={j} className={`px-3 py-2 tabular-nums ${j === 0 ? "text-left text-white/75" : "text-right text-white"}${oculta(j)}`}>
                   {celda}
                 </td>
               ))}
@@ -743,14 +745,14 @@ export function PantallaGoles() {
             <StatCard label="Goles en contra" value={gc} hint={`${fmt(media(gc, delEquipo.length))} por partido${incompleto ? "" : ` · liga ${fmt(ligaContraPP)}`}`} accent={PEOR} />
             <StatCard
               label="Su mejor tramo"
-              value={tramos.fuerte ? tramos.fuerte.franja.nombre : "—"}
-              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${tramos.fuerte.gf <= 3 ? " · tendencia" : ""}${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
+              value={tramos.fuerte ? tramos.fuerte.franja.nombre : "Ninguno"}
+              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
               accent={tramos.fuerte ? MEJOR : undefined}
             />
             <StatCard
               label="Su tramo más débil"
-              value={tramos.flojo ? tramos.flojo.franja.nombre : "—"}
-              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${tramos.flojo.gc <= 3 ? " · tendencia" : ""}${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
+              value={tramos.flojo ? tramos.flojo.franja.nombre : "Ninguno"}
+              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
               accent={tramos.flojo ? PEOR : undefined}
             />
           </StatRow>
@@ -785,6 +787,7 @@ export function PantallaGoles() {
           >
             <Tabla
               cabeza={["", "Partidos", "Ganados", "Empatados", "Perdidos", "Puntos / partido", "Liga: puntos / partido"]}
+              ocultaMovil={[2, 3, 4]}
               filas={(["propio", "rival", "nadie"] as const).map((k) => {
                 const e = primero.eq[k];
                 const l = primero.lg[k];

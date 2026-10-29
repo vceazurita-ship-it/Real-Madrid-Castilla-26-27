@@ -94,6 +94,9 @@ export function Acceso({
   const [quien, setQuien] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [cambiando, setCambiando] = useState(false);
+  /* Compacto y sin sesión, el formulario arranca plegado (29/10/2026,
+     marketing): una franja de una línea con «Entrar» que lo despliega. */
+  const [desplegado, setDesplegado] = useState(false);
 
   const envia = async (cuerpo: Record<string, unknown>, exito: string) => {
     setEnviando(true);
@@ -188,12 +191,38 @@ export function Acceso({
 
   const nombreCorreo = correo.includes("@") ? correo.split("@")[0] : "";
 
+  if (compacto && !desplegado) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5">
+        <p className="flex min-w-0 items-center gap-2 text-[12.5px] text-white/70">
+          <KeyRound className="h-3.5 w-3.5 shrink-0 text-[#C8A96B]" aria-hidden />
+          <span>Entra con tu correo para apostar. El ranking y los partidos se ven sin entrar.</span>
+        </p>
+
+        <Button tone="primary" icon={KeyRound} onClick={() => setDesplegado(true)}>
+          Entrar
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <Panel
       title={titulo}
       subtitle={compacto ? undefined : subtitulo}
       icon={KeyRound}
       action={
+        /* Compacto, un solo «Entrar» (29/10/2026, análisis): la pestaña y el
+           botón decían lo mismo. Registrarse pasa a un enlace. */
+        compacto ? (
+          <button
+            type="button"
+            onClick={() => setModo(registrando ? "entrar" : "registrar")}
+            className="text-[12px] text-white/60 underline-offset-2 transition hover:text-white hover:underline"
+          >
+            {registrando ? "Ya tengo cuenta" : "¿Primera vez? Registrarme"}
+          </button>
+        ) : (
         <Segmented
           ariaLabel="Entrar o registrarse"
           value={modo}
@@ -203,6 +232,7 @@ export function Acceso({
             { key: "registrar", label: "Registrarme" },
           ]}
         />
+        )
       }
     >
       <form
@@ -297,7 +327,7 @@ export function Acceso({
 
       <p className={`${compacto ? "mt-2" : "mt-3"} text-[11px] leading-relaxed text-white/40`}>
         {compacto && !registrando ? (
-          <>¿Primera vez? Pulsa «Registrarme». Para ver el ranking no hace falta entrar.</>
+          <>Para ver el ranking y los partidos no hace falta entrar.</>
         ) : sinPista ? (
           <>Si no recuerdas la contraseña, pídela al administrador.</>
         ) : registrando ? (

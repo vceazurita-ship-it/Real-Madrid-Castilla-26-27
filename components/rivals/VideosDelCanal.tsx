@@ -41,6 +41,9 @@ import {
 import { toast } from "sonner";
 
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro } from "@/lib/castilla/calendario";
+import { nombreEquipo } from "@/lib/equipos";
 import {
   CLAVE_LISTAS,
   LISTAS_VACIAS,
@@ -189,17 +192,30 @@ const fecha = (iso: string) => {
 | «J 06 ATLÉTICO DE MADRID B» → «J6 · Atlético de Madrid B» y fuera el
 | «INDIVIDUAL» del final (29/10/2026): un solo formato en el desplegable.
 */
-function nombreDeLista(nombre: string) {
-  const m = /^s*Js*0*(d+)s+(.*)$/i.exec(nombre);
-  const resto = (m ? m[2] : nombre).replace(/s+INDIVIDUALs*$/i, "").trim();
+/*
+| 29/10/2026: a las expresiones se les habían caído las barras (`s*`, `d+`) y
+| ninguna casaba, así que salía el título crudo («J 06 atlético de madrid b»).
+| Y con la jornada se pone el nombre oficial del rival de esa jornada en
+| nuestro calendario (Atlético Madrileño, Algeciras…), no el que se tecleó.
+*/
+function nombreDeLista(nombre: string, rivalDeJornada?: Map<number, string>) {
+  const m = /^\s*J\s*0*(\d+)\s*[-·:]?\s*(.*)$/i.exec(nombre);
+  const resto = (m ? m[2] : nombre).replace(/[\s·-]+INDIVIDUAL\s*$/i, "").trim();
+  const delCalendario = m ? rivalDeJornada?.get(Number(m[1])) : undefined;
+  /* Sólo si es el mismo equipo (comparten alguna palabra): una lista de otro
+     equipo con número de jornada no se renombra con nuestro rival de ese día. */
+  const palabras = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3);
+  const oficial = delCalendario && palabras(delCalendario).some((w) => palabras(resto).includes(w)) ? delCalendario : undefined;
   const chicas = new Set(["de", "del", "la", "el", "los", "las", "y"]);
-  const bonito = resto === resto.toUpperCase()
-    ? resto
+  const bonito = oficial
+    ? oficial
+    : resto !== resto.toUpperCase() && resto !== resto.toLowerCase()
+      ? resto
+      : resto
         .toLowerCase()
-        .split(/s+/)
+        .split(/\s+/)
         .map((w, k) => (w.length <= 2 && k > 0 && !chicas.has(w) ? w.toUpperCase() : k > 0 && chicas.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
-        .join(" ")
-    : resto;
+        .join(" ");
 
   return m ? `J${Number(m[1])} · ${bonito}` : bonito;
 }
@@ -214,6 +230,13 @@ export function VideosDelCanal({
   const [estado, setEstado] = useState<Estado>({ fase: "cargando" });
   const [busca, setBusca] = useState("");
   const [abierto, setAbierto] = useState<Video | null>(null);
+
+  /* El rival oficial de cada jornada de nuestro calendario, para nombrar las listas (29/10/2026). */
+  const { partidos } = useCalendario();
+  const rivalDeJornada = useMemo(
+    () => new Map(partidos.map((p) => comoNuestro(p)).filter((p) => p.jornada && p.rival).map((p) => [p.jornada, nombreEquipo(p.rival)] as const)),
+    [partidos],
+  );
 
   /*
   | El tamaño de las fichas y si se agrupan por jugador.
@@ -737,7 +760,7 @@ export function VideosDelCanal({
 
           {estado.listas.map((item) => (
             <option key={item.id} value={item.id} className="bg-[#11161C]">
-              {nombreDeLista(item.nombre)} · {item.cuenta} {item.cuenta === 1 ? "vídeo" : "vídeos"}
+              {nombreDeLista(item.nombre, rivalDeJornada)} · {item.cuenta} {item.cuenta === 1 ? "vídeo" : "vídeos"}
             </option>
           ))}
         </select>

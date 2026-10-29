@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { traeJson } from "@/lib/hojaCsv";
 import { findInforme, type InformeDoc } from "@/lib/rivals/informe";
+import { leePosicionesDeLaTemporada } from "@/lib/rivals/posiciones-temporada";
 
 /*
 |--------------------------------------------------------------------------
@@ -60,9 +61,19 @@ export function useContrasteRival(equipo: string) {
         ]);
 
         const informe = findInforme(doc, equipo);
-        const total = (informe?.estructuras ?? []).reduce((suma, e) => suma + e.veces, 0);
-        const primera = informe?.estructuras?.[0];
-        const dibujo = primera?.estructura && total > 0 ? { estructura: primera.estructura, veces: primera.veces, de: total } : null;
+        /*
+        | La MISMA cuenta que el campograma de /rivals (29/10/2026): antes se
+        | sumaban `estructuras` («5 de las 8 alineaciones con dibujo») y /rivals
+        | decía «5 de sus 9 alineaciones», porque allí se cuentan las
+        | alineaciones de la temporada (`leePosicionesDeLaTemporada`). El
+        | dibujo y las veces no dependen de la plantilla: basta con una ficha
+        | de relleno para que la función no salga en vacío.
+        */
+        const temporada = leePosicionesDeLaTemporada(informe, [{ clave: "", dorsal: "", nombre: "", slot: "" }]);
+        const dibujo =
+          temporada.estructura && temporada.alineaciones > 0
+            ? { estructura: temporada.estructura, veces: temporada.veces, de: temporada.alineaciones }
+            : null;
 
         const fila = wy?.ok ? wy.aspectos?.flatMap((a) => a.filas).find((f) => f.nombre === "Remates que nacen de ABP %") : undefined;
         const abp =
