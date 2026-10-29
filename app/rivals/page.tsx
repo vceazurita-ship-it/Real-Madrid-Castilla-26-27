@@ -377,6 +377,15 @@ function idDeJugador(player: RivalPlayer) {
   return player.ID_JUGADOR || playerKey(player);
 }
 
+/*
+| La hoja marca las bajas con «NO EN PLANTILLA» en vez de borrarlas
+| (29/10/2026): salen en la lista, para poder corregirlas, pero no en el
+| campograma, el once ni el informe.
+*/
+function sigueEnPlantilla(player: { ESTADO?: unknown }) {
+  return String(player.ESTADO ?? "").trim().toUpperCase() !== "NO EN PLANTILLA";
+}
+
 function normalize(value: unknown) {
   return String(value || "")
     .normalize("NFD")
@@ -1092,7 +1101,7 @@ export default function RivalPlayersPage() {
       const team = String(player.NOMBRE_EQUIPO || "");
       if (!team) return;
 
-      counts.set(team, (counts.get(team) ?? 0) + 1);
+      counts.set(team, (counts.get(team) ?? 0) + (sigueEnPlantilla(player) ? 1 : 0));
     });
 
     const compara = comparaPorCalendario(ordenRivales);
@@ -1183,10 +1192,15 @@ export default function RivalPlayersPage() {
   | pintando la plantilla entera y los que no cumplen quedan atenuados, que es
   | justo la lectura útil (dónde están los que me interesan).
   */
-  const listPlayers = useMemo(() => {
-    if (activeTags.length === 0) return filteredPlayers;
+  /* Las bajas («NO EN PLANTILLA») van aparte, al final y atenuadas: ni cuentan ni se navegan (29/10/2026). */
+  const bajasLista = useMemo(() => filteredPlayers.filter((player) => !sigueEnPlantilla(player)), [filteredPlayers]);
 
-    return filteredPlayers.filter((player) => {
+  const listPlayers = useMemo(() => {
+    const activos = filteredPlayers.filter(sigueEnPlantilla);
+
+    if (activeTags.length === 0) return activos;
+
+    return activos.filter((player) => {
       const keys = new Set(
         parseTags(player.IMPACTO).tags.map((tag) => tag.key),
       );
@@ -1262,7 +1276,7 @@ export default function RivalPlayersPage() {
   const pitchPlayers = useMemo(() => {
     return filteredPlayers.filter(
       (player) =>
-        player["POSICIÓN"] && player.NOMBRE_EQUIPO === pitchTeam,
+        player["POSICIÓN"] && player.NOMBRE_EQUIPO === pitchTeam && sigueEnPlantilla(player),
     );
   }, [filteredPlayers, pitchTeam]);
 
@@ -1276,7 +1290,7 @@ export default function RivalPlayersPage() {
   const plantillaCampo = useMemo(
     () =>
       players.filter(
-        (player) => player["POSICIÓN"] && player.NOMBRE_EQUIPO === pitchTeam,
+        (player) => player["POSICIÓN"] && player.NOMBRE_EQUIPO === pitchTeam && sigueEnPlantilla(player),
       ),
     [players, pitchTeam],
   );
@@ -1675,7 +1689,7 @@ export default function RivalPlayersPage() {
       /* También sin puesto escrito en la hoja (28/10/2026): va al centro del
          campo («otros») antes que faltar en la hoja de toda la plantilla. */
       players.filter(
-        (player) => player.NOMBRE_EQUIPO === (pitchTeam || selectedTeam),
+        (player) => player.NOMBRE_EQUIPO === (pitchTeam || selectedTeam) && sigueEnPlantilla(player),
       ),
     [players, pitchTeam, selectedTeam],
   );
@@ -3148,7 +3162,8 @@ export default function RivalPlayersPage() {
     for (const player of suyos) {
       const estado = textoUtil(player.ESTADO).toUpperCase();
 
-      if (estado && estado !== "ACTIVO") fuera.push({ nombre: nombre(player), estado: estado.toLowerCase() });
+      /* «NO EN PLANTILLA» (se fue del club) ya sale en «Ya no están» de la lista, no aquí (29/10/2026). */
+      if (estado && estado !== "ACTIVO" && estado !== "NO EN PLANTILLA") fuera.push({ nombre: nombre(player), estado: estado.toLowerCase() });
 
       const temporada = statsDoc
         ? (findStats(statsDoc, player)?.temporadas ?? []).find((t) => t.temporada === statsDoc.temporada)
@@ -3160,7 +3175,7 @@ export default function RivalPlayersPage() {
         apercibidos.push({ nombre: nombre(player), amarillas: temporada.amarillas });
       }
 
-      if (temporada.rojas > 0) rojas.push({ nombre: nombre(player), rojas: temporada.rojas });
+      /* Una roja pasada no es una baja ni un apercibimiento: no se pinta (experto de fútbol, 29/10/2026). */
     }
 
     return fuera.length || apercibidos.length || rojas.length ? { fuera, apercibidos, rojas } : null;
@@ -3945,8 +3960,9 @@ export default function RivalPlayersPage() {
                           ? "bg-[#C8A96B]/20"
                           : "bg-white/5 text-white/40"
                       }`}
+                      title={`${team.count} jugadores en su plantilla`}
                     >
-                      {team.count}
+                      {team.count} jug.
                     </span>
                   </button>
                 ))}
@@ -3970,7 +3986,12 @@ export default function RivalPlayersPage() {
               {selectedTeam && !loading && (
                 <VistazoRival
                   equipo={selectedTeam}
-                  vistazo={vistazoRival}
+                  vistazo={
+                    /* El dibujo, el mismo dato que el campograma (29/10/2026): antes uno contaba 8 alineaciones y el otro 9. */
+                    vistazoRival && pitchTeam === selectedTeam && lecturaTemporada.estructura
+                      ? { ...vistazoRival, dibujo: { estructura: lecturaTemporada.estructura, veces: lecturaTemporada.veces, de: lecturaTemporada.alineaciones } }
+                      : vistazoRival
+                  }
                   jornada={jornadaDeEquipo(ordenRivales, selectedTeam)}
                   aspectos={perfilesRival?.aspectos ?? []}
                   equipos={perfilesRival?.equipos ?? 0}
@@ -4177,6 +4198,7 @@ export default function RivalPlayersPage() {
                     <p className="shrink-0 text-sm text-white/50">
                       {listPlayers.length}{" "}
                       {listPlayers.length === 1 ? "jugador" : "jugadores"}
+                      {bajasLista.length > 0 && ` · ${bajasLista.length} ya no ${bajasLista.length === 1 ? "está" : "están"}`}
                     </p>
                   )}
 
@@ -4348,6 +4370,30 @@ export default function RivalPlayersPage() {
                       </section>
                     )}
 
+                    {bajasLista.length > 0 && (
+                      <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] opacity-60">
+                        <div className="flex min-w-0 items-center justify-between gap-4 border-b border-white/10 px-4 py-3">
+                          <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.25em] text-white/40">
+                            YA NO ESTÁN
+                          </h2>
+
+                          <span className="shrink-0 text-xs text-white/30">salieron del club · no cuentan</span>
+                        </div>
+
+                        <div className="grid min-w-0 gap-px bg-white/10 sm:grid-cols-2 lg:grid-cols-1">
+                          {bajasLista.map((player) => (
+                            <PlayerRow
+                              key={idDeJugador(player)}
+                              player={player}
+                              showTeam={teamsInResults.length > 1}
+                              temporada={temporadaDe(player)}
+                              onClick={() => openPlayer(player)}
+                            />
+                          ))}
+                        </div>
+                      </section>
+                    )}
+
                     {listPlayers.length === 0 && (
                       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
                         {/* Que diga qué hacer: con filtros, quitarlos; sin
@@ -4475,7 +4521,7 @@ export default function RivalPlayersPage() {
 
                               {/* De dónde sale el dibujo, dicho con palabras (23/10/2026). */}
                               <span className="pr-3 text-[10px] font-normal opacity-70">
-                                {once.doc.dibujo ? "a mano" : lecturaTemporada.estructura ? `más repetido (${lecturaTemporada.veces} de ${lecturaTemporada.alineaciones})` : ""}
+                                {once.doc.dibujo ? "a mano" : lecturaTemporada.estructura ? `el más repetido: ${lecturaTemporada.veces} de sus ${lecturaTemporada.alineaciones} alineaciones` : ""}
                               </span>
 
                               <ChevronDown
@@ -6148,7 +6194,8 @@ function PlayerRow({
         {/* CUÁNTO JUEGA — los minutos de esta temporada (21/10/2026). La
             plantilla de un rival son 25 nombres y lo primero que se busca es
             quién juega de verdad: con esto se ve sin abrir ninguna ficha. */}
-        {temporada && (
+        {/* Sin minutos no se pinta «0′» (lo que no tiene dato no se nombra). */}
+        {temporada && temporada.minutos > 0 && (
           <p
             className="mt-1 min-w-0 truncate text-[10px] tabular-nums text-white/45"
             title={`${temporada.temporada}: ${temporada.partidos} partidos, titular en ${temporada.titular}, ${temporada.minutos} minutos (BeSoccer)`}
@@ -6253,7 +6300,7 @@ function PlayerRow({
           aria-label={`Once probable de ${
             player["NOMBRE DEPORTIVO"] || player.JUGADOR
           }: ${onceEstado ? ONCE_ETIQUETA[onceEstado] : "sin marcar"}`}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition"
+          className={`flex h-7 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition ${onceEstado === "titular" || onceEstado === "duda" ? "px-2" : "w-7"}`}
           style={
             onceColor
               ? {
@@ -6265,10 +6312,11 @@ function PlayerRow({
               : undefined
           }
         >
+          {/* Con palabras: «11» y «?» no se entendían sin leyenda (29/10/2026). */}
           {onceEstado === "titular" ? (
-            "11"
+            "Titular"
           ) : onceEstado === "duda" ? (
-            "?"
+            "Duda"
           ) : (
             <Shirt size={13} className="text-white/20" />
           )}

@@ -149,7 +149,7 @@ const ATAJOS: [string, string][] = [
   ["?", "Todos los atajos"],
 ];
 
-export function CodingAbpRival({ equipo }: { equipo: string | null }) {
+export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: string | null; onRecoger?: () => void; onApuntes?: () => void }) {
   const [abierta, setAbierta] = useState<Abierta | null>(null);
   const [guardada, setGuardada] = useState<ConPermiso | null>(null);
   const [carpeta, setCarpeta] = useState<CarpetaKey>("CORNER OF");
@@ -168,7 +168,8 @@ export function CodingAbpRival({ equipo }: { equipo: string | null }) {
   const deshacer = useRef<{ id: string; antes: ClipEstado | undefined; carpeta: CarpetaKey; indice: number }[]>([]);
   const precarga = useRef(new Map<string, string>());
 
-  const clave = abierta ? codingKey(abierta.nombre) : "abp-coding-rival:_";
+  /* Sin carpeta abierta se lee la de la última vez (sólo para enseñar en qué punto está). */
+  const clave = abierta ? codingKey(abierta.nombre) : guardada ? codingKey(guardada.name) : "abp-coding-rival:_";
 
   const { value: doc, setValue: setDoc } = useRemoteDoc<CodingDoc>({ key: clave, kind: "abp-coding", fallback: CODING_VACIO });
 
@@ -530,25 +531,115 @@ export function CodingAbpRival({ equipo }: { equipo: string | null }) {
   /* ------------------------------ pantalla ------------------------------ */
 
   if (!abierta) {
+    /* Lo hecho en la última carpeta, para ver de un vistazo en qué punto está (29/10/2026, expertos). */
+    const hechos = Object.values(doc.clips ?? {});
+    const elegidosYa = hechos.filter((c) => c.estado === "elegido").length;
+    const vistos = hechos.filter((c) => c.estado !== "pendiente").length;
+    /* Los apuntes ya guardados de este rival, de la última jornada hacia atrás (29/10/2026). */
+    const hechosRival = Object.entries(apuntes.jornadas ?? {})
+      .map(([clave, cuaderno]) => ({ clave, n: Number(clave.replace(/\D/g, "")) || 0, apuntes: normalizaCuaderno(cuaderno).apuntes.filter((a) => a.texto.trim()) }))
+      .filter((j) => j.apuntes.length)
+      .sort((a, b) => b.n - a.n)
+      .slice(0, 2);
+
+    const pasos: { n: number; titulo: string; texto: string; soloOrdenador?: boolean; accion?: { texto: string; onClick: () => void }; principal?: boolean }[] = [
+      {
+        n: 1,
+        soloOrdenador: true,
+        titulo: "Recoger la carpeta",
+        texto: "El vigía deja en el ordenador del club los PDF de ABP y de centros y los vídeos de la jornada.",
+        ...(onRecoger ? { accion: { texto: "Recoger la carpeta", onClick: onRecoger } } : {}),
+      },
+      {
+        n: 2,
+        soloOrdenador: true,
+        titulo: "Cribar los clips",
+        texto: "Abre la carpeta y quédate con los buenos: K se queda, D se descarta, y una etiqueta por tecla.",
+        accion: { texto: "Abrir carpeta de la jornada", onClick: () => void elige() },
+        principal: true,
+      },
+      {
+        n: 3,
+        titulo: "Llevarlo al informe",
+        texto: "El texto sale con tu formato, «Dónde caen» entra solo en la pizarra y lo elegido pasa a Apuntes y vídeo.",
+        ...(onApuntes ? { accion: { texto: "Ver apuntes", onClick: onApuntes } } : {}),
+      },
+    ];
+
     return (
-      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
-        <h3 className="text-lg font-bold text-white">Coding del ABP del rival</h3>
-        <p className="text-sm text-white/65">
-          Abre la carpeta de la jornada (por ejemplo <b>ABP\RIVAL\ABP - 10 CARTAGENA</b>). Los clips no se suben: se ven desde tu ordenador.
-        </p>
-        <p className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200 md:hidden">
-          En el móvil no se pueden abrir carpetas: el coding se hace en el ordenador, con Chrome o Edge. Aquí puedes ver el texto y los apuntes ya hechos.
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={elige} className="flex items-center gap-2 rounded-lg bg-[#D8B45A] px-4 py-2 text-sm font-bold text-[#0B0F14]">
-            <FolderOpen size={16} /> Abrir carpeta de la jornada
-          </button>
-          {guardada && (
-            <button type="button" onClick={() => void abre(guardada)} className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/80 hover:bg-white/5">
-              Seguir con «{guardada.name}»
+      <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+        <div className="pr-12 md:pr-0">
+          <h3 className="text-lg font-bold text-white">Coding del ABP{equipo ? ` de ${equipo}` : " del rival"}</h3>
+          <p className="mt-1 hidden text-sm text-white/65 md:block">
+            Abre en tu ordenador la carpeta de {equipo ?? "el rival"} de esta jornada. Los clips no se suben: se ven desde tu ordenador.
+          </p>
+        </div>
+
+        {guardada && vistos > 0 && (
+          <p className="rounded-lg border border-[#D8B45A]/30 bg-[#D8B45A]/10 px-3 py-2 text-sm text-white/80">
+            <b className="text-[#D8B45A]">{guardada.name}</b>: {vistos} clips revisados · {elegidosYa} elegidos
+          </p>
+        )}
+
+        {/* En el móvil: lo apuntado y una sola acción; los pasos son del ordenador. */}
+        <div className="space-y-2 md:hidden">
+          {onApuntes && (
+            <button type="button" onClick={onApuntes} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D8B45A] px-4 py-2.5 text-sm font-bold text-[#0B0F14]">
+              <NotebookPen size={16} /> Ver apuntes y vídeo
             </button>
           )}
+          <p className="text-xs text-white/50">El coding de los clips se hace en el ordenador, con Chrome o Edge.</p>
         </div>
+
+        <ol className="hidden gap-2 md:grid md:grid-cols-3">
+          {pasos.map((p) => (
+            <li key={p.n} className="flex flex-col gap-1.5 rounded-xl border border-white/10 bg-black/20 p-3">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#D8B45A]">Paso {p.n}</span>
+              <span className="text-sm font-semibold text-white">{p.titulo}</span>
+              <span className="text-[13px] leading-snug text-white/60">{p.texto}</span>
+              {p.accion &&
+                (p.principal ? (
+                  <button type="button" onClick={p.accion.onClick} className="mt-auto flex items-center gap-2 self-start rounded-lg bg-[#D8B45A] px-3 py-1.5 text-[13px] font-bold text-[#0B0F14]">
+                    <FolderOpen size={14} /> {p.accion.texto}
+                  </button>
+                ) : (
+                  <button type="button" onClick={p.accion.onClick} className="mt-auto self-start whitespace-nowrap pt-1 text-[13px] font-semibold text-[#D8B45A] hover:underline">
+                    {p.accion.texto} →
+                  </button>
+                ))}
+              {p.principal && guardada && (
+                <button type="button" onClick={() => void abre(guardada)} className="self-start text-[12px] text-white/60 hover:text-white">
+                  o seguir con «{guardada.name}»
+                </button>
+              )}
+            </li>
+          ))}
+        </ol>
+
+        {hechosRival.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">Ya apuntado de {equipo}</p>
+            {hechosRival.map((j) => (
+              <div key={j.clave} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <p className="mb-1.5 text-xs font-semibold text-[#D8B45A]">Jornada {j.n || j.clave}</p>
+                <ul className="space-y-1 text-[13px] leading-snug text-white/75">
+                  {j.apuntes.slice(0, 6).map((a) => (
+                    <li key={a.id}>
+                      <span className="text-white/45">{a.fase === "of" ? "Cuando atacan" : "Cuando defienden"} · </span>
+                      {a.texto}
+                    </li>
+                  ))}
+                </ul>
+                {j.apuntes.length > 6 && onApuntes && (
+                  <button type="button" onClick={onApuntes} className="mt-1.5 text-[12px] font-semibold text-[#D8B45A] hover:underline">
+                    Ver los {j.apuntes.length} →
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
       </div>
     );
   }

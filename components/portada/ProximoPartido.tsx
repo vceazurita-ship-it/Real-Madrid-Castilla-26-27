@@ -495,32 +495,15 @@ export function ProximoPartido() {
             {/* «Libre: sáb 10 y dom 11 · Último: Antequera CF 3-2 (V)». Los
                 libres salen del microciclo escrito en la hoja; mientras no se
                 escriba, se avisa de que son una propuesta. */}
-            {((conTarea !== null && libresEnTexto) || anterior) && (
-              <p className="mt-2 text-[11px] text-white/40">
-                {conTarea !== null && libresEnTexto && <>Libre: {libresEnTexto}</>}
-                {anterior && (
-                  <>
-                    {conTarea !== null && libresEnTexto && " · "}
-                    Último:{" "}
-                    <span className="text-white/60">
-                      {anterior.lado === "casa" ? "" : "en "}
-                      {anterior.rival} {anterior.golesFavor}-{anterior.golesContra}
-                      {(() => {
-                        const signo = signoResultado(anterior.golesFavor, anterior.golesContra);
-
-                        return signo ? ` (${signo})` : "";
-                      })()}
-                    </span>
-                  </>
-                )}
-              </p>
-            )}
+            {/* El último resultado va junto a la racha (29/10/2026, experto de fútbol). */}
+            {conTarea !== null && libresEnTexto && <p className="mt-2 text-[11px] text-white/40">Libre: {libresEnTexto}</p>}
           </div>
         )}
 
         {/* ---------- Lo que se prepara para ese partido ---------- */}
 
-        <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap">
+        {/* En el móvil, rejilla de dos y hueco a la derecha para el botón flotante (29/10/2026). */}
+        <div className="mt-6 grid grid-cols-2 gap-2.5 pr-12 sm:flex sm:flex-wrap sm:pr-0 [&>a:first-child]:col-span-2">
           <Link
             href={enlacePlantilla}
             title={nombreRival ? `La plantilla de ${nombreRival}` : undefined}
@@ -573,72 +556,66 @@ export function ProximoPartido() {
           y aquí sería un enlace más del menú. Duelos e individual se abren
           por `?equipo=` desde el 26/10/2026.
         */}
-        {hoyToca && (
-          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
-            <span className="rounded-md bg-[#D8B45A]/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D8B45A]">
-              Hoy · {hoyToca.rotulo}
-            </span>
+        {/*
+          Una sola línea de accesos (29/10/2026, experto de fútbol): lo de hoy
+          primero y después lo del rival, sin repetir nada de los botones de
+          arriba ni de lo de hoy.
+        */}
+        {(() => {
+          const enBotones = new Set(["Plantilla del rival", "Plan de partido", "Microciclo ABP", "Pizarra táctica", "Desplazamiento"]);
 
-            {hoyToca.atajos.map((atajo, i) => (
+          const deHoy = (hoyToca?.atajos ?? []).filter((atajo) => !enBotones.has(atajo.texto));
+
+          const yaHoy = new Set(deHoy.map((atajo) => atajo.texto));
+
+          const delRival = proximo
+            ? [
+                { href: conRival("/scout-rival-collective"), texto: "Scout colectivo", title: `El informe colectivo de ${nombreRival}` },
+                { href: conEquipo("/scout-rival-abp"), texto: "ABP rival", title: `El balón parado de ${nombreRival}, a favor y en contra` },
+                { href: conRival("/abp-pizarra"), texto: "Pizarra ABP", title: `Las diapositivas de balón parado del partido contra ${nombreRival}` },
+                { href: conEquipo("/duelos"), texto: "Duelos", title: `Nuestro once contra el de ${nombreRival}, puesto a puesto` },
+                { href: conEquipo("/scout-rival-individual"), texto: "Individual", title: `Los vídeos de los jugadores de ${nombreRival}` },
+              ].filter((atajo) => !yaHoy.has(atajo.texto))
+            : [];
+
+          if (!deHoy.length && !delRival.length) return null;
+
+          const lista = (atajos: { href: string; texto: string; title?: string }[]) =>
+            atajos.map((atajo, i) => (
               <span key={atajo.texto} className="inline-flex items-center gap-2">
                 {i > 0 && <span className="text-white/20">·</span>}
                 <Atajo href={atajo.href} texto={atajo.texto} title={atajo.title} />
               </span>
-            ))}
-          </p>
-        )}
+            ));
 
-        {proximo && (
-          <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/35">
-              Del rival
-            </span>
+          return (
+            <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
+              {hoyToca && deHoy.length > 0 && (
+                <>
+                  <span className="rounded-md bg-[#D8B45A]/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#D8B45A]">
+                    Hoy · {hoyToca.rotulo}
+                  </span>
+                  {lista(deHoy)}
+                </>
+              )}
 
-            <Atajo
-              href={conRival("/scout-rival-collective")}
-              texto="Scout colectivo"
-              title={`El informe colectivo de ${nombreRival}`}
-            />
-
-            <span className="text-white/20">·</span>
-
-            <Atajo
-              href={conEquipo("/scout-rival-abp")}
-              texto="ABP rival"
-              title={`El balón parado de ${nombreRival}, a favor y en contra`}
-            />
-
-            <span className="text-white/20">·</span>
-
-            <Atajo
-              href={conRival("/abp-pizarra")}
-              texto="Pizarra ABP"
-              title={`Las diapositivas de balón parado del partido contra ${nombreRival}`}
-            />
-
-            <span className="text-white/20">·</span>
-
-            <Atajo
-              href={conEquipo("/duelos")}
-              texto="Duelos"
-              title={`Nuestro once contra el de ${nombreRival}, puesto a puesto`}
-            />
-
-            <span className="text-white/20">·</span>
-
-            <Atajo
-              href={conEquipo("/scout-rival-individual")}
-              texto="Individual"
-              title={`Los vídeos de los jugadores de ${nombreRival}`}
-            />
-          </p>
-        )}
+              {delRival.length > 0 && (
+                <>
+                  <span className={`text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45 ${deHoy.length ? "ml-3" : ""}`}>
+                    Del rival
+                  </span>
+                  {lista(delRival)}
+                </>
+              )}
+            </p>
+          );
+        })()}
       </div>
 
       {/* ---------- Cómo vamos: racha y clasificación ---------- */}
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-white/[0.08] pt-5">
-        <Racha ultimos={ultimos} cargando={cargando} />
+        <Racha ultimos={ultimos} cargando={cargando} ultimo={anterior} />
 
         <Clasificacion informe={informe} />
       </div>
@@ -731,7 +708,7 @@ function Atajo({ href, texto, title }: { href: string; texto: string; title?: st
  * Los últimos resultados, como se leen en cualquier clasificación: una ficha
  * por partido, con el marcador al pasar por encima. Lleva al histórico.
  */
-function Racha({ ultimos, cargando }: { ultimos: PartidoNuestro[]; cargando: boolean }) {
+function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; cargando: boolean; ultimo?: PartidoNuestro | null }) {
   /* Sin partidos jugados no hay racha que enseñar. */
   if (!cargando && ultimos.length === 0) return null;
 
@@ -739,7 +716,7 @@ function Racha({ ultimos, cargando }: { ultimos: PartidoNuestro[]; cargando: boo
     <Link
       href="/collective_history"
       onClick={() => trackModuleVisit("/collective_history")}
-      className="group flex items-center gap-3"
+      className="group flex flex-wrap items-center gap-x-3 gap-y-1.5"
       title="Histórico de competición"
     >
       <History className="h-4 w-4 shrink-0 text-white/35 transition-colors group-hover:text-[#D8B45A]" />
@@ -772,9 +749,9 @@ function Racha({ ultimos, cargando }: { ultimos: PartidoNuestro[]; cargando: boo
                 );
               })}
       </span>
-      {!cargando && ultimos.length > 0 && (
-        <span className="hidden text-[10px] text-white/35 sm:inline">
-          V ganado · E empate · D derrota
+      {!cargando && ultimo && ultimo.golesFavor !== null && ultimo.golesContra !== null && (
+        <span className="basis-full whitespace-nowrap text-[12px] text-white/50 sm:basis-auto">
+          El último: <span className="text-white/75">{ultimo.golesFavor}-{ultimo.golesContra} {ultimo.lado === "casa" ? "en casa con" : "en"} {ultimo.rival}</span>
         </span>
       )}
     </Link>

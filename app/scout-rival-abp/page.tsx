@@ -785,7 +785,8 @@ export default function ScoutRivalAbpPage() {
                   />
                 )}
 
-                <div className="flex flex-wrap items-center gap-3">
+                {/* En el coding no pinta nada: allí manda la carpeta (29/10/2026). */}
+                <div className={`flex flex-wrap items-center gap-3 ${vista === "coding" ? "hidden" : ""}`}>
                   <Segmented
                     options={SIDES}
                     value={side}
@@ -839,7 +840,7 @@ export default function ScoutRivalAbpPage() {
               | dentro de «Láminas» y no se encontraba; en Área del Rival está a la
               | vista. Desde cualquier otra vista de Liga, un botón lleva a él.
               */}
-              {equipo && grupo === "liga" && vista !== "laminas" && (
+              {equipo && grupo === "liga" && vista !== "laminas" && vista !== "coding" && (
                 <button
                   type="button"
                   onClick={() => setVista("laminas")}
@@ -853,7 +854,13 @@ export default function ScoutRivalAbpPage() {
 
               {/* ----------- coding de los clips de la jornada (28/10/2026) ----------- */}
 
-              {vista === "coding" && <CodingAbpRival equipo={equipo || null} />}
+              {vista === "coding" && (
+                <CodingAbpRival
+                  equipo={equipo || null}
+                  onRecoger={equipo && grupo === "liga" ? () => setVista("laminas") : undefined}
+                  onApuntes={equipo ? () => setVista("apuntes") : undefined}
+                />
+              )}
 
               {vista === "apuntes" && equipo && <ApuntesAbp key={`${equipo}|${jornadaDe(equipo)?.etiqueta ?? ""}`} equipo={equipo} jornadaPartido={jornadaDe(equipo)?.etiqueta ?? null} />}
 

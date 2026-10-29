@@ -192,11 +192,12 @@ export function VistazoRival({
         {dibujo && (
           <Casilla
             titulo="Dibujo que más repite"
-            pie={`${dibujo.veces} de sus últimas ${dibujo.de} alineaciones`}
+            pie={`${dibujo.veces} de sus ${dibujo.de} alineaciones`}
           >
             <p className="flex items-center gap-1.5">
               <LayoutGrid size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />
-              <span className="text-lg font-semibold tabular-nums">{dibujo.estructura}</span>
+              {/* Sin el «1-» del portero, como el selector del campograma (29/10/2026). */}
+              <span className="text-lg font-semibold tabular-nums">{dibujo.estructura.replace(/^1-(?=\d-\d)/, "")}</span>
             </p>
           </Casilla>
         )}
@@ -276,14 +277,18 @@ export function VistazoRival({
                       <li
                         key={a.aspecto}
                         title={`${a.explica}. ${a.filas.map((f) => `${f.nombre}: p${f.percentil}`).join(" · ")}`}
-                        className="flex min-w-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs"
+                        className="flex min-w-0 flex-wrap items-center gap-x-1.5 rounded-2xl border px-2.5 py-1 text-xs"
                         style={{ borderColor: `${grupo.color}55`, background: `${grupo.color}14` }}
                       >
-                        <span className="min-w-0 truncate">{a.aspecto}</span>
+                        <span className="min-w-0 break-words font-medium">{a.aspecto}</span>
                         <span className="shrink-0 tabular-nums text-white/50">
                           {a.desviacion >= 0
-                            ? `mejor que ${Math.round(a.percentil / 10)} de cada 10${equipos > 0 ? ` (sobre ${equipos} equipos)` : ""}`
-                            : `peor que ${10 - Math.round(a.percentil / 10)} de cada 10${equipos > 0 ? ` (sobre ${equipos} equipos)` : ""}`}
+                            ? equipos > 0
+                              ? `mejor que ${Math.round((a.percentil / 100) * equipos)} de los ${equipos} equipos`
+                              : `mejor que ${Math.round(a.percentil / 10)} de cada 10`
+                            : equipos > 0
+                              ? `peor que ${equipos - Math.round((a.percentil / 100) * equipos)} de los ${equipos} equipos`
+                              : `peor que ${10 - Math.round(a.percentil / 10)} de cada 10`}
                         </span>
                       </li>
                     ))}

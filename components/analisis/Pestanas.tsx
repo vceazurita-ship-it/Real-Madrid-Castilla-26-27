@@ -92,7 +92,7 @@ export function Pestanas<K extends string>({
 }) {
   return (
     <div style={pegada ? { top: "var(--alto-cabecera, 0px)" } : undefined} className={`${pegada ? "sticky z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" : ""}`}>
-      <div role="tablist" aria-label={etiqueta} className="flex min-w-0 gap-1 overflow-x-auto border-b border-white/10 scrollbar-none">
+      <div role="tablist" aria-label={etiqueta} className="flex min-w-0 gap-1 overflow-x-auto border-b border-white/10 scrollbar-none max-md:pr-8 max-md:[mask-image:linear-gradient(to_right,#000_85%,transparent)]">
         {opciones.map(({ clave, label, corto, icono: Icono, cuenta }) => {
           const activa = clave === valor;
 

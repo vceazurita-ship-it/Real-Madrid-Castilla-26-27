@@ -672,11 +672,14 @@ export function TeamPicker({
         })}
       </div>
 
-      {countOf && teams.some((team) => (countOf(team) ?? 0) > 0) && (
+      {/* La leyenda sólo si al menos la mitad lleva número (29/10/2026, expertos). */}
+      {countOf && teams.filter((team) => (countOf(team) ?? 0) > 0).length * 2 >= teams.length && (
         <p className="text-[11px] text-white/35">
           El número de cada equipo son las acciones de balón parado registradas.
         </p>
       )}
+
+
     </div>
   );
 }

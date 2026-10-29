@@ -661,7 +661,7 @@ export default function Home() {
                             {resumenData.golesMenosXg >= 0
                               ? "marcamos más de lo esperado"
                               : "marcamos menos de lo esperado"}
-                            {resumenData.partidos < 15 && ` · con ${resumenData.partidos} ${resumenData.partidos === 1 ? "partido" : "partidos"} es tendencia, no veredicto`}
+                            {resumenData.golesMenosXg < 0 ? " · toca afinar la definición: va al plan de partido" : " · hay que sostenerlo"}
                           </p>
                         )}
                       </div>
@@ -811,7 +811,7 @@ export default function Home() {
               se le da una tarjeta en las áreas de trabajo: vive aquí abajo,
               donde lo encuentra quien lo busca y no distrae a quien no.
             */}
-            <div className="flex justify-center pb-2 pt-6">
+            {admin && <div className="flex justify-center pb-2 pt-6">
               <Link
                 href="/coding?ambito=rival"
                 className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.24em] text-white/40 transition-colors hover:text-white/70"
@@ -819,7 +819,7 @@ export default function Home() {
                 Coding de rival · herramienta del analista
                 <ArrowRight className="h-3 w-3" aria-hidden />
               </Link>
-            </div>
+            </div>}
             </>)}
           </section>
         </div>

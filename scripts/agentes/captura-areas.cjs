@@ -28,6 +28,8 @@ const GRUPOS = {
   identidad: ["/game-model", "/identidad-posicional", "/team-values", "/identidad-cultura"],
   club: ["/laboratorio/escudos", "/quiniela", "/laboratorio/apuestas"],
   laboratorio: ["/laboratorio/abp"],
+  /* Ronda dirigida (29/10/2026): portada, coding de clips del ABP rival y plantillas rivales. */
+  foco: ["/", "/scout-rival-abp?vista=coding", "/rivals"],
 };
 module.exports = { GRUPOS };
 if (require.main !== module) return;

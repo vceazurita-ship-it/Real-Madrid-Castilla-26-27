@@ -52,21 +52,26 @@ import {
 | Sin ese calendario —o sin jornada en la fila— se cae en la fecha de siempre.
 */
 export async function jornadaJugada(signal?: AbortSignal): Promise<number> {
+  const partidos = await partidosBeSoccer(signal);
+
+  return alrededorDe(partidos, Date.now()).anterior?.jornada ?? 0;
+}
+
+/** El calendario de BeSoccer de la portada (`cuando` en hora de Madrid). Nunca lanza. */
+async function partidosBeSoccer(signal?: AbortSignal): Promise<PartidoCastilla[]> {
   try {
     const respuesta = await fetch(`/api/docs?key=${encodeURIComponent(CLAVE_CALENDARIO)}`, {
       cache: "no-store",
       signal,
     });
 
-    if (!respuesta.ok) return 0;
+    if (!respuesta.ok) return [];
 
     const leido = (await respuesta.json()) as { data?: { partidos?: PartidoCastilla[] } };
 
-    const partidos = Array.isArray(leido?.data?.partidos) ? leido.data.partidos : [];
-
-    return alrededorDe(partidos, Date.now()).anterior?.jornada ?? 0;
+    return Array.isArray(leido?.data?.partidos) ? leido.data.partidos : [];
   } catch {
-    return 0;
+    return [];
   }
 }
 
@@ -135,6 +140,8 @@ export type Enfrentamiento = {
   fecha: string;
   /** Se juega **en casa**. Lo escribe la hoja en `LOCAL_VISITANTE`. */
   local: boolean;
+  /** «18:45», de BeSoccer, cuando lo publica. */
+  hora?: string;
   grupo: typeof POR_VENIR | typeof SIN_FECHA | typeof JUGADO;
 };
 
@@ -358,15 +365,43 @@ export async function cargaOrdenRivales(
   try {
     /* Las dos a la vez: la hoja (quién y cuándo) y BeSoccer (hasta dónde se
        ha jugado de verdad). `jornadaJugada` nunca lanza. */
-    const [jornadas, jugada] = await Promise.all([cargaJornadas(signal), jornadaJugada(signal)]);
+    const [jornadas, calendario] = await Promise.all([cargaJornadas(signal), partidosBeSoccer(signal)]);
 
-    return ordenaPorCalendario(jornadas, claveDeHoy(), jugada);
+    const jugada = alrededorDe(calendario, Date.now()).anterior?.jornada ?? 0;
+
+    return conFechaDeBeSoccer(ordenaPorCalendario(jornadas, claveDeHoy(), jugada), calendario);
   } catch (error) {
     console.error("[orden-calendario] no se ha podido leer el calendario", error);
 
     return SIN_ORDEN;
   }
 }
+
+/*
+| La fecha y la hora de BeSoccer mandan sobre las de la hoja (29/10/2026): la
+| hoja tiene las del calendario de principio de temporada y /rivals decía
+| «01/11» con la portada en «sábado 31 · 18:45». Se casa por jornada, que es
+| una por partido nuestro.
+*/
+function conFechaDeBeSoccer(orden: OrdenRivales, calendario: PartidoCastilla[]): OrdenRivales {
+  const porJornada = new Map(calendario.map((p) => [String(p.jornada), p.cuando]));
+
+  const partidos = orden.partidos.map((partido) => {
+    const cuando = partido.grupo === JUGADO ? undefined : porJornada.get(partido.jornada);
+
+    if (!cuando || !/^\d{4}-\d{2}-\d{2}/.test(cuando)) return partido;
+
+    const hora = cuando.slice(11, 16);
+
+    return { ...partido, fecha: cuando.slice(0, 10), ...(/^\d{2}:\d{2}$/.test(hora) && hora !== "00:00" ? { hora } : {}) };
+  });
+
+  const actual = partidos.find((p) => p.equipo === orden.actual && p.jornada === orden.jornada);
+
+  return { ...orden, partidos, fecha: orden.fecha && actual ? actual.fecha : orden.fecha };
+}
+
+const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 
 /*
 |--------------------------------------------------------------------------
@@ -382,7 +417,7 @@ export async function cargaOrdenRivales(
 export type JornadaDeEquipo = {
   /** «J8». */
   etiqueta: string;
-  /** «Jornada 8 · 18/10/2026 · en casa», para el `title`. */
+  /** «Jornada 8 · sáb 18/10 · 18:45 · en casa», para el `title`. */
   titulo: string;
   /** El siguiente partido contra él ya se jugó: es el de la vuelta pasada. */
   jugado: boolean;
@@ -394,7 +429,8 @@ export function jornadaDeEquipo(orden: OrdenRivales, equipo: string): JornadaDeE
   if (!partido || !partido.jornada) return null;
 
   const dia = partido.fecha.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const fecha = dia ? `${dia[3]}/${dia[2]}/${dia[1]}` : "";
+  /* «sáb 31/10 · 18:45», como la portada. */
+  const fecha = dia ? `${DIAS[new Date(+dia[1], +dia[2] - 1, +dia[3], 12).getDay()]} ${dia[3]}/${dia[2]}` : "";
   const jugado = partido.grupo === JUGADO;
 
   return {
@@ -402,6 +438,7 @@ export function jornadaDeEquipo(orden: OrdenRivales, equipo: string): JornadaDeE
     titulo: [
       `Jornada ${partido.jornada}`,
       fecha,
+      jugado ? "" : partido.hora ?? "",
       jugado ? "ya jugado" : partido.local ? "en casa" : "fuera",
     ]
       .filter(Boolean)

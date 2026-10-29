@@ -21,9 +21,9 @@ export default function QuickAccess() {
   const shortcuts = useModulosMasUsados(HUECOS);
 
   return (
-    <div /* En escritorio los accesos pasan a otra línea; en el móvil se desplazan y el
-         degradado del borde avisa de que hay más a la derecha. */
-    className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none max-md:[mask-image:linear-gradient(to_right,#000_86%,transparent)] md:flex-wrap md:overflow-visible">
+    <div /* Pasan a otra línea también en el móvil (29/10/2026): deslizar no se
+         descubría y el tercero salía cortado. */
+    className="-mx-1 flex flex-wrap gap-2 px-1 pb-1">
       {shortcuts.map((module) => {
         const area = AREA_BY_KEY.get(module.area)!;
         const Icon = module.icon;

@@ -15,6 +15,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { RefreshCw } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 
 import { descartaNuevas, estadoHojas, olvidaTodoElCsv, suscribeHojas } from "@/lib/hojaCsv";
@@ -70,6 +71,54 @@ export function DatosEstado() {
       window.clearTimeout(tope);
     };
   }, [hayBajada]);
+
+  /*
+  | En la portada lo nuevo se pone solo (29/10/2026, experto de fútbol): la
+  | cabecera del próximo partido llegó a mezclar la clasificación de la
+  | jornada 8 con el último resultado de la 9. Es de sólo lectura, así que si
+  | la hoja nueva llega en los primeros segundos y aún no se ha tocado nada,
+  | se recarga (es instantáneo: ya está en el aparato). Si ya se está usando,
+  | queda el botón, para no llevarse una casilla a medio guardar.
+  */
+  const ruta = usePathname();
+
+  useEffect(() => {
+    if (ruta !== "/" || !estado.hayNuevas) return;
+
+    try {
+      if (performance.now() > 45_000 || sessionStorage.getItem("rmcf-tocado") === ruta) return;
+
+      /* Una vez cada diez minutos como mucho: una hoja que cambiara en cada
+         bajada no puede dejar la portada recargándose sin fin. */
+      const ultima = Number(sessionStorage.getItem("rmcf-autorecarga") ?? 0);
+
+      if (Date.now() - ultima < 600_000) return;
+
+      sessionStorage.setItem("rmcf-autorecarga", String(Date.now()));
+      descartaNuevas();
+      window.location.reload();
+    } catch {}
+  }, [ruta, estado.hayNuevas]);
+
+  useEffect(() => {
+    const toca = () => {
+      try {
+        sessionStorage.setItem("rmcf-tocado", window.location.pathname);
+      } catch {}
+    };
+
+    try {
+      sessionStorage.removeItem("rmcf-tocado");
+    } catch {}
+
+    window.addEventListener("pointerdown", toca, { once: true });
+    window.addEventListener("keydown", toca, { once: true });
+
+    return () => {
+      window.removeEventListener("pointerdown", toca);
+      window.removeEventListener("keydown", toca);
+    };
+  }, [ruta]);
 
   if (estado.deCopia === 0 && estado.bajando === 0) return null;
 
