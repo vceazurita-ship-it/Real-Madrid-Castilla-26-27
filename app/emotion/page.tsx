@@ -804,12 +804,15 @@ function RadarPanel({
 
   return (
     <div
-      className={`rounded-[24px] border p-3 sm:p-4 ${series.length ? "" : "emo-panel-vacio"}`}
+      /* 29/10/2026: con jugadores, el fondo base va por tema (en modo día el
+         panel se leía como un bloque gris oscuro); el degradado del nivel sólo
+         tiñe por encima. */
+      className={`rounded-[24px] border p-3 sm:p-4 ${series.length ? "bg-[#08131F]/40 [:root[data-theme=light]_&]:bg-white" : "emo-panel-vacio"}`}
       style={
         series.length
           ? {
               borderColor: `${radarTone}55`,
-              background: `radial-gradient(circle at center, ${radarTone}15 0%, transparent 75%)`,
+              backgroundImage: `radial-gradient(circle at center, ${radarTone}15 0%, transparent 75%)`,
               boxShadow: `0 0 30px ${radarTone}20`,
             }
           : undefined
@@ -837,24 +840,32 @@ function RadarPanel({
             </span>
           )}
 
-          {series.length > 0 && (
+          {series.length >= 3 && (
             <span className="text-[11px] tabular-nums text-white/60">
-              {series.length} {series.length === 1 ? "jugador" : "jugadores"}
+              {series.length} jugadores
             </span>
           )}
 
-          {/* Con menos de tres jugadores el nivel es una tendencia, no un perfil de línea. */}
-          {series.length > 0 && (
-            <span
-              className="rounded-full px-2.5 py-1 text-[10px] font-bold"
-              /* 29/10/2026: con menos de 3 jugadores el chip no lleva el color del nivel (sería una etiqueta de perfil sin base). */
-              style={series.length < 3 ? { background: "rgba(148,163,184,.25)", color: "#E2E8F0", border: "1px solid rgba(148,163,184,.4)" } : { background: radarTone, color: "#031018" }}
-            >
-              {series.length < 3
-                ? `${series.length} ${series.length === 1 ? "jugador" : "jugadores"} · tendencia`
-                : synergyLabel}
-            </span>
-          )}
+          {/* Con menos de tres jugadores el nivel es una tendencia, no un perfil de línea.
+              29/10/2026: el chip gris llevaba tinta clara fija y en modo día salía
+              como una píldora vacía; ahora la tinta va por tema y el número de
+              jugadores va dentro del propio chip. */}
+          {series.length > 0 &&
+            (series.length < 3 ? (
+              <span
+                className="rounded-full px-2.5 py-1 text-[11px] font-bold"
+                style={{ background: "rgba(148,163,184,.22)", border: "1px solid rgba(148,163,184,.55)", color: "var(--rmcf-ink)" }}
+              >
+                {series.length} {series.length === 1 ? "jugador" : "jugadores"} · tendencia
+              </span>
+            ) : (
+              <span
+                className="rounded-full px-2.5 py-1 text-[11px] font-bold"
+                style={{ background: radarTone, color: "#031018" }}
+              >
+                {synergyLabel} · {series.length} jugadores
+              </span>
+            ))}
         </div>
       </div>
 
@@ -984,7 +995,9 @@ function RadarPanel({
         </div>
 
         <div className="w-full min-w-0 flex-1">
-          <div className="h-[320px] w-full min-w-[240px] sm:h-[380px]">
+          {/* 29/10/2026: lienzo más bajo y radio mayor; antes el radar era un
+              rombo pequeño en mucho vacío. */}
+          <div className="h-[270px] w-full min-w-[240px] sm:h-[320px]">
             {series.length === 0 && loading ? (
               <Hueso className="h-full w-full rounded-2xl" />
             ) : series.length === 0 ? (
@@ -999,9 +1012,11 @@ function RadarPanel({
               >
                 <RadarChart
                   data={chartData}
-                  outerRadius="74%"
-                  /* 29/10/2026: más margen lateral; «Controlar» salía cortado en los radares de dos columnas. */
-                  margin={{ top: 12, right: 44, bottom: 12, left: 44 }}
+                  outerRadius="86%"
+                  /* 29/10/2026: las etiquetas de los lados se escriben hacia dentro
+                     (encima del vértice), así que no necesitan margen lateral y
+                     «Controlar» ya no se corta en las columnas estrechas. */
+                  margin={{ top: 22, right: 10, bottom: 22, left: 10 }}
                 >
                   <PolarGrid stroke={`${radarTone}40`} />
 
@@ -1014,12 +1029,23 @@ function RadarPanel({
                       payload?: { value?: string };
                     }) => {
                       const code = String(props.payload?.value ?? "");
+                      /* Los ejes laterales se anclan hacia dentro y suben
+                         sobre la línea: nunca salen del lienzo. */
+                      const lado =
+                        props.textAnchor === "start"
+                          ? "end"
+                          : props.textAnchor === "end"
+                            ? "start"
+                            : null;
                       return (
                         <text
                           x={props.x}
-                          y={props.y}
-                          textAnchor={props.textAnchor}
+                          y={lado ? Number(props.y) - 8 : props.y}
+                          textAnchor={lado ?? props.textAnchor}
                           fontSize={13}
+                          paintOrder="stroke"
+                          stroke="var(--rmcf-surface, transparent)"
+                          strokeWidth={3}
                           fontWeight={700}
                           style={{ fill: "var(--rmcf-ink)" }}
                         >

@@ -250,7 +250,9 @@ export function TeamPanel({
 
   const topChart = useMemo(
     () =>
-      bestSorted.slice(0, 8).map((entry) => ({
+      /* 29/10/2026: diez en vez de ocho, para que la tarjeta llene el alto
+         de la columna del podio y no quede un hueco en blanco. */
+      bestSorted.slice(0, 10).map((entry) => ({
         name: entry.player.nombre,
         value: entry.summary.avg,
         played: entry.summary.played,
@@ -477,7 +479,7 @@ export function TeamPanel({
           ) : (
             <div
               className="w-full min-w-0"
-              style={{ height: Math.max(200, topChart.length * 38 + 20) }}
+              style={{ height: Math.max(240, topChart.length * 42 + 56) }}
             >
               <ResponsiveContainer
                 width="100%"
@@ -488,24 +490,37 @@ export function TeamPanel({
                 <BarChart
                   data={topChart}
                   layout="vertical"
-                  margin={{ top: 0, right: 34, bottom: 0, left: 8 }}
+                  margin={{ top: 22, right: 34, bottom: 0, left: 8 }}
                   barCategoryGap={10}
                 >
                   <CartesianGrid stroke={GRID_STROKE} horizontal={false} />
 
+                  {/* 29/10/2026: eje 0-10 a la vista, para leer cada barra
+                      contra la escala y contra la media del equipo. */}
                   <XAxis
                     type="number"
                     domain={[0, 10]}
-                    hide
+                    ticks={[0, 2, 4, 6, 8, 10]}
+                    stroke={AXIS.stroke}
+                    tick={AXIS.tick}
+                    tickLine={false}
+                    axisLine={false}
                   />
 
-                  {/* 29/10/2026: la media del equipo como referencia vertical. */}
-                  <ReferenceLine
-                    x={teamAverage}
-                    stroke="rgb(var(--rmcf-ink-rgb) / 0.35)"
-                    style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.35)" }}
-                    strokeDasharray="4 4"
-                  />
+                  {teamAverage > 0 && (
+                    <ReferenceLine
+                      x={teamAverage}
+                      stroke="rgb(var(--rmcf-ink-rgb) / 0.45)"
+                      style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
+                      strokeDasharray="4 4"
+                      label={{
+                        value: `media del equipo ${formatRating(teamAverage)}`,
+                        position: "top",
+                        fontSize: 11,
+                        fill: "rgb(var(--rmcf-ink-rgb) / 0.7)",
+                      }}
+                    />
+                  )}
 
                   <YAxis
                     type="category"
@@ -571,29 +586,42 @@ export function TeamPanel({
             {byLine.length === 0 ? (
               <EmptyState title="Sin datos" />
             ) : (
-              <div className="h-[190px] w-full min-w-0">
+              <div className="h-[220px] w-full min-w-0">
                 <ResponsiveContainer
                 width="100%"
                 height="100%"
                 minHeight={160}
-                initialDimension={{ width: 320, height: 190 }}
+                initialDimension={{ width: 320, height: 220 }}
               >
                   <BarChart
                     data={byLine}
-                    margin={{ top: 10, right: 6, bottom: 0, left: -22 }}
+                    margin={{ top: 18, right: 6, bottom: 0, left: -22 }}
                   >
                     <CartesianGrid stroke={GRID_STROKE} vertical={false} />
 
+                    {/* 29/10/2026: «n jugadores» en una segunda línea bajo
+                        cada barra, igual en todas. */}
                     <XAxis
                       dataKey="name"
                       stroke={AXIS.stroke}
-                      tick={AXIS.tick}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(nombre: string) => {
+                      interval={0}
+                      height={38}
+                      tick={(props: { x?: number | string; y?: number | string; payload?: { value?: string } }) => {
+                        const nombre = String(props.payload?.value ?? "");
                         const linea = byLine.find((x) => x.name === nombre);
 
-                        return linea ? `${nombre} (${linea.players})` : nombre;
+                        return (
+                          <text x={props.x} y={props.y} textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.7)" }}>
+                            <tspan x={props.x} dy={12} fontSize={11}>{nombre}</tspan>
+                            {linea && (
+                              <tspan x={props.x} dy={14} fontSize={10} style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.5)" }}>
+                                {linea.players} {linea.players === 1 ? "jugador" : "jugadores"}
+                              </tspan>
+                            )}
+                          </text>
+                        );
                       }}
                     />
 
@@ -606,12 +634,20 @@ export function TeamPanel({
                       axisLine={false}
                     />
 
-                    <ReferenceLine
-                      y={teamAverage}
-                      stroke="rgb(var(--rmcf-ink-rgb) / 0.35)"
-                      style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.35)" }}
-                      strokeDasharray="4 4"
-                    />
+                    {teamAverage > 0 && (
+                      <ReferenceLine
+                        y={teamAverage}
+                        stroke="rgb(var(--rmcf-ink-rgb) / 0.45)"
+                        style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
+                        strokeDasharray="4 4"
+                        label={{
+                          value: `media del equipo ${formatRating(teamAverage)}`,
+                          position: "insideTopRight",
+                          fontSize: 11,
+                          fill: "rgb(var(--rmcf-ink-rgb) / 0.7)",
+                        }}
+                      />
+                    )}
 
                     <Tooltip
                       cursor={CURSOR_BARRA}
@@ -652,7 +688,7 @@ export function TeamPanel({
                 <LeyendaColorNota />
 
                 <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
-                  La línea de puntos es la media del equipo. Entre paréntesis, los jugadores con nota en cada línea
+                  Bajo cada barra, los jugadores con nota en esa línea
                   {byLine.some((x) => x.players < 3)
                     ? `: ${byLine
                         .filter((x) => x.players < 3)

@@ -1242,14 +1242,17 @@ export default function DashboardSeguimiento() {
                   icon={MessageSquareText}
                   title="Seguimientos"
                   value={totalSessions}
-                  hint={`${SESIONES_DESDE_TEXTO} · ${withFeedback} con feedback`}
+                  /* 29/10/2026: una sola base por tarjeta: aquí registros (y
+                     cuántos de ellos llevan feedback); los jugadores van en
+                     «Con seguimiento» y «Cobertura». */
+                  hint={`registros ${SESIONES_DESDE_TEXTO} · ${withFeedback} de ellos con feedback`}
                 />
 
                 <StatCard
                   icon={Users}
                   title="Con seguimiento"
                   value={cubiertos}
-                  hint={`${cm(avgPerPlayer)} por jugador`}
+                  hint={`jugadores con algún registro · ${cm(avgPerPlayer)} registros por jugador`}
                   accent="#6E7F99"
                 />
 
@@ -1280,13 +1283,16 @@ export default function DashboardSeguimiento() {
                   progress={individualShare}
                 />
 
-                <StatCard
-                  icon={Clock}
-                  title="Último registro"
-                  value={sinceLast !== null ? corto(sinceLast) : "—"}
-                  hint={lastRecord ? nameOf(lastRecord) : "sin datos"}
-                  accent="#F97316"
-                />
+                {/* 29/10/2026: sin registros la tarjeta no sale (nada de «—» ni «sin datos»). */}
+                {sinceLast !== null && (
+                  <StatCard
+                    icon={Clock}
+                    title="Último registro"
+                    value={corto(sinceLast)}
+                    hint={lastRecord ? nameOf(lastRecord) : ""}
+                    accent="#F97316"
+                  />
+                )}
               </div>
             </div>
 
@@ -1539,8 +1545,11 @@ export default function DashboardSeguimiento() {
 
                 {untrackedPlayers.length > 0 && (
                   <Panel
-                    title={`Jugadores sin seguimiento (${untrackedPlayers.length})`}
-                    subtitle="Plantilla activa sin ningún registro bajo los filtros actuales"
+                    /* 29/10/2026: no es la misma lista que el aviso «sin
+                       seguimiento en 14 días» de Lecturas: aquí sale quien no
+                       tiene ningún registro con los filtros puestos. */
+                    title={`Sin ningún registro (${untrackedPlayers.length})`}
+                    subtitle={`Jugadores de la plantilla sin ningún registro ${SESIONES_DESDE_TEXTO} con los filtros actuales · el aviso de Lecturas cuenta, aparte, quién lleva 14 días sin seguimiento`}
                   >
                     <div className="flex flex-wrap gap-2.5">
                       {untrackedPlayers.map((p) => (

@@ -2,7 +2,7 @@
 import { traeCsv } from "@/lib/hojaCsv";
 import { coma } from "@/lib/formatoNumero";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { chipInk } from "@/lib/theme";
 import Papa from "papaparse";
 
@@ -228,7 +228,30 @@ function textoControl(fecha: unknown, ahora: number) {
 
   return `Último control: ${formatFecha(fecha)} · ${
     dias === 0 ? "hoy" : `hace ${dias} ${dias === 1 ? "día" : "días"}`
-  }${dias > DIAS_CONTROL_ANTIGUO ? " · control antiguo" : ""}`;
+  }`;
+}
+
+/* 29/10/2026: «control antiguo» iba en el mismo gris que la fecha y no se
+   veía; ahora sale aparte como chip ámbar. */
+function controlAntiguo(fecha: unknown, ahora: number) {
+  const marca = parseFecha(fecha);
+  return Boolean(marca) && Math.floor((ahora - marca) / 86_400_000) > DIAS_CONTROL_ANTIGUO;
+}
+
+/* Ancho de móvil estrecho, sin leer window en el render (29/10/2026): el
+   radar ajusta radio y letra para que ninguna etiqueta salga cortada. */
+const MQ_ESTRECHO = "(max-width: 479px)";
+function suscribeEstrecho(cb: () => void) {
+  const mq = window.matchMedia(MQ_ESTRECHO);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+function useEstrecho() {
+  return useSyncExternalStore(
+    suscribeEstrecho,
+    () => window.matchMedia(MQ_ESTRECHO).matches,
+    () => false,
+  );
 }
 
 function toNumber(value: unknown) {
@@ -270,6 +293,9 @@ export default function DashboardPlantilla() {
 
   const [loading, setLoading] = useState(true);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
+  /* En el móvil los KPI secundarios van plegados (29/10/2026). */
+  const [kpisAbiertos, setKpisAbiertos] = useState(false);
+  const estrecho = useEstrecho();
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -769,6 +795,8 @@ export default function DashboardPlantilla() {
     tone?: string;
     /** La base de la cifra, escrita bajo ella. */
     base?: string;
+    /** En el móvil va plegado tras «Ver más». */
+    secundario?: boolean;
   }[] = [
     { title: "Jugadores", value: stats.total },
     {
@@ -802,14 +830,18 @@ export default function DashboardPlantilla() {
       title: "Media",
       value: stats.media,
       base: `de ${stats.valorados} con ficha · competencias del scout, no la nota de partido`,
+      secundario: true,
     },
-    { title: "Mejor", value: stats.mejor, base: stats.mejorNombre ? `${stats.mejorNombre} · ficha de competencias` : undefined },
-    { title: "Peor", value: stats.peor, base: stats.peorNombre ? `${stats.peorNombre} · ficha de competencias` : undefined },
-    { title: "Élite (≥8)", value: stats.elite },
+    /* 29/10/2026: Mejor/Peor no casaban con Valoraciones porque son otra
+       cosa: una ficha de competencias por jugador, no la media de partidos. */
+    { title: "Mejor", value: stats.mejor, secundario: true, base: stats.mejorNombre ? `${stats.mejorNombre} · su ficha de competencias (no la nota de partido)` : undefined },
+    { title: "Peor", value: stats.peor, secundario: true, base: stats.peorNombre ? `${stats.peorNombre} · su ficha de competencias (no la nota de partido)` : undefined },
+    { title: "Élite (≥8)", value: stats.elite, secundario: true, base: `de ${stats.valorados} con ficha` },
     {
       title: "% Óptimos",
       value: `${stats.optimalPercentage}%`,
       base: `${stats.optimos} de ${stats.total}`,
+      secundario: true,
     },
   ];
 
@@ -1044,8 +1076,11 @@ export default function DashboardPlantilla() {
 
               {/* KPIs */}
 
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-5 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
-                {kpis.map((kpi) => {
+              {/* 29/10/2026: en el móvil, rejilla de 3 y tarjetas bajas; los
+                  secundarios (media, mejor, peor, élite, % óptimos) tras «Ver
+                  más», para que la ficha del jugador no quede a tres pantallas. */}
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-2 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 max-sm:[&>*]:p-2.5 max-sm:[&_.kpi-cifra]:text-xl max-sm:[&_.kpi-base]:hidden">
+                {kpis.filter((kpi) => !estrecho || kpisAbiertos || !kpi.secundario).map((kpi) => {
                   const clickable = Boolean(kpi.filter);
 
                   const active = Boolean(
@@ -1064,17 +1099,17 @@ export default function DashboardPlantilla() {
 
                   const body = (
                     <>
-                      <div className="text-sm text-white/50">{kpi.title}</div>
+                      <div className="text-sm text-white/50 max-sm:text-xs">{kpi.title}</div>
 
                       <div
-                        className={`mt-2 text-3xl font-bold tracking-tight transition-colors duration-300 ${
+                        className={`kpi-cifra mt-2 max-sm:mt-1 text-3xl font-bold tracking-tight transition-colors duration-300 ${
                           kpi.tone ?? "text-white"
                         } ${clickable ? "group-hover:text-[#C8A96B]" : ""}`}
                       >
                         {kpi.value}
                       </div>
 
-                      <div className="mt-1 text-xs text-white/30">
+                      <div className={`${kpi.secundario ? "" : "kpi-base "}mt-1 text-xs text-white/30`}>
                         {clickable && kpi.base ? `${kpi.base} · ` : ""}
                         {clickable
                           ? active
@@ -1108,6 +1143,17 @@ export default function DashboardPlantilla() {
                   );
                 })}
               </div>
+
+              {estrecho && (
+                <button
+                  type="button"
+                  onClick={() => setKpisAbiertos((v) => !v)}
+                  aria-expanded={kpisAbiertos}
+                  className="-mt-3 min-h-[44px] w-full rounded-xl border border-white/10 bg-white/[0.025] px-4 text-sm text-white/70"
+                >
+                  {kpisAbiertos ? "Ver menos cifras" : "Ver más: media, mejor, peor, élite y % de óptimos"}
+                </button>
+              )}
 
               {/* Pegada arriba con el mismo margen que esta página (la tira común trae el de las de análisis). */}
               <div className="sticky top-0 z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
@@ -1159,13 +1205,19 @@ export default function DashboardPlantilla() {
                       }
                     >
                       {radarData.length ? (
-                        <ResponsiveContainer width="100%" height={400}>
-                          <RadarChart data={radarData} outerRadius="80%">
+                        /* 29/10/2026: a 390 px se cortaban «Técnica» y «Hábitos»:
+                           en estrecho, radio menor, letra de 12 y margen lateral. */
+                        <ResponsiveContainer width="100%" height={estrecho ? 340 : 420}>
+                          <RadarChart
+                            data={radarData}
+                            outerRadius={estrecho ? "62%" : "80%"}
+                            margin={estrecho ? { top: 8, right: 28, bottom: 8, left: 28 } : undefined}
+                          >
                             <PolarGrid stroke={THEME.grid} />
 
                             <PolarAngleAxis
                               dataKey="subject"
-                              tick={{ fill: THEME.axis, fontSize: 13 }}
+                              tick={{ fill: THEME.axis, fontSize: estrecho ? 12 : 13 }}
                             />
 
                             <PolarRadiusAxis
@@ -1180,7 +1232,7 @@ export default function DashboardPlantilla() {
                               name="Plantilla"
                               dataKey="plantilla"
                               stroke="#7DA6D9"
-                              strokeWidth={2.5}
+                              strokeWidth={3.5}
                               fill="#7DA6D9"
                               // 29/10/2026: sin relleno, para que el dorado del jugador no la tape.
                               fillOpacity={0}
@@ -1803,7 +1855,8 @@ function ChartCard({
         </h3>
 
         {subtitle && (
-          <p className="mt-1 truncate text-xs text-white/35">{subtitle}</p>
+          /* 29/10/2026: sin truncar; en el móvil se perdía «escala de 0 a 10». */
+          <p className="mt-1 text-xs leading-snug text-white/45">{subtitle}</p>
         )}
       </div>
 
@@ -1996,7 +2049,8 @@ function PlayerCard({
         <button
           onClick={() => go(-1)}
           disabled={index <= 0}
-          className="min-h-[44px] min-w-[44px] rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 transition hover:border-[#C8A96B] hover:text-white disabled:opacity-40"
+          /* 29/10/2026: desactivado seguía casi invisible con opacity-40. */
+          className="min-h-[44px] min-w-[44px] rounded-lg border border-white/25 px-4 py-2 text-sm font-medium text-white/85 transition hover:border-[#C8A96B] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           ← Anterior
         </button>
@@ -2078,10 +2132,15 @@ function PlayerCard({
       {/* PIE */}
 
       <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/5 pt-4 text-xs text-white/30">
-        <span className="truncate">
-          {player.fecha
-            ? textoControl(player.fecha, ahora)
-            : "Sin control registrado"}
+        <span className="flex min-w-0 flex-wrap items-center gap-2">
+          {player.fecha && (
+            <span className="truncate">{textoControl(player.fecha, ahora)}</span>
+          )}
+          {player.fecha && controlAntiguo(player.fecha, ahora) && (
+            <span className="shrink-0 rounded-full border border-amber-400/60 bg-amber-400/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+              Control antiguo
+            </span>
+          )}
         </span>
 
         {player.hudl && (
