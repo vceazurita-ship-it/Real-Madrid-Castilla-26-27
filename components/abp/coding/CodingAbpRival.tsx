@@ -663,37 +663,42 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
           </p>
         )}
 
-        {/* En el móvil: lo apuntado y una sola acción; los pasos son del ordenador. */}
-        <div className="space-y-2 md:hidden">
-          {onApuntes && (
-            <button type="button" onClick={onApuntes} className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#D8B45A] px-4 py-2.5 text-sm font-bold text-[#0B0F14]">
-              <NotebookPen size={16} /> Ver apuntes y vídeo
-            </button>
-          )}
-          <p className="text-xs text-white/50">El coding de los clips se hace en el ordenador, con Chrome o Edge.</p>
-        </div>
-
-        <ol className="hidden gap-2 md:grid md:grid-cols-3">
+        {/* Una fila por paso, igual en el móvil y en el ordenador (29/10/2026,
+            expertos): en el móvil se veía sólo «Ver apuntes» y en el ordenador
+            tres tarjetas del mismo peso. La acción principal destaca; las
+            del ordenador no salen en el móvil, pero el paso se lee. */}
+        <ol className="divide-y divide-white/10 rounded-xl border border-white/10 bg-black/20">
           {pasos.map((p) => (
-            <li key={p.n} className="flex flex-col gap-1.5 rounded-xl border border-white/10 bg-black/20 p-3">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#D8B45A]">Paso {p.n}</span>
-              <span className="text-sm font-semibold text-white">{p.titulo}</span>
-              <span className="text-[13px] leading-snug text-white/60">{p.texto}</span>
+            <li key={p.n} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#D8B45A]/50 text-[12px] font-bold text-[#D8B45A]">{p.n}</span>
+              <span className="min-w-0 flex-1 basis-48">
+                <span className="text-sm font-semibold text-white">{p.titulo}</span>
+                <span className="block text-[12px] leading-snug text-white/55">
+                  {p.texto}
+                  {p.soloOrdenador && <span className="md:hidden"> En el ordenador, con Chrome o Edge.</span>}
+                </span>
+              </span>
               {p.accion &&
                 (p.principal ? (
-                  <button type="button" onClick={p.accion.onClick} className="mt-auto flex items-center gap-2 self-start rounded-lg bg-[#D8B45A] px-3 py-1.5 text-[13px] font-bold text-[#0B0F14]">
-                    <FolderOpen size={14} /> {p.accion.texto}
-                  </button>
+                  <span className="hidden flex-col items-end gap-1 md:flex">
+                    <button type="button" onClick={p.accion.onClick} className="flex items-center gap-2 rounded-lg bg-[#D8B45A] px-3 py-1.5 text-[13px] font-bold text-[#0B0F14]">
+                      <FolderOpen size={14} /> {p.accion.texto}
+                    </button>
+                    {guardada && (
+                      <button type="button" onClick={() => void abre(guardada)} className="text-[12px] text-white/60 hover:text-white">
+                        o seguir con «{guardada.name}»
+                      </button>
+                    )}
+                  </span>
                 ) : (
-                  <button type="button" onClick={p.accion.onClick} className="mt-auto self-start whitespace-nowrap pt-1 text-[13px] font-semibold text-[#D8B45A] hover:underline">
+                  <button
+                    type="button"
+                    onClick={p.accion.onClick}
+                    className={`${p.soloOrdenador ? "hidden md:inline" : ""} whitespace-nowrap text-[13px] font-semibold text-[#D8B45A] hover:underline`}
+                  >
                     {p.accion.texto} →
                   </button>
                 ))}
-              {p.principal && guardada && (
-                <button type="button" onClick={() => void abre(guardada)} className="self-start text-[12px] text-white/60 hover:text-white">
-                  o seguir con «{guardada.name}»
-                </button>
-              )}
             </li>
           ))}
         </ol>

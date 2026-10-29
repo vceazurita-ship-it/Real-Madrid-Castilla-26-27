@@ -102,6 +102,18 @@ export function Pestanas<K extends string>({
               type="button"
               role="tab"
               aria-selected={activa}
+              /* La elegida, a la vista en el móvil (29/10/2026): abriendo con
+                 ?vista=coding quedaba cortada fuera de la tira. Sólo se mueve
+                 la tira, nunca la página. */
+              ref={
+                activa
+                  ? (b) => {
+                      const tira = b?.parentElement;
+
+                      if (tira && tira.scrollWidth > tira.clientWidth) tira.scrollLeft = b.offsetLeft - (tira.clientWidth - b.offsetWidth) / 2;
+                    }
+                  : undefined
+              }
               onClick={() => onCambia(clave)}
               /* El subrayado va en `style`: la regla `* { border-color }` de
                  globals.css gana a las clases `border-*`, así que con

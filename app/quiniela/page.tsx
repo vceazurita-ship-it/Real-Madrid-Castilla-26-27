@@ -596,7 +596,7 @@ export default function QuinielaPage() {
 
                                     {/* Quien apostó poco sale abajo con un
                                         porcentaje engañoso: se dice por qué. */}
-                                    {fila.total.jugados < maxJugados * 0.8 && (
+                                    {fila.total.jugados < maxJugados && (
                                       <span className="block truncate text-[10px] text-white/40">
                                         {`apostó ${fila.total.jugados} de ${maxJugados} partidos`}
                                       </span>
@@ -797,7 +797,21 @@ export default function QuinielaPage() {
             <div className="mt-5">
               <Panel
                 title="Quién juega"
-                subtitle={`Cómo va cada uno en la jornada ${jornada}. Pulsa la carita para ver su canción, su frase y su foto.`}
+                subtitle={(() => {
+                  /* El estado en una línea (29/10/2026, experto de análisis):
+                     once fichas con «Sin apostar» no se leían de un vistazo. */
+                  const cuenta = (slug: string) => laJornada.puestos?.[slug] ?? (laJornada.pronosticos[slug] ?? []).filter(Boolean).length;
+                  const completas = jugadores.filter((x) => cuenta(x) === partidos.length).length;
+                  const nada = jugadores.filter((x) => cuenta(x) === 0).length;
+                  const medias = jugadores.length - completas - nada;
+                  const trozos = [
+                    completas && `${completas} con la quiniela completa`,
+                    medias && `${medias} a medias`,
+                    nada && `${nada} sin apostar`,
+                  ].filter(Boolean);
+
+                  return `Jornada ${jornada}: ${trozos.join(" · ")}. Pulsa una carita para ver su canción, su frase y su foto.`;
+                })()}
                 icon={Users}
               >
                 <div className="flex flex-wrap gap-2">
