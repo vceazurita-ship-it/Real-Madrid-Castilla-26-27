@@ -27,7 +27,8 @@
  * apaga, pero no desaparece.
  */
 
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Maximize2, Minimize2 } from "lucide-react";
 
 import { TITULO_FILTRO } from "@/components/faltas/FiltrosCruzados";
 
@@ -162,6 +163,29 @@ export function CampoZonas({
   const colocados = coloca(puntos, zonas, carriles);
 
   /*
+  | Tamaño razonable y pantalla completa (29/10/2026, lo pidió el analista):
+  | a todo el ancho el campo medía ~880 px de alto en un portátil y había que
+  | hacer scroll para verlo entero. Ahora no pasa del alto de la ventana menos
+  | la cabecera y los filtros, y un botón lo abre a pantalla completa.
+  */
+  const marco = useRef<HTMLDivElement>(null);
+
+  const [completa, setCompleta] = useState(false);
+
+  useEffect(() => {
+    const cambia = () => setCompleta(document.fullscreenElement === marco.current && marco.current !== null);
+
+    document.addEventListener("fullscreenchange", cambia);
+
+    return () => document.removeEventListener("fullscreenchange", cambia);
+  }, []);
+
+  const alternaCompleta = () => {
+    if (document.fullscreenElement) void document.exitFullscreen?.();
+    else void marco.current?.requestFullscreen?.().catch(() => {});
+  };
+
+  /*
   | Qué casilla está elegida. Con sólo un tercio marcado, son sus tres
   | carriles; con sólo un carril, sus tres tercios; con los dos, el cruce.
   */
@@ -191,14 +215,37 @@ export function CampoZonas({
   const idCesped = `cesped-${ariaLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0A1A12]">
+    <div
+      ref={marco}
+      className={`relative overflow-hidden rounded-2xl border border-white/10 bg-[#0A1A12] ${completa ? "flex h-full flex-col justify-center rounded-none border-0" : ""}`}
+    >
+      <button
+        type="button"
+        data-export-hide
+        onClick={alternaCompleta}
+        title={completa ? "Salir de pantalla completa (Esc)" : "Ver el campo a pantalla completa"}
+        aria-label={completa ? "Salir de pantalla completa" : "Ver el campo a pantalla completa"}
+        className="absolute right-2 top-2 z-10 flex items-center gap-1.5 rounded-lg border border-white/15 bg-black/40 px-2 py-1 text-[11px] backdrop-blur transition hover:bg-black/60"
+        style={{ color: "rgba(255,255,255,0.8)" }}
+      >
+        {completa ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+        <span className="hidden sm:inline">{completa ? "Salir" : "Pantalla completa"}</span>
+      </button>
+
       {/*
         El margen no es simétrico a propósito: los rótulos de los carriles van
         FUERA del campo, a la izquierda. Dentro caían encima del área grande y
         de las líneas, y un campo con letras cruzadas por rayas blancas es
         exactamente lo que había que quitar de aquí.
       */}
-      <svg viewBox={`-118 -34 ${ANCHO + 144} ${ALTO + 74}`} className="block w-full" role="img" aria-label={ariaLabel}>
+      <svg
+        viewBox={`-118 -34 ${ANCHO + 144} ${ALTO + 74}`}
+        className="mx-auto block w-full"
+        /* El ancho que da un alto que cabe: el campo es 1194 × 754 con sus márgenes. */
+        style={{ maxWidth: completa ? "calc((100vh - 64px) * 1.583)" : "max(560px, calc((100vh - 300px) * 1.583))" }}
+        role="img"
+        aria-label={ariaLabel}
+      >
         <defs>
           <linearGradient id={idCesped} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#12301F" />

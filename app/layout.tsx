@@ -14,6 +14,7 @@ import { ThemedToaster } from "@/components/themed-toaster";
 import { ServiceWorker } from "@/components/service-worker";
 import { SinConexion } from "@/components/sin-conexion";
 import { TrabajoPdfs } from "@/components/abp/pizarra/TrabajoPdfs";
+import { AvisoEncargos } from "@/components/ui/AvisoEncargos";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -130,6 +131,8 @@ export default function RootLayout({
             <SinConexion />
             {/* Los PDF de ABP por jugador siguen preparándose al cambiar de pantalla. */}
             <TrabajoPdfs />
+            {/* Los encargos de Ajustes avisan al terminar, estés donde estés (29/10/2026). */}
+            <AvisoEncargos />
           </DataProvider>
         </ThemeProvider>
       </body>
