@@ -29,6 +29,9 @@ import {
   Tooltip,
 } from "recharts";
 
+import { AXES, SCALE, average, labelFor, nombreLargo, toneFor, type MetricKey, type Player } from "./modelo";
+import { CampoEmocional } from "./CampoEmocional";
+
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=970113485&single=true&output=csv";
 
@@ -36,74 +39,12 @@ const VIDEO_ID = "1pKrNKJwbiXjsKP4cJ8ROE-2E8-PlLyi8";
 const VIDEO_URL = `https://drive.google.com/file/d/${VIDEO_ID}/view`;
 const VIDEO_EMBED = `https://drive.google.com/file/d/${VIDEO_ID}/preview`;
 
-type MetricKey = "ea" | "ie" | "ia" | "ee";
-
-type Player = {
-  posicion: string;
-  jugador: string;
-} & Record<MetricKey, number>;
-
-/* Las cuatro dimensiones atencionales del modelo emocional.
-   El orden define el recorrido del radar y se reutiliza en la leyenda. */
-const AXES: {
-  key: MetricKey;
-  code: string;
-  /** Nombre corto en español: es el que se rotula en el radar y en los cuadros (las siglas sólo quedan para quien las conozca). */
-  corto: string;
-  label: string;
-  detail: string;
-  moment: string;
-}[] = [
-  {
-    key: "ea",
-    code: "EA",
-    corto: "Observar",
-    label: "Externo · Amplio",
-    detail: "Observación / lectura (qué ocurre)",
-    moment: "Antes de intervenir",
-  },
-  {
-    key: "ie",
-    code: "IE",
-    corto: "Controlar",
-    label: "Interno · Estrecho",
-    detail: "Control emocional (qué siento)",
-    moment: "Adversidad",
-  },
-  {
-    key: "ia",
-    code: "IA",
-    corto: "Analizar",
-    label: "Interno · Amplio",
-    detail: "Análisis / reflexión (qué hacer)",
-    moment: "Juego parado",
-  },
-  {
-    key: "ee",
-    code: "EE",
-    corto: "Ejecutar",
-    label: "Externo · Estrecho",
-    detail: "Ejecución de acción (1v1)",
-    moment: "Participación",
-  },
-];
-
-/** «Control emocional (qué siento)» -> «Control emocional»: el nombre que se entiende sin la sigla. */
-const nombreLargo = (axis: { detail: string }) => axis.detail.replace(/\s*\(.*\)\s*$/, "");
 
 /* Por debajo de esto la media es una tendencia, no un diagnóstico. */
 const MUESTRA_MINIMA = 12;
 
 const SERIES_COLORS = ["#36DAFF", "#B66BFF", "#62E8FF", "#D17DFF"];
 
-/* Escala cromática compartida: el mismo valor se lee siempre con el mismo
-   color, tanto en los paneles como en la cabecera. */
-const SCALE = [
-  { min: 8.5, tone: "#3BEA9A", label: "ÉLITE" },
-  { min: 7.5, tone: "#36DAFF", label: "ALTA" },
-  { min: 6.5, tone: "#8D7CFF", label: "MEDIA" },
-  { min: 0, tone: "#FFB84D", label: "MEJORABLE" },
-];
 
 type GroupKey = "leftSide" | "defense" | "rightSide" | "midfield" | "strikers";
 
@@ -185,22 +126,6 @@ function parseCSV(text: string): Player[] {
       ee: num(r[5]),
     }))
     .filter((r) => r.jugador && !isHiddenPlayer(r.jugador));
-}
-
-function average(player: Player) {
-  return AXES.reduce((acc, axis) => acc + player[axis.key], 0) / AXES.length;
-}
-
-function bandFor(score: number) {
-  return SCALE.find((band) => score >= band.min) ?? SCALE[SCALE.length - 1];
-}
-
-function toneFor(score: number) {
-  return bandFor(score).tone;
-}
-
-function labelFor(score: number) {
-  return bandFor(score).label;
 }
 
 /* Comparación tolerante a acentos para el buscador de jugadores. */
@@ -370,10 +295,10 @@ export default function EmotionPage() {
                   </h1>
 
                   <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/50">
-                    Perfil atencional de cada jugador en las cuatro dimensiones
-                    del modelo, puntuadas de 0 a 10. Selecciona jugadores en
-                    cada línea para comparar sus perfiles; la línea discontinua
-                    es la media de la plantilla.
+                    El once de la pizarra táctica con su estado emocional: el
+                    aro es la media de las cuatro dimensiones (0 a 10) y la
+                    flecha, cómo ha cambiado. Pulsa un jugador para ver su
+                    perfil; más abajo se comparan los perfiles por línea.
                   </p>
                 </div>
 
@@ -412,6 +337,15 @@ export default function EmotionPage() {
                 </div>
               </div>
             </header>
+
+            {/* ------------------------------- El once de la pizarra (29/10/2026) */}
+            {!error && (
+              <CampoEmocional
+                rows={rows}
+                loading={loading}
+                teamAverage={teamAverage}
+              />
+            )}
 
             {/* ---------------------------------------------- Resumen */}
             <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
