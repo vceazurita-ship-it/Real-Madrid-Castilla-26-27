@@ -2665,11 +2665,17 @@ export default function MatchPreparation() {
                                   {d.titulo}{" "}
                                   <span className="text-[11px] text-white/45">· {sentido}</span>
                                   {/* El mismo cruce en las dos columnas: que no parezcan dos duelos distintos. */}
-                                  {lista === duelosClave.riesgo && duelosClave.ventaja.some((v) => v.clave === d.clave) && (
-                                    <span className="ml-1.5 inline-block rounded-md border border-white/15 px-1.5 text-[10.5px] text-white/60">
-                                      el mismo duelo, con su balón
-                                    </span>
-                                  )}
+                                  {lista === duelosClave.riesgo &&
+                                    (() => {
+                                      const otro = duelosClave.ventaja.find((v) => v.clave === d.clave);
+
+                                      return otro ? (
+                                        <span className="mt-0.5 block text-[11px] text-white/55">
+                                          Mismo duelo que en «Para buscar»: {otro.valor > 0 ? "+" : ""}
+                                          {otro.valor} con nuestro balón · {d.valor} con el suyo
+                                        </span>
+                                      ) : null;
+                                    })()}
                                   <span className="block text-[12px] text-white/50">
                                     {d.nuestros.join(" y ")} contra {d.suyos.join(" y ")}
                                   </span>

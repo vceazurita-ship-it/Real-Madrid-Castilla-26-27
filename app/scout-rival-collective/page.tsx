@@ -1302,7 +1302,7 @@ export default function ScoutRivalCollective() {
 
           {/* Las siglas del texto del analista, sólo las que salen (29/10/2026). */}
           {!modoEdicion && siglasUsadas.length > 0 && (
-            <details data-export-hide className="mt-10 rounded-2xl border border-white/10 bg-[#111827] px-5 py-3 text-sm text-white/70">
+            <details open data-export-hide className="mt-10 rounded-2xl border border-white/10 bg-[#111827] px-5 py-3 text-sm text-white/70">
               <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Siglas</summary>
               <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
                 {siglasUsadas.map((s) => (

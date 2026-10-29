@@ -779,7 +779,7 @@ export function VideosDelCanal({
             <input
               value={busca}
               onChange={(evento) => setBusca(evento.target.value)}
-              placeholder="Buscar en los títulos: «córner», «pérdida», un nombre…"
+              placeholder="Buscar: córner, pérdida, un nombre…"
               className="w-full rounded-xl border border-white/10 bg-white/[0.04] py-2 pl-9 pr-3 text-sm text-white outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
             />
           </div>

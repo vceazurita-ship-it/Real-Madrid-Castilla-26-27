@@ -229,9 +229,12 @@ export function esEtiquetaDebil(etiqueta: string) {
 export function tituloSoloRepite(titulo: string, jugador: string, equipo = "") {
   const fuera = new Set([...desnuda(jugador).split(" "), ...desnuda(equipo).split(" "), "n", "no", "num"]);
 
-  return !desnuda(titulo)
+  const resto = desnuda(titulo)
     .split(" ")
-    .some((palabra) => palabra.length >= 3 && /[a-z]/.test(palabra) && !fuera.has(palabra) && !RUIDO.has(palabra));
+    .filter((palabra) => palabra.length >= 3 && /[a-z]/.test(palabra) && !fuera.has(palabra) && !RUIDO.has(palabra));
+
+  /* «24 LUCA», «8 BLASSIS»: el dorsal y un apodo o una errata del nombre también es repetir (29/10/2026). */
+  return resto.length === 0 || (resto.length === 1 && dorsalDelTitulo(titulo) !== "");
 }
 
 /** «titular en 5 de 8 · 540 min». Vacío si no ha jugado: no se nombra lo que no hay. */
