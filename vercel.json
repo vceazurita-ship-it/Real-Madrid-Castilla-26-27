@@ -3,11 +3,11 @@
   "crons": [
     {
       "path": "/api/quiniela/aviso",
-      "schedule": "0 7 * * 5"
+      "schedule": "0 7 * * 3,4,5"
     },
     {
       "path": "/api/quiniela/aviso",
-      "schedule": "0 8 * * 5"
+      "schedule": "0 8 * * 3,4,5"
     }
   ]
 }

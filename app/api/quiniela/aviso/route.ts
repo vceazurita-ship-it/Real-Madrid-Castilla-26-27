@@ -111,8 +111,27 @@ function autorizado(request: NextRequest): Entrada {
  * ha entrado el cron, no de un dominio escrito a mano: el primero que se puso
  * no era el de la aplicación y el botón del correo daba 404.
  */
-function armaCorreo(jornada: number, viernes: string | null, origen: string) {
+function armaCorreo(
+  jornada: number,
+  viernes: string | null,
+  origen: string,
+  /* El recordatorio del miércoles y del jueves (29/10/2026): días que
+     faltan para el cierre y cuántos partidos le faltan a esa persona. */
+  recordatorio?: { dias: number; faltan: number },
+) {
   const partidos = partidosDe(jornada);
+
+  const cuando = recordatorio
+    ? recordatorio.dias === 1
+      ? `Mañana viernes a las ${HORA_CIERRE}:00`
+      : `El viernes a las ${HORA_CIERRE}:00`
+    : `Hoy a las ${HORA_CIERRE}:00`;
+
+  const falta = recordatorio
+    ? recordatorio.faltan === partidos.length
+      ? "Todavía no has hecho tu apuesta."
+      : `Te ${recordatorio.faltan === 1 ? "falta 1 partido" : `faltan ${recordatorio.faltan} partidos`} de ${partidos.length}.`
+    : "";
 
   const frase = fraseDe(jornada);
 
@@ -137,7 +156,7 @@ function armaCorreo(jornada: number, viernes: string | null, origen: string) {
           <p style="margin:0;font-size:10px;letter-spacing:2.4px;text-transform:uppercase;color:${ORO};">RMCF Castilla · Entre nosotros</p>
           <h1 style="margin:8px 0 0;font-size:22px;color:#ffffff;">La Quiniela · Jornada ${jornada}</h1>
           <p style="margin:10px 0 0;font-size:14px;line-height:1.55;color:#9aa4ae;">
-            Hoy a las <strong style="color:#ffffff;">${HORA_CIERRE}:00</strong> se cierra el plazo.
+            ${falta ? `<strong style="color:#ffffff;">${falta}</strong> ` : ""}${cuando.replace(`${HORA_CIERRE}:00`, `<strong style="color:#ffffff;">${HORA_CIERRE}:00</strong>`)} se cierra el plazo.
             Lo que no esté puesto para entonces cuenta como fallo, así que si te falta alguno, ahora es el momento.
           </p>
         </td></tr>
@@ -170,7 +189,8 @@ function armaCorreo(jornada: number, viernes: string | null, origen: string) {
   const texto = [
     `LA QUINIELA · JORNADA ${jornada}`,
     "",
-    `Hoy a las ${HORA_CIERRE}:00 se cierra el plazo. Lo que no esté puesto cuenta como fallo.`,
+    ...(falta ? [falta] : []),
+    `${cuando} se cierra el plazo. Lo que no esté puesto cuenta como fallo.`,
     "",
     `Los ${partidos.length} partidos:`,
     ...partidos.map((uno) => `  ${uno.local} - ${uno.visitante}`),
@@ -183,10 +203,88 @@ function armaCorreo(jornada: number, viernes: string | null, origen: string) {
   ].join("\n");
 
   return {
-    asunto: `Quiniela J${jornada}: hoy a las ${HORA_CIERRE}:00 se cierra`,
+    asunto: recordatorio
+      ? `Recordatorio · Quiniela J${jornada}: ${cuando.toLowerCase()} se cierra y te falta tu apuesta`
+      : `Quiniela J${jornada}: hoy a las ${HORA_CIERRE}:00 se cierra`,
     html,
     texto,
   };
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL RECORDATORIO DEL MIÉRCOLES Y DEL JUEVES                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Un correo por persona, sólo a quien le falta algún partido de la jornada
+ * (29/10/2026). Va uno a uno porque cada uno dice lo que le falta a él y
+ * nadie ve el correo de los demás. Se apunta `${jornada}-${dias}` en
+ * `recordadas` para que un reintento del cron no lo repita.
+ */
+async function recuerda(jornada: number, dias: number, origen: string, probar: boolean) {
+  const { data: cuentas } = await readDoc<DocumentoCuentas>(CLAVE_CUENTAS);
+  const { data: quiniela } = await readDoc<DocumentoQuiniela>(CLAVE_QUINIELA);
+
+  const doc = sinCastilla({ ...QUINIELA_VACIA, ...(quiniela ?? {}) });
+  const marca = `${jornada}-${dias}`;
+  const total = partidosDe(jornada).length;
+  const suyas = doc.jornadas[String(jornada)];
+
+  if (suyas?.cerradaEn) {
+    return NextResponse.json({ ok: true, mandado: false, motivo: `La jornada ${jornada} ya está cerrada.` });
+  }
+
+  const pendientes = Object.values(cuentas?.cuentas ?? {})
+    .filter((una) => una.correo)
+    .map((una) => ({
+      correo: una.correo,
+      faltan: total - (suyas?.pronosticos[una.slug] ?? []).filter(Boolean).length,
+    }))
+    .filter((una) => una.faltan > 0);
+
+  if (probar) {
+    const ejemplo = armaCorreo(jornada, viernesDe(jornada), origen, { dias, faltan: pendientes[0]?.faltan ?? total });
+
+    return NextResponse.json({
+      ok: true,
+      mandado: false,
+      probando: true,
+      jornada,
+      dias,
+      destinatarios: pendientes.length,
+      asunto: ejemplo.asunto,
+      texto: ejemplo.texto,
+    });
+  }
+
+  if ((doc.recordadas ?? []).includes(marca)) {
+    return NextResponse.json({ ok: true, mandado: false, motivo: `El recordatorio ${marca} ya salió.` });
+  }
+
+  let mandados = 0;
+
+  for (const una of pendientes) {
+    try {
+      await envia({ para: [una.correo], ...armaCorreo(jornada, viernesDe(jornada), origen, { dias, faltan: una.faltan }) });
+      mandados += 1;
+    } catch (error) {
+      console.error("[quiniela] recordatorio a", una.correo, error);
+    }
+  }
+
+  /* Releer antes de apuntar, por lo mismo que el aviso del viernes. */
+  const { data: reciente } = await readDoc<DocumentoQuiniela>(CLAVE_QUINIELA);
+
+  if (reciente) {
+    const fresco = sinCastilla({ ...QUINIELA_VACIA, ...reciente });
+
+    await writeDoc(CLAVE_QUINIELA, "quiniela", {
+      ...fresco,
+      recordadas: [...new Set([...(fresco.recordadas ?? []), marca])],
+    });
+  }
+
+  return NextResponse.json({ ok: true, mandado: mandados > 0, jornada, dias, destinatarios: mandados });
 }
 
 /* ------------------------------------------------------------------ */
@@ -213,26 +311,40 @@ export async function GET(request: NextRequest) {
 
   const ahora = enMadrid(new Date());
 
-  /* Sólo los viernes, y sólo a la hora del aviso. */
-  const aHora = ahora.diaSemana === 5 && ahora.hora === HORA_AVISO;
+  /*
+  | Viernes: el aviso a todos. Miércoles y jueves (29/10/2026, lo pidió el
+  | analista): un recordatorio, dos días y un día antes del cierre, sólo a
+  | quien no ha completado su apuesta. `?dias=2|1` con `?probar=1` lo enseña.
+  */
+  const DIAS_ANTES: Record<number, number> = { 3: 2, 4: 1, 5: 0 };
+  const pedidos = Number(request.nextUrl.searchParams.get("dias"));
+  const dias = probar && [0, 1, 2].includes(pedidos) ? pedidos : DIAS_ANTES[ahora.diaSemana];
+
+  const aHora = dias !== undefined && ahora.hora === HORA_AVISO;
 
   if (!aHora && !probar) {
     return NextResponse.json({
       ok: true,
       mandado: false,
-      motivo: `En Madrid son las ${ahora.hora}:${String(ahora.minuto).padStart(2, "0")} del día ${ahora.diaSemana}. El aviso sale los viernes a las ${HORA_AVISO}:00.`,
+      motivo: `En Madrid son las ${ahora.hora}:${String(ahora.minuto).padStart(2, "0")} del día ${ahora.diaSemana}. El aviso sale miércoles, jueves y viernes a las ${HORA_AVISO}:00.`,
     });
   }
 
+  /* El viernes del cierre: hoy más los días que faltan. */
+  const [a, m, d] = ahora.fecha.split("-").map(Number);
+  const fechaCierre = new Date(Date.UTC(a, m - 1, d + (dias ?? 0))).toISOString().slice(0, 10);
+
   const jornada = probar
-    ? (jornadaQueCierraEl(ahora.fecha, JORNADAS) ?? JORNADAS[0])
-    : jornadaQueCierraEl(ahora.fecha, JORNADAS);
+    ? (jornadaQueCierraEl(fechaCierre, JORNADAS) ?? JORNADAS[0])
+    : jornadaQueCierraEl(fechaCierre, JORNADAS);
+
+  if (jornada && dias) return recuerda(jornada, dias, request.nextUrl.origin, probar);
 
   if (!jornada) {
     return NextResponse.json({
       ok: true,
       mandado: false,
-      motivo: `Ningún viernes de jornada cae en ${ahora.fecha}.`,
+      motivo: `Ningún viernes de jornada cae en ${fechaCierre}.`,
     });
   }
 

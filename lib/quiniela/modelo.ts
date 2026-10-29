@@ -132,6 +132,8 @@ export type DocumentoQuiniela = {
    * el mismo aviso dos veces.
    */
   avisadas?: number[];
+  /** Los recordatorios del miércoles y del jueves ya mandados: `jornada-días`. */
+  recordadas?: string[];
 };
 
 export const QUINIELA_VACIA: DocumentoQuiniela = { jornadas: {}, jugadores: [] };
