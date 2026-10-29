@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ClipboardCopy, FolderOpen, Keyboard, MessageCircle, NotebookPen, RotateCcw, Trash2 } from "lucide-react";
+import { ClipboardCopy, FolderOpen, Keyboard, Maximize2, MessageCircle, Minimize2, NotebookPen, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -145,6 +145,8 @@ const ATAJOS: [string, string][] = [
   ["Enter", "Nota"],
   ["J / L", "Clip anterior / siguiente"],
   ["Q / W", "Carpeta anterior / siguiente"],
+  ["E", "Siguiente elegido"],
+  ["F", "Pantalla completa (con las etiquetas)"],
   ["R", "Revisar elegidos"],
   ["Tab (mantener)", "3× mientras lo pulsas"],
   ["?", "Todos los atajos"],
@@ -327,6 +329,53 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
     }
   };
 
+  /*
+  | Siguiente elegido (29/10/2026, lo pidió el analista): salta al próximo
+  | clip «Me lo quedo» de esta carpeta y, si no hay más, de las siguientes.
+  */
+  const siguienteElegido = () => {
+    if (!abierta) return;
+
+    const orden = CARPETAS.filter((c) => abierta.porCarpeta.get(c.key)?.length);
+    const desdeCarpeta = Math.max(0, orden.findIndex((c) => c.key === carpeta));
+
+    for (let paso = 0; paso <= orden.length; paso++) {
+      const c = orden[(desdeCarpeta + paso) % orden.length];
+      const suya = (abierta.porCarpeta.get(c.key) ?? []).filter((a) => !doc.clips[idClip(c.key, a.n)]?.fuera);
+      const desde = paso === 0 ? indice + 1 : 0;
+      const i = suya.findIndex((a, j) => j >= desde && doc.clips[idClip(c.key, a.n)]?.estado === "elegido");
+
+      if (i >= 0) {
+        setCarpeta(c.key);
+        setIndice(i);
+        return;
+      }
+    }
+
+    toast.info("No hay más clips elegidos");
+  };
+
+  /*
+  | Pantalla completa CON la columna de etiquetas (29/10/2026): la del
+  | <video> deja fuera las etiquetas y los botones; se pone en pantalla
+  | completa el visor entero y la cola se esconde para dar sitio al vídeo.
+  */
+  const visor = useRef<HTMLDivElement>(null);
+  const [completa, setCompleta] = useState(false);
+
+  useEffect(() => {
+    const cambio = () => setCompleta(Boolean(visor.current) && document.fullscreenElement === visor.current);
+
+    document.addEventListener("fullscreenchange", cambio);
+
+    return () => document.removeEventListener("fullscreenchange", cambio);
+  }, []);
+
+  const alternaCompleta = () => {
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else void visor.current?.requestFullscreen?.().catch(() => toast.error("Este navegador no deja poner la pantalla completa"));
+  };
+
   /* ------------------------------ teclado ------------------------------ */
 
   useEffect(() => {
@@ -390,6 +439,8 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
         l: () => setIndice((i) => Math.min(lista.length - 1, i + 1)),
         q: () => cambiaCarpeta(-1),
         w: () => cambiaCarpeta(1),
+        e: siguienteElegido,
+        f: alternaCompleta,
         r: () => setRevision((r) => !r),
         ...Object.fromEntries(VELOCIDADES.map((x, i) => [String(i + 1), () => setVelocidad(x)])),
       };
@@ -779,9 +830,12 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
           cambia={cambia}
         />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)_320px]">
+        <div
+          ref={visor}
+          className={completa ? "grid h-screen grid-cols-[minmax(0,1fr)_340px] gap-4 overflow-hidden bg-[#0B0F14] p-4" : "grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)_320px]"}
+        >
           {/* Cola de la carpeta */}
-          <ol className="max-h-[70vh] overflow-auto rounded-2xl border border-white/10 bg-white/[0.02] p-2 text-sm">
+          <ol className={`${completa ? "hidden" : ""} max-h-[70vh] overflow-auto rounded-2xl border border-white/10 bg-white/[0.02] p-2 text-sm`}>
             {lista.map((a, i) => {
               const e = estadoDe(idClip(carpeta, a.n));
               return (
@@ -801,7 +855,7 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
           </ol>
 
           {/* El vídeo */}
-          <div className="min-w-0 space-y-2">
+          <div className={`min-w-0 space-y-2 ${completa ? "overflow-auto" : ""}`}>
             <div className="relative overflow-hidden rounded-2xl bg-black">
               {url && (
                 <video
@@ -814,7 +868,7 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
                   playsInline
                   controls
                   onError={() => setFallo("Este clip no se puede ver en el navegador (códec). Ábrelo fuera o expórtalo en H.264.")}
-                  className="aspect-video w-full"
+                  className={completa ? "h-[calc(100vh-200px)] w-full object-contain" : "aspect-video w-full"}
                 />
               )}
               {actual && est && (
@@ -853,6 +907,22 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
             {fallo && <p className="text-sm text-amber-300">{fallo}</p>}
             {est?.nota && <p className="text-sm text-white/85">Nota: {est.nota}</p>}
             {est?.marca !== undefined && <p className="text-xs text-white/50">Momento clave en {String(est.marca).replace(".", ",")} s (N para ir)</p>}
+
+            {/* Moverse sin teclado: clip a clip, de elegido en elegido y pantalla completa. */}
+            <div className="flex flex-wrap gap-2 text-sm">
+              <button type="button" onClick={() => setIndice((i) => Math.max(0, i - 1))} disabled={indice <= 0} className="rounded-lg border border-white/15 px-3 py-1.5 text-white/80 disabled:opacity-40">
+                J · ← Anterior
+              </button>
+              <button type="button" onClick={() => setIndice((i) => Math.min(lista.length - 1, i + 1))} disabled={indice >= lista.length - 1} className="rounded-lg border border-white/15 px-3 py-1.5 text-white/80 disabled:opacity-40">
+                L · Siguiente →
+              </button>
+              <button type="button" onClick={siguienteElegido} className="rounded-lg border border-emerald-500/50 px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10">
+                E · Siguiente elegido →
+              </button>
+              <button type="button" onClick={alternaCompleta} className="ml-auto flex items-center gap-1.5 rounded-lg border border-[#D8B45A]/50 px-3 py-1.5 text-[#D8B45A] hover:bg-[#D8B45A]/10">
+                {completa ? <Minimize2 size={14} /> : <Maximize2 size={14} />} F · {completa ? "Salir de pantalla completa" : "Pantalla completa"}
+              </button>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => decide("elegido")} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white">
@@ -893,7 +963,7 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
           </div>
 
           {/* Etiquetas de un toque */}
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
+          <div className={`${completa ? "overflow-auto" : ""} space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3`}>
             {/* Dorsales: «saca el 11, remata el 5» (experto de fútbol). */}
             <div className="grid grid-cols-2 gap-2">
               {(["saca", "remata"] as const).map((campo) => (
