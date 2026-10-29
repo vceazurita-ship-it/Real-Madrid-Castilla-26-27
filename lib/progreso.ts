@@ -85,7 +85,7 @@ export const ETAPAS: Record<Tarea, Etapa[]> = {
     /* 17/10/2026: nada se baja entero; cada parte se pide a Hudl y se borra tras mirarla. */
     { nombre: "Buscar el vídeo", minutos: 1, marca: /^PASO:\s*1\// },
     { nombre: "Listas de Hudl", minutos: 0.5, marca: /^PASO:\s*2\// },
-    { nombre: "Parte a parte: copia ligera y la IA", minutos: 20, marca: /^PASO:\s*3\// },
+    { nombre: "Parte a parte: copia ligera y análisis", minutos: 20, marca: /^PASO:\s*3\// },
     { nombre: "Juntar lo que ha visto", minutos: 0.1, marca: /^PASO:\s*4\// },
     { nombre: "Un clip de cada", minutos: 2, marca: /^PASO:\s*5\// },
   ],

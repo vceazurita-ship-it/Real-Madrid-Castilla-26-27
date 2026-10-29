@@ -159,8 +159,8 @@ export type Motor = {
 export const MOTORES: Motor[] = [
   {
     key: "gemini",
-    label: "Gemini 2.5 Flash",
-    pista: "El que ya usa la app para el dictado. Plan gratuito: sin coste.",
+    label: "Motor gratuito",
+    pista: "El que ya usa la app para el dictado. Sin coste.",
     proveedor: "google",
     modelo: "gemini-2.5-flash",
     entrada: 0,
@@ -169,8 +169,8 @@ export const MOTORES: Motor[] = [
   },
   {
     key: "astra",
-    label: "GPT-6 Astra",
-    pista: "El de OpenAI, del 3 de septiembre de 2026. Se paga por uso: unos 14 céntimos por borrador.",
+    label: "Motor de pago",
+    pista: "Se paga por uso: unos 14 céntimos por borrador.",
     proveedor: "openai",
     modelo: "gpt-6-astra",
     entrada: 10,

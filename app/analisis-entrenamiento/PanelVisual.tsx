@@ -211,7 +211,7 @@ export function PanelVisual({ dias, fecha, onValida, onIrAlDia }: { dias: DiaEnt
       </Bloque>
 
       {/* 4. Cuándo pasa en la sesión */}
-      <Bloque titulo="Cuándo pasa en la sesión" nota="Las acciones por minuto del vídeo: arriba, cuántas hay en cada tramo; debajo, cada objetivo en su calle. Relleno = validada; hueco = propuesta de la IA.">
+      <Bloque titulo="Cuándo pasa en la sesión" nota="Las acciones por minuto del vídeo: arriba, cuántas hay en cada tramo; debajo, cada objetivo en su calle. Relleno = validada; hueco = propuesta automática.">
         <div className="space-y-3">
           <div className="flex h-20 items-end gap-[2px]" role="group" aria-label="Acciones por tramo de la sesión">
             {tramos.map((t) =>
@@ -257,7 +257,7 @@ export function PanelVisual({ dias, fecha, onValida, onIrAlDia }: { dias: DiaEnt
                           type="button"
                           onClick={() => abre(`${f.numero}. ${corto(f.objetivo.objetivo)}`, ps, undefined, claveDe(p))}
                           title={`${mmss(p.accion.inicio)} · ${v === "correcta" ? "correcta" : "mejorable"}${p.accion.clip ? " · con clip" : ""}`}
-                          aria-label={`Minuto ${mmss(p.accion.inicio)}, ${v === "correcta" ? "correcta" : "mejorable"}${validada ? ", validada" : ", propuesta de la IA"}${p.accion.clip ? ", con clip" : ""}`}
+                          aria-label={`Minuto ${mmss(p.accion.inicio)}, ${v === "correcta" ? "correcta" : "mejorable"}${validada ? ", validada" : ", propuesta automática"}${p.accion.clip ? ", con clip" : ""}`}
                           className={`absolute top-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full hover:scale-125 ${FOCO}`}
                           style={{ left: `${Math.min(100, (100 * p.accion.inicio) / duracion)}%` }}
                         >
@@ -309,7 +309,7 @@ export function PanelVisual({ dias, fecha, onValida, onIrAlDia }: { dias: DiaEnt
             </Bloque>
           ) : null}
           {porJugador.length >= 2 ? (
-            <Bloque titulo="Por jugador" nota="Con varios jugadores en un objetivo, cuenta la acción de quien nombra la IA.">
+            <Bloque titulo="Por jugador" nota="Con varios jugadores en un objetivo, cuenta la acción de quien se nombra en el vídeo.">
               <div className="space-y-3">
                 {porJugador.map((j) => (
                   <FilaBarra

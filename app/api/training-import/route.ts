@@ -43,7 +43,7 @@ async function generarConReintento(config: GenerateContentParameters) {
     }
   }
 
-  throw new Error("Gemini no disponible.");
+  throw new Error("Análisis no disponible.");
 }
 export async function POST(req: Request) {
   try {

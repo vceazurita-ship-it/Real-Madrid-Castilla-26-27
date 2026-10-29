@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
       const parte = r.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
 
-      if (!parte?.inlineData?.data) throw new Error("Gemini no ha devuelto audio.");
+      if (!parte?.inlineData?.data) throw new Error("La voz no ha devuelto audio.");
 
       const frecuencia = Number(parte.inlineData.mimeType?.match(/rate=(\d+)/)?.[1]) || FRECUENCIA;
       const bytes = new Uint8Array(Buffer.from(parte.inlineData.data, "base64"));
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
   const estado = (ultimo as { status?: number })?.status;
 
   return NextResponse.json(
-    { ok: false, error: estado === 429 ? "La cuota gratuita de voz de Gemini está agotada por ahora; el vídeo sale sin voz." : "La IA de voz no ha contestado; el vídeo sale sin voz." },
+    { ok: false, error: estado === 429 ? "La cuota gratuita de voz está agotada por ahora; el vídeo sale sin voz." : "La voz no ha contestado; el vídeo sale sin voz." },
     { status: 502 },
   );
 }

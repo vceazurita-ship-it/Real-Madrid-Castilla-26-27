@@ -160,7 +160,7 @@ export function ObjetivoEditor({
       </div>
 
       {!objetivo.reconocer?.trim() && objetivo.objetivo.trim() ? (
-        <p className="text-[11px] text-white/45">Consejo: con peto o dorsal la IA reconoce al jugador; sin eso, en cámara lejana, se le escapan muchas acciones.</p>
+        <p className="text-[11px] text-white/45">Consejo: con peto o dorsal se reconoce al jugador; sin eso, en cámara lejana, se le escapan muchas acciones.</p>
       ) : null}
     </div>
   );

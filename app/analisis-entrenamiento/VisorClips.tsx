@@ -141,7 +141,7 @@ export function VisorClips({
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: v === "correcta" ? COLOR_BIEN : v === "mejorable" ? COLOR_MEJORABLE : "rgb(var(--rmcf-ink-rgb) / .3)" }} aria-hidden />
                 {v === null ? "Descartada" : v === "correcta" ? "Correcta" : "Mejorable"}
               </span>
-              <span className="text-white/55">{val ? (val !== "descartada" && val !== actual.accion.veredicto ? "Validada (cambiada)" : "Validada") : "Propuesta de la IA"}</span>
+              <span className="text-white/55">{val ? (val !== "descartada" && val !== actual.accion.veredicto ? "Validada (cambiada)" : "Validada") : "Propuesta automática"}</span>
               <span className="tabular-nums text-white/55">
                 {actual.fecha !== fechaEditable ? `${actual.fecha.split("-").reverse().slice(0, 2).join("/")} · ` : ""}
                 {mmss(actual.accion.inicio)}–{mmss(actual.accion.fin)}

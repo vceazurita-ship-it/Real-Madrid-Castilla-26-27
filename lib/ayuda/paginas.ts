@@ -1014,11 +1014,11 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Las cuentas",
         filas: [
           { que: "9 de 14 correctas", es: "Correctas entre las acciones que cuentan (todas menos las descartadas)" },
-          { que: "(11 validadas)", es: "Cuántas de esas ha mirado alguien. Las demás cuentan con lo que propuso la IA" },
+          { que: "(11 validadas)", es: "Cuántas de esas ha mirado alguien. Las demás cuentan con lo que se propuso solo" },
           { que: "Acierto", es: "Porcentaje de correctas", cuenta: "correctas ÷ acciones que cuentan; sólo con 8 o más" },
           { que: "Tendencia", es: "Menos de 8 acciones: se da la cuenta, no el porcentaje" },
           { que: "Sesión anterior", es: "El mismo objetivo (mismo texto) el último día analizado", cuenta: "mejora o baja = 5 puntos o más de diferencia" },
-          { que: "Borde continuo / discontinuo", es: "Acción validada / propuesta de la IA sin validar" },
+          { que: "Borde continuo / discontinuo", es: "Acción validada / propuesta automática sin validar" },
         ],
       },
       {
@@ -1031,7 +1031,7 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: [
-      "Con varios jugadores en un objetivo, a cada uno sólo se le cuentan las acciones en las que la IA le nombra.",
+      "Con varios jugadores en un objetivo, a cada uno sólo se le cuentan las acciones en las que se le nombra.",
       "Para ver la evolución, el objetivo tiene que llamarse igual cada día: «Copiar los del último día» lo deja igual.",
       "Valida antes de mandar «Tu sesión»: lo no validado es una propuesta.",
     ],

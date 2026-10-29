@@ -115,6 +115,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.warn("[video-guion] Gemini no ha contestado", error);
 
-    return NextResponse.json({ ok: false, error: "La IA no ha contestado; se usa el texto original." }, { status: 502 });
+    return NextResponse.json({ ok: false, error: "El análisis no ha contestado; se usa el texto original." }, { status: 502 });
   }
 }

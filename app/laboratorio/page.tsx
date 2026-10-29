@@ -215,13 +215,11 @@ export default function LaboratorioPage() {
             <div className="mt-5">
               <Notice title="Qué se puede y qué no, sin adornos">
                 <p>
-                  <strong className="text-white/75">GPT-6 Astra</strong> (OpenAI,
-                  3 de septiembre de 2026) está disponible por API y se puede
-                  usar aquí, pero <strong className="text-white/75">no es
-                  gratis</strong>: se cobra por uso —10 $ el millón de tokens de
-                  entrada y 50 $ el de salida—, o sea unos 14 céntimos por
-                  borrador. No hace falta suscripción nueva: sale de la clave de
-                  OpenAI que el proyecto ya tiene.
+                  El <strong className="text-white/75">motor de pago</strong>{" "}
+                  está disponible y se puede usar aquí, pero{" "}
+                  <strong className="text-white/75">no es gratis</strong>: se
+                  cobra por uso, unos 14 céntimos por borrador. No hace falta
+                  suscripción nueva: sale de la cuenta que el proyecto ya tiene.
                 </p>
 
                 <p className="mt-2">
@@ -234,10 +232,10 @@ export default function LaboratorioPage() {
 
                 <p className="mt-2">
                   Por eso la prueba abre con{" "}
-                  <strong className="text-white/75">Gemini 2.5 Flash</strong>,
-                  que ya usa esta app para el dictado por voz y cuyo plan
-                  gratuito cubre de sobra unos cuantos borradores por semana.
-                  Astra está ahí al lado para comparar.
+                  <strong className="text-white/75">motor gratuito</strong>,
+                  que ya usa esta app para el dictado por voz y cubre de sobra
+                  unos cuantos borradores por semana. El de pago está ahí al
+                  lado para comparar.
                 </p>
               </Notice>
             </div>

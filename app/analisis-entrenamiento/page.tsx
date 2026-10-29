@@ -145,7 +145,7 @@ function queHacer(resultado: string) {
 
   if (/sesi[oó]n de hudl|login/i.test(resultado)) return { titulo: "La sesión de Hudl del ordenador del club ha caducado", texto: "Avisa al administrador para que vuelva a entrar en Hudl en ese ordenador; después, vuelve a pedir el análisis." };
 
-  if (/cuota|quota|429|gemini/i.test(resultado)) return { titulo: "La IA no ha contestado", texto: "Suele ser la cuota del día. Vuelve a pedirlo dentro de un rato." };
+  if (/cuota|quota|429|gemini/i.test(resultado)) return { titulo: "El análisis no ha contestado", texto: "Suele ser la cuota del día. Vuelve a pedirlo dentro de un rato." };
 
   return { titulo: "El análisis no ha salido", texto: "Vuelve a pedirlo; si se repite, avisa al administrador con el detalle de abajo." };
 }
@@ -378,7 +378,7 @@ export default function AnalisisEntrenamientoPage() {
     }
 
     if (sinJugador.length) {
-      toast.error(sinJugador.length === 1 ? "Un objetivo no tiene jugador" : `${sinJugador.length} objetivos no tienen jugador`, { description: "Elige a quién mira la IA en cada uno." });
+      toast.error(sinJugador.length === 1 ? "Un objetivo no tiene jugador" : `${sinJugador.length} objetivos no tienen jugador`, { description: "Elige a quién se mira en cada uno." });
 
       return;
     }
@@ -547,7 +547,7 @@ export default function AnalisisEntrenamientoPage() {
 
                 <Explicativo>
                   <p className="text-xs text-white/50">
-                    El vídeo sale de la cámara táctica si hay una grabación de ese día en la carpeta SESIONES del ordenador del club; si no, del entrenamiento subido a Hudl con la fecha en el título («16102026 RM CASTILLA…»). La IA propone cada acción y su veredicto; se corta un clip de ejemplo correcto y otro mejorable por objetivo. Lo que valides aquí manda en los números.
+                    El vídeo sale de la cámara táctica si hay una grabación de ese día en la carpeta SESIONES del ordenador del club; si no, del entrenamiento subido a Hudl con la fecha en el título («16102026 RM CASTILLA…»). Cada acción y su veredicto se proponen solos; se corta un clip de ejemplo correcto y otro mejorable por objetivo. Lo que valides aquí manda en los números.
                   </p>
                 </Explicativo>
 
@@ -708,7 +708,7 @@ export default function AnalisisEntrenamientoPage() {
                     <p className="text-xs text-white/60">
                       {pctDia !== null ? `Acierto del día ${pctDia} % · ` : ""}
                       {cuentanDia ? `${cuantas.correcta} de ${cuentanDia} correctas · ${validadasDia === cuentanDia ? "todas validadas" : `${validadasDia} validadas`}` : "Ninguna acción cuenta"}
-                      {cuantas["sin-validar"] ? ` · ${cuantas["sin-validar"]} propuestas por la IA sin validar: cuentan con su veredicto hasta que las valides` : ""}
+                      {cuantas["sin-validar"] ? ` · ${cuantas["sin-validar"]} propuestas automáticas sin validar: cuentan con su veredicto hasta que las valides` : ""}
                       {cuentanDia && cuentanDia < MINIMO_PORCENTAJE ? ` · con menos de ${MINIMO_PORCENTAJE} acciones no se da porcentaje` : ""}
                     </p>
 
@@ -716,7 +716,7 @@ export default function AnalisisEntrenamientoPage() {
 
                     {vivas.length === 0 ? (
                       <Notice tone="warn" title="El vídeo no ha dado ninguna acción">
-                        Lo normal es que la IA no reconozca a los jugadores: añade su peto o su dorsal en «Cómo reconocerlo» y vuelve a analizar.
+                        Lo normal es que el análisis no reconozca a los jugadores: añade su peto o su dorsal en «Cómo reconocerlo» y vuelve a analizar.
                       </Notice>
                     ) : cuantas["con-clip"] === 0 ? (
                       <Notice title="Este análisis no trae clips">
@@ -832,15 +832,15 @@ export default function AnalisisEntrenamientoPage() {
                                   </span>
                                 ) : null}
                                 {pendientes > 0 && (
-                                  <Button icon={CheckCheck} onClick={() => validaResto(o.id)} title="Las que quedan sin validar se dan por buenas con el veredicto de la IA">
-                                    Validar las {pendientes} que quedan como dice la IA
+                                  <Button icon={CheckCheck} onClick={() => validaResto(o.id)} title="Las que quedan sin validar se dan por buenas con el veredicto propuesto">
+                                    Validar las {pendientes} que quedan como se propone
                                   </Button>
                                 )}
                               </div>
 
                               {suyas.length === 0 ? (
                                 <p className="text-sm text-white/60">
-                                  {c.propuestas ? "Nada con este filtro." : "El vídeo no ha dado acciones de este objetivo. Lo normal es que la IA no reconozca al jugador: añade su peto o dorsal en «Cómo reconocerlo» y vuelve a analizar."}
+                                  {c.propuestas ? "Nada con este filtro." : "El vídeo no ha dado acciones de este objetivo. Lo normal es que el análisis no reconozca al jugador: añade su peto o dorsal en «Cómo reconocerlo» y vuelve a analizar."}
                                 </p>
                               ) : (
                                 <ul className="grid gap-3 lg:grid-cols-2">
@@ -881,7 +881,7 @@ export default function AnalisisEntrenamientoPage() {
                                               <Check size={12} aria-hidden /> Validada{val !== "descartada" && val !== a.veredicto ? " (cambiada)" : ""}
                                             </span>
                                           ) : (
-                                            <span className="rounded-md border border-dashed border-white/20 px-1.5 py-0.5 text-white/55">Propuesta de la IA</span>
+                                            <span className="rounded-md border border-dashed border-white/20 px-1.5 py-0.5 text-white/55">Propuesta automática</span>
                                           )}
                                           {a.jugador ? <span className="min-w-0 truncate text-white/50">{a.jugador}</span> : null}
                                         </div>

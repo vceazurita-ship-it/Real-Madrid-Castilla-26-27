@@ -149,7 +149,7 @@ function Borrador({
 
   return (
     <div className="min-w-0 space-y-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
-      {!p.conPlantilla ? <p className="text-[11px] text-white/55">Esta consigna no tiene plantilla: escribe qué es correcto y qué es mejorable para que la IA pueda medirla.</p> : null}
+      {!p.conPlantilla ? <p className="text-[11px] text-white/55">Esta consigna no tiene plantilla: escribe qué es correcto y qué es mejorable para poder medirla.</p> : null}
 
       <label className="block min-w-0">
         <span className={ETIQUETA}>Qué se busca</span>

@@ -4,7 +4,7 @@ export function AIInsightsPanel() {
   return (
     <div className="mt-6 rounded-xl border bg-card p-4">
       <h3 className="text-lg font-semibold">
-        ✨ Análisis IA
+        ✨ Análisis automático
       </h3>
 
       <p className="mt-2 text-sm text-muted-foreground">
