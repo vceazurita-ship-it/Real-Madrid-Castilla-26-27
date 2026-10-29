@@ -18,7 +18,7 @@ import type { RatingsSeason } from "@/lib/ratings/types";
 import { dorsalDe } from "@/lib/dorsales";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { ALMACEN_VACIO, type AlmacenEquipos } from "@/lib/sesion-equipos/modelo";
-import { SESIONES_DESDE_TEXTO, resumenDeSesiones, type ResumenSesiones, type SesionesDeJugador } from "@/lib/sesion-equipos/estadistica";
+import { SESIONES_CONTADAS_DESDE, SESIONES_DESDE_TEXTO, resumenDeSesiones, type ResumenSesiones, type SesionesDeJugador } from "@/lib/sesion-equipos/estadistica";
 
 import {
   AlertTriangle,
@@ -707,9 +707,12 @@ export default function DashboardPlantilla() {
   /* Evolución: nº de registros por fecha, ordenado cronológicamente. */
   const evolutionData = useMemo(() => {
     const map: Record<string, number> = {};
+    /* Desde el 21/10/2026 (29/10/2026, lo pidió el analista): antes los
+       entrenos no se registraban bien y la curva saldría falseada. */
+    const desde = parseFecha(SESIONES_CONTADAS_DESDE);
 
     estadoRows.forEach((row) => {
-      if (!row.FECHA) return;
+      if (!row.FECHA || parseFecha(row.FECHA) < desde) return;
       map[row.FECHA] = (map[row.FECHA] ?? 0) + 1;
     });
 
@@ -1520,7 +1523,7 @@ export default function DashboardPlantilla() {
                     {vista === "evolucion" && (
                     <ChartCard
                       title="Evolución de registros"
-                      subtitle="Controles de estado registrados por fecha"
+                      subtitle={`Controles de estado registrados por fecha, ${SESIONES_DESDE_TEXTO}`}
                       lectura={
                         <LecturaGrafico
                           serie={evolutionData.map((punto) => ({

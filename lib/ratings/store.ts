@@ -24,6 +24,34 @@ function objectPath(season: string) {
   return `${season}.json`;
 }
 
+/*
+| Notas guardadas con la numeración vieja (29/10/2026). Las de agosto y
+| principios de septiembre llevan a Óscar Nassei como JUG-52 y a Sergio
+| Martínez como JUG-53; la hoja los renumeró a 49 y 50 y dio el 52 a Hugo de
+| Llanos (alta del 24/10), que heredaba las notas de Óscar sin haber jugado.
+| Un registro con esos números anterior al alta de Hugo es del jugador viejo.
+*/
+const ALTA_HUGO = "2026-10-24";
+const NUMERACION_VIEJA: Record<string, string> = { "JUG-52": "JUG-49", "JUG-53": "JUG-50" };
+
+function conIdsVigentes(matches: RatingsSeason["matches"]): RatingsSeason["matches"] {
+  return Object.fromEntries(
+    Object.entries(matches).map(([id, record]) => {
+      if (!record?.players || !(String(record.match?.date ?? "") < ALTA_HUGO)) return [id, record];
+
+      const players = { ...record.players };
+
+      for (const [viejo, nuevo] of Object.entries(NUMERACION_VIEJA)) {
+        if (!players[viejo] || players[nuevo]) continue;
+        players[nuevo] = { ...players[viejo], playerId: nuevo };
+        delete players[viejo];
+      }
+
+      return [id, { ...record, players }];
+    })
+  );
+}
+
 function normalize(payload: unknown, season: string): RatingsSeason {
   const value = payload as Partial<RatingsSeason> | null;
 
@@ -33,7 +61,7 @@ function normalize(payload: unknown, season: string): RatingsSeason {
 
   return {
     season,
-    matches: value.matches,
+    matches: conIdsVigentes(value.matches),
     updatedAt: value.updatedAt ?? "",
     ocultos: Array.isArray(value.ocultos) ? value.ocultos.map(String) : [],
   };
