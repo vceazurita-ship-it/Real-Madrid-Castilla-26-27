@@ -221,6 +221,7 @@ import {
   TrendingUp,
   UserRound,
   Video,
+  MoreHorizontal,
   Wand2,
   Waypoints,
   Wind,
@@ -1363,6 +1364,8 @@ export default function RivalPlayersPage() {
   /* Con el pop-up abierto, lo que se está preparando es el documento. */
   const [preparandoPdf, setPreparandoPdf] = useState(false);
   const [exportarAbierto, setExportarAbierto] = useState(false);
+  /* 29/10/2026: menú «Más» del campograma, sólo en el móvil. */
+  const [masAbierto, setMasAbierto] = useState(false);
 
   /* El PDF sale con el tema con el que se está viendo la plataforma: en modo
      día, sobre papel blanco; en modo noche, oscuro como la pantalla. */
@@ -4573,7 +4576,7 @@ export default function RivalPlayersPage() {
                                 title={`El ${once.doc.dibujo} lo ha elegido una persona. El que más repite esta temporada es el ${lecturaTemporada.estructura} (${lecturaTemporada.alineaciones} ${
                                   lecturaTemporada.alineaciones === 1 ? "alineación" : "alineaciones"
                                 } leídas). Pulsa para volver a él.`}
-                                className="flex items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-white/70 transition hover:border-[#C8A96B] hover:text-white"
+                                className="hidden items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-white/70 transition hover:border-[#C8A96B] hover:text-white sm:flex"
                               >
                                 <RotateCcw size={11} aria-hidden />
                                 Suele jugar {lecturaTemporada.dibujo} ({lecturaTemporada.veces} de {lecturaTemporada.alineaciones})
@@ -4627,7 +4630,7 @@ export default function RivalPlayersPage() {
                               } colocado${
                                 puestosAMano === 1 ? "" : "s"
                               } a mano. Pulsa para que vuelvan a colocarse solos.`}
-                              className="flex items-center gap-1 rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 font-semibold text-white/70 transition hover:border-white/30 hover:text-white sm:px-2 sm:py-0.5"
+                              className="hidden items-center gap-1 rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 font-semibold text-white/70 transition hover:border-white/30 hover:text-white sm:flex sm:px-2 sm:py-0.5"
                             >
                               <Hand size={11} />
                               {puestosAMano}
@@ -4689,7 +4692,7 @@ export default function RivalPlayersPage() {
                               }}
                               disabled={sugiriendo || exportando}
                               title={`Proponer el once de ${equipoDelOnce} con los últimos onces que ha sacado — después se cambia a mano`}
-                              className="flex items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:px-2 sm:py-0.5"
+                              className="hidden items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-50 sm:flex sm:px-2 sm:py-0.5"
                             >
                               {sugiriendo ? (
                                 <Loader2 size={11} className="animate-spin" />
@@ -4867,10 +4870,129 @@ export default function RivalPlayersPage() {
                               }}
                               title="Vaciar el once probable"
                               aria-label="Vaciar el once probable"
-                              className="rounded-full border border-white/10 p-2.5 text-white/35 transition hover:border-white/30 hover:text-white sm:p-1"
+                              className="hidden rounded-full border border-white/10 p-2.5 text-white/35 transition hover:border-white/30 hover:text-white sm:block sm:p-1"
                             >
                               <RotateCcw size={11} />
                             </button>
+                          )}
+
+                          {/*
+                            «Más» (29/10/2026): en el móvil la barra llevaba
+                            nueve botones; quedan a la vista el dibujo, los
+                            titulares, Informe y Exportar, y el resto (sugerir
+                            once, volver al dibujo habitual, soltar los puestos
+                            a mano, vaciar el once) cuelga de este menú. En
+                            escritorio no existe: están sueltos como siempre.
+                          */}
+                          {pitchPlayers.length > 0 && (
+                            <div
+                              data-export-hide
+                              className="relative sm:hidden"
+                              onBlur={(evento) => {
+                                if (!evento.currentTarget.contains(evento.relatedTarget as Node | null)) setMasAbierto(false);
+                              }}
+                              onKeyDown={(evento) => {
+                                if (evento.key === "Escape") setMasAbierto(false);
+                              }}
+                            >
+                              <button
+                                type="button"
+                                aria-haspopup="menu"
+                                aria-expanded={masAbierto}
+                                aria-label="Más acciones"
+                                title="Más acciones"
+                                onClick={() => setMasAbierto((abierto) => !abierto)}
+                                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/[0.04] text-white/70 transition hover:border-[#C8A96B] hover:text-white"
+                              >
+                                <MoreHorizontal size={16} />
+                              </button>
+
+                              {masAbierto && (
+                                <div
+                                  role="menu"
+                                  className="absolute right-0 top-full z-30 mt-1 flex w-64 flex-col gap-0.5 rounded-xl border border-white/10 bg-[#11161D] p-1.5 shadow-xl"
+                                >
+                                  {plantillaCampo.length > 0 && (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      disabled={sugiriendo || exportando}
+                                      onClick={() => {
+                                        setMasAbierto(false);
+                                        if (
+                                          onceResumen.titulares > 0 &&
+                                          !window.confirm(
+                                            "Ya hay un once marcado. ¿Sustituirlo por el que se propone con los últimos onces del rival?",
+                                          )
+                                        ) {
+                                          return;
+                                        }
+                                        void sugerirOnce();
+                                      }}
+                                      className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/15 disabled:opacity-50"
+                                    >
+                                      <Wand2 size={13} />
+                                      Sugerir 11
+                                    </button>
+                                  )}
+
+                                  {once.doc.dibujo &&
+                                    lecturaTemporada.dibujo &&
+                                    once.doc.dibujo !== lecturaTemporada.dibujo && (
+                                      <button
+                                        type="button"
+                                        role="menuitem"
+                                        onClick={() => {
+                                          setMasAbierto(false);
+                                          once.ponDibujo("");
+                                        }}
+                                        className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-white/80 transition hover:bg-white/10"
+                                      >
+                                        <RotateCcw size={13} aria-hidden />
+                                        Suele jugar {lecturaTemporada.dibujo}
+                                      </button>
+                                    )}
+
+                                  {puestosAMano > 0 && (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setMasAbierto(false);
+                                        if (
+                                          window.confirm(
+                                            `¿Devolver a su sitio a ${puestosAMano === 1 ? "el jugador colocado" : `los ${puestosAMano} jugadores colocados`} a mano?`,
+                                          )
+                                        ) {
+                                          once.quitaPuestos();
+                                        }
+                                      }}
+                                      className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-white/80 transition hover:bg-white/10"
+                                    >
+                                      <Hand size={13} />
+                                      Soltar los {puestosAMano} puestos a mano
+                                    </button>
+                                  )}
+
+                                  {(onceResumen.titulares > 0 || onceResumen.dudas > 0) && (
+                                    <button
+                                      type="button"
+                                      role="menuitem"
+                                      onClick={() => {
+                                        setMasAbierto(false);
+                                        if (window.confirm("¿Vaciar el once probable de este equipo?")) {
+                                          once.limpiar();
+                                        }
+                                      }}
+                                      className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-white/80 transition hover:bg-white/10"
+                                    >
+                                      <RotateCcw size={13} />
+                                      Vaciar el once probable
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )}
 
                           <span

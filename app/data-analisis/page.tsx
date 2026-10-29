@@ -63,6 +63,7 @@ import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { nombreEquipo } from "@/lib/equipos";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Topbar } from "@/components/ui/topbar";
+import { IndiceBloques } from "@/components/data/IndiceBloques";
 import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { olvidaCsv, traeJson } from "@/lib/hojaCsv";
 import {
@@ -1468,6 +1469,10 @@ export default function DataAnalisisPage() {
                   />
                 )}
 
+                {/* 29/10/2026: índice fijo con un chip por panel del área elegida. */}
+                <IndiceBloques clave={area} />
+
+                <div id="data-bloques">
                 {/* =============== 0 · EL CAMPOGRAMA =============== */}
 
                 {area === "campo" && (
@@ -2112,6 +2117,7 @@ export default function DataAnalisisPage() {
                     jugadores={datos.jugadores ?? []}
                   />
                 )}
+                </div>
 
                 {/*
                   EL PIE

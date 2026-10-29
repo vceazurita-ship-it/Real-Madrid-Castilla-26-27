@@ -141,13 +141,16 @@ export default function WeekNavigator({
 
           <span className="font-medium">{month.name}</span>
 
-          {/* 29/10/2026: el contador sale en todos los meses para que se comparen. */}
-          <span
-            className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/50"
-            title={`${withFiles} de ${month.weeks.length} semanas con material`}
-          >
-            {withFiles}/{month.weeks.length}
-          </span>
+          {/* 29/10/2026: sólo se nombra lo que hay (semanas con material); un «x/5»
+              con x=0 nombraba un hueco, así que sin material no sale nada. */}
+          {withFiles > 0 && (
+            <span
+              className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/50"
+              title={`${withFiles} ${withFiles === 1 ? "semana con material" : "semanas con material"}`}
+            >
+              {withFiles}
+            </span>
+          )}
 
           <ChevronDown
             size={16}

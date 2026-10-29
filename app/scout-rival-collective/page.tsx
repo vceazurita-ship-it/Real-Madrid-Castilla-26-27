@@ -24,6 +24,7 @@ import RecursosRival, {
 } from "@/components/rivals/RecursosRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
+import { TiraJornadas } from "@/components/rivals/TiraJornadas";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useLento } from "@/hooks/useLento";
 import Link from "next/link";
@@ -1007,6 +1008,9 @@ export default function ScoutRivalCollective() {
               )}
             </div>
           </header>
+
+          {/* 29/10/2026: J1…Jn con el resultado de cada jornada del rival. */}
+          {rivalActivo?.EQUIPO && <TiraJornadas equipo={rivalActivo.EQUIPO} />}
 
           {/* --------------------------------------- Navegación interna */}
           {/*

@@ -577,8 +577,36 @@ const origen = `${tipo}__${perfil}`;
     );
   }
 
+  /* 29/10/2026: el título dice la conclusión. Se agrupa por tipo de acción
+     (sin el perfil) y se nombra la zona de remate que más xG da; con una sola
+     zona o sin remates no se inventa la segunda frase. */
+  const porTipo: Record<string, number> = {};
+  Object.entries(originCounts).forEach(([clave, n]) => {
+    const nombre = clave.split("__")[0];
+    if (nombre) porTipo[nombre] = (porTipo[nombre] || 0) + n;
+  });
+  const totalAcciones = Object.values(porTipo).reduce((a, b) => a + b, 0);
+  const [tipoTop, nTop] =
+    Object.entries(porTipo).sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
+  const [zonaTop, statTop] =
+    Object.entries(remateStats)
+      .filter(([, s]) => s.xg > 0)
+      .sort((a, b) => b[1].xg - a[1].xg)[0] ?? ["", null];
+  const titular =
+    tipoTop && totalAcciones > 0
+      ? `${tipoTop} concentra el ${Math.round((nTop / totalAcciones) * 100)} % de las acciones (${nTop} de ${totalAcciones})` +
+        (statTop
+          ? `; la zona de remate que más xG suma es ${zonaTop}, con ${statTop.xg.toFixed(2).replace(".", ",")}.`
+          : ".")
+      : "";
+
   return (
   <div className="w-full">
+  {titular && (
+    <p className="mx-auto mb-3 max-w-[980px] text-sm font-semibold leading-snug text-white/90">
+      {titular}
+    </p>
+  )}
   {/* Selector de métrica y leyenda */}
   <div className="mx-auto mb-4 flex max-w-[980px] flex-wrap items-center gap-x-5 gap-y-2">
     <div className="flex gap-2">
@@ -605,6 +633,11 @@ const origen = `${tipo}__${perfil}`;
 
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-zinc-400">
       <span className="flex items-center gap-1.5">
+        <span className="h-3 w-3 rounded-full border border-[#F5E7C8] bg-[#C8A96B]" />
+        Dónde se saca ({metric === "xg" ? "xG" : "nº de acciones"})
+      </span>
+
+      <span className="flex items-center gap-1.5">
         <span className="h-0.5 w-5 rounded-full bg-[#E7D2A0]" />
         Envío al área
       </span>
@@ -615,8 +648,8 @@ const origen = `${tipo}__${perfil}`;
       </span>
 
       <span className="flex items-center gap-1.5">
-        <span className="h-2 w-2 rounded-full bg-emerald-500" />
-        xG por zona de remate
+        <span className="h-3 w-3 rounded-full bg-emerald-500" />
+        Dónde se remata (xG de la zona)
       </span>
 
       <span className="flex items-center gap-1.5">
@@ -628,7 +661,7 @@ const origen = `${tipo}__${perfil}`;
             )}, ${peligroColor(0.5)}, ${peligroColor(1)})`,
           }}
         />
-        Anillo = % gol u ocasión
+        Anillo del círculo dorado: de rojo a verde, más gol u ocasión
       </span>
     </div>
   </div>
@@ -781,8 +814,8 @@ const origen = `${tipo}__${perfil}`;
             y={y + 0.8}
             textAnchor="start"
             fill="#64748B"
-            fontSize="1.8"
-            fontWeight="500"
+            fontSize="2.4"
+            fontWeight="600"
           >
             Z{i + 1}
           </text>
@@ -795,13 +828,15 @@ const origen = `${tipo}__${perfil}`;
       <line x1="42" y1="20" x2="42" y2="66" stroke="#1F2937" strokeWidth="0.25" />
 
       {/* Leyenda carriles */}
-      <text x="8" y="18" fill="#94A3B8" fontSize="2" fontWeight="600">
+      {/* Centrados en su carril y a 2,3: a 2 y pegados a la izquierda
+          «Exterior» e «Interior» se tocaban y en el móvil no se leían. */}
+      <text x="8.5" y="18" textAnchor="middle" fill="#94A3B8" fontSize="2.3" fontWeight="600">
         Exterior
       </text>
-      <text x="18" y="18" fill="#94A3B8" fontSize="2" fontWeight="600">
+      <text x="20" y="18" textAnchor="middle" fill="#94A3B8" fontSize="2.3" fontWeight="600">
         Interior
       </text>
-      <text x="34" y="18" fill="#94A3B8" fontSize="2" fontWeight="600">
+      <text x="34" y="18" textAnchor="middle" fill="#94A3B8" fontSize="2.3" fontWeight="600">
         Centrado
       </text>
 
@@ -1203,7 +1238,7 @@ const atenuado = tipoElegido
     y={p.y + 0.8}
     textAnchor="middle"
     fill="#FFFFFF"
-    fontSize="2.2"
+    fontSize="2.6"
     fontWeight="700"
   >
     {metric === "xg" ? (data?.xg || 0).toFixed(2).replace(".", ",") : value}
@@ -1256,7 +1291,7 @@ const atenuado = tipoElegido
               y={p.y + 0.7}
               textAnchor="middle"
               fill="#FFFFFF"
-              fontSize="1.9"
+              fontSize="2.3"
               fontWeight="700"
             >
               {stat.xg.toFixed(2).replace(".", ",")}

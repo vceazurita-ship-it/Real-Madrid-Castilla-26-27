@@ -119,10 +119,14 @@ export function BarraMarcado({
   return (
     /* Con el dorado de la casa y no un bloque negro translúcido: en modo día
        salía un rectángulo gris que no casaba con nada de la pantalla. */
-    <div className="mt-3 min-w-0 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] p-2.5">
+    /* 29/10/2026: en el móvil, «Marcar inicio» sube a lo primero de la barra
+       (`order-first`) y los selectores quedan debajo; en pantalla grande el
+       orden de siempre. Es lo que se pulsa sin mirar, no debe ir tras
+       jugador y categoría. */
+    <div className="mt-3 flex min-w-0 flex-col rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] p-2.5">
       {/* ------------------------- QUIÉN Y QUÉ ------------------------- */}
 
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
+      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 sm:order-none sm:mt-0 order-2">
         <button
           type="button"
           onClick={onElegirSujeto}
@@ -190,12 +194,12 @@ export function BarraMarcado({
 
       {/* --------------------------- MARCAR ---------------------------- */}
 
-      <div className="mt-2 flex min-w-0 items-stretch gap-2">
+      <div className="order-1 flex min-w-0 items-stretch gap-2 sm:order-none sm:mt-2">
         <button
           type="button"
           disabled={!listo}
           onClick={abierta ? onFinal : onInicio}
-          className={`flex min-h-14 min-w-0 flex-1 items-center justify-center gap-3 rounded-xl px-4 text-base font-semibold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 ${
+          className={`flex min-h-14min-w-0 flex-1 items-center justify-center gap-3 rounded-xl px-4 text-base font-semibold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 ${
             abierta
               ? "bg-[#34D399] text-black hover:bg-[#4ee0ac]"
               : "bg-[#C8A96B] text-black hover:bg-[#d8ba7c]"
