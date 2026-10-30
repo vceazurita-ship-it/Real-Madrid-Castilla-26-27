@@ -15,9 +15,13 @@
  * errata sin desplegar— y al borrar el subido vuelve a salir el original.
  */
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  X,
   FileText,
   FileUp,
   Layers,
@@ -85,6 +89,11 @@ export function RepositorioCultura() {
   const documentos = useMemo(() => repositorioCompleto(guardado), [guardado]);
 
   const [abierto, setAbierto] = useState<string | null>(null);
+
+  /* 30/10/2026: en el móvil la vista previa enseña una diapositiva cada vez
+     (con flechas y «n / 11») y, al tocarla, se abre a pantalla completa. */
+  const [activa, setActiva] = useState(0);
+  const [visor, setVisor] = useState<number | null>(null);
   const [pendiente, setPendiente] = useState<Pendiente | null>(null);
 
   const entrada = useRef<HTMLInputElement>(null);
@@ -233,6 +242,19 @@ export function RepositorioCultura() {
 
   const aLaVista = previa ?? documento;
 
+  const totalHojas = aLaVista?.diapositivas.length ?? 0;
+
+  /* Al cambiar de documento la diapositiva activa puede no existir: se acota
+     al pintar, sin efecto que corrija el estado. */
+  const hojaActiva = Math.min(activa, Math.max(0, totalHojas - 1));
+
+  /*
+  | 30/10/2026: la lista de documentos sólo sale si hay más de uno o para el
+  | administrador. Con un documento repetía el título y la descripción que ya
+  | dicen la cabecera de la pantalla y la ficha.
+  */
+  const conEstanteria = admin === true || documentos.length > 1;
+
   return (
     <div
       className="min-w-0"
@@ -244,24 +266,32 @@ export function RepositorioCultura() {
         } as React.CSSProperties
       }
     >
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+      <div
+        className={`grid min-w-0 gap-4 ${
+          conEstanteria ? "lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]" : ""
+        }`}
+      >
         {/* =================== LA ESTANTERÍA =================== */}
 
         {/* 29/10/2026: en el móvil el cuerpo técnico quiere el documento, no la
             subida; la columna se disuelve (contents) y el orden pone la lista,
             el documento y, al final, lo que sólo toca al administrador. */}
+        {conEstanteria && (
         <div className="min-w-0 space-y-4 max-lg:contents">
           <div className="min-w-0 max-lg:order-1">
+          {/* 30/10/2026: sin «N en el repositorio» y con el estado de guardado
+              sólo para el administrador, que es el único que escribe aquí. */}
           <Panel
             title="Documentos"
-            subtitle={`${documentos.length} en el repositorio`}
             icon={BookOpen}
             action={
-              <SaveState
-                status={status}
-                localOnly={localOnly}
-                savedAt={lastSavedAt}
-              />
+              admin === true ? (
+                <SaveState
+                  status={status}
+                  localOnly={localOnly}
+                  savedAt={lastSavedAt}
+                />
+              ) : undefined
             }
             bodyClassName="p-3 sm:p-3"
           >
@@ -403,6 +433,7 @@ export function RepositorioCultura() {
             </div>
           )}
         </div>
+        )}
 
         {/* ================== EL DOCUMENTO ================== */}
 
@@ -491,10 +522,19 @@ export function RepositorioCultura() {
                 )}
               </Panel>
             ) : (
+              /* 30/10/2026: la ficha deja las cajas TEMPORADA / DIAPOSITIVAS /
+                 ORIGEN, que parecían campos de formulario, y lo dice en una
+                 línea. La ruta del fichero sólo la ve el administrador. */
               <Panel
                 title={`${documento?.numero} · ${documento?.titulo}`}
-                subtitle={documento?.resumen}
+                subtitle={[
+                  documento?.temporada && `Temporada ${documento.temporada}`,
+                  `${documento?.diapositivas.length ?? 0} diapositivas`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
                 icon={FileText}
+                bodyClassName={admin === true ? undefined : "hidden"}
                 action={
                   documento &&
                   esSubido(documento, guardado) && (
@@ -508,23 +548,11 @@ export function RepositorioCultura() {
                   )
                 }
               >
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {documento?.temporada && (
-                    <Dato rotulo="Temporada" valor={documento.temporada} />
-                  )}
-
-                  <Dato
-                    rotulo="Diapositivas"
-                    valor={String(documento?.diapositivas.length ?? 0)}
-                  />
-
-                  {admin === true && (
-                    <Dato
-                      rotulo="Origen"
-                      valor={documento?.origen ?? "Redactado aquí"}
-                    />
-                  )}
-                </div>
+                {admin === true && (
+                  <p className="truncate text-xs text-white/45">
+                    Origen: {documento?.origen ?? "Redactado aquí"}
+                  </p>
+                )}
               </Panel>
             )}
 
@@ -537,23 +565,86 @@ export function RepositorioCultura() {
               subtitle="El documento a tamaño real, escalado a la columna: es el mismo dibujo que se descarga"
               icon={Layers}
             >
+              {/* En el móvil, una diapositiva cada vez con flechas. */}
+              {totalHojas > 1 && (
+                <div className="mb-3 flex items-center justify-between gap-3 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setActiva(Math.max(0, hojaActiva - 1))}
+                    disabled={hojaActiva === 0}
+                    aria-label="Diapositiva anterior"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 text-white/80 disabled:opacity-30"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+
+                  <p className="text-sm tabular-nums text-white/70">
+                    {hojaActiva + 1} / {totalHojas}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiva(Math.min(totalHojas - 1, hojaActiva + 1))
+                    }
+                    disabled={hojaActiva >= totalHojas - 1}
+                    aria-label="Diapositiva siguiente"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 text-white/80 disabled:opacity-30"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-5">
                 {aLaVista.diapositivas.map((hoja, indice) => (
-                  <div key={indice} className="min-w-0">
+                  <div
+                    key={indice}
+                    className={`min-w-0 ${indice === hojaActiva ? "" : "max-lg:hidden"}`}
+                  >
                     <p className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/35">
                       {indice + 1} / {aLaVista.diapositivas.length} ·{" "}
                       {(previa ? titulosDocumento(previa) : titulos)[indice]}
                     </p>
 
-                    <div className="overflow-hidden rounded-xl border border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setVisor(indice)}
+                      aria-label={`Abrir la diapositiva ${indice + 1} a pantalla completa`}
+                      className="group relative block w-full overflow-hidden rounded-xl border border-white/10 text-left"
+                    >
                       <Escalado ancho={SLIDE_W} alto={SLIDE_H}>
                         <HojaCultura documento={aLaVista} hoja={hoja} />
                       </Escalado>
-                    </div>
+
+                      <span
+                        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg text-white opacity-80 transition group-hover:opacity-100"
+                        style={{ background: "rgba(0,0,0,0.55)" }}
+                      >
+                        <Maximize2 size={15} />
+                      </span>
+                    </button>
                   </div>
                 ))}
               </div>
             </Panel>
+
+            {visor !== null && visor < totalHojas && (
+              <VisorCultura
+                indice={visor}
+                total={totalHojas}
+                onCambia={(n) => {
+                  setVisor(n);
+                  setActiva(n);
+                }}
+                onCierra={() => setVisor(null)}
+              >
+                <HojaCultura
+                  documento={aLaVista}
+                  hoja={aLaVista.diapositivas[visor]}
+                />
+              </VisorCultura>
+            )}
           </div>
         )}
       </div>
@@ -561,15 +652,133 @@ export function RepositorioCultura() {
   );
 }
 
-/** Un dato de la ficha del documento: rótulo pequeño, valor legible. */
-function Dato({ rotulo, valor }: { rotulo: string; valor: string }) {
+/*
+|--------------------------------------------------------------------------
+| VISOR A PANTALLA COMPLETA (30/10/2026)
+|--------------------------------------------------------------------------
+|
+| A 390 px una diapositiva de 1920×1080 no se lee. El visor reutiliza el
+| mismo dibujo (`HojaCultura` dentro de `Escalado`) y, con el teléfono en
+| vertical, lo gira para que ocupe el alto de la pantalla. Se pasa deslizando,
+| con las flechas o con el teclado; Escape cierra. Lleva `modal-veil` para
+| que los botones flotantes se escondan mientras está abierto.
+*/
+function VisorCultura({
+  indice,
+  total,
+  onCambia,
+  onCierra,
+  children,
+}: {
+  indice: number;
+  total: number;
+  onCambia: (n: number) => void;
+  onCierra: () => void;
+  children: React.ReactNode;
+}) {
+  const inicio = useRef<{ x: number; y: number } | null>(null);
+
+  const anterior = useCallback(
+    () => indice > 0 && onCambia(indice - 1),
+    [indice, onCambia],
+  );
+  const siguiente = useCallback(
+    () => indice < total - 1 && onCambia(indice + 1),
+    [indice, total, onCambia],
+  );
+
+  useEffect(() => {
+    const tecla = (evento: KeyboardEvent) => {
+      if (evento.key === "Escape") onCierra();
+      else if (evento.key === "ArrowLeft" || evento.key === "ArrowUp") anterior();
+      else if (evento.key === "ArrowRight" || evento.key === "ArrowDown") siguiente();
+    };
+
+    window.addEventListener("keydown", tecla);
+
+    return () => window.removeEventListener("keydown", tecla);
+  }, [anterior, siguiente, onCierra]);
+
+  const boton =
+    "absolute z-10 flex h-11 w-11 items-center justify-center rounded-full text-white disabled:opacity-30";
+  const fondoBoton = { background: "rgba(255,255,255,0.12)" };
+
   return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] px-3.5 py-3">
-      <p className="text-[10px] uppercase tracking-[0.18em] text-white/35">
-        {rotulo}
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Diapositiva ${indice + 1} de ${total}`}
+      className="modal-veil siempre-oscuro fixed inset-0 z-[80] flex items-center justify-center overflow-hidden"
+      style={{ background: "#000" }}
+      onTouchStart={(evento) => {
+        const toque = evento.touches[0];
+        inicio.current = { x: toque.clientX, y: toque.clientY };
+      }}
+      onTouchEnd={(evento) => {
+        const desde = inicio.current;
+        const toque = evento.changedTouches[0];
+
+        inicio.current = null;
+
+        if (!desde) return;
+
+        const dx = toque.clientX - desde.x;
+        const dy = toque.clientY - desde.y;
+
+        /* Girada en vertical, el «siguiente» del dibujo va hacia abajo: vale
+           deslizar en el eje que más se haya movido. */
+        const d = Math.abs(dx) > Math.abs(dy) ? dx : -dy;
+
+        if (Math.abs(d) < 40) return;
+
+        if (d < 0) siguiente();
+        else anterior();
+      }}
+    >
+      <div className="w-[min(100vw,calc(100dvh*16/9))] shrink-0 portrait:w-[min(100dvh,calc(100vw*16/9))] portrait:rotate-90">
+        <Escalado ancho={SLIDE_W} alto={SLIDE_H}>
+          {children}
+        </Escalado>
+      </div>
+
+      <button
+        type="button"
+        onClick={onCierra}
+        aria-label="Cerrar"
+        className={`${boton} right-3 top-3`}
+        style={fondoBoton}
+      >
+        <X size={20} />
+      </button>
+
+      <button
+        type="button"
+        onClick={anterior}
+        disabled={indice === 0}
+        aria-label="Diapositiva anterior"
+        className={`${boton} bottom-3 left-3`}
+        style={fondoBoton}
+      >
+        <ChevronLeft size={20} />
+      </button>
+
+      <p
+        className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2 text-sm tabular-nums"
+        style={{ color: "rgba(255,255,255,0.8)" }}
+      >
+        {indice + 1} / {total}
       </p>
 
-      <p className="mt-1 truncate text-sm font-medium text-white/80">{valor}</p>
+      <button
+        type="button"
+        onClick={siguiente}
+        disabled={indice >= total - 1}
+        aria-label="Diapositiva siguiente"
+        className={`${boton} bottom-3 right-3`}
+        style={fondoBoton}
+      >
+        <ChevronRight size={20} />
+      </button>
     </div>
   );
 }

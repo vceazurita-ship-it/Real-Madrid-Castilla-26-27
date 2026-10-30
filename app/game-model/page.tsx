@@ -2,9 +2,11 @@
 import { olvidaCsv, traeCsv } from "@/lib/hojaCsv";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import Papa from "papaparse";
 import { toast } from "sonner";
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   SearchX,
@@ -30,7 +32,6 @@ import {
   ErrorState,
   Highlight,
   LoadingState,
-  NavButton,
   SearchField,
   SectionLabel,
   focusRing,
@@ -46,7 +47,34 @@ type Principio = {
   APARTADO: string;
   PRINCIPIO: string;
   ORDEN: number;
+  /*
+  | 30/10/2026: columnas opcionales de la hoja. Hoy existen OBSERVACIONES y
+  | VIDEO (vacías) y ACTIVO; DESCRIPCION, QUE_SE_VE y CRITERIO se leen si
+  | alguien las añade. El texto es del cuerpo técnico: aquí no se escribe
+  | ninguna definición, sólo se enseña lo que la hoja traiga.
+  */
+  DESCRIPCION?: string;
+  OBSERVACIONES?: string;
+  QUE_SE_VE?: string;
+  CRITERIO?: string;
+  VIDEO?: string;
+  ACTIVO?: string;
 };
+
+/** Lo que se despliega bajo un principio; sólo lo que tiene texto. */
+const detalle = (p: Principio) => {
+  const limpio = (t?: string) => (t ?? "").trim();
+
+  return {
+    definicion: limpio(p.DESCRIPCION) || limpio(p.OBSERVACIONES),
+    queSeVe: limpio(p.QUE_SE_VE),
+    criterio: limpio(p.CRITERIO),
+    video: /^https?:\/\//i.test(limpio(p.VIDEO)) ? limpio(p.VIDEO) : "",
+  };
+};
+
+const tieneDetalle = (p: Principio) =>
+  Object.values(detalle(p)).some(Boolean);
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1322156567&single=true&output=csv";
@@ -112,7 +140,13 @@ export default function GameModelPage() {
            enterarse (`lib/escriturasRecientes.ts`). */
         const rows = aplicaEscritas(
           ESPACIO_ESCRITAS,
-          parsed.data.filter((r) => r?.FASE && r?.BLOQUE),
+          /* Un principio con ACTIVO = FALSE en la hoja está retirado. */
+          parsed.data.filter(
+            (r) =>
+              r?.FASE &&
+              r?.BLOQUE &&
+              String(r.ACTIVO ?? "").trim().toUpperCase() !== "FALSE",
+          ),
           "PRINCIPIO",
         );
 
@@ -601,9 +635,15 @@ export default function GameModelPage() {
             />
 
             {/* Bloques */}
-            <SectionLabel className="mt-6 mb-3">Bloques</SectionLabel>
+            <SectionLabel className="mt-6 mb-3 text-xs text-gray-400">Bloques</SectionLabel>
 
-            <nav className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 scrollbar-none lg:block lg:space-y-2 lg:overflow-visible">
+            {/*
+            | 30/10/2026: en el móvil la tira horizontal cortaba el nombre
+            | («Progresión desde campo pr…») sin decir que se podía deslizar.
+            | Ahora es una rejilla de dos columnas con el nombre entero en
+            | varias líneas, y el contador dice qué cuenta («6 principios»).
+            */}
+            <nav className="grid grid-cols-2 gap-2 lg:grid-cols-1">
               {bloques.map((b) => {
                 const total = visibles.filter(
                   (r) => r.FASE === fase && r.BLOQUE === b,
@@ -611,20 +651,41 @@ export default function GameModelPage() {
 
                 if (!editing && !filtrando && total === 0) return null;
 
+                const activo = bloque === b;
+
                 return (
-                  <NavButton
+                  <button
                     key={b}
-                    active={bloque === b}
+                    type="button"
                     onClick={() => seleccionarBloque(b)}
-                    label={b}
-                    count={total}
-                    dimmed={filtrando && total === 0}
-                  />
+                    aria-current={activo ? "true" : undefined}
+                    className={cn(
+                      "flex min-w-0 flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left transition-all lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:rounded-2xl lg:px-4 lg:py-3",
+                      focusRing,
+                      activo
+                        ? "bg-[#C8A96B] text-black shadow-[0_8px_24px_-12px_rgba(200,169,107,0.9)]"
+                        : "border border-white/10 text-gray-200 hover:border-[#C8A96B]/40 hover:bg-white/[0.04] hover:text-white",
+                      filtrando && total === 0 && !activo && "opacity-40",
+                    )}
+                  >
+                    <span className="min-w-0 break-words text-sm font-medium leading-snug">
+                      {b}
+                    </span>
+
+                    <span
+                      className={cn(
+                        "shrink-0 text-xs tabular-nums",
+                        activo ? "text-black/70" : "text-gray-400",
+                      )}
+                    >
+                      {total} principio{total === 1 ? "" : "s"}
+                    </span>
+                  </button>
                 );
               })}
 
               {loading &&
-                [0, 1, 2].map((i) => (
+                [0, 1, 2, 3].map((i) => (
                   <div
                     key={i}
                     className="h-12 w-full animate-pulse rounded-2xl bg-white/[0.04]"
@@ -632,10 +693,25 @@ export default function GameModelPage() {
                 ))}
             </nav>
 
+            {/* 30/10/2026: el balón parado no está en la hoja del modelo; vive
+                en la pizarra de ABP, y desde aquí se llega en un toque. */}
+            {!loading && (
+              <Link
+                href="/abp-pizarra"
+                className={cn(
+                  "mt-3 flex items-center justify-between gap-3 rounded-xl border border-dashed border-white/15 px-3 py-2 text-sm text-gray-300 transition-colors hover:border-[#C8A96B]/50 hover:text-white lg:rounded-2xl lg:px-4 lg:py-3",
+                  focusRing,
+                )}
+              >
+                <span>Balón parado</span>
+                <span className="text-xs text-[#C8A96B]">Pizarra de ABP →</span>
+              </Link>
+            )}
+
             {/* Apartados */}
             {apartados.length > 1 && (
               <>
-                <SectionLabel className="mt-6 mb-3">Apartados</SectionLabel>
+                <SectionLabel className="mt-6 mb-3 text-xs text-gray-400">Apartados</SectionLabel>
 
                 <nav className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 scrollbar-none lg:block lg:space-y-2 lg:overflow-visible">
                   {apartados.map((a) => {
@@ -678,29 +754,31 @@ export default function GameModelPage() {
 
           {/* ---------------------------------------------- contenido */}
 
+          {/* 30/10/2026: pb-24 para que el botón flotante de herramientas no
+              tape la última tarjeta ni el botón de «Siguiente bloque». */}
           <main
-            className={cn("min-w-0 flex-1 p-4 lg:p-8", editing && "pb-32")}
+            className={cn("min-w-0 flex-1 p-4 pb-24 lg:p-8 lg:pb-24", editing && "pb-32")}
           >
             {/* Cabecera */}
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex flex-row items-start justify-between gap-4">
               <div className="min-w-0">
-                <nav
-                  aria-label="Ubicación"
-                  className="flex flex-wrap items-center gap-2 text-[11px] font-medium uppercase tracking-[0.24em]"
-                >
-                  {fase && <span className="text-[#C8A96B]">{fase}</span>}
+                {/* 30/10/2026: la miga «ATAQUE / GENERAL» repetía el titular
+                    «ATAQUE · GENERAL». Sólo sale cuando el titular es un
+                    apartado y hace falta saber de qué fase y bloque es. */}
+                {titular !== apartado || !bloque ? null : (
+                  <nav
+                    aria-label="Ubicación"
+                    className="mb-3 flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.2em]"
+                  >
+                    {fase && <span className="text-[#C8A96B]">{fase}</span>}
+                    <span aria-hidden className="text-gray-600">
+                      /
+                    </span>
+                    <span className="text-gray-400">{bloque}</span>
+                  </nav>
+                )}
 
-                  {bloque && (
-                    <>
-                      <span aria-hidden className="text-gray-600">
-                        /
-                      </span>
-                      <span className="text-gray-400">{bloque}</span>
-                    </>
-                  )}
-                </nav>
-
-                <h1 className="mt-3 break-words text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">
+                <h1 className="break-words text-2xl font-semibold text-white sm:text-3xl lg:text-4xl">
                   {titular}
                 </h1>
 
@@ -752,14 +830,23 @@ export default function GameModelPage() {
                 {!editing &&
                   claves.length > 0 &&
                   claves.length < principios.length && (
-                    <p className="mb-4 border-l-2 border-[#C8A96B] pl-3 text-base font-medium text-gray-200 lg:text-lg">
-                      <span className="font-bold text-[#C8A96B]">
-                        Lo que no se negocia:
-                      </span>{" "}
-                      {claves
-                        .map((p) => quitaClave(p.PRINCIPIO).replace(/[.\s]+$/, ""))
-                        .join(" · ")}
-                    </p>
+                    /* 30/10/2026: una sola señal para lo innegociable. La
+                       línea lo nombra y dice quién lo marca; las tarjetas
+                       llevan el borde dorado, sin la etiqueta «CLAVE». */
+                    <div className="mb-4 border-l-2 border-[#C8A96B] pl-3">
+                      <p className="text-base font-medium text-gray-200 lg:text-lg">
+                        <span className="font-bold text-[#C8A96B]">
+                          Lo que no se negocia:
+                        </span>{" "}
+                        {claves
+                          .map((p) => quitaClave(p.PRINCIPIO).replace(/[.\s]+$/, ""))
+                          .join(" · ")}
+                      </p>
+                      <p className="mt-1 text-xs text-gray-400">
+                        Marcados por el cuerpo técnico como innegociables; en la
+                        lista llevan el borde dorado.
+                      </p>
+                    </div>
                   )}
                 <ul className="space-y-3">
                   {principios.map((p) => (
@@ -796,17 +883,7 @@ export default function GameModelPage() {
                               <AvisoLargo texto={p.PRINCIPIO} />
                             </>
                           ) : (
-                            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white lg:text-base">
-                              <Highlight
-                                text={quitaClave(p.PRINCIPIO).replace(/\.$/, "")}
-                                query={query}
-                              />
-                              {esClave(p.PRINCIPIO) && (
-                                <span className="ml-2 inline-block rounded-md bg-[#C8A96B] px-1.5 py-0.5 align-middle text-[10px] font-bold uppercase tracking-widest text-black">
-                                  Clave
-                                </span>
-                              )}
-                            </p>
+                            <FichaPrincipio p={p} query={query} />
                           )}
                         </div>
                       </div>
@@ -817,7 +894,8 @@ export default function GameModelPage() {
               )}
             </div>
 
-            {/* Apartado anterior / siguiente */}
+            {/* Apartado anterior / siguiente. 30/10/2026: «Siguiente» es el
+                botón principal y dice adónde lleva. */}
             {!loading && !error && ruta.length > 1 && (
               <div className="mt-8 flex items-center justify-between gap-3 border-t border-white/10 pt-6">
                 <button
@@ -832,7 +910,7 @@ export default function GameModelPage() {
                   <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
 
                   <span className="min-w-0">
-                    <span className="block text-[10px] uppercase tracking-widest text-gray-600">
+                    <span className="block text-xs text-gray-400">
                       {ruta[rutaIndex - 1]?.bloque}
                     </span>
                     {!sinRotuloApartado(rutaIndex - 1) && (
@@ -848,16 +926,21 @@ export default function GameModelPage() {
                   onClick={() => saltar(1)}
                   disabled={rutaIndex < 0 || rutaIndex >= ruta.length - 1}
                   className={cn(
-                    "inline-flex min-w-0 items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-right text-sm text-gray-300 transition-colors hover:bg-white/[0.06] hover:text-white disabled:invisible",
+                    "inline-flex min-w-0 items-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-right text-sm font-semibold text-black transition-colors hover:bg-[#d6ba80] disabled:invisible",
                     focusRing,
                   )}
                 >
                   <span className="min-w-0">
-                    <span className="block text-[10px] uppercase tracking-widest text-gray-600">
+                    <span className="block text-xs font-medium text-black/70">
+                      {ruta[rutaIndex + 1]?.bloque === bloque
+                        ? "Siguiente apartado"
+                        : "Siguiente bloque"}
+                    </span>
+                    <span className="block break-words">
                       {ruta[rutaIndex + 1]?.bloque}
                     </span>
                     {!sinRotuloApartado(rutaIndex + 1) && (
-                      <span className="block truncate">
+                      <span className="block truncate text-xs font-medium text-black/70">
                         {ruta[rutaIndex + 1]?.apartado}
                       </span>
                     )}
@@ -882,5 +965,73 @@ export default function GameModelPage() {
 
       {avisoGuardado}
     </div>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| UN PRINCIPIO (30/10/2026)
+|--------------------------------------------------------------------------
+|
+| Si la hoja trae definición, qué se ve, criterio o clip, el principio se
+| despliega y enseña sólo eso. Sin nada de eso es una línea sin flecha: no se
+| promete un desplegable vacío.
+*/
+function FichaPrincipio({ p, query }: { p: Principio; query: string }) {
+  const titulo = (
+    <Highlight text={quitaClave(p.PRINCIPIO).replace(/\.$/, "")} query={query} />
+  );
+
+  if (!tieneDetalle(p)) {
+    return (
+      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white lg:text-base">
+        {titulo}
+      </p>
+    );
+  }
+
+  const d = detalle(p);
+
+  return (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 text-sm leading-relaxed text-white lg:text-base [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0 break-words">{titulo}</span>
+        <ChevronDown
+          className="mt-0.5 h-4 w-4 shrink-0 text-[#C8A96B] transition-transform group-open:rotate-180"
+          aria-hidden
+        />
+      </summary>
+
+      <div className="mt-3 space-y-2 text-sm leading-relaxed text-gray-300">
+        {d.definicion && <p className="whitespace-pre-wrap">{d.definicion}</p>}
+
+        {d.queSeVe && (
+          <p className="whitespace-pre-wrap">
+            <span className="font-semibold text-white">Qué se ve: </span>
+            {d.queSeVe}
+          </p>
+        )}
+
+        {d.criterio && (
+          <p className="whitespace-pre-wrap">
+            <span className="font-semibold text-white">
+              Criterio de éxito en la tarea:{" "}
+            </span>
+            {d.criterio}
+          </p>
+        )}
+
+        {d.video && (
+          <a
+            href={d.video}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 font-medium text-[#C8A96B] hover:underline"
+          >
+            Ver clip →
+          </a>
+        )}
+      </div>
+    </details>
   );
 }

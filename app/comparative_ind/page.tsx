@@ -92,6 +92,13 @@ const colorIndice = (i: number | null) => (i === null ? tinta(0.2) : i >= 60 ? M
 
 const ordinal = (n: number) => `${n}º`;
 
+/** Por debajo de 10 en el grupo del puesto, el ranking es tendencia (30/10/2026). */
+const GRUPO_CORTO = 10;
+
+/** «2º de 34 · empatado», «4º de 8 · tendencia». */
+const textoRanking = (r: { posicion: number; de: number; empatados: number }) =>
+  `${ordinal(r.posicion)} de ${r.de}${r.empatados > 0 ? " · empatado" : ""}${r.de < GRUPO_CORTO ? " · tendencia" : ""}`;
+
 /** Por debajo, el índice se marca con asterisco: muestra corta. */
 const MUESTRA_CORTA = 300;
 
@@ -112,8 +119,18 @@ function Foto({ src, nombre, size = 36 }: { src?: string; nombre: string; size?:
     // eslint-disable-next-line @next/next/no-img-element -- recortes propios, ya optimizados
     <img src={src} alt={nombre} width={size} height={size} className="shrink-0 rounded-full bg-white/5 object-cover object-top" style={{ width: size, height: size }} />
   ) : (
-    <span className="flex shrink-0 items-center justify-center rounded-full bg-white/10 text-xs text-white/50" style={{ width: size, height: size }}>
-      {nombre.slice(0, 1)}
+    /* 30/10/2026: iniciales en círculo dorado, como el resto de la app. */
+    <span
+      className="flex shrink-0 items-center justify-center rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 text-[11px] font-semibold text-[#C8A96B]"
+      style={{ width: size, height: size }}
+    >
+      {nombre
+        .replace(/\./g, " ")
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p.charAt(0).toUpperCase())
+        .join("")}
     </span>
   );
 }
@@ -278,6 +295,11 @@ export default function ComparativaCategoria() {
     [visibles],
   );
 
+  const sinFicha = useMemo(
+    () => comparables.filter((x) => !x.ficha).map((x) => nombreVisible(x.f.jugador.jugador)),
+    [comparables],
+  );
+
   /* Lectura de dos o tres frases que se calcula sola con lo que hay en la tabla. */
   const lectura = useMemo(() => {
     const frases: string[] = [];
@@ -295,15 +317,23 @@ export default function ComparativaCategoria() {
     if (baja?.f.evolucion)
       frases.push(`Quien más baja respecto a 25/26: ${nombre(baja)} (${baja.f.evolucion.salto} puntos de índice).`);
 
-    const desajuste = propios.find(
+    /* 30/10/2026: todos los desajustes (antes sólo el primero) y qué hacer con cada uno. */
+    const desajustes = propios.filter(
       (x) => x.nota && x.nota.played >= 3 && ((x.nota.avg >= 7 && (x.f.indice ?? 0) < 50) || (x.nota.avg < 6 && (x.f.indice ?? 0) >= 60)),
     );
-    if (desajuste?.nota)
+    for (const d of desajustes.slice(0, 3)) {
+      if (!d.nota) continue;
+      const notaAlta = d.nota.avg >= 7;
       frases.push(
-        `Nuestra nota y el índice no coinciden en ${nombre(desajuste)}: ${desajuste.nota.avg.toFixed(1).replace(".", ",")} de nota de partido y ${desajuste.f.indice} de índice${
-          desajuste.f.ranking ? ` (${ordinal(desajuste.f.ranking.posicion)} de ${desajuste.f.ranking.de})` : ""
-        }.`,
+        `${nombre(d)}: ${d.nota.avg.toFixed(1).replace(".", ",")} de nota de partido y ${d.f.indice} de índice${
+          d.f.ranking ? ` (${textoRanking(d.f.ranking)})` : ""
+        }; ${
+          notaAlta
+            ? "nuestra nota le ve mejor que sus números en Wyscout: revisar en vídeo qué valoramos que esas métricas no recogen."
+            : "sus números le ven mejor que nuestra nota: revisar qué le pedimos que no está haciendo."
+        }`,
       );
+    }
 
     return frases;
   }, [comparables]);
@@ -357,7 +387,7 @@ export default function ComparativaCategoria() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-white max-sm:pb-20">
+    <main className="min-h-screen bg-[#0B0F14] pb-24 text-white">
       <div className="flex">
         <Sidebar />
         <div className="min-w-0 flex-1">
@@ -448,15 +478,19 @@ export default function ComparativaCategoria() {
               <>
                 {pestana === "ranking" && (
                   <>
-                    <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {/* 30/10/2026: la base de todas las tarjetas en una línea, no repetida en cada una. */}
+                    <p className="mt-6 text-xs text-white/55">
+                      Contra {refLabel.toLowerCase()}
+                      {Number.isFinite(kpis.grupoMin) && kpis.grupoMax > 0
+                        ? `, ${kpis.grupoMin === kpis.grupoMax ? kpis.grupoMax : `${kpis.grupoMin} a ${kpis.grupoMax}`} jugadores por puesto`
+                        : ""}
+                      {" · "}más índice es mejor (50 = la media del grupo)
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
                       {[
-                        { t: "Jugadores comparados", v: kpis.comparados, h: `contra ${refLabel.toLowerCase()}${
-                          Number.isFinite(kpis.grupoMin) && kpis.grupoMax > 0
-                            ? `, ${kpis.grupoMin === kpis.grupoMax ? kpis.grupoMax : `${kpis.grupoMin}-${kpis.grupoMax}`} jugadores por puesto`
-                            : ""
-                        }` },
-                        { t: "Top 3 de su puesto", v: kpis.top3, h: "del ranking de su puesto; más índice es mejor" },
-                        { t: "Índice medio", v: kpis.media ?? "—", h: "50 = en la media del grupo" },
+                        { t: "Jugadores comparados", v: kpis.comparados, h: "con índice esta temporada" },
+                        { t: "Top 3 de su puesto", v: kpis.top3, h: "en el ranking de su puesto" },
+                        ...(kpis.media !== null ? [{ t: "Índice medio", v: kpis.media, h: "de los nuestros comparados" }] : []),
                         { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: "con muestra suficiente el año pasado" },
                       ].map((k) => (
                         <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -480,12 +514,12 @@ export default function ComparativaCategoria() {
                           <tr className="text-left text-[11px] uppercase tracking-wider text-white/40">
                             {(
                               [
-                                ["nombre", "Jugador", "px-4"],
+                                ["nombre", "Jugador", "sticky left-0 z-[1] bg-[#0F141B] px-4"],
                                 ["edad", "Edad", "hidden sm:table-cell px-2"],
                                 [null, "Puesto", "hidden sm:table-cell px-2"],
                                 ["minutos", "Min. liga", "hidden sm:table-cell px-2 text-right"],
                                 ["nota", "Nota", "hidden sm:table-cell px-2 text-right"],
-                                ["indice", `Índice (${ref === "todos" ? "categoría" : ref === "u21" ? "sub-21" : "sub-23"})`, "px-3 sm:w-44"],
+                                ["indice", `Índice (${ref === "todos" ? "categoría" : ref === "u21" ? "sub-21" : "sub-23"}) · más es mejor`, "px-3 sm:w-44"],
                                 ["ranking", "Ranking en su puesto", "px-2"],
                                 ["evolucion", "Evolución (pts vs 25/26)", "hidden sm:table-cell px-2"],
                                 ["seguimientos", "Seguimientos", "hidden sm:table-cell px-2 text-right"],
@@ -526,13 +560,22 @@ export default function ComparativaCategoria() {
                               aria-label={`Abrir la ficha de ${ficha?.nombre ?? f.jugador.jugador}`}
                               className={`cursor-pointer border-t border-white/[0.06] transition hover:bg-white/[0.04] focus-visible:bg-white/[0.06] focus-visible:outline-none ${f.jugador.minutos < MUESTRA_CORTA ? "opacity-60" : ""}`}
                             >
-                              <td className="px-4 py-2.5">
+                              <td className="sticky left-0 z-[1] bg-[#0F141B] px-4 py-2.5">
                                 <div className="flex items-center gap-2.5">
                                   <Foto src={ficha?.foto} nombre={f.jugador.jugador} size={30} />
                                   <div className="min-w-0">
                                     <span className="font-medium text-white/90">{nombreVisible(ficha?.nombre ?? f.jugador.jugador)}{f.jugador.minutos < MUESTRA_CORTA && <span className="text-[#C8A96B]" title={`Menos de ${MUESTRA_CORTA}′: muestra corta`}>*</span>}</span>
-                                    <span className="block text-[10px] text-white/45 sm:hidden">
-                                      {PUESTOS.find((p) => p.key === f.puesto)?.corto} · {f.jugador.minutos}′
+                                    {/* 30/10/2026: en el móvil, lo que en escritorio va en columnas. */}
+                                    <span className="block text-[10px] text-white/55 sm:hidden">
+                                      {[
+                                        PUESTOS.find((p) => p.key === f.puesto)?.corto,
+                                        `${f.jugador.minutos}′`,
+                                        nota && nota.played ? `nota ${nota.avg.toFixed(1).replace(".", ",")}` : null,
+                                        f.evolucion ? `${f.evolucion.salto > 0 ? "+" : ""}${f.evolucion.salto} vs 25/26` : null,
+                                        seg?.n ? `${seg.n} seg.` : null,
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" · ")}
                                     </span>
                                   </div>
                                 </div>
@@ -540,7 +583,7 @@ export default function ComparativaCategoria() {
                               <td className="hidden sm:table-cell px-2 text-white/70">{f.jugador.edad}</td>
                               <td className="hidden sm:table-cell px-2 text-white/60">{PUESTOS.find((p) => p.key === f.puesto)?.corto}</td>
                               <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/70">{f.jugador.minutos}′</td>
-                              <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/70">{nota && nota.played ? nota.avg.toFixed(1).replace(".", ",") : "—"}</td>
+                              <td className="hidden sm:table-cell px-2 text-right tabular-nums text-white/70">{nota && nota.played ? nota.avg.toFixed(1).replace(".", ",") : ""}</td>
                               <td className="px-3">
                                 <div className="flex items-center gap-2">
                                   <span className="w-7 text-right text-xs font-semibold tabular-nums" style={{ color: colorIndice(f.indice) }}>
@@ -549,7 +592,13 @@ export default function ComparativaCategoria() {
                                   <Barra valor={f.indice ?? 0} color={colorIndice(f.indice)} />
                                 </div>
                               </td>
-                              <td className="px-2 text-xs text-white/70">{f.ranking ? `${ordinal(f.ranking.posicion)} de ${f.ranking.de}` : "—"}</td>
+                              <td
+                                className="px-2 text-xs text-white/70"
+                                title={f.ranking?.fueraDeEdad ? "Pasa de la edad del grupo: se le coloca entre ellos contando como uno más" : undefined}
+                              >
+                                {f.ranking ? textoRanking(f.ranking) : ""}
+                                {f.ranking?.fueraDeEdad && <span className="text-white/45"> · +{ref === "u21" ? 21 : 23}</span>}
+                              </td>
                               <td className="hidden sm:table-cell px-2 text-xs">
                                 {f.evolucion ? (
                                   <span
@@ -579,10 +628,45 @@ export default function ComparativaCategoria() {
                     )}
 
                     {pocosMinutos.length > 0 && (
-                      <p className="mt-3 text-xs text-white/50">
-                        Con pocos minutos para compararse: {pocosMinutos.join(", ")}.
+                      <p className="mt-3 text-xs text-white/55">
+                        Con menos de {MINUTOS_MINIMOS}′ en la liga no tienen índice y por eso no están en la tabla: {pocosMinutos.join(", ")}.
                       </p>
                     )}
+
+                    {/* 30/10/2026: quien sale con el Castilla en Wyscout y no está en nuestra hoja de jugadores. */}
+                    {sinFicha.length > 0 && (
+                      <p className="mt-3 text-xs text-white/55">
+                        Sin ficha en nuestra plantilla (Wyscout lo da con el Castilla, pero no está en la hoja de
+                        jugadores; por eso no sale en Plantilla ni tiene nota): {sinFicha.join(", ")}.
+                      </p>
+                    )}
+
+                    {ref !== "todos" && comparables.some((x) => x.f.ranking?.fueraDeEdad) && (
+                      <p className="mt-3 text-xs text-white/55">
+                        «+{ref === "u21" ? 21 : 23}»: pasa de la edad del grupo y se le coloca entre ellos contando como uno
+                        más; por eso su «de N» lleva uno más que el de un compañero del mismo puesto que sí entra.
+                      </p>
+                    )}
+
+                    <details className="mt-3 text-xs text-white/55">
+                      <summary className="cursor-pointer text-white/70">Qué mide el índice de cada puesto</summary>
+                      <ul className="mt-2 space-y-1.5">
+                        {PUESTOS.map((p) => (
+                          <li key={p.key}>
+                            <span className="font-medium text-white/75">{p.label}:</span>{" "}
+                            {metricasDe(p.key)
+                              .filter((m) => m.mejorAlto !== null)
+                              .map((m) => m.nombre)
+                              .join(", ")}
+                            .
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-2">
+                        Es la media de sus percentiles en esas métricas de Wyscout, contra los de su puesto del grupo
+                        elegido. Con menos de {GRUPO_CORTO} en el grupo, el puesto es tendencia.
+                      </p>
+                    </details>
                   </>
                 )}
 
@@ -1210,7 +1294,7 @@ function Detalle({
           </span>
           <span className="text-xs text-white/45">
             índice frente a {refLabel.toLowerCase()}
-            {fila.ranking ? ` · ${ordinal(fila.ranking.posicion)} de ${fila.ranking.de}` : ""}
+            {fila.ranking ? ` · ${textoRanking(fila.ranking)}` : ""}
           </span>
         </div>
         <dl className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">

@@ -60,6 +60,7 @@ import {
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
+import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
 import { nombreEquipo } from "@/lib/equipos";
@@ -204,7 +205,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     conclusiones: {
       adelante: (pct, n, de) => `El ${pct} % sale hacia delante tras robar (${n} de ${de}).`,
       zona: (zona, n, total, adelante, juegan) =>
-        `Más robos en ${zona}: ${n} de ${total}. De los ${n} robos en ${zona}, ${juegan} se juegan con pase o conducción y ${adelante} salen hacia delante.`,
+        `Donde más robamos es en ${zona}: ${n} de ${total}. De esos ${n}, jugamos ${juegan} con pase o conducción y ${adelante} salen hacia delante.`,
       acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % acaba en remate o área y ${pierden} % en pérdida.`,
       dura: (s) => `La transición dura ${s} s de media.`,
     },
@@ -265,7 +266,8 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
     conclusiones: {
       adelante: (pct, n, de) => `El rival sale hacia delante en el ${pct} % de las pérdidas que llega a jugar (${n} de ${de}).`,
       zona: (zona, n, total, adelante, juegan) =>
-        `Más pérdidas en ${zona}: ${n} de ${total}. De las ${n} pérdidas en ${zona}, el rival llega a jugar ${juegan} y sale hacia delante en ${adelante}.`,
+        /* 30/10/2026: dos frases, una cifra cada una (marketing: mezclaba tres). */
+        `Donde más perdemos es en ${zona}: ${n} de ${total}. De esas ${n}, el rival juega ${juegan} y sale hacia delante en ${adelante}.`,
       acaba: (llegan, pierden, de) => `De ${de} con desenlace, ${llegan} % nos llegan al área o al remate y ${pierden} % las recuperamos.`,
       dura: (s) => `Su transición dura ${s} s de media.`,
     },
@@ -649,10 +651,19 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
   const quien = partidos.some((p) => p.id === quienElegido) ? quienElegido : "todos";
 
+  /* 30/10/2026: para el sello «Datos hasta la J·» y para decir dónde empieza. */
+  const fechasConDato = useMemo(() => partidos.filter((p) => p.robos.length > 0).map((p) => p.fecha), [partidos]);
+  const primeraConDato = useMemo(
+    () => [...partidos].filter((p) => !esPretemporada(p.jornada)).sort((a, b) => a.fecha.localeCompare(b.fecha))[0]?.jornada ?? "",
+    [partidos],
+  );
+
   const elegidos = useMemo(
     () => (quien === "todos" ? partidos : partidos.filter((p) => p.id === quien)),
     [partidos, quien],
   );
+
+  const unPartido = quien !== "todos";
 
   /** Pinchar un partido en la tabla: se queda con él, o vuelve a todos. */
   const alternaPartido = (id: string) => setQuien((antes) => (antes === id ? "todos" : id));
@@ -991,10 +1002,22 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       },
     ];
 
+    /*
+    | 30/10/2026: la base de la media en cada fila, igual en robos y en
+    | pérdidas: «frente a 5 partidos, tendencia». Antes sólo lo decía una
+    | línea sobre la tabla (y con 7 partidos, ni eso).
+    */
+    const nRef = anteriores.length;
+    const baseMedia = nRef
+      ? `frente a ${nRef === 1 ? "un partido" : `${nRef} partidos`}${nRef <= 7 ? ", tendencia" : ""}`
+      : "";
+
     return {
       partido: `${comparado.jornada} · ${nombreEquipo(comparado.rival)}`,
       anteriores: { n: anteriores.length },
-      metricas,
+      metricas: baseMedia
+        ? metricas.map((m) => ({ ...m, pie: m.pie ? `${m.pie} · ${baseMedia}` : baseMedia }))
+        : metricas,
       nota:
         quien === "todos"
           ? `Se compara el último partido (${comparado.jornada}) aunque abajo se vean todos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor.`
@@ -1248,6 +1271,15 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               }
             />
 
+            <SelloDeFechas fuente="Vídeo etiquetado" fechas={fechasConDato} queEs={T.unidad} />
+
+            {/* 30/10/2026: por qué el selector no empieza en la J1 (análisis y marketing). */}
+            {primeraConDato && !/^J0*1$/i.test(primeraConDato.trim()) ? (
+              <p className="mt-2 text-[12px] text-white/60">
+                Empieza en la {primeraConDato}: es el primer partido con vídeo etiquetado.
+              </p>
+            ) : null}
+
             {/* ---------------- mandos ---------------- */}
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -1388,13 +1420,17 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
             {/* ---------------- cifras ---------------- */}
 
-            <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {/* 30/10/2026: con un solo partido el total ya está en la tabla de arriba
+                (y en el filtro): la tarjeta repetía «38 robos · 1 partido» (marketing). */}
+            <div className={`mt-5 grid grid-cols-2 gap-3 ${unPartido ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
+              {unPartido ? null : (
               <Cifra
                 valor={String(robos.length)}
                 rotulo={T.serieTotal}
                 pie={explicativos ? `en ${cobertura.minutosVistos} min revisados` : `${elegidos.length} ${elegidos.length === 1 ? "partido" : "partidos"}`}
                 icono={Crosshair}
               />
+              )}
 
               <Cifra
                 valor={`${pct(adelante, jugados.length)}%`}

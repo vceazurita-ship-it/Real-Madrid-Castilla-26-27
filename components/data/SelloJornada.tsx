@@ -14,11 +14,11 @@
  * Ajustes (`useTextosExplicativos`).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, CircleAlert, CircleDashed } from "lucide-react";
 
 import { cargaCalendario } from "@/hooks/useCalendario";
-import type { Alcance, PartidoCalendario } from "@/lib/data-analisis/alcance";
+import { alcanceDeFechas, type Alcance, type PartidoCalendario } from "@/lib/data-analisis/alcance";
 import { useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { chipInk } from "@/lib/theme";
 
@@ -113,6 +113,28 @@ export function SelloJornada({ alcances, nota }: { alcances: Alcance[]; nota?: s
         );
       })}
       {explicativos && nota && <p className="text-[11px] text-white/35">{nota}</p>}
+    </div>
+  );
+}
+
+/**
+ * El mismo sello para las pantallas que sólo tienen partidos nuestros
+ * (30/10/2026): faltas, robos, pérdidas y plan de partido. Se le dan las
+ * fechas de los partidos que tienen dato y dice hasta qué jornada llega,
+ * como en Data análisis. Hasta que llega el calendario no pinta nada.
+ */
+export function SelloDeFechas({ fuente, fechas, queEs, className = "" }: { fuente: string; fechas: string[]; queEs: string; className?: string }) {
+  const calendario = useCalendarioCastilla();
+  const alcance = useMemo(
+    () => (calendario ? alcanceDeFechas(fuente, fechas, calendario.partidos, calendario.hoy, queEs) : null),
+    [calendario, fechas, fuente, queEs],
+  );
+
+  if (!alcance || alcance.estado === "sin-datos") return null;
+
+  return (
+    <div className={className}>
+      <SelloJornada alcances={[alcance]} />
     </div>
   );
 }

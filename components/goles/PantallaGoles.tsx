@@ -12,12 +12,12 @@
 | transición y ABP). Los datos y de dónde sale cada uno: `lib/goles/analisis.ts`.
 */
 
-import { useMemo, useState, type ReactNode } from "react";
-import { Clock, Crosshair, Goal, Home, LayoutDashboard, Lightbulb, ListOrdered, Shapes, Trophy } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Clock, Crosshair, Goal, Home, LayoutDashboard, Lightbulb, ListOrdered, Shapes, SlidersHorizontal, Trophy } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { EsqueletoPantalla } from "@/components/ui/estados";
+import { EsqueletoPantalla, EstadoError } from "@/components/ui/estados";
 import { AbpHeader, Notice, Panel, SaveState, Segmented, Select, StatCard, StatRow } from "@/components/abp/ui";
 import { MEJOR, ORO, PEOR, tinta } from "@/components/data/graficas";
 import { Lectura } from "@/components/data/formas";
@@ -204,7 +204,7 @@ function Tabla({ cabeza, filas, pie, ocultaMovil = [] }: { cabeza: string[]; fil
  * si es peor (más de un 10 %), y nada si está en la media. La flecha va por
  * si el color no se distingue (modo día, pantalla del vestuario).
  */
-function Contra({ valor, liga, mejorAlto, dec = 1, sufijo = "", n }: { valor: number; liga: number; mejorAlto: boolean; dec?: number; sufijo?: string; n?: number }) {
+function Contra({ valor, liga, mejorAlto, dec = 1, sufijo = "", n, sinBase = false }: { valor: number; liga: number; mejorAlto: boolean; dec?: number; sufijo?: string; n?: number; sinBase?: boolean }) {
   /* 29/10/2026: con menos de 5 partidos la flecha no juzga: gris y con los partidos a la vista. */
   const corta = n !== undefined && n < 5;
   /* Con valores que pueden ser negativos (goles menos xG) el 10 % no vale: se mira la diferencia. */
@@ -217,7 +217,7 @@ function Contra({ valor, liga, mejorAlto, dec = 1, sufijo = "", n }: { valor: nu
       {mejor ? "▲ " : peor ? "▼ " : ""}
       {fmt(valor, dec)}
       {sufijo}
-      {corta ? ` (${n} ${n === 1 ? "partido" : "partidos"})` : ""}
+      {corta && !sinBase ? ` (${n} ${n === 1 ? "partido" : "partidos"})` : ""}
     </span>
   );
 }
@@ -238,7 +238,24 @@ function franjasTop(filas: { franja: Franja; gf: number; gc: number }[], k: "gf"
 /* ------------------------------------------------------------------ */
 
 export function PantallaGoles() {
-  const { value: doc, status } = useRemoteDoc<GolesDoc>({ key: DOC_GOLES, kind: "goles", fallback: GOLES_VACIO });
+  const { value: doc, status, reload } = useRemoteDoc<GolesDoc>({ key: DOC_GOLES, kind: "goles", fallback: GOLES_VACIO });
+  /*
+  | 30/10/2026: un tope a la espera. Si el documento no llega en 20 s (o
+  | falla), se dice y se ofrece «Reintentar» en vez del esqueleto para
+  | siempre (análisis).
+  */
+  const [agotado, setAgotado] = useState(false);
+  const sinPartidos = !(doc.partidos ?? []).length;
+
+  useEffect(() => {
+    if (status !== "loading" || !sinPartidos) return;
+
+    const reloj = setTimeout(() => setAgotado(true), 20_000);
+
+    return () => clearTimeout(reloj);
+  }, [status, sinPartidos]);
+  /* En el móvil los filtros van plegados tras un botón, para que el resumen salga en la primera pantalla. */
+  const [verFiltros, setVerFiltros] = useState(false);
   const manual = useRemoteDoc<TipologiaManual>({ key: DOC_TIPOLOGIA_MANUAL, kind: "goles", fallback: {} });
 
   const todos = useMemo(() => doc.partidos ?? [], [doc.partidos]);
@@ -584,6 +601,20 @@ export function PantallaGoles() {
     return { eq, lg };
   }, [delEquipo, liga, equipo, condicion]);
 
+  if (!todos.length && (status === "error" || (status === "loading" && agotado))) {
+    return (
+      <Marco>
+        <EstadoError
+          titulo="El análisis de goles no ha llegado"
+          onReintentar={() => {
+            setAgotado(false);
+            reload();
+          }}
+        />
+      </Marco>
+    );
+  }
+
   if (status === "loading" && !todos.length) {
     return (
       <Marco>
@@ -659,6 +690,23 @@ export function PantallaGoles() {
       />
 
       {/* ---------------- mandos ---------------- */}
+      {/* 30/10/2026: a 390 px los mandos ocupaban la primera pantalla entera; se pliegan tras «Filtros» (análisis y marketing). */}
+      <button
+        type="button"
+        onClick={() => setVerFiltros((v) => !v)}
+        aria-expanded={verFiltros}
+        className="mt-5 inline-flex w-full items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left text-sm text-white/80 sm:hidden"
+      >
+        <span className="inline-flex min-w-0 items-center gap-2">
+          <SlidersHorizontal size={15} className="shrink-0 text-[#C8A96B]" />
+          <span className="truncate">
+            Filtros · {nombreEquipo(equipo)} · J{jDesde}–J{jHasta}
+            {condicion === "todos" ? "" : ` · ${condicion}`}
+          </span>
+        </span>
+        <span className="shrink-0 text-xs text-white/50">{verFiltros ? "Ocultar" : "Cambiar"}</span>
+      </button>
+      <div className={`${verFiltros ? "" : "max-sm:hidden"}`}>
       <div className="mt-6 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Select label="Equipo" value={equipo} options={equipos.map((e) => ({ value: e, label: nombreEquipo(e) }))} onChange={(v) => setEquipo(v)} />
         <Select label="Desde la jornada" value={String(jDesde)} options={jornadasJugadas.map((j) => ({ value: String(j), label: `Jornada ${j}` }))} onChange={(v) => setDesde(Number(v))} />
@@ -705,6 +753,7 @@ export function PantallaGoles() {
           Descuentos aparte
         </label>
       </div>
+      </div>
 
       {!todos.length ? (
         <div className="mt-6">
@@ -741,18 +790,19 @@ export function PantallaGoles() {
 
           <StatRow>
             <StatCard label="Partidos" value={jugadosCalendario > delEquipo.length ? `${delEquipo.length} de ${jugadosCalendario}` : delEquipo.length} hint={jugadosCalendario > delEquipo.length ? (jornadasFaltan.length ? `falta la ${jornadasFaltan.map((j) => `J${j}`).join(", ")}` : "faltan partidos por cargar") : condicion === "todos" ? "local y visitante" : condicion} />
-            <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido${incompleto ? "" : ` · liga ${fmt(ligaGolesPP)}`}`} accent={ORO} />
-            <StatCard label="Goles en contra" value={gc} hint={`${fmt(media(gc, delEquipo.length))} por partido${incompleto ? "" : ` · liga ${fmt(ligaContraPP)}`}`} accent={PEOR} />
+            {/* 30/10/2026: «liga 1,4» con su base: la media de los equipos de la liga (marketing). */}
+            <StatCard label="Goles a favor" value={gf} hint={`${fmt(media(gf, delEquipo.length))} por partido${incompleto ? "" : ` · media de los ${equipos.length} equipos: ${fmt(ligaGolesPP)}`}`} accent={ORO} />
+            <StatCard label="Goles en contra" value={gc} hint={`${fmt(media(gc, delEquipo.length))} por partido${incompleto ? "" : ` · media de los ${equipos.length} equipos: ${fmt(ligaContraPP)}`}`} accent={PEOR} />
             <StatCard
               label="Su mejor tramo"
               value={tramos.fuerte ? tramos.fuerte.franja.nombre : "Ninguno"}
-              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
+              hint={tramos.fuerte ? `${tramos.fuerte.gf} a favor${incompleto ? "" : ` · ${fmt(media(tramos.fuerte.gf, delEquipo.length))}/partido (liga ${fmt(tramos.fuerte.ligaPP)})`}${aviso ? " · tendencia" : ""}` : masGoleadora ? `ninguno por encima de la liga` : "sin goles a favor"}
               accent={tramos.fuerte ? MEJOR : undefined}
             />
             <StatCard
               label="Su tramo más débil"
               value={tramos.flojo ? tramos.flojo.franja.nombre : "Ninguno"}
-              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
+              hint={tramos.flojo ? `${tramos.flojo.gc} en contra${incompleto ? "" : ` · ${fmt(media(tramos.flojo.gc, delEquipo.length))}/partido (liga ${fmt(tramos.flojo.ligaContraPP)})`}${aviso ? " · tendencia" : ""}` : masEncajada ? "ninguno por encima de la liga" : "sin goles en contra"}
               accent={tramos.flojo ? PEOR : undefined}
             />
           </StatRow>
@@ -798,7 +848,8 @@ export function PantallaGoles() {
                   e.G,
                   e.E,
                   e.P,
-                  <Contra key={k} valor={media(e.G * 3 + e.E, e.n)} liga={media(l.G * 3 + l.E, l.n)} mejorAlto n={e.n} />,
+                  /* 30/10/2026: la base va en la columna Partidos, no repetida en cada celda (marketing). */
+                  <Contra key={k} valor={media(e.G * 3 + e.E, e.n)} liga={media(l.G * 3 + l.E, l.n)} mejorAlto n={e.n} sinBase />,
                   fmt(media(l.G * 3 + l.E, l.n)),
                 ];
               })}

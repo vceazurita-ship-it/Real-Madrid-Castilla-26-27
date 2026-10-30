@@ -116,6 +116,60 @@ export function esDeSeguimiento(jugador: JugadorConLicencia) {
   return jugador.esCastilla;
 }
 
+/*
+|--------------------------------------------------------------------------
+| SIN SEGUIMIENTO EN 14 DÍAS (30/10/2026)
+|--------------------------------------------------------------------------
+|
+| Una sola regla para /calendar, /individual y /individual_proc. Cada
+| pantalla llevaba la suya: el calendario comparaba con la hora del momento
+| (un registro de hoy, fechado a mediodía, no contaba por la mañana) y el
+| Dashboard Seguimiento contaba también los días futuros. Ahora: los 14 días
+| que acaban HOY, hoy incluido, y lo fechado más adelante no cuenta. Se
+| compara por la clave del día (AAAA-MM-DD), no por la hora.
+*/
+
+export const DIAS_SIN_SEGUIMIENTO = 14;
+
+function claveDia(fecha: Date) {
+  return [
+    fecha.getFullYear(),
+    String(fecha.getMonth() + 1).padStart(2, "0"),
+    String(fecha.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+/**
+ * Los jugadores de seguimiento (`esDeSeguimiento`) sin ningún registro en
+ * los últimos 14 días, hoy incluido. Las filas, ya alineadas por nombre.
+ * `claveDe` convierte la FECHA de la hoja en «AAAA-MM-DD» (en las pantallas,
+ * `recordDateKey` de `lib/calendar`).
+ */
+export function sinSeguimientoReciente<J extends JugadorMinimo & JugadorConLicencia>(
+  filasAlineadas: { ID_JUGADOR: string; FECHA: string }[],
+  plantilla: J[],
+  hoy: Date,
+  claveDe: (fecha: string) => string,
+): J[] {
+  const desde = new Date(hoy);
+  desde.setDate(desde.getDate() - DIAS_SIN_SEGUIMIENTO);
+
+  const inicio = claveDia(desde);
+  const fin = claveDia(hoy);
+
+  const conSeguimiento = new Set<string>();
+
+  filasAlineadas.forEach((fila) => {
+    const clave = claveDe(fila.FECHA);
+
+    if (clave && clave >= inicio && clave <= fin) conSeguimiento.add(fila.ID_JUGADOR);
+  });
+
+  return plantilla.filter(
+    (jugador) => esDeSeguimiento(jugador) && !conSeguimiento.has(jugador.id),
+  );
+}
+
 /**
  * Los registros de la hoja que son de esos jugadores. Las filas tienen que
  * venir ya pasadas por `alineaSeguimiento` **contra la plantilla entera**:

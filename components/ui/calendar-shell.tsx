@@ -53,7 +53,7 @@ type CalendarShellProps = {
   /** Resumen del mes (usa CalendarStat). */
   stats?: ReactNode;
   /** Columnas del resumen en pantalla ancha: 4 por defecto, 5 si hay cinco tarjetas (que no caiga una sola abajo). */
-  statsColumnas?: 4 | 5;
+  statsColumnas?: 3 | 4 | 5;
   /** Una franja sobre el calendario (p. ej. el próximo partido), antes del resumen del mes. */
   franja?: ReactNode;
   legend?: CalendarLegendItem[];
@@ -77,14 +77,14 @@ export function CalendarStat({
   hint?: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#11161D] px-4 py-3">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-[#11161D] px-3 py-2 sm:px-4 sm:py-3">
       <p className="text-[10px] uppercase tracking-[0.2em] text-white/40">
         {label}
       </p>
 
-      <p className="mt-1 text-xl font-semibold text-white">{value}</p>
+      <div className="mt-0.5 text-lg font-semibold text-white sm:mt-1 sm:text-xl">{value}</div>
 
-      {hint && <p className="text-[11px] text-white/45">{hint}</p>}
+      {hint && <p className="text-[11px] leading-snug text-white/55">{hint}</p>}
     </div>
   );
 }
@@ -166,8 +166,10 @@ export function CalendarShell({
 
             {stats && (
               <div
-                className={`mt-5 grid grid-cols-2 gap-2 md:gap-3 ${
-                  statsColumnas === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"
+                /* 30/10/2026: en el móvil, 2 por fila y la última impar a lo
+                   ancho, con tarjetas bajas: el calendario aparece antes. */
+                className={`mt-5 grid grid-cols-2 gap-2 md:gap-3 [&>*:last-child:nth-child(odd)]:col-span-2 lg:[&>*:last-child:nth-child(odd)]:col-span-1 ${
+                  statsColumnas === 5 ? "lg:grid-cols-5" : statsColumnas === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"
                 }`}
               >
                 {stats}

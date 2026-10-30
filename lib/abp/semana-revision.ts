@@ -161,6 +161,26 @@ export function revisaSemana({
 }): PuntoRevision[] {
   const puntos: PuntoRevision[] = [];
 
+  /*
+  | Cada tarjeta abre SU tarea (30/10/2026, expertos): dos de tres llevaban
+  | «Abrir "Córner directo + 6"». De cada lista se elige la primera tarea que
+  | no haya señalado ya otra tarjeta; si todas lo están, la primera.
+  */
+  const usados = new Set<string>();
+  const elegidas = new Map<unknown, { trabajo: Trabajo }>();
+  const libre = <E extends { trabajo: Trabajo }>(lista: E[]): E => {
+    const ya = elegidas.get(lista) as E | undefined;
+
+    if (ya) return ya;
+
+    const una = lista.find((x) => !usados.has(x.trabajo.id)) ?? lista[0];
+
+    usados.add(una.trabajo.id);
+    elegidas.set(lista, una);
+
+    return una;
+  };
+
   const dias = diasCompletos(plan);
 
   const enOrden = orden.length ? orden : (Object.keys(dias) as DiaKey[]);
@@ -216,11 +236,15 @@ export function revisaSemana({
 
     const repetida = [...repetidas.entries()].filter(([, v]) => v.dias.size >= 3).sort((x, y) => y[1].minutos - x[1].minutos)[0];
 
+    if (masLarga) usados.add(masLarga.trabajo.id);
+
+    /* 30/10/2026 (expertos): cuánto sobra ya lo dice la barra de la tarjeta
+       del partido; aquí, sólo qué quitar. */
     puntos.push({
       id: "minutos",
       tono: "aviso",
-      titulo: `${minutos - objetivo.maximo}′ por encima del objetivo`,
-      detalle: `${minutos}′ para ${objetivo.minimo}-${objetivo.maximo}′. El ${nombreDia(diaMayor)} lleva ${minutosMayor}′ en ${plural(delMayor.length, "tarea", "tareas")}${
+      titulo: `Para bajar a ${objetivo.maximo}′: aligerar el ${nombreDia(diaMayor)}`,
+      detalle: `Sobran ${minutos - objetivo.maximo}′. El ${nombreDia(diaMayor)} lleva ${minutosMayor}′ en ${plural(delMayor.length, "tarea", "tareas")}${
         repetida
           ? `; ${repetida[0].split("+").map((a) => nombreAspecto(a as AspectoKey)).join(" y ").toLowerCase()} sale ${repetida[1].dias.size} días (${repetida[1].minutos}′): dejar uno`
           : ""
@@ -247,8 +271,8 @@ export function revisaSemana({
       tono: "alerta",
       titulo: `${plural(sinTiempo.length, "tarea", "tareas")} sin tiempo`,
       detalle: `${enLista(sinTiempo.map(({ dia }) => nombreDia(dia)))}: sin minutos no suman a la semana ni a la carga.`,
-      dia: sinTiempo[0].dia,
-      trabajo: sinTiempo[0].trabajo,
+      dia: libre(sinTiempo).dia,
+      trabajo: libre(sinTiempo).trabajo,
     });
   }
 
@@ -268,8 +292,8 @@ export function revisaSemana({
 
         return `Sin ella no se lee la carga ${dias.length === 1 ? "del" : "de"} ${enLista(dias)}.`;
       })(),
-      dia: sinCarga[0].dia,
-      trabajo: sinCarga[0].trabajo,
+      dia: libre(sinCarga).dia,
+      trabajo: libre(sinCarga).trabajo,
     });
   }
 
@@ -290,8 +314,8 @@ export function revisaSemana({
       detalle: `${enLista(
         fueraDeSesion.map(({ dia }) => `${nombreDia(dia)} (${dias[dia]?.tipo === "partido" ? "partido" : "descanso"})`),
       )}: muévelas a un día de sesión.`,
-      dia: fueraDeSesion[0].dia,
-      trabajo: fueraDeSesion[0].trabajo,
+      dia: libre(fueraDeSesion).dia,
+      trabajo: libre(fueraDeSesion).trabajo,
     });
   }
 
@@ -311,7 +335,7 @@ export function revisaSemana({
         titulo: `MD-1 con intensidad ${cargada.intensidad}`,
         detalle: "El día antes del partido se repasa a baja intensidad: mejor 3-5.",
         dia: md1,
-        trabajo: cargada,
+        trabajo: (usados.add(cargada.id), cargada),
       });
     }
 
@@ -351,7 +375,7 @@ export function revisaSemana({
         titulo: "El MD-1 estrena contenido",
         detalle: `${enLista(dichos).replace(/^./, (letra) => letra.toUpperCase())} ${nombres.length === 1 ? "sale" : "salen"} por primera vez el día antes: el MD-1 repasa lo de la semana.`,
         dia: md1,
-        trabajo: estrenos[0].trabajo,
+        trabajo: libre(estrenos).trabajo,
       });
     }
 
@@ -428,8 +452,8 @@ export function revisaSemana({
       detalle: tarde.every(({ dia }) => dias[dia]?.tipo === "partido")
         ? "Muévelo antes: primero se ve, luego se sale al campo."
         : "Muévelo antes: primero se ve, luego se entrena.",
-      dia: tarde[0].dia,
-      trabajo: tarde[0].trabajo,
+      dia: libre(tarde).dia,
+      trabajo: libre(tarde).trabajo,
     });
   }
 

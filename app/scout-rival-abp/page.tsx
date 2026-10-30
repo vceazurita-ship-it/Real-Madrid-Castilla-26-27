@@ -880,6 +880,7 @@ export default function ScoutRivalAbpPage() {
               {vista === "coding" && (
                 <CodingAbpRival
                   equipo={equipo || null}
+                  jornadaPartido={equipo ? (jornadaDe(equipo)?.etiqueta ?? null) : null}
                   onRecoger={equipo && grupo === "liga" ? () => setVista("laminas") : undefined}
                   onApuntes={equipo ? () => setVista("apuntes") : undefined}
                 />

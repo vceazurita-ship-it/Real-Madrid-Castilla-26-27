@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { AbpHeader, Button, Field, Notice, Panel, TextArea } from "@/components/abp/ui";
+import { AbpHeader, Button, Field, Panel, TextArea } from "@/components/abp/ui";
 import { Acceso } from "@/components/quiniela/Acceso";
 import { Avatar } from "@/components/quiniela/Avatar";
 import { Sidebar } from "@/components/ui/sidebar";
@@ -60,7 +60,7 @@ import {
   type Postura,
   type Veredicto,
 } from "@/lib/apuestas/modelo";
-import { PERSONA_POR_SLUG, nombreCorto } from "@/lib/quiniela/staff";
+import { PERSONA_POR_SLUG, STAFF, nombreCorto } from "@/lib/quiniela/staff";
 
 type Guarda = ReturnType<typeof useApuestasDoc>["guarda"];
 
@@ -113,7 +113,7 @@ export default function ApuestasPage() {
     vivas.length > 0
       ? `${vivas.length === 1 ? "Una apuesta abierta" : `${vivas.length} apuestas abiertas`}: entra y ponte a favor o en contra`
       : estado === "listo" && doc.apuestas.length === 0
-        ? "Entra y lanza la primera"
+        ? "Lanza la primera apuesta"
         : "Entra para apostar";
 
   const pasos = (
@@ -161,6 +161,23 @@ export default function ApuestasPage() {
               lead={titular}
             />
 
+            {/* La cifra de contexto arriba, con los chips de la quiniela (30/10/2026). */}
+            {estado === "listo" && (
+              <p className="mt-4 flex flex-wrap gap-2 text-[12px]">
+                <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 font-semibold tabular-nums text-white/80">
+                  {doc.apuestas.length === 1 ? "1 apuesta" : `${doc.apuestas.length} apuestas`}
+                </span>
+                {vivas.length > 0 && (
+                  <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2.5 py-1 font-semibold tabular-nums text-[#E4CE9B]">
+                    {vivas.length === 1 ? "1 abierta" : `${vivas.length} abiertas`}
+                  </span>
+                )}
+                <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 tabular-nums text-white/70">
+                  {STAFF.length} en el staff
+                </span>
+              </p>
+            )}
+
             {/* ------------------------ CÓMO FUNCIONA ------------------ */}
 
             <div className="mt-5">
@@ -171,48 +188,8 @@ export default function ApuestasPage() {
                   </summary>
                   <div className="mt-2">{pasos}</div>
                 </details>
-              ) : estado === "listo" ? null : (
-                <Notice tone="info" title="Cómo funciona">
-                  {pasos}
-                </Notice>
-              )}
+              ) : null}
             </div>
-
-            {/* Sin ninguna apuesta publicada: el ejemplo, abierto y encima del
-                acceso, para que la pantalla enseñe qué se ve aquí antes de pedir
-                que entres. */}
-            {estado === "listo" && doc.apuestas.length === 0 && (
-              /* 29/10/2026 (marketing): ya no es un desplegable que parecía un aviso
-                 y escondía el ejemplo. Frase fija y el ejemplo atenuado a la vista. */
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
-                <p className="text-[15px] font-semibold text-white/85">
-                  Aún nadie ha lanzado una apuesta. Así se verá la primera:
-                </p>
-                <div className="mt-3 space-y-3 text-sm text-white/70">
-                  <article aria-label="Ejemplo de apuesta" className="flex max-w-xl select-none flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4 opacity-75">
-                    <span className="inline-flex w-fit items-center rounded-full border border-white/20 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
-                      Ejemplo
-                    </span>
-                    <p className="text-[15px] font-medium leading-snug text-white/90">
-                      «El Castilla acaba la primera vuelta entre los cinco primeros»
-                    </p>
-                    <p className="text-[12px] text-white/55">
-                      <span className="uppercase tracking-[0.14em] text-white/35">Se juega</span>{" "}
-                      <span className="text-[#E4CE9B]">Un desayuno para todo el staff</span>
-                    </p>
-                    <p className="text-[11px] text-white/45">
-                      Se comprueba el último día de la vuelta. Hasta entonces, cada uno se pone a favor o en contra.
-                    </p>
-                    {/* 29/10/2026: etiquetas del ejemplo, no botones que parezcan pulsables. */}
-                    <p aria-hidden className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] italic text-white/40">
-                      <span className="inline-flex items-center gap-1.5"><ThumbsUp size={12} />Los demás eligen a favor</span>
-                      <span className="inline-flex items-center gap-1.5"><ThumbsDown size={12} />o en contra</span>
-                    </p>
-                  </article>
-                  {pasos}
-                </div>
-              </div>
-            )}
 
             {!accesoAbajo && acceso}
 
@@ -225,6 +202,46 @@ export default function ApuestasPage() {
                 <Lanzar guarda={guarda} hoy={hoy} ocupado={estado === "guardando"} />
               </div>
             )}
+
+            {/* Sin ninguna apuesta publicada: el ejemplo, DEBAJO del acceso
+                (30/10/2026, expertos), que es la llamada principal. Cuenta los
+                tres pasos dentro del propio ejemplo: la lista aparte repetía lo
+                mismo. */}
+            {estado === "listo" && doc.apuestas.length === 0 && (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+                <p className="text-[15px] font-semibold text-white/85">Así se verá la primera:</p>
+                <article aria-label="Ejemplo de apuesta" className="mt-3 flex max-w-xl select-none flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4">
+                  <span className="inline-flex w-fit items-center rounded-full border border-white/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                    Ejemplo
+                  </span>
+                  <p className="text-[15px] font-medium leading-snug text-white/90">
+                    «El Castilla acaba la primera vuelta entre los cinco primeros»
+                  </p>
+                  <p className="text-[13px] text-white/65">
+                    <span className="uppercase tracking-[0.14em] text-white/50">Se juega</span>{" "}
+                    <span className="text-[#E4CE9B]">Un desayuno para todo el staff</span>
+                  </p>
+                  <p className="text-[13px] leading-snug text-white/65">
+                    Quien la lanza pone el día de comprobación: el último de la vuelta. Hasta el día antes, los demás se ponen a favor o en contra; ese día, cualquiera que haya entrado da el veredicto.
+                  </p>
+                  {/* Los dos botones de verdad, desactivados: así se ve dónde se pulsará. */}
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" disabled className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-3 text-[13px] font-medium text-emerald-300 disabled:cursor-not-allowed">
+                      <ThumbsUp size={14} /> A favor · 6
+                    </button>
+                    <button type="button" disabled className="inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-rose-400/30 bg-rose-400/10 px-3 text-[13px] font-medium text-rose-300 disabled:cursor-not-allowed">
+                      <ThumbsDown size={14} /> En contra · 4
+                    </button>
+                  </div>
+                  <p className="text-[13px] text-white/65">
+                    <span className="uppercase tracking-[0.14em] text-white/50">Veredicto</span>{" "}
+                    <span className="font-semibold text-emerald-300">Se cumplió</span>: aciertan quien la lanzó y los 6 que fueron a favor.
+                  </p>
+                </article>
+              </div>
+            )}
+
+
 
             {/* ------------------------ EN JUEGO ----------------------- */}
 

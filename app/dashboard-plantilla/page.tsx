@@ -11,7 +11,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { getPlayerImage, normalizePlayerName } from "@/lib/playerImages";
 import { nombrePuesto, posicionDe } from "@/lib/posiciones";
 import { nombreVisible } from "@/lib/nombreJugador";
-import { esDelCastilla, licenciaDe } from "@/lib/fichajes";
+import { cohorteCastilla, esDelCastilla, fichajesQueFaltan, licenciaDe } from "@/lib/fichajes";
 import { useRatingsSeason } from "@/hooks/useRatings";
 import { summarizePlayer, formatRating } from "@/lib/ratings/compute";
 import type { RatingsSeason } from "@/lib/ratings/types";
@@ -434,7 +434,7 @@ export default function DashboardPlantilla() {
 
     const vistos = new Set<string>();
 
-    return scoutingRows
+    const deLaHoja = scoutingRows
       .filter((scout) => {
         if (!scout.ID_JUGADOR || vistos.has(scout.ID_JUGADOR)) return false;
 
@@ -508,7 +508,38 @@ export default function DashboardPlantilla() {
           aspectosMejora: scout?.ASPECTOS_MEJORA ?? "",
           hudl: scout?.HUDL_PERFIL_URL ?? "",
         };
-      })
+      });
+
+    /* 30/10/2026: los fichajes del puente que la hoja aún no trae (D. Arroyo,
+       Hugo de Llanos…) también son de la plantilla. Sin ellos, «Del Castilla»
+       daba 21 aquí y 22 en /individual. Entran sin ficha y sin estado: no hay
+       control suyo que contar. */
+    const fichajes: Player[] = fichajesQueFaltan(deLaHoja.map((p) => p.nombre))
+      .filter((f) => !isHiddenPlayer(f.nombre, f.apodo))
+      .map((f) => ({
+        id: f.id,
+        fecha: "",
+        nombre: f.nombre,
+        apodo: f.apodo ?? "",
+        posicion: nombrePuesto(f.posicion),
+        dorsal: f.dorsal ? String(f.dorsal) : String(dorsalDe(f.nombre) ?? ""),
+        foto: f.foto || "",
+        licencia: f.licencia,
+        estado: "",
+        activo: esDelCastilla(f.nombre, f.licencia),
+        mentalidad: 0,
+        habitos: 0,
+        interpretacion: 0,
+        fisica: 0,
+        tecnica: 0,
+        media: 0,
+        valorado: false,
+        fortalezas: "",
+        aspectosMejora: "",
+        hudl: "",
+      }));
+
+    return [...deLaHoja, ...fichajes]
       /* Con ficha primero: la pantalla abre en alguien con datos y los que
          no la tienen quedan al final de la lista. */
       .sort(
@@ -609,7 +640,8 @@ export default function DashboardPlantilla() {
 
     return {
       total,
-      activos: filteredPlayers.filter((p) => p.activo).length,
+      /* La misma cohorte que /individual (lib/fichajes, 30/10/2026). */
+      activos: cohorteCastilla(filteredPlayers, (p) => p.nombre, (p) => p.licencia).length,
       optimos,
       seleccion: countEstado("SELECCIÓN"),
       lesionados: countEstado("LESIONADO"),
@@ -650,7 +682,9 @@ export default function DashboardPlantilla() {
     const map: Record<string, number> = {};
 
     filteredPlayers.forEach((player) => {
-      const key = player.estado || "SIN ESTADO";
+      /* Sin estado escrito (los fichajes que la hoja aún no trae) no se pinta. */
+      if (!player.estado) return;
+      const key = player.estado;
       map[key] = (map[key] ?? 0) + 1;
     });
 
@@ -824,7 +858,8 @@ export default function DashboardPlantilla() {
       title: "Lesionados",
       value: stats.lesionados,
       filter: { key: "estado", value: "LESIONADO" },
-      tone: "text-red-300",
+      /* 30/10/2026: cero lesionados es la buena noticia; en rojo, sólo si hay. */
+      tone: stats.lesionados > 0 ? "text-red-300" : undefined,
     },
     {
       title: "Media",
@@ -834,9 +869,9 @@ export default function DashboardPlantilla() {
     },
     /* 29/10/2026: Mejor/Peor no casaban con Valoraciones porque son otra
        cosa: una ficha de competencias por jugador, no la media de partidos. */
-    { title: "Mejor", value: stats.mejor, secundario: true, base: stats.mejorNombre ? `${stats.mejorNombre} · su ficha de competencias (no la nota de partido)` : undefined },
+    /* 30/10/2026: «Élite (≥8)» va dentro de «Mejor»: eran el mismo dato dos veces. */
+    { title: "Mejor", value: stats.mejor, secundario: true, base: stats.mejorNombre ? `${stats.mejorNombre} · ${stats.elite} de ${stats.valorados} con ficha en élite (8 o más) · competencias, no nota de partido` : undefined },
     { title: "Peor", value: stats.peor, secundario: true, base: stats.peorNombre ? `${stats.peorNombre} · su ficha de competencias (no la nota de partido)` : undefined },
-    { title: "Élite (≥8)", value: stats.elite, secundario: true, base: `de ${stats.valorados} con ficha` },
     {
       title: "% Óptimos",
       value: `${stats.optimalPercentage}%`,
@@ -1047,17 +1082,20 @@ export default function DashboardPlantilla() {
                     </p>
                   </div>
 
-                  <p className="max-w-md text-xs leading-relaxed text-white/55 md:text-right">
-                    El estado sale del porcentaje de jugadores óptimos: 80 % o
-                    más es muy bueno, 60 % o más bueno, 40 % o más mejorable y
-                    por debajo, crítico.
-                  </p>
-
                   {/* Jugadores, media y % de óptimos van en las tarjetas de
                       debajo: aquí sólo el veredicto, sin repetir cifras. */}
                   <div className="grid grid-cols-1 gap-6">
                     <SummaryStat
-                      label={`Estado general · ${stats.optimos} óptimos de ${stats.total}`}
+                      /* 30/10/2026: la regla en una línea junto al veredicto, sin párrafo aparte. */
+                      label={`Estado general · ${stats.optimos} de ${stats.total} óptimos (${stats.optimalPercentage} %) · ${
+                        overallStatus === "MUY BUENO"
+                          ? "80 % o más = muy bueno"
+                          : overallStatus === "BUENO"
+                            ? "60 % o más = bueno"
+                            : overallStatus === "MEJORABLE"
+                              ? "40 % o más = mejorable"
+                              : "menos del 40 % = crítico"
+                      }`}
                       value={overallStatus}
                       size="text-xl"
                       className={
@@ -1151,7 +1189,7 @@ export default function DashboardPlantilla() {
                   aria-expanded={kpisAbiertos}
                   className="-mt-3 min-h-[44px] w-full rounded-xl border border-white/10 bg-white/[0.025] px-4 text-sm text-white/70"
                 >
-                  {kpisAbiertos ? "Ver menos cifras" : "Ver más: media, mejor, peor, élite y % de óptimos"}
+                  {kpisAbiertos ? "Ver menos cifras" : "Ver más: media, mejor, peor y % de óptimos"}
                 </button>
               )}
 
@@ -1210,8 +1248,8 @@ export default function DashboardPlantilla() {
                         <ResponsiveContainer width="100%" height={estrecho ? 340 : 420}>
                           <RadarChart
                             data={radarData}
-                            outerRadius={estrecho ? "62%" : "80%"}
-                            margin={estrecho ? { top: 8, right: 28, bottom: 8, left: 28 } : undefined}
+                            outerRadius={estrecho ? "70%" : "80%"}
+                            margin={estrecho ? { top: 8, right: 18, bottom: 8, left: 18 } : undefined}
                           >
                             <PolarGrid stroke={THEME.grid} />
 
@@ -1224,7 +1262,9 @@ export default function DashboardPlantilla() {
                               domain={[0, 10]}
                               tickCount={3}
                               angle={90}
-                              tick={{ fill: THEME.axis, fontSize: 11 }}
+                              /* 30/10/2026: sin cifras en el eje; el «10» se montaba sobre
+                                 «Mentalidad» y la escala ya la dice el subtítulo. */
+                              tick={false}
                               stroke={THEME.grid}
                             />
 
@@ -2022,9 +2062,9 @@ function PlayerCard({
             {nombreVisible(player.nombre || player.apodo)}
           </h3>
 
-          <p className="truncate text-xs text-white/40">
-            {player.posicion || "—"}
-            {player.licencia ? ` · ${player.licencia}` : ""}
+          {/* 30/10/2026: en el móvil salta de línea en vez de cortarse. */}
+          <p className="break-words text-xs leading-snug text-white/40">
+            {[player.posicion, player.licencia].filter(Boolean).join(" · ")}
           </p>
         </div>
 
@@ -2050,7 +2090,7 @@ function PlayerCard({
           onClick={() => go(-1)}
           disabled={index <= 0}
           /* 29/10/2026: desactivado seguía casi invisible con opacity-40. */
-          className="min-h-[44px] min-w-[44px] rounded-lg border border-white/25 px-4 py-2 text-sm font-medium text-white/85 transition hover:border-[#C8A96B] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-h-[44px] min-w-[44px] rounded-lg border border-white/40 px-4 py-2 text-sm font-medium text-white/85 transition hover:border-[#C8A96B] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           ← Anterior
         </button>
@@ -2062,7 +2102,7 @@ function PlayerCard({
         <button
           onClick={() => go(1)}
           disabled={index >= players.length - 1}
-          className="min-h-[44px] min-w-[44px] rounded-lg border border-white/20 px-4 py-2 text-sm text-white/80 transition hover:border-[#C8A96B] hover:text-white disabled:opacity-40"
+          className="min-h-[44px] min-w-[44px] rounded-lg border border-white/40 px-4 py-2 text-sm font-medium text-white/85 transition hover:border-[#C8A96B] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
           Siguiente →
         </button>
@@ -2073,6 +2113,10 @@ function PlayerCard({
       <div className="mt-5 space-y-3 border-t border-white/5 pt-5">
         {player.valorado ? (
           <>
+            {/* 30/10/2026: la base de la diferencia, arriba y junto a la primera cifra. */}
+            <p className="text-[11px] text-white/55">
+              Diferencia frente a la media de los {referencia.length} con ficha
+            </p>
             {METRICAS.map(({ key, label }) => (
               <MetricBar
                 key={key}
@@ -2082,8 +2126,7 @@ function PlayerCard({
               />
             ))}
             <p className="pt-1 text-[11px] text-white/45">
-              La diferencia junto a cada nota es frente a la media de los
-              jugadores con ficha; en gris, si es menor de 1 punto.
+              En gris, si la diferencia es menor de 1 punto.
             </p>
           </>
         ) : conPartidos ? (
@@ -2138,7 +2181,7 @@ function PlayerCard({
           )}
           {player.fecha && controlAntiguo(player.fecha, ahora) && (
             <span className="shrink-0 rounded-full border border-amber-400/60 bg-amber-400/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
-              Control antiguo
+              Más de {DIAS_CONTROL_ANTIGUO} días sin control
             </span>
           )}
         </span>

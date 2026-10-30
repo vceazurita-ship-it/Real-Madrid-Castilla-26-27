@@ -57,7 +57,8 @@ function defensaDe(texto?: string): Defensa {
 type Pestana = "referentes" | "jornada" | "pizarra" | "taller" | "retos";
 
 const PESTANAS: { key: Pestana; label: string; corto: string; icon: typeof Trophy; lema: string }[] = [
-  { key: "referentes", label: "Referentes", corto: "Referentes", icon: BookMarked, lema: "Lo que hacen los mejores" },
+  /* Sin lema (30/10/2026): «Lo que hacen los mejores» encima del buscador no aportaba nada. */
+  { key: "referentes", label: "Referentes", corto: "Referentes", icon: BookMarked, lema: "" },
   { key: "jornada", label: "Lo mejor de cada jornada", corto: "Jornada", icon: Target, lema: "Wyscout, cada mañana" },
   { key: "pizarra", label: "En la pizarra", corto: "Pizarra", icon: LayoutTemplate, lema: "Nuestras jugadas en uso" },
   { key: "taller", label: "Taller", corto: "Taller", icon: FlaskConical, lema: "Nuestras rutinas" },
@@ -139,10 +140,14 @@ export default function LaboratorioAbpPage() {
 
     const izquierda = boton.offsetLeft - caja.offsetLeft;
 
-    if (izquierda < caja.scrollLeft || izquierda + boton.offsetWidth > caja.scrollLeft + caja.clientWidth) {
-      caja.scrollTo({ left: Math.max(0, izquierda - 16), behavior: "smooth" });
+    /* La activa, centrada (30/10/2026). */
+    if (caja.scrollWidth > caja.clientWidth) {
+      caja.scrollTo({ left: Math.max(0, izquierda - (caja.clientWidth - boton.offsetWidth) / 2), behavior: "smooth" });
     }
   }, [pestana]);
+
+  /* Si hay pestañas escondidas a cada lado de la fila (se mide al deslizar). */
+  const [bordes, setBordes] = useState({ izq: false, der: true });
 
   const [borrador, setBorrador] = useState<Borrador | null>(null);
 
@@ -308,7 +313,8 @@ export default function LaboratorioAbpPage() {
             <AbpHeader
               area="RMCF Castilla · Balón parado"
               title="Laboratorio de ABP"
-              lead="Mira qué rutina encaja esta semana contra el próximo rival, ábrela en el taller y llévala al microciclo."
+              /* Las dos siglas, explicadas en la cabecera (30/10/2026, expertos). */
+              lead="ABP es el balón parado; los goles esperados, la probabilidad de gol de cada remate. Mira qué rutina encaja esta semana contra el próximo rival, ábrela en el taller y llévala al microciclo."
               aside={
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
                   <FlaskConical size={12} />
@@ -329,7 +335,27 @@ export default function LaboratorioAbpPage() {
               style={{ top: tope }}
               aria-label="Secciones del laboratorio"
             >
-              <div ref={fila} className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
+              {/* En el móvil: deslizamiento con imán y un degradado en el borde que
+                  tiene pestañas escondidas (30/10/2026, expertos). */}
+              <div
+                ref={fila}
+                onScroll={(e) => {
+                  const c = e.currentTarget;
+                  const izq = c.scrollLeft > 2;
+                  const der = c.scrollLeft + c.clientWidth < c.scrollWidth - 2;
+
+                  setBordes((b) => (b.izq === izq && b.der === der ? b : { izq, der }));
+                }}
+                className={`flex snap-x gap-1.5 overflow-x-auto [scrollbar-width:none] ${
+                  bordes.izq && bordes.der
+                    ? "max-md:[mask-image:linear-gradient(to_right,transparent,#000_10%,#000_88%,transparent)]"
+                    : bordes.izq
+                      ? "max-md:[mask-image:linear-gradient(to_right,transparent,#000_10%)]"
+                      : bordes.der
+                        ? "max-md:[mask-image:linear-gradient(to_right,#000_88%,transparent)]"
+                        : ""
+                }`}
+              >
                 {PESTANAS.map((p) => {
                   const activa = p.key === pestana;
 
@@ -342,7 +368,7 @@ export default function LaboratorioAbpPage() {
                       aria-current={activa ? "page" : undefined}
                       title={p.lema}
                       onClick={() => irA(p.key)}
-                      className={`flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
+                      className={`flex shrink-0 snap-center items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold transition ${
                         activa ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-[#C8A96B]" : "border-white/10 bg-white/[0.03] text-white/75 hover:bg-white/[0.07] hover:text-white"
                       }`}
                     >

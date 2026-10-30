@@ -214,7 +214,8 @@ export function BarraPercentil({
               : undefined
           }
         >
-          {fila.puesto ? `${fila.puesto}º/${fila.deCuantos}` : "—"}
+          {/* 30/10/2026: con pocos casos el puesto no se da (0 de 5 no es «13º de 20»). */}
+          {fila.puesto && !pocos ? `${fila.puesto}º/${fila.deCuantos}` : ""}
         </span>
       </div>
 
@@ -258,7 +259,8 @@ export function BarraPercentil({
           style={{ color: tinta(0.4) }}
           title={pocos ? `Con ${fila.casos} casos el percentil no se sostiene: es una tendencia` : quePercentil(pct, "el Castilla")}
         >
-          {pocos ? `tendencia, ${fila.casos} casos` : pct === null ? "—" : `p${Math.round(pct)}`}
+          {/* 30/10/2026: la base («0 de 5») ya va junto a la cifra; aquí, sólo el aviso. */}
+          {pocos ? (fila.base ? "muestra pequeña" : `muestra pequeña, ${fila.casos} casos`) : pct === null ? "" : `p${Math.round(pct)}`}
         </span>
       </div>
 

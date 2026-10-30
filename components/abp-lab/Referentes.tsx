@@ -18,7 +18,19 @@ import { fechaFuente, type JugadorLab } from "@/components/abp-lab/comun";
 import { MiniPizarra } from "@/components/abp-lab/PizarraRutina";
 import { ESQUEMAS } from "@/lib/abp-lab/esquemas";
 import { DATOS_CLAVE, DEFENSA, FUENTES as F, REFERENTES, type Fuente, type RutinaReferente } from "@/lib/abp-lab/referentes";
-import { TIPOS, etiqueta } from "@/lib/abp-lab/modelo";
+import { PAPELES, TIPOS, etiqueta } from "@/lib/abp-lab/modelo";
+import { CODIGO_PAPEL } from "@/components/abp-lab/Escena";
+
+/* La leyenda de las letras de las mini pizarras, a la vista (30/10/2026, expertos). */
+const LEYENDA_LETRAS = PAPELES.filter((p) => p.lado !== "defensivo").map((p) => ({ letra: CODIGO_PAPEL[p.key], texto: p.label.toLowerCase() }));
+
+/** «Entrenador de balón parado (desde 2021; antes …)» → «Entrenador de ABP · Arsenal desde 2021», para el móvil. */
+function rolCorto(rol: string, club: string) {
+  const base = rol.split(" (")[0].replace(/balón parado/i, "ABP");
+  const desde = /desde (\d{4})/.exec(rol)?.[1];
+
+  return desde ? `${base} · ${club} desde ${desde}` : base;
+}
 
 /* ------------------------------------------------------------------ */
 /*  LA RUTA DE APRENDIZAJE                                             */
@@ -138,8 +150,9 @@ function TareaRutina({ r, plegable = false, porDato = false }: { r: RutinaRefere
       {r.defensa && (
         <p>
           {porDato ? (
-            /* 29/10/2026: elegida por el dato, no por su defensa: no se dice que el rival defienda así. */
-            <><span className="font-semibold text-white/85">Funciona contra defensa {DEFENSA_TEXTO[r.defensa]}:</span> compruébalo en su vídeo de córners</>
+            /* 29/10/2026: elegida por el dato, no por su defensa: no se dice que el rival defienda así.
+               30/10/2026: sin «compruébalo en su vídeo», que dejaba la tarea al lector. */
+            <><span className="font-semibold text-white/85">Funciona contra defensa {DEFENSA_TEXTO[r.defensa]}</span></>
           ) : (
             <><span className="font-semibold text-white/85">Contra quién funciona:</span> defensa {DEFENSA_TEXTO[r.defensa]}</>
           )}
@@ -147,9 +160,10 @@ function TareaRutina({ r, plegable = false, porDato = false }: { r: RutinaRefere
       )}
       {plegable ? (
         <details className="group">
-          <summary className="cursor-pointer list-none text-[11.5px] font-semibold text-[#C8A96B] hover:underline [&::-webkit-details-marker]:hidden">
-            Cómo se entrena <span className="group-open:hidden">(ver)</span>
-            <span className="hidden group-open:inline">(ocultar)</span>
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[12px] font-semibold text-[#C8A96B] hover:underline [&::-webkit-details-marker]:hidden">
+            <span className="group-open:hidden">Ver cómo se entrena</span>
+            <span className="hidden group-open:inline">Ocultar cómo se entrena</span>
+            <ChevronDown size={13} className="transition group-open:rotate-180" aria-hidden />
           </summary>
           <div className="mt-1 space-y-1">{tarea}</div>
         </details>
@@ -204,46 +218,71 @@ function EstaSemana({ onAlTaller }: { onAlTaller: (rutina: RutinaReferente, refe
 
   const duro = concede?.percentil != null && concede.percentil >= 67;
 
-  /* 29/10/2026: los tres tonos de EncajeRival (p ≤ 33 les cuesta; 34-66 en la media; ≥ 67 lo defienden bien). */
-  const tono = concede?.percentil == null ? "" : concede.percentil >= 67 ? "Lo defienden bien: " : concede.percentil <= 33 ? "Les cuesta: " : "En la media de la liga: ";
 
   const porDato = duro ? (corners.find(({ x }) => /corto/i.test(x.nombre)) ?? corners[0]) : (corners.find(({ x }) => /bloque/i.test(x.nombre)) ?? corners[0]);
 
-  const encaje = porDefensa ?? (concede?.valor != null ? porDato : undefined);
+  /*
+  | 30/10/2026 (expertos): con el rival en la mediana no hay punto débil que
+  | justifique una rutina por el dato, así que no se recomienda nada; sólo se
+  | propone cuando lo defienden bien (en corto, para no ir al duelo) o les
+  | cuesta (un bloqueo), o cuando su scouting dice cómo defienden.
+  */
+  const enLaMedia = concede?.percentil != null && concede.percentil > 33 && concede.percentil < 67;
+
+  const encaje = porDefensa ?? (concede?.valor != null && !enLaMedia ? porDato : undefined);
 
   const { r, x } = encaje ?? { r: null, x: null };
 
+  const frente =
+    concede?.mediana == null || concede.percentil == null
+      ? ""
+      : concede.percentil >= 67
+        ? `menos que la mediana (${coma(concede.mediana)})`
+        : concede.percentil <= 33
+          ? `más que la mediana (${coma(concede.mediana)})`
+          : `en la línea de la mediana (${coma(concede.mediana)})`;
+
   return (
     <section aria-label={`Esta semana, contra ${nombre}`} className="lab-aparece rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] p-4 sm:p-5">
-      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
         <CalendarClock size={13} />
         Esta semana, contra {nombre}
       </p>
+      {/* En líneas separadas (30/10/2026): el dato del rival con su fuente, y la rutina. */}
+      {concede?.valor != null && concede.puesto != null && (
+        <div className="mt-2">
+          <p className="text-[15px] font-semibold leading-snug text-white/90">
+            {nombre} concede {coma(concede.valor)} remates por cada 100 córners{frente ? `: ${frente}` : ""}.
+          </p>
+          <p className="mt-0.5 text-[12.5px] leading-snug text-white/65">
+            {concede.puesto}.º de {concede.de} (el 1.º es el que menos concede)
+            {volumen?.valor != null ? ` · ${coma(volumen.valor)} córners en contra por partido` : ""}
+            {liga?.nombre ? (
+              <span className="ml-1.5 inline-flex items-center gap-0.5 text-white/45">
+                <ArrowUpRight size={11} aria-hidden />
+                Wyscout · {liga.nombre}
+              </span>
+            ) : null}
+          </p>
+        </div>
+      )}
       {defensa && estructura && (
         <p className="mt-2 text-[13.5px] leading-snug text-white/75">
-          {nombre} defiende el córner {DEFENSA_TEXTO[defensa]}
-          {estructura.enZona ? ` (${estructura.enZona} en zona)` : ""}.
-          {porDefensa && x ? (
-            <>
-              {" "}
-              Prueba <span className="font-semibold text-white">{x.nombre}</span> ({r ? firma(r) : ""}). Por qué: {POR_QUE[defensa]}.
-            </>
-          ) : null}
+          Defiende el córner {DEFENSA_TEXTO[defensa]}
+          {estructura.enZona ? ` (${estructura.enZona} en zona)` : ""}, según su scouting de ABP.
         </p>
       )}
-      {concede?.valor != null && concede.puesto != null && (
+      {x && r ? (
         <p className="mt-2 text-[13.5px] leading-snug text-white/75">
-          {nombre} concede {coma(concede.valor)} remates de cada 100 córners en contra ({concede.puesto}.º de {concede.de}, donde el 1.º es el que menos concede
-          {concede.mediana != null ? `; la mediana, ${coma(concede.mediana)}` : ""})
-          {volumen?.valor != null ? ` y regala ${coma(volumen.valor)} córners por partido` : ""}. Wyscout, {liga?.nombre}.
-          {!porDefensa && x ? (
-            <>
-              {" "}
-              {tono}prueba <span className="font-semibold text-white">{x.nombre}</span> ({r ? firma(r) : ""}).
-            </>
-          ) : null}
+          <span className="font-semibold text-[#C8A96B]">Opción: </span>
+          <span className="font-semibold text-white">{x.nombre}</span> ({firma(r)}).{" "}
+          {porDefensa && defensa
+            ? `Por qué: ${POR_QUE[defensa]}.`
+            : duro
+              ? "Lo defienden bien: en corto se evita el duelo en el área."
+              : "Les cuesta: un bloqueo deja a nuestro rematador sin marca."}
         </p>
-      )}
+      ) : null}
       {x && r && (
         <>
           <TareaRutina r={x} porDato={!porDefensa} />
@@ -302,7 +341,6 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
     return todo.filter((x) => normaliza(`${x.titulo} ${x.texto} ${x.de}`).includes(q));
   }, [busca]);
 
-  const [todosLosDatos, setTodosLosDatos] = useState(false);
 
   const [soloDe, setSoloDe] = useState("");
 
@@ -385,21 +423,11 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
 
       {/* ------------------------ EL DATO DE FONDO ------------------------- */}
       <section aria-label="El dato de fondo" className="space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">El dato de fondo</p>
-          <button
-            type="button"
-            aria-expanded={todosLosDatos}
-            onClick={() => setTodosLosDatos((v) => !v)}
-            className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-white/55 hover:text-white"
-          >
-            {todosLosDatos ? "Ver menos" : `Ver ${DATOS_CLAVE.length - 3} más`}
-            <ChevronDown size={13} className={todosLosDatos ? "rotate-180" : ""} />
-          </button>
-        </div>
+        {/* Todas a la vista, sin «Ver 3 más» (30/10/2026, expertos). */}
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">El dato de fondo</p>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {DATOS_CLAVE.map((d, i) => (
-            <div key={d.texto} className={`lab-aparece min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${i >= 3 && !todosLosDatos ? "hidden" : ""}`}>
+          {DATOS_CLAVE.map((d) => (
+            <div key={d.texto} className="lab-aparece min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <p className="tabular-nums text-3xl font-bold tracking-tight text-[#C8A96B]">{d.valor}</p>
               <p className="mt-1 text-[12.5px] leading-snug text-white/70">{d.texto}</p>
               <Cita fuente={d.fuente} />
@@ -419,6 +447,14 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
             </button>
           </p>
         )}
+        {/* Qué es cada letra de las mini pizarras, fija (30/10/2026, expertos). */}
+        <p className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-white/60">
+          {LEYENDA_LETRAS.map((l) => (
+            <span key={l.letra} className="inline-flex items-center gap-1">
+              <b className="font-bold text-white/85">{l.letra}</b> {l.texto}
+            </span>
+          ))}
+        </p>
         <p className="mb-2 text-right text-[11px] tabular-nums text-white/45 sm:hidden" aria-live="polite">
           {Math.min(tarjeta + 1, biblioteca.length)} de {biblioteca.length}
         </p>
@@ -443,8 +479,11 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
                     {x.contra ? ` · contra ${x.contra}` : ""}
                   </p>
                   <TareaRutina r={x} plegable />
-                  <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2.5">
-                    <Cita fuente={x.fuente} />
+                  {/* La fuente se recorta y «Al taller» queda siempre en el mismo sitio (30/10/2026). */}
+                  <div className="mt-auto flex flex-nowrap items-center justify-between gap-2 pt-2.5">
+                    <span className="min-w-0 flex-1">
+                      <Cita fuente={x.fuente} />
+                    </span>
                     <Button icon={FlaskConical} onClick={() => onAlTaller(x, r.id)}>
                       Al taller
                     </Button>
@@ -458,7 +497,8 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
       </div>
 
       {/* ------------------------ ELEGIR REFERENTE ------------------------ */}
-      <div className="flex flex-wrap gap-2 pb-1" role="tablist" aria-label="Referentes">
+      {/* En el móvil, una fila que se desliza y no siete bloques apilados (30/10/2026). */}
+      <div className="flex gap-2 pb-1 max-sm:-mx-1 max-sm:snap-x max-sm:overflow-x-auto max-sm:px-1 max-sm:[scrollbar-width:none] sm:flex-wrap" role="tablist" aria-label="Referentes">
         {REFERENTES.map((r) => {
           const activo = r.id === elegido;
 
@@ -469,7 +509,7 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
               role="tab"
               aria-selected={activo}
               onClick={() => setElegido(r.id)}
-              className={`shrink-0 rounded-2xl border px-4 py-2.5 text-left transition ${r.id === "brentford" ? "border-dashed " : ""}${
+              className={`shrink-0 snap-start rounded-2xl border px-4 py-2.5 text-left transition ${r.id === "brentford" ? "border-dashed " : ""}${
                 activo ? "border-[#C8A96B]/60 bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]"
               }`}
             >
@@ -487,7 +527,10 @@ export function Referentes({ onAlTaller }: { onAlTaller: (rutina: RutinaReferent
       <section key={ref.id} className="lab-aparece overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03]">
         <div className="relative px-5 py-6 sm:px-8">
           <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#C8A96B]/10 blur-3xl" />
-          <p className="text-[10px] uppercase tracking-[0.3em] text-[#C8A96B]">{ref.rol}</p>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-[#C8A96B] sm:tracking-[0.3em]">
+            <span className="sm:hidden">{rolCorto(ref.rol, ref.club)}</span>
+            <span className="hidden sm:inline">{ref.rol}</span>
+          </p>
           <h2 className="mt-2 text-3xl font-semibold tracking-tight text-white sm:text-4xl">{ref.nombre}</h2>
           <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-white/70">{ref.lema}</p>
 

@@ -90,6 +90,15 @@ function cuentaDe(matriz: Matriz) {
   return `${matriz.total} de ${cortes(matriz.total + matriz.fuera)}`;
 }
 
+/* 30/10/2026: el motivo va en la propia cabecera, bajo la cifra (análisis y marketing). */
+function motivoDe(matriz: Matriz) {
+  if (matriz.fuera === 0) return "";
+
+  return matriz.fuera === 1
+    ? "1 es de vídeo completo y no cuenta"
+    : `${matriz.fuera} son de vídeo completo y no cuentan`;
+}
+
 export function MatrizCoding({
   clips,
   categorias,
@@ -159,20 +168,16 @@ export function MatrizCoding({
 
   if (matriz.filas.length === 0) return null;
 
+  /* 30/10/2026: si ningún corte lleva categoría, la tabla es una sola columna
+     «Sin categoría» que repite «Por jugador»: no se pinta. */
+  if (matriz.columnas.every((columna) => columna.id === "")) return null;
+
   const titular = titularDe(matriz);
 
   return (
     <div className="min-w-0">
       {titular && (
         <p className="mb-2 text-[13px] font-semibold text-white/85">{titular}</p>
-      )}
-
-      {matriz.fuera > 0 && (
-        <p className="mb-2 text-[11px] text-white/45">
-          {matriz.fuera === 1
-            ? "1 corte es de «Vídeo completo»: no es de nadie y no entra en la tabla."
-            : `${matriz.fuera} cortes son de «Vídeo completo»: no son de nadie y no entran en la tabla.`}
-        </p>
       )}
 
       {/* En un teléfono no caben todas las columnas: que se sepa que hay más. */}
@@ -214,6 +219,11 @@ export function MatrizCoding({
               className="sticky left-0 z-10 min-w-[120px] bg-[#0F141B] px-3 py-2 text-left text-[10px] font-normal uppercase tracking-[0.14em] text-white/40"
             >
               {cuentaDe(matriz)}
+              {motivoDe(matriz) ? (
+                <span className="mt-0.5 block text-[10px] normal-case tracking-normal text-white/50">
+                  {motivoDe(matriz)}
+                </span>
+              ) : null}
             </th>
 
             {matriz.columnas.map((columna) => {

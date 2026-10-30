@@ -20,7 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, Images, RefreshCw, ShieldCheck } from "lucide-react";
+import { Download, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -38,19 +38,46 @@ import {
 
 type Estado = "cargando" | "listo" | "vacio" | "error";
 
-/** Dos letras para el relleno de un escudo que aún no llega o que no llega. */
-function inicialesDe(equipo: string) {
-  const palabras = equipo
-    .replace(/\b(CD|CF|UD|SD|AD|RC|FC|UE|CP|SC)\b/gi, " ")
-    .split(/\s+/)
-    .filter(Boolean);
+/*
+| ¿TRAE FONDO? (30/10/2026, expertos). En vez de pedir «revisa que ninguno
+| traiga recuadro», se mira: si las cuatro esquinas del PNG son opacas, el
+| escudo trae fondo y se marca con un borde ámbar. Va por el proxy de la casa
+| (mismo origen), así que el lienzo se deja leer.
+*/
+function traeFondo(img: HTMLImageElement) {
+  try {
+    const lado = 32;
+    const lienzo = document.createElement("canvas");
 
-  const letras =
-    palabras.length > 1
-      ? palabras[0][0] + palabras[1][0]
-      : (palabras[0] ?? equipo).slice(0, 2);
+    lienzo.width = lado;
+    lienzo.height = lado;
 
-  return letras.toUpperCase();
+    const ctx = lienzo.getContext("2d", { willReadFrequently: true });
+
+    if (!ctx) return false;
+
+    ctx.drawImage(img, 0, 0, lado, lado);
+
+    const esquinas = [
+      [0, 0],
+      [lado - 1, 0],
+      [0, lado - 1],
+      [lado - 1, lado - 1],
+    ];
+
+    return esquinas.every(([x, y]) => ctx.getImageData(x, y, 1, 1).data[3] > 240);
+  } catch {
+    return false;
+  }
+}
+
+/** «2026-10-30T…» → «30/10». */
+function diaMes(iso: string | null) {
+  const d = iso ? new Date(iso) : null;
+
+  return d && !Number.isNaN(d.getTime())
+    ? `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`
+    : "";
 }
 
 export default function EscudosPage() {
@@ -61,6 +88,11 @@ export default function EscudosPage() {
   const [imagenes, setImagenes] = useState<Record<string, "listo" | "fallo">>(
     {},
   );
+
+  /** Los que traen fondo (las cuatro esquinas opacas). */
+  const [conFondo, setConFondo] = useState<Record<string, true>>({});
+  /** Cuándo se bajaron los escudos de BeSoccer por última vez. */
+  const [alDia, setAlDia] = useState<string | null>(null);
 
   /** Cuántos escudos llevamos preparados mientras se arma el documento. */
   const [haciendo, setHaciendo] = useState<number | null>(null);
@@ -109,6 +141,7 @@ export default function EscudosPage() {
 
         if (cancelado) return;
 
+        setAlDia(typeof datos?.alDia === "string" ? datos.alDia : null);
         setEscudos(lista);
         setEstado(lista.length ? "listo" : "vacio");
       } catch (error) {
@@ -123,6 +156,10 @@ export default function EscudosPage() {
     };
   }, [testigo]);
 
+  const miraFondo = useCallback((url: string, img: HTMLImageElement) => {
+    if (traeFondo(img)) setConFondo((previo) => (previo[url] ? previo : { ...previo, [url]: true }));
+  }, []);
+
   const marca = useCallback((url: string, como: "listo" | "fallo") => {
     setImagenes((previo) =>
       previo[url] === como ? previo : { ...previo, [url]: como },
@@ -132,6 +169,7 @@ export default function EscudosPage() {
   const faltan = escudos.filter((e) => imagenes[e.url] === "fallo");
   const conImagen = escudos.filter((e) => imagenes[e.url] === "listo").length;
   const pendientes = escudos.length - conImagen - faltan.length;
+  const fondos = escudos.filter((e) => conFondo[e.url]);
 
   const hojas = useMemo(() => Math.max(1, Math.ceil(escudos.length / 20)), [
     escudos.length,
@@ -200,55 +238,49 @@ export default function EscudosPage() {
               lead="Los escudos de la categoría en un .pptx, por orden alfabético: cada uno es un objeto suelto con su PNG transparente, que se copia y se pega donde haga falta."
             />
 
+            {/* La nota del pie, arriba y con su fecha (30/10/2026, expertos). */}
+            <p className="mt-2 text-[12px] text-white/55">
+              Escudos de BeSoccer{diaMes(alDia) ? ` · al día el ${diaMes(alDia)}` : ""}
+            </p>
+
             {/* ---------------- mandos ---------------- */}
 
-            <div className="mt-5 flex flex-wrap items-center gap-2">
+            {/* Una acción principal y la otra como enlace; sin las cajas de
+                «2 diapositivas» y «40 de 40 cargados», que ya decían el
+                botón y los rótulos (30/10/2026, expertos). */}
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
               <button
                 type="button"
                 onClick={descargaPpt}
-                disabled={estado !== "listo" || haciendo !== null}
-                className="inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/15 px-4 py-2.5 text-sm font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/25 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={estado !== "listo" || haciendo !== null || pendientes > 0}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/15 px-4 py-2.5 text-sm font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/25 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
               >
                 <Download size={16} />
-                {haciendo === null
-                  ? `Descargar .pptx${escudos.length ? ` · ${escudos.length - faltan.length} escudos` : ""}`
-                  : `Preparando ${haciendo} de ${escudos.length}…`}
+                {haciendo !== null
+                  ? `Preparando ${haciendo} de ${escudos.length}…`
+                  : estado === "cargando" || (estado === "listo" && pendientes > 0)
+                    ? `Preparando escudos…${escudos.length ? ` ${conImagen}/${escudos.length}` : ""}`
+                    : `Descargar .pptx${escudos.length ? ` · ${escudos.length - faltan.length} escudos` : ""}`}
               </button>
 
               <button
                 type="button"
                 onClick={pideLista}
                 disabled={haciendo !== null || estado === "cargando"}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm text-white/70 transition hover:border-white/20 disabled:opacity-40"
+                className="inline-flex items-center justify-center gap-1.5 self-center text-[13px] text-white/60 underline-offset-2 transition hover:text-white hover:underline disabled:opacity-40 sm:self-auto"
               >
-                <RefreshCw size={16} className={estado === "cargando" ? "animate-spin" : undefined} />
+                <RefreshCw size={14} className={estado === "cargando" ? "animate-spin" : undefined} />
                 Actualizar escudos
               </button>
-
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50">
-                <Images size={12} />
-                {hojas === 1 ? "Una diapositiva" : `${hojas} diapositivas`}
-              </span>
-
-              {estado === "listo" ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50">
-                  <ShieldCheck size={12} />
-                  {pendientes > 0
-                    ? `${conImagen} de ${escudos.length} escudos cargados · ${pendientes} por llegar`
-                    : `${conImagen} de ${escudos.length} escudos cargados`}
-                </span>
-              ) : null}
             </div>
 
-            {estado === "listo" && faltan.length ? (
-              <p
-                style={{ color: "#F6AFB6" }}
-                className="mt-3 rounded-xl border border-[#F6AFB6]/30 px-3 py-2 text-sm"
-              >
-                {faltan.length === 1 ? "Falta 1: " : `Faltan ${faltan.length}: `}
-                {faltan.map((f) => f.equipo).join(", ")}. El .pptx saldrá sin{" "}
-                {faltan.length === 1 ? "él" : "ellos"}; pulsa «Actualizar
-                escudos» para reintentarlo.
+            {/* Una sola caja ámbar con lo que falta o trae fondo. */}
+            {estado === "listo" && (faltan.length > 0 || fondos.length > 0) ? (
+              <p className="mt-3 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-3 py-2 text-sm text-amber-200">
+                {faltan.length
+                  ? `Falta el escudo de ${faltan.map((f) => f.equipo).join(", ")}: el .pptx saldrá sin ${faltan.length === 1 ? "él" : "ellos"}. `
+                  : ""}
+                {fondos.length ? `Trae fondo, no es transparente: ${fondos.map((f) => f.equipo).join(", ")} (borde ámbar).` : ""}
               </p>
             ) : null}
 
@@ -263,13 +295,13 @@ export default function EscudosPage() {
             <div className="mt-5">
               <Panel
                 title="Vista previa del documento"
-                subtitle="Así salen sobre azul noche. Revisa que ninguno traiga recuadro y descarga el .pptx."
+                subtitle="Así salen sobre el azul noche del documento."
                 icon={ShieldCheck}
               >
                 {estado === "cargando" ? (
                   <div role="status" aria-label="Pidiendo los escudos">
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-                      {Array.from({ length: 20 }, (_, i) => (
+                      {Array.from({ length: 40 }, (_, i) => (
                         <div
                           key={i}
                           style={{ background: "#04121F" }}
@@ -319,27 +351,20 @@ export default function EscudosPage() {
                                 style={{
                                   background: "#04121F",
                                   borderColor:
-                                    imagenes[uno.url] === "fallo"
-                                      ? "#F6AFB6"
+                                    imagenes[uno.url] === "fallo" || conFondo[uno.url]
+                                      ? "#F5B94A"
                                       : undefined,
                                 }}
                                 className="flex flex-col items-center gap-2 rounded-xl border border-white/10 p-3"
                               >
                                 <div className="relative h-16 w-16">
-                                  {/* Iniciales detrás: mientras llega la imagen,
-                                      o para siempre si no llega, la casilla
-                                      nunca se queda vacía. */}
+                                  {/* Mientras llega, un esqueleto sin letras sobre el mismo azul (30/10/2026). */}
                                   {imagenes[uno.url] !== "listo" ? (
                                     <span
                                       aria-hidden
-                                      style={{
-                                        background: "rgba(228,206,155,0.3)",
-                                        color: "#E4CE9B",
-                                      }}
-                                      className="absolute inset-0 flex items-center justify-center rounded-full text-lg font-bold"
-                                    >
-                                      {inicialesDe(uno.equipo)}
-                                    </span>
+                                      style={{ background: "rgba(228,206,155,0.14)" }}
+                                      className={`absolute inset-0 rounded-full ${imagenes[uno.url] === "fallo" ? "" : "animate-pulse"}`}
+                                    />
                                   ) : null}
                                   {imagenes[uno.url] !== "fallo" ? (
                                     /* eslint-disable-next-line @next/next/no-img-element */
@@ -348,7 +373,10 @@ export default function EscudosPage() {
                                       alt={uno.equipo}
                                       className="relative h-16 w-16 object-contain"
                                       loading="eager"
-                                      onLoad={() => marca(uno.url, "listo")}
+                                      onLoad={(evento) => {
+                                        marca(uno.url, "listo");
+                                        miraFondo(uno.url, evento.currentTarget);
+                                      }}
                                       onError={() => marca(uno.url, "fallo")}
                                     />
                                   ) : null}
@@ -359,12 +387,9 @@ export default function EscudosPage() {
                                 >
                                   {uno.equipo}
                                 </figcaption>
-                                {imagenes[uno.url] === "fallo" ? (
-                                  <span
-                                    style={{ color: "#F6AFB6" }}
-                                    className="text-center text-[11px]"
-                                  >
-                                    No llega el escudo
+                                {imagenes[uno.url] === "fallo" || conFondo[uno.url] ? (
+                                  <span style={{ color: "#F5B94A" }} className="text-center text-[11px]">
+                                    {imagenes[uno.url] === "fallo" ? "No llega el escudo" : "Trae fondo"}
                                   </span>
                                 ) : null}
                               </figure>
@@ -378,12 +403,6 @@ export default function EscudosPage() {
               </Panel>
             </div>
 
-            {/* ---------------- lectura ---------------- */}
-
-            <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/45">
-              Son los escudos de BeSoccer, los mismos del informe del rival: se
-              ponen al día solos cada jornada.
-            </p>
           </div>
         </section>
       </div>

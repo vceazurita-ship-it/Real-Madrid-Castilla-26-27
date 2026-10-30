@@ -46,10 +46,13 @@ export const iniciales = (nombre: string) =>
     .join("");
 
 /** El rótulo de una fecha de fuente: «12/2024», «2024», o nada si no la da. */
-export function fechaFuente(fecha: string) {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}/${fecha.slice(0, 4)}`;
+/* Un solo formato en todas las fuentes, «dic 2024» (30/10/2026): convivían «10/2025» y «04/12/2024». */
+const MESES_FUENTE = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-  if (/^\d{4}-\d{2}$/.test(fecha)) return `${fecha.slice(5, 7)}/${fecha.slice(0, 4)}`;
+export function fechaFuente(fecha: string) {
+  const m = /^(\d{4})-(\d{2})(?:-\d{2})?$/.exec(fecha);
+
+  if (m && MESES_FUENTE[Number(m[2]) - 1]) return `${MESES_FUENTE[Number(m[2]) - 1]} ${m[1]}`;
 
   return fecha;
 }

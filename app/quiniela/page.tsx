@@ -556,7 +556,8 @@ export default function QuinielaPage() {
             <div className="mt-5">
               <Panel
                 title="Ranking de acierto"
-                subtitle="Toda la temporada. Se ordena por porcentaje, no por aciertos: quien se incorpora tarde no arranca con una desventaja imposible."
+                /* Una sola regla escrita, la misma que aplica el cálculo (30/10/2026, expertos). */
+                subtitle="Toda la temporada. Cuenta desde tu primera apuesta; después, la que no pones es fallo. A igual porcentaje, manda quien más acierta; con los dos iguales, se comparte puesto."
                 icon={Trophy}
               >
                 {(
@@ -582,6 +583,13 @@ export default function QuinielaPage() {
                           if (!persona) return null;
 
                           const lider = indice === 0 && fila.total.jugados > 0;
+                          /* Puesto compartido (30/10/2026): mismo porcentaje a la vista y mismos aciertos. */
+                          const igual = (a: typeof fila, b: typeof fila) =>
+                            Math.round(a.total.porcentaje) === Math.round(b.total.porcentaje) && a.total.aciertos === b.total.aciertos;
+                          let puesto = indice;
+
+                          while (puesto > 0 && igual(tabla[puesto - 1], fila)) puesto -= 1;
+                          const compartido = (puesto < indice) || (indice + 1 < tabla.length && igual(tabla[indice + 1], fila));
 
                           return (
                             <tr
@@ -590,8 +598,8 @@ export default function QuinielaPage() {
                                 lider ? "bg-[#C8A96B]/[0.07]" : ""
                               }`}
                             >
-                              <td className="py-1.5 text-right text-[10px] tabular-nums text-white/25">
-                                {indice + 1}
+                              <td className="py-1.5 text-right text-[11px] tabular-nums text-white/45">
+                                {compartido ? `=${puesto + 1}` : indice + 1}
                               </td>
 
                               <td className="py-1.5 pl-2">
@@ -608,10 +616,11 @@ export default function QuinielaPage() {
 
                                     {/* Quien apostó poco sale abajo con un
                                         porcentaje engañoso: se dice por qué. */}
-                                    {fila.total.jugados < maxJugados && (
-                                      <span className="block truncate text-[10px] text-white/40">
+                                    {/* Con los partidos que de verdad puso (30/10/2026): «apostó 5 de 53». */}
+                                    {fila.apostados < maxJugados && (
+                                      <span className="block truncate text-[11px] text-white/50">
                                         {pocasApuestas(fila) ? "pocas apuestas · " : ""}
-                                        {`apostó ${fila.total.jugados} de ${maxJugados} partidos`}
+                                        {`apostó ${fila.apostados} de ${maxJugados} partidos`}
                                       </span>
                                     )}
 
@@ -669,62 +678,23 @@ export default function QuinielaPage() {
   /* «Quién juega» abierta la jornada va detrás de los partidos (29/10/2026,
      marketing): quien no ha entrado veía cuatro secciones antes de la lista.
      Cerrada sigue arriba, con el resumen. */
-  const panelQuienJuega = (
-            <div className="mt-5">
-              <Panel
-                title="Quién juega"
-                subtitle={(() => {
-                  /* El estado en una línea (29/10/2026, experto de análisis):
-                     once fichas con «Sin apostar» no se leían de un vistazo. */
-                  const cuenta = (slug: string) => laJornada.puestos?.[slug] ?? (laJornada.pronosticos[slug] ?? []).filter(Boolean).length;
-                  const completas = jugadores.filter((x) => cuenta(x) === partidos.length).length;
-                  const nada = jugadores.filter((x) => cuenta(x) === 0).length;
-                  const medias = jugadores.length - completas - nada;
-                  const trozos = [
-                    completas && `${completas} con la quiniela completa`,
-                    medias && `${medias} a medias`,
-                    nada && `${nada} sin apostar`,
-                  ].filter(Boolean);
+  /*
+  | «QUIÉN JUEGA», DENTRO DE LA FRANJA DE ESTADO (30/10/2026, expertos). Era
+  | una tarjeta aparte que repetía la cuenta de la franja: ahora la franja
+  | dice «10/11 apostaron · falta M. Barrio · Ver las caritas» y aquí sólo
+  | queda lo que se despliega (las caritas y la lista de quién juega).
+  */
+  const cuentaQuiniela = (slug: string) => laJornada.puestos?.[slug] ?? (laJornada.pronosticos[slug] ?? []).filter(Boolean).length;
+  const faltanQuiniela = jugadores
+    .filter((slug) => cuentaQuiniela(slug) < partidos.length)
+    .map((slug) => {
+      const persona = PERSONA_POR_SLUG.get(slug);
 
-                  return `Jornada ${jornada}: ${trozos.join(" · ")}.`;
-                })()}
-                icon={Users}
-              >
-                {/* Plegado en una línea (29/10/2026, análisis y marketing): once
-                    fichas con el mismo «Sin apostar» repetían lo que dice el
-                    subtítulo. Quién falta se nombra aquí, una sola vez. */}
-                {(() => {
-                  const cuenta = (slug: string) => laJornada.puestos?.[slug] ?? (laJornada.pronosticos[slug] ?? []).filter(Boolean).length;
-                  const faltan = jugadores
-                    .filter((slug) => cuenta(slug) < partidos.length)
-                    .map((slug) => {
-                      const persona = PERSONA_POR_SLUG.get(slug);
+      return persona ? nombreCorto(persona) : slug;
+    });
 
-                      return persona ? nombreCorto(persona) : slug;
-                    });
-
-                  return (
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      {faltan.length > 0 && (
-                        <p className="min-w-0 text-[12.5px] leading-snug text-white/65">
-                          <span className="text-white/45">{plazo.cerrada ? "No la completaron: " : "Les falta: "}</span>
-                          {faltan.join(", ")}
-                        </p>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => setVerCaritas((v) => !v)}
-                        aria-expanded={verCaritas}
-                        className="inline-flex items-center gap-1 text-[12px] text-white/60 transition hover:text-white"
-                      >
-                        <Smile size={13} aria-hidden />
-                        {verCaritas ? "Ocultar las caritas" : `Ver las caritas (${jugadores.length})`}
-                      </button>
-                    </div>
-                  );
-                })()}
-
+  const panelQuienJuega = !verCaritas && !eligiendoJugadores ? null : (
+            <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
                 {verCaritas && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {jugadores.map((slug) => {
@@ -852,7 +822,6 @@ export default function QuinielaPage() {
                     )}
                   </div>
                 )}
-              </Panel>
             </div>
   );
 
@@ -962,7 +931,12 @@ export default function QuinielaPage() {
                 primerPartido={[...partidos]
                   .filter((uno) => uno.fecha)
                   .sort((a, b) => a.fecha.localeCompare(b.fecha))[0]}
-              />
+                faltan={faltanQuiniela}
+                verCaritas={verCaritas}
+                onVerCaritas={() => setVerCaritas((v) => !v)}
+              >
+                {panelQuienJuega}
+              </EstadoJornada>
             </div>
 
             {/* 29/10/2026 (marketing): lo primero son los partidos y el ranking;
@@ -1015,7 +989,6 @@ export default function QuinielaPage() {
               <>
             {/* ------------------------ QUIÉN JUEGA -------------------- */}
 
-            {plazo.cerrada && panelQuienJuega}
 
             {plazo.cerrada && panelRanking}
 
@@ -1398,7 +1371,6 @@ export default function QuinielaPage() {
             </>
             )}
 
-            {!plazo.cerrada && panelQuienJuega}
 
             {plazo.cerrada && yo && (
               <div className="mt-5">
@@ -1483,20 +1455,19 @@ export default function QuinielaPage() {
                 </details>
                 ))}
 
-                <p className="mt-3 text-[11px] leading-relaxed text-white/40">
-                  {cerrado
-                    ? "Las diez jornadas están jugadas, así que esto ya no cambia."
-                    : `Provisional: faltan jornadas del bloque por jugar.`}{" "}
-                  Cada uno cuenta desde su primera apuesta.
-                </p>
+                {cerrado ? (
+                  <p className="mt-3 text-[11px] leading-relaxed text-white/50">
+                    Las diez jornadas están jugadas, así que esto ya no cambia.
+                  </p>
+                ) : null}
 
               </Panel>
             </div>
 
             <div className="mt-5">
               <Notice tone="info" title="Cómo se cuenta">
-                Sólo cuentan los partidos ya jugados. No pronosticar cuenta como
-                fallo.
+                Sólo cuentan los partidos ya jugados, desde tu primera apuesta;
+                después, la que no pones es fallo.
                 <details className="mt-1 text-white/60">
                   <summary className="cursor-pointer select-none">
                     Reglas

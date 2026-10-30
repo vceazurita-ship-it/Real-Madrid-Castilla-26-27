@@ -131,6 +131,8 @@ import {
   SelectorDeMarca,
 } from "@/components/coding/BarraMarcado";
 import { useSesionCoding } from "@/hooks/useSesionCoding";
+import { useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
 import { duracionDeVideoMs } from "@/lib/coding/duracion";
 import { abreMp4 } from "@/lib/coding/mp4";
 import {
@@ -506,6 +508,21 @@ function Coding() {
   const escudoDe = useEscudos();
 
   const [partidos, setPartidos] = useState<MatchMeta[]>([]);
+
+  /*
+  | 30/10/2026: el último partido jugado sale del calendario de BeSoccer, que
+  | trae el marcador. La hoja de partidos no lo tenía en todos y el
+  | desplegable se quedaba en el próximo rival (Cartagena) en vez del de la
+  | última jornada, que es el vídeo que se codifica en la semana.
+  */
+  const { partidos: calendarioCastilla } = useCalendario();
+  const ultimoJugadoRival = useMemo(() => {
+    const jugados = ordenaPartidos(calendarioCastilla)
+      .map(comoNuestro)
+      .filter((uno) => uno.jugado);
+
+    return jugados[jugados.length - 1]?.rival ?? "";
+  }, [calendarioCastilla]);
   const [plantillas, setPlantillas] = useState<PlantillaRival[]>([]);
 
   useEffect(() => {
@@ -658,15 +675,18 @@ function Coding() {
        pasar, no el del próximo rival (el Cartagena). Si el vídeo abierto nombra a
        otro equipo, `rivalEnConflicto` pide elegir. Sin partidos jugados, el de
        la jornada. */
-    const ultimo = partidos
-      .filter((uno) => uno.gf !== null && uno.date)
-      .sort((a, b) => b.date.localeCompare(a.date))[0];
+    const ultimo =
+      ultimoJugadoRival ||
+      (partidos
+        .filter((uno) => uno.gf !== null && uno.date)
+        .sort((a, b) => b.date.localeCompare(a.date))[0]?.opponent ??
+        "");
 
     const delUltimo = ultimo
       ? rivales.find(
           (uno) =>
-            uno.clave === apodoCoding(ultimo.opponent) ||
-            apodoSinSiglas(uno.nombre) === apodoSinSiglas(ultimo.opponent),
+            uno.clave === apodoCoding(ultimo) ||
+            apodoSinSiglas(uno.nombre) === apodoSinSiglas(ultimo),
         )
       : undefined;
 
@@ -677,7 +697,7 @@ function Coding() {
       : undefined;
 
     return deLaJornada ?? rivales[0] ?? null;
-  }, [equipoRival, ordenRivales.actual, rivales, partidos]);
+  }, [equipoRival, ordenRivales.actual, rivales, partidos, ultimoJugadoRival]);
 
   /** La plantilla del scouting de ese rival, si la hay. */
   const plantilla = useMemo(
@@ -3988,9 +4008,17 @@ function Coding() {
                 </div>
               )}
 
+              {/*
+              | 30/10/2026: un solo contador. Arriba decía «4 cortes · 00:57» y
+              | el aviso de retomar «1 corte · 00:11» (sólo los del vídeo
+              | abierto), y se leían como contradictorios. Ahora una línea dice
+              | los dos, cada uno con lo que cuenta.
+              */}
               <div className="flex items-end gap-2">
-                <span className="rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/40">
-                  {sesion.sesion.clips.length} {sesion.sesion.clips.length === 1 ? "corte" : "cortes"} · {formateaTotal(totalCodificadoMs(sesion.sesion.clips))}
+                <span className="rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/60">
+                  {clips.length !== sesion.sesion.clips.length
+                    ? `${clips.length} ${clips.length === 1 ? "corte" : "cortes"} en este vídeo · ${sesion.sesion.clips.length} en el partido · ${formateaTotal(totalCodificadoMs(sesion.sesion.clips))}`
+                    : `${sesion.sesion.clips.length} ${sesion.sesion.clips.length === 1 ? "corte" : "cortes"} en el partido · ${formateaTotal(totalCodificadoMs(sesion.sesion.clips))}`}
                 </span>
               </div>
             </div>
@@ -4017,10 +4045,9 @@ function Coding() {
               /* 29/10/2026: en el móvil el texto va a todo el ancho y los botones debajo, en fila. */
               <div className="mt-4 flex min-w-0 flex-col gap-x-4 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2.5 sm:flex-row sm:flex-wrap sm:items-center">
                 <p className="min-w-0 text-[12px] leading-snug text-white/75 sm:flex-1">
+                  {/* 30/10/2026: sin cifras; las dice el contador de arriba. */}
                   <b className="text-white">
-                    Retoma tu sesión: {clips.length}{" "}
-                    {clips.length === 1 ? "corte" : "cortes"} ·{" "}
-                    {formateaTotal(totalCodificadoMs(clips))}
+                    Retoma tu sesión{rival && !claveRivalPropio ? ` de ${rival.nombre}` : ""}
                   </b>{" "}
                   <span className="text-white/50">· darla por terminada no borra ningún corte</span>
                 </p>
@@ -4285,7 +4312,7 @@ function Coding() {
                   <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5">
                     {/* 29/10/2026: en el móvil, una sola fila que se desliza; apilados eran
                         seis renglones y los mandos quedaban fuera de la primera pantalla. */}
-                    <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto [scrollbar-width:thin] sm:flex-wrap sm:overflow-visible [&>*]:shrink-0 sm:[&>*]:shrink">
+                    <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pr-6 [scrollbar-width:thin] max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)] sm:flex-wrap sm:overflow-visible sm:pr-0 [&>*]:shrink-0 sm:[&>*]:shrink">
                       <span className="px-1 text-[10px] uppercase tracking-[0.16em] text-white/35">
                         Vídeos
                       </span>
@@ -4663,8 +4690,11 @@ function Coding() {
                 {/* -------------------------- MATRIZ -------------------- */}
 
                 {/* Sólo con cortes marcados: el «Vídeo completo» no es de nadie. */}
+                {/* 30/10/2026: y con alguna categoría; si no, es una columna «Sin categoría» que repite «Por jugador». */}
                 {clips.some(
-                  (clip) => clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id,
+                  (clip) =>
+                    clip.jugadorId !== SUJETO_VIDEO_COMPLETO.id &&
+                    config.categorias.some((c) => c.id === clip.categoriaId),
                 ) && (
                   <Panel
                     title="Matriz"

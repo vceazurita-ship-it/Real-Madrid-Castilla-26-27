@@ -94,7 +94,7 @@ export function Conclusiones({
       aria-label={titulo}
       className={`min-w-0 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] px-4 py-3 sm:px-5 ${className}`}
     >
-      <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-[#C8A96B]">
+      <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#C8A96B]">
         <Lightbulb size={12} aria-hidden />
         {titulo}
       </p>

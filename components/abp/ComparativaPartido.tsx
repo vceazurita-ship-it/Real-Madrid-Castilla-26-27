@@ -56,6 +56,11 @@ export type MetricaComparada = {
   n?: number;
   /** Cómo se llaman esas acciones: por defecto «acciones». */
   unidad?: string;
+  /**
+   * El partido más bajo y el más alto de los anteriores (30/10/2026,
+   * expertos): una media de 1,8 no dice si fue siempre 2 o si va de 0 a 5.
+   */
+  rango?: [number, number] | null;
 };
 
 /** Con menos acciones que éstas, una diferencia es un indicio y no un dato. */
@@ -108,7 +113,8 @@ function visto(n: number, porcentaje: boolean, formato?: (n: number) => string):
     if (Number.isFinite(leido)) return leido;
   }
 
-  return porcentaje ? Math.round(n) : Math.round(n * 10) / 10;
+  /* Un decimal también en los porcentajes (30/10/2026): la tarjeta decía 42,9 % y la tabla 43 %. */
+  return Math.round(n * 10) / 10;
 }
 
 /** +2,5 / −1 / 0, con el signo que se lee. */
@@ -116,7 +122,7 @@ function diferencia(d: number, formato: (n: number) => string, entrePorcentajes:
   if (Math.abs(d) < 0.05) return "igual";
 
   /* Entre dos porcentajes la diferencia son puntos, no un «% más». */
-  if (entrePorcentajes) return `${d > 0 ? "+" : "−"}${Math.round(Math.abs(d))} ${Math.round(Math.abs(d)) === 1 ? "punto" : "puntos"}`;
+  if (entrePorcentajes) return `${d > 0 ? "+" : "−"}${formatoPuntos(Math.abs(d))}`;
 
   return `${d > 0 ? "+" : "−"}${formato(Math.abs(d))}`;
 }
@@ -166,12 +172,15 @@ export function ComparativaPartido({
           {/* 29/10/2026: en el móvil cada métrica es una tarjeta (el nombre a lo
               ancho y las tres cifras debajo) y se deja 40 px a la derecha para
               el botón flotante, que tapaba la diferencia. */}
-          <div className="grid grid-cols-3 gap-x-3 border-b border-white/10 py-2 pl-4 pr-10 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] sm:pl-5 sm:pr-16">
+          <div className="grid grid-cols-3 gap-x-3 border-b border-white/10 py-2 pl-4 pr-10 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)] sm:pl-5 sm:pr-16">
             <span className="hidden sm:block">Métrica</span>
             <span className="text-right" style={{ color: ORO_TINTA }}>
               Este partido
             </span>
-            <span className="text-right">{anteriores.n === 1 ? "Anterior" : `Media de las ${anteriores.n} anteriores`}</span>
+            <span className="text-right">
+              {anteriores.n === 1 ? "Anterior" : `Media de las ${anteriores.n} anteriores`}
+              {anteriores.n > 1 && metricas.some((m) => m.rango) ? <span className="block font-normal normal-case tracking-normal text-white/40">y su rango</span> : null}
+            </span>
             {/* La clave de colores va en la nota, que sólo sale con los textos
                 explicativos: al pasar por encima se lee igual. */}
             <span className="text-right" title="Verde: mejor que de costumbre · naranja: peor · gris: no se juzga">
@@ -296,8 +305,13 @@ export function ComparativaPartido({
                         la cifra la duplicaba sólo en algunas. */}
                   </span>
 
-                  <span className="text-right text-lg tabular-nums text-white/70">
-                    {m.media === null ? "" : formato(m.media)}
+                  <span className="text-right tabular-nums">
+                    <span className="block text-lg text-white/70">{m.media === null ? "" : formato(m.media)}</span>
+                    {m.rango && anteriores.n > 1 && m.rango[0] !== m.rango[1] ? (
+                      <span className="block text-[11px] text-white/45">
+                        de {formato(m.rango[0])} a {formato(m.rango[1])}
+                      </span>
+                    ) : null}
                   </span>
 
                   <span
@@ -321,7 +335,7 @@ export function ComparativaPartido({
 
           {tira && tira.jornadas.length > 1 && (
             <div className="overflow-x-auto border-t border-white/10 px-4 py-3 sm:px-5">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/40">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/40">
                 Últimas {tira.jornadas.length} jornadas
               </p>
               <table className="w-full min-w-[260px] text-[12px] tabular-nums">
@@ -409,7 +423,14 @@ export function porcentajeDe<T>(filas: T[], numerador: (filas: T[]) => number, d
 }
 
 /** «37 %», para las métricas en porcentaje. */
-export const formatoPorcentaje = (n: number) => `${Math.round(n)} %`;
+export const formatoPorcentaje = (n: number) => `${numeroCorto(n)} %`;
 
 /** «5 puntos»: la diferencia entre dos porcentajes. */
-export const formatoPuntos = (n: number) => `${Math.round(n)} ${Math.round(n) === 1 ? "punto" : "puntos"}`;
+export const formatoPuntos = (n: number) => `${numeroCorto(n)} ${numeroCorto(n) === "1" ? "punto" : "puntos"}`;
+
+/** El partido más bajo y el más alto de una cifra, para la columna del rango (30/10/2026). */
+export function rangoDe<T>(partidos: T[][], cifra: (filas: T[]) => number | null): [number, number] | null {
+  const valores = partidos.map(cifra).filter((v): v is number => v !== null && Number.isFinite(v));
+
+  return valores.length > 1 ? [Math.min(...valores), Math.max(...valores)] : null;
+}

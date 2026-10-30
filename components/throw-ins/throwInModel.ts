@@ -292,6 +292,8 @@ export type Resumen = {
   rival: number;
   /** null cuando ninguna fila trae el dato. */
   calidad: number | null;
+  /** Sobre cuántos saques valorados sale la calidad (30/10/2026). */
+  calidadN: number;
   bloqueadores: number | null;
 };
 
@@ -345,6 +347,7 @@ export function resumenDe(rows: RecordRow[], mode: Mode): Resumen {
     transicionPct: pct(transicion),
     rival,
     calidad: calidadN ? calidadSuma / calidadN : null,
+    calidadN,
     bloqueadores: bloqN ? bloqSuma / bloqN : null,
   };
 }

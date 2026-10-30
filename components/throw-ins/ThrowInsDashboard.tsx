@@ -27,6 +27,7 @@ import { jornadasAnteriores, ultimaJornada } from "@/lib/abp/ultimo-partido";
 import {
   ComparativaPartido,
   formatoPorcentaje,
+  rangoDe,
   mediaPorPartido,
   type MetricaComparada,
   porcentajeAgregado,
@@ -295,6 +296,11 @@ const MIN_MUESTRA = 3;
 /** Con menos de diez saques la cifra es un indicio, no un dato. */
 const indicio = (n: number) => (n < 20 ? ` (indicio: sólo ${n} ${n === 1 ? "saque" : "saques"})` : "");
 
+/* La consigna, sólo con muestra (30/10/2026, expertos): con 4-16 saques
+   «repetirla» o «buscarlo más» es una orden sobre una anécdota. Por debajo
+   de 20 se deja el dato con su base y sin imperativo. */
+const consigna = (n: number, texto: string) => (n >= 20 ? texto : "");
+
 type Grupo = { key: string; valor: string; n: number; favorables: number; produccion: number };
 
 const pctTexto = (parte: number, total: number) =>
@@ -418,7 +424,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(productivas, produccionTasa, true);
 
       frases.push(
-        `${mayuscula(nombre(mejor.key, mejor.valor))}, la más productiva: ${mejor.produccion} de ${mejor.n} a último tercio; repetirla.${indicio(mejor.n)}`,
+        `${mayuscula(nombre(mejor.key, mejor.valor))}, la más productiva: ${mejor.produccion} de ${mejor.n} a último tercio${consigna(mejor.n, "; repetirla")}.${indicio(mejor.n)}`,
       );
     }
 
@@ -426,7 +432,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(envios, retencionDe, true);
 
       frases.push(
-        `${mayuscula(nombre(mejor.key, mejor.valor))}, el más fiable: retenemos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}); usarlo para conservar.${indicio(mejor.n)}`,
+        `${mayuscula(nombre(mejor.key, mejor.valor))}, el más fiable: retenemos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)})${consigna(mejor.n, "; usarlo para conservar")}.${indicio(mejor.n)}`,
       );
     }
   } else {
@@ -449,11 +455,11 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
           frases.push(
             `${mayuscula(nombre(mejor.key, mejor.valor))}: robamos ${mejor.favorables} de sus ${mejor.n} saques (${pctTexto(mejor.favorables, mejor.n)}), pero ${
               peorZona.produccion === 1 ? "el que se nos escapa llega" : `${peorZona.produccion} se nos escapan y llegan`
-            } a último tercio. Presión con vigilancia a la espalda del que salta.${indicio(mejor.n)}`,
+            } a último tercio.${consigna(mejor.n, " Presión con vigilancia a la espalda del que salta.")}${indicio(mejor.n)}`,
           );
         } else {
           frases.push(
-            `Más robos en ${nombre(mejor.key, mejor.valor)}: recuperamos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)}); mantener la presión ahí.${indicio(mejor.n)}`,
+            `Más robos en ${nombre(mejor.key, mejor.valor)}: recuperamos ${mejor.favorables} de ${mejor.n} (${pctTexto(mejor.favorables, mejor.n)})${consigna(mejor.n, "; mantener la presión ahí")}.${indicio(mejor.n)}`,
           );
         }
       }
@@ -482,11 +488,11 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
         /* La explicación de la zona iba en la frase quitada: se vuelve a dar. */
         zonasExplicadas.clear();
         frases.push(
-          `${mayuscula(nombre(peor.key, peor.valor))}: es donde más robamos (${masRobos.favorables} de ${masRobos.n}) y por donde más llegan (${peor.produccion} de ${peor.n}). ${COMO_CERRAR}${indicio(peor.n)}`,
+          `${mayuscula(nombre(peor.key, peor.valor))}: es donde más robamos (${masRobos.favorables} de ${masRobos.n}) y por donde más llegan (${peor.produccion} de ${peor.n}).${consigna(peor.n, ` ${COMO_CERRAR}`)}${indicio(peor.n)}`,
         );
       } else if (!mismo(peor, masRobos)) {
         frases.push(
-          `${peor.n < 20 ? "Tendencia: su" : "Su"} vía más peligrosa es ${nombre(peor.key, peor.valor)} (${peor.produccion} de ${peor.n} a último tercio). ${COMO_CERRAR}${indicio(peor.n)}`,
+          `Su vía más peligrosa es ${nombre(peor.key, peor.valor)} (${peor.produccion} de ${peor.n} a último tercio).${consigna(peor.n, ` ${COMO_CERRAR}`)}${indicio(peor.n)}`,
         );
       }
     }
@@ -494,7 +500,7 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
     /* La consigna: dónde nos hacen más daño, no sólo dónde más robamos. */
     if (peorZona && !zonaDicha && !mismo(peorZona, viaDicha)) {
       frases.push(
-        `${peorZona.n < 20 ? "Tendencia: más" : "Más"} peligro concedido en saques desde ${nombre(peorZona.key, peorZona.valor)} (${peorZona.produccion} de ${peorZona.n} a último tercio).${indicio(peorZona.n)}`,
+        `Más peligro concedido en saques desde ${nombre(peorZona.key, peorZona.valor)} (${peorZona.produccion} de ${peorZona.n} a último tercio).${indicio(peorZona.n)}`,
       );
     }
 
@@ -517,13 +523,13 @@ function conclusionesDe(rows: RecordRow[], mode: Mode): string[] {
       const mejor = extremo(personas, (g) => produccionTasa(g) * 2 + retencionDe(g), true);
 
       frases.push(
-        `Más eficaz: ${nombre(mejor.key, mejor.valor)} (retenemos ${mejor.favorables} de ${mejor.n}, ${mejor.produccion} a último tercio); buscarlo más.${indicio(mejor.n)}`,
+        `Más eficaz: ${nombre(mejor.key, mejor.valor)} (retenemos ${mejor.favorables} de ${mejor.n}, ${mejor.produccion} a último tercio)${consigna(mejor.n, "; buscarlo más")}.${indicio(mejor.n)}`,
       );
     } else {
       const comodo = extremo(receptores.length >= 2 ? receptores : personas, retencionDe, false);
 
       frases.push(
-        `Su ${nombre(comodo.key, comodo.valor)}, el más cómodo: recuperamos ${comodo.favorables} de ${comodo.n}; hay que apretarle ahí.${indicio(comodo.n)}`,
+        `Su ${nombre(comodo.key, comodo.valor)}, el más cómodo: recuperamos ${comodo.favorables} de ${comodo.n}${consigna(comodo.n, "; hay que apretarle ahí")}.${indicio(comodo.n)}`,
       );
     }
   }
@@ -607,6 +613,7 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
     nombre,
     actual: cuentaDe(criterio)(actual),
     media: mediaPorPartido(anteriores, cuentaDe(criterio)),
+    rango: rangoDe(anteriores, cuentaDe(criterio)),
     mejorAlto,
     /* Con la base a la vista, como en las tarjetas: «3 de 13 saques». */
     ...(conBase
@@ -628,6 +635,7 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
     nombre,
     actual: porcentajeDe(actual, cuentaDe(criterio), total),
     media: porcentajeAgregado(anteriores, cuentaDe(criterio), total),
+    rango: rangoDe(anteriores, (filas) => porcentajeDe(filas, cuentaDe(criterio), total)),
     formato: formatoPorcentaje,
     mejorAlto,
     /* La base de cada porcentaje a la vista, en la propia fila: «8 de 17». */
@@ -644,26 +652,27 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
        que contaba otra cosa y no sumaba 100 con ella. */
     porcentaje(
       "conserva",
-      ofensivo ? "% retención" : "% recuperación",
+      /* Nombres en llano (30/10/2026, expertos): «% retención» no se entendía en la sala. */
+      ofensivo ? "Saques que conservamos" : "Saques del rival que recuperamos",
       conserva,
       true,
       ofensivo ? "el balón sigue siendo nuestro" : "recuperamos el saque del rival",
     ),
     porcentaje(
       "progresion",
-      ofensivo ? "% progresión" : "% progresión concedida",
+      ofensivo ? "Saques hacia delante o al área" : "Saques del rival hacia delante o al área",
       esProgresion,
       ofensivo,
       /* 29/10/2026: con menos de 25 saques el porcentaje baila mucho; se dice
          en la propia fila. */
-      juntaPie("envíos hacia delante o al área", actual.length < 25 ? "muestra corta" : undefined),
+      juntaPie(actual.length < 25 ? "muestra corta" : undefined),
     ),
     /* 29/10/2026: la producción y el peligro concedido van en porcentaje, como
        la retención y la progresión: «52 % · 12 de 23» frente a la media en %,
        la misma unidad que la píldora de la lectura (antes 12 frente a 4,6). */
     porcentaje(
       "produccion",
-      ofensivo ? "% producción" : "% peligro concedido",
+      ofensivo ? "Saques que llegan a último tercio" : "Saques del rival que llegan a último tercio",
       produce,
       ofensivo,
       "último tercio, ocasión o gol",
@@ -1233,6 +1242,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       porDefecto: !elegidaPorFiltro,
       rival,
       anteriores,
+      /* Las filas de esas jornadas: la lectura de cabecera se compara con ellas (30/10/2026). */
+      filasAnteriores: anteriores.flatMap((una) => porJornada.get(una.clave) ?? []),
       metricas: metricasComparadas(
         porJornada.get(clave) ?? [],
         anteriores.map((una) => porJornada.get(una.clave) ?? []),
@@ -1396,6 +1407,19 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     <AnalisisSeccion
       filas={filtered}
       todas={rows}
+      /* Con una jornada elegida, la lectura de cabecera se mide contra las
+         mismas jornadas anteriores que la tabla del partido (30/10/2026). */
+      referencia={
+        opciones.destacado && comparativa && !comparativa.porDefecto && comparativa.anteriores.length > 0
+          ? {
+              filas: comparativa.filasAnteriores,
+              rotulo:
+                comparativa.anteriores.length === 1
+                  ? "la jornada anterior"
+                  : `la media de las ${comparativa.anteriores.length} jornadas anteriores`,
+            }
+          : null
+      }
       lector={lector}
       sentido={isOffensive ? "ofensivo" : "defensivo"}
       unidad="saques"
@@ -1626,15 +1650,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   </label>
                 ) : null}
 
-                {activos.length ? (
-                  <button
-                    type="button"
-                    onClick={() => setFilters({})}
-                    className="rounded-full border border-white/10 px-3 py-1 text-white/70 transition hover:border-white/25 hover:text-white"
-                  >
-                    Limpiar filtros
-                  </button>
-                ) : null}
+                {/* Sin «Limpiar filtros» aquí (30/10/2026): la barra de debajo ya
+                    tiene «Quitar filtros» y eran dos botones para lo mismo. */}
               </div>
             </div>
 
@@ -1720,6 +1737,9 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   <>
                 {/* Lo primero: si lo de este partido es lo de siempre o una
                     excepción. Va antes que los KPI, que son del filtro entero. */}
+                {/* En el móvil, las conclusiones antes que la tabla (30/10/2026, expertos). */}
+                <Conclusiones items={conclusiones} className="mb-4 md:hidden" />
+
                 {comparativa ? (
                   <ComparativaPartido
                     className="mb-7"
@@ -1741,11 +1761,12 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   />
                 ) : null}
 
-                <Conclusiones items={conclusiones} className="mb-4" />
+                <Conclusiones items={conclusiones} className="mb-4 max-md:hidden" />
 
                 <LeyendaSaques mode={mode} className="mb-7" />
 
-                <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                {/* Con la tabla del partido sólo queda la calidad: a todo el ancho y no una tarjeta estrecha y sola (30/10/2026). */}
+                <div className={`mb-7 grid gap-4 ${comparativa ? "" : "sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"}`}>
                   {/* Con la tabla del partido encima, estas cifras sobran: son las mismas
                       del filtro entero. Sólo salen cuando no hay con qué comparar. */}
                   {comparativa ? null : (
@@ -1791,7 +1812,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     <MetricCard
                       label={isOffensive ? "Calidad media de envío" : "Calidad media del envío rival"}
                       value={`${totals.calidad.toFixed(1).replace(".", ",")} de 4`}
-                      visible={`1 = envío malo, 4 = perfecto${
+                      visible={`Sobre ${totals.calidadN} ${totals.calidadN === 1 ? "saque valorado" : "saques valorados"} · 1 = envío malo, 4 = perfecto${
                         calidadGlobal === null ? "" : ` · media de la temporada ${calidadGlobal.toFixed(1).replace(".", ",")}`
                       }`}
                       hint={isOffensive ? "Más es mejor." : "Menos es mejor."}

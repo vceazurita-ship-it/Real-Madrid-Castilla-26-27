@@ -64,8 +64,11 @@ import { useRatingsSeason } from "@/hooks/useRatings";
 import { playerEntries } from "@/lib/ratings/compute";
 import { getPlayerImage, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
-import { esDelCastilla, idVigente, mismoJugador } from "@/lib/fichajes";
-import { alineaSeguimiento } from "@/lib/seguimiento";
+import { cohorteCastilla, esDelCastilla, idVigente, mismoJugador } from "@/lib/fichajes";
+import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, sinSeguimientoReciente } from "@/lib/seguimiento";
+import { nombrePuesto, posicionDe } from "@/lib/posiciones";
+import { detectRow } from "@/lib/ratings/pitch";
+import { recordDateKey } from "@/lib/calendar";
 import { creaSeguimientos } from "@/lib/seguimiento-escribir";
 import { SeleccionJugadores } from "@/components/seguimiento/SeleccionJugadores";
 
@@ -151,6 +154,11 @@ type MergedPlayer = Player & {
   hasReport: boolean | null;
   score: number;
   lastSession: Date | null;
+
+  /* 30/10/2026: el puesto de la hoja dicho con palabras (lib/posiciones,
+     el mismo que /ratings) y la línea en la que se agrupa. */
+  puesto: string;
+  linea: string;
 };
 
 type TrackingRecord = {
@@ -228,12 +236,31 @@ const METRICS = [
   { key: "tecnica", label: "Técnica", short: "Técnica" },
 ] as const;
 
+/* 30/10/2026: las líneas salen de la demarcación de la hoja (lib/posiciones
+   + detectRow, la misma lectura que /ratings), no de la lista escrita aquí:
+   Leiva, Yáñez y Mesonero caían en Centrocampistas y en Delanteros quedaban
+   dos. Extremos y mediapuntas van aparte. */
 const LINES = [
   { key: "Portero", title: "Porteros", color: "#EAB308" },
   { key: "Defensa", title: "Defensas", color: "#38BDF8" },
   { key: "Centrocampista", title: "Centrocampistas", color: "#4ADE80" },
+  { key: "Extremo", title: "Extremos y mediapuntas", color: "#C084FC" },
   { key: "Delantero", title: "Delanteros", color: "#F87171" },
 ];
+
+/** La línea de un puesto de la hoja («7», «PIVOTE», «LATERAL D.»…). */
+function lineaDelPuesto(posicionHoja: string, deLaLista: string): string {
+  if (!posicionHoja.trim()) return deLaLista;
+
+  const fila = detectRow(posicionHoja);
+
+  if (fila === "por") return "Portero";
+  if (fila === "def") return "Defensa";
+  if (fila === "band" || fila === "diez") return "Extremo";
+  if (fila === "del") return "Delantero";
+
+  return "Centrocampista";
+}
 
 const PLAYERS_BASE: Omit<Player, "photoFace">[] = [
   // PORTEROS
@@ -1457,8 +1484,8 @@ function RejillaJugadores({
     <div className="space-y-5">
       {propios.length > 0 && (
         <div className={REJILLA}>
-          {propios.map((player) => (
-            <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} />
+          {propios.map((player, i) => (
+            <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} prioridad={i < 8} />
           ))}
         </div>
       )}
@@ -1499,9 +1526,12 @@ function RejillaJugadores({
 function PlayerCard({
   player,
   onSelect,
+  prioridad = false,
 }: {
   player: MergedPlayer;
   onSelect: (player: MergedPlayer) => void;
+  /** Las primeras de la rejilla cargan ya: con «lazy», en el móvil salía la inicial. */
+  prioridad?: boolean;
 }) {
   const [sinFoto, setSinFoto] = useState(!player.photo);
   const iniciales = player.name
@@ -1510,8 +1540,9 @@ function PlayerCard({
     .slice(0, 2)
     .map((p) => p.charAt(0).toUpperCase())
     .join("");
-  const hayFooter =
-    Boolean(player.sessions) || Boolean(player.videos) || Boolean(player.hasReport);
+  /* 30/10/2026: el pie sale en todas en cuanto llegan los seguimientos
+     (también con 0), para que ninguna ficha quede más baja que las demás. */
+  const hayFooter = player.sessions !== null;
 
   return (
     <button
@@ -1540,7 +1571,8 @@ function PlayerCard({
           <img
             src={player.photo}
             alt={player.name}
-            loading="lazy"
+            loading={prioridad ? "eager" : "lazy"}
+            fetchPriority={prioridad ? "high" : undefined}
             onError={() => setSinFoto(true)}
             onLoad={(e) => {
               /* Una imagen que «carga» pero es un punto o un hueco: iniciales. */
@@ -1558,7 +1590,7 @@ function PlayerCard({
           </span>
         )}
 
-        {player.score > 0 && (
+        {player.score > 0 ? (
           <span
             title="Media de competencias (no es la nota de partido)"
             className="absolute left-1.5 top-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold tabular-nums backdrop-blur"
@@ -1574,8 +1606,20 @@ function PlayerCard({
             }}
           >
             <span title="Media de competencias (no es la nota de partido)">
-              {coma(player.score)} media
+              {coma(player.score)} competencias
             </span>
+          </span>
+        ) : (
+          /* 30/10/2026: sin ficha de scout lo dice, para que no parezca una carga fallida. */
+          <span
+            className="absolute left-1.5 top-1.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
+            style={{
+              background: "rgba(0,0,0,0.78)",
+              color: "rgba(255,255,255,0.85)",
+              borderColor: "rgba(255,255,255,0.25)",
+            }}
+          >
+            sin ficha
           </span>
         )}
 
@@ -1585,17 +1629,17 @@ function PlayerCard({
           </h3>
 
           <p className="truncate text-[9px] uppercase tracking-[0.2em] text-white/40">
-            {player.position}
+            {player.puesto}
           </p>
         </div>
       </div>
 
       {hayFooter && (
         <div className="flex min-w-0 items-center justify-start gap-3 border-t border-white/10 bg-white/[0.02] px-2.5 py-2">
-          {Boolean(player.sessions) && (
+          {player.sessions !== null && (
             <span
               className="flex items-center gap-1 text-[10px] tabular-nums text-white/60"
-              title={`${player.sessions} sesiones de seguimiento`}
+              title={`${player.sessions} seguimientos en la temporada`}
             >
               <ClipboardList size={11} />
               {player.sessions}
@@ -1938,9 +1982,16 @@ export default function IndividualPage() {
           ? !esDelCastilla((row as Record<string, string>).NOMBRE || p.name, (row as Record<string, string>).LICENCIA)
           : p.externo;
 
+      const fila = row as Record<string, string>;
+      const posicionHoja = fila.POSICION
+        ? posicionDe(fila.NOMBRE || p.name, fila.POSICION)
+        : "";
+
       const base = {
         ...p,
         externo,
+        puesto: posicionHoja ? nombrePuesto(posicionHoja) : p.position,
+        linea: lineaDelPuesto(posicionHoja, p.position),
 
         conBalon: row.CON_BALON || DEFAULT_CON_BALON,
         sinBalon: row.SIN_BALON || DEFAULT_SIN_BALON,
@@ -2010,9 +2061,16 @@ export default function IndividualPage() {
   const stats = useMemo(() => {
     const rated = mergedPlayers.filter((p) => p.score > 0);
 
+    const ultimas = mergedPlayers
+      .map((p) => p.lastSession?.getTime() ?? 0)
+      .filter((t) => t > 0);
+
     return {
       players: mergedPlayers.length,
-      castilla: mergedPlayers.filter((p) => !p.externo).length,
+      /* La cohorte de lib/fichajes, la misma que el Dashboard Plantilla. */
+      castilla: cohorteCastilla(mergedPlayers, (p) => p.name, (p) => (p.externo ? "otro" : undefined)).length,
+      ratedCastilla: rated.filter((p) => !p.externo).length,
+      ultimoRegistro: ultimas.length ? new Date(Math.max(...ultimas)) : null,
       externos: mergedPlayers.filter((p) => p.externo).length,
       rated: rated.length,
       tracked: mergedPlayers.filter((p) => (p.sessions ?? 0) > 0).length,
@@ -2026,6 +2084,25 @@ export default function IndividualPage() {
         : 0,
     };
   }, [mergedPlayers, trackingData, videoData, reportData]);
+
+  /* 30/10/2026: la misma regla que /calendar y /individual_proc
+     (lib/seguimiento): jugadores de campo del Castilla sin ningún registro
+     en los últimos 14 días, hoy incluido. */
+  const [hoy] = useState(() => new Date());
+
+  const sinSeguimiento = useMemo(() => {
+    if (pendiente.seguimiento || pendiente.jugadores || trackingData.length === 0) return [];
+
+    const plantilla = mergedPlayers.map((p) => ({
+      id: p.idJugador,
+      nombre: nombreVisible(p.name),
+      esCastilla: !p.externo,
+      posicion: p.linea,
+      jugador: p,
+    }));
+
+    return sinSeguimientoReciente(trackingAlineado, plantilla, hoy, (fecha) => recordDateKey(fecha));
+  }, [mergedPlayers, trackingAlineado, trackingData.length, pendiente.seguimiento, pendiente.jugadores, hoy]);
 
   /* La base de «X de N jugadores» sigue al filtro de equipo: con «Castilla»
      elegido, 1 vídeo es «1 de 21 del Castilla» y no «1 de 40». */
@@ -2066,7 +2143,7 @@ export default function IndividualPage() {
       if (
         query &&
         !normalize(p.name).includes(query) &&
-        !normalize(p.position).includes(query)
+        !normalize(p.puesto).includes(query)
       ) {
         return false;
       }
@@ -2080,7 +2157,7 @@ export default function IndividualPage() {
 
   const filtered = useMemo(() => {
     const list = baseList.filter(
-      (p) => lineFilter === "todas" || p.position === lineFilter,
+      (p) => lineFilter === "todas" || p.linea === lineFilter,
     );
 
     if (sortBy === "nombre") {
@@ -3129,7 +3206,7 @@ export default function IndividualPage() {
 
   return (
     <>
-      <main className="min-h-screen overflow-x-clip bg-[#0B0F14] text-white max-sm:pb-20">
+      <main className="min-h-screen overflow-x-clip bg-[#0B0F14] pb-24 text-white">
         <div className="flex min-h-screen w-full">
           <Sidebar />
 
@@ -3187,7 +3264,10 @@ export default function IndividualPage() {
 
               {/* INDICADORES */}
 
-              <div className="mt-8 grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
+              <div className="mt-6 grid min-w-0 grid-cols-2 gap-3 md:grid-cols-3 [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
+                {/* 30/10/2026: tres cifras (2 + 1 en el móvil) y vídeos e
+                    informes en una línea aparte, para que la primera ficha
+                    se vea sin desplazarse. */}
                 <StatTile
                   icon={Users}
                   label="Jugadores"
@@ -3195,54 +3275,77 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ${stats.tracked} con seguimiento`
+                      : `${stats.castilla} del Castilla + ${stats.externos} de otros equipos · ${stats.tracked} de ${stats.players} con algún seguimiento en la temporada`
                   }
                 />
 
                 <StatTile
                   icon={ClipboardList}
                   label="Seguimientos"
-                  value={pendiente.seguimiento ? "—" : stats.sessions}
-                  hint="registros de seguimiento de todos los jugadores"
-                />
-
-                <StatTile
-                  icon={Video}
-                  label="Vídeos"
-                  value={pendiente.videos ? "—" : stats.videos}
+                  value={pendiente.seguimiento ? "…" : stats.sessions}
                   hint={
-                    pendiente.videos
-                      ? "cargando los vídeos…"
-                      : `clips individuales · ${base.conVideos} de ${base.n} jugadores${base.de}`
+                    pendiente.seguimiento
+                      ? "cargando los seguimientos…"
+                      : `registros en la temporada, de todos los jugadores${
+                          stats.ultimoRegistro
+                            ? ` · último: ${stats.ultimoRegistro.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" })}`
+                            : ""
+                        }`
                   }
                 />
 
-                <StatTile
-                  icon={FileText}
-                  label="Informes"
-                  value={pendiente.informes ? "—" : stats.reports}
-                  hint={
-                    pendiente.informes
-                      ? "cargando los informes…"
-                      : `fichas completadas · ${base.conInforme} de ${base.n} jugadores${base.de}`
-                  }
-                />
-
-                <StatTile
-                  icon={Gauge}
-                  label="Media competencias"
-                  value={
-                    stats.rated >= 3 && stats.avg
-                      ? stats.avg.toFixed(1).replace(".", ",")
-                      : "—"
-                  }
-                  hint={
-                    stats.rated >= 3
-                      ? `media de las competencias valoradas, sobre 10 · ${stats.rated} de ${stats.players} con ficha`
-                      : "se muestra con 3 o más fichas valoradas"
-                  }
-                />
+                {stats.rated >= 3 && stats.avg > 0 && (
+                  <StatTile
+                    icon={Gauge}
+                    label="Media competencias"
+                    value={stats.avg.toFixed(1).replace(".", ",")}
+                    hint={`de ${stats.rated} con ficha de scout (${stats.ratedCastilla} del Castilla) · sobre 10 · no es la nota de partido`}
+                  />
+                )}
               </div>
+
+              {/* VÍDEOS E INFORMES, en segunda línea */}
+              {!pendiente.videos && !pendiente.informes && (
+                <p className="mt-3 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/55">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Video size={12} className="shrink-0 text-[#C8A96B]" />
+                    {stats.videos} {stats.videos === 1 ? "vídeo individual" : "vídeos individuales"} · {base.conVideos} de {base.n} jugadores{base.de}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <FileText size={12} className="shrink-0 text-[#C8A96B]" />
+                    {stats.reports} {stats.reports === 1 ? "informe" : "informes"} · {base.conInforme} de {base.n} jugadores{base.de}
+                  </span>
+                </p>
+              )}
+
+              {/* SIN SEGUIMIENTO EN 14 DÍAS (misma regla que /calendar) */}
+              {sinSeguimiento.length > 0 && (
+                <div
+                  role="status"
+                  className="mt-4 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80"
+                >
+                  <span className="font-semibold text-[#C8A96B]">
+                    Sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días, hasta hoy ({sinSeguimiento.length}):
+                  </span>{" "}
+                  {sinSeguimiento.map((j, i) => (
+                    <span key={j.id}>
+                      <button
+                        type="button"
+                        onClick={() => openPlayer(j.jugador)}
+                        className="underline decoration-white/25 underline-offset-2 hover:text-[#C8A96B]"
+                      >
+                        {j.nombre}
+                      </button>
+                      {i < sinSeguimiento.length - 1 ? ", " : "."}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <p className="mt-3 text-[11px] leading-relaxed text-white/45">
+                La cifra sobre cada foto es la media de sus cinco competencias
+                del scout (sobre 10), no la nota de partido de Valoraciones.
+              </p>
 
               {/* FILTROS */}
 
@@ -3324,8 +3427,10 @@ export default function IndividualPage() {
 
                 {LINES.map((line) => {
                   const count = baseList.filter(
-                    (p) => p.position === line.key,
+                    (p) => p.linea === line.key,
                   ).length;
+
+                  if (count === 0) return null;
 
                   return (
                     <button
@@ -3397,7 +3502,7 @@ export default function IndividualPage() {
                 <div className="mt-8 space-y-6">
                   {LINES.map((line) => {
                     const linePlayers = filtered.filter(
-                      (p) => p.position === line.key,
+                      (p) => p.linea === line.key,
                     );
 
                     if (!linePlayers.length) return null;
@@ -3489,7 +3594,7 @@ export default function IndividualPage() {
 
                   <div className="min-w-0">
                     <p className="truncate text-[10px] uppercase tracking-[0.25em] text-[#C8A96B]">
-                      {selected.position}
+                      {selected.puesto}
 
                       {selected.externo && (
                         <span className="ml-2 text-white/30">· Otro equipo</span>
@@ -3920,7 +4025,7 @@ export default function IndividualPage() {
                               escudo: "/logo.png",
                               temporada: "26 / 27",
                               nombre: selected.name,
-                              posicion: selected.position,
+                              posicion: selected.puesto,
                               dorsal: "",
                               foto: selected.photoFace || selected.photo,
                             }}

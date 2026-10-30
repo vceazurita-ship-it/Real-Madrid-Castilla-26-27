@@ -14,8 +14,9 @@ const cm = (v: ReactNode) =>
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
-import { alineaSeguimiento, esDeSeguimiento } from "@/lib/seguimiento";
+import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esDeSeguimiento, sinSeguimientoReciente } from "@/lib/seguimiento";
 import { SESIONES_CONTADAS_DESDE, SESIONES_DESDE_TEXTO } from "@/lib/sesion-equipos/estadistica";
+import { recordDateKey } from "@/lib/calendar";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 
 import {
@@ -336,6 +337,7 @@ export default function DashboardSeguimiento() {
   );
 
   const sinFecha = 0;
+  const [hoy] = useState(() => new Date());
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("resumen");
   const [search, setSearch] = useState("");
@@ -575,6 +577,21 @@ export default function DashboardSeguimiento() {
     return plantillaEnFoco.filter((p) => !trackedIds.has(p.id));
   }, [plantillaEnFoco, trackedIds]);
 
+  /* 30/10/2026: el último registro de cada uno en TODA la temporada (no sólo
+     desde el corte): «sin ningún registro desde el 21/10 · último: 30/09». */
+  const ultimoEnTemporada = useMemo(() => {
+    const mapa = new Map<string, Date>();
+
+    delGrupo.forEach((s) => {
+      const d = fechaValida(s.FECHA);
+      if (!d) return;
+      const previo = mapa.get(s.ID_JUGADOR);
+      if (!previo || d > previo) mapa.set(s.ID_JUGADOR, d);
+    });
+
+    return mapa;
+  }, [delGrupo]);
+
   /** Players whose last contact is the oldest — actionable list */
   const staleContacts = useMemo(() => {
     return [...playerChart]
@@ -710,14 +727,21 @@ export default function DashboardSeguimiento() {
       ).toFixed(1)
     : 0;
 
+  /* 30/10/2026: qué día de la semana es hoy (1 = lunes), para no comparar
+     una semana a medias con una entera. */
+  const diaDeSemana = ((hoy.getDay() + 6) % 7) + 1;
+  const semanaDeHoy = `S${getSeasonWeek(hoy.toISOString())}`;
+
   const weeklyDelta = useMemo(() => {
     if (weeklyData.length < 3) return null;
+    /* La última semana va a medias: se compara la anterior con la otra. */
+    if (weeklyData[weeklyData.length - 1].week === semanaDeHoy && diaDeSemana < 7) return null;
 
     const last = weeklyData[weeklyData.length - 1].value;
     const prev = weeklyData[weeklyData.length - 2].value;
 
     return last - prev;
-  }, [weeklyData]);
+  }, [weeklyData, semanaDeHoy, diaDeSemana]);
 
   const monthlyData = useMemo(() => {
     const map: Record<number, number> = {};
@@ -864,10 +888,16 @@ export default function DashboardSeguimiento() {
 
     plantillaEnFoco.forEach((p) => dosSemanas.set(p.id, 0));
 
+    /* 30/10/2026: la ventana de lib/seguimiento (14 días que acaban hoy, hoy
+       incluido, sin días futuros), la misma que /calendar y /individual. */
+    const aCeroIds = new Set(
+      sinSeguimientoReciente(delGrupo, plantillaEnFoco, hoy, (fecha) => recordDateKey(fecha)).map((p) => p.id),
+    );
+
     delGrupo.forEach((s) => {
       const d = daysAgo(s.FECHA);
 
-      if (d !== null && d <= 14 && dosSemanas.has(s.ID_JUGADOR)) {
+      if (d !== null && d >= 0 && d <= DIAS_SIN_SEGUIMIENTO && dosSemanas.has(s.ID_JUGADOR)) {
         dosSemanas.set(s.ID_JUGADOR, (dosSemanas.get(s.ID_JUGADOR) ?? 0) + 1);
       }
     });
@@ -881,15 +911,15 @@ export default function DashboardSeguimiento() {
        no tiene ningún seguimiento. Sólo si nadie está a cero se nombran los
        tres con menos. */
     const aCero = plantillaEnFoco
-      .filter((p) => (dosSemanas.get(p.id) ?? 0) === 0)
-      .map((p) => p.nombre)
+      .filter((p) => aCeroIds.has(p.id))
+      .map((p) => nombreVisible(p.nombre))
       .sort((a, b) => a.localeCompare(b, "es"));
 
     if (aCero.length > 0) {
       out.push({
         icon: AlertTriangle,
         tone: "text-amber-400",
-        text: `Sin seguimiento en 14 días: ${aCero.join(", ")}. Programa una sesión individual con ellos esta semana.`,
+        text: `Sin seguimiento en 14 días, hasta hoy: ${aCero.join(", ")}. Programa una sesión individual con ellos esta semana.`,
       });
     } else if (menos.length === 3) {
       out.push({
@@ -915,6 +945,7 @@ export default function DashboardSeguimiento() {
 
     return out;
   }, [
+    hoy,
     delGrupo,
     totalSessions,
     cubiertos,
@@ -1028,12 +1059,13 @@ export default function DashboardSeguimiento() {
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-3 md:gap-5">
+              {/* 30/10/2026: el mismo nombre que en el menú. */}
               <h1 className="text-2xl md:text-4xl font-semibold tracking-tight">
-                Seguimiento Individual
+                Dashboard Seguimiento
               </h1>
 
               <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/60">
-                {totalSessions} registros
+                {totalSessions} registros {SESIONES_DESDE_TEXTO}
               </span>
 
               {/* Se dice a quién cuenta el panel: si no, la cobertura y la
@@ -1157,6 +1189,7 @@ export default function DashboardSeguimiento() {
                   ]}
                 />
 
+                {filterOptions.months.length > 1 && (
                 <Select
                   label="Mes"
                   value={filters.month}
@@ -1169,7 +1202,9 @@ export default function DashboardSeguimiento() {
                     })),
                   ]}
                 />
+                )}
 
+                {filterOptions.weeks.length > 1 && (
                 <Select
                   label="Semana"
                   value={filters.week}
@@ -1182,6 +1217,7 @@ export default function DashboardSeguimiento() {
                     })),
                   ]}
                 />
+                )}
               </div>
 
               <div className="mt-4 flex flex-col sm:flex-row gap-3">
@@ -1245,7 +1281,7 @@ export default function DashboardSeguimiento() {
                   /* 29/10/2026: una sola base por tarjeta: aquí registros (y
                      cuántos de ellos llevan feedback); los jugadores van en
                      «Con seguimiento» y «Cobertura». */
-                  hint={`registros ${SESIONES_DESDE_TEXTO} · ${withFeedback} de ellos con feedback`}
+                  hint={`registros ${SESIONES_DESDE_TEXTO} · ${withFeedback} de ${totalSessions} con feedback`}
                 />
 
                 <StatCard
@@ -1278,7 +1314,9 @@ export default function DashboardSeguimiento() {
                   icon={Target}
                   title="Individualización"
                   value={`${cm(individualShare)} %`}
-                  hint={`de ${totalSessions} registros, los individuales`}
+                  /* 30/10/2026: es la MODALIDAD (individual frente a grupal), no
+                     el foco del objetivo; podía coincidir con «Defensivo». */
+                  hint={`modalidad individual: ${filteredTracking.filter((x) => norm(x.MODALIDAD) === "individual").length} de ${totalSessions} registros; el resto, grupales`}
                   accent="#8B5CF6"
                   progress={individualShare}
                 />
@@ -1385,17 +1423,35 @@ export default function DashboardSeguimiento() {
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                   <Panel
                     title="Evolución semanal"
-                    subtitle={weeklyData.length < 3 ? "Seguimientos de la semana en curso" : `Media de ${weeklyMean} seguimientos por semana`}
+                    subtitle={weeklyData.length < 3 ? "Seguimientos por semana" : `Media de ${weeklyMean} seguimientos por semana`}
                   >
-                    {/* 29/10/2026: con dos semanas la última está incompleta y la caída (32 a 4) se leía como alarma: la gráfica espera a la tercera. */}
+                    {/* 30/10/2026: con una o dos semanas, una barra por semana y la
+                        que va en curso dice a qué día está; sin frases sobre lo
+                        que falta. */}
                     {weeklyData.length < 3 ? (
-                      <div className="flex min-h-[140px] flex-col items-center justify-center gap-1 py-6 text-center">
-                        <p className="text-5xl font-semibold text-[#C8A96B]">{cm(weeklyData[weeklyData.length - 1]?.value ?? totalSessions)}</p>
-                        <p className="text-sm text-white/60">seguimientos esta semana (en curso)</p>
-                        {weeklyData.length === 2 && (
-                          <p className="text-xs text-white/50">La semana anterior tuvo {cm(weeklyData[0].value)}.</p>
-                        )}
-                        <p className="text-xs text-white/40">La gráfica aparece cuando haya tres semanas con registros.</p>
+                      <div className="space-y-3 py-4">
+                        {weeklyData.map((w) => {
+                          const maximo = Math.max(...weeklyData.map((x) => x.value), 1);
+                          const enCurso = w.week === semanaDeHoy && diaDeSemana < 7;
+
+                          return (
+                            <div key={w.week}>
+                              <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+                                <span className="text-white/75">
+                                  Semana del {w.desde}
+                                  {enCurso ? ` · en curso, día ${diaDeSemana} de 7` : ""}
+                                </span>
+                                <span className="tabular-nums font-semibold text-[#C8A96B]">{w.value}</span>
+                              </div>
+                              <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{ width: `${(w.value / maximo) * 100}%`, background: GOLD, opacity: enCurso ? 0.55 : 1 }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <ChartBox>
@@ -1478,7 +1534,7 @@ export default function DashboardSeguimiento() {
 
                   <Panel
                     title="Foco de los objetivos"
-                    subtitle="Cuántos registros abordan cada dimensión"
+                    subtitle={`De ${totalSessions} registros, cuántos llevan objetivo de cada tipo (uno puede llevar varios)`}
                   >
                     <div className="space-y-4 py-2">
                       {focusData.map((f) => (
@@ -1492,7 +1548,7 @@ export default function DashboardSeguimiento() {
                               <span className="font-semibold text-[#C8A96B]">
                                 {f.value}
                               </span>{" "}
-                              registros · {cm(f.percentage)} %
+                              con objetivo {f.name.toLowerCase()} · {cm(f.percentage)} %
                             </span>
                           </div>
 
@@ -1549,7 +1605,7 @@ export default function DashboardSeguimiento() {
                        seguimiento en 14 días» de Lecturas: aquí sale quien no
                        tiene ningún registro con los filtros puestos. */
                     title={`Sin ningún registro (${untrackedPlayers.length})`}
-                    subtitle={`Jugadores de la plantilla sin ningún registro ${SESIONES_DESDE_TEXTO} con los filtros actuales · el aviso de Lecturas cuenta, aparte, quién lleva 14 días sin seguimiento`}
+                    subtitle={`Sin ningún registro ${SESIONES_DESDE_TEXTO} con los filtros actuales; junto a cada nombre, su último registro de la temporada`}
                   >
                     <div className="flex flex-wrap gap-2.5">
                       {untrackedPlayers.map((p) => (
@@ -1567,8 +1623,11 @@ export default function DashboardSeguimiento() {
                           <div className="leading-tight">
                             <p className="text-sm font-medium">{nombreVisible(p.nombre)}</p>
 
-                            <p className="text-[11px] text-white/40">
+                            <p className="text-[11px] text-white/55">
                               {nombrePuesto(p.posicion)}
+                              {ultimoEnTemporada.get(p.id)
+                                ? ` · último: ${ultimoEnTemporada.get(p.id)!.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" })}`
+                                : ""}
                             </p>
                           </div>
                         </div>

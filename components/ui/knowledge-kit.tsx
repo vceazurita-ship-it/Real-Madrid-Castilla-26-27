@@ -406,16 +406,19 @@ export function EditToolbar({
     onReintentar: () => void;
   };
 }) {
+  /* 30/10/2026: «Editar» ya no ocupa todo el ancho en el móvil. Era el botón
+     más grande de la pantalla y lo que el cuerpo técnico viene a hacer es
+     leer; queda como botón compacto junto a lo demás. */
   if (!editing) {
     return (
-      <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
+      <div className="flex flex-wrap items-center gap-3">
         {extra}
 
         <button
           type="button"
           onClick={onEdit}
           className={cn(
-            "inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#C8A96B]/60 px-4 py-2.5 text-sm font-medium text-[#C8A96B] transition-colors hover:bg-[#C8A96B]/10 lg:flex-none",
+            "inline-flex flex-none items-center justify-center gap-2 rounded-xl border border-[#C8A96B]/60 px-3.5 py-2 text-sm font-medium text-[#C8A96B] transition-colors hover:bg-[#C8A96B]/10",
             focusRing,
           )}
         >

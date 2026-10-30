@@ -78,7 +78,7 @@ function Chapa({
 }) {
   return (
     <span className="inline-flex min-w-0 max-w-full flex-wrap items-baseline gap-x-1.5 gap-y-0.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5">
-      <span className="text-[10px] uppercase tracking-[0.14em] text-white/40">{label}</span>
+      <span className="text-[11px] uppercase tracking-[0.14em] text-white/40">{label}</span>
 
       <span
         className="text-[12px] font-semibold tabular-nums"
@@ -229,6 +229,7 @@ export function AnalisisSeccion<T>({
   etiquetas,
   acompanan,
   destacado = false,
+  referencia,
 }: {
   /** Las filas que el filtro deja pasar. */
   filas: T[];
@@ -256,6 +257,12 @@ export function AnalisisSeccion<T>({
   acompanan?: ClaveMetrica[];
   /** Más aire y letra, para la lectura de cabecera de la página. */
   destacado?: boolean;
+  /**
+   * Contra qué se compara la lectura si no es toda la temporada (30/10/2026):
+   * con una jornada elegida, las anteriores de la tabla del partido, para que
+   * las dos digan la misma media y la misma diferencia.
+   */
+  referencia?: { filas: T[]; rotulo: string } | null;
 }) {
   /* El reparto de cada panel explica; las conclusiones van en la cabecera.
      Escondido salvo que el administrador encienda los textos explicativos. */
@@ -283,8 +290,11 @@ export function AnalisisSeccion<T>({
       unidad,
       etiquetas,
       acompanan,
+      referencia: referencia?.filas.map(traduce),
+      rotuloReferencia: referencia?.rotulo,
     });
   }, [
+    referencia,
     filas,
     todas,
     lector,
@@ -329,7 +339,7 @@ export function AnalisisSeccion<T>({
         className="min-w-0 border-t border-white/10 bg-white/[0.02] px-4 py-3 sm:px-5"
         aria-label="Reparto de la sección"
       >
-        <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#C8A96B]">
+        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#C8A96B]">
           Reparto · {reparto.etiqueta}
           {/* Qué se está midiendo: sin esto, un «0,12» de xG no se sabe de qué es. */}
           <span className="text-white/25"> · {principal.label.toLowerCase()}</span>
@@ -348,14 +358,14 @@ export function AnalisisSeccion<T>({
       aria-label="Análisis de la sección"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#C8A96B]">
+        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-[#C8A96B]">
           {muestra.sinFiltro ? "Lectura · global" : "Lectura · según el filtro"}
         </p>
 
         {/* Con una sola jornada no hay tendencia que rotular: sin insignia. */}
         {tendencia.veredicto === "insuficiente" && tendencia.serie.filter((punto) => punto.n > 0).length < 2 ? null : (
           <span
-            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em]"
             style={{
               color: colorVeredicto,
               borderColor: `color-mix(in srgb, ${colorVeredicto} 35%, transparent)`,
@@ -385,7 +395,11 @@ export function AnalisisSeccion<T>({
             <ChapaComparativa
               dato={principal}
               sinFiltro={muestra.sinFiltro}
-              base={`la media de la temporada, ${muestra.total} ${muestra.total === 1 ? "acción" : "acciones"}`}
+              base={
+                referencia?.filas.length
+                  ? referencia.rotulo
+                  : `la media de la temporada, ${muestra.total} ${muestra.total === 1 ? "acción" : "acciones"}`
+              }
             />
           </div>
 
@@ -402,7 +416,7 @@ export function AnalisisSeccion<T>({
           <Sparkline tendencia={tendencia} />
 
           {tendencia.serie.length > 1 ? (
-            <div className="mt-1 flex items-center justify-between text-[10px] uppercase tracking-[0.12em] text-white/30">
+            <div className="mt-1 flex items-center justify-between text-[11px] uppercase tracking-[0.12em] text-white/30">
               <span>{tendencia.serie[0].corto}</span>
               <span className="text-white/25">
                 {principal.label} · {tendencia.serie.length} jorn.

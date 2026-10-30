@@ -41,6 +41,7 @@ import {
   CalendarRange as PestanaCalendarRange,
   PieChart as PestanaPieChart,
   Trophy as PestanaTrophy,
+  MoreHorizontal,
 } from "lucide-react";
 
 import { BocetoDialog } from "@/components/abp/microciclo/BocetoDialog";
@@ -786,6 +787,8 @@ export default function AbpMicrocicloPage() {
   } | null>(null);
 
   const [importando, setImportando] = useState(false);
+  /* En el móvil, las acciones de menos uso van detrás de «Más» (30/10/2026). */
+  const [masAcciones, setMasAcciones] = useState(false);
 
   /* El boceto de la semana: lo propone la app y se aplica al plan a mano. */
   const [bocetoAbierto, setBocetoAbierto] = useState(false);
@@ -1634,6 +1637,11 @@ export default function AbpMicrocicloPage() {
                 Informe de la semana
               </Button>
 
+              {/* En el móvil, seis botones ocupaban media pantalla antes del
+                  tablero (30/10/2026, expertos): a la vista los dos de uso
+                  diario y el resto detrás de «Más». */}
+              <span className={`contents ${masAcciones ? "" : "max-sm:hidden"}`}>
+
               <Button
                 icon={Share2}
                 onClick={() => setExportando(true)}
@@ -1669,6 +1677,13 @@ export default function AbpMicrocicloPage() {
               <Button icon={Plus} onClick={creaMicro}>
                 Nuevo microciclo
               </Button>
+              </span>
+
+              <span className="sm:hidden">
+                <Button icon={MoreHorizontal} onClick={() => setMasAcciones((v) => !v)} aria-pressed={masAcciones}>
+                  {masAcciones ? "Menos" : "Más"}
+                </Button>
+              </span>
             </div>
           </div>
 
@@ -1846,9 +1861,16 @@ export default function AbpMicrocicloPage() {
                   )}
 
                   {/* 29/10/2026: las siglas de las fichas, explicadas una sola vez. */}
-                  <p className="mb-2 text-[11px] leading-relaxed text-white/45">
-                    OF = ofensivo · DEF = defensivo · SAC = sacadores · FIJ = fijadores · REM = rematadores · PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · HOJA = viene del registro de tareas
-                  </p>
+                  {/* 30/10/2026 (expertos): plegada en «Leyenda», no un párrafo de siglas encima del tablero. */}
+                  <details className="group mb-2 inline-block max-w-full">
+                    <summary className="inline-flex min-h-[32px] cursor-pointer list-none items-center gap-1.5 rounded-lg border border-white/10 px-2.5 text-[12px] text-white/65 transition hover:text-white marker:hidden [&::-webkit-details-marker]:hidden">
+                      Leyenda de las siglas
+                      <span aria-hidden className="text-white/40 transition group-open:rotate-180">▾</span>
+                    </summary>
+                    <p className="mt-1.5 text-[12px] leading-relaxed text-white/60">
+                      OF = ofensivo · DEF = defensivo · SAC = sacadores · FIJ = fijadores · REM = rematadores · PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · HOJA = viene del registro de tareas
+                    </p>
+                  </details>
 
                   <SemanaGrid
                     dias={planVisto.dias}

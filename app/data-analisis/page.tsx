@@ -713,19 +713,25 @@ export default function DataAnalisisPage() {
   | fuerte, lo más flojo y qué se hace. Sólo con las métricas que tienen mejor
   | y peor y casos de sobra: un porcentaje de cinco contraataques no manda.
   */
+  /*
+  | 30/10/2026: sólo con las métricas de la pestaña abierta. Con «Con balón»
+  | a la vista, el titular hablaba de Recuperaciones (Sin balón), que no
+  | salía en pantalla (fútbol, análisis y marketing).
+  */
   const conclusionesCastilla = useMemo(() => {
     const utiles = percentiles
       .map((fila) => ({ fila, met: METRICA_POR_KEY.get(fila.key) }))
       .filter(
         (x): x is { fila: FilaPercentil; met: Metrica } =>
           Boolean(x.met) &&
+          x.met!.fase === fase &&
           x.met!.mejorAlto !== null &&
           x.fila.percentil !== null &&
           !(x.fila.casos != null && x.fila.casos < CASOS_MINIMOS),
       )
       .sort((a, b) => (b.fila.percentil as number) - (a.fila.percentil as number));
 
-    if (utiles.length < 6) return [];
+    if (utiles.length < 4) return [];
 
     const arriba = utiles[0];
     const abajo = utiles[utiles.length - 1];
@@ -748,7 +754,7 @@ export default function DataAnalisisPage() {
         ? `Qué hacemos: ${TAREA_POR_FASE[abajo.met.fase] ?? "una tarea de juego"}; criterio de éxito, ${abajo.fila.nombre.toLowerCase()} por partido por encima de la mediana de la liga en el próximo partido.`
         : null,
     ];
-  }, [percentiles]);
+  }, [fase, percentiles]);
 
   const avisoMuestra = useMemo(
     () => avisoDeMuestra(nuestros.length),
@@ -1195,7 +1201,7 @@ export default function DataAnalisisPage() {
                 </div>
 
                 {bloqueDe(area).areas.length > 1 && (
-                  <div className="mt-3 flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03] p-1 scrollbar-none sm:inline-flex sm:max-w-full">
+                  <div className="mt-3 flex min-w-0 gap-1 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.03] p-1 scrollbar-none max-sm:pr-6 max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)] sm:inline-flex sm:max-w-full">
                     {bloqueDe(area).areas.map((clave) => {
                       const item = AREAS.find((a) => a.key === clave)!;
                       const activa = area === clave;
@@ -1287,7 +1293,7 @@ export default function DataAnalisisPage() {
                     nosotros mismos.
                   */}
                   {area !== "eventos" && area !== "abp" && area !== "individual" && area !== "transferencia" && area !== "parecidos" && area !== "equipo" && nuestrosPartidos.length > 1 && (
-                    <label className="flex items-center gap-2">
+                    <label className="flex min-w-0 max-w-full items-center gap-2 max-sm:w-full">
                       <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">
                         Partido
                       </span>
@@ -1309,7 +1315,8 @@ export default function DataAnalisisPage() {
                         }
                         onChange={(e) => setPartidoElegido(e.target.value)}
                         title="Mira un solo partido. La comparación sigue siendo contra toda la categoría."
-                        className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+                        /* 30/10/2026: a 390 px se salía por la derecha de la tarjeta. */
+                        className="min-w-0 w-full max-w-full truncate sm:w-auto sm:max-w-[260px] rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
                       >
                         <option value="" className="bg-[#11161C]">
                           Toda la temporada ({nuestrosPartidos.length})
@@ -1788,7 +1795,7 @@ export default function DataAnalisisPage() {
                       <>
                         <Conclusiones
                           className="mt-5"
-                          titulo={`El Castilla en ${laQueMando}`}
+                          titulo={`El Castilla en ${laQueMando} · ${(FASES.find((f) => f.key === fase)?.label ?? "").toLowerCase()}`}
                           items={conclusionesCastilla}
                         />
 
@@ -1835,9 +1842,36 @@ export default function DataAnalisisPage() {
                           «4º/20» no se explicaban en ningún sitio, ni contra
                           quién se comparaba el Castilla.
                         */}
-                        <p className="mt-3 text-[12px] leading-relaxed text-white/55">
-                          Cada fila: la cifra del Castilla{unPartidoElegido ? " en ese partido" : modo === "total" ? " (acumulada en las de conteo)" : " por partido"} · «liga», la mediana de los {equiposLiga.length} equipos de {laQueMando}{compViva ? ` en ${compViva.replace(/^Spain\.\s*/, "")}` : ""} · el puesto · y el percentil: <strong className="text-white/75">p73</strong> es estar mejor que el 73 % de ellos. Verde, por encima de la mediana; naranja, por debajo; gris, métricas de estilo, donde no hay mejor ni peor. Pulsa el nombre de una métrica para ver qué mide.
-                        </p>
+                        {/*
+                          30/10/2026: el ejemplo del percentil es una fila real
+                          de la pestaña abierta (antes «p73», que no salía en
+                          pantalla), y se dice sobre cuántos partidos va.
+                        */}
+                        {(() => {
+                          const ejemplo = percentiles.find((f) => {
+                            const met = METRICA_POR_KEY.get(f.key);
+
+                            return (
+                              met?.fase === fase &&
+                              met.mejorAlto !== null &&
+                              f.percentil !== null &&
+                              !(f.casos != null && f.casos < CASOS_MINIMOS)
+                            );
+                          });
+                          const p = ejemplo?.percentil != null ? Math.round(ejemplo.percentil) : null;
+
+                          return (
+                            <p className="mt-3 text-[12px] leading-relaxed text-white/55">
+                              Cada fila: la cifra del Castilla{unPartidoElegido ? " en ese partido" : `${modo === "total" ? " (acumulada en las de conteo)" : " por partido"}, en ${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"}`} · «liga», la mediana de los {equiposLiga.length} equipos de {laQueMando}{compViva ? ` en ${compViva.replace(/^Spain\.\s*/, "")}` : ""} · el puesto · y el percentil
+                              {ejemplo && p !== null ? (
+                                <>
+                                  : <strong className="text-white/75">p{p}</strong> en {ejemplo.nombre.toLowerCase()} es estar mejor que el {p} % de ellos
+                                </>
+                              ) : null}
+                              . Verde, por encima de la mediana; naranja, por debajo; gris, métricas de estilo, donde no hay mejor ni peor. Pulsa el nombre de una métrica para ver qué mide.
+                            </p>
+                          );
+                        })()}
 
                         {/* Los gráficos propios de cada fase. */}
                         <PanelesDeFase
@@ -1886,7 +1920,7 @@ export default function DataAnalisisPage() {
                           return (
                             <nav
                               aria-label="Bloques de métricas"
-                              className="sticky top-0 z-20 -mx-1 mt-5 flex min-w-0 gap-1.5 overflow-x-auto rounded-xl border border-white/10 bg-[#11161C] px-1.5 py-1.5"
+                              className="sticky top-0 z-20 -mx-1 mt-5 flex min-w-0 gap-1.5 overflow-x-auto max-sm:pr-6 max-sm:[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)] rounded-xl border border-white/10 bg-[#11161C] px-1.5 py-1.5"
                             >
                               {conFilas.map((grupo) => (
                                 <a
@@ -2985,6 +3019,23 @@ function PanelesDeFase({
                 trozo: "vía",
               })}
             />
+            {/* 30/10/2026: la base de cada trozo, en remates de verdad (análisis: «Contraataque 0,0» no decía sobre cuántos). */}
+            {nuestros.length > 0 ? (
+              <p className="mt-2 text-[11px] leading-relaxed text-white/55">
+                {`En ${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"}: ${[
+                  ["de ataque posicional", "Ataques posicionales · con remate", "Ataques posicionales"],
+                  ["a balón parado", "Jugadas a balón parado · con remate", "Jugadas a balón parado"],
+                  ["de contraataque", "Contraataques · con remate", "Contraataques"],
+                ]
+                  .map(([que, conRemate, todos]) => {
+                    const n = Math.round(porPartido(nuestros, conRemate, "total"));
+                    const de = Math.round(porPartido(nuestros, todos, "total"));
+
+                    return de > 0 ? `${n} de ${de} ${que}` : `${n} ${que}`;
+                  })
+                  .join(" · ")} acaban en remate.`}
+              </p>
+            ) : null}
           </Panel>
 
           <Panel
@@ -3003,6 +3054,28 @@ function PanelesDeFase({
                 trozo: "dirección",
               })}
             />
+            {/*
+            | 30/10/2026: el reparto es sobre los pases con dirección (adelante,
+            | lado, atrás) y «Juego horizontal %» sobre todos los pases: 48 % y
+            | 40,8 % no se contradicen, pero había que decirlo (fútbol).
+            */}
+            {(() => {
+              const conDireccion =
+                porPartido(nuestros, "Pases hacia adelante", modo) +
+                porPartido(nuestros, "Pases laterales", modo) +
+                porPartido(nuestros, "Pases hacia atrás", modo);
+              const todos = porPartido(nuestros, "Pases", modo);
+
+              if (!conDireccion || !todos || todos <= conDireccion) return null;
+
+              const n = (v: number) => v.toLocaleString("es-ES", { maximumFractionDigits: 0 });
+
+              return (
+                <p className="mt-2 text-[11px] leading-relaxed text-white/55">
+                  Sobre {n(conDireccion)} pases con dirección{modo === "total" ? "" : " por partido"}, de {n(todos)}. «Juego horizontal %», en la tabla, va sobre todos los pases.
+                </p>
+              );
+            })()}
           </Panel>
         </div>
 

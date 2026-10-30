@@ -65,6 +65,7 @@ import {
 import {
   ComparativaPartido,
   formatoPorcentaje,
+  rangoDe,
   mediaPorPartido,
   porcentajeAgregado,
   porcentajeDe,
@@ -850,7 +851,7 @@ const comparativa = (() => {
     filas: [
       { clave: "acciones", nombre: "Acciones", valores: ultimas.map((j) => total(j.filas)) },
       { clave: "remates", nombre: "Remates", valores: ultimas.map((j) => remates(j.filas)) },
-      { clave: "xg", nombre: "xG", valores: ultimas.map((j) => xg(j.filas)), formato: dosDecimales },
+      { clave: "xg", nombre: "Goles esperados", valores: ultimas.map((j) => xg(j.filas)), formato: dosDecimales },
     ],
   };
 
@@ -860,6 +861,7 @@ const comparativa = (() => {
       nombre: "Acciones",
       actual: total(actual),
       media: mediaPorPartido(anteriores, total),
+      rango: rangoDe(anteriores, total),
       mejorAlto: true,
       pie: `córners y faltas lanzados · muestra de ${anteriores.length === 1 ? "1 partido" : `${anteriores.length} partidos`}`,
     },
@@ -868,6 +870,7 @@ const comparativa = (() => {
       nombre: "Remates",
       actual: remates(actual),
       media: mediaPorPartido(anteriores, remates),
+      rango: rangoDe(anteriores, remates),
       mejorAlto: true,
       de: total(actual),
     },
@@ -876,6 +879,7 @@ const comparativa = (() => {
       nombre: "Acciones con remate",
       actual: porcentajeDe(actual, remates, total),
       media: porcentajeAgregado(anteriores, remates, total),
+      rango: rangoDe(anteriores, (filas) => porcentajeDe(filas, remates, total)),
       formato: formatoPorcentaje,
       mejorAlto: true,
       n: remates(actual),
@@ -883,9 +887,10 @@ const comparativa = (() => {
     },
     {
       clave: "xg",
-      nombre: "xG generado",
+      nombre: "Goles esperados generados",
       actual: xg(actual),
       media: mediaPorPartido(anteriores, xg),
+      rango: rangoDe(anteriores, xg),
       formato: dosDecimales,
       mejorAlto: true,
       de: total(actual),
@@ -895,6 +900,7 @@ const comparativa = (() => {
       nombre: "Goles",
       actual: goles(actual),
       media: mediaPorPartido(anteriores, goles),
+      rango: rangoDe(anteriores, goles),
       mejorAlto: true,
       de: total(actual),
     },
@@ -903,6 +909,7 @@ const comparativa = (() => {
       nombre: "Gol u ocasión",
       actual: porcentajeDe(actual, peligro, total),
       media: porcentajeAgregado(anteriores, peligro, total),
+      rango: rangoDe(anteriores, (filas) => porcentajeDe(filas, peligro, total)),
       formato: formatoPorcentaje,
       mejorAlto: true,
       n: peligro(actual),
@@ -914,6 +921,8 @@ const comparativa = (() => {
   return {
     partido: rivalDe ? `${elegida.etiqueta} · ${rivalDe}` : elegida.etiqueta,
     anteriores: anteriores.length,
+    /* Las filas de esas jornadas: la lectura de cabecera se compara con ellas (30/10/2026). */
+    filasAnteriores: anteriores.flat(),
     metricas,
     tira,
   };
@@ -1964,12 +1973,12 @@ doc.setFontSize(10);
 
 const resumen = [
   `• ${metrics.total} acciones ABP ofensivas analizadas`,
-  `• ${metrics.xg.toFixed(2)} xG generado`,
+  `• ${metrics.xg.toFixed(2).replace(".", ",")} goles esperados generados`,
   `• Conversión del ${metrics.conversion.toFixed(1)}%`,
   `• ${metrics.shots} remates totales`,
   `• ${metrics.goals} goles obtenidos`,
   ...(mejorSacador ? [`• Sacador con más goles esperados: ${mejorSacador}`] : []),
-  `• xG por acción: ${metrics.xgAccion.toFixed(2)}`,
+  `• Goles esperados por acción: ${metrics.xgAccion.toFixed(2).replace(".", ",")}`,
   `• ${tasaPeligro.toFixed(1)}% acaban en gol u ocasión`,
 ];
 
@@ -2398,7 +2407,7 @@ const conclusiones = useMemo(() => {
 
   if (zona && zona.valor > 0) {
     frases.push(
-      `Más peligro cayendo en ${hablado(zona.nombre)}:${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión.`,
+      `Más peligro cayendo en ${hablado(zona.nombre)}: ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión${zona.n < 10 ? " (indicio)" : ""}.`,
     );
   }
 
@@ -2415,12 +2424,12 @@ const conclusiones = useMemo(() => {
   if (rutina && rutina.valor > 0) {
     frases.push(
       sinRutina
-        ? `Lo que más rinde es el envío sin rutina marcada (balón directo): ${Math.round(rutina.valor * rutina.n)} de ${rutina.n} en gol u ocasión.`
-        : `Rutina que más rinde: ${rutina.nombre}, ${Math.round(rutina.valor * rutina.n)} de ${rutina.n} en gol u ocasión.`,
+        ? `Lo que más rinde es el envío sin rutina marcada (balón directo): ${Math.round(rutina.valor * rutina.n)} de ${rutina.n} en gol u ocasión${rutina.n < 10 ? " (indicio)" : ""}.`
+        : `Rutina que más rinde: ${rutina.nombre}, ${Math.round(rutina.valor * rutina.n)} de ${rutina.n} en gol u ocasión${rutina.n < 10 ? " (indicio)" : ""}.`,
     );
   } else if (intencion && intencion.valor > 0) {
     frases.push(
-      `Intención más eficaz: ${intencion.nombre.toLowerCase()}, ${Math.round(intencion.valor * intencion.n)} de ${intencion.n} en gol u ocasión.`,
+      `Intención más eficaz: ${intencion.nombre.toLowerCase()}, ${Math.round(intencion.valor * intencion.n)} de ${intencion.n} en gol u ocasión${intencion.n < 10 ? " (indicio)" : ""}.`,
     );
   }
 
@@ -2504,6 +2513,16 @@ const pie = (
   <AnalisisSeccion
     filas={filtered}
     todas={comparables}
+    /* Con una jornada elegida, la lectura de cabecera se mide contra las
+       mismas jornadas anteriores que la tabla del partido (30/10/2026). */
+    referencia={
+      opciones.destacado && jornada !== "ALL" && comparativa && comparativa.anteriores > 0
+        ? {
+            filas: comparativa.filasAnteriores,
+            rotulo: comparativa.anteriores === 1 ? "la jornada anterior" : `la media de las ${comparativa.anteriores} jornadas anteriores`,
+          }
+        : null
+    }
     lector={LECTOR}
     sentido="ofensivo"
     unidad="acciones"
@@ -2697,7 +2716,12 @@ const pie = (
   </div>
 </div>
     {/* 29/10/2026: 40 px a la derecha en el móvil para el botón flotante, que tapaba la tarjeta de la esquina. */}
-    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 mt-5 sm:mt-6 max-sm:pr-10">
+    {/* En el móvil, las conclusiones antes que las tarjetas (30/10/2026, expertos). */}
+    {vista === "resumen" && <Conclusiones items={conclusiones} className="mt-5 md:hidden" />}
+    {/* 30/10/2026 (expertos): cada fila de tarjetas se llena entera —la
+        última no deja hueco a la derecha—: dos por fila en el móvil y las que
+        quepan de 200 px en adelante, estiradas, en el ordenador. */}
+    <div className="mt-5 flex flex-wrap gap-4 sm:mt-6 sm:gap-5 max-sm:pr-10 [&>*]:min-w-0 [&>*]:grow [&>*]:basis-[calc(50%-0.5rem)] sm:[&>*]:basis-[200px]">
       <Card
         title="Acciones lanzadas"
         value={metrics.total}
@@ -2723,12 +2747,15 @@ const pie = (
         activo={resultadoFilter === "Gol"}
         onClick={() => pulsa("resultado", "Gol")}
       />
+      {/* Con menos de 5 remates, «0,0 % · 0 de 2» no dice nada: la tarjeta no sale (30/10/2026). */}
+      {metrics.shots >= 5 && (
       <Card
   title="Conversión"
   value={`${metrics.conversion.toFixed(1).replace(".", ",")} %`}
   hint="Goles sobre remates"
   muestra={{ n: metrics.goals, de: metrics.shots, unidad: "remates" }}
 />
+      )}
 <Card
   title="Goles esperados por ABP"
   value={dosDecimales(metrics.xgAccion)}
@@ -2841,6 +2868,7 @@ const pie = (
       anteriores={{ n: comparativa.anteriores }}
       metricas={comparativa.metricas}
       tira={comparativa.tira}
+      muestraMinima={10}
       nota={
         jornada === "ALL"
           ? "Con «Todas» las jornadas elegidas, aquí se compara la última; el resto de la página suma todos los partidos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor."
@@ -2849,7 +2877,7 @@ const pie = (
       className="mt-6"
     />
   )}
-            <Conclusiones items={conclusiones} className="mt-6" />
+            <Conclusiones items={conclusiones} className="mt-6 max-md:hidden" />
 
             {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos
                 al lado del global y de las jornadas anteriores. */}
@@ -3240,7 +3268,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel className={oculto("como")} title="xG por tipo envío" analisis={pie({ metrica: "xg", dimension: "tipo de envío", categoria: (r) => r.tipoEnvio })}>
+<Panel className={oculto("como")} title="Goles esperados por tipo de envío" analisis={pie({ metrica: "xg", dimension: "tipo de envío", categoria: (r) => r.tipoEnvio })}>
   <div id="grafico-xg-envio">
 
   <Chart>
@@ -3757,7 +3785,7 @@ margin={{
               <span style={{ color: fila.goles > 0 ? COLORS.green : undefined }}>
                 {fila.goles} gol{fila.goles === 1 ? "" : "es"}
               </span>
-              <span className="text-[#C8A96B]">xG {fila.xg.toFixed(2)}</span>
+              <span className="text-[#C8A96B]">{fila.xg.toFixed(2).replace(".", ",")} goles esperados</span>
             </p>
           </li>
         ))}
@@ -3771,7 +3799,7 @@ margin={{
             <th className="py-2 px-3 text-right font-medium">ABP</th>
             <th className="py-2 px-3 text-right font-medium">Remate</th>
             <th className="py-2 px-3 text-right font-medium">Goles</th>
-            <th className="py-2 pl-3 text-right font-medium">xG</th>
+            <th className="py-2 pl-3 text-right font-medium" title="Goles esperados">G. esp.</th>
           </tr>
         </thead>
 
@@ -3938,7 +3966,7 @@ margin={{
     ))}
   </div>
 </Panel>
-<Panel className={oculto("como")} title="xG por tipo de acción" analisis={pie({ metrica: "xg", dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}>
+<Panel className={oculto("como")} title="Goles esperados por tipo de acción" analisis={pie({ metrica: "xg", dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}>
   <div id="grafico-xg-tipo-accion">
 
   <Chart>
@@ -4013,7 +4041,7 @@ margin={{
   </Chart></div>
 </Panel>
 
-<Panel className={oculto("quien")} title="xG generado contra cada rival" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}>
+<Panel className={oculto("quien")} title="Goles esperados generados contra cada rival" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}>
   <div id="grafico-rivales-xg-concedido">
 
   <Chart>
@@ -4065,7 +4093,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel className={oculto("donde")} title="xG por zona de caída" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}>
+<Panel className={oculto("donde")} title="Goles esperados por zona de caída" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}>
   <div id="grafico-xg-caida">
 
   <Chart>
@@ -4608,11 +4636,12 @@ function Card({
         <p className="mt-2 text-[11px] font-medium leading-snug text-white/55">
           {muestra.n} de {muestra.de} {muestra.unidad}
           {/* 29/10/2026: con menos de 5, «indicio» (la regla de toda la pantalla); hasta 10, «tendencia». */}
-          {muestra.de < 5 ? " · indicio" : muestra.de < 10 ? " · tendencia" : ""}
+          {/* 30/10/2026: un solo umbral y una sola palabra en toda la pantalla: «indicio» por debajo de 10. */}
+          {muestra.de < 10 ? " · indicio" : ""}
         </p>
       )}
       {hint && (
-        <p className={`${muestra ? "mt-1" : "mt-2"} text-[11px] leading-snug text-white/35`}>{hint}</p>
+        <p className={`${muestra ? "mt-1" : "mt-2"} text-[12px] leading-snug text-white/50`}>{hint}</p>
       )}
     </Caja>
   );

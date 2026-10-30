@@ -21,6 +21,7 @@ import type { PartidoCastilla } from "@/lib/castilla/calendario";
 import Link from "next/link";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
+import { SelloDeFechas } from "@/components/data/SelloJornada";
 
 import {
   ArrowUpDown,
@@ -324,6 +325,18 @@ export default function Page() {
     return ps.length > 0 ? ps.reduce((s, p) => s + p.gl + p.gv, 0) / (ps.length * 2) : null;
   }, [golesLiga.value.partidos]);
 
+  /* 30/10/2026: la base de esa media (cuántos equipos y jornadas), para escribirla una vez bajo las tarjetas. */
+  const ligaBase = useMemo(() => {
+    const ps = golesLiga.value.partidos ?? [];
+
+    if (!ps.length) return null;
+
+    return {
+      equipos: new Set(ps.flatMap((p) => [p.local, p.visitante])).size,
+      jornadas: Math.max(...ps.map((p) => p.jornada)),
+    };
+  }, [golesLiga.value.partidos]);
+
   const matches = useMemo(
     () => unePartidos(hojaMatches, calendario as PartidoCastilla[]),
     [hojaMatches, calendario]
@@ -435,6 +448,12 @@ export default function Page() {
       return sortDir === "desc" ? -diff : diff;
     });
   }, [matches, search, selectedMicro, outcomeFilter, onlyWithVideo, sortDir]);
+
+  /* 30/10/2026: las fechas de los partidos de liga con resultado, para el sello «Datos hasta la J·». */
+  const fechasJugadas = useMemo(
+    () => matches.filter((m) => m.esLiga && m.outcome !== null && m.date).map((m) => diaClave(m.date as Date)),
+    [matches]
+  );
 
   const metrics = useMemo<Metrics>(() => {
     let wins = 0;
@@ -564,10 +583,12 @@ export default function Page() {
                 «Preparación de Partido»—: aquí está el material de vídeo de la
                 temporada.
               </p>
+
+              <SelloDeFechas fuente="Calendario" fechas={fechasJugadas} queEs="partidos" />
             </header>
 
             {/* MÉTRICAS */}
-            {metrics.played > 0 ? <MetricsPanel metrics={metrics} ligaPP={ligaPP} /> : null}
+            {metrics.played > 0 ? <MetricsPanel metrics={metrics} ligaPP={ligaPP} ligaBase={ligaBase} /> : null}
 
             {/* FILTROS */}
             <div className="sticky top-20 z-20 -mx-4 mt-8 border-y border-white/[0.08] bg-[#0B0F14]/90 px-4 py-4 backdrop-blur-xl sm:-mx-8 sm:px-8 md:top-24">
@@ -762,7 +783,15 @@ export default function Page() {
 /* Métricas                                                            */
 /* ------------------------------------------------------------------ */
 
-function MetricsPanel({ metrics, ligaPP }: { metrics: Metrics; ligaPP: number | null }) {
+function MetricsPanel({
+  metrics,
+  ligaPP,
+  ligaBase,
+}: {
+  metrics: Metrics;
+  ligaPP: number | null;
+  ligaBase: { equipos: number; jornadas: number } | null;
+}) {
   /* Con pocos partidos los porcentajes son una tendencia, no un dato firme. */
   const base = (n: number) => `${n} de ${metrics.played}`;
   const liga = ligaPP !== null ? ` · liga ${ligaPP.toFixed(1).replace(".", ",")}` : "";
@@ -863,55 +892,16 @@ function MetricsPanel({ metrics, ligaPP }: { metrics: Metrics; ligaPP: number | 
         </div>
       </div>
 
-      {metrics.played > 0 && (
-        <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3.5">
-          <div className="flex items-center justify-between text-[11px] uppercase tracking-[0.18em] text-white/45">
-            <span>Rendimiento</span>
-
-            <span className="text-white/70">
-              <span className="font-semibold text-[#C8A96B]">
-                {metrics.wins} de {metrics.played}
-              </span>{" "}
-              victorias
-            </span>
-          </div>
-
-          <div
-            className="mt-3 flex h-2 overflow-hidden rounded-full bg-white/[0.06]"
-            role="img"
-            aria-label={`${metrics.wins} victorias, ${metrics.draws} empates, ${metrics.losses} derrotas`}
-          >
-            <div
-              className="bg-emerald-400 transition-all"
-              style={{ width: `${metrics.winPct}%` }}
-            />
-            <div
-              className="bg-amber-400 transition-all"
-              style={{ width: `${metrics.drawPct}%` }}
-            />
-            <div
-              className="bg-rose-400 transition-all"
-              style={{ width: `${metrics.lossPct}%` }}
-            />
-          </div>
-
-          <div className="mt-2.5 flex flex-wrap gap-4 text-[11px] text-white/50">
-            <Legend color="bg-emerald-400" label={`${metrics.wins} V`} />
-            <Legend color="bg-amber-400" label={`${metrics.draws} E`} />
-            <Legend color="bg-rose-400" label={`${metrics.losses} D`} />
-          </div>
-        </div>
-      )}
+      {/* 30/10/2026: la barra «3 de 9 victorias · 3 V 3 E 3 D» repetía las tres
+          tarjetas de arriba; queda una sola vista (marketing). En su sitio, la
+          base de la media de la liga, escrita una vez (análisis). */}
+      {ligaPP !== null && ligaBase ? (
+        <p className="mt-3 text-[12px] text-white/55">
+          «Liga»: goles por equipo y partido, media de los {ligaBase.equipos} equipos en {ligaBase.jornadas}{" "}
+          {ligaBase.jornadas === 1 ? "jornada" : "jornadas"}.
+        </p>
+      ) : null}
     </section>
-  );
-}
-
-function Legend({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span aria-hidden className={cn("h-2 w-2 rounded-full", color)} />
-      {label}
-    </span>
   );
 }
 

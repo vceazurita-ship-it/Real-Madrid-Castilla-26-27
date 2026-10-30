@@ -67,6 +67,7 @@ import { DOC_GOLES, type PartidoGoles } from "@/lib/goles/analisis";
 import {
   ComparativaPartido,
   formatoPorcentaje,
+  rangoDe,
   mediaPorPartido,
   porcentajeAgregado,
   porcentajeDe,
@@ -827,7 +828,7 @@ const comparativa = (() => {
     filas: [
       { clave: "acciones", nombre: "Acciones", valores: ultimas.map((j) => total(j.filas)) },
       { clave: "remates", nombre: "Remates", valores: ultimas.map((j) => remates(j.filas)) },
-      { clave: "xg", nombre: "xG", valores: ultimas.map((j) => xg(j.filas)), formato: dosDecimales },
+      { clave: "xg", nombre: "Goles esperados", valores: ultimas.map((j) => xg(j.filas)), formato: dosDecimales },
     ],
   };
 
@@ -837,6 +838,7 @@ const comparativa = (() => {
       nombre: "Acciones en contra",
       actual: total(actual),
       media: mediaPorPartido(anteriores, total),
+      rango: rangoDe(anteriores, total),
       mejorAlto: null,
       pie: "córners y faltas defendidos",
     },
@@ -845,6 +847,7 @@ const comparativa = (() => {
       nombre: "Remates concedidos",
       actual: remates(actual),
       media: mediaPorPartido(anteriores, remates),
+      rango: rangoDe(anteriores, remates),
       mejorAlto: false,
       de: total(actual),
     },
@@ -853,6 +856,7 @@ const comparativa = (() => {
       nombre: "Acciones con remate",
       actual: porcentajeDe(actual, remates, total),
       media: porcentajeAgregado(anteriores, remates, total),
+      rango: rangoDe(anteriores, (filas) => porcentajeDe(filas, remates, total)),
       formato: formatoPorcentaje,
       mejorAlto: false,
       n: remates(actual),
@@ -860,9 +864,10 @@ const comparativa = (() => {
     },
     {
       clave: "xg",
-      nombre: "xG concedido",
+      nombre: "Goles esperados concedidos",
       actual: xg(actual),
       media: mediaPorPartido(anteriores, xg),
+      rango: rangoDe(anteriores, xg),
       formato: dosDecimales,
       mejorAlto: false,
       de: total(actual),
@@ -872,6 +877,7 @@ const comparativa = (() => {
       nombre: "Goles encajados",
       actual: golesRival(actual),
       media: mediaPorPartido(anteriores, golesRival),
+      rango: rangoDe(anteriores, golesRival),
       mejorAlto: false,
       de: total(actual),
     },
@@ -880,21 +886,27 @@ const comparativa = (() => {
       nombre: "Gol u ocasión del rival",
       actual: porcentajeDe(actual, peligro, total),
       media: porcentajeAgregado(anteriores, peligro, total),
+      rango: rangoDe(anteriores, (filas) => porcentajeDe(filas, peligro, total)),
       formato: formatoPorcentaje,
       mejorAlto: false,
       n: peligro(actual),
       de: total(actual),
       pie: "menos es mejor",
     },
-    {
-      clave: "golesRmcf",
-      nombre: "Goles RMCF",
-      actual: golesRmcf(actual),
-      media: mediaPorPartido(anteriores, golesRmcf),
-      mejorAlto: true,
-      pie: "tras transición",
-    },
-    {
+    /* 30/10/2026 (expertos): fuera las filas sin juicio posible —0 frente a
+       0, o segundos balones de menos de 5 disputas—: ocupaban sitio sin decir nada. */
+    ...(golesRmcf(actual) > 0 || (mediaPorPartido(anteriores, golesRmcf) ?? 0) > 0
+      ? [
+          {
+            clave: "golesRmcf",
+            nombre: "Goles nuestros tras robar su ABP",
+            actual: golesRmcf(actual),
+            media: mediaPorPartido(anteriores, golesRmcf),
+            mejorAlto: true,
+          },
+        ]
+      : []),
+    ...(segundosJugados(actual) >= 5 ? [{
       clave: "segundoBalon",
       nombre: "Segundos balones ganados",
       actual: porcentajeDe(actual, segundosGanados, segundosJugados),
@@ -904,12 +916,14 @@ const comparativa = (() => {
       n: segundosGanados(actual),
       de: segundosJugados(actual),
       pie: "más es mejor",
-    },
+    }] : []),
   ];
 
   return {
     partido: rivalDe ? `${elegida.etiqueta} · ${rivalDe}` : elegida.etiqueta,
     anteriores: anteriores.length,
+    /* Las filas de esas jornadas: la lectura de cabecera se compara con ellas (30/10/2026). */
+    filasAnteriores: anteriores.flat(),
     metricas,
     tira,
   };
@@ -1734,13 +1748,13 @@ miniCards.forEach(
 
 const resumen = [
   `• ${metrics.total} acciones ABP defensivas analizadas`,
-  `• ${metrics.xg.toFixed(2)} xG concedido`,
+  `• ${metrics.xg.toFixed(2).replace(".", ",")} goles esperados concedidos`,
 `• Conversión rival del ${conversion.toFixed(1)}%`,
 `• ${metrics.shots} remates recibidos`,
 `• ${metrics.goalsAgainst} goles encajados`,
-`• ${metrics.goalsRMCF} goles RMCF tras transición`,
-  `• Golpeo rival con más xG concedido: ${mayorPerfil || "-"}`,
-  `• xG concedido por acción: ${xgAccion.toFixed(2)}`,
+`• ${metrics.goalsRMCF} goles nuestros tras robar su ABP`,
+  ...(mayorPerfil ? [`• Golpeo rival con más goles esperados concedidos: ${mayorPerfil}`] : []),
+  `• Goles esperados concedidos por acción: ${xgAccion.toFixed(2).replace(".", ",")}`,
   `• ${tasaPeligro.toFixed(1)}% acaban en gol u ocasión del rival`,
 ];
 
@@ -2319,7 +2333,9 @@ const conclusiones = useMemo(() => {
 
   if (zona && zona.valor > 0) {
     frases.push(
-      `Zona que más concede: ${hablado(zona.nombre).toLowerCase()}, ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión${zona.n < 5 ? " (tendencia, pocas acciones)" : ""}. Vídeo el lunes y tarea de vigilancia de esa zona y salida del portero el martes.`,
+      /* 30/10/2026 (expertos): con su base al lado —el total de acciones
+         del filtro— y sin repetir «indicio», que ya dice la tarjeta. */
+      `Zona que más concede: ${hablado(zona.nombre).toLowerCase()}, ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión, frente a ${filtered.filter(LECTOR.peligro).length} de ${filtered.length} en todas sus acciones. Vídeo el lunes y tarea de vigilancia de esa zona y salida del portero el martes.`,
     );
   }
 
@@ -2412,6 +2428,16 @@ const pie = (
   <AnalisisSeccion
     filas={filtered}
     todas={comparables}
+    /* Con una jornada elegida, la lectura de cabecera se mide contra las
+       mismas jornadas anteriores que la tabla del partido (30/10/2026). */
+    referencia={
+      opciones.destacado && jornada !== "ALL" && comparativa && comparativa.anteriores > 0
+        ? {
+            filas: comparativa.filasAnteriores,
+            rotulo: comparativa.anteriores === 1 ? "la jornada anterior" : `la media de las ${comparativa.anteriores} jornadas anteriores`,
+          }
+        : null
+    }
     lector={LECTOR}
     sentido="defensivo"
     unidad="acciones"
@@ -2605,21 +2631,15 @@ const pie = (
   })}
 </div>
 </div>
-    <div
-  className="
-    mt-5 sm:mt-6
-    grid
-    gap-3
-    grid-cols-2
-    sm:grid-cols-3
-    xl:grid-cols-5
-  "
->
-  <Card
-    title="ABP"
-    value={metrics.total.toLocaleString()}
-  hint="Acciones defendidas"
-  />
+    {/* En el móvil, las conclusiones antes que las tarjetas (30/10/2026, expertos). */}
+    {vista === "resumen" && <Conclusiones items={conclusiones} className="mt-5 md:hidden" />}
+    {/*
+    | CUATRO TARJETAS (30/10/2026, expertos). Acciones, remates, goles
+    | esperados por remate y el golpeo que más concede ya estaban en la tabla
+    | del partido o en los gráficos: aquí sólo lo que se mira primero. Los
+    | goles nuestros tras robar su ABP siguen en la tabla y en el filtro.
+    */}
+    <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 xl:grid-cols-4 max-sm:pr-10">
   <Card
   title="Remate concedido"
   value={
@@ -2629,32 +2649,23 @@ const pie = (
             metrics.total) *
           100
         ).toFixed(1).replace(".", ",")} %`
-      : "0%"
+      : "0 %"
   }
   hint="ABP del rival que acaban en remate · menos es mejor"
   muestra={{ n: metrics.shots, de: metrics.total, unidad: "acciones" }}
   />
 
 <Card
-  title="Goles esperados por remate"
-  value={
-    metrics.shots
-      ? dosDecimales(metrics.xg / metrics.shots)
-      : "0"
-  }
-  hint="Calidad media del remate concedido · menos es mejor"
+  title="Gol u ocasión"
+  value={`${tasaPeligro.toFixed(1).replace(".", ",")} %`}
+  hint="ABP que nos generan peligro real · menos es mejor"
+  muestra={{ n: accionesPeligrosas, de: metrics.total, unidad: "acciones" }}
   />
 
   <Card
-    title="xG"
+    title="Goles esperados concedidos"
     value={dosDecimales(metrics.xg)}
-  hint="Goles esperados concedidos · menos es mejor"
-  />
-
-  <Card
-    title="Remates"
-    value={metrics.shots.toLocaleString()}
-  hint="Concedidos a balón parado · menos es mejor"
+  hint={`En ${metrics.total} acciones defendidas · menos es mejor`}
   />
 
   <Card
@@ -2664,56 +2675,6 @@ const pie = (
   activo={resultadoFilter === "Gol Rival"}
   onClick={() => pulsa("resultado", "Gol Rival")}
   />
-
-<Card
-  title="Goles nuestros tras robar su ABP"
-  value={metrics.goalsRMCF.toLocaleString()}
-  hint="Los marcamos al salir al contragolpe"
-  activo={resultadoFilter === "Gol RMCF"}
-  onClick={() => pulsa("resultado", "Gol RMCF")}
-  />
-
-<Card
-  title="Gol u ocasión"
-  value={`${tasaPeligro.toFixed(1).replace(".", ",")} %`}
-  hint="ABP que nos generan peligro real · menos es mejor"
-  muestra={{ n: accionesPeligrosas, de: metrics.total, unidad: "acciones" }}
-  />
-  {(mayorPerfil || perfilGolpeoFilter !== "ALL") && (
-  <button
-type="button"
-title={PULSA}
-onClick={() => {
-  const elegido =
-    perfilGolpeoFilter !== "ALL" ? perfilGolpeoFilter : mayorPerfil;
-  if (elegido) pulsa("perfilGolpeo", elegido);
-}}
-className={`
-  h-[96px]
-  sm:h-[112px]
-  rounded-[20px]
-  sm:rounded-[24px]
-  border
-  bg-white/[0.03]
-  p-3
-  sm:p-5
-  flex
-  flex-col
-  justify-between
-  text-left
-  transition
-  hover:bg-white/[0.05]
-  ${perfilGolpeoFilter !== "ALL" ? "border-[#C8A96B]" : "border-white/10"}
-`}
->
-  <p className="text-sm text-zinc-400">
-Mayor xG concedido  </p>
-
-  <h3 className="mt-4 text-lg md:text-xl font-semibold text-[#C8A96B]">
-    {mayorPerfil || perfilGolpeoFilter}
-  </h3>
-</button>
-  )}
 </div>
 
 
@@ -2781,6 +2742,7 @@ Mayor xG concedido  </p>
       anteriores={{ n: comparativa.anteriores }}
       metricas={comparativa.metricas}
       tira={comparativa.tira}
+      muestraMinima={10}
       nota={
         jornada === "ALL"
           ? "Con «Todas las jornadas» elegido, aquí se compara la última; el resto de la página suma todos los partidos. La media es por partido, con los mismos filtros. Verde: mejor que la media; naranja: peor; gris: no se juzga."
@@ -2789,7 +2751,7 @@ Mayor xG concedido  </p>
       className="mb-6"
     />
   )}
-            <Conclusiones items={conclusiones} className="mt-6" />
+            <Conclusiones items={conclusiones} className="mt-6 max-md:hidden" />
 
             {/* La lectura de cabecera: lo que dicen los KPI de arriba puestos
                 al lado del global y de las jornadas anteriores. */}
@@ -3043,7 +3005,7 @@ outerRadius={isMobile ? 90 : 120}
 </Panel>
 {/* Era «Impacto sacador», pero la hoja defensiva no anota sacador: el
     gráfico reparte por perfil de golpeo, y así se llama (19/10/2026). */}
-<Panel className={oculto("quien")} title="xG concedido por perfil de golpeo" analisis={pie({ metrica: "xg", dimension: "perfil de golpeo", categoria: (r) => r.perfilGolpeo })}>
+<Panel className={oculto("quien")} title="Goles esperados concedidos por perfil de golpeo" analisis={pie({ metrica: "xg", dimension: "perfil de golpeo", categoria: (r) => r.perfilGolpeo })}>
   <div id="grafico-impacto-sacador">
   <Chart>
     <BarChart
@@ -3119,7 +3081,7 @@ margin={{
   </Chart></div>
 </Panel>
 {/* Igual: sin columna de rematador, esto es el xG por tipo de remate. */}
-<Panel className={oculto("quien")} title="xG concedido por tipo de remate" analisis={pie({ dimension: "tipo de remate", categoria: (r) => r.tipoRemate })}><div id="grafico-impacto-rematadores">
+<Panel className={oculto("quien")} title="Goles esperados concedidos por tipo de remate" analisis={pie({ dimension: "tipo de remate", categoria: (r) => r.tipoRemate })}><div id="grafico-impacto-rematadores">
   <Chart>
     <BarChart
       data={rematadoresData}
@@ -3183,7 +3145,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel className={oculto("como")} title="xG por tipo envío" analisis={pie({ metrica: "xg", dimension: "tipo de envío", categoria: (r) => r.tipoEnvio })}><div id="grafico-tipo-envio">
+<Panel className={oculto("como")} title="Goles esperados concedidos por tipo de envío" analisis={pie({ metrica: "xg", dimension: "tipo de envío", categoria: (r) => r.tipoEnvio })}><div id="grafico-tipo-envio">
   <Chart>
     <BarChart
       data={tipoEnvioData}
@@ -3605,7 +3567,7 @@ margin={{
     ))}
   </div>
 </Panel>
-<Panel className={oculto("como")} title="xG por tipo de acción" analisis={pie({ metrica: "xg", dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}><div id="grafico-xg-tipo-accion">
+<Panel className={oculto("como")} title="Goles esperados concedidos por tipo de acción" analisis={pie({ metrica: "xg", dimension: "tipo de acción", categoria: (r) => r.tipoAccion })}><div id="grafico-xg-tipo-accion">
   <Chart>
     <BarChart
       data={xgByTipoAccion}
@@ -3678,7 +3640,7 @@ margin={{
   </Chart></div>
 </Panel>
 
-<Panel className={oculto("quien")} title="xG concedido a cada rival" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}><div id="grafico-rivales-xg-concedido">
+<Panel className={oculto("quien")} title="Goles esperados concedidos a cada rival" analisis={pie({ metrica: "xg", dimension: "rival", categoria: (r) => r.rival })}><div id="grafico-rivales-xg-concedido">
   <Chart>
     <BarChart
       data={rivalesData}
@@ -3728,7 +3690,7 @@ margin={{
     </BarChart>
   </Chart></div>
 </Panel>
-<Panel className={oculto("donde")} title="xG por zona de caída" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}><div id="grafico-xg-zona-caida">
+<Panel className={oculto("donde")} title="Goles esperados concedidos por zona de caída" analisis={pie({ metrica: "xg", dimension: "zona de caída", categoria: (r) => r.zonaCaida })}><div id="grafico-xg-zona-caida">
   <Chart>
     <BarChart
   data={xgZonaCaida}
@@ -4275,7 +4237,8 @@ function Card({
         <p className="mt-1.5 text-[11px] font-medium leading-snug text-white/55">
           {muestra.n} de {muestra.de} {muestra.unidad}
           {/* 29/10/2026: con menos de 5, «indicio» (la regla de toda la pantalla); hasta 10, «tendencia». */}
-          {muestra.de < 5 ? " · indicio" : muestra.de < 10 ? " · tendencia" : ""}
+          {/* 30/10/2026: un solo umbral y una sola palabra en toda la pantalla: «indicio» por debajo de 10. */}
+          {muestra.de < 10 ? " · indicio" : ""}
         </p>
       )}
       {/* El sentido («menos es mejor») en su propia línea, que en el móvil se lee. */}

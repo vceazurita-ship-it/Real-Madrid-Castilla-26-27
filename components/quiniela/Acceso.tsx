@@ -211,6 +211,8 @@ export function Acceso({
       title={titulo}
       subtitle={compacto ? undefined : subtitulo}
       icon={KeyRound}
+      /* En el móvil, sitio a la derecha de la cabecera para el botón flotante ⋮ (30/10/2026). */
+      className="max-sm:[&>header]:pr-12"
       action={
         /* Compacto, un solo «Entrar» (29/10/2026, análisis): la pestaña y el
            botón decían lo mismo. Registrarse pasa a un enlace. */
@@ -228,7 +230,8 @@ export function Acceso({
           value={modo}
           onChange={setModo}
           options={[
-            { key: "entrar", label: "Entrar" },
+            /* «Entrar» es sólo el botón de enviar (30/10/2026, expertos): la pestaña dice qué eliges. */
+            { key: "entrar", label: "Ya tengo cuenta" },
             { key: "registrar", label: "Registrarme" },
           ]}
         />

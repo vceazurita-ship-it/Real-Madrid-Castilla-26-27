@@ -188,7 +188,7 @@ function TrabajoCuerpo({
         {lados.map((lado) => (
           <span
             key={lado}
-            className="rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide"
+            className="rounded px-1.5 py-0.5 text-[11px] font-semibold tracking-wide"
             style={{
               backgroundColor: `${LADO_COLOR[lado]}22`,
               color: chipInk(LADO_COLOR[lado]),
@@ -199,13 +199,13 @@ function TrabajoCuerpo({
           </span>
         ))}
 
-        <span className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[9px] font-semibold text-white/55">
+        <span className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[11px] font-semibold text-white/55">
           {MOMENTO_SHORT[trabajo.momento]}
         </span>
 
         {trabajo.medio === "video" ? (
           <span
-            className="inline-flex items-center gap-0.5 rounded bg-sky-400/15 px-1.5 py-0.5 text-[9px] font-semibold text-sky-300"
+            className="inline-flex items-center gap-0.5 rounded bg-sky-400/15 px-1.5 py-0.5 text-[11px] font-semibold text-sky-300"
             title="Trabajo en vídeo"
           >
             <Monitor size={9} />
@@ -213,7 +213,7 @@ function TrabajoCuerpo({
           </span>
         ) : (
           detalle && (
-            <span className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[9px] font-semibold text-white/40">
+            <span className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[11px] font-semibold text-white/40">
               CAMPO
             </span>
           )
@@ -223,7 +223,7 @@ function TrabajoCuerpo({
           trabajo.roles.map((rol) => (
             <span
               key={rol}
-              className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[9px] font-semibold text-white/50"
+              className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[11px] font-semibold text-white/50"
             >
               {ROL_SHORT[rol]}
             </span>
@@ -231,7 +231,7 @@ function TrabajoCuerpo({
 
         {trabajo.origen === "registro" && (
           <span
-            className="rounded bg-emerald-400/12 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-300/80"
+            className="rounded bg-emerald-400/12 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-300/80"
             title="Importado de la hoja de registro de tareas"
           >
             HOJA
@@ -245,31 +245,32 @@ function TrabajoCuerpo({
       | peor que dos renglones.
       */}
       {detalle && trabajo.roles.length > 0 && (
-        <p className="mt-1 text-[10px] leading-snug text-white/45">
+        <p className="mt-1 text-[11px] leading-snug text-white/45">
           Con {enLista(trabajo.roles.map((rol) => ROL_LABEL[rol].toLowerCase()))}
         </p>
       )}
 
       {notas &&
         (detalle ? (
-          <p className="mt-1 whitespace-pre-wrap break-words text-[10.5px] leading-snug text-white/60">
+          <p className="mt-1 whitespace-pre-wrap break-words text-[11px] leading-snug text-white/60">
             {notas}
           </p>
         ) : (
-          <p className="mt-1 truncate text-[10px] text-white/35">
+          <p className="mt-1 truncate text-[11px] text-white/35">
             {notas}
           </p>
         ))}
 
       {detalle && trabajo.objetivo?.trim() && (
-        <p className="mt-1 text-[10px] leading-snug text-white/60">
+        <p className="mt-1 text-[11px] leading-snug text-white/60">
           <span className="font-semibold text-emerald-300">Éxito · </span>
-          {trabajo.objetivo.trim()}
+          {/* Sin siglas en la ficha (30/10/2026): «MdJ» → «modelo de juego». */}
+          {trabajo.objetivo.trim().replace(/\bMdJ\b/g, "modelo de juego")}
         </p>
       )}
 
       {detalle && porque && (
-        <p className="mt-1 line-clamp-3 text-[10px] leading-snug text-white/50" title={porque}>
+        <p className="mt-1 line-clamp-3 text-[11px] leading-snug text-white/50" title={porque}>
           <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
             Por qué ·{" "}
           </span>
@@ -370,7 +371,7 @@ function TrabajoCard({
             onClick={onDuplicar}
             title="Duplicar este bloque"
             aria-label="Duplicar este bloque"
-            className="rounded-md p-1 text-white/25 transition hover:bg-white/10 hover:text-white"
+            className="inline-flex items-center justify-center rounded-md p-1 text-white/40 transition hover:bg-white/10 hover:text-white max-sm:h-8 max-sm:w-8"
           >
             <Copy size={11} />
           </button>
@@ -381,7 +382,7 @@ function TrabajoCard({
             onClick={onBorrar}
             title="Quitar este bloque"
             aria-label="Quitar este bloque"
-            className="rounded-md p-1 text-white/25 transition hover:bg-rose-500/15 hover:text-rose-300"
+            className="inline-flex items-center justify-center rounded-md p-1 text-white/40 transition hover:bg-rose-500/15 hover:text-rose-300 max-sm:h-8 max-sm:w-8"
           >
             <Trash2 size={11} />
           </button>
@@ -472,7 +473,7 @@ function DiaColumna({
           <p className="text-xs font-semibold uppercase tracking-wider text-white">
             {info?.corto}
             {etiqueta && (
-              <span className="ml-1 text-[10px] font-normal normal-case tracking-normal text-white/40">
+              <span className="ml-1 text-[11px] font-normal normal-case tracking-normal text-white/40">
                 {etiqueta}
               </span>
             )}
@@ -552,7 +553,7 @@ function DiaColumna({
         <button
           type="button"
           onClick={onAnadir}
-          className="mt-auto inline-flex items-center justify-center gap-1 rounded-xl border border-dashed border-white/12 px-2 py-1.5 text-[10px] font-medium text-white/40 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B]"
+          className="mt-auto inline-flex items-center justify-center gap-1 rounded-xl border border-dashed border-white/12 px-2 py-1.5 text-[11px] font-medium text-white/40 transition hover:border-[#C8A96B]/50 hover:text-[#C8A96B]"
         >
           <Plus size={11} />
           Añadir
@@ -562,11 +563,13 @@ function DiaColumna({
       {/* ----------------------- TOTALES ---------------------- */}
 
       {minutos > 0 && (
-        <div className="flex items-center justify-between gap-1 border-t border-white/10 px-2.5 py-1.5 text-[10px] tabular-nums">
+        /* 30/10/2026 (expertos): el pie salta de línea en vez de cortarse
+           («carga 18 (») y la fórmula va al lado, en la ⓘ. */
+        <div className="flex flex-wrap items-center justify-between gap-x-1.5 gap-y-0.5 border-t border-white/10 px-2.5 py-1.5 text-[11px] tabular-nums">
           <span className="font-semibold text-white/75">{fmtMin(minutos)}</span>
 
           {(carga > 0 || cargaCog > 0 || sinCarga > 0) && (
-            <span className="text-white/40" title="Carga = intensidad × minutos. La cognitiva usa la exigencia en lugar de la intensidad.">
+            <span className="min-w-0 text-white/50" title="Carga = intensidad × minutos. Cognitiva = exigencia cognitiva × minutos.">
               {[
                 carga > 0 ? `carga ${Math.round(carga)}` : "",
                 cargaCog > 0 ? `cognitiva ${Math.round(cargaCog)}` : "",
@@ -579,6 +582,15 @@ function DiaColumna({
               ]
                 .filter(Boolean)
                 .join(" · ")}
+              {carga > 0 || cargaCog > 0 ? (
+                <abbr
+                  className="ml-1 cursor-help no-underline"
+                  title="Carga = intensidad × minutos. Cognitiva = exigencia cognitiva × minutos."
+                  aria-label="Carga: intensidad por minutos. Cognitiva: exigencia cognitiva por minutos."
+                >
+                  ⓘ
+                </abbr>
+              ) : null}
             </span>
           )}
         </div>

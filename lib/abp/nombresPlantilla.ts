@@ -129,6 +129,12 @@ const DEL_OFICIO = new Set(
     "defensa", "ataque", "izquierda", "derecha", "izquierdo", "derecho", "centro", "central", "todos", "resto",
     "remate", "rematador", "rematadores", "lanzador", "sacador", "banda", "linea", "pequena", "grande",
     "salida", "vigilancia", "arrastre", "pantalla", "carrera", "espalda", "fuera", "dentro", "atras", "delante",
+    /* 30/10/2026: palabras de aviso que se escriben con mayúscula tras un
+       guion o un paréntesis («— Atención al bloqueo») y salían como nombres. */
+    "atencion", "ojo", "cuidado", "importante", "nota", "clave", "siempre", "nunca", "cuando", "despues", "antes",
+    "luego", "primero", "balon", "rival", "rivales", "nosotros", "ellos", "todo", "nadie", "uno", "dos", "tres",
+    "jugada", "jugadas", "variante", "opcion", "plan", "senal", "aviso", "consigna", "consignas", "movimiento",
+    "ofensivo", "defensivo", "inicio", "final", "tras", "sin", "con", "para", "por", "desde", "hasta", "entre",
   ],
 );
 
@@ -146,7 +152,8 @@ export function nombresSueltos(textos: string[], enDiapositiva: Jugador[]): stri
   const sueltos = new Map<string, string>();
 
   for (const texto of textos) {
-    for (const frase of String(texto ?? "").split(/[.:;!?\n]+/)) {
+    /* Un guion, un paréntesis o unas comillas también abren frase (30/10/2026). */
+    for (const frase of String(texto ?? "").split(/[.:;!?\n()«»"“”—–]+|\s-\s/)) {
       const palabras = frase.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+/g) ?? [];
 
       palabras.forEach((palabra, i) => {

@@ -109,8 +109,13 @@ const NOSOTROS = "Real Madrid Castilla";
  * navegador: aquí se abre en el servidor y sólo salen los pares nombre-escudo,
  * que son cuatro kilobytes.
  */
-let escudosGuardados: { lista: { equipo: string; escudo: string }[]; en: number } | null =
+let escudosGuardados: { lista: { equipo: string; escudo: string }[]; en: number; alDia: string | null } | null =
   null;
+
+/** Cuándo se bajó por última vez el documento de los escudos (30/10/2026: la pantalla de escudos lo dice). */
+function escudosAlDia() {
+  return escudosGuardados?.alDia ?? null;
+}
 
 async function leeEscudos() {
   const ahora = Date.now();
@@ -119,7 +124,8 @@ async function leeEscudos() {
     return escudosGuardados.lista;
   }
 
-  const doc = (await readDoc(INFORME_KEY)).data as InformeDoc | null;
+  const leido = await readDoc(INFORME_KEY);
+  const doc = leido.data as InformeDoc | null;
 
   const porNombre = new Map<string, string>();
 
@@ -151,7 +157,7 @@ async function leeEscudos() {
 
   const lista = [...porNombre].map(([equipo, escudo]) => ({ equipo, escudo }));
 
-  escudosGuardados = { lista, en: ahora };
+  escudosGuardados = { lista, en: ahora, alDia: leido.updatedAt ?? null };
 
   return lista;
 }
@@ -1066,7 +1072,9 @@ async function contesta(peticion: Request) {
   */
   if (parametros.has("escudos")) {
     try {
-      return NextResponse.json({ ok: true, escudos: await leeEscudos() });
+      const escudos = await leeEscudos();
+
+      return NextResponse.json({ ok: true, escudos, alDia: escudosAlDia() });
     } catch (error) {
       console.error("[data-analisis] escudos", error);
 

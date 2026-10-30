@@ -232,9 +232,13 @@ export function PartidoDeLaSemana({
         </p>
 
         {objetivo.diasEntreno ? (
-          <p className="mt-0.5 text-[10.5px] text-white/35">
+          /* La cuenta a la vista, para que se pueda comprobar (30/10/2026, expertos). */
+          <p className="mt-0.5 text-[11px] text-white/50">
             Referencia del cuerpo técnico: 90-100′ en 6 entrenamientos
-            {objetivo.diasEntreno < 6 ? `, prorrateada a ${objetivo.diasEntreno} ${objetivo.diasEntreno === 1 ? "día" : "días"}` : ""}.
+            {objetivo.diasEntreno < 6
+              ? ` × ${objetivo.diasEntreno}/6 ${objetivo.diasEntreno === 1 ? "día" : "días"} de sesión = ${objetivo.minimo}-${objetivo.maximo}′`
+              : ""}
+            .
           </p>
         ) : null}
 
@@ -262,6 +266,8 @@ export function PartidoDeLaSemana({
           <p className="mt-2 text-[11px] tabular-nums text-white/50">
             Atacando {fmtMin(Math.round(porLado.ofensivo))} ({pctOf} %) · defendiendo{" "}
             {fmtMin(Math.round(porLado.defensivo))} ({100 - pctOf} %)
+            {/* Cómo cuenta una tarea de los dos lados, para que el reparto cuadre con el total (30/10/2026). */}
+            <span className="block text-white/40">Las tareas que atacan y defienden a la vez cuentan mitad y mitad.</span>
           </p>
         )}
       </div>

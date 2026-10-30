@@ -181,7 +181,7 @@ export const REFERENTES: Referente[] = [
     cifras: [
       { valor: "96 %", texto: "de sus córners colgados son cerrados (Saka por la derecha, Rice por la izquierda)", fuente: F.plGabriel },
       { valor: "3,8", texto: "atacantes de media dentro del área pequeña rival, el máximo de la Premier", fuente: F.plGabriel },
-      { valor: "1 de 16,4", texto: "córners acaba en gol con Jover; antes, 1 de cada 32", fuente: F.plJover },
+      { valor: "Un gol cada 16,4", texto: "córners con Jover; antes, uno cada 32", fuente: F.plJover },
       { valor: "6 → 22", texto: "goles de ABP sin penaltis: la temporada antes de llegar frente a la 23/24", fuente: F.skyJover },
     ],
     principios: [
@@ -499,8 +499,8 @@ export const REFERENTES: Referente[] = [
 export type Dato = { valor: string; texto: string; fuente: Fuente };
 
 export const DATOS_CLAVE: Dato[] = [
-  { valor: "0,14 · 0,08", texto: "goles esperados por remate directo: córner cerrado frente a abierto (Premier 22/23)", fuente: F.analystCorners },
-  { valor: "20,8 % · 2,8 %", texto: "córners que acaban en remate directo: colgado frente a en corto", fuente: F.analystCorners },
+  { valor: "0,14 frente a 0,08", texto: "goles esperados por remate directo: córner cerrado (0,14) frente a abierto (0,08), Premier 22/23", fuente: F.analystCorners },
+  { valor: "20,8 % frente a 2,8 %", texto: "córners que acaban en remate directo: colgado (20,8 %) frente a en corto (2,8 %)", fuente: F.analystCorners },
   { valor: "0,27", texto: "goles esperados por remate en el centro del área pequeña (0,12 en el primer palo, 0,17 en el segundo)", fuente: F.analystCorners },
   { valor: "13,9 %", texto: "de todos los goles de la Premier 22/23 llegaron de córner", fuente: F.analystCorners },
   { valor: "0 goles", texto: "encajados de córner por West Ham y Liverpool en la 22/23: zona, todos atrás y seis en el área pequeña", fuente: F.plDefensa },

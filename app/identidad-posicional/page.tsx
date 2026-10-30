@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Plus, SearchX, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, SearchX, Trash2 } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -17,7 +17,6 @@ import {
   Highlight,
   LoadingState,
   Modal,
-  NavButton,
   SearchField,
   SectionLabel,
   Spinner,
@@ -34,6 +33,9 @@ import {
 import { AvisoLargo } from "@/components/conocimiento/AvisoLargo";
 import { sePuedeDescartar } from "@/components/abp/ui";
 import { cn } from "@/lib/utils";
+import { usePlayers } from "@/hooks/usePlayers";
+import { nombrePuesto } from "@/lib/posiciones";
+import type { Player } from "@/types/player";
 
 type PosicionItem = {
   ID: number;
@@ -43,7 +45,58 @@ type PosicionItem = {
   CONTENIDO: string;
   ORDEN: number;
   ACTIVO?: string;
+  /*
+  | 30/10/2026: columnas opcionales de la hoja. Si alguien las añade, cada
+  | contenido se despliega con su definición, qué se ve, el criterio y un
+  | clip; ROL es la idea del puesto («Iniciar el juego y defender el
+  | espacio»). El texto lo escribe el cuerpo técnico: aquí no se inventa.
+  */
+  DESCRIPCION?: string;
+  QUE_SE_VE?: string;
+  CRITERIO?: string;
+  VIDEO?: string;
+  ROL?: string;
 };
+
+const limpio = (t?: unknown) => String(t ?? "").trim();
+
+/** Lo que se despliega bajo un contenido; sólo lo que tiene texto. */
+const detalle = (item: PosicionItem) => ({
+  definicion: limpio(item.DESCRIPCION),
+  queSeVe: limpio(item.QUE_SE_VE),
+  criterio: limpio(item.CRITERIO),
+  video: /^https?:\/\//i.test(limpio(item.VIDEO)) ? limpio(item.VIDEO) : "",
+});
+
+/*
+| Qué puestos de la plantilla caen en cada posición de la hoja (30/10/2026).
+| La plantilla llega ya corregida por `lib/posiciones.ts` (vía
+| `usePlayers`) y en palabras con `nombrePuesto`; aquí sólo se decide qué
+| familia es cada posición de la hoja («CENTRALES», «LATERALES»…).
+*/
+const FAMILIAS: [RegExp, RegExp][] = [
+  [/^portero/, /^portero/],
+  [/^central/, /^central/],
+  [/^lateral|^carrilero/, /^lateral|^carrilero/],
+  [/^extremo/, /^extremo/],
+  [/^delanter|^punta/, /^delantero/],
+  [/^mediapunta/, /^mediapunta/],
+  [/^medio|^pivote|^interior|^centrocampista/, /^pivote|^interior|^mediocentro|^mediapunta/],
+];
+
+const sinTildes = (t: string) =>
+  t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+
+function jugadoresDelPuesto(posicionHoja: string, plantilla: Player[]) {
+  const familia = FAMILIAS.find(([hoja]) => hoja.test(sinTildes(posicionHoja)));
+
+  if (!familia) return [];
+
+  return plantilla
+    .filter((j) => j.esCastilla)
+    .filter((j) => familia[1].test(sinTildes(nombrePuesto(j.posicion))))
+    .map((j) => j.apodo || j.nombre);
+}
 
 /**
  * Lo que llega de la hoja, sin comerse lo que se está escribiendo.
@@ -271,22 +324,27 @@ export default function IdentidadPosicionalPage() {
 
   const filtrando = !editing && query.trim() !== "";
 
-  /** «Lo que le pedimos a los centrales: 9 con balón, 11 sin balón». Sin filtro de búsqueda y con las dos columnas llenas. */
-  const resumenPosicion = useMemo(() => {
-    if (!posicion || filtrando || editing) return "";
+  /*
+  | 30/10/2026: el subtítulo ya no repite los contadores («9 con balón y 11
+  | sin balón», que salen en la cabecera de cada columna). Lleva la idea del
+  | puesto si la hoja la trae en ROL; si no, no sale nada.
+  */
+  const rolPosicion = useMemo(
+    () =>
+      data
+        .filter((r) => r.POSICION === posicion)
+        .map((r) => limpio(r.ROL))
+        .find(Boolean) ?? "",
+    [data, posicion],
+  );
 
-    const cuenta = (b: string) =>
-      data.filter((r) => r.POSICION === posicion && r.BLOQUE === b).length;
-    const con = cuenta("CON BALÓN");
-    const sin = cuenta("SIN BALÓN");
+  /* Quién de la plantilla ocupa el puesto. Sin nadie, la línea no sale. */
+  const { players } = usePlayers();
 
-    if (con === 0 || sin === 0) return "";
-
-    const p = posicion.toLowerCase();
-    const plural = /^(central|lateral|extremo|delantero|portero|interior|pivote|mediapunta|mediocentro)/.test(p) ? `los ${p}` : p;
-
-    return `Lo que pedimos a ${plural}: ${con} con balón y ${sin} sin balón`;
-  }, [data, posicion, filtrando, editing]);
+  const quienes = useMemo(
+    () => (posicion ? jugadoresDelPuesto(posicion, players) : []),
+    [posicion, players],
+  );
 
   const cambios = useMemo(
     () =>
@@ -335,16 +393,6 @@ export default function IdentidadPosicionalPage() {
   useEffect(() => {
     baseRef.current = originalData;
   });
-
-  /* 29/10/2026: en el móvil el carril de puestos corta el último; al cambiar de
-     puesto se lleva el activo al centro para que se vea que el carril sigue. */
-  const carrilRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    const activo = carrilRef.current?.querySelector<HTMLElement>('[aria-current="true"]');
-
-    activo?.scrollIntoView({ inline: "center", block: "nearest" });
-  }, [posicion]);
 
   /* Si el último guardado llegó a la hoja. Lo lee `terminarEdicion` tras el
      `flush`: el estado del hook todavía no se ha repintado en ese momento. */
@@ -664,8 +712,9 @@ export default function IdentidadPosicionalPage() {
             {bloque}
           </h2>
 
-          <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[11px] font-semibold tabular-nums text-gray-400">
-            {filtrando ? `${items.length}/${total}` : total}
+          <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-semibold tabular-nums text-gray-400">
+            {filtrando ? `${items.length} de ${total}` : total}{" "}
+            contenido{total === 1 ? "" : "s"}
           </span>
         </div>
 
@@ -722,12 +771,7 @@ export default function IdentidadPosicionalPage() {
                       className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]"
                     />
 
-                    <p className="min-w-0 whitespace-pre-wrap break-words leading-relaxed text-gray-200">
-                      <Highlight
-                        text={item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}
-                        query={query}
-                      />
-                    </p>
+                    <FichaContenido item={item} query={query} />
                   </div>
                 )}
               </li>
@@ -776,19 +820,41 @@ export default function IdentidadPosicionalPage() {
               className={cn("mt-4", editing && "pointer-events-none opacity-40")}
             />
 
-            <nav ref={carrilRef} className="mt-4 flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 scrollbar-none [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)] lg:mt-5 lg:block lg:space-y-2 lg:overflow-visible lg:[mask-image:none]">
+            {/* 30/10/2026: en el móvil la tira cortaba los puestos («ME…»)
+                sin decir que seguía. Ahora es una rejilla de 3×2 con los seis
+                a la vista; en escritorio, la lista de siempre. */}
+            <nav className="mt-4 grid grid-cols-3 gap-2 lg:mt-5 lg:grid-cols-1">
               {posiciones.map((p) => {
                 const total = visibles.filter((x) => x.POSICION === p).length;
+                const activo = posicion === p;
 
                 return (
-                  <NavButton
+                  <button
                     key={p}
-                    active={posicion === p}
+                    type="button"
                     onClick={() => setPosicion(p)}
-                    label={p}
-                    count={total}
-                    dimmed={filtrando && total === 0}
-                  />
+                    aria-current={activo ? "true" : undefined}
+                    className={cn(
+                      "flex min-w-0 flex-col items-start gap-0.5 rounded-xl px-2.5 py-2 text-left transition-all lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:rounded-2xl lg:px-4 lg:py-3",
+                      focusRing,
+                      activo
+                        ? "bg-[#C8A96B] text-black shadow-[0_8px_24px_-12px_rgba(200,169,107,0.9)]"
+                        : "border border-white/10 text-gray-200 hover:border-[#C8A96B]/40 hover:bg-white/[0.04] hover:text-white",
+                      filtrando && total === 0 && !activo && "opacity-40",
+                    )}
+                  >
+                    <span className="w-full min-w-0 break-words text-xs font-semibold leading-tight sm:text-sm lg:w-auto">
+                      {p}
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 text-[11px] tabular-nums sm:text-xs",
+                        activo ? "text-black/70" : "text-gray-400",
+                      )}
+                    >
+                      {total} contenido{total === 1 ? "" : "s"}
+                    </span>
+                  </button>
                 );
               })}
 
@@ -804,9 +870,11 @@ export default function IdentidadPosicionalPage() {
 
           {/* ---------------------------------------------- contenido */}
 
-          <main className={cn("min-w-0 flex-1 p-4 lg:p-8", editing && "pb-32")}>
+          {/* 30/10/2026: pb-24 para que el botón flotante de herramientas no
+              tape el final de la tarjeta. */}
+          <main className={cn("min-w-0 flex-1 p-4 pb-24 lg:p-8 lg:pb-24", editing && "pb-32")}>
             <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 sm:p-8 lg:rounded-3xl lg:p-10">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex flex-row items-start justify-between gap-4">
                 <div className="min-w-0">
                   <SectionLabel className="text-[#C8A96B]">
                     Contenidos individuales
@@ -816,17 +884,16 @@ export default function IdentidadPosicionalPage() {
                     {posicion || "—"}
                   </h1>
 
-                  <p className="mt-3 text-sm text-gray-400">
-                    {resumenPosicion || "Foco individual por posición"}
-                    {!loading && !error && totalPosicion > 0 && !resumenPosicion && (
-                      <span className="text-gray-600">
-                        {" · "}
-                        {filtrando
-                          ? `${contenidos.length} de ${totalPosicion} contenidos`
-                          : `${totalPosicion} contenidos`}
-                      </span>
-                    )}
-                  </p>
+                  {rolPosicion && !editing && (
+                    <p className="mt-3 text-base text-gray-300">{rolPosicion}</p>
+                  )}
+
+                  {quienes.length > 0 && !editing && (
+                    <p className="mt-2 text-sm text-gray-400">
+                      <span className="text-gray-500">En la plantilla: </span>
+                      {quienes.join(" · ")}
+                    </p>
+                  )}
                 </div>
 
                 {!editing && !loading && !error && toolbar}
@@ -1009,5 +1076,81 @@ export default function IdentidadPosicionalPage() {
 
       {avisoGuardado}
     </div>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| UN CONTENIDO (30/10/2026)
+|--------------------------------------------------------------------------
+|
+| Con definición, qué se ve, criterio o clip en la hoja, se despliega y
+| enseña sólo eso. Sin nada, es una línea sin flecha.
+*/
+function FichaContenido({
+  item,
+  query,
+}: {
+  item: PosicionItem;
+  query: string;
+}) {
+  const texto = (
+    <Highlight
+      text={item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}
+      query={query}
+    />
+  );
+
+  const d = detalle(item);
+
+  if (!Object.values(d).some(Boolean)) {
+    return (
+      <p className="min-w-0 whitespace-pre-wrap break-words leading-relaxed text-gray-200">
+        {texto}
+      </p>
+    );
+  }
+
+  return (
+    <details className="group min-w-0 flex-1">
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 leading-relaxed text-gray-200 [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0 break-words">{texto}</span>
+        <ChevronDown
+          className="mt-1 h-4 w-4 shrink-0 text-[#C8A96B] transition-transform group-open:rotate-180"
+          aria-hidden
+        />
+      </summary>
+
+      <div className="mt-2 space-y-2 text-sm leading-relaxed text-gray-400">
+        {d.definicion && <p className="whitespace-pre-wrap">{d.definicion}</p>}
+
+        {d.queSeVe && (
+          <p className="whitespace-pre-wrap">
+            <span className="font-semibold text-gray-200">Qué se ve: </span>
+            {d.queSeVe}
+          </p>
+        )}
+
+        {d.criterio && (
+          <p className="whitespace-pre-wrap">
+            <span className="font-semibold text-gray-200">
+              Criterio de éxito:{" "}
+            </span>
+            {d.criterio}
+          </p>
+        )}
+
+        {d.video && (
+          <a
+            href={d.video}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 font-medium text-[#C8A96B] hover:underline"
+          >
+            Ver clip →
+          </a>
+        )}
+      </div>
+    </details>
   );
 }

@@ -28,6 +28,7 @@ import { coma } from "@/lib/formatoNumero";
 import { getPlayerPhotoSrc } from "@/lib/playerImages";
 import { posicionDe } from "@/lib/posiciones";
 import { chipInk } from "@/lib/theme";
+import { nombreVisible } from "@/lib/nombreJugador";
 import type { Player as Ficha } from "@/types/player";
 
 import { AXES, SCALE, SERIES_COLORS, average, bandFor, nombreLargo, type GroupKey, type MetricKey, type Player } from "./modelo";
@@ -254,7 +255,8 @@ export function CampoEmocional({
 
         return {
           clave: f.id,
-          nombre: f.nombre || (dato?.jugador ?? ""),
+          /* El nombre de la plantilla, como en /individual (30/10/2026). */
+          nombre: nombreVisible(p?.nombre || f.nombre || (dato?.jugador ?? "")),
           dorsal: f.dorsal,
           foto: getPlayerPhotoSrc(p?.nombre ?? f.nombre, { id: p?.id, fallbackUrl: f.foto || p?.foto }),
           largo: f.largo,
@@ -279,7 +281,7 @@ export function CampoEmocional({
         return [
           {
             clave: `puesto-${i}`,
-            nombre: p?.apodo || dato.jugador,
+            nombre: nombreVisible(p?.nombre || dato.jugador),
             dorsal: p?.dorsal ? String(p.dorsal) : hueco.dorsal,
             foto: getPlayerPhotoSrc(p?.nombre ?? dato.jugador, { id: p?.id, fallbackUrl: p?.foto }),
             largo: hueco.largo,
@@ -299,7 +301,7 @@ export function CampoEmocional({
 
         return {
           clave: `banco-${r.jugador}`,
-          nombre: p?.apodo || r.jugador,
+          nombre: nombreVisible(p?.nombre || r.jugador),
           dorsal: p?.dorsal ? String(p.dorsal) : "",
           foto: getPlayerPhotoSrc(p?.nombre ?? r.jugador, { id: p?.id, fallbackUrl: p?.foto }),
           largo: 0,

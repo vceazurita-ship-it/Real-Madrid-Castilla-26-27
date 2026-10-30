@@ -45,6 +45,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { ComparativaPartido } from "@/components/abp/ComparativaPartido";
+import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { ultimoPorFecha } from "@/lib/abp/ultimo-partido";
 import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
 import { CORTE_TRANSICION, aFavor, comparativaFaltas, cortaTransicion, decimal, enContra, laQueMas } from "@/lib/faltas/lectura";
@@ -157,6 +158,10 @@ const jugadorDeFalta = (f: FaltaVista) => f.jugador ?? "";
 const partidoDeFalta = (f: FaltaVista) => f.partido;
 
 /* 29/10/2026: todas las jornadas se rotulan «J6», como en Robos y Pérdidas («LIGA 06» pasa a «J6»). */
+/* Una fila de recuento con muy pocos casos en el partido y en la media: se pliega. */
+const escasa = (m: { tendencia?: boolean; actual: number | null; media: number | null }) =>
+  Boolean(m.tendencia) && Math.max(m.actual ?? 0, m.media ?? 0) <= 2;
+
 const jornadaCorta = (j: string) => {
   const m = j.trim().match(/^(?:LIGA|J)\s*0*(\d+)$/i);
 
@@ -165,6 +170,9 @@ const jornadaCorta = (j: string) => {
 
 /** Si hay algún partido de pretemporada en los datos (hoy, ninguno). */
 const HAY_PRETEMPORADA = PARTIDOS.some((p) => esPretemporada(p.jornada));
+
+/* 30/10/2026: las fechas con faltas etiquetadas, para el sello «Datos hasta la J·». */
+const FECHAS_FALTAS = PARTIDOS.filter((p) => p.faltas.length > 0).map((p) => p.fecha);
 
 /** "2026-09-21" → "21 sep". */
 function fechaCorta(iso: string) {
@@ -545,6 +553,8 @@ export default function FaltasPage() {
               }
             />
 
+            <SelloDeFechas fuente="Etiquetado propio" fechas={FECHAS_FALTAS} queEs="faltas etiquetadas" />
+
             {PARTIDOS.length === 0 || (partido?.faltas.length ?? 0) === 0 ? (
               <div className="mt-5">
                 <Panel title="Todavía no hay ninguna falta etiquetada" icon={Crosshair}>
@@ -659,16 +669,33 @@ export default function FaltasPage() {
                 {/* 29/10/2026: el marcador entre los dos nombres («Algeciras 2-0 RM Castilla»):
                     suelto, «2-0 · fuera» se leía como victoria y contradecía el 0-2 de
                     Histórico Competición y Data análisis. */}
-                <span className="flex flex-wrap items-center gap-2 text-sm font-semibold text-white">
-                  <span>{partido.local ? "RM Castilla" : partido.rival}</span>
-                  <span
-                    className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-0.5 font-mono text-[12px] tabular-nums"
-                    style={{ color: "rgb(var(--rmcf-ink-rgb) / .9)" }}
-                  >
-                    {partido.resultado}
-                  </span>
-                  <span>{partido.local ? partido.rival : "RM Castilla"}</span>
-                </span>
+                {/* 30/10/2026: cada gol junto a su equipo, el local primero («Algeciras CF 2 · RM Castilla 0»):
+                    con el marcador en medio, «2-0» se seguía leyendo como victoria (análisis). */}
+                {(() => {
+                  const [gl, gv] = partido.resultado.split("-").map((x) => x.trim());
+                  const local = partido.local ? "RM Castilla" : partido.rival;
+                  const visitante = partido.local ? partido.rival : "RM Castilla";
+
+                  if (!gl || !gv) {
+                    return (
+                      <span className="text-sm font-semibold text-white">
+                        {local} {partido.resultado} {visitante}
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-white">
+                      <span>
+                        {local} <span className="font-mono tabular-nums">{gl}</span>
+                      </span>
+                      <span className="text-white/35">·</span>
+                      <span>
+                        {visitante} <span className="font-mono tabular-nums">{gv}</span>
+                      </span>
+                    </span>
+                  );
+                })()}
 
                 <span className="text-[11px] uppercase tracking-[0.12em] text-white/35">
                   {partido.local ? "en casa" : "fuera"} · {fechaCorta(partido.fecha)}
@@ -707,21 +734,53 @@ export default function FaltasPage() {
 
                 if (!f || !c || f.actual === null || c.actual === null) return null;
 
+                /* 30/10/2026: un titular con verbo y la cifra que manda, no la tabla
+                   repetida en una frase (marketing). */
                 const frente = (m: typeof f) => (m.media !== null && comparativa.anteriores > 0 ? ` (media ${decimal(m.media)})` : "");
+                const n = comparativa.anteriores;
+                const dif = c.media !== null && n > 0 ? c.actual - c.media : null;
+                const cometidas =
+                  dif === null
+                    ? `Cometimos ${c.actual} ${c.actual === 1 ? "falta" : "faltas"}`
+                    : Math.abs(dif) < 0.05
+                      ? `Cometimos ${c.actual} ${c.actual === 1 ? "falta" : "faltas"}, lo mismo que la media de ${n === 1 ? "el anterior" : `los ${n} anteriores`}`
+                      : `Cometimos ${c.actual} ${c.actual === 1 ? "falta" : "faltas"}, ${decimal(Math.abs(dif))} ${dif < 0 ? "menos" : "más"} que la media de ${n === 1 ? "el anterior" : `los ${n} anteriores`}`;
 
                 return (
                   <p className="mt-3 text-sm font-medium text-white/80">
-                    {f.actual} a favor{frente(f)} y {c.actual} en contra{frente(c)} en {comparativa.partido}.
+                    {cometidas}. Nos hicieron {f.actual}{frente(f)}.
                   </p>
                 );
               })()}
+              {/*
+              | 30/10/2026: las filas con muy pocos casos («0 frente a 1»,
+              | tendencia) se pliegan en «Casos escasos»: en la tabla eran tres
+              | de ocho y tapaban las que sí dicen algo (marketing).
+              */}
               <ComparativaPartido
                 partido={comparativa.partido}
                 anteriores={{ n: comparativa.anteriores }}
-                metricas={comparativa.metricas}
+                /* 30/10/2026: todas con un decimal (salía «16 / 17 / −1» junto a «8 / 12,2 / −4,2»). */
+                metricas={comparativa.metricas.filter((m) => !escasa(m)).map((m) => (m.formato ? m : { ...m, formato: decimal }))}
                 nota={`Sobre el partido entero, sin el filtro de ${filtro === "todas" ? "lado" : `«${NOMBRE_LADO[filtro]}»`} ni lo pinchado abajo. La media es por partido. Verde: mejor que la media; naranja: peor; gris: no se juzga.`}
                 className="mt-3"
               />
+              {comparativa.metricas.some(escasa) ? (
+                <details className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-2 text-[12px] text-white/65">
+                  <summary className="cursor-pointer select-none font-medium text-white/75">
+                    Casos escasos ({comparativa.metricas.filter(escasa).length}): pocos para leer una diferencia
+                  </summary>
+                  <ul className="mt-2 space-y-1">
+                    {comparativa.metricas.filter(escasa).map((m) => (
+                      <li key={m.clave}>
+                        {m.nombre}: {m.actual}
+                        {m.de ? ` de ${m.de}` : ""}
+                        {m.media !== null ? ` · media ${decimal(m.media)}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
               </>
             )}
 

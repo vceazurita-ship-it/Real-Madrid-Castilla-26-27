@@ -24,6 +24,7 @@ import { avisaHecho } from "@/lib/aviso-hecho";
 import { CampogramaCaidas } from "@/components/abp/coding/CampogramaCaidas";
 import { conCaidas, slidesDeCaidas, tableroDeJornada } from "@/lib/abp/coding-pizarra";
 import { EMPTY_PIZARRA_STORE, type PizarraStore } from "@/lib/abp/pizarra";
+import { clipsKey, normalizaClips, type ClipsJornada } from "@/lib/rivals/analisis";
 import { APUNTES_KIND, APUNTES_RIVAL_VACIO, apuntesRivalKey, normalizaCuaderno, nuevoId, type ApuntesRivalDoc } from "@/lib/abp/apuntes";
 import {
   CARPETAS,
@@ -203,7 +204,18 @@ const ATAJOS: [string, string][] = [
   ["?", "Todos los atajos"],
 ];
 
-export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: string | null; onRecoger?: () => void; onApuntes?: () => void }) {
+export function CodingAbpRival({
+  equipo,
+  jornadaPartido = null,
+  onRecoger,
+  onApuntes,
+}: {
+  equipo: string | null;
+  /** «J10»: la jornada del partido contra este rival, para leer el estado sin abrir la carpeta. */
+  jornadaPartido?: string | null;
+  onRecoger?: () => void;
+  onApuntes?: () => void;
+}) {
   const [abierta, setAbierta] = useState<Abierta | null>(null);
   const [guardada, setGuardada] = useState<ConPermiso | null>(null);
   const [carpeta, setCarpeta] = useState<CarpetaKey>("CORNER OF");
@@ -233,8 +245,15 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
   const deshacer = useRef<{ id: string; antes: ClipEstado | undefined; carpeta: CarpetaKey; indice: number }[]>([]);
   const precarga = useRef(new Map<string, string>());
 
-  /* Sin carpeta abierta se lee la de la última vez (sólo para enseñar en qué punto está). */
-  const clave = abierta ? codingKey(abierta.nombre) : guardada ? codingKey(guardada.name) : "abp-coding-rival:_";
+  /*
+  | Sin carpeta abierta se lee la de la última vez, si es de esta jornada; si
+  | no (otro ordenador, otra jornada), la que tocaría por nombre: «ABP - 10
+  | CARTAGENA». Así el estado se ve al entrar, sin abrir nada (30/10/2026).
+  */
+  const nJornada = Number((jornadaPartido ?? "").replace(/\D/g, "")) || null;
+  const esperada = equipo && nJornada ? codingKey(`ABP - ${nJornada} ${equipo}`) : null;
+  const guardadaVale = guardada && (!nJornada || deLaCarpeta(guardada.name).jornada === nJornada);
+  const clave = abierta ? codingKey(abierta.nombre) : guardadaVale && guardada ? codingKey(guardada.name) : esperada ?? "abp-coding-rival:_";
 
   const { value: doc, setValue: setDoc } = useRemoteDoc<CodingDoc>({ key: clave, kind: "abp-coding", fallback: CODING_VACIO });
 
@@ -647,6 +666,43 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
     fallback: APUNTES_RIVAL_VACIO,
   });
 
+  /*
+  | LO RECOGIDO POR EL VIGÍA (30/10/2026). Sólo lectura: la misma hoja de
+  | clips que «Recoger y láminas», para decir si el paso 1 está hecho y cuándo.
+  */
+  const [recogida, setRecogida] = useState<{ equipo: string; jornadas: Record<string, ClipsJornada> } | null>(null);
+
+  useEffect(() => {
+    if (!equipo) return;
+
+    let cancelado = false;
+
+    fetch(`/api/docs?key=${encodeURIComponent(clipsKey(equipo))}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((json: { data?: unknown } | null) => {
+        if (!cancelado) setRecogida({ equipo, jornadas: normalizaClips(json?.data).jornadas });
+      })
+      .catch(() => {
+        /* Sin red: el paso 1 se queda sin estado. */
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [equipo]);
+
+  const recogidaJornada = useMemo(() => {
+    if (!recogida || recogida.equipo !== equipo || !nJornada) return null;
+
+    const entrada = Object.entries(recogida.jornadas).find(([k]) => Number(k.replace(/\D/g, "")) === nJornada);
+
+    if (!entrada) return null;
+
+    const j = entrada[1];
+
+    return j.clips.length || j.docs.length ? j : null;
+  }, [recogida, equipo, nJornada]);
+
   const llevaApuntes = () => {
     if (!equipo || !jornada) return;
 
@@ -784,96 +840,178 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
   /* ------------------------------ pantalla ------------------------------ */
 
   if (!abierta) {
-    /* Lo hecho en la última carpeta, para ver de un vistazo en qué punto está (29/10/2026, expertos). */
-    const hechos = Object.values(doc.clips ?? {});
-    const elegidosYa = hechos.filter((c) => c.estado === "elegido").length;
-    const vistos = hechos.filter((c) => c.estado !== "pendiente").length;
+    /*
+    | EL ESTADO REAL DE LA JORNADA (30/10/2026, expertos). Antes los tres
+    | pasos eran texto fijo, iguales hiciera lo que hiciera el analista. Ahora
+    | cada uno dice si está hecho, con su cifra y su fecha: recogida (lo que
+    | dejó el vigía), criba (lo decidido en la carpeta de esta jornada) y
+    | apuntes (lo que ya está en «Apuntes y vídeo»).
+    */
+    const hechos = Object.entries(doc.clips ?? {});
+    const elegidosYa = hechos.filter(([, c]) => c.estado === "elegido").length;
+    const descartadosYa = hechos.filter(([, c]) => c.estado === "descartado").length;
+    const vistos = elegidosYa + descartadosYa;
+    const cuando = (iso?: string) => {
+      const d = iso ? new Date(iso) : null;
+
+      return d && !Number.isNaN(d.getTime())
+        ? d.toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", "")
+        : "";
+    };
+    /* Lo decidido por tipo: córner, falta y banda, cuando atacan y cuando defienden. */
+    const porTipo = CARPETAS.map((c) => {
+      const suyos = hechos.filter(([id]) => id.startsWith(`${c.key}/`)).map(([, x]) => x);
+
+      return { ...c, elegidos: suyos.filter((x) => x.estado === "elegido").length, vistos: suyos.filter((x) => x.estado !== "pendiente").length };
+    }).filter((c) => c.vistos);
     /* Los apuntes ya guardados de este rival, de la última jornada hacia atrás (29/10/2026). */
     const hechosRival = Object.entries(apuntes.jornadas ?? {})
       .map(([clave, cuaderno]) => ({ clave, n: Number(clave.replace(/\D/g, "")) || 0, apuntes: normalizaCuaderno(cuaderno).apuntes.filter((a) => a.texto.trim()) }))
       .filter((j) => j.apuntes.length)
       .sort((a, b) => b.n - a.n)
       .slice(0, 2);
+    const apuntesJornada = nJornada ? hechosRival.find((j) => j.n === nJornada) : undefined;
 
-    const pasos: { n: number; titulo: string; texto: string; soloOrdenador?: boolean; accion?: { texto: string; onClick: () => void }; principal?: boolean }[] = [
+    const hecho1 = Boolean(recogidaJornada);
+    const hecho2 = vistos > 0;
+    const hecho3 = Boolean(apuntesJornada?.apuntes.some((a) => a.ref?.clase === "clip"));
+
+    const pasos: { n: number; titulo: string; texto: string; estado: string; hecho: boolean; accion?: { texto: string; onClick: () => void }; principal?: boolean }[] = [
       {
         n: 1,
-        soloOrdenador: true,
+        hecho: hecho1,
         titulo: "Recoger la carpeta",
         texto: "El vigía deja en el ordenador del club los PDF de ABP y de centros y los vídeos de la jornada.",
-        ...(onRecoger ? { accion: { texto: "Recoger la carpeta", onClick: onRecoger } } : {}),
+        estado: recogidaJornada
+          ? [
+              recogidaJornada.clips.length ? `${recogidaJornada.clips.length} vídeos` : "",
+              recogidaJornada.docs.length ? `${recogidaJornada.docs.length} PDF` : "",
+              recogidaJornada.importadoEn ? `recogida el ${cuando(recogidaJornada.importadoEn)}` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")
+          : nJornada
+            ? `Pendiente para la J${nJornada}`
+            : "Pendiente",
+        ...(onRecoger ? { accion: { texto: hecho1 ? "Ver lo recogido" : "Recoger la carpeta", onClick: onRecoger } } : {}),
       },
       {
         n: 2,
-        soloOrdenador: true,
+        hecho: hecho2,
         titulo: "Cribar los clips",
-        texto: "Abre la carpeta y quédate con los buenos: K se queda, D se descarta, y una etiqueta por tecla.",
+        texto: "Abre la carpeta y quédate con los buenos.",
+        estado: hecho2
+          ? [`${vistos} cribados`, `${elegidosYa} elegidos (K)`, `${descartadosYa} descartados (D)`, doc.actualizado ? `última criba el ${cuando(doc.actualizado)}` : ""].filter(Boolean).join(" · ")
+          : "Pendiente",
         accion: { texto: "Abrir carpeta de la jornada", onClick: () => void elige() },
         principal: true,
       },
       {
         n: 3,
+        hecho: hecho3,
         titulo: "Llevarlo al informe",
         texto: "El texto sale con tu formato, «Dónde caen» entra solo en la pizarra y lo elegido pasa a Apuntes y vídeo.",
+        estado: hecho3 && apuntesJornada ? `${apuntesJornada.apuntes.length} apuntes en la J${apuntesJornada.n}` : "Pendiente",
         ...(onApuntes ? { accion: { texto: "Ver apuntes", onClick: onApuntes } } : {}),
       },
     ];
+    /* El paso en curso: el primero sin hacer de la criba en adelante (recoger puede ir por otro lado). */
+    const activo = !hecho2 ? 2 : !hecho3 ? 3 : 0;
 
     return (
       <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 pb-14 sm:p-6 md:pb-6">
         <div className="pr-12 md:pr-0">
-          <h3 className="text-lg font-bold text-white">Carpeta de la jornada</h3>
+          <h3 className="text-lg font-bold text-white">
+            Carpeta de la jornada{nJornada ? ` · J${nJornada}` : ""}
+          </h3>
           <p className="mt-1 hidden text-sm text-white/65 md:block">
             Abre en tu ordenador la carpeta de {equipo ?? "el rival"} de esta jornada. Los clips no se suben: se ven desde tu ordenador.
           </p>
         </div>
 
-        {guardada && vistos > 0 && (
-          <p className="rounded-lg border border-[#D8B45A]/30 bg-[#D8B45A]/10 px-3 py-2 text-sm text-white/80">
-            <b className="text-[#D8B45A]">{guardada.name}</b>: {vistos} clips revisados · {elegidosYa} elegidos
-          </p>
-        )}
-
-        {/* Una fila por paso, igual en el móvil y en el ordenador (29/10/2026,
-            expertos): en el móvil se veía sólo «Ver apuntes» y en el ordenador
-            tres tarjetas del mismo peso. La acción principal destaca; las
-            del ordenador no salen en el móvil, pero el paso se lee. */}
+        {/* Un paso por fila con su estado: el que toca resalta y los otros
+            bajan de peso. Una sola acción principal (abrir la carpeta); las
+            demás son enlaces (30/10/2026, expertos). */}
         <ol className="divide-y divide-white/10 rounded-xl border border-white/10 bg-black/20">
-          {pasos.map((p) => (
-            <li key={p.n} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5">
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#D8B45A]/50 text-[12px] font-bold text-[#D8B45A]">{p.n}</span>
-              <span className="min-w-0 flex-1 basis-48">
-                <span className="text-sm font-semibold text-white">{p.titulo}</span>
-                <span className="block text-[12px] leading-snug text-white/55">
-                  {p.texto}
+          {pasos.map((p) => {
+            const enCurso = p.n === activo;
+
+            return (
+              <li
+                key={p.n}
+                aria-current={enCurso ? "step" : undefined}
+                className={`flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5 ${enCurso ? "bg-[#D8B45A]/[0.07]" : ""}`}
+              >
+                <span
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[12px] font-bold ${
+                    p.hecho ? "border-emerald-400/60 bg-emerald-400/15 text-emerald-300" : enCurso ? "border-[#D8B45A] text-[#D8B45A]" : "border-white/25 text-white/50"
+                  }`}
+                  aria-label={p.hecho ? `Paso ${p.n}, hecho` : `Paso ${p.n}, pendiente`}
+                >
+                  {p.hecho ? "✓" : p.n}
                 </span>
-              </span>
-              {p.accion &&
-                /* 29/10/2026: en el móvil los botones de los pasos 1 y 2 también se ven, a todo el ancho;
-                   antes desaparecían y el paso se quedaba sin acción. El aviso de Chrome o Edge va una vez, abajo. */
-                (p.principal ? (
-                  <span className="flex flex-col gap-1 max-md:w-full md:items-end">
-                    <button type="button" onClick={p.accion.onClick} className="flex items-center justify-center gap-2 rounded-lg bg-[#D8B45A] px-3 py-1.5 text-[13px] font-bold text-[#0B0F14] max-md:w-full max-md:py-2.5">
-                      <FolderOpen size={14} /> {p.accion.texto}
-                    </button>
-                    {guardada && (
-                      <button type="button" onClick={() => void abre(guardada)} className="text-[12px] text-white/60 hover:text-white">
-                        o seguir con «{guardada.name}»
+                <span className="min-w-0 flex-1 basis-48">
+                  <span className={`text-sm font-semibold ${enCurso || p.hecho ? "text-white" : "text-white/70"}`}>{p.titulo}</span>
+                  <span className={`block text-[12px] font-semibold ${p.hecho ? "text-emerald-300" : enCurso ? "text-[#D8B45A]" : "text-white/50"}`}>{p.estado}</span>
+                  <span className="block text-[12px] leading-snug text-white/55">{p.texto}</span>
+                  {p.principal && (
+                    /* Los atajos, a la vista junto a la acción (30/10/2026). */
+                    <span className="mt-1 hidden flex-wrap items-center gap-1.5 text-[11px] text-white/55 md:flex">
+                      {[
+                        ["K", "se queda"],
+                        ["D", "descarta"],
+                        ["S", "pendiente"],
+                        ["Z", "deshace"],
+                        ["1-8", "etiquetas"],
+                        ["?", "todos"],
+                      ].map(([k, t]) => (
+                        <span key={k} className="inline-flex items-center gap-1">
+                          <kbd className="rounded border border-white/20 bg-white/[0.06] px-1.5 py-px font-mono text-[11px] text-white/80">{k}</kbd>
+                          {t}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </span>
+                {p.accion &&
+                  (p.principal ? (
+                    <span className="flex flex-col gap-1 max-md:w-full md:items-end">
+                      <button type="button" onClick={p.accion.onClick} className="flex items-center justify-center gap-2 rounded-lg bg-[#D8B45A] px-3 py-1.5 text-[13px] font-bold text-[#0B0F14] max-md:w-full max-md:py-2.5">
+                        <FolderOpen size={14} /> {p.accion.texto}
                       </button>
-                    )}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={p.accion.onClick}
-                    className={`whitespace-nowrap text-[13px] font-semibold text-[#D8B45A] hover:underline max-md:w-full max-md:rounded-lg max-md:border max-md:border-[#D8B45A]/40 max-md:bg-[#D8B45A]/10 max-md:py-2.5 max-md:text-center`}
-                  >
-                    {p.accion.texto} →
-                  </button>
-                ))}
-            </li>
-          ))}
+                      {guardada && (
+                        <button type="button" onClick={() => void abre(guardada)} className="text-[12px] text-white/60 hover:text-white">
+                          o seguir con «{guardada.name}»
+                        </button>
+                      )}
+                    </span>
+                  ) : (
+                    <button type="button" onClick={p.accion.onClick} className="whitespace-nowrap text-[13px] font-medium text-white/60 underline-offset-2 hover:text-white hover:underline max-md:py-1">
+                      {p.accion.texto} →
+                    </button>
+                  ))}
+              </li>
+            );
+          })}
         </ol>
+
+        {porTipo.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Lo cribado por tipo · elegidos de los vistos</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {porTipo.map((c) => (
+                <div key={c.key} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                  <p className="text-[12px] text-white/60">
+                    {c.titulo === "SBO" || c.titulo === "SBD" ? "Saque de banda" : c.titulo === "FALTAS LAT" ? "Falta lateral" : c.titulo.charAt(0) + c.titulo.slice(1).toLowerCase()} · {c.fase === "of" ? "cuando atacan" : "cuando defienden"}
+                  </p>
+                  <p className="text-sm font-bold tabular-nums text-white">
+                    {c.elegidos} <span className="text-[12px] font-normal text-white/55">de {c.vistos}</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Una sola vez y en una línea (29/10/2026), no repetido en cada paso. */}
         <p className="text-[12px] text-white/55 md:hidden">Abrir la carpeta y cribar los clips se hace en el ordenador, con Chrome o Edge.</p>

@@ -14,7 +14,7 @@
 | la reescribe sin recargar ni añadir historial.
 */
 
-import { useSyncExternalStore, type ComponentType } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType } from "react";
 
 export type OpcionPestana<K extends string> = {
   clave: K;
@@ -90,9 +90,51 @@ export function Pestanas<K extends string>({
   etiqueta: string;
   pegada?: boolean;
 }) {
+  /*
+  | EL DEGRADADO, SÓLO DONDE HAY PESTAÑAS ESCONDIDAS (30/10/2026). Iba fijo en
+  | el borde derecho: al centrar la elegida a 390 px, «¿Cuánto peligro tiene?»
+  | quedaba cortada por la izquierda sin ninguna señal. Se mide al hacer
+  | scroll y al cambiar de tamaño (en sus avisos, nunca dentro del efecto).
+  */
+  const tira = useRef<HTMLDivElement>(null);
+  const [bordes, setBordes] = useState({ izq: false, der: false });
+
+  useEffect(() => {
+    const el = tira.current;
+
+    if (!el) return;
+
+    const mide = () => {
+      const izq = el.scrollLeft > 2;
+      const der = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+
+      setBordes((b) => (b.izq === izq && b.der === der ? b : { izq, der }));
+    };
+
+    el.addEventListener("scroll", mide, { passive: true });
+
+    const vigia = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(mide);
+
+    vigia?.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", mide);
+      vigia?.disconnect();
+    };
+  }, []);
+
+  const mascara =
+    bordes.izq && bordes.der
+      ? "max-md:pr-8 max-md:[mask-image:linear-gradient(to_right,transparent,#000_12%,#000_85%,transparent)]"
+      : bordes.izq
+        ? "max-md:[mask-image:linear-gradient(to_right,transparent,#000_12%)]"
+        : bordes.der
+          ? "max-md:pr-8 max-md:[mask-image:linear-gradient(to_right,#000_85%,transparent)]"
+          : "";
+
   return (
     <div style={pegada ? { top: "var(--alto-cabecera, 0px)" } : undefined} className={`${pegada ? "sticky z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10" : ""}`}>
-      <div role="tablist" aria-label={etiqueta} className="flex min-w-0 gap-1 overflow-x-auto border-b border-white/10 scrollbar-none max-md:pr-8 max-md:[mask-image:linear-gradient(to_right,#000_85%,transparent)]">
+      <div ref={tira} role="tablist" aria-label={etiqueta} className={`flex min-w-0 gap-1 overflow-x-auto border-b border-white/10 scrollbar-none ${mascara}`}>
         {opciones.map(({ clave, label, corto, icono: Icono, cuenta }) => {
           const activa = clave === valor;
 

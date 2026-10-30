@@ -277,6 +277,12 @@ export type FilaRanking = {
   jornadasGanadas: number;
   /** Su mejor jornada, en aciertos. */
   mejorJornada: number;
+  /**
+   * Los partidos jugados en los que de verdad puso signo (30/10/2026): desde
+   * su primera apuesta, lo que no pone cuenta como fallo, y sin esto no se
+   * veía que «25/53» eran 5 apuestas y 48 en blanco.
+   */
+  apostados: number;
 };
 
 /**
@@ -315,6 +321,7 @@ export function ranking(
     let jugados = 0;
     let jornadasGanadas = 0;
     let mejorJornada = 0;
+    let apostados = 0;
 
     /*
     | CADA UNO CUENTA DESDE QUE EMPIEZA A JUGAR.
@@ -337,6 +344,7 @@ export function ranking(
 
       aciertos += marcador.aciertos;
       jugados += marcador.jugados;
+      apostados += jornada.resultados.filter((resultado, indice) => resultado && (jornada.pronosticos[slug] ?? [])[indice]).length;
 
       if (marcador.jugados > 0) {
         mejorJornada = Math.max(mejorJornada, marcador.aciertos);
@@ -370,6 +378,7 @@ export function ranking(
         : { aciertos: 0, jugados: 0, porcentaje: 0 },
       jornadasGanadas,
       mejorJornada,
+      apostados,
     };
   });
 

@@ -93,8 +93,14 @@ export type FilaComparativa = {
   referencia: FilaJugador[];
   percentiles: Percentil[];
   indice: number | null;
-  /** Su puesto en el ranking de la referencia por índice: 1 = el mejor. */
-  ranking: { posicion: number; de: number } | null;
+  /**
+   * Su puesto en el ranking de la referencia por índice: 1 = el mejor.
+   * `empatados`: cuántos del grupo tienen su mismo índice (30/10/2026).
+   * `fueraDeEdad`: él no es de la referencia (más mayor) y se coloca entre
+   * ellos contando como uno más; por eso su «de N» lleva uno más que el de un
+   * compañero del mismo puesto que sí entra.
+   */
+  ranking: { posicion: number; de: number; empatados: number; fueraDeEdad: boolean } | null;
   /** Salto medio de percentil contra su categoría del año pasado. */
   evolucion: { salto: number; fiable: boolean } | null;
 };
@@ -134,7 +140,12 @@ export function comparativa(jugadores: FilaJugador[], ref: Referencia): FilaComp
     const ranking =
       indice === null || otros.length === 0
         ? null
-        : { posicion: otros.filter((i) => i > indice).length + 1, de: otros.length + 1 };
+        : {
+            posicion: otros.filter((i) => i > indice).length + 1,
+            de: otros.length + 1,
+            empatados: otros.filter((i) => i === indice).length,
+            fueraDeEdad: !indices.has(jugador),
+          };
 
     const evo = evolucionDe(jugador, jugadores);
     const evolucion = evo.filas.length

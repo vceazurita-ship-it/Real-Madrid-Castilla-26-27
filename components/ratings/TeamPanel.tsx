@@ -204,6 +204,14 @@ export function TeamPanel({
 
   const best = bestSorted[0] ?? null;
 
+  /* 30/10/2026: la lectura del top se hace sobre TODOS los que tienen 4+
+     partidos, no sólo sobre los diez del gráfico: si no, «abajo» era el
+     décimo y parecía que nadie iba peor. */
+  const elegiblesTop = useMemo(
+    () => bestSorted.filter((entry) => entry.summary.played >= MIN_FIABLE),
+    [bestSorted]
+  );
+
   const mostImproved = useMemo(() => {
     const conMuestra = ranked.filter((entry) => entry.summary.played >= MIN_FIABLE);
 
@@ -275,7 +283,9 @@ export function TeamPanel({
           )
         : 0;
 
-      return { name: group.label, value, players: members.length };
+      const notas = members.reduce((total, entry) => total + entry.summary.played, 0);
+
+      return { name: group.label, value, players: members.length, notas };
     }).filter((item) => item.players > 0);
   }, [ranked]);
 
@@ -325,7 +335,7 @@ export function TeamPanel({
           }
           hint={
             mostImproved
-              ? `${formatSigned(mostImproved.summary.trend)} en las últimas 3 · ${mostImproved.summary.played} PJ`
+              ? `${formatSigned(mostImproved.summary.trend)} en las últimas 3 · ${mostImproved.summary.played} PJ · entre quienes tienen ${MIN_FIABLE}+ PJ`
               : undefined
           }
           accent="var(--rmcf-rate-good)"
@@ -345,7 +355,7 @@ export function TeamPanel({
 
       <Panel
         title="Evolución del equipo"
-        subtitle="Media de las notas de cada partido"
+        subtitle="Media de las notas de cada partido · un punto por partido"
         lectura={
           <LecturaGrafico
             serie={evolution.map((punto) => ({
@@ -354,6 +364,7 @@ export function TeamPanel({
             }))}
             sentido="mas-es-mejor"
             unidadSerie="de nota"
+            nota={ultimoPartido(evolution, teamAverage)}
           />
         }
         icon={LineChartIcon}
@@ -433,8 +444,10 @@ export function TeamPanel({
                   }}
                 />
 
+                {/* 30/10/2026: «linear», no «monotone»: la curva se inventaba
+                    notas entre un partido y el siguiente. */}
                 <Area
-                  type="monotone"
+                  type="linear"
                   dataKey="avg"
                   stroke="none"
                   fill="url(#teamAvgFill)"
@@ -442,7 +455,7 @@ export function TeamPanel({
                 />
 
                 <Line
-                  type="monotone"
+                  type="linear"
                   dataKey="avg"
                   stroke="#C8A96B"
                   strokeWidth={2.5}
@@ -461,16 +474,12 @@ export function TeamPanel({
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Panel
           title="Top valoraciones"
-          subtitle={`Jugadores con ${MIN_FIABLE}+ partidos`}
-          lectura={
-            <LecturaGrafico
-              ranking={topChart.map((punto) => ({
-                nombre: punto.name,
-                valor: punto.value,
-              }))}
-              unidadSerie="de nota"
-            />
+          subtitle={
+            elegiblesTop.length > topChart.length
+              ? `Los ${topChart.length} mejores de ${elegiblesTop.length} con ${MIN_FIABLE}+ partidos`
+              : `Los ${topChart.length} jugadores con ${MIN_FIABLE}+ partidos`
           }
+          lectura={<LecturaGrafico nota={lecturaTop(elegiblesTop)} />}
           icon={Trophy}
           bodyClassName="p-3 sm:p-4"
         >
@@ -572,13 +581,7 @@ export function TeamPanel({
           <Panel
             title="Media por línea"
             lectura={
-              <LecturaGrafico
-                ranking={byLine.map((punto) => ({
-                  nombre: punto.name,
-                  valor: punto.value,
-                }))}
-                unidadSerie="de nota"
-              />
+              <LecturaGrafico nota={lecturaLineas(byLine)} />
             }
             icon={Award}
             bodyClassName="p-3 sm:p-4"
@@ -617,7 +620,7 @@ export function TeamPanel({
                             <tspan x={props.x} dy={12} fontSize={11}>{nombre}</tspan>
                             {linea && (
                               <tspan x={props.x} dy={14} fontSize={10} style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.5)" }}>
-                                {linea.players} {linea.players === 1 ? "jugador" : "jugadores"}
+                                {linea.players} jug. · {linea.notas} notas
                               </tspan>
                             )}
                           </text>
@@ -640,12 +643,6 @@ export function TeamPanel({
                         stroke="rgb(var(--rmcf-ink-rgb) / 0.45)"
                         style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
                         strokeDasharray="4 4"
-                        label={{
-                          value: `media del equipo ${formatRating(teamAverage)}`,
-                          position: "insideTopRight",
-                          fontSize: 11,
-                          fill: "rgb(var(--rmcf-ink-rgb) / 0.7)",
-                        }}
                       />
                     )}
 
@@ -687,8 +684,21 @@ export function TeamPanel({
               <>
                 <LeyendaColorNota />
 
+                {/* 30/10/2026: la media del equipo va aquí y no dentro del
+                    gráfico, donde se montaba sobre la barra de Ataque. */}
+                {teamAverage > 0 && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-white/55">
+                    <span
+                      aria-hidden
+                      className="inline-block w-5 border-t-2 border-dashed"
+                      style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
+                    />
+                    media del equipo {formatRating(teamAverage)}
+                  </p>
+                )}
+
                 <p className="mt-1.5 text-[11px] leading-relaxed text-white/45">
-                  Bajo cada barra, los jugadores con nota en esa línea
+                  Bajo cada barra, los jugadores con nota en esa línea y cuántas notas suman
                   {byLine.some((x) => x.players < 3)
                     ? `: ${byLine
                         .filter((x) => x.players < 3)
@@ -778,8 +788,8 @@ export function TeamPanel({
           <table className="w-full min-w-[840px] border-collapse text-sm">
             <thead>
               <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.16em] text-white/35">
-                <th className="px-4 py-3 text-left font-medium">#</th>
-                <th className="px-2 py-3 text-left font-medium">Jugador</th>
+                <th className="hidden px-4 py-3 text-left font-medium sm:table-cell">#</th>
+                <th className="sticky left-0 z-[1] bg-[#11161D] px-2 py-3 text-left font-medium max-sm:pl-4">Jugador</th>
                 <th className="px-2 py-3 text-center font-medium">PJ</th>
                 <th className="px-2 py-3 text-center font-medium">Tit.</th>
                 <th className="px-2 py-3 text-center font-medium">Min</th>
@@ -800,11 +810,12 @@ export function TeamPanel({
                   onClick={() => onSelectPlayer(entry.player.id)}
                   className="cursor-pointer border-b border-white/5 transition hover:bg-white/[0.03]"
                 >
-                  <td className="px-4 py-2.5 text-[11px] tabular-nums text-white/30">
+                  <td className="hidden px-4 py-2.5 text-[11px] tabular-nums text-white/30 sm:table-cell">
                     {index + 1}
                   </td>
 
-                  <td className="px-2 py-2.5">
+                  {/* 30/10/2026: fija a la izquierda, para no perder de quién es la fila al desplazar. */}
+                  <td className="sticky left-0 z-[1] max-w-[180px] bg-[#11161D] px-2 py-2.5 max-sm:pl-4">
                     <div className="flex min-w-0 items-center gap-2.5">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -939,6 +950,74 @@ export function TeamPanel({
         </Panel>
       </div>
     </div>
+  );
+}
+
+/** «Arriba «Mestre» con 7,4; el último de los 17 con 4+ partidos, «Rachad», con 4,6 (2,8 menos).» */
+function lecturaTop(elegibles: RankedPlayer[]): string | null {
+  if (elegibles.length < 2) return null;
+
+  const arriba = elegibles[0];
+  const abajo = elegibles[elegibles.length - 1];
+
+  return (
+    `Arriba «${arriba.player.nombre}» con ${formatRating(arriba.summary.avg)} de nota; ` +
+    `el último de los ${elegibles.length} con ${MIN_FIABLE}+ partidos, «${abajo.player.nombre}», ` +
+    `con ${formatRating(abajo.summary.avg)} (${formatRating(arriba.summary.avg - abajo.summary.avg)} menos).`
+  );
+}
+
+/** La línea más baja y qué mirar en ella; si van a la par, se dice. */
+function lecturaLineas(
+  lineas: { name: string; value: number; players: number; notas: number }[]
+): string | null {
+  /* Una línea con menos de 3 jugadores con nota es tendencia: no se señala. */
+  const firmes = lineas.filter((linea) => linea.players >= 3);
+
+  if (firmes.length < 2) return null;
+
+  const orden = [...firmes].sort((a, b) => b.value - a.value);
+  const arriba = orden[0];
+  const abajo = orden[orden.length - 1];
+  const salto = arriba.value - abajo.value;
+
+  if (salto < 0.3) {
+    return `Las líneas van a la par (de ${formatRating(abajo.value)} a ${formatRating(arriba.value)}): ninguna tira del equipo hacia abajo.`;
+  }
+
+  const queMirar: Record<string, string> = {
+    Ataque: "revisar ocasiones y último pase",
+    Medios: "revisar pérdidas y apoyos",
+    Defensas: "revisar duelos y vigilancias",
+    Porteros: "revisar juego con el pie y salidas",
+  };
+
+  return (
+    `«${abajo.name}» es la línea a mejorar: ${formatRating(abajo.value)} de nota, ` +
+    `${formatRating(salto)} por debajo de «${arriba.name}»` +
+    (queMirar[abajo.name] ? `; ${queMirar[abajo.name]}.` : ".")
+  );
+}
+
+/** El último partido frente a la media: un partido suelto es tendencia, no un cambio de nivel. */
+function ultimoPartido(
+  serie: { label: string; avg: number; rated: number }[],
+  media: number
+): string | null {
+  const ultimo = serie[serie.length - 1];
+
+  if (!ultimo || serie.length < 2 || media <= 0) return null;
+
+  const delta = ultimo.avg - media;
+
+  if (Math.abs(delta) < 0.3) {
+    return `Último partido (${ultimo.label}): ${formatRating(ultimo.avg)} con ${ultimo.rated} valorados, en la media del equipo.`;
+  }
+
+  return (
+    `Último partido (${ultimo.label}): ${formatRating(ultimo.avg)} con ${ultimo.rated} valorados, ` +
+    `${formatRating(Math.abs(delta))} ${delta < 0 ? "por debajo" : "por encima"} de la media ${formatRating(media)}; ` +
+    `un solo partido es tendencia, no un cambio de nivel.`
   );
 }
 

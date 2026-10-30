@@ -12,7 +12,7 @@ import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
 export default async function DatosAbpLayout({ children }: { children: ReactNode }) {
   const almacen = await cookies();
 
-  if (!esAdmin(almacen.get(COOKIE_ADMIN)?.value)) redirect("/ajustes");
+  if (!esAdmin(almacen.get(COOKIE_ADMIN)?.value)) redirect(`/ajustes?vuelta=${encodeURIComponent("/laboratorio/abp/datos")}`); /* 30/10/2026: vuelve aquí tras entrar. */
 
   return children;
 }

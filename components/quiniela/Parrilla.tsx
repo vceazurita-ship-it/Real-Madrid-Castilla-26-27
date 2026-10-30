@@ -156,7 +156,78 @@ export function Parrilla({
         </li>
       </ul>
 
-      <div className="min-w-0 overflow-x-auto">
+      {/*
+      | EN EL MÓVIL, UNA TARJETA POR PARTIDO (30/10/2026, expertos). A 390 px
+      | la tabla de once columnas sólo dejaba ver el reparto: aquí cada partido
+      | lleva las once caras con el signo de cada uno, en una rejilla de 6 + 5,
+      | y el reparto debajo del título (con sitio para el botón flotante ⋮).
+      */}
+      <ul className="space-y-3 sm:hidden">
+        {filas.map((fila) => (
+          <li key={fila.indice} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+            <div className="flex items-start justify-between gap-2 pr-10">
+              <span className="min-w-0">
+                <span className="block text-[13px] text-white/85">{fila.partido.local}</span>
+                <span className="block text-[12px] text-white/50">{fila.partido.visitante}</span>
+              </span>
+              {fila.resultado && (
+                <span className="shrink-0 rounded-md border border-white/15 px-1.5 py-0.5 text-[12px] font-semibold text-white/75">{fila.resultado}</span>
+              )}
+            </div>
+
+            <span className="mt-2 flex h-[20px] w-full overflow-hidden rounded" title={SIGNOS.map((signo) => `${signo}: ${fila.votos[signo]}`).join(" · ")}>
+              {SIGNOS.map((signo) =>
+                fila.votos[signo] > 0 ? (
+                  <span
+                    key={signo}
+                    className="flex items-center justify-center text-[11px] font-semibold tabular-nums text-black/70"
+                    style={{ flex: `${fila.votos[signo]} 1 0`, minWidth: 18, background: COLOR_SIGNO[signo] }}
+                  >
+                    {fila.votos[signo]}
+                  </span>
+                ) : null,
+              )}
+            </span>
+
+            <ul className="mt-2.5 grid grid-cols-6 gap-x-1 gap-y-2">
+              {jugadores.map((slug) => {
+                const persona = PERSONA_POR_SLUG.get(slug);
+                const signo = fila.signos[slug];
+
+                return (
+                  <li key={slug} className="flex min-w-0 flex-col items-center gap-0.5">
+                    <Avatar slug={slug} lado={26} />
+                    <span className="w-full truncate text-center text-[11px] leading-tight text-white/55">{persona ? nombreCorto(persona) : slug}</span>
+                    <span
+                      className={`inline-flex h-6 w-7 items-center justify-center rounded-md border text-[12px] font-semibold ${tono(signo, fila.resultado)}`}
+                      title={signo ? NOMBRE_DEL_SIGNO[signo as Signo] : "No lo puso"}
+                    >
+                      {signo ?? "·"}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {(fila.unanime || fila.solitarios.length > 0) && (
+              <span className="mt-2 flex flex-wrap gap-1">
+                {fila.unanime && <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-white/55">Todos igual</span>}
+                {fila.solitarios.map((slug) => {
+                  const persona = PERSONA_POR_SLUG.get(slug);
+
+                  return (
+                    <span key={slug} className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[11px] text-[#C8A96B]">
+                      Solo {persona ? nombreCorto(persona) : slug}
+                    </span>
+                  );
+                })}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      <div className="min-w-0 overflow-x-auto max-sm:hidden">
         <table
           className="w-full text-[12px]"
           style={{ minWidth: `${340 + jugadores.length * 58}px` }}
@@ -179,12 +250,13 @@ export function Parrilla({
                     <span className="flex flex-col items-center gap-1">
                       <Avatar slug={slug} lado={26} />
 
-                      <span className="block max-w-[56px] truncate text-[9px] font-normal text-white/45">
+                      {/* En dos renglones, sin cortar («J. López de…», 30/10/2026). */}
+                      <span className="line-clamp-2 block max-w-[56px] break-words text-center text-[11px] font-normal leading-tight text-white/55">
                         {persona ? nombreCorto(persona) : slug}
                       </span>
 
                       {filas.every((fila) => !fila.signos[slug]) && (
-                        <span className="block text-[9px] font-normal text-white/40">
+                        <span className="block text-[11px] font-normal text-white/45">
                           sin apostar
                         </span>
                       )}

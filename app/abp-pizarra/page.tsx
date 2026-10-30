@@ -46,6 +46,7 @@ import {
   FlaskConical,
   History,
   LayoutGrid,
+  MoreHorizontal,
   Link2,
   Pencil,
   Pin,
@@ -133,6 +134,7 @@ import {
   adornosDePlantilla,
   gruposDe,
   gruposDePlantilla,
+  siglaDe,
   huellaTablero,
   huellaVersion,
   memoriaDeGrupo,
@@ -290,7 +292,7 @@ function SelectorJornada({
 
   return (
     <div className="block min-w-0">
-      <span className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] uppercase tracking-[0.16em] text-white/40">
+      <span className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] uppercase tracking-[0.16em] text-white/40">
         {rotulo}
         {atajos.length > 1 && (
           <span className="flex flex-wrap gap-1 normal-case tracking-normal">
@@ -662,8 +664,10 @@ export default function PizarraAbpPage() {
   const porFechaPartido = (a: MatchMeta, b: MatchMeta) =>
     (a.date || "").localeCompare(b.date || "") || a.id.localeCompare(b.id);
 
+  /* Sin el año (30/10/2026, expertos): toda la temporada cae en él y en el
+     móvil cortaba la opción en «J10 · 31 oct 2026 · vs Cartagena · próximo · 1…». */
   const etiquetaOpcion = (item: MatchMeta) =>
-    `${etiquetaPartido(item, fechasReales)}${item.id === proximoId ? " · próximo" : ""}`;
+    `${etiquetaPartido(item, fechasReales).replace(/(\d{1,2} [a-zé]+\.?) \d{4}/i, "$1")}${item.id === proximoId ? " · próximo" : ""}`;
 
   const esJugado = (item: MatchMeta) => item.id !== proximoId && Boolean(item.date) && (item.date as string) < hoy;
 
@@ -1236,6 +1240,8 @@ export default function PizarraAbpPage() {
   /* ------------------------- PROYECTOR ----------------------------- */
 
   const [proyectando, setProyectando] = useState<number | null>(null);
+  /* En el móvil, las acciones de la diapositiva van plegadas en «Más» (30/10/2026). */
+  const [masSlide, setMasSlide] = useState(false);
   /* En el móvil la cabecera de «de quién es» va plegada: el campo antes que los datos. */
   const [cabeceraAbierta, setCabeceraAbierta] = useState(false);
 
@@ -2418,11 +2424,12 @@ export default function PizarraAbpPage() {
             {/* El once de la pizarra táctica, a la vista: es el que «Colocar» usa. */}
             {delOnce.length > 0 && (
               <div className="mt-3 flex min-w-0 flex-col gap-2 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] px-3 py-2.5 sm:flex-row sm:items-center">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:flex-col max-sm:items-start">
+                  <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
                     Once de la pizarra táctica
                   </span>
-                  <span className="flex min-w-0 -space-x-2 overflow-hidden">
+                  {/* En el móvil, a dos filas y sin cortar caras (30/10/2026). */}
+                  <span className="flex min-w-0 flex-wrap -space-x-2 gap-y-1 overflow-hidden">
                     {delOnce.map((id) => {
                       const player = porId.get(id);
                       return player?.foto ? (
@@ -2438,7 +2445,7 @@ export default function PizarraAbpPage() {
                         <span
                           key={id}
                           title={player?.apodo || player?.nombre}
-                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-[#0B0F14] bg-white/10 text-[10px] font-bold text-white/80"
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-[#0B0F14] bg-white/10 text-[11px] font-bold text-white/80"
                         >
                           {player?.dorsal ?? ""}
                         </span>
@@ -2546,7 +2553,7 @@ export default function PizarraAbpPage() {
                         proximo: item.id === gruposJornada.siguienteId,
                       }))}
                       pie={
-                        <span className="mt-1 block text-[10px] text-white/30">
+                        <span className="mt-1 block text-[11px] text-white/30">
                           {jornada
                             ? atada
                               ? "Atada a mano: manda sobre el nombre y la fecha."
@@ -2601,7 +2608,7 @@ export default function PizarraAbpPage() {
                         .filter((item) => item.texto)
                         .map((item) => (
                           <div key={item.titulo} className="min-w-0">
-                            <p className="mb-1 text-[10px] uppercase tracking-[0.16em] text-[#C8A96B]">
+                            <p className="mb-1 text-[11px] uppercase tracking-[0.16em] text-[#C8A96B]">
                               {item.titulo} · plan de partido
                             </p>
 
@@ -2756,7 +2763,7 @@ export default function PizarraAbpPage() {
 
                             {/* La cifra, sólo si falta alguien: completa no hace falta decir nada. */}
                             {(!total || cubiertos < total) && (
-                              <span className="block text-[10px] tabular-nums text-amber-300/70">
+                              <span className="block text-[11px] tabular-nums text-amber-300/70">
                                 {total ? `${cubiertos} de ${total} colocados` : "Libre"}
                               </span>
                             )}
@@ -2790,6 +2797,10 @@ export default function PizarraAbpPage() {
                         </select>
                       </label>
 
+                      {/* En el móvil ocupaban media pantalla antes del campo
+                          (30/10/2026, expertos): a la vista sólo añadir y
+                          colocar; el resto, detrás de «Más». */}
+                      <span className={`contents ${masSlide ? "" : "max-sm:hidden"}`}>
                       <Button icon={CopyPlus} onClick={duplicaSlide}>
                         Duplicar
                       </Button>
@@ -2824,6 +2835,7 @@ export default function PizarraAbpPage() {
                       >
                         Después
                       </Button>
+                      </span>
 
                       <Button
                         icon={Wand2}
@@ -2834,6 +2846,7 @@ export default function PizarraAbpPage() {
                         Colocar ésta
                       </Button>
 
+                      <span className={`contents ${masSlide ? "" : "max-sm:hidden"}`}>
                       <Button
                         tone="danger"
                         icon={Trash2}
@@ -2842,6 +2855,13 @@ export default function PizarraAbpPage() {
                       >
                         Quitar
                       </Button>
+                      </span>
+
+                      <span className="sm:hidden">
+                        <Button icon={MoreHorizontal} onClick={() => setMasSlide((v) => !v)} aria-pressed={masSlide}>
+                          {masSlide ? "Menos" : "Más"}
+                        </Button>
+                      </span>
                     </div>
                   </Panel>
                 </div>
@@ -3004,11 +3024,15 @@ export default function PizarraAbpPage() {
                               (Equilibrio, Bloqueos, Rechace…), con el rótulo
                               del grupo encima y el puesto escrito entero: las
                               siglas sueltas (BZ, RL, D1) no se entendían. */}
+                          {/* 30/10/2026 (expertos): con los rótulos de grupo
+                              que lleva la lámina (los reescritos de esta
+                              diapositiva, no los de la plantilla) y la misma
+                              sigla de la chapa delante del puesto: «C · Corta». */}
                           <div className="space-y-2.5">
                             {[
-                              ...gruposDePlantilla(slide),
+                              ...gruposDe(slide),
                               ...[...new Set(puestosDe(slide).map((puesto) => puesto.grupo))]
-                                .filter((key) => !gruposDePlantilla(slide).some((grupo) => grupo.key === key))
+                                .filter((key) => !gruposDe(slide).some((grupo) => grupo.key === key))
                                 .map((key) => ({ key, label: key })),
                             ].flatMap((grupo) => {
                               const filas = puestosDeGrupo(slide, grupo.key).flatMap((puesto) => {
@@ -3017,7 +3041,9 @@ export default function PizarraAbpPage() {
 
                                 return ficha ? [
                                   <li key={puesto.key} className="flex gap-2 text-base leading-snug text-white/85">
-                                    <span className="w-28 shrink-0 text-sm text-[color:var(--rmcf-gold-ink)]">{puesto.label}</span>
+                                    <span className="w-32 shrink-0 text-sm text-[color:var(--rmcf-gold-ink)]">
+                                      <b className="font-bold">{siglaDe(puesto)}</b> · {puesto.label}
+                                    </span>
                                     <span className="min-w-0 font-semibold">{jugador?.apodo || jugador?.nombre || ficha.playerId}</span>
                                   </li>,
                                 ] : [];
@@ -3025,7 +3051,7 @@ export default function PizarraAbpPage() {
 
                               return filas.length ? [
                                 <div key={grupo.key}>
-                                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">{grupo.label}</p>
+                                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">{grupo.label}</p>
                                   <ul className="space-y-1">{filas}</ul>
                                 </div>,
                               ] : [];
@@ -3244,7 +3270,7 @@ export default function PizarraAbpPage() {
                     title="Lo que ha aprendido"
                     subtitle={
                       aprendidos
-                        ? `${aprendidos} puestos con historial`
+                        ? `${aprendidos} puestos en los que ya ha visto a alguien: con eso rellena «Colocar todo»`
                         : "Todavía nada: coloca a alguien y empieza a recordar"
                     }
                   >
@@ -3470,10 +3496,12 @@ function HistorialVersiones({
                 </button>
               )}
 
-              <span className="mt-0.5 block truncate text-[10px] text-white/35">
+              {/* «92 fichas» no se entendía (30/10/2026): son los puestos ocupados, sumando diapositivas. */}
+              <span className="mt-0.5 block truncate text-[11px] text-white/50">
                 {MOTIVO_LABEL[version.motivo]} · {etiquetaVersion(version.creada)}
                 {version.rival ? ` · ${version.rival}` : ""} · {fichas}{" "}
-                {fichas === 1 ? "ficha" : "fichas"}
+                {fichas === 1 ? "puesto ocupado" : "puestos ocupados"} en {version.slides.length}{" "}
+                {version.slides.length === 1 ? "diapositiva" : "diapositivas"}
                 {esLaDeAhora ? " · es lo que hay en pantalla" : ""}
               </span>
             </div>
@@ -3599,7 +3627,7 @@ function MemoriaResumen({
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {filas.map(([titulo, puestos]) => (
         <div key={titulo} className="min-w-0">
-          <p className="mb-1.5 text-[10px] uppercase tracking-[0.16em] text-[#C8A96B]">
+          <p className="mb-1.5 text-[11px] uppercase tracking-[0.16em] text-[#C8A96B]">
             {titulo}
           </p>
 
@@ -3610,7 +3638,7 @@ function MemoriaResumen({
                 className="flex min-w-0 items-baseline gap-2 text-xs"
               >
                 <span
-                  className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-white/60"
+                  className="shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[11px] font-semibold text-white/60"
                   title={puesto.label}
                 >
                   {puesto.code}
@@ -3964,10 +3992,26 @@ function ControlDeGazapos({
   const consignas = useMemo(() => {
     const lista = [...players.entries()].map(([id, player]) => ({ id, nombre: player.nombre, apodo: player.apodo }));
 
-    return tablero.slides
-      .filter((slide) => slide.fichas.length > 0)
-      .map((slide) => ({ slide, nombres: consignasSinPuesto(slide, lista) }))
-      .filter((uno) => uno.nombres.length > 0);
+    /* Agrupado por diapositiva con el mismo título y mismos nombres
+       (30/10/2026, expertos): tres «CÓRNER OFENSIVO» con el mismo aviso salían
+       como tres líneas iguales. Ahora una sola, «×3», con un salto a cada una. */
+    const grupos = new Map<string, { titulo: string; nombres: string[]; slides: SlidePizarra[] }>();
+
+    for (const slide of tablero.slides) {
+      if (slide.fichas.length === 0) continue;
+
+      const nombres = consignasSinPuesto(slide, lista);
+
+      if (!nombres.length) continue;
+
+      const clave = `${slide.titulo}|${[...nombres].sort().join(",")}`;
+      const grupo = grupos.get(clave);
+
+      if (grupo) grupo.slides.push(slide);
+      else grupos.set(clave, { titulo: slide.titulo, nombres, slides: [slide] });
+    }
+
+    return [...grupos.values()];
   }, [tablero, players]);
 
   const limpio = revision.gazapos.length === 0 && revision.slidesConGente > 1 && consignas.length === 0;
@@ -3985,28 +4029,21 @@ function ControlDeGazapos({
     })
     .filter(Boolean);
 
+  const avisos = revision.gazapos.length + consignas.length;
+
   return (
     <details className="group rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
-      <summary className="cursor-pointer select-none text-xs font-medium text-white/70">
+      {/* Un chip con el número de avisos, no un párrafo naranja de cuatro
+          líneas (30/10/2026, expertos): la lista sale al desplegar. */}
+      <summary className="flex min-h-[32px] cursor-pointer select-none flex-wrap items-center gap-2 text-xs font-medium text-white/70">
         Control de la convocatoria
-        <span className={`ml-2 ${limpio ? "text-emerald-300/80" : "text-amber-300/90"}`}>
-          {limpio
-            ? "· cuadra"
-            : [
-                revision.gazapos.length
-                  ? `${revision.gazapos.length === 1 ? "1 jugador no está" : `${revision.gazapos.length} jugadores no están`} en todas las diapositivas${
-                      nombres.length ? `: ${nombres.join(", ")}` : ""
-                    }`
-                  : "",
-                ...consignas.map(
-                  (uno) =>
-                    `${uno.nombres.join(", ")} ${uno.nombres.length === 1 ? "sale" : "salen"} en las consignas de «${uno.slide.titulo}» y no ${uno.nombres.length === 1 ? "tiene" : "tienen"} puesto`,
-                ),
-              ]
-                .filter(Boolean)
-                .map((texto) => `· ${texto}`)
-                .join(" ")}
-        </span>
+        {limpio ? (
+          <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] text-emerald-300">cuadra</span>
+        ) : avisos > 0 ? (
+          <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300" title={nombres.join(", ")}>
+            {avisos === 1 ? "1 aviso" : `${avisos} avisos`}
+          </span>
+        ) : null}
       </summary>
     <Panel
       className="mt-3"
@@ -4086,24 +4123,34 @@ function ControlDeGazapos({
 
       {consignas.length > 0 && (
         <div className="mt-3 space-y-1.5">
-          {consignas.map((uno) => (
-            <p key={uno.slide.id} className="flex items-start gap-1.5 text-xs leading-relaxed text-amber-300/80">
-              <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-              <span>
-                {uno.nombres.join(", ")} {uno.nombres.length === 1 ? "sale" : "salen"} en las consignas y no{" "}
-                {uno.nombres.length === 1 ? "tiene" : "tienen"} puesto en{" "}
-                <button
-                  type="button"
-                  onClick={() => onIrA(uno.slide.id)}
-                  title="Ir a esta diapositiva"
-                  className="underline decoration-dotted underline-offset-2 transition hover:text-white"
-                >
-                  {uno.slide.titulo}
-                </button>
-                : ficha suelta o quitarlo del texto.
-              </span>
-            </p>
-          ))}
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Nombres en las consignas sin puesto en el campo</p>
+          <ul className="space-y-1.5">
+            {consignas.map((uno) => (
+              <li key={`${uno.titulo}|${uno.slides[0].id}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] px-3 py-2 text-xs">
+                <AlertTriangle size={13} className="shrink-0 text-amber-300/80" />
+                <span className="font-semibold text-white/85">{uno.nombres.join(", ")}</span>
+                <span className="text-white/55">en</span>
+                <span className="font-semibold text-amber-200/90">
+                  {uno.titulo}
+                  {uno.slides.length > 1 ? ` ×${uno.slides.length}` : ""}
+                </span>
+                {/* Cada diapositiva, un salto: allí se le pone ficha o se quita del texto. */}
+                <span className="ml-auto flex flex-wrap gap-1.5">
+                  {uno.slides.map((slide, i) => (
+                    <button
+                      key={slide.id}
+                      type="button"
+                      onClick={() => onIrA(slide.id)}
+                      title="Ir a esta diapositiva para darle puesto o quitarlo del texto"
+                      className="min-h-[28px] rounded-lg border border-white/12 px-2 text-[11px] text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
+                    >
+                      {uno.slides.length > 1 ? `Ir a la ${i + 1}.ª` : "Darle puesto"}
+                    </button>
+                  ))}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

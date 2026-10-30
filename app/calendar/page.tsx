@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Users } from "lucide-react";
 import { usePlayers } from "@/hooks/usePlayers";
-import { alineaSeguimiento, esDeSeguimiento } from "@/lib/seguimiento";
+import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, sinSeguimientoReciente } from "@/lib/seguimiento";
 import {
   CalendarShell,
   CalendarStat,
@@ -43,7 +43,11 @@ type TrackingRecord = {
   ESTRATEGIA: string;
 };
 
-type StrategyKey = "CAMPO" | "VIDEO" | "OTRO";
+/* 30/10/2026: «Charla» y «Vídeo y charla» con su propio color y su cifra.
+   Antes «Vídeo y charla» contaba como vídeo y «Charla» caía en «Otros», y las
+   tarjetas de cada día decían una cosa y la leyenda otra. «Otros» queda para
+   lo que no trae tipo escrito, y sólo sale si hay alguno. */
+type StrategyKey = "CAMPO" | "VIDEO" | "CHARLA" | "VIDEO_CHARLA" | "OTRO";
 
 const STRATEGY_STYLES: Record<
   StrategyKey,
@@ -51,15 +55,12 @@ const STRATEGY_STYLES: Record<
 > = {
   CAMPO: { stripe: "border-l-sky-400", dot: "bg-sky-400", label: "Campo" },
   VIDEO: { stripe: "border-l-yellow-400", dot: "bg-yellow-400", label: "Vídeo" },
-  OTRO: { stripe: "border-l-emerald-400", dot: "bg-emerald-400", label: "Otros" },
+  CHARLA: { stripe: "border-l-emerald-400", dot: "bg-emerald-400", label: "Charla" },
+  VIDEO_CHARLA: { stripe: "border-l-orange-400", dot: "bg-orange-400", label: "Vídeo y charla" },
+  OTRO: { stripe: "border-l-white/40", dot: "bg-white/40", label: "Sin tipo escrito" },
 };
 
-const LEGEND: CalendarLegendItem[] = (
-  Object.keys(STRATEGY_STYLES) as StrategyKey[]
-).map((key) => ({
-  label: STRATEGY_STYLES[key].label,
-  color: STRATEGY_STYLES[key].dot,
-}));
+const TIPOS: StrategyKey[] = ["CAMPO", "VIDEO", "CHARLA", "VIDEO_CHARLA", "OTRO"];
 
 /** Máximo de tarjetas visibles dentro de una celda antes de resumir. */
 const MAX_VISIBLE_PER_DAY = 3;
@@ -68,7 +69,9 @@ function strategyKey(value: string): StrategyKey {
   const normalized = normalizeText(value);
 
   if (normalized.includes("CAMPO")) return "CAMPO";
+  if (normalized.includes("VIDEO") && normalized.includes("CHARLA")) return "VIDEO_CHARLA";
   if (normalized.includes("VIDEO")) return "VIDEO";
+  if (normalized.includes("CHARLA")) return "CHARLA";
   return "OTRO";
 }
 
@@ -171,40 +174,42 @@ export default function Calendar() {
       return d.getMonth() === active.month && d.getFullYear() === active.year;
     });
 
-    const jugadores = new Set(inMonth.map((s) => s.ID_JUGADOR)).size;
-    const campo = inMonth.filter(
-      (s) => strategyKey(s.ESTRATEGIA) === "CAMPO"
-    ).length;
-    const video = inMonth.filter(
-      (s) => strategyKey(s.ESTRATEGIA) === "VIDEO"
-    ).length;
+    const ids = new Set(inMonth.map((s) => s.ID_JUGADOR));
+    const jugadores = ids.size;
+    const castillaConSeguimiento = players.filter((p) => p.esCastilla && ids.has(p.id)).length;
 
-    return { total: inMonth.length, jugadores, campo, video };
-  }, [visibleData, active]);
+    const porTipo = Object.fromEntries(
+      TIPOS.map((tipo) => [tipo, inMonth.filter((s) => strategyKey(s.ESTRATEGIA) === tipo).length]),
+    ) as Record<StrategyKey, number>;
+
+    return { total: inMonth.length, jugadores, castillaConSeguimiento, porTipo };
+  }, [visibleData, active, players]);
+
+  const castillaTotal = useMemo(() => players.filter((p) => p.esCastilla).length, [players]);
+
+  /* La leyenda sólo con los tipos que hay en el mes. */
+  const legend = useMemo<CalendarLegendItem[]>(
+    () =>
+      TIPOS.filter((tipo) => monthStats.porTipo[tipo] > 0).map((tipo) => ({
+        label: STRATEGY_STYLES[tipo].label,
+        color: STRATEGY_STYLES[tipo].dot,
+      })),
+    [monthStats],
+  );
 
   /* Jugadores de campo del Castilla sin ningún seguimiento en los últimos 14
      días: lo que se pregunta el lunes. Sale de la misma hoja, sin filtro de
      jugador (con uno elegido la pregunta no tiene sentido). */
+  /* 30/10/2026: la regla compartida de lib/seguimiento (la misma que
+     /individual y /individual_proc): 14 días que acaban hoy, hoy incluido.
+     Antes se comparaba con la hora del momento y un registro de hoy, fechado
+     a mediodía, no contaba por la mañana. */
   const sinSeguimiento = useMemo(() => {
     if (loading || error || crudoTrackingData.length === 0) return [];
 
-    const limite = new Date(hoy);
-    limite.setDate(limite.getDate() - 14);
-    limite.setHours(0, 0, 0, 0);
-
-    const conSeguimiento = new Set<string>();
-
-    trackingData.forEach((s) => {
-      const key = recordDateKey(s.FECHA);
-      if (!key) return;
-
-      const d = parseDateKey(key);
-      if (d >= limite && d <= hoy) conSeguimiento.add(s.ID_JUGADOR);
-    });
-
-    return players
-      .filter((p) => esDeSeguimiento(p) && !conSeguimiento.has(p.id))
-      .map((p) => ({ id: p.id, nombre: nombreVisible(p.nombre) }));
+    return sinSeguimientoReciente(trackingData, players, hoy, (fecha) => recordDateKey(fecha)).map(
+      (p) => ({ id: p.id, nombre: nombreVisible(p.nombre) }),
+    );
   }, [players, trackingData, crudoTrackingData, loading, error, hoy]);
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
@@ -242,8 +247,8 @@ export default function Calendar() {
       onMonthChange={setCurrentMonth}
       loading={loading}
       keyboardEnabled={!selectedKey}
-      legend={LEGEND}
-      statsColumnas={5}
+      legend={legend}
+      statsColumnas={3}
       franja={
         /* La alerta va ENCIMA del calendario (26/10/2026): al final de la
            página quedaba fuera de la vista y es lo que se pregunta el lunes.
@@ -254,7 +259,7 @@ export default function Calendar() {
             className="rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3 text-sm text-white/80"
           >
             <span className="font-semibold text-[#C8A96B]">
-              Sin seguimiento en 14 días ({sinSeguimiento.length}):
+              Sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días, hasta hoy ({sinSeguimiento.length}):
             </span>{" "}
             {sinSeguimiento.map((j, i) => (
               <span key={j.id}>
@@ -273,6 +278,8 @@ export default function Calendar() {
       }
       stats={
         <>
+          {/* 30/10/2026: el mes y la temporada en la misma tarjeta, cada
+              cifra con su periodo, para no cruzar bases. */}
           <CalendarStat
             label={`Seguimientos en ${MONTHS[active.month].toLowerCase()}${
               active.month === hoy.getMonth() && active.year === hoy.getFullYear()
@@ -280,13 +287,32 @@ export default function Calendar() {
                 : ""
             }`}
             value={monthStats.total}
+            hint={playerFilter ? undefined : `${trackingData.length} en toda la temporada`}
           />
-          <CalendarStat label="Jugadores con seguimiento" value={monthStats.jugadores} />
-          <CalendarStat label="Campo" value={monthStats.campo} />
-          <CalendarStat label="Vídeo" value={monthStats.video} />
           <CalendarStat
-            label="Otros"
-            value={monthStats.total - monthStats.campo - monthStats.video}
+            label="Jugadores con seguimiento"
+            value={monthStats.jugadores}
+            hint={
+              castillaTotal > 0
+                ? `${monthStats.castillaConSeguimiento} de los ${castillaTotal} del Castilla${
+                    monthStats.jugadores > monthStats.castillaConSeguimiento ? "; el resto, de otros equipos" : ""
+                  }`
+                : undefined
+            }
+          />
+          <CalendarStat
+            label="Por tipo"
+            value={
+              <span className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[13px] font-medium">
+                {TIPOS.filter((tipo) => monthStats.porTipo[tipo] > 0).map((tipo) => (
+                  <span key={tipo} className="flex min-w-0 items-center gap-1.5">
+                    <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", STRATEGY_STYLES[tipo].dot)} />
+                    <span className="min-w-0 truncate text-white/70">{STRATEGY_STYLES[tipo].label}</span>
+                    <span className="ml-auto tabular-nums">{monthStats.porTipo[tipo]}</span>
+                  </span>
+                ))}
+              </span>
+            }
           />
         </>
       }
@@ -307,11 +333,26 @@ export default function Calendar() {
           >
             <option value="">Todos los jugadores</option>
 
-            {players.map((p) => (
-              <option key={p.id} value={p.id}>
-                {nombreVisible(p.nombre)}
-              </option>
-            ))}
+            {/* 30/10/2026: el Castilla primero y los de otros equipos aparte. */}
+            <optgroup label="Castilla">
+              {players
+                .filter((p) => p.esCastilla)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {nombreVisible(p.nombre)}
+                  </option>
+                ))}
+            </optgroup>
+
+            <optgroup label="Otros equipos">
+              {players
+                .filter((p) => !p.esCastilla)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {nombreVisible(p.nombre)}
+                  </option>
+                ))}
+            </optgroup>
           </select>
         </div>
       }
@@ -394,11 +435,9 @@ export default function Calendar() {
       {!loading && !error && trackingData.length > 0 && (
         <div className="px-4 pb-4 md:px-8">
           <p className="text-xs leading-relaxed text-white/55">
-            Los totales cuentan los seguimientos registrados hasta hoy
-            ({visibleData.length} en la temporada).
-            La franja de color de cada tarjeta dice si fue de campo, de vídeo
-            u otro tipo; si un día tiene más de {MAX_VISIBLE_PER_DAY},
-            «+N más» abre el día completo.
+            La franja de color de cada tarjeta dice el tipo (campo, vídeo,
+            charla o vídeo y charla); debajo, quién lo hizo. Si un día tiene
+            más de {MAX_VISIBLE_PER_DAY}, «+N más» abre el día completo.
           </p>
         </div>
       )}

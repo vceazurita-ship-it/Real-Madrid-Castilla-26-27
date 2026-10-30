@@ -123,8 +123,9 @@ type Metrica = {
 
 const pct = (parte: number, total: number) => (total ? (parte / total) * 100 : 0);
 
+/* Un decimal en todas partes (30/10/2026, expertos), como la tabla del partido: «42,9 %», «50 %». */
 const formatoPct = (valor: number) =>
-  `${valor.toFixed(valor > 0 && valor < 10 ? 1 : 0).replace(".", ",")} %`;
+  `${(Math.round(valor * 10) / 10).toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`;
 
 const formatoXg = (valor: number) => valor.toFixed(2).replace(".", ",");
 
@@ -301,7 +302,7 @@ function comparaMetrica(
       delta == null
         ? ""
         : metrica.porcentual
-          ? `${signo(delta, Math.abs(delta) < 10 ? 1 : 0)} puntos`
+          ? `${signo(Math.round(delta * 10) / 10, Math.abs(Math.round(delta * 10) / 10) % 1 ? 1 : 0)} puntos`
           : signo(delta, 2),
     tono: fiable ? tonoDe(delta, sentidoDe(clave, sentido), umbral) : "neutro",
     fiable,
@@ -589,6 +590,21 @@ function analizaReparto(
     const clave = nombre.toLowerCase().replace(/\s+/g, " ");
     const ofensivo = sentido === "ofensivo";
 
+    /*
+    | 30/10/2026 (expertos): un solo recuento, el de las conclusiones y la
+    | tabla: «12 de 23 llegan a último tercio (1 acaba en ocasión)», y no «11
+    | … sin contar los que llegan a ocasión o gol».
+    */
+    if (clave.startsWith("conquista último tercio")) {
+      const llegan = utiles.filter((uno) => uno.peligro).length;
+      const soloTercio = utiles.filter((uno) => uno.categoria.trim().toLowerCase().replace(/\s+/g, " ").startsWith("conquista último tercio")).length;
+      const masAlla = Math.max(0, llegan - soloTercio);
+
+      return `${llegan} de ${utiles.length} saques ${ofensivo ? "llegan" : "le llegan al rival"} a último tercio${
+        masAlla ? ` (${masAlla} ${masAlla === 1 ? "acaba" : "acaban"} en ocasión o gol)` : ""
+      }.`;
+    }
+
     const dicho =
       clave === "posicional rival"
         ? "acaban con el balón en poder del rival"
@@ -615,13 +631,21 @@ function analizaReparto(
 
     const de = (prueba: (c: string) => boolean) =>
       cats.filter((una) => prueba(una.nombre.toLowerCase().replace(/\s+/g, " "))).reduce((a, una) => a + una.acciones, 0);
-    const recuperamos = de((c) => c === "posicional");
+    /*
+    | 30/10/2026 (expertos): «recuperamos» sale de la misma marca que la
+    | tarjeta y las conclusiones —la retención de cada saque—, no sólo de la
+    | etiqueta «Posicional» (decía 7 donde todo lo demás decía 8). Y la suma
+    | se cierra hasta el total con «de otra forma».
+    */
+    const recuperamos = utiles.filter((uno) => uno.retencion).length || de((c) => c === "posicional");
     const conserva = de((c) => c === "posicional rival");
     const llegan = de((c) => c.startsWith("conquista último tercio"));
+    const otros = Math.max(0, total - recuperamos - conserva - llegan);
     const partes = [
       recuperamos ? `${recuperamos} los recuperamos` : "",
       conserva ? `${conserva} ${conserva === 1 ? "lo conserva" : "los conserva"} el rival` : "",
       llegan ? `${llegan} le ${llegan === 1 ? "llega" : "llegan"} a último tercio` : "",
+      otros ? `${otros} ${otros === 1 ? "acaba" : "acaban"} de otra forma` : "",
     ].filter(Boolean);
 
     if (partes.length < 2) return null;
@@ -790,9 +814,20 @@ export function analizaSeccion({
   unidad = "acciones",
   etiquetas = {},
   acompanan,
+  referencia,
+  rotuloReferencia,
 }: {
   filtradas: EventoAnalisis[];
   globales: EventoAnalisis[];
+  /**
+   * Contra qué se compara, si no es el global (30/10/2026): con una jornada
+   * elegida, las anteriores, las mismas que la tabla «Este partido frente a
+   * los anteriores». Así la lectura y la tabla dan la misma media y la misma
+   * diferencia.
+   */
+  referencia?: EventoAnalisis[];
+  /** Cómo se dice esa referencia: «la media de las 8 jornadas anteriores». */
+  rotuloReferencia?: string;
   metrica?: ClaveMetrica;
   sentido?: Sentido;
   /** Cómo se llama la dimensión de la sección, si tiene. */
@@ -824,11 +859,13 @@ export function analizaSeccion({
 
   const escasa = escasaDe(filtradas);
 
-  const principal = comparaMetrica(metrica, filtradas, globales, sentido, etiquetas, escasa);
+  const base = referencia && referencia.length ? referencia : globales;
+
+  const principal = comparaMetrica(metrica, filtradas, base, sentido, etiquetas, escasa);
 
   const secundarias = (acompanan ?? ACOMPANAN[metrica])
     .filter((clave) => clave !== metrica)
-    .map((clave) => comparaMetrica(clave, filtradas, globales, sentido, etiquetas, escasa));
+    .map((clave) => comparaMetrica(clave, filtradas, base, sentido, etiquetas, escasa));
 
   const tendencia = analizaTendencia(filtradas, metrica, sentido);
 
@@ -842,7 +879,15 @@ export function analizaSeccion({
     secundarias,
     tendencia,
     reparto,
-    titular: redactaTitular({ muestra, principal, tendencia, reparto, sentido, unidad }),
+    titular: redactaTitular({
+      muestra,
+      principal,
+      tendencia,
+      reparto,
+      sentido,
+      unidad,
+      rotuloReferencia: referencia && referencia.length ? rotuloReferencia : undefined,
+    }),
   };
 }
 
@@ -857,7 +902,9 @@ function redactaTitular({
   reparto,
   sentido,
   unidad,
+  rotuloReferencia,
 }: {
+  rotuloReferencia?: string;
   muestra: Muestra;
   principal: Comparativa;
   tendencia: Tendencia;
@@ -910,7 +957,7 @@ function redactaTitular({
             : " Es por donde más peligro nos hacen.";
 
     frases.push(
-      `${principal.label} ${metrica.formatear(principal.filtro)}, ${relacion} ${metrica.formatear(principal.global)} de media en toda la temporada${principal.menosEsMejor ? " (menos es mejor)" : ""}.${juicio}`,
+      `${principal.label} ${metrica.formatear(principal.filtro)}, ${relacion} ${rotuloReferencia ? `${rotuloReferencia} (${metrica.formatear(principal.global)})` : `${metrica.formatear(principal.global)} de media en toda la temporada`}${principal.menosEsMejor ? " (menos es mejor)" : ""}.${juicio}`,
     );
   }
 
@@ -923,8 +970,11 @@ function redactaTitular({
     frases.push(muestra.corta ? reparto.texto.replace(/\s*Indicio: muestra corta\.$/, "") : reparto.texto);
   }
 
-  /* 5 · El aviso, al final, para que no se lea un porcentaje de tres acciones. */
-  if (muestra.corta) {
+  /* 5 · El aviso, al final, para que no se lea un porcentaje de tres acciones.
+     30/10/2026 (expertos): «indicio» salía tres veces —la tarjeta, la chapa
+     de la lectura y aquí—. Con la chapa comparativa ya rotulada «indicio», el
+     párrafo no lo repite; sólo lo dice cuando no hay chapa que lo diga. */
+  if (muestra.corta && (muestra.sinFiltro || principal.filtro == null)) {
     frases.push(
       muestra.filtradas < MUESTRA_MINIMA_JUICIO
         ? `Indicio, no dato: con ${muestra.filtradas} ${muestra.filtradas === 1 ? "acción" : "acciones"} cada una mueve mucho el porcentaje.`

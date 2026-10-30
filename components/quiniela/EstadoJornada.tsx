@@ -14,7 +14,7 @@
  * BeSoccer el trabajo nocturno, o los ha puesto alguien a mano.
  */
 
-import { CalendarDays, CheckCircle2, Clock, Lock, RefreshCw, Trophy } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock, Lock, RefreshCw, Smile, Trophy } from "lucide-react";
 
 import { Avatar } from "@/components/quiniela/Avatar";
 import { marcadorDe, type JornadaQuiniela } from "@/lib/quiniela/modelo";
@@ -106,6 +106,10 @@ export function EstadoJornada({
   cuandoCierra: cierre,
   ahora,
   primerPartido,
+  faltan = [],
+  verCaritas,
+  onVerCaritas,
+  children,
 }: {
   jornada: JornadaQuiniela;
   numero: number;
@@ -118,6 +122,15 @@ export function EstadoJornada({
   ahora: Date;
   /** El primero que se juega: con 0 jugados es lo que cuenta la cuarta ficha. */
   primerPartido?: { fecha: string; local: string; visitante: string };
+  /**
+   * Quién no la tiene completa (30/10/2026): «Quién juega» era una tarjeta
+   * aparte y ahora va en esta franja, con el enlace a las caritas.
+   */
+  faltan?: string[];
+  verCaritas?: boolean;
+  onVerCaritas?: () => void;
+  /** Lo que se despliega debajo (las caritas, la lista de quién juega). */
+  children?: React.ReactNode;
 }) {
   const jugados = jornada.resultados.filter(Boolean).length;
 
@@ -168,6 +181,7 @@ export function EstadoJornada({
   };
 
   return (
+    <>
     <div
       className={`flex min-w-0 flex-col gap-2 rounded-2xl border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 ${
         cerrada
@@ -194,6 +208,11 @@ export function EstadoJornada({
             </strong>{" "}
             {cerrada ? "apostaron" : "con la apuesta completa"}
           </span>
+          {faltan.length > 0 && faltan.length <= 4 ? (
+            <span className="text-white/60">
+              · {cerrada ? "no la completó" : "falta"} {enLista(faltan)}
+            </span>
+          ) : null}
           <span className="inline-flex h-1.5 w-16 overflow-hidden rounded-full bg-white/[0.07]" aria-hidden>
             <span
               className="h-full rounded-full bg-[#C8A96B]/80"
@@ -201,6 +220,17 @@ export function EstadoJornada({
             />
           </span>
         </span>
+        {onVerCaritas ? (
+          <button
+            type="button"
+            onClick={onVerCaritas}
+            aria-expanded={verCaritas}
+            className="ml-2 inline-flex min-h-[32px] items-center gap-1 text-[12px] text-[#C8A96B] underline-offset-2 transition hover:underline"
+          >
+            <Smile size={13} aria-hidden />
+            {verCaritas ? "Ocultar las caritas" : "Ver las caritas"}
+          </button>
+        ) : null}
       </Dato>
 
       {/* 3. Los partidos jugados; con 0, cuándo empieza y cuál es el primero. */}
@@ -245,5 +275,7 @@ export function EstadoJornada({
         </Dato>
       )}
     </div>
+    {children}
+    </>
   );
 }

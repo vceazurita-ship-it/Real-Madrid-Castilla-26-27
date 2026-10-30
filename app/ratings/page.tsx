@@ -217,9 +217,11 @@ export default function RatingsPage() {
                 {totals.players} jugadores con nota
               </span>
 
-              <span className="rounded-full border border-white/10 px-2.5 py-1 tabular-nums">
-                Media {totals.average ? totals.average.toFixed(1).replace(".", ",") : "—"}
-              </span>
+              {totals.average > 0 && (
+                <span className="rounded-full border border-white/10 px-2.5 py-1 tabular-nums">
+                  Media {totals.average.toFixed(1).replace(".", ",")}
+                </span>
+              )}
             </div>
           </header>
 

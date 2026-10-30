@@ -69,8 +69,9 @@ function Tecla({ children }: { children: string }) {
   );
 }
 
+/* En el móvil, 44 px de toque (30/10/2026, expertos). */
 const BOTON =
-  "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex min-h-9 max-sm:min-h-11 shrink-0 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40";
 
 const APAGADO = "border-white/10 text-white/65 hover:border-white/25 hover:text-white";
 
@@ -197,7 +198,7 @@ export function BarraDibujo({
                   ? `Pasar la flecha elegida a la fase ${uno}`
                   : `Lo que dibujes ahora va en la fase ${uno} (tecla ${uno})`
               }
-              className={`${BOTON} w-9 justify-center px-0 tabular-nums ${
+              className={`${BOTON} w-9 max-sm:w-11 justify-center px-0 tabular-nums ${
                 faseVista === uno ? ENCENDIDO : APAGADO
               }`}
             >

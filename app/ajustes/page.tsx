@@ -1153,6 +1153,22 @@ function PuertaAdmin({ onEntra }: { onEntra: (email: string, contrasena: string)
   const [contrasena, setContrasena] = useState("");
   const [entrando, setEntrando] = useState(false);
   const [error, setError] = useState("");
+  /*
+  | DE DÓNDE VENÍA (30/10/2026). El laboratorio de ABP manda aquí con
+  | ?vuelta=/laboratorio/abp: la puerta lo dice y, al entrar, se vuelve allí.
+  | Sólo direcciones de la casa: empieza por «/» y no por «//». La puerta no
+  | sale en el HTML del servidor (se pinta cuando ya se sabe que no hay
+  | sesión), así que leer la dirección al montar no rompe la hidratación.
+  */
+  const [vuelta] = useState(() => {
+    if (typeof window === "undefined") return "";
+
+    const pedida = new URLSearchParams(window.location.search).get("vuelta") ?? "";
+
+    /* Sólo rutas de la propia app: «//» y «/\» las lee el navegador como otra web. */
+    return /^\/(?![/\\])/.test(pedida) ? pedida : "";
+  });
+  const deLaboratorio = vuelta.startsWith("/laboratorio");
 
   const envia = async (e: FormEvent) => {
     e.preventDefault();
@@ -1162,6 +1178,9 @@ function PuertaAdmin({ onEntra }: { onEntra: (email: string, contrasena: string)
 
     try {
       await onEntra(email, contrasena);
+
+      /* Navegación entera, para que el candado del servidor vea la sesión. */
+      if (vuelta) window.location.replace(vuelta);
     } catch (fallo) {
       setError(fallo instanceof Error ? fallo.message : "No se ha podido entrar.");
       setContrasena("");
@@ -1177,12 +1196,13 @@ function PuertaAdmin({ onEntra }: { onEntra: (email: string, contrasena: string)
     >
       <div className="flex items-center gap-2.5">
         <Lock size={16} className="text-[#C8A96B]" aria-hidden />
-        <h2 className="text-sm font-semibold text-white">Acceso de administrador</h2>
+        <h2 className="text-sm font-semibold text-white">{deLaboratorio ? "Laboratorio de ABP" : "Acceso de administrador"}</h2>
       </div>
 
-      <p className="mt-2 text-[12px] leading-relaxed text-white/45">
-        Ajustes lanza trabajos en el ordenador del club que escriben en las hojas y publican la
-        plataforma. Sólo entra el administrador.
+      <p className="mt-2 text-[12px] leading-relaxed text-white/55">
+        {deLaboratorio
+          ? "Sólo entra el administrador. Al entrar vuelves al laboratorio."
+          : "Ajustes lanza trabajos en el ordenador del club que escriben en las hojas y publican la plataforma. Sólo entra el administrador."}
       </p>
 
       <label className="mt-5 block">

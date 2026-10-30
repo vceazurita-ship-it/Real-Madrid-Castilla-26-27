@@ -560,14 +560,15 @@ const origen = `${tipo}__${perfil}`;
                 key={indice}
                 className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2 text-sm text-white/85"
               >
-                <span className="font-semibold">{accion}</span>
+                {/* «Falta indirecta en Z5» → «… en zona 5» (30/10/2026): las siglas no se leen en la sala. */}
+                <span className="font-semibold">{accion.replace(/\bZ(\d)\b/g, "zona $1")}</span>
                 {minuto !== "" && <span className="text-white/55">{minuto}′</span>}
                 {jornada && <span className="text-white/55">{jornada}</span>}
                 <span>{fraseCaida(caida)}</span>
                 <span>{fraseRemate(remate)}</span>
                 <span className="text-white/65">{fraseResultado(resultado)}</span>
                 <span className="ml-auto text-white/55">
-                  xG {xg.toFixed(2).replace(".", ",")}
+                  {xg.toFixed(2).replace(".", ",")} goles esperados
                 </span>
               </li>
             );
@@ -596,7 +597,7 @@ const origen = `${tipo}__${perfil}`;
     tipoTop && totalAcciones > 0
       ? `${tipoTop} concentra el ${Math.round((nTop / totalAcciones) * 100)} % de las acciones (${nTop} de ${totalAcciones})` +
         (statTop
-          ? `; la zona de remate que más xG suma es ${zonaTop}, con ${statTop.xg.toFixed(2).replace(".", ",")}.`
+          ? `; la zona de remate que más goles esperados suma es ${({ "1P": "el primer palo", "2P": "el segundo palo" } as Record<string, string>)[zonaTop] ?? zonaTop.replace(/^Z(\d)$/, "la zona $1")}, con ${statTop.xg.toFixed(2).replace(".", ",")}.`
           : ".")
       : "";
 
@@ -613,7 +614,7 @@ const origen = `${tipo}__${perfil}`;
       {(
         [
           { key: "acciones", label: "Acciones" },
-          { key: "xg", label: "xG" },
+          { key: "xg", label: "Goles esperados" },
         ] as const
       ).map((m) => (
         <button
@@ -634,7 +635,7 @@ const origen = `${tipo}__${perfil}`;
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-zinc-400">
       <span className="flex items-center gap-1.5">
         <span className="h-3 w-3 rounded-full border border-[#F5E7C8] bg-[#C8A96B]" />
-        Dónde se saca ({metric === "xg" ? "xG" : "nº de acciones"})
+        Dónde se saca ({metric === "xg" ? "goles esperados" : "nº de acciones"})
       </span>
 
       <span className="flex items-center gap-1.5">
@@ -649,7 +650,7 @@ const origen = `${tipo}__${perfil}`;
 
       <span className="flex items-center gap-1.5">
         <span className="h-3 w-3 rounded-full bg-emerald-500" />
-        Dónde se remata (xG de la zona)
+        Dónde se remata (goles esperados de la zona)
       </span>
 
       <span className="flex items-center gap-1.5">
@@ -672,7 +673,9 @@ const origen = `${tipo}__${perfil}`;
     label="Mapa de acciones a balón parado"
   >
   <svg
-    viewBox="0 0 140 70"
+    /* 30/10/2026 (expertos): margen a la izquierda y abajo para los rótulos
+       de zona y de carril, que dentro del campo pisaban los globos. */
+    viewBox="-9 0 149 76"
     className="w-full h-full"
     onClick={(e) => {
       if (e.target === e.currentTarget) {
@@ -797,7 +800,8 @@ const origen = `${tipo}__${perfil}`;
       {/* Portería */}
       <line x1="64" y1="2" x2="76" y2="2" stroke="#F4F4F5" strokeWidth="1" />
 
-      {/* Referencias Z dentro del campo */}
+      {/* Referencias Z: la raya dentro del campo y el rótulo fuera, en el
+          margen, con la tinta de la página (se lee en modo día y noche). */}
       {[22, 30, 38, 46, 54, 62].map((y, i) => (
         <g key={i}>
           <line
@@ -810,14 +814,14 @@ const origen = `${tipo}__${perfil}`;
             strokeDasharray="1.5 2"
           />
           <text
-            x="4"
-            y={y + 0.8}
-            textAnchor="start"
-            fill="#64748B"
-            fontSize="2.4"
-            fontWeight="600"
+            x="0.6"
+            y={y + 0.9}
+            textAnchor="end"
+            style={{ fill: "rgb(var(--rmcf-ink-rgb, 255 255 255) / .7)" }}
+            fontSize="2.6"
+            fontWeight="700"
           >
-            Z{i + 1}
+            {`zona ${i + 1}`}
           </text>
         </g>
       ))}
@@ -830,13 +834,14 @@ const origen = `${tipo}__${perfil}`;
       {/* Leyenda carriles */}
       {/* Centrados en su carril y a 2,3: a 2 y pegados a la izquierda
           «Exterior» e «Interior» se tocaban y en el móvil no se leían. */}
-      <text x="8.5" y="18" textAnchor="middle" fill="#94A3B8" fontSize="2.3" fontWeight="600">
+      {/* 30/10/2026: bajo el campo, fuera de los globos. */}
+      <text x="8.5" y="72" textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb, 255 255 255) / .7)" }} fontSize="2.4" fontWeight="700">
         Exterior
       </text>
-      <text x="20" y="18" textAnchor="middle" fill="#94A3B8" fontSize="2.3" fontWeight="600">
+      <text x="20" y="72" textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb, 255 255 255) / .7)" }} fontSize="2.4" fontWeight="700">
         Interior
       </text>
-      <text x="34" y="18" textAnchor="middle" fill="#94A3B8" fontSize="2.3" fontWeight="600">
+      <text x="34" y="72" textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb, 255 255 255) / .7)" }} fontSize="2.4" fontWeight="700">
         Centrado
       </text>
 
@@ -1386,7 +1391,7 @@ const atenuado = tipoElegido
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <div className="rounded-lg bg-white/5 px-2 py-1.5">
-            <p className="text-[11px] text-slate-400">xG generado</p>
+            <p className="text-[11px] text-slate-400">Goles esperados generados</p>
             <p className="mt-0.5 text-sm font-semibold text-white">
               {(originEnvios[origenAbierto.key]?.xg || 0).toFixed(2).replace(".", ",")}
             </p>
@@ -1576,7 +1581,7 @@ const atenuado = tipoElegido
                   <dd className="mt-0.5 font-medium">{r.minuto ?? r.Minuto ?? "-"}</dd>
                 </div>
                 <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">
-                  <dt className="text-slate-400">xG</dt>
+                  <dt className="text-slate-400">Goles esperados</dt>
                   <dd className="mt-0.5 font-medium">{Number(r.xG ?? 0).toFixed(2).replace(".", ",")}</dd>
                 </div>
                 <div className="col-span-2 rounded-lg bg-white/5 px-2 py-1.5">

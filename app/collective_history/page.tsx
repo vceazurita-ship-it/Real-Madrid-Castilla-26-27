@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { Play, Maximize2, ExternalLink } from "lucide-react";
+import { Play, ExternalLink } from "lucide-react";
 import { traeJson } from "@/lib/hojaCsv";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
@@ -24,7 +24,8 @@ function GraficaPuntos({
 
   const W = 640;
   const H = 220;
-  const M = { l: 34, r: 96, t: 14, b: 28 };
+  /* 30/10/2026: letra de los ejes a 14 en el lienzo de 640: a 390 px se quedaba en 6 px y no se leía. */
+  const M = { l: 40, r: 150, t: 16, b: 34 };
   const maximo = Math.max(3, ...jugados.map((u) => u.acumulados), ...jugados.map((u) => liga.get(u.jornada) ?? 0));
   const tope = Math.ceil(maximo / 3) * 3;
   const x = (i: number) => M.l + (i * (W - M.l - M.r)) / (jugados.length - 1);
@@ -36,7 +37,7 @@ function GraficaPuntos({
     <div className="mt-4 min-w-0 rounded-[18px] border border-white/10 bg-white/[0.03] p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">Puntos acumulados</p>
       <p className="mt-1 text-xs text-white/60">
-        Castilla frente a lo que lleva de media un equipo de la liga tras cada jornada (más, mejor).
+        Castilla (dorado) frente a los puntos que lleva de media un equipo de la liga tras cada jornada (discontinua). Más, mejor.
       </p>
       <svg
         viewBox={`0 0 ${W} ${H}`}
@@ -47,13 +48,13 @@ function GraficaPuntos({
         {Array.from({ length: tope / 3 + 1 }, (_, k) => k * 3).map((v) => (
           <g key={v}>
             <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.12} />
-            <text x={M.l - 6} y={y(v) + 3} textAnchor="end" fontSize={10} fill="currentColor" fillOpacity={0.6}>
+            <text x={M.l - 6} y={y(v) + 3} textAnchor="end" fontSize={14} fill="currentColor" fillOpacity={0.6}>
               {v}
             </text>
           </g>
         ))}
         {jugados.map((u, i) => (
-          <text key={u.jornada} x={x(i)} y={H - 10} textAnchor="middle" fontSize={10} fill="currentColor" fillOpacity={0.6}>
+          <text key={u.jornada} x={x(i)} y={H - 10} textAnchor="middle" fontSize={14} fill="currentColor" fillOpacity={0.6}>
             J{u.jornada}
           </text>
         ))}
@@ -80,23 +81,23 @@ function GraficaPuntos({
           let yC = y(ultimo.acumulados);
           let yM = media === undefined ? 0 : y(media);
 
-          if (media !== undefined && Math.abs(yC - yM) < 15) {
+          if (media !== undefined && Math.abs(yC - yM) < 20) {
             const medio = (yC + yM) / 2;
             const signo = yM >= yC ? 1 : -1;
 
-            yC = medio - 7.5 * signo;
-            yM = medio + 7.5 * signo;
+            yC = medio - 10 * signo;
+            yM = medio + 10 * signo;
           }
 
           const fmt = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
 
           return (
             <>
-              <text x={x(i) + 9} y={yC + 4} textAnchor="start" fontSize={11} fontWeight={600} fill="#C8A96B">
+              <text x={x(i) + 9} y={yC + 4} textAnchor="start" fontSize={15} fontWeight={600} fill="#C8A96B">
                 Castilla {fmt(ultimo.acumulados)}
               </text>
               {media !== undefined ? (
-                <text x={x(i) + 9} y={yM + 4} textAnchor="start" fontSize={11} fill="currentColor" fillOpacity={0.7}>
+                <text x={x(i) + 9} y={yM + 4} textAnchor="start" fontSize={15} fill="currentColor" fillOpacity={0.7}>
                   Media liga {fmt(media)}
                 </text>
               ) : null}
@@ -104,46 +105,12 @@ function GraficaPuntos({
           );
         })()}
       </svg>
-      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-white/70">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-0.5 w-5 bg-[#C8A96B]" aria-hidden /> Castilla
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-0 w-5 border-t-2 border-dashed border-current opacity-60" aria-hidden /> Media de la liga
-        </span>
-      </div>
+      {/* 30/10/2026: sin leyenda aparte; los rótulos al final de cada línea ya la dicen (marketing: salía dos veces). */}
     </div>
   );
 }
 
 export default function CollectiveHistoryPage() {
-  /*
-  | 19/10/2026: el iPhone no deja poner un elemento a pantalla completa
-  | (`requestFullscreen` no existe ahí) y el botón no hacía nada. Si el
-  | navegador no puede, se abre el informe en una pestaña nueva, que en el
-  | móvil ya ocupa la pantalla entera.
-  */
-  const toggleDashboardFullscreen = async () => {
-  try {
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
-      return;
-    }
-
-    const panel = dashboardRef.current;
-
-    if (panel && typeof panel.requestFullscreen === "function") {
-      await panel.requestFullscreen();
-      return;
-    }
-
-    window.open(src, "_blank", "noopener");
-  } catch (error) {
-    console.error(error);
-  }
-};
-const [isFullscreen, setIsFullscreen] = useState(false);
-
 /*
 | 23/10/2026: Power BI a veces no carga (red del club, sesión de Microsoft) y
 | el hueco quedaba en blanco. Si el informe no avisa de que ha cargado en 8 s,
@@ -156,7 +123,11 @@ const [isFullscreen, setIsFullscreen] = useState(false);
 | ha cargado. El informe va plegado tras un botón y la tarjeta con el enlace
 | a pestaña nueva está siempre; la tabla y las cifras de arriba bastan solas.
 */
-const [verInforme, setVerInforme] = useState(false);
+/*
+| 30/10/2026: el informe ya no se incrusta. «Ver el informe aquí» y «Abrir el
+| informe» llevaban al mismo Power BI (expertos de fútbol, análisis y
+| marketing): queda un solo botón, a pestaña nueva.
+*/
 const [tabla, setTabla] = useState<ClasificacionPortada | null>(null);
 
 useEffect(() => {
@@ -262,11 +233,26 @@ const liga = useMemo(() => {
     puestos.set(uno.jornada, orden.findIndex(([n]) => n === nuestro) + 1);
   }
 
-  return { mediaPuntos, mediaGoles, puestos, acumuladaLiga };
+  return { mediaPuntos, mediaGoles, puestos, acumuladaLiga, equipos: equipos.size };
 }, [golesLiga.value.partidos, jugados]);
 
 /* La columna del puesto sólo se dibuja si hay puesto en todas las jornadas: una celda suelta en blanco es un hueco. */
 const conPuesto = jugados.length > 0 && jugados.every((u) => liga.puestos.has(u.jornada));
+
+/*
+| 30/10/2026: la tarjeta PUESTO decía «tendencia, tras 9 jornadas», que no se
+| entendía (fútbol). Ahora lleva la base y el movimiento de la última jornada,
+| sacados de la misma columna Puesto de la tabla.
+*/
+const movimientoPuesto = (() => {
+  if (!tabla) return "";
+  const base = `tras ${tabla.jugados} jornadas`;
+  if (jugados.length < 2) return base;
+  const antes = liga.puestos.get(jugados[jugados.length - 2].jornada);
+  const ahora = liga.puestos.get(jugados[jugados.length - 1].jornada);
+  if (antes === undefined || ahora === undefined) return base;
+  return antes === ahora ? `${base} · igual que la anterior` : `${base} · de ${antes}º a ${ahora}º en la última`;
+})();
 
 /*
 | La suma de la tabla de jornadas tiene que dar lo mismo que las tarjetas de
@@ -293,7 +279,6 @@ useEffect(() => {
 }, [tabla, jugados, golesTabla]);
 
 const videoRef = useRef<HTMLDivElement | null>(null);
-const dashboardRef = useRef<HTMLDivElement | null>(null);
 
 /*
 | 29/10/2026: el botón flotante «Ver explicación» tapaba la columna PUESTO de
@@ -315,49 +300,6 @@ useEffect(() => {
 
   return () => vigia.disconnect();
 }, [jugados.length]);
-
-  useEffect(() => {
-  const handleFullscreen = () => {
-    setIsFullscreen(!!document.fullscreenElement);
-  };
-
-  document.addEventListener(
-    "fullscreenchange",
-    handleFullscreen
-  );
-
-  return () => {
-    document.removeEventListener(
-      "fullscreenchange",
-      handleFullscreen
-    );
-  };
-}, []);
-useEffect(() => {
-  const handleKey = (
-    e: KeyboardEvent
-  ) => {
-    if (
-      e.key === "Escape" &&
-      document.fullscreenElement
-    ) {
-      /* El navegador suele salir solo con Escape; si ya lo ha hecho, esta
-         segunda salida falla y no debe dejar un error en la consola. */
-      document.exitFullscreen().catch(() => {});
-    }
-  };
-
-  window.addEventListener(
-    "keydown",
-    handleKey
-  );
-
-  return () =>
-    window.removeEventListener(
-      "keydown",
-      handleKey
-    );
-}, []);
 
   const src = "https://app.powerbi.com/view?r=eyJrIjoiNzY4NjNmZjktZWU3Zi00NjkyLTg5NTMtNzQwYjQwMGVjZmQxIiwidCI6ImQ2Zjc2YzExLWZmYjktNGExNS05YjQ5LWU2ZWQ0MjljOTVhMiIsImMiOjl9";
 
@@ -431,7 +373,8 @@ useEffect(() => {
             Ver vídeo
           </button>
 
-          <div className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
+          {/* 30/10/2026: pb-24 para que los botones flotantes no tapen la última fila. */}
+          <div className="px-4 sm:px-8 pb-24 pt-6 sm:pt-10">
             {/* Header */}
             <div className="mb-8">
               <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
@@ -455,7 +398,7 @@ useEffect(() => {
 
                   /* 29/10/2026: la cifra grande es el dato y debajo, pequeña, la referencia (fútbol y marketing). */
                   return [
-                    ["Puesto", `${tabla.puesto}º de ${tabla.deCuantos}`, `tendencia, tras ${tabla.jugados} jornadas`],
+                    ["Puesto", `${tabla.puesto}º de ${tabla.deCuantos}`, movimientoPuesto],
                     [
                       "Puntos",
                       String(tabla.puntos),
@@ -497,18 +440,43 @@ useEffect(() => {
                   Jornada a jornada
                 </h2>
 
-                {/* A todo el ancho: el botón flotante se aparta mientras se ve la tabla (29/10/2026). */}
+                {/*
+                | 30/10/2026: a 390 px sólo se veían Jornada, Rival y Resultado, y
+                | Puntos y Puesto quedaban fuera sin señal (fútbol, marketing).
+                | Bajo 640 px se esconden Acumulados y Media liga, el campo pasa a
+                | una línea bajo el rival y la tabla cabe sin desplazarse. En
+                | escritorio, casa/fuera va en su propia columna (análisis).
+                */}
                 <div ref={tablaRef} className="overflow-x-auto rounded-[18px] border border-white/10">
-                  <table className="w-full min-w-[420px] text-sm">
+                  <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-white/10 text-left text-xs uppercase tracking-wider text-white/60">
-                        <th className="px-4 py-3 font-medium">Jornada</th>
-                        <th className="px-4 py-3 font-medium">Rival</th>
-                        <th className="px-4 py-3 text-center font-medium">Resultado</th>
-                        <th className="px-4 py-3 text-right font-medium">Puntos</th>
-                        <th className="px-4 py-3 text-right font-medium">Acumulados</th>
-                        {liga.acumuladaLiga.size > 0 ? <th className="px-4 py-3 text-right font-medium">Media liga</th> : null}
-                        {conPuesto ? <th className="px-4 py-3 text-right font-medium">Puesto</th> : null}
+                        <th className="px-3 py-3 font-medium sm:px-4">
+                          <span className="sm:hidden">J</span>
+                          <span className="hidden sm:inline">Jornada</span>
+                        </th>
+                        <th className="px-3 py-3 font-medium sm:px-4">Rival</th>
+                        <th className="hidden px-4 py-3 font-medium sm:table-cell">Campo</th>
+                        <th className="px-3 py-3 text-center font-medium sm:px-4">
+                          <span className="sm:hidden">Res.</span>
+                          <span className="hidden sm:inline">Resultado</span>
+                        </th>
+                        <th className="px-3 py-3 text-right font-medium sm:px-4">
+                          <span className="sm:hidden">Pts</span>
+                          <span className="hidden sm:inline">Puntos</span>
+                        </th>
+                        <th className="hidden px-4 py-3 text-right font-medium sm:table-cell">Acumulados</th>
+                        {liga.acumuladaLiga.size > 0 ? (
+                          <th className="hidden px-4 py-3 text-right font-medium sm:table-cell">
+                            Media liga
+                            {liga.equipos > 0 ? (
+                              <span className="block text-[10px] font-normal normal-case tracking-normal text-white/50">
+                                acumulados de los {liga.equipos} equipos
+                              </span>
+                            ) : null}
+                          </th>
+                        ) : null}
+                        {conPuesto ? <th className="px-3 py-3 text-right font-medium sm:px-4">Puesto</th> : null}
                       </tr>
                     </thead>
                     <tbody>
@@ -517,14 +485,17 @@ useEffect(() => {
                           key={uno.jornada}
                           className={`border-b border-white/5 last:border-0 ${i === jugados.length - 1 ? "bg-white/[0.06]" : ""}`}
                         >
-                          <td className="px-4 py-2.5">J{uno.jornada}</td>
-                          <td className="px-4 py-2.5">
-                            {nombreEquipo(uno.rival)}
-                            <span className="ml-2 text-xs text-white/60">
+                          <td className="px-3 py-2.5 sm:px-4">J{uno.jornada}</td>
+                          <td className="min-w-0 px-3 py-2.5 sm:px-4">
+                            <span className="block">{nombreEquipo(uno.rival)}</span>
+                            <span className="block text-xs text-white/60 sm:hidden">
                               {uno.lado === "casa" ? "en casa" : "fuera"}
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 text-center">
+                          <td className="hidden px-4 py-2.5 text-white/70 sm:table-cell">
+                            {uno.lado === "casa" ? "En casa" : "Fuera"}
+                          </td>
+                          <td className="px-3 py-2.5 text-center sm:px-4">
                             <span
                               className={`inline-block min-w-[3rem] rounded-md px-2 py-0.5 text-xs font-semibold ${
                                 uno.puntos === 3
@@ -537,33 +508,41 @@ useEffect(() => {
                               {uno.gf}-{uno.gc}
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 text-right">{uno.puntos}</td>
-                          <td className="px-4 py-2.5 text-right font-semibold">{uno.acumulados}</td>
+                          <td className="px-3 py-2.5 text-right sm:px-4">{uno.puntos}</td>
+                          <td className="hidden px-4 py-2.5 text-right font-semibold sm:table-cell">{uno.acumulados}</td>
                           {liga.acumuladaLiga.size > 0 ? (
-                            <td className="px-4 py-2.5 text-right">
+                            <td className="hidden px-4 py-2.5 text-right sm:table-cell">
                               {liga.acumuladaLiga.has(uno.jornada) ? liga.acumuladaLiga.get(uno.jornada)!.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : ""}
                             </td>
                           ) : null}
                           {conPuesto ? (
-                            <td className="px-4 py-2.5 text-right">{liga.puestos.get(uno.jornada)}º</td>
+                            <td className="px-3 py-2.5 text-right sm:px-4">{liga.puestos.get(uno.jornada)}º</td>
                           ) : null}
                         </tr>
                       ))}
                     </tbody>
                     <tfoot>
                       <tr className="border-t border-white/10 bg-white/[0.04] font-semibold">
-                        <td className="px-4 py-2.5" colSpan={2}>
+                        <td className="px-3 py-2.5 sm:px-4" colSpan={2}>
                           Total · {jugados.length} partidos
                         </td>
-                        <td className="px-4 py-2.5 text-center">
+                        <td className="hidden sm:table-cell" />
+                        <td className="px-3 py-2.5 text-center sm:px-4">
                           {golesTabla.favor}-{golesTabla.contra}
                         </td>
-                        <td className="px-4 py-2.5 text-right">{golesTabla.puntos}</td>
-                        <td className="px-4 py-2.5" colSpan={(conPuesto ? 1 : 0) + (liga.acumuladaLiga.size > 0 ? 1 : 0) + 1} />
+                        <td className="px-3 py-2.5 text-right sm:px-4">{golesTabla.puntos}</td>
+                        <td className="hidden sm:table-cell" />
+                        {liga.acumuladaLiga.size > 0 ? <td className="hidden sm:table-cell" /> : null}
+                        {conPuesto ? <td /> : null}
                       </tr>
                     </tfoot>
                   </table>
                 </div>
+                {conPuesto ? (
+                  <p className="mt-2 text-xs text-white/60">
+                    Puesto: la clasificación tras cada jornada, con todos los partidos de la liga hasta ella. Con {jugados.length} jornadas es una tendencia.
+                  </p>
+                ) : null}
 
                 <GraficaPuntos jugados={jugados} liga={liga.acumuladaLiga} />
               </div>
@@ -571,15 +550,8 @@ useEffect(() => {
 
             <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl border border-[#C8A96B]/40 bg-white/[0.04] px-4 py-3 text-sm text-white/80">
               <span className="min-w-0 flex-1">
-                Informe completo de la competición en Power BI. Se abre mejor en una pestaña nueva.
+                Informe completo de la competición en Power BI.
               </span>
-              <button
-                type="button"
-                onClick={() => setVerInforme((v) => !v)}
-                className="inline-flex items-center gap-2 rounded-full border border-[#C8A96B]/40 px-4 py-2 font-semibold text-white"
-              >
-                {verInforme ? "Ocultar el informe" : "Ver el informe aquí"}
-              </button>
               <a
                 href={src}
                 target="_blank"
@@ -587,68 +559,9 @@ useEffect(() => {
                 className="inline-flex items-center gap-2 rounded-full bg-[#C8A96B] px-4 py-2 font-semibold text-black"
               >
                 <ExternalLink size={14} />
-                Abrir el informe
+                Abrir en Power BI (pestaña nueva)
               </a>
             </div>
-
-            {verInforme ? (
-            <div
-  ref={dashboardRef}
-  className="relative rounded-[24px] sm:rounded-[32px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-2 sm:p-4 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm overflow-hidden"
->
-  <button
-  onClick={toggleDashboardFullscreen}
-  className="
-    absolute
-    top-4
-    right-4
-    z-30
-    flex
-    items-center
-    gap-2
-    rounded-full
-    border border-[#C8A96B]/40
-    bg-[#11161D]/90
-    px-4
-    py-2
-    text-sm
-    font-medium
-    text-white
-    backdrop-blur-md
-    hover:border-[#C8A96B]
-    hover:bg-[#161D26]
-    transition-all
-  "
->
-  <Maximize2
-    size={16}
-    className="text-[#C8A96B]"
-  />
-
-  {isFullscreen
-    ? "Salir pantalla completa"
-    : "Pantalla completa"}
-</button>
-
-  <iframe
-    title="Histórico de la competición (Power BI)"
-    src={src}
-    className={`
-      block
-      w-full
-      border-0
-      rounded-[18px] sm:rounded-[24px]
-      bg-[#0B0F14]
-      ${
-        isFullscreen
-          ? "h-screen"
-          : "h-[60vh] sm:h-[68vh] lg:h-[680px]"
-      }
-    `}
-    allowFullScreen
-  />
-</div>
-            ) : null}
 
             {/* Vídeo */}
             <div ref={videoRef} className="mt-10 sm:mt-14 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">

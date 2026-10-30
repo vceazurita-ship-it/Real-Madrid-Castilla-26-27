@@ -231,6 +231,44 @@ const PENDIENTES: Player[] = FICHAS.map((ficha) => ({
 }));
 
 /**
+ * Los fichajes del puente que una lista leída de la hoja todavía no trae
+ * (cruce por nombre y alias, como `conFichajes`). Para las pantallas que
+ * leen la hoja publicada a pelo y no pasan por `hooks/usePlayers`.
+ */
+export function fichajesQueFaltan(nombresDeLaHoja: string[]): Player[] {
+  const presentes = new Set(nombresDeLaHoja.map((nombre) => normalizePlayerName(nombre)));
+
+  return FICHAS.flatMap((ficha, k) =>
+    [ficha.nombre, ...(ficha.alias ?? [])].some((nombre) =>
+      presentes.has(normalizePlayerName(nombre)),
+    )
+      ? []
+      : [PENDIENTES[k]],
+  );
+}
+
+/*
+| LA COHORTE DEL CASTILLA (30/10/2026)
+|
+| «22 del Castilla» en /individual y «Del Castilla 21» en el Dashboard
+| Plantilla: las dos contaban con `esDelCastilla`, pero sobre listas
+| distintas. El Dashboard leía la hoja publicada a pelo y se dejaba fuera los
+| fichajes del puente (D. Arroyo, Hugo de Llanos) que la hoja aún no trae.
+| La regla es una: la hoja + los fichajes que le faltan, con licencia del
+| Castilla. Las pantallas que leen la hoja a pelo añaden antes
+| `fichajesQueFaltan` y cuentan con esto.
+*/
+export function cohorteCastilla<T>(
+  lista: T[],
+  nombreDe: (jugador: T) => string,
+  licenciaDeJugador: (jugador: T) => string | undefined,
+): T[] {
+  return lista.filter((jugador) =>
+    esDelCastilla(nombreDe(jugador), licenciaDeJugador(jugador)),
+  );
+}
+
+/**
  * Añade a la lista de la hoja los fichajes que ella todavía no trae.
  *
  * El cruce es por nombre normalizado y no por ID a propósito: la hoja ha

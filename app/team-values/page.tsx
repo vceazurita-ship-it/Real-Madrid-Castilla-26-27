@@ -24,7 +24,6 @@ import {
   ErrorState,
   Highlight,
   LoadingState,
-  NavButton,
   SearchField,
   SectionLabel,
   focusRing,
@@ -32,6 +31,20 @@ import {
   useEditShortcuts,
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
+import { DOCUMENTO_VALORES } from "@/lib/cultura/documentos/valores";
+
+/*
+| 30/10/2026: el resultado de todo el proceso —los cinco valores que votó la
+| plantilla— sale arriba y lleva al documento de /identidad-cultura. Se lee
+| del propio documento, así que no hay dos versiones de los votos.
+*/
+const VALORES_VOTADOS = (() => {
+  const portada = DOCUMENTO_VALORES.diapositivas.find(
+    (d) => d.tipo === "portada",
+  );
+
+  return portada && portada.tipo === "portada" ? portada.indice : [];
+})();
 
 type CulturaItem = {
   ID: number;
@@ -40,7 +53,19 @@ type CulturaItem = {
   TITULO: string;
   CONTENIDO: string;
   ORDEN: number;
+  /*
+  | 30/10/2026: columnas opcionales de la hoja para las dinámicas de las
+  | semanas. Si alguien las añade, cada dinámica dice cuánto dura, qué
+  | material lleva y qué entrega el vestuario; FECHA es la semana real de la
+  | etapa. Lo que no tenga texto no se pinta.
+  */
+  DURACION?: string;
+  MATERIAL?: string;
+  ENTREGA?: string;
+  FECHA?: string;
 };
+
+const limpio = (t?: unknown) => String(t ?? "").trim();
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv";
@@ -51,7 +76,7 @@ const ESPACIO_ESCRITAS = "team-values";
 /** Descripción de cada etapa de la hoja de ruta: qué se hace con el vestuario. Las secciones nuevas caen al texto por defecto. */
 const DESCRIPCIONES: Record<string, string> = {
   MARCO:
-    "Los conceptos de identidad, propósito y cultura que el cuerpo técnico comparte antes de tocar al vestuario.",
+    "Lo que acordamos en el cuerpo técnico antes de hablar con el vestuario: identidad, propósito y cultura.",
   PLANIFICACION:
     "Cómo se organiza el proceso: quién hace qué y en qué semana.",
   "SEMANA 1": "Con el vestuario: qué significa pertenecer a este grupo.",
@@ -113,12 +138,6 @@ function tituloElemento(t: string): string {
   return frase.charAt(0).toUpperCase() + frase.slice(1);
 }
 
-/** Nombre corto para el stepper: «Marco», «Planificación», «Sem. 1». */
-function cortoSeccion(s: string): string {
-  const semana = /^semana\s+(\d+)$/i.exec(s.trim());
-
-  return semana ? `Sem. ${semana[1]}` : rotuloSeccion(s);
-}
 
 const TIPO_STYLES: Record<string, string> = {
   VALOR: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/25",
@@ -260,6 +279,16 @@ export default function TeamValuesPage() {
   );
 
   const etapaIndex = secciones.indexOf(seccion);
+
+  /* La semana real de la etapa, si la hoja la trae en FECHA. */
+  const fechaEtapa = useMemo(
+    () =>
+      data
+        .filter((r) => r.SECCION === seccion)
+        .map((r) => limpio(r.FECHA))
+        .find(Boolean) ?? "",
+    [data, seccion],
+  );
   const filtrando = !editing && (query.trim() !== "" || tipoActivo !== null);
 
   /* ------------------------------------------------------------ navegación */
@@ -503,28 +532,44 @@ export default function TeamValuesPage() {
               className={cn("mt-4", editing && "pointer-events-none opacity-40")}
             />
 
-            {/* 29/10/2026: el stepper de arriba sólo existe en escritorio; en el móvil
-                se dice aquí cuántas etapas hay, porque el carril corta la tercera. */}
-            {etapaIndex >= 0 && secciones.length > 1 && (
-              <p className="mt-4 text-xs text-gray-400 lg:hidden">
-                Etapa {etapaIndex + 1} de {secciones.length}
-              </p>
-            )}
-
-            <nav className="mt-4 flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2 scrollbar-none [mask-image:linear-gradient(to_right,#000_calc(100%-2rem),transparent)] lg:mt-5 lg:block lg:space-y-2 lg:overflow-visible lg:[mask-image:none]">
+            {/*
+            | 30/10/2026: una sola navegación. Se quitan los pasos 1-6 de
+            | arriba y el «Etapa 1 de 6»; en el móvil la tira cortaba los
+            | nombres («Se…») y ahora es una rejilla de dos columnas con el
+            | nombre entero y cuántos contenidos tiene cada etapa.
+            */}
+            <nav className="mt-4 grid grid-cols-2 gap-2 lg:mt-5 lg:grid-cols-1">
               {secciones.map((s, i) => {
                 const total = visibles.filter((r) => r.SECCION === s).length;
+                const activa = s === seccion;
 
                 return (
-                  <NavButton
+                  <button
                     key={s}
-                    active={s === seccion}
+                    type="button"
                     onClick={() => irASeccion(s)}
-                    label={rotuloSeccion(s)}
-                    sublabel={`Etapa ${i + 1}`}
-                    count={total}
-                    dimmed={filtrando && total === 0}
-                  />
+                    aria-current={activa ? "true" : undefined}
+                    className={cn(
+                      "flex min-w-0 flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left transition-all lg:rounded-2xl lg:px-4 lg:py-3",
+                      focusRing,
+                      activa
+                        ? "bg-[#C8A96B] text-black shadow-[0_8px_24px_-12px_rgba(200,169,107,0.9)]"
+                        : "border border-white/10 text-gray-200 hover:border-[#C8A96B]/40 hover:bg-white/[0.04] hover:text-white",
+                      filtrando && total === 0 && !activa && "opacity-40",
+                    )}
+                  >
+                    <span className="min-w-0 break-words text-sm font-medium leading-snug">
+                      {rotuloSeccion(s)}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-xs tabular-nums",
+                        activa ? "text-black/70" : "text-gray-400",
+                      )}
+                    >
+                      Etapa {i + 1} · {total} contenido{total === 1 ? "" : "s"}
+                    </span>
+                  </button>
                 );
               })}
             </nav>
@@ -544,84 +589,60 @@ export default function TeamValuesPage() {
           {/* ---------------------------------------------- contenido */}
 
           {/* pr-12 por debajo de lg (29/10/2026, marketing): el ⋮ flotante del
-              menú de herramientas tapaba el final de las líneas de las tarjetas. */}
+              menú de herramientas tapaba el final de las líneas de las tarjetas.
+              30/10/2026: y pb-24, para que tampoco tape la última. */}
           <main
             className={cn(
-              "min-w-0 flex-1 p-4 pr-12 lg:p-8",
+              "min-w-0 flex-1 p-4 pr-12 pb-24 lg:p-8 lg:pb-24",
               editing && "pb-32 lg:pb-32",
             )}
           >
-            {/* Cabecera con stepper */}
-            <div className="hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 lg:block lg:rounded-3xl lg:p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <SectionLabel className="text-[#C8A96B]">
-                  Hoja de ruta de la cultura
-                </SectionLabel>
-
-                {secciones.length > 0 && (
-                  <p className="text-xs tabular-nums text-gray-500">
-                    Etapa {etapaIndex + 1} de {secciones.length}
-                  </p>
+            {/* Resultado del proceso: los valores votados (30/10/2026). */}
+            {VALORES_VOTADOS.length > 0 && (
+              <Link
+                href="/identidad-cultura"
+                className={cn(
+                  "block rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 transition-colors hover:border-[#C8A96B]/70 lg:rounded-3xl lg:p-5",
+                  focusRing,
                 )}
-              </div>
+              >
+                <span className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-sm font-semibold text-[#C8A96B]">
+                    Lo que votó la plantilla: {VALORES_VOTADOS.length} valores
+                  </span>
+                  <span className="text-xs font-medium text-[#C8A96B]">
+                    Ver el documento →
+                  </span>
+                </span>
 
-              <ol className="mt-4 flex items-center overflow-x-auto pb-1 scrollbar-none">
-                {secciones.map((s, i) => (
-                  <li key={s} className="flex shrink-0 items-start">
-                    <button
-                      type="button"
-                      onClick={() => irASeccion(s)}
-                      title={rotuloSeccion(s)}
-                      aria-label={`Etapa ${i + 1}: ${rotuloSeccion(s)}`}
-                      aria-current={s === seccion ? "step" : undefined}
-                      className={cn(
-                        "flex w-14 flex-col items-center gap-1.5 rounded-lg lg:w-16",
-                        focusRing,
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all lg:h-10 lg:w-10 lg:text-sm",
-                          s === seccion
-                            ? "bg-[#C8A96B] text-black shadow-[0_0_0_4px_rgba(200,169,107,0.18)]"
-                            : i < etapaIndex
-                              ? "bg-[#C8A96B]/25 text-[#C8A96B] hover:bg-[#C8A96B]/40"
-                              : "bg-white/10 text-gray-300 hover:bg-white/20 hover:text-white",
-                        )}
-                      >
-                        {i + 1}
+                <span className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-3">
+                  {VALORES_VOTADOS.map((v) => (
+                    <span key={v.numero} className="flex min-w-0 items-baseline gap-2 text-sm">
+                      <span className="font-semibold tabular-nums text-[#C8A96B]">
+                        {v.numero}
                       </span>
-
-                      <span
-                        className={cn(
-                          "max-w-full truncate text-[10px] leading-none lg:text-[11px]",
-                          s === seccion ? "text-[#C8A96B]" : "text-gray-500",
-                        )}
-                      >
-                        {cortoSeccion(s)}
+                      <span className="min-w-0">
+                        <span className="font-semibold text-white">{v.titulo}</span>{" "}
+                        <span className="text-gray-400">· {v.votos.replace(/^Votado por /, "")}</span>
                       </span>
-                    </button>
-
-                    {i < secciones.length - 1 && (
-                      <div
-                        aria-hidden
-                        className={cn(
-                          "mt-4 h-[2px] w-3 lg:mt-5 lg:w-6",
-                          i < etapaIndex ? "bg-[#C8A96B]/40" : "bg-white/10",
-                        )}
-                      />
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </div>
+                    </span>
+                  ))}
+                </span>
+              </Link>
+            )}
 
             {/* Título + acciones */}
-            <div className="mt-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="mt-6 flex flex-row items-start justify-between gap-4">
               <div className="min-w-0">
                 <h1 className="text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
                   {seccion ? rotuloSeccion(seccion) : ""}
                 </h1>
+
+                {fechaEtapa && (
+                  <p className="mt-2 text-sm font-medium text-[#C8A96B]">
+                    {fechaEtapa}
+                  </p>
+                )}
 
                 <p className="mt-3 max-w-2xl text-sm text-gray-400 lg:text-base">
                   {DESCRIPCIONES[seccion] ??
@@ -775,9 +796,29 @@ export default function TeamValuesPage() {
                                 <AvisoLargo texto={p.CONTENIDO} />
                               </>
                             ) : (
-                              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-300 lg:text-base">
-                                <Highlight text={p.CONTENIDO} query={query} />
-                              </p>
+                              <>
+                                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-gray-300 lg:text-base">
+                                  <Highlight text={p.CONTENIDO} query={query} />
+                                </p>
+
+                                {/* Ficha de la dinámica: sólo lo que la hoja traiga. */}
+                                {(limpio(p.DURACION) || limpio(p.MATERIAL) || limpio(p.ENTREGA)) && (
+                                  <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
+                                    {([
+                                      ["Duración", p.DURACION],
+                                      ["Material", p.MATERIAL],
+                                      ["Entrega el vestuario", p.ENTREGA],
+                                    ] as const)
+                                      .filter(([, v]) => limpio(v))
+                                      .map(([k, v]) => (
+                                        <div key={k} className="min-w-0">
+                                          <dt className="text-xs text-gray-500">{k}</dt>
+                                          <dd className="break-words text-gray-200">{limpio(v)}</dd>
+                                        </div>
+                                      ))}
+                                  </dl>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
@@ -823,19 +864,6 @@ export default function TeamValuesPage() {
               </div>
             )}
 
-            {!editing && !loading && !error && (
-              <p className="mt-8 text-sm">
-                <Link
-                  href="/identidad-cultura"
-                  className={cn(
-                    "rounded text-[#C8A96B] underline-offset-4 hover:underline",
-                    focusRing,
-                  )}
-                >
-                  Ver los valores votados →
-                </Link>
-              </p>
-            )}
           </main>
         </div>
       </div>
