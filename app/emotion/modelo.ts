@@ -83,3 +83,9 @@ export function toneFor(score: number) {
 export function labelFor(score: number) {
   return bandFor(score).label;
 }
+
+/** Las cinco líneas de los radares: perfiles, defensa, medio y puntas. */
+export type GroupKey = "leftSide" | "defense" | "rightSide" | "midfield" | "strikers";
+
+/* Colores de cada jugador dentro de un radar de línea. */
+export const SERIES_COLORS = ["#36DAFF", "#B66BFF", "#62E8FF", "#D17DFF"];

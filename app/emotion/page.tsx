@@ -29,7 +29,7 @@ import {
   Tooltip,
 } from "recharts";
 
-import { AXES, SCALE, average, labelFor, nombreLargo, toneFor, type MetricKey, type Player } from "./modelo";
+import { AXES, SCALE, SERIES_COLORS, average, labelFor, nombreLargo, toneFor, type GroupKey, type MetricKey, type Player } from "./modelo";
 import { CampoEmocional } from "./CampoEmocional";
 
 const CSV_URL =
@@ -43,10 +43,6 @@ const VIDEO_EMBED = `https://drive.google.com/file/d/${VIDEO_ID}/preview`;
 /* Por debajo de esto la media es una tendencia, no un diagnóstico. */
 const MUESTRA_MINIMA = 12;
 
-const SERIES_COLORS = ["#36DAFF", "#B66BFF", "#62E8FF", "#D17DFF"];
-
-
-type GroupKey = "leftSide" | "defense" | "rightSide" | "midfield" | "strikers";
 
 const EMPTY_GROUPS: Record<GroupKey, string[]> = {
   leftSide: [],
@@ -147,6 +143,15 @@ export default function EmotionPage() {
 
   const [groups, setGroups] = useState<Record<GroupKey, string[]>>(EMPTY_GROUPS);
 
+  /* Las líneas del once de la pizarra (30/10/2026): mandan sobre las de la
+     demarcación, y «Restablecer líneas» vuelve a ellas. */
+  const [gruposOnce, setGruposOnce] = useState<Record<GroupKey, string[]> | null>(null);
+
+  const recibeOnce = useCallback((g: Record<GroupKey, string[]>) => {
+    setGruposOnce(g);
+    setGroups(g);
+  }, []);
+
   /* Cambiar la clave relanza la descarga: así el botón de reintento
      no necesita duplicar la lógica de carga. */
   const [reloadKey, setReloadKey] = useState(0);
@@ -160,7 +165,7 @@ export default function EmotionPage() {
 
         const parsed = parseCSV(t);
         setRows(parsed);
-        setGroups(gruposPorDefecto(parsed));
+        setGroups((prev) => (Object.values(prev).some((v) => v.length > 0) ? prev : gruposPorDefecto(parsed)));
 
         setError(false);
       })
@@ -233,8 +238,8 @@ export default function EmotionPage() {
   }, []);
 
   const resetGroups = useCallback(() => {
-    setGroups(gruposPorDefecto(rows));
-  }, [rows]);
+    setGroups(gruposOnce ?? gruposPorDefecto(rows));
+  }, [rows, gruposOnce]);
 
   /* Las líneas sin ningún jugador evaluado no se dibujan. Se decide con la
      composición por defecto, no con lo que el usuario vaya quitando: una
@@ -242,9 +247,9 @@ export default function EmotionPage() {
   const lineasConJugadores = useMemo(() => {
     const por = gruposPorDefecto(rows);
     return new Set(
-      (Object.keys(por) as GroupKey[]).filter((k) => por[k].length > 0)
+      (Object.keys(por) as GroupKey[]).filter((k) => por[k].length > 0 || (gruposOnce?.[k].length ?? 0) > 0)
     );
-  }, [rows]);
+  }, [rows, gruposOnce]);
 
   const openVideo = () => {
     if (window.innerWidth < 1024) {
@@ -295,10 +300,12 @@ export default function EmotionPage() {
                   </h1>
 
                   <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/50">
-                    El once de la pizarra táctica con su estado emocional: el
+                    El once de la pizarra táctica con su estado emocional:
+                    cada línea tiene su radar en su zona del campo, con los
+                    jugadores que hay en la pizarra. En «Fichas del once», el
                     aro es la media de las cuatro dimensiones (0 a 10) y la
                     flecha, cómo ha cambiado. Pulsa un jugador para ver su
-                    perfil; más abajo se comparan los perfiles por línea.
+                    perfil; más abajo se cambia quién entra en cada radar.
                   </p>
                 </div>
 
@@ -344,6 +351,8 @@ export default function EmotionPage() {
                 rows={rows}
                 loading={loading}
                 teamAverage={teamAverage}
+                grupos={groups}
+                onGruposDelOnce={recibeOnce}
               />
             )}
 

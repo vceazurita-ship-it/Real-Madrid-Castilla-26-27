@@ -30,7 +30,7 @@ import { posicionDe } from "@/lib/posiciones";
 import { chipInk } from "@/lib/theme";
 import type { Player as Ficha } from "@/types/player";
 
-import { AXES, SCALE, average, bandFor, nombreLargo, type MetricKey, type Player } from "./modelo";
+import { AXES, SCALE, SERIES_COLORS, average, bandFor, nombreLargo, type GroupKey, type MetricKey, type Player } from "./modelo";
 import { mejorCasado, onceDeLaPizarra, type OnceDeLaPizarra } from "./onceEmocional";
 
 /* ------------------------------------------------------------------ */
@@ -120,6 +120,21 @@ const HUECOS_POR_PUESTO: { puestos: string[]; largo: number; ancho: number; dors
 const UMBRAL_FLECHA = 0.25;
 const UMBRAL_ALERTA = 0.5;
 
+/*
+| La línea de cada titular sale de dónde está en la pizarra (30/10/2026), no
+| de su demarcación en la hoja: si el analista pone a un lateral de extremo,
+| su radar es el del perfil. Por encima del 80 % del largo, puntas; pegados a
+| una banda, el perfil de esa banda; atrás, defensa; el resto, medio. El
+| portero no tiene línea.
+*/
+function lineaDe(largo: number, ancho: number): GroupKey | null {
+  if (largo < 12) return null;
+  if (largo >= 80) return "strikers";
+  if (ancho <= 26) return "leftSide";
+  if (ancho >= 74) return "rightSide";
+  return largo < 34 ? "defense" : "midfield";
+}
+
 function cambioDe(c: { dato?: Player; previo?: number[] }) {
   if (!c.dato || !c.previo) return null;
 
@@ -138,16 +153,23 @@ export function CampoEmocional({
   rows,
   loading,
   teamAverage,
+  grupos,
+  onGruposDelOnce,
 }: {
   rows: Player[];
   loading: boolean;
   teamAverage: Record<MetricKey, number> | null;
+  /** Lo que hay elegido en cada radar de línea (la página lo deja cambiar). */
+  grupos: Record<GroupKey, string[]>;
+  /** Avisa de las líneas del once de la pizarra para que los radares salgan con ellos elegidos. */
+  onGruposDelOnce: (grupos: Record<GroupKey, string[]>) => void;
 }) {
   const { players: plantilla } = usePlayers();
 
   const [once, setOnce] = useState<OnceDeLaPizarra | null | undefined>(undefined);
   const [historia, setHistoria] = useState<Foto[]>([]);
   const [elegido, setElegido] = useState<string | null>(null);
+  const [vista, setVista] = useState<"radares" | "fichas">("radares");
 
   /* El once se lee cada vez que se abre la pantalla: lo cambiado en la pizarra sale al recargar. */
   useEffect(() => {
@@ -271,6 +293,29 @@ export function CampoEmocional({
   const todos = useMemo(() => [...titulares, ...banquillo], [titulares, banquillo]);
   const seleccionado = todos.find((c) => c.clave === elegido && c.dato) ?? null;
 
+  /* Las líneas del once de la pizarra, con el nombre de la hoja emocional. */
+  const gruposDelOnce = useMemo(() => {
+    if (!once) return null;
+
+    const g: Record<GroupKey, string[]> = { leftSide: [], defense: [], rightSide: [], midfield: [], strikers: [] };
+
+    for (const c of titulares) {
+      const linea = lineaDe(c.largo, c.ancho);
+      if (linea && c.dato) g[linea].push(c.dato.jugador);
+    }
+
+    return Object.values(g).some((v) => v.length > 0) ? g : null;
+  }, [once, titulares]);
+
+  /* Se avisa sólo cuando cambia de verdad: así no pisa lo que se elija a mano. */
+  const firmaOnce = gruposDelOnce ? JSON.stringify(gruposDelOnce) : "";
+
+  useEffect(() => {
+    if (firmaOnce) onGruposDelOnce(JSON.parse(firmaOnce) as Record<GroupKey, string[]>);
+  }, [firmaOnce, onGruposDelOnce]);
+
+  const porNombre = useMemo(() => new Map(todos.flatMap((c) => (c.dato ? [[c.dato.jugador, c] as const] : []))), [todos]);
+
   const cargando = loading || once === undefined;
 
   return (
@@ -290,6 +335,26 @@ export function CampoEmocional({
           </p>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
+        <div role="tablist" aria-label="Qué se ve en el campo" className="inline-flex rounded-full border border-white/10 p-0.5">
+          {(
+            [
+              ["radares", "Radares por línea"],
+              ["fichas", "Fichas del once"],
+            ] as const
+          ).map(([clave, texto]) => (
+            <button
+              key={clave}
+              role="tab"
+              aria-selected={vista === clave}
+              onClick={() => setVista(clave)}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${vista === clave ? "bg-[#36DAFF] text-[#031018]" : "text-white/55 hover:text-white"}`}
+            >
+              {texto}
+            </button>
+          ))}
+        </div>
+
         <Link
           href="/pizarra-tactica"
           className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3.5 py-1.5 text-xs font-medium text-white/65 transition hover:border-white/25 hover:text-white"
@@ -297,13 +362,26 @@ export function CampoEmocional({
           {once ? "Cambiar el once en la pizarra" : "Poner el once en la pizarra"}
           <ArrowUpRight size={13} />
         </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_330px] xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
-          <Campo titulares={titulares} cargando={cargando} elegido={elegido} onElegir={setElegido} />
+          {vista === "radares" ? (
+            <RadaresEnCampo
+              grupos={grupos}
+              titulares={titulares}
+              porNombre={porNombre}
+              teamAverage={teamAverage}
+              cargando={cargando}
+              elegido={elegido}
+              onElegir={setElegido}
+            />
+          ) : (
+            <Campo titulares={titulares} cargando={cargando} elegido={elegido} onElegir={setElegido} />
+          )}
 
-          <Leyenda />
+          <Leyenda radares={vista === "radares"} />
 
           {banquillo.length > 0 && (
             <Banquillo suplentes={banquillo} elegido={elegido} onElegir={setElegido} />
@@ -326,16 +404,22 @@ export function CampoEmocional({
 /*  EL CAMPO                                                           */
 /* ------------------------------------------------------------------ */
 
-const LINEA = { stroke: "rgba(255,255,255,.55)", fill: "none", strokeWidth: 0.35 } as const;
+/*
+| Campo de aire tecnológico (30/10/2026): noche azul con rejilla, líneas de
+| neón, barrido de escáner y esquinas de visor. Es el mismo de día y de noche
+| (`siempre-oscuro`): es un lienzo, no un fondo de la app.
+*/
+const LINEA = { stroke: "rgba(98,232,255,.62)", fill: "none", strokeWidth: 0.3 } as const;
+const BRILLO = { filter: "drop-shadow(0 0 2px rgba(54,218,255,.85)) drop-shadow(0 0 6px rgba(54,218,255,.35))" };
 
 /** Las líneas de un campo de 105 × 68, tumbado (atacando a la derecha). */
 function LineasTumbado() {
   return (
-    <svg viewBox="0 0 105 68" preserveAspectRatio="none" className="absolute inset-0 hidden h-full w-full sm:block" aria-hidden>
+    <svg viewBox="0 0 105 68" preserveAspectRatio="none" className="absolute inset-0 hidden h-full w-full sm:block" style={BRILLO} aria-hidden>
       <rect x="1.5" y="1.5" width="102" height="65" style={LINEA} />
       <line x1="52.5" y1="1.5" x2="52.5" y2="66.5" style={LINEA} />
       <circle cx="52.5" cy="34" r="9.15" style={LINEA} />
-      <circle cx="52.5" cy="34" r="0.5" style={{ ...LINEA, fill: "rgba(255,255,255,.6)" }} />
+      <circle cx="52.5" cy="34" r="0.6" style={{ ...LINEA, fill: "rgba(98,232,255,.9)" }} />
       <rect x="1.5" y="13.85" width="16.5" height="40.3" style={LINEA} />
       <rect x="1.5" y="24.85" width="5.5" height="18.3" style={LINEA} />
       <rect x="87" y="13.85" width="16.5" height="40.3" style={LINEA} />
@@ -349,7 +433,7 @@ function LineasTumbado() {
 /** El mismo campo de pie (atacando hacia arriba), para el móvil. */
 function LineasDePie() {
   return (
-    <svg viewBox="0 0 68 105" preserveAspectRatio="none" className="absolute inset-0 h-full w-full sm:hidden" aria-hidden>
+    <svg viewBox="0 0 68 105" preserveAspectRatio="none" className="absolute inset-0 h-full w-full sm:hidden" style={BRILLO} aria-hidden>
       <rect x="1.5" y="1.5" width="65" height="102" style={LINEA} />
       <line x1="1.5" y1="52.5" x2="66.5" y2="52.5" style={LINEA} />
       <circle cx="34" cy="52.5" r="9.15" style={LINEA} />
@@ -363,6 +447,63 @@ function LineasDePie() {
   );
 }
 
+const ESQUINA = "pointer-events-none absolute h-5 w-5 border-[#E4C977]/80";
+
+/** El lienzo: con `libre` el alto lo da el contenido (los radares), sin proporción fija. */
+function CampoTecnologico({ children, libre = false }: { children: React.ReactNode; libre?: boolean }) {
+  return (
+    <div
+      className={`siempre-oscuro relative w-full overflow-hidden rounded-[28px] ${libre ? "" : "aspect-[68/100] sm:aspect-[105/66]"}`}
+      style={{
+        background: [
+          "radial-gradient(70% 55% at 50% 50%, rgba(54,218,255,.13), transparent 70%)",
+          "radial-gradient(40% 40% at 100% 0%, rgba(182,107,255,.14), transparent 70%)",
+          "linear-gradient(rgba(98,232,255,.055) 1px, transparent 1px) 0 0 / 100% 22px",
+          "linear-gradient(90deg, rgba(98,232,255,.055) 1px, transparent 1px) 0 0 / 22px 100%",
+          "linear-gradient(160deg, #020B15 0%, #05182A 50%, #030E1A 100%)",
+        ].join(", "),
+        boxShadow: "inset 0 0 0 1px rgba(98,232,255,.18), inset 0 0 90px rgba(0,0,0,.6), 0 24px 60px rgba(0,0,0,.35)",
+      }}
+    >
+      <LineasTumbado />
+      <LineasDePie />
+
+      {/* Barrido de escáner */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 h-28 motion-reduce:hidden"
+        style={{ background: "linear-gradient(180deg, transparent, rgba(54,218,255,.08) 70%, rgba(98,232,255,.2) 98%, transparent)", animation: "scan 7s linear infinite" }}
+      />
+
+      <span aria-hidden className={`${ESQUINA} left-3 top-3 border-l-2 border-t-2`} />
+      <span aria-hidden className={`${ESQUINA} right-3 top-3 border-r-2 border-t-2`} />
+      <span aria-hidden className={`${ESQUINA} bottom-3 left-3 border-b-2 border-l-2`} />
+      <span aria-hidden className={`${ESQUINA} bottom-3 right-3 border-b-2 border-r-2`} />
+
+      {children}
+    </div>
+  );
+}
+
+function Girando() {
+  return (
+    <div className="absolute inset-0 grid place-items-center">
+      <span className="h-10 w-10 animate-spin rounded-full border-2 border-transparent" style={{ borderTopColor: "rgba(98,232,255,.9)" }} />
+    </div>
+  );
+}
+
+/** Dónde va cada ficha: tumbado en el portátil, de pie en el móvil. */
+const sitioDe = (c: Colocado) =>
+  ({
+    "--hx": `${c.largo}%`,
+    "--hy": `${c.ancho}%`,
+    "--vx": `${c.ancho}%`,
+    "--vy": `${100 - c.largo}%`,
+  }) as React.CSSProperties;
+
+const COLOCA = "absolute left-[var(--vx)] top-[var(--vy)] -translate-x-1/2 -translate-y-1/2 sm:left-[var(--hx)] sm:top-[var(--hy)]";
+
 function Campo({
   titulares,
   cargando,
@@ -375,40 +516,261 @@ function Campo({
   onElegir: (clave: string | null) => void;
 }) {
   return (
-    <div
-      className="relative aspect-[68/100] w-full overflow-hidden rounded-[28px] sm:aspect-[105/66]"
-      /* El césped es el mismo de día y de noche: es un campo, no un fondo de la app. */
-      style={{
-        background:
-          "radial-gradient(120% 90% at 50% 50%, rgba(255,255,255,.07), transparent 60%), repeating-linear-gradient(90deg, #0F5A36 0 9.0909%, #12643C 9.0909% 18.1818%)",
-        boxShadow: "inset 0 0 80px rgba(0,0,0,.45), 0 18px 50px rgba(0,0,0,.25)",
-      }}
-    >
-      <LineasTumbado />
-      <LineasDePie />
-
-      {cargando && titulares.length === 0 && (
-        <div className="absolute inset-0 grid place-items-center">
-          <span className="h-10 w-10 animate-spin rounded-full border-2 border-transparent" style={{ borderTopColor: "rgba(255,255,255,.7)" }} />
-        </div>
-      )}
+    <CampoTecnologico>
+      {cargando && titulares.length === 0 && <Girando />}
 
       {titulares.map((c) => (
-        <div
-          key={c.clave}
-          className="absolute left-[var(--vx)] top-[var(--vy)] -translate-x-1/2 -translate-y-1/2 transition-all duration-500 sm:left-[var(--hx)] sm:top-[var(--hy)]"
-          style={
-            {
-              "--hx": `${c.largo}%`,
-              "--hy": `${c.ancho}%`,
-              "--vx": `${c.ancho}%`,
-              "--vy": `${100 - c.largo}%`,
-            } as React.CSSProperties
-          }
-        >
+        <div key={c.clave} className={`${COLOCA} transition-all duration-500`} style={sitioDe(c)}>
           <FichaJugador c={c} elegido={elegido === c.clave} onElegir={onElegir} />
         </div>
       ))}
+    </CampoTecnologico>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  LOS RADARES, CADA UNO EN SU ZONA DEL CAMPO (30/10/2026)            */
+/* ------------------------------------------------------------------ */
+
+/*
+| Cada línea en su sitio: tumbado, el perfil izquierdo arriba, defensa, medio y
+| puntas en el centro de izquierda a derecha y el derecho abajo; en el móvil,
+| de pie (puntas arriba). Los jugadores elegidos son los del once de la
+| pizarra; se cambian más abajo, en «Perfiles por línea».
+*/
+const ZONAS: { clave: GroupKey; titulo: string; sitio: string; tumbada?: boolean }[] = [
+  { clave: "strikers", titulo: "Puntas", sitio: "col-span-2 row-start-1 sm:col-span-1 sm:col-start-3 sm:row-start-2" },
+  { clave: "leftSide", titulo: "Perfil izquierdo", sitio: "col-start-1 row-start-2 sm:col-span-2 sm:col-start-2 sm:row-start-1", tumbada: true },
+  { clave: "rightSide", titulo: "Perfil derecho", sitio: "col-start-2 row-start-2 sm:col-span-2 sm:col-start-2 sm:row-start-3", tumbada: true },
+  { clave: "midfield", titulo: "Mediocampo", sitio: "col-span-2 row-start-3 sm:col-span-1 sm:col-start-2 sm:row-start-2" },
+  { clave: "defense", titulo: "Defensa", sitio: "col-span-2 row-start-4 sm:col-span-1 sm:col-start-1 sm:row-start-2" },
+];
+
+function RadaresEnCampo({
+  grupos,
+  titulares,
+  porNombre,
+  teamAverage,
+  cargando,
+  elegido,
+  onElegir,
+}: {
+  grupos: Record<GroupKey, string[]>;
+  titulares: Colocado[];
+  porNombre: Map<string, Colocado>;
+  teamAverage: Record<MetricKey, number> | null;
+  cargando: boolean;
+  elegido: string | null;
+  onElegir: (clave: string | null) => void;
+}) {
+  const zonas = ZONAS.map((z) => ({
+    ...z,
+    jugadores: grupos[z.clave].flatMap((n) => {
+      const c = porNombre.get(n);
+      return c?.dato ? [c as Colocado & { dato: Player }] : [];
+    }),
+  })).filter((z) => z.jugadores.length > 0);
+
+  return (
+    <CampoTecnologico libre>
+      {/* Dónde está cada titular: un punto de luz bajo los radares. */}
+      {titulares.map((c) => {
+        const tono = c.dato ? bandFor(average(c.dato)).tone : "rgba(255,255,255,.35)";
+        return (
+          <span
+            key={c.clave}
+            aria-hidden
+            className={`${COLOCA} h-2 w-2 rounded-full`}
+            style={{ ...sitioDe(c), background: tono, boxShadow: `0 0 12px ${tono}` }}
+          />
+        );
+      })}
+
+      {cargando && zonas.length === 0 ? (
+        <div className="relative h-[420px]">
+          <Girando />
+        </div>
+      ) : (
+        <div className="relative grid grid-cols-2 gap-2.5 p-3 sm:grid-cols-3 sm:gap-4 sm:p-6">
+          {zonas.map((z) => (
+            <div key={z.clave} className={z.sitio}>
+              <RadarLinea titulo={z.titulo} jugadores={z.jugadores} teamAverage={teamAverage} tumbada={z.tumbada} elegido={elegido} onElegir={onElegir} />
+            </div>
+          ))}
+        </div>
+      )}
+    </CampoTecnologico>
+  );
+}
+
+/* Cuatro ejes en rombo: arriba, derecha, abajo, izquierda. */
+const R = 40;
+const punto = (i: number, v: number) => {
+  const ang = (-90 + i * 90) * (Math.PI / 180);
+  const r = (Math.max(0, Math.min(10, v)) / 10) * R;
+  return [Math.cos(ang) * r, Math.sin(ang) * r] as const;
+};
+const poligono = (valores: number[]) => valores.map((v, i) => punto(i, v).join(",")).join(" ");
+
+function RadarLinea({
+  titulo,
+  jugadores,
+  teamAverage,
+  tumbada = false,
+  elegido,
+  onElegir,
+}: {
+  titulo: string;
+  jugadores: (Colocado & { dato: Player })[];
+  teamAverage: Record<MetricKey, number> | null;
+  tumbada?: boolean;
+  elegido: string | null;
+  onElegir: (clave: string | null) => void;
+}) {
+  const mediaEje = AXES.map((a) => jugadores.reduce((s, c) => s + c.dato[a.key], 0) / jugadores.length);
+  const media = media4(mediaEje);
+  const banda = bandFor(media);
+  const resaltado = jugadores.find((c) => c.clave === elegido);
+
+  return (
+    <div
+      className={`flex h-full flex-col gap-2 rounded-2xl p-3 backdrop-blur-md ${tumbada ? "sm:flex-row sm:items-center sm:gap-4" : ""}`}
+      style={{
+        background: "linear-gradient(160deg, rgba(4,18,32,.86), rgba(3,10,20,.78))",
+        border: `1px solid ${banda.tone}55`,
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,.06), 0 0 28px ${banda.tone}22`,
+      }}
+    >
+      <div className={`min-w-0 ${tumbada ? "sm:w-[190px] sm:shrink-0" : ""}`}>
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="truncate text-[10px] font-semibold uppercase tracking-[.22em]" style={{ color: "#9FE9FF" }}>
+            {titulo}
+          </p>
+          <p className="shrink-0 text-lg font-bold tabular-nums leading-none" style={{ color: banda.tone, textShadow: `0 0 12px ${banda.tone}99` }}>
+            {coma(media)}
+          </p>
+        </div>
+
+        <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[.18em]" style={{ color: `${banda.tone}CC` }}>
+          {banda.label}
+        </p>
+
+        {tumbada && (
+          <div className="mt-2 hidden sm:block">
+            <Nombres jugadores={jugadores} elegido={elegido} onElegir={onElegir} />
+          </div>
+        )}
+      </div>
+
+      <svg viewBox="-64 -54 128 108" className={`mx-auto w-full ${tumbada ? "max-w-[210px] sm:max-w-[200px]" : "max-w-[240px]"}`} role="img" aria-label={`Radar de ${titulo}`}>
+        {[2.5, 5, 7.5, 10].map((v) => (
+          <polygon
+            key={v}
+            points={poligono([v, v, v, v])}
+            fill={v === 10 ? "rgba(54,218,255,.04)" : "none"}
+            stroke="rgba(98,232,255,.22)"
+            strokeWidth={v === 10 ? 0.6 : 0.4}
+            strokeDasharray={v === 10 ? undefined : "1.5 1.5"}
+          />
+        ))}
+        {AXES.map((a, i) => {
+          const [x, y] = punto(i, 10);
+          return <line key={a.key} x1={0} y1={0} x2={x} y2={y} stroke="rgba(98,232,255,.2)" strokeWidth={0.4} />;
+        })}
+
+        {teamAverage && (
+          <polygon points={poligono(AXES.map((a) => teamAverage[a.key]))} fill="none" stroke="rgba(228,201,119,.85)" strokeWidth={0.7} strokeDasharray="2 1.6" />
+        )}
+
+        {jugadores.length > 1 && <polygon points={poligono(mediaEje)} fill={`${banda.tone}26`} stroke="none" />}
+
+        {jugadores.map((c, i) => {
+          const color = SERIES_COLORS[i % SERIES_COLORS.length];
+          return (
+            <polygon
+              key={c.clave}
+              points={poligono(AXES.map((a) => c.dato[a.key]))}
+              fill={jugadores.length === 1 ? `${color}33` : "none"}
+              stroke={color}
+              strokeWidth={resaltado === c ? 1.6 : 0.9}
+              strokeLinejoin="round"
+              opacity={resaltado && resaltado !== c ? 0.25 : 1}
+              style={{ filter: `drop-shadow(0 0 2.5px ${color})`, transition: "opacity .3s" }}
+            />
+          );
+        })}
+
+        {mediaEje.map((v, i) => {
+          const [x, y] = punto(i, v);
+          return <circle key={AXES[i].key} cx={x} cy={y} r={1.5} fill={banda.tone} style={{ filter: `drop-shadow(0 0 2px ${banda.tone})` }} />;
+        })}
+
+        {AXES.map((a, i) => {
+          const [x, y] = punto(i, 10);
+          const dx = i === 1 ? 3 : i === 3 ? -3 : 0;
+          const dy = i === 0 ? -3.5 : i === 2 ? 7.5 : 2;
+          return (
+            <text
+              key={a.key}
+              x={x + dx}
+              y={y + dy}
+              textAnchor={i === 1 ? "start" : i === 3 ? "end" : "middle"}
+              fontSize={6.4}
+              fontWeight={600}
+              fill="rgba(226,246,255,.78)"
+            >
+              {a.corto}
+              <tspan fill={banda.tone} dx={2}>
+                {coma(mediaEje[i])}
+              </tspan>
+            </text>
+          );
+        })}
+      </svg>
+
+      <div className={tumbada ? "sm:hidden" : ""}>
+        <Nombres jugadores={jugadores} elegido={elegido} onElegir={onElegir} />
+      </div>
+    </div>
+  );
+}
+
+function Nombres({
+  jugadores,
+  elegido,
+  onElegir,
+}: {
+  jugadores: (Colocado & { dato: Player })[];
+  elegido: string | null;
+  onElegir: (clave: string | null) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {jugadores.map((c, i) => {
+        const color = SERIES_COLORS[i % SERIES_COLORS.length];
+        const activo = elegido === c.clave;
+        const media = average(c.dato);
+        return (
+          <button
+            key={c.clave}
+            type="button"
+            onClick={() => onElegir(activo ? null : c.clave)}
+            aria-pressed={activo}
+            className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-[3px] text-[10px] font-semibold transition hover:brightness-125"
+            style={{
+              background: activo ? `${color}33` : "rgba(255,255,255,.05)",
+              border: `1px solid ${activo ? color : `${color}55`}`,
+              color: "#EAF8FF",
+            }}
+          >
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+            <span className="truncate">{c.nombre}</span>
+            <span className="tabular-nums" style={{ color: bandFor(media).tone }}>
+              {coma(media)}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -506,9 +868,16 @@ function FichaJugador({
   );
 }
 
-function Leyenda() {
+function Leyenda({ radares = false }: { radares?: boolean }) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-white/55">
+      {radares && (
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="h-0 w-5 border-t-2 border-dashed" style={{ borderColor: "#E4C977" }} />
+          media de la plantilla
+        </span>
+      )}
+
       {SCALE.map((band) => (
         <span key={band.label} className="inline-flex items-center gap-1.5">
           <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: band.tone }} />
