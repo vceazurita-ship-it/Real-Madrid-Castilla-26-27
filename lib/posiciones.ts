@@ -47,6 +47,16 @@ const CORRECCIONES: Correccion[] = [
     enLaHoja: "11",
     debeDecir: "7",
   },
+  {
+    /*
+    | Óscar Nassei (el 21) es **central**; la hoja le pone lateral derecho.
+    | Lo corrigió el analista el 30/10/2026.
+    */
+    id: "JUG-49",
+    nombre: "Óscar Nassei",
+    enLaHoja: "LATERAL D.",
+    debeDecir: "CENTRAL",
+  },
 ];
 
 const POR_NOMBRE = new Map(
