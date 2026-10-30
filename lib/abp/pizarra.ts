@@ -445,7 +445,8 @@ export const PLANTILLAS: PlantillaSlide[] = [
   },
   {
     key: "directas",
-    rev: 5,
+    /* rev 6 (30/10/2026): la columna de la falta lateral I, simétrica a la D. */
+    rev: 6,
     titulo: "DIRECTAS A PORTERÍA",
     vista: "porteria",
     lado: "ofensivo",
@@ -474,7 +475,9 @@ export const PLANTILLAS: PlantillaSlide[] = [
     |     que es donde esperan los que van detrás en la lista.
     |   · La FALTA FRONTAL sale en columna hacia fuera desde el centro de la
     |     frontal del área, en la misma vertical de la portería.
-    |   · Las LATERALES se van a su banda, la I a x=255 y la D a x=1095.
+    |   · Las LATERALES se van a su banda, la D a x=1095 y la I a x=455:
+    |     simétricas respecto al centro de la portería (775 ± 320). La I
+    |     estuvo a 255 y el analista la veía demasiado abierta (30/10/2026).
     |
     | Las medidas que no se pueden tocar: 160 px entre fichas de una columna
     | —la ficha mide 120 de alta y su chapa 34, y con menos la cara tapa la
@@ -485,9 +488,9 @@ export const PLANTILLAS: PlantillaSlide[] = [
     elegirEnGrupo: ["lado-i", "frontal", "penaltis", "lado-d"],
     repite: true,
     puestos: puestos("directas", [
-      { code: "I1", label: "Falta lateral I · 1", grupo: "lado-i", x: 255, y: 560 },
-      { code: "I2", label: "Falta lateral I · 2", grupo: "lado-i", x: 255, y: 720 },
-      { code: "I3", label: "Falta lateral I · 3", grupo: "lado-i", x: 255, y: 880 },
+      { code: "I1", label: "Falta lateral I · 1", grupo: "lado-i", x: 455, y: 560 },
+      { code: "I2", label: "Falta lateral I · 2", grupo: "lado-i", x: 455, y: 720 },
+      { code: "I3", label: "Falta lateral I · 3", grupo: "lado-i", x: 455, y: 880 },
       { code: "F1", label: "Falta frontal · 1", grupo: "frontal", x: 775, y: 660 },
       { code: "F2", label: "Falta frontal · 2", grupo: "frontal", x: 775, y: 820 },
       { code: "F3", label: "Falta frontal · 3", grupo: "frontal", x: 775, y: 980 },
@@ -503,7 +506,7 @@ export const PLANTILLAS: PlantillaSlide[] = [
        penalti cae sobre el marco de la portería, que es papel pintado: la
        placa es de tinta y se lee igual. */
     adornos: [
-      { tipo: "zona", x: 255, y: 560, label: "Falta lateral I", etiquetaY: 398 },
+      { tipo: "zona", x: 455, y: 560, label: "Falta lateral I", etiquetaY: 398 },
       { tipo: "zona", x: 775, y: 360, label: "Penalti", etiquetaY: 196 },
       { tipo: "zona", x: 775, y: 660, label: "Falta frontal", etiquetaY: 498 },
       { tipo: "zona", x: 1095, y: 560, label: "Falta lateral D", etiquetaY: 398 },
