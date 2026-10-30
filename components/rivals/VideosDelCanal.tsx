@@ -952,11 +952,12 @@ export function VideosDelCanal({
       )}
 
       {lista && !cargandoVideos && videos.length > 0 && (
-        <div className="scrollbar-none mt-3 flex items-center gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_88%,transparent)] [&_button]:shrink-0 [&_span]:shrink-0 sm:flex-wrap sm:overflow-visible sm:pb-0 sm:[mask-image:none]">
+        <div className="scrollbar-none mt-3 flex items-center gap-1.5 overflow-x-auto pb-1 pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-32px),transparent)] [&_button]:shrink-0 [&_span]:shrink-0 sm:flex-wrap sm:overflow-visible sm:pb-0 sm:pr-0 sm:[mask-image:none]">
           <Chip
             activo={!soloDe}
             onClick={() => setSoloDe("")}
-            texto="Todos"
+            /* «Todos los vídeos»: la cifra son cortes, no jugadores (30/10/2026). */
+            texto="Todos los vídeos"
             cuenta={
               grupos.jugadores.reduce((suma, g) => suma + g.videos.length, 0) +
               grupos.sueltos.length
@@ -1080,7 +1081,7 @@ export function VideosDelCanal({
 
             <span className="text-[11px] text-white/35">
               {!soloDe && plantilla.length >= grupos.jugadores.length && grupos.jugadores.length > 0
-                ? `${grupos.jugadores.length} de ${plantilla.length} con vídeo`
+                ? `${grupos.jugadores.length} ${grupos.jugadores.length === 1 ? "jugador" : "jugadores"} con vídeo, de los ${plantilla.length} de la plantilla`
                 : `${jugadoresVisibles.length} ${jugadoresVisibles.length === 1 ? "jugador" : "jugadores"} con vídeo`}
             </span>
           </header>
@@ -1411,11 +1412,18 @@ function Rejilla({
             {conJugador && resumen && <p className="mb-1 text-[11px] tabular-nums text-white/60 sm:text-[10px]">{resumen}</p>}
 
             {/* Qué mirar: su puesto y sus etiquetas de la ficha. */}
+            {/* Las etiquetas son el criterio del analista, no una cifra: se
+                dice al pasar por ellas (30/10/2026, análisis). */}
             {conJugador && (puesto || etiquetas.length > 0) && (
-              <p className="mb-1 line-clamp-3 text-[11px] leading-snug text-white/55 sm:text-[10px]">
+              <p className="mb-1 line-clamp-3 text-[11px] leading-snug text-white/55">
                 {puesto}
                 {etiquetas.map((e, i) => (
-                  <span key={e} className="font-semibold" style={{ color: esEtiquetaDebil(e) ? PEOR : MEJOR }}>
+                  <span
+                    key={e}
+                    title="Lectura del analista, de la ficha del jugador"
+                    className="font-semibold"
+                    style={{ color: esEtiquetaDebil(e) ? PEOR : MEJOR }}
+                  >
                     {puesto || i > 0 ? " · " : ""}
                     {e}
                   </span>

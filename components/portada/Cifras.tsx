@@ -57,7 +57,15 @@ function Numero({ value, loading }: { value: number | null; loading: boolean }) 
 
 export function Cifras({ cifras }: { cifras: Cifra[] }) {
   return (
-    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.06] md:grid-cols-3 xl:grid-cols-6">
+    /*
+    | Tantas columnas como casillas (30/10/2026): con `xl:grid-cols-6` y dos
+    | casillas quedaban dos tercios de panel en blanco a la derecha. `auto-fit`
+    | pliega las pistas vacías y las que hay se reparten el ancho.
+    */
+    <div
+      className="grid gap-px overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.06]"
+      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 150px), 1fr))" }}
+    >
       {cifras.map((cifra) => {
         const Icon = cifra.icon;
 

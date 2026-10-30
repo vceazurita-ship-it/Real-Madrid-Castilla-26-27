@@ -28,7 +28,9 @@ import {
 import { traeJson } from "@/lib/hojaCsv";
 import { trackModuleVisit } from "@/lib/module-usage";
 import { chipInk } from "@/lib/theme";
+import { useAdmin } from "@/hooks/useAdmin";
 import {
+  contenidosDelDia,
   cuantoFalta,
   diaEnMadrid,
   diaLargo,
@@ -165,6 +167,32 @@ export function ProximoPartido() {
   );
 
   const hoy = ahora ? diaEnMadrid(ahora) : "";
+
+  /* El coding de rival es de quien prepara el análisis: sólo el administrador lo ve. */
+  const { admin } = useAdmin();
+
+  /* Lo que hay escrito para hoy en la hoja de registro, para el botón «Hoy». */
+  const [contenidosHoy, setContenidosHoy] = useState<{ fecha: string; lista: string[] } | null>(null);
+
+  useEffect(() => {
+    if (!hoy) return;
+
+    let vivo = true;
+
+    contenidosDelDia(hoy)
+      .then((lista) => {
+        if (vivo) setContenidosHoy({ fecha: hoy, lista });
+      })
+      .catch(() => {
+        if (vivo) setContenidosHoy({ fecha: hoy, lista: [] });
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, [hoy]);
+
+  const sesionDeHoy = contenidosHoy?.fecha === hoy ? contenidosHoy.lista : [];
 
   const diaDeHoy = semana.find((dia) => dia.fecha === hoy) ?? null;
 
@@ -469,16 +497,24 @@ export function ProximoPartido() {
               })}
             </div>
 
-            {diaDeHoy && (
+            {/* 30/10/2026 (fútbol): el botón dice qué toca —«Hoy MD-1 ·
+                Activación + ABP ofensivo»— con lo escrito en la hoja de
+                registro. Sin sesión escrita no sale: el día se sigue
+                abriendo pinchando su casilla. */}
+            {diaDeHoy && sesionDeHoy.length > 0 && (
               <button
                 type="button"
                 onClick={() =>
                   setDiaAbierto({ fecha: diaDeHoy.fecha, nombre: diaDeHoy.nombre, rotulo: diaDeHoy.rotulo })
                 }
-                className="group mt-3 inline-flex items-center gap-2 rounded-xl border border-[#D8B45A]/50 bg-[#D8B45A]/10 px-4 py-2 text-[13px] font-semibold text-[#F7D98B] transition hover:-translate-y-0.5 hover:bg-[#D8B45A]/20"
+                title={sesionDeHoy.join(" · ")}
+                className="group mt-3 inline-flex max-w-full items-center gap-2 rounded-xl border border-[#D8B45A]/50 bg-[#D8B45A]/10 px-4 py-2 text-left text-[13px] font-semibold text-[#F7D98B] transition hover:-translate-y-0.5 hover:bg-[#D8B45A]/20"
               >
-                Qué toca hoy
-                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                <span className="min-w-0">
+                  Hoy {diaDeHoy.rotulo} · {sesionDeHoy.slice(0, 2).join(" + ")}
+                  {sesionDeHoy.length > 2 && ` y ${sesionDeHoy.length - 2} más`}
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
               </button>
             )}
 
@@ -503,8 +539,8 @@ export function ProximoPartido() {
 
         {/* ---------- Lo que se prepara para ese partido ---------- */}
 
-        {/* Móvil: el azul ocupa la fila y debajo los otros tres en una sola fila (29/10/2026, fútbol); hueco a la derecha para el botón flotante. En escritorio, una sola línea. */}
-        <div className="mt-6 grid grid-cols-3 gap-2 pr-12 sm:flex sm:flex-wrap sm:gap-2.5 sm:pr-0 xl:flex-nowrap [&>a:first-child]:col-span-3">
+        {/* Móvil: el azul ocupa la fila y debajo los otros tres en una sola fila (29/10/2026, fútbol). El hueco para el botón flotante lo da ya la portada entera (30/10/2026). En escritorio, una sola línea. */}
+        <div className="mt-6 grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-2.5 xl:flex-nowrap [&>a:first-child]:col-span-3">
           <Link
             href={enlacePlantilla}
             title={nombreRival ? `La plantilla de ${nombreRival}` : undefined}
@@ -576,34 +612,35 @@ export function ProximoPartido() {
                 { href: conRival("/abp-pizarra"), texto: "Pizarra ABP", title: `Las diapositivas de balón parado del partido contra ${nombreRival}` },
                 { href: conEquipo("/duelos"), texto: "Duelos", title: `Nuestro once contra el de ${nombreRival}, puesto a puesto` },
                 { href: conEquipo("/scout-rival-individual"), texto: "Individual", title: `Los vídeos de los jugadores de ${nombreRival}` },
+                /* Antes, un botón suelto al pie de la portada sin contexto (30/10/2026). */
+                ...(admin ? [{ href: "/coding?ambito=rival", texto: "Coding", title: `Marcar y cortar los clips de ${nombreRival}` }] : []),
               ].filter((atajo) => !yaHoy.has(atajo.texto))
             : [];
 
           if (!deHoy.length && !delRival.length) return null;
 
-          const lista = (atajos: { href: string; texto: string; title?: string }[]) =>
-            atajos.map((atajo, i) => (
-              <span key={atajo.texto} className="inline-flex items-center gap-2">
-                {i > 0 && <span className="text-white/20">·</span>}
-                <Atajo href={atajo.href} texto={atajo.texto} title={atajo.title} />
+          /*
+          | Dos filas con rótulo y en chips (30/10/2026, marketing y análisis):
+          | «Hoy» y «Del rival». Con puntos medios, en el móvil el «·» quedaba
+          | huérfano al principio de línea y los enlaces se apiñaban.
+          */
+          const fila = (rotulo: string, atajos: { href: string; texto: string; title?: string }[]) => (
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <span className="mr-1 w-full text-[12px] font-semibold uppercase tracking-[0.18em] text-white/55 sm:w-auto">
+                {rotulo}
               </span>
-            ));
+              {atajos.map((atajo) => (
+                <Atajo key={atajo.texto} href={atajo.href} texto={atajo.texto} title={atajo.title} />
+              ))}
+            </div>
+          );
 
           return (
-            <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]">
-              {/* Sin la cápsula «Hoy · MD-2» (29/10/2026, fútbol): ya sale
-                  arriba. Los atajos de hoy van solos, delante de «Del rival». */}
-              {hoyToca && deHoy.length > 0 && lista(deHoy)}
+            <div className="mt-4 space-y-2">
+              {hoyToca && deHoy.length > 0 && fila("Hoy", deHoy)}
 
-              {delRival.length > 0 && (
-                <>
-                  <span className={`text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50 ${deHoy.length ? "ml-3" : ""}`}>
-                    Del rival
-                  </span>
-                  {lista(delRival)}
-                </>
-              )}
-            </p>
+              {delRival.length > 0 && fila("Del rival", delRival)}
+            </div>
           );
         })()}
       </div>
@@ -693,7 +730,7 @@ function Atajo({ href, texto, title }: { href: string; texto: string; title?: st
       href={href}
       title={title}
       onClick={() => trackModuleVisit(modulo(href))}
-      className="text-white/60 underline decoration-white/20 underline-offset-4 transition-colors hover:text-[#F7D98B] hover:decoration-[#D8B45A]/60"
+      className="inline-flex items-center rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[13px] text-white/75 transition-colors hover:border-[#D8B45A]/60 hover:text-[#F7D98B]"
     >
       {texto}
     </Link>
@@ -718,8 +755,9 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
       <History className="h-4 w-4 shrink-0 text-white/35 transition-colors group-hover:text-[#D8B45A]" />
 
       {/* Qué lado es el más reciente, dicho (30/10/2026). */}
-      <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">
-        Últimos {ultimos.length || 5} <span className="normal-case tracking-normal font-normal">· el más reciente, a la derecha</span>
+      {/* La aclaración a 12 px y con más contraste (30/10/2026). */}
+      <span className="text-[12px] font-semibold uppercase tracking-[0.2em] text-white/55">
+        Últimos {ultimos.length || 5} <span className="normal-case tracking-normal font-normal text-white/65">· el más reciente, a la derecha</span>
       </span>
 
       <span className="flex items-center gap-1.5">
@@ -771,7 +809,7 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
     >
       <Trophy className="h-4 w-4 shrink-0 text-white/35 transition-colors group-hover:text-[#D8B45A]" />
 
-      <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">
+      <span className="text-[12px] font-semibold uppercase tracking-[0.2em] text-white/55">
         Liga
       </span>
 

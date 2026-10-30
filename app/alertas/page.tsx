@@ -20,7 +20,9 @@ export default function AlertasPage() {
       <main className="min-w-0 flex-1">
         <Topbar />
 
-        <div className="p-6 md:p-10">
+        {/* Margen a la derecha para el botón flotante de herramientas (30/10/2026):
+            en el móvil tapaba el borde de la segunda tarjeta. */}
+        <div className="py-6 pl-6 pr-12 md:py-10 md:pl-10 md:pr-[76px]">
           <div className="mb-8">
             <p className="text-xs uppercase tracking-[0.3em] text-[#C8A96B]">
               Operativa
@@ -28,7 +30,7 @@ export default function AlertasPage() {
 
             <h1 className="mt-2 text-3xl font-semibold">Tareas y alertas</h1>
 
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/50">
+            <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-white/60">
               Recordatorios que salen solos por correo, aunque no tengas la app
               abierta, hasta que los silencies.
             </p>

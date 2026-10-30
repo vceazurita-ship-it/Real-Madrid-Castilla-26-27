@@ -64,7 +64,12 @@ function ModuleCard({ module }: { module: AppModule }) {
   );
 }
 
-export default function ModulesExplorer() {
+/**
+ * `limite` (30/10/2026): en la portada, sin buscar ni filtrar, sólo las más
+ * usadas; las 46 repetían el menú lateral. Al buscar o filtrar salen todas
+ * las que casan.
+ */
+export default function ModulesExplorer({ limite }: { limite?: number } = {}) {
   const [query, setQuery] = useState("");
   const [area, setArea] = useState<AreaKey | null>(null);
 
@@ -83,6 +88,9 @@ export default function ModulesExplorer() {
       (a, b) => b.rank + (usage[b.href] ?? 0) * 3 - (a.rank + (usage[a.href] ?? 0) * 3)
     );
   }, [area, deferredQuery, usage]);
+
+  const recortado = Boolean(limite) && !area && !deferredQuery.trim();
+  const vistas = recortado ? results.slice(0, limite) : results;
 
   /* Recuento por área, para no ofrecer filtros que dejarían la rejilla vacía. */
   const countByArea = useMemo(() => {
@@ -201,15 +209,16 @@ export default function ModulesExplorer() {
         </p>
       ) : (
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {results.map((module) => (
+          {vistas.map((module) => (
             <ModuleCard key={module.href} module={module} />
           ))}
         </div>
       )}
 
-      <p className="mt-5 text-[11px] text-white/25">
-        {results.length} de {MODULES.length} áreas
-        {area || query ? " · filtrando" : " · lo que más usas aparece primero"}
+      <p className="mt-5 text-[12px] text-white/45">
+        {recortado
+          ? `Las ${vistas.length} que más usas, de ${MODULES.length}`
+          : `${results.length} de ${MODULES.length} áreas${area || query ? " · filtrando" : " · lo que más usas aparece primero"}`}
       </p>
     </div>
   );

@@ -77,7 +77,8 @@ export function AlertasPortada({
 
   useEffect(() => {
     let vivo = true;
-    const URL_ALERTAS = "/api/data-analisis?alertas=1&v=2";
+    /* v=3 (30/10/2026): las alertas traen ya la cifra aparte (`valor`) y su base. */
+    const URL_ALERTAS = "/api/data-analisis?alertas=1&v=3";
     const lista = (r: { alertas?: Alerta[] } | null) => (Array.isArray(r?.alertas) ? r.alertas : []);
     let pintadas = "";
     const relojes: ReturnType<typeof setTimeout>[] = [];
@@ -225,7 +226,8 @@ export function AlertasPortada({
                 onClick={() => setAbierto(true)}
                 className="group inline-flex items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3.5 py-2 text-[12px] font-medium text-[#C8A96B] transition hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20"
               >
-                Ver las {alertas.length}
+                {/* Lo que queda fuera, dicho (30/10/2026): «Ver las 10» con cuatro a la vista. */}
+                {alertas.length > enLaTira.length ? `+${alertas.length - enLaTira.length} más` : "Ver el detalle"}
                 <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
               </button>
             </div>
@@ -256,12 +258,19 @@ export function AlertasPortada({
                     style={{ background: alerta.tono === "buena" ? VERDE : NARANJA }}
                   />
 
+                  {/* La cifra en grande y la base debajo, en su línea (30/10/2026). */}
                   <span className="min-w-0">
                     <span className="line-clamp-2 block text-[13px] font-medium leading-snug text-white/85">
-                      {alerta.titulo}
+                      {alerta.valor ? alerta.rotulo ?? alerta.titulo : alerta.titulo}
                     </span>
 
-                    <span className="mt-0.5 line-clamp-2 block text-[12px] tabular-nums text-white/60">
+                    {alerta.valor && (
+                      <span className="mt-1 block text-[24px] font-bold leading-none tabular-nums text-white">
+                        {alerta.valor}
+                      </span>
+                    )}
+
+                    <span className="mt-1.5 line-clamp-3 block text-[12px] leading-snug tabular-nums text-white/60">
                       {alerta.cifra}
                     </span>
                   </span>

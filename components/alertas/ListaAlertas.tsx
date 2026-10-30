@@ -45,9 +45,28 @@ function partidoDelAviso(partidos: PartidoParaAlerta[], aviso: Date, dias: numbe
   const fecha = new Date(partido.cuando);
   const cuando = Number.isNaN(fecha.getTime())
     ? ""
-    : fecha.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "");
+    : fecha.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "");
 
-  return `vs ${comoNuestro(partido as PartidoCastilla).rival}${cuando ? `, ${cuando}` : ""}`;
+  return `vs ${comoNuestro(partido as PartidoCastilla).rival}${cuando ? ` (${cuando})` : ""}`;
+}
+
+/*
+| La regla y el partido en una sola frase (30/10/2026): «2 días antes del
+| partido vs Hércules (dom 8 nov)». Antes eran dos piezas —«Sale 2 días antes
+| del partido» por un lado y «· vs Hércules, dom, 8 nov» pegado a la fecha—
+| que a 390 px se partían en columnas cortadas a media palabra.
+*/
+function reglaDelPartido(alerta: Alerta, para: string) {
+  const dias = Math.max(0, Math.round(alerta.diasAntesDelPartido ?? 2));
+  const regla =
+    dias === 0 ? "El día del partido" : dias === 1 ? "El día antes del partido" : `${dias} días antes del partido`;
+
+  return para ? `${regla} ${para}` : regla;
+}
+
+/** «vie 6 nov · 09:00», sin comas ni puntos de abreviatura. */
+function fechaDeSalida(iso: string | null) {
+  return iso ? fechaLegible(iso).replace(/,/g, "") : "";
 }
 
 /** ¿Lleva una fecha de verdad? Vacía o ilegible, la alerta no suena. */
@@ -92,7 +111,7 @@ function nombreDelStaff(usuario: string) {
 }
 
 /** Quién recibe el correo, por nombre: «ana, luis y 2 más». */
-function nombresDestino(destinatarios: string[], agenda: ContactoAgenda[] = []) {
+export function nombresDestino(destinatarios: string[], agenda: ContactoAgenda[] = [], completo = false) {
   /* Lo que no se reconoce se lee «V. Ceazurita»: palabras con mayúscula, la
      inicial suelta con punto y sin los números del usuario. La expresión
      había perdido su barra invertida y no partía las palabras (29/10/2026). */
@@ -122,6 +141,9 @@ function nombresDestino(destinatarios: string[], agenda: ContactoAgenda[] = []) 
   if (nombres.length === 0) return "Sin destinatarios";
   if (nombres.length === 1) return nombres[0];
   if (nombres.length === 2) return `${nombres[0]} y ${nombres[1]}`;
+
+  /* Completo: todos por nombre, «Ana, Luis y Marta» (30/10/2026). */
+  if (completo) return `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}`;
 
   return `${nombres[0]}, ${nombres[1]} y ${nombres.length - 2} más`;
 }
@@ -238,18 +260,20 @@ export default function ListaAlertas({
         return (
           <article
             key={alerta.id}
-            className={`rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition ${
+            /* Columna flexible y las acciones al pie: todas las tarjetas de una
+               fila miden lo mismo, con descripción o sin ella (30/10/2026). */
+            className={`flex h-full flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition ${
               alerta.activa ? "" : "opacity-75"
             }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="truncate text-sm font-semibold text-white">
+                <h3 className="text-[15px] font-semibold leading-snug text-white">
                   {titulo}
                 </h3>
 
                 {mensaje && !repiteTitulo && (
-                  <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-white/50">
+                  <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-white/60">
                     {frase(mensaje)}
                   </p>
                 )}
@@ -273,127 +297,144 @@ export default function ListaAlertas({
 
             {/* ------------------- DATOS ------------------- */}
 
-            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-white/50">
-              <span className="inline-flex items-center gap-1.5">
-                <AlarmClock className="h-3 w-3" aria-hidden />
-                {!alerta.activa
-                  ? (() => {
-                      /* «Sonaría» solo con fecha futura: una pasada es un resto
-                         de cuando estaba viva, no un dato. */
-                      const futura =
-                        fechaValida(alerta.proximoEnvio) &&
-                        ahora > 0 &&
-                        new Date(alerta.proximoEnvio).getTime() > ahora;
+            {/*
+              30/10/2026: la fecha de salida, en negrita y en su propia línea,
+              es el dato principal; debajo, en una frase que fluye, la regla y el
+              partido («2 días antes del partido vs Hércules (dom 8 nov)»).
+              Antes eran piezas `inline-flex` sueltas que en el móvil se partían
+              en tres columnas cortadas. Letra a 13 px.
+            */}
+            {(() => {
+              const diasPartido = Math.max(0, Math.round(alerta.diasAntesDelPartido ?? 2));
+              let principal: React.ReactNode;
+              let regla: string | null =
+                alerta.repeticion === "una-vez" ? null : describeRepeticion(alerta);
 
-                      const saldria =
-                        ahora > 0
-                          ? saldriaSiSeReactiva(alerta, partidos, new Date(ahora))
-                          : null;
+              if (!alerta.activa) {
+                /* «Saldría» solo con fecha futura: una pasada es un resto de
+                   cuando estaba viva, no un dato. */
+                const futura =
+                  fechaValida(alerta.proximoEnvio) &&
+                  ahora > 0 &&
+                  new Date(alerta.proximoEnvio).getTime() > ahora;
 
-                      /* La fecha, en negrita y una sola vez: el «N días antes del
-                         partido» ya lo dice la etiqueta de repetición. */
-                      if (saldria) {
-                        const para = partidoDelAviso(partidos, saldria.cuando, saldria.dias);
+                const saldria =
+                  ahora > 0 ? saldriaSiSeReactiva(alerta, partidos, new Date(ahora)) : null;
 
-                        return (
-                          <>
-                            Saldría el{" "}
-                            <b className="font-semibold text-white/80">
-                              {fechaLegible(saldria.cuando.toISOString())}
-                            </b>
-                            {para && <> · {para}</>}
-                          </>
-                        );
-                      }
+                if (saldria) {
+                  principal = (
+                    <>
+                      Saldría el{" "}
+                      <b className="font-semibold text-white/90">{fechaDeSalida(saldria.cuando.toISOString())}</b>
+                    </>
+                  );
 
-                      if (futura)
-                        return (
-                          <>
-                            Saldría el{" "}
-                            <b className="font-semibold text-white/80">
-                              {fechaLegible(alerta.proximoEnvio)}
-                            </b>
-                          </>
-                        );
+                  if (alerta.repeticion === "partido")
+                    regla = reglaDelPartido(alerta, partidoDelAviso(partidos, saldria.cuando, saldria.dias));
+                } else if (futura) {
+                  principal = (
+                    <>
+                      Saldría el{" "}
+                      <b className="font-semibold text-white/90">{fechaDeSalida(alerta.proximoEnvio)}</b>
+                    </>
+                  );
+                } else if (alerta.envios > 0 && fechaValida(alerta.ultimoEnvio)) {
+                  principal = `Silenciada · enviada por última vez el ${fechaDeSalida(alerta.ultimoEnvio)}`;
+                } else {
+                  principal =
+                    alerta.repeticion === "partido"
+                      ? "Silenciada: reactívala para fijar el próximo aviso"
+                      : "Silenciada: no se enviará hasta reactivarla";
+                }
+              } else if (fechaValida(alerta.proximoEnvio)) {
+                if (ahora > 0 && new Date(alerta.proximoEnvio).getTime() < ahora) {
+                  principal = (
+                    <b className="font-semibold text-red-300">
+                      Debería haber salido el {fechaDeSalida(alerta.proximoEnvio)}
+                    </b>
+                  );
+                } else {
+                  principal = (
+                    <>
+                      Sale el{" "}
+                      <b className="font-semibold text-white/90">{fechaDeSalida(alerta.proximoEnvio)}</b>
+                    </>
+                  );
 
-                      if (alerta.envios > 0 && fechaValida(alerta.ultimoEnvio))
-                        return `Silenciada · última vez enviada: ${fechaLegible(alerta.ultimoEnvio)}`;
+                  if (alerta.repeticion === "partido")
+                    regla = reglaDelPartido(
+                      alerta,
+                      partidoDelAviso(partidos, new Date(alerta.proximoEnvio), diasPartido),
+                    );
+                }
+              } else {
+                /* Una activa sin fecha no suena, y eso hay que decirlo. La que
+                   va atada al partido la recibe sola al abrir esta pantalla
+                   cuando el calendario tenga partido por delante (19/10/2026). */
+                principal =
+                  alerta.repeticion === "partido"
+                    ? "Sin fecha: espera a que haya próximo partido en el calendario"
+                    : "Sin fecha: no sonará hasta que la edites";
+              }
 
-                      return alerta.repeticion === "partido"
-                        ? "Silenciada: reactívala para fijar el próximo aviso"
-                        : "Silenciada: no se enviará hasta reactivarla";
-                    })()
-                  : fechaValida(alerta.proximoEnvio)
-                    ? ahora > 0 && new Date(alerta.proximoEnvio).getTime() < ahora
-                      ? <b className="font-semibold text-red-300">Debería haber salido: {fechaLegible(alerta.proximoEnvio)}</b>
-                      : (
-                          <>
-                            <b className="font-semibold text-white/80">{fechaLegible(alerta.proximoEnvio)}</b>
-                            {alerta.repeticion === "partido" &&
-                              partidoDelAviso(partidos, new Date(alerta.proximoEnvio), Math.max(0, Math.round(alerta.diasAntesDelPartido ?? 2))) && (
-                                <> · {partidoDelAviso(partidos, new Date(alerta.proximoEnvio), Math.max(0, Math.round(alerta.diasAntesDelPartido ?? 2)))}</>
-                              )}
-                          </>
-                        )
-                    : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo.
-                         La que va atada al partido no se arregla editándola: se queda sin
-                         fecha cuando el calendario no tiene partido por delante, y la
-                         recibe sola al abrir esta pantalla cuando lo haya (19/10/2026). */
-                      alerta.repeticion === "partido"
-                      ? "Sin fecha: espera a que haya próximo partido en el calendario"
-                      : "Sin fecha: no sonará hasta que la edites"}
-              </span>
+              const todos = nombresDestino(alerta.destinatarios, agenda, true);
 
-              {alerta.repeticion !== "una-vez" && (
-                <span className="inline-flex items-center gap-1.5">
-                  <Repeat className="h-3 w-3" aria-hidden />
-                  {describeRepeticion(alerta)}
-                </span>
-              )}
+              return (
+                <div className="mb-3 mt-3 space-y-1.5 text-[13px] leading-relaxed text-white/60">
+                  <p>
+                    <AlarmClock className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
+                    {principal}
+                  </p>
 
-              {normalizaAvisos(alerta.avisos).length > 0 && (
-                <span
-                  className="inline-flex items-center gap-1.5"
-                  title="Campanadas de la cita que va adjunta al correo"
-                >
-                  <BellRing className="h-3 w-3" aria-hidden />
-                  {describeAvisos(alerta)}
-                </span>
-              )}
+                  {regla && (
+                    <p>
+                      <Repeat className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
+                      {regla}
+                    </p>
+                  )}
 
-              <span className="inline-flex min-w-0 items-center gap-1.5" title={alerta.destinatarios.join(", ")}>
-                <Users className="h-3 w-3 shrink-0" aria-hidden />
-                <span className="truncate">{nombresDestino(alerta.destinatarios, agenda)}</span>
-              </span>
+                  {/* Los destinatarios, todos y por nombre: «Víctor Cea y 1 más» no decía quién (30/10/2026). */}
+                  <p title={alerta.destinatarios.join(", ")}>
+                    <Users className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
+                    {todos}
+                  </p>
 
-              {alerta.adjuntos.length > 0 && (
-                <span
-                  className="inline-flex items-center gap-1.5"
-                  title={`${alerta.adjuntos.length} ${alerta.adjuntos.length === 1 ? "adjunto" : "adjuntos"}`}
-                >
-                  <Paperclip className="h-3 w-3" aria-hidden />
-                  {alerta.adjuntos.length}{" "}
-                  {alerta.adjuntos.length === 1 ? "adjunto" : "adjuntos"}
-                </span>
-              )}
+                  {(normalizaAvisos(alerta.avisos).length > 0 ||
+                    alerta.adjuntos.length > 0 ||
+                    (alerta.envios > 0 && (alerta.activa || !fechaValida(alerta.ultimoEnvio)))) && (
+                    <p className="flex flex-wrap gap-x-3 gap-y-1">
+                      {normalizaAvisos(alerta.avisos).length > 0 && (
+                        <span title="Campanadas de la cita que va adjunta al correo">
+                          <BellRing className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
+                          {describeAvisos(alerta)}
+                        </span>
+                      )}
 
-              {alerta.envios > 0 && (alerta.activa || !fechaValida(alerta.ultimoEnvio)) && (
-                <span title={`Último: ${fechaLegible(alerta.ultimoEnvio)}`}>
-                  {alerta.envios === 1
-                    ? "Enviada 1 vez"
-                    : `Enviada ${alerta.envios} veces`}
-                  {fechaValida(alerta.ultimoEnvio) &&
-                    ` · la última, ${fechaLegible(alerta.ultimoEnvio)}`}
-                </span>
-              )}
-            </div>
+                      {alerta.adjuntos.length > 0 && (
+                        <span>
+                          <Paperclip className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
+                          {alerta.adjuntos.length} {alerta.adjuntos.length === 1 ? "adjunto" : "adjuntos"}
+                        </span>
+                      )}
+
+                      {alerta.envios > 0 && (alerta.activa || !fechaValida(alerta.ultimoEnvio)) && (
+                        <span>
+                          {alerta.envios === 1 ? "Enviada 1 vez" : `Enviada ${alerta.envios} veces`}
+                          {fechaValida(alerta.ultimoEnvio) && ` · la última, ${fechaDeSalida(alerta.ultimoEnvio)}`}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ------------------ ACCIONES ----------------- */}
 
             {borrando === alerta.id ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-red-400/20 pt-3">
-                <p className="min-w-0 flex-1 basis-full text-xs leading-relaxed text-red-300 sm:basis-0">
-                  ¿Borrar «{titulo}»? Dejará de avisar y desaparece de la hoja.
+              <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-red-400/20 pt-3">
+                <p className="min-w-0 flex-1 basis-full text-[13px] leading-relaxed text-red-300">
+                  ¿Borrar «{titulo}»? Dejará de avisar a {nombresDestino(alerta.destinatarios, agenda, true)} y desaparece de la hoja.
                 </p>
 
                 <button
@@ -418,7 +459,7 @@ export default function ListaAlertas({
                 </button>
               </div>
             ) : (
-            <div className="mt-3 flex flex-nowrap items-center gap-1 border-t border-white/[0.06] pt-3">
+            <div className="mt-auto flex flex-nowrap items-center gap-1 border-t border-white/[0.06] pt-3">
               <button
                 type="button"
                 onClick={() => onEditar(alerta)}
@@ -470,18 +511,18 @@ export default function ListaAlertas({
   };
 
   return (
-    <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
+    <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
       {vivas.map((alerta) => pinta(alerta))}
 
       {/* Las silenciadas no suenan: se apartan para que la lista diga lo que
           sí va a salir. */}
       {silenciadas.length > 0 && (
         <details className="group pt-1 @3xl:col-span-2 @5xl:col-span-3" open={vivas.length === 0}>
-          <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-xs text-white/50 transition hover:text-white">
+          <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-[13px] text-white/60 transition hover:text-white">
             Silenciadas ({silenciadas.length})
           </summary>
 
-          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
+          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
             {silenciadas.map((alerta) => pinta(alerta))}
           </div>
         </details>
@@ -489,17 +530,28 @@ export default function ListaAlertas({
 
       {caducadas.length > 0 && (
         <details className="group pt-1 @3xl:col-span-2 @5xl:col-span-3">
-          <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-xs text-white/50 transition hover:text-white">
-            Caducadas ({caducadas.length})
+          {/* 30/10/2026: el porqué y cuáles, en el propio título plegado; sin
+              abrirlo, «Caducadas (1)» parecía un error. */}
+          <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-[13px] leading-relaxed text-white/60 transition hover:text-white">
+            Caducadas ({caducadas.length}):{" "}
+            {caducadas.map((a) => `«${tituloLegible(a.titulo.trim())}»`).join(", ")}
+            {" · "}
+            {caducadas.length === 1 ? "no volvería a salir aunque se reactive" : "no volverían a salir aunque se reactiven"}
+            {(() => {
+              const ultimas = caducadas
+                .filter((a) => fechaValida(a.ultimoEnvio))
+                .map((a) => fechaDeSalida(a.ultimoEnvio));
+
+              return ultimas.length === caducadas.length && ultimas.length === 1 ? ` (el último aviso salió el ${ultimas[0]})` : "";
+            })()}
           </summary>
 
-          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
+          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
             {caducadas.map((alerta) => pinta(alerta))}
           </div>
 
-          {/* El porqué, al pie de la lista abierta: en el título cerrado parecía un error (30/10/2026). */}
-          <p className="mt-2 px-2 text-xs text-white/50">
-            {caducadas.length === 1 ? "Ésta no volvería a salir aunque se reactive" : "Éstas no volverían a salir aunque se reactiven"}: no queda una fecha por delante en la que avisar.
+          <p className="mt-2 px-2 text-[13px] text-white/60">
+            No queda una fecha por delante en la que avisar: para volver a usarla, edítala y ponle una nueva.
           </p>
         </details>
       )}

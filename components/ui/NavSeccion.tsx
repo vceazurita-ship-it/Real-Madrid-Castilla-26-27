@@ -19,7 +19,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { SECCIONES } from "@/components/ui/sidebar";
 
@@ -80,13 +80,53 @@ export function NavSeccion() {
     caja.scrollLeft = Math.max(0, activa.offsetLeft - (caja.clientWidth - activa.offsetWidth) / 2);
   }, [ruta]);
 
+  /*
+  | El degradado, en el borde que tiene pestañas detrás (30/10/2026): al
+  | centrar la activa, las de la izquierda quedaban cortadas sin señal
+  | («Calendario Operativa» desaparecía a 390 px). Se mira al desplazar y al
+  | cambiar de tamaño; el primer cálculo va en un fotograma, fuera del efecto.
+  */
+  const [bordes, setBordes] = useState({ izq: false, der: false });
+
+  useEffect(() => {
+    const caja = tira.current;
+
+    if (!caja) return;
+
+    const mira = () =>
+      setBordes((antes) => {
+        const izq = caja.scrollLeft > 2;
+        const der = caja.scrollLeft + caja.clientWidth < caja.scrollWidth - 2;
+
+        return antes.izq === izq && antes.der === der ? antes : { izq, der };
+      });
+
+    const fotograma = requestAnimationFrame(mira);
+    const observador = new ResizeObserver(mira);
+
+    caja.addEventListener("scroll", mira, { passive: true });
+    observador.observe(caja);
+
+    return () => {
+      cancelAnimationFrame(fotograma);
+      caja.removeEventListener("scroll", mira);
+      observador.disconnect();
+    };
+  }, [ruta]);
+
+  const mascara =
+    bordes.izq || bordes.der
+      ? `linear-gradient(to right, ${bordes.izq ? "transparent, black 32px" : "black"}, ${bordes.der ? "black calc(100% - 32px), transparent" : "black"})`
+      : undefined;
+
   if (entradas.length < 2) return <span ref={yo} hidden />;
 
   return (
     <nav ref={yo} aria-label={`Sección ${seccion!.titulo}`} className="min-w-0 border-t border-white/[0.06] px-4 md:px-10">
       <div
         ref={tira}
-        className="relative flex min-w-0 items-center gap-1 overflow-x-auto py-1.5 scrollbar-none max-md:pr-6 max-md:[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)]"
+        className="relative flex min-w-0 items-center gap-1 overflow-x-auto py-1.5 scrollbar-none"
+        style={mascara ? { maskImage: mascara, WebkitMaskImage: mascara } : undefined}
       >
         <span className="mr-2 hidden shrink-0 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B] sm:inline">{seccion!.titulo}</span>
         {entradas.map(({ href, label, icon: Icono }) => {

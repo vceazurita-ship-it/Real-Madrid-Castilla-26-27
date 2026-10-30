@@ -10,7 +10,7 @@ import {
   X,
 } from "lucide-react";
 import { MonthData, WeekData } from "@/lib/season/types";
-import { weekFileCount, weekHasFiles } from "@/lib/season/utils";
+import { weekFileCount, weekHasFiles, weekRangeLabel } from "@/lib/season/utils";
 
 type Filter = "all" | "with-files";
 
@@ -145,7 +145,7 @@ export default function WeekNavigator({
               con x=0 nombraba un hueco, así que sin material no sale nada. */}
           {withFiles > 0 && (
             <span
-              className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/50"
+              className="rounded-full bg-white/5 px-2 py-0.5 text-[12px] tabular-nums text-white/65"
               title={`${withFiles} ${withFiles === 1 ? "semana con material" : "semanas con material"}`}
             >
               {/* El número dice qué cuenta (30/10/2026): «4 con material», no un «4» suelto. */}
@@ -345,15 +345,16 @@ function WeekRow({
           <span className="truncate text-sm font-medium">{week.week}</span>
 
           {isCurrent && (
-            <span className="shrink-0 rounded-full bg-[#C8A96B] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#0B0F14]">
+            <span className="shrink-0 rounded-full bg-[#C8A96B] px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-[#0B0F14]">
               Esta semana
             </span>
           )}
         </span>
 
-        {week.start && week.end && (
-          <span className="mt-0.5 block truncate text-xs text-white/40">
-            {week.start} · {week.end}
+        {/* El mismo formato que en la cabecera: «26 oct – 1 nov» (30/10/2026). */}
+        {weekRangeLabel(week) && (
+          <span className="mt-0.5 block truncate text-[12px] text-white/55">
+            {weekRangeLabel(week)}
           </span>
         )}
       </span>

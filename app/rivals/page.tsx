@@ -3103,20 +3103,37 @@ export default function RivalPlayersPage() {
         const flojos = perfil && !perfil.muestraCorta ? perfil.flojos.slice(0, 2).map((rasgo) => rasgo.nombre) : [];
         const frase = fraseDeDano(debilidades, flojos, perfil?.posicionTexto || String(p["POSICIÓN"] ?? ""));
 
+        /*
+        | 30/10/2026 (fútbol y marketing): el puesto y los minutos, los de la
+        | plantilla. El puesto de Wyscout llamaba «lateral izquierdo» a un
+        | central (DFC, 2.ª LI) y sus minutos no cuadraban con los «430′ ·
+        | titular en 4 de 6» de la lista, que son de BeSoccer. Sin minutos de
+        | BeSoccer se dejan los de Wyscout, rotulados.
+        */
+        const puestoHoja = getSlot(String(p["POSICIÓN"] ?? ""))?.slot.label ?? "";
+        const temporada = statsDoc ? highlightSeason(findStats(statsDoc, p)?.temporadas ?? [], statsDoc.temporada) : null;
+        const base =
+          temporada && temporada.minutos > 0
+            ? { minutos: temporada.minutos, partidos: temporada.partidos, fuente: "" }
+            : perfil && perfil.minutos > 0
+              ? { minutos: Math.round(perfil.minutos), partidos: perfil.partidos, fuente: " en Wyscout" }
+              : null;
+
         return {
           nombre: conTildes(nombrePropio(String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim())),
-          puesto: perfil?.posicionTexto || String(p["POSICIÓN"] ?? "").trim(),
+          puesto: (puestoHoja || perfil?.posicionTexto || String(p["POSICIÓN"] ?? "").trim()).toLowerCase(),
           rasgos: frase?.frases ?? [],
           accion: frase?.accion ?? "",
           cruzan: debilidades.length > 0 && flojos.length > 0,
-          base: perfil && perfil.minutos > 0 ? `${Math.round(perfil.minutos)}′, ${perfil.partidos} ${perfil.partidos === 1 ? "partido" : "partidos"}` : "",
+          base: base ? `${base.minutos}′${base.fuente} · ${base.partidos} ${base.partidos === 1 ? "partido" : "partidos"}` : "",
+          minutos: base?.minutos ?? 0,
         };
       })
       .filter((uno) => uno.nombre && uno.cruzan && uno.accion)
       .sort((a, b) => b.rasgos.length - a.rasgos.length)
       .slice(0, 3)
-      .map(({ nombre, puesto, rasgos, accion, base }) => ({ nombre, puesto, rasgos, accion, base }));
-  }, [players, perfilesRival, perfilesPorFicha, selectedTeam]);
+      .map(({ nombre, puesto, rasgos, accion, base, minutos }) => ({ nombre, puesto, rasgos, accion, base, minutos }));
+  }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc]);
 
   /* La temporada en curso de cada uno, para el listado. */
   const temporadaDe = (player: RivalPlayer) =>
@@ -4649,7 +4666,8 @@ export default function RivalPlayersPage() {
                               color: chipInk(ONCE_COLOR.titular),
                             }}
                           >
-                            {onceResumen.titulares}/11 titulares
+                            {/* «11 titulares de 28» (30/10/2026): «11/11» sobre un campo con 28 fichas no decía cuáles. */}
+                            {onceResumen.titulares} {onceResumen.titulares === 1 ? "titular" : "titulares"} de {plantillaCampo.length}
                           </span>
 
                           {onceResumen.dudas > 0 && (
@@ -6247,7 +6265,7 @@ function PlayerRow({
           onClick();
         }
       }}
-      className="group flex min-w-0 cursor-pointer items-center gap-2.5 bg-[#11161D] px-3 py-2.5 text-left transition hover:bg-white/[0.07]"
+      className="group flex min-w-0 cursor-pointer items-center gap-2.5 bg-[#11161D] px-3 py-2 text-left transition hover:bg-white/[0.07]"
     >
       {/* FOTO, con el dorsal en la esquina como en el campograma.
 
@@ -6255,7 +6273,7 @@ function PlayerRow({
           se comía el sitio del nombre: «IVAN M…», «PARIS A…» (21/10/2026).
           Pegado a la cara se lee igual y el nombre sale entero. */}
 
-      <div className="relative h-11 w-11 shrink-0">
+      <div className="relative h-10 w-10 shrink-0">
         <div
           className="relative h-full w-full overflow-hidden rounded-full border bg-[#0B0F14]"
           style={{
@@ -6294,7 +6312,14 @@ function PlayerRow({
           {conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR)}
         </p>
 
-        <div className="mt-1 flex min-w-0 items-center gap-1.5">
+        {/*
+          FILA COMPACTA (30/10/2026, análisis): puesto y minutos en una sola
+          línea, y la de etiquetas sólo si las hay. Las filas sin etiquetas
+          dejaban un renglón con un «+» medio apagado y la lista pasaba de
+          1.700 px. El «+» de quien no tiene etiquetas va al final de la línea
+          del puesto.
+        */}
+        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           {slotEntry ? (
             <span
               className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wider"
@@ -6306,57 +6331,65 @@ function PlayerRow({
               {slotEntry.slot.code}
             </span>
           ) : (
-            <span className="shrink-0 rounded-md border border-white/10 bg-white/10 px-1.5 py-0.5 text-[10px] text-white/70">
-              ?
-            </span>
-          )}
-
-          {/* Con chapa, el puesto ya lo dicen ella y la cabecera del grupo:
-              el texto de la hoja sólo salía cortado («LATERAL …»). */}
-          {!slotEntry && player["POSICIÓN"] && (
-            <span className="min-w-0 truncate text-[10px] text-white/45">
-              {player["POSICIÓN"]}
-            </span>
+            player["POSICIÓN"] && (
+              <span className="min-w-0 shrink truncate text-[10px] text-white/45">
+                {player["POSICIÓN"]}
+              </span>
+            )
           )}
 
           {secondSlot && (
             <span
               title={player["2º POSICIÓN"]}
-              className="shrink-0 rounded-md border border-white/10 px-1 py-0.5 text-[9px] text-white/35"
+              className="shrink-0 rounded-md border border-white/10 px-1 py-0.5 text-[9px] text-white/45"
             >
               2ª {secondSlot.slot.code}
             </span>
           )}
+
+          {/* CUÁNTO JUEGA — los minutos de esta temporada (21/10/2026): lo
+              primero que se busca es quién juega de verdad. Sin minutos no se
+              pinta «0′». */}
+          {temporada && temporada.minutos > 0 && (
+            <span
+              className="min-w-0 truncate text-[11px] tabular-nums text-white/55"
+              title={`${temporada.temporada}: ${temporada.partidos} partidos, titular en ${temporada.titular}, ${temporada.minutos} minutos (BeSoccer)`}
+            >
+              <span className="font-semibold text-white/75">{temporada.minutos.toLocaleString("es-ES")}′</span>
+              {temporada.partidos > 0 &&
+                (temporada.titular > 0
+                  ? ` · titular en ${temporada.titular} de ${temporada.partidos}`
+                  : ` · ${temporada.partidos} ${temporada.partidos === 1 ? "partido" : "partidos"}, suplente`)}
+            </span>
+          )}
+
+          {onEtiquetas && tags.length === 0 && (
+            <button
+              type="button"
+              data-export-hide
+              onClick={(event) => {
+                event.stopPropagation();
+                onEtiquetas();
+              }}
+              title="Poner etiquetas a este jugador"
+              aria-label="Poner etiquetas a este jugador"
+              className="ml-auto flex shrink-0 items-center rounded-full border border-dashed border-white/15 px-1.5 py-0.5 text-[9px] text-white/35 opacity-40 transition hover:border-[#C8A96B] hover:text-[#C8A96B] focus-visible:opacity-100 group-hover:opacity-100"
+            >
+              <Plus size={9} className="shrink-0" />
+            </button>
+          )}
         </div>
 
         {showTeam && (
-          <p className="mt-1 min-w-0 truncate text-[10px] text-white/30">
+          <p className="mt-0.5 min-w-0 truncate text-[10px] text-white/30">
             {player.NOMBRE_EQUIPO}
-          </p>
-        )}
-
-        {/* CUÁNTO JUEGA — los minutos de esta temporada (21/10/2026). La
-            plantilla de un rival son 25 nombres y lo primero que se busca es
-            quién juega de verdad: con esto se ve sin abrir ninguna ficha. */}
-        {/* Sin minutos no se pinta «0′» (lo que no tiene dato no se nombra). */}
-        {temporada && temporada.minutos > 0 && (
-          <p
-            className="mt-1 min-w-0 truncate text-[10px] tabular-nums text-white/45"
-            title={`${temporada.temporada}: ${temporada.partidos} partidos, titular en ${temporada.titular}, ${temporada.minutos} minutos (BeSoccer)`}
-          >
-            <span className="font-semibold text-white/70">{temporada.minutos.toLocaleString("es-ES")}′</span>
-            {/* «8 de 8 de titular» se tropezaba al leerlo (guion, 21/10). */}
-            {temporada.partidos > 0 &&
-              (temporada.titular > 0
-                ? ` · titular en ${temporada.titular} de ${temporada.partidos}`
-                : ` · ${temporada.partidos} ${temporada.partidos === 1 ? "partido" : "partidos"}, suplente`)}
           </p>
         )}
 
         {/* ETIQUETAS — se tocan aquí mismo, sin abrir la ficha */}
 
-        {(tags.length > 0 || onEtiquetas) && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        {tags.length > 0 && (
+          <div className="mt-1 flex flex-wrap items-center gap-1">
             {tags.map((tag) => {
               const Icon = tag.icon;
 
@@ -6376,12 +6409,6 @@ function PlayerRow({
               );
             })}
 
-            {/*
-            | El «+» va al final de las chapas y no en un botón aparte: la fila
-            | ya tiene la marca del once a la derecha y otro botón fijo la
-            | dejaría sin sitio para el nombre en un móvil. Sin ninguna puesta
-            | se lee «Etiquetas», que es lo que hay que adivinar la primera vez.
-            */}
             {onEtiquetas && (
               <button
                 type="button"
@@ -6392,17 +6419,9 @@ function PlayerRow({
                   event.stopPropagation();
                   onEtiquetas();
                 }}
-                title={
-                  tags.length
-                    ? "Añadir o quitar etiquetas"
-                    : "Poner etiquetas a este jugador"
-                }
-                aria-label={tags.length ? "Añadir o quitar etiquetas" : "Poner etiquetas a este jugador"}
-                /* Sin etiquetas no se escribe «Etiquetas»: lo que no tiene dato
-                   no se nombra. Queda el «+» y se aviva al pasar por la fila. */
-                className={`flex items-center gap-1 rounded-full border border-dashed border-white/15 px-1.5 py-0.5 text-[9px] text-white/35 transition hover:border-[#C8A96B] hover:text-[#C8A96B] focus-visible:opacity-100 ${
-                  tags.length ? "" : "opacity-40 group-hover:opacity-100"
-                }`}
+                title="Añadir o quitar etiquetas"
+                aria-label="Añadir o quitar etiquetas"
+                className="flex items-center gap-1 rounded-full border border-dashed border-white/15 px-1.5 py-0.5 text-[9px] text-white/35 transition hover:border-[#C8A96B] hover:text-[#C8A96B]"
               >
                 <Plus size={9} className="shrink-0" />
               </button>
@@ -8810,6 +8829,9 @@ function TacticalPitch({
         const name = conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR);
 
         const enElOnce = onceEstado?.(player) ?? null;
+        /* Con el once marcado, los que no están en él bajan de tono para que
+           el once probable se lea de un vistazo (30/10/2026, fútbol). */
+        const atenuado = !enElOnce && !selected && !cogida && placed.some((otra) => onceEstado?.(otra.player));
         const ciclar = onCiclarOnce?.(player);
         const etiquetar = onEtiquetas?.(player);
 
@@ -8863,7 +8885,7 @@ function TacticalPitch({
                 : `z-10 transition duration-200 ${onMover ? "cursor-grab" : "cursor-pointer"}`
             } ${
               matchesFilter
-                ? `opacity-100 ${cogida ? "" : "hover:scale-110"}`
+                ? `${atenuado ? "opacity-50 hover:opacity-100" : "opacity-100"} ${cogida ? "" : "hover:scale-110"}`
                 : "opacity-20 grayscale hover:opacity-70"
             }`}
             style={{

@@ -34,6 +34,7 @@ import {
   CalendarDays,
   Check,
   ChevronLeft,
+  ChevronDown,
   ChevronRight,
   ClipboardList,
   Flame,
@@ -84,8 +85,8 @@ const CAMPOS_DE_ESTA_PANTALLA = [
   "DOC",
 ];
 
+/* Sin «Datos y recursos» (30/10/2026): llevaba al selector de jornada, sin datos ni recursos. */
 const NAV = [
-  { id: "datos", label: "Datos y recursos" },
   { id: "ofensivo", label: "Fase ofensiva" },
   { id: "defensivo", label: "Fase defensiva" },
   { id: "conclusiones", label: "Conclusiones" },
@@ -204,7 +205,8 @@ const CAMPOS_DANO: { campo: string; rotulo: string }[] = [
   { campo: "DEF_BLOQUE_MEDIO_ESPALDA", rotulo: "Su espalda en bloque medio" },
   { campo: "DEF_BLOQUE_ALTO_ESPALDA", rotulo: "Su espalda en bloque alto" },
   { campo: "DEF_REINICIO_JUGADORES_DEBILES", rotulo: "Débil en su presión" },
-  { campo: "DEF_REINICIO_ACTIVOS_PRESION", rotulo: "Quién activa su presión" },
+  /* «Su presión» y no «Quién activa…»: el texto no nombra a nadie (30/10/2026). */
+  { campo: "DEF_REINICIO_ACTIVOS_PRESION", rotulo: "Su presión" },
   { campo: "DEF_AREA_JUGADOR_DEBIL", rotulo: "Débil en su área" },
   { campo: "TRANSICION_DEF_DIFICULTADES_ESPALDA", rotulo: "Tras pérdida, a su espalda" },
 ];
@@ -1047,11 +1049,35 @@ export default function ScoutRivalCollective() {
 
                 {/* 30/10/2026: fuera la explicación interna de dónde sale el
                     dibujo; en su sitio, el partido en una línea. */}
+                {/*
+                  30/10/2026: la línea del partido es el desplegable de jornada
+                  (antes había además una fila «‹ J10 · Cartagena ›» que la
+                  repetía y empujaba «Fase ofensiva» fuera de la primera
+                  pantalla del móvil). El `select` nativo va encima, invisible:
+                  se ve la línea y se abre la lista del sistema.
+                */}
                 {rivalActivo && !modoEdicion && lineaPartido && (
-                  <span className="inline-flex items-center gap-1.5 font-semibold text-white/75">
-                    <CalendarDays size={14} className="shrink-0 text-white/40" />
-                    {lineaPartido}
-                  </span>
+                  <label className="relative inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/50">
+                    <CalendarDays size={14} className="shrink-0 text-white/45" />
+                    <span className="min-w-0 truncate">{lineaPartido}</span>
+                    <ChevronDown size={14} className="shrink-0 text-white/45" data-export-hide />
+                    <select
+                      aria-label="Jornada del Castilla (rival que nos tocó)"
+                      title="Jornada del Castilla (rival que nos tocó)"
+                      value={rivalActivo?.ID ?? ""}
+                      onChange={(e) => cambiarRival(rivales.find((r) => String(r.ID) === e.target.value))}
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      data-export-hide
+                    >
+                      <optgroup label="Jornada del Castilla (rival que nos tocó)">
+                        {visibles.map((r) => (
+                          <option key={r.ID} value={r.ID}>
+                            J{r.JORNADA} · {r.EQUIPO}
+                          </option>
+                        ))}
+                      </optgroup>
+                    </select>
+                  </label>
                 )}
               </div>
             </div>
@@ -1122,7 +1148,7 @@ export default function ScoutRivalCollective() {
             data-export-hide
             className="sticky top-0 z-20 -mx-4 mb-6 flex gap-2 overflow-x-auto border-b border-white/10 bg-[#0B0F14] px-4 py-3 scrollbar-none sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10"
           >
-            {NAV.filter((item) => item.id === "datos" || seccionVisible(item.id)).map((item) => (
+            {NAV.filter((item) => seccionVisible(item.id)).map((item) => (
               <a
                 key={item.id}
                 href={`#${item.id}`}
@@ -1195,18 +1221,24 @@ export default function ScoutRivalCollective() {
             </section>
           )}
 
+          {/* Cada frase lleva a su tarjeta de abajo, que sale plegada y con el
+              sello «↑ en Dónde hacerles daño» (30/10/2026): antes el texto se
+              leía dos veces. */}
           {!modoEdicion && rivalActivo && dano.length > 0 && (
-            <section aria-label="Dónde hacerles daño" className="mb-6 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.05] px-5 py-4">
+            <section id="hacerles-dano" aria-label="Dónde hacerles daño" className="mb-6 scroll-mt-20 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.05] px-5 py-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-300">Dónde hacerles daño</p>
               <ul className="mt-2 grid gap-3 md:grid-cols-3">
                 {dano.map((d) => (
                   <li key={d.campo} className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">{d.rotulo}</p>
                     <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinErratas(completaNombres(d.texto, nombresRival)))}</p>
+                    <a href={`#campo-${d.campo}`} data-export-hide className="mt-1 inline-block text-[12px] font-semibold text-emerald-300 hover:underline">
+                      Ver la tarjeta entera ↓
+                    </a>
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-[11px] text-white/45">Fuente: lo que ha escrito el analista de su fase defensiva.</p>
+              <p className="mt-2 text-[12px] text-white/55">Lectura del analista: lo que ha escrito de su fase defensiva tras ver sus partidos.</p>
             </section>
           )}
 
@@ -1223,8 +1255,10 @@ export default function ScoutRivalCollective() {
 
           {/* ----------------------------------- Selector + datos clave */}
           <section id="datos" className="scroll-mt-20">
-            {/* En el móvil, flechas y desplegable en una sola fila (29/10/2026). */}
-            <div className="mb-6 flex flex-nowrap items-center gap-2 sm:gap-3" data-export-hide>
+            {/* En el móvil, flechas y desplegable en una sola fila (29/10/2026).
+                30/10/2026: sólo al editar; en lectura la jornada se cambia en la
+                línea del partido de la cabecera. Sin rival elegido también sale. */}
+            <div className={`mb-6 flex-nowrap items-center gap-2 sm:gap-3 ${modoEdicion || !rivalActivo || !lineaPartido ? "flex" : "hidden"}`} data-export-hide>
               <button
                 aria-label="Rival anterior"
                 disabled={indice <= 0}
@@ -1238,7 +1272,7 @@ export default function ScoutRivalCollective() {
                 <Hueso className="h-[56px] min-w-0 flex-1 rounded-2xl" />
               ) : (
               <select
-                aria-label="Seleccionar rival"
+                aria-label="Jornada del Castilla (rival que nos tocó)"
                 value={rivalActivo?.ID ?? ""}
                 onChange={(e) =>
                   cambiarRival(
@@ -1372,6 +1406,9 @@ export default function ScoutRivalCollective() {
                       </h3>
 
                       <span className="h-px flex-1 bg-white/10" />
+
+                      {/* De dónde sale cada afirmación (30/10/2026, análisis). */}
+                      {!modoEdicion && <span className="shrink-0 text-[11px] text-white/45">Lectura del analista</span>}
                     </div>
 
                     <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
@@ -1390,6 +1427,7 @@ export default function ScoutRivalCollective() {
                               editando={modoEdicion}
                               accent={section.accent}
                               nombres={nombresRival}
+                              enDano={dano.some((d) => d.campo === field.campo)}
                               onChange={(v) => setCampo(field.campo, v)}
                             />
                           </div>
@@ -1448,7 +1486,8 @@ export default function ScoutRivalCollective() {
 
           {/* Las siglas del texto del analista, sólo las que salen (29/10/2026). */}
           {!modoEdicion && siglasUsadas.length > 0 && (
-            <details data-export-hide className="mt-10 rounded-2xl border border-white/10 bg-[#111827] px-5 py-3 text-sm text-white/70">
+            /* Abierto (30/10/2026, análisis): cerrado sólo se veía el título. */
+            <details open data-export-hide className="mt-10 rounded-2xl border border-white/10 bg-[#111827] px-5 py-3 text-sm text-white/70">
               <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Todas las siglas (también al pasar el ratón por cada una)</summary>
               <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
                 {siglasUsadas.map((s) => (
@@ -1515,6 +1554,7 @@ function Campo({
   accent,
   destacado = false,
   nombres = [],
+  enDano = false,
   onChange,
 }: {
   field: FieldDef;
@@ -1523,6 +1563,8 @@ function Campo({
   accent: string;
   destacado?: boolean;
   nombres?: string[];
+  /** Ya sale arriba, en «Dónde hacerles daño»: se pinta plegada y con el sello (30/10/2026). */
+  enDano?: boolean;
   onChange: (value: string) => void;
 }) {
   const contenido = String(valor ?? "").trim();
@@ -1530,7 +1572,8 @@ function Campo({
 
   return (
     <div
-      className={`rounded-2xl border bg-[#111827] p-4 transition-colors ${
+      id={`campo-${field.campo}`}
+      className={`scroll-mt-24 rounded-2xl border bg-[#111827] p-4 transition-colors ${
         field.ancho ? "sm:col-span-2" : ""
       } ${editando ? (destacado ? "min-h-[190px]" : "min-h-[120px]") : ""} ${
         editando
@@ -1548,6 +1591,11 @@ function Campo({
           {field.titulo}
         </p>
 
+        {enDano && !editando && (
+          <a href="#hacerles-dano" data-export-hide className="shrink-0 rounded-md bg-emerald-400/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-300 hover:underline">
+            ↑ en Dónde hacerles daño
+          </a>
+        )}
       </div>
 
       {/* El nombre de la columna de la hoja (SALIDA_BALON…) no le dice nada
@@ -1568,6 +1616,13 @@ function Campo({
           onChange={(e) => onChange(e.target.value)}
           className="w-full resize-y rounded-xl border border-amber-400/30 bg-black/40 p-3 text-sm leading-6 text-white outline-none focus:border-amber-400"
         />
+      ) : enDano ? (
+        <details>
+          <summary className="cursor-pointer select-none text-[13px] text-white/60">Ver el texto entero</summary>
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/80">
+            {conSiglas(sinErratas(completaNombres(contenido, nombres)))}
+          </p>
+        </details>
       ) : (
         <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
           {conSiglas(sinErratas(completaNombres(contenido, nombres)))}

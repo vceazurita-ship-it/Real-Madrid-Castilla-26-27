@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { cargaPlantilla } from "@/hooks/usePlayers";
 import { traeJson } from "@/lib/hojaCsv";
-import { UMBRAL_DUELO, normalizaDuelos, referenciasPorPuesto } from "@/lib/duelos";
+import { MUESTRA_CORTA_DUELO, UMBRAL_DUELO, normalizaDuelos, referenciasPorPuesto } from "@/lib/duelos";
 import { MINUTOS_MINIMOS, puestoDe } from "@/lib/data-analisis/individual";
 import { duelosDelPartido } from "@/lib/duelos-onces";
 import { huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
@@ -48,6 +48,9 @@ export type DueloClave = {
   muestra: number[];
   /** «Base: 709′ los nuestros · 578′ los suyos», como en /duelos. Vacío si ninguno tiene minutos de Wyscout. */
   base: string;
+  /** Las dos cifras del cruce (30/10/2026): con nuestro balón y con el suyo. */
+  conBalon: number | null;
+  sinBalon: number | null;
 };
 
 export type DuelosClave = {
@@ -60,6 +63,17 @@ export type DuelosClave = {
   medidos: number;
   /** Cuántos de ellos salen en los dos lados (ventaja con nuestro balón y riesgo con el suyo). */
   enLosDos: number;
+  /*
+  | Los medidos, repartidos sin pisarse (30/10/2026): un duelo que ganamos con
+  | balón y perdemos sin él va UNA vez, en «doble cara», y no en «Para buscar»
+  | y otra vez en «Para vigilar». Los parejos también, para pintarlos plegados.
+  */
+  grupos: {
+    buscar: DueloClave[];
+    doble: DueloClave[];
+    vigilar: DueloClave[];
+    parejos: DueloClave[];
+  };
 };
 
 type Fila = Record<string, unknown>;
@@ -165,7 +179,15 @@ export function useDuelosClave(equipo: string) {
 
           return {
             clave: d.def.clave,
-            base: trozos.length ? `Base: ${trozos.join(" · ")}${mn < 450 || ms < 450 ? " · muestra corta" : ""}` : "",
+            base: trozos.length
+              ? `Base: ${trozos.join(" · ")}${
+                  (mn > 0 && mn < MUESTRA_CORTA_DUELO) || (ms > 0 && ms < MUESTRA_CORTA_DUELO)
+                    ? ` · muestra corta: menos de ${MUESTRA_CORTA_DUELO}′`
+                    : ""
+                }`
+              : "",
+            conBalon: d.conBalon ?? null,
+            sinBalon: d.sinBalon ?? null,
             titulo: d.def.titulo,
             nuestros: d.nuestros.map(rotulo),
             suyos: d.suyos.map(rotulo),
@@ -194,10 +216,31 @@ export function useDuelosClave(equipo: string) {
           (d) => (d.conBalon ?? 0) >= UMBRAL_DUELO && (d.sinBalon ?? 0) <= -UMBRAL_DUELO,
         ).length;
 
+        const medidosTodos = duelos.filter((d) => d.veredicto !== "sin-datos");
+        const aFavor = (d: (typeof duelos)[number]) => (d.conBalon ?? 0) >= UMBRAL_DUELO;
+        const enContra = (d: (typeof duelos)[number]) => (d.sinBalon ?? 0) <= -UMBRAL_DUELO;
+        const grupos = {
+          buscar: medidosTodos
+            .filter((d) => aFavor(d) && !enContra(d))
+            .sort((a, b) => (b.conBalon ?? 0) - (a.conBalon ?? 0))
+            .map((d) => aDuelo(d, d.conBalon ?? 0)),
+          doble: medidosTodos
+            .filter((d) => aFavor(d) && enContra(d))
+            .sort((a, b) => (b.conBalon ?? 0) - (b.sinBalon ?? 0) - ((a.conBalon ?? 0) - (a.sinBalon ?? 0)))
+            .map((d) => aDuelo(d, d.conBalon ?? 0)),
+          vigilar: medidosTodos
+            .filter((d) => enContra(d) && !aFavor(d))
+            .sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0))
+            .map((d) => aDuelo(d, d.sinBalon ?? 0)),
+          parejos: medidosTodos
+            .filter((d) => !aFavor(d) && !enContra(d))
+            .map((d) => aDuelo(d, d.conBalon ?? 0)),
+        };
+
         if (vivo) {
           setEstado({
             equipo,
-            datos: ventaja.length || riesgo.length ? { ventaja, riesgo, conVentajaNuestra, conVentajaSuya, medidos, enLosDos } : null,
+            datos: ventaja.length || riesgo.length ? { ventaja, riesgo, conVentajaNuestra, conVentajaSuya, medidos, enLosDos, grupos } : null,
           });
         }
       } catch (error) {

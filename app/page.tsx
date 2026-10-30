@@ -5,11 +5,9 @@ import Image from "next/image"
 import { useEffect, useMemo, useState } from "react"
 import {
   Activity,
-  ArrowRight,
   BarChart3,
   ChevronRight,
   LayoutGrid,
-  Sigma,
   Users,
 } from "lucide-react"
 
@@ -27,6 +25,10 @@ import { alineaSeguimiento, esDeSeguimiento, filasDeSeguimiento } from "@/lib/se
 import { SESIONES_CONTADAS_DESDE } from "@/lib/sesion-equipos/estadistica"
 import { traeJson } from "@/lib/hojaCsv"
 import { EstadoError } from "@/components/ui/estados"
+import { useCalendario } from "@/hooks/useCalendario"
+import { alrededorDe } from "@/lib/castilla/calendario"
+import { diaEnMadrid } from "@/lib/portada/proximo-partido"
+import { mismoEquipo } from "@/lib/data-analisis/nombres"
 
 type Seguimiento = {
   ID_JUGADOR?: string
@@ -90,6 +92,11 @@ function golesFrenteXg(xg: number | null, golesMenosXg: number, partidos: number
   return { goles, esperados, diferencia: (goles - esperados) / partidos }
 }
 
+/** «2,09»: coma decimal y los decimales que se pidan. */
+function coma(n: number, decimales: number) {
+  return n.toFixed(decimales).replace(".", ",")
+}
+
 function SectionHeader({
   icon: Icon,
   title,
@@ -150,6 +157,17 @@ export default function Home() {
     tope: number | null
     mediana?: number | null
     golesMenosXg: number | null
+    /** Las cifras de cada equipo del grupo, para el rival de la semana (30/10/2026). */
+    liga?: {
+      equipo: string
+      partidos: number
+      xg: number | null
+      xgContra: number | null
+      posesion: number | null
+      puestoXg: number | null
+      puestoXgContra: number | null
+      puestoPosesion: number | null
+    }[]
   }
 
   const [resumenData, setResumenData] = useState<ResumenData | null>(null)
@@ -371,6 +389,43 @@ export default function Home() {
 
   const hayFallos = errorSeguimiento || errorData
 
+  /*
+  | EL RIVAL, DE MD-4 A MD-1 (30/10/2026, fútbol)
+  |
+  | Esos días lo que se prepara es al rival: la tarjeta oscura enseña sus
+  | cifras de Wyscout (de `resumen.liga`) y lo nuestro baja a una línea. Del
+  | partido al MD-5 sigue saliendo lo nuestro. El calendario es el mismo
+  | documento que pinta el próximo partido.
+  */
+  const { partidos: calendario, cargando: sinCalendario } = useCalendario()
+
+  const rivalSemana = useMemo(() => {
+    if (sinCalendario || !ahora || !resumenData?.liga?.length) return null
+
+    const proximo = alrededorDe(calendario, ahora)?.proximo
+
+    if (!proximo) return null
+
+    const hoy = diaEnMadrid(ahora)
+    const faltan = Math.round(
+      (Date.parse(`${proximo.cuando.slice(0, 10)}T12:00:00Z`) - Date.parse(`${hoy}T12:00:00Z`)) / 86_400_000,
+    )
+
+    if (faltan < 1 || faltan > 4) return null
+
+    const fila = resumenData.liga.find((f) => mismoEquipo(f.equipo, proximo.rival))
+
+    if (!fila || fila.xg == null || !fila.partidos) return null
+
+    return {
+      ...fila,
+      xg: fila.xg,
+      nombre: proximo.rival,
+      faltan,
+      deCuantos: resumenData.liga.length,
+    }
+  }, [ahora, calendario, resumenData, sinCalendario])
+
   return (
     <main className="min-h-screen bg-[#02060D] text-white">
       <div className="flex">
@@ -379,8 +434,9 @@ export default function Home() {
         <div className="min-w-0 flex-1">
           <Topbar />
 
-          {/* pb-24: el botón flotante de herramientas no tapa la última fila (30/10/2026). */}
-          <section className="space-y-12 p-4 pb-24 sm:p-6 sm:pb-24 xl:space-y-14 xl:p-10 xl:pb-24">
+          {/* pb-24: el botón flotante de herramientas no tapa la última fila (30/10/2026).
+              Y margen a la derecha: tapaba el borde de la tarjeta del partido. */}
+          <section className="space-y-12 py-4 pb-24 pl-4 pr-12 sm:py-6 sm:pb-24 sm:pl-6 sm:pr-[76px] xl:space-y-14 xl:py-10 xl:pb-24 xl:pl-10 xl:pr-[76px]">
             {admin && (
               <div role="tablist" className="flex gap-2">
                 {(["portada", "tareas"] as const).map((v) => (
@@ -443,10 +499,15 @@ export default function Home() {
                 {/* ---------- DERECHA: visión global ---------- */}
 
                 <Link
-                  href="/data-analisis"
+                  href={rivalSemana ? "/data-analisis?area=equipo" : "/data-analisis"}
                   onClick={() => trackModuleVisit("/data-analisis")}
-                  title="Lo que dicen los informes de Opta y Wyscout: el Castilla contra su historia, contra la liga y la categoría entera"
-                  className="light-sweep group relative block min-h-[440px] overflow-hidden rounded-[28px] border border-white/10 sm:min-h-[320px] xl:min-h-[400px]"
+                  title={
+                    rivalSemana
+                      ? `${rivalSemana.nombre} de un vistazo, en Data Análisis`
+                      : "Lo que dicen los informes de Wyscout y Opta: el Castilla contra su historia, contra el grupo y la categoría entera"
+                  }
+                  /* Más baja en el móvil (30/10/2026): ocupaba casi dos pantallas antes de «Datos destacados». */
+                  className="light-sweep group relative block min-h-[340px] overflow-hidden rounded-[28px] border border-white/10 sm:min-h-[320px] xl:min-h-[400px]"
                 >
                   <div
                     aria-hidden
@@ -468,69 +529,98 @@ export default function Home() {
                     className="absolute inset-0 bg-gradient-to-t from-[#02060D]/90 via-[#02060D]/25 to-transparent"
                   />
 
-                  {/* La chapa dice a dónde lleva la tarjeta. Va en el dorado de
-                      la casa, que es el color con el que Data Análisis pinta lo
-                      nuestro en todos sus gráficos. */}
-                  <div className="absolute left-5 top-5 max-w-[calc(100%-40px)]">
-                    <div
-                      className="flex items-center gap-2.5 rounded-full border border-[#D8B45A]/35 px-4 py-2 backdrop-blur-xl transition group-hover:border-[#D8B45A]/70"
-                      /* Fondo opaco en línea: ni el modo día ni la foto clara
-                         del césped lo aclaran (contraste medido 1,15). */
-                      style={{ backgroundColor: "rgba(2,6,13,.94)" }}
-                    >
-                      <Sigma className="h-[15px] w-[15px] shrink-0 text-[#F7D98B]" />
-
-                      <p className="truncate text-[11px] font-medium uppercase tracking-[0.22em] text-[#F7D98B]">
-                        Data Análisis
-                      </p>
-
-                      <ChevronRight className="h-3.5 w-3.5 shrink-0 text-[#F7D98B]/70 transition-transform duration-300 group-hover:translate-x-0.5" />
-                    </div>
-                  </div>
-
-                  {/* Y debajo, de qué se está hablando: sin esto la cifra de
-                      abajo podría ser de cualquier cosa. */}
-                  {/* El césped de la foto es claro: sin fondo propio esta línea
-                      se pierde. Va con el mismo cristal que la chapa. */}
-                  <div className="absolute left-5 top-[58px] max-w-[calc(100%-40px)]">
-                    <p className="inline-block rounded-full border border-white/10 px-3.5 py-1.5 text-[12px] leading-relaxed backdrop-blur-xl" style={{ color: "#fff", backgroundColor: "rgba(2,6,13,.94)" }}>
-                      {resumenData
-                        /* Más corta (30/10/2026): a 390 px se cortaba y pisaba la tarjeta. Un solo término: «del grupo». */
-                        ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido" : "partidos"} de ${resumenData.temporada} · frente a los ${resumenData.equipos} del grupo`
-                        : "Opta y Wyscout, leídos de la carpeta de datos"}
+                  {/*
+                    30/10/2026: fuera la chapa «Data Análisis» de encima de la
+                    foto; el destino va en el título del panel de abajo. Queda
+                    sólo la base de lo que se cuenta, en una línea corta.
+                  */}
+                  <div className="absolute left-4 top-4 max-w-[calc(100%-32px)]">
+                    <p className="inline-block truncate rounded-full border border-white/10 px-3.5 py-1.5 text-[12px] leading-relaxed backdrop-blur-xl" style={{ color: "#fff", backgroundColor: "rgba(2,6,13,.94)", maxWidth: "100%" }}>
+                      {rivalSemana
+                        ? `${rivalSemana.nombre} · ${rivalSemana.partidos} ${rivalSemana.partidos === 1 ? "partido" : "partidos"} · Wyscout`
+                        : resumenData
+                          ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido" : "partidos"} · ${resumenData.equipos} equipos del grupo · Wyscout`
+                          : "Wyscout y Opta, de la carpeta de datos"}
                     </p>
                   </div>
 
                   {/*
-                    Pie del panel: dos cifras de Data Análisis.
-
-                    El xG por partido con su puesto en la categoría —que es lo
-                    que contesta «¿generamos?»— y lo que se marca por encima de
-                    lo que valían las ocasiones, que es la otra mitad. La barra
-                    mide contra el mejor de la liga, no contra cien: así el
-                    trozo lleno significa algo.
-
-                    Sólo se pinta mientras carga (esqueleto) o si hay dato: sin
-                    informes, o si la lectura falló, la tarjeta se queda con la
-                    foto y su rótulo, sin un hueco a medias. Los textos van con
-                    color fijo (`style`): el panel es siempre oscuro y en modo
-                    día el blanco por clase se volvía tinta oscura sobre negro.
+                    Pie del panel: dos cifras de Data Análisis, o las del rival
+                    de la semana de MD-4 a MD-1 (30/10/2026, fútbol: esos días
+                    lo que se prepara es a él). Sólo se pinta mientras carga
+                    (esqueleto) o si hay dato. Los textos van con color fijo
+                    (`style`): el panel es siempre oscuro y en modo día el
+                    blanco por clase se volvía tinta oscura sobre negro.
                   */}
-                  {(cargandoData || resumenData?.xg != null) && (
+                  {rivalSemana ? (
+                    <div
+                      className="absolute inset-x-3 bottom-3 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:inset-x-4 sm:bottom-4 sm:px-5"
+                      style={{ backgroundColor: "rgba(2,6,13,.94)" }}
+                    >
+                      <p className="flex items-center justify-between gap-3 text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
+                        <span className="min-w-0 truncate">El rival · {rivalSemana.faltan === 1 ? "MD-1" : `MD-${rivalSemana.faltan}`}</span>
+                        <span className="inline-flex shrink-0 items-center gap-1 normal-case tracking-normal" style={{ color: "#F7D98B" }}>
+                          Data análisis
+                          <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                        </span>
+                      </p>
+
+                      <p className="mt-2 flex flex-wrap items-baseline gap-x-2 leading-none" style={{ color: "#fff" }}>
+                        <span className="text-3xl font-bold tabular-nums">{coma(rivalSemana.xg, 2)}</span>
+                        <span className="text-[13px]" style={{ color: "rgba(255,255,255,.9)" }}>
+                          goles esperados por partido
+                        </span>
+                      </p>
+
+                      <ul className="mt-3 space-y-1 text-[13px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
+                        {rivalSemana.puestoXg != null && (
+                          <li>{rivalSemana.puestoXg}º de {rivalSemana.deCuantos} del grupo generando ocasiones</li>
+                        )}
+                        {rivalSemana.xgContra != null && (
+                          <li>
+                            Concede {coma(rivalSemana.xgContra, 2)} esperados por partido
+                            {rivalSemana.puestoXgContra != null && ` · ${rivalSemana.puestoXgContra}º de ${rivalSemana.deCuantos} (menos es mejor)`}
+                          </li>
+                        )}
+                        {rivalSemana.posesion != null && (
+                          <li>
+                            {coma(rivalSemana.posesion, 0)} % de posesión media
+                            {rivalSemana.puestoPosesion != null && ` · ${rivalSemana.puestoPosesion}º de ${rivalSemana.deCuantos}`}
+                          </li>
+                        )}
+                      </ul>
+
+                      {resumenData?.xg != null && (
+                        <p className="mt-3 border-t border-white/10 pt-2 text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.75)" }}>
+                          Nosotros: {coma(resumenData.xg, 2)} esperados por partido
+                          {resumenData.golesMenosXg != null &&
+                            ` · ${(() => {
+                              const d = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg, resumenData.partidos).diferencia;
+
+                              return `${d >= 0 ? "+" : "−"}${coma(Math.abs(d), 2)}`;
+                            })()} goles por partido frente a lo esperado`}
+                        </p>
+                      )}
+                    </div>
+                  ) : (cargandoData || resumenData?.xg != null) && (
                   <div
-                    className="absolute inset-x-4 bottom-4 flex flex-col gap-4 rounded-[22px] border border-white/10 px-5 py-4 backdrop-blur-xl sm:flex-row sm:items-end sm:justify-between xl:flex-col xl:items-stretch xl:justify-start"
+                    className="absolute inset-x-3 bottom-3 flex flex-col gap-3 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:inset-x-4 sm:bottom-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4 sm:px-5 xl:flex-col xl:items-stretch xl:justify-start"
                     style={{ backgroundColor: "rgba(2,6,13,.94)" }}
                   >
                     <div className="min-w-0">
-                      <p className="text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
-                        Goles esperados (xG) por partido
+                      <p className="flex items-center justify-between gap-3 text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
+                        <span className="min-w-0">Goles esperados (xG) por partido</span>
+                        <span className="inline-flex shrink-0 items-center gap-1 normal-case tracking-normal sm:hidden xl:inline-flex" style={{ color: "#F7D98B" }}>
+                          Data análisis
+                          <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                        </span>
                       </p>
 
                       <p className="mt-2 text-3xl font-bold leading-none" style={{ color: "#fff" }}>
                         {cargandoData || resumenData?.xg == null ? (
                           <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
                         ) : (
-                          resumenData.xg.toFixed(2).replace(".", ",")
+                          coma(resumenData.xg, 2)
                         )}
                       </p>
 
@@ -549,10 +639,9 @@ export default function Home() {
 
                       {resumenData?.xg != null && (
                         <p className="mt-2 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
-                          {resumenData.partidos} {resumenData.partidos === 1 ? "partido" : "partidos"}
                           {resumenData.puesto
-                            ? ` · ${resumenData.puesto}º de ${resumenData.deCuantos} del grupo${resumenData.mediana != null ? ` · mediana del grupo: ${resumenData.mediana.toFixed(2).replace(".", ",")}` : ""}`
-                            : ""}
+                            ? `${resumenData.puesto}º de ${resumenData.deCuantos} del grupo${resumenData.mediana != null ? ` · mediana del grupo: ${coma(resumenData.mediana, 2)}` : ""}`
+                            : `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido" : "partidos"}`}
                         </p>
                       )}
                     </div>
@@ -560,11 +649,12 @@ export default function Home() {
                     {(cargandoData || resumenData?.golesMenosXg != null) && (
                       <div className="min-w-0 sm:shrink-0 sm:text-right xl:text-left">
                         <p className="text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
-                          Goles por partido frente a lo esperado
+                          Goles frente a lo esperado
                         </p>
 
+                        {/* El naranja es «por debajo de lo esperado» y lo dice la frase de debajo. */}
                         <p
-                          className="mt-2 text-3xl font-bold leading-none"
+                          className="mt-2 flex flex-wrap items-baseline gap-x-1.5 leading-none sm:justify-end xl:justify-start"
                           style={{
                             color:
                               resumenData?.golesMenosXg == null
@@ -577,29 +667,32 @@ export default function Home() {
                           {cargandoData || resumenData?.golesMenosXg == null ? (
                             <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
                           ) : (
-                            /* 29/10/2026 (análisis): la cifra sale de los mismos totales
-                               redondeados que se leen debajo (11 y 18,8 en 9 → −0,87),
-                               para que la cuenta cuadre al hacerla a mano. */
-                            (() => {
-                              const d = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg, resumenData.partidos).diferencia;
+                            <>
+                              {/* 29/10/2026 (análisis): la cifra sale de los mismos totales
+                                  redondeados que se leen debajo (11 y 18,8 en 9 → −0,87). */}
+                              <span className="text-3xl font-bold">
+                                {(() => {
+                                  const d = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg, resumenData.partidos).diferencia;
 
-                              return `${d >= 0 ? "+" : "−"}${Math.abs(d).toFixed(2).replace(".", ",")}`;
-                            })()
+                                  return `${d >= 0 ? "+" : "−"}${coma(Math.abs(d), 2)}`;
+                                })()}
+                              </span>
+                              <span className="text-[13px] font-medium">por partido</span>
+                            </>
                           )}
                         </p>
 
+                        {/* Sin «tendencia en 9 partidos» (30/10/2026): repetía la base y no decía nada. */}
                         {resumenData?.golesMenosXg != null && (
-                          <p className="mt-1 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
+                          <p className="mt-1.5 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
                             {resumenData.xg != null && (() => {
                               const t = golesFrenteXg(resumenData.xg, resumenData.golesMenosXg, resumenData.partidos);
 
-                              return `${t.goles} goles frente a ${t.esperados.toFixed(1).replace(".", ",")} esperados en ${resumenData.partidos} partidos · `;
+                              return `${t.goles} goles frente a ${coma(t.esperados, 1)} esperados en ${resumenData.partidos} partidos · `;
                             })()}
                             {resumenData.golesMenosXg >= 0
                               ? "marcamos más de lo esperado"
                               : "marcamos menos de lo esperado"}
-                            {/* Con menos de 15 partidos es tendencia, no veredicto (30/10/2026). */}
-                            {resumenData.partidos < 15 ? ` · tendencia en ${resumenData.partidos} partidos` : ""}
                           </p>
                         )}
                       </div>
@@ -643,26 +736,31 @@ export default function Home() {
               />
 
               <div className="mt-5">
+                {/* Si la hoja de seguimiento no contesta, su casilla no se pinta (sin
+                    «—» ni «sin datos»): queda el «Reintentar» de debajo (30/10/2026). */}
                 <Cifras
                   cifras={[
-                    {
-                      href: "/calendar",
-                      label: "Seguimientos",
-                      value: errorSeguimiento ? null : seguimientos,
-                      caption: errorSeguimiento
-                        ? "sin datos"
-                        : ultimos30Dias === seguimientos
-                          ? `${ultimos7Dias} en la última semana`
-                          : `${ultimos30Dias} en los últimos 30 días`,
-                      destino: "Calendario Seguimiento",
-                      loading: loadingSeguimiento,
-                      icon: Activity,
-                    },
+                    ...(errorSeguimiento
+                      ? []
+                      : [
+                          {
+                            href: "/calendar",
+                            label: "Seguimientos",
+                            value: seguimientos,
+                            caption:
+                              ultimos30Dias === seguimientos
+                                ? `${ultimos7Dias} en la última semana`
+                                : `${ultimos30Dias} en los últimos 30 días`,
+                            destino: "Calendario Seguimiento",
+                            loading: loadingSeguimiento,
+                            icon: Activity,
+                          },
+                        ]),
                     {
                       href: "/individual",
                       label: "Del Castilla",
                       value: totalJugadores,
-                      caption: errorSeguimiento ? "sin datos de seguimiento" : `${cobertura} % con seguimiento`,
+                      caption: errorSeguimiento ? "jugadores de campo" : `${cobertura} % con seguimiento`,
                       destino: "Plantilla",
                       loading: cargandoPlantilla,
                       icon: Users,
@@ -692,26 +790,10 @@ export default function Home() {
                 caption="Las mismas del menú lateral"
               />
 
-              {/* Móvil (29/10/2026, análisis): las 46 tarjetas eran pantallas y
-                  pantallas de scroll. 30/10/2026: también en escritorio, que
-                  repetían el menú lateral; el buscador y las primeras, y el resto
-                  detrás de «Ver todas las áreas». */}
-              <div
-                className={
-                  verAreas
-                    ? ""
-                    : "relative max-h-[560px] overflow-hidden"
-                }
-              >
-                <ModulesExplorer />
-
-                {!verAreas && (
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#02060D] to-transparent"
-                  />
-                )}
-              </div>
+              {/* Las 46 repetían el menú lateral (30/10/2026): el buscador y las
+                  seis que más se usan; el resto detrás de «Ver todas las áreas».
+                  Al buscar o filtrar salen todas las que casan. */}
+              <ModulesExplorer limite={verAreas ? undefined : 6} />
 
               {!verAreas && (
                 <button
@@ -724,23 +806,8 @@ export default function Home() {
               )}
             </div>
 
-            {/*
-              El coding de rival, discreto.
-
-              Es una herramienta de una persona —quien prepara el análisis
-              individual del rival—, no del cuerpo técnico entero, así que no
-              se le da una tarjeta en las áreas de trabajo: vive aquí abajo,
-              donde lo encuentra quien lo busca y no distrae a quien no.
-            */}
-            {admin && <div className="flex justify-center pb-2 pt-6">
-              <Link
-                href="/coding?ambito=rival"
-                className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/65 transition-colors hover:border-white/25 hover:text-white"
-              >
-                Abrir el coding de rival
-                <ArrowRight className="h-3 w-3" aria-hidden />
-              </Link>
-            </div>}
+            {/* El coding de rival ya no va suelto al pie (30/10/2026): es un
+                acceso más de la fila «Del rival» de la tarjeta del partido. */}
             </>)}
           </section>
         </div>

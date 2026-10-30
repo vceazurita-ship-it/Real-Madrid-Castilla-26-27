@@ -26,7 +26,7 @@
  * a discutir.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Check,
@@ -74,6 +74,7 @@ import {
   jornadaDeHoy,
   jornadaVacia,
   partidosDe,
+  primeraJornadaDe,
   ranking,
   rankingDeBloque,
   rarezasDe,
@@ -271,14 +272,27 @@ export default function QuinielaPage() {
 
   const maxJugados = tablaBase.reduce((max, fila) => Math.max(max, fila.total.jugados), 0);
 
-  /* Quien ha apostado menos de la mitad que el que más sale al final, fuera de la
-     ordenación por porcentaje (29/10/2026): un 9 % sobre 5 apuestas no es un último
-     puesto, es poca muestra. */
-  const pocasApuestas = (fila: (typeof tablaBase)[number]) => maxJugados > 0 && fila.total.jugados * 2 < maxJugados;
+  /*
+  | Quien ha apostado poco sale al final, fuera de la ordenación por
+  | porcentaje (29/10/2026): un 9 % sobre 5 apuestas no es un último puesto,
+  | es poca muestra. 30/10/2026: se mira lo que de verdad apostó y no sólo los
+  | partidos que le cuentan. A Miguel Barrio le cuentan los 53 desde su
+  | primera apuesta, pero sólo puso signo en 5, y seguía en el puesto 11.
+  */
+  const pocasApuestas = (fila: (typeof tablaBase)[number]) =>
+    maxJugados > 0 && (fila.total.jugados * 2 < maxJugados || fila.apostados * 2 < fila.total.jugados);
 
-  const tabla = useMemo(
-    () => [...tablaBase.filter((f) => !(maxJugados > 0 && f.total.jugados * 2 < maxJugados)), ...tablaBase.filter((f) => maxJugados > 0 && f.total.jugados * 2 < maxJugados)],
-    [tablaBase, maxJugados],
+  const tabla = useMemo(() => {
+    const pocas = (f: (typeof tablaBase)[number]) =>
+      maxJugados > 0 && (f.total.jugados * 2 < maxJugados || f.apostados * 2 < f.total.jugados);
+
+    return [...tablaBase.filter((f) => !pocas(f)), ...tablaBase.filter(pocas)];
+  }, [tablaBase, maxJugados]);
+
+  /* La jornada desde la que cuenta cada uno: «entró en la jornada 4». */
+  const primeraDe = useMemo(
+    () => new Map(jugadores.map((slug) => [slug, primeraJornadaDe(doc, slug)])),
+    [doc, jugadores],
   );
 
   const rarezas = useMemo(
@@ -582,6 +596,9 @@ export default function QuinielaPage() {
 
                           if (!persona) return null;
 
+                          /* El rótulo de la parte de abajo, una vez, encima del primero. */
+                          const empiezanPocas = pocasApuestas(fila) && (indice === 0 || !pocasApuestas(tabla[indice - 1]));
+
                           const lider = indice === 0 && fila.total.jugados > 0;
                           /* Puesto compartido (30/10/2026): mismo porcentaje a la vista y mismos aciertos. */
                           const igual = (a: typeof fila, b: typeof fila) =>
@@ -592,14 +609,21 @@ export default function QuinielaPage() {
                           const compartido = (puesto < indice) || (indice + 1 < tabla.length && igual(tabla[indice + 1], fila));
 
                           return (
+                            <Fragment key={fila.slug}>
+                            {empiezanPocas && (
+                              <tr className="border-t border-white/[0.12]">
+                                <td colSpan={6} className="pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
+                                  Con pocas apuestas · fuera del orden por porcentaje
+                                </td>
+                              </tr>
+                            )}
                             <tr
-                              key={fila.slug}
                               className={`border-t border-white/[0.06] ${
                                 lider ? "bg-[#C8A96B]/[0.07]" : ""
                               }`}
                             >
                               <td className="py-1.5 text-right text-[11px] tabular-nums text-white/45">
-                                {compartido ? `=${puesto + 1}` : indice + 1}
+                                {pocasApuestas(fila) ? "" : compartido ? `=${puesto + 1}` : indice + 1}
                               </td>
 
                               <td className="py-1.5 pl-2">
@@ -617,10 +641,21 @@ export default function QuinielaPage() {
                                     {/* Quien apostó poco sale abajo con un
                                         porcentaje engañoso: se dice por qué. */}
                                     {/* Con los partidos que de verdad puso (30/10/2026): «apostó 5 de 53». */}
-                                    {fila.apostados < maxJugados && (
-                                      <span className="block truncate text-[11px] text-white/50">
-                                        {pocasApuestas(fila) ? "pocas apuestas · " : ""}
-                                        {`apostó ${fila.apostados} de ${maxJugados} partidos`}
+                                    {/*
+                                      30/10/2026 (fútbol): dos casos distintos.
+                                      Quien dejó partidos en blanco: «apostó 5 de
+                                      53 · el resto cuenta como fallo». Quien
+                                      llegó tarde: «entró en la jornada 4 ·
+                                      cuenta desde ahí (36 partidos)».
+                                    */}
+                                    {fila.total.jugados < maxJugados && Number.isFinite(primeraDe.get(fila.slug) ?? Infinity) && (
+                                      <span className="block text-[11px] text-white/55">
+                                        {`entró en la jornada ${primeraDe.get(fila.slug)} · cuenta desde ahí (${fila.total.jugados} ${fila.total.jugados === 1 ? "partido" : "partidos"})`}
+                                      </span>
+                                    )}
+                                    {fila.apostados < fila.total.jugados && (
+                                      <span className="block text-[11px] text-white/55">
+                                        {`apostó ${fila.apostados} de ${fila.total.jugados} · el resto cuenta como fallo`}
                                       </span>
                                     )}
 
@@ -663,6 +698,7 @@ export default function QuinielaPage() {
                                 {fila.jornadasGanadas}
                               </td>
                             </tr>
+                            </Fragment>
                           );
                         })}
                       </tbody>

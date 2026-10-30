@@ -13,6 +13,7 @@ import {
 } from "./destacados";
 import {
   METRICAS_JUGADOR,
+  VOLUMEN_DEL_PORCENTAJE,
   esNuestro,
   metricasDe,
   percentilEnPlantilla,
@@ -56,6 +57,14 @@ export type Alerta = {
   detalle: string;
   /** La cifra que la dispara, ya escrita. */
   cifra: string;
+  /**
+   * La cifra principal sola («69,9», «97,3 %») y el titular sin ella
+   * (30/10/2026): la tarjeta de la portada pinta la cifra en grande y la base
+   * debajo, en vez de todo en la misma frase. Opcionales: las que no los
+   * traen se pintan como siempre.
+   */
+  valor?: string;
+  rotulo?: string;
   /**
    * Cuánto se sale de lo normal, de 0 a 100.
    *
@@ -189,16 +198,29 @@ export function alertasDeData(
         ? `${nombreMetrica} por partido`
         : nombreMetrica;
 
+    /*
+    | 30/10/2026: un solo término para el conjunto —«los 20 equipos del
+    | grupo», como la tarjeta de goles esperados— y el sentido («más es
+    | mejor») una sola vez. La fuente al pie, como en las de jugadores.
+    */
+    const lugar = arriba
+      ? puesto === 1
+        ? "la mejor"
+        : `${puesto}º`
+      : puesto === 1
+        ? "la más baja"
+        : `${puesto}º por la cola`;
+
     alertas.push({
       clave: `metrica-${metrica.key}`,
       tono: arriba ? "buena" : "mala",
-      area: "Data · contra la liga",
-      titulo: arriba
-        ? `${nombreTitulo}: ${valor}, ${puesto === 1 ? "la mejor" : `${puesto}º`} de ${todos.length} equipos`
-        : `${nombreTitulo}: ${valor}, ${puesto === 1 ? "la más baja" : `${puesto}º por la cola`} de ${todos.length} equipos`,
+      area: "Data · contra el grupo",
+      titulo: `${nombreTitulo}: ${valor}, ${lugar} de los ${todos.length} equipos del grupo`,
+      rotulo: nombreTitulo,
+      valor,
       detalle: metrica.comoLeer,
       cifra: (() => {
-        /* La referencia: la mediana de la liga, con el mismo formato que la cifra. */
+        /* La referencia: la mediana del grupo, con el mismo formato que la cifra. */
         const orden = [...todos].sort((a, b) => a - b);
         const mitad = Math.floor(orden.length / 2);
         const mediana = orden.length % 2 ? orden[mitad] : (orden[mitad - 1] + orden[mitad]) / 2;
@@ -207,14 +229,15 @@ export function alertasDeData(
             ? mediana.toFixed(1).replace(".", ",")
             : formatea(mediana, metrica.unidad);
 
-        return `${metrica.mejorAlto ? "más es mejor" : "menos es mejor"} · mediana de la liga ${med} · contra ${todos.length} equipos · en ${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} del Castilla`;
+        return `${lugar} de los ${todos.length} equipos del grupo (${metrica.mejorAlto ? "más es mejor" : "menos es mejor"}) · mediana ${med} · ${nuestros.length} ${nuestros.length === 1 ? "partido" : "partidos"} del Castilla · Wyscout`;
       })(),
       fuerza: Math.min(100, Math.abs(p - 50) * 2),
       enlace: metrica.key === "recuperaciones" ? "/laboratorio/transiciones" : "/data-analisis?area=liga",
+      /* Todas con la misma forma, «Ver …», como las de jugadores. */
       mira:
         metrica.key === "recuperaciones"
-          ? "A qué altura se roba: los robos de Hudl por zona."
-          : "La barra de esa métrica y el resto de su fase de juego.",
+          ? "Ver a qué altura robamos, zona a zona"
+          : "Ver la métrica contra el grupo en Data análisis",
     });
   }
 
@@ -274,8 +297,14 @@ export function alertasDeData(
 
     if (iguales.length < 8) continue;
 
-    let mejor: { nombre: string; percentil: number; valor: number; unidad: string } | null =
-      null;
+    let mejor: {
+      nombre: string;
+      percentil: number;
+      valor: number;
+      unidad: string;
+      /** De cuántas acciones sale el porcentaje, si lo es (30/10/2026). */
+      intentos: number | null;
+    } | null = null;
 
     let flojas = 0;
 
@@ -306,12 +335,26 @@ export function alertasDeData(
          no es dato, y la alerta no lleva el número de intentos. */
       if (/falta.*directa|directa.*portería/i.test(metrica.nombre)) continue;
 
+      /*
+      | El porcentaje, con sus acciones detrás (30/10/2026, análisis): «97,3 %»
+      | sale de N pases, y N se saca del volumen por 90 y de los minutos. Por
+      | debajo del mínimo de `VOLUMEN_DEL_PORCENTAJE` —el mismo que usa la
+      | ficha del jugador— no se destaca: es muestra corta.
+      */
+      const volumen = VOLUMEN_DEL_PORCENTAJE[metrica.columna];
+      const porNoventa = volumen ? valorDe(jugador, volumen.columna) : null;
+
+      if (volumen && (porNoventa === null || porNoventa < volumen.minimo)) continue;
+
+      const intentos = porNoventa !== null ? Math.round((porNoventa * jugador.minutos) / 90) : null;
+
       if (p >= 95 && (!mejor || p > mejor.percentil)) {
         mejor = {
           nombre: metrica.nombre,
           percentil: p,
           valor,
           unidad: metrica.unidad,
+          intentos,
         };
       }
     }
@@ -327,13 +370,20 @@ export function alertasDeData(
       /* «Acierto en corto % 97,6 %» llevaba el símbolo dos veces. */
       const nombreMetrica = v.includes("%") ? mejor.nombre.replace(/\s*%\s*$/, "") : mejor.nombre;
 
+      const deCuantos =
+        mejor.intentos && mejor.unidad === "porcentaje"
+          ? `${Math.round((mejor.valor / 100) * mejor.intentos)} de ${mejor.intentos} · `
+          : "";
+
       alertas.push({
         clave: `jugador-bien-${jugador.jugador}`,
         tono: "buena",
         area: "Data · jugador a jugador",
         titulo: `${jugador.jugador} · ${nombreMetrica.charAt(0).toLowerCase()}${nombreMetrica.slice(1)} ${v}`,
+        rotulo: `${jugador.jugador} · ${nombreMetrica.charAt(0).toLowerCase()}${nombreMetrica.slice(1)}`,
+        valor: v,
         detalle: `Con ${jugador.minutos}′ jugados no es una casualidad de un rato.`,
-        cifra: `percentil ${mejor.percentil} entre ${iguales.length} jugadores de su puesto · ${jugador.minutos}′ · Wyscout`,
+        cifra: `${deCuantos}percentil ${mejor.percentil} entre ${iguales.length} jugadores de su puesto · ${jugador.minutos}′ · Wyscout`,
         fuerza: Math.min(100, (mejor.percentil - 50) * 2),
         enlace: "/data-analisis?area=individual",
         /* Una acción concreta y no el pie genérico (29/10/2026, fútbol). */

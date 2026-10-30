@@ -202,10 +202,27 @@ export function downloadUrl(url: string) {
   return `${url}${separator}download=${encodeURIComponent(name)}`;
 }
 
-export function weekRangeLabel(week: WeekData) {
-  if (!week.start && !week.end) return "Fechas sin definir";
-  if (!week.end) return week.start;
-  if (!week.start) return week.end;
+/*
+| UN SOLO FORMATO DE FECHAS (30/10/2026)
+|
+| La hoja escribe «24 Ago» y cada sitio lo pintaba a su manera: «24 Ago — 30
+| Ago» en la cabecera, «26 Oct · 1 Nov» en la lista. En español los meses
+| abreviados van en minúscula y el intervalo lleva una raya corta: «24 ago –
+| 30 ago». Sin fechas no se dice nada (antes, «Fechas sin definir»).
+*/
+export function fechaSemana(valor: string | null | undefined) {
+  return String(valor ?? "").trim().toLocaleLowerCase("es-ES");
+}
 
-  return `${week.start} — ${week.end}`;
+export function rangoFechas(start: string | null | undefined, end: string | null | undefined) {
+  const desde = fechaSemana(start);
+  const hasta = fechaSemana(end);
+
+  if (desde && hasta) return `${desde} – ${hasta}`;
+
+  return desde || hasta;
+}
+
+export function weekRangeLabel(week: WeekData) {
+  return rangoFechas(week.start, week.end);
 }

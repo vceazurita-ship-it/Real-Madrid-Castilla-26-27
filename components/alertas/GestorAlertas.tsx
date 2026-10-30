@@ -14,7 +14,7 @@ import {
   type PartidoParaAlerta,
 } from "@/lib/alertas/modelo";
 import { CLAVE_CALENDARIO } from "@/lib/castilla/calendario";
-import ListaAlertas from "./ListaAlertas";
+import ListaAlertas, { nombresDestino } from "./ListaAlertas";
 
 /**
  * Todo el manejo de tareas con alerta, sin decidir dónde se pinta.
@@ -202,7 +202,12 @@ export default function GestorAlertas() {
       await guardar({ ...a, activa: true });
     }
     setOcupada(null);
+    setConfirmaReactivar(false);
   };
+
+  /* «Reactivar todas» pregunta antes, con qué tareas y a quién (30/10/2026):
+     de un toque volvían a salir correos a varias personas. */
+  const [confirmaReactivar, setConfirmaReactivar] = useState(false);
 
   const todasSilenciadas = !cargando && !fallo && alertas.length > 0 && !alertas.some((a) => a.activa);
 
@@ -319,7 +324,7 @@ export default function GestorAlertas() {
 
       {/* Lo que dice la pantalla en cinco segundos. Sin alertas con fecha, no sale. */}
       {!cargando && !fallo && !resumen && alertas.length > 0 && (
-        <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-200">
+        <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-[13px] leading-relaxed text-amber-200">
           <p>
             <b className="font-semibold">
               {nSilenciadas === 0
@@ -335,7 +340,7 @@ export default function GestorAlertas() {
 
           <button
             type="button"
-            onClick={() => void reactivarTodas()}
+            onClick={() => setConfirmaReactivar(true)}
             disabled={ocupada !== null || comprobando}
             className="mt-2.5 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#C8A96B] px-4 py-2 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-40"
           >
@@ -348,7 +353,7 @@ export default function GestorAlertas() {
       )}
 
       {!cargando && resumen && (
-        <p className="rounded-2xl bg-[#C8A96B]/10 px-4 py-3 text-xs leading-relaxed text-white/70">
+        <p className="rounded-2xl bg-[#C8A96B]/10 px-4 py-3 text-[13px] leading-relaxed text-white/70">
           <b className="font-semibold text-[#C8A96B]">
             {resumen.activas} {resumen.activas === 1 ? "alerta activa" : "alertas activas"}
           </b>
@@ -448,6 +453,20 @@ export default function GestorAlertas() {
           onCerrar={() => setEditando(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmaReactivar}
+        title={nSilenciadas === 1 ? "Reactivar la tarea" : `Reactivar ${nSilenciadas} tareas`}
+        description={alertas
+          .filter((a) => !a.activa && reactivable(a))
+          .map((a) => `«${a.titulo.trim()}» volverá a avisar a ${nombresDestino(a.destinatarios, agenda, true)}.`)
+          .join(" ")}
+        confirmLabel="Reactivar"
+        loadingLabel="Reactivando…"
+        loading={ocupada === "todas"}
+        onConfirm={() => void reactivarTodas()}
+        onCancel={() => setConfirmaReactivar(false)}
+      />
 
       <ConfirmDialog
         open={Boolean(aEnviar)}

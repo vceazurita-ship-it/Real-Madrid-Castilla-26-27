@@ -21,6 +21,7 @@ import {
 | cae.
 */
 import {
+  AlarmClock,
   Settings,
   ArrowLeft,
   BarChart3,
@@ -249,6 +250,8 @@ export const SECCIONES: Seccion[] = [
       /* El viaje es logística, no partido (11/10/2026). */
       { href: "/desplazamiento", label: "Desplazamiento", icon: Bus },
       { href: "/general", label: "Repositorio", icon: Database },
+      /* Las tareas con alerta, con su barra de Operativa como /general (30/10/2026). */
+      { href: "/alertas", label: "Tareas y alertas", icon: AlarmClock },
       /* Los escudos son mantenimiento del club, no un laboratorio (11/10/2026). */
       { href: "/laboratorio/escudos", label: "Escudos de la liga", icon: Medal },
       { href: "/quiniela", label: "Quiniela de la Semana", icon: Trophy },

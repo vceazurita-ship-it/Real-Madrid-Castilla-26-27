@@ -23,6 +23,9 @@ import { balanceDe, fraseDelVistazo, type ResultadoForma, type Vistazo } from "@
 | franja no sale.
 */
 
+/* Por debajo de estos minutos la lectura de un jugador es muestra corta (30/10/2026). */
+const MUESTRA_CORTA = 500;
+
 /* Los colores del resultado, los mismos verde/rojo del resto de la ficha. */
 const COLOR_RESULTADO: Record<ResultadoForma["resultado"], string> = {
   G: "#34D399",
@@ -94,7 +97,7 @@ export function VistazoRival({
   enlaces,
 }: {
   /** Dónde hacerles daño: jugadores con etiquetas de debilidad y rasgos flojos en Wyscout. */
-  dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string; base?: string }[];
+  dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string; base?: string; minutos?: number }[];
   /** Bajas de la hoja, apercibidos y rojas de BeSoccer; `null` si no hay nada. */
   avisos?: AvisosRival | null;
   equipo: string;
@@ -139,7 +142,12 @@ export function VistazoRival({
         {tabla && (
           <Casilla
             titulo="Clasificación"
-            pie={`${balanceDe(tabla)} · ${tabla.favor}-${tabla.contra} en goles`}
+            /* Con la referencia del grupo (30/10/2026, análisis). */
+            pie={`${balanceDe(tabla)} · ${tabla.favor}-${tabla.contra} en goles${
+              tabla.medianaFavor != null && tabla.medianaContra != null
+                ? ` (mediana de los ${tabla.equipos}: ${tabla.medianaFavor}-${tabla.medianaContra})`
+                : ""
+            }`}
           >
             <p className="flex items-baseline gap-1.5">
               <Trophy size={13} className="shrink-0 self-center text-[#C8A96B]" aria-hidden />
@@ -158,7 +166,9 @@ export function VistazoRival({
           >
             <p className="flex items-baseline gap-1.5">
               <span className="text-lg font-semibold tabular-nums">{balanceDe(enEseCampo.fila)}</span>
-              <span className="text-xs text-white/45">{enEseCampo.fila.puntos} pts</span>
+              <span className="text-xs text-white/45">
+                {enEseCampo.fila.puntos} de {enEseCampo.fila.jugados * 3} pts posibles
+              </span>
             </p>
           </Casilla>
         )}
@@ -303,19 +313,24 @@ export function VistazoRival({
         <div className="mt-3 min-w-0">
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">Dónde hacerles daño</p>
 
-          <ul className="min-w-0 space-y-1 text-sm text-white/80">
+          {/*
+            30/10/2026: la base va en su propia línea debajo de la frase («485′ ·
+            6 partidos · muestra corta: menos de 500′»). Pegada al final se leía
+            «primer pase485′». Los minutos son los de la plantilla (BeSoccer).
+          */}
+          <ul className="min-w-0 space-y-2 text-sm text-white/80">
             {dano.map((uno) => (
-              <li key={uno.nombre}>
-                <b className="font-semibold text-white">{uno.nombre}</b>
-                {uno.puesto ? <span className="text-white/45"> ({uno.puesto})</span> : null}: {uno.rasgos.join(" y ")}
-                {uno.accion ? <span className="text-white/80"> → {uno.accion}</span> : null}
-                {/* La base de la frase (29/10/2026): no es lo mismo «pierde duelos» en 8 partidos que en 2. */}
+              <li key={uno.nombre} className="min-w-0">
+                <p>
+                  <b className="font-semibold text-white">{uno.nombre}</b>
+                  {uno.puesto ? <span className="text-white/55"> ({uno.puesto})</span> : null}: {uno.rasgos.join(" y ")}
+                  {uno.accion ? <span className="text-white/80"> → {uno.accion}</span> : null}
+                </p>
                 {uno.base ? (
-                  <span className="ml-1.5 inline-block rounded-md bg-white/[0.07] px-1.5 py-0.5 align-middle text-[11px] tabular-nums text-white/60">
+                  <p className="mt-0.5 text-[12px] tabular-nums text-white/55">
                     {uno.base}
-                    {/* 30/10/2026: al patrón se le había caído la barra («d+») y nunca avisaba. */}
-                    {(Number(/^(\d+)/.exec(uno.base.replace(/\./g, ""))?.[1]) || 0) < 500 ? " · muestra corta" : ""}
-                  </span>
+                    {(uno.minutos ?? 0) > 0 && (uno.minutos ?? 0) < MUESTRA_CORTA ? ` · muestra corta: menos de ${MUESTRA_CORTA}′` : ""}
+                  </p>
                 ) : null}
               </li>
             ))}

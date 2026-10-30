@@ -241,6 +241,14 @@ export const UMBRAL_FACETA = 15;
 export const UMBRAL_DUELO = 10;
 
 /**
+ * Un único umbral de «muestra corta» para todas las tarjetas de duelos
+ * (30/10/2026, análisis): si alguno de los dos lados del cruce tiene menos
+ * minutos que esto en Wyscout, la base lo dice («muestra corta: menos de
+ * 450′»). Lo usan el Plan de partido y /duelos.
+ */
+export const MUESTRA_CORTA_DUELO = 450;
+
+/**
  * El veredicto que enseña la cabecera de la tarjeta (29/10/2026), para que el
  * pie diga lo mismo: si pesan los dos sentidos (ganamos con balón y perdemos
  * sin él) manda la suma, y si se compensan, «se anulan».
@@ -565,9 +573,29 @@ export function normalizaDuelos(valor: unknown): DuelosDoc {
 /**
  * El recuento de duelos, escrito igual en el Plan de partido y en /duelos.
  * Las partes no se pisan, así que suman el total sin hacer cuentas:
- * «8 duelos: 1 sólo a favor, 4 que ganamos con balón y perdemos sin él, 3 parejos».
- * Las partes a 0 no se nombran.
+ * «8 duelos medidos: 1 para buscar, 4 de doble cara (ganamos con balón,
+ * perdemos sin él), 3 parejos». Las partes a 0 no se nombran.
+ * 30/10/2026: con los nombres de los grupos que pinta el Plan de partido,
+ * que ahora enseña los ocho (antes salían tres tarjetas y la frase contaba
+ * ocho). `fraseRecuentoPartes` da las piezas para enlazar cada número.
  */
+export function fraseRecuentoPartes(medidos: number, aFavor: number, enContra: number, enLosDos: number) {
+  const ambos = Math.max(0, enLosDos);
+  const soloAFavor = Math.max(0, aFavor - ambos);
+  const soloEnContra = Math.max(0, enContra - ambos);
+  const parejos = Math.max(0, medidos - (soloAFavor + soloEnContra + ambos));
+
+  return {
+    base: `${medidos} ${medidos === 1 ? "duelo medido" : "duelos medidos"}`,
+    partes: [
+      { grupo: "buscar", n: soloAFavor, texto: `${soloAFavor} para buscar` },
+      { grupo: "doble", n: ambos, texto: `${ambos} de doble cara` },
+      { grupo: "vigilar", n: soloEnContra, texto: `${soloEnContra} para vigilar` },
+      { grupo: "parejos", n: parejos, texto: `${parejos} ${parejos === 1 ? "parejo" : "parejos"}` },
+    ].filter((p) => p.n > 0),
+  };
+}
+
 export function fraseRecuentoDuelos(medidos: number, aFavor: number, enContra: number, enLosDos: number): string {
   const ambos = Math.max(0, enLosDos);
   const soloAFavor = Math.max(0, aFavor - ambos);

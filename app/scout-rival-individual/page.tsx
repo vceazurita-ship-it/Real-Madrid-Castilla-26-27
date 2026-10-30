@@ -207,6 +207,33 @@ export default function ScoutRivalIndividual() {
     };
   }, []);
 
+  /*
+  | DORSALES REPETIDOS (30/10/2026, fútbol y análisis): la hoja trae el 19
+  | para Adrián Corral y para Marcelo. Hasta que se corrija en la hoja RIVALES,
+  | un dorsal que se repite dentro del mismo rival no se pinta en ninguno de
+  | los dos —el cuerpo técnico nunca ve dos números iguales— y se avisa al
+  | analista en la consola.
+  */
+  const dorsalesRepetidos = useMemo(() => {
+    const cuenta = new Map<string, string[]>();
+
+    for (const jugador of squads.find((squad) => squad.equipo === equipo)?.players ?? []) {
+      const dorsal = String(jugador.dorsal ?? "").trim();
+
+      if (!dorsal) continue;
+
+      cuenta.set(dorsal, [...(cuenta.get(dorsal) ?? []), jugador.nombre]);
+    }
+
+    return new Map([...cuenta].filter(([, nombres]) => nombres.length > 1));
+  }, [squads, equipo]);
+
+  useEffect(() => {
+    for (const [dorsal, nombres] of dorsalesRepetidos) {
+      console.warn(`[scout individual] ${equipo}: el dorsal ${dorsal} está repetido en la hoja (${nombres.join(" y ")}). No se pinta hasta corregirlo en RIVALES.`);
+    }
+  }, [dorsalesRepetidos, equipo]);
+
   const plantilla = useMemo(
     () =>
       (squads.find((squad) => squad.equipo === equipo)?.players ?? []).map((jugador) => {
@@ -219,14 +246,14 @@ export default function ScoutRivalIndividual() {
         titularidades: temporada?.titular,
         minutos: temporada?.minutos,
         nombre: jugador.nombre,
-        dorsal: jugador.dorsal,
+        dorsal: dorsalesRepetidos.has(String(jugador.dorsal ?? "").trim()) ? "" : jugador.dorsal,
         puesto: jugador.posicion,
         etiquetas: etiquetasDe[`${equipo}|${jugador.nombre}`] ?? [],
         titular:
           titularesDe.equipo === equipo && titularesDe.claves.includes(clavesDe[`${equipo}|${jugador.nombre}`] ?? "\u0000"),
         };
       }),
-    [squads, equipo, etiquetasDe, clavesDe, titularesDe, filasDe, statsDoc],
+    [squads, equipo, etiquetasDe, clavesDe, titularesDe, filasDe, statsDoc, dorsalesRepetidos],
   );
 
   return (
@@ -289,8 +316,13 @@ export default function ScoutRivalIndividual() {
                 />
               </div>
 
-              <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-white/30">
-                {equipos.length ? `${visibles.length} de ${equipos.length}` : ""}
+              {/* Qué cuenta (30/10/2026): «19 de 19» eran dos números sueltos. */}
+              <span className="shrink-0 whitespace-nowrap text-[12px] tabular-nums text-white/50">
+                {equipos.length
+                  ? visibles.length === equipos.length
+                    ? `${equipos.length} equipos`
+                    : `${visibles.length} de ${equipos.length} equipos`
+                  : ""}
               </span>
 
               {/* Su plantilla, con las fichas de cada jugador. */}
@@ -299,7 +331,7 @@ export default function ScoutRivalIndividual() {
                   href={`/rivals?equipo=${encodeURIComponent(equipo)}`}
                   className="ml-auto text-[11px] text-[#C8A96B] transition hover:underline"
                 >
-                  Plantilla y fichas de {equipo} →
+                  Plantilla de {equipo}, con la ficha de cada jugador →
                 </Link>
               )}
             </div>

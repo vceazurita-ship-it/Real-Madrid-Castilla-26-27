@@ -288,7 +288,48 @@ function resumenDePortada(datos: Dataset) {
           ? todos[(todos.length - 1) / 2]
           : (todos[todos.length / 2 - 1] + todos[todos.length / 2]) / 2,
     golesMenosXg: metDif ? valorEnGrupo(metDif, nuestros) : null,
+    liga: lineasDeLaLiga(deLaLiga, equipos),
   };
+}
+
+/*
+| EL RIVAL DE LA SEMANA EN LA TARJETA DE LA PORTADA (30/10/2026, fútbol)
+|
+| De MD-4 a MD-1 la tarjeta oscura enseña al rival y no a nosotros: tres
+| cifras de Wyscout por equipo —goles esperados a favor y en contra y la
+| posesión— con su puesto entre los del grupo. Son veinte filas de números:
+| la portada busca la suya por el nombre, como hace con el escudo.
+*/
+function lineasDeLaLiga(deLaLiga: Dataset["partidos"], equipos: string[]) {
+  const metXg = METRICA_POR_KEY.get("xg");
+  const metXgContra = METRICA_POR_KEY.get("xgContra");
+  const metPosesion = METRICA_POR_KEY.get("posesion");
+
+  const filas = equipos.map((equipo) => {
+    const suyos = deLaLiga.filter((p) => p.equipo === equipo);
+
+    return {
+      equipo,
+      partidos: suyos.length,
+      xg: metXg ? valorEnGrupo(metXg, suyos) : null,
+      xgContra: metXgContra ? valorEnGrupo(metXgContra, suyos) : null,
+      posesion: metPosesion ? valorEnGrupo(metPosesion, suyos) : null,
+    };
+  });
+
+  /* El puesto: 1 = el que más (o el que menos, si menos es mejor). */
+  const puestoDe = (valor: number | null, todos: (number | null)[], masEsMejor: boolean) => {
+    if (valor === null) return null;
+
+    return todos.filter((v) => v !== null && (masEsMejor ? v > valor : v < valor)).length + 1;
+  };
+
+  return filas.map((fila) => ({
+    ...fila,
+    puestoXg: puestoDe(fila.xg, filas.map((f) => f.xg), true),
+    puestoXgContra: puestoDe(fila.xgContra, filas.map((f) => f.xgContra), false),
+    puestoPosesion: puestoDe(fila.posesion, filas.map((f) => f.posesion), true),
+  }));
 }
 
 /**

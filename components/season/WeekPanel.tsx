@@ -257,16 +257,19 @@ export default function WeekPanel({
                 {week.week}
               </h2>
 
+              {/* «Esta semana», como en la lista: antes aquí decía «Semana actual» (30/10/2026). */}
               {isCurrentWeek && (
-                <span className="rounded-full bg-[#C8A96B] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#0B0F14]">
-                  Semana actual
+                <span className="rounded-full bg-[#C8A96B] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#0B0F14]">
+                  Esta semana
                 </span>
               )}
             </div>
 
-            <p className="mt-2 text-sm text-white/50">
-              {weekRangeLabel(week)}
-            </p>
+            {weekRangeLabel(week) && (
+              <p className="mt-2 text-sm text-white/55">
+                {weekRangeLabel(week)}
+              </p>
+            )}
           </div>
 
           {images.length + pdfs.length > 0 && (
@@ -290,8 +293,9 @@ export default function WeekPanel({
           )}
         </div>
 
-        {/* PESTAÑAS */}
+        {/* PESTAÑAS: con una sola («Subir») no se pinta la barra (30/10/2026). */}
 
+        {pestanas.length < 2 ? <div className="pb-6" /> : (
         <div className="-mb-px mt-6 flex gap-1 overflow-x-auto">
           {pestanas.map((item) => (
             <button
@@ -326,56 +330,23 @@ export default function WeekPanel({
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {/* CONTENIDO */}
 
       <div className="p-6 sm:p-8">
-        {hayUltimo && ultimaConArchivos && onSelectWeek && (
-          <div className="mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <p className="mb-3 text-xs uppercase tracking-wider text-white/45">
-              Lo último subido · {ultimaConArchivos.week}
-              {(ultimaConArchivos.start || ultimaConArchivos.end) && ` · ${weekRangeLabel(ultimaConArchivos)}`}
-              {" · "}
-              {[
-                ultimaConArchivos.images.length > 0 &&
-                  `${ultimaConArchivos.images.length} ${ultimaConArchivos.images.length === 1 ? "imagen" : "imágenes"}`,
-                (ultimaConArchivos.pdfs ?? []).length > 0 &&
-                  `${(ultimaConArchivos.pdfs ?? []).length} ${(ultimaConArchivos.pdfs ?? []).length === 1 ? "PDF" : "PDFs"}`,
-              ]
-                .filter(Boolean)
-                .join(" y ")}
-            </p>
-
-            {(ultimaConArchivos.pdfs ?? []).length > 0 && (
-              <ul className="space-y-1.5">
-                {(ultimaConArchivos.pdfs ?? []).slice(-3).map((url) => (
-                  <li key={url} className="min-w-0">
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex max-w-full items-center gap-2 text-sm text-[#C8A96B] underline-offset-4 hover:underline"
-                    >
-                      <FileText size={14} className="shrink-0" />
-                      <span className="truncate">{humanFileName(url, "Documento")}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            <button
-              type="button"
-              onClick={() => onSelectWeek(ultimaConArchivos.id)}
-              /* Un botón y no un enlace suelto (29/10/2026, análisis): se viene a
-                 consultar lo último antes que a subir. El dorado relleno lo
-                 lleva la cabecera; aquí, contorno, para no tener dos iguales. */
-              className="mt-3 inline-flex items-center gap-2 rounded-xl border border-[#C8A96B]/50 px-4 py-2 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
-            >
-              Abrir la {ultimaConArchivos.week.toLowerCase()} entera
-            </button>
-          </div>
+        {/*
+          SEMANA VACÍA (30/10/2026): primero lo que pasa —«esta semana no hay
+          material»— y la zona de subida con un solo botón; lo último subido
+          pasa a una línea secundaria debajo. Antes el bloque «Lo último
+          subido · semana 9», su botón y la zona de subida eran tres cosas del
+          mismo peso y la de agosto parecía lo importante.
+        */}
+        {vacia && (
+          <p className="mb-5 text-base font-medium text-white/85">
+            {isCurrentWeek ? "Esta semana no hay material todavía." : `La ${week.week.toLowerCase()} no tiene material.`}
+          </p>
         )}
 
         {tab === "images" &&
@@ -457,7 +428,10 @@ export default function WeekPanel({
             zonas iguales más el botón de la cabecera eran tres «subir». Los
             archivos se reparten por tipo al soltarlos. */}
         {tab === "upload" && vacia && (
+          <>
           <UploadZone
+            id="zona-subida"
+            boton={isCurrentWeek ? "Subir el material de esta semana" : "Subir el material de la semana"}
             type="todo"
             maxFiles={20}
             busy={uploading !== null}
@@ -471,6 +445,31 @@ export default function WeekPanel({
               })();
             }}
           />
+
+          {hayUltimo && ultimaConArchivos && onSelectWeek && (
+            <p className="mt-4 text-[13px] leading-relaxed text-white/60">
+              Lo último subido es de la {ultimaConArchivos.week.toLowerCase()}
+              {weekRangeLabel(ultimaConArchivos) && ` (${weekRangeLabel(ultimaConArchivos)})`}
+              {": "}
+              {[
+                ultimaConArchivos.images.length > 0 &&
+                  `${ultimaConArchivos.images.length} ${ultimaConArchivos.images.length === 1 ? "imagen" : "imágenes"}`,
+                (ultimaConArchivos.pdfs ?? []).length > 0 &&
+                  `${(ultimaConArchivos.pdfs ?? []).length} ${(ultimaConArchivos.pdfs ?? []).length === 1 ? "PDF" : "PDFs"}`,
+              ]
+                .filter(Boolean)
+                .join(" y ")}
+              {" · "}
+              <button
+                type="button"
+                onClick={() => onSelectWeek(ultimaConArchivos.id)}
+                className="font-semibold text-[#C8A96B] underline decoration-[#C8A96B]/40 underline-offset-4 hover:decoration-[#C8A96B]"
+              >
+                abrir la {ultimaConArchivos.week.toLowerCase()}
+              </button>
+            </p>
+          )}
+          </>
         )}
 
         {tab === "upload" && !vacia && (

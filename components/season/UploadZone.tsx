@@ -12,6 +12,10 @@ interface Props {
   busy?: boolean;
   busyLabel?: string;
   onUpload: (files: File[]) => void;
+  /** Para llegar a ella desde el botón de la cabecera (30/10/2026). */
+  id?: string;
+  /** El texto del botón, si no es «Seleccionar archivos». */
+  boton?: string;
 }
 
 const ACCEPT = {
@@ -37,6 +41,8 @@ export default function UploadZone({
   busy = false,
   busyLabel = "Subiendo archivos...",
   onUpload,
+  id,
+  boton = "Seleccionar archivos",
 }: Props) {
   const onDrop = useCallback(
     (accepted: File[], rejected: FileRejection[]) => {
@@ -66,6 +72,7 @@ export default function UploadZone({
   return (
     <div
       {...getRootProps()}
+      id={id}
       className={`rounded-3xl border-2 border-dashed p-8 text-center transition-all duration-300 ${
         busy
           ? "border-white/10 bg-[#0B0F14] opacity-70"
@@ -108,10 +115,10 @@ export default function UploadZone({
           className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#C8A96B]/30 bg-[#11161D] px-5 py-2.5 text-sm font-medium transition hover:border-[#C8A96B] hover:bg-[#161D26] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <UploadCloud size={18} className="text-[#C8A96B]" />
-          Seleccionar archivos
+          {boton}
         </button>
 
-        <p className="mt-4 text-xs text-white/30">
+        <p className="mt-4 text-[12px] text-white/55">
           {type === "todo"
             ? `JPG · PNG · WEBP · PDF · hasta ${maxFiles} archivos`
             : type === "images"

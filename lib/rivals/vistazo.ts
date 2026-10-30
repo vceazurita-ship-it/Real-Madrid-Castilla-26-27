@@ -32,7 +32,8 @@ export type ResultadoForma = {
 };
 
 export type Vistazo = {
-  tabla: (FilaClasificacion & { equipos: number }) | null;
+  /** Con la mediana de goles del grupo (30/10/2026): «14-9» solo no decía si es mucho o poco. */
+  tabla: (FilaClasificacion & { equipos: number; medianaFavor: number | null; medianaContra: number | null }) | null;
   /** Su balance en el campo del partido contra nosotros: fuera si jugamos en casa. */
   enEseCampo: { fila: FilaClasificacion; donde: "en casa" | "fuera" } | null;
   /** Los últimos partidos de liga, del más reciente al más antiguo. */
@@ -79,7 +80,25 @@ export function vistazoDe(
   const total = informe.clasificacion?.total ?? [];
   const propia = total.length ? filaPropia(total, informe) : null;
 
-  const tabla = propia && propia.jugados > 0 ? { ...propia, equipos: total.length } : null;
+  const mediana = (valores: number[]) => {
+    const orden = valores.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
+
+    if (!orden.length) return null;
+
+    const mitad = Math.floor(orden.length / 2);
+
+    return orden.length % 2 ? orden[mitad] : Math.round((orden[mitad - 1] + orden[mitad]) / 2);
+  };
+
+  const tabla =
+    propia && propia.jugados > 0
+      ? {
+          ...propia,
+          equipos: total.length,
+          medianaFavor: mediana(total.map((f) => f.favor)),
+          medianaContra: mediana(total.map((f) => f.contra)),
+        }
+      : null;
 
   let enEseCampo: Vistazo["enEseCampo"] = null;
 

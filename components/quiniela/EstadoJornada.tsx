@@ -194,7 +194,9 @@ export function EstadoJornada({
       {/* 1. El plazo: es lo que más se pregunta, va primero y entero. */}
       <Dato icono={cerrada ? Lock : Clock} tono={cerrada ? "normal" : ultimasHoras ? "aviso" : "oro"}>
         <strong className="font-semibold text-white">
-          Jornada {numero} {cerrada ? "cerrada" : ultimasHoras ? "· hoy cierra" : "abierta"}
+          {/* «Cerrada a las apuestas» (30/10/2026, marketing): «cerrada» junto a
+              «Empieza el domingo» parecía una contradicción. */}
+          Jornada {numero} {cerrada ? "cerrada a las apuestas" : ultimasHoras ? "· hoy cierra" : "abierta"}
         </strong>
         {!cerrada && cierre ? ` · se cierra el ${cierre}` : ""}
       </Dato>
@@ -237,7 +239,7 @@ export function EstadoJornada({
       {jugados === 0 ? (
         diaPrimero && primerPartido ? (
           <Dato icono={CalendarDays}>
-            Empieza el {diaPrimero.largo}: {primerPartido.local} – {primerPartido.visitante}
+            Se juega desde el {diaPrimero.largo}: {primerPartido.local} – {primerPartido.visitante}
           </Dato>
         ) : null
       ) : (

@@ -27,9 +27,9 @@ import { PorQueDelBoceto } from "@/components/match-preparation/PorQueDelBoceto"
 import { KIND_MOTIVOS_PLAN, claveMotivosPlan, type BocetoPlan } from "@/lib/plan-partido/boceto";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
-import { useDuelosClave } from "@/hooks/useDuelosClave";
+import { useDuelosClave, type DueloClave } from "@/hooks/useDuelosClave";
 import { useContrasteRival } from "@/hooks/useContrasteRival";
-import { fraseRecuentoDuelos } from "@/lib/duelos";
+import { DUELOS, fraseRecuentoPartes } from "@/lib/duelos";
 import { cargaOrdenRivales } from "@/lib/rivals/orden-calendario";
 
 import {
@@ -214,6 +214,111 @@ const TONES: Record<
 
 function relleno(valor: unknown) {
   return String(valor ?? "").trim().length > 0;
+}
+
+/*
+| «LOCAL» de la hoja es que jugamos en casa (30/10/2026, fútbol): «CARTAGENA ·
+| LOCAL · LO ESENCIAL» se leía como que el local era el Cartagena. Se dice
+| desde nuestro lado, como la cabecera: «en casa» o «fuera».
+*/
+function ladoLegible(valor: unknown) {
+  const lado = String(valor ?? "").trim();
+  const bajo = lado.toLowerCase();
+
+  return bajo.startsWith("l") ? "en casa" : bajo.startsWith("v") ? "fuera" : lado;
+}
+
+/*
+| LO QUE ESCRIBE EL ANALISTA, ATADO A LO MEDIDO (30/10/2026, fútbol y análisis)
+|
+| Las cuatro listas del analista («Con balón · Ventaja: Extremos vs
+| Laterales…») se leían aparte de las tarjetas medidas, y «Extremos vs
+| Laterales» salía en ventaja y en desventaja sin decir que es el mismo
+| duelo con y sin balón. Cada línea «A vs B» se lee como «nuestro A contra su
+| B», se le saca el rol a cada lado y se busca el duelo medido de ese tipo
+| (`DUELOS`, por `tipo`; con «D.» o «I.» también el lado). Si lo hay, la
+| tarjeta lleva «El analista: ventaja con balón»; si no, la línea va a «Sólo
+| en vídeo, sin medir». Sin «vs» no se intenta: va tal cual a esa línea.
+*/
+function rolDuelo(texto: string): string {
+  const t = texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+
+  if (/media ?punta|enganche|\b10\b/.test(t)) return "mediapunta";
+  if (/extrem|banda|\b(7|11)\b/.test(t)) return "extremo";
+  if (/lateral|carriler|\b(2|3)\b/.test(t)) return "lateral";
+  if (/central|zaguer|\b(4|5)\b/.test(t)) return "central";
+  if (/delanter|punta|\b9\b/.test(t)) return "delantero";
+  if (/pivote|mediocentro|medio centro|\b6\b|\b8\b|interior/.test(t)) return "pivote";
+
+  return "";
+}
+
+function ladoDuelo(texto: string): "d" | "i" | "" {
+  const t = texto.toLowerCase();
+
+  if (/\b(d|dcho|der|derecho)\b\.?/.test(t)) return "d";
+  if (/\b(i|izq|izquierdo)\b\.?/.test(t)) return "i";
+
+  return "";
+}
+
+function lecturaDelAnalista(
+  rival: Record<string, unknown> | null | undefined,
+  grupos: { buscar: DueloClave[]; doble: DueloClave[]; vigilar: DueloClave[]; parejos: DueloClave[] },
+) {
+  const medidos = new Set([...grupos.buscar, ...grupos.doble, ...grupos.vigilar, ...grupos.parejos].map((d) => d.clave));
+  const etiquetas = new Map<string, string[]>();
+  const sinMedir: { texto: string; etiqueta: string }[] = [];
+
+  const campos: [string, string][] = [
+    ["DUELOS_CB_FAVOR", "ventaja con balón"],
+    ["DUELOS_CB_CONTRA", "desventaja con balón"],
+    ["DUELOS_SB_FAVOR", "ventaja sin balón"],
+    ["DUELOS_SB_CONTRA", "desventaja sin balón"],
+  ];
+
+  for (const [campo, etiqueta] of campos) {
+    const lineas = String(rival?.[campo] ?? "")
+      .split(/\r?\n|;/)
+      .map((l) => l.replace(/^[\s\-–•*]+/, "").replace(/[.\s]+$/, "").trim())
+      .filter(Boolean);
+
+    for (const linea of lineas) {
+      const [nuestro, suyo] = linea.split(/\s+vs\.?\s+|\s+contra\s+/i);
+      const rolN = nuestro ? rolDuelo(nuestro) : "";
+      const rolS = suyo ? rolDuelo(suyo) : "";
+      const lado = nuestro ? ladoDuelo(nuestro) : "";
+
+      const casan =
+        rolN && rolS
+          ? DUELOS.filter((def) => {
+              const [a, b] = def.tipo.split("-");
+              const encaja = (rol: string, parte: string) => rol === parte || (rol === "pivote" && parte === "medio");
+
+              if (!encaja(rolN, a) || !encaja(rolS, b)) return false;
+
+              return !lado || def.nuestros.some((h) => h.endsWith(`-${lado}`));
+            }).filter((def) => medidos.has(def.clave))
+          : [];
+
+      if (casan.length === 0) {
+        sinMedir.push({ texto: linea, etiqueta });
+        continue;
+      }
+
+      for (const def of casan) {
+        const lista = etiquetas.get(def.clave) ?? [];
+
+        if (!lista.includes(etiqueta)) lista.push(etiqueta);
+        etiquetas.set(def.clave, lista);
+      }
+    }
+  }
+
+  return { etiquetas, sinMedir };
 }
 
 /** Frases genéricas de plantilla que se leerían como dato del partido («Buena energía…», «Foco de todos…»). */
@@ -537,7 +642,7 @@ function ReadText({
   if (apartados) {
     /* El título sin viñeta y en negrita; lo que cuelga de él, sangrado. */
     return (
-      <ul className="space-y-2.5 text-[13.5px] leading-6 text-white/80">
+      <ul className="space-y-2.5 text-[14px] leading-6 text-white/85">
         {items.map((item, indice) => {
           const titulo = esTituloDeApartado(item);
           const dentro = items.slice(0, indice).some(esTituloDeApartado);
@@ -567,7 +672,7 @@ function ReadText({
   }
 
   return (
-    <ul className="space-y-2.5 text-[13.5px] leading-6 text-white/80">
+    <ul className="space-y-2.5 text-[14px] leading-6 text-white/85">
       {items.map((item, indice) => (
         <li key={`${indice}-${item.slice(0, 12)}`} className="flex gap-2.5">
           <span
@@ -1997,38 +2102,65 @@ export default function MatchPreparation() {
             </p>
           </header>
 
-          {/* En una línea, lo que dicen los datos del cruce de onces; el detalle está en «Duelos» y en /duelos. */}
-          {duelosClave && !editando && (duelosClave.ventaja.length > 0 || duelosClave.riesgo.length > 0) && (
-            <div className="mp-no-print -mt-3 mb-5 flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] text-white/75">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/40">Los duelos, en una línea</span>
-              <span className="min-w-0 tabular-nums text-white/60">
-                {fraseRecuentoDuelos(duelosClave.medidos, duelosClave.conVentajaNuestra, duelosClave.conVentajaSuya, duelosClave.enLosDos)}
-              </span>
-              {duelosClave.ventaja[0] && duelosClave.riesgo[0] && duelosClave.ventaja[0].clave === duelosClave.riesgo[0].clave ? (
-                <span className="min-w-0">
-                  <b className="text-white/85">En los dos sentidos</b>: {duelosClave.ventaja[0].titulo} ({duelosClave.ventaja[0].nuestros.join(" y ")} contra {duelosClave.ventaja[0].suyos.join(" y ")}):{" "}
-                  <span className="text-emerald-300">+{duelosClave.ventaja[0].valor}</span> <span className="text-white/45">con balón nuestro</span> ·{" "}
-                  <span className="text-rose-300">{duelosClave.riesgo[0].valor > 0 ? "+" : ""}{duelosClave.riesgo[0].valor}</span> <span className="text-white/45">con el suyo</span>
+          {/*
+            En una línea, lo que dicen los datos del cruce de onces (30/10/2026):
+            cada número enlaza con su grupo en «Duelos», donde ahora se pintan
+            todos los medidos —antes la frase contaba ocho y se veían tres—.
+            Y el duelo que más pesa: el de doble cara, si lo hay, con sus dos
+            cifras; si no, el primero para buscar y el primero para vigilar.
+          */}
+          {duelosClave && !editando && (duelosClave.ventaja.length > 0 || duelosClave.riesgo.length > 0) && (() => {
+            const recuento = fraseRecuentoPartes(duelosClave.medidos, duelosClave.conVentajaNuestra, duelosClave.conVentajaSuya, duelosClave.enLosDos);
+            const signo = (n: number | null) => (n == null ? "" : `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n)}`);
+            const doble = duelosClave.grupos.doble[0];
+            const buscar = duelosClave.grupos.buscar[0];
+            const vigilar = duelosClave.grupos.vigilar[0];
+
+            return (
+              <div className="mp-no-print -mt-3 mb-5 flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] text-white/75">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">Los duelos, en una línea</span>
+                <span className="min-w-0 tabular-nums text-white/65">
+                  {recuento.base}
+                  {recuento.partes.length > 0 && ": "}
+                  {recuento.partes.map((p, i) => (
+                    <span key={p.grupo}>
+                      {i > 0 && ", "}
+                      <a
+                        href={`#duelos-${p.grupo}`}
+                        onClick={() => {
+                          if (p.grupo === "parejos") document.getElementById("duelos-parejos")?.setAttribute("open", "");
+                        }}
+                        className="underline decoration-white/25 underline-offset-4 hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
+                      >
+                        {p.texto}
+                      </a>
+                    </span>
+                  ))}
                 </span>
-              ) : (
-                <>
-              {duelosClave.ventaja[0] && (
-                <span className="min-w-0">
-                  <b className="text-emerald-300">Buscar</b> <span className="text-white/45">(con balón nuestro)</span>: {duelosClave.ventaja[0].titulo} ({duelosClave.ventaja[0].nuestros.join(" y ")}, +{duelosClave.ventaja[0].valor})
-                </span>
-              )}
-              {duelosClave.riesgo[0] && (
-                <span className="min-w-0">
-                  <b className="text-rose-300">Vigilar</b> <span className="text-white/45">(con balón suyo)</span>: {duelosClave.riesgo[0].titulo} ({duelosClave.riesgo[0].suyos.join(" y ")}, {duelosClave.riesgo[0].valor > 0 ? "+" : ""}{duelosClave.riesgo[0].valor})
-                </span>
-              )}
-                </>
-              )}
-              <Link href={enlaceDuelos} className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
-                Ver todos los duelos
-              </Link>
-            </div>
-          )}
+                {doble ? (
+                  <span className="min-w-0">
+                    <b className="text-[#C8A96B]">Doble cara</b>: {doble.titulo} ({doble.nuestros.join(" y ")} contra {doble.suyos.join(" y ")}):{" "}
+                    <span className="text-emerald-300">{signo(doble.conBalon)}</span> <span className="text-white/50">con nuestro balón</span> ·{" "}
+                    <span className="text-rose-300">{signo(doble.sinBalon)}</span> <span className="text-white/50">con el suyo</span>
+                  </span>
+                ) : (
+                  buscar && (
+                    <span className="min-w-0">
+                      <b className="text-emerald-300">Buscar</b> <span className="text-white/50">(con nuestro balón)</span>: {buscar.titulo} ({buscar.nuestros.join(" y ")}, {signo(buscar.valor)})
+                    </span>
+                  )
+                )}
+                {vigilar && (
+                  <span className="min-w-0">
+                    <b className="text-rose-300">Vigilar</b> <span className="text-white/50">(con su balón)</span>: {vigilar.titulo} ({vigilar.suyos.join(" y ")}, {signo(vigilar.valor)})
+                  </span>
+                )}
+                <Link href={enlaceDuelos} className="ml-auto shrink-0 text-xs text-[#C8A96B] hover:underline">
+                  Quién contra quién, con percentil
+                </Link>
+              </div>
+            );
+          })()}
 
           {/* BARRA DE CONTROL */}
           <div className="mp-no-print sticky top-[81px] z-20 -mx-4 mb-6 border-b border-white/10 bg-[#0B0F14]/90 px-4 py-3 backdrop-blur-xl md:top-[97px] md:-mx-10 md:px-10">
@@ -2414,7 +2546,7 @@ export default function MatchPreparation() {
 
                         {relleno(rivalActivo.LOCAL_VISITANTE) && (
                           <span className="rounded-lg border border-white/15 bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white/70">
-                            {rivalActivo.LOCAL_VISITANTE}
+                            {ladoLegible(rivalActivo.LOCAL_VISITANTE)}
                           </span>
                         )}
 
@@ -2554,7 +2686,7 @@ export default function MatchPreparation() {
                           "
                         />
                       ) : (
-                        rivalActivo.LOCAL_VISITANTE
+                        ladoLegible(rivalActivo.LOCAL_VISITANTE)
                       )}
                     </DatoCabecera>
                     )}
@@ -2569,9 +2701,9 @@ export default function MatchPreparation() {
 
                   return (
                     <div className="mp-no-print mb-5 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-5 py-4">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">
                         {rivalActivo.EQUIPO ? `${rivalActivo.EQUIPO}` : "El rival"}
-                        {rivalActivo.LOCAL_VISITANTE ? ` · ${rivalActivo.LOCAL_VISITANTE}` : ""} · lo esencial
+                        {rivalActivo.LOCAL_VISITANTE ? ` · ${ladoLegible(rivalActivo.LOCAL_VISITANTE)}` : ""} · lo esencial
                       </p>
                       <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-6 text-white/85">
                         {claves.map((c) => (
@@ -2749,7 +2881,8 @@ export default function MatchPreparation() {
 
                 {/* Las siglas que se usan arriba (29/10/2026). */}
                 {!editando && (
-                  <details className="mp-no-print mt-4 text-[12px] text-white/55">
+                  /* Abierto (30/10/2026, análisis): cerrado sólo se veía el título. */
+                  <details open className="mp-no-print mt-4 text-[13px] text-white/60">
                     <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
                       Siglas (también al pasar el ratón o tocar cada una)
                     </summary>
@@ -2792,62 +2925,114 @@ export default function MatchPreparation() {
                   </Link>
                 </div>
 
-                {/* Lo que miden los datos: los dos duelos de más ventaja y los dos de más riesgo, con nombre y cifra (de /duelos). */}
+                {/*
+                  LOS DUELOS MEDIDOS, TODOS Y SIN REPETIR (30/10/2026)
+
+                  Antes eran dos columnas con los dos de más ventaja y los dos
+                  de más riesgo, y un mismo cruce (Leiva contra Jurado) salía en
+                  las dos con la nota «Mismo duelo». Ahora cada duelo medido va
+                  una sola vez en su grupo: para buscar (ventaja con nuestro
+                  balón), de doble cara (ganamos con balón y perdemos sin él,
+                  con las dos cifras), para vigilar (ventaja suya con su balón)
+                  y los parejos, plegados. Lo que escribió el analista se ata a
+                  la tarjeta con la que coincide («El analista: ventaja con
+                  balón») y lo que no está medido va en «Sólo en vídeo».
+                */}
                 {duelosClave && !editando && (
-                  <p className="mb-3 text-[11px] text-white/50">
+                  <p className="mb-3 text-[13px] text-white/55">
                     El número de cada duelo es la diferencia de percentil con su par, frente a los jugadores de su puesto con {duelosClave.ventaja[0]?.minutos || duelosClave.riesgo[0]?.minutos || 90} min o más: positivo, ventaja nuestra; negativo, ventaja suya.
                   </p>
                 )}
-                {duelosClave && !editando && (
-                  <div className="mb-5 grid gap-4 md:grid-cols-2">
-                    {([
-                      ["Para buscar", "Con el balón nuestro, ventaja sobre su par", duelosClave.ventaja, "text-emerald-300", "con nuestro balón"],
-                      ["Para vigilar", "Con el balón suyo, ventaja de su par sobre el nuestro", duelosClave.riesgo, "text-rose-300", "con su balón"],
-                    ] as const).map(([titulo, ayuda, lista, color, sentido]) =>
-                      lista.length ? (
-                        <div key={titulo} className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
-                          <p className={`text-[11px] font-semibold uppercase tracking-[0.2em] ${color}`}>{titulo}</p>
-                          <p className="mt-0.5 text-[11px] text-white/40">{ayuda}</p>
+                {duelosClave && !editando && (() => {
+                  const lectura = lecturaDelAnalista(rivalActivo, duelosClave.grupos);
+                  const signo = (n: number | null) => (n == null ? "" : `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n)}`);
 
-                          <ul className="mt-3 space-y-2.5 text-[13.5px] leading-6 text-white/80">
-                            {lista.map((d) => (
-                              <li key={d.clave} className="flex gap-2.5">
-                                <b className={`w-10 shrink-0 tabular-nums ${color}`}>
-                                  {d.valor > 0 ? "+" : ""}
-                                  {d.valor}
-                                </b>
+                  const tarjeta = (d: DueloClave, modo: "buscar" | "doble" | "vigilar" | "parejos") => (
+                    <li key={d.clave} className="flex gap-2.5">
+                      {modo !== "doble" && modo !== "parejos" && (
+                        <b className={`w-10 shrink-0 tabular-nums ${modo === "buscar" ? "text-emerald-300" : "text-rose-300"}`}>
+                          {signo(d.valor)}
+                        </b>
+                      )}
 
-                                <span>
-                                  {d.titulo}{" "}
-                                  <span className="text-[11px] text-white/45">· {sentido}</span>
-                                  {/* El mismo cruce en las dos columnas: que no parezcan dos duelos distintos. */}
-                                  {lista === duelosClave.riesgo &&
-                                    (() => {
-                                      const otro = duelosClave.ventaja.find((v) => v.clave === d.clave);
+                      <span className="min-w-0">
+                        <span className="block">{d.titulo}</span>
+                        {(modo === "doble" || modo === "parejos") && (
+                          <span className="block text-[13px] tabular-nums">
+                            <span className={modo === "doble" ? "text-emerald-300" : "text-white/70"}>{signo(d.conBalon)}</span>{" "}
+                            <span className="text-white/55">con nuestro balón</span>
+                            {" · "}
+                            <span className={modo === "doble" ? "text-rose-300" : "text-white/70"}>{signo(d.sinBalon)}</span>{" "}
+                            <span className="text-white/55">con el suyo</span>
+                          </span>
+                        )}
+                        <span className="block text-[13px] text-white/60">
+                          {d.nuestros.join(" y ")} contra {d.suyos.join(" y ")}
+                        </span>
+                        {d.base && <span className="block text-[13px] text-white/50">{d.base}</span>}
+                        {(lectura.etiquetas.get(d.clave) ?? []).map((e) => (
+                          <span
+                            key={e}
+                            className="mt-1 mr-1 inline-block rounded-md border border-[#C8A96B]/35 bg-[#C8A96B]/10 px-1.5 py-0.5 text-[12px] text-[#C8A96B]"
+                          >
+                            El analista: {e}
+                          </span>
+                        ))}
+                      </span>
+                    </li>
+                  );
 
-                                      return otro ? (
-                                        <span className="mt-0.5 block text-[11px] text-white/55">
-                                          Mismo duelo que en «Para buscar»: {otro.valor > 0 ? "+" : ""}
-                                          {otro.valor} con nuestro balón · {d.valor} con el suyo
-                                        </span>
-                                      ) : null;
-                                    })()}
-                                  <span className="block text-[12px] text-white/50">
-                                    {d.nuestros.join(" y ")} contra {d.suyos.join(" y ")}
-                                  </span>
-                                  {/* La base de cada duelo, como en /duelos; qué es el número, una vez arriba. */}
-                                  {d.base && <span className="block text-[11px] text-white/40">{d.base}</span>}
-                                </span>
-                              </li>
-                            ))}
+                  const columnas = ([
+                    ["buscar", "Para buscar", "Ventaja nuestra con nuestro balón", "text-emerald-300", duelosClave.grupos.buscar],
+                    ["doble", "Doble cara", "Ganamos con balón, perdemos sin él", "text-[#C8A96B]", duelosClave.grupos.doble],
+                    ["vigilar", "Para vigilar", "Ventaja suya con su balón", "text-rose-300", duelosClave.grupos.vigilar],
+                  ] as const).filter(([, , , , lista]) => lista.length > 0);
+
+                  return (
+                    <>
+                      <div className={`mb-4 grid gap-4 ${columnas.length >= 3 ? "lg:grid-cols-3" : columnas.length === 2 ? "md:grid-cols-2" : ""}`}>
+                        {columnas.map(([grupo, titulo, ayuda, color, lista]) => (
+                          <div key={grupo} id={`duelos-${grupo}`} className="scroll-mt-56 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
+                            <p className={`text-[12px] font-semibold uppercase tracking-[0.2em] ${color}`}>
+                              {titulo} · {lista.length}
+                            </p>
+                            <p className="mt-0.5 text-[13px] text-white/50">{ayuda}</p>
+
+                            <ul className="mt-3 space-y-3 text-[14px] leading-6 text-white/85">
+                              {lista.map((d) => tarjeta(d, grupo))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+
+                      {duelosClave.grupos.parejos.length > 0 && (
+                        <details id="duelos-parejos" className="mb-4 scroll-mt-56 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
+                          <summary className="cursor-pointer select-none text-[13px] font-semibold text-white/70">
+                            {duelosClave.grupos.parejos.length} {duelosClave.grupos.parejos.length === 1 ? "parejo" : "parejos"} · ver
+                          </summary>
+                          <ul className="mt-3 space-y-3 text-[14px] leading-6 text-white/80">
+                            {duelosClave.grupos.parejos.map((d) => tarjeta(d, "parejos"))}
                           </ul>
-                        </div>
-                      ) : null,
-                    )}
-                  </div>
-                )}
+                        </details>
+                      )}
 
-                <div className="grid gap-5 lg:grid-cols-2">
+                      {lectura.sinMedir.length > 0 && (
+                        <p className="mb-2 text-[13px] leading-6 text-white/70">
+                          <b className="font-semibold text-white/85">Sólo en vídeo, sin medir</b>
+                          {" · lectura del analista: "}
+                          {lectura.sinMedir.map((s, i) => (
+                            <span key={`${s.texto}-${i}`}>
+                              {i > 0 && " · "}
+                              {s.texto} <span className="text-white/50">({s.etiqueta})</span>
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {(editando || !duelosClave) && (<div className="grid gap-5 lg:grid-cols-2">
                   {hayEnLectura("DUELOS_CB_FAVOR", "DUELOS_CB_CONTRA") && (
                   <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
                     <p className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">
@@ -2913,7 +3098,7 @@ export default function MatchPreparation() {
                     </div>
                   </div>
                   )}
-                </div>
+                </div>)}
               </section>
               )}
 

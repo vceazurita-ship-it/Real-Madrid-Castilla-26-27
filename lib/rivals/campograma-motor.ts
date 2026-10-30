@@ -245,12 +245,14 @@ const POR: BloqueOnce = {
 |         LI     DFC-I     DFC-D     LD
 |                       POR
 */
+/* 30/10/2026: las bandas de arriba se rotulan EI y ED, como la lista y las fichas
+   (antes MI y MD). Sólo cambia el rótulo: las claves y los anclajes son los mismos. */
 export const ONCE_1_4_2_3_1: BloqueOnce[] = [
   { key: "dc", code: "DC", anchorX: 0.5, anchorY: 0.11, banda: false, admite: ["delantero"], lado: 0 },
 
-  { key: "mi", code: "MI", anchorX: 0.13, anchorY: 0.3, banda: true, admite: ["extremo"], lado: -1 },
+  { key: "mi", code: "EI", anchorX: 0.13, anchorY: 0.3, banda: true, admite: ["extremo"], lado: -1 },
   { key: "mp", code: "MP", anchorX: 0.5, anchorY: 0.33, banda: false, admite: ["mediapunta"], lado: 0 },
-  { key: "md", code: "MD", anchorX: 0.87, anchorY: 0.3, banda: true, admite: ["extremo"], lado: 1 },
+  { key: "md", code: "ED", anchorX: 0.87, anchorY: 0.3, banda: true, admite: ["extremo"], lado: 1 },
 
   { key: "mci", code: "MC", anchorX: 0.38, anchorY: 0.55, banda: false, admite: ["pivote", "interior"], lado: -1 },
   { key: "mcd", code: "MC", anchorX: 0.62, anchorY: 0.55, banda: false, admite: ["pivote", "interior"], lado: 1 },
@@ -297,10 +299,10 @@ const ONCE_1_4_4_2: BloqueOnce[] = [
   { key: "dci", code: "DC", anchorX: 0.38, anchorY: 0.13, banda: false, admite: ["delantero"], lado: -1 },
   { key: "dcd", code: "DC", anchorX: 0.62, anchorY: 0.13, banda: false, admite: ["delantero"], lado: 1 },
 
-  { key: "mi", code: "MI", anchorX: 0.11, anchorY: 0.44, banda: true, admite: ["extremo"], lado: -1 },
+  { key: "mi", code: "EI", anchorX: 0.11, anchorY: 0.44, banda: true, admite: ["extremo"], lado: -1 },
   { key: "mci", code: "MC", anchorX: 0.38, anchorY: 0.5, banda: false, admite: ["pivote", "interior", "mediapunta"], lado: -1 },
   { key: "mcd", code: "MC", anchorX: 0.62, anchorY: 0.5, banda: false, admite: ["pivote", "interior", "mediapunta"], lado: 1 },
-  { key: "md", code: "MD", anchorX: 0.89, anchorY: 0.44, banda: true, admite: ["extremo"], lado: 1 },
+  { key: "md", code: "ED", anchorX: 0.89, anchorY: 0.44, banda: true, admite: ["extremo"], lado: 1 },
 
   { key: "li", code: "LI", anchorX: 0.1, anchorY: 0.76, banda: true, admite: ["lateral"], lado: -1 },
   { key: "dfci", code: "DFC", anchorX: 0.37, anchorY: 0.8, banda: false, admite: ["central"], lado: -1 },
@@ -320,10 +322,10 @@ const ONCE_1_4_4_2: BloqueOnce[] = [
 const ONCE_1_4_1_4_1: BloqueOnce[] = [
   { key: "dc", code: "DC", anchorX: 0.5, anchorY: 0.11, banda: false, admite: ["delantero"], lado: 0 },
 
-  { key: "mi", code: "MI", anchorX: 0.11, anchorY: 0.34, banda: true, admite: ["extremo"], lado: -1 },
+  { key: "mi", code: "EI", anchorX: 0.11, anchorY: 0.34, banda: true, admite: ["extremo"], lado: -1 },
   { key: "inti", code: "INT", anchorX: 0.38, anchorY: 0.38, banda: false, admite: ["interior", "mediapunta"], lado: -1 },
   { key: "intd", code: "INT", anchorX: 0.62, anchorY: 0.38, banda: false, admite: ["interior", "mediapunta"], lado: 1 },
-  { key: "md", code: "MD", anchorX: 0.89, anchorY: 0.34, banda: true, admite: ["extremo"], lado: 1 },
+  { key: "md", code: "ED", anchorX: 0.89, anchorY: 0.34, banda: true, admite: ["extremo"], lado: 1 },
 
   { key: "mcd", code: "MCD", anchorX: 0.5, anchorY: 0.6, banda: false, admite: ["pivote"], lado: 0 },
 

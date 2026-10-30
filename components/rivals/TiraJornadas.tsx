@@ -11,6 +11,7 @@
  */
 
 import { useMemo } from "react";
+import { House, Plane } from "lucide-react";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
 import { esLiga, findInforme, jugados } from "@/lib/rivals/informe";
 import { chipInk } from "@/lib/theme";
@@ -64,21 +65,30 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
   return (
     <div className="mb-6 min-w-0">
       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
-        Partidos de liga del rival · {jornadas.length}, del primero al último
+        Partidos de liga del rival · {jornadas.length}, sus jornadas del primero al último
       </p>
+      {/* Degradado a la derecha (30/10/2026): en el móvil la tira sigue y no se veía. */}
       <ol
         aria-label={`Resultados de ${equipo} jornada a jornada`}
-        className="flex min-w-0 gap-1.5 overflow-x-auto pb-1 scrollbar-none"
+        className="flex min-w-0 gap-1.5 overflow-x-auto pb-1 scrollbar-none max-md:pr-6 max-md:[mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)]"
       >
         {jornadas.map((j) => (
           <li
             key={j.n}
             title={`J${j.n} · ${PALABRA[j.resultado]} ${j.marcador} ${j.enCasa ? "en casa" : "fuera"} contra ${j.rival}`}
             aria-label={`Jornada ${j.n}: ${PALABRA[j.resultado]} ${j.marcador} contra ${j.rival}`}
-            className="flex w-[6.5rem] shrink-0 flex-col items-center rounded-lg px-1.5 py-1 text-[12px] font-bold leading-tight"
-            style={{ background: `${COLOR[j.resultado]}26`, color: chipInk(COLOR[j.resultado]) }}
+            /* Casa con borde continuo y una casita; fuera, borde discontinuo y un
+               avión (30/10/2026, análisis): no sólo la palabra. */
+            className="flex w-[6.5rem] shrink-0 flex-col items-center rounded-lg border px-1.5 py-1 text-[12px] font-bold leading-tight"
+            style={{
+              background: `${COLOR[j.resultado]}26`,
+              color: chipInk(COLOR[j.resultado]),
+              borderColor: `${COLOR[j.resultado]}88`,
+              borderStyle: j.enCasa ? "solid" : "dashed",
+            }}
           >
-            <span className="text-[11px] font-medium opacity-75">
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium opacity-80">
+              {j.enCasa ? <House size={11} aria-hidden /> : <Plane size={11} aria-hidden />}
               J{j.n} · {j.enCasa ? "casa" : "fuera"}
             </span>
             <span className="w-full truncate text-center text-[12px] font-semibold" title={j.rival}>{j.rival}</span>
@@ -88,7 +98,7 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
           </li>
         ))}
       </ol>
-      <p className="mt-1 text-[11px] text-white/45">V: ganó · E: empató · D: perdió. El marcador va con sus goles primero.</p>
+      <p className="mt-1 text-[11px] text-white/55">V: ganó · E: empató · D: perdió. El marcador va con sus goles primero. Borde continuo: en su casa; discontinuo: fuera.</p>
     </div>
   );
 }

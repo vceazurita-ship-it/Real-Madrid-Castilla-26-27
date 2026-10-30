@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { AREA_CONFIG, SEASON_LABEL } from "@/lib/season/config";
 import { SeasonArea, WeekData } from "@/lib/season/types";
-import { weekHasFiles, weekRangeLabel } from "@/lib/season/utils";
+import { weekHasFiles } from "@/lib/season/utils";
 
 interface Props {
   area: SeasonArea;
@@ -92,6 +92,9 @@ export default function SeasonHeader({
             «Semana 18 de 52 · 7 de 18 con material · lo último: semana 9
             (24 ago — 30 ago)». La leyenda va pegada a la tira.
           */}
+          {/* 30/10/2026: «sin subidas desde la semana 9» y no «lo último: semana 9
+              (24 ago – 30 ago)»: dice por qué las casillas de después están en
+              blanco, y una sola vez (la leyenda y el panel ya no lo repiten). */}
           {(() => {
             const partes = [
               stats.seasonWeek !== null ? `Semana ${stats.seasonWeek} de ${stats.seasonTotal}` : currentWeek?.week ?? "",
@@ -99,7 +102,7 @@ export default function SeasonHeader({
               currentWeek && weekHasFiles(currentWeek)
                 ? "esta semana ya tiene material"
                 : ultimaConMaterial
-                  ? `lo último: ${ultimaConMaterial.week.toLowerCase()}${ultimaConMaterial.start || ultimaConMaterial.end ? ` (${weekRangeLabel(ultimaConMaterial)})` : ""}`
+                  ? `sin subidas desde la ${ultimaConMaterial.week.toLowerCase()}`
                   : "",
             ].filter(Boolean);
 
@@ -121,7 +124,8 @@ export default function SeasonHeader({
                   onClick={() => onSelectWeek?.(semana.id)}
                   title={`${semana.nombre}${semana.fechas ? " · " + semana.fechas : ""}${semana.conMaterial ? " · con material" : " · sin material"}`}
                   aria-label={`${semana.nombre}${semana.fechas ? ", " + semana.fechas : ""}${semana.conMaterial ? ", con material" : ", sin material"}`}
-                  className={`flex h-8 w-8 items-center justify-center rounded-[6px] text-[11px] font-semibold tabular-nums transition hover:scale-110 sm:h-6 sm:w-6 sm:rounded-[5px] ${
+                  /* 32 px de toque también en escritorio (30/10/2026). */
+                  className={`flex h-8 w-8 items-center justify-center rounded-[6px] text-[12px] font-semibold tabular-nums transition hover:scale-110 ${
                     semana.conMaterial
                       ? "bg-emerald-400 text-[#0B0F14]"
                       : "border border-white/20 bg-white/[0.04] text-white/55"
@@ -164,7 +168,7 @@ export default function SeasonHeader({
             >
               <CalendarCheck size={17} />
               {weekHasFiles(currentWeek)
-                ? `Semana actual · ${currentWeek.week}`
+                ? `Esta semana · ${currentWeek.week}`
                 : `Subir a la ${currentWeek.week.toLowerCase()}`}
             </button>
           )}
@@ -238,11 +242,12 @@ function StatCard({
       <div className="mt-3 flex items-baseline gap-2">
         <span className="text-3xl font-semibold tabular-nums">{value}</span>
 
-        {detalle && <span className="text-xs text-white/45">{detalle}</span>}
+        {detalle && <span className="text-[13px] text-white/60">{detalle}</span>}
       </div>
 
+      {/* Con más cuerpo y subrayado (30/10/2026): en modo día el dorado fino no llegaba al contraste. */}
       {action && (
-        <div className="mt-2 text-xs font-semibold text-[#C8A96B] transition group-hover:underline">
+        <div className="mt-2 text-[13px] font-semibold text-[#C8A96B] underline decoration-[#C8A96B]/40 underline-offset-4 transition group-hover:decoration-[#C8A96B]">
           {action} →
         </div>
       )}

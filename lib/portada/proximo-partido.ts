@@ -64,6 +64,49 @@ export async function fechasConTarea(): Promise<Set<string>> {
   return fechas;
 }
 
+/*
+| LO QUE TOCA HOY, DICHO EN EL BOTÓN (30/10/2026, fútbol)
+|
+| «Qué toca hoy» obligaba a abrir el pop-up para enterarse. Ahora el botón
+| lleva el contenido de la sesión escrita en la hoja de registro: los
+| contenidos principales de las tareas de ese día, sin repetir y en su orden
+| («Activación + ABP ofensivo»). Sin sesión escrita, lista vacía y el botón
+| no sale. Misma hoja y misma copia que `fechasConTarea`.
+*/
+export async function contenidosDelDia(fecha: string): Promise<string[]> {
+  const csv = await traeCsv(sheetUrl(REGISTRO_GID));
+
+  const filas = Papa.parse<string[]>(csv, { header: false, skipEmptyLines: true }).data;
+
+  const cabecera = filas.findIndex((fila) => String(fila?.[0] ?? "").trim().toLowerCase() === "temporada");
+
+  if (cabecera < 0) return [];
+
+  const titulos = filas[cabecera].map((valor) => String(valor ?? "").trim().toLowerCase());
+  const colFecha = titulos.findIndex((t) => t.startsWith("fecha"));
+  const colContenido = titulos.findIndex((t) => t.startsWith("contenido principal") || t.startsWith("contenido p"));
+  const colTarea = titulos.findIndex((t) => t === "tarea" || t.startsWith("tarea"));
+
+  if (colFecha < 0) return [];
+
+  const vistos = new Set<string>();
+  const lista: string[] = [];
+
+  for (const fila of filas.slice(cabecera + 1)) {
+    if (fechaIsoDeHoja(fila?.[colFecha]) !== fecha) continue;
+
+    const texto = String((colContenido >= 0 ? fila?.[colContenido] : "") || (colTarea >= 0 ? fila?.[colTarea] : "") || "").trim();
+    const clave = texto.toLowerCase();
+
+    if (!texto || vistos.has(clave)) continue;
+
+    vistos.add(clave);
+    lista.push(texto.charAt(0).toUpperCase() + texto.slice(1));
+  }
+
+  return lista;
+}
+
 /**
  * Qué días de la semana son libres.
  *

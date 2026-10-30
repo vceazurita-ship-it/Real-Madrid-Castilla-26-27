@@ -222,7 +222,10 @@ export default function SeasonWorkspace({ area }: Props) {
         <section className="min-w-0 flex-1">
           <Topbar />
 
-          <div className="px-5 py-8 sm:px-6 lg:px-10">
+          {/* Margen a la derecha para el botón flotante de herramientas (30/10/2026):
+              tapaba la esquina de «PDFs de la temporada» y de «Lo último subido». */}
+          <div className="py-8 pl-5 pr-12 sm:pl-6 sm:pr-[76px] lg:pl-10">
+
             {loading ? (
               <LoadingState />
             ) : loadError ? (
@@ -238,9 +241,30 @@ export default function SeasonWorkspace({ area }: Props) {
                   tiraSemanas={tiraSemanas}
                   onSelectWeek={(id) => selectWeek(id)}
                   saving={saving}
-                  onGoToCurrentWeek={() =>
-                    currentWeek && selectWeek(currentWeek.id)
-                  }
+                  onGoToCurrentWeek={() => {
+                    if (!currentWeek) return;
+
+                    /*
+                    | «Subir a la semana 18» lleva a la zona de subida y deja
+                    | el foco en «Seleccionar archivos» (30/10/2026): antes
+                    | sólo elegía la semana y había tres maneras de subir sin
+                    | que ninguna llevara a las otras.
+                    */
+                    if (!weekHasFiles(currentWeek)) {
+                      selectWeek(currentWeek.id, { scroll: false });
+
+                      setTimeout(() => {
+                        const zona = document.getElementById("zona-subida");
+
+                        zona?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        zona?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+                      }, 60);
+
+                      return;
+                    }
+
+                    selectWeek(currentWeek.id);
+                  }}
                   onOpenImages={() => setFilesViewer("images")}
                   onOpenPdfs={() => setFilesViewer("pdfs")}
                   onReload={() => reloadSeason({ keepSelection: true })}

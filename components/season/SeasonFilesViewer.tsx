@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { FileText, ImageIcon, Search, X } from "lucide-react";
 import { FileKind, SeasonFile } from "@/lib/season/types";
-import { fileNameFromUrl, humanFileName } from "@/lib/season/utils";
+import { fileNameFromUrl, humanFileName, rangoFechas } from "@/lib/season/utils";
 import { useBodyScrollLock } from "./useBodyScrollLock";
 import ImageGrid from "./ImageGrid";
 import Lightbox from "./Lightbox";
@@ -170,7 +170,7 @@ export default function SeasonFilesViewer({
             items={visible.map((file) => ({
               url: file.url,
               caption: file.week,
-              subtitle: `${file.month} · ${file.start} — ${file.end}`,
+              subtitle: [file.month, rangoFechas(file.start, file.end)].filter(Boolean).join(" · "),
             }))}
             columnsClassName="grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
             onOpen={setLightboxIndex}
@@ -182,7 +182,7 @@ export default function SeasonFilesViewer({
               <PdfCard
                 key={`${file.url}-${index}`}
                 url={file.url}
-                meta={`${file.week} · ${file.month} · ${file.start} — ${file.end}`}
+                meta={[file.week, file.month, rangoFechas(file.start, file.end)].filter(Boolean).join(" · ")}
                 onGoToWeek={() => goToWeek(file.weekId)}
               />
             ))}
