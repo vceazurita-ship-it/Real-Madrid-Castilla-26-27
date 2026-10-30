@@ -1,4 +1,5 @@
 import { idVigente } from "@/lib/fichajes";
+import { BASES, JORNADA_DESDE_BASE, baseDe, rivalesDeBase, sitiosDeBase, trazosDeBase } from "./pizarra-base";
 import {
   arrastraTrazos,
   clonaRivales,
@@ -831,6 +832,12 @@ export type SlidePizarra = {
   /** Los rivales dibujados: a quién se bloquea, quién defiende cada zona. */
   rivales?: RivalPizarra[];
   /**
+   * Dónde va cada puesto en ESTA diapositiva, por clave de puesto, cuando no
+   * es el sitio de la plantilla: la colocación de una variante de la base
+   * (`lib/abp/pizarra-base.ts`). «Colocar» y el replantado la respetan.
+   */
+  sitios?: Record<string, { x: number; y: number }>;
+  /**
    * Puesto → dorsal del rival al que marca (27/10/2026, «Quién marca a
    * quién»). Rellena la casilla del dorsal; vacía, se imprime en blanco.
    */
@@ -1066,8 +1073,18 @@ export function sinTextosPropios(slide: SlidePizarra): SlidePizarra {
  * Devuelve **el mismo objeto** si no hay nada que cambiar: la pizarra se lee en
  * cada render y crear un tablero nuevo cada vez dispararía el autoguardado.
  */
-export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
+export function normalizaTablero(entrada: TableroPizarra): TableroPizarra {
   let tocado = false;
+
+  /* Desde la J10 (30/10/2026), las diapositivas de córner y falta lateral
+     ofensivos sin dibujar reciben los movimientos de la base. Las jornadas
+     anteriores son el histórico y no se tocan. */
+  const conLaBase =
+    Number(entrada.jornada) >= JORNADA_DESDE_BASE ? conBases(entrada.slides) : entrada.slides;
+
+  if (conLaBase !== entrada.slides && conLaBase.some((slide, i) => slide !== entrada.slides[i])) tocado = true;
+
+  const tablero = tocado ? { ...entrada, slides: conLaBase } : entrada;
 
   const slides = tablero.slides.map((entrada) => {
     /* Fichas con un ID de jugador que ya no existe: al suyo de hoy (lib/fichajes). */
@@ -1108,7 +1125,7 @@ export function normalizaTablero(tablero: TableroPizarra): TableroPizarra {
       /* El puesto ya no existe en la plantilla: la ficha se queda suelta. */
       if (!puesto) return { ...ficha, puesto: null };
 
-      const { x, y } = sitioDe(puesto);
+      const { x, y } = slide.sitios?.[clave] ?? sitioDe(puesto);
 
       trazos = arrastraTrazos(trazos, ficha, { x, y });
 
@@ -1139,7 +1156,12 @@ export function tableroVacio(
   return {
     partidoId,
     rival,
-    slides: ORDEN_POR_DEFECTO.map((key) => slideDePlantilla(key, textos?.[key])),
+    /* 30/10/2026: con las tres variantes del córner ofensivo de la base y los movimientos ya pintados. */
+    slides: conBases(
+      ORDEN_POR_DEFECTO.flatMap((key) =>
+        Array.from({ length: BASES[key]?.length ?? 1 }, () => slideDePlantilla(key, textos?.[key])),
+      ),
+    ),
     versiones: [],
   };
 }
@@ -1616,7 +1638,48 @@ export function quitaVersion(tablero: TableroPizarra, versionId: string): Tabler
 
 /** El puesto con su plantilla resuelta. */
 export function puestosDe(slide: SlidePizarra): PuestoAbp[] {
-  return PLANTILLA_BY_KEY.get(slide.plantilla)?.puestos ?? [];
+  const puestos = PLANTILLA_BY_KEY.get(slide.plantilla)?.puestos ?? [];
+  const sitios = slide.sitios;
+
+  if (!sitios) return puestos;
+
+  return puestos.map((puesto) => (sitios[puesto.key] ? { ...puesto, ...sitios[puesto.key] } : puesto));
+}
+
+/*
+| La base pintada (30/10/2026): pone en la diapositiva la colocación, los
+| trazos y los rivales de su variante. Sólo si todavía no tiene ni un trazo:
+| nunca pisa lo dibujado a mano. Las fichas ya puestas en un puesto se mueven
+| a su sitio de la variante.
+*/
+export function conBase(slide: SlidePizarra, variante: number): SlidePizarra {
+  if (slide.trazos?.length) return slide;
+
+  const base = baseDe(slide.plantilla, variante);
+
+  if (!base) return slide;
+
+  const sitios = sitiosDeBase(slide.plantilla, base);
+  const rivales = slide.rivales?.length ? slide.rivales : rivalesDeBase(base, slide.id);
+
+  return {
+    ...slide,
+    sitios,
+    fichas: slide.fichas.map((ficha) => (ficha.puesto && sitios[ficha.puesto] ? { ...ficha, ...sitios[ficha.puesto] } : ficha)),
+    trazos: trazosDeBase(base, slide.id),
+    ...(rivales ? { rivales } : {}),
+  };
+}
+
+/** Le pone la base a cada diapositiva que la tenga, numerando las variantes por plantilla. */
+function conBases(slides: SlidePizarra[]): SlidePizarra[] {
+  const vistas = new Map<string, number>();
+
+  return slides.map((slide) => {
+    const n = vistas.get(slide.plantilla) ?? 0;
+    vistas.set(slide.plantilla, n + 1);
+    return BASES[slide.plantilla] ? conBase(slide, n) : slide;
+  });
 }
 
 /*
