@@ -39,6 +39,7 @@ export function CambiaJugador({
   tablero,
   players,
   inicial,
+  delOnce = [],
   onAplicar,
   onCerrar,
 }: {
@@ -46,6 +47,8 @@ export function CambiaJugador({
   players: Player[];
   /** El que sale, si se abre desde una ficha o un aviso concreto. */
   inicial?: string | null;
+  /** El once de la pizarra táctica: sale el primero entre los que entran, con su marca. */
+  delOnce?: string[];
   onAplicar: (sale: string, entra: string, intercambia: boolean) => void;
   onCerrar: () => void;
 }) {
@@ -97,7 +100,7 @@ export function CambiaJugador({
   const candidatos = useMemo(() => {
     const query = normaliza(busca.trim());
 
-    return players.filter((player) => {
+    const pasan = players.filter((player) => {
       if (player.id === sale) return false;
 
       if (!query) return true;
@@ -108,7 +111,10 @@ export function CambiaJugador({
         String(player.dorsal ?? "").includes(query)
       );
     });
-  }, [players, busca, sale]);
+
+    /* Los del once de la pizarra táctica, primero. */
+    return [...pasan].sort((a, b) => Number(delOnce.includes(b.id)) - Number(delOnce.includes(a.id)));
+  }, [players, busca, sale, delOnce]);
 
   const nombre = (playerId: string | null) => {
     if (!playerId) return "";
@@ -347,6 +353,12 @@ export function CambiaJugador({
                         {player.posicion}
                       </span>
                     </span>
+
+                    {delOnce.includes(player.id) && (
+                      <span className="shrink-0 rounded bg-[#C8A96B]/20 px-1.5 py-0.5 text-[10px] font-semibold text-[#E4C977]" title="En el once de la pizarra táctica">
+                        once
+                      </span>
+                    )}
 
                     {yaEsta && (
                       <span

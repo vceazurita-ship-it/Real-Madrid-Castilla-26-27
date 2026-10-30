@@ -322,7 +322,7 @@ function GrupoBarra({
       </button>
 
       {abierto && (
-        <div className="absolute left-full top-0 z-10 ml-2 w-52 rounded-xl border border-white/10 bg-[#0B0F14]/95 p-1 shadow-xl backdrop-blur">
+        <div className="absolute left-full top-0 z-10 ml-2 w-52 rounded-xl border border-white/10 bg-[#0B0F14]/[0.96] p-1 shadow-xl backdrop-blur">
           <p className="px-2 pb-1 pt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/35">
             {nombre}
           </p>
@@ -1501,7 +1501,7 @@ function EditorPizarra({
         y despliega el resto a su derecha, con nombre y tecla. Las teclas van
         directas a cada herramienta, así que quien ya se las sabe no nota nada.
       */}
-      <div className="pointer-events-auto absolute left-2 top-1/2 flex -translate-y-1/2 flex-col gap-1 rounded-xl border border-white/10 bg-[#0B0F14]/85 p-1.5 backdrop-blur">
+      <div className="pointer-events-auto absolute left-2 top-1/2 flex -translate-y-1/2 flex-col gap-1 rounded-xl border border-white/10 bg-[#0B0F14]/92 p-1.5 backdrop-blur">
         <BotonHerramienta
           activo={herramienta === "mano"}
           titulo="Elegir y mover (V)"
@@ -1530,7 +1530,7 @@ function EditorPizarra({
 
       {/* ------------------------------------------- la cabecera ----- */}
 
-      <div className="pointer-events-auto absolute right-2 top-2 flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#0B0F14]/85 px-2 py-1.5 backdrop-blur">
+      <div className="pointer-events-auto absolute right-2 top-2 flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#0B0F14]/92 px-2 py-1.5 backdrop-blur">
         <span className="font-mono text-[11px] tabular-nums text-[#C8A96B]">
           {formateaMs(local.tMs)}
         </span>
@@ -1604,7 +1604,7 @@ function EditorPizarra({
             <span
               role="alertdialog"
               aria-label="Confirmar quitar todos los dibujos"
-              className="absolute right-0 top-full z-10 mt-2 flex w-56 flex-col gap-2 rounded-xl border border-red-400/30 bg-[#0B0F14]/95 p-2.5 text-[11px] text-white/80 shadow-xl backdrop-blur"
+              className="absolute right-0 top-full z-10 mt-2 flex w-56 flex-col gap-2 rounded-xl border border-red-400/30 bg-[#0B0F14]/[0.96] p-2.5 text-[11px] text-white/80 shadow-xl backdrop-blur"
             >
               <span>
                 ¿Quitar {local.dibujos.length === 1 ? "el dibujo" : `los ${local.dibujos.length} dibujos`} de esta pizarra? Se puede deshacer.
@@ -1651,8 +1651,8 @@ function EditorPizarra({
       {/* Y la de abajo tampoco puede comerse el vídeo: en una ventana
           estrecha los mandos se parten en cuatro o cinco renglones, así que se
           le pone tope y se desplaza. */}
-      <div className="pointer-events-auto absolute bottom-2 left-2 right-2 max-h-[45%] overflow-y-auto rounded-xl border border-white/10 bg-[#0B0F14]/88 backdrop-blur">
-        <div className="flex flex-wrap items-center gap-2 px-2 py-1.5">
+      <div className="pointer-events-auto absolute bottom-2 left-2 right-2 max-h-[45%] overflow-y-auto rounded-xl border border-white/10 bg-[#0B0F14]/92 backdrop-blur">
+        <div className="flex items-center gap-2 overflow-x-auto px-2 py-1.5 [scrollbar-width:thin] [&>*]:shrink-0">
           <div className="flex gap-1">
             {PALETA_TEL.map((una) => (
               <button
@@ -1735,7 +1735,7 @@ function EditorPizarra({
         </div>
 
         {barra && (
-          <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-2 py-1.5">
+          <div className="flex items-center gap-2 overflow-x-auto border-t border-white/10 px-2 py-1.5 [scrollbar-width:thin] [&>*]:shrink-0">
             {tipoActivo === "flecha" && (
               <span
                 role="group"
@@ -2212,7 +2212,7 @@ function EditorPizarra({
                 evento.currentTarget.blur();
               }
             }}
-            className="w-72 resize-none rounded-xl border border-[#C8A96B]/50 bg-[#0B0F14]/95 px-2.5 py-2 text-[12px] leading-snug text-white outline-none placeholder:text-white/30"
+            className="w-72 resize-none rounded-xl border border-[#C8A96B]/50 bg-[#0B0F14]/[0.96] px-2.5 py-2 text-[12px] leading-snug text-white outline-none placeholder:text-white/30"
           />
         </div>
       )}
@@ -2340,7 +2340,7 @@ export function PizarraVideo({
 
   return (
     <div
-      className="pointer-events-none absolute"
+      className="siempre-oscuro pointer-events-none absolute"
       style={{
         left: encaje.izquierda,
         top: encaje.arriba,

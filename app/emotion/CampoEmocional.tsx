@@ -31,7 +31,7 @@ import { chipInk } from "@/lib/theme";
 import type { Player as Ficha } from "@/types/player";
 
 import { AXES, SCALE, SERIES_COLORS, average, bandFor, nombreLargo, type GroupKey, type MetricKey, type Player } from "./modelo";
-import { mejorCasado, onceDeLaPizarra, type OnceDeLaPizarra } from "./onceEmocional";
+import { mejorCasado, onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics/onceDeLaPizarra";
 
 /* ------------------------------------------------------------------ */
 /*  HISTORIA EN EL APARATO                                             */

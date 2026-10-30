@@ -98,6 +98,7 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { usePlayers } from "@/hooks/usePlayers";
+import { idsDelOnce, onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics/onceDeLaPizarra";
 import { ajustaNombres, nombresSinFicha, nombresSueltos } from "@/lib/abp/nombresPlantilla";
 import type { Player } from "@/types/player";
 import {
@@ -118,6 +119,7 @@ import {
   admiteRepetidos,
   aplicaVersion,
   alcanceDelCambio,
+  jugadoresDelTablero,
   aprende,
   cambiaJugador,
   colocaAutomatico,
@@ -1291,10 +1293,46 @@ export default function PizarraAbpPage() {
     [players],
   );
 
+  /*
+  | EL ONCE DE LA PIZARRA TÁCTICA (30/10/2026)
+  |
+  | «Colocar» sólo pone a los once de la pizarra táctica, que es el once de
+  | toda la app. Quien está en las diapositivas y no en ese once se avisa
+  | arriba, con un botón para cambiarlo. Sin tablero de onces (o con menos de
+  | siete casados), se coloca con toda la plantilla, como antes.
+  */
+  const [onceTactica, setOnceTactica] = useState<OnceDeLaPizarra | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+
+    void onceDeLaPizarra()
+      .then((o) => {
+        if (vivo) setOnceTactica(o);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const delOnce = useMemo(() => {
+    const ids = onceTactica ? idsDelOnce(onceTactica, players) : [];
+    return ids.length >= 7 ? ids : [];
+  }, [onceTactica, players]);
+
   const disponibles = useMemo(
-    () => new Set(players.map((player) => player.id)),
-    [players],
+    () => new Set(delOnce.length > 0 ? delOnce : players.map((player) => player.id)),
+    [delOnce, players],
   );
+
+  /* En las diapositivas pero no en el once de la pizarra táctica. */
+  const fueraDelOnce = useMemo(() => {
+    if (!tablero || delOnce.length === 0) return [];
+    const enOnce = new Set(delOnce);
+    return jugadoresDelTablero(tablero).filter((item) => !enOnce.has(item.playerId)).map((item) => item.playerId);
+  }, [tablero, delOnce]);
 
   /* --------------------------- PUESTOS ----------------------------- */
 
@@ -2377,6 +2415,62 @@ export default function PizarraAbpPage() {
               </div>
             </div>
 
+            {/* El once de la pizarra táctica, a la vista: es el que «Colocar» usa. */}
+            {delOnce.length > 0 && (
+              <div className="mt-3 flex min-w-0 flex-col gap-2 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] px-3 py-2.5 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+                    Once de la pizarra táctica
+                  </span>
+                  <span className="flex min-w-0 -space-x-2 overflow-hidden">
+                    {delOnce.map((id) => {
+                      const player = porId.get(id);
+                      return player?.foto ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img
+                          key={id}
+                          src={player.foto}
+                          alt=""
+                          title={player.apodo || player.nombre}
+                          className="h-8 w-8 shrink-0 rounded-full border-2 border-[#0B0F14] object-cover object-top"
+                        />
+                      ) : (
+                        <span
+                          key={id}
+                          title={player?.apodo || player?.nombre}
+                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2 border-[#0B0F14] bg-white/10 text-[10px] font-bold text-white/80"
+                        >
+                          {player?.dorsal ?? ""}
+                        </span>
+                      );
+                    })}
+                  </span>
+                </div>
+
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:justify-end">
+                  {fueraDelOnce.length > 0 && (
+                    <>
+                      <span className="min-w-0 text-[12px] text-amber-200/90">
+                        {fueraDelOnce.length === 1 ? "En la pizarra pero no en el once: " : `${fueraDelOnce.length} en la pizarra que no están en el once: `}
+                        <b className="font-semibold">
+                          {fueraDelOnce.map((id) => porId.get(id)?.apodo || porId.get(id)?.nombre || id).join(", ")}
+                        </b>
+                      </span>
+                      <Button icon={Repeat} onClick={() => setCambiando({ sale: fueraDelOnce[0] })}>
+                        Cambiarlos
+                      </Button>
+                    </>
+                  )}
+                  <Link
+                    href="/pizarra-tactica"
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/12 px-3 text-sm text-white/70 transition hover:border-white/25 hover:text-white"
+                  >
+                    Cambiar el once
+                  </Link>
+                </div>
+              </div>
+            )}
+
             {partido && (
               <button
                 type="button"
@@ -3231,6 +3325,7 @@ export default function PizarraAbpPage() {
           tablero={tablero}
           players={players}
           inicial={cambiando.sale}
+          delOnce={delOnce}
           onAplicar={aplicaCambio}
           onCerrar={() => setCambiando(null)}
         />

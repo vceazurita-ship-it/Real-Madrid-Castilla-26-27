@@ -1,5 +1,12 @@
 /*
 |--------------------------------------------------------------------------
+| EL ONCE DE LA APP SALE DE LA PIZARRA TÁCTICA (29/10/2026)
+|--------------------------------------------------------------------------
+|
+| Lo leen Emotion y, desde el 30/10/2026, la pizarra de ABP. Vivía en
+| app/emotion y se trajo aquí al compartirse.
+|
+|--------------------------------------------------------------------------
 | EL ONCE DE EMOTION SALE DE LA PIZARRA TÁCTICA (29/10/2026)
 |--------------------------------------------------------------------------
 |
@@ -145,4 +152,17 @@ export function mejorCasado<T>(nombres: string[], candidatos: T[], nombresDe: (c
   }
 
   return mejor;
+}
+
+/** Los ids de la plantilla de las fichas del once, casados por nombre o apodo. */
+export function idsDelOnce<T extends { id: string; nombre: string; apodo?: string }>(once: OnceDeLaPizarra, plantilla: T[]): string[] {
+  const usados = new Set<T>();
+
+  return once.fichas.flatMap((f) => {
+    if (!f.nombre) return [];
+    const p = mejorCasado<T>([f.nombre], plantilla, (j) => [j.nombre, j.apodo], usados);
+    if (!p) return [];
+    usados.add(p);
+    return [p.id];
+  });
 }

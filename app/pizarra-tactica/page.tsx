@@ -14,6 +14,8 @@ import {
   Trash2,
   TriangleAlert,
   Undo2,
+  Check,
+  FlaskConical,
   Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -657,6 +659,17 @@ function BoardEditor({
 
   const doc = useMemo(() => normalizeDoc(value, nombre), [value, nombre]);
 
+  /*
+  | EL ONCE ES DE TODA LA APP (30/10/2026)
+  |
+  | El tablero de los onces no es una pizarra más: de él salen el once de
+  | Emotion y el de la pizarra de ABP. Cambiarlo aquí los cambia allí. Para
+  | probar otra alineación sin tocar nada, «Probar sin guardar» trabaja sobre
+  | una copia que sólo vive en esta pantalla; al terminar se guarda para toda
+  | la app o se descarta.
+  */
+  const [prueba, setPrueba] = useState<TacticsDoc | null>(null);
+
   useEffect(() => {
     onDoc?.(doc);
   }, [doc, onDoc]);
@@ -1020,10 +1033,61 @@ function BoardEditor({
         </div>
       )}
 
+      {deLaSemana &&
+        (prueba ? (
+          <div className="flex flex-col gap-2 rounded-2xl border border-amber-400/40 bg-amber-400/[0.08] px-3 py-2.5 text-[12px] sm:flex-row sm:items-center">
+            <span className="min-w-0 flex-1 text-white/80">
+              <b className="mr-1 font-semibold text-amber-300">Modo prueba.</b>
+              Lo que cambies no se guarda ni afecta al resto de la app.
+            </span>
+            <span className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setValue(prueba);
+                  setPrueba(null);
+                  toast.success("Once guardado: Emotion y la pizarra de ABP ya lo usan");
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B] px-3.5 py-1.5 text-[11px] font-bold text-[#0B0F14] transition hover:brightness-110"
+              >
+                <Check size={13} />
+                Guardar para toda la app
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPrueba(null);
+                  toast("Prueba descartada: el once vuelve a ser el guardado");
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3.5 py-1.5 text-[11px] font-semibold text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                <Undo2 size={13} />
+                Descartar
+              </button>
+            </span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[12px] sm:flex-row sm:items-center">
+            <span className="min-w-0 flex-1 text-white/65">
+              <b className="mr-1 font-semibold text-white/90">Este once es el de toda la app.</b>
+              Lo usan Emotion y la pizarra de ABP: lo que cambies aquí se guarda y les afecta.
+            </span>
+            <button
+              type="button"
+              onClick={() => setPrueba(doc)}
+              title="Cambia el once sólo en esta pantalla; al terminar decides si se guarda"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-400/50 px-3.5 py-1.5 text-[11px] font-semibold text-amber-300 transition hover:bg-amber-400/10"
+            >
+              <FlaskConical size={13} />
+              Probar sin guardar
+            </button>
+          </div>
+        ))}
+
       <div ref={lienzo} data-lienzo-pizarra={lienzoALaVista ? "a-la-vista" : undefined}>
         <TacticsBoard
-          doc={doc}
-          onChange={setValue}
+          doc={prueba ?? doc}
+          onChange={prueba ? setPrueba : setValue}
           aPantallaCompleta={aPantallaCompleta}
           roster={roster}
           rivalSquads={rivalSquads}
