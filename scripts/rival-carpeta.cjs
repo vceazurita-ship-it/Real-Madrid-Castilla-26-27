@@ -72,7 +72,8 @@ function seccionDe(segmentos) {
 
     const defiende = /\bDEF/.test(s);
 
-    if (/CENTRO/.test(s)) return defiende ? "centros-def" : "centros-of";
+    /* 30/10/2026: «CEN LAT», «LATERALES» o «CENTROS LAT» sin decir falta también son centros laterales. */
+    if (/CENTRO|\bCEN\b|LATERAL/.test(s) && !/FALTA/.test(s)) return defiende ? "centros-def" : "centros-of";
 
     if (/C[OÓ]RNER/.test(s)) return defiende ? "corner-def" : "corner-of";
 

@@ -88,37 +88,86 @@ async function hijos(dir: FileSystemDirectoryHandle) {
   return lista;
 }
 
-/** Lee la jornada: vale elegir «ABP - 10 CARTAGENA» o su subcarpeta «ABP». */
-async function leeCarpeta(raiz: FileSystemDirectoryHandle): Promise<Abierta> {
-  let base = raiz;
+const VIDEO = /\.(mov|mp4|m4v)$/i;
 
-  const nivel = await hijos(raiz);
+/**
+ * De qué carpeta del coding es un clip, mirando su ruta de dentro afuera:
+ * «CORNER OF», «Córner ofensivo», «FALTAS LAT DEF», «SDB DEF», «Saque de
+ * banda»… y el propio nombre del fichero («CORNER OF-17.mov»). Sin lado
+ * escrito, ofensivo.
+ */
+function carpetaDe(segmentos: string[]): CarpetaKey | null {
+  for (const crudo of [...segmentos].reverse()) {
+    const s = crudo
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toUpperCase();
+    const def = /\bDEF/.test(s);
+    const tipo = /CORNER/.test(s) ? "CORNER" : /FALTA/.test(s) ? "FALTA" : /\bSDB\b|SAQUE DE BANDA|\bBANDA\b/.test(s) ? "SDB" : null;
 
-  if (!nivel.some(([n, h]) => h.kind === "directory" && CARPETAS.some((c) => c.key === n.toUpperCase()))) {
-    const abp = nivel.find(([n, h]) => h.kind === "directory" && n.toUpperCase() === "ABP");
-
-    if (abp) base = abp[1] as FileSystemDirectoryHandle;
+    if (tipo) return `${tipo} ${def ? "DEF" : "OF"}` as CarpetaKey;
   }
+
+  return null;
+}
+
+/*
+| Lee la jornada (30/10/2026: con todas sus subcarpetas, a cualquier
+| profundidad). Antes sólo valía «ABP - 10 CARTAGENA» o su «ABP» con las seis
+| carpetas justo debajo; ahora se recogen los vídeos de todo lo que cuelgue de
+| la carpeta elegida y cada uno va a su sitio por su ruta. «_descartados» no
+| se lee. Un número repetido en la misma carpeta (dos subcarpetas con su
+| «CORNER OF-3») toma el siguiente libre, en orden de ruta para que sea
+| siempre el mismo.
+*/
+async function leeCarpeta(raiz: FileSystemDirectoryHandle): Promise<Abierta & { sinSitio: number }> {
+  const encontrados: { carpeta: CarpetaKey; ruta: string; nombre: string; n: number | null; handle: FileSystemFileHandle; dir: FileSystemDirectoryHandle }[] = [];
+  let sinSitio = 0;
+
+  const recorre = async (dir: FileSystemDirectoryHandle, camino: string[]) => {
+    for (const [nombre, h] of await hijos(dir)) {
+      if (nombre.startsWith(".") || nombre.startsWith("._")) continue;
+
+      if (h.kind === "directory") {
+        if (nombre.toLowerCase() === "_descartados") continue;
+        await recorre(h as FileSystemDirectoryHandle, [...camino, nombre]);
+        continue;
+      }
+
+      if (!VIDEO.test(nombre)) continue;
+
+      const carpeta = carpetaDe([...camino, nombre.replace(/-\d+\.\w+$/, "")]);
+
+      if (!carpeta) {
+        sinSitio++;
+        continue;
+      }
+
+      encontrados.push({ carpeta, ruta: [...camino, nombre].join("/"), nombre, n: numeroDeArchivo(nombre), handle: h as FileSystemFileHandle, dir });
+    }
+  };
+
+  await recorre(raiz, []);
 
   const porCarpeta = new Map<CarpetaKey, Archivo[]>();
 
-  for (const [nombre, h] of await hijos(base)) {
-    const c = CARPETAS.find((x) => x.key === nombre.toUpperCase());
-
-    if (!c || h.kind !== "directory") continue;
-
+  for (const c of CARPETAS) {
+    const suyos = encontrados.filter((e) => e.carpeta === c.key).sort((a, b) => (a.n ?? 1e9) - (b.n ?? 1e9) || a.ruta.localeCompare(b.ruta));
+    const usados = new Set<number>();
     const archivos: Archivo[] = [];
 
-    for (const [f, fh] of await hijos(h as FileSystemDirectoryHandle)) {
-      const n = numeroDeArchivo(f);
-
-      if (fh.kind === "file" && n !== null && !f.startsWith("._")) archivos.push({ n, handle: fh as FileSystemFileHandle, dir: h as FileSystemDirectoryHandle, nombre: f });
+    for (const e of suyos) {
+      let n = e.n ?? 1;
+      while (usados.has(n)) n++;
+      usados.add(n);
+      archivos.push({ n, handle: e.handle, dir: e.dir, nombre: e.nombre });
     }
 
-    porCarpeta.set(c.key, archivos.sort((a, b) => a.n - b.n));
+    if (archivos.length) porCarpeta.set(c.key, archivos.sort((a, b) => a.n - b.n));
   }
 
-  return { raiz, nombre: raiz.name.toUpperCase() === "ABP" ? base.name : raiz.name, porCarpeta };
+  /* El nombre de la jornada: si se eligió su «ABP», el de la carpeta de arriba no se conoce; vale el suyo. */
+  return { raiz, nombre: raiz.name, porCarpeta, sinSitio };
 }
 
 /** «ABP - 10 CARTAGENA» → { rival: "CARTAGENA", jornada: 10 }. */
@@ -203,9 +252,16 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
       const a = await leeCarpeta(h);
 
       if (!a.porCarpeta.size) {
-        toast.error("En esa carpeta no están CORNER OF, FALTA OF, SDB OF…");
+        toast.error("En esa carpeta ni en sus subcarpetas hay clips de córner, falta o saque de banda", {
+          description: "La ruta o el nombre de cada vídeo tiene que decir CORNER, FALTA o SDB (y DEF si es defensivo).",
+        });
         return;
       }
+
+      const total = [...a.porCarpeta.values()].reduce((n, l) => n + l.length, 0);
+      toast.success(`${total} clips recogidos de todas las subcarpetas`, {
+        description: a.sinSitio ? `${a.sinSitio} vídeos no dicen si son córner, falta o saque de banda y se quedan fuera.` : undefined,
+      });
 
       void idb("readwrite", (s) => s.put(h, "ultima"));
       setAbierta(a);
