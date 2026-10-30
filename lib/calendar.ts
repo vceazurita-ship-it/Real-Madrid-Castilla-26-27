@@ -191,7 +191,7 @@ export function formatMinutes(minutes: number) {
  * ("VÍDEO", "Video", "vídeo "...).
  */
 export function normalizeText(value: string | null | undefined) {
-  return (value || "")
+  return String(value || "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .trim()

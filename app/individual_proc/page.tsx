@@ -151,7 +151,7 @@ function inicioDeSemana(week: number, referencia: string) {
 }
 
 const norm = (v?: string) =>
-  (v || "")
+  String(v || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()

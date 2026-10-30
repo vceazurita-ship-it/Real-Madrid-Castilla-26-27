@@ -80,6 +80,7 @@ import { SelectorJugador } from "@/components/abp/pizarra/SelectorJugador";
 import { CambiaJugador } from "@/components/abp/pizarra/CambiaJugador";
 import { ExportaPizarra } from "@/components/abp/pizarra/ExportaPizarra";
 import { PizarrasJugadores } from "@/components/abp/pizarra/PizarrasJugadores";
+import { ExportaTodo } from "@/components/abp/pizarra/ExportaTodo";
 import { PropuestaMarcas } from "@/components/abp/pizarra/PropuestaMarcas";
 import {
   BarraDibujo,
@@ -2400,6 +2401,18 @@ export default function PizarraAbpPage() {
                         ? `J${String(tablero.jornada).padStart(2, "0")}`
                         : undefined
                     }
+                  />
+                )}
+
+                {/* Todo de una vez (30/10/2026): PDF general, el de cada jugador y los vídeos, en un .zip. */}
+                {tablero && tablero.slides.length > 0 && (
+                  <ExportaTodo
+                    tablero={tablero}
+                    players={porId}
+                    temporada={temporadaCorta(RATINGS_SEASON)}
+                    rival={tablero.rival || partido?.opponent || ""}
+                    escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
+                    jornada={tablero.jornada ? `J${String(tablero.jornada).padStart(2, "0")}` : undefined}
                   />
                 )}
 

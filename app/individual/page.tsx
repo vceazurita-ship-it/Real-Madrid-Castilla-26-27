@@ -250,7 +250,7 @@ const LINES = [
 
 /** La línea de un puesto de la hoja («7», «PIVOTE», «LATERAL D.»…). */
 function lineaDelPuesto(posicionHoja: string, deLaLista: string): string {
-  if (!posicionHoja.trim()) return deLaLista;
+  if (!String(posicionHoja ?? "").trim()) return deLaLista;
 
   const fila = detectRow(posicionHoja);
 
@@ -710,7 +710,7 @@ function parseCSV(text: string) {
 
   return rows.slice(1).map((r) =>
     headers.reduce((obj: Record<string, string>, h, i) => {
-      obj[h.trim()] = (r[i] || "").trim();
+      obj[String(h ?? "").trim()] = String(r[i] ?? "").trim();
       return obj;
     }, {}),
   );
@@ -749,7 +749,7 @@ async function releerCsvPublicado(
 
 /* Drive y YouTube necesitan la variante /preview o /embed para incrustarse. */
 function embedUrl(url = "") {
-  const clean = url.trim();
+  const clean = String(url ?? "").trim();
 
   if (!clean) return "";
 
@@ -1436,7 +1436,8 @@ function FormModal({
 
 /* Texto largo del perfil / informe, con aviso cuando aún no hay contenido. */
 function ProfileText({ text }: { text?: string }) {
-  const clean = (text || "").trim();
+  /* String(): un fichaje del puente puede traer un número o nada en vez de texto (30/10/2026). */
+  const clean = String(text ?? "").trim();
 
   const empty =
     !clean ||

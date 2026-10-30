@@ -76,7 +76,7 @@ const MIN_AVATAR = 30;
 const MAX_AVATAR = 66;
 
 function normalize(value: string) {
-  return (value || "")
+  return String(value || "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .trim()

@@ -161,7 +161,7 @@ export function ladoDeWyscout(posicion: string): Lado {
  * el 2 lateral derecho y el 3 izquierdo. Lo demás es centro.
  */
 export function ladoDeLaHoja(posicion: string): Lado {
-  const p = (posicion || "")
+  const p = String(posicion || "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .trim()
@@ -263,7 +263,7 @@ function media(valores: number[]) {
  * discrepan.
  */
 export function puestoDeLaHoja(posicion: string): Puesto {
-  const p = (posicion || "")
+  const p = String(posicion || "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .trim()

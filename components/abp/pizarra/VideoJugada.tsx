@@ -31,7 +31,7 @@ import { MuxorMp4 } from "@/lib/coding/mp4";
 import type { Bytes } from "@/lib/export/zip";
 import { codecLamina, FPS_LAMINA, puedeHacerVideo } from "@/lib/tactics/lamina";
 
-type Destino = "sala" | "whatsapp" | "vertical";
+export type Destino = "sala" | "whatsapp" | "vertical";
 
 const DESTINOS: Record<Destino, { ancho: number; alto: number; caudal: number; titulo: string; detalle: string; sufijo: string }> = {
   sala: { ancho: 1920, alto: 1080, caudal: 6_000_000, titulo: "Para la sala", detalle: "1920 × 1080", sufijo: "" },
@@ -118,6 +118,170 @@ function pintaVertical(ctx: CanvasRenderingContext2D, foto: HTMLImageElement, ti
   ctx.fillText(titulo.toUpperCase(), ancho / 2, y - 80, ancho - 80);
 }
 
+/** Lo que necesita `grabaJugada` para fotografiar la diapositiva en cada instante. */
+export type PideFoto = {
+  /** El tablero de fuera de pantalla, ya montado. */
+  nodo: HTMLElement;
+  /** Pone el reloj del tablero (0 = salida; 1, 2… = fin de cada fase) y espera a que se pinte. */
+  pon: (valor: number) => Promise<void>;
+};
+
+/*
+| Graba una diapositiva en MP4 (30/10/2026: sacado del botón para poder grabar
+| todas de una vez desde «Exportar todo»). Devuelve el vídeo y su póster.
+*/
+export async function grabaJugada({
+  nodo,
+  pon,
+  nFases,
+  destino,
+  titulo,
+  alAvance,
+}: PideFoto & { nFases: number; destino: Destino; titulo: string; alAvance?: (fraccion: number) => void }): Promise<{ fichero: Blob; poster: Blob | null; segundos: number }> {
+  const d = DESTINOS[destino];
+  let abierto: VideoEncoder | null = null;
+
+  try {
+    const codec = await codecLamina(d.ancho, d.alto, d.caudal);
+
+    if (!codec) throw new Error("Este navegador no sabe montar vídeo. Prueba con Chrome o Edge.");
+
+    await esperaFuentePortada();
+    await pintado();
+    await esperaFotos(nodo);
+
+    const opciones = {
+      backgroundColor: COLORES.tinta,
+      imagePlaceholder: PIXEL_VACIO,
+      includeQueryParams: true,
+      formato: "jpeg" as const,
+      quality: 0.9,
+      width: TABLERO_W,
+      height: TABLERO_H,
+      pixelRatio: 1,
+      style: { margin: "0", transform: "none", transformOrigin: "top left" },
+      filter: (n: HTMLElement) => !(n instanceof HTMLElement) || !n.hasAttribute("data-export-hide"),
+    };
+
+    const foto = async (valor: number) => {
+      await pon(valor);
+
+      const { dataUrl } = await capturaNodo(nodo, opciones);
+
+      return cargaImagen(dataUrl);
+    };
+
+    const lienzo = document.createElement("canvas");
+
+    lienzo.width = d.ancho;
+    lienzo.height = d.alto;
+
+    const ctx = lienzo.getContext("2d");
+
+    if (!ctx) throw new Error("El navegador no da un lienzo 2D");
+
+    const dibuja = (imagen: HTMLImageElement) => {
+      if (destino === "vertical") pintaVertical(ctx, imagen, titulo);
+      else ctx.drawImage(imagen, 0, 0, d.ancho, d.alto);
+    };
+
+    let fallo: Error | null = null;
+    const muxor = new MuxorMp4();
+    const codificador = new VideoEncoder({
+      output: (trozo, metadatos) => {
+        const descripcion = metadatos?.decoderConfig?.description;
+
+        if (descripcion) muxor.configuraVideo({ ancho: d.ancho, alto: d.alto, descripcion: copiaBytes(descripcion) });
+
+        const datos = new Uint8Array(new ArrayBuffer(trozo.byteLength));
+
+        trozo.copyTo(datos);
+        muxor.añadeVideo(datos as Bytes, Math.max(0, trozo.timestamp), trozo.duration || 1_000_000 / FPS_LAMINA, trozo.type === "key");
+      },
+      error: (e) => {
+        fallo = e instanceof Error ? e : new Error(String(e));
+      },
+    });
+
+    abierto = codificador;
+
+    codificador.configure({
+      codec,
+      width: d.ancho,
+      height: d.alto,
+      bitrate: d.caudal,
+      framerate: FPS_LAMINA,
+      latencyMode: "quality",
+      avc: { format: "avc" },
+    });
+
+    let cuadros = 0;
+
+    const emite = async (veces: number) => {
+      for (let k = 0; k < veces; k += 1) {
+        if (fallo) throw fallo;
+
+        const cuadro = new VideoFrame(lienzo, {
+          timestamp: Math.round((cuadros * 1_000_000) / FPS_LAMINA),
+          duration: Math.round(1_000_000 / FPS_LAMINA),
+        });
+
+        codificador.encode(cuadro, { keyFrame: cuadros % (FPS_LAMINA * 2) === 0 });
+        cuadro.close();
+        cuadros += 1;
+
+        while (codificador.encodeQueueSize > 6) await new Promise((resuelve) => setTimeout(resuelve, 5));
+      }
+    };
+
+    /* El plan: salida quieta; cada fase, en movimiento y luego quieta. */
+    const total = 1 + nFases * (FOTOS_POR_FASE + 1);
+    let hechas = 0;
+    const avanza = () => alAvance?.(++hechas / total);
+
+    dibuja(await foto(0));
+    avanza();
+    await emite(Math.round(SALIDA_S * FPS_LAMINA));
+
+    let poster: string | null = null;
+
+    for (let fase = 1; fase <= nFases; fase += 1) {
+      const porFoto = (MOVIMIENTO_S * FPS_LAMINA) / FOTOS_POR_FASE;
+      let emitidos = 0;
+
+      for (let k = 1; k <= FOTOS_POR_FASE; k += 1) {
+        dibuja(await foto(fase - 1 + k / FOTOS_POR_FASE));
+        avanza();
+
+        const hasta = Math.round(k * porFoto);
+
+        await emite(hasta - emitidos);
+        emitidos = hasta;
+      }
+
+      dibuja(await foto(fase));
+      avanza();
+      await emite(Math.round(PAUSA_S * FPS_LAMINA));
+
+      if (fase === nFases) poster = lienzo.toDataURL("image/jpeg", 0.88);
+    }
+
+    await codificador.flush();
+    codificador.close();
+
+    if (fallo) throw fallo;
+
+    const fichero = muxor.cierra();
+
+    const posterBlob = poster ? await (await fetch(poster)).blob() : null;
+
+    return { fichero, poster: posterBlob, segundos: cuadros / FPS_LAMINA };
+  } finally {
+    // Si algo falla a mitad, el codificador queda abierto y Chrome se queda sin codificadores para el siguiente vídeo.
+    if (abierto && abierto.state !== "closed") abierto.close();
+  }
+}
+
 export function VideoJugada({
   slide,
   titulo,
@@ -165,163 +329,35 @@ export function VideoJugada({
     const d = DESTINOS[destino];
     const nFases = fasesDe(slide.trazos);
     const aviso = toast.loading("Montando el vídeo de la jugada…");
-    let abierto: VideoEncoder | null = null;
-
     try {
-      const codec = await codecLamina(d.ancho, d.alto, d.caudal);
-
-      if (!codec) throw new Error("Este navegador no sabe montar vídeo. Prueba con Chrome o Edge.");
-
-      await esperaFuentePortada();
       await pintado();
-      await esperaFotos(raiz);
-
       const nodo = raiz.querySelector<HTMLElement>("[data-abp-tablero]");
 
       if (!nodo) throw new Error("No hay diapositiva que grabar");
 
-      const opciones = {
-        backgroundColor: COLORES.tinta,
-        imagePlaceholder: PIXEL_VACIO,
-        includeQueryParams: true,
-        formato: "jpeg" as const,
-        quality: 0.9,
-        width: TABLERO_W,
-        height: TABLERO_H,
-        pixelRatio: 1,
-        style: { margin: "0", transform: "none", transformOrigin: "top left" },
-        filter: (n: HTMLElement) => !(n instanceof HTMLElement) || !n.hasAttribute("data-export-hide"),
-      };
-
-      const foto = async (valor: number) => {
-        await pon(valor);
-
-        const { dataUrl } = await capturaNodo(nodo, opciones);
-
-        return cargaImagen(dataUrl);
-      };
-
-      const lienzo = document.createElement("canvas");
-
-      lienzo.width = d.ancho;
-      lienzo.height = d.alto;
-
-      const ctx = lienzo.getContext("2d");
-
-      if (!ctx) throw new Error("El navegador no da un lienzo 2D");
-
-      const dibuja = (imagen: HTMLImageElement) => {
-        if (destino === "vertical") pintaVertical(ctx, imagen, titulo);
-        else ctx.drawImage(imagen, 0, 0, d.ancho, d.alto);
-      };
-
-      let fallo: Error | null = null;
-      const muxor = new MuxorMp4();
-      const codificador = new VideoEncoder({
-        output: (trozo, metadatos) => {
-          const descripcion = metadatos?.decoderConfig?.description;
-
-          if (descripcion) muxor.configuraVideo({ ancho: d.ancho, alto: d.alto, descripcion: copiaBytes(descripcion) });
-
-          const datos = new Uint8Array(new ArrayBuffer(trozo.byteLength));
-
-          trozo.copyTo(datos);
-          muxor.añadeVideo(datos as Bytes, Math.max(0, trozo.timestamp), trozo.duration || 1_000_000 / FPS_LAMINA, trozo.type === "key");
-        },
-        error: (e) => {
-          fallo = e instanceof Error ? e : new Error(String(e));
-        },
+      const { fichero, poster, segundos } = await grabaJugada({
+        nodo,
+        pon,
+        nFases,
+        destino,
+        titulo,
+        alAvance: (fraccion) => setProgreso(`${Math.round(fraccion * 100)} %`),
       });
 
-      abierto = codificador;
-
-      codificador.configure({
-        codec,
-        width: d.ancho,
-        height: d.alto,
-        bitrate: d.caudal,
-        framerate: FPS_LAMINA,
-        latencyMode: "quality",
-        avc: { format: "avc" },
-      });
-
-      let cuadros = 0;
-
-      const emite = async (veces: number) => {
-        for (let k = 0; k < veces; k += 1) {
-          if (fallo) throw fallo;
-
-          const cuadro = new VideoFrame(lienzo, {
-            timestamp: Math.round((cuadros * 1_000_000) / FPS_LAMINA),
-            duration: Math.round(1_000_000 / FPS_LAMINA),
-          });
-
-          codificador.encode(cuadro, { keyFrame: cuadros % (FPS_LAMINA * 2) === 0 });
-          cuadro.close();
-          cuadros += 1;
-
-          while (codificador.encodeQueueSize > 6) await new Promise((resuelve) => setTimeout(resuelve, 5));
-        }
-      };
-
-      /* El plan: salida quieta; cada fase, en movimiento y luego quieta. */
-      const total = 1 + nFases * (FOTOS_POR_FASE + 1);
-      let hechas = 0;
-      const avanza = () => setProgreso(`${Math.round((++hechas / total) * 100)} %`);
-
-      dibuja(await foto(0));
-      avanza();
-      await emite(Math.round(SALIDA_S * FPS_LAMINA));
-
-      let poster: string | null = null;
-
-      for (let fase = 1; fase <= nFases; fase += 1) {
-        const porFoto = (MOVIMIENTO_S * FPS_LAMINA) / FOTOS_POR_FASE;
-        let emitidos = 0;
-
-        for (let k = 1; k <= FOTOS_POR_FASE; k += 1) {
-          dibuja(await foto(fase - 1 + k / FOTOS_POR_FASE));
-          avanza();
-
-          const hasta = Math.round(k * porFoto);
-
-          await emite(hasta - emitidos);
-          emitidos = hasta;
-        }
-
-        dibuja(await foto(fase));
-        avanza();
-        await emite(Math.round(PAUSA_S * FPS_LAMINA));
-
-        if (fase === nFases) poster = lienzo.toDataURL("image/jpeg", 0.88);
-      }
-
-      await codificador.flush();
-      codificador.close();
-
-      if (fallo) throw fallo;
-
-      const fichero = muxor.cierra();
       const nombre = nombreDelVideo(titulo, jornada);
 
       descarga(fichero, `${nombre}${d.sufijo}.mp4`);
 
-      if (poster) {
-        const blob = await (await fetch(poster)).blob();
-
-        descarga(blob, `${nombre}${d.sufijo} poster.jpg`);
-      }
+      if (poster) descarga(poster, `${nombre}${d.sufijo} poster.jpg`);
 
       toast.success(
-        `Vídeo listo · ${coma(cuadros / FPS_LAMINA)} s · ${coma(fichero.size / 1_000_000)} MB · ${d.ancho} × ${d.alto}. Déjalo en ABP\\VIDEO - JUGADORES.`,
+        `Vídeo listo · ${coma(segundos)} s · ${coma(fichero.size / 1_000_000)} MB · ${d.ancho} × ${d.alto}. Déjalo en ABP\\VIDEO - JUGADORES.`,
         { id: aviso, duration: 8_000 },
       );
     } catch (error) {
       console.error("[abp-pizarra] vídeo", error);
       toast.error(error instanceof Error && error.message ? error.message : "No se ha podido montar el vídeo", { id: aviso });
     } finally {
-      // Si algo falla a mitad, el codificador queda abierto y Chrome se queda sin codificadores para el siguiente vídeo.
-      if (abierto && abierto.state !== "closed") abierto.close();
       corriendo.current = false;
       setDestino(null);
       setTiempo(0);

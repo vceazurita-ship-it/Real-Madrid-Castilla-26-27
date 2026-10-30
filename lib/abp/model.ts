@@ -38,7 +38,7 @@ export const FAMILY_LABEL: Record<AbpFamily, string> = Object.fromEntries(
 
 /** Quita acentos y baja a minúsculas: la hoja mezcla mayúsculas y tildes. */
 export function norm(value?: string) {
-  return (value || "")
+  return String(value || "")
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()

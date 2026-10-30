@@ -109,7 +109,7 @@ interface JugadorConLicencia {
 }
 
 export function esDeSeguimiento(jugador: JugadorConLicencia) {
-  const puesto = (jugador.posicion || "").trim();
+  const puesto = String(jugador.posicion ?? "").trim();
 
   if (puesto === "1" || /portero/i.test(puesto)) return false;
 

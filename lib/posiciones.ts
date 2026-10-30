@@ -70,7 +70,7 @@ export function posicionDe(nombre: string, enLaHoja: string): string {
   if (!correccion) return enLaHoja;
 
   /* La hoja ya dice otra cosa: manda ella y esta entrada sobra. */
-  if ((enLaHoja || "").trim() !== correccion.enLaHoja) return enLaHoja;
+  if (String(enLaHoja ?? "").trim() !== correccion.enLaHoja) return enLaHoja;
 
   return correccion.debeDecir;
 }
@@ -108,7 +108,8 @@ function enCaja(puesto: string): string {
  * deja como está.
  */
 export function nombrePuesto(posicion: string): string {
-  const limpio = (posicion || "").trim();
+  /* String(): el puesto llega a veces como número de rol (30/10/2026: rompía /individual). */
+  const limpio = String(posicion ?? "").trim();
 
   if (!/^\d+$/.test(limpio)) return enCaja(limpio);
 
