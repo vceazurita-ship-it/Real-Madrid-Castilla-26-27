@@ -2,20 +2,52 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "additionalProperties": false,
-  "required": ["nota", "veredicto", "pantallas", "mejoras"],
+  "required": [
+    "nota",
+    "veredicto",
+    "pantallas",
+    "mejoras"
+  ],
   "properties": {
-    "nota": { "type": "integer", "minimum": 1, "maximum": 10, "description": "Nota del ÁREA entera con la escala fija: 5 = aprobado (se usa, pero con errores que confunden); 6 = bien (sin errores graves, pero le falta hilo o claridad); 7 = notable (útil, coherente y sin errores de dato, de lectura ni de diseño; quedan mejoras de pulido); 8 = notable alto (lo usaría tal cual un club profesional); 9-10 = excelente." },
-    "veredicto": { "type": "string", "description": "Dos frases: qué falla más en el área y qué la arreglaría" },
+    "nota": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 10,
+      "multipleOf": 0.5,
+      "description": "Nota del ÁREA con medios puntos y la escala fija: 5 = aprobado (se usa, con errores que confunden); 6 = bien; 7 = notable (útil y sin errores de dato, lectura ni diseño); 8 = lo usaría tal cual un club profesional; 9 = sobresaliente; 9,5 = nivel de producto de élite (Hudl, Wyscout, StatsBomb, Second Spectrum): cada cifra con su base, jerarquía impecable, cero fricción, móvil perfecto, nada que sobre ni falte; 10 = referencia del sector."
+    },
+    "veredicto": {
+      "type": "string",
+      "description": "Dos frases: qué falla más en el área y qué la arreglaría"
+    },
     "pantallas": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["ruta", "nota", "para_notable"],
+        "required": [
+          "ruta",
+          "nota",
+          "para_notable"
+        ],
         "properties": {
-          "ruta": { "type": "string" },
-          "nota": { "type": "integer", "minimum": 1, "maximum": 10 },
-          "para_notable": { "type": "array", "maxItems": 4, "items": { "type": "string" }, "description": "Si la nota es < 8: la lista CERRADA y mínima de lo imprescindible para el 8, cada punto concreto y programable (qué fichero o componente, qué cambiar). Si se arregla eso, la próxima vez le pones un 8. Vacía si ya tiene 8 o más." }
+          "ruta": {
+            "type": "string"
+          },
+          "nota": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10,
+            "multipleOf": 0.5
+          },
+          "para_notable": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string"
+            },
+            "description": "Si la nota es < 9,5: la lista CERRADA y mínima de lo imprescindible para el 9,5, cada punto concreto y programable (qué fichero o componente, qué cambiar). Si se arregla eso, la próxima vez le pones un 9,5. Vacía si ya tiene 9,5 o más."
+          }
         }
       }
     },
@@ -25,12 +57,30 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["ruta", "problema", "propuesta", "prioridad"],
+        "required": [
+          "ruta",
+          "problema",
+          "propuesta",
+          "prioridad"
+        ],
         "properties": {
-          "ruta": { "type": "string" },
-          "problema": { "type": "string" },
-          "propuesta": { "type": "string" },
-          "prioridad": { "type": "string", "enum": ["alta", "media", "baja"] }
+          "ruta": {
+            "type": "string"
+          },
+          "problema": {
+            "type": "string"
+          },
+          "propuesta": {
+            "type": "string"
+          },
+          "prioridad": {
+            "type": "string",
+            "enum": [
+              "alta",
+              "media",
+              "baja"
+            ]
+          }
         }
       }
     }
