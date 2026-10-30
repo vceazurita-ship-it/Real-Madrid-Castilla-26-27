@@ -58,6 +58,15 @@ export type SesionEntreno = {
   validaciones?: Record<string, Validacion>;
   /** Notas generales de la sesión. */
   notas?: string;
+  /*
+  | El sello de cada validación (30/10/2026): el `hechoEn` del análisis que se
+  | estaba mirando al validar. Los ids de acción son «objetivo-segundo», así que
+  | al volver a analizar una acción NUEVA podía heredar el veredicto que se le
+  | dio a otra del análisis anterior en el mismo segundo. Con el sello, una
+  | validación sólo vale para el análisis en el que se hizo. Las de antes del
+  | sello (sin él) siguen valiendo tal cual.
+  */
+  validadoEn?: Record<string, string>;
 };
 
 export const SESION_VACIA: SesionEntreno = { objetivos: [], validaciones: {} };
@@ -88,6 +97,8 @@ export type AnalisisEntreno = {
   avisos: string[];
   /** Los objetivos tal y como estaban al analizar: si luego cambian, se avisa. */
   objetivosAnalizados: string[];
+  /** Sólo en pantalla (normalizaAnalisis): cuántas acciones repetidas se juntaron en una. */
+  repetidas?: number;
 };
 
 export const claveSesion = (fecha: string) => `entreno:${fecha}`;
@@ -206,5 +217,215 @@ export function normalizaSesion(x: unknown): SesionEntreno {
       : [],
     validaciones: s.validaciones && typeof s.validaciones === "object" ? s.validaciones : {},
     notas: typeof s.notas === "string" ? s.notas : "",
+    ...(s.validadoEn && typeof s.validadoEn === "object" ? { validadoEn: s.validadoEn } : {}),
   };
 }
+
+/* ------------------------------------------------------------------ */
+/*  LO QUE VALE DE VERDAD (30/10/2026)                                 */
+/* ------------------------------------------------------------------ */
+
+/*
+| La revisión de fiabilidad del 30/10/2026. Antes cada parte de la pantalla
+| decidía por su cuenta qué acciones contaban (el detalle contaba las de un
+| objetivo vaciado, el panel no) y leía el documento del análisis tal cual
+| (un campo que faltara rompía la página). Desde aquí todo pasa por:
+|
+|   - `normalizaAnalisis`: el documento del ordenador del club, saneado y sin
+|     acciones repetidas.
+|   - `validacionesVigentes` / `sesionVigente`: sólo las validaciones que son
+|     de ESTE análisis.
+|   - `objetivoMedido` / `accionesQueCuentan`: la misma regla de qué entra.
+*/
+
+/** Lo que dura cada parte que mira el análisis (scripts/entreno/analiza-entreno.mjs, PARTE_S). */
+export const PARTE_S = 20 * 60;
+
+const numero = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : null);
+
+/** ¿Son la misma acción? Mismo objetivo, mismo veredicto y casi el mismo segundo (o a caballo entre dos partes). */
+function mismaAccion(a: AccionEntreno, b: AccionEntreno) {
+  if (a.objetivoId !== b.objetivoId || a.veredicto !== b.veredicto) return false;
+
+  const distancia = Math.abs(b.inicio - a.inicio);
+  const quienA = (a.jugador ?? "").trim().toLowerCase();
+  const quienB = (b.jugador ?? "").trim().toLowerCase();
+
+  /* Dentro de una parte: el mismo jugador nombrado y a 2 s o menos. */
+  if (distancia <= 2 && quienA === quienB) return true;
+
+  /* En el corte entre dos partes cada una ve un trozo de la misma jugada y la cuenta: hasta 8 s, si no nombran a dos jugadores distintos. */
+  if (Math.floor(a.inicio / PARTE_S) === Math.floor(b.inicio / PARTE_S) || distancia > 8) return false;
+
+  const palabras = (t: string) => new Set(t.split(/[^a-záéíóúüñ0-9]+/).filter((p) => p.length >= 3));
+  const pa = palabras(quienA);
+  const pb = palabras(quienB);
+
+  return !pa.size || !pb.size || [...pa].some((p) => pb.has(p));
+}
+
+/**
+ * El documento `entreno-analisis:` saneado. `null` si no hay nada.
+ *
+ * Acciones sin objetivo o sin minuto, fuera; el fin nunca antes del inicio; y
+ * las repetidas (la misma jugada contada dos veces, sobre todo en el corte
+ * entre dos partes de 20 min) se cuentan una vez, quedándose la que tiene clip.
+ */
+export function normalizaAnalisis(x: unknown): AnalisisEntreno | null {
+  if (!x || typeof x !== "object") return null;
+
+  const a = x as Partial<AnalisisEntreno>;
+  const crudas: unknown[] = Array.isArray(a.acciones) ? a.acciones : [];
+  const limpias: AccionEntreno[] = [];
+
+  for (const cruda of crudas) {
+    if (!cruda || typeof cruda !== "object") continue;
+
+    const c = cruda as Partial<AccionEntreno>;
+    const inicio = numero(c.inicio);
+
+    if (typeof c.id !== "string" || !c.id || typeof c.objetivoId !== "string" || inicio === null || inicio < 0) continue;
+
+    const fin = numero(c.fin);
+
+    limpias.push({
+      id: c.id,
+      objetivoId: c.objetivoId,
+      inicio,
+      fin: fin !== null && fin > inicio ? fin : inicio + 6,
+      veredicto: c.veredicto === "mejorable" ? "mejorable" : "correcta",
+      ...(typeof c.jugador === "string" && c.jugador.trim() ? { jugador: c.jugador.trim() } : {}),
+      explicacion: typeof c.explicacion === "string" ? c.explicacion.trim() : "",
+      clip: typeof c.clip === "string" && c.clip ? c.clip : null,
+    });
+  }
+
+  limpias.sort((p, q) => p.inicio - q.inicio);
+
+  /* Sin repetidas: la primera de cada jugada, salvo que la repetida traiga el clip. */
+  const unicas: AccionEntreno[] = [];
+  const vistos = new Set<string>();
+  let repetidas = 0;
+
+  for (const c of limpias) {
+    if (vistos.has(c.id)) {
+      repetidas += 1;
+      continue;
+    }
+
+    vistos.add(c.id);
+
+    let k = -1;
+
+    for (let i = unicas.length - 1; i >= 0 && c.inicio - unicas[i].inicio <= 8; i -= 1)
+      if (mismaAccion(unicas[i], c)) {
+        k = i;
+        break;
+      }
+
+    if (k >= 0) {
+      repetidas += 1;
+      if (c.clip && !unicas[k].clip) unicas[k] = c;
+      continue;
+    }
+
+    unicas.push(c);
+  }
+
+  const fuente = (a.fuente && typeof a.fuente === "object" ? a.fuente : {}) as Partial<AnalisisEntreno["fuente"]>;
+
+  return {
+    fecha: typeof a.fecha === "string" ? a.fecha : "",
+    hechoEn: typeof a.hechoEn === "string" ? a.hechoEn : "",
+    fuente: {
+      tipo: fuente.tipo === "camara" ? "camara" : "hudl",
+      nombre: typeof fuente.nombre === "string" ? fuente.nombre : "",
+      duracion: Math.max(0, numero(fuente.duracion) ?? 0),
+      url: typeof fuente.url === "string" && fuente.url ? fuente.url : null,
+    },
+    acciones: unicas,
+    resumen: Array.isArray(a.resumen) ? a.resumen : [],
+    avisos: Array.isArray(a.avisos) ? a.avisos.filter((t): t is string => typeof t === "string" && Boolean(t.trim())) : [],
+    objetivosAnalizados: Array.isArray(a.objetivosAnalizados) ? a.objetivosAnalizados.filter((h): h is string => typeof h === "string") : [],
+    ...(repetidas ? { repetidas } : {}),
+  };
+}
+
+/** Las validaciones que valen para este análisis: las de sus acciones y, si llevan sello, con el suyo. */
+export function validacionesVigentes(sesion: SesionEntreno, analisis: AnalisisEntreno | null): Record<string, Validacion> {
+  const todas = sesion.validaciones ?? {};
+
+  if (!analisis) return todas;
+
+  const ids = new Set(analisis.acciones.map((a) => a.id));
+  const sello = sesion.validadoEn ?? {};
+  const vigentes: Record<string, Validacion> = {};
+
+  for (const [id, v] of Object.entries(todas)) if (ids.has(id) && (!sello[id] || !analisis.hechoEn || sello[id] === analisis.hechoEn)) vigentes[id] = v;
+
+  return vigentes;
+}
+
+/** Cuántas validaciones se hicieron sobre un análisis anterior y ya no cuentan. */
+export function validacionesAnteriores(sesion: SesionEntreno, analisis: AnalisisEntreno | null) {
+  if (!analisis?.hechoEn) return 0;
+
+  const sello = sesion.validadoEn ?? {};
+  const ids = new Set(analisis.acciones.map((a) => a.id));
+
+  return Object.keys(sesion.validaciones ?? {}).filter((id) => ids.has(id) && sello[id] && sello[id] !== analisis.hechoEn).length;
+}
+
+/** La sesión con sólo las validaciones vigentes: es la que leen todas las cuentas. */
+export const sesionVigente = (sesion: SesionEntreno, analisis: AnalisisEntreno | null): SesionEntreno => ({ ...sesion, validaciones: validacionesVigentes(sesion, analisis) });
+
+/** ¿Entró este objetivo en el análisis? (con su id; si luego cambió el texto, lo dice `huellaObjetivo`). */
+export const objetivoMedido = (o: ObjetivoEntreno, analisis: AnalisisEntreno | null) => Boolean(o.objetivo.trim() && analisis?.objetivosAnalizados.some((h) => h.startsWith(`${o.id}|`)));
+
+/** Las acciones que cuentan en el día: las de objetivos que siguen en la sesión, con texto y medidos (descartadas incluidas: se apartan con el veredicto). */
+export function accionesQueCuentan(sesion: SesionEntreno, analisis: AnalisisEntreno | null) {
+  if (!analisis) return [];
+
+  const medidos = new Set(sesion.objetivos.filter((o) => objetivoMedido(o, analisis)).map((o) => o.id));
+
+  return analisis.acciones.filter((a) => medidos.has(a.objetivoId));
+}
+
+/*
+| Los avisos del análisis, legibles (30/10/2026). El script los escribe para
+| el administrador («la parte 2 (min 20-40) no se ha podido mirar: <error del
+| motor>»); en pantalla no se nombra ningún motor y lo que importa es qué
+| minutos se quedaron sin mirar, porque ahí no puede haber acciones.
+*/
+
+/** Quita los nombres de motores de un texto que viene del ordenador del club. */
+export const sinMotores = (t: string) =>
+  t
+    .replace(/\b(gemini|claude|anthropic|openai|chatgpt|gpt|genai|google\s*ai)[\w.\-/]*/gi, "análisis automático")
+    .replace(/\bla IA\b/g, "el análisis automático")
+    .replace(/\bIA\b/g, "análisis automático");
+
+/** Los tramos (en segundos) que el análisis no pudo mirar. */
+export function tramosSinMirar(avisos: string[]) {
+  return avisos.flatMap((t) => {
+    const m = /parte\s+\d+\s*\(min\s*(\d+)\s*-\s*(\d+)\)\s*no se ha podido mirar/i.exec(t);
+
+    return m ? [{ desde: Number(m[1]) * 60, hasta: Number(m[2]) * 60 }] : [];
+  });
+}
+
+/** Un aviso, dicho para el cuerpo técnico. */
+export function avisoLegible(t: string) {
+  const parte = /parte\s+\d+\s*\(min\s*(\d+)\s*-\s*(\d+)\)\s*no se ha podido mirar/i.exec(t);
+
+  if (parte) return `Del minuto ${parte[1]} al ${parte[2]} no se ha podido analizar: ese tramo no tiene acciones.`;
+
+  const clip = /un clip\s*\((\d+)'\)\s*no se ha podido cortar/i.exec(t);
+
+  if (clip) return `El clip del minuto ${clip[1]} no se ha podido cortar: esa acción se ve por su minuto.`;
+
+  return sinMotores(t.split(": ")[0]).replace(/^./, (l) => l.toUpperCase());
+}
+
+/** «12 de 20»: la cuenta con su base, siempre igual. */
+export const deBase = (parte: number, total: number) => `${parte} de ${total}`;

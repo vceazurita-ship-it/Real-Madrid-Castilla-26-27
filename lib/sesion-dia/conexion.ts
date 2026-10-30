@@ -37,7 +37,7 @@
  */
 
 import type { RegistroTarea } from "@/lib/abp/registro";
-import { cuentas, cumpleMeta, lecturaCuentas, porcentajeOTendencia, type AnalisisEntreno, type SesionEntreno } from "@/lib/entreno/modelo";
+import { cuentas, cumpleMeta, lecturaCuentas, normalizaAnalisis, objetivoMedido, porcentajeOTendencia, validacionesVigentes, type AnalisisEntreno, type SesionEntreno } from "@/lib/entreno/modelo";
 import { TIPOS_TAREA, fechaIsoDeHoja, renumera, tareaVacia, type TareaNueva } from "@/lib/registro/hoja";
 import type { DetalleTarea } from "@/lib/sesion-equipos/registro";
 import { COLOR_COMODIN, COMODIN, FUERA, claveNombre, conEquipos, nuevaTarea, type JugadorSesion, type SesionEquipos, type TareaEquipos } from "@/lib/sesion-equipos/modelo";
@@ -617,10 +617,14 @@ export function resultadosPorTarea(sesion: SesionEntreno | null | undefined, ana
   const porTarea = new Map<number, ResultadoObjetivo[]>();
   const sinTarea: ResultadoObjetivo[] = [];
 
+  /* Con las mismas reglas que /analisis-entrenamiento (30/10/2026): el análisis saneado, sólo los objetivos medidos y sólo las validaciones de ese análisis. */
+  const limpio = normalizaAnalisis(analisis);
+  const vigentes = sesion && limpio ? validacionesVigentes(sesion, limpio) : sesion?.validaciones;
+
   for (const o of sesion?.objetivos ?? []) {
     if (!o.objetivo.trim()) continue;
 
-    const c = analisis ? cuentas(o.id, analisis.acciones, sesion?.validaciones) : null;
+    const c = limpio && objetivoMedido(o, limpio) ? cuentas(o.id, limpio.acciones, vigentes) : null;
     const resultado: ResultadoObjetivo = {
       id: o.id,
       objetivo: o.objetivo.trim(),

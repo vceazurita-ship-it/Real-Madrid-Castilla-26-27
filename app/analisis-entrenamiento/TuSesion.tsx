@@ -63,7 +63,7 @@ export function TuSesion({ jugador, nombre, mensaje }: { jugador: string; nombre
     <div className="space-y-3">
       {mensaje.sinValidar > 0 ? (
         <Notice tone="warn" title={`${mensaje.sinValidar} ${mensaje.sinValidar === 1 ? "acción suya sigue" : "acciones suyas siguen"} sin validar`}>
-          El mensaje cuenta con lo que se propuso solo. Valídalas en «El día» antes de mandarlo si quieres que sea tu criterio.
+          El mensaje cuenta con lo que se propuso solo. Valídalas en «Revisar» antes de mandarlo si quieres que sea tu criterio.
         </Notice>
       ) : null}
 

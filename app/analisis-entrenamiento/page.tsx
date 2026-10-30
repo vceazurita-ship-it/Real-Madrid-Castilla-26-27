@@ -17,22 +17,43 @@
  * otro día ya no asoma al cambiar de fecha, validar en bloque, resumen del
  * día y semanas anterior/siguiente.
  *
- * Terminada el 19/10/2026 (Paquete D del plan de los expertos):
- *   - La cuenta siempre igual: «9 de 14 correctas (11 validadas)», y el
- *     porcentaje sólo con 8 acciones o más (si no, «tendencia»). Lo validado
- *     y lo que sólo propuso la IA se distinguen a la vista.
- *   - Cada objetivo puede llevar su tarea del registro del día, su meta y de
- *     dónde sale, y enseña la sesión anterior del mismo objetivo.
- *   - Pestaña «Por jugador»: su evolución y «Tu sesión» para WhatsApp.
- *   - Sale de obras: el cuerpo técnico entra con su cuenta y puede pedir el
- *     análisis; cada estado (sin objetivos, esperando al ordenador,
- *     analizando, error, sin vídeo, sin clips) dice qué pasa y qué hacer.
- *   - El día, la pestaña y el jugador van en la dirección: recargar o mandar
- *     el enlace abre lo mismo.
+ * Terminada el 19/10/2026 (Paquete D del plan de los expertos): la cuenta
+ * siempre igual («9 de 14 correctas (11 validadas)»), porcentaje sólo con 8
+ * acciones o más, tarea, meta y origen por objetivo, vista por jugador y
+ * «Tu sesión», y el día, la vista y el jugador en la dirección.
+ *
+ * REVISIÓN DEL 30/10/2026 (el analista: «debe mejorar mucho, visual,
+ * funcional —mucho más fiable— y usablemente»):
+ *
+ *   Fiabilidad
+ *   - El análisis se lee saneado y sin acciones repetidas (`normalizaAnalisis`):
+ *     un documento a medias ya no rompe la página y la misma jugada contada
+ *     en el corte entre dos partes cuenta una vez.
+ *   - Cada validación lleva el sello del análisis en el que se hizo: al volver
+ *     a analizar, una acción nueva ya no hereda el veredicto de otra que caía
+ *     en el mismo segundo.
+ *   - Una sola regla de qué acciones cuentan (objetivos con texto y medidos)
+ *     para la cabecera, el panel, la revisión y la tarea del día.
+ *   - Lo que se escribe mientras se lee el documento del día ya no se pierde
+ *     en silencio: no se deja escribir hasta que llega (useRemoteDoc no lo
+ *     guarda en ese rato).
+ *   - El estado del ordenador se lee ANTES que el análisis: si terminaba entre
+ *     las dos lecturas, la pantalla dejaba de releer con el análisis viejo.
+ *   - Lo validado en otro día de esta misma visita cuenta en la evolución
+ *     (antes salía la foto del servidor del momento de entrar).
+ *   - Elegir un día a mano mientras carga el registro ya no lo pisa el salto
+ *     automático al último día con sesión.
+ *
+ *   Uso
+ *   - Cabecera con la sesión, su estado, cuatro pasos y UN botón con el
+ *     siguiente paso (./CabeceraSesion.tsx).
+ *   - Pestañas por paso: Resumen · Revisar · Objetivos · Por jugador.
+ *   - Revisar con el visor y el teclado (./VisorClips.tsx): 1 / 2 / 3, flechas
+ *     y salto solo a la siguiente sin validar.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, CheckCheck, ChevronLeft, ChevronRight, ClipboardCheck, Copy, Film, Loader2, Play, Plus, RefreshCw, ThumbsDown, ThumbsUp, UserRound, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BarChart3, ClipboardCheck, Copy, ListChecks, Loader2, Plus, RefreshCw, Target, TrendingUp, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
@@ -43,22 +64,23 @@ import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { loadRegistro, type RegistroTarea } from "@/lib/abp/registro";
-import { anteriorDelObjetivo, ultimoDiaConObjetivos, type DiaEntreno } from "@/lib/entreno/jugador";
+import { ultimoDiaConObjetivos, type DiaEntreno } from "@/lib/entreno/jugador";
 import {
   KIND_ENTRENO,
   MINIMO_PORCENTAJE,
   SESION_VACIA,
+  accionesQueCuentan,
   claveAnalisis,
   claveSesion,
-  cuentas,
-  cumpleMeta,
+  cuentasDe,
   huellaObjetivo,
-  lecturaCuentas,
-  mmss,
+  normalizaAnalisis,
   normalizaSesion,
   nuevoId,
-  porcentajeOTendencia,
-  veredictoFinal,
+  sesionVigente,
+  sinMotores,
+  validacionesAnteriores,
+  validacionesVigentes,
   type AnalisisEntreno,
   type SesionEntreno,
   type Validacion,
@@ -70,10 +92,13 @@ import { fechaIsoDeHoja } from "@/lib/registro/hoja";
 import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { planDeRegistro, sesionDeFecha } from "@/lib/sesion-dia/conexion";
 
+import { CabeceraSesion, SelectorDia, type Paso, type Siguiente } from "./CabeceraSesion";
 import { CAMPO, ObjetivoEditor, type TareaDelDia } from "./ObjetivoEditor";
-import { SesionDelDia } from "./SesionDelDia";
 import { PanelVisual } from "./PanelVisual";
 import { QueTocaDelPost } from "./QueTocaDelPost";
+import { RevisarAcciones } from "./RevisarAcciones";
+import { SesionDelDia } from "./SesionDelDia";
+import { VisorClips, type PeticionVisor, type Pieza } from "./VisorClips";
 import { VistaJugador } from "./VistaJugador";
 
 const isoDe = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -97,13 +122,9 @@ function semanaDe(fecha: string) {
   return Array.from({ length: 7 }, (_, i) => mueve(lunes, i));
 }
 
-const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
-
 const ddmm = (f: string) => f.split("-").reverse().slice(0, 2).join("/");
 
-const FOCO = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#C8A96B]";
-
-type Vista = "todas" | "correcta" | "mejorable" | "sin-validar" | "con-clip";
+type Vista = "resumen" | "revisar" | "objetivos" | "jugador";
 
 /** Un parámetro de la dirección al montar (el mismo patrón que `usePestanaUrl`: una vez, sin efectos). */
 function deLaDireccion(nombre: string) {
@@ -129,6 +150,9 @@ function ponEnDireccion(nombre: string, valor: string | null) {
 /** Lo que dice el ordenador del club, leído junto con el análisis (con la hora de la lectura: nada de relojes en el render). */
 type Ordenador = { encargo: Encargo | null; estado: EstadoEncargo; vivo: boolean; progreso: VistaProgreso | null };
 
+/** El análisis leído de un día. Se guarda por día: volver a uno ya visto lo enseña al momento mientras se relee. */
+type Leido = { analisis: AnalisisEntreno | null; error: boolean };
+
 /**
  * Qué hacer cuando el análisis ha fallado, según lo que contestó el script
  * (scripts/entreno/analiza-entreno.mjs, sus `fin(...)`). Lo que el cuerpo
@@ -138,14 +162,14 @@ function queHacer(resultado: string) {
   if (/no hay v[ií]deo/i.test(resultado))
     return {
       titulo: "No se ha encontrado el vídeo de este día",
-      texto: "Sube el entrenamiento a Hudl con la fecha en el título («DDMMAAAA RM CASTILLA…») o deja la grabación de la cámara táctica en la carpeta SESIONES del ordenador del club, y vuelve a pulsar «Analizar».",
+      texto: "Sube el entrenamiento a Hudl con la fecha en el título («DDMMAAAA RM CASTILLA…») o deja la grabación de la cámara táctica en la carpeta SESIONES del ordenador del club, y vuelve a pedir el análisis.",
     };
 
-  if (/no tiene objetivos/i.test(resultado)) return { titulo: "El día no tenía objetivos guardados", texto: "Escribe al menos un objetivo con su jugador y vuelve a pulsar «Analizar»." };
+  if (/no tiene objetivos/i.test(resultado)) return { titulo: "El día no tenía objetivos guardados", texto: "Escribe al menos un objetivo con su jugador y vuelve a pedir el análisis." };
 
   if (/sesi[oó]n de hudl|login/i.test(resultado)) return { titulo: "La sesión de Hudl del ordenador del club ha caducado", texto: "Avisa al administrador para que vuelva a entrar en Hudl en ese ordenador; después, vuelve a pedir el análisis." };
 
-  if (/cuota|quota|429|gemini/i.test(resultado)) return { titulo: "El análisis no ha contestado", texto: "Suele ser la cuota del día. Vuelve a pedirlo dentro de un rato." };
+  if (/cuota|quota|429|gemini|api.?key/i.test(resultado)) return { titulo: "El análisis automático no ha contestado", texto: "Suele ser la cuota del día. Vuelve a pedirlo dentro de un rato." };
 
   return { titulo: "El análisis no ha salido", texto: "Vuelve a pedirlo; si se repite, avisa al administrador con el detalle de abajo." };
 }
@@ -157,11 +181,7 @@ export default function AnalisisEntrenamientoPage() {
 
     return pedida && /^\d{4}-\d{2}-\d{2}$/.test(pedida) ? pedida : hoyDia;
   });
-  const setFecha = (f: string) => {
-    setFechaEstado(f);
-    ponEnDireccion("fecha", f === hoyDia ? null : f);
-  };
-  const [pestana, setPestana] = usePestanaUrl<"dia" | "jugador">("vista", ["dia", "jugador"], "dia");
+  const [pestana, setPestana] = usePestanaUrl<Vista>("vista", ["resumen", "revisar", "objetivos", "jugador"], "resumen");
   const [jugador, setJugadorEstado] = useState<string | null>(() => deLaDireccion("jugador"));
   const setJugador = (clave: string) => {
     setJugadorEstado(clave);
@@ -180,49 +200,81 @@ export default function AnalisisEntrenamientoPage() {
 
   const { value, setValue, status, localOnly, lastSavedAt, sinGuardar, guardaYa } = useRemoteDoc<SesionEntreno>({ key: claveSesion(fecha), kind: KIND_ENTRENO, fallback: SESION_VACIA });
   const sesion = useMemo(() => normalizaSesion(value), [value]);
-  const cambia = (f: (s: SesionEntreno) => SesionEntreno) => setValue((actual) => f(normalizaSesion(actual)));
+  /* Mientras llega el documento del día, useRemoteDoc no guarda lo que se escriba (la carga lo pisaría): se dice en vez de perderlo callando. */
+  const bloqueado = status === "loading";
+  const cambia = (f: (s: SesionEntreno) => SesionEntreno) => {
+    if (bloqueado) {
+      toast.info("Un momento: se están leyendo los objetivos del día", { id: "entreno-cargando" });
 
-  /* El análisis (lo escribe el ordenador del club) y el encargo, releídos mientras va. Se guarda con su día: al cambiar de fecha no asoma el del anterior. */
-  const [leido, setLeido] = useState<{ fecha: string; analisis: AnalisisEntreno | null; error: boolean } | null>(null);
+      return;
+    }
+
+    setValue((actual) => f(normalizaSesion(actual)));
+  };
+
+  /* ---------------- el análisis y el ordenador del club ---------------- */
+
+  const [leidos, setLeidos] = useState<Record<string, Leido>>({});
   const [ordenador, setOrdenador] = useState<Ordenador | null>(null);
   const [pidiendo, setPidiendo] = useState(false);
-  const [vista, setVista] = useState<Vista>("todas");
-  const analisis = leido?.fecha === fecha ? leido.analisis : null;
-  const cargando = leido?.fecha !== fecha;
+  const leido = leidos[fecha] ?? null;
+  const analisis = leido?.analisis ?? null;
+  const cargando = leido === null;
 
   /* La lectura va dentro del efecto y se relee subiendo el testigo (la forma que pasa el linter de React). */
   const [testigo, setTestigo] = useState(0);
   const relee = useCallback(() => setTestigo((n) => n + 1), []);
+  /** El día que el ordenador tenía en marcha en la lectura anterior: para avisar al terminar. */
+  const enMarchaAntes = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelado = false;
 
-    Promise.all([
-      fetch(`/api/docs?key=${encodeURIComponent(claveAnalisis(fecha))}`, { cache: "no-store" })
+    const lee = async () => {
+      /*
+      | Primero el ordenador y DESPUÉS el análisis (30/10/2026). Leídos a la vez,
+      | si el análisis se escribía justo entre las dos respuestas llegaba «ya no
+      | está en marcha» con el análisis de antes, la pantalla dejaba de releer y
+      | se quedaba con el viejo hasta pulsar «Releer».
+      */
+      const m = (await fetch("/api/mantenimiento", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)) as { estado?: { entreno?: Encargo }; vigia?: Vigia | null } | null;
+      const a: Leido = await fetch(`/api/docs?key=${encodeURIComponent(claveAnalisis(fecha))}`, { cache: "no-store" })
         .then(async (r) => {
           if (!r.ok) throw new Error(String(r.status));
 
-          return { analisis: ((await r.json()) as { data?: AnalisisEntreno | null })?.data ?? null, error: false };
+          return { analisis: normalizaAnalisis(((await r.json()) as { data?: unknown })?.data ?? null), error: false };
         })
-        .catch(() => ({ analisis: null, error: true })),
-      fetch("/api/mantenimiento", { cache: "no-store" })
-        .then((r) => r.json() as Promise<{ estado?: { entreno?: Encargo }; vigia?: Vigia | null }>)
-        .catch(() => null),
-    ]).then(([a, m]) => {
+        .catch(() => ({ analisis: null, error: true }));
+
       if (cancelado) return;
 
       const ahora = Date.now();
       const encargo = m?.estado?.entreno ?? null;
       const estado = encargo ? estadoEncargo("entreno", encargo, ahora) : "libre";
+      const deQue = (encargo?.datos as { fecha?: string } | undefined)?.fecha ?? null;
+      const enMarcha = estado === "pedido" || estado === "en-marcha" ? deQue : null;
 
-      setLeido({ fecha, ...a });
+      /* Aviso al terminar el análisis que se estaba siguiendo desde aquí. */
+      if (enMarchaAntes.current && !enMarcha && m) {
+        if (encargo?.ok === false) toast.error(`El análisis del ${ddmm(enMarchaAntes.current)} no ha salido`, { description: "Mira el aviso en la cabecera." });
+        else toast.success(`Análisis del ${ddmm(enMarchaAntes.current)} listo`, { description: "Ya se puede revisar." });
+      }
+
+      enMarchaAntes.current = enMarcha;
+
+      /* Si falla la lectura, se queda lo último que se leyó de ese día (con el error dicho). */
+      setLeidos((l) => ({ ...l, [fecha]: a.error ? { analisis: l[fecha]?.analisis ?? null, error: true } : a }));
       setOrdenador({
         encargo,
         estado,
         vivo: vigiaVivo(m?.vigia, ahora),
         progreso: estado === "en-marcha" ? vistaProgreso("entreno", m?.vigia?.progreso?.entreno, encargo?.empezadoEn, ahora) : null,
       });
-    });
+    };
+
+    void lee();
 
     return () => {
       cancelado = true;
@@ -248,7 +300,8 @@ export default function AnalisisEntrenamientoPage() {
     return () => window.clearInterval(reloj);
   }, [enCurso, ocupadoConOtro, relee]);
 
-  /* Todos los días guardados, para la sesión anterior, copiar objetivos y la vista por jugador. */
+  /* ---------------- el historial (sesión anterior, copiar, evolución, por jugador) ---------------- */
+
   const [historial, setHistorial] = useState<{ dias: DiaEntreno[]; error: boolean } | null>(null);
   const [testigoHistorial, setTestigoHistorial] = useState(0);
 
@@ -257,7 +310,7 @@ export default function AnalisisEntrenamientoPage() {
 
     fetch("/api/entreno/historial", { cache: "no-store" })
       .then(async (r) => {
-        const j = (await r.json()) as { ok?: boolean; sesiones?: { fecha: string; data: unknown }[]; analisis?: { fecha: string; data: AnalisisEntreno }[] };
+        const j = (await r.json()) as { ok?: boolean; sesiones?: { fecha: string; data: unknown }[]; analisis?: { fecha: string; data: unknown }[] };
 
         if (!r.ok || !j.ok) throw new Error(String(r.status));
 
@@ -266,7 +319,7 @@ export default function AnalisisEntrenamientoPage() {
         return [...fechas].map((f) => ({
           fecha: f,
           sesion: normalizaSesion(j.sesiones?.find((s) => s.fecha === f)?.data ?? null),
-          analisis: j.analisis?.find((a) => a.fecha === f)?.data ?? null,
+          analisis: normalizaAnalisis(j.analisis?.find((a) => a.fecha === f)?.data ?? null),
         }));
       })
       .then((dias) => {
@@ -281,15 +334,46 @@ export default function AnalisisEntrenamientoPage() {
     };
   }, [testigoHistorial]);
 
-  /* El historial con el día abierto tal y como está ahora (lo que se acaba de escribir o validar aún puede no estar en el servidor). */
+  /*
+  | Lo escrito en otros días durante esta visita (30/10/2026). El historial es
+  | la foto del servidor al entrar: validar el martes y pasar al miércoles
+  | dejaba la evolución con el martes de antes. Al cambiar de día se apunta
+  | cómo quedó el que se deja.
+  */
+  const [editadas, setEditadas] = useState<Record<string, SesionEntreno>>({});
+
+  /* Elegir un día a mano manda: el salto automático al último día con sesión ya no lo pisa. */
+  const [saltoHecho, setSaltoHecho] = useState(() => deLaDireccion("fecha") !== null);
+  const setFecha = (f: string) => {
+    if (f === fecha) return;
+
+    if (!bloqueado) setEditadas((e) => ({ ...e, [fecha]: sesion }));
+
+    setSaltoHecho(true);
+    setFechaEstado(f);
+    ponEnDireccion("fecha", f === hoyDia ? null : f);
+  };
+
+  /* El día abierto, con sólo las validaciones de ESTE análisis (las de uno anterior no cuentan). */
+  const servidorDelDia = historial?.dias.find((d) => d.fecha === fecha) ?? null;
+  const analisisParaCuentas = cargando ? (servidorDelDia?.analisis ?? null) : analisis;
+  const sesionV = useMemo(() => sesionVigente(sesion, analisisParaCuentas), [sesion, analisisParaCuentas]);
+
   const dias = useMemo<DiaEntreno[]>(() => {
-    const otros = (historial?.dias ?? []).filter((d) => d.fecha !== fecha);
-    const servidor = historial?.dias.find((d) => d.fecha === fecha);
+    const otros = (historial?.dias ?? [])
+      .filter((d) => d.fecha !== fecha)
+      .map((d) => {
+        const s = editadas[d.fecha] ?? d.sesion;
+        const a = leidos[d.fecha]?.analisis ?? d.analisis;
 
-    return [...otros, { fecha, sesion, analisis: cargando ? (servidor?.analisis ?? null) : analisis }];
-  }, [historial, fecha, sesion, analisis, cargando]);
+        return { fecha: d.fecha, sesion: sesionVigente(s, a), analisis: a };
+      });
 
-  /* Las tareas del registro de ese día, para atar cada objetivo a la suya. */
+    return [...otros, { fecha, sesion: sesionV, analisis: analisisParaCuentas }];
+  }, [historial, fecha, sesionV, analisisParaCuentas, editadas, leidos]);
+
+  /* ---------------- las tareas del registro ---------------- */
+
   const [registro, setRegistro] = useState<RegistroTarea[] | "error" | null>(null);
 
   useEffect(() => {
@@ -323,22 +407,20 @@ export default function AnalisisEntrenamientoPage() {
   /*
   | ABRE EN EL ÚLTIMO DÍA CON SESIÓN (26/10/2026). Si no se pidió un día en la
   | dirección y hoy no hay sesión en el registro, se abría un día vacío: ahora
-  | salta al último día con tareas, sin pasar de hoy. Una sola vez, para no
-  | pelearse con quien elija otro día a mano.
+  | salta al último día con tareas, sin pasar de hoy. Una sola vez, y nunca
+  | encima de un día elegido a mano (30/10/2026).
   */
-  const [saltoHecho, setSaltoHecho] = useState(() => deLaDireccion("fecha") !== null);
-
   useEffect(() => {
     if (saltoHecho || !Array.isArray(registro)) return;
 
     const id = setTimeout(() => {
       setSaltoHecho(true);
 
-      const dias = registro.map((t) => fechaIsoDeHoja(t.fecha)).filter((f): f is string => Boolean(f) && f <= hoyDia);
+      const conSesion = registro.map((t) => fechaIsoDeHoja(t.fecha)).filter((f): f is string => Boolean(f) && f <= hoyDia);
 
-      if (dias.includes(hoyDia) || dias.length === 0) return;
+      if (conSesion.includes(hoyDia) || conSesion.length === 0) return;
 
-      setFechaEstado(dias.reduce((a, b) => (b > a ? b : a)));
+      setFechaEstado(conSesion.reduce((a, b) => (b > a ? b : a)));
     }, 0);
 
     return () => clearTimeout(id);
@@ -353,8 +435,12 @@ export default function AnalisisEntrenamientoPage() {
 
   const anteriorConObjetivos = ultimoDiaConObjetivos(dias, fecha);
 
+  /* ---------------- acciones ---------------- */
+
+  const nuevoObjetivo = () => cambia((s) => ({ ...s, objetivos: [...s.objetivos, { id: nuevoId(), objetivo: "", jugadores: [] }] }));
+
   const copiaObjetivos = () => {
-    if (!anteriorConObjetivos) return;
+    if (!anteriorConObjetivos || bloqueado) return;
 
     /* Con el mismo texto, para que la vista por jugador los empareje; la tarea no se copia (cada día tiene las suyas). */
     cambia((s) => ({
@@ -367,18 +453,20 @@ export default function AnalisisEntrenamientoPage() {
     toast.success(`Copiados los objetivos del ${ddmm(anteriorConObjetivos.fecha)}`);
   };
 
-  const pide = async () => {
-    const conTexto = sesion.objetivos.filter((o) => o.objetivo.trim());
-    const sinJugador = conTexto.filter((o) => !o.jugadores.length);
+  const conTexto = sesion.objetivos.filter((o) => o.objetivo.trim());
+  const sinJugador = conTexto.filter((o) => !o.jugadores.length);
 
+  const pide = async () => {
     if (!conTexto.length) {
       toast.error("Define al menos un objetivo con su jugador");
+      setPestana("objetivos");
 
       return;
     }
 
     if (sinJugador.length) {
       toast.error(sinJugador.length === 1 ? "Un objetivo no tiene jugador" : `${sinJugador.length} objetivos no tienen jugador`, { description: "Elige a quién se mira en cada uno." });
+      setPestana("objetivos");
 
       return;
     }
@@ -397,52 +485,180 @@ export default function AnalisisEntrenamientoPage() {
       toast.success("Pedido: el ordenador del club lo empieza en unos segundos");
       relee();
     } catch (error) {
-      toast.error("No se ha podido pedir", { description: error instanceof Error ? error.message : "" });
+      toast.error("No se ha podido pedir", { description: error instanceof Error ? sinMotores(error.message) : "" });
     } finally {
       setPidiendo(false);
     }
   };
 
+  /* Cada validación con el sello del análisis que se está mirando (lib/entreno/modelo.ts, `validadoEn`). */
   const valida = (id: string, v: Validacion | null) =>
     cambia((s) => {
       const validaciones = { ...(s.validaciones ?? {}) };
+      const validadoEn = { ...(s.validadoEn ?? {}) };
 
-      if (v) validaciones[id] = v;
-      else delete validaciones[id];
+      if (v) {
+        validaciones[id] = v;
+        if (analisis?.hechoEn) validadoEn[id] = analisis.hechoEn;
+        else delete validadoEn[id];
+      } else {
+        delete validaciones[id];
+        delete validadoEn[id];
+      }
 
-      return { ...s, validaciones };
+      return { ...s, validaciones, validadoEn };
     });
 
-  /* Dar por buenas, de una vez, las que quedan sin validar de un objetivo (con el veredicto de la IA). */
+  /* Dar por buenas, de una vez, las que quedan sin validar de un objetivo (con el veredicto propuesto). */
   const validaResto = (objetivoId: string) => {
     if (!analisis) return;
 
     cambia((s) => {
+      const vigentes = validacionesVigentes(s, analisis);
       const validaciones = { ...(s.validaciones ?? {}) };
+      const validadoEn = { ...(s.validadoEn ?? {}) };
 
-      for (const a of analisis.acciones) if (a.objetivoId === objetivoId && !validaciones[a.id]) validaciones[a.id] = a.veredicto;
+      for (const a of analisis.acciones)
+        if (a.objetivoId === objetivoId && !vigentes[a.id]) {
+          validaciones[a.id] = a.veredicto;
+          if (analisis.hechoEn) validadoEn[a.id] = analisis.hechoEn;
+        }
 
-      return { ...s, validaciones };
+      return { ...s, validaciones, validadoEn };
     });
   };
 
+  /* ---------------- el visor (uno para toda la página) ---------------- */
+
+  const [visor, setVisor] = useState<PeticionVisor | null>(null);
+  const validacionesDe = (f: string) => dias.find((d) => d.fecha === f)?.sesion.validaciones;
+
+  /* ---------------- las cuentas del día (una sola regla: lib/entreno/modelo.ts) ---------------- */
+
   const analizados = new Set(analisis?.objetivosAnalizados ?? []);
-  const cambiados = analisis ? sesion.objetivos.filter((o) => o.objetivo.trim() && !analizados.has(huellaObjetivo(o))).length : 0;
-  const semana = semanaDe(fecha);
-  const idsVivos = new Set(sesion.objetivos.map((o) => o.id));
-  const vivas = analisis ? analisis.acciones.filter((a) => idsVivos.has(a.objetivoId)) : [];
-  const cuantas: Record<Vista, number> = {
-    todas: vivas.length,
-    correcta: vivas.filter((a) => veredictoFinal(a, sesion.validaciones) === "correcta").length,
-    mejorable: vivas.filter((a) => veredictoFinal(a, sesion.validaciones) === "mejorable").length,
-    "sin-validar": vivas.filter((a) => !sesion.validaciones?.[a.id]).length,
-    "con-clip": vivas.filter((a) => a.clip).length,
+  const cambiados = analisis ? conTexto.filter((o) => !analizados.has(huellaObjetivo(o))).length : 0;
+  const vivas = !cargando ? accionesQueCuentan(sesionV, analisis) : [];
+  const cuentasDia = cuentasDe(vivas, sesionV.validaciones);
+  const sinValidar = vivas.filter((a) => !sesionV.validaciones?.[a.id]);
+  const anteriores = !cargando ? validacionesAnteriores(sesion, analisis) : 0;
+  const numeroDe = new Map(sesion.objetivos.map((o, i) => [o.id, { numero: i + 1, texto: o.objetivo }]));
+  const piezasDelDia: Pieza[] = vivas.map((a) => ({ accion: a, fecha, objetivo: `${numeroDe.get(a.objetivoId)?.numero ?? ""}. ${numeroDe.get(a.objetivoId)?.texto ?? ""}`, fuenteUrl: analisis?.fuente.url ?? null }));
+  const abreRevision = () => {
+    if (!piezasDelDia.length) return;
+
+    setVisor({ titulo: "Revisar las acciones del día", piezas: piezasDelDia, filtro: sinValidar.length ? "sin-validar" : "todas", orden: "minuto" });
   };
-  const cuentanDia = cuantas.correcta + cuantas.mejorable;
-  const validadasDia = vivas.filter((a) => sesion.validaciones?.[a.id] && sesion.validaciones[a.id] !== "descartada").length;
-  const pctDia = cuentanDia >= MINIMO_PORCENTAJE ? Math.round((100 * cuantas.correcta) / cuentanDia) : null;
-  const conTexto = sesion.objetivos.filter((o) => o.objetivo.trim()).length;
-  const fuenteUrl = analisis?.fuente.url ?? null;
+
+  /* ---------------- la cabecera: estado, pasos y siguiente paso ---------------- */
+
+  const plan = planDelDia[0];
+  const textoSesion = plan ? [`Micro ${plan.micro}`, plan.md, plan.rival ? `Rival: ${plan.rival}` : "", planDelDia.length ? `${planDelDia.length} ${planDelDia.length === 1 ? "tarea" : "tareas"}` : ""].filter(Boolean).join(" · ") : undefined;
+  const textoFuente = analisis
+    ? [
+        analisis.fuente.tipo === "camara" ? "Cámara táctica" : "Hudl",
+        analisis.fuente.duracion ? `${Math.round(analisis.fuente.duracion / 60)} min de vídeo` : "",
+        analisis.hechoEn ? `analizado el ${new Date(analisis.hechoEn).toLocaleString("es-ES", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" })}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : undefined;
+
+  const objetivosListos = conTexto.length > 0 && sinJugador.length === 0;
+  const pasos: Paso[] = [
+    {
+      nombre: "Objetivos",
+      estado: objetivosListos ? "hecho" : !analisis ? "ahora" : "pendiente",
+      detalle: !conTexto.length ? "Sin objetivos" : sinJugador.length ? `${sinJugador.length} sin jugador` : `${conTexto.length} ${conTexto.length === 1 ? "objetivo" : "objetivos"}`,
+      onClick: () => setPestana("objetivos"),
+    },
+    {
+      nombre: "Análisis",
+      estado: enCurso ? "ahora" : fallo || cortado ? "error" : analisis ? (cambiados ? "ahora" : "hecho") : objetivosListos ? "ahora" : "pendiente",
+      detalle: enCurso
+        ? estado === "pedido"
+          ? "Pedido"
+          : `Analizando${ordenador?.progreso ? ` · ${ordenador.progreso.porcentaje} %` : ""}`
+        : fallo || cortado
+          ? "No ha salido"
+          : analisis
+            ? cambiados
+              ? `${cambiados} sin medir`
+              : `${vivas.length} ${vivas.length === 1 ? "acción" : "acciones"}`
+            : futuro
+              ? "El día del entrenamiento"
+              : "Sin pedir",
+    },
+    {
+      nombre: "Revisión",
+      estado: !analisis || !vivas.length ? "pendiente" : sinValidar.length ? "ahora" : "hecho",
+      detalle: analisis && vivas.length ? `${vivas.length - sinValidar.length} de ${vivas.length} revisadas` : undefined,
+      onClick: analisis && vivas.length ? () => setPestana("revisar") : undefined,
+    },
+    {
+      nombre: "Evolución",
+      estado: analisis && vivas.length && !sinValidar.length ? "ahora" : "pendiente",
+      detalle: "Por jugador",
+      onClick: () => setPestana("jugador"),
+    },
+  ];
+
+  const estadoChip: { texto: string; tono: "neutro" | "oro" | "aviso" | "bien" } = enCurso
+    ? { texto: estado === "pedido" ? "Análisis pedido" : "Analizando", tono: "oro" }
+    : fallo || cortado
+      ? { texto: "El análisis no ha salido", tono: "aviso" }
+      : analisis && vivas.length
+        ? sinValidar.length
+          ? { texto: `${sinValidar.length} por revisar`, tono: "oro" }
+          : { texto: "Revisado", tono: "bien" }
+        : analisis
+          ? { texto: "Analizado", tono: "neutro" }
+          : bloqueado
+            ? { texto: "Leyendo…", tono: "neutro" }
+            : conTexto.length
+              ? { texto: futuro ? "Preparado" : "Sin analizar", tono: "neutro" }
+              : { texto: "Sin objetivos", tono: "neutro" };
+
+  const pedir = (texto: string): Siguiente => ({
+    texto,
+    icono: ClipboardCheck,
+    onClick: () => void pide(),
+    ocupado: pidiendo,
+    disabled: ocupadoConOtro || bloqueado,
+    detalle: ocupadoConOtro ? `El ordenador del club está con el ${fechaEncargo ? ddmm(fechaEncargo) : "otro día"}: hace uno cada vez.` : "Lo hace el ordenador del club: suele tardar entre media hora y una hora y se puede cerrar la pantalla.",
+  });
+
+  const siguiente: Siguiente | null = bloqueado && !sesion.objetivos.length
+    ? null
+    : !conTexto.length
+      ? {
+          texto: futuro ? "Preparar los objetivos" : "Añadir los objetivos",
+          icono: Plus,
+          onClick: () => {
+            setPestana("objetivos");
+            if (!sesion.objetivos.length) nuevoObjetivo();
+          },
+          detalle: anteriorConObjetivos ? `O cópialos del ${ddmm(anteriorConObjetivos.fecha)} en «Objetivos» para seguir midiendo lo mismo.` : "Qué se busca, de quién y cómo reconocerlo en el vídeo.",
+        }
+      : sinJugador.length
+        ? { texto: "Completar los objetivos", icono: Target, onClick: () => setPestana("objetivos"), detalle: `${sinJugador.length === 1 ? "Un objetivo no tiene" : `${sinJugador.length} objetivos no tienen`} jugador.` }
+        : enCurso
+          ? {
+              texto: estado === "pedido" ? (ordenador?.vivo ? "Pedido: empieza en unos segundos" : "Pedido: empezará al encenderse el ordenador del club") : `Analizando${ordenador?.progreso ? ` · ${ordenador.progreso.porcentaje} %` : "…"}`,
+              icono: Loader2,
+              ocupado: true,
+              detalle: "Puedes cerrar la pantalla: el análisis sigue y aparece aquí al terminar.",
+            }
+          : futuro && !analisis
+            ? { texto: "Objetivos listos", icono: Target, detalle: "El día del entrenamiento, con el vídeo ya subido, pide el análisis." }
+            : !analisis
+              ? pedir(fallo || cortado ? "Volver a pedir el análisis" : "Pedir el análisis")
+              : sinValidar.length
+                ? { texto: `Revisar ${sinValidar.length} ${sinValidar.length === 1 ? "acción" : "acciones"}`, icono: ListChecks, onClick: abreRevision, detalle: "Con su clip y con el teclado: 1 correcta, 2 mejorable, 3 descartar." }
+                : cambiados
+                  ? { ...pedir("Volver a analizar"), detalle: `${cambiados === 1 ? "Un objetivo es nuevo o ha cambiado" : `${cambiados} objetivos son nuevos o han cambiado`} desde el análisis.` }
+                  : vivas.length
+                    ? { texto: "Ver la evolución por jugador", icono: TrendingUp, onClick: () => setPestana("jugador"), detalle: "Todo revisado: los números del día ya son los del cuerpo técnico." }
+                    : { ...pedir("Volver a analizar"), detalle: "El vídeo no dio acciones: añade peto o dorsal en «Cómo reconocerlo» antes de repetirlo." };
 
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -452,62 +668,73 @@ export default function AnalisisEntrenamientoPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 space-y-6 px-4 py-6 sm:px-6 lg:px-10">
-            <AbpHeader
-              area="RMCF Castilla · Entrenamiento"
-              title="Análisis de entrenamiento"
-              lead="Objetivos por jugador medidos en el vídeo de la sesión, con clips de lo que se hizo bien y de lo que hay que mejorar, su evolución y el mensaje para cada jugador."
+          <div className="min-w-0 space-y-5 px-4 py-6 sm:px-6 lg:px-10">
+            <AbpHeader area="RMCF Castilla · Entrenamiento" title="Análisis de entrenamiento" lead="Objetivos por jugador medidos en el vídeo de la sesión, con clips de lo que se hizo bien y de lo que hay que mejorar, y su evolución." />
+
+            <SelectorDia
+              fecha={fecha}
+              hoy={hoyDia}
+              semana={semanaDe(fecha)}
+              onFecha={setFecha}
+              mueve={mueve}
+              derecha={<SaveState status={status} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />}
             />
 
-            {/* ---------------- el día ---------------- */}
-            <div className="flex flex-wrap items-center gap-2">
-              <input type="date" value={fecha} onChange={(e) => e.target.value && setFecha(e.target.value)} aria-label="Día del entrenamiento" className={`rounded-lg border border-white/12 bg-white/[0.05] px-3 py-1.5 text-sm text-white ${FOCO}`} />
-              <div className="flex max-w-full items-center gap-1 overflow-x-auto scrollbar-none">
-                <button type="button" onClick={() => setFecha(mueve(fecha, -7))} aria-label="Semana anterior" title="Semana anterior" className={`shrink-0 rounded-lg border border-white/12 p-1.5 text-white/60 hover:text-white ${FOCO}`}>
-                  <ChevronLeft size={14} />
-                </button>
-                {semana.map((d, i) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setFecha(d)}
-                    aria-pressed={d === fecha}
-                    aria-label={new Date(`${d}T12:00:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
-                    className={`w-9 shrink-0 rounded-lg py-1.5 text-xs ${FOCO} ${d === fecha ? "bg-[#C8A96B] font-semibold text-black" : d === hoyDia ? "border border-[#C8A96B]/40 text-white/80" : "border border-white/12 text-white/60 hover:text-white"}`}
-                    title={new Date(`${d}T12:00:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
-                  >
-                    {DIAS[i]} {Number(d.slice(8))}
-                  </button>
-                ))}
-                <button type="button" onClick={() => setFecha(mueve(fecha, 7))} aria-label="Semana siguiente" title="Semana siguiente" className={`shrink-0 rounded-lg border border-white/12 p-1.5 text-white/60 hover:text-white ${FOCO}`}>
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-              {fecha !== hoyDia && (
-                <button type="button" onClick={() => setFecha(hoyDia)} className={`rounded-lg px-2 py-1 text-xs text-white/60 hover:text-white hover:underline ${FOCO}`}>
-                  Hoy
-                </button>
-              )}
-              <div className="ml-auto">
-                <SaveState status={status} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />
-              </div>
-            </div>
+            <CabeceraSesion
+              fecha={fecha}
+              sesion={textoSesion}
+              fuente={textoFuente}
+              estado={estadoChip}
+              pasos={pasos}
+              siguiente={siguiente}
+              secundario={<Button icon={RefreshCw} onClick={relee} title="Releer el análisis y el estado del ordenador del club" aria-label="Releer el análisis" />}
+            >
+              {enCurso && ordenador?.progreso ? (
+                <div className="space-y-1.5" aria-live="polite">
+                  <div className="h-1.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
+                    <div className="h-full transition-all" style={{ width: `${ordenador.progreso.porcentaje}%`, background: "var(--rmcf-gold-ink)" }} />
+                  </div>
+                  <p className="text-xs text-white/60">
+                    {ordenador.progreso.etapas.find((e) => e.estado === "ahora")?.nombre ?? "Analizando"} · quedan unos {duracion(ordenador.progreso.quedan)}
+                  </p>
+                </div>
+              ) : null}
+              {!enCurso && ocupadoConOtro ? <Notice title={`El ordenador del club está analizando el ${fechaEncargo ? ddmm(fechaEncargo) : "otro día"}`}>Hace uno cada vez: cuando termine, podrás pedir este.</Notice> : null}
+              {cortado ? (
+                <Notice tone="warn" title="El análisis de este día se cortó a medias">
+                  El ordenador del club se apagó o se quedó colgado. Vuelve a pedirlo.
+                </Notice>
+              ) : fallo ? (
+                <Notice tone="warn" title={queHacer(fallo).titulo}>
+                  <p>{queHacer(fallo).texto}</p>
+                  <details className="mt-1.5">
+                    <summary className="cursor-pointer text-white/50">Detalle para el administrador</summary>
+                    <p className="mt-1 break-words font-mono text-[11px]">{sinMotores(fallo)}</p>
+                  </details>
+                </Notice>
+              ) : null}
+              {leido?.error ? (
+                <Notice tone="warn" title={analisis ? "No se ha podido releer el análisis" : "No se ha podido leer el análisis de este día"}>
+                  {analisis ? "Se ve la última lectura. " : ""}Comprueba la conexión y pulsa la flecha circular para releer.
+                </Notice>
+              ) : null}
+            </CabeceraSesion>
 
             <Pestanas
-              etiqueta="Vistas del análisis de entrenamiento"
+              etiqueta="Pasos del análisis de entrenamiento"
               valor={pestana}
               onCambia={setPestana}
               opciones={[
-                { clave: "dia", label: "El día", icono: ClipboardCheck, cuenta: conTexto || undefined },
-                { clave: "jugador", label: "Por jugador", icono: UserRound },
+                { clave: "resumen", label: "Resumen", icono: BarChart3 },
+                { clave: "revisar", label: "Revisar", icono: ListChecks, cuenta: sinValidar.length || undefined },
+                { clave: "objetivos", label: "Objetivos", icono: Target, cuenta: conTexto.length || undefined },
+                { clave: "jugador", label: "Por jugador", corto: "Jugador", icono: UserRound },
               ]}
             />
 
             {pestana === "jugador" ? (
               historial === null ? (
-                <p className="flex items-center gap-1.5 text-sm text-white/60" aria-live="polite">
-                  <Loader2 size={13} className="animate-spin" /> Leyendo las sesiones guardadas…
-                </p>
+                <Cargando texto="Leyendo las sesiones guardadas…" />
               ) : (
                 <div className="space-y-4">
                   {historial.error ? (
@@ -525,132 +752,91 @@ export default function AnalisisEntrenamientoPage() {
                     onJugador={setJugador}
                     onIrAlDia={(f) => {
                       setFecha(f);
-                      setPestana("dia");
+                      setPestana("revisar");
                     }}
                   />
                 </div>
               )
-            ) : (
-              <>
-                {/* El día de un vistazo, arriba (29/10/2026): titular, gráficos y cada marca abre sus clips. El detalle por objetivo sigue más abajo. */}
-                {analisis && !cargando && vivas.length > 0 ? (
-                  <PanelVisual
-                    dias={dias}
-                    fecha={fecha}
-                    onValida={valida}
-                    onIrAlDia={(f) => {
-                      setFecha(f);
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                  />
-                ) : null}
-
-                <Explicativo>
-                  <p className="text-xs text-white/50">
-                    El vídeo sale de la cámara táctica si hay una grabación de ese día en la carpeta SESIONES del ordenador del club; si no, del entrenamiento subido a Hudl con la fecha en el título («16102026 RM CASTILLA…»). Cada acción y su veredicto se proponen solos; se corta un clip de ejemplo correcto y otro mejorable por objetivo. Lo que valides aquí manda en los números.
-                  </p>
-                </Explicativo>
-
-                {/* ---------------- la sesión del día ---------------- */}
+            ) : pestana === "revisar" ? (
+              cargando ? (
+                <Cargando texto="Leyendo el análisis del día…" />
+              ) : analisis && vivas.length ? (
+                <RevisarAcciones
+                  fecha={fecha}
+                  sesion={sesionV}
+                  analisis={analisis}
+                  dias={dias}
+                  bloqueado={bloqueado}
+                  anteriores={anteriores}
+                  cambiados={cambiados}
+                  onValida={valida}
+                  onValidaResto={validaResto}
+                  onAbre={setVisor}
+                />
+              ) : (
+                <Vacio
+                  titulo={analisis ? (cambiados ? "Los objetivos han cambiado desde el análisis" : "El vídeo no ha dado ninguna acción") : "Todavía no hay nada que revisar"}
+                  texto={
+                    analisis && cambiados
+                      ? "Las acciones que hay son de otra versión de los objetivos: vuelve a analizar para medir lo que piden ahora."
+                      : analisis
+                      ? "Lo normal es que el análisis no reconozca a los jugadores: añade su peto o su dorsal en «Cómo reconocerlo» y vuelve a analizar."
+                      : "Cuando el análisis del día esté hecho, aquí salen sus acciones con su clip para validarlas."
+                  }
+                />
+              )
+            ) : pestana === "objetivos" ? (
+              <div className="space-y-5">
                 <SesionDelDia
                   fecha={fecha}
                   plan={planDelDia}
                   equipos={equiposDelDia}
-                  entreno={sesion}
-                  analisis={analisis}
+                  entreno={sesionV}
+                  analisis={analisisParaCuentas}
                   plantilla={plantillaCastilla}
                   nombreDe={(id) => jugadores.find((j) => j.id === id)?.nombre ?? ""}
                   onObjetivo={(o) => {
-                    if (status === "loading") return;
+                    if (bloqueado) return;
                     cambia((s) => ({ ...s, objetivos: [...s.objetivos, { ...o, id: nuevoId() }] }));
                     toast.success("Objetivo creado", { description: `${o.jugadores.length} jugadores · ${o.tarea}. Escribe qué se busca.` });
                   }}
                 />
 
-                {/* ---------------- los objetivos ---------------- */}
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-semibold">Objetivos de la sesión</h2>
-                    <Button icon={Plus} onClick={() => cambia((s) => ({ ...s, objetivos: [...s.objetivos, { id: nuevoId(), objetivo: "", jugadores: [] }] }))}>
-                      Objetivo
-                    </Button>
-                    {/* Mientras llega el documento no se ofrece: se escribiría encima de lo que hay. */}
-                    {status !== "loading" ? (
-                      <QueTocaDelPost
-                        yaEstan={sesion.objetivos.map((o) => o.origen ?? "").filter(Boolean)}
-                        jugadores={jugadores}
-                        tareas={tareasDelDia}
-                        onAnade={(objetivo) => cambia((s) => ({ ...s, objetivos: [...s.objetivos, { ...objetivo, id: nuevoId() }] }))}
-                      />
+                    {/* Mientras llega el documento no se ofrece crear ni copiar: se escribiría encima de lo que hay. */}
+                    {!bloqueado ? (
+                      <>
+                        <Button icon={Plus} onClick={nuevoObjetivo}>
+                          Objetivo
+                        </Button>
+                        <QueTocaDelPost
+                          yaEstan={sesion.objetivos.map((o) => o.origen ?? "").filter(Boolean)}
+                          jugadores={jugadores}
+                          tareas={tareasDelDia}
+                          onAnade={(objetivo) => cambia((s) => ({ ...s, objetivos: [...s.objetivos, { ...objetivo, id: nuevoId() }] }))}
+                        />
+                        {anteriorConObjetivos && sesion.objetivos.length ? (
+                          <Button icon={Copy} onClick={copiaObjetivos} title="Añade los objetivos de ese día con el mismo texto, para seguir su evolución">
+                            Copiar los del {ddmm(anteriorConObjetivos.fecha)}
+                          </Button>
+                        ) : null}
+                      </>
                     ) : null}
-                    <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                      <Button
-                        tone="primary"
-                        icon={pidiendo ? Loader2 : ClipboardCheck}
-                        onClick={() => void pide()}
-                        disabled={pidiendo || enCurso || ocupadoConOtro || !conTexto || futuro}
-                        title={futuro ? "Este entrenamiento todavía no se ha hecho" : !conTexto ? "Escribe antes algún objetivo" : undefined}
-                      >
-                        {analisis ? "Volver a analizar" : "Analizar"}
-                      </Button>
-                      <Button icon={RefreshCw} onClick={relee} title="Releer el análisis" aria-label="Releer el análisis" />
-                    </div>
                   </div>
 
-                  {/* Lo que está haciendo el ordenador del club con este día (o con otro). */}
-                  {enCurso ? (
-                    <div className="space-y-2 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-4 py-3" aria-live="polite">
-                      <p className="flex items-center gap-2 text-sm font-medium text-white">
-                        <Loader2 size={14} className="animate-spin text-[#C8A96B]" />
-                        {estado === "pedido"
-                          ? ordenador?.vivo
-                            ? "Pedido: el ordenador del club lo empieza en unos segundos…"
-                            : "Pedido, pero el ordenador del club está apagado o sin conexión: empezará en cuanto se encienda."
-                          : `Analizando${ordenador?.progreso ? ` · ${ordenador.progreso.porcentaje} %` : "…"}`}
-                      </p>
-                      {ordenador?.progreso ? (
-                        <>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
-                            <div className="h-full bg-[#C8A96B]" style={{ width: `${ordenador.progreso.porcentaje}%` }} />
-                          </div>
-                          <p className="text-xs text-white/60">
-                            {ordenador.progreso.etapas.find((e) => e.estado === "ahora")?.nombre ?? ""}
-                            {` · quedan unos ${duracion(ordenador.progreso.quedan)}`}
-                          </p>
-                        </>
-                      ) : null}
-                      <p className="text-xs text-white/50">Puedes cerrar la pantalla: el análisis sigue en el ordenador del club y aparece aquí al terminar.</p>
-                    </div>
-                  ) : ocupadoConOtro ? (
-                    <Notice title={`El ordenador del club está analizando el ${fechaEncargo ? ddmm(fechaEncargo) : "otro día"}`}>Hace uno cada vez: cuando termine, podrás pedir este.</Notice>
-                  ) : cortado ? (
-                    <Notice tone="warn" title="El análisis de este día se cortó a medias">
-                      El ordenador del club se apagó o se quedó colgado. Vuelve a pulsar «Analizar».
-                    </Notice>
-                  ) : fallo ? (
-                    <Notice tone="warn" title={queHacer(fallo).titulo}>
-                      <p>{queHacer(fallo).texto}</p>
-                      <details className="mt-1.5">
-                        <summary className="cursor-pointer text-white/50">Detalle para el administrador</summary>
-                        <p className="mt-1 break-words font-mono text-[11px]">{fallo}</p>
-                      </details>
-                    </Notice>
-                  ) : null}
-
-                  {status === "loading" && sesion.objetivos.length === 0 ? (
-                    /* Mientras llega el documento no se ofrece crear ni copiar: se escribiría encima de lo que hay. */
-                    <p className="flex items-center gap-1.5 text-sm text-white/60" aria-live="polite">
-                      <Loader2 size={13} className="animate-spin" /> Leyendo los objetivos del día…
-                    </p>
+                  {bloqueado && sesion.objetivos.length === 0 ? (
+                    <Cargando texto="Leyendo los objetivos del día…" />
                   ) : sesion.objetivos.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-white/12 px-5 py-8 text-center">
-                      <p className="text-sm font-medium text-white/75">Sin objetivos para este día</p>
+                      <p className="text-sm font-medium text-white/75">Este día todavía no tiene objetivos</p>
                       <p className="mx-auto mt-1.5 max-w-lg text-xs leading-relaxed text-white/50">
                         Añade uno: qué se busca, de quién, cómo reconocerlo en el vídeo y qué es correcto o mejorable.
                         {anteriorConObjetivos ? " O copia los del último día para seguir midiendo lo mismo y ver la evolución." : ""}
                       </p>
                       <div className="mt-3 flex flex-wrap justify-center gap-2">
-                        <Button icon={Plus} tone="primary" onClick={() => cambia((s) => ({ ...s, objetivos: [...s.objetivos, { id: nuevoId(), objetivo: "", jugadores: [] }] }))}>
+                        <Button icon={Plus} tone="primary" onClick={nuevoObjetivo}>
                           Añadir objetivo
                         </Button>
                         {anteriorConObjetivos ? (
@@ -684,250 +870,113 @@ export default function AnalisisEntrenamientoPage() {
                   )}
                 </div>
 
-                {/* ---------------- el análisis ---------------- */}
-                {cargando ? (
-                  <p className="flex items-center gap-1.5 text-sm text-white/60" aria-live="polite">
-                    <Loader2 size={13} className="animate-spin" /> Leyendo el análisis del día…
+                <Explicativo>
+                  <p className="text-xs text-white/50">
+                    El vídeo sale de la cámara táctica si hay una grabación de ese día en la carpeta SESIONES del ordenador del club; si no, del entrenamiento subido a Hudl con la fecha en el título («16102026 RM CASTILLA…»). Cada acción y su veredicto se proponen solos; se corta un clip de ejemplo correcto y otro mejorable por objetivo. Lo que valides manda en los números.
                   </p>
-                ) : leido?.error && !analisis ? (
-                  <Notice tone="warn" title="No se ha podido leer el análisis de este día">
-                    Comprueba la conexión y pulsa el botón de releer (la flecha circular, junto a «Analizar»).
-                  </Notice>
-                ) : analisis ? (
-                  <div className="space-y-4">
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <h2 className="text-lg font-semibold">Lo que dice el vídeo</h2>
-                      <Explicativo>
-                        <span className="text-xs text-white/50">
-                          {analisis.fuente.tipo === "camara" ? "Cámara táctica" : "Hudl"} · {analisis.fuente.nombre} · {Math.round(analisis.fuente.duracion / 60)} min · {new Date(analisis.hechoEn).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })}
-                        </span>
-                      </Explicativo>
-                    </div>
-
-                    {/* Las cifras del día viven arriba, en el panel visual (29/10/2026); aquí queda la cuenta de lo validado. */}
-                    <p className="text-xs text-white/60">
-                      {pctDia !== null ? `Acierto del día ${pctDia} % · ` : ""}
-                      {cuentanDia ? `${cuantas.correcta} de ${cuentanDia} correctas · ${validadasDia === cuentanDia ? "todas validadas" : `${validadasDia} validadas`}` : "Ninguna acción cuenta"}
-                      {cuantas["sin-validar"] ? ` · ${cuantas["sin-validar"]} propuestas automáticas sin validar: cuentan con su veredicto hasta que las valides` : ""}
-                      {cuentanDia && cuentanDia < MINIMO_PORCENTAJE ? ` · con menos de ${MINIMO_PORCENTAJE} acciones no se da porcentaje` : ""}
-                    </p>
-
-                    {cambiados > 0 && <Notice tone="warn" title={`${cambiados} ${cambiados === 1 ? "objetivo es nuevo o ha cambiado" : "objetivos son nuevos o han cambiado"} desde el análisis`}>Vuelve a analizar para que cuenten.</Notice>}
-
-                    {vivas.length === 0 ? (
-                      <Notice tone="warn" title="El vídeo no ha dado ninguna acción">
-                        Lo normal es que el análisis no reconozca a los jugadores: añade su peto o su dorsal en «Cómo reconocerlo» y vuelve a analizar.
-                      </Notice>
-                    ) : cuantas["con-clip"] === 0 ? (
-                      <Notice title="Este análisis no trae clips">
-                        {fuenteUrl ? "Cada acción tiene un enlace para verla en Hudl en su minuto." : "Cada acción dice su minuto en el vídeo de la cámara táctica."} Si quieres los clips, vuelve a analizar.
-                      </Notice>
-                    ) : null}
-
-                    {analisis.avisos.length > 0 && (
-                      <Explicativo>
-                        <ul className="list-disc space-y-0.5 pl-5 text-xs text-amber-200/80">
-                          {analisis.avisos.map((a) => (
-                            <li key={a}>{a}</li>
-                          ))}
-                        </ul>
-                      </Explicativo>
-                    )}
-
-                    {vivas.length > 0 ? (
-                      <div className="flex flex-wrap gap-1.5 text-xs" role="group" aria-label="Filtrar acciones">
-                        {(
-                          [
-                            ["todas", "Todas"],
-                            ["correcta", "Correctas"],
-                            ["mejorable", "Mejorables"],
-                            ["sin-validar", "Sin validar"],
-                            ["con-clip", "Con clip"],
-                          ] as const
-                        ).map(([k, t]) => (
-                          <button key={k} type="button" aria-pressed={vista === k} onClick={() => setVista(k)} className={`rounded-lg px-3 py-1.5 ${FOCO} ${vista === k ? "bg-[#C8A96B] font-semibold text-black" : "border border-white/12 text-white/65 hover:text-white"}`}>
-                            {t} <span className="tabular-nums opacity-70">{cuantas[k]}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-
-                    {sesion.objetivos.map((o, n) => {
-                      const c = cuentas(o.id, analisis.acciones, sesion.validaciones);
-                      const medido = analisis.objetivosAnalizados?.some((h) => h.startsWith(`${o.id}|`));
-                      const anterior = anteriorDelObjetivo(dias, fecha, o);
-                      const cumple = cumpleMeta(c, o.meta);
-                      const pendientes = analisis.acciones.filter((a) => a.objetivoId === o.id && !sesion.validaciones?.[a.id]).length;
-                      const suyas = analisis.acciones
-                        .filter((a) => a.objetivoId === o.id)
-                        .filter((a) => {
-                          const v = veredictoFinal(a, sesion.validaciones);
-
-                          return vista === "todas" ? true : vista === "sin-validar" ? !sesion.validaciones?.[a.id] : vista === "con-clip" ? Boolean(a.clip) : v === vista;
-                        })
-                        /* Los ejemplos con clip, primero; después, por minuto. */
-                        .sort((a, b) => Number(Boolean(b.clip)) - Number(Boolean(a.clip)) || a.inicio - b.inicio);
-
-                      if (!o.objetivo.trim()) return null;
-
-                      return (
-                        <section key={o.id} aria-labelledby={`obj-${o.id}`} className="min-w-0 space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                          <header className="flex flex-wrap items-start gap-3">
-                            <div className="min-w-0 flex-1 basis-56">
-                              <h3 id={`obj-${o.id}`} className="font-semibold text-white">
-                                <span className="mr-1.5 text-[#C8A96B]">{n + 1}.</span>
-                                {o.objetivo}
-                              </h3>
-                              <p className="mt-0.5 text-xs text-white/55">
-                                {[o.jugadores.map((j) => j.nombre).join(", ") || "Sin jugador", o.tarea ? `Tarea ${o.tarea}${o.tareaTexto ? ` (${o.tareaTexto})` : ""}` : "", o.origen ? `Sale de: ${o.origen}` : ""].filter(Boolean).join(" · ")}
-                              </p>
-                            </div>
-                            {medido && c.total ? (
-                              <div className="flex items-center gap-4 text-center">
-                                <div>
-                                  <p className="text-2xl font-semibold tabular-nums text-emerald-300">{c.correctas}</p>
-                                  <p className="text-[10px] uppercase tracking-wider text-white/50">Correctas</p>
-                                </div>
-                                <div>
-                                  <p className="text-2xl font-semibold tabular-nums text-amber-300">{c.mejorables}</p>
-                                  <p className="text-[10px] uppercase tracking-wider text-white/50">Mejorables</p>
-                                </div>
-                                <div>
-                                  <p className="text-2xl font-semibold tabular-nums text-white">{porcentajeOTendencia(c)}</p>
-                                  <p className="text-[10px] uppercase tracking-wider text-white/50">{c.pct !== null ? "Acierto" : `< ${MINIMO_PORCENTAJE} acciones`}</p>
-                                </div>
-                              </div>
-                            ) : null}
-                          </header>
-
-                          {!medido ? (
-                            <p className="text-sm text-white/60">Este objetivo se añadió o cambió después del análisis: vuelve a analizar para medirlo.</p>
-                          ) : (
-                            <>
-                              {c.total > 0 && (
-                                <div className="flex h-1.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
-                                  <div className="h-full bg-emerald-400" style={{ width: `${c.pctBruto ?? 0}%` }} />
-                                  <div className="h-full bg-amber-400" style={{ width: `${100 - (c.pctBruto ?? 0)}%` }} />
-                                </div>
-                              )}
-
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
-                                <span className="text-white/75">{lecturaCuentas(c)}</span>
-                                {o.meta ? (
-                                  <span className={`rounded-md px-1.5 py-0.5 font-semibold ${cumple === true ? "bg-emerald-400/15 text-emerald-300" : cumple === false ? "bg-amber-400/15 text-amber-300" : "bg-white/[0.06] text-white/60"}`}>
-                                    Meta {o.meta} %{cumple === true ? ": cumplida" : cumple === false ? ": por debajo" : c.total ? ": falta muestra" : ""}
-                                  </span>
-                                ) : null}
-                                {anterior ? (
-                                  <span className="text-white/55">
-                                    Sesión anterior ({ddmm(anterior.fecha)}): {anterior.cuentas.correctas} de {anterior.cuentas.total}
-                                    {anterior.cuentas.pct !== null ? ` (${anterior.cuentas.pct} %)` : ""}
-                                    {c.pctBruto !== null && anterior.cuentas.pctBruto !== null
-                                      ? c.pctBruto - anterior.cuentas.pctBruto >= 5
-                                        ? " → mejora"
-                                        : c.pctBruto - anterior.cuentas.pctBruto <= -5
-                                          ? " → baja"
-                                          : " → igual"
-                                      : ""}
-                                  </span>
-                                ) : null}
-                                {pendientes > 0 && (
-                                  <Button icon={CheckCheck} onClick={() => validaResto(o.id)} title="Las que quedan sin validar se dan por buenas con el veredicto propuesto">
-                                    Validar las {pendientes} que quedan como se propone
-                                  </Button>
-                                )}
-                              </div>
-
-                              {suyas.length === 0 ? (
-                                <p className="text-sm text-white/60">
-                                  {c.propuestas ? "Nada con este filtro." : "El vídeo no ha dado acciones de este objetivo. Lo normal es que el análisis no reconozca al jugador: añade su peto o dorsal en «Cómo reconocerlo» y vuelve a analizar."}
-                                </p>
-                              ) : (
-                                <ul className="grid gap-3 lg:grid-cols-2">
-                                  {suyas.map((a) => {
-                                    const v = veredictoFinal(a, sesion.validaciones);
-                                    const val = sesion.validaciones?.[a.id];
-
-                                    return (
-                                      <li
-                                        key={a.id}
-                                        /* Lo validado, con borde continuo; lo que sólo propuso la IA, discontinuo. */
-                                        className={`min-w-0 space-y-2 rounded-xl border p-3 ${val ? "border-solid" : "border-dashed"} ${v === null ? "border-white/5 opacity-60" : v === "correcta" ? "border-emerald-400/30" : "border-amber-400/30"}`}
-                                      >
-                                        {a.clip ? (
-                                          <div className="space-y-1">
-                                            <p className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-white/50">
-                                              <Film size={11} aria-hidden /> Clip · {mmss(a.inicio)}
-                                              {o.tarea ? ` · ${o.tarea}` : ""}
-                                            </p>
-                                            <video src={a.clip} controls preload="metadata" playsInline className="aspect-video w-full rounded-lg bg-black" />
-                                          </div>
-                                        ) : fuenteUrl ? (
-                                          <a href={fuenteUrl} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-1.5 rounded text-xs text-[#C8A96B] hover:underline ${FOCO}`} title="Sin clip: sólo se corta un ejemplo de cada veredicto por objetivo">
-                                            <Play size={12} aria-hidden /> Verla en Hudl: minuto {mmss(a.inicio)}
-                                          </a>
-                                        ) : (
-                                          <p className="text-[11px] text-white/50">Sin clip · minuto {mmss(a.inicio)} del vídeo de la sesión</p>
-                                        )}
-                                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                                          <span className="tabular-nums text-white/55">
-                                            {mmss(a.inicio)}–{mmss(a.fin)}
-                                          </span>
-                                          <span className={`rounded-md px-1.5 py-0.5 font-semibold ${v === "correcta" ? "bg-emerald-400/20 text-emerald-300" : v === "mejorable" ? "bg-amber-400/20 text-amber-300" : "bg-white/10 text-white/60"}`}>
-                                            {v === null ? "Descartada" : v === "correcta" ? "Correcta" : "Mejorable"}
-                                          </span>
-                                          {val ? (
-                                            <span className="inline-flex items-center gap-0.5 font-medium text-white/75">
-                                              <Check size={12} aria-hidden /> Validada{val !== "descartada" && val !== a.veredicto ? " (cambiada)" : ""}
-                                            </span>
-                                          ) : (
-                                            <span className="rounded-md border border-dashed border-white/20 px-1.5 py-0.5 text-white/55">Propuesta automática</span>
-                                          )}
-                                          {a.jugador ? <span className="min-w-0 truncate text-white/50">{a.jugador}</span> : null}
-                                        </div>
-                                        <p className="text-sm text-white/80">{a.explicacion}</p>
-                                        <div className="flex flex-wrap gap-1.5">
-                                          <Button icon={ThumbsUp} tone={val === "correcta" ? "primary" : "ghost"} aria-pressed={val === "correcta"} onClick={() => valida(a.id, val === "correcta" ? null : "correcta")} title={val === "correcta" ? "Quitar la validación" : "Es correcta"}>
-                                            Correcta
-                                          </Button>
-                                          <Button icon={ThumbsDown} tone={val === "mejorable" ? "primary" : "ghost"} aria-pressed={val === "mejorable"} onClick={() => valida(a.id, val === "mejorable" ? null : "mejorable")} title={val === "mejorable" ? "Quitar la validación" : "Es mejorable"}>
-                                            Mejorable
-                                          </Button>
-                                          <Button icon={X} tone="danger" aria-pressed={val === "descartada"} onClick={() => valida(a.id, val === "descartada" ? null : "descartada")} title={val === "descartada" ? "Recuperarla" : "No es de este objetivo o no se ve"}>
-                                            {val === "descartada" ? "Recuperar" : "Descartar"}
-                                          </Button>
-                                        </div>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                              )}
-                            </>
-                          )}
-                        </section>
-                      );
-                    })}
-                  </div>
-                ) : conTexto && !enCurso ? (
-                  <div className="rounded-xl border border-dashed border-white/12 px-5 py-6 text-center">
-                    <p className="text-sm font-medium text-white/75">{futuro ? "Este entrenamiento todavía no se ha hecho" : "Este día todavía no tiene análisis"}</p>
-                    <p className="mx-auto mt-1.5 max-w-lg text-xs leading-relaxed text-white/50">
-                      {futuro
-                        ? "Deja preparados los objetivos; el día del entrenamiento, con el vídeo ya subido, pulsa «Analizar»."
-                        : "Cuando los objetivos estén completos y el vídeo subido, pulsa «Analizar». El ordenador del club lo hace solo y suele tardar entre media hora y una hora; puedes cerrar la pantalla mientras."}
-                    </p>
-                  </div>
-                ) : null}
+                </Explicativo>
 
                 <div className="space-y-1">
                   <h2 className="text-sm font-semibold text-white/75">Notas de la sesión</h2>
                   <textarea value={sesion.notas ?? ""} onChange={(e) => cambia((s) => ({ ...s, notas: e.target.value }))} rows={3} placeholder="Lo que quieras apuntar del entrenamiento" aria-label="Notas de la sesión" className={`${CAMPO} resize-y`} />
                 </div>
-              </>
+              </div>
+            ) : /* ---------------- resumen ---------------- */
+            cargando ? (
+              <Cargando texto="Leyendo el análisis del día…" />
+            ) : analisis && vivas.length ? (
+              <div className="space-y-4">
+                {sinValidar.length ? (
+                  <p className="text-xs text-white/60">
+                    {cuentasDia.validadas} de {cuentasDia.total} acciones revisadas. Las {sinValidar.length} restantes cuentan con su veredicto propuesto (rayado) hasta que las valides.
+                  </p>
+                ) : null}
+                <PanelVisual dias={dias} fecha={fecha} onAbre={setVisor} onIrAlDia={(f) => setFecha(f)} />
+              </div>
+            ) : (
+              <ResumenSinAnalisis
+                objetivos={conTexto.map((o) => ({ id: o.id, numero: numeroDe.get(o.id)?.numero ?? 0, texto: o.objetivo, jugadores: o.jugadores.map((j) => j.nombre).join(", "), tarea: o.tarea }))}
+                analizado={Boolean(analisis) && !cambiados}
+                sinMedir={analisis ? cambiados : 0}
+                futuro={futuro}
+                onObjetivos={() => setPestana("objetivos")}
+              />
             )}
+
+            <p className="text-[11px] text-white/40">
+              Porcentaje con {MINIMO_PORCENTAJE} acciones o más; por debajo se da la cuenta. Lo validado manda sobre lo propuesto.
+            </p>
           </div>
         </section>
       </div>
+
+      {visor ? <VisorClips peticion={visor} onClose={() => setVisor(null)} validacionesDe={validacionesDe} fechaEditable={fecha} onValida={valida} bloqueado={bloqueado} /> : null}
     </main>
+  );
+}
+
+function Cargando({ texto }: { texto: string }) {
+  return (
+    <p className="flex items-center gap-1.5 text-sm text-white/60" aria-live="polite">
+      <Loader2 size={13} className="animate-spin" /> {texto}
+    </p>
+  );
+}
+
+function Vacio({ titulo, texto }: { titulo: string; texto: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-white/12 px-5 py-8 text-center">
+      <p className="text-sm font-medium text-white/75">{titulo}</p>
+      <p className="mx-auto mt-1.5 max-w-lg text-xs leading-relaxed text-white/50">{texto}</p>
+    </div>
+  );
+}
+
+/** El resumen de un día sin acciones todavía: lo que se va a medir y cómo seguir. */
+function ResumenSinAnalisis({
+  objetivos,
+  analizado,
+  sinMedir,
+  futuro,
+  onObjetivos,
+}: {
+  objetivos: { id: string; numero: number; texto: string; jugadores: string; tarea?: string }[];
+  analizado: boolean;
+  /** Objetivos nuevos o cambiados después del análisis. */
+  sinMedir: number;
+  futuro: boolean;
+  onObjetivos: () => void;
+}) {
+  if (!objetivos.length) return <Vacio titulo="Este día todavía no tiene objetivos" texto="Empieza por los objetivos: qué se busca, de quién y cómo reconocerlo en el vídeo. El botón de la cabecera te lleva." />;
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-base font-semibold text-white">Lo que se va a medir</h2>
+        <button type="button" onClick={onObjetivos} className="rounded text-xs font-semibold text-[#C8A96B] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]">
+          Editar los objetivos
+        </button>
+      </div>
+      <ol className="space-y-2">
+        {objetivos.map((o) => (
+          <li key={o.id} className="flex min-w-0 gap-2.5">
+            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#C8A96B]/15 text-[11px] font-semibold text-[#C8A96B]">{o.numero}</span>
+            <span className="min-w-0">
+              <span className="block text-sm text-white/90">{o.texto}</span>
+              {o.jugadores || o.tarea ? <span className="block text-[11px] text-white/50">{[o.jugadores, o.tarea ? `Tarea ${o.tarea}` : ""].filter(Boolean).join(" · ")}</span> : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="text-xs text-white/55">
+        {sinMedir
+          ? `${sinMedir === 1 ? "Un objetivo es nuevo o ha cambiado" : `${sinMedir} objetivos son nuevos o han cambiado`} desde el análisis: vuelve a analizar para medirlos.`
+          : analizado
+          ? "El vídeo no ha dado acciones de estos objetivos: con peto o dorsal en «Cómo reconocerlo» se reconoce mejor a cada jugador."
+          : futuro
+            ? "El día del entrenamiento, con el vídeo ya subido, pide el análisis desde la cabecera."
+            : "Cuando pidas el análisis, aquí sale el resumen del día con sus gráficos y sus clips."}
+      </p>
+    </div>
   );
 }

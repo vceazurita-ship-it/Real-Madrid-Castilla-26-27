@@ -85,12 +85,40 @@ export function accionesDelJugador(o: ObjetivoEntreno, acciones: AccionEntreno[]
 
   if (o.jugadores.length <= 1) return suyas;
 
-  return suyas.filter((a) => {
-    const quien = ` ${normaliza(a.jugador ?? "")} `;
-
-    return clave.split(" ").every((trozo) => quien.includes(` ${trozo} `));
-  });
+  return suyas.filter((a) => duenoDe(o, a) === clave);
 }
+
+/*
+| De quién es una acción de un objetivo de grupo (30/10/2026). Antes había que
+| nombrar al jugador ENTERO: «Joan Martín» en el objetivo y «Joan (peto verde)»
+| en la acción no casaban y la acción no era de nadie; y con «Joan» y «Joan
+| Martín» en el mismo objetivo, la de «Joan Martín» se apuntaba a los dos.
+| Ahora: el nombre entero si casa con uno solo (el más largo, si casan varios);
+| si no, una palabra suya de 3 letras o más que no tenga otro del grupo.
+| Lo que no se puede decidir no se le apunta a nadie (`null`).
+*/
+export function duenoDe(o: ObjetivoEntreno, a: AccionEntreno): string | null {
+  const claves = [...new Set(o.jugadores.map((j) => normaliza(j.nombre)).filter(Boolean))];
+
+  if (claves.length <= 1) return claves[0] ?? null;
+
+  const quien = ` ${normaliza(a.jugador ?? "")} `;
+
+  if (!quien.trim()) return null;
+
+  const enteros = claves.filter((c) => c.split(" ").every((t) => quien.includes(` ${t} `))).sort((x, y) => y.split(" ").length - x.split(" ").length);
+
+  if (enteros.length === 1 || (enteros.length > 1 && enteros[0].split(" ").length > enteros[1].split(" ").length)) return enteros[0];
+
+  if (enteros.length > 1) return null;
+
+  const parciales = claves.filter((c) => c.split(" ").some((t) => t.length >= 3 && quien.includes(` ${t} `)));
+
+  return parciales.length === 1 ? parciales[0] : null;
+}
+
+/** Las acciones de objetivos de grupo que no nombran a nadie reconocible: cuentan en el objetivo, no en ningún jugador. */
+export const sinDueno = (o: ObjetivoEntreno, acciones: AccionEntreno[]) => (o.jugadores.length > 1 ? acciones.filter((a) => a.objetivoId === o.id && duenoDe(o, a) === null) : []);
 
 /**
  * El clip que mejor enseña un veredicto: con clip, con ese veredicto final

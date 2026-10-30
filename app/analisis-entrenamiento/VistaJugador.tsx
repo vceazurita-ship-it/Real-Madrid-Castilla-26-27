@@ -133,7 +133,7 @@ export function VistaJugador({
     return (
       <div className="rounded-xl border border-dashed border-white/12 px-5 py-10 text-center">
         <p className="text-sm font-medium text-white/70">Todavía no hay objetivos con jugador</p>
-        <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-white/50">Créalos en la pestaña «El día»: cada jugador con objetivos aparecerá aquí con su evolución sesión a sesión.</p>
+        <p className="mx-auto mt-1.5 max-w-md text-xs leading-relaxed text-white/50">Créalos en la pestaña «Objetivos»: cada jugador con objetivos aparecerá aquí con su evolución sesión a sesión.</p>
       </div>
     );
   }

@@ -1001,7 +1001,15 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los objetivos y las validaciones los escribe el cuerpo técnico aquí (se guardan solos). El vídeo del día lo mira el ordenador del club al pulsar «Analizar»: la cámara táctica de la carpeta SESIONES o, si no está, el entrenamiento subido a Hudl con la fecha en el título. Las tareas salen del registro de tareas.",
     bloques: [
       {
-        titulo: "El día",
+        titulo: "La cabecera y los pasos",
+        filas: [
+          { que: "Siguiente paso", es: "El botón dorado dice qué toca: añadir objetivos, pedir el análisis, revisar las acciones o ver la evolución" },
+          { que: "Cuatro pasos", es: "Objetivos · Análisis · Revisión · Evolución, con su cuenta; un toque lleva a cada uno" },
+          { que: "Revisar con el teclado", es: "En el visor: 1 correcta, 2 mejorable, 3 descartar, 0 quitar, flechas para moverse y espacio para el vídeo; pasa sola a la siguiente sin validar" },
+        ],
+      },
+      {
+        titulo: "Objetivos",
         filas: [
           { que: "Objetivo", es: "Qué se busca, de quién, cómo reconocerlo (peto, dorsal) y qué es correcto o mejorable" },
           { que: "Tarea del día", es: "En qué tarea del registro mirarlo (L-T1…). No cambia lo que mira el vídeo" },
@@ -1019,6 +1027,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Tendencia", es: "Menos de 8 acciones: se da la cuenta, no el porcentaje" },
           { que: "Sesión anterior", es: "El mismo objetivo (mismo texto) el último día analizado", cuenta: "mejora o baja = 5 puntos o más de diferencia" },
           { que: "Borde continuo / discontinuo", es: "Acción validada / propuesta automática sin validar" },
+          { que: "Liso / rayado", es: "En las barras y columnas: validado / propuesta automática sin validar" },
+          { que: "Tramo sombreado", es: "Minutos que el análisis no pudo mirar: ahí no hay acciones porque no se vieron" },
         ],
       },
       {
@@ -1034,6 +1044,8 @@ export const AYUDAS: AyudaDePagina[] = [
       "Con varios jugadores en un objetivo, a cada uno sólo se le cuentan las acciones en las que se le nombra.",
       "Para ver la evolución, el objetivo tiene que llamarse igual cada día: «Copiar los del último día» lo deja igual.",
       "Valida antes de mandar «Tu sesión»: lo no validado es una propuesta.",
+      "Si se vuelve a analizar un día, lo validado sobre el análisis anterior deja de contar (las acciones ya no son las mismas) y se avisa en «Revisar».",
+      "La misma jugada contada dos veces (sobre todo en el corte entre dos partes del vídeo) cuenta una sola vez.",
     ],
   },
 
