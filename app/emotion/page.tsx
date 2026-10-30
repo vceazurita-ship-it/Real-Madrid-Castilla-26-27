@@ -45,6 +45,7 @@ const MUESTRA_MINIMA = 12;
 
 
 const EMPTY_GROUPS: Record<GroupKey, string[]> = {
+  keeper: [],
   leftSide: [],
   defense: [],
   rightSide: [],
@@ -52,36 +53,27 @@ const EMPTY_GROUPS: Record<GroupKey, string[]> = {
   strikers: [],
 };
 
-/* Composición por defecto: sale de los jugadores que hay en la base emocional,
-   repartidos por su demarcación en la hoja (con las correcciones de
-   lib/posiciones.ts) y sin repetir a nadie. Perfil izquierdo = lateral
-   izquierdo y extremo izquierdo (11); perfil derecho = lateral derecho y
-   extremo derecho (7); defensa = centrales; mediocampo = 6, 8 y 10; puntas = 9. */
-function grupoDe(posicion: string): GroupKey | null {
-  const p = posicion.trim().toUpperCase();
-  if (p === "LATERAL I." || p === "11") return "leftSide";
-  if (p === "LATERAL D." || p === "7") return "rightSide";
-  if (p === "CENTRAL") return "defense";
-  if (p === "6" || p === "8" || p === "10") return "midfield";
-  if (p === "9") return "strikers";
-  return null;
-}
+/* Composición por defecto, sin once en la pizarra: sale de los jugadores de
+   la base emocional por su demarcación en la hoja (con las correcciones de
+   lib/posiciones.ts). Son las seis líneas de los radares y un jugador puede
+   estar en varias: el lateral izquierdo, en portero y defensa, en defensa y
+   en el perfil izquierdo. */
+const PUESTOS_DE: Record<GroupKey, string[]> = {
+  keeper: ["PORTERO", "1", "13", "LATERAL I.", "LATERAL D.", "CENTRAL"],
+  defense: ["LATERAL I.", "LATERAL D.", "CENTRAL"],
+  leftSide: ["LATERAL I.", "11"],
+  rightSide: ["LATERAL D.", "7"],
+  midfield: ["6", "8", "10"],
+  strikers: ["9", "10", "7", "11"],
+};
 
 function gruposPorDefecto(rows: Player[]): Record<GroupKey, string[]> {
-  const grupos: Record<GroupKey, string[]> = {
-    leftSide: [],
-    defense: [],
-    rightSide: [],
-    midfield: [],
-    strikers: [],
-  };
-  const vistos = new Set<string>();
+  const grupos: Record<GroupKey, string[]> = { ...EMPTY_GROUPS };
 
-  for (const r of rows) {
-    const clave = grupoDe(posicionDe(r.jugador, r.posicion));
-    if (!clave || vistos.has(r.jugador)) continue;
-    vistos.add(r.jugador);
-    grupos[clave].push(r.jugador);
+  for (const clave of Object.keys(PUESTOS_DE) as GroupKey[]) {
+    grupos[clave] = rows
+      .filter((r) => PUESTOS_DE[clave].includes(posicionDe(r.jugador, r.posicion).trim().toUpperCase()))
+      .map((r) => r.jugador);
   }
 
   return grupos;
@@ -147,9 +139,13 @@ export default function EmotionPage() {
      demarcación, y «Restablecer líneas» vuelve a ellas. */
   const [gruposOnce, setGruposOnce] = useState<Record<GroupKey, string[]> | null>(null);
 
-  const recibeOnce = useCallback((g: Record<GroupKey, string[]>) => {
+  /* Titulares de la pizarra sin valoración: entran con la media de la plantilla. */
+  const [estimados, setEstimados] = useState<Player[]>([]);
+
+  const recibeOnce = useCallback((g: Record<GroupKey, string[]>, sinValorar: Player[]) => {
     setGruposOnce(g);
     setGroups(g);
+    setEstimados(sinValorar);
   }, []);
 
   /* Cambiar la clave relanza la descarga: así el botón de reintento
@@ -187,13 +183,16 @@ export default function EmotionPage() {
     setReloadKey((k) => k + 1);
   };
 
-  const names = useMemo(() => rows.map((r) => r.jugador), [rows]);
+  /* Los que se pueden elegir en cada radar: los valorados y los titulares que aún no. */
+  const elegibles = useMemo(() => [...rows, ...estimados.filter((e) => !rows.some((r) => r.jugador === e.jugador))], [rows, estimados]);
+
+  const names = useMemo(() => elegibles.map((r) => r.jugador), [elegibles]);
 
   const playersByName = useMemo(() => {
     const map = new Map<string, Player>();
-    rows.forEach((r) => map.set(r.jugador, r));
+    elegibles.forEach((r) => map.set(r.jugador, r));
     return map;
-  }, [rows]);
+  }, [elegibles]);
 
   const getPlayer = useCallback(
     (name: string) => playersByName.get(name),
@@ -263,9 +262,10 @@ export default function EmotionPage() {
 
   const centrales = (
     [
+      { clave: "keeper", titulo: "Portero y defensa" },
       { clave: "defense", titulo: "Defensa" },
-      { clave: "midfield", titulo: "Mediocampo" },
-      { clave: "strikers", titulo: "Puntas / Delanteros" },
+      { clave: "midfield", titulo: "Medios (6, 8 y 10)" },
+      { clave: "strikers", titulo: "Puntas (9, 10 y extremos)" },
     ] as { clave: GroupKey; titulo: string }[]
   ).filter((c) => lineasConJugadores.has(c.clave));
 
@@ -437,7 +437,8 @@ export default function EmotionPage() {
 
             {/* ---------------------------------------------- Radares */}
             <div
-              className="rounded-[34px] border border-white/10 bg-[#08131F]/60 p-4 sm:p-5 lg:p-6 [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white/80"
+              id="perfiles-por-linea"
+              className="scroll-mt-24 rounded-[34px] border border-white/10 bg-[#08131F]/60 p-4 sm:p-5 lg:p-6 [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white/80"
             >
               {/* Sin imagen de campo detrás (26/10/2026): ensuciaba los radares y los chips. */}
               <div className="space-y-4">
@@ -454,9 +455,9 @@ export default function EmotionPage() {
                     className={`grid grid-cols-1 gap-4 ${
                       centrales.length === 1
                         ? ""
-                        : centrales.length === 2
-                          ? "lg:grid-cols-2"
-                          : "lg:grid-cols-3"
+                        : centrales.length === 3
+                          ? "lg:grid-cols-3"
+                          : "lg:grid-cols-2"
                     }`}
                   >
                     {centrales.map((c) => (

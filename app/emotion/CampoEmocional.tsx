@@ -128,7 +128,7 @@ const UMBRAL_ALERTA = 0.5;
 | la pizarra, no de su demarcación en la hoja: si el analista pone a un
 | lateral de extremo, su radar es el del extremo.
 */
-type LineaCampo = GroupKey | "keeper";
+type LineaCampo = GroupKey;
 
 function lineasDelOnce(titulares: Colocado[]): Record<LineaCampo, Colocado[]> {
   const orden = [...titulares].sort((a, b) => a.largo - b.largo);
@@ -180,7 +180,7 @@ export function CampoEmocional({
   /** Lo que hay elegido en cada radar de línea (la página lo deja cambiar). */
   grupos: Record<GroupKey, string[]>;
   /** Avisa de las líneas del once de la pizarra para que los radares salgan con ellos elegidos. */
-  onGruposDelOnce: (grupos: Record<GroupKey, string[]>) => void;
+  onGruposDelOnce: (grupos: Record<GroupKey, string[]>, estimados: Player[]) => void;
 }) {
   const { players: plantilla } = usePlayers();
 
@@ -242,11 +242,15 @@ export function CampoEmocional({
     if (once) {
       colocados = once.fichas.map((f) => {
         const p = f.nombre ? deLaPlantilla(f.nombre) : undefined;
-        const dato = f.nombre ? mejorCasado<Player>([f.nombre, p?.nombre ?? "", p?.apodo ?? ""].filter(Boolean), rows, (r) => [r.jugador], usados) : undefined;
+        const evaluado = f.nombre ? mejorCasado<Player>([f.nombre, p?.nombre ?? "", p?.apodo ?? ""].filter(Boolean), rows, (r) => [r.jugador], usados) : undefined;
 
-        if (dato) usados.add(dato);
+        if (evaluado) usados.add(evaluado);
 
-        const h = dato ? conHistoria(dato.jugador) : { serie: [], previo: undefined };
+        /* Sin valoración en la hoja: la media de la plantilla, hasta que se evalúe. */
+        const dato: Player | undefined =
+          evaluado ?? (f.nombre && teamAverage ? { posicion: "", jugador: f.nombre, ...teamAverage, estimado: true } : undefined);
+
+        const h = evaluado ? conHistoria(evaluado.jugador) : { serie: [], previo: undefined };
 
         return {
           clave: f.id,
@@ -306,7 +310,7 @@ export function CampoEmocional({
       });
 
     return { titulares: colocados, banquillo: suplentes };
-  }, [once, rows, deLaPlantilla, conHistoria]);
+  }, [once, rows, deLaPlantilla, conHistoria, teamAverage]);
 
   const todos = useMemo(() => [...titulares, ...banquillo], [titulares, banquillo]);
   const seleccionado = todos.find((c) => c.clave === elegido && c.dato) ?? null;
@@ -319,6 +323,7 @@ export function CampoEmocional({
 
     const nombres = (cs: Colocado[]) => cs.flatMap((c) => (c.dato ? [c.dato.jugador] : []));
     const g: Record<GroupKey, string[]> = {
+      keeper: nombres(lineas.keeper),
       leftSide: nombres(lineas.leftSide),
       defense: nombres(lineas.defense),
       rightSide: nombres(lineas.rightSide),
@@ -326,14 +331,20 @@ export function CampoEmocional({
       strikers: nombres(lineas.strikers),
     };
 
-    return Object.values(g).some((v) => v.length > 0) ? g : null;
-  }, [once, lineas]);
+    if (!Object.values(g).some((v) => v.length > 0)) return null;
+
+    const estimados = titulares.flatMap((c) => (c.dato?.estimado ? [c.dato] : []));
+
+    return { g, estimados };
+  }, [once, lineas, titulares]);
 
   /* Se avisa sólo cuando cambia de verdad: así no pisa lo que se elija a mano. */
   const firmaOnce = gruposDelOnce ? JSON.stringify(gruposDelOnce) : "";
 
   useEffect(() => {
-    if (firmaOnce) onGruposDelOnce(JSON.parse(firmaOnce) as Record<GroupKey, string[]>);
+    if (!firmaOnce) return;
+    const { g, estimados } = JSON.parse(firmaOnce) as { g: Record<GroupKey, string[]>; estimados: Player[] };
+    onGruposDelOnce(g, estimados);
   }, [firmaOnce, onGruposDelOnce]);
 
   const porNombre = useMemo(() => new Map(todos.flatMap((c) => (c.dato ? [[c.dato.jugador, c] as const] : []))), [todos]);
@@ -376,6 +387,15 @@ export function CampoEmocional({
             </button>
           ))}
         </div>
+
+        {vista === "radares" && (
+          <a
+            href="#perfiles-por-linea"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3.5 py-1.5 text-xs font-medium text-white/65 transition hover:border-white/25 hover:text-white"
+          >
+            Cambiar jugadores
+          </a>
+        )}
 
         <Link
           href="/pizarra-tactica"
@@ -559,9 +579,9 @@ function Campo({
 | Cada línea en su sitio. En pantalla ancha, tumbado: portero y defensa,
 | defensa, medios y puntas de atrás adelante, con el perfil izquierdo arriba y
 | el derecho abajo. En pantallas estrechas, de pie (puntas arriba). Los
-| jugadores son los del once de la pizarra; en las cinco líneas compartidas
-| se cambian más abajo, en «Perfiles por línea». Quien aún no tiene
-| evaluación sale con el nombre en gris y no entra en el radar.
+| jugadores son los del once de la pizarra; se cambian más abajo,
+| en «Perfiles por línea». Quien aún no tiene valoración entra con la
+| media de la plantilla, en trazo discontinuo, hasta que se valore.
 */
 const ZONAS: { clave: LineaCampo; titulo: string; sitio: string; tumbada?: boolean }[] = [
   { clave: "strikers", titulo: "Puntas", sitio: "col-span-2 row-start-1 xl:col-span-1 xl:col-start-4 xl:row-start-2" },
@@ -597,8 +617,6 @@ function RadaresEnCampo({
   onElegir: (clave: string | null) => void;
 }) {
   const zonas = ZONAS.map((z) => {
-    if (z.clave === "keeper") return { ...z, jugadores: lineas.keeper };
-
     const elegidos = grupos[z.clave];
     const delOnce = lineas[z.clave].filter((c) => !c.dato || elegidos.includes(c.dato.jugador));
     const anadidos = elegidos.flatMap((n) => {
@@ -739,6 +757,7 @@ function RadarLinea({
               fill={evaluados.length === 1 ? `${color}33` : "none"}
               stroke={color}
               strokeWidth={resaltado === c ? 1.6 : 0.9}
+              strokeDasharray={c.dato.estimado ? "2.5 1.8" : undefined}
               strokeLinejoin="round"
               opacity={resaltado && resaltado !== c ? 0.25 : 1}
               style={{ filter: `drop-shadow(0 0 2.5px ${color})`, transition: "opacity .3s" }}
@@ -820,17 +839,18 @@ function Nombres({
             type="button"
             onClick={() => onElegir(activo ? null : c.clave)}
             aria-pressed={activo}
+            title={c.dato.estimado ? "Sin valoración todavía: lleva la media de la plantilla" : undefined}
             className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-[3px] text-[10px] font-semibold transition hover:brightness-125"
             style={{
               background: activo ? `${color}33` : "rgba(255,255,255,.05)",
-              border: `1px solid ${activo ? color : `${color}55`}`,
+              border: `1px ${c.dato.estimado ? "dashed" : "solid"} ${activo ? color : `${color}55`}`,
               color: "#EAF8FF",
             }}
           >
             <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
             <span className="truncate">{c.nombre}</span>
-            <span className="tabular-nums" style={{ color: bandFor(media).tone }}>
-              {coma(media)}
+            <span className="tabular-nums" style={{ color: c.dato.estimado ? "rgba(234,248,255,.5)" : bandFor(media).tone }}>
+              {c.dato.estimado ? "media" : coma(media)}
             </span>
           </button>
         );
@@ -944,8 +964,8 @@ function Leyenda({ radares = false }: { radares?: boolean }) {
 
       {radares && (
         <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden className="h-3 w-6 rounded-full border border-dashed border-white/30" />
-          nombre en gris: pendiente de evaluar
+          <span aria-hidden className="h-3 w-6 rounded-full border border-dashed border-white/40" />
+          trazo discontinuo: aún sin valorar, lleva la media de la plantilla
         </span>
       )}
 
@@ -1179,7 +1199,7 @@ function PerfilJugador({
             <p className="truncate text-xs text-white/50">
               {c.dorsal ? `${c.dorsal} · ` : ""}
               {dato.jugador !== c.nombre ? `${dato.jugador} · ` : ""}
-              {bandFor(media).label}
+              {dato.estimado ? "Media de la plantilla hasta que se valore" : bandFor(media).label}
             </p>
           </div>
         </div>

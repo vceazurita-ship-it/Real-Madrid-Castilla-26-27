@@ -9,6 +9,12 @@ export type MetricKey = "ea" | "ie" | "ia" | "ee";
 export type Player = {
   posicion: string;
   jugador: string;
+  /**
+   * Titular de la pizarra sin valoración en la hoja (30/10/2026): lleva la
+   * media de la plantilla en cada eje hasta que el cuerpo técnico lo evalúe.
+   * No cuenta para las medias de la plantilla.
+   */
+  estimado?: boolean;
 } & Record<MetricKey, number>;
 
 /* Las cuatro dimensiones atencionales del modelo emocional.
@@ -84,8 +90,13 @@ export function labelFor(score: number) {
   return bandFor(score).label;
 }
 
-/** Las cinco líneas de los radares: perfiles, defensa, medio y puntas. */
-export type GroupKey = "leftSide" | "defense" | "rightSide" | "midfield" | "strikers";
+/**
+ * Las seis líneas de los radares (30/10/2026): portero y defensa (los 5),
+ * defensa (los 4), perfil izquierdo (lateral y extremo), perfil derecho,
+ * medios (6, 8 y 10) y puntas (9, 10 y extremos). Un jugador puede estar en
+ * varias.
+ */
+export type GroupKey = "keeper" | "leftSide" | "defense" | "rightSide" | "midfield" | "strikers";
 
 /* Colores de cada jugador dentro de un radar de línea. */
 export const SERIES_COLORS = ["#36DAFF", "#B66BFF", "#62E8FF", "#D17DFF"];
