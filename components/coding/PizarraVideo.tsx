@@ -427,7 +427,7 @@ function Deslizador({
       />
 
       <span className="w-8 text-right font-mono text-[10px] tabular-nums text-white/50">
-        {Math.round(valor * decimales) / decimales}
+        {String(Math.round(valor * decimales) / decimales).replace(".", ",")}
         {sufijo}
       </span>
     </label>

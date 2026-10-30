@@ -20,15 +20,18 @@
 | valiendo), con el jugador y la categoría a la vista y pulsables. A pantalla
 | completa los avisos de abajo no se ven, así que la marca en curso se cuenta
 | aquí mismo.
+|
+| Diseño (30/10/2026, tras verlo en pantalla): todo es cristal oscuro con
+| `siempre-oscuro` y fondos en línea. Con clases de Tailwind el modo día
+| volvía clara la columna y blancos los nombres sobre blanco.
 */
 
 import { useState } from "react";
 import {
   ChevronDown,
+  ChevronUp,
   CircleDot,
   Flag,
-  X,
-  ChevronUp,
   GripVertical,
   ListVideo,
   Pause,
@@ -38,12 +41,17 @@ import {
   RotateCw,
   SkipBack,
   SkipForward,
+  X,
 } from "lucide-react";
 
 import type { CategoriaCoding, ClipCoding } from "@/lib/coding/modelo";
 
 /** El ancho de la columna, el mismo que se le quita al vídeo. */
-export const ANCHO_PANEL_COMPLETA = 300;
+export const ANCHO_PANEL_COMPLETA = 320;
+
+const ORO = "#C8A96B";
+const CRISTAL = "rgba(8,12,18,.78)";
+const BORDE = "1px solid rgba(255,255,255,.12)";
 
 const duracion = (clip: ClipCoding) => {
   const s = Math.max(0, Math.round((clip.finMs - clip.inicioMs) / 1000));
@@ -62,6 +70,35 @@ export type MarcadoCompleta = {
   alCancelar: () => void;
   alElegir: () => void;
 };
+
+/** Un botón redondo de la barra de mandos. */
+function Mando({
+  titulo,
+  onClick,
+  disabled,
+  grande = false,
+  children,
+}: {
+  titulo: string;
+  onClick: () => void;
+  disabled?: boolean;
+  grande?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      title={titulo}
+      aria-label={titulo}
+      onClick={onClick}
+      disabled={disabled}
+      className={`grid place-items-center rounded-full text-white transition hover:scale-105 disabled:pointer-events-none disabled:opacity-30 ${grande ? "h-12 w-12" : "h-9 w-9 hover:bg-white/10"}`}
+      style={grande ? { background: ORO, color: "#0B0F14", boxShadow: `0 0 24px ${ORO}66` } : undefined}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function PanelPantallaCompleta({
   marcado,
@@ -99,114 +136,147 @@ export function PanelPantallaCompleta({
   const anterior = indice > 0 ? clips[indice - 1] : null;
   const siguiente = indice >= 0 ? (clips[indice + 1] ?? null) : (clips[0] ?? null);
   const categoriaDe = (clip: ClipCoding) => categorias.find((c) => c.id === clip.categoriaId);
-
-  const boton =
-    "inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-white/15 bg-black/70 px-3 text-xs font-semibold text-white/85 backdrop-blur transition hover:bg-black/90 disabled:opacity-35";
+  const titulo = (clip: ClipCoding) => clip.jugadorNombre || categoriaDe(clip)?.nombre || `Corte ${clip.numero}`;
 
   const enCurso = marcado.inicioMs !== null;
+  const desplaza = abierto ? ANCHO_PANEL_COMPLETA / 2 : 0;
 
   return (
-    <>
-      {/* La marca: arriba a la izquierda, donde no tapa la jugada. */}
-      <div className={`absolute left-3 top-3 z-20 max-w-[60%] flex-wrap items-center gap-1.5 ${pintando ? "hidden" : "flex"}`}>
-        <button
-          type="button"
-          onClick={marcado.alElegir}
-          title="Elegir jugador y categoría"
-          className="inline-flex h-9 min-w-0 items-center gap-2 rounded-full border border-white/15 bg-black/70 px-3 text-xs font-semibold text-white/90 backdrop-blur transition hover:bg-black/90"
+    <div className="siempre-oscuro">
+      {/* ------------------------------------------------ LA MARCA */}
+      {!pintando && (
+        <div
+          className="absolute left-4 top-4 z-20 flex max-w-[62%] items-center gap-1 rounded-full p-1 backdrop-blur-md"
+          style={{ background: CRISTAL, border: BORDE, boxShadow: "0 10px 30px rgba(0,0,0,.45)" }}
         >
-          {marcado.categoria && (
-            <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: marcado.categoria.color }} />
-          )}
-          <span className="truncate">
-            {marcado.sujeto ? [marcado.sujeto, marcado.categoria?.nombre].filter(Boolean).join(" · ") : "Elegir jugador"}
-          </span>
-        </button>
-
-        {enCurso ? (
-          <>
-            <span className="inline-flex h-9 items-center gap-2 rounded-full border border-red-400/60 bg-red-500/20 px-3 text-xs font-bold tabular-nums text-white backdrop-blur">
-              <span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-              {marcado.formatea(marcado.inicioMs ?? 0)} → {marcado.formatea(Math.max(0, marcado.tiempoMs - (marcado.inicioMs ?? 0)))}
+          <button
+            type="button"
+            onClick={marcado.alElegir}
+            title="Elegir jugador y categoría"
+            className="inline-flex h-9 min-w-0 items-center gap-2 rounded-full px-3 text-xs font-semibold text-white transition hover:bg-white/10"
+          >
+            <span
+              aria-hidden
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ background: marcado.categoria?.color ?? "rgba(255,255,255,.35)" }}
+            />
+            <span className="truncate">
+              {marcado.sujeto ? [marcado.sujeto, marcado.categoria?.nombre].filter(Boolean).join(" · ") : "Elegir jugador"}
             </span>
-            <button type="button" onClick={marcado.alFinal} title="Marcar el final (O)" className={`${boton} border-red-400/70 bg-red-600/80 text-white hover:bg-red-600`}>
-              <Flag size={14} />
-              Final
-              <kbd className="rounded bg-black/30 px-1 text-[10px]">O</kbd>
-            </button>
-            <button type="button" onClick={marcado.alCancelar} title="Cancelar la marca" className={`${boton} w-9 px-0`}>
-              <X size={15} />
-            </button>
-          </>
-        ) : (
-          <button type="button" onClick={marcado.alInicio} title="Marcar el inicio (I)" className={`${boton} border-emerald-400/60 bg-emerald-600/70 text-white hover:bg-emerald-600`}>
-            <CircleDot size={14} />
-            Inicio
-            <kbd className="rounded bg-black/30 px-1 text-[10px]">I</kbd>
           </button>
-        )}
-      </div>
 
-      {/* Mandos: abajo, a la izquierda del botón «Pizarra». */}
+          {enCurso ? (
+            <>
+              <span className="inline-flex h-9 items-center gap-2 px-2 text-xs font-bold tabular-nums text-white">
+                <span aria-hidden className="h-2 w-2 animate-pulse rounded-full" style={{ background: "#EF4444", boxShadow: "0 0 10px #EF4444" }} />
+                {marcado.formatea(Math.max(0, marcado.tiempoMs - (marcado.inicioMs ?? 0)))}
+              </span>
+              <button
+                type="button"
+                onClick={marcado.alFinal}
+                title="Marcar el final (O)"
+                className="inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold text-white transition hover:brightness-110"
+                style={{ background: "#DC2626" }}
+              >
+                <Flag size={14} />
+                Final
+                <kbd className="rounded px-1 text-[10px]" style={{ background: "rgba(0,0,0,.25)" }}>O</kbd>
+              </button>
+              <button
+                type="button"
+                onClick={marcado.alCancelar}
+                title="Cancelar la marca"
+                className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/10"
+              >
+                <X size={15} />
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={marcado.alInicio}
+              title="Marcar el inicio (I)"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold text-white transition hover:brightness-110"
+              style={{ background: "#059669" }}
+            >
+              <CircleDot size={14} />
+              Inicio
+              <kbd className="rounded px-1 text-[10px]" style={{ background: "rgba(0,0,0,.25)" }}>I</kbd>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ------------------------------------------------ LOS MANDOS */}
       <div
-        className="absolute bottom-3 z-20 flex items-center gap-1.5"
-        style={{ left: "50%", transform: `translateX(calc(-50% - ${abierto ? ANCHO_PANEL_COMPLETA / 2 : 0}px))` }}
+        className="absolute bottom-5 z-20 flex items-center gap-1 rounded-full px-2 py-1.5 backdrop-blur-md"
+        style={{
+          left: "50%",
+          transform: `translateX(calc(-50% - ${desplaza}px))`,
+          background: CRISTAL,
+          border: BORDE,
+          boxShadow: "0 12px 34px rgba(0,0,0,.5)",
+        }}
       >
-        <button type="button" className={boton} disabled={!anterior} onClick={() => anterior && alReproducir(anterior)} title="Corte anterior">
-          <SkipBack size={15} />
-          <span className="max-md:hidden">Anterior</span>
-        </button>
-        <button type="button" className={boton} onClick={() => alSaltar(-5000)} title="Cinco segundos atrás">
-          <RotateCcw size={15} />
-        </button>
-        <button
-          type="button"
-          className={`${boton} w-12 border-[#C8A96B]/60 text-[#E4C977]`}
-          onClick={alAlternar}
-          title={reproduciendo ? "Pausa" : "Reproducir"}
-        >
-          {reproduciendo ? <Pause size={17} /> : <Play size={17} />}
-        </button>
-        <button type="button" className={boton} onClick={() => alSaltar(5000)} title="Cinco segundos adelante">
-          <RotateCw size={15} />
-        </button>
-        <button type="button" className={boton} disabled={!siguiente} onClick={() => siguiente && alReproducir(siguiente)} title="Corte siguiente">
-          <span className="max-md:hidden">Siguiente</span>
-          <SkipForward size={15} />
-        </button>
+        <Mando titulo="Corte anterior" disabled={!anterior} onClick={() => anterior && alReproducir(anterior)}>
+          <SkipBack size={17} />
+        </Mando>
+        <Mando titulo="Cinco segundos atrás" onClick={() => alSaltar(-5000)}>
+          <RotateCcw size={16} />
+        </Mando>
+        <Mando titulo={reproduciendo ? "Pausa" : "Reproducir"} onClick={alAlternar} grande>
+          {reproduciendo ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="translate-x-[1px]" />}
+        </Mando>
+        <Mando titulo="Cinco segundos adelante" onClick={() => alSaltar(5000)}>
+          <RotateCw size={16} />
+        </Mando>
+        <Mando titulo="Corte siguiente" disabled={!siguiente} onClick={() => siguiente && alReproducir(siguiente)}>
+          <SkipForward size={17} />
+        </Mando>
+
+        {clips.length > 0 && (
+          <span className="ml-1 border-l pl-2 text-[11px] font-semibold tabular-nums text-white/60" style={{ borderColor: "rgba(255,255,255,.12)" }}>
+            {indice >= 0 ? `${indice + 1} / ${clips.length}` : clips.length}
+          </span>
+        )}
 
         {!abierto && clips.length > 0 && (
-          <button type="button" className={boton} onClick={() => alAbrir(true)} title="Enseñar la lista de cortes">
-            <ListVideo size={15} />
-            {indice >= 0 ? `${indice + 1} / ${clips.length}` : clips.length}
-          </button>
+          <Mando titulo="Enseñar la lista de cortes" onClick={() => alAbrir(true)}>
+            <ListVideo size={16} />
+          </Mando>
         )}
       </div>
 
+      {/* ------------------------------------------------ LA LISTA */}
       {abierto && (
         <aside
-          className="absolute bottom-0 right-0 top-0 z-20 flex flex-col border-l border-white/10 bg-[#0B0F14]/95 backdrop-blur"
-          style={{ width: ANCHO_PANEL_COMPLETA }}
+          className="absolute bottom-0 right-0 top-0 z-20 flex flex-col"
+          style={{ width: ANCHO_PANEL_COMPLETA, background: "linear-gradient(180deg, #0E141C, #0A0E14)", borderLeft: BORDE }}
           aria-label="Cortes"
         >
-          <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2.5 pr-24">
-            <p className="text-[11px] font-semibold uppercase tracking-[.2em] text-white/55">
-              Cortes{" "}
-              <span className="text-white/35">{indice >= 0 ? `${indice + 1} / ${clips.length}` : clips.length}</span>
-            </p>
+          <div className="flex items-center gap-2 px-4 pb-3 pt-4 pr-28">
             <button
               type="button"
               onClick={() => alAbrir(false)}
               title="Plegar la lista"
-              className="rounded-lg p-1.5 text-white/55 transition hover:bg-white/10 hover:text-white"
+              className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/60 transition hover:bg-white/10 hover:text-white"
             >
               <PanelRightClose size={16} />
             </button>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[.22em]" style={{ color: ORO }}>
+                Cortes
+              </p>
+              <p className="text-sm font-semibold text-white">
+                {clips.length} {clips.length === 1 ? "corte" : "cortes"}
+              </p>
+            </div>
           </div>
 
-          <ol className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
+          <ol className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 pb-4">
             {clips.map((clip, i) => {
               const categoria = categoriaDe(clip);
+              const color = categoria?.color ?? "#64748B";
               const activo = clip.id === seleccionado;
               const marca = destino?.id === clip.id && arrastrado !== clip.id ? destino.donde : null;
 
@@ -234,51 +304,55 @@ export function PanelPantallaCompleta({
                     setArrastrado(null);
                     setDestino(null);
                   }}
-                  className={`group relative flex items-center gap-2 rounded-xl border px-2 py-1.5 transition ${
-                    activo ? "border-[#C8A96B]/70 bg-[#C8A96B]/15" : "border-white/[0.06] bg-white/[0.03] hover:border-white/20"
-                  } ${arrastrado === clip.id ? "opacity-40" : ""}`}
+                  className={`group relative flex items-center gap-2 overflow-hidden rounded-xl py-2 pl-3 pr-1.5 transition ${arrastrado === clip.id ? "opacity-40" : ""}`}
                   style={{
+                    background: activo ? `linear-gradient(90deg, ${ORO}2E, ${ORO}0D)` : "rgba(255,255,255,.035)",
+                    border: `1px solid ${activo ? `${ORO}99` : "rgba(255,255,255,.07)"}`,
                     boxShadow:
-                      marca === "antes" ? "inset 0 2px 0 #C8A96B" : marca === "despues" ? "inset 0 -2px 0 #C8A96B" : undefined,
+                      marca === "antes" ? `inset 0 2px 0 ${ORO}` : marca === "despues" ? `inset 0 -2px 0 ${ORO}` : undefined,
                   }}
                 >
-                  <GripVertical size={14} className="shrink-0 cursor-grab text-white/25" aria-hidden />
+                  {/* La franja de la categoría. */}
+                  <span aria-hidden className="absolute bottom-0 left-0 top-0 w-1" style={{ background: color }} />
 
-                  <button type="button" onClick={() => alReproducir(clip)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+                  <button type="button" onClick={() => alReproducir(clip)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
                     <span
-                      className="grid h-6 min-w-6 shrink-0 place-items-center rounded-md px-1 text-[10px] font-bold tabular-nums"
-                      style={{ background: categoria?.color ?? "#334155", color: "#0B0F14" }}
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-[11px] font-bold tabular-nums"
+                      style={activo ? { background: ORO, color: "#0B0F14" } : { background: "rgba(255,255,255,.08)", color: "#fff" }}
                     >
-                      {i + 1}
+                      {activo && reproduciendo ? <Play size={12} fill="currentColor" /> : i + 1}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-xs font-semibold text-white/90">{clip.jugadorNombre}</span>
-                      <span className="block truncate text-[10px] text-white/45">
-                        {[categoria?.nombre, duracion(clip), ...clip.tags.slice(0, 2)].filter(Boolean).join(" · ")}
+                      <span className="block truncate text-[13px] font-semibold text-white">{titulo(clip)}</span>
+                      <span className="block truncate text-[11px] text-white/50">
+                        {[clip.jugadorNombre ? categoria?.nombre : null, duracion(clip), ...clip.tags.slice(0, 2)].filter(Boolean).join(" · ")}
                       </span>
                     </span>
                   </button>
 
-                  {/* Para la tablet, donde arrastrar dentro de una lista que se desplaza es incómodo. */}
-                  <span className="flex shrink-0 flex-col opacity-0 transition group-hover:opacity-100 max-md:opacity-100">
-                    <button
-                      type="button"
-                      disabled={i === 0}
-                      onClick={() => alMover(clip.id, clips[i - 1].id, "antes")}
-                      title="Subir"
-                      className="rounded p-0.5 text-white/55 hover:text-white disabled:opacity-25"
-                    >
-                      <ChevronUp size={13} />
-                    </button>
-                    <button
-                      type="button"
-                      disabled={i === clips.length - 1}
-                      onClick={() => alMover(clip.id, clips[i + 1].id, "despues")}
-                      title="Bajar"
-                      className="rounded p-0.5 text-white/55 hover:text-white disabled:opacity-25"
-                    >
-                      <ChevronDown size={13} />
-                    </button>
+                  {/* Ordenar: arrastrando por el asa, o con las flechas en una tablet. */}
+                  <span className="flex shrink-0 items-center opacity-0 transition group-hover:opacity-100 max-md:opacity-100">
+                    <span className="flex flex-col">
+                      <button
+                        type="button"
+                        disabled={i === 0}
+                        onClick={() => alMover(clip.id, clips[i - 1].id, "antes")}
+                        title="Subir"
+                        className="rounded p-0.5 text-white/60 hover:text-white disabled:opacity-25"
+                      >
+                        <ChevronUp size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={i === clips.length - 1}
+                        onClick={() => alMover(clip.id, clips[i + 1].id, "despues")}
+                        title="Bajar"
+                        className="rounded p-0.5 text-white/60 hover:text-white disabled:opacity-25"
+                      >
+                        <ChevronDown size={13} />
+                      </button>
+                    </span>
+                    <GripVertical size={15} className="cursor-grab text-white/40" aria-hidden />
                   </span>
                 </li>
               );
@@ -286,6 +360,6 @@ export function PanelPantallaCompleta({
           </ol>
         </aside>
       )}
-    </>
+    </div>
   );
 }

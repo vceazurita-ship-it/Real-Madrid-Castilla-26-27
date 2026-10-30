@@ -4104,12 +4104,17 @@ function Coding() {
                     ref={montaVideo}
                     src={src || undefined}
                     className="aspect-video w-full bg-black"
-                    /* A pantalla completa con la lista de cortes, el vídeo
-                       deja su ancho a la columna: sigue anclado a la esquina,
-                       así que la pizarra no se despega. */
+                    /* A pantalla completa el vídeo ocupa todo el alto y
+                       deja su ancho a la columna de cortes. La imagen va
+                       centrada dentro con `contain`: la pizarra mide el
+                       rectángulo de imagen (useEncaje), así que no se despega. */
                     style={
-                      enPantallaCompleta && src && panelCompleta
-                        ? { width: `calc(100% - ${ANCHO_PANEL_COMPLETA}px)` }
+                      enPantallaCompleta && src
+                        ? {
+                            width: panelCompleta ? `calc(100% - ${ANCHO_PANEL_COMPLETA}px)` : "100%",
+                            height: "100%",
+                            objectFit: "contain",
+                          }
                         : undefined
                     }
                     preload="metadata"
