@@ -34,8 +34,9 @@ export default function IdentidadCulturaPage() {
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Identidad"
-              title="Identidad y Cultura"
-              lead="Los documentos de cultura del vestuario, listos para proyectar en la sala o imprimir: los cinco valores que votó la plantilla, con lo que suma y lo que no se admite. Se descargan en PDF o en PowerPoint."
+              /* 30/10/2026: titular con mensaje; «Identidad» ya lo dice el área. */
+              title="Los valores que votó la plantilla"
+              lead="Cinco valores, cada uno con lo que suma y lo que no se admite, dentro y fuera del campo. Listos para proyectar en la sala o imprimir."
             />
 
             <div className="mt-6">

@@ -305,7 +305,9 @@ export default function DashboardPlantilla() {
   | todo en un scroll de siete gráficos. Las cifras de arriba (que filtran)
   | siguen siempre a la vista.
   */
-  const [vista, setVista] = usePestanaUrl<"jugador" | "plantilla" | "valoracion" | "evolucion">("vista", ["jugador", "plantilla", "valoracion", "evolucion"], "jugador");
+  const [vista, setVista] = usePestanaUrl<"jugador" | "plantilla" | "valoracion" | "evolucion">("vista", ["jugador", "plantilla", "valoracion", "evolucion"], "plantilla");
+  /* 30/10/2026: abre con «¿Cómo está la plantilla?», el resumen de todos;
+     antes abría en la ficha 1 de 45 y había que pasar con «Siguiente». */
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
 
@@ -837,7 +839,7 @@ export default function DashboardPlantilla() {
       /* Es la licencia del Castilla (ver arriba), no «activo» en la hoja. */
       title: "Del Castilla",
       value: stats.activos,
-      base: `de ${stats.total} en la lista`,
+      base: "con licencia del Castilla",
       filter: { key: "activo", value: "true" },
     },
     {
@@ -864,14 +866,14 @@ export default function DashboardPlantilla() {
     {
       title: "Media",
       value: stats.media,
-      base: `de ${stats.valorados} con ficha · competencias del scout, no la nota de partido`,
+      base: "de las fichas de competencias",
       secundario: true,
     },
     /* 29/10/2026: Mejor/Peor no casaban con Valoraciones porque son otra
        cosa: una ficha de competencias por jugador, no la media de partidos. */
     /* 30/10/2026: «Élite (≥8)» va dentro de «Mejor»: eran el mismo dato dos veces. */
-    { title: "Mejor", value: stats.mejor, secundario: true, base: stats.mejorNombre ? `${stats.mejorNombre} · ${stats.elite} de ${stats.valorados} con ficha en élite (8 o más) · competencias, no nota de partido` : undefined },
-    { title: "Peor", value: stats.peor, secundario: true, base: stats.peorNombre ? `${stats.peorNombre} · su ficha de competencias (no la nota de partido)` : undefined },
+    { title: "Mejor", value: stats.mejor, secundario: true, base: stats.mejorNombre ? `${stats.mejorNombre} · ${stats.elite} en élite (8 o más)` : undefined },
+    { title: "Peor", value: stats.peor, secundario: true, base: stats.peorNombre || undefined },
     {
       title: "% Óptimos",
       value: `${stats.optimalPercentage}%`,
@@ -1084,20 +1086,12 @@ export default function DashboardPlantilla() {
 
                   {/* Jugadores, media y % de óptimos van en las tarjetas de
                       debajo: aquí sólo el veredicto, sin repetir cifras. */}
-                  <div className="grid grid-cols-1 gap-6">
+                  <div className="grid grid-cols-1 gap-1 md:text-right">
                     <SummaryStat
                       /* 30/10/2026: la regla en una línea junto al veredicto, sin párrafo aparte. */
-                      label={`Estado general · ${stats.optimos} de ${stats.total} óptimos (${stats.optimalPercentage} %) · ${
-                        overallStatus === "MUY BUENO"
-                          ? "80 % o más = muy bueno"
-                          : overallStatus === "BUENO"
-                            ? "60 % o más = bueno"
-                            : overallStatus === "MEJORABLE"
-                              ? "40 % o más = mejorable"
-                              : "menos del 40 % = crítico"
-                      }`}
+                      label={`Estado general · ${stats.optimos} de ${stats.total} óptimos (${stats.optimalPercentage} %)`}
                       value={overallStatus}
-                      size="text-xl"
+                      size="text-2xl"
                       className={
                         overallStatus === "MUY BUENO"
                           ? "text-emerald-400"
@@ -1108,6 +1102,10 @@ export default function DashboardPlantilla() {
                               : "text-red-400"
                       }
                     />
+                    {/* El umbral, a tamaño legible bajo el veredicto (30/10/2026). */}
+                    <p className="text-sm font-medium text-white/70">
+                      Óptimos: 40 % o más = mejorable · 60 % = bueno · 80 % = muy bueno
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1182,6 +1180,13 @@ export default function DashboardPlantilla() {
                 })}
               </div>
 
+              {/* Una sola línea con las bases (30/10/2026): 45, 22 y 24 salían con
+                  denominadores distintos tarjeta a tarjeta. */}
+              <p className="-mt-3 text-[13px] text-white/60">
+                {stats.total} en la lista · {stats.activos} del Castilla · {stats.valorados} con ficha de competencias
+                (media, mejor y peor salen de esas fichas, no de la nota de partido)
+              </p>
+
               {estrecho && (
                 <button
                   type="button"
@@ -1201,8 +1206,8 @@ export default function DashboardPlantilla() {
                 valor={vista}
                 onCambia={setVista}
                 opciones={[
-                  { clave: "jugador", label: "¿Cómo está cada uno?" },
                   { clave: "plantilla", label: "¿Cómo está la plantilla?" },
+                  { clave: "jugador", label: "¿Cómo está cada uno?" },
                   { clave: "valoracion", label: "¿Quién rinde más?" },
                   { clave: "evolucion", label: "¿Cómo evoluciona?" },
                 ]}
@@ -1245,7 +1250,7 @@ export default function DashboardPlantilla() {
                       {radarData.length ? (
                         /* 29/10/2026: a 390 px se cortaban «Técnica» y «Hábitos»:
                            en estrecho, radio menor, letra de 12 y margen lateral. */
-                        <ResponsiveContainer width="100%" height={estrecho ? 340 : 420}>
+                        <ResponsiveContainer width="100%" height={estrecho ? 340 : 360}>
                           <RadarChart
                             data={radarData}
                             outerRadius={estrecho ? "70%" : "80%"}

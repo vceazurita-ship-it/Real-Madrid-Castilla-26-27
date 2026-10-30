@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { ChevronDown, Plus, SearchX, Trash2 } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -95,7 +96,37 @@ function jugadoresDelPuesto(posicionHoja: string, plantilla: Player[]) {
   return plantilla
     .filter((j) => j.esCastilla)
     .filter((j) => familia[1].test(sinTildes(nombrePuesto(j.posicion))))
-    .map((j) => j.apodo || j.nombre);
+    .map((j) => ({ corto: j.apodo || j.nombre, nombre: j.nombre || j.apodo }));
+}
+
+/*
+| El icono de cada puesto (30/10/2026): un campo en miniatura con el sitio
+| marcado. Dice dónde juega sin depender sólo del nombre.
+*/
+const SITIOS: [RegExp, [number, number][]][] = [
+  [/^portero/, [[12, 27]]],
+  [/^central/, [[9, 22], [15, 22]]],
+  [/^lateral|^carrilero/, [[4, 20], [20, 20]]],
+  [/^mediapunta/, [[12, 11]]],
+  [/^extremo/, [[4, 9], [20, 9]]],
+  [/^delanter|^punta/, [[12, 5]]],
+  [/^medio|^pivote|^interior|^centrocampista/, [[8, 15], [16, 15]]],
+];
+
+function IconoPuesto({ posicion, activo }: { posicion: string; activo: boolean }) {
+  const sitios = SITIOS.find(([re]) => re.test(sinTildes(posicion)))?.[1] ?? [];
+  const trazo = activo ? "rgba(0,0,0,0.55)" : "rgba(200,169,107,0.55)";
+
+  return (
+    <svg viewBox="0 0 24 32" className="h-6 w-[18px] shrink-0" aria-hidden>
+      <rect x="1" y="1" width="22" height="30" rx="2" fill="none" stroke={trazo} strokeWidth="1.2" />
+      <line x1="1" y1="16" x2="23" y2="16" stroke={trazo} strokeWidth="1" />
+      <rect x="7" y="25" width="10" height="6" fill="none" stroke={trazo} strokeWidth="1" />
+      {sitios.map(([x, y], i) => (
+        <circle key={i} cx={x} cy={y} r="2.4" fill={activo ? "#000" : "#C8A96B"} />
+      ))}
+    </svg>
+  );
 }
 
 /**
@@ -707,12 +738,29 @@ export default function IdentidadPosicionalPage() {
 
     return (
       <section key={bloque} className="min-w-0">
-        <div className="mb-5 flex items-center justify-between gap-3 border-b border-white/10 pb-3">
-          <h2 className="text-lg font-bold tracking-wide text-[#C8A96B] lg:text-xl">
+        {/* 30/10/2026: con balón y sin balón, cada uno con su color de
+            cabecera (dorado / azul) y el contador en su chip. */}
+        <div
+          className={cn(
+            "mb-5 flex items-center justify-between gap-3 border-b-2 pb-3",
+            /SIN/i.test(bloque) ? "border-sky-400/50" : "border-[#C8A96B]/60",
+          )}
+        >
+          <h2
+            className={cn(
+              "text-lg font-bold tracking-wide lg:text-xl",
+              /SIN/i.test(bloque) ? "text-sky-300" : "text-[#C8A96B]",
+            )}
+          >
             {bloque}
           </h2>
 
-          <span className="rounded-full bg-white/[0.06] px-2.5 py-0.5 text-xs font-semibold tabular-nums text-gray-400">
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums",
+              /SIN/i.test(bloque) ? "bg-sky-400/15 text-sky-300" : "bg-[#C8A96B]/15 text-[#C8A96B]",
+            )}
+          >
             {filtrando ? `${items.length} de ${total}` : total}{" "}
             contenido{total === 1 ? "" : "s"}
           </span>
@@ -808,22 +856,23 @@ export default function IdentidadPosicionalPage() {
 
           <aside
             aria-label="Posiciones"
-            className="w-full border-white/10 p-4 lg:w-[280px] lg:shrink-0 lg:border-r lg:p-6 xl:w-[320px]"
+            /* 30/10/2026: en el móvil, buscador y puestos fijos arriba al bajar. */
+            className="w-full border-white/10 p-4 max-lg:sticky max-lg:top-0 max-lg:z-20 max-lg:border-b max-lg:bg-[#0B0F14] max-lg:py-3 lg:w-[280px] lg:shrink-0 lg:border-r lg:p-6 xl:w-[320px]"
           >
-            <SectionLabel className="text-[#C8A96B]">Posiciones</SectionLabel>
+            <SectionLabel className="text-[#C8A96B] max-lg:hidden">Posiciones</SectionLabel>
 
             <SearchField
               value={query}
               onChange={setQuery}
               placeholder="Buscar contenido…"
               label="Buscar en los contenidos individuales"
-              className={cn("mt-4", editing && "pointer-events-none opacity-40")}
+              className={cn("lg:mt-4", editing && "pointer-events-none opacity-40")}
             />
 
             {/* 30/10/2026: en el móvil la tira cortaba los puestos («ME…»)
                 sin decir que seguía. Ahora es una rejilla de 3×2 con los seis
                 a la vista; en escritorio, la lista de siempre. */}
-            <nav className="mt-4 grid grid-cols-3 gap-2 lg:mt-5 lg:grid-cols-1">
+            <nav className="mt-3 grid grid-cols-3 gap-2 lg:mt-5 lg:grid-cols-1">
               {posiciones.map((p) => {
                 const total = visibles.filter((x) => x.POSICION === p).length;
                 const activo = posicion === p;
@@ -835,7 +884,7 @@ export default function IdentidadPosicionalPage() {
                     onClick={() => setPosicion(p)}
                     aria-current={activo ? "true" : undefined}
                     className={cn(
-                      "flex min-w-0 flex-col items-start gap-0.5 rounded-xl px-2.5 py-2 text-left transition-all lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:rounded-2xl lg:px-4 lg:py-3",
+                      "flex min-w-0 flex-row items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-all lg:gap-3 lg:rounded-2xl lg:px-4 lg:py-3",
                       focusRing,
                       activo
                         ? "bg-[#C8A96B] text-black shadow-[0_8px_24px_-12px_rgba(200,169,107,0.9)]"
@@ -843,16 +892,20 @@ export default function IdentidadPosicionalPage() {
                       filtrando && total === 0 && !activo && "opacity-40",
                     )}
                   >
-                    <span className="w-full min-w-0 break-words text-xs font-semibold leading-tight sm:text-sm lg:w-auto">
-                      {p}
-                    </span>
-                    <span
-                      className={cn(
-                        "shrink-0 text-[11px] tabular-nums sm:text-xs",
-                        activo ? "text-black/70" : "text-gray-400",
-                      )}
-                    >
-                      {total} contenido{total === 1 ? "" : "s"}
+                    <IconoPuesto posicion={p} activo={activo} />
+                    <span className="flex min-w-0 flex-1 flex-col lg:flex-row lg:items-center lg:justify-between lg:gap-3">
+                      <span className="min-w-0 break-words text-xs font-semibold leading-tight sm:text-sm">
+                        {p}
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 text-[11px] tabular-nums sm:text-xs",
+                          activo ? "text-black/70" : "text-gray-400",
+                        )}
+                      >
+                        {total}
+                        <span className="max-lg:hidden"> contenido{total === 1 ? "" : "s"}</span>
+                      </span>
                     </span>
                   </button>
                 );
@@ -889,9 +942,21 @@ export default function IdentidadPosicionalPage() {
                   )}
 
                   {quienes.length > 0 && !editing && (
-                    <p className="mt-2 text-sm text-gray-400">
-                      <span className="text-gray-500">En la plantilla: </span>
-                      {quienes.join(" · ")}
+                    /* 30/10/2026: cada nombre lleva a su ficha individual; la
+                       fuente es la plantilla del Castilla. */
+                    <p className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm text-gray-400">
+                      <span className="text-gray-500">Sus jugadores en la plantilla:</span>
+                      {quienes.map((uno, i) => (
+                        <span key={uno.nombre}>
+                          <Link
+                            href={`/individual?nombre=${encodeURIComponent(uno.nombre ?? "")}`}
+                            className="font-medium text-gray-200 underline decoration-dotted underline-offset-2 hover:text-[#C8A96B]"
+                          >
+                            {uno.corto}
+                          </Link>
+                          {i < quienes.length - 1 ? " ·" : ""}
+                        </span>
+                      ))}
                     </p>
                   )}
                 </div>
@@ -1105,7 +1170,7 @@ function FichaContenido({
 
   if (!Object.values(d).some(Boolean)) {
     return (
-      <p className="min-w-0 whitespace-pre-wrap break-words leading-relaxed text-gray-200">
+      <p className="min-w-0 whitespace-pre-wrap break-words text-[14px] leading-relaxed text-gray-200 lg:text-[15px]">
         {texto}
       </p>
     );
@@ -1113,7 +1178,7 @@ function FichaContenido({
 
   return (
     <details className="group min-w-0 flex-1">
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 leading-relaxed text-gray-200 [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 text-[14px] leading-relaxed text-gray-200 lg:text-[15px] [&::-webkit-details-marker]:hidden">
         <span className="min-w-0 break-words">{texto}</span>
         <ChevronDown
           className="mt-1 h-4 w-4 shrink-0 text-[#C8A96B] transition-transform group-open:rotate-180"

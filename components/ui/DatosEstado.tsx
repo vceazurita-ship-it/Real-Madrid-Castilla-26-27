@@ -13,7 +13,7 @@
  * no dice nada: no hay nada que explicar.
  */
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { RefreshCw } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
@@ -73,6 +73,27 @@ export function DatosEstado() {
   }, [hayBajada]);
 
   /*
+  | 30/10/2026: «Actualizando…» acaba siempre en algo: al terminar la bajada,
+  | «Actualizado hace X min»; si a los 20 s no ha terminado, un aviso con
+  | «Reintentar». Antes, sin copia en el aparato, el rótulo desaparecía o se
+  | quedaba en un «Datos guardados» que no decía nada.
+  */
+  const [acabadoEn, setAcabadoEn] = useState<number | null>(null);
+  const bajabaAntes = useRef(false);
+
+  useEffect(() => {
+    const acaba = bajabaAntes.current && !hayBajada;
+
+    bajabaAntes.current = hayBajada;
+
+    if (!acaba) return;
+
+    const t = window.setTimeout(() => setAcabadoEn(Date.now()), 0);
+
+    return () => window.clearTimeout(t);
+  }, [hayBajada]);
+
+  /*
   | Ronda 2 (29/10/2026): vale para todas las pantallas, no sólo la portada;
   | si no se ha tocado nada, la hoja nueva se aplica sola y el aviso no queda fijo.
   | En la portada lo nuevo se pone solo (29/10/2026, experto de fútbol): la
@@ -122,7 +143,23 @@ export function DatosEstado() {
     };
   }, [ruta]);
 
-  if (estado.deCopia === 0 && estado.bajando === 0) return null;
+  /* «Actualizado hace X min»: el reloj de la pantalla, nunca Date.now() en el render. */
+  const actualizado = (desde: number) => {
+    const min = Math.max(0, Math.round((ahora - desde) / 60_000));
+
+    return min < 1 ? "Actualizado ahora" : min < 60 ? `Actualizado hace ${min} min` : `Actualizado hace ${Math.round(min / 60)} h`;
+  };
+
+  if (estado.deCopia === 0 && estado.bajando === 0) {
+    if (acabadoEn === null || ahora === 0) return null;
+
+    return (
+      <span className="hidden items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/55 sm:inline-flex" title="Todo lo que se ve está recién bajado">
+        <RefreshCw size={12} />
+        {actualizado(Math.min(acabadoEn, ahora))}
+      </span>
+    );
+  }
 
   const recarga = () => {
     /* Las copias nuevas ya están guardadas: recargar es leerlas. Lo que se
@@ -163,6 +200,24 @@ export function DatosEstado() {
     );
   }
 
+  /* La bajada lleva 20 s sin terminar: se dice y se ofrece repetirla. */
+  if (hayBajada && cansado) {
+    return (
+      <button
+        type="button"
+        onClick={todoFresco}
+        className="inline-flex items-center gap-1.5 rounded-xl border border-amber-400/40 bg-amber-400/10 px-2.5 py-1.5 text-[11px] text-amber-200 transition hover:bg-amber-400/20"
+        title="Una hoja no ha contestado en 20 segundos. Pulsa para volver a bajarlo todo."
+      >
+        <RefreshCw size={12} />
+        <span className="hidden sm:inline">
+          {estado.masVieja !== null && ahora > 0 ? `Datos ${haceCuanto(estado.masVieja, ahora)}: no se han podido renovar ·` : "No se han podido actualizar ·"}
+        </span>{" "}
+        Reintentar
+      </button>
+    );
+  }
+
   return (
     <button
       type="button"
@@ -176,9 +231,11 @@ export function DatosEstado() {
             avisa de que se renueva); «Actualizando…» solo si no hay fecha. */}
         {estado.masVieja !== null && ahora > 0
           ? `Datos ${haceCuanto(estado.masVieja, ahora)}`
-          : hayBajada && !cansado
+          : hayBajada
             ? "Actualizando…"
-            : "Datos guardados"}
+            : acabadoEn !== null && ahora > 0
+              ? actualizado(Math.min(acabadoEn, ahora))
+              : "Datos guardados"}
       </span>
     </button>
   );

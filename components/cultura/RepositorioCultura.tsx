@@ -255,6 +255,9 @@ export function RepositorioCultura() {
   */
   const conEstanteria = admin === true || documentos.length > 1;
 
+  /* Con un solo documento la lista repetía la cabecera del panel (30/10/2026). */
+  const conLista = documentos.length > 1;
+
   return (
     <div
       className="min-w-0"
@@ -278,6 +281,7 @@ export function RepositorioCultura() {
             el documento y, al final, lo que sólo toca al administrador. */}
         {conEstanteria && (
         <div className="min-w-0 space-y-4 max-lg:contents">
+          {conLista && (
           <div className="min-w-0 max-lg:order-1">
           {/* 30/10/2026: sin «N en el repositorio» y con el estado de guardado
               sólo para el administrador, que es el único que escribe aquí. */}
@@ -362,6 +366,7 @@ export function RepositorioCultura() {
             </ul>
           </Panel>
           </div>
+          )}
 
           {/* ==================== SUBIR EL BRUTO ==================== */}
 
@@ -521,21 +526,27 @@ export function RepositorioCultura() {
                   </div>
                 )}
               </Panel>
+            ) : null}
+
+            {/* Del bruto sin publicar también se puede sacar el documento:
+                a veces se quiere el PDF para leerlo antes de decidir.
+                30/10/2026: el documento y sus descargas, en un solo panel; la
+                ruta del fichero ya no sale (tampoco al administrador). */}
+            {previa ? (
+              <ExportaCultura documento={aLaVista} />
             ) : (
-              /* 30/10/2026: la ficha deja las cajas TEMPORADA / DIAPOSITIVAS /
-                 ORIGEN, que parecían campos de formulario, y lo dice en una
-                 línea. La ruta del fichero sólo la ve el administrador. */
-              <Panel
-                title={`${documento?.numero} · ${documento?.titulo}`}
-                subtitle={[
+              <ExportaCultura
+                documento={aLaVista}
+                titulo={`${documento?.numero} · ${documento?.titulo}`}
+                subtitulo={[
                   documento?.temporada && `Temporada ${documento.temporada}`,
                   `${documento?.diapositivas.length ?? 0} diapositivas`,
+                  "en PDF o PowerPoint",
                 ]
                   .filter(Boolean)
                   .join(" · ")}
-                icon={FileText}
-                bodyClassName={admin === true ? undefined : "hidden"}
-                action={
+                accion={
+                  admin === true &&
                   documento &&
                   esSubido(documento, guardado) && (
                     <Button
@@ -547,18 +558,8 @@ export function RepositorioCultura() {
                     </Button>
                   )
                 }
-              >
-                {admin === true && (
-                  <p className="truncate text-xs text-white/45">
-                    Origen: {documento?.origen ?? "Redactado aquí"}
-                  </p>
-                )}
-              </Panel>
+              />
             )}
-
-            {/* Del bruto sin publicar también se puede sacar el documento:
-                a veces se quiere el PDF para leerlo antes de decidir. */}
-            <ExportaCultura documento={aLaVista} />
 
             <Panel
               title="Vista previa"

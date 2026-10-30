@@ -9,6 +9,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Lock,
   SearchX,
   Shield,
   Swords,
@@ -225,7 +226,15 @@ export default function GameModelPage() {
 
   /** Los filtros de texto se desactivan al editar para no ocultar lo que se escribe. */
   const visibles = useMemo(
-    () => (editing ? data : data.filter((r) => matches(query, r.PRINCIPIO))),
+    /* 30/10/2026: el buscador mira también la definición, qué se ve y el criterio. */
+    () =>
+      editing
+        ? data
+        : data.filter((r) => {
+            const d = detalle(r);
+
+            return matches(query, [r.PRINCIPIO, d.definicion, d.queSeVe, d.criterio].filter(Boolean).join(" · "));
+          }),
     [data, editing, query],
   );
 
@@ -635,7 +644,7 @@ export default function GameModelPage() {
             />
 
             {/* Bloques */}
-            <SectionLabel className="mt-6 mb-3 text-xs text-gray-400">Bloques</SectionLabel>
+            <SectionLabel className="mt-4 mb-2 text-xs text-gray-400 lg:mt-6 lg:mb-3">Bloques</SectionLabel>
 
             {/*
             | 30/10/2026: en el móvil la tira horizontal cortaba el nombre
@@ -660,7 +669,7 @@ export default function GameModelPage() {
                     onClick={() => seleccionarBloque(b)}
                     aria-current={activo ? "true" : undefined}
                     className={cn(
-                      "flex min-w-0 flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left transition-all lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:rounded-2xl lg:px-4 lg:py-3",
+                      "flex min-w-0 flex-row items-center justify-between gap-2 rounded-xl px-3 py-1.5 text-left transition-all lg:flex-row lg:items-center lg:justify-between lg:gap-3 lg:rounded-2xl lg:px-4 lg:py-3",
                       focusRing,
                       activo
                         ? "bg-[#C8A96B] text-black shadow-[0_8px_24px_-12px_rgba(200,169,107,0.9)]"
@@ -678,7 +687,9 @@ export default function GameModelPage() {
                         activo ? "text-black/70" : "text-gray-400",
                       )}
                     >
-                      {total} principio{total === 1 ? "" : "s"}
+                      {total}
+                      {/* En el móvil sólo la cifra: la tira queda compacta (30/10/2026). */}
+                      <span className="hidden lg:inline"> principio{total === 1 ? "" : "s"}</span>
                     </span>
                   </button>
                 );
@@ -843,8 +854,9 @@ export default function GameModelPage() {
                           .join(" · ")}
                       </p>
                       <p className="mt-1 text-xs text-gray-400">
+                        <Lock className="mr-1 inline h-3 w-3 text-[#C8A96B]" aria-hidden />
                         Marcados por el cuerpo técnico como innegociables; en la
-                        lista llevan el borde dorado.
+                        lista llevan el candado y el borde dorado.
                       </p>
                     </div>
                   )}
@@ -883,7 +895,17 @@ export default function GameModelPage() {
                               <AvisoLargo texto={p.PRINCIPIO} />
                             </>
                           ) : (
-                            <FichaPrincipio p={p} query={query} />
+                            <>
+                              {/* Además del color, un icono y una palabra (30/10/2026):
+                                  el borde dorado solo no se distingue en modo día. */}
+                              {esClave(p.PRINCIPIO) && (
+                                <p className="mb-1 inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                                  <Lock className="h-3 w-3" aria-hidden />
+                                  Innegociable
+                                </p>
+                              )}
+                              <FichaPrincipio p={p} query={query} />
+                            </>
                           )}
                         </div>
                       </div>
@@ -897,7 +919,7 @@ export default function GameModelPage() {
             {/* Apartado anterior / siguiente. 30/10/2026: «Siguiente» es el
                 botón principal y dice adónde lleva. */}
             {!loading && !error && ruta.length > 1 && (
-              <div className="mt-8 flex items-center justify-between gap-3 border-t border-white/10 pt-6">
+              <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
                 <button
                   type="button"
                   onClick={() => saltar(-1)}

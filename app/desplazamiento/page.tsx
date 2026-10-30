@@ -37,6 +37,7 @@ import {
   Binoculars,
   Bus,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Circle,
@@ -198,21 +199,25 @@ type Pendiente = { clave: string; rotulo: string; hecho: boolean; seccion: strin
  * Cada chapa lleva a su sección.
  */
 function pendientesDe(viaje: Desplazamiento): Pendiente[] {
-  /* En casa, en el campo propio, no se pide la ruta del viaje (30/10/2026). */
-  const enCasaPropia = viaje.condicion === "local" && /dis*st[eé]fano/i.test(viaje.estadio.nombre);
+  /*
+  | En casa no hay viaje (30/10/2026): ni ruta, ni hotel, ni plano. Lo que
+  | hace falta es el horario del día de partido y los recordatorios.
+  */
+  if (viaje.condicion === "local") {
+    return [
+      { clave: "hora", rotulo: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
+      { clave: "horario", rotulo: "Horario del día", hecho: viaje.dias.some((dia) => dia.citas.length > 0), seccion: "viaje-horario" },
+      { clave: "avisos", rotulo: "Recordatorios", hecho: viaje.avisos.some((a) => a.trim()), seccion: "viaje-avisos" },
+    ];
+  }
 
   const lista: Pendiente[] = [
     { clave: "hora", rotulo: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
     { clave: "estadio", rotulo: "Estadio", hecho: Boolean(viaje.estadio.nombre.trim()), seccion: "viaje-estadio" },
+    { clave: "direccion", rotulo: "Dirección del estadio", hecho: Boolean(viaje.estadio.direccion.trim()), seccion: "viaje-estadio" },
+    { clave: "plano", rotulo: "Plano del estadio", hecho: Boolean(viaje.estadio.plano?.url), seccion: "viaje-estadio" },
+    { clave: "ruta", rotulo: "Ruta del autobús", hecho: Boolean(viaje.estadio.ruta?.url), seccion: "viaje-estadio" },
   ];
-
-  if (!enCasaPropia) {
-    lista.push(
-      { clave: "direccion", rotulo: "Dirección del estadio", hecho: Boolean(viaje.estadio.direccion.trim()), seccion: "viaje-estadio" },
-      { clave: "plano", rotulo: "Plano del estadio", hecho: Boolean(viaje.estadio.plano?.url), seccion: "viaje-estadio" },
-      { clave: "ruta", rotulo: "Ruta del autobús", hecho: Boolean(viaje.estadio.ruta?.url), seccion: "viaje-estadio" },
-    );
-  }
 
   if (viaje.conHotel) {
     lista.push(
@@ -232,7 +237,7 @@ function pendientesDe(viaje: Desplazamiento): Pendiente[] {
 
 const irA = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-function ListaPendiente({ viaje }: { viaje: Desplazamiento }) {
+function ListaPendiente({ viaje, onIr = irA }: { viaje: Desplazamiento; onIr?: (id: string) => void }) {
   const lista = pendientesDe(viaje);
   const hechos = lista.filter((p) => p.hecho).length;
   const completo = hechos === lista.length;
@@ -240,7 +245,7 @@ function ListaPendiente({ viaje }: { viaje: Desplazamiento }) {
   return (
     <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Cómo va el viaje</p>
+        <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">{viaje.condicion === "local" ? "Día de partido en casa" : "Cómo va el viaje"}</p>
 
         <div className="h-1.5 min-w-[80px] flex-1 overflow-hidden rounded-full bg-white/10 sm:max-w-[220px]" aria-hidden>
           <div className="h-full rounded-full bg-[#C8A96B] transition-all" style={{ width: `${(hechos / lista.length) * 100}%` }} />
@@ -249,10 +254,6 @@ function ListaPendiente({ viaje }: { viaje: Desplazamiento }) {
         <p className="text-xs tabular-nums text-white/60">
           {completo ? "Todo listo para exportar" : `${hechos} de ${lista.length}`}
         </p>
-
-        <button type="button" onClick={() => irA("viaje-vista")} className="ml-auto flex items-center gap-1 text-xs text-[#C8A96B] hover:underline">
-          <Eye size={13} /> Vista previa y exportar
-        </button>
       </div>
 
       {!completo && (
@@ -261,7 +262,7 @@ function ListaPendiente({ viaje }: { viaje: Desplazamiento }) {
             <button
               key={p.clave}
               type="button"
-              onClick={() => irA(p.seccion)}
+              onClick={() => onIr(p.seccion)}
               title={p.hecho ? "Hecho" : "Falta: ir a la sección"}
               className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] transition ${
                 p.hecho ? "border-white/10 text-white/35" : "border-[#C8A96B]/40 text-white/80 hover:bg-[#C8A96B]/10"
@@ -306,6 +307,32 @@ function Plegable({ plegado, children }: { plegado: boolean; children: React.Rea
       </summary>
       <div className="pb-1">{children}</div>
     </details>
+  );
+}
+
+/**
+ * EL FORMULARIO DEL MÓVIL, PLEGADO (30/10/2026). A 390 px el formulario eran
+ * metros de campos: partido, estadio, horario y recordatorios van plegados,
+ * con su título y lo que llevan; en escritorio se ven siempre. Sólo CSS
+ * («hidden sm:block»): nada cambia de sitio al girar el teléfono.
+ */
+function SeccionMovil({ titulo, resumen, abierta, onCambia, children }: { titulo: string; resumen?: string; abierta: boolean; onCambia: () => void; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <button
+        type="button"
+        onClick={onCambia}
+        aria-expanded={abierta}
+        className="flex w-full min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left sm:hidden"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-white">{titulo}</span>
+          {resumen ? <span className="block truncate text-[11px] text-white/50">{resumen}</span> : null}
+        </span>
+        <ChevronDown size={16} className={`shrink-0 text-white/50 transition ${abierta ? "rotate-180" : ""}`} />
+      </button>
+      <div className={abierta ? "mt-2 sm:mt-0" : "hidden sm:block"}>{children}</div>
+    </div>
   );
 }
 
@@ -491,6 +518,11 @@ export default function DesplazamientoPage() {
   */
   const porDefecto = useMemo(() => {
     if (partidos.length === 0) return "";
+
+    /* 30/10/2026: la pantalla es de desplazamientos: abre el próximo partido FUERA; los de casa siguen en el selector. */
+    const proximoFuera = partidos.find((item) => item.date && item.date >= hoy && !item.isHome);
+
+    if (proximoFuera) return proximoFuera.id;
 
     const proximo = partidos.find((item) => item.date && item.date >= hoy);
 
@@ -889,9 +921,16 @@ export default function DesplazamientoPage() {
     return rival ? `Viaje a ${rival}${salida}` : "Desplazamiento de Partido";
   }, [viaje, partido]);
 
-  /* En casa y en el Di Stéfano no hay ruta que contar: los campos de viaje van plegados. */
-  const enCasaPropia =
-    viaje?.condicion === "local" && /di\s*st[eé]fano/i.test(viaje.estadio.nombre);
+  /* En casa no hay viaje (30/10/2026): sin hotel, sin «Sale de» y la ruta del autobús plegada con los datos del estadio. */
+  const enCasa = viaje?.condicion === "local";
+
+  /* Las secciones abiertas en el móvil; ir a una desde «Cómo va» la abre. */
+  const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
+  const conmuta = (id: string) => setAbiertas((a) => ({ ...a, [id]: !a[id] }));
+  const abreYVe = (id: string) => {
+    setAbiertas((a) => ({ ...a, [id]: true }));
+    window.setTimeout(() => irA(id), 50);
+  };
 
   return (
     <main
@@ -914,13 +953,21 @@ export default function DesplazamientoPage() {
             <AbpHeader
               area="RMCF Castilla · Operativa · Desplazamiento"
               title={titular}
-              lead="El dossier del viaje (campo, ruta y hotel) y el horario de cada día, listos para PowerPoint o PDF. El horario se monta solo desde la hora del partido, con una hoja por día."
+              /* 30/10/2026: el párrafo de entrada pasa a la ayuda («?», lib/ayuda/paginas.ts);
+                 delante, el titular y el botón de vista previa y exportar. */
               aside={
-                <SaveState
-                  status={status}
-                  localOnly={localOnly}
-                  savedAt={lastSavedAt}
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <SaveState
+                    status={status}
+                    localOnly={localOnly}
+                    savedAt={lastSavedAt}
+                  />
+                  {viaje && (
+                    <Button tone="primary" icon={Eye} onClick={() => irA("viaje-vista")}>
+                      Vista previa y exportar
+                    </Button>
+                  )}
+                </div>
               }
             />
 
@@ -983,13 +1030,13 @@ export default function DesplazamientoPage() {
                   <ChevronRight size={16} />
                 </button>
 
-                {proximoId && proximoId !== elegido && (
+                {porDefecto && porDefecto !== elegido && (
                   <button
                     type="button"
-                    onClick={() => setPedido(proximoId)}
+                    onClick={() => setPedido(porDefecto)}
                     className="shrink-0 rounded-xl border border-[#C8A96B]/40 px-3 py-2 text-xs text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
                   >
-                    Próximo
+                    {partidos.find((item) => item.id === porDefecto)?.isHome ? "Próximo" : "Próximo fuera"}
                   </button>
                 )}
                 </span>
@@ -1057,7 +1104,7 @@ export default function DesplazamientoPage() {
               viaje && (
                 <>
                   {/* Cómo va el viaje, arriba y pegado al selector de partido. */}
-                  <ListaPendiente viaje={viaje} />
+                  <ListaPendiente viaje={viaje} onIr={abreYVe} />
 
                   {!guardado && (
                     <div className="mt-4">
@@ -1113,6 +1160,12 @@ export default function DesplazamientoPage() {
                   {/* ================== EL PARTIDO ================== */}
 
                   <div className="mt-5 scroll-mt-20" id="viaje-partido">
+                    <SeccionMovil
+                      titulo="El partido"
+                      resumen={[viaje.rival || partido.opponent, viaje.hora, enCasa ? "en casa" : "fuera"].filter(Boolean).join(" · ")}
+                      abierta={Boolean(abiertas["viaje-partido"])}
+                      onCambia={() => conmuta("viaje-partido")}
+                    >
                     <Panel
                       title="El partido"
                       subtitle="La cabecera que llevan las tres diapositivas y la hoja del horario"
@@ -1220,13 +1273,16 @@ export default function DesplazamientoPage() {
                           placeholder={partido.competition}
                         />
 
+                        {!enCasa && (
                         <Field
                           label="Sale de"
                           value={viaje.origen}
                           onChange={(valor) => campo("origen", valor)}
                           placeholder="Valdebebas"
                         />
+                        )}
 
+                        {!enCasa && (
                         <label className="flex min-w-0 items-center gap-2 self-end rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
                           <input
                             type="checkbox"
@@ -1241,6 +1297,7 @@ export default function DesplazamientoPage() {
                             El viaje lleva hotel
                           </span>
                         </label>
+                        )}
                       </div>
 
                       {viaje.rival.trim() !== partido.opponent.trim() && (
@@ -1254,11 +1311,18 @@ export default function DesplazamientoPage() {
                         </div>
                       )}
                     </Panel>
+                    </SeccionMovil>
                   </div>
 
                   {/* ================== EL ESTADIO ================= */}
 
                   <div className="mt-5 scroll-mt-20" id="viaje-estadio">
+                    <SeccionMovil
+                      titulo="El estadio"
+                      resumen={[viaje.estadio.nombre, viaje.estadio.ciudad].filter((x) => x.trim()).join(" · ")}
+                      abierta={Boolean(abiertas["viaje-estadio"])}
+                      onCambia={() => conmuta("viaje-estadio")}
+                    >
                     <Panel
                       title="El estadio"
                       subtitle="Dónde se juega y cómo se llega: la diapositiva del campo"
@@ -1302,7 +1366,7 @@ export default function DesplazamientoPage() {
                         />
                       </div>
 
-                      <Plegable plegado={enCasaPropia}>
+                      <Plegable plegado={enCasa}>
                       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <Field
                           label="Dirección"
@@ -1367,11 +1431,12 @@ export default function DesplazamientoPage() {
                       </div>
                       </Plegable>
                     </Panel>
+                    </SeccionMovil>
                   </div>
 
                   {/* =================== EL HOTEL ================== */}
 
-                  {viaje.conHotel && (
+                  {viaje.conHotel && !enCasa && (
                     <div className="mt-5 scroll-mt-20" id="viaje-hotel">
                       <Panel
                         title="El hotel"
@@ -1468,6 +1533,12 @@ export default function DesplazamientoPage() {
                     | cero. Sin ella, «Deshacer» guardaba los días del viaje
                     | anterior y los podía meter en éste.
                     */}
+                    <SeccionMovil
+                      titulo={enCasa ? "Horario del día de partido" : "Horario"}
+                      resumen={`${viaje.dias.length} ${viaje.dias.length === 1 ? "día" : "días"} · ${viaje.dias.reduce((n, d) => n + d.citas.length, 0)} citas`}
+                      abierta={Boolean(abiertas["viaje-horario"])}
+                      onCambia={() => conmuta("viaje-horario")}
+                    >
                     <EditorHorario
                       key={partido.id}
                       viaje={viaje}
@@ -1475,11 +1546,18 @@ export default function DesplazamientoPage() {
                       copiado={diaCopiado}
                       onCopiado={setDiaCopiado}
                     />
+                    </SeccionMovil>
                   </div>
 
                   {/* ==================== AVISOS ================== */}
 
                   <div className="mt-5 scroll-mt-20" id="viaje-avisos">
+                    <SeccionMovil
+                      titulo="Recordatorios"
+                      resumen={viaje.avisos.filter((a) => a.trim()).slice(0, 3).join(" · ")}
+                      abierta={Boolean(abiertas["viaje-avisos"])}
+                      onCambia={() => conmuta("viaje-avisos")}
+                    >
                     <Panel
                       title="No olvidar"
                       subtitle="La línea del pie de la hoja del horario. Uno por línea."
@@ -1498,6 +1576,7 @@ export default function DesplazamientoPage() {
                         rows={4}
                       />
                     </Panel>
+                    </SeccionMovil>
                   </div>
 
                   {/* ================ VISTA PREVIA ================ */}

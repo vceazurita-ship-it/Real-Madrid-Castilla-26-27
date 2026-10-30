@@ -16,6 +16,10 @@ interface Props {
   id?: string;
   /** El texto del botón, si no es «Seleccionar archivos». */
   boton?: string;
+  /** Una fila en vez del bloque grande (30/10/2026): la semana vacía no necesita media pantalla de zona. */
+  compacta?: boolean;
+  /** Lo que se dice delante en la fila compacta («Esta semana no hay material»). */
+  estado?: string;
 }
 
 const ACCEPT = {
@@ -43,6 +47,8 @@ export default function UploadZone({
   onUpload,
   id,
   boton = "Seleccionar archivos",
+  compacta = false,
+  estado,
 }: Props) {
   const onDrop = useCallback(
     (accepted: File[], rejected: FileRejection[]) => {
@@ -68,6 +74,44 @@ export default function UploadZone({
     noClick: true,
     noKeyboard: true,
   });
+
+  const formatos =
+    type === "todo"
+      ? `JPG · PNG · WEBP · PDF · hasta ${maxFiles} archivos`
+      : type === "images"
+        ? `JPG · PNG · WEBP · hasta ${maxFiles} archivos`
+        : `PDF · hasta ${maxFiles} archivos`;
+
+  if (compacta) {
+    return (
+      <div
+        {...getRootProps()}
+        id={id}
+        className={`flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border-2 border-dashed px-4 py-3 transition ${
+          isDragActive ? "border-[#C8A96B] bg-[#161D26]" : "border-white/10 bg-[#0B0F14]"
+        } ${busy ? "opacity-70" : ""}`}
+      >
+        <input {...getInputProps()} />
+
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-white/85">
+            {busy ? busyLabel : isDragActive ? "Suelta los archivos aquí" : estado ?? "Arrastra los archivos o pulsa el botón"}
+          </span>
+          <span className="block text-[13px] text-white/65">{formatos} · o arrástralos aquí</span>
+        </span>
+
+        <button
+          type="button"
+          onClick={open}
+          disabled={busy}
+          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-[#C8A96B] px-4 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <UploadCloud size={16} />}
+          {boton}
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -118,13 +162,7 @@ export default function UploadZone({
           {boton}
         </button>
 
-        <p className="mt-4 text-[12px] text-white/55">
-          {type === "todo"
-            ? `JPG · PNG · WEBP · PDF · hasta ${maxFiles} archivos`
-            : type === "images"
-            ? `JPG · PNG · WEBP · hasta ${maxFiles} archivos`
-            : `PDF · hasta ${maxFiles} archivos`}
-        </p>
+        <p className="mt-4 text-[13px] text-white/65">{formatos}</p>
       </div>
     </div>
   );

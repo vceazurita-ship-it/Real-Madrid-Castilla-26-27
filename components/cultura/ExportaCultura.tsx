@@ -50,7 +50,24 @@ const ETIQUETA: Record<Formato, string> = {
   pdf: "Montando el PDF…",
 };
 
-export function ExportaCultura({ documento }: { documento: DocumentoCultura }) {
+/*
+| 30/10/2026: el título del documento va en este mismo panel («01 · Valores
+| y antivalores» y debajo las descargas): antes salía la tarjeta del
+| documento y, justo debajo, «Sacar el documento», dos cabeceras seguidas.
+*/
+export function ExportaCultura({
+  documento,
+  titulo,
+  subtitulo,
+  accion,
+  children,
+}: {
+  documento: DocumentoCultura;
+  titulo?: string;
+  subtitulo?: string;
+  accion?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
   const lienzosRef = useRef<HTMLDivElement>(null);
 
   /* Cerrojo: sin él, un segundo render dispararía otra exportación encima. */
@@ -171,10 +188,13 @@ export function ExportaCultura({ documento }: { documento: DocumentoCultura }) {
 
   return (
     <Panel
-      title="Sacar el documento"
-      subtitle={`${documento.diapositivas.length} diapositivas a 1920×1080, tal y como se ven aquí`}
+      title={titulo ?? "Sacar el documento"}
+      subtitle={subtitulo ?? `${documento.diapositivas.length} diapositivas a 1920×1080, tal y como se ven aquí`}
       icon={FileDown}
+      action={accion}
     >
+      {children}
+
       <div className="flex flex-wrap items-center gap-2">
         <Button
           tone="primary"

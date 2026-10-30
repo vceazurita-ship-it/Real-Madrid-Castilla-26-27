@@ -343,12 +343,6 @@ export default function WeekPanel({
           subido · semana 9», su botón y la zona de subida eran tres cosas del
           mismo peso y la de agosto parecía lo importante.
         */}
-        {vacia && (
-          <p className="mb-5 text-base font-medium text-white/85">
-            {isCurrentWeek ? "Esta semana no hay material todavía." : `La ${week.week.toLowerCase()} no tiene material.`}
-          </p>
-        )}
-
         {tab === "images" &&
           (images.length === 0 ? (
             <EmptyState
@@ -428,10 +422,17 @@ export default function WeekPanel({
             zonas iguales más el botón de la cabecera eran tres «subir». Los
             archivos se reparten por tipo al soltarlos. */}
         {tab === "upload" && vacia && (
-          <>
+          /*
+          | 30/10/2026: una fila —qué pasa y el único «Subir»— en vez del bloque
+          | enorme de arrastre. «Lo último subido… · abrir la semana 9» se
+          | quita: la línea de estado de arriba ya dice «sin subidas desde la
+          | semana 9» y lleva a ella.
+          */
           <UploadZone
             id="zona-subida"
-            boton={isCurrentWeek ? "Subir el material de esta semana" : "Subir el material de la semana"}
+            compacta
+            estado={isCurrentWeek ? "Esta semana no hay material" : `La ${week.week.toLowerCase()} no tiene material`}
+            boton="Subir"
             type="todo"
             maxFiles={20}
             busy={uploading !== null}
@@ -445,31 +446,6 @@ export default function WeekPanel({
               })();
             }}
           />
-
-          {hayUltimo && ultimaConArchivos && onSelectWeek && (
-            <p className="mt-4 text-[13px] leading-relaxed text-white/60">
-              Lo último subido es de la {ultimaConArchivos.week.toLowerCase()}
-              {weekRangeLabel(ultimaConArchivos) && ` (${weekRangeLabel(ultimaConArchivos)})`}
-              {": "}
-              {[
-                ultimaConArchivos.images.length > 0 &&
-                  `${ultimaConArchivos.images.length} ${ultimaConArchivos.images.length === 1 ? "imagen" : "imágenes"}`,
-                (ultimaConArchivos.pdfs ?? []).length > 0 &&
-                  `${(ultimaConArchivos.pdfs ?? []).length} ${(ultimaConArchivos.pdfs ?? []).length === 1 ? "PDF" : "PDFs"}`,
-              ]
-                .filter(Boolean)
-                .join(" y ")}
-              {" · "}
-              <button
-                type="button"
-                onClick={() => onSelectWeek(ultimaConArchivos.id)}
-                className="font-semibold text-[#C8A96B] underline decoration-[#C8A96B]/40 underline-offset-4 hover:decoration-[#C8A96B]"
-              >
-                abrir la {ultimaConArchivos.week.toLowerCase()}
-              </button>
-            </p>
-          )}
-          </>
         )}
 
         {tab === "upload" && !vacia && (

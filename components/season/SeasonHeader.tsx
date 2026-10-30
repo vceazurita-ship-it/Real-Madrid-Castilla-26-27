@@ -2,6 +2,7 @@
 
 import {
   CalendarCheck,
+  Check,
   FileText,
   ImageIcon,
   Loader2,
@@ -27,7 +28,7 @@ interface Props {
   currentWeek: WeekData | null;
   /** Última semana anterior a la actual con archivos. */
   ultimaConMaterial?: WeekData | null;
-  /** En cuántas semanas hay imágenes y en cuántas PDFs. */
+  /** En cuántas semanas hay imágenes y en cuántas PDFs (ya no se pinta: la línea de resumen da el total de semanas con material). */
   semanasCon?: { images: number; pdfs: number };
   /** Una casilla por semana transcurrida, para ver de un vistazo cuáles tienen material. */
   tiraSemanas?: { id: number; nombre: string; conMaterial: boolean; actual: boolean; fechas?: string }[];
@@ -44,7 +45,6 @@ export default function SeasonHeader({
   stats,
   currentWeek,
   ultimaConMaterial = null,
-  semanasCon,
   tiraSemanas = [],
   onSelectWeek,
   saving,
@@ -95,23 +95,50 @@ export default function SeasonHeader({
           {/* 30/10/2026: «sin subidas desde la semana 9» y no «lo último: semana 9
               (24 ago – 30 ago)»: dice por qué las casillas de después están en
               blanco, y una sola vez (la leyenda y el panel ya no lo repiten). */}
+          {/*
+            30/10/2026: una sola línea de resumen. «7 de 18 con material» y las
+            tarjetas de imágenes (3) y PDFs (13) eran tres sitios con la misma
+            cifra: ahora «3 imágenes y 13 PDFs en 7 de 18 semanas», y «sin
+            subidas desde la semana 9» lleva a esa semana.
+          */}
           {(() => {
+            const material = [
+              stats.images > 0 ? `${stats.images} ${stats.images === 1 ? "imagen" : "imágenes"}` : "",
+              stats.pdfs > 0 ? `${stats.pdfs} ${stats.pdfs === 1 ? "PDF" : "PDFs"}` : "",
+            ]
+              .filter(Boolean)
+              .join(" y ");
             const partes = [
               stats.seasonWeek !== null ? `Semana ${stats.seasonWeek} de ${stats.seasonTotal}` : currentWeek?.week ?? "",
-              tiraSemanas.length > 1 ? `${stats.completed} de ${stats.totalWeeks} con material` : "",
-              currentWeek && weekHasFiles(currentWeek)
-                ? "esta semana ya tiene material"
-                : ultimaConMaterial
-                  ? `sin subidas desde la ${ultimaConMaterial.week.toLowerCase()}`
-                  : "",
+              material ? `${material} en ${stats.completed} de ${stats.totalWeeks} semanas` : "",
+              currentWeek && weekHasFiles(currentWeek) ? "esta semana ya tiene material" : "",
             ].filter(Boolean);
+            const desde = !(currentWeek && weekHasFiles(currentWeek)) && ultimaConMaterial ? ultimaConMaterial : null;
 
-            return partes.length ? <p className="mt-3 text-base font-medium text-white/85">{partes.join(" · ")}</p> : null;
+            return partes.length || desde ? (
+              <p className="mt-3 text-base font-medium text-white/85">
+                {partes.join(" · ")}
+                {desde ? (
+                  <>
+                    {partes.length ? " · " : ""}
+                    <button
+                      type="button"
+                      onClick={() => onSelectWeek?.(desde.id)}
+                      className="font-medium underline decoration-white/30 underline-offset-4 hover:decoration-[#C8A96B]"
+                      title={`Abrir la ${desde.week.toLowerCase()}`}
+                    >
+                      sin subidas desde la {desde.week.toLowerCase()}
+                    </button>
+                  </>
+                ) : null}
+              </p>
+            ) : null;
           })()}
 
           {tiraSemanas.length > 1 && (
             <>
-            {/* Cada casilla con su número y 32 px de toque en el móvil (30/10/2026). */}
+            {/* Cada casilla con su número, 40 px en el móvil, y con material lleva además
+                una marca (30/10/2026): el color solo no vale en modo día ni con daltonismo. */}
             <div
               className="mt-3 flex max-w-full flex-wrap items-center gap-1.5 sm:gap-1"
               role="group"
@@ -125,19 +152,29 @@ export default function SeasonHeader({
                   title={`${semana.nombre}${semana.fechas ? " · " + semana.fechas : ""}${semana.conMaterial ? " · con material" : " · sin material"}`}
                   aria-label={`${semana.nombre}${semana.fechas ? ", " + semana.fechas : ""}${semana.conMaterial ? ", con material" : ", sin material"}`}
                   /* 32 px de toque también en escritorio (30/10/2026). */
-                  className={`flex h-8 w-8 items-center justify-center rounded-[6px] text-[12px] font-semibold tabular-nums transition hover:scale-110 ${
+                  className={`relative flex h-10 w-10 items-center justify-center rounded-[6px] text-[13px] font-semibold tabular-nums transition hover:scale-110 sm:h-8 sm:w-8 sm:text-[12px] ${
                     semana.conMaterial
                       ? "bg-emerald-400 text-[#0B0F14]"
                       : "border border-white/20 bg-white/[0.04] text-white/55"
                   } ${semana.actual ? "ring-2 ring-[#C8A96B] ring-offset-1 ring-offset-[#0B0F14]" : ""}`}
                 >
                   {i + 1}
+                  {semana.conMaterial && (
+                    <span
+                      aria-hidden
+                      className="siempre-oscuro absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full"
+                      style={{ background: "#0B0F14", color: "#34D399", border: "1px solid #34D399" }}
+                    >
+                      <Check size={9} strokeWidth={3} />
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
             <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/55">
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-[3px] bg-emerald-400" /> con material
+                <span className="inline-block h-3 w-3 rounded-[3px] bg-emerald-400" />
+                <Check size={11} strokeWidth={3} className="-ml-1 text-emerald-400" aria-hidden /> con material
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded-[3px] border border-white/30" /> sin material
@@ -156,20 +193,15 @@ export default function SeasonHeader({
             «Lo último subido», de abajo (antes salía dos veces). Y fuera
             «Montar desplazamiento»: ya está en la barra de Operativa.
           */}
-          {currentWeek && (
+          {/* Con la semana vacía el único «Subir» es el de la tarjeta de la semana (30/10/2026). */}
+          {currentWeek && weekHasFiles(currentWeek) && (
             <button
               type="button"
               onClick={onGoToCurrentWeek}
-              className={
-                weekHasFiles(currentWeek)
-                  ? "inline-flex items-center justify-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
-                  : "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 sm:w-auto"
-              }
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
             >
               <CalendarCheck size={17} />
-              {weekHasFiles(currentWeek)
-                ? `Esta semana · ${currentWeek.week}`
-                : `Subir a la ${currentWeek.week.toLowerCase()}`}
+              {`Esta semana · ${currentWeek.week}`}
             </button>
           )}
 
@@ -177,98 +209,28 @@ export default function SeasonHeader({
             type="button"
             onClick={onReload}
             title="Volver a leer las semanas"
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3.5 py-2.5 text-sm text-white/65 transition hover:bg-white/[0.06] hover:text-white"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-4 text-sm font-medium text-white/75 transition hover:bg-white/[0.06] hover:text-white"
           >
             <RefreshCw size={16} />
             Actualizar
           </button>
+
+          {stats.images > 0 && (
+            <button type="button" onClick={onOpenImages} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-4 text-sm font-medium text-white/75 transition hover:bg-white/[0.06] hover:text-white">
+              <ImageIcon size={16} className="text-[#C8A96B]" />
+              Ver las imágenes
+            </button>
+          )}
+
+          {stats.pdfs > 0 && (
+            <button type="button" onClick={onOpenPdfs} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/15 px-4 text-sm font-medium text-white/75 transition hover:bg-white/[0.06] hover:text-white">
+              <FileText size={16} className="text-[#C8A96B]" />
+              Ver los PDFs
+            </button>
+          )}
         </div>
       </div>
 
-      {/* MÉTRICAS */}
-
-      <div className="mt-7 grid gap-3 sm:grid-cols-2">
-        <StatCard
-          icon={<ImageIcon size={18} />}
-          value={stats.images}
-          label="Imágenes de la temporada"
-          detalle={semanasCon ? enSemanas(semanasCon.images, stats.totalWeeks) : undefined}
-          action="Ver todas"
-          onClick={onOpenImages}
-        />
-
-        <StatCard
-          icon={<FileText size={18} />}
-          value={stats.pdfs}
-          label="PDFs de la temporada"
-          detalle={semanasCon ? enSemanas(semanasCon.pdfs, stats.totalWeeks) : undefined}
-          action="Ver todos"
-          onClick={onOpenPdfs}
-        />
-
-      </div>
     </header>
-  );
-}
-
-function enSemanas(n: number, total: number) {
-  return n === 0 ? undefined : `en ${n} de ${total} semanas`;
-}
-
-function StatCard({
-  icon,
-  value,
-  label,
-  detalle,
-  action,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  value: string | number;
-  label: string;
-  detalle?: string;
-  action?: string;
-  onClick?: () => void;
-}) {
-  const content = (
-    <>
-      <div className="flex items-center gap-2 text-[#C8A96B]">
-        {icon}
-        <span className="text-xs uppercase tracking-wider text-white/50">
-          {label}
-        </span>
-      </div>
-
-      <div className="mt-3 flex items-baseline gap-2">
-        <span className="text-3xl font-semibold tabular-nums">{value}</span>
-
-        {detalle && <span className="text-[13px] text-white/60">{detalle}</span>}
-      </div>
-
-      {/* Con más cuerpo y subrayado (30/10/2026): en modo día el dorado fino no llegaba al contraste. */}
-      {action && (
-        <div className="mt-2 text-[13px] font-semibold text-[#C8A96B] underline decoration-[#C8A96B]/40 underline-offset-4 transition group-hover:decoration-[#C8A96B]">
-          {action} →
-        </div>
-      )}
-    </>
-  );
-
-  if (!onClick) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-[#11161D] p-5">
-        {content}
-      </div>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group rounded-2xl border border-white/10 bg-[#11161D] p-5 text-left transition-all hover:border-[#C8A96B]/40 hover:bg-white/[0.03]"
-    >
-      {content}
-    </button>
   );
 }

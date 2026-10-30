@@ -2281,7 +2281,16 @@ export default function JugadoresSesionPage() {
 
   /* Con el mismo enlace que el microciclo (24/10/2026): antes la diapositiva casaba por su cuenta, sólo por el nombre. */
   const contexto = useMemo<ContextoSesion | null>(() => (planSesion[0] ? { micro: planSesion[0].micro, rival: planSesion[0].rival, md: planSesion[0].md } : null), [planSesion]);
-  const detalles = useMemo(() => enlacePlan.map((k) => (k === null ? null : detalleDePlan(planSesion[k]))), [enlacePlan, planSesion]);
+  /*
+  | 30/10/2026: «De la hoja» y el aviso de formato van atados a la tarea por su
+  | código del plan (V-T2), no por el sitio que ocupa en la sesión: al reordenar
+  | enseñaban la línea, la valoración y el «faltan» de otra tarea. Sin código
+  | del plan (tarea creada a mano), no se adivina nada.
+  */
+  const detalles = useMemo(
+    () => enlacePlan.map((k, i) => (k === null || k === undefined || !sesion?.tareas[i]?.plan ? null : detalleDePlan(planSesion[k]))),
+    [enlacePlan, planSesion, sesion],
+  );
   const detalleDe = (i: number) => (sesion ? lineaDeDetalle(detalles[i], sesion.tareas[i]?.nombre ?? "") : "");
 
   /* Los que hacen la tarea sin demarcación: el reparto «por puesto» no sabe dónde juegan (21/10/2026). */
@@ -2458,13 +2467,16 @@ export default function JugadoresSesionPage() {
                     className="max-w-[320px] truncate rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-white outline-none focus:border-[#C8A96B]/50"
                   >
                     {gruposSesiones.map((grupo) => {
-                      const opciones = grupo.sesiones.map(({ s, i }) => {
+                      const opciones = grupo.sesiones.map(({ s }) => {
                         /* 29/10/2026: una sesión sin título lleva SIEMPRE su fecha («Sesión · 15 oct»);
                            sola entre dos fechas parecía un separador. Las repetidas, igual. */
                         const repetida = sesiones.filter((o) => o.titulo === s.titulo).length > 1;
                         const sinTitulo = !s.titulo || s.titulo === "Sesión";
-                        const fechaCorta = s.fecha ? new Date(`${s.fecha}T12:00:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "";
-                        const etiqueta = repetida || sinTitulo ? `${s.titulo || "Sesión"} · ${fechaCorta || `nº ${sesiones.length - i}`}` : s.titulo;
+                        /* 30/10/2026: sin fecha de sesión, la del día en que se creó; el «nº 7» se colaba entre fechas. */
+                        const dia = s.fecha ? `${s.fecha}T12:00:00` : s.creadaEn;
+                        const cuando = dia ? new Date(dia) : null;
+                        const fechaCorta = cuando && !Number.isNaN(cuando.getTime()) ? cuando.toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "";
+                        const etiqueta = repetida || sinTitulo ? (fechaCorta ? `${s.titulo || "Sesión"} · ${fechaCorta}` : s.titulo || "Sesión") : s.titulo;
 
                         return (
                           <option key={s.id} value={s.id} className="bg-[#11161C]">
@@ -2804,7 +2816,8 @@ export default function JugadoresSesionPage() {
                       {/* Lo que concluyó el análisis de entrenamiento en esta tarea (24/10/2026), y su valoración en la hoja. */}
                       {(() => {
                         const k = enlacePlan[activa];
-                        const p = k === null || k === undefined ? null : planSesion[k];
+                        /* Sólo la de su código del plan (30/10/2026): sin él, la valoración sería de otra tarea. */
+                        const p = k === null || k === undefined || !tarea.plan ? null : planSesion[k];
                         const suyos = resultadosDe(activa);
 
                         if (!suyos.length && !(p && (p.evaluacion > 0 || p.analisisPost))) return null;

@@ -700,6 +700,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cómo funciona",
         filas: [
+          { que: "Qué sale", es: "El dossier del viaje (campo, ruta y hotel) y el horario de cada día, listos para PowerPoint o PDF" },
+          { que: "En casa", es: "Sin viaje ni hotel: sólo el horario del día de partido y los recordatorios" },
+          { que: "Al entrar", es: "Abre el próximo partido fuera; los de casa siguen en el selector" },
           { que: "Días", es: "Un viaje puede tener uno o varios: cada día es una hoja A4" },
           {
             que: "Horario elástico",

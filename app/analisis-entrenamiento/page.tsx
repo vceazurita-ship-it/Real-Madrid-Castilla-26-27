@@ -344,12 +344,15 @@ export default function AnalisisEntrenamientoPage() {
 
   /* Elegir un día a mano manda: el salto automático al último día con sesión ya no lo pisa. */
   const [saltoHecho, setSaltoHecho] = useState(() => deLaDireccion("fecha") !== null);
+  /* Se abrió en otro día porque hoy no tiene objetivos: se dice junto a la tira. */
+  const [saltoDesdeHoy, setSaltoDesdeHoy] = useState(false);
   const setFecha = (f: string) => {
     if (f === fecha) return;
 
     if (!bloqueado) setEditadas((e) => ({ ...e, [fecha]: sesion }));
 
     setSaltoHecho(true);
+    setSaltoDesdeHoy(false);
     setFechaEstado(f);
     ponEnDireccion("fecha", f === hoyDia ? null : f);
   };
@@ -405,26 +408,38 @@ export default function AnalisisEntrenamientoPage() {
   }, [registro, fecha]);
 
   /*
-  | ABRE EN EL ÚLTIMO DÍA CON SESIÓN (26/10/2026). Si no se pidió un día en la
-  | dirección y hoy no hay sesión en el registro, se abría un día vacío: ahora
-  | salta al último día con tareas, sin pasar de hoy. Una sola vez, y nunca
-  | encima de un día elegido a mano (30/10/2026).
+  | ABRE EN EL ÚLTIMO DÍA CON TRABAJO (26/10/2026; 30/10/2026). Si no se pidió
+  | un día en la dirección y hoy no tiene objetivos, se abría un día vacío:
+  | ahora salta al último día analizado (con su resultado y su evolución) o, si
+  | no hay ninguno, al último con objetivos, sin pasar de hoy. Hoy queda en la
+  | tira, con la nota «hoy aún sin objetivos». Una sola vez, y nunca encima de
+  | un día elegido a mano.
   */
   useEffect(() => {
-    if (saltoHecho || !Array.isArray(registro)) return;
+    if (saltoHecho || historial === null) return;
 
     const id = setTimeout(() => {
       setSaltoHecho(true);
 
-      const conSesion = registro.map((t) => fechaIsoDeHoja(t.fecha)).filter((f): f is string => Boolean(f) && f <= hoyDia);
+      const conObjetivos = (d: DiaEntreno) => d.sesion.objetivos.some((o) => o.objetivo.trim());
+      const pasados = historial.dias.filter((d) => d.fecha <= hoyDia);
 
-      if (conSesion.includes(hoyDia) || conSesion.length === 0) return;
+      if (pasados.some((d) => d.fecha === hoyDia && (conObjetivos(d) || d.analisis))) return;
 
-      setFechaEstado(conSesion.reduce((a, b) => (b > a ? b : a)));
+      const ultimo = (lista: DiaEntreno[]) => lista.reduce<string | null>((a, d) => (!a || d.fecha > a ? d.fecha : a), null);
+      const destino = ultimo(pasados.filter((d) => d.analisis)) ?? ultimo(pasados.filter(conObjetivos));
+
+      if (!destino || destino === hoyDia) return;
+
+      setFechaEstado(destino);
+      setSaltoDesdeHoy(true);
     }, 0);
 
     return () => clearTimeout(id);
-  }, [registro, saltoHecho, hoyDia]);
+  }, [historial, saltoHecho, hoyDia]);
+
+  /* Los días con objetivos o análisis, para el punto de la tira. */
+  const diasConObjetivos = useMemo(() => new Set(dias.filter((d) => d.analisis || d.sesion.objetivos.some((o) => o.objetivo.trim())).map((d) => d.fecha)), [dias]);
 
   /* El plan del día y los equipos de Jugadores sesión (24/10/2026): ver ./SesionDelDia.tsx y lib/sesion-dia/conexion.ts. */
   const planDelDia = useMemo(() => (Array.isArray(registro) ? planDeRegistro(registro, fecha) : []), [registro, fecha]);
@@ -665,6 +680,15 @@ export default function AnalisisEntrenamientoPage() {
                     ? { texto: "Ver la evolución por jugador", icono: TrendingUp, onClick: () => setPestana("jugador"), detalle: "Todo revisado: los números del día ya son los del cuerpo técnico." }
                     : { ...pedir("Volver a analizar"), detalle: "El vídeo no dio acciones: añade peto o dorsal en «Cómo reconocerlo» antes de repetirlo." };
 
+  /*
+  | DÍA VACÍO (30/10/2026). Sin objetivos ni análisis, la pantalla repetía
+  | «Sin objetivos» en el chip, en el paso 1 y en el aviso, con cuatro pasos y
+  | cuatro pestañas sobre nada, y dos veces «Añadir los objetivos» y «Copiar».
+  | Ahora: la fecha, una pregunta y los dos botones. Al añadir el primero,
+  | vuelve todo lo demás.
+  */
+  const diaVacio = !bloqueado && !cargando && !sesion.objetivos.length && !analisis && !enCurso && !fallo && !cortado;
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -682,16 +706,26 @@ export default function AnalisisEntrenamientoPage() {
               semana={semanaDe(fecha)}
               onFecha={setFecha}
               mueve={mueve}
+              conObjetivos={diasConObjetivos}
               derecha={<SaveState status={status} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />}
             />
+
+            {saltoDesdeHoy && fecha !== hoyDia ? (
+              <p className="-mt-2 text-xs text-white/55">
+                Hoy aún sin objetivos: se abre el {ddmm(fecha)}, el último día con trabajo.{" "}
+                <button type="button" onClick={() => setFecha(hoyDia)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                  Ir a hoy
+                </button>
+              </p>
+            ) : null}
 
             <CabeceraSesion
               fecha={fecha}
               sesion={textoSesion}
               fuente={textoFuente}
-              estado={estadoChip}
-              pasos={pasos}
-              siguiente={siguiente}
+              estado={diaVacio ? null : estadoChip}
+              pasos={diaVacio ? [] : pasos}
+              siguiente={diaVacio ? null : siguiente}
               secundario={<Button icon={RefreshCw} onClick={relee} title="Releer el análisis y el estado del ordenador del club" aria-label="Releer el análisis" />}
             >
               {enCurso && ordenador?.progreso ? (
@@ -725,6 +759,35 @@ export default function AnalisisEntrenamientoPage() {
               ) : null}
             </CabeceraSesion>
 
+            {diaVacio ? (
+              <div className="rounded-xl border border-dashed border-white/12 px-5 py-8 text-center">
+                <p className="text-sm font-medium text-white/80">Marca qué se busca, de quién y cómo se ve en el vídeo</p>
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  <Button
+                    icon={Plus}
+                    tone="primary"
+                    onClick={() => {
+                      setPestana("objetivos");
+                      nuevoObjetivo();
+                    }}
+                  >
+                    {futuro ? "Preparar los objetivos" : "Añadir los objetivos"}
+                  </Button>
+                  {anteriorConObjetivos ? (
+                    <Button
+                      icon={Copy}
+                      onClick={() => {
+                        copiaObjetivos();
+                        setPestana("objetivos");
+                      }}
+                    >
+                      Copiar los del {ddmm(anteriorConObjetivos.fecha)}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+            <>
             <Pestanas
               etiqueta="Pasos del análisis de entrenamiento"
               valor={pestana}
@@ -835,11 +898,7 @@ export default function AnalisisEntrenamientoPage() {
                     <Cargando key={`objetivos-${fecha}`} texto="Leyendo los objetivos del día" onReintentar={recargaSesion} />
                   ) : sesion.objetivos.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-white/12 px-5 py-8 text-center">
-                      <p className="text-sm font-medium text-white/75">Este día todavía no tiene objetivos</p>
-                      <p className="mx-auto mt-1.5 max-w-lg text-xs leading-relaxed text-white/50">
-                        Añade uno: qué se busca, de quién, cómo reconocerlo en el vídeo y qué es correcto o mejorable.
-                        {anteriorConObjetivos ? " O copia los del último día para seguir midiendo lo mismo y ver la evolución." : ""}
-                      </p>
+                      <p className="text-sm font-medium text-white/75">Marca qué se busca, de quién y cómo se ve en el vídeo</p>
                       <div className="mt-3 flex flex-wrap justify-center gap-2">
                         <Button icon={Plus} tone="primary" onClick={nuevoObjetivo}>
                           Añadir objetivo
@@ -924,6 +983,8 @@ export default function AnalisisEntrenamientoPage() {
                 Porcentaje con {MINIMO_PORCENTAJE} acciones o más; por debajo se da la cuenta. Lo validado manda sobre lo propuesto.
               </p>
             ) : null}
+            </>
+            )}
           </div>
         </section>
       </div>
@@ -1009,10 +1070,7 @@ function ResumenSinAnalisis({
   if (!objetivos.length)
     return (
       <div className="rounded-xl border border-dashed border-white/12 px-5 py-8 text-center">
-        <p className="text-sm font-medium text-white/75">Este día todavía no tiene objetivos</p>
-        <p className="mx-auto mt-1.5 max-w-lg text-xs leading-relaxed text-white/50">
-          Qué se busca, de quién y cómo reconocerlo en el vídeo: con eso se mide la sesión.
-        </p>
+        <p className="text-sm font-medium text-white/75">Marca qué se busca, de quién y cómo se ve en el vídeo</p>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           {onAnadir ? (
             <Button icon={Plus} tone="primary" onClick={onAnadir}>

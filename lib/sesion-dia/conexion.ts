@@ -209,9 +209,8 @@ type TareaQueSeCasa = { nombre: string; plan?: VinculoPlan };
 /**
  * La tarea del plan (su índice) de cada tarea de la sesión, o `null`.
  *
- * 1. Las que recuerdan de dónde salieron: por la firma (si hay dos iguales,
- *    la del mismo código) y, si la tarea del plan ha cambiado de contenido,
- *    por el código.
+ * 1. Las que recuerdan de dónde salieron: por su código (la firma desempata)
+ *    y, sólo si ese código ya no está en el día, por la firma.
  * 2. Las demás, por el nombre (tipo, contenido u observaciones).
  * 3. Y si el día tiene tantas tareas como la sesión, las que quedan por el orden.
  */
@@ -220,22 +219,20 @@ export function enlaza(tareas: TareaQueSeCasa[], plan: TareaPlan[]): (number | n
   const salida: (number | null)[] = tareas.map(() => null);
   const firmas = plan.map(firmaTarea);
 
+  /*
+  | 30/10/2026: el código manda. Antes, si la tarea del plan había cambiado de
+  | contenido, la firma casaba con OTRA fila del mismo formato y contenido
+  | («ATAQUE - DEFENSA», V-T2, enseñaba «Evolución · 10v10», la valoración de
+  | otra tarea y un «faltan 2» falso). Ahora: firma y código; luego el código
+  | solo; y la firma sola sólo si ese código ya no está en el día (renumerado).
+  | Una tarea que recuerda su plan nunca cae al parecido del nombre ni al orden.
+  */
+  const mismoCodigo = (p: TareaPlan, t: TareaQueSeCasa) => p.codigo.trim().toLowerCase() === (t.plan?.codigo ?? "").trim().toLowerCase();
+
   tareas.forEach((t, i) => {
     if (!t.plan) return;
 
-    const candidatas = firmas.map((f, k) => (f === t.plan!.firma && !usadas.has(k) ? k : -1)).filter((k) => k >= 0);
-    const k = candidatas.find((c) => plan[c].codigo === t.plan!.codigo) ?? candidatas[0];
-
-    if (k !== undefined) {
-      salida[i] = k;
-      usadas.add(k);
-    }
-  });
-
-  tareas.forEach((t, i) => {
-    if (!t.plan || salida[i] !== null) return;
-
-    const k = plan.findIndex((p, j) => !usadas.has(j) && p.codigo.toLowerCase() === t.plan!.codigo.toLowerCase());
+    const k = firmas.findIndex((f, j) => f === t.plan!.firma && !usadas.has(j) && mismoCodigo(plan[j], t));
 
     if (k >= 0) {
       salida[i] = k;
@@ -244,7 +241,29 @@ export function enlaza(tareas: TareaQueSeCasa[], plan: TareaPlan[]): (number | n
   });
 
   tareas.forEach((t, i) => {
-    if (salida[i] !== null) return;
+    if (!t.plan || salida[i] !== null) return;
+
+    const k = plan.findIndex((p, j) => !usadas.has(j) && mismoCodigo(p, t));
+
+    if (k >= 0) {
+      salida[i] = k;
+      usadas.add(k);
+    }
+  });
+
+  tareas.forEach((t, i) => {
+    if (!t.plan || salida[i] !== null || plan.some((p) => mismoCodigo(p, t))) return;
+
+    const k = firmas.findIndex((f, j) => f === t.plan!.firma && !usadas.has(j));
+
+    if (k >= 0) {
+      salida[i] = k;
+      usadas.add(k);
+    }
+  });
+
+  tareas.forEach((t, i) => {
+    if (salida[i] !== null || t.plan) return;
 
     let mejor = -1;
     let nota = 0.5;
@@ -268,7 +287,7 @@ export function enlaza(tareas: TareaQueSeCasa[], plan: TareaPlan[]): (number | n
 
   if (plan.length === tareas.length) {
     salida.forEach((k, i) => {
-      if (k === null && !usadas.has(i)) {
+      if (k === null && !tareas[i].plan && !usadas.has(i)) {
         salida[i] = i;
         usadas.add(i);
       }
@@ -437,7 +456,10 @@ export function propuestasDeLaSesion(sesion: SesionEquipos | null | undefined, p
 
     const p = plan[k];
     const renombrada = claveNombre(t.nombre) !== claveNombre(t.plan.nombre);
-    const yaRecogido = claveNombre(t.nombre) === claveNombre(nombreEnSesion(p)) || claveNombre(p.observaciones).includes(claveNombre(t.nombre));
+    /* 30/10/2026: sin mayúsculas, acentos ni espacios, y contra el tipo y el contenido del plan: «DEFENSA DE ÁREA» no es un cambio si el plan ya se llama así. */
+    const igual = (a: string, b: string) => Boolean(a.trim()) && claveNombre(a).replace(/\s+/g, "") === claveNombre(b).replace(/\s+/g, "");
+    const yaRecogido =
+      igual(t.nombre, nombreEnSesion(p)) || igual(t.nombre, p.tipo) || igual(t.nombre, p.contenidoPrincipal) || claveNombre(p.observaciones).includes(claveNombre(t.nombre));
 
     if (renombrada && !yaRecogido) salida.push({ tipo: "renombrar", clave: `renombrar:${t.id}:${claveNombre(t.nombre)}`, codigo: p.codigo, de: nombreEnSesion(p), a: t.nombre.trim(), indice: k });
   });
@@ -600,6 +622,11 @@ export type ResultadoObjetivo = {
   lectura: string;
   /** «64 %», «Tendencia» o vacío. */
   porcentaje: string;
+  /** «9 de 14 correctas · 64 %», sin la cuenta de validadas: ésa va en su etiqueta (30/10/2026). */
+  lecturaCorta?: string;
+  /** Cuántas acciones ha validado alguien, de cuántas: sin todas, el porcentaje es provisional. */
+  validadas?: number;
+  total?: number;
   /** Con meta y muestra suficiente: si llega. */
   cumple: boolean | null;
   meta?: number;
@@ -630,6 +657,7 @@ export function resultadosPorTarea(sesion: SesionEntreno | null | undefined, ana
       objetivo: o.objetivo.trim(),
       jugadores: o.jugadores.map((j) => j.nombre),
       lectura: c && c.total ? lecturaCuentas(c) : "",
+      ...(c && c.total ? { lecturaCorta: `${c.correctas} de ${c.total} correctas · ${c.pct !== null ? `${c.pct} %` : "tendencia"}`, validadas: c.validadas, total: c.total } : {}),
       porcentaje: c ? porcentajeOTendencia(c) : "",
       cumple: c ? cumpleMeta(c, o.meta) : null,
       ...(o.meta ? { meta: o.meta } : {}),

@@ -35,7 +35,24 @@ const fechaTitulo = (f: string) => {
 };
 
 /** La tira de la semana: un toque por día, semana anterior y siguiente, y el calendario para saltar lejos. */
-export function SelectorDia({ fecha, hoy, semana, onFecha, mueve, derecha }: { fecha: string; hoy: string; semana: string[]; onFecha: (f: string) => void; mueve: (f: string, dias: number) => string; derecha?: ReactNode }) {
+export function SelectorDia({
+  fecha,
+  hoy,
+  semana,
+  onFecha,
+  mueve,
+  derecha,
+  conObjetivos,
+}: {
+  fecha: string;
+  hoy: string;
+  semana: string[];
+  onFecha: (f: string) => void;
+  mueve: (f: string, dias: number) => string;
+  derecha?: ReactNode;
+  /** Los días con objetivos o análisis: llevan un punto (30/10/2026), para no entrar a ciegas. */
+  conObjetivos?: Set<string>;
+}) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       {/* En el móvil la tira se desliza, con un degradado que avisa de que sigue, y el día elegido se centra solo (30/10/2026). */}
@@ -58,12 +75,13 @@ export function SelectorDia({ fecha, hoy, semana, onFecha, mueve, derecha }: { f
                   }
                 : undefined
             }
-            aria-label={fechaLarga(d)}
-            title={fechaLarga(d)}
+            aria-label={`${fechaLarga(d)}${conObjetivos?.has(d) ? ", con objetivos" : ""}`}
+            title={`${fechaLarga(d)}${conObjetivos?.has(d) ? " · con objetivos" : ""}`}
             className={`flex w-10 shrink-0 flex-col items-center rounded-lg py-1 text-xs leading-tight ${FOCO} ${d === fecha ? "bg-[#C8A96B] font-semibold text-black" : d === hoy ? "border border-[#C8A96B]/40 text-white/85" : "border border-white/12 text-white/60 hover:text-white"}`}
           >
             <span className="text-[10px] opacity-80">{DIAS[i]}</span>
             <span className="tabular-nums">{Number(d.slice(8))}</span>
+            <span aria-hidden className={`mt-0.5 h-1 w-1 rounded-full ${conObjetivos?.has(d) ? (d === fecha ? "bg-black/70" : "bg-[#C8A96B]") : "bg-transparent"}`} />
           </button>
         ))}
         <button type="button" onClick={() => onFecha(mueve(fecha, 7))} aria-label="Semana siguiente" title="Semana siguiente" className={`shrink-0 rounded-lg border border-white/12 p-2 text-white/60 hover:text-white ${FOCO}`}>
@@ -96,7 +114,8 @@ export function CabeceraSesion({
   sesion?: string;
   /** «Cámara táctica · 82 min · analizado el 28/10 18:40». */
   fuente?: string;
-  estado: { texto: string; tono: "neutro" | "oro" | "aviso" | "bien" };
+  /** Sin estado (día vacío) no sale el chip: el estado vacío ya lo dice una vez. */
+  estado: { texto: string; tono: "neutro" | "oro" | "aviso" | "bien" } | null;
   pasos: Paso[];
   siguiente: Siguiente | null;
   secundario?: ReactNode;
@@ -108,7 +127,7 @@ export function CabeceraSesion({
     oro: "bg-[#C8A96B]/15 text-[#C8A96B]",
     aviso: "bg-amber-400/15 text-amber-300",
     bien: "bg-emerald-400/15 text-emerald-300",
-  }[estado.tono];
+  }[estado?.tono ?? "neutro"];
   const Icono = siguiente?.ocupado ? Loader2 : siguiente?.icono;
 
   return (
@@ -119,7 +138,7 @@ export function CabeceraSesion({
             <h2 id="cabecera-sesion" className="text-xl font-semibold leading-tight text-white sm:text-2xl">
               {fechaTitulo(fecha)}
             </h2>
-            <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tono}`}>{estado.texto}</span>
+            {estado ? <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tono}`}>{estado.texto}</span> : null}
           </div>
           {sesion ? <p className="text-sm text-white/70">{sesion}</p> : null}
           {fuente ? <p className="text-xs text-white/50">{fuente}</p> : null}
@@ -153,6 +172,8 @@ export function CabeceraSesion({
       </div>
 
       {/* Los cuatro pasos: lo hecho, lo de ahora y lo que falta, con su cuenta. */}
+      {/* Sin pasos (día vacío, 30/10/2026) no se pinta la rejilla de «Sin objetivos / Sin pedir». */}
+      {pasos.length ? (
       <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="En qué punto está la sesión">
         {pasos.map((p, i) => {
           const contenido = (
@@ -186,6 +207,7 @@ export function CabeceraSesion({
           );
         })}
       </ol>
+      ) : null}
 
       {children}
     </section>

@@ -410,11 +410,25 @@ export function CodingAbpRival({
 
   /* ------------------------------ decidir ------------------------------ */
 
+  /*
+  | Con cada decisión se guarda también cuántos clips tiene la carpeta por
+  | tipo (30/10/2026): así, sin abrirla, el paso «Cribar los clips» dice
+  | «N clips · N cribados · N descartados» y lo que falta, no «Pendiente».
+  */
   const cambia = useCallback(
     (id: string, cambio: Partial<ClipEstado>) => {
-      setDoc((d) => ({ ...d, clips: { ...d.clips, [id]: { ...(d.clips[id] ?? { estado: "pendiente" }), ...cambio } }, actualizado: new Date().toISOString() }));
+      const recuento = abierta
+        ? Object.fromEntries(CARPETAS.map((c) => [c.key, abierta.porCarpeta.get(c.key)?.length ?? 0]).filter(([, n]) => Number(n) > 0))
+        : undefined;
+
+      setDoc((d) => ({
+        ...d,
+        clips: { ...d.clips, [id]: { ...(d.clips[id] ?? { estado: "pendiente" }), ...cambio } },
+        ...(recuento ? { recuento } : {}),
+        actualizado: new Date().toISOString(),
+      }));
     },
-    [setDoc],
+    [abierta, setDoc],
   );
 
   const decide = (estado: Estado) => {
@@ -858,12 +872,18 @@ export function CodingAbpRival({
         ? d.toLocaleString("es-ES", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", "")
         : "";
     };
-    /* Lo decidido por tipo: córner, falta y banda, cuando atacan y cuando defienden. */
+    /* Lo decidido por tipo: córner, falta y banda, cuando atacan y cuando defienden.
+       Con el recuento de la carpeta (30/10/2026), cada tipo dice también su base y lo que falta. */
+    const recuento = doc.recuento ?? {};
     const porTipo = CARPETAS.map((c) => {
       const suyos = hechos.filter(([id]) => id.startsWith(`${c.key}/`)).map(([, x]) => x);
+      const vistosTipo = suyos.filter((x) => x.estado !== "pendiente").length;
+      const totalTipo = Math.max(recuento[c.key] ?? 0, vistosTipo);
 
-      return { ...c, elegidos: suyos.filter((x) => x.estado === "elegido").length, vistos: suyos.filter((x) => x.estado !== "pendiente").length };
-    }).filter((c) => c.vistos);
+      return { ...c, elegidos: suyos.filter((x) => x.estado === "elegido").length, vistos: vistosTipo, total: totalTipo };
+    }).filter((c) => c.vistos || c.total);
+    const totalCarpeta = porTipo.reduce((n, c) => n + c.total, 0);
+    const porCribar = Math.max(0, totalCarpeta - vistos);
     /* Los apuntes ya guardados de este rival, de la última jornada hacia atrás (29/10/2026). */
     const hechosRival = Object.entries(apuntes.jornadas ?? {})
       .map(([clave, cuaderno]) => ({ clave, n: Number(clave.replace(/\D/g, "")) || 0, apuntes: normalizaCuaderno(cuaderno).apuntes.filter((a) => a.texto.trim()) }))
@@ -900,9 +920,19 @@ export function CodingAbpRival({
         hecho: hecho2,
         titulo: "Cribar los clips",
         texto: "Abre la carpeta y quédate con los buenos.",
+        /* El estado en una línea y con cifras (30/10/2026): «Pendiente» era una palabra. */
         estado: hecho2
-          ? [`${vistos} cribados`, `${elegidosYa} elegidos (K)`, `${descartadosYa} descartados (D)`, doc.actualizado ? `última criba el ${cuando(doc.actualizado)}` : ""].filter(Boolean).join(" · ")
-          : "Pendiente",
+          ? [
+              totalCarpeta ? `${totalCarpeta} clips` : "",
+              `${vistos} cribados`,
+              `${elegidosYa} elegidos`,
+              `${descartadosYa} descartados`,
+              porCribar ? `${porCribar} por cribar` : "",
+              doc.actualizado ? `última criba ${cuando(doc.actualizado)}` : "",
+            ].filter(Boolean).join(" · ")
+          : recogidaJornada?.clips.length
+            ? `${recogidaJornada.clips.length} clips por cribar`
+            : "Carpeta sin abrir esta jornada",
         accion: { texto: "Abrir carpeta de la jornada", onClick: () => void elige() },
         principal: true,
       },
@@ -910,8 +940,13 @@ export function CodingAbpRival({
         n: 3,
         hecho: hecho3,
         titulo: "Llevarlo al informe",
-        texto: "El texto sale con tu formato, «Dónde caen» entra solo en la pizarra y lo elegido pasa a Apuntes y vídeo.",
-        estado: hecho3 && apuntesJornada ? `${apuntesJornada.apuntes.length} apuntes en la J${apuntesJornada.n}` : "Pendiente",
+        texto: "Lo cribado pasa a Apuntes y vídeo.",
+        estado:
+          hecho3 && apuntesJornada
+            ? `${apuntesJornada.apuntes.length} apuntes en la J${apuntesJornada.n}`
+            : elegidosYa
+              ? `${elegidosYa} clips elegidos listos para pasar`
+              : "Cuando haya clips elegidos",
         ...(onApuntes ? { accion: { texto: "Ver apuntes", onClick: onApuntes } } : {}),
       },
     ];
@@ -976,6 +1011,8 @@ export function CodingAbpRival({
                 {p.accion &&
                   (p.principal ? (
                     <span className="flex flex-col gap-1 max-md:w-full md:items-end">
+                      {/* En el móvil, el aviso antes del botón y no al pie (30/10/2026). */}
+                      <span className="text-[12px] text-white/60 md:hidden">Necesita un ordenador con Chrome o Edge.</span>
                       <button type="button" onClick={p.accion.onClick} className="flex items-center justify-center gap-2 rounded-lg bg-[#D8B45A] px-3 py-1.5 text-[13px] font-bold text-[#0B0F14] max-md:w-full max-md:py-2.5">
                         <FolderOpen size={14} /> {p.accion.texto}
                       </button>
@@ -997,7 +1034,9 @@ export function CodingAbpRival({
 
         {porTipo.length > 0 && (
           <div>
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Lo cribado por tipo · elegidos de los vistos</p>
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
+              Por tipo · elegidos de los cribados{totalCarpeta ? ` · ${totalCarpeta} clips en la carpeta` : ""}
+            </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {porTipo.map((c) => (
                 <div key={c.key} className="rounded-lg border border-white/10 bg-black/20 px-3 py-2">
@@ -1005,16 +1044,15 @@ export function CodingAbpRival({
                     {c.titulo === "SBO" || c.titulo === "SBD" ? "Saque de banda" : c.titulo === "FALTAS LAT" ? "Falta lateral" : c.titulo.charAt(0) + c.titulo.slice(1).toLowerCase()} · {c.fase === "of" ? "cuando atacan" : "cuando defienden"}
                   </p>
                   <p className="text-sm font-bold tabular-nums text-white">
-                    {c.elegidos} <span className="text-[12px] font-normal text-white/55">de {c.vistos}</span>
+                    {c.elegidos} <span className="text-[12px] font-normal text-white/55">de {c.vistos}{c.total ? ` · ${c.total} clips` : ""}</span>
                   </p>
+                  {c.total > c.vistos && <p className="text-[12px] font-semibold text-[#D8B45A]">{c.total - c.vistos} por cribar</p>}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Una sola vez y en una línea (29/10/2026), no repetido en cada paso. */}
-        <p className="text-[12px] text-white/55 md:hidden">Abrir la carpeta y cribar los clips se hace en el ordenador, con Chrome o Edge.</p>
 
         {hechosRival.length > 0 && (
           <div className="space-y-2">

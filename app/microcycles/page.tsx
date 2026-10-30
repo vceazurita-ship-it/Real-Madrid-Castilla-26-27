@@ -1037,8 +1037,55 @@ export default function Page() {
     const cur = microStats[idx];
     const prev = microStats[idx - 1];
 
+    /*
+    | LOS MISMOS DÍAS (30/10/2026). Con la semana a medias —MD-2 y MD-1 sin
+    | tiempo ni intensidad todavía— la carga del micro salía un 40 % por debajo
+    | del anterior y se leía como «descarga». Ahora, si hay días sin medir, se
+    | compara sólo en los días MD que sí lo están, contra esos mismos días del
+    | micro anterior, y se dice.
+    */
+    const deCur = rows.filter((r) => r.micro === cur.micro && !isCompeticion(r.fase));
+    const medido = (r: Row) => r.tiempo > 0 && r.intensidad > 0;
+    const mds = [...new Set(deCur.map((r) => r.md).filter(Boolean))];
+    const medidos = mds.filter((md) => deCur.some((r) => r.md === md && medido(r)));
+    const faltan = mds.filter((md) => !medidos.includes(md));
+    const posMd = (md: string) => {
+      const i = (MD_SEQUENCE as readonly string[]).indexOf(md);
+      return i === -1 ? 99 : i;
+    };
+    const ordenMd = (a: string, b: string) => posMd(a) - posMd(b);
+
+    if (faltan.length && medidos.length) {
+      const enDias = (m: number) => rows.filter((r) => r.micro === m && !isCompeticion(r.fase) && medidos.includes(r.md));
+      const a = enDias(cur.micro);
+      const b = enDias(prev.micro);
+      const evA = avg(a.map((r) => r.evaluacion).filter((n) => n > 0));
+      const evB = avg(b.map((r) => r.evaluacion).filter((n) => n > 0));
+      const loadA = sum(a.map((r) => r.carga));
+      const loadB = sum(b.map((r) => r.carga));
+      const cogA = sum(a.map((r) => r.cargaCog));
+      const cogB = sum(b.map((r) => r.cargaCog));
+
+      return {
+        prev,
+        mismosDias: [...medidos].sort(ordenMd),
+        faltan: [...faltan].sort(ordenMd),
+        loadDias: loadA,
+        eval: evA > 0 && evB > 0 ? +(evA - evB).toFixed(1) : 0,
+        load: loadA - loadB,
+        loadPct: pctCambio(loadA, loadB),
+        cog: cogA - cogB,
+        cogPct: pctCambio(cogA, cogB),
+        tareas: a.length - b.length,
+        tiempo: sum(a.map((r) => r.tiempo)) - sum(b.map((r) => r.tiempo)),
+      };
+    }
+
     return {
       prev,
+      mismosDias: null as string[] | null,
+      faltan: [] as string[],
+      loadDias: cur.load,
       eval: +(cur.eval - prev.eval).toFixed(1),
       load: cur.load - prev.load,
       loadPct: pctCambio(cur.load, prev.load),
@@ -1047,10 +1094,17 @@ export default function Page() {
       tareas: cur.tareas - prev.tareas,
       tiempo: cur.tiempo - prev.tiempo,
     };
-  }, [micro, microStats]);
+  }, [micro, microStats, rows]);
 
-  /** «M18»: contra qué micro se comparan las tarjetas de indicadores. */
-  const frenteA = microDelta ? `M${etiquetaMicro(microDelta.prev.micro)}` : undefined;
+  /** «MD-4 y MD-3»: los días con que se compara cuando la semana está a medias. */
+  const listaDias = (l: string[]) => (l.length <= 1 ? l.join("") : `${l.slice(0, -1).join(", ")} y ${l[l.length - 1]}`);
+
+  /** «el M18» o «los mismos días del M18 (MD-4 y MD-3)»: contra qué se comparan las tarjetas. */
+  const frenteA = microDelta
+    ? microDelta.mismosDias
+      ? `los mismos días del M${etiquetaMicro(microDelta.prev.micro)} (${listaDias(microDelta.mismosDias)})`
+      : `el M${etiquetaMicro(microDelta.prev.micro)}`
+    : undefined;
 
   /* ---------------- MD distribution ---------------- */
 
@@ -1450,7 +1504,10 @@ export default function Page() {
 
     if (!filtered.length) return out;
 
-    if (peakMD && peakMD.carga > 0) {
+    /* Con días sin medir (30/10/2026) el reparto de la carga por MD y la «descarga» no se leen: faltan días. */
+    const aMedias = Boolean(microDelta?.faltan.length);
+
+    if (peakMD && peakMD.carga > 0 && !aMedias) {
       out.push({
         icon: Flame,
         tone: "text-[#C8A96B]",
@@ -1509,7 +1566,7 @@ export default function Page() {
     }
 
     if (microDelta) {
-      const prevM = `M${etiquetaMicro(microDelta.prev.micro)}`;
+      const prevM = microDelta.mismosDias ? `los mismos días del M${etiquetaMicro(microDelta.prev.micro)} (${listaDias(microDelta.mismosDias)})` : `M${etiquetaMicro(microDelta.prev.micro)}`;
       const evalTxt =
         microDelta.prev.eval > 0
           ? microDelta.eval === 0
@@ -1525,7 +1582,7 @@ export default function Page() {
         icon: Activity,
         tone: "text-amber-400",
         peso: 70,
-        text: `Respecto al ${prevM}, ${evalTxt ? `${evalTxt} y ` : ""}${cargaTxt}${microDelta.load < 0 ? ": confirmar que es la descarga buscada." : microDelta.load > 0 ? ": vigilar la recuperación." : "."}`,
+        text: `Respecto a${microDelta.mismosDias ? "" : "l"} ${prevM}, ${evalTxt ? `${evalTxt} y ` : ""}${cargaTxt}${aMedias ? `; ${listaDias(microDelta.faltan)}, sin medir todavía.` : microDelta.load < 0 ? ": confirmar que es la descarga buscada." : microDelta.load > 0 ? ": vigilar la recuperación." : "."}`,
       });
     }
 
@@ -1581,7 +1638,9 @@ export default function Page() {
     selectedMicroStat && metrics.tasks > 0
       ? `Micro ${etiquetaMicro(selectedMicroStat.micro)}: ${metrics.tasks} tareas${metrics.tiempo > 0 ? ` y ${fmtMin(metrics.tiempo)}` : ""}${
           metrics.load > 0
-            ? `; carga física ${fmtInt(metrics.load)}${microDelta && microDelta.load !== 0 ? ` (${microDelta.load < 0 ? "−" : "+"}${fmtDec(Math.abs(microDelta.loadPct))} % sobre el M${etiquetaMicro(microDelta.prev.micro)})` : ""}`
+            ? microDelta?.mismosDias
+              ? `; carga física ${listaDias(microDelta.mismosDias)}: ${fmtInt(microDelta.loadDias)}${microDelta.load !== 0 ? `, ${microDelta.load < 0 ? "−" : "+"}${fmtDec(Math.abs(microDelta.loadPct))} % frente a los mismos días del M${etiquetaMicro(microDelta.prev.micro)}` : ""} (${listaDias(microDelta.faltan)}, sin medir todavía)`
+              : `; carga física ${fmtInt(metrics.load)}${microDelta && microDelta.load !== 0 ? ` (${microDelta.load < 0 ? "−" : "+"}${fmtDec(Math.abs(microDelta.loadPct))} % sobre el M${etiquetaMicro(microDelta.prev.micro)})` : ""}`
             : ""
         }`
       : null;
@@ -1824,9 +1883,9 @@ export default function Page() {
                                 background: `${getEvalColor(m.eval)}22`,
                                 color: chipInk(getEvalColor(m.eval)),
                               }}
-                              title={`Valoración media ${fmt1(m.eval)} · ${m.valoradas} tarea${m.valoradas === 1 ? "" : "s"} valorada${m.valoradas === 1 ? "" : "s"}`}
+                              title={`Valoración media ${fmtDec(m.eval)} · ${m.valoradas} tarea${m.valoradas === 1 ? "" : "s"} valorada${m.valoradas === 1 ? "" : "s"}`}
                             >
-                              Val. {fmt1(m.eval)}
+                              Val. {fmtDec(m.eval)}
                             </span>
                           )}
                         </div>
@@ -1984,15 +2043,9 @@ export default function Page() {
                 </button>
               </div>
 
-              {activeFilters > 0 && (
+              {/* 30/10/2026: sin chip del micro; ya lo dice el desplegable MICROCICLO. */}
+              {activeFilters - (micro !== "ALL" ? 1 : 0) > 0 && (
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {micro !== "ALL" && (
-                    <FilterChip
-                      color="gold"
-                      onClear={() => setMicro("ALL")}
-                      label={`Micro ${etiquetaMicro(micro)}`}
-                    />
-                  )}
 
                   {mdFilter !== "ALL" && (
                     <FilterChip
@@ -4089,7 +4142,7 @@ function StatCard({
   decimals?: number;
   /** «valor»: subir es mejor (verde/rojo). «neutro»: sólo dice el sentido. */
   deltaTono?: "valor" | "neutro";
-  /** Contra qué se compara, p. ej. «M18». */
+  /** Contra qué se compara, con su artículo: «el M18» o «los mismos días del M18 (MD-4 y MD-3)». */
   deltaFrente?: string;
   /** Qué cambia, p. ej. «tareas». */
   deltaQue?: string;
@@ -4102,10 +4155,13 @@ function StatCard({
   | 30/10/2026: la carga, las tareas y el tiempo que bajan NO son malos de por
   | sí —la semana de partido o un MD-1 son más cortos a propósito—. Ahí la
   | diferencia va en color neutro y con el sentido escrito («−40,4 % frente al
-  | M18»); sólo la valoración se pinta en verde o rojo, porque ahí subir sí es
+  | M18»; desde el 30/10/2026 la página pasa el artículo); sólo la valoración se pinta en verde o rojo, porque ahí subir sí es
   | mejor.
   */
   const neutro = deltaTono === "neutro";
+
+  /* «frente al M18» y «frente a los mismos días del M18»: la contracción, bien escrita. */
+  const frenteCon = (t: string) => (t.startsWith("el ") ? `al ${t.slice(3)}` : `a ${t}`);
 
   return (
     <div className="group rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/25">
@@ -4136,7 +4192,7 @@ function StatCard({
             {fmtDec(Math.abs(delta), decimals)}
             {deltaSuffix}
             {deltaQue ? ` ${deltaQue}` : ""}
-            {deltaFrente ? ` frente al ${deltaFrente}` : ""}
+            {deltaFrente ? ` frente ${frenteCon(deltaFrente)}` : ""}
           </span>
         )}
 
@@ -4151,7 +4207,7 @@ function StatCard({
             <DeltaIcon className="h-2.5 w-2.5" />
             {fmtDec(Math.abs(delta), decimals)}
             {deltaSuffix}
-            {deltaFrente ? ` frente al ${deltaFrente}` : ""}
+            {deltaFrente ? ` frente ${frenteCon(deltaFrente)}` : ""}
           </span>
         )}
       </div>

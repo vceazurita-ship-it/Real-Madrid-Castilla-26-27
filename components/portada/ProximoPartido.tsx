@@ -508,7 +508,7 @@ export function ProximoPartido() {
                   setDiaAbierto({ fecha: diaDeHoy.fecha, nombre: diaDeHoy.nombre, rotulo: diaDeHoy.rotulo })
                 }
                 title={sesionDeHoy.join(" · ")}
-                className="group mt-3 inline-flex max-w-full items-center gap-2 rounded-xl border border-[#D8B45A]/50 bg-[#D8B45A]/10 px-4 py-2 text-left text-[13px] font-semibold text-[#F7D98B] transition hover:-translate-y-0.5 hover:bg-[#D8B45A]/20"
+                className="group mt-3 flex w-full max-w-full items-center justify-between gap-2 rounded-xl border border-[#D8B45A]/50 bg-[#D8B45A]/10 px-4 py-2.5 text-left text-[13px] font-semibold text-[#F7D98B] transition hover:-translate-y-0.5 hover:bg-[#D8B45A]/20 sm:inline-flex sm:w-auto"
               >
                 <span className="min-w-0">
                   Hoy {diaDeHoy.rotulo} · {sesionDeHoy.slice(0, 2).join(" + ")}
@@ -599,11 +599,16 @@ export function ProximoPartido() {
           arriba ni de lo de hoy.
         */}
         {(() => {
-          const enBotones = new Set(["Plantilla del rival", "Plan de partido", "Microciclo ABP", "Pizarra táctica", "Desplazamiento"]);
+          /*
+          | Un solo enlace por destino (30/10/2026): se compara la pantalla, no el
+          | rótulo. «PDF y vídeo ABP por jugador» (Hoy) y «Pizarra ABP» (Del
+          | rival) llevaban los dos a /abp-pizarra.
+          */
+          const enBotones = new Set(["/rivals", "/match-preparation", "/abp-microciclo", "/pizarra-tactica", "/desplazamiento"]);
 
-          const deHoy = (hoyToca?.atajos ?? []).filter((atajo) => !enBotones.has(atajo.texto));
+          const deHoy = (hoyToca?.atajos ?? []).filter((atajo) => !enBotones.has(modulo(atajo.href)));
 
-          const yaHoy = new Set(deHoy.map((atajo) => atajo.texto));
+          const yaHoy = new Set(deHoy.map((atajo) => modulo(atajo.href)));
 
           const delRival = proximo
             ? [
@@ -614,7 +619,7 @@ export function ProximoPartido() {
                 { href: conEquipo("/scout-rival-individual"), texto: "Individual", title: `Los vídeos de los jugadores de ${nombreRival}` },
                 /* Antes, un botón suelto al pie de la portada sin contexto (30/10/2026). */
                 ...(admin ? [{ href: "/coding?ambito=rival", texto: "Coding", title: `Marcar y cortar los clips de ${nombreRival}` }] : []),
-              ].filter((atajo) => !yaHoy.has(atajo.texto))
+              ].filter((atajo) => !yaHoy.has(modulo(atajo.href)) && !enBotones.has(modulo(atajo.href)))
             : [];
 
           if (!deHoy.length && !delRival.length) return null;
@@ -624,9 +629,10 @@ export function ProximoPartido() {
           | «Hoy» y «Del rival». Con puntos medios, en el móvil el «·» quedaba
           | huérfano al principio de línea y los enlaces se apiñaban.
           */
+          /* En el móvil, rejilla de dos chips por fila (30/10/2026): en una fila suelta se apiñaban. */
           const fila = (rotulo: string, atajos: { href: string; texto: string; title?: string }[]) => (
-            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-              <span className="mr-1 w-full text-[12px] font-semibold uppercase tracking-[0.18em] text-white/55 sm:w-auto">
+            <div className="grid min-w-0 grid-cols-2 gap-1.5 sm:flex sm:flex-wrap sm:items-center">
+              <span className="col-span-2 mr-1 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/65 sm:w-auto">
                 {rotulo}
               </span>
               {atajos.map((atajo) => (
@@ -730,7 +736,7 @@ function Atajo({ href, texto, title }: { href: string; texto: string; title?: st
       href={href}
       title={title}
       onClick={() => trackModuleVisit(modulo(href))}
-      className="inline-flex items-center rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[13px] text-white/75 transition-colors hover:border-[#D8B45A]/60 hover:text-[#F7D98B]"
+      className="inline-flex min-h-9 min-w-0 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-center text-[13px] leading-tight text-white/75 transition-colors hover:border-[#D8B45A]/60 hover:text-[#F7D98B] sm:min-h-0"
     >
       {texto}
     </Link>
@@ -757,7 +763,7 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
       {/* Qué lado es el más reciente, dicho (30/10/2026). */}
       {/* La aclaración a 12 px y con más contraste (30/10/2026). */}
       <span className="text-[12px] font-semibold uppercase tracking-[0.2em] text-white/55">
-        Últimos {ultimos.length || 5} <span className="normal-case tracking-normal font-normal text-white/65">· el más reciente, a la derecha</span>
+        Últimos {ultimos.length || 5} <span className="normal-case tracking-normal font-medium text-white/80">· el más reciente, a la derecha</span>
       </span>
 
       <span className="flex items-center gap-1.5">
@@ -821,8 +827,9 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
             {fila.puesto}º
           </span>
           <span className="text-white/40">de {fila.deCuantos}</span>
+          {/* La base pegada al puesto (30/10/2026): «12º de 20 · 12 pts en 9 partidos». */}
           <span className="tabular-nums">
-            <span className="font-semibold text-white/85">{fila.puntos}</span> pts
+            <span className="font-semibold text-white/85">{fila.puntos}</span> pts en {fila.ganados + fila.empatados + fila.perdidos} partidos
           </span>
           <span className="text-white/30">·</span>
           <span className="tabular-nums">
@@ -831,10 +838,6 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
           <span className="text-white/30">·</span>
           <span className="tabular-nums">
             goles {fila.favor} a favor y {fila.contra} en contra
-          </span>
-          <span className="text-white/30">·</span>
-          <span className="tabular-nums text-white/40">
-            {fila.ganados + fila.empatados + fila.perdidos} partidos
           </span>
         </span>
       ) : null}

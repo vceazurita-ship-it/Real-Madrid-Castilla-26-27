@@ -27,9 +27,13 @@ import {
   buildSeasonMonths,
   currentMonthIndex,
   dateKey,
+  formatMinutes,
+  normalizeText,
   parseDateKey,
   recordDateKey,
 } from "@/lib/calendar";
+import { traeJson } from "@/lib/hojaCsv";
+import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
 import { cn } from "@/lib/utils";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { CALENDARIO_CASTILLA_KEY, type PartidoBesoccer } from "@/lib/viaje/calendario";
@@ -67,7 +71,46 @@ type EventoAuto = {
   detalle: string;
   hora: string;
   enlace: string;
+  /** Sólo los partidos: el rival y si es en casa (para el orden de los escudos). */
+  rival?: string;
+  enCasa?: boolean;
 };
+
+/** Una fila de la hoja de microciclos: lo poco que hace falta aquí (la misma fuente que /micro_calendar). */
+type FilaMicro = { Fecha?: string; MD?: string; Tiempo?: number | string; "Tipo Tarea"?: string; "Contenido Principal"?: string; Fase?: string };
+
+/** La sesión de un día: su MD y sus minutos. */
+type SesionDia = { md: string; minutos: number };
+
+/** Nombre con el que sale el Castilla en la lista de escudos de BeSoccer. */
+const NOSOTROS = "RM Castilla";
+
+/** Escudo pequeño; sin imagen, las iniciales. */
+function EscudoMini({ url, nombre }: { url: string | null; nombre: string }) {
+  const [roto, setRoto] = useState(false);
+
+  if (url && !roto) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- escudo pequeño por el proxy propio
+      <img src={url} alt={nombre} title={nombre} onError={() => setRoto(true)} className="h-4 w-4 shrink-0 object-contain md:h-5 md:w-5" />
+    );
+  }
+
+  const iniciales = nombre
+    .replace(/[^\p{L}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((p) => p.length > 2)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();
+
+  return (
+    <span title={nombre} className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[8px] font-bold text-white/70 md:h-5 md:w-5">
+      {iniciales || "C"}
+    </span>
+  );
+}
 
 const AUTO_THEMES: Record<EventoAuto["clase"], { label: string; stripe: string; dot: string }> = {
   PARTIDO: { label: "Partido", stripe: "border-l-[#C8A96B]", dot: "bg-[#C8A96B]" },
@@ -153,6 +196,73 @@ export default function CalendarGeneralPage() {
   const [filesByDay, setFilesByDay] = useState<FilesByDay>({});
   const [autoEventos, setAutoEventos] = useState<EventoAuto[]>([]);
   const [proximo, setProximo] = useState<{ jornada: number; rival: string; enCasa: boolean; fecha: string; hora: string; salida: string } | null>(null);
+
+  /*
+  | LAS SESIONES DEL DÍA (30/10/2026). El mes eran siete etiquetas en 35
+  | casillas vacías: ahora cada día dice su MD y sus minutos, de la misma hoja
+  | que /micro_calendar, y los días sin sesión entre la primera y la última son
+  | «Libre». Sólo lectura (GET con la caché de hojas). Si no llega, el mes se
+  | queda con partidos, viajes y eventos: no se dice nada de lo que no hay.
+  */
+  const [sesionesDia, setSesionesDia] = useState<Map<string, SesionDia>>(() => new Map());
+
+  useEffect(() => {
+    let vivo = true;
+
+    traeJson<unknown>("/api/rivals?action=microciclo")
+      .then((data) => {
+        if (!vivo || !Array.isArray(data)) return;
+
+        const mapa = new Map<string, SesionDia>();
+
+        for (const fila of data as FilaMicro[]) {
+          const key = recordDateKey(fila?.Fecha ?? "");
+          if (!key) continue;
+
+          /* El partido ya sale de BeSoccer: la fila de competición no es sesión. */
+          const md = String(fila.MD ?? "").trim();
+          const competicion = md.toUpperCase() === "MD" && /COMPETICION/.test(normalizeText(`${fila["Tipo Tarea"] ?? ""} ${fila["Contenido Principal"] ?? ""} ${fila.Fase ?? ""}`));
+          if (competicion) continue;
+
+          const previa = mapa.get(key);
+          const minutos = Number(fila.Tiempo) || 0;
+
+          mapa.set(key, { md: previa?.md || md, minutos: (previa?.minutos ?? 0) + minutos });
+        }
+
+        setSesionesDia(mapa);
+      })
+      .catch(() => {
+        /* Sin hoja, el mes sigue con lo demás. */
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  /* Los escudos, los mismos de /micro_calendar y Data Análisis. */
+  const [listaEscudos, setListaEscudos] = useState<Escudos>([]);
+
+  useEffect(() => {
+    let vivo = true;
+
+    void traeEscudos().then((lista) => {
+      if (vivo) setListaEscudos(lista);
+    });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  const escudoDe = useMemo(() => buscadorDeEscudos(listaEscudos), [listaEscudos]);
+
+  /* El tramo con sesiones apuntadas: dentro, el día sin sesión ni partido es libre. */
+  const tramoSesiones = useMemo(() => {
+    const dias = [...sesionesDia.keys()].sort();
+    return dias.length ? { desde: dias[0], hasta: dias[dias.length - 1] } : null;
+  }, [sesionesDia]);
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [editingEvent, setEditingEvent] = useState<GeneralEvent | null>(null);
@@ -262,6 +372,8 @@ export default function CalendarGeneralPage() {
           detalle: enCasa ? "En casa" : "A domicilio",
           hora: m[2] + ":" + m[3] === "00:00" ? "" : `${m[2]}:${m[3]}`,
           enlace: "",
+          rival,
+          enCasa,
         });
       }
 
@@ -432,19 +544,34 @@ export default function CalendarGeneralPage() {
       );
     };
 
+    /*
+    | 30/10/2026: «Eventos 7» y «Días con actividad 7» decían lo mismo. Ahora
+    | se cuenta cada cosa por su nombre: partidos, viajes (uno por viaje, no
+    | por día: la vuelta no es otro), sesiones y lo que apunta el staff.
+    */
     let eventos = 0;
-    const diasConActividad = new Set<string>();
+    let partidos = 0;
+    const viajes = new Set<string>();
+    let sesiones = 0;
 
     eventsByDay.forEach((list, key) => {
       if (!inMonth(key)) return;
-      eventos += list.length;
-      diasConActividad.add(key);
+      list.forEach((e) => {
+        if (e.tipo === "VIAJE") viajes.add(`staff-${e.id}`);
+        else eventos += 1;
+      });
     });
 
     autoByDay.forEach((list, key) => {
       if (!inMonth(key)) return;
-      eventos += list.length;
-      diasConActividad.add(key);
+      list.forEach((e) => {
+        if (e.clase === "PARTIDO") partidos += 1;
+        else if (!e.titulo.startsWith("Regreso de")) viajes.add(e.titulo);
+      });
+    });
+
+    sesionesDia.forEach((_, key) => {
+      if (inMonth(key)) sesiones += 1;
     });
 
     let imagenes = 0;
@@ -456,8 +583,8 @@ export default function CalendarGeneralPage() {
       pdfs += files.pdfs.length;
     });
 
-    return { eventos, dias: diasConActividad.size, imagenes, pdfs };
-  }, [eventsByDay, autoByDay, filesByDay, active]);
+    return { eventos, partidos, viajes: viajes.size, sesiones, imagenes, pdfs };
+  }, [eventsByDay, autoByDay, filesByDay, sesionesDia, active]);
 
   /* Mes en blanco con todo ya leído: se dice con una frase y se ofrece el mes del próximo partido. */
   const mesVacio =
@@ -465,6 +592,9 @@ export default function CalendarGeneralPage() {
     !autoFallo &&
     status !== "loading" &&
     monthStats.eventos === 0 &&
+    monthStats.partidos === 0 &&
+    monthStats.viajes === 0 &&
+    monthStats.sesiones === 0 &&
     monthStats.imagenes === 0 &&
     monthStats.pdfs === 0;
 
@@ -583,7 +713,7 @@ export default function CalendarGeneralPage() {
 
   return (
     <CalendarShell
-      eyebrow="RMCF CASTILLA OPERATIVA"
+      eyebrow="RMCF CASTILLA · OPERATIVA"
       title="Calendario de Operativa General"
       months={months}
       monthIndex={currentMonth}
@@ -680,12 +810,18 @@ export default function CalendarGeneralPage() {
       }
       stats={
         <>
-          {/* El número de días iba dos veces: de pista y de tarjeta. */}
-          {monthStats.eventos > 0 && (
-            <CalendarStat label="Eventos" value={monthStats.eventos} />
+          {/* Cada cifra con su nombre y su base (30/10/2026). */}
+          {monthStats.partidos > 0 && (
+            <CalendarStat label="Partidos" value={monthStats.partidos} hint={`en ${MONTHS[active.month].toLowerCase()}`} />
           )}
-          {monthStats.dias > 0 && (
-            <CalendarStat label="Días con actividad" value={monthStats.dias} />
+          {monthStats.viajes > 0 && (
+            <CalendarStat label="Viajes" value={monthStats.viajes} hint={`en ${MONTHS[active.month].toLowerCase()}`} />
+          )}
+          {monthStats.sesiones > 0 && (
+            <CalendarStat label="Sesiones" value={monthStats.sesiones} hint={`en ${MONTHS[active.month].toLowerCase()}, de la hoja de microciclos`} />
+          )}
+          {monthStats.eventos > 0 && (
+            <CalendarStat label="Eventos del staff" value={monthStats.eventos} hint={`en ${MONTHS[active.month].toLowerCase()}`} />
           )}
           {monthStats.imagenes > 0 && (
             <CalendarStat label="Imágenes" value={monthStats.imagenes} />
@@ -706,12 +842,39 @@ export default function CalendarGeneralPage() {
         const visible = dayEvents.slice(0, MAX_VISIBLE_PER_DAY);
         const hidden = dayEvents.length - visible.length;
 
+        const sesionDia = sesionesDia.get(key);
+        const hayPartido = dayAuto.some((a) => a.clase === "PARTIDO");
+        const libre =
+          !sesionDia &&
+          !hayPartido &&
+          tramoSesiones !== null &&
+          key > tramoSesiones.desde &&
+          key < tramoSesiones.hasta;
+
         return {
           hasContent:
-            dayEvents.length > 0 || dayAuto.length > 0 || imageCount > 0 || pdfCount > 0,
+            dayEvents.length > 0 || dayAuto.length > 0 || imageCount > 0 || pdfCount > 0 || Boolean(sesionDia),
           onClick: () => openDay(key),
           badges: (
-            <div className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center justify-end gap-1">
+              {/* La sesión del día: su MD y sus minutos, como en /micro_calendar. */}
+              {sesionDia?.md && (
+                <span
+                  className="siempre-oscuro whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
+                  style={{ background: "#1F2937", color: "#FFFFFF" }}
+                  title="Sesión de entrenamiento"
+                >
+                  {sesionDia.md}
+                </span>
+              )}
+              {sesionDia && sesionDia.minutos > 0 && (
+                <span className="hidden rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#C8A96B] md:inline">
+                  {formatMinutes(sesionDia.minutos)}
+                </span>
+              )}
+              {libre && (
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-white/45">Libre</span>
+              )}
               {imageCount > 0 && (
                 <span className="flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/15 px-1.5 py-0.5">
                   <ImageIcon className="h-3 w-3 text-sky-300" />
@@ -734,7 +897,27 @@ export default function CalendarGeneralPage() {
           children:
             dayEvents.length > 0 || dayAuto.length > 0 ? (
               <>
-                {dayAuto.map((auto) => (
+                {dayAuto.map((auto) =>
+                  auto.clase === "PARTIDO" && auto.rival ? (
+                    /* 30/10/2026: el escudo de casa primero, como se lee un partido:
+                       en casa, Castilla vs rival; fuera, rival vs Castilla. */
+                    <div
+                      key={auto.id}
+                      className="rounded-md border border-l-4 border-[#C8A96B]/20 border-l-[#C8A96B] bg-[#C8A96B]/10 px-1.5 py-1"
+                      title={auto.titulo}
+                    >
+                      <div className="flex items-center gap-1">
+                        <EscudoMini url={escudoDe(auto.enCasa ? NOSOTROS : auto.rival)} nombre={auto.enCasa ? "RM Castilla" : auto.rival} />
+                        <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
+                        <EscudoMini url={escudoDe(auto.enCasa ? auto.rival : NOSOTROS)} nombre={auto.enCasa ? auto.rival : "RM Castilla"} />
+                      </div>
+                      <p className="mt-0.5 truncate text-[10px] font-semibold md:text-[11px]">{auto.titulo}</p>
+                      <p className="text-[9px] text-white/60 md:text-[10px]">
+                        {auto.enCasa ? "En casa" : "Fuera"}
+                        {auto.hora ? ` · ${auto.hora}` : ""}
+                      </p>
+                    </div>
+                  ) : (
                   <div
                     key={auto.id}
                     className={cn(
@@ -754,7 +937,8 @@ export default function CalendarGeneralPage() {
                       {auto.hora ? ` · ${auto.hora}` : ""}
                     </p>
                   </div>
-                ))}
+                  )
+                )}
 
                 {visible.map((event) => (
                   <div
@@ -880,11 +1064,28 @@ export default function CalendarGeneralPage() {
               !isCreating &&
               !editingEvent &&
               selectedFiles.images.length === 0 &&
-              selectedFiles.pdfs.length === 0 && (
+              selectedFiles.pdfs.length === 0 &&
+              !sesionesDia.get(selectedKey) && (
                 <CalendarEmptyState>
                   Sin operativa programada este día.
                 </CalendarEmptyState>
               )}
+
+            {(() => {
+              const s = sesionesDia.get(selectedKey);
+              if (!s) return null;
+              return (
+                <div className="rounded-xl border border-l-4 border-white/10 border-l-[#C8A96B] bg-[#10151C] p-4">
+                  <p className="text-lg font-semibold">
+                    Sesión{s.md ? ` · ${s.md}` : ""}
+                  </p>
+                  {s.minutos > 0 && <p className="mt-1 text-sm text-[#C8A96B]">{formatMinutes(s.minutos)} de trabajo</p>}
+                  <Link href="/micro_calendar" className="mt-3 inline-block text-xs text-[#C8A96B] transition hover:underline">
+                    Ver las tareas en el calendario de microciclo →
+                  </Link>
+                </div>
+              );
+            })()}
 
             {selectedAuto.map((auto) => (
               <div

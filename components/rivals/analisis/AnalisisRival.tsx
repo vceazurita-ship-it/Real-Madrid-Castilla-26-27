@@ -212,9 +212,16 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
   | «Editar». En lectura no sale lo que está vacío ni el registro de la
   | carpeta.
   */
+  /*
+  | 30/10/2026: abre SIEMPRE en lectura, también con la sesión de
+  | administrador; «Editar» sólo lo ve el administrador. Antes el analista
+  | entraba directo a la edición y quien no lo era podía activarla: la
+  | consulta del cuerpo técnico se llenaba de Renombrar, Duplicar, Quitar y
+  | formularios vacíos.
+  */
   const { admin } = useAdmin();
   const [editandoManual, setEditandoManual] = useState(false);
-  const edita = admin === true || editandoManual;
+  const edita = admin === true && editandoManual;
 
   const [seccionElegida, setSeccion] = useState<SeccionId>(secciones[0].id);
 
@@ -774,6 +781,43 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
             ? "Guardado"
             : "";
 
+  /*
+  | En lectura, lo que no tiene dato no se nombra (30/10/2026): sin jornada o
+  | sin nada que ver, al cuerpo técnico no se le pinta la sección; al
+  | administrador, sólo la cabecera con «Editar».
+  */
+  const nadaQueLeer = !edita && (!jornada || seccionesVistas.length === 0);
+
+  if (nadaQueLeer && admin !== true) return null;
+
+  /*
+  | Láminas que se llaman igual («1. Perfil derecho» y «3. Perfil derecho»):
+  | en lectura se distinguen por lo que muestran (30/10/2026): la primera
+  | leyenda que tengan o cuántos remates dibujan.
+  */
+  const rotuloLectura = (una: Lamina) => {
+    const base = tituloDeLectura(una.titulo) || SECCION_POR_ID.get(una.seccion)?.titulo || "";
+    const repetida = laminas.some((otra) => otra.id !== una.id && tituloDeLectura(otra.titulo) === tituloDeLectura(una.titulo));
+
+    if (!repetida) return base;
+
+    const leyenda = Object.values(una.leyenda ?? {}).find((t) => String(t ?? "").trim());
+    const cruces = una.marcas.filter((m) => m.tipo === "cruz").length;
+    const detalle = leyenda
+      ? String(leyenda).trim().toLowerCase()
+      : cruces > 0
+        ? `${cruces} ${cruces === 1 ? "remate" : "remates"}`
+        : "";
+
+    return detalle ? `${base} · ${detalle}` : base;
+  };
+
+  /* Las consignas de la lámina, en lectura y una por línea. */
+  const consignas = String(lamina?.notas ?? "")
+    .split("\n")
+    .map((linea) => linea.replace(/^[\s•·\-–]+/, "").trim())
+    .filter(Boolean);
+
   return (
     <section className="flex flex-col gap-4 rounded-2xl border border-[#C8A96B]/20 bg-white/[0.03] p-4 md:p-5">
       <input
@@ -804,7 +848,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {admin !== true && (
+          {admin === true && (
             <button
               type="button"
               onClick={() => setEditandoManual((v) => !v)}
@@ -845,14 +889,17 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
               >
                 {exportando === "pdf" ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} PDF
               </button>
-              <button
-                type="button"
-                onClick={() => void exporta("ppt")}
-                disabled={!aExportar.length || Boolean(exportando)}
-                className={`${boton} border border-white/15 text-white/80 hover:bg-white/10`}
-              >
-                {exportando === "ppt" ? <Loader2 size={14} className="animate-spin" /> : <Presentation size={14} />} PPT
-              </button>
+              {/* El PPT es para editarlo: sólo en edición (30/10/2026). */}
+              {edita && (
+                <button
+                  type="button"
+                  onClick={() => void exporta("ppt")}
+                  disabled={!aExportar.length || Boolean(exportando)}
+                  className={`${boton} border border-white/15 text-white/80 hover:bg-white/10`}
+                >
+                  {exportando === "ppt" ? <Loader2 size={14} className="animate-spin" /> : <Presentation size={14} />} PPT
+                </button>
+              )}
             </>
           )}
         </div>
@@ -976,12 +1023,10 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
       </details>
       )}
 
-      {!jornada ? (
-        <p className="text-sm text-white/45">
-          {edita
-            ? "Recoge la carpeta de la jornada o crea una jornada para empezar a dibujar."
-            : `El análisis visual de ${equipo} llega cuando se prepara su jornada. Si eres del cuerpo de análisis, pulsa «Editar» para recoger la carpeta.`}
-        </p>
+      {nadaQueLeer ? (
+        <p className="text-sm text-white/45">Pulsa «Editar» para recoger la carpeta de la jornada o dibujar la primera lámina.</p>
+      ) : !jornada ? (
+        <p className="text-sm text-white/45">Recoge la carpeta de la jornada o crea una jornada para empezar a dibujar.</p>
       ) : (
         <div className="flex flex-col gap-4">
           {/* ------------------------ secciones ------------------------ */}
@@ -1062,10 +1107,10 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                           ? "bg-[#C8A96B] text-black"
                           : "bg-white/[0.06] text-white/70 hover:bg-white/10"
                       }`}
-                      title={edita ? `${una.titulo} · doble clic para renombrar` : tituloDeLectura(una.titulo)}
+                      title={edita ? `${una.titulo} · doble clic para renombrar` : rotuloLectura(una)}
                     >
                       <span className="truncate">
-                        {i + 1}. {edita ? una.titulo || "Sin título" : tituloDeLectura(una.titulo) || SECCION_POR_ID.get(una.seccion)?.titulo}
+                        {i + 1}. {edita ? una.titulo || "Sin título" : rotuloLectura(una)}
                       </span>
                       {edita && una.id === lamina?.id && (
                         <span
@@ -1264,16 +1309,31 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
 
               {lamina ? (
                 <>
-                  <PizarraLamina
-                    lamina={lamina}
-                    onChange={cambiaLamina}
-                    ficha={ficha}
-                    plantilla={opciones}
-                    escudo={escudo}
-                    equipo={equipo}
-                    jornada={jornada}
-                    soloLectura={!edita}
-                  />
+                  {/* En lectura, al ancho de lectura (30/10/2026): a 1440 la lámina
+                      pasaba de una pantalla de alto antes de llegar a la acción. */}
+                  <div className={edita ? "" : "max-w-[960px]"}>
+                    <PizarraLamina
+                      lamina={lamina}
+                      onChange={cambiaLamina}
+                      ficha={ficha}
+                      plantilla={opciones}
+                      escudo={escudo}
+                      equipo={equipo}
+                      jornada={jornada}
+                      soloLectura={!edita}
+                    />
+                  </div>
+
+                  {!edita && consignas.length > 0 && (
+                    <div className="max-w-[960px] rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-[#C8A96B]">Consignas</p>
+                      <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm text-white/85">
+                        {consignas.map((linea, i) => (
+                          <li key={i}>{linea}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {/* El dato que dibuja la lámina, contado (24/10/2026): sin él sólo se ve un dibujo. */}
                   {!edita && (() => {

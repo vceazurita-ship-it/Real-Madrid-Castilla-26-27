@@ -752,7 +752,7 @@ export function PizarraLamina({
             <Eraser size={15} />
           </button>
 
-          <span className="ml-auto text-[11px] text-white/35">
+          <span className="ml-auto hidden text-[11px] text-white/35 sm:inline">
             {herramienta === "mover"
               ? "Arrastra para mover · flechas para afinar · Supr borra · Ctrl+Z deshace"
               : herramienta === "flecha"
@@ -890,9 +890,11 @@ export function PizarraLamina({
         </div>
       )}
 
+      {/* Una columna bajo md y con min-w-0 (30/10/2026): a 390 px la rejilla sin
+          columnas fijas se ensanchaba al texto de «Consignas…» y se salía. */}
       {!soloLectura && (
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+        <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="min-w-0 space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
             <label className="block text-[11px] uppercase tracking-wider text-white/40">
               Título de la lámina
               <input
@@ -902,9 +904,9 @@ export function PizarraLamina({
               />
             </label>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {(["rojo", "amarillo", "azul", "blanco"] as ColorMarca[]).map((uno) => (
-                <label key={uno} className="flex items-center gap-2 text-[11px] text-white/50">
+                <label key={uno} className="flex min-w-0 items-center gap-2 text-[11px] text-white/50">
                   <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: COLORES[uno] }} />
                   <input
                     value={lamina.leyenda?.[uno] ?? ""}
@@ -917,7 +919,7 @@ export function PizarraLamina({
             </div>
 
             <label className="block text-[11px] uppercase tracking-wider text-white/40">
-              Consignas (una por línea; van a la lámina y al informe)
+              Consignas <span className="normal-case tracking-normal">(una por línea; van a la lámina y al informe)</span>
               <textarea
                 value={lamina.notas ?? ""}
                 rows={3}
@@ -927,7 +929,7 @@ export function PizarraLamina({
             </label>
           </div>
 
-          <div className="space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div className="min-w-0 space-y-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
             <label className="block text-[11px] uppercase tracking-wider text-white/40">
               Rótulo de las fichas
               <input

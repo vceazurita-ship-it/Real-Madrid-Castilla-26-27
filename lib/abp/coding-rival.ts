@@ -58,6 +58,11 @@ export type CodingDoc = {
    * («CORNER OF/17»): cada pizarra sale sólo en el suyo.
    */
   escenas?: EscenaTel[];
+  /**
+   * Cuántos clips había en la carpeta por tipo la última vez que se cribó
+   * (30/10/2026): es la base de «N clips · N cribados» sin abrir la carpeta.
+   */
+  recuento?: Partial<Record<CarpetaKey, number>>;
 };
 
 export const CODING_VACIO: CodingDoc = { clips: {} };

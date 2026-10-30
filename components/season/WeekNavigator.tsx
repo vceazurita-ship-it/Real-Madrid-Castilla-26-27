@@ -145,7 +145,7 @@ export default function WeekNavigator({
               con x=0 nombraba un hueco, así que sin material no sale nada. */}
           {withFiles > 0 && (
             <span
-              className="rounded-full bg-white/5 px-2 py-0.5 text-[12px] tabular-nums text-white/65"
+              className="rounded-full bg-white/5 px-2 py-0.5 text-[13px] tabular-nums text-white/75"
               title={`${withFiles} ${withFiles === 1 ? "semana con material" : "semanas con material"}`}
             >
               {/* El número dice qué cuenta (30/10/2026): «4 con material», no un «4» suelto. */}

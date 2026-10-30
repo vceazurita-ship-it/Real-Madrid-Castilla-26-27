@@ -39,7 +39,7 @@ import { Avatar } from "@/components/quiniela/Avatar";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useApuestasDoc } from "@/hooks/useApuestasDoc";
-import { useAhora } from "@/hooks/useQuinielaDoc";
+import { useAhora, useQuinielaDoc } from "@/hooks/useQuinielaDoc";
 import { useQuinielaSesion } from "@/hooks/useQuinielaSesion";
 import {
   EN_JUEGO_MAXIMO,
@@ -60,7 +60,7 @@ import {
   type Postura,
   type Veredicto,
 } from "@/lib/apuestas/modelo";
-import { PERSONA_POR_SLUG, STAFF, nombreCorto } from "@/lib/quiniela/staff";
+import { JUEGAN_POR_DEFECTO, PERSONA_POR_SLUG, nombreCorto } from "@/lib/quiniela/staff";
 
 type Guarda = ReturnType<typeof useApuestasDoc>["guarda"];
 
@@ -95,6 +95,18 @@ export default function ApuestasPage() {
   const { vivas, resueltas } = useMemo(() => ordenadas(doc.apuestas, hoy), [doc, hoy]);
 
   const tabla = useMemo(() => marcador(doc.apuestas), [doc]);
+
+  /*
+  | 30/10/2026: una sola base, la de la quiniela («11 jugando»): antes salía
+  | «20 en el staff», que es la lista entera y no quien juega con cuenta.
+  */
+  const { doc: quiniela, estado: estadoQuiniela } = useQuinielaDoc();
+  const juegan = quiniela.jugadores.length > 0 ? quiniela.jugadores.length : JUEGAN_POR_DEFECTO.length;
+
+  /* Con sesión, el formulario va plegado tras «Lanzar apuesta» (30/10/2026). */
+  const [lanzando, setLanzando] = useState(false);
+
+  const sinApuestas = estado === "listo" && doc.apuestas.length === 0;
 
   /* El titular es el dato: cuántas hay abiertas y cuándo se comprueba la
      primera. Sin apuestas, la descripción de siempre. */
@@ -132,6 +144,9 @@ export default function ApuestasPage() {
         manda={sesion.manda}
         titulo={tituloAcceso}
         subtitulo="Entra con tu cuenta de la quiniela"
+        /* La franja de una línea: un solo botón de acceso y, con sesión, el nombre (30/10/2026). */
+        compacto
+        botonEntrar="Entrar y apostar"
       />
     </div>
   );
@@ -172,9 +187,11 @@ export default function ApuestasPage() {
                     {vivas.length === 1 ? "1 abierta" : `${vivas.length} abiertas`}
                   </span>
                 )}
-                <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 tabular-nums text-white/70">
-                  {STAFF.length} en el staff
-                </span>
+                {estadoQuiniela === "listo" && (
+                  <span className="rounded-full border border-white/12 bg-white/[0.04] px-2.5 py-1 tabular-nums text-white/70">
+                    {juegan} juegan con cuenta en la quiniela
+                  </span>
+                )}
               </p>
             )}
 
@@ -191,15 +208,22 @@ export default function ApuestasPage() {
               ) : null}
             </div>
 
-            {!accesoAbajo && acceso}
-
-            {/* ------------------------ QUIÉN ERES --------------------- */}
+            {/* Sin apuestas, el ejemplo va primero y el acceso después, como acción (30/10/2026). */}
+            {!accesoAbajo && !sinApuestas && acceso}
 
             {/* ------------------------ LANZAR UNA --------------------- */}
 
-            {yo && (
+            {yo && !lanzando && (
+              <div className="mt-4">
+                <Button tone="primary" icon={Megaphone} onClick={() => setLanzando(true)}>
+                  Lanzar apuesta
+                </Button>
+              </div>
+            )}
+
+            {yo && lanzando && (
               <div className="mt-5">
-                <Lanzar guarda={guarda} hoy={hoy} ocupado={estado === "guardando"} />
+                <Lanzar guarda={guarda} hoy={hoy} ocupado={estado === "guardando"} onCierra={() => setLanzando(false)} />
               </div>
             )}
 
@@ -207,12 +231,14 @@ export default function ApuestasPage() {
                 (30/10/2026, expertos), que es la llamada principal. Cuenta los
                 tres pasos dentro del propio ejemplo: la lista aparte repetía lo
                 mismo. */}
-            {estado === "listo" && doc.apuestas.length === 0 && (
-              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+            {sinApuestas && (
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 max-sm:mr-10">
                 <p className="text-[15px] font-semibold text-white/85">Así se verá la primera:</p>
-                <article aria-label="Ejemplo de apuesta" className="mt-3 flex max-w-xl select-none flex-col gap-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] p-4">
-                  <span className="inline-flex w-fit items-center rounded-full border border-white/20 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">
-                    Ejemplo
+                {/* Ilustrativa y que se note (30/10/2026): borde discontinuo grueso,
+                    sello dorado y «inventado» en el veredicto. */}
+                <article aria-label="Ejemplo de apuesta, no es real" className="mt-3 flex max-w-xl select-none flex-col gap-3 rounded-2xl border-2 border-dashed border-[#C8A96B]/50 bg-white/[0.02] p-4">
+                  <span className="inline-flex w-fit items-center rounded-full bg-[#C8A96B] px-3 py-1 text-[12px] font-bold uppercase tracking-[0.16em] text-black">
+                    Ejemplo · no es real
                   </span>
                   <p className="text-[15px] font-medium leading-snug text-white/90">
                     «El Castilla acaba la primera vuelta entre los cinco primeros»
@@ -235,11 +261,13 @@ export default function ApuestasPage() {
                   </div>
                   <p className="text-[13px] text-white/65">
                     <span className="uppercase tracking-[0.14em] text-white/50">Veredicto</span>{" "}
-                    <span className="font-semibold text-emerald-300">Se cumplió</span>: aciertan quien la lanzó y los 6 que fueron a favor.
+                    <span className="font-semibold text-emerald-300">Si se cumpliera</span>, acertarían quien la lanzó y los 6 que fueron a favor.
                   </p>
                 </article>
               </div>
             )}
+
+            {!accesoAbajo && sinApuestas && acceso}
 
 
 
@@ -376,7 +404,7 @@ export default function ApuestasPage() {
 /*  LANZAR                                                            */
 /* ------------------------------------------------------------------ */
 
-function Lanzar({ guarda, hoy, ocupado }: { guarda: Guarda; hoy: string; ocupado: boolean }) {
+function Lanzar({ guarda, hoy, ocupado, onCierra }: { guarda: Guarda; hoy: string; ocupado: boolean; onCierra?: () => void }) {
   const [prediccion, setPrediccion] = useState("");
   const [enJuego, setEnJuego] = useState("");
   const [comprobar, setComprobar] = useState("");
@@ -413,6 +441,7 @@ function Lanzar({ guarda, hoy, ocupado }: { guarda: Guarda; hoy: string; ocupado
       setComprobar("");
 
       toast.success("Apuesta lanzada. A ver quién se moja");
+      onCierra?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se ha podido");
     } finally {
@@ -426,15 +455,18 @@ function Lanzar({ guarda, hoy, ocupado }: { guarda: Guarda; hoy: string; ocupado
       subtitle="Qué va a pasar, qué te juegas y el día en que se mira"
       icon={Megaphone}
       action={
-        <Button
-          tone="primary"
-          icon={Megaphone}
-          disabled={!lista || enviando || ocupado}
-          title={falta || undefined}
-          onClick={() => void lanza()}
-        >
-          {enviando ? "Lanzando…" : "Lanzarla"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {onCierra && <Button onClick={onCierra}>Cancelar</Button>}
+          <Button
+            tone="primary"
+            icon={Megaphone}
+            disabled={!lista || enviando || ocupado}
+            title={falta || undefined}
+            onClick={() => void lanza()}
+          >
+            {enviando ? "Lanzando…" : "Lanzarla"}
+          </Button>
+        </div>
       }
     >
       <div className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr]">
@@ -474,7 +506,7 @@ function Lanzar({ guarda, hoy, ocupado }: { guarda: Guarda; hoy: string; ocupado
       </div>
 
       {falta && (prediccion || enJuego || comprobar) && (
-        <p className="mt-3 text-[11px] text-white/45">Para lanzarla: {falta.charAt(0).toLowerCase() + falta.slice(1)}.</p>
+        <p className="mt-3 text-[13px] text-white/55">Para lanzarla: {falta.charAt(0).toLowerCase() + falta.slice(1)}.</p>
       )}
     </Panel>
   );

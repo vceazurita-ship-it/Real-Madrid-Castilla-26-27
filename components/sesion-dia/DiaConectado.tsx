@@ -36,7 +36,16 @@ export function LineaResultado({ r }: { r: ResultadoObjetivo }) {
       <span className="min-w-0">
         <span className="text-white/80">{r.objetivo}</span>
         {r.jugadores.length ? <span className="text-white/45"> · {r.jugadores.join(", ")}</span> : null}
-        {r.lectura ? <span> · {r.lectura}</span> : null}
+        {/* 30/10/2026: sin validar, el porcentaje es provisional y se dice con una etiqueta, no dentro de un paréntesis. */}
+        {r.lecturaCorta ? <span> · {r.lecturaCorta}</span> : r.lectura ? <span> · {r.lectura}</span> : null}
+        {r.lecturaCorta && r.total && (r.validadas ?? 0) < r.total ? (
+          <span
+            className="ml-1 inline-block rounded-full border border-amber-400/40 px-1.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300"
+            title={r.validadas ? `${r.validadas} de ${r.total} acciones validadas: lo demás es la propuesta automática` : "Ninguna acción validada todavía: es la propuesta automática"}
+          >
+            {r.validadas ? `provisional · ${r.validadas} de ${r.total} validadas` : "sin validar"}
+          </span>
+        ) : null}
         {r.cumple === true ? <span className="font-semibold text-emerald-300"> · cumple{r.meta ? ` (meta ${r.meta} %)` : ""}</span> : null}
         {r.cumple === false ? <span className="font-semibold text-amber-300"> · no llega{r.meta ? ` (meta ${r.meta} %)` : ""}</span> : null}
       </span>
@@ -124,7 +133,8 @@ export function DiaConectado({
               <li key={`${p.codigo}-${k}`} className="min-w-0 rounded-lg border border-white/[0.06] px-2.5 py-1.5">
                 <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px]">
                   <span className="font-semibold text-[#C8A96B]">{p.codigo}</span>
-                  <span className="min-w-0 truncate text-white/80">{nombreVisible(t?.nombre, p.tipo, p.contenidoPrincipal, p.formato) || "Tarea sin nombre"}</span>
+                  {/* Renombrada: el título es el del plan y la línea de abajo dice el de la sesión (30/10/2026; antes salía dos veces el mismo). */}
+                  <span className="min-w-0 truncate text-white/80">{nombreVisible(otroNombre ? undefined : t?.nombre, p.tipo, p.contenidoPrincipal, p.formato) || "Tarea sin nombre"}</span>
                   {colocados.map((e) => (
                     <span key={e.nombre + e.color} className="inline-flex items-center gap-1 text-[11px] text-white/60" title={e.jugadores.join(", ")}>
                       <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/20" style={{ background: e.color }} aria-hidden />

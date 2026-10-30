@@ -286,10 +286,13 @@ function SelectorJornada({
     ultimaJugada,
     ...(iProximo >= 0 ? opciones.slice(iProximo, iProximo + 2) : opciones.filter((una) => !una.jugado).slice(0, 2)),
   ].filter((una, i, lista): una is OpcionJornada => !!una && lista.findIndex((otra) => otra?.id === una.id) === i);
-  const visibles = (una: OpcionJornada) => todas || !una.jugado || una.conAlgo || una.id === valor || una.id === ultimaJugada?.id;
+  /* 30/10/2026: el desplegable trae sólo la última jugada, la próxima y la
+     siguiente (y la elegida); las otras 35, tras «Más jornadas». */
+  const cercanas = new Set(atajos.map((una) => una.id));
+  const visibles = (una: OpcionJornada) => todas || cercanas.has(una.id) || una.id === valor;
   const jugadas = opciones.filter((una) => una.jugado && visibles(una));
-  const plegadas = opciones.filter((una) => una.jugado && !visibles(una)).length;
-  const porJugar = opciones.filter((una) => !una.jugado);
+  const plegadas = opciones.filter((una) => !visibles(una)).length;
+  const porJugar = opciones.filter((una) => !una.jugado && visibles(una));
 
   return (
     <div className="block min-w-0">
@@ -359,7 +362,7 @@ function SelectorJornada({
           onClick={() => setTodas((antes) => !antes)}
           className="mt-1 text-[11px] text-white/45 underline decoration-dotted underline-offset-2 transition hover:text-white"
         >
-          {todas ? "Plegar las jugadas sin nada guardado" : `Ver también ${plegadas} ${plegadas === 1 ? "jugada" : "jugadas"} sin nada guardado`}
+          {todas ? "Sólo las jornadas cercanas" : `Más jornadas (${plegadas})`}
         </button>
       )}
 
@@ -3214,9 +3217,26 @@ export default function PizarraAbpPage() {
                 {/* 29/10/2026: fuera la caja «Llevárselo a la sala» del final:
                     repetía los mismos botones de exportar de la cabecera. */}
 
-                {/* ==================== HISTÓRICO ===================== */}
+                {/* ==================== HISTORIAL ===================== */}
+                {/* 30/10/2026: histórico y aprendizaje, plegados en «Historial»:
+                    el campo y las diapositivas mandan en la pantalla. */}
 
-                <div className="mt-5">
+                <details className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+                  <summary className="flex min-h-[44px] cursor-pointer select-none flex-wrap items-center gap-2 text-sm font-medium text-white/75">
+                    <History size={15} className="text-[#C8A96B]" />
+                    Historial
+                    <span className="text-xs font-normal text-white/50">
+                      {[
+                        versiones.length ? `${versiones.length} ${versiones.length === 1 ? "versión" : "versiones"}` : "",
+                        versiones.length && !alDia ? "cambios sin congelar" : "",
+                        aprendidos ? `${aprendidos} puestos aprendidos` : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  </summary>
+
+                <div className="mt-3">
                   <Panel
                     title="Histórico de la jornada"
                     subtitle={
@@ -3309,6 +3329,7 @@ export default function PizarraAbpPage() {
                     )}
                   </Panel>
                 </div>
+                </details>
                 </PlegadoSiVacio>
               </>
             )}
@@ -4044,6 +4065,23 @@ function ControlDeGazapos({
 
   const avisos = revision.gazapos.length + consignas.length;
 
+  /* Los avisos de cada diapositiva, en el orden del tablero (30/10/2026). */
+  const porDiapositiva = tablero.slides
+    .map((slide, i) => {
+      const faltan = revision.gazapos
+        .filter((gazapo) => gazapo.falta.some((una) => una.id === slide.id))
+        .map((gazapo) => {
+          const player = players.get(gazapo.playerId);
+
+          return { playerId: gazapo.playerId, nombre: player?.apodo || player?.nombre || gazapo.playerId };
+        });
+      const sinPuesto = consignas.find((grupo) => grupo.slides.some((una) => una.id === slide.id))?.nombres ?? [];
+
+      return { id: slide.id, numero: i + 1, titulo: slide.titulo, faltan, sinPuesto, avisos: faltan.length + sinPuesto.length };
+    })
+    .filter((uno) => uno.avisos > 0);
+  const avisosEnDiapositivas = porDiapositiva.reduce((n, uno) => n + uno.avisos, 0) || avisos;
+
   return (
     <details className="group rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
       {/* Un chip con el número de avisos, no un párrafo naranja de cuatro
@@ -4054,7 +4092,8 @@ function ControlDeGazapos({
           <span className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-2 py-0.5 text-[11px] text-emerald-300">cuadra</span>
         ) : avisos > 0 ? (
           <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300" title={nombres.join(", ")}>
-            {avisos === 1 ? "1 aviso" : `${avisos} avisos`}
+            {avisosEnDiapositivas === 1 ? "1 aviso" : `${avisosEnDiapositivas} avisos`}
+            {porDiapositiva.length > 1 ? ` en ${porDiapositiva.length} diapositivas` : ""}
           </span>
         ) : null}
       </summary>
@@ -4087,84 +4126,62 @@ function ControlDeGazapos({
             Revísalo antes de exportar.
           </p>
 
-          <div className="space-y-1.5">
-            {revision.gazapos.map((gazapo) => {
-              const player = players.get(gazapo.playerId);
-
-              return (
-                <div
-                  key={gazapo.playerId}
-                  className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] px-3 py-2"
-                >
-                  <span className="text-xs font-semibold text-white/85">
-                    {player?.apodo || player?.nombre || gazapo.playerId}
-                  </span>
-
-                  <span className="text-[11px] text-white/40">
-                    falta en {gazapo.falta.length} de {revision.slidesConGente}:
-                  </span>
-
-                  <span className="flex min-w-0 flex-wrap gap-x-2 text-[11px] text-amber-200/70">
-                    {gazapo.falta.map((slide) => (
-                      <button
-                        key={slide.id}
-                        type="button"
-                        onClick={() => onIrA(slide.id)}
-                        title="Ir a esta diapositiva"
-                        className="underline decoration-dotted underline-offset-2 transition hover:text-white"
-                      >
-                        {slide.titulo}
-                      </button>
-                    ))}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => onCambiar(gazapo.playerId)}
-                    title="Poner a otro en su sitio en todas las diapositivas"
-                    className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-lg border border-white/12 px-2.5 py-1 text-[11px] text-white/60 transition hover:border-[#C8A96B]/50 hover:text-white sm:px-2 sm:py-0.5"
-                  >
-                    <Repeat size={11} />
-                    Cambiar
-                  </button>
-                </div>
-              );
-            })}
-          </div>
         </div>
       )}
 
-      {consignas.length > 0 && (
-        <div className="mt-3 space-y-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Nombres en las consignas sin puesto en el campo</p>
-          <ul className="space-y-1.5">
-            {consignas.map((uno) => (
-              <li key={`${uno.titulo}|${uno.slides[0].id}`} className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-amber-300/20 bg-amber-300/[0.05] px-3 py-2 text-xs">
+      {/* 30/10/2026: los avisos, agrupados por diapositiva, cada una con su
+          salto para arreglarla: quién falta (con «Cambiar») y qué nombres de
+          las consignas no tienen puesto en el campo. */}
+      {porDiapositiva.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {porDiapositiva.map((uno) => (
+            <li key={uno.id} className="rounded-xl border border-amber-300/20 bg-amber-300/[0.05] px-3 py-2 text-xs">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <AlertTriangle size={13} className="shrink-0 text-amber-300/80" />
-                <span className="font-semibold text-white/85">{uno.nombres.join(", ")}</span>
-                <span className="text-white/55">en</span>
                 <span className="font-semibold text-amber-200/90">
-                  {uno.titulo}
-                  {uno.slides.length > 1 ? ` ×${uno.slides.length}` : ""}
+                  {uno.numero}. {uno.titulo}
                 </span>
-                {/* Cada diapositiva, un salto: allí se le pone ficha o se quita del texto. */}
-                <span className="ml-auto flex flex-wrap gap-1.5">
-                  {uno.slides.map((slide, i) => (
-                    <button
-                      key={slide.id}
-                      type="button"
-                      onClick={() => onIrA(slide.id)}
-                      title="Ir a esta diapositiva para darle puesto o quitarlo del texto"
-                      className="min-h-[28px] rounded-lg border border-white/12 px-2 text-[11px] text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
-                    >
-                      {uno.slides.length > 1 ? `Ir a la ${i + 1}.ª` : "Darle puesto"}
-                    </button>
+                <span className="text-white/50">
+                  {uno.avisos === 1 ? "1 aviso" : `${uno.avisos} avisos`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onIrA(uno.id)}
+                  title="Ir a esta diapositiva para arreglarla"
+                  className="ml-auto min-h-[32px] rounded-lg border border-white/12 px-2.5 text-[11px] text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white"
+                >
+                  Ir a arreglarla
+                </button>
+              </div>
+
+              {uno.faltan.length > 0 && (
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-white/70">
+                  <span className="text-white/50">Falta:</span>
+                  {uno.faltan.map((falta) => (
+                    <span key={falta.playerId} className="inline-flex items-center gap-1">
+                      <span className="font-semibold text-white/85">{falta.nombre}</span>
+                      <button
+                        type="button"
+                        onClick={() => onCambiar(falta.playerId)}
+                        title="Poner a otro en su sitio en todas las diapositivas"
+                        className="inline-flex items-center gap-0.5 rounded border border-white/12 px-1.5 text-[10px] text-white/60 transition hover:border-[#C8A96B]/50 hover:text-white"
+                      >
+                        <Repeat size={10} /> Cambiar
+                      </button>
+                    </span>
                   ))}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+                </p>
+              )}
+
+              {uno.sinPuesto.length > 0 && (
+                <p className="mt-1 text-white/70">
+                  <span className="text-white/50">En las consignas sin puesto en el campo: </span>
+                  <span className="font-semibold text-white/85">{uno.sinPuesto.join(", ")}</span>
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
 
       <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-white/10 pt-3">

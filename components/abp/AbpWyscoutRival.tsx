@@ -133,13 +133,28 @@ function consignaOfensiva(aspecto: Aspecto, equipos: number) {
 | sentido y su cifra: cuando nos centran (sus centros) y cuando les centramos
 | (los que recibe). Antes era una sola frase que juntaba defensa y ataque.
 */
-function queHacemosConCentros(aspectos: Aspecto[]): { nosCentran: string; lesCentramos: string } {
+/*
+| 30/10/2026: primero el dato y luego la acción, con el sujeto concordado
+| («Cuando nos centran: centran 17,8 por partido (mediana 14,4) con un
+| acierto como el de la liga (33,8 % frente a 33,9 %) → cerrar el carril y
+| ganar el área»), y un titular con verbo y cifra para la cabecera.
+*/
+function queHacemosConCentros(
+  aspectos: Aspecto[],
+  equipo: string,
+): { titular: string; nosCentran: string; lesCentramos: string } {
   const filas = aspectos.flatMap((a) => a.filas);
   const volumen = filas.find((f) => f.nombre === "Centros laterales");
   const acierto = filas.find((f) => f.nombre === "Centros precisos %");
   const recibe = filas.find((f) => f.nombre === "Centros que recibe");
 
-  if (!volumen || !acierto) return { nosCentran: "", lesCentramos: "" };
+  /* Lo que recibe (menos es mejor): si es más que la mediana, se le ataca por fuera. */
+  const lesCentramos =
+    recibe && recibe.valor > recibe.mediana
+      ? `reciben ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}) → atacarles por fuera, con extremo y lateral doblando y tres hombres en el área.`
+      : "";
+
+  if (!volumen || !acierto) return { titular: "", nosCentran: "", lesCentramos };
 
   const muchos = volumen.valor > volumen.mediana;
   /* 29/10/2026: «bien» o «mal» sólo si el acierto se separa de la mediana más de
@@ -148,25 +163,25 @@ function queHacemosConCentros(aspectos: Aspecto[]): { nosCentran: string; lesCen
   const bien = dif > 2;
   const mal = dif < -2;
 
-  /* La cifra que sostiene la consigna, con su mediana. */
-  const cifra = ` (${cifra1(volumen.valor, volumen.unidad)} centros por partido frente a una mediana de ${cifra1(volumen.mediana, volumen.unidad)}; acierto ${cifra1(acierto.valor, acierto.unidad)} frente a ${cifra1(acierto.mediana, acierto.unidad)})`;
+  const cuanto = `${cifra1(volumen.valor, volumen.unidad)} por partido (mediana ${cifra1(volumen.mediana, volumen.unidad)})`;
+  const comoAcierta = `${bien ? "con más acierto que la liga" : mal ? "con menos acierto que la liga" : "con un acierto como el de la liga"} (${cifra1(acierto.valor, acierto.unidad)} frente a ${cifra1(acierto.mediana, acierto.unidad)})`;
 
-  let propio: string;
+  const accion =
+    muchos && bien
+      ? "cerrar el carril exterior y proteger el segundo palo"
+      : muchos && mal
+        ? "dejarles centrar y ganar el área, sin perseguir el balón hasta la banda"
+        : muchos
+          ? "cerrar el carril exterior y ganar el área"
+          : bien
+            ? "cuando centren, tapar al rematador del segundo palo"
+            : "cerrar el pase interior antes que el centro";
 
-  if (muchos && bien) propio = `centra mucho y con acierto: cerrar el carril exterior y proteger el segundo palo${cifra}.`;
-  else if (muchos && mal) propio = `centra mucho y acierta poco: dejarle centrar y ganar el área, sin perseguir el balón hasta la banda${cifra}.`;
-  else if (muchos) propio = `centra mucho, con un acierto como el de la liga: cerrar el carril exterior y ganar el área${cifra}.`;
-  else if (bien) propio = `centra poco pero con acierto: cuando lo hace, tapar al rematador del segundo palo${cifra}.`;
-  else if (mal) propio = `centra poco y mal: cerrar el pase interior antes que el centro${cifra}.`;
-  else propio = `centra poco, con un acierto como el de la liga: cerrar el pase interior antes que el centro${cifra}.`;
-
-  /* Lo que recibe (menos es mejor): si es más que la mediana, se le ataca por fuera. */
-  const lesCentramos =
-    recibe && recibe.valor > recibe.mediana
-      ? `atacarle por fuera, con extremo y lateral doblando y tres hombres en el área (recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido; mediana ${cifra1(recibe.mediana, recibe.unidad)}).`
-      : "";
-
-  return { nosCentran: propio.charAt(0).toUpperCase() + propio.slice(1), lesCentramos };
+  return {
+    titular: `${equipo} centra ${muchos ? "mucho" : "poco"}, ${cifra1(volumen.valor, volumen.unidad)} por partido: ${accion.split(",")[0]}`,
+    nosCentran: `centran ${cuanto} ${comoAcierta} → ${accion}.`,
+    lesCentramos,
+  };
 }
 
 export function AbpWyscoutRival({
@@ -315,17 +330,44 @@ export function AbpWyscoutRival({
       {aspectos.length > 0 && (
         <Panel
           title={ambito === "area" ? "Sus centros laterales, los que hace y los que recibe, según Wyscout" : "Su balón parado según Wyscout"}
-          subtitle={`${equipo} frente a los ${datos?.equipos ?? 20} equipos de la liga${(datos?.equipos ?? 20) === 20 ? ", el Castilla incluido" : ""}. «Mejor» y «peor» ya tienen en cuenta el sentido de cada cifra; «de cada 10» compara siempre con esos equipos, y «x de y» es la cantidad real que hay detrás de cada porcentaje.`}
+          subtitle={`${equipo}${ambito === "area" && aspectos[0]?.filas[0]?.partidos != null ? ` en ${aspectos[0].filas[0].partidos} partidos` : ""} frente a los ${datos?.equipos ?? 20} equipos de la liga${(datos?.equipos ?? 20) === 20 ? ", el Castilla incluido" : ""}. «Mejor» y «peor» ya tienen en cuenta el sentido de cada cifra; «de cada 10» compara siempre con esos equipos, y «x de y» es la cantidad real que hay detrás de cada porcentaje.`}
           icon={BarChart3}
         >
+          {ambito === "area" && (() => {
+            const { titular, nosCentran, lesCentramos } = queHacemosConCentros(aspectos, equipo);
+
+            if (!nosCentran && !lesCentramos) return null;
+
+            /* Arriba del todo (30/10/2026): la acción antes que la tabla. */
+            return (
+              <div className="mb-4 space-y-1.5 border-b border-white/10 pb-3 text-sm text-white/85">
+                {titular && <p className="text-base font-semibold text-white md:text-lg">{titular}</p>}
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Qué hacemos</p>
+                {nosCentran && (
+                  <p>
+                    <b className="text-white">Cuando nos centran: </b>
+                    {nosCentran}
+                  </p>
+                )}
+                {lesCentramos && (
+                  <p>
+                    <b className="text-white">Cuando les centramos: </b>
+                    {lesCentramos}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {aspectos.map((aspecto) => (
               <div key={aspecto.clave} className="min-w-0">
                 <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
                   {aspecto.aspecto}
-                  {aspecto.filas[0]?.partidos != null && (
+                  {aspecto.filas[0]?.partidos != null && (ambito !== "area" || aspecto.filas[0].partidos < 10) && (
                     <span className="ml-2 font-normal normal-case tracking-normal italic text-white/45">
-                      {aspecto.filas[0].partidos < 10
+                      {ambito === "area"
+                        ? "tendencia"
+                        : aspecto.filas[0].partidos < 10
                         ? `tendencia, ${aspecto.filas[0].partidos} partidos`
                         : `en ${aspecto.filas[0].partidos} partidos`}
                     </span>
@@ -355,10 +397,10 @@ export function AbpWyscoutRival({
                           {fila.unidad !== "porcentaje" && (
                             <span className="ml-1 text-[11px] font-normal text-white/55">por partido</span>
                           )}
-                          {ambito === "area" && fila.partidos != null && (
+                          {/* La base (partidos) va una vez, en el subtítulo (30/10/2026); aquí sólo si esta fila tiene otra. */}
+                          {ambito === "area" && fila.partidos != null && fila.partidos !== aspecto.filas[0]?.partidos && (
                             <span className="ml-2 text-[11px] font-normal text-white/55">
                               en {fila.partidos} {fila.partidos === 1 ? "partido" : "partidos"}
-                              {fila.partidos < 6 ? " · tendencia, pocos partidos" : ""}
                             </span>
                           )}
                           {fila.unidad === "porcentaje" && fila.base && (
@@ -399,29 +441,6 @@ export function AbpWyscoutRival({
             ))}
           </div>
 
-          {ambito === "area" && (() => {
-            const { nosCentran, lesCentramos } = queHacemosConCentros(aspectos);
-
-            if (!nosCentran && !lesCentramos) return null;
-
-            return (
-              <div className="mt-4 space-y-1.5 border-t border-white/10 pt-3 text-sm text-white/85">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Qué hacemos</p>
-                {nosCentran && (
-                  <p>
-                    <b className="text-white">Cuando nos centran: </b>
-                    {nosCentran}
-                  </p>
-                )}
-                {lesCentramos && (
-                  <p>
-                    <b className="text-white">Cuando les centramos: </b>
-                    {lesCentramos}
-                  </p>
-                )}
-              </div>
-            );
-          })()}
         </Panel>
       )}
 

@@ -534,15 +534,15 @@ export default function Home() {
                     foto; el destino va en el título del panel de abajo. Queda
                     sólo la base de lo que se cuenta, en una línea corta.
                   */}
+                  {/* 30/10/2026: la chapa sólo con el rival; lo nuestro lleva su base dentro del
+                      panel, y sin datos queda la foto sola (sin rótulos sobre nada). */}
+                  {rivalSemana && (
                   <div className="absolute left-4 top-4 max-w-[calc(100%-32px)]">
                     <p className="inline-block truncate rounded-full border border-white/10 px-3.5 py-1.5 text-[12px] leading-relaxed backdrop-blur-xl" style={{ color: "#fff", backgroundColor: "rgba(2,6,13,.94)", maxWidth: "100%" }}>
-                      {rivalSemana
-                        ? `${rivalSemana.nombre} · ${rivalSemana.partidos} ${rivalSemana.partidos === 1 ? "partido" : "partidos"} · Wyscout`
-                        : resumenData
-                          ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido" : "partidos"} · ${resumenData.equipos} equipos del grupo · Wyscout`
-                          : "Wyscout y Opta, de la carpeta de datos"}
+                      {`${rivalSemana.nombre} · ${rivalSemana.partidos} ${rivalSemana.partidos === 1 ? "partido" : "partidos"} · Wyscout`}
                     </p>
                   </div>
+                  )}
 
                   {/*
                     Pie del panel: dos cifras de Data Análisis, o las del rival
@@ -602,7 +602,20 @@ export default function Home() {
                         </p>
                       )}
                     </div>
-                  ) : (cargandoData || resumenData?.xg != null) && (
+                  ) : cargandoData && resumenData?.xg == null ? (
+                    /* Mientras llegan las cifras: una línea que lo dice, no dos títulos sobre un fondo vacío (30/10/2026). */
+                    <div
+                      className="absolute inset-x-3 bottom-3 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:inset-x-4 sm:bottom-4 sm:px-5"
+                      style={{ backgroundColor: "rgba(2,6,13,.94)" }}
+                      aria-busy="true"
+                    >
+                      <p className="flex items-center gap-2 text-[13px]" style={{ color: "rgba(255,255,255,.85)" }}>
+                        <span className="h-2 w-2 animate-pulse rounded-full" style={{ backgroundColor: "#F7D98B" }} />
+                        Cargando las cifras de Wyscout…
+                      </p>
+                      <span className="mt-3 block h-7 w-24 animate-pulse rounded bg-white/10" />
+                    </div>
+                  ) : resumenData?.xg != null && (
                   <div
                     className="absolute inset-x-3 bottom-3 flex flex-col gap-3 rounded-[22px] border border-white/10 px-4 py-4 backdrop-blur-xl sm:inset-x-4 sm:bottom-4 sm:flex-row sm:items-end sm:justify-between sm:gap-4 sm:px-5 xl:flex-col xl:items-stretch xl:justify-start"
                     style={{ backgroundColor: "rgba(2,6,13,.94)" }}
@@ -617,11 +630,7 @@ export default function Home() {
                       </p>
 
                       <p className="mt-2 text-3xl font-bold leading-none" style={{ color: "#fff" }}>
-                        {cargandoData || resumenData?.xg == null ? (
-                          <span className="inline-block h-7 w-16 animate-pulse rounded bg-white/10 align-middle" />
-                        ) : (
-                          coma(resumenData.xg, 2)
-                        )}
+                        {coma(resumenData.xg, 2)}
                       </p>
 
                       <div className="mt-3 h-1 w-36 max-w-full overflow-hidden rounded-full bg-white/10">
@@ -637,16 +646,27 @@ export default function Home() {
                         />
                       </div>
 
-                      {resumenData?.xg != null && (
-                        <p className="mt-2 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
-                          {resumenData.puesto
-                            ? `${resumenData.puesto}º de ${resumenData.deCuantos} del grupo${resumenData.mediana != null ? ` · mediana del grupo: ${coma(resumenData.mediana, 2)}` : ""}`
-                            : `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido" : "partidos"}`}
-                        </p>
-                      )}
+                      {/* Con su base, su fuente y su sentido (30/10/2026). */}
+                      <p className="mt-2 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
+                        {[
+                          resumenData.puesto ? `${resumenData.puesto}º de ${resumenData.deCuantos} del grupo` : "",
+                          "más es mejor",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      <p className="mt-0.5 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.7)" }}>
+                        {[
+                          `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido" : "partidos"}`,
+                          resumenData.mediana != null ? `frente a la mediana de los ${resumenData.equipos} equipos (${coma(resumenData.mediana, 2)})` : "",
+                          "Wyscout",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
                     </div>
 
-                    {(cargandoData || resumenData?.golesMenosXg != null) && (
+                    {resumenData.golesMenosXg != null && (
                       <div className="min-w-0 sm:shrink-0 sm:text-right xl:text-left">
                         <p className="text-[12px] uppercase tracking-[0.16em]" style={{ color: "rgba(255,255,255,.9)" }}>
                           Goles frente a lo esperado
@@ -693,6 +713,7 @@ export default function Home() {
                             {resumenData.golesMenosXg >= 0
                               ? "marcamos más de lo esperado"
                               : "marcamos menos de lo esperado"}
+                            {" · más es mejor"}
                           </p>
                         )}
                       </div>
@@ -747,10 +768,13 @@ export default function Home() {
                             href: "/calendar",
                             label: "Seguimientos",
                             value: seguimientos,
-                            caption:
-                              ultimos30Dias === seguimientos
-                                ? `${ultimos7Dias} en la última semana`
-                                : `${ultimos30Dias} en los últimos 30 días`,
+                            /* Con su base (30/10/2026): sin ella el 34 no se entendía sin leer el pie. */
+                            caption: [
+                              totalJugadores ? `de ${totalJugadores} jugadores` : "",
+                              ultimos30Dias === seguimientos ? `${ultimos7Dias} esta semana` : `${ultimos30Dias} en los últimos 30 días`,
+                            ]
+                              .filter(Boolean)
+                              .join(", "),
                             destino: "Calendario Seguimiento",
                             loading: loadingSeguimiento,
                             icon: Activity,
@@ -760,8 +784,11 @@ export default function Home() {
                       href: "/individual",
                       label: "Del Castilla",
                       value: totalJugadores,
-                      caption: errorSeguimiento ? "jugadores de campo" : `${cobertura} % con seguimiento`,
-                      destino: "Plantilla",
+                      caption: errorSeguimiento
+                        ? "jugadores de campo"
+                        : `jugadores de campo · ${jugadoresSeguimiento} de ${totalJugadores} con seguimiento (${cobertura} %)`,
+                      /* «Plantilla» a secas se confundía con «Plantilla del rival» de la tarjeta del partido (30/10/2026). */
+                      destino: "Fichas de nuestros jugadores",
                       loading: cargandoPlantilla,
                       icon: Users,
                     },
