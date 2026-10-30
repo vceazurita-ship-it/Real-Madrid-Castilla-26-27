@@ -27,11 +27,19 @@ export type Siguiente = { texto: string; detalle?: string; icono?: ComponentType
 
 const fechaLarga = (f: string) => new Date(`${f}T12:00:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
 
+/* «Viernes, 30 de octubre» (30/10/2026): con `capitalize` en toda la cadena salía «30 De Octubre». Sólo la primera letra. */
+const fechaTitulo = (f: string) => {
+  const t = fechaLarga(f);
+
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
+
 /** La tira de la semana: un toque por día, semana anterior y siguiente, y el calendario para saltar lejos. */
 export function SelectorDia({ fecha, hoy, semana, onFecha, mueve, derecha }: { fecha: string; hoy: string; semana: string[]; onFecha: (f: string) => void; mueve: (f: string, dias: number) => string; derecha?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="flex max-w-full items-center gap-1 overflow-x-auto scrollbar-none">
+      {/* En el móvil la tira se desliza, con un degradado que avisa de que sigue, y el día elegido se centra solo (30/10/2026). */}
+      <div className="flex min-w-0 max-w-full items-center gap-1 overflow-x-auto scrollbar-none max-sm:[mask-image:linear-gradient(to_right,#000_88%,transparent)] max-sm:pr-6">
         <button type="button" onClick={() => onFecha(mueve(fecha, -7))} aria-label="Semana anterior" title="Semana anterior" className={`shrink-0 rounded-lg border border-white/12 p-2 text-white/60 hover:text-white ${FOCO}`}>
           <ChevronLeft size={14} />
         </button>
@@ -41,6 +49,15 @@ export function SelectorDia({ fecha, hoy, semana, onFecha, mueve, derecha }: { f
             type="button"
             onClick={() => onFecha(d)}
             aria-pressed={d === fecha}
+            ref={
+              d === fecha
+                ? (b) => {
+                    const tira = b?.parentElement;
+
+                    if (b && tira && tira.scrollWidth > tira.clientWidth) tira.scrollLeft = b.offsetLeft - (tira.clientWidth - b.offsetWidth) / 2;
+                  }
+                : undefined
+            }
             aria-label={fechaLarga(d)}
             title={fechaLarga(d)}
             className={`flex w-10 shrink-0 flex-col items-center rounded-lg py-1 text-xs leading-tight ${FOCO} ${d === fecha ? "bg-[#C8A96B] font-semibold text-black" : d === hoy ? "border border-[#C8A96B]/40 text-white/85" : "border border-white/12 text-white/60 hover:text-white"}`}
@@ -99,8 +116,8 @@ export function CabeceraSesion({
       <div className="flex min-w-0 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 id="cabecera-sesion" className="text-xl font-semibold capitalize leading-tight text-white sm:text-2xl">
-              {fechaLarga(fecha)}
+            <h2 id="cabecera-sesion" className="text-xl font-semibold leading-tight text-white sm:text-2xl">
+              {fechaTitulo(fecha)}
             </h2>
             <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${tono}`}>{estado.texto}</span>
           </div>

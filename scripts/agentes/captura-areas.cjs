@@ -42,6 +42,18 @@ const tareas = Object.entries(GRUPOS).flatMap(([g, rutas]) => rutas.map((r) => (
 
 const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/*
+| Un Chrome por captura (30/10/2026). Con el puerto 9336 y el perfil fijos,
+| dos capturas a la vez (dos grupos lanzados en paralelo) se enganchaban al
+| MISMO Chrome y a la misma pestaña: cada una navegaba encima de la otra y
+| /rivals salía con el texto del Scout Colectivo, /scout-rival-individual con
+| el de ABP y /match-preparation aplastado con el ancho del móvil. Ahora cada
+| proceso tiene su puerto y su perfil, y además se comprueba que la pestaña
+| está en la ruta pedida antes de medir.
+*/
+const PUERTO = 9400 + (process.pid % 500);
+const PERFIL = path.join(RAIZ, ".cache", "expertos", `perfil-chrome-${PUERTO}`);
+
 const MIDE = `(() => {
   const lum = (r, g, b) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
   const rgba = (s) => { const m = s.match(/rgba?\\(([^)]+)\\)/); if (!m) return null; const p = m[1].split(/[ ,/]+/).filter(Boolean).map(Number); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; };
@@ -68,11 +80,11 @@ const MIDE = `(() => {
 })()`;
 
 (async () => {
-  const chrome = spawn("C:/Program Files/Google/Chrome/Application/chrome.exe", ["--headless=new", "--remote-debugging-port=9336", "--window-size=1440,1000", "--user-data-dir=" + path.join(RAIZ, ".cache", "expertos", "perfil-chrome"), "about:blank"], { stdio: "ignore", windowsHide: true });
+  const chrome = spawn("C:/Program Files/Google/Chrome/Application/chrome.exe", ["--headless=new", "--remote-debugging-port=" + PUERTO, "--window-size=1440,1000", "--user-data-dir=" + PERFIL, "about:blank"], { stdio: "ignore", windowsHide: true });
   let ws;
   for (let i = 0; i < 40 && !ws; i++) {
     await espera(500);
-    try { const l = await (await fetch("http://127.0.0.1:9336/json")).json(); const p = l.find((x) => x.type === "page"); if (p) ws = new WebSocket(p.webSocketDebuggerUrl); } catch {}
+    try { const l = await (await fetch(`http://127.0.0.1:${PUERTO}/json`)).json(); const p = l.find((x) => x.type === "page"); if (p) ws = new WebSocket(p.webSocketDebuggerUrl); } catch {}
   }
   let id = 0;
   const pend = new Map();
@@ -109,6 +121,13 @@ const MIDE = `(() => {
       await envia("Emulation.setDeviceMetricsOverride", movil ? { width: 390, height: 844, deviceScaleFactor: 1, mobile: true } : { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
       await envia("Page.navigate", { url: BASE + r });
       await espera(movil ? 7000 : 11000);
+      /* ¿Está donde se pidió? Si no (una redirección, otra navegación), se vuelve a pedir una vez. */
+      const donde = (await envia("Runtime.evaluate", { expression: "location.pathname", returnByValue: true }))?.result?.value ?? "";
+      if (donde !== r.split("?")[0]) {
+        console.warn(`  ${r} (${modo}): la pestaña estaba en «${donde}»; se vuelve a pedir`);
+        await envia("Page.navigate", { url: BASE + r });
+        await espera(movil ? 7000 : 11000);
+      }
       const v = (await envia("Runtime.evaluate", { expression: MIDE, returnByValue: true }))?.result?.value ?? {};
       /* Página entera hasta 3 pantallas de alto, para que se vea más que la cabecera. */
       const alto = Math.min(movil ? 2500 : 3000, (await envia("Runtime.evaluate", { expression: "document.documentElement.scrollHeight", returnByValue: true }))?.result?.value ?? 1000);

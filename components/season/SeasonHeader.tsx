@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
 import {
-  Bus,
   CalendarCheck,
   FileText,
   ImageIcon,
@@ -87,104 +85,82 @@ export default function SeasonHeader({
             {config.description}
           </p>
 
-          {/* 29/10/2026 (análisis): «Lo último subido, en la semana 9» abría la
-              cabecera y parecía contradecir la semana actual. Ahora dice qué
-              semana es, que está vacía, y qué se subió por última vez y cuándo. */}
-          {currentWeek && (weekHasFiles(currentWeek) || ultimaConMaterial) && (
-            <p className="mt-3 text-base font-medium text-white/85">
-              {weekHasFiles(currentWeek)
-                ? `${currentWeek.week} ya tiene material.`
+          {/*
+            30/10/2026: las cuatro líneas de estado («Semana 18 aún sin
+            material…», «7 de 18…», «Vamos por la semana 18…», «Verde: …»)
+            repetían la semana actual y la última tres veces. Ahora es una:
+            «Semana 18 de 52 · 7 de 18 con material · lo último: semana 9
+            (24 ago — 30 ago)». La leyenda va pegada a la tira.
+          */}
+          {(() => {
+            const partes = [
+              stats.seasonWeek !== null ? `Semana ${stats.seasonWeek} de ${stats.seasonTotal}` : currentWeek?.week ?? "",
+              tiraSemanas.length > 1 ? `${stats.completed} de ${stats.totalWeeks} con material` : "",
+              currentWeek && weekHasFiles(currentWeek)
+                ? "esta semana ya tiene material"
                 : ultimaConMaterial
-                  ? (() => {
-                      const pdfs = (ultimaConMaterial.pdfs ?? []).length;
-                      const imagenes = ultimaConMaterial.images.length;
-                      const tipo =
-                        pdfs && imagenes
-                          ? "imágenes y PDF subidos"
-                          : pdfs
-                            ? pdfs === 1 ? "un PDF subido" : `${pdfs} PDF subidos`
-                            : imagenes === 1 ? "una imagen subida" : `${imagenes} imágenes subidas`;
-                      const fechas =
-                        ultimaConMaterial.start || ultimaConMaterial.end
-                          ? ` (${weekRangeLabel(ultimaConMaterial)})`
-                          : "";
+                  ? `lo último: ${ultimaConMaterial.week.toLowerCase()}${ultimaConMaterial.start || ultimaConMaterial.end ? ` (${weekRangeLabel(ultimaConMaterial)})` : ""}`
+                  : "",
+            ].filter(Boolean);
 
-                      return `${currentWeek.week} aún sin material. Lo último, ${tipo} en la ${ultimaConMaterial.week.toLowerCase()}${fechas}.`;
-                    })()
-                  : ""}
-            </p>
-          )}
+            return partes.length ? <p className="mt-3 text-base font-medium text-white/85">{partes.join(" · ")}</p> : null;
+          })()}
 
           {tiraSemanas.length > 1 && (
-            <div className="mt-3 space-y-1 text-sm text-white/60">
-              <p className="font-medium text-white/80">
-                {stats.completed} de {stats.totalWeeks} semanas transcurridas tienen material.
-              </p>
-              {stats.seasonWeek !== null && (
-                <p>
-                  Vamos por la semana {stats.seasonWeek} de {stats.seasonTotal} de la temporada.
-                </p>
-              )}
-              <p className="text-[13px] text-white/55">
-                <span className="mr-1.5 inline-block h-3 w-3 rounded-[3px] bg-emerald-400 align-[-1px]" />
-                Verde: semana con material. Pulsa una para abrirla.
-              </p>
-            </div>
-          )}
-
-          {tiraSemanas.length > 1 && (
+            <>
+            {/* Cada casilla con su número y 32 px de toque en el móvil (30/10/2026). */}
             <div
-              className="mt-2 flex max-w-full flex-wrap items-center gap-1.5 sm:gap-1"
+              className="mt-3 flex max-w-full flex-wrap items-center gap-1.5 sm:gap-1"
               role="group"
               aria-label="Semanas con y sin material"
             >
-              <span className="mr-1 text-[11px] font-medium tabular-nums text-white/45" aria-hidden>
-                S1
-              </span>
-
-              {tiraSemanas.map((semana) => (
+              {tiraSemanas.map((semana, i) => (
                 <button
                   key={semana.id}
                   type="button"
                   onClick={() => onSelectWeek?.(semana.id)}
                   title={`${semana.nombre}${semana.fechas ? " · " + semana.fechas : ""}${semana.conMaterial ? " · con material" : " · sin material"}`}
                   aria-label={`${semana.nombre}${semana.fechas ? ", " + semana.fechas : ""}${semana.conMaterial ? ", con material" : ", sin material"}`}
-                  className={`h-6 w-6 rounded-[5px] transition hover:scale-125 sm:h-3.5 sm:w-3.5 sm:rounded-[4px] ${
+                  className={`flex h-8 w-8 items-center justify-center rounded-[6px] text-[11px] font-semibold tabular-nums transition hover:scale-110 sm:h-6 sm:w-6 sm:rounded-[5px] ${
                     semana.conMaterial
-                      ? "bg-emerald-400"
-                      : "border border-white/20 bg-white/[0.04]"
+                      ? "bg-emerald-400 text-[#0B0F14]"
+                      : "border border-white/20 bg-white/[0.04] text-white/55"
                   } ${semana.actual ? "ring-2 ring-[#C8A96B] ring-offset-1 ring-offset-[#0B0F14]" : ""}`}
-                />
+                >
+                  {i + 1}
+                </button>
               ))}
-
-              <span className="ml-1 text-[11px] font-medium tabular-nums text-white/45" aria-hidden>
-                S{tiraSemanas.length}
-              </span>
             </div>
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/55">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-[3px] bg-emerald-400" /> con material
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block h-3 w-3 rounded-[3px] border border-white/30" /> sin material
+              </span>
+              <span>Pulsa una semana para abrirla.</span>
+            </p>
+            </>
           )}
 
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Semana actual vacía (29/10/2026, análisis): la acción principal es
-              abrir la última con material; subir se hace en la zona de abajo,
-              una sola, sin otro «Subir a la semana…» aquí. */}
-          {currentWeek && !weekHasFiles(currentWeek) && ultimaConMaterial && onSelectWeek ? (
-            <button
-              type="button"
-              onClick={() => onSelectWeek(ultimaConMaterial.id)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 sm:w-auto"
-            >
-              <CalendarCheck size={17} />
-              Abrir la {ultimaConMaterial.week.toLowerCase()} entera
-            </button>
-          ) : currentWeek && (
+          {/*
+            30/10/2026: en la semana en curso la acción principal es subir a
+            ella; abrir la última con material se queda sólo en la tarjeta
+            «Lo último subido», de abajo (antes salía dos veces). Y fuera
+            «Montar desplazamiento»: ya está en la barra de Operativa.
+          */}
+          {currentWeek && (
             <button
               type="button"
               onClick={onGoToCurrentWeek}
-              className={`inline-flex items-center justify-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20 ${
-                weekHasFiles(currentWeek) ? "" : "w-full sm:w-auto"
-              }`}
+              className={
+                weekHasFiles(currentWeek)
+                  ? "inline-flex items-center justify-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2.5 text-sm font-medium text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+                  : "inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#C8A96B] px-4 py-2.5 text-sm font-semibold text-[#0B0F14] transition hover:brightness-110 sm:w-auto"
+              }
             >
               <CalendarCheck size={17} />
               {weekHasFiles(currentWeek)
@@ -193,29 +169,14 @@ export default function SeasonHeader({
             </button>
           )}
 
-          {/*
-            El repositorio guarda los documentos que el cuerpo técnico monta
-            por su cuenta; el desplazamiento de partido los monta la app. Se
-            entra desde aquí porque es donde se venía a buscar el dossier del
-            viaje y el horario de la jornada.
-          */}
-          {area === "general" && (
-            <Link
-              href="/desplazamiento"
-              className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-white/70 transition hover:border-white/25 hover:text-white"
-            >
-              <Bus size={17} />
-              Montar desplazamiento
-            </Link>
-          )}
-
           <button
             type="button"
             onClick={onReload}
-            title="Recargar datos"
-            className="rounded-xl border border-white/10 p-2.5 text-white/60 transition hover:bg-white/[0.06] hover:text-white"
+            title="Volver a leer las semanas"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3.5 py-2.5 text-sm text-white/65 transition hover:bg-white/[0.06] hover:text-white"
           >
-            <RefreshCw size={17} />
+            <RefreshCw size={16} />
+            Actualizar
           </button>
         </div>
       </div>
@@ -281,7 +242,7 @@ function StatCard({
       </div>
 
       {action && (
-        <div className="mt-2 text-xs text-[#C8A96B] opacity-70 transition group-hover:opacity-100">
+        <div className="mt-2 text-xs font-semibold text-[#C8A96B] transition group-hover:underline">
           {action} →
         </div>
       )}

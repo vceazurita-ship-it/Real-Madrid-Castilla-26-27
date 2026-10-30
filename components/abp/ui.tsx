@@ -655,16 +655,17 @@ export function TeamPicker({
                 </span>
               )}
 
+              {/* El número dice qué cuenta (30/10/2026): «8 acciones», no un «8» suelto. */}
               {registradas > 0 && (
                 <span
-                  title={`${registradas} acciones registradas`}
+                  title={`${registradas} ${registradas === 1 ? "acción registrada" : "acciones registradas"} de balón parado`}
                   className={`rounded-full px-1.5 text-[10px] tabular-nums ${
                     active
                       ? "bg-[#C8A96B]/25 text-[#C8A96B]"
                       : "bg-emerald-400/15 text-emerald-300"
                   }`}
                 >
-                  {registradas}
+                  {registradas} {registradas === 1 ? "acción" : "acciones"}
                 </span>
               )}
             </button>
@@ -672,10 +673,10 @@ export function TeamPicker({
         })}
       </div>
 
-      {/* La leyenda sólo si al menos la mitad lleva número (29/10/2026, expertos). */}
-      {countOf && teams.filter((team) => (countOf(team) ?? 0) > 0).length * 2 >= teams.length && (
-        <p className="text-[11px] text-white/35">
-          El número de cada equipo son las acciones de balón parado registradas.
+      {/* La leyenda, siempre que algún equipo lleve número (30/10/2026). */}
+      {countOf && teams.some((team) => (countOf(team) ?? 0) > 0) && (
+        <p className="text-[11px] text-white/45">
+          «Acciones»: las de balón parado que ya hemos registrado de ese equipo.
         </p>
       )}
 

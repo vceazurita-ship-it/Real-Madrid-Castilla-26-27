@@ -3,7 +3,7 @@
 import { RefreshCw } from "lucide-react";
 
 /**
- * El aviso de las pantallas de rival cuando la hoja tarda más de 25 s
+ * El aviso de las pantallas de rival cuando la hoja tarda más de 8 s
  * (patrón de `/duelos`). Se pinta encima del esqueleto o de la última copia.
  */
 export function AvisoLento({

@@ -77,6 +77,21 @@ export function DiaConectado({
   const conEquipos = sesion ? sesion.tareas.filter((t) => Object.values(t.sitio).some((s) => s !== "fuera")).length : 0;
   const hayAlgo = Boolean(sesion) || porTarea.size > 0 || sinTarea.length > 0;
 
+  /*
+  | 30/10/2026: sólo lectura (/microcycles, sin `onAcepta`). El recuadro ámbar
+  | «Cambiado en la sesión» se repetía cada día y pesaba más que la semana: un
+  | renombre pasa a una línea dentro de su tarea («V-T2 se llamó «EVOLUCIÓN» en
+  | la sesión») y el resto de cambios, a líneas sueltas sin caja.
+  */
+  const soloLectura = !onAcepta;
+  const renombres = new Map<number, string>();
+
+  if (soloLectura) {
+    for (const p of propuestas) if (p.tipo === "renombrar") renombres.set(p.indice, p.a);
+  }
+
+  const otrosCambios = soloLectura ? propuestas.filter((p) => p.tipo !== "renombrar") : propuestas;
+
   /* Sin nada que contar no se dibuja la caja: sólo la fila con los accesos. */
   const vacio = !hayAlgo && propuestas.length === 0;
 
@@ -94,15 +109,16 @@ export function DiaConectado({
         <EnlacesDia fecha={fecha} micro={micro} actual="microciclo" textos={{ sesion: sesion ? "Ver los equipos" : "Hacer los equipos", analisis: entreno?.sesion?.objetivos.length ? "Ver el análisis" : "Analizar el entreno" }} />
       </div>
 
-      {hayAlgo && plan.length > 0 ? (
+      {(hayAlgo || renombres.size > 0) && plan.length > 0 ? (
         <ul className="min-w-0 space-y-1.5">
           {plan.map((p, k) => {
             const t = tareaDe(k);
             const eq = t && sesion ? equiposDeTarea(sesion, t) : null;
             const colocados = eq ? eq.equipos.filter((e) => e.jugadores.length) : [];
             const suyos = porTarea.get(k) ?? [];
+            const otroNombre = renombres.get(k);
 
-            if (!colocados.length && !suyos.length && !(eq && eq.comodines.length)) return null;
+            if (!colocados.length && !suyos.length && !(eq && eq.comodines.length) && !otroNombre) return null;
 
             return (
               <li key={`${p.codigo}-${k}`} className="min-w-0 rounded-lg border border-white/[0.06] px-2.5 py-1.5">
@@ -117,6 +133,11 @@ export function DiaConectado({
                   ))}
                   {eq && eq.comodines.length ? <span className="text-[11px] text-white/50" title={eq.comodines.join(", ")}>+{eq.comodines.length} comodín{eq.comodines.length === 1 ? "" : "es"}</span> : null}
                 </p>
+                {otroNombre ? (
+                  <p className="text-[11px] text-white/50">
+                    {p.codigo} se llamó «{otroNombre}» en la sesión
+                  </p>
+                ) : null}
                 {suyos.map((r) => (
                   <LineaResultado key={r.id} r={r} />
                 ))}
@@ -134,7 +155,17 @@ export function DiaConectado({
         </div>
       ) : null}
 
-      {propuestas.length ? (
+      {soloLectura && otrosCambios.length ? (
+        <ul className="space-y-0.5">
+          {otrosCambios.map((p) => (
+            <li key={p.clave} className="min-w-0 text-[11px] text-white/50">
+              {textoDePropuesta(p)}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {!soloLectura && propuestas.length ? (
         <div className="min-w-0 space-y-1.5 rounded-lg border border-amber-400/25 bg-amber-400/[0.07] px-3 py-2">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <p className="min-w-0 flex-1 text-[12px] font-semibold text-white/85">Cambiado en la sesión</p>
@@ -156,7 +187,6 @@ export function DiaConectado({
               </li>
             ))}
           </ul>
-          {!onAcepta ? <p className="text-[11px] text-white/50">Se acepta en el editor del microciclo, que es el que escribe en la hoja.</p> : null}
         </div>
       ) : null}
     </div>

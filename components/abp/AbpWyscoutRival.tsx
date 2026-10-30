@@ -128,13 +128,18 @@ function consignaOfensiva(aspecto: Aspecto, equipos: number) {
 }
 
 /** La lectura de los centros: qué hacemos según cuánto centra y con qué acierto. */
-function queHacemosConCentros(aspectos: Aspecto[]) {
+/*
+| 30/10/2026: «Qué hacemos» con los centros va en dos frases, cada una con su
+| sentido y su cifra: cuando nos centran (sus centros) y cuando les centramos
+| (los que recibe). Antes era una sola frase que juntaba defensa y ataque.
+*/
+function queHacemosConCentros(aspectos: Aspecto[]): { nosCentran: string; lesCentramos: string } {
   const filas = aspectos.flatMap((a) => a.filas);
   const volumen = filas.find((f) => f.nombre === "Centros laterales");
   const acierto = filas.find((f) => f.nombre === "Centros precisos %");
   const recibe = filas.find((f) => f.nombre === "Centros que recibe");
 
-  if (!volumen || !acierto) return "";
+  if (!volumen || !acierto) return { nosCentran: "", lesCentramos: "" };
 
   const muchos = volumen.valor > volumen.mediana;
   /* 29/10/2026: «bien» o «mal» sólo si el acierto se separa de la mediana más de
@@ -156,11 +161,12 @@ function queHacemosConCentros(aspectos: Aspecto[]) {
   else propio = `centra poco, con un acierto como el de la liga: cerrar el pase interior antes que el centro${cifra}.`;
 
   /* Lo que recibe (menos es mejor): si es más que la mediana, se le ataca por fuera. */
-  if (recibe && recibe.valor > recibe.mediana) {
-    propio += ` Recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido (mediana ${cifra1(recibe.mediana, recibe.unidad)}): atacarle por fuera, con extremo y lateral doblando y tres hombres en el área.`;
-  }
+  const lesCentramos =
+    recibe && recibe.valor > recibe.mediana
+      ? `atacarle por fuera, con extremo y lateral doblando y tres hombres en el área (recibe ${cifra1(recibe.valor, recibe.unidad)} centros por partido; mediana ${cifra1(recibe.mediana, recibe.unidad)}).`
+      : "";
 
-  return propio;
+  return { nosCentran: propio.charAt(0).toUpperCase() + propio.slice(1), lesCentramos };
 }
 
 export function AbpWyscoutRival({
@@ -235,6 +241,14 @@ export function AbpWyscoutRival({
   }, [equipo]);
 
   const titulares = titularesDe.equipo === equipo ? titularesDe.claves : null;
+
+  /*
+  | «Quién remata» sólo cuando ha llegado todo (30/10/2026): Wyscout, el once
+  | probable y las etiquetas de la plantilla. Con una carga a medias la
+  | consigna emparejaba al central con un suplente y, al completarse, con otro.
+  */
+  const onceListo = titularesDe.equipo === equipo;
+  const wyscoutListo = estado.equipo === equipo;
   const esTitular = (uno: RivalPlayerAerial) =>
     titulares ? titulares.has(playerKey({ FOTO: uno.foto, NOMBRE_EQUIPO: equipo, JUGADOR: uno.nombre })) : null;
 
@@ -329,16 +343,16 @@ export function AbpWyscoutRival({
                       >
                         <span className="min-w-0 text-sm text-white/80">
                           {rotuloDe(fila)}
-                          {fila.mejorAlto != null && (
-                            <span className="ml-2 text-[11px] font-normal text-white/40">
-                              {fila.mejorAlto ? "más es mejor" : "menos es mejor"}
-                            </span>
-                          )}
+                          {/* También las que no son ni mejores ni peores (30/10/2026): sin etiqueta parecía un olvido. */}
+                          <span className="ml-2 text-[11px] font-normal text-white/40">
+                            {fila.mejorAlto == null ? "ni mejor ni peor: dice cuánto pesa" : fila.mejorAlto ? "más es mejor" : "menos es mejor"}
+                          </span>
                         </span>
 
                         <span className="text-sm font-semibold tabular-nums text-white">
                           {cifra1(fila.valor, fila.unidad)}
-                          {ambito === "area" && fila.unidad !== "porcentaje" && (
+                          {/* La unidad también en balón parado: «5,4 por partido» (30/10/2026). */}
+                          {fila.unidad !== "porcentaje" && (
                             <span className="ml-1 text-[11px] font-normal text-white/55">por partido</span>
                           )}
                           {ambito === "area" && fila.partidos != null && (
@@ -385,19 +399,36 @@ export function AbpWyscoutRival({
             ))}
           </div>
 
-          {ambito === "area" && queHacemosConCentros(aspectos) && (
-            <p className="mt-4 border-t border-white/10 pt-3 text-sm text-white/85">
-              <b className="text-white">Qué hacemos: </b>
-              {queHacemosConCentros(aspectos)}
-            </p>
-          )}
+          {ambito === "area" && (() => {
+            const { nosCentran, lesCentramos } = queHacemosConCentros(aspectos);
+
+            if (!nosCentran && !lesCentramos) return null;
+
+            return (
+              <div className="mt-4 space-y-1.5 border-t border-white/10 pt-3 text-sm text-white/85">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Qué hacemos</p>
+                {nosCentran && (
+                  <p>
+                    <b className="text-white">Cuando nos centran: </b>
+                    {nosCentran}
+                  </p>
+                )}
+                {lesCentramos && (
+                  <p>
+                    <b className="text-white">Cuando les centramos: </b>
+                    {lesCentramos}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </Panel>
       )}
 
-      {(rematan.length > 0 || sacan.length > 0) && (
+      {onceListo && wyscoutListo && plantilla.length > 0 && (rematan.length > 0 || sacan.length > 0) && (
         <Panel
           title={sacan.length > 0 && rematan.length > 0 ? "Quién lo lanza y quién remata" : sacan.length > 0 ? "Quién lo lanza" : "Quién remata"}
-          subtitle={lanzaDeWyscout ? "Lanzamientos de la temporada según Wyscout; rematan, según las etiquetas de la plantilla" : "Según las etiquetas de la plantilla"}
+          subtitle={`${lanzaDeWyscout ? "Lanzamientos de la temporada según Wyscout; rematan, según las etiquetas de la plantilla" : "Según las etiquetas de la plantilla"}${titulares ? ", cruzadas con el once probable marcado en Plantillas rivales" : ""}`}
           icon={BarChart3}
         >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

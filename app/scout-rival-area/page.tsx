@@ -24,6 +24,7 @@ import { useEscudos } from "@/hooks/useEscudos";
 import { useLento } from "@/hooks/useLento";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { traeJson } from "@/lib/hojaCsv";
+import { ChevronDown } from "lucide-react";
 
 export default function AreaRivalPage() {
   const [plantilla, setPlantilla] = useState<unknown>([]);
@@ -94,7 +95,13 @@ export default function AreaRivalPage() {
 
   const lento = useLento(cargando);
 
-  const elige = useCallback((nombre: string) => setElegido(nombre), []);
+  /* La fila de equipos va plegada tras «Cambiar equipo», como en ABP del Rival (30/10/2026). */
+  const [cambiando, setCambiando] = useState(false);
+
+  const elige = useCallback((nombre: string) => {
+    setElegido(nombre);
+    setCambiando(false);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
@@ -129,14 +136,30 @@ export default function AreaRivalPage() {
             </div>
           ) : (
             <div className="mt-6 space-y-5">
-              <TeamPicker
-                teams={equipos}
-                value={equipo}
-                onChange={elige}
-                escudoDe={escudoDe}
-                jornadaDe={jornadaDe}
-                proximo={proximoDe(equipos)}
-              />
+              {equipo && !cambiando ? (
+                <button
+                  type="button"
+                  onClick={() => setCambiando(true)}
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3.5 py-2.5 text-left sm:max-w-md"
+                >
+                  <span className="flex min-w-0 items-center gap-2 truncate text-sm font-semibold text-white">
+                    <EscudoEquipo nombre={equipo} escudo={escudoDe(equipo)} lado={18} />
+                    <span className="truncate">{equipo}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1 text-[12px] text-[#C8A96B]">
+                    Cambiar equipo <ChevronDown size={14} />
+                  </span>
+                </button>
+              ) : (
+                <TeamPicker
+                  teams={equipos}
+                  value={equipo}
+                  onChange={elige}
+                  escudoDe={escudoDe}
+                  jornadaDe={jornadaDe}
+                  proximo={proximoDe(equipos)}
+                />
+              )}
 
               {/* Las cifras primero: lo que Wyscout dice de sus centros, con la mediana de la liga. Si no hay dato, no sale. */}
               {equipo && <AbpWyscoutRival ambito="area" equipo={equipo} plantilla={[]} />}

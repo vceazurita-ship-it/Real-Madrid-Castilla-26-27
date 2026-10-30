@@ -22,6 +22,7 @@ import {
   recordDateKey,
 } from "@/lib/calendar";
 import { cn } from "@/lib/utils";
+import { EstadoError } from "@/components/ui/estados";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
 
 /** Nombre con el que sale el Castilla en la lista de escudos de BeSoccer. */
@@ -210,6 +211,31 @@ function phaseTheme(fase: string): PhaseTheme {
 
 const minutesOf = (task: MicrocycleRecord) => Number(task.Tiempo) || 0;
 
+/*
+| SIGLAS DE LOS CONTENIDOS (30/10/2026). «Defensa CR», «Ataque CP» o
+| «Ind.Finalización» no se entendían fuera del cuerpo técnico. Son las mismas
+| que explica la ayuda del Plan de partido (lib/ayuda/paginas.ts). Se ponen de
+| `title` en cada barra y en una leyenda bajo el calendario, sólo las que
+| salen ese mes.
+*/
+const SIGLAS: { re: RegExp; sigla: string; es: string }[] = [
+  { re: /\bCP\b/, sigla: "CP", es: "ataque posicional u organizado" },
+  { re: /\bCR\b/, sigla: "CR", es: "contraataque o transición rápida" },
+  { re: /\bABP\b/, sigla: "ABP", es: "acciones a balón parado" },
+  { re: /\bInd\b\.?/i, sigla: "Ind.", es: "trabajo individual" },
+];
+
+/** Las siglas que lleva un rótulo, ya desarrolladas: «CP: ataque posicional…». */
+function siglasDe(nombre: string) {
+  return SIGLAS.filter((s) => s.re.test(nombre));
+}
+
+function tituloConSiglas(nombre: string) {
+  const s = siglasDe(nombre);
+
+  return s.length ? `${nombre} (${s.map((x) => `${x.sigla}: ${x.es}`).join("; ")})` : nombre;
+}
+
 function MetricBar({
   value,
   max = 100,
@@ -259,10 +285,32 @@ export default function MicroCalendar() {
 
   const escudoDe = useMemo(() => buscadorDeEscudos(listaEscudos), [listaEscudos]);
 
+  /*
+  | TIEMPO LÍMITE (30/10/2026): a los 15 s sin hoja, el esqueleto deja paso a
+  | un aviso con «Reintentar»; la petición sigue y, si llega, se pinta sola.
+  */
+  const [intento, setIntento] = useState(0);
+  const [lenta, setLenta] = useState(false);
+
+  useEffect(() => {
+    if (!loading) return;
+
+    const id = setTimeout(() => setLenta(true), 15_000);
+
+    return () => clearTimeout(id);
+  }, [loading, intento]);
+
+  const reintenta = () => {
+    setLenta(false);
+    setError(null);
+    setLoading(true);
+    setIntento((n) => n + 1);
+  };
+
   useEffect(() => {
     let cancelled = false;
 
-    traeJson<unknown>("/api/rivals?action=microciclo")
+    traeJson<unknown>("/api/rivals?action=microciclo", intento > 0 ? { forzar: true } : undefined)
       .then((data) => {
         if (cancelled) return;
 
@@ -272,12 +320,12 @@ export default function MicroCalendar() {
         } else {
           console.error("Microciclo: respuesta inesperada", data);
           setMicrocycleData([]);
-          setError("La hoja de microciclos ha llegado en un formato que no se entiende. Recarga la página y, si sigue, avisa al administrador.");
+          setError("La hoja de microciclos ha llegado en un formato que no se entiende. Pulsa «Reintentar» y, si sigue, avisa al administrador.");
         }
       })
       .catch((err) => {
         console.error(err);
-        if (!cancelled) setError("No se ha podido cargar la hoja de microciclos. Comprueba la conexión y recarga la página.");
+        if (!cancelled) setError("No se ha podido cargar la hoja de microciclos. Comprueba la conexión y pulsa «Reintentar».");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -286,7 +334,7 @@ export default function MicroCalendar() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [intento]);
 
   /** Tareas agrupadas por día. */
   const tasksByDay = useMemo(() => {
@@ -315,6 +363,8 @@ export default function MicroCalendar() {
       let carga = 0;
       let cognitiva = 0;
       let tareas = 0;
+      let partidos = 0;
+      const siglas = new Set<string>();
 
       sessionDays.forEach((key) => {
         const date = parseDateKey(key);
@@ -324,6 +374,12 @@ export default function MicroCalendar() {
 
         sesiones += 1;
         tareas += dayTasks.length;
+        if (esDiaDePartido(dayTasks)) partidos += 1;
+
+        dayTasks.forEach((t) => {
+          const rotulo = `${t["Contenido Principal"] || t["Tipo Tarea"] || ""}`;
+          siglasDe(rotulo).forEach((s) => siglas.add(s.sigla));
+        });
 
         dayTasks.forEach((t) => {
           minutos += minutesOf(t);
@@ -335,6 +391,8 @@ export default function MicroCalendar() {
       return {
         sesiones,
         tareas,
+        partidos,
+        siglas,
         minutos,
         cargaMedia: sesiones > 0 ? Math.round(carga / sesiones) : 0,
         cognitivaMedia: sesiones > 0 ? Math.round(cognitiva / sesiones) : 0,
@@ -363,6 +421,32 @@ export default function MicroCalendar() {
     if (pct === 0) return ` · igual que en ${nombre}`;
     return ` · ${pct > 0 ? "+" : "−"}${Math.abs(pct)} % sobre ${nombre}`;
   };
+
+  /** «24 sesiones (4 partidos)»: la base de las medias de carga. */
+  const baseDelMes = `${monthStats.sesiones} ${monthStats.sesiones === 1 ? "sesión" : "sesiones"}${
+    monthStats.partidos ? ` (${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"})` : ""
+  }`;
+
+  /*
+  | «Más carga no es mejor» (30/10/2026): si cambia mucho contra el mes
+  | anterior y hay otro número de partidos, se dice por qué puede ser.
+  */
+  const lecturaCarga = (() => {
+    const previo = mesPrevio.stats;
+    if (previo.sesiones === 0 || previo.cargaMedia <= 0 || monthStats.sesiones === 0) return "";
+    const pct = Math.round(((monthStats.cargaMedia - previo.cargaMedia) / previo.cargaMedia) * 100);
+    if (Math.abs(pct) < 5) return "";
+    const nombre = MONTHS[mesPrevio.month].toLowerCase();
+    if (pct < 0 && monthStats.partidos > previo.partidos) {
+      return `La carga media baja con más partidos que en ${nombre} (${monthStats.partidos} frente a ${previo.partidos}): es la descarga de las semanas de competición, no un peor trabajo.`;
+    }
+    if (pct > 0 && monthStats.partidos < previo.partidos) {
+      return `La carga media sube con menos partidos que en ${nombre} (${monthStats.partidos} frente a ${previo.partidos}): hay más días de carga entre partidos.`;
+    }
+    return pct < 0
+      ? `La carga media baja un ${Math.abs(pct)} % frente a ${nombre} sin más partidos: conviene confirmar que es la descarga buscada.`
+      : `La carga media sube un ${pct} % frente a ${nombre}: vigilar la recuperación en los MD-1 y MD+1.`;
+  })();
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
   const selectedIndex = selectedKey ? sessionDays.indexOf(selectedKey) : -1;
@@ -448,16 +532,18 @@ export default function MicroCalendar() {
             hint={`en ${MONTHS[active.month].toLowerCase()}`}
           />
           {/* Las dos cargas son puntos sin unidad: se dice de qué salen
-              (19/10/2026), si no un 420 no le dice nada a nadie. */}
+              (19/10/2026), si no un 420 no le dice nada a nadie. 30/10/2026:
+              y sobre cuántas sesiones y partidos, porque un mes con más
+              partidos baja la media a propósito (bajar no es peor). */}
           <CalendarStat
             label="Carga física media / sesión"
             value={monthStats.cargaMedia}
-            hint={`Minutos × intensidad${frente(monthStats.cargaMedia, mesPrevio.stats.cargaMedia)}`}
+            hint={`Media por sesión de minutos × intensidad, sobre ${baseDelMes}${frente(monthStats.cargaMedia, mesPrevio.stats.cargaMedia)}`}
           />
           <CalendarStat
             label="Carga cognitiva media / sesión"
             value={monthStats.cognitivaMedia}
-            hint={`Minutos × demanda cognitiva${frente(monthStats.cognitivaMedia, mesPrevio.stats.cognitivaMedia)}`}
+            hint={`Media por sesión de minutos × demanda cognitiva, sobre ${baseDelMes}${frente(monthStats.cognitivaMedia, mesPrevio.stats.cognitivaMedia)}`}
           />
         </>
       }
@@ -502,7 +588,7 @@ export default function MicroCalendar() {
             <div className="flex items-center gap-1">
               {md && (
                 <span
-                  className="whitespace-nowrap rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase sm:text-[9px]"
+                  className="whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase"
                   style={{ background: "#1F2937", color: "#FFFFFF" }}
                 >
                   {md}
@@ -527,35 +613,37 @@ export default function MicroCalendar() {
                   title={`Castilla vs ${nombreBonito(partido)}`}
                 >
                   <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
-                  <span className="shrink-0 text-[9px] font-semibold text-[#C8A96B]">vs</span>
+                  <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                   <Escudo url={escudoDe(partido)} nombre={nombreBonito(partido)} className="h-4 w-4 md:h-5 md:w-5" />
-                  <span className="hidden min-w-0 truncate text-[10px] font-semibold text-white/85 md:inline">
+                  <span className="hidden min-w-0 truncate text-[11px] font-semibold text-white/85 md:inline">
                     {nombreBonito(partido)}
                   </span>
                 </div>
               )}
 
+              {/* 30/10/2026: una tarea sin minutos deja sólo su nombre (sin
+                  barra vacía ni cifra), y la letra no baja de 11 px. */}
               {orderedBlocks.map(([name, minutes]) => (
-                <div key={name}>
-                  {(name || minutes > 0) && (
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-[10px] md:text-xs">{name}</span>
+                <div key={name} title={tituloConSiglas(name)}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-[11px] md:text-xs">{name}</span>
 
-                      {minutes > 0 && (
-                        <span className="shrink-0 text-[9px] text-white/45">
-                          {minutes}&apos;
-                        </span>
-                      )}
+                    {minutes > 0 && (
+                      <span className="shrink-0 text-[11px] text-white/55">
+                        {minutes}&apos;
+                      </span>
+                    )}
+                  </div>
+
+                  {minutes > 0 && totalMinutes > 0 && (
+                    <div className="mt-1">
+                      <MetricBar
+                        value={minutes}
+                        max={totalMinutes}
+                        className={theme.bar}
+                      />
                     </div>
                   )}
-
-                  <div className="mt-1">
-                    <MetricBar
-                      value={minutes}
-                      max={totalMinutes}
-                      className={theme.bar}
-                    />
-                  </div>
                 </div>
               ))}
             </>
@@ -565,9 +653,39 @@ export default function MicroCalendar() {
     >
       {error && !loading && (
         <div className="px-4 pb-6 md:px-8">
-          <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-            {error}
+          <EstadoError titulo="No se ha podido cargar la hoja de microciclos" error={error} onReintentar={reintenta} />
+        </div>
+      )}
+
+      {loading && lenta && (
+        <div className="px-4 pb-6 md:px-8">
+          <EstadoError
+            titulo="La hoja de microciclos está tardando más de lo normal"
+            error="Sigue cargando por detrás: si llega, se pinta sola. También puedes pedirla otra vez."
+            onReintentar={reintenta}
+          />
+        </div>
+      )}
+
+      {/* 30/10/2026: cómo se lee el calendario —qué es el fondo del día, la
+          lectura de la carga del mes y las siglas que salen este mes—. */}
+      {!loading && monthStats.sesiones > 0 && (
+        <div className="min-w-0 space-y-2 px-4 pb-6 text-[12px] text-white/60 md:px-8">
+          <p>
+            El fondo de cada día es el color de la fase con más minutos; las barras, el peso de cada contenido en los
+            minutos de la sesión.
           </p>
+          {lecturaCarga && <p>{lecturaCarga}</p>}
+          {monthStats.siglas.size > 0 && (
+            <p>
+              {SIGLAS.filter((s) => monthStats.siglas.has(s.sigla)).map((s, i) => (
+                <span key={s.sigla}>
+                  {i ? " · " : ""}
+                  <span className="font-semibold text-white/80">{s.sigla}</span>: {s.es}
+                </span>
+              ))}
+            </p>
+          )}
         </div>
       )}
 
@@ -668,9 +786,11 @@ export default function MicroCalendar() {
                           )}
 
                           <div className="mt-4 mb-5 flex flex-wrap gap-2">
-                            <Pill icon={<Clock3 size={15} />}>
-                              {t.Tiempo}&apos;
-                            </Pill>
+                            {minutesOf(t) > 0 && (
+                              <Pill icon={<Clock3 size={15} />}>
+                                {minutesOf(t)}&apos;
+                              </Pill>
+                            )}
 
                             {t.Grupo && <Pill>{t.Grupo}</Pill>}
 
@@ -679,21 +799,26 @@ export default function MicroCalendar() {
                             )}
                           </div>
 
-                          <Metric
-                            icon={<Dumbbell size={16} className="text-[#C8A96B]" />}
-                            label="Carga física"
-                            value={Math.round(Number(t["Carga Ponderada"]) || 0)}
-                            max={selectedSummary.maxCarga}
-                          />
-
-                          <div className="mt-4">
+                          {/* Sin carga apuntada (tarea sin minutos) no se pinta una barra a cero. */}
+                          {Number(t["Carga Ponderada"]) > 0 && (
                             <Metric
-                              icon={<Brain size={16} className="text-[#C8A96B]" />}
-                              label="Carga cognitiva"
-                              value={Math.round(Number(t["Carga cognitiva"]) || 0)}
-                              max={selectedSummary.maxCognitiva}
+                              icon={<Dumbbell size={16} className="text-[#C8A96B]" />}
+                              label="Carga física"
+                              value={Math.round(Number(t["Carga Ponderada"]))}
+                              max={selectedSummary.maxCarga}
                             />
-                          </div>
+                          )}
+
+                          {Number(t["Carga cognitiva"]) > 0 && (
+                            <div className="mt-4">
+                              <Metric
+                                icon={<Brain size={16} className="text-[#C8A96B]" />}
+                                label="Carga cognitiva"
+                                value={Math.round(Number(t["Carga cognitiva"]))}
+                                max={selectedSummary.maxCognitiva}
+                              />
+                            </div>
+                          )}
 
                           {t.Observaciones && (
                             <p className="mt-4 rounded-xl border border-white/5 bg-[#10151C] px-3 py-2 text-xs text-white/55">

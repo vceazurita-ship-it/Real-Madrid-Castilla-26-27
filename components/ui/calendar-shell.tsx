@@ -200,16 +200,19 @@ export function CalendarShell({
                 <div className="flex items-center gap-2">
                   {toolbar && <div className="hidden md:block">{toolbar}</div>}
 
-                  <button
-                    type="button"
-                    disabled={!canGoToday}
-                    onClick={() => onMonthChange(todayIndex)}
-                    title="Ir al mes actual"
-                    className="hidden items-center gap-2 rounded-xl border border-white/10 bg-[#11161D] px-3 py-2 text-sm transition hover:border-[#C8A96B] disabled:opacity-30 sm:flex"
-                  >
-                    <CalendarDays size={16} className="text-[#C8A96B]" />
-                    Hoy
-                  </button>
+                  {/* «Hoy» sólo cuando se mira otro mes (30/10/2026): en el
+                      mes actual era un botón apagado que no decía nada. */}
+                  {canGoToday && (
+                    <button
+                      type="button"
+                      onClick={() => onMonthChange(todayIndex)}
+                      title="Ir al mes actual"
+                      className="hidden items-center gap-2 rounded-xl border border-white/10 bg-[#11161D] px-3 py-2 text-sm transition hover:border-[#C8A96B] sm:flex"
+                    >
+                      <CalendarDays size={16} className="text-[#C8A96B]" />
+                      Hoy
+                    </button>
+                  )}
 
                   <button
                     type="button"

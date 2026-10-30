@@ -67,7 +67,8 @@ export default function ScoutRivalIndividual() {
 
   const { squads, loading, error, reintenta } = useRivalSquads();
 
-  const lento = useLento(loading);
+  /* 8 s y no 25 (30/10/2026): pasado ese rato se dice y se deja reintentar. */
+  const lento = useLento(loading, 8_000);
 
   const [equipoPedido, setEquipoPedido] = useState("");
   const [buscaEquipo, setBuscaEquipo] = useState("");
@@ -101,10 +102,15 @@ export default function ScoutRivalIndividual() {
     return () => control.abort();
   }, []);
 
+  /*
+  | Los equipos salen de las plantillas y, mientras la hoja no contesta, del
+  | calendario (30/10/2026): la tira de escudos y los vídeos del canal no
+  | dependen de la plantilla, así que no se hace esperar 30-70 s a nadie por
+  | ella. Cuando llega, los cortes se reparten por jugador.
+  */
   const equipos = useMemo(
     () =>
-      squads
-        .map((squad) => squad.equipo)
+      (squads.length ? squads.map((squad) => squad.equipo) : orden.equipos)
         .filter(Boolean)
         .sort(comparaPorCalendario(orden)),
     [squads, orden],
@@ -238,8 +244,9 @@ export default function ScoutRivalIndividual() {
               RMCF CASTILLA · SCOUTING
             </p>
 
+            {/* El título dice a quién se mira (30/10/2026). */}
             <h1 className="mt-2 text-3xl font-bold sm:text-4xl">
-              Vídeos del rival
+              {equipo ? `Vídeos · ${equipo}` : "Vídeos del rival"}
             </h1>
 
             <Explicativo>
@@ -252,7 +259,7 @@ export default function ScoutRivalIndividual() {
             <p className="mt-3 max-w-2xl text-white/60">Los cortes de cada rival, jugador a jugador.</p>
           </header>
 
-          {/* Si la hoja tarda más de 25 s, o falla, se dice y se deja reintentar. */}
+          {/* Si la hoja tarda más de 8 s, o falla, se dice y se deja reintentar. */}
           {(lento || (error && !loading)) && (
             <AvisoLento className="mt-6" onReintentar={reintenta} />
           )}
@@ -283,7 +290,7 @@ export default function ScoutRivalIndividual() {
               </div>
 
               <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-white/30">
-                {loading ? "" : `${visibles.length} de ${equipos.length}`}
+                {equipos.length ? `${visibles.length} de ${equipos.length}` : ""}
               </span>
 
               {/* Su plantilla, con las fichas de cada jugador. */}
@@ -307,7 +314,7 @@ export default function ScoutRivalIndividual() {
               vale igual en el modo día.
             */}
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_82%,transparent)] sm:[mask-image:none]">
-              {loading && equipos.length === 0 && (
+              {loading && !ordenListo && equipos.length === 0 && (
                 <div className="flex gap-2">
                   {Array.from({ length: 8 }).map((_, i) => (
                     <div
@@ -363,7 +370,7 @@ export default function ScoutRivalIndividual() {
                 );
               })}
 
-              {!loading && visibles.length === 0 && (
+              {equipos.length > 0 && visibles.length === 0 && (
                 <p className="py-4 text-xs text-white/35">
                   Ningún equipo se llama así.
                 </p>
@@ -383,9 +390,9 @@ export default function ScoutRivalIndividual() {
                 equipo={equipo}
                 plantilla={plantilla}
               />
-            ) : loading || !ordenListo ? (
+            ) : (loading || !ordenListo) && !lento ? (
               <EsqueletoPantalla titulo="las plantillas rivales" cifras={0} paneles={1} />
-            ) : (
+            ) : loading || error ? null : (
               <EstadoVacio icon={Users} titulo="No hay plantillas rivales en la hoja todavía." />
             )}
           </div>

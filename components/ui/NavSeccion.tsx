@@ -45,6 +45,7 @@ function seccionDe(ruta: string) {
 export function NavSeccion() {
   const ruta = usePathname() ?? "";
   const yo = useRef<HTMLElement>(null);
+  const tira = useRef<HTMLDivElement>(null);
   const seccion = seccionDe(ruta);
   const entradas = (seccion?.entradas ?? []).filter((e) => !e.obras && e.href.startsWith("/"));
 
@@ -63,11 +64,30 @@ export function NavSeccion() {
     return () => observador.disconnect();
   }, []);
 
+  /*
+  | La pestaña activa, a la vista (30/10/2026): en el móvil, a 390 px, la de
+  | «Crear o editar microciclo» salía cortada («Crear o e…») al final de la
+  | tira. Se centra moviendo sólo la tira —no con `scrollIntoView`, que
+  | arrastraría también la página— y un degradado a la derecha avisa de que
+  | hay más pestañas.
+  */
+  useEffect(() => {
+    const caja = tira.current;
+    const activa = caja?.querySelector<HTMLElement>('[aria-current="page"]');
+
+    if (!caja || !activa || caja.scrollWidth <= caja.clientWidth) return;
+
+    caja.scrollLeft = Math.max(0, activa.offsetLeft - (caja.clientWidth - activa.offsetWidth) / 2);
+  }, [ruta]);
+
   if (entradas.length < 2) return <span ref={yo} hidden />;
 
   return (
     <nav ref={yo} aria-label={`Sección ${seccion!.titulo}`} className="min-w-0 border-t border-white/[0.06] px-4 md:px-10">
-      <div className="flex min-w-0 items-center gap-1 overflow-x-auto py-1.5 scrollbar-none">
+      <div
+        ref={tira}
+        className="relative flex min-w-0 items-center gap-1 overflow-x-auto py-1.5 scrollbar-none max-md:pr-6 max-md:[mask-image:linear-gradient(to_right,black_calc(100%-32px),transparent)]"
+      >
         <span className="mr-2 hidden shrink-0 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B] sm:inline">{seccion!.titulo}</span>
         {entradas.map(({ href, label, icon: Icono }) => {
           const activa = ruta === href || ruta.startsWith(`${href}/`);

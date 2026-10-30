@@ -3,24 +3,19 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useEffect, useMemo, useState } from "react"
-import Papa from "papaparse"
 import {
   Activity,
   ArrowRight,
   BarChart3,
   ChevronRight,
-  Handshake,
   LayoutGrid,
-  Shield,
   Sigma,
-  Swords,
   Users,
 } from "lucide-react"
 
 import { Sidebar } from "@/components/ui/sidebar"
 import { Topbar } from "@/components/ui/topbar"
 import ModulesExplorer from "@/components/ui/ModulesExplorer"
-import QuickAccess from "@/components/ui/QuickAccess"
 import { AlertasPortada } from "@/components/portada/AlertasPortada"
 import { Cifras } from "@/components/portada/Cifras"
 import { ProximoPartido } from "@/components/portada/ProximoPartido"
@@ -30,14 +25,8 @@ import { trackModuleVisit } from "@/lib/module-usage"
 import { usePlayers } from "@/hooks/usePlayers"
 import { alineaSeguimiento, esDeSeguimiento, filasDeSeguimiento } from "@/lib/seguimiento"
 import { SESIONES_CONTADAS_DESDE } from "@/lib/sesion-equipos/estadistica"
-import { traeCsv, traeJson } from "@/lib/hojaCsv"
+import { traeJson } from "@/lib/hojaCsv"
 import { EstadoError } from "@/components/ui/estados"
-
-type Principio = {
-  FASE: string
-  BLOQUE: string
-  APARTADO: string
-}
 
 type Seguimiento = {
   ID_JUGADOR?: string
@@ -73,11 +62,11 @@ function conTope<T>(promesa: Promise<T>, ms = TOPE_BLOQUE_MS): Promise<T> {
   })
 }
 
-const CSV_CULTURA =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv"
-
-const CSV_PRINCIPIOS =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1322156567&single=true&output=csv"
+/*
+| 30/10/2026: fuera de «El equipo en cifras» Ataque, Defensa y Cultura (el
+| tamaño de los documentos del modelo, no rendimiento) y con ellas las dos
+| hojas que se leían sólo para contarlas.
+*/
 
 /* ---------------------------------------------------------------
    Piezas compartidas.
@@ -165,10 +154,6 @@ export default function Home() {
 
   const [resumenData, setResumenData] = useState<ResumenData | null>(null)
   const [cargandoData, setCargandoData] = useState(true)
-
-  const [ataqueApartados, setAtaqueApartados] = useState(0)
-  const [defensaApartados, setDefensaApartados] = useState(0)
-  const [principiosCultura, setPrincipiosCultura] = useState(0)
 
   const [filasSeguimiento, setFilasSeguimiento] = useState<Seguimiento[]>([])
 
@@ -261,16 +246,10 @@ export default function Home() {
     })
   }, [filasSeguimiento, plantillaEntera, plantilla])
 
-  const { jugadoresSeguimiento, sesionesDeLaPlantilla } = useMemo(() => {
-    const conRegistro = new Set<string>()
-
-    for (const fila of seguimientoCastilla) conRegistro.add(fila.ID_JUGADOR)
-
-    return {
-      jugadoresSeguimiento: conRegistro.size,
-      sesionesDeLaPlantilla: seguimientoCastilla.length,
-    }
-  }, [seguimientoCastilla])
+  const jugadoresSeguimiento = useMemo(
+    () => new Set(seguimientoCastilla.map((fila) => fila.ID_JUGADOR)).size,
+    [seguimientoCastilla],
+  )
 
   const seguimientos = seguimientoCastilla.length
 
@@ -302,22 +281,12 @@ export default function Home() {
     }).length
   }, [seguimientoCastilla, ahora])
 
-  /* El promedio, sólo con lo de los que siguen aquí: las sesiones de quien se
-     fue no se reparten entre los que están. Es el mismo cálculo que hace el
-     dashboard de seguimiento, para que las dos pantallas no se contradigan. */
-  const promedioSeguimientos =
-    jugadoresSeguimiento > 0
-      ? Number((sesionesDeLaPlantilla / jugadoresSeguimiento).toFixed(1))
-      : 0
-
   const cobertura =
     totalJugadores > 0
       ? Math.round((jugadoresSeguimiento / totalJugadores) * 100)
       : 0
 
   // Estados de carga: evitan el parpadeo de ceros mientras llegan los datos.
-  const [loadingCultura, setLoadingCultura] = useState(true)
-  const [loadingPrincipios, setLoadingPrincipios] = useState(true)
   const [loadingSeguimiento, setLoadingSeguimiento] = useState(true)
 
   /*
@@ -334,8 +303,6 @@ export default function Home() {
   | Todo entra por `traeCsv`/`traeJson`: la portada pinta al momento con la
   | copia del aparato y lo nuevo llega por detrás.
   */
-  const [errorCultura, setErrorCultura] = useState(false)
-  const [errorPrincipios, setErrorPrincipios] = useState(false)
   const [errorSeguimiento, setErrorSeguimiento] = useState(false)
   const [errorData, setErrorData] = useState(false)
 
@@ -343,87 +310,14 @@ export default function Home() {
 
   const reintentar = () => {
     /* Sólo vuelven a «cargando» las que fallaron: las demás ya se ven. */
-    if (errorCultura) setLoadingCultura(true)
-    if (errorPrincipios) setLoadingPrincipios(true)
     if (errorSeguimiento) setLoadingSeguimiento(true)
     if (errorData) setCargandoData(true)
 
-    setErrorCultura(false)
-    setErrorPrincipios(false)
     setErrorSeguimiento(false)
     setErrorData(false)
 
     setIntentos((n) => n + 1)
   }
-
-  useEffect(() => {
-    let vivo = true
-
-    traeCsv(CSV_CULTURA, { forzar: intentos > 0 })
-      .then((csv) => {
-        if (!vivo) return
-
-        const parsed = Papa.parse(csv, {
-          header: true,
-          skipEmptyLines: true,
-        })
-
-        setPrincipiosCultura(parsed.data.length)
-        setErrorCultura(false)
-      })
-      .catch(() => {
-        if (vivo) setErrorCultura(true)
-      })
-      .finally(() => {
-        if (vivo) setLoadingCultura(false)
-      })
-
-    return () => {
-      vivo = false
-    }
-  }, [intentos])
-
-  useEffect(() => {
-    let vivo = true
-
-    traeCsv(CSV_PRINCIPIOS, { forzar: intentos > 0 })
-      .then((csv) => {
-        if (!vivo) return
-
-        const parsed = Papa.parse<Principio>(csv, {
-          header: true,
-          skipEmptyLines: true,
-        })
-
-        const rows = parsed.data
-
-        const ataque = [
-          ...new Set(
-            rows.filter((r) => r.FASE === "ATAQUE").map((r) => r.APARTADO)
-          ),
-        ]
-
-        const defensa = [
-          ...new Set(
-            rows.filter((r) => r.FASE === "DEFENSA").map((r) => r.APARTADO)
-          ),
-        ]
-
-        setAtaqueApartados(ataque.length)
-        setDefensaApartados(defensa.length)
-        setErrorPrincipios(false)
-      })
-      .catch(() => {
-        if (vivo) setErrorPrincipios(true)
-      })
-      .finally(() => {
-        if (vivo) setLoadingPrincipios(false)
-      })
-
-    return () => {
-      vivo = false
-    }
-  }, [intentos])
 
   useEffect(() => {
     let vivo = true
@@ -475,7 +369,7 @@ export default function Home() {
     }
   }, [intentos])
 
-  const hayFallos = errorCultura || errorPrincipios || errorSeguimiento || errorData
+  const hayFallos = errorSeguimiento || errorData
 
   return (
     <main className="min-h-screen bg-[#02060D] text-white">
@@ -485,7 +379,8 @@ export default function Home() {
         <div className="min-w-0 flex-1">
           <Topbar />
 
-          <section className="space-y-12 p-4 sm:p-6 xl:space-y-14 xl:p-10">
+          {/* pb-24: el botón flotante de herramientas no tapa la última fila (30/10/2026). */}
+          <section className="space-y-12 p-4 pb-24 sm:p-6 sm:pb-24 xl:space-y-14 xl:p-10 xl:pb-24">
             {admin && (
               <div role="tablist" className="flex gap-2">
                 {(["portada", "tareas"] as const).map((v) => (
@@ -600,7 +495,8 @@ export default function Home() {
                   <div className="absolute left-5 top-[58px] max-w-[calc(100%-40px)]">
                     <p className="inline-block rounded-full border border-white/10 px-3.5 py-1.5 text-[12px] leading-relaxed backdrop-blur-xl" style={{ color: "#fff", backgroundColor: "rgba(2,6,13,.94)" }}>
                       {resumenData
-                        ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido leído" : "partidos leídos"} de ${resumenData.temporada}, comparado con los ${resumenData.equipos} equipos del grupo`
+                        /* Más corta (30/10/2026): a 390 px se cortaba y pisaba la tarjeta. Un solo término: «del grupo». */
+                        ? `${resumenData.partidos} ${resumenData.partidos === 1 ? "partido" : "partidos"} de ${resumenData.temporada} · frente a los ${resumenData.equipos} del grupo`
                         : "Opta y Wyscout, leídos de la carpeta de datos"}
                     </p>
                   </div>
@@ -655,7 +551,7 @@ export default function Home() {
                         <p className="mt-2 break-words text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
                           {resumenData.partidos} {resumenData.partidos === 1 ? "partido" : "partidos"}
                           {resumenData.puesto
-                            ? ` · ${resumenData.puesto}º de ${resumenData.deCuantos} en la categoría${resumenData.mediana != null ? ` · mediana de los ${resumenData.deCuantos} equipos: ${resumenData.mediana.toFixed(2).replace(".", ",")}` : ""}`
+                            ? ` · ${resumenData.puesto}º de ${resumenData.deCuantos} del grupo${resumenData.mediana != null ? ` · mediana del grupo: ${resumenData.mediana.toFixed(2).replace(".", ",")}` : ""}`
                             : ""}
                         </p>
                       )}
@@ -702,7 +598,8 @@ export default function Home() {
                             {resumenData.golesMenosXg >= 0
                               ? "marcamos más de lo esperado"
                               : "marcamos menos de lo esperado"}
-                            {resumenData.golesMenosXg < 0 ? " · toca afinar la definición: va al plan de partido" : " · hay que sostenerlo"}
+                            {/* Con menos de 15 partidos es tendencia, no veredicto (30/10/2026). */}
+                            {resumenData.partidos < 15 ? ` · tendencia en ${resumenData.partidos} partidos` : ""}
                           </p>
                         )}
                       </div>
@@ -728,19 +625,8 @@ export default function Home() {
                 con el corte, quien no tenía registro esta semana salía «más de 45 días». */}
             <AlertasPortada plantilla={plantilla} seguimiento={seguimientoTodo} />
 
-            {/* ========================= ACCESO RÁPIDO ========================= */}
-
-            <div>
-              <SectionHeader
-                icon={Activity}
-                title="Acceso rápido"
-                caption="Se reordena según lo que más abres"
-              />
-
-              <div className="mt-5">
-                <QuickAccess />
-              </div>
-            </div>
+            {/* ACCESO RÁPIDO, fuera (30/10/2026): repetía los botones del héroe
+                y la rejilla de áreas; tres caminos al mismo sitio. */}
 
             {/* ========================== CIFRAS =============================== */}
 
@@ -753,7 +639,7 @@ export default function Home() {
               <SectionHeader
                 icon={BarChart3}
                 title="El equipo en cifras"
-                caption="Seguimiento de los jugadores de campo del Castilla y modelo de juego, en vivo de las hojas"
+                caption="Seguimiento de los jugadores de campo del Castilla, en vivo de la hoja"
               />
 
               <div className="mt-5">
@@ -781,45 +667,6 @@ export default function Home() {
                       loading: cargandoPlantilla,
                       icon: Users,
                     },
-                    {
-                      href: "/individual_proc",
-                      label: "Promedio",
-                      value: errorSeguimiento ? null : promedioSeguimientos,
-                      caption: errorSeguimiento ? "sin datos" : `${seguimientos} seguimientos entre ${jugadoresSeguimiento} jugadores`,
-                      destino: "Dashboard Seguimiento",
-                      loading: loadingSeguimiento,
-                      icon: BarChart3,
-                    },
-                    {
-                      href: "/game-model#ATAQUE",
-                      label: "Ataque",
-                      value: errorPrincipios ? null : ataqueApartados,
-                      caption: errorPrincipios ? "sin datos" : "Apartados ofensivos del modelo",
-                      destino: "Identidad de Juego",
-                      loading: loadingPrincipios,
-                      icon: Swords,
-                      color: "#22D3EE",
-                    },
-                    {
-                      href: "/game-model#DEFENSA",
-                      label: "Defensa",
-                      value: errorPrincipios ? null : defensaApartados,
-                      caption: errorPrincipios ? "sin datos" : "Apartados defensivos del modelo",
-                      destino: "Identidad de Juego",
-                      loading: loadingPrincipios,
-                      icon: Shield,
-                      color: "#60A5FA",
-                    },
-                    {
-                      href: "/team-values",
-                      label: "Cultura",
-                      value: errorCultura ? null : principiosCultura,
-                      caption: errorCultura ? "sin datos" : "Elementos culturales definidos",
-                      destino: "Dinámicas y Valores",
-                      loading: loadingCultura,
-                      icon: Handshake,
-                      color: "#34D399",
-                    },
                   ]}
                 />
               </div>
@@ -831,7 +678,7 @@ export default function Home() {
                   className="mt-3"
                   titulo="No se han podido cargar todas las cifras"
                   onReintentar={reintentar}
-                  reintentando={loadingCultura || loadingPrincipios || loadingSeguimiento || cargandoData}
+                  reintentando={loadingSeguimiento || cargandoData}
                 />
               )}
             </div>
@@ -842,17 +689,18 @@ export default function Home() {
               <SectionHeader
                 icon={LayoutGrid}
                 title="Áreas de trabajo"
-                caption="Pulsa / para buscar"
+                caption="Las mismas del menú lateral"
               />
 
               {/* Móvil (29/10/2026, análisis): las 46 tarjetas eran pantallas y
-                  pantallas de scroll. Se enseña el buscador y las primeras, y el
-                  resto detrás de un botón; en escritorio, todas. */}
+                  pantallas de scroll. 30/10/2026: también en escritorio, que
+                  repetían el menú lateral; el buscador y las primeras, y el resto
+                  detrás de «Ver todas las áreas». */}
               <div
                 className={
                   verAreas
                     ? ""
-                    : "relative max-h-[560px] overflow-hidden sm:max-h-none sm:overflow-visible"
+                    : "relative max-h-[560px] overflow-hidden"
                 }
               >
                 <ModulesExplorer />
@@ -860,7 +708,7 @@ export default function Home() {
                 {!verAreas && (
                   <div
                     aria-hidden
-                    className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#0B0F14] to-transparent sm:hidden"
+                    className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#02060D] to-transparent"
                   />
                 )}
               </div>
@@ -869,7 +717,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => setVerAreas(true)}
-                  className="mt-3 w-full rounded-xl border border-white/15 px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white sm:hidden"
+                  className="mt-3 w-full rounded-xl border border-white/15 px-4 py-3 text-sm font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white sm:w-auto"
                 >
                   Ver todas las áreas
                 </button>
@@ -887,9 +735,9 @@ export default function Home() {
             {admin && <div className="flex justify-center pb-2 pt-6">
               <Link
                 href="/coding?ambito=rival"
-                className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.24em] text-white/40 transition-colors hover:text-white/70"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 px-4 py-2 text-sm text-white/65 transition-colors hover:border-white/25 hover:text-white"
               >
-                Coding de rival · herramienta del analista
+                Abrir el coding de rival
                 <ArrowRight className="h-3 w-3" aria-hidden />
               </Link>
             </div>}

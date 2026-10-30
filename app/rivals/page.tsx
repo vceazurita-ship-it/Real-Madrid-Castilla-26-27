@@ -892,7 +892,7 @@ export default function RivalPlayersPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  /* Si la plantilla tarda más de 25 s se avisa y se deja reintentar (24/10/2026). */
+  /* Si la plantilla tarda más de 8 s se avisa y se deja reintentar (24/10/2026). */
   const lento = useLento(loading);
 
   /*

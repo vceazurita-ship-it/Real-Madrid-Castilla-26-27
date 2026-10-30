@@ -19,7 +19,33 @@ import type { Hueco } from "@/lib/sesion-equipos/estructura";
 import { tintaSobre } from "@/lib/sesion-equipos/modelo";
 
 /** Lo que mide la palabra más larga de un nombre, en letras: el nombre se parte sólo entre palabras. */
-const palabraMasLarga = (nombre: string) => Math.max(3, ...nombre.split(/ +/).map((t) => t.length));
+/*
+| El nombre en dos renglones como mucho (30/10/2026): «HUGO DE LLANOS» salía
+| en tres, una palabra por línea. Se parte por donde los dos renglones quedan
+| más parejos («HUGO / DE LLANOS») y la letra se calcula con el más largo.
+*/
+const enDosRenglones = (nombre: string): string[] => {
+  const palabras = nombre.split(/ +/).filter(Boolean);
+
+  if (palabras.length < 2) return [nombre];
+
+  let mejor = [nombre];
+  let peor = Infinity;
+
+  for (let k = 1; k < palabras.length; k += 1) {
+    const partes = [palabras.slice(0, k).join(" "), palabras.slice(k).join(" ")];
+    const largo = Math.max(...partes.map((t) => t.length));
+
+    if (largo < peor) {
+      peor = largo;
+      mejor = partes;
+    }
+  }
+
+  return mejor;
+};
+
+const renglonMasLargo = (nombre: string) => Math.max(3, ...enDosRenglones(nombre).map((t) => t.length));
 
 /** Proporción del medio campo que se dibuja: alto = ancho × esto. */
 export const PROPORCION_CAMPO = 1.08;
@@ -126,6 +152,30 @@ export function CampoEstructura({
   const { ficha, letra } = primera.escalaY < 1 ? medidas(primera.escalaY) : primera;
   const escalaY = primera.escalaY < 1 ? medidas(primera.escalaY).escalaY : 1;
 
+  /*
+  | Una sola letra para todos los nombres del campo (30/10/2026): cada uno se
+  | ajustaba a su hueco y «JOAN MARTÍNEZ» salía más pequeño que sus vecinos.
+  | Ahora manda el que menos sitio tiene, y todos se leen igual.
+  */
+  const anchoNombreDe = (h: Hueco) => {
+    const enSuLinea = h.linea < 0 ? 3 : huecos.filter((x) => x.linea === h.linea && !x.aMano).length || 3;
+
+    return Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 0.96);
+  };
+  const tamanoNombre = Math.max(
+    8,
+    Math.min(
+      letra,
+      ...huecos
+        .filter((h) => h.jugador)
+        .map((h) => {
+          const largo = Math.max(renglonMasLargo(h.jugador!.nombre), h.pareja ? renglonMasLargo(h.pareja.nombre) : 0);
+
+          return Math.min(letra * (h.pareja ? 0.88 : 1), anchoNombreDe(h) / (largo * 0.5 + 0.9));
+        }),
+    ),
+  );
+
   const tinta = tintaSobre(color);
   /* Más pálidas en la lámina (21/10/2026): con 0,42 la línea del área y el semicírculo ensuciaban los nombres de encima. */
   const trazo = claro ? "rgba(20,83,45,0.26)" : "rgba(255,255,255,0.5)";
@@ -191,18 +241,14 @@ export function CampoEstructura({
         const es = elegido === i;
         const destino = destinoDe?.(i);
         const debajo = Boolean(destino && sobre === destino);
-        /* Cada nombre cabe en su trozo de línea: con cuatro en fila, la cuarta parte del campo. */
-        const enSuLinea = h.linea < 0 ? 3 : huecos.filter((x) => x.linea === h.linea && !x.aMano).length || 3;
         /*
-        | El mismo ancho en la lámina. Los huecos de una línea están a 1/(n+1)
-        | del campo uno de otro: con 1,1 veces eso, dos nombres largos vecinos
-        | se montaban (21/10/2026). Con 0,96 queda siempre una rendija.
+        | Cada nombre cabe en su trozo de línea: con cuatro en fila, la cuarta
+        | parte del campo. El mismo ancho en la lámina. Los huecos de una línea
+        | están a 1/(n+1) del campo uno de otro: con 1,1 veces eso, dos nombres
+        | largos vecinos se montaban (21/10/2026). Con 0,96 queda una rendija.
         */
-        const anchoNombre = Math.min(ancho / 2.6, (ancho / (enSuLinea + 1)) * 0.96);
-        const nombre = h.jugador?.nombre ?? "";
-        /* Con pareja, los dos nombres; la letra la manda el más largo. */
-        const largo = Math.max(palabraMasLarga(nombre || "—"), h.pareja ? palabraMasLarga(h.pareja.nombre) : 0);
-        const tamanoNombre = Math.max(8, Math.min(letra * (h.pareja ? 0.88 : 1), anchoNombre / (largo * 0.5 + 0.9)));
+        const anchoNombre = anchoNombreDe(h);
+        const nombre = enDosRenglones(h.jugador?.nombre ?? "").join("\n");
         return (
           <div
             key={i}
@@ -294,8 +340,8 @@ export function CampoEstructura({
                 lineHeight: 1.02,
                 textTransform: "uppercase",
                 textAlign: "center",
-                /* El nombre entero, en dos líneas si hace falta: «JORGE / CESTERO». */
-                whiteSpace: "normal",
+                /* El nombre entero, en dos líneas como mucho: «JORGE / CESTERO», «HUGO / DE LLANOS». */
+                whiteSpace: "pre-line",
                 overflowWrap: "normal",
                 color: h.jugador ? (claro ? "#0B0F14" : "#FFFFFF") : claro ? "rgba(11,15,20,0.4)" : "rgba(255,255,255,0.55)",
                 background: h.jugador ? (claro ? "rgba(255,255,255,0.92)" : "rgba(6,12,9,0.62)") : "transparent",
@@ -307,7 +353,7 @@ export function CampoEstructura({
               {h.jugador ? nombre : onToca ? "libre" : "—"}
               {h.jugador && h.pareja && (
                 <span style={{ display: "block", marginTop: Math.max(1, tamanoNombre / 6), paddingTop: Math.max(1, tamanoNombre / 6), borderTop: `1px solid ${claro ? "rgba(11,15,20,0.18)" : "rgba(255,255,255,0.25)"}` }}>
-                  {h.pareja.nombre}
+                  {enDosRenglones(h.pareja.nombre).join("\n")}
                 </span>
               )}
             </span>

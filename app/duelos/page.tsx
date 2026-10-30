@@ -499,6 +499,11 @@ export default function DuelosPage() {
                 <span style={{ color: PEOR }} title="Momentos con el balón suyo en los que nos sacan ventaja">
                   ● {vigilar.length} en contra
                 </span>
+                {/* Las dos palabras, definidas en una línea (30/10/2026): «1 sólo a favor» y
+                    «5 momentos a favor» parecían decir cosas distintas del mismo duelo. */}
+                <span className="basis-full text-[11px] text-white/45">
+                  Duelo: un hueco del once contra su par. Momento: ese duelo con el balón de uno de los dos; cada duelo tiene dos.
+                </span>
               </span>
               {!cargando && temporada === undefined && (
                 <span className="basis-full text-[11px] text-white/45">
@@ -827,9 +832,15 @@ function Claves({
                     {d.def.titulo}
                     <span className="ml-1.5 text-[11px] font-normal text-white/40">{sentido === "con" ? "con balón nuestro" : "con balón suyo"}</span>
                   </span>
-                  <b className="shrink-0 tabular-nums" style={{ color }}>
+                  {/* Con poca muestra, la cifra va en gris y con el aviso pegado (30/10/2026). */}
+                  <b
+                    className="shrink-0 tabular-nums"
+                    style={{ color: pocaMuestra ? "var(--rmcf-muted, #9CA3AF)" : color }}
+                    title={tambien ? `Con el balón nuestro ${d.conBalon !== null && d.conBalon > 0 ? "+" : ""}${d.conBalon}; con el suyo ${d.sinBalon !== null && d.sinBalon > 0 ? "+" : ""}${d.sinBalon}` : undefined}
+                  >
                     {valor !== null && valor > 0 ? "+" : ""}
                     {valor}
+                    {pocaMuestra && <span className="ml-1 text-[11px] font-normal">· poca muestra</span>}
                   </b>
                 </span>
                 <span className="mt-0.5 block text-xs text-white/50">
@@ -838,19 +849,9 @@ function Claves({
                     : "Ventaja repartida, sin un enfrentamiento que se despegue."}
                 </span>
                 <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-white/45">
-                  {tambien && (
-                    <span
-                      className="rounded-full border border-white/15 px-2 py-0.5 font-semibold text-white/60"
-                      title={`Con el balón nuestro ${d.conBalon !== null && d.conBalon > 0 ? "+" : ""}${d.conBalon}; con el suyo ${d.sinBalon !== null && d.sinBalon > 0 ? "+" : ""}${d.sinBalon}`}
-                    >
-                      cuenta en los dos sentidos
-                    </span>
-                  )}
-                  {pocaMuestra && (
-                    <span className="rounded-full px-2 py-0.5 font-semibold" style={{ background: "rgba(200,169,107,0.18)", color: ORO }}>
-                      poca muestra: léelo como pista, no como hecho
-                    </span>
-                  )}
+                  {/* «Cuenta en los dos sentidos» salía en casi todas las filas: ahora
+                      va en el título de la cifra, al pasar el ratón (30/10/2026). */}
+                  {pocaMuestra && <span className="font-semibold" style={{ color: ORO }}>léelo como pista, no como hecho</span>}
                   <span className="text-white/35">{base.texto}</span>
                 </span>
               </button>

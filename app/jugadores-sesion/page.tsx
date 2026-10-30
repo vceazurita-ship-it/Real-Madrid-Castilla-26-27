@@ -34,6 +34,8 @@ import {
   GripVertical,
   Info,
   Loader2,
+  MoreHorizontal,
+  RefreshCw,
   Minus,
   Plus,
   Shuffle,
@@ -595,8 +597,17 @@ function EstructuraEquipo({
   const companerosFuera = sobran.filter((j) => [...parejas.values()].some((c) => c.id === j.id)).length;
   const deCampo = jugadores.length - porteros.length - huecos.filter((h) => h.pareja).length - companerosFuera;
   const actual = normalizaEstructura(equipo.estructura ?? "");
-  const enLista = ESTRUCTURAS.some((e) => e.valor === actual) || mias.includes(actual);
-  const grupos = gruposDeEstructuras(jugadores.length);
+  /*
+  | Sólo los dibujos que cuadran (30/10/2026): la lista entera pasa de cien y,
+  | con 9 en el equipo, lo útil son los de 9. Los demás, a un toque con «Ver
+  | todos los dibujos…»; «Crear la mía…» sigue al final.
+  */
+  const [verTodos, setVerTodos] = useState(false);
+  const cuadran = ESTRUCTURAS.filter((e) => e.jugadores === jugadores.length);
+  const soloLosQueCuadran = !verTodos && cuadran.length > 0;
+  const grupos = soloLosQueCuadran ? [{ rotulo: `Para ${jugadores.length} (los que tiene)`, opciones: cuadran }] : gruposDeEstructuras(jugadores.length);
+  const enLista = grupos.some((g) => g.opciones.some((e) => e.valor === actual)) || mias.includes(actual);
+  const conocida = ESTRUCTURAS.some((e) => e.valor === actual);
   const tocado = Boolean(equipo.orden?.length || equipo.posiciones?.some(Boolean));
   const esMia = mias.includes(actual);
 
@@ -622,9 +633,10 @@ function EstructuraEquipo({
           «Crear» y el contador bajan a otra línea enteros; el pie va en dos renglones. */}
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <select
-          value={enLista ? actual : "otra"}
+          value={enLista || conocida ? actual : "otra"}
           onChange={(e) => {
             if (e.target.value === "crear") return abreCreador();
+            if (e.target.value === "todos") return setVerTodos(true);
             if (e.target.value === "otra") return;
             setCreando(null);
             onEstructura(e.target.value);
@@ -632,7 +644,12 @@ function EstructuraEquipo({
           className="min-w-[8rem] flex-1 basis-[10rem] rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[13px] font-semibold text-white outline-none focus:border-[#C8A96B]/50"
           aria-label={`Estructura de ${equipo.nombre}`}
         >
-          {!enLista && (
+          {!enLista && conocida && (
+            <option value={actual} className="bg-[#11161C]">
+              {actual} (la de ahora)
+            </option>
+          )}
+          {!enLista && !conocida && (
             <option value="otra" className="bg-[#11161C]">
               {actual ? `${actual} (a mano)` : "Elige una…"}
             </option>
@@ -657,6 +674,11 @@ function EstructuraEquipo({
                 ))}
             </optgroup>
           ))}
+          {soloLosQueCuadran && (
+            <option value="todos" className="bg-[#11161C]">
+              Ver todos los dibujos…
+            </option>
+          )}
           <option value="crear" className="bg-[#11161C]">
             ✎ Crear la mía…
           </option>
@@ -975,11 +997,51 @@ export default function JugadoresSesionPage() {
     lastSavedAt,
     sinGuardar,
     guardaYa,
+    reload,
   } = useRemoteDoc<AlmacenEquipos>({
     key: "jugadores-sesion",
     kind: "jugadores-sesion",
     fallback: ALMACEN_VACIO,
   });
+
+  /*
+  | La carga con tiempo límite (30/10/2026). Si el servidor no contesta, la
+  | petición se queda colgada y la pantalla, en «Cargando…» para siempre. A
+  | los 15 s se avisa con «Reintentar». Se cuenta por intento: al reintentar,
+  | el aviso del anterior no vale, sin tener que borrarlo dentro de un efecto.
+  */
+  const [intentoCarga, setIntentoCarga] = useState(0);
+  const [agotadoEn, setAgotadoEn] = useState(-1);
+
+  useEffect(() => {
+    if (status !== "loading") return;
+
+    const reloj = setTimeout(() => setAgotadoEn(intentoCarga), 15_000);
+
+    return () => clearTimeout(reloj);
+  }, [status, intentoCarga]);
+
+  const cargaAgotada = status === "loading" && agotadoEn === intentoCarga;
+
+  const reintentaCarga = () => {
+    setIntentoCarga((n) => n + 1);
+    reload();
+  };
+
+  /* El menú «Más» de la cabecera: se cierra al tocar fuera. */
+  const menuMas = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    const fuera = (e: PointerEvent) => {
+      const menu = menuMas.current;
+
+      if (menu?.open && !menu.contains(e.target as Node)) menu.removeAttribute("open");
+    };
+
+    document.addEventListener("pointerdown", fuera);
+
+    return () => document.removeEventListener("pointerdown", fuera);
+  }, []);
 
   /*
   | Deshacer y rehacer. Con prisa se suelta a alguien en el equipo que no es,
@@ -2435,28 +2497,65 @@ export default function JugadoresSesionPage() {
                 </Button>
                 <Button icon={Redo2} disabled={pasos.adelante === 0} onClick={rehaz} title="Rehacer lo deshecho (Ctrl+Y)" aria-label="Rehacer" />
 
-                <Button icon={MessageSquareText} onClick={() => void copiaTexto(true)} title="Todas las tareas en texto, para el grupo">
-                  Copiar todo
-                </Button>
-                <Button
-                  icon={ClipboardPaste}
-                  onClick={() => {
-                    setTexto(sesion.texto);
-                    setDialogo("lista");
-                  }}
-                >
-                  Cambiar la lista
-                </Button>
-                <Button
-                  icon={Plus}
-                  onClick={() => {
-                    setTexto("");
-                    setDialogo("nueva");
-                  }}
-                >
-                  Nueva sesión
-                </Button>
-                <Button tone="danger" icon={Trash2} onClick={borraSesion} title="Borrar esta sesión" aria-label="Borrar esta sesión" />
+                {/*
+                | Lo secundario, en «Más» (30/10/2026): seis botones en la cabecera
+                | eran tres filas en el móvil antes de ver un solo campo. Quedan a la
+                | vista deshacer y rehacer, que se usan mientras se hacen equipos.
+                */}
+                <details ref={menuMas} className="relative">
+                  <summary
+                    className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5 text-[12px] font-semibold text-white/75 transition hover:bg-white/[0.06] hover:text-white [&::-webkit-details-marker]:hidden"
+                    aria-label="Más acciones de la sesión"
+                  >
+                    <MoreHorizontal size={14} /> Más
+                  </summary>
+                  <div className="absolute right-0 top-full z-30 mt-1 flex w-56 flex-col gap-1 rounded-xl border border-white/15 bg-[#11161C] p-1.5 shadow-2xl">
+                    {[
+                      { icono: MessageSquareText, texto: "Copiar todo", titulo: "Todas las tareas en texto, para el grupo", hace: () => void copiaTexto(true) },
+                      {
+                        icono: ClipboardPaste,
+                        texto: "Cambiar la lista",
+                        titulo: "Volver a pegar la lista del día",
+                        hace: () => {
+                          setTexto(sesion.texto);
+                          setDialogo("lista");
+                        },
+                      },
+                      {
+                        icono: Plus,
+                        texto: "Nueva sesión",
+                        titulo: "Pegar la lista de otro día",
+                        hace: () => {
+                          setTexto("");
+                          setDialogo("nueva");
+                        },
+                      },
+                    ].map(({ icono: Icono, texto: rotulo, titulo, hace }) => (
+                      <button
+                        key={rotulo}
+                        type="button"
+                        title={titulo}
+                        onClick={() => {
+                          menuMas.current?.removeAttribute("open");
+                          hace();
+                        }}
+                        className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12px] font-semibold text-white/80 hover:bg-white/[0.06] hover:text-white"
+                      >
+                        <Icono size={14} className="shrink-0" /> {rotulo}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        menuMas.current?.removeAttribute("open");
+                        borraSesion();
+                      }}
+                      className="flex items-center gap-2 rounded-lg border-t border-white/[0.06] px-2.5 py-2 text-left text-[12px] font-semibold text-red-300 hover:bg-red-500/10"
+                    >
+                      <Trash2 size={14} className="shrink-0" /> Borrar esta sesión
+                    </button>
+                  </div>
+                </details>
               </div>
             )}
 
@@ -2540,10 +2639,37 @@ export default function JugadoresSesionPage() {
               </div>
             )}
 
-            {status === "loading" && !sesion && (
-              <p className="mt-10 flex items-center gap-2 text-sm text-white/40">
-                <Loader2 size={14} className="animate-spin" /> Cargando…
-              </p>
+            {/* Mientras llega: la forma de la pantalla (sesión, tareas y dos campos), no un «Cargando…» suelto (30/10/2026). */}
+            {status === "loading" && !sesion && !cargaAgotada && (
+              <div aria-busy="true" aria-label="Cargando las sesiones" className="mt-5 animate-pulse space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <div className="h-8 w-64 max-w-full rounded-xl bg-white/[0.07]" />
+                  <div className="h-8 w-24 rounded-xl bg-white/[0.05]" />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {Array.from({ length: 4 }, (_, i) => (
+                    <div key={i} className="h-9 w-40 rounded-xl bg-white/[0.05]" />
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {Array.from({ length: 2 }, (_, i) => (
+                    <div key={i} className="aspect-[3/4] max-h-[420px] w-full rounded-2xl bg-white/[0.04]" />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {cargaAgotada && !sesion && (
+              <div className="mt-5">
+                <Notice tone="warn" title="Las sesiones no han llegado">
+                  <p>El servidor no ha contestado en 15 segundos. Vuelve a pedirlas; lo que tengas en este aparato no se pierde.</p>
+                  <div className="mt-2">
+                    <Button icon={RefreshCw} onClick={reintentaCarga}>
+                      Reintentar
+                    </Button>
+                  </div>
+                </Notice>
+              </div>
             )}
 
             {sesion && tarea && reparto && (
@@ -2642,7 +2768,10 @@ export default function JugadoresSesionPage() {
                   />
                 </div>
 
-                <div className={`mt-4 grid min-w-0 gap-5 ${vista === "equipos" ? "2xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]" : ""}`}>
+                {/* grid-cols-1 (30/10/2026): sin columnas declaradas, la pista implícita
+                    crecía al ancho mínimo del campo y a 390 px se salía por la derecha
+                    (POL FORTUNY y «Crear» cortados). minmax(0,1fr) la ata al ancho. */}
+                <div className={`mt-4 grid min-w-0 grid-cols-1 gap-5 ${vista === "equipos" ? "2xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]" : ""}`}>
                   {/* ================= EDITOR ================= */}
                   {vista === "equipos" && (
                   <div className="flex min-w-0 flex-col gap-4">
@@ -2905,7 +3034,15 @@ export default function JugadoresSesionPage() {
                     | lo veía mientras hacía los equipos. Aquí, en una línea.
                     */}
                     {(() => {
-                      const problemas = avisos.filter((a) => a.nivel === "error" || a.nivel === "aviso");
+                      /*
+                      | Una sola franja de estado (30/10/2026): primero lo que bloquea
+                      | (los errores y el «faltan 2 para 10v10» de la hoja) y después los
+                      | desequilibrios por puesto, uno por línea. «Todos colocados» ya no
+                      | va aparte y el validador de abajo va plegado: antes decían tres
+                      | cosas distintas a la vez.
+                      */
+                      const peso = (a: (typeof avisos)[number]) => (a.nivel === "error" ? 0 : /^La hoja dice/.test(a.texto) ? 1 : 2);
+                      const problemas = avisos.filter((a) => a.nivel === "error" || a.nivel === "aviso").sort((a, b) => peso(a) - peso(b));
                       const grave = problemas.some((a) => a.nivel === "error");
 
                       return (
@@ -2958,11 +3095,12 @@ export default function JugadoresSesionPage() {
                       );
                     })()}
 
-                    {/* --- sin colocar --- */}
+                    {/* --- sin colocar --- (con todos colocados no se pinta: eso ya lo dice la franja; sí con alguien en la mano, para soltarlo aquí) */}
+                    {(reparto.sinSitio.length > 0 || Boolean(elegido)) && (
                     <Caja
                       destino="sin"
                       encima={sobre === "sin"}
-                      titulo={reparto.sinSitio.length ? "Sin colocar" : "Todos colocados"}
+                      titulo="Sin colocar"
                       cuenta={reparto.sinSitio.length}
                       activa={Boolean(elegido)}
                       alerta={reparto.sinSitio.length > 0}
@@ -2974,6 +3112,7 @@ export default function JugadoresSesionPage() {
                     >
                       {ordenPorPuesto(reparto.sinSitio, puestoDe).map(chip)}
                     </Caja>
+                    )}
 
                     {elegido && (
                       <p className="-mt-2 text-[11px] text-[#C8A96B]">
@@ -3190,7 +3329,8 @@ export default function JugadoresSesionPage() {
                       {reparto.fuera.length ? ` · ${reparto.fuera.length} no la hacen` : ""}
                     </p>
 
-                    {/* --- fuera --- */}
+                    {/* --- fuera --- (vacía no se pinta, salvo con alguien en la mano o arrastrándose: va al final y no mueve los campos) */}
+                    {(reparto.fuera.length > 0 || Boolean(elegido) || Boolean(arrastre)) && (
                     <Caja
                       destino={FUERA}
                       encima={sobre === FUERA}
@@ -3205,23 +3345,34 @@ export default function JugadoresSesionPage() {
                     >
                       {ordenPorPuesto(reparto.fuera, puestoDe).map(chip)}
                     </Caja>
+                    )}
                   </div>
                   )}
 
                   {/* ================= DERECHA ================= */}
                   <div className="min-w-0 space-y-4">
                     {vista === "equipos" && (
-                    <Panel
-                      title="Validador"
-                      subtitle={!tareaLista(avisos) ? "Hay algo que corregir" : avisos.some((a) => a.nivel === "aviso") ? "Lista, con avisos que mirar" : "Lista para presentar"}
-                      icon={tareaLista(avisos) ? Check : AlertTriangle}
-                      bodyClassName="p-4"
-                    >
+                    /*
+                    | El validador, plegado (30/10/2026): lo que hay que corregir ya está
+                    | en la franja de estado; aquí quedan las comprobaciones en verde, el
+                    | criterio del reparto y las otras tareas por revisar. Abierto, con
+                    | su propio «Lista» al lado de cinco avisos naranjas, se contradecía.
+                    */
+                    <details className="group rounded-2xl border border-white/10 bg-white/[0.03]">
+                      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[13px] font-semibold text-white/80 [&::-webkit-details-marker]:hidden">
+                        {estadoTareas.some((s) => !tareaLista(s)) ? <AlertTriangle size={14} className="shrink-0 text-amber-300" /> : <Check size={14} className="shrink-0 text-emerald-300" />}
+                        <span className="min-w-0 flex-1">
+                          Validador y criterio del reparto
+                          {estadoTareas.some((s, i) => i !== activa && !tareaLista(s)) && (
+                            <span className="ml-1.5 font-normal text-amber-200/80">
+                              · {(() => { const n = estadoTareas.filter((s, i) => i !== activa && !tareaLista(s)).length; return n === 1 ? "otra tarea por revisar" : `${n} tareas más por revisar`; })()}
+                            </span>
+                          )}
+                        </span>
+                        <ChevronRight size={14} className="shrink-0 text-white/40 transition group-open:rotate-90" />
+                      </summary>
+                      <div className="border-t border-white/[0.06] p-4">
                       <ul className="space-y-1.5 text-[12px] leading-snug">
-                        {/* Los errores y avisos ya van en la franja de arriba: aquí, sólo el resto. */}
-                        {avisos.some((a) => a.nivel === "error" || a.nivel === "aviso") && (
-                          <li className="text-white/60">Lo que hay que corregir está en la franja sobre los campos.</li>
-                        )}
                         {avisos.filter((a) => a.nivel !== "error" && a.nivel !== "aviso").map((a) => (
                           <li
                             key={a.texto}
@@ -3253,17 +3404,42 @@ export default function JugadoresSesionPage() {
                           </span>
                         )}
                       </p>
-                      {estadoTareas.some((s) => !tareaLista(s)) && (
-                        <p className="mt-3 border-t border-white/8 pt-2 text-[11px] text-white/40">
-                          Por revisar:{" "}
+                      {/*
+                      | Las otras tareas por revisar, una por línea y sin la lista de
+                      | nombres (30/10/2026): «ANALÍTICA (faltan 18 por colocar: …18
+                      | nombres…)» pasa a «ANALÍTICA: sin equipos · Hacer equipos».
+                      */}
+                      {estadoTareas.some((s, i) => i !== activa && !tareaLista(s)) && (
+                        <ul className="mt-3 space-y-1 border-t border-white/8 pt-2 text-[11px] text-white/55">
                           {sesion.tareas
-                            .map((t, i) => ({ t, error: (estadoTareas[i] ?? []).find((a) => a.nivel === "error") }))
-                            .filter((x) => x.error)
-                            .map((x) => `${x.t.nombre} (${x.error!.texto.charAt(0).toLowerCase()}${x.error!.texto.slice(1)})`)
-                            .join(" · ")}
-                        </p>
+                            .map((t, i) => ({ t, i, error: (estadoTareas[i] ?? []).find((a) => a.nivel === "error") }))
+                            .filter((x) => x.error && x.i !== activa)
+                            .map((x) => {
+                              const nadie = !Object.values(x.t.sitio).some((d) => d !== FUERA);
+                              const corto = x.error!.texto.split(":")[0].trim();
+
+                              return (
+                                <li key={x.t.id} className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
+                                  <b className="uppercase text-white/80">{x.t.nombre || `Tarea ${x.i + 1}`}</b>
+                                  <span>: {nadie ? "sin equipos" : `${corto.charAt(0).toLowerCase()}${corto.slice(1)}`}</span>
+                                  <span aria-hidden>·</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      irATarea(x.i);
+                                      setElegido(null);
+                                    }}
+                                    className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
+                                  >
+                                    {nadie ? "Hacer equipos" : "Ir a la tarea"}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                        </ul>
                       )}
-                    </Panel>
+                      </div>
+                    </details>
 
                     )}
 

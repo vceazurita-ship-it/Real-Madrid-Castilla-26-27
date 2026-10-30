@@ -292,6 +292,18 @@ function fechaLarga(raw: unknown) {
   return larga.charAt(0).toUpperCase() + larga.slice(1);
 }
 
+/* «Sáb 31 oct» (30/10/2026). */
+function fechaConDia(raw: unknown) {
+  const fecha = aFecha(raw);
+
+  if (!fecha) return "";
+
+  const dia = fecha.toLocaleDateString("es-ES", { weekday: "short" }).replace(/\.$/, "");
+  const resto = fecha.toLocaleDateString("es-ES", { day: "numeric", month: "short" }).replace(/\.$/, "");
+
+  return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${resto}`;
+}
+
 function fechaCorta(raw: unknown) {
   const fecha = aFecha(raw);
 
@@ -341,7 +353,8 @@ function aVinetas(valor: unknown, separarPorPuntoYComa = false) {
     : texto.split(/\r?\n+/);
 
   return partes
-    .map((linea) => linea.replace(/^[\s•\-–·]+/, "").replace(/^\d{1,2}[.)]\s+/, "").trim())
+    /* Fuera también la numeración de la hoja: «1.», «A.», «2.B.», «b)» (30/10/2026). */
+    .map((linea) => linea.replace(/^[\s•\-–·]+/, "").replace(/^(?:(?:\d{1,2}|[A-Za-z])[.)]){1,3}\s+/, "").trim())
     .filter(Boolean);
 }
 
@@ -375,6 +388,10 @@ const SIGLAS_PLAN: Record<string, string> = {
   CR: "Contraataque o transición",
   ABP: "Acciones a balón parado",
   PTO: "Portero",
+  /* 30/10/2026: también las abreviaturas que se escriben a mano. */
+  def: "defensiva",
+  Meso: "Mesociclo: el bloque de semanas de trabajo",
+  MdJ: "Día de partido (MD-1, un día antes; MD+1, un día después)",
 };
 
 /*
@@ -382,7 +399,7 @@ const SIGLAS_PLAN: Record<string, string> = {
  * conocida (y en Z1, Z2…: zonas del campo). No cambia ni una letra.
  */
 function ConSiglas({ texto }: { texto: string }) {
-  const partes = texto.split(/(?<![\p{L}\d])(CP|CR|ABP|PTO|Z\d)(?![\p{L}\d])/u);
+  const partes = texto.split(/(?<![\p{L}\d])(CP|CR|ABP|PTO|Z\d|def|Meso|MdJ)(?![\p{L}\d])/u);
 
   return (
     <>
@@ -390,7 +407,8 @@ function ConSiglas({ texto }: { texto: string }) {
         const significado = i % 2 === 1 ? (SIGLAS_PLAN[p] ?? (/^Z\d$/.test(p) ? `Zona ${p.slice(1)} del campo` : "")) : "";
 
         return significado ? (
-          <abbr key={i} title={significado} className="cursor-help no-underline decoration-dotted underline-offset-2 hover:underline">
+          /* Subrayado de puntos siempre a la vista: que se note que se explica (30/10/2026). */
+          <abbr key={i} title={significado} tabIndex={0} className="cursor-help underline decoration-white/40 decoration-dotted underline-offset-2">
             {p}
           </abbr>
         ) : (
@@ -2444,6 +2462,25 @@ export default function MatchPreparation() {
                           </span>
                         </h2>
                       )}
+
+                      {/* Fecha, campo y medidas en una línea (30/10/2026): las
+                          tres tarjetas empujaban «Lo esencial» fuera de la
+                          primera pantalla del móvil. Al editar vuelven. */}
+                      {!editando && (() => {
+                        const lado = String(rivalActivo.LOCAL_VISITANTE ?? "").trim().toLowerCase();
+                        const partes = [
+                          fechaConDia(fechaDe(rivalActivo)),
+                          lado.startsWith("l") ? "en casa" : lado.startsWith("v") ? "fuera" : "",
+                          String(rivalActivo.DIMENSIONES ?? "").replace(/\s*[xX×]\s*/, "×").trim(),
+                        ].filter(Boolean);
+
+                        return partes.length ? (
+                          <p className="mt-2 flex flex-wrap items-center gap-x-2 text-base font-semibold text-white/75">
+                            <CalendarDays size={15} className="shrink-0 text-white/40" />
+                            {partes.join(" · ")}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
 
                     {/* El avance del plan es del analista: sólo en edición. */}
@@ -2458,6 +2495,7 @@ export default function MatchPreparation() {
                     )}
                   </div>
 
+                  {editando && (
                   <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <DatoCabecera etiqueta="Fecha" icon={CalendarDays}>
                       {editando ? (
@@ -2521,6 +2559,7 @@ export default function MatchPreparation() {
                     </DatoCabecera>
                     )}
                   </div>
+                  )}
                 </div>
 
                 {!editando && (() => {
@@ -2536,7 +2575,9 @@ export default function MatchPreparation() {
                       </p>
                       <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm leading-6 text-white/85">
                         {claves.map((c) => (
-                          <li key={c}>{c}</li>
+                          <li key={c}>
+                            <ConSiglas texto={c} />
+                          </li>
                         ))}
                       </ol>
                     </div>
@@ -2710,7 +2751,7 @@ export default function MatchPreparation() {
                 {!editando && (
                   <details className="mp-no-print mt-4 text-[12px] text-white/55">
                     <summary className="cursor-pointer select-none text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
-                      Siglas
+                      Siglas (también al pasar el ratón o tocar cada una)
                     </summary>
                     <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2">
                       {Object.entries(SIGLAS_PLAN).map(([sigla, significado]) => (
@@ -2720,12 +2761,6 @@ export default function MatchPreparation() {
                       ))}
                       <li>
                         <b className="text-white/75">Z1, Z2…</b> · Zonas del campo
-                      </li>
-                      <li>
-                        <b className="text-white/75">Meso</b> · Mesociclo: el bloque de semanas de trabajo
-                      </li>
-                      <li>
-                        <b className="text-white/75">MdJ</b> · Día de partido (MD-1, un día antes; MD+1, un día después)
                       </li>
                     </ul>
                   </details>

@@ -183,7 +183,9 @@ function FilaCita({
   return (
     <div
       ref={setNodeRef}
-      className={`grid min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 transition lg:grid-cols-[auto_92px_minmax(0,1.5fr)_minmax(0,1fr)_104px_auto] ${
+      /* En el móvil, una tarjeta (30/10/2026): asa, hora y qué es en la primera
+         línea; detalle, tipo y botones debajo, a lo ancho. */
+      className={`grid min-w-0 grid-cols-[auto_84px_minmax(0,1fr)] items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 transition lg:grid-cols-[auto_92px_minmax(0,1.5fr)_minmax(0,1fr)_104px_auto] ${
         isDragging || arrastrando ? "opacity-30" : ""
       }`}
     >
@@ -229,7 +231,7 @@ function FilaCita({
         value={cita.nota ?? ""}
         onChange={(evento) => onCambia({ nota: evento.target.value })}
         placeholder="Detalle: Lavandería, ENTREGA…"
-        className="min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white/80 outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
+        className="col-span-full min-w-0 rounded-lg lg:col-span-1 border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-white/80 outline-none transition placeholder:text-white/25 focus:border-[#C8A96B]/50"
       />
 
       <select
@@ -237,7 +239,7 @@ function FilaCita({
         onChange={(evento) =>
           onCambia({ tipo: evento.target.value as TipoCita })
         }
-        className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50"
+        className="col-span-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-xs text-white outline-none transition focus:border-[#C8A96B]/50 lg:col-span-1"
       >
         {Object.entries(TIPO_CITA).map(([key, valor]) => (
           <option key={key} value={key} className="bg-[#11161C]">
@@ -246,7 +248,7 @@ function FilaCita({
         ))}
       </select>
 
-      <div className="flex flex-wrap items-center gap-1">
+      <div className="col-span-full flex flex-wrap items-center gap-1 lg:col-span-1">
         {/* Cambiar de día sin arrastrar: es como se edita desde el móvil. */}
         {dias.length > 1 && (
           <select
@@ -587,20 +589,24 @@ function TarjetaDia({
             </optgroup>
           </select>
 
-          <span className="ml-1 text-[10px] uppercase tracking-[0.16em] text-white/30">
-            Mover el día
-          </span>
+          {/* «Mover el día» en una tira que se desliza en el móvil (30/10/2026): partida en dos líneas se leía cortada. */}
+          <span className="flex min-w-0 max-w-full items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+            <span className="ml-1 shrink-0 text-[10px] uppercase tracking-[0.16em] text-white/30">
+              Mover el día
+            </span>
 
-          {[-60, -30, -15, 15, 30, 60].map((minutos) => (
-            <Button
-              key={minutos}
-              onClick={() => desplaza(minutos)}
-              disabled={citas.length === 0}
-              title={`Adelantar o retrasar las ${citas.length} citas de este día ${Math.abs(minutos)} minutos`}
-            >
-              {minutos > 0 ? `+${minutos}` : minutos}
-            </Button>
-          ))}
+            {[-60, -30, -15, 15, 30, 60].map((minutos) => (
+              <span key={minutos} className="shrink-0">
+                <Button
+                  onClick={() => desplaza(minutos)}
+                  disabled={citas.length === 0}
+                  title={`Adelantar o retrasar las ${citas.length} citas de este día ${Math.abs(minutos)} minutos`}
+                >
+                  {minutos > 0 ? `+${minutos}` : minutos}
+                </Button>
+              </span>
+            ))}
+          </span>
 
           <span className="mx-1 h-4 w-px bg-white/10" />
 

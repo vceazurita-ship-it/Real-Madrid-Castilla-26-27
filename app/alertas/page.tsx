@@ -34,8 +34,9 @@ export default function AlertasPage() {
             </p>
           </div>
 
-          {/* 29/10/2026: contenedor de consulta: sólo aquí la lista pasa a dos columnas; el botón flotante sigue en una. */}
-          <div className="@container max-w-5xl">
+          {/* 29/10/2026: contenedor de consulta: sólo aquí la lista pasa a dos columnas; el botón flotante sigue en una.
+              30/10/2026: hasta 7xl y tres columnas en pantalla ancha; con max-w-5xl quedaba un tercio vacío a 1440 px. */}
+          <div className="@container max-w-7xl">
             <GestorAlertas />
           </div>
         </div>

@@ -456,15 +456,17 @@ export function mideDuelo(
     const leido = veredictoDeCabecera(conBalon, sinBalon, veredicto);
     const y = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} y ${xs[xs.length - 1]}` : xs[0] ?? "");
 
-    /* En qué gana cada lado, contado desde ese lado: «con su balón» es el balón de quien se nombra. */
+    /* En qué gana cada lado, contado desde ese lado: «con su balón» es el balón de quien se nombra.
+       El verbo concuerda con el hueco (30/10/2026): «Rivas y Naasei ganan», no «gana». */
     const ganaDe = (nuestro: boolean) => {
       const v: Veredicto = nuestro ? "ventaja" : "desventaja";
+      const gana = verbo(nuestro ? nuestros : suyos, "gana");
       const conSuBalon = lista(nuestro ? con : sin, v);
       const sinBalonSuyo = lista(nuestro ? sin : con, v);
       const partes = [
-        conSuBalon.length ? `con su balón gana en ${y(conSuBalon)}` : "",
-        sinBalonSuyo.length ? `sin balón gana en ${y(sinBalonSuyo)}` : "",
-        aire && aire.veredicto === v ? "gana por arriba" : "",
+        conSuBalon.length ? `con su balón ${gana} en ${y(conSuBalon)}` : "",
+        sinBalonSuyo.length ? `sin balón ${gana} en ${y(sinBalonSuyo)}` : "",
+        aire && aire.veredicto === v ? `${gana} por arriba` : "",
       ].filter(Boolean);
       return { partes, todo: [...conSuBalon, ...sinBalonSuyo, ...(aire && aire.veredicto === v ? ["por arriba"] : [])] };
     };
@@ -472,7 +474,7 @@ export function mideDuelo(
     const deS = ganaDe(false);
     const talla =
       altura && CON_ALTURA.has(def.tipo) && Math.abs(altura.nuestra - altura.suya) >= 4
-        ? `${altura.nuestra > altura.suya ? quienN : quienS} saca ${Math.abs(altura.nuestra - altura.suya)} cm de media`
+        ? `${altura.nuestra > altura.suya ? quienN : quienS} ${verbo(altura.nuestra > altura.suya ? nuestros : suyos, "saca")} ${Math.abs(altura.nuestra - altura.suya)} cm de media`
         : "";
 
     if (leido === "ventaja" || leido === "desventaja") {
@@ -481,7 +483,9 @@ export function mideDuelo(
       const pierde = nuestro ? deS : deN;
       const partes = [
         gana.partes.join("; "),
-        pierde.todo.length ? `${nuestro ? quienS : quienN} sólo le gana en ${y(pierde.todo)}` : "",
+        pierde.todo.length
+          ? `${nuestro ? quienS : quienN} sólo ${(nuestro ? nuestros : suyos).length > 1 ? "les" : "le"} ${verbo(nuestro ? suyos : nuestros, "gana")} en ${y(pierde.todo)}`
+          : "",
         talla,
       ].filter(Boolean);
       const cabeza = `Ventaja para ${nuestro ? quienN : quienS}`;

@@ -783,7 +783,7 @@ export default function ScoutRivalAbpPage() {
                       <button
                         type="button"
                         onClick={() => setCambiandoEquipo(true)}
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3.5 py-2.5 text-left sm:hidden"
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3.5 py-2.5 text-left sm:max-w-md"
                       >
                         <span className="min-w-0 truncate text-sm font-semibold text-white">{equipo}</span>
                         <span className="flex shrink-0 items-center gap-1 text-[12px] text-[#C8A96B]">
@@ -792,7 +792,9 @@ export default function ScoutRivalAbpPage() {
                       </button>
                     )}
 
-                    <div className={equipo && !cambiandoEquipo ? "hidden sm:block" : undefined}>
+                    {/* Plegada también en escritorio (30/10/2026): diecinueve chips
+                        ocupaban media pantalla antes del primer dato. */}
+                    <div className={equipo && !cambiandoEquipo ? "hidden" : undefined}>
                       <TeamPicker
                         teams={equiposVisibles}
                         value={equipo}

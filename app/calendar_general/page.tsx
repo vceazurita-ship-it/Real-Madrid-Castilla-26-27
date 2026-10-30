@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/calendar-day-modal";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import {
+  MONTHS,
   SEASON_FIRST_DAY,
   SEASON_LAST_DAY,
   buildSeasonMonths,
@@ -119,6 +120,9 @@ const EMPTY_DOC: EventsDoc = { events: [] };
 
 const MAX_VISIBLE_PER_DAY = 3;
 
+/** Lo que se espera a una lectura antes de decir que no llega y ofrecer reintentar. */
+const TIEMPO_LIMITE_MS = 15_000;
+
 let idCounter = 0;
 function newEventId() {
   idCounter += 1;
@@ -133,6 +137,7 @@ export default function CalendarGeneralPage() {
     setValue,
     status,
     localOnly,
+    reload: recargaDoc,
   } = useRemoteDoc<EventsDoc>({
     key: "general-calendar:events",
     kind: "general-calendar",
@@ -198,26 +203,47 @@ export default function CalendarGeneralPage() {
     };
   }, []);
 
-  /* Partidos de BeSoccer y viajes ya montados: se leen, no se editan aquí. */
+  /*
+  | Partidos de BeSoccer y viajes ya montados: se leen, no se editan aquí.
+  |
+  | Con tiempo límite (30/10/2026): sin él, una /api/docs que no contestaba
+  | dejaba el mes sin partidos ni franja y sin decir nada. Cada intento lleva
+  | su número; «cargando» es que el último intento todavía no ha contestado
+  | (así no hay setState síncrono dentro del efecto).
+  */
+  const [intentoAuto, setIntentoAuto] = useState(0);
+  const [autoRespuesta, setAutoRespuesta] = useState<{ intento: number; ok: boolean } | null>(null);
+  const autoCargando = autoRespuesta?.intento !== intentoAuto;
+  const autoFallo = !autoCargando && autoRespuesta?.ok === false;
+
   useEffect(() => {
     let vivo = true;
+    const corte = new AbortController();
+    const reloj = setTimeout(() => corte.abort(), TIEMPO_LIMITE_MS);
 
-    const lee = async <T,>(key: string) => {
+    const lee = async <T,>(key: string): Promise<{ ok: boolean; data: T | null }> => {
       try {
-        const r = await fetch(`/api/docs?key=${encodeURIComponent(key)}`);
-        if (!r.ok) return null;
+        const r = await fetch(`/api/docs?key=${encodeURIComponent(key)}`, { signal: corte.signal });
+        if (!r.ok) return { ok: false, data: null };
         const body = (await r.json()) as { data?: T | null };
-        return body?.data ?? null;
+        return { ok: true, data: body?.data ?? null };
       } catch {
-        return null;
+        return { ok: false, data: null };
       }
     };
 
     void Promise.all([
       lee<{ partidos?: PartidoBesoccer[] }>(CALENDARIO_CASTILLA_KEY),
       lee<ViajeStore>("desplazamientos"),
-    ]).then(([calendario, viajes]) => {
+    ]).then(([leidoCalendario, leidoViajes]) => {
+      clearTimeout(reloj);
       if (!vivo) return;
+
+      const calendario = leidoCalendario.data;
+      const viajes = leidoViajes.data;
+
+      /* Lo que llegue se pinta; si falta una de las dos, se ofrece reintentar. */
+      setAutoRespuesta({ intento: intentoAuto, ok: leidoCalendario.ok && leidoViajes.ok });
 
       const lista: EventoAuto[] = [];
 
@@ -336,8 +362,28 @@ export default function CalendarGeneralPage() {
 
     return () => {
       vivo = false;
+      clearTimeout(reloj);
+      corte.abort();
     };
-  }, []);
+  }, [intentoAuto]);
+
+  /*
+  | Los eventos propios del staff (useRemoteDoc). Ya no tapan el mes mientras
+  | llegan (30/10/2026): la rejilla, los partidos y los viajes se pintan desde
+  | el principio y aquí sólo se avisa de lo que falta. A los 15 s, aviso con
+  | «Reintentar» en vez de un esqueleto eterno.
+  */
+  const [intentoDoc, setIntentoDoc] = useState(0);
+  const [docTardaEn, setDocTardaEn] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (status !== "loading") return;
+    const reloj = setTimeout(() => setDocTardaEn(intentoDoc), TIEMPO_LIMITE_MS);
+    return () => clearTimeout(reloj);
+  }, [status, intentoDoc]);
+
+  const docCargando = status === "loading" && docTardaEn !== intentoDoc;
+  const docTarda = status === "loading" && docTardaEn === intentoDoc;
 
   const autoByDay = useMemo(() => {
     const map = new Map<string, EventoAuto[]>();
@@ -412,6 +458,22 @@ export default function CalendarGeneralPage() {
 
     return { eventos, dias: diasConActividad.size, imagenes, pdfs };
   }, [eventsByDay, autoByDay, filesByDay, active]);
+
+  /* Mes en blanco con todo ya leído: se dice con una frase y se ofrece el mes del próximo partido. */
+  const mesVacio =
+    !autoCargando &&
+    !autoFallo &&
+    status !== "loading" &&
+    monthStats.eventos === 0 &&
+    monthStats.imagenes === 0 &&
+    monthStats.pdfs === 0;
+
+  const mesDelProximo = proximo
+    ? months.findIndex((m) => {
+        const d = parseDateKey(proximo.fecha);
+        return m.month === d.getMonth() && m.year === d.getFullYear();
+      })
+    : -1;
 
   /* La leyenda, sólo con los tipos que tienen algo en el mes que se mira. */
   const legend = useMemo(() => {
@@ -526,11 +588,11 @@ export default function CalendarGeneralPage() {
       months={months}
       monthIndex={currentMonth}
       onMonthChange={setCurrentMonth}
-      loading={status === "loading"}
       keyboardEnabled={!selectedKey}
       legend={legend}
       franja={
-        proximo ? (
+        <div className="space-y-2">
+        {proximo ? (
           <Link
             href={proximo.enCasa ? "/calendar" : "/desplazamiento"}
             className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] px-4 py-3 text-sm transition hover:border-[#C8A96B]/60"
@@ -549,7 +611,72 @@ export default function CalendarGeneralPage() {
               </span>
             ) : null}
           </Link>
-        ) : null
+        ) : autoCargando ? (
+          /* El hueco de la franja mientras llegan los partidos: la misma forma, sin texto suelto. */
+          <div
+            aria-label="Leyendo el próximo partido"
+            className="flex h-[46px] items-center gap-3 rounded-2xl border border-white/10 px-4"
+          >
+            <span className="h-2.5 w-24 animate-pulse rounded-full bg-white/10" />
+            <span className="h-3 w-52 max-w-[40%] animate-pulse rounded-full bg-white/10" />
+            <span className="h-3 w-20 animate-pulse rounded-full bg-white/[0.07]" />
+          </div>
+        ) : null}
+
+        {docCargando && (
+          <p className="flex items-center gap-2 text-xs text-white/55">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#C8A96B]" />
+            Leyendo los eventos del staff; partidos y viajes ya están en el mes.
+          </p>
+        )}
+
+        {(autoFallo || docTarda) && (
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-amber-400/30 bg-amber-400/5 px-4 py-3 text-sm text-amber-200/90">
+            <TriangleAlert size={16} className="shrink-0" />
+            <span className="min-w-0 flex-1">
+              {autoFallo && docTarda
+                ? "No han llegado ni los partidos y viajes ni los eventos del staff."
+                : autoFallo
+                  ? "No han llegado los partidos de BeSoccer ni los viajes guardados."
+                  : "Los eventos del staff están tardando más de la cuenta."}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (autoFallo) setIntentoAuto((n) => n + 1);
+                if (docTarda) {
+                  setIntentoDoc((n) => n + 1);
+                  recargaDoc();
+                }
+              }}
+              className="rounded-lg border border-amber-400/50 px-3 py-1.5 text-xs font-semibold transition hover:bg-amber-400/10"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {/* En el móvil la lista del mes ya dice que no hay nada: la frase sólo sale allí si trae el salto. */}
+        {mesVacio && (
+          <div className={cn(
+            "min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/70",
+            mesDelProximo !== -1 && mesDelProximo !== currentMonth ? "flex" : "hidden sm:flex"
+          )}>
+            <span className="min-w-0 flex-1">
+              Nada programado en {MONTHS[active.month].toLowerCase()}.
+            </span>
+            {mesDelProximo !== -1 && mesDelProximo !== currentMonth && (
+              <button
+                type="button"
+                onClick={() => setCurrentMonth(mesDelProximo)}
+                className="rounded-lg border border-[#C8A96B]/50 px-3 py-1.5 text-xs font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+              >
+                Ir a {MONTHS[months[mesDelProximo].month].toLowerCase()}, mes del próximo partido
+              </button>
+            )}
+          </div>
+        )}
+        </div>
       }
       stats={
         <>

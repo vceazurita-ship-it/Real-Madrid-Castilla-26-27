@@ -55,8 +55,17 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
   | tener que pasar el ratón, y debajo va la leyenda de V/E/D: sólo con la letra
   | y el marcador no se sabía de qué partido era cada uno.
   */
+  /*
+  | 30/10/2026: la tira lleva su rótulo («Partidos del rival», del más antiguo
+  | al último) y la letra sube a 12 px; la casilla se ensancha para que
+  | «Gimnàstic de Tarragona» o «Rayo Majadahonda» no se corten tan pronto, y el
+  | nombre entero sigue en el `title`.
+  */
   return (
     <div className="mb-6 min-w-0">
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/50">
+        Partidos de liga del rival · {jornadas.length}, del primero al último
+      </p>
       <ol
         aria-label={`Resultados de ${equipo} jornada a jornada`}
         className="flex min-w-0 gap-1.5 overflow-x-auto pb-1 scrollbar-none"
@@ -66,13 +75,13 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
             key={j.n}
             title={`J${j.n} · ${PALABRA[j.resultado]} ${j.marcador} ${j.enCasa ? "en casa" : "fuera"} contra ${j.rival}`}
             aria-label={`Jornada ${j.n}: ${PALABRA[j.resultado]} ${j.marcador} contra ${j.rival}`}
-            className="flex w-[4.75rem] shrink-0 flex-col items-center rounded-lg px-1.5 py-1 text-[11px] font-bold leading-tight"
+            className="flex w-[6.5rem] shrink-0 flex-col items-center rounded-lg px-1.5 py-1 text-[12px] font-bold leading-tight"
             style={{ background: `${COLOR[j.resultado]}26`, color: chipInk(COLOR[j.resultado]) }}
           >
-            <span className="text-[10px] font-medium opacity-70">
+            <span className="text-[11px] font-medium opacity-75">
               J{j.n} · {j.enCasa ? "casa" : "fuera"}
             </span>
-            <span className="w-full truncate text-center text-[10px] font-semibold">{j.rival}</span>
+            <span className="w-full truncate text-center text-[12px] font-semibold" title={j.rival}>{j.rival}</span>
             <span className="tabular-nums">
               {LETRA[j.resultado]} {j.marcador}
             </span>

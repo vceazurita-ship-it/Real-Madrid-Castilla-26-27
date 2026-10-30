@@ -148,7 +148,8 @@ export default function WeekNavigator({
               className="rounded-full bg-white/5 px-2 py-0.5 text-xs tabular-nums text-white/50"
               title={`${withFiles} ${withFiles === 1 ? "semana con material" : "semanas con material"}`}
             >
-              {withFiles}
+              {/* El número dice qué cuenta (30/10/2026): «4 con material», no un «4» suelto. */}
+              {withFiles} con material
             </span>
           )}
 

@@ -442,8 +442,11 @@ export default function PizarraTacticaPage() {
 
             <div
               className={cn(
-                "grid items-start gap-5",
-                !sinCromo && "xl:grid-cols-[260px_1fr]",
+                /* minmax(0, 1fr) y no «1fr» a secas (30/10/2026): la pista
+                   implícita crecía con la barra de herramientas y a 390 px la
+                   columna entera se iba unos 65 px a la derecha. */
+                "grid grid-cols-[minmax(0,1fr)] items-start gap-5",
+                !sinCromo && "xl:grid-cols-[260px_minmax(0,1fr)]",
               )}
             >
               {/* BIBLIOTECA */}
@@ -1046,7 +1049,7 @@ function BoardEditor({
                 onClick={() => {
                   setValue(prueba);
                   setPrueba(null);
-                  toast.success("Once guardado: Emotion y la pizarra de ABP ya lo usan");
+                  toast.success("Once guardado: la pantalla Emocional y la pizarra de balón parado ya lo usan");
                 }}
                 className="inline-flex items-center gap-1.5 rounded-full bg-[#C8A96B] px-3.5 py-1.5 text-[11px] font-bold text-[#0B0F14] transition hover:brightness-110"
               >
@@ -1067,10 +1070,10 @@ function BoardEditor({
             </span>
           </div>
         ) : (
-          <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[12px] sm:flex-row sm:items-center">
-            <span className="min-w-0 flex-1 text-white/65">
-              <b className="mr-1 font-semibold text-white/90">Este once es el de toda la app.</b>
-              Lo usan Emotion y la pizarra de ABP: lo que cambies aquí se guarda y les afecta.
+          /* Menos peso (30/10/2026): un pie, no un aviso; y los nombres que usa el cuerpo técnico. */
+          <div className="flex flex-col gap-2 px-1 text-[12px] sm:flex-row sm:items-center">
+            <span className="min-w-0 flex-1 text-white/55">
+              Este once lo usan también la pantalla Emocional y la pizarra de balón parado: lo que cambies aquí se guarda y les llega.
             </span>
             <button
               type="button"

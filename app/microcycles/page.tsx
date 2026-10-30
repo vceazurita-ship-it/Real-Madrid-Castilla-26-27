@@ -854,9 +854,29 @@ export default function Page() {
     };
   }, [intento]);
 
+  /*
+  | TIEMPO LÍMITE (30/10/2026): si la hoja no ha llegado en 15 s, el esqueleto
+  | deja paso a un aviso con «Reintentar». La descarga sigue viva por detrás:
+  | si llega después, se pinta sola. Se apunta en un temporizador, nunca en
+  | el render ni de forma síncrona en el efecto.
+  */
+  const [lenta, setLenta] = useState(false);
+
+  useEffect(() => {
+    if (!loading) return;
+
+    const id = setTimeout(() => setLenta(true), 15_000);
+
+    return () => clearTimeout(id);
+  }, [loading, intento]);
+
+  /* Sólo cuenta mientras se espera: al llegar la hoja deja de verse sola. */
+  const esperaLarga = loading && lenta;
+
   const reintentaHoja = () => {
     setLoading(true);
     setErrorHoja(null);
+    setLenta(false);
     setIntento((n) => n + 1);
   };
 
@@ -989,6 +1009,7 @@ export default function Page() {
         tareas: set.length,
         tiempo: sum(set.map((r) => r.tiempo)),
         eval: avg(evals),
+        valoradas: evals.length,
         load: sum(set.map((r) => r.carga)),
         cog: sum(set.map((r) => r.cargaCog)),
         intensidad: avg(set.map((r) => r.intensidad).filter((n) => n > 0)),
@@ -1027,6 +1048,9 @@ export default function Page() {
       tiempo: cur.tiempo - prev.tiempo,
     };
   }, [micro, microStats]);
+
+  /** «M18»: contra qué micro se comparan las tarjetas de indicadores. */
+  const frenteA = microDelta ? `M${etiquetaMicro(microDelta.prev.micro)}` : undefined;
 
   /* ---------------- MD distribution ---------------- */
 
@@ -1739,7 +1763,7 @@ export default function Page() {
               <div aria-hidden className="mb-6 -mx-4 sm:mx-0 px-4 sm:px-0">
                 <div className="flex gap-3 overflow-hidden pb-3">
                   {Array.from({ length: 6 }, (_, i) => (
-                    <div key={i} className={`h-[124px] shrink-0 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03] ${i ? "w-[190px]" : "w-[150px]"}`} />
+                    <div key={i} className={`h-[144px] shrink-0 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03] ${i ? "w-[190px]" : "w-[150px]"}`} />
                   ))}
                 </div>
               </div>
@@ -1792,6 +1816,7 @@ export default function Page() {
                             Micro {etiquetaMicro(m.micro)}
                           </p>
 
+                          {/* 30/10/2026: la insignia dice qué es («Val. 6,8») y sobre cuántas tareas. */}
                           {m.eval > 0 && (
                             <span
                               className="rounded-md px-1.5 py-0.5 text-[11px] font-bold"
@@ -1799,18 +1824,27 @@ export default function Page() {
                                 background: `${getEvalColor(m.eval)}22`,
                                 color: chipInk(getEvalColor(m.eval)),
                               }}
+                              title={`Valoración media ${fmt1(m.eval)} · ${m.valoradas} tarea${m.valoradas === 1 ? "" : "s"} valorada${m.valoradas === 1 ? "" : "s"}`}
                             >
-                              {fmt1(m.eval)}
+                              Val. {fmt1(m.eval)}
                             </span>
                           )}
                         </div>
 
-                        <p
-                          className="mt-1 truncate text-sm font-semibold"
-                          title={m.rival}
-                        >
-                          {m.rival || "—"}
-                        </p>
+                        {m.rival && (
+                          <p
+                            className="mt-1 truncate text-sm font-semibold"
+                            title={m.rival}
+                          >
+                            {m.rival}
+                          </p>
+                        )}
+
+                        {m.eval > 0 && (
+                          <p className="mt-1 text-[11px] text-white/45">
+                            Valoración media · {m.valoradas} tarea{m.valoradas === 1 ? "" : "s"} valorada{m.valoradas === 1 ? "" : "s"}
+                          </p>
+                        )}
 
                         <p className="mt-3 text-[11px] text-white/50">
                           {m.tareas} tarea{m.tareas === 1 ? "" : "s"} · {fmtMin(m.tiempo)}
@@ -2017,15 +2051,26 @@ export default function Page() {
                 </div>
               )}
 
-              {/* KPIs */}
+              {/* KPIs. Mientras llega la hoja, su silueta en vez de ceros (30/10/2026). */}
 
-              <div className="mt-7 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+              {loading && (
+                <div aria-hidden className="mt-7 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+                  {Array.from({ length: 6 }, (_, i) => (
+                    <div key={i} className="h-[112px] animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+                  ))}
+                </div>
+              )}
+
+              <div className={`mt-7 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4 ${loading ? "hidden" : ""}`}>
                 <StatCard
                   icon={ListChecks}
                   title="Tareas"
                   value={fmtInt(metrics.tasks)}
                   hint={`${metrics.sesiones} sesiones`}
                   delta={microDelta?.tareas}
+                  deltaTono="neutro"
+                  deltaQue="tareas"
+                  deltaFrente={frenteA}
                 />
 
                 <StatCard
@@ -2035,45 +2080,55 @@ export default function Page() {
                   hint={`${Math.round(avgTimePerTask)}' por tarea`}
                   delta={microDelta?.tiempo}
                   deltaSuffix="'"
+                  deltaTono="neutro"
+                  deltaFrente={frenteA}
                 />
 
-                <StatCard
-                  icon={Star}
-                  title="Evaluación media"
-                  value={metrics.eval ? fmtDec(metrics.eval) : "—"}
-                  hint={`${metrics.evaluadas} evaluadas`}
-                  accent={getEvalColor(metrics.eval)}
-                  delta={microDelta?.eval}
-                  decimals={1}
-                />
+                {/* 30/10/2026: sin valoraciones la tarjeta no se pinta (nada de «—»). */}
+                {metrics.eval > 0 && (
+                  <StatCard
+                    icon={Star}
+                    title="Valoración media"
+                    value={fmtDec(metrics.eval)}
+                    hint={`${metrics.evaluadas} tarea${metrics.evaluadas === 1 ? "" : "s"} valorada${metrics.evaluadas === 1 ? "" : "s"}`}
+                    accent={getEvalColor(metrics.eval)}
+                    delta={microDelta?.eval}
+                    decimals={1}
+                    deltaFrente={frenteA}
+                  />
+                )}
 
                 <StatCard
                   icon={Flame}
                   title="Carga física"
                   value={fmtInt(metrics.load)}
-                  hint={`${Math.round(avgLoadPerTask)} / tarea`}
+                  hint={`minutos × intensidad · ${Math.round(avgLoadPerTask)} por tarea`}
                   accent={COLORS.blue}
                   delta={microDelta?.loadPct}
                   deltaSuffix=" %"
                   decimals={1}
+                  deltaTono="neutro"
+                  deltaFrente={frenteA}
                 />
 
                 <StatCard
                   icon={Brain}
                   title="Carga cognitiva"
                   value={fmtInt(metrics.cog)}
-                  hint={`${Math.round(avgCogPerTask)} / tarea`}
+                  hint={`minutos × demanda cognitiva · ${Math.round(avgCogPerTask)} por tarea`}
                   accent={COLORS.purple}
                   delta={microDelta?.cogPct}
                   deltaSuffix=" %"
                   decimals={1}
+                  deltaTono="neutro"
+                  deltaFrente={frenteA}
                 />
 
                 <StatCard
                   icon={Gauge}
                   title="Cognitiva / física"
                   value={fmtDec(cogRatio, 2)}
-                  hint={`Intensidad media ${metrics.intensidad ? fmtDec(metrics.intensidad) : "sin valorar"}`}
+                  hint={`más de 1 = pesa más lo cognitivo${metrics.intensidad ? ` · intensidad media ${fmtDec(metrics.intensidad)}` : ""}`}
                   accent={COLORS.green}
                 />
               </div>
@@ -2103,7 +2158,16 @@ export default function Page() {
               })}
             </div>
 
-            {loading && (
+            {esperaLarga && (
+              <EstadoError
+                className="mt-8"
+                titulo="La hoja de microciclos está tardando más de lo normal"
+                error="Sigue cargando por detrás: si llega, se pinta sola. También puedes pedirla otra vez."
+                onReintentar={reintentaHoja}
+              />
+            )}
+
+            {loading && !esperaLarga && (
               <div className="mt-8 grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {[0, 1, 2, 3].map((i) => (
                   <div
@@ -4011,6 +4075,9 @@ function StatCard({
   delta,
   deltaSuffix = "",
   decimals = 0,
+  deltaTono = "valor",
+  deltaFrente,
+  deltaQue,
 }: {
   icon: LucideIcon;
   title: string;
@@ -4020,10 +4087,25 @@ function StatCard({
   delta?: number;
   deltaSuffix?: string;
   decimals?: number;
+  /** «valor»: subir es mejor (verde/rojo). «neutro»: sólo dice el sentido. */
+  deltaTono?: "valor" | "neutro";
+  /** Contra qué se compara, p. ej. «M18». */
+  deltaFrente?: string;
+  /** Qué cambia, p. ej. «tareas». */
+  deltaQue?: string;
 }) {
   const showDelta = typeof delta === "number" && delta !== 0;
 
   const DeltaIcon = !showDelta ? Minus : delta > 0 ? ArrowUp : ArrowDown;
+
+  /*
+  | 30/10/2026: la carga, las tareas y el tiempo que bajan NO son malos de por
+  | sí —la semana de partido o un MD-1 son más cortos a propósito—. Ahí la
+  | diferencia va en color neutro y con el sentido escrito («−40,4 % frente al
+  | M18»); sólo la valoración se pinta en verde o rojo, porque ahí subir sí es
+  | mejor.
+  */
+  const neutro = deltaTono === "neutro";
 
   return (
     <div className="group rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/25">
@@ -4045,10 +4127,20 @@ function StatCard({
         {value}
       </p>
 
-      <div className="mt-2.5 flex items-center gap-2">
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
         {hint && <span className="text-[11px] text-white/40">{hint}</span>}
 
-        {showDelta && (
+        {showDelta && neutro && (
+          <span className="text-[11px] text-white/55">
+            {delta > 0 ? "+" : "−"}
+            {fmtDec(Math.abs(delta), decimals)}
+            {deltaSuffix}
+            {deltaQue ? ` ${deltaQue}` : ""}
+            {deltaFrente ? ` frente al ${deltaFrente}` : ""}
+          </span>
+        )}
+
+        {showDelta && !neutro && (
           <span
             className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
               delta > 0
@@ -4059,6 +4151,7 @@ function StatCard({
             <DeltaIcon className="h-2.5 w-2.5" />
             {fmtDec(Math.abs(delta), decimals)}
             {deltaSuffix}
+            {deltaFrente ? ` frente al ${deltaFrente}` : ""}
           </span>
         )}
       </div>

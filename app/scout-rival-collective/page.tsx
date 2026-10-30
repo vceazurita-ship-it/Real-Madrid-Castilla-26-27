@@ -11,6 +11,7 @@ import { guardaEnLaHoja, leeRivales } from "@/lib/hojaRivales";
 import { traeJson } from "@/lib/hojaCsv";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { conTildes } from "@/lib/rivals/tildes";
+import { sinErratas } from "@/lib/rivals/erratas";
 import { completaNombres } from "@/lib/rivals/completa-nombres";
 import { comoNombre } from "@/lib/duelos-onces";
 import { formatea } from "@/lib/data-analisis/metricas";
@@ -114,6 +115,21 @@ function formatDate(value?: string, sinAnio = false) {
         .replace(/\.$/, "");
 }
 
+/* La fecha con su día de la semana: «sáb 31 oct» (30/10/2026). */
+function fechaConDia(value?: string) {
+  if (!value) return "";
+
+  const conZona = /T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/.test(value);
+  const clave = conZona ? "" : claveFecha(value);
+  const date = clave ? new Date(`${clave}T12:00:00`) : new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const dia = date.toLocaleDateString("es-ES", { weekday: "short" }).replace(/\.$/, "");
+
+  return `${dia} ${formatDate(value, true)}`;
+}
+
 /* Un campo con sólo «-», «—», «–» o «.» es un hueco que dejó el analista, no un dato (29/10/2026). */
 function esVacio(texto: string) {
   return /^[\s\-—–.]*$/.test(texto);
@@ -140,6 +156,57 @@ const SIGLAS: { sigla: string; patron: RegExp; significado: string }[] = [
   { sigla: "PTO", patron: /(?<![\p{L}\d])PTO(?![\p{L}\d])/u, significado: "portero" },
   { sigla: "Intervalo", patron: /(?<![\p{L}\d])intervalos?(?![\p{L}\d])/iu, significado: "distancia entre líneas (o entre dos jugadores de la misma línea)" },
   { sigla: "ABP", patron: /(?<![\p{L}\d])ABPs?(?![\p{L}\d])/u, significado: "balón parado" },
+];
+
+/*
+| Las siglas, explicadas donde se leen (30/10/2026): cada una lleva su
+| significado al pasar el ratón o al tocarla, en vez de mandar a buscarlo al
+| glosario del pie. Se buscan todas a la vez con un solo patrón.
+*/
+const PATRON_SIGLAS = new RegExp(SIGLAS.map((s) => `(?:${s.patron.source})`).join("|"), "gu");
+
+function conSiglas(texto: string): React.ReactNode[] {
+  const trozos: React.ReactNode[] = [];
+  let desde = 0;
+
+  for (const m of texto.matchAll(PATRON_SIGLAS)) {
+    const sigla = SIGLAS.find((s) => new RegExp(`^(?:${s.patron.source})$`, s.patron.flags).test(m[0]));
+
+    if (!sigla || m.index === undefined) continue;
+
+    if (m.index > desde) trozos.push(texto.slice(desde, m.index));
+
+    trozos.push(
+      <abbr
+        key={`${m.index}-${m[0]}`}
+        title={sigla.significado}
+        tabIndex={0}
+        className="cursor-help underline decoration-dotted decoration-white/40 underline-offset-2"
+      >
+        {m[0]}
+      </abbr>,
+    );
+
+    desde = m.index + m[0].length;
+  }
+
+  if (desde < texto.length) trozos.push(texto.slice(desde));
+
+  return trozos;
+}
+
+/*
+| «Dónde hacerles daño» (30/10/2026): la primera línea de los campos en los
+| que el analista ya ha escrito sus puntos débiles. Si están vacíos, el
+| bloque no sale.
+*/
+const CAMPOS_DANO: { campo: string; rotulo: string }[] = [
+  { campo: "DEF_BLOQUE_MEDIO_ESPALDA", rotulo: "Su espalda en bloque medio" },
+  { campo: "DEF_BLOQUE_ALTO_ESPALDA", rotulo: "Su espalda en bloque alto" },
+  { campo: "DEF_REINICIO_JUGADORES_DEBILES", rotulo: "Débil en su presión" },
+  { campo: "DEF_REINICIO_ACTIVOS_PRESION", rotulo: "Quién activa su presión" },
+  { campo: "DEF_AREA_JUGADOR_DEBIL", rotulo: "Débil en su área" },
+  { campo: "TRANSICION_DEF_DIFICULTADES_ESPALDA", rotulo: "Tras pérdida, a su espalda" },
 ];
 
 type FilaEstilo = {
@@ -225,6 +292,20 @@ export default function ScoutRivalCollective() {
   const [rivales, setRivales] = useState<Rival[]>([]);
   const [rivalActivo, setRivalActivo] = useState<Rival | null>(null);
   const fechaVista = fechasReales[`${rivalActivo?.EQUIPO}|${rivalActivo?.JORNADA}`] ?? rivalActivo?.FECHA;
+
+  /* «J10 · sáb 31 oct · en casa» (30/10/2026). */
+  const lineaPartido = (() => {
+    const jornada = String(rivalActivo?.JORNADA ?? "").trim();
+    const lado = String(rivalActivo?.LOCAL_VISITANTE ?? "").trim().toLowerCase();
+
+    return [
+      jornada ? (/^\d+$/.test(jornada) ? `J${jornada}` : jornada) : "",
+      fechaConDia(fechaVista),
+      lado.startsWith("l") ? "en casa" : lado.startsWith("v") ? "fuera" : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  })();
 
   const [modoEdicion, setModoEdicion] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -324,8 +405,9 @@ export default function ScoutRivalCollective() {
     setIntento((n) => n + 1);
   }, []);
 
-  /* A los 25 s sin respuesta se avisa y se deja reintentar (24/10/2026). */
-  const lento = useLento(cargando);
+  /* Sin respuesta se avisa y se deja reintentar (24/10/2026; a los 8 s desde el 30/10/2026). */
+  /* 8 s (30/10/2026): pasado ese rato se dice y se deja reintentar. */
+  const lento = useLento(cargando, 8_000);
 
   /*
   | Contexto del rival (24/10/2026): los nombres de su plantilla, para completar
@@ -522,6 +604,19 @@ export default function ScoutRivalCollective() {
   const conclusionesVisibles = CONCLUSIONES.filter(
     (f) => modoEdicion || (!YA_EN_EL_PLAN.includes(f.campo) && !esVacio(restoConclusion(f.campo))),
   );
+
+  /* Hasta tres puntos donde hacerles daño, cada uno de un campo distinto. */
+  const dano = CAMPOS_DANO.map(({ campo, rotulo }) => ({
+    campo,
+    rotulo,
+    texto:
+      valorDe(campo)
+        .split(/\r?\n/)
+        .map(limpiaLinea)
+        .find((l) => !esVacio(l)) ?? "",
+  }))
+    .filter((d) => d.texto)
+    .slice(0, 3);
 
   /* Las siglas que aparecen en lo que ha escrito el analista. */
   const siglasUsadas = (() => {
@@ -950,12 +1045,12 @@ export default function ScoutRivalCollective() {
                   </span>
                 )}
 
-                {/* El dibujo que se nombra en el texto es el que el analista
-                    ha visto en vídeo; el más repetido según Wyscout sale en
-                    Plantillas. */}
-                {rivalActivo && !modoEdicion && (
-                  <span className="text-white/35">
-                    Dibujos y estructuras: lo que ha visto el analista en vídeo (el dibujo habitual, el más repetido en sus alineaciones, está en el campograma de Plantillas)
+                {/* 30/10/2026: fuera la explicación interna de dónde sale el
+                    dibujo; en su sitio, el partido en una línea. */}
+                {rivalActivo && !modoEdicion && lineaPartido && (
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-white/75">
+                    <CalendarDays size={14} className="shrink-0 text-white/40" />
+                    {lineaPartido}
                   </span>
                 )}
               </div>
@@ -1068,11 +1163,11 @@ export default function ScoutRivalCollective() {
                     <li key={g.titulo} className="min-w-0">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">{g.titulo}</p>
                       {g.textos.length === 1 ? (
-                        <p className="mt-0.5 text-sm leading-6 text-white/85">{g.textos[0]}</p>
+                        <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinErratas(g.textos[0]))}</p>
                       ) : (
                         <ol className="mt-0.5 list-decimal space-y-1 pl-5 text-sm leading-6 text-white/85">
                           {g.textos.map((t) => (
-                            <li key={t}>{t}</li>
+                            <li key={t}>{conSiglas(sinErratas(t))}</li>
                           ))}
                         </ol>
                       )}
@@ -1097,6 +1192,21 @@ export default function ScoutRivalCollective() {
                 Fuente: las conclusiones que ha escrito el analista tras ver los partidos del rival
                 {conclusionesVisibles.length > 0 ? "; el resto está abajo, en «Conclusiones»" : ""}.
               </p>
+            </section>
+          )}
+
+          {!modoEdicion && rivalActivo && dano.length > 0 && (
+            <section aria-label="Dónde hacerles daño" className="mb-6 rounded-2xl border border-emerald-400/25 bg-emerald-400/[0.05] px-5 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-300">Dónde hacerles daño</p>
+              <ul className="mt-2 grid gap-3 md:grid-cols-3">
+                {dano.map((d) => (
+                  <li key={d.campo} className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">{d.rotulo}</p>
+                    <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinErratas(completaNombres(d.texto, nombresRival)))}</p>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] text-white/45">Fuente: lo que ha escrito el analista de su fase defensiva.</p>
             </section>
           )}
 
@@ -1157,25 +1267,10 @@ export default function ScoutRivalCollective() {
               </button>
             </div>
 
-            {/* En el móvil, en lectura, los tres datos en una línea: «J10 · 01 nov · Local» (29/10/2026). */}
-            {!modoEdicion && (() => {
-              const jornada = String(rivalActivo?.JORNADA ?? "").trim();
-              const lado = String(rivalActivo?.LOCAL_VISITANTE ?? "").trim();
-              const partes = [
-                jornada ? (/^\d+$/.test(jornada) ? `J${jornada}` : jornada) : "",
-                formatDate(fechaVista, true),
-                lado ? lado.charAt(0).toUpperCase() + lado.slice(1).toLowerCase() : "",
-              ].filter(Boolean);
-
-              return partes.length > 0 ? (
-                <p className="flex items-center gap-2 rounded-2xl border border-white/5 bg-[#111827] px-4 py-3 text-base font-bold sm:hidden">
-                  <CalendarDays size={14} className="shrink-0 text-white/40" />
-                  {partes.join(" · ")}
-                </p>
-              ) : null;
-            })()}
-
-            <div className={`grid-cols-1 gap-4 sm:grid-cols-3 ${modoEdicion ? "grid" : "hidden sm:grid"}`}>
+            {/* 30/10/2026: en lectura, jornada, fecha y campo van en una línea
+                bajo el nombre del rival («J10 · sáb 31 oct · en casa»); las
+                tres tarjetas sólo salen al editar. */}
+            <div className={`grid-cols-1 gap-4 sm:grid-cols-3 ${modoEdicion ? "grid" : "hidden"}`}>
               <DatoClave
                 icon={CalendarDays}
                 label="Jornada"
@@ -1353,8 +1448,8 @@ export default function ScoutRivalCollective() {
 
           {/* Las siglas del texto del analista, sólo las que salen (29/10/2026). */}
           {!modoEdicion && siglasUsadas.length > 0 && (
-            <details open data-export-hide className="mt-10 rounded-2xl border border-white/10 bg-[#111827] px-5 py-3 text-sm text-white/70">
-              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Siglas</summary>
+            <details data-export-hide className="mt-10 rounded-2xl border border-white/10 bg-[#111827] px-5 py-3 text-sm text-white/70">
+              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Todas las siglas (también al pasar el ratón por cada una)</summary>
               <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
                 {siglasUsadas.map((s) => (
                   <div key={s.sigla} className="flex gap-2">
@@ -1475,7 +1570,7 @@ function Campo({
         />
       ) : (
         <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
-          {completaNombres(contenido, nombres)}
+          {conSiglas(sinErratas(completaNombres(contenido, nombres)))}
         </p>
       )}
     </div>

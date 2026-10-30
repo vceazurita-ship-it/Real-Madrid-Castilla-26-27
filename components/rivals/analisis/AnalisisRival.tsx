@@ -99,6 +99,25 @@ function guardaLocal(clave: string, valor: string) {
 const boton =
   "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40";
 
+/*
+| El título de una lámina en la consulta (30/10/2026): sin el rastro del
+| archivo del que salió. «J10 INFORME CENTROS LATERALES copia» se lee
+| «Centros laterales»: la jornada ya está en el botón de arriba, y «informe»
+| y «copia» son del analista, no del cuerpo técnico. Al editar se ve tal cual.
+*/
+function tituloDeLectura(titulo: string) {
+  const limpio = String(titulo ?? "")
+    .replace(/\s*\(?\bcopia\b\)?\s*$/i, "")
+    .replace(/^\s*J\s*\d+\b[\s·:-]*/i, "")
+    .replace(/^\s*informe\b[\s·:-]*/i, "")
+    .trim();
+
+  if (!limpio) return "";
+
+  /* Lo que llega en mayúsculas se pasa a frase; lo escrito a mano se respeta. */
+  return limpio === limpio.toUpperCase() ? limpio.charAt(0) + limpio.slice(1).toLowerCase() : limpio;
+}
+
 export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
   const secciones = seccionesDe(ambito);
 
@@ -1037,18 +1056,18 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
                       onClick={() => {
                         setLaminaElegida(una.id);
                       }}
-                      onDoubleClick={() => empiezaRenombrar(una)}
+                      onDoubleClick={() => edita && empiezaRenombrar(una)}
                       className={`group/lamina flex max-w-[300px] items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
                         una.id === lamina?.id
                           ? "bg-[#C8A96B] text-black"
                           : "bg-white/[0.06] text-white/70 hover:bg-white/10"
                       }`}
-                      title={`${una.titulo} · doble clic para renombrar`}
+                      title={edita ? `${una.titulo} · doble clic para renombrar` : tituloDeLectura(una.titulo)}
                     >
                       <span className="truncate">
-                        {i + 1}. {una.titulo || "Sin título"}
+                        {i + 1}. {edita ? una.titulo || "Sin título" : tituloDeLectura(una.titulo) || SECCION_POR_ID.get(una.seccion)?.titulo}
                       </span>
-                      {una.id === lamina?.id && (
+                      {edita && una.id === lamina?.id && (
                         <span
                           role="button"
                           tabIndex={0}

@@ -25,6 +25,30 @@ import {
   type PartidoParaAlerta,
 } from "@/lib/alertas/modelo";
 import { STAFF } from "@/lib/quiniela/staff";
+import { comoNuestro, type PartidoCastilla } from "@/lib/castilla/calendario";
+
+/*
+| Para qué partido sale el aviso (30/10/2026): «vie 6 nov» a secas no decía
+| de qué partido era. Los partidos son los del calendario de BeSoccer, que
+| traen local y visitante; se busca el que cae `dias` después del aviso.
+*/
+function partidoDelAviso(partidos: PartidoParaAlerta[], aviso: Date, dias: number) {
+  const dia = new Date(aviso.getTime());
+
+  dia.setDate(dia.getDate() + dias);
+
+  const clave = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, "0")}-${String(dia.getDate()).padStart(2, "0")}`;
+  const partido = partidos.find((p) => String(p.cuando).slice(0, 10) === clave) as (PartidoParaAlerta & Partial<PartidoCastilla>) | undefined;
+
+  if (!partido || !partido.local || !partido.visitante) return "";
+
+  const fecha = new Date(partido.cuando);
+  const cuando = Number.isNaN(fecha.getTime())
+    ? ""
+    : fecha.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "");
+
+  return `vs ${comoNuestro(partido as PartidoCastilla).rival}${cuando ? `, ${cuando}` : ""}`;
+}
 
 /** ¿Lleva una fecha de verdad? Vacía o ilegible, la alerta no suena. */
 function fechaValida(iso: string | null | undefined) {
@@ -268,15 +292,19 @@ export default function ListaAlertas({
 
                       /* La fecha, en negrita y una sola vez: el «N días antes del
                          partido» ya lo dice la etiqueta de repetición. */
-                      if (saldria)
+                      if (saldria) {
+                        const para = partidoDelAviso(partidos, saldria.cuando, saldria.dias);
+
                         return (
                           <>
                             Saldría el{" "}
                             <b className="font-semibold text-white/80">
                               {fechaLegible(saldria.cuando.toISOString())}
                             </b>
+                            {para && <> · {para}</>}
                           </>
                         );
+                      }
 
                       if (futura)
                         return (
@@ -298,7 +326,15 @@ export default function ListaAlertas({
                   : fechaValida(alerta.proximoEnvio)
                     ? ahora > 0 && new Date(alerta.proximoEnvio).getTime() < ahora
                       ? <b className="font-semibold text-red-300">Debería haber salido: {fechaLegible(alerta.proximoEnvio)}</b>
-                      : <b className="font-semibold text-white/80">{fechaLegible(alerta.proximoEnvio)}</b>
+                      : (
+                          <>
+                            <b className="font-semibold text-white/80">{fechaLegible(alerta.proximoEnvio)}</b>
+                            {alerta.repeticion === "partido" &&
+                              partidoDelAviso(partidos, new Date(alerta.proximoEnvio), Math.max(0, Math.round(alerta.diasAntesDelPartido ?? 2))) && (
+                                <> · {partidoDelAviso(partidos, new Date(alerta.proximoEnvio), Math.max(0, Math.round(alerta.diasAntesDelPartido ?? 2)))}</>
+                              )}
+                          </>
+                        )
                     : /* Antes salía una raya: una activa sin fecha no suena, y eso hay que decirlo.
                          La que va atada al partido no se arregla editándola: se queda sin
                          fecha cuando el calendario no tiene partido por delante, y la
@@ -393,7 +429,19 @@ export default function ListaAlertas({
                 Editar
               </button>
 
-              {/* 29/10/2026: «Reactivar» ya está en la campana de la tarjeta y en «Reactivar todas»; aquí no se repite. */}
+              {/* 30/10/2026: la silenciada lleva su «Reactivar» con texto; la campana sola no se entendía. */}
+              {!alerta.activa && (
+                <button
+                  type="button"
+                  onClick={() => onAlternarActiva(alerta)}
+                  disabled={bloqueada}
+                  className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 disabled:opacity-40 sm:px-3"
+                >
+                  <BellRing className="h-3.5 w-3.5" aria-hidden />
+                  Reactivar
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => onEnviarAhora(alerta)}
@@ -422,32 +470,37 @@ export default function ListaAlertas({
   };
 
   return (
-    <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0">
+    <div className="space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
       {vivas.map((alerta) => pinta(alerta))}
 
       {/* Las silenciadas no suenan: se apartan para que la lista diga lo que
           sí va a salir. */}
       {silenciadas.length > 0 && (
-        <details className="group pt-1 @3xl:col-span-2" open={vivas.length === 0}>
+        <details className="group pt-1 @3xl:col-span-2 @5xl:col-span-3" open={vivas.length === 0}>
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-xs text-white/50 transition hover:text-white">
             Silenciadas ({silenciadas.length})
           </summary>
 
-          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0">
+          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
             {silenciadas.map((alerta) => pinta(alerta))}
           </div>
         </details>
       )}
 
       {caducadas.length > 0 && (
-        <details className="group pt-1 @3xl:col-span-2">
+        <details className="group pt-1 @3xl:col-span-2 @5xl:col-span-3">
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-xs text-white/50 transition hover:text-white">
-            Caducadas ({caducadas.length}) · no volverían a salir aunque se reactiven
+            Caducadas ({caducadas.length})
           </summary>
 
-          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0">
+          <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @3xl:items-start @3xl:gap-2.5 @3xl:space-y-0 @5xl:grid-cols-3">
             {caducadas.map((alerta) => pinta(alerta))}
           </div>
+
+          {/* El porqué, al pie de la lista abierta: en el título cerrado parecía un error (30/10/2026). */}
+          <p className="mt-2 px-2 text-xs text-white/50">
+            {caducadas.length === 1 ? "Ésta no volvería a salir aunque se reactive" : "Éstas no volverían a salir aunque se reactiven"}: no queda una fecha por delante en la que avisar.
+          </p>
         </details>
       )}
     </div>

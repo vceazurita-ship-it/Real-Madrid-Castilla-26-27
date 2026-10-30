@@ -168,6 +168,9 @@ type TamanoKey = (typeof TAMANOS)[number]["key"];
 const SIN_LISTA = "-";
 
 const CLAVE_TAMANO = "rmcf-videos-tamano";
+
+/** Lo más que se espera al canal o a una lista antes de ofrecer «Volver a probar» (30/10/2026). */
+const ESPERA_MAXIMA_MS = 8_000;
 const CLAVE_AGRUPADO = "rmcf-videos-agrupado";
 
 const esTamano = (valor: unknown): valor is TamanoKey =>
@@ -334,6 +337,17 @@ export function VideosDelCanal({
   useEffect(() => {
     const control = new AbortController();
 
+    /*
+    | Tiempo máximo (30/10/2026): si el canal no contesta en 8 s se corta la
+    | petición y se pasa a «no se ha podido leer», con su «Volver a probar».
+    | Antes el «Preguntando al canal…» podía quedarse girando sin fin.
+    */
+    let vencido = false;
+    const reloj = window.setTimeout(() => {
+      vencido = true;
+      control.abort();
+    }, ESPERA_MAXIMA_MS);
+
     /* El estado se toca **después** del `await`: cambiarlo en el cuerpo del
        efecto es un render en cascada y el linter de React lo prohíbe. */
     void (async () => {
@@ -341,6 +355,8 @@ export function VideosDelCanal({
         const datos = await fetch("/api/youtube/videos", {
           signal: control.signal,
         }).then((r) => r.json());
+
+        window.clearTimeout(reloj);
 
         if (control.signal.aborted) return;
 
@@ -359,6 +375,18 @@ export function VideosDelCanal({
           listas: (datos.listas ?? []) as ListaCanal[],
         });
       } catch (error) {
+        window.clearTimeout(reloj);
+
+        if (vencido) {
+          setEstado({
+            fase: "sin-conectar",
+            aviso: "El canal de YouTube tarda demasiado en contestar.",
+            caido: true,
+          });
+
+          return;
+        }
+
         if (control.signal.aborted) return;
 
         console.error("[VideosDelCanal] canal", error);
@@ -373,7 +401,10 @@ export function VideosDelCanal({
       }
     })();
 
-    return () => control.abort();
+    return () => {
+      window.clearTimeout(reloj);
+      control.abort();
+    };
   }, [intento]);
 
   /* ------------------------- QUÉ LISTA ES ------------------------ */
@@ -427,6 +458,14 @@ export function VideosDelCanal({
 
     const control = new AbortController();
 
+    /* El mismo tiempo máximo que el canal (30/10/2026): al vencer, «No se
+       han podido traer los vídeos» con su «Volver a probar». */
+    let vencido = false;
+    const reloj = window.setTimeout(() => {
+      vencido = true;
+      control.abort();
+    }, ESPERA_MAXIMA_MS);
+
     void (async () => {
       try {
         const respuesta = await fetch(
@@ -436,7 +475,9 @@ export function VideosDelCanal({
 
         const datos = await respuesta.json().catch(() => null);
 
-        if (control.signal.aborted) return;
+        window.clearTimeout(reloj);
+
+        if (control.signal.aborted && !vencido) return;
 
         /* Un fallo no es una lista vacía: antes se decía «no tiene vídeos»
            cuando lo que había fallado era la conexión (19/10/2026). */
@@ -447,7 +488,9 @@ export function VideosDelCanal({
 
         setTraidos({ listaId, videos: datos.videos as Video[] });
       } catch (error) {
-        if (control.signal.aborted) return;
+        window.clearTimeout(reloj);
+
+        if (control.signal.aborted && !vencido) return;
 
         console.error("[VideosDelCanal] vídeos", error);
 
@@ -455,7 +498,10 @@ export function VideosDelCanal({
       }
     })();
 
-    return () => control.abort();
+    return () => {
+      window.clearTimeout(reloj);
+      control.abort();
+    };
   }, [listaId, intentoVideos]);
 
   const falloVideos = Boolean(listaId) && traidos.listaId === listaId && Boolean(traidos.fallo);
@@ -781,10 +827,11 @@ export function VideosDelCanal({
       </div>
 
       {!lista && (
-        <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center text-xs leading-relaxed text-white/40">
-          Ninguna lista del canal se parece a «{equipo}». Elígela arriba y queda
-          recordada: la próxima vez se abre sola, también para el resto del
-          cuerpo técnico.
+        /* Sin lista no se deja una caja vacía (30/10/2026): una línea bajo
+           el selector y nada más. */
+        <p className="mt-2 px-1 text-[12px] leading-relaxed text-white/50">
+          Este rival aún no tiene lista en el canal. Si la tiene con otro nombre,
+          elígela arriba y queda recordada para todo el cuerpo técnico.
         </p>
       )}
 

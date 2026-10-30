@@ -317,29 +317,27 @@ export function alertasDeData(
     }
 
     if (mejor) {
+      /*
+      | Titular y base, sin repetir la cifra (30/10/2026): «Jorge Cestero ·
+      | acierto en el pase corto 97,3 %» y debajo «percentil 97 entre 120
+      | jugadores de su puesto · 709′ · Wyscout». Fuera el vago «está entre
+      | los mejores de su puesto».
+      */
+      const v = formatea(mejor.valor, mejor.unidad as never);
+      /* «Acierto en corto % 97,6 %» llevaba el símbolo dos veces. */
+      const nombreMetrica = v.includes("%") ? mejor.nombre.replace(/\s*%\s*$/, "") : mejor.nombre;
+
       alertas.push({
         clave: `jugador-bien-${jugador.jugador}`,
         tono: "buena",
         area: "Data · jugador a jugador",
-        titulo: `${jugador.jugador} está entre los mejores de su puesto`,
-        detalle: `${mejor.nombre} en el percentil ${mejor.percentil} de los ${iguales.length} de su puesto en la categoría. Con ${jugador.minutos}′ jugados no es una casualidad de un rato.`,
-        cifra: (() => {
-          const v = formatea(mejor.valor, mejor.unidad as never);
-
-          /* «Acierto en corto % 97,6 %» llevaba el símbolo dos veces. */
-          const nombre = v.includes("%") ? mejor.nombre.replace(/\s*%\s*$/, "") : mejor.nombre;
-
-          return `${nombre} ${v} · entre ${iguales.length} jugadores de su puesto`;
-        })(),
+        titulo: `${jugador.jugador} · ${nombreMetrica.charAt(0).toLowerCase()}${nombreMetrica.slice(1)} ${v}`,
+        detalle: `Con ${jugador.minutos}′ jugados no es una casualidad de un rato.`,
+        cifra: `percentil ${mejor.percentil} entre ${iguales.length} jugadores de su puesto · ${jugador.minutos}′ · Wyscout`,
         fuerza: Math.min(100, (mejor.percentil - 50) * 2),
         enlace: "/data-analisis?area=individual",
         /* Una acción concreta y no el pie genérico (29/10/2026, fútbol). */
-        mira: (() => {
-          const v = formatea(mejor.valor, mejor.unidad as never);
-          const nombre = v.includes("%") ? mejor.nombre.replace(/\s*%\s*$/, "") : mejor.nombre;
-
-          return `${jugador.jugador}: ${nombre.toLowerCase()} ${v} → ver su ficha en Data análisis`;
-        })(),
+        mira: `Ver la ficha de ${jugador.jugador} en Data análisis`,
       });
     }
 

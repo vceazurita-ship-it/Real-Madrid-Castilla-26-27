@@ -198,7 +198,7 @@ export default function AnalisisEntrenamientoPage() {
     [players],
   );
 
-  const { value, setValue, status, localOnly, lastSavedAt, sinGuardar, guardaYa } = useRemoteDoc<SesionEntreno>({ key: claveSesion(fecha), kind: KIND_ENTRENO, fallback: SESION_VACIA });
+  const { value, setValue, status, localOnly, lastSavedAt, sinGuardar, guardaYa, reload: recargaSesion } = useRemoteDoc<SesionEntreno>({ key: claveSesion(fecha), kind: KIND_ENTRENO, fallback: SESION_VACIA });
   const sesion = useMemo(() => normalizaSesion(value), [value]);
   /* Mientras llega el documento del día, useRemoteDoc no guarda lo que se escriba (la carga lo pisaría): se dice en vez de perderlo callando. */
   const bloqueado = status === "loading";
@@ -434,6 +434,11 @@ export default function AnalisisEntrenamientoPage() {
   const plantillaCastilla = useMemo(() => players.filter((p) => p.esCastilla && p.activo !== false).map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo })), [players]);
 
   const anteriorConObjetivos = ultimoDiaConObjetivos(dias, fecha);
+
+  /* El último día anterior con análisis: el resumen de un día vacío ofrece abrirlo (30/10/2026). */
+  const ultimoAnalizado = dias
+    .filter((d) => d.fecha < fecha && d.analisis)
+    .reduce<string | null>((a, d) => (!a || d.fecha > a ? d.fecha : a), null);
 
   /* ---------------- acciones ---------------- */
 
@@ -734,7 +739,7 @@ export default function AnalisisEntrenamientoPage() {
 
             {pestana === "jugador" ? (
               historial === null ? (
-                <Cargando texto="Leyendo las sesiones guardadas…" />
+                <Cargando key="historial" texto="Leyendo las sesiones guardadas" onReintentar={() => setTestigoHistorial((n) => n + 1)} />
               ) : (
                 <div className="space-y-4">
                   {historial.error ? (
@@ -759,7 +764,7 @@ export default function AnalisisEntrenamientoPage() {
               )
             ) : pestana === "revisar" ? (
               cargando ? (
-                <Cargando texto="Leyendo el análisis del día…" />
+                <Cargando key={`revisar-${fecha}-${testigo}`} texto="Leyendo el análisis del día" onReintentar={relee} />
               ) : analisis && vivas.length ? (
                 <RevisarAcciones
                   fecha={fecha}
@@ -827,7 +832,7 @@ export default function AnalisisEntrenamientoPage() {
                   </div>
 
                   {bloqueado && sesion.objetivos.length === 0 ? (
-                    <Cargando texto="Leyendo los objetivos del día…" />
+                    <Cargando key={`objetivos-${fecha}`} texto="Leyendo los objetivos del día" onReintentar={recargaSesion} />
                   ) : sesion.objetivos.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-white/12 px-5 py-8 text-center">
                       <p className="text-sm font-medium text-white/75">Este día todavía no tiene objetivos</p>
@@ -883,7 +888,7 @@ export default function AnalisisEntrenamientoPage() {
               </div>
             ) : /* ---------------- resumen ---------------- */
             cargando ? (
-              <Cargando texto="Leyendo el análisis del día…" />
+              <Cargando key={`resumen-${fecha}-${testigo}`} texto="Leyendo el análisis del día" onReintentar={relee} />
             ) : analisis && vivas.length ? (
               <div className="space-y-4">
                 {sinValidar.length ? (
@@ -900,12 +905,25 @@ export default function AnalisisEntrenamientoPage() {
                 sinMedir={analisis ? cambiados : 0}
                 futuro={futuro}
                 onObjetivos={() => setPestana("objetivos")}
+                onAnadir={
+                  bloqueado
+                    ? undefined
+                    : () => {
+                        setPestana("objetivos");
+                        if (!sesion.objetivos.length) nuevoObjetivo();
+                      }
+                }
+                copiarDe={!bloqueado && anteriorConObjetivos ? { fecha: anteriorConObjetivos.fecha, onCopia: () => { copiaObjetivos(); setPestana("objetivos"); } } : null}
+                ultimoAnalizado={ultimoAnalizado ? { fecha: ultimoAnalizado, onAbre: () => setFecha(ultimoAnalizado) } : null}
               />
             )}
 
-            <p className="text-[11px] text-white/40">
-              Porcentaje con {MINIMO_PORCENTAJE} acciones o más; por debajo se da la cuenta. Lo validado manda sobre lo propuesto.
-            </p>
+            {/* La nota de método sólo cuando hay porcentajes que leer (30/10/2026): en un día vacío no explicaba nada. */}
+            {analisis && vivas.length && (pestana === "resumen" || pestana === "revisar") ? (
+              <p className="text-[11px] text-white/40">
+                Porcentaje con {MINIMO_PORCENTAJE} acciones o más; por debajo se da la cuenta. Lo validado manda sobre lo propuesto.
+              </p>
+            ) : null}
           </div>
         </section>
       </div>
@@ -915,11 +933,44 @@ export default function AnalisisEntrenamientoPage() {
   );
 }
 
-function Cargando({ texto }: { texto: string }) {
+/**
+ * Mientras llega algo: la forma de lo que viene, no un texto suelto, y a los
+ * 15 s un aviso con «Reintentar» (30/10/2026). Se monta con `key` por día e
+ * intento, así el reloj vuelve a empezar en cada lectura.
+ */
+function Cargando({ texto, onReintentar }: { texto: string; onReintentar?: () => void }) {
+  const [tarda, setTarda] = useState(false);
+
+  useEffect(() => {
+    const reloj = setTimeout(() => setTarda(true), 15_000);
+
+    return () => clearTimeout(reloj);
+  }, []);
+
+  if (tarda) {
+    return (
+      <Notice tone="warn" title="Está tardando más de la cuenta">
+        <span className="flex flex-wrap items-center gap-2">
+          <span>{texto} no ha terminado en 15 segundos. Comprueba la conexión.</span>
+          {onReintentar ? (
+            <Button icon={RefreshCw} onClick={onReintentar}>
+              Reintentar
+            </Button>
+          ) : null}
+        </span>
+      </Notice>
+    );
+  }
+
   return (
-    <p className="flex items-center gap-1.5 text-sm text-white/60" aria-live="polite">
-      <Loader2 size={13} className="animate-spin" /> {texto}
-    </p>
+    <div className="space-y-3" aria-live="polite" aria-busy="true">
+      <span className="sr-only">{texto}</span>
+      <div className="h-24 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+        <div className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+      </div>
+    </div>
   );
 }
 
@@ -939,15 +990,48 @@ function ResumenSinAnalisis({
   sinMedir,
   futuro,
   onObjetivos,
+  onAnadir,
+  copiarDe,
+  ultimoAnalizado,
 }: {
   objetivos: { id: string; numero: number; texto: string; jugadores: string; tarea?: string }[];
+  /** Crear el primer objetivo desde el cuerpo, no sólo desde la cabecera. */
+  onAnadir?: () => void;
+  copiarDe?: { fecha: string; onCopia: () => void } | null;
+  ultimoAnalizado?: { fecha: string; onAbre: () => void } | null;
   analizado: boolean;
   /** Objetivos nuevos o cambiados después del análisis. */
   sinMedir: number;
   futuro: boolean;
   onObjetivos: () => void;
 }) {
-  if (!objetivos.length) return <Vacio titulo="Este día todavía no tiene objetivos" texto="Empieza por los objetivos: qué se busca, de quién y cómo reconocerlo en el vídeo. El botón de la cabecera te lleva." />;
+  /* Día sin objetivos (30/10/2026): la pantalla quedaba casi vacía y mandaba a la cabecera. Ahora la acción va aquí, y el último día analizado a un toque. */
+  if (!objetivos.length)
+    return (
+      <div className="rounded-xl border border-dashed border-white/12 px-5 py-8 text-center">
+        <p className="text-sm font-medium text-white/75">Este día todavía no tiene objetivos</p>
+        <p className="mx-auto mt-1.5 max-w-lg text-xs leading-relaxed text-white/50">
+          Qué se busca, de quién y cómo reconocerlo en el vídeo: con eso se mide la sesión.
+        </p>
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          {onAnadir ? (
+            <Button icon={Plus} tone="primary" onClick={onAnadir}>
+              {futuro ? "Preparar los objetivos" : "Añadir los objetivos"}
+            </Button>
+          ) : null}
+          {copiarDe ? (
+            <Button icon={Copy} onClick={copiarDe.onCopia}>
+              Copiar los del {ddmm(copiarDe.fecha)}
+            </Button>
+          ) : null}
+          {ultimoAnalizado ? (
+            <Button icon={BarChart3} onClick={ultimoAnalizado.onAbre}>
+              Ver el {ddmm(ultimoAnalizado.fecha)}, último día analizado
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    );
 
   return (
     <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">

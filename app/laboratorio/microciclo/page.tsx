@@ -605,6 +605,23 @@ export default function EditorMicrocicloPage() {
   const [cargando, setCargando] = useState(true);
 
   /*
+  | La carga con tiempo límite (30/10/2026). La hoja de tareas se lee directa
+  | y, en frío, puede tardar: a los 15 s se avisa con «Reintentar» en vez de
+  | dejar un «Leyendo…» suelto. Y si la hoja no contesta, NO se ofrece crear
+  | nada: sin ella se proponía «Crear el microciclo 1» y se pisaba la cuenta.
+  */
+  const [intento, setIntento] = useState(0);
+  const [tardando, setTardando] = useState(false);
+  const [sinHoja, setSinHoja] = useState(false);
+
+  const reintenta = () => {
+    setCargando(true);
+    setTardando(false);
+    setSinHoja(false);
+    setIntento((n) => n + 1);
+  };
+
+  /*
   | El microciclo en pantalla, CON deshacer (21/10/2026).
   |
   | `cambiaMicro` guarda la foto anterior —copiar otra semana encima, mover
@@ -691,6 +708,10 @@ export default function EditorMicrocicloPage() {
      calendario. Y el borrador de este navegador, si lo hubiera. */
   useEffect(() => {
     let cancelado = false;
+
+    const reloj = setTimeout(() => {
+      if (!cancelado) setTardando(true);
+    }, 15_000);
 
     const cargar = async () => {
       const [datos, partidos] = await Promise.all([
@@ -808,6 +829,9 @@ export default function EditorMicrocicloPage() {
 
       leido.current = true;
 
+      clearTimeout(reloj);
+      setSinHoja(datos === null);
+      setTardando(false);
       setCargando(false);
     };
 
@@ -815,8 +839,9 @@ export default function EditorMicrocicloPage() {
 
     return () => {
       cancelado = true;
+      clearTimeout(reloj);
     };
-  }, [reiniciaMicro]);
+  }, [reiniciaMicro, intento]);
 
   /* El borrador, en este navegador. No es un guardado: es no perder el rato. */
   useEffect(() => {
@@ -1758,8 +1783,40 @@ export default function EditorMicrocicloPage() {
           />
 
           <div className="mt-6 space-y-5">
-            {cargando && (
-              <p className="text-[12px] text-white/40">Leyendo la hoja y el calendario…</p>
+            {/* El esqueleto con la forma del paso 1: la cabecera y la tira de días (30/10/2026). */}
+            {cargando && !micro && !tardando && (
+              <div aria-busy="true" aria-label="Leyendo la hoja y el calendario" className="animate-pulse rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="h-4 w-64 max-w-full rounded bg-white/10" />
+                <div className="mt-2 h-3 w-80 max-w-full rounded bg-white/[0.06]" />
+                <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                  {Array.from({ length: 7 }, (_, i) => (
+                    <div key={i} className="h-[74px] rounded-xl bg-white/[0.05]" />
+                  ))}
+                </div>
+                <div className="mt-5 h-9 w-56 rounded-xl bg-white/[0.07]" />
+              </div>
+            )}
+
+            {cargando && tardando && (
+              <Notice tone="warn" title="La hoja de tareas está tardando más de lo normal">
+                <p>Sigue intentándolo por detrás; si no llega, vuelve a pedirla.</p>
+                <div className="mt-2">
+                  <Button icon={RefreshCw} onClick={reintenta}>
+                    Reintentar
+                  </Button>
+                </div>
+              </Notice>
+            )}
+
+            {!cargando && sinHoja && !micro && (
+              <Notice tone="warn" title="No se ha podido leer la hoja de tareas">
+                <p>Sin ella no se sabe qué microciclo toca, así que no se propone ninguno para no pisar la numeración.</p>
+                <div className="mt-2">
+                  <Button icon={RefreshCw} onClick={reintenta}>
+                    Reintentar
+                  </Button>
+                </div>
+              </Notice>
             )}
 
             {sinCalendario && !proximo && (
@@ -1769,12 +1826,29 @@ export default function EditorMicrocicloPage() {
               </Notice>
             )}
 
-            {!micro && proximo && !cargando && (
+            {/* Calendario sin partidos por jugar y hoja vacía: una sola frase con lo siguiente que hacer, nunca la pantalla en blanco. */}
+            {!micro && !cargando && !sinHoja && !proximo && !sinCalendario && microsDeLaHoja.length === 0 && (
+              <Notice title="No queda ningún partido por preparar en el calendario">
+                Cuando el ordenador del club baje la próxima jornada de BeSoccer, aquí saldrá la semana para crear su microciclo.
+              </Notice>
+            )}
+
+            {!micro && proximo && !cargando && !sinHoja && (
               <Panel
                 title="1 · La semana: marca los días libres"
                 subtitle={`Microciclo ${ultimoMicro + 1} · contra ${proximo.rival} · J${proximo.jornada}, ${diaLargoDelCalendario(proximo.cuando)}`}
                 icon={CalendarClock}
               >
+                {/* El resumen de la semana arriba, junto al rival y la fecha (30/10/2026): antes iba tras los botones. */}
+                <p className="mb-2 flex flex-wrap gap-1.5 text-[12px] font-semibold">
+                  <span className="rounded-lg border border-emerald-400/30 bg-emerald-400/[0.08] px-2 py-0.5 text-emerald-200">
+                    {plural(diasPlan.length - libresMarcados.size - 1, "día de entreno", "días de entreno")}
+                  </span>
+                  {libresMarcados.size > 0 && (
+                    <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-0.5 text-white/75">{plural(libresMarcados.size, "libre", "libres")}</span>
+                  )}
+                  <span className="rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 text-[#E9D5A8]">Partido</span>
+                </p>
                 <p className="mb-3 text-[12px] leading-relaxed text-white/50">
                   Del día siguiente al partido anterior hasta el del próximo. Los días libres no llevan sesión y no
                   escriben ninguna fila; el día después del partido viene marcado como libre, pero se puede cambiar.
@@ -1829,22 +1903,35 @@ export default function EditorMicrocicloPage() {
                   </label>
                 </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-2">
+                {/*
+                | Un solo botón principal (30/10/2026): «Semana tipo» y «Todos los
+                | días de entreno» sólo cambian los libres de la tira, así que van
+                | como atajos, en texto, y no compiten con «Crear».
+                */}
+                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
                   <Button tone="primary" icon={Sparkles} onClick={creaMicro}>
                     Crear el microciclo {ultimoMicro + 1}
                   </Button>
 
-                  <Button onClick={() => setLibresPlan(null)} title="Libre sólo el día después del partido">
-                    Semana tipo
-                  </Button>
-
-                  <Button onClick={() => setLibresPlan([])} title="Todos los días con sesión">
-                    Todos los días de entreno
-                  </Button>
-
-                  <span className="text-[11px] text-white/45">
-                    {plural(diasPlan.length - libresMarcados.size - 1, "día de entreno", "días de entreno")} · {plural(libresMarcados.size, "libre", "libres")} · partido
-                  </span>
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/45">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Atajos</span>
+                    <button
+                      type="button"
+                      onClick={() => setLibresPlan(null)}
+                      title="Libre sólo el día después del partido"
+                      className="font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
+                    >
+                      Semana tipo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLibresPlan([])}
+                      title="Todos los días con sesión"
+                      className="font-semibold text-white/70 underline-offset-2 hover:text-white hover:underline"
+                    >
+                      Todos los días de entreno
+                    </button>
+                  </p>
                 </div>
               </Panel>
             )}

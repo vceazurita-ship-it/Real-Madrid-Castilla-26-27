@@ -195,9 +195,10 @@ export default function GestorAlertas() {
     return () => clearTimeout(id);
   }, []);
 
+  /* Sólo las que volverían a salir: reactivar una caducada no hace nada (30/10/2026). */
   const reactivarTodas = async () => {
     setOcupada("todas");
-    for (const a of alertas.filter((x) => !x.activa)) {
+    for (const a of alertas.filter((x) => !x.activa && reactivable(x))) {
       await guardar({ ...a, activa: true });
     }
     setOcupada(null);
@@ -221,6 +222,23 @@ export default function GestorAlertas() {
 
     return { activas: vivas.length, proxima };
   })();
+
+  /*
+  | Cuántas se pueden reactivar y cuántas están caducadas (30/10/2026): el
+  | aviso decía «Las 4 tareas están silenciadas» y la lista enseñaba 3
+  | silenciadas y 1 caducada. La regla es la de la lista (`ListaAlertas`).
+  */
+  const reactivable = (a: Alerta) => {
+    if (ahora === 0) return true;
+
+    if (saldriaSiSeReactiva(a, partidos, new Date(ahora))) return true;
+
+    const t = new Date(a.proximoEnvio).getTime();
+
+    return Number.isFinite(t) && t > ahora;
+  };
+  const nSilenciadas = alertas.filter((a) => !a.activa && reactivable(a)).length;
+  const nCaducadas = alertas.filter((a) => !a.activa && !reactivable(a)).length;
 
   /* Si todas están silenciadas: la que saldría antes al reactivarlas. */
   const primeraAlReactivar = (() => {
@@ -304,9 +322,9 @@ export default function GestorAlertas() {
         <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-200">
           <p>
             <b className="font-semibold">
-              {alertas.length === 1
-                ? "La tarea está silenciada: no saldrá ningún correo."
-                : `Las ${alertas.length} tareas están silenciadas: no saldrá ningún correo.`}
+              {nSilenciadas === 0
+                ? `${nCaducadas === 1 ? "La tarea está caducada" : `Las ${nCaducadas} tareas están caducadas`}: no saldrá ningún correo.`
+                : `${nSilenciadas === 1 ? (nCaducadas ? "1 tarea silenciada" : "La tarea está silenciada") : nCaducadas ? `${nSilenciadas} tareas silenciadas` : `Las ${nSilenciadas} tareas están silenciadas`}${nCaducadas ? ` y ${nCaducadas} ${nCaducadas === 1 ? "caducada" : "caducadas"}` : ""}: no saldrá ningún correo.`}
             </b>
             {primeraAlReactivar && (
               <>
@@ -323,7 +341,7 @@ export default function GestorAlertas() {
           >
             <BellRing className="h-4 w-4 shrink-0" aria-hidden />
             <span className="truncate">
-              {alertas.length === 1 ? "Reactivar" : "Reactivar todas"}
+              {nSilenciadas === 1 ? "Reactivar la silenciada" : "Reactivar todas"}
             </span>
           </button>
         </div>

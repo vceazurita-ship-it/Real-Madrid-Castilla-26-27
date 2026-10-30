@@ -198,13 +198,21 @@ type Pendiente = { clave: string; rotulo: string; hecho: boolean; seccion: strin
  * Cada chapa lleva a su sección.
  */
 function pendientesDe(viaje: Desplazamiento): Pendiente[] {
+  /* En casa, en el campo propio, no se pide la ruta del viaje (30/10/2026). */
+  const enCasaPropia = viaje.condicion === "local" && /dis*st[eé]fano/i.test(viaje.estadio.nombre);
+
   const lista: Pendiente[] = [
     { clave: "hora", rotulo: "Hora del partido", hecho: Boolean(viaje.hora), seccion: "viaje-partido" },
     { clave: "estadio", rotulo: "Estadio", hecho: Boolean(viaje.estadio.nombre.trim()), seccion: "viaje-estadio" },
-    { clave: "direccion", rotulo: "Dirección del estadio", hecho: Boolean(viaje.estadio.direccion.trim()), seccion: "viaje-estadio" },
-    { clave: "plano", rotulo: "Plano del estadio", hecho: Boolean(viaje.estadio.plano?.url), seccion: "viaje-estadio" },
-    { clave: "ruta", rotulo: "Ruta del autobús", hecho: Boolean(viaje.estadio.ruta?.url), seccion: "viaje-estadio" },
   ];
+
+  if (!enCasaPropia) {
+    lista.push(
+      { clave: "direccion", rotulo: "Dirección del estadio", hecho: Boolean(viaje.estadio.direccion.trim()), seccion: "viaje-estadio" },
+      { clave: "plano", rotulo: "Plano del estadio", hecho: Boolean(viaje.estadio.plano?.url), seccion: "viaje-estadio" },
+      { clave: "ruta", rotulo: "Ruta del autobús", hecho: Boolean(viaje.estadio.ruta?.url), seccion: "viaje-estadio" },
+    );
+  }
 
   if (viaje.conHotel) {
     lista.push(
@@ -282,6 +290,25 @@ function EnlaceRuta({ desde, hasta, rotulo }: { desde: string; hasta: string; ro
   );
 }
 
+/**
+ * Lo que sobra en casa, plegado (30/10/2026): en el Di Stéfano no hay ruta
+ * de autobús ni kilómetros que contar, y los campos vacíos ocupaban media
+ * pantalla. Siguen ahí, bajo «Datos del estadio», por si se quieren rellenar.
+ */
+function Plegable({ plegado, children }: { plegado: boolean; children: React.ReactNode }) {
+  if (!plegado) return <>{children}</>;
+
+  return (
+    <details className="group mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+      <summary className="cursor-pointer select-none text-xs font-semibold text-white/70 hover:text-white">
+        Datos del estadio
+        <span className="ml-2 font-normal text-white/40">dirección, distancia, plano y ruta</span>
+      </summary>
+      <div className="pb-1">{children}</div>
+    </details>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  LA PÁGINA                                                          */
 /* ------------------------------------------------------------------ */
@@ -312,6 +339,14 @@ export default function DesplazamientoPage() {
   const [cargando, setCargando] = useState(true);
 
   /*
+  | Tiempo límite del calendario (30/10/2026): la hoja RIVALES puede tardar
+  | medio minuto en frío y la pantalla se quedaba en «cargando» sin salida. A
+  | los 15 s se avisa y se ofrece reintentar; si llega después, se pinta igual.
+  */
+  const [intentoCalendario, setIntentoCalendario] = useState(0);
+  const [calendarioTarda, setCalendarioTarda] = useState(false);
+
+  /*
   | Las dos fuentes se piden a la vez y **fallan por separado**, como en la
   | pizarra de balón parado: el CSV sólo tiene lo jugado, así que la jornada
   | que viene —la que se está preparando— sale de la hoja RIVALES, y con
@@ -319,6 +354,7 @@ export default function DesplazamientoPage() {
   */
   useEffect(() => {
     const control = new AbortController();
+    const reloj = setTimeout(() => setCalendarioTarda(true), 15_000);
 
     const carga = async () => {
       const [csv, hoja] = await Promise.all([
@@ -338,11 +374,14 @@ export default function DesplazamientoPage() {
         }),
       ]);
 
+      clearTimeout(reloj);
+
       if (control.signal.aborted) return;
 
       setJugados([...csv].sort(compareMatches));
       setJornadas(hoja);
       setCargando(false);
+      setCalendarioTarda(false);
 
       /* Llegada desde el plan de partido: /desplazamiento?rival=<ID>. */
       const pedidoUrl = new URLSearchParams(window.location.search).get("rival");
@@ -367,26 +406,34 @@ export default function DesplazamientoPage() {
 
     void carga();
 
-    return () => control.abort();
-  }, []);
+    return () => {
+      clearTimeout(reloj);
+      control.abort();
+    };
+  }, [intentoCalendario]);
 
   /* El calendario de BeSoccer, con la HORA de cada partido (19/10/2026): ver `lib/viaje/calendario.ts`. */
   const [besoccer, setBesoccer] = useState<PartidoBesoccer[] | null>(null);
 
   useEffect(() => {
     let vivo = true;
+    const corte = new AbortController();
+    const reloj = setTimeout(() => corte.abort(), 15_000);
 
-    fetch(`/api/docs?key=${encodeURIComponent(CALENDARIO_CASTILLA_KEY)}`)
+    fetch(`/api/docs?key=${encodeURIComponent(CALENDARIO_CASTILLA_KEY)}`, { signal: corte.signal })
       .then((r) => (r.ok ? (r.json() as Promise<{ data?: { partidos?: PartidoBesoccer[] } | null }>) : null))
       .then((d) => {
         if (vivo) setBesoccer(d?.data?.partidos ?? []);
       })
       .catch(() => {
         if (vivo) setBesoccer([]);
-      });
+      })
+      .finally(() => clearTimeout(reloj));
 
     return () => {
       vivo = false;
+      clearTimeout(reloj);
+      corte.abort();
     };
   }, []);
 
@@ -814,9 +861,43 @@ export default function DesplazamientoPage() {
 
   const carpeta = `desplazamientos/${partido?.id ?? "suelto"}`;
 
+  /*
+  | El titular dice el viaje, no la pantalla (30/10/2026): «Viaje a Cartagena:
+  | salida viernes 08:00». La salida es la primera cita del primer día; sin
+  | citas, sólo el destino. En casa no hay viaje: el rival y la hora.
+  */
+  const titular = useMemo(() => {
+    if (!viaje) return "Desplazamiento de Partido";
+
+    const rival = (viaje.rival || partido?.opponent || "").trim();
+
+    if (viaje.condicion === "local") {
+      const dia = viaje.fecha ? diaLargo(viaje.fecha).split(" ")[0].toLowerCase() : "";
+      const cuando = [dia, viaje.hora].filter(Boolean).join(" a las ");
+
+      return rival ? `En casa contra ${rival}${cuando ? `: ${cuando}` : ""}` : "Partido en casa";
+    }
+
+    const primero = [...viaje.dias]
+      .filter((d) => d.fecha && d.citas.length > 0)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))[0];
+    const cita = primero ? [...primero.citas].sort((a, b) => a.minuto - b.minuto)[0] : null;
+    const salida = primero && cita
+      ? `: salida ${diaLargo(primero.fecha).split(" ")[0].toLowerCase()} ${aHora(cita.minuto)}`
+      : "";
+
+    return rival ? `Viaje a ${rival}${salida}` : "Desplazamiento de Partido";
+  }, [viaje, partido]);
+
+  /* En casa y en el Di Stéfano no hay ruta que contar: los campos de viaje van plegados. */
+  const enCasaPropia =
+    viaje?.condicion === "local" && /di\s*st[eé]fano/i.test(viaje.estadio.nombre);
+
   return (
     <main
-      className={`min-h-screen bg-[#0B0F14] text-white ${barlowCondensed.className}`}
+      /* overflow-x-clip (30/10/2026): un hijo más ancho que el móvil ensanchaba la
+         página entera y el teléfono la pintaba con la maqueta de escritorio. */
+      className={`min-h-screen overflow-x-clip bg-[#0B0F14] text-white ${barlowCondensed.className}`}
       style={
         {
           "--fuente-viaje": barlowCondensed.style.fontFamily,
@@ -831,8 +912,8 @@ export default function DesplazamientoPage() {
 
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
-              area="RMCF Castilla · Operativa"
-              title="Desplazamiento de Partido"
+              area="RMCF Castilla · Operativa · Desplazamiento"
+              title={titular}
               lead="El dossier del viaje (campo, ruta y hotel) y el horario de cada día, listos para PowerPoint o PDF. El horario se monta solo desde la hora del partido, con una hoja por día."
               aside={
                 <SaveState
@@ -873,7 +954,7 @@ export default function DesplazamientoPage() {
                 >
                   {partidos.length === 0 && (
                     <option value="">
-                      {cargando ? "Cargando calendario…" : "Sin partidos"}
+                      {cargando ? "Leyendo el calendario…" : "Elige partido"}
                     </option>
                   )}
 
@@ -941,14 +1022,36 @@ export default function DesplazamientoPage() {
 
             {!partido ? (
               <div className="mt-6">
-                <Notice
-                  tone="warn"
-                  title={cargando ? "Cargando el calendario…" : "Sin partidos"}
-                >
-                  {cargando
-                    ? "El calendario de partidos y la hoja RIVALES tardan un momento."
-                    : "No hay ningún partido en el calendario ni en la hoja RIVALES."}
-                </Notice>
+                {cargando && !calendarioTarda ? (
+                  /* Mientras llega el calendario, la forma de lo que viene: la franja del viaje y el primer panel. */
+                  <div aria-label="Leyendo el calendario de partidos" className="space-y-3">
+                    <div className="h-16 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+                    <div className="h-48 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+                  </div>
+                ) : (
+                  <Notice
+                    tone="warn"
+                    title={cargando ? "El calendario está tardando" : "Ningún partido para montar un viaje"}
+                  >
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span>
+                        {cargando
+                          ? "El calendario de partidos y la hoja RIVALES no han contestado en 15 segundos."
+                          : "Ni el calendario ni la hoja RIVALES traen partidos. El viaje se crea eligiendo su partido."}
+                      </span>
+                      <Button
+                        icon={RotateCcw}
+                        onClick={() => {
+                          setCargando(true);
+                          setCalendarioTarda(false);
+                          setIntentoCalendario((n) => n + 1);
+                        }}
+                      >
+                        {cargando ? "Reintentar" : "Volver a leer el calendario"}
+                      </Button>
+                    </span>
+                  </Notice>
+                )}
               </div>
             ) : (
               viaje && (
@@ -1199,6 +1302,7 @@ export default function DesplazamientoPage() {
                         />
                       </div>
 
+                      <Plegable plegado={enCasaPropia}>
                       <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <Field
                           label="Dirección"
@@ -1261,6 +1365,7 @@ export default function DesplazamientoPage() {
                           onCambio={(imagen) => estadio({ ruta: imagen })}
                         />
                       </div>
+                      </Plegable>
                     </Panel>
                   </div>
 

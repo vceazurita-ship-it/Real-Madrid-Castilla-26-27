@@ -41,8 +41,10 @@ export function Topbar() {
             menú— así que lo que sobra se recorta en vez de bajar de línea.
           */}
           <div className="min-w-0">
+            {/* «RM Castilla» en el móvil (30/10/2026): a 390 px salía «REAL MADRID CASTILL…». */}
             <p className="truncate text-[10px] uppercase tracking-[0.28em] text-[#C8A96B] md:text-[11px] md:tracking-[0.35em]">
-              Real Madrid Castilla
+              <span className="sm:hidden">RM Castilla</span>
+              <span className="hidden sm:inline">Real Madrid Castilla</span>
             </p>
 
             <h2 className="mt-1 truncate text-lg font-semibold tracking-tight text-white sm:text-xl md:text-2xl">

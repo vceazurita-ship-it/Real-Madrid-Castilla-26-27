@@ -315,7 +315,7 @@ export function ProximoPartido() {
           <Escudos proximo={proximo} escudoRival={rival?.escudo} cargando={cargando} />
 
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[#D8B45A]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#D8B45A]">
               Próximo partido
             </p>
 
@@ -349,7 +349,8 @@ export function ProximoPartido() {
                   {/* Con clases y no con un color fijo: en modo día el dorado
                       claro sobre fondo claro no se veía, y la tabla de
                       `globals.css` sí sabe oscurecer `text-[#F7D98B]`. */}
-                  {!(diaDeHoy && cuantoFalta(proximo.cuando, ahora) === "hoy") && (
+                  {/* Con la chapa «Hoy MD-n» arriba, «mañana» decía lo mismo dos veces (30/10/2026). */}
+                  {!diaDeHoy && (
                   <span className="ml-1 inline-flex items-center rounded-lg border border-[#D8B45A]/60 bg-[#D8B45A]/15 px-3 py-1 text-[13px] font-bold uppercase tracking-[0.18em] text-[#F7D98B] shadow-[0_0_24px_rgba(216,180,90,0.25)]">
                     {cuantoFalta(proximo.cuando, ahora)}
                   </span>
@@ -439,7 +440,7 @@ export function ProximoPartido() {
                     style={esHoy ? { background: ORO, color: "#0B0F14" } : undefined}
                   >
                     <span
-                      className={`text-[9px] font-bold uppercase tracking-[0.06em] sm:tracking-[0.14em] ${
+                      className={`text-[9px] font-bold uppercase tracking-[0.06em] sm:text-[11px] sm:tracking-[0.14em] ${
                         esHoy ? "" : esPartido ? "text-[#F7D98B]" : "text-white/45"
                       }`}
                     >
@@ -457,7 +458,7 @@ export function ProximoPartido() {
                     {/* En el móvil sólo «libre»: con el día de la semana debajo
                         no caben las siete casillas. */}
                     <span
-                      className={`mt-1 text-[9px] uppercase ${
+                      className={`mt-1 text-[9px] uppercase sm:text-[11px] ${
                         libre ? "" : "hidden sm:inline"
                       } ${esHoy ? "opacity-80" : "text-white/40"}`}
                     >
@@ -596,7 +597,7 @@ export function ProximoPartido() {
 
               {delRival.length > 0 && (
                 <>
-                  <span className={`text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45 ${deHoy.length ? "ml-3" : ""}`}>
+                  <span className={`text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50 ${deHoy.length ? "ml-3" : ""}`}>
                     Del rival
                   </span>
                   {lista(delRival)}
@@ -716,8 +717,9 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
     >
       <History className="h-4 w-4 shrink-0 text-white/35 transition-colors group-hover:text-[#D8B45A]" />
 
-      <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/45">
-        Últimos 5
+      {/* Qué lado es el más reciente, dicho (30/10/2026). */}
+      <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">
+        Últimos {ultimos.length || 5} <span className="normal-case tracking-normal font-normal">· el más reciente, a la derecha</span>
       </span>
 
       <span className="flex items-center gap-1.5">
@@ -769,7 +771,7 @@ function Clasificacion({ informe }: { informe: RespuestaPortada | null }) {
     >
       <Trophy className="h-4 w-4 shrink-0 text-white/35 transition-colors group-hover:text-[#D8B45A]" />
 
-      <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/45">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">
         Liga
       </span>
 

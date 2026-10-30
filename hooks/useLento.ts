@@ -10,8 +10,11 @@ import { useEffect, useState } from "react";
  * quedaba en un «Cargando…» sin decir nada ni dejar reintentar. El contador
  * arranca de nuevo cada vez que `espera` pasa a verdadero (por ejemplo, al
  * reintentar).
+ *
+ * 30/10/2026: el aviso sale a los 8 s y no a los 25. Con 25, la pantalla
+ * parecía rota mucho antes de que se ofreciera «Reintentar».
  */
-export function useLento(espera: boolean, ms = 25_000) {
+export function useLento(espera: boolean, ms = 8_000) {
   const [lento, setLento] = useState(false);
 
   useEffect(() => {
