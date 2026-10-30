@@ -45,7 +45,19 @@ import {
 } from "react";
 import {
   ArrowUpRight,
+  BrickWall,
+  BringToFront,
   Camera,
+  Grid3x3,
+  Highlighter,
+  Link2,
+  MessageSquare,
+  Redo2,
+  Scale,
+  SendToBack,
+  Spotlight,
+  Tag,
+  Triangle,
   Check,
   ChevronDown,
   ChevronUp,
@@ -82,19 +94,28 @@ import {
 import { toast } from "sonner";
 
 import {
+  ESTILOS_FLECHA,
+  GRUPOS_HERRAMIENTAS,
   HERRAMIENTAS,
   PALETA_TEL,
   componeEscena,
   creaDibujo,
   dibujoEn,
   escenaEn,
+  esEscribible,
+  esTrazoLibre,
   formaDe,
+  minimoPuntos,
   mueveDibujo,
   pintaEscena,
   progresoEscena,
   tiradorEn,
+  usaRadio,
+  verticesFijos,
   type DibujoTel,
   type EscenaTel,
+  type EstiloFlecha,
+  type GrupoHerramienta,
   type PuntoTel,
   type TipoDibujo,
 } from "@/lib/coding/telestracion";
@@ -211,7 +232,135 @@ const ICONOS: Record<TipoDibujo | "mano", ComponentType<{ size?: number }>> = {
   difumina: Droplet,
   "fuera-juego": Flag,
   medida: Ruler,
+  muro: BrickWall,
+  rejilla: Grid3x3,
+  cadena: Link2,
+  llamada: MessageSquare,
+  fluor: Highlighter,
+  haz: Spotlight,
+  chapa: Tag,
+  recuento: Scale,
+  triangulo: Triangle,
 };
+
+/** El color en `#rrggbb`, que es lo único que entiende `<input type="color">`. */
+function hex6(color: string | undefined, respaldo = "#c8a96b") {
+  const limpio = (color ?? "").trim();
+
+  if (/^#[0-9a-f]{6}$/i.test(limpio)) return limpio.toLowerCase();
+
+  if (/^#[0-9a-f]{3}$/i.test(limpio)) {
+    return `#${limpio
+      .slice(1)
+      .split("")
+      .map((letra) => letra + letra)
+      .join("")}`.toLowerCase();
+  }
+
+  return respaldo;
+}
+
+/**
+ * Un grupo de la barra: un botón que enseña la última herramienta usada de él
+ * y, al pulsarlo, despliega las demás a su lado con su nombre y su tecla.
+ */
+function GrupoBarra({
+  nombre,
+  tipos,
+  herramienta,
+  ultima,
+  abierto,
+  alAbrir,
+  alElegir,
+}: {
+  nombre: string;
+  tipos: TipoDibujo[];
+  herramienta: TipoDibujo | "mano";
+  ultima: TipoDibujo | undefined;
+  abierto: boolean;
+  alAbrir: (abrir: boolean) => void;
+  alElegir: (tipo: TipoDibujo) => void;
+}) {
+  const dentro = tipos.includes(herramienta as TipoDibujo);
+  const visible: TipoDibujo = dentro
+    ? (herramienta as TipoDibujo)
+    : ultima && tipos.includes(ultima)
+      ? ultima
+      : tipos[0];
+
+  const ficha = HERRAMIENTAS.find((una) => una.tipo === visible);
+  const Icono = ICONOS[visible];
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        title={`${nombre} · ${ficha?.nombre ?? ""} (${(ficha?.tecla ?? "").toUpperCase()}) · ${ficha?.ayuda ?? ""}`}
+        aria-label={`${nombre}: ${ficha?.nombre ?? ""}`}
+        aria-pressed={dentro}
+        aria-expanded={abierto}
+        onClick={() => {
+          alElegir(visible);
+          alAbrir(!abierto);
+        }}
+        className={`relative flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+          dentro
+            ? "border-[#C8A96B] bg-[#C8A96B] text-black"
+            : "border-white/10 bg-black/40 text-white/60 hover:border-white/30 hover:text-white"
+        }`}
+      >
+        <Icono size={15} />
+
+        {/* La esquinita que avisa de que hay más debajo. */}
+        <span
+          aria-hidden
+          className={`absolute bottom-0.5 right-0.5 h-0 w-0 border-l-[4px] border-t-[4px] border-l-transparent ${
+            dentro ? "border-t-black/50" : "border-t-white/40"
+          }`}
+          style={{ transform: "rotate(180deg)" }}
+        />
+      </button>
+
+      {abierto && (
+        <div className="absolute left-full top-0 z-10 ml-2 w-52 rounded-xl border border-white/10 bg-[#0B0F14]/95 p-1 shadow-xl backdrop-blur">
+          <p className="px-2 pb-1 pt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/35">
+            {nombre}
+          </p>
+
+          {tipos.map((tipo) => {
+            const una = HERRAMIENTAS.find((h) => h.tipo === tipo);
+            const IconoUna = ICONOS[tipo];
+
+            if (!una) return null;
+
+            return (
+              <button
+                key={tipo}
+                type="button"
+                title={una.ayuda}
+                onClick={() => {
+                  alElegir(tipo);
+                  alAbrir(false);
+                }}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition ${
+                  herramienta === tipo
+                    ? "bg-[#C8A96B]/15 text-[#C8A96B]"
+                    : "text-white/75 hover:bg-white/[0.06] hover:text-white"
+                }`}
+              >
+                <IconoUna size={14} />
+                <span className="min-w-0 flex-1 truncate">{una.nombre}</span>
+                <kbd className="rounded border border-white/15 px-1 font-mono text-[10px] text-white/45">
+                  {una.tecla.toUpperCase()}
+                </kbd>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function BotonHerramienta({
   activo,
@@ -492,7 +641,17 @@ function EditorPizarra({
 
   const lienzoRef = useRef<HTMLCanvasElement>(null);
   const historial = useRef<EscenaTel[]>([]);
+  /* Lo deshecho, para rehacerlo. Se vacía en cuanto se pinta algo nuevo. */
+  const rehacer = useRef<EscenaTel[]>([]);
   const arrastre = useRef<Arrastre | null>(null);
+
+  /* La barra por grupos: cuál está desplegado y lo último usado de cada uno. */
+  const [grupoAbierto, setGrupoAbierto] = useState<GrupoHerramienta | null>(null);
+  const [ultimas, setUltimas] = useState<Partial<Record<GrupoHerramienta, TipoDibujo>>>({});
+
+  /* «Quitar todo» pide un segundo clic en la propia barra, sin ventanas del
+     navegador que paren la pantalla. */
+  const [confirmaVaciar, setConfirmaVaciar] = useState(false);
 
   /*
   | El dibujo a medio hacer vive en un `ref`, no en un estado: entre el
@@ -503,9 +662,13 @@ function EditorPizarra({
   const borrador = useRef<DibujoTel | null>(null);
 
   const seleccionRef = useRef<string | null>(null);
+  const herramientaRef = useRef<TipoDibujo | "mano">(herramienta);
+  const grupoAbiertoRef = useRef<GrupoHerramienta | null>(null);
 
   useEffect(() => {
     seleccionRef.current = seleccion;
+    herramientaRef.current = herramienta;
+    grupoAbiertoRef.current = grupoAbierto;
   });
 
   /* --------------------------------------------------------- pintado */
@@ -559,6 +722,7 @@ function EditorPizarra({
     ) => {
       if (opciones?.deshacer) {
         historial.current = [...historial.current.slice(-39), localRef.current];
+        rehacer.current = [];
       }
 
       const siguiente = transforma(localRef.current);
@@ -580,10 +744,27 @@ function EditorPizarra({
     }
 
     historial.current = historial.current.slice(0, -1);
+    rehacer.current = [...rehacer.current.slice(-39), localRef.current];
 
     localRef.current = anterior;
     setLocal(anterior);
     alCambiar(anterior);
+  }, [alCambiar]);
+
+  const rehace = useCallback(() => {
+    const siguiente = rehacer.current[rehacer.current.length - 1];
+
+    if (!siguiente) {
+      toast.info("No hay nada que rehacer en la pizarra");
+      return;
+    }
+
+    rehacer.current = rehacer.current.slice(0, -1);
+    historial.current = [...historial.current.slice(-39), localRef.current];
+
+    localRef.current = siguiente;
+    setLocal(siguiente);
+    alCambiar(siguiente);
   }, [alCambiar]);
 
   /* ------------------------------------------------------ el ratón */
@@ -625,6 +806,10 @@ function EditorPizarra({
     evento.currentTarget.setPointerCapture(evento.pointerId);
 
     const punto = puntoDe(evento);
+
+    /* Pinchar en el vídeo cierra lo que estuviera desplegado. */
+    if (grupoAbierto) setGrupoAbierto(null);
+    if (confirmaVaciar) setConfirmaVaciar(false);
 
     /* ------------------------------------------------ la mano */
 
@@ -672,7 +857,7 @@ function EditorPizarra({
          chapas en el mismo sitio no lo quiere nadie. */
       const yaHay = dibujoEn(localRef.current, punto, medidasAhora());
 
-      if (yaHay?.tipo === "texto") {
+      if (yaHay && esEscribible(yaHay.tipo)) {
         setSeleccion(yaHay.id);
         setEscribiendo(yaHay.id);
 
@@ -721,9 +906,29 @@ function EditorPizarra({
       return;
     }
 
+    /* --------------------------------------- el recuento «3 v 2» */
+
+    if (herramienta === "recuento") {
+      /* Sale con el caso más típico y se corrige abajo: una chapa sin números
+         no dice nada. */
+      const dibujo = {
+        ...creaDibujo("recuento", [punto], ajustes, nuevoId()),
+        etiqueta: "3",
+        texto: "2",
+      };
+
+      cambia((una) => ({ ...una, dibujos: [...una.dibujos, dibujo] }), {
+        deshacer: true,
+      });
+
+      setSeleccion(dibujo.id);
+
+      return;
+    }
+
     /* --------------------------------- polígonos: clic a clic */
 
-    if (formaDe(herramienta) === "muchos" && herramienta !== "libre") {
+    if (formaDe(herramienta) === "muchos" && !esTrazoLibre(herramienta)) {
       const actual = borrador.current;
 
       borrador.current =
@@ -731,13 +936,18 @@ function EditorPizarra({
           ? { ...actual, puntos: [...actual.puntos, punto] }
           : creaDibujo(herramienta, [punto, punto], ajustes, nuevoId());
 
+      /* El triángulo y la rejilla se cierran solos al llegar a su número de
+         vértices (el último punto es siempre el que sigue al ratón). */
+      const fijos = verticesFijos(herramienta);
+
+      if (fijos && borrador.current.puntos.length - 1 >= fijos) cierraPoligono();
+
       return;
     }
 
     /* ---------------------------------- todo lo demás: arrastrar */
 
-    const puntos =
-      herramienta === "anillo" || herramienta === "lupa" ? [punto] : [punto, punto];
+    const puntos = usaRadio(herramienta) ? [punto] : [punto, punto];
 
     borrador.current = creaDibujo(herramienta, puntos, ajustes, nuevoId());
 
@@ -764,7 +974,7 @@ function EditorPizarra({
     if (accion.modo === "crear") {
       if (!enCurso) return;
 
-      if (enCurso.tipo === "libre") {
+      if (esTrazoLibre(enCurso.tipo)) {
         const ultimo = enCurso.puntos[enCurso.puntos.length - 1];
 
         if (Math.hypot(punto.x - ultimo.x, punto.y - ultimo.y) < 0.004) return;
@@ -774,7 +984,7 @@ function EditorPizarra({
         return;
       }
 
-      if (enCurso.tipo === "anillo" || enCurso.tipo === "lupa") {
+      if (usaRadio(enCurso.tipo)) {
         const centro = enCurso.puntos[0];
 
         /* El alto va en unidades de ancho: si no, un radio arrastrado en
@@ -837,6 +1047,17 @@ function EditorPizarra({
 
     /* Lo movido ya está en la copia local: sólo falta subirlo. */
     if (accion.modo !== "crear") {
+      /*
+      | Un clic para elegir, sin mover nada, no es un paso que deshacer: el
+      | `pointerdown` guardó la foto por si acaso, y si la escena sigue siendo
+      | la misma se devuelve. Si se movió, lo deshecho deja de poder rehacerse.
+      */
+      if (historial.current[historial.current.length - 1] === localRef.current) {
+        historial.current = historial.current.slice(0, -1);
+        return;
+      }
+
+      rehacer.current = [];
       alCambiar(localRef.current);
       return;
     }
@@ -856,6 +1077,9 @@ function EditorPizarra({
     });
 
     setSeleccion(listo.id);
+
+    /* La llamada se escribe nada más ponerla, como el texto. */
+    if (esEscribible(listo.tipo)) setEscribiendo(listo.id);
   };
 
   /** Cierra el polígono que se estaba pinchando vértice a vértice. */
@@ -866,10 +1090,21 @@ function EditorPizarra({
 
     borrador.current = null;
 
-    /* El último punto es el que seguía al ratón: fuera. */
-    const puntos = enCurso.puntos.slice(0, -1);
+    /*
+    | El último punto es el que seguía al ratón: fuera. Y los repetidos
+    | seguidos también: el doble clic que cierra mete dos clics en el mismo
+    | sitio, y en una cadena eso era un aro pintado dos veces y un tramo de
+    | cero metros con su cota.
+    */
+    const puntos = enCurso.puntos
+      .slice(0, -1)
+      .filter(
+        (punto, indice, todos) =>
+          indice === 0 ||
+          Math.hypot(punto.x - todos[indice - 1].x, punto.y - todos[indice - 1].y) > 0.003,
+      );
 
-    if (puntos.length < 2) return;
+    if (puntos.length < minimoPuntos(enCurso.tipo)) return;
 
     const listo = { ...enCurso, puntos };
 
@@ -895,7 +1130,7 @@ function EditorPizarra({
 
     const debajo = dibujoEn(localRef.current, puntoDe(evento), medidasAhora());
 
-    if (debajo?.tipo !== "texto") return;
+    if (!debajo || !esEscribible(debajo.tipo)) return;
 
     setSeleccion(debajo.id);
     setEscribiendo(debajo.id);
@@ -972,12 +1207,91 @@ function EditorPizarra({
     setSeleccion(copia.id);
   }, [cambia]);
 
+  /**
+   * Trae el elegido al frente o lo manda al fondo.
+   *
+   * Lo que se pinta después tapa a lo de antes: una zona dibujada encima de
+   * un anillo lo veló, y no había forma de arreglarlo sin borrar y repetir.
+   * (El foco, la lupa y el difuminado siguen yendo por su capa: ver
+   * `pintaEscena`.)
+   */
+  const ordenaElegido = useCallback(
+    (hacia: "frente" | "fondo") => {
+      const id = seleccionRef.current;
+
+      if (!id) return;
+
+      cambia(
+        (una) => {
+          const suyo = una.dibujos.find((dibujo) => dibujo.id === id);
+
+          if (!suyo) return una;
+
+          const resto = una.dibujos.filter((dibujo) => dibujo.id !== id);
+
+          return {
+            ...una,
+            dibujos: hacia === "frente" ? [...resto, suyo] : [suyo, ...resto],
+          };
+        },
+        { deshacer: true },
+      );
+    },
+    [cambia],
+  );
+
   const vacia = useCallback(() => {
     cambia((una) => ({ ...una, dibujos: [] }), { deshacer: true });
 
     borrador.current = null;
     setSeleccion(null);
-  }, [cambia]);
+    setConfirmaVaciar(false);
+
+    toast.success("Pizarra en blanco", {
+      action: { label: "Deshacer", onClick: () => deshace() },
+    });
+  }, [cambia, deshace]);
+
+  /** Elige herramienta desde la barra o el teclado, y la recuerda en su grupo. */
+  const eligeHerramienta = useCallback(
+    (tipo: TipoDibujo | "mano") => {
+      borrador.current = null;
+      setSeleccion(null);
+      alHerramienta(tipo);
+
+      if (tipo === "mano") return;
+
+      const grupo = GRUPOS_HERRAMIENTAS.find((uno) => uno.tipos.includes(tipo));
+
+      if (grupo) setUltimas((antes) => ({ ...antes, [grupo.grupo]: tipo }));
+    },
+    [alHerramienta],
+  );
+
+  /*
+  | Volver a pulsar «A» con la flecha puesta cambia su estilo (normal,
+  | conducción, doble punta, en el suelo). Va por un `ref` porque el oyente
+  | del teclado se registra una vez y necesita lo elegido de ahora mismo.
+  */
+  const cicloEstilo = useRef<() => void>(() => undefined);
+
+  const estiloActual: EstiloFlecha =
+    (elegido?.tipo === "flecha" ? elegido.estilo : undefined) ?? ajustes.estilo ?? "normal";
+
+  useEffect(() => {
+    cicloEstilo.current = () => {
+      if (elegido && elegido.tipo !== "flecha") return;
+
+      const orden = ESTILOS_FLECHA.map((uno) => uno.estilo);
+      const siguiente = orden[(orden.indexOf(estiloActual) + 1) % orden.length];
+
+      ponAjuste({ estilo: siguiente });
+
+      toast.info(
+        `Flecha: ${ESTILOS_FLECHA.find((uno) => uno.estilo === siguiente)?.nombre ?? ""}`,
+      );
+    };
+  });
 
   /* ------------------------------------------------------ el teclado */
 
@@ -998,8 +1312,11 @@ function EditorPizarra({
         evento.stopPropagation();
 
         if (borrador.current) borrador.current = null;
+        else if (grupoAbiertoRef.current) setGrupoAbierto(null);
         else if (seleccionRef.current) setSeleccion(null);
         else alSalir();
+
+        setConfirmaVaciar(false);
 
         return;
       }
@@ -1028,7 +1345,7 @@ function EditorPizarra({
           (uno) => uno.id === seleccionRef.current,
         );
 
-        if (suyo?.tipo === "texto") {
+        if (suyo && esEscribible(suyo.tipo)) {
           evento.preventDefault();
           setEscribiendo(suyo.id);
 
@@ -1036,13 +1353,29 @@ function EditorPizarra({
         }
       }
 
-      if ((evento.ctrlKey || evento.metaKey) && evento.key.toLowerCase() === "z") {
+      const conMando = evento.ctrlKey || evento.metaKey;
+      const letra = evento.key.toLowerCase();
+
+      /* Rehacer: Ctrl+Y, o Ctrl+Mayús+Z como en el Mac. */
+      if (conMando && (letra === "y" || (letra === "z" && evento.shiftKey))) {
+        evento.preventDefault();
+        rehace();
+        return;
+      }
+
+      if (conMando && letra === "z") {
         evento.preventDefault();
         deshace();
         return;
       }
 
-      if (evento.ctrlKey || evento.metaKey || evento.altKey) return;
+      if (conMando && letra === "d") {
+        evento.preventDefault();
+        duplicaElegido();
+        return;
+      }
+
+      if (conMando || evento.altKey) return;
 
       if (evento.key === "Delete" || evento.key === "Backspace") {
         evento.preventDefault();
@@ -1050,28 +1383,46 @@ function EditorPizarra({
         return;
       }
 
-      const tecla = evento.key.toLowerCase();
-
-      if (tecla === "v") {
+      /* Corchetes: al frente y al fondo, como en cualquier editor. */
+      if (evento.key === "]" || evento.key === "[") {
         evento.preventDefault();
-        borrador.current = null;
-        alHerramienta("mano");
+        ordenaElegido(evento.key === "]" ? "frente" : "fondo");
         return;
       }
 
-      const nueva = HERRAMIENTAS.find((una) => una.tecla === tecla);
+      if (letra === "v") {
+        evento.preventDefault();
+        eligeHerramienta("mano");
+        return;
+      }
+
+      const nueva = HERRAMIENTAS.find((una) => una.tecla === letra);
 
       if (nueva) {
         evento.preventDefault();
-        borrador.current = null;
-        alHerramienta(nueva.tipo);
+
+        if (nueva.tipo === "flecha" && herramientaRef.current === "flecha") {
+          cicloEstilo.current();
+          return;
+        }
+
+        eligeHerramienta(nueva.tipo);
       }
     };
 
     window.addEventListener("keydown", escucha, true);
 
     return () => window.removeEventListener("keydown", escucha, true);
-  }, [alHerramienta, alSalir, borraElegido, cierraPoligono, deshace]);
+  }, [
+    alSalir,
+    borraElegido,
+    cierraPoligono,
+    deshace,
+    duplicaElegido,
+    eligeHerramienta,
+    ordenaElegido,
+    rehace,
+  ]);
 
   /* ------------------------------------------------------- exportar */
 
@@ -1105,6 +1456,14 @@ function EditorPizarra({
     ? (local.dibujos.find((uno) => uno.id === escribiendo) ?? null)
     : null;
 
+  /* Dónde se abre el cuadro de escribir: el texto donde se pinchó; la
+     llamada, donde va su chapa (el primer punto es lo que señala). */
+  const anclaTexto = enTexto
+    ? enTexto.tipo === "llamada"
+      ? (enTexto.puntos[1] ?? enTexto.puntos[0])
+      : enTexto.puntos[0]
+    : null;
+
   /* ---------------------------------------------------------- vista */
 
   return (
@@ -1134,32 +1493,37 @@ function EditorPizarra({
         vídeo, lo que no cabe salta a una segunda columna al lado, y a una
         tercera si hace falta: siempre se ven todas.
       */}
-      <div className="pointer-events-auto absolute left-2 top-1/2 flex max-h-[calc(100%-6rem)] -translate-y-1/2 flex-col flex-wrap content-start gap-1 rounded-xl border border-white/10 bg-[#0B0F14]/85 p-1.5 backdrop-blur">
+      {/*
+        Y DESDE EL 30/10/2026 VA POR GRUPOS.
+        Con las nueve herramientas nuevas eran veintisiete botones: ni en
+        columnas cabían sin taparle medio vídeo al analista. Ahora son seis
+        (la mano y cinco grupos); cada grupo enseña lo último que se usó de él
+        y despliega el resto a su derecha, con nombre y tecla. Las teclas van
+        directas a cada herramienta, así que quien ya se las sabe no nota nada.
+      */}
+      <div className="pointer-events-auto absolute left-2 top-1/2 flex -translate-y-1/2 flex-col gap-1 rounded-xl border border-white/10 bg-[#0B0F14]/85 p-1.5 backdrop-blur">
         <BotonHerramienta
           activo={herramienta === "mano"}
           titulo="Elegir y mover (V)"
           icono={ICONOS.mano}
           onClick={() => {
-            borrador.current = null;
-            alHerramienta("mano");
+            setGrupoAbierto(null);
+            eligeHerramienta("mano");
           }}
         />
 
-        {/* El filete va a lo ancho de UN botón: sin ancho propio, al partirse
-            la barra se estiraba por encima de todas las columnas. */}
         <span className="my-0.5 h-px w-8 shrink-0 bg-white/10" />
 
-        {HERRAMIENTAS.map((una) => (
-          <BotonHerramienta
-            key={una.tipo}
-            activo={herramienta === una.tipo}
-            titulo={`${una.nombre} (${una.tecla.toUpperCase()}) · ${una.ayuda}`}
-            icono={ICONOS[una.tipo]}
-            onClick={() => {
-              borrador.current = null;
-              setSeleccion(null);
-              alHerramienta(una.tipo);
-            }}
+        {GRUPOS_HERRAMIENTAS.map((grupo) => (
+          <GrupoBarra
+            key={grupo.grupo}
+            nombre={grupo.nombre}
+            tipos={grupo.tipos}
+            herramienta={herramienta}
+            ultima={ultimas[grupo.grupo]}
+            abierto={grupoAbierto === grupo.grupo}
+            alAbrir={(abrir) => setGrupoAbierto(abrir ? grupo.grupo : null)}
+            alElegir={eligeHerramienta}
           />
         ))}
       </div>
@@ -1185,6 +1549,16 @@ function EditorPizarra({
 
         <button
           type="button"
+          title="Rehacer (Ctrl+Y)"
+          aria-label="Rehacer lo deshecho"
+          onClick={rehace}
+          className="rounded-lg p-1 text-white/50 transition hover:bg-white/10 hover:text-white"
+        >
+          <Redo2 size={14} />
+        </button>
+
+        <button
+          type="button"
           title="Guardar la pizarra como imagen"
           aria-label="Guardar la pizarra como imagen"
           onClick={exportaPng}
@@ -1203,15 +1577,59 @@ function EditorPizarra({
           <Maximize2 size={14} />
         </button>
 
-        <button
-          type="button"
-          title="Quitar todos los dibujos (se puede deshacer)"
-          aria-label="Quitar todos los dibujos"
-          onClick={vacia}
-          className="rounded-lg p-1 text-white/50 transition hover:bg-white/10 hover:text-red-300"
-        >
-          <Eraser size={14} />
-        </button>
+        <span className="relative">
+          <button
+            type="button"
+            title="Quitar todos los dibujos (pide confirmación y se puede deshacer)"
+            aria-label="Quitar todos los dibujos"
+            aria-expanded={confirmaVaciar}
+            onClick={() => {
+              if (localRef.current.dibujos.length === 0) {
+                toast.info("La pizarra ya está en blanco");
+                return;
+              }
+
+              setConfirmaVaciar((antes) => !antes);
+            }}
+            className={`rounded-lg p-1 transition hover:bg-white/10 hover:text-red-300 ${
+              confirmaVaciar ? "bg-red-500/15 text-red-300" : "text-white/50"
+            }`}
+          >
+            <Eraser size={14} />
+          </button>
+
+          {/* La confirmación, en la propia barra: nada de ventanas del
+              navegador que congelen la pantalla. */}
+          {confirmaVaciar && (
+            <span
+              role="alertdialog"
+              aria-label="Confirmar quitar todos los dibujos"
+              className="absolute right-0 top-full z-10 mt-2 flex w-56 flex-col gap-2 rounded-xl border border-red-400/30 bg-[#0B0F14]/95 p-2.5 text-[11px] text-white/80 shadow-xl backdrop-blur"
+            >
+              <span>
+                ¿Quitar {local.dibujos.length === 1 ? "el dibujo" : `los ${local.dibujos.length} dibujos`} de esta pizarra? Se puede deshacer.
+              </span>
+
+              <span className="flex justify-end gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setConfirmaVaciar(false)}
+                  className="rounded-lg border border-white/10 px-2 py-1 text-white/60 transition hover:text-white"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={vacia}
+                  className="rounded-lg bg-red-500/80 px-2 py-1 font-semibold text-white transition hover:bg-red-500"
+                >
+                  Quitar todo
+                </button>
+              </span>
+            </span>
+          )}
+        </span>
 
         <span className="h-3.5 w-px bg-white/10" />
 
@@ -1251,6 +1669,25 @@ function EditorPizarra({
                 }`}
               />
             ))}
+
+            {/* Cualquier otro color: la camiseta del rival rara vez es uno de
+                los nueve de la paleta. */}
+            <label
+              title="Otro color"
+              className="relative h-5 w-5 cursor-pointer overflow-hidden rounded-md border border-white/20 hover:border-white/60"
+              style={{
+                background:
+                  "conic-gradient(#ef4444, #f59e0b, #22c55e, #22d3ee, #3b82f6, #a855f7, #ef4444)",
+              }}
+            >
+              <input
+                type="color"
+                aria-label="Otro color"
+                value={hex6(elegido?.color ?? ajustes.color)}
+                onChange={(evento) => ponAjuste({ color: evento.target.value })}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </label>
           </div>
 
           <span className="h-4 w-px bg-white/10" />
@@ -1272,6 +1709,21 @@ function EditorPizarra({
             onChange={(valor) => ponAjuste({ opacidad: valor })}
           />
 
+          {/* Cómo se usa lo que hay en la mano: con tantas herramientas, el
+              «doble clic para terminar» no se adivina. */}
+          {!elegido && herramienta !== "mano" && (
+            <span
+              title={HERRAMIENTAS.find((una) => una.tipo === herramienta)?.ayuda}
+              className="ml-auto hidden min-w-0 max-w-[45%] truncate text-[10px] text-white/40 md:block"
+            >
+              <span className="text-[#C8A96B]/80">
+                {HERRAMIENTAS.find((una) => una.tipo === herramienta)?.nombre}
+              </span>
+              {" · "}
+              {HERRAMIENTAS.find((una) => una.tipo === herramienta)?.ayuda}
+            </span>
+          )}
+
           <button
             type="button"
             onClick={() => alBarra(!barra)}
@@ -1284,6 +1736,89 @@ function EditorPizarra({
 
         {barra && (
           <div className="flex flex-wrap items-center gap-2 border-t border-white/10 px-2 py-1.5">
+            {tipoActivo === "flecha" && (
+              <span
+                role="group"
+                aria-label="Estilo de la flecha"
+                className="flex items-center gap-0.5 rounded-lg border border-white/10 p-0.5"
+              >
+                {ESTILOS_FLECHA.map((uno) => (
+                  <button
+                    key={uno.estilo}
+                    type="button"
+                    title={`${uno.ayuda} (pulsa A otra vez para cambiar)`}
+                    aria-pressed={estiloActual === uno.estilo}
+                    onClick={() => ponAjuste({ estilo: uno.estilo })}
+                    className={`rounded-md px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em] transition ${
+                      estiloActual === uno.estilo
+                        ? "bg-[#C8A96B]/20 text-[#C8A96B]"
+                        : "text-white/45 hover:text-white"
+                    }`}
+                  >
+                    {uno.nombre}
+                  </button>
+                ))}
+              </span>
+            )}
+
+            {tipoActivo === "muro" && (
+              <Deslizador
+                etiqueta="Altura"
+                valor={elegido?.altura ?? ajustes.altura ?? 0.14}
+                min={0.04}
+                max={0.4}
+                paso={0.01}
+                onChange={(valor) => ponAjuste({ altura: valor })}
+              />
+            )}
+
+            {tipoActivo === "rejilla" && (
+              <>
+                <Deslizador
+                  etiqueta="Carriles"
+                  valor={elegido?.carriles ?? ajustes.carriles ?? 5}
+                  min={1}
+                  max={8}
+                  onChange={(valor) => ponAjuste({ carriles: valor })}
+                />
+
+                <Deslizador
+                  etiqueta="Alturas"
+                  valor={elegido?.alturas ?? ajustes.alturas ?? 0}
+                  min={0}
+                  max={6}
+                  onChange={(valor) => ponAjuste({ alturas: valor })}
+                />
+              </>
+            )}
+
+            {tipoActivo === "cadena" && (
+              <Deslizador
+                etiqueta="Aro"
+                valor={elegido?.radio ?? ajustes.radio ?? 0.018}
+                min={0.008}
+                max={0.06}
+                paso={0.002}
+                onChange={(valor) => ponAjuste({ radio: valor })}
+              />
+            )}
+
+            {tipoActivo === "recuento" && (
+              <label
+                title="El color del rival"
+                className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.12em] text-white/40"
+              >
+                Rival
+                <input
+                  type="color"
+                  aria-label="Color del rival"
+                  value={hex6(elegido?.colorB ?? ajustes.colorB, "#ef4444")}
+                  onChange={(evento) => ponAjuste({ colorB: evento.target.value })}
+                  className="h-5 w-6 cursor-pointer rounded border border-white/20 bg-transparent p-0"
+                />
+              </label>
+            )}
+
             {(tipoActivo === "flecha" || tipoActivo === "linea") && (
               <Deslizador
                 etiqueta="Comba"
@@ -1330,6 +1865,7 @@ function EditorPizarra({
 
             {(tipoActivo === "anillo" ||
               tipoActivo === "lupa" ||
+              tipoActivo === "haz" ||
               tipoActivo === "mover") && (
               <Deslizador
                 etiqueta="Radio"
@@ -1414,14 +1950,35 @@ function EditorPizarra({
             {(tipoActivo === "anillo" ||
               tipoActivo === "mover" ||
               tipoActivo === "numero" ||
-              tipoActivo === "seleccion") && (
+              tipoActivo === "seleccion" ||
+              tipoActivo === "haz" ||
+              tipoActivo === "chapa" ||
+              tipoActivo === "recuento") && (
               <input
                 value={elegido?.etiqueta ?? ""}
                 onChange={(evento) => ponAjuste({ etiqueta: evento.target.value })}
-                placeholder={tipoActivo === "numero" ? "1" : "Dorsal o nombre"}
-                aria-label={tipoActivo === "numero" ? "Número" : "Dorsal o nombre"}
+                placeholder={
+                  tipoActivo === "numero"
+                    ? "1"
+                    : tipoActivo === "chapa"
+                      ? "Dorsal"
+                      : tipoActivo === "recuento"
+                        ? "Nuestros"
+                        : "Dorsal o nombre"
+                }
+                aria-label={
+                  tipoActivo === "numero"
+                    ? "Número"
+                    : tipoActivo === "chapa"
+                      ? "Dorsal"
+                      : tipoActivo === "recuento"
+                        ? "Cuántos nuestros"
+                        : "Dorsal o nombre"
+                }
                 disabled={!elegido}
-                className="w-28 rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#C8A96B]/50 disabled:opacity-40"
+                className={`rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#C8A96B]/50 disabled:opacity-40 ${
+                  tipoActivo === "chapa" || tipoActivo === "recuento" ? "w-20" : "w-28"
+                }`}
               />
             )}
 
@@ -1432,18 +1989,40 @@ function EditorPizarra({
               tipoActivo === "pasillo" ||
               tipoActivo === "cono" ||
               tipoActivo === "numero" ||
-              tipoActivo === "seleccion") && (
+              tipoActivo === "seleccion" ||
+              tipoActivo === "muro" ||
+              tipoActivo === "rejilla" ||
+              tipoActivo === "cadena" ||
+              tipoActivo === "llamada" ||
+              tipoActivo === "haz" ||
+              tipoActivo === "chapa" ||
+              tipoActivo === "recuento" ||
+              tipoActivo === "triangulo") && (
               <input
                 value={elegido?.texto ?? ""}
                 onChange={(evento) => ponAjuste({ texto: evento.target.value })}
                 placeholder={
                   tipoActivo === "medida"
                     ? "12 m"
-                    : tipoActivo === "texto"
+                    : tipoActivo === "texto" || tipoActivo === "llamada"
                       ? "El texto"
-                      : "Rótulo"
+                      : tipoActivo === "chapa"
+                        ? "Nombre"
+                        : tipoActivo === "recuento"
+                          ? "Rivales"
+                          : tipoActivo === "cadena"
+                            ? "8 m / 12 m / 9 m"
+                            : "Rótulo"
                 }
-                aria-label="Rótulo"
+                aria-label={
+                  tipoActivo === "chapa"
+                    ? "Nombre del jugador"
+                    : tipoActivo === "recuento"
+                      ? "Cuántos rivales"
+                      : tipoActivo === "cadena"
+                        ? "Distancias de cada tramo"
+                        : "Rótulo"
+                }
                 disabled={!elegido}
                 /*
                 | Ancho según lo que se escriba.
@@ -1454,7 +2033,13 @@ function EditorPizarra({
                 | corregir.
                 */
                 className={`rounded-lg border border-white/10 bg-white/[0.05] px-2 py-1 text-[11px] text-white outline-none placeholder:text-white/25 focus:border-[#C8A96B]/50 disabled:opacity-40 ${
-                  tipoActivo === "texto" ? "w-56" : "w-24"
+                  tipoActivo === "texto" || tipoActivo === "llamada"
+                    ? "w-56"
+                    : tipoActivo === "cadena" || tipoActivo === "chapa"
+                      ? "w-36"
+                      : tipoActivo === "recuento"
+                        ? "w-20"
+                        : "w-24"
                 }`}
               />
             )}
@@ -1514,11 +2099,33 @@ function EditorPizarra({
                 type="button"
                 onClick={duplicaElegido}
                 disabled={!elegido}
-                title="Duplicar el dibujo elegido"
+                title="Duplicar el dibujo elegido (Ctrl+D)"
                 aria-label="Duplicar el dibujo elegido"
                 className="rounded-lg p-1 text-white/45 transition hover:text-white disabled:opacity-30"
               >
                 <Copy size={14} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => ordenaElegido("frente")}
+                disabled={!elegido}
+                title="Traer al frente (])"
+                aria-label="Traer al frente el dibujo elegido"
+                className="rounded-lg p-1 text-white/45 transition hover:text-white disabled:opacity-30"
+              >
+                <BringToFront size={14} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => ordenaElegido("fondo")}
+                disabled={!elegido}
+                title="Enviar al fondo ([)"
+                aria-label="Enviar al fondo el dibujo elegido"
+                className="rounded-lg p-1 text-white/45 transition hover:text-white disabled:opacity-30"
+              >
+                <SendToBack size={14} />
               </button>
 
               <button
@@ -1550,15 +2157,18 @@ function EditorPizarra({
 
       {/* ------------------------------------------- el texto -------- */}
 
-      {enTexto && (
+      {enTexto && anclaTexto && (
         <div
           className="pointer-events-auto absolute"
           style={{
             left: Math.min(
-              enTexto.puntos[0].x * encaje.ancho,
-              Math.max(0, encaje.ancho - 220),
+              Math.max(
+                0,
+                anclaTexto.x * encaje.ancho - (enTexto.tipo === "llamada" ? 144 : 0),
+              ),
+              Math.max(0, encaje.ancho - 290),
             ),
-            top: Math.max(0, enTexto.puntos[0].y * encaje.alto - 20),
+            top: Math.max(0, anclaTexto.y * encaje.alto - 20),
           }}
         >
           <textarea
@@ -1619,12 +2229,12 @@ function EditorPizarra({
  * recorrido —una flecha, una cota— se descarta sin ruido.
  */
 function terminaDibujo(dibujo: DibujoTel, aspecto: number): DibujoTel | null {
-  if (dibujo.tipo === "anillo" || dibujo.tipo === "lupa") return dibujo;
+  if (usaRadio(dibujo.tipo)) return dibujo;
 
   /* El número es un clic: no hay recorrido que exigirle. */
-  if (dibujo.tipo === "numero") return dibujo;
+  if (dibujo.tipo === "numero" || dibujo.tipo === "recuento") return dibujo;
 
-  if (dibujo.tipo === "libre") return dibujo.puntos.length >= 3 ? dibujo : null;
+  if (esTrazoLibre(dibujo.tipo)) return dibujo.puntos.length >= 3 ? dibujo : null;
 
   const [a, b] = dibujo.puntos;
 
@@ -1633,6 +2243,25 @@ function terminaDibujo(dibujo: DibujoTel, aspecto: number): DibujoTel | null {
   const recorrido = Math.hypot(b.x - a.x, (b.y - a.y) * aspecto);
 
   if (recorrido >= 0.02) return dibujo;
+
+  /*
+  | La etiqueta y la llamada también valen con un clic: la chapa sale encima
+  | de la cabeza y el bocadillo arriba a la derecha de lo que se señala, que
+  | es donde los pondría cualquiera. Se recolocan luego con su tirador.
+  */
+  if (dibujo.tipo === "chapa") {
+    return { ...dibujo, puntos: [a, { x: a.x, y: Math.max(0.04, a.y - 0.08) }] };
+  }
+
+  if (dibujo.tipo === "llamada") {
+    return {
+      ...dibujo,
+      puntos: [
+        a,
+        { x: Math.min(0.9, a.x + 0.09), y: Math.max(0.06, a.y - 0.12) },
+      ],
+    };
+  }
 
   if (dibujo.tipo === "foco") {
     const radio = 0.07;

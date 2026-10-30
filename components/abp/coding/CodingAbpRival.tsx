@@ -18,6 +18,8 @@ import { ClipboardCopy, FolderOpen, Keyboard, Maximize2, MessageCircle, Minimize
 import { toast } from "sonner";
 
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { PizarraVideo } from "@/components/coding/PizarraVideo";
+import { escenaEn, escenaVacia, type EscenaTel } from "@/lib/coding/telestracion";
 import { avisaHecho } from "@/lib/aviso-hecho";
 import { CampogramaCaidas } from "@/components/abp/coding/CampogramaCaidas";
 import { conCaidas, slidesDeCaidas, tableroDeJornada } from "@/lib/abp/coding-pizarra";
@@ -169,6 +171,16 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
   const [moviendo, setMoviendo] = useState(false);
   const [fallo, setFallo] = useState("");
   const video = useRef<HTMLVideoElement>(null);
+
+  /* El <video> también como estado: la pizarra se coloca midiendo el elemento. */
+  const [elementoVideo, setElementoVideo] = useState<HTMLVideoElement | null>(null);
+  const montaVideo = useCallback((v: HTMLVideoElement | null) => {
+    video.current = v;
+    setElementoVideo(v);
+  }, []);
+
+  /* La pizarra que se está pintando, atada a su clip: al cambiar de clip se cierra sola. */
+  const [pintando, setPintando] = useState<{ clip: string; id: string } | null>(null);
   const deshacer = useRef<{ id: string; antes: ClipEstado | undefined; carpeta: CarpetaKey; indice: number }[]>([]);
   const precarga = useRef(new Map<string, string>());
 
@@ -224,6 +236,57 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
   const actual = lista[Math.min(indice, Math.max(0, lista.length - 1))] ?? null;
 
   const idActual = actual ? idClip(carpeta, actual.n) : "";
+
+  /*
+  | LA PIZARRA SOBRE EL CLIP (30/10/2026)
+  |
+  | Las mismas herramientas de pintado que el coding de partido, por si hace
+  | falta señalar algo en un córner o una falta. Se guarda en este mismo
+  | documento, una lista por clip.
+  */
+  const escenasClip = useMemo(() => (doc.escenas ?? []).filter((e) => e.video === idActual), [doc.escenas, idActual]);
+  const editandoPizarra = pintando?.clip === idActual ? pintando.id : null;
+
+  const guardaEscena = useCallback(
+    (escena: EscenaTel) =>
+      setDoc((d) => ({
+        ...d,
+        escenas: [...(d.escenas ?? []).filter((e) => e.id !== escena.id), escena],
+        actualizado: new Date().toISOString(),
+      })),
+    [setDoc],
+  );
+
+  const borraEscena = useCallback(
+    (id: string) => {
+      setDoc((d) => ({ ...d, escenas: (d.escenas ?? []).filter((e) => e.id !== id), actualizado: new Date().toISOString() }));
+      setPintando(null);
+    },
+    [setDoc],
+  );
+
+  const abrePizarra = useCallback(() => {
+    const v = video.current;
+    if (!v || !idActual) return;
+
+    v.pause();
+
+    const ahora = v.currentTime * 1000;
+    const existente = escenaEn(escenasClip, ahora);
+
+    if (existente) {
+      setPintando({ clip: idActual, id: existente.id });
+      return;
+    }
+
+    const nueva: EscenaTel = {
+      ...escenaVacia(ahora, `esc-${Math.round(ahora)}-${Math.random().toString(36).slice(2, 6)}`, new Date().toISOString()),
+      video: idActual,
+    };
+
+    guardaEscena(nueva);
+    setPintando({ clip: idActual, id: nueva.id });
+  }, [escenasClip, guardaEscena, idActual]);
 
   const estadoDe = useCallback((id: string): ClipEstado => doc.clips[id] ?? { estado: "pendiente" }, [doc.clips]);
 
@@ -380,7 +443,8 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
 
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
-      if (!abierta || escribiendo || e.ctrlKey || e.metaKey || e.altKey) return;
+      /* Mientras se pinta, las teclas son de la pizarra (F foco, D distancia…), no de la criba. */
+      if (!abierta || escribiendo || editandoPizarra || e.ctrlKey || e.metaKey || e.altKey) return;
 
       const destino = e.target as HTMLElement | null;
 
@@ -864,18 +928,30 @@ export function CodingAbpRival({ equipo, onRecoger, onApuntes }: { equipo: strin
               {url && (
                 <video
                   key={url}
-                  ref={video}
+                  ref={montaVideo}
                   src={url}
                   autoPlay
                   loop
                   muted
                   playsInline
-                  controls
+                  controls={!editandoPizarra}
                   onError={() => setFallo("Este clip no se puede ver en el navegador (códec). Ábrelo fuera o expórtalo en H.264.")}
                   className={completa ? "h-[calc(100vh-200px)] w-full object-contain" : "aspect-video w-full"}
                 />
               )}
-              {actual && est && (
+              {url && idActual && (
+                <PizarraVideo
+                  video={elementoVideo}
+                  escenas={escenasClip}
+                  editando={editandoPizarra}
+                  alEditar={(id) => setPintando(id ? { clip: idActual, id } : null)}
+                  alCambiar={guardaEscena}
+                  alBorrar={borraEscena}
+                  alPintar={abrePizarra}
+                  visible
+                />
+              )}
+              {actual && est && !editandoPizarra && (
                 <div className="pointer-events-none absolute left-3 top-3 flex gap-2">
                   <span className="rounded-md bg-black/70 px-2 py-1 text-sm font-bold text-white">
                     {carpeta} · {actual.n}

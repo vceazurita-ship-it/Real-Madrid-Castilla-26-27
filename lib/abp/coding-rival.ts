@@ -1,3 +1,4 @@
+import type { EscenaTel } from "@/lib/coding/telestracion";
 /**
  * CODING DEL ABP DEL RIVAL (28/10/2026).
  *
@@ -51,6 +52,12 @@ export type CodingDoc = {
    */
   texto?: string;
   textoBase?: string;
+  /**
+   * Las pizarras pintadas sobre los clips (30/10/2026), con las mismas
+   * herramientas que el coding de partido. `video` es el id del clip
+   * («CORNER OF/17»): cada pizarra sale sólo en el suyo.
+   */
+  escenas?: EscenaTel[];
 };
 
 export const CODING_VACIO: CodingDoc = { clips: {} };

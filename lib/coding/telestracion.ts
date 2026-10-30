@@ -71,7 +71,45 @@ export type TipoDibujo =
   | "lupa"
   | "difumina"
   | "fuera-juego"
-  | "medida";
+  | "medida"
+  /* Las del 30/10/2026: lo que traen Sportscode, Nacsport, KlipDraw, Metrica
+     Play o Viz Libero y aquí faltaba. Van al final para no mover nada de lo
+     guardado; en la barra se ordenan por grupos, no por esta lista. */
+  | "muro"
+  | "rejilla"
+  | "cadena"
+  | "llamada"
+  | "fluor"
+  | "haz"
+  | "chapa"
+  | "recuento"
+  | "triangulo";
+
+/**
+ * Cómo se pinta una flecha.
+ *
+ * - `normal`: la de siempre.
+ * - `conduccion`: ondulada, la carrera con balón de las pizarras de papel.
+ * - `doble`: punta en los dos extremos (una permuta, un ida y vuelta).
+ * - `suelo`: una cinta apoyada en el césped que se estrecha con la distancia,
+ *   la flecha «3D» de la televisión.
+ */
+export type EstiloFlecha = "normal" | "conduccion" | "doble" | "suelo";
+
+export const ESTILOS_FLECHA: { estilo: EstiloFlecha; nombre: string; ayuda: string }[] = [
+  { estilo: "normal", nombre: "Normal", ayuda: "Pase o carrera, recta o combada." },
+  {
+    estilo: "conduccion",
+    nombre: "Conducción",
+    ayuda: "Ondulada: el jugador lleva el balón pegado.",
+  },
+  { estilo: "doble", nombre: "Doble punta", ayuda: "Punta en los dos extremos: permuta o ida y vuelta." },
+  {
+    estilo: "suelo",
+    nombre: "En el suelo",
+    ayuda: "Cinta apoyada en el césped: más fina cuanto más lejos (más arriba en la imagen).",
+  },
+];
 
 export type DibujoTel = {
   id: string;
@@ -101,6 +139,21 @@ export type DibujoTel = {
   etiqueta: string;
   /** De 0 a 1: lo abierto que va el cono de cobertura. */
   apertura: number;
+  /*
+  | Los campos de aquí abajo son opcionales A PROPÓSITO: las pizarras pintadas
+  | antes del 30/10/2026 no los traen, y quien pinta los lee siempre con su
+  | valor de partida (`BASE_DIBUJO`). `normalizaDibujo` los rellena al cargar.
+  */
+  /** Sólo la flecha: cómo se pinta. */
+  estilo?: EstiloFlecha;
+  /** Lo alto del muro, en fracción del alto de la imagen (a pie de imagen). */
+  altura?: number;
+  /** Los carriles de la rejilla (bandas paralelas al primer lado pinchado). */
+  carriles?: number;
+  /** Las alturas de la rejilla (cortes en la otra dirección). 0 = ninguna. */
+  alturas?: number;
+  /** El segundo color: el del rival en el recuento. */
+  colorB?: string;
 };
 
 /**
@@ -282,13 +335,145 @@ export const HERRAMIENTAS: {
     tecla: "d",
     ayuda: "Cota entre dos puntos. Escribe encima los metros.",
   },
+  {
+    tipo: "muro",
+    nombre: "Muro 3D",
+    tecla: "w",
+    ayuda: "La línea defensiva levantada en 3D: arrastra por el césped de un extremo al otro y sube o baja «Altura».",
+  },
+  {
+    tipo: "rejilla",
+    nombre: "Carriles",
+    tecla: "g",
+    ayuda: "Pincha las cuatro esquinas de un trozo de campo en orden, empezando por las dos de una banda: salen los carriles paralelos a esa banda, en perspectiva. «Alturas» corta también a lo ancho.",
+  },
+  {
+    tipo: "cadena",
+    nombre: "Unir jugadores",
+    tecla: "j",
+    ayuda: "Clic en cada jugador y doble clic para terminar: los anilla y los enlaza. En el rótulo, las distancias de cada tramo separadas por «/».",
+  },
+  {
+    tipo: "llamada",
+    nombre: "Llamada",
+    tecla: "q",
+    ayuda: "Bocadillo con puntero: arrastra desde lo que señalas hasta donde va el texto y escribe.",
+  },
+  {
+    tipo: "fluor",
+    nombre: "Fluorescente",
+    tecla: "h",
+    ayuda: "Rotulador ancho y translúcido para subrayar una zona o un recorrido a mano.",
+  },
+  {
+    tipo: "haz",
+    nombre: "Haz de luz",
+    tecla: "y",
+    ayuda: "Cono de luz desde arriba hasta los pies del jugador. Clic en sus pies; arrastra para abrir el aro.",
+  },
+  {
+    tipo: "chapa",
+    nombre: "Etiqueta de jugador",
+    tecla: "9",
+    ayuda: "Dorsal y nombre unidos a la cabeza del jugador. Clic en la cabeza, o arrastra hasta donde quieres la chapa.",
+  },
+  {
+    tipo: "recuento",
+    nombre: "Superioridad",
+    tecla: "x",
+    ayuda: "La chapa «3 v 2» con los colores de los dos equipos. Clic donde va; los números se cambian abajo.",
+  },
+  {
+    tipo: "triangulo",
+    nombre: "Triángulo",
+    tecla: "3",
+    ayuda: "Triángulo de pase: clic en los tres jugadores y se cierra solo.",
+  },
+];
+
+/**
+ * Los grupos de la barra.
+ *
+ * Con veintisiete herramientas en una columna la barra ya no cabía junto al
+ * vídeo. Se agrupan como en Sportscode o KlipDraw: un botón por grupo, que
+ * enseña la última que se usó de él, y al pulsarlo se despliegan las demás.
+ * Las teclas siguen yendo directas a cada una.
+ */
+export type GrupoHerramienta = "senalar" | "mover" | "zonas" | "medir" | "texto";
+
+export const GRUPOS_HERRAMIENTAS: {
+  grupo: GrupoHerramienta;
+  nombre: string;
+  tipos: TipoDibujo[];
+}[] = [
+  {
+    grupo: "senalar",
+    nombre: "Señalar",
+    tipos: ["foco", "anillo", "haz", "chapa", "seleccion", "cadena", "numero"],
+  },
+  {
+    grupo: "mover",
+    nombre: "Mover",
+    tipos: ["flecha", "pasillo", "linea", "libre", "fluor", "mover"],
+  },
+  {
+    grupo: "zonas",
+    nombre: "Zonas",
+    tipos: ["zona", "triangulo", "rect", "elipse", "cono", "muro", "rejilla"],
+  },
+  { grupo: "medir", nombre: "Medir", tipos: ["medida", "fuera-juego", "recuento"] },
+  { grupo: "texto", nombre: "Texto e imagen", tipos: ["texto", "llamada", "lupa", "difumina"] },
 ];
 
 /** Cuántos puntos pide cada herramienta para quedar hecha. */
 export function formaDe(tipo: TipoDibujo): "punto" | "arrastre" | "muchos" {
-  if (tipo === "texto" || tipo === "numero") return "punto";
-  if (tipo === "libre" || tipo === "zona" || tipo === "seleccion") return "muchos";
+  if (tipo === "texto" || tipo === "numero" || tipo === "recuento") return "punto";
+
+  if (
+    tipo === "libre" ||
+    tipo === "fluor" ||
+    tipo === "zona" ||
+    tipo === "seleccion" ||
+    tipo === "cadena" ||
+    tipo === "rejilla" ||
+    tipo === "triangulo"
+  ) {
+    return "muchos";
+  }
+
   return "arrastre";
+}
+
+/** Las que se pintan a mano alzada, recogiendo el temblor del ratón. */
+export function esTrazoLibre(tipo: TipoDibujo) {
+  return tipo === "libre" || tipo === "fluor";
+}
+
+/** Las que se colocan con un clic en el centro y se abren arrastrando el radio. */
+export function usaRadio(tipo: TipoDibujo) {
+  return tipo === "anillo" || tipo === "lupa" || tipo === "haz";
+}
+
+/** Las que abren el cuadro de escribir al ponerlas y al hacerles doble clic. */
+export function esEscribible(tipo: TipoDibujo) {
+  return tipo === "texto" || tipo === "llamada";
+}
+
+/**
+ * Los vértices con los que un polígono se cierra solo.
+ *
+ * Un triángulo son tres jugadores y una rejilla son cuatro esquinas: pedir el
+ * doble clic ahí es un paso que no aporta nada. 0 = se cierra con doble clic.
+ */
+export function verticesFijos(tipo: TipoDibujo) {
+  if (tipo === "triangulo") return 3;
+  if (tipo === "rejilla") return 4;
+  return 0;
+}
+
+/** Lo mínimo para que un dibujo de clic a clic tenga sentido. */
+export function minimoPuntos(tipo: TipoDibujo) {
+  return verticesFijos(tipo) || 2;
 }
 
 /** Las herramientas que se dibujan con el vídeo debajo, no con formas. */
@@ -311,6 +496,11 @@ const BASE_DIBUJO: Omit<DibujoTel, "id" | "tipo" | "puntos"> = {
   intensidad: 0.66,
   etiqueta: "",
   apertura: 0.35,
+  estilo: "normal",
+  altura: 0.14,
+  carriles: 5,
+  alturas: 0,
+  colorB: "#EF4444",
 };
 
 /** Los ajustes propios de cada herramienta, encima de los de todas. */
@@ -342,6 +532,24 @@ function porDefectoDe(tipo: TipoDibujo): Partial<DibujoTel> {
       return { radio: 0.026, grosor: 4, relleno: true, tamano: 24 };
     case "texto":
       return { tamano: 28 };
+    case "muro":
+      return { grosor: 3, relleno: true, altura: 0.14 };
+    case "rejilla":
+      return { grosor: 2, relleno: true, discontinua: true, carriles: 5, alturas: 0 };
+    case "cadena":
+      return { grosor: 3, radio: 0.018, relleno: false };
+    case "llamada":
+      return { grosor: 3, tamano: 24 };
+    case "fluor":
+      return { grosor: 6, opacidad: 1 };
+    case "haz":
+      return { radio: 0.045, grosor: 3 };
+    case "chapa":
+      return { grosor: 3, tamano: 22 };
+    case "recuento":
+      return { tamano: 30, colorB: "#EF4444" };
+    case "triangulo":
+      return { grosor: 3, relleno: true, discontinua: true };
     default:
       return {};
   }
@@ -441,6 +649,14 @@ function normalizaDibujo(crudo: unknown, indice: number): DibujoTel | null {
     intensidad: numero(dato.intensidad, base.intensidad),
     etiqueta: texto(dato.etiqueta, base.etiqueta),
     apertura: numero(dato.apertura, base.apertura),
+    /* Lo del 30/10/2026: lo guardado antes no lo trae y sale con lo de partida. */
+    estilo: ESTILOS_FLECHA.some((uno) => uno.estilo === dato.estilo)
+      ? dato.estilo
+      : base.estilo,
+    altura: numero(dato.altura, base.altura ?? 0.14),
+    carriles: Math.round(numero(dato.carriles, base.carriles ?? 5)),
+    alturas: Math.round(numero(dato.alturas, base.alturas ?? 0)),
+    colorB: texto(dato.colorB, base.colorB ?? "#EF4444"),
   };
 }
 
@@ -516,7 +732,12 @@ export function progresoEscena(escena: EscenaTel, tMs: number) {
 export function nombreEscena(escena: EscenaTel, indice: number) {
   if (escena.nombre.trim()) return escena.nombre.trim();
 
-  const conTexto = escena.dibujos.find((dibujo) => dibujo.texto.trim());
+  /* El recuento guarda en `texto` el número del rival y la cadena sus cotas:
+     una pizarra no se llama «2» ni «8 m / 12 m». */
+  const conTexto = escena.dibujos.find(
+    (dibujo) =>
+      dibujo.texto.trim() && dibujo.tipo !== "recuento" && dibujo.tipo !== "cadena",
+  );
 
   if (conTexto) return conTexto.texto.trim().split("\n")[0].slice(0, 40);
 
@@ -646,6 +867,83 @@ function dentroDelPoligono(punto: Px, poligono: Px[]) {
   return dentro;
 }
 
+/**
+ * La homografía que lleva el cuadrado unidad al cuadrilátero pinchado.
+ *
+ * Es lo que hace que los carriles «se vean en el campo»: con una interpolación
+ * bilineal los cinco carriles saldrían igual de anchos en la imagen, y el del
+ * fondo tiene que verse más estrecho que el de delante. Con la homografía las
+ * rectas siguen siendo rectas y las distancias encogen con la perspectiva.
+ * (`u` va de la esquina 1 a la 2; `v`, de la 1 a la 4.)
+ */
+function homografia(q: Px[]): (u: number, v: number) => Px {
+  const [p0, p1, p2, p3] = q;
+
+  const sx = p0.x - p1.x + p2.x - p3.x;
+  const sy = p0.y - p1.y + p2.y - p3.y;
+
+  let a: number, b: number, c: number, d: number, e: number, f: number;
+  let g = 0;
+  let h = 0;
+
+  const dx1 = p1.x - p2.x;
+  const dx2 = p3.x - p2.x;
+  const dy1 = p1.y - p2.y;
+  const dy2 = p3.y - p2.y;
+  const det = dx1 * dy2 - dx2 * dy1;
+
+  if ((Math.abs(sx) < 1e-9 && Math.abs(sy) < 1e-9) || Math.abs(det) < 1e-9) {
+    /* Un paralelogramo (o algo degenerado): basta con la afín. */
+    a = p1.x - p0.x;
+    b = p3.x - p0.x;
+    c = p0.x;
+    d = p1.y - p0.y;
+    e = p3.y - p0.y;
+    f = p0.y;
+  } else {
+    g = (sx * dy2 - dx2 * sy) / det;
+    h = (dx1 * sy - sx * dy1) / det;
+    a = p1.x - p0.x + g * p1.x;
+    b = p3.x - p0.x + h * p3.x;
+    c = p0.x;
+    d = p1.y - p0.y + g * p1.y;
+    e = p3.y - p0.y + h * p3.y;
+    f = p0.y;
+  }
+
+  return (u: number, v: number) => {
+    const w = g * u + h * v + 1 || 1e-9;
+
+    return { x: (a * u + b * v + c) / w, y: (d * u + e * v + f) / w };
+  };
+}
+
+/**
+ * Cuánto encoge algo con la distancia, según lo alto que está en la imagen.
+ *
+ * La cámara de un partido está en la grada mirando hacia abajo: lo de arriba
+ * de la imagen es lo lejano. Una regla lineal no es la perspectiva exacta,
+ * pero sin calibrar la cámara es la que no engaña al ojo, y es la que usan las
+ * flechas «en el suelo» de la televisión.
+ */
+function perspectiva(y: number, alto: number) {
+  return 0.35 + 0.95 * Math.min(1.1, Math.max(0, y / (alto || 1)));
+}
+
+/** Las cuatro esquinas del muro: la base en el césped y la arista de arriba. */
+function muroDe(dibujo: DibujoTel, medidas: MedidasTel, crece = 1) {
+  const [a, b] = dibujo.puntos.map((punto) => aPx(punto, medidas));
+
+  const altura = (dibujo.altura ?? 0.14) * medidas.alto * crece;
+
+  const arribaA = { x: a.x, y: a.y - altura * perspectiva(a.y, medidas.alto) };
+  const arribaB = b
+    ? { x: b.x, y: b.y - altura * perspectiva(b.y, medidas.alto) }
+    : arribaA;
+
+  return { a, b: b ?? a, arribaA, arribaB };
+}
+
 /* ================================================================== */
 /*  TOCAR LO PINTADO                                                   */
 /* ================================================================== */
@@ -746,6 +1044,8 @@ export function tocaDibujo(
     }
 
     case "zona":
+    case "triangulo":
+    case "rejilla":
     case "seleccion": {
       if (puntos.length < 3) {
         return puntos.some((uno) => distancia(p, uno) <= cerca * 2);
@@ -765,6 +1065,67 @@ export function tocaDibujo(
         (uno, indice) =>
           indice > 0 && distanciaASegmento(p, puntos[indice - 1], uno) <= cerca,
       );
+
+    case "fluor": {
+      /* Es ancho de verdad: se coge por todo lo que pinta, no por su eje. */
+      const ancho = Math.max(cerca, dibujo.grosor * escala * 1.8);
+
+      return puntos.some(
+        (uno, indice) =>
+          indice > 0 && distanciaASegmento(p, puntos[indice - 1], uno) <= ancho,
+      );
+    }
+
+    case "cadena": {
+      const aro = Math.max(10, dibujo.radio * medidas.ancho);
+
+      if (puntos.some((uno) => distancia(p, uno) <= aro)) return true;
+
+      return puntos.some(
+        (uno, indice) =>
+          indice > 0 && distanciaASegmento(p, puntos[indice - 1], uno) <= cerca,
+      );
+    }
+
+    case "muro": {
+      if (!b) return distancia(p, a) <= cerca;
+
+      const muro = muroDe(dibujo, medidas);
+      const forma = [muro.a, muro.b, muro.arribaB, muro.arribaA];
+
+      return dentroDelPoligono(p, forma) || distanciaASegmento(p, muro.a, muro.b) <= cerca;
+    }
+
+    case "haz": {
+      const rx = Math.max(10, dibujo.radio * medidas.ancho);
+
+      /* El aro de los pies, no el chorro de luz: el chorro cruza media imagen
+         y se comería los clics de todo lo que tiene detrás. */
+      return ((p.x - a.x) / rx) ** 2 + ((p.y - a.y) / (rx * 0.42)) ** 2 <= 1.6;
+    }
+
+    case "llamada":
+    case "chapa": {
+      if (!b) return distancia(p, a) <= cerca * 2;
+
+      const t = dibujo.tamano * escala;
+      const largo = (dibujo.texto.length + dibujo.etiqueta.length + 4) * t * 0.5;
+      const alto = t * 1.9 * Math.max(1, dibujo.texto.split("\n").length);
+
+      const enChapa =
+        Math.abs(p.x - b.x) <= Math.max(60, largo / 2 + 10) &&
+        (dibujo.tipo === "chapa"
+          ? p.y >= b.y - alto - 6 && p.y <= b.y + 6
+          : Math.abs(p.y - b.y) <= alto / 2 + 8);
+
+      return enChapa || distanciaASegmento(p, a, b) <= cerca || distancia(p, a) <= cerca * 1.5;
+    }
+
+    case "recuento": {
+      const t = dibujo.tamano * escala;
+
+      return Math.abs(p.x - a.x) <= t * 3 && Math.abs(p.y - a.y) <= t * 1.1;
+    }
 
     default: {
       if (!b) return distancia(p, a) <= cerca;
@@ -1991,6 +2352,976 @@ function pintaNumero(entorno: Contexto, dibujo: DibujoTel) {
   }
 }
 
+/* ------------------------------------------ la flecha y sus estilos ---- */
+
+/** Los puntos de la curva desde el arranque hasta `hasta` (0..1). */
+function muestrasCurva(a: Px, c: Px, b: Px, hasta: number, pasos = 48): Px[] {
+  const lista: Px[] = [];
+
+  for (let paso = 0; paso <= pasos; paso += 1) {
+    lista.push(enCurva(a, c, b, (hasta * paso) / pasos));
+  }
+
+  return lista;
+}
+
+/**
+ * La flecha y la línea, con su estilo.
+ *
+ * La de siempre se queda exactamente como estaba (curva cuadrática y punta):
+ * lo pintado antes del 30/10/2026 tiene que verse igual. Los estilos nuevos
+ * sólo los coge la flecha.
+ */
+function pintaFlecha(entorno: Contexto, dibujo: DibujoTel, a: Px, b: Px) {
+  const { ctx, escala, progreso } = entorno;
+
+  const grosor = Math.max(1.5, dibujo.grosor * escala);
+  const avance = dibujo.animado ? Math.max(0.02, progreso) : 1;
+  const estilo = dibujo.tipo === "flecha" ? (dibujo.estilo ?? "normal") : "normal";
+
+  const c = control(a, b, dibujo.curvatura);
+  const fin = enCurva(a, c, b, avance);
+
+  if (estilo === "suelo") {
+    pintaFlechaSuelo(entorno, dibujo, muestrasCurva(a, c, b, avance));
+    return;
+  }
+
+  if (estilo === "conduccion") {
+    pintaConduccion(entorno, dibujo, muestrasCurva(a, c, b, avance, 96), grosor);
+    return;
+  }
+
+  trazaConContorno(
+    entorno,
+    () => {
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+
+      if (avance >= 1) {
+        ctx.quadraticCurveTo(c.x, c.y, b.x, b.y);
+      } else {
+        for (let paso = 1; paso <= 24; paso += 1) {
+          const punto = enCurva(a, c, b, (avance * paso) / 24);
+
+          ctx.lineTo(punto.x, punto.y);
+        }
+      }
+    },
+    dibujo.color,
+    grosor,
+    dibujo.discontinua,
+  );
+
+  if (dibujo.tipo !== "flecha") return;
+
+  const antes = enCurva(a, c, b, Math.max(0, avance - 0.06));
+
+  pintaPunta(entorno, fin, antes, dibujo.color, grosor);
+
+  if (estilo === "doble") {
+    pintaPunta(entorno, a, enCurva(a, c, b, 0.06), dibujo.color, grosor);
+  }
+}
+
+/**
+ * La conducción: el trazo ondulado de las pizarras de papel.
+ *
+ * La onda se mide en distancia recorrida, no en pasos de la curva: así las
+ * ondas salen iguales en una conducción de cinco metros y en una de cuarenta.
+ * Se apaga en el último tramo para que la punta salga recta y se lea hacia
+ * dónde va.
+ */
+function pintaConduccion(
+  entorno: Contexto,
+  dibujo: DibujoTel,
+  muestras: Px[],
+  grosor: number,
+) {
+  const { ctx } = entorno;
+
+  if (muestras.length < 2) return;
+
+  const acumulado = [0];
+
+  for (let i = 1; i < muestras.length; i += 1) {
+    acumulado.push(acumulado[i - 1] + distancia(muestras[i - 1], muestras[i]));
+  }
+
+  const total = acumulado[acumulado.length - 1];
+
+  if (total < 2) return;
+
+  const onda = Math.max(10, grosor * 5.5);
+  const amplitud = Math.max(3, grosor * 1.3);
+  const cola = Math.min(total * 0.25, grosor * 7);
+
+  const ondulada = muestras.map((punto, i) => {
+    const anterior = muestras[Math.max(0, i - 1)];
+    const siguiente = muestras[Math.min(muestras.length - 1, i + 1)];
+
+    const dx = siguiente.x - anterior.x;
+    const dy = siguiente.y - anterior.y;
+    const largo = Math.hypot(dx, dy) || 1;
+
+    const recorrido = acumulado[i];
+    const queda = total - recorrido;
+
+    /* Entra suave y se apaga antes de la punta. */
+    const fuerza = Math.min(1, recorrido / (onda * 0.5), Math.max(0, (queda - cola) / onda));
+
+    const desvio = Math.sin((recorrido / onda) * Math.PI * 2) * amplitud * fuerza;
+
+    return { x: punto.x + (-dy / largo) * desvio, y: punto.y + (dx / largo) * desvio };
+  });
+
+  trazaConContorno(
+    entorno,
+    () => {
+      ctx.beginPath();
+      ctx.moveTo(ondulada[0].x, ondulada[0].y);
+      ondulada.slice(1).forEach((punto) => ctx.lineTo(punto.x, punto.y));
+    },
+    dibujo.color,
+    grosor,
+    dibujo.discontinua,
+  );
+
+  const fin = muestras[muestras.length - 1];
+  const antes = muestras[Math.max(0, muestras.length - 4)];
+
+  pintaPunta(entorno, fin, antes, dibujo.color, grosor);
+}
+
+/**
+ * La flecha «en el suelo»: una cinta apoyada en el césped.
+ *
+ * Es la de la televisión. Se estrecha con la perspectiva —más fina cuanto más
+ * arriba en la imagen, que es lo lejano— y la punta es un triángulo plano de
+ * la misma cinta, no un adorno pegado. Se rellena con un degradado que gana
+ * fuerza hacia la punta, para que se lea el sentido aunque sea recta.
+ */
+function pintaFlechaSuelo(entorno: Contexto, dibujo: DibujoTel, muestras: Px[]) {
+  const { ctx, medidas, escala } = entorno;
+
+  if (muestras.length < 2) return;
+
+  const fin = muestras[muestras.length - 1];
+  const inicio = muestras[0];
+
+  if (distancia(inicio, fin) < 4) return;
+
+  const media = (y: number) =>
+    Math.max(2, dibujo.grosor * escala * 1.35) * perspectiva(y, medidas.alto);
+
+  const anchoPunta = media(fin.y) * 2.5;
+  const largoPunta = media(fin.y) * 4.2;
+
+  /* El cuerpo acaba donde empieza la punta. */
+  let corte = muestras.length - 1;
+
+  while (corte > 1 && distancia(muestras[corte], fin) < largoPunta) corte -= 1;
+
+  const cuerpo = muestras.slice(0, corte + 1);
+
+  const normal = (i: number) => {
+    const anterior = cuerpo[Math.max(0, i - 1)];
+    const siguiente = cuerpo[Math.min(cuerpo.length - 1, i + 1)];
+    const dx = siguiente.x - anterior.x;
+    const dy = siguiente.y - anterior.y;
+    const largo = Math.hypot(dx, dy) || 1;
+
+    return { x: -dy / largo, y: dx / largo };
+  };
+
+  const izquierda = cuerpo.map((punto, i) => {
+    const n = normal(i);
+    const w = media(punto.y);
+
+    return { x: punto.x + n.x * w, y: punto.y + n.y * w };
+  });
+
+  const derecha = cuerpo.map((punto, i) => {
+    const n = normal(i);
+    const w = media(punto.y);
+
+    return { x: punto.x - n.x * w, y: punto.y - n.y * w };
+  });
+
+  const base = cuerpo[cuerpo.length - 1];
+  const nBase = normal(cuerpo.length - 1);
+
+  const forma = () => {
+    ctx.beginPath();
+    ctx.moveTo(izquierda[0].x, izquierda[0].y);
+    izquierda.slice(1).forEach((punto) => ctx.lineTo(punto.x, punto.y));
+    ctx.lineTo(base.x + nBase.x * anchoPunta, base.y + nBase.y * anchoPunta);
+    ctx.lineTo(fin.x, fin.y);
+    ctx.lineTo(base.x - nBase.x * anchoPunta, base.y - nBase.y * anchoPunta);
+
+    for (let i = derecha.length - 1; i >= 0; i -= 1) ctx.lineTo(derecha[i].x, derecha[i].y);
+
+    ctx.closePath();
+  };
+
+  const velo = ctx.createLinearGradient(inicio.x, inicio.y, fin.x, fin.y);
+
+  velo.addColorStop(0, conAlfa(dibujo.color, dibujo.relleno ? 0.25 : 0.12));
+  velo.addColorStop(0.7, conAlfa(dibujo.color, 0.75));
+  velo.addColorStop(1, conAlfa(dibujo.color, 0.95));
+
+  ctx.save();
+  ctx.lineJoin = "round";
+
+  /* La sombra en el césped, desplazada hacia abajo: lo que la «apoya». */
+  ctx.save();
+  ctx.translate(0, Math.max(1.5, 2.5 * escala));
+  forma();
+  ctx.fillStyle = "rgba(0, 0, 0, 0.32)";
+  ctx.fill();
+  ctx.restore();
+
+  forma();
+  ctx.fillStyle = velo;
+  ctx.shadowColor = conAlfa(dibujo.color, 0.45);
+  ctx.shadowBlur = media(fin.y) * 1.5;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.setLineDash(dibujo.discontinua ? [media(fin.y) * 2, media(fin.y) * 1.5] : []);
+  ctx.strokeStyle = conAlfa(dibujo.color, 0.95);
+  ctx.lineWidth = Math.max(1, escala * 1.6);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ------------------------------------------------------ el muro ---- */
+
+/**
+ * La línea defensiva levantada en 3D.
+ *
+ * Un plano vertical, semitransparente, que sale del césped por la línea que se
+ * arrastró. Es más alto cuanto más cerca (más abajo en la imagen) y lleva una
+ * malla tenue para que se lea como superficie y no como un rectángulo pegado.
+ */
+function pintaMuro(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala, progreso } = entorno;
+
+  if (!dibujo.puntos[1]) return;
+
+  const crece = dibujo.animado ? Math.max(0.05, progreso) : 1;
+  const { a, b, arribaA, arribaB } = muroDe(dibujo, medidas, crece);
+
+  if (distancia(a, b) < 3) return;
+
+  const grosor = Math.max(1.5, dibujo.grosor * escala);
+
+  const cara = () => {
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.lineTo(arribaB.x, arribaB.y);
+    ctx.lineTo(arribaA.x, arribaA.y);
+    ctx.closePath();
+  };
+
+  const abajo = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const arriba = { x: (arribaA.x + arribaB.x) / 2, y: (arribaA.y + arribaB.y) / 2 };
+
+  ctx.save();
+
+  if (dibujo.relleno) {
+    const velo = ctx.createLinearGradient(abajo.x, abajo.y, arriba.x, arriba.y);
+
+    velo.addColorStop(0, conAlfa(dibujo.color, 0.5));
+    velo.addColorStop(1, conAlfa(dibujo.color, 0.06));
+
+    cara();
+    ctx.fillStyle = velo;
+    ctx.fill();
+  }
+
+  /* La malla: renglones y postes muy suaves. */
+  ctx.save();
+  cara();
+  ctx.clip();
+  ctx.strokeStyle = conAlfa(dibujo.color, 0.28);
+  ctx.lineWidth = Math.max(1, grosor * 0.35);
+  ctx.beginPath();
+
+  for (const t of [0.25, 0.5, 0.75]) {
+    ctx.moveTo(a.x + (arribaA.x - a.x) * t, a.y + (arribaA.y - a.y) * t);
+    ctx.lineTo(b.x + (arribaB.x - b.x) * t, b.y + (arribaB.y - b.y) * t);
+  }
+
+  const postes = Math.max(2, Math.min(14, Math.round(distancia(a, b) / (45 * escala))));
+
+  for (let i = 1; i < postes; i += 1) {
+    const t = i / postes;
+
+    ctx.moveTo(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+    ctx.lineTo(arribaA.x + (arribaB.x - arribaA.x) * t, arribaA.y + (arribaB.y - arribaA.y) * t);
+  }
+
+  ctx.stroke();
+  ctx.restore();
+
+  /* La arista de arriba y los dos postes de los extremos. */
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.lineTo(arribaA.x, arribaA.y);
+  ctx.lineTo(arribaB.x, arribaB.y);
+  ctx.lineTo(b.x, b.y);
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+  ctx.lineWidth = grosor * 0.8 + 2;
+  ctx.stroke();
+  ctx.strokeStyle = conAlfa(dibujo.color, 0.85);
+  ctx.lineWidth = Math.max(1, grosor * 0.6);
+  ctx.shadowColor = conAlfa(dibujo.color, 0.6);
+  ctx.shadowBlur = grosor * 2;
+  ctx.stroke();
+  ctx.restore();
+
+  /* Y la línea del césped, que es la que manda: con su contorno. */
+  trazaConContorno(
+    entorno,
+    () => {
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+    },
+    dibujo.color,
+    grosor,
+    dibujo.discontinua,
+  );
+
+  if (dibujo.texto.trim()) {
+    pintaChapa(
+      entorno,
+      arriba.x,
+      arriba.y - dibujo.tamano * escala * 0.7,
+      [dibujo.texto.trim()],
+      dibujo.color,
+      dibujo.tamano * escala * 0.72,
+      "centro",
+    );
+  }
+}
+
+/* ------------------------------------------------ los carriles ---- */
+
+/**
+ * Los carriles en perspectiva sobre un trozo de campo.
+ *
+ * Las cuatro esquinas se pinchan en orden; las dos primeras son una banda, y
+ * los carriles corren paralelos a ella. Con «Alturas» se corta también en la
+ * otra dirección (defensiva, media, ofensiva). El relleno va alterno y suave:
+ * lo que importa es leer en qué carril está cada uno, no tapar el césped.
+ */
+function pintaRejilla(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala } = entorno;
+
+  const puntos = dibujo.puntos.map((punto) => aPx(punto, medidas));
+  const grosor = Math.max(1.2, dibujo.grosor * escala);
+
+  /* Mientras se pinchan las esquinas: el contorno que va saliendo. */
+  if (puntos.length < 4) {
+    trazaConContorno(
+      entorno,
+      () => {
+        ctx.beginPath();
+        ctx.moveTo(puntos[0].x, puntos[0].y);
+        puntos.slice(1).forEach((punto) => ctx.lineTo(punto.x, punto.y));
+      },
+      dibujo.color,
+      grosor,
+      true,
+    );
+
+    return;
+  }
+
+  const lleva = homografia(puntos.slice(0, 4));
+  const carriles = Math.max(1, Math.min(8, Math.round(dibujo.carriles ?? 5)));
+  const alturas = Math.max(0, Math.min(6, Math.round(dibujo.alturas ?? 0)));
+
+  const cuadro = (u0: number, u1: number, v0: number, v1: number) => {
+    const esquinas = [lleva(u0, v0), lleva(u1, v0), lleva(u1, v1), lleva(u0, v1)];
+
+    ctx.beginPath();
+    ctx.moveTo(esquinas[0].x, esquinas[0].y);
+    esquinas.slice(1).forEach((punto) => ctx.lineTo(punto.x, punto.y));
+    ctx.closePath();
+  };
+
+  if (dibujo.relleno) {
+    ctx.save();
+
+    for (let i = 0; i < carriles; i += 1) {
+      if (i % 2 !== 0) continue;
+
+      cuadro(0, 1, i / carriles, (i + 1) / carriles);
+      ctx.fillStyle = conAlfa(dibujo.color, 0.16);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  /* Las líneas de dentro, discontinuas si así va: son referencias, no rayas
+     del campo. */
+  trazaConContorno(
+    entorno,
+    () => {
+      ctx.beginPath();
+
+      for (let i = 1; i < carriles; i += 1) {
+        const desde = lleva(0, i / carriles);
+        const hasta = lleva(1, i / carriles);
+
+        ctx.moveTo(desde.x, desde.y);
+        ctx.lineTo(hasta.x, hasta.y);
+      }
+
+      for (let j = 1; j < alturas; j += 1) {
+        const desde = lleva(j / alturas, 0);
+        const hasta = lleva(j / alturas, 1);
+
+        ctx.moveTo(desde.x, desde.y);
+        ctx.lineTo(hasta.x, hasta.y);
+      }
+    },
+    conAlfa(dibujo.color, 0.85),
+    grosor,
+    dibujo.discontinua,
+  );
+
+  trazaConContorno(
+    entorno,
+    () => cuadro(0, 1, 0, 1),
+    dibujo.color,
+    grosor * 1.2,
+    false,
+  );
+
+  if (dibujo.texto.trim()) {
+    const centro = lleva(0.5, 0.5);
+
+    pintaChapa(
+      entorno,
+      centro.x,
+      centro.y,
+      [dibujo.texto.trim()],
+      dibujo.color,
+      dibujo.tamano * escala * 0.7,
+      "centro",
+    );
+  }
+}
+
+/* ------------------------------------------ unir a los jugadores ---- */
+
+/** Un aro plano en el césped, con su contorno, para marcar a un jugador. */
+function pintaAroSuelo(entorno: Contexto, centro: Px, radio: number, color: string, grosor: number) {
+  const { ctx } = entorno;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.ellipse(centro.x, centro.y, radio, radio * 0.45, 0, 0, Math.PI * 2);
+  ctx.fillStyle = conAlfa(color, 0.18);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.45)";
+  ctx.lineWidth = grosor + 2.5;
+  ctx.stroke();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = grosor;
+  ctx.shadowColor = conAlfa(color, 0.7);
+  ctx.shadowBlur = grosor * 2;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * La cadena: los jugadores de una línea, anillados y enlazados.
+ *
+ * A diferencia de la selección no dibuja el bloque, sino el orden en el que
+ * se pincharon: es la línea de cuatro, o el escalonamiento de una presión.
+ * Las distancias de cada tramo se escriben en el rótulo separadas por «/» y
+ * salen en mitad de su tramo.
+ */
+function pintaCadena(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala, progreso } = entorno;
+
+  const puntos = dibujo.puntos.map((punto) => aPx(punto, medidas));
+  const grosor = Math.max(1.5, dibujo.grosor * escala);
+  const radio = Math.max(8, dibujo.radio * medidas.ancho);
+
+  if (puntos.length === 0) return;
+
+  /* Animada, los tramos se van uniendo uno detrás de otro. */
+  const tramos = puntos.length - 1;
+  const hechos = dibujo.animado ? Math.max(0, progreso) * tramos : tramos;
+
+  const recorrido: Px[] = [puntos[0]];
+
+  for (let i = 1; i < puntos.length; i += 1) {
+    const parte = Math.min(1, Math.max(0, hechos - (i - 1)));
+
+    if (parte <= 0) break;
+
+    const a = puntos[i - 1];
+    const b = puntos[i];
+
+    recorrido.push({ x: a.x + (b.x - a.x) * parte, y: a.y + (b.y - a.y) * parte });
+  }
+
+  if (recorrido.length >= 2) {
+    trazaConContorno(
+      entorno,
+      () => {
+        ctx.beginPath();
+        ctx.moveTo(recorrido[0].x, recorrido[0].y);
+        recorrido.slice(1).forEach((punto) => ctx.lineTo(punto.x, punto.y));
+      },
+      dibujo.color,
+      grosor,
+      dibujo.discontinua,
+    );
+  }
+
+  puntos.forEach((punto) => pintaAroSuelo(entorno, punto, radio, dibujo.color, grosor * 0.9));
+
+  const cotas = dibujo.texto
+    .split(/[/,;]/)
+    .map((uno) => uno.trim());
+
+  cotas.forEach((cota, i) => {
+    if (!cota || i >= tramos || i + 1 > Math.ceil(hechos)) return;
+
+    const a = puntos[i];
+    const b = puntos[i + 1];
+
+    pintaChapa(
+      entorno,
+      (a.x + b.x) / 2,
+      (a.y + b.y) / 2 - grosor * 3.2,
+      [cota],
+      dibujo.color,
+      dibujo.tamano * escala * 0.62,
+      "centro",
+    );
+  });
+}
+
+/* --------------------------------------------- llamada (bocadillo) ---- */
+
+/**
+ * El bocadillo: un rótulo con su puntero hacia lo que señala.
+ *
+ * El puntero es una cuña que sale de la chapa, no una raya: así se lee como
+ * parte del rótulo, que es lo que lo distingue de un texto con guía.
+ */
+function pintaLlamada(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala } = entorno;
+
+  const punta = aPx(dibujo.puntos[0], medidas);
+  const sitio = dibujo.puntos[1] ? aPx(dibujo.puntos[1], medidas) : punta;
+
+  const tamano = dibujo.tamano * escala;
+  const grosor = Math.max(1.5, dibujo.grosor * escala);
+  const lineas = (dibujo.texto || "Escribe aquí").split("\n");
+
+  const dx = punta.x - sitio.x;
+  const dy = punta.y - sitio.y;
+  const largo = Math.hypot(dx, dy);
+
+  if (largo > 4) {
+    const nx = -dy / largo;
+    const ny = dx / largo;
+    const base = tamano * 0.42;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(sitio.x + nx * base, sitio.y + ny * base);
+    ctx.lineTo(punta.x, punta.y);
+    ctx.lineTo(sitio.x - nx * base, sitio.y - ny * base);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(8, 11, 15, 0.86)";
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowBlur = tamano * 0.4;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = conAlfa(dibujo.color, 0.85);
+    ctx.lineWidth = Math.max(1, grosor * 0.45);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /* La chapa, centrada en su sitio: tapa el arranque de la cuña. */
+  pintaChapa(entorno, sitio.x, sitio.y, lineas, dibujo.color, tamano, "centro");
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(punta.x, punta.y, Math.max(3, grosor * 0.9), 0, Math.PI * 2);
+  ctx.fillStyle = dibujo.color;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.55)";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ------------------------------------------------ el fluorescente ---- */
+
+function pintaFluor(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala, progreso } = entorno;
+
+  const puntos = dibujo.puntos.map((punto) => aPx(punto, medidas));
+
+  if (puntos.length < 2) return;
+
+  const avance = dibujo.animado ? Math.max(0.02, progreso) : 1;
+  const hasta = Math.max(2, Math.round(puntos.length * avance));
+
+  /*
+  | Un solo trazo, no uno por tramo.
+  |
+  | La gracia del rotulador fluorescente es que es translúcido parejo: pintado
+  | tramo a tramo, cada solape entre dos tramos sale el doble de opaco y queda
+  | una ristra de nudos.
+  */
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = conAlfa(dibujo.color, 0.4);
+  ctx.lineWidth = Math.max(6, dibujo.grosor * escala * 3.2);
+  ctx.beginPath();
+  ctx.moveTo(puntos[0].x, puntos[0].y);
+
+  for (let i = 1; i < hasta; i += 1) {
+    const medio = {
+      x: (puntos[i - 1].x + puntos[i].x) / 2,
+      y: (puntos[i - 1].y + puntos[i].y) / 2,
+    };
+
+    ctx.quadraticCurveTo(puntos[i - 1].x, puntos[i - 1].y, medio.x, medio.y);
+  }
+
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ------------------------------------------------ el haz de luz ---- */
+
+/**
+ * El cono de luz de las repeticiones: baja desde lo alto de la imagen hasta
+ * un aro en los pies del jugador.
+ *
+ * Se suma a la imagen (`lighter`) en vez de taparla: la luz aclara lo que hay
+ * debajo, no lo pinta encima, y así el jugador sigue viéndose dentro del haz.
+ */
+function pintaHaz(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala, progreso } = entorno;
+
+  const pie = aPx(dibujo.puntos[0], medidas);
+  const rx = Math.max(10, dibujo.radio * medidas.ancho);
+  const ry = rx * 0.42;
+  const arriba = rx * 0.32;
+  const grosor = Math.max(1.5, dibujo.grosor * escala);
+  const luz = dibujo.animado ? Math.max(0.05, progreso) : 1;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  const chorro = ctx.createLinearGradient(0, 0, 0, pie.y);
+
+  chorro.addColorStop(0, conAlfa(dibujo.color, 0));
+  chorro.addColorStop(0.55, conAlfa(dibujo.color, 0.1 * luz));
+  chorro.addColorStop(1, conAlfa(dibujo.color, 0.3 * luz));
+
+  ctx.beginPath();
+  ctx.moveTo(pie.x - arriba, 0);
+  ctx.lineTo(pie.x + arriba, 0);
+  ctx.lineTo(pie.x + rx, pie.y);
+  ctx.ellipse(pie.x, pie.y, rx, ry, 0, 0, Math.PI);
+  ctx.lineTo(pie.x - rx, pie.y);
+  ctx.closePath();
+  ctx.fillStyle = chorro;
+  ctx.fill();
+
+  const suelo = ctx.createRadialGradient(pie.x, pie.y, 0, pie.x, pie.y, rx);
+
+  suelo.addColorStop(0, conAlfa(dibujo.color, 0.42 * luz));
+  suelo.addColorStop(1, conAlfa(dibujo.color, 0));
+
+  ctx.save();
+  ctx.translate(pie.x, pie.y);
+  ctx.scale(1, 0.42);
+  ctx.beginPath();
+  ctx.arc(0, 0, rx, 0, Math.PI * 2);
+  ctx.fillStyle = suelo;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.restore();
+
+  /* El aro de los pies, nítido. */
+  ctx.save();
+  ctx.globalAlpha *= luz;
+  ctx.beginPath();
+  ctx.ellipse(pie.x, pie.y, rx, ry, 0, 0, Math.PI * 2);
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.4)";
+  ctx.lineWidth = grosor + 3;
+  ctx.stroke();
+  ctx.strokeStyle = dibujo.color;
+  ctx.lineWidth = grosor;
+  ctx.shadowColor = conAlfa(dibujo.color, 0.8);
+  ctx.shadowBlur = grosor * 3;
+  ctx.stroke();
+  ctx.restore();
+
+  if (dibujo.etiqueta.trim() || dibujo.texto.trim()) {
+    pintaChapa(
+      entorno,
+      pie.x,
+      pie.y + ry + dibujo.tamano * escala * 0.9,
+      [dibujo.etiqueta.trim(), dibujo.texto.trim()].filter(Boolean),
+      dibujo.color,
+      dibujo.tamano * escala * 0.75,
+      "centro",
+    );
+  }
+}
+
+/* ------------------------------------------ etiqueta de jugador ---- */
+
+/**
+ * La chapa de jugador de televisión: dorsal en su color y el nombre al lado,
+ * colgada de un palito que acaba en la cabeza.
+ */
+function pintaChapaJugador(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala } = entorno;
+
+  const cabeza = aPx(dibujo.puntos[0], medidas);
+  const sitio = dibujo.puntos[1] ? aPx(dibujo.puntos[1], medidas) : cabeza;
+
+  const tamano = dibujo.tamano * escala;
+  const grosor = Math.max(1.5, dibujo.grosor * escala);
+
+  const dorsal = dibujo.etiqueta.trim();
+  const nombre = dibujo.texto.trim().toUpperCase() || (dorsal ? "" : "JUGADOR");
+
+  ctx.save();
+  ctx.font = `700 ${tamano}px ${entorno.familia}`;
+
+  const alto = tamano * 1.5;
+  const anchoDorsal = dorsal ? Math.max(alto, ctx.measureText(dorsal).width + tamano * 0.8) : 0;
+  const anchoNombre = nombre ? ctx.measureText(nombre).width + tamano * 1.1 : 0;
+  const ancho = anchoDorsal + anchoNombre;
+
+  const x0 = sitio.x - ancho / 2;
+  const y0 = sitio.y - alto;
+
+  /* El palito, de la cabeza a la chapa. */
+  if (distancia(cabeza, sitio) > 3) {
+    ctx.beginPath();
+    ctx.moveTo(cabeza.x, cabeza.y);
+    ctx.lineTo(sitio.x, sitio.y);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.45)";
+    ctx.lineWidth = grosor * 0.7 + 2;
+    ctx.stroke();
+    ctx.strokeStyle = dibujo.color;
+    ctx.lineWidth = Math.max(1.2, grosor * 0.7);
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.arc(cabeza.x, cabeza.y, Math.max(2.5, grosor * 0.8), 0, Math.PI * 2);
+  ctx.fillStyle = dibujo.color;
+  ctx.fill();
+
+  const radio = tamano * 0.3;
+
+  ctx.beginPath();
+  ctx.roundRect(x0, y0, ancho, alto, radio);
+  ctx.fillStyle = "rgba(8, 11, 15, 0.9)";
+  ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+  ctx.shadowBlur = tamano * 0.6;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  if (dorsal) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(x0, y0, ancho, alto, radio);
+    ctx.clip();
+    ctx.fillStyle = dibujo.color;
+    ctx.fillRect(x0, y0, anchoDorsal, alto);
+    ctx.restore();
+  }
+
+  ctx.strokeStyle = conAlfa(dibujo.color, 0.6);
+  ctx.lineWidth = Math.max(1, tamano * 0.05);
+  ctx.beginPath();
+  ctx.roundRect(x0, y0, ancho, alto, radio);
+  ctx.stroke();
+
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "center";
+
+  if (dorsal) {
+    ctx.fillStyle = "#0B0F14";
+    ctx.fillText(dorsal, x0 + anchoDorsal / 2, y0 + alto / 2 + tamano * 0.04);
+  }
+
+  if (nombre) {
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = `600 ${tamano}px ${entorno.familia}`;
+    ctx.fillText(nombre, x0 + anchoDorsal + anchoNombre / 2, y0 + alto / 2 + tamano * 0.04);
+  }
+
+  ctx.restore();
+}
+
+/* ----------------------------------------- la chapa de recuento ---- */
+
+/**
+ * «3 v 2»: cuántos hay de cada equipo en la zona.
+ *
+ * Cada número va sobre el color de su equipo —el nuestro es el color del
+ * dibujo; el del rival, el segundo color— y la «v» en el papel oscuro del club.
+ */
+function pintaRecuento(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala } = entorno;
+
+  const centro = aPx(dibujo.puntos[0], medidas);
+  const tamano = dibujo.tamano * escala;
+
+  const nuestros = dibujo.etiqueta.trim() || "0";
+  const rivales = dibujo.texto.trim() || "0";
+  const rival = dibujo.colorB ?? "#EF4444";
+
+  ctx.save();
+  ctx.font = `700 ${tamano}px ${entorno.familia}`;
+
+  const alto = tamano * 1.45;
+  const lado = (texto: string) => Math.max(alto, ctx.measureText(texto).width + tamano * 0.8);
+  const anchoA = lado(nuestros);
+  const anchoB = lado(rivales);
+  const anchoV = tamano * 1.05;
+  const ancho = anchoA + anchoV + anchoB;
+
+  const x0 = centro.x - ancho / 2;
+  const y0 = centro.y - alto / 2;
+  const radio = tamano * 0.32;
+
+  ctx.beginPath();
+  ctx.roundRect(x0, y0, ancho, alto, radio);
+  ctx.fillStyle = "rgba(8, 11, 15, 0.92)";
+  ctx.shadowColor = "rgba(0, 0, 0, 0.55)";
+  ctx.shadowBlur = tamano * 0.6;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.save();
+  ctx.clip();
+  ctx.fillStyle = dibujo.color;
+  ctx.fillRect(x0, y0, anchoA, alto);
+  ctx.fillStyle = rival;
+  ctx.fillRect(x0 + anchoA + anchoV, y0, anchoB, alto);
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+  ctx.lineWidth = Math.max(1, tamano * 0.05);
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  /* El número sobre un color claro se escribe oscuro, y al revés. */
+  const tinta = (color: string) => (luminancia(color) > 0.55 ? "#0B0F14" : "#FFFFFF");
+
+  ctx.fillStyle = tinta(dibujo.color);
+  ctx.fillText(nuestros, x0 + anchoA / 2, centro.y + tamano * 0.04);
+
+  ctx.fillStyle = tinta(rival);
+  ctx.fillText(rivales, x0 + anchoA + anchoV + anchoB / 2, centro.y + tamano * 0.04);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+  ctx.font = `600 ${tamano * 0.62}px ${entorno.familia}`;
+  ctx.fillText("v", x0 + anchoA + anchoV / 2, centro.y + tamano * 0.02);
+
+  ctx.restore();
+}
+
+/** De 0 (negro) a 1 (blanco), para elegir la tinta que se lee encima. */
+function luminancia(color: string) {
+  const rgba = conAlfa(color, 1).match(/\d+/g);
+
+  if (!rgba || rgba.length < 3) return 0.5;
+
+  const [r, g, b] = rgba.map(Number);
+
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+/* ------------------------------------------- el triángulo de pase ---- */
+
+function pintaTriangulo(entorno: Contexto, dibujo: DibujoTel) {
+  const { ctx, medidas, escala } = entorno;
+
+  const puntos = dibujo.puntos.map((punto) => aPx(punto, medidas));
+  const grosor = Math.max(1.5, dibujo.grosor * escala);
+
+  if (puntos.length < 2) return;
+
+  const cerrado = puntos.length >= 3;
+
+  const traza = () => {
+    ctx.beginPath();
+    ctx.moveTo(puntos[0].x, puntos[0].y);
+    puntos.slice(1, 3).forEach((punto) => ctx.lineTo(punto.x, punto.y));
+    if (cerrado) ctx.closePath();
+  };
+
+  if (cerrado && dibujo.relleno) {
+    ctx.save();
+    traza();
+    ctx.fillStyle = conAlfa(dibujo.color, 0.16);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  trazaConContorno(entorno, traza, dibujo.color, grosor, dibujo.discontinua);
+
+  /* Un punto en cada vértice: son jugadores, no esquinas. */
+  puntos.slice(0, 3).forEach((punto) => {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(punto.x, punto.y, Math.max(4, grosor * 1.3), 0, Math.PI * 2);
+    ctx.fillStyle = dibujo.color;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  if (cerrado && dibujo.texto.trim()) {
+    const centro = centroide(puntos.slice(0, 3));
+
+    pintaChapa(
+      entorno,
+      centro.x,
+      centro.y,
+      [dibujo.texto.trim()],
+      dibujo.color,
+      dibujo.tamano * escala * 0.66,
+      "centro",
+    );
+  }
+}
+
 /* ================================================================== */
 /*  UN DIBUJO                                                          */
 /* ================================================================== */
@@ -2055,38 +3386,46 @@ function pintaDibujo(entorno: Contexto, dibujo: DibujoTel) {
 
       if (!b) break;
 
-      const c = control(a, b, dibujo.curvatura);
-      const fin = enCurva(a, c, b, avance);
-
-      trazaConContorno(
-        entorno,
-        () => {
-          ctx.beginPath();
-          ctx.moveTo(a.x, a.y);
-
-          if (avance >= 1) {
-            ctx.quadraticCurveTo(c.x, c.y, b.x, b.y);
-          } else {
-            for (let paso = 1; paso <= 24; paso += 1) {
-              const punto = enCurva(a, c, b, (avance * paso) / 24);
-
-              ctx.lineTo(punto.x, punto.y);
-            }
-          }
-        },
-        dibujo.color,
-        grosor,
-        dibujo.discontinua,
-      );
-
-      if (dibujo.tipo === "flecha") {
-        const antes = enCurva(a, c, b, Math.max(0, avance - 0.06));
-
-        pintaPunta(entorno, fin, antes, dibujo.color, grosor);
-      }
+      pintaFlecha(entorno, dibujo, a, b);
 
       break;
     }
+
+    case "muro":
+      pintaMuro(entorno, dibujo);
+      break;
+
+    case "rejilla":
+      pintaRejilla(entorno, dibujo);
+      break;
+
+    case "cadena":
+      pintaCadena(entorno, dibujo);
+      break;
+
+    case "llamada":
+      pintaLlamada(entorno, dibujo);
+      break;
+
+    case "fluor":
+      pintaFluor(entorno, dibujo);
+      break;
+
+    case "haz":
+      pintaHaz(entorno, dibujo);
+      break;
+
+    case "chapa":
+      pintaChapaJugador(entorno, dibujo);
+      break;
+
+    case "recuento":
+      pintaRecuento(entorno, dibujo);
+      break;
+
+    case "triangulo":
+      pintaTriangulo(entorno, dibujo);
+      break;
 
     case "libre": {
       const hasta = Math.max(2, Math.round(puntos.length * avance));
