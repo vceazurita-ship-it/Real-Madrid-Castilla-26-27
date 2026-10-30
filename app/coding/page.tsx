@@ -106,6 +106,7 @@ import {
   PizarraVideo,
   ReutilizaPizarra,
 } from "@/components/coding/PizarraVideo";
+import { ANCHO_PANEL_COMPLETA, PanelPantallaCompleta } from "@/components/coding/PanelPantallaCompleta";
 import {
   SelectorFuente,
   type VideoElegido,
@@ -1565,6 +1566,9 @@ function Coding() {
   | su nombre al lado; «Este vídeo» vuelve a la vista de siempre.
   */
   const [listaDeTodos, setListaDeTodos] = useState(true);
+
+  /* La columna de cortes a pantalla completa (30/10/2026): abierta de salida. */
+  const [panelCompleta, setPanelCompleta] = useState(true);
 
   const verTodosEnLista = listaDeTodos && videosSesion.length > 1;
 
@@ -4066,6 +4070,14 @@ function Coding() {
                     ref={montaVideo}
                     src={src || undefined}
                     className="aspect-video w-full bg-black"
+                    /* A pantalla completa con la lista de cortes, el vídeo
+                       deja su ancho a la columna: sigue anclado a la esquina,
+                       así que la pizarra no se despega. */
+                    style={
+                      enPantallaCompleta && src && panelCompleta
+                        ? { width: `calc(100% - ${ANCHO_PANEL_COMPLETA}px)` }
+                        : undefined
+                    }
                     preload="metadata"
                     playsInline
                   />
@@ -4086,6 +4098,26 @@ function Coding() {
                       alBorrar={borraPizarra}
                       alPintar={abrePizarra}
                       visible={pizarraVisible}
+                    />
+                  )}
+
+                  {/* Pasar y ordenar los cortes sin salir de la pantalla completa. */}
+                  {enPantallaCompleta && src && (
+                    <PanelPantallaCompleta
+                      abierto={panelCompleta}
+                      alAbrir={setPanelCompleta}
+                      clips={clipsDeLaLista}
+                      categorias={config.categorias}
+                      seleccionado={seleccionado}
+                      reproduciendo={reproductor.estado.reproduciendo}
+                      alReproducir={reproduceDeCualquierVideo}
+                      alAlternar={reproductor.alterna}
+                      alSaltar={reproductor.mueve}
+                      alMover={(id, destinoId, donde) =>
+                        listaGuardada
+                          ? sesion.mueveEnLista(listaGuardada.id, id, destinoId, donde)
+                          : sesion.mueveClipA(id, destinoId, donde)
+                      }
                     />
                   )}
 
