@@ -1694,8 +1694,7 @@ export default function PizarraAbpPage() {
         };
       });
 
-      setCambiando(null);
-
+      /* El diálogo se queda abierto (30/10/2026): se cambian varios seguidos sin volver a entrar. */
       toast.success(
         intercambia
           ? `${nombre(entra)} y ${nombre(sale)} intercambiados`

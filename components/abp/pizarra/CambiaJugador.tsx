@@ -12,10 +12,14 @@
  * Si el que entra ya estaba en alguna diapositiva, sustituir sin más le haría
  * salir dos veces. Para eso está «intercambiarlos», que viene marcado cuando
  * hay choque: el que sale se queda con lo que tenía el que entra.
+ *
+ * Varios seguidos (30/10/2026): al aplicar, el diálogo no se cierra; se limpia
+ * la elección y arriba queda la lista de lo cambiado, para seguir con el
+ * siguiente sin volver a entrar. «Hecho» cierra.
  */
 
 import { useMemo, useState } from "react";
-import { ArrowRight, Repeat, Search } from "lucide-react";
+import { ArrowRight, Check, Repeat, Search } from "lucide-react";
 
 import { Button, Dialog } from "@/components/abp/ui";
 import type { Player } from "@/types/player";
@@ -59,6 +63,9 @@ export function CambiaJugador({
   const [entra, setEntra] = useState<string | null>(null);
 
   const [busca, setBusca] = useState("");
+
+  /* Lo cambiado desde que se abrió, con los nombres de entonces. */
+  const [hechos, setHechos] = useState<{ sale: string; entra: string; intercambia: boolean }[]>([]);
 
   /* `null` = lo que toque según haya choque o no; se fija en cuanto se toca. */
   const [intercambiaPedido, setIntercambiaPedido] = useState<boolean | null>(null);
@@ -128,21 +135,29 @@ export function CambiaJugador({
 
   const listo = Boolean(sale && entra && alcance && alcance.fichas > 0);
 
+  const aplica = () => {
+    if (!sale || !entra) return;
+
+    onAplicar(sale, entra, intercambia);
+    setHechos((lista) => [...lista, { sale: nombre(sale), entra: nombre(entra), intercambia }]);
+    setSale(null);
+    setEntra(null);
+    setBusca("");
+    setIntercambiaPedido(null);
+  };
+
   return (
     <Dialog
       title="Cambiar a un jugador"
-      subtitle="Entra otro en su sitio en todas las diapositivas de esta jornada"
+      subtitle="Entra otro en su sitio en todas las diapositivas de esta jornada. Puedes hacer varios cambios seguidos."
       onClose={onCerrar}
       footer={
         <>
-          <Button onClick={onCerrar}>Cancelar</Button>
+          <Button onClick={onCerrar} icon={hechos.length > 0 ? Check : undefined}>
+            {hechos.length > 0 ? "Hecho" : "Cancelar"}
+          </Button>
 
-          <Button
-            tone="primary"
-            icon={Repeat}
-            disabled={!listo}
-            onClick={() => sale && entra && onAplicar(sale, entra, intercambia)}
-          >
+          <Button tone="primary" icon={Repeat} disabled={!listo} onClick={aplica}>
             {listo && alcance
               ? `Cambiar en ${alcance.slides.length} ${
                   alcance.slides.length === 1 ? "diapositiva" : "diapositivas"
@@ -153,6 +168,21 @@ export function CambiaJugador({
       }
     >
       <div className="space-y-4">
+        {hechos.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-emerald-400/25 bg-emerald-400/[0.06] px-3 py-2 text-xs">
+            <span className="mr-1 font-semibold text-emerald-300">
+              {hechos.length === 1 ? "1 cambio hecho" : `${hechos.length} cambios hechos`}
+            </span>
+            {hechos.map((h, i) => (
+              <span key={i} className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-white/75">
+                {h.sale}
+                {h.intercambia ? <Repeat size={11} className="text-[#C8A96B]" /> : <ArrowRight size={11} className="text-[#C8A96B]" />}
+                {h.entra}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* El cambio, en una línea: lo que se va a hacer antes de hacerlo. */}
         <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm">
           <span className={sale ? "font-semibold text-white" : "text-white/35"}>

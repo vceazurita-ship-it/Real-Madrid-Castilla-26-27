@@ -15,11 +15,19 @@
 | enseña). La columna de la derecha es la lista —arrastrar para ordenar, o
 | las flechas en una tablet— y abajo los mandos: anterior, reproducir,
 | siguiente y saltos de cinco segundos. Se pliega para dejar el vídeo entero.
+|
+| Y se marca sin salir: «Inicio» y «Final» (o las teclas I y O, que siguen
+| valiendo), con el jugador y la categoría a la vista y pulsables. A pantalla
+| completa los avisos de abajo no se ven, así que la marca en curso se cuenta
+| aquí mismo.
 */
 
 import { useState } from "react";
 import {
   ChevronDown,
+  CircleDot,
+  Flag,
+  X,
   ChevronUp,
   GripVertical,
   ListVideo,
@@ -42,7 +50,22 @@ const duracion = (clip: ClipCoding) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 
+export type MarcadoCompleta = {
+  inicioMs: number | null;
+  tiempoMs: number;
+  /** «Ciria · Pase progresivo»: lo que se va a marcar, o nada si falta elegirlo. */
+  sujeto: string | null;
+  categoria: { nombre: string; color: string } | null;
+  formatea: (ms: number) => string;
+  alInicio: () => void;
+  alFinal: () => void;
+  alCancelar: () => void;
+  alElegir: () => void;
+};
+
 export function PanelPantallaCompleta({
+  marcado,
+  pintando,
   abierto,
   alAbrir,
   clips,
@@ -54,6 +77,9 @@ export function PanelPantallaCompleta({
   alSaltar,
   alMover,
 }: {
+  marcado: MarcadoCompleta;
+  /** Con la pizarra abierta, su barra va a la izquierda: la marca se aparta. */
+  pintando: boolean;
   abierto: boolean;
   alAbrir: (abierto: boolean) => void;
   clips: ClipCoding[];
@@ -77,8 +103,50 @@ export function PanelPantallaCompleta({
   const boton =
     "inline-flex h-9 items-center justify-center gap-1.5 rounded-full border border-white/15 bg-black/70 px-3 text-xs font-semibold text-white/85 backdrop-blur transition hover:bg-black/90 disabled:opacity-35";
 
+  const enCurso = marcado.inicioMs !== null;
+
   return (
     <>
+      {/* La marca: arriba a la izquierda, donde no tapa la jugada. */}
+      <div className={`absolute left-3 top-3 z-20 max-w-[60%] flex-wrap items-center gap-1.5 ${pintando ? "hidden" : "flex"}`}>
+        <button
+          type="button"
+          onClick={marcado.alElegir}
+          title="Elegir jugador y categoría"
+          className="inline-flex h-9 min-w-0 items-center gap-2 rounded-full border border-white/15 bg-black/70 px-3 text-xs font-semibold text-white/90 backdrop-blur transition hover:bg-black/90"
+        >
+          {marcado.categoria && (
+            <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: marcado.categoria.color }} />
+          )}
+          <span className="truncate">
+            {marcado.sujeto ? [marcado.sujeto, marcado.categoria?.nombre].filter(Boolean).join(" · ") : "Elegir jugador"}
+          </span>
+        </button>
+
+        {enCurso ? (
+          <>
+            <span className="inline-flex h-9 items-center gap-2 rounded-full border border-red-400/60 bg-red-500/20 px-3 text-xs font-bold tabular-nums text-white backdrop-blur">
+              <span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+              {marcado.formatea(marcado.inicioMs ?? 0)} → {marcado.formatea(Math.max(0, marcado.tiempoMs - (marcado.inicioMs ?? 0)))}
+            </span>
+            <button type="button" onClick={marcado.alFinal} title="Marcar el final (O)" className={`${boton} border-red-400/70 bg-red-600/80 text-white hover:bg-red-600`}>
+              <Flag size={14} />
+              Final
+              <kbd className="rounded bg-black/30 px-1 text-[10px]">O</kbd>
+            </button>
+            <button type="button" onClick={marcado.alCancelar} title="Cancelar la marca" className={`${boton} w-9 px-0`}>
+              <X size={15} />
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={marcado.alInicio} title="Marcar el inicio (I)" className={`${boton} border-emerald-400/60 bg-emerald-600/70 text-white hover:bg-emerald-600`}>
+            <CircleDot size={14} />
+            Inicio
+            <kbd className="rounded bg-black/30 px-1 text-[10px]">I</kbd>
+          </button>
+        )}
+      </div>
+
       {/* Mandos: abajo, a la izquierda del botón «Pizarra». */}
       <div
         className="absolute bottom-3 z-20 flex items-center gap-1.5"

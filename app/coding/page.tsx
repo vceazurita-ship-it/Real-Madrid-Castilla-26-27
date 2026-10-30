@@ -3737,6 +3737,40 @@ function Coding() {
     router.replace(`/coding?${siguientes.toString()}`);
   };
 
+  /* El selector de jugador y categoría. A pantalla completa va dentro del
+     marco, que es lo único que el navegador enseña. */
+  const selectorDeMarca = eligiendoMarca ? (
+        <SelectorDeMarca
+          jugadores={jugadores}
+          teclas={teclas}
+          comportamientos={config.comportamientos}
+          categorias={config.categorias}
+          sujetoActivo={sujetoActivo}
+          categoriaActiva={categoriaActiva}
+          cuentasJugador={cuentasJugador}
+          cuentasColectivo={cuentasColectivo}
+          cuentasCategoria={cuentasCategoria}
+          onJugador={(id) =>
+            setSujetoActivo((actual) =>
+              actual?.tipo === "jugador" && actual.id === id
+                ? null
+                : { tipo: "jugador", id },
+            )
+          }
+          onColectivo={(id) =>
+            setSujetoActivo((actual) =>
+              actual?.tipo === "colectivo" && actual.id === id
+                ? null
+                : { tipo: "colectivo", id },
+            )
+          }
+          onCategoria={(id) =>
+            setCategoriaActiva((actual) => (actual === id ? "" : id))
+          }
+          onCerrar={() => setEligiendoMarca(false)}
+        />
+  ) : null;
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -4101,9 +4135,23 @@ function Coding() {
                     />
                   )}
 
+                  {enPantallaCompleta && selectorDeMarca}
+
                   {/* Pasar y ordenar los cortes sin salir de la pantalla completa. */}
                   {enPantallaCompleta && src && (
                     <PanelPantallaCompleta
+                      marcado={{
+                        inicioMs,
+                        tiempoMs: estado.tiempoMs,
+                        sujeto: sujeto?.nombre ?? null,
+                        categoria: categoriaElegida ? { nombre: categoriaElegida.nombre, color: categoriaElegida.color } : null,
+                        formatea: formateaMs,
+                        alInicio: marcaInicio,
+                        alFinal: marcaFinal,
+                        alCancelar: () => setInicioMs(null),
+                        alElegir: () => setEligiendoMarca(true),
+                      }}
+                      pintando={pizarraEditando !== null}
                       abierto={panelCompleta}
                       alAbrir={setPanelCompleta}
                       clips={clipsDeLaLista}
@@ -5812,37 +5860,7 @@ function Coding() {
 
       {/* Elegir jugador y categoría con el dedo, sin bajar a los paneles. */}
 
-      {eligiendoMarca && (
-        <SelectorDeMarca
-          jugadores={jugadores}
-          teclas={teclas}
-          comportamientos={config.comportamientos}
-          categorias={config.categorias}
-          sujetoActivo={sujetoActivo}
-          categoriaActiva={categoriaActiva}
-          cuentasJugador={cuentasJugador}
-          cuentasColectivo={cuentasColectivo}
-          cuentasCategoria={cuentasCategoria}
-          onJugador={(id) =>
-            setSujetoActivo((actual) =>
-              actual?.tipo === "jugador" && actual.id === id
-                ? null
-                : { tipo: "jugador", id },
-            )
-          }
-          onColectivo={(id) =>
-            setSujetoActivo((actual) =>
-              actual?.tipo === "colectivo" && actual.id === id
-                ? null
-                : { tipo: "colectivo", id },
-            )
-          }
-          onCategoria={(id) =>
-            setCategoriaActiva((actual) => (actual === id ? "" : id))
-          }
-          onCerrar={() => setEligiendoMarca(false)}
-        />
-      )}
+      {!enPantallaCompleta && selectorDeMarca}
     </main>
   );
 }
