@@ -134,6 +134,10 @@ import {
   fichaNueva,
   fijaVersion,
   adornosDePlantilla,
+  conTexto,
+  limpiaSigla,
+  puestosDePlantilla,
+  SIGLA_MAX,
   gruposDe,
   gruposDePlantilla,
   siglaDe,
@@ -163,6 +167,7 @@ import {
   tieneFichas,
   tieneTextosPropios,
   tituloVisible,
+  type CambioTexto,
   type PizarraStore,
   type PuestoAbp,
   type SlidePizarra,
@@ -1280,6 +1285,46 @@ export default function PizarraAbpPage() {
     [setStore],
   );
 
+  /*
+  | Un texto escrito sobre la propia diapositiva (31/10/2026). Cambia esta
+  | jornada, como el panel, y ofrece al momento dejarlo para las siguientes:
+  | lo que se guarda es la diapositiva tal y como queda, no sólo ese rótulo.
+  */
+  const cambiaTextoEnSitio = useCallback(
+    (cambio: CambioTexto) => {
+      if (!slide || !partido) return;
+
+      const slideId = slide.id;
+      const partidoId = partido.id;
+      const rival = partido.opponent;
+
+      mutaSlide((actual) => conTexto(actual, cambio));
+
+      toast("Cambiado en esta jornada", {
+        id: "texto-en-sitio",
+        description: "Las jornadas que montes a partir de ahora siguen con el de siempre.",
+        action: {
+          label: "Usar también en las siguientes",
+          onClick: () => {
+            setStore((actual) => {
+              const hecho = tableroAlDia(actual, partidoId, rival).slides.find((item) => item.id === slideId);
+
+              if (!hecho) return actual;
+
+              return {
+                ...actual,
+                textos: { ...actual.textos, [hecho.plantilla]: textosDeSlide(hecho) },
+              };
+            });
+
+            toast.success("Guardado para las siguientes jornadas", { id: "texto-en-sitio" });
+          },
+        },
+      });
+    },
+    [slide, partido, mutaSlide, setStore, tableroAlDia],
+  );
+
   const vuelveALaPlantilla = useCallback(
     (slide: SlidePizarra) => {
       mutaSlide(sinTextosPropios);
@@ -1412,7 +1457,10 @@ export default function PizarraAbpPage() {
     if (!slide) return mapa;
 
     slide.fichas.forEach((ficha) => {
-      const code = puestoDe(slide, ficha.puesto)?.code;
+      const puesto = puestoDe(slide, ficha.puesto);
+
+      /* Lo que se lee en la chapa (la sigla reescrita, si la hay). */
+      const code = puesto ? siglaDe(puesto) : "";
 
       if (!code) return;
 
@@ -3163,6 +3211,7 @@ export default function PizarraAbpPage() {
                       onMoverRival={(id, x, y) =>
                         cambiaRivalDibujado(id, { x, y }, `gesto:${gesto.current}`)
                       }
+                      onCambiarTexto={cambiaTextoEnSitio}
                     />
 
                     {/*
@@ -3879,6 +3928,8 @@ function TextosDeLaSlide({
   /* Los de la plantilla, para enseñarlos de marca de agua en cada casilla. */
   const grupos = gruposDePlantilla(slide);
   const adornos = adornosDePlantilla(slide);
+  /* Con la sigla de la plantilla de marca de agua. */
+  const puestos = puestosDePlantilla(slide);
 
   const propios = tieneTextosPropios(slide);
 
@@ -3888,7 +3939,7 @@ function TextosDeLaSlide({
   return (
     <Panel
       title="Textos de la diapositiva"
-      subtitle="Lo que se lee en el tablero. Se cambia sólo para este partido salvo que lo dejes para las siguientes."
+      subtitle="Lo que se lee en el tablero. Se cambia sólo para este partido salvo que lo dejes para las siguientes. También se escribe sobre la propia diapositiva: doble clic (o un toque) en el texto."
       icon={Type}
     >
       <div className="space-y-4">
@@ -4005,6 +4056,43 @@ function TextosDeLaSlide({
                   placeholder={grupo.label}
                   className={campo}
                 />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {puestos.length > 0 && (
+          <div>
+            <p className="mb-1.5 text-[11px] uppercase tracking-[0.18em] text-white/35">
+              Siglas de los puestos · hasta {SIGLA_MAX} letras
+            </p>
+
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {puestos.map((puesto) => (
+                <label key={puesto.key} className="block min-w-0" title={puesto.label}>
+                  <span className="mb-1 block truncate text-[11px] text-white/40">{puesto.label}</span>
+
+                  <input
+                    value={slide.textos?.siglas?.[puesto.key] ?? ""}
+                    onChange={(event) => {
+                      const sigla = limpiaSigla(event.target.value);
+
+                      onTexto((textos) => {
+                        const siglas = { ...textos.siglas };
+
+                        if (sigla && sigla !== siglaDe(puesto)) siglas[puesto.key] = sigla;
+                        else delete siglas[puesto.key];
+
+                        const { siglas: _antes, ...resto } = textos;
+
+                        return Object.keys(siglas).length ? { ...resto, siglas } : resto;
+                      });
+                    }}
+                    placeholder={siglaDe(puesto)}
+                    maxLength={SIGLA_MAX}
+                    className={`${campo} uppercase`}
+                  />
+                </label>
               ))}
             </div>
           </div>

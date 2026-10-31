@@ -206,7 +206,7 @@ export function SelectorJugador({
 
   return (
     <Dialog
-      title={grupo ? grupo.label : `${puesto.code} · ${puesto.label}`}
+      title={grupo ? grupo.label : `${siglaDe(puesto)} · ${puesto.label}`}
       subtitle={
         grupo
           ? `Quiénes lanzan desde aquí, por orden — hasta ${limite}`

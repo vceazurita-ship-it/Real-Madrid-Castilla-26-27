@@ -22,8 +22,8 @@
  * `backdrop-filter` ni los colores `oklch` de Tailwind sobreviven al PNG.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { User, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { Pencil, User, X } from "lucide-react";
 
 import { apartaRivales, ESCALA_APRETADA, separaFichas } from "@/lib/abp/separa";
 
@@ -54,12 +54,16 @@ import {
 } from "@/lib/abp/trazos";
 import {
   CABECERA_H,
+  CASILLAS_GUION,
   CLUB,
   COLORES,
+  SIGLA_MAX,
   TABLERO_H,
   TABLERO_W,
   VISTAS,
   adornosDe,
+  limpiaSigla,
+  type CambioTexto,
   enElCampo,
   gruposDe,
   lineasDeSlide,
@@ -71,6 +75,240 @@ import {
   type FichaPizarra,
   type SlidePizarra,
 } from "@/lib/abp/pizarra";
+
+/* ------------------------------------------------------------------ */
+/*  TEXTOS QUE SE ESCRIBEN EN SU SITIO                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Un texto de la diapositiva que se reescribe encima de ella (31/10/2026).
+ *
+ * Con el ratón, doble clic; con el dedo, un toque (en la chapa de una ficha,
+ * dos: un toque es elegirla o arrastrarla). El campo sale en su sitio y con la
+ * letra del rótulo, porque va dentro del mismo lienzo escalado. Intro guarda,
+ * Escape deja lo que había; en las consignas, Mayús+Intro abre otra línea.
+ *
+ * Sólo se monta en la pizarra en edición: el proyector, las exportaciones y
+ * los vídeos pintan `soloVer` y aquí no entran. El lápiz del «pasar por
+ * encima» lleva además `data-export-hide`.
+ */
+type Disparo = { x: number; y: number };
+
+/*
+| El primer toque de un doble clic, por texto y fuera del componente: pinchar
+| la chapa de una ficha la elige, la ficha se vuelve a pintar y una ref local
+| se perdía entre los dos clics (31/10/2026).
+*/
+const primerToque = new Map<string, number>();
+/** Dónde bajó el puntero, por la misma razón. */
+const bajada = new Map<string, Disparo>();
+
+function TextoEnSitio({
+  id,
+  activo,
+  abierto,
+  valor,
+  onAbrir,
+  onCerrar,
+  multilinea = false,
+  sigla = false,
+  dobleEnTactil = false,
+  bloque = false,
+  ayuda,
+  children,
+}: {
+  id: string;
+  /** Si la pizarra deja escribir (en edición, sin reproducción). */
+  activo: boolean;
+  abierto: boolean;
+  /** Lo que sale escrito al abrir el campo (lo guardado, sin retocar). */
+  valor: string;
+  onAbrir: () => void;
+  /** `null` = se deja como estaba. */
+  onCerrar: (texto: string | null) => void;
+  multilinea?: boolean;
+  sigla?: boolean;
+  dobleEnTactil?: boolean;
+  /** Ocupa todo el ancho de su caja (título, consignas). */
+  bloque?: boolean;
+  ayuda: string;
+  children: ReactNode;
+}) {
+
+  if (!activo) return <>{children}</>;
+
+  if (abierto) {
+    return (
+      <CampoEnSitio
+        valor={valor}
+        multilinea={multilinea}
+        sigla={sigla}
+        bloque={bloque}
+        onCerrar={onCerrar}
+      />
+    );
+  }
+
+  return (
+    <span
+      data-texto-editable={id}
+      title={ayuda}
+      className={`group/texto cursor-text decoration-dotted decoration-2 underline-offset-[6px] hover:underline ${
+        bloque ? "inline" : "inline-block max-w-full"
+      }`}
+      onPointerDown={(event) => {
+        bajada.set(id, { x: event.clientX, y: event.clientY });
+      }}
+      onPointerUp={(event) => {
+        const desde = bajada.get(id);
+
+        bajada.delete(id);
+
+        /* Ha sido un arrastre (de la ficha, por ejemplo), no un toque. */
+        if (!desde || Math.hypot(event.clientX - desde.x, event.clientY - desde.y) > 8) return;
+
+        if (event.pointerType === "touch" && !dobleEnTactil) {
+          onAbrir();
+
+          return;
+        }
+
+        const ahora = event.timeStamp;
+
+        if (ahora - (primerToque.get(id) ?? -Infinity) < 420) {
+          primerToque.delete(id);
+          onAbrir();
+        } else {
+          primerToque.set(id, ahora);
+        }
+      }}
+      /* La chapa del panel es un botón: el toque no abre el selector. */
+      onClick={(event) => event.stopPropagation()}
+    >
+      {children}
+
+      <Pencil
+        data-export-hide
+        aria-hidden
+        size={sigla ? 14 : 18}
+        className="ml-1.5 hidden align-middle opacity-70 group-hover/texto:inline-block"
+      />
+    </span>
+  );
+}
+
+function CampoEnSitio({
+  valor,
+  multilinea,
+  sigla,
+  bloque,
+  onCerrar,
+}: {
+  valor: string;
+  multilinea: boolean;
+  sigla: boolean;
+  bloque: boolean;
+  onCerrar: (texto: string | null) => void;
+}) {
+  const [texto, setTexto] = useState(valor);
+  const ref = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
+  /* Escape y el Intro cierran antes de que llegue el `blur`: que no guarde dos veces. */
+  const cerrado = useRef(false);
+
+  useEffect(() => {
+    const el = ref.current;
+
+    if (!el) return;
+
+    el.focus();
+    el.select();
+  }, []);
+
+  const termina = (guarda: boolean) => {
+    if (cerrado.current) return;
+
+    cerrado.current = true;
+
+    onCerrar(guarda && texto !== valor ? texto : null);
+  };
+
+  const alTeclear = (event: React.KeyboardEvent) => {
+    /* Ni los atajos de la pizarra ni el botón de la fila se enteran. */
+    event.stopPropagation();
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      termina(false);
+    } else if (event.key === "Enter" && !(multilinea && event.shiftKey)) {
+      event.preventDefault();
+      termina(true);
+    }
+  };
+
+  /* Que el puntero no arrastre la ficha, ni suelte la selección, ni abra el selector. */
+  const para = (event: React.SyntheticEvent) => event.stopPropagation();
+
+  const alEscribir = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setTexto(sigla ? limpiaSigla(event.target.value) : event.target.value);
+
+  const estilo: React.CSSProperties = {
+    font: "inherit",
+    color: "inherit",
+    letterSpacing: "inherit",
+    textTransform: "inherit",
+    lineHeight: "inherit",
+    background: "rgba(200,169,107,.18)",
+    outline: `2px solid ${COLORES.oro}`,
+    outlineOffset: 2,
+    borderRadius: 4,
+    border: 0,
+    padding: 0,
+    margin: 0,
+    maxWidth: "100%",
+    touchAction: "auto",
+    userSelect: "text",
+    width: bloque ? "100%" : `${Math.max(texto.length, sigla ? 2 : 4) + 1.5}ch`,
+  };
+
+  if (multilinea) {
+    return (
+      <textarea
+        ref={ref}
+        value={texto}
+        aria-label="Escribe el texto"
+        rows={Math.max(1, texto.split("\n").length)}
+        onChange={alEscribir}
+        onBlur={() => termina(true)}
+        onKeyDown={alTeclear}
+        onKeyUp={para}
+        onPointerDown={para}
+        onPointerUp={para}
+        onClick={para}
+        onDoubleClick={para}
+        style={{ ...estilo, resize: "none", display: "block", verticalAlign: "top" }}
+      />
+    );
+  }
+
+  return (
+    <input
+      ref={ref}
+      value={texto}
+      aria-label="Escribe el texto"
+      spellCheck={!sigla}
+      maxLength={sigla ? SIGLA_MAX : 160}
+      onChange={alEscribir}
+      onBlur={() => termina(true)}
+      onKeyDown={alTeclear}
+      onKeyUp={para}
+      onPointerDown={para}
+      onPointerUp={para}
+      onClick={para}
+      onDoubleClick={para}
+      style={estilo}
+    />
+  );
+}
 
 /** Medidas de una ficha en el lienzo, las del pptx: foto de 96×120. */
 const FOTO_W = 96;
@@ -314,6 +552,7 @@ function Ficha({
   ficha,
   player,
   code,
+  codigo,
   dorsal,
   seleccionada,
   soloVer,
@@ -322,12 +561,21 @@ function Ficha({
   marca,
   onPointerDown,
   onQuitar,
+  onDobleClic,
 }: {
+  /**
+   * Doble clic en cualquier parte de la ficha: escribir su sigla. El primer
+   * clic la elige y la ficha se repinta un poco más grande, así que el segundo
+   * ya no caía sobre la chapa (31/10/2026).
+   */
+  onDobleClic?: () => void;
   /** Pizarra de un jugador: «si» es él (rosa y delante), «no» el resto (apagado). */
   foco?: "si" | "no";
   ficha: FichaPizarra;
   player: Player | undefined;
   code: string;
+  /** La sigla ya envuelta para escribirla en su sitio (pizarra en edición). */
+  codigo?: ReactNode;
   /** Proyector y exportación: se pisa con otra cara y se pinta más pequeña (con foto). */
   compacta?: boolean;
   /** La diapositiva pide escribir a mano el dorsal del rival al que marca. */
@@ -367,6 +615,10 @@ function Ficha({
         opacity: foco === "no" ? 0.42 : undefined,
       }}
       onPointerDown={soloVer ? undefined : onPointerDown}
+      onDoubleClick={soloVer || !onDobleClic ? undefined : (event) => {
+        event.stopPropagation();
+        onDobleClic();
+      }}
     >
       {dorsal && <CasillaDorsal numero={marca} />}
 
@@ -420,7 +672,7 @@ function Ficha({
         }}
       >
         <span className="text-[15px] font-bold leading-[15px] tracking-[0.04em] text-white" style={foco === "si" ? { color: COLORES.navy } : undefined}>
-          {code}
+          {codigo ?? code}
         </span>
 
         <span
@@ -532,11 +784,14 @@ function MarcaZona({
   y,
   label,
   etiquetaY,
+  rotulo,
 }: {
   x: number;
   y: number;
   label: string;
   etiquetaY?: number;
+  /** El rótulo listo para escribirlo en su sitio (pizarra en edición). */
+  rotulo?: ReactNode;
 }) {
   return (
     <>
@@ -591,7 +846,7 @@ function MarcaZona({
     | del sitio, no del jugador que tiene debajo.
     */}
     <div
-      className="pointer-events-none absolute flex items-center justify-center rounded-lg px-3"
+      className={`${rotulo ? "" : "pointer-events-none "}absolute flex items-center justify-center rounded-lg px-3`}
       style={{
         left: x - 115,
         top: etiquetaY ?? y + 44,
@@ -610,7 +865,7 @@ function MarcaZona({
           textShadow: "0 1px 4px rgba(0,0,0,.7)",
         }}
       >
-        {label}
+        {rotulo ?? label}
       </p>
     </div>
     </>
@@ -662,7 +917,18 @@ const FLECHA = [
   "Z",
 ].join(" ");
 
-function FlechaTransicion({ label, remate }: { label: string; remate: string }) {
+function FlechaTransicion({
+  label,
+  remate,
+  rotulo,
+  remateNodo,
+}: {
+  label: string;
+  remate: string;
+  /** Los dos textos listos para escribirlos en su sitio (pizarra en edición). */
+  rotulo?: ReactNode;
+  remateNodo?: ReactNode;
+}) {
   return (
     <div
       className="pointer-events-none absolute"
@@ -746,7 +1012,7 @@ function FlechaTransicion({ label, remate }: { label: string; remate: string }) 
 
       {/* El texto va fuera del SVG: la tipografía de la casa es la del HTML. */}
       <p
-        className="absolute text-[17px] font-bold uppercase leading-none tracking-[0.3em]"
+        className={`${rotulo ? "pointer-events-auto " : ""}absolute text-[17px] font-bold uppercase leading-none tracking-[0.3em]`}
         style={{
           left: 12,
           top: 6,
@@ -754,11 +1020,11 @@ function FlechaTransicion({ label, remate }: { label: string; remate: string }) 
           textShadow: "0 2px 10px rgba(0,0,0,.9)",
         }}
       >
-        {label}
+        {rotulo ?? label}
       </p>
 
       <p
-        className="absolute text-center text-[34px] font-bold uppercase leading-none tracking-[0.06em] text-white"
+        className={`${remateNodo ? "pointer-events-auto " : ""}absolute text-center text-[34px] font-bold uppercase leading-none tracking-[0.06em] text-white`}
         style={{
           left: 0,
           top: 316,
@@ -766,13 +1032,21 @@ function FlechaTransicion({ label, remate }: { label: string; remate: string }) 
           textShadow: "0 3px 14px rgba(0,0,0,.9)",
         }}
       >
-        {remate}
+        {remateNodo ?? remate}
       </p>
     </div>
   );
 }
 
-function Adorno({ adorno }: { adorno: AdornoAbp }) {
+function Adorno({
+  adorno,
+  rotulo,
+  remateNodo,
+}: {
+  adorno: AdornoAbp;
+  rotulo?: ReactNode;
+  remateNodo?: ReactNode;
+}) {
   if (adorno.tipo === "zona") {
     return (
       <MarcaZona
@@ -780,11 +1054,19 @@ function Adorno({ adorno }: { adorno: AdornoAbp }) {
         y={adorno.y}
         label={adorno.label}
         etiquetaY={adorno.etiquetaY}
+        rotulo={rotulo}
       />
     );
   }
 
-  return <FlechaTransicion label={adorno.label} remate={adorno.remate} />;
+  return (
+    <FlechaTransicion
+      label={adorno.label}
+      remate={adorno.remate}
+      rotulo={rotulo}
+      remateNodo={remateNodo}
+    />
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -994,6 +1276,7 @@ export function TableroSlide({
   panel = true,
   titulo,
   destacado = null,
+  onCambiarTexto,
 }: {
   slide: SlidePizarra;
   players: Map<string, Player>;
@@ -1040,8 +1323,45 @@ export function TableroSlide({
    * las demás apagadas, para que en el móvil se encuentre de un vistazo.
    */
   destacado?: string | null;
+  /**
+   * Reescribir un texto sobre la propia diapositiva (título, rótulos de la
+   * caja, siglas, rótulos del campo y consignas). Sin esto —proyector,
+   * exportaciones, vídeos, informe— los textos no se tocan.
+   */
+  onCambiarTexto?: (cambio: CambioTexto) => void;
 }) {
   const marcoRef = useRef<HTMLDivElement>(null);
+
+  /*
+  | El texto que se está escribiendo en su sitio, con la diapositiva en la que
+  | se abrió: si se cambia de diapositiva con el campo abierto, no se lleva lo
+  | escrito a la otra.
+  */
+  const editaTextos =
+    Boolean(onCambiarTexto) && !soloVer && tiempo == null && hastaFase == null && !destacado;
+  const [enEdicion, setEnEdicion] = useState<{ id: string; slide: string } | null>(null);
+  /* Al cambiar de diapositiva el campo se cierra solo (y no se guarda en la otra). */
+  const abierto = editaTextos && enEdicion?.slide === slide.id ? enEdicion.id : null;
+
+  /** Las props comunes de un texto que se escribe en su sitio. */
+  const enSitio = (
+    id: string,
+    valor: string,
+    aCambio: (texto: string) => CambioTexto,
+    ayuda = "Doble clic para escribirlo",
+  ) => ({
+    id,
+    activo: editaTextos,
+    abierto: abierto === id,
+    valor,
+    ayuda,
+    onAbrir: () => setEnEdicion({ id, slide: slide.id }),
+    onCerrar: (texto: string | null) => {
+      setEnEdicion(null);
+
+      if (texto != null) onCambiarTexto?.(aCambio(texto));
+    },
+  });
 
   const grupos = gruposDe(slide);
   /* Los nombres de las consignas, como en la plantilla («mario» pasa a «Mario»). Lo guardado no se toca. */
@@ -1053,6 +1373,37 @@ export function TableroSlide({
 
   const conPanel = panel && grupos.length > 0;
   const conNotas = lineas.length > 0;
+
+  /*
+  | De dónde sale cada línea de la franja, para escribirla en su sitio: primero
+  | las casillas de señal, rutina e intención que tengan algo y después las
+  | consignas no vacías, en el orden de `lineasDeSlide`.
+  */
+  const origenLineas: ({ tipo: "guion"; key: (typeof CASILLAS_GUION)[number]["key"] } | { tipo: "nota"; indice: number })[] = [
+    ...CASILLAS_GUION.filter((casilla) => slide.guion?.[casilla.key]?.trim()).map((casilla) => ({
+      tipo: "guion" as const,
+      key: casilla.key,
+    })),
+    ...slide.notas.flatMap((nota, indice) => (nota.trim() ? [{ tipo: "nota" as const, indice }] : [])),
+  ];
+
+  /** La línea de la franja, envuelta para escribirla en su sitio. */
+  const lineaEnSitio = (posicion: number, mostrado: ReactNode) => {
+    const origen = origenLineas[posicion];
+
+    if (!editaTextos || !origen) return mostrado;
+
+    const props =
+      origen.tipo === "guion"
+        ? enSitio(`guion:${origen.key}`, slide.guion?.[origen.key] ?? "", (texto) => ({ tipo: "guion", key: origen.key, texto }), "Doble clic para escribirla. Vacía, se quita")
+        : enSitio(`nota:${origen.indice}`, slide.notas[origen.indice] ?? "", (texto) => ({ tipo: "nota", indice: origen.indice, texto }), "Doble clic para escribirla. Mayús+Intro, otra línea; vacía, se quita");
+
+    return (
+      <TextoEnSitio {...props} multilinea={origen.tipo === "nota"} bloque>
+        {mostrado}
+      </TextoEnSitio>
+    );
+  };
 
   const [escala, setEscala] = useState(1);
 
@@ -1601,15 +1952,37 @@ export function TableroSlide({
         | entera en lo que se ve, no se pinta.
         */}
         {adornos
+          .map((adorno, indice) => ({ adorno, indice }))
           .filter(
-            (adorno) =>
+            ({ adorno }) =>
               adorno.tipo !== "transicion" ||
               (maqueta.ox <= 96 &&
                 maqueta.oy + maqueta.h / maqueta.k >= 1080 &&
                 maqueta.ox + maqueta.w / maqueta.k >= 1136),
           )
-          .map((adorno, indice) => (
-            <Adorno key={`${adorno.tipo}-${indice}`} adorno={adorno} />
+          .map(({ adorno, indice }) => (
+            <Adorno
+              key={`${adorno.tipo}-${indice}`}
+              adorno={adorno}
+              rotulo={
+                editaTextos ? (
+                  <TextoEnSitio
+                    {...enSitio(`adorno:${indice}:label`, adorno.label, (texto) => ({ tipo: "adorno", indice, campo: "label", texto }), "Doble clic para cambiar el rótulo")}
+                  >
+                    {adorno.label}
+                  </TextoEnSitio>
+                ) : undefined
+              }
+              remateNodo={
+                editaTextos && adorno.tipo === "transicion" ? (
+                  <TextoEnSitio
+                    {...enSitio(`adorno:${indice}:remate`, adorno.remate, (texto) => ({ tipo: "adorno", indice, campo: "remate", texto }), "Doble clic para cambiar el rótulo")}
+                  >
+                    {adorno.remate}
+                  </TextoEnSitio>
+                ) : undefined
+              }
+            />
           ))}
 
         {/* ----------------- CARRERAS, BALÓN, BLOQUEOS ----------------- */}
@@ -1651,6 +2024,22 @@ export function TableroSlide({
             ficha={separada && separada.x !== ficha.x ? { ...ficha, x: separada.x } : ficha}
             player={players.get(ficha.playerId)}
             code={codeDe(ficha)}
+            codigo={
+              editaTextos && ficha.puesto && puestoDe(slide, ficha.puesto) ? (
+                <TextoEnSitio
+                  {...enSitio(
+                    `chapa:${ficha.puesto}`,
+                    codeDe(ficha),
+                    (texto) => ({ tipo: "sigla", key: ficha.puesto as string, texto }),
+                    `Doble clic para cambiar la sigla (hasta ${SIGLA_MAX} letras)`,
+                  )}
+                  sigla
+                  dobleEnTactil
+                >
+                  {codeDe(ficha)}
+                </TextoEnSitio>
+              ) : undefined
+            }
             dorsal={dorsalDe(ficha)}
             marca={ficha.puesto ? slide.marcas?.[ficha.puesto] : undefined}
             compacta={separada?.compacta ?? false}
@@ -1659,6 +2048,11 @@ export function TableroSlide({
             soloVer={soloVer || tiempo != null}
             onPointerDown={(event) => empieza(event, ficha)}
             onQuitar={() => onQuitar(ficha.id)}
+            onDobleClic={
+              editaTextos && ficha.puesto && puestoDe(slide, ficha.puesto)
+                ? () => setEnEdicion({ id: `chapa:${ficha.puesto}`, slide: slide.id })
+                : undefined
+            }
           />
           );
         })}
@@ -1841,7 +2235,12 @@ export function TableroSlide({
                   textShadow: "0 2px 12px rgba(0,0,0,.55)",
                 }}
               >
-                {titulo ?? slide.titulo}
+                <TextoEnSitio
+                  {...enSitio("titulo", slide.titulo, (texto) => ({ tipo: "titulo", texto }), "Doble clic para cambiar el título")}
+                  bloque
+                >
+                  {titulo ?? slide.titulo}
+                </TextoEnSitio>
               </p>
             </div>
 
@@ -1973,7 +2372,11 @@ export function TableroSlide({
                         borderColor: "rgba(200,169,107,.22)",
                       }}
                     >
-                      {grupo.label}
+                      <TextoEnSitio
+                        {...enSitio(`grupo:${grupo.key}`, grupo.label, (texto) => ({ tipo: "grupo", key: grupo.key, texto }), "Doble clic para cambiar el rótulo")}
+                      >
+                        {grupo.label}
+                      </TextoEnSitio>
                     </p>
 
                     <div className={panelDenso ? "mt-1 space-y-0.5" : "mt-1.5 space-y-1"}>
@@ -1982,15 +2385,18 @@ export function TableroSlide({
 
                         const player = ficha ? players.get(ficha.playerId) : undefined;
 
-                        return (
-                          <button
-                            key={puesto.key}
-                            type="button"
-                            onClick={() => onPulsarPuesto(puesto.key)}
-                            onPointerEnter={() => ficha && onSeleccionar(ficha.id)}
-                            onPointerLeave={() => onSeleccionar(null)}
-                            className="flex w-full min-w-0 items-center gap-2.5 rounded px-1.5 py-0.5 text-left transition hover:bg-white/10"
-                          >
+                        const sigla = enSitio(
+                          `sigla:${puesto.key}`,
+                          siglaDe(puesto),
+                          (texto) => ({ tipo: "sigla", key: puesto.key, texto }),
+                          `Doble clic para cambiar la sigla (hasta ${SIGLA_MAX} letras)`,
+                        );
+
+                        const filaClase =
+                          "flex w-full min-w-0 items-center gap-2.5 rounded px-1.5 py-0.5 text-left transition hover:bg-white/10";
+
+                        const contenido = (
+                          <>
                             <span
                               className={`shrink-0 rounded px-1.5 font-bold tabular-nums ${
                                 panelDenso ? "text-[17px]" : "text-[19px]"
@@ -2001,7 +2407,9 @@ export function TableroSlide({
                                 boxShadow: "inset 0 0 0 1px rgba(200,169,107,.3)",
                               }}
                             >
-                              {siglaDe(puesto)}
+                              <TextoEnSitio {...sigla} sigla>
+                                {siglaDe(puesto)}
+                              </TextoEnSitio>
                             </span>
 
                             <span
@@ -2032,6 +2440,24 @@ export function TableroSlide({
                                 {slide.marcas?.[puesto.key] ?? ""}
                               </span>
                             )}
+                          </>
+                        );
+
+                        /* Un campo no puede ir dentro de un botón: mientras se escribe la sigla, la fila es una caja. */
+                        return sigla.abierto ? (
+                          <div key={puesto.key} className={filaClase}>
+                            {contenido}
+                          </div>
+                        ) : (
+                          <button
+                            key={puesto.key}
+                            type="button"
+                            onClick={() => onPulsarPuesto(puesto.key)}
+                            onPointerEnter={() => ficha && onSeleccionar(ficha.id)}
+                            onPointerLeave={() => onSeleccionar(null)}
+                            className={filaClase}
+                          >
+                            {contenido}
                           </button>
                         );
                       })}
@@ -2100,7 +2526,7 @@ export function TableroSlide({
                         {linea.rotulo}
                       </span>
 
-                      {linea.texto}
+                      {lineaEnSitio(indice, linea.texto)}
                     </p>
                   ) : linea.tipo === "subtitulo" ? (
                     <p
@@ -2108,7 +2534,7 @@ export function TableroSlide({
                       className="mb-1.5 mt-0.5 font-bold leading-tight tracking-[0.02em]"
                       style={{ color: COLORES.oroTinta, breakInside: "avoid", breakAfter: "avoid", fontSize: letra.sub }}
                     >
-                      {linea.texto}
+                      {lineaEnSitio(indice, linea.texto)}
                     </p>
                   ) : (
                     <p
@@ -2121,7 +2547,7 @@ export function TableroSlide({
                         style={{ width: 8, height: 8, backgroundColor: COLORES.oro }}
                       />
 
-                      <span className="min-w-0">{linea.texto}</span>
+                      <span className={editaTextos ? "min-w-0 flex-1" : "min-w-0"}>{lineaEnSitio(indice, linea.texto)}</span>
                     </p>
                   ),
                 )}

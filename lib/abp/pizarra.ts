@@ -803,7 +803,23 @@ export type TextosSlide = {
   grupos?: Record<string, string>;
   /** Uno por adorno de la plantilla, en su mismo orden. */
   adornos?: { label?: string; remate?: string }[];
+  /**
+   * Por clave de puesto (`plantilla:code`): la sigla que se lee en la chapa y
+   * en la caja de asignaciones cuando no es la de la plantilla (31/10/2026).
+   * El `code` NO cambia —es la llave de las fichas y de la memoria—: sólo lo
+   * que se lee. Lo aplica `puestosDe()`, así que llega también al PPT, al PDF,
+   * a los PDF por jugador, a los vídeos y al informe.
+   */
+  siglas?: Record<string, string>;
 };
+
+/** Lo más largo que cabe en la chapa de un puesto sin salirse. */
+export const SIGLA_MAX = 6;
+
+/** Una sigla como se pinta: en mayúsculas, sin espacios de sobra y corta. */
+export function limpiaSigla(texto: string) {
+  return texto.replace(/\s+/g, " ").trim().toLocaleUpperCase("es-ES").slice(0, SIGLA_MAX).trim();
+}
 
 /**
  * Una bola del campograma de caídas (28/10/2026): la pinta sola el coding del
@@ -1003,9 +1019,15 @@ function clonaTextos(textos: TextosSlide | undefined): TextosSlide | undefined {
 
   const adornos = textos.adornos?.map((uno) => ({ ...uno }));
 
-  if (!grupos && !adornos) return undefined;
+  const siglas = textos.siglas ? { ...textos.siglas } : undefined;
 
-  return { ...(grupos ? { grupos } : {}), ...(adornos ? { adornos } : {}) };
+  if (!grupos && !adornos && !siglas) return undefined;
+
+  return {
+    ...(grupos ? { grupos } : {}),
+    ...(adornos ? { adornos } : {}),
+    ...(siglas ? { siglas } : {}),
+  };
 }
 
 /**
@@ -1038,6 +1060,18 @@ export function tieneTextosPropios(slide: SlidePizarra) {
   if (plantilla.grupos.some((grupo) => grupos[grupo.key]?.trim())) return true;
 
   if (Object.values(slide.guion ?? {}).some((texto) => texto?.trim())) return true;
+
+  const siglas = slide.textos?.siglas ?? {};
+
+  if (
+    plantilla.puestos.some((puesto) => {
+      const propia = limpiaSigla(siglas[puesto.key] ?? "");
+
+      return Boolean(propia) && propia !== siglaDe(puesto);
+    })
+  ) {
+    return true;
+  }
 
   return (slide.textos?.adornos ?? []).some(
     (uno) => uno?.label?.trim() || uno?.remate?.trim(),
@@ -1138,10 +1172,24 @@ export function normalizaTablero(entrada: TableroPizarra): TableroPizarra {
 
     tocado = true;
 
+    /* Las siglas reescritas van por clave de puesto: siguen al puesto renombrado. */
+    const siglas = slide.textos?.siglas;
+
+    const textos =
+      siglas && renombrados.size
+        ? {
+            ...slide.textos,
+            siglas: Object.fromEntries(
+              Object.entries(siglas).map(([clave, sigla]) => [renombrados.get(clave) ?? clave, sigla]),
+            ),
+          }
+        : slide.textos;
+
     return {
       ...slide,
       fichas,
       ...(trazos ? { trazos } : {}),
+      ...(textos ? { textos } : {}),
       rev: plantilla.rev,
     };
   });
@@ -1656,10 +1704,121 @@ export function quitaVersion(tablero: TableroPizarra, versionId: string): Tabler
 export function puestosDe(slide: SlidePizarra): PuestoAbp[] {
   const puestos = PLANTILLA_BY_KEY.get(slide.plantilla)?.puestos ?? [];
   const sitios = slide.sitios;
+  /* La sigla reescrita en esta diapositiva (la chapa y la caja); el `code` no se toca. */
+  const siglas = slide.textos?.siglas;
 
-  if (!sitios) return puestos;
+  if (!sitios && !siglas) return puestos;
 
-  return puestos.map((puesto) => (sitios[puesto.key] ? { ...puesto, ...sitios[puesto.key] } : puesto));
+  return puestos.map((puesto) => {
+    const sitio = sitios?.[puesto.key];
+    const sigla = siglas?.[puesto.key] ? limpiaSigla(siglas[puesto.key]) : "";
+
+    if (!sitio && !sigla) return puesto;
+
+    return { ...puesto, ...(sitio ?? {}), ...(sigla ? { sigla } : {}) };
+  });
+}
+
+/** Los puestos tal y como los escribe la plantilla: las siglas de marca de agua. */
+export function puestosDePlantilla(slide: SlidePizarra): PuestoAbp[] {
+  return PLANTILLA_BY_KEY.get(slide.plantilla)?.puestos ?? [];
+}
+
+/**
+ * Un texto reescrito sobre la propia diapositiva (31/10/2026).
+ *
+ * Lo mismo que el panel «Textos de la diapositiva», pero desde el lienzo: se
+ * toca el rótulo y se escribe en su sitio. Vacío vuelve a lo de la plantilla
+ * (en las consignas, vacío quita la línea).
+ */
+export type CambioTexto =
+  | { tipo: "titulo"; texto: string }
+  | { tipo: "grupo"; key: string; texto: string }
+  | { tipo: "sigla"; key: string; texto: string }
+  | { tipo: "adorno"; indice: number; campo: "label" | "remate"; texto: string }
+  /** `indice` es la posición en `slide.notas`; el texto puede traer saltos de línea. */
+  | { tipo: "nota"; indice: number; texto: string }
+  | { tipo: "guion"; key: keyof GuionConsigna; texto: string };
+
+/** Aplica un `CambioTexto`. Devuelve la misma diapositiva si no cambia nada. */
+export function conTexto(slide: SlidePizarra, cambio: CambioTexto): SlidePizarra {
+  const plantilla = PLANTILLA_BY_KEY.get(slide.plantilla);
+  const texto = cambio.texto.replace(/\s+$/g, "");
+
+  /* Quita una clave de un objeto y lo deja fuera si se queda vacío. */
+  const sinClave = <T,>(obj: Record<string, T> | undefined, clave: string) => {
+    if (!obj || !(clave in obj)) return obj;
+    const { [clave]: _fuera, ...resto } = obj;
+    return Object.keys(resto).length ? resto : undefined;
+  };
+
+  const conTextos = (textos: TextosSlide) => {
+    const limpio = Object.fromEntries(
+      Object.entries(textos).filter(([, valor]) => valor !== undefined),
+    ) as TextosSlide;
+    const { textos: _antes, ...resto } = slide;
+    return Object.keys(limpio).length ? { ...resto, textos: limpio } : resto;
+  };
+
+  switch (cambio.tipo) {
+    case "titulo": {
+      const titulo = texto.trim() || plantilla?.titulo || slide.titulo;
+      return titulo === slide.titulo ? slide : { ...slide, titulo };
+    }
+
+    case "grupo": {
+      const base = plantilla?.grupos.find((grupo) => grupo.key === cambio.key)?.label ?? "";
+      const label = texto.trim();
+      const grupos =
+        !label || label === base
+          ? sinClave(slide.textos?.grupos, cambio.key)
+          : { ...slide.textos?.grupos, [cambio.key]: label };
+      return conTextos({ ...slide.textos, grupos });
+    }
+
+    case "sigla": {
+      const puesto = plantilla?.puestos.find((item) => item.key === cambio.key);
+      const sigla = limpiaSigla(texto);
+      const siglas =
+        !sigla || (puesto && sigla === siglaDe(puesto))
+          ? sinClave(slide.textos?.siglas, cambio.key)
+          : { ...slide.textos?.siglas, [cambio.key]: sigla };
+      return conTextos({ ...slide.textos, siglas });
+    }
+
+    case "adorno": {
+      const lista = [...(slide.textos?.adornos ?? [])];
+      while (lista.length <= cambio.indice) lista.push({});
+      const base = plantilla?.adornos?.[cambio.indice];
+      const original = base ? (cambio.campo === "label" ? base.label : base.tipo === "transicion" ? base.remate : "") : "";
+      const valor = texto.trim();
+      const uno = { ...lista[cambio.indice] };
+      if (!valor || valor === original) delete uno[cambio.campo];
+      else uno[cambio.campo] = valor;
+      lista[cambio.indice] = uno;
+      const adornos = lista.some((item) => item.label || item.remate) ? lista : undefined;
+      return conTextos({ ...slide.textos, adornos });
+    }
+
+    case "nota": {
+      const nuevas = texto
+        .split("\n")
+        .map((linea) => linea.trim())
+        .filter(Boolean);
+      const notas = [...slide.notas];
+      notas.splice(cambio.indice, 1, ...nuevas);
+      return notas.join("\n") === slide.notas.join("\n") ? slide : { ...slide, notas };
+    }
+
+    case "guion": {
+      const valor = texto.trim();
+      const guion: GuionConsigna = { ...slide.guion };
+      if (valor) guion[cambio.key] = valor;
+      else delete guion[cambio.key];
+      const { guion: _antes, ...resto } = slide;
+      return Object.keys(guion).length ? { ...resto, guion } : resto;
+    }
+  }
 }
 
 /*

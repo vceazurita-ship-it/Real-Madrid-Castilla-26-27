@@ -35,6 +35,7 @@ import {
   PLANTILLA_BY_KEY,
   enElCampo,
   gruposDe,
+  limpiaSigla,
   siglaDe,
   type FichaPizarra,
   type GuionConsigna,
@@ -348,7 +349,8 @@ export function rutinaDeSlide(e: EntradaPizarra): RutinaPuente {
 
   const golpeo = balon?.[0];
 
-  const puestos = new Map((plantilla?.puestos ?? []).map((p) => [p.key, p]));
+  /* Con la sigla reescrita en la diapositiva, si la hay (la nota la lleva). */
+  const puestos = new Map((plantilla?.puestos ?? []).map((p) => [p.key, slide.textos?.siglas?.[p.key] ? { ...p, sigla: limpiaSigla(slide.textos.siglas[p.key]) || p.sigla } : p]));
 
   const grupos = new Map(gruposDe(slide).map((g) => [g.key, g.label]));
 

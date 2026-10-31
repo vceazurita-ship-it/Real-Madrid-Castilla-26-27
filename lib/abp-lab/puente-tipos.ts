@@ -193,9 +193,13 @@ function textosDe(v: unknown): TextosSlide | undefined {
       })
     : undefined;
 
-  if (!grupos && !adornos) return undefined;
+  const s = objeto(t.siglas);
 
-  return { ...(grupos ? { grupos } : {}), ...(adornos ? { adornos } : {}) };
+  const siglas = s ? Object.fromEntries(Object.entries(s).slice(0, 40).map(([k, x]) => [k.slice(0, 60), txt(x, 6)])) : undefined;
+
+  if (!grupos && !adornos && !siglas) return undefined;
+
+  return { ...(grupos ? { grupos } : {}), ...(adornos ? { adornos } : {}), ...(siglas ? { siglas } : {}) };
 }
 
 function guionDe(v: unknown): GuionConsigna | undefined {
