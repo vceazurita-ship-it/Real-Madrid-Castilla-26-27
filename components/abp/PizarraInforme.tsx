@@ -34,6 +34,7 @@ import {
 } from "@/lib/abp/pizarra";
 import type { GraficoInforme } from "@/lib/abp/informe-graficos";
 import { mismoRival } from "@/lib/abp/informe-micro";
+import { notasDeDiapositiva } from "@/lib/abp/laminas-lectura";
 import { capturaLienzos, esperaFotos, pintado } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 import { RATINGS_SEASON } from "@/lib/ratings/types";
@@ -156,12 +157,22 @@ export function usePizarraInforme(
 
         const rotulo = tablero.rival || rival;
 
+        /* Los nombres de la plantilla, para escribirlos con mayúscula; y cada consigna, una vez en toda la pizarra. */
+        const nombres = [...porId.values()].flatMap((p) => [p.nombre, p.apodo ?? ""]).filter(Boolean);
+
+        const yaDichas = new Set<string>();
+
         setGraficos(
           imagenes.map((imagen, indice) => ({
             cid: `pizarra-${indice + 1}`,
             titulo: `${indice + 1}. ${tituloVisible(tablero.slides, indice)}`,
             area: "pizarra",
-            leyenda: `Pizarra de balón parado · ${rotulo}`,
+            /*
+            | Las consignas de la diapositiva, en texto (31/10/2026, equipo de
+            | expertos): quién saca, quién bloquea, adónde va el balón. Dentro
+            | de la imagen no se leen en el móvil y no viajan en el texto plano.
+            */
+            leyenda: notasDeDiapositiva(tablero.slides[indice]?.notas, nombres, yaDichas) || `Pizarra de balón parado · ${rotulo}`,
             imagen,
             ancho: 760,
           })),
@@ -179,7 +190,7 @@ export function usePizarraInforme(
       vivo = false;
       window.clearTimeout(id);
     };
-  }, [huella, hecho, tablero, rival]);
+  }, [huella, hecho, tablero, rival, porId]);
 
   const cargando = !leido || (!!huella && huella !== hecho);
 

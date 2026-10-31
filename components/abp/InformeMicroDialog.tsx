@@ -36,6 +36,7 @@ import { AvisoAntesDeMandar } from "@/components/correo/AvisoAntesDeMandar";
 import { Button, Dialog } from "@/components/abp/ui";
 import { traeJson } from "@/lib/hojaCsv";
 import { teamKey } from "@/lib/abp/model";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 import { normalizarOnce, rivalOnceKey } from "@/lib/rivals/once";
 import { useAnalisisRivalInforme } from "@/hooks/useAnalisisRivalInforme";
 import { usePizarraInforme } from "@/components/abp/PizarraInforme";
@@ -419,9 +420,14 @@ export function InformeMicroDialog({
   const equipoHoja = useMemo(() => {
     if (!Array.isArray(plantillaRival) || !rivalVideo) return "";
 
-    const fila = (plantillaRival as Record<string, unknown>[]).find(
-      (una) => una && typeof una === "object" && teamKey(String(una.NOMBRE_EQUIPO ?? "")) === teamKey(rivalVideo),
-    );
+    /*
+    | Con `mismoClub`, no con la clave exacta (31/10/2026): el calendario dice
+    | «FC Cartagena» y la hoja «Cartagena», y el once marcado no llegaba nunca.
+    */
+    const filas = (plantillaRival as Record<string, unknown>[]).filter((una) => una && typeof una === "object");
+    const fila =
+      filas.find((una) => teamKey(String(una.NOMBRE_EQUIPO ?? "")) === teamKey(rivalVideo)) ??
+      filas.find((una) => mismoClub(String(una.NOMBRE_EQUIPO ?? ""), rivalVideo));
 
     return fila ? String(fila.NOMBRE_EQUIPO ?? "") : "";
   }, [plantillaRival, rivalVideo]);
@@ -789,8 +795,10 @@ export function InformeMicroDialog({
         tareasValoradas: borrador.tareasValoradas,
         seguimiento: borrador.seguimientoResumen,
         mediaValoracion: borrador.valoracion.media,
+        /* En la previa, el rival encendido en los gráficos de la categoría (31/10/2026). */
+        rival: modo === "previa" ? rivalVideo : undefined,
       }),
-    [comparativa, propio, borrador],
+    [comparativa, propio, borrador, modo, rivalVideo],
   );
 
   /* Lo preparado del rival de la semana en «ABP del Rival»: sus láminas
@@ -1047,13 +1055,14 @@ export function InformeMicroDialog({
             /* Formato corto (20/10/2026, equipo de expertos): titular, la idea
                y la clave de la semana, y los enlaces. Igual que el del partido. */
             texto: mensajeWhatsapp({
-              asunto: paraEnviar.asunto,
+              /* Previa (31/10/2026): titular corto y, debajo, defensa, marcas y ataque. */
+              asunto: (paraEnviar.modo === "previa" && pinceladaAbp(paraEnviar).whatsappAsunto) || paraEnviar.asunto,
               lineas: (() => {
                 const p = pinceladaAbp(paraEnviar);
 
                 /* El asunto ya es la idea (20/10/2026, tercera ronda): debajo, el porqué y
                    lo que dice el rival, sin repetir el titular. */
-                return p.claves.slice(0, 2);
+                return paraEnviar.modo === "previa" && p.whatsapp?.length ? p.whatsapp : p.claves.slice(0, 2);
               })(),
               video: (infoVideo as { url: string } | null)?.url ?? null,
               enlaces: adjuntosUrl.map((a) => (enlacePdf && a.nombre === enlacePdf.nombre ? { ...a, url: enlacePdf.url } : a)),

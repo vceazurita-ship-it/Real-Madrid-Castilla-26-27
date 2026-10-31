@@ -35,6 +35,7 @@ import { resolutorDeFichas } from "@/lib/rivals/analisis-fichas";
 import { laminaImagen } from "@/lib/rivals/analisis-svg";
 
 import { claveClub as clave, mismoClub as mismoEquipo } from "@/lib/rivals/mismoClub";
+import { leeLamina, nombreDocumento, sinRepetidas, tituloDeLamina } from "@/lib/abp/laminas-lectura";
 
 export type AnalisisRivalInforme = {
   graficos: GraficoInforme[];
@@ -116,9 +117,13 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
       const ficha = resolutorDeFichas(plantilla, equipo);
 
       /* Sólo las que tienen algo: una lámina en blanco no dice nada. */
-      const laminas = secciones.flatMap((s) =>
-        trabajo.laminas.filter((l) => l.seccion === s.id && !laminaVacia(l)),
+      /* La misma lámina guardada dos o tres veces sale una (31/10/2026: la J10 del Cartagena traía 10 y eran 4). */
+      const laminas = sinRepetidas(
+        secciones.flatMap((s) => trabajo.laminas.filter((l) => l.seccion === s.id && !laminaVacia(l))),
       );
+
+      /* Lo que dice cada lámina, contado: adónde caen y quién está (con altura). */
+      const lecturas = laminas.map((l) => leeLamina(l, ficha));
 
       const documentos = (clips[jornada]?.docs ?? []).filter((d) => /\.pdf($|\?)/i.test(d.url || d.path || ""));
 
@@ -136,9 +141,9 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
 
           graficos.push({
             cid: `rival-${i + 1}`,
-            titulo: lamina.titulo || SECCION_POR_ID.get(lamina.seccion)?.titulo || "Lámina",
+            titulo: tituloDeLamina(lamina.titulo) || SECCION_POR_ID.get(lamina.seccion)?.titulo || "Lámina",
             area: "rival",
-            leyenda: lamina.notas?.trim() || `${SECCION_POR_ID.get(lamina.seccion)?.titulo ?? ""} · ${equipo}, ${jornada}.`,
+            leyenda: [lamina.notas?.trim(), lecturas[i]?.lectura].filter(Boolean).join(" ") || `${SECCION_POR_ID.get(lamina.seccion)?.titulo ?? ""} · ${equipo}, ${jornada}.`,
             imagen,
             ancho: 760,
           });
@@ -187,8 +192,13 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
                   ((await pagina.getTextContent()).items as { str?: string }[]).map((i) => i.str ?? "").join(" "),
                 );
 
-                /* Una portada dice «INFORME …»; una lámina, no. */
-                const esLamina = /corner|falta|centro|penalti|banda|saque|area/.test(texto) && !/\binforme\b/.test(texto);
+                /*
+                | La portada (primera página) y el cierre no son láminas; el resto, si
+                | habla de balón parado. Hasta el 31/10/2026 se tiraba toda página con
+                | «INFORME», y la plantilla lo repite en cada una: el de penaltis
+                | del Cartagena se quedaba entero fuera.
+                */
+                const esLamina = n > 1 && /corner|falta|centro|penalti|banda|saque|area/.test(texto);
 
                 const yaDibujada = titulosDibujados.some((t) => t && texto.includes(t));
 
@@ -207,11 +217,11 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
 
                 graficos.push({
                   cid: `rival-doc-${graficos.length + 1}`,
-                  titulo: pdf.numPages > 1 ? `${doc.nombre} · ${n}/${pdf.numPages}` : doc.nombre,
+                  titulo: pdf.numPages > 1 ? `${nombreDocumento(doc.nombre, equipo)} · ${n}/${pdf.numPages}` : nombreDocumento(doc.nombre, equipo),
                   area: "rival",
                   leyenda:
                     n === paginas && pdf.numPages > paginas
-                      ? `${doc.nombre}: aquí sólo las ${paginas} primeras páginas; el PDF entero está en el enlace de arriba.`
+                      ? `${nombreDocumento(doc.nombre, equipo)}: aquí sólo las ${paginas} primeras páginas; el PDF entero está en el enlace de arriba.`
                       : `${doc.ambito === "area" ? "Área del Rival" : "ABP del Rival"} · ${equipo}, ${jornada}.`,
                   imagen: lienzo.toDataURL("image/jpeg", 0.75),
                   ancho: 760,
@@ -256,7 +266,8 @@ export function useAnalisisRivalInforme(rival: string): AnalisisRivalInforme {
           equipo,
           jornada,
           conclusiones,
-          documentos: documentos.map((d) => ({ nombre: d.nombre, url: d.url })),
+          documentos: documentos.map((d) => ({ nombre: nombreDocumento(d.nombre, equipo), url: d.url })),
+          laminas: lecturas,
           apuntes: apuntes.map((c) => ({ titulo: c.titulo, deQuien: c.deQuien, video: c.video, apuntes: c.apuntes })),
         },
         cargando: false,

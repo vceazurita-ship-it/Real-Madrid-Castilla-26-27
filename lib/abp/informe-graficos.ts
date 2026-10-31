@@ -43,6 +43,7 @@ export type MedidaAbp = {
 };
 
 import type { FilaGolesAbp } from "@/lib/data-analisis/goles-abp";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 
 export type ValoresAbp = Record<
   string,
@@ -143,6 +144,18 @@ export type PropioAbp = {
 
 const ORO = "#C8A96B";
 const NAVY = "#0F1E3D";
+
+/** El rival de la previa, en el rosa oscuro de la casa (31/10/2026). */
+const ROSA = "#C2415D";
+
+/*
+| El rival de la semana, encendido en los gráficos de la categoría (31/10/2026,
+| equipo de expertos): en la previa se buscaba al Cartagena punto a punto. Lo
+| pone `graficosDelInforme` mientras dibuja y lo quita al acabar.
+*/
+let rivalDestacado = "";
+
+const esRival = (equipo: string) => Boolean(rivalDestacado) && mismoClub(equipo, rivalDestacado);
 const TINTA = "#374151";
 const SUAVE = "#9AA3AE";
 const REJILLA = "#E8E4DA";
@@ -534,6 +547,8 @@ export function dispersion(
     const conNosotros =
       nuestro !== null && delGrupo.some((una) => una.equipo === nuestro.equipo);
 
+    const conRival = !conNosotros && delGrupo.some((una) => esRival(una.equipo));
+
     const radio = delGrupo.length === 1 ? 0 : 5 + delGrupo.length;
 
     delGrupo.forEach((fila, indice) => {
@@ -544,9 +559,11 @@ export function dispersion(
 
       const esNuestro = nuestro !== null && fila.equipo === nuestro.equipo;
 
+      const delRival = !esNuestro && esRival(fila.equipo);
+
       ctx.beginPath();
-      ctx.arc(x, y, esNuestro ? 7 : 4.5, 0, Math.PI * 2);
-      ctx.fillStyle = esNuestro ? ORO : "rgba(15,30,61,0.28)";
+      ctx.arc(x, y, esNuestro || delRival ? 7 : 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = esNuestro ? ORO : delRival ? ROSA : "rgba(15,30,61,0.28)";
       ctx.fill();
 
       if (esNuestro) {
@@ -561,6 +578,8 @@ export function dispersion(
         ? nombreCorto(delGrupo[0].equipo)
         : conNosotros && nuestro
           ? `${nombreCorto(nuestro.equipo)} y ${delGrupo.length - 1} más`
+          : conRival
+            ? `${nombreCorto(delGrupo.find((una) => esRival(una.equipo))!.equipo)} y ${delGrupo.length - 1} más`
           : delGrupo.length === 2
             ? delGrupo.map((una) => nombreCorto(una.equipo)).join(" · ")
             : `${delGrupo.length} equipos`;
@@ -571,9 +590,9 @@ export function dispersion(
       cx,
       debajo.has(indice) ? cy + radio + 17 : cy - radio - 9,
       {
-        px: conNosotros ? 12 : 10,
-        peso: conNosotros ? 700 : 400,
-        tinta: conNosotros ? NAVY : SUAVE,
+        px: conNosotros || conRival ? 12 : 10,
+        peso: conNosotros || conRival ? 700 : 400,
+        tinta: conNosotros ? NAVY : conRival ? ROSA : SUAVE,
         alinea: "center",
       },
     );
@@ -598,10 +617,14 @@ export function ranking(
 
   const filas = comparativa.liga
     .filter((fila) => valorDe(fila, medida.key, lado) !== null)
+    /*
+    | En contra, el 1.º es el que menos concede (31/10/2026): las tablas del
+    | informe lo cuentan así y las barras iban al revés —el Cartagena salía
+    | 2.º en córners concedidos en la barra y 19.º en la tabla—.
+    */
     .sort(
       (a, b) =>
-        (valorDe(b, medida.key, lado) as number) -
-        (valorDe(a, medida.key, lado) as number),
+        ((valorDe(b, medida.key, lado) as number) - (valorDe(a, medida.key, lado) as number)) * (lado === "contra" ? -1 : 1),
     );
 
   const caja = marco(
@@ -647,6 +670,8 @@ export function ranking(
 
     const esNuestro = nuestro !== null && fila.equipo === nuestro.equipo;
 
+    const delRival = !esNuestro && esRival(fila.equipo);
+
     const valor = valorDe(fila, medida.key, lado) as number;
 
     escribe(ctx, `${indice + 1}`, x0 + 14, y + paso - 3, {
@@ -657,14 +682,14 @@ export function ranking(
     });
 
     escribe(ctx, nombreCorto(fila.equipo), x0 + 20, y + paso - 3, {
-      px: esNuestro ? 12 : 11,
-      peso: esNuestro ? 700 : 400,
-      tinta: esNuestro ? NAVY : TINTA,
+      px: esNuestro || delRival ? 12 : 11,
+      peso: esNuestro || delRival ? 700 : 400,
+      tinta: esNuestro ? NAVY : delRival ? ROSA : TINTA,
     });
 
     const largo = (valor / maximo) * anchoBarra;
 
-    ctx.fillStyle = esNuestro ? ORO : "rgba(15,30,61,0.18)";
+    ctx.fillStyle = esNuestro ? ORO : delRival ? ROSA : "rgba(15,30,61,0.18)";
     ctx.fillRect(x0 + 130, y + 2, Math.max(1, largo), paso - 6);
 
     escribe(ctx, fmtMedida(valor, medida.key), x0 + 136 + largo, y + paso - 3, {
@@ -1802,6 +1827,8 @@ export type DatosGraficos = {
   tareasValoradas: TareaValorada[];
   seguimiento: SeguimientoResumen | null;
   mediaValoracion: number | null;
+  /** El rival de la previa, para encenderlo en los gráficos de la categoría (31/10/2026). */
+  rival?: string;
 };
 
 /**
@@ -1817,6 +1844,16 @@ export type DatosGraficos = {
  * Wyscout de córner y falta repetían dos filas de la tabla de la categoría.
  */
 export function graficosDelInforme(datos: DatosGraficos): GraficoInforme[] {
+  rivalDestacado = datos.rival ?? "";
+
+  try {
+    return dibujaGraficos(datos);
+  } finally {
+    rivalDestacado = "";
+  }
+}
+
+function dibujaGraficos(datos: DatosGraficos): GraficoInforme[] {
   const { comparativa, propio, tiempo, tareasValoradas, seguimiento } = datos;
 
   const graficos: GraficoInforme[] = [];

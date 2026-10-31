@@ -82,7 +82,21 @@ export async function completoEnHojas(html: string, alPaso?: (hoja: number, tota
   const caja = document.createElement("div");
 
   caja.style.cssText = `position:fixed;left:-30000px;top:0;width:${ANCHO}px;background:${FONDO};pointer-events:none`;
-  caja.innerHTML = documento.body.innerHTML;
+  /*
+  | La letra de la casa (31/10/2026): los titulares del informe de ABP piden
+  | «Barlow Condensed» y en un correo caen a Arial; en el PDF sí se puede, con
+  | los TTF de `public/fuentes`. La regla va dentro de la caja para que
+  | html-to-image la encuentre y la incruste.
+  */
+  const fuentes = [
+    [500, "BarlowCondensed-Medium"],
+    [600, "BarlowCondensed-SemiBold"],
+    [700, "BarlowCondensed-Bold"],
+  ]
+    .map(([peso, fichero]) => `@font-face{font-family:'Barlow Condensed';font-weight:${peso};font-style:normal;src:url('${window.location.origin}/fuentes/${fichero}.ttf') format('truetype')}`)
+    .join("");
+
+  caja.innerHTML = `<style>${fuentes}</style>${documento.body.innerHTML}`;
 
   /* Lo que sólo tiene sentido en la bandeja de entrada no va en el PDF. */
   caja.querySelectorAll("[data-solo-correo]").forEach((n) => n.remove());
@@ -100,6 +114,9 @@ export async function completoEnHojas(html: string, alPaso?: (hoja: number, tota
   try {
     await Promise.all(Array.from(caja.querySelectorAll("img")).map((img) => img.decode().catch(() => undefined)));
 
+    /* Que la letra esté cargada antes de medir dónde se corta cada hoja. */
+    await Promise.all(["500", "600", "700"].map((peso) => document.fonts?.load(`${peso} 16px 'Barlow Condensed'`).catch(() => undefined)));
+
     const alto = caja.scrollHeight;
 
     /* Lo que cabe en una hoja, quitando el pie. */
@@ -108,7 +125,20 @@ export async function completoEnHojas(html: string, alPaso?: (hoja: number, tota
     /* Dónde se puede cortar: el borde de arriba de cada fila, en px CSS. */
     const arriba = caja.getBoundingClientRect().top;
 
+    /*
+    | Dónde NO se corta (31/10/2026, equipo de expertos): entre la cabecera de
+    | una tabla y su primera fila, ni justo debajo del título de una sección
+    | (el título se quedaba solo al pie de la hoja).
+    */
+    const bajoTitulos = Array.from(caja.querySelectorAll("h2")).map((h) => h.getBoundingClientRect().bottom - arriba);
+
     const cortes = Array.from(caja.querySelectorAll("tr"))
+      .filter((tr) => !(tr.parentElement?.tagName === "TBODY" && tr === tr.parentElement.firstElementChild && tr.parentElement.previousElementSibling?.tagName === "THEAD"))
+      .filter((tr) => {
+        const y = tr.getBoundingClientRect().top - arriba;
+
+        return !bajoTitulos.some((b) => y > b && y - b < 90);
+      })
       .map((tr) => Math.round(tr.getBoundingClientRect().top - arriba))
       .filter((y) => y > 0)
       .sort((a, b) => a - b);
