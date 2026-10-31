@@ -1,0 +1,159 @@
+{
+  "carpetaTactica": "C:\\Users\\Usuario\\Downloads\\RMCF CASTILLA\\PARTIDOS",
+  "partidos": [
+    {
+      "jornada": 1,
+      "fecha": "2026-08-31",
+      "partido": "Teruel - Real Madrid Castilla",
+      "tactica": {
+        "fichero": "J 01 - Teruel CF - RM Castilla.mov"
+      },
+      "resumen": {
+        "id": "UkeqpUgqByE",
+        "url": "https://www.youtube.com/watch?v=UkeqpUgqByE",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | CD Teruel 0-0 Real Madrid Castilla | Jornada 1 | Temporada 2026/2027"
+      }
+    },
+    {
+      "jornada": 2,
+      "fecha": "2026-09-05",
+      "partido": "Real Madrid Castilla - Juventud Torremolinos",
+      "tactica": {
+        "fichero": "J 02 - RM Castilla - Juv. Torremolinos.mov"
+      },
+      "resumen": {
+        "id": "jZ00sRdRdYQ",
+        "url": "https://www.youtube.com/watch?v=jZ00sRdRdYQ",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | RM Castilla 2–0 Torremolinos CF | Jornada 2 | Temporada 2026/2027"
+      }
+    },
+    {
+      "jornada": 3,
+      "fecha": "2026-09-12",
+      "partido": "Águilas - Real Madrid Castilla",
+      "hudl": {
+        "id": "VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE=",
+        "url": "https://www.hudl.com/watch/video/VmlkZW82YWE3N2JmMDEyNDI5NTJlYzIwOWI5YmE="
+      },
+      "tactica": {
+        "fichero": "J 03 - AGUILAS FC - RM CASTILLA.mov"
+      },
+      "resumen": {
+        "id": "4kYjCbrNaiM",
+        "url": "https://www.youtube.com/watch?v=4kYjCbrNaiM",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | Águilas FC 1-0 Real Madrid Castilla| Jornada 3 | Temporada 2026/2027"
+      }
+    },
+    {
+      "jornada": 4,
+      "fecha": "2026-09-23",
+      "partido": "Sant Andreu - Real Madrid Castilla",
+      "hudl": {
+        "id": "VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY=",
+        "url": "https://www.hudl.com/watch/video/VmlkZW82YWJjMTJkYWZjMTkzYTQzY2E2MDI4MTY="
+      },
+      "tactica": {
+        "fichero": "J 04 - SANT ANDREU - RM CASTILLA.mov"
+      },
+      "resumen": {
+        "id": "JShRgdchGzU",
+        "url": "https://www.youtube.com/watch?v=JShRgdchGzU",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | UE Sant Andreu 1 – 1 Real Madrid Castilla | Jornada 4 | T. 2026/2027"
+      }
+    },
+    {
+      "jornada": 5,
+      "fecha": "2026-09-27",
+      "partido": "Real Madrid Castilla - Alcorcón",
+      "hudl": {
+        "id": "VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y=",
+        "url": "https://www.hudl.com/watch/video/VmlkZW82YWJhODQxZGUwNTMyZTRkMThlNWQ2Y2Y="
+      },
+      "tactica": {
+        "fichero": "J 05 - CASTILLA - ALCORCON.mov"
+      },
+      "resumen": {
+        "id": "FX5gVCLW4_k",
+        "url": "https://www.youtube.com/watch?v=FX5gVCLW4_k",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | Real Madrid Castilla 1-2 AD Alcorcón | Jornada 5 | Temporada 2026/2027"
+      }
+    },
+    {
+      "jornada": 6,
+      "fecha": "2026-10-02",
+      "partido": "Real Madrid Castilla - Atlético Madrid B",
+      "hudl": {
+        "id": "VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA=",
+        "url": "https://www.hudl.com/watch/video/VmlkZW82YWMxZmVkODczMmIxNzA1OTI4NDU1NzA="
+      },
+      "tactica": {
+        "fichero": "J 06 -CASTILLA - ATL. MADRILEÑO.mov"
+      },
+      "resumen": {
+        "id": "oQ6m5yEgZ-E",
+        "url": "https://www.youtube.com/watch?v=oQ6m5yEgZ-E",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | RM Castilla 3 – 2 Atl Madrileño | Jornada 6 | Temporada 2026/2027"
+      }
+    },
+    {
+      "jornada": 7,
+      "fecha": "2026-10-09",
+      "partido": "Ibiza - Real Madrid Castilla",
+      "hudl": {
+        "id": "VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE=",
+        "url": "https://www.hudl.com/watch/video/VmlkZW82YWNhNWY0ZWFhNDhiMDRlNTZmNjcyMzE="
+      },
+      "tactica": {
+        "fichero": "J 07 - UD IBIZA - RM CASTILLA.mp4"
+      },
+      "resumen": {
+        "id": "BhDrG8BjZMM",
+        "url": "https://www.youtube.com/watch?v=BhDrG8BjZMM",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | UD Ibiza 0-1 Real Madrid Castilla | Jornada 7 | Temporada 2026/2027"
+      }
+    },
+    {
+      "jornada": 8,
+      "fecha": "2026-10-18",
+      "partido": "Real Madrid Castilla - Antequera",
+      "hudl": {
+        "id": "VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI=",
+        "url": "https://www.hudl.com/watch/video/VmlkZW82YWQ2MGMxM2M2M2IxNWM5Y2EzN2MyOWI="
+      },
+      "tactica": {
+        "fichero": "J 08 - CASTILLA - ANTEQUERA.mov"
+      },
+      "resumen": {
+        "id": "1bleqFLI12o",
+        "url": "https://www.youtube.com/watch?v=1bleqFLI12o",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | Real Madrid Castilla 3-2 Antequera CF | Jornada 8 | Temporada 2026/2027"
+      }
+    },
+    {
+      "jornada": 9,
+      "fecha": "2026-10-25",
+      "partido": "Algeciras - Real Madrid Castilla",
+      "hudl": {
+        "id": "VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM=",
+        "url": "https://www.hudl.com/watch/video/VmlkZW82YWRmYWZjMmMzNTUxMDQ1MTVkZGE5NjM="
+      },
+      "tactica": {
+        "fichero": "J 09 - ALGECIRAS - CASTILLA.mov"
+      },
+      "resumen": {
+        "id": "OFLdMWY6YZs",
+        "url": "https://www.youtube.com/watch?v=OFLdMWY6YZs",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | Algeciras CF 2-0 Real Madrid Castilla | Jornada 9 | Temporada 2026/2027"
+      }
+    }
+  ]
+}
