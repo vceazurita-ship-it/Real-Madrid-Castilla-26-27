@@ -84,6 +84,7 @@ import { playerKey } from "@/lib/rivals/once";
 import { faltasDeJornada, lecturaFaltas, type LecturaFaltas } from "@/lib/faltas/lectura";
 import { nombreBonito, resumenCorners, type LecturaLamina } from "./laminas-lectura";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { delOnce, type PizarraParaInforme } from "./pizarra-para-informe";
 
 /* ------------------------------------------------------------------ */
 /*  LO QUE RECIBE                                                      */
@@ -238,9 +239,19 @@ export type DatosInforme = {
   cruce?: Omit<EntradaCruce, "minutosMicro">;
   /** Si el informe mete los amistosos de verano (el interruptor del diálogo). */
   conPretemporada?: boolean;
+  /**
+   * La pizarra de ABP guardada para el partido, leída con el once de la
+   * pizarra táctica (`pizarraParaInforme`, 31/10/2026). Manda en «Para hoy»:
+   * marcadores, sacador, rutina ensayada y rematadores salen de aquí y sólo
+   * del once. Sin ella, la propuesta por altura, también sólo con el once.
+   */
+  pizarraPartido?: PizarraParaInforme | null;
 };
 
 export type ModoInforme = "previa" | "post";
+
+/** De dónde salen nuestros marcadores en «Para hoy». */
+export type FuenteMarcas = "puestas" | "marcadores" | "";
 
 /** El partido de la semana como lo da el calendario (`PartidoNuestro`). */
 export type PartidoCalendario = {
@@ -759,7 +770,7 @@ export type InformeMicro = {
    * rematadores con estatura y etiqueta, y nuestro balón parado ofensivo que
    * el rival concede. `null` si no hay ninguna de las dos cosas.
    */
-  emparejamientos: { marcamos: string[]; atacamos: string[]; /** La consigna de ataque en una línea (31/10/2026). */ ataque?: string; /** Sus lanzadores de penalti marcados en la plantilla. */ penaltis?: string[]; /** Cómo se rehacen las marcas si entra uno de los suyos que no sale de inicio. */ siEntran?: string[]; /** El ataque en una línea corta, para WhatsApp. */ ataqueCorto?: string } | null;
+  emparejamientos: { marcamos: string[]; atacamos: string[]; /** La consigna de ataque en una línea (31/10/2026). */ ataque?: string; /** Sus lanzadores de penalti marcados en la plantilla. */ penaltis?: string[]; /** Cómo se rehacen las marcas si entra uno de los suyos que no sale de inicio. */ siEntran?: string[]; /** El ataque en una línea corta, para WhatsApp. */ ataqueCorto?: string; /** De dónde salen nuestros marcadores (31/10/2026): «puestas» = las marcas de la pizarra con su dorsal; «marcadores» = los de la pizarra, emparejados aquí; vacío = la propuesta por altura. */ marcasDePizarra?: FuenteMarcas } | null;
   /** «Previa del partido» · «Post partido». */
   modoRotulo: string;
   /**
@@ -773,7 +784,7 @@ export type InformeMicro = {
    * con su porqué. `null` si el partido no deja nada con dato.
    */
   /** En el post, `aviso` dice si lo de la semana que viene no llega a prioridad (`prioridadOAviso`), para que el informe del partido lo diga igual. */
-  cierre: { titulo: string; consigna: string; porQue: string; marcamos: string; aspecto?: string; lado?: string; aviso?: boolean; semana?: string; /** Previa (31/10/2026): la consigna de ataque, dónde les hacemos daño. */ ataque?: string; /** Previa: cómo se rehacen las marcas si entra uno de los suyos. */ siEntran?: string[] } | null;
+  cierre: { titulo: string; consigna: string; porQue: string; marcamos: string; aspecto?: string; lado?: string; aviso?: boolean; semana?: string; /** Previa (31/10/2026): la consigna de ataque, dónde les hacemos daño. */ ataque?: string; /** Previa: cómo se rehacen las marcas si entra uno de los suyos. */ siEntran?: string[]; /** Previa: de dónde salen las marcas (ver `emparejamientos.marcasDePizarra`). */ marcasDePizarra?: FuenteMarcas } | null;
   titulo: string;
   subtitulo: string;
   generado: string;
@@ -2978,7 +2989,34 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
       return ultimo.charAt(0).toUpperCase() + ultimo.slice(1).toLowerCase();
     };
 
-    const candidatos = aereos.filter((uno) => uno.remataAbp || (uno.altura ?? 0) >= 186 || (enLamina(uno.nombre, uno.foto) && (uno.altura ?? 0) >= 178));
+    /*
+    | LA PIZARRA DEL PARTIDO MANDA (31/10/2026, petición del analista): las
+    | marcas tienen que casar con la pizarra de ABP guardada y con el once.
+    | Si «Quién marca a quién» dejó el dorsal del rival en una marca, ese par
+    | sale tal cual; los demás de los suyos se emparejan con los que quedan en
+    | las marcas de la pizarra. Sin pizarra, nuestros más altos, sólo del once.
+    */
+    const piz = datos.pizarraPartido ?? null;
+
+    const onceNuestro = piz?.once ?? [];
+
+    const marcadoresPizarra = piz?.cornerDef?.marcadores ?? [];
+
+    const fijadas = new Map<string, { nombre: string; altura: number }>();
+
+    for (const m of marcadoresPizarra) {
+      if (!m.dorsalRival) continue;
+
+      const suyo = aereos.find((uno) => String(uno.dorsal ?? "").trim() === m.dorsalRival && !fijadas.has(uno.nombre));
+
+      if (suyo) fijadas.set(suyo.nombre, { nombre: m.nombre, altura: m.altura ?? 0 });
+    }
+
+    const conFijadas = fijadas.size > 0;
+
+    const yaFijados = new Set([...fijadas.values()].map((f) => f.nombre));
+
+    const candidatos = aereos.filter((uno) => fijadas.has(uno.nombre) || uno.remataAbp || (uno.altura ?? 0) >= 186 || (enLamina(uno.nombre, uno.foto) && (uno.altura ?? 0) >= 178));
 
     const masAlto = Math.max(0, ...candidatos.map((uno) => uno.altura ?? 0));
 
@@ -2989,13 +3027,29 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     | propuesta: la confirma el cuerpo técnico. Sin alturas nuestras, no se
     | nombra a nadie.
     */
-    const nuestros = [...(datos.comparativa?.aereosNuestros ?? [])].sort((a, b) => b.altura - a.altura);
+    /* Con pizarra, los de sus marcas, del mejor por arriba al peor (puesto y altura, `poderAereo`); sin ella, los más altos del once. */
+    const nuestros: { nombre: string; altura: number }[] = marcadoresPizarra.length
+      ? [...marcadoresPizarra]
+          .filter((m) => !yaFijados.has(m.nombre))
+          .sort((a, b) => b.poder - a.poder)
+          .map((m) => ({ nombre: m.nombre, altura: m.altura ?? 0 }))
+      : (datos.comparativa?.aereosNuestros ?? [])
+          .flatMap((uno) => {
+            /* Sin once que filtre, como antes: sólo los que tienen minutos de verdad. */
+            if (!onceNuestro.length) return uno.minutos >= 270 ? [{ nombre: uno.nombre, altura: uno.altura }] : [];
+
+            const casado = delOnce(onceNuestro, uno.nombre);
+
+            return casado ? [{ nombre: casado.nombre, altura: uno.altura }] : [];
+          })
+          .filter((uno, i, todos) => todos.findIndex((otro) => otro.nombre === uno.nombre) === i)
+          .sort((a, b) => b.altura - a.altura);
 
     const elegidos = candidatos
-      .map((uno) => ({ uno, sale: titular(uno.nombre, uno.foto), lamina: enLamina(uno.nombre, uno.foto) }))
-      .sort((a, b) => Number(b.sale) - Number(a.sale) || Number(b.lamina || b.uno.remataAbp) - Number(a.lamina || a.uno.remataAbp) || (b.uno.altura ?? 0) - (a.uno.altura ?? 0))
-      .slice(0, 5)
-      .sort((a, b) => Number(b.sale) - Number(a.sale) || (b.uno.altura ?? 0) - (a.uno.altura ?? 0));
+      .map((uno) => ({ uno, sale: titular(uno.nombre, uno.foto) || fijadas.has(uno.nombre), lamina: enLamina(uno.nombre, uno.foto), fija: fijadas.has(uno.nombre) }))
+      .sort((a, b) => Number(b.fija) - Number(a.fija) || Number(b.sale) - Number(a.sale) || Number(b.lamina || b.uno.remataAbp) - Number(a.lamina || a.uno.remataAbp) || (b.uno.altura ?? 0) - (a.uno.altura ?? 0))
+      .slice(0, Math.max(5, fijadas.size))
+      .sort((a, b) => Number(b.fija) - Number(a.fija) || Number(b.sale) - Number(a.sale) || (b.uno.altura ?? 0) - (a.uno.altura ?? 0));
 
     /*
     | Todos con su par (31/10/2026, equipo de expertos): Rubén Serrano, de la
@@ -3027,9 +3081,12 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
         */
         const conEl = [...titularesPorAltura, uno].sort((a, b) => (b.altura ?? 0) - (a.altura ?? 0));
 
-        const cambiosPares = conEl
-          .map((suyo, i) => ({ suyo, nuestro: nuestrosPorAltura[i] }))
-          .filter(({ suyo, nuestro }) => nuestro && parDe.get(suyo.nombre) !== nuestro.nombre);
+        /* Con marcas puestas a mano en la pizarra no se rehace nada: las cambia el cuerpo técnico, no la cuenta. */
+        const cambiosPares = conFijadas
+          ? []
+          : conEl
+              .map((suyo, i) => ({ suyo, nuestro: nuestrosPorAltura[i] }))
+              .filter(({ suyo, nuestro }) => nuestro && parDe.get(suyo.nombre) !== nuestro.nombre);
 
         /* La cadena con «a él» en vez de su nombre: dos que entrarían con la misma cadena van en una línea. */
         const cadena = cambiosPares.map(({ suyo, nuestro }) => {
@@ -3043,14 +3100,15 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
         return `${quien}: ${[altura, que].filter(Boolean).join(", ")} · si entra${cadena.length ? `: ${fraseLista(cadena)}` : ""}`;
       }
 
-      const nuestro = nuestros.shift();
+      const nuestro = fijadas.get(uno.nombre) ?? nuestros.shift();
 
-      const ventaja = nuestro && uno.altura && uno.altura - nuestro.altura >= 4 ? `; nos saca ${uno.altura - nuestro.altura} cm: contacto antes del salto` : "";
+      const ventaja = nuestro && nuestro.altura && uno.altura && uno.altura - nuestro.altura >= 4 ? `; nos saca ${uno.altura - nuestro.altura} cm: contacto antes del salto` : "";
 
       /* Si el nuestro tiene un objetivo de ABP esta semana en su seguimiento, se dice: es lo que se observa hoy. */
       const objetivo = nuestro && lineasSeguimiento.some((linea) => linea.objetivo && nuestro.nombre.toLowerCase().includes(linea.jugador.toLowerCase().split(/\s+/).pop() ?? "~")) ? "; es su objetivo individual de la semana" : "";
 
-      const conQuien = nuestro ? ` · lo marca ${nuestro.nombre} (${dec(nuestro.altura / 100, 2)} m)${ventaja}${objetivo}` : "";
+      /* La altura de los nuestros, si se sabe: a muchos les falta en Wyscout. */
+      const conQuien = nuestro ? ` · lo marca ${nuestro.nombre}${nuestro.altura ? ` (${dec(nuestro.altura / 100, 2)} m)` : ""}${ventaja}${objetivo}` : "";
 
       if (nuestro) parDe.set(uno.nombre, nuestro.nombre);
 
@@ -3150,7 +3208,18 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
       return { favor: valor, puestoFavor: todos.filter((uno) => uno > valor + 1e-9).length + 1 };
     })();
 
-    const rematadores = (datos.propio?.rematadores ?? []).filter((uno) => uno.jugador && uno.total >= 2).slice(0, 3);
+    /* Nuestros rematadores de la temporada, sólo los del once y con el nombre de la pizarra (31/10/2026). */
+    const rematadores = (datos.propio?.rematadores ?? [])
+      .filter((uno) => uno.jugador && uno.total >= 2)
+      .flatMap((uno) => {
+        if (!onceNuestro.length) return [uno];
+
+        const casado = delOnce(onceNuestro, uno.jugador);
+
+        return casado ? [{ ...uno, jugador: casado.nombre }] : [];
+      })
+      .filter((uno, i, todos) => todos.findIndex((otro) => otro.jugador === uno.jugador) === i)
+      .slice(0, 3);
 
     const atacamos = [
       ...prioridades
@@ -3178,37 +3247,72 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
     */
     const notasCorner = (datos.graficos ?? []).filter((g) => g.area === "pizarra" && /c[oó]rner ofensivo/i.test(g.titulo)).map((g) => g.leyenda).join(" ");
 
-    const sacaPizarra = notasCorner.match(/sacador ([A-ZÁÉÍÓÚÑ][\p{L}]+)/u)?.[1] ?? "";
+    /*
+    | Quién saca, para quién va la rutina y quién remata salen de la pizarra
+    | guardada (`pizarraPartido`, 31/10/2026), con los nombres de sus fichas y
+    | sólo del once. Sin ella, de los pies de sus diapositivas, como antes,
+    | pero también sólo si el nombre es del once.
+    */
+    const deLaPizarra = piz?.cornerOf ?? null;
+
+    const delOnceONada = (nombre: string) => (!nombre || !onceNuestro.length ? nombre : (delOnce(onceNuestro, nombre)?.nombre ?? ""));
+
+    const sacaPizarra = deLaPizarra ? deLaPizarra.sacador : delOnceONada(notasCorner.match(/sacador ([A-ZÁÉÍÓÚÑ][\p{L}]+)/u)?.[1] ?? "");
 
     /* «…para Mario, sacador Aguado»: el rematador de la rutina, si la nota lo dice así. */
     /* «Segundo córner del partido»: a qué córner va la rutina que nombra al rematador. */
-    const ordinalPizarra = (notasCorner.match(/(primer|segundo|tercer|cuarto|quinto) c[oó]rner del partido/i)?.[1] ?? "").toLowerCase();
+    const ordinalPizarra = deLaPizarra ? (deLaPizarra.ensayado?.ordinal ?? "") : (notasCorner.match(/(primer|segundo|tercer|cuarto|quinto) c[oó]rner del partido/i)?.[1] ?? "").toLowerCase();
 
-    const rematePizarra = notasCorner.match(/para ([A-ZÁÉÍÓÚÑ][\p{L}]+),? sacador/u)?.[1] ?? "";
+    const rematePizarra = deLaPizarra ? (deLaPizarra.ensayado?.para ?? "") : delOnceONada(notasCorner.match(/para ([A-ZÁÉÍÓÚÑ][\p{L}]+),? sacador/u)?.[1] ?? "");
 
-    const rematanHoy = rematadores.filter((uno) => [sacaPizarra, rematePizarra].every((nombre) => !nombre || !uno.jugador.toLowerCase().includes(nombre.toLowerCase())));
+    const esElMismo = (a: string, b: string) => {
+      const x = a.toLowerCase();
+      const y = b.toLowerCase();
+
+      return Boolean(x && y) && (x.includes(y) || y.includes(x));
+    };
+
+    const rematanHoy = rematadores.filter((uno) => [sacaPizarra, rematePizarra].every((nombre) => !nombre || !esElMismo(uno.jugador, nombre)));
 
     const conBase = rematanHoy.map((uno) => `${uno.jugador} (${plural(uno.total, "remate", "remates")}, ${uno.peligro} con peligro)`);
 
-    const quienes = sacaPizarra
-      ? `Saca ${sacaPizarra}${rematePizarra ? `; ${ordinalPizarra ? `el ${ordinalPizarra} córner` : "una de las rutinas"} está ensayado para ${rematePizarra}` : ""}${conBase.length ? `. Rematadores de la temporada: ${fraseLista(conBase)}` : ""}`
-      : conBase.length
-        ? /* Con su base, que «5 de 5» no se lea como un acierto: son remates de la temporada (31/10/2026, análisis). */ `Rematadores de la temporada: ${fraseLista(conBase)}`
-        : "";
+    /* Los del grupo de rematadores de la pizarra, con lo suyo de la temporada al lado si lo tienen. */
+    const alRemate = (deLaPizarra?.rematadores ?? [])
+      .filter((nombre) => [sacaPizarra, rematePizarra].every((otro) => !otro || !esElMismo(nombre, otro)))
+      .map((nombre) => {
+        const suyo = rematadores.find((uno) => esElMismo(uno.jugador, nombre));
+
+        return suyo ? `${nombre} (${plural(suyo.total, "remate", "remates")} en la temporada, ${suyo.peligro} con peligro)` : nombre;
+      });
+
+    const ensayadoPara = rematePizarra ? `${ordinalPizarra ? `el ${ordinalPizarra} córner` : "una de las rutinas"} está ensayado para ${rematePizarra}` : "";
+
+    const quienes = [
+      sacaPizarra ? `Saca ${sacaPizarra}${ensayadoPara ? `; ${ensayadoPara}` : ""}` : ensayadoPara ? mayuscula(ensayadoPara) : "",
+      alRemate.length
+        ? `Al remate, ${fraseLista(alRemate)}`
+        : conBase.length
+          ? /* Con su base, que «5 de 5» no se lea como un acierto: son remates de la temporada (31/10/2026, análisis). */ `Rematadores de la temporada: ${fraseLista(conBase)}`
+          : "",
+    ]
+      .filter(Boolean)
+      .join(". ");
 
     const ataque = volumen
       ? [
           `Se esperan ${esperados} córners a favor${nuestroRemate && nuestroRemate.puestoFavor > n / 2 ? "; el objetivo es ganar el primer remate" : ""}`,
           quienes,
-          notasCorner ? "Las rutinas y el orden de cada córner, en la pizarra" : "",
+          notasCorner || deLaPizarra ? "Las rutinas y el orden de cada córner, en la pizarra" : "",
         ]
           .filter(Boolean)
           .join(". ")
-      : (atacamos[0] ?? "");
+      : /* Sin el volumen que conceden, lo que el rival deja y lo de la pizarra. */ [atacamos[0] ?? "", quienes].filter(Boolean).join(". ");
 
     const ataqueCorto = volumen ? `Córner a favor: se esperan ${esperados}${sacaPizarra ? `; saca ${sacaPizarra}` : ""}` : "";
 
-    return marcamos.length || atacamos.length ? { marcamos, atacamos, ataque, ataqueCorto, penaltis: lanzadoresPenalti, siEntran } : null;
+    const marcasDePizarra: FuenteMarcas = conFijadas ? "puestas" : marcadoresPizarra.length ? "marcadores" : "";
+
+    return marcamos.length || atacamos.length || ataque ? { marcamos, atacamos, ataque, ataqueCorto, penaltis: lanzadoresPenalti, siEntran, marcasDePizarra } : null;
   })();
 
   /* ---------------- contra la liga y contra nosotros mismos ---------------- */
@@ -3812,7 +3916,8 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
           .slice(0, 3)
           .map((m) => {
             /* Con nuestro marcador, si lo hay (ronda 10): «A. Pérez a Carmona (2)». */
-            const nuestro = m.match(/ · lo marca (.+?) \(/)?.[1];
+            /* Sin altura nuestra, el nombre va sin paréntesis: «· lo marca Óscar; nos saca…» o al final. */
+            const nuestro = m.match(/ · lo marca (.+?)(?: \(|;|$)/)?.[1];
 
             const ventaja = m.match(/nos saca (\d+) cm/)?.[1];
 
@@ -3852,21 +3957,36 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
 
     const conLaminas = defensivo && primera.familia === "corner" && repartos.length > 0 && sumaReparto("alArea") >= 6;
 
+    /*
+    | Con los nombres de la pizarra del partido (31/10/2026, petición del
+    | analista): quién está en la corta y al balón, y quién sale al juego en
+    | corto, tal y como están en su diapositiva de córner defensivo.
+    */
+    const defPizarra = conLaminas ? (datos.pizarraPartido?.cornerDef ?? null) : null;
+
+    const duenos = defPizarra
+      ? [defPizarra.corta.length ? `${fraseLista(defPizarra.corta)} en la corta` : "", defPizarra.balon.length ? `${fraseLista(defPizarra.balon)} al balón` : ""].filter(Boolean)
+      : [];
+
     const palos = (() => {
       if (!conLaminas) return "";
 
       const p1 = sumaReparto("primer");
       const p2 = sumaReparto("segundo");
 
-      if (Math.min(p1, p2) >= Math.max(p1, p2) * 0.75) return "los dos palos tienen dueño antes del golpeo";
+      const quien = duenos.length ? `: ${fraseLista(duenos)}` : "";
 
-      return p1 > p2 ? "el primer palo tiene dueño antes del golpeo" : "el segundo palo tiene dueño antes del golpeo";
+      if (Math.min(p1, p2) >= Math.max(p1, p2) * 0.75) return `los dos palos tienen dueño antes del golpeo${quien}`;
+
+      return `${p1 > p2 ? "el primer palo" : "el segundo palo"} tiene dueño antes del golpeo${quien}`;
     })();
+
+    const salenALaCorta = defPizarra?.juegoCorto.length ? `sale${defPizarra.juegoCorto.length > 1 ? "n" : ""} ${fraseLista(defPizarra.juegoCorto)} a la corta` : "sale uno a la corta";
 
     const apoyoLaminas = conLaminas
       ? [
           `${sumaReparto("pequena")} de sus ${sumaReparto("alArea")} córners al área caen dentro del área pequeña`,
-          sumaReparto("cortas") ? `si la sacan en corto (${sumaReparto("cortas")} de ${sumaReparto("acciones")}), sale uno a la corta sin descolgar la línea` : "",
+          sumaReparto("cortas") ? `si la sacan en corto (${sumaReparto("cortas")} de ${sumaReparto("acciones")}), ${salenALaCorta} sin descolgar la línea` : "",
         ]
           .filter(Boolean)
           .join("; ")
@@ -3885,9 +4005,15 @@ export function construyeInforme(datos: DatosInforme): InformeMicro {
       porQue: consignaSinSenal
         ? [baseCorta(primera), otra ? `${enMinuscula(baseCorta(otra))}${otraEsAviso ? `: ${ETIQUETA_AVISO}` : ""}` : ""].filter(Boolean).join("; ")
         : apoyoLaminas ? `${mayuscula(apoyoLaminas)}${patronComoTransicion(conPatronFamilia?.patron ?? "", apoyoLaminas)}` : conPatronFamilia?.patron ? mayuscula(conPatronFamilia.patron) : porQue,
-      marcamos: nombres.length ? (conMarcador ? `Marcamos (propuesta): ${fraseLista(nombres)}` : `Marcamos a ${fraseLista(nombres).replace(/ y /, " y a ")}`) : "",
+      /* Las marcas puestas en la pizarra no son una propuesta: son las del partido. */
+      marcamos: nombres.length
+        ? conMarcador
+          ? `${emparejamientos?.marcasDePizarra === "puestas" ? "Marcamos" : "Marcamos (propuesta)"}: ${fraseLista(nombres)}`
+          : `Marcamos a ${fraseLista(nombres).replace(/ y /, " y a ")}`
+        : "",
       /* Los que no salen de inicio también con su cadena (31/10/2026, equipo de expertos), en su línea. */
       siEntran,
+      marcasDePizarra: emparejamientos?.marcasDePizarra ?? "",
     };
   })();
 
@@ -4851,7 +4977,22 @@ function seccionesDe(informe: InformeMicro, modoImagenes: ModoImagenes): Seccion
     ? [
         { rotulo: esPost ? "" : "Defensa", texto: c2.consigna, apoyo: c2.porQue },
         ...(c2.marcamos
-          ? [{ rotulo: "Marcas", texto: c2.marcamos.replace(/^Marcamos \(propuesta\): /, "").replace(/^Marcamos a /, "A "), apoyo: [...(c2.siEntran ?? []), /propuesta/.test(c2.marcamos) ? "Emparejadas por altura, de más alto a más bajo; se confirman al salir los onces" : ""].filter(Boolean).join("\n") }]
+          ? [
+              {
+                rotulo: "Marcas",
+                texto: c2.marcamos.replace(/^Marcamos(?: \(propuesta\))?: /, "").replace(/^Marcamos a /, "A "),
+                apoyo: [
+                  ...(c2.siEntran ?? []),
+                  /propuesta/.test(c2.marcamos)
+                    ? c2.marcasDePizarra === "marcadores"
+                      ? "Marcan los de la pizarra del partido: su más alto, para nuestro más fuerte por arriba; se confirman al salir los onces"
+                      : "Emparejadas por altura, de más alto a más bajo; se confirman al salir los onces"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
+              },
+            ]
           : []),
         ...(c2.ataque ? [{ rotulo: "Ataque", texto: mayuscula(c2.ataque.replace(/^Atacando: /, "")), apoyo: "" }] : []),
       ]
@@ -5811,7 +5952,7 @@ export function pinceladaAbp(informe: InformeMicro): PinceladaAbp {
       /* Corto, para que quepa el ataque: el mensaje tiene tope (`TOPE_CORTO`). */
       informe.cierre ? (primera && primera.goles > 0 && golesLado > 0 ? `Prioridad: ${enMinuscula(primera.aspecto)} en contra, ${primera.goles} de los ${golesLado} goles encajados` : base) : "",
       informe.cierre ? `${informe.cierre.titulo}, ${enMinuscula(informe.cierre.consigna)}` : base,
-      informe.cierre?.marcamos ? `Marcas: ${informe.cierre.marcamos.replace(/^Marcamos \(propuesta\): /, "").replace(/\. Si entra .*$/, "")}` : "",
+      informe.cierre?.marcamos ? `Marcas: ${informe.cierre.marcamos.replace(/^Marcamos(?: \(propuesta\))?: /, "").replace(/\. Si entra .*$/, "")}` : "",
       informe.emparejamientos?.ataqueCorto ?? "",
     ].filter(Boolean),
     /* El titular del mensaje, corto: en la vista previa de WhatsApp se corta hacia los 60 caracteres. */

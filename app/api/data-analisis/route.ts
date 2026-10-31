@@ -1074,11 +1074,15 @@ function abpParaInforme(datos: Dataset) {
     | para decir de qué vive el rival al que se juega.
     */
     golesAbp: liga.map((fila) => golesAbpDeEquipo(fila.equipo, deLaLiga)),
-    /* Nuestros más altos de campo con minutos: la propuesta de marcas del informe de ABP (ronda 10). */
+    /*
+    | Nuestros de campo con minutos y altura: la propuesta de marcas del informe
+    | de ABP (ronda 10). Todos, no sólo los seis más altos (31/10/2026): el
+    | informe se queda con los del once y con los de las marcas de la pizarra,
+    | y con seis se quedaba sin la altura de casi todos ellos.
+    */
     aereosNuestros: datos.jugadores
-      .filter((j) => esNuestro(j) && j.temporada === "actual" && j.minutos >= 270 && j.altura > 0 && !/^GK/.test(j.posicion))
+      .filter((j) => esNuestro(j) && j.temporada === "actual" && j.minutos >= 90 && j.altura > 0 && !/^GK/.test(j.posicion))
       .sort((a, b) => b.altura - a.altura || b.minutos - a.minutos)
-      .slice(0, 6)
       .map((j) => ({ nombre: j.jugador, altura: j.altura, minutos: j.minutos, posicion: j.posicion.split(",")[0].trim() })),
   };
 }

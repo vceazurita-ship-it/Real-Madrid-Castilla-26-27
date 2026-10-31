@@ -38,6 +38,7 @@ import { notasDeDiapositiva } from "@/lib/abp/laminas-lectura";
 import { capturaLienzos, esperaFotos, pintado } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 import { RATINGS_SEASON } from "@/lib/ratings/types";
+import { idsDelOnce, onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics/onceDeLaPizarra";
 
 /* 960 px de ancho: se lee de sobra en un correo (que se ve a 760) y nueve
    diapositivas no se comen el tope del correo. */
@@ -83,6 +84,16 @@ export function tableroDelPartido(
 export type PizarraInformeEstado = {
   cargando: boolean;
   graficos: GraficoInforme[];
+  /**
+   * La pizarra del partido y nuestro once, leídos para «Para hoy»
+   * (`pizarraParaInforme`, 31/10/2026): sin las alturas de Wyscout, que las
+   * pone quien llama.
+   */
+  tablero: TableroPizarra | null;
+  /** Ids de la plantilla del once de la pizarra táctica; vacío si no hay siete casados. */
+  onceIds: string[];
+  /** Las alturas escritas a mano en «Quién marca a quién» (cm por id). */
+  alturas: Record<string, number>;
 };
 
 /**
@@ -102,23 +113,50 @@ export function usePizarraInforme(
 
   const deckRef = useRef<HTMLDivElement>(null);
 
+  /* Nuestro once (pizarra táctica) y las alturas escritas a mano: sólo se leen. */
+  const [once, setOnce] = useState<OnceDeLaPizarra | null>(null);
+  const [alturas, setAlturas] = useState<Record<string, number>>({});
+
   useEffect(() => {
     let vivo = true;
 
-    fetch("/api/docs?key=abp-pizarra", { cache: "no-store" })
+    const pizarra = fetch("/api/docs?key=abp-pizarra", { cache: "no-store" })
       .then((respuesta) => respuesta.json())
       .then((json) => {
         if (vivo) setStore((json?.data as PizarraStore) ?? null);
       })
-      .catch(() => undefined)
-      .finally(() => {
-        if (vivo) setLeido(true);
-      });
+      .catch(() => undefined);
+
+    const delOnce = onceDeLaPizarra()
+      .then((o) => {
+        if (vivo) setOnce(o);
+      })
+      .catch(() => undefined);
+
+    const deAlturas = fetch("/api/docs?key=abp%3Aalturas-nuestros", { cache: "no-store" })
+      .then((respuesta) => respuesta.json())
+      .then((json) => {
+        const data = json?.data;
+
+        if (vivo && data && typeof data === "object") setAlturas(data as Record<string, number>);
+      })
+      .catch(() => undefined);
+
+    void Promise.all([pizarra, delOnce, deAlturas]).finally(() => {
+      if (vivo) setLeido(true);
+    });
 
     return () => {
       vivo = false;
     };
   }, []);
+
+  /* Como en /abp-pizarra: con menos de siete casados, no hay once que valga. */
+  const onceIds = useMemo(() => {
+    const ids = once ? idsDelOnce(once, players) : [];
+
+    return ids.length >= 7 ? ids : [];
+  }, [once, players]);
 
   const tablero = useMemo(() => {
     const encontrado = tableroDelPartido(store, rival, jornada);
@@ -223,5 +261,5 @@ export function usePizarraInforme(
       </div>
     ) : null;
 
-  return { cargando, graficos: tablero ? graficos : [], deck };
+  return { cargando, graficos: tablero ? graficos : [], deck, tablero, onceIds, alturas };
 }

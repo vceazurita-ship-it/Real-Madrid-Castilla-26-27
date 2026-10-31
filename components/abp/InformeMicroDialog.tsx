@@ -40,6 +40,7 @@ import { mismoClub } from "@/lib/rivals/mismoClub";
 import { normalizarOnce, rivalOnceKey } from "@/lib/rivals/once";
 import { useAnalisisRivalInforme } from "@/hooks/useAnalisisRivalInforme";
 import { usePizarraInforme } from "@/components/abp/PizarraInforme";
+import { pizarraParaInforme } from "@/lib/abp/pizarra-para-informe";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useAgendaEnvios } from "@/hooks/useAgendaEnvios";
 import { Destinatarios } from "@/components/correo/Destinatarios";
@@ -763,6 +764,30 @@ export function InformeMicroDialog({
   | pintan, y se vuelve a montar con ellos dentro. Montarlo es contar y
   | ordenar listas: lo que cuesta es dibujar, y eso se hace una sola vez.
   */
+  /* La pizarra de ABP de ese partido, en la previa y en el post (25/10/2026). */
+  const pizarraInforme = usePizarraInforme(
+    datos.partidoCalendario?.rival || datos.rival || "",
+    datos.partidoCalendario?.jornada ?? null,
+    players,
+  );
+
+  /*
+  | La pizarra guardada y nuestro once, para «Para hoy» (31/10/2026): marcas,
+  | sacador y rematadores salen de ahí. Va en `base`, no en los gráficos, para
+  | que siga mandando aunque la foto de la pizarra no quepa en el correo.
+  */
+  const pizarraPartido = useMemo(
+    () =>
+      pizarraParaInforme({
+        tablero: pizarraInforme.tablero,
+        players,
+        onceIds: pizarraInforme.onceIds,
+        alturas: pizarraInforme.alturas,
+        aereos: comparativa?.aereosNuestros ?? null,
+      }),
+    [pizarraInforme.tablero, pizarraInforme.onceIds, pizarraInforme.alturas, players, comparativa],
+  );
+
   const base = useMemo<DatosInforme>(
     () => ({
       ...datos,
@@ -778,8 +803,9 @@ export function InformeMicroDialog({
       clipsPartido,
       /* El cruce, con las mismas acciones que el resto del informe (19/10/2026). */
       conPretemporada,
+      pizarraPartido,
     }),
-    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido, accionesAnterior, plantillaRival, onceRival, clipsPartido, conPretemporada],
+    [datos, filasSeguimiento, nombrePorId, comparativa, propio, modo, accionesPartido, accionesAnterior, plantillaRival, onceRival, clipsPartido, conPretemporada, pizarraPartido],
   );
 
   const borrador = useMemo(() => construyeInforme(base), [base]);
@@ -804,13 +830,6 @@ export function InformeMicroDialog({
   /* Lo preparado del rival de la semana en «ABP del Rival»: sus láminas
      van como un gráfico más y sus conclusiones, en su propia sección. */
   const rivalInforme = useAnalisisRivalInforme(datos.rival);
-
-  /* La pizarra de ABP de ese partido, en la previa y en el post (25/10/2026). */
-  const pizarraInforme = usePizarraInforme(
-    datos.partidoCalendario?.rival || datos.rival || "",
-    datos.partidoCalendario?.jornada ?? null,
-    players,
-  );
 
   /*
   | La segunda vuelta, ya con los dibujos y con lo del rival: sus conclusiones
