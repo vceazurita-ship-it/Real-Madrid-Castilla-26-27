@@ -30,6 +30,7 @@ import { grabaJugada, nombreDelVideo } from "@/components/abp/pizarra/VideoJugad
 import { COLORES, TABLERO_H, TABLERO_W, jugadoresDelTablero, tituloVisible, type TableroPizarra } from "@/lib/abp/pizarra";
 import { fasesDe } from "@/lib/abp/trazos";
 import { trabajoPdfs, type EstadoPdfs } from "@/lib/abp/trabajo-pdfs";
+import { arrancados, enMarcha as encargoEnMarcha, trabajoExportar } from "@/lib/abp/trabajo-exportar";
 import { creaPptx } from "@/lib/export/pptx";
 import { apodo, capturaLienzos, descarga, esperaFotos, pdfDeLienzos, pintado } from "@/lib/export/lienzos";
 import { creaZip, type Bytes, type EntradaZip } from "@/lib/export/zip";
@@ -82,7 +83,10 @@ export function ExportaTodo({
   rival,
   jornada,
   escudoRival,
+  trabajo,
 }: {
+  /** Montado por el trabajo de segundo plano del layout: arranca solo y no enseña botones. */
+  trabajo?: { id: string; conVideos: boolean };
   tablero: TableroPizarra;
   players: Map<string, Player>;
   temporada: string;
@@ -97,6 +101,9 @@ export function ExportaTodo({
   const corriendo = useRef(false);
   const cancelar = useRef(false);
   const sabeVideo = useSyncExternalStore(nada, puedeHacerVideo, () => false);
+  const encargado = useSyncExternalStore(trabajoExportar.suscribe, () => encargoEnMarcha(trabajoExportar.foto(), "todo"), () => undefined);
+  const rotuloEncargo = useSyncExternalStore(trabajoExportar.suscribe, () => (encargado ? trabajoExportar.foto().rotulos[encargado.id] : undefined), () => undefined);
+  const empezado = useRef(false);
 
   const slides = tablero.slides;
   const conJugada = slides.map((slide, i) => ({ slide, i })).filter(({ slide }) => fasesDe(slide.trazos) > 0);
@@ -286,11 +293,28 @@ export function ExportaTodo({
   /* Si se cierra la pantalla a mitad, que no siga trabajando ni deje el cerrojo puesto. */
   useEffect(
     () => () => {
+      if (trabajo) return;
+
       cancelar.current = true;
       corriendo.current = false;
     },
-    [],
+    [trabajo],
   );
+
+  /* En segundo plano: arranca solo una vez y se retira cuando ya no hay nada que enseñar. */
+  useEffect(() => {
+    if (!trabajo || arrancados.has(trabajo.id)) return;
+
+    arrancados.add(trabajo.id);
+    empezado.current = true;
+    /* Fuera del efecto: el primer paso ya cambia el estado. Sin limpieza: el cerrojo de arriba impide repetirlo. */
+    window.setTimeout(() => void exporta(trabajo.conVideos), 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trabajo]);
+
+  useEffect(() => {
+    if (trabajo && empezado.current && !enMarcha && !tareas) trabajoExportar.termina(trabajo.id);
+  }, [trabajo, enMarcha, tareas]);
 
   const comun = {
     soloVer: true as const,
@@ -306,30 +330,45 @@ export function ExportaTodo({
 
   const hechas = tareas?.filter((t) => t.estado === "hecho" || t.estado === "fallo").length ?? 0;
 
+  useEffect(() => {
+    if (trabajo && tareas) trabajoExportar.rotula(trabajo.id, `${hechas} de ${tareas.length}`);
+  }, [trabajo, hechas, tareas]);
+
+  /* En la pizarra: sólo los botones, que dejan el encargo al trabajo del layout. */
+  const pide = (conVideos: boolean) =>
+    trabajoExportar.encarga({ tipo: "todo", conVideos, datos: { tablero, players, temporada, rival, jornada, escudoRival } });
+
+  if (!trabajo) {
+    return (
+      <>
+        <Button
+          icon={PackageOpen}
+          tone="primary"
+          onClick={() => pide(true)}
+          disabled={Boolean(encargado) || slides.length === 0}
+          title={
+            sabeVideo
+              ? `Un .zip con el PDF general, el PowerPoint, el PDF de cada jugador y ${conJugada.length} ${conJugada.length === 1 ? "vídeo" : "vídeos"}. Sigue aunque cambies de pantalla`
+              : "Este navegador no monta vídeo: saldrán sólo los documentos. Usa Chrome o Edge para los vídeos"
+          }
+        >
+          {encargado?.conVideos ? `Exportando${rotuloEncargo ? ` · ${rotuloEncargo}` : "…"}` : "Exportar todo"}
+        </Button>
+
+        <Button
+          icon={FileStack}
+          onClick={() => pide(false)}
+          disabled={Boolean(encargado) || slides.length === 0}
+          title="Un .zip con el PDF general, el PowerPoint y el PDF de cada jugador, sin vídeos. Sigue aunque cambies de pantalla"
+        >
+          {encargado && !encargado.conVideos ? `Exportando${rotuloEncargo ? ` · ${rotuloEncargo}` : "…"}` : "Solo documentos"}
+        </Button>
+      </>
+    );
+  }
+
   return (
     <>
-      <Button
-        icon={PackageOpen}
-        tone="primary"
-        onClick={() => void exporta(true)}
-        disabled={enMarcha || slides.length === 0}
-        title={
-          sabeVideo
-            ? `Un .zip con el PDF general, el PowerPoint, el PDF de cada jugador y ${conJugada.length} ${conJugada.length === 1 ? "vídeo" : "vídeos"}`
-            : "Este navegador no monta vídeo: saldrán sólo los documentos. Usa Chrome o Edge para los vídeos"
-        }
-      >
-        Exportar todo
-      </Button>
-
-      <Button
-        icon={FileStack}
-        onClick={() => void exporta(false)}
-        disabled={enMarcha || slides.length === 0}
-        title="Un .zip con el PDF general, el PowerPoint y el PDF de cada jugador, sin vídeos"
-      >
-        Solo documentos
-      </Button>
 
       {tareas && (
         <div

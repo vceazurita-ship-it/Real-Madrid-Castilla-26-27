@@ -30,6 +30,7 @@ import { FAMILIA_PORTADA, esperaFuentePortada } from "@/lib/rivals/portada-font"
 import { MuxorMp4 } from "@/lib/coding/mp4";
 import type { Bytes } from "@/lib/export/zip";
 import { codecLamina, FPS_LAMINA, puedeHacerVideo } from "@/lib/tactics/lamina";
+import { enMarcha, trabajoExportar } from "@/lib/abp/trabajo-exportar";
 
 export type Destino = "sala" | "whatsapp" | "vertical";
 
@@ -321,7 +322,10 @@ export function VideoJugada({
   temporada,
   rival,
   jornada,
+  trabajo,
 }: {
+  /** Montado por el trabajo de segundo plano del layout (31/10/2026): graba solo y no enseña el botón. */
+  trabajo?: { id: string; destino: Destino };
   slide: SlidePizarra;
   titulo: string;
   players: Map<string, Player>;
@@ -337,7 +341,7 @@ export function VideoJugada({
   const segundos = duracionVideo(fases);
 
   const [abierto, setAbierto] = useState(false);
-  const [destino, setDestino] = useState<Destino | null>(null);
+  const [destino, setDestino] = useState<Destino | null>(trabajo?.destino ?? null);
   const [tiempo, setTiempo] = useState<number>(0);
   const [progreso, setProgreso] = useState("");
 
@@ -394,8 +398,14 @@ export function VideoJugada({
       setDestino(null);
       setTiempo(0);
       setProgreso("");
+
+      if (trabajo) trabajoExportar.termina(trabajo.id);
     }
-  }, [destino, slide, jornada, pon, titulo]);
+  }, [destino, slide, jornada, pon, titulo, trabajo]);
+
+  useEffect(() => {
+    if (trabajo && progreso) trabajoExportar.rotula(trabajo.id, progreso);
+  }, [trabajo, progreso]);
 
   useEffect(() => {
     if (!destino) return;
@@ -405,6 +415,41 @@ export function VideoJugada({
     return () => window.clearTimeout(id);
   }, [destino, monta]);
 
+  /* En la pizarra, el vídeo de esta diapositiva lo graba el trabajo de segundo plano. */
+  const encargado = useSyncExternalStore(
+    trabajoExportar.suscribe,
+    () => enMarcha(trabajoExportar.foto(), "video", (e) => e.datos.slide.id === slide.id),
+    () => undefined,
+  );
+  const rotulo = useSyncExternalStore(trabajoExportar.suscribe, () => (encargado ? trabajoExportar.foto().rotulos[encargado.id] : undefined), () => undefined);
+
+  if (trabajo) {
+    return destino ? (
+      <div
+        ref={raizRef}
+        aria-hidden
+        data-export-hide
+        className="pointer-events-none"
+        style={{ position: "fixed", top: 0, left: -(TABLERO_W + 200), width: TABLERO_W, zIndex: -1 }}
+      >
+        <TableroSlide
+          slide={slide}
+          titulo={titulo}
+          tiempo={tiempo}
+          soloVer
+          players={players}
+          temporada={temporada}
+          rival={rival}
+          seleccion={null}
+          onMover={() => undefined}
+          onQuitar={() => undefined}
+          onPulsarPuesto={() => undefined}
+          onSeleccionar={() => undefined}
+        />
+      </div>
+    ) : null;
+  }
+
   if (fases === 0 || !sabe) return null;
 
   return (
@@ -412,13 +457,13 @@ export function VideoJugada({
       <Button
         icon={Film}
         onClick={() => setAbierto((actual) => !actual)}
-        disabled={destino !== null}
-        title={`Un MP4 de ${coma(segundos, 0)} s con la jugada fase a fase, para ABP\\VIDEO - JUGADORES`}
+        disabled={Boolean(encargado)}
+        title={`Sigue aunque cambies de pantalla. Un MP4 de ${coma(segundos, 0)} s con la jugada fase a fase, para ABP\\VIDEO - JUGADORES`}
       >
-        {destino ? `Montando… ${progreso}` : "Vídeo de la jugada"}
+        {encargado ? `Montando… ${rotulo ?? ""}` : "Vídeo de la jugada"}
       </Button>
 
-      {abierto && !destino && (
+      {abierto && !encargado && (
         <div
           role="menu"
           className="absolute left-0 top-full z-40 mt-1.5 w-[min(320px,calc(100vw-32px))] rounded-xl border border-white/10 bg-[#11161C] p-1.5 shadow-2xl"
@@ -430,7 +475,7 @@ export function VideoJugada({
               role="menuitem"
               onClick={() => {
                 setAbierto(false);
-                setDestino(clave);
+                trabajoExportar.encarga({ tipo: "video", destino: clave, datos: { slide, titulo, players, temporada, rival, jornada } });
               }}
               className="block w-full rounded-lg px-3 py-2 text-left transition hover:bg-white/10"
             >
@@ -443,30 +488,6 @@ export function VideoJugada({
         </div>
       )}
 
-      {destino && (
-        <div
-          ref={raizRef}
-          aria-hidden
-          data-export-hide
-          className="pointer-events-none"
-          style={{ position: "fixed", top: 0, left: -(TABLERO_W + 200), width: TABLERO_W, zIndex: -1 }}
-        >
-          <TableroSlide
-            slide={slide}
-            titulo={titulo}
-            tiempo={tiempo}
-            soloVer
-            players={players}
-            temporada={temporada}
-            rival={rival}
-            seleccion={null}
-            onMover={() => undefined}
-            onQuitar={() => undefined}
-            onPulsarPuesto={() => undefined}
-            onSeleccionar={() => undefined}
-          />
-        </div>
-      )}
     </div>
   );
 }

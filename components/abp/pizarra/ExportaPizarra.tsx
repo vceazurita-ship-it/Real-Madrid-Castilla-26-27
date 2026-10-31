@@ -19,7 +19,7 @@
  * desplazamiento.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { FileDown, MonitorPlay, Printer } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,6 +44,7 @@ import {
 } from "@/lib/export/lienzos";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 import { fasesDe } from "@/lib/abp/trazos";
+import { enMarcha, trabajoExportar } from "@/lib/abp/trabajo-exportar";
 
 type Formato = "pptx" | "pdf";
 
@@ -64,7 +65,10 @@ export function ExportaPizarra({
   rival,
   jornada,
   variante = "panel",
+  trabajo,
 }: {
+  /** Montado por el trabajo de segundo plano del layout (31/10/2026): exporta solo y no enseña botones. */
+  trabajo?: { id: string; formato: Formato; porFases: boolean };
   slides: SlidePizarra[];
   players: Map<string, Player>;
   temporada: string;
@@ -83,7 +87,7 @@ export function ExportaPizarra({
   */
   const corriendo = useRef(false);
 
-  const [formato, setFormato] = useState<Formato | null>(null);
+  const [formato, setFormato] = useState<Formato | null>(trabajo?.formato ?? null);
   const [hechas, setHechas] = useState(0);
 
   /*
@@ -92,7 +96,7 @@ export function ExportaPizarra({
   | diapositiva con dos fases o más sale una vez por fase, con las flechas
   | acumuladas hasta ella; las de una sola fase salen como siempre.
   */
-  const [porFases, setPorFases] = useState(false);
+  const [porFases, setPorFases] = useState(trabajo?.porFases ?? false);
 
   const conFases = slides.some((slide) => fasesDe(slide.trazos) > 1);
 
@@ -204,8 +208,10 @@ export function ExportaPizarra({
 
       setFormato(null);
       setHechas(0);
+
+      if (trabajo) trabajoExportar.termina(trabajo.id);
     }
-  }, [formato, jornada, rival, hojas]);
+  }, [formato, jornada, rival, hojas, trabajo]);
 
   useEffect(() => {
     if (!formato) return;
@@ -223,7 +229,18 @@ export function ExportaPizarra({
     };
   }, [exporta, formato]);
 
-  const ocupado = formato !== null;
+  /* En la pizarra, lo que se está montando lo sabe el trabajo de segundo plano. */
+  const encargado = useSyncExternalStore(trabajoExportar.suscribe, () => enMarcha(trabajoExportar.foto(), "pizarra"), () => undefined);
+  const rotulo = useSyncExternalStore(trabajoExportar.suscribe, () => (encargado ? trabajoExportar.foto().rotulos[encargado.id] : undefined), () => undefined);
+
+  useEffect(() => {
+    if (trabajo && formato) trabajoExportar.rotula(trabajo.id, `${hechas}/${hojas.length}`);
+  }, [trabajo, formato, hechas, hojas.length]);
+
+  const pide = (f: Formato) =>
+    trabajoExportar.encarga({ tipo: "pizarra", formato: f, porFases, datos: { slides, players, temporada, rival, jornada } });
+
+  const ocupado = trabajo ? formato !== null : Boolean(encargado);
 
   const total = hojas.length;
 
@@ -232,23 +249,23 @@ export function ExportaPizarra({
       <Button
         tone="primary"
         icon={MonitorPlay}
-        onClick={() => setFormato("pptx")}
+        onClick={() => pide("pptx")}
         disabled={ocupado || total === 0}
         title="Un .pptx con una diapositiva por acción, a 1920×1080"
       >
-        {formato === "pptx"
-          ? `Montando… ${hechas}/${total}`
+        {encargado?.formato === "pptx"
+          ? `Montando… ${rotulo ?? ""}`
           : "Exportar a PowerPoint"}
       </Button>
 
       <Button
         icon={Printer}
-        onClick={() => setFormato("pdf")}
+        onClick={() => pide("pdf")}
         disabled={ocupado || total === 0}
         title="Un PDF A4 apaisado, una diapositiva por hoja"
       >
-        {formato === "pdf"
-          ? `Montando… ${hechas}/${total}`
+        {encargado?.formato === "pdf"
+          ? `Montando… ${rotulo ?? ""}`
           : "Exportar a PDF"}
       </Button>
 
@@ -271,7 +288,7 @@ export function ExportaPizarra({
   | El tablero de repuesto es el mismo en las dos variantes, así que va en una
   | constante: sin él no hay nada que fotografiar.
   */
-  const deck = ocupado && (
+  const deck = trabajo && formato !== null && (
     <div
       ref={deckRef}
       aria-hidden
@@ -305,6 +322,8 @@ export function ExportaPizarra({
       ))}
     </div>
   );
+
+  if (trabajo) return deck || null;
 
   if (variante === "barra") {
     return (

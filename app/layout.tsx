@@ -14,6 +14,7 @@ import { ThemedToaster } from "@/components/themed-toaster";
 import { ServiceWorker } from "@/components/service-worker";
 import { SinConexion } from "@/components/sin-conexion";
 import { TrabajoPdfs } from "@/components/abp/pizarra/TrabajoPdfs";
+import { TrabajoExportar } from "@/components/abp/pizarra/TrabajoExportar";
 import { AvisoEncargos } from "@/components/ui/AvisoEncargos";
 import { AvisoTareasPendientes } from "@/components/portada/AvisoTareasPendientes";
 import { LanzaderaGlobal } from "@/components/video/LanzaderaGlobal";
@@ -133,6 +134,8 @@ export default function RootLayout({
             <SinConexion />
             {/* Los PDF de ABP por jugador siguen preparándose al cambiar de pantalla. */}
             <TrabajoPdfs />
+            {/* Y las demás exportaciones de la pizarra de ABP, que tampoco se cortan al navegar (31/10/2026). */}
+            <TrabajoExportar />
             {/* Los encargos de Ajustes avisan al terminar, estés donde estés (29/10/2026). */}
             <AvisoEncargos />
             {/* Al entrar, lo que quedó sin hacer de días anteriores en «Mis tareas» (31/10/2026). */}
