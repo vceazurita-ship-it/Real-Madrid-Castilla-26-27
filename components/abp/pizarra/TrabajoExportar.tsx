@@ -23,7 +23,7 @@ export function TrabajoExportar() {
   return (
     <>
       {encargos.map((e) => {
-        if (e.tipo === "todo") return <ExportaTodo key={e.id} trabajo={{ id: e.id, conVideos: e.conVideos }} {...e.datos} />;
+        if (e.tipo === "todo") return <ExportaTodo key={e.id} trabajo={{ id: e.id, conVideos: e.conVideos, soloVideos: e.soloVideos }} {...e.datos} />;
 
         if (e.tipo === "pizarra") {
           return <ExportaPizarra key={e.id} trabajo={{ id: e.id, formato: e.formato, porFases: e.porFases }} {...e.datos} />;

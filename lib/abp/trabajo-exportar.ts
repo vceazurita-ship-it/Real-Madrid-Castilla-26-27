@@ -18,7 +18,7 @@ import type { Player } from "@/types/player";
 type Comun = { players: Map<string, Player>; temporada: string; rival: string; jornada?: string };
 
 export type EncargoExportar =
-  | { id: string; tipo: "todo"; conVideos: boolean; datos: Comun & { tablero: TableroPizarra; escudoRival?: string } }
+  | { id: string; tipo: "todo"; conVideos: boolean; soloVideos?: boolean; datos: Comun & { tablero: TableroPizarra; escudoRival?: string } }
   | { id: string; tipo: "pizarra"; formato: "pptx" | "pdf"; porFases: boolean; datos: Comun & { slides: SlidePizarra[] } }
   | { id: string; tipo: "video"; destino: Destino; datos: Comun & { slide: SlidePizarra; titulo: string } };
 
