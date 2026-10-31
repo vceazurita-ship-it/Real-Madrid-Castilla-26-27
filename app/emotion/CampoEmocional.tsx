@@ -1202,6 +1202,7 @@ function PerfilJugador({
               {c.dorsal ? `${c.dorsal} · ` : ""}
               {dato.jugador !== c.nombre ? `${dato.jugador} · ` : ""}
               {dato.estimado ? "Media de la plantilla hasta que se valore" : bandFor(media).label}
+              {dato.editado ? " · editado aquí" : ""}
             </p>
           </div>
         </div>

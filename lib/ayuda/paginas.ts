@@ -413,12 +413,18 @@ export const AYUDAS: AyudaDePagina[] = [
   {
     ruta: "/dashboard-plantilla",
     titulo: "Dashboard Individual",
-    resumen: "La plantilla comparada de un vistazo.",
-    origen: "Hoja JUGADORES (plantilla y estado), hoja de controles de entrenamiento (último control) y sesiones registradas en Jugadores sesión (desde el 21/10).",
+    resumen: "Quién juega, cuánto y cómo rinde, semana a semana.",
+    origen: "Wyscout (minutos, partidos, edad, contrato, amarillas y percentiles por puesto), Valoraciones (quién jugó cada jornada, titular o suplente, y la nota), hoja JUGADORES (puesto, licencia y ficha de competencias) y sesiones registradas en Jugadores sesión (desde el 21/10).",
     bloques: [
       {
         titulo: "Cómo se lee",
-        filas: [PERCENTIL, { que: "Filtros por puesto", es: "Comparar un central con un extremo no dice nada" }],
+        filas: [
+          { que: "Minutos", es: "Los de Wyscout sobre los posibles (partidos de liga × 90); si no tiene fila en Wyscout, los de Valoraciones, con asterisco" },
+          { que: "Titular", es: "Marcado como titular en Valoraciones o con los 90 minutos jugados" },
+          { que: "Avisos", es: "Juega poco (menos del 25 %), tres partidos sin jugar, carga alta (90 % o más), a una amarilla del ciclo y nota a la baja; sólo licencia del Castilla" },
+          PERCENTIL,
+          { que: "Filtros por puesto", es: "Comparar un central con un extremo no dice nada" },
+        ],
       },
     ],
   },

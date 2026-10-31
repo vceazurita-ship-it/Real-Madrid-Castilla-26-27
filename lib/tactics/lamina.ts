@@ -153,6 +153,31 @@ export async function imagenDelCampo(svg: SVGSVGElement, ancho: number): Promise
     }),
   );
 
+  /*
+  | Las letras que el SVG declara con @font-face (la Barlow de las placas del
+  | modo jugador) también se incrustan: dentro de una imagen el `url(...)` no
+  | se descarga y el nombre salía con la del sistema, más ancha. Si no llega,
+  | la regla se queda como está y se dibuja con la letra de reserva.
+  */
+  await Promise.all(
+    [...clon.querySelectorAll("style")].map(async (estilo) => {
+      const css = estilo.textContent ?? "";
+      const urls = [...css.matchAll(/url\((['"]?)(\/fuentes\/[^)'"]+)\1\)/g)];
+
+      if (!urls.length) return;
+
+      let nuevo = css;
+
+      for (const [entero, , ruta] of urls) {
+        const datos = await incrusta(new URL(ruta, window.location.href).toString());
+
+        if (datos) nuevo = nuevo.replace(entero, `url(${datos})`);
+      }
+
+      estilo.textContent = nuevo;
+    }),
+  );
+
   const texto = new XMLSerializer().serializeToString(clon);
   const url = URL.createObjectURL(new Blob([texto], { type: "image/svg+xml;charset=utf-8" }));
 

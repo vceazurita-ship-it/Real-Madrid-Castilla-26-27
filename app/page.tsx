@@ -18,6 +18,7 @@ import { AlertasPortada } from "@/components/portada/AlertasPortada"
 import { Cifras } from "@/components/portada/Cifras"
 import { ProximoPartido } from "@/components/portada/ProximoPartido"
 import { MisTareas } from "@/components/portada/MisTareas"
+import { EVENTO_ABRIR as EVENTO_ABRIR_TAREAS } from "@/lib/portada/mis-tareas"
 import { useAdmin } from "@/hooks/useAdmin"
 import { trackModuleVisit } from "@/lib/module-usage"
 import { usePlayers } from "@/hooks/usePlayers"
@@ -132,6 +133,22 @@ export default function Home() {
   /* En el móvil las áreas de trabajo arrancan plegadas (29/10/2026). */
   const [verAreas, setVerAreas] = useState(false)
   const enTareas = admin && vista === "tareas"
+
+  /* «Ir a mis tareas» del aviso de pendientes: `/?tareas=1` al entrar, o el
+     evento si ya se está en la portada (31/10/2026). */
+  useEffect(() => {
+    const abre = () => setVista("tareas")
+    const id = setTimeout(() => {
+      if (new URLSearchParams(window.location.search).has("tareas")) abre()
+    }, 0)
+
+    window.addEventListener(EVENTO_ABRIR_TAREAS, abre)
+
+    return () => {
+      clearTimeout(id)
+      window.removeEventListener(EVENTO_ABRIR_TAREAS, abre)
+    }
+  }, [])
 
   /*
   |------------------------------------------------------------------------

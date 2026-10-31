@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   Eraser,
+  Pencil,
   Play,
   RefreshCw,
   Search,
@@ -29,8 +30,31 @@ import {
   Tooltip,
 } from "recharts";
 
-import { AXES, SCALE, SERIES_COLORS, average, labelFor, nombreLargo, toneFor, type GroupKey, type MetricKey, type Player } from "./modelo";
+import {
+  AXES,
+  CLAVE_DOC_EMOCIONAL,
+  DOC_EMOCIONAL_VACIO,
+  SCALE,
+  SERIES_COLORS,
+  aplicaEdiciones,
+  average,
+  labelFor,
+  nombreLargo,
+  normalizaDocEmocional,
+  toneFor,
+  type DocEmocional,
+  type GroupKey,
+  type MetricKey,
+  type Player,
+} from "./modelo";
 import { CampoEmocional } from "./CampoEmocional";
+import { EditorValoraciones, type CambioEmocional, type CandidatoEmocional, type Valores } from "./EditorValoraciones";
+import { useRemoteDoc } from "@/hooks/useRemoteDoc";
+import { usePlayers } from "@/hooks/usePlayers";
+import { SaveState } from "@/components/abp/ui";
+import { casaNombre, mejorCasado } from "@/lib/tactics/onceDeLaPizarra";
+
+const valoresDe = (p: Player): Valores => ({ ea: p.ea, ie: p.ie, ia: p.ia, ee: p.ee });
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=970113485&single=true&output=csv";
@@ -127,7 +151,36 @@ function normalize(value: string) {
 export default function EmotionPage() {
   const videoRef = useRef<HTMLDivElement | null>(null);
 
-  const [rows, setRows] = useState<Player[]>([]);
+  /* Lo que trae la hoja emocional (CSV publicado: sólo se lee). */
+  const [rowsHoja, setRowsHoja] = useState<Player[]>([]);
+
+  /*
+  | Lo editado en «Editar valoraciones» (31/10/2026): una capa en Supabase
+  | (`emotion:valoraciones`) que manda sobre la hoja jugador a jugador. Todo
+  | lo de la pantalla —radares, campo, medias— sale ya con ella aplicada.
+  */
+  const {
+    value: docCrudo,
+    setValue: setDocEmocional,
+    status: estadoDoc,
+    localOnly,
+    lastSavedAt,
+    sinGuardar,
+    guardaYa,
+  } = useRemoteDoc<DocEmocional>({
+    key: CLAVE_DOC_EMOCIONAL,
+    kind: "emotion",
+    fallback: DOC_EMOCIONAL_VACIO,
+    debounce: 400,
+  });
+
+  const docEmocional = useMemo(() => normalizaDocEmocional(docCrudo), [docCrudo]);
+  const rows = useMemo(() => aplicaEdiciones(rowsHoja, docEmocional), [rowsHoja, docEmocional]);
+  const editadosAqui = Object.keys(docEmocional.jugadores).length;
+
+  const [editando, setEditando] = useState(false);
+  const { players: plantilla } = usePlayers();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [verVideo, setVerVideo] = useState(false);
@@ -142,9 +195,19 @@ export default function EmotionPage() {
   /* Titulares de la pizarra sin valoración: entran con la media de la plantilla. */
   const [estimados, setEstimados] = useState<Player[]>([]);
 
+  /* Las líneas sólo se reponen si el once cambia de verdad: valorar aquí a
+     un titular que llevaba la media no debe deshacer lo elegido a mano. */
+  const firmaLineas = useRef("");
+
   const recibeOnce = useCallback((g: Record<GroupKey, string[]>, sinValorar: Player[]) => {
-    setGruposOnce(g);
-    setGroups(g);
+    const firma = JSON.stringify(g);
+
+    if (firma !== firmaLineas.current) {
+      firmaLineas.current = firma;
+      setGruposOnce(g);
+      setGroups(g);
+    }
+
     setEstimados(sinValorar);
   }, []);
 
@@ -160,7 +223,7 @@ export default function EmotionPage() {
         if (cancelled) return;
 
         const parsed = parseCSV(t);
-        setRows(parsed);
+        setRowsHoja(parsed);
         setGroups((prev) => (Object.values(prev).some((v) => v.length > 0) ? prev : gruposPorDefecto(parsed)));
 
         setError(false);
@@ -250,6 +313,67 @@ export default function EmotionPage() {
     );
   }, [rows, gruposOnce]);
 
+  /*
+  | Quién sale en el editor: los valorados (hoja o editados aquí), los
+  | titulares de la pizarra que aún no tienen valoración y el resto de la
+  | plantilla del Castilla que no está en la base emocional.
+  */
+  const candidatos = useMemo<CandidatoEmocional[]>(() => {
+    const enElOnce = new Set([...Object.values(gruposOnce ?? EMPTY_GROUPS).flat(), ...estimados.map((e) => e.jugador)]);
+    const deLaHoja = new Map(rowsHoja.map((r) => [r.jugador, r]));
+
+    const lista: CandidatoEmocional[] = rows.map((r) => {
+      const h = deLaHoja.get(r.jugador);
+
+      return {
+        nombre: r.jugador,
+        posicion: r.posicion,
+        valores: valoresDe(r),
+        origen: r.editado ? "aqui" : "hoja",
+        enHoja: h ? valoresDe(h) : null,
+        titular: enElOnce.has(r.jugador),
+      };
+    });
+
+    const yaEsta = (nombre: string) => lista.some((c) => casaNombre(c.nombre, nombre) >= 2);
+
+    for (const e of estimados) {
+      if (lista.some((c) => c.nombre === e.jugador)) continue;
+
+      const ficha = mejorCasado([e.jugador], plantilla, (p) => [p.nombre, p.apodo]);
+
+      lista.push({ nombre: e.jugador, posicion: ficha?.posicion ?? "", valores: null, origen: "sinValorar", enHoja: null, titular: true });
+    }
+
+    for (const p of plantilla) {
+      if (!p.esCastilla || !p.nombre?.trim() || isHiddenPlayer(p.nombre)) continue;
+      if (yaEsta(p.nombre) || (p.apodo && yaEsta(p.apodo))) continue;
+
+      lista.push({ nombre: p.nombre.trim(), posicion: p.posicion ?? "", valores: null, origen: "sinValorar", enHoja: null, titular: false });
+    }
+
+    return lista;
+  }, [rows, rowsHoja, estimados, gruposOnce, plantilla]);
+
+  /* Guardar del editor: lo cambiado entra en la capa, «A la hoja» lo saca. La cola de useRemoteDoc lo manda. */
+  const guardaEdiciones = useCallback(
+    (cambios: CambioEmocional[], quitar: string[]) => {
+      const ahora = new Date().toISOString();
+
+      setDocEmocional((actual) => {
+        const jugadores = { ...normalizaDocEmocional(actual).jugadores };
+
+        for (const nombre of quitar) delete jugadores[nombre];
+        for (const c of cambios) jugadores[c.nombre] = { ...c.valores, posicion: c.posicion, editado: ahora };
+
+        return { v: 1, jugadores };
+      });
+
+      setEditando(false);
+    },
+    [setDocEmocional],
+  );
+
   const openVideo = () => {
     if (window.innerWidth < 1024) {
       window.open(VIDEO_URL, "_blank");
@@ -307,9 +431,33 @@ export default function EmotionPage() {
                     flecha, cómo ha cambiado. Pulsa un jugador para ver su
                     perfil; más abajo se cambia quién entra en cada radar.
                   </p>
+
+                  {/* Una línea discreta: qué parte de lo que se ve no sale de la hoja. */}
+                  {(editadosAqui > 0 || sinGuardar || estadoDoc === "error" || localOnly) && (
+                    <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/45" data-export-hide>
+                      {editadosAqui > 0 && (
+                        <span>
+                          {editadosAqui === 1
+                            ? "1 valoración editada aquí: manda sobre la hoja."
+                            : `${editadosAqui} valoraciones editadas aquí: mandan sobre la hoja.`}
+                        </span>
+                      )}
+                      <SaveState status={estadoDoc} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2" data-export-hide>
+                  <button
+                    type="button"
+                    onClick={() => setEditando(true)}
+                    disabled={loading || estadoDoc === "loading"}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#C8A96B] bg-[#C8A96B] px-4 py-2 text-xs font-semibold text-black transition hover:bg-[#d8bc82] disabled:opacity-50"
+                  >
+                    <Pencil size={13} />
+                    Editar valoraciones
+                  </button>
+
                   <button
                     onClick={() => setShowTeamAverage((v) => !v)}
                     aria-pressed={showTeamAverage}
@@ -617,6 +765,15 @@ export default function EmotionPage() {
           </section>
         </div>
       </div>
+
+      {editando && (
+        <EditorValoraciones
+          candidatos={candidatos}
+          media={teamAverage}
+          onGuardar={guardaEdiciones}
+          onCerrar={() => setEditando(false)}
+        />
+      )}
     </main>
   );
 }

@@ -49,6 +49,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAdmin } from "@/hooks/useAdmin";
 import { avisaCambioTextos, useTextosExplicativos } from "@/components/ui/textos-analisis";
+import { InterruptorOrdenadorPrincipal } from "@/components/video-partido/InterruptorOrdenadorPrincipal";
 import {
   LIMITE_MIN,
   estadoEncargo,
@@ -698,6 +699,8 @@ export default function AjustesPage() {
             <ReabrirQuiniela />
 
             <InterruptorTextos />
+
+            <InterruptorOrdenadorPrincipal />
 
             {/* ---------------- EL ANÁLISIS DEL PARTIDO ---------------- */}
 

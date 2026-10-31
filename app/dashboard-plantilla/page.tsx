@@ -1,105 +1,69 @@
 "use client";
-import { traeCsv } from "@/lib/hojaCsv";
+import { traeCsv, traeJson } from "@/lib/hojaCsv";
 import { coma } from "@/lib/formatoNumero";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { chipInk } from "@/lib/theme";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import Papa from "papaparse";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { getPlayerImage, normalizePlayerName } from "@/lib/playerImages";
-import { nombrePuesto, posicionDe } from "@/lib/posiciones";
+import { getPlayerImage } from "@/lib/playerImages";
+import { nombrePuesto, posicionDe, puestoEnPalabras } from "@/lib/posiciones";
 import { nombreVisible } from "@/lib/nombreJugador";
-import { cohorteCastilla, esDelCastilla, fichajesQueFaltan, licenciaDe } from "@/lib/fichajes";
+import { esDelCastilla, fichajesQueFaltan, licenciaDe } from "@/lib/fichajes";
 import { useRatingsSeason } from "@/hooks/useRatings";
-import { summarizePlayer, formatRating } from "@/lib/ratings/compute";
-import type { RatingsSeason } from "@/lib/ratings/types";
+import { formatRating, ratingColor } from "@/lib/ratings/compute";
 import { dorsalDe } from "@/lib/dorsales";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { ALMACEN_VACIO, type AlmacenEquipos } from "@/lib/sesion-equipos/modelo";
-import { SESIONES_CONTADAS_DESDE, SESIONES_DESDE_TEXTO, resumenDeSesiones, type ResumenSesiones, type SesionesDeJugador } from "@/lib/sesion-equipos/estadistica";
-
+import { SESIONES_DESDE_TEXTO, resumenDeSesiones, type ResumenSesiones, type SesionesDeJugador } from "@/lib/sesion-equipos/estadistica";
+import { PUESTOS, type Puesto } from "@/lib/data-analisis/individual";
+import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import {
-  AlertTriangle,
-  ExternalLink,
-  RotateCcw,
-  Search,
-  UserRound,
-  X,
-} from "lucide-react";
+  AVISOS,
+  avisosDe,
+  construyeJugadores,
+  partidosDeLiga,
+  partidosWyscout,
+  type Aviso,
+  type FichaPlantilla,
+  type JugadorDash,
+  type PartidoLiga,
+  type TipoAviso,
+} from "@/lib/plantilla/dashboard";
 
-import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  RadarChart,
-  Radar,
-  ScatterChart,
-  Scatter,
-  LineChart,
-  Line,
-  CartesianGrid,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Tooltip,
-  Legend,
-  Cell,
-  XAxis,
-  YAxis,
-  ZAxis,
-} from "recharts";
+import { AlertTriangle, ExternalLink, RotateCcw, Search, UserRound, X } from "lucide-react";
+
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 
-const ESTADOS_CSV =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=1978494160&single=true&output=csv";
+/*
+|--------------------------------------------------------------------------
+| DASHBOARD DE PLANTILLA · NUEVO ENFOQUE (31/10/2026)
+|--------------------------------------------------------------------------
+|
+| Fuera lo que no se registra: estado de la hoja de controles (lesionado,
+| selección, recuperación), su «% de óptimos», la tarta de estados y la
+| curva de controles. Esa hoja dejó de escribirse el 24/08 y el analista no
+| va a hacer ese seguimiento.
+|
+| Lo que queda es lo que se mueve cada semana: minutos y participación
+| (Wyscout y Valoraciones), avisos para el cuerpo técnico, edad y contratos
+| (Wyscout), rendimiento por puesto (Wyscout) y nota de partido
+| (Valoraciones), y la asistencia a las sesiones registradas. El modelo vive
+| en `lib/plantilla/dashboard.ts`.
+*/
 
+/* La hoja JUGADORES publicada: plantilla, licencia y ficha de competencias. */
 const SCOUTING_CSV =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vTkdtHaPU7QWiWPxOWJYkfpD-RvFF3dsnRDGVjh9e3rkoA9pDQFNp6WPNRZafrAMNfe8cLlBqkf9S9k/pub?gid=205498392&single=true&output=csv";
 
-const THEME = {
-  gold: "#C8A96B",
-  goldSoft: "#B8924F",
-  goldDark: "#8E6A37",
-
-  bg: "#0B0F14",
-  card: "#11161D",
-  border: "#2B3138",
-
-  grid: "#232A33",
-  axis: "#8D949C",
-
-  white: "#F8F9FA",
-  text: "#C6CBD1",
-};
-
-/* Paleta de apoyo para series sin significado semántico (posiciones, licencias). */
-const COLORS = [
-  "#C8A96B",
-  "#B8924F",
-  "#8E6A37",
-  "#6B532F",
-  "#4B4238",
-  "#7DA6D9",
-];
-
-/* Colores semánticos por estado: se usan en la tarta, el scatter y las leyendas. */
-const ESTADO_COLORS: Record<string, string> = {
-  "ÓPTIMO": "#52B788",
-  "LESIONADO": "#D46A6A",
-  "SELECCIÓN": "#7DA6D9",
-  "RECUPERACIÓN": "#EAB308",
-};
-
-const ESTADO_FALLBACK = "#C8A96B";
-
-function estadoColor(estado: string) {
-  return ESTADO_COLORS[estado] ?? ESTADO_FALLBACK;
-}
+/* Paleta validada de DATA (ver nota «data-analisis»): mejor / peor / destacado. */
+const MEJOR = "var(--rmcf-dif-mejor)";
+const PEOR = "var(--rmcf-dif-peor)";
+const ORO = "var(--rmcf-gold-ink)";
+const tinta = (alfa: number) => `rgb(var(--rmcf-ink-rgb) / ${alfa})`;
+const oroAl = (por: number) => `color-mix(in srgb, var(--rmcf-gold-ink) ${por}%, transparent)`;
 
 const METRICAS = [
   { key: "mentalidad", label: "Mentalidad" },
@@ -111,26 +75,12 @@ const METRICAS = [
 
 type MetricaKey = (typeof METRICAS)[number]["key"];
 
-type EstadoCSV = {
-  ID_JUGADOR: string;
-  FECHA: string;
-  NOMBRE: string;
-  APODO: string;
-  POSICION: string;
-  DORSAL: string;
-  FOTO_URL: string;
-  ACTIVO: string;
-  LICENCIA: string;
-  ESTADO: string;
-};
-
 type ScoutingCSV = {
   ID_JUGADOR: string;
   NOMBRE: string;
   APODO: string;
   POSICION: string;
   DORSAL: string;
-  FECHA_NACIMIENTO: string;
   FOTO_URL: string;
   MENTALIDAD: string;
   HABITOS: string;
@@ -140,119 +90,31 @@ type ScoutingCSV = {
   FORTALEZAS: string;
   ASPECTOS_MEJORA: string;
   HUDL_PERFIL_URL: string;
-  ACTIVO: string;
   LICENCIA: string;
-  ESTADO: string;
 };
 
-type Player = {
-  id: string;
-  fecha: string;
-  nombre: string;
-  apodo: string;
-  posicion: string;
+type Ficha = FichaPlantilla & {
   dorsal: string;
   foto: string;
   licencia: string;
-  estado: string;
-  activo: boolean;
-
   mentalidad: number;
   habitos: number;
   interpretacion: number;
   fisica: number;
   tecnica: number;
   media: number;
-
-  /* Un jugador sin ficha de scouting tiene todas las métricas a 0: se excluye
-     de medias, mejor/peor y ranking para no falsear los agregados. */
+  /* Las cinco a 5 es el valor por defecto de la hoja, no una ficha: no cuenta. */
   valorado: boolean;
-
   fortalezas: string;
   aspectosMejora: string;
   hudl: string;
 };
 
-/*
-|--------------------------------------------------------------------------
-| FECHAS
-|--------------------------------------------------------------------------
-| Las hojas mezclan "YYYY-MM-DD" y "DD/MM/YYYY". `new Date()` interpreta el
-| segundo formato como MM/DD, así que lo normalizamos a mano.
-*/
+type Jugador = JugadorDash<Ficha>;
 
-function parseFecha(value: unknown): number {
-  const raw = String(value || "").trim();
-  if (!raw) return 0;
+type RespuestaData = { ok?: boolean; jugadores?: FilaJugador[]; partidos?: FilaPartido[] };
 
-  const slash = raw.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
-
-  if (slash) {
-    const [, day, month, year] = slash;
-    return Date.UTC(Number(year), Number(month) - 1, Number(day));
-  }
-
-  const iso = Date.parse(raw);
-
-  return Number.isNaN(iso) ? 0 : iso;
-}
-
-function formatFecha(value: unknown) {
-  const timestamp = parseFecha(value);
-  if (!timestamp) return String(value || "—");
-
-  return new Date(timestamp).toLocaleDateString("es-ES", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-/**
- * «Último control: 24 ago 2026 · hace 61 días · control antiguo».
- *
- * Las notas se leen contra una ficha: si la ficha tiene dos meses, la
- * diferencia con la media no habla de hoy. Pasado el mes se dice. `ahora` viene
- * de fuera para no leer el reloj dentro del render.
- */
-const DIAS_CONTROL_ANTIGUO = 30;
-
-const nombreCorto = (p: { apodo?: string; nombre?: string }) => nombreVisible(p.nombre || p.apodo || "");
-
-function textoControl(fecha: unknown, ahora: number) {
-  const marca = parseFecha(fecha);
-
-  if (!marca) return `Último control: ${String(fecha)}`;
-
-  const dias = Math.max(0, Math.floor((ahora - marca) / 86_400_000));
-
-  return `Último control: ${formatFecha(fecha)} · ${
-    dias === 0 ? "hoy" : `hace ${dias} ${dias === 1 ? "día" : "días"}`
-  }`;
-}
-
-/* 29/10/2026: «control antiguo» iba en el mismo gris que la fecha y no se
-   veía; ahora sale aparte como chip ámbar. */
-function controlAntiguo(fecha: unknown, ahora: number) {
-  const marca = parseFecha(fecha);
-  return Boolean(marca) && Math.floor((ahora - marca) / 86_400_000) > DIAS_CONTROL_ANTIGUO;
-}
-
-/* Ancho de móvil estrecho, sin leer window en el render (29/10/2026): el
-   radar ajusta radio y letra para que ninguna etiqueta salga cortada. */
-const MQ_ESTRECHO = "(max-width: 479px)";
-function suscribeEstrecho(cb: () => void) {
-  const mq = window.matchMedia(MQ_ESTRECHO);
-  mq.addEventListener("change", cb);
-  return () => mq.removeEventListener("change", cb);
-}
-function useEstrecho() {
-  return useSyncExternalStore(
-    suscribeEstrecho,
-    () => window.matchMedia(MQ_ESTRECHO).matches,
-    () => false,
-  );
-}
+type Vista = "plantilla" | "jornadas" | "jugador" | "rendimiento";
 
 function toNumber(value: unknown) {
   const parsed = Number(String(value ?? "").replace(",", "."));
@@ -262,57 +124,80 @@ function toNumber(value: unknown) {
 function normalize(value: unknown) {
   return String(value || "")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .trim();
 }
 
-const emptyFilters = {
-  jugador: "",
-  posicion: "",
-  estado: "",
-  licencia: "",
-  activo: "",
-  fecha: "",
-};
+const nombreDe = (j: Jugador) => nombreVisible(j.ficha.nombre || j.ficha.apodo);
 
-type Filters = typeof emptyFilters;
+const etiquetaPuesto = (p: Puesto) => PUESTOS.find((x) => x.key === p)?.label ?? p;
 
-const FILTER_LABELS: Record<keyof Filters, string> = {
-  jugador: "Jugador",
-  posicion: "Posición",
-  estado: "Estado",
-  licencia: "Licencia",
-  activo: "Grupo",
-  fecha: "Fecha",
+/** «CD TERUEL» → «Teruel», «UE SANT ANDREU» → «Sant Andreu»: lo que cabe en una columna. */
+function rivalCorto(nombre: string) {
+  const limpio = String(nombre || "")
+    .replace(/\b(CD|UD|AD|SD|UE|CF|FC|RCD|CE|SAD|C\.D\.|U\.D\.)\b\.?/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const palabras = limpio.split(" ").filter(Boolean);
+  const corto = palabras.length > 1 && palabras[0].length <= 4 ? `${palabras[0]} ${palabras[1]}` : (palabras[0] ?? "");
+
+  return corto.charAt(0).toUpperCase() + corto.slice(1).toLowerCase();
+}
+
+const fechaCorta = (iso: string) => iso.split("-").reverse().slice(0, 2).join("/");
+
+const mesAnio = (iso: string) => {
+  const [anio, mes] = iso.split("-").map(Number);
+  if (!anio || !mes) return iso;
+  return new Date(Date.UTC(anio, mes - 1, 1)).toLocaleDateString("es-ES", { month: "long", year: "numeric", timeZone: "UTC" });
 };
 
 export default function DashboardPlantilla() {
-  const [estadoRows, setEstadoRows] = useState<EstadoCSV[]>([]);
   const [scoutingRows, setScoutingRows] = useState<ScoutingCSV[]>([]);
-
   const [loading, setLoading] = useState(true);
-  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
-  /* En el móvil los KPI secundarios van plegados (29/10/2026). */
-  const [kpisAbiertos, setKpisAbiertos] = useState(false);
-  const estrecho = useEstrecho();
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
-  /*
-  | Cuatro vistas (14/10/2026): la ficha del jugador, cómo está la plantilla
-  | (estado, puestos, licencias), las valoraciones y la evolución. Antes iba
-  | todo en un scroll de siete gráficos. Las cifras de arriba (que filtran)
-  | siguen siempre a la vista.
-  */
-  const [vista, setVista] = usePestanaUrl<"jugador" | "plantilla" | "valoracion" | "evolucion">("vista", ["jugador", "plantilla", "valoracion", "evolucion"], "plantilla");
-  /* 30/10/2026: abre con «¿Cómo está la plantilla?», el resumen de todos;
-     antes abría en la ficha 1 de 45 y había que pasar con «Siguiente». */
+  /* Una sola lectura del reloj (no se lee en el render). */
+  const [ahora] = useState(() => Date.now());
+  const hoy = useMemo(() => new Date(ahora).toISOString().slice(0, 10), [ahora]);
 
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  /* 31/10/2026: abre con «¿Cómo está la plantilla?» (minutos, avisos, edad). */
+  const [vista, setVista] = usePestanaUrl<Vista>("vista", ["plantilla", "jornadas", "jugador", "rendimiento"], "plantilla");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  /* Sesiones registradas en /jugadores-sesion (sólo lectura). Si no llegan,
-     el dashboard sigue igual y no se nombra lo que falta. */
+  const [busca, setBusca] = useState("");
+  const [puesto, setPuesto] = useState<Puesto | "">("");
+  const [grupo, setGrupo] = useState<"" | "castilla">("");
+
+  const { season: ratingsSeason } = useRatingsSeason();
+
+  /* Wyscout: minutos, edad, contrato y percentiles. Si no llega, los minutos
+     salen de Valoraciones y la pantalla lo dice. */
+  const [wyscout, setWyscout] = useState<RespuestaData | null>(null);
+  const [wyEstado, setWyEstado] = useState<"cargando" | "listo" | "falla">("cargando");
+
+  useEffect(() => {
+    let vivo = true;
+
+    traeJson<RespuestaData>("/api/data-analisis")
+      .then((r) => {
+        if (!vivo) return;
+        setWyscout(r?.jugadores ? r : null);
+        setWyEstado(r?.jugadores?.length ? "listo" : "falla");
+      })
+      .catch(() => {
+        if (vivo) setWyEstado("falla");
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  /* Sesiones registradas en /jugadores-sesion (sólo lectura). */
   const [almacenSesiones, setAlmacenSesiones] = useState<AlmacenEquipos>(ALMACEN_VACIO);
 
   useEffect(() => {
@@ -329,46 +214,19 @@ export default function DashboardPlantilla() {
       cancelled = true;
     };
   }, []);
-  const { season: ratingsSeason } = useRatingsSeason();
-  const [playerSearch, setPlayerSearch] = useState("");
 
-  const [filters, setFilters] = useState<Filters>(emptyFilters);
-
-  /*
-  |--------------------------------------------------------------------------
-  | CARGA DE DATOS
-  |--------------------------------------------------------------------------
-  */
-
-  /* `loading` arranca en true y sólo se reinicia desde el botón de reintentar,
-     para no encadenar renders llamando a setState en el cuerpo del efecto. */
+  /* `loading` arranca en true y sólo se reinicia desde «Reintentar». */
   useEffect(() => {
     let cancelled = false;
 
-    /* Una sola descarga por hoja en toda la pestaña: ver `lib/hojaCsv`. */
-    const parseCsv = <T,>(url: string) =>
-      traeCsv(url).then(
-        (csv) =>
-          Papa.parse<T>(csv, { header: true, skipEmptyLines: true })
-            .data,
-      );
-
-    Promise.all([
-      parseCsv<EstadoCSV>(ESTADOS_CSV),
-      parseCsv<ScoutingCSV>(SCOUTING_CSV),
-    ])
-      .then(([estados, scouting]) => {
+    traeCsv(SCOUTING_CSV)
+      .then((csv) => {
         if (cancelled) return;
-
-        const visible = <T extends { NOMBRE: string; APODO: string }>(rows: T[]) =>
-          rows.filter((row) => !isHiddenPlayer(row.NOMBRE, row.APODO));
-
-        setEstadoRows(visible(estados));
-        setScoutingRows(visible(scouting));
+        const filas = Papa.parse<ScoutingCSV>(csv, { header: true, skipEmptyLines: true }).data;
+        setScoutingRows(filas.filter((row) => !isHiddenPlayer(row.NOMBRE, row.APODO)));
       })
       .catch((error) => {
         if (cancelled) return;
-
         console.error("Error cargando datos de plantilla:", error);
         setLoadError("No se han podido cargar los datos de la plantilla.");
       })
@@ -383,152 +241,63 @@ export default function DashboardPlantilla() {
 
   /*
   |--------------------------------------------------------------------------
-  | JUGADORES
+  | FICHAS (hoja JUGADORES + fichajes del puente)
   |--------------------------------------------------------------------------
   */
 
-  /*
-  | 19/10/2026 · la plantilla sale de JUGADORES y el control se le ata por
-  | NOMBRE, no por ID.
-  |
-  | Antes la lista salía de la hoja de controles (la de las sesiones) y se le
-  | pegaba la ficha de JUGADORES por `ID_JUGADOR`. Esa hoja dejó de escribirse
-  | el 24/08/2026 con la numeración vieja, y la de JUGADORES se renumeró
-  | después (ver la nota «ids-jugador-renumerados»): medido ese día, quince
-  | jugadores salían con el estado de otro —Diego Lacosta con el de Thiago,
-  | Mestre con el de Rachad…— y seis que ya no están (Fran González, César
-  | Palacios, Guille González…) seguían contando en la plantilla.
-  |
-  | Ahora: los jugadores son los de JUGADORES; el estado, el que trae esa
-  | misma hoja (la que se mantiene al día); y del control sólo se toma la
-  | fecha y, si la ficha no trae estado, el suyo. El cruce va por nombre y,
-  | si no, por apodo —la hoja de controles escribe el nombre completo en
-  | mayúsculas («JESÚS FORTEA») y la de JUGADORES a veces sólo el apellido—;
-  | se comprobó a mano que el apodo casa uno a uno. El «Grupo» es la licencia
-  | del Castilla, la misma regla que el resto de la aplicación.
-  */
-  const players = useMemo<Player[]>(() => {
-    if (!scoutingRows.length) return [];
-
-    const clave = (valor: unknown) => normalizePlayerName(String(valor ?? ""));
-
-    /* El control más reciente de cada nombre y de cada apodo. */
-    const ultimoPor = (campo: "NOMBRE" | "APODO") => {
-      const mapa = new Map<string, EstadoCSV>();
-
-      estadoRows.forEach((row) => {
-        const k = clave(row[campo]);
-
-        if (!k) return;
-
-        const previo = mapa.get(k);
-
-        if (!previo || parseFecha(row.FECHA) >= parseFecha(previo.FECHA)) {
-          mapa.set(k, row);
-        }
-      });
-
-      return mapa;
-    };
-
-    const porNombre = ultimoPor("NOMBRE");
-    const porApodo = ultimoPor("APODO");
-
+  const fichas = useMemo<Ficha[]>(() => {
     const vistos = new Set<string>();
 
-    const deLaHoja = scoutingRows
-      .filter((scout) => {
-        if (!scout.ID_JUGADOR || vistos.has(scout.ID_JUGADOR)) return false;
-
-        vistos.add(scout.ID_JUGADOR);
-
+    const deLaHoja: Ficha[] = scoutingRows
+      .filter((s) => {
+        if (!s.ID_JUGADOR || vistos.has(s.ID_JUGADOR)) return false;
+        vistos.add(s.ID_JUGADOR);
         return true;
       })
-      .map((scout) => {
-        const estado: Partial<EstadoCSV> =
-          porNombre.get(clave(scout.NOMBRE)) ??
-          porApodo.get(clave(scout.APODO)) ??
-          {};
-
-        const mentalidad = toNumber(scout?.MENTALIDAD);
-        const habitos = toNumber(scout?.HABITOS);
-        const interpretacion = toNumber(scout?.INTERPRETACION);
-        const fisica = toNumber(scout?.CAPACIDAD_FISICA);
-        const tecnica = toNumber(scout?.TECNICA);
-
-        const valores = [
-          mentalidad,
-          habitos,
-          interpretacion,
-          fisica,
-          tecnica,
-        ].filter((value) => value > 0);
-
-        const media = valores.length
-          ? valores.reduce((acc, value) => acc + value, 0) / valores.length
-          : 0;
-
-        const nombre = scout.NOMBRE || estado.NOMBRE || "";
-        const licencia = licenciaDe(nombre, scout.LICENCIA || estado.LICENCIA || "");
+      .map((s) => {
+        const mentalidad = toNumber(s.MENTALIDAD);
+        const habitos = toNumber(s.HABITOS);
+        const interpretacion = toNumber(s.INTERPRETACION);
+        const fisica = toNumber(s.CAPACIDAD_FISICA);
+        const tecnica = toNumber(s.TECNICA);
+        const valores = [mentalidad, habitos, interpretacion, fisica, tecnica].filter((v) => v > 0);
+        const nombre = s.NOMBRE || s.APODO || "";
+        const licencia = licenciaDe(nombre, s.LICENCIA || "");
 
         return {
-          id: scout.ID_JUGADOR,
-          fecha: estado.FECHA ?? "",
-
+          id: s.ID_JUGADOR,
           nombre,
-          apodo: scout.APODO || estado.APODO || "",
-          posicion: nombrePuesto(
-            posicionDe(nombre, scout.POSICION || estado.POSICION || ""),
-          ),
-          dorsal: scout.DORSAL || String(dorsalDe(nombre) ?? ""),
-          foto:
-            getPlayerImage(nombre, "cerca", scout.ID_JUGADOR) ||
-            scout.FOTO_URL ||
-            estado.FOTO_URL ||
-            "",
+          apodo: s.APODO || "",
+          posicionHoja: posicionDe(nombre, s.POSICION || ""),
+          delCastilla: esDelCastilla(nombre, licencia),
+          dorsal: s.DORSAL || String(dorsalDe(nombre) ?? ""),
+          foto: getPlayerImage(nombre, "cerca", s.ID_JUGADOR) || s.FOTO_URL || "",
           licencia,
-
-          estado: (scout.ESTADO || estado.ESTADO || "").trim(),
-          /* Sin licencia escrita cuenta como del Castilla, igual que en
-             `hooks/usePlayers` (19/10/2026): si no, «la misma regla que el
-             resto» dejaba fuera de «Del Castilla» a quien la tuviera vacía. */
-          activo: esDelCastilla(nombre, licencia),
-
           mentalidad,
           habitos,
           interpretacion,
           fisica,
           tecnica,
-          media,
-          /* Las cinco a 5 es el valor por defecto de la hoja, no una ficha
-             de scouting: cuenta como «sin ficha» y no entra en medias. */
-          valorado:
-            valores.length > 0 &&
-            !(valores.length === 5 && valores.every((v) => v === 5)),
-
-          fortalezas: scout?.FORTALEZAS ?? "",
-          aspectosMejora: scout?.ASPECTOS_MEJORA ?? "",
-          hudl: scout?.HUDL_PERFIL_URL ?? "",
+          media: valores.length ? valores.reduce((a, b) => a + b, 0) / valores.length : 0,
+          valorado: valores.length > 0 && !(valores.length === 5 && valores.every((v) => v === 5)),
+          fortalezas: s.FORTALEZAS ?? "",
+          aspectosMejora: s.ASPECTOS_MEJORA ?? "",
+          hudl: s.HUDL_PERFIL_URL ?? "",
         };
       });
 
-    /* 30/10/2026: los fichajes del puente que la hoja aún no trae (D. Arroyo,
-       Hugo de Llanos…) también son de la plantilla. Sin ellos, «Del Castilla»
-       daba 21 aquí y 22 en /individual. Entran sin ficha y sin estado: no hay
-       control suyo que contar. */
-    const fichajes: Player[] = fichajesQueFaltan(deLaHoja.map((p) => p.nombre))
+    /* Los fichajes que la hoja aún no trae también son de la plantilla. */
+    const fichajes: Ficha[] = fichajesQueFaltan(deLaHoja.map((p) => p.nombre))
       .filter((f) => !isHiddenPlayer(f.nombre, f.apodo))
       .map((f) => ({
         id: f.id,
-        fecha: "",
         nombre: f.nombre,
         apodo: f.apodo ?? "",
-        posicion: nombrePuesto(f.posicion),
+        posicionHoja: f.posicion,
+        delCastilla: esDelCastilla(f.nombre, f.licencia),
         dorsal: f.dorsal ? String(f.dorsal) : String(dorsalDe(f.nombre) ?? ""),
         foto: f.foto || "",
         licencia: f.licencia,
-        estado: "",
-        activo: esDelCastilla(f.nombre, f.licencia),
         mentalidad: 0,
         habitos: 0,
         interpretacion: 0,
@@ -541,346 +310,107 @@ export default function DashboardPlantilla() {
         hudl: "",
       }));
 
-    return [...deLaHoja, ...fichajes]
-      /* Con ficha primero: la pantalla abre en alguien con datos y los que
-         no la tienen quedan al final de la lista. */
-      .sort(
-        (a, b) =>
-          Number(b.valorado) - Number(a.valorado) ||
-          a.nombre.localeCompare(b.nombre),
-      );
-  }, [estadoRows, scoutingRows]);
+    return [...deLaHoja, ...fichajes];
+  }, [scoutingRows]);
 
-  const updateFilter = (key: keyof Filters, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  };
+  /*
+  |--------------------------------------------------------------------------
+  | JUGADORES CON SUS CIFRAS
+  |--------------------------------------------------------------------------
+  */
 
-  const toggleFilter = (key: keyof Filters, value: string) => {
-    setFilters((prev) => ({
-      ...prev,
-      [key]: prev[key] === value ? "" : value,
-    }));
-  };
+  const partidos = useMemo(() => partidosDeLiga(ratingsSeason, hoy), [ratingsSeason, hoy]);
 
-  const filterOptions = useMemo(() => {
-    const unique = (values: string[]) =>
-      [...new Set(values.filter(Boolean))].sort();
-
-    return {
-      posiciones: unique(players.map((p) => p.posicion)),
-      estados: unique(players.map((p) => p.estado)),
-      licencias: unique(players.map((p) => p.licencia)),
-      /* Sólo las fechas que son el último control de alguien: con todas las
-         de la hoja, elegir una antigua dejaba la pantalla vacía. */
-      fechas: [
-        ...new Set(players.map((p) => p.fecha).filter(Boolean)),
-      ].sort((a, b) => parseFecha(b) - parseFecha(a)),
-    };
-  }, [players]);
-
-  const filteredPlayers = useMemo(() => {
-    const search = normalize(playerSearch);
-
-    return players.filter((player) => {
-      if (filters.jugador && player.id !== filters.jugador) return false;
-      if (filters.posicion && player.posicion !== filters.posicion) return false;
-      if (filters.estado && player.estado !== filters.estado) return false;
-      if (filters.licencia && player.licencia !== filters.licencia) return false;
-      if (filters.activo && String(player.activo) !== filters.activo)
-        return false;
-      if (filters.fecha && player.fecha !== filters.fecha) return false;
-
-      if (
-        search &&
-        !normalize(player.nombre).includes(search) &&
-        !normalize(player.apodo).includes(search) &&
-        !normalize(player.posicion).includes(search) &&
-        !String(player.dorsal).includes(search)
-      ) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [players, filters, playerSearch]);
-
-  /* El jugador seleccionado siempre debe existir dentro del filtro activo. */
-  const sesionesReg = useMemo(
-    () => resumenDeSesiones(almacenSesiones, players.map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo }))),
-    [almacenSesiones, players],
+  const partidosEquipo = useMemo(
+    () => Math.max(partidos.length, wyscout?.partidos ? partidosWyscout(wyscout.partidos, hoy) : 0),
+    [partidos, wyscout, hoy],
   );
 
-  const selectedPlayer = useMemo(() => {
-    if (!filteredPlayers.length) return null;
+  /* Los del Castilla y, de fuera, sólo quien ha jugado con nosotros. */
+  const todos = useMemo<Jugador[]>(
+    () =>
+      construyeJugadores(fichas, wyscout?.jugadores ?? [], partidos, partidosEquipo)
+        .filter((j) => j.ficha.delCastilla || j.minutos > 0 || j.apariciones.some((a) => a.jugo))
+        .sort((a, b) => b.minutos - a.minutos || a.ficha.nombre.localeCompare(b.ficha.nombre, "es")),
+    [fichas, wyscout, partidos, partidosEquipo],
+  );
 
-    return (
-      filteredPlayers.find((p) => p.id === selectedPlayerId) ??
-      filteredPlayers[0]
-    );
-  }, [filteredPlayers, selectedPlayerId]);
+  const filtrados = useMemo(() => {
+    const q = normalize(busca);
 
-  /*
-  |--------------------------------------------------------------------------
-  | AGREGADOS
-  |--------------------------------------------------------------------------
-  */
-
-  const stats = useMemo(() => {
-    const total = filteredPlayers.length;
-    const valorados = filteredPlayers.filter((p) => p.valorado);
-
-    const countEstado = (estado: string) =>
-      filteredPlayers.filter((p) => p.estado === estado).length;
-
-    const optimos = countEstado("ÓPTIMO");
-
-    const media = valorados.length
-      ? valorados.reduce((acc, p) => acc + p.media, 0) / valorados.length
-      : 0;
-
-    const optimalPercentage = total ? Math.round((optimos / total) * 100) : 0;
-
-    return {
-      total,
-      /* La misma cohorte que /individual (lib/fichajes, 30/10/2026). */
-      activos: cohorteCastilla(filteredPlayers, (p) => p.nombre, (p) => p.licencia).length,
-      optimos,
-      seleccion: countEstado("SELECCIÓN"),
-      lesionados: countEstado("LESIONADO"),
-      recuperacion: countEstado("RECUPERACIÓN"),
-
-      valorados: valorados.length,
-      sinValorar: total - valorados.length,
-
-      media: valorados.length ? coma(media) : "—",
-      mejor: valorados.length
-        ? coma(Math.max(...valorados.map((p) => p.media)))
-        : "—",
-      peor: valorados.length
-        ? coma(Math.min(...valorados.map((p) => p.media)))
-        : "—",
-      elite: valorados.filter((p) => p.media >= 8).length,
-      mejorNombre: valorados.length
-        ? nombreCorto([...valorados].sort((a, b) => b.media - a.media)[0])
-        : "",
-      peorNombre: valorados.length
-        ? nombreCorto([...valorados].sort((a, b) => a.media - b.media)[0])
-        : "",
-
-      optimalPercentage,
-    };
-  }, [filteredPlayers]);
-
-  const overallStatus =
-    stats.optimalPercentage >= 80
-      ? "MUY BUENO"
-      : stats.optimalPercentage >= 60
-        ? "BUENO"
-        : stats.optimalPercentage >= 40
-          ? "MEJORABLE"
-          : "CRÍTICO";
-
-  const estadoChart = useMemo(() => {
-    const map: Record<string, number> = {};
-
-    filteredPlayers.forEach((player) => {
-      /* Sin estado escrito (los fichajes que la hoja aún no trae) no se pinta. */
-      if (!player.estado) return;
-      const key = player.estado;
-      map[key] = (map[key] ?? 0) + 1;
+    return todos.filter((j) => {
+      if (grupo === "castilla" && !j.ficha.delCastilla) return false;
+      if (puesto && j.puesto !== puesto) return false;
+      if (q && !normalize(j.ficha.nombre).includes(q) && !normalize(j.ficha.apodo).includes(q) && !String(j.ficha.dorsal).includes(q)) return false;
+      return true;
     });
+  }, [todos, grupo, puesto, busca]);
 
-    return Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredPlayers]);
+  const avisos = useMemo(() => avisosDe(filtrados, partidosEquipo), [filtrados, partidosEquipo]);
 
-  const positionChart = useMemo(() => {
-    const map: Record<string, number> = {};
+  const sesionesReg = useMemo(
+    () => resumenDeSesiones(almacenSesiones, fichas.map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo }))),
+    [almacenSesiones, fichas],
+  );
 
-    filteredPlayers.forEach((player) => {
-      const key = player.posicion || "SIN POSICIÓN";
-      map[key] = (map[key] ?? 0) + 1;
-    });
+  const seleccionado = useMemo(
+    () => filtrados.find((j) => j.ficha.id === selectedId) ?? filtrados[0] ?? null,
+    [filtrados, selectedId],
+  );
 
-    return Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredPlayers]);
-
-  const licenciaChart = useMemo(() => {
-    const map: Record<string, number> = {};
-
-    filteredPlayers.forEach((player) => {
-      const key = player.licencia || "SIN LICENCIA";
-      map[key] = (map[key] ?? 0) + 1;
-    });
-
-    return Object.entries(map)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [filteredPlayers]);
-
-  const radarData = useMemo(() => {
-    const valorados = filteredPlayers.filter((p) => p.valorado);
-    if (!valorados.length) return [];
-
-    const avg = (key: MetricaKey) =>
-      Number(
-        (
-          valorados.reduce((acc, p) => acc + p[key], 0) / valorados.length
-        ).toFixed(2),
-      );
-
-    return METRICAS.map(({ key, label }) => ({
-      subject: label,
-      plantilla: avg(key),
-      jugador: selectedPlayer?.valorado ? selectedPlayer[key] : avg(key),
-    }));
-  }, [filteredPlayers, selectedPlayer]);
-
-  const rankingChart = useMemo(() => {
-    return filteredPlayers
-      .filter((p) => p.valorado)
-      .sort((a, b) => b.media - a.media)
-      .slice(0, 10)
-      .map((player, index) => ({
-        puesto: index + 1,
-        id: player.id,
-        name: nombreVisible(player.nombre || player.apodo),
-        value: Number(player.media.toFixed(1)),
-      }));
-  }, [filteredPlayers]);
-
-  const scatterData = useMemo(() => {
-    return filteredPlayers
-      .filter((p) => p.valorado)
-      .map((player) => ({
-        x: player.mentalidad,
-        y: player.fisica,
-        z: Number(player.media.toFixed(1)),
-        id: player.id,
-        name: nombreVisible(player.nombre || player.apodo),
-        estado: player.estado,
-        color: estadoColor(player.estado),
-      }));
-  }, [filteredPlayers]);
-
-  /* Evolución: nº de registros por fecha, ordenado cronológicamente. */
-  const evolutionData = useMemo(() => {
-    const map: Record<string, number> = {};
-    /* Desde el 21/10/2026 (29/10/2026, lo pidió el analista): antes los
-       entrenos no se registraban bien y la curva saldría falseada. */
-    const desde = parseFecha(SESIONES_CONTADAS_DESDE);
-
-    estadoRows.forEach((row) => {
-      if (!row.FECHA || parseFecha(row.FECHA) < desde) return;
-      map[row.FECHA] = (map[row.FECHA] ?? 0) + 1;
-    });
-
-    return Object.entries(map)
-      .map(([date, value]) => ({
-        date,
-        label: formatFecha(date),
-        value,
-      }))
-      .sort((a, b) => parseFecha(a.date) - parseFecha(b.date));
-  }, [estadoRows]);
-
-  const handlePlayerSelect = (id: string) => {
-    setSelectedPlayerId(id || null);
-  };
-
-  const activeFilters = (Object.keys(filters) as (keyof Filters)[])
-    .filter((key) => filters[key])
-    .map((key) => {
-      let value = filters[key];
-
-      if (key === "jugador") {
-        value = nombreVisible(players.find((p) => p.id === value)?.nombre ?? value);
-      }
-
-      if (key === "activo") {
-        value = value === "true" ? "RMCF Castilla" : "Promocionados a entrenar";
-      }
-
-      if (key === "fecha") {
-        value = formatFecha(value);
-      }
-
-      return { key, label: FILTER_LABELS[key], value };
-    });
-
-  const hasActiveFilters = activeFilters.length > 0 || Boolean(playerSearch);
-
-  const resetFilters = () => {
-    setFilters(emptyFilters);
-    setPlayerSearch("");
+  const abreFicha = (id: string) => {
+    setSelectedId(id);
+    setVista("jugador");
   };
 
   /*
   |--------------------------------------------------------------------------
-  | KPIs
+  | CIFRAS DE ARRIBA
   |--------------------------------------------------------------------------
   */
 
-  const kpis: {
-    title: string;
-    value: string | number;
-    filter?: { key: keyof Filters; value: string };
-    tone?: string;
-    /** La base de la cifra, escrita bajo ella. */
-    base?: string;
-    /** En el móvil va plegado tras «Ver más». */
-    secundario?: boolean;
-  }[] = [
-    { title: "Jugadores", value: stats.total },
+  const posibles = partidosEquipo * 90;
+  const delCastilla = filtrados.filter((j) => j.ficha.delCastilla).length;
+  const conMinutos = filtrados.filter((j) => j.minutos > 0 || j.apariciones.some((a) => a.jugo)).length;
+  const conEdad = filtrados.filter((j) => j.edad !== null && j.fuenteMinutos === "wyscout");
+  const minutosConEdad = conEdad.reduce((a, j) => a + j.minutos, 0);
+  const minutosSub21 = conEdad.filter((j) => (j.edad ?? 99) <= 20).reduce((a, j) => a + j.minutos, 0);
+  const ultimo = partidos[partidos.length - 1];
+
+  const kpis: { title: string; value: string | number; base: string }[] = [
     {
-      /* Es la licencia del Castilla (ver arriba), no «activo» en la hoja. */
-      title: "Del Castilla",
-      value: stats.activos,
-      base: "con licencia del Castilla",
-      filter: { key: "activo", value: "true" },
+      title: "Jugadores",
+      value: filtrados.length,
+      base: `${delCastilla} con licencia del Castilla${filtrados.length > delCastilla ? ` y ${filtrados.length - delCastilla} de fuera con minutos` : ""}`,
     },
     {
-      title: "Óptimos",
-      value: stats.optimos,
-      base: "estado ÓPTIMO en la hoja",
-      filter: { key: "estado", value: "ÓPTIMO" },
-      tone: "text-emerald-300",
+      title: "Partidos de liga",
+      value: partidosEquipo,
+      base: `${posibles}′ posibles por jugador`,
     },
     {
-      title: "Selección",
-      value: stats.seleccion,
-      base: "estado SELECCIÓN en la hoja",
-      filter: { key: "estado", value: "SELECCIÓN" },
-      tone: "text-sky-300",
+      title: "Han jugado",
+      value: conMinutos,
+      base: `de ${filtrados.length}, al menos un minuto`,
     },
+    ...(minutosConEdad > 0
+      ? [
+          {
+            title: "Minutos sub-21",
+            value: `${Math.round((minutosSub21 / minutosConEdad) * 100)} %`,
+            base: `de los minutos jugados, con 20 años o menos (Wyscout)`,
+          },
+        ]
+      : []),
     {
-      title: "Lesionados",
-      value: stats.lesionados,
-      filter: { key: "estado", value: "LESIONADO" },
-      /* 30/10/2026: cero lesionados es la buena noticia; en rojo, sólo si hay. */
-      tone: stats.lesionados > 0 ? "text-red-300" : undefined,
-    },
-    {
-      title: "Media",
-      value: stats.media,
-      base: "de las fichas de competencias",
-      secundario: true,
-    },
-    /* 29/10/2026: Mejor/Peor no casaban con Valoraciones porque son otra
-       cosa: una ficha de competencias por jugador, no la media de partidos. */
-    /* 30/10/2026: «Élite (≥8)» va dentro de «Mejor»: eran el mismo dato dos veces. */
-    { title: "Mejor", value: stats.mejor, secundario: true, base: stats.mejorNombre ? `${stats.mejorNombre} · ${stats.elite} en élite (8 o más)` : undefined },
-    { title: "Peor", value: stats.peor, secundario: true, base: stats.peorNombre || undefined },
-    {
-      title: "% Óptimos",
-      value: `${stats.optimalPercentage}%`,
-      base: `${stats.optimos} de ${stats.total}`,
-      secundario: true,
+      title: "Avisos",
+      value: avisos.length,
+      base: "para hablar esta semana",
     },
   ];
+
+  const hayFiltros = Boolean(busca || puesto || grupo);
+  const cuantosFiltros = [puesto, grupo].filter(Boolean).length;
 
   /*
   |--------------------------------------------------------------------------
@@ -896,20 +426,28 @@ export default function DashboardPlantilla() {
         <Topbar />
 
         <div className="w-full min-w-0 space-y-6 px-4 py-6 sm:px-6 md:px-8 md:py-8">
-          {/* HEADER */}
+          {/* CABECERA */}
 
           <div>
-            <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">
-              RMCF CASTILLA · PLANTILLA
-            </p>
+            <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">RMCF CASTILLA · PLANTILLA</p>
 
             <div className="mt-4 flex min-w-0 items-center gap-4">
-              <h1 className="min-w-0 truncate text-2xl font-semibold md:text-4xl">
-                Dashboard de plantilla
-              </h1>
-
+              <h1 className="min-w-0 truncate text-2xl font-semibold md:text-4xl">Dashboard de plantilla</h1>
               <div className="hidden h-px min-w-0 flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent md:block" />
             </div>
+
+            {/* De dónde sale cada cosa y hasta cuándo, en una línea. */}
+            <p className="mt-2 text-[13px] leading-snug text-white/60">
+              {ultimo
+                ? `Valoraciones: ${partidos.length} ${partidos.length === 1 ? "partido" : "partidos"}, el último ante ${rivalCorto(ultimo.match.opponent)} (${fechaCorta(ultimo.match.date)})`
+                : "Valoraciones: cargando partidos"}
+              {" · "}
+              {wyEstado === "listo"
+                ? `Wyscout: ${wyscout?.partidos ? partidosWyscout(wyscout.partidos, hoy) : 0} partidos del Castilla en la descarga`
+                : wyEstado === "cargando"
+                  ? "Wyscout: cargando"
+                  : "Wyscout no ha respondido: los minutos salen de Valoraciones"}
+            </p>
           </div>
 
           {/* ERROR */}
@@ -917,9 +455,7 @@ export default function DashboardPlantilla() {
           {loadError && (
             <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
               <AlertTriangle size={18} className="shrink-0" />
-
               <span className="min-w-0 flex-1">{loadError}</span>
-
               <button
                 onClick={() => {
                   setLoading(true);
@@ -939,122 +475,55 @@ export default function DashboardPlantilla() {
           <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div className="relative min-w-0 xl:col-span-2">
-                <span className="mb-2 block text-[10px] uppercase tracking-wider text-white/40">
-                  Buscar
-                </span>
-
-                <Search
-                  size={18}
-                  className="absolute left-4 top-[2.6rem] text-white/40"
-                />
-
+                <span className="mb-2 block text-[10px] uppercase tracking-wider text-white/40">Buscar</span>
+                <Search size={18} className="absolute left-4 top-[2.6rem] text-white/40" />
                 <input
-                  value={playerSearch}
-                  onChange={(event) => setPlayerSearch(event.target.value)}
-                  placeholder="Nombre, dorsal o posición..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                  placeholder="Nombre o dorsal..."
                   className="w-full min-w-0 rounded-xl border border-white/10 bg-[#11161D] py-3 pl-11 pr-4 text-sm outline-none transition focus:border-[#C8A96B]"
                 />
               </div>
 
-              {/* En el móvil los cinco filtros van plegados tras «Filtros»
-                  (con cuántos hay activos) y a la vista queda sólo el buscador.
-                  El desplegable «Jugador» hacía lo mismo que «Buscar», así que
-                  en el móvil no sale. Desde 640 px, todo como antes. */}
               <button
                 type="button"
                 onClick={() => setFiltrosAbiertos((v) => !v)}
                 aria-expanded={filtrosAbiertos}
                 className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-[#11161D] px-4 py-3 text-sm text-white/80 sm:hidden"
               >
-                <span>
-                  Filtros
-                  {activeFilters.filter((f) => f.key !== "jugador").length > 0
-                    ? ` (${activeFilters.filter((f) => f.key !== "jugador").length})`
-                    : ""}
-                </span>
+                <span>Filtros{cuantosFiltros ? ` (${cuantosFiltros})` : ""}</span>
                 <span aria-hidden>{filtrosAbiertos ? "−" : "+"}</span>
               </button>
 
-              <div
-                className={`${filtrosAbiertos ? "grid gap-3" : "hidden"} min-w-0 sm:contents`}
-              >
-              {/* 29/10/2026: fuera el desplegable «Jugador»: duplicaba a «Buscar». */}
-              <FilterSelect
-                label="Posición"
-                value={filters.posicion}
-                onChange={(value) => updateFilter("posicion", value)}
-                options={filterOptions.posiciones.map((p) => ({
-                  value: p,
-                  label: p,
-                }))}
-              />
-
-              <FilterSelect
-                label="Estado"
-                value={filters.estado}
-                onChange={(value) => updateFilter("estado", value)}
-                options={filterOptions.estados.map((e) => ({
-                  value: e,
-                  label: e,
-                }))}
-              />
-
-              <FilterSelect
-                label="Licencia"
-                value={filters.licencia}
-                onChange={(value) => updateFilter("licencia", value)}
-                options={filterOptions.licencias.map((l) => ({
-                  value: l,
-                  label: l,
-                }))}
-              />
-
-              <FilterSelect
-                label="Fecha de control"
-                value={filters.fecha}
-                onChange={(value) => updateFilter("fecha", value)}
-                options={filterOptions.fechas.map((f) => ({
-                  value: f,
-                  label: formatFecha(f),
-                }))}
-              />
-
-              <FilterSelect
-                label="Grupo"
-                placeholder="Todos los jugadores"
-                value={filters.activo}
-                onChange={(value) => updateFilter("activo", value)}
-                options={[
-                  { value: "true", label: "RMCF Castilla" },
-                  { value: "false", label: "Promocionados a entrenar" },
-                ]}
-              />
+              <div className={`${filtrosAbiertos ? "grid gap-3" : "hidden"} min-w-0 sm:contents`}>
+                <FilterSelect
+                  label="Puesto"
+                  placeholder="Todos los puestos"
+                  value={puesto}
+                  onChange={(v) => setPuesto(v as Puesto | "")}
+                  options={PUESTOS.map((p) => ({ value: p.key, label: p.label }))}
+                />
+                <FilterSelect
+                  label="Grupo"
+                  placeholder="Todos los que juegan con el Castilla"
+                  value={grupo}
+                  onChange={(v) => setGrupo(v as "" | "castilla")}
+                  options={[{ value: "castilla", label: "Sólo licencia del Castilla" }]}
+                />
               </div>
             </div>
 
-            {/* CHIPS DE FILTROS ACTIVOS */}
-
-            {hasActiveFilters && (
+            {hayFiltros && (
               <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
-                {playerSearch && (
-                  <Chip
-                    label="Búsqueda"
-                    value={playerSearch}
-                    onClear={() => setPlayerSearch("")}
-                  />
-                )}
-
-                {activeFilters.map((filter) => (
-                  <Chip
-                    key={filter.key}
-                    label={filter.label}
-                    value={filter.value}
-                    onClear={() => updateFilter(filter.key, "")}
-                  />
-                ))}
-
+                {busca && <Chip label="Búsqueda" value={busca} onClear={() => setBusca("")} />}
+                {puesto && <Chip label="Puesto" value={etiquetaPuesto(puesto)} onClear={() => setPuesto("")} />}
+                {grupo && <Chip label="Grupo" value="Licencia del Castilla" onClear={() => setGrupo("")} />}
                 <button
-                  onClick={resetFilters}
+                  onClick={() => {
+                    setBusca("");
+                    setPuesto("");
+                    setGrupo("");
+                  }}
                   className="ml-auto flex items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2 text-sm text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
                 >
                   <RotateCcw size={14} />
@@ -1066,651 +535,78 @@ export default function DashboardPlantilla() {
 
           {loading ? (
             <DashboardSkeleton />
-          ) : players.length === 0 ? (
+          ) : fichas.length === 0 ? (
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
-              No hay datos de plantilla disponibles.
+              La hoja de la plantilla no ha devuelto jugadores.
             </div>
           ) : (
             <>
-              {/* RESUMEN */}
+              {/* CIFRAS */}
 
-              <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-6">
-                <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                  <div className="min-w-0">
-                    <h2 className="text-2xl font-bold">REAL MADRID CASTILLA</h2>
-
-                    <p className="mt-1 text-sm text-white/50">
-                      Resumen general de la plantilla
-                    </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
+                {kpis.map((kpi) => (
+                  <div key={kpi.title} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.025] p-3 sm:p-4">
+                    <div className="text-xs text-white/50 sm:text-sm">{kpi.title}</div>
+                    <div className="mt-1 text-2xl font-bold tracking-tight text-white sm:mt-2 sm:text-3xl">{kpi.value}</div>
+                    <div className="mt-1 text-[11px] leading-snug text-white/45 sm:text-xs">{kpi.base}</div>
                   </div>
-
-                  {/* Jugadores, media y % de óptimos van en las tarjetas de
-                      debajo: aquí sólo el veredicto, sin repetir cifras. */}
-                  <div className="grid grid-cols-1 gap-1 md:text-right">
-                    <SummaryStat
-                      /* 30/10/2026: la regla en una línea junto al veredicto, sin párrafo aparte. */
-                      label={`Estado general · ${stats.optimos} de ${stats.total} óptimos (${stats.optimalPercentage} %)`}
-                      value={overallStatus}
-                      size="text-2xl"
-                      className={
-                        overallStatus === "MUY BUENO"
-                          ? "text-emerald-400"
-                          : overallStatus === "BUENO"
-                            ? "text-sky-400"
-                            : overallStatus === "MEJORABLE"
-                              ? "text-yellow-400"
-                              : "text-red-400"
-                      }
-                    />
-                    {/* El umbral, a tamaño legible bajo el veredicto (30/10/2026). */}
-                    <p className="text-sm font-medium text-white/70">
-                      Óptimos: 40 % o más = mejorable · 60 % = bueno · 80 % = muy bueno
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
 
-              {/* KPIs */}
-
-              {/* 29/10/2026: en el móvil, rejilla de 3 y tarjetas bajas; los
-                  secundarios (media, mejor, peor, élite, % óptimos) tras «Ver
-                  más», para que la ficha del jugador no quede a tres pantallas. */}
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-2 sm:gap-4 md:grid-cols-4 xl:grid-cols-5 max-sm:[&>*]:p-2.5 max-sm:[&_.kpi-cifra]:text-xl max-sm:[&_.kpi-base]:hidden">
-                {kpis.filter((kpi) => !estrecho || kpisAbiertos || !kpi.secundario).map((kpi) => {
-                  const clickable = Boolean(kpi.filter);
-
-                  const active = Boolean(
-                    kpi.filter && filters[kpi.filter.key] === kpi.filter.value,
-                  );
-
-                  const className = `group rounded-xl border p-4 text-left transition-all duration-300 ${
-                    clickable
-                      ? "cursor-pointer hover:-translate-y-1 hover:border-[#C8A96B] hover:bg-white/[0.06]"
-                      : ""
-                  } ${
-                    active
-                      ? "border-[#C8A96B] bg-[#C8A96B]/10 shadow-[0_0_20px_rgba(200,169,107,0.15)]"
-                      : "border-white/10 bg-white/[0.025]"
-                  }`;
-
-                  const body = (
-                    <>
-                      <div className="text-sm text-white/50 max-sm:text-xs">{kpi.title}</div>
-
-                      <div
-                        className={`kpi-cifra mt-2 max-sm:mt-1 text-3xl font-bold tracking-tight transition-colors duration-300 ${
-                          kpi.tone ?? "text-white"
-                        } ${clickable ? "group-hover:text-[#C8A96B]" : ""}`}
-                      >
-                        {kpi.value}
-                      </div>
-
-                      <div className={`${kpi.secundario ? "" : "kpi-base "}mt-1 text-xs text-white/30`}>
-                        {clickable && kpi.base ? `${kpi.base} · ` : ""}
-                        {clickable
-                          ? active
-                            ? "Filtro activo · pulsa para quitar"
-                            : "Pulsa para filtrar"
-                          : (kpi.base ?? " ")}
-                      </div>
-                    </>
-                  );
-
-                  if (!clickable) {
-                    return (
-                      <div key={kpi.title} className={className}>
-                        {body}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <button
-                      key={kpi.title}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() =>
-                        toggleFilter(kpi.filter!.key, kpi.filter!.value)
-                      }
-                      className={className}
-                    >
-                      {body}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Una sola línea con las bases (30/10/2026): 45, 22 y 24 salían con
-                  denominadores distintos tarjeta a tarjeta. */}
-              <p className="-mt-3 text-[13px] text-white/60">
-                {stats.total} en la lista · {stats.activos} del Castilla · {stats.valorados} con ficha de competencias
-                (media, mejor y peor salen de esas fichas, no de la nota de partido)
-              </p>
-
-              {estrecho && (
-                <button
-                  type="button"
-                  onClick={() => setKpisAbiertos((v) => !v)}
-                  aria-expanded={kpisAbiertos}
-                  className="-mt-3 min-h-[44px] w-full rounded-xl border border-white/10 bg-white/[0.025] px-4 text-sm text-white/70"
-                >
-                  {kpisAbiertos ? "Ver menos cifras" : "Ver más: media, mejor, peor y % de óptimos"}
-                </button>
-              )}
-
-              {/* Pegada arriba con el mismo margen que esta página (la tira común trae el de las de análisis). */}
               <div className="sticky top-0 z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
-              <Pestanas
-                pegada={false}
-                etiqueta="Vistas del dashboard de plantilla"
-                valor={vista}
-                onCambia={setVista}
-                opciones={[
-                  { clave: "plantilla", label: "¿Cómo está la plantilla?" },
-                  { clave: "jugador", label: "¿Cómo está cada uno?" },
-                  { clave: "valoracion", label: "¿Quién rinde más?" },
-                  { clave: "evolucion", label: "¿Cómo evoluciona?" },
-                ]}
-              />
+                <Pestanas
+                  pegada={false}
+                  etiqueta="Vistas del dashboard de plantilla"
+                  valor={vista}
+                  onCambia={setVista}
+                  opciones={[
+                    { clave: "plantilla", label: "¿Cómo está la plantilla?", corto: "Plantilla" },
+                    { clave: "jornadas", label: "¿Quién juega cada jornada?", corto: "Jornadas" },
+                    { clave: "jugador", label: "¿Cómo está cada uno?", corto: "Jugador" },
+                    { clave: "rendimiento", label: "¿Quién rinde más?", corto: "Rendimiento" },
+                  ]}
+                />
               </div>
 
-              {filteredPlayers.length === 0 ? (
+              {filtrados.length === 0 ? (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center text-white/40">
                   Ningún jugador coincide con los filtros seleccionados.
                 </div>
               ) : (
                 <>
-                  {vista === "jugador" && (
-                  <>
-                  {/* FICHA + RADAR */}
-
-                  <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
-                    <PlayerCard
-                      player={selectedPlayer}
-                      onSelect={handlePlayerSelect}
-                      players={filteredPlayers}
-                      ratingsSeason={ratingsSeason}
-                      sesiones={sesionesReg}
-                    />
-
-                    <ChartCard
-                      title="Perfil comparado"
-                      subtitle={
-                        selectedPlayer?.valorado
-                          ? `${
-                              nombreVisible(selectedPlayer.nombre || selectedPlayer.apodo)
-                            } vs. media de los ${stats.valorados} con ficha${
-                              stats.valorados < stats.total ? ` (de ${stats.total} en la lista)` : ""
-                            }${stats.valorados < 5 ? " · con tan pocas fichas es sólo una tendencia" : ""} · escala de 0 a 10`
-                          : `Media de los ${stats.valorados} jugadores con ficha${
-                            stats.valorados < stats.total ? ` (de ${stats.total} en la lista)` : ""
-                          }${stats.valorados < 5 ? " · con tan pocas fichas es sólo una tendencia" : ""} · escala de 0 a 10`
-                      }
-                    >
-                      {radarData.length ? (
-                        /* 29/10/2026: a 390 px se cortaban «Técnica» y «Hábitos»:
-                           en estrecho, radio menor, letra de 12 y margen lateral. */
-                        <ResponsiveContainer width="100%" height={estrecho ? 340 : 360}>
-                          <RadarChart
-                            data={radarData}
-                            outerRadius={estrecho ? "70%" : "80%"}
-                            margin={estrecho ? { top: 8, right: 18, bottom: 8, left: 18 } : undefined}
-                          >
-                            <PolarGrid stroke={THEME.grid} />
-
-                            <PolarAngleAxis
-                              dataKey="subject"
-                              tick={{ fill: THEME.axis, fontSize: estrecho ? 12 : 13 }}
-                            />
-
-                            <PolarRadiusAxis
-                              domain={[0, 10]}
-                              tickCount={3}
-                              angle={90}
-                              /* 30/10/2026: sin cifras en el eje; el «10» se montaba sobre
-                                 «Mentalidad» y la escala ya la dice el subtítulo. */
-                              tick={false}
-                              stroke={THEME.grid}
-                            />
-
-                            <Radar
-                              name="Plantilla"
-                              dataKey="plantilla"
-                              stroke="#7DA6D9"
-                              strokeWidth={3.5}
-                              fill="#7DA6D9"
-                              // 29/10/2026: sin relleno, para que el dorado del jugador no la tape.
-                              fillOpacity={0}
-                            />
-
-                            {selectedPlayer?.valorado && (
-                              <Radar
-                                name={
-                                  nombreVisible(
-                                    selectedPlayer.nombre ||
-                                      selectedPlayer.apodo ||
-                                      "Jugador",
-                                  )
-                                }
-                                dataKey="jugador"
-                                stroke={THEME.gold}
-                                fill={THEME.gold}
-                                fillOpacity={0.35}
-                              />
-                            )}
-
-                            <Legend wrapperStyle={{ color: THEME.text }} />
-
-                            <Tooltip
-                              formatter={(value) =>
-                                `${coma(Number(value))}/10`
-                              }
-                              contentStyle={TOOLTIP_STYLE}
-                              labelStyle={TOOLTIP_LABEL_STYLE}
-                            />
-                          </RadarChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <EmptyChart message="Sin datos de scouting para el filtro actual." />
-                      )}
-                    </ChartCard>
-                  </div>
-                  </>
-                  )}
-
                   {vista === "plantilla" && (
-                    <ResumenSesionesPlantilla resumen={sesionesReg} players={filteredPlayers} />
+                    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+                      <div className="min-w-0 space-y-6">
+                        <BloqueMinutos jugadores={filtrados} posibles={posibles} onAbre={abreFicha} />
+                      </div>
+                      <div className="min-w-0 space-y-6">
+                        <BloqueAvisos avisos={avisos} onAbre={abreFicha} partidosEquipo={partidosEquipo} />
+                        <BloqueEdad jugadores={filtrados} />
+                        <BloqueContratos jugadores={filtrados} />
+                        <BloqueSesiones resumen={sesionesReg} jugadores={filtrados} />
+                      </div>
+                    </div>
                   )}
 
-                  {/* GRÁFICOS */}
+                  {vista === "jornadas" && <BloqueJornadas jugadores={filtrados} partidos={partidos} onAbre={abreFicha} />}
 
-                  <div className={`grid min-w-0 gap-6 ${vista === "evolucion" ? "" : "lg:grid-cols-2"}`}>
-                    {vista === "plantilla" && (
-                    <ChartCard
-                      title="Estado de la plantilla"
-                      subtitle="Click en un sector para filtrar"
-                      lectura={
-                        <LecturaGrafico reparto={aReparto(estadoChart)} unidad="jugadores" />
-                      }
-                    >
-                      <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                          <Pie
-                            data={estadoChart}
-                            dataKey="value"
-                            nameKey="name"
-                            outerRadius={95}
-                            label={({ name, value }) => `${name}: ${value}`}
-                            cursor="pointer"
-                            onClick={(data: { name?: string }) =>
-                              data?.name && toggleFilter("estado", data.name)
-                            }
-                          >
-                            {estadoChart.map((entry) => (
-                              <Cell
-                                key={entry.name}
-                                fill={estadoColor(entry.name)}
-                                stroke={THEME.card}
-                              />
-                            ))}
-                          </Pie>
+                  {vista === "jugador" && seleccionado && (
+                    <FichaJugador
+                      jugador={seleccionado}
+                      lista={filtrados}
+                      partidos={partidos}
+                      posibles={posibles}
+                      sesiones={sesionesReg}
+                      onSelect={setSelectedId}
+                    />
+                  )}
 
-                          <Tooltip
-                            contentStyle={TOOLTIP_STYLE}
-                            labelStyle={TOOLTIP_LABEL_STYLE}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-
-                      <ColorLegend
-                        items={estadoChart.map((entry) => ({
-                          label: entry.name,
-                          color: estadoColor(entry.name),
-                        }))}
-                      />
-                    </ChartCard>
-                    )}
-
-                    {vista === "plantilla" && (
-                    <ChartCard
-                      title="Jugadores por posición"
-                      subtitle="Click en una barra para filtrar"
-                      lectura={
-                        <LecturaGrafico reparto={aReparto(positionChart)} unidad="jugadores" />
-                      }
-                    >
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart
-                          data={positionChart}
-                          margin={{ top: 10, right: 10, bottom: 0, left: -20 }}
-                        >
-                          <CartesianGrid
-                            stroke={THEME.grid}
-                            strokeDasharray="2 2"
-                          />
-
-                          <XAxis
-                            dataKey="name"
-                            interval={0}
-                            angle={-20}
-                            textAnchor="end"
-                            height={70}
-                            {...AXIS_PROPS}
-                          />
-
-                          <YAxis allowDecimals={false} {...AXIS_PROPS} />
-
-                          <Tooltip
-                            cursor={{ fill: "rgba(255,255,255,0.04)" }}
-                            contentStyle={TOOLTIP_STYLE}
-                            labelStyle={TOOLTIP_LABEL_STYLE}
-                          />
-
-                          <Bar
-                            dataKey="value"
-                            name="Jugadores"
-                            fill={THEME.gold}
-                            radius={[5, 5, 0, 0]}
-                            cursor="pointer"
-                            onClick={(data: { name?: string }) =>
-                              data?.name && toggleFilter("posicion", data.name)
-                            }
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </ChartCard>
-                    )}
-
-                    {vista === "valoracion" && (
-                    <ChartCard
-                      title="Top 10 valoración"
-                      subtitle="Click en una barra para ver la ficha"
-                    >
-                      {rankingChart.length ? (
-                        <ResponsiveContainer width="100%" height={340}>
-                          <BarChart data={rankingChart} layout="vertical">
-                            <CartesianGrid
-                              stroke={THEME.grid}
-                              strokeDasharray="2 2"
-                            />
-
-                            <XAxis
-                              type="number"
-                              domain={[0, 10]}
-                              {...AXIS_PROPS}
-                            />
-
-                            <YAxis
-                              dataKey="name"
-                              type="category"
-                              width={150}
-                              {...AXIS_PROPS}
-                              tickFormatter={(value: string, index: number) => {
-                                const medal =
-                                  index === 0
-                                    ? "🥇 "
-                                    : index === 1
-                                      ? "🥈 "
-                                      : index === 2
-                                        ? "🥉 "
-                                        : `${index + 1}. `;
-
-                                return medal + value;
-                              }}
-                            />
-
-                            <Tooltip
-                              cursor={{ fill: "rgba(255,255,255,0.04)" }}
-                              formatter={(value) => [
-                                `${coma(Number(value))}/10`,
-                                "Valoración",
-                              ]}
-                              contentStyle={TOOLTIP_STYLE}
-                              labelStyle={TOOLTIP_LABEL_STYLE}
-                            />
-
-                            <Bar
-                              dataKey="value"
-                              radius={[0, 6, 6, 0]}
-                              cursor="pointer"
-                              onClick={(data: { id?: string }) =>
-                                data?.id && handlePlayerSelect(data.id)
-                              }
-                            >
-                              {rankingChart.map((entry) => (
-                                <Cell
-                                  key={entry.id}
-                                  fill={
-                                    selectedPlayer?.id === entry.id
-                                      ? "#F0D8A8"
-                                      : THEME.gold
-                                  }
-                                />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <EmptyChart message="Sin jugadores valorados en el filtro actual." />
-                      )}
-                    </ChartCard>
-                    )}
-
-                    {vista === "valoracion" && (
-                    <ChartCard
-                      title="Mentalidad vs Física"
-                      subtitle="El tamaño del punto indica la media global"
-                    >
-                      {scatterData.length ? (
-                        <>
-                          <ResponsiveContainer width="100%" height={340}>
-                            <ScatterChart
-                              margin={{
-                                top: 10,
-                                right: 20,
-                                bottom: 10,
-                                left: -10,
-                              }}
-                            >
-                              <CartesianGrid
-                                stroke={THEME.grid}
-                                strokeDasharray="2 2"
-                              />
-
-                              <XAxis
-                                type="number"
-                                dataKey="x"
-                                domain={[0, 10]}
-                                name="Mentalidad"
-                                {...AXIS_PROPS}
-                              />
-
-                              <YAxis
-                                type="number"
-                                dataKey="y"
-                                domain={[0, 10]}
-                                name="Física"
-                                {...AXIS_PROPS}
-                              />
-
-                              <ZAxis
-                                type="number"
-                                dataKey="z"
-                                range={[80, 320]}
-                              />
-
-                              <Tooltip
-                                cursor={{ strokeDasharray: "3 3" }}
-                                content={({ active, payload }) => {
-                                  if (!active || !payload?.length) return null;
-
-                                  const p = payload[0].payload;
-
-                                  return (
-                                    <div className="rounded-xl border border-white/10 bg-[#11161D] p-3 text-sm shadow-xl">
-                                      <div className="font-bold text-white">
-                                        {p.name}
-                                      </div>
-
-                                      <div className="mt-1 text-white/60">
-                                        Mentalidad: {p.x}
-                                      </div>
-                                      <div className="text-white/60">
-                                        Física: {p.y}
-                                      </div>
-                                      <div className="text-white/60">
-                                        Media: {p.z}
-                                      </div>
-
-                                      <div
-                                        className="mt-1 font-medium"
-                                        style={{ color: chipInk(p.color) }}
-                                      >
-                                        {p.estado}
-                                      </div>
-                                    </div>
-                                  );
-                                }}
-                              />
-
-                              <Scatter
-                                data={scatterData}
-                                cursor="pointer"
-                                onClick={(data) => {
-                                  /* Recharts entrega el punto, no el dato:
-                                     el registro original está en `payload`. */
-                                  const point = data as unknown as {
-                                    id?: string;
-                                    payload?: { id?: string };
-                                  };
-
-                                  const id = point?.payload?.id ?? point?.id;
-
-                                  if (id) handlePlayerSelect(id);
-                                }}
-                              >
-                                {scatterData.map((entry) => (
-                                  <Cell
-                                    key={entry.id}
-                                    fill={entry.color}
-                                    stroke={
-                                      selectedPlayer?.id === entry.id
-                                        ? "#FFFFFF"
-                                        : "transparent"
-                                    }
-                                    strokeWidth={2}
-                                  />
-                                ))}
-                              </Scatter>
-                            </ScatterChart>
-                          </ResponsiveContainer>
-
-                          <ColorLegend
-                            items={Object.entries(ESTADO_COLORS).map(
-                              ([label, color]) => ({ label, color }),
-                            )}
-                          />
-                        </>
-                      ) : (
-                        <EmptyChart message="Sin jugadores valorados en el filtro actual." />
-                      )}
-                    </ChartCard>
-                    )}
-
-                    {vista === "evolucion" && (
-                    <ChartCard
-                      title="Evolución de registros"
-                      subtitle={`Controles de estado registrados por fecha, ${SESIONES_DESDE_TEXTO}`}
-                      lectura={
-                        <LecturaGrafico
-                          serie={evolutionData.map((punto) => ({
-                            etiqueta: punto.label,
-                            valor: punto.value,
-                          }))}
-                          /* Cuántos controles se anotan no es bueno ni malo en
-                             sí: dice si se está registrando o se ha dejado. */
-                          sentido="neutro"
-                          formatea={(valor) => coma(valor)}
-                          unidadSerie="por día"
-                        />
-                      }
-                    >
-                      <ResponsiveContainer width="100%" height={300}>
-                        <LineChart
-                          data={evolutionData}
-                          margin={{ top: 10, right: 10, bottom: 0, left: -20 }}
-                        >
-                          <CartesianGrid
-                            stroke={THEME.grid}
-                            strokeDasharray="2 2"
-                          />
-
-                          <XAxis dataKey="label" {...AXIS_PROPS} />
-
-                          <YAxis allowDecimals={false} {...AXIS_PROPS} />
-
-                          <Tooltip
-                            contentStyle={TOOLTIP_STYLE}
-                            labelStyle={TOOLTIP_LABEL_STYLE}
-                          />
-
-                          <Line
-                            type="monotone"
-                            dataKey="value"
-                            name="Registros"
-                            stroke={THEME.gold}
-                            strokeWidth={3}
-                            dot={{ r: 4, fill: THEME.gold }}
-                            activeDot={{ r: 6 }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                    </ChartCard>
-                    )}
-
-                    {vista === "plantilla" && (
-                    <ChartCard
-                      title="Distribución por licencias"
-                      subtitle="Click en un sector para filtrar"
-                      lectura={
-                        <LecturaGrafico reparto={aReparto(licenciaChart)} unidad="jugadores" />
-                      }
-                    >
-                      <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                          <Pie
-                            data={licenciaChart}
-                            dataKey="value"
-                            nameKey="name"
-                            innerRadius={65}
-                            outerRadius={95}
-                            paddingAngle={3}
-                            label={({ value }) => value}
-                            cursor="pointer"
-                            onClick={(data: { name?: string }) =>
-                              data?.name && toggleFilter("licencia", data.name)
-                            }
-                          >
-                            {licenciaChart.map((entry, index) => (
-                              <Cell
-                                key={entry.name}
-                                fill={COLORS[index % COLORS.length]}
-                                stroke={THEME.card}
-                              />
-                            ))}
-                          </Pie>
-
-                          <Tooltip
-                            contentStyle={TOOLTIP_STYLE}
-                            labelStyle={TOOLTIP_LABEL_STYLE}
-                          />
-
-                          <Legend wrapperStyle={{ color: THEME.text }} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </ChartCard>
-                    )}
-                  </div>
+                  {vista === "rendimiento" && (
+                    <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+                      <BloqueNotas jugadores={filtrados} onAbre={abreFicha} />
+                      <BloqueIndice jugadores={filtrados} onAbre={abreFicha} wyEstado={wyEstado} />
+                    </div>
+                  )}
                 </>
               )}
             </>
@@ -1723,32 +619,37 @@ export default function DashboardPlantilla() {
 
 /*
 |--------------------------------------------------------------------------
-| ESTILOS COMPARTIDOS DE RECHARTS
+| PIEZAS COMUNES
 |--------------------------------------------------------------------------
 */
 
-const TOOLTIP_STYLE = {
-  background: THEME.card,
-  border: "1px solid rgba(255,255,255,0.1)",
-  borderRadius: 12,
-  color: "#FFF",
-} as const;
+/** Un bloque: la pregunta que responde y de dónde sale lo que enseña. */
+function Bloque({
+  pregunta,
+  base,
+  children,
+}: {
+  pregunta: string;
+  base: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:p-5">
+      <h2 className="text-base font-semibold tracking-wide text-neutral-100 md:text-lg">{pregunta}</h2>
+      <p className="mt-1 text-xs leading-snug text-white/55">{base}</p>
+      <div className="mt-4 min-w-0">{children}</div>
+    </section>
+  );
+}
 
-const TOOLTIP_LABEL_STYLE = {
-  color: THEME.gold,
-} as const;
-
-const AXIS_PROPS = {
-  tick: { fill: THEME.axis, fontSize: 12 },
-  axisLine: { stroke: THEME.grid },
-  tickLine: { stroke: THEME.grid },
-} as const;
-
-/*
-|--------------------------------------------------------------------------
-| COMPONENTES AUXILIARES
-|--------------------------------------------------------------------------
-*/
+/** Barra horizontal 0-100 con su color. */
+function Barra({ pct, color, alto = "h-2" }: { pct: number; color: string; alto?: string }) {
+  return (
+    <div className={`${alto} w-full overflow-hidden rounded-full`} style={{ background: tinta(0.1) }}>
+      <div className="h-full rounded-full" style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }} />
+    </div>
+  );
+}
 
 function FilterSelect({
   label,
@@ -1761,25 +662,19 @@ function FilterSelect({
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
-  placeholder?: string;
+  placeholder: string;
 }) {
   return (
     <label className="block min-w-0">
-      <span className="mb-2 block text-[10px] uppercase tracking-wider text-white/40">
-        {label}
-      </span>
-
+      <span className="mb-2 block text-[10px] uppercase tracking-wider text-white/40">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className={`w-full min-w-0 rounded-xl border bg-[#11161D] px-3 py-3 text-sm outline-none transition focus:border-[#C8A96B] ${
-          value
-            ? "border-[#C8A96B]/50 text-[#C8A96B]"
-            : "border-white/10 text-white/80"
+          value ? "border-[#C8A96B]/50 text-[#C8A96B]" : "border-white/10 text-white/80"
         }`}
       >
-        <option value="">{placeholder ?? `Todas · ${label}`}</option>
-
+        <option value="">{placeholder}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -1790,45 +685,26 @@ function FilterSelect({
   );
 }
 
-function Chip({
-  label,
-  value,
-  onClear,
-}: {
-  label: string;
-  value: string;
-  onClear: () => void;
-}) {
+function Chip({ label, value, onClear }: { label: string; value: string; onClear: () => void }) {
   return (
     <span className="flex min-w-0 items-center gap-2 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 py-1 pl-3 pr-1 text-xs text-[#C8A96B]">
       <span className="text-white/40">{label}:</span>
-
       <span className="max-w-[160px] truncate font-medium">{value}</span>
-
-      <button
-        onClick={onClear}
-        aria-label={`Quitar filtro ${label}`}
-        className="rounded-full p-1 transition hover:bg-[#C8A96B]/20"
-      >
+      <button onClick={onClear} aria-label={`Quitar filtro ${label}`} className="rounded-full p-1 transition hover:bg-[#C8A96B]/20">
         <X size={12} />
       </button>
     </span>
   );
 }
 
-/** La foto de la ficha; si no hay o no carga, las iniciales (nunca un recuadro vacío). */
+/** La foto de la ficha; si no hay o no carga, las iniciales. */
 function FotoOIniciales({ foto, nombre }: { foto: string; nombre: string }) {
   const [falla, setFalla] = useState(false);
 
   if (foto && !falla) {
     return (
       /* eslint-disable-next-line @next/next/no-img-element */
-      <img
-        src={foto}
-        alt={nombre}
-        className="h-full w-full object-cover"
-        onError={() => setFalla(true)}
-      />
+      <img src={foto} alt={nombre} className="h-full w-full object-cover" onError={() => setFalla(true)} />
     );
   }
 
@@ -1841,415 +717,442 @@ function FotoOIniciales({ foto, nombre }: { foto: string; nombre: string }) {
     .toUpperCase();
 
   return (
-    <div
-      role="img"
-      aria-label={nombre}
-      className="flex h-full items-center justify-center bg-[#C8A96B]/15 text-xl font-bold text-[#C8A96B]"
-    >
+    <div role="img" aria-label={nombre} className="flex h-full items-center justify-center bg-[#C8A96B]/15 text-xl font-bold text-[#C8A96B]">
       {iniciales || <UserRound size={32} />}
     </div>
   );
 }
 
-function SummaryStat({
-  label,
-  value,
-  className = "",
-  size = "text-3xl",
+/** Lo de fuera de la licencia del Castilla, marcado al lado del nombre. */
+function DeFuera({ jugador }: { jugador: Jugador }) {
+  if (jugador.ficha.delCastilla) return null;
+
+  return (
+    <span className="ml-1.5 shrink-0 rounded-full border border-white/15 px-1.5 py-px text-[10px] text-white/55" title={`Licencia ${jugador.ficha.licencia}`}>
+      {jugador.ficha.licencia}
+    </span>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| ¿QUIÉN JUEGA Y CUÁNTO?
+|--------------------------------------------------------------------------
+*/
+
+function BloqueMinutos({ jugadores, posibles, onAbre }: { jugadores: Jugador[]; posibles: number; onAbre: (id: string) => void }) {
+  const deValoraciones = jugadores.some((j) => j.fuenteMinutos === "valoraciones" && j.minutos > 0);
+
+  return (
+    <Bloque
+      pregunta="¿Quién juega y cuánto, puesto a puesto?"
+      base={
+        <>
+          Minutos de Wyscout sobre los {posibles}′ posibles. Titular y suplente, de Valoraciones (titular: marcado o 90′ jugados).
+          {deValoraciones ? " Con asterisco, minutos de Valoraciones: no tiene fila en Wyscout." : ""} En naranja, menos del 25 %.
+        </>
+      }
+    >
+      <div className="space-y-5">
+        {PUESTOS.map((p) => {
+          const suyos = jugadores.filter((j) => j.puesto === p.key);
+          if (!suyos.length) return null;
+
+          const fijos = suyos.filter((j) => (j.pct ?? 0) >= 50).length;
+
+          return (
+            <div key={p.key} className="min-w-0">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-white/5 pb-1.5">
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">{p.label}</h3>
+                <span className="text-[11px] text-white/50">
+                  {suyos.length} {suyos.length === 1 ? "jugador" : "jugadores"} · {fijos} con la mitad de los minutos o más
+                </span>
+              </div>
+
+              <ul className="mt-2 space-y-1">
+                {suyos.map((j) => {
+                  const pct = j.pct ?? 0;
+
+                  return (
+                    <li key={j.ficha.id}>
+                      <button
+                        type="button"
+                        onClick={() => onAbre(j.ficha.id)}
+                        className="grid w-full min-w-0 grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-white/[0.04] sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)_auto]"
+                      >
+                        <span className="flex min-w-0 items-center text-sm text-white/85">
+                          <span className="truncate">{nombreDe(j)}</span>
+                          <DeFuera jugador={j} />
+                        </span>
+
+                        <Barra pct={pct} color={pct < 25 ? PEOR : ORO} />
+
+                        <span className="text-right tabular-nums">
+                          <span className="block text-sm font-semibold text-white">
+                            {j.minutos}′{j.fuenteMinutos === "valoraciones" && j.minutos > 0 ? "*" : ""}
+                            <span className="ml-1.5 text-xs font-normal text-white/50">{pct} %</span>
+                          </span>
+                          {j.titular + j.suplente > 0 && (
+                            <span className="block text-[11px] text-white/50">
+                              {j.titular} tit. · {j.suplente} sup.
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </Bloque>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| AVISOS
+|--------------------------------------------------------------------------
+*/
+
+const ORDEN_AVISOS: TipoAviso[] = ["sinJugar", "pocos", "amarillas", "carga", "nota"];
+
+function BloqueAvisos({
+  avisos,
+  onAbre,
+  partidosEquipo,
 }: {
-  label: string;
-  value: string | number;
-  className?: string;
-  size?: string;
+  avisos: Aviso<Ficha>[];
+  onAbre: (id: string) => void;
+  partidosEquipo: number;
 }) {
   return (
-    <div className="min-w-0">
-      <div className="text-sm text-white/50">{label}</div>
+    <Bloque
+      pregunta="¿De quién hay que hablar esta semana?"
+      base={`Sólo licencia del Castilla. Minutos y amarillas de Wyscout; partidos y notas, de Valoraciones (${partidosEquipo} partidos). Los porteros no entran en los avisos de minutos.`}
+    >
+      {avisos.length === 0 ? (
+        <p className="text-sm text-white/60">Con estas reglas no sale ningún aviso esta semana.</p>
+      ) : (
+        <div className="space-y-4">
+          {ORDEN_AVISOS.map((tipo) => {
+            const suyos = avisos.filter((a) => a.tipo === tipo);
+            if (!suyos.length) return null;
+            const def = AVISOS[tipo];
 
-      <div className={`${size} font-bold ${className}`}>{value}</div>
-    </div>
-  );
-}
-
-/** Los gráficos de esta pantalla van en {name, value}; la lectura, en otro. */
-function aReparto(datos: { name: string; value: number }[]) {
-  return datos.map((uno) => ({ nombre: uno.name, valor: uno.value }));
-}
-
-function ChartCard({
-  title,
-  subtitle,
-  children,
-  lectura,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-  /*
-  | La frase que dice lo que se ve. No la lleva todo gráfico: en una nube de
-  | puntos o en un radar de un jugador contra la media no hay «quién manda»
-  | que contar, y una lectura forzada es ruido.
-  */
-  lectura?: React.ReactNode;
-}) {
-  return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:p-5">
-      <div className="mb-5 min-w-0">
-        <h3 className="truncate text-lg font-semibold tracking-wide text-neutral-100">
-          {title}
-        </h3>
-
-        {subtitle && (
-          /* 29/10/2026: sin truncar; en el móvil se perdía «escala de 0 a 10». */
-          <p className="mt-1 text-xs leading-snug text-white/45">{subtitle}</p>
-        )}
-      </div>
-
-      {children}
-
-      {lectura}
-    </div>
-  );
-}
-
-function EmptyChart({ message }: { message: string }) {
-  return (
-    <div className="flex h-[300px] items-center justify-center rounded-xl border border-dashed border-white/10 px-6 text-center text-sm text-white/30">
-      {message}
-    </div>
-  );
-}
-
-function ColorLegend({ items }: { items: { label: string; color: string }[] }) {
-  return (
-    <div className="mt-4 flex flex-wrap gap-4 text-xs text-white/60">
-      {items.map((item) => (
-        <div key={item.label} className="flex items-center gap-2">
-          <span
-            className="h-3 w-3 rounded-full"
-            style={{ background: item.color }}
-          />
-          {item.label}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MetricBar({
-  label,
-  value,
-  reference,
-}: {
-  label: string;
-  value: number;
-  reference?: number;
-}) {
-  const percentage = Math.max(0, Math.min(100, (value / 10) * 100));
-
-  const diff =
-    reference !== undefined ? Number((value - reference).toFixed(1)) : null;
-
-  return (
-    <div className="min-w-0">
-      <div className="flex items-baseline justify-between gap-3 text-xs">
-        <span className="truncate text-white/50">{label}</span>
-
-        <span className="shrink-0 font-semibold text-white">
-          {value ? coma(value) : "—"}
-
-          {diff !== null && value > 0 && (
-            <span
-              className={`ml-2 font-normal ${
-                Math.abs(diff) < 1
-                  ? "text-white/45"
-                  : diff > 0
-                    ? "text-emerald-400"
-                    : "text-red-400"
-              }`}
-              title="Frente a la media de los jugadores con ficha"
-            >
-              {diff > 0 ? "+" : ""}
-              {coma(diff)}
-            </span>
-          )}
-        </span>
-      </div>
-
-      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-white/10">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-[#8E6A37] to-[#C8A96B] transition-all duration-500"
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function PlayerCard({
-  player,
-  players,
-  onSelect,
-  ratingsSeason,
-  sesiones,
-}: {
-  player: Player | null;
-  players: Player[];
-  onSelect: (id: string) => void;
-  ratingsSeason: RatingsSeason;
-  sesiones: ResumenSesiones;
-}) {
-  /* Una sola lectura del reloj al montar la ficha. */
-  const [ahora] = useState(() => Date.now());
-
-  if (!player) {
-    return (
-      <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-10 text-center text-sm text-white/30">
-        Selecciona un jugador.
-      </div>
-    );
-  }
-
-  const index = players.findIndex((p) => p.id === player.id);
-
-  const go = (direction: number) => {
-    const next = index + direction;
-    if (next < 0 || next >= players.length) return;
-    onSelect(players[next].id);
-  };
-
-  const referencia = players.filter((p) => p.valorado);
-
-  /* Sin ficha de scouting, lo que sí hay son sus notas de partido. */
-  const partidos = player.valorado
-    ? null
-    : summarizePlayer(ratingsSeason, player.id);
-  const conPartidos = partidos && partidos.played > 0 ? partidos : null;
-
-  const media = (key: MetricaKey) =>
-    referencia.length
-      ? referencia.reduce((acc, p) => acc + p[key], 0) / referencia.length
-      : 0;
-
-  return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-5">
-      {/* CABECERA */}
-
-      <div className="flex min-w-0 items-center gap-4">
-        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14]">
-          <FotoOIniciales foto={player.foto} nombre={player.nombre} />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            {player.dorsal && (
-              <span className="shrink-0 text-sm font-bold text-[#C8A96B]">
-                #{player.dorsal}
-              </span>
-            )}
-
-            {/* «OTROS» no es un estado que atender (se confundía con la
-                etiqueta «Otro equipo» de Plantilla): sin chapa. */}
-            {player.estado && player.estado.toUpperCase() !== "OTROS" && (
-              <span
-                className="min-w-0 truncate rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-                style={{
-                  background: `${estadoColor(player.estado)}22`,
-                  color: chipInk(estadoColor(player.estado)),
-                }}
-              >
-                {player.estado}
-              </span>
-            )}
-          </div>
-
-          <h3 className="mt-1 truncate text-lg font-semibold">
-            {nombreVisible(player.nombre || player.apodo)}
-          </h3>
-
-          {/* 30/10/2026: en el móvil salta de línea en vez de cortarse. */}
-          <p className="break-words text-xs leading-snug text-white/40">
-            {[player.posicion, player.licencia].filter(Boolean).join(" · ")}
-          </p>
-        </div>
-
-        {(player.valorado || conPartidos) && (
-          <div className="shrink-0 text-right">
-            <div className="text-[10px] uppercase tracking-wider text-white/30">
-              {player.valorado ? "Media" : "Nota de partido"}
-            </div>
-
-            <div className="text-3xl font-bold text-[#C8A96B]">
-              {player.valorado
-                ? coma(player.media)
-                : formatRating(conPartidos!.avg)}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* NAVEGACIÓN */}
-
-      <div className="mt-4 flex items-center justify-between gap-3 text-xs text-white/40">
-        <button
-          onClick={() => go(-1)}
-          disabled={index <= 0}
-          /* 29/10/2026: desactivado seguía casi invisible con opacity-40. */
-          className="min-h-[44px] min-w-[44px] rounded-lg border border-white/40 px-4 py-2 text-sm font-medium text-white/85 transition hover:border-[#C8A96B] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          ← Anterior
-        </button>
-
-        <span className="shrink-0">
-          {index + 1} / {players.length}
-        </span>
-
-        <button
-          onClick={() => go(1)}
-          disabled={index >= players.length - 1}
-          className="min-h-[44px] min-w-[44px] rounded-lg border border-white/40 px-4 py-2 text-sm font-medium text-white/85 transition hover:border-[#C8A96B] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Siguiente →
-        </button>
-      </div>
-
-      {/* MÉTRICAS */}
-
-      <div className="mt-5 space-y-3 border-t border-white/5 pt-5">
-        {player.valorado ? (
-          <>
-            {/* 30/10/2026: la base de la diferencia, arriba y junto a la primera cifra. */}
-            <p className="text-[11px] text-white/55">
-              Diferencia frente a la media de los {referencia.length} con ficha
-            </p>
-            {METRICAS.map(({ key, label }) => (
-              <MetricBar
-                key={key}
-                label={label}
-                value={player[key]}
-                reference={media(key)}
-              />
-            ))}
-            <p className="pt-1 text-[11px] text-white/45">
-              En gris, si la diferencia es menor de 1 punto.
-            </p>
-          </>
-        ) : conPartidos ? (
-          <p className="text-sm text-white/60">
-            {conPartidos.played}{" "}
-            {conPartidos.played === 1 ? "partido valorado" : "partidos valorados"}
-            , con una media de {formatRating(conPartidos.avg)}
-            {conPartidos.last
-              ? ` y ${formatRating(conPartidos.last.entry.rating)} en el último`
-              : ""}
-            .
-          </p>
-        ) : null}
-      </div>
-
-      {/* SESIONES REGISTRADAS */}
-
-      {sesiones.porJugador.has(player.id) && (
-        <FilaSesiones datos={sesiones.porJugador.get(player.id)!} total={sesiones.totalSesiones} />
-      )}
-
-      {/* TEXTOS */}
-
-      {(player.fortalezas || player.aspectosMejora) && (
-        <div className="mt-5 space-y-4 border-t border-white/5 pt-5 text-sm">
-          {player.fortalezas && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-emerald-400/70">
-                Fortalezas
-              </p>
-              <p className="mt-1 text-white/70">{player.fortalezas}</p>
-            </div>
-          )}
-
-          {player.aspectosMejora && (
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-[#C8A96B]/70">
-                Aspectos de mejora
-              </p>
-              <p className="mt-1 text-white/70">{player.aspectosMejora}</p>
-            </div>
-          )}
+            return (
+              <div key={tipo} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                <p className="text-sm font-semibold text-white">
+                  {def.titulo} <span className="font-normal text-white/50">· {suyos.length}</span>
+                </p>
+                <p className="mt-0.5 text-[11px] leading-snug text-white/50">
+                  {def.regla}. Qué hacer: {def.accion}.
+                </p>
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {suyos.map((a) => (
+                    <li key={a.jugador.ficha.id}>
+                      <button
+                        type="button"
+                        onClick={() => onAbre(a.jugador.ficha.id)}
+                        className="min-h-[36px] rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-left text-xs transition hover:border-[#C8A96B]"
+                      >
+                        <span className="font-medium text-white/90">{nombreDe(a.jugador)}</span>
+                        <span className="ml-1.5 tabular-nums text-white/55">{a.cifra}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
       )}
-
-      {/* PIE */}
-
-      <div className="mt-5 flex items-center justify-between gap-3 border-t border-white/5 pt-4 text-xs text-white/30">
-        <span className="flex min-w-0 flex-wrap items-center gap-2">
-          {player.fecha && (
-            <span className="truncate">{textoControl(player.fecha, ahora)}</span>
-          )}
-          {player.fecha && controlAntiguo(player.fecha, ahora) && (
-            <span className="shrink-0 rounded-full border border-amber-400/60 bg-amber-400/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
-              Más de {DIAS_CONTROL_ANTIGUO} días sin control
-            </span>
-          )}
-        </span>
-
-        {player.hudl && (
-          <a
-            href={player.hudl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex shrink-0 items-center gap-1.5 text-[#C8A96B] transition hover:text-[#e0c68d]"
-          >
-            Hudl
-            <ExternalLink size={12} />
-          </a>
-        )}
-      </div>
-    </div>
+    </Bloque>
   );
 }
 
-/** «Sesiones desde el 21/10 · N sesiones»: lo que dice el registro de /jugadores-sesion de un jugador. */
-function FilaSesiones({ datos, total }: { datos: SesionesDeJugador; total: number }) {
+/*
+|--------------------------------------------------------------------------
+| EDAD Y CONTRATOS
+|--------------------------------------------------------------------------
+*/
+
+function BloqueEdad({ jugadores }: { jugadores: Jugador[] }) {
+  const conEdad = jugadores.filter((j) => j.edad !== null);
+  if (!conEdad.length) return null;
+
+  const total = conEdad.reduce((a, j) => a + j.minutos, 0);
+  const edadMedia = total > 0 ? conEdad.reduce((a, j) => a + (j.edad ?? 0) * j.minutos, 0) / total : null;
+
+  const tramos = [
+    { label: "18 o menos", test: (e: number) => e <= 18 },
+    { label: "19", test: (e: number) => e === 19 },
+    { label: "20", test: (e: number) => e === 20 },
+    { label: "21", test: (e: number) => e === 21 },
+    { label: "22", test: (e: number) => e === 22 },
+    { label: "23 o más", test: (e: number) => e >= 23 },
+  ]
+    .map((t) => {
+      const suyos = conEdad.filter((j) => t.test(j.edad ?? 0));
+      const minutos = suyos.reduce((a, j) => a + j.minutos, 0);
+      return { ...t, suyos, minutos, pct: total > 0 ? Math.round((minutos / total) * 100) : 0 };
+    })
+    .filter((t) => t.suyos.length);
+
   return (
-    <div className="mt-5 border-t border-white/5 pt-5 text-sm">
-      <p className="text-[10px] uppercase tracking-wider text-white/45">
-        Sesiones registradas · {SESIONES_DESDE_TEXTO} · {total} {total === 1 ? "sesión" : "sesiones"}
-      </p>
-
-      <p className="mt-1 text-white/70">
-        Estuvo en {datos.sesiones} de {total}
-        {datos.tareasTotales > 0 ? `; hizo ${datos.tareasHechas} de ${datos.tareasTotales} tareas` : ""}
-        {datos.comodin > 0 ? `, ${datos.comodin} como comodín` : ""}.
-      </p>
-    </div>
+    <Bloque
+      pregunta="¿Qué edad tiene quien juega?"
+      base={`Edad de Wyscout de los ${conEdad.length} con fila${conEdad.length < jugadores.length ? ` (de ${jugadores.length})` : ""}. La barra es su parte de los minutos jugados.`}
+    >
+      {edadMedia !== null && (
+        <p className="mb-3 text-sm text-white/75">
+          Edad media en el campo, pesada por minutos: <span className="font-semibold text-white">{coma(edadMedia)} años</span>
+        </p>
+      )}
+      <ul className="space-y-2">
+        {tramos.map((t) => (
+          <li key={t.label} className="grid min-w-0 grid-cols-[4.5rem_minmax(0,1fr)_auto] items-center gap-3 text-sm">
+            <span className="text-white/70">{t.label}</span>
+            <Barra pct={t.pct} color={ORO} />
+            <span className="text-right tabular-nums text-white/60" title={t.suyos.map(nombreDe).join(", ")}>
+              {t.pct} % · {t.suyos.length}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </Bloque>
   );
 }
 
-/** Resumen de plantilla: asistencia a las sesiones registradas, de los jugadores filtrados que tienen registro. */
-function ResumenSesionesPlantilla({ resumen, players }: { resumen: ResumenSesiones; players: Player[] }) {
-  const filas = players
-    .map((p) => ({ p, d: resumen.porJugador.get(p.id) }))
-    .filter((f): f is { p: Player; d: SesionesDeJugador } => Boolean(f.d))
-    .sort((a, b) => b.d.sesiones - a.d.sesiones || a.p.nombre.localeCompare(b.p.nombre, "es"));
+function BloqueContratos({ jugadores }: { jugadores: Jugador[] }) {
+  const conFecha = jugadores.filter((j) => /^\d{4}-\d{2}-\d{2}$/.test(j.contrato));
+  if (!conFecha.length) return null;
+
+  const porFecha = new Map<string, Jugador[]>();
+  for (const j of conFecha) porFecha.set(j.contrato, [...(porFecha.get(j.contrato) ?? []), j]);
+  const fechas = [...porFecha.keys()].sort();
+
+  return (
+    <Bloque
+      pregunta="¿Cuándo acaban los contratos?"
+      base={`Fecha de fin de contrato que publica Wyscout, de ${conFecha.length} de ${jugadores.length} jugadores.`}
+    >
+      <ul className="space-y-2">
+        {fechas.map((f, i) => (
+          <li key={f} className="min-w-0 text-sm">
+            <span className="font-semibold" style={{ color: i === 0 ? ORO : undefined }}>
+              Hasta {mesAnio(f)}
+            </span>
+            <span className="text-white/50"> · {porFecha.get(f)!.length}</span>
+            <p className="text-[13px] leading-snug text-white/70">{porFecha.get(f)!.map(nombreDe).join(", ")}</p>
+          </li>
+        ))}
+      </ul>
+    </Bloque>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| SESIONES REGISTRADAS
+|--------------------------------------------------------------------------
+*/
+
+function BloqueSesiones({ resumen, jugadores }: { resumen: ResumenSesiones; jugadores: Jugador[] }) {
+  const filas = jugadores
+    .map((j) => ({ j, d: resumen.porJugador.get(j.ficha.id) }))
+    .filter((f): f is { j: Jugador; d: SesionesDeJugador } => Boolean(f.d))
+    .sort((a, b) => b.d.sesiones - a.d.sesiones || a.j.ficha.nombre.localeCompare(b.j.ficha.nombre, "es"));
 
   if (!resumen.totalSesiones || !filas.length) return null;
 
   const media = filas.reduce((acc, f) => acc + f.d.sesiones, 0) / filas.length;
 
   return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-5">
-      <h3 className="text-sm font-semibold">Asistencia a las sesiones registradas</h3>
-
-      <p className="mt-1 text-xs text-white/45">
-        {SESIONES_DESDE_TEXTO} · {resumen.totalSesiones} {resumen.totalSesiones === 1 ? "sesión" : "sesiones"} · media de {coma(media)} por jugador
-      </p>
-
-      <ul className="mt-4 grid gap-x-6 gap-y-1.5 sm:grid-cols-2 xl:grid-cols-3">
-        {filas.map(({ p, d }) => (
-          <li key={p.id} className="flex min-w-0 items-baseline justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate text-white/70">{nombreVisible(p.nombre || p.apodo)}</span>
-            <span className="shrink-0 tabular-nums text-white/50">
+    <Bloque
+      pregunta="¿Quién entrena con el grupo?"
+      base={`Sesiones registradas en Jugadores sesión ${SESIONES_DESDE_TEXTO}: ${resumen.totalSesiones} ${resumen.totalSesiones === 1 ? "sesión" : "sesiones"}, media de ${coma(media)} por jugador.`}
+    >
+      <ul className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+        {filas.map(({ j, d }) => (
+          <li key={j.ficha.id} className="flex min-w-0 items-baseline justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate text-white/75">{nombreDe(j)}</span>
+            <span className="shrink-0 tabular-nums text-white/55">
               {d.sesiones} de {resumen.totalSesiones}
             </span>
+          </li>
+        ))}
+      </ul>
+    </Bloque>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| ¿QUIÉN JUEGA CADA JORNADA?
+|--------------------------------------------------------------------------
+*/
+
+function Celda({ a }: { a: JugadorDash["apariciones"][number] }) {
+  if (!a.jugo) {
+    return <span className="block h-8 w-9 rounded-md border border-dashed" style={{ borderColor: tinta(0.14) }} aria-label="No jugó" />;
+  }
+
+  const texto = a.minutos !== null ? String(a.minutos) : "•";
+
+  return (
+    <span
+      className="flex h-8 w-9 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums"
+      style={
+        a.titular
+          ? { background: oroAl(85), color: "var(--rmcf-on-gold)" }
+          : { background: oroAl(28), color: tinta(0.9) }
+      }
+      aria-label={`${a.titular ? "Titular" : "Suplente"}${a.minutos !== null ? `, ${a.minutos} minutos` : ", minutos sin anotar"}`}
+    >
+      {texto}
+    </span>
+  );
+}
+
+function BloqueJornadas({ jugadores, partidos, onAbre }: { jugadores: Jugador[]; partidos: PartidoLiga[]; onAbre: (id: string) => void }) {
+  if (!partidos.length) {
+    return (
+      <Bloque pregunta="¿Quién juega cada jornada?" base="Valoraciones de partido.">
+        <p className="text-sm text-white/60">Valoraciones todavía no ha devuelto partidos jugados.</p>
+      </Bloque>
+    );
+  }
+
+  const usados = partidos.map((_, i) => jugadores.filter((j) => j.apariciones[i]?.jugo).length);
+
+  return (
+    <Bloque
+      pregunta="¿Quién juega cada jornada?"
+      base="Valoraciones de partido: en oro fuerte, titular (marcado o 90′); en oro suave, desde el banquillo; con un punto, jugó sin minutos anotados; en blanco, no jugó. La cifra son sus minutos."
+    >
+      <div className="-mx-1 overflow-x-auto pb-2">
+        <table className="min-w-full border-separate" style={{ borderSpacing: "4px 3px" }}>
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-10 min-w-[8.5rem] bg-[#0B0F14] text-left text-[11px] font-medium text-white/50">Jugador</th>
+              {partidos.map((p) => (
+                <th key={p.match.id} className="text-center text-[10px] font-medium leading-tight text-white/55" title={`${p.match.opponent} · ${fechaCorta(p.match.date)}${p.match.result ? ` · ${p.match.result}` : ""}`}>
+                  <span className="block font-semibold text-white/80">J{p.jornada}</span>
+                  <span className="block max-w-[3rem] truncate">{rivalCorto(p.match.opponent)}</span>
+                </th>
+              ))}
+              <th className="pl-2 text-right text-[10px] font-medium text-white/50">Tit · Sup</th>
+            </tr>
+          </thead>
+          <tbody>
+            {PUESTOS.map((pu) => {
+              const suyos = jugadores.filter((j) => j.puesto === pu.key);
+              if (!suyos.length) return null;
+
+              return [
+                <tr key={`${pu.key}-cab`}>
+                  <td colSpan={partidos.length + 2} className="sticky left-0 bg-[#0B0F14] pt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+                    {pu.label}
+                  </td>
+                </tr>,
+                ...suyos.map((j) => (
+                  <tr key={j.ficha.id}>
+                    <td className="sticky left-0 z-10 bg-[#0B0F14] pr-2">
+                      <button type="button" onClick={() => onAbre(j.ficha.id)} className="flex max-w-[9rem] items-center truncate text-left text-[13px] text-white/85 hover:text-[#C8A96B]">
+                        <span className="truncate">{nombreDe(j)}</span>
+                      </button>
+                    </td>
+                    {j.apariciones.map((a, i) => (
+                      <td key={partidos[i].match.id}>
+                        <Celda a={a} />
+                      </td>
+                    ))}
+                    <td className="pl-2 text-right text-[12px] tabular-nums text-white/65">
+                      {j.titular} · {j.suplente}
+                    </td>
+                  </tr>
+                )),
+              ];
+            })}
+            <tr>
+              <td className="sticky left-0 z-10 bg-[#0B0F14] pt-3 text-[11px] text-white/55">Jugadores usados</td>
+              {usados.map((n, i) => (
+                <td key={partidos[i].match.id} className="pt-3 text-center text-[12px] font-semibold tabular-nums text-white/75">
+                  {n}
+                </td>
+              ))}
+              <td />
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Bloque>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| ¿CÓMO ESTÁ CADA UNO?
+|--------------------------------------------------------------------------
+*/
+
+function Cifra({ titulo, valor, base }: { titulo: string; valor: string; base: string }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+      <div className="text-[11px] text-white/50">{titulo}</div>
+      <div className="mt-0.5 text-xl font-bold text-white">{valor}</div>
+      <div className="mt-0.5 text-[11px] leading-snug text-white/45">{base}</div>
+    </div>
+  );
+}
+
+function MetricBar({ label, value, reference }: { label: string; value: number; reference: number }) {
+  const diff = Number((value - reference).toFixed(1));
+
+  return (
+    <div className="min-w-0">
+      <div className="flex items-baseline justify-between gap-3 text-xs">
+        <span className="truncate text-white/55">{label}</span>
+        <span className="shrink-0 font-semibold text-white">
+          {coma(value)}
+          <span
+            className="ml-2 font-normal"
+            style={{ color: Math.abs(diff) < 1 ? tinta(0.5) : diff > 0 ? MEJOR : PEOR }}
+            title="Frente a la media de los jugadores con ficha"
+          >
+            {diff > 0 ? "+" : ""}
+            {coma(diff)}
+          </span>
+        </span>
+      </div>
+      <div className="mt-1.5">
+        <Barra pct={(value / 10) * 100} color={ORO} />
+      </div>
+    </div>
+  );
+}
+
+function Percentiles({ titulo, filas }: { titulo: string; filas: Jugador["fuertes"] }) {
+  if (!filas.length) return null;
+
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">{titulo}</p>
+      <ul className="mt-2 space-y-2">
+        {filas.map((f) => (
+          <li key={f.metrica.columna} className="min-w-0">
+            <div className="flex items-baseline justify-between gap-3 text-xs">
+              <span className="min-w-0 truncate text-white/75" title={f.metrica.columna}>
+                {f.metrica.nombre}
+              </span>
+              <span className="shrink-0 tabular-nums text-white/60">percentil {f.percentil}</span>
+            </div>
+            <div className="mt-1">
+              <Barra pct={f.percentil} color={f.percentil >= 60 ? MEJOR : f.percentil < 40 ? PEOR : ORO} />
+            </div>
           </li>
         ))}
       </ul>
@@ -2257,26 +1160,306 @@ function ResumenSesionesPlantilla({ resumen, players }: { resumen: ResumenSesion
   );
 }
 
+function FichaJugador({
+  jugador: j,
+  lista,
+  partidos,
+  posibles,
+  sesiones,
+  onSelect,
+}: {
+  jugador: Jugador;
+  lista: Jugador[];
+  partidos: PartidoLiga[];
+  posibles: number;
+  sesiones: ResumenSesiones;
+  onSelect: (id: string) => void;
+}) {
+  const index = lista.findIndex((x) => x.ficha.id === j.ficha.id);
+  const conFicha = lista.filter((x) => x.ficha.valorado);
+  const mediaDe = (k: MetricaKey) => (conFicha.length ? conFicha.reduce((a, x) => a + x.ficha[k], 0) / conFicha.length : 0);
+  const sesionesSuyas = sesiones.porJugador.get(j.ficha.id);
+  const sigla = j.wy?.posicion.split(",")[0]?.trim() ?? "";
+  const dondeJuega = sigla ? puestoEnPalabras(sigla) : "";
+
+  const datos = [
+    nombrePuesto(j.ficha.posicionHoja),
+    dondeJuega ? `juega de ${dondeJuega} (Wyscout)` : "",
+    j.ficha.licencia,
+    j.edad !== null ? `${j.edad} años` : "",
+    /^\d{4}-\d{2}-\d{2}$/.test(j.contrato) ? `contrato hasta ${mesAnio(j.contrato)}` : "",
+  ].filter(Boolean);
+
+  return (
+    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+      <div className="min-w-0 space-y-6">
+        <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.025] p-4 md:p-5">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0B0F14]">
+              <FotoOIniciales foto={j.ficha.foto} nombre={j.ficha.nombre} />
+            </div>
+            <div className="min-w-0 flex-1">
+              {j.ficha.dorsal && <span className="text-sm font-bold text-[#C8A96B]">#{j.ficha.dorsal}</span>}
+              <h2 className="truncate text-lg font-semibold">{nombreDe(j)}</h2>
+              <p className="break-words text-xs leading-snug text-white/55">{datos.join(" · ")}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <button
+              onClick={() => index > 0 && onSelect(lista[index - 1].ficha.id)}
+              disabled={index <= 0}
+              className="min-h-[44px] rounded-lg border border-white/40 px-3 text-sm font-medium text-white/85 transition hover:border-[#C8A96B] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              ← Anterior
+            </button>
+            <select
+              value={j.ficha.id}
+              onChange={(e) => onSelect(e.target.value)}
+              aria-label="Elegir jugador"
+              className="min-h-[44px] min-w-0 flex-1 rounded-lg border border-white/10 bg-[#11161D] px-2 text-sm text-white/85 outline-none focus:border-[#C8A96B]"
+            >
+              {lista.map((x) => (
+                <option key={x.ficha.id} value={x.ficha.id}>
+                  {nombreDe(x)}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => index < lista.length - 1 && onSelect(lista[index + 1].ficha.id)}
+              disabled={index >= lista.length - 1}
+              className="min-h-[44px] rounded-lg border border-white/40 px-3 text-sm font-medium text-white/85 transition hover:border-[#C8A96B] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Siguiente →
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Cifra
+              titulo="Minutos"
+              valor={`${j.minutos}′`}
+              base={`${j.pct ?? 0} % de ${posibles}′ · ${j.fuenteMinutos === "wyscout" ? "Wyscout" : "Valoraciones"}`}
+            />
+            <Cifra
+              titulo="Partidos"
+              valor={String(j.partidos)}
+              base={j.titular + j.suplente > 0 ? `${j.titular} de titular y ${j.suplente} de suplente (Valoraciones)` : `de ${partidos.length} de liga`}
+            />
+            <Cifra
+              titulo="Goles y asistencias"
+              valor={`${j.goles} · ${j.asistencias}`}
+              base={j.wy ? "Wyscout, temporada" : "Valoraciones"}
+            />
+            {j.notas ? (
+              <Cifra
+                titulo="Nota de partido"
+                valor={formatRating(j.notas.avg)}
+                base={`${j.notas.played} ${j.notas.played === 1 ? "partido valorado" : "partidos valorados"} · forma ${formatRating(j.notas.form)} (5 últimos)`}
+              />
+            ) : (
+              <Cifra titulo="Amarillas" valor={String(j.amarillas ?? 0)} base={j.amarillas !== null ? "Wyscout, temporada" : "Valoraciones"} />
+            )}
+          </div>
+
+          {sesionesSuyas && (
+            <p className="mt-4 border-t border-white/5 pt-3 text-sm text-white/70">
+              Sesiones registradas {SESIONES_DESDE_TEXTO}: estuvo en {sesionesSuyas.sesiones} de {sesiones.totalSesiones}
+              {sesionesSuyas.tareasTotales > 0 ? `; hizo ${sesionesSuyas.tareasHechas} de ${sesionesSuyas.tareasTotales} tareas` : ""}
+              {sesionesSuyas.comodin > 0 ? `, ${sesionesSuyas.comodin} como comodín` : ""}.
+            </p>
+          )}
+
+          <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-white/5 pt-3 text-xs">
+            <Link href={`/individual?player=${encodeURIComponent(j.ficha.id)}`} className="text-[#C8A96B] transition hover:text-[#e0c68d]">
+              Ficha completa en Plantilla
+            </Link>
+            {j.wy && (
+              <Link href={`/data-analisis?area=individual&jugador=${encodeURIComponent(j.wy.jugador)}`} className="text-[#C8A96B] transition hover:text-[#e0c68d]">
+                Sus datos en Data análisis
+              </Link>
+            )}
+            {j.ficha.hudl && (
+              <a href={j.ficha.hudl} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[#C8A96B] transition hover:text-[#e0c68d]">
+                Hudl
+                <ExternalLink size={12} />
+              </a>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <div className="min-w-0 space-y-6">
+        {partidos.length > 0 && (
+          <Bloque
+            pregunta="¿Cuánto ha jugado cada jornada?"
+            base="Minutos de Valoraciones por partido; en oro fuerte, de titular. Con un punto, jugó sin minutos anotados."
+          >
+            <div className="flex min-w-0 items-end gap-1.5 overflow-x-auto pb-1">
+              {j.apariciones.map((a, i) => {
+                const p = partidos[i];
+                const alto = a.jugo ? (a.minutos !== null ? Math.max(8, (a.minutos / 90) * 100) : 30) : 0;
+
+                return (
+                  <div key={p.match.id} className="flex min-w-[2.25rem] flex-1 flex-col items-center gap-1" title={`${p.match.opponent} · ${fechaCorta(p.match.date)}`}>
+                    <span className="text-[11px] tabular-nums text-white/70">{a.jugo ? (a.minutos !== null ? a.minutos : "•") : ""}</span>
+                    <div className="flex h-24 w-full items-end rounded-md" style={{ background: tinta(0.05) }}>
+                      <div className="w-full rounded-md" style={{ height: `${alto}%`, background: a.titular ? oroAl(85) : oroAl(35) }} />
+                    </div>
+                    <span className="text-[10px] font-semibold text-white/70">J{p.jornada}</span>
+                    <span className="max-w-[3rem] truncate text-[10px] text-white/45">{rivalCorto(p.match.opponent)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </Bloque>
+        )}
+
+        {(j.fuertes.length > 0 || j.flojos.length > 0) && (
+          <Bloque
+            pregunta="¿Qué hace mejor y peor que los de su puesto?"
+            base={`Wyscout, temporada: percentil contra los ${j.contraPuesto} jugadores de ${etiquetaPuesto(j.puesto).toLowerCase()} de la liga con 90′ o más. 50 es la media; más es mejor.${j.indice !== null ? ` Su media en todas las métricas de su puesto: ${j.indice}.` : ""}`}
+          >
+            <div className="grid min-w-0 gap-5 sm:grid-cols-2">
+              <Percentiles titulo="Lo que más destaca" filas={j.fuertes} />
+              <Percentiles titulo="Lo que más le falta" filas={j.flojos} />
+            </div>
+          </Bloque>
+        )}
+
+        {j.ficha.valorado && (
+          <Bloque
+            pregunta="¿Cómo le ve el cuerpo técnico?"
+            base={`Ficha de competencias de la hoja JUGADORES, de 0 a 10. La diferencia es frente a la media de los ${conFicha.length} con ficha en la lista; en gris, si es menor de 1 punto.`}
+          >
+            <div className="space-y-3">
+              {METRICAS.map(({ key, label }) => (
+                <MetricBar key={key} label={label} value={j.ficha[key]} reference={mediaDe(key)} />
+              ))}
+            </div>
+
+            {(j.ficha.fortalezas || j.ficha.aspectosMejora) && (
+              <div className="mt-5 space-y-4 border-t border-white/5 pt-4 text-sm">
+                {j.ficha.fortalezas && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-emerald-300">Fortalezas</p>
+                    <p className="mt-1 whitespace-pre-line text-white/75">{j.ficha.fortalezas}</p>
+                  </div>
+                )}
+                {j.ficha.aspectosMejora && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-[#C8A96B]">Aspectos de mejora</p>
+                    <p className="mt-1 whitespace-pre-line text-white/75">{j.ficha.aspectosMejora}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </Bloque>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/*
+|--------------------------------------------------------------------------
+| ¿QUIÉN RINDE MÁS?
+|--------------------------------------------------------------------------
+*/
+
+const MINIMO_NOTAS = 3;
+
+function BloqueNotas({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (id: string) => void }) {
+  const lista = jugadores
+    .filter((j) => (j.notas?.played ?? 0) >= MINIMO_NOTAS)
+    .sort((a, b) => (b.notas?.avg ?? 0) - (a.notas?.avg ?? 0));
+  const fuera = jugadores.filter((j) => j.notas && j.notas.played < MINIMO_NOTAS).length;
+
+  return (
+    <Bloque
+      pregunta="¿Quién tiene mejor nota de partido?"
+      base={`Nota media del cuerpo técnico en Valoraciones, de 0 a 10, con ${MINIMO_NOTAS} partidos valorados o más${fuera ? ` (${fuera} con menos quedan fuera)` : ""}. Entre paréntesis, la de los cinco últimos.`}
+    >
+      {lista.length === 0 ? (
+        <p className="text-sm text-white/60">Todavía nadie tiene {MINIMO_NOTAS} partidos valorados.</p>
+      ) : (
+        <ul className="space-y-1">
+          {lista.map((j, i) => (
+            <li key={j.ficha.id}>
+              <button
+                type="button"
+                onClick={() => onAbre(j.ficha.id)}
+                className="grid w-full min-w-0 grid-cols-[1.5rem_minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 text-left transition hover:bg-white/[0.04] sm:grid-cols-[1.5rem_minmax(0,10rem)_minmax(0,1fr)_auto]"
+              >
+                <span className="text-right text-xs tabular-nums text-white/45">{i + 1}</span>
+                <span className="min-w-0 truncate text-sm text-white/85">{nombreDe(j)}</span>
+                <Barra pct={((j.notas?.avg ?? 0) / 10) * 100} color={ratingColor(j.notas?.avg ?? 0)} />
+                <span className="text-right text-sm tabular-nums">
+                  <span className="font-semibold text-white">{formatRating(j.notas?.avg ?? 0)}</span>
+                  <span className="ml-1 text-xs text-white/50">
+                    ({formatRating(j.notas?.form ?? 0)}) · {j.notas?.played}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Bloque>
+  );
+}
+
+function BloqueIndice({ jugadores, onAbre, wyEstado }: { jugadores: Jugador[]; onAbre: (id: string) => void; wyEstado: "cargando" | "listo" | "falla" }) {
+  const lista = jugadores.filter((j) => j.indice !== null).sort((a, b) => (b.indice ?? 0) - (a.indice ?? 0));
+
+  return (
+    <Bloque
+      pregunta="¿Quién rinde más para su puesto según Wyscout?"
+      base="Media de sus percentiles en las métricas de su puesto contra los de ese puesto en la liga (Wyscout, temporada, 90′ o más). 50 es la media de la liga; en verde desde 60, en naranja por debajo de 45."
+    >
+      {lista.length === 0 ? (
+        <p className="text-sm text-white/60">
+          {wyEstado === "cargando" ? "Cargando Wyscout." : "Wyscout no ha devuelto jugadores del Castilla con 90′ o más."}
+        </p>
+      ) : (
+        <ul className="space-y-1">
+          {lista.map((j, i) => {
+            const v = j.indice ?? 0;
+
+            return (
+              <li key={j.ficha.id}>
+                <button
+                  type="button"
+                  onClick={() => onAbre(j.ficha.id)}
+                  className="grid w-full min-w-0 grid-cols-[1.5rem_minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 text-left transition hover:bg-white/[0.04] sm:grid-cols-[1.5rem_minmax(0,10rem)_minmax(0,1fr)_auto]"
+                >
+                  <span className="text-right text-xs tabular-nums text-white/45">{i + 1}</span>
+                  <span className="min-w-0 truncate text-sm text-white/85">{nombreDe(j)}</span>
+                  <Barra pct={v} color={v >= 60 ? MEJOR : v < 45 ? PEOR : ORO} />
+                  <span className="text-right text-sm tabular-nums">
+                    <span className="font-semibold text-white">{v}</span>
+                    <span className="ml-1 text-xs text-white/50">{PUESTOS.find((p) => p.key === j.puesto)?.corto}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Bloque>
+  );
+}
+
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="h-28 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-5">
-        {Array.from({ length: 10 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-28 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]"
-          />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div key={index} className="h-28 animate-pulse rounded-xl border border-white/10 bg-white/[0.03]" />
         ))}
       </div>
-
       <div className="grid gap-6 lg:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="h-[360px] animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]"
-          />
+        {Array.from({ length: 2 }).map((_, index) => (
+          <div key={index} className="h-[360px] animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
         ))}
       </div>
     </div>

@@ -21,6 +21,7 @@
 
 import { getPlayerImage, getPlayerPhotoSrc, normalizePlayerName } from "@/lib/playerImages";
 import type { Player } from "@/types/player";
+import { nombreCanonico } from "@/lib/data-analisis/nombres";
 
 type Ficha = {
   /** El `ID_JUGADOR` que devolvió el alta, para que las notas cuadren. */
@@ -206,8 +207,9 @@ const llano = (texto: string) =>
  * manda el apellido (la última palabra) y, si hay inicial, que case.
  */
 export function mismoJugador(a: string, b: string) {
-  const x = llano(a);
-  const y = llano(b);
+  /* «L. Fati Joao» (Wyscout) es «Lamini»: ver `nombreCanonico`. */
+  const x = llano(nombreCanonico(a));
+  const y = llano(nombreCanonico(b));
 
   if (!x[0] || !y[0] || x[x.length - 1] !== y[y.length - 1]) return false;
 

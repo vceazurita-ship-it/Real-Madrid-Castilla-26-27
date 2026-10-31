@@ -24,6 +24,7 @@
 /* ------------------------------------------------------------------ */
 
 import { consignaPrincipal } from "./consigna";
+import { nombreCanonico } from "@/lib/data-analisis/nombres";
 import type { CortePartido } from "@/lib/video-informe/guion";
 import type { GolesTemporada } from "./goles-temporada";
 
@@ -1682,8 +1683,9 @@ const plano = (s: string) =>
  * apellido de uno esté en el otro.
  */
 export function mismoJugador(a: string, b: string) {
-  const x = plano(a);
-  const y = plano(b);
+  /* «L. Fati Joao» (Wyscout) es «Lamini»: ver `nombreCanonico`. */
+  const x = plano(nombreCanonico(a));
+  const y = plano(nombreCanonico(b));
 
   if (!x.length || !y.length) return false;
 

@@ -19,15 +19,26 @@
  *   - Hudl se abre en el vídeo, no en el minuto: el texto ya no promete el
  *     salto (no lo hace).
  *
+ * Pantalla completa (31/10/2026, como en el coding): se pone en grande el
+ * marco (vídeo + lista), no el <video>, para que la lista de acciones, los
+ * mandos y la pizarra sigan a la vista (./PantallaCompletaClips.tsx). F o
+ * doble clic entra; Esc sale. Lo que se pinta en la pizarra es para
+ * enseñarlo en el momento: no se guarda.
+ *
  * No se corta un clip de cada acción (sólo un ejemplo de cada veredicto por
  * objetivo): las que no lo tienen dicen su minuto y abren el vídeo de Hudl.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, CircleDashed, ExternalLink, Film, Keyboard, RotateCcw, ThumbsDown, ThumbsUp, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronLeft, ChevronRight, CircleDashed, ExternalLink, Film, Keyboard, Maximize2, RotateCcw, ThumbsDown, ThumbsUp, X } from "lucide-react";
 
 import { Dialog } from "@/components/abp/ui";
+import { PizarraVideo } from "@/components/coding/PizarraVideo";
+import { usePantallaCompleta } from "@/hooks/usePantallaCompleta";
+import { escenaEn, escenaVacia, type EscenaTel } from "@/lib/coding/telestracion";
 import { mmss, veredictoFinal, type AccionEntreno, type Validacion, type Veredicto } from "@/lib/entreno/modelo";
+
+import { PantallaCompletaClips } from "./PantallaCompletaClips";
 
 /** Una acción con lo que hace falta para enseñarla fuera de su día. */
 export type Pieza = { accion: AccionEntreno; fecha: string; objetivo: string; fuenteUrl: string | null };
@@ -84,6 +95,28 @@ export function VisorClips({
   const [filtro, setFiltro] = useState<FiltroVisor>(peticion.filtro ?? "todas");
   const [autoAvance, setAutoAvance] = useState(true);
   const video = useRef<HTMLVideoElement | null>(null);
+  /* El elemento también en estado: la pizarra se coloca midiéndolo. */
+  const [elVideo, setElVideo] = useState<HTMLVideoElement | null>(null);
+  const montaVideo = useCallback((el: HTMLVideoElement | null) => {
+    video.current = el;
+    setElVideo(el);
+  }, []);
+  const [reproduciendo, setReproduciendo] = useState(false);
+
+  /*
+  | A pantalla completa va el marco. En el Safari del iPhone no se puede poner
+  | en grande nada que no sea un <video>: allí el marco ocupa la ventana entera
+  | (`falsa`), que con la barra del navegador escondida es casi lo mismo.
+  */
+  const { marco, enPantallaCompleta, disponible, entra, sale } = usePantallaCompleta<HTMLDivElement>();
+  const [falsa, setFalsa] = useState(false);
+  const completa = enPantallaCompleta || falsa;
+  const [panelAbierto, setPanelAbierto] = useState(true);
+
+  /* Pizarras por acción, sólo mientras está abierto el visor. */
+  const [pizarras, setPizarras] = useState<Record<string, EscenaTel[]>>({});
+  const [pintando, setPintando] = useState<{ clave: string; id: string } | null>(null);
+  const numeroPizarra = useRef(0);
 
   const ordenadas = useMemo(
     () =>
@@ -129,6 +162,83 @@ export function VisorClips({
   const editable = actual?.fecha === fechaEditable && !bloqueado;
   const conClip = ordenadas.filter((p) => p.accion.clip).length;
 
+  const claveActual = actual ? claveDe(actual) : null;
+  const escenas = claveActual ? (pizarras[claveActual] ?? []) : [];
+  const editandoPizarra = completa && pintando && pintando.clave === claveActual ? pintando.id : null;
+
+  const abreCompleta = () => {
+    setPintando(null);
+    setPanelAbierto(true);
+    if (disponible) entra(marco.current);
+    else setFalsa(true);
+  };
+
+  const cierraCompleta = () => {
+    setPintando(null);
+    setFalsa(false);
+    if (enPantallaCompleta) sale();
+  };
+
+  const guardaEscena = (escena: EscenaTel) => {
+    if (!claveActual) return;
+
+    setPizarras((antes) => {
+      const lista = antes[claveActual] ?? [];
+      const hay = lista.some((e) => e.id === escena.id);
+
+      return { ...antes, [claveActual]: hay ? lista.map((e) => (e.id === escena.id ? escena : e)) : [...lista, escena] };
+    });
+  };
+
+  const borraEscena = (id: string) => {
+    if (!claveActual) return;
+
+    setPizarras((antes) => ({ ...antes, [claveActual]: (antes[claveActual] ?? []).filter((e) => e.id !== id) }));
+    setPintando(null);
+  };
+
+  /** Abre una pizarra en el instante del vídeo (o la que ya hay ahí) con el vídeo parado. */
+  const abrePizarra = () => {
+    const el = video.current;
+
+    if (!el || !claveActual) return;
+
+    el.pause();
+
+    const ahora = el.currentTime * 1000;
+    const existente = escenaEn(escenas, ahora);
+
+    if (existente) {
+      setPintando({ clave: claveActual, id: existente.id });
+      return;
+    }
+
+    numeroPizarra.current += 1;
+
+    const nueva = escenaVacia(ahora, `esc-${Math.round(ahora)}-${numeroPizarra.current}`, new Date().toISOString());
+
+    guardaEscena(nueva);
+    setPintando({ clave: claveActual, id: nueva.id });
+  };
+
+  const alterna = () => {
+    const el = video.current;
+
+    if (!el) return;
+    if (el.paused) void el.play().catch(() => undefined);
+    else el.pause();
+  };
+
+  const salta = (segundos: number) => {
+    const el = video.current;
+
+    if (!el) return;
+
+    const tope = Number.isFinite(el.duration) ? el.duration : Infinity;
+
+    el.currentTime = Math.max(0, Math.min(tope, el.currentTime + segundos));
+  };
+
   /** Valida la actual y, si toca, salta a la siguiente que siga sin validar. */
   const decide = (nueva: Validacion | null) => {
     if (!actual || !editable) return;
@@ -151,6 +261,8 @@ export function VisorClips({
       const t = e.target as HTMLElement | null;
 
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      /* Con la pizarra abierta las letras y los números son suyos. */
+      if (editandoPizarra) return;
       if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) return;
 
       const k = e.key.toLowerCase();
@@ -164,6 +276,10 @@ export function VisorClips({
       else if (k === "2" || k === "m") decide("mejorable");
       else if (k === "3" || k === "d") decide("descartada");
       else if (k === "0") decide(null);
+      else if (k === "f") {
+        if (completa) cierraCompleta();
+        else abreCompleta();
+      }
       else if ((k === " " && !(t instanceof HTMLButtonElement) && !(t instanceof HTMLVideoElement)) || k === "k") {
         const el = video.current;
 
@@ -182,6 +298,46 @@ export function VisorClips({
     window.addEventListener("keydown", oyente);
 
     return () => window.removeEventListener("keydown", oyente);
+  }, []);
+
+  /*
+  | Esc a pantalla completa sale de ella y NO cierra el visor: el diálogo
+  | escucha Esc en la burbuja, y esto va antes, en la captura. Con la pizarra
+  | abierta, el Esc es suyo (cierra lo que se está pintando). Y justo después
+  | de salir de la pantalla completa del navegador se traga el Esc que la
+  | quitó, por si el navegador lo deja pasar.
+  */
+  const estadoEsc = useRef({ completa: false, pintando: false, cierra: () => {} });
+  const salidaEn = useRef(0);
+  const estabaEnGrande = useRef(false);
+
+  useEffect(() => {
+    estadoEsc.current = { completa, pintando: Boolean(editandoPizarra), cierra: cierraCompleta };
+  });
+
+  useEffect(() => {
+    if (estabaEnGrande.current && !enPantallaCompleta) salidaEn.current = performance.now();
+    estabaEnGrande.current = enPantallaCompleta;
+  }, [enPantallaCompleta]);
+
+  useEffect(() => {
+    const oyente = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+
+      const ahora = estadoEsc.current;
+
+      if (ahora.pintando) return;
+      if (!ahora.completa && performance.now() - salidaEn.current > 500) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (ahora.completa) ahora.cierra();
+    };
+
+    window.addEventListener("keydown", oyente, true);
+
+    return () => window.removeEventListener("keydown", oyente, true);
   }, []);
 
   const etiquetaVal = (x: Validacion | undefined, a: AccionEntreno) => (x ? (x !== "descartada" && x !== a.veredicto ? "Validada (cambiada)" : "Validada") : "Propuesta automática");
@@ -209,22 +365,93 @@ export function VisorClips({
 
         {actual ? (
           <div className="space-y-2.5">
-            {actual.accion.clip ? (
-              /* Siempre oscuro: es una pantalla de vídeo, también en modo día. */
-              <div className="siempre-oscuro overflow-hidden rounded-xl" style={{ background: "#000" }}>
-                <video ref={video} key={claveDe(actual)} src={actual.accion.clip} controls autoPlay loop preload="metadata" playsInline className="aspect-video w-full" />
-              </div>
-            ) : (
-              <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.03] px-4 text-center">
-                <p className="text-4xl font-semibold tabular-nums text-white">{mmss(actual.accion.inicio)}</p>
-                <p className="max-w-sm text-xs text-white/55">Esta acción no tiene clip cortado (se corta un ejemplo de cada veredicto por objetivo): búscala en ese minuto del vídeo de la sesión.</p>
-                {actual.fuenteUrl ? (
-                  <a href={actual.fuenteUrl} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-1.5 rounded-lg border border-[#C8A96B]/40 px-3 py-1.5 text-xs font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/10 ${FOCO}`}>
-                    <ExternalLink size={12} aria-hidden /> Abrir el vídeo en Hudl
-                  </a>
-                ) : null}
-              </div>
-            )}
+            {/*
+            | El marco es lo que se pone a pantalla completa: dentro van el vídeo
+            | (siempre el primer hijo, para que no se vuelva a montar al entrar),
+            | la pizarra y la lista. Siempre oscuro: es una pantalla de vídeo,
+            | también en modo día.
+            */}
+            <div
+              ref={marco}
+              className={
+                completa
+                  ? `siempre-oscuro relative overflow-hidden ${falsa ? "fixed inset-0 z-[200] h-dvh w-screen" : "h-full w-full"}`
+                  : actual.accion.clip
+                    ? "siempre-oscuro relative overflow-hidden rounded-xl"
+                    : "relative"
+              }
+              style={completa || actual.accion.clip ? { background: "#000" } : undefined}
+            >
+              {actual.accion.clip ? (
+                <video
+                  ref={montaVideo}
+                  key={claveDe(actual)}
+                  src={actual.accion.clip}
+                  controls={!completa}
+                  controlsList="nofullscreen"
+                  autoPlay
+                  loop
+                  preload="metadata"
+                  playsInline
+                  onPlay={() => setReproduciendo(true)}
+                  onPause={() => setReproduciendo(false)}
+                  onDoubleClick={() => (completa ? cierraCompleta() : abreCompleta())}
+                  onClick={completa ? alterna : undefined}
+                  /* A pantalla completa el vídeo ocupa el alto y deja su ancho a
+                     la lista (320 px = ANCHO_PANEL_ENTRENO); de pie, el 55 % de
+                     arriba. `contain`: la pizarra mide el rectángulo de imagen. */
+                  className={completa ? `h-full w-full ${panelAbierto ? "landscape:w-[calc(100%-320px)] portrait:h-[55%]" : ""}` : "aspect-video w-full"}
+                  style={completa ? { objectFit: "contain" } : undefined}
+                />
+              ) : (
+                <div
+                  className={`flex flex-col items-center justify-center gap-2 px-4 text-center ${
+                    completa ? `h-full w-full ${panelAbierto ? "landscape:w-[calc(100%-320px)] portrait:h-[55%]" : ""}` : "aspect-video w-full rounded-xl border border-dashed border-white/15 bg-white/[0.03]"
+                  }`}
+                >
+                  <p className="text-4xl font-semibold tabular-nums text-white">{mmss(actual.accion.inicio)}</p>
+                  <p className="max-w-sm text-xs text-white/55">Esta acción no tiene clip cortado (se corta un ejemplo de cada veredicto por objetivo): búscala en ese minuto del vídeo de la sesión.</p>
+                  {actual.fuenteUrl ? (
+                    <a href={actual.fuenteUrl} target="_blank" rel="noreferrer" className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#C8A96B]/40 px-3 py-1.5 text-xs font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/10 ${FOCO}`}>
+                      <ExternalLink size={12} aria-hidden /> Abrir el vídeo en Hudl
+                    </a>
+                  ) : null}
+                </div>
+              )}
+
+              {completa && actual.accion.clip ? (
+                <PizarraVideo
+                  video={elVideo}
+                  escenas={escenas}
+                  editando={editandoPizarra}
+                  alEditar={(id) => setPintando(id && claveActual ? { clave: claveActual, id } : null)}
+                  alCambiar={guardaEscena}
+                  alBorrar={borraEscena}
+                  alPintar={abrePizarra}
+                  visible
+                />
+              ) : null}
+
+              {completa ? (
+                <PantallaCompletaClips
+                  piezas={visibles}
+                  actual={actual}
+                  veredictoDe={veredictoDe}
+                  validadaDe={(p) => Boolean(valDe(p))}
+                  fechaEditable={fechaEditable}
+                  abierto={panelAbierto}
+                  alAbrir={setPanelAbierto}
+                  alElegir={setElegida}
+                  alMover={mueve}
+                  conVideo={Boolean(actual.accion.clip)}
+                  reproduciendo={reproduciendo}
+                  alAlternar={alterna}
+                  alSaltar={salta}
+                  alSalir={cierraCompleta}
+                  veredicto={editable ? { val, alDecide: decide } : null}
+                />
+              ) : null}
+            </div>
 
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs">
               <span className="inline-flex items-center gap-0.5">
@@ -238,6 +465,17 @@ export function VisorClips({
                   <ChevronRight size={15} />
                 </button>
               </span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.currentTarget.blur();
+                  abreCompleta();
+                }}
+                title="Pantalla completa con la lista y la pizarra (F)"
+                className={`inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-white/12 px-2.5 text-white/75 hover:text-white ${FOCO}`}
+              >
+                <Maximize2 size={13} aria-hidden /> Pantalla completa
+              </button>
               <span className="inline-flex items-center gap-1.5 font-semibold text-white/90">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: v === "correcta" ? COLOR_BIEN : v === "mejorable" ? COLOR_MEJORABLE : "rgb(var(--rmcf-ink-rgb) / .3)" }} aria-hidden />
                 {v === null ? "Descartada" : v === "correcta" ? "Correcta" : "Mejorable"}
@@ -273,7 +511,7 @@ export function VisorClips({
                   <span className="hidden items-center gap-1.5 sm:inline-flex">
                     <Keyboard size={12} aria-hidden />
                     <Tecla>1</Tecla> correcta · <Tecla>2</Tecla> mejorable · <Tecla>3</Tecla> descartar · <Tecla>0</Tecla> quitar · <Tecla>←</Tecla>
-                    <Tecla>→</Tecla> moverse · <Tecla>espacio</Tecla> vídeo
+                    <Tecla>→</Tecla> moverse · <Tecla>espacio</Tecla> vídeo · <Tecla>F</Tecla> pantalla completa
                   </span>
                   {bloqueado ? <span className="text-amber-300/80">Leyendo los objetivos del día: en un momento se puede validar.</span> : null}
                 </div>

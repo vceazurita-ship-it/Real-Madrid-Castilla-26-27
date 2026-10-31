@@ -22,6 +22,7 @@ import Link from "next/link";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
+import { AccesosVideo } from "@/components/video-partido/AccesosVideo";
 
 import {
   ArrowUpDown,
@@ -975,13 +976,15 @@ function MatchCard({
   // Toda la tarjeta es clicable cuando hay vídeo; si no, es informativa.
   const Wrapper = hasVideo ? "button" : "div";
 
+  /* 31/10/2026: Hudl, la grabación táctica y el resumen de la RFEF van debajo,
+     fuera del botón de la tarjeta (un enlace no puede ir dentro de un botón). */
+  const dia = match.date ? diaClave(match.date) : "";
+
   return (
-    <Wrapper
-      {...(hasVideo ? { type: "button" as const, onClick: onOpen } : {})}
+    <div
       className={cn(
-        "group relative block w-full overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] text-left transition",
-        hasVideo &&
-          "hover:border-[#C8A96B]/40 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C8A96B]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B0F14]"
+        "group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition",
+        hasVideo && "hover:border-[#C8A96B]/40 hover:bg-white/[0.06]"
       )}
     >
       <span
@@ -992,6 +995,15 @@ function MatchCard({
         )}
       />
 
+      <Wrapper
+        {...(hasVideo ? { type: "button" as const, onClick: onOpen } : {})}
+        className={cn(
+          "relative block w-full text-left",
+          /* El anillo va por dentro: la tarjeta recorta lo que sale (overflow-hidden). */
+          hasVideo &&
+            "rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#C8A96B]/60"
+        )}
+      >
       <span className="block p-5 pl-6">
         <span className="flex items-center justify-between gap-2">
           <span className="truncate rounded-full bg-[#C8A96B]/12 px-3 py-1 text-[11px] font-medium text-[#C8A96B]">
@@ -1063,7 +1075,16 @@ function MatchCard({
           </Link>
         ) : null}
       </span>
-    </Wrapper>
+      </Wrapper>
+
+      {dia && (
+        <AccesosVideo
+          dia={dia}
+          jugado={match.esLiga && match.outcome !== null}
+          className="-mt-2 px-5 pb-5 pl-6"
+        />
+      )}
+    </div>
   );
 }
 
@@ -1193,6 +1214,14 @@ function MatchModal({
               <span aria-hidden>·</span>
               <span>{formatDate(match)}</span>
             </p>
+
+            {match.date && (
+              <AccesosVideo
+                dia={diaClave(match.date)}
+                jugado={match.esLiga && match.outcome !== null}
+                className="mt-3 max-w-xl"
+              />
+            )}
           </div>
 
           <div className="flex shrink-0 items-center gap-2">

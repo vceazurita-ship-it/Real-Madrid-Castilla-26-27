@@ -239,7 +239,27 @@ function ladoLegible(valor: unknown) {
 | (`DUELOS`, por `tipo`; con «D.» o «I.» también el lado). Si lo hay, la
 | tarjeta lleva «El analista: ventaja con balón»; si no, la línea va a «Sólo
 | en vídeo, sin medir». Sin «vs» no se intenta: va tal cual a esa línea.
+|
+| 31/10/2026 (petición del analista): lo escrito a mano se ve SIEMPRE y con su
+| texto. En la tarjeta medida va la etiqueta con la línea tal cual la escribió
+| («El analista · ventaja con balón: Extremos vs Laterales, 1v1 por fuera»), y
+| lo que no casa con ningún duelo medido sale en tarjetas propias, «Duelos del
+| analista», con el mismo diseño que las de los datos. Se edita donde siempre:
+| «Editar» abre las cuatro listas.
 */
+type LineaAnalista = { texto: string; etiqueta: string; campo: string };
+
+const ETIQUETAS_ANALISTA: [string, string][] = [
+  ["DUELOS_CB_FAVOR", "ventaja con balón"],
+  ["DUELOS_CB_CONTRA", "desventaja con balón"],
+  ["DUELOS_SB_FAVOR", "ventaja sin balón"],
+  ["DUELOS_SB_CONTRA", "desventaja sin balón"],
+];
+
+function colorEtiquetaAnalista(etiqueta: string) {
+  return etiqueta.startsWith("desventaja") ? "text-rose-300" : "text-emerald-300";
+}
+
 function rolDuelo(texto: string): string {
   const t = texto
     .normalize("NFD")
@@ -270,17 +290,10 @@ function lecturaDelAnalista(
   grupos: { buscar: DueloClave[]; doble: DueloClave[]; vigilar: DueloClave[]; parejos: DueloClave[] },
 ) {
   const medidos = new Set([...grupos.buscar, ...grupos.doble, ...grupos.vigilar, ...grupos.parejos].map((d) => d.clave));
-  const etiquetas = new Map<string, string[]>();
-  const sinMedir: { texto: string; etiqueta: string }[] = [];
+  const etiquetas = new Map<string, LineaAnalista[]>();
+  const sinMedir: LineaAnalista[] = [];
 
-  const campos: [string, string][] = [
-    ["DUELOS_CB_FAVOR", "ventaja con balón"],
-    ["DUELOS_CB_CONTRA", "desventaja con balón"],
-    ["DUELOS_SB_FAVOR", "ventaja sin balón"],
-    ["DUELOS_SB_CONTRA", "desventaja sin balón"],
-  ];
-
-  for (const [campo, etiqueta] of campos) {
+  for (const [campo, etiqueta] of ETIQUETAS_ANALISTA) {
     const lineas = String(rival?.[campo] ?? "")
       .split(/\r?\n|;/)
       .map((l) => l.replace(/^[\s\-–•*]+/, "").replace(/[.\s]+$/, "").trim())
@@ -305,14 +318,14 @@ function lecturaDelAnalista(
           : [];
 
       if (casan.length === 0) {
-        sinMedir.push({ texto: linea, etiqueta });
+        sinMedir.push({ texto: linea, etiqueta, campo });
         continue;
       }
 
       for (const def of casan) {
         const lista = etiquetas.get(def.clave) ?? [];
 
-        if (!lista.includes(etiqueta)) lista.push(etiqueta);
+        if (!lista.some((l) => l.etiqueta === etiqueta && l.texto === linea)) lista.push({ texto: linea, etiqueta, campo });
         etiquetas.set(def.clave, lista);
       }
     }
@@ -2136,6 +2149,22 @@ export default function MatchPreparation() {
                       </a>
                     </span>
                   ))}
+                  {/* Y los que escribió el analista sin cruce medido (31/10/2026), que también están abajo. */}
+                  {(() => {
+                    const delAnalista = lecturaDelAnalista(rivalActivo, duelosClave.grupos).sinMedir.length;
+
+                    return delAnalista > 0 ? (
+                      <>
+                        {" · "}
+                        <a
+                          href="#duelos-analista"
+                          className="underline decoration-white/25 underline-offset-4 hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
+                        >
+                          {delAnalista} más del analista
+                        </a>
+                      </>
+                    ) : null;
+                  })()}
                 </span>
                 {doble ? (
                   <span className="min-w-0">
@@ -2936,7 +2965,8 @@ export default function MatchPreparation() {
                   con las dos cifras), para vigilar (ventaja suya con su balón)
                   y los parejos, plegados. Lo que escribió el analista se ata a
                   la tarjeta con la que coincide («El analista: ventaja con
-                  balón») y lo que no está medido va en «Sólo en vídeo».
+                  balón: <su línea>») y lo que no casa va en tarjetas propias,
+                  «Duelos del analista» (31/10/2026).
                 */}
                 {duelosClave && !editando && (
                   <p className="mb-3 text-[13px] text-white/55">
@@ -2970,12 +3000,13 @@ export default function MatchPreparation() {
                           {d.nuestros.join(" y ")} contra {d.suyos.join(" y ")}
                         </span>
                         {d.base && <span className="block text-[13px] text-white/50">{d.base}</span>}
-                        {(lectura.etiquetas.get(d.clave) ?? []).map((e) => (
+                        {(lectura.etiquetas.get(d.clave) ?? []).map((e, i) => (
                           <span
-                            key={e}
-                            className="mt-1 mr-1 inline-block rounded-md border border-[#C8A96B]/35 bg-[#C8A96B]/10 px-1.5 py-0.5 text-[12px] text-[#C8A96B]"
+                            key={`${e.campo}-${i}`}
+                            className="mt-1.5 block rounded-md border border-[#C8A96B]/35 bg-[#C8A96B]/10 px-2 py-1 text-[13px] leading-5 text-white/80"
                           >
-                            El analista: {e}
+                            <b className="font-semibold text-[#C8A96B]">El analista</b>
+                            <span className={colorEtiquetaAnalista(e.etiqueta)}> · {e.etiqueta}</span>: {e.texto}
                           </span>
                         ))}
                       </span>
@@ -3016,18 +3047,49 @@ export default function MatchPreparation() {
                         </details>
                       )}
 
-                      {lectura.sinMedir.length > 0 && (
-                        <p className="mb-2 text-[13px] leading-6 text-white/70">
-                          <b className="font-semibold text-white/85">Sólo en vídeo, sin medir</b>
-                          {" · lectura del analista: "}
-                          {lectura.sinMedir.map((s, i) => (
-                            <span key={`${s.texto}-${i}`}>
-                              {i > 0 && " · "}
-                              {s.texto} <span className="text-white/50">({s.etiqueta})</span>
-                            </span>
-                          ))}
-                        </p>
-                      )}
+                      {/*
+                        Los duelos que el analista escribió a mano y no casan con
+                        ninguno medido (31/10/2026): tarjetas propias, con el mismo
+                        diseño que las de los datos, una por cada lista suya.
+                      */}
+                      {lectura.sinMedir.length > 0 && (() => {
+                        const listas = ETIQUETAS_ANALISTA.map(([campo, etiqueta]) => ({
+                          campo,
+                          etiqueta,
+                          lineas: lectura.sinMedir.filter((s) => s.campo === campo),
+                        })).filter((l) => l.lineas.length > 0);
+
+                        return (
+                          <div id="duelos-analista" className="mb-2 scroll-mt-56">
+                            <p className="mb-2 text-[13px] text-white/55">
+                              Duelos del analista: escritos a mano desde el vídeo, sin un cruce de los datos con el que atarlos. Se cambian con «Editar».
+                            </p>
+                            <div className={`grid gap-4 ${listas.length >= 3 ? "lg:grid-cols-3" : listas.length === 2 ? "md:grid-cols-2" : ""}`}>
+                              {listas.map((l) => (
+                                <div key={l.campo} className="rounded-2xl border border-[#C8A96B]/20 bg-white/[0.02] p-4">
+                                  <p className="text-[12px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B]">
+                                    Duelos del analista · {l.lineas.length}
+                                  </p>
+                                  <p className={`mt-0.5 text-[13px] ${colorEtiquetaAnalista(l.etiqueta)}`}>
+                                    {l.etiqueta.charAt(0).toUpperCase() + l.etiqueta.slice(1)}
+                                  </p>
+
+                                  <ul className="mt-3 space-y-3 text-[14px] leading-6 text-white/85">
+                                    {l.lineas.map((s, i) => (
+                                      <li key={`${s.texto}-${i}`} className="flex gap-2.5">
+                                        <b className={`w-10 shrink-0 ${colorEtiquetaAnalista(s.etiqueta)}`}>
+                                          {s.etiqueta.startsWith("desventaja") ? "−" : "+"}
+                                        </b>
+                                        <span className="min-w-0">{s.texto}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </>
                   );
                 })()}

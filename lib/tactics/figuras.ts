@@ -134,21 +134,38 @@ export interface Equipacion {
   dorsal: string;
   /** Contorno de la silueta: separa la figura del césped. */
   contorno: string;
+  /** Aro del equipo pintado en el césped, a los pies. */
+  aro: string;
+  /** Fondo del dorsal en la placa del nombre. */
+  placa: string;
+  /** Número de la placa. */
+  placaTexto: string;
 }
 
 export const EQUIPACIONES: Record<"home" | "away", Equipacion> = {
-  /* La nuestra: blanca de arriba abajo, con el vivo dorado del club. */
+  /*
+  | La nuestra: blanca de arriba abajo, con el vivo dorado del club y el
+  | dorsal en azul noche. A los pies, aro blanco; en la placa, el número
+  | sobre blanco con el filo dorado.
+  */
   home: {
-    camiseta: "#F8FAFC",
+    camiseta: "#FFFFFF",
     vivo: "#C8A96B",
     pantalon: "#FFFFFF",
-    medias: "#F1F5F9",
+    medias: "#FFFFFF",
     bota: "#0B0F14",
-    dorsal: "#0B0F14",
-    contorno: "#0B0F14",
+    dorsal: "#1B2340",
+    contorno: "#0B1220",
+    aro: "#F8FAFC",
+    placa: "#F8FAFC",
+    placaTexto: "#0B1220",
   },
 
-  /* La del rival: oscura, con el mismo rojo que ya distingue sus fichas. */
+  /*
+  | La del rival: oscura, con el mismo rojo que ya distingue sus fichas. El
+  | aro y el número de la placa van en rojo lleno: a un vistazo, desde el
+  | fondo de la sala, el color de los pies dice de quién es cada uno.
+  */
   away: {
     camiseta: "#1E293B",
     vivo: "#F87171",
@@ -156,7 +173,10 @@ export const EQUIPACIONES: Record<"home" | "away", Equipacion> = {
     medias: "#1E293B",
     bota: "#F8FAFC",
     dorsal: "#FFFFFF",
-    contorno: "#0B0F14",
+    contorno: "#05080D",
+    aro: "#EF4444",
+    placa: "#DC2626",
+    placaTexto: "#FFFFFF",
   },
 };
 

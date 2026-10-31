@@ -16,6 +16,7 @@ import {
   PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -60,7 +61,7 @@ import RivalPicker from "./RivalPicker";
 import PitchStage from "./PitchStage";
 import PitchCameraBar, { FollowSubject } from "./PitchCameraBar";
 import PitchTimelineBar from "./PitchTimelineBar";
-import PlayerFigure from "./PlayerFigure";
+import PlayerFigure, { FigurasDefs, PlacaJugador, SueloFigura, medioFigura } from "./PlayerFigure";
 import BoardToolPalette, { BOARD_TOOLS } from "./BoardToolPalette";
 import BoardStyleBar from "./BoardStyleBar";
 import Desplegable from "./Desplegable";
@@ -448,6 +449,9 @@ export default function TacticsBoard({
   const figurasVisibles = doc.figuras ?? false;
 
   const nombresVisibles = !doc.sinNombres;
+
+  /* Prefijo de los degradados de las figuras: en /pizarra hay dos tableros en la misma página. */
+  const prefijoFiguras = `pz${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   // ---------------------------------------------------------------
   // Fichas de las personas (modo jugador)
@@ -2608,6 +2612,8 @@ export default function TacticsBoard({
             >
               <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
             </marker>
+
+            {figurasVisibles && <FigurasDefs prefijo={prefijoFiguras} />}
           </defs>
 
           <PitchMarkings campo={campoActivo} />
@@ -2704,8 +2710,12 @@ export default function TacticsBoard({
 
               /* Medio ancho de la figura, para la sombra y el área de agarre. */
               const medio = medidas
-                ? 0.24 * medidas.alto * medidas.ancho
+                ? medioFigura(medidas.alto, medidas.ancho)
                 : style.radius;
+
+              /* Se está llevando con el ratón o el dedo: la figura se levanta del césped. */
+              const enElAire = figura && arrastrando && elegida;
+              const kit = EQUIPACIONES[token.kind === "away" ? "away" : "home"];
 
               /*
                 La figura está de pie sobre el punto del campo, así que su
@@ -2742,43 +2752,65 @@ export default function TacticsBoard({
                 >
                   <title>{tituloFicha(token, perfil, medidas)}</title>
 
-                  {/* Sombra: se queda tumbada en el césped, bajo la ficha. */}
-                  <ellipse
-                    cx={0}
-                    cy={anclaY}
-                    rx={medio * (figura ? 1.15 : 0.95)}
-                    ry={medio * (figura ? 0.5 : 0.42)}
-                    fill="rgba(0,0,0,.38)"
-                    style={{ pointerEvents: "none" }}
-                  />
-
-                  {/* Marca del anclaje: también pintada sobre el césped. */}
-                  {anchored && (
-                    <ellipse
-                      cx={0}
-                      cy={anclaY}
-                      rx={medio + 1.1}
-                      ry={figura ? (medio + 1.1) * 0.45 : medio + 1.1}
-                      fill="none"
-                      stroke="#C8A96B"
-                      strokeWidth={0.35}
-                      strokeDasharray="1 0.8"
-                      style={{ pointerEvents: "none" }}
+                  {/*
+                    Con figuras, lo del césped —sombras, aro del equipo,
+                    elegida y cámara que la sigue— lo pinta `SueloFigura`. El
+                    aro se redondea con la inclinación (0,45 × tokenLift) para
+                    que la perspectiva lo deje siempre igual de achatado.
+                  */}
+                  {medidas && (
+                    <SueloFigura
+                      prefijo={prefijoFiguras}
+                      alto={medidas.alto}
+                      ancho={medidas.ancho}
+                      kit={kit}
+                      bando={token.kind === "away" ? "away" : "home"}
+                      achatado={Math.min(1, 0.45 * tokenLift)}
+                      elegida={elegida}
+                      anclada={anchored}
+                      elevada={enElAire}
                     />
                   )}
 
-                  {/* Elegida: un aro dorado bajo la ficha, sobre el césped. */}
-                  {elegida && (
-                    <ellipse
-                      cx={0}
-                      cy={anclaY}
-                      rx={medio + 0.9}
-                      ry={figura ? (medio + 0.9) * 0.45 : medio + 0.9}
-                      fill="rgba(200,169,107,.18)"
-                      stroke="#E9C46A"
-                      strokeWidth={0.45}
-                      style={{ pointerEvents: "none" }}
-                    />
+                  {/* La ficha redonda: sombra, anclaje y elegida, tumbados en el césped. */}
+                  {!medidas && (
+                    <>
+                      <ellipse
+                        cx={0}
+                        cy={anclaY}
+                        rx={medio * 0.95}
+                        ry={medio * 0.42}
+                        fill="rgba(0,0,0,.38)"
+                        style={{ pointerEvents: "none" }}
+                      />
+
+                      {anchored && (
+                        <ellipse
+                          cx={0}
+                          cy={anclaY}
+                          rx={medio + 1.1}
+                          ry={medio + 1.1}
+                          fill="none"
+                          stroke="#C8A96B"
+                          strokeWidth={0.35}
+                          strokeDasharray="1 0.8"
+                          style={{ pointerEvents: "none" }}
+                        />
+                      )}
+
+                      {elegida && (
+                        <ellipse
+                          cx={0}
+                          cy={anclaY}
+                          rx={medio + 0.9}
+                          ry={medio + 0.9}
+                          fill="rgba(200,169,107,.18)"
+                          stroke="#E9C46A"
+                          strokeWidth={0.45}
+                          style={{ pointerEvents: "none" }}
+                        />
+                      )}
+                    </>
                   )}
 
                   {/*
@@ -2805,7 +2837,8 @@ export default function TacticsBoard({
                       x={-(medio + 0.8)}
                       y={-medidas.alto - 0.6}
                       width={(medio + 0.8) * 2}
-                      height={medidas.alto + 1.4}
+                      /* Hasta el pie de la placa del nombre: también se agarra por ahí. */
+                      height={medidas.alto + 3.6}
                       fill="transparent"
                     />
                   ) : (
@@ -2814,12 +2847,14 @@ export default function TacticsBoard({
 
                   {medidas && perfil ? (
                     <PlayerFigure
+                      prefijo={prefijoFiguras}
                       uid={token.id}
                       alto={medidas.alto}
                       ancho={medidas.ancho}
-                      kit={EQUIPACIONES[token.kind === "away" ? "away" : "home"]}
+                      kit={kit}
                       label={token.label}
                       foto={fotoFigura(perfil.foto)}
+                      elevada={enElAire}
                     />
                   ) : token.kind === "ball" ? (
                     <BalonOficial r={style.radius} uid={token.id} />
@@ -2859,15 +2894,30 @@ export default function TacticsBoard({
                     (1,9 → 1,55 el 21/10/2026): con los dos onces puestos los
                     nombres se montaban unos encima de otros.
                   */}
-                  {nombre && (
+                  {/*
+                    Con figuras, la placa de retransmisión: el dorsal en el
+                    color del equipo y el apellido en Barlow. Sin nombres
+                    (`sinNombres`) se queda en el dorsal.
+                  */}
+                  {figura && (
+                    <PlacaJugador
+                      kit={kit}
+                      dorsal={token.label}
+                      nombre={nombre}
+                      y={1.15}
+                      elegida={elegida}
+                    />
+                  )}
+
+                  {nombre && !figura && (
                     <text
-                      y={figura ? 1.5 : style.radius + 2.1}
+                      y={style.radius + 2.1}
                       textAnchor="middle"
-                      fontSize={figura ? 1.3 : 1.55}
+                      fontSize={1.55}
                       fontWeight={600}
                       fill="rgba(255,255,255,.95)"
                       stroke="rgba(0,0,0,.55)"
-                      strokeWidth={figura ? 0.45 : 0.4}
+                      strokeWidth={0.4}
                       paintOrder="stroke"
                       style={{ pointerEvents: "none" }}
                     >

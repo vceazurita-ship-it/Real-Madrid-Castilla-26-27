@@ -1428,6 +1428,15 @@ async function principal() {
 
   apunta(`Vigía en marcha en ${os.hostname()}: mira los encargos cada ${CADA_MS / 1000} s.`);
 
+  /* 31/10/2026: el botón «Grabación táctica» de Vídeo Análisis de Partidos
+     abre aquí el vídeo del partido (scripts/grabacion-tactica.cjs). Si falla,
+     el vigía sigue a lo suyo. */
+  try {
+    require(path.join(RAIZ, "scripts/grabacion-tactica.cjs")).sirveGrabaciones(apunta);
+  } catch (error) {
+    apunta(`Grabación táctica: no arranca (${error.message}).`);
+  }
+
   let fallosSeguidos = 0;
 
   for (;;) {

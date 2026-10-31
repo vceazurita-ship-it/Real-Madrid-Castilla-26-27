@@ -15,7 +15,85 @@ export type Player = {
    * No cuenta para las medias de la plantilla.
    */
   estimado?: boolean;
+  /** La valoración se cambió en esta pantalla y manda sobre la de la hoja (31/10/2026). */
+  editado?: boolean;
 } & Record<MetricKey, number>;
+
+/*
+| LO EDITADO EN LA PANTALLA (31/10/2026)
+|
+| La hoja emocional es un CSV publicado: se lee, no se escribe. Lo que el
+| analista cambia en «Editar valoraciones» se guarda como una capa encima, en
+| el documento `emotion:valoraciones` de Supabase (useRemoteDoc), y esa capa
+| manda sobre la hoja jugador a jugador. Quitar a uno de la capa lo devuelve a
+| lo que diga la hoja.
+*/
+export type EdicionEmocional = Record<MetricKey, number> & {
+  posicion?: string;
+  /** Cuándo se editó (ISO). */
+  editado: string;
+};
+
+export type DocEmocional = {
+  v: 1;
+  /** Por el nombre exacto con el que sale en la pantalla. */
+  jugadores: Record<string, EdicionEmocional>;
+};
+
+export const DOC_EMOCIONAL_VACIO: DocEmocional = { v: 1, jugadores: {} };
+
+export const CLAVE_DOC_EMOCIONAL = "emotion:valoraciones";
+
+const notaValida = (n: unknown) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 10;
+
+/** Lo que llega del servidor, sin fiarse de la forma. */
+export function normalizaDocEmocional(doc: unknown): DocEmocional {
+  const crudo = (doc && typeof doc === "object" ? (doc as { jugadores?: unknown }).jugadores : null) ?? {};
+  const jugadores: Record<string, EdicionEmocional> = {};
+
+  if (crudo && typeof crudo === "object") {
+    for (const [nombre, e] of Object.entries(crudo as Record<string, unknown>)) {
+      if (!nombre.trim() || !e || typeof e !== "object") continue;
+
+      const x = e as Partial<EdicionEmocional>;
+
+      if (!AXES.every((a) => notaValida(x[a.key]))) continue;
+
+      jugadores[nombre] = {
+        ea: x.ea as number,
+        ie: x.ie as number,
+        ia: x.ia as number,
+        ee: x.ee as number,
+        posicion: typeof x.posicion === "string" ? x.posicion : undefined,
+        editado: typeof x.editado === "string" ? x.editado : "",
+      };
+    }
+  }
+
+  return { v: 1, jugadores };
+}
+
+/** La hoja con lo editado encima: lo editado manda, y quien no está en la hoja entra con lo suyo. */
+export function aplicaEdiciones(hoja: Player[], doc: DocEmocional): Player[] {
+  const ediciones = doc.jugadores;
+  const vistos = new Set<string>();
+
+  const fusion = hoja.map((r) => {
+    const e = ediciones[r.jugador];
+
+    if (!e) return r;
+
+    vistos.add(r.jugador);
+
+    return { ...r, ea: e.ea, ie: e.ie, ia: e.ia, ee: e.ee, editado: true };
+  });
+
+  const nuevos = Object.entries(ediciones)
+    .filter(([nombre]) => !vistos.has(nombre))
+    .map(([nombre, e]) => ({ posicion: e.posicion ?? "", jugador: nombre, ea: e.ea, ie: e.ie, ia: e.ia, ee: e.ee, editado: true }));
+
+  return [...fusion, ...nuevos];
+}
 
 /* Las cuatro dimensiones atencionales del modelo emocional.
    El orden define el recorrido del radar y se reutiliza en la leyenda. */

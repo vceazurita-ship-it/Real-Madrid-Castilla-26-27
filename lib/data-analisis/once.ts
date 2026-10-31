@@ -1,4 +1,5 @@
 import { normalizePlayerName } from "@/lib/playerImages";
+import { nombreCanonico } from "./nombres";
 import { FAMILIAS, porJugador, type PartidoEventos } from "./eventos";
 import {
   aplicaA,
@@ -494,9 +495,11 @@ export function casaNombre<T>(
   candidatos: T[],
   nombreDe: (uno: T) => string,
 ): T | null {
-  const limpio = normalizePlayerName(nombre);
+  /* Las equivalencias a mano primero («L. Fati Joao» es Lamini): ver `nombreCanonico`. */
+  const limpio = normalizePlayerName(nombreCanonico(nombre));
+  const de = (uno: T) => normalizePlayerName(nombreCanonico(nombreDe(uno)));
 
-  const exacto = candidatos.find((uno) => normalizePlayerName(nombreDe(uno)) === limpio);
+  const exacto = candidatos.find((uno) => de(uno) === limpio);
 
   if (exacto) return exacto;
 
@@ -515,7 +518,7 @@ export function casaNombre<T>(
   ].filter((t) => t && t.length > 2);
 
   for (const apellido of trozos) {
-    const porApellido = candidatos.filter((uno) => normalizePlayerName(nombreDe(uno)).split(" ").includes(apellido));
+    const porApellido = candidatos.filter((uno) => de(uno).split(" ").includes(apellido));
 
     /* Sólo si no hay duda: dos «Martínez» no se resuelven solos. */
     if (porApellido.length === 1) return porApellido[0];

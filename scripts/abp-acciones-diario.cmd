@@ -40,6 +40,7 @@ set "LOG=%REGISTRO%\%SELLO%.log"
 set "HECHO=%REGISTRO%\hecho-%HOY%.txt"
 set "FICHERO=public/data/abp-acciones.json"
 set "TODAS=public/data/abp-acciones-todas.json"
+set "ENLACES=lib/video-partido/enlaces.json"
 set "CODIGO=1"
 set "INCOMPLETO=0"
 
@@ -108,6 +109,11 @@ rem ------------------------------------------------------------------
 echo. >> "%LOG%"
 call node scripts\abp-acciones.cjs >> "%LOG%" 2>&1
 
+rem  2b. Los videos de cada partido nuestro (Hudl, grabacion tactica y
+rem      resumen de la RFEF) para Video Analisis de Partidos (31/10/2026).
+echo. >> "%LOG%"
+call node scripts\video-partido-enlaces.mjs >> "%LOG%" 2>&1
+
 rem ------------------------------------------------------------------
 rem  3. Publicar SOLO el JSON
 rem ------------------------------------------------------------------
@@ -129,13 +135,13 @@ if not "%AJENOS%"=="0" (
   goto :limpieza
 )
 
-git add "%FICHERO%" "%TODAS%" >> "%LOG%" 2>&1
+git add "%FICHERO%" "%TODAS%" "%ENLACES%" >> "%LOG%" 2>&1
 
 set "HAYCAMBIOS=0"
-git diff --cached --quiet -- "%FICHERO%" "%TODAS%" || set "HAYCAMBIOS=1"
+git diff --cached --quiet -- "%FICHERO%" "%TODAS%" "%ENLACES%" || set "HAYCAMBIOS=1"
 
 if "%HAYCAMBIOS%"=="1" (
-  git commit -m "ABP de cada jornada: lo mejor a balon parado (Wyscout, %HOY%)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- "%FICHERO%" "%TODAS%" >> "%LOG%" 2>&1
+  git commit -m "ABP de cada jornada: lo mejor a balon parado (Wyscout, %HOY%)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- "%FICHERO%" "%TODAS%" "%ENLACES%" >> "%LOG%" 2>&1
   if errorlevel 1 (
     echo EL COMMIT HA FALLADO: no se publica. >> "%LOG%"
     set "CODIGO=4"

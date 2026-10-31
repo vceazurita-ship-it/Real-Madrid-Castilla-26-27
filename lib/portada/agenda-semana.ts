@@ -8,6 +8,8 @@
  * la quiniela, el día antes de su cierre (viernes 12:00).
  */
 
+export type Prioridad = "alta" | "media" | "baja";
+
 export type TareaAgenda = {
   id: string;
   texto: string;
@@ -19,9 +21,14 @@ export type TareaAgenda = {
   requiere?: string;
   /** Con la semana corta, la que se puede recortar. */
   recortable?: boolean;
+  /** Si no se dice, «media»; los envíos y lo que no espera, «alta». */
+  prioridad?: Prioridad;
 };
 
-export type DiaAgenda = { fecha: string; md: string; tareas: TareaAgenda[] };
+/** Qué se hace ese día: entrenar, librar o competir (31/10/2026). */
+export type TipoDia = "entreno" | "libre" | "partido";
+
+export type DiaAgenda = { fecha: string; md: string; tipo: TipoDia; tareas: TareaAgenda[] };
 
 const DIA = 86_400_000;
 
@@ -35,15 +42,21 @@ const T: Record<string, TareaAgenda> = {
   "abp-ultimo": { id: "abp-ultimo", texto: "Análisis del ABP del último partido", hecho: "Acciones etiquetadas y lectura a favor y en contra", href: "/setpieces", bloque: "partido" },
   individual: { id: "individual", texto: "Individual: análisis del partido", hecho: "Datos y vídeos de cada jugador", href: "/individual", bloque: "partido" },
   rendimiento: { id: "rendimiento", texto: "Individual: valoración del rendimiento", hecho: "Nota de cada jugador que participó", href: "/ratings", bloque: "partido", requiere: "individual", recortable: true },
-  "informe-post": { id: "informe-post", texto: "Enviar el informe de ABP del último partido", hecho: "Enviado al cuerpo técnico", href: "/abp-microciclo", bloque: "envio", requiere: "abp-ultimo" },
+  "informe-post": { id: "informe-post", texto: "Enviar el informe de ABP del último partido", hecho: "Enviado al cuerpo técnico", href: "/abp-microciclo", bloque: "envio", requiere: "abp-ultimo", prioridad: "alta" },
   "abp-rival": { id: "abp-rival", texto: "Análisis del ABP del rival", hecho: "Sus acciones a favor y en contra, con vídeo", href: "/scout-rival-abp", bloque: "rival" },
   "micro-entreno": { id: "micro-entreno", texto: "Definir el microciclo de entrenamientos", hecho: "Días, cargas y contenidos de la semana", href: "/microcycles", bloque: "semana" },
   "micro-abp": { id: "micro-abp", texto: "Definir el microciclo de ABP", hecho: "Aspectos, minutos y objetivo de cada tarea", href: "/abp-microciclo", bloque: "semana", requiere: "abp-rival" },
   "once-rival": { id: "once-rival", texto: "Posible once y clips individuales del rival", hecho: "Once probable y clips de los peligrosos", href: "/rivals", bloque: "rival" },
-  plan: { id: "plan", texto: "Plan de partido", hecho: "Tres claves por fase, dónde hacerles daño y clips enlazados, compartido", href: "/match-plans", bloque: "rival", requiere: "once-rival" },
-  pizarra: { id: "pizarra", texto: "Crear la pizarra de ABP del partido", hecho: "Rutinas ofensivas y defensivas con marcas por dorsal", href: "/abp-pizarra", bloque: "rival", requiere: "micro-abp" },
-  "informe-previa": { id: "informe-previa", texto: "Enviar el informe de ABP del próximo partido", hecho: "PDF por jugador y vídeo enviados", href: "/abp-pizarra", bloque: "envio", requiere: "pizarra" },
+  plan: { id: "plan", texto: "Plan de partido", hecho: "Tres claves por fase, dónde hacerles daño y clips enlazados, compartido", href: "/match-plans", bloque: "rival", requiere: "once-rival", prioridad: "alta" },
+  pizarra: { id: "pizarra", texto: "Crear la pizarra de ABP del partido", hecho: "Rutinas ofensivas y defensivas con marcas por dorsal", href: "/abp-pizarra", bloque: "rival", requiere: "micro-abp", prioridad: "alta" },
+  "informe-previa": { id: "informe-previa", texto: "Enviar el informe de ABP del próximo partido", hecho: "PDF por jugador y vídeo enviados", href: "/abp-pizarra", bloque: "envio", requiere: "pizarra", prioridad: "alta" },
 };
+
+/* El día de partido (31/10/2026): se prepara lo del día y se graba para el post. */
+const DIA_DE_PARTIDO: TareaAgenda[] = [
+  { id: "preparacion", texto: "Preparación del día de partido", hecho: "Once en la pizarra, recursos del vestuario y material del banquillo listos", href: "/match-preparation", bloque: "partido", prioridad: "alta" },
+  { id: "coding-directo", texto: "Grabar y marcar el partido", hecho: "Partido grabado y las acciones clave marcadas para el post", href: "/coding", bloque: "partido" },
+];
 
 /*
 | Revisado por el experto de fútbol (28/10/2026): el ABP del rival antes de
@@ -81,7 +94,19 @@ const antes = (mananaSesion: boolean): TareaAgenda[] =>
  * sesión se detalla la víspera. Con la semana corta, las tareas se reparten
  * por grupos en orden de dependencia y lo recortable queda marcado.
  */
-export function agendaSemana(anterior: string | null, proximo: string, quinielaCierre?: string | null): DiaAgenda[] {
+export function agendaSemana(
+  anterior: string | null,
+  proximo: string,
+  quinielaCierre?: string | null,
+  /*
+  | Lo que dice el microciclo (31/10/2026): los días con sesión en la hoja de
+  | registro de tareas. Hasta el último día que el micro tiene escrito, un día
+  | sin sesión es libre; después (o sin micro todavía), se supone la semana de
+  | siempre: se entrena del MD+2 al MD-1. Con `conPartido`, el día del
+  | partido entra también, con su preparación.
+  */
+  opciones: { sesiones?: Set<string> | null; conPartido?: boolean } = {},
+): DiaAgenda[] {
   const p = diaDe(proximo);
 
   const a = anterior ? diaDe(anterior) : p - 7 * DIA;
@@ -89,6 +114,23 @@ export function agendaSemana(anterior: string | null, proximo: string, quinielaC
   const n = Math.round((p - a) / DIA) - 1;
 
   if (n <= 0) return [];
+
+  const fechaDe = (desde: number) => iso(a + desde * DIA);
+
+  const escritas = [...(opciones.sesiones ?? [])].filter((f) => f > iso(a) && f < iso(p)).sort();
+
+  const ultimaEscrita = escritas[escritas.length - 1] ?? "";
+
+  /* ¿Se entrena el día `desde` (1 = MD+1)? */
+  const entrena = (desde: number) => {
+    if (desde > n) return false;
+
+    const fecha = fechaDe(desde);
+
+    if (ultimaEscrita && fecha <= ultimaEscrita) return Boolean(opciones.sesiones?.has(fecha));
+
+    return desde >= 2;
+  };
 
   /* Partido en sábado tras uno en domingo = 5 días: semana normal. Corta es de 4 o menos. */
   const corta = n < 5;
@@ -108,18 +150,23 @@ export function agendaSemana(anterior: string | null, proximo: string, quinielaC
     /* Lo de grupos que no tuvieron día (semana de 2-3 días) cae en el último. */
     const tareas = fijas.map((id) => ({ ...T[id], recortable: corta ? T[id].recortable : undefined }));
 
+    const hoyEntrena = entrena(desde);
+
     dias.push({
-      fecha: iso(a + desde * DIA),
+      fecha: fechaDe(desde),
       md: desde <= 2 && desde < hasta ? `MD+${desde}` : `MD-${hasta}`,
-      tareas: [...antes(hasta >= 2 && desde + 1 >= 2), ...tareas, ...despues(desde >= 2)],
+      tipo: hoyEntrena ? "entreno" : "libre",
+      tareas: [...antes(entrena(desde + 1)), ...tareas, ...despues(hoyEntrena)],
     });
   }
+
+  if (opciones.conPartido) dias.push({ fecha: iso(p), md: "MD", tipo: "partido", tareas: DIA_DE_PARTIDO.map((t) => ({ ...t })) });
 
   /* La quiniela, el día antes de su cierre si cae dentro de la semana; la última del día (no es del partido). */
   if (quinielaCierre) {
     const dia = iso(Date.parse(`${quinielaCierre.slice(0, 10)}T00:00:00Z`) - DIA);
 
-    dias.find((d) => d.fecha === dia)?.tareas.push({ id: "quiniela", texto: "Quiniela", hecho: "Apuesta hecha antes del cierre (viernes 12:00)", href: "/quiniela", bloque: "envio", ...(corta ? { recortable: true } : {}) });
+    dias.find((d) => d.fecha === dia)?.tareas.push({ id: "quiniela", texto: "Quiniela", hecho: "Apuesta hecha antes del cierre (viernes 12:00)", href: "/quiniela", bloque: "envio", prioridad: "baja", ...(corta ? { recortable: true } : {}) });
   }
 
   return dias;

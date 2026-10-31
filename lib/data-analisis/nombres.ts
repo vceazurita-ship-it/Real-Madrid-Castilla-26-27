@@ -61,6 +61,40 @@ export function mismoEquipo(uno: string, otro: string) {
   return largasA.some((p) => largasB.includes(p));
 }
 
+/*
+| EQUIVALENCIAS DE JUGADOR (31/10/2026)
+|
+| Nombres de otra fuente que no comparten nada con el de nuestra plantilla y
+| que, por tanto, ni el apellido ni la inicial pueden atar. Wyscout escribe a
+| Lamini como «L. Fati Joao» (su nombre completo) y la hoja JUGADORES sólo
+| «Lamini»: sin esta tabla, Data análisis, Individual, el once, Duelos, la
+| Comparativa y el resto lo dejaban sin fila de Wyscout.
+|
+| La clave va normalizada (minúsculas, sin acentos ni puntos) y el valor es el
+| nombre TAL COMO LO ESCRIBE la hoja JUGADORES. Para añadir otro, una línea.
+| Lo usan `casaNombre` (lib/data-analisis/once.ts) y los dos `mismoJugador`
+| (lib/fichajes.ts y lib/informe-partido/modelo.ts), que son por donde cruzan
+| todas las pantallas.
+*/
+const EQUIVALENCIAS_JUGADOR: Record<string, string> = {
+  "l fati joao": "Lamini",
+  "fati joao": "Lamini",
+  "l fati": "Lamini",
+  "lamini fati": "Lamini",
+  "lamini fati joao": "Lamini",
+};
+
+const claveJugador = (texto: string) =>
+  sinAcentos(String(texto ?? ""))
+    .replace(/[^a-z0-9ñ\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** El nombre de la plantilla para un nombre de otra fuente; si no hay equivalencia, el mismo. */
+export function nombreCanonico(nombre: string): string {
+  return EQUIVALENCIAS_JUGADOR[claveJugador(nombre)] ?? nombre;
+}
+
 /**
  * Lo mismo para personas.
  *
@@ -69,8 +103,8 @@ export function mismoEquipo(uno: string, otro: string) {
  * letras o más.
  */
 export function mismaPersona(uno: string, otro: string) {
-  const a = sinAcentos(uno).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
-  const b = sinAcentos(otro).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
+  const a = sinAcentos(nombreCanonico(uno)).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
+  const b = sinAcentos(nombreCanonico(otro)).replace(/[^a-z\s]/g, " ").split(/\s+/).filter(Boolean);
 
   if (a.length === 0 || b.length === 0) return false;
 
