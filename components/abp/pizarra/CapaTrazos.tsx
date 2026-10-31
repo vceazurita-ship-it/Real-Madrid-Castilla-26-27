@@ -306,6 +306,7 @@ export function MandosTrazo({
 export function BalonEnJuego({ x, y }: { x: number; y: number }) {
   return (
     <svg
+      data-balon
       className="absolute"
       width={44}
       height={44}

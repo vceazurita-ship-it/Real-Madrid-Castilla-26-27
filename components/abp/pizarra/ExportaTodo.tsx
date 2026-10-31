@@ -463,12 +463,15 @@ export function ExportaTodo({
     if (!trabajo || arrancados.has(trabajo.id)) return;
 
     arrancados.add(trabajo.id);
-    empezado.current = true;
-    /* Fuera del efecto: el primer paso ya cambia el estado. Sin limpieza: el cerrojo de arriba impide repetirlo. */
-    window.setTimeout(
-      () => void exporta(trabajo.conVideos, trabajo.soloVideos),
-      0,
-    );
+    /*
+      Fuera del efecto: el primer paso ya cambia el estado. Sin limpieza: el cerrojo de arriba impide repetirlo.
+      «empezado» se marca aquí y no en el efecto: si no, el de abajo veía «parado y sin tareas» en la misma
+      pasada y retiraba el encargo antes de empezar (31/10/2026: «Solo vídeos» fallaba entero).
+    */
+    window.setTimeout(() => {
+      empezado.current = true;
+      void exporta(trabajo.conVideos, trabajo.soloVideos);
+    }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trabajo]);
 

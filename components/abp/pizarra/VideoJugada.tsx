@@ -44,8 +44,85 @@ const DESTINOS: Record<Destino, { ancho: number; alto: number; caudal: number; t
 const SALIDA_S = 2.5;
 const MOVIMIENTO_S = 1.5;
 const PAUSA_S = 2.5;
-/** Fotos por fase en movimiento: el resto de fotogramas las repiten. */
+/**
+ * Fotos por fase en movimiento. Entre una y otra ya no se repite la foto
+ * (31/10/2026: «que los vídeos sean más fluidos»): las fichas y el balón van
+ * aparte, recortados, y se colocan en cada fotograma interpolando entre las
+ * dos fotos; el fondo (flechas que crecen, rivales, rótulos) se funde de una
+ * a otra. Así se mueven a 30 imágenes por segundo de verdad y no a saltos.
+ */
 const FOTOS_POR_FASE = 12;
+/** Lo que se mueve suelto por encima del fondo. */
+const MOVILES = "[data-ficha],[data-balon]";
+/** Margen del recorte, para llevarse la sombra. */
+const MARGEN_RECORTE = 16;
+
+type Caja = { x: number; y: number; w: number; h: number };
+type Toma = { imagen: HTMLImageElement; cajas: Map<string, Caja> };
+
+const claveMovil = (el: Element, i: number) =>
+  el.hasAttribute("data-balon") ? "balon" : `${el.getAttribute("data-player") ?? "ficha"}#${i}`;
+
+/** Dónde está cada ficha y el balón, en píxeles del tablero. */
+function cajasDe(nodo: HTMLElement): Map<string, Caja> {
+  const base = nodo.getBoundingClientRect();
+  const ex = TABLERO_W / (base.width || TABLERO_W);
+  const ey = TABLERO_H / (base.height || TABLERO_H);
+  const cajas = new Map<string, Caja>();
+
+  nodo.querySelectorAll(MOVILES).forEach((el, i) => {
+    const r = el.getBoundingClientRect();
+
+    if (!r.width || !r.height) return;
+
+    cajas.set(claveMovil(el, i), {
+      x: (r.left - base.left) * ex - MARGEN_RECORTE,
+      y: (r.top - base.top) * ey - MARGEN_RECORTE,
+      w: r.width * ex + MARGEN_RECORTE * 2,
+      h: r.height * ey + MARGEN_RECORTE * 2,
+    });
+  });
+
+  return cajas;
+}
+
+/** La ficha suelta: lo que cambia entre la foto con ella y la misma sin ella (con su sombra y sin el césped). */
+function recorta(lleno: HTMLImageElement, vacio: HTMLImageElement, caja: Caja): HTMLCanvasElement | null {
+  const w = Math.max(1, Math.ceil(caja.w));
+  const h = Math.max(1, Math.ceil(caja.h));
+  const pinta = (imagen: HTMLImageElement) => {
+    const lienzo = document.createElement("canvas");
+
+    lienzo.width = w;
+    lienzo.height = h;
+
+    const ctx = lienzo.getContext("2d", { willReadFrequently: true });
+
+    if (!ctx) return null;
+
+    ctx.drawImage(imagen, caja.x, caja.y, w, h, 0, 0, w, h);
+
+    return { lienzo, ctx };
+  };
+  const a = pinta(lleno);
+  const b = pinta(vacio);
+
+  if (!a || !b) return null;
+
+  const pa = a.ctx.getImageData(0, 0, w, h);
+  const pb = b.ctx.getImageData(0, 0, w, h).data;
+  const d = pa.data;
+
+  for (let i = 0; i < d.length; i += 4) {
+    const diferencia = Math.abs(d[i] - pb[i]) + Math.abs(d[i + 1] - pb[i + 1]) + Math.abs(d[i + 2] - pb[i + 2]);
+
+    d[i + 3] = Math.round(Math.min(1, Math.max(0, (diferencia - 10) / 40)) * 255);
+  }
+
+  a.ctx.putImageData(pa, 0, 0);
+
+  return a.lienzo;
+}
 
 const nada = () => () => undefined;
 
@@ -98,7 +175,7 @@ function cargaImagen(src: string) {
  * El fotograma vertical: la diapositiva entera de ancho, centrada, sobre ella
  * misma ampliada y desenfocada, con el título arriba.
  */
-function pintaVertical(ctx: CanvasRenderingContext2D, foto: HTMLImageElement, titulo: string) {
+function pintaVertical(ctx: CanvasRenderingContext2D, foto: HTMLImageElement | HTMLCanvasElement, titulo: string) {
   const { ancho, alto } = DESTINOS.vertical;
 
   ctx.save();
@@ -162,7 +239,8 @@ export async function grabaJugada({
       height: TABLERO_H,
       pixelRatio: 1,
       style: { margin: "0", transform: "none", transformOrigin: "top left" },
-      filter: (n: HTMLElement) => !(n instanceof HTMLElement) || !n.hasAttribute("data-export-hide"),
+      /* Element y no HTMLElement: el balón es un <svg> y también se aparta. */
+      filter: (n: HTMLElement) => !(n instanceof Element) || !n.hasAttribute("data-export-hide"),
     };
 
     /*
@@ -173,9 +251,31 @@ export async function grabaJugada({
     let caliente = false;
     let fontEmbedCSS: string | undefined;
 
-    const foto = async (valor: number) => {
+    const foto = async (valor: number) => (await toma(valor)).imagen;
+
+    /* La foto de un instante; con `aparta`, sin esas fichas (o el balón) y con dónde estaban. */
+    async function toma(valor: number, aparta?: Set<string>): Promise<Toma> {
       await pon(valor);
 
+      const apartados: Element[] = [];
+
+      if (aparta?.size) {
+        nodo.querySelectorAll(MOVILES).forEach((el, i) => {
+          if (aparta.has(claveMovil(el, i)) && !el.hasAttribute("data-export-hide")) {
+            el.setAttribute("data-export-hide", "");
+            apartados.push(el);
+          }
+        });
+      }
+
+      try {
+        return { imagen: await retrata(), cajas: aparta ? cajasDe(nodo) : new Map() };
+      } finally {
+        apartados.forEach((el) => el.removeAttribute("data-export-hide"));
+      }
+    }
+
+    async function retrata() {
       const inicio = performance.now();
 
       if (caliente) {
@@ -199,7 +299,7 @@ export async function grabaJugada({
       }
 
       return cargaImagen(dataUrl);
-    };
+    }
 
     const lienzo = document.createElement("canvas");
 
@@ -210,7 +310,7 @@ export async function grabaJugada({
 
     if (!ctx) throw new Error("El navegador no da un lienzo 2D");
 
-    const dibuja = (imagen: HTMLImageElement) => {
+    const dibuja = (imagen: HTMLImageElement | HTMLCanvasElement) => {
       ctx.fillStyle = COLORES.tinta;
       ctx.fillRect(0, 0, d.ancho, d.alto);
 
@@ -268,31 +368,88 @@ export async function grabaJugada({
     };
 
     /* El plan: salida quieta; cada fase, en movimiento y luego quieta. */
-    const total = 1 + nFases * (FOTOS_POR_FASE + 1);
+    const total = 1 + nFases * (FOTOS_POR_FASE + 2);
     let hechas = 0;
     const avanza = () => alAvance?.(++hechas / total);
 
-    dibuja(await foto(0));
+    /* El fotograma en movimiento se compone aquí, a la medida del tablero, y luego pasa al vídeo. */
+    const mezcla = document.createElement("canvas");
+
+    mezcla.width = TABLERO_W;
+    mezcla.height = TABLERO_H;
+
+    const mx = mezcla.getContext("2d");
+
+    if (!mx) throw new Error("El navegador no da un lienzo 2D");
+
+    let reposo = await foto(0);
+
+    dibuja(reposo);
     avanza();
     await emite(Math.round(SALIDA_S * FPS_LAMINA));
 
     let poster: string | null = null;
 
     for (let fase = 1; fase <= nFases; fase += 1) {
-      const porFoto = (MOVIMIENTO_S * FPS_LAMINA) / FOTOS_POR_FASE;
-      let emitidos = 0;
+      /* Las fichas sueltas, recortadas de la foto quieta contra la misma sin ellas. */
+      const primera = await toma(fase - 1, new Set(cajasDe(nodo).keys()));
+      const sueltas = new Map<string, HTMLCanvasElement>();
 
-      for (let k = 1; k <= FOTOS_POR_FASE; k += 1) {
-        dibuja(await foto(fase - 1 + k / FOTOS_POR_FASE));
-        avanza();
+      for (const [clave, caja] of primera.cajas) {
+        const recorte = recorta(reposo, primera.imagen, caja);
 
-        const hasta = Math.round(k * porFoto);
-
-        await emite(hasta - emitidos);
-        emitidos = hasta;
+        if (recorte) sueltas.set(clave, recorte);
       }
 
-      dibuja(await foto(fase));
+      avanza();
+
+      /* Lo que no está quieto al empezar (un balón que aparece) se queda en el fondo, como antes. */
+      const aparta = new Set(sueltas.keys());
+      const tomas: Toma[] = [primera];
+
+      for (let k = 1; k <= FOTOS_POR_FASE; k += 1) {
+        tomas.push(await toma(fase - 1 + k / FOTOS_POR_FASE, aparta));
+        avanza();
+      }
+
+      const porTramo = (MOVIMIENTO_S * FPS_LAMINA) / FOTOS_POR_FASE;
+
+      for (let k = 0; k < FOTOS_POR_FASE; k += 1) {
+        const a = tomas[k];
+        const b = tomas[k + 1];
+        const n = Math.round((k + 1) * porTramo) - Math.round(k * porTramo);
+
+        for (let j = 0; j < n; j += 1) {
+          const t = j / n;
+
+          mx.globalAlpha = 1;
+          mx.drawImage(a.imagen, 0, 0, TABLERO_W, TABLERO_H);
+
+          if (t > 0) {
+            mx.globalAlpha = t;
+            mx.drawImage(b.imagen, 0, 0, TABLERO_W, TABLERO_H);
+            mx.globalAlpha = 1;
+          }
+
+          for (const [clave, recorte] of sueltas) {
+            const ca = a.cajas.get(clave) ?? b.cajas.get(clave);
+            const cb = b.cajas.get(clave) ?? ca;
+
+            if (!ca || !cb) continue;
+
+            const cx = ca.x + ca.w / 2 + (cb.x + cb.w / 2 - (ca.x + ca.w / 2)) * t;
+            const cy = ca.y + ca.h / 2 + (cb.y + cb.h / 2 - (ca.y + ca.h / 2)) * t;
+
+            mx.drawImage(recorte, cx - recorte.width / 2, cy - recorte.height / 2);
+          }
+
+          dibuja(mezcla);
+          await emite(1);
+        }
+      }
+
+      reposo = await foto(fase);
+      dibuja(reposo);
       avanza();
       await emite(Math.round(PAUSA_S * FPS_LAMINA));
 
