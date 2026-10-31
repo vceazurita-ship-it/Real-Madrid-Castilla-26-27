@@ -24,6 +24,13 @@
 | Diseño (30/10/2026, tras verlo en pantalla): todo es cristal oscuro con
 | `siempre-oscuro` y fondos en línea. Con clases de Tailwind el modo día
 | volvía clara la columna y blancos los nombres sobre blanco.
+|
+| En vertical (tablet o teléfono de pie, 31/10/2026) la columna de 320 px se
+| comía el vídeo: en un teléfono le dejaba 70 px de ancho. De pie la lista es
+| una hoja que sube desde abajo y el vídeo se queda con la mitad de arriba
+| (la clase del <video> vive en app/coding/page.tsx). Tumbado, sigue siendo
+| la columna. Con el dedo, las flechas de ordenar se ven siempre y las teclas
+| (I, O) no se anuncian: no hay teclado.
 */
 
 import { useState } from "react";
@@ -92,7 +99,7 @@ function Mando({
       aria-label={titulo}
       onClick={onClick}
       disabled={disabled}
-      className={`grid place-items-center rounded-full text-white transition hover:scale-105 disabled:pointer-events-none disabled:opacity-30 ${grande ? "h-12 w-12" : "h-9 w-9 hover:bg-white/10"}`}
+      className={`grid place-items-center rounded-full text-white transition hover:scale-105 disabled:pointer-events-none disabled:opacity-30 ${grande ? "h-12 w-12" : "h-9 w-9 hover:bg-white/10 pointer-coarse:h-11 pointer-coarse:w-11"}`}
       style={grande ? { background: ORO, color: "#0B0F14", boxShadow: `0 0 24px ${ORO}66` } : undefined}
     >
       {children}
@@ -146,14 +153,14 @@ export function PanelPantallaCompleta({
       {/* ------------------------------------------------ LA MARCA */}
       {!pintando && (
         <div
-          className="absolute left-4 top-4 z-20 flex max-w-[62%] items-center gap-1 rounded-full p-1 backdrop-blur-md"
+          className="absolute left-4 top-4 z-20 flex max-w-[62%] items-center gap-1 rounded-full p-1 backdrop-blur-md max-sm:left-2 max-sm:top-2 portrait:max-w-[calc(100%-7.5rem)]"
           style={{ background: CRISTAL, border: BORDE, boxShadow: "0 10px 30px rgba(0,0,0,.45)" }}
         >
           <button
             type="button"
             onClick={marcado.alElegir}
             title="Elegir jugador y categoría"
-            className="inline-flex h-9 min-w-0 items-center gap-2 rounded-full px-3 text-xs font-semibold text-white transition hover:bg-white/10"
+            className="inline-flex h-9 min-w-0 items-center gap-2 rounded-full px-3 text-xs font-semibold text-white transition hover:bg-white/10 pointer-coarse:h-11"
           >
             <span
               aria-hidden
@@ -175,18 +182,19 @@ export function PanelPantallaCompleta({
                 type="button"
                 onClick={marcado.alFinal}
                 title="Marcar el final (O)"
-                className="inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold text-white transition hover:brightness-110"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold text-white transition hover:brightness-110 pointer-coarse:h-11 pointer-coarse:px-4"
                 style={{ background: "#DC2626" }}
               >
                 <Flag size={14} />
                 Final
-                <kbd className="rounded px-1 text-[10px]" style={{ background: "rgba(0,0,0,.25)" }}>O</kbd>
+                <kbd className="rounded px-1 text-[10px] pointer-coarse:hidden" style={{ background: "rgba(0,0,0,.25)" }}>O</kbd>
               </button>
               <button
                 type="button"
                 onClick={marcado.alCancelar}
                 title="Cancelar la marca"
-                className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/10"
+                aria-label="Cancelar la marca"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white transition hover:bg-white/10 pointer-coarse:h-11 pointer-coarse:w-11"
               >
                 <X size={15} />
               </button>
@@ -196,27 +204,33 @@ export function PanelPantallaCompleta({
               type="button"
               onClick={marcado.alInicio}
               title="Marcar el inicio (I)"
-              className="inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold text-white transition hover:brightness-110"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold text-white transition hover:brightness-110 pointer-coarse:h-11 pointer-coarse:px-4"
               style={{ background: "#059669" }}
             >
               <CircleDot size={14} />
               Inicio
-              <kbd className="rounded px-1 text-[10px]" style={{ background: "rgba(0,0,0,.25)" }}>I</kbd>
+              <kbd className="rounded px-1 text-[10px] pointer-coarse:hidden" style={{ background: "rgba(0,0,0,.25)" }}>I</kbd>
             </button>
           )}
         </div>
       )}
 
       {/* ------------------------------------------------ LOS MANDOS */}
+      {/* Tumbado, se centra en lo que deja la columna; de pie, la hoja va
+          debajo y los mandos se quedan justo encima de ella. */}
       <div
-        className="absolute bottom-5 z-20 flex items-center gap-1 rounded-full px-2 py-1.5 backdrop-blur-md"
-        style={{
-          left: "50%",
-          transform: `translateX(calc(-50% - ${desplaza}px))`,
-          background: CRISTAL,
-          border: BORDE,
-          boxShadow: "0 12px 34px rgba(0,0,0,.5)",
-        }}
+        className={`absolute bottom-5 z-20 flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full px-2 py-1.5 backdrop-blur-md [transform:translateX(-50%)] landscape:[transform:translateX(calc(-50%_-_var(--desplaza-panel)))] ${
+          abierto ? "portrait:bottom-[calc(45%+0.75rem)]" : "max-sm:bottom-3"
+        }`}
+        style={
+          {
+            left: "50%",
+            "--desplaza-panel": `${desplaza}px`,
+            background: CRISTAL,
+            border: BORDE,
+            boxShadow: "0 12px 34px rgba(0,0,0,.5)",
+          } as React.CSSProperties
+        }
       >
         <Mando titulo="Corte anterior" disabled={!anterior} onClick={() => anterior && alReproducir(anterior)}>
           <SkipBack size={17} />
@@ -250,18 +264,22 @@ export function PanelPantallaCompleta({
       {/* ------------------------------------------------ LA LISTA */}
       {abierto && (
         <aside
-          className="absolute bottom-0 right-0 top-0 z-20 flex flex-col"
-          style={{ width: ANCHO_PANEL_COMPLETA, background: "linear-gradient(180deg, #0E141C, #0A0E14)", borderLeft: BORDE }}
+          /* Tumbado: la columna de la derecha (ANCHO_PANEL_COMPLETA = 320).
+             De pie: una hoja que ocupa el 45 % de abajo. */
+          className="absolute bottom-0 right-0 top-0 z-20 flex flex-col landscape:w-[320px] portrait:left-0 portrait:top-auto portrait:h-[45%] portrait:rounded-t-2xl"
+          style={{ background: "linear-gradient(180deg, #0E141C, #0A0E14)", borderLeft: BORDE, borderTop: BORDE, boxShadow: "0 -12px 30px rgba(0,0,0,.45)" }}
           aria-label="Cortes"
         >
-          <div className="flex items-center gap-2 px-4 pb-3 pt-4 pr-28">
+          <div className="flex items-center gap-2 px-4 pb-3 pt-4 pr-28 portrait:pb-2 portrait:pr-4 portrait:pt-2">
             <button
               type="button"
               onClick={() => alAbrir(false)}
               title="Plegar la lista"
+              aria-label="Plegar la lista"
               className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white/60 transition hover:bg-white/10 hover:text-white"
             >
-              <PanelRightClose size={16} />
+              <PanelRightClose size={16} className="portrait:hidden" />
+              <ChevronDown size={18} className="landscape:hidden" />
             </button>
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[.22em]" style={{ color: ORO }}>
@@ -331,14 +349,18 @@ export function PanelPantallaCompleta({
                   </button>
 
                   {/* Ordenar: arrastrando por el asa, o con las flechas en una tablet. */}
-                  <span className="flex shrink-0 items-center opacity-0 transition group-hover:opacity-100 max-md:opacity-100">
-                    <span className="flex flex-col">
+                  {/* Con el dedo (tablet incluida, que es md o más) se ven
+                      siempre y van una al lado de otra, a 40 px: apiladas
+                      eran dos dianas de 17 px. El asa no sirve sin ratón. */}
+                  <span className="flex shrink-0 items-center opacity-0 transition group-hover:opacity-100 max-md:opacity-100 pointer-coarse:opacity-100">
+                    <span className="flex flex-col pointer-coarse:flex-row pointer-coarse:gap-1">
                       <button
                         type="button"
                         disabled={i === 0}
                         onClick={() => alMover(clip.id, clips[i - 1].id, "antes")}
                         title="Subir"
-                        className="rounded p-0.5 text-white/60 hover:text-white disabled:opacity-25"
+                        aria-label="Subir el corte"
+                        className="grid place-items-center rounded p-0.5 text-white/60 hover:text-white disabled:opacity-25 pointer-coarse:rounded-lg pointer-coarse:bg-white/5"
                       >
                         <ChevronUp size={13} />
                       </button>
@@ -347,12 +369,13 @@ export function PanelPantallaCompleta({
                         disabled={i === clips.length - 1}
                         onClick={() => alMover(clip.id, clips[i + 1].id, "despues")}
                         title="Bajar"
-                        className="rounded p-0.5 text-white/60 hover:text-white disabled:opacity-25"
+                        aria-label="Bajar el corte"
+                        className="grid place-items-center rounded p-0.5 text-white/60 hover:text-white disabled:opacity-25 pointer-coarse:rounded-lg pointer-coarse:bg-white/5"
                       >
                         <ChevronDown size={13} />
                       </button>
                     </span>
-                    <GripVertical size={15} className="cursor-grab text-white/40" aria-hidden />
+                    <GripVertical size={15} className="cursor-grab text-white/40 pointer-coarse:hidden" aria-hidden />
                   </span>
                 </li>
               );

@@ -256,3 +256,89 @@ export async function capturaNodo(nodo: HTMLElement, opciones: OpcionesCapturaNo
 
   throw new Error("La captura ha salido vacía");
 }
+
+/**
+ * La foto rápida para vídeo (31/10/2026): el nodo como imagen lista para
+ * `drawImage`, sin lienzo intermedio, sin JPEG y sin los respiros de
+ * `capturaNodo`. Va bien a partir del segundo fotograma, cuando las fotos ya
+ * están en la caché de `html-to-image`; con `fontEmbedCSS` hecho una vez no se
+ * vuelven a leer las hojas de estilo en cada fotograma. Antes, cada fotograma
+ * pasaba por todo eso y un vídeo de tres fases tardaba más de un minuto.
+ */
+export async function fotoRapida(nodo: HTMLElement, opciones: Options): Promise<HTMLImageElement> {
+  const { toSvg } = await import("html-to-image");
+  const { ancho, alto } = medidaDe(nodo, opciones);
+  const svg = await toSvg(nodo, { ...opciones, width: ancho, height: alto });
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const imagen = new Image();
+
+    imagen.onload = () => resolve(imagen);
+    imagen.onerror = () => reject(new Error("No se pudo leer la captura"));
+    imagen.decoding = "sync";
+    imagen.src = svg;
+  });
+
+  if (typeof img.decode === "function") await img.decode().catch(() => undefined);
+
+  return img;
+}
+
+/** Las fuentes incrustadas una sola vez, para pasarlas a cada `fotoRapida`. */
+export async function fuentesIncrustadas(nodo: HTMLElement, opciones: Options): Promise<string | undefined> {
+  try {
+    const { getFontEmbedCSS } = await import("html-to-image");
+
+    return await getFontEmbedCSS(nodo, opciones);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Aligera las imágenes de un nodo de fuera de pantalla antes de grabarlo
+ * (31/10/2026): cada fotograma de vídeo vuelve a meter todas las fotos en el
+ * SVG, y una foto de jugador o un campo en PNG de 600 kB pesan en cada uno.
+ * Se redibujan al tamaño al que se ven, en WebP (guarda la transparencia), y
+ * se cambia el `src` en el DOM: React no lo vuelve a tocar mientras la prop
+ * sea la misma. Sólo para nodos que se tiran después.
+ */
+export async function aligeraImagenes(nodo: HTMLElement, escala = 1.25) {
+  const imagenes = [...nodo.querySelectorAll<HTMLImageElement>("img")];
+
+  await Promise.all(
+    imagenes.map(async (img) => {
+      try {
+        if (!img.complete) await img.decode().catch(() => undefined);
+
+        const ancho = Math.round(img.clientWidth * escala);
+        const alto = Math.round(img.clientHeight * escala);
+
+        if (!ancho || !alto || img.src.startsWith("data:")) return;
+        if (img.naturalWidth <= ancho * 1.2 && img.naturalHeight <= alto * 1.2) return;
+
+        /* Se conserva la proporción de la foto: cabe en lo que se ve. */
+        const factor = Math.max(ancho / img.naturalWidth, alto / img.naturalHeight);
+        const lienzo = document.createElement("canvas");
+
+        lienzo.width = Math.max(1, Math.round(img.naturalWidth * factor));
+        lienzo.height = Math.max(1, Math.round(img.naturalHeight * factor));
+
+        const ctx = lienzo.getContext("2d");
+
+        if (!ctx) return;
+
+        ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+
+        const ligera = lienzo.toDataURL("image/webp", 0.9);
+
+        if (ligera.startsWith("data:image/webp")) {
+          img.src = ligera;
+          await img.decode().catch(() => undefined);
+        }
+      } catch {
+        /* Una foto de otro origen sin permiso no se puede leer: se queda como está. */
+      }
+    }),
+  );
+}

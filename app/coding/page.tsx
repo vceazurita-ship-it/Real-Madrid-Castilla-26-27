@@ -106,7 +106,7 @@ import {
   PizarraVideo,
   ReutilizaPizarra,
 } from "@/components/coding/PizarraVideo";
-import { ANCHO_PANEL_COMPLETA, PanelPantallaCompleta } from "@/components/coding/PanelPantallaCompleta";
+import { PanelPantallaCompleta } from "@/components/coding/PanelPantallaCompleta";
 import {
   SelectorFuente,
   type VideoElegido,
@@ -3799,7 +3799,9 @@ function Coding() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-8">
+          {/* `tactil-holgado`: en la tablet y el móvil cada botón mide al menos
+              40 px (regla en globals.css; con ratón no cambia nada). */}
+          <div className="tactil-holgado min-w-0 px-4 py-6 sm:px-6 lg:px-8">
             <AbpHeader
               area={
                 ambito === "rival"
@@ -4103,10 +4105,15 @@ function Coding() {
                   | de cortes, los marcadores y la matriz están debajo, y sin
                   | esto se pulsaba un corte sin ver qué se reproducía.
                   */
+                  /*
+                  | 31/10/2026: en el teléfono, de borde a borde. El margen de
+                  | la página le quitaba 32 px a un vídeo que ya va justo, y el
+                  | tamaño del visor no pinta nada en 390 px: manda el ancho.
+                  */
                   className={`relative mx-auto min-w-0 overflow-hidden border border-white/10 bg-black ${
                     enPantallaCompleta
                       ? "rounded-none border-0"
-                      : "rounded-2xl max-sm:sticky max-sm:top-0 max-sm:z-30 max-sm:shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
+                      : "rounded-2xl max-sm:sticky max-sm:top-0 max-sm:z-30 max-sm:-mx-4 max-sm:max-w-none! max-sm:rounded-none max-sm:border-x-0 max-sm:shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
                   }`}
                 >
                   {/*
@@ -4130,18 +4137,21 @@ function Coding() {
                   <video
                     ref={montaVideo}
                     src={src || undefined}
-                    className="aspect-video w-full bg-black"
                     /* A pantalla completa el vídeo ocupa todo el alto y
                        deja su ancho a la columna de cortes. La imagen va
                        centrada dentro con `contain`: la pizarra mide el
-                       rectángulo de imagen (useEncaje), así que no se despega. */
+                       rectángulo de imagen (useEncaje), así que no se despega.
+                       De pie (31/10/2026) la lista es una hoja abajo: el
+                       vídeo se queda con el 55 % de arriba y todo el ancho.
+                       Los 320 px son ANCHO_PANEL_COMPLETA. */
+                    className={`aspect-video w-full bg-black ${
+                      enPantallaCompleta && src
+                        ? `h-full ${panelCompleta ? "landscape:w-[calc(100%-320px)] portrait:h-[55%]" : ""}`
+                        : ""
+                    }`}
                     style={
                       enPantallaCompleta && src
-                        ? {
-                            width: panelCompleta ? `calc(100% - ${ANCHO_PANEL_COMPLETA}px)` : "100%",
-                            height: "100%",
-                            objectFit: "contain",
-                          }
+                        ? { objectFit: "contain" }
                         : undefined
                     }
                     preload="metadata"
@@ -4249,7 +4259,7 @@ function Coding() {
                       onPointerCancel={alSoltarTirador}
                       onDoubleClick={() => ponTamañoVisor(VISOR_MAXIMO)}
                       style={{ touchAction: "none" }}
-                      className="absolute bottom-1.5 right-1.5 z-20 flex h-7 w-7 cursor-nwse-resize items-center justify-center rounded-md border border-white/15 bg-black/60 text-white/60 opacity-60 backdrop-blur transition hover:opacity-100"
+                      className="absolute bottom-1.5 right-1.5 z-20 flex h-7 w-7 cursor-nwse-resize max-sm:hidden pointer-coarse:h-10 pointer-coarse:w-10 items-center justify-center rounded-md border border-white/15 bg-black/60 text-white/60 opacity-60 backdrop-blur transition hover:opacity-100"
                     >
                       <MoveDiagonal2 size={14} />
                     </button>
@@ -4260,7 +4270,7 @@ function Coding() {
                       type="button"
                       onClick={() => alternaPantalla()}
                       title="Volver al tamaño normal"
-                      className="absolute right-3 top-3 z-20 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/70 px-3 py-1.5 text-xs font-semibold text-white/85 backdrop-blur transition hover:bg-black/85"
+                      className="absolute right-3 top-3 z-20 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/70 px-3 py-1.5 text-xs font-semibold text-white/85 backdrop-blur transition hover:bg-black/85 pointer-coarse:min-h-10 pointer-coarse:px-4"
                     >
                       <Minimize2 size={14} />
                       Salir
@@ -4496,7 +4506,9 @@ function Coding() {
                     | EL TAMAÑO DEL VISOR. Cada uno lo deja como le va a su
                     | pantalla, y la próxima vez sigue así.
                     */}
-                    <span className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.04]">
+                    {/* En el teléfono el vídeo va siempre de borde a borde:
+                        el tamaño no se puede cambiar y el control sobra. */}
+                    <span className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.04] max-sm:hidden">
                       <button
                         type="button"
                         onClick={() => cambiaVisor(-VISOR_PASO)}

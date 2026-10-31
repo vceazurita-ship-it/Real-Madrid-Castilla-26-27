@@ -25,7 +25,7 @@ import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { COLORES, TABLERO_H, TABLERO_W, type SlidePizarra } from "@/lib/abp/pizarra";
 import { fasesDe } from "@/lib/abp/trazos";
 import { PIXEL_VACIO, descarga, esperaFotos, pintado } from "@/lib/export/lienzos";
-import { capturaNodo } from "@/lib/export/captura";
+import { aligeraImagenes, capturaNodo, fotoRapida, fuentesIncrustadas } from "@/lib/export/captura";
 import { FAMILIA_PORTADA, esperaFuentePortada } from "@/lib/rivals/portada-font";
 import { MuxorMp4 } from "@/lib/coding/mp4";
 import type { Bytes } from "@/lib/export/zip";
@@ -149,6 +149,7 @@ export async function grabaJugada({
     await esperaFuentePortada();
     await pintado();
     await esperaFotos(nodo);
+    await aligeraImagenes(nodo);
 
     const opciones = {
       backgroundColor: COLORES.tinta,
@@ -163,10 +164,38 @@ export async function grabaJugada({
       filter: (n: HTMLElement) => !(n instanceof HTMLElement) || !n.hasAttribute("data-export-hide"),
     };
 
+    /*
+      El primer fotograma, con la captura completa: deja las fotos en la caché.
+      Los demás, con la rápida y las fuentes hechas una vez (31/10/2026: el
+      vídeo tardaba más de un minuto por diapositiva).
+    */
+    let caliente = false;
+    let fontEmbedCSS: string | undefined;
+
     const foto = async (valor: number) => {
       await pon(valor);
 
+      const inicio = performance.now();
+
+      if (caliente) {
+        try {
+          const imagen = await fotoRapida(nodo, { ...opciones, fontEmbedCSS });
+
+          /* Lo que cuesta cada fotograma, para medirlo desde fuera. */
+          performance.measure("abp-video-foto", { start: inicio });
+
+          return imagen;
+        } catch {
+          /* Si la rápida falla, la de siempre. */
+        }
+      }
+
       const { dataUrl } = await capturaNodo(nodo, opciones);
+
+      if (!caliente) {
+        fontEmbedCSS = await fuentesIncrustadas(nodo, opciones);
+        caliente = true;
+      }
 
       return cargaImagen(dataUrl);
     };
@@ -181,6 +210,9 @@ export async function grabaJugada({
     if (!ctx) throw new Error("El navegador no da un lienzo 2D");
 
     const dibuja = (imagen: HTMLImageElement) => {
+      ctx.fillStyle = COLORES.tinta;
+      ctx.fillRect(0, 0, d.ancho, d.alto);
+
       if (destino === "vertical") pintaVertical(ctx, imagen, titulo);
       else ctx.drawImage(imagen, 0, 0, d.ancho, d.alto);
     };

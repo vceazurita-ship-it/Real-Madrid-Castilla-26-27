@@ -1891,3 +1891,37 @@ scrollbar-width:none;
     padding-bottom: 3.25rem;
   }
 }
+
+/*
+| BOTONES PARA EL DEDO EN LOS DOS CODING (31/10/2026)
+|
+| El coding de partido y el del ABP del rival se usan en la tablet y en el
+| banquillo, y la mitad de sus mandos medían 20-28 px: con el dedo se pulsaba
+| el de al lado. Dentro de `.tactil-holgado`, y sólo con un puntero grueso
+| (pantalla táctil como puntero principal), todo botón mide al menos 40 px.
+| En el ordenador no cambia nada: `pointer: coarse` no casa con ratón.
+|
+| Se dejan fuera los `absolute` —las marcas de la línea de tiempo, los
+| tiradores y lo que flota sobre el vídeo, que se miden a mano— y lo que
+| lleve `tactil-libre`. Va sin capa, así que gana a las utilidades de Tailwind.
+*/
+@media (pointer: coarse) {
+  .tactil-holgado button:not(.absolute):not(.tactil-libre),
+  .tactil-holgado select:not(.tactil-libre) {
+    min-height: 40px;
+  }
+
+  .tactil-holgado button:not(.absolute):not(.tactil-libre) {
+    min-width: 40px;
+  }
+
+  /* El deslizador nativo es una raya de 4 px: con el dedo no se coge. */
+  .tactil-holgado input[type="range"] {
+    min-height: 32px;
+  }
+
+  .tactil-holgado input[type="color"] {
+    min-height: 32px;
+    min-width: 32px;
+  }
+}

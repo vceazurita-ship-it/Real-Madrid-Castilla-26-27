@@ -199,7 +199,7 @@ export function BarraMarcado({
           type="button"
           disabled={!listo}
           onClick={abierta ? onFinal : onInicio}
-          className={`flex min-h-14min-w-0 flex-1 items-center justify-center gap-3 rounded-xl px-4 text-base font-semibold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 ${
+          className={`flex min-h-14 min-w-0 flex-1 items-center justify-center gap-3 rounded-xl px-4 text-base font-semibold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 ${
             abierta
               ? "bg-[#34D399] text-black hover:bg-[#4ee0ac]"
               : "bg-[#C8A96B] text-black hover:bg-[#d8ba7c]"

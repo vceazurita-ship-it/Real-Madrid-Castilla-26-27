@@ -291,8 +291,14 @@ function GrupoBarra({
   const ficha = HERRAMIENTAS.find((una) => una.tipo === visible);
   const Icono = ICONOS[visible];
 
+  /*
+  | Con el dedo (31/10/2026) el desplegable no cuelga del botón sino de lo alto
+  | de la barra (por eso el `static`), con tope de alto y desplazable: a 40 px
+  | por fila, un grupo de siete herramientas abierto desde el último botón se
+  | salía por debajo del vídeo y las de abajo no se podían tocar.
+  */
   return (
-    <div className="relative">
+    <div className="relative pointer-coarse:static max-sm:static">
       <button
         type="button"
         title={`${nombre} · ${ficha?.nombre ?? ""} (${(ficha?.tecla ?? "").toUpperCase()}) · ${ficha?.ayuda ?? ""}`}
@@ -322,7 +328,7 @@ function GrupoBarra({
       </button>
 
       {abierto && (
-        <div className="absolute left-full top-0 z-10 ml-2 w-52 rounded-xl border border-white/10 bg-[#0B0F14]/[0.96] p-1 shadow-xl backdrop-blur">
+        <div className="absolute left-full top-0 z-10 ml-2 w-52 overscroll-contain rounded-xl border border-white/10 bg-[#0B0F14]/[0.96] p-1 shadow-xl backdrop-blur pointer-coarse:max-h-[min(22rem,calc(100dvh-2rem))] pointer-coarse:overflow-y-auto max-sm:max-h-44 max-sm:overflow-y-auto">
           <p className="px-2 pb-1 pt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/35">
             {nombre}
           </p>
@@ -350,7 +356,7 @@ function GrupoBarra({
               >
                 <IconoUna size={14} />
                 <span className="min-w-0 flex-1 truncate">{una.nombre}</span>
-                <kbd className="rounded border border-white/15 px-1 font-mono text-[10px] text-white/45">
+                <kbd className="rounded border border-white/15 px-1 font-mono text-[10px] text-white/45 pointer-coarse:hidden">
                   {una.tecla.toUpperCase()}
                 </kbd>
               </button>
@@ -423,7 +429,7 @@ function Deslizador({
         step={paso}
         value={valor}
         onChange={(evento) => onChange(Number(evento.target.value))}
-        className="h-1 w-14 cursor-pointer accent-[#C8A96B]"
+        className="h-1 w-14 cursor-pointer accent-[#C8A96B] pointer-coarse:w-28"
       />
 
       <span className="w-8 text-right font-mono text-[10px] tabular-nums text-white/50">
@@ -803,6 +809,10 @@ function EditorPizarra({
       : `dib-${Math.random().toString(36).slice(2, 10)}`;
 
   const alBajar = (evento: EventoPuntero<HTMLCanvasElement>) => {
+    /* Un segundo dedo (o la palma en la tablet) no dibuja: sólo manda el
+       primero que toca. */
+    if (!evento.isPrimary) return;
+
     evento.currentTarget.setPointerCapture(evento.pointerId);
 
     const punto = puntoDe(evento);
@@ -931,9 +941,17 @@ function EditorPizarra({
     if (formaDe(herramienta) === "muchos" && !esTrazoLibre(herramienta)) {
       const actual = borrador.current;
 
+      /*
+      | El vértice pinchado sustituye a la punta viva y se abre otra encima.
+      |
+      | Con ratón da lo mismo que añadirlo (la punta ya estaba donde se pincha),
+      | pero con el dedo no hay `pointermove` sin tocar: la punta se quedaba en
+      | el toque anterior y al cerrar se perdía el último vértice. El triángulo
+      | no se cerraba nunca con el dedo (31/10/2026).
+      */
       borrador.current =
         actual && actual.tipo === herramienta
-          ? { ...actual, puntos: [...actual.puntos, punto] }
+          ? { ...actual, puntos: [...actual.puntos.slice(0, -1), punto, punto] }
           : creaDibujo(herramienta, [punto, punto], ajustes, nuevoId());
 
       /* El triángulo y la rejilla se cierran solos al llegar a su número de
@@ -955,6 +973,8 @@ function EditorPizarra({
   };
 
   const alMover = (evento: EventoPuntero<HTMLCanvasElement>) => {
+    if (!evento.isPrimary) return;
+
     const punto = puntoDe(evento);
     const accion = arrastre.current;
     const enCurso = borrador.current;
@@ -1472,11 +1492,18 @@ function EditorPizarra({
         ref={lienzoRef}
         onPointerDown={alBajar}
         onPointerMove={alMover}
-        onPointerUp={alSoltar}
-        onPointerCancel={alSoltar}
+        onPointerUp={(evento) => {
+          if (evento.isPrimary) alSoltar();
+        }}
+        onPointerCancel={(evento) => {
+          if (evento.isPrimary) alSoltar();
+        }}
         onDoubleClick={alDobleClic}
         style={{ width: encaje.ancho, height: encaje.alto }}
-        className={`pointer-events-auto absolute left-0 top-0 touch-none ${
+        /* `touch-none`: el dedo pinta y no mueve la página. Sin selección ni
+           el menú de mantener pulsado del iPad, que salía al dejar el dedo
+           quieto al empezar una flecha. */
+        className={`pointer-events-auto absolute left-0 top-0 touch-none select-none [-webkit-touch-callout:none] ${
           herramienta === "mano" ? "cursor-pointer" : "cursor-crosshair"
         }`}
       />
@@ -1501,7 +1528,13 @@ function EditorPizarra({
         y despliega el resto a su derecha, con nombre y tecla. Las teclas van
         directas a cada herramienta, así que quien ya se las sabe no nota nada.
       */}
-      <div className="pointer-events-auto absolute left-2 top-1/2 flex -translate-y-1/2 flex-col gap-1 rounded-xl border border-white/10 bg-[#0B0F14]/92 p-1.5 backdrop-blur">
+      {/*
+        Y EN EL TELÉFONO, EN DOS COLUMNAS Y ARRIBA (31/10/2026).
+        De pie, el vídeo mide unos 220 px de alto, y seis botones de 40 px en
+        columna no caben: el último quedaba fuera. En dos columnas son tres
+        filas y la barra se pega arriba para no pisar los ajustes de abajo.
+      */}
+      <div className="pointer-events-auto absolute left-2 top-1/2 flex -translate-y-1/2 flex-col gap-1 rounded-xl border border-white/10 bg-[#0B0F14]/92 p-1.5 backdrop-blur max-sm:top-2 max-sm:grid max-sm:translate-y-0 max-sm:grid-cols-2">
         <BotonHerramienta
           activo={herramienta === "mano"}
           titulo="Elegir y mover (V)"
@@ -1512,7 +1545,7 @@ function EditorPizarra({
           }}
         />
 
-        <span className="my-0.5 h-px w-8 shrink-0 bg-white/10" />
+        <span className="my-0.5 h-px w-8 shrink-0 bg-white/10 max-sm:hidden pointer-coarse:w-10" />
 
         {GRUPOS_HERRAMIENTAS.map((grupo) => (
           <GrupoBarra
@@ -1530,12 +1563,14 @@ function EditorPizarra({
 
       {/* ------------------------------------------- la cabecera ----- */}
 
-      <div className="pointer-events-auto absolute right-2 top-2 flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#0B0F14]/92 px-2 py-1.5 backdrop-blur">
+      {/* En el teléfono no cabe en una fila junto a la barra de la izquierda:
+          se parte en dos renglones, pegados a la derecha. */}
+      <div className="pointer-events-auto absolute right-2 top-2 flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#0B0F14]/92 px-2 py-1.5 backdrop-blur max-sm:max-w-[calc(100%-7.5rem)] max-sm:flex-wrap max-sm:justify-end max-sm:gap-1 max-sm:px-1.5 max-sm:py-1">
         <span className="font-mono text-[11px] tabular-nums text-[#C8A96B]">
           {formateaMs(local.tMs)}
         </span>
 
-        <span className="h-3.5 w-px bg-white/10" />
+        <span className="h-3.5 w-px bg-white/10 max-sm:hidden" />
 
         <button
           type="button"
@@ -1604,7 +1639,7 @@ function EditorPizarra({
             <span
               role="alertdialog"
               aria-label="Confirmar quitar todos los dibujos"
-              className="absolute right-0 top-full z-10 mt-2 flex w-56 flex-col gap-2 rounded-xl border border-red-400/30 bg-[#0B0F14]/[0.96] p-2.5 text-[11px] text-white/80 shadow-xl backdrop-blur"
+              className="absolute right-0 top-full z-10 mt-2 flex w-56 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-xl border border-red-400/30 bg-[#0B0F14]/[0.96] p-2.5 text-[11px] text-white/80 shadow-xl backdrop-blur"
             >
               <span>
                 ¿Quitar {local.dibujos.length === 1 ? "el dibujo" : `los ${local.dibujos.length} dibujos`} de esta pizarra? Se puede deshacer.
@@ -1631,7 +1666,7 @@ function EditorPizarra({
           )}
         </span>
 
-        <span className="h-3.5 w-px bg-white/10" />
+        <span className="h-3.5 w-px bg-white/10 max-sm:hidden" />
 
         <button
           type="button"
@@ -1639,7 +1674,7 @@ function EditorPizarra({
             alCambiar(localRef.current);
             alSalir();
           }}
-          className="inline-flex items-center gap-1 rounded-lg bg-[#C8A96B] px-2 py-1 text-[11px] font-semibold text-black transition hover:bg-[#d8bc82]"
+          className="inline-flex items-center justify-center gap-1 rounded-lg bg-[#C8A96B] px-2 py-1 text-[11px] font-semibold text-black transition hover:bg-[#d8bc82] pointer-coarse:px-3"
         >
           <Check size={13} />
           Listo
@@ -1674,7 +1709,7 @@ function EditorPizarra({
                 los nueve de la paleta. */}
             <label
               title="Otro color"
-              className="relative h-5 w-5 cursor-pointer overflow-hidden rounded-md border border-white/20 hover:border-white/60"
+              className="relative h-5 w-5 cursor-pointer overflow-hidden rounded-md border border-white/20 hover:border-white/60 pointer-coarse:h-10 pointer-coarse:w-10"
               style={{
                 background:
                   "conic-gradient(#ef4444, #f59e0b, #22c55e, #22d3ee, #3b82f6, #a855f7, #ef4444)",
@@ -1708,6 +1743,28 @@ function EditorPizarra({
             paso={0.05}
             onChange={(valor) => ponAjuste({ opacidad: valor })}
           />
+
+          {/*
+            Cerrar el polígono sin teclado ni doble clic (31/10/2026). Con el
+            dedo no había forma: el doble toque no llega igual en todas las
+            tablets y el Intro no existe. Sólo para las que se cierran a mano
+            (las de vértices fijos, como el triángulo, se cierran solas).
+          */}
+          {!elegido &&
+            herramienta !== "mano" &&
+            formaDe(herramienta) === "muchos" &&
+            !esTrazoLibre(herramienta) &&
+            !verticesFijos(herramienta) && (
+              <button
+                type="button"
+                onClick={cierraPoligono}
+                title="Cerrar lo que se está dibujando punto a punto (Intro o doble clic)"
+                className="inline-flex items-center justify-center gap-1 rounded-lg border border-[#C8A96B]/60 bg-[#C8A96B]/15 px-2 py-1 text-[11px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/25"
+              >
+                <Check size={13} />
+                Terminar
+              </button>
+            )}
 
           {/* Cómo se usa lo que hay en la mano: con tantas herramientas, el
               «doble clic para terminar» no se adivina. */}
@@ -2378,7 +2435,9 @@ export function PizarraVideo({
             onClick={alPintar}
             /* A la izquierda del tirador de tamaño del vídeo, que va en la esquina:
                montados en el mismo sitio, el tirador tapaba la palabra. */
-            className="pointer-events-auto absolute bottom-3 right-11 inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-[#11161C]/85 px-3 py-1.5 text-[11px] font-medium text-white/80 backdrop-blur transition hover:border-[#C8A96B]/60 hover:text-white"
+            /* En el teléfono el tirador no está (el vídeo va de borde a borde),
+               y con el dedo el tirador mide 40 px: se aparta más. */
+            className="pointer-events-auto absolute bottom-3 right-11 inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-[#11161C]/85 px-3 py-1.5 text-[11px] font-medium text-white/80 backdrop-blur transition hover:border-[#C8A96B]/60 hover:text-white max-sm:bottom-2 max-sm:right-2 pointer-coarse:min-h-10 sm:pointer-coarse:right-14"
           >
             <PenTool size={13} />
             Pizarra

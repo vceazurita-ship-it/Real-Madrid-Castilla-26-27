@@ -528,6 +528,26 @@ export function CodingAbpRival({
     else void visor.current?.requestFullscreen?.().catch(() => toast.error("Este navegador no deja poner la pantalla completa"));
   };
 
+  /* Lo mismo que ←/→, «,»/«.» y N, para los botones de la tablet. */
+  const mueveVideo = (segundos: number) => {
+    const v = video.current;
+    if (v) v.currentTime = Math.max(0, v.currentTime + segundos);
+  };
+
+  const fotograma = (paso: number) => {
+    const v = video.current;
+    if (!v) return;
+    v.pause();
+    v.currentTime = Math.max(0, v.currentTime + paso / 25);
+  };
+
+  const irAlMomento = () => {
+    const v = video.current;
+    if (!v) return;
+    const m = estadoDe(idActual).marca;
+    v.currentTime = Math.max(0, m !== undefined ? m - 2 : (v.duration || 0) * 0.4);
+  };
+
   /* ------------------------------ teclado ------------------------------ */
 
   useEffect(() => {
@@ -954,7 +974,7 @@ export function CodingAbpRival({
     const activo = !hecho2 ? 2 : !hecho3 ? 3 : 0;
 
     return (
-      <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 pb-14 sm:p-6 md:pb-6">
+      <div className="tactil-holgado space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 pb-14 sm:p-6 md:pb-6">
         <div className="pr-12 md:pr-0">
           <h3 className="text-lg font-bold text-white">
             Carpeta de la jornada{nJornada ? ` · J${nJornada}` : ""}
@@ -1086,7 +1106,8 @@ export function CodingAbpRival({
   const pct = total ? Math.round((elegidos / total) * 1000) / 10 : 0;
 
   return (
-    <div className="space-y-4">
+    /* `tactil-holgado`: con el dedo, cada botón mide al menos 40 px (globals.css). */
+    <div className="tactil-holgado space-y-4">
       {/* Cabecera: carpeta, progreso y objetivo del 15 % */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
         <div className="min-w-0">
@@ -1095,7 +1116,7 @@ export function CodingAbpRival({
             {decididos}/{total} vistos · {elegidos} elegidos ({String(pct).replace(".", ",")} %) · orientativo ≈15 % (no obliga)
           </p>
         </div>
-        <div className="h-2 w-32 overflow-hidden rounded-full bg-white/10">
+        <div className="h-2 w-32 shrink-0 overflow-hidden rounded-full bg-white/10 max-sm:w-full">
           <div className="h-full bg-[#D8B45A]" style={{ width: `${total ? (decididos / total) * 100 : 0}%` }} />
         </div>
         <div className="flex flex-wrap gap-1">
@@ -1130,12 +1151,26 @@ export function CodingAbpRival({
           cambia={cambia}
         />
       ) : (
+        /*
+        | En la tablet y el móvil (31/10/2026). Por debajo de `xl` las tres
+        | columnas se apilaban con la cola PRIMERO: hasta 70 % de pantalla de
+        | números antes de llegar al vídeo. Ahora va el vídeo, al lado (desde
+        | `lg`) o debajo las etiquetas, y la cola al final, en rejilla. A
+        | pantalla completa y de pie, vídeo arriba y etiquetas abajo: la
+        | columna de 340 px dejaba el vídeo en un sello.
+        */
         <div
           ref={visor}
-          className={completa ? "grid h-screen grid-cols-[minmax(0,1fr)_340px] gap-4 overflow-hidden bg-[#0B0F14] p-4" : "grid gap-4 xl:grid-cols-[220px_minmax(0,1fr)_320px]"}
+          className={
+            completa
+              ? "grid h-screen gap-4 overflow-hidden bg-[#0B0F14] p-4 landscape:grid-cols-[minmax(0,1fr)_340px] portrait:grid-rows-[minmax(0,1.4fr)_minmax(0,1fr)] portrait:gap-2 portrait:p-2"
+              : "grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[220px_minmax(0,1fr)_320px]"
+          }
         >
           {/* Cola de la carpeta */}
-          <ol className={`${completa ? "hidden" : ""} max-h-[70vh] overflow-auto rounded-2xl border border-white/10 bg-white/[0.02] p-2 text-sm`}>
+          <ol
+            className={`${completa ? "hidden" : ""} order-3 max-h-[70vh] overflow-auto rounded-2xl border border-white/10 bg-white/[0.02] p-2 text-sm max-xl:grid max-xl:max-h-72 max-xl:grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] max-xl:gap-1 lg:max-xl:col-span-2 xl:order-none`}
+          >
             {lista.map((a, i) => {
               const e = estadoDe(idClip(carpeta, a.n));
               return (
@@ -1155,8 +1190,8 @@ export function CodingAbpRival({
           </ol>
 
           {/* El vídeo */}
-          <div className={`min-w-0 space-y-2 ${completa ? "overflow-auto" : ""}`}>
-            <div className="relative overflow-hidden rounded-2xl bg-black">
+          <div className={`order-1 min-w-0 space-y-2 xl:order-none ${completa ? "overflow-auto" : ""}`}>
+            <div className="relative overflow-hidden rounded-2xl bg-black max-sm:rounded-xl">
               {url && (
                 <video
                   key={url}
@@ -1168,7 +1203,11 @@ export function CodingAbpRival({
                   playsInline
                   controls={!editandoPizarra}
                   onError={() => setFallo("Este clip no se puede ver en el navegador (códec). Ábrelo fuera o expórtalo en H.264.")}
-                  className={completa ? "h-[calc(100vh-200px)] w-full object-contain" : "aspect-video w-full"}
+                  className={
+                    completa
+                      ? "h-[calc(100vh-200px)] w-full object-contain portrait:aspect-video portrait:h-auto portrait:max-h-[42vh]"
+                      : "aspect-video w-full"
+                  }
                 />
               )}
               {url && idActual && (
@@ -1197,8 +1236,9 @@ export function CodingAbpRival({
                 </div>
               )}
               {escribiendo && (
+                /* Con el dedo no hay Intro ni Esc a mano: Guardar y Cancelar a la vista. */
                 <form
-                  className="absolute inset-x-3 bottom-14"
+                  className="absolute inset-x-3 bottom-14 flex items-center gap-2 max-sm:bottom-3"
                   onSubmit={(e) => {
                     e.preventDefault();
                     cambia(idActual, { nota: nota.trim() });
@@ -1211,48 +1251,145 @@ export function CodingAbpRival({
                     onChange={(e) => setNota(e.target.value)}
                     onKeyDown={(e) => e.key === "Escape" && setEscribiendo(false)}
                     placeholder="Nota para el cuerpo técnico (Enter guarda, Esc cancela)"
-                    className="w-full rounded-lg border border-[#D8B45A]/60 bg-black/85 px-3 py-2 text-sm text-white outline-none"
+                    className="w-full min-w-0 flex-1 rounded-lg border border-[#D8B45A]/60 bg-black/85 px-3 py-2 text-sm text-white outline-none pointer-coarse:min-h-10"
                   />
+                  <button type="submit" className="hidden shrink-0 rounded-lg bg-[#D8B45A] px-3 text-sm font-bold text-[#0B0F14] pointer-coarse:inline-flex pointer-coarse:items-center">
+                    Guardar
+                  </button>
+                  <button type="button" onClick={() => setEscribiendo(false)} className="hidden shrink-0 rounded-lg border border-white/20 bg-black/85 px-3 text-sm text-white/80 pointer-coarse:inline-flex pointer-coarse:items-center">
+                    Cancelar
+                  </button>
                 </form>
               )}
             </div>
             {fallo && <p className="text-sm text-amber-300">{fallo}</p>}
             {est?.nota && <p className="text-sm text-white/85">Nota: {est.nota}</p>}
-            {est?.marca !== undefined && <p className="text-xs text-white/50">Momento clave en {String(est.marca).replace(".", ",")} s (N para ir)</p>}
+            {est?.marca !== undefined && <p className="text-xs text-white/50">Momento clave en {String(est.marca).replace(".", ",")} s<span className="pointer-coarse:hidden"> (N para ir)</span></p>}
 
             {/* Moverse sin teclado: clip a clip, de elegido en elegido y pantalla completa. */}
+            {/*
+            | Con el dedo (31/10/2026) la letra de cada atajo no se anuncia —no
+            | hay teclado— y la criba va primero y a lo ancho: en el teléfono
+            | «Me lo quedo» y «Descartar» se reparten la fila, que es lo que se
+            | pulsa ciento veinte veces por jornada.
+            */}
             <div className="flex flex-wrap gap-2 text-sm">
-              <button type="button" onClick={() => setIndice((i) => Math.max(0, i - 1))} disabled={indice <= 0} className="rounded-lg border border-white/15 px-3 py-1.5 text-white/80 disabled:opacity-40">
-                J · ← Anterior
+              <button type="button" onClick={() => setIndice((i) => Math.max(0, i - 1))} disabled={indice <= 0} className="rounded-lg border border-white/15 px-3 py-1.5 text-white/80 disabled:opacity-40 max-sm:flex-1">
+                <span className="pointer-coarse:hidden">J · </span>← Anterior
               </button>
-              <button type="button" onClick={() => setIndice((i) => Math.min(lista.length - 1, i + 1))} disabled={indice >= lista.length - 1} className="rounded-lg border border-white/15 px-3 py-1.5 text-white/80 disabled:opacity-40">
-                L · Siguiente →
+              <button type="button" onClick={() => setIndice((i) => Math.min(lista.length - 1, i + 1))} disabled={indice >= lista.length - 1} className="rounded-lg border border-white/15 px-3 py-1.5 text-white/80 disabled:opacity-40 max-sm:flex-1">
+                <span className="pointer-coarse:hidden">L · </span>Siguiente →
               </button>
-              <button type="button" onClick={siguienteElegido} className="rounded-lg border border-emerald-500/50 px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10">
-                E · Siguiente elegido →
+              <button type="button" onClick={siguienteElegido} className="rounded-lg border border-emerald-500/50 px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10 max-sm:flex-1">
+                <span className="pointer-coarse:hidden">E · </span>Siguiente elegido →
               </button>
-              <button type="button" onClick={alternaCompleta} className="ml-auto flex items-center gap-1.5 rounded-lg border border-[#D8B45A]/50 px-3 py-1.5 text-[#D8B45A] hover:bg-[#D8B45A]/10">
-                {completa ? <Minimize2 size={14} /> : <Maximize2 size={14} />} F · {completa ? "Salir de pantalla completa" : "Pantalla completa"}
+              <button type="button" onClick={alternaCompleta} className="ml-auto flex items-center justify-center gap-1.5 rounded-lg border border-[#D8B45A]/50 px-3 py-1.5 text-[#D8B45A] hover:bg-[#D8B45A]/10 max-sm:ml-0 max-sm:flex-1">
+                {completa ? <Minimize2 size={14} /> : <Maximize2 size={14} />} <span className="pointer-coarse:hidden">F · </span>
+                {completa ? "Salir de pantalla completa" : "Pantalla completa"}
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => decide("elegido")} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white">
-                K · Me lo quedo
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              <button type="button" onClick={() => decide("elegido")} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white max-sm:min-h-12">
+                <span className="pointer-coarse:hidden">K · </span>Me lo quedo
               </button>
-              <button type="button" onClick={() => decide("descartado")} className="rounded-lg bg-red-600/80 px-4 py-2 text-sm font-bold text-white">
-                D · Descartar
+              <button type="button" onClick={() => decide("descartado")} className="rounded-lg bg-red-600/80 px-4 py-2 text-sm font-bold text-white max-sm:min-h-12">
+                <span className="pointer-coarse:hidden">D · </span>Descartar
               </button>
               <button type="button" onClick={() => decide("pendiente")} className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/75">
-                S · Pendiente
+                <span className="pointer-coarse:hidden">S · </span>Pendiente
               </button>
               <button type="button" onClick={deshaz} className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/75">
-                Z · Deshacer
+                <span className="pointer-coarse:hidden">Z · </span>Deshacer
               </button>
             </div>
 
-            {/* Los atajos siempre a la vista; «?» abre la lista entera. */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs text-white/55">
+            {/*
+            | LO QUE SÓLO ERA TECLADO, EN BOTONES (31/10/2026).
+            | Saltos de 2 s y de fotograma, la velocidad, el 3× mientras se
+            | pulsa (el Tab mantenido), el momento clave (M y N) y la nota
+            | (Intro). Sólo con el dedo: con teclado ya están las teclas.
+            */}
+            <div className="hidden flex-wrap items-center gap-1.5 rounded-lg bg-white/[0.03] p-1.5 text-xs text-white/75 pointer-coarse:flex">
+              <button type="button" onClick={() => mueveVideo(-2)} disabled={!url} className="rounded-lg border border-white/15 px-2.5 disabled:opacity-40" aria-label="Dos segundos atrás">
+                −2 s
+              </button>
+              <button type="button" onClick={() => fotograma(-1)} disabled={!url} className="rounded-lg border border-white/15 px-2.5 disabled:opacity-40" aria-label="Un fotograma atrás">
+                ‹ Fot.
+              </button>
+              <button type="button" onClick={() => fotograma(1)} disabled={!url} className="rounded-lg border border-white/15 px-2.5 disabled:opacity-40" aria-label="Un fotograma adelante">
+                Fot. ›
+              </button>
+              <button type="button" onClick={() => mueveVideo(2)} disabled={!url} className="rounded-lg border border-white/15 px-2.5 disabled:opacity-40" aria-label="Dos segundos adelante">
+                +2 s
+              </button>
+              <button
+                type="button"
+                disabled={!url}
+                onPointerDown={() => {
+                  if (video.current) video.current.playbackRate = 3;
+                }}
+                onPointerUp={() => {
+                  if (video.current) video.current.playbackRate = velocidad;
+                }}
+                onPointerCancel={() => {
+                  if (video.current) video.current.playbackRate = velocidad;
+                }}
+                onPointerLeave={() => {
+                  if (video.current) video.current.playbackRate = velocidad;
+                }}
+                onContextMenu={(e) => e.preventDefault()}
+                className="touch-none select-none rounded-lg border border-white/15 px-2.5 disabled:opacity-40"
+                title="Mantén pulsado para verlo a 3×"
+              >
+                3× pulsando
+              </button>
+              <span className="inline-flex items-center rounded-lg border border-white/15 p-0.5" role="group" aria-label="Velocidad">
+                {VELOCIDADES.map((x) => (
+                  <button
+                    key={x}
+                    type="button"
+                    onClick={() => setVelocidad(x)}
+                    aria-pressed={velocidad === x}
+                    className={`rounded-md px-2 tabular-nums ${velocidad === x ? "bg-[#D8B45A] font-semibold text-[#0B0F14]" : "text-white/70"}`}
+                  >
+                    {String(x).replace(".", ",")}×
+                  </button>
+                ))}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const v = video.current;
+                  if (v) cambia(idActual, { marca: Math.round(v.currentTime * 10) / 10 });
+                }}
+                disabled={!url || !actual}
+                className="rounded-lg border border-[#D8B45A]/50 px-2.5 text-[#D8B45A] disabled:opacity-40"
+              >
+                Marcar momento clave
+              </button>
+              {est?.marca !== undefined && (
+                <button type="button" onClick={irAlMomento} className="rounded-lg border border-white/15 px-2.5">
+                  Ir al momento
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!actual) return;
+                  setNota(estadoDe(idActual).nota ?? "");
+                  setEscribiendo(true);
+                }}
+                disabled={!actual}
+                className="rounded-lg border border-white/15 px-2.5 disabled:opacity-40"
+              >
+                {est?.nota ? "Cambiar la nota" : "Escribir nota"}
+              </button>
+            </div>
+
+            {/* Los atajos siempre a la vista; «?» abre la lista entera. Con
+                el dedo no hay teclas que anunciar: la fila de arriba hace lo mismo. */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-white/[0.03] px-3 py-1.5 text-xs text-white/55 pointer-coarse:hidden">
               <Keyboard size={13} />
               {ATAJOS.slice(0, 8).map(([t, d]) => (
                 <span key={t}>
@@ -1275,7 +1412,7 @@ export function CodingAbpRival({
           </div>
 
           {/* Etiquetas de un toque */}
-          <div className={`${completa ? "overflow-auto" : ""} space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3`}>
+          <div className={`${completa ? "overflow-auto overscroll-contain" : ""} order-2 min-w-0 space-y-3 rounded-2xl border border-white/10 bg-white/[0.02] p-3 xl:order-none`}>
             {/* Dorsales: «saca el 11, remata el 5» (experto de fútbol). */}
             <div className="grid grid-cols-2 gap-2">
               {(["saca", "remata"] as const).map((campo) => (
@@ -1542,14 +1679,23 @@ function Revision({
               </div>
             ))}
           </div>
-          <div className="flex gap-2">
+          {/* `flex-wrap`: en el teléfono los tres no caben en una fila. El
+              sonido, que era sólo el Tab, también en un botón. */}
+          <div className="flex flex-wrap gap-2">
             <button type="button" onClick={aLaVez} className="rounded-lg bg-[#D8B45A] px-3 py-1.5 text-sm font-bold text-[#0B0F14]">
               Reproducir los dos desde su momento clave
+            </button>
+            <button
+              type="button"
+              onClick={() => setSonido((x) => (x === null ? 0 : x === 0 ? 1 : null))}
+              className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/75"
+            >
+              {sonido === null ? "Sin sonido" : `Sonido del ${sonido === 0 ? "primero" : "segundo"}`}
             </button>
             <button type="button" onClick={() => setComparar([])} className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-white/75">
               Cerrar comparación
             </button>
-            <span className="self-center text-xs text-white/50">Tab: sonido de uno, del otro o ninguno</span>
+            <span className="self-center text-xs text-white/50 pointer-coarse:hidden">Tab: sonido de uno, del otro o ninguno</span>
           </div>
         </div>
       )}
