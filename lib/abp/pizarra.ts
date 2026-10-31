@@ -1,3 +1,5 @@
+import { reescribeTextos } from "@/lib/abp/textos-jugadores";
+import type { Player } from "@/types/player";
 import { idVigente } from "@/lib/fichajes";
 import { BASES, JORNADA_DESDE_BASE, baseDe, rivalesDeBase, sitiosDeBase, trazosDeBase } from "./pizarra-base";
 import {
@@ -1370,13 +1372,27 @@ export function cambiaJugador(
   tablero: TableroPizarra,
   sale: string,
   entra: string,
-  opciones: { cuando: string; intercambia?: boolean },
+  opciones: {
+    cuando: string;
+    intercambia?: boolean;
+    /**
+     * Con los dos jugadores, su nombre también cambia en los textos de todas
+     * las diapositivas: consignas, señal, rutina, rótulos (31/10/2026).
+     */
+    nombres?: { sale: Player; entra: Player };
+  },
 ): TableroPizarra {
   if (!sale || !entra || sale === entra) return tablero;
 
   let tocado = false;
 
-  const slides = tablero.slides.map((slide) => {
+  const slides = tablero.slides.map((original) => {
+    const slide = opciones.nombres
+      ? reescribeTextos(original, opciones.nombres.sale, opciones.nombres.entra, opciones.intercambia)
+      : original;
+
+    if (slide !== original) tocado = true;
+
     const toca = slide.fichas.some(
       (ficha) =>
         ficha.playerId === sale || (opciones.intercambia && ficha.playerId === entra),

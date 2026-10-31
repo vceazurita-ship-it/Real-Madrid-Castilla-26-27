@@ -32,6 +32,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cargaCalendario } from "@/hooks/useCalendario";
+import { cambiaEnTextosDelTablero, mencionesFuera } from "@/lib/abp/textos-jugadores";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -1344,6 +1345,55 @@ export default function PizarraAbpPage() {
     return jugadoresDelTablero(tablero).filter((item) => !enOnce.has(item.playerId)).map((item) => item.playerId);
   }, [tablero, delOnce]);
 
+  /*
+  | Los textos que nombran a alguien fuera del once (31/10/2026): las consignas
+  | y los rótulos son texto libre y no cambiaban con las fichas.
+  */
+  const textosFuera = useMemo(() => {
+    if (!tablero || delOnce.length === 0) return [];
+    return mencionesFuera(tablero, players, new Set(delOnce));
+  }, [tablero, delOnce, players]);
+
+  /*
+  | «Poner el once en la pizarra»: cada uno de fuera, por uno del once que no
+  | esté aún en la pizarra y sea de su misma línea (portero, defensa, medio,
+  | delantero). Lo que no tiene pareja clara se queda para «Cambiarlos».
+  */
+  const parejasDelOnce = useMemo(() => {
+    if (!tablero || delOnce.length === 0) return [] as { sale: string; entra: string; soloTexto: boolean }[];
+
+    const enPizarra = new Set(jugadoresDelTablero(tablero).map((item) => item.playerId));
+    const libres = delOnce.filter((id) => !enPizarra.has(id));
+    const linea = (id: string) => {
+      const puesto = String(porId.get(id)?.posicion ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+      const numero = Number(puesto);
+
+      if (/portero/.test(puesto) || numero === 1 || numero === 13) return "portero";
+      if (/lateral|central|carrilero|defensa/.test(puesto) || [2, 3, 4, 5].includes(numero)) return "defensa";
+      if (/pivote|interior|medio|mediapunta|volante/.test(puesto) || [6, 8, 10].includes(numero)) return "medio";
+      if (/extremo|delantero|punta/.test(puesto) || [7, 9, 11].includes(numero)) return "delantero";
+
+      return "";
+    };
+    const salen = [
+      ...fueraDelOnce.map((sale) => ({ sale, soloTexto: false })),
+      ...textosFuera.filter((m) => !fueraDelOnce.includes(m.playerId)).map((m) => ({ sale: m.playerId, soloTexto: true })),
+    ];
+    const parejas: { sale: string; entra: string; soloTexto: boolean }[] = [];
+
+    for (const { sale, soloTexto } of salen) {
+      const suya = linea(sale);
+      const indice = libres.findIndex((id) => suya && linea(id) === suya);
+
+      if (indice < 0) continue;
+
+      parejas.push({ sale, entra: libres[indice], soloTexto });
+      libres.splice(indice, 1);
+    }
+
+    return parejas;
+  }, [tablero, delOnce, fueraDelOnce, textosFuera, porId]);
+
   /* --------------------------- PUESTOS ----------------------------- */
 
   const [editando, setEditando] = useState<string | null>(null);
@@ -1691,6 +1741,65 @@ export default function PizarraAbpPage() {
   */
   const [cambiando, setCambiando] = useState<{ sale: string | null } | null>(null);
 
+  /* Todas las parejas de una vez, fichas y textos, con una sola versión «antes» en el histórico. */
+  const poneElOnce = useCallback(() => {
+    if (!partido || !tablero || parejasDelOnce.length === 0) return;
+
+    const cuando = new Date().toISOString();
+    const nombre = (playerId: string) => porId.get(playerId)?.apodo || porId.get(playerId)?.nombre || playerId;
+
+    setStore((actual) => {
+      const base = tableroAlDia(actual, partido.id, partido.opponent);
+      let nuevo = tieneFichas(base.slides)
+        ? registraVersion(base, { cuando, motivo: "previa", etiqueta: "Antes de poner el once de la pizarra táctica" })
+        : base;
+      let memoria = normalizaMemoria(actual.memoria ?? {});
+
+      for (const { sale, entra, soloTexto } of parejasDelOnce) {
+        const sP = porId.get(sale);
+        const eP = porId.get(entra);
+
+        if (soloTexto) {
+          if (sP && eP) nuevo = cambiaEnTextosDelTablero(nuevo, sP, eP, cuando);
+          continue;
+        }
+
+        for (const puesto of puestosQueHereda(nuevo, sale)) memoria = aprende(memoria, puesto, entra, cuando);
+
+        nuevo = cambiaJugador(nuevo, sale, entra, { cuando, nombres: sP && eP ? { sale: sP, entra: eP } : undefined });
+      }
+
+      return { ...actual, memoria, tableros: { ...actual.tableros, [partido.id]: nuevo } };
+    });
+
+    toast.success(`El once de la pizarra táctica, puesto: ${parejasDelOnce.length} ${parejasDelOnce.length === 1 ? "cambio" : "cambios"}`, {
+      description: `${parejasDelOnce.map((par) => `${nombre(par.entra)} por ${nombre(par.sale)}${par.soloTexto ? " (en los textos)" : ""}`).join(" · ")}. Fichas y textos al día; lo anterior queda en el histórico.`,
+      duration: 9_000,
+    });
+  }, [partido, tablero, parejasDelOnce, porId, setStore, tableroAlDia]);
+
+  /* Un nombre de los textos por otro del once, sin tocar las fichas (31/10/2026). */
+  const cambiaEnTextos = useCallback(
+    (sale: string, entra: string) => {
+      const sP = porId.get(sale);
+      const eP = porId.get(entra);
+
+      if (!partido || !sP || !eP) return;
+
+      const cuando = new Date().toISOString();
+
+      setStore((actual) => {
+        const base = tableroAlDia(actual, partido.id, partido.opponent);
+        const conPrevia = registraVersion(base, { cuando, motivo: "previa", etiqueta: `Antes de cambiar en los textos a ${sP.apodo || sP.nombre} por ${eP.apodo || eP.nombre}` });
+
+        return { ...actual, tableros: { ...actual.tableros, [partido.id]: cambiaEnTextosDelTablero(conPrevia, sP, eP, cuando) } };
+      });
+
+      toast.success(`En los textos, ${eP.apodo || eP.nombre} por ${sP.apodo || sP.nombre}`, { description: "Lo anterior queda en el histórico." });
+    },
+    [partido, porId, setStore, tableroAlDia],
+  );
+
   const aplicaCambio = useCallback(
     (sale: string, entra: string, intercambia: boolean) => {
       if (!partido || !tablero) return;
@@ -1737,7 +1846,11 @@ export default function PizarraAbpPage() {
           memoria,
           tableros: {
             ...actual.tableros,
-            [partido.id]: cambiaJugador(conPrevia, sale, entra, { cuando, intercambia }),
+            [partido.id]: cambiaJugador(conPrevia, sale, entra, {
+              cuando,
+              intercambia,
+              nombres: porId.get(sale) && porId.get(entra) ? { sale: porId.get(sale)!, entra: porId.get(entra)! } : undefined,
+            }),
           },
         };
       });
@@ -2471,6 +2584,39 @@ export default function PizarraAbpPage() {
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:justify-end">
+                  {parejasDelOnce.length > 0 && (
+                    <Button
+                      icon={Repeat}
+                      tone="primary"
+                      onClick={poneElOnce}
+                      title={parejasDelOnce.map((par) => `${porId.get(par.entra)?.apodo || porId.get(par.entra)?.nombre} por ${porId.get(par.sale)?.apodo || porId.get(par.sale)?.nombre}`).join(" · ")}
+                    >
+                      Poner el once ({parejasDelOnce.length})
+                    </Button>
+                  )}
+                  {textosFuera
+                    .filter((m) => !fueraDelOnce.includes(m.playerId) && !parejasDelOnce.some((par) => par.sale === m.playerId))
+                    .map((m) => (
+                      <span key={m.playerId} className="inline-flex min-w-0 flex-wrap items-center gap-1.5 text-[12px] text-amber-200/90">
+                        <span>
+                          Los textos de {m.slides.map((i) => tituloVisible(tablero?.slides ?? [], i)).join(", ")} nombran a{" "}
+                          <b className="font-semibold">{porId.get(m.playerId)?.apodo || porId.get(m.playerId)?.nombre}</b>, fuera del once:
+                        </span>
+                        <select
+                          aria-label={`Cambiar en los textos a ${porId.get(m.playerId)?.apodo || porId.get(m.playerId)?.nombre}`}
+                          value=""
+                          onChange={(evento) => evento.target.value && cambiaEnTextos(m.playerId, evento.target.value)}
+                          className="h-8 rounded-lg border border-white/15 bg-[#11161C] px-2 text-[12px] text-white"
+                        >
+                          <option value="">Cambiar por…</option>
+                          {delOnce.map((id) => (
+                            <option key={id} value={id}>
+                              {porId.get(id)?.apodo || porId.get(id)?.nombre || id}
+                            </option>
+                          ))}
+                        </select>
+                      </span>
+                    ))}
                   {fueraDelOnce.length > 0 && (
                     <>
                       <span className="min-w-0 text-[12px] text-amber-200/90">
