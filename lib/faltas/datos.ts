@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-10-26
+ * Generado: 2026-11-01
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -1981,6 +1981,350 @@ export const PARTIDOS: PartidoFaltas[] = [
         "nota": "T2 min 93. Raúl Rubio derriba a Fati Joao en un duelo aéreo tras un saque largo del portero del Algeciras, junto al círculo central y apenas en campo del Castilla (min 93). Fati queda en el suelo y el saque no se ve en el corte. En la táctica se ven 9 de campo del Algeciras por delante del balón, pero el portero queda fuera de imagen.",
         "minuto": "90+2'08\" (táctica 94:48)",
         "jugador": "Fati Joao"
+      }
+    ]
+  },
+  {
+    "jornada": "J10",
+    "rival": "FC Cartagena",
+    "local": true,
+    "fecha": "2026-10-31",
+    "resultado": "2-0",
+    "clips": "Hudl · Castilla · «2026-10-31 Real Madrid Castilla - Cartagena 2 - 0» (timeline de Sportscode) y la cámara táctica J 10 - CASTILLA - CARTAGENA.mov",
+    "notas": [
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se mira después en la retransmisión y en la cámara táctica del club: zona, carril, distancia, defensores y la nota salen de la imagen.",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
+    ],
+    "id": "j10-cartagena",
+    "faltas": [
+      {
+        "clip": "of-c01",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 11,
+        "nota": "T1 min 3. Minuto 3, Ibán Ribeiro derriba a Fortea junto a la banda derecha a la altura del medio campo tras una recuperación del Castilla. Joan la saca en corto para seguir la posesión, con todo el FC Cartagena por delante del balón.",
+        "minuto": "2'54\" (táctica 3:02)",
+        "jugador": "Jesús Fortea"
+      },
+      {
+        "clip": "of-c02",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "T1 min 8. Minuto 8, Baz derriba a Carvajal pegado a la banda derecha unos 20 m dentro del campo del FC Cartagena (Hudl la daba en medio campo). El Castilla coloca el balón para sacarla junto a la banda y el saque no llega a verse en las imágenes.",
+        "minuto": "7'20\" (táctica 7:28)",
+        "jugador": "Ángel Carvajal"
+      },
+      {
+        "clip": "of-c03",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "T1 min 11. Minuto 11, Nacho Martínez derriba a Cestero en el carril izquierdo justo antes de la línea de medio campo, en una pérdida del FC Cartagena. Se saca rápido y en corto (Leiva y Cestero) para seguir la posesión por la izquierda.",
+        "minuto": "10'26\" (táctica 10:34)",
+        "jugador": "Jorge Cestero"
+      },
+      {
+        "clip": "of-c04",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "T1 min 11. Minuto 11, Adrián Corral derriba a Fortea pegado a la banda derecha sobre la línea de medio campo y el juego se para unos segundos con Fortea en el suelo. El Castilla la saca en corto y circula hacia la izquierda (Hudl anota justo después el 1-0 de Fortuny, que no llega a verse en estas imágenes).",
+        "minuto": "10'57\" (táctica 11:04)",
+        "jugador": "Jesús Fortea"
+      },
+      {
+        "clip": "def-c01",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "T1 min 17. Carvajal derriba a Baz en la línea de medio campo, a media distancia de la banda de los banquillos (reloj 16:06). Jules la saca en corto y Rubén Serrano la devuelve al portero García, sin peligro.",
+        "minuto": "16'03\" (táctica 16:11)",
+        "jugador": "Ángel Carvajal"
+      },
+      {
+        "clip": "of-c05",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "T1 min 22. Minuto 22, Nacho Martínez derriba a Ciria junto a la banda izquierda en campo propio, entre el área del Castilla y el medio campo, cuando salía con el balón tras una recuperación. Aguado la saca en corto hacia Joan para reiniciar la salida.",
+        "minuto": "21'54\" (táctica 22:01)",
+        "jugador": "Alexis Ciria"
+      },
+      {
+        "clip": "def-c02",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T1 min 25. Sin TV (sólo táctica y ficha): Aguado derriba a Marcos Moreno tras la pérdida de Fortuny, unos 10 m dentro del campo del Cartagena pegado a su banda derecha. Se pone el balón para sacar en corto, sin peligro (Navarro fuera de plano en su portería, contado).",
+        "minuto": "24'53\" (táctica 25:01)",
+        "jugador": "Diego Aguado"
+      },
+      {
+        "clip": "def-c03",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "T1 min 26. Ciria derriba a Rubén Serrano cuando conducía, unos 7 m dentro de nuestro campo por el carril derecho del Cartagena (reloj 25:28). El Cartagena se prepara para sacar en corto, sin peligro inmediato.",
+        "minuto": "25'25\" (táctica 25:32)",
+        "jugador": "Alexis Ciria"
+      },
+      {
+        "clip": "def-c04",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "T1 min 28. Tras el saque de puerta de García, Óscar Naasei entra en plancha a Ibán Ribeiro a unos 35 m de la portería del Cartagena, pegado a su banda derecha (reloj 27:10). Presión alta del Castilla cortada con falta, el Cartagena reanuda en corto desde su campo.",
+        "minuto": "27'08\" (táctica 27:16)",
+        "jugador": "Oscar Naasei"
+      },
+      {
+        "clip": "of-c06",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "T1 min 30. Sin imágenes de TV, sólo táctica y ficha. Tras un remate del FC Cartagena bloqueado por Roberto, Ribeiro comete falta sobre Aguado dentro del área del Castilla, que queda en el suelo junto al área pequeña y el juego se para con todo el Cartagena por delante salvo el infractor (el saque no se ve, el dron gira hacia el corrillo junto a la portería).",
+        "minuto": "29'53\" (táctica 30:06)",
+        "jugador": "Diego Aguado"
+      },
+      {
+        "clip": "def-c05",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "T1 min 36. Ciria encara por nuestra derecha y el árbitro le pita mano dentro del área del Cartagena, junto a la línea de fondo por su lado izquierdo (reloj 35:44, en la táctica nueva hacia s_01 abajo). Por delante del balón hacia su línea de fondo sólo están el portero García y el defensor que le cerraba por dentro (otros dos quedan a su altura y no se cuentan), y el Cartagena saca desde su área. Revisión final: el agente contó 2 aplicando la regla de falta lateral junto al área, pero la mano es junto a la línea de fondo del Cartagena (el equipo que saca) y entonces casi todo el Castilla queda entre el balón y su portería  no se ve a los 11, así que va como ?.",
+        "minuto": "35'43\" (táctica 35:03)",
+        "jugador": "Alexis Ciria"
+      },
+      {
+        "clip": "def-c06",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "T1 min 37. Tras un saque de banda de Fortea cerca del medio campo, Fortuny derriba a Baz junto a la banda de los banquillos, unos metros dentro de nuestro campo (min 37, en la táctica nueva hacia s_03 arriba, con Baz en el suelo). Con el Castilla volcado hacia el saque sólo quedan por detrás del balón Navarro y tres compañeros, y el Cartagena reanuda en corto.",
+        "minuto": "36'42\" (táctica 36:02)",
+        "jugador": "Pol Fortuny"
+      },
+      {
+        "clip": "of-c07",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "T1 min 38. Tras despejar el Castilla la falta colgada al área, Dacosta derriba a Ciria en la salida a la altura de la media luna, algo escorado a la derecha (37:44, en la táctica nueva hacia s_02 abajo), y ve amarilla. El Cartagena sólo tenía al portero y tres jugadores entre el balón y su portería (uno más en la otra banda a la misma altura, sin contar), Ciria se queda en el suelo, entran las asistencias y el Castilla reanuda en corto hacia Navarro.",
+        "minuto": "37'41\" (táctica 37:01)",
+        "jugador": "Alexis Ciria"
+      },
+      {
+        "clip": "def-c07",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T1 min 47. Leiva encara en la esquina del área del Cartagena y derriba a Nacho Martínez al pelear el balón (min 47, añadido de la 1ª parte, la falta se ve en la táctica hacia s_01, unos 6 s antes de lo esperado). La saca el portero García en largo desde el pico del área y el Castilla queda bien colocado (Leiva, a la altura del balón, no se cuenta).",
+        "minuto": "45+1'55\" (táctica 46:15)",
+        "jugador": "Álvaro Leiva"
+      },
+      {
+        "clip": "of-c08",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "T2 min 47. Tras sacar de banda Aguado en la izquierda, Jurado le derriba cerca de la línea de fondo, entre la banda y el lateral del área (46:07), y ve amarilla. Falta lateral junto al área con el Cartagena amontonado en su área, en la táctica los jugadores salen muy pequeños y pegados a la línea de fondo y no se distingue cuáles están más cerca de ella que el balón.",
+        "minuto": "46'05\" (táctica 51:19)",
+        "jugador": "Diego Aguado"
+      },
+      {
+        "clip": "of-c09",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "T2 min 51. Tras un saque largo de García, Nacho Martínez derriba a Cestero junto a la banda izquierda, en la línea de medio campo del lado del Castilla (50:12). El Cartagena tenía a cinco por detrás del balón (portero y cuatro en su campo) y el Castilla saca rápido en corto junto a la banda.",
+        "minuto": "50'11\" (táctica 55:24)",
+        "jugador": "Jorge Cestero"
+      },
+      {
+        "clip": "of-c10",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "T2 min 54. En la salida desde atrás tras saque de puerta, Joan filtra para Carvajal y Baz le derriba por detrás unos metros dentro del campo del Castilla, algo escorado a la derecha (53:57). Con nueve del Cartagena por delante del balón, Joan saca la falta y el Castilla sigue jugando en corto con Óscar.",
+        "minuto": "53'56\" (táctica 59:09)",
+        "jugador": "Ángel Carvajal"
+      },
+      {
+        "clip": "def-c08",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "T2 min 55. Sin TV (tramo de Hudl roto): sólo táctica y ficha. Tras un saque de banda de Aguado, Carvajal comete falta sobre Rubén Serrano en un duelo aéreo pegado a la banda de los banquillos, unos metros dentro de nuestro campo, y ve la amarilla. Nueve del Castilla más Navarro por detrás del balón.",
+        "minuto": "54'52\" (táctica 60:06)",
+        "jugador": "Ángel Carvajal"
+      },
+      {
+        "clip": "of-c11",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 11,
+        "nota": "T2 min 63. Minuto 63, en un córner del FC Cartagena Rubén Serrano derriba a Joan Martínez junto al área pequeña del Castilla y el árbitro pita falta en ataque. El Castilla la saca en corto desde su área y sale jugando.",
+        "minuto": "62'25\" (táctica 67:39)",
+        "jugador": "Joan Martínez"
+      },
+      {
+        "clip": "def-c09",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": 8,
+        "nota": "T2 min 65. Ciria frena a Marc Jurado junto a la banda de los banquillos, a unos 30 m de nuestra portería (min 65, falta pitada hacia 64:14 en la TV). Falta lateral para centrar con siete del Castilla más Navarro por detrás del balón y la línea montada en el borde del área.",
+        "minuto": "64'13\" (táctica 69:26)",
+        "jugador": "Alexis Ciria"
+      },
+      {
+        "clip": "of-c12",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "T2 min 66. Minuto 66, Baz derriba a Jesús Fortea justo fuera del área del Castilla por la derecha y ve la amarilla. En los 30 s de táctica aún no se saca (el árbitro está con la tarjeta).",
+        "minuto": "65'33\" (táctica 70:47)",
+        "jugador": "Jesús Fortea"
+      },
+      {
+        "clip": "def-c10",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "centro",
+        "distancia": "frontal",
+        "entre": 1,
+        "nota": "T2 min 69. Tras una pérdida de Naasei, Joan corta con falta la conducción de Marcos Moreno justo fuera del área, al lado del semicírculo y algo escorado a la derecha del Cartagena, y ve la amarilla (min 69, hacia 68:43 en la TV). Falta táctica con el Castilla desordenado: sólo Navarro por detrás del balón, Joan y otro compañero quedan a su altura.",
+        "minuto": "68'41\" (táctica 73:55)",
+        "jugador": "Joan Martínez"
+      },
+      {
+        "clip": "def-c11",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T2 min 78. Hacia el 78' (TV 77:49) Roberto Martín derriba a Ibán Ribeiro tras un balón dividido junto a la banda del banquillo, justo en campo del FC Cartagena pegado a la línea medular. Ribeiro queda en el suelo y el juego sigue parado en las imágenes, no se ve el saque.",
+        "minuto": "77'48\" (táctica 81:57)",
+        "jugador": "Roberto Martín"
+      },
+      {
+        "clip": "def-c12",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "T2 min 85. En el 85' (TV 84:10) Martínez comete falta sobre Dani Perejón pegado a la banda, a la altura del área del FC Cartagena, tras una presión del Castilla en campo rival. De Blasis la saca en corto hacia Hyjek, que conduce y recibe enseguida otra falta (def-c13).",
+        "minuto": "84'09\" (táctica 88:18)",
+        "jugador": "Martínez"
+      },
+      {
+        "clip": "def-c13",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T2 min 85. En el 85' (TV 84:24), segundos después de sacar la falta anterior, Roberto Martín corta con falta la conducción de Javier Hyjek en campo del FC Cartagena, a unos 15-20 m de la medular, y ve amarilla. El árbitro para el juego para la tarjeta, no se ve el saque.",
+        "minuto": "84'24\" (táctica 88:34)",
+        "jugador": "Roberto Martín"
+      },
+      {
+        "clip": "of-c13",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": 4,
+        "nota": "T2 min 87. Minuto 87, Dani Perejón derriba a Diego Aguado cuando conducía por la izquierda a unos 28 m de la portería del FC Cartagena y ve la amarilla. Falta lateral para el Castilla con el balón ya colocado.",
+        "minuto": "86'12\" (táctica 90:21)",
+        "jugador": "Diego Aguado"
+      },
+      {
+        "clip": "of-c14",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "T2 min 89. Minuto 89 (reloj 88:23), Marcelo Dos Santos derriba a Pol Fortuny unos 15 m pasado el medio campo por el carril izquierdo. Fortuny la saca en corto para Cestero y el Castilla sigue con la posesión.",
+        "minuto": "88'21\" (táctica 92:31)",
+        "jugador": "Pol Fortuny"
+      },
+      {
+        "clip": "of-c15",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "T2 min 89. Minuto 89 (reloj 88:34), 12 s después de la anterior, mano de Dani Perejón junto a la banda izquierda en campo del FC Cartagena cuando Aguado se le iba. Falta lejana pegada a la banda para el Castilla, con el balón colocado junto a la línea (el saque no se llega a ver).",
+        "minuto": "88'34\" (táctica 92:43)"
+      },
+      {
+        "clip": "def-c14",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "T2 min 91. En el 91' (TV 90:34) Pol Fortuny corta con falta a Javier Hyjek, que arrancaba en conducción desde el círculo central, ya unos metros en campo del Castilla. El árbitro deja seguir un instante, para el juego y le enseña amarilla a Fortuny, no se ve el saque.",
+        "minuto": "90+0'32\" (táctica 94:42)",
+        "jugador": "Pol Fortuny"
+      },
+      {
+        "clip": "def-c15",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "T2 min 95. En el 95' (TV 94:17) Aguado, presionando arriba, derriba a Dani Perejón junto a la banda cerca del córner del FC Cartagena (unos 10-15 m de su línea de fondo). Todo el Castilla salvo Aguado queda por detrás del balón, el saque no se ve en las imágenes.",
+        "minuto": "90+4'16\" (táctica 98:26)",
+        "jugador": "Diego Aguado"
       }
     ]
   }
