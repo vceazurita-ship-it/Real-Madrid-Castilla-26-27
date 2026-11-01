@@ -198,6 +198,9 @@ export default function OnceTitular({
   const empieza = (e: ReactPointerEvent<HTMLElement>, origen: Origen, texto: string) => {
     if (e.button !== 0) return;
 
+    /* Con el ratón, arrastrar no debe ir seleccionando el texto de la página por debajo. */
+    if (e.pointerType === "mouse") e.preventDefault();
+
     arrastre.current = { origen, x0: e.clientX, y0: e.clientY, activo: false, texto };
   };
 
