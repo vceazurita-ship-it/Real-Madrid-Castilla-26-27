@@ -22,19 +22,28 @@ import { toast } from "sonner";
 import type { Player } from "@/types/player";
 import { Button } from "@/components/abp/ui";
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
-import { COLORES, TABLERO_H, TABLERO_W, lineasConsignas, normalizaConsigna, type SlidePizarra } from "@/lib/abp/pizarra";
-import { fasesDe } from "@/lib/abp/trazos";
-import { PIXEL_VACIO, descarga, esperaFotos, pintado } from "@/lib/export/lienzos";
-import { aligeraImagenes, capturaNodo, fotoRapida, fuentesIncrustadas } from "@/lib/export/captura";
-import { FAMILIA_PORTADA, esperaFuentePortada } from "@/lib/rivals/portada-font";
-import { MuxorMp4 } from "@/lib/coding/mp4";
-import type { Bytes } from "@/lib/export/zip";
-import { codecLamina, FPS_LAMINA, puedeHacerVideo } from "@/lib/tactics/lamina";
-import { enMarcha, trabajoExportar } from "@/lib/abp/trabajo-exportar";
-import { claveVideo, fuentesDe, guardaVideo, hayVideo, huellaSlide, videoGuardado, type VideoHecho } from "@/lib/abp/cache-exportar";
+import { flushSync } from "react-dom";
 
-/** Sube cuando cambia el montaje (ritmo, rótulos): lo grabado antes no vale. */
-const MONTAJE_VIDEO = "ritmo-2";
+import { COLORES, TABLERO_W, lineasConsignas, normalizaConsigna, type SlidePizarra } from "@/lib/abp/pizarra";
+import { fasesDe } from "@/lib/abp/trazos";
+import { descarga, pintado } from "@/lib/export/lienzos";
+import { FAMILIA_PORTADA } from "@/lib/rivals/portada-font";
+import { FPS_LAMINA, puedeHacerVideo } from "@/lib/tactics/lamina";
+import { abreEmisor, montaJugada, ruedaMaterial, type MaterialJugada, type PideFoto, type Tiempos } from "@/lib/abp/rodaje-jugada";
+import { enMarcha, trabajoExportar } from "@/lib/abp/trabajo-exportar";
+import {
+  claveVideo,
+  guardaMaterial,
+  guardaVideo,
+  hayVideo,
+  huellaSlide,
+  materialGuardado,
+  videoGuardado,
+  type VideoHecho,
+} from "@/lib/abp/cache-exportar";
+
+/** Sube cuando cambia el montaje (ritmo, rótulos, calidad): lo grabado antes no vale. */
+const MONTAJE_VIDEO = "tv-1080-1";
 
 /** La clave del vídeo de una diapositiva para un destino: si no ha cambiado nada, no se vuelve a grabar. */
 export const claveDelVideo = (
@@ -43,6 +52,10 @@ export const claveDelVideo = (
   destino: Destino,
   contexto: { players: Map<string, Player>; temporada: string; rival: string },
 ) => `${claveVideo(huellaSlide(slide, titulo, contexto), destino)}|${MONTAJE_VIDEO}`;
+
+/** La del material fotografiado: vale para todos los destinos y para los vídeos de cada jugador. */
+export const claveMaterial = (slide: SlidePizarra, titulo: string, contexto: { players: Map<string, Player>; temporada: string; rival: string }) =>
+  `${huellaSlide(slide, titulo, contexto)}|${MONTAJE_VIDEO}`;
 
 /** Graba, o devuelve el que ya estaba hecho con la misma huella. */
 export async function videoDeLaJugada(clave: string, graba: () => Promise<VideoHecho>): Promise<VideoHecho & { deMemoria: boolean }> {
@@ -60,7 +73,12 @@ export async function videoDeLaJugada(clave: string, graba: () => Promise<VideoH
 export type Destino = "sala" | "whatsapp" | "vertical";
 
 const DESTINOS: Record<Destino, { ancho: number; alto: number; caudal: number; titulo: string; detalle: string; sufijo: string }> = {
-  sala: { ancho: 1920, alto: 1080, caudal: 6_000_000, titulo: "Para la sala", detalle: "1920 × 1080", sufijo: "" },
+  /*
+  | La sala y el .zip de «Exportar» (01/11/2026: «se verán en una TV HD de 40
+  | pulgadas»): 1920 × 1080 a 30 fps, la foto del tablero píxel a píxel y 12
+  | Mb/s (H.264 High si el navegador lo da, ver `codecLamina`).
+  */
+  sala: { ancho: 1920, alto: 1080, caudal: 12_000_000, titulo: "Para la sala o la tele", detalle: "1920 × 1080, 30 fps, calidad TV", sufijo: "" },
   /*
   | WhatsApp vuelve a comprimir todo lo que se manda como vídeo: con más caudal
   | de partida (3,5 Mb/s, antes 2,2) las caras y los dorsales llegan nítidos
@@ -81,7 +99,8 @@ const DESTINOS: Record<Destino, { ancho: number; alto: number; caudal: number; t
 | de la jugada no daba tiempo a leerla) y entre fases 1,3 s.
 */
 const SALIDA_S = 2;
-const MOVIMIENTO_S = 1.5;
+/* 01/11/2026: 1,5 → 2 s («poco fluidos»): con 20 fotos por fase las carreras se ven enteras. */
+const MOVIMIENTO_S = 2;
 const PAUSA_S = 1.3;
 const FINAL_S = 3;
 /** Cuánto se ve el rótulo de cada tramo («FASE 2 DE 3») antes de irse. */
@@ -91,91 +110,6 @@ const ROTULO_SALIDA_S = SALIDA_S - 0.2;
 /** La consigna principal en grande al final: desde cuándo y cuánto. */
 const CONSIGNA_DESDE_S = 0.5;
 const CONSIGNA_S = 2;
-/**
- * La primera foto de cada fase, un pelo DESPUÉS de su arranque: en el
- * instante exacto la cabecera de la diapositiva aún decía la fase anterior
- * mientras el rótulo grande ya anunciaba la nueva.
- */
-const ARRANQUE = 0.001;
-/**
- * Fotos por fase en movimiento. Entre una y otra ya no se repite la foto
- * (31/10/2026: «que los vídeos sean más fluidos»): las fichas y el balón van
- * aparte, recortados, y se colocan en cada fotograma interpolando entre las
- * dos fotos; el fondo (flechas que crecen, rivales, rótulos) se funde de una
- * a otra. Así se mueven a 30 imágenes por segundo de verdad y no a saltos.
- */
-const FOTOS_POR_FASE = 12;
-/** Lo que se mueve suelto por encima del fondo. */
-const MOVILES = "[data-ficha],[data-balon]";
-/** Margen del recorte, para llevarse la sombra. */
-const MARGEN_RECORTE = 16;
-
-type Caja = { x: number; y: number; w: number; h: number };
-type Toma = { imagen: HTMLImageElement; cajas: Map<string, Caja> };
-
-const claveMovil = (el: Element, i: number) =>
-  el.hasAttribute("data-balon") ? "balon" : `${el.getAttribute("data-player") ?? "ficha"}#${i}`;
-
-/** Dónde está cada ficha y el balón, en píxeles del tablero. */
-function cajasDe(nodo: HTMLElement): Map<string, Caja> {
-  const base = nodo.getBoundingClientRect();
-  const ex = TABLERO_W / (base.width || TABLERO_W);
-  const ey = TABLERO_H / (base.height || TABLERO_H);
-  const cajas = new Map<string, Caja>();
-
-  nodo.querySelectorAll(MOVILES).forEach((el, i) => {
-    const r = el.getBoundingClientRect();
-
-    if (!r.width || !r.height) return;
-
-    cajas.set(claveMovil(el, i), {
-      x: (r.left - base.left) * ex - MARGEN_RECORTE,
-      y: (r.top - base.top) * ey - MARGEN_RECORTE,
-      w: r.width * ex + MARGEN_RECORTE * 2,
-      h: r.height * ey + MARGEN_RECORTE * 2,
-    });
-  });
-
-  return cajas;
-}
-
-/** La ficha suelta: lo que cambia entre la foto con ella y la misma sin ella (con su sombra y sin el césped). */
-function recorta(lleno: HTMLImageElement, vacio: HTMLImageElement, caja: Caja): HTMLCanvasElement | null {
-  const w = Math.max(1, Math.ceil(caja.w));
-  const h = Math.max(1, Math.ceil(caja.h));
-  const pinta = (imagen: HTMLImageElement) => {
-    const lienzo = document.createElement("canvas");
-
-    lienzo.width = w;
-    lienzo.height = h;
-
-    const ctx = lienzo.getContext("2d", { willReadFrequently: true });
-
-    if (!ctx) return null;
-
-    ctx.drawImage(imagen, caja.x, caja.y, w, h, 0, 0, w, h);
-
-    return { lienzo, ctx };
-  };
-  const a = pinta(lleno);
-  const b = pinta(vacio);
-
-  if (!a || !b) return null;
-
-  const pa = a.ctx.getImageData(0, 0, w, h);
-  const pb = b.ctx.getImageData(0, 0, w, h).data;
-  const d = pa.data;
-
-  for (let i = 0; i < d.length; i += 4) {
-    const diferencia = Math.abs(d[i] - pb[i]) + Math.abs(d[i + 1] - pb[i + 1]) + Math.abs(d[i + 2] - pb[i + 2]);
-
-    d[i + 3] = Math.round(Math.min(1, Math.max(0, (diferencia - 10) / 40)) * 255);
-  }
-
-  a.ctx.putImageData(pa, 0, 0);
-
-  return a.lienzo;
-}
 
 const nada = () => () => undefined;
 
@@ -410,33 +344,11 @@ export function nombreDelVideo(titulo: string, jornada?: string) {
   return [jornada?.trim(), limpio || "jugada"].filter(Boolean).join(" ");
 }
 
-function copiaBytes(origen: AllowSharedBufferSource): Bytes {
-  const vista = ArrayBuffer.isView(origen)
-    ? new Uint8Array(origen.buffer, origen.byteOffset, origen.byteLength)
-    : new Uint8Array(origen as ArrayBuffer);
-
-  const salida = new Uint8Array(new ArrayBuffer(vista.byteLength));
-
-  salida.set(vista);
-
-  return salida as Bytes;
-}
-
-function cargaImagen(src: string) {
-  return new Promise<HTMLImageElement>((listo, falla) => {
-    const imagen = new Image();
-
-    imagen.onload = () => listo(imagen);
-    imagen.onerror = () => falla(new Error("No se ha podido leer un fotograma"));
-    imagen.src = src;
-  });
-}
-
 /**
  * El fotograma vertical: la diapositiva entera de ancho, centrada, sobre ella
  * misma ampliada y desenfocada, con el título arriba.
  */
-function pintaVertical(ctx: CanvasRenderingContext2D, foto: HTMLImageElement | HTMLCanvasElement, titulo: string) {
+function pintaVertical(ctx: CanvasRenderingContext2D, foto: CanvasImageSource & { width: number; height: number }, titulo: string) {
   const { ancho, alto } = DESTINOS.vertical;
 
   ctx.save();
@@ -457,17 +369,16 @@ function pintaVertical(ctx: CanvasRenderingContext2D, foto: HTMLImageElement | H
   ctx.fillText(titulo.toUpperCase(), ancho / 2, y - 80, ancho - 80);
 }
 
-/** Lo que necesita `grabaJugada` para fotografiar la diapositiva en cada instante. */
-export type PideFoto = {
-  /** El tablero de fuera de pantalla, ya montado. */
-  nodo: HTMLElement;
-  /** Pone el reloj del tablero (0 = salida; 1, 2… = fin de cada fase) y espera a que se pinte. */
-  pon: (valor: number) => Promise<void>;
-};
+export type { PideFoto };
+
+/** Los tiempos del vídeo de una diapositiva. */
+const TIEMPOS: Tiempos = { salida: SALIDA_S, movimiento: MOVIMIENTO_S, pausa: PAUSA_S, final: FINAL_S };
 
 /*
 | Graba una diapositiva en MP4 (30/10/2026: sacado del botón para poder grabar
-| todas de una vez desde «Exportar todo»). Devuelve el vídeo y su póster.
+| todas de una vez desde «Exportar todo»). Devuelve el vídeo, su póster y el
+| material fotografiado (01/11/2026): con él salen los vídeos de cada jugador
+| sin volver a fotografiar, y un segundo intento sólo vuelve a codificar.
 */
 export async function grabaJugada({
   nodo,
@@ -477,6 +388,8 @@ export async function grabaJugada({
   titulo,
   textos = { fases: {}, consigna: "" },
   alAvance,
+  material: hecho,
+  software = false,
 }: PideFoto & {
   nFases: number;
   destino: Destino;
@@ -484,349 +397,55 @@ export async function grabaJugada({
   /** El texto de cada fase y la consigna principal (`textosDelVideo`). */
   textos?: TextosVideo;
   alAvance?: (fraccion: number) => void;
-}): Promise<{ fichero: Blob; poster: Blob | null; segundos: number }> {
+  /** Lo ya fotografiado de esta diapositiva: no se vuelve a fotografiar. */
+  material?: MaterialJugada | null;
+  /** El codificador del navegador y no el de la tarjeta (segundo intento). */
+  software?: boolean;
+}): Promise<{ fichero: Blob; poster: Blob | null; segundos: number; material: MaterialJugada }> {
   const d = DESTINOS[destino];
-  let abierto: VideoEncoder | null = null;
+  const inicio = performance.now();
+  /* Fotografiar es lo caro: tres cuartos de la barra. */
+  const material =
+    hecho ?? (await ruedaMaterial({ nodo, pon, nFases, alAvance: (f) => alAvance?.(f * 0.75) }));
+  const desde = hecho ? 0 : 0.75;
+  const e = await abreEmisor(d.ancho, d.alto, d.caudal, software, destino === "sala" ? "constant" : "variable");
 
   try {
-    const codec = await codecLamina(d.ancho, d.alto, d.caudal);
+    const { poster } = await montaJugada(e, material, {
+      tiempos: TIEMPOS,
+      dibuja: (ctx, foto) => {
+        ctx.fillStyle = COLORES.tinta;
+        ctx.fillRect(0, 0, d.ancho, d.alto);
 
-    if (!codec) throw new Error("Este navegador no sabe montar vídeo. Prueba con Chrome o Edge.");
-
-    await esperaFuentePortada();
-    await pintado();
-    await esperaFotos(nodo);
-    await aligeraImagenes(nodo);
-
-    const opciones = {
-      backgroundColor: COLORES.tinta,
-      imagePlaceholder: PIXEL_VACIO,
-      includeQueryParams: true,
-      formato: "jpeg" as const,
-      quality: 0.9,
-      width: TABLERO_W,
-      height: TABLERO_H,
-      pixelRatio: 1,
-      style: { margin: "0", transform: "none", transformOrigin: "top left" },
-      /* Element y no HTMLElement: el balón es un <svg> y también se aparta. */
-      filter: (n: HTMLElement) => !(n instanceof Element) || !n.hasAttribute("data-export-hide"),
-    };
-
-    /*
-      El primer fotograma, con la captura completa: deja las fotos en la caché.
-      Los demás, con la rápida y las fuentes hechas una vez (31/10/2026: el
-      vídeo tardaba más de un minuto por diapositiva).
-    */
-    let caliente = false;
-    /*
-      Las fuentes, una vez por juego de fuentes y no una por vídeo (01/11/2026):
-      el segundo vídeo de «Exportar todo» ya las encuentra hechas.
-    */
-    const fontEmbedCSS = await fuentesDe(nodo, () => fuentesIncrustadas(nodo, opciones));
-    /* El reloj puesto: las fotos de las tandas son del mismo instante y no hace falta repintar. */
-    let ultimo = Number.NaN;
-    /* Cuántas fotos se han hecho, para medirlo desde fuera (`performance`). */
-    let fotos = 0;
-
-    const foto = async (valor: number) => (await toma(valor)).imagen;
-
-    /* La foto de un instante; con `aparta`, sin esas fichas (o el balón) y con dónde estaban. */
-    async function toma(valor: number, aparta?: Set<string>): Promise<Toma> {
-      if (valor !== ultimo) {
-        await pon(valor);
-        ultimo = valor;
-      }
-
-      fotos += 1;
-
-      const apartados: Element[] = [];
-
-      if (aparta?.size) {
-        nodo.querySelectorAll(MOVILES).forEach((el, i) => {
-          if (aparta.has(claveMovil(el, i)) && !el.hasAttribute("data-export-hide")) {
-            el.setAttribute("data-export-hide", "");
-            apartados.push(el);
-          }
-        });
-      }
-
-      try {
-        return { imagen: await retrata(), cajas: aparta ? cajasDe(nodo) : new Map() };
-      } finally {
-        apartados.forEach((el) => el.removeAttribute("data-export-hide"));
-      }
-    }
-
-    async function retrata() {
-      const inicio = performance.now();
-
-      if (caliente) {
-        try {
-          const imagen = await fotoRapida(nodo, { ...opciones, fontEmbedCSS });
-
-          /* Lo que cuesta cada fotograma, para medirlo desde fuera. */
-          performance.measure("abp-video-foto", { start: inicio });
-
-          return imagen;
-        } catch {
-          /* Si la rápida falla, la de siempre. */
-        }
-      }
-
-      const { dataUrl } = await capturaNodo(nodo, fontEmbedCSS ? { ...opciones, fontEmbedCSS } : opciones);
-
-      caliente = true;
-
-      return cargaImagen(dataUrl);
-    }
-
-    const lienzo = document.createElement("canvas");
-
-    lienzo.width = d.ancho;
-    lienzo.height = d.alto;
-
-    const ctx = lienzo.getContext("2d");
-
-    if (!ctx) throw new Error("El navegador no da un lienzo 2D");
-
-    /* La foto va de 1920 a 1280: con el suavizado fino, los dorsales y los nombres no se emborronan. */
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-
-    const dibuja = (imagen: HTMLImageElement | HTMLCanvasElement) => {
-      ctx.fillStyle = COLORES.tinta;
-      ctx.fillRect(0, 0, d.ancho, d.alto);
-
-      if (destino === "vertical") pintaVertical(ctx, imagen, titulo);
-      else ctx.drawImage(imagen, 0, 0, d.ancho, d.alto);
-    };
-
-    let fallo: Error | null = null;
-    const muxor = new MuxorMp4();
-    const codificador = new VideoEncoder({
-      output: (trozo, metadatos) => {
-        const descripcion = metadatos?.decoderConfig?.description;
-
-        if (descripcion) muxor.configuraVideo({ ancho: d.ancho, alto: d.alto, descripcion: copiaBytes(descripcion) });
-
-        const datos = new Uint8Array(new ArrayBuffer(trozo.byteLength));
-
-        trozo.copyTo(datos);
-        muxor.añadeVideo(datos as Bytes, Math.max(0, trozo.timestamp), trozo.duration || 1_000_000 / FPS_LAMINA, trozo.type === "key");
+        if (destino === "vertical") pintaVertical(ctx, foto as HTMLCanvasElement, titulo);
+        /* En 1920 × 1080 la foto va tal cual, píxel a píxel. */
+        else ctx.drawImage(foto, 0, 0, d.ancho, d.alto);
       },
-      error: (e) => {
-        fallo = e instanceof Error ? e : new Error(String(e));
-      },
-    });
-
-    abierto = codificador;
-
-    codificador.configure({
-      codec,
-      width: d.ancho,
-      height: d.alto,
-      bitrate: d.caudal,
-      framerate: FPS_LAMINA,
-      latencyMode: "quality",
-      avc: { format: "avc" },
-    });
-
-    /*
-      La línea de tiempo, para la barra del pie: salida, cada fase (movimiento
-      y respiro) y la llegada. Cada tramo empieza donde acaba el anterior.
-    */
-    const cuadrosSalida = Math.round(SALIDA_S * FPS_LAMINA);
-    const cuadrosMovimiento = Math.round(MOVIMIENTO_S * FPS_LAMINA);
-    const cuadrosPausa = Math.round(PAUSA_S * FPS_LAMINA);
-    const cuadrosFinal = Math.round(FINAL_S * FPS_LAMINA);
-    const cuadrosTotales = cuadrosSalida + nFases * cuadrosMovimiento + Math.max(0, nFases - 1) * cuadrosPausa + cuadrosFinal;
-    const inicios = [0];
-
-    for (let fase = 1; fase <= nFases; fase += 1) {
-      inicios.push(cuadrosSalida + (fase - 1) * (cuadrosMovimiento + cuadrosPausa));
-    }
-
-    inicios.push(cuadrosTotales - cuadrosFinal);
-
-    const cortes = inicios.slice(1).map((inicio) => inicio / cuadrosTotales);
-
-    let cuadros = 0;
-    let tramo = 0;
-
-    /* Cada fotograma se repinta con su capa: la barra avanza también en lo quieto. */
-    const emite = async (veces: number, imagen: HTMLImageElement | HTMLCanvasElement) => {
-      for (let k = 0; k < veces; k += 1) {
-        if (fallo) throw fallo;
-
-        dibuja(imagen);
+      capa: (ctx, estado) =>
         pintaCapa(ctx, d.ancho, d.alto, {
-          progreso: cuadros / Math.max(1, cuadrosTotales - 1),
-          cortes,
-          rotulo: rotuloDeTramo(tramo, nFases, titulo, textos),
-          desde: (cuadros - inicios[tramo]) / FPS_LAMINA,
-          consigna: tramo > nFases ? textos.consigna : undefined,
-        });
+          progreso: estado.progreso,
+          cortes: estado.cortes,
+          rotulo: rotuloDeTramo(estado.tramo, nFases, titulo, textos),
+          desde: estado.desde,
+          consigna: estado.tramo > nFases ? textos.consigna : undefined,
+        }),
+      alAvance: (f) => alAvance?.(desde + f * (1 - desde)),
+    });
 
-        const cuadro = new VideoFrame(lienzo, {
-          timestamp: Math.round((cuadros * 1_000_000) / FPS_LAMINA),
-          duration: Math.round(1_000_000 / FPS_LAMINA),
-        });
+    const fichero = await e.cierra();
 
-        codificador.encode(cuadro, { keyFrame: cuadros % (FPS_LAMINA * 2) === 0 });
-        cuadro.close();
-        cuadros += 1;
+    /* Lo que cuesta cada vídeo, para medirlo desde fuera. */
+    performance.mark("abp-video-hecho", {
+      detail: { titulo, destino, segundos: Math.round((performance.now() - inicio) / 100) / 10, deMaterial: Boolean(hecho), mb: Math.round(fichero.size / 10_000) / 100 },
+    });
 
-        while (codificador.encodeQueueSize > 6) await new Promise((resuelve) => setTimeout(resuelve, 5));
-      }
-    };
-
-    /* El plan: salida quieta; cada fase, en movimiento y luego quieta. */
-    const total = 1 + nFases * (FOTOS_POR_FASE + 2);
-    let hechas = 0;
-    const avanza = () => alAvance?.(++hechas / total);
-
-    /* El fotograma en movimiento se compone aquí, a la medida del tablero, y luego pasa al vídeo. */
-    const mezcla = document.createElement("canvas");
-
-    mezcla.width = TABLERO_W;
-    mezcla.height = TABLERO_H;
-
-    const mx = mezcla.getContext("2d");
-
-    if (!mx) throw new Error("El navegador no da un lienzo 2D");
-
-    let reposo = await foto(0);
-
-    avanza();
-    await emite(cuadrosSalida, reposo);
-
-    let poster: string | null = null;
-
-    for (let fase = 1; fase <= nFases; fase += 1) {
-      tramo = fase;
-
-      /*
-        El reloj, ya dentro de la fase (`ARRANQUE`): la cabecera de la
-        diapositiva dice la fase nueva desde la primera foto, como el rótulo.
-        Las fichas se cuentan con el reloj puesto: si en el arranque aparece
-        algo (el balón), las claves no se descuadran. La foto del final de la
-        fase anterior ya no sirve de primera: su cabecera es la de antes.
-      */
-      const inicio = fase - 1 + ARRANQUE;
-
-      if (inicio !== ultimo) {
-        await pon(inicio);
-        ultimo = inicio;
-      }
-
-      /*
-        Las fichas sueltas: la foto sin ninguna contra la foto con sólo unas
-        pocas que no se tocan. Con todas a la vez, el recorte de una se
-        llevaba trozos de la de al lado cuando estaban juntas.
-      */
-      const claves = [...cajasDe(nodo).keys()];
-      const primera = await toma(inicio, new Set(claves));
-      const sueltas = new Map<string, HTMLCanvasElement>();
-      const tocan = (a: Caja, b: Caja) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-      const tandas: string[][] = [];
-
-      for (const clave of primera.cajas.keys()) {
-        const caja = primera.cajas.get(clave) as Caja;
-        const tanda = tandas.find((t) => t.every((otra) => !tocan(caja, primera.cajas.get(otra) as Caja)));
-
-        if (tanda) tanda.push(clave);
-        else tandas.push([clave]);
-      }
-
-      for (const tanda of tandas) {
-        const sola = await toma(inicio, new Set(claves.filter((c) => !tanda.includes(c))));
-
-        for (const clave of tanda) {
-          const recorte = recorta(sola.imagen, primera.imagen, primera.cajas.get(clave) as Caja);
-
-          if (recorte) sueltas.set(clave, recorte);
-        }
-      }
-
-      avanza();
-
-      /* Lo que no está quieto al empezar (un balón que aparece) se queda en el fondo, como antes. */
-      const aparta = new Set(sueltas.keys());
-      const tomas: Toma[] = [primera];
-
-      for (let k = 1; k <= FOTOS_POR_FASE; k += 1) {
-        tomas.push(await toma(fase - 1 + k / FOTOS_POR_FASE, aparta));
-        avanza();
-      }
-
-      const porTramo = cuadrosMovimiento / FOTOS_POR_FASE;
-
-      for (let k = 0; k < FOTOS_POR_FASE; k += 1) {
-        const a = tomas[k];
-        const b = tomas[k + 1];
-        const n = Math.round((k + 1) * porTramo) - Math.round(k * porTramo);
-
-        for (let j = 0; j < n; j += 1) {
-          const t = j / n;
-
-          mx.globalAlpha = 1;
-          mx.drawImage(a.imagen, 0, 0, TABLERO_W, TABLERO_H);
-
-          if (t > 0) {
-            mx.globalAlpha = t;
-            mx.drawImage(b.imagen, 0, 0, TABLERO_W, TABLERO_H);
-            mx.globalAlpha = 1;
-          }
-
-          for (const [clave, recorte] of sueltas) {
-            const ca = a.cajas.get(clave) ?? b.cajas.get(clave);
-            const cb = b.cajas.get(clave) ?? ca;
-
-            if (!ca || !cb) continue;
-
-            const cx = ca.x + ca.w / 2 + (cb.x + cb.w / 2 - (ca.x + ca.w / 2)) * t;
-            const cy = ca.y + ca.h / 2 + (cb.y + cb.h / 2 - (ca.y + ca.h / 2)) * t;
-
-            mx.drawImage(recorte, cx - recorte.width / 2, cy - recorte.height / 2);
-          }
-
-          await emite(1, mezcla);
-        }
-      }
-
-      reposo = await foto(fase);
-      avanza();
-
-      if (fase < nFases) {
-        await emite(cuadrosPausa, reposo);
-      } else {
-        /* El póster, limpio: la posición de llegada sin la barra ni el rótulo. */
-        dibuja(reposo);
-        poster = lienzo.toDataURL("image/jpeg", 0.9);
-
-        tramo = nFases + 1;
-        await emite(cuadrosFinal, reposo);
-      }
-    }
-
-    /* Lo que cuesta cada vídeo, para medirlo desde fuera (antes ~52 fotos en un córner de tres fases). */
-    performance.mark("abp-video-fotos", { detail: { fotos, fases: nFases } });
-
-    await codificador.flush();
-    codificador.close();
-
-    if (fallo) throw fallo;
-
-    const fichero = muxor.cierra();
-
-    const posterBlob = poster ? await (await fetch(poster)).blob() : null;
-
-    return { fichero, poster: posterBlob, segundos: cuadros / FPS_LAMINA };
+    return { fichero, poster, segundos: e.cuadros / FPS_LAMINA, material };
   } finally {
     // Si algo falla a mitad, el codificador queda abierto y Chrome se queda sin codificadores para el siguiente vídeo.
-    if (abierto && abierto.state !== "closed") abierto.close();
+    e.suelta();
   }
 }
+
 
 export function VideoJugada({
   slide,
@@ -863,8 +482,8 @@ export function VideoJugada({
 
   /* Cada fotograma espera a que el tablero de fuera de pantalla esté pintado. */
   const pon = useCallback(async (valor: number) => {
-    setTiempo(valor);
-    await pintado();
+    /* En el acto: con la pestaña escondida no hay fotograma al que esperar. */
+    flushSync(() => setTiempo(valor));
     await pintado();
   }, []);
 
@@ -887,15 +506,21 @@ export function VideoJugada({
 
         if (!nodo) throw new Error("No hay diapositiva que grabar");
 
-        return grabaJugada({
+        const material = materialGuardado(claveMaterial(slide, titulo, { players, temporada, rival }));
+        const hecho = await grabaJugada({
           nodo,
           pon,
           nFases,
           destino,
           titulo,
           textos: textosDelVideo(slide),
+          material,
           alAvance: (fraccion) => setProgreso(`${Math.round(fraccion * 100)} %`),
         });
+
+        guardaMaterial(claveMaterial(slide, titulo, { players, temporada, rival }), hecho.material);
+
+        return { fichero: hecho.fichero, poster: hecho.poster, segundos: hecho.segundos };
       });
 
       const nombre = nombreDelVideo(titulo, jornada);

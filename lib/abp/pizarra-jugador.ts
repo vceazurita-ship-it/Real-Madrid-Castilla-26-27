@@ -50,6 +50,7 @@ import { aMetros } from "@/lib/abp-lab/puente-pizarra";
 import {
   C,
   ajusta,
+  anchoEspaciado,
   cargaImagen,
   chapa,
   encaja,
@@ -97,6 +98,8 @@ export type CometidoAccion = {
    * con quién y para qué, y dónde mirar en el campo para encuadrarle.
    */
   pasos: { fase: number; verbo: string }[];
+  /** Lo que hace en cada fase, con su sitio: «Atacas el 1.er palo» (una por fase, la primera flecha). */
+  pasosFase: { fase: number; texto: string }[];
   con: string[];
   para: string;
   /** Sus fichas, sus flechas y el rival que marca, en coordenadas de la diapositiva. */
@@ -232,6 +235,14 @@ function pasoConSitio(lado: LadoPizarra, tipo: TipoTrazo, sitio: string) {
   return lado === "ofensivo" ? `atacas ${sitio}` : `sales ${conA(sitio)}`;
 }
 
+/** De qué banda llega el balón (−1, 1, o 0 si no se sabe). */
+function ladoDelBalon(vista: VistaCampo, todos: TrazoPizarra[]) {
+  const balon = todos.filter((t) => t.tipo === "balon").sort((a, b) => a.fase - b.fase)[0];
+  const salidaBalon = balon ? aMetros(vista, { x: balon.x1, y: balon.y1 }) : null;
+
+  return salidaBalon && Math.abs(salidaBalon.x - 34) > 10 ? Math.sign(salidaBalon.x - 34) : 0;
+}
+
 /**
  * «Sales del 2.º palo · arrancas en la fase 2 · atacas el punto de penalti»:
  * de dónde parte, cuándo arranca (si no es en la primera fase) y adónde va
@@ -246,9 +257,7 @@ function tareaPorPasos(
 ) {
   if (trazos.length === 0) return "";
 
-  const balon = todos.filter((t) => t.tipo === "balon").sort((a, b) => a.fase - b.fase)[0];
-  const salidaBalon = balon ? aMetros(vista, { x: balon.x1, y: balon.y1 }) : null;
-  const ladoBalon = salidaBalon && Math.abs(salidaBalon.x - 34) > 10 ? Math.sign(salidaBalon.x - 34) : 0;
+  const ladoBalon = ladoDelBalon(vista, todos);
 
   const pasos: string[] = [];
 
@@ -321,6 +330,15 @@ export function cometidosDe(
     const pasos = susTrazos
       .map((trazo) => ({ fase: trazo.fase, verbo: VERBO[lado][trazo.tipo] }))
       .filter((paso, i, todos) => todos.findIndex((otro) => otro.fase === paso.fase && otro.verbo === paso.verbo) === i);
+
+    /* Lo que hace en cada fase, con su sitio («Atacas el 1.er palo»): el rótulo del vídeo de su responsabilidad. */
+    const ladoBalon = ladoDelBalon(slide.vista, slide.trazos ?? []);
+    const pasosFase = susTrazos
+      .map((trazo) => ({
+        fase: trazo.fase,
+        texto: mayuscula(pasoConSitio(lado, trazo.tipo, nombreDeSitio(slide.vista, { x: trazo.x2, y: trazo.y2 }, ladoBalon))),
+      }))
+      .filter((paso, i, todos) => todos.findIndex((otro) => otro.fase === paso.fase) === i);
 
     const intencion = slide.guion?.intencion?.trim() ? normalizaConsigna(slide.guion.intencion.trim()) : "";
     const senal = lado === "ofensivo" && slide.guion?.senal?.trim() ? normalizaConsigna(slide.guion.senal.trim()) : "";
@@ -424,6 +442,7 @@ export function cometidosDe(
         rival,
         despues: despues ? despues.charAt(0).toLocaleUpperCase("es-ES") + despues.slice(1).toLowerCase() : "",
         pasos,
+        pasosFase,
         con: companeros,
         para: intencion ? intencion.replace(/\.$/, "") : "",
         foco,
@@ -603,7 +622,15 @@ export function fechaCorta(iso: string | undefined) {
   return mes ? `${Number(m[3])} ${mes}` : "";
 }
 
-function pie(ctx: Ctx, cx: Contexto, pagina: number, total: number) {
+/** Una zona de la hoja que se puede pulsar en el PDF, en píxeles de la hoja. */
+export type ZonaHoja = { x: number; y: number; w: number; h: number };
+
+/**
+ * El pie. Con `volver`, a la derecha va el botón «RESUMEN» (01/11/2026: «los
+ * PDF deben tener enlaces para ir a cada diapositiva»): devuelve dónde ha
+ * caído para que el PDF le ponga el salto a la primera hoja.
+ */
+function pie(ctx: Ctx, cx: Contexto, pagina: number, total: number, volver = false): ZonaHoja | null {
   const base = ctx.canvas.height - 12 - 24;
   const texto = [cx.rival, cx.jornada, fechaCorta(cx.fecha)].map((t) => t?.trim()).filter(Boolean).join(" · ");
 
@@ -615,8 +642,39 @@ function pie(ctx: Ctx, cx: Contexto, pagina: number, total: number) {
   const numero = `${pagina} / ${total}`;
   const anchoNumero = ctx.measureText(numero).width;
 
+  /* El botón de vuelta: píldora azul con la punta rosa, a la izquierda del número. */
+  let boton: ZonaHoja | null = null;
+
+  if (volver) {
+    fuente(ctx, 26, 700);
+    const rotulo = "VOLVER AL RESUMEN";
+    const anchoRotulo = anchoEspaciado(ctx, rotulo, 2);
+    const w = anchoRotulo + 74;
+    const h = 46;
+    const x = HOJA_W - MARGEN - anchoNumero - 28 - w;
+    const y = base - 33;
+
+    ctx.fillStyle = C.navy;
+    rectRedondo(ctx, x, y, w, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = C.rosa;
+    ctx.beginPath();
+    ctx.moveTo(x + 22, y + h / 2);
+    ctx.lineTo(x + 38, y + h / 2 - 10);
+    ctx.lineTo(x + 38, y + h / 2 + 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = C.crema;
+    textoEspaciado(ctx, rotulo, x + 52, y + h / 2 + 9, 2);
+    boton = { x: x - 6, y: y - 6, w: w + 12, h: h + 12 };
+  }
+
+  ctx.fillStyle = "rgba(15,30,61,.62)";
+
   if (texto) {
-    ajusta(ctx, texto, HOJA_W - MARGEN * 2 - anchoNumero - 40, 30, 600, 1);
+    const libre = boton ? boton.x - MARGEN - 24 : HOJA_W - MARGEN * 2 - anchoNumero - 40;
+
+    ajusta(ctx, texto, libre, 30, 600, 1);
     textoEspaciado(ctx, texto, MARGEN, base, 1);
   }
 
@@ -626,6 +684,8 @@ function pie(ctx: Ctx, cx: Contexto, pagina: number, total: number) {
   ctx.textAlign = "left";
 
   filoRosa(ctx);
+
+  return boton;
 }
 
 /* ----------------------------- resumen ----------------------------- */
@@ -639,7 +699,7 @@ const RESUMEN_Y = CABEZA_H + 176;
 const RESUMEN_FILA = 150;
 const altoResumen = (acciones: number) => RESUMEN_Y + acciones * RESUMEN_FILA + 16 + PIE_H;
 
-function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total: number) {
+function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total: number): ZonaHoja[] {
   cabecera(ctx, cx, `${acciones.length} ACCIONES`);
 
   ctx.fillStyle = C.navy;
@@ -651,9 +711,13 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total
   const y0 = RESUMEN_Y;
   const fila = RESUMEN_FILA;
   const alto = fila - 14;
+  const zonas: ZonaHoja[] = [];
 
   acciones.forEach((accion, orden) => {
     const top = y0 + orden * fila;
+
+    /* Toda la fila salta a su hoja en el PDF. */
+    zonas.push({ x: MARGEN, y: top, w: HOJA_W - MARGEN * 2, h: alto });
 
     ctx.fillStyle = C.crema;
     rectRedondo(ctx, MARGEN, top, HOJA_W - MARGEN * 2, alto, 18);
@@ -701,6 +765,8 @@ function dibujaResumen(ctx: Ctx, cx: Contexto, acciones: CometidoAccion[], total
   });
 
   pie(ctx, cx, 1, total);
+
+  return zonas;
 }
 
 /* ----------------------------- una acción ----------------------------- */
@@ -1124,7 +1190,8 @@ function dibujaAccion(
   acciones: number,
   pagina: number,
   paginas: number,
-) {
+  volver = false,
+): ZonaHoja | null {
   cabecera(ctx, cx, acciones > 1 ? `ACCIÓN ${orden} DE ${acciones}` : "BALÓN PARADO");
 
   bloqueArriba(ctx, accion, plan, true);
@@ -1146,7 +1213,7 @@ function dibujaAccion(
   }
 
   bloqueNotas(ctx, accion, yCampo + (enc ? enc.alto + 8 : 0), true);
-  pie(ctx, cx, pagina, paginas);
+  return pie(ctx, cx, pagina, paginas, volver);
 }
 
 /* ------------------------------------------------------------------ */
@@ -1243,11 +1310,14 @@ export async function pdfJugador(opciones: {
   const hojas: HTMLCanvasElement[] = [];
   const conResumen = acciones.length >= 2;
   const paginas = acciones.length + (conResumen ? 1 : 0);
+  /* Los saltos (01/11/2026): cada fila del resumen a su hoja y, en cada hoja, la vuelta al resumen. */
+  let filasResumen: ZonaHoja[] = [];
+  const vueltas: (ZonaHoja | null)[] = [];
 
   if (conResumen) {
     const resumen = lienzo(altoResumen(acciones.length));
 
-    dibujaResumen(resumen.ctx, cx, acciones, paginas);
+    filasResumen = dibujaResumen(resumen.ctx, cx, acciones, paginas);
     hojas.push(resumen.canvas);
   }
 
@@ -1257,7 +1327,7 @@ export async function pdfJugador(opciones: {
     const plan = planAccion(accion, opciones.puntos?.[orden] ?? null, Boolean(tablero), marco, opciones.suyos);
     const hoja = lienzo(plan.alto);
 
-    dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length, hojas.length + 1, paginas);
+    vueltas.push(dibujaAccion(hoja.ctx, cx, accion, tablero, plan, orden + 1, acciones.length, hojas.length + 1, paginas, conResumen));
     hojas.push(hoja.canvas);
   });
 
@@ -1278,6 +1348,15 @@ export async function pdfJugador(opciones: {
   jpegs.forEach((jpeg, i) => {
     if (i) doc.addPage(medidas[i], orientacion(medidas[i]));
     doc.addImage(jpeg, "JPEG", 0, 0, medidas[i][0], medidas[i][1]);
+
+    /* La hoja mide en el PDF la mitad que en píxeles. */
+    const enPdf = (z: ZonaHoja, destino: number) => doc.link(z.x / 2, z.y / 2, z.w / 2, z.h / 2, { pageNumber: destino, top: 0 });
+
+    if (conResumen && i === 0) filasResumen.forEach((zona, orden) => enPdf(zona, orden + 2));
+
+    const vuelta = conResumen && i > 0 ? vueltas[i - 1] : null;
+
+    if (vuelta) enPdf(vuelta, 1);
   });
 
   const quien = nombreCorto(player) || "jugador";

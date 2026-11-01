@@ -85,13 +85,76 @@ export function nitidezSegura(ancho: number, alto: number, deseada: number) {
 /*  ESPERAS                                                            */
 /* ------------------------------------------------------------------ */
 
-function pausa(ms: number) {
-  return new Promise<void>((listo) => setTimeout(listo, ms));
+/** ¿La pestaña está escondida? Entonces no hay fotogramas y los relojes van al ralentí. */
+export function pestanaOculta() {
+  return typeof document !== "undefined" && document.visibilityState === "hidden";
 }
 
-function fotograma() {
+/**
+ * Deja pasar `veces` tareas por un MessageChannel: es la espera que Chrome no
+ * estrangula con la pestaña escondida (los `setTimeout` sí: a un segundo como
+ * poco y, pasados cinco minutos escondida, a uno por MINUTO).
+ */
+export function respira(veces = 1): Promise<void> {
   return new Promise<void>((listo) => {
-    requestAnimationFrame(() => requestAnimationFrame(() => listo()));
+    if (typeof MessageChannel === "undefined") {
+      setTimeout(listo, 0);
+
+      return;
+    }
+
+    const canal = new MessageChannel();
+    let quedan = veces;
+
+    canal.port1.onmessage = () => {
+      quedan -= 1;
+
+      if (quedan > 0) canal.port2.postMessage(0);
+      else {
+        canal.port1.close();
+        listo();
+      }
+    };
+    canal.port2.postMessage(0);
+  });
+}
+
+/** Una pausa de `ms` que no se alarga con la pestaña escondida (allí cede el paso sin reloj). */
+export async function pausaSegura(ms: number) {
+  if (!pestanaOculta()) {
+    await new Promise<void>((listo) => setTimeout(listo, ms));
+
+    return;
+  }
+
+  const fin = performance.now() + ms;
+
+  while (performance.now() < fin) await respira();
+}
+
+const pausa = pausaSegura;
+
+/**
+ * Dos fotogramas pintados. Con la pestaña escondida `requestAnimationFrame`
+ * no llega NUNCA: cada captura se quedaba colgada aquí hasta volver a la
+ * pestaña (01/11/2026, «Exportar todo» sin vídeos). Escondida no se pinta
+ * nada en pantalla, así que basta con ceder el paso; y si el fotograma no
+ * llega en 300 ms (ventana tapada), se suelta igual.
+ */
+function fotograma() {
+  if (pestanaOculta()) return respira(2);
+
+  return new Promise<void>((listo) => {
+    let hecho = false;
+    const suelta = () => {
+      if (!hecho) {
+        hecho = true;
+        listo();
+      }
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(suelta));
+    setTimeout(suelta, 300);
   });
 }
 

@@ -22,7 +22,9 @@
 
 import type { jsPDF } from "jspdf";
 
-import { capturaNodo } from "@/lib/export/captura";
+import { capturaNodo, cargaSvg, pestanaOculta, respira } from "@/lib/export/captura";
+
+export { pausaSegura, pestanaOculta, respira } from "@/lib/export/captura";
 
 /** Un píxel transparente: lo que se pone donde una foto no se ha podido leer. */
 export const PIXEL_VACIO =
@@ -90,6 +92,15 @@ export async function descargaDataUrl(dataUrl: string, nombre: string) {
  * respaldo lo suelta (27/10/2026).
  */
 export function pintado() {
+  /*
+    Escondida (otra pestaña delante, la ventana minimizada o tapada) el reloj
+    de respaldo tampoco vale: Chrome lo retrasa a un segundo como poco y,
+    pasados cinco minutos, a uno por MINUTO. Un vídeo de «Exportar todo» hace
+    cientos de esperas y no acababa nunca (01/11/2026). Escondida no hay nada
+    que pintar en pantalla: basta con dejar pasar las tareas pendientes.
+  */
+  if (pestanaOculta()) return respira(2);
+
   return new Promise<void>((listo) => {
     let hecho = false;
     const suelta = () => {
@@ -193,8 +204,13 @@ export async function capturaLienzos(
   | interna; sin esta primera pasada —a resolución ridícula, que es rápida— la
   | captura buena de cada lienzo sale a veces sin las fotos.
   */
+  /* Por `toSvg` + `cargaSvg` y no `toJpeg`: el `toJpeg` espera un
+     `requestAnimationFrame`, que con la pestaña escondida no llega nunca, y
+     la exportación se quedaba colgada aquí (01/11/2026). Lo que calienta es
+     el SVG (ahí se descargan las fotos). */
   await htmlToImage
-    .toJpeg(raiz, { ...comunes, pixelRatio: 0.04 })
+    .toSvg(raiz, comunes)
+    .then((svg) => cargaSvg(svg))
     .catch(() => undefined);
 
   const imagenes: string[] = [];
@@ -242,6 +258,8 @@ export type OpcionesPdf = {
    */
   margen?: number;
   pie?: PieDePagina;
+  /** Una primera página con la lista de hojas, cada una enlazada a la suya. */
+  indice?: IndicePdf;
 };
 
 /** Una hoja suelta del PDF, con su lienzo y su orientación. */
@@ -275,24 +293,32 @@ export type HojaPdf = {
  * de página se le reserva su franja **fuera** de la imagen, para que se lea
  * igual cuando la hoja sale en blanco y negro.
  */
-export async function pdfDeHojas(hojas: HojaPdf[]): Promise<jsPDF> {
+export async function pdfDeHojas(hojas: HojaPdf[], extra: { indice?: IndicePdf } = {}): Promise<jsPDF> {
   const { jsPDF } = await import("jspdf");
 
+  const indice = extra.indice && hojas.length ? extra.indice : null;
+
   const doc = new jsPDF({
-    orientation: hojas[0]?.orientacion ?? "landscape",
+    orientation: indice ? "landscape" : (hojas[0]?.orientacion ?? "landscape"),
     unit: "pt",
     format: "a4",
     compress: true,
   });
 
-  hojas.forEach((hoja, indice) => {
-    if (indice > 0) doc.addPage("a4", hoja.orientacion);
+  /* Con índice, las hojas empiezan después de sus páginas. */
+  const plan = indice ? planIndice(doc, indice, hojas.length) : null;
+  const paginasIndice = plan?.paginas.length ?? 0;
+
+  if (plan && indice) pintaIndice(doc, indice, plan);
+
+  hojas.forEach((hoja, orden) => {
+    if (orden > 0 || paginasIndice > 0) doc.addPage("a4", hoja.orientacion);
 
     const anchoHoja = doc.internal.pageSize.getWidth();
     const altoHoja = doc.internal.pageSize.getHeight();
 
     const margen = hoja.margen ?? 26;
-    const pie = hoja.pie ? 26 : 0;
+    const pie = hoja.pie || plan ? 26 : 0;
 
     const escala = Math.min(
       (anchoHoja - margen * 2) / hoja.ancho,
@@ -319,23 +345,49 @@ export async function pdfDeHojas(hojas: HojaPdf[]): Promise<jsPDF> {
       (altoHoja - pie - h) / 2,
       w,
       h,
-      `lienzo${indice}`,
+      `lienzo${orden}`,
       "FAST",
     );
 
     for (const e of hoja.enlaces ?? []) doc.link((anchoHoja - w) / 2 + e.x * w, (altoHoja - pie - h) / 2 + e.y * h, e.w * w, e.h * h, { url: e.url });
+
+    const base = altoHoja - 14;
+    let tope = anchoHoja - margen;
+
+    /* La vuelta al índice, en el pie de cada hoja (01/11/2026). */
+    if (plan) {
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      const derecha = hoja.pie?.derecha ?? "";
+      const anchoDerecha = derecha ? doc.getTextWidth(derecha) + 14 : 0;
+
+      doc.setFont("helvetica", "bold");
+      const rotulo = "ÍNDICE";
+      const anchoRotulo = doc.getTextWidth(rotulo);
+      const x = anchoHoja - margen - anchoDerecha - anchoRotulo - 6;
+      const chip = { x: x - 15, y: base - 9.5, w: anchoRotulo + 21, h: 13.5 };
+
+      doc.setFillColor(15, 30, 61);
+      doc.roundedRect(chip.x, chip.y, chip.w, chip.h, 3, 3, "F");
+      /* La punta, dibujada: las fuentes de serie de jsPDF no tienen flechas. */
+      doc.setFillColor(246, 175, 182);
+      doc.triangle(chip.x + 5, base - 2.8, chip.x + 10, base - 6.3, chip.x + 10, base + 0.7, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.text(rotulo, x, base);
+      doc.setFont("helvetica", "normal");
+      doc.link(chip.x - 3, chip.y - 3, chip.w + 6, chip.h + 6, { pageNumber: 1, top: 0 });
+      tope = chip.x - 12;
+    }
 
     if (!hoja.pie) return;
 
     doc.setFontSize(8);
     doc.setTextColor(120);
 
-    const base = altoHoja - 14;
-
     if (hoja.pie.izquierda) doc.text(hoja.pie.izquierda, margen, base);
 
     if (hoja.pie.centro) {
-      doc.text(hoja.pie.centro, anchoHoja / 2, base, { align: "center" });
+      doc.text(hoja.pie.centro, Math.min(anchoHoja / 2, tope - doc.getTextWidth(hoja.pie.centro) / 2), base, { align: "center" });
     }
 
     if (hoja.pie.derecha) {
@@ -343,7 +395,134 @@ export async function pdfDeHojas(hojas: HojaPdf[]): Promise<jsPDF> {
     }
   });
 
+  /* Los saltos del índice, al final: las hojas ya existen (ver pdf-once-saltos-internos). */
+  if (plan) {
+    const ultima = doc.getNumberOfPages();
+
+    for (const fila of plan.filas) {
+      doc.setPage(fila.pagina);
+      doc.link(fila.x, fila.y, fila.w, fila.h, { pageNumber: paginasIndice + fila.hoja + 1, top: 0 });
+    }
+
+    doc.setPage(ultima);
+  }
+
   return doc;
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL ÍNDICE                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * La primera página de un PDF largo (01/11/2026, pizarra de ABP): la lista de
+ * hojas con su título entero, y cada fila salta a su página. Cada hoja lleva
+ * en el pie «ÍNDICE» para volver.
+ */
+export type IndicePdf = {
+  /** «BALÓN PARADO», arriba en grande. */
+  titulo: string;
+  /** «Cartagena · J10 · 01/11/2026». */
+  subtitulo?: string;
+  /** Una por hoja, en el orden de las hojas. */
+  entradas: string[];
+};
+
+type FilaIndice = { hoja: number; pagina: number; x: number; y: number; w: number; h: number; lineas: string[] };
+
+const INDICE = { margen: 44, arriba: 132, abajo: 40, renglon: 15, aire: 14 };
+
+/** Dónde cae cada fila (y cuántas páginas de índice hacen falta), antes de pintar nada. */
+function planIndice(doc: jsPDF, indice: IndicePdf, hojas: number) {
+  const ancho = doc.internal.pageSize.getWidth();
+  const alto = doc.internal.pageSize.getHeight();
+  const textoW = ancho - INDICE.margen * 2 - 44 - 70;
+  const filas: FilaIndice[] = [];
+  const paginas: number[] = [1];
+  let y = INDICE.arriba;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+
+  for (let hoja = 0; hoja < hojas; hoja += 1) {
+    const texto = (indice.entradas[hoja] ?? "").trim() || `Diapositiva ${hoja + 1}`;
+    /* El título entero, en los renglones que haga falta: nunca con «…». */
+    const lineas = doc.splitTextToSize(texto.toUpperCase(), textoW) as string[];
+    const h = lineas.length * INDICE.renglon + INDICE.aire;
+
+    if (y + h > alto - INDICE.abajo) {
+      paginas.push(paginas.length + 1);
+      y = INDICE.arriba;
+    }
+
+    filas.push({ hoja, pagina: paginas.length, x: INDICE.margen, y, w: ancho - INDICE.margen * 2, h, lineas });
+    y += h + 5;
+  }
+
+  return { filas, paginas };
+}
+
+function pintaIndice(doc: jsPDF, indice: IndicePdf, plan: ReturnType<typeof planIndice>) {
+  const ancho = doc.internal.pageSize.getWidth();
+  const alto = doc.internal.pageSize.getHeight();
+  const paginasIndice = plan.paginas.length;
+
+  for (const pagina of plan.paginas) {
+    if (pagina > 1) doc.addPage("a4", "landscape");
+
+    /* La banda azul de la plantilla del club con su filo rosa. */
+    doc.setFillColor(15, 30, 61);
+    doc.rect(0, 0, ancho, 78, "F");
+    doc.setFillColor(246, 175, 182);
+    doc.rect(0, 78, ancho, 4, "F");
+
+    doc.setTextColor(247, 244, 236);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(24);
+    doc.text(indice.titulo.toUpperCase(), INDICE.margen, 48);
+
+    if (indice.subtitulo) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.text(indice.subtitulo, ancho - INDICE.margen, 48, { align: "right" });
+    }
+
+    doc.setTextColor(15, 30, 61);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(paginasIndice > 1 ? `ÍNDICE · ${pagina} DE ${paginasIndice}` : "ÍNDICE", INDICE.margen, 112);
+    doc.setFillColor(246, 175, 182);
+    doc.rect(INDICE.margen, 117, 60, 3, "F");
+
+    for (const fila of plan.filas.filter((f) => f.pagina === pagina)) {
+      doc.setFillColor(247, 244, 236);
+      doc.roundedRect(fila.x, fila.y, fila.w, fila.h, 4, 4, "F");
+
+      const centro = fila.y + fila.h / 2;
+
+      /* El número, en su disco rosa. */
+      doc.setFillColor(246, 175, 182);
+      doc.circle(fila.x + 20, centro, 10, "F");
+      doc.setTextColor(15, 30, 61);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text(String(fila.hoja + 1), fila.x + 20, centro + 3.5, { align: "center" });
+
+      doc.setFontSize(12);
+      const primera = centro - ((fila.lineas.length - 1) * INDICE.renglon) / 2 + 4.2;
+
+      fila.lineas.forEach((linea, i) => doc.text(linea, fila.x + 44, primera + i * INDICE.renglon));
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.setTextColor(91, 100, 118);
+      doc.text(`pág. ${paginasIndice + fila.hoja + 1}`, fila.x + fila.w - 14, centro + 3.5, { align: "right" });
+    }
+
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+    doc.text("Pulsa una fila para ir a su diapositiva. En cada hoja, «ÍNDICE» vuelve aquí.", INDICE.margen, alto - 16);
+  }
 }
 
 /** Atajo para cuando todas las hojas son iguales, que es lo corriente. */
@@ -357,5 +536,6 @@ export function pdfDeLienzos(imagenes: string[], opciones: OpcionesPdf) {
       margen: opciones.margen,
       pie: opciones.pie?.(indice, imagenes.length) ?? null,
     })),
+    { indice: opciones.indice },
   );
 }

@@ -15,10 +15,17 @@ import type { Destino } from "@/components/abp/pizarra/VideoJugada";
 import type { SlidePizarra, TableroPizarra } from "@/lib/abp/pizarra";
 import type { Player } from "@/types/player";
 
+/**
+ * Lo que lleva el .zip de «Exportar»: los documentos (PDF general, PowerPoint
+ * y PDF de cada jugador), el vídeo de cada diapositiva con jugada y el vídeo
+ * de la responsabilidad de cada jugador.
+ */
+export type PiezasExportar = { documentos: boolean; videos: boolean; videosJugador: boolean };
+
 type Comun = { players: Map<string, Player>; temporada: string; rival: string; jornada?: string };
 
 export type EncargoExportar =
-  | { id: string; tipo: "todo"; conVideos: boolean; soloVideos?: boolean; datos: Comun & { tablero: TableroPizarra; escudoRival?: string } }
+  | { id: string; tipo: "todo"; piezas: PiezasExportar; datos: Comun & { tablero: TableroPizarra; escudoRival?: string } }
   | { id: string; tipo: "pizarra"; formato: "pptx" | "pdf"; porFases: boolean; datos: Comun & { slides: SlidePizarra[] } }
   | { id: string; tipo: "video"; destino: Destino; datos: Comun & { slide: SlidePizarra; titulo: string } };
 

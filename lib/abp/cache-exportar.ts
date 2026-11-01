@@ -24,13 +24,14 @@
  */
 
 import type { SlidePizarra } from "@/lib/abp/pizarra";
+import type { MaterialJugada } from "@/lib/abp/rodaje-jugada";
 import type { Player } from "@/types/player";
 
 /**
  * Sube cuando cambia cómo se dibuja o se monta algo: lo guardado con la
  * versión anterior deja de valer sin tener que recargar.
  */
-const VERSION = "2026-11-01b";
+const VERSION = "2026-11-01-tv";
 
 /* ------------------------------------------------------------------ */
 /*  HUELLAS                                                            */
@@ -120,6 +121,17 @@ export const claveVideo = (huella: string, destino: string) => `${huella}|${dest
 export const videoGuardado = (clave: string) => videos.lee(clave);
 export const guardaVideo = (clave: string, hecho: VideoHecho) => videos.guarda(clave, hecho);
 export const hayVideo = (clave: string) => videos.tiene(clave);
+
+/*
+| El material fotografiado de cada jugada (01/11/2026): las fotos del fondo en
+| JPEG y las fichas recortadas, unos 20 MB por diapositiva. Con él salen el
+| vídeo de la diapositiva para otro destino y el de cada jugador sin volver a
+| fotografiar nada. Una pizarra tiene pocas diapositivas con jugada.
+*/
+const materiales = new Memoria<MaterialJugada>(10);
+
+export const materialGuardado = (clave: string) => materiales.lee(clave) ?? null;
+export const guardaMaterial = (clave: string, material: MaterialJugada) => materiales.guarda(clave, material);
 export const hayFoto = (clave: string) => fotos.tiene(clave);
 
 /* ------------------------------------------------------------------ */
@@ -175,7 +187,13 @@ export const SEGUNDOS_POR_FOTO = 1;
 export const SEGUNDOS_POR_PDF_JUGADOR = 4;
 
 export function segundosDeVideo(fases: number) {
-  return 2 + fases * 9;
+  /* 01/11/2026: 20 fotos por fase (antes 12) y 1080p. */
+  return 4 + fases * 14;
+}
+
+/** El de cada jugador sale del material ya fotografiado: sólo se compone y se codifica (~0,6 s por segundo de vídeo). */
+export function segundosDeVideoJugador(duracion: number) {
+  return 2 + duracion * 0.6;
 }
 
 /** «45 s», «3 min»: lo que se lee de un vistazo. */

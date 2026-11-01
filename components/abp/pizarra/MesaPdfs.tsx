@@ -30,7 +30,7 @@ import {
 import { buildAerialThreats } from "@/lib/abp/rival";
 import { trabajoPdfs, type EncargoPdfs } from "@/lib/abp/trabajo-pdfs";
 import { subeAdjunto } from "@/lib/correo/subeAdjunto";
-import { capturaLienzos, esperaFotos, pintado } from "@/lib/export/lienzos";
+import { capturaLienzos, esperaFotos, pintado, respira } from "@/lib/export/lienzos";
 import { traeJson } from "@/lib/hojaCsv";
 import { esperaFuentePortada } from "@/lib/rivals/portada-font";
 
@@ -228,8 +228,8 @@ export function MesaPdfs({
             trabajoPdfs.salta();
           }
 
-          /* Respiro entre uno y otro: la app sigue respondiendo mientras se navega. */
-          await new Promise((listo) => setTimeout(listo, 0));
+          /* Respiro entre uno y otro: la app sigue respondiendo mientras se navega (sin reloj: escondida, se alargaría). */
+          await respira();
         });
 
         console.info(

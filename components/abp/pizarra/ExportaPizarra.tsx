@@ -136,6 +136,8 @@ export function ExportaPizarra({
             centro: cabecera,
             derecha: `${indice + 1} / ${total}`,
           }),
+          /* La primera página, el índice: cada hoja enlazada a la suya y, en su pie, la vuelta (01/11/2026). */
+          indice: { titulo: "Balón parado", subtitulo: cabecera, entradas: titulos },
         });
 
         doc.save(`${nombre}.pdf`);

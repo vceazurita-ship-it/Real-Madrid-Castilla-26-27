@@ -28,27 +28,45 @@
 */
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Check, ChevronDown, Clapperboard, FileStack, Loader2, MonitorPlay, PackageOpen, Printer, X } from "lucide-react";
+import { flushSync } from "react-dom";
+import { Check, ChevronDown, Clapperboard, FileStack, Loader2, MonitorPlay, PackageOpen, Printer, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 
 import type { Player } from "@/types/player";
 import { Button } from "@/components/abp/ui";
 import { TableroSlide } from "@/components/abp/pizarra/TableroSlide";
 import { hojasDe } from "@/components/abp/pizarra/ExportaPizarra";
-import { claveDelVideo, duracionVideo, grabaJugada, nombreDelVideo, pesoMb, textosDelVideo, videoDeLaJugada } from "@/components/abp/pizarra/VideoJugada";
+import {
+  claveDelVideo,
+  claveMaterial,
+  duracionVideo,
+  grabaJugada,
+  nombreDelVideo,
+  pesoMb,
+  textosDelVideo,
+  videoDeLaJugada,
+} from "@/components/abp/pizarra/VideoJugada";
 import { TABLERO_H, TABLERO_W, jugadoresDelTablero, tituloVisible, type TableroPizarra } from "@/lib/abp/pizarra";
 import { fasesDe } from "@/lib/abp/trazos";
 import { trabajoPdfs, type EstadoPdfs } from "@/lib/abp/trabajo-pdfs";
-import { arrancados, enMarcha as encargoEnMarcha, trabajoExportar } from "@/lib/abp/trabajo-exportar";
+import { arrancados, enMarcha as encargoEnMarcha, trabajoExportar, type PiezasExportar } from "@/lib/abp/trabajo-exportar";
 import {
   SEGUNDOS_POR_FOTO,
   SEGUNDOS_POR_PDF_JUGADOR,
   duracionLegible,
+  guardaMaterial,
+  guardaVideo,
   hayVideo,
+  materialGuardado,
   pesoLegible,
   resumen,
   segundosDeVideo,
+  segundosDeVideoJugador,
+  videoGuardado,
 } from "@/lib/abp/cache-exportar";
+import { ruedaMaterial, type MaterialJugada } from "@/lib/abp/rodaje-jugada";
+import { duracionResponsabilidad, videoResponsabilidad } from "@/lib/abp/video-responsabilidad";
+import { cargaEscudos, cometidosDe, nombreArchivo, nombreCorto, preparaJugador } from "@/lib/abp/pizarra-jugador";
 import { faltanFotos, fotosDeHojas } from "@/lib/abp/fotos-tablero";
 import { creaPptx } from "@/lib/export/pptx";
 import { apodo, descarga, pdfDeLienzos, pintado } from "@/lib/export/lienzos";
@@ -67,6 +85,68 @@ const bytes = async (blob: Blob) => new Uint8Array(await blob.arrayBuffer()) as 
 
 class Cancelado extends Error {}
 
+/** Sube cuando cambia el vídeo de cada jugador: lo grabado antes no vale. */
+const VIDEO_JUGADOR = "responsabilidad-1";
+
+/**
+ * Lo intenta y, si falla, una vez más: la segunda con el codificador del
+ * navegador y no el de la tarjeta gráfica (en Windows hay tarjetas que dicen
+ * que sí y luego no codifican). Cancelar no se reintenta.
+ */
+async function otraVez<T>(hazlo: (software: boolean) => Promise<T>, limpia: () => Promise<void>): Promise<T> {
+  try {
+    return await hazlo(false);
+  } catch (error) {
+    if (error instanceof Cancelado) throw error;
+
+    console.warn("[abp-pizarra] exportar · segundo intento", error);
+    await limpia();
+
+    return hazlo(true);
+  }
+}
+
+/** Por qué no ha salido algo, en una frase que se entienda en el panel. */
+function motivo(error: unknown) {
+  const texto = error instanceof Error ? `${error.name} ${error.message}` : String(error ?? "");
+
+  if (/memory|memoria|allocation|out of/i.test(texto)) return "el navegador se ha quedado sin memoria: cierra otras pestañas y repite";
+  if (/encod|codec|VideoEncoder|EncodingError|OperationError/i.test(texto)) return "el codificador de vídeo del navegador ha fallado dos veces";
+  if (/vac[ií]a|captura|fotograma/i.test(texto)) return "no se ha podido fotografiar la diapositiva";
+
+  const mensaje = error instanceof Error ? error.message.trim() : "";
+
+  return mensaje ? mensaje.slice(0, 120) : "el navegador ha cortado el trabajo";
+}
+
+/**
+ * Un cerrojo web mientras se exporta: Chrome no congela una pestaña escondida
+ * que tiene uno (01/11/2026). Devuelve cómo soltarlo.
+ */
+function cerrojoWeb() {
+  let suelta: (() => void) | null = null;
+  let soltado = false;
+
+  try {
+    void navigator.locks
+      ?.request("abp-exportar", () =>
+        new Promise<void>((listo) => {
+          suelta = listo;
+
+          if (soltado) listo();
+        }),
+      )
+      .catch(() => undefined);
+  } catch {
+    /* Sin cerrojos (navegador antiguo): se exporta igual. */
+  }
+
+  return () => {
+    soltado = true;
+    (suelta as (() => void) | null)?.();
+  };
+}
+
 /*
 | El PDF general y el PowerPoint ya montados, por las fotos que llevan y la
 | cabecera: pedir «Todo» después de «Solo documentos» no los vuelve a armar.
@@ -78,7 +158,7 @@ const MB_POR_DIAPOSITIVA = 0.45;
 const MB_POR_PDF_JUGADOR = 0.6;
 
 /** Espera a que el trabajo de segundo plano tenga los PDF de todos (o se pare), con tope. */
-function esperaPdfs(huella: string, ids: string[], cancelado: () => boolean, topeMs = 240_000): Promise<EstadoPdfs> {
+function esperaPdfs(huella: string, ids: string[], cancelado: () => boolean, topeMs = 600_000): Promise<EstadoPdfs> {
   return new Promise((listo) => {
     const mira = () => {
       const e = trabajoPdfs.foto();
@@ -104,7 +184,7 @@ function esperaPdfs(huella: string, ids: string[], cancelado: () => boolean, top
   });
 }
 
-type Opcion = "todo" | "documentos" | "videos" | "pptx" | "pdf";
+type Opcion = "todo" | "documentos" | "videos" | "videosJugador" | "pptx" | "pdf";
 
 export function ExportaTodo({
   tablero,
@@ -116,7 +196,7 @@ export function ExportaTodo({
   trabajo,
 }: {
   /** Montado por el trabajo de segundo plano del layout: arranca solo y no enseña botones. */
-  trabajo?: { id: string; conVideos: boolean; soloVideos?: boolean };
+  trabajo?: { id: string; piezas: PiezasExportar };
   tablero: TableroPizarra;
   players: Map<string, Player>;
   temporada: string;
@@ -156,6 +236,15 @@ export function ExportaTodo({
   /* La misma que usa «PDF por jugador»: así los dos comparten lo ya hecho. */
   const huella = `${tablero.partidoId}|${tablero.actualizado ?? ""}|${rival}`;
 
+  /** El vídeo de un jugador se llama como su PDF: van juntos en la carpeta. */
+  const nombreVideoJugador = (playerId: string) => {
+    const player = players.get(playerId);
+
+    return `ABP-${[player?.dorsal, nombreArchivo(nombreCorto(player) || "jugador"), jornada, nombreArchivo(rival)]
+      .filter((parte) => parte != null && parte !== "")
+      .join("-")}.mp4`;
+  };
+
   const marca = (id: string, estado: Estado, detalle?: string) =>
     setTareas((ahora) => ahora?.map((t) => (t.id === id ? { ...t, estado, detalle } : t)) ?? ahora);
 
@@ -163,14 +252,52 @@ export function ExportaTodo({
     if (cancelar.current) throw new Cancelado();
   };
 
-  /* El tablero de fuera de pantalla ya montado: un respiro y a pintar. */
-  const monta = (siguiente: Montaje) =>
-    new Promise<void>((listo) => {
-      setMontaje(siguiente);
-      setTimeout(() => void pintado().then(() => pintado()).then(() => listo()), 60);
-    });
+  /*
+    El tablero de fuera de pantalla, montado EN EL ACTO (`flushSync`): con la
+    pestaña escondida React no espera a ningún fotograma y `pintado` ya no
+    usa `requestAnimationFrame` (01/11/2026, «Todo» sin vídeos).
+  */
+  const monta = async (siguiente: Montaje) => {
+    flushSync(() => setMontaje(siguiente));
+    await pintado();
+    await pintado();
+  };
 
-  const exporta = async (conVideos: boolean, soloVideos = false) => {
+  /** El material fotografiado de una diapositiva (de la memoria si no ha cambiado), con un segundo intento. */
+  const materialDe = async (i: number, alAvance: (f: number) => void) => {
+    const slide = slides[i];
+    const clave = claveMaterial(slide, titulos[i], contexto);
+    const guardado = materialGuardado(clave);
+
+    if (guardado) return { material: guardado, deMemoria: true };
+
+    const rueda = async () => {
+      await monta({ que: "video", indice: i, tiempo: 0 });
+
+      const nodo = raizRef.current?.querySelector<HTMLElement>("[data-abp-tablero]");
+
+      if (!nodo) throw new Error("La diapositiva no se ha montado");
+
+      return ruedaMaterial({
+        nodo,
+        pon: async (valor) => {
+          sigue();
+          flushSync(() => setMontaje({ que: "video", indice: i, tiempo: valor }));
+          await pintado();
+        },
+        nFases: fasesDe(slide.trazos),
+        alAvance,
+      });
+    };
+
+    const material = await otraVez(rueda, () => monta(null));
+
+    guardaMaterial(clave, material);
+
+    return { material, deMemoria: false };
+  };
+
+  const exporta = async (piezas: PiezasExportar) => {
     if (corriendo.current) return;
 
     corriendo.current = true;
@@ -178,30 +305,47 @@ export function ExportaTodo({
     setEnMarcha(true);
 
     const inicio = performance.now();
-    const ids = soloVideos ? [] : jugadoresDelTablero(tablero).map((fila) => fila.playerId);
-    const videos = conVideos && sabeVideo ? conJugada : [];
+    const ids = piezas.documentos ? jugadoresDelTablero(tablero).map((fila) => fila.playerId) : [];
+    const videos = piezas.videos && sabeVideo ? conJugada : [];
+    /* Los vídeos de cada jugador: los que salen en alguna diapositiva con jugada. */
+    const conVideoJugador =
+      piezas.videosJugador && sabeVideo
+        ? jugadoresDelTablero(tablero)
+            .map((fila) => ({ playerId: fila.playerId, acciones: cometidosDe(tablero, fila.playerId, players).filter((a) => fasesDe(slides[a.indice]?.trazos) > 0) }))
+            .filter((j) => j.acciones.length > 0)
+        : [];
+    /* Las diapositivas que hay que fotografiar: las de los vídeos y las de los jugadores. */
+    const aRodar = [...new Set([...videos.map(({ i }) => i), ...conVideoJugador.flatMap((j) => j.acciones.map((a) => a.indice))])].sort((a, b) => a - b);
+    const nombreJugador = (playerId: string) => nombreCorto(players.get(playerId)) || "Jugador";
 
     setTareas([
-      ...(soloVideos ? [] : [{ id: "general", nombre: "PDF general y PowerPoint", estado: "pendiente" as Estado }]),
+      ...(piezas.documentos ? [{ id: "general", nombre: "PDF general y PowerPoint", estado: "pendiente" as Estado }] : []),
       ...(ids.length ? [{ id: "jugadores", nombre: `PDF de cada jugador (${ids.length})`, estado: "pendiente" as Estado }] : []),
-      ...videos.map(({ i }) => ({ id: `v${i}`, nombre: `Vídeo · ${titulos[i]}`, estado: "pendiente" as Estado })),
+      ...aRodar.map((i) => ({
+        id: `v${i}`,
+        nombre: `${videos.some((v) => v.i === i) ? "Vídeo" : "Jugada"} · ${titulos[i]}`,
+        estado: "pendiente" as Estado,
+      })),
+      ...conVideoJugador.map((j) => ({ id: `j${j.playerId}`, nombre: `Vídeo de ${nombreJugador(j.playerId)}`, estado: "pendiente" as Estado })),
     ]);
 
     const entradas: EntradaZip[] = [];
     const faltan: string[] = [];
     const base = `pizarra-abp-${apodo(rival, "pizarra")}${jornada ? `-${apodo(jornada)}` : ""}`;
     let deMemoria = 0;
+    /* Sólo vídeos (de las diapositivas o de los jugadores): sin carpetas. */
+    const sinCarpetas = !piezas.documentos && (!piezas.videos || !piezas.videosJugador);
 
     try {
       /* 1 · PDF general y PowerPoint, de las mismas fotos (y sólo las que falten). */
-      if (!soloVideos) {
+      if (piezas.documentos) {
         marca("general", "marcha");
 
         try {
           const hojas = hojasDe(slides, false, contexto);
           const claves = hojas.map((hoja) => hoja.clave);
           const cabecera = [rival || "RMCF Castilla", jornada, new Date().toLocaleDateString("es-ES")].filter(Boolean).join(" · ");
-          const claveDocs = resumen(JSON.stringify([claves, titulos, cabecera]));
+          const claveDocs = resumen(JSON.stringify([claves, titulos, cabecera, "indice-1"]));
           let docs = documentos.get(claveDocs);
 
           if (docs) deMemoria += 1;
@@ -229,6 +373,8 @@ export function ExportaTodo({
                 centro: cabecera,
                 derecha: `${indice + 1} / ${total}`,
               }),
+              /* La primera página, el índice: cada diapositiva enlazada a la suya (01/11/2026). */
+              indice: { titulo: "Balón parado", subtitulo: cabecera, entradas: titulos },
             });
             const pptx = creaPptx(
               imagenes.map((imagen, indice) => ({ titulo: titulos[indice] ?? `Diapositiva ${indice + 1}`, imagen })),
@@ -245,9 +391,11 @@ export function ExportaTodo({
           entradas.push({ nombre: `General/${base}.pdf`, datos: docs.pdf }, { nombre: `General/${base}.pptx`, datos: docs.pptx });
           marca("general", "hecho", `${slides.length} diapositivas`);
         } catch (error) {
+          if (error instanceof Cancelado) throw error;
+
           console.error("[abp-pizarra] exportar · general", error);
-          faltan.push("el PDF general");
-          marca("general", "fallo");
+          faltan.push(`el PDF general (${motivo(error)})`);
+          marca("general", "fallo", motivo(error));
           await monta(null);
         }
       }
@@ -288,73 +436,166 @@ export function ExportaTodo({
         } else marca("jugadores", "hecho", `${ids.length} PDF`);
       }
 
-      /* 3 · Un vídeo por diapositiva con jugada (el que no ha cambiado sale de la memoria). */
-      for (const [n, { slide, i }] of videos.entries()) {
+      /*
+        3 · Cada diapositiva con jugada: se fotografía una vez (el material) y
+        de ahí salen su vídeo y los de cada jugador. Lo que no ha cambiado sale
+        de la memoria. Si algo falla, se intenta otra vez (la segunda con el
+        codificador del navegador) y, si vuelve a fallar, se dice por qué.
+      */
+      const materiales = new Map<number, MaterialJugada>();
+
+      for (const [n, i] of aRodar.entries()) {
         sigue();
 
+        const slide = slides[i];
         const id = `v${i}`;
         const titulo = titulos[i];
+        const conVideo = videos.some((v) => v.i === i);
 
         marca(id, "marcha", "0 %");
 
         try {
-          const hecho = await videoDeLaJugada(claveDelVideo(slide, titulo, "whatsapp", contexto), async () => {
-            await monta({ que: "video", indice: i, tiempo: 0 });
+          const clave = claveDelVideo(slide, titulo, "sala", contexto);
+          const yaHecho = conVideo ? videoGuardado(clave) : undefined;
+          const avance = (f: number) => marca(id, "marcha", `${Math.round(f * 100)} %`);
 
-            const nodo = raizRef.current?.querySelector<HTMLElement>("[data-abp-tablero]");
+          /* El vídeo ya hecho no necesita material, salvo que lo pidan los jugadores. */
+          const falta = !yaHecho || conVideoJugador.some((j) => j.acciones.some((a) => a.indice === i));
+          const { material, deMemoria: materialDeMemoria } = falta
+            ? await materialDe(i, (f) => avance(conVideo ? f * 0.75 : f))
+            : { material: null, deMemoria: true };
 
-            if (!nodo) throw new Error("sin tablero");
+          if (material) materiales.set(i, material);
 
-            return grabaJugada({
-              nodo,
-              pon: async (valor) => {
-                sigue();
-                setMontaje({ que: "video", indice: i, tiempo: valor });
-                await pintado();
-              },
-              nFases: fasesDe(slide.trazos),
-              destino: "whatsapp",
-              titulo,
-              textos: textosDelVideo(slide),
-              alAvance: (f) => marca(id, "marcha", `${Math.round(f * 100)} %`),
-            });
-          });
-          const nombre = `${String(n + 1).padStart(2, "0")} ${nombreDelVideo(titulo, jornada)}`;
-          const carpeta = soloVideos ? "" : "Videos/";
+          if (conVideo) {
+            const hecho = yaHecho
+              ? { ...yaHecho, deMemoria: true }
+              : await videoDeLaJugada(clave, async () => {
+                  const listo = await otraVez(
+                    (software) =>
+                      grabaJugada({
+                        nodo: document.body,
+                        pon: async () => undefined,
+                        nFases: fasesDe(slide.trazos),
+                        destino: "sala",
+                        titulo,
+                        textos: textosDelVideo(slide),
+                        material,
+                        software,
+                        alAvance: (f) => avance(0.75 + f * 0.25),
+                      }),
+                    async () => undefined,
+                  );
 
-          if (hecho.deMemoria) deMemoria += 1;
+                  return { fichero: listo.fichero, poster: listo.poster, segundos: listo.segundos };
+                });
+            const nombre = `${String(n + 1).padStart(2, "0")} ${nombreDelVideo(titulo, jornada)}`;
+            const carpeta = sinCarpetas ? "" : "Videos/";
 
-          entradas.push({ nombre: `${carpeta}${nombre}.mp4`, datos: await bytes(hecho.fichero) });
-          if (hecho.poster) entradas.push({ nombre: `${carpeta}${nombre} poster.jpg`, datos: await bytes(hecho.poster) });
-          marca(id, "hecho", `${(hecho.fichero.size / 1_000_000).toFixed(1).replace(".", ",")} MB${hecho.deMemoria ? " · sin cambios" : ""}`);
+            if (hecho.deMemoria) deMemoria += 1;
+
+            entradas.push({ nombre: `${carpeta}${nombre}.mp4`, datos: await bytes(hecho.fichero) });
+            if (hecho.poster) entradas.push({ nombre: `${carpeta}${nombre} poster.jpg`, datos: await bytes(hecho.poster) });
+            marca(id, "hecho", `${(hecho.fichero.size / 1_000_000).toFixed(1).replace(".", ",")} MB${hecho.deMemoria ? " · sin cambios" : ""}`);
+          } else {
+            if (materialDeMemoria) deMemoria += 1;
+
+            marca(id, "hecho", materialDeMemoria ? "sin cambios" : "lista");
+          }
         } catch (error) {
           if (error instanceof Cancelado) throw error;
 
           console.error("[abp-pizarra] exportar · vídeo", titulo, error);
-          faltan.push(`el vídeo de «${titulo}»`);
-          marca(id, "fallo");
+          faltan.push(`el vídeo de «${titulo}» (${motivo(error)})`);
+          marca(id, "fallo", motivo(error));
+          await monta(null);
         }
       }
 
       await monta(null);
 
-      if (conVideos && conJugada.length && !sabeVideo) faltan.push("los vídeos (este navegador no sabe montarlos: usa Chrome o Edge)");
+      /* 4 · El vídeo de la responsabilidad de cada jugador, del mismo material (no se fotografía nada más). */
+      if (conVideoJugador.length) {
+        const escudos = await cargaEscudos(escudoRival);
+
+        for (const { playerId, acciones } of conVideoJugador) {
+          sigue();
+
+          const id = `j${playerId}`;
+          const conMaterial = acciones.flatMap((accion) => {
+            const material = materiales.get(accion.indice);
+
+            return material ? [{ accion, material }] : [];
+          });
+
+          if (conMaterial.length === 0) {
+            faltan.push(`el vídeo de ${nombreJugador(playerId)} (su jugada no ha salido)`);
+            marca(id, "fallo", "su jugada no ha salido");
+            continue;
+          }
+
+          marca(id, "marcha", "0 %");
+
+          try {
+            const clave = `jugador|${playerId}|${resumen(JSON.stringify([conMaterial.map((c) => claveMaterial(slides[c.accion.indice], titulos[c.accion.indice], contexto)), conMaterial.map((c) => c.accion), players.get(playerId) ?? null, rival, jornada, VIDEO_JUGADOR]))}`;
+            const yaHecho = videoGuardado(clave);
+            let fichero: Blob;
+
+            if (yaHecho) {
+              fichero = yaHecho.fichero;
+              deMemoria += 1;
+            } else {
+              const { cx, retrato } = await preparaJugador({ player: players.get(playerId), rival, jornada, escudos });
+
+              fichero = await otraVez(
+                (software) =>
+                  videoResponsabilidad({
+                    cx,
+                    retrato,
+                    playerId,
+                    acciones: conMaterial,
+                    software,
+                    alAvance: (f) => {
+                      sigue();
+                      marca(id, "marcha", `${Math.round(f * 100)} %`);
+                    },
+                  }),
+                async () => undefined,
+              );
+              guardaVideo(clave, { fichero, poster: null, segundos: 0 });
+            }
+
+            entradas.push({ nombre: `${sinCarpetas ? "" : "Jugadores/"}${nombreVideoJugador(playerId)}`, datos: await bytes(fichero) });
+            marca(id, "hecho", `${(fichero.size / 1_000_000).toFixed(1).replace(".", ",")} MB${yaHecho ? " · sin cambios" : ""}`);
+          } catch (error) {
+            if (error instanceof Cancelado) throw error;
+
+            console.error("[abp-pizarra] exportar · vídeo del jugador", playerId, error);
+            faltan.push(`el vídeo de ${nombreJugador(playerId)} (${motivo(error)})`);
+            marca(id, "fallo", motivo(error));
+          }
+        }
+      }
+
+      if ((piezas.videos || piezas.videosJugador) && conJugada.length && !sabeVideo) faltan.push("los vídeos (este navegador no sabe montarlos: usa Chrome o Edge)");
 
       if (entradas.length === 0) throw new Error("No ha salido nada");
 
-      descarga(creaZip(entradas), `${base}-${soloVideos ? "videos" : conVideos ? "todo" : "documentos"}.zip`);
+      const opcion = !piezas.documentos ? (piezas.videos && piezas.videosJugador ? "videos" : piezas.videos ? "videos" : "videos-jugadores") : piezas.videos || piezas.videosJugador ? "todo" : "documentos";
+
+      descarga(creaZip(entradas), `${base}-${opcion}.zip`);
 
       const pdfs = entradas.filter((e) => e.nombre.endsWith(".pdf")).length;
       const mp4 = entradas.filter((e) => e.nombre.endsWith(".mp4")).length;
       const segundos = (performance.now() - inicio) / 1000;
 
       /* Lo que ha costado, para comparar antes y después desde la consola. */
-      performance.mark("abp-exportar", { detail: { opcion: soloVideos ? "videos" : conVideos ? "todo" : "documentos", segundos, deMemoria } });
+      performance.mark("abp-exportar", { detail: { opcion, segundos, deMemoria, mp4, faltan } });
 
       toast.success(
-        soloVideos
+        !piezas.documentos
           ? `Listo: ${mp4} ${mp4 === 1 ? "vídeo" : "vídeos"} en un .zip`
-          : conVideos
+          : mp4
             ? `Listo: ${pdfs} PDF, el PowerPoint y ${mp4} ${mp4 === 1 ? "vídeo" : "vídeos"} en un .zip`
             : `Listo: ${pdfs} PDF y el PowerPoint en un .zip`,
         {
@@ -365,7 +606,7 @@ export function ExportaTodo({
           ]
             .filter(Boolean)
             .join(" "),
-          duration: 9_000,
+          duration: faltan.length ? 30_000 : 9_000,
         },
       );
       if (!faltan.length) setTareas(null);
@@ -375,7 +616,7 @@ export function ExportaTodo({
         setTareas(null);
       } else {
         console.error("[abp-pizarra] exportar", error);
-        toast.error("No se ha podido preparar el paquete");
+        toast.error("No se ha podido preparar el paquete", { description: motivo(error) });
       }
     } finally {
       corriendo.current = false;
@@ -407,7 +648,11 @@ export function ExportaTodo({
     */
     window.setTimeout(() => {
       empezado.current = true;
-      void exporta(trabajo.conVideos, trabajo.soloVideos);
+
+      /* Con un cerrojo web: Chrome no congela una pestaña escondida que lo tiene. */
+      const suelta = cerrojoWeb();
+
+      void exporta(trabajo.piezas).finally(suelta);
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trabajo]);
@@ -451,16 +696,33 @@ export function ExportaTodo({
       const pdfsFaltan = ids.filter((id) => !(pdfs.huella === huella && pdfs.hechos[id])).length;
       const videos = sabeVideo ? conJugada : [];
       const segundosVideos = videos
-        .filter(({ slide, i }) => !hayVideo(claveDelVideo(slide, titulos[i], "whatsapp", contexto)))
+        .filter(({ slide, i }) => !hayVideo(claveDelVideo(slide, titulos[i], "sala", contexto)))
         .reduce((suma, { slide }) => suma + segundosDeVideo(fasesDe(slide.trazos)), 0);
-      const mbVideos = videos.reduce((suma, { slide }) => suma + pesoMb("whatsapp", duracionVideo(fasesDe(slide.trazos))), 0);
+      const mbVideos = videos.reduce((suma, { slide }) => suma + pesoMb("sala", duracionVideo(fasesDe(slide.trazos))), 0);
+      /* Los de cada jugador: lo que se ve de cada uno (el material sale de las diapositivas). */
+      const duraciones = videos.length
+        ? ids.map((id) => duracionResponsabilidad(cometidosDe(tablero, id, players).filter((a) => fasesDe(slides[a.indice]?.trazos) > 0).map((a) => ({ nFases: fasesDe(slides[a.indice].trazos) }))))
+        : [];
+      const conVideo = duraciones.filter((s, k) => cometidosDe(tablero, ids[k], players).some((a) => fasesDe(slides[a.indice]?.trazos) > 0) && s > 0);
+      const deJugadores = {
+        segundos: conVideo.reduce((suma, s) => suma + segundosDeVideoJugador(s), 0),
+        /* A caudal variable salen a unos 8 Mb/s de los 12 pedidos (medido el 01/11/2026). */
+        mb: conVideo.reduce((suma, s) => suma + pesoMb("sala", s) * 0.7, 0),
+      };
       const docs = { segundos: fotosFaltan * SEGUNDOS_POR_FOTO + 2, mb: slides.length * MB_POR_DIAPOSITIVA * 2 };
       const jugadores = { segundos: pdfsFaltan * SEGUNDOS_POR_PDF_JUGADOR, mb: ids.length * MB_POR_PDF_JUGADOR };
+      const fotografiar = videos
+        .filter(({ slide, i }) => !materialGuardado(claveMaterial(slide, titulos[i], contexto)))
+        .reduce((suma, { slide }) => suma + segundosDeVideo(fasesDe(slide.trazos)), 0);
 
       return {
-        todo: { segundos: docs.segundos + jugadores.segundos + segundosVideos, mb: docs.mb + jugadores.mb + mbVideos },
+        todo: {
+          segundos: docs.segundos + jugadores.segundos + segundosVideos + deJugadores.segundos,
+          mb: docs.mb + jugadores.mb + mbVideos + deJugadores.mb,
+        },
         documentos: { segundos: docs.segundos + jugadores.segundos, mb: docs.mb + jugadores.mb },
         videos: { segundos: segundosVideos, mb: mbVideos },
+        videosJugador: { segundos: fotografiar + deJugadores.segundos, mb: deJugadores.mb },
         pptx: { segundos: fotosFaltan * SEGUNDOS_POR_FOTO + 1, mb: slides.length * MB_POR_DIAPOSITIVA },
         pdf: { segundos: fotosFasesFaltan * SEGUNDOS_POR_FOTO + 1, mb: hojasFases.length * MB_POR_DIAPOSITIVA },
       };
@@ -472,12 +734,23 @@ export function ExportaTodo({
       if (opcion === "pptx" || opcion === "pdf") {
         trabajoExportar.encarga({ tipo: "pizarra", formato: opcion, porFases: opcion === "pdf" && porFases, datos: { slides, players, temporada, rival, jornada } });
       } else {
-        trabajoExportar.encarga({ tipo: "todo", conVideos: opcion !== "documentos", soloVideos: opcion === "videos", datos });
+        trabajoExportar.encarga({
+          tipo: "todo",
+          piezas: {
+            documentos: opcion === "todo" || opcion === "documentos",
+            videos: opcion === "todo" || opcion === "videos",
+            videosJugador: opcion === "todo" || opcion === "videosJugador",
+          },
+          datos,
+        });
       }
     };
 
     const nJugadores = jugadoresDelTablero(tablero).length;
     const nVideos = sabeVideo ? conJugada.length : 0;
+    const nVideosJugador = sabeVideo
+      ? jugadoresDelTablero(tablero).filter((fila) => cometidosDe(tablero, fila.playerId, players).some((a) => fasesDe(slides[a.indice]?.trazos) > 0)).length
+      : 0;
     const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
     const opciones: { clave: Opcion; icono: typeof PackageOpen; titulo: string; lleva: string; puede: boolean; aviso?: string }[] = [
@@ -489,7 +762,8 @@ export function ExportaTodo({
           "PDF general",
           "PowerPoint",
           nJugadores ? plural(nJugadores, "PDF de jugador", "PDF de jugador") : "",
-          nVideos ? plural(nVideos, "vídeo para WhatsApp", "vídeos para WhatsApp") : "",
+          nVideos ? plural(nVideos, "vídeo de jugada", "vídeos de jugada") : "",
+          nVideosJugador ? plural(nVideosJugador, "vídeo de jugador", "vídeos de jugador") : "",
         ]
           .filter(Boolean)
           .join(" · "),
@@ -508,11 +782,22 @@ export function ExportaTodo({
         icono: Clapperboard,
         titulo: "Solo vídeos (.zip)",
         lleva: nVideos
-          ? `${plural(nVideos, "MP4", "MP4")} 1280 × 720 con su póster, uno por diapositiva con jugada`
+          ? `${plural(nVideos, "MP4", "MP4")} 1920 × 1080 para la tele, con su póster, uno por diapositiva con jugada`
           : !sabeVideo
             ? "Este navegador no monta vídeo: Chrome o Edge"
             : "Ninguna diapositiva tiene jugada dibujada",
         puede: nVideos > 0,
+      },
+      {
+        clave: "videosJugador",
+        icono: UserRound,
+        titulo: "Vídeos por jugador (.zip)",
+        lleva: nVideosJugador
+          ? `${plural(nVideosJugador, "MP4", "MP4")} 1920 × 1080: su responsabilidad en cada jugada, él resaltado y su tarea`
+          : !sabeVideo
+            ? "Este navegador no monta vídeo: Chrome o Edge"
+            : "Nadie sale en una diapositiva con jugada dibujada",
+        puede: nVideosJugador > 0,
       },
       {
         clave: "pptx",
@@ -645,7 +930,7 @@ export function ExportaTodo({
             <div className="h-full rounded-full bg-[#C8A96B] transition-all" style={{ width: `${(hechas / Math.max(1, tareas.length)) * 100}%` }} />
           </div>
 
-          <ul className="max-h-64 space-y-1.5 overflow-y-auto text-xs">
+          <ul className="max-h-80 space-y-1.5 overflow-y-auto text-xs">
             {tareas.map((t) => (
               <li key={t.id} className="flex items-center gap-2">
                 <span className="flex h-4 w-4 shrink-0 items-center justify-center">
@@ -654,8 +939,18 @@ export function ExportaTodo({
                   {t.estado === "fallo" && <X size={14} className="text-red-400" />}
                   {t.estado === "pendiente" && <span className="h-1.5 w-1.5 rounded-full bg-white/30" />}
                 </span>
-                <span className={`min-w-0 flex-1 truncate ${t.estado === "pendiente" ? "text-white/50" : "text-white/90"}`}>{t.nombre}</span>
-                {t.detalle && <span className="shrink-0 tabular-nums text-white/60">{t.detalle}</span>}
+                {t.estado === "fallo" ? (
+                  /* Lo que ha fallado, con su motivo entero y en su renglón: no se corta. */
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-white/90">{t.nombre}</span>
+                    {t.detalle && <span className="block leading-snug text-red-300">No ha salido: {t.detalle}</span>}
+                  </span>
+                ) : (
+                  <>
+                    <span className={`min-w-0 flex-1 truncate ${t.estado === "pendiente" ? "text-white/50" : "text-white/90"}`}>{t.nombre}</span>
+                    {t.detalle && <span className="shrink-0 tabular-nums text-white/60">{t.detalle}</span>}
+                  </>
+                )}
               </li>
             ))}
           </ul>
