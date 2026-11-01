@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import EstadoGuardado from "@/components/tactics/EstadoGuardado";
+import OnceTitular from "@/components/tactics/OnceTitular";
 import TacticsBoard from "@/components/tactics/TacticsBoard";
 import { usePantallaCompleta } from "@/hooks/usePantallaCompleta";
 import { usePlayers } from "@/hooks/usePlayers";
@@ -1086,6 +1087,17 @@ function BoardEditor({
             </button>
           </div>
         ))}
+
+      {/* Cambiar el once en uno o dos toques, y la propuesta para el próximo partido (01/11/2026). */}
+      {deLaSemana && (
+        <OnceTitular
+          key={prueba ? "prueba" : "guardado"}
+          doc={prueba ?? doc}
+          onChange={prueba ? setPrueba : setValue}
+          roster={roster}
+          rival={partido?.rival}
+        />
+      )}
 
       <div ref={lienzo} data-lienzo-pizarra={lienzoALaVista ? "a-la-vista" : undefined}>
         <TacticsBoard

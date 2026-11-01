@@ -42,7 +42,7 @@ type Fila = Record<string, unknown>;
 const texto = (v: unknown) => String(v ?? "").trim();
 
 /** El hueco de `proponeOnce` → la ficha del 4-2-3-1 de `lib/formations` (nosotros atacando a la derecha). */
-const FICHA_DEL_HUECO: Record<string, string> = {
+export const FICHA_DEL_HUECO: Record<string, string> = {
   por: "POR",
   "lat-i": "LI",
   "cen-i": "DFC1",
@@ -56,8 +56,15 @@ const FICHA_DEL_HUECO: Record<string, string> = {
   del: "DC1",
 };
 
+/** «once-home-MCD1» → «piv-i»: el hueco de una ficha nuestra del tablero de los onces. */
+export const huecoDeFicha = (tokenId: string): string | null => {
+  const ficha = tokenId.startsWith("once-home-") ? tokenId.slice("once-home-".length) : "";
+
+  return Object.entries(FICHA_DEL_HUECO).find(([, f]) => f === ficha)?.[0] ?? null;
+};
+
 /** El número de la camiseta de cada hueco, como en `dosOnces`. */
-const NUMERO_DEL_HUECO: Record<string, string> = { por: "1", "lat-d": "2", "lat-i": "3", "cen-d": "4", "cen-i": "5", "piv-d": "6", "piv-i": "8", "ban-d": "7", media: "10", "ban-i": "11", del: "9" };
+export const NUMERO_DEL_HUECO: Record<string, string> = { por: "1", "lat-d": "2", "lat-i": "3", "cen-d": "4", "cen-i": "5", "piv-d": "6", "piv-i": "8", "ban-d": "7", media: "10", "ban-i": "11", del: "9" };
 
 /* Igual que `dosOnces`: cada equipo comprimido en su mitad. */
 const comprime = (porcentaje: number) => 10 + ((porcentaje - 12) / (87 - 12)) * 35;

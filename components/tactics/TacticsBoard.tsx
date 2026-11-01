@@ -66,6 +66,8 @@ import BoardToolPalette, { BOARD_TOOLS } from "./BoardToolPalette";
 import BoardStyleBar from "./BoardStyleBar";
 import Desplegable from "./Desplegable";
 import { CambioJugador, type OpcionCambio } from "./CambioJugador";
+import { ordenaParaCambio, puestoBuscado } from "@/lib/tactics/editaOnce";
+import { disponible, estadoEnPalabras } from "@/lib/tactics/disponibilidad";
 import { planeDepth, usePitchCamera } from "@/hooks/usePitchCamera";
 import { SEGMENT_MS, usePitchTimeline } from "@/hooks/usePitchTimeline";
 import {
@@ -1336,13 +1338,33 @@ export default function TacticsBoard({
 
     if (ficha.kind === "home") {
       const enCampo = new Set(scene.tokens.filter((t) => t.kind === "home").map((t) => claveNombre(t.nombre)));
-      const opciones: OpcionCambio[] = roster
-        /* Toda la plantilla, también RMC y Juvenil A (14/10/2026): sólo con la licencia del Castilla faltaban 21. */
-        .filter((p) => p.activo !== false)
-        .map((p) => ({ id: p.id, nombre: p.apodo || p.nombre, dorsal: p.dorsal ? String(p.dorsal) : "", posicion: p.posicion, foto: p.foto, enCampo: enCampo.has(claveNombre(p.apodo || p.nombre)) }))
-        .filter((o) => claveNombre(o.nombre) !== claveNombre(ficha.nombre));
+      const buscado = puestoBuscado(ficha, scene);
+      /*
+      | Los de su puesto primero (01/11/2026): era la plantilla entera en el
+      | orden de la hoja y para cambiar al lateral había que buscarlo entre
+      | cuarenta. Los que no pueden jugar van al final, con el porqué.
+      */
+      const opciones: OpcionCambio[] = ordenaParaCambio(
+        roster
+          /* Toda la plantilla, también RMC y Juvenil A (14/10/2026): sólo con la licencia del Castilla faltaban 21. */
+          .filter((p) => p.activo !== false)
+          .filter((p) => claveNombre(p.apodo || p.nombre) !== claveNombre(ficha.nombre))
+          .map((p) => ({ ficha: p, enCampo: enCampo.has(claveNombre(p.apodo || p.nombre)) })),
+        buscado,
+        disponible,
+      ).map(({ ficha: p, enCampo: dentro, grupo }) => ({
+        id: p.id,
+        nombre: p.apodo || p.nombre,
+        dorsal: p.dorsal ? String(p.dorsal) : "",
+        posicion: p.posicion,
+        foto: p.foto,
+        enCampo: dentro,
+        grupo,
+        nota: estadoEnPalabras(p) ?? undefined,
+        apagado: !disponible(p),
+      }));
 
-      return { ficha, equipo: "Real Madrid Castilla", opciones };
+      return { ficha, equipo: buscado?.rotulo ? `Real Madrid Castilla · ${buscado.rotulo}` : "Real Madrid Castilla", opciones };
     }
 
     if (!squadDelCampo) return { ficha, equipo: "Rival", opciones: [] as OpcionCambio[] };
@@ -1353,7 +1375,7 @@ export default function TacticsBoard({
       .map((p) => ({ id: p.id, nombre: p.nombre, dorsal: p.dorsal, posicion: p.posicion, foto: p.foto, enCampo: enCampo.has(rivalTokenId(p.id)) }));
 
     return { ficha, equipo: squadDelCampo.equipo, opciones };
-  }, [cambiando, scene.tokens, roster, squadDelCampo]);
+  }, [cambiando, scene, roster, squadDelCampo]);
 
   /** Mete al elegido en el sitio de la ficha, en todas las escenas; si ya estaba en el campo, se intercambian los sitios. */
   const aplicaCambio = (ficha: TacticToken, id: string) => {

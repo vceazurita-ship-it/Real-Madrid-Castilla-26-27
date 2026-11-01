@@ -10,13 +10,31 @@
 | como está». Si el elegido ya está en el campo, se intercambian los sitios.
 | Va dentro del tablero (no en un portal) para que se vea también a pantalla
 | completa.
+|
+| Desde el 01/11/2026 la lista de los nuestros va por grupos: primero los de
+| su puesto, luego los que ya están en el campo (se cambian el sitio), el
+| resto y, al final y apagados, los que no pueden jugar con el porqué. Con el
+| buscador vacío, Intro elige al primero de la lista.
 */
 
 import Image from "next/image";
 import { Repeat2, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
-export type OpcionCambio = { id: string; nombre: string; dorsal?: string; posicion?: string; foto?: string; enCampo: boolean };
+export type OpcionCambio = {
+  id: string;
+  nombre: string;
+  dorsal?: string;
+  posicion?: string;
+  foto?: string;
+  enCampo: boolean;
+  /** El rótulo del grupo en el que va («De su puesto»…); sin él, una lista corrida. */
+  grupo?: string;
+  /** «Lesionado», «Tocado»: se enseña a la derecha. */
+  nota?: string;
+  /** No puede jugar: se ve apagado (se puede elegir igual). */
+  apagado?: boolean;
+};
 
 const sinTildes = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
@@ -57,27 +75,46 @@ export function CambioJugador({
         <div className="border-b border-white/10 px-4 py-2.5">
           <label className="relative block">
             <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-white/35" aria-hidden />
-            <input autoFocus value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nombre, puesto o dorsal" className="w-full rounded-lg border border-white/10 bg-white/[0.04] py-1.5 pl-8 pr-2 text-sm text-white outline-none focus:border-[#C8A96B]/50" />
+            <input
+              autoFocus
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && visibles[0]) onElige(visibles[0].id);
+              }}
+              placeholder="Buscar nombre, puesto o dorsal"
+              className="w-full rounded-lg border border-white/10 bg-white/[0.04] py-2 pl-8 pr-2 text-sm text-white outline-none focus:border-[#C8A96B]/50"
+            />
           </label>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
-          {visibles.map((o) => (
-            <button key={o.id} type="button" onClick={() => onElige(o.id)} className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-sm transition hover:bg-white/[0.06]">
-              <span className="w-6 text-right text-xs font-semibold tabular-nums text-[#C8A96B]">{o.dorsal || ""}</span>
-              <span className="relative h-7 w-7 shrink-0 overflow-hidden rounded-full bg-white/10">
-                {o.foto ? <Image src={o.foto} alt="" fill sizes="28px" className="object-cover" unoptimized /> : null}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-white/90">{o.nombre}</span>
-                {o.posicion ? <span className="block truncate text-[10px] text-white/40">{o.posicion}</span> : null}
-              </span>
-              {o.enCampo ? (
-                <span className="inline-flex items-center gap-1 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-white/60" title="Ya está en el campo: se intercambian los sitios">
-                  <Repeat2 size={11} aria-hidden /> en el campo
-                </span>
+          {visibles.map((o, i) => (
+            <div key={o.id}>
+              {o.grupo && o.grupo !== visibles[i - 1]?.grupo ? (
+                <p className="px-2 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">{o.grupo}</p>
               ) : null}
-            </button>
+              <button
+                type="button"
+                onClick={() => onElige(o.id)}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm transition hover:bg-white/[0.06] ${o.apagado ? "opacity-55" : ""}`}
+              >
+                <span className="w-6 text-right text-xs font-semibold tabular-nums text-[#C8A96B]">{o.dorsal || ""}</span>
+                <span className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-white/10">
+                  {o.foto ? <Image src={o.foto} alt="" fill sizes="32px" className="object-cover" unoptimized /> : null}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-white/90">{o.nombre}</span>
+                  {o.posicion ? <span className="block truncate text-[10px] text-white/40">{o.posicion}</span> : null}
+                </span>
+                {o.nota ? <span className="shrink-0 rounded bg-amber-400/[0.12] px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">{o.nota}</span> : null}
+                {o.enCampo ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-white/60" title="Ya está en el campo: se intercambian los sitios">
+                    <Repeat2 size={11} aria-hidden /> en el campo
+                  </span>
+                ) : null}
+              </button>
+            </div>
           ))}
           {/* Sin plantilla no es «nadie con ese nombre» (19/10/2026): una ficha rival suelta, sin equipo en el campo, abría la lista vacía con ese texto. */}
           {!visibles.length ? (
