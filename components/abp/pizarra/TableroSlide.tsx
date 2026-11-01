@@ -67,6 +67,7 @@ import {
   enElCampo,
   gruposDe,
   lineasDeSlide,
+  normalizaConsigna,
   pideDorsal,
   puestoDe,
   puestosDe,
@@ -75,6 +76,7 @@ import {
   type FichaPizarra,
   type SlidePizarra,
 } from "@/lib/abp/pizarra";
+import { leyendaSiglas } from "@/lib/abp/siglas";
 
 /* ------------------------------------------------------------------ */
 /*  TEXTOS QUE SE ESCRIBEN EN SU SITIO                                 */
@@ -310,10 +312,43 @@ function CampoEnSitio({
   );
 }
 
+/** Un texto para compararlo con otro: sin mayúsculas, tildes, signos ni el número de orden. */
+function comparable(texto: string) {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/^\s*\d{1,2}\s*[.)-]?\s+/, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/** El número de orden con el que alguien ya empezó la consigna («1. Remate…»): ahora lo pone la franja. */
+function sinNumeroDeOrden(texto: string) {
+  /* «1.ª y 2.ª: …» es un ordinal, no un número de orden: se queda. */
+  return texto.replace(/^\s*\d{1,2}\s*[.)-](?![ªº\d])\s*/, "");
+}
+
 /** Medidas de una ficha en el lienzo, las del pptx: foto de 96×120. */
 const FOTO_W = 96;
 const FOTO_H = 120;
-const CHAPA_H = 36;
+/* 01/11/2026: 40 y no 36, con el nombre a 18 px (era 14 y no se leía en la sala). */
+const CHAPA_H = 40;
+
+/** Letra del nombre en la chapa, y el ancho que no se pasa (el resto se encoge). */
+const NOMBRE_CHAPA = 18;
+const CHAPA_MAX_W = 156;
+
+/**
+ * Lo que mide de ancho la chapa de una ficha, para que `separaFichas` abra las
+ * que se pisan el nombre. Es una estimación por letras (mayúsculas
+ * seminegras con algo de espaciado): medir el DOM obligaría a pintar dos veces.
+ */
+function anchoChapa(nombre: string, sigla: string) {
+  const texto = Math.max(nombre.length * NOMBRE_CHAPA * 0.62, sigla.length * 10);
+
+  return Math.round(Math.min(CHAPA_MAX_W, Math.max(54, texto + 14)));
+}
 
 /*
 | La maqueta de la sala (21/10/2026).
@@ -333,8 +368,25 @@ const CHAPA_H = 36;
 /** Ancho de la columna del panel, con su margen. */
 const COLUMNA_PANEL = 404;
 
-/** Alto de la franja de consignas. */
-const FRANJA_NOTAS = 206;
+/*
+| Alto de la franja de consignas (01/11/2026). Era fijo (206) con las
+| consignas a dos columnas; ahora van en una sola, numeradas y con la letra un
+| 20 % más grande, así que la franja crece con las líneas que hay —entre un
+| mínimo y un tope— y el campo cede ese alto. Lo que no quepa en el tope baja
+| de letra (`PASOS_LETRA_NOTAS`), nunca se corta.
+*/
+const FRANJA_MIN = 140;
+const FRANJA_MAX = 284;
+
+/** Lo que ocupa una línea de consigna a la letra normal, con su margen. */
+const ALTO_LINEA_NOTA = 42;
+
+function altoFranja(lineas: number) {
+  if (lineas <= 0) return 0;
+
+  /* 32 de relleno de la caja y 24 de aire alrededor. */
+  return Math.min(FRANJA_MAX, Math.max(FRANJA_MIN, 56 + lineas * ALTO_LINEA_NOTA));
+}
 
 /** Desde dónde se ve el campo: un poco por encima del filo de la cabecera. */
 const CAMPO_DESDE = CABECERA_H - 26;
@@ -342,13 +394,12 @@ const CAMPO_DESDE = CABECERA_H - 26;
 /** Margen entre el filo de la cabecera y lo que va debajo. */
 const AIRE = 16;
 
-/** Tamaños de letra de las consignas, del normal al más apretado (en px del lienzo). */
-const PASOS_LETRA_NOTAS = [
-  { texto: 22, rotulo: 19, sub: 21 },
-  { texto: 19, rotulo: 16.5, sub: 18 },
-  { texto: 17, rotulo: 15, sub: 16 },
-  { texto: 15, rotulo: 13, sub: 14 },
-];
+/**
+ * Tamaños de letra de las consignas (en px del lienzo): la normal, un 20 %
+ * por encima de la de antes (22 → 26), y los pasos a los que baja si no cabe.
+ */
+const LETRA_NOTAS = { texto: 26, rotulo: 21, sub: 24 };
+const PASOS_LETRA_NOTAS = [1, 0.92, 0.85, 0.78, 0.72, 0.66, 0.6, 0.55, 0.5];
 
 type Maqueta = {
   k: number;
@@ -367,9 +418,10 @@ type Caja = { x0: number; y0: number; x1: number; y1: number };
 /** Hasta dónde se acerca: más, y la foto del campo se ve borrosa. */
 const ACERCA_MAX = 1.4;
 
-function maquetaDe(conPanel: boolean, conNotas: boolean, jugada?: Caja | null): Maqueta {
+/** `franja` es el alto de la franja de consignas (0 si no hay). */
+function maquetaDe(conPanel: boolean, franja: number, jugada?: Caja | null): Maqueta {
   const arriba = CABECERA_H + 5 + AIRE;
-  const abajo = TABLERO_H - (conNotas ? FRANJA_NOTAS + AIRE / 2 : AIRE);
+  const abajo = TABLERO_H - (franja > 0 ? franja + AIRE / 2 : AIRE);
   const izquierda = AIRE;
   const derecha = TABLERO_W - (conPanel ? COLUMNA_PANEL : AIRE);
 
@@ -676,10 +728,15 @@ function Ficha({
         </span>
 
         <span
-          className="max-w-[124px] truncate text-[14px] font-semibold uppercase leading-[16px] tracking-wide"
-          style={{ color: foco === "si" ? COLORES.navy : "rgba(228,206,155,.95)" }}
+          className="whitespace-nowrap font-semibold uppercase tracking-wide"
+          style={{
+            color: foco === "si" ? COLORES.navy : "rgba(228,206,155,.95)",
+            /* Un nombre larguísimo baja de letra en vez de cortarse. */
+            fontSize: Math.max(13, Math.min(NOMBRE_CHAPA, (CHAPA_MAX_W - 14) / (Math.max(1, nombre.length) * 0.62))),
+            lineHeight: "20px",
+          }}
         >
-          {player?.apodo ?? player?.nombre ?? ""}
+          {nombre}
         </span>
       </div>
 
@@ -1400,28 +1457,69 @@ export function TableroSlide({
   });
 
   const grupos = gruposDe(slide);
+
+  /** El título que se lee: «TIPO · contexto» se parte en dos líneas. */
+  const tituloMostrado = (titulo ?? slide.titulo).trim();
+  const corte = tituloMostrado.indexOf(" · ");
+  const tituloTipo = corte > 0 ? tituloMostrado.slice(0, corte).trim() : tituloMostrado;
+  const tituloContexto = corte > 0 ? tituloMostrado.slice(corte + 3).trim() : "";
+
+  /*
+  | La señal va fija junto a las asignaciones (01/11/2026, expertos): en la
+  | franja de consignas era una línea más y la sala no la encontraba. Se lee
+  | tal cual la escribe el analista, con la primera en mayúscula.
+  */
+  const senal = slide.guion?.senal?.trim() ? normalizaConsigna(slide.guion.senal) : "";
+
   /* Los nombres de las consignas, como en la plantilla («mario» pasa a «Mario»). Lo guardado no se toca. */
-  const lineas = lineasDeSlide(slide, (texto) => {
-    const ajustado = ajustaNombres(texto, [...players.values()]);
+  const todasLineas = lineasDeSlide(
+    { notas: slide.notas, guion: slide.guion ? { ...slide.guion, senal: undefined } : undefined },
+    (texto) => {
+      const ajustado = ajustaNombres(texto, [...players.values()]);
 
-    return ajustado.charAt(0).toLocaleUpperCase("es-ES") + ajustado.slice(1);
-  });
-
-  const conPanel = panel && grupos.length > 0;
-  const conNotas = lineas.length > 0;
+      return ajustado.charAt(0).toLocaleUpperCase("es-ES") + ajustado.slice(1);
+    },
+  );
 
   /*
   | De dónde sale cada línea de la franja, para escribirla en su sitio: primero
-  | las casillas de señal, rutina e intención que tengan algo y después las
-  | consignas no vacías, en el orden de `lineasDeSlide`.
+  | las casillas de rutina e intención que tengan algo (la señal va aparte) y
+  | después las consignas no vacías, en el orden de `lineasDeSlide`.
   */
-  const origenLineas: ({ tipo: "guion"; key: (typeof CASILLAS_GUION)[number]["key"] } | { tipo: "nota"; indice: number })[] = [
-    ...CASILLAS_GUION.filter((casilla) => slide.guion?.[casilla.key]?.trim()).map((casilla) => ({
+  const todosOrigenes: ({ tipo: "guion"; key: (typeof CASILLAS_GUION)[number]["key"] } | { tipo: "nota"; indice: number })[] = [
+    ...CASILLAS_GUION.filter((casilla) => casilla.key !== "senal" && slide.guion?.[casilla.key]?.trim()).map((casilla) => ({
       tipo: "guion" as const,
       key: casilla.key,
     })),
     ...slide.notas.flatMap((nota, indice) => (nota.trim() ? [{ tipo: "nota" as const, indice }] : [])),
   ];
+
+  /*
+  | Una consigna que dice lo mismo que el título («Segundo córner del
+  | partido» bajo «CÓRNER OFENSIVO · SEGUNDO CÓRNER DEL PARTIDO») no se
+  | repite: se compara sin mayúsculas, tildes ni el número de orden.
+  */
+  const comoTitulo = new Set(
+    [tituloMostrado, tituloTipo, tituloContexto, slide.titulo].map(comparable).filter(Boolean),
+  );
+
+  const visibles = todasLineas
+    .map((linea, posicion) => ({ linea, origen: todosOrigenes[posicion] }))
+    .filter(({ linea }) => linea.tipo !== "consigna" || !comoTitulo.has(comparable(linea.texto)));
+
+  const lineas = visibles.map((una) => una.linea);
+  const origenLineas = visibles.map((una) => una.origen);
+
+  /* El número de cada consigna (los rótulos y la rutina no cuentan). */
+  const numeroConsigna = lineas.reduce<number[]>((numeros, linea) => {
+    const anterior = Math.max(0, ...numeros);
+
+    return [...numeros, linea.tipo === "consigna" ? anterior + 1 : 0];
+  }, []);
+
+  const conPanel = panel && grupos.length > 0;
+  const conNotas = lineas.length > 0;
+  const franja = altoFranja(lineas.length);
 
   /** La línea de la franja, envuelta para escribirla en su sitio. */
   const lineaEnSitio = (posicion: number, mostrado: ReactNode) => {
@@ -1443,21 +1541,43 @@ export function TableroSlide({
 
   const [escala, setEscala] = useState(1);
 
+  /* El alto de la franja, para pasar del puntero al campo sin re-suscribir el arrastre. */
+  const franjaRef = useRef(franja);
+
+  useEffect(() => {
+    franjaRef.current = franja;
+  }, [franja]);
+
   /*
   | Lo que no cabe se encoge en vez de cortarse: el panel y la franja de
   | consignas tienen caja fija y, con muchos puestos o muchas consignas, lo de
-  | abajo (o la tercera columna) quedaba fuera sin avisar, en la sala y en el
-  | PNG / PPT. El panel se mide y se reduce de una vez; las consignas bajan de
-  | letra por pasos hasta que caben en sus dos columnas. La clave devuelve el
-  | paso a cero en cuanto cambia el texto.
+  | abajo quedaba fuera sin avisar, en la sala y en el PNG / PPT. El panel se
+  | mide y se reduce de una vez; las consignas bajan de letra por pasos hasta
+  | que caben y, pasado el último, la columna entera se encoge. La clave
+  | devuelve el paso a cero en cuanto cambia el texto. El título hace lo mismo
+  | a lo ancho, hasta el 70 %.
   */
   const panelRef = useRef<HTMLDivElement>(null);
+  const leyendaRef = useRef<HTMLDivElement>(null);
   const notasRef = useRef<HTMLDivElement>(null);
+  const notasDentroRef = useRef<HTMLDivElement>(null);
+  const tituloRef = useRef<HTMLDivElement>(null);
   const [ajustePanel, setAjustePanel] = useState(1);
-  const claveNotas = lineas.map((l) => ("rotulo" in l ? l.rotulo : "") + l.texto).join("\n");
-  const [pasoNotas, setPasoNotas] = useState({ clave: "", paso: 0 });
+  const [cabeLeyenda, setCabeLeyenda] = useState(true);
+  const claveNotas = `${franja}|${lineas.map((l) => ("rotulo" in l ? l.rotulo : "") + l.texto).join("\n")}`;
+  const [pasoNotas, setPasoNotas] = useState({ clave: "", paso: 0, encoge: 1 });
   const paso = pasoNotas.clave === claveNotas ? pasoNotas.paso : 0;
-  const letra = PASOS_LETRA_NOTAS[paso];
+  const encogeNotas = pasoNotas.clave === claveNotas ? pasoNotas.encoge : 1;
+  const factorNotas = PASOS_LETRA_NOTAS[paso];
+  const letra = {
+    texto: LETRA_NOTAS.texto * factorNotas,
+    rotulo: LETRA_NOTAS.rotulo * factorNotas,
+    sub: LETRA_NOTAS.sub * factorNotas,
+  };
+
+  const claveTitulo = `${tituloMostrado}|${senal}`;
+  const [pasoTitulo, setPasoTitulo] = useState({ clave: "", factor: 1 });
+  const factorTitulo = pasoTitulo.clave === claveTitulo ? pasoTitulo.factor : 1;
 
   /* El lienzo es fijo; lo que cambia es cuánto se encoge para caber. */
   useEffect(() => {
@@ -1551,14 +1671,14 @@ export function TableroSlide({
 
       const caja = marco.getBoundingClientRect();
       const kk = caja.width / TABLERO_W;
-      const m = maquetaDe(conPanel, conNotas);
+      const m = maquetaDe(conPanel, franjaRef.current);
 
       const cx = (clientX - caja.left) / kk;
       const cy = (clientY - caja.top) / kk;
 
       return { x: (cx - m.left) / m.k + m.ox, y: (cy - m.top) / m.k + m.oy };
     },
-    [conPanel, conNotas],
+    [conPanel],
   );
 
   const empieza = useCallback(
@@ -1762,7 +1882,12 @@ export function TableroSlide({
   }, [onMover, onCambiarTrazo, onCrearTrazo, onMoverRival, alLienzo, setBorrador]);
 
   const puestos = puestosDe(slide);
-  const maqueta = maquetaDe(conPanel, conNotas, soloVer ? cajaDeJugada(slide) : null);
+
+  /* Las siglas que se ven en el campo (las de los puestos con alguien), con lo que significan. */
+  const conGente = new Set(slide.fichas.map((ficha) => ficha.puesto).filter(Boolean) as string[]);
+  const leyenda = leyendaSiglas(puestos.filter((puesto) => conGente.has(puesto.key)));
+
+  const maqueta = maquetaDe(conPanel, franja, soloVer ? cajaDeJugada(slide) : null);
 
   const todos = slide.trazos ?? [];
 
@@ -1786,7 +1911,19 @@ export function TableroSlide({
   const balon = balonEn(trazos, tiempo);
 
   /* Al enseñar, las caras que se pisan se abren o se pintan compactas. */
-  const separadas = soloVer ? separaFichas(enCampo) : null;
+  const separadas = soloVer
+    ? separaFichas(
+        enCampo.map((ficha) => {
+          const player = players.get(ficha.playerId);
+          const puesto = puestoDe(slide, ficha.puesto);
+
+          return {
+            ...ficha,
+            chapa: anchoChapa(player?.apodo ?? player?.nombre ?? "", puesto ? siglaDe(puesto) : String(player?.dorsal ?? "")),
+          };
+        }),
+      )
+    : null;
 
   /* Y los rivales, que no tapen a los nuestros: se apartan o van por debajo. */
   const apartados = soloVer ? apartaRivales(slide.rivales ?? [], enCampo, separadas) : null;
@@ -1815,16 +1952,26 @@ export function TableroSlide({
 
   /* Alto que le queda al panel entre la cabecera y la franja de consignas. */
   const altoPanel =
-    (conNotas ? TABLERO_H - FRANJA_NOTAS - AIRE / 2 : TABLERO_H - AIRE) - maqueta.top;
+    (conNotas ? TABLERO_H - franja - AIRE / 2 : TABLERO_H - AIRE) - maqueta.top;
 
   useEffect(() => {
     const el = panelRef.current;
 
     if (!el) return;
 
-    /* 34 = relleno vertical (32) y borde (2) de la caja. */
-    const medir = () =>
-      setAjustePanel(Math.min(1, Math.max(0.55, (altoPanel - 34) / el.offsetHeight)));
+    /*
+    | 34 = relleno vertical (32) y borde (2) de la caja. La leyenda de siglas
+    | va debajo sólo si cabe entera sin encoger el panel: es una ayuda, no
+    | puede quitarle letra a los nombres.
+    */
+    const medir = () => {
+      const libre = altoPanel - 34;
+      const ajuste = Math.min(1, Math.max(0.55, libre / el.offsetHeight));
+      const leyenda = leyendaRef.current?.offsetHeight ?? 0;
+
+      setAjustePanel(ajuste);
+      setCabeLeyenda(ajuste >= 1 && leyenda > 0 && el.offsetHeight + 14 + leyenda <= libre);
+    };
 
     medir();
 
@@ -1832,16 +1979,39 @@ export function TableroSlide({
 
     observer.observe(el);
 
+    if (leyendaRef.current) observer.observe(leyendaRef.current);
+
     return () => observer.disconnect();
-  }, [altoPanel, conPanel]);
+  }, [altoPanel, conPanel, leyenda.length]);
 
   useEffect(() => {
-    const el = notasRef.current;
+    const caja = notasRef.current;
+    const dentro = notasDentroRef.current;
 
-    if (el && el.scrollWidth > el.clientWidth + 1 && paso < PASOS_LETRA_NOTAS.length - 1) {
-      setPasoNotas({ clave: claveNotas, paso: paso + 1 });
+    if (!caja || !dentro) return;
+
+    const sobra = dentro.offsetHeight > caja.clientHeight + 1;
+
+    if (sobra && paso < PASOS_LETRA_NOTAS.length - 1) {
+      setPasoNotas({ clave: claveNotas, paso: paso + 1, encoge: 1 });
+    } else if (sobra && encogeNotas === 1) {
+      /* Ni a la letra más pequeña: la columna entera se encoge hasta caber. */
+      setPasoNotas({ clave: claveNotas, paso, encoge: caja.clientHeight / dentro.offsetHeight });
     }
-  }, [paso, claveNotas, conNotas]);
+  }, [paso, encogeNotas, claveNotas, conNotas]);
+
+  useEffect(() => {
+    const el = tituloRef.current;
+
+    if (!el) return;
+
+    /* El título no se corta nunca: baja de letra hasta caber, hasta el 70 %. */
+    const sobra = [...el.children].some((hijo) => (hijo as HTMLElement).scrollWidth > el.clientWidth + 1);
+
+    if (sobra && factorTitulo > 0.7) {
+      setPasoTitulo({ clave: claveTitulo, factor: Math.max(0.7, Math.round((factorTitulo - 0.05) * 100) / 100) });
+    }
+  }, [factorTitulo, claveTitulo]);
 
   const editaTrazos = !soloVer && tiempo == null;
 
@@ -2257,29 +2427,70 @@ export function TableroSlide({
               }}
             />
 
-            <div className="min-w-0 flex-1">
+            {/*
+            | El título, entero siempre (01/11/2026, expertos): «CÓRNER
+            | OFENSIVO · SEGUNDO CÓRNER DEL PARTIDO» salía cortado con «…». Si
+            | trae «TIPO · contexto», el tipo va grande arriba y el contexto
+            | debajo, más pequeño y en oro; si no cabe, baja de letra (hasta el
+            | 70 %) y, sólo entonces, parte en dos líneas.
+            */}
+            <div ref={tituloRef} className="min-w-0 flex-1 overflow-hidden">
               <p
-                className="text-[13px] font-semibold uppercase leading-none tracking-[0.34em]"
+                className="whitespace-nowrap text-[13px] font-semibold uppercase leading-none tracking-[0.34em]"
                 style={{ color: COLORES.oro }}
               >
                 {CLUB}
               </p>
 
-              <p
-                className="mt-2.5 truncate text-[42px] font-bold uppercase leading-none tracking-[0.015em] text-white"
+              <div
+                className="font-bold uppercase text-white"
                 style={{
+                  marginTop: tituloContexto ? 8 : 10,
                   fontFamily: "var(--fuente-pizarra, inherit)",
                   textShadow: "0 2px 12px rgba(0,0,0,.55)",
+                  whiteSpace: factorTitulo > 0.7 ? "nowrap" : "normal",
                 }}
               >
                 <TextoEnSitio
                   {...enSitio("titulo", slide.titulo, (texto) => ({ tipo: "titulo", texto }), "Doble clic para cambiar el título")}
                   bloque
                 >
-                  {titulo ?? slide.titulo}
+                  <span
+                    className="block tracking-[0.015em]"
+                    style={{ fontSize: (tituloContexto ? 40 : 42) * factorTitulo, lineHeight: 1 }}
+                  >
+                    {tituloTipo}
+                  </span>
+
+                  {tituloContexto && (
+                    <span
+                      className="mt-1.5 block tracking-[0.04em]"
+                      style={{ fontSize: 25 * factorTitulo, lineHeight: 1.05, color: COLORES.oroClaro }}
+                    >
+                      {tituloContexto}
+                    </span>
+                  )}
                 </TextoEnSitio>
-              </p>
+              </div>
             </div>
+
+            {/* Sin panel, la señal va junto al título. */}
+            {senal && !conPanel && (
+              <div
+                className="max-w-[420px] shrink rounded-xl px-4 py-2"
+                style={{ backgroundColor: COLORES.oro, color: COLORES.noche }}
+              >
+                <p className="text-[22px] font-bold leading-tight">
+                  <span className="mr-2 text-[17px] uppercase tracking-[0.18em]">Señal:</span>
+                  <TextoEnSitio
+                    {...enSitio("guion:senal", slide.guion?.senal ?? "", (texto) => ({ tipo: "guion", key: "senal", texto }), "Doble clic para escribirla. Vacía, se quita")}
+                    bloque
+                  >
+                    {senal}
+                  </TextoEnSitio>
+                </p>
+              </div>
+            )}
 
             {/*
             | El rival y la temporada, en una placa de cristal. Antes iban en
@@ -2374,6 +2585,27 @@ export function TableroSlide({
                 width: ajustePanel < 1 ? `${100 / ajustePanel}%` : undefined,
               }}
             >
+            {/*
+            | La señal, fija en la cabecera del panel: es lo primero que mira
+            | el que va a sacar y no puede perderse entre las consignas.
+            */}
+            {senal && (
+              <div
+                className="mb-3.5 rounded-xl px-3.5 py-2.5"
+                style={{ backgroundColor: COLORES.oro, color: COLORES.noche }}
+              >
+                <p className="text-[22px] font-bold leading-tight">
+                  <span className="mr-2 text-[17px] uppercase tracking-[0.18em]">Señal:</span>
+                  <TextoEnSitio
+                    {...enSitio("guion:senal", slide.guion?.senal ?? "", (texto) => ({ tipo: "guion", key: "senal", texto }), "Doble clic para escribirla. Vacía, se quita")}
+                    bloque
+                  >
+                    {senal}
+                  </TextoEnSitio>
+                </p>
+              </div>
+            )}
+
             <div
               className="mb-3 flex items-baseline justify-between border-b pb-2.5"
               style={{ borderColor: "rgba(200,169,107,.25)" }}
@@ -2504,6 +2736,38 @@ export function TableroSlide({
               })}
             </div>
             </div>
+
+            {/*
+            | Qué quiere decir cada sigla de las que se ven en el campo, para
+            | quien no estuvo en la charla. Sólo si cabe entera: se mide
+            | siempre (alto cero mientras no cabe) y sale cuando hay sitio.
+            */}
+            {leyenda.length > 0 && (
+              <div
+                aria-hidden={!cabeLeyenda}
+                style={{ height: cabeLeyenda ? undefined : 0, overflow: "hidden", visibility: cabeLeyenda ? undefined : "hidden" }}
+              >
+                <div ref={leyendaRef} className="mt-3.5 border-t pt-3" style={{ borderColor: "rgba(200,169,107,.25)" }}>
+                  <p
+                    className="mb-2 text-[13px] font-semibold uppercase leading-none tracking-[0.26em]"
+                    style={{ color: COLORES.oro }}
+                  >
+                    Siglas
+                  </p>
+
+                  <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                    {leyenda.map((una) => (
+                      <span key={una.sigla} className="text-[16px] leading-tight text-white/75">
+                        <b className="mr-1.5 font-bold" style={{ color: COLORES.oroClaro }}>
+                          {una.sigla}
+                        </b>
+                        {una.significado}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -2519,9 +2783,9 @@ export function TableroSlide({
             className="absolute overflow-hidden rounded-2xl"
             style={{
               left: AIRE,
-              top: TABLERO_H - FRANJA_NOTAS + AIRE / 2,
+              top: TABLERO_H - franja + AIRE / 2,
               width: TABLERO_W - AIRE * 2,
-              height: FRANJA_NOTAS - AIRE * 1.5,
+              height: franja - AIRE * 1.5,
               backgroundColor: COLORES.papel,
               borderLeft: `8px solid ${COLORES.oro}`,
               boxShadow: "0 0 0 1px rgba(200,169,107,.45), 0 18px 44px rgba(0,0,0,.45)",
@@ -2539,15 +2803,19 @@ export function TableroSlide({
                 Consignas
               </p>
 
+              {/*
+              | Una sola columna y numeradas (01/11/2026, expertos): a dos
+              | columnas el orden se leía en zigzag, y en la sala se dice «la
+              | dos», no «la de los bloqueos».
+              */}
+              <div ref={notasRef} className="min-w-0 flex-1 overflow-hidden" style={{ height: "100%" }}>
               <div
-                ref={notasRef}
-                className="min-w-0 flex-1"
-                style={{
-                  columnCount: lineas.length > 3 ? 2 : 1,
-                  columnGap: 48,
-                  columnFill: "auto",
-                  height: "100%",
-                }}
+                ref={notasDentroRef}
+                style={
+                  encogeNotas < 1
+                    ? { transform: `scale(${encogeNotas})`, transformOrigin: "top left", width: `${100 / encogeNotas}%` }
+                    : undefined
+                }
               >
                 {lineas.map((linea, indice) =>
                   linea.tipo === "guion" ? (
@@ -2580,14 +2848,25 @@ export function TableroSlide({
                       style={{ color: COLORES.navy, breakInside: "avoid", fontSize: letra.texto }}
                     >
                       <span
-                        className="mt-[10px] shrink-0 rounded-[1px]"
-                        style={{ width: 8, height: 8, backgroundColor: COLORES.oro }}
-                      />
+                        className="flex shrink-0 items-center justify-center rounded-md font-bold tabular-nums"
+                        style={{
+                          minWidth: letra.texto * 1.25,
+                          height: letra.texto * 1.25,
+                          fontSize: letra.texto * 0.8,
+                          backgroundColor: COLORES.navy,
+                          color: COLORES.oroClaro,
+                        }}
+                      >
+                        {numeroConsigna[indice]}
+                      </span>
 
-                      <span className={editaTextos ? "min-w-0 flex-1" : "min-w-0"}>{lineaEnSitio(indice, linea.texto)}</span>
+                      <span className={editaTextos ? "min-w-0 flex-1" : "min-w-0"}>
+                        {lineaEnSitio(indice, sinNumeroDeOrden(linea.texto))}
+                      </span>
                     </p>
                   ),
                 )}
+              </div>
               </div>
             </div>
           </div>

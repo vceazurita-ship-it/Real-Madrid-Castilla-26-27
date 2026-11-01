@@ -197,6 +197,7 @@ import {
 import { SCOUT_DOC_KEY, actionsOf } from "@/lib/abp/rivalScout";
 import { buildAerialThreats } from "@/lib/abp/rival";
 import { enElCampo } from "@/lib/abp/pizarra";
+import { siglasQueChocan } from "@/lib/abp/siglas";
 import { traeJson } from "@/lib/hojaCsv";
 import { VideoJugada } from "@/components/abp/pizarra/VideoJugada";
 import {
@@ -367,7 +368,7 @@ function SelectorJornada({
         <button
           type="button"
           onClick={() => setTodas((antes) => !antes)}
-          className="mt-1 text-[11px] text-white/45 underline decoration-dotted underline-offset-2 transition hover:text-white"
+          className="mt-1.5 inline-flex min-h-[30px] items-center rounded-lg border border-white/12 px-2.5 text-[13px] text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
         >
           {todas ? "Sólo las jornadas cercanas" : `Más jornadas (${plegadas})`}
         </button>
@@ -1392,6 +1393,13 @@ export default function PizarraAbpPage() {
     const enOnce = new Set(delOnce);
     return jugadoresDelTablero(tablero).filter((item) => !enOnce.has(item.playerId)).map((item) => item.playerId);
   }, [tablero, delOnce]);
+
+  /* Los mismos, con en cuántas diapositivas salen: el aviso de la cabecera de «Diapositivas». */
+  const fueraConCuenta = useMemo(() => {
+    if (!tablero || fueraDelOnce.length === 0) return [] as { playerId: string; slides: number }[];
+    const fuera = new Set(fueraDelOnce);
+    return jugadoresDelTablero(tablero).filter((item) => fuera.has(item.playerId));
+  }, [tablero, fueraDelOnce]);
 
   /*
   | Los textos que nombran a alguien fuera del once (31/10/2026): las consignas
@@ -2578,7 +2586,7 @@ export default function PizarraAbpPage() {
                       : "Rellenar los puestos vacíos de todas las diapositivas"
                   }
                 >
-                  Colocar todo
+                  Colocar en todas
                 </Button>
 
                 {/* Lo menos usado, en un menú: una sola fila de botones a la vista. */}
@@ -2724,19 +2732,7 @@ export default function PizarraAbpPage() {
                         </select>
                       </span>
                     ))}
-                  {fueraDelOnce.length > 0 && (
-                    <>
-                      <span className="min-w-0 text-[12px] text-amber-200/90">
-                        {fueraDelOnce.length === 1 ? "En la pizarra pero no en el once: " : `${fueraDelOnce.length} en la pizarra que no están en el once: `}
-                        <b className="font-semibold">
-                          {fueraDelOnce.map((id) => porId.get(id)?.apodo || porId.get(id)?.nombre || id).join(", ")}
-                        </b>
-                      </span>
-                      <Button icon={Repeat} onClick={() => setCambiando({ sale: fueraDelOnce[0] })}>
-                        Cambiarlos
-                      </Button>
-                    </>
-                  )}
+                  {/* Quién está dibujado sin estar en el once se avisa arriba, en la cabecera de «Diapositivas». */}
                   <Link
                     href="/pizarra-tactica"
                     className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/12 px-3 text-sm text-white/70 transition hover:border-white/25 hover:text-white"
@@ -2755,7 +2751,7 @@ export default function PizarraAbpPage() {
                 /* 29/10/2026: plegado también en el ordenador; el rival ya va
                    en el chip junto al partido y el bloque empujaba el tablero
                    fuera de la primera vista. */
-                className="mt-2 inline-flex rounded-lg px-1 py-1 text-left text-[11px] font-medium text-white/50 underline decoration-dotted underline-offset-2 transition hover:text-white"
+                className="mt-2 inline-flex min-h-[30px] items-center rounded-lg border border-white/12 px-2.5 text-left text-[13px] font-medium text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white"
               >
                 {cabeceraAbierta ? "Ocultar el rival y la jornada de la pizarra" : "Cambiar el rival o la jornada de la pizarra"}
               </button>
@@ -2929,7 +2925,7 @@ export default function PizarraAbpPage() {
                       Plantilla en blanco. Para empezar:{" "}
                       {anterior ? <b className="font-semibold">copia {matchLabel(anterior)}</b> : null}
                       {anterior ? ", " : ""}
-                      <b className="font-semibold">Colocar todo</b> con lo aprendido, o pincha un
+                      <b className="font-semibold">Colocar en todas</b> con lo aprendido, o pincha un
                       hueco del campo. Se guarda sola en cuanto hay alguien.
                     </Notice>
                   </div>
@@ -2953,6 +2949,37 @@ export default function PizarraAbpPage() {
                           }`
                     } · arrastra para cambiar el orden`}
                     icon={LayoutGrid}
+                    action={
+                      /*
+                      | 01/11/2026 (expertos): quien está dibujado sin estar en
+                      | el once de la pizarra táctica se avisa aquí, a la vista,
+                      | con en cuántas diapositivas sale. Pulsar abre el cambio.
+                      */
+                      fueraConCuenta.length > 0 ? (
+                        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                          {fueraConCuenta.map((uno) => {
+                            const nombre = porId.get(uno.playerId)?.apodo || porId.get(uno.playerId)?.nombre || uno.playerId;
+
+                            return (
+                              <button
+                                key={uno.playerId}
+                                type="button"
+                                onClick={() => setCambiando({ sale: uno.playerId })}
+                                title={`Poner a otro en el sitio de ${nombre} en todas las diapositivas`}
+                                className="inline-flex min-h-[30px] min-w-0 items-center gap-1.5 rounded-lg border border-amber-300/40 bg-amber-300/10 px-2.5 text-left text-[13px] text-amber-200 transition hover:border-amber-300/70"
+                              >
+                                <AlertTriangle size={13} className="shrink-0" />
+                                <span className="min-w-0">
+                                  <b className="font-semibold">{nombre}</b> no está en el once · aparece en{" "}
+                                  {uno.slides === 1 ? "1 diapositiva" : `${uno.slides} diapositivas`}
+                                </span>
+                                <Repeat size={12} className="shrink-0 opacity-70" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : undefined
+                    }
                   >
                     <div className="flex min-w-0 flex-wrap gap-1.5">
                       {tablero?.slides.map((item, indice) => {
@@ -3011,16 +3038,35 @@ export default function PizarraAbpPage() {
                                   : "border-white/10 text-white/60 hover:border-white/25 hover:text-white"
                             }`}
                           >
-                            <span className="flex items-center gap-1.5">
-                              <GripVertical
-                                size={12}
-                                className="shrink-0 text-white/25"
-                              />
+                            {/* 01/11/2026 (expertos): el título entero, nunca con «…»:
+                                el tipo arriba y el contexto debajo, en oro. */}
+                            {(() => {
+                              const visto = tituloVisible(tablero.slides, indice);
+                              const corte = visto.indexOf(" · ");
+                              const tipo = corte > 0 ? visto.slice(0, corte) : visto;
+                              const contexto = corte > 0 ? visto.slice(corte + 3) : "";
 
-                              <span className="block max-w-[176px] truncate text-[12px] font-semibold uppercase tracking-wide">
-                                {indice + 1}. {tituloVisible(tablero.slides, indice)}
-                              </span>
-                            </span>
+                              return (
+                                <span className="flex items-start gap-1.5">
+                                  <GripVertical
+                                    size={12}
+                                    className="mt-0.5 shrink-0 text-white/25"
+                                  />
+
+                                  <span className="block min-w-0 max-w-[240px]">
+                                    <span className="block text-[12px] font-semibold uppercase tracking-wide">
+                                      {indice + 1}. {tipo}
+                                    </span>
+
+                                    {contexto && (
+                                      <span className="block text-[11px] font-medium leading-snug text-[color:var(--rmcf-gold-ink)]">
+                                        {contexto}
+                                      </span>
+                                    )}
+                                  </span>
+                                </span>
+                              );
+                            })()}
 
                             {/* La cifra, sólo si falta alguien: completa no hace falta decir nada. */}
                             {(!total || cubiertos < total) && (
@@ -3102,7 +3148,7 @@ export default function PizarraAbpPage() {
                         disabled={aprendidos === 0}
                         title="Rellenar los puestos vacíos de esta diapositiva"
                       >
-                        Colocar ésta
+                        Colocar en esta
                       </Button>
 
                       <span className={`contents ${masSlide ? "" : "max-sm:hidden"}`}>
@@ -3242,6 +3288,20 @@ export default function PizarraAbpPage() {
                         />
                       </div>
                     )}
+
+                    {/* Una sigla con dos significados en la misma diapositiva: se avisa, no se bloquea. */}
+                    {siglasQueChocan(puestosDe(slide)).map((choque) => (
+                      <p
+                        key={choque.sigla}
+                        className="flex flex-wrap items-center gap-1.5 border-b border-white/10 bg-amber-300/[0.06] px-3 py-2 text-[13px] text-amber-200"
+                      >
+                        <AlertTriangle size={13} className="shrink-0" />
+                        <span>
+                          La sigla <b className="font-semibold">«{choque.sigla}»</b> quiere decir dos cosas en esta
+                          diapositiva: {choque.significados.join(" y ")}. Cambia una de las dos chapas con doble clic.
+                        </span>
+                      </p>
+                    ))}
 
                     <TableroSlide
                       slide={slide}
@@ -3564,14 +3624,14 @@ export default function PizarraAbpPage() {
                     title="Lo que ha aprendido"
                     subtitle={
                       aprendidos
-                        ? `${aprendidos} puestos en los que ya ha visto a alguien: con eso rellena «Colocar todo»`
+                        ? `${aprendidos} puestos en los que ya ha visto a alguien: con eso rellena «Colocar en todas»`
                         : "Todavía nada: coloca a alguien y empieza a recordar"
                     }
                   >
                     {aprendidos === 0 ? (
                       <p className="text-xs leading-relaxed text-white/40">
                         Cada vez que pones a un jugador en un puesto queda
-                        anotado. Cuando haya historial, «Colocar todo» rellena
+                        anotado. Cuando haya historial, «Colocar en todas» rellena
                         las diapositivas por prioridad: el que más veces ha
                         ocupado el puesto va primero y nadie se repite dentro de
                         una misma diapositiva —en las directas, dentro de un

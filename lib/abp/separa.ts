@@ -20,7 +20,17 @@
  * mueve lo pintado, no el documento.
  */
 
-type Punto = { id: string; x: number; y: number };
+type Punto = {
+  id: string;
+  x: number;
+  y: number;
+  /**
+   * Lo que mide de ancho la chapa con el nombre (01/11/2026). Con el nombre
+   * a 18 px una chapa pasa de los 76 px que separan a dos de una fila, y la
+   * de al lado se comía media palabra. Sin dato, se cuenta sólo la cara.
+   */
+  chapa?: number;
+};
 
 const SEPARA_X = 84;
 const SEPARA_Y = 64;
@@ -31,12 +41,15 @@ const EMPUJE_MAX = 30;
 | `TableroSlide`: la cara es la foto de 120 de alto con la chapa debajo; el
 | disco compacto, 54 más el nombre; el rival, su chapa de 52 encima del punto.
 */
-const CARA = { w: 84, arriba: 118, abajo: 22 };
+const CARA = { w: 84, arriba: 118, abajo: 32 };
+
+/** La chapa, de 8 px por encima de los pies a 32 por debajo. */
+const CHAPA = { arriba: 8, abajo: 32 };
 
 /** Cuánto se encoge una cara que, ya abierta, sigue pisando a otra. */
 export const ESCALA_APRETADA = 0.74;
 
-const DISCO = { w: Math.round(84 * ESCALA_APRETADA), arriba: Math.round(118 * ESCALA_APRETADA), abajo: Math.round(22 * ESCALA_APRETADA) };
+const DISCO = { w: Math.round(84 * ESCALA_APRETADA), arriba: Math.round(118 * ESCALA_APRETADA), abajo: Math.round(32 * ESCALA_APRETADA) };
 const RIVAL = { w: 52, arriba: 56, abajo: -2 };
 
 
@@ -45,8 +58,20 @@ const APARTA_MAX = 56;
 
 export type Separadas = Map<string, { x: number; compacta: boolean }>;
 
+/** El rectángulo de la chapa (encoge desde los pies, como la cara). */
+function cajaChapa(x: number, y: number, ancho: number, k = 1) {
+  return caja(x, y, { w: ancho * k, arriba: CHAPA.arriba * k, abajo: CHAPA.abajo * k });
+}
+
 export function separaFichas(fichas: Punto[]): Separadas {
-  const pos = fichas.map((ficha) => ({ id: ficha.id, x: ficha.x, y: ficha.y, x0: ficha.x }));
+  const pos = fichas.map((ficha) => ({ id: ficha.id, x: ficha.x, y: ficha.y, x0: ficha.x, chapa: ficha.chapa ?? 0 }));
+
+  /* Lo que tienen que separarse dos para que ni las caras ni las chapas se pisen. */
+  const hueco = (a: (typeof pos)[number], b: (typeof pos)[number], ka = 1, kb = 1, cara = SEPARA_X) => {
+    const mismasChapas = Math.abs(b.y - a.y) < (CHAPA.arriba + CHAPA.abajo) * Math.max(ka, kb);
+
+    return Math.max(cara, mismasChapas ? (a.chapa * ka + b.chapa * kb) / 2 + 6 : 0);
+  };
 
   for (let vuelta = 0; vuelta < 24; vuelta += 1) {
     let movido = false;
@@ -56,11 +81,12 @@ export function separaFichas(fichas: Punto[]): Separadas {
         const a = pos[i];
         const b = pos[j];
         const dx = b.x - a.x;
+        const separa = hueco(a, b);
 
-        if (Math.abs(b.y - a.y) >= SEPARA_Y || Math.abs(dx) >= SEPARA_X - 1) continue;
+        if (Math.abs(b.y - a.y) >= SEPARA_Y || Math.abs(dx) >= separa - 1) continue;
 
         const sentido = dx === 0 ? (a.x0 <= b.x0 ? 1 : -1) : Math.sign(dx);
-        const empuje = (SEPARA_X - Math.abs(dx)) / 2;
+        const empuje = (separa - Math.abs(dx)) / 2;
 
         const ax = Math.max(a.x0 - EMPUJE_MAX, Math.min(a.x0 + EMPUJE_MAX, a.x - sentido * empuje));
         const bx = Math.max(b.x0 - EMPUJE_MAX, Math.min(b.x0 + EMPUJE_MAX, b.x + sentido * empuje));
@@ -81,15 +107,18 @@ export function separaFichas(fichas: Punto[]): Separadas {
   | Compacta toda cara que, ya abierta, sigue pisando la foto o la chapa de
   | otra: no sólo las de la misma fila. Un rematador que llega en carrera a la
   | altura del de al lado le tapaba la chapa aunque no estuvieran «en fila».
+  | Y también si lo que se pisan son los nombres de las dos chapas.
   */
   for (let i = 0; i < pos.length; i += 1) {
     for (let j = i + 1; j < pos.length; j += 1) {
-      const a = caja(pos[i].x, pos[i].y, CARA);
-      const b = caja(pos[j].x, pos[j].y, CARA);
+      const a = pos[i];
+      const b = pos[j];
+      const caras = solape(caja(a.x, a.y, CARA), caja(b.x, b.y, CARA));
+      const chapas = a.chapa && b.chapa ? solape(cajaChapa(a.x, a.y, a.chapa), cajaChapa(b.x, b.y, b.chapa)) : 0;
 
-      if (solape(a, b) > 300) {
-        compactas.add(pos[i].id);
-        compactas.add(pos[j].id);
+      if (caras > 300 || chapas > 40) {
+        compactas.add(a.id);
+        compactas.add(b.id);
       }
     }
   }
@@ -99,6 +128,7 @@ export function separaFichas(fichas: Punto[]): Separadas {
   | abrirse un poco más para que se pisen lo menos posible.
   */
   const forma = (p: { id: string }) => (compactas.has(p.id) ? DISCO : CARA);
+  const escala = (p: { id: string }) => (compactas.has(p.id) ? ESCALA_APRETADA : 1);
   const tope = (p: { id: string }) => (compactas.has(p.id) ? 48 : EMPUJE_MAX);
 
   /*
@@ -115,14 +145,17 @@ export function separaFichas(fichas: Punto[]): Separadas {
 
         if (!compactas.has(a.id) && !compactas.has(b.id)) continue;
 
-        const ca = caja(a.x, a.y, forma(a));
-        const cb = caja(b.x, b.y, forma(b));
+        const pisanCaras = solape(caja(a.x, a.y, forma(a)), caja(b.x, b.y, forma(b))) > 0;
+        const pisanChapas =
+          a.chapa > 0 &&
+          b.chapa > 0 &&
+          solape(cajaChapa(a.x, a.y, a.chapa, escala(a)), cajaChapa(b.x, b.y, b.chapa, escala(b))) > 0;
 
-        if (solape(ca, cb) <= 0) continue;
+        if (!pisanCaras && !pisanChapas) continue;
 
         const dx = b.x - a.x;
         const sentido = dx === 0 ? (a.x0 <= b.x0 ? 1 : -1) : Math.sign(dx);
-        const hace = (forma(a).w + forma(b).w) / 2 + 2 - Math.abs(dx);
+        const hace = hueco(a, b, escala(a), escala(b), (forma(a).w + forma(b).w) / 2) + 2 - Math.abs(dx);
         const empuje = Math.max(1, hace / 2);
 
         const ax = Math.max(a.x0 - tope(a), Math.min(a.x0 + tope(a), a.x - sentido * empuje));

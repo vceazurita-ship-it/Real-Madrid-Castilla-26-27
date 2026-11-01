@@ -336,7 +336,7 @@ export function BarraDibujo({
         </div>
       )}
 
-      <div className="flex min-h-7 min-w-0 flex-wrap items-center gap-2 text-[11px] leading-snug text-white/45">
+      <div className="flex min-h-7 min-w-0 flex-wrap items-center gap-2 text-[12px] leading-snug text-white/55">
         {ficha && herramienta === "mover" && !rival && !elegido ? (
           <>
             <span className="min-w-0 truncate font-semibold text-white/80">
