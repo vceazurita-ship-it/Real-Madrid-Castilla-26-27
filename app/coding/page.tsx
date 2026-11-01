@@ -4168,6 +4168,7 @@ function Coding() {
                     <PizarraVideo
                       video={elemento}
                       escenas={escenasEnPantalla}
+                      todas={escenas}
                       editando={pizarraEditando}
                       alEditar={cambiaPizarraEditando}
                       alCambiar={guardaEscena}

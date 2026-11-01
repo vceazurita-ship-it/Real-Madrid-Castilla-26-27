@@ -39,12 +39,19 @@ import {
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type ComponentType,
+  type ReactNode,
   type MouseEvent as EventoRaton,
   type PointerEvent as EventoPuntero,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  SlidersHorizontal,
   BrickWall,
   BringToFront,
   Camera,
@@ -154,11 +161,20 @@ function useEncaje(video: HTMLVideoElement | null): Encaje {
     const mide = () => {
       const caja = video.getBoundingClientRect();
 
+      /*
+      | Dónde empieza la etiqueta dentro del marco (01/11/2026). Casi siempre
+      | en la esquina, pero con la pizarra a pantalla entera del teléfono el
+      | marco deja huecos arriba y abajo para las barras y el vídeo empieza
+      | más abajo: sin sumarlo, el lienzo se quedaba encima de la barra.
+      */
+      const dx = video.offsetLeft;
+      const dy = video.offsetTop;
+
       const anchoVideo = video.videoWidth;
       const altoVideo = video.videoHeight;
 
       if (!anchoVideo || !altoVideo || !caja.width || !caja.height) {
-        setEncaje({ izquierda: 0, arriba: 0, ancho: caja.width, alto: caja.height });
+        setEncaje({ izquierda: dx, arriba: dy, ancho: caja.width, alto: caja.height });
 
         return;
       }
@@ -169,8 +185,8 @@ function useEncaje(video: HTMLVideoElement | null): Encaje {
       const alto = altoVideo * escala;
 
       setEncaje({
-        izquierda: (caja.width - ancho) / 2,
-        arriba: (caja.height - alto) / 2,
+        izquierda: dx + (caja.width - ancho) / 2,
+        arriba: dy + (caja.height - alto) / 2,
         ancho,
         alto,
       });
@@ -191,6 +207,50 @@ function useEncaje(video: HTMLVideoElement | null): Encaje {
   }, [video]);
 
   return encaje;
+}
+
+/*
+| ¿TELÉFONO O TABLETA PEQUEÑA? (01/11/2026)
+|
+| «Los coding en el móvil no se pueden usar al abrir la pizarra.» Con el vídeo
+| de 390 × 220 px y tres barras encima, no quedaba un centímetro de imagen
+| donde pintar. En estos aparatos la pizarra se abre a pantalla entera: el
+| marco del vídeo pasa a `fixed` (`[data-pizarra-pantalla]` en globals.css),
+| las barras van FUERA de la imagen —arriba la de salir y deshacer, abajo (o a
+| la izquierda, de lado) las herramientas— y el vídeo se queda con el resto.
+|
+| No se usa la API de pantalla completa: el Safari del iPhone no la deja para
+| un `div`, y es justo el aparato donde más falta hacía.
+*/
+const CONSULTA_MOVIL =
+  "(max-width: 639.98px), (pointer: coarse) and (max-width: 1023.98px), (pointer: coarse) and (max-height: 520px)";
+
+function suscribeMovil(avisa: () => void) {
+  const consulta = window.matchMedia(CONSULTA_MOVIL);
+
+  consulta.addEventListener("change", avisa);
+
+  return () => consulta.removeEventListener("change", avisa);
+}
+
+const esMovil = () => window.matchMedia(CONSULTA_MOVIL).matches;
+
+const enServidor = () => false;
+
+function usePizarraMovil() {
+  return useSyncExternalStore(suscribeMovil, esMovil, enServidor);
+}
+
+/** Pone el vídeo en un instante (fuera del componente: es el elemento del DOM). */
+function llevaVideoA(video: HTMLVideoElement, ms: number) {
+  video.currentTime = ms / 1000;
+}
+
+/** Si el navegador deja poner un elemento a pantalla completa (el iPhone no). */
+function hayPantallaCompleta() {
+  const doc = document as Document & { webkitFullscreenEnabled?: boolean };
+
+  return Boolean(doc.fullscreenEnabled || doc.webkitFullscreenEnabled);
 }
 
 /** Las medidas del lienzo en píxeles de verdad, con el `devicePixelRatio`. */
@@ -272,6 +332,7 @@ function GrupoBarra({
   abierto,
   alAbrir,
   alElegir,
+  movil = false,
 }: {
   nombre: string;
   tipos: TipoDibujo[];
@@ -280,6 +341,8 @@ function GrupoBarra({
   abierto: boolean;
   alAbrir: (abrir: boolean) => void;
   alElegir: (tipo: TipoDibujo) => void;
+  /** A pantalla entera en el teléfono: botones de 44 px y el menú en su sitio. */
+  movil?: boolean;
 }) {
   const dentro = tipos.includes(herramienta as TipoDibujo);
   const visible: TipoDibujo = dentro
@@ -298,7 +361,7 @@ function GrupoBarra({
   | salía por debajo del vídeo y las de abajo no se podían tocar.
   */
   return (
-    <div className="relative pointer-coarse:static max-sm:static">
+    <div className={movil ? "static" : "relative pointer-coarse:static max-sm:static"}>
       <button
         type="button"
         title={`${nombre} · ${ficha?.nombre ?? ""} (${(ficha?.tecla ?? "").toUpperCase()}) · ${ficha?.ayuda ?? ""}`}
@@ -309,13 +372,15 @@ function GrupoBarra({
           alElegir(visible);
           alAbrir(!abierto);
         }}
-        className={`relative flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+        className={`relative flex items-center justify-center rounded-lg border transition ${
+          movil ? "h-11 w-11" : "h-8 w-8"
+        } ${
           dentro
             ? "border-[#C8A96B] bg-[#C8A96B] text-black"
             : "border-white/10 bg-black/40 text-white/60 hover:border-white/30 hover:text-white"
         }`}
       >
-        <Icono size={15} />
+        <Icono size={movil ? 19 : 15} />
 
         {/* La esquinita que avisa de que hay más debajo. */}
         <span
@@ -328,7 +393,13 @@ function GrupoBarra({
       </button>
 
       {abierto && (
-        <div className="absolute left-full top-0 z-10 ml-2 w-52 overscroll-contain rounded-xl border border-white/10 bg-[#0B0F14]/[0.96] p-1 shadow-xl backdrop-blur pointer-coarse:max-h-[min(22rem,calc(100dvh-2rem))] pointer-coarse:overflow-y-auto max-sm:max-h-44 max-sm:overflow-y-auto">
+        <div
+          className={`overscroll-contain rounded-xl border border-white/10 bg-[#0B0F14]/[0.96] p-1 shadow-xl backdrop-blur ${
+            movil
+              ? "pz-desplegable"
+              : "absolute left-full top-0 z-10 ml-2 w-52 pointer-coarse:max-h-[min(22rem,calc(100dvh-2rem))] pointer-coarse:overflow-y-auto max-sm:max-h-44 max-sm:overflow-y-auto"
+          }`}
+        >
           <p className="px-2 pb-1 pt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/35">
             {nombre}
           </p>
@@ -348,7 +419,9 @@ function GrupoBarra({
                   alElegir(tipo);
                   alAbrir(false);
                 }}
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] transition ${
+                className={`flex w-full items-center gap-2 rounded-lg px-2 text-left transition ${
+                  movil ? "min-h-11 py-2 text-[13px]" : "py-1.5 text-[12px]"
+                } ${
                   herramienta === tipo
                     ? "bg-[#C8A96B]/15 text-[#C8A96B]"
                     : "text-white/75 hover:bg-white/[0.06] hover:text-white"
@@ -373,11 +446,13 @@ function BotonHerramienta({
   titulo,
   icono: Icono,
   onClick,
+  movil = false,
 }: {
   activo: boolean;
   titulo: string;
   icono: ComponentType<{ size?: number }>;
   onClick: () => void;
+  movil?: boolean;
 }) {
   return (
     <button
@@ -386,13 +461,54 @@ function BotonHerramienta({
       aria-label={titulo}
       aria-pressed={activo}
       onClick={onClick}
-      className={`flex h-8 w-8 items-center justify-center rounded-lg border transition ${
+      className={`flex shrink-0 items-center justify-center rounded-lg border transition ${
+        movil ? "h-11 w-11" : "h-8 w-8"
+      } ${
         activo
           ? "border-[#C8A96B] bg-[#C8A96B] text-black"
           : "border-white/10 bg-black/40 text-white/60 hover:border-white/30 hover:text-white"
       }`}
     >
-      <Icono size={15} />
+      <Icono size={movil ? 19 : 15} />
+    </button>
+  );
+}
+
+/** Un botón de icono de las barras del teléfono: 44 px, el mínimo para el dedo. */
+function BotonMovil({
+  titulo,
+  onClick,
+  children,
+  activo = false,
+  peligro = false,
+  disabled = false,
+  expandido,
+}: {
+  titulo: string;
+  onClick: () => void;
+  children: ReactNode;
+  activo?: boolean;
+  peligro?: boolean;
+  disabled?: boolean;
+  expandido?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      title={titulo}
+      aria-label={titulo}
+      aria-expanded={expandido}
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border transition disabled:opacity-30 ${
+        activo
+          ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-[#C8A96B]"
+          : peligro
+            ? "border-white/10 bg-black/40 text-red-300"
+            : "border-white/10 bg-black/40 text-white/70"
+      }`}
+    >
+      {children}
     </button>
   );
 }
@@ -614,6 +730,18 @@ type PropsEditor = {
   alCambiar: (escena: EscenaTel) => void;
   alBorrar: (id: string) => void;
   alSalir: () => void;
+  /** A pantalla entera en el teléfono (ver `usePizarraMovil`). */
+  movil: boolean;
+  /** Pasar a la pizarra de antes o de después sin salir. */
+  navegacion: NavegacionEscenas;
+};
+
+type NavegacionEscenas = {
+  indice: number;
+  total: number;
+  anterior: string | null;
+  siguiente: string | null;
+  alIr: (id: string) => void;
 };
 
 function EditorPizarra({
@@ -629,6 +757,8 @@ function EditorPizarra({
   alCambiar,
   alBorrar,
   alSalir,
+  movil,
+  navegacion,
 }: PropsEditor) {
   /*
   | La copia de trabajo.
@@ -658,6 +788,37 @@ function EditorPizarra({
   /* «Quitar todo» pide un segundo clic en la propia barra, sin ventanas del
      navegador que paren la pantalla. */
   const [confirmaVaciar, setConfirmaVaciar] = useState(false);
+
+  /*
+  | Lo que en el teléfono va plegado en un menú: la paleta, los ajustes de más
+  | y el «⋯» de la barra de arriba. Cerrados al empezar, que la imagen es poca.
+  */
+  const [paletaMovil, setPaletaMovil] = useState(false);
+  const [extraMovil, setExtraMovil] = useState(false);
+  const [masMovil, setMasMovil] = useState(false);
+
+  /*
+  | El marco del vídeo, a pantalla entera mientras se pinta en el teléfono.
+  | Se marca con un atributo y no con una clase: el `className` del marco lo
+  | lleva React, y al cambiarlo (entrar en pantalla completa, por ejemplo) se
+  | habría llevado la clase por delante. El `html` también se marca, para que
+  | la página de detrás no se desplace con el dedo.
+  */
+  useEffect(() => {
+    if (!movil) return;
+
+    const marco = video.parentElement;
+
+    if (!marco) return;
+
+    marco.setAttribute("data-pizarra-pantalla", "");
+    document.documentElement.setAttribute("data-pizarra-abierta", "");
+
+    return () => {
+      marco.removeAttribute("data-pizarra-pantalla");
+      document.documentElement.removeAttribute("data-pizarra-abierta");
+    };
+  }, [movil, video]);
 
   /*
   | El dibujo a medio hacer vive en un `ref`, no en un estado: entre el
@@ -820,6 +981,9 @@ function EditorPizarra({
     /* Pinchar en el vídeo cierra lo que estuviera desplegado. */
     if (grupoAbierto) setGrupoAbierto(null);
     if (confirmaVaciar) setConfirmaVaciar(false);
+    if (paletaMovil) setPaletaMovil(false);
+    if (extraMovil) setExtraMovil(false);
+    if (masMovil) setMasMovil(false);
 
     /* ------------------------------------------------ la mano */
 
@@ -1486,8 +1650,7 @@ function EditorPizarra({
 
   /* ---------------------------------------------------------- vista */
 
-  return (
-    <>
+  const lienzo = (
       <canvas
         ref={lienzoRef}
         onPointerDown={alBajar}
@@ -1507,10 +1670,11 @@ function EditorPizarra({
           herramienta === "mano" ? "cursor-pointer" : "cursor-crosshair"
         }`}
       />
+  );
 
-      {/* --------------------------------- las herramientas ---------- */}
+      /* --------------------------------- las herramientas ---------- */
 
-{/*
+      /*
         LA BARRA SE PARTE EN COLUMNAS CUANDO NO CABE DE ALTO.
         Eran diecinueve botones en una sola columna, sin tope de alto y sin
         forma de desplazarla: con el vídeo en una ventana baja —media pantalla,
@@ -1519,52 +1683,257 @@ function EditorPizarra({
         los últimos, no existían. Con `flex-wrap` y el alto limitado al del
         vídeo, lo que no cabe salta a una segunda columna al lado, y a una
         tercera si hace falta: siempre se ven todas.
-      */}
-      {/*
+      */
+      /*
         Y DESDE EL 30/10/2026 VA POR GRUPOS.
         Con las nueve herramientas nuevas eran veintisiete botones: ni en
         columnas cabían sin taparle medio vídeo al analista. Ahora son seis
         (la mano y cinco grupos); cada grupo enseña lo último que se usó de él
         y despliega el resto a su derecha, con nombre y tecla. Las teclas van
         directas a cada herramienta, así que quien ya se las sabe no nota nada.
-      */}
-      {/*
+      */
+      /*
         Y EN EL TELÉFONO, EN DOS COLUMNAS Y ARRIBA (31/10/2026).
         De pie, el vídeo mide unos 220 px de alto, y seis botones de 40 px en
         columna no caben: el último quedaba fuera. En dos columnas son tres
         filas y la barra se pega arriba para no pisar los ajustes de abajo.
-      */}
-      <div className="pointer-events-auto absolute left-2 top-1/2 flex -translate-y-1/2 flex-col gap-1 rounded-xl border border-white/10 bg-[#0B0F14]/92 p-1.5 backdrop-blur max-sm:top-2 max-sm:grid max-sm:translate-y-0 max-sm:grid-cols-2">
-        <BotonHerramienta
-          activo={herramienta === "mano"}
-          titulo="Elegir y mover (V)"
-          icono={ICONOS.mano}
-          onClick={() => {
-            setGrupoAbierto(null);
-            eligeHerramienta("mano");
-          }}
-        />
+        (Desde el 01/11/2026 eso queda para la ventana estrecha del ordenador:
+        en el teléfono y la tableta la pizarra se abre a pantalla entera y las
+        barras van fuera de la imagen.)
+      */
+  const botonesHerramienta = (
+    <>
+      <BotonHerramienta
+        activo={herramienta === "mano"}
+        titulo="Elegir y mover (V)"
+        icono={ICONOS.mano}
+        movil={movil}
+        onClick={() => {
+          setGrupoAbierto(null);
+          eligeHerramienta("mano");
+        }}
+      />
 
+      {!movil && (
         <span className="my-0.5 h-px w-8 shrink-0 bg-white/10 max-sm:hidden pointer-coarse:w-10" />
+      )}
 
-        {GRUPOS_HERRAMIENTAS.map((grupo) => (
-          <GrupoBarra
-            key={grupo.grupo}
-            nombre={grupo.nombre}
-            tipos={grupo.tipos}
-            herramienta={herramienta}
-            ultima={ultimas[grupo.grupo]}
-            abierto={grupoAbierto === grupo.grupo}
-            alAbrir={(abrir) => setGrupoAbierto(abrir ? grupo.grupo : null)}
-            alElegir={eligeHerramienta}
-          />
-        ))}
-      </div>
+      {GRUPOS_HERRAMIENTAS.map((grupo) => (
+        <GrupoBarra
+          key={grupo.grupo}
+          nombre={grupo.nombre}
+          tipos={grupo.tipos}
+          herramienta={herramienta}
+          ultima={ultimas[grupo.grupo]}
+          abierto={grupoAbierto === grupo.grupo}
+          alAbrir={(abrir) => {
+            setPaletaMovil(false);
+            setExtraMovil(false);
+            setMasMovil(false);
+            setGrupoAbierto(abrir ? grupo.grupo : null);
+          }}
+          alElegir={eligeHerramienta}
+          movil={movil}
+        />
+      ))}
+    </>
+  );
 
-      {/* ------------------------------------------- la cabecera ----- */}
+  /*
+  | En el teléfono la lista va dentro de otra caja: la de fuera es la que
+  | coloca el desplegable de cada grupo, y la de dentro la que se desplaza si
+  | no cabe. Si fueran la misma, el desplegable quedaría recortado por el
+  | desplazamiento.
+  */
+  const barraHerramientas = movil ? (
+    <div className="pz-herramientas border-white/10 bg-[#0B0F14]/92 backdrop-blur">
+      <div className="pz-herramientas-lista">{botonesHerramienta}</div>
+    </div>
+  ) : (
+    <div className="pointer-events-auto absolute left-2 top-1/2 flex -translate-y-1/2 flex-col gap-1 rounded-xl border border-white/10 bg-[#0B0F14]/92 p-1.5 backdrop-blur max-sm:top-2 max-sm:grid max-sm:translate-y-0 max-sm:grid-cols-2">
+      {botonesHerramienta}
+    </div>
+  );
 
-      {/* En el teléfono no cabe en una fila junto a la barra de la izquierda:
-          se parte en dos renglones, pegados a la derecha. */}
+  /* ------------------------------------- la barra de arriba, en el móvil */
+
+  const confirmacionVaciar = (
+    <>
+      <span>
+        ¿Quitar {local.dibujos.length === 1 ? "el dibujo" : `los ${local.dibujos.length} dibujos`} de esta pizarra? Se puede deshacer.
+      </span>
+
+      <span className="flex justify-end gap-1.5">
+        <button
+          type="button"
+          onClick={() => setConfirmaVaciar(false)}
+          className="rounded-lg border border-white/10 px-3 py-1 text-white/60 transition hover:text-white"
+        >
+          Cancelar
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            vacia();
+            setMasMovil(false);
+          }}
+          className="rounded-lg bg-red-500/80 px-3 py-1 font-semibold text-white transition hover:bg-red-500"
+        >
+          Quitar todo
+        </button>
+      </span>
+    </>
+  );
+
+  /*
+  | Lo que se pulsa a cada rato, a la vista: salir, deshacer, rehacer y pasar
+  | de pizarra. Lo de vez en cuando (la foto, la pantalla completa, vaciar) va
+  | en el «⋯»: en 360 px no caben nueve botones de 44.
+  */
+  const cabeceraMovil = (
+    <div className="pz-arriba border-white/10 bg-[#0B0F14]/92 backdrop-blur">
+      <button
+        type="button"
+        onClick={() => {
+          alCambiar(localRef.current);
+          alSalir();
+        }}
+        aria-label="Listo"
+        title="Listo"
+        className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#C8A96B] px-3 text-[13px] font-semibold text-black max-[379px]:px-0"
+      >
+        <Check size={16} />
+        {/* En los teléfonos de 360 px, con las flechas de pasar pizarra, la
+            palabra empujaba el reloj encima de ellas: queda el visto. */}
+        <span className={navegacion.total > 1 ? "max-[379px]:hidden" : ""}>Listo</span>
+      </button>
+
+      {navegacion.total > 1 && (
+        <BotonMovil
+          titulo="Pizarra anterior"
+          disabled={!navegacion.anterior}
+          onClick={() => {
+            if (!navegacion.anterior) return;
+            alCambiar(localRef.current);
+            navegacion.alIr(navegacion.anterior);
+          }}
+        >
+          <ChevronLeft size={20} />
+        </BotonMovil>
+      )}
+
+      <span className="flex min-w-0 flex-1 flex-col items-center justify-center leading-tight">
+        <span className="max-w-full truncate font-mono text-[12px] tabular-nums text-[#C8A96B] max-[379px]:text-[11px]">
+          {formateaMs(local.tMs)}
+        </span>
+        {navegacion.total > 1 && (
+          <span className="truncate text-[10px] tabular-nums text-white/45">
+            {navegacion.indice + 1} de {navegacion.total}
+          </span>
+        )}
+      </span>
+
+      {navegacion.total > 1 && (
+        <BotonMovil
+          titulo="Pizarra siguiente"
+          disabled={!navegacion.siguiente}
+          onClick={() => {
+            if (!navegacion.siguiente) return;
+            alCambiar(localRef.current);
+            navegacion.alIr(navegacion.siguiente);
+          }}
+        >
+          <ChevronRight size={20} />
+        </BotonMovil>
+      )}
+
+      <BotonMovil titulo="Deshacer" onClick={deshace}>
+        <Undo2 size={18} />
+      </BotonMovil>
+
+      <BotonMovil titulo="Rehacer" onClick={rehace}>
+        <Redo2 size={18} />
+      </BotonMovil>
+
+      <BotonMovil
+        titulo="Más opciones"
+        activo={masMovil}
+        expandido={masMovil}
+        onClick={() => {
+          setGrupoAbierto(null);
+          setPaletaMovil(false);
+          setExtraMovil(false);
+          setConfirmaVaciar(false);
+          setMasMovil((antes) => !antes);
+        }}
+      >
+        <MoreHorizontal size={20} />
+      </BotonMovil>
+
+      {masMovil && (
+        <div className="pz-menu-mas rounded-xl border border-white/10 bg-[#0B0F14]/[0.96] p-1 text-[13px] text-white/80 shadow-xl backdrop-blur">
+          <button
+            type="button"
+            onClick={() => {
+              exportaPng();
+              setMasMovil(false);
+            }}
+            className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 text-left"
+          >
+            <Camera size={17} />
+            Guardar como imagen
+          </button>
+
+          {hayPantallaCompleta() && (
+            <button
+              type="button"
+              onClick={() => {
+                pantallaCompleta();
+                setMasMovil(false);
+              }}
+              className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 text-left"
+            >
+              <Maximize2 size={17} />
+              Pantalla completa
+            </button>
+          )}
+
+          {confirmaVaciar ? (
+            <div
+              role="alertdialog"
+              aria-label="Confirmar quitar todos los dibujos"
+              className="flex flex-col gap-2 rounded-lg border border-red-400/30 p-2.5 text-[12px]"
+            >
+              {confirmacionVaciar}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (localRef.current.dibujos.length === 0) {
+                  toast.info("La pizarra ya está en blanco");
+                  return;
+                }
+
+                setConfirmaVaciar(true);
+              }}
+              className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 text-left text-red-300"
+            >
+              <Eraser size={17} />
+              Quitar todos los dibujos
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  /* ------------------------------------------- la cabecera ----- */
+
+  /* En el teléfono no cabe en una fila junto a la barra de la izquierda:
+     se parte en dos renglones, pegados a la derecha. */
+  const cabecera = movil ? cabeceraMovil : (
       <div className="pointer-events-auto absolute right-2 top-2 flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#0B0F14]/92 px-2 py-1.5 backdrop-blur max-sm:max-w-[calc(100%-7.5rem)] max-sm:flex-wrap max-sm:justify-end max-sm:gap-1 max-sm:px-1.5 max-sm:py-1">
         <span className="font-mono text-[11px] tabular-nums text-[#C8A96B]">
           {formateaMs(local.tMs)}
@@ -1680,14 +2049,96 @@ function EditorPizarra({
           Listo
         </button>
       </div>
+  );
 
-      {/* --------------------------------------- los ajustes --------- */}
+  /* --------------------------------------- los ajustes --------- */
 
-      {/* Y la de abajo tampoco puede comerse el vídeo: en una ventana
-          estrecha los mandos se parten en cuatro o cinco renglones, así que se
-          le pone tope y se desplaza. */}
-      <div className="pointer-events-auto absolute bottom-2 left-2 right-2 max-h-[45%] overflow-y-auto rounded-xl border border-white/10 bg-[#0B0F14]/92 backdrop-blur">
-        <div className="flex items-center gap-2 overflow-x-auto px-2 py-1.5 [scrollbar-width:thin] [&>*]:shrink-0">
+  const colorActual = elegido?.color ?? ajustes.color;
+
+  /* Los nueve colores y el «otro», en una rejilla de dedo para el teléfono. */
+  const paletaMovilCaja = paletaMovil && (
+    <div
+      role="dialog"
+      aria-label="Color"
+      className="pz-emergente grid grid-cols-5 gap-1.5 rounded-xl border border-white/10 bg-[#0B0F14]/[0.96] p-2 shadow-xl backdrop-blur"
+    >
+      {PALETA_TEL.map((una) => (
+        <button
+          key={una.color}
+          type="button"
+          title={una.nombre}
+          aria-label={una.nombre}
+          aria-pressed={colorActual === una.color}
+          onClick={() => {
+            ponAjuste({ color: una.color });
+            setPaletaMovil(false);
+          }}
+          style={{ background: una.color }}
+          className={`h-11 w-11 rounded-lg border-2 ${
+            colorActual === una.color ? "border-white" : "border-white/15"
+          }`}
+        />
+      ))}
+
+      <label
+        title="Otro color"
+        className="relative h-11 w-11 overflow-hidden rounded-lg border-2 border-white/15"
+        style={{
+          background:
+            "conic-gradient(#ef4444, #f59e0b, #22c55e, #22d3ee, #3b82f6, #a855f7, #ef4444)",
+        }}
+      >
+        <input
+          type="color"
+          aria-label="Otro color"
+          value={hex6(colorActual)}
+          onChange={(evento) => ponAjuste({ color: evento.target.value })}
+          className="absolute inset-0 h-full w-full opacity-0"
+        />
+      </label>
+    </div>
+  );
+
+  /* Y la de abajo tampoco puede comerse el vídeo: en una ventana
+     estrecha los mandos se parten en cuatro o cinco renglones, así que se
+     le pone tope y se desplaza. En el teléfono va fuera de la imagen, en
+     una sola fila que se desliza, y lo de más se abre por encima. */
+  const ajustesBarra = (
+      <div
+        className={
+          movil
+            ? "pz-ajustes border-white/10 bg-[#0B0F14]/92 backdrop-blur"
+            : "pointer-events-auto absolute bottom-2 left-2 right-2 max-h-[45%] overflow-y-auto rounded-xl border border-white/10 bg-[#0B0F14]/92 backdrop-blur"
+        }
+      >
+        {paletaMovilCaja}
+
+        <div
+          className={`flex items-center gap-2 overflow-x-auto px-2 [scrollbar-width:thin] [&>*]:shrink-0 ${
+            movil ? "h-full overscroll-contain" : "py-1.5"
+          }`}
+        >
+          {movil ? (
+            <button
+              type="button"
+              title="Color"
+              aria-label="Color"
+              aria-expanded={paletaMovil}
+              onClick={() => {
+                setGrupoAbierto(null);
+                setExtraMovil(false);
+                setMasMovil(false);
+                setPaletaMovil((antes) => !antes);
+              }}
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-white/15 bg-black/40"
+            >
+              <span
+                aria-hidden
+                className="h-6 w-6 rounded-md border border-white/40"
+                style={{ background: colorActual }}
+              />
+            </button>
+          ) : (
           <div className="flex gap-1">
             {PALETA_TEL.map((una) => (
               <button
@@ -1724,8 +2175,9 @@ function EditorPizarra({
               />
             </label>
           </div>
+          )}
 
-          <span className="h-4 w-px bg-white/10" />
+          {!movil && <span className="h-4 w-px bg-white/10" />}
 
           <Deslizador
             etiqueta="Grosor"
@@ -1768,7 +2220,7 @@ function EditorPizarra({
 
           {/* Cómo se usa lo que hay en la mano: con tantas herramientas, el
               «doble clic para terminar» no se adivina. */}
-          {!elegido && herramienta !== "mano" && (
+          {!movil && !elegido && herramienta !== "mano" && (
             <span
               title={HERRAMIENTAS.find((una) => una.tipo === herramienta)?.ayuda}
               className="ml-auto hidden min-w-0 max-w-[45%] truncate text-[10px] text-white/40 md:block"
@@ -1781,6 +2233,38 @@ function EditorPizarra({
             </span>
           )}
 
+          {movil ? (
+            /* Pegados a la derecha aunque la fila se deslice: los ajustes de
+               más y borrar lo elegido no pueden quedarse fuera de la vista. */
+            /* El fondo va en `style`: en modo día la clase se aclara y los
+               botones quedaban grises sobre blanco. */
+            <span
+              className="sticky right-0 ml-auto flex h-full items-center gap-1.5 pl-1.5"
+              style={{ background: "#0B0F14" }}
+            >
+              {/* El dibujo elegido se borra sin abrir nada: es lo que más
+                  se hace después de pintar mal una flecha. */}
+              {elegido && (
+                <BotonMovil titulo="Borrar el dibujo elegido" peligro onClick={borraElegido}>
+                  <Trash2 size={18} />
+                </BotonMovil>
+              )}
+
+              <BotonMovil
+                titulo={extraMovil ? "Menos ajustes" : "Más ajustes"}
+                activo={extraMovil}
+                expandido={extraMovil}
+                onClick={() => {
+                  setGrupoAbierto(null);
+                  setPaletaMovil(false);
+                  setMasMovil(false);
+                  setExtraMovil((antes) => !antes);
+                }}
+              >
+                <SlidersHorizontal size={18} />
+              </BotonMovil>
+            </span>
+          ) : (
           <button
             type="button"
             onClick={() => alBarra(!barra)}
@@ -1789,10 +2273,17 @@ function EditorPizarra({
           >
             {barra ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
           </button>
+          )}
         </div>
 
-        {barra && (
-          <div className="flex items-center gap-2 overflow-x-auto border-t border-white/10 px-2 py-1.5 [scrollbar-width:thin] [&>*]:shrink-0">
+        {(movil ? extraMovil : barra) && (
+          <div
+            className={
+              movil
+                ? "pz-emergente pz-emergente-ancho flex flex-wrap items-center gap-x-3 gap-y-2 overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-[#0B0F14]/[0.96] p-2.5 shadow-xl backdrop-blur"
+                : "flex items-center gap-2 overflow-x-auto border-t border-white/10 px-2 py-1.5 [scrollbar-width:thin] [&>*]:shrink-0"
+            }
+          >
             {tipoActivo === "flecha" && (
               <span
                 role="group"
@@ -2211,22 +2702,53 @@ function EditorPizarra({
           </div>
         )}
       </div>
+  );
+
+  /*
+  | En el teléfono las barras se cuelgan del marco del vídeo y no de la
+  | imagen: el marco ocupa la pantalla y deja sus huecos arriba y abajo (o a
+  | la izquierda, de lado), y ahí es donde van, sin tapar nada de lo que se
+  | pinta. Llevan su `siempre-oscuro` porque salen de la capa que lo tiene.
+  */
+  const marco = movil ? video.parentElement : null;
+
+  const barras = (
+    <>
+      {barraHerramientas}
+      {cabecera}
+      {ajustesBarra}
+    </>
+  );
+
+  return (
+    <>
+      {lienzo}
+
+      {marco
+        ? createPortal(<div className="siempre-oscuro pz-cromo">{barras}</div>, marco)
+        : barras}
 
       {/* ------------------------------------------- el texto -------- */}
 
+      {/* En el teléfono el cuadro va arriba y a lo ancho: donde se pinchó
+          suele quedar debajo del teclado. */}
       {enTexto && anclaTexto && (
         <div
           className="pointer-events-auto absolute"
-          style={{
-            left: Math.min(
-              Math.max(
-                0,
-                anclaTexto.x * encaje.ancho - (enTexto.tipo === "llamada" ? 144 : 0),
-              ),
-              Math.max(0, encaje.ancho - 290),
-            ),
-            top: Math.max(0, anclaTexto.y * encaje.alto - 20),
-          }}
+          style={
+            movil
+              ? { left: 8, right: 8, top: 8 }
+              : {
+                  left: Math.min(
+                    Math.max(
+                      0,
+                      anclaTexto.x * encaje.ancho - (enTexto.tipo === "llamada" ? 144 : 0),
+                    ),
+                    Math.max(0, encaje.ancho - 290),
+                  ),
+                  top: Math.max(0, anclaTexto.y * encaje.alto - 20),
+                }
+          }
         >
           <textarea
             autoFocus
@@ -2269,7 +2791,11 @@ function EditorPizarra({
                 evento.currentTarget.blur();
               }
             }}
-            className="w-72 resize-none rounded-xl border border-[#C8A96B]/50 bg-[#0B0F14]/[0.96] px-2.5 py-2 text-[12px] leading-snug text-white outline-none placeholder:text-white/30"
+            className={`resize-none rounded-xl border border-[#C8A96B]/50 bg-[#0B0F14]/[0.96] px-2.5 py-2 leading-snug text-white outline-none placeholder:text-white/30 ${
+              /* 16 px en el teléfono: con menos, el Safari del iPhone acerca
+                 la página al tocar el cuadro y descoloca la pizarra. */
+              movil ? "w-full text-[16px]" : "w-72 text-[12px]"
+            }`}
           />
         </div>
       )}
@@ -2351,6 +2877,12 @@ export type PizarraVideoProps = {
   alPintar: () => void;
   /** Enseña lo pintado mientras se reproduce. */
   visible: boolean;
+  /**
+   * Entre cuáles se pasa con ‹ › en el teléfono. Por defecto, `escenas`; el
+   * coding le da todas las del vídeo, también las que caen dentro de un corte
+   * y no se enseñan al reproducir.
+   */
+  todas?: EscenaTel[];
 };
 
 export function PizarraVideo({
@@ -2362,8 +2894,10 @@ export function PizarraVideo({
   alBorrar,
   alPintar,
   visible,
+  todas,
 }: PizarraVideoProps) {
   const encaje = useEncaje(video);
+  const movil = usePizarraMovil();
 
   /* La condensada del club, pedida antes de que haga falta: en un `<canvas>`
      no hay `font-display` que valga y la primera chapa saldría con Arial. */
@@ -2395,6 +2929,27 @@ export function PizarraVideo({
     ? (escenas.find((una) => una.id === editando) ?? null)
     : null;
 
+  /* Las pizarras en el orden del partido, para pasar de una a otra. */
+  const enOrden = [...(todas ?? escenas)].sort((a, b) => a.tMs - b.tMs);
+  const indice = escena ? enOrden.findIndex((una) => una.id === escena.id) : -1;
+
+  const navegacion: NavegacionEscenas = {
+    indice: Math.max(0, indice),
+    total: indice >= 0 ? enOrden.length : 1,
+    anterior: indice > 0 ? enOrden[indice - 1].id : null,
+    siguiente: indice >= 0 && indice < enOrden.length - 1 ? enOrden[indice + 1].id : null,
+    alIr: (id) => {
+      const destino = enOrden.find((una) => una.id === id);
+
+      if (!destino) return;
+
+      /* El vídeo va a su instante: se pinta sobre el fotograma de esa
+         pizarra, no sobre el de la anterior. */
+      llevaVideoA(video, destino.tMs);
+      alEditar(id);
+    },
+  };
+
   return (
     <div
       className="siempre-oscuro pointer-events-none absolute"
@@ -2420,6 +2975,8 @@ export function PizarraVideo({
           alCambiar={alCambiar}
           alBorrar={alBorrar}
           alSalir={salir}
+          movil={movil}
+          navegacion={navegacion}
         />
       ) : (
         <>

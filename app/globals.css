@@ -1925,3 +1925,231 @@ scrollbar-width:none;
     min-width: 32px;
   }
 }
+
+/*
+| LA PIZARRA DEL CODING A PANTALLA ENTERA EN EL TELÉFONO (01/11/2026)
+|
+| «Los coding en el móvil no se pueden usar al abrir la pizarra»: el vídeo
+| medía 390 × 220 px y las tres barras de la pizarra iban encima de la imagen,
+| así que no quedaba dónde pintar. Mientras se pinta en un teléfono o una
+| tableta pequeña (lo decide `usePizarraMovil` en PizarraVideo.tsx, que pone
+| el atributo), el marco del vídeo ocupa la pantalla y deja huecos para las
+| barras: arriba la de salir y deshacer; abajo los ajustes y las herramientas
+| de pie, y de lado las herramientas a la izquierda. El vídeo, con `contain`,
+| se queda con lo que sobra, y la pizarra mide su imagen sola.
+|
+| `100dvh` y no `100vh`: en el móvil el `vh` cuenta la barra del navegador
+| escondida y lo de abajo quedaba debajo de ella. Las `env(safe-area-*)` son
+| la muesca y la raya de abajo del iPhone. Todo con `!important` porque el
+| marco trae sus clases y su `style` (el `touch-action: pan-y` de la
+| lanzadera, el ancho del visor) y aquí manda la pizarra.
+*/
+[data-pizarra-pantalla] {
+  --pz-barra: 56px;
+  --pz-lado: 0px;
+  --pz-abajo: calc(var(--pz-barra) * 2);
+  --pz-sa-t: env(safe-area-inset-top, 0px);
+  --pz-sa-r: env(safe-area-inset-right, 0px);
+  --pz-sa-b: env(safe-area-inset-bottom, 0px);
+  --pz-sa-l: env(safe-area-inset-left, 0px);
+
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 90 !important;
+  width: auto !important;
+  max-width: none !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: #000 !important;
+  touch-action: none !important;
+  overscroll-behavior: contain;
+  padding:
+    calc(var(--pz-sa-t) + var(--pz-barra))
+    var(--pz-sa-r)
+    calc(var(--pz-sa-b) + var(--pz-abajo))
+    calc(var(--pz-sa-l) + var(--pz-lado)) !important;
+}
+
+/* De lado no sobra alto: las herramientas pasan a una columna a la izquierda
+   y abajo sólo queda la fila de ajustes. */
+@media (orientation: landscape) {
+  [data-pizarra-pantalla] {
+    --pz-barra: 52px;
+    --pz-lado: 58px;
+    --pz-abajo: var(--pz-barra);
+  }
+}
+
+[data-pizarra-pantalla] > video {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  object-fit: contain !important;
+}
+
+/* Lo que va por encima del vídeo y no es la pizarra (rótulos del clip,
+   tiradores, el panel de la pantalla completa) no tiene sitio aquí. */
+[data-pizarra-pantalla] > :not(video):not(.siempre-oscuro):not(.pz-cromo) {
+  display: none !important;
+}
+
+/* La página de detrás no se desplaza con el dedo mientras se pinta, y el
+   botón flotante de herramientas no se pone encima de la barra de abajo. */
+html[data-pizarra-abierta],
+html[data-pizarra-abierta] body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+html[data-pizarra-abierta] [data-menu-flotante] {
+  display: none !important;
+}
+
+.pz-cromo {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.pz-cromo > * {
+  pointer-events: auto;
+}
+
+/* Todo lo que se pulsa, de 44 px; y las cajas de texto a 16 px, que con
+   menos el Safari del iPhone acerca la página al tocarlas. */
+/* Con el `[data-pizarra-pantalla]` delante para ganarle a la regla de 40 px
+   de `.tactil-holgado`, que tiene más peso que una clase sola. */
+[data-pizarra-pantalla] .pz-cromo button:not(.absolute):not(.tactil-libre) {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+[data-pizarra-pantalla] .pz-cromo input[type="range"] {
+  min-height: 44px;
+}
+
+[data-pizarra-pantalla] .pz-cromo input:not([type="range"]):not([type="color"]) {
+  min-height: 44px;
+  font-size: 16px;
+}
+
+.pz-arriba {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--pz-sa-t) + var(--pz-barra));
+  padding: var(--pz-sa-t) calc(var(--pz-sa-r) + 6px) 0 calc(var(--pz-sa-l) + 6px);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-bottom-width: 1px;
+}
+
+.pz-menu-mas {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: calc(var(--pz-sa-r) + 6px);
+  width: min(17rem, calc(100vw - 12px));
+}
+
+/* De pie: las herramientas en la fila de abajo del todo, centradas. */
+.pz-herramientas {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--pz-sa-b) + var(--pz-barra));
+  padding: 0 calc(var(--pz-sa-r) + 6px) var(--pz-sa-b) calc(var(--pz-sa-l) + 6px);
+  border-top-width: 1px;
+}
+
+.pz-herramientas-lista {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+/* Y encima de ellas, la fila de ajustes. */
+.pz-ajustes {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--pz-sa-b) + var(--pz-barra));
+  height: var(--pz-barra);
+  padding: 0 var(--pz-sa-r) 0 var(--pz-sa-l);
+  border-top-width: 1px;
+}
+
+/* Lo que se abre desde abajo (paleta, más ajustes, cada grupo de
+   herramientas) sube por encima de su barra y no pasa del alto que queda. */
+.pz-emergente,
+.pz-desplegable {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: calc(var(--pz-sa-l) + 6px);
+  z-index: 10;
+  max-height: calc(100dvh - var(--pz-sa-t) - var(--pz-barra) * 3 - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pz-emergente-ancho {
+  right: calc(var(--pz-sa-r) + 6px);
+}
+
+.pz-desplegable {
+  width: min(16rem, calc(100vw - 12px));
+}
+
+@media (orientation: landscape) {
+  .pz-herramientas {
+    top: calc(var(--pz-sa-t) + var(--pz-barra));
+    right: auto;
+    width: calc(var(--pz-sa-l) + var(--pz-lado));
+    height: auto;
+    padding: 0 0 var(--pz-sa-b) var(--pz-sa-l);
+    border-top-width: 0;
+    border-right-width: 1px;
+  }
+
+  .pz-herramientas-lista {
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 6px 0;
+    gap: 4px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .pz-ajustes {
+    left: calc(var(--pz-sa-l) + var(--pz-lado));
+    bottom: 0;
+    height: calc(var(--pz-sa-b) + var(--pz-barra));
+    padding: 0 var(--pz-sa-r) var(--pz-sa-b) 0;
+  }
+
+  /* Los grupos se abren a la derecha de la columna, de arriba abajo. */
+  .pz-desplegable {
+    top: 6px;
+    bottom: auto;
+    left: calc(100% + 6px);
+    max-height: calc(100dvh - var(--pz-sa-t) - var(--pz-barra) - 18px);
+  }
+
+  .pz-emergente {
+    max-height: calc(100dvh - var(--pz-sa-t) - var(--pz-barra) * 2 - 24px);
+  }
+}
