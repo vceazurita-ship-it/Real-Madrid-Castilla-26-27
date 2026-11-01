@@ -211,7 +211,8 @@ function pintaCapa(
     const w = ctx.measureText(texto).width + cuerpo * 1.2;
     const h = cuerpo * 1.6;
     const x = Math.round(ancho * 0.025);
-    const y = alto - barra - h - Math.round(alto * 0.03);
+    /* En horizontal, dentro del césped (abajo a la izquierda): más abajo tapaba las consignas. */
+    const y = ancho > alto ? Math.round(alto * 0.775) - h : alto - barra - h - Math.round(alto * 0.03);
 
     ctx.fillStyle = "rgba(10,14,20,0.82)";
     ctx.beginPath();

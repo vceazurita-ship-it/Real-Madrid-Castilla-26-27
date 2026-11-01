@@ -557,6 +557,8 @@ const CAMPO_ARRIBA = CABECERA_SLIDE;
 /** El panel de puestos de la derecha: si él no está ahí, no se enseña. */
 const CAMPO_DERECHA = 1516;
 const TABLERO_Y = CABEZA_H + 166;
+/** Dónde acaba el campo: debajo va la franja de consignas (206 px en TableroSlide), que aquí salía cortada. */
+const CAMPO_ABAJO = TABLERO_H - 206 - 14;
 
 type Encuadre = { sx: number; sy: number; sw: number; sh: number; alto: number };
 
@@ -567,7 +569,7 @@ type Encuadre = { sx: number; sy: number; sw: number; sh: number; alto: number }
  * doble y fuera queda el título y el panel, que ya están escritos debajo.
  */
 function encuadre(puntos: { x: number; y: number }[]): Encuadre {
-  const altoCampo = TABLERO_H - CAMPO_ARRIBA;
+  const altoCampo = CAMPO_ABAJO - CAMPO_ARRIBA;
 
   if (puntos.length === 0) {
     return { sx: 0, sy: CAMPO_ARRIBA, sw: TABLERO_W, sh: altoCampo, alto: Math.round((HOJA_W * altoCampo) / TABLERO_W) };
@@ -589,7 +591,7 @@ function encuadre(puntos: { x: number; y: number }[]): Encuadre {
 
   return {
     sx: Math.max(0, Math.min(tope - w, centroX - w / 2)),
-    sy: Math.max(CAMPO_ARRIBA, Math.min(TABLERO_H - h, centroY - h / 2)),
+    sy: Math.max(CAMPO_ARRIBA, Math.min(CAMPO_ABAJO - h, centroY - h / 2)),
     sw: w,
     sh: h,
     alto,
