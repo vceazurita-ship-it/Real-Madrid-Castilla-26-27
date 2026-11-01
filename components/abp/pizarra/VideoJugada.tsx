@@ -195,7 +195,11 @@ const FASE_EN_CONSIGNA = /^(?:fase\s*(\d)|f\s*(\d)|(\d)\.?\s*[ªa]?\s*fase)\s*[:
  * 2. La consigna principal es la rutina del guion, o la intención, o la
  * primera consigna libre (que no sea de una fase).
  */
-export function textosDelVideo(slide: Pick<SlidePizarra, "notas" | "guion">): TextosVideo {
+export function textosDelVideo(slide: Pick<SlidePizarra, "notas" | "guion"> & { titulo?: string }): TextosVideo {
+  /* Lo que repite el título (o una de sus partes, «CÓRNER OFENSIVO · Segundo córner») no es la consigna. */
+  const llano = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9ñ]+/g, " ").trim();
+  const delTitulo = new Set([slide.titulo ?? "", ...(slide.titulo ?? "").split("·")].map(llano).filter(Boolean));
+  const util = (t: string) => Boolean(t) && !delTitulo.has(llano(t));
   const fases: Record<number, string> = {};
   const libres: string[] = [];
 
@@ -214,9 +218,9 @@ export function textosDelVideo(slide: Pick<SlidePizarra, "notas" | "guion">): Te
     }
   }
 
-  const guion = [slide.guion?.rutina, slide.guion?.intencion].map((t) => t?.trim() ?? "").find(Boolean);
+  const guion = [slide.guion?.rutina, slide.guion?.intencion].map((t) => t?.trim() ?? "").find(util);
 
-  return { fases, consigna: guion ? normalizaConsigna(guion).replace(/[.;]+$/, "") : (libres[0] ?? "") };
+  return { fases, consigna: guion ? normalizaConsigna(guion).replace(/[.;]+$/, "") : (libres.find(util) ?? "") };
 }
 
 type Rotulo = { antetitulo?: string; texto: string; dura: number };
